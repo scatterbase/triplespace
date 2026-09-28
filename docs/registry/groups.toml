@@ -1,0 +1,155 @@
+# Default groups, permissions and graph ACLs.  ADR 0016 §2–4, 0019 §12, 0020 §7, 0021 §9, 0022 §12, 0023 §11, 0024 §11, 0025 §10, 0030 §12 and §5 (tags).
+#
+# Permissions are MediaWiki right names where MediaWiki has one, Wikibase's for entities,
+# and ts-* for what only Triplespace does. Scatterbase's five (view, edit, delete,
+# view_deleted, block_user) map onto read, edit, delete, deletedhistory+deletedtext, block.
+#
+# An actor's effective permissions are the union over its groups, minus what active blocks
+# remove. There is no group-level revocation. `universe` is reported to MediaWiki clients
+# as `*`. `owner` holds every permission, including any added later, and is never empty.
+#
+# ACLs restrict a permission on a target to a group; evaluation is conjunctive over the
+# target and its enclosures (0016 §4). Since 0023, ACLs also restrict `read`: deletion,
+# revision-hiding, suppression and hiding a username are read ACLs whose group is the
+# deletion or suppression group named in site config (defaults sysop, suppress).
+# Only graph ACLs are listed here; the rest are moderation records in the tenant log.
+
+version = 1
+
+# ---------------------------------------------------------------------------
+# Permissions (0016 §2). Listed so that a typo in a group is a build error.
+# ---------------------------------------------------------------------------
+[permissions]
+mediawiki = [
+  "read", "edit", "createpage", "move", "editcontentmodel",
+  "delete", "undelete", "deletedhistory", "deletedtext", "deleterevision", "deletelogentry",
+  "suppressrevision", "viewsuppressed", "hideuser",
+  "protect", "block", "userrights", "renameuser", "import", "importupload", "bot",
+  "viewmywatchlist", "editmywatchlist",          # 0020 §7
+  "editmyoptions", "viewmyprivateinfo",          # 0021 §9
+  "patrol", "autopatrol", "browsearchive",       # 0023 §11
+  "createaccount", "noratelimit",                # 0024 §11: createaccount creates a subsidiary account
+  "abusefilter-view", "abusefilter-log", "abusefilter-view-private", "abusefilter-log-private",   # 0030 §12
+  "abusefilter-log-detail", "abusefilter-modify", "abusefilter-modify-restricted", "abusefilter-revert",
+  "abusefilter-bypass",
+  "mwoauthproposeconsumer", "mwoauthupdateownconsumer", "mwoauthmanageconsumer",   # 0025 §10
+  "mwoauthmanagemygrants", "mwoauthviewprivate",
+  "changetags", "managechangetags",              # 0030 §5 as amended 2026-09-27: apply a registered tag; manage the tag registry
+]
+wikibase = ["item-term", "property-term", "item-redirect", "item-merge", "property-create"]
+triplespace = [
+  "ts-link", "ts-retain", "ts-convert", "ts-runjob", "ts-revertjob", "ts-viewrejects",
+  "ts-erase", "ts-viewerasures", "ts-unlink", "ts-config", "ts-keys",
+  "ts-editpost",                                 # 0019 §12: edit another actor's post
+  "ts-transferaccount",                          # 0024 §11: move a subsidiary to another operator
+]
+
+# ---------------------------------------------------------------------------
+# Groups (0016 §3)
+# ---------------------------------------------------------------------------
+[[group]]
+name = "universe"
+mediawiki_name = "*"
+implicit = "everyone"
+permissions = ["read", "abusefilter-view", "abusefilter-log"]
+
+[[group]]
+name = "temp"
+implicit = "temporary-accounts"     # 0007 §3; empty this list to require login
+permissions = ["edit", "createpage"]
+
+[[group]]
+name = "user"
+implicit = "registered-accounts"
+permissions = [
+  "edit", "createpage", "editcontentmodel",
+  "item-term", "property-term", "item-redirect", "item-merge",
+  "viewmywatchlist", "editmywatchlist", "editmyoptions", "viewmyprivateinfo",   # 0020 §7, 0021 §9
+  "mwoauthmanagemygrants",                                                        # 0025 §10: revoke one's own authorizations
+  "changetags",                                                                   # 0030 §5 as amended: apply a registered tag, subject to the tag's group
+]
+# A subsidiary with status `pending` (0025 §3) does not receive this implicit membership;
+# a bureaucrat grants `user` (or `bot`) explicitly with userrights to approve it.
+
+[[group]]
+name = "autoconfirmed"
+implicit = "threshold"              # age and edit count from site config; values are open (0016)
+permissions = ["move", "ts-link", "patrol", "createaccount", "mwoauthproposeconsumer", "mwoauthupdateownconsumer"]   # 0025 §10
+
+[[group]]
+name = "autopatrolled"              # assigned with userrights (0023 §11)
+permissions = ["autopatrol"]
+
+[[group]]
+name = "bot"                        # the bot flag: granted by a bureaucrat to a subsidiary account after review (0024 §2).
+permissions = ["bot", "ts-runjob", "autopatrol"]   # its rate limits are the `bot` row of the site rate-limit table (0024 §5)
+
+[[group]]
+name = "federated"                  # 0022 §8: surrogates for fediverse actors replying to federated talk pages.
+implicit = "federated-actors"       # Holds nothing; a tenant admits it to one talk namespace by an ACL restricting `edit`
+permissions = []                    # to a group that includes it. It can never create a thread or touch an entity.
+
+[[group]]
+name = "propertycreator"
+permissions = ["property-create"]
+
+[[group]]
+name = "sysop"
+permissions = [
+  "delete", "undelete", "deletedhistory", "deletedtext", "browsearchive", "deleterevision", "deletelogentry",
+  "protect", "block", "import", "importupload", "property-create", "autopatrol", "noratelimit",
+  "ts-retain", "ts-convert", "ts-runjob", "ts-revertjob", "ts-viewrejects",
+  "ts-viewerasures", "ts-unlink", "ts-editpost",
+  "abusefilter-view-private", "abusefilter-log-private", "abusefilter-log-detail", "abusefilter-modify", "abusefilter-revert",
+  "mwoauthviewprivate",                          # 0025 §10
+  "managechangetags",                            # 0030 §5 as amended: the tag registry
+]
+
+[[group]]
+name = "bureaucrat"
+permissions = ["userrights", "renameuser", "ts-config", "ts-transferaccount", "abusefilter-modify-restricted", "mwoauthmanageconsumer"]   # 0025 §10: consumer approval is instance-level
+
+[[group]]
+name = "suppress"
+permissions = ["suppressrevision", "viewsuppressed", "hideuser", "ts-erase"]
+
+[[group]]
+name = "owner"
+all_permissions = true              # including ts-keys, which no other group holds
+minimum_members = 1
+membership_changed_by = "owner"
+
+# ---------------------------------------------------------------------------
+# Default graph ACLs (0016 §4). Written to config when an instance is created.
+# ---------------------------------------------------------------------------
+[[acl]]
+target = "graph:local"
+edit = "universe"                   # no restriction beyond the permission itself
+
+[[acl]]
+target = "graph:pages"
+edit = "universe"
+
+[[acl]]
+target = "graph:mirror/{provider}"
+edit = "bot"                        # only sync jobs write to a mirror (0002 §2)
+
+[[acl]]
+target = "graph:actors/{provider}"
+edit = "bot"
+
+[[acl]]
+target = "graph:log/{provider}"
+edit = "bot"
+
+[[acl]]
+target = "graph:config"
+edit = "bureaucrat"                 # key: records additionally need ts-keys (0015 §3)
+
+[[acl]]
+target = "graph:actors"
+edit = "system"                     # account management only; rights and block records need userrights / block
+
+[[acl]]
+target = "graph:accounts"
+edit = "system"                     # the login system only (0007 §8)

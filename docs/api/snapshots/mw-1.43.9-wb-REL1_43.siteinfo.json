@@ -1,0 +1,387 @@
+{
+ "batchcomplete": true,
+ "query": {
+  "general": {
+   "mainpage": "Main Page",
+   "base": "http://localhost:8080/index.php/Main_Page",
+   "sitename": "Triplespace Ref",
+   "mainpageisdomainroot": false,
+   "logo": "http://localhost:8080/resources/assets/change-your-logo.svg",
+   "generator": "MediaWiki 1.43.9",
+   "phpversion": "8.4.21",
+   "phpsapi": "cli-server",
+   "dbtype": "sqlite",
+   "dbversion": "3.45.1",
+   "imagewhitelistenabled": false,
+   "langconversion": true,
+   "linkconversion": true,
+   "titleconversion": true,
+   "linkprefixcharset": "",
+   "linkprefix": "",
+   "linktrail": "/^([a-z]+)(.*)$/sD",
+   "legaltitlechars": " %!\"$&'()*,\\-.\\/0-9:;=?@A-Z\\\\^_`a-z~\\x80-\\xFF+",
+   "invalidusernamechars": "@:>=",
+   "allunicodefixes": false,
+   "fixarabicunicode": true,
+   "fixmalayalamunicode": true,
+   "git-hash": "50755a861e6e748cf8bac24e8cdd5e83db018081",
+   "git-branch": "50755a861e6e748cf8bac24e8cdd5e83db018081",
+   "case": "first-letter",
+   "lang": "en",
+   "fallback": [],
+   "rtl": false,
+   "fallback8bitEncoding": "windows-1252",
+   "readonly": false,
+   "writeapi": true,
+   "maxarticlesize": 2097152,
+   "timezone": "UTC",
+   "timeoffset": 0,
+   "articlepath": "/index.php/$1",
+   "scriptpath": "",
+   "script": "/index.php",
+   "variantarticlepath": false,
+   "server": "http://localhost:8080",
+   "servername": "localhost",
+   "wikiid": "my_wiki",
+   "time": "2026-09-25T00:45:02Z",
+   "misermode": false,
+   "uploadsenabled": true,
+   "maxuploadsize": 104857600,
+   "minuploadchunksize": 1024,
+   "galleryoptions": {
+    "imagesPerRow": 0,
+    "imageWidth": 120,
+    "imageHeight": 120,
+    "captionLength": true,
+    "showBytes": true,
+    "showDimensions": true,
+    "mode": "traditional"
+   },
+   "thumblimits": {
+    "0": 120,
+    "1": 150,
+    "2": 180,
+    "3": 200,
+    "4": 250,
+    "5": 300
+   },
+   "imagelimits": {
+    "0": {
+     "width": 320,
+     "height": 240
+    },
+    "1": {
+     "width": 640,
+     "height": 480
+    },
+    "2": {
+     "width": 800,
+     "height": 600
+    },
+    "3": {
+     "width": 1024,
+     "height": 768
+    },
+    "4": {
+     "width": 1280,
+     "height": 1024
+    },
+    "5": {
+     "width": 2560,
+     "height": 2048
+    }
+   },
+   "favicon": "http://localhost:8080/favicon.ico",
+   "centralidlookupprovider": "local",
+   "allcentralidlookupproviders": [
+    "local"
+   ],
+   "interwikimagic": true,
+   "magiclinks": {
+    "ISBN": false,
+    "PMID": false,
+    "RFC": false
+   },
+   "categorycollation": "uppercase",
+   "nofollowlinks": true,
+   "nofollownsexceptions": [],
+   "nofollowdomainexceptions": [
+    "mediawiki.org"
+   ],
+   "externallinktarget": false,
+   "wikibase-propertytypes": {
+    "commonsMedia": {
+     "valuetype": "string"
+    },
+    "geo-shape": {
+     "valuetype": "string"
+    },
+    "tabular-data": {
+     "valuetype": "string"
+    },
+    "url": {
+     "valuetype": "string"
+    },
+    "external-id": {
+     "valuetype": "string"
+    },
+    "wikibase-item": {
+     "valuetype": "wikibase-entityid"
+    },
+    "wikibase-property": {
+     "valuetype": "wikibase-entityid"
+    },
+    "globe-coordinate": {
+     "valuetype": "globecoordinate"
+    },
+    "monolingualtext": {
+     "valuetype": "monolingualtext"
+    },
+    "quantity": {
+     "valuetype": "quantity"
+    },
+    "string": {
+     "valuetype": "string"
+    },
+    "time": {
+     "valuetype": "time"
+    }
+   },
+   "wikibase-conceptbaseuri": "http://localhost:8080/entity/",
+   "wikibase-geoshapestoragebaseurl": "https://commons.wikimedia.org/wiki/",
+   "wikibase-tabulardatastoragebaseurl": "https://commons.wikimedia.org/wiki/"
+  },
+  "extensions": [
+   {
+    "type": "wikibase",
+    "name": "WikibaseRepository",
+    "descriptionmsg": "wikibase-desc",
+    "author": "The Wikidata team",
+    "url": "https://www.mediawiki.org/wiki/Extension:Wikibase_Repository",
+    "vcs-system": "git",
+    "vcs-version": "d561f29052298ef736ae2e8bbd04a6fb8abb1de9",
+    "vcs-url": "https://github.com/wikimedia/mediawiki-extensions-Wikibase/commit/d561f29052298ef736ae2e8bbd04a6fb8abb1de9",
+    "vcs-date": "2026-09-22T04:37:19Z",
+    "license-name": "GPL-2.0-or-later",
+    "license": "/index.php/Special:Version/License/WikibaseRepository",
+    "credits": "/index.php/Special:Version/Credits/WikibaseRepository"
+   },
+   {
+    "type": "wikibase",
+    "name": "WikibaseClient",
+    "descriptionmsg": "wikibase-client-desc",
+    "author": "The Wikidata team",
+    "url": "https://www.mediawiki.org/wiki/Extension:Wikibase_Client",
+    "vcs-system": "git",
+    "vcs-version": "d561f29052298ef736ae2e8bbd04a6fb8abb1de9",
+    "vcs-url": "https://github.com/wikimedia/mediawiki-extensions-Wikibase/commit/d561f29052298ef736ae2e8bbd04a6fb8abb1de9",
+    "vcs-date": "2026-09-22T04:37:19Z",
+    "license-name": "GPL-2.0-or-later",
+    "license": "/index.php/Special:Version/License/WikibaseClient",
+    "credits": "/index.php/Special:Version/Credits/WikibaseClient"
+   }
+  ],
+  "namespaces": {
+   "-2": {
+    "id": -2,
+    "case": "first-letter",
+    "name": "Media",
+    "subpages": false,
+    "canonical": "Media",
+    "content": false,
+    "nonincludable": false
+   },
+   "-1": {
+    "id": -1,
+    "case": "first-letter",
+    "name": "Special",
+    "subpages": false,
+    "canonical": "Special",
+    "content": false,
+    "nonincludable": false
+   },
+   "0": {
+    "id": 0,
+    "case": "first-letter",
+    "name": "",
+    "subpages": false,
+    "content": true,
+    "nonincludable": false
+   },
+   "1": {
+    "id": 1,
+    "case": "first-letter",
+    "name": "Talk",
+    "subpages": true,
+    "canonical": "Talk",
+    "content": false,
+    "nonincludable": false
+   },
+   "2": {
+    "id": 2,
+    "case": "first-letter",
+    "name": "User",
+    "subpages": true,
+    "canonical": "User",
+    "content": false,
+    "nonincludable": false
+   },
+   "3": {
+    "id": 3,
+    "case": "first-letter",
+    "name": "User talk",
+    "subpages": true,
+    "canonical": "User talk",
+    "content": false,
+    "nonincludable": false
+   },
+   "4": {
+    "id": 4,
+    "case": "first-letter",
+    "name": "Triplespace Ref",
+    "subpages": true,
+    "canonical": "Project",
+    "content": false,
+    "nonincludable": false
+   },
+   "5": {
+    "id": 5,
+    "case": "first-letter",
+    "name": "Triplespace Ref talk",
+    "subpages": true,
+    "canonical": "Project talk",
+    "content": false,
+    "nonincludable": false
+   },
+   "6": {
+    "id": 6,
+    "case": "first-letter",
+    "name": "File",
+    "subpages": false,
+    "canonical": "File",
+    "content": false,
+    "nonincludable": false
+   },
+   "7": {
+    "id": 7,
+    "case": "first-letter",
+    "name": "File talk",
+    "subpages": true,
+    "canonical": "File talk",
+    "content": false,
+    "nonincludable": false
+   },
+   "8": {
+    "id": 8,
+    "case": "first-letter",
+    "name": "MediaWiki",
+    "subpages": true,
+    "canonical": "MediaWiki",
+    "content": false,
+    "nonincludable": false,
+    "namespaceprotection": "editinterface"
+   },
+   "9": {
+    "id": 9,
+    "case": "first-letter",
+    "name": "MediaWiki talk",
+    "subpages": true,
+    "canonical": "MediaWiki talk",
+    "content": false,
+    "nonincludable": false
+   },
+   "10": {
+    "id": 10,
+    "case": "first-letter",
+    "name": "Template",
+    "subpages": true,
+    "canonical": "Template",
+    "content": false,
+    "nonincludable": false
+   },
+   "11": {
+    "id": 11,
+    "case": "first-letter",
+    "name": "Template talk",
+    "subpages": true,
+    "canonical": "Template talk",
+    "content": false,
+    "nonincludable": false
+   },
+   "12": {
+    "id": 12,
+    "case": "first-letter",
+    "name": "Help",
+    "subpages": true,
+    "canonical": "Help",
+    "content": false,
+    "nonincludable": false
+   },
+   "13": {
+    "id": 13,
+    "case": "first-letter",
+    "name": "Help talk",
+    "subpages": true,
+    "canonical": "Help talk",
+    "content": false,
+    "nonincludable": false
+   },
+   "14": {
+    "id": 14,
+    "case": "first-letter",
+    "name": "Category",
+    "subpages": false,
+    "canonical": "Category",
+    "content": false,
+    "nonincludable": false
+   },
+   "15": {
+    "id": 15,
+    "case": "first-letter",
+    "name": "Category talk",
+    "subpages": true,
+    "canonical": "Category talk",
+    "content": false,
+    "nonincludable": false
+   },
+   "120": {
+    "id": 120,
+    "case": "first-letter",
+    "name": "Item",
+    "subpages": false,
+    "canonical": "Item",
+    "content": false,
+    "nonincludable": false,
+    "defaultcontentmodel": "wikibase-item"
+   },
+   "121": {
+    "id": 121,
+    "case": "first-letter",
+    "name": "Item talk",
+    "subpages": false,
+    "canonical": "Item talk",
+    "content": false,
+    "nonincludable": false
+   },
+   "122": {
+    "id": 122,
+    "case": "first-letter",
+    "name": "Property",
+    "subpages": false,
+    "canonical": "Property",
+    "content": false,
+    "nonincludable": false,
+    "defaultcontentmodel": "wikibase-property"
+   },
+   "123": {
+    "id": 123,
+    "case": "first-letter",
+    "name": "Property talk",
+    "subpages": false,
+    "canonical": "Property talk",
+    "content": false,
+    "nonincludable": false
+   }
+  }
+ }
+}

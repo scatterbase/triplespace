@@ -1,0 +1,91 @@
+# Issuer registry.  ADR 0007 §1.
+#
+# An actor key is {issuer}:{subject}.
+# actor_model  "numeric"        subjects are the issuer's numeric user IDs
+#              "provider-only"  the issuer has no individual actors; changes are attributed to the provider
+# iri          Actor IRI template (0007 §2); {id} is the subject. Absent for issuers whose IDs are never published.
+# users_api    API used to resolve names and central IDs, where there is one.
+# login        true if the issuer may serve as an identity provider for local login (0010 §10).
+# providers    Provider slugs whose adapters attribute actors to this issuer.
+
+version = 1
+
+# Every tenant is an issuer (0018 §4): its code is its slug, its actor model is numeric and its IRI
+# template is {tenant base}/user/{id}. Tenant issuers are declared by `tenant` records in the
+# instance config, not here; this entry is the template they follow. `local` in the ADRs means
+# the current tenant's issuer.
+[[issuer]]
+code = "{tenant}"
+template = true
+name = "A tenant of this instance"
+actor_model = "numeric"
+iri = "{tenant base}/user/{id}"
+login = false                 # tenant accounts are the target of login; a farm may register itself as a provider
+
+# The farm as an issuer (0028 §2): present when the tenancy policy's identity.farm_issuer is not
+# "none". Its code is the farm slug; its accounts are public actors that edit nothing and are
+# what global groups, global blocks and shared names key on. Declared by the instance's
+# `tenancy` records, not here; this entry is the template.
+[[issuer]]
+code = "{farm}"
+template = true
+name = "This farm"
+actor_model = "numeric"
+iri = "{farm base}/user/{id}"
+login = true                  # a farm account binds to identity providers like any account (0007 §3)
+
+# The built-in password issuer (0007 §3, as amended 2026-09-27): the one issuer the instance
+# itself operates. Its subjects are the tenant's own user IDs, so the binding for local:42 is
+# (password, 42); the hash lives in private.password (0013 §4). Present on every instance; whether
+# it accepts logins is the site setting `login.password` (off by default on instances that
+# register an external provider; `instance create` turns it on for the first administrator).
+# It is never an issuer of actors: nothing is ever attributed to it.
+[[issuer]]
+code = "password"
+name = "Password on this instance"
+actor_model = "numeric"
+# No IRI: a password subject is the tenant account itself, whose IRI is the tenant's.
+login = true
+providers = []
+builtin = true
+
+[[issuer]]
+code = "wikidatawiki"
+name = "Wikidata"
+actor_model = "numeric"
+iri = "https://www.wikidata.org/wiki/Special:Redirect/user/{id}"
+users_api = "https://www.wikidata.org/w/api.php"
+login = false
+providers = ["wikidata"]
+
+[[issuer]]
+code = "wikimedia-central"
+name = "Wikimedia central accounts (CentralAuth)"
+actor_model = "numeric"
+# No IRI: central IDs are never published (0007 §2, §3).
+login = true                  # Wikimedia OAuth; the sub claim is the central ID
+providers = []
+
+[[issuer]]
+code = "librarybase"
+name = "Librarybase"
+actor_model = "numeric"
+iri = "https://librarybase.org/wiki/Special:Redirect/user/{id}"
+users_api = "https://librarybase.org/w/api.php"
+login = false
+providers = ["librarybase"]
+# When Librarybase is a tenant of this instance, this entry is its tenant issuer (0018 §4–5).
+
+[[issuer]]
+code = "openalex"
+name = "OpenAlex"
+actor_model = "provider-only"
+login = false
+providers = ["openalex"]
+
+[[issuer]]
+code = "musicbrainz"
+name = "MusicBrainz"
+actor_model = "provider-only"    # editor IDs exist in MusicBrainz but are not carried by the data
+login = false                     # replication or the web service; revisit if edit history is mirrored
+providers = ["musicbrainz"]

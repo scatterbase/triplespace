@@ -1,0 +1,218 @@
+# Default namespaces.  ADR 0008 §2 (as amended 2026-09-27), 0009 §11, 0017 §5, 0019 §2–3, 0029 §2.
+#
+# kind        "entity" | "document" | "reserved" | "virtual" | "composite" | "thread" | "resolver"
+# normalizer  "first-letter" | "entity-id" | a keyed type's or resolver's name (0008 §3)
+# case        What meta=siteinfo reports: "first-letter" | "case-sensitive"
+# talk        The paired talk namespace, a composite of attached threads (0008 §2, 0019 §2)
+#
+# Numbering policy (0008 §2, amended 2026-09-27):
+#   - Every number MediaWiki core or any Wikibase extension uses is RESERVED: listed here with
+#     kind "reserved", never given another meaning, and not implemented unless an ADR says so.
+#     Its odd-numbered talk namespace is not enabled either.
+#   - Talk namespaces (odd numbers) exist for implemented subject namespaces only.
+#   - 210–219 are Triplespace-specific namespaces; 220–229 are resolver prefixes (0029).
+#     Registered on mediawiki.org's Extension default namespaces page; as of 2026-09-27 the page
+#     lists nothing between 204 and 240.
+#   - The local name of Project is the site name (0008 §7) and is set per instance.
+
+version = 1
+
+# --- MediaWiki core ---------------------------------------------------------------------------
+[[namespace]]
+id = -2
+canonical = "Media"
+kind = "reserved"           # core; no uploads (0008 §2)
+
+[[namespace]]
+id = -1
+canonical = "Special"
+kind = "virtual"
+
+[[namespace]]
+id = 0
+canonical = ""
+kind = "reserved"           # the main namespace; reserved, not implemented; Talk (1) not enabled
+
+[[namespace]]
+id = 2
+canonical = "User"
+kind = "document"
+normalizer = "first-letter"
+case = "first-letter"
+subpages = true
+content_models = ["wikitext", "markdown", "json", "yaml", "text"]
+default_model = "wikitext"
+talk = 3
+creation_rule = "owner-exists"   # 0008 §6
+
+[[namespace]]
+id = 3
+canonical = "User talk"
+kind = "composite"
+
+[[namespace]]
+id = 4
+canonical = "Project"
+kind = "document"
+normalizer = "first-letter"
+case = "first-letter"
+subpages = true
+content_models = ["wikitext", "markdown", "json", "yaml", "text"]
+default_model = "wikitext"
+talk = 5
+
+[[namespace]]
+id = 5
+canonical = "Project talk"
+kind = "composite"
+
+[[namespace]]
+id = 6
+canonical = "File"
+kind = "reserved"           # core; no uploads
+
+[[namespace]]
+id = 8
+canonical = "MediaWiki"
+kind = "reserved"           # core; interface messages are not pages here
+
+[[namespace]]
+id = 10
+canonical = "Template"
+kind = "reserved"           # core; no templates (0008 §8)
+
+[[namespace]]
+id = 12
+canonical = "Help"
+kind = "reserved"           # core; help content goes in Project (0008 §2)
+
+[[namespace]]
+id = 14
+canonical = "Category"
+kind = "reserved"           # core; no categories (0008 §8)
+
+# --- Wikibase and its extensions ----------------------------------------------------------------
+[[namespace]]
+id = 120
+canonical = "Item"
+kind = "entity"
+entity_types = ["item"]
+normalizer = "entity-id"
+case = "case-sensitive"
+subpages = false
+talk = 121
+
+[[namespace]]
+id = 121
+canonical = "Item talk"
+kind = "composite"
+
+[[namespace]]
+id = 122
+canonical = "Property"
+kind = "entity"
+entity_types = ["property"]
+normalizer = "entity-id"
+case = "case-sensitive"
+subpages = false
+talk = 123
+
+[[namespace]]
+id = 123
+canonical = "Property talk"
+kind = "composite"
+
+[[namespace]]
+id = 124
+canonical = "Query"
+kind = "reserved"           # Wikibase's historical query namespace
+
+[[namespace]]
+id = 146
+canonical = "Lexeme"
+kind = "reserved"           # WikibaseLexeme; mirroring WDL entities requires implementing it (providers.toml)
+
+# --- Triplespace-specific: 210–219 --------------------------------------------------------------
+[[namespace]]
+id = 210
+canonical = "Domain"
+kind = "entity"
+entity_types = ["domain"]
+normalizer = "domain"
+case = "case-sensitive"
+subpages = false
+talk = 211
+defined_in = "0009 §11"
+
+[[namespace]]
+id = 211
+canonical = "Domain talk"
+kind = "composite"
+
+[[namespace]]
+id = 212
+canonical = "Keyword"
+kind = "entity"
+entity_types = ["keyword"]
+normalizer = "keyword"
+case = "case-sensitive"
+subpages = false
+talk = 213
+defined_in = "0017 §5"
+
+[[namespace]]
+id = 213
+canonical = "Keyword talk"
+kind = "composite"
+
+[[namespace]]
+id = 214
+canonical = "Thread"
+kind = "thread"
+normalizer = "first-letter"
+case = "first-letter"
+subpages = false
+talk = 215
+defined_in = "0019 §3"
+
+[[namespace]]
+id = 215
+canonical = "Thread talk"
+kind = "reserved"           # a thread is discussed in itself (0019 §3)
+
+# 216–219 unallocated.
+
+# --- Resolver prefixes: 220–229 (0029) ----------------------------------------------------------
+[[namespace]]
+id = 220
+canonical = "DOI"
+kind = "resolver"
+resolver = "doi"
+normalizer = "doi"
+case = "case-sensitive"
+subpages = false
+talk = 221
+defined_in = "0029 §1"
+
+[[namespace]]
+id = 221
+canonical = "DOI talk"
+kind = "reserved"           # a resolver page has nothing to discuss (0029 §2)
+
+[[namespace]]
+id = 222
+canonical = "URL"
+kind = "resolver"
+resolver = "url"
+normalizer = "url"
+case = "case-sensitive"
+subpages = false
+talk = 223
+defined_in = "0029 §5"
+
+[[namespace]]
+id = 223
+canonical = "URL talk"
+kind = "reserved"
+
+# 224–229 unallocated: three more resolver pairs. Further resolvers need a second range.

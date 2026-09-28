@@ -1,0 +1,69 @@
+# Resolver namespaces.  ADR 0029.
+#
+# A resolver is a namespace whose titles are keys looked up against a property (or sitelinks):
+# `DOI:10.1000/xyz` sends the reader to the one entity carrying that DOI, or to a disambiguation
+# page. Resolvers are config records of kind `resolver` in the tenant config (0015 §3); these are
+# the defaults. Resolver names and keyed-type names (keyed-types.toml) share one namespace.
+#
+# binding      A role (0003 §7) the tenant binds to its properties, or "sitelink" (0026).
+# grammar      Which strings are valid keys, checked after the normalizer.
+# normalizer   How input becomes the canonical key. Declaring a resolver sets the normalizer of
+#              every property bound to its role (0029 §1).
+# case         "fold" (case-insensitive: the key is casefolded) or "keep".
+# external     Where the key resolves outside the instance; {key} is the canonical key.
+# namespace    The MediaWiki namespace (namespaces.toml); its number is pending registration.
+
+version = 1
+
+[[resolver]]
+name = "doi"
+label = "DOI"
+namespace = "DOI"
+binding = "doi"                        # bound on a Wikidata-mirroring tenant to WDP356
+grammar = "10\\.[0-9]{4,9}/.+"
+normalizer = "strip a leading https://doi.org/, http://dx.doi.org/, doi.org/ or doi:; percent-decode; trim"
+case = "fold"
+external = "https://doi.org/{key}"
+
+[[resolver]]
+name = "url"
+label = "URL"
+namespace = "URL"
+binding = "sitelink"                   # keyed by the normalized sitelink URL (0026 §1); unique by construction
+grammar = "an absolute URL in an allowed scheme"
+normalizer = "the sitelink normalizer of 0026 §1"
+case = "keep"
+external = "{key}"
+aliases = ["Special:ItemByTitle", "Special:GoToLinkedPage"]
+
+# --- Drafted candidates: grammars written, roles unbound until a tenant wants them ------------
+
+# [[resolver]]
+# name = "orcid"
+# label = "ORCID"
+# namespace = "ORCID"
+# binding = "orcid"                    # WDP496
+# grammar = "[0-9]{4}-[0-9]{4}-[0-9]{4}-[0-9]{3}[0-9X]"
+# normalizer = "strip a leading https://orcid.org/; uppercase the check digit"
+# case = "keep"
+# external = "https://orcid.org/{key}"
+
+# [[resolver]]
+# name = "isbn"
+# label = "ISBN"
+# namespace = "ISBN"
+# binding = "isbn-13"                  # WDP212; ISBN-10 input is converted to ISBN-13
+# grammar = "97[89][0-9]{10}"
+# normalizer = "remove hyphens and spaces; convert ISBN-10 to ISBN-13; verify the check digit"
+# case = "keep"
+# external = "https://isbnsearch.org/isbn/{key}"
+
+# [[resolver]]
+# name = "handle"
+# label = "Handle"
+# namespace = "Handle"
+# binding = "handle"                   # WDP1184
+# grammar = "[0-9.]+/.+"
+# normalizer = "strip a leading https://hdl.handle.net/ or hdl:"
+# case = "fold"
+# external = "https://hdl.handle.net/{key}"

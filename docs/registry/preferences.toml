@@ -1,0 +1,149 @@
+# Registered preference keys.  ADR 0027 §1.
+#
+# A preference is a key–value pair owned by a primary account, stored in private.preference.
+# Only keys listed here (or added by an instance's own registry entries) may be set; a value
+# must fit its type. Defaults may be overridden per instance in `site` config
+# (`preferences.defaults`). Keys named as MediaWiki names them are honoured by action=options
+# with MediaWiki's meaning.
+#
+# type   "boolean" | "string" | "integer" | "duration" | "language" | "language-list" | "json"
+# from   The ADR that defined the setting.
+
+version = 1
+
+# --- Interface ------------------------------------------------------------------------------
+[[preference]]
+key = "language"
+type = "language"
+default = "en"
+from = "0010 §11"
+
+[[preference]]
+key = "label-languages"
+type = "language-list"
+default = []                         # falls back to `language` and the site's fallback chain
+from = "0010 §11"
+
+[[preference]]
+key = "timezone"
+type = "string"
+default = "UTC"
+from = "MediaWiki"
+
+[[preference]]
+key = "date-format"
+type = "string"
+default = "default"
+from = "MediaWiki"
+
+# --- History and feeds ----------------------------------------------------------------------
+[[preference]]
+key = "ts-upstream-fold"
+type = "boolean"
+default = false                      # show upstream edits inside each sync (0010 §5.5)
+from = "0010 §11, 0012 §4"
+
+[[preference]]
+key = "ts-rc-syncs"
+type = "boolean"
+default = false                      # show mirror syncs in recent changes (0010 §7)
+from = "0010 §11, 0012 §4"
+
+[[preference]]
+key = "feeds.period"
+type = "duration"
+default = "P7D"
+from = "0020 §1"
+
+[[preference]]
+key = "feeds.syncs"
+type = "boolean"
+default = true                       # syncs on in watchlist and history (0020 §2)
+from = "0020 §2"
+
+[[preference]]
+key = "rc.limit"
+type = "integer"
+default = 50
+from = "MediaWiki"
+
+# --- Watching -------------------------------------------------------------------------------
+[[preference]]
+key = "autowatch.edit"
+type = "boolean"
+default = false
+from = "0020 §3"
+
+[[preference]]
+key = "autowatch.create"
+type = "boolean"
+default = true
+from = "0020 §3"
+
+[[preference]]
+key = "autowatch.post"
+type = "boolean"
+default = true
+from = "0020 §3"
+
+[[preference]]
+key = "autowatch.thread"
+type = "boolean"
+default = true
+from = "0020 §3"
+
+[[preference]]
+key = "autowatch.notify"
+type = "boolean"
+default = false                      # auto-watches also set notify (0021 §2)
+from = "0021 §2"
+
+# --- Threads --------------------------------------------------------------------------------
+[[preference]]
+key = "threads.visibility"
+type = "json"                        # map: status category and age → visible | collapsed | hidden
+default = { closed = "collapsed", quiet-days = 90, quiet = "collapsed" }
+from = "0019 §6"
+
+# --- Notifications (0021 §3): one boolean per reason × channel -------------------------------
+# Keys are notifications.{reason}.{channel}; reasons are 0021 §2's, channels web | email | fediverse.
+# Web is on for every reason by default; email and fediverse are off except for `talk`.
+[[preference]]
+key = "notifications.*.web"
+type = "boolean"
+default = true
+pattern = true
+from = "0021 §3"
+
+[[preference]]
+key = "notifications.*.email"
+type = "boolean"
+default = false
+pattern = true
+from = "0021 §3"
+
+[[preference]]
+key = "notifications.talk.email"
+type = "boolean"
+default = true
+from = "0021 §3"
+
+[[preference]]
+key = "notifications.*.fediverse"
+type = "boolean"
+default = false
+pattern = true
+from = "0021 §3"
+
+[[preference]]
+key = "notifications.email-digest"
+type = "string"                      # immediate | daily | weekly
+default = "immediate"
+from = "0021 §4"
+
+# --- Statement UI ---------------------------------------------------------------------------
+[[preference]]
+key = "shapes.pins"
+type = "json"                        # map: property ID, or "{entity}:{property}", → shape (0003 §3)
+default = {}
+from = "0003 §3, 0027 §5"

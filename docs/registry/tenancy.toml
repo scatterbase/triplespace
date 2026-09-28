@@ -1,0 +1,107 @@
+# Tenancy policy presets.  ADR 0028 §1.
+#
+# A preset is what `triplespace-cli instance create --tenancy {name}` writes into the instance
+# config as `tenancy:{switch}` records. Every switch can be changed afterwards with ts-config at
+# the farm base, except the identity.* switches, which need owner (0028 §2). A single-tenant
+# instance is `isolated`.
+#
+# Constraints the registry enforces: any switch that names a farm actor or a global group
+# requires identity.farm_issuer != "none"; identity.shared_names and identity.auto_link require
+# identity.farm_issuer != "none".
+
+version = 1
+
+[switches]
+"identity.farm_issuer"        = ["none", "optional", "required"]
+"identity.required_issuer"    = "issuer code or none"
+"identity.shared_names"       = ["off", "on"]
+"identity.auto_link"          = ["off", "on"]
+"groups.global"               = ["none", "inherited"]
+"blocks.global"               = ["ip", "farm-actor"]
+"providers.between_tenants"   = ["operator", "opt-in"]
+"providers.reader_lists"      = ["off", "on"]
+"discussion.cross_tenant"     = ["off", "read-only"]
+"notifications.cross_tenant"  = ["off", "home"]
+"config.template"             = ["none", "defaults", "locks"]
+"feeds.farm_wide"             = ["off", "global-groups", "everyone"]
+"search.farm_wide"            = ["off", "global-groups", "everyone"]
+"filters.global"              = ["none", "inherited"]          # 0030 §8
+
+# ---------------------------------------------------------------------------
+# isolated: unrelated tenants under one operator (web hosting). Nothing crosses but the
+# instance sitelink deny list (0026 §3) and IP blocks.
+# ---------------------------------------------------------------------------
+[preset.isolated]
+"identity.farm_issuer"        = "none"
+"identity.required_issuer"    = "none"
+"identity.shared_names"       = "off"
+"identity.auto_link"          = "off"
+"groups.global"               = "none"
+"blocks.global"               = "ip"
+"providers.between_tenants"   = "operator"
+"providers.reader_lists"      = "off"
+"discussion.cross_tenant"     = "off"
+"notifications.cross_tenant"  = "off"
+"config.template"             = "none"
+"feeds.farm_wide"             = "off"
+"search.farm_wide"            = "off"
+"filters.global"              = "none"
+
+# ---------------------------------------------------------------------------
+# community: local communities under a farm-wide volunteer community with one username
+# database (the Miraheze shape). Tenants are otherwise autonomous.
+# ---------------------------------------------------------------------------
+[preset.community]
+"identity.farm_issuer"        = "required"
+"identity.required_issuer"    = "none"
+"identity.shared_names"       = "on"
+"identity.auto_link"          = "on"
+"groups.global"               = "inherited"
+"blocks.global"               = "farm-actor"
+"providers.between_tenants"   = "opt-in"
+"providers.reader_lists"      = "on"
+"discussion.cross_tenant"     = "read-only"
+"notifications.cross_tenant"  = "home"
+"config.template"             = "defaults"
+"feeds.farm_wide"             = "global-groups"
+"search.farm_wide"            = "off"
+"filters.global"              = "inherited"
+
+[[preset.community.global_group]]
+name = "steward"
+permissions = ["userrights", "block", "hideuser", "renameuser", "ts-config",
+               "deletedhistory", "deletedtext", "viewsuppressed", "ts-viewerasures"]
+
+[[preset.community.global_group]]
+name = "global-sysop"
+permissions = ["delete", "undelete", "deletedhistory", "deletedtext", "browsearchive",
+               "deleterevision", "deletelogentry", "protect", "block", "import", "importupload",
+               "property-create", "autopatrol", "noratelimit",
+               "ts-retain", "ts-convert", "ts-runjob", "ts-revertjob", "ts-viewrejects",
+               "ts-viewerasures", "ts-unlink", "ts-editpost"]
+
+# ---------------------------------------------------------------------------
+# enterprise: departments or subsidiaries of one organisation, identity from the corporate
+# directory, shared configuration some tenants may not change, reading across tenants.
+# `identity.required_issuer` is set at instance creation to the corporate issuer's code.
+# ---------------------------------------------------------------------------
+[preset.enterprise]
+"identity.farm_issuer"        = "optional"
+"identity.required_issuer"    = "set-at-creation"
+"identity.shared_names"       = "on"
+"identity.auto_link"          = "on"
+"groups.global"               = "inherited"
+"blocks.global"               = "farm-actor"
+"providers.between_tenants"   = "opt-in"
+"providers.reader_lists"      = "on"
+"discussion.cross_tenant"     = "read-only"
+"notifications.cross_tenant"  = "home"
+"config.template"             = "locks"
+"feeds.farm_wide"             = "everyone"
+"search.farm_wide"            = "everyone"
+"filters.global"              = "inherited"
+
+[[preset.enterprise.global_group]]
+name = "platform-admin"
+permissions = ["userrights", "block", "hideuser", "renameuser", "ts-config",
+               "deletedhistory", "deletedtext", "viewsuppressed", "ts-viewerasures"]

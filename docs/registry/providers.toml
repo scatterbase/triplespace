@@ -1,0 +1,321 @@
+# Provider registry.  ADR 0000 §3, 0002 §4, 0015 §2 and §5, 0022 §2.
+#
+# code         Two-letter code that prefixes entity IDs minted by the provider (WDQ42).
+# slug         Lower-case name used in graph names (mirror/{slug}) and in the API.
+# number       Provider number for the revision-ID range: revid = number << 40 | n (0015 §2).
+#              0 is the instance itself and is never assigned.
+# issuer       The issuer (issuers.toml) that the provider's revisions attribute actors to,
+#              or the provider itself for providers without individual actors (0007 §6).
+# revision_ids true if the provider publishes revision IDs; then n is the upstream revision ID,
+#              otherwise n is the mirror record's offset.
+# adapter      The crate that implements the provider's adapter (0002 §8.4).
+# trust        For a provider that publishes a tlog checkpoint (a Triplespace instance, Scatterbase):
+#              "verified" (default for scatter-adapter-triplespace) checks every mirrored batch against
+#              the provider's checkpoint and key chain; "stream" mirrors without proofs (0022 §2).
+# keys         The provider's key-chain URL, {base}/.well-known/tlog/keys, required when trust = "verified".
+#
+# Each [[provider.type]] gives one entity type the provider mints:
+#   code             One-letter type code; the entity ID prefix is provider.code + type.code.
+#   entity_type      The Wikibase entity type of the mirrored entity.
+#   upstream_prefix  What the provider's own IDs start with, for rewriting (Q123 <-> WDQ123).
+#   iri              Canonical concept IRI template; {upstream_id} is the provider's own ID.
+#   namespace        The Triplespace namespace (namespaces.toml) whose pages host the type.
+#
+# Codes and numbers are never reused (README).
+
+version = 1
+
+# id_grammar   How the part after the three-letter prefix is formed (0017 §2): "digits" (default,
+#              canonical as given) or "uuid" (RFC 4122 text form, canonical lowercase).
+# key_mapped   On a type: upstream entities of this type are written under a keyed type's keys
+#              (0009 §9) instead of prefixed IDs. The type code stays reserved.
+
+# ---------------------------------------------------------------------------
+# Wikidata
+# ---------------------------------------------------------------------------
+[[provider]]
+code = "WD"
+slug = "wikidata"
+name = "Wikidata"
+number = 1
+issuer = "wikidatawiki"
+revision_ids = true
+article_path = "https://www.wikidata.org/wiki/"
+api = "https://www.wikidata.org/w/api.php"
+entity_data = "https://www.wikidata.org/wiki/Special:EntityData/"
+adapter = "scatter-adapter-wikidata"
+agent_iri = "http://www.wikidata.org/entity/Q2013"    # the provider as a prov:Organization (0007 §6)
+
+  [[provider.type]]
+  code = "Q"
+  entity_type = "item"
+  upstream_prefix = "Q"
+  iri = "http://www.wikidata.org/entity/{upstream_id}"
+  namespace = "Item"
+
+  [[provider.type]]
+  code = "P"
+  entity_type = "property"
+  upstream_prefix = "P"
+  iri = "http://www.wikidata.org/entity/{upstream_id}"
+  namespace = "Property"
+
+  [[provider.type]]
+  code = "L"
+  entity_type = "lexeme"
+  upstream_prefix = "L"
+  iri = "http://www.wikidata.org/entity/{upstream_id}"
+  namespace = "Lexeme"             # reserved as 146 in namespaces.toml, not implemented; mirroring lexemes requires implementing it
+
+  [[provider.type]]
+  code = "M"
+  entity_type = "mediainfo"
+  upstream_prefix = "M"
+  iri = "https://commons.wikimedia.org/entity/{upstream_id}"
+  namespace = "MediaInfo"          # no namespace registered; mirroring MediaInfo requires one
+
+# ---------------------------------------------------------------------------
+# Librarybase
+# ---------------------------------------------------------------------------
+[[provider]]
+code = "LB"
+slug = "librarybase"
+name = "Librarybase"
+number = 2
+issuer = "librarybase"
+revision_ids = true
+article_path = "https://librarybase.org/wiki/"
+api = "https://librarybase.org/w/api.php"
+adapter = "scatter-adapter-wikidata"                            # any MediaWiki+Wikibase; the adapter is parameterised by this entry
+
+  [[provider.type]]
+  code = "Q"
+  entity_type = "item"
+  upstream_prefix = "Q"
+  iri = "https://librarybase.org/entity/{upstream_id}"
+  namespace = "Item"
+
+  [[provider.type]]
+  code = "P"
+  entity_type = "property"
+  upstream_prefix = "P"
+  iri = "https://librarybase.org/entity/{upstream_id}"
+  namespace = "Property"
+
+# ---------------------------------------------------------------------------
+# OpenAlex
+# ---------------------------------------------------------------------------
+[[provider]]
+code = "OA"
+slug = "openalex"
+name = "OpenAlex"
+number = 3
+issuer = "openalex"
+revision_ids = false             # no revision history; n is the mirror record's offset (0015 §2)
+api = "https://api.openalex.org/"
+adapter = "scatter-adapter-openalex"
+# agent_iri: OpenAlex's Wikidata item, as a prov:Organization (0007 §6) — to be set when confirmed
+
+  [[provider.type]]
+  code = "W"
+  entity_type = "item"
+  upstream_prefix = "W"
+  iri = "https://openalex.org/{upstream_id}"
+  namespace = "Item"
+  label = "Work"
+
+  [[provider.type]]
+  code = "A"
+  entity_type = "item"
+  upstream_prefix = "A"
+  iri = "https://openalex.org/{upstream_id}"
+  namespace = "Item"
+  label = "Author"
+
+  [[provider.type]]
+  code = "S"
+  entity_type = "item"
+  upstream_prefix = "S"
+  iri = "https://openalex.org/{upstream_id}"
+  namespace = "Item"
+  label = "Source"
+
+  [[provider.type]]
+  code = "I"
+  entity_type = "item"
+  upstream_prefix = "I"
+  iri = "https://openalex.org/{upstream_id}"
+  namespace = "Item"
+  label = "Institution"
+
+  [[provider.type]]
+  code = "T"
+  entity_type = "item"
+  upstream_prefix = "T"
+  iri = "https://openalex.org/{upstream_id}"
+  namespace = "Item"
+  label = "Topic"
+
+  # Keywords are mapped by key onto the `keyword` keyed type (0017 §5), as 0009 §9 maps
+  # internetdomains.wiki items onto Domains. No OAK entity is ever minted; the code stays reserved.
+  [[provider.type]]
+  code = "K"
+  entity_type = "keyword"
+  key_mapped = true
+  upstream_prefix = "keywords/"
+  iri = "https://openalex.org/keywords/{upstream_id}"
+  label = "Keyword"
+
+  [[provider.type]]
+  code = "P"
+  entity_type = "item"
+  upstream_prefix = "P"
+  iri = "https://openalex.org/{upstream_id}"
+  namespace = "Item"
+  label = "Publisher"
+
+  [[provider.type]]
+  code = "F"
+  entity_type = "item"
+  upstream_prefix = "F"
+  iri = "https://openalex.org/{upstream_id}"
+  namespace = "Item"
+  label = "Funder"
+
+  [[provider.type]]
+  code = "G"
+  entity_type = "item"
+  upstream_prefix = "G"
+  iri = "https://openalex.org/{upstream_id}"
+  namespace = "Item"
+  label = "Award"
+
+# ---------------------------------------------------------------------------
+# MusicBrainz
+# ---------------------------------------------------------------------------
+# MusicBrainz IDs (MBIDs) are UUIDs, so the provider has id_grammar = "uuid": the entity ID is
+# the three-letter prefix followed by the MBID verbatim, lowercase, e.g.
+# MBAb10bbbfc-cf9e-42e0-be17-e2c3e1d2600d (0017 §6).
+[[provider]]
+code = "MB"
+slug = "musicbrainz"
+name = "MusicBrainz"
+number = 4
+issuer = "musicbrainz"
+revision_ids = false             # no per-entity revision IDs; n is the mirror record's offset (0015 §2)
+api = "https://musicbrainz.org/ws/2/"
+adapter = "scatter-adapter-musicbrainz"
+id_grammar = "uuid"
+
+  [[provider.type]]
+  code = "A"
+  entity_type = "item"
+  upstream_prefix = ""
+  iri = "https://musicbrainz.org/artist/{upstream_id}"
+  namespace = "Item"
+  label = "Artist"
+
+  [[provider.type]]
+  code = "G"
+  entity_type = "item"
+  upstream_prefix = ""
+  iri = "https://musicbrainz.org/release-group/{upstream_id}"
+  namespace = "Item"
+  label = "Release group"
+
+  [[provider.type]]
+  code = "R"
+  entity_type = "item"
+  upstream_prefix = ""
+  iri = "https://musicbrainz.org/release/{upstream_id}"
+  namespace = "Item"
+  label = "Release"
+
+  [[provider.type]]
+  code = "C"
+  entity_type = "item"
+  upstream_prefix = ""
+  iri = "https://musicbrainz.org/recording/{upstream_id}"
+  namespace = "Item"
+  label = "Recording"
+
+  [[provider.type]]
+  code = "W"
+  entity_type = "item"
+  upstream_prefix = ""
+  iri = "https://musicbrainz.org/work/{upstream_id}"
+  namespace = "Item"
+  label = "Work"
+
+  [[provider.type]]
+  code = "L"
+  entity_type = "item"
+  upstream_prefix = ""
+  iri = "https://musicbrainz.org/label/{upstream_id}"
+  namespace = "Item"
+  label = "Label"
+
+  [[provider.type]]
+  code = "D"
+  entity_type = "item"
+  upstream_prefix = ""
+  iri = "https://musicbrainz.org/area/{upstream_id}"
+  namespace = "Item"
+  label = "Area"
+
+  [[provider.type]]
+  code = "P"
+  entity_type = "item"
+  upstream_prefix = ""
+  iri = "https://musicbrainz.org/place/{upstream_id}"
+  namespace = "Item"
+  label = "Place"
+
+  [[provider.type]]
+  code = "E"
+  entity_type = "item"
+  upstream_prefix = ""
+  iri = "https://musicbrainz.org/event/{upstream_id}"
+  namespace = "Item"
+  label = "Event"
+
+  [[provider.type]]
+  code = "S"
+  entity_type = "item"
+  upstream_prefix = ""
+  iri = "https://musicbrainz.org/series/{upstream_id}"
+  namespace = "Item"
+  label = "Series"
+
+  [[provider.type]]
+  code = "I"
+  entity_type = "item"
+  upstream_prefix = ""
+  iri = "https://musicbrainz.org/instrument/{upstream_id}"
+  namespace = "Item"
+  label = "Instrument"
+
+  [[provider.type]]
+  code = "N"
+  entity_type = "item"
+  upstream_prefix = ""
+  iri = "https://musicbrainz.org/genre/{upstream_id}"
+  namespace = "Item"
+  label = "Genre"
+
+  # url entities are not mirrored as items; they become URL-valued statements on the entity
+  # that links them.
+
+# ---------------------------------------------------------------------------
+# internetdomains.wiki — slug reserved; code and number pending (README)
+# ---------------------------------------------------------------------------
+[[provider]]
+slug = "internetdomains"
+name = "Internet Domains Wikibase"
+pending = true
+revision_ids = true
+article_path = "https://internetdomains.wiki/wiki/"
+api = "https://internetdomains.wiki/w/api.php"
+adapter = "scatter-adapter-internetdomains"
+# Key-mapped provider (0009 §9): domain items are written under Domain keys, not prefixed IDs.
+# The identity property (0009, open questions) is set in the instance's provider config.

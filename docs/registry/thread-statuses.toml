@@ -1,0 +1,56 @@
+# Default thread statuses.  ADR 0019 §6, as amended 2026-09-27.
+#
+# A thread's status is the value of its latest status-bearing post (0019 §6). Statuses are
+# config records of kind `thread-status` in the tenant config (0015 §3); these are the defaults
+# an instance starts from and may change. `open` must exist: posting it reopens a thread.
+#
+# category   "open" | "closed". Drives the default visibility rule (closed threads collapse,
+#            0019 §6) and the `thread-status` notification (0021 §2), which fires when a thread
+#            moves from an open to a closed status.
+# order      Display order in the status menu.
+# label      Default English label; labels are message keys and are translated like any UI text.
+
+version = 1
+
+[[status]]
+name = "open"
+label = "Open"
+category = "open"
+order = 10
+required = true
+
+[[status]]
+name = "in-progress"
+label = "In progress"
+category = "open"
+order = 20
+
+[[status]]
+name = "blocked"
+label = "Blocked"
+category = "open"
+order = 30
+
+[[status]]
+name = "resolved"
+label = "Resolved"
+category = "closed"
+order = 40
+
+[[status]]
+name = "wontfix"
+label = "Won't fix"
+category = "closed"
+order = 50
+
+[[status]]
+name = "declined"
+label = "Declined"
+category = "closed"
+order = 60
+
+[[status]]
+name = "stale"
+label = "Stale"
+category = "closed"
+order = 70

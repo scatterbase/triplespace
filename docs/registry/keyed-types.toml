@@ -1,0 +1,47 @@
+# Keyed entity types.  ADR 0009 §1.
+#
+# A keyed type's entity ID is its normalized natural key, not a minted identifier.
+# name         The `type` in Wikibase JSON, and the normalizer's name in namespaces.toml.
+# namespace    The namespace whose pages host the type.
+# data_type    The Wikibase data type used to refer to entities of this type.
+# iri          Concept IRI template; {key} is the normalized key. Content-derived, so shared
+#              by every instance (0005 §5, 0009 §6).
+# id_prefix    The entity ID is id_prefix + key, e.g. domain:en.wikipedia.org (0017 §1, §3).
+# display      "derived": the label is computed from the key and cannot be edited (Domain).
+#              "editable": labels and descriptions are stored and reconciled like an item's (Keyword).
+# grammar      Which strings are valid keys (0009 §2).
+# normalizer   How input becomes the canonical key (0009 §2).
+# display      How the key is shown as a label (0009 §5).
+# Log header keys for keyed entities are surrogates (0009 §7), never the key itself.
+
+version = 1
+
+[[keyed_type]]
+name = "domain"
+label = "Domain"
+namespace = "Domain"
+data_type = "wikibase-domain"
+iri = "https://scatter.red/domain/{key}"
+id_prefix = "domain:"
+grammar = "DNS host or zone name: at most 253 octets, labels at most 63, at least two labels or a single alphabetic/xn-- label; no underscores"
+normalizer = "strip one trailing dot; UTS #46 non-transitional with CheckHyphens, CheckBidi, CheckJoiners and UseSTD3ASCIIRules; A-labels; lowercase"
+display = "derived: U-label form, language mul; A-label as a derived alias when it differs"
+defined_in = "0009, 0017"
+
+# Keyword (ADR 0017 §5): a short phrase describing what a work is about, as OpenAlex defines its
+# keywords. A keyword is the phrase, not the concept it denotes, and never joins an identity cluster.
+[[keyed_type]]
+name = "keyword"
+label = "Keyword"
+namespace = "Keyword"
+data_type = "wikibase-keyword"
+iri = "https://scatter.red/keyword/{key}"
+id_prefix = "keyword:"
+grammar = "1 to 200 characters of letters, digits and single hyphens, at least one letter, no leading or trailing hyphen"
+normalizer = "Unicode NFKC; casefold; every run of whitespace or punctuation becomes one hyphen; trim hyphens"
+display = "editable; when no label exists, the key with hyphens shown as spaces"
+clusters = false                 # same-as with a keyword is rejected (0017 §5)
+defined_in = "0017"
+
+# DOI is a resolver (resolvers.toml, 0029), not a keyed type: a DOI names a thing that already has
+# an item. Resolver names and keyed-type names share one namespace, so `doi` is taken.

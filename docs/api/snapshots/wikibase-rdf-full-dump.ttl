@@ -1,0 +1,1072 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix wikibase: <http://wikiba.se/ontology#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix schema: <http://schema.org/> .
+@prefix cc: <http://creativecommons.org/ns#> .
+@prefix geo: <http://www.opengis.net/ont/geosparql#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix wd: <http://localhost:8080/entity/> .
+@prefix data: <http://localhost:8080/index.php/Special:EntityData/> .
+@prefix s: <http://localhost:8080/entity/statement/> .
+@prefix ref: <http://localhost:8080/reference/> .
+@prefix v: <http://localhost:8080/value/> .
+@prefix wdt: <http://localhost:8080/prop/direct/> .
+@prefix wdtn: <http://localhost:8080/prop/direct-normalized/> .
+@prefix p: <http://localhost:8080/prop/> .
+@prefix ps: <http://localhost:8080/prop/statement/> .
+@prefix psv: <http://localhost:8080/prop/statement/value/> .
+@prefix psn: <http://localhost:8080/prop/statement/value-normalized/> .
+@prefix pq: <http://localhost:8080/prop/qualifier/> .
+@prefix pqv: <http://localhost:8080/prop/qualifier/value/> .
+@prefix pqn: <http://localhost:8080/prop/qualifier/value-normalized/> .
+@prefix pr: <http://localhost:8080/prop/reference/> .
+@prefix prv: <http://localhost:8080/prop/reference/value/> .
+@prefix prn: <http://localhost:8080/prop/reference/value-normalized/> .
+@prefix wdno: <http://localhost:8080/prop/novalue/> .
+
+wikibase:Dump a schema:Dataset,
+		owl:Ontology ;
+	cc:license <http://creativecommons.org/publicdomain/zero/1.0/> ;
+	schema:softwareVersion "1.0.0" ;
+	schema:dateModified "2026-09-25T01:07:23Z"^^xsd:dateTime ;
+	owl:imports <http://wikiba.se/ontology-1.0.owl> .
+
+data:Q1 a schema:Dataset ;
+	schema:about wd:Q1 ;
+	schema:version "9"^^xsd:integer ;
+	schema:dateModified "2026-09-25T00:49:03Z"^^xsd:dateTime ;
+	wikibase:statements "1"^^xsd:integer ;
+	wikibase:sitelinks "0"^^xsd:integer ;
+	wikibase:identifiers "0"^^xsd:integer .
+
+wd:Q1 a wikibase:Item ;
+	wdt:P1 "Douglas Noël Adams" ;
+	p:P1 s:Q1-C7C2A847-90FB-4764-A616-066DA578A9C9 .
+
+s:Q1-C7C2A847-90FB-4764-A616-066DA578A9C9 a wikibase:Statement,
+		wikibase:BestRank ;
+	wikibase:rank wikibase:NormalRank ;
+	ps:P1 "Douglas Noël Adams" .
+
+wd:Q1 rdfs:label "Douglas Adams"@en ;
+	skos:prefLabel "Douglas Adams"@en ;
+	schema:name "Douglas Adams"@en ;
+	rdfs:label "D. Adams"@de ;
+	skos:prefLabel "D. Adams"@de ;
+	schema:name "D. Adams"@de ;
+	rdfs:label "Douglas Adams"@fr ;
+	skos:prefLabel "Douglas Adams"@fr ;
+	schema:name "Douglas Adams"@fr ;
+	rdfs:label "Douglas Adams"@es ;
+	skos:prefLabel "Douglas Adams"@es ;
+	schema:name "Douglas Adams"@es ;
+	skos:altLabel "DNA"@en .
+
+data:P1 a schema:Dataset ;
+	schema:about wd:P1 ;
+	schema:version "3"^^xsd:integer ;
+	schema:dateModified "2026-09-25T00:47:09Z"^^xsd:dateTime ;
+	wikibase:statements "0"^^xsd:integer .
+
+wd:P1 a wikibase:Property ;
+	rdfs:label "name"@en ;
+	skos:prefLabel "name"@en ;
+	schema:name "name"@en ;
+	wikibase:propertyType <http://wikiba.se/ontology#String> ;
+	wikibase:directClaim wdt:P1 ;
+	wikibase:claim p:P1 ;
+	wikibase:statementProperty ps:P1 ;
+	wikibase:statementValue psv:P1 ;
+	wikibase:qualifier pq:P1 ;
+	wikibase:qualifierValue pqv:P1 ;
+	wikibase:reference pr:P1 ;
+	wikibase:referenceValue prv:P1 ;
+	wikibase:novalue wdno:P1 .
+
+p:P1 a owl:ObjectProperty .
+
+psv:P1 a owl:ObjectProperty .
+
+pqv:P1 a owl:ObjectProperty .
+
+prv:P1 a owl:ObjectProperty .
+
+wdt:P1 a owl:DatatypeProperty .
+
+ps:P1 a owl:DatatypeProperty .
+
+pq:P1 a owl:DatatypeProperty .
+
+pr:P1 a owl:DatatypeProperty .
+
+wdno:P1 a owl:Class ;
+	owl:complementOf _:b96ec5135b6832e1d84209d72460276b .
+
+_:b96ec5135b6832e1d84209d72460276b a owl:Restriction ;
+	owl:onProperty wdt:P1 ;
+	owl:someValuesFrom owl:Thing .
+
+data:Q2 a schema:Dataset ;
+	schema:about wd:Q2 ;
+	schema:version "10"^^xsd:integer ;
+	schema:dateModified "2026-09-25T01:06:12Z"^^xsd:dateTime ;
+	wikibase:statements "0"^^xsd:integer ;
+	wikibase:sitelinks "0"^^xsd:integer ;
+	wikibase:identifiers "0"^^xsd:integer .
+
+wd:Q2 a wikibase:Item ;
+	rdfs:label "good article badge"@en ;
+	skos:prefLabel "good article badge"@en ;
+	schema:name "good article badge"@en .
+
+data:Q3 a schema:Dataset ;
+	schema:about wd:Q3 ;
+	schema:version "11"^^xsd:integer ;
+	schema:dateModified "2026-09-25T01:06:12Z"^^xsd:dateTime ;
+	wikibase:statements "0"^^xsd:integer ;
+	wikibase:sitelinks "0"^^xsd:integer ;
+	wikibase:identifiers "0"^^xsd:integer .
+
+wd:Q3 a wikibase:Item ;
+	rdfs:label "metre"@en ;
+	skos:prefLabel "metre"@en ;
+	schema:name "metre"@en .
+
+data:Q4 a schema:Dataset ;
+	schema:about wd:Q4 ;
+	schema:version "12"^^xsd:integer ;
+	schema:dateModified "2026-09-25T01:06:12Z"^^xsd:dateTime ;
+	wikibase:statements "0"^^xsd:integer ;
+	wikibase:sitelinks "0"^^xsd:integer ;
+	wikibase:identifiers "0"^^xsd:integer .
+
+wd:Q4 a wikibase:Item ;
+	rdfs:label "proleptic Gregorian calendar (local)"@en ;
+	skos:prefLabel "proleptic Gregorian calendar (local)"@en ;
+	schema:name "proleptic Gregorian calendar (local)"@en .
+
+data:P2 a schema:Dataset ;
+	schema:about wd:P2 ;
+	schema:version "13"^^xsd:integer ;
+	schema:dateModified "2026-09-25T01:06:12Z"^^xsd:dateTime ;
+	wikibase:statements "0"^^xsd:integer .
+
+wd:P2 a wikibase:Property ;
+	rdfs:label "test wikibase-item"@en ;
+	skos:prefLabel "test wikibase-item"@en ;
+	schema:name "test wikibase-item"@en ;
+	wikibase:propertyType <http://wikiba.se/ontology#WikibaseItem> ;
+	wikibase:directClaim wdt:P2 ;
+	wikibase:claim p:P2 ;
+	wikibase:statementProperty ps:P2 ;
+	wikibase:statementValue psv:P2 ;
+	wikibase:qualifier pq:P2 ;
+	wikibase:qualifierValue pqv:P2 ;
+	wikibase:reference pr:P2 ;
+	wikibase:referenceValue prv:P2 ;
+	wikibase:novalue wdno:P2 .
+
+p:P2 a owl:ObjectProperty .
+
+psv:P2 a owl:ObjectProperty .
+
+pqv:P2 a owl:ObjectProperty .
+
+prv:P2 a owl:ObjectProperty .
+
+wdt:P2 a owl:ObjectProperty .
+
+ps:P2 a owl:ObjectProperty .
+
+pq:P2 a owl:ObjectProperty .
+
+pr:P2 a owl:ObjectProperty .
+
+wdno:P2 a owl:Class ;
+	owl:complementOf _:1f05fece3ad482b53eed1f5510da49fa .
+
+_:1f05fece3ad482b53eed1f5510da49fa a owl:Restriction ;
+	owl:onProperty wdt:P2 ;
+	owl:someValuesFrom owl:Thing .
+
+data:P3 a schema:Dataset ;
+	schema:about wd:P3 ;
+	schema:version "14"^^xsd:integer ;
+	schema:dateModified "2026-09-25T01:06:12Z"^^xsd:dateTime ;
+	wikibase:statements "0"^^xsd:integer .
+
+wd:P3 a wikibase:Property ;
+	rdfs:label "test wikibase-property"@en ;
+	skos:prefLabel "test wikibase-property"@en ;
+	schema:name "test wikibase-property"@en ;
+	wikibase:propertyType <http://wikiba.se/ontology#WikibaseProperty> ;
+	wikibase:directClaim wdt:P3 ;
+	wikibase:claim p:P3 ;
+	wikibase:statementProperty ps:P3 ;
+	wikibase:statementValue psv:P3 ;
+	wikibase:qualifier pq:P3 ;
+	wikibase:qualifierValue pqv:P3 ;
+	wikibase:reference pr:P3 ;
+	wikibase:referenceValue prv:P3 ;
+	wikibase:novalue wdno:P3 .
+
+p:P3 a owl:ObjectProperty .
+
+psv:P3 a owl:ObjectProperty .
+
+pqv:P3 a owl:ObjectProperty .
+
+prv:P3 a owl:ObjectProperty .
+
+wdt:P3 a owl:ObjectProperty .
+
+ps:P3 a owl:ObjectProperty .
+
+pq:P3 a owl:ObjectProperty .
+
+pr:P3 a owl:ObjectProperty .
+
+wdno:P3 a owl:Class ;
+	owl:complementOf _:1086e1c4470bf0a461225f75b332f53e .
+
+_:1086e1c4470bf0a461225f75b332f53e a owl:Restriction ;
+	owl:onProperty wdt:P3 ;
+	owl:someValuesFrom owl:Thing .
+
+data:P4 a schema:Dataset ;
+	schema:about wd:P4 ;
+	schema:version "15"^^xsd:integer ;
+	schema:dateModified "2026-09-25T01:06:12Z"^^xsd:dateTime ;
+	wikibase:statements "0"^^xsd:integer .
+
+wd:P4 a wikibase:Property ;
+	rdfs:label "test time"@en ;
+	skos:prefLabel "test time"@en ;
+	schema:name "test time"@en ;
+	wikibase:propertyType <http://wikiba.se/ontology#Time> ;
+	wikibase:directClaim wdt:P4 ;
+	wikibase:claim p:P4 ;
+	wikibase:statementProperty ps:P4 ;
+	wikibase:statementValue psv:P4 ;
+	wikibase:qualifier pq:P4 ;
+	wikibase:qualifierValue pqv:P4 ;
+	wikibase:reference pr:P4 ;
+	wikibase:referenceValue prv:P4 ;
+	wikibase:novalue wdno:P4 .
+
+p:P4 a owl:ObjectProperty .
+
+psv:P4 a owl:ObjectProperty .
+
+pqv:P4 a owl:ObjectProperty .
+
+prv:P4 a owl:ObjectProperty .
+
+wdt:P4 a owl:DatatypeProperty .
+
+ps:P4 a owl:DatatypeProperty .
+
+pq:P4 a owl:DatatypeProperty .
+
+pr:P4 a owl:DatatypeProperty .
+
+wdno:P4 a owl:Class ;
+	owl:complementOf _:c298799f0cd3665c958b9d4edf0ffbf3 .
+
+_:c298799f0cd3665c958b9d4edf0ffbf3 a owl:Restriction ;
+	owl:onProperty wdt:P4 ;
+	owl:someValuesFrom owl:Thing .
+
+data:P5 a schema:Dataset ;
+	schema:about wd:P5 ;
+	schema:version "16"^^xsd:integer ;
+	schema:dateModified "2026-09-25T01:06:12Z"^^xsd:dateTime ;
+	wikibase:statements "0"^^xsd:integer .
+
+wd:P5 a wikibase:Property ;
+	rdfs:label "test quantity"@en ;
+	skos:prefLabel "test quantity"@en ;
+	schema:name "test quantity"@en ;
+	wikibase:propertyType <http://wikiba.se/ontology#Quantity> ;
+	wikibase:directClaim wdt:P5 ;
+	wikibase:claim p:P5 ;
+	wikibase:statementProperty ps:P5 ;
+	wikibase:statementValue psv:P5 ;
+	wikibase:qualifier pq:P5 ;
+	wikibase:qualifierValue pqv:P5 ;
+	wikibase:reference pr:P5 ;
+	wikibase:referenceValue prv:P5 ;
+	wikibase:novalue wdno:P5 ;
+	wikibase:directClaimNormalized wdtn:P5 ;
+	wikibase:statementValueNormalized psn:P5 ;
+	wikibase:qualifierValueNormalized pqn:P5 ;
+	wikibase:referenceValueNormalized prn:P5 .
+
+p:P5 a owl:ObjectProperty .
+
+psv:P5 a owl:ObjectProperty .
+
+pqv:P5 a owl:ObjectProperty .
+
+prv:P5 a owl:ObjectProperty .
+
+wdt:P5 a owl:DatatypeProperty .
+
+ps:P5 a owl:DatatypeProperty .
+
+pq:P5 a owl:DatatypeProperty .
+
+pr:P5 a owl:DatatypeProperty .
+
+psn:P5 a owl:ObjectProperty .
+
+pqn:P5 a owl:ObjectProperty .
+
+prn:P5 a owl:ObjectProperty .
+
+wdtn:P5 a owl:DatatypeProperty .
+
+wdno:P5 a owl:Class ;
+	owl:complementOf _:5a6c7a576e39dbbe9a035303bd73cd44 .
+
+_:5a6c7a576e39dbbe9a035303bd73cd44 a owl:Restriction ;
+	owl:onProperty wdt:P5 ;
+	owl:someValuesFrom owl:Thing .
+
+data:P6 a schema:Dataset ;
+	schema:about wd:P6 ;
+	schema:version "17"^^xsd:integer ;
+	schema:dateModified "2026-09-25T01:06:12Z"^^xsd:dateTime ;
+	wikibase:statements "0"^^xsd:integer .
+
+wd:P6 a wikibase:Property ;
+	rdfs:label "test globe-coordinate"@en ;
+	skos:prefLabel "test globe-coordinate"@en ;
+	schema:name "test globe-coordinate"@en ;
+	wikibase:propertyType <http://wikiba.se/ontology#GlobeCoordinate> ;
+	wikibase:directClaim wdt:P6 ;
+	wikibase:claim p:P6 ;
+	wikibase:statementProperty ps:P6 ;
+	wikibase:statementValue psv:P6 ;
+	wikibase:qualifier pq:P6 ;
+	wikibase:qualifierValue pqv:P6 ;
+	wikibase:reference pr:P6 ;
+	wikibase:referenceValue prv:P6 ;
+	wikibase:novalue wdno:P6 .
+
+p:P6 a owl:ObjectProperty .
+
+psv:P6 a owl:ObjectProperty .
+
+pqv:P6 a owl:ObjectProperty .
+
+prv:P6 a owl:ObjectProperty .
+
+wdt:P6 a owl:DatatypeProperty .
+
+ps:P6 a owl:DatatypeProperty .
+
+pq:P6 a owl:DatatypeProperty .
+
+pr:P6 a owl:DatatypeProperty .
+
+wdno:P6 a owl:Class ;
+	owl:complementOf _:756f10bc5f45e99cc0b50f82c4769b77 .
+
+_:756f10bc5f45e99cc0b50f82c4769b77 a owl:Restriction ;
+	owl:onProperty wdt:P6 ;
+	owl:someValuesFrom owl:Thing .
+
+data:P7 a schema:Dataset ;
+	schema:about wd:P7 ;
+	schema:version "18"^^xsd:integer ;
+	schema:dateModified "2026-09-25T01:06:21Z"^^xsd:dateTime ;
+	wikibase:statements "0"^^xsd:integer .
+
+wd:P7 a wikibase:Property ;
+	rdfs:label "test monolingualtext"@en ;
+	skos:prefLabel "test monolingualtext"@en ;
+	schema:name "test monolingualtext"@en ;
+	wikibase:propertyType <http://wikiba.se/ontology#Monolingualtext> ;
+	wikibase:directClaim wdt:P7 ;
+	wikibase:claim p:P7 ;
+	wikibase:statementProperty ps:P7 ;
+	wikibase:statementValue psv:P7 ;
+	wikibase:qualifier pq:P7 ;
+	wikibase:qualifierValue pqv:P7 ;
+	wikibase:reference pr:P7 ;
+	wikibase:referenceValue prv:P7 ;
+	wikibase:novalue wdno:P7 .
+
+p:P7 a owl:ObjectProperty .
+
+psv:P7 a owl:ObjectProperty .
+
+pqv:P7 a owl:ObjectProperty .
+
+prv:P7 a owl:ObjectProperty .
+
+wdt:P7 a owl:DatatypeProperty .
+
+ps:P7 a owl:DatatypeProperty .
+
+pq:P7 a owl:DatatypeProperty .
+
+pr:P7 a owl:DatatypeProperty .
+
+wdno:P7 a owl:Class ;
+	owl:complementOf _:b3316efa17ecac96bd23cd2f352c0a22 .
+
+_:b3316efa17ecac96bd23cd2f352c0a22 a owl:Restriction ;
+	owl:onProperty wdt:P7 ;
+	owl:someValuesFrom owl:Thing .
+
+data:P8 a schema:Dataset ;
+	schema:about wd:P8 ;
+	schema:version "19"^^xsd:integer ;
+	schema:dateModified "2026-09-25T01:06:21Z"^^xsd:dateTime ;
+	wikibase:statements "0"^^xsd:integer .
+
+wd:P8 a wikibase:Property ;
+	rdfs:label "test url"@en ;
+	skos:prefLabel "test url"@en ;
+	schema:name "test url"@en ;
+	wikibase:propertyType <http://wikiba.se/ontology#Url> ;
+	wikibase:directClaim wdt:P8 ;
+	wikibase:claim p:P8 ;
+	wikibase:statementProperty ps:P8 ;
+	wikibase:statementValue psv:P8 ;
+	wikibase:qualifier pq:P8 ;
+	wikibase:qualifierValue pqv:P8 ;
+	wikibase:reference pr:P8 ;
+	wikibase:referenceValue prv:P8 ;
+	wikibase:novalue wdno:P8 .
+
+p:P8 a owl:ObjectProperty .
+
+psv:P8 a owl:ObjectProperty .
+
+pqv:P8 a owl:ObjectProperty .
+
+prv:P8 a owl:ObjectProperty .
+
+wdt:P8 a owl:ObjectProperty .
+
+ps:P8 a owl:ObjectProperty .
+
+pq:P8 a owl:ObjectProperty .
+
+pr:P8 a owl:ObjectProperty .
+
+wdno:P8 a owl:Class ;
+	owl:complementOf _:acffe14ef7de306a5f3d8961fa66b097 .
+
+_:acffe14ef7de306a5f3d8961fa66b097 a owl:Restriction ;
+	owl:onProperty wdt:P8 ;
+	owl:someValuesFrom owl:Thing .
+
+data:P9 a schema:Dataset ;
+	schema:about wd:P9 ;
+	schema:version "20"^^xsd:integer ;
+	schema:dateModified "2026-09-25T01:06:21Z"^^xsd:dateTime ;
+	wikibase:statements "0"^^xsd:integer .
+
+wd:P9 a wikibase:Property ;
+	rdfs:label "test external-id"@en ;
+	skos:prefLabel "test external-id"@en ;
+	schema:name "test external-id"@en ;
+	wikibase:propertyType <http://wikiba.se/ontology#ExternalId> ;
+	wikibase:directClaim wdt:P9 ;
+	wikibase:claim p:P9 ;
+	wikibase:statementProperty ps:P9 ;
+	wikibase:statementValue psv:P9 ;
+	wikibase:qualifier pq:P9 ;
+	wikibase:qualifierValue pqv:P9 ;
+	wikibase:reference pr:P9 ;
+	wikibase:referenceValue prv:P9 ;
+	wikibase:novalue wdno:P9 ;
+	wikibase:directClaimNormalized wdtn:P9 ;
+	wikibase:statementValueNormalized psn:P9 ;
+	wikibase:qualifierValueNormalized pqn:P9 ;
+	wikibase:referenceValueNormalized prn:P9 .
+
+p:P9 a owl:ObjectProperty .
+
+psv:P9 a owl:ObjectProperty .
+
+pqv:P9 a owl:ObjectProperty .
+
+prv:P9 a owl:ObjectProperty .
+
+wdt:P9 a owl:DatatypeProperty .
+
+ps:P9 a owl:DatatypeProperty .
+
+pq:P9 a owl:DatatypeProperty .
+
+pr:P9 a owl:DatatypeProperty .
+
+psn:P9 a owl:ObjectProperty .
+
+pqn:P9 a owl:ObjectProperty .
+
+prn:P9 a owl:ObjectProperty .
+
+wdtn:P9 a owl:ObjectProperty .
+
+wdno:P9 a owl:Class ;
+	owl:complementOf _:429206ceb9f61f1f170f99bd89de9fe7 .
+
+_:429206ceb9f61f1f170f99bd89de9fe7 a owl:Restriction ;
+	owl:onProperty wdt:P9 ;
+	owl:someValuesFrom owl:Thing .
+
+data:P10 a schema:Dataset ;
+	schema:about wd:P10 ;
+	schema:version "21"^^xsd:integer ;
+	schema:dateModified "2026-09-25T01:06:21Z"^^xsd:dateTime ;
+	wikibase:statements "0"^^xsd:integer .
+
+wd:P10 a wikibase:Property ;
+	rdfs:label "test commonsMedia"@en ;
+	skos:prefLabel "test commonsMedia"@en ;
+	schema:name "test commonsMedia"@en ;
+	wikibase:propertyType <http://wikiba.se/ontology#CommonsMedia> ;
+	wikibase:directClaim wdt:P10 ;
+	wikibase:claim p:P10 ;
+	wikibase:statementProperty ps:P10 ;
+	wikibase:statementValue psv:P10 ;
+	wikibase:qualifier pq:P10 ;
+	wikibase:qualifierValue pqv:P10 ;
+	wikibase:reference pr:P10 ;
+	wikibase:referenceValue prv:P10 ;
+	wikibase:novalue wdno:P10 .
+
+p:P10 a owl:ObjectProperty .
+
+psv:P10 a owl:ObjectProperty .
+
+pqv:P10 a owl:ObjectProperty .
+
+prv:P10 a owl:ObjectProperty .
+
+wdt:P10 a owl:ObjectProperty .
+
+ps:P10 a owl:ObjectProperty .
+
+pq:P10 a owl:ObjectProperty .
+
+pr:P10 a owl:ObjectProperty .
+
+wdno:P10 a owl:Class ;
+	owl:complementOf _:e9c9acebd629135c7f7ccf2b8fa36d11 .
+
+_:e9c9acebd629135c7f7ccf2b8fa36d11 a owl:Restriction ;
+	owl:onProperty wdt:P10 ;
+	owl:someValuesFrom owl:Thing .
+
+data:P11 a schema:Dataset ;
+	schema:about wd:P11 ;
+	schema:version "22"^^xsd:integer ;
+	schema:dateModified "2026-09-25T01:06:21Z"^^xsd:dateTime ;
+	wikibase:statements "0"^^xsd:integer .
+
+wd:P11 a wikibase:Property ;
+	rdfs:label "test geo-shape"@en ;
+	skos:prefLabel "test geo-shape"@en ;
+	schema:name "test geo-shape"@en ;
+	wikibase:propertyType <http://wikiba.se/ontology#GeoShape> ;
+	wikibase:directClaim wdt:P11 ;
+	wikibase:claim p:P11 ;
+	wikibase:statementProperty ps:P11 ;
+	wikibase:statementValue psv:P11 ;
+	wikibase:qualifier pq:P11 ;
+	wikibase:qualifierValue pqv:P11 ;
+	wikibase:reference pr:P11 ;
+	wikibase:referenceValue prv:P11 ;
+	wikibase:novalue wdno:P11 .
+
+p:P11 a owl:ObjectProperty .
+
+psv:P11 a owl:ObjectProperty .
+
+pqv:P11 a owl:ObjectProperty .
+
+prv:P11 a owl:ObjectProperty .
+
+wdt:P11 a owl:ObjectProperty .
+
+ps:P11 a owl:ObjectProperty .
+
+pq:P11 a owl:ObjectProperty .
+
+pr:P11 a owl:ObjectProperty .
+
+wdno:P11 a owl:Class ;
+	owl:complementOf _:920e98040780659844ffa720b8f7e53b .
+
+_:920e98040780659844ffa720b8f7e53b a owl:Restriction ;
+	owl:onProperty wdt:P11 ;
+	owl:someValuesFrom owl:Thing .
+
+data:P12 a schema:Dataset ;
+	schema:about wd:P12 ;
+	schema:version "23"^^xsd:integer ;
+	schema:dateModified "2026-09-25T01:06:21Z"^^xsd:dateTime ;
+	wikibase:statements "0"^^xsd:integer .
+
+wd:P12 a wikibase:Property ;
+	rdfs:label "test tabular-data"@en ;
+	skos:prefLabel "test tabular-data"@en ;
+	schema:name "test tabular-data"@en ;
+	wikibase:propertyType <http://wikiba.se/ontology#TabularData> ;
+	wikibase:directClaim wdt:P12 ;
+	wikibase:claim p:P12 ;
+	wikibase:statementProperty ps:P12 ;
+	wikibase:statementValue psv:P12 ;
+	wikibase:qualifier pq:P12 ;
+	wikibase:qualifierValue pqv:P12 ;
+	wikibase:reference pr:P12 ;
+	wikibase:referenceValue prv:P12 ;
+	wikibase:novalue wdno:P12 .
+
+p:P12 a owl:ObjectProperty .
+
+psv:P12 a owl:ObjectProperty .
+
+pqv:P12 a owl:ObjectProperty .
+
+prv:P12 a owl:ObjectProperty .
+
+wdt:P12 a owl:ObjectProperty .
+
+ps:P12 a owl:ObjectProperty .
+
+pq:P12 a owl:ObjectProperty .
+
+pr:P12 a owl:ObjectProperty .
+
+wdno:P12 a owl:Class ;
+	owl:complementOf _:fdcdfd0e07b0def487f1c041e4f54d9a .
+
+_:fdcdfd0e07b0def487f1c041e4f54d9a a owl:Restriction ;
+	owl:onProperty wdt:P12 ;
+	owl:someValuesFrom owl:Thing .
+
+data:P13 a schema:Dataset ;
+	schema:about wd:P13 ;
+	schema:version "24"^^xsd:integer ;
+	schema:dateModified "2026-09-25T01:06:21Z"^^xsd:dateTime ;
+	wikibase:statements "0"^^xsd:integer .
+
+wd:P13 a wikibase:Property ;
+	rdfs:label "test edtf"@en ;
+	skos:prefLabel "test edtf"@en ;
+	schema:name "test edtf"@en ;
+	wikibase:propertyType <http://wikiba.se/ontology#Edtf> ;
+	wikibase:directClaim wdt:P13 ;
+	wikibase:claim p:P13 ;
+	wikibase:statementProperty ps:P13 ;
+	wikibase:statementValue psv:P13 ;
+	wikibase:qualifier pq:P13 ;
+	wikibase:qualifierValue pqv:P13 ;
+	wikibase:reference pr:P13 ;
+	wikibase:referenceValue prv:P13 ;
+	wikibase:novalue wdno:P13 .
+
+p:P13 a owl:ObjectProperty .
+
+psv:P13 a owl:ObjectProperty .
+
+pqv:P13 a owl:ObjectProperty .
+
+prv:P13 a owl:ObjectProperty .
+
+wdt:P13 a owl:DatatypeProperty .
+
+ps:P13 a owl:DatatypeProperty .
+
+pq:P13 a owl:DatatypeProperty .
+
+pr:P13 a owl:DatatypeProperty .
+
+wdno:P13 a owl:Class ;
+	owl:complementOf _:a2435ce67c5e647c919089b661379f16 .
+
+_:a2435ce67c5e647c919089b661379f16 a owl:Restriction ;
+	owl:onProperty wdt:P13 ;
+	owl:someValuesFrom owl:Thing .
+
+data:Q8 a schema:Dataset ;
+	schema:about wd:Q8 ;
+	schema:version "26"^^xsd:integer ;
+	schema:dateModified "2026-09-25T01:07:15Z"^^xsd:dateTime ;
+	wikibase:statements "23"^^xsd:integer ;
+	wikibase:sitelinks "1"^^xsd:integer ;
+	wikibase:identifiers "1"^^xsd:integer .
+
+wd:Q8 a wikibase:Item .
+
+<http://127.0.0.1:8080/index.php/Douglas_Adams> a schema:Article ;
+	schema:about wd:Q8 ;
+	schema:inLanguage "en" ;
+	schema:isPartOf <http://127.0.0.1/> ;
+	schema:name "Douglas Adams"@en ;
+	wikibase:badge wd:Q2 .
+
+<http://127.0.0.1/> wikibase:wikiGroup "wikipedia" .
+
+wd:Q8 wdt:P1 "Douglas Noël Adams" ;
+	wdt:P2 wd:Q3 ;
+	a wdno:P2 ;
+	wdt:P3 wd:P1 ;
+	wdt:P4 "1952-03-11T00:00:00Z"^^xsd:dateTime,
+		"1500-01-01T00:00:00Z"^^xsd:dateTime,
+		_:82688c58bfae9a2309e138f250005565 ;
+	wdt:P5 "+1.96"^^xsd:decimal,
+		"+42"^^xsd:decimal ;
+	wdt:P6 "Point(-0.1275 51.5)"^^geo:wktLiteral ;
+	wdt:P7 "Douglas Adams"@en ;
+	wdt:P8 <https://douglasadams.com/> ;
+	wdt:P9 "n80076765" ;
+	wdt:P13 "1952-03-11"^^xsd:edtf,
+		"1952-03-11T00:00:00Z"^^xsd:dateTime,
+		"1985-04-12T23:20:30Z"^^xsd:edtf,
+		"1985-04-12T23:20:30Z"^^xsd:dateTime,
+		"1985-04-12T23:20:30+04:00"^^xsd:edtf,
+		"1985-04-12T23:20:30Z"^^xsd:dateTime,
+		"2004-06~"^^xsd:edtf,
+		"2004-06-01T00:00:00Z"^^xsd:dateTime,
+		"1964/2008"^^xsd:edtf,
+		"[1667,1668,1670..1672]"^^xsd:edtf,
+		"1667-01-01T00:00:00Z"^^xsd:dateTime,
+		"1668-01-01T00:00:00Z"^^xsd:dateTime,
+		"1670-01-01T00:00:00Z"^^xsd:dateTime,
+		"1671-01-01T00:00:00Z"^^xsd:dateTime,
+		"1672-01-01T00:00:00Z"^^xsd:dateTime,
+		"2001-21"^^xsd:edtf,
+		"2001-03-01T00:00:00Z"^^xsd:dateTime,
+		"2001-04-01T00:00:00Z"^^xsd:dateTime,
+		"2001-05-01T00:00:00Z"^^xsd:dateTime,
+		"19XX"^^xsd:edtf,
+		"1900-01-01T00:00:00Z"^^xsd:dateTime,
+		"1984?-06-02"^^xsd:edtf,
+		"1984-06-02T00:00:00Z"^^xsd:dateTime ;
+	p:P1 s:Q8-C13E7A23-11E7-4C91-A799-3D1806B65444 .
+
+s:Q8-C13E7A23-11E7-4C91-A799-3D1806B65444 a wikibase:Statement,
+		wikibase:BestRank ;
+	wikibase:rank wikibase:PreferredRank ;
+	ps:P1 "Douglas Noël Adams" ;
+	pq:P4 "1952-03-11T00:00:00Z"^^xsd:dateTime ;
+	pqv:P4 v:426df9023763f08b066f4478480f44cd ;
+	prov:wasDerivedFrom ref:eaf0a11b92f297234266b31f9331c3ebcfe09c1e .
+
+wd:Q8 p:P1 s:Q8-83C9AED4-5D15-4C27-A289-506A732D3101 .
+
+s:Q8-83C9AED4-5D15-4C27-A289-506A732D3101 a wikibase:Statement ;
+	wikibase:rank wikibase:DeprecatedRank ;
+	ps:P1 "D. N. Adams" .
+
+wd:Q8 p:P2 s:Q8-8276AFFB-450C-4646-BF0B-CEEBE3835EA3 .
+
+s:Q8-8276AFFB-450C-4646-BF0B-CEEBE3835EA3 a wikibase:Statement,
+		wikibase:BestRank ;
+	wikibase:rank wikibase:NormalRank ;
+	ps:P2 wd:Q3 .
+
+wd:Q8 p:P2 s:Q8-1003D6A3-C163-4E53-9334-A89C1866BFB8 .
+
+s:Q8-1003D6A3-C163-4E53-9334-A89C1866BFB8 a wikibase:Statement,
+		wikibase:BestRank ;
+	wikibase:rank wikibase:NormalRank ;
+	a wdno:P2 .
+
+wd:Q8 p:P3 s:Q8-9304920D-369C-416E-BB9F-79CDBD7904D8 .
+
+s:Q8-9304920D-369C-416E-BB9F-79CDBD7904D8 a wikibase:Statement,
+		wikibase:BestRank ;
+	wikibase:rank wikibase:NormalRank ;
+	ps:P3 wd:P1 .
+
+wd:Q8 p:P4 s:Q8-B6DF0432-1A81-43C4-8EAD-F68642A547BF .
+
+s:Q8-B6DF0432-1A81-43C4-8EAD-F68642A547BF a wikibase:Statement,
+		wikibase:BestRank ;
+	wikibase:rank wikibase:NormalRank ;
+	ps:P4 "1952-03-11T00:00:00Z"^^xsd:dateTime ;
+	psv:P4 v:426df9023763f08b066f4478480f44cd .
+
+wd:Q8 p:P4 s:Q8-637F67EA-9626-47D7-B1EF-A913258450DE .
+
+s:Q8-637F67EA-9626-47D7-B1EF-A913258450DE a wikibase:Statement,
+		wikibase:BestRank ;
+	wikibase:rank wikibase:NormalRank ;
+	ps:P4 "1500-01-01T00:00:00Z"^^xsd:dateTime ;
+	psv:P4 v:7339bad773afdb83fb9023d276846b08 .
+
+wd:Q8 p:P4 s:Q8-1D2AD30E-661B-4261-8031-D87FFD783EAE .
+
+s:Q8-1D2AD30E-661B-4261-8031-D87FFD783EAE a wikibase:Statement,
+		wikibase:BestRank ;
+	wikibase:rank wikibase:NormalRank ;
+	ps:P4 _:c38abea05e225dd00fd1ff3623e8515b .
+
+wd:Q8 p:P5 s:Q8-254B0E6E-A1D4-41EB-8A7C-94DEBF913758 .
+
+s:Q8-254B0E6E-A1D4-41EB-8A7C-94DEBF913758 a wikibase:Statement,
+		wikibase:BestRank ;
+	wikibase:rank wikibase:NormalRank ;
+	ps:P5 "+1.96"^^xsd:decimal ;
+	psv:P5 v:ee7a3b3b3cad181ed729f7c25d9e92d2 .
+
+wd:Q8 p:P5 s:Q8-E0E86D20-DDC4-4922-B811-04C4F3A6EC1B .
+
+s:Q8-E0E86D20-DDC4-4922-B811-04C4F3A6EC1B a wikibase:Statement,
+		wikibase:BestRank ;
+	wikibase:rank wikibase:NormalRank ;
+	ps:P5 "+42"^^xsd:decimal ;
+	psv:P5 v:a168135f766cf673e04ee1850837047d .
+
+wd:Q8 p:P6 s:Q8-0B486371-73D2-4BBC-BAA5-6E1EC2CD8A09 .
+
+s:Q8-0B486371-73D2-4BBC-BAA5-6E1EC2CD8A09 a wikibase:Statement,
+		wikibase:BestRank ;
+	wikibase:rank wikibase:NormalRank ;
+	ps:P6 "Point(-0.1275 51.5)"^^geo:wktLiteral ;
+	psv:P6 v:abfb822748a314cd9bb1132c1c731a39 .
+
+wd:Q8 p:P7 s:Q8-DE87B377-3A7A-438E-AD7E-9CFDDFFD18DC .
+
+s:Q8-DE87B377-3A7A-438E-AD7E-9CFDDFFD18DC a wikibase:Statement,
+		wikibase:BestRank ;
+	wikibase:rank wikibase:NormalRank ;
+	ps:P7 "Douglas Adams"@en .
+
+wd:Q8 p:P8 s:Q8-8C0DF4A9-864F-4B30-A460-B543B17AA580 .
+
+s:Q8-8C0DF4A9-864F-4B30-A460-B543B17AA580 a wikibase:Statement,
+		wikibase:BestRank ;
+	wikibase:rank wikibase:NormalRank ;
+	ps:P8 <https://douglasadams.com/> .
+
+wd:Q8 p:P9 s:Q8-7F4D913D-2B05-4B21-B980-5F3AE0AE99D8 .
+
+s:Q8-7F4D913D-2B05-4B21-B980-5F3AE0AE99D8 a wikibase:Statement,
+		wikibase:BestRank ;
+	wikibase:rank wikibase:NormalRank ;
+	ps:P9 "n80076765" .
+
+wd:Q8 p:P13 s:Q8-A8C2D6D3-55A9-44B1-B8F0-E75F0B37C8B2 .
+
+s:Q8-A8C2D6D3-55A9-44B1-B8F0-E75F0B37C8B2 a wikibase:Statement,
+		wikibase:BestRank ;
+	wikibase:rank wikibase:NormalRank ;
+	ps:P13 "1952-03-11"^^xsd:edtf,
+		"1952-03-11T00:00:00Z"^^xsd:dateTime ;
+	psv:P13 v:426df9023763f08b066f4478480f44cd .
+
+wd:Q8 p:P13 s:Q8-B122C1BC-5D64-4902-AB36-AD175D8E29EE .
+
+s:Q8-B122C1BC-5D64-4902-AB36-AD175D8E29EE a wikibase:Statement,
+		wikibase:BestRank ;
+	wikibase:rank wikibase:NormalRank ;
+	ps:P13 "1985-04-12T23:20:30Z"^^xsd:edtf,
+		"1985-04-12T23:20:30Z"^^xsd:dateTime ;
+	psv:P13 v:f9b310f30d1085521745478478955030 .
+
+wd:Q8 p:P13 s:Q8-0E3D6A32-6807-4A21-93EB-CC925DDA33A2 .
+
+s:Q8-0E3D6A32-6807-4A21-93EB-CC925DDA33A2 a wikibase:Statement,
+		wikibase:BestRank ;
+	wikibase:rank wikibase:NormalRank ;
+	ps:P13 "1985-04-12T23:20:30+04:00"^^xsd:edtf,
+		"1985-04-12T23:20:30Z"^^xsd:dateTime ;
+	psv:P13 v:acc5fbee06fa01b719c5cb2d7c5fecb9 .
+
+wd:Q8 p:P13 s:Q8-4AA2A24C-CC31-48F2-B8BE-5177352DCEE5 .
+
+s:Q8-4AA2A24C-CC31-48F2-B8BE-5177352DCEE5 a wikibase:Statement,
+		wikibase:BestRank ;
+	wikibase:rank wikibase:NormalRank ;
+	ps:P13 "2004-06~"^^xsd:edtf,
+		"2004-06-01T00:00:00Z"^^xsd:dateTime ;
+	psv:P13 v:b937e3c15d6531de801c5ef67edc50c4 .
+
+wd:Q8 p:P13 s:Q8-6B2E9562-7E09-4816-969B-95DE98BF43E3 .
+
+s:Q8-6B2E9562-7E09-4816-969B-95DE98BF43E3 a wikibase:Statement,
+		wikibase:BestRank ;
+	wikibase:rank wikibase:NormalRank ;
+	ps:P13 "1964/2008"^^xsd:edtf .
+
+wd:Q8 p:P13 s:Q8-5F5C351A-24B3-421C-8603-11D405BA2E59 .
+
+s:Q8-5F5C351A-24B3-421C-8603-11D405BA2E59 a wikibase:Statement,
+		wikibase:BestRank ;
+	wikibase:rank wikibase:NormalRank ;
+	ps:P13 "[1667,1668,1670..1672]"^^xsd:edtf,
+		"1667-01-01T00:00:00Z"^^xsd:dateTime ;
+	psv:P13 v:816ab642731698b08a1c55f70e97f393 ;
+	ps:P13 "1668-01-01T00:00:00Z"^^xsd:dateTime ;
+	psv:P13 v:08258d0d853db332e29ec869283f6564 ;
+	ps:P13 "1670-01-01T00:00:00Z"^^xsd:dateTime ;
+	psv:P13 v:c9cc548e620665ad0d26f1ba6e345ab3 ;
+	ps:P13 "1671-01-01T00:00:00Z"^^xsd:dateTime ;
+	psv:P13 v:c3681f7bc0bfab1b9687aaa44cd18947 ;
+	ps:P13 "1672-01-01T00:00:00Z"^^xsd:dateTime ;
+	psv:P13 v:6381f3faa36deb9101de3de938174615 .
+
+wd:Q8 p:P13 s:Q8-A303B50C-7481-4FE6-BDAC-D11CF9688AA8 .
+
+s:Q8-A303B50C-7481-4FE6-BDAC-D11CF9688AA8 a wikibase:Statement,
+		wikibase:BestRank ;
+	wikibase:rank wikibase:NormalRank ;
+	ps:P13 "2001-21"^^xsd:edtf,
+		"2001-03-01T00:00:00Z"^^xsd:dateTime ;
+	psv:P13 v:8855cd4ad3525541b7b35605f595454e ;
+	ps:P13 "2001-04-01T00:00:00Z"^^xsd:dateTime ;
+	psv:P13 v:6493ad7ba2fe49c8f29e1cd49b8292b9 ;
+	ps:P13 "2001-05-01T00:00:00Z"^^xsd:dateTime ;
+	psv:P13 v:b2cbe72dd8ded3ff2dd314e80f5781b6 .
+
+wd:Q8 p:P13 s:Q8-1C93AF61-71DC-4B16-9A98-D5D38516BE76 .
+
+s:Q8-1C93AF61-71DC-4B16-9A98-D5D38516BE76 a wikibase:Statement,
+		wikibase:BestRank ;
+	wikibase:rank wikibase:NormalRank ;
+	ps:P13 "19XX"^^xsd:edtf,
+		"1900-01-01T00:00:00Z"^^xsd:dateTime ;
+	psv:P13 v:3f093c9a27e9362ee69eee1bc433ef19 .
+
+wd:Q8 p:P13 s:Q8-0F421EAC-6342-4208-BB13-96E7821B550A .
+
+s:Q8-0F421EAC-6342-4208-BB13-96E7821B550A a wikibase:Statement,
+		wikibase:BestRank ;
+	wikibase:rank wikibase:NormalRank ;
+	ps:P13 "1984?-06-02"^^xsd:edtf,
+		"1984-06-02T00:00:00Z"^^xsd:dateTime ;
+	psv:P13 v:c28e95b9bbb6b17f9be158e8ab14cde3 .
+
+wd:Q8 rdfs:label "Douglas Adams (test)"@en ;
+	skos:prefLabel "Douglas Adams (test)"@en ;
+	schema:name "Douglas Adams (test)"@en ;
+	rdfs:label "Douglas Adams"@de ;
+	skos:prefLabel "Douglas Adams"@de ;
+	schema:name "Douglas Adams"@de ;
+	schema:description "English author and humorist"@en ;
+	skos:altLabel "DNA"@en .
+
+v:abfb822748a314cd9bb1132c1c731a39 a wikibase:GlobecoordinateValue ;
+	wikibase:geoLatitude "51.5"^^xsd:double ;
+	wikibase:geoLongitude "-0.1275"^^xsd:double ;
+	wikibase:geoPrecision "0.0001"^^xsd:double ;
+	wikibase:geoGlobe <http://www.wikidata.org/entity/Q2> .
+
+v:ee7a3b3b3cad181ed729f7c25d9e92d2 a wikibase:QuantityValue ;
+	wikibase:quantityAmount "+1.96"^^xsd:decimal ;
+	wikibase:quantityUpperBound "+1.97"^^xsd:decimal ;
+	wikibase:quantityLowerBound "+1.95"^^xsd:decimal ;
+	wikibase:quantityUnit <http://localhost:8080/entity/Q3> .
+
+v:a168135f766cf673e04ee1850837047d a wikibase:QuantityValue ;
+	wikibase:quantityAmount "+42"^^xsd:decimal ;
+	wikibase:quantityUnit <http://www.wikidata.org/entity/Q199> .
+
+v:426df9023763f08b066f4478480f44cd a wikibase:TimeValue ;
+	wikibase:timeValue "1952-03-11T00:00:00Z"^^xsd:dateTime ;
+	wikibase:timePrecision "11"^^xsd:integer ;
+	wikibase:timeTimezone "0"^^xsd:integer ;
+	wikibase:timeCalendarModel <http://www.wikidata.org/entity/Q1985727> .
+
+v:7339bad773afdb83fb9023d276846b08 a wikibase:TimeValue ;
+	wikibase:timeValue "1500-01-01T00:00:00Z"^^xsd:dateTime ;
+	wikibase:timePrecision "9"^^xsd:integer ;
+	wikibase:timeTimezone "0"^^xsd:integer ;
+	wikibase:timeCalendarModel <http://www.wikidata.org/entity/Q1985786> .
+
+v:f9b310f30d1085521745478478955030 a wikibase:TimeValue ;
+	wikibase:timeValue "1985-04-12T23:20:30Z"^^xsd:dateTime ;
+	wikibase:timePrecision "13"^^xsd:integer ;
+	wikibase:timeTimezone "0"^^xsd:integer ;
+	wikibase:timeCalendarModel <http://www.wikidata.org/entity/Q1985727> .
+
+v:acc5fbee06fa01b719c5cb2d7c5fecb9 a wikibase:TimeValue ;
+	wikibase:timeValue "1985-04-12T23:20:30Z"^^xsd:dateTime ;
+	wikibase:timePrecision "13"^^xsd:integer ;
+	wikibase:timeTimezone "240"^^xsd:integer ;
+	wikibase:timeCalendarModel <http://www.wikidata.org/entity/Q1985727> .
+
+v:b937e3c15d6531de801c5ef67edc50c4 a wikibase:TimeValue ;
+	wikibase:timeValue "2004-06-01T00:00:00Z"^^xsd:dateTime ;
+	wikibase:timePrecision "10"^^xsd:integer ;
+	wikibase:timeTimezone "0"^^xsd:integer ;
+	wikibase:timeCalendarModel <http://www.wikidata.org/entity/Q1985727> .
+
+v:816ab642731698b08a1c55f70e97f393 a wikibase:TimeValue ;
+	wikibase:timeValue "1667-01-01T00:00:00Z"^^xsd:dateTime ;
+	wikibase:timePrecision "9"^^xsd:integer ;
+	wikibase:timeTimezone "0"^^xsd:integer ;
+	wikibase:timeCalendarModel <http://www.wikidata.org/entity/Q1985727> .
+
+v:08258d0d853db332e29ec869283f6564 a wikibase:TimeValue ;
+	wikibase:timeValue "1668-01-01T00:00:00Z"^^xsd:dateTime ;
+	wikibase:timePrecision "9"^^xsd:integer ;
+	wikibase:timeTimezone "0"^^xsd:integer ;
+	wikibase:timeCalendarModel <http://www.wikidata.org/entity/Q1985727> .
+
+v:c9cc548e620665ad0d26f1ba6e345ab3 a wikibase:TimeValue ;
+	wikibase:timeValue "1670-01-01T00:00:00Z"^^xsd:dateTime ;
+	wikibase:timePrecision "9"^^xsd:integer ;
+	wikibase:timeTimezone "0"^^xsd:integer ;
+	wikibase:timeCalendarModel <http://www.wikidata.org/entity/Q1985727> .
+
+v:c3681f7bc0bfab1b9687aaa44cd18947 a wikibase:TimeValue ;
+	wikibase:timeValue "1671-01-01T00:00:00Z"^^xsd:dateTime ;
+	wikibase:timePrecision "9"^^xsd:integer ;
+	wikibase:timeTimezone "0"^^xsd:integer ;
+	wikibase:timeCalendarModel <http://www.wikidata.org/entity/Q1985727> .
+
+v:6381f3faa36deb9101de3de938174615 a wikibase:TimeValue ;
+	wikibase:timeValue "1672-01-01T00:00:00Z"^^xsd:dateTime ;
+	wikibase:timePrecision "9"^^xsd:integer ;
+	wikibase:timeTimezone "0"^^xsd:integer ;
+	wikibase:timeCalendarModel <http://www.wikidata.org/entity/Q1985727> .
+
+v:8855cd4ad3525541b7b35605f595454e a wikibase:TimeValue ;
+	wikibase:timeValue "2001-03-01T00:00:00Z"^^xsd:dateTime ;
+	wikibase:timePrecision "10"^^xsd:integer ;
+	wikibase:timeTimezone "0"^^xsd:integer ;
+	wikibase:timeCalendarModel <http://www.wikidata.org/entity/Q1985727> .
+
+v:6493ad7ba2fe49c8f29e1cd49b8292b9 a wikibase:TimeValue ;
+	wikibase:timeValue "2001-04-01T00:00:00Z"^^xsd:dateTime ;
+	wikibase:timePrecision "10"^^xsd:integer ;
+	wikibase:timeTimezone "0"^^xsd:integer ;
+	wikibase:timeCalendarModel <http://www.wikidata.org/entity/Q1985727> .
+
+v:b2cbe72dd8ded3ff2dd314e80f5781b6 a wikibase:TimeValue ;
+	wikibase:timeValue "2001-05-01T00:00:00Z"^^xsd:dateTime ;
+	wikibase:timePrecision "10"^^xsd:integer ;
+	wikibase:timeTimezone "0"^^xsd:integer ;
+	wikibase:timeCalendarModel <http://www.wikidata.org/entity/Q1985727> .
+
+v:3f093c9a27e9362ee69eee1bc433ef19 a wikibase:TimeValue ;
+	wikibase:timeValue "1900-01-01T00:00:00Z"^^xsd:dateTime ;
+	wikibase:timePrecision "9"^^xsd:integer ;
+	wikibase:timeTimezone "0"^^xsd:integer ;
+	wikibase:timeCalendarModel <http://www.wikidata.org/entity/Q1985727> .
+
+v:c28e95b9bbb6b17f9be158e8ab14cde3 a wikibase:TimeValue ;
+	wikibase:timeValue "1984-06-02T00:00:00Z"^^xsd:dateTime ;
+	wikibase:timePrecision "11"^^xsd:integer ;
+	wikibase:timeTimezone "0"^^xsd:integer ;
+	wikibase:timeCalendarModel <http://www.wikidata.org/entity/Q1985727> .
+
+ref:eaf0a11b92f297234266b31f9331c3ebcfe09c1e a wikibase:Reference ;
+	pr:P8 <https://example.org/source> ;
+	pr:P4 "1952-03-11T00:00:00Z"^^xsd:dateTime ;
+	prv:P4 v:426df9023763f08b066f4478480f44cd .

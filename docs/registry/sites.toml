@@ -1,0 +1,85 @@
+# Site aliases.  ADR 0026 §2.
+#
+# A sitelink is a URL and its site ID is its host (0026 §2). A site alias gives a host the
+# MediaWiki site ID, article path and language that Wikidata tooling expects, so that
+# `enwiki` + `Douglas Adams` and https://en.wikipedia.org/wiki/Douglas_Adams are one sitelink.
+# There is no site table: an alias exists only for compatibility, and a host without one is
+# linked by URL with the host as its site ID.
+#
+# The full default set is generated from Wikimedia's site matrix (API:Sitematrix) by
+# `scripts/gen-sites.py` (to be written) and committed; the entries below are the hand-written
+# seed and the shape the generator produces. A tenant adds aliases for other MediaWiki hosts
+# as config records of kind `site-alias`.
+#
+# id         MediaWiki site ID (the global ID in the sites table).
+# host       The host, as a Domain key (0009 §2).
+# path       Article path with $1 for the title.
+# language   Content language, for schema:inLanguage.
+# group      MediaWiki site group, informational.
+
+version = 1
+generated_from = "https://meta.wikimedia.org/w/api.php?action=sitematrix"
+generated_at = "pending"
+
+[[site]]
+id = "enwiki"
+host = "en.wikipedia.org"
+path = "/wiki/$1"
+language = "en"
+group = "wikipedia"
+
+[[site]]
+id = "dewiki"
+host = "de.wikipedia.org"
+path = "/wiki/$1"
+language = "de"
+group = "wikipedia"
+
+[[site]]
+id = "frwiki"
+host = "fr.wikipedia.org"
+path = "/wiki/$1"
+language = "fr"
+group = "wikipedia"
+
+[[site]]
+id = "eswiki"
+host = "es.wikipedia.org"
+path = "/wiki/$1"
+language = "es"
+group = "wikipedia"
+
+[[site]]
+id = "enwikisource"
+host = "en.wikisource.org"
+path = "/wiki/$1"
+language = "en"
+group = "wikisource"
+
+[[site]]
+id = "commonswiki"
+host = "commons.wikimedia.org"
+path = "/wiki/$1"
+language = "en"
+group = "commons"
+
+[[site]]
+id = "wikidatawiki"
+host = "www.wikidata.org"
+path = "/wiki/$1"
+language = "en"
+group = "wikidata"
+
+[[site]]
+id = "metawiki"
+host = "meta.wikimedia.org"
+path = "/wiki/$1"
+language = "en"
+group = "special"
+
+[[site]]
+id = "mediawikiwiki"
+host = "www.mediawiki.org"
+path = "/wiki/$1"
+language = "en"
+group = "special"

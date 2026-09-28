@@ -1,0 +1,69 @@
+# API-key grants.  ADR 0024 §4.
+#
+# A grant names a set of permissions (groups.toml) that a key may exercise. The effective
+# permissions of a request are the subsidiary account's own permissions intersected with the
+# permissions its key's grants cover; a grant never confers a permission the account lacks.
+# Names follow MediaWiki's grants ($wgGrantPermissions) where MediaWiki has one, so that
+# Pywikibot users recognise them; `editentity` and `ts-jobs` are Triplespace's.
+# `basic` is always included in every key.
+
+version = 1
+
+[[grant]]
+name = "basic"
+always = true
+permissions = ["read", "viewmywatchlist", "viewmyprivateinfo"]
+
+[[grant]]
+name = "highvolume"
+description = "Bot rate limits and the bot flag, if the account holds `bot`"
+permissions = ["bot", "noratelimit"]
+
+[[grant]]
+name = "editpage"
+description = "Edit document pages, threads and posts"
+permissions = ["edit", "editcontentmodel"]
+
+[[grant]]
+name = "createeditmovepage"
+description = "editpage plus creating and moving pages"
+permissions = ["edit", "editcontentmodel", "createpage", "move"]
+
+[[grant]]
+name = "editentity"
+description = "Edit entities: statements, terms, redirects, merges and identity links"
+permissions = ["edit", "item-term", "property-term", "item-redirect", "item-merge", "ts-link"]
+
+[[grant]]
+name = "editprotected"
+description = "Edits admitted by protection ACLs the account's groups satisfy (0023 §1)"
+permissions = []                    # no permission of its own; it lifts the key-level bar only
+
+[[grant]]
+name = "patrol"
+permissions = ["patrol"]
+
+[[grant]]
+name = "delete"
+permissions = ["delete", "undelete", "deleterevision", "deletelogentry"]
+
+[[grant]]
+name = "protect"
+permissions = ["protect"]
+
+[[grant]]
+name = "blockusers"
+permissions = ["block"]
+
+[[grant]]
+name = "viewdeleted"
+permissions = ["deletedhistory", "deletedtext", "browsearchive"]
+
+[[grant]]
+name = "editmywatchlist"
+permissions = ["editmywatchlist"]
+
+[[grant]]
+name = "ts-jobs"
+description = "Submit, revert and inspect bulk jobs; set retention; convert"
+permissions = ["ts-runjob", "ts-revertjob", "ts-viewrejects", "ts-retain", "ts-convert"]
