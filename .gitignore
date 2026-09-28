@@ -1,0 +1,73 @@
+# Triplespace
+# Layout: docs/decisions/0033 and 0034; see also the directory proposal of 2026-09-27.
+
+# --- Rust ---------------------------------------------------------------
+# Cargo.lock is committed: the workspace builds a binary.
+/target/
+**/*.rs.bk
+# Leftovers from a crashed `cargo insta test`; accepted snapshots (*.snap) are committed.
+*.snap.new
+*.pending-snap
+# proptest-regressions/ is committed on purpose: it pins failing cases.
+
+# cargo-fuzz (outside the workspace, own target dir)
+/fuzz/target/
+/fuzz/artifacts/
+/fuzz/corpus/
+/fuzz/coverage/
+
+# Coverage and profiling
+*.profraw
+*.profdata
+lcov.info
+/coverage/
+/mutants.out*/
+
+# --- ui/ (npm package; package-lock.json is committed) -------------------
+/ui/node_modules/
+# Vite output, embedded into the binary at release build (0034 §8)
+/ui/dist/
+# wasm-bindgen output of scatter-wasm (0034 §6)
+/ui/generated/
+/ui/.vite/
+/ui/coverage/
+# Playwright
+/ui/test-results/
+/ui/playwright-report/
+/ui/blob-report/
+/ui/playwright/.cache/
+*.tsbuildinfo
+.eslintcache
+.stylelintcache
+npm-debug.log*
+
+# --- Local instance state ---------------------------------------------
+# Secrets are read from files (0033 §12); keep them here, never in config/.
+/secrets/
+*.pem
+*.key
+.env
+.env.*
+# Personal overrides of config/dev.toml
+/config/*.local.toml
+# Local log segments, dumps, RevisionChest stores and exports
+/data/
+/dumps/
+*.mwrev.zst
+# Bind-mounted volumes from compose.yaml
+/.compose/
+
+# --- Python (docs/decisions/check_adrs.py) ------------------------------
+__pycache__/
+*.py[cod]
+
+# --- Editors and OS --------------------------------------------------------
+.DS_Store
+._*
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*.swo
+*~
