@@ -51,6 +51,8 @@ unused-allowed-license = "allow"
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
+# Workspace crates depend on each other by path, without a version (they are not published).
+allow-wildcard-paths = true
 highlight = "all"
 deny = [
     # Never openssl (0033 §16).
