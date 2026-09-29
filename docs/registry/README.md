@@ -28,5 +28,4 @@ This directory is the registry of record for the names and codes that Triplespac
 
 ## Pending allocations
 
-- A two-letter code for internetdomains.wiki ([0009](../decisions/0009-keyed-entity-types-and-domain.md), open questions). The slug `internetdomains` is reserved below.
-- Filing the registration of 210–229 on mediawiki.org's [Extension default namespaces](https://www.mediawiki.org/wiki/Extension_default_namespaces) page. The numbers are allocated in `namespaces.toml` ([0008](../decisions/0008-namespaces-and-document-pages.md) §2, as amended 2026-09-27): Domain 210/211, Keyword 212/213, Thread 214/215, DOI 220/221, URL 222/223; 216–219 and 224–229 are free. As of 2026-09-27 the page lists nothing between 204 and 240.
+- Filing the registration of 210–229 on mediawiki.org's [Extension default namespaces](https://www.mediawiki.org/wiki/Extension_default_namespaces) page. The numbers are allocated in `namespaces.toml` ([0008](../decisions/0008-namespaces-and-document-pages.md) §2, as amended 2026-09-27): Domain 210/211, Keyword 212/213, Thread 214/215, OSM 216/217, DOI 220/221, URL 222/223; 218–219 and 224–229 are free. As of 2026-09-27 the page lists nothing between 204 and 240.

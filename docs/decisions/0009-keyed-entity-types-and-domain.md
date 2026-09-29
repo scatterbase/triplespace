@@ -3,7 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-09-26
 - **Author:** James Hare / Claude Opus
-- **Amended by:** [0005 — Crate organization, revision of 2026-09-26](0005-crate-organization.md) (§2 crate names), [0017 — Entity ID grammar](0017-entity-id-grammar.md), [0026 — Sitelinks are URLs](0026-sitelinks.md) (§5 extends §5: sitelink hosts are Domains, and the Domain page counts them; §3 uses §2 and §8 for allow and deny lists), [0029 — Resolver namespaces](0029-resolver-namespaces.md) (§1 settles the DOI open question)
+- **Amended by:** [0036 — OpenStreetMap: map data, the wiki vocabulary and the `osm-tag` keyed type](0036-openstreetmap-providers.md) (§3 and §5: a second key-mapped provider, for the OSM wiki), [0005 — Crate organization, revision of 2026-09-26](0005-crate-organization.md) (§2 crate names), [0017 — Entity ID grammar](0017-entity-id-grammar.md), [0026 — Sitelinks are URLs](0026-sitelinks.md) (§5 extends §5: sitelink hosts are Domains, and the Domain page counts them; §3 uses §2 and §8 for allow and deny lists), [0029 — Resolver namespaces](0029-resolver-namespaces.md) (§1 settles the DOI open question)
 - **Related:** [0000 — Initial proposition](0000-init.md), [0002 — Source graphs and mass ingest](0002-source-graphs-and-mass-ingest.md) (amends §4 and §5), [0004 — Identity clusters and equivalence](0004-identity-clusters-and-equivalence.md) (amends §4), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (amends §2), [0006 — Log integrity and erasure](0006-log-integrity-and-erasure.md), [0008 — Namespaces and document pages](0008-namespaces-and-document-pages.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
 ## Context
@@ -220,8 +220,8 @@ A local bulk job:
 ## Open questions
 
 - ~~**Namespace number.** An unused subject and talk pair has to be chosen and registered on mediawiki.org's [Extension default namespaces](https://www.mediawiki.org/wiki/Extension_default_namespaces) page.~~ *Settled: 210/211, in the 210–219 range ([0008](0008-namespaces-and-document-pages.md) §2, as amended). Filing the registration on mediawiki.org is a pending action in the registry README, not a decision.*
-- **Provider code** for internetdomains.wiki's non-domain items, under the provider registry that is still open in [0000](0000-init.md).
-- **The identity property.** Which internetdomains.wiki property carries the domain name, and whether its values are stored as A-labels or U-labels.
+- ~~**Provider code** for internetdomains.wiki's non-domain items, under the provider registry that is still open in [0000](0000-init.md).~~ *Settled: `XD` (`XDQ` items, `XDP` properties), slug `internetdomains`, provider number 5, in `docs/registry/providers.toml` (registry commit, 2026-09-28).*
+- **The identity property.** ~~Which internetdomains.wiki property carries the domain name~~ *Settled: `P1` (string), in the provider's adapter configuration; dropped from the mirrored state on mapped items.* Still open: whether its values are stored as A-labels or U-labels.
 - **Resolving duplicates locally.** Whether the instance may choose which upstream item maps to a key while a duplicate stays unresolved upstream, and with what operation.
 - **What `scatter.red` serves** at `https://scatter.red/domain/{key}`: nothing, a 303 redirect to an instance, or a small document.
 - ~~**The next keyed types.** DOI is the obvious candidate. Its normalizer exists ([0004](0004-identity-clusters-and-equivalence.md) §7), but its IRI would be `https://doi.org/{key}`, and a DOI can contain almost any character, so its key grammar and its ID disjointness need their own analysis.~~ *Settled by [0017](0017-entity-id-grammar.md) §5 (Keyword is the second keyed type; disjointness comes from the `type:` prefix) and [0029](0029-resolver-namespaces.md) §1 (DOI is a resolver, not a keyed type: it names a thing that already has an item). 0029's Consequences state the rule for the next identifier.*

@@ -180,7 +180,23 @@ id = 215
 canonical = "Thread talk"
 kind = "reserved"           # a thread is discussed in itself (0019 §3)
 
-# 216–219 unallocated.
+[[namespace]]
+id = 216
+canonical = "OSM"
+kind = "entity"
+entity_types = ["osm-tag"]
+normalizer = "osm-tag"
+case = "case-sensitive"
+subpages = false
+talk = 217
+defined_in = "0036 §3"
+
+[[namespace]]
+id = 217
+canonical = "OSM talk"
+kind = "composite"
+
+# 218–219 unallocated.
 
 # --- Resolver prefixes: 220–229 (0029) ----------------------------------------------------------
 [[namespace]]

@@ -43,5 +43,22 @@ display = "editable; when no label exists, the key with hyphens shown as spaces"
 clusters = false                 # same-as with a keyword is rejected (0017 §5)
 defined_in = "0017"
 
+# OSM tag or key (ADR 0036 §3): one type for `amenity` and `amenity=cafe`, as Wikidata's P1282 is
+# "OpenStreetMap tag or key". Keys never contain `=`, so the two forms cannot collide, and the
+# wiki's own classes (Q7 key, Q2 tag) map to it through different identity properties. The
+# wiki's Key: and Tag: page titles are the same strings.
+[[keyed_type]]
+name = "osm-tag"
+label = "OSM tag or key"
+namespace = "OSM"
+data_type = "wikibase-osm-tag"
+iri = "https://scatter.red/osm-tag/{key}"
+id_prefix = "osmtag:"
+grammar = "a key of 1 to 255 characters, or a key, `=` and a value of 1 to 255 characters; no control characters, no `=` in the key, no leading or trailing whitespace in either part; Unicode NFC"
+normalizer = "none: the exact string, case-sensitive; input that is not NFC is not a valid key"
+display = "derived: the string itself as the mul label; descriptions and aliases editable and reconciled like an item's (0002 §3)"
+clusters = false                 # same-as with an osm-tag is rejected, as with keywords (0017 §5)
+defined_in = "0036"
+
 # DOI is a resolver (resolvers.toml, 0029), not a keyed type: a DOI names a thing that already has
 # an item. Resolver names and keyed-type names share one namespace, so `doi` is taken.

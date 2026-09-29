@@ -26,7 +26,10 @@
 version = 1
 
 # id_grammar   How the part after the three-letter prefix is formed (0017 §2): "digits" (default,
-#              canonical as given) or "uuid" (RFC 4122 text form, canonical lowercase).
+#              canonical as given), "uuid" (RFC 4122 text form, canonical lowercase), "gdelt-record"
+#              (14 digits, `-`, optional `T`, digits) or "token" (uppercase letters, digits and
+#              underscores, starting with a letter; 0037 §2). May be set on a provider or, overriding it,
+#              on a single type.
 # key_mapped   On a type: upstream entities of this type are written under a keyed type's keys
 #              (0009 §9) instead of prefixed IDs. The type code stays reserved.
 
@@ -307,15 +310,196 @@ id_grammar = "uuid"
   # that links them.
 
 # ---------------------------------------------------------------------------
-# internetdomains.wiki — slug reserved; code and number pending (README)
+# internetdomains.wiki (Internet Domains Wikibase)
 # ---------------------------------------------------------------------------
+# Key-mapped provider (0009 §9): a domain item with one valid identity value is written under its
+# Domain key (domain:{key}) and never appears as an XDQ subject; the upstream ID becomes an alias.
+# Items with no identity value (registrars, organizations, classes) stay ordinary foreign items
+# as XDQ{n}; properties are XDP{n}. An invalid or duplicate identity value is rejected and the item
+# stays a foreign XDQ item. The identity property is adapter configuration, not part of the ID scheme.
 [[provider]]
+code = "XD"
 slug = "internetdomains"
 name = "Internet Domains Wikibase"
-pending = true
+number = 5
+issuer = "internetdomains"
 revision_ids = true
 article_path = "https://internetdomains.wiki/wiki/"
 api = "https://internetdomains.wiki/w/api.php"
 adapter = "scatter-adapter-internetdomains"
-# Key-mapped provider (0009 §9): domain items are written under Domain keys, not prefixed IDs.
-# The identity property (0009, open questions) is set in the instance's provider config.
+# The wiki was domains.wikibase.cloud before it moved to internetdomains.wiki (0018 §4); the
+# slug and every internetdomains:{id} actor key are stable across the move.
+
+  # Adapter configuration (0009 §9). P1 is a string property holding the domain name.
+  [provider.adapter_config]
+  identity_property = "P1"
+  key_type = "domain"              # keyed-types.toml
+  # On a mapped item P1 is dropped from the mirrored state: the key is the value. It is kept on
+  # unmapped or rejected items, where it is ordinary data.
+  identity_property_on_mapped = "drop"
+
+  [[provider.type]]
+  code = "Q"
+  entity_type = "item"
+  upstream_prefix = "Q"
+  iri = "https://internetdomains.wiki/entity/{upstream_id}"
+  namespace = "Item"               # key-mapped items live in the Domain namespace instead; only unmapped items are XDQ
+
+  [[provider.type]]
+  code = "P"
+  entity_type = "property"
+  upstream_prefix = "P"
+  iri = "https://internetdomains.wiki/entity/{upstream_id}"
+  namespace = "Property"
+
+# ---------------------------------------------------------------------------
+# OpenStreetMap (map data) — ADR 0036
+# ---------------------------------------------------------------------------
+# Nodes, ways and relations from the planet file, replication diffs and the API. Each type has its
+# own ID space (node 1 and way 1 are unrelated), so the type code is what keeps IDs apart:
+# OSN123, OSW123, OSR123. IDs are bare digits and never reused. Tags are not entities here: they
+# become statements that refer to osm-tag entities or fall back to text (0036 §4).
+# The OSM wiki's Wikibase is a separate provider (OW, below), not a type of this one (0036 §1).
+[[provider]]
+code = "OS"
+slug = "openstreetmap"
+name = "OpenStreetMap"
+number = 6
+issuer = "openstreetmap"
+revision_ids = false             # versions are per object and changesets are not global revisions; n is the mirror record's offset (0015 §2)
+article_path = "https://www.openstreetmap.org/"
+api = "https://api.openstreetmap.org/api/0.6/"
+adapter = "scatter-adapter-openstreetmap"
+# agent_iri: OpenStreetMap's Wikidata item, as a prov:Organization (0007 §6) — to be set when confirmed
+
+  [[provider.type]]
+  code = "N"
+  entity_type = "item"
+  upstream_prefix = ""
+  iri = "https://www.openstreetmap.org/node/{upstream_id}"
+  namespace = "Item"
+  label = "Node"
+
+  [[provider.type]]
+  code = "W"
+  entity_type = "item"
+  upstream_prefix = ""
+  iri = "https://www.openstreetmap.org/way/{upstream_id}"
+  namespace = "Item"
+  label = "Way"
+
+  [[provider.type]]
+  code = "R"
+  entity_type = "item"
+  upstream_prefix = ""
+  iri = "https://www.openstreetmap.org/relation/{upstream_id}"
+  namespace = "Item"
+  label = "Relation"
+
+# ---------------------------------------------------------------------------
+# OpenStreetMap Wiki data items — ADR 0036
+# ---------------------------------------------------------------------------
+# The Wikibase at wiki.openstreetmap.org that documents OSM keys and tags: items are instances of
+# Q7 (OpenStreetMap key) or Q2 (OpenStreetMap tag). Mirrored like any Wikibase, and key-mapped
+# like internetdomains.wiki (0009 §9): a key or tag item with one valid identity value is written
+# under its osm-tag key (keyed-types.toml) and never appears as an OWQ subject. What remains
+# (the classes Q2 and Q7, value-type items such as Q8, the wiki's own properties) is OWQ and OWP.
+[[provider]]
+code = "OW"
+slug = "osmwiki"
+name = "OpenStreetMap Wiki data items"
+number = 7
+issuer = "osmwiki"
+revision_ids = true
+article_path = "https://wiki.openstreetmap.org/wiki/"
+api = "https://wiki.openstreetmap.org/w/api.php"
+adapter = "scatter-adapter-wikidata"    # any MediaWiki+Wikibase; the adapter is parameterised by this entry
+# The concept base URI below is what Sophox uses; confirm it against Special:EntityData before the first load.
+
+  # Adapter configuration (0036 §3). One entry per class of mapped item. The class and the
+  # identity property are the wiki's own IDs (Q7, P16); an item of the class with exactly one valid
+  # identity value is mapped, as in 0009 §9.
+  [[provider.adapter_config.key_map]]
+  class = "Q7"                     # OpenStreetMap key
+  identity_property = "P16"        # permanent key ID; the wiki states it never changes
+  key_type = "osm-tag"
+
+  [[provider.adapter_config.key_map]]
+  class = "Q2"                     # OpenStreetMap tag
+  identity_property = "P19"        # permanent tag ID, key=value
+  key_type = "osm-tag"
+
+  [provider.adapter_config]
+  identity_property_on_mapped = "drop"
+  # Concept links (0036 §5): statements on the mapped entity, never same-as. osm-tag has clusters = false.
+  concept_link_properties = ["P7", "P12"]     # Wikidata equivalent, Wikidata concept
+  # Properties marked DEPRECATED upstream are skipped.
+  skip_deprecated_properties = true
+
+  [[provider.type]]
+  code = "Q"
+  entity_type = "item"
+  upstream_prefix = "Q"
+  iri = "https://wiki.openstreetmap.org/entity/{upstream_id}"
+  namespace = "Item"               # mapped key and tag items live in the OSM namespace instead; only unmapped items are OWQ
+
+  [[provider.type]]
+  code = "P"
+  entity_type = "property"
+  upstream_prefix = "P"
+  iri = "https://wiki.openstreetmap.org/entity/{upstream_id}"
+  namespace = "Property"
+
+# ---------------------------------------------------------------------------
+# GDELT — ADR 0037
+# ---------------------------------------------------------------------------
+# The GDELT 2.0 event, mention and GKG files, published every 15 minutes. GDELT mints no IRIs and
+# no IDs for actors, people or places; the four types below are the things it does identify.
+# The canonical IRIs are Triplespace's, under scatter.red (0037 §2). The adapter mirrors a
+# configured subset, not the whole feed (0037 §5).
+[[provider]]
+code = "GD"
+slug = "gdelt"
+name = "GDELT"
+number = 8
+issuer = "gdelt"
+revision_ids = false             # append-only files; n is the mirror record's offset (0015 §2)
+article_path = "https://www.gdeltproject.org/"
+api = "http://data.gdeltproject.org/gdeltv2/"
+adapter = "scatter-adapter-gdelt"
+# agent_iri: GDELT's Wikidata item, as a prov:Organization (0007 §6) — to be set when confirmed
+
+  [[provider.type]]
+  code = "E"
+  entity_type = "item"
+  upstream_prefix = ""
+  iri = "https://scatter.red/gdelt/event/{upstream_id}"
+  namespace = "Item"
+  label = "Event"                # GlobalEventID
+
+  [[provider.type]]
+  code = "D"
+  entity_type = "item"
+  upstream_prefix = ""
+  id_grammar = "gdelt-record"    # GKGRECORDID: YYYYMMDDHHMMSS-n, or YYYYMMDDHHMMSS-Tn for a translated record
+  iri = "https://scatter.red/gdelt/document/{upstream_id}"
+  namespace = "Item"
+  label = "Document"
+
+  [[provider.type]]
+  code = "C"
+  entity_type = "item"
+  upstream_prefix = ""
+  iri = "https://scatter.red/gdelt/cameo/{upstream_id}"
+  namespace = "Item"
+  label = "CAMEO event code"     # the code as GDELT prints it, leading zeros kept (0311)
+
+  [[provider.type]]
+  code = "T"
+  entity_type = "item"
+  upstream_prefix = ""
+  id_grammar = "token"
+  iri = "https://scatter.red/gdelt/theme/{upstream_id}"
+  namespace = "Item"
+  label = "GKG theme"            # TAX_FNCACT_MAYOR
+

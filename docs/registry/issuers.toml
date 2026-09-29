@@ -89,3 +89,42 @@ name = "MusicBrainz"
 actor_model = "provider-only"    # editor IDs exist in MusicBrainz but are not carried by the data
 login = false                     # replication or the web service; revisit if edit history is mirrored
 providers = ["musicbrainz"]
+
+[[issuer]]
+code = "internetdomains"
+name = "Internet Domains Wikibase"
+actor_model = "numeric"
+iri = "https://internetdomains.wiki/wiki/Special:Redirect/user/{id}"
+users_api = "https://internetdomains.wiki/w/api.php"
+login = false
+providers = ["internetdomains"]
+# Formerly domains.wikibase.cloud; the code is the slug and survives the move (0018 §4).
+
+[[issuer]]
+code = "openstreetmap"
+name = "OpenStreetMap"
+actor_model = "numeric"
+# Changeset authors are OSM user IDs. An account may be deleted or hidden; the ID then resolves to
+# an anonymous stub, and the adapter must not resolve names for such accounts (0007 §2).
+iri = "https://www.openstreetmap.org/api/0.6/user/{id}"
+users_api = "https://api.openstreetmap.org/api/0.6/"
+login = false
+providers = ["openstreetmap"]
+
+[[issuer]]
+code = "osmwiki"
+name = "OpenStreetMap Wiki"
+actor_model = "numeric"
+# Wiki accounts have their own user IDs, unrelated to OpenStreetMap's (0036 §2).
+iri = "https://wiki.openstreetmap.org/wiki/Special:Redirect/user/{id}"
+users_api = "https://wiki.openstreetmap.org/w/api.php"
+login = false
+providers = ["osmwiki"]
+
+[[issuer]]
+code = "gdelt"
+name = "GDELT"
+actor_model = "provider-only"    # machine-coded; there are no individual editors
+login = false
+providers = ["gdelt"]
+
