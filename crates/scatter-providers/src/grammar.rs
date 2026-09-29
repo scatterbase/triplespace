@@ -11,7 +11,9 @@ use std::str::FromStr;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 #[non_exhaustive]
 pub enum IdGrammar {
-    /// One or more decimal digits, no leading zero. Canonical as given. The default.
+    /// One or more decimal digits. Canonical as given, so leading zeros are significant
+    /// where upstream has them (a CAMEO code `0311`, 0037 §2); providers that never mint
+    /// them, such as Wikidata, never produce them. The default.
     #[default]
     Digits,
     /// An RFC 4122 UUID in its 36-character hyphenated text form. Canonical lowercase.
@@ -87,8 +89,7 @@ impl FromStr for IdGrammar {
 }
 
 fn digits(s: &str) -> bool {
-    let b = s.as_bytes();
-    !b.is_empty() && b.iter().all(u8::is_ascii_digit) && (b.len() == 1 || b[0] != b'0')
+    !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit())
 }
 
 fn uuid(s: &str) -> bool {
@@ -128,7 +129,12 @@ mod tests {
     fn digits_grammar() {
         assert_eq!(IdGrammar::Digits.canonicalize("42").as_deref(), Some("42"));
         assert_eq!(IdGrammar::Digits.canonicalize("0").as_deref(), Some("0"));
-        assert_eq!(IdGrammar::Digits.canonicalize("042"), None);
+        // Leading zeros are kept as given: a CAMEO code (0037 §2) is `0311`, not `311`.
+        assert_eq!(
+            IdGrammar::Digits.canonicalize("0311").as_deref(),
+            Some("0311")
+        );
+        assert!(IdGrammar::Digits.is_canonical("0311"));
         assert_eq!(IdGrammar::Digits.canonicalize(""), None);
         assert_eq!(IdGrammar::Digits.canonicalize("4a"), None);
     }

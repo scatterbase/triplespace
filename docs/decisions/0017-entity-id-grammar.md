@@ -43,7 +43,7 @@ Each foreign entity type declares an **ID grammar** in `providers.toml`. It says
 
 | Grammar | Rest of the ID | Canonical form | Used by |
 |---|---|---|---|
-| `digits` | One or more decimal digits, no leading zero | As given | Wikidata, Librarybase, OpenAlex (the default) |
+| `digits` | One or more decimal digits | As given; leading zeros are significant where upstream has them (amended 2026-09-28: a CAMEO code is `0311`, [0037](0037-gdelt-provider.md) §2). Providers that never mint them, such as Wikidata, never produce them | Wikidata, Librarybase, OpenAlex (the default) |
 | `uuid` | An RFC 4122 UUID in its 36-character hyphenated text form | Lowercase | MusicBrainz |
 
 Input is case-insensitive in every position. **Canonicalizing an ID uppercases its prefix and applies the grammar's canonical form to the rest**, so `mbab10BBBFC-…` becomes `MBAb10bbbfc-…`. This amends the `entity-id` normalizer of [0008](0008-namespaces-and-document-pages.md) §3, which uppercased the whole ID, and the ID rewriting of [0002](0002-source-graphs-and-mass-ingest.md) §4, which becomes: strip or add the prefix, and canonicalize the rest by the type's grammar. The rewriting of upstream IDs also honours `upstream_prefix`, so `keywords/…` and MusicBrainz's bare MBIDs both round-trip.

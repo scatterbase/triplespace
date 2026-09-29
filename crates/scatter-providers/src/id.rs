@@ -288,6 +288,16 @@ mod tests {
 
         let gd = reg().parse_foreign_id("gdd20150218230000-t12").unwrap();
         assert_eq!(gd.to_string(), "GDD20150218230000-T12");
+        let cameo = reg().parse_foreign_id("GDC0311").unwrap();
+        assert_eq!(
+            cameo.to_string(),
+            "GDC0311",
+            "leading zeros are significant"
+        );
+        assert_eq!(
+            cameo.concept_iri().as_str(),
+            "https://scatter.red/gdelt/cameo/0311"
+        );
         let theme = reg().parse_foreign_id("GDTtax_fncact_mayor").unwrap();
         assert_eq!(theme.to_string(), "GDTTAX_FNCACT_MAYOR");
         assert_eq!(
@@ -343,7 +353,7 @@ mod tests {
             Err(IdError::KeyMapped { prefix }) if prefix == "OAK"
         ));
         assert!(matches!(
-            r.parse_foreign_id("WDQ042"),
+            r.parse_foreign_id("WDQ4a"),
             Err(IdError::Grammar {
                 grammar: IdGrammar::Digits,
                 ..
