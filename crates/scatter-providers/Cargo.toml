@@ -1,0 +1,19 @@
+[package]
+name = "scatter-providers"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "The provider registry: codes, slugs, numbers, type codes, ID grammars, IRI templates and ID rewriting"
+publish = false
+
+[dependencies]
+oxrdf.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+toml.workspace = true
+
+[lints]
+workspace = true
