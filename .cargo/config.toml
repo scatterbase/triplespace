@@ -1,3 +1,9 @@
 [alias]
 # Repository tasks (xtask/): `cargo xtask deps`, `cargo xtask wasm`.
 xtask = "run --quiet --package xtask --"
+
+# The rule-7 crates (0005 §3) run in the browser through wasm-bindgen (0034 §6). `oxrdf`
+# pulls in `rand` → `getrandom`, which on wasm32-unknown-unknown must be told it runs under
+# JavaScript: this cfg plus the `wasm_js` feature the crates enable on wasm targets.
+[target.wasm32-unknown-unknown]
+rustflags = ['--cfg', 'getrandom_backend="wasm_js"']

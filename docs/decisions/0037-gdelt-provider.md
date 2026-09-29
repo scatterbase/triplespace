@@ -115,7 +115,7 @@ GDELT's terms allow use, redistribution and mirroring in any form, and require a
 
 - `providers.toml`: `GD` (number 8) with types `E`, `D`, `C`, `T`. `issuers.toml`: `gdelt`. No keyed type and no namespace are added.
 - **New crate:** `scatter-adapter-gdelt` (layer 3), depending on `scatter-wikibase-changeset`, `scatter-wikibase-model`, `scatter-providers` and `scatter-normalize`.
-- `scatter-normalize` gains the `gdelt-record` and `token` grammars. `scatter-providers` gains per-type `id_grammar`.
+- `scatter-providers` gains per-type `id_grammar` and the `gdelt-record` and `token` grammars, beside `digits` and `uuid`: the ID grammars of minted types live with the registry field that names them ([0017](0017-entity-id-grammar.md) §7), and `scatter-normalize` keeps the key grammars of keyed types. (Corrected 2026-09-28; this line first placed the two grammars in `scatter-normalize`.)
 
 ## Consequences
 

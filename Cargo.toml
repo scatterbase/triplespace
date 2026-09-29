@@ -3,6 +3,7 @@ resolver = "3"
 members = [
     "crates/scatter-vocab",
     "crates/scatter-providers",
+    "crates/scatter-normalize",
     "xtask",
 ]
 
@@ -21,9 +22,19 @@ authors = ["Scatter LLC"]
 # Workspace crates
 scatter-vocab = { path = "crates/scatter-vocab" }
 scatter-providers = { path = "crates/scatter-providers" }
+scatter-normalize = { path = "crates/scatter-normalize" }
 
 # RDF terms: the oxrdf family only (0005 §3, rule 5)
 oxrdf = "0.3"
+
+# Identifiers, URLs, case and normalization (0033 §9.3); all build for wasm32
+idna = "1"
+url = "2"
+percent-encoding = "2"
+unicode-normalization = "0.1"
+icu_casemap = "2"
+# Only on wasm targets, with the `wasm_js` feature (see .cargo/config.toml)
+getrandom = "0.3"
 
 # Registry files and configuration (0033 §12)
 serde = { version = "1", features = ["derive"] }
