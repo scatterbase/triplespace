@@ -15,5 +15,9 @@ serde.workspace = true
 thiserror.workspace = true
 toml.workspace = true
 
+# oxrdf → rand → getrandom needs the JavaScript backend in the browser (.cargo/config.toml).
+[target.'cfg(target_family = "wasm")'.dependencies]
+getrandom = { workspace = true, features = ["wasm_js"] }
+
 [lints]
 workspace = true
