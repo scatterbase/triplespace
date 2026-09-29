@@ -1,0 +1,26 @@
+[package]
+name = "scatter-wikibase-model"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "The Wikibase data model: entities, terms, sitelinks, statements, snaks, data values and types, the three ID forms, and canonical JSON"
+publish = false
+
+[dependencies]
+scatter-providers.workspace = true
+scatter-normalize.workspace = true
+indexmap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+toml.workspace = true
+
+# oxrdf → rand → getrandom needs the JavaScript backend in the browser (.cargo/config.toml).
+[target.'cfg(target_family = "wasm")'.dependencies]
+getrandom = { workspace = true, features = ["wasm_js"] }
+
+[lints]
+workspace = true

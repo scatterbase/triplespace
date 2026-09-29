@@ -4,6 +4,7 @@ members = [
     "crates/scatter-vocab",
     "crates/scatter-providers",
     "crates/scatter-normalize",
+    "crates/scatter-wikibase-model",
     "xtask",
 ]
 
@@ -23,6 +24,7 @@ authors = ["Scatter LLC"]
 scatter-vocab = { path = "crates/scatter-vocab" }
 scatter-providers = { path = "crates/scatter-providers" }
 scatter-normalize = { path = "crates/scatter-normalize" }
+scatter-wikibase-model = { path = "crates/scatter-wikibase-model" }
 
 # RDF terms: the oxrdf family only (0005 §3, rule 5)
 oxrdf = "0.3"
@@ -35,6 +37,9 @@ unicode-normalization = "0.1"
 icu_casemap = "2"
 # Only on wasm targets, with the `wasm_js` feature (see .cargo/config.toml)
 getrandom = "0.3"
+
+# Ordered maps for JSON objects whose order is data (qualifiers-order, snaks-order)
+indexmap = { version = "2", features = ["serde"] }
 
 # Registry files and configuration (0033 §12)
 serde = { version = "1", features = ["derive"] }
