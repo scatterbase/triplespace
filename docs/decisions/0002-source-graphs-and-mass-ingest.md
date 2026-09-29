@@ -226,6 +226,8 @@ Every entity change in the run points to its job. This answers 0001's open quest
 
 > **Amended by [0022](0022-federation.md) §2.** For a provider that is itself a Triplespace instance, the adapter reads the provider's `local` graph only, rewrites references to the reader's own entities back to bare local IDs, and verifies each batch against the provider's checkpoint and key chain by default; a provider registered `trust = stream` is read like any other source.
 
+> **Amended 2026-09-28.** A `put` carries upstream's snak and reference hashes only where they differ from the instance's own recomputation; the ingester compares every one, keeps a differing hash in place and counts it on the job ([0006](0006-log-integrity-and-erasure.md) §2, as amended 2026-09-28).
+
 #### 8.5 Local bulk creation
 
 - **Temporary refs.** New entities in a batch are named with handles such as `$w1`, and claims in the same batch can refer to those handles. The server allocates the real IDs and returns the mapping.

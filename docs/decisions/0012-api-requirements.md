@@ -129,7 +129,7 @@ All of these changes are additive (§1.2).
 
 | Module | Requirement |
 |---|---|
-| `meta=siteinfo` | New `siprop` values:<br>• `providers`: codes, entity types, namespaces, IRI templates, and whether upstream history can be fetched.<br>• `issuers`: the issuers allowed for login, without any secrets.<br>• `triplespace`: capabilities, and the REST base path.<br>Namespaces come from the registry ([0008](0008-namespaces-and-document-pages.md) §1). |
+| `meta=siteinfo` | New `siprop` values:<br>• `providers`: codes, entity types, namespaces, IRI templates, and whether upstream history can be fetched.<br>• `issuers`: the issuers allowed for login, without any secrets.<br>• `triplespace`: capabilities, the REST base path and, since 2026-09-28, `hash_mismatches`, the instance-wide count of upstream hashes kept because the recomputation differed ([0006](0006-log-integrity-and-erasure.md) §2, as amended).<br>Namespaces come from the registry ([0008](0008-namespaces-and-document-pages.md) §1). |
 | `prop=revisions`, core REST `/v1/page/{title}/history` | Local revisions only: the local graph for entities, the `pages` partition for document pages. Erased revisions come back with MediaWiki's hidden flags (`texthidden`, `commenthidden`, `userhidden`) and a new `erased` flag. New `rvprop` values: `source`, `job` and `operator`. |
 | `list=recentchanges` | One row per local revision, as in MediaWiki. Job changes carry the `bot` flag and a `job:{id}` tag. A new `rcjob` parameter filters by job. Mirror records never appear. Each mirror job run appears as a `job` log event ([0011](0011-logs.md) §6.3). `rctype=external` is not used, because Wikibase clients already give it a meaning. |
 | `list=usercontribs` | By local account. Job changes appear with their tags. A new `ucjob` parameter filters by job. |
@@ -177,7 +177,7 @@ All of these changes are additive (§1.2).
 | Route | Purpose |
 |---|---|
 | `GET /jobs` | Filters: status, graph and actor |
-| `GET /jobs/{id}` | The job record and status: counts by outcome, source and adapter versions, and checkpoint. While running: progress and projection lag. For `snapshot` jobs: the sweep count and its threshold. |
+| `GET /jobs/{id}` | The job record and status: counts by outcome, the hash-mismatch count by value type ([0006](0006-log-integrity-and-erasure.md) §2, as amended 2026-09-28), source and adapter versions, and checkpoint. While running: progress and projection lag. For `snapshot` jobs: the sweep count and its threshold. |
 | `GET /jobs/{id}/changes?outcome=` | The records the job wrote, paged |
 | `GET /jobs/{id}/rejects` | Downloads the rejects file. Requires a right (§8). |
 | `GET /jobs/{id}/events` | Server-sent events for progress |
