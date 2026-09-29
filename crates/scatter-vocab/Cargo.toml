@@ -1,0 +1,16 @@
+[package]
+name = "scatter-vocab"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "IRI constants for the scatter: vocabulary and the external vocabularies Triplespace and Scatterbase reuse"
+publish = false
+
+[dependencies]
+oxrdf.workspace = true
+
+[lints]
+workspace = true

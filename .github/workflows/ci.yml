@@ -1,0 +1,67 @@
+# CI as ADR 0033 §2 specifies it: nextest, clippy -D warnings, cargo-deny, a wasm32 build of
+# every rule-7 crate (0005 §3), and the dependency check against the 0005 §2 table.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  RUSTFLAGS: -D warnings
+
+jobs:
+  check:
+    name: Build, test and lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The toolchain, components and targets come from rust-toolchain.toml.
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.95.0
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest,cargo-deny,cargo-hack
+      - name: Format
+        run: cargo fmt --all --check
+      - name: Dependency graph matches ADR 0005 §2
+        run: cargo xtask deps
+      - name: Build
+        run: cargo build --workspace --all-targets
+      - name: Test
+        run: cargo nextest run --workspace
+      - name: Doc tests
+        run: cargo test --workspace --doc
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Feature powerset
+        run: cargo hack check --workspace --feature-powerset --no-dev-deps
+      - name: wasm32 build of rule-7 crates
+        run: cargo xtask wasm
+
+  deny:
+    name: Licences and advisories
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check
+          arguments: --all-features
+
+  adrs:
+    name: ADR cross-references
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Broken links and header symmetry
+        run: |
+          python3 docs/decisions/check_adrs.py docs | tee adr-report.txt
+          # The § heuristic is advisory; broken links and Amended-by/Related asymmetry are not.
+          ! grep -E "broken link|does not list|but .* does not" adr-report.txt

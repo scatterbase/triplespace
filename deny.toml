@@ -1,0 +1,76 @@
+# cargo-deny configuration (ADR 0033 §1 and §16).
+#
+# Triplespace is GPL-3.0-or-later (0005 §6). Every third-party crate linked into the binary
+# must carry a licence compatible with GPLv3; the lists below are the ones 0033 §1 names.
+
+[graph]
+all-features = true
+targets = [
+    "x86_64-unknown-linux-gnu",
+    "aarch64-unknown-linux-gnu",
+    "aarch64-apple-darwin",
+    "wasm32-unknown-unknown",
+]
+
+[output]
+feature-depth = 1
+
+[licenses]
+# Accepted (0033 §1). Unicode-DFS-2016 is the licence of the Unicode data crates that
+# predate Unicode-3.0; it is the same permissive text.
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "MPL-2.0",
+    "BlueOak-1.0.0",
+    "CDLA-Permissive-2.0",
+    "LGPL-2.1-or-later",
+    "LGPL-3.0-or-later",
+    "GPL-2.0-or-later",
+    "GPL-3.0",
+    "GPL-3.0-or-later",
+    "CC0-1.0",
+]
+confidence-threshold = 0.9
+# The allow list is the policy, not a record of what is in the tree today.
+unused-allowed-license = "allow"
+# Denied: OpenSSL/SSLeay, GPL-2.0-only and non-commercial terms cannot be combined with
+# GPLv3; AGPL is denied as a policy choice (0033 §1). Anything not in `allow` is denied,
+# so these need no list of their own.
+
+# `[[licenses.clarify]]` entries are added here for crates whose licence text cargo-deny
+# cannot classify, such as the vendored `parse-wiki-text-2` (0033 §16).
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+highlight = "all"
+deny = [
+    # Never openssl (0033 §16).
+    { crate = "openssl-sys", reason = "OpenSSL licence is incompatible with GPLv3; TLS uses rustls with aws-lc-rs" },
+    { crate = "openssl", reason = "see openssl-sys" },
+    { crate = "native-tls", reason = "pulls openssl on Linux" },
+    # One crypto provider (0033 §6): aws-lc-rs for TLS and RSA; ring only as the musl fallback.
+    { crate = "ring", reason = "aws-lc-rs is the crypto provider (0033 §6)" },
+    # 0033 §16: aws-lc-sys before 0.39 included code under the OpenSSL licence.
+    { crate = "aws-lc-sys:<0.39", reason = "earlier versions carry OpenSSL-licensed code" },
+]
+
+[advisories]
+version = 2
+yanked = "deny"
+ignore = []
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+# Git dependencies are pinned to a commit and come only from GitHub (0005 §6).
+allow-git = []
