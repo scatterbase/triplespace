@@ -3,7 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-09-27
 - **Author:** James Hare / Claude Fable
-- **Amended by:** [0020 — Change feeds](0020-change-feeds.md) (§3 settles §8's watching), [0021 — Notifications](0021-notifications.md) (settles the notifications open question), [0023 — Protection, deletion, hiding and patrolling](0023-moderation.md) (§4 amends §1: thread `delete` and `undelete` are ACL records; §6 makes posts patrollable), [0027 — Preferences, private state and portability](0027-preferences-and-portability.md) (§1 makes the visibility rule of §6 the `threads.visibility` preference), [0028 — Tenancy policy](0028-tenancy-policy.md) (§6 settles the cross-tenant discussion open question). §6 was amended on 2026-09-27 to name the default statuses and their registry file
+- **Amended by:** [0020 — Change feeds](0020-change-feeds.md) (§3 settles §8's watching), [0021 — Notifications](0021-notifications.md) (settles the notifications open question), [0023 — Protection, deletion, hiding and patrolling](0023-moderation.md) (§4 amends §1: thread `delete` and `undelete` are ACL records; §6 makes posts patrollable), [0027 — Preferences, private state and portability](0027-preferences-and-portability.md) (§1 makes the visibility rule of §6 the `threads.visibility` preference), [0028 — Tenancy policy](0028-tenancy-policy.md) (§6 settles the cross-tenant discussion open question). §6 was amended on 2026-09-27 to name the default statuses and their registry file, [0038 — Page metadata, legacy categories and articles](0038-page-metadata-and-categories.md) (§9 extends §6: thread statements and the projected status statement; amends §7: thread statements enter the main graph; §8 amends §5: a bare `[[Q42]]` is a main-namespace link)
 - **Related:** [0001 — Revision metadata in RDF](0001-revision-metadata-rdf.md) (§7 extends §1 and §6), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§13 amends §2), [0006 — Log integrity and erasure](0006-log-integrity-and-erasure.md) (§1 uses §8; §4 uses §7), [0007 — Actor identity](0007-actor-identity.md) (§2, §4), [0008 — Namespaces and document pages](0008-namespaces-and-document-pages.md) (§2 amends §2; §3 extends §1 and §3; §5 extends §5, §8 and §10; settles the discussions open question), [0010 — Site UI](0010-site-ui.md) (§8), [0011 — Upstream and local logs](0011-logs.md) (§7 extends §6.1 and §8), [0012 — API requirements for the site UI](0012-api-requirements.md) (§7 uses §3; §9 extends §4 and §5), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md) (§11 extends §5), [0014 — Cache layers and search](0014-caches-and-search.md) (§11), [0015 — Record format and partition registry](0015-record-format-and-partition-registry.md) (§4 amends §1; §2 uses §2), [0016 — Permissions and access control](0016-permissions-and-access-control.md) (§12 extends §2 and amends §4), [0018 — Tenants](0018-tenants.md) (§2), [0022 — Federation: verified data sync and ActivityPub](0022-federation.md) (§6–8 use §7 and §10: threads and posts as ActivityPub objects; inbound replies as posts)
 
 ## Context
@@ -108,6 +108,8 @@ Mentions, links and the rendered HTML are never stored; they are derived from th
 **Posts are markdown**, rendered by the `markdown` content model of 0008 §5, with two additions that apply to that model everywhere:
 
 - **Wiki links.** `[[Title]]`, `[[Title|text]]` and `[[Title#Section]]` are resolved by the title resolver of 0008 §3, as in the wikitext subset. `[[Q42]]` renders with the entity's label, as Wikibase does. This is the mention syntax; it is what every editor already knows.
+
+  > **Amended by [0038](0038-page-metadata-and-categories.md) §8.** With articles in the main namespace, `[[Q42]]` links to the main-namespace page titled `Q42`, in markdown as in wikitext. An entity is mentioned with its namespace: `[[Item:Q42]]`, which still renders with the entity's label.
 - **Raw HTML is sanitized** to the allow-list of 0008 §8. CommonMark passes HTML through; the renderer does not.
 
 `~~~~` is not expanded. A post is attributed by its attestation, and the signature has nothing to add.
@@ -123,6 +125,8 @@ Mentions, links and the rendered HTML are never stored; they are derived from th
 **A thread's status is set by posting.** A `post` may carry a `status` value. The thread's status is the value of its latest post that carries one; a thread with none is `open`. Posting `open` reopens a thread. The values are registry data, so an instance can add its own; the defaults are `open`, `resolved`, `rejected` and `stale`. A status is therefore a claim made in public, in the thread, by a named actor, and disputing it is another post. Anyone who may post may set one.
 
 > **Amended 2026-09-27.** Statuses are `config` records of kind `thread-status` in the tenant `config` ([0015](0015-record-format-and-partition-registry.md) §3), each with a label, a **category** (`open` or `closed`) and a display order; the defaults ship in `docs/registry/thread-statuses.toml` and follow the labels of bug trackers and project tools: **Open**, **In progress** and **Blocked** (open), and **Resolved**, **Won't fix**, **Declined** and **Stale** (closed). `rejected` is renamed `declined`. The category, not the name, drives the default visibility rule below (closed threads collapse) and the `thread-status` notification of [0021](0021-notifications.md) §2, which fires when a thread moves from an open to a closed status. `open` is required and cannot be retired.
+
+> **Extended by [0038](0038-page-metadata-and-categories.md) §9.** Threads carry statements, as document pages do. When the `thread-status` role is bound, a thread's status is also a projected, read-only statement, derived from the latest status-bearing post; this section stays the one place a status is set, and asserting that property on a thread is refused.
 
 **Visibility is a viewer preference, not data.** Each thread on a talk page is shown *visible*, *collapsed* or *hidden*, chosen by a rule over its status and the age of its last post. The instance sets the defaults (for example: `resolved`, `rejected` and `stale` collapsed; anything quiet for ninety days collapsed; nothing hidden), and a viewer overrides them. The server renders the threads; the UI applies the rule; so the shared caches hold one public form ([0014](0014-caches-and-search.md) §1) and no viewer's choice reaches them.
 
@@ -146,6 +150,8 @@ Mentions, links and the rendered HTML are never stored; they are derived from th
 - **Events** are typed as 0011 §8 types them: `as:Create`, `as:Move`, `as:Delete`, `as:Undo`.
 
 The post's revision node of [0001](0001-revision-metadata-rdf.md) §1 is the same IRI; the AS2 properties are added to it. Nothing about threads enters the main or resolved graph.
+
+> **Amended by [0038](0038-page-metadata-and-categories.md) §9 and §11.** Except thread statements, which are output in the main graph as page statements are.
 
 ### 8. Rendering and the UI (extends 0010)
 

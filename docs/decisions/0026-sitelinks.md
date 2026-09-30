@@ -3,6 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-09-27
 - **Author:** James Hare / Claude Fable
+- **Amended by:** [0038 — Page metadata, legacy categories and articles](0038-page-metadata-and-categories.md) (§6 amends §1: a local sitelink to the tenant's own host is stored by page ID; extends §2: the tenant's own site alias)
 - **Related:** [0002 — Source graphs and mass ingest](0002-source-graphs-and-mass-ingest.md) (§4 amends the sitelink row of §3), [0004 — Identity clusters and equivalence](0004-identity-clusters-and-equivalence.md) (§1 extends §7 with a URL normalizer), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§10 amends §2), [0009 — Keyed entity types and Domain](0009-keyed-entity-types-and-domain.md) (§3 uses §2 and §8; §5 extends §5), [0010 — Site UI](0010-site-ui.md) (§9 extends §2), [0012 — API requirements for the site UI](0012-api-requirements.md) (§7 extends §4 and §5), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md) (§6 amends `view.sitelink` in §5.2), [0015 — Record format and partition registry](0015-record-format-and-partition-registry.md) (§3 extends §3 with the `sitelink-policy` kind; §2 extends §5 with `sites.toml`), [0016 — Permissions and access control](0016-permissions-and-access-control.md) (§9), [0018 — Tenants](0018-tenants.md) (§3 extends §3: tenant and instance lists), [Wikibase data model and ontology contract](../api/wikibase-compat.md) (§2, §3.1, §5.2), [MediaWiki API contract](../api/mediawiki-compat.md) (§4.1, `wbsetsitelink`), [0022 — Federation: verified data sync and ActivityPub](0022-federation.md) (§8 reuses §3's list shape for `federation-policy`)
 
 ## Context
@@ -31,6 +32,8 @@ Nothing else is folded: `/Foo` and `/Foo/` are different URLs, as they are to th
 
 **Badges** are item IDs in the resolved view's canonical form ([0004](0004-identity-clusters-and-equivalence.md) §4). Which items may be badges is `site` configuration, as `$wgWBRepoSettings['badgeItems']` is.
 
+> **Amended by [0038](0038-page-metadata-and-categories.md) §6.** A sitelink in the local graph whose host is one the tenant is served at is stored by page ID, not URL. Its URL and title are derived from the page's current title, so a move does not break it; a title with no page is refused with `ts-sitelink-no-page`.
+
 ### 2. The host is the site ID; one link per host; one item per URL
 
 **The site ID of a sitelink is its host**, in A-label form: `en.wikipedia.org`, `collections.example.museum`. This keeps both Wikibase invariants, with the host in place of the site:
@@ -48,6 +51,8 @@ Nothing else is folded: `/Foo` and `/Foo/` are different URLs, as they are to th
 | Language | `en` |
 
 The defaults ship in `docs/registry/sites.toml` ([0015](0015-record-format-and-partition-registry.md) §5), generated from Wikimedia's site matrix and committed; a tenant adds aliases for other MediaWiki hosts as `config` records of kind `site-alias`. Where a host has an alias, the JSON `sitelinks` map is keyed by the alias's site ID and the entry carries the title in MediaWiki form; where it has none, the map is keyed by the host and `title` is the URL's path, query and fragment. Every entry carries `url`, as Wikibase's JSON already does. Input accepts either form everywhere.
+
+> **Extended by [0038](0038-page-metadata-and-categories.md) §6.** A tenant registers a site alias for its own host, so that `wbgetentities` by `sites` and `titles`, `wbsetsitelink` and `Special:ItemByTitle` reach an item from a local page's title. The one-link-per-host and one-item-per-URL invariants make that pairing one-to-one.
 
 ### 3. Allow and deny lists (extends 0015 §3 and 0018 §3)
 

@@ -1,4 +1,5 @@
-# Default namespaces.  ADR 0008 §2 (as amended 2026-09-27), 0009 §11, 0017 §5, 0019 §2–3, 0029 §2.
+# Default namespaces.  ADR 0008 §2 (as amended 2026-09-27), 0009 §11, 0017 §5, 0019 §2–3, 0029 §2,
+# 0038 §4 and §8 (main and Category implemented).
 #
 # kind        "entity" | "document" | "reserved" | "virtual" | "composite" | "thread" | "resolver"
 # normalizer  "first-letter" | "entity-id" | a keyed type's or resolver's name (0008 §3)
@@ -8,7 +9,8 @@
 # Numbering policy (0008 §2, amended 2026-09-27):
 #   - Every number MediaWiki core or any Wikibase extension uses is RESERVED: listed here with
 #     kind "reserved", never given another meaning, and not implemented unless an ADR says so.
-#     Its odd-numbered talk namespace is not enabled either.
+#     Its odd-numbered talk namespace is not enabled either. Implemented so far by ADR: the main
+#     namespace (0) and Category (14), both by 0038.
 #   - Talk namespaces (odd numbers) exist for implemented subject namespaces only.
 #   - 210–219 are Triplespace-specific namespaces; 220–229 are resolver prefixes (0029).
 #     Registered on mediawiki.org's Extension default namespaces page; as of 2026-09-27 the page
@@ -31,7 +33,18 @@ kind = "virtual"
 [[namespace]]
 id = 0
 canonical = ""
-kind = "reserved"           # the main namespace; reserved, not implemented; Talk (1) not enabled
+kind = "document"           # articles (0038 §8)
+normalizer = "first-letter"
+case = "first-letter"
+subpages = false
+content_models = ["wikitext", "markdown", "json", "yaml", "text"]
+default_model = "wikitext"
+talk = 1
+
+[[namespace]]
+id = 1
+canonical = "Talk"
+kind = "composite"
 
 [[namespace]]
 id = 2
@@ -89,7 +102,18 @@ kind = "reserved"           # core; help content goes in Project (0008 §2)
 [[namespace]]
 id = 14
 canonical = "Category"
-kind = "reserved"           # core; no categories (0008 §8)
+kind = "document"           # category description pages; membership is read from wikitext (0038 §3–4)
+normalizer = "first-letter"
+case = "first-letter"
+subpages = false
+content_models = ["wikitext"]
+default_model = "wikitext"
+talk = 15
+
+[[namespace]]
+id = 15
+canonical = "Category talk"
+kind = "composite"
 
 # --- Wikibase and its extensions ----------------------------------------------------------------
 [[namespace]]

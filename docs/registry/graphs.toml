@@ -48,8 +48,8 @@ scope = "tenant"
 history = "full"
 integrity = "logged"
 export = "public"
-payload_types = ["scatter:v0/page", "scatter:v0/thread", "scatter:v0/erase"]
-defined_in = "0008 §4, 0019 §4"
+payload_types = ["scatter:v0/page", "scatter:v0/thread", "scatter:v0/changeset", "scatter:v0/erase"]   # changeset: page statements (0038 §1)
+defined_in = "0008 §4, 0019 §4, 0038 §1"
 
 [[graph]]
 name = "log"
