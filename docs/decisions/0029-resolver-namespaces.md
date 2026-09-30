@@ -3,6 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-09-27
 - **Author:** James Hare / Claude Fable
+- **Amended by:** [0038 — Page metadata, legacy categories and articles](0038-page-metadata-and-categories.md) (§8 extends §6: main-namespace titles last in the `/resolve` order)
 - **Related:** [0002 — Source graphs and mass ingest](0002-source-graphs-and-mass-ingest.md) (§5 relates resolvers to match keys, §8.5), [0003 — Statement UI](0003-statement-ui.md) (§1 binds a resolver to a property by role, §7), [0004 — Identity clusters and equivalence](0004-identity-clusters-and-equivalence.md) (§1 uses §6 and §7), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§9 amends §2), [0008 — Namespaces and document pages](0008-namespaces-and-document-pages.md) (§2 extends §1 with the `resolver` kind and §3 with its normalizer), [0009 — Keyed entity types and Domain](0009-keyed-entity-types-and-domain.md) (§1 settles the DOI open question: a resolver, not a keyed type), [0010 — Site UI](0010-site-ui.md) (§7 extends §3), [0012 — API requirements for the site UI](0012-api-requirements.md) (§6 extends `/resolve` in §5), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md) (§3 reads `view.identifier` of §5.2), [0015 — Record format and partition registry](0015-record-format-and-partition-registry.md) (§1 extends §3 with the `resolver` kind and §5 with `resolvers.toml`), [0017 — Entity ID grammar](0017-entity-id-grammar.md) (§1 settles the DOI open question; §4 keeps resolver names and keyed-type names in one namespace), [0026 — Sitelinks are URLs](0026-sitelinks.md) (§5 binds a resolver to sitelinks)
 
 ## Context
@@ -77,6 +78,8 @@ A resolver's binding may be `sitelink` instead of a role. Its key is then a URL,
 | `GET /resolvers/{name}/{key}` | The lookup of §3 as JSON, with `303` semantics available by `Accept` |
 | `wbgetentities` | A new `resolver` and `key` pair of parameters, mirroring `sites`+`titles`, returning the entity when the lookup is unique and `missing` with a `candidates` list otherwise |
 | `Special:ItemByTitle`, `Special:GoToLinkedPage` | Served by the sitelink resolver (§5) |
+
+> **Extended by [0038](0038-page-metadata-and-categories.md) §8.** With the main namespace implemented, `/resolve` tries main-namespace titles last, after every form above. A bare ID still reaches its entity first; a main-namespace page with the same title is returned in an `also` field.
 
 ### 7. UI (extends 0010 §3)
 

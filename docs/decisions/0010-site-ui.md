@@ -3,7 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-09-26
 - **Author:** James Hare / Claude Opus
-- **Amended by:** [0013 — Postgres as the log store and serving model](0013-postgres-storage.md), [0005 — Crate organization, revision of 2026-09-26](0005-crate-organization.md) (§2 crate names), [0016 — Permissions and access control](0016-permissions-and-access-control.md), [0017 — Entity ID grammar](0017-entity-id-grammar.md), [0018 — Tenants](0018-tenants.md), [0019 — Discussions](0019-discussions.md) (§8 extends §2 with the talk tab and thread pages; settles the discussions open question), [0020 — Change feeds](0020-change-feeds.md) (settles the watchlists open question; §4 extends §11), [0021 — Notifications](0021-notifications.md) (§6 extends §2 and §11; settles the notifications open question), [0023 — Protection, deletion, hiding and patrolling](0023-moderation.md) (§9 extends §2, §5 and §7; §6 settles the patrolling open question), [0024 — Subsidiary accounts, API keys and rate limits](0024-subsidiary-accounts.md) (§9 extends §8 and §11: subsidiaries and keys on the account page; operators on contributions), [0026 — Sitelinks are URLs](0026-sitelinks.md) (§9 extends §2: the Sitelinks tab groups by host), [0027 — Preferences, private state and portability](0027-preferences-and-portability.md) (§7 extends §11: Preferences as the home of every key; a Your data section), [0029 — Resolver namespaces](0029-resolver-namespaces.md) (§7 extends §3: resolver keys in the search box), [0030 — Edit filters](0030-edit-filters.md) (§10 extends §2 and §7: filter pages, tag chips, refusal messages), [0031 — Property constraints](0031-property-constraints.md) (§7 extends §2: the property page's Constraints tab and `Special:ConstraintReport`), [0022 — Federation: verified data sync and ActivityPub](0022-federation.md) (§11 extends §2 and §11: `Special:Providers`, the verified chip, a Fediverse section, the talk-page handle; §6 amends the vanish page), [0025 — The instance as an OAuth server](0025-oauth-server.md) (§5 extends §11: Connected applications; `Special:OAuthConsumers` and `Special:PendingSubsidiaries`)
+- **Amended by:** [0013 — Postgres as the log store and serving model](0013-postgres-storage.md), [0005 — Crate organization, revision of 2026-09-26](0005-crate-organization.md) (§2 crate names), [0016 — Permissions and access control](0016-permissions-and-access-control.md), [0017 — Entity ID grammar](0017-entity-id-grammar.md), [0018 — Tenants](0018-tenants.md), [0019 — Discussions](0019-discussions.md) (§8 extends §2 with the talk tab and thread pages; settles the discussions open question), [0020 — Change feeds](0020-change-feeds.md) (settles the watchlists open question; §4 extends §11), [0021 — Notifications](0021-notifications.md) (§6 extends §2 and §11; settles the notifications open question), [0023 — Protection, deletion, hiding and patrolling](0023-moderation.md) (§9 extends §2, §5 and §7; §6 settles the patrolling open question), [0024 — Subsidiary accounts, API keys and rate limits](0024-subsidiary-accounts.md) (§9 extends §8 and §11: subsidiaries and keys on the account page; operators on contributions), [0026 — Sitelinks are URLs](0026-sitelinks.md) (§9 extends §2: the Sitelinks tab groups by host), [0027 — Preferences, private state and portability](0027-preferences-and-portability.md) (§7 extends §11: Preferences as the home of every key; a Your data section), [0029 — Resolver namespaces](0029-resolver-namespaces.md) (§7 extends §3: resolver keys in the search box), [0030 — Edit filters](0030-edit-filters.md) (§10 extends §2 and §7: filter pages, tag chips, refusal messages), [0031 — Property constraints](0031-property-constraints.md) (§7 extends §2: the property page's Constraints tab and `Special:ConstraintReport`), [0022 — Federation: verified data sync and ActivityPub](0022-federation.md) (§11 extends §2 and §11: `Special:Providers`, the verified chip, a Fediverse section, the talk-page handle; §6 amends the vanish page), [0025 — The instance as an OAuth server](0025-oauth-server.md) (§5 extends §11: Connected applications; `Special:OAuthConsumers` and `Special:PendingSubsidiaries`), [0038 — Page metadata, legacy categories and articles](0038-page-metadata-and-categories.md) (§7 extends §1 and §2: one subject per frame, the Page data tab and the subject links; §3 amends §4: categories as links; §8 extends §3: "Page titled …" beside an ID's "Go to")
 - **Related:** [0000 — Initial proposition](0000-init.md), [0002 — Source graphs and mass ingest](0002-source-graphs-and-mass-ingest.md), [0003 — Statement UI](0003-statement-ui.md), [0004 — Identity clusters and equivalence](0004-identity-clusters-and-equivalence.md), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§13 amends §2), [0006 — Log integrity and erasure](0006-log-integrity-and-erasure.md), [0007 — Actor identity](0007-actor-identity.md), [0008 — Namespaces and document pages](0008-namespaces-and-document-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
@@ -38,6 +38,8 @@ The design exploration is on the [site UI canvas](https://claude.ai/artifact/XNb
 These extend the principles of [0003](0003-statement-ui.md) §1. That ADR's principles still apply: show the exception, not the rule; name the effect, not the mechanism; nothing is lost.
 
 1. **One frame for every page.** An entity, a document page, a user, a job and a special page all get the same header: an identity line, the title, and tabs. A reader learns the frame once.
+
+   > **Extended by [0038](0038-page-metadata-and-categories.md) §7.** A frame's tabs show data only about what its identity line names. A page's statements are never drawn in its item's frame, or the reverse; crossing from one to the other is a link in the identity line.
 2. **Show the exception, applied to activity.** Mirror syncs and bulk jobs are routine. Edits made by people on this instance are the exception, and they are listed one by one. A marker that would be the same on every row is not drawn. Examples:
    - A page in its namespace's default content model shows no model.
    - A local-only item shows no source switch.
@@ -81,6 +83,8 @@ These extend the principles of [0003](0003-statement-ui.md) §1. That ADR's prin
 - **Less common actions** go in the page's overflow menu. For a document page these are Move, Change content model and Delete.
 - **Links here** is served by the links projection ([0008](0008-namespaces-and-document-pages.md) §10).
 
+> **Extended by [0038](0038-page-metadata-and-categories.md) §7.** Document pages and threads gain a **Page data** tab: the page's own statements in the statement UI, with projected statements read-only. A page paired with an item through a sitelink shows "About: {label} ({ID})" in its identity line, and the item shows "Article: {title}".
+
 **Chips** are the shared marks for kinds of thing. The set is kept small.
 
 | Chip | Form | Meaning |
@@ -99,6 +103,8 @@ These extend the principles of [0003](0003-statement-ui.md) §1. That ADR's prin
 - **One box covers everything.** It searches entity labels, descriptions and aliases across every provider, domain keys ([0009](0009-keyed-entity-types-and-domain.md)), and page titles.
 - **Suggestions are grouped by kind:** items and properties, foreign entities by type (for example "Sources and works"), domains, and pages. Each suggestion shows its label, its description, and its ID chip.
 - **An ID or domain key jumps straight to its page.** Input that parses as an ID or domain key gets a "Go to" option as the first suggestion, and Enter follows it. Parsing and resolution use the title resolver ([0008](0008-namespaces-and-document-pages.md) §3), so a non-canonical cluster member lands on its canonical entity ([0004](0004-identity-clusters-and-equivalence.md) §4).
+
+  > **Extended by [0038](0038-page-metadata-and-categories.md) §8.** When a main-namespace page has the same title as the ID, it is offered as the next suggestion, "Page titled Q42".
 - **The full results page** also searches page text. Whether one index serves both labels and text is still open in [0008](0008-namespaces-and-document-pages.md).
 
 ### 4. Document pages
@@ -109,6 +115,8 @@ These extend the principles of [0003](0003-statement-ui.md) §1. That ADR's prin
 - **Syntax outside the wikitext subset stays visible:**
   - A template call renders as a "Template not rendered" chip showing the call.
   - Category links are listed at the foot of the page as plain text, under "Categories from the source wiki".
+
+  > **Amended by [0038](0038-page-metadata-and-categories.md) §3.** Categories are listed as links to their category pages, with hidden categories collapsed.
 - **Links to entities** render with the entity's label.
 - **An "About this page" panel** shows the last edit, the revision count by origin (imported, bot, local), where the page came from, the content model, and the backlink count.
 

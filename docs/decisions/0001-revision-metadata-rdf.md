@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-24
-- **Amended by:** [0002 — Source graphs and mass ingest](0002-source-graphs-and-mass-ingest.md), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md), [0007 — Actor identity](0007-actor-identity.md), [0011 — Upstream and local logs](0011-logs.md), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md), [0015 — Record format and partition registry](0015-record-format-and-partition-registry.md), [0019 — Discussions](0019-discussions.md) (§7 extends §1 and §6: posts and threads as Activity Streams nodes in the metadata graph), [0030 — Edit filters](0030-edit-filters.md) (§5 gives the change tags of §6 their place in the record: the attestation part), [0032 — The SPARQL Update stream](0032-sparql-update-stream.md) (§1 extends §2: the main graph's consumers can follow a SPARQL Update stream as well as load a dump; §7 skolemizes blank nodes in that stream and in a second dump form, leaving the plain dump of §3 unchanged)
+- **Amended by:** [0002 — Source graphs and mass ingest](0002-source-graphs-and-mass-ingest.md), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md), [0007 — Actor identity](0007-actor-identity.md), [0011 — Upstream and local logs](0011-logs.md), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md), [0015 — Record format and partition registry](0015-record-format-and-partition-registry.md), [0019 — Discussions](0019-discussions.md) (§7 extends §1 and §6: posts and threads as Activity Streams nodes in the metadata graph), [0030 — Edit filters](0030-edit-filters.md) (§5 gives the change tags of §6 their place in the record: the attestation part), [0032 — The SPARQL Update stream](0032-sparql-update-stream.md) (§1 extends §2: the main graph's consumers can follow a SPARQL Update stream as well as load a dump; §7 skolemizes blank nodes in that stream and in a second dump form, leaving the plain dump of §3 unchanged), [0038 — Page metadata, legacy categories and articles](0038-page-metadata-and-categories.md) (§11 amends §3: page statements add subjects to the main graph)
 - **Author:** James Hare / Claude Opus
 - **Related:** [0000 — Initial proposition](0000-init.md), [MediaWiki API contract](../api/mediawiki-compat.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
@@ -59,6 +59,8 @@ Triplespace's RDF projection is a set of quads spread across two named graphs:
 ### 3. The standard Wikibase output is unchanged
 
 Nothing is added to the main graph or to `Special:EntityData`-equivalent output. That output stays identical in shape to Wikibase's RDF format 1.0.0, including its known departures from `ontology.owl` (see [wikibase-compat.md §4.5](../api/wikibase-compat.md)). All new vocabulary lives in the metadata graph.
+
+> **Amended by [0038](0038-page-metadata-and-categories.md) §11.** Statements about document pages and threads are output in the main graph, in Wikibase's statement shape, with the page node `{base}/page/{page ID}` as subject. This adds subjects, not vocabulary: every predicate is Wikibase's or schema.org's.
 
 ### 4. Deleted and suppressed data is an application-policy concern
 

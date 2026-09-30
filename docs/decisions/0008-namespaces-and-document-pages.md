@@ -3,7 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-09-26
 - **Author:** James Hare / Claude Opus
-- **Amended by:** [0036 — OpenStreetMap providers](0036-openstreetmap-providers.md) (§3 allocates 216/217), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md), [0014 — Cache layers and search](0014-caches-and-search.md), [0005 — Crate organization, revision of 2026-09-26](0005-crate-organization.md) (§2 crate names), [0016 — Permissions and access control](0016-permissions-and-access-control.md), [0017 — Entity ID grammar](0017-entity-id-grammar.md), [0019 — Discussions](0019-discussions.md) (§2 makes talk namespaces composite; §3 registers `Thread`; settles the discussions open question), [0023 — Protection, deletion, hiding and patrolling](0023-moderation.md) (§4 amends §4: `delete` and `undelete` are ACL records, not page operations; §2 settles the protection open question), [0029 — Resolver namespaces](0029-resolver-namespaces.md) (§2 extends §1 with the `resolver` kind and §3 with its normalizer). §2 was amended on 2026-09-27 with the numbering policy: reserved MediaWiki and Wikibase numbers, talk namespaces for implemented subjects only, 210–219 for Triplespace and 220–229 for resolvers, [0035 — Adopting an existing Wikibase as a tenant](0035-adopting-a-wikibase.md) (§4 extends §9: pages imported from the wiki a tenant adopted keep their source page IDs)
+- **Amended by:** [0036 — OpenStreetMap providers](0036-openstreetmap-providers.md) (§3 allocates 216/217), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md), [0014 — Cache layers and search](0014-caches-and-search.md), [0005 — Crate organization, revision of 2026-09-26](0005-crate-organization.md) (§2 crate names), [0016 — Permissions and access control](0016-permissions-and-access-control.md), [0017 — Entity ID grammar](0017-entity-id-grammar.md), [0019 — Discussions](0019-discussions.md) (§2 makes talk namespaces composite; §3 registers `Thread`; settles the discussions open question), [0023 — Protection, deletion, hiding and patrolling](0023-moderation.md) (§4 amends §4: `delete` and `undelete` are ACL records, not page operations; §2 settles the protection open question), [0029 — Resolver namespaces](0029-resolver-namespaces.md) (§2 extends §1 with the `resolver` kind and §3 with its normalizer). §2 was amended on 2026-09-27 with the numbering policy: reserved MediaWiki and Wikibase numbers, talk namespaces for implemented subjects only, 210–219 for Triplespace and 220–229 for resolvers, [0035 — Adopting an existing Wikibase as a tenant](0035-adopting-a-wikibase.md) (§4 extends §9: pages imported from the wiki a tenant adopted keep their source page IDs), [0038 — Page metadata, legacy categories and articles](0038-page-metadata-and-categories.md) (§4 and §8 amend §2: Category and the main namespace are implemented; §3 amends §8 and settles the categories open question; §1 extends §4: change sets on pages; §11 amends §10)
 - **Related:** [0000 — Initial proposition](0000-init.md), [0001 — Revision metadata in RDF](0001-revision-metadata-rdf.md), [0002 — Source graphs and mass ingest](0002-source-graphs-and-mass-ingest.md), [0004 — Identity clusters and equivalence](0004-identity-clusters-and-equivalence.md), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (amends §2 and §4.1), [0006 — Log integrity and erasure](0006-log-integrity-and-erasure.md), [0007 — Actor identity](0007-actor-identity.md), [0009 — Keyed entity types and Domain](0009-keyed-entity-types-and-domain.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
@@ -68,6 +68,8 @@ Media (−2), File (6), MediaWiki (8), Template (10), Help (12) and Category (14
 > 2. **Talk namespaces exist only for implemented subject namespaces.** They work as §2 and [0019](0019-discussions.md) §2 describe, at the next odd number, and are `composite`. A reserved-and-not-implemented namespace has no talk namespace enabled: Talk (1), File talk (7) and the rest are not registered.
 > 3. **Triplespace's own namespaces take 210–219, and resolver prefixes ([0029](0029-resolver-namespaces.md)) take 220–229.** Allocated now: Domain 210/211 ([0009](0009-keyed-entity-types-and-domain.md) §11), Keyword 212/213 ([0017](0017-entity-id-grammar.md) §5), Thread 214/215 ([0019](0019-discussions.md) §3), OSM 216/217 ([0036](0036-openstreetmap-providers.md) §3), DOI 220/221 and URL 222/223 ([0029](0029-resolver-namespaces.md)). The ranges are registered on mediawiki.org's Extension default namespaces page, which as of 2026-09-27 lists nothing between 204 and 240. Allocation is a change to `namespaces.toml`, under the registry's rules ([0015](0015-record-format-and-partition-registry.md) §5).
 
+> **Amended by [0038](0038-page-metadata-and-categories.md) §4 and §8.** Two reserved numbers are implemented, as rule 1 allows. The main namespace (0) is a `document` namespace for articles, with Talk (1) enabled; an unprefixed title in a link is a main-namespace title, and entities are linked with their namespace. Category (14) is a `document` namespace for category description pages, `wikitext` only, with Category talk (15) enabled.
+
 ### 3. Titles
 
 **One resolver handles every title.** Page views, API `titles=` parameters, redirects and wiki links (§8) all go through it. It works in three steps:
@@ -112,6 +114,8 @@ The partition holds page records, not quads. Its only RDF output is revision met
 | `undelete` | Reverses a `delete` |
 
 > **Amended by [0023](0023-moderation.md) §4.** `delete` and `undelete` are no longer page operations. Deletion is a `read` ACL on the page, written to the tenant `log` partition, and undeletion retires it; the effects described here are unchanged. The `page` payload type carries `create`, `edit` and `move` only.
+
+> **Extended by [0038](0038-page-metadata-and-categories.md) §1.** A page's statements are change sets (`scatter:v0/changeset`) keyed by its page ID in the same partition, restricted to statements. They take revision IDs, so a page's history interleaves text and statement revisions.
 
 **Each revision stores the full text, not a diff.** Pages are small. Diffs are computed when they are read, as MediaWiki computes them. Because each record is self-contained, erasing one revision with an `erase` record ([0006](0006-log-integrity-and-erasure.md) §7) does not break the text of later ones.
 
@@ -177,6 +181,8 @@ Triplespace renders a fixed subset of wikitext. It does not implement MediaWiki'
 
 - Template calls (`{{…}}`) and parser functions render as a visible placeholder showing the call.
 - Category links (`[[Category:…]]`) are listed as plain text at the foot of the page. No category pages exist.
+
+> **Amended by [0038](0038-page-metadata-and-categories.md) §3.** Category links in the latest revision of a `wikitext` page define its category membership, a projection like MediaWiki's `categorylinks`; `{{DEFAULTSORT:…}}` and `__HIDDENCAT__` are recognised; `[[:Category:…]]` is a plain link. The foot of the page lists categories as links to their pages in the `Category` namespace, with hidden categories collapsed.
 - The stored source is never rewritten, so a page renders correctly if the subset grows later.
 
 **Links are resolved by the title resolver** (§3). A link to an entity that exists renders with its label, as Wikibase does.
@@ -202,6 +208,8 @@ Pages are imported from a MediaWiki XML export with full history. An import is a
 - The page's document node is `{base}/page/{page ID}`.
 - Its revision nodes carry the actor, timestamp, summary, tags, flags, content model, size and hash, in the vocabulary of 0001.
 - Nothing about document pages goes into the main or resolved graph. Page text is not RDF.
+
+> **Amended by [0038](0038-page-metadata-and-categories.md) §11.** A page's statements go into the main graph with the page's document node as subject. Page text and category membership are still not RDF.
 
 ### 11. Crates (amends 0005 §2)
 
@@ -241,7 +249,7 @@ Pywikibot reading and editing `Project` pages is the acceptance test for this su
 - ~~**Page IDs for entity views.** `wbgetentities` with `props=info` returns a `pageid`, and a composed view has none. The options are minting one the first time an entity is written to, or returning none and accepting that some clients break.~~ *Settled by [0013](0013-postgres-storage.md) §6 and [0015](0015-record-format-and-partition-registry.md) §2: a page ID is taken from the one sequence the first time a key is written in any partition and carried forward in header field 9, so entity views and document pages share one `pageid` space.*
 - ~~**The main namespace.** Whether namespace 0 stays empty, becomes a document namespace, or hosts items as it does on Wikidata.~~ *Settled 2026-09-27 (§2 amendment): reserved and empty, like every namespace MediaWiki or Wikibase uses; its talk namespace is not enabled.*
 - ~~**Discussions.** Talk namespaces are reserved (§2). How discussions work is its own ADR.~~ *Settled by [0019](0019-discussions.md): talk namespaces are composite views over threads, and a thread is a page in the `Thread` namespace.*
-- **Categories.** Whether category links should ever become data, for example as statements or as a list projection.
+- ~~**Categories.** Whether category links should ever become data, for example as statements or as a list projection.~~ *Settled by [0038](0038-page-metadata-and-categories.md) §3 and §5: categories are defined only in wikitext and projected as a list; configured mappings turn membership into page statements.*
 - ~~**Page protection and permissions.** Who may create, move, delete and protect pages, beyond the owner rule in §6.~~ *Who: settled by [0016](0016-permissions-and-access-control.md) §5. What protection and deletion are: settled by [0023](0023-moderation.md) §1–4, as ACLs on the page.*
 - ~~**Search.** Whether one search index covers entity labels and page text together, as `list=search` would expect.~~ *Settled by [0014](0014-caches-and-search.md) §7: two indexes (`entities`, `pages`), one query, with a Postgres fallback (§8).*
 - **Page redirects.** Whether document pages may be redirects (`#REDIRECT [[…]]`), and whether a move leaves one for `Project` pages, where no erasable names are involved.

@@ -7,7 +7,7 @@ This directory is the registry of record for the names and codes that Triplespac
 | `graphs.toml` | Reserved graph names, their kind, policies and payload type | `scatter-log` | 0015 §3, §5 |
 | `providers.toml` | Provider codes, slugs, numbers, type codes and ID grammars, IRI templates, issuers, trust mode and key-chain URL | `scatter-providers` | 0000 §3, 0002 §4, 0015 §2, §5, 0017 §2, 0022 §2 |
 | `issuers.toml` | Issuer codes and actor models | `scatter-actors` | 0007 §1 |
-| `namespaces.toml` | Default namespace numbers and kinds, the reserved MediaWiki and Wikibase numbers, and the 210–229 ranges | `triplespace-titles` | 0008 §2 (amended), 0009 §11, 0017 §5, 0019 §3, 0029 |
+| `namespaces.toml` | Default namespace numbers and kinds, the reserved MediaWiki and Wikibase numbers, and the 210–229 ranges | `triplespace-titles` | 0008 §2 (amended), 0009 §11, 0017 §5, 0019 §3, 0029, 0038 §4, §8 |
 | `keyed-types.toml` | Keyed entity types and their ID prefixes | `scatter-normalize` | 0009 §1, 0017 §3, §5 |
 | `groups.toml` | Default groups, their permissions, and the default graph ACLs | `scatter-actors` | 0016 §2–4, 0019 §12, 0020 §7, 0021 §9, 0022 §12, 0023 §11, 0024 §11, 0025 §10, 0030 §12 |
 | `grants.toml` | API-key grants and the permissions each covers; also the OAuth scopes a consumer may request | `scatter-actors` | 0024 §4, 0025 §2 |

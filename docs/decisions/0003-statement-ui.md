@@ -3,7 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-09-25
 - **Author:** James Hare / Claude Opus
-- **Amended by:** [0004 — Identity clusters and equivalence](0004-identity-clusters-and-equivalence.md), [0012 — API requirements for the site UI](0012-api-requirements.md), [0027 — Preferences, private state and portability](0027-preferences-and-portability.md) (§5 settles the shape-pin open question), [0031 — Property constraints](0031-property-constraints.md) (§1 binds the constraint vocabulary by role through §7; §3 extends §9 with the constraint marker)
+- **Amended by:** [0004 — Identity clusters and equivalence](0004-identity-clusters-and-equivalence.md), [0012 — API requirements for the site UI](0012-api-requirements.md), [0027 — Preferences, private state and portability](0027-preferences-and-portability.md) (§5 settles the shape-pin open question), [0031 — Property constraints](0031-property-constraints.md) (§1 binds the constraint vocabulary by role through §7; §3 extends §9 with the constraint marker), [0038 — Page metadata, legacy categories and articles](0038-page-metadata-and-categories.md) (§2 and §9 extend §7 with the `subject-page`, `subject-thread` and `thread-status` roles)
 - **Related:** [0000 — Initial proposition](0000-init.md), [0001 — Revision metadata in RDF](0001-revision-metadata-rdf.md), [0002 — Source graphs and mass ingest](0002-source-graphs-and-mass-ingest.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
@@ -158,6 +158,8 @@ Property IDs differ between Wikibases, so shape detection and the rank rules ref
 - **Mirrored properties.** On an instance that mirrors Wikidata, mirrored properties carry the `WDP` prefix, so the map reads `WDP585`, `WDP580` and so on.
 - **Local and mirrored forms together.** One role can have both a local and a mirrored property: for example, `P12` and `WDP585` can both be `time-point`.
 - **Constraints as hints.** Wikidata properties declare allowed and required qualifiers as property constraints (P2302). When a group has no statements, or only one or two, these constraints can seed the table's columns before any data exists. They are hints only: once there is enough data, detection on that data wins.
+
+> **Extended by [0038](0038-page-metadata-and-categories.md) §2 and §9.** Three roles are added. `subject-page` and `subject-thread` name the items that stand for a document page and a thread as values of Wikidata's *allowed entity types* constraint (Q52004125). `thread-status` names the `string` property that carries a thread's projected status. The statement UI also serves page statements, with the page as subject, in the Page data tab of [0010](0010-site-ui.md) §2.
 
 ### 8. Editing
 
