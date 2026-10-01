@@ -131,15 +131,15 @@ direct_editing = false
 defined_in = "0017 §5, 0041 §3"
 
 [[model]]
-id = "triplespace-osm-tag"
+id = "triplespace-notation"         # was triplespace-osm-tag, renamed before any data existed (0048 §7)
 origin = "triplespace"
 status = "implemented"
 source = "entity"
 slot = "main"
-entity_type = "osm-tag"
+entity_type = "notation"
 format = "application/json"
 direct_editing = false
-defined_in = "0036 §3, 0041 §3"
+defined_in = "0036 §3, 0041 §3, 0048 §7"
 
 # --- Discussions --------------------------------------------------------------------------------
 [[model]]

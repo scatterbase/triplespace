@@ -1,11 +1,12 @@
-//! Keyed entity types (ADR 0009 §1, 0017 §3 and §5, 0036 §3): the registry embedded from
+//! Keyed entity types (ADR 0009 §1, 0017 §3 and §5, 0048 §1): the registry embedded from
 //! `docs/registry/keyed-types.toml`, and keyed IDs such as `domain:en.wikipedia.org`.
 //!
 //! A keyed type's entity ID is its normalized natural key with the type's prefix, not a
 //! minted identifier. The registry names each type's namespace, data type, IRI template,
 //! ID prefix and display rule; the grammar and normalizer are implemented by name in
-//! [`crate::domain`], [`crate::keyword`] and [`crate::osmtag`], because they are code,
-//! not data. A registry entry whose name has no implementation is rejected at parse time,
+//! [`crate::domain`], [`crate::keyword`] and [`crate::notation`], because they are code,
+//! not data. A notation's normalizer and grammar are chosen by its scheme, from the
+//! default scheme registry. A registry entry whose name has no implementation is rejected at parse time,
 //! so a new keyed type is a registry change and a module, never a silent no-op.
 
 use std::collections::BTreeMap;
@@ -15,7 +16,7 @@ use std::sync::LazyLock;
 use oxrdf::NamedNode;
 use serde::Deserialize;
 
-use crate::{KEYED_TYPES_TOML, domain, keyword, osmtag};
+use crate::{KEYED_TYPES_TOML, domain, keyword, notation};
 
 /// How a keyed type's label is produced (0009 §5, 0017 §5).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -58,7 +59,7 @@ impl KeyedType {
         match self.name.as_str() {
             "domain" => domain::normalize(input).map_err(|e| err(e.to_string())),
             "keyword" => keyword::normalize(input).map_err(|e| err(e.to_string())),
-            "osm-tag" => osmtag::normalize(input).map_err(|e| err(e.to_string())),
+            "notation" => notation::normalize(input).map_err(|e| err(e.to_string())),
             other => Err(KeyError::NoNormalizer(other.to_string())),
         }
     }
@@ -88,12 +89,13 @@ impl KeyedType {
     }
 
     /// The derived label for a key, when the display rule is `Derived`: a Domain's U-label
-    /// (0009 §5), an OSM tag's own string (0036 §3). `None` for editable types, whose
+    /// (0009 §5), a notation's string without its scheme (0048 §1). `None` for editable types, whose
     /// fallback when no label exists is [`keyword::display`].
     #[must_use]
     pub fn derived_label(&self, key: &str) -> Option<String> {
         match (self.display, self.name.as_str()) {
             (Display::Derived, "domain") => Some(domain::to_unicode(key)),
+            (Display::Derived, "notation") => Some(notation::string_of(key).to_string()),
             (Display::Derived, _) => Some(key.to_string()),
             (Display::Editable, _) => None,
         }
@@ -101,7 +103,7 @@ impl KeyedType {
 }
 
 /// Percent-encodes the characters of a key that cannot appear in an IRI path segment
-/// (an OSM tag's space or `#`, say). Domain and keyword keys pass through unchanged.
+/// (a notation's space or `#`, say). Domain and keyword keys pass through unchanged.
 fn iri_key(key: &str) -> String {
     use percent_encoding::{AsciiSet, CONTROLS, utf8_percent_encode};
     const SET: &AsciiSet = &CONTROLS
@@ -301,7 +303,7 @@ impl KeyedRegistry {
                     display: t.display,
                 });
             };
-            if !matches!(name.as_str(), "domain" | "keyword" | "osm-tag") {
+            if !matches!(name.as_str(), "domain" | "keyword" | "notation") {
                 return Err(KeyedTypeError::NoNormalizer(name));
             }
             types.push(KeyedType {
@@ -437,9 +439,15 @@ mod tests {
         let k = r.by_name("keyword").unwrap();
         assert_eq!(k.display, Display::Editable);
         assert!(!k.clusters);
-        let o = r.by_name("osm-tag").unwrap();
-        assert_eq!(o.id_prefix, "osmtag:");
-        assert!(!o.clusters);
+        let n = r.by_name("notation").unwrap();
+        assert_eq!(n.id_prefix, "notation:");
+        assert_eq!(n.data_type, "wikibase-notation");
+        assert_eq!(n.display, Display::Derived);
+        assert!(!n.clusters);
+        assert!(
+            r.by_name("osm-tag").is_none(),
+            "an osm scheme now (0048 §6)"
+        );
         assert!(std::ptr::eq(r.by_data_type("wikibase-keyword").unwrap(), k));
         assert!(r.by_name("doi").is_none(), "DOI is a resolver (0029)");
     }
@@ -459,14 +467,14 @@ mod tests {
                 "https://scatter.red/keyword/machine-learning",
             ),
             (
-                "OSMTAG:amenity=cafe",
-                "osmtag:amenity=cafe",
-                "https://scatter.red/osm-tag/amenity=cafe",
+                "NOTATION:OSM:amenity=cafe",
+                "notation:osm:amenity=cafe",
+                "https://scatter.red/notation/osm:amenity=cafe",
             ),
             (
-                "osmtag:addr:street=Main Street",
-                "osmtag:addr:street=Main Street",
-                "https://scatter.red/osm-tag/addr:street=Main%20Street",
+                "notation:osm:addr:street=Main Street",
+                "notation:osm:addr:street=Main Street",
+                "https://scatter.red/notation/osm:addr:street=Main%20Street",
             ),
         ] {
             let id = r.parse_id(input).unwrap();
@@ -498,6 +506,15 @@ mod tests {
             r.parse_id("domain:_dmarc.example.org"),
             Err(KeyError::Invalid { .. })
         ));
+        // A notation needs a registered scheme, and its string keeps case (0048 §1, §6).
+        assert!(matches!(
+            r.parse_id("notation:amenity=cafe"),
+            Err(KeyError::Invalid { .. })
+        ));
+        assert_ne!(
+            r.parse_id("notation:osm:Name").unwrap(),
+            r.parse_id("notation:osm:name").unwrap()
+        );
     }
 
     #[test]
@@ -509,11 +526,11 @@ mod tests {
             Some("bücher.example")
         );
         assert_eq!(
-            r.by_name("osm-tag")
+            r.by_name("notation")
                 .unwrap()
-                .derived_label("amenity")
+                .derived_label("osm:amenity=cafe")
                 .as_deref(),
-            Some("amenity")
+            Some("amenity=cafe")
         );
         assert_eq!(r.by_name("keyword").unwrap().derived_label("dna"), None);
     }
@@ -524,19 +541,23 @@ mod tests {
         let s = r.suggest("en.wikipedia.org");
         let names: Vec<_> = s.iter().map(|id| id.keyed_type().name.as_str()).collect();
         assert!(names.contains(&"domain"));
-        assert!(names.contains(&"osm-tag"), "any NFC string is an OSM key");
+        assert!(
+            !names.contains(&"notation"),
+            "a bare string has no scheme, so it is not a notation key"
+        );
+        let osm = r.suggest("osm:amenity=cafe");
+        assert!(
+            osm.iter()
+                .any(|id| id.keyed_type().name == "notation" && id.key() == "osm:amenity=cafe"),
+            "a scheme-prefixed string is (0048 §2)"
+        );
         // Dots are separators to the keyword normalizer; ranking the suggestions is 0014's.
         let kw = s
             .iter()
             .find(|id| id.keyed_type().name == "keyword")
             .unwrap();
         assert_eq!(kw.key(), "en-wikipedia-org");
-        assert!(
-            r.suggest("2024").is_empty()
-                || r.suggest("2024")
-                    .iter()
-                    .all(|id| id.keyed_type().name == "osm-tag")
-        );
+        assert!(r.suggest("2024").is_empty());
     }
 
     #[test]

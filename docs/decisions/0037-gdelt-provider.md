@@ -43,7 +43,7 @@ The GDELT 1.0 files (events only, a different column set) are out of scope. This
 
 **Canonical IRIs are Triplespace's.** GDELT publishes none, so `https://scatter.red/gdelt/{event|document|cameo|theme}/{id}` is minted here. It amends [0002](0002-source-graphs-and-mass-ingest.md) §4, where a foreign entity's canonical IRI is the provider's own. What `scatter.red` serves at those addresses is as open as it is for domains ([0009](0009-keyed-entity-types-and-domain.md)).
 
-**Themes and CAMEO codes are provider items, not keyed types.** They are finite vocabularies that GDELT defines and lists (the Category List and the CAMEO tables). Keyed types are for open-ended natural keys that several providers share (Domain, Keyword, `osm-tag`). Each theme and CAMEO code carries its label and, for CAMEO, its position in the hierarchy (root, base, code) as `subclass of` statements to its parent code. No namespace pair is used.
+**Themes and CAMEO codes are provider items, not keyed types.** They are finite vocabularies that GDELT defines and lists (the Category List and the CAMEO tables). Keyed types are for open-ended natural keys that several providers share (Domain, Keyword, `osm-tag`; `osm-tag` is now the `osm` scheme of Notation, [0048](0048-notation.md)). Each theme and CAMEO code carries its label and, for CAMEO, its position in the hierarchy (root, base, code) as `subclass of` statements to its parent code. No namespace pair is used.
 
 ### 3. What a document becomes
 

@@ -26,8 +26,8 @@ pub enum EntityType {
     Domain,
     /// `keyword` (0017 §5)
     Keyword,
-    /// `osm-tag` (0036 §3)
-    OsmTag,
+    /// `notation` (0048 §1)
+    Notation,
     /// A type this crate does not know.
     Other(String),
 }
@@ -43,7 +43,7 @@ impl EntityType {
             "mediainfo" => Self::MediaInfo,
             "domain" => Self::Domain,
             "keyword" => Self::Keyword,
-            "osm-tag" => Self::OsmTag,
+            "notation" => Self::Notation,
             other => Self::Other(other.to_string()),
         }
     }
@@ -58,7 +58,7 @@ impl EntityType {
             Self::MediaInfo => "mediainfo",
             Self::Domain => "domain",
             Self::Keyword => "keyword",
-            Self::OsmTag => "osm-tag",
+            Self::Notation => "notation",
             Self::Other(s) => s,
         }
     }
@@ -66,7 +66,7 @@ impl EntityType {
     /// Whether the type is a keyed type (0009 §1), whose ID is its key.
     #[must_use]
     pub fn is_keyed(&self) -> bool {
-        matches!(self, Self::Domain | Self::Keyword | Self::OsmTag)
+        matches!(self, Self::Domain | Self::Keyword | Self::Notation)
     }
 }
 

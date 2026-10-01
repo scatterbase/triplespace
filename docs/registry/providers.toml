@@ -363,7 +363,7 @@ adapter = "scatter-adapter-internetdomains"
 # Nodes, ways and relations from the planet file, replication diffs and the API. Each type has its
 # own ID space (node 1 and way 1 are unrelated), so the type code is what keeps IDs apart:
 # OSN123, OSW123, OSR123. IDs are bare digits and never reused. Tags are not entities here: they
-# become statements that refer to osm-tag entities or fall back to text (0036 §4).
+# become statements that refer to notations in the osm scheme or fall back to text (0036 §4, 0048 §6).
 # The OSM wiki's Wikibase is a separate provider (OW, below), not a type of this one (0036 §1).
 [[provider]]
 code = "OS"
@@ -407,7 +407,7 @@ adapter = "scatter-adapter-openstreetmap"
 # The Wikibase at wiki.openstreetmap.org that documents OSM keys and tags: items are instances of
 # Q7 (OpenStreetMap key) or Q2 (OpenStreetMap tag). Mirrored like any Wikibase, and key-mapped
 # like internetdomains.wiki (0009 §9): a key or tag item with one valid identity value is written
-# under its osm-tag key (keyed-types.toml) and never appears as an OWQ subject. What remains
+# as the notation osm:{key} (keyed-types.toml, notation-schemes.toml; 0048 §6) and never appears as an OWQ subject. What remains
 # (the classes Q2 and Q7, value-type items such as Q8, the wiki's own properties) is OWQ and OWP.
 [[provider]]
 code = "OW"
@@ -427,16 +427,18 @@ adapter = "scatter-adapter-wikidata"    # any MediaWiki+Wikibase; the adapter is
   [[provider.adapter_config.key_map]]
   class = "Q7"                     # OpenStreetMap key
   identity_property = "P16"        # permanent key ID; the wiki states it never changes
-  key_type = "osm-tag"
+  key_type = "notation"
+  key_scheme = "osm"               # the key is osm:{identity value} (0048 §6)
 
   [[provider.adapter_config.key_map]]
   class = "Q2"                     # OpenStreetMap tag
   identity_property = "P19"        # permanent tag ID, key=value
-  key_type = "osm-tag"
+  key_type = "notation"
+  key_scheme = "osm"
 
   [provider.adapter_config]
   identity_property_on_mapped = "drop"
-  # Concept links (0036 §5): statements on the mapped entity, never same-as. osm-tag has clusters = false.
+  # Concept links (0036 §5): statements on the mapped entity, never same-as. notation has clusters = false.
   concept_link_properties = ["P7", "P12"]     # Wikidata equivalent, Wikidata concept
   # Properties marked DEPRECATED upstream are skipped.
   skip_deprecated_properties = true
@@ -446,7 +448,7 @@ adapter = "scatter-adapter-wikidata"    # any MediaWiki+Wikibase; the adapter is
   entity_type = "item"
   upstream_prefix = "Q"
   iri = "https://wiki.openstreetmap.org/entity/{upstream_id}"
-  namespace = "Item"               # mapped key and tag items live in the OSM namespace instead; only unmapped items are OWQ
+  namespace = "Item"               # mapped key and tag items live in the Notation namespace instead; only unmapped items are OWQ
 
   [[provider.type]]
   code = "P"

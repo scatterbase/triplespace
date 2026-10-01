@@ -230,7 +230,7 @@ No new crate.
 - **Tables in wikitext and Lua.** Transcluding `{{Table:Journals}}` into a page, or reading a table from a module, with usage tracking through the render manifest ([0042](0042-template-expansion-and-parsoid.md) §10).
 - **`M` IDs as rows.** File pages' statements ([0041](0041-content-models.md) §7) would make tables useful for Commons-style curation; term columns would be read-only until captions are settled.
 - **A faster lane for people.** Whether a large paste by a person should count against a class other than `edit`, or whether rate limits as they stand are the right brake.
-- **The next namespace block** for Triplespace-specific namespaces, now that 210–219 is full.
+- ~~**The next namespace block** for Triplespace-specific namespaces, now that 210–219 is full.~~ *Settled 2026-10-01: 310–319 ([0008](0008-namespaces-and-document-pages.md) §2, as amended).*
 
 ## References
 

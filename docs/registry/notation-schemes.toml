@@ -1,0 +1,55 @@
+# Notation schemes.  ADR 0048 §2.
+#
+# A notation's key is `{scheme}:{string}` (keyed-types.toml, type `notation`). Each scheme says how
+# the string is normalized and which strings are valid.
+#
+# name           Lowercase ASCII letters, digits and single hyphens, starting with a letter, at most
+#                32 characters; no colon, so the first colon of a key ends the scheme name. Scheme
+#                names share one namespace with keyed-type and resolver names (0029 §2, 0048 §2).
+# label          The vocabulary's name, shown in the UI's identity line.
+# normalizer     One of a closed set (0048 §2):
+#                  "exact"            the input must already be NFC and is not changed
+#                  "nfc"              Unicode NFC
+#                  "casefold"         NFC, then full Unicode case folding (0017 §5, 0029 §1)
+#                  "ascii-lowercase"  NFC, then ASCII letters lowercased
+# grammar        A grammar implemented in scatter-normalize, checked after normalizing:
+#                  "osm-tag"  a key of 1 to 255 characters, or a key, `=` and a value of 1 to 255
+#                             characters; no control characters, no `=` in the key, no leading or
+#                             trailing whitespace in either part (0036 §3)
+#                  "text"     1 to 255 characters; no control characters; no leading or trailing
+#                             whitespace
+# documentation  Optional. URL template for the vocabulary's own page about a string; {string} is
+#                the string, percent-encoded.
+#
+# Schemes are allocated here only, never by an instance or a tenant: notation IDs and IRIs are
+# shared by every instance (0048 §2). A scheme name is never reused for another vocabulary; a
+# retired scheme stays with `retired = true`.
+
+version = 1
+
+# OpenStreetMap keys and tags (0036 §3, 0048 §6): `amenity` and `amenity=cafe`, exact and
+# case-sensitive. No documentation template: the wiki's pages are Key:{key} and Tag:{key}={value},
+# two forms, and the mirrored OW statements (0036 §5) already link them.
+[[scheme]]
+name = "osm"
+label = "OSM tag or key"
+normalizer = "exact"
+grammar = "osm-tag"
+defined_in = "0036 §3, 0048 §6"
+
+# --- Candidates (0048 §2): grammars not yet written ----------------------------------------------
+#
+# ActivityPub hashtags on federated posts (0022 §8), compared case-insensitively as Mastodon does.
+# [[scheme]]
+# name = "hashtag"
+# label = "Hashtag"
+# normalizer = "casefold"
+# grammar = "hashtag"            # letters, digits and underscores, without the leading `#`
+#
+# IANA media types (0039 §2), the `mime` field of an upload: `text/html`, `image/svg+xml`.
+# [[scheme]]
+# name = "media-type"
+# label = "Media type"
+# normalizer = "ascii-lowercase"
+# grammar = "media-type"         # type `/` subtype, RFC 6838 §4.2 restricted names, no parameters
+# documentation = "https://www.iana.org/assignments/media-types/{string}"

@@ -88,8 +88,8 @@ pub enum DataType {
     WikibaseDomain,
     /// `wikibase-keyword` (0017 §5)
     WikibaseKeyword,
-    /// `wikibase-osm-tag` (0036 §3)
-    WikibaseOsmTag,
+    /// `wikibase-notation` (0048 §1)
+    WikibaseNotation,
     /// A data type this crate does not know; its value type is unknown too.
     Other(String),
 }
@@ -119,7 +119,7 @@ impl DataType {
             "wikibase-sense" => Self::WikibaseSense,
             "wikibase-domain" => Self::WikibaseDomain,
             "wikibase-keyword" => Self::WikibaseKeyword,
-            "wikibase-osm-tag" => Self::WikibaseOsmTag,
+            "wikibase-notation" => Self::WikibaseNotation,
             other => Self::Other(other.to_string()),
         }
     }
@@ -148,7 +148,7 @@ impl DataType {
             Self::WikibaseSense => "wikibase-sense",
             Self::WikibaseDomain => "wikibase-domain",
             Self::WikibaseKeyword => "wikibase-keyword",
-            Self::WikibaseOsmTag => "wikibase-osm-tag",
+            Self::WikibaseNotation => "wikibase-notation",
             Self::Other(s) => s,
         }
     }
@@ -177,7 +177,7 @@ impl DataType {
             | Self::WikibaseSense
             | Self::WikibaseDomain
             | Self::WikibaseKeyword
-            | Self::WikibaseOsmTag => ValueType::EntityId,
+            | Self::WikibaseNotation => ValueType::EntityId,
             Self::Other(_) => return None,
         })
     }
@@ -193,7 +193,7 @@ impl DataType {
             Self::WikibaseSense => "sense",
             Self::WikibaseDomain => "domain",
             Self::WikibaseKeyword => "keyword",
-            Self::WikibaseOsmTag => "osm-tag",
+            Self::WikibaseNotation => "notation",
             _ => return None,
         })
     }

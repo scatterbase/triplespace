@@ -2,6 +2,9 @@
 //! case-sensitive, in Unicode NFC. There is no normalizer; input that is not already a
 //! valid key is rejected rather than repaired.
 //!
+//! Since ADR 0048 this is the `osm-tag` grammar of the `osm` notation scheme
+//! ([`crate::notation`]): `notation:osm:amenity=cafe`, not a keyed type of its own.
+//!
 //! Grammar: a key of 1 to 255 characters, or a key, `=` and a value of 1 to 255
 //! characters; no control characters; no `=` in the key; no leading or trailing
 //! whitespace in either part; NFC.

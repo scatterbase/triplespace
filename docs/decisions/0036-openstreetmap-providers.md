@@ -3,6 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-09-28
 - **Author:** James Hare / Claude Sonnet
+- **Amended by:** [0048 — Notation](0048-notation.md) (§1 and §6 amend §3, §4, §5, §6 and §7: `osm-tag` becomes the `osm` scheme of the `notation` keyed type)
 - **Related:** [0002 — Source graphs and mass ingest](0002-source-graphs-and-mass-ingest.md) (§4 provider registry; §8.4 adapters), [0003 — Statement UI](0003-statement-ui.md) (§7 roles), [0004 — Identity clusters and equivalence](0004-identity-clusters-and-equivalence.md) (§1, §6; tier-2 links), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§2, §6 licences), [0008 — Namespaces and document pages](0008-namespaces-and-document-pages.md) (§2 allocates 216/217), [0009 — Keyed entity types and Domain](0009-keyed-entity-types-and-domain.md) (§9 extended: a second key-mapped provider), [0015 — Record format and partition registry](0015-record-format-and-partition-registry.md) (§2, §5), [0017 — Entity ID grammar](0017-entity-id-grammar.md) (§2 grammars; §5 keyed types), [0031 — Property constraints](0031-property-constraints.md)
 
 ## Context
@@ -62,6 +63,8 @@ One keyed type covers both a key (`amenity`) and a tag (`amenity=cafe`), as Wiki
 
 One type shares one namespace, which leaves 218 to 219 free. Splitting keys from tags into two types is a registry change, not a design change, if a use for the difference appears.
 
+> **Amended by [0048](0048-notation.md) §1 and §6.** `osm-tag` is no longer a keyed type of its own. OSM keys and tags are notations in the `osm` scheme: `notation:osm:amenity` and `notation:osm:amenity=cafe`, titled `Notation:osm:amenity=cafe` in the `Notation` namespace (216/217, renamed from `OSM`), with data type `wikibase-notation` and content model `triplespace-notation`. The grammar above and the absence of a normalizer are unchanged; they are the `osm` scheme's `osm-tag` grammar and `exact` normalizer.
+
 ### 4. Tags on map objects
 
 A tag `k=v` on an `OS` object becomes one of three things. Nothing is dropped.
@@ -71,6 +74,8 @@ A tag `k=v` on an `OS` object becomes one of three things. Nothing is dropped.
 3. **Everything else.** The object gets a statement with role `osm-tag-text`, string value `v`, and a qualifier with role `osm-key` and value `osmtag:k`.
 
 Free-text keys such as `name`, `phone` and `opening_hours` should have their own properties, by role, through case 1. Case 3 is the fallback until they do, and it means no property is minted per key and no per-instance property numbers exist. The roles `osm-tag`, `osm-tag-text` and `osm-key` are registered with the other roles of [0003](0003-statement-ui.md) §7. Without a mirrored `OW`, case 2 does not occur and every unmapped tag takes case 3.
+
+> **Amended by [0048](0048-notation.md) §4 and §6.** The roles are unchanged. Their values are `notation:osm:k=v` and `notation:osm:k`, and the properties bound to `osm-tag` and `osm-key` carry the `notation-scheme` statement `osm`.
 
 ### 5. `OW`: the vocabulary
 
@@ -91,15 +96,21 @@ The rules of [0009](0009-keyed-entity-types-and-domain.md) §9 apply. An item wi
 
 Properties marked DEPRECATED upstream are skipped. The wiki documents only the keys and tags someone has written up; every other tag still exists as a keyed entity, without these statements.
 
+> **Amended by [0048](0048-notation.md) §6.** Mapped items become `notation` entities in the `osm` scheme; the key map names `key_type = "notation"` and `key_scheme = "osm"`, and values pointing at mapped items become `wikibase-notation` values.
+
 ### 6. Tags are not concepts
 
 `osm-tag` has `clusters = false`, as `keyword` does ([0017](0017-entity-id-grammar.md) §5), for the same reason: `osmtag:amenity=cafe` is a tag, and a Wikidata item about cafés is the concept. `same-as` with an `osm-tag` on either side is rejected at write time, and no tier-2 or tier-3 link ([0004](0004-identity-clusters-and-equivalence.md) §6) may produce one. `P7` and `P12` stay statements, so a user can follow a tag to its concept without the phrase becoming canonical over the concept.
+
+> **Amended by [0048](0048-notation.md) §3.** The rule now belongs to the `notation` type: no notation of any scheme joins an identity cluster.
 
 ### 7. Registry, namespaces and crates
 
 - `providers.toml`: `OS` (number 6) and `OW` (number 7). `issuers.toml`: `openstreetmap` and `osmwiki`. `keyed-types.toml`: `osm-tag`. `namespaces.toml`: `OSM` 216 and `OSM talk` 217. The registry README lists 216/217 in the mediawiki.org registration still to be filed.
 - **New crate:** `scatter-adapter-openstreetmap` (layer 3), depending on `scatter-wikibase-changeset`, `scatter-wikibase-model`, `scatter-providers` and `scatter-normalize`. `OW` needs none: it is `scatter-adapter-wikidata` parameterised by the provider entry, with the key-mapping capability that `scatter-adapter-internetdomains` needs as well.
 - `scatter-normalize` gains the `osm-tag` grammar. `triplespace-titles` gains the `OSM` namespace.
+
+> **Amended by [0048](0048-notation.md) §7 and §8.** `keyed-types.toml` gains `notation` instead of `osm-tag`, and the new `notation-schemes.toml` holds `osm`. 216/217 are `Notation` and `Notation talk`. `scatter-normalize` keeps the `osm-tag` grammar as the `osm` scheme's grammar, and `triplespace-titles` gains the `Notation` namespace instead of `OSM`.
 
 ## Consequences
 
@@ -117,7 +128,7 @@ Properties marked DEPRECATED upstream are skipped. The wiki documents only the k
 - **`wikidata=` on map objects.** Whether an object's `wikidata` tag is a tier-2 link that may join an identity cluster ([0004](0004-identity-clusters-and-equivalence.md) §6). It is sometimes wrong, and the `brand:wikidata` and `operator:wikidata` families are not identity links at all.
 - **Roles.** The exact names and value types of `osm-tag`, `osm-tag-text` and `osm-key`, and the default key map, are implementation-time decisions, since no Triplespace property numbers exist yet.
 - **Constraints.** Whether `P45` and `P44` should drive constraint checks on map objects ([0031](0031-property-constraints.md)), and how status (approved, discouraged) should weigh in.
-- **Key and tag identity.** Whether a key and its tags should be two types. The concept base URI of the wiki and the DEPRECATED marker's representation are to be confirmed against a live dump.
+- **Key and tag identity.** Whether a key and its tags should be two types. *Since [0048](0048-notation.md) §6, whether they should be two schemes, which is a registry change.* The concept base URI of the wiki and the DEPRECATED marker's representation are to be confirmed against a live dump.
 - **Editing.** Whether local edits to a mirrored tag entity's descriptions overlay the wiki's ([0002](0002-source-graphs-and-mass-ingest.md) §7), and whether the wiki's items can be reached as `OWQ` when they are mapped.
 
 ## References
