@@ -3,6 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-09-30
 - **Author:** James Hare / Claude Opus
+- **Amended by:** [0046 — The primary tenant](0046-primary-tenant.md) (§1 refines §4: operators are actors of the tenant primary when the record is appended; §7 amends §2: the operator IRI is `{farm base}/instance/operator`; §8 amends §9: three more instance rights)
 - **Related:** [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§11 amends §2), [0006 — Log integrity and erasure](0006-log-integrity-and-erasure.md) (§3 extends §2 with domain tag `0x06`; §8 extends §9: instance attestations are verified, and bundles carry an authority extract), [0007 — Actor identity](0007-actor-identity.md) (§2 extends §1 and §2: the `instance` issuer and the operator actor), [0010 — Site UI](0010-site-ui.md) (§7 extends §5: instance acts in history), [0011 — Upstream and local logs](0011-logs.md) (§7 extends §6.1: the operator as performer; §4 amends §6.3: jobs that act on the instance's authority record in the instance `log`), [0015 — Record format and partition registry](0015-record-format-and-partition-registry.md) (§3 extends §1: the instance attestation), [0016 — Permissions and access control](0016-permissions-and-access-control.md) (§9 extends §2: instance rights and `ts-viewoperator`), [0018 — Tenants](0018-tenants.md) (§1 amends §4: a guest's records are attested by its own actors or by the instance; §8 extends §10: the authority extract), [0023 — Protection, deletion, hiding and patrolling](0023-moderation.md) (§6 uses §1: a takedown is an evaluated prerogative), [0026 — Sitelinks are URLs](0026-sitelinks.md) (§6 uses §3: the instance deny list is an evaluated prerogative), [0028 — Tenancy policy](0028-tenancy-policy.md) (§6 amends §2, §5 and §8: cascades, tenant deletion and locked templates are written by the instance; settles the attestation of each), [0030 — Edit filters](0030-edit-filters.md) (§6 amends §8: global filters move to the instance `log`, and their blocks are prerogatives), [0039 — Files, blob storage and foreign file repositories](0039-files-and-media.md) (§6 amends §9 and §10: reclamation and expunge are prerogatives; replaces 0039's attestation exception)
 
 ## Context
@@ -40,6 +41,8 @@ An instance act is a **prerogative** when it is **binding**: the tenant cannot r
 ### 2. The instance as an actor (extends 0007 §1 and §2)
 
 The instance is an actor of a reserved issuer, **`instance`**, with actor model `provider-only` ([0007](0007-actor-identity.md) §1, §6): changes are attributed to the instance as a whole, as OpenAlex's are to OpenAlex. Its actor key is `instance:{farm slug}`, its IRI is `{farm base}/operator`, and its display name is the message "{instance name} operator" (by default the site name of the primary tenant). `instance` is reserved in the shared namespace of slugs and issuer codes ([0018](0018-tenants.md) §1), so no tenant or provider can take it.
+
+> **Amended by [0046](0046-primary-tenant.md) §6–7.** The operator's IRI is `{farm base}/instance/operator`. The farm slug in its actor key is defined in 0046 §6: the instance's own slug, distinct from every tenant's, and never changed.
 
 **The person who acted is not the actor.** Every instance act has an **authority record** (§4) attested by the operator who carried it out, an actor of the primary tenant. That attestation is visible only to `ts-viewoperator` (§9). A guest's history, logs, RDF, feeds and notifications show the instance operator, as Wikimedia shows office actions under a role account. The reason is the one James gave: these are exceptional acts outside editorial scope, and the people who carry them out, often in response to legal notices, should not become the target of the guest community's disagreement with them.
 
@@ -79,6 +82,8 @@ A written instance act carries, in the attestation part of the record appended t
 **Jobs that act on the instance's authority record in the instance `log` (amends 0011 §6.3).** [0011](0011-logs.md) §6.3 puts every job record in the local log. A job that writes instance acts into guests (a reclamation run, the propagation of an expunge, the erasure of a deleted tenant, a cascade of renames) now records its start, finish and counts in the instance `log`, keyed by job ID, and that job record is the authority its writes cite. Mirror syncs are unchanged.
 
 **Operators act from the primary tenant.** An authority record is attested by an actor of the primary tenant, or by a farm account acting through a global group at the farm base ([0028](0028-tenancy-policy.md) §3), and only with an instance right (§9).
+
+> **Refined by [0046](0046-primary-tenant.md) §1.** "An actor of the primary tenant" means an actor of the tenant that held the role when the authority record was appended, as the history of the `primary` record shows, and `verify` checks it so. An authority record attested by an operator of a former primary tenant stays valid after a transfer.
 
 ### 5. Binding
 
@@ -134,6 +139,8 @@ One new right:
 | Permission | Governs | Default groups |
 |---|---|---|
 | `ts-viewoperator` *(new)* | Seeing which operator carried out an instance act: the attestation of authority records, and the operator column of the farm-base instance-action list | `owner` on the primary tenant; the farm's `steward` and `platform-admin` |
+
+> **Amended by [0046](0046-primary-tenant.md) §8.** Three more instance rights: `ts-primary` (offering the primary role; `owner` only), `mwoauthmanageconsumer` (approving OAuth consumers, [0025](0025-oauth-server.md) §2) and `ts-runjob` for instance jobs. An instance right is evaluated on the tenant that is primary at the time of the act.
 
 ### 10. Scatterbase
 

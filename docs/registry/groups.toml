@@ -45,6 +45,7 @@ triplespace = [
   "ts-transferaccount",                          # 0024 §11: move a subsidiary to another operator
   "ts-takedown", "ts-expunge", "ts-viewtakedown",   # 0039 §21: operator removal of files; evaluated on the primary tenant only
   "ts-viewoperator",                             # 0040 §9: see which operator carried out an instance act; an instance right
+  "ts-primary",                                  # 0046 §8: offer the primary role to another tenant; an instance right, owner only
 ]
 
 # ---------------------------------------------------------------------------
@@ -120,7 +121,7 @@ permissions = ["suppressrevision", "viewsuppressed", "hideuser", "ts-erase"]
 
 [[group]]
 name = "owner"
-all_permissions = true              # including ts-keys, which no other group holds, and on the primary tenant the file operator rights (0039 §21)
+all_permissions = true              # including ts-keys and ts-primary, which no other group holds; on the primary tenant, owner is the instance's owner (0046 §1)
 minimum_members = 1
 membership_changed_by = "owner"
 

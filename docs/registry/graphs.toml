@@ -1,6 +1,7 @@
 # Reserved graph names.  ADR 0015 §5.
 #
-# A graph's IRI is {base}/graph/{name}, where {base} is the instance's base URI.
+# A tenant graph's IRI is {tenant base}/graph/{name}; an instance graph's is
+# {farm base}/instance/graph/{name} (0046 §7), so the two cannot collide when the bases are equal.
 # Names are fixed by this file; IRIs are per instance.
 #
 # kind       = "source" | "projection"          (0005 §4.1)
@@ -12,7 +13,7 @@
 # per_repo     = true means one graph exists per mirrored file repository (0039 §11),
 #                with {repo} replaced by the repository's name.
 # scope      = "tenant" | "instance" | "both"  (0018 §2): a tenant graph exists once per tenant
-#              under {tenant base}; an instance graph once, under the farm base. The registry
+#              under {tenant base}; an instance graph once, under {farm base}/instance/ (0046 §7). The registry
 #              is keyed by (tenant, name); instance graphs have a null tenant.
 #
 # Source graphs are log partitions. The instance config partition is partition 0 (0015 §3);

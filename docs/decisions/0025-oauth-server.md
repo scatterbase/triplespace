@@ -3,6 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-09-27
 - **Author:** James Hare / Claude Fable
+- **Amended by:** [0046 — The primary tenant](0046-primary-tenant.md) (§4 amends §5: consumer events are in the instance `log`; §8 amends §10: `mwoauthmanageconsumer` is an instance right)
 - **Related:** [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§11 amends §2), [0007 — Actor identity](0007-actor-identity.md) (§3 amends §4: the `pending` status; §3 of that ADR is how a person logs in, this ADR is how a tool acts), [0010 — Site UI](0010-site-ui.md) (§5 extends §11), [0011 — Upstream and local logs](0011-logs.md) (§5 extends §6.1), [0012 — API requirements for the site UI](0012-api-requirements.md) (§9 extends §4 and §5), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md) (§8 extends §4 and §5.6), [0014 — Cache layers and search](0014-caches-and-search.md) (§8 uses §2 and §4), [0015 — Record format and partition registry](0015-record-format-and-partition-registry.md) (§2 extends §3 with the `consumer` and `consumer-policy` kinds), [0016 — Permissions and access control](0016-permissions-and-access-control.md) (§3 refines §3; §10 extends §2), [0018 — Tenants](0018-tenants.md) (§7 follows §4), [0024 — Subsidiary accounts, API keys and rate limits](0024-subsidiary-accounts.md) (§3 extends §2 and refines §4; §4 settles its per-key-tag question; §6 uses §5; this ADR is the delegated-tool case its open questions leave), [0028 — Tenancy policy](0028-tenancy-policy.md) (§7 uses §8), [0030 — Edit filters](0030-edit-filters.md) (§4 writes the tag §5 reserves), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
@@ -90,6 +91,8 @@ The tag is written by the request path, not by the client: a client cannot omit 
 
 **Log events.** The consumer lifecycle is public and is logged: `oauth/propose`, `oauth/update`, `oauth/approve`, `oauth/reject`, `oauth/disable`, with the consumer slug as target and the reason in the comment part, written to the primary tenant's `log` partition, or `log/{farm}` where [0028](0028-tenancy-policy.md) §2 creates one. **Authorizations and revocations are not logged**: an authorization is private state, like the issue of a key ([0024](0024-subsidiary-accounts.md) §4), and nothing about a token is ever a log record. What is public is what the subsidiary then does, and its creation and approval, which `newusers/create2` and `rights/rights` already cover.
 
+> **Amended by [0046](0046-primary-tenant.md) §4.** Consumer events are written to the **instance `log`**, not to the primary tenant's `log` or to `log/{farm}`: consumers are instance configuration, and their record must not move when the primary role does.
+
 ### 6. Rate limits (uses 0024 §5)
 
 A request made with a token is limited as the **subsidiary** is limited: its groups pick the row of the rate-limit table, so an approved-but-unflagged tool account edits at `user`'s rate and a community that has flagged one as `bot` gets bot rates for it. Authorization attempts, consent, and device-code entry count under the **`account`** class against the primary account; token refreshes count under `read` against the subsidiary. There is no per-consumer limit: a consumer is code, and what is limited is the account it acts as.
@@ -130,6 +133,8 @@ The endpoints of §1, at both paths. Additionally:
 | `mwoauthmanageconsumer` | Approving, rejecting and disabling consumers (§2) | `bureaucrat` |
 | `mwoauthmanagemygrants` | Viewing and revoking authorizations of one's own subsidiaries (§5) | `user` |
 | `mwoauthviewprivate` | Viewing any account's authorizations and token metadata, for abuse investigation (§5) | `sysop` |
+
+> **Amended by [0046](0046-primary-tenant.md) §8.** `mwoauthmanageconsumer` is an **instance right** ([0040](0040-instance-prerogatives.md) §9): it is evaluated on the primary tenant or through a global group, and a bureaucrat of any other tenant holds it to no effect.
 
 The names are MediaWiki's so a Wikimedia administrator recognises them. `mwoauthsuppress` and `mwoauthviewsuppressed` are not offered: consumer records are `config`, and hiding one is disabling it. Approval of a pending subsidiary is `userrights`, as in 0024, and creating one in the consent page is `createaccount`. `docs/registry/groups.toml` gains the five permissions.
 

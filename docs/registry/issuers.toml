@@ -23,7 +23,7 @@ iri = "{tenant base}/user/{id}"
 login = false                 # tenant accounts are the target of login; a farm may register itself as a provider
 
 # The farm as an issuer (0028 §2): present when the tenancy policy's identity.farm_issuer is not
-# "none". Its code is the farm slug; its accounts are public actors that edit nothing and are
+# "none". Its code is the farm slug (0046 §6); its accounts are public actors that edit nothing and are
 # what global groups, global blocks and shared names key on. Declared by the instance's
 # `tenancy` records, not here; this entry is the template.
 [[issuer]]
@@ -31,7 +31,7 @@ code = "{farm}"
 template = true
 name = "This farm"
 actor_model = "numeric"
-iri = "{farm base}/user/{id}"
+iri = "{farm base}/instance/user/{id}"   # 0046 §7
 login = true                  # a farm account binds to identity providers like any account (0007 §3)
 
 # The built-in password issuer (0007 §3, as amended 2026-09-27): the one issuer the instance
@@ -57,7 +57,7 @@ builtin = true
 code = "instance"
 name = "The instance operator"
 actor_model = "provider-only"
-iri = "{farm base}/operator"     # actor key instance:{farm slug}
+iri = "{farm base}/instance/operator"     # actor key instance:{farm slug}; 0046 §6-7
 login = false
 providers = []
 builtin = true

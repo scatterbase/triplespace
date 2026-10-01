@@ -3,7 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-09-25
 - **Author:** James Hare / Claude Opus
-- **Amended by:** [0011 — Upstream and local logs](0011-logs.md), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md), [0015 — Record format and partition registry](0015-record-format-and-partition-registry.md), [0016 — Permissions and access control](0016-permissions-and-access-control.md), [0018 — Tenants](0018-tenants.md), [0022 — Federation: verified data sync and ActivityPub](0022-federation.md) (§1 settles where checkpoints are served), [0039 — Files, blob storage and foreign file repositories](0039-files-and-media.md) (§8 and §10 extend §7: erasing an upload's content part destroys its bytes once unreferenced; §14 extends §9: blob verification and bundles with blobs), [0040 — Instance prerogatives](0040-instance-prerogatives.md) (§3 extends §2: domain tag `0x06`; §8 extends §9: verifying instance attestations and the authority extract)
+- **Amended by:** [0011 — Upstream and local logs](0011-logs.md), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md), [0015 — Record format and partition registry](0015-record-format-and-partition-registry.md), [0016 — Permissions and access control](0016-permissions-and-access-control.md), [0018 — Tenants](0018-tenants.md), [0022 — Federation: verified data sync and ActivityPub](0022-federation.md) (§1 settles where checkpoints are served), [0039 — Files, blob storage and foreign file repositories](0039-files-and-media.md) (§8 and §10 extend §7: erasing an upload's content part destroys its bytes once unreferenced; §14 extends §9: blob verification and bundles with blobs), [0040 — Instance prerogatives](0040-instance-prerogatives.md) (§3 extends §2: domain tag `0x06`; §8 extends §9: verifying instance attestations and the authority extract), [0046 — The primary tenant](0046-primary-tenant.md) (§7 amends §6: instance partitions' origin lines are `{farm host}/instance/log/{name}`)
 - **Related:** [0000 — Initial proposition](0000-init.md) (§7 settles the removal mechanism its Consequences call for), [0001 — Revision metadata in RDF](0001-revision-metadata-rdf.md) (§4), [0002 — Source graphs and mass ingest](0002-source-graphs-and-mass-ingest.md) (§2, §5, §8; §7 settles the legal-erasure open question), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (amends §2, §4.2 and §4.3; specifies §3 rule 4)
 
 ## Context
@@ -151,6 +151,8 @@ A mirror with the `full` history policy is still `hashed`. It simply never compa
 - **Root hash**, in base64.
 - **No extension lines.** C2SP recommends against them because monitors cannot audit them.
 - **Signature:** the instance's Ed25519 key.
+
+> **Amended by [0046](0046-primary-tenant.md) §7.** An instance partition's origin line is `{farm host}/instance/log/{partition name}`, so that it cannot collide with a tenant's when the farm base is a tenant's base; a tenant partition's is `{tenant host}/log/{partition name}` ([0018](0018-tenants.md) §2).
 
 **When checkpoints are written:**
 
