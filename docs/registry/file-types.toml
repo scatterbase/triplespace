@@ -1,0 +1,171 @@
+# Permitted file types.  ADR 0039 §5–7.
+#
+# extensions  File-name extensions, matched without regard to case; the first is canonical.
+# mime        The MIME type the bytes must be detected as (0039 §5 check 2).
+# media_type  MediaWiki's media type: BITMAP, DRAWING, AUDIO, VIDEO, MULTIMEDIA, OFFICE, TEXT, ARCHIVE, 3D.
+# magic       How the type is detected: a named signature implemented in `scatter-files`.
+# serve       "inline" or "attachment" on the media base (0039 §7). SVG originals are served
+#             inline only under the sandboxing CSP and a separate media origin.
+# thumbnailer The renderer for thumbnails (0039 §6), or "none" (an icon is shown).
+# default     Allowed by the instance's `files.types` unless the instance changes it. A tenant may
+#             narrow the instance list, never widen it.
+#
+# Never permitted, whatever configuration says (MediaWiki's $wgProhibitedFileExtensions and
+# $wgMimeTypeExclusions): executables and scripts (exe, dll, com, bat, cmd, sh, ps1, msi, scr,
+# vbs, js, mjs, jar, php, phtml, pl, py, cgi), HTML and XHTML, and anything detected as
+# text/html, application/javascript or application/x-msdownload. The list is enforced in code.
+
+version = 1
+
+[[type]]
+extensions = ["png"]
+mime = "image/png"
+media_type = "BITMAP"
+magic = "png"
+serve = "inline"
+thumbnailer = "raster"
+default = true
+
+[[type]]
+extensions = ["jpg", "jpeg", "jpe"]
+mime = "image/jpeg"
+media_type = "BITMAP"
+magic = "jpeg"
+serve = "inline"
+thumbnailer = "raster"
+default = true
+
+[[type]]
+extensions = ["gif"]
+mime = "image/gif"
+media_type = "BITMAP"
+magic = "gif"
+serve = "inline"
+thumbnailer = "raster"      # first frame
+default = true
+
+[[type]]
+extensions = ["webp"]
+mime = "image/webp"
+media_type = "BITMAP"
+magic = "webp"
+serve = "inline"
+thumbnailer = "raster"
+default = true
+
+[[type]]
+extensions = ["tif", "tiff"]
+mime = "image/tiff"
+media_type = "BITMAP"
+magic = "tiff"
+serve = "attachment"
+thumbnailer = "raster"
+default = true
+
+[[type]]
+extensions = ["svg"]
+mime = "image/svg+xml"
+media_type = "DRAWING"
+magic = "svg"               # XML parse plus the hostile-content checks of 0039 §5
+serve = "inline"
+thumbnailer = "svg"
+default = true
+
+[[type]]
+extensions = ["pdf"]
+mime = "application/pdf"
+media_type = "OFFICE"
+magic = "pdf"
+serve = "inline"
+thumbnailer = "none"        # PDF page rendering is open (0039, open questions)
+default = true
+
+[[type]]
+extensions = ["djvu", "djv"]
+mime = "image/vnd.djvu"
+media_type = "BITMAP"
+magic = "djvu"
+serve = "attachment"
+thumbnailer = "none"
+default = false
+
+[[type]]
+extensions = ["ogg", "oga"]
+mime = "audio/ogg"
+media_type = "AUDIO"
+magic = "ogg"
+serve = "inline"
+thumbnailer = "none"
+default = true
+
+[[type]]
+extensions = ["opus"]
+mime = "audio/ogg"
+media_type = "AUDIO"
+magic = "ogg"
+serve = "inline"
+thumbnailer = "none"
+default = true
+
+[[type]]
+extensions = ["flac"]
+mime = "audio/flac"
+media_type = "AUDIO"
+magic = "flac"
+serve = "inline"
+thumbnailer = "none"
+default = true
+
+[[type]]
+extensions = ["wav"]
+mime = "audio/wav"
+media_type = "AUDIO"
+magic = "riff-wave"
+serve = "inline"
+thumbnailer = "none"
+default = true
+
+[[type]]
+extensions = ["mp3"]
+mime = "audio/mpeg"
+media_type = "AUDIO"
+magic = "mp3"
+serve = "inline"
+thumbnailer = "none"
+default = true
+
+[[type]]
+extensions = ["ogv"]
+mime = "video/ogg"
+media_type = "VIDEO"
+magic = "ogg"
+serve = "inline"
+thumbnailer = "none"        # video posters are open (0039, open questions)
+default = true
+
+[[type]]
+extensions = ["webm"]
+mime = "video/webm"
+media_type = "VIDEO"
+magic = "webm"
+serve = "inline"
+thumbnailer = "none"
+default = true
+
+[[type]]
+extensions = ["mp4", "m4v"]
+mime = "video/mp4"
+media_type = "VIDEO"
+magic = "mp4"
+serve = "inline"
+thumbnailer = "none"
+default = false
+
+[[type]]
+extensions = ["stl"]
+mime = "model/stl"
+media_type = "3D"
+magic = "stl"
+serve = "attachment"
+thumbnailer = "none"
+default = false

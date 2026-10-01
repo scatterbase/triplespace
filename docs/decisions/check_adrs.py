@@ -110,9 +110,13 @@ for b, text in texts.items():
 table = texts[num2file["0005"]]
 tbl_crates = set(re.findall(r"`((?:scatter|triplespace)-[a-z0-9-]+)`", table.split("### 2. Crate map")[1].split("### 3.")[0]))
 retired = {"scatter-graphs", "scatter-markdown", "scatter-keyed", "triplespace-activity", "triplespace-revmeta"}
+# Content model IDs unique to Triplespace share the `triplespace-` prefix (0041 §2); they are not crates.
+_cm = os.path.join(ROOT, "registry", "content-models.toml")
+model_ids = set(re.findall(r'^id = "([^"]+)"', open(_cm, encoding="utf-8").read(), re.M)) if os.path.exists(_cm) else set()
+tbl_crates -= model_ids
 all_mentions = collections.defaultdict(set)
 for name, text in texts.items():
-    for c in set(re.findall(r"`((?:scatter|triplespace)-[a-z0-9-]+)`", text)):
+    for c in set(re.findall(r"`((?:scatter|triplespace)-[a-z0-9-]+)`", text)) - model_ids:
         all_mentions[c].add(name[:4])
 print("== crates named in ADRs but not in the 0005 §2 table ==")
 for c, where in sorted(all_mentions.items()):

@@ -3,7 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-09-27
 - **Author:** James Hare / Claude Fable
-- **Amended by:** [0038 — Page metadata, legacy categories and articles](0038-page-metadata-and-categories.md) (§8 extends §6: main-namespace titles last in the `/resolve` order)
+- **Amended by:** [0038 — Page metadata, legacy categories and articles](0038-page-metadata-and-categories.md) (§8 extends §6: main-namespace titles last in the `/resolve` order), [0041 — Content models](0041-content-models.md) (§4 amends §2: the kinds beside `resolver` are now `pages`, `reserved` and `virtual`)
 - **Related:** [0002 — Source graphs and mass ingest](0002-source-graphs-and-mass-ingest.md) (§5 relates resolvers to match keys, §8.5), [0003 — Statement UI](0003-statement-ui.md) (§1 binds a resolver to a property by role, §7), [0004 — Identity clusters and equivalence](0004-identity-clusters-and-equivalence.md) (§1 uses §6 and §7), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§9 amends §2), [0008 — Namespaces and document pages](0008-namespaces-and-document-pages.md) (§2 extends §1 with the `resolver` kind and §3 with its normalizer), [0009 — Keyed entity types and Domain](0009-keyed-entity-types-and-domain.md) (§1 settles the DOI open question: a resolver, not a keyed type), [0010 — Site UI](0010-site-ui.md) (§7 extends §3), [0012 — API requirements for the site UI](0012-api-requirements.md) (§6 extends `/resolve` in §5), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md) (§3 reads `view.identifier` of §5.2), [0015 — Record format and partition registry](0015-record-format-and-partition-registry.md) (§1 extends §3 with the `resolver` kind and §5 with `resolvers.toml`), [0017 — Entity ID grammar](0017-entity-id-grammar.md) (§1 settles the DOI open question; §4 keeps resolver names and keyed-type names in one namespace), [0026 — Sitelinks are URLs](0026-sitelinks.md) (§5 binds a resolver to sitelinks)
 
 ## Context
@@ -38,6 +38,8 @@ A **resolver** is a registry entry, a `config` record of kind `resolver` in the 
 `resolver` joins the namespace kinds of [0008](0008-namespaces-and-document-pages.md) §1 (entity view, document, reserved, virtual, composite, thread). A resolver namespace holds no pages and no records: every title in it is a key, and viewing it performs the lookup of §3. Its paired talk namespace is `reserved` and empty, as `Thread talk` is ([0019](0019-discussions.md) §3). Its **title normalizer** is the resolver's normalizer, and `meta=siteinfo` reports its `case` as `case-sensitive` whatever the case rule, because the server normalizes ([0008](0008-namespaces-and-document-pages.md) §3). Subpages are not allowed; a `/` inside a DOI is part of the key, and the resolver's grammar, not the namespace, decides what a key may contain.
 
 **Resolver names and keyed-type names share one namespace.** `doi` cannot be both a resolver and a keyed type, so `doi:10.1000/xyz` in an API parameter can mean only one thing ([0017](0017-entity-id-grammar.md) §1). The registry refuses a resolver whose name is a keyed type's, and the reverse.
+
+> **Amended by [0041](0041-content-models.md) §4.** The kinds beside `resolver` are now `pages`, `reserved` and `virtual`: entity view, document, composite and thread namespaces are `pages` namespaces told apart by content model. `resolver` stays a kind, because a resolver namespace holds no pages and so has no model.
 
 ### 3. Resolution
 

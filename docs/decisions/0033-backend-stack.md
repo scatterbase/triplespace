@@ -2,6 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
+- **Amended by:** [0039 — Files, blob storage and foreign file repositories](0039-files-and-media.md) (§3 and §6 extend §5: `object_store`, `image` and `resvg`), [0042 — Template expansion and the Parsoid renderer](0042-template-expansion-and-parsoid.md) (§1 and §8 refine §9.1: rendering expanded text, and the Parsoid service; §8.3 amends §1: one optional service needs PHP; §18 extends §15: ParserFunctions and Scribunto on the reference install), [0043 — Lua modules](0043-lua-modules.md) (§4 and §14 extend §1: Lua 5.1 through `mlua`, and vendored GPL Lua in a Triplespace crate)
 - **Related:** 0005, 0006, 0007, 0008, 0011, 0012, 0013, 0014, 0015, 0019, 0021, 0022, 0025, 0027, 0030, 0032, 0034
 
 ## Context
@@ -28,6 +29,8 @@ This ADR records the rest. The frontend is in 0034.
    - **Denied.** Licences that cannot be combined with GPLv3: the pre-3.0 OpenSSL/SSLeay licence, GPL-2.0-only and non-commercial terms. AGPL is also denied, as a policy choice, so that its network clause never reaches the combined work.
    - **Enforcement.** `cargo-deny` enforces both lists in CI.
 4. **Prefer a small, well-understood dependency to a framework.** Where a protocol surface is small (OAuth server, HTTP Signatures, OpenSearch's REST API), Triplespace implements it over general-purpose crates rather than adopting a framework that would dictate structure.
+
+> **Amended by [0042](0042-template-expansion-and-parsoid.md) §8.3 and [0043](0043-lua-modules.md) §4, §14.** The Parsoid service, a separate PHP program never linked into the binary, joins the optional services; it is the only one that needs a PHP runtime. Lua 5.1 is linked through `mlua` (MIT) in `triplespace-scribunto`, which vendors Scribunto's and WikibaseClient's GPL-2.0-or-later Lua and is therefore never dual-licensed.
 
 ### 2. Language and toolchain
 
@@ -61,6 +64,8 @@ The write path of 0013 §7 (auth → grants → rate limit → ACLs → filters 
 | In-process cache (L0) | `moka` | As 0014. |
 | Valkey (L1) | `redis` (redis-rs) with its tokio connection manager | Works against Valkey unchanged. Prefix deletion for erasure (0014 §5) uses `SCAN` + `UNLINK`. |
 | OpenSearch | `reqwest` with typed request and response structs | The surface used (index, bulk, msearch, aliases, `version_type: external`) is small; a typed client module in `triplespace-search` is easier to keep current than the official client crate. |
+
+> **Extended by [0039](0039-files-and-media.md) §3 and §6.** Blob storage uses `object_store` (Apache Arrow), with its local-filesystem and S3 backends, in the new `scatter-blob` crate; thumbnails use `image` for raster formats and `resvg` for SVG, in `scatter-files`. Each is to be confirmed against §16 by `cargo deny` when the crates are added.
 
 ### 6. Encoding, hashing and cryptography
 
@@ -118,6 +123,8 @@ Everything else renders as a **visible chip** showing its source: templates, par
 - A differential test against Parsoid on the MediaWiki 1.43 reference install (0000): sampled pages rendered by both, DOMs normalized and compared for the supported constructs.
 
 **Not chosen as the core parser:** `tree-sitter-wikitext` (Wikimedia, MIT). It produces a concrete syntax tree that would need lowering, and its C core complicates `wasm32-unknown-unknown` builds. It remains available for editor highlighting in the browser (0034 §7). `wikitext-parser` (approximate, unmaintained) and Parsoid or mwparserfromhell (not in-process) were also rejected.
+
+> **Refined by [0042](0042-template-expansion-and-parsoid.md) §1 and §8.** With a tenant's expansion on, the parser renders and extracts from **expanded** text, produced by `scatter-wikitext-expand`; a tenant may instead render through a Parsoid service that calls back into Triplespace for expansion. Parsoid stays rejected as an in-process parser.
 
 #### 9.2 Markdown (`scatter-pages`, 0019 §5)
 
@@ -187,6 +194,8 @@ QLever is an export destination, not a runtime dependency. It reached full SPARQ
 | `testcontainers` | Postgres, Valkey, OpenSearch and QLever in integration tests |
 | `cargo-fuzz` | wikitext and markdown parsers, CBOR decoding, HTTP Signature parsing, CEL compilation, inbound ActivityPub bodies |
 | MediaWiki 1.43 reference install | API compatibility (0012), Parsoid differential tests (§9.1), Pywikibot acceptance (0008 §12) |
+
+> **Extended by [0042](0042-template-expansion-and-parsoid.md) §18.** The reference install gains ParserFunctions and Scribunto, beside WikibaseClient, for differential `action=expandtemplates` tests and Lua conformance ([0043](0043-lua-modules.md) §15).
 
 The `LogStore` conformance suite (0005 rule 8) runs against both the file and Postgres implementations.
 

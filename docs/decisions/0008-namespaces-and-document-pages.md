@@ -3,7 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-09-26
 - **Author:** James Hare / Claude Opus
-- **Amended by:** [0036 — OpenStreetMap providers](0036-openstreetmap-providers.md) (§3 allocates 216/217), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md), [0014 — Cache layers and search](0014-caches-and-search.md), [0005 — Crate organization, revision of 2026-09-26](0005-crate-organization.md) (§2 crate names), [0016 — Permissions and access control](0016-permissions-and-access-control.md), [0017 — Entity ID grammar](0017-entity-id-grammar.md), [0019 — Discussions](0019-discussions.md) (§2 makes talk namespaces composite; §3 registers `Thread`; settles the discussions open question), [0023 — Protection, deletion, hiding and patrolling](0023-moderation.md) (§4 amends §4: `delete` and `undelete` are ACL records, not page operations; §2 settles the protection open question), [0029 — Resolver namespaces](0029-resolver-namespaces.md) (§2 extends §1 with the `resolver` kind and §3 with its normalizer). §2 was amended on 2026-09-27 with the numbering policy: reserved MediaWiki and Wikibase numbers, talk namespaces for implemented subjects only, 210–219 for Triplespace and 220–229 for resolvers, [0035 — Adopting an existing Wikibase as a tenant](0035-adopting-a-wikibase.md) (§4 extends §9: pages imported from the wiki a tenant adopted keep their source page IDs), [0038 — Page metadata, legacy categories and articles](0038-page-metadata-and-categories.md) (§4 and §8 amend §2: Category and the main namespace are implemented; §3 amends §8 and settles the categories open question; §1 extends §4: change sets on pages; §11 amends §10)
+- **Amended by:** [0036 — OpenStreetMap providers](0036-openstreetmap-providers.md) (§3 allocates 216/217), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md), [0014 — Cache layers and search](0014-caches-and-search.md), [0005 — Crate organization, revision of 2026-09-26](0005-crate-organization.md) (§2 crate names), [0016 — Permissions and access control](0016-permissions-and-access-control.md), [0017 — Entity ID grammar](0017-entity-id-grammar.md), [0019 — Discussions](0019-discussions.md) (§2 makes talk namespaces composite; §3 registers `Thread`; settles the discussions open question), [0023 — Protection, deletion, hiding and patrolling](0023-moderation.md) (§4 amends §4: `delete` and `undelete` are ACL records, not page operations; §2 settles the protection open question), [0029 — Resolver namespaces](0029-resolver-namespaces.md) (§2 extends §1 with the `resolver` kind and §3 with its normalizer). §2 was amended on 2026-09-27 with the numbering policy: reserved MediaWiki and Wikibase numbers, talk namespaces for implemented subjects only, 210–219 for Triplespace and 220–229 for resolvers, [0035 — Adopting an existing Wikibase as a tenant](0035-adopting-a-wikibase.md) (§4 extends §9: pages imported from the wiki a tenant adopted keep their source page IDs), [0038 — Page metadata, legacy categories and articles](0038-page-metadata-and-categories.md) (§4 and §8 amend §2: Category and the main namespace are implemented; §3 amends §8 and settles the categories open question; §1 extends §4: change sets on pages; §11 amends §10), [0039 — Files, blob storage and foreign file repositories](0039-files-and-media.md) (§1 amends §2: File, File talk and Media are implemented; §13 amends §8: file embedding and `Media:` links; §14 extends §9: file import), [0041 — Content models](0041-content-models.md) (§1 and §4 amend §1: a namespace names its allowed and default content models, and its kind says only whether it holds pages; §3 and §5 extend §5: the content model registry, sources, slots and the trait), [0042 — Template expansion and the Parsoid renderer](0042-template-expansion-and-parsoid.md) (§1 amends §8: expansion before rendering; §3 amends §2: Template and Template talk while expansion is on; §9 amends §10: links from expanded output; §13 amends §9: flattening becomes optional), [0043 — Lua modules](0043-lua-modules.md) (§2 amends §2: Module and Module talk while Lua is on; §3 amends §5: the server-run `Scribunto` model), [0044 — Tenant-relative IDs](0044-tenant-relative-ids.md) (§5 extends §3: the `entity-id` normalizer accepts tenant-relative IDs)
 - **Related:** [0000 — Initial proposition](0000-init.md), [0001 — Revision metadata in RDF](0001-revision-metadata-rdf.md), [0002 — Source graphs and mass ingest](0002-source-graphs-and-mass-ingest.md), [0004 — Identity clusters and equivalence](0004-identity-clusters-and-equivalence.md), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (amends §2 and §4.1), [0006 — Log integrity and erasure](0006-log-integrity-and-erasure.md), [0007 — Actor identity](0007-actor-identity.md), [0009 — Keyed entity types and Domain](0009-keyed-entity-types-and-domain.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
@@ -35,6 +35,8 @@ Namespaces are configuration: data passed in by the caller and recorded in the l
 - the **creation rule**, where the kind needs one (§6).
 
 **An entity namespace is keyed by entity type, not by provider.** `Item` hosts every item type: local `Q`, Wikidata `WDQ`, OpenAlex `OAW` and the rest. `Property` hosts `P` and `WDP`. This matches [0002](0002-source-graphs-and-mass-ingest.md) §4, where the prefixed ID is the working name in a page title such as `Item:WDQ123`.
+
+> **Amended by [0041](0041-content-models.md) §1 and §4.** Every page has a content model, and a namespace entry names its allowed models and default model. The kind now says only whether the namespace holds pages: `pages`, `reserved`, `virtual` or `resolver`. Entity views, document pages, file pages, threads and talk pages are all `pages` namespaces; what they are made of is their model (`wikibase-item`, `wikitext`, `triplespace-thread`, `triplespace-talk` and so on), and a File namespace adds the `uploads` flag. `entity_types` leaves the entry, since the model names the entity type.
 
 ### 2. Namespace numbering
 
@@ -70,6 +72,10 @@ Media (−2), File (6), MediaWiki (8), Template (10), Help (12) and Category (14
 
 > **Amended by [0038](0038-page-metadata-and-categories.md) §4 and §8.** Two reserved numbers are implemented, as rule 1 allows. The main namespace (0) is a `document` namespace for articles, with Talk (1) enabled; an unprefixed title in a link is a main-namespace title, and entities are linked with their namespace. Category (14) is a `document` namespace for category description pages, `wikitext` only, with Category talk (15) enabled.
 
+> **Amended by [0039](0039-files-and-media.md) §1.** Three more reserved numbers are implemented: File (6) is a `file` namespace, a document namespace whose pages may also carry uploads, with File talk (7) enabled; Media (−2) is `virtual` and resolves to a file's current bytes.
+
+> **Amended by [0042](0042-template-expansion-and-parsoid.md) §3 and [0043](0043-lua-modules.md) §2.** A reserved number can be implemented conditionally, by a setting named in its `namespaces.toml` entry (`enabled_by`). Template (10), with Template talk (11), is a `pages` namespace while the tenant's `wikitext.expansion` is on; Module (828) and Module talk (829), Scribunto's numbers, now registered, while `wikitext.lua` is on. Turning a setting off keeps the namespace's pages readable and refuses writes with `ts-namespace-disabled`.
+
 ### 3. Titles
 
 **One resolver handles every title.** Page views, API `titles=` parameters, redirects and wiki links (§8) all go through it. It works in three steps:
@@ -86,6 +92,8 @@ Media (−2), File (6), MediaWiki (8), Template (10), Help (12) and Category (14
 **A title that resolves somewhere else redirects there.** `Item:P31` redirects to `Property:P31`, and `Item:WDQ123` redirects to `Item:Q456` once `WDQ123` belongs to a cluster whose canonical ID is `Q456`. `Special:EntityPage/{id}` resolves any entity ID to its page, as it does in Wikibase.
 
 **`meta=siteinfo` reports only MediaWiki's two case values,** `first-letter` and `case-sensitive`. A namespace whose normalizer is neither reports `case-sensitive`, and the server normalizes. A client that believed `first-letter` would rewrite titles the server does not accept.
+
+> **Extended by [0044](0044-tenant-relative-ids.md) §5.** The `entity-id` normalizer accepts tenant-relative IDs: `Item:QQQ5` normalizes to `Item:Q5`.
 
 ### 4. Document pages
 
@@ -141,6 +149,10 @@ A document page has one **content model**, which decides how its text is validat
 
 **Content models are registry data.** The rendering code for each model implements a trait in `scatter-pages` (§11), so an instance can add models without changing the page format. In Scatterbase's terms, the stored text is the blob and the content model is the view.
 
+> **Extended by [0041](0041-content-models.md) §2–3 and §5.** Content models now cover every page, not only document pages, and live in `docs/registry/content-models.toml`. IDs follow one rule: MediaWiki's and Wikibase extensions' IDs are kept and reserved, generic formats (`markdown`, `yaml`) take no prefix, and models unique to Triplespace take `triplespace-`. Each model has a **source** (text, entity, thread, composite or statements); only text models support direct editing, and `changecontentmodel` moves only between text models the namespace allows.
+
+> **Amended by [0043](0043-lua-modules.md) §3.** The exclusion above is of models that reach the reader's browser. `Scribunto`, whose modules run on the server in a sandbox and return wikitext, is implemented; `css`, `javascript` and `sanitized-css` stay excluded.
+
 ### 6. The User namespace
 
 **A user page belongs to a local user, identified by user ID.** The root title `User:Example` is resolved through the local actor records ([0007](0007-actor-identity.md) §4) to the actor key, such as `local:42`. The page's owner is that actor.
@@ -187,6 +199,10 @@ Triplespace renders a fixed subset of wikitext. It does not implement MediaWiki'
 
 **Links are resolved by the title resolver** (§3). A link to an entity that exists renders with its label, as Wikibase does.
 
+> **Amended by [0039](0039-files-and-media.md) §13.** The subset gains file embedding (`[[File:…]]` with MediaWiki's options and a caption), `[[:File:…]]` links to description pages, `[[Media:…]]` links to bytes, and `<gallery>`. External image URLs are never embedded.
+
+> **Amended by [0042](0042-template-expansion-and-parsoid.md) §1 and §7.** Rendering has two stages. With the tenant's `wikitext.expansion` on, templates, parser functions and variables are expanded natively first, and the subset renders the expanded text; a tenant may instead render through Parsoid (0042 §8). With expansion off, template calls stay chips, as above.
+
 ### 9. Importing pages from another wiki
 
 Pages are imported from a MediaWiki XML export with full history. An import is a job ([0002](0002-source-graphs-and-mass-ingest.md) §8.3), and the procedure is:
@@ -199,6 +215,10 @@ Pages are imported from a MediaWiki XML export with full history. An import is a
 
 **A template census comes first.** Before an import, the pages are scanned for templates, parser functions and tags outside §8. The census decides whether step 3 is enough, or whether the subset should grow first.
 
+> **Extended by [0039](0039-files-and-media.md) §14.** Exports with `<upload>` elements import file versions, and `triplespace-cli files import` imports a directory as `importImages.php` does.
+
+> **Amended by [0042](0042-template-expansion-and-parsoid.md) §13.** With expansion on, step 3 is optional: the census also reports which templates and modules the export contains, and the importer may bring Template and Module pages with their history instead of flattening.
+
 ### 10. Links and metadata
 
 **A links projection** records every link from a document page to a page or entity, after resolution. It serves "What links here" for both kinds of page. So `Item:Q5` lists the project pages that link to it, and `list=backlinks` works across namespaces.
@@ -210,6 +230,8 @@ Pages are imported from a MediaWiki XML export with full history. An import is a
 - Nothing about document pages goes into the main or resolved graph. Page text is not RDF.
 
 > **Amended by [0038](0038-page-metadata-and-categories.md) §11.** A page's statements go into the main graph with the page's document node as subject. Page text and category membership are still not RDF.
+
+> **Amended by [0042](0042-template-expansion-and-parsoid.md) §9.** With expansion on, the links projection reads the expanded text, so links that templates emit count, and its rows are written by the refresh job of 0042 §10.
 
 ### 11. Crates (amends 0005 §2)
 

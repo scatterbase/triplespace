@@ -4,18 +4,21 @@ This directory is the registry of record for the names and codes that Triplespac
 
 | File | Lists | Embedded by | Defined in |
 |---|---|---|---|
-| `graphs.toml` | Reserved graph names, their kind, policies and payload type | `scatter-log` | 0015 §3, §5 |
-| `providers.toml` | Provider codes, slugs, numbers, type codes and ID grammars, IRI templates, issuers, trust mode and key-chain URL | `scatter-providers` | 0000 §3, 0002 §4, 0015 §2, §5, 0017 §2, 0022 §2 |
+| `graphs.toml` | Reserved graph names, their kind, policies and payload type | `scatter-log` | 0015 §3, §5, 0039 §10–11 |
+| `providers.toml` | Provider codes, slugs, numbers, type codes and ID grammars, IRI templates, issuers, trust mode and key-chain URL; the reserved doubled codes `AA`–`ZZ` | `scatter-providers` | 0000 §3, 0002 §4, 0015 §2, §5, 0017 §2, 0022 §2, 0044 §2 |
 | `issuers.toml` | Issuer codes and actor models | `scatter-actors` | 0007 §1 |
-| `namespaces.toml` | Default namespace numbers and kinds, the reserved MediaWiki and Wikibase numbers, and the 210–229 ranges | `triplespace-titles` | 0008 §2 (amended), 0009 §11, 0017 §5, 0019 §3, 0029, 0038 §4, §8 |
+| `namespaces.toml` | Default namespace numbers and kinds, each `pages` namespace's allowed and default content models, the reserved MediaWiki and Wikibase numbers, and the 210–229 ranges | `triplespace-titles` | 0008 §2 (amended), 0009 §11, 0017 §5, 0019 §3, 0029, 0038 §4, §8, 0039 §1, 0041 §4, 0042 §3, 0043 §2 |
+| `content-models.toml` | Content models: ID, origin, source, slot, entity type, serialization format and direct editing; the reserved MediaWiki and Wikibase model IDs | `scatter-pages` | 0008 §5, 0041 §2–3, 0043 §3 |
 | `keyed-types.toml` | Keyed entity types and their ID prefixes | `scatter-normalize` | 0009 §1, 0017 §3, §5 |
 | `groups.toml` | Default groups, their permissions, and the default graph ACLs | `scatter-actors` | 0016 §2–4, 0019 §12, 0020 §7, 0021 §9, 0022 §12, 0023 §11, 0024 §11, 0025 §10, 0030 §12 |
 | `grants.toml` | API-key grants and the permissions each covers; also the OAuth scopes a consumer may request | `scatter-actors` | 0024 §4, 0025 §2 |
 | `sites.toml` | Site aliases: MediaWiki site IDs, hosts, article paths and languages, for sitelink compatibility (generated from the Wikimedia site matrix) | `scatter-wikibase-model` | 0026 §2 |
 | `thread-statuses.toml` | Default thread statuses, with category and order | `scatter-threads` | 0019 §6 (amended) |
 | `preferences.toml` | Registered preference keys, types and defaults | `triplespace-accounts` | 0027 §1 |
-| `tenancy.toml` | Tenancy policy switches and the `isolated`, `community` and `enterprise` presets, with their global groups | `scatter-actors` | 0028 §1 |
+| `tenancy.toml` | Tenancy policy switches and the `isolated`, `community` and `enterprise` presets, with their global groups | `scatter-actors` | 0028 §1, 0042 §2 |
+| `file-types.toml` | Permitted file types: extensions, MIME and MediaWiki media types, magic signatures, inline or attachment, thumbnailer, and which are allowed by default | `scatter-files` | 0039 §5 |
 | `resolvers.toml` | Resolver namespaces: binding, grammar, normalizer and case rule, external IRI (`doi`, `url`; candidates drafted) | `scatter-normalize` | 0029 §1, §8 |
+| `wikitext-functions.toml` | Wikitext variables, parser functions, extension tags and behaviour switches, with origin and status (`implemented`, `chip`, `ignored`); what `meta=siteinfo` reports as `magicwords`, `functionhooks`, `extensiontags`, `variables` and `doubleunderscores` (seed; generated from the reference install) | `scatter-wikitext-expand` | 0042 §5, 0043 §7 |
 
 ## Rules
 
@@ -24,6 +27,7 @@ This directory is the registry of record for the names and codes that Triplespac
 - **These are defaults, not state.** An instance's `config` partition (0015 §3) starts from these files and may diverge: it may add providers, rename groups or change permissions. What it may not do is reuse a provider code or number for something else, because IDs and revision IDs computed from them are shared between instances.
 - **The crates embed the files** (`include_str!`) and parse them at build time, so a malformed file fails the build, and the defaults an instance starts from are the defaults the code was tested with.
 - **Provider number 0 is the current tenant.** It is reserved in `providers.toml` and never assigned to a provider.
+- **Doubled-letter provider codes are reserved.** `AA` through `ZZ` are never allocated, because `QQQ5` is the tenant-relative form of the local `Q5` ([0044](../decisions/0044-tenant-relative-ids.md) §2).
 - **Slugs are one namespace.** A tenant's slug ([0018](../decisions/0018-tenants.md) §1), a provider's slug and an issuer's code are the same word for the same thing; a tenant that becomes a provider keeps its slug and takes a code and a number here.
 
 ## Pending allocations

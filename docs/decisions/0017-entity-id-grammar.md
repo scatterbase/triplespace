@@ -3,7 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-09-27
 - **Author:** James Hare / Claude Fable
-- **Amended by:** [0037 — GDELT as a provider](0037-gdelt-provider.md) (§2 adds two ID grammars and lets a grammar be set per type), [0036 — OpenStreetMap providers](0036-openstreetmap-providers.md) (§3 adds a third keyed type, `osm-tag`), [0029 — Resolver namespaces](0029-resolver-namespaces.md) (§1 settles the DOI open question; §2 makes resolver names and keyed-type names one namespace)
+- **Amended by:** [0037 — GDELT as a provider](0037-gdelt-provider.md) (§2 adds two ID grammars and lets a grammar be set per type), [0036 — OpenStreetMap providers](0036-openstreetmap-providers.md) (§3 adds a third keyed type, `osm-tag`), [0029 — Resolver namespaces](0029-resolver-namespaces.md) (§1 settles the DOI open question; §2 makes resolver names and keyed-type names one namespace), [0041 — Content models](0041-content-models.md) (§7 extends §1: `M` followed by a File page's page ID is a derived MediaInfo ID), [0044 — Tenant-relative IDs](0044-tenant-relative-ids.md) (§1 extends §1: the tenant-relative input form of local IDs; §2 extends §2: doubled provider codes reserved)
 - **Related:** [0000 — Initial proposition](0000-init.md) (§3), [0002 — Source graphs and mass ingest](0002-source-graphs-and-mass-ingest.md) (§2 amends the ID rewriting of §4), [0004 — Identity clusters and equivalence](0004-identity-clusters-and-equivalence.md) (§5 amends §1: keywords never cluster), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (amends §2), [0008 — Namespaces and document pages](0008-namespaces-and-document-pages.md) (§4 amends the `entity-id` normalizer of §3), [0009 — Keyed entity types and Domain](0009-keyed-entity-types-and-domain.md) (amends §3, §4, §5, §8, §9 and §10; §5 extends §1 with a second keyed type), [0010 — Site UI](0010-site-ui.md) (§4 amends §3), [0012 — API requirements for the site UI](0012-api-requirements.md) (§4 refines `/resolve` in §5), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md) (§4 amends `view.entity.id` in §5.1), [0014 — Cache layers and search](0014-caches-and-search.md) (§4 amends the `id` and `key` fields of §7), [0015 — Record format and partition registry](0015-record-format-and-partition-registry.md) (§6 extends the registry files of §5), [0016 — Permissions and access control](0016-permissions-and-access-control.md) (§4)
 
 ## Context
@@ -37,6 +37,10 @@ No minted ID contains a colon, and every keyed ID does, so the two never collide
 
 **Bare keys are not IDs.** `wbgetentities&ids=en.wikipedia.org` is an `invalid-entity-id`. The title resolver and `GET /resolve` ([0012](0012-api-requirements.md) §5) still recognise a bare string that normalizes to a valid key of some keyed type and offer it as a suggestion, so the search box's "Go to" ([0010](0010-site-ui.md) §3) keeps working for a pasted domain name.
 
+> **Extended by [0041](0041-content-models.md) §7.** `M` and digits, a local-form ID, names the statements of the File page with that page ID (WikibaseMediaInfo's contract). It is derived, not minted: never in `view.entity`, never in a cluster, never the value of an entity data type.
+
+> **Extended by [0044](0044-tenant-relative-ids.md) §1.** A type letter written three times and the rest of a local ID, `QQQ5`, is an **input form** of the local ID on the tenant that reads it. It is canonicalized to `Q5` wherever IDs are accepted and never stored or returned, except as Lua output under a remapped letter ([0043](0043-lua-modules.md) §8).
+
 ### 2. ID grammars for minted types
 
 Each foreign entity type declares an **ID grammar** in `providers.toml`. It says what may follow the three-letter prefix and what the canonical spelling is.
@@ -49,6 +53,8 @@ Each foreign entity type declares an **ID grammar** in `providers.toml`. It says
 Input is case-insensitive in every position. **Canonicalizing an ID uppercases its prefix and applies the grammar's canonical form to the rest**, so `mbab10BBBFC-…` becomes `MBAb10bbbfc-…`. This amends the `entity-id` normalizer of [0008](0008-namespaces-and-document-pages.md) §3, which uppercased the whole ID, and the ID rewriting of [0002](0002-source-graphs-and-mass-ingest.md) §4, which becomes: strip or add the prefix, and canonicalize the rest by the type's grammar. The rewriting of upstream IDs also honours `upstream_prefix`, so `keywords/…` and MusicBrainz's bare MBIDs both round-trip.
 
 A new grammar is added by ADR, as a value the registry accepts. Nothing else in the system needs to know a grammar's rules: the ID parser in `scatter-wikibase-model` ([0005](0005-crate-organization.md) §2) reads them from the registry passed in as data (0005 §3, rule 3).
+
+> **Extended by [0044](0044-tenant-relative-ids.md) §2.** The provider codes `AA` through `ZZ` are reserved and never allocated, so that the tenant-relative form is unambiguous.
 
 ### 3. Keyed IDs
 

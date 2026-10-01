@@ -49,6 +49,19 @@ login = true
 providers = []
 builtin = true
 
+# The instance as operator (0040 §2): the actor of every instance act written into a tenant
+# (prerogatives and provisions). Provider-only: acts are attributed to the instance as a whole,
+# never to the person who carried them out, who is recorded only on the act's authority record.
+# The code is reserved in the shared namespace of slugs and issuer codes (0018 §1).
+[[issuer]]
+code = "instance"
+name = "The instance operator"
+actor_model = "provider-only"
+iri = "{farm base}/operator"     # actor key instance:{farm slug}
+login = false
+providers = []
+builtin = true
+
 [[issuer]]
 code = "wikidatawiki"
 name = "Wikidata"

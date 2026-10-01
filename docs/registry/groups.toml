@@ -1,4 +1,4 @@
-# Default groups, permissions and graph ACLs.  ADR 0016 §2–4, 0019 §12, 0020 §7, 0021 §9, 0022 §12, 0023 §11, 0024 §11, 0025 §10, 0030 §12 and §5 (tags).
+# Default groups, permissions and graph ACLs.  ADR 0016 §2–4, 0019 §12, 0020 §7, 0021 §9, 0022 §12, 0023 §11, 0024 §11, 0025 §10, 0030 §12 and §5 (tags), 0039 §21.
 #
 # Permissions are MediaWiki right names where MediaWiki has one, Wikibase's for entities,
 # and ts-* for what only Triplespace does. Scatterbase's five (view, edit, delete,
@@ -35,6 +35,7 @@ mediawiki = [
   "mwoauthproposeconsumer", "mwoauthupdateownconsumer", "mwoauthmanageconsumer",   # 0025 §10
   "mwoauthmanagemygrants", "mwoauthviewprivate",
   "changetags", "managechangetags",              # 0030 §5 as amended 2026-09-27: apply a registered tag; manage the tag registry
+  "upload", "reupload", "reupload-own", "reupload-shared", "upload_by_url", "movefile",   # 0039 §21
 ]
 wikibase = ["item-term", "property-term", "item-redirect", "item-merge", "property-create"]
 triplespace = [
@@ -42,6 +43,8 @@ triplespace = [
   "ts-erase", "ts-viewerasures", "ts-unlink", "ts-config", "ts-keys",
   "ts-editpost",                                 # 0019 §12: edit another actor's post
   "ts-transferaccount",                          # 0024 §11: move a subsidiary to another operator
+  "ts-takedown", "ts-expunge", "ts-viewtakedown",   # 0039 §21: operator removal of files; evaluated on the primary tenant only
+  "ts-viewoperator",                             # 0040 §9: see which operator carried out an instance act; an instance right
 ]
 
 # ---------------------------------------------------------------------------
@@ -74,7 +77,8 @@ permissions = [
 [[group]]
 name = "autoconfirmed"
 implicit = "threshold"              # age and edit count from site config; values are open (0016)
-permissions = ["move", "ts-link", "patrol", "createaccount", "mwoauthproposeconsumer", "mwoauthupdateownconsumer"]   # 0025 §10
+permissions = ["move", "ts-link", "patrol", "createaccount", "mwoauthproposeconsumer", "mwoauthupdateownconsumer",   # 0025 §10
+               "upload", "reupload", "reupload-own", "movefile"]                                                     # 0039 §21
 
 [[group]]
 name = "autopatrolled"              # assigned with userrights (0023 §11)
@@ -103,6 +107,7 @@ permissions = [
   "abusefilter-view-private", "abusefilter-log-private", "abusefilter-log-detail", "abusefilter-modify", "abusefilter-revert",
   "mwoauthviewprivate",                          # 0025 §10
   "managechangetags",                            # 0030 §5 as amended: the tag registry
+  "reupload-shared",                             # 0039 §21: shadow a foreign repository's file
 ]
 
 [[group]]
@@ -115,7 +120,7 @@ permissions = ["suppressrevision", "viewsuppressed", "hideuser", "ts-erase"]
 
 [[group]]
 name = "owner"
-all_permissions = true              # including ts-keys, which no other group holds
+all_permissions = true              # including ts-keys, which no other group holds, and on the primary tenant the file operator rights (0039 §21)
 minimum_members = 1
 membership_changed_by = "owner"
 

@@ -3,7 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-09-27
 - **Author:** James Hare / Claude Fable
-- **Amended by:** [0031 — Property constraints](0031-property-constraints.md) (§8 settles the property-constraints open question)
+- **Amended by:** [0031 — Property constraints](0031-property-constraints.md) (§8 settles the property-constraints open question), [0039 — Files, blob storage and foreign file repositories](0039-files-and-media.md) (§5 extends §2: the `upload` context), [0040 — Instance prerogatives](0040-instance-prerogatives.md) (§6 amends §8: global filters move to the instance `log`, and their blocks are prerogatives), [0042 — Template expansion and the Parsoid renderer](0042-template-expansion-and-parsoid.md) (§17 refines §2: link variables from expanded output)
 - **Related:** [0001 — Revision metadata in RDF](0001-revision-metadata-rdf.md) (§5 gives change tags a home), [0002 — Source graphs and mass ingest](0002-source-graphs-and-mass-ingest.md) (§7 extends §8.5: filter rejects), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§12 amends §2: adds `scatter-filter`), [0007 — Actor identity](0007-actor-identity.md) (§3: IP in the abuse store only), [0010 — Site UI](0010-site-ui.md) (§10 extends §2 and §7), [0011 — Upstream and local logs](0011-logs.md) (§6 extends §6.1 and §2: filter and hit records in the local log), [0012 — API requirements for the site UI](0012-api-requirements.md) (§9 extends §4 and §5; §5 extends the activity row of §3), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md) (§11 extends §5.6 and §7), [0014 — Cache layers and search](0014-caches-and-search.md) (§4 uses the counters of §4), [0015 — Record format and partition registry](0015-record-format-and-partition-registry.md) (§5 amends §1: the attestation part carries change tags), [0016 — Permissions and access control](0016-permissions-and-access-control.md) (§8 extends §2; settles the abuse-filter open question), [0020 — Change feeds](0020-change-feeds.md) (§6 extends §2 with the filter-hits set), [0021 — Notifications](0021-notifications.md) (§4: the `notify` action), [0023 — Protection, deletion, hiding and patrolling](0023-moderation.md) (§4: the `unpatrol` action; §6 places filters beside ACLs in `log`), [0024 — Subsidiary accounts, API keys and rate limits](0024-subsidiary-accounts.md) (§4: throttles as counters; §7: jobs), [0028 — Tenancy policy](0028-tenancy-policy.md) (§9 extends §1 with `filters.global`; settles the farm-filter open question), [0029 — Resolver namespaces](0029-resolver-namespaces.md) (§2: normalized identifier values in the context), [0022 — Federation: verified data sync and ActivityPub](0022-federation.md) (§8 uses §2: inbound posts are filtered in the `text` context with `user_kind = federated`), [0025 — The instance as an OAuth server](0025-oauth-server.md) (§4 writes the `oauth:{slug}` tag that §5 gives a home)
 
 ## Context
@@ -62,6 +62,8 @@ A rule sees a **context**: a typed set of variables derived from the candidate r
 | `thread_id`, `thread_target`, `post_depth`, `in_reply_to` | For posts ([0019](0019-discussions.md) §1–2) |
 | `summary`, `new_title` | The comment part; the target of a move or rename |
 
+> **Refined by [0042](0042-template-expansion-and-parsoid.md) §17.** With expansion on, `added_links` and `removed_links` come from the expanded text, computed only when an enabled filter reads them.
+
 **The actor context**, present in both:
 
 | Variable | Meaning |
@@ -76,6 +78,8 @@ A rule sees a **context**: a typed set of variables derived from the candidate r
 | `timestamp`, `job_id`, `api_key_label` | When; the job if any ([0002](0002-source-graphs-and-mass-ingest.md) §8.3); the key label if the actor is a subsidiary ([0024](0024-subsidiary-accounts.md) §4) |
 
 **Rules see the change and the actor, and nothing else.** A rule cannot read the graph: "the value of P31 must be an instance of Q5" is a property constraint, a separate reporting mechanism as on Wikidata, and is left to its own ADR (open questions). This bounds the cost of a filtered write to the cost of building the context from the record in hand.
+
+> **Extended by [0039](0039-files-and-media.md) §5.** A third context, `upload`, with AbuseFilter's file variables and `file_sha256`; `action` is `upload` or `stashupload`.
 
 ### 3. The rule language is CEL
 
@@ -137,6 +141,8 @@ Cost: building a change-set context per operation is a walk over a change set al
 ### 8. Farm-wide filters (extends 0028 §1)
 
 The tenancy policy gains a switch, `filters.global` (`none` or `inherited`; `none` in the `isolated` preset, `inherited` in `community` and `enterprise`). Under `inherited`, filters in the **primary tenant's** `log` partition with `scope = global` run on every tenant before the tenant's own filters, in ID order, and a tenant cannot exclude them, as with global groups ([0028](0028-tenancy-policy.md) §3). Their hits are recorded in the tenant where the write happened, with the filter's home noted, so each tenant's log shows what stopped its editors and the farm's filter editors see every hit through the all-tenants set ([0028](0028-tenancy-policy.md) §9). Writing a global filter needs `abusefilter-modify` held through a global group. This settles 0028's open question without a new partition.
+
+> **Amended by [0040](0040-instance-prerogatives.md) §6.** Global filters are records in the **instance `log`**, not the primary tenant's, since the instance now has a log of its own; evaluation order is unchanged. A `block` or `degroup` a global filter appends to a tenant's `actors` is an instance prerogative, binding for its duration: a tenant unblock lifts only the tenant's own block. Hits are unchanged: they stay in the tenant's `log`, attested by the actor whose write was hit.
 
 ### 9. API (extends 0012 §4 and §5)
 

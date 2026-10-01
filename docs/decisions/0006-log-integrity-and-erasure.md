@@ -3,7 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-09-25
 - **Author:** James Hare / Claude Opus
-- **Amended by:** [0011 — Upstream and local logs](0011-logs.md), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md), [0015 — Record format and partition registry](0015-record-format-and-partition-registry.md), [0016 — Permissions and access control](0016-permissions-and-access-control.md), [0018 — Tenants](0018-tenants.md), [0022 — Federation: verified data sync and ActivityPub](0022-federation.md) (§1 settles where checkpoints are served)
+- **Amended by:** [0011 — Upstream and local logs](0011-logs.md), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md), [0015 — Record format and partition registry](0015-record-format-and-partition-registry.md), [0016 — Permissions and access control](0016-permissions-and-access-control.md), [0018 — Tenants](0018-tenants.md), [0022 — Federation: verified data sync and ActivityPub](0022-federation.md) (§1 settles where checkpoints are served), [0039 — Files, blob storage and foreign file repositories](0039-files-and-media.md) (§8 and §10 extend §7: erasing an upload's content part destroys its bytes once unreferenced; §14 extends §9: blob verification and bundles with blobs), [0040 — Instance prerogatives](0040-instance-prerogatives.md) (§3 extends §2: domain tag `0x06`; §8 extends §9: verifying instance attestations and the authority extract)
 - **Related:** [0000 — Initial proposition](0000-init.md) (§7 settles the removal mechanism its Consequences call for), [0001 — Revision metadata in RDF](0001-revision-metadata-rdf.md) (§4), [0002 — Source graphs and mass ingest](0002-source-graphs-and-mass-ingest.md) (§2, §5, §8; §7 settles the legal-erasure open question), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (amends §2, §4.2 and §4.3; specifies §3 rule 4)
 
 ## Context
@@ -79,6 +79,8 @@ Tags `0x00` and `0x01` are the leaf and node prefixes of RFC 6962, so the Merkle
 The hash function is fixed for a partition when the partition is created, and is named in its genesis record. Changing it means starting a new partition.
 
 **Text forms.** Checkpoints carry hashes in base64, as C2SP requires (§6). IRIs and identifiers carry them in Base32z, matching Scatterbase.
+
+> **Extended by [0040](0040-instance-prerogatives.md) §3.** Tag `0x06` prefixes the preimage of an instance attestation's signature: `H(0x06 ‖ H(0x03 ‖ content) ‖ H(0x03 ‖ comment) ‖ authority)`, signed by the instance key. Like `0x04` and `0x05` it never appears in the header tree.
 
 ### 3. A record is a header and a body
 
@@ -199,6 +201,8 @@ It also carries a reason class (for example, `legal` or `privacy`) and a referen
 
 This settles the **mechanism** for erasure from the local graph, open since [0000](0000-init.md). **Who** may erase remains a permissions question.
 
+> **Extended by [0039](0039-files-and-media.md) §8–10.** An upload record holds the SHA-256 of its file's bytes, which live in a blob store outside the log. Erasing its content part removes that reference, and the bytes are destroyed when no unerased record in their storage scope references them. An operator's **expunge** erases every reference to a hash in every tenant and destroys the bytes at once.
+
 ### 8. Edit conflicts per entity
 
 A change set in the local graph may carry a **base**: the offset of the latest record for that key that the client saw.
@@ -228,6 +232,10 @@ It needs nothing else to verify. Default exports follow each graph's export poli
 3. **Projections** (optional and expensive). Rebuild projections from the log and compare them with the stored ones.
 
 **Inclusion proofs** are available for any record against any later checkpoint. With one, a third party can check that a particular revision is in the log without holding the whole log.
+
+> **Extended by [0039](0039-files-and-media.md) §14.** Verification gains a blob check at two depths, `presence` and `full`, and export bundles gain `--blobs include|list|omit`. A missing object with no `erase` accounting for it is a failure, as a missing body is.
+
+> **Extended by [0040](0040-instance-prerogatives.md) §8.** Level 2 also checks every instance attestation's signature against the key chain, with the key current when the record was appended. Bundles carry an **authority extract**: the authority records the tenant's instance attestations cite, with inclusion proofs and with the operator's attestation part withheld.
 
 ### 10. Crates
 

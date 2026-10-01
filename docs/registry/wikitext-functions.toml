@@ -1,0 +1,217 @@
+# Variables, parser functions, extension tags and behaviour switches.  ADR 0042 §5; 0043 §7.
+#
+# What the expander (scatter-wikitext-expand) recognises, and what meta=siteinfo reports as
+# `variables`, `magicwords`, `functionhooks`, `extensiontags` and `doubleunderscores` (0042 §5, §8.1).
+#
+# Each table maps the name as written in wikitext to an entry:
+#   origin     "mediawiki" | an extension's name ("ParserFunctions", "Scribunto", "WikibaseClient", "Cite", ...)
+#   status     "implemented"  expanded or rendered as MediaWiki does
+#              "chip"         recognised; renders as a visible chip showing the source (0008 §8)
+#              "ignored"      recognised and without effect: a switch that does nothing here, or a tag
+#                             that renders nothing
+#   synonyms   other spellings MediaWiki accepts for the same word
+#   expensive  counts against the expensive-function limit (0042 §16)
+#   volatile   the output changes with time or site statistics; recorded in the render manifest (0042 §10)
+#   requires   a `site` setting that must be on, beyond wikitext.expansion
+#
+# Variables in the page-name, namespace and revision families also take an argument as functions
+# ({{PAGENAME:Some title}}), as in MediaWiki; that is implied and not listed twice.
+#
+# This file is the hand-written seed and the shape the generator produces. The full core and extension
+# set, with synonyms and case sensitivity, is generated from the reference install's meta=siteinfo
+# (siprop=magicwords|functionhooks|extensiontags|variables|doubleunderscores) once ParserFunctions and
+# Scribunto are installed there (0042 §18), by `scripts/gen-wikitext-functions.py` (to be written).
+# Statuses are hand-edited. Names are never removed: an entry that stops being supported changes status.
+
+version = 1
+generated_from = "reference install meta=siteinfo (pending)"
+generated_at = "pending"
+
+# --- Variables --------------------------------------------------------------------------------
+[variable]
+PAGENAME              = { origin = "mediawiki", status = "implemented" }
+PAGENAMEE             = { origin = "mediawiki", status = "implemented" }
+FULLPAGENAME          = { origin = "mediawiki", status = "implemented" }
+FULLPAGENAMEE         = { origin = "mediawiki", status = "implemented" }
+BASEPAGENAME          = { origin = "mediawiki", status = "implemented" }
+BASEPAGENAMEE         = { origin = "mediawiki", status = "implemented" }
+ROOTPAGENAME          = { origin = "mediawiki", status = "implemented" }
+ROOTPAGENAMEE         = { origin = "mediawiki", status = "implemented" }
+SUBPAGENAME           = { origin = "mediawiki", status = "implemented" }
+SUBPAGENAMEE          = { origin = "mediawiki", status = "implemented" }
+TALKPAGENAME          = { origin = "mediawiki", status = "implemented" }
+TALKPAGENAMEE         = { origin = "mediawiki", status = "implemented" }
+SUBJECTPAGENAME       = { origin = "mediawiki", status = "implemented", synonyms = ["ARTICLEPAGENAME"] }
+SUBJECTPAGENAMEE      = { origin = "mediawiki", status = "implemented", synonyms = ["ARTICLEPAGENAMEE"] }
+NAMESPACE             = { origin = "mediawiki", status = "implemented" }
+NAMESPACEE            = { origin = "mediawiki", status = "implemented" }
+NAMESPACENUMBER       = { origin = "mediawiki", status = "implemented" }
+TALKSPACE             = { origin = "mediawiki", status = "implemented" }
+TALKSPACEE            = { origin = "mediawiki", status = "implemented" }
+SUBJECTSPACE          = { origin = "mediawiki", status = "implemented", synonyms = ["ARTICLESPACE"] }
+SUBJECTSPACEE         = { origin = "mediawiki", status = "implemented", synonyms = ["ARTICLESPACEE"] }
+PAGEID                = { origin = "mediawiki", status = "implemented" }
+REVISIONID            = { origin = "mediawiki", status = "implemented" }
+REVISIONTIMESTAMP     = { origin = "mediawiki", status = "implemented" }
+REVISIONDAY           = { origin = "mediawiki", status = "implemented" }
+REVISIONDAY2          = { origin = "mediawiki", status = "implemented" }
+REVISIONMONTH         = { origin = "mediawiki", status = "implemented" }
+REVISIONMONTH1        = { origin = "mediawiki", status = "implemented" }
+REVISIONYEAR          = { origin = "mediawiki", status = "implemented" }
+REVISIONUSER          = { origin = "mediawiki", status = "implemented" }
+REVISIONSIZE          = { origin = "mediawiki", status = "implemented" }
+CURRENTYEAR           = { origin = "mediawiki", status = "implemented", volatile = true }
+CURRENTMONTH          = { origin = "mediawiki", status = "implemented", volatile = true, synonyms = ["CURRENTMONTH2"] }
+CURRENTMONTH1         = { origin = "mediawiki", status = "implemented", volatile = true }
+CURRENTMONTHNAME      = { origin = "mediawiki", status = "implemented", volatile = true }
+CURRENTMONTHNAMEGEN   = { origin = "mediawiki", status = "implemented", volatile = true }
+CURRENTMONTHABBREV    = { origin = "mediawiki", status = "implemented", volatile = true }
+CURRENTDAY            = { origin = "mediawiki", status = "implemented", volatile = true }
+CURRENTDAY2           = { origin = "mediawiki", status = "implemented", volatile = true }
+CURRENTDOW            = { origin = "mediawiki", status = "implemented", volatile = true }
+CURRENTDAYNAME        = { origin = "mediawiki", status = "implemented", volatile = true }
+CURRENTTIME           = { origin = "mediawiki", status = "implemented", volatile = true }
+CURRENTHOUR           = { origin = "mediawiki", status = "implemented", volatile = true }
+CURRENTWEEK           = { origin = "mediawiki", status = "implemented", volatile = true }
+CURRENTTIMESTAMP      = { origin = "mediawiki", status = "implemented", volatile = true }
+LOCALYEAR             = { origin = "mediawiki", status = "implemented", volatile = true }
+LOCALMONTH            = { origin = "mediawiki", status = "implemented", volatile = true, synonyms = ["LOCALMONTH2"] }
+LOCALMONTH1           = { origin = "mediawiki", status = "implemented", volatile = true }
+LOCALMONTHNAME        = { origin = "mediawiki", status = "implemented", volatile = true }
+LOCALMONTHNAMEGEN     = { origin = "mediawiki", status = "implemented", volatile = true }
+LOCALMONTHABBREV      = { origin = "mediawiki", status = "implemented", volatile = true }
+LOCALDAY              = { origin = "mediawiki", status = "implemented", volatile = true }
+LOCALDAY2             = { origin = "mediawiki", status = "implemented", volatile = true }
+LOCALDOW              = { origin = "mediawiki", status = "implemented", volatile = true }
+LOCALDAYNAME          = { origin = "mediawiki", status = "implemented", volatile = true }
+LOCALTIME             = { origin = "mediawiki", status = "implemented", volatile = true }
+LOCALHOUR             = { origin = "mediawiki", status = "implemented", volatile = true }
+LOCALWEEK             = { origin = "mediawiki", status = "implemented", volatile = true }
+LOCALTIMESTAMP        = { origin = "mediawiki", status = "implemented", volatile = true }
+NUMBEROFPAGES         = { origin = "mediawiki", status = "implemented", volatile = true }
+NUMBEROFARTICLES      = { origin = "mediawiki", status = "implemented", volatile = true }
+NUMBEROFFILES         = { origin = "mediawiki", status = "implemented", volatile = true }
+NUMBEROFUSERS         = { origin = "mediawiki", status = "implemented", volatile = true }
+NUMBEROFACTIVEUSERS   = { origin = "mediawiki", status = "implemented", volatile = true }
+NUMBEROFEDITS         = { origin = "mediawiki", status = "implemented", volatile = true }
+SITENAME              = { origin = "mediawiki", status = "implemented" }
+SERVER                = { origin = "mediawiki", status = "implemented" }
+SERVERNAME            = { origin = "mediawiki", status = "implemented" }
+SCRIPTPATH            = { origin = "mediawiki", status = "implemented" }
+STYLEPATH             = { origin = "mediawiki", status = "implemented" }
+CURRENTVERSION        = { origin = "mediawiki", status = "implemented" }   # the MediaWiki version whose contract is served (0012)
+CONTENTLANGUAGE       = { origin = "mediawiki", status = "implemented", synonyms = ["CONTENTLANG"] }
+DIRECTIONMARK         = { origin = "mediawiki", status = "implemented", synonyms = ["DIRMARK"] }
+"!"                   = { origin = "mediawiki", status = "implemented" }
+"="                   = { origin = "mediawiki", status = "implemented" }
+
+# --- Parser functions ------------------------------------------------------------------------
+[function]
+# MediaWiki core
+ns                    = { origin = "mediawiki", status = "implemented" }
+nse                   = { origin = "mediawiki", status = "implemented" }
+lc                    = { origin = "mediawiki", status = "implemented" }
+uc                    = { origin = "mediawiki", status = "implemented" }
+lcfirst               = { origin = "mediawiki", status = "implemented" }
+ucfirst               = { origin = "mediawiki", status = "implemented" }
+urlencode             = { origin = "mediawiki", status = "implemented" }
+anchorencode          = { origin = "mediawiki", status = "implemented" }
+localurl              = { origin = "mediawiki", status = "implemented" }
+localurle             = { origin = "mediawiki", status = "implemented" }
+fullurl               = { origin = "mediawiki", status = "implemented" }
+fullurle              = { origin = "mediawiki", status = "implemented" }
+canonicalurl          = { origin = "mediawiki", status = "implemented" }
+canonicalurle         = { origin = "mediawiki", status = "implemented" }
+filepath              = { origin = "mediawiki", status = "implemented" }
+formatnum             = { origin = "mediawiki", status = "implemented" }
+plural                = { origin = "mediawiki", status = "implemented" }
+grammar               = { origin = "mediawiki", status = "implemented" }
+gender                = { origin = "mediawiki", status = "implemented" }
+padleft               = { origin = "mediawiki", status = "implemented" }
+padright              = { origin = "mediawiki", status = "implemented" }
+int                   = { origin = "mediawiki", status = "implemented" }   # shipped messages only (0042 §5)
+"#language"           = { origin = "mediawiki", status = "implemented" }
+"#special"            = { origin = "mediawiki", status = "implemented" }
+"#speciale"           = { origin = "mediawiki", status = "implemented" }
+"#tag"                = { origin = "mediawiki", status = "implemented" }
+"#formatdate"         = { origin = "mediawiki", status = "implemented", synonyms = ["#dateformat"] }
+"#bcp47"              = { origin = "mediawiki", status = "implemented" }
+"#dir"                = { origin = "mediawiki", status = "implemented" }
+"#interwikilink"      = { origin = "mediawiki", status = "implemented" }
+"#interlanguagelink"  = { origin = "mediawiki", status = "implemented" }
+DEFAULTSORT           = { origin = "mediawiki", status = "implemented", synonyms = ["DEFAULTSORTKEY", "DEFAULTCATEGORYSORT"] }
+DISPLAYTITLE          = { origin = "mediawiki", status = "implemented" }
+PAGESINCATEGORY       = { origin = "mediawiki", status = "implemented", synonyms = ["PAGESINCAT"], expensive = true, volatile = true }
+PAGESIZE              = { origin = "mediawiki", status = "implemented", expensive = true }
+PROTECTIONLEVEL       = { origin = "mediawiki", status = "implemented" }
+PROTECTIONEXPIRY      = { origin = "mediawiki", status = "implemented" }
+NUMBERINGROUP         = { origin = "mediawiki", status = "implemented", synonyms = ["NUMINGROUP"], volatile = true }
+CASCADINGSOURCES      = { origin = "mediawiki", status = "implemented", expensive = true }   # always empty: no cascading protection (0016 §4)
+
+# ParserFunctions. The string functions (#len, #pos, #rpos, #sub, #count, #replace, #explode,
+# #urldecode) are off by default in ParserFunctions and are not registered here.
+"#expr"               = { origin = "ParserFunctions", status = "implemented" }
+"#if"                 = { origin = "ParserFunctions", status = "implemented" }
+"#ifeq"               = { origin = "ParserFunctions", status = "implemented" }
+"#iferror"            = { origin = "ParserFunctions", status = "implemented" }
+"#ifexpr"             = { origin = "ParserFunctions", status = "implemented" }
+"#ifexist"            = { origin = "ParserFunctions", status = "implemented", expensive = true }
+"#rel2abs"            = { origin = "ParserFunctions", status = "implemented" }
+"#switch"             = { origin = "ParserFunctions", status = "implemented" }
+"#time"               = { origin = "ParserFunctions", status = "implemented", volatile = true }
+"#timel"              = { origin = "ParserFunctions", status = "implemented", volatile = true }
+"#timef"              = { origin = "ParserFunctions", status = "implemented", volatile = true }
+"#timefl"             = { origin = "ParserFunctions", status = "implemented", volatile = true }
+"#titleparts"         = { origin = "ParserFunctions", status = "implemented" }
+
+# Scribunto (0043). A chip while wikitext.lua is off.
+"#invoke"             = { origin = "Scribunto", status = "implemented", requires = "wikitext.lua" }
+
+# Wikibase Client (0043 §7). Bare IDs follow the tenant's lua.ids (0043 §8).
+"#property"           = { origin = "WikibaseClient", status = "implemented" }
+"#statements"         = { origin = "WikibaseClient", status = "implemented" }
+
+# --- Extension tags --------------------------------------------------------------------------
+[tag]
+nowiki                = { origin = "mediawiki", status = "implemented" }
+pre                   = { origin = "mediawiki", status = "implemented" }
+gallery               = { origin = "mediawiki", status = "implemented" }   # 0039 §13
+indicator             = { origin = "mediawiki", status = "implemented" }
+ref                   = { origin = "Cite", status = "implemented" }
+references            = { origin = "Cite", status = "implemented" }
+poem                  = { origin = "Poem", status = "implemented" }
+syntaxhighlight       = { origin = "SyntaxHighlight", status = "implemented", synonyms = ["source"] }   # as plain <pre> (0033 §9.1)
+templatestyles        = { origin = "TemplateStyles", status = "chip" }    # open question (0042)
+templatedata          = { origin = "TemplateData", status = "chip" }
+math                  = { origin = "Math", status = "chip" }
+chem                  = { origin = "Math", status = "chip" }
+ce                    = { origin = "Math", status = "chip" }
+score                 = { origin = "Score", status = "chip" }
+timeline              = { origin = "timeline", status = "chip" }
+graph                 = { origin = "Graph", status = "chip" }
+mapframe              = { origin = "Kartographer", status = "chip" }
+maplink               = { origin = "Kartographer", status = "chip" }
+categorytree          = { origin = "CategoryTree", status = "chip" }
+inputbox              = { origin = "InputBox", status = "chip" }
+imagemap              = { origin = "ImageMap", status = "chip" }
+hiero                 = { origin = "wikihiero", status = "chip" }
+charinsert            = { origin = "CharInsert", status = "chip" }
+section               = { origin = "LabeledSectionTransclusion", status = "ignored" }   # renders nothing, as on MediaWiki
+
+# --- Behaviour switches ----------------------------------------------------------------------
+[switch]
+NOTOC                 = { origin = "mediawiki", status = "implemented" }
+TOC                   = { origin = "mediawiki", status = "implemented" }
+FORCETOC              = { origin = "mediawiki", status = "implemented" }
+HIDDENCAT             = { origin = "mediawiki", status = "implemented" }   # 0038 §3
+NOEDITSECTION         = { origin = "mediawiki", status = "ignored" }
+NEWSECTIONLINK        = { origin = "mediawiki", status = "ignored" }
+NONEWSECTIONLINK      = { origin = "mediawiki", status = "ignored" }
+NOGALLERY             = { origin = "mediawiki", status = "ignored" }
+INDEX                 = { origin = "mediawiki", status = "ignored" }
+NOINDEX               = { origin = "mediawiki", status = "ignored" }
+STATICREDIRECT        = { origin = "mediawiki", status = "ignored" }
+EXPECTUNUSEDCATEGORY  = { origin = "mediawiki", status = "ignored" }
+NOCONTENTCONVERT      = { origin = "mediawiki", status = "ignored", synonyms = ["NOCC"] }
+NOTITLECONVERT        = { origin = "mediawiki", status = "ignored", synonyms = ["NOTC"] }
+DISAMBIG              = { origin = "Disambiguator", status = "ignored" }

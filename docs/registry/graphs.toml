@@ -9,6 +9,8 @@
 # export     = "public" | "internal" | "private" (0005 §4.1, 0007 §8)
 # per_provider = true means one graph exists per registered provider,
 #                with {provider} replaced by the provider's slug.
+# per_repo     = true means one graph exists per mirrored file repository (0039 §11),
+#                with {repo} replaced by the repository's name.
 # scope      = "tenant" | "instance" | "both"  (0018 §2): a tenant graph exists once per tenant
 #              under {tenant base}; an instance graph once, under the farm base. The registry
 #              is keyed by (tenant, name); instance graphs have a null tenant.
@@ -48,18 +50,18 @@ scope = "tenant"
 history = "full"
 integrity = "logged"
 export = "public"
-payload_types = ["scatter:v0/page", "scatter:v0/thread", "scatter:v0/changeset", "scatter:v0/erase"]   # changeset: page statements (0038 §1)
-defined_in = "0008 §4, 0019 §4, 0038 §1"
+payload_types = ["scatter:v0/page", "scatter:v0/thread", "scatter:v0/changeset", "scatter:v0/upload", "scatter:v0/erase"]   # changeset: page statements (0038 §1); upload: file versions (0039 §2)
+defined_in = "0008 §4, 0019 §4, 0038 §1, 0039 §2"
 
 [[graph]]
 name = "log"
 kind = "source"
-scope = "tenant"
+scope = "both"                 # tenant log; since 0039 §10 also the instance's own log, for operator records
 history = "full"
 integrity = "logged"
 export = "internal"
-payload_types = ["scatter:v0/logevent", "scatter:v0/acl", "scatter:v0/filter", "scatter:v0/filter-hit", "scatter:v0/erase"]   # acl: page, entity, record and actor targets (0023 §3); patrol marks are logevents (0023 §6); filters and hits (0030 §5)
-defined_in = "0011 §2, §6.3, 0023 §3, §6, 0030 §5"
+payload_types = ["scatter:v0/logevent", "scatter:v0/acl", "scatter:v0/filter", "scatter:v0/filter-hit", "scatter:v0/expunge", "scatter:v0/erase"]   # acl: page, entity, record and actor targets (0023 §3), and instance-scope blob targets (0039 §10); patrol marks are logevents (0023 §6); filters and hits (0030 §5; global filters in the instance log, 0040 §6); expunge: instance log only (0039 §10); job records of jobs that write instance acts, instance log (0040 §4)
+defined_in = "0011 §2, §6.3, 0023 §3, §6, 0030 §5, 0039 §10, 0040 §4"
 scatterbase = "meta"
 
 [[graph]]
@@ -169,3 +171,14 @@ scope = "tenant"
 export = "internal"          # carried only by the full dump (0013 §8)
 description = "Revision nodes, actors, log events and provenance (0001 §2, 0007 §8, 0011 §8)."
 defined_in = "0001 §2"
+
+[[graph]]
+name = "files/{repo}"
+kind = "source"
+scope = "instance"
+per_repo = true             # one per file repository configured in `mirror` mode (0039 §11)
+history = "latest"          # an instance may set "full" per repository
+integrity = "hashed"
+export = "public"           # records only; bytes are never in a public dump (0039 §14)
+payload_types = ["scatter:v0/upload", "scatter:v0/erase"]
+defined_in = "0039 §11"

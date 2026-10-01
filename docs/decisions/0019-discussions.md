@@ -3,7 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-09-27
 - **Author:** James Hare / Claude Fable
-- **Amended by:** [0020 — Change feeds](0020-change-feeds.md) (§3 settles §8's watching), [0021 — Notifications](0021-notifications.md) (settles the notifications open question), [0023 — Protection, deletion, hiding and patrolling](0023-moderation.md) (§4 amends §1: thread `delete` and `undelete` are ACL records; §6 makes posts patrollable), [0027 — Preferences, private state and portability](0027-preferences-and-portability.md) (§1 makes the visibility rule of §6 the `threads.visibility` preference), [0028 — Tenancy policy](0028-tenancy-policy.md) (§6 settles the cross-tenant discussion open question). §6 was amended on 2026-09-27 to name the default statuses and their registry file, [0038 — Page metadata, legacy categories and articles](0038-page-metadata-and-categories.md) (§9 extends §6: thread statements and the projected status statement; amends §7: thread statements enter the main graph; §8 amends §5: a bare `[[Q42]]` is a main-namespace link)
+- **Amended by:** [0020 — Change feeds](0020-change-feeds.md) (§3 settles §8's watching), [0021 — Notifications](0021-notifications.md) (settles the notifications open question), [0023 — Protection, deletion, hiding and patrolling](0023-moderation.md) (§4 amends §1: thread `delete` and `undelete` are ACL records; §6 makes posts patrollable), [0027 — Preferences, private state and portability](0027-preferences-and-portability.md) (§1 makes the visibility rule of §6 the `threads.visibility` preference), [0028 — Tenancy policy](0028-tenancy-policy.md) (§6 settles the cross-tenant discussion open question). §6 was amended on 2026-09-27 to name the default statuses and their registry file, [0038 — Page metadata, legacy categories and articles](0038-page-metadata-and-categories.md) (§9 extends §6: thread statements and the projected status statement; amends §7: thread statements enter the main graph; §8 amends §5: a bare `[[Q42]]` is a main-namespace link), [0041 — Content models](0041-content-models.md) (§4 amends §2 and §3: talk and thread namespaces are `pages` namespaces with the `triplespace-talk` and `triplespace-thread` models; §8 amends §9: `action=edit` is refused with MediaWiki's `no-direct-editing`, not `ts-structured`; §10 amends §11: those model IDs replace `talk` and `thread`)
 - **Related:** [0001 — Revision metadata in RDF](0001-revision-metadata-rdf.md) (§7 extends §1 and §6), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§13 amends §2), [0006 — Log integrity and erasure](0006-log-integrity-and-erasure.md) (§1 uses §8; §4 uses §7), [0007 — Actor identity](0007-actor-identity.md) (§2, §4), [0008 — Namespaces and document pages](0008-namespaces-and-document-pages.md) (§2 amends §2; §3 extends §1 and §3; §5 extends §5, §8 and §10; settles the discussions open question), [0010 — Site UI](0010-site-ui.md) (§8), [0011 — Upstream and local logs](0011-logs.md) (§7 extends §6.1 and §8), [0012 — API requirements for the site UI](0012-api-requirements.md) (§7 uses §3; §9 extends §4 and §5), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md) (§11 extends §5), [0014 — Cache layers and search](0014-caches-and-search.md) (§11), [0015 — Record format and partition registry](0015-record-format-and-partition-registry.md) (§4 amends §1; §2 uses §2), [0016 — Permissions and access control](0016-permissions-and-access-control.md) (§12 extends §2 and amends §4), [0018 — Tenants](0018-tenants.md) (§2), [0022 — Federation: verified data sync and ActivityPub](0022-federation.md) (§6–8 use §7 and §10: threads and posts as ActivityPub objects; inbound replies as posts)
 
 ## Context
@@ -65,6 +65,8 @@ Two goals from the earlier ADRs constrain the design. Every unit of contribution
 
 **Foreign talk pages are never loaded.** The talk page of a mirrored entity holds local threads only. They live in the tenant's `pages` partition, which is not what a tenant exposes when it is a provider to others ([0018](0018-tenants.md) §5), so a local historical society's discussion of a Librarybase item stays on the society's wiki. The talk page of a mirrored entity offers a link to the upstream talk page for readers who want the provider's own discussion.
 
+> **Amended by [0041](0041-content-models.md) §4.** The kind `composite` is gone: a talk namespace is a `pages` namespace whose model is `triplespace-talk`, a model whose source is *composite* (no records of its own).
+
 ### 3. The `Thread` namespace and thread titles (extends 0008 §1 and §3)
 
 **`Thread` is a registered namespace of a new kind, `thread`:** pages composed from thread records. Its paired `Thread talk` is `reserved` and empty, because clients assume every subject namespace has one. Subpages are not allowed. The numbers are 214 and 215, in the Triplespace range of [0008](0008-namespaces-and-document-pages.md) §2 as amended on 2026-09-27; LiquidThreads' 90 and 91 are not reused.
@@ -72,6 +74,8 @@ Two goals from the earlier ADRs constrain the design. Every unit of contribution
 **A thread's title is its creation date and its subject:** `Thread:2026-09-27/Why is P31 wrong here`. The date is the UTC date of the `create` record and never changes. The subject is what the author typed, normalized as a `first-letter` title with MediaWiki's forbidden characters (`# < > [ ] | { }`) rejected. Two threads created on the same date with the same subject are told apart with a MediaWiki-style suffix: `…/Why is P31 wrong here (2)`. The `create` and `rename` records carry the minted title, as a page `move` carries its new title, so the title index is a projection and a rebuild reproduces it.
 
 This is what Flow lacked. The title says what the thread is about and when it began, it can be typed, and it never depends on which talk page the thread is attached to, so a `move` changes nothing about how the thread is cited. A `rename` does: the old title stops resolving, as 0008 §6 rules for user pages, because subjects can contain usernames. Stable references are `Special:Redirect/page/{page ID}` for a thread and `Special:PermanentLink/{revid}` for a post (§8).
+
+> **Amended by [0041](0041-content-models.md) §4.** The kind `thread` is gone: `Thread` is a `pages` namespace whose model is `triplespace-thread`.
 
 ### 4. The record: four parts (amends 0015 §1)
 
@@ -177,6 +181,8 @@ The post's revision node of [0001](0001-revision-metadata-rdf.md) §1 is the sam
 
 **Action API**, additively under 0012 §1. Reading works as for any page: `prop=revisions`, `prop=info`, `action=parse`, `list=recentchanges`, `list=usercontribs`, `list=backlinks`, `action=watch`. `action=delete` and `action=undelete` on a `Thread:` title work. `action=edit` on a `Thread:` or talk title is refused with a new error code, `ts-structured`, so that a bot learns at once that these pages are not text. DiscussionTools' `action=discussiontoolsedit` (`paction=addtopic|addcomment`) can be supported later on the same records, with `commentid` values of the form `c-{revid}` (open questions).
 
+> **Amended by [0041](0041-content-models.md) §8.** `action=edit` on a `Thread:` or talk title is refused with MediaWiki's own `no-direct-editing` (`apierror-no-direct-editing`), because neither model supports direct editing. `ts-structured` is retired.
+
 ### 10. The Activity Streams profile
 
 Posts, threads and talk pages are described with the Activity Streams 2.0 vocabulary because 0011 §8 already uses it for events and because it is the natural JSON shape for a post. It is used as a **fixed profile**, as Mastodon uses it: the REST API and the RDF export emit these properties and no others, the OpenAPI document of 0012 §1 pins the shape, and nothing performs JSON-LD expansion. The rules:
@@ -216,6 +222,8 @@ CREATE TABLE view.talk_page (
 ```
 
 These are projections in the sense of 0013 §7, applied synchronously for interactive writes. **Caches** follow 0014: a rendered post is keyed by (revid, latest offset, generation); a thread by (page ID, latest revision ID, generation); a talk page listing by the same for its talk page ID; erasure bumps the thread's generation and purges by tag. **Search** indexes each thread as one document in the `pages` index, subject plus post text, with its namespace; hidden and erased text is not indexed.
+
+> **Amended by [0041](0041-content-models.md) §10.** The `content_model` values are the registry IDs `triplespace-thread` and `triplespace-talk`, not `thread` and `talk`.
 
 ### 12. Permissions (extends 0016 §2; amends 0016 §4)
 

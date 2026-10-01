@@ -1,0 +1,202 @@
+# Content models.  ADR 0041 §2–3, §5–6; extends 0008 §5; 0043 §3 (Scribunto).
+#
+# Every page has one content model in its main slot (0041 §1). A namespace entry in namespaces.toml
+# names its allowed models and its default (0041 §4).
+#
+# id              The model ID, as MediaWiki's `contentmodel` reports it.
+# origin          "mediawiki" | "wikibase" | a MediaWiki or Wikibase extension's name | "generic" | "triplespace"
+# status          "implemented" | "reserved" (listed so it is never given another meaning; not served)
+# source          Where content comes from (0041 §5):
+#                   "text"       full text stored in each `page` record (0008 §4); editable with action=edit
+#                   "entity"     the fold of an entity's change sets, resolved
+#                   "thread"     the fold of a thread's records (0019 §1)
+#                   "composite"  other pages; no records or revisions of its own (0019 §2)
+#                   "statements" a page's statement change sets (0038 §1)
+# slot            The slot role: "main", or "mediainfo" on File pages (0041 §6)
+# entity_type     For "entity" and "statements" models, the Wikibase entity type
+# format          MediaWiki's `contentformat` for the serialization; absent where there is none
+# direct_editing  Whether action=edit can change it. True only for "text" models (0041 §5)
+#
+# Naming (0041 §2): MediaWiki's and Wikibase extensions' IDs keep their meaning and are reserved;
+# generic formats take no prefix; models unique to Triplespace take "triplespace-". IDs are never
+# reused: a retired entry stays with `retired = true`.
+
+version = 1
+
+# --- Text: MediaWiki core and generic -----------------------------------------------------------
+[[model]]
+id = "wikitext"
+origin = "mediawiki"
+status = "implemented"
+source = "text"
+slot = "main"
+format = "text/x-wiki"
+direct_editing = true
+defined_in = "0008 §5, §8"
+
+[[model]]
+id = "markdown"
+origin = "generic"
+status = "implemented"
+source = "text"
+slot = "main"
+format = "text/markdown"         # RFC 7763
+direct_editing = true
+defined_in = "0008 §5"
+
+[[model]]
+id = "json"
+origin = "mediawiki"
+status = "implemented"
+source = "text"
+slot = "main"
+format = "application/json"
+direct_editing = true
+defined_in = "0008 §5"
+
+[[model]]
+id = "yaml"
+origin = "generic"
+status = "implemented"
+source = "text"
+slot = "main"
+format = "application/yaml"      # RFC 9512
+direct_editing = true
+defined_in = "0008 §5"
+
+[[model]]
+id = "text"
+origin = "mediawiki"
+status = "implemented"
+source = "text"
+slot = "main"
+format = "text/plain"
+direct_editing = true
+defined_in = "0008 §5"
+
+# --- Lua modules: Scribunto (0043 §3) -----------------------------------------------------------
+# Run on the server in a sandbox; never sent to a browser as code, unlike the excluded css/javascript.
+[[model]]
+id = "Scribunto"
+origin = "Scribunto"
+status = "implemented"
+source = "text"
+slot = "main"
+format = "text/plain"
+direct_editing = true
+defined_in = "0043 §3"
+
+# --- Entities -----------------------------------------------------------------------------------
+# One model per entity type, whichever provider the entity comes from (0041 §3).
+[[model]]
+id = "wikibase-item"
+origin = "wikibase"
+status = "implemented"
+source = "entity"
+slot = "main"
+entity_type = "item"
+format = "application/json"
+direct_editing = false
+
+[[model]]
+id = "wikibase-property"
+origin = "wikibase"
+status = "implemented"
+source = "entity"
+slot = "main"
+entity_type = "property"
+format = "application/json"
+direct_editing = false
+
+[[model]]
+id = "triplespace-domain"
+origin = "triplespace"
+status = "implemented"
+source = "entity"
+slot = "main"
+entity_type = "domain"
+format = "application/json"
+direct_editing = false
+defined_in = "0009, 0041 §3"
+
+[[model]]
+id = "triplespace-keyword"
+origin = "triplespace"
+status = "implemented"
+source = "entity"
+slot = "main"
+entity_type = "keyword"
+format = "application/json"
+direct_editing = false
+defined_in = "0017 §5, 0041 §3"
+
+[[model]]
+id = "triplespace-osm-tag"
+origin = "triplespace"
+status = "implemented"
+source = "entity"
+slot = "main"
+entity_type = "osm-tag"
+format = "application/json"
+direct_editing = false
+defined_in = "0036 §3, 0041 §3"
+
+# --- Discussions --------------------------------------------------------------------------------
+[[model]]
+id = "triplespace-thread"
+origin = "triplespace"
+status = "implemented"
+source = "thread"
+slot = "main"
+format = "application/json"      # the GET /thread/{page ID} body as of a revision (0041 §5)
+direct_editing = false
+defined_in = "0019, 0041 §3"
+
+[[model]]
+id = "triplespace-talk"
+origin = "triplespace"
+status = "implemented"
+source = "composite"
+slot = "main"
+direct_editing = false
+defined_in = "0019 §2, 0041 §3"
+
+# --- Secondary slot -----------------------------------------------------------------------------
+# A File page's statements as a MediaInfo entity, M{page ID} (0041 §6–7). Terms are not supported yet.
+[[model]]
+id = "wikibase-mediainfo"
+origin = "WikibaseMediaInfo"
+status = "implemented"
+source = "statements"
+slot = "mediainfo"
+entity_type = "mediainfo"
+format = "application/json"
+direct_editing = false
+defined_in = "0041 §6–7"
+
+# --- Reserved: MediaWiki core and Wikibase extensions, not implemented --------------------------
+[[model]]
+id = "css"
+origin = "mediawiki"
+status = "reserved"              # executable models are not supported (0008 §5)
+
+[[model]]
+id = "javascript"
+origin = "mediawiki"
+status = "reserved"              # executable models are not supported (0008 §5)
+
+[[model]]
+id = "unknown"
+origin = "mediawiki"
+status = "reserved"              # MediaWiki's placeholder for content with no registered handler
+
+[[model]]
+id = "wikibase-lexeme"
+origin = "WikibaseLexeme"
+status = "reserved"              # taken when Lexeme (146) is implemented (0041 §3)
+entity_type = "lexeme"
+
+[[model]]
+id = "EntitySchema"
+origin = "EntitySchema"
+status = "reserved"

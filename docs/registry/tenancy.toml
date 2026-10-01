@@ -26,6 +26,7 @@ version = 1
 "feeds.farm_wide"             = ["off", "global-groups", "everyone"]
 "search.farm_wide"            = ["off", "global-groups", "everyone"]
 "filters.global"              = ["none", "inherited"]          # 0030 §8
+"wikitext.ceiling"            = ["subset", "expansion", "lua"]   # 0042 §2
 
 # ---------------------------------------------------------------------------
 # isolated: unrelated tenants under one operator (web hosting). Nothing crosses but the
@@ -46,6 +47,7 @@ version = 1
 "feeds.farm_wide"             = "off"
 "search.farm_wide"            = "off"
 "filters.global"              = "none"
+"wikitext.ceiling"            = "lua"
 
 # ---------------------------------------------------------------------------
 # community: local communities under a farm-wide volunteer community with one username
@@ -66,11 +68,14 @@ version = 1
 "feeds.farm_wide"             = "global-groups"
 "search.farm_wide"            = "off"
 "filters.global"              = "inherited"
+"wikitext.ceiling"            = "lua"
 
 [[preset.community.global_group]]
 name = "steward"
 permissions = ["userrights", "block", "hideuser", "renameuser", "ts-config",
-               "deletedhistory", "deletedtext", "viewsuppressed", "ts-viewerasures"]
+               "deletedhistory", "deletedtext", "viewsuppressed", "ts-viewerasures",
+               "ts-takedown", "ts-expunge", "ts-viewtakedown",   # 0039 §21
+               "ts-viewoperator"]                                # 0040 §9
 
 [[preset.community.global_group]]
 name = "global-sysop"
@@ -100,8 +105,11 @@ permissions = ["delete", "undelete", "deletedhistory", "deletedtext", "browsearc
 "feeds.farm_wide"             = "everyone"
 "search.farm_wide"            = "everyone"
 "filters.global"              = "inherited"
+"wikitext.ceiling"            = "lua"
 
 [[preset.enterprise.global_group]]
 name = "platform-admin"
 permissions = ["userrights", "block", "hideuser", "renameuser", "ts-config",
-               "deletedhistory", "deletedtext", "viewsuppressed", "ts-viewerasures"]
+               "deletedhistory", "deletedtext", "viewsuppressed", "ts-viewerasures",
+               "ts-takedown", "ts-expunge", "ts-viewtakedown",   # 0039 §21
+               "ts-viewoperator"]                                # 0040 §9

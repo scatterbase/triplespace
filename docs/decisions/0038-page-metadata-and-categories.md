@@ -3,6 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-09-29
 - **Author:** James Hare / Claude Opus
+- **Amended by:** [0039 — Files, blob storage and foreign file repositories](0039-files-and-media.md) (§2 extends §1: uploads join a page's one history), [0041 — Content models](0041-content-models.md) (§6–7 amend §1 and §13: on File pages, page statements are served over the Wikibase Action API as the MediaInfo entity `M{page ID}` in a `mediainfo` slot; other pages' statements stay REST-only), [0042 — Template expansion and the Parsoid renderer](0042-template-expansion-and-parsoid.md) (§9 amends §3: categories come from expanded output while expansion is on, with tracking categories)
 - **Related:** [0001 — Revision metadata in RDF](0001-revision-metadata-rdf.md) (§11 amends §3: page statements add subjects to the main graph), [0002 — Source graphs and mass ingest](0002-source-graphs-and-mass-ingest.md) (§5 uses the name-based statement IDs of §8.4), [0003 — Statement UI](0003-statement-ui.md) (§2 uses §6 provenance; §2 and §9 extend §7 with the `subject-page`, `subject-thread` and `thread-status` roles), [0004 — Identity clusters and equivalence](0004-identity-clusters-and-equivalence.md) (§2 uses §8 statement fusion), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§15 amends §2), [0008 — Namespaces and document pages](0008-namespaces-and-document-pages.md) (§4 and §8 amend §2; §3 amends §8 and settles the categories open question; §1 extends §4; §11 amends §10), [0009 — Keyed entity types and Domain](0009-keyed-entity-types-and-domain.md) (§1 uses the statement-ID form of §3), [0010 — Site UI](0010-site-ui.md) (§7 extends §1 and §2; §3 amends §4; §8 extends §3), [0012 — API requirements for the site UI](0012-api-requirements.md) (§13 extends §4 and §5), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md) (§10 extends §5.6 and §7), [0014 — Cache layers and search](0014-caches-and-search.md) (§12 extends §7), [0015 — Record format and partition registry](0015-record-format-and-partition-registry.md) (§5 extends §3 with the `category-mapping` kind; §1 extends §5: `changeset` in the `pages` partition), [0016 — Permissions and access control](0016-permissions-and-access-control.md) (§14 uses §5), [0017 — Entity ID grammar](0017-entity-id-grammar.md) (§1 uses §1), [0018 — Tenants](0018-tenants.md) (§6 uses §9), [0019 — Discussions](0019-discussions.md) (§9 extends §6 and amends §7; §8 amends §5: a bare `[[Q42]]` in markdown is a main-namespace link), [0023 — Protection, deletion, hiding and patrolling](0023-moderation.md) (§1 and §6 follow §4), [0026 — Sitelinks are URLs](0026-sitelinks.md) (§6 amends §1 and extends §2 for the tenant's own hosts), [0029 — Resolver namespaces](0029-resolver-namespaces.md) (§8 extends §6: main-namespace titles last in the `/resolve` order; §6 uses §5), [0030 — Edit filters](0030-edit-filters.md) (§14 uses §2), [0031 — Property constraints](0031-property-constraints.md) (§2 uses §1), [0032 — SPARQL Update stream](0032-sparql-update-stream.md) (§11 uses §2), [0035 — Adopting an existing Wikibase as a tenant](0035-adopting-a-wikibase.md) (§3 uses §4)
 
 ## Context
@@ -35,7 +36,11 @@ James's direction, from the design discussion of 2026-09-29:
 
 **No entity ID.** Page statements have no `M`-style or other entity ID, are not returned by `wbgetentities`, and cannot be edited through the Wikibase Action API modules. They are served by the REST routes of §13. In `prop=revisions`, a statement revision appears as MediaWiki shows a revision that changed only a secondary slot: the main text is unchanged, and the summary describes the change.
 
+> **Amended by [0041](0041-content-models.md) §6–7.** On **File pages** the statements have the MediaInfo ID `M{page ID}` and are read and written through `wbgetentities` and the Wikibase statement modules, as on Commons, because tools written for Structured Data on Commons expect that contract. They appear in the `mediainfo` slot (`wikibase-mediainfo`) in `prop=revisions`. Terms and sitelinks on `M` IDs are refused with `not-supported` until page terms are settled. Statements on every other page stay as written here: no entity ID and no Action API.
+
 **Moderation follows the page.** Protection and deletion are ACLs on the page ([0023](0023-moderation.md) §4), and they cover its statements: a protected page's statements need the same right as its text, and a deleted page's statements leave every view with it. Erasure and hiding apply to statement records as to any record.
+
+> **Extended by [0039](0039-files-and-media.md) §2.** A file page's uploads are records in the same partition, keyed by the page ID, so text revisions, statement revisions and file versions share one history.
 
 ### 2. A page's statements: asserted and projected
 
@@ -73,6 +78,8 @@ Names are normalized by the `Category` namespace's `first-letter` normalizer (§
 **A category needs no page.** A page can be in a category whose page does not exist, as on MediaWiki. The link renders red and the category still has members.
 
 **Templates are not parsed.** Categories that templates emit reach the text only through the flattening revision of [0008](0008-namespaces-and-document-pages.md) §9 step 3, whose `action=expandtemplates` runs on the source wiki and writes the category links and `__HIDDENCAT__` into the flattened text. A template call added after an import renders as a placeholder (0008 §8) and emits nothing. Categories MediaWiki's parser adds on its own, such as tracking categories for broken file links, are not in any text and are out of scope.
+
+> **Amended by [0042](0042-template-expansion-and-parsoid.md) §9.** While a tenant's `wikitext.expansion` is on, membership is read from the **expanded** text: categories that templates emit count, `<includeonly>` categories reach transcluding pages, and expansion adds MediaWiki's tracking categories for its own conditions. The paragraph above holds for tenants with expansion off.
 
 **Rendering.** The foot of a page lists its categories as links to their category pages, replacing 0008 §8's plain-text list. Hidden categories are listed separately, collapsed. The source text is still never rewritten.
 
@@ -235,6 +242,8 @@ The `pages` index gains two fields:
 | `POST /category-mappings/{name}/make-real` | Starts the make-it-real job (§5) |
 
 **Action API.** `prop=categories` with `clprop=sortkey|hidden` and `clshow`; `list=categorymembers` and `generator=categorymembers` with `cmtype` and `cmsort`; `prop=categoryinfo`; `list=allcategories`. `wbgetentities` by `sites` and `titles` finds a page's paired item (§6). Page statements are not in the Action API.
+
+> **Amended by [0041](0041-content-models.md) §7.** File pages are the exception: their statements are in the Action API as MediaInfo entities.
 
 ### 14. Permissions and filters
 

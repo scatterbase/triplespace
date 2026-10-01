@@ -3,6 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-09-28
 - **Author:** James Hare / Claude Fable
+- **Amended by:** [0039 — Files, blob storage and foreign file repositories](0039-files-and-media.md) (§14 extends §2: adoption brings the wiki's files)
 - **Related:** [0002 — Source graphs and mass ingest](0002-source-graphs-and-mass-ingest.md) (§3 amends §8.2 and §8.5: the `adopt` operation), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§8 extends §2 and §7; narrows the log-granularity open question), [0007 — Actor identity](0007-actor-identity.md) (§4 and §5 amend §3: the user-ID floor and adopted accounts), [0008 — Namespaces and document pages](0008-namespaces-and-document-pages.md) (§9: the page import this ADR parallels; §4 extends it with page IDs), [0011 — Upstream and local logs](0011-logs.md) (§6 amends §6.1: an adopted entity's first record projects as `import/*`), [0012 — API requirements for the site UI](0012-api-requirements.md) (§2.3, §5), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md) (§4 extends §6: entity-ID sequences and adoption floors), [0015 — Record format and partition registry](0015-record-format-and-partition-registry.md) (§4 amends §2: an adoption job supplies page IDs), [0016 — Permissions and access control](0016-permissions-and-access-control.md) (§5 amends §3: the owner account on an adopting tenant), [0018 — Tenants](0018-tenants.md) (§1 extends §1 and §5; adoption is distinct from the move of §10), [0024 — Subsidiary accounts, API keys and rate limits](0024-subsidiary-accounts.md) (§6: the adoption job's actor is a subsidiary), [Wikibase data model and ontology contract](../api/wikibase-compat.md) (§5.1)
 
 ## Context
@@ -44,6 +45,8 @@ An adoption is a job ([0002](0002-source-graphs-and-mass-ingest.md) §8.3, [0011
 4. **the job's operator holds `ts-runjob` and `ts-config`,** since the job seeds sequences (§4).
 
 The job record carries the source's base URL, the dump's identity and date as the source version, the adapter version, the floors it set (§4), and the counts by outcome. It projects as `job/start` and `job/finish` like any job.
+
+> **Extended by [0039](0039-files-and-media.md) §14.** Adopting a wiki with files imports every file version from its file tables and upload directory, deleted versions included, onto file pages that keep their source page IDs.
 
 ### 3. The `adopt` operation (amends 0002 §8.2 and §8.5)
 

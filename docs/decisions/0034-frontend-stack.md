@@ -2,6 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
+- **Amended by:** [0042 — Template expansion and the Parsoid renderer](0042-template-expansion-and-parsoid.md) (§15 amends §6: pages that need expansion preview on the server), [0043 — Lua modules](0043-lua-modules.md) (§13 extends §7: a Lua mode)
 - **Related:** 0003, 0005, 0008, 0010, 0012, 0014, 0019, 0020, 0021, 0027, 0033
 
 ## Context
@@ -75,9 +76,13 @@ One `wasm-bindgen` crate re-exports what editors need from the pure crates:
 
 It is built with `wasm-bindgen-cli` and `wasm-opt`, lazy-loaded only by editors, and never needed for reading. This is one reason 0033 §9.1 chose a pure-Rust wikitext parser.
 
+> **Amended by [0042](0042-template-expansion-and-parsoid.md) §15.** When the source needs expansion the browser cannot do, the preview comes from `action=parse` on the server instead.
+
 ### 7. Source editor
 
 CodeMirror 6, which MediaWiki's CodeMirror extension also uses, with its wikitext mode and a markdown mode. Edit conflicts (0010 §5) are shown as line decorations. `[[` triggers link autocomplete through the suggest route (0012). `tree-sitter-wikitext` through `web-tree-sitter` is an optional later enhancement for structural highlighting.
+
+> **Extended by [0043](0043-lua-modules.md) §13.** A Lua mode for module pages.
 
 ### 8. Build
 
