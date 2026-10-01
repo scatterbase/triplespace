@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Amended by:** [0042 — Template expansion and the Parsoid renderer](0042-template-expansion-and-parsoid.md) (§15 amends §6: pages that need expansion preview on the server), [0043 — Lua modules](0043-lua-modules.md) (§13 extends §7: a Lua mode)
+- **Amended by:** [0042 — Template expansion and the Parsoid renderer](0042-template-expansion-and-parsoid.md) (§15 amends §6: pages that need expansion preview on the server), [0043 — Lua modules](0043-lua-modules.md) (§13 extends §7: a Lua mode), [0045 — Tables](0045-tables.md) (§11 extends §4: the table grid editor)
 - **Related:** 0003, 0005, 0008, 0010, 0012, 0014, 0019, 0020, 0021, 0027, 0033
 
 ## Context
@@ -55,6 +55,8 @@ Vue 3 with Codex's Vue components, written in TypeScript, mounted into placehold
 | User, group and consumer pickers on special pages | Lookup | the form field |
 
 Statement editing requires JavaScript, as on Wikidata. Reading, page source editing through a plain form, and the account pages work without it.
+
+> **Extended by [0045](0045-tables.md) §11.** A table grid editor (Codex Table, Lookup, TextInput; the statement value editor for cells) over the server-rendered grid of a `Table` page. Reading a table needs no JavaScript.
 
 ### 5. Fragment routes
 

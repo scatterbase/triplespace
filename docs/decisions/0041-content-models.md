@@ -3,7 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-09-30
 - **Author:** James Hare / Claude Opus
-- **Amended by:** [0043 — Lua modules](0043-lua-modules.md) (§3 extends §3: the `Scribunto` model)
+- **Amended by:** [0043 — Lua modules](0043-lua-modules.md) (§3 extends §3: the `Scribunto` model), [0045 — Tables](0045-tables.md) (§3 extends §3: the `triplespace-table` model)
 - **Related:** [0001 — Revision metadata in RDF](0001-revision-metadata-rdf.md) (§10 extends §6: every revision node carries a content model), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§12 amends §2), [0008 — Namespaces and document pages](0008-namespaces-and-document-pages.md) (§1 and §4 amend §1: a namespace names content models, not a kind of page; §3 and §5 extend §5: the content model registry and what a model provides), [0010 — Site UI](0010-site-ui.md) (§10 refines §4: the Format selector), [0012 — API requirements for the site UI](0012-api-requirements.md) (§8 extends §4; §9 extends §5), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md) (§10 amends `view.page` in §5), [0014 — Cache layers and search](0014-caches-and-search.md) (§10 amends the `content_model` field of §7), [0017 — Entity ID grammar](0017-entity-id-grammar.md) (§7 extends §1: `M` IDs are derived from page IDs), [0019 — Discussions](0019-discussions.md) (§4 amends §2 and §3: talk and thread namespaces become `pages` namespaces; §8 amends §9: `action=edit` is refused with MediaWiki's `no-direct-editing`; §10 amends §11: the `triplespace-thread` and `triplespace-talk` model IDs), [0029 — Resolver namespaces](0029-resolver-namespaces.md) (§4 amends §2: the kinds `resolver` joins are now `pages`, `reserved` and `virtual`; `resolver` stays a kind, since a resolver namespace holds no pages), [0038 — Page metadata, legacy categories and articles](0038-page-metadata-and-categories.md) (§6 and §7 amend §1 and §13: a File page's statements are served over the Wikibase Action API as a MediaInfo entity), [0039 — Files, blob storage and foreign file repositories](0039-files-and-media.md) (§4 amends §1: the `file` kind becomes the `uploads` flag on a `pages` namespace), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
@@ -76,6 +76,8 @@ The models are registry data, in a new file, `docs/registry/content-models.toml`
 | `wikibase-mediainfo` | WikibaseMediaInfo | statements (`mediainfo`) | `mediainfo` | `application/json` | No | The second slot of every File page (§6) |
 
 > **Extended by [0043](0043-lua-modules.md) §3.** `Scribunto` (Scribunto's ID, origin Scribunto): source text, slot `main`, format `text/plain`, direct editing yes, the default in Module (828) by Scribunto's title rules.
+
+> **Extended by [0045](0045-tables.md) §3.** `triplespace-table` (origin Triplespace): source text, slot `main`, format `application/json`, direct editing yes, the default in Table (218). Its content is a definition naming entities and properties; the grid is generated from the entities.
 
 **One model per entity type.** Every entity namespace hosts one entity type ([0008](0008-namespaces-and-document-pages.md) §1), so it has one model, whichever provider the entity comes from: `Item:Q5`, `Item:WDQ42` and `Item:OAW123` are all `wikibase-item`. An entity type added by a later ADR takes a model in the same change: `wikibase-` and the type if a Wikibase extension already defines it, `triplespace-` and the type otherwise. When Lexeme (146) is implemented, it takes `wikibase-lexeme`.
 

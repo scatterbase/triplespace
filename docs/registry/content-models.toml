@@ -1,4 +1,4 @@
-# Content models.  ADR 0041 §2–3, §5–6; extends 0008 §5; 0043 §3 (Scribunto).
+# Content models.  ADR 0041 §2–3, §5–6; extends 0008 §5; 0043 §3 (Scribunto); 0045 §3 (triplespace-table).
 #
 # Every page has one content model in its main slot (0041 §1). A namespace entry in namespaces.toml
 # names its allowed models and its default (0041 §4).
@@ -160,6 +160,19 @@ source = "composite"
 slot = "main"
 direct_editing = false
 defined_in = "0019 §2, 0041 §3"
+
+# --- Tables (0045 §3) ---------------------------------------------------------------------------
+# A definition stored as text: which entities are rows, which fields are columns. Values are never stored
+# in the page; the grid is generated from the row entities' resolved views (0045 §1, §5).
+[[model]]
+id = "triplespace-table"
+origin = "triplespace"
+status = "implemented"
+source = "text"
+slot = "main"
+format = "application/json"
+direct_editing = true
+defined_in = "0045 §3–4"
 
 # --- Secondary slot -----------------------------------------------------------------------------
 # A File page's statements as a MediaInfo entity, M{page ID} (0041 §6–7). Terms are not supported yet.

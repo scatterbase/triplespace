@@ -7,8 +7,8 @@ This directory is the registry of record for the names and codes that Triplespac
 | `graphs.toml` | Reserved graph names, their kind, policies and payload type | `scatter-log` | 0015 §3, §5, 0039 §10–11 |
 | `providers.toml` | Provider codes, slugs, numbers, type codes and ID grammars, IRI templates, issuers, trust mode and key-chain URL; the reserved doubled codes `AA`–`ZZ` | `scatter-providers` | 0000 §3, 0002 §4, 0015 §2, §5, 0017 §2, 0022 §2, 0044 §2 |
 | `issuers.toml` | Issuer codes and actor models | `scatter-actors` | 0007 §1 |
-| `namespaces.toml` | Default namespace numbers and kinds, each `pages` namespace's allowed and default content models, the reserved MediaWiki and Wikibase numbers, and the 210–229 ranges | `triplespace-titles` | 0008 §2 (amended), 0009 §11, 0017 §5, 0019 §3, 0029, 0038 §4, §8, 0039 §1, 0041 §4, 0042 §3, 0043 §2 |
-| `content-models.toml` | Content models: ID, origin, source, slot, entity type, serialization format and direct editing; the reserved MediaWiki and Wikibase model IDs | `scatter-pages` | 0008 §5, 0041 §2–3, 0043 §3 |
+| `namespaces.toml` | Default namespace numbers and kinds, each `pages` namespace's allowed and default content models, the reserved MediaWiki and Wikibase numbers, and the 210–229 ranges | `triplespace-titles` | 0008 §2 (amended), 0009 §11, 0017 §5, 0019 §3, 0029, 0038 §4, §8, 0039 §1, 0041 §4, 0042 §3, 0043 §2, 0045 §2 |
+| `content-models.toml` | Content models: ID, origin, source, slot, entity type, serialization format and direct editing; the reserved MediaWiki and Wikibase model IDs | `scatter-pages` | 0008 §5, 0041 §2–3, 0043 §3, 0045 §3 |
 | `keyed-types.toml` | Keyed entity types and their ID prefixes | `scatter-normalize` | 0009 §1, 0017 §3, §5 |
 | `groups.toml` | Default groups, their permissions, and the default graph ACLs | `scatter-actors` | 0016 §2–4, 0019 §12, 0020 §7, 0021 §9, 0022 §12, 0023 §11, 0024 §11, 0025 §10, 0030 §12 |
 | `grants.toml` | API-key grants and the permissions each covers; also the OAuth scopes a consumer may request | `scatter-actors` | 0024 §4, 0025 §2 |
@@ -32,4 +32,4 @@ This directory is the registry of record for the names and codes that Triplespac
 
 ## Pending allocations
 
-- Filing the registration of 210–229 on mediawiki.org's [Extension default namespaces](https://www.mediawiki.org/wiki/Extension_default_namespaces) page. The numbers are allocated in `namespaces.toml` ([0008](../decisions/0008-namespaces-and-document-pages.md) §2, as amended 2026-09-27): Domain 210/211, Keyword 212/213, Thread 214/215, OSM 216/217, DOI 220/221, URL 222/223; 218–219 and 224–229 are free. As of 2026-09-27 the page lists nothing between 204 and 240.
+- Filing the registration of 210–229 on mediawiki.org's [Extension default namespaces](https://www.mediawiki.org/wiki/Extension_default_namespaces) page. The numbers are allocated in `namespaces.toml` ([0008](../decisions/0008-namespaces-and-document-pages.md) §2, as amended 2026-09-27): Domain 210/211, Keyword 212/213, Thread 214/215, OSM 216/217, Table 218/219 ([0045](../decisions/0045-tables.md) §2), DOI 220/221, URL 222/223; 210–219 is full and 224–229 are free. As of 2026-09-27 the page lists nothing between 204 and 240.

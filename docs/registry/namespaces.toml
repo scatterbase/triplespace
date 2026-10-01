@@ -1,6 +1,6 @@
 # Default namespaces.  ADR 0008 §2 (as amended 2026-09-27), 0009 §11, 0017 §5, 0019 §2–3, 0029 §2,
 # 0038 §4 and §8 (main and Category implemented), 0039 §1 (File, File talk and Media implemented),
-# 0041 §4, 0042 §3 and 0043 §2 (Template and Module, conditionally) (kinds say only whether a namespace holds pages; pages namespaces name content models).
+# 0041 §4, 0042 §3 and 0043 §2 (Template and Module, conditionally), 0045 §2 (Table) (kinds say only whether a namespace holds pages; pages namespaces name content models).
 #
 # kind        "pages" | "reserved" | "virtual" | "resolver" (0041 §4). Only "pages" namespaces hold pages.
 # content_models  For "pages": the allowed content models, IDs from content-models.toml, all of one source
@@ -285,7 +285,27 @@ kind = "pages"
 content_models = ["triplespace-talk"]
 default_model = "triplespace-talk"
 
-# 218–219 unallocated.
+# --- Tables: 218–219 (0045 §2) -----------------------------------------------------------------
+# The last free pair in 210–219. A table's content is a definition; its values are its entities' (0045 §1).
+[[namespace]]
+id = 218
+canonical = "Table"
+kind = "pages"
+normalizer = "first-letter"
+case = "first-letter"
+subpages = true
+content_models = ["triplespace-table", "wikitext"]
+default_model = "triplespace-table"
+default_model_rules = [ { suffix = "/doc", model = "wikitext" } ]
+talk = 219
+defined_in = "0045 §2"
+
+[[namespace]]
+id = 219
+canonical = "Table talk"
+kind = "pages"
+content_models = ["triplespace-talk"]
+default_model = "triplespace-talk"
 
 # --- Resolver prefixes: 220–229 (0029) ----------------------------------------------------------
 [[namespace]]
