@@ -1,8 +1,10 @@
 # Default namespaces.  ADR 0008 §2 (as amended 2026-09-27), 0009 §11, 0017 §5, 0019 §2–3, 0029 §2,
 # 0038 §4 and §8 (main and Category implemented), 0039 §1 (File, File talk and Media implemented),
-# 0041 §4, 0042 §3 and 0043 §2 (Template and Module, conditionally), 0045 §2 (Table), 0048 §7 (Notation) (kinds say only whether a namespace holds pages; pages namespaces name content models).
+# 0041 §4, 0042 §3 and 0043 §2 (Template and Module, conditionally), 0045 §2 (Table), 0048 §7 (Notation), 0049 §2 (Board and Board talk; Thread talk forwards) (kinds say only whether a namespace holds pages; pages namespaces name content models).
 #
 # kind        "pages" | "reserved" | "virtual" | "resolver" (0041 §4). Only "pages" namespaces hold pages.
+# forwards_to For "virtual": every title resolves, as a permanent redirect, to the same title in the
+#             namespace with this number. A talk namespace whose subject is its own talk page (0049 §2)
 # content_models  For "pages": the allowed content models, IDs from content-models.toml, all of one source
 # default_model   For "pages": the model a new page takes (0008 §5); reported by meta=siteinfo as
 #                 `defaultcontentmodel` when it is not wikitext (0041 §8)
@@ -267,7 +269,8 @@ defined_in = "0019 §3"
 [[namespace]]
 id = 215
 canonical = "Thread talk"
-kind = "reserved"           # a thread is discussed in itself (0019 §3)
+kind = "virtual"            # a thread is discussed in itself (0019 §3); forwards (0049 §2)
+forwards_to = 214
 
 # Notation (0048 §1, §7): allocated to OSM by 0036 §3 and renamed before any data existed. Titles
 # carry the scheme: Notation:osm:amenity=cafe.
@@ -348,7 +351,26 @@ kind = "reserved"
 # 224–229 unallocated: three more resolver pairs. Further resolvers continue in 320–329.
 
 # --- Triplespace-specific, second block: 310–319 (0008 §2, amended 2026-10-01) -------------------
-# Unallocated. Used once 210–219 is full, which it is since 0045.
+# Board (0049 §1–2): a talk page that is its own subject. Board talk forwards to it.
+[[namespace]]
+id = 310
+canonical = "Board"
+kind = "pages"
+content_models = ["triplespace-board"]
+default_model = "triplespace-board"
+normalizer = "first-letter"
+case = "first-letter"
+subpages = false
+talk = 311
+defined_in = "0049 §2"
+
+[[namespace]]
+id = 311
+canonical = "Board talk"
+kind = "virtual"            # Board talk:X resolves to Board:X (0049 §2)
+forwards_to = 310
+
+# 312–319 unallocated.
 
 # --- Resolver prefixes, second block: 320–329 (0008 §2, amended 2026-10-01) ----------------------
 # Unallocated. Used once 224–229 is taken.

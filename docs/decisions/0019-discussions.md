@@ -3,7 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-09-27
 - **Author:** James Hare / Claude Fable
-- **Amended by:** [0020 — Change feeds](0020-change-feeds.md) (§3 settles §8's watching), [0021 — Notifications](0021-notifications.md) (settles the notifications open question), [0023 — Protection, deletion, hiding and patrolling](0023-moderation.md) (§4 amends §1: thread `delete` and `undelete` are ACL records; §6 makes posts patrollable), [0027 — Preferences, private state and portability](0027-preferences-and-portability.md) (§1 makes the visibility rule of §6 the `threads.visibility` preference), [0028 — Tenancy policy](0028-tenancy-policy.md) (§6 settles the cross-tenant discussion open question). §6 was amended on 2026-09-27 to name the default statuses and their registry file, [0038 — Page metadata, legacy categories and articles](0038-page-metadata-and-categories.md) (§9 extends §6: thread statements and the projected status statement; amends §7: thread statements enter the main graph; §8 amends §5: a bare `[[Q42]]` is a main-namespace link), [0041 — Content models](0041-content-models.md) (§4 amends §2 and §3: talk and thread namespaces are `pages` namespaces with the `triplespace-talk` and `triplespace-thread` models; §8 amends §9: `action=edit` is refused with MediaWiki's `no-direct-editing`, not `ts-structured`; §10 amends §11: those model IDs replace `talk` and `thread`)
+- **Amended by:** [0020 — Change feeds](0020-change-feeds.md) (§3 settles §8's watching), [0021 — Notifications](0021-notifications.md) (settles the notifications open question), [0023 — Protection, deletion, hiding and patrolling](0023-moderation.md) (§4 amends §1: thread `delete` and `undelete` are ACL records; §6 makes posts patrollable), [0027 — Preferences, private state and portability](0027-preferences-and-portability.md) (§1 makes the visibility rule of §6 the `threads.visibility` preference), [0028 — Tenancy policy](0028-tenancy-policy.md) (§6 settles the cross-tenant discussion open question). §6 was amended on 2026-09-27 to name the default statuses and their registry file, [0038 — Page metadata, legacy categories and articles](0038-page-metadata-and-categories.md) (§9 extends §6: thread statements and the projected status statement; amends §7: thread statements enter the main graph; §8 amends §5: a bare `[[Q42]]` is a main-namespace link), [0041 — Content models](0041-content-models.md) (§4 amends §2 and §3: talk and thread namespaces are `pages` namespaces with the `triplespace-talk` and `triplespace-thread` models; §8 amends §9: `action=edit` is refused with MediaWiki's `no-direct-editing`, not `ts-structured`; §10 amends §11: those model IDs replace `talk` and `thread`), [0049 — Boards, and threads on several pages](0049-boards.md) (§2 amends §3: `Thread talk` forwards to `Thread`; §5–7 amend §1, §2 and §12: a thread has one home and any number of listings, and only the home encloses; §6 amends §4: `attach`, `detach`, `also` and `keep`; §8 amends §8: attachment order; §9, §11 and §12 extend §7, §9 and §11)
 - **Related:** [0001 — Revision metadata in RDF](0001-revision-metadata-rdf.md) (§7 extends §1 and §6), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§13 amends §2), [0006 — Log integrity and erasure](0006-log-integrity-and-erasure.md) (§1 uses §8; §4 uses §7), [0007 — Actor identity](0007-actor-identity.md) (§2, §4), [0008 — Namespaces and document pages](0008-namespaces-and-document-pages.md) (§2 amends §2; §3 extends §1 and §3; §5 extends §5, §8 and §10; settles the discussions open question), [0010 — Site UI](0010-site-ui.md) (§8), [0011 — Upstream and local logs](0011-logs.md) (§7 extends §6.1 and §8), [0012 — API requirements for the site UI](0012-api-requirements.md) (§7 uses §3; §9 extends §4 and §5), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md) (§11 extends §5), [0014 — Cache layers and search](0014-caches-and-search.md) (§11), [0015 — Record format and partition registry](0015-record-format-and-partition-registry.md) (§4 amends §1; §2 uses §2), [0016 — Permissions and access control](0016-permissions-and-access-control.md) (§12 extends §2 and amends §4), [0018 — Tenants](0018-tenants.md) (§2), [0022 — Federation: verified data sync and ActivityPub](0022-federation.md) (§6–8 use §7 and §10: threads and posts as ActivityPub objects; inbound replies as posts)
 
 ## Context
@@ -46,6 +46,8 @@ Two goals from the earlier ADRs constrain the design. Every unit of contribution
 
 **The true parent is always stored.** The instance's indentation limit (§8) is a rendering rule, not a constraint on the data. Changing the limit later rewrites nothing.
 
+> **Amended by [0049](0049-boards.md) §6.** Two operations join the table: `attach` lists the thread on a further talk page or board, and `detach` removes a listing. Both need a base offset. `create` may carry `also`, further targets listed at creation, and `move` may carry `keep`, which keeps the old home as a listing.
+
 ### 2. Talk pages are composite; attachment is by identifier (amends 0008 §2)
 
 **A thread is attached to exactly one target.** The target is named by identifier, never by title, so that a thread follows its subject through a rename or a move and the record's key is never content ([0006](0006-log-integrity-and-erasure.md) §3):
@@ -63,6 +65,8 @@ Two goals from the earlier ADRs constrain the design. Every unit of contribution
 
 **A `move` moves the whole thread.** Its posts leave the old talk page's history and join the new one's, and one `move/move` log event, with the source and target talk pages as parameters, appears in both pages' logs (§7). A thread cannot be attached to two pages; cross-posting is a link.
 
+> **Amended by [0049](0049-boards.md) §5 and §7.** A thread has exactly one **home**, the attachment this section describes, and may have **listings** on further talk pages and boards, up to `thread.max_attachments`. "A thread cannot be attached to two pages; cross-posting is a link" is replaced. Only the home encloses the thread, is its `as:context`, and may be a user talk page; listing, composite history and watches treat every attachment alike. A board ([0049](0049-boards.md) §1) is a `page` target whose talk page is itself.
+
 **Foreign talk pages are never loaded.** The talk page of a mirrored entity holds local threads only. They live in the tenant's `pages` partition, which is not what a tenant exposes when it is a provider to others ([0018](0018-tenants.md) §5), so a local historical society's discussion of a Librarybase item stays on the society's wiki. The talk page of a mirrored entity offers a link to the upstream talk page for readers who want the provider's own discussion.
 
 > **Amended by [0041](0041-content-models.md) §4.** The kind `composite` is gone: a talk namespace is a `pages` namespace whose model is `triplespace-talk`, a model whose source is *composite* (no records of its own).
@@ -70,6 +74,8 @@ Two goals from the earlier ADRs constrain the design. Every unit of contribution
 ### 3. The `Thread` namespace and thread titles (extends 0008 §1 and §3)
 
 **`Thread` is a registered namespace of a new kind, `thread`:** pages composed from thread records. Its paired `Thread talk` is `reserved` and empty, because clients assume every subject namespace has one. Subpages are not allowed. The numbers are 214 and 215, in the Triplespace range of [0008](0008-namespaces-and-document-pages.md) §2 as amended on 2026-09-27; LiquidThreads' 90 and 91 are not reused.
+
+> **Amended by [0049](0049-boards.md) §2.** `Thread talk` (215) is a `virtual` namespace that forwards to `Thread`: `Thread talk:X` resolves to `Thread:X`. A thread is its own talk page.
 
 **A thread's title is its creation date and its subject:** `Thread:2026-09-27/Why is P31 wrong here`. The date is the UTC date of the `create` record and never changes. The subject is what the author typed, normalized as a `first-letter` title with MediaWiki's forbidden characters (`# < > [ ] | { }`) rejected. Two threads created on the same date with the same subject are told apart with a MediaWiki-style suffix: `…/Why is P31 wrong here (2)`. The `create` and `rename` records carry the minted title, as a page `move` carries its new title, so the title index is a projection and a rebuild reproduces it.
 
@@ -107,6 +113,8 @@ The payload type `scatter:v0/thread` is added to the `pages` partition's list ([
 
 Mentions, links and the rendered HTML are never stored; they are derived from the text part (§5). Nothing in the content part names the record's own ID, which is assigned at append and read from the header.
 
+> **Extended by [0049](0049-boards.md) §6.** `also` on `create`; `target` and `talk` on `attach` and `detach`; `keep` on `move`.
+
 ### 5. Text: markdown, mentions and links (extends 0008 §5, §8 and §10)
 
 **Posts are markdown**, rendered by the `markdown` content model of 0008 §5, with two additions that apply to that model everywhere:
@@ -142,6 +150,8 @@ Mentions, links and the rendered HTML are never stored; they are derived from th
 
 **A talk page's history is composite:** the rows of every thread currently attached to it, plus the attach and move events, in one sequence ordered by time. It is served by `GET /page/{id}/history` for the talk page's ID and by `prop=revisions` on the talk title, where each row is a revision with its own global revision ID. A thread that moves away takes its rows with it.
 
+> **Extended by [0049](0049-boards.md) §7 and §9.** A talk page's or board's history includes every thread attached to it, home or listing, and the `thread/attach` and `thread/detach` events. A thread's `as:context` is its home, and it carries `scatter:listedOn` for each listing.
+
 **Log events**, projected from the records as 0011 §6.1 requires: `create` → `create/create`; `rename` and `move` → `move/move`, with the old and new title or the source and target talk pages as parameters; `delete` and `undelete` → `delete/delete` and `delete/restore`. `post` and `edit` are revisions, not log events.
 
 **Hiding and erasure** are the existing mechanisms. `deleterevision` hides a post's text, comment or actor; `erase` with `parts: [text]` removes the text for good. In either case the post stays in the tree as a tombstone: its place, its replies and its timestamp remain, its text does not.
@@ -165,6 +175,8 @@ The post's revision node of [0001](0001-revision-metadata-rdf.md) §1 is the sam
 - **Watching** a subject watches its talk page and the threads attached to it; a thread can be watched on its own. The watchlist is [0020](0020-change-feeds.md).
 - **Editing another actor's post** is permitted only with `ts-editpost` (§12) and always shows an "edited by" note, because a post is speech.
 
+> **Amended by [0049](0049-boards.md) §8.** A talk page lists its threads in the order they were attached to it, which is creation order unless a thread was moved or listed there. A thread shows its home and its listings.
+
 ### 9. API (extends 0012 §4 and §5)
 
 **REST**, under `rest.php/triplespace/v0`, with the post shape of §10:
@@ -182,6 +194,8 @@ The post's revision node of [0001](0001-revision-metadata-rdf.md) §1 is the sam
 **Action API**, additively under 0012 §1. Reading works as for any page: `prop=revisions`, `prop=info`, `action=parse`, `list=recentchanges`, `list=usercontribs`, `list=backlinks`, `action=watch`. `action=delete` and `action=undelete` on a `Thread:` title work. `action=edit` on a `Thread:` or talk title is refused with a new error code, `ts-structured`, so that a bot learns at once that these pages are not text. DiscussionTools' `action=discussiontoolsedit` (`paction=addtopic|addcomment`) can be supported later on the same records, with `commentid` values of the form `c-{revid}` (open questions).
 
 > **Amended by [0041](0041-content-models.md) §8.** `action=edit` on a `Thread:` or talk title is refused with MediaWiki's own `no-direct-editing` (`apierror-no-direct-editing`), because neither model supports direct editing. `ts-structured` is retired.
+
+> **Extended by [0049](0049-boards.md) §11.** `POST /thread/{page ID}/attach` and `/detach`; `also` on `POST /thread` and `keep` on `/move`; `home` and `listings` in `GET /thread/{page ID}`; `home` on each thread of `GET /page/{id}/threads`.
 
 ### 10. The Activity Streams profile
 
@@ -225,6 +239,8 @@ These are projections in the sense of 0013 §7, applied synchronously for intera
 
 > **Amended by [0041](0041-content-models.md) §10.** The `content_model` values are the registry IDs `triplespace-thread` and `triplespace-talk`, not `thread` and `talk`.
 
+> **Extended by [0049](0049-boards.md) §12.** `view.thread_attachment` holds every attachment, home or listing, and serves the listing query in place of the `thread_talk` index; `view.thread.talk_page_id` is the home. Boards have `view.talk_page` rows.
+
 ### 12. Permissions (extends 0016 §2; amends 0016 §4)
 
 | Permission | Governs | Default groups |
@@ -237,6 +253,8 @@ These are projections in the sense of 0013 §7, applied synchronously for intera
 | `ts-erase` | Erasing a post's text | `suppress` |
 
 **Enclosure gains one rule:** a talk page encloses the threads attached to it. Protecting `Item talk:Q42` with `acl:page:{talk page ID}` therefore restricts every thread on it, and a thread moved elsewhere leaves that protection behind. Namespace ACLs on talk namespaces apply as they do to any namespace.
+
+> **Amended by [0049](0049-boards.md) §7 and §13.** A talk page encloses the threads whose *home* it is, not those listed on it. `attach` and `detach` need `move` on the thread and `edit` on the target.
 
 ### 13. Crates (amends 0005 §2)
 
