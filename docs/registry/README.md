@@ -10,8 +10,8 @@ This directory is the registry of record for the names and codes that Triplespac
 | `namespaces.toml` | Default namespace numbers and kinds, each `pages` namespace's allowed and default content models, the reserved MediaWiki and Wikibase numbers, and the 210–229 ranges | `triplespace-titles` | 0008 §2 (amended), 0009 §11, 0017 §5, 0019 §3, 0029, 0038 §4, §8, 0039 §1, 0041 §4, 0042 §3, 0043 §2, 0045 §2 |
 | `content-models.toml` | Content models: ID, origin, source, slot, entity type, serialization format and direct editing; the reserved MediaWiki and Wikibase model IDs | `scatter-pages` | 0008 §5, 0041 §2–3, 0043 §3, 0045 §3 |
 | `keyed-types.toml` | Keyed entity types and their ID prefixes | `scatter-normalize` | 0009 §1, 0017 §3, §5 |
-| `groups.toml` | Default groups, their permissions, and the default graph ACLs | `scatter-actors` | 0016 §2–4, 0019 §12, 0020 §7, 0021 §9, 0022 §12, 0023 §11, 0024 §11, 0025 §10, 0030 §12 |
-| `grants.toml` | API-key grants and the permissions each covers; also the OAuth scopes a consumer may request | `scatter-actors` | 0024 §4, 0025 §2 |
+| `groups.toml` | Default groups, their permissions, and the default graph ACLs | `scatter-actors` | 0016 §2–4, 0019 §12, 0020 §7, 0021 §9, 0022 §12, 0023 §11, 0024 §11, 0025 §10, 0030 §12, 0047 §12 |
+| `grants.toml` | API-key grants and the permissions each covers; also the OAuth scopes a consumer may request | `scatter-actors` | 0024 §4, 0025 §2, 0047 §12 |
 | `sites.toml` | Site aliases: MediaWiki site IDs, hosts, article paths and languages, for sitelink compatibility (generated from the Wikimedia site matrix) | `scatter-wikibase-model` | 0026 §2 |
 | `thread-statuses.toml` | Default thread statuses, with category and order | `scatter-threads` | 0019 §6 (amended) |
 | `preferences.toml` | Registered preference keys, types and defaults | `triplespace-accounts` | 0027 §1 |
@@ -19,6 +19,7 @@ This directory is the registry of record for the names and codes that Triplespac
 | `file-types.toml` | Permitted file types: extensions, MIME and MediaWiki media types, magic signatures, inline or attachment, thumbnailer, and which are allowed by default | `scatter-files` | 0039 §5 |
 | `resolvers.toml` | Resolver namespaces: binding, grammar, normalizer and case rule, external IRI (`doi`, `url`; candidates drafted) | `scatter-normalize` | 0029 §1, §8 |
 | `wikitext-functions.toml` | Wikitext variables, parser functions, extension tags and behaviour switches, with origin and status (`implemented`, `chip`, `ignored`); what `meta=siteinfo` reports as `magicwords`, `functionhooks`, `extensiontags`, `variables` and `doubleunderscores` (seed; generated from the reference install) | `scatter-wikitext-expand` | 0042 §5, 0043 §7 |
+| `special-pages.toml` | Special pages: canonical and MediaWiki names, origin, status (`served`, `deferred`, `declined`, `reserved`), farm or tenant scope, `Special:SpecialPages` group, restriction, aliases and section aliases, and each report's backing and graph scope (names and English aliases copied from MediaWiki and Wikibase REL1_43) | `triplespace-titles` | 0047 §1–4 |
 
 ## Rules
 

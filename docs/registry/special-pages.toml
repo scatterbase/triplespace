@@ -1,0 +1,1721 @@
+# Special pages.  ADR 0047.
+#
+# Every special page name the instance knows: the pages it serves, the ones it defers or declines,
+# and the names it reserves. Embedded by triplespace-titles, which resolves `Special:` titles,
+# aliases and section aliases, and applies the scope rules (0047 §1–3).
+#
+# name             The canonical name. Where MediaWiki or an extension has the page, MediaWiki's first
+#                  English alias (MessagesEn.php / the extension's alias file), e.g. RecentChanges.
+# mediawiki_name   MediaWiki's internal name where it differs: `realname` in siprop=specialpagealiases,
+#                  and the `qppage` value of list=querypage.
+# origin           "mediawiki" | an extension's name | "triplespace"
+# status           "served"    the instance serves it (a decision, not a claim about the code)
+#                  "deferred"  undecided; `until` names what it waits on
+#                  "declined"  decided against; `reason` says why. Answered as "no such special page".
+#                  "reserved"  belongs to an entity type reserved but not implemented; never reused
+# scope            "tenant" | "farm" | "both" (0047 §3). Default "tenant".
+# group            The Special:SpecialPages heading: MediaWiki's group keys (maintenance, pages, login,
+#                  users, changes, media, wiki, redirects, highuse, pagetools, other) plus wikibaserepo,
+#                  wikibaseclient, identity and instance. "unlisted" pages are never listed.
+# listed           false for pages served but not listed (redirecting pages, per-object pages).
+# restricted       The permission without which the page is not listed and refuses to act.
+# requires         A `site` setting that must be on (0042 §2) for the page to be listed and served.
+# aliases          Other names that reach the page; a GET is redirected (301) to `name` (0047 §2).
+#                  Matching is case-insensitive.
+# section_aliases  MediaWiki pages whose function is part of this page: name -> "#anchor" or "/subpage".
+#                  Each is reported by siprop=specialpagealiases as its own realname.
+# report           For reports (0047 §4): backing ("index" | "projection"), what it reads, and its default
+#                  graph scope. The instance's operators may switch a projection report to batch, for the
+#                  whole instance or for one tenant, in the instance-scope `reports` config (0047 §4.3).
+#                  Reports read the tenant's own partitions only unless widened there (0047 §4.2).
+# adr              Where the page is specified.
+#
+# Rules: names are never removed (a page that stops being served changes status); a name is never
+# given a second meaning; every `Special:` name an ADR uses is a name, alias or section alias here
+# (check_adrs.py, check 5). Localized aliases are i18n messages, not entries here (0047 §2).
+#
+# Names, internal names, groups and English aliases are copied from MediaWiki REL1_43
+# (SpecialPageFactory::CORE_LIST and its conditional pages; MessagesEn.php) and Wikibase REL1_43
+# (extension-repo.json, extension-client.json and their alias files). Statuses are hand-edited.
+
+version = 1
+
+# --- MediaWiki core (SpecialPageFactory REL1_43, with its conditional pages) ---------------------
+[[page]]
+name = "BrokenRedirects"
+origin = "mediawiki"
+status = "deferred"
+scope = "tenant"
+group = "maintenance"
+until = "page redirects (0008 open questions)"
+
+[[page]]
+name = "DeadendPages"
+mediawiki_name = "Deadendpages"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "maintenance"
+report = { backing = "projection", reads = "view.page_link", graphs = "local" }
+adr = "0047 §4.4"
+
+[[page]]
+name = "DoubleRedirects"
+origin = "mediawiki"
+status = "deferred"
+scope = "tenant"
+group = "maintenance"
+until = "page redirects (0008 open questions)"
+
+[[page]]
+name = "LongPages"
+mediawiki_name = "Longpages"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "maintenance"
+report = { backing = "index", reads = "view.page (ns, len)", graphs = "local" }
+adr = "0047 §4.4"
+
+[[page]]
+name = "AncientPages"
+mediawiki_name = "Ancientpages"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "maintenance"
+report = { backing = "index", reads = "view.page (ns, latest_at)", graphs = "local" }
+adr = "0047 §4.4"
+
+[[page]]
+name = "LonelyPages"
+mediawiki_name = "Lonelypages"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "maintenance"
+aliases = ["OrphanedPages"]
+report = { backing = "projection", reads = "view.page_link, view.transclusion", graphs = "local" }
+adr = "0047 §4.4"
+
+[[page]]
+name = "FewestRevisions"
+mediawiki_name = "Fewestrevisions"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "maintenance"
+report = { backing = "index", reads = "view.page (ns, revisions)", graphs = "local" }
+adr = "0047 §4.4"
+
+[[page]]
+name = "WithoutInterwiki"
+mediawiki_name = "Withoutinterwiki"
+origin = "mediawiki"
+status = "declined"
+scope = "tenant"
+group = "maintenance"
+reason = "interlanguage links are sitelinks (0026)"
+
+[[page]]
+name = "ProtectedPages"
+mediawiki_name = "Protectedpages"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "maintenance"
+report = { backing = "index", reads = "view.acl", graphs = "local" }
+adr = "0016 §7, 0023 §9"
+
+[[page]]
+name = "ProtectedTitles"
+mediawiki_name = "Protectedtitles"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "maintenance"
+report = { backing = "index", reads = "view.page (reserved)", graphs = "local" }
+adr = "0023 §9"
+
+[[page]]
+name = "ShortPages"
+mediawiki_name = "Shortpages"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "maintenance"
+report = { backing = "index", reads = "view.page (ns, len)", graphs = "local" }
+adr = "0047 §4.4"
+
+[[page]]
+name = "UncategorizedCategories"
+mediawiki_name = "Uncategorizedcategories"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "maintenance"
+report = { backing = "projection", reads = "view.page_category", graphs = "local" }
+adr = "0047 §4.4"
+
+[[page]]
+name = "UncategorizedFiles"
+mediawiki_name = "Uncategorizedimages"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "maintenance"
+aliases = ["UncategorizedImages"]
+report = { backing = "projection", reads = "view.page_category, view.file", graphs = "local" }
+adr = "0039 §18"
+
+[[page]]
+name = "UncategorizedPages"
+mediawiki_name = "Uncategorizedpages"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "maintenance"
+report = { backing = "projection", reads = "view.page_category", graphs = "local" }
+adr = "0047 §4.4"
+
+[[page]]
+name = "UncategorizedTemplates"
+mediawiki_name = "Uncategorizedtemplates"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "maintenance"
+requires = "wikitext.expansion"
+report = { backing = "projection", reads = "view.page_category", graphs = "local" }
+adr = "0047 §4.4"
+
+[[page]]
+name = "UnusedCategories"
+mediawiki_name = "Unusedcategories"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "maintenance"
+report = { backing = "projection", reads = "view.category, view.page_category", graphs = "local" }
+adr = "0047 §4.4"
+
+[[page]]
+name = "UnusedFiles"
+mediawiki_name = "Unusedimages"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "maintenance"
+aliases = ["UnusedImages"]
+report = { backing = "projection", reads = "view.file, view.file_link", graphs = "local" }
+adr = "0039 §18"
+
+[[page]]
+name = "UnusedTemplates"
+mediawiki_name = "Unusedtemplates"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "maintenance"
+requires = "wikitext.expansion"
+report = { backing = "projection", reads = "view.transclusion", graphs = "local" }
+adr = "0047 §4.4"
+
+[[page]]
+name = "UnwatchedPages"
+mediawiki_name = "Unwatchedpages"
+origin = "mediawiki"
+status = "declined"
+scope = "tenant"
+group = "maintenance"
+reason = "the watch set is private state (0020 §3); an aggregate over it would make the report projection a reader of private"
+
+[[page]]
+name = "WantedCategories"
+mediawiki_name = "Wantedcategories"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "maintenance"
+report = { backing = "projection", reads = "view.page_category, view.page", graphs = "local" }
+adr = "0047 §4.4"
+
+[[page]]
+name = "WantedFiles"
+mediawiki_name = "Wantedfiles"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "maintenance"
+report = { backing = "projection", reads = "view.file_link, view.file", graphs = "local" }
+adr = "0047 §4.4"
+
+[[page]]
+name = "WantedPages"
+mediawiki_name = "Wantedpages"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "maintenance"
+aliases = ["BrokenLinks"]
+report = { backing = "projection", reads = "view.page_link, view.page", graphs = "local" }
+adr = "0047 §4.4"
+
+[[page]]
+name = "WantedTemplates"
+mediawiki_name = "Wantedtemplates"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "maintenance"
+requires = "wikitext.expansion"
+report = { backing = "projection", reads = "view.transclusion, view.page", graphs = "local" }
+adr = "0047 §4.4"
+
+[[page]]
+name = "AllPages"
+mediawiki_name = "Allpages"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "pages"
+report = { backing = "index", reads = "view.page (ns, title)", graphs = "local" }
+adr = "0047 §4.4"
+
+[[page]]
+name = "PrefixIndex"
+mediawiki_name = "Prefixindex"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "pages"
+report = { backing = "index", reads = "view.page (ns, title)", graphs = "local" }
+adr = "0047 §4.4"
+
+[[page]]
+name = "Categories"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "pages"
+report = { backing = "index", reads = "view.category", graphs = "local" }
+adr = "0047 §4.4"
+
+[[page]]
+name = "ListRedirects"
+mediawiki_name = "Listredirects"
+origin = "mediawiki"
+status = "deferred"
+scope = "tenant"
+group = "pages"
+until = "page redirects (0008 open questions)"
+
+[[page]]
+name = "PagesWithProp"
+origin = "mediawiki"
+status = "deferred"
+scope = "tenant"
+group = "pages"
+aliases = ["PagesByProp"]
+until = "a page-properties table (0047 open questions)"
+
+[[page]]
+name = "TrackingCategories"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "pages"
+report = { backing = "index", reads = "view.category; 0042 §9 tracking categories", graphs = "local" }
+adr = "0047 §4.4"
+
+[[page]]
+name = "UserLogin"
+mediawiki_name = "Userlogin"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "login"
+aliases = ["Login"]
+adr = "0010 §10"
+
+[[page]]
+name = "UserLogout"
+mediawiki_name = "Userlogout"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "login"
+aliases = ["Logout"]
+adr = "0047 §9"
+
+[[page]]
+name = "CreateAccount"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "login"
+adr = "0010 §10"
+
+[[page]]
+name = "AuthenticationPopupSuccess"
+origin = "mediawiki"
+status = "declined"
+scope = "tenant"
+group = "login"
+reason = "internal to MediaWiki's popup login flow"
+
+[[page]]
+name = "ActiveUsers"
+mediawiki_name = "Activeusers"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "users"
+report = { backing = "index", reads = "view.actor (last_active)", graphs = "local" }
+adr = "0047 §4.4"
+
+[[page]]
+name = "Block"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "users"
+restricted = "block"
+aliases = ["BlockIP", "BlockUser"]
+adr = "0016 §7, 0023 §9"
+
+[[page]]
+name = "Unblock"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "users"
+restricted = "block"
+adr = "0047 §9"
+
+[[page]]
+name = "BlockList"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "users"
+aliases = ["ListBlocks", "IPBlockList"]
+adr = "0016 §7, 0023 §9"
+
+[[page]]
+name = "AutoblockList"
+origin = "mediawiki"
+status = "deferred"
+scope = "tenant"
+group = "users"
+aliases = ["ListAutoblocks"]
+until = "autoblocks, which 0016 does not specify"
+
+[[page]]
+name = "PasswordReset"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "users"
+adr = "0047 §9"
+
+[[page]]
+name = "DeletedContributions"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "users"
+restricted = "deletedhistory"
+adr = "0023 §9"
+
+[[page]]
+name = "Contributions"
+origin = "mediawiki"
+status = "served"
+scope = "both"
+group = "users"
+aliases = ["Contribs"]
+adr = "0010 §8, 0018 §8, 0040 §7"
+
+[[page]]
+name = "ListGroupRights"
+mediawiki_name = "Listgrouprights"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "users"
+aliases = ["UserGroupRights"]
+adr = "0016 §7"
+
+[[page]]
+name = "ListGrants"
+mediawiki_name = "Listgrants"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "users"
+adr = "0024 §9"
+
+[[page]]
+name = "ListUsers"
+mediawiki_name = "Listusers"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "users"
+aliases = ["UserList", "Users"]
+section_aliases = { Listadmins = "/sysop", Listbots = "/bot" }
+report = { backing = "index", reads = "view.actor", graphs = "local" }
+adr = "0024 §9"
+
+[[page]]
+name = "UserRights"
+mediawiki_name = "Userrights"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "users"
+aliases = ["MakeSysop", "MakeBot"]
+adr = "0016 §7, 0024 §9"
+
+[[page]]
+name = "EditWatchlist"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "users"
+restricted = "editmywatchlist"
+adr = "0047 §9"
+
+[[page]]
+name = "PasswordPolicies"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "users"
+adr = "0047 §9"
+
+[[page]]
+name = "NewFiles"
+mediawiki_name = "Newimages"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "changes"
+aliases = ["NewImages"]
+report = { backing = "index", reads = "view.file_version", graphs = "local" }
+adr = "0039 §18"
+
+[[page]]
+name = "Log"
+origin = "mediawiki"
+status = "served"
+scope = "both"
+group = "changes"
+aliases = ["Logs"]
+adr = "0010 §12, 0023 §9, 0046 §4"
+
+[[page]]
+name = "Watchlist"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "changes"
+restricted = "viewmywatchlist"
+adr = "0020 §4"
+
+[[page]]
+name = "NewPages"
+mediawiki_name = "Newpages"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "changes"
+report = { backing = "index", reads = "view.activity (creations, patrolled)", graphs = "local" }
+adr = "0047 §4.4"
+
+[[page]]
+name = "RecentChanges"
+mediawiki_name = "Recentchanges"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "changes"
+adr = "0010 §7, 0020 §4"
+
+[[page]]
+name = "RecentChangesLinked"
+mediawiki_name = "Recentchangeslinked"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "changes"
+aliases = ["RelatedChanges"]
+adr = "0020 §4"
+
+[[page]]
+name = "Tags"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "changes"
+adr = "0030 §10"
+
+[[page]]
+name = "ListFiles"
+mediawiki_name = "Listfiles"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "media"
+aliases = ["FileList", "ImageList"]
+report = { backing = "index", reads = "view.file", graphs = "local" }
+adr = "0039 §18"
+
+[[page]]
+name = "FilePath"
+mediawiki_name = "Filepath"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "media"
+adr = "0039 §7"
+
+[[page]]
+name = "MediaStatistics"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "media"
+report = { backing = "projection", reads = "view.file_version", graphs = "local" }
+adr = "0039 §18"
+
+[[page]]
+name = "MIMESearch"
+mediawiki_name = "MIMEsearch"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "media"
+report = { backing = "index", reads = "view.file_version", graphs = "local" }
+adr = "0039 §18"
+
+[[page]]
+name = "FileDuplicateSearch"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "media"
+report = { backing = "index", reads = "view.file_version (sha1)", graphs = "local" }
+adr = "0039 §18"
+
+[[page]]
+name = "Upload"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "media"
+restricted = "upload"
+adr = "0039 §18"
+
+[[page]]
+name = "UploadStash"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "media"
+restricted = "upload"
+adr = "0047 §9"
+
+[[page]]
+name = "ListDuplicatedFiles"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "media"
+aliases = ["ListFileDuplicates"]
+report = { backing = "projection", reads = "view.file_version", graphs = "local" }
+adr = "0039 §18"
+
+[[page]]
+name = "ApiSandbox"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "wiki"
+adr = "0047 §9"
+
+[[page]]
+name = "Statistics"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "wiki"
+aliases = ["Stats"]
+adr = "0047 §9, §13"
+
+[[page]]
+name = "AllMessages"
+mediawiki_name = "Allmessages"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "wiki"
+adr = "0047 §9"
+
+[[page]]
+name = "Version"
+origin = "mediawiki"
+status = "served"
+scope = "both"
+group = "wiki"
+adr = "0016 §7"
+
+[[page]]
+name = "LockDB"
+mediawiki_name = "Lockdb"
+origin = "mediawiki"
+status = "declined"
+scope = "tenant"
+group = "wiki"
+reason = "read-only is a tenant freeze (0018 §10) or an instance act (0040)"
+
+[[page]]
+name = "UnlockDB"
+mediawiki_name = "Unlockdb"
+origin = "mediawiki"
+status = "declined"
+scope = "tenant"
+group = "wiki"
+reason = "read-only is a tenant freeze (0018 §10) or an instance act (0040)"
+
+[[page]]
+name = "NamespaceInfo"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "wiki"
+adr = "0047 §9"
+
+[[page]]
+name = "LinkSearch"
+origin = "mediawiki"
+status = "deferred"
+scope = "tenant"
+group = "redirects"
+until = "an external-links table (0047 open questions)"
+
+[[page]]
+name = "Random"
+mediawiki_name = "Randompage"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "redirects"
+aliases = ["RandomPage"]
+report = { backing = "index", reads = "view.page (ns, random)", graphs = "local" }
+adr = "0047 §4.4"
+
+[[page]]
+name = "RandomInCategory"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "redirects"
+report = { backing = "index", reads = "view.page_category, view.page (random)", graphs = "local" }
+adr = "0047 §4.4"
+
+[[page]]
+name = "RandomRedirect"
+mediawiki_name = "Randomredirect"
+origin = "mediawiki"
+status = "deferred"
+scope = "tenant"
+group = "redirects"
+until = "page redirects (0008 open questions)"
+
+[[page]]
+name = "RandomRootpage"
+mediawiki_name = "Randomrootpage"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "redirects"
+report = { backing = "index", reads = "view.page (ns, random)", graphs = "local" }
+adr = "0047 §4.4"
+
+[[page]]
+name = "GoToInterwiki"
+origin = "mediawiki"
+status = "declined"
+scope = "tenant"
+group = "redirects"
+reason = "interwiki prefixes come from site aliases (0026 §2) and their links render as their targets"
+
+[[page]]
+name = "MostLinkedCategories"
+mediawiki_name = "Mostlinkedcategories"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "highuse"
+aliases = ["MostUsedCategories"]
+report = { backing = "projection", reads = "view.page_category", graphs = "local" }
+adr = "0047 §4.4"
+
+[[page]]
+name = "MostLinkedFiles"
+mediawiki_name = "Mostimages"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "highuse"
+aliases = ["MostFiles", "MostImages"]
+report = { backing = "projection", reads = "view.file_link", graphs = "local" }
+adr = "0047 §4.4"
+
+[[page]]
+name = "MostInterwikis"
+mediawiki_name = "Mostinterwikis"
+origin = "mediawiki"
+status = "declined"
+scope = "tenant"
+group = "highuse"
+reason = "interlanguage links are sitelinks (0026)"
+
+[[page]]
+name = "MostLinkedPages"
+mediawiki_name = "Mostlinked"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "highuse"
+aliases = ["MostLinked"]
+report = { backing = "projection", reads = "view.page_link", graphs = "local" }
+adr = "0047 §4.4"
+
+[[page]]
+name = "MostTranscludedPages"
+mediawiki_name = "Mostlinkedtemplates"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "highuse"
+requires = "wikitext.expansion"
+aliases = ["MostLinkedTemplates", "MostUsedTemplates"]
+report = { backing = "projection", reads = "view.transclusion", graphs = "local" }
+adr = "0047 §4.4"
+
+[[page]]
+name = "MostCategories"
+mediawiki_name = "Mostcategories"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "highuse"
+report = { backing = "projection", reads = "view.page_category", graphs = "local" }
+adr = "0047 §4.4"
+
+[[page]]
+name = "MostRevisions"
+mediawiki_name = "Mostrevisions"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "highuse"
+report = { backing = "index", reads = "view.page (revisions)", graphs = "local" }
+adr = "0047 §4.4"
+
+[[page]]
+name = "ComparePages"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "pagetools"
+adr = "0047 §9"
+
+[[page]]
+name = "Export"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "pagetools"
+adr = "0047 §8"
+
+[[page]]
+name = "Import"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "pagetools"
+restricted = "import"
+adr = "0047 §8"
+
+[[page]]
+name = "Undelete"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "pagetools"
+restricted = "browsearchive"
+adr = "0023 §9"
+
+[[page]]
+name = "WhatLinksHere"
+mediawiki_name = "Whatlinkshere"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "pagetools"
+adr = "0010 §12"
+
+[[page]]
+name = "MergeHistory"
+origin = "mediawiki"
+status = "declined"
+scope = "tenant"
+group = "pagetools"
+reason = "it would move revisions between pages, which the log cannot do"
+
+[[page]]
+name = "ExpandTemplates"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "pagetools"
+requires = "wikitext.expansion"
+adr = "0047 §9"
+
+[[page]]
+name = "ChangeContentModel"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "pagetools"
+restricted = "editcontentmodel"
+adr = "0047 §9"
+
+[[page]]
+name = "BookSources"
+mediawiki_name = "Booksources"
+origin = "mediawiki"
+status = "deferred"
+scope = "tenant"
+group = "other"
+until = "a bound ISBN resolver (resolvers.toml draft); then an alias of it"
+
+[[page]]
+name = "ApiHelp"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "wiki"
+adr = "0047 §9"
+
+[[page]]
+name = "BlankPage"
+mediawiki_name = "Blankpage"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "unlisted"
+listed = false
+adr = "0047 §9"
+
+[[page]]
+name = "DeletePage"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "unlisted"
+listed = false
+aliases = ["Delete"]
+adr = "0047 §9"
+
+[[page]]
+name = "Diff"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "redirects"
+listed = false
+adr = "0010 §12, 0015 §2"
+
+[[page]]
+name = "EditPage"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "unlisted"
+listed = false
+aliases = ["Edit"]
+adr = "0047 §9"
+
+[[page]]
+name = "EditTags"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "unlisted"
+listed = false
+adr = "0047 §9"
+
+[[page]]
+name = "EmailUser"
+mediawiki_name = "Emailuser"
+origin = "mediawiki"
+status = "declined"
+scope = "tenant"
+group = "users"
+aliases = ["Email"]
+reason = "no user-to-user email"
+
+[[page]]
+name = "MovePage"
+mediawiki_name = "Movepage"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "pagetools"
+restricted = "move"
+adr = "0047 §9"
+
+[[page]]
+name = "MyContributions"
+mediawiki_name = "Mycontributions"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "unlisted"
+listed = false
+aliases = ["MyContribs"]
+adr = "0047 §9"
+
+[[page]]
+name = "MyLanguage"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "unlisted"
+listed = false
+adr = "0047 §9"
+
+[[page]]
+name = "MyLog"
+mediawiki_name = "Mylog"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "unlisted"
+listed = false
+adr = "0047 §9"
+
+[[page]]
+name = "MyPage"
+mediawiki_name = "Mypage"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "unlisted"
+listed = false
+adr = "0047 §9"
+
+[[page]]
+name = "MyTalk"
+mediawiki_name = "Mytalk"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "unlisted"
+listed = false
+adr = "0047 §9"
+
+[[page]]
+name = "PageHistory"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "unlisted"
+listed = false
+aliases = ["History"]
+adr = "0047 §9"
+
+[[page]]
+name = "PageInfo"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "unlisted"
+listed = false
+aliases = ["Info"]
+adr = "0047 §9"
+
+[[page]]
+name = "ProtectPage"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "unlisted"
+listed = false
+aliases = ["Protect"]
+adr = "0047 §9"
+
+[[page]]
+name = "Purge"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "unlisted"
+listed = false
+adr = "0047 §9"
+
+[[page]]
+name = "MyUploads"
+mediawiki_name = "Myuploads"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "unlisted"
+listed = false
+aliases = ["MyFiles"]
+adr = "0047 §9"
+
+[[page]]
+name = "AllMyUploads"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "unlisted"
+listed = false
+aliases = ["AllMyFiles"]
+adr = "0047 §9"
+
+[[page]]
+name = "NewSection"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "unlisted"
+listed = false
+adr = "0047 §9"
+
+[[page]]
+name = "PermanentLink"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "redirects"
+listed = false
+aliases = ["PermaLink"]
+adr = "0019 §8, 0021 §4"
+
+[[page]]
+name = "Redirect"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "redirects"
+adr = "0007 §2, 0039 §7, 0047 §9"
+
+[[page]]
+name = "RenameUser"
+mediawiki_name = "Renameuser"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "users"
+restricted = "renameuser"
+adr = "0047 §9"
+
+[[page]]
+name = "RevisionDelete"
+mediawiki_name = "Revisiondelete"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "pagetools"
+restricted = "deleterevision"
+adr = "0023 §9, 0047 §9"
+
+[[page]]
+name = "RunJobs"
+origin = "mediawiki"
+status = "declined"
+scope = "tenant"
+group = "unlisted"
+reason = "internal to MediaWiki"
+
+[[page]]
+name = "SpecialPages"
+mediawiki_name = "Specialpages"
+origin = "mediawiki"
+status = "served"
+scope = "both"
+group = "other"
+adr = "0010 §2, 0047 §9"
+
+[[page]]
+name = "PageData"
+origin = "mediawiki"
+status = "deferred"
+scope = "tenant"
+group = "unlisted"
+until = "whether to alias it to the document node {base}/page/{id} (0008 §10)"
+
+[[page]]
+name = "Contribute"
+origin = "mediawiki"
+status = "declined"
+scope = "tenant"
+group = "unlisted"
+reason = "a skin feature"
+
+[[page]]
+name = "TalkPage"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "unlisted"
+listed = false
+adr = "0047 §9"
+
+[[page]]
+name = "Search"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "redirects"
+adr = "0010 §3, 0047 §9"
+
+[[page]]
+name = "JavaScriptTest"
+origin = "mediawiki"
+status = "declined"
+scope = "tenant"
+group = "wiki"
+reason = "a MediaWiki development tool"
+
+[[page]]
+name = "Mute"
+origin = "mediawiki"
+status = "deferred"
+scope = "tenant"
+group = "users"
+until = "undecided (0047 open questions)"
+
+[[page]]
+name = "PageLanguage"
+origin = "mediawiki"
+status = "deferred"
+scope = "tenant"
+group = "pagetools"
+until = "per-page content language, which nothing specifies"
+
+[[page]]
+name = "EditRecovery"
+origin = "mediawiki"
+status = "deferred"
+scope = "tenant"
+group = "pagetools"
+until = "the source editor's own recovery (0034 §7)"
+
+# --- Wikibase repository and client (REL1_43; EntitiesWithout* from earlier releases) ------------
+[[page]]
+name = "NewItem"
+origin = "Wikibase"
+status = "served"
+scope = "tenant"
+group = "wikibaserepo"
+aliases = ["CreateItem"]
+adr = "0010 §2, 0029 §3, 0047 §5"
+
+[[page]]
+name = "NewProperty"
+origin = "Wikibase"
+status = "served"
+scope = "tenant"
+group = "wikibaserepo"
+restricted = "property-create"
+aliases = ["CreateProperty"]
+adr = "0047 §5"
+
+[[page]]
+name = "ItemByTitle"
+origin = "Wikibase"
+status = "served"
+scope = "tenant"
+group = "wikibaserepo"
+adr = "0026 §7, 0029 §5"
+
+[[page]]
+name = "GoToLinkedPage"
+origin = "Wikibase"
+status = "served"
+scope = "tenant"
+group = "wikibaserepo"
+adr = "0029 §5"
+
+[[page]]
+name = "ItemDisambiguation"
+origin = "Wikibase"
+status = "served"
+scope = "tenant"
+group = "wikibaserepo"
+adr = "0029 §3, 0047 §9"
+
+[[page]]
+name = "ItemsWithoutSitelinks"
+origin = "Wikibase"
+status = "served"
+scope = "tenant"
+group = "wikibaserepo"
+report = { backing = "projection", reads = "view.entity, view.sitelink", graphs = "local" }
+adr = "0047 §4.4"
+
+[[page]]
+name = "SetLabel"
+origin = "Wikibase"
+status = "served"
+scope = "tenant"
+group = "wikibaserepo"
+adr = "0047 §5"
+
+[[page]]
+name = "SetDescription"
+origin = "Wikibase"
+status = "served"
+scope = "tenant"
+group = "wikibaserepo"
+adr = "0047 §5"
+
+[[page]]
+name = "SetAliases"
+origin = "Wikibase"
+status = "served"
+scope = "tenant"
+group = "wikibaserepo"
+adr = "0047 §5"
+
+[[page]]
+name = "SetLabelDescriptionAliases"
+origin = "Wikibase"
+status = "served"
+scope = "tenant"
+group = "wikibaserepo"
+adr = "0047 §5"
+
+[[page]]
+name = "SetSiteLink"
+origin = "Wikibase"
+status = "served"
+scope = "tenant"
+group = "wikibaserepo"
+adr = "0047 §5"
+
+[[page]]
+name = "ListDatatypes"
+origin = "Wikibase"
+status = "served"
+scope = "tenant"
+group = "wikibaserepo"
+adr = "0047 §9"
+
+[[page]]
+name = "DispatchStats"
+origin = "Wikibase"
+status = "declined"
+scope = "tenant"
+group = "wikibaserepo"
+reason = "Wikibase's client-change dispatching has no counterpart; Special:Providers reports sync lag"
+
+[[page]]
+name = "EntityData"
+origin = "Wikibase"
+status = "served"
+scope = "tenant"
+group = "wikibaserepo"
+adr = "0001, 0008 §3, wikibase-compat.md"
+
+[[page]]
+name = "EntityPage"
+origin = "Wikibase"
+status = "served"
+scope = "tenant"
+group = "wikibaserepo"
+adr = "0008 §3"
+
+[[page]]
+name = "MyLanguageFallbackChain"
+origin = "Wikibase"
+status = "served"
+scope = "tenant"
+group = "wikibaserepo"
+adr = "0047 §9"
+
+[[page]]
+name = "MergeItems"
+origin = "Wikibase"
+status = "served"
+scope = "tenant"
+group = "wikibaserepo"
+restricted = "item-merge"
+aliases = ["MergeItem"]
+adr = "0047 §5"
+
+[[page]]
+name = "RedirectEntity"
+origin = "Wikibase"
+status = "served"
+scope = "tenant"
+group = "wikibaserepo"
+restricted = "item-redirect"
+aliases = ["EntityRedirect", "ItemRedirect", "RedirectItem"]
+adr = "0047 §5"
+
+[[page]]
+name = "AvailableBadges"
+origin = "Wikibase"
+status = "served"
+scope = "tenant"
+group = "wikibaserepo"
+adr = "0026 §1, 0047 §9"
+
+[[page]]
+name = "ListProperties"
+origin = "Wikibase"
+status = "served"
+scope = "tenant"
+group = "wikibaserepo"
+report = { backing = "index", reads = "view.entity (type, datatype)", graphs = "local" }
+adr = "0047 §4.4"
+
+[[page]]
+name = "EntitiesWithoutLabel"
+origin = "Wikibase"
+status = "served"
+scope = "tenant"
+group = "wikibaserepo"
+report = { backing = "projection", reads = "view.entity, view.term", graphs = "local" }
+note = "not registered by Wikibase REL1_43; earlier releases had it"
+adr = "0047 §4.2, §4.4"
+
+[[page]]
+name = "EntitiesWithoutDescription"
+origin = "Wikibase"
+status = "served"
+scope = "tenant"
+group = "wikibaserepo"
+report = { backing = "projection", reads = "view.entity, view.term", graphs = "local" }
+note = "not registered by Wikibase REL1_43; earlier releases had it"
+adr = "0047 §4.2, §4.4"
+
+[[page]]
+name = "EntityUsage"
+origin = "WikibaseClient"
+status = "served"
+scope = "tenant"
+group = "wikibaseclient"
+aliases = ["EntityUsageData"]
+report = { backing = "index", reads = "view.entity_usage", graphs = "local" }
+adr = "0043 §10, 0047 §4.4"
+
+[[page]]
+name = "PagesWithBadges"
+origin = "WikibaseClient"
+status = "served"
+scope = "tenant"
+group = "wikibaseclient"
+aliases = ["QueryBadges"]
+report = { backing = "index", reads = "view.sitelink (own host)", graphs = "local" }
+adr = "0047 §4.4"
+
+[[page]]
+name = "UnconnectedPages"
+origin = "WikibaseClient"
+status = "served"
+scope = "tenant"
+group = "wikibaseclient"
+aliases = ["WithoutConnection", "WithoutSitelinks"]
+report = { backing = "projection", reads = "view.page, view.sitelink (own host)", graphs = "local" }
+adr = "0038 §6, 0047 §4.4"
+
+[[page]]
+name = "ConstraintReport"
+origin = "WikibaseQualityConstraints"
+status = "served"
+scope = "tenant"
+group = "wikibaserepo"
+report = { backing = "index", reads = "view.constraint_violation", graphs = "local (widened live by graphs=; 0047 §4.2)" }
+adr = "0031 §3"
+
+# --- Extensions whose pages Triplespace serves under their names or as aliases -------------------
+[[page]]
+name = "Nuke"
+origin = "Nuke"
+status = "served"
+scope = "tenant"
+group = "pagetools"
+restricted = "nuke"
+adr = "0047 §7"
+
+[[page]]
+name = "EditFilter"
+mediawiki_name = "AbuseFilter"
+origin = "AbuseFilter"
+status = "served"
+scope = "tenant"
+group = "wiki"
+aliases = ["AbuseFilter"]
+adr = "0030 §10"
+
+[[page]]
+name = "EditFilterLog"
+mediawiki_name = "AbuseLog"
+origin = "AbuseFilter"
+status = "served"
+scope = "tenant"
+group = "changes"
+aliases = ["AbuseLog"]
+adr = "0030 §10"
+
+[[page]]
+name = "OAuth"
+origin = "OAuth"
+status = "served"
+scope = "tenant"
+group = "login"
+listed = false
+adr = "0025 §1"
+
+[[page]]
+name = "OAuthConsumers"
+mediawiki_name = "OAuthListConsumers"
+origin = "OAuth"
+status = "served"
+scope = "farm"
+group = "users"
+aliases = ["OAuthListConsumers", "OAuthConsumerRegistration", "OAuthManageConsumers"]
+adr = "0025 §5, 0046 §8"
+
+[[page]]
+name = "Notifications"
+origin = "Echo"
+status = "served"
+scope = "tenant"
+group = "users"
+section_aliases = { NotificationsMarkRead = "" }
+adr = "0021 §6"
+
+[[page]]
+name = "GlobalUsers"
+origin = "CentralAuth"
+status = "served"
+scope = "farm"
+group = "instance"
+adr = "0028 §11"
+
+[[page]]
+name = "GlobalGroupMembership"
+origin = "CentralAuth"
+status = "served"
+scope = "farm"
+group = "instance"
+aliases = ["GlobalUserRights"]
+adr = "0028 §11"
+
+[[page]]
+name = "GlobalBlock"
+origin = "GlobalBlocking"
+status = "served"
+scope = "farm"
+group = "instance"
+adr = "0028 §11"
+
+[[page]]
+name = "GlobalBlockList"
+origin = "GlobalBlocking"
+status = "served"
+scope = "farm"
+group = "instance"
+aliases = ["ListGlobalBlocks"]
+adr = "0028 §11"
+
+[[page]]
+name = "RemoveGlobalBlock"
+origin = "GlobalBlocking"
+status = "served"
+scope = "farm"
+group = "instance"
+aliases = ["GlobalUnblock"]
+adr = "0047 §9"
+
+[[page]]
+name = "GlobalContributions"
+origin = "GlobalContributions"
+status = "served"
+scope = "tenant"
+group = "users"
+adr = "0018 §8"
+
+# --- Triplespace ---------------------------------------------------------------------------------
+[[page]]
+name = "GlobalRecentChanges"
+origin = "triplespace"
+status = "served"
+scope = "farm"
+group = "instance"
+adr = "0028 §9"
+
+[[page]]
+name = "Account"
+origin = "triplespace"
+status = "served"
+scope = "tenant"
+group = "users"
+section_aliases = { Preferences = "#preferences", ResetTokens = "#preferences", DisplayNotificationsConfiguration = "#notifications", ChangeCredentials = "#sign-in-methods", RemoveCredentials = "#sign-in-methods", ChangePassword = "#sign-in-methods", LinkAccounts = "#sign-in-methods", UnlinkAccounts = "#sign-in-methods", ChangeEmail = "#notifications", Confirmemail = "#notifications", Invalidateemail = "#notifications", BotPasswords = "#subsidiaries", OAuthManageMyGrants = "#connected-applications" }
+adr = "0010 §11"
+
+[[page]]
+name = "Jobs"
+origin = "triplespace"
+status = "served"
+scope = "both"
+group = "changes"
+adr = "0010 §9, 0046 §4"
+
+[[page]]
+name = "Providers"
+origin = "triplespace"
+status = "served"
+scope = "both"
+group = "wiki"
+adr = "0022 §11"
+
+[[page]]
+name = "PendingSubsidiaries"
+origin = "triplespace"
+status = "served"
+scope = "tenant"
+group = "users"
+restricted = "userrights"
+adr = "0025 §5"
+
+[[page]]
+name = "TransferAccount"
+origin = "triplespace"
+status = "served"
+scope = "tenant"
+group = "users"
+restricted = "ts-transferaccount"
+adr = "0024 §9"
+
+[[page]]
+name = "Tenants"
+origin = "triplespace"
+status = "served"
+scope = "farm"
+group = "instance"
+adr = "0018 §11, 0046 §9"
+
+[[page]]
+name = "Tenancy"
+origin = "triplespace"
+status = "served"
+scope = "both"
+group = "instance"
+adr = "0028 §11, 0046 §9"
+
+[[page]]
+name = "InstanceAction"
+origin = "triplespace"
+status = "served"
+scope = "farm"
+group = "instance"
+listed = false
+adr = "0040 §7"
+
+[[page]]
+name = "Takedowns"
+origin = "triplespace"
+status = "served"
+scope = "farm"
+group = "instance"
+restricted = "ts-takedown"
+adr = "0039 §18"
+
+[[page]]
+name = "Takedown"
+origin = "triplespace"
+status = "served"
+scope = "farm"
+group = "instance"
+listed = false
+adr = "0039 §18"
+
+[[page]]
+name = "LinkEntities"
+origin = "triplespace"
+status = "served"
+scope = "tenant"
+group = "identity"
+restricted = "ts-link"
+adr = "0047 §6"
+
+[[page]]
+name = "IdentityConflicts"
+origin = "triplespace"
+status = "served"
+scope = "tenant"
+group = "identity"
+report = { backing = "index", reads = "view.link (status held)", graphs = "local (widened live by graphs=all; 0047 §6)" }
+adr = "0004 §10, 0047 §6"
+
+[[page]]
+name = "Corrections"
+origin = "triplespace"
+status = "served"
+scope = "tenant"
+group = "identity"
+report = { backing = "index", reads = "view.correction (state)", graphs = "local" }
+adr = "0002 §7, 0047 §6"
+
+# --- Reserved ------------------------------------------------------------------------------------
+[[page]]
+name = "NewLexeme"
+origin = "WikibaseLexeme"
+status = "reserved"
+scope = "tenant"
+group = "wikibaserepo"
+reason = "Lexeme and EntitySchema are reserved, not implemented (0009, 0041)"
+
+[[page]]
+name = "MergeLexemes"
+origin = "WikibaseLexeme"
+status = "reserved"
+scope = "tenant"
+group = "wikibaserepo"
+reason = "Lexeme and EntitySchema are reserved, not implemented (0009, 0041)"
+
+[[page]]
+name = "NewEntitySchema"
+origin = "EntitySchema"
+status = "reserved"
+scope = "tenant"
+group = "wikibaserepo"
+reason = "Lexeme and EntitySchema are reserved, not implemented (0009, 0041)"
+
+[[page]]
+name = "EntitySchemaText"
+origin = "EntitySchema"
+status = "reserved"
+scope = "tenant"
+group = "wikibaserepo"
+reason = "Lexeme and EntitySchema are reserved, not implemented (0009, 0041)"
+
+[[page]]
+name = "SetEntitySchemaLabelDescriptionAliases"
+origin = "EntitySchema"
+status = "reserved"
+scope = "tenant"
+group = "wikibaserepo"
+reason = "Lexeme and EntitySchema are reserved, not implemented (0009, 0041)"

@@ -1,4 +1,4 @@
-# Default groups, permissions and graph ACLs.  ADR 0016 §2–4, 0019 §12, 0020 §7, 0021 §9, 0022 §12, 0023 §11, 0024 §11, 0025 §10, 0030 §12 and §5 (tags), 0039 §21.
+# Default groups, permissions and graph ACLs.  ADR 0016 §2–4, 0019 §12, 0020 §7, 0021 §9, 0022 §12, 0023 §11, 0024 §11, 0025 §10, 0030 §12 and §5 (tags), 0039 §21, 0047 §12.
 #
 # Permissions are MediaWiki right names where MediaWiki has one, Wikibase's for entities,
 # and ts-* for what only Triplespace does. Scatterbase's five (view, edit, delete,
@@ -36,6 +36,7 @@ mediawiki = [
   "mwoauthmanagemygrants", "mwoauthviewprivate",
   "changetags", "managechangetags",              # 0030 §5 as amended 2026-09-27: apply a registered tag; manage the tag registry
   "upload", "reupload", "reupload-own", "reupload-shared", "upload_by_url", "movefile",   # 0039 §21
+  "nuke",                                         # 0047 §12: Special:Nuke (the Nuke extension's right)
 ]
 wikibase = ["item-term", "property-term", "item-redirect", "item-merge", "property-create"]
 triplespace = [
@@ -109,6 +110,7 @@ permissions = [
   "mwoauthviewprivate",                          # 0025 §10
   "managechangetags",                            # 0030 §5 as amended: the tag registry
   "reupload-shared",                             # 0039 §21: shadow a foreign repository's file
+  "nuke",                                        # 0047 §12: Special:Nuke
 ]
 
 [[group]]
