@@ -3,6 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-09-27
 - **Author:** James Hare / Claude Fable
+- **Amended by:** [0047 — Special pages](0047-special-pages.md) (§4.2 amends §3: `ConstraintReport` defaults to the local graph)
 - **Related:** [0002 — Source graphs and mass ingest](0002-source-graphs-and-mass-ingest.md) (§2: constraints are evaluated on the resolved view of §3), [0003 — Statement UI](0003-statement-ui.md) (§1 binds constraint vocabulary by role, §7; §6 extends §9 with the constraint marker; the "constraints as hints" of §7 stand), [0004 — Identity clusters and equivalence](0004-identity-clusters-and-equivalence.md) (§2 uses §4 and §7), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§9 amends §2: adds `scatter-wikibase-constraints`), [0010 — Site UI](0010-site-ui.md) (§6 extends §2), [0012 — API requirements for the site UI](0012-api-requirements.md) (§7 extends §4 and §5), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md) (§5 extends §5.6 and §7), [0014 — Cache layers and search](0014-caches-and-search.md) (§5), [0018 — Tenants](0018-tenants.md) (§4 follows §6), [0020 — Change feeds](0020-change-feeds.md) (§6: not a feed), [0029 — Resolver namespaces](0029-resolver-namespaces.md) (§2: normalized values), [0030 — Edit filters](0030-edit-filters.md) (§1 settles its property-constraints open question; constraints report, filters gate), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
 ## Context
@@ -62,6 +63,8 @@ Violations are **derived facts**, not records. A **constraint projection** runs 
 - **On the property page**, a **Constraints** tab listing each constraint with its violation count and a link to the report.
 - **`Special:ConstraintReport/{property}`** and **`Special:ConstraintReport/{type}`**: violations by property or by type, paged, filterable by severity and source graph, with the entity, the statement and the failing value on each row. This is where a community works through a class of problems.
 - **`Special:ConstraintReport/{entity}`**: everything on one entity, which is also what `wbcheckconstraints` returns.
+
+> **Amended by [0047](0047-special-pages.md) §4.2.** The source-graph filter defaults to the local graph, as every report does. Widening it is live, since `view.constraint_violation` already covers the resolved view.
 
 Violations are **not a feed** ([0020](0020-change-feeds.md)): they are facts about the present, not events, and a reader who wants to know when a violation appeared reads the entity's history. A count of violations by property is published for the dashboard-style view above.
 

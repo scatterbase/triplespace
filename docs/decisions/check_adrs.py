@@ -9,6 +9,8 @@ Checks:
     under Related (or Amended-by); and if B's Related says it "amends"/"settles"/
     "extends" something in A, A should list B under Amended-by.
  4. crate names mentioned anywhere vs. the 0005 §2 table
+ 5. every `Special:` name used in an ADR, the API docs or the registry is a name, alias,
+    MediaWiki name or section alias in registry/special-pages.toml (0047 §1)
 """
 import os, re, sys, glob, collections
 
@@ -124,6 +126,24 @@ for c, where in sorted(all_mentions.items()):
         tag = " (retired name)" if c in retired else ""
         print(f"  {c}{tag}: {sorted(where)}")
 print()
+
+# 5: special page names (0047 §1). Parsed with regexes so the checker needs no TOML library.
+_sp = os.path.join(ROOT, "registry", "special-pages.toml")
+if os.path.exists(_sp):
+    _t = open(_sp, encoding="utf-8").read()
+    sp_known = {m.group(2).lower() for m in re.finditer(r'^(name|mediawiki_name) = "([^"]+)"', _t, re.M)}
+    for m in re.finditer(r'^aliases = \[([^\]]*)\]', _t, re.M):
+        sp_known |= {x.lower() for x in re.findall(r'"([^"]+)"', m.group(1))}
+    for m in re.finditer(r'^section_aliases = \{(.*)\}$', _t, re.M):
+        sp_known |= {x.lower() for x in re.findall(r'([A-Za-z]+) = ', m.group(1))}
+    sources = dict(texts)
+    sources.update(compat)
+    for name, text in sources.items():
+        for u in sorted(set(re.findall(r"Special:([A-Za-z]+)", text))):
+            if u.lower() not in sp_known:
+                problems[name].append(f"Special:{u} is not in registry/special-pages.toml")
+else:
+    print("== registry/special-pages.toml not found; check 5 skipped ==")
 
 print("== per-ADR problems ==")
 for name in sorted(texts):

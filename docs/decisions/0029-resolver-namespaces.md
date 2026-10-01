@@ -3,7 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-09-27
 - **Author:** James Hare / Claude Fable
-- **Amended by:** [0038 — Page metadata, legacy categories and articles](0038-page-metadata-and-categories.md) (§8 extends §6: main-namespace titles last in the `/resolve` order), [0041 — Content models](0041-content-models.md) (§4 amends §2: the kinds beside `resolver` are now `pages`, `reserved` and `virtual`)
+- **Amended by:** [0038 — Page metadata, legacy categories and articles](0038-page-metadata-and-categories.md) (§8 extends §6: main-namespace titles last in the `/resolve` order), [0041 — Content models](0041-content-models.md) (§4 amends §2: the kinds beside `resolver` are now `pages`, `reserved` and `virtual`), [0047 — Special pages](0047-special-pages.md) (§5 and §9 extend §3: `Special:NewItem` and `Special:ItemDisambiguation`)
 - **Related:** [0002 — Source graphs and mass ingest](0002-source-graphs-and-mass-ingest.md) (§5 relates resolvers to match keys, §8.5), [0003 — Statement UI](0003-statement-ui.md) (§1 binds a resolver to a property by role, §7), [0004 — Identity clusters and equivalence](0004-identity-clusters-and-equivalence.md) (§1 uses §6 and §7), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§9 amends §2), [0008 — Namespaces and document pages](0008-namespaces-and-document-pages.md) (§2 extends §1 with the `resolver` kind and §3 with its normalizer), [0009 — Keyed entity types and Domain](0009-keyed-entity-types-and-domain.md) (§1 settles the DOI open question: a resolver, not a keyed type), [0010 — Site UI](0010-site-ui.md) (§7 extends §3), [0012 — API requirements for the site UI](0012-api-requirements.md) (§6 extends `/resolve` in §5), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md) (§3 reads `view.identifier` of §5.2), [0015 — Record format and partition registry](0015-record-format-and-partition-registry.md) (§1 extends §3 with the `resolver` kind and §5 with `resolvers.toml`), [0017 — Entity ID grammar](0017-entity-id-grammar.md) (§1 settles the DOI open question; §4 keeps resolver names and keyed-type names in one namespace), [0026 — Sitelinks are URLs](0026-sitelinks.md) (§5 binds a resolver to sitelinks)
 
 ## Context
@@ -59,6 +59,8 @@ Viewing `DOI:10.1000/xyz`, or calling `GET /resolve?q=doi:10.1000/xyz` ([0012](0
 The lookup never guesses: any case but the first shows a page. It is also cheap: one primary-key range read per bound property.
 
 **Match keys.** A resolver's property is a natural candidate for a uniqueness constraint ([0002](0002-source-graphs-and-mass-ingest.md) §8.5, [0013](0013-postgres-storage.md) §5.2 `match_key`), and a tenant that adds one will see the "several entities" page only for values that predate the constraint. The two are kept separate: a match key refuses a duplicate at write; a resolver tolerates it at read and shows it.
+
+> **Extended by [0047](0047-special-pages.md) §5 and §9.** The item form is `Special:NewItem` with `statement={property}:{key}` filled in, and the disambiguation page uses `Special:ItemDisambiguation`'s layout.
 
 ### 4. Where resolvers appear
 

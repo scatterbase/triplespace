@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Amended by:** [0009 — Keyed entity types and Domain](0009-keyed-entity-types-and-domain.md), [0016 — Permissions and access control](0016-permissions-and-access-control.md), [0017 — Entity ID grammar](0017-entity-id-grammar.md), [0018 — Tenants](0018-tenants.md), [0023 — Protection, deletion, hiding and patrolling](0023-moderation.md) (§4 amends §4: a deleted local member leaves its cluster and rejoins on undeletion), [0026 — Sitelinks are URLs](0026-sitelinks.md) (§1 extends §7 with the `url` normalizer)
+- **Amended by:** [0009 — Keyed entity types and Domain](0009-keyed-entity-types-and-domain.md), [0016 — Permissions and access control](0016-permissions-and-access-control.md), [0017 — Entity ID grammar](0017-entity-id-grammar.md), [0018 — Tenants](0018-tenants.md), [0023 — Protection, deletion, hiding and patrolling](0023-moderation.md) (§4 amends §4: a deleted local member leaves its cluster and rejoins on undeletion), [0026 — Sitelinks are URLs](0026-sitelinks.md) (§1 extends §7 with the `url` normalizer), [0047 — Special pages](0047-special-pages.md) (§5 and §6 extend §10: `Special:IdentityConflicts`, `Special:LinkEntities` and merges by `Special:MergeItems`)
 - **Author:** James Hare / Claude Opus
 - **Related:** [0000 — Initial proposition](0000-init.md), [0002 — Source graphs and mass ingest](0002-source-graphs-and-mass-ingest.md) (amends §6 and §8.2), [0003 — Statement UI](0003-statement-ui.md) (§8 extends the provenance response of §6), [Wikibase data model and ontology contract](../api/wikibase-compat.md), [0022 — Federation: verified data sync and ActivityPub](0022-federation.md) (§3 uses §9 and §10: `same-as` links across instances)
 
@@ -218,6 +218,8 @@ Conflicts are listed for review, in the same way as the maintenance tooling for 
 - with `different-from`;
 - with a `redirect` that merges a duplicate;
 - by deprecating the mirrored statement a link came from.
+
+> **Extended by [0047](0047-special-pages.md) §5–6.** The review list is `Special:IdentityConflicts`, with these resolutions as row actions. `Special:LinkEntities` is the form for `same-as`, `different-from` and `equivalent-property`; `Special:MergeItems` writes a merging `redirect` within one namespace and refuses a merge across namespaces.
 
 ## Consequences
 

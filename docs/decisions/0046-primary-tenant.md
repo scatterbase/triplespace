@@ -3,6 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-09-30
 - **Author:** James Hare / Claude Opus
+- **Amended by:** [0047 — Special pages](0047-special-pages.md) (§3 extends §7: special pages where the farm base is a tenant's base)
 - **Related:** [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§10 amends §2), [0006 — Log integrity and erasure](0006-log-integrity-and-erasure.md) (§7 amends §6: origin lines of instance partitions), [0007 — Actor identity](0007-actor-identity.md) (§7 amends the IRIs of the farm issuer and the operator actor), [0011 — Upstream and local logs](0011-logs.md) (§4 amends §6.3: mirror sync job records are in the instance `log`), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md) (§2 extends §5: `primary` is an instance-level kind), [0015 — Record format and partition registry](0015-record-format-and-partition-registry.md) (§2 extends §3: the `primary` config kind; the `tenant` record loses its primary flag), [0016 — Permissions and access control](0016-permissions-and-access-control.md) (§1 refines §3: `owner` on the primary tenant is the instance's; §8 extends §2: `ts-primary`), [0018 — Tenants](0018-tenants.md) (§1 amends §1: what the primary tenant is; §2 amends §3; §5 amends §10: the primary tenant cannot move away; §7 amends §2: instance graph IRIs), [0024 — Subsidiary accounts, API keys and rate limits](0024-subsidiary-accounts.md) (§5 refines §1: instance-job subsidiaries follow the primary role), [0025 — The instance as an OAuth server](0025-oauth-server.md) (§4 amends §5: consumer events are in the instance `log`; §8 amends §10: `mwoauthmanageconsumer` is an instance right), [0028 — Tenancy policy](0028-tenancy-policy.md) (§6 settles §2's undefined farm slug; §5 amends §5: the primary tenant cannot be deleted; §7 amends §2 and §10: farm account IRIs), [0040 — Instance prerogatives](0040-instance-prerogatives.md) (§1 refines §4: "an actor of the primary tenant" means primary when the record is appended; §7 amends §2: the operator IRI; §8 amends §9: the instance-rights list)
 
 ## Context
@@ -115,6 +116,8 @@ Every IRI and origin line the instance mints for something of instance scope is 
 | Operator actor ([0040](0040-instance-prerogatives.md) §2) | `{farm base}/operator` | `{farm base}/instance/operator` |
 
 Tenant IRIs and origin lines are unchanged, and no tenant route, article path or IRI template may begin with `/instance/`. The farm base may then be any host, including the base of the primary tenant or of any other tenant. Record IRIs `{base}/record/{partition}/{offset}` and job IRIs `{base}/job/{id}` are unchanged, because partition IDs and job IDs are unique on the instance. Special pages and REST routes served at the farm base are addresses for people and clients, not identifiers, and keep their paths.
+
+> **Extended by [0047](0047-special-pages.md) §3.** Where the farm base is also a tenant's base, a special page with a tenant and an instance form, such as `Special:Log` or `Special:Jobs`, shows both, with a `scope` filter; the registry's names are unique, so nothing else collides.
 
 Nothing has been published under the old forms, so this is a change to the documents only.
 

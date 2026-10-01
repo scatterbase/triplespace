@@ -45,7 +45,7 @@ permissions = ["patrol"]
 
 [[grant]]
 name = "delete"
-permissions = ["delete", "undelete", "deleterevision", "deletelogentry"]
+permissions = ["delete", "undelete", "deleterevision", "deletelogentry", "nuke"]   # nuke: 0047 §12
 
 [[grant]]
 name = "protect"
