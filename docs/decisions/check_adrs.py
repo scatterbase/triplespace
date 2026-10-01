@@ -103,7 +103,7 @@ VERBS = {"amends", "extends", "supersedes", "corrects", "settles", "uses"}   # 0
 LOG_VERBS = {"amends", "extends", "supersedes", "corrects", "retitles", "consolidates"}  # 0050 §8
 NEEDS_REPLACED = {"amends", "supersedes", "corrects"}
 HEADER_ORDER = ["Status", "Date", "Updated", "Author", "Changes", "Uses"]          # 0050 §3
-STATUS_RE = re.compile(r"^(Proposed|Accepted|Withdrawn|Superseded by \[?\d{4}\]?(\([^)]*\))?)$")
+STATUS_RE = re.compile(r"^(Proposed|Accepted|Accepted with proposed amendment \((A\d+)(, A\d+)*\)|Withdrawn|Superseded by \[?\d{4}\]?(\([^)]*\))?)$")
 
 def header_fields(text):
     """The `- **Field:** value` lines between the H1 and the first H2, in order."""
@@ -234,6 +234,9 @@ for name in sorted(new_format):
     # the log
     log = logs[name]
     ids = sorted(log)
+    for a in re.findall(r"A(\d+)", fd.get("Status", "")):
+        if int(a) not in log:
+            P.append(f"Status names A{a}, which is not in the log")
     if ids and ids != list(range(1, len(ids) + 1)):
         P.append(f"log IDs are not A1..An: {ids}")
     if log and "Updated" in fd:
