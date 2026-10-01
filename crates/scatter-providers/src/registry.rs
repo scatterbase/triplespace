@@ -1,6 +1,6 @@
 //! Parsing and validating `providers.toml` (ADR 0015 §5).
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::LazyLock;
 
 use serde::Deserialize;
@@ -109,6 +109,7 @@ impl Provider {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Registry {
     version: u32,
+    reserved_codes: BTreeSet<String>,
     providers: Vec<Provider>,
     by_code: BTreeMap<String, usize>,
     by_slug: BTreeMap<String, usize>,
@@ -133,6 +134,14 @@ pub enum RegistryError {
     /// A provider code is not two uppercase ASCII letters.
     #[error("provider code `{0}` is not two uppercase ASCII letters")]
     BadCode(String),
+    /// A provider takes a code listed in `reserved_codes` (0044 §2).
+    #[error("provider `{slug}` takes the reserved code `{code}`")]
+    ReservedCode {
+        /// The provider's slug.
+        slug: String,
+        /// The reserved code.
+        code: String,
+    },
     /// A slug is not lower-case ASCII letters, digits and hyphens.
     #[error("provider slug `{0}` is not lower-case ASCII letters, digits and hyphens")]
     BadSlug(String),
@@ -202,6 +211,8 @@ pub enum RegistryError {
 #[serde(deny_unknown_fields)]
 struct RawRegistry {
     version: u32,
+    #[serde(default)]
+    reserved_codes: Vec<String>,
     #[serde(default, rename = "provider")]
     providers: Vec<RawProvider>,
 }
@@ -379,9 +390,24 @@ impl Registry {
             return Err(RegistryError::Version(raw.version));
         }
 
+        let mut reserved_codes = BTreeSet::new();
+        for code in raw.reserved_codes {
+            if !is_code(&code) {
+                return Err(RegistryError::BadCode(code));
+            }
+            reserved_codes.insert(code);
+        }
+
         let mut providers = Vec::with_capacity(raw.providers.len());
         for p in raw.providers {
             if let Some(provider) = p.validate()? {
+                // Retired entries too: a reserved code was never allocated.
+                if reserved_codes.contains(&provider.code) {
+                    return Err(RegistryError::ReservedCode {
+                        slug: provider.slug,
+                        code: provider.code,
+                    });
+                }
                 providers.push(provider);
             }
         }
@@ -409,6 +435,7 @@ impl Registry {
 
         Ok(Self {
             version: raw.version,
+            reserved_codes,
             providers,
             by_code,
             by_slug,
@@ -433,6 +460,17 @@ impl Registry {
     #[must_use]
     pub fn version(&self) -> u32 {
         self.version
+    }
+
+    /// The provider codes that are never allocated (0044 §2), in sorted order.
+    pub fn reserved_codes(&self) -> impl Iterator<Item = &str> {
+        self.reserved_codes.iter().map(String::as_str)
+    }
+
+    /// Whether this two-letter code is reserved. Case-insensitive.
+    #[must_use]
+    pub fn is_reserved(&self, code: &str) -> bool {
+        self.reserved_codes.contains(&code.to_ascii_uppercase())
     }
 
     /// Every provider, in registry order, retired ones included.
@@ -490,6 +528,17 @@ mod tests {
             assert!(!p.types.is_empty(), "{code} mints something");
         }
         assert!(r.by_number(0).is_none());
+    }
+
+    #[test]
+    fn default_registry_reserves_every_doubled_code() {
+        // 0044 §2: `QQQ5` is the tenant-relative form, so no doubled letter is a provider code.
+        let r = Registry::default_registry();
+        let doubled: Vec<String> = ('A'..='Z').map(|c| format!("{c}{c}")).collect();
+        assert_eq!(r.reserved_codes().collect::<Vec<_>>(), doubled);
+        assert!(r.is_reserved("qq"));
+        assert!(!r.is_reserved("WD"));
+        assert!(r.providers().iter().all(|p| !r.is_reserved(&p.code)));
     }
 
     #[test]
@@ -552,6 +601,31 @@ mod tests {
         assert!(matches!(
             Registry::parse("version = 2\n"),
             Err(RegistryError::Version(2))
+        ));
+    }
+
+    #[test]
+    fn rejects_reserved_codes() {
+        let reserving = |codes: &str| {
+            one("").replace(
+                "version = 1\n",
+                &format!("version = 1\nreserved_codes = [{codes}]\n"),
+            )
+        };
+        assert!(Registry::parse(&reserving("\"QQ\"")).is_ok());
+        assert!(matches!(
+            Registry::parse(&reserving("\"QQ\", \"ZZ\"")),
+            Err(RegistryError::ReservedCode { ref code, .. }) if code == "ZZ"
+        ));
+        assert!(matches!(
+            Registry::parse(
+                &reserving("\"ZZ\"").replace("number = 99", "number = 99\nretired = true")
+            ),
+            Err(RegistryError::ReservedCode { .. })
+        ));
+        assert!(matches!(
+            Registry::parse(&reserving("\"qq\"")),
+            Err(RegistryError::BadCode(_))
         ));
     }
 
