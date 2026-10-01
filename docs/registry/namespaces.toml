@@ -1,8 +1,10 @@
 # Default namespaces.  ADR 0008 §2 (as amended 2026-09-27), 0009 §11, 0017 §5, 0019 §2–3, 0029 §2,
 # 0038 §4 and §8 (main and Category implemented), 0039 §1 (File, File talk and Media implemented),
-# 0041 §4, 0042 §3 and 0043 §2 (Template and Module, conditionally), 0045 §2 (Table) (kinds say only whether a namespace holds pages; pages namespaces name content models).
+# 0041 §4, 0042 §3 and 0043 §2 (Template and Module, conditionally), 0045 §2 (Table), 0048 §7 (Notation), 0049 §2 (Board and Board talk; Thread talk forwards) (kinds say only whether a namespace holds pages; pages namespaces name content models).
 #
 # kind        "pages" | "reserved" | "virtual" | "resolver" (0041 §4). Only "pages" namespaces hold pages.
+# forwards_to For "virtual": every title resolves, as a permanent redirect, to the same title in the
+#             namespace with this number. A talk namespace whose subject is its own talk page (0049 §2)
 # content_models  For "pages": the allowed content models, IDs from content-models.toml, all of one source
 # default_model   For "pages": the model a new page takes (0008 §5); reported by meta=siteinfo as
 #                 `defaultcontentmodel` when it is not wikitext (0041 §8)
@@ -26,6 +28,9 @@
 #   - 210–219 are Triplespace-specific namespaces; 220–229 are resolver prefixes (0029).
 #     Registered on mediawiki.org's Extension default namespaces page; as of 2026-09-27 the page
 #     lists nothing between 204 and 240.
+#   - Second blocks (0008 §2, amended 2026-10-01): 310–319 for Triplespace-specific namespaces and
+#     320–329 for resolver prefixes. A first block is used up before its second. As of 2026-10-01
+#     the mediawiki.org page lists nothing in 310–329.
 #   - The local name of Project is the site name (0008 §7) and is set per instance.
 
 version = 1
@@ -264,23 +269,26 @@ defined_in = "0019 §3"
 [[namespace]]
 id = 215
 canonical = "Thread talk"
-kind = "reserved"           # a thread is discussed in itself (0019 §3)
+kind = "virtual"            # a thread is discussed in itself (0019 §3); forwards (0049 §2)
+forwards_to = 214
 
+# Notation (0048 §1, §7): allocated to OSM by 0036 §3 and renamed before any data existed. Titles
+# carry the scheme: Notation:osm:amenity=cafe.
 [[namespace]]
 id = 216
-canonical = "OSM"
+canonical = "Notation"
 kind = "pages"
-content_models = ["triplespace-osm-tag"]
-default_model = "triplespace-osm-tag"
-normalizer = "osm-tag"
+content_models = ["triplespace-notation"]
+default_model = "triplespace-notation"
+normalizer = "notation"
 case = "case-sensitive"
 subpages = false
 talk = 217
-defined_in = "0036 §3"
+defined_in = "0036 §3, 0048 §7"
 
 [[namespace]]
 id = 217
-canonical = "OSM talk"
+canonical = "Notation talk"
 kind = "pages"
 content_models = ["triplespace-talk"]
 default_model = "triplespace-talk"
@@ -340,7 +348,32 @@ id = 223
 canonical = "URL talk"
 kind = "reserved"
 
-# 224–229 unallocated: three more resolver pairs. Further resolvers need a second range.
+# 224–229 unallocated: three more resolver pairs. Further resolvers continue in 320–329.
+
+# --- Triplespace-specific, second block: 310–319 (0008 §2, amended 2026-10-01) -------------------
+# Board (0049 §1–2): a talk page that is its own subject. Board talk forwards to it.
+[[namespace]]
+id = 310
+canonical = "Board"
+kind = "pages"
+content_models = ["triplespace-board"]
+default_model = "triplespace-board"
+normalizer = "first-letter"
+case = "first-letter"
+subpages = false
+talk = 311
+defined_in = "0049 §2"
+
+[[namespace]]
+id = 311
+canonical = "Board talk"
+kind = "virtual"            # Board talk:X resolves to Board:X (0049 §2)
+forwards_to = 310
+
+# 312–319 unallocated.
+
+# --- Resolver prefixes, second block: 320–329 (0008 §2, amended 2026-10-01) ----------------------
+# Unallocated. Used once 224–229 is taken.
 
 # --- Scribunto: 828–829 (0043 §2) -------------------------------------------------------------
 [[namespace]]

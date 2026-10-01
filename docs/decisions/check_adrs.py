@@ -115,6 +115,8 @@ retired = {"scatter-graphs", "scatter-markdown", "scatter-keyed", "triplespace-a
 # Content model IDs unique to Triplespace share the `triplespace-` prefix (0041 §2); they are not crates.
 _cm = os.path.join(ROOT, "registry", "content-models.toml")
 model_ids = set(re.findall(r'^id = "([^"]+)"', open(_cm, encoding="utf-8").read(), re.M)) if os.path.exists(_cm) else set()
+# Model IDs renamed before any data existed, still named in the ADRs that record the rename.
+model_ids |= {"triplespace-osm-tag"}  # 0048 §7: now triplespace-notation
 tbl_crates -= model_ids
 all_mentions = collections.defaultdict(set)
 for name, text in texts.items():

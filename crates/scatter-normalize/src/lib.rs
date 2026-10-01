@@ -1,11 +1,13 @@
-//! Normalizers and keys (ADR 0004 §7, 0009 §1–2 and §6–7, 0017 §5, 0026 §1, 0029 §1, 0036 §3).
+//! Normalizers and keys (ADR 0004 §7, 0009 §1–2 and §6–7, 0017 §5, 0026 §1, 0029 §1, 0036 §3, 0048).
 //!
 //! Three things live here, all pure and all built for `wasm32-unknown-unknown` so that the
 //! browser normalizes titles and keys with the same code as the server (0005 §3, rule 7):
 //!
 //! - **Keyed entity types** ([`keyed`]): the registry embedded from
 //!   `docs/registry/keyed-types.toml`, the key grammars and normalizers of each type
-//!   ([`domain`], [`keyword`], [`osmtag`]), keyed IDs such as `domain:en.wikipedia.org`,
+//!   ([`domain`], [`keyword`], and [`notation`] with its scheme registry embedded from
+//!   `docs/registry/notation-schemes.toml` and the [`osmtag`] grammar of its `osm` scheme),
+//!   keyed IDs such as `domain:en.wikipedia.org`,
 //!   concept IRIs, and the surrogate allocator trait ([`surrogate`]) that keeps keys out
 //!   of log headers.
 //! - **Normalized value keys** ([`value`]): the canonical form the resolved view compares
@@ -22,6 +24,7 @@
 pub mod domain;
 pub mod keyed;
 pub mod keyword;
+pub mod notation;
 pub mod osmtag;
 pub mod resolver;
 pub mod surrogate;
@@ -29,6 +32,7 @@ pub mod url;
 pub mod value;
 
 pub use keyed::{Display, KeyError, KeyedId, KeyedRegistry, KeyedType, KeyedTypeError};
+pub use notation::{NotationError, Scheme, SchemeRegistry, SchemeRegistryError};
 pub use resolver::{Case, Resolver, ResolverError, ResolverRegistry};
 pub use surrogate::{InMemorySurrogates, SurrogateAllocator};
 pub use url::{UrlError, normalize_url};
@@ -36,6 +40,10 @@ pub use value::ValueKey;
 
 /// The default keyed-type registry, `docs/registry/keyed-types.toml`, embedded at build time.
 pub const KEYED_TYPES_TOML: &str = include_str!("../../../docs/registry/keyed-types.toml");
+
+/// The default notation scheme registry, `docs/registry/notation-schemes.toml`, embedded at build time.
+pub const NOTATION_SCHEMES_TOML: &str =
+    include_str!("../../../docs/registry/notation-schemes.toml");
 
 /// The default resolver registry, `docs/registry/resolvers.toml`, embedded at build time.
 pub const RESOLVERS_TOML: &str = include_str!("../../../docs/registry/resolvers.toml");
