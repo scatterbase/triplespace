@@ -42,6 +42,10 @@ James's direction, on the first draft of this ADR, 2026-10-01:
 - **Proposals are "considered confirmed until decided otherwise."** (Asked whether sections Claude proposed should carry an unconfirmed mark.)
 - **"The cross-reference index should be committed to the repo as well."**
 
+And later the same day, on implementation in part:
+
+- **"ADRs become Accepted when they are implemented in full. If an amendment lands on an ADR that is already accepted, its status is 'accepted with proposed amendment' until it is fully Accepted again."**
+
 ## Decision
 
 ### 1. Current text and historical text
@@ -66,14 +70,21 @@ Fixed fields, in this order, one line each. Each value is a date, a status or a 
 
 | Field | Value | Required |
 |---|---|---|
-| `Status` | `Proposed`, `Accepted`, `Superseded by NNNN` or `Withdrawn` (see below) | Yes |
+| `Status` | `Proposed`, `Accepted`, `Accepted with proposed amendment (An, …)`, `Superseded by NNNN` or `Withdrawn` (see below) | Yes |
 | `Date` | The date the ADR was first written | Yes |
 | `Updated` | The date and ID of the latest log entry: `2026-10-01 (A20)` | Once there is a log |
 | `Author` | As now: `James Hare / Claude Opus` | Yes |
 | `Changes` | Linked numbers, ascending: every ADR whose text this one changes | When non-empty |
 | `Uses` | Linked numbers and contract documents, ascending: what this ADR relies on without changing | When non-empty |
 
-**Status follows the code.** An ADR is `Proposed` until it is implemented in code, and `Accepted` from then on. The change that implements it sets the status. `Superseded by NNNN` and `Withdrawn` come with the log entry that supersedes or withdraws it.
+**Status follows the code.**
+
+- **`Proposed`** until every section of the Decision is implemented in code. An ADR implemented in part is still `Proposed`.
+- **`Accepted`** once it is implemented in full. The change that completes the implementation sets the status.
+- **`Accepted with proposed amendment (A7, A9)`** when a change lands on an `Accepted` ADR before the code implements it. The Decision text is folded as always, so it states the decision as it now stands, and the status names the log entries that the code does not yet implement. The change that implements an entry removes its ID. When the list is empty, the status is `Accepted` again.
+- **`Superseded by NNNN`** and **`Withdrawn`** come with the log entry that supersedes or withdraws the ADR.
+
+A change to a `Proposed` ADR leaves it `Proposed`.
 
 **`Amended by`, `Related` and `Revised` are retired.** What changed this ADR is its Amendment log. What it changes is `Changes` and its section headings. What it relies on is `Uses`. Both directions for every ADR are in `docs/decisions/INDEX.md`, which the checker generates and which is committed (§12).
 
@@ -110,7 +121,7 @@ When an ADR, or a decision made directly, changes the text of ADR *Y*, the same 
 
 1. **Fold.** Rewrite the affected text so that it states the current decision. Where a reader would want the detail, cite the source in the sentence, as the ADRs already do: "Deletion is an ACL ([0023](0023-moderation.md) §4)."
 2. **Log.** Append an entry to *Y*'s Amendment log (§8). Text the change removes or contradicts goes into the entry as **Replaced text**, verbatim.
-3. **Mark.** Add the entry's ID to the provenance line of each section it changed. Strike any consequence the change makes false (§9).
+3. **Mark.** Add the entry's ID to the provenance line of each section it changed. Strike any consequence the change makes false (§9). If *Y* is `Accepted`, add the entry's ID to its status (§3).
 4. **Answer.** If the change settles an open question, strike the question and say what settled it (§10). Settling a question needs no log entry: the struck question is the record.
 
 The changing ADR names *Y* in its header's `Changes`, its section headings and its "Changes to other ADRs" table, which gives *Y*'s log ID.
@@ -191,7 +202,7 @@ A consequence the change adds is appended as a new bullet. Consequences are not 
 
 `check_adrs.py` recognises an ADR in this format by its header (no `Related` or `Amended by` field) and applies to it:
 
-1. The header fields of §3, in order, with a valid Status.
+1. The header fields of §3, in order, with a valid Status. The IDs named in an `Accepted with proposed amendment` status are in the log.
 2. Contiguous section numbers, every Decision subsection numbered, stubs present.
 3. Heading relations that use the verbs of §7 and resolve.
 4. Log IDs contiguous, the required fields present, and Replaced text where §7 requires it.
@@ -213,7 +224,7 @@ Files still in the old format keep the existing checks until they are converted.
 2. **Mechanical pass over the ADRs still in the old format**, by script and in one commit: titles as in §2, `Q` IDs, verbs as in §7, and relations in headers and parentheses qualified on both ends. `Related` and `Amended by` stay until each ADR is converted. No text of any decision changes, and reformatting is not logged.
 3. **Conversion, one ADR per commit**, most-amended first: 0019, 0018, 0010, 0023, 0028, 0006, 0012, 0015, 0013 and onward. Each commit converts the header, turns every callout, dated self-amendment and unmarked inbound relation into a log entry (dated by its source, numbered in date order, the callout's text as its Summary verbatim), folds them, and closes with a `consolidates` entry. Body text the fold removes is quoted under the entry that made it untrue, or under the `consolidates` entry when no single amendment did. An ADR that a new ADR is about to amend jumps the queue (§6).
 4. **0005 and 0013.** Their changelogs (0005 §8, 0013 §12) become their Amendment logs, and the two sections become stubs.
-5. **Status.** Each ADR whose decisions are implemented becomes `Accepted` (§3; Q5).
+5. **Status.** Each ADR implemented in full becomes `Accepted` (§3). None is yet: the crates in the repository implement parts of 0006, 0009, 0017, 0048 and others.
 6. **The old checks are removed** once no ADR uses the old format.
 
 ## Alternatives considered
@@ -240,7 +251,7 @@ Files still in the old format keep the existing checks until they are converted.
 - **Q2.** ~~**Extensions as callouts.** Whether a pure extension, which contradicts nothing, may stay a callout instead of being folded. It is cheaper, and the current text stays correct, but the reader has to assemble it again.~~ *Settled by §6: every change is folded, so the process is the same for all (Direction).*
 - **Q3.** ~~**Unconfirmed proposals.** Whether sections Claude proposed and James has not yet confirmed should carry a mark. The review of 2026-09-26 asked for 0018 §6 and §10 to be read first for this reason.~~ *Settled by §1: no mark; what an ADR says is decided until a later change says otherwise (Direction).*
 - **Q4.** ~~**The generated index.** Whether `INDEX.md` is committed and kept current by the checker, or built only in CI.~~ *Settled by §12: committed, regenerated with `--index`, and checked for staleness (Direction).*
-- **Q5. Implemented in part.** Code already implements parts of 0006, 0009, 0017, 0048 and others (`scatter-normalize`, `scatter-providers`, `scatter-vocab`, `scatter-wikibase-model`), but none of them whole. Whether an ADR becomes `Accepted` when its first section is implemented or its last, or whether implementation is marked per section. The same question arises when an amendment lands on an ADR that is already `Accepted` and the new text is not yet implemented.
+- **Q5.** ~~**Implemented in part.** Code already implements parts of 0006, 0009, 0017, 0048 and others (`scatter-normalize`, `scatter-providers`, `scatter-vocab`, `scatter-wikibase-model`), but none of them whole. Whether an ADR becomes `Accepted` when its first section is implemented or its last, or whether implementation is marked per section. The same question arises when an amendment lands on an ADR that is already `Accepted` and the new text is not yet implemented.~~ *Settled by §3: `Accepted` when implemented in full; an amendment not yet implemented makes it `Accepted with proposed amendment (An, …)` until it is (Direction).*
 
 ## Changes to other ADRs
 

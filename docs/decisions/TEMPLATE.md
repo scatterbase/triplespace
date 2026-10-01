@@ -4,7 +4,8 @@
 Format: ADR 0050. Copy to NNNN-slug.md. Delete these comments and any optional part you do not use.
 Header values are dates, statuses or lists of links, never sentences.
 Omit Updated until the first log entry; omit Changes and Uses when empty.
-Status is Proposed until the ADR is implemented in code, then Accepted (0050 §3).
+Status is Proposed until the ADR is implemented in full, then Accepted. A change to an Accepted ADR that the
+code does not implement yet makes it: Accepted with proposed amendment (An, …), until it does (0050 §3).
 After any change to an ADR, run `python3 decisions/check_adrs.py --index .` from docs/ and commit INDEX.md.
 -->
 
@@ -88,7 +89,7 @@ When a change lands here:
   2. Log: add the entry below, with any removed text quoted verbatim as Replaced text.
   3. Mark: add the ID to the provenance line of each changed section:  *Changed by A1, A3.*
   4. Strike consequences it falsifies, and settle questions it answers (questions need no entry).
-  5. Update the header's Updated line, and regenerate INDEX.md.
+  5. Update the header's Updated line; if the ADR is Accepted, add the entry to its status; regenerate INDEX.md.
 Every change is folded, extensions included: no callouts.
 -->
 
