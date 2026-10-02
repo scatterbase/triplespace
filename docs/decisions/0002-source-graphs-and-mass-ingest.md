@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-24
-- **Updated:** 2026-10-01 (A17)
+- **Updated:** 2026-10-01 (A18)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md)
 - **Uses:** [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -82,9 +82,9 @@ Default reconciliation rules:
 
 ### 4. IRIs for foreign entities
 
-*Changed by A2, A7, A8.*
+*Changed by A2, A7, A8, A18.*
 
-- **The canonical IRI is the provider's own.** `WDQ123` projects to `http://www.wikidata.org/entity/Q123`, and `OAW123` projects to `https://openalex.org/W123`.
+- **The canonical IRI is the provider's own.** `WDQ123` projects to `http://www.wikidata.org/entity/Q123`, and `OAW123` projects to `https://openalex.org/W123`. A provider that publishes no IRIs takes a template minted here: GDELT's entities project to `https://scatter.red/gdelt/{event|document|cameo|theme}/{id}` ([0037](0037-gdelt-provider.md) §2).
   - Nodes that come from upstream keep upstream's IRIs. Examples are Wikidata's statement nodes and mirrored property predicates such as `http://www.wikidata.org/prop/direct/P31`.
   - Statements that the local graph makes about a foreign entity get statement IRIs under the instance's base.
   - An item that a key-mapped provider maps onto a keyed entity takes the key's IRI instead, such as `https://scatter.red/domain/{key}`, and the resolved view emits `<upstream item IRI> owl:sameAs` it ([0009](0009-keyed-entity-types-and-domain.md) §9).
@@ -486,3 +486,14 @@ Replaced text (§3):
 - **Source:** [0050](0050-adr-format.md) §13
 - **Change:** consolidates §3–9
 - **Summary:** A1–A16 were folded into the Decision, the unnumbered scenario section became §9, the open questions were numbered, and two consequences that called settled questions open were struck. No decision changed. Before this, A10, A11, A13, A14, A15 and A16 were blockquotes; the content-by-default sentence of A6 had been written into §5 without a note; and the other entries were recorded only in this ADR's header or in other ADRs. The file before conversion is commit `0b26a3a`.
+
+### A18. IRIs minted here for a provider that publishes none
+
+- **Date:** 2026-10-01
+- **Source:** [0037](0037-gdelt-provider.md) §2
+- **Change:** amends §4
+- **Summary:** GDELT publishes no IRIs, so its entities' canonical IRIs are minted under `https://scatter.red/gdelt/…`. 0037 §2 (2026-09-28) said it amended §4; nothing was written here until 0037's conversion to the 0050 format.
+
+Replaced text (§4):
+
+> - **The canonical IRI is the provider's own.** `WDQ123` projects to `http://www.wikidata.org/entity/Q123`, and `OAW123` projects to `https://openalex.org/W123`.

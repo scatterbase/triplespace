@@ -2,8 +2,10 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-28
+- **Updated:** 2026-10-01 (A4)
 - **Author:** James Hare / Claude Sonnet
-- **Related:** [0002 — Source graphs and mass ingest](0002-source-graphs-and-mass-ingest.md) (§4 provider registry, §8.4 adapters), [0003 — Statement UI](0003-statement-ui.md) (§7 roles), [0004 — Identity clusters and equivalence](0004-identity-clusters-and-equivalence.md) (§3 link tiers), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§2, §6 licences), [0006 — Log integrity and erasure](0006-log-integrity-and-erasure.md), [0009 — Keyed entity types and Domain](0009-keyed-entity-types-and-domain.md) (§5 Domain values), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md) (§9 bootstrap), [0015 — Record format and partition registry](0015-record-format-and-partition-registry.md) (§2, §5), [0017 — Entity ID grammar](0017-entity-id-grammar.md) (§2 grammars amended), [0026 — Sitelinks are URLs](0026-sitelinks.md) (§1 URL normalizer), [0029 — Resolver namespaces](0029-resolver-namespaces.md) (§5), [0036 — OpenStreetMap providers](0036-openstreetmap-providers.md)
+- **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0005](0005-crate-organization.md), [0017](0017-entity-id-grammar.md)
+- **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0009](0009-keyed-entity-types-and-domain.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0026](0026-sitelinks.md), [0029](0029-resolver-namespaces.md), [0036](0036-openstreetmap-providers.md), [0048](0048-notation.md)
 
 ## Context
 
@@ -32,6 +34,8 @@ The GDELT 1.0 files (events only, a different column set) are out of scope. This
 
 ### 2. Types and IDs
 
+*Changed by A3.*
+
 | Code | Type | ID | Notes |
 |---|---|---|---|
 | `E` | Event | `GDE1234567890` | `GlobalEventID`; grammar `digits` |
@@ -41,9 +45,9 @@ The GDELT 1.0 files (events only, a different column set) are out of scope. This
 
 **Two grammars are new, and a grammar may be set on a type.** [0017](0017-entity-id-grammar.md) §2 defines `digits` and `uuid` at the provider level. This ADR adds `gdelt-record` (14 digits, `-`, an optional uppercase `T`, digits) and `token` (uppercase letters, digits and underscores, starting with a letter, at most 128 characters), and lets `id_grammar` be set on a single type, overriding the provider's. Disjointness from keyed types is unaffected: a keyed ID carries its `type:` prefix ([0017](0017-entity-id-grammar.md) §3).
 
-**Canonical IRIs are Triplespace's.** GDELT publishes none, so `https://scatter.red/gdelt/{event|document|cameo|theme}/{id}` is minted here. It amends [0002](0002-source-graphs-and-mass-ingest.md) §4, where a foreign entity's canonical IRI is the provider's own. What `scatter.red` serves at those addresses is as open as it is for domains ([0009](0009-keyed-entity-types-and-domain.md)).
+**Canonical IRIs are Triplespace's.** GDELT publishes none, so `https://scatter.red/gdelt/{event|document|cameo|theme}/{id}` is minted here. It amends [0002](0002-source-graphs-and-mass-ingest.md) §4, where a foreign entity's canonical IRI is the provider's own (0002 A18). What `scatter.red` serves at those addresses is as open as it is for domains ([0009](0009-keyed-entity-types-and-domain.md)).
 
-**Themes and CAMEO codes are provider items, not keyed types.** They are finite vocabularies that GDELT defines and lists (the Category List and the CAMEO tables). Keyed types are for open-ended natural keys that several providers share (Domain, Keyword, `osm-tag`; `osm-tag` is now the `osm` scheme of Notation, [0048](0048-notation.md)). Each theme and CAMEO code carries its label and, for CAMEO, its position in the hierarchy (root, base, code) as `subclass of` statements to its parent code. No namespace pair is used.
+**Themes and CAMEO codes are provider items, not keyed types.** They are finite vocabularies that GDELT defines and lists (the Category List and the CAMEO tables). Keyed types are for open-ended natural keys that several providers share (Domain, Keyword, and the `osm` scheme of Notation, [0048](0048-notation.md) §1, §6). Each theme and CAMEO code carries its label and, for CAMEO, its position in the hierarchy (root, base, code) as `subclass of` statements to its parent code. No namespace pair is used.
 
 ### 3. What a document becomes
 
@@ -59,7 +63,7 @@ A document (`D`) is an item. It carries, by role:
 | `tone`, `positive-score`, `negative-score`, `polarity`, `word-count` | quantities | the V1.5 tone field |
 | `source-language` | an ISO 639-2 code | the translation info, when present |
 
-Documents are items, not resolver keys. The `url` resolver ([0029](0029-resolver-namespaces.md) §5) is bound to sitelinks, so it finds an item only when the URL is one of its sitelinks. Whether a `document-url` role should also be bound to that resolver is open.
+Documents are items, not resolver keys. The `url` resolver ([0029](0029-resolver-namespaces.md) §5) is bound to sitelinks, so it finds an item only when the URL is one of its sitelinks. Whether a `document-url` role should also be bound to that resolver is open (Q3).
 
 **Version 1 mirrors only web sources** (`SourceCollectionIdentifier` 1). The other collections use other kinds of identifier (citations, DOIs), and they are left for later.
 
@@ -113,9 +117,11 @@ GDELT's terms allow use, redistribution and mirroring in any form, and require a
 
 ### 8. Registry and crates
 
+*Changed by A1, A2.*
+
 - `providers.toml`: `GD` (number 8) with types `E`, `D`, `C`, `T`. `issuers.toml`: `gdelt`. No keyed type and no namespace are added.
-- **New crate:** `scatter-adapter-gdelt` (layer 3), depending on `scatter-wikibase-changeset`, `scatter-wikibase-model`, `scatter-providers` and `scatter-normalize`.
-- `scatter-providers` gains per-type `id_grammar` and the `gdelt-record` and `token` grammars, beside `digits` and `uuid`: the ID grammars of minted types live with the registry field that names them ([0017](0017-entity-id-grammar.md) §7), and `scatter-normalize` keeps the key grammars of keyed types. (Corrected 2026-09-28; this line first placed the two grammars in `scatter-normalize`.)
+- **New crate:** `scatter-adapter-gdelt` (layer 3), depending on `scatter-wikibase-changeset`, `scatter-wikibase-model`, `scatter-providers` and `scatter-normalize`; [0005](0005-crate-organization.md) §2 is the crate table CI checks.
+- `scatter-providers` gains per-type `id_grammar` and the `gdelt-record` and `token` grammars, beside `digits` and `uuid`: the ID grammars of minted types live with the registry field that names them ([0017](0017-entity-id-grammar.md) §7), and `scatter-normalize` keeps the key grammars of keyed types.
 
 ## Consequences
 
@@ -124,20 +130,29 @@ GDELT's terms allow use, redistribution and mirroring in any form, and require a
 - **The append-only feed maps directly onto the log**, with a slot as the resumption unit.
 - **Noise stays visible.** Mention confidence and tone are statements and qualifiers, not filters hidden in the adapter. Ranks carry no claim of accuracy.
 - **A document's source is a Domain**, which ties it to the domain data of [0009](0009-keyed-entity-types-and-domain.md) and internetdomains.wiki, and to sitelink hosts ([0026](0026-sitelinks.md)).
-- **A new ID grammar mechanism.** Grammars can now be set per type. That is a change to [0017](0017-entity-id-grammar.md) §2 and to how `scatter-providers` reads the registry.
+- **A new ID grammar mechanism.** Grammars can now be set per type. That is a change to [0017](0017-entity-id-grammar.md) §2 (0017 A4) and to how `scatter-providers` reads the registry.
 - **The IRIs are ours.** Anything that cites `https://scatter.red/gdelt/…` depends on Scatter continuing to serve those addresses, since GDELT itself will never resolve them.
 
 ## Open questions
 
-- **Volume.** The current daily size of each file kind, and what a reasonable filter costs in storage, have not been measured. This ADR does not state them because the codebook does not.
-- **Theme and code lists.** The `token` grammar is inferred from the theme names the codebook shows (`TAX_…`, `WB_…`); the Category List and the CAMEO tables are to be checked against a real load, including where the lists live and how they change.
-- **Document URLs as resolver keys.** Whether a `document-url` role should be bound to the `url` resolver of [0029](0029-resolver-namespaces.md), so that `URL:https://…` reaches a document.
-- **Reconciling names.** Whether people, organizations and actor names should ever be offered as reconciliation suggestions to Wikidata, and if so by what process, with what review.
-- **Offsets.** Whether character offsets on themes, locations and names are worth their size, since they let a reader find the passage in the article.
-- **Other collections and history.** Non-web GKG collections, GDELT 1.0, and the other GDELT products (Web NGrams, the visual and television GKGs, the Global Entity Graph) are not covered.
-- **GCAM.** The 2,300 emotion and theme dimensions per document are not stored. Whether any subset justifies a place.
-- **Source domains.** `SourceCommonName` is not always a domain; whether other values are kept as strings or dropped.
-- **IRIs.** What `scatter.red` serves at the four IRI families, and whether GDELT should be asked for canonical ones.
+- **Q1. Volume.** The current daily size of each file kind, and what a reasonable filter costs in storage, have not been measured. This ADR does not state them because the codebook does not.
+- **Q2. Theme and code lists.** The `token` grammar is inferred from the theme names the codebook shows (`TAX_…`, `WB_…`); the Category List and the CAMEO tables are to be checked against a real load, including where the lists live and how they change.
+- **Q3. Document URLs as resolver keys.** Whether a `document-url` role should be bound to the `url` resolver of [0029](0029-resolver-namespaces.md), so that `URL:https://…` reaches a document.
+- **Q4. Reconciling names.** Whether people, organizations and actor names should ever be offered as reconciliation suggestions to Wikidata, and if so by what process, with what review.
+- **Q5. Offsets.** Whether character offsets on themes, locations and names are worth their size, since they let a reader find the passage in the article.
+- **Q6. Other collections and history.** Non-web GKG collections, GDELT 1.0, and the other GDELT products (Web NGrams, the visual and television GKGs, the Global Entity Graph) are not covered.
+- **Q7. GCAM.** The 2,300 emotion and theme dimensions per document are not stored. Whether any subset justifies a place.
+- **Q8. Source domains.** `SourceCommonName` is not always a domain; whether other values are kept as strings or dropped.
+- **Q9. IRIs.** What `scatter.red` serves at the four IRI families, and whether GDELT should be asked for canonical ones.
+
+## Changes to other ADRs
+
+| Target | By | Change | Target's log |
+|---|---|---|---|
+| [0002](0002-source-graphs-and-mass-ingest.md) §4 | §2 | amends | 0002 A18 |
+| [0003](0003-statement-ui.md) §7 | §3–4 | extends | 0003 A6 |
+| [0005](0005-crate-organization.md) §2 | §8 | amends | 0005 A36 |
+| [0017](0017-entity-id-grammar.md) §2 | §2 | amends | 0017 A4 |
 
 ## References
 
@@ -145,3 +160,41 @@ GDELT's terms allow use, redistribution and mirroring in any form, and require a
 - [GDELT 2.0 event codebook](http://data.gdeltproject.org/documentation/GDELT-Event_Codebook-V2.0.pdf)
 - [GDELT Global Knowledge Graph 2.1 codebook](http://data.gdeltproject.org/documentation/GDELT-Global_Knowledge_Graph_Codebook-V2.1.pdf)
 - [0036 — OpenStreetMap providers](0036-openstreetmap-providers.md): the parallel treatment of a second free-text-tag source
+
+## Amendment log
+
+### A1. The grammars live in `scatter-providers`
+
+- **Date:** 2026-09-28
+- **Source:** Direct: James, correction of 2026-09-28 (commit `115d7b1`)
+- **Change:** corrects §8
+- **Summary:** The `gdelt-record` and `token` grammars live in `scatter-providers`, with the registry field that names them, not in `scatter-normalize`, which keeps the key grammars of keyed types. The line was corrected in place with a note, now removed.
+
+Replaced text (§8):
+
+> - `scatter-normalize` gains the `gdelt-record` and `token` grammars. `scatter-providers` gains per-type `id_grammar`.
+
+### A2. Crate table
+
+- **Date:** 2026-09-28
+- **Source:** [0005](0005-crate-organization.md) §2
+- **Change:** extends §8
+- **Summary:** 0005 §2 is the one crate table CI checks, and carries `scatter-adapter-gdelt` and the `scatter-providers` additions (0005 A36); §8 keeps its registry notes and names 0005 §2 for the crate.
+
+### A3. `osm-tag` becomes the `osm` scheme of Notation
+
+- **Date:** 2026-10-01
+- **Source:** [0048](0048-notation.md) §1, §6
+- **Change:** amends §2
+- **Summary:** The keyed type `osm-tag`, named among the open-ended natural keys that keyed types are for, is now the `osm` scheme of the `notation` keyed type (0036 A2). The parenthesis was edited in place with a note, now folded.
+
+Replaced text (§2):
+
+> Keyed types are for open-ended natural keys that several providers share (Domain, Keyword, `osm-tag`).
+
+### A4. Converted to the 0050 format
+
+- **Date:** 2026-10-01
+- **Source:** [0050](0050-adr-format.md) §13
+- **Change:** consolidates §2, §8
+- **Summary:** A1–A3 were folded into the Decision. The open questions were numbered, and the change this ADR makes to 0002 §4 (GDELT's canonical IRIs are minted here), which 0002 had not recorded, was written there as 0002 A18. No decision changed. Before this, A1 and A3 were in-place edits with notes, and A2 was recorded only in 0005. The file before conversion is commit `0b26a3a`.
