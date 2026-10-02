@@ -1,4 +1,4 @@
-# Tenancy policy presets.  ADR 0028 §1.
+# Tenancy policy presets.  ADR 0028 §1; 0056 §11 (security.restrictions).
 #
 # A preset is what `triplespace-cli instance create --tenancy {name}` writes into the instance
 # config as `tenancy:{switch}` records. Every switch can be changed afterwards with ts-config at
@@ -27,12 +27,14 @@ version = 1
 "search.farm_wide"            = ["off", "global-groups", "everyone"]
 "filters.global"              = ["none", "inherited"]          # 0030 §8
 "wikitext.ceiling"            = ["subset", "expansion", "lua"]   # 0042 §2
+"security.restrictions"       = ["none", "tenant", "any"]       # 0056 §11: none = public tenants, read restricted by moderation only; tenant = a tenant may be private as a whole; any = also pages, entities, namespaces and sets
 
 # ---------------------------------------------------------------------------
 # isolated: unrelated tenants under one operator (web hosting). Nothing crosses but the
 # instance sitelink deny list (0026 §3) and IP blocks.
 # ---------------------------------------------------------------------------
 [preset.isolated]
+"security.restrictions"       = "any"
 "identity.farm_issuer"        = "none"
 "identity.required_issuer"    = "none"
 "identity.shared_names"       = "off"
@@ -54,6 +56,7 @@ version = 1
 # database (the Miraheze shape). Tenants are otherwise autonomous.
 # ---------------------------------------------------------------------------
 [preset.community]
+"security.restrictions"       = "none"
 "identity.farm_issuer"        = "required"
 "identity.required_issuer"    = "none"
 "identity.shared_names"       = "on"
@@ -91,6 +94,7 @@ permissions = ["delete", "undelete", "deletedhistory", "deletedtext", "browsearc
 # `identity.required_issuer` is set at instance creation to the corporate issuer's code.
 # ---------------------------------------------------------------------------
 [preset.enterprise]
+"security.restrictions"       = "any"
 "identity.farm_issuer"        = "optional"
 "identity.required_issuer"    = "set-at-creation"
 "identity.shared_names"       = "on"
