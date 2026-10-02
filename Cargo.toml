@@ -45,6 +45,8 @@ indexmap = { version = "2", features = ["serde"] }
 # references, MD5 for RDF value nodes. Not used for anything Triplespace secures.
 sha1 = "0.10"
 md-5 = "0.10"
+# Statement keys (0004 §8) and, later, the log's SHA-256 (0006 §2)
+sha2 = "0.10"
 
 # Registry files and configuration (0033 §12)
 serde = { version = "1", features = ["derive"] }

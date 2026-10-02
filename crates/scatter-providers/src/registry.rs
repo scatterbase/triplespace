@@ -84,7 +84,10 @@ pub struct Provider {
     /// A retired entry: its code and number are never reused, and it mints nothing new.
     pub retired: bool,
     /// Adapter configuration, opaque to this crate (0009 §9: the identity property of a
-    /// key-mapped provider, for example).
+    /// key-mapped provider, for example). Never a credential: the registry is a committed,
+    /// public file, and an adapter's secrets come from the instance configuration, from
+    /// files or the environment (0033 §12; 0056 §10, line 11). [`Registry::parse`] refuses
+    /// a key that looks like one.
     pub adapter_config: Option<toml::Table>,
     /// The entity types the provider mints, in registry order.
     pub types: Vec<EntityType>,
@@ -159,6 +162,16 @@ pub enum RegistryError {
         what: &'static str,
         /// The shared value.
         value: String,
+    },
+    /// An `adapter_config` key looks like a credential (0033 §12; 0056 §10, line 11).
+    #[error(
+        "provider `{slug}`: adapter_config key `{key}` looks like a credential; the registry is public, secrets come from the instance configuration"
+    )]
+    SecretInRegistry {
+        /// The provider's slug.
+        slug: String,
+        /// The offending key.
+        key: String,
     },
     /// A type code is not one uppercase ASCII letter.
     #[error("provider `{slug}`: type code `{code}` is not one uppercase ASCII letter")]
@@ -304,44 +317,16 @@ impl RawProvider {
         if trust == Some(Trust::Verified) && p.keys.is_none() {
             return Err(RegistryError::VerifiedWithoutKeys(slug));
         }
-
-        let mut types = Vec::with_capacity(p.types.len());
-        for t in p.types {
-            let mut chars = t.code.chars();
-            let code_char = match (chars.next(), chars.next()) {
-                (Some(c), None) if c.is_ascii_uppercase() => c,
-                _ => {
-                    return Err(RegistryError::BadTypeCode { slug, code: t.code });
-                }
-            };
-            if types.iter().any(|e: &EntityType| e.code == code_char) {
-                return Err(RegistryError::DuplicateType {
-                    slug,
-                    code: code_char,
-                });
-            }
-            if !t.iri.contains("{upstream_id}") {
-                return Err(RegistryError::BadIriTemplate {
-                    slug,
-                    code: code_char,
-                    iri: t.iri,
-                });
-            }
-            let type_grammar = match t.id_grammar {
-                Some(g) => g.parse().map_err(grammar_err)?,
-                None => id_grammar,
-            };
-            types.push(EntityType {
-                code: code_char,
-                entity_type: t.entity_type,
-                upstream_prefix: t.upstream_prefix,
-                iri: t.iri,
-                namespace: t.namespace,
-                label: t.label,
-                id_grammar: type_grammar,
-                key_mapped: t.key_mapped,
+        if let Some(cfg) = &p.adapter_config
+            && let Some(key) = secret_like_key(cfg)
+        {
+            return Err(RegistryError::SecretInRegistry {
+                slug,
+                key: key.to_string(),
             });
         }
+
+        let types = validate_types(&slug, p.types, id_grammar)?;
 
         Ok(Some(Provider {
             code,
@@ -363,6 +348,83 @@ impl RawProvider {
             types,
         }))
     }
+}
+
+/// Validates a provider's `[[provider.type]]` entries.
+fn validate_types(
+    slug: &str,
+    raw: Vec<RawType>,
+    id_grammar: IdGrammar,
+) -> Result<Vec<EntityType>, RegistryError> {
+    let mut types = Vec::with_capacity(raw.len());
+    for t in raw {
+        let mut chars = t.code.chars();
+        let code_char = match (chars.next(), chars.next()) {
+            (Some(c), None) if c.is_ascii_uppercase() => c,
+            _ => {
+                return Err(RegistryError::BadTypeCode {
+                    slug: slug.to_string(),
+                    code: t.code,
+                });
+            }
+        };
+        if types.iter().any(|e: &EntityType| e.code == code_char) {
+            return Err(RegistryError::DuplicateType {
+                slug: slug.to_string(),
+                code: code_char,
+            });
+        }
+        if !t.iri.contains("{upstream_id}") {
+            return Err(RegistryError::BadIriTemplate {
+                slug: slug.to_string(),
+                code: code_char,
+                iri: t.iri,
+            });
+        }
+        let type_grammar = match t.id_grammar {
+            Some(g) => g.parse().map_err(|source| RegistryError::Grammar {
+                slug: slug.to_string(),
+                source,
+            })?,
+            None => id_grammar,
+        };
+        types.push(EntityType {
+            code: code_char,
+            entity_type: t.entity_type,
+            upstream_prefix: t.upstream_prefix,
+            iri: t.iri,
+            namespace: t.namespace,
+            label: t.label,
+            id_grammar: type_grammar,
+            key_mapped: t.key_mapped,
+        });
+    }
+    Ok(types)
+}
+
+/// The first key, at any depth of an `adapter_config` table, that names a credential.
+fn secret_like_key(table: &toml::Table) -> Option<&str> {
+    const MARKERS: [&str; 7] = [
+        "secret",
+        "password",
+        "passwd",
+        "token",
+        "api_key",
+        "apikey",
+        "credential",
+    ];
+    for (k, v) in table {
+        let lower = k.to_ascii_lowercase();
+        if MARKERS.iter().any(|m| lower.contains(m)) {
+            return Some(k);
+        }
+        if let toml::Value::Table(inner) = v
+            && let Some(found) = secret_like_key(inner)
+        {
+            return Some(found);
+        }
+    }
+    None
 }
 
 fn is_slug(s: &str) -> bool {
@@ -602,6 +664,30 @@ mod tests {
             Registry::parse("version = 2\n"),
             Err(RegistryError::Version(2))
         ));
+    }
+
+    #[test]
+    fn rejects_credentials_in_adapter_config() {
+        assert!(
+            Registry::parse(&one(
+                "[provider.adapter_config]\nidentity_property = \"P1\""
+            ))
+            .is_ok()
+        );
+        for bad in [
+            "api_key = \"x\"",
+            "ApiKey = \"x\"",
+            "client_secret = \"x\"",
+            "[provider.adapter_config.oauth]\naccess_token = \"x\"",
+        ] {
+            assert!(
+                matches!(
+                    Registry::parse(&one(&format!("[provider.adapter_config]\n{bad}"))),
+                    Err(RegistryError::SecretInRegistry { .. })
+                ),
+                "{bad}"
+            );
+        }
     }
 
     #[test]
