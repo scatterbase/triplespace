@@ -127,6 +127,32 @@ This is the canonical JSON returned by `wbgetentities`, `Special:EntityData/<id>
 - **Snak hashes** are content hashes. Identical snaks share a hash across statements, qualifiers and references.
 - **`somevalue` and `novalue` snaks** have no `datavalue`.
 
+#### 3.2.1 How the hashes are computed (verified)
+
+Wikibase hashes PHP serializations, in the pre-PHP-7.4 `Serializable` wrapper `C:<len>:"<class>":<len>:{<data>}` that `getSerializationForHash()` reproduces by hand. `scatter-wikibase-model::hash` implements these; every snak hash, the reference hash and every `v:` value node in the snapshots are reproduced by its tests.
+
+| Hash | Of |
+|---|---|
+| snak, `value` | SHA-1 of `C:41:"Wikibase\DataModel\Snak\PropertyValueSnak":N:{a:2:{i:0;s:L:"P1";i:1;<value>}}` |
+| snak, `somevalue` / `novalue` | SHA-1 of `C:43:"Wikibase\DataModel\Snak\PropertySomeValueSnak":L:{P4}` (resp. `…NoValueSnak`), the data being the bare property ID |
+| reference | SHA-1 of the distinct snak hashes, sorted, joined with `\|` (`MapValueHasher`; a `SnakList` holds each hash once) |
+| value node `v:` (RDF) | MD5 of `<value>`, except a globe coordinate: MD5 of `latitude\|longitude\|precision\|globe` with PHP's `(string)$float` (`%.14G`) |
+| statement (not in JSON) | SHA-1 of `sha1(mainsnak hash ‖ qualifiers list hash)\|rank\|sha1(reference hashes sorted, joined with \|)`, rank 0/1/2 for deprecated/normal/preferred |
+
+`<value>` by value type, where `S(x)` is PHP `serialize()` (`s:<bytes>:"…";`) and `J(x)` is `json_encode()` with no flags (`/` as `\/`, non-ASCII as `\uXXXX`, floats in shortest round-trip form, `51` for `51.0`):
+
+| Value type | `<value>` |
+|---|---|
+| `string` | `C:22:"DataValues\StringValue":L:{<raw string>}` |
+| `monolingualtext` | `C:31:"DataValues\MonolingualTextValue":L:{a:2:{i:0;S(language)i:1;S(text)}}` |
+| `time` | `C:20:"DataValues\TimeValue":L:{J([time, timezone, before, after, precision, calendarmodel])}` |
+| `globecoordinate` | `C:42:"DataValues\Geo\Values\GlobeCoordinateValue":L:{J([latitude, longitude, null, precision, globe])}` |
+| `quantity`, bounded | `C:24:"DataValues\QuantityValue":L:{a:4:{i:0;D(amount)i:1;S(unit)i:2;D(upperBound)i:3;D(lowerBound)}}` with `D(x) = C:24:"DataValues\DecimalValue":L:{S(x)}` |
+| `quantity`, unbounded | `C:33:"DataValues\UnboundedQuantityValue":L:{a:2:{i:0;D(amount)i:1;S(unit)}}` |
+| `wikibase-entityid` | `C:39:"Wikibase\DataModel\Entity\EntityIdValue":L:{C:<len>:"<ID class>":L:{Q3}}`, the class `Wikibase\DataModel\Entity\ItemId`, `…\NumericPropertyId`, `Wikibase\Lexeme\Domain\Model\LexemeId` / `FormId` / `SenseId` or `Wikibase\MediaInfo\DataModel\MediaInfoId` by `entity-type` |
+
+The ID inside an entity value is the one the source wrote: Wikidata hashes `Q3`, so a mirrored `WDQ3` is hashed as `Q3` (`Hasher::mirrored_from("WD")`). Everything else in a hash is bytes the JSON carries verbatim, which is why the guard of 0006 §2 can compare on every entity.
+
 ### 3.3 Data values by value type (observed)
 
 | Value type | `datavalue` |

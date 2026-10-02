@@ -9,23 +9,62 @@
 //!
 //! **Forms.** [`Form::Storage`] is what the log stores: no page metadata, no `numeric-id`,
 //! and `hash` only where the guard kept upstream's (0006 §2, as amended 2026-09-28).
-//! [`Form::Wikibase`] is what the API serves: `numeric-id` recomputed, and hashes as the
-//! next slice of this crate computes them; until then a stored hash is emitted and an
-//! absent one is left out.
+//! [`Form::Wikibase`] is what the API serves: `numeric-id` recomputed, a kept hash emitted
+//! as stored and an absent one recomputed by the [`Hasher`] given, which knows whether
+//! the data is the tenant's own or mirrored from a provider.
 
 use std::fmt::Write as _;
 
 use serde_json::Value;
 
 use crate::entity::{Entity, PageInfo, ParsedEntity};
+use crate::hash::Hasher;
 
 /// Which JSON form to produce.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Form {
+pub enum Form<'a> {
     /// The stored form: model data only.
     Storage,
-    /// The served form: with `numeric-id` and page metadata where given.
-    Wikibase,
+    /// The served form: with `numeric-id`, every hash, and page metadata where given.
+    Wikibase(&'a Hasher),
+}
+
+impl<'a> Form<'a> {
+    pub(crate) fn wire(self) -> Wire<'a> {
+        match self {
+            Self::Storage => Wire::STORAGE,
+            Self::Wikibase(hasher) => Wire {
+                numeric_ids: true,
+                hasher: Some(hasher),
+            },
+        }
+    }
+}
+
+/// What the serializers need to know about the form being written.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Wire<'a> {
+    /// Add `numeric-id` to entity values whose ID has one.
+    pub(crate) numeric_ids: bool,
+    /// Recompute absent snak and reference hashes with this; `None` leaves them out.
+    pub(crate) hasher: Option<&'a Hasher>,
+}
+
+impl Wire<'_> {
+    /// The storage form.
+    pub(crate) const STORAGE: Self = Self {
+        numeric_ids: false,
+        hasher: None,
+    };
+
+    /// The storage form plus `numeric-id`, for tests of the entity shape alone.
+    #[cfg(test)]
+    pub(crate) const fn with_numeric_ids(self) -> Self {
+        Self {
+            numeric_ids: true,
+            ..self
+        }
+    }
 }
 
 /// Why JSON could not be read as an entity.
@@ -53,8 +92,8 @@ impl Entity {
 
     /// The entity as a JSON value in the given form, with no page metadata.
     #[must_use]
-    pub fn to_value(&self, form: Form) -> Value {
-        self.to_wire(form == Form::Wikibase, None)
+    pub fn to_value(&self, form: Form<'_>) -> Value {
+        self.to_wire(form.wire(), None)
     }
 
     /// The canonical JSON of the storage form: what the content part of a record holds
@@ -66,16 +105,16 @@ impl Entity {
 
     /// The canonical JSON of the Wikibase form, with page metadata if given.
     #[must_use]
-    pub fn to_wikibase_json(&self, page: Option<&PageInfo>) -> String {
-        canonical(&self.to_wire(true, page))
+    pub fn to_wikibase_json(&self, hasher: &Hasher, page: Option<&PageInfo>) -> String {
+        canonical(&self.to_wire(Form::Wikibase(hasher).wire(), page))
     }
 }
 
 impl ParsedEntity {
     /// The Wikibase form with the page metadata that was parsed.
     #[must_use]
-    pub fn to_wikibase_json(&self) -> String {
-        self.entity.to_wikibase_json(self.page.as_ref())
+    pub fn to_wikibase_json(&self, hasher: &Hasher) -> String {
+        self.entity.to_wikibase_json(hasher, self.page.as_ref())
     }
 }
 
@@ -196,6 +235,10 @@ mod tests {
             es[0].entity.to_canonical_json(),
             r#"{"id":"Q8","type":"item","claims":{},"labels":{},"aliases":{},"sitelinks":{},"descriptions":{}}"#
         );
-        assert!(es[0].to_wikibase_json().contains(r#""lastrevid":26"#));
+        assert!(
+            es[0]
+                .to_wikibase_json(&Hasher::local())
+                .contains(r#""lastrevid":26"#)
+        );
     }
 }

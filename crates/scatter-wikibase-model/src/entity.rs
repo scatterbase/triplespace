@@ -7,6 +7,7 @@ use serde::de::Error as _;
 use serde::{Deserialize, Serialize};
 
 use crate::id::EntityId;
+use crate::json::Wire;
 use crate::statement::Statement;
 use crate::value::DataType;
 
@@ -330,7 +331,7 @@ impl<'de> Deserialize<'de> for ParsedEntity {
 }
 
 impl Entity {
-    pub(crate) fn to_wire(&self, numeric_ids: bool, page: Option<&PageInfo>) -> serde_json::Value {
+    pub(crate) fn to_wire(&self, wire: Wire<'_>, page: Option<&PageInfo>) -> serde_json::Value {
         use serde_json::{Map, Value, json};
         let mut m = Map::new();
         if let Some(p) = page {
@@ -388,7 +389,7 @@ impl Entity {
                     .map(|(p, ss)| {
                         (
                             p.as_str().to_string(),
-                            Value::Array(ss.iter().map(|s| s.to_wire(numeric_ids)).collect()),
+                            Value::Array(ss.iter().map(|s| s.to_wire(wire)).collect()),
                         )
                     })
                     .collect(),
@@ -412,13 +413,15 @@ impl Entity {
 impl Serialize for Entity {
     /// The storage form, without page metadata or `numeric-id`.
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        self.to_wire(false, None).serialize(s)
+        self.to_wire(Wire::STORAGE, None).serialize(s)
     }
 }
 
 impl Serialize for ParsedEntity {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        self.entity.to_wire(false, self.page.as_ref()).serialize(s)
+        self.entity
+            .to_wire(Wire::STORAGE, self.page.as_ref())
+            .serialize(s)
     }
 }
 
@@ -512,7 +515,9 @@ mod tests {
         assert_eq!(m.entity.entity_type, EntityType::MediaInfo);
         assert_eq!(m.entity.id.derived_page_id(), Some(1234));
         assert_eq!(m.entity.statements.len(), 1);
-        let out = m.entity.to_wire(true, m.page.as_ref());
+        let out = m
+            .entity
+            .to_wire(Wire::STORAGE.with_numeric_ids(), m.page.as_ref());
         assert!(out.get("claims").is_none());
         assert!(out.get("aliases").is_none());
         assert!(out.get("sitelinks").is_none());
