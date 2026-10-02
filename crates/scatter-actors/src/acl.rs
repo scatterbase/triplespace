@@ -3,7 +3,7 @@
 //! An ACL attaches a restriction to a **target**, named by identifier: for each
 //! permission it restricts, the group whose members may still perform it, until an
 //! expiry. Evaluation is conjunctive: to perform action *A* on target *T*, a principal
-//! holds the permission for *A* after blocks ([`crate::evaluate`]) **and** satisfies every
+//! holds the permission for *A* after blocks ([`mod@crate::evaluate`]) **and** satisfies every
 //! ACL that restricts *A* on *T* or on a target enclosing *T*. Nothing loosens.
 //!
 //! What encloses what is data the caller already has (the tenant, the graph, the

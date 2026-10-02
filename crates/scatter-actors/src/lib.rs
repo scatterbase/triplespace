@@ -14,7 +14,7 @@
 //! **Permissions** (0016 §3; 0024 §3–5; 0025 §3; 0028 §3–4). Groups come from
 //! `docs/registry/groups.toml` ([`GroupRegistry`]) and grants from `grants.toml`
 //! ([`GrantRegistry`]). Memberships and blocks are actor records ([`Membership`],
-//! [`Block`]) folded as of a time; [`evaluate`] turns a [`Principal`] into its
+//! [`Block`]) folded as of a time; [`evaluate()`] turns a [`Principal`] into its
 //! [`Effective`] permissions: the union over groups, minus blocks (own, operator's,
 //! farm account's), intersected with a credential's grants. [`RateLimitPolicy`] picks the
 //! limit a request is under, and [`autopatrolled`] is the rule of 0023 §6.
