@@ -188,7 +188,7 @@ ActivityPub is per tenant, as its notifier is: each tenant has its own host, act
 | [0021](0021-notifications.md) §5, §8 | §6–8, §10, §13 | extends | 0021 A2 |
 | [0021](0021-notifications.md) Q5 | §8 | settles | 0021 Q5 |
 | [0021](0021-notifications.md) Q6 | — | settles | 0021 Q6 |
-| [0028](0028-tenancy-policy.md) §5 | §2 | amends | — |
+| [0028](0028-tenancy-policy.md) §5 | §2 | amends | 0028 A2 |
 
 ## References
 
