@@ -2,8 +2,10 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
+- **Updated:** 2026-10-01 (A2)
 - **Author:** James Hare / Claude Opus
-- **Related:** [0003 — Statement UI](0003-statement-ui.md) (§4 extends §7: the `notation-scheme` role), [0004 — Identity clusters and equivalence](0004-identity-clusters-and-equivalence.md) (§3 uses §6: notations never cluster), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§8 amends §2), [0008 — Namespaces and document pages](0008-namespaces-and-document-pages.md) (§7 amends §2: 216/217 become Notation and Notation talk), [0009 — Keyed entity types and Domain](0009-keyed-entity-types-and-domain.md) (uses §1, §5–§7 and §9), [0017 — Entity ID grammar](0017-entity-id-grammar.md) (§1 extends §3 and §5: a keyed type whose key carries a scheme), [0029 — Resolver namespaces](0029-resolver-namespaces.md) (§2 extends §2: scheme names join the one namespace of keyed-type and resolver names), [0031 — Property constraints](0031-property-constraints.md) (§4 is a type check, not a constraint), [0036 — OpenStreetMap providers](0036-openstreetmap-providers.md) (§1 and §6 amend §3, §4, §5, §6 and §7: `osm-tag` becomes the `osm` scheme), [0037 — GDELT as a provider](0037-gdelt-provider.md) (§3 follows the line drawn in §2 between keyed types and provider items), [0041 — Content models](0041-content-models.md) (§7 amends §3: `triplespace-osm-tag` becomes `triplespace-notation`)
+- **Changes:** [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0017](0017-entity-id-grammar.md), [0029](0029-resolver-namespaces.md), [0036](0036-openstreetmap-providers.md), [0037](0037-gdelt-provider.md), [0041](0041-content-models.md)
+- **Uses:** [0014](0014-caches-and-search.md), [0031](0031-property-constraints.md)
 
 ## Context
 
@@ -24,7 +26,7 @@ James's direction, from the design discussion of 2026-10-01:
 
 - `osm-tag` becomes a general type, named **Notation**, for strings from outside vocabularies.
 - Keyword stays its own type.
-- 310–319 and 320–329 are reserved as second ranges ([0008](0008-namespaces-and-document-pages.md) §2, as amended 2026-10-01). That reservation is recorded in 0008 itself, not here.
+- 310–319 and 320–329 are reserved as second ranges ([0008](0008-namespaces-and-document-pages.md) §2, by 0008 A17). That reservation is recorded in 0008 itself, not here.
 
 ## Decision
 
@@ -138,7 +140,7 @@ What 0036 decided about tags stands. Only the type it decided them into changes:
 
 The `osm` scheme has no `documentation` template. The wiki's pages are `Key:amenity` and `Tag:amenity=cafe`, two forms one template cannot produce, and a mapped notation already carries the wiki's documentation-page statements (0036 §5).
 
-0036's open question on whether a key and its tags should be two types now reads as whether they should be two schemes. That is a registry change.
+[0036](0036-openstreetmap-providers.md) Q6, on whether a key and its tags should be two types, now reads as whether they should be two schemes. That is a registry change.
 
 ### 7. Registry, namespaces and content models
 
@@ -150,26 +152,11 @@ The `osm` scheme has no `documentation` template. The wiki's pages are `Key:amen
 
 ### 8. Crates (amends 0005 §2)
 
-| Crate | Change |
-|---|---|
-| `scatter-normalize` | The `notation` keyed type; the scheme registry, embedding `docs/registry/notation-schemes.toml`; the four normalizers; the `osm-tag` and `text` grammars. The `osm-tag` grammar is the former `osm-tag` normalizer, unchanged |
-| `scatter-wikibase-model` | The `notation` entity type and the `wikibase-notation` data type replace `osm-tag` and `wikibase-osm-tag` |
-| `scatter-wikibase-rdf` | The `skos:notation` and `skos:inScheme` triples (§5) |
-| `scatter-adapter-wikidata` | `key_scheme` in the key map (§6) |
-| `triplespace-titles` | The `Notation` namespace; scheme names in the `/resolve` order (§2) |
-| API crates | The `notation-scheme` check and `ts-notation-scheme` on the write path (§4) |
+*Changed by A1.*
 
-No crate is added.
+*Superseded by [0005](0005-crate-organization.md) §2 (A1).*
 
-## Amendments to earlier ADRs
-
-- **[0003](0003-statement-ui.md) §7:** the `notation-scheme` role (§4).
-- **[0005](0005-crate-organization.md) §2:** the rows of §8.
-- **[0008](0008-namespaces-and-document-pages.md) §2:** 216/217 are Notation and Notation talk (§7).
-- **[0017](0017-entity-id-grammar.md) §3 and §5:** a third keyed type whose key carries a scheme (§1).
-- **[0029](0029-resolver-namespaces.md) §2:** scheme names share the namespace of keyed-type and resolver names (§2).
-- **[0036](0036-openstreetmap-providers.md) §3–§7:** OSM keys and tags are notations in the `osm` scheme (§6).
-- **[0041](0041-content-models.md) §3:** `triplespace-notation` replaces `triplespace-osm-tag` (§7).
+[0005](0005-crate-organization.md) §2 keeps the crate table that CI checks, with every change this section listed. The table this section first gave is in A1.
 
 ## Consequences
 
@@ -182,11 +169,27 @@ No crate is added.
 
 ## Open questions
 
-- **Scheme names and interwiki prefixes.** MediaWiki refuses a talk-page title whose text begins with an interwiki prefix. A client that applies that rule would reject `Notation talk:osm:amenity=cafe` wherever `osm` is an interwiki prefix. The question is whether to refuse scheme names that collide with the Wikimedia interwiki map.
-- **The IRI's form.** `https://scatter.red/notation/osm:amenity=cafe` keeps the key whole. `…/notation/osm/amenity=cafe` would nest notations under the scheme IRI, but needs a template with two parts. This must be settled before the first IRI is published.
-- **Which candidate ships next,** `hashtag` with federation's inbound posts or `media-type` with files, and their grammars.
-- **Data type IDs.** 0041's open question about renaming `wikibase-domain`, `wikibase-keyword` and now `wikibase-notation` to `triplespace-*` before any data exists.
-- **Search.** Whether the search document of a notation ([0014](0014-caches-and-search.md) §7) carries the scheme as a field for filtering, and how notations rank against keywords for the same input.
+- **Q1. Scheme names and interwiki prefixes.** MediaWiki refuses a talk-page title whose text begins with an interwiki prefix. A client that applies that rule would reject `Notation talk:osm:amenity=cafe` wherever `osm` is an interwiki prefix. The question is whether to refuse scheme names that collide with the Wikimedia interwiki map.
+- **Q2. The IRI's form.** `https://scatter.red/notation/osm:amenity=cafe` keeps the key whole. `…/notation/osm/amenity=cafe` would nest notations under the scheme IRI, but needs a template with two parts. This must be settled before the first IRI is published.
+- **Q3. Which candidate ships next,** `hashtag` with federation's inbound posts or `media-type` with files, and their grammars.
+- **Q4. Data type IDs.** [0041](0041-content-models.md) Q2, on renaming `wikibase-domain`, `wikibase-keyword` and now `wikibase-notation` to `triplespace-*` before any data exists.
+- **Q5. Search.** Whether the search document of a notation ([0014](0014-caches-and-search.md) §7) carries the scheme as a field for filtering, and how notations rank against keywords for the same input.
+
+## Changes to other ADRs
+
+| Target | By | Change | Target's log |
+|---|---|---|---|
+| [0003](0003-statement-ui.md) §7 | §4 | extends | 0003 A8 |
+| [0004](0004-identity-clusters-and-equivalence.md) §1 | §3 | extends | 0004 A9 |
+| [0005](0005-crate-organization.md) §2 | §8 | amends | 0005 A48 |
+| [0008](0008-namespaces-and-document-pages.md) §2 | §7 | amends | 0008 A18 |
+| [0009](0009-keyed-entity-types-and-domain.md) §8, §9 | §3, §6 | extends | 0009 A6 |
+| [0017](0017-entity-id-grammar.md) §3, §5 | §1 | extends | 0017 A7 |
+| [0029](0029-resolver-namespaces.md) §2, §6 | §2 | extends | 0029 A5 |
+| [0036](0036-openstreetmap-providers.md) §3, §4, §5, §6, §7 | §1, §3–4, §6–8 | amends | 0036 A2 |
+| [0036](0036-openstreetmap-providers.md) | §1, §3–4, §6–8 | retitles | 0036 A2 |
+| [0037](0037-gdelt-provider.md) §2 | §1, §6 | amends | 0037 A3 |
+| [0041](0041-content-models.md) §3 | §1, §7 | amends | 0041 A4 |
 
 ## References
 
@@ -195,3 +198,42 @@ No crate is added.
 - [OpenStreetMap wiki: Data items](https://wiki.openstreetmap.org/wiki/Data_items)
 - [Mastodon: ActivityPub `Hashtag`](https://docs.joinmastodon.org/spec/activitypub/#Hashtag)
 - [IANA Media Types](https://www.iana.org/assignments/media-types/media-types.xhtml)
+
+## Amendment log
+
+### A1. Crate table
+
+- **Date:** 2026-10-01
+- **Source:** [0005](0005-crate-organization.md) §2
+- **Change:** supersedes §8
+- **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A48).
+
+Replaced text (§8):
+
+> | Crate | Change |
+> |---|---|
+> | `scatter-normalize` | The `notation` keyed type; the scheme registry, embedding `docs/registry/notation-schemes.toml`; the four normalizers; the `osm-tag` and `text` grammars. The `osm-tag` grammar is the former `osm-tag` normalizer, unchanged |
+> | `scatter-wikibase-model` | The `notation` entity type and the `wikibase-notation` data type replace `osm-tag` and `wikibase-osm-tag` |
+> | `scatter-wikibase-rdf` | The `skos:notation` and `skos:inScheme` triples (§5) |
+> | `scatter-adapter-wikidata` | `key_scheme` in the key map (§6) |
+> | `triplespace-titles` | The `Notation` namespace; scheme names in the `/resolve` order (§2) |
+> | API crates | The `notation-scheme` check and `ts-notation-scheme` on the write path (§4) |
+>
+> No crate is added.
+
+### A2. Converted to the 0050 format
+
+- **Date:** 2026-10-01
+- **Source:** [0050](0050-adr-format.md) §13
+- **Change:** consolidates §8
+- **Summary:** A1 was folded into the Decision. The open questions were numbered, and the list this ADR kept under "Amendments to earlier ADRs" (quoted below) was replaced by the generated table. No decision changed. Before this, A1 was recorded only in 0005. The file before conversion is commit `0b26a3a`.
+
+Replaced text (Amendments to earlier ADRs):
+
+> - **[0003](0003-statement-ui.md) §7:** the `notation-scheme` role (§4).
+> - **[0005](0005-crate-organization.md) §2:** the rows of §8.
+> - **[0008](0008-namespaces-and-document-pages.md) §2:** 216/217 are Notation and Notation talk (§7).
+> - **[0017](0017-entity-id-grammar.md) §3 and §5:** a third keyed type whose key carries a scheme (§1).
+> - **[0029](0029-resolver-namespaces.md) §2:** scheme names share the namespace of keyed-type and resolver names (§2).
+> - **[0036](0036-openstreetmap-providers.md) §3–§7:** OSM keys and tags are notations in the `osm` scheme (§6).
+> - **[0041](0041-content-models.md) §3:** `triplespace-notation` replaces `triplespace-osm-tag` (§7).
