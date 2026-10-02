@@ -15,7 +15,9 @@ use std::sync::LazyLock;
 
 use serde::Deserialize;
 
-use crate::{NOTATION_SCHEMES_TOML, osmtag};
+use crate::NOTATION_SCHEMES_TOML;
+
+pub mod osm;
 
 /// The most characters a scheme name may have.
 pub const MAX_SCHEME_CHARS: usize = 32;
@@ -79,8 +81,8 @@ impl Normalizer {
 /// Which strings a scheme admits, checked after normalizing (0048 §2).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Grammar {
-    /// An OSM key or tag ([`crate::osmtag`], 0036 §3).
-    OsmTag,
+    /// An OSM key or tag ([`osm`], 0036 §3).
+    Osm,
     /// 1 to [`MAX_TEXT_CHARS`] characters, no control characters, no leading or trailing
     /// whitespace.
     Text,
@@ -89,7 +91,7 @@ pub enum Grammar {
 impl Grammar {
     fn parse(s: &str) -> Option<Self> {
         Some(match s {
-            "osm-tag" => Self::OsmTag,
+            "osm-tag" => Self::Osm,
             "text" => Self::Text,
             _ => return None,
         })
@@ -99,14 +101,14 @@ impl Grammar {
     #[must_use]
     pub fn name(self) -> &'static str {
         match self {
-            Self::OsmTag => "osm-tag",
+            Self::Osm => "osm-tag",
             Self::Text => "text",
         }
     }
 
     fn check(self, s: &str) -> Result<(), String> {
         match self {
-            Self::OsmTag => osmtag::normalize(s).map(drop).map_err(|e| e.to_string()),
+            Self::Osm => osm::normalize(s).map(drop).map_err(|e| e.to_string()),
             Self::Text => {
                 let n = s.chars().count();
                 if n == 0 {
@@ -416,7 +418,7 @@ mod tests {
         assert_eq!(r.version(), 1);
         let osm = r.by_name("osm").unwrap();
         assert_eq!(osm.normalizer, Normalizer::Exact);
-        assert_eq!(osm.grammar, Grammar::OsmTag);
+        assert_eq!(osm.grammar, Grammar::Osm);
         assert_eq!(osm.label, "OSM tag or key");
         assert!(!osm.retired);
         assert!(std::ptr::eq(r.by_name("OSM").unwrap(), osm));
