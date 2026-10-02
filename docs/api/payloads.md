@@ -133,14 +133,14 @@ Every operation has `op` and a subject, `id` (an entity) or `page` (a page ID):
 | `put` | mirror | `id` | `entity`, `upstream`, `prev_upstream`, `first_seen`, `size`, `prev_size`, `changes`, `delta` |
 | `tombstone` | mirror | `id` | `upstream` |
 | `redirect` | mirror, local | `from` (the key) | `to` |
-| `create` | local | `id` (allocated) | `entity`, `match` |
+| `create` | local | `id` (allocated) | `entity`; `match`, `via` when it came from a `create-or-add` |
 | `adopt` | local | `id` | `entity`, `source_revid`, `source_time`, `source_pageid` |
-| `add` | local, pages | `id` or `page` | `labels`, `descriptions`, `aliases`, `claims`, `sitelinks`, `references`, `qualifiers` |
+| `add` | local, pages | `id` or `page` | `labels`, `descriptions`, `aliases`, `claims`, `sitelinks`, `references`, `qualifiers`; `match`, `via`, `overwrite` when it came from a `create-or-add` |
 | `remove` | local, pages | `id` or `page` | `statements`, `labels`, `descriptions`, `aliases`, `sitelinks`, `references`, `qualifiers`, `link` |
 | `override` | local | `id` | `statement`, `rank`, `suppress` |
 | `retain` | local | `id` | `policy` |
 | `convert` | local | `id` (the foreign ID) | `local` |
-| `same-as`, `different-from`, `equivalent-property` | local | the local member (the key) | `ids` |
+| `same-as`, `different-from`, `equivalent-property` | local | the highest-ranked member (the key) | `ids` |
 
 ### 3.1 Mirror operations
 
@@ -174,7 +174,10 @@ Every operation has `op` and a subject, `id` (an entity) or `page` (a page ID):
 ### 3.2 Local writes
 
 ```json
-{"op": "create", "id": "Q900001", "entity": {…}, "match": {"P356": "10.1234/x"}}
+{"op": "create", "id": "Q900001", "entity": {…}}
+{"op": "create", "id": "Q900002", "entity": {…}, "match": {"P356": "10.1234/x"}, "via": "create-or-add"}
+{"op": "add", "id": "Q5", "claims": {…}, "match": {"P356": "10.1234/y"}, "via": "create-or-add"}
+{"op": "add", "id": "Q5", "entity": {…}, "match": {"P356": "10.1234/y"}, "via": "create-or-add", "overwrite": true}
 {"op": "adopt", "id": "Q6", "entity": {…}, "source_revid": 41877, "source_time": "2026-09-20T14:02:11Z", "source_pageid": 12}
 {"op": "add", "id": "Q5", "claims": {"P50": [{…statement…}]}, "labels": {"fr": "Exemple"}, "aliases": {"en": ["Ex"]}}
 {"op": "add", "id": "WDQ42", "references": {"WDQ42$C13E7A23-…": [{"snaks": {…}, "snaks-order": ["P248"]}]}}
@@ -192,11 +195,17 @@ Every operation has `op` and a subject, `id` (an entity) or `page` (a page ID):
 {"op": "redirect", "from": "P12", "to": "WDP585"}
 ```
 
-- **`create`**: on the wire it carries `ref` (`$w1`) and no `id`; the server allocates the
-  ID, rewrites every `$ref` in the batch, and the record carries `id` and no `ref`.
-  `match` is kept as content so a re-run is idempotent against the record, not only
-  against an index. A `create` whose match key found an existing entity is appended as an
-  `add` to it.
+- **`create`** is strictly creation (0002 §8.2, A19): on the wire it carries `ref` (`$w1`)
+  and no `id`; the server mints the ID, rewrites every `$ref` in the batch, and the record
+  carries `id` and no `ref`. It never writes to an entity that exists; a keyed entity,
+  which exists by its key, takes `add`.
+- **`create-or-add`** is the wire operation that carries a `match` key (0002 §8.5). It is
+  never a record: the server resolves it and appends what happened, a `create` when
+  nothing matched or an `add` keyed by the matched entity when something did, each
+  carrying `match` and `via: "create-or-add"` so the log says what was asked as well as
+  what was done. With `overwrite: true` and a base revision, the matched entity's state is
+  replaced: the record is an `add` carrying the whole `entity` and `overwrite: true`,
+  which a projection applies as a replacement.
 - **`adopt`** is 0035 §3 exactly; `source_time` is the source's own string.
 - **`add`** merges: a term per language (`labels`/`descriptions` as `{lang: value}`,
   `aliases` as `{lang: [values]}`), statements under `claims` in Wikibase's statement
@@ -213,8 +222,11 @@ Every operation has `op` and a subject, `id` (an entity) or `page` (a page ID):
   one record per entity. `policy` is `cascade`, `orphan` or `retain`.
 - **`convert`**: `local` is the minted ID; the record is keyed by the foreign ID, and the
   `same-as` it implies is written as a second record keyed by `local`.
-- **`same-as`** and the other links are keyed by their local member (`id`), the one
-  0004 §9 says asserts them; `ids` lists both.
+- **`same-as`** and the other links are keyed by their highest-ranked member under the
+  provider order of 0004 §4 (a keyed member first, then a local one, then providers in the
+  instance's order): `id` names it and `ids` lists both. The key is the record's
+  identifier for compaction and erasure, not the cluster's canonical ID, which the
+  resolved view computes from the same order and which can change as members come and go.
 
 ### 3.3 Base revision
 
@@ -286,8 +298,7 @@ actor key, a job ID) or `null`.
 {"type": "job", "action": "fail", "time": …, "target": {"kind": "job", "id": 17}, "params": {"error": "ts-adopt-not-empty"}}
 {"type": "job", "action": "revert", "time": …, "target": {"kind": "job", "id": 17}, "params": {"by": 18}}
 {"type": "delete", "action": "delete", "time": 1700000000000000, "upstream_logid": 123456,
- "target": {"kind": "entity", "id": "WDQ77"}, "performer": "wikidatawiki:12345",
- "params": {}, "visibility": 0}
+ "target": {"kind": "entity", "id": "WDQ77"}, "params": {}, "visibility": 0}
 ```
 
 | Field | Meaning |
@@ -295,8 +306,10 @@ actor key, a job ID) or `null`.
 | `type`, `action` | MediaWiki's log type and action strings |
 | `time` | The event's time at its source |
 | `target` | `{kind, …}`: `entity {id}`, `page {id}`, `actor {key}`, `job {id}`, `record {partition, offset, revid?}`, or `null` when hidden or unresolvable (0011 §3) |
-| `performer` | **Provider logs only**: the upstream performer's actor key as upstream reported it. A local event's performer is its attestation's `actor`, never written twice |
 | `upstream_logid` | Provider logs only |
+
+The performer, local or upstream, is the attestation's `actor` and nowhere else, so that
+hiding the user (0015 §4: erase the attestation part) touches nothing in the content.
 | `params` | The typed parameters of 0011 §7, by type; unrecognized upstream parameters are kept under `raw` as given, minus names (0011 §6.2) |
 | `visibility` | Provider logs only: the bits as upstream last reported them |
 
@@ -371,18 +384,14 @@ a password hash is `private.password`, a key is `private.api_key`.
 None is on the first milestone's path. Each follows §1–2 and adds its parts after the
 three standard ones.
 
-## 10. Open points to settle before the first instance
+## 10. Settled points
 
-1. **Link records' key.** §3.2 keys `same-as`, `different-from` and `equivalent-property`
-   by the local member. Where both members are foreign (0007 Q4's analogue for entities,
-   not yet a case the ADRs admit), the first listed ID would be the key.
-2. **`create` with a match hit** is appended as an `add` (§3.2), so the log never holds a
-   `create` for an entity that already existed. The alternative, keeping `create` with a
-   `matched: true` flag, preserves what the client asked for at the cost of a second
-   meaning for `create`.
-3. **Provider-log `performer`** duplicates the attestation's `actor` (§5). It is kept in
-   the content because the attestation is erasable for a hidden user while the event
-   should still say a hidden user acted; if that is not wanted, drop the field.
-4. **`site` entries** are `{"kind": "site", "value": …}`; whether structured settings
-   (`wikitext.*`, the rate-limit table) are one record each or one per key is each
-   ADR's to say.
+Decided 2026-10-02 (James), so that the first instance's bytes are not revisited:
+
+1. **Link records** are keyed by the highest-ranked member under 0004 §4's order (§3.2).
+2. **`create` is strictly creation**; `create-or-add` carries the match key and is
+   resolved before the append into a `create` or an `add` marked `via` (§3.2; 0002 A19).
+3. **No `performer` in a log event's content**: the attestation's `actor` is the one
+   place a performer lives, local or upstream, so a hidden user's erasure is one part.
+4. **`site` settings are one record per setting key**, `{"kind": "site", "value": …}`;
+   a structured setting such as the rate-limit table is one key whose value is the table.
