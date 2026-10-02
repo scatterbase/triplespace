@@ -15,6 +15,13 @@
 //! registries by [`EntityId::validate`], which the adapters and the write path call.
 //! The model itself stays registry-free so that it can hold IDs from any source in the
 //! form that source wrote them.
+//!
+//! One more shape is accepted on input only: the **tenant-relative** form of 0044 §1, a
+//! type letter written three times and then digits (`QQQ5`). It is the local ID `Q5` of
+//! the tenant reading it, canonicalized here so that it is never stored or returned.
+//! Local `M` IDs are derived, not minted: `M{page ID}` names the MediaInfo of a File page
+//! (0041 §7), and a page's own statements carry the page ID in decimal as their subject
+//! (0038 §1), which [`StatementId`] tells apart from an entity ID by its leading digit.
 
 use std::fmt;
 
@@ -64,11 +71,16 @@ impl EntityId {
     /// and a keyed ID's type name is lowercased. The rest is kept as given, because its
     /// canonical form depends on the registries ([`EntityId::validate`]).
     ///
+    /// The tenant-relative form `QQQ5` (0044 §1) parses as the local ID `Q5`. It has the
+    /// shape of a foreign ID under the reserved doubled code `QQ`, so no registered
+    /// provider can collide with it; its rest must be digits, as every local grammar is.
+    ///
     /// ```
     /// use scatter_wikibase_model::{EntityId, IdForm};
     /// assert_eq!(EntityId::parse("q5").unwrap().as_str(), "Q5");
     /// assert_eq!(EntityId::parse("wdq42").unwrap().form(), IdForm::Foreign);
     /// assert_eq!(EntityId::parse("Domain:example.org").unwrap().as_str(), "domain:example.org");
+    /// assert_eq!(EntityId::parse("qqq5").unwrap().as_str(), "Q5");
     /// assert!(EntityId::parse("5").is_err());
     /// assert!(EntityId::parse("Q").is_err());
     /// ```
@@ -89,6 +101,18 @@ impl EntityId {
             return Err(IdParseError::Shape(s.to_string()));
         }
         if b.len() >= 4 && b[1].is_ascii_alphabetic() && b[2].is_ascii_alphabetic() {
+            let letter = b[0].to_ascii_uppercase();
+            if b[1].to_ascii_uppercase() == letter && b[2].to_ascii_uppercase() == letter {
+                // Tenant-relative (0044 §1): `QQQ5` is this tenant's `Q5`. The rest must be
+                // digits (0044 §2); `QQQb10…` is not an ID.
+                if !b[3..].iter().all(u8::is_ascii_digit) {
+                    return Err(IdParseError::Local(s.to_string()));
+                }
+                let mut out = String::with_capacity(s.len() - 2);
+                out.push(letter as char);
+                out.push_str(&s[3..]);
+                return Ok(Self(out));
+            }
             // Foreign: three letters, then the rest in the type's grammar.
             let mut out = s[..3].to_ascii_uppercase();
             out.push_str(&s[3..]);
@@ -166,18 +190,38 @@ impl EntityId {
     }
 
     /// The Wikibase `entity-type` this ID's own shape implies, where it can: `item` for a
-    /// local or foreign `Q`, `property` for `P`, `lexeme` for `L`, the type name for a
-    /// keyed ID. Other foreign type codes need the provider registry.
+    /// local or foreign `Q`, `property` for `P`, `lexeme` for `L`, `mediainfo` for a local
+    /// `M` (0041 §7), the type name for a keyed ID. Other foreign type codes need the
+    /// provider registry: a foreign `M` is whatever that provider's type table says.
     #[must_use]
     pub fn implied_entity_type(&self) -> Option<&str> {
         if let Some((name, _)) = self.keyed_parts() {
             return Some(name);
         }
-        match self.type_code()? {
-            'Q' => Some("item"),
-            'P' => Some("property"),
-            'L' => Some("lexeme"),
+        match (self.form(), self.type_code()?) {
+            (_, 'Q') => Some("item"),
+            (_, 'P') => Some("property"),
+            (_, 'L') => Some("lexeme"),
+            (IdForm::Local, 'M') => Some("mediainfo"),
             _ => None,
+        }
+    }
+
+    /// Whether this is a derived local ID, one not minted from a sequence of its own but
+    /// named after something else: today only `M{page ID}`, the MediaInfo ID of a File page
+    /// (0041 §7, 0017 §1).
+    #[must_use]
+    pub fn is_derived(&self) -> bool {
+        self.form() == IdForm::Local && self.type_code() == Some('M')
+    }
+
+    /// For a derived `M` ID, the page ID it is derived from.
+    #[must_use]
+    pub fn derived_page_id(&self) -> Option<u64> {
+        if self.is_derived() {
+            self.numeric_id()
+        } else {
+            None
         }
     }
 }
@@ -215,8 +259,60 @@ impl std::str::FromStr for EntityId {
     }
 }
 
-/// A statement ID, `<EntityId>$<UUID>` (wikibase-compat §2; 0017 §1; 0018 §7).
+/// What a statement is about: an entity, or a page by its page ID (0038 §1).
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum Subject {
+    /// An entity, by its ID.
+    Entity(EntityId),
+    /// A page, by its page ID. Written in decimal where a subject has to be a string.
+    Page(u64),
+}
+
+impl Subject {
+    /// Parses a subject as it is written in a statement ID: digits alone are a page ID,
+    /// anything else must be an entity ID. The two cannot be confused because every
+    /// entity ID starts with a letter (0017 §1).
+    pub fn parse(s: &str) -> Result<Self, IdParseError> {
+        if !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit()) {
+            return s
+                .parse()
+                .map(Self::Page)
+                .map_err(|_| IdParseError::Shape(s.to_string()));
+        }
+        EntityId::parse(s).map(Self::Entity)
+    }
+
+    /// The entity, if the subject is one.
+    #[must_use]
+    pub fn entity_id(&self) -> Option<&EntityId> {
+        match self {
+            Self::Entity(e) => Some(e),
+            Self::Page(_) => None,
+        }
+    }
+
+    /// The page ID, if the subject is a page.
+    #[must_use]
+    pub fn page_id(&self) -> Option<u64> {
+        match self {
+            Self::Entity(_) => None,
+            Self::Page(p) => Some(*p),
+        }
+    }
+}
+
+impl fmt::Display for Subject {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Entity(e) => f.write_str(e.as_str()),
+            Self::Page(p) => write!(f, "{p}"),
+        }
+    }
+}
+
+/// A statement ID, `<Subject>$<UUID>` (wikibase-compat §2; 0017 §1; 0018 §7; 0038 §1).
 ///
+/// The subject is an entity ID, or for a page's own statements the page ID in decimal.
 /// The GUID is kept as written. Wikibase compares the UUID part case-insensitively and
 /// writes it in uppercase; the resolved view rewrites the entity part to the canonical
 /// member's ID and keeps the UUID (0018 §7).
@@ -224,17 +320,18 @@ impl std::str::FromStr for EntityId {
 pub struct StatementId(String);
 
 impl StatementId {
-    /// Parses and checks the shape; the entity part is canonicalized as [`EntityId::parse`]
+    /// Parses and checks the shape; the subject is canonicalized as [`Subject::parse`]
     /// does, the UUID part kept as given.
     pub fn parse(s: &str) -> Result<Self, IdParseError> {
-        let Some((entity, uuid)) = s.rsplit_once('$') else {
+        let Some((subject, uuid)) = s.rsplit_once('$') else {
             return Err(IdParseError::Statement(s.to_string()));
         };
-        let entity = EntityId::parse(entity).map_err(|_| IdParseError::Statement(s.to_string()))?;
+        let subject =
+            Subject::parse(subject).map_err(|_| IdParseError::Statement(s.to_string()))?;
         if !is_guid(uuid) {
             return Err(IdParseError::Statement(s.to_string()));
         }
-        Ok(Self(format!("{entity}${uuid}")))
+        Ok(Self(format!("{subject}${uuid}")))
     }
 
     /// The ID as a string.
@@ -243,26 +340,44 @@ impl StatementId {
         &self.0
     }
 
-    /// The entity part.
+    /// The subject part.
     ///
     /// # Panics
     ///
     /// Never: the constructor checked the shape.
     #[must_use]
-    pub fn entity_id(&self) -> EntityId {
-        EntityId(
-            self.0
-                .rsplit_once('$')
-                .expect("checked at parse")
-                .0
-                .to_string(),
-        )
+    pub fn subject(&self) -> Subject {
+        let s = self.0.rsplit_once('$').expect("checked at parse").0;
+        if s.as_bytes()[0].is_ascii_digit() {
+            Subject::Page(s.parse().expect("checked at parse"))
+        } else {
+            Subject::Entity(EntityId(s.to_string()))
+        }
+    }
+
+    /// The entity part, when the subject is an entity.
+    #[must_use]
+    pub fn entity_id(&self) -> Option<EntityId> {
+        match self.subject() {
+            Subject::Entity(e) => Some(e),
+            Subject::Page(_) => None,
+        }
     }
 
     /// The UUID part, as written.
+    ///
+    /// # Panics
+    ///
+    /// Never: the constructor checked the shape.
     #[must_use]
     pub fn uuid(&self) -> &str {
         self.0.rsplit_once('$').expect("checked at parse").1
+    }
+
+    /// The same statement under another subject.
+    #[must_use]
+    pub fn with_subject(&self, subject: &Subject) -> Self {
+        Self(format!("{subject}${}", self.uuid()))
     }
 
     /// The same statement under another entity ID, for the canonical-ID rewrite of
@@ -348,9 +463,87 @@ mod tests {
 
     #[test]
     fn rejections_by_shape() {
-        for s in ["", "5", "Q", "Q5a", "QQ", ":x", "domain:", "a b:c", "L1-F1"] {
+        for s in [
+            "", "5", "Q", "Q5a", "QQ", "QQQ", ":x", "domain:", "a b:c", "L1-F1",
+        ] {
             assert!(EntityId::parse(s).is_err(), "{s:?}");
         }
+    }
+
+    #[test]
+    fn tenant_relative_input_form_is_the_local_id() {
+        // 0044 §1: a type letter three times, then digits, is the tenant's own local ID.
+        for (written, local, kind) in [
+            ("QQQ5", "Q5", "item"),
+            ("ppp31", "P31", "property"),
+            ("LLL3", "L3", "lexeme"),
+            ("MMM1234", "M1234", "mediainfo"),
+        ] {
+            let id = EntityId::parse(written).unwrap();
+            assert_eq!(id.as_str(), local, "{written}");
+            assert_eq!(id.form(), IdForm::Local);
+            assert_eq!(id.implied_entity_type(), Some(kind));
+        }
+        // 0044 §2: the rest follows the local grammar, which is digits.
+        assert!(matches!(
+            EntityId::parse("QQQb10bbbfc-cf9e-42e0-be17-e2c3e1d2600d"),
+            Err(IdParseError::Local(_))
+        ));
+        // Only the exact triple is tenant-relative; `QQP5` is a (reserved, unregistered)
+        // foreign shape and is left for the provider registry to reject.
+        let qqp = EntityId::parse("QQP5").unwrap();
+        assert_eq!((qqp.as_str(), qqp.form()), ("QQP5", IdForm::Foreign));
+        assert!(matches!(
+            qqp.validate(
+                ProviderRegistry::default_registry(),
+                KeyedRegistry::default_registry()
+            ),
+            Err(IdParseError::Foreign(_))
+        ));
+        // Round trip through serde canonicalizes too, so the form is never stored.
+        let id: EntityId = serde_json::from_str(r#""QQQ5""#).unwrap();
+        assert_eq!(serde_json::to_string(&id).unwrap(), r#""Q5""#);
+    }
+
+    #[test]
+    fn derived_mediainfo_ids() {
+        let m = EntityId::parse("m1234").unwrap();
+        assert_eq!(m.as_str(), "M1234");
+        assert!(m.is_derived());
+        assert_eq!(m.derived_page_id(), Some(1234));
+        assert_eq!(m.implied_entity_type(), Some("mediainfo"));
+        // Minted IDs and foreign `M` IDs are not derived; a foreign type table decides
+        // what a provider's `M` means.
+        assert!(!EntityId::parse("Q5").unwrap().is_derived());
+        let foreign = EntityId::parse("WDM1234").unwrap();
+        assert!(!foreign.is_derived());
+        assert_eq!(foreign.derived_page_id(), None);
+        assert_eq!(foreign.implied_entity_type(), None);
+    }
+
+    #[test]
+    fn page_subject_statement_ids() {
+        // 0038 §1: a page's own statements have `{page ID}$<UUID>` IDs.
+        let s = StatementId::parse("1234$C13E7A23-11E7-4C91-A799-3D1806B65444").unwrap();
+        assert_eq!(s.subject(), Subject::Page(1234));
+        assert_eq!(s.entity_id(), None);
+        assert_eq!(s.subject().page_id(), Some(1234));
+        let e = StatementId::parse("Q8$C13E7A23-11E7-4C91-A799-3D1806B65444").unwrap();
+        assert_eq!(e.subject(), Subject::Entity(EntityId::parse("Q8").unwrap()));
+        assert_eq!(e.subject().entity_id().unwrap().as_str(), "Q8");
+        let moved = e.with_subject(&Subject::Page(7));
+        assert_eq!(moved.as_str(), "7$C13E7A23-11E7-4C91-A799-3D1806B65444");
+        // A leading zero would make the decimal form ambiguous; a page ID is written
+        // as `u64` prints it, so the ID canonicalizes.
+        assert_eq!(
+            StatementId::parse("0012$C13E7A23-11E7-4C91-A799-3D1806B65444")
+                .unwrap()
+                .as_str(),
+            "12$C13E7A23-11E7-4C91-A799-3D1806B65444"
+        );
+        assert!(StatementId::parse("$C13E7A23-11E7-4C91-A799-3D1806B65444").is_err());
+        assert!(Subject::parse("").is_err());
+        assert!(Subject::parse("99999999999999999999999").is_err());
     }
 
     #[test]
@@ -381,11 +574,14 @@ mod tests {
     fn statement_ids() {
         let s = StatementId::parse("q8$C13E7A23-11E7-4C91-A799-3D1806B65444").unwrap();
         assert_eq!(s.as_str(), "Q8$C13E7A23-11E7-4C91-A799-3D1806B65444");
-        assert_eq!(s.entity_id().as_str(), "Q8");
+        assert_eq!(s.entity_id().unwrap().as_str(), "Q8");
         assert_eq!(s.uuid(), "C13E7A23-11E7-4C91-A799-3D1806B65444");
         let k = StatementId::parse("domain:en.wikipedia.org$c13e7a23-11e7-4c91-a799-3d1806b65444")
             .unwrap();
-        assert_eq!(k.entity_id().as_str(), "domain:en.wikipedia.org");
+        assert_eq!(k.entity_id().unwrap().as_str(), "domain:en.wikipedia.org");
+        // The tenant-relative form canonicalizes inside a statement ID too (0044 §3).
+        let t = StatementId::parse("QQQ8$C13E7A23-11E7-4C91-A799-3D1806B65444").unwrap();
+        assert_eq!(t, s);
         let rewritten = s.with_entity(&EntityId::parse("LBQ8").unwrap());
         assert_eq!(
             rewritten.as_str(),

@@ -257,6 +257,10 @@ vocabulary! {
     skos, "http://www.w3.org/2004/02/skos/core#", "skos" {
         PREF_LABEL = "prefLabel";
         ALT_LABEL = "altLabel";
+        /// A notation's string, typed by its scheme (0048 §5).
+        NOTATION = "notation";
+        /// The scheme a notation belongs to (0048 §5).
+        IN_SCHEME = "inScheme";
     }
 }
 
