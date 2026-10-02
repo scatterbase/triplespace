@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-01 (A10)
+- **Updated:** 2026-10-01 (A11)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0003](0003-statement-ui.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md), [0017](0017-entity-id-grammar.md), [0022](0022-federation.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md)
@@ -89,7 +89,7 @@ A tenant's `config` partition begins, as the instance's does, with a `key:` reco
 
 ### 5. A tenant can be a provider (amends 0002 §4)
 
-*Changed by A4, A5.*
+*Changed by A4, A5, A11.*
 
 **A tenant's local graph is, to every other tenant, a foreign source graph.** A tenant becomes a provider by taking a code, a slug and a provider number in `providers.toml` ([0015](0015-record-format-and-partition-registry.md) §5), as Librarybase has `LB`, `librarybase` and 2. Nothing else is needed on the instance that hosts it: there is no sync job and no mirror partition, because the tenant's `local` partition is the source.
 
@@ -97,7 +97,7 @@ A tenant's `config` partition begins, as the instance's does, with a `key:` reco
 - **`https://example.wiki/entity/LBQ6` is an alias** of `https://librarybase.org/entity/Q6`, which is canonical, as 0002 §4 already says for foreign entities.
 - **Reconciliation is unchanged.** A Librarybase assertion about `WDQ42` is, on example.wiki, a foreign assertion with an `LB` source chip ([0003](0003-statement-ui.md) §6), and example.wiki's local graph wins over it ([0002](0002-source-graphs-and-mass-ingest.md) §3). Librarybase's `same-as` and `convert` records are tier-1 links for Librarybase and tier-2 links for everyone else ([0004](0004-identity-clusters-and-equivalence.md) §3), ranked where the reading tenant's provider order puts `LB`.
 - **Opt-in.** A tenant reads a provider's graph only if the provider is in its `providers` list (§3). A tenant that has not opted into Librarybase never sees `LBQ6`. Under `providers.between_tenants = operator`, only the farm operator can make a tenant a provider; with `providers.reader_lists`, a provider tenant restricts who reads it with a `provider-readers` record in its own `config` ([0028](0028-tenancy-policy.md) §5).
-- **A tenant without a code cannot be referenced.** Its IDs have no absolute form. A private tenant, whose partitions carry the `private` export policy, cannot take a code.
+- **A tenant without a code cannot be referenced.** Its IDs have no absolute form. A **private tenant**, one whose `tenant` ACL restricts `read` ([0056](0056-security-model.md) §3), cannot take a code: its partitions are exported as `private` for every purpose but the operator's own backups and a move (§10), and nothing of it is read by another tenant.
 - **Leaving the instance changes nothing for referrers.** When a provider tenant moves away (§10), the instance registers a real sync job against its new home, run by the Triplespace adapter over the provider's dump and stream ([0028](0028-tenancy-policy.md) §5, [0022](0022-federation.md) §2), and `LBQ6` means what it always meant. A deleted tenant is one that moved away with no destination: its partitions stay read-only for a grace period, its former referrers see its last state with the provider marked gone, and then they are erased ([0028](0028-tenancy-policy.md) §5). The same code serves off-instance readers on other instances from the start, since the registry is global.
 
 ### 6. Shared views and tenant overlays (amends 0013 §5, 0014 §7)
@@ -340,3 +340,14 @@ Replaced text (§3):
 - **Source:** [0050](0050-adr-format.md) §13
 - **Change:** consolidates §1–12
 - **Summary:** A1–A9 were folded into the Decision. The open questions were numbered. No decision changed. §3's tenant row named `acl` as a config kind, which [0023](0023-moderation.md) §3 had made a payload type without amending this ADR; the row now says graph ACLs. Before this, A4–A9 were blockquotes, and A1–A3 were recorded only in other ADRs. The file before conversion is commit `0b26a3a`.
+
+### A11. A private tenant is defined
+
+- **Date:** 2026-10-01
+- **Source:** [0056](0056-security-model.md) §3
+- **Change:** amends §5
+- **Summary:** A private tenant is one whose `tenant` ACL restricts `read`. §5 had named one by its export policy without saying how a tenant becomes one; the export policy is now a consequence of the ACL.
+
+Replaced text (§5):
+
+> - **A tenant without a code cannot be referenced.** Its IDs have no absolute form. A private tenant, whose partitions carry the `private` export policy, cannot take a code.

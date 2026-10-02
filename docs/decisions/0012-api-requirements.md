@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-01 (A34)
+- **Updated:** 2026-10-01 (A35)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0005](0005-crate-organization.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -130,9 +130,9 @@ History, recent changes, contributions and the log all use one row shape in the 
 
 ### 4. Action API changes
 
-*Changed by A3, A4, A5, A7, A8, A9, A10, A12, A13, A14, A15, A16, A17, A18, A19, A21, A23, A24, A25, A26, A27, A30, A31, A32, A33, A34.*
+*Changed by A3, A4, A5, A7, A8, A9, A10, A12, A13, A14, A15, A16, A17, A18, A19, A21, A23, A24, A25, A26, A27, A30, A31, A32, A33, A34, A35.*
 
-All of these changes are additive (§1.2).
+All of these changes are additive (§1.2). [0056](0056-security-model.md) §13 adds `read=` to `action=protect`, `prtype=read` to `list=protectedpages`, `list=protectedsets`, and the reduced `meta=siteinfo` an outsider receives from a private tenant.
 
 | Module | Requirement |
 |---|---|
@@ -317,13 +317,14 @@ A diff response holds:
 
 ### 8. Redaction, caching and permissions
 
-*Changed by A3, A5, A12, A13, A24.*
+*Changed by A3, A5, A12, A13, A24, A35.*
 
 **Redaction.**
 
 - Administrators' views include hidden fields, read from the log ([0001](0001-revision-metadata-rdf.md) §4).
 - Everyone else gets the redacted form.
 - Erased bodies are never returned to anyone. They no longer exist.
+- A target under a **confidential** `read` restriction the viewer does not satisfy is **absent**, not redacted: every route answers exactly as for a target that does not exist, lists and counts omit it, and a log event on it is omitted with it ([0056](0056-security-model.md) §5).
 
 **Caching.**
 
@@ -351,6 +352,7 @@ Later ADRs add cases:
 - Nothing behind a `read` ACL reaches a viewer outside its group, from any route, cache or index ([0023](0023-moderation.md) §8).
 - No route returns an API key's hash, and only the issuing `POST` returns its secret ([0024](0024-subsidiary-accounts.md) §8).
 - No route returns the URL, hash or metadata of a file version the viewer may not read ([0039](0039-files-and-media.md) §17).
+- The cases of [0056](0056-security-model.md) §15: a confidential target is byte-for-byte a missing target to every principal outside its group, from every route, list, feed, index, cache entry, export, include and notification; and `instance check` fails on each misconfiguration 0056 §10 names.
 
 The test is backed by database grants: no query outside the holder-only services can read `private` ([0013](0013-postgres-storage.md) §4).
 
@@ -688,3 +690,10 @@ Replaced text (§2.1):
 - **Source:** [0055](0055-templatestyles-templatedata-and-page-properties.md) §5–6
 - **Change:** extends §4
 - **Summary:** `action=templatedata`, `prop=pageprops`, `list=pageswithprop`, `prop=description` and `inprop=displaytitle`, served from `view.page_prop`.
+
+### A35. Absence, and the security model's test cases
+
+- **Date:** 2026-10-01
+- **Source:** [0056](0056-security-model.md) §5, §13, §15
+- **Change:** extends §4, §8
+- **Summary:** A target under a confidential `read` restriction is absent for principals outside its group, not redacted: the missing-target answer from every route, and omission from every list, count and log. The privacy test gains 0056 §15's cases, and `instance check`'s failures. `action=protect` takes `read=`; `list=protectedsets` is added.

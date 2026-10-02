@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-01 (A2)
+- **Updated:** 2026-10-01 (A3)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md)
 - **Uses:** [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0026](0026-sitelinks.md), [0038](0038-page-metadata-and-categories.md), [0044](0044-tenant-relative-ids.md)
@@ -75,6 +75,8 @@ The limits are deployment configuration, as 0042 §16's are; a tenant may lower 
 
 ### 5. The Scribunto contract: Scribunto's Lua, Triplespace's host
 
+*Changed by A3.*
+
 **Scribunto's Lua libraries are vendored unchanged** from its `REL1_43` branch, matching the reference install, into `triplespace-scribunto` (§17), with a `VENDOR.md` naming the upstream commit. Fixes that are general go upstream.
 
 **The PHP side is reimplemented in Rust,** behind a host trait that `triplespace-render` implements ([0042](0042-template-expansion-and-parsoid.md) §19).
@@ -86,7 +88,7 @@ The limits are deployment configuration, as 0042 §16's are; a tenant may lower 
 | Library | Host side |
 |---|---|
 | `mw.site` | Namespaces from the registry; statistics from the tenant; `interwikiMap` from site aliases ([0026](0026-sitelinks.md) §2) |
-| `mw.title` | Title parsing and facts from `triplespace-titles`; `getContent` follows the lookup of 0042 §11 for Template and Module titles and reads local pages otherwise, and records a dependency; expensive accessors (`exists` on another page, `protectionLevels`, `redirectTarget`) count as MediaWiki counts them |
+| `mw.title` | Title parsing and facts from `triplespace-titles`; `getContent` follows the lookup of 0042 §11 for Template and Module titles and reads local pages otherwise, records a dependency, and returns `nil` for a page whose `read` groups are not a subset of the rendering page's, as `exists` answers false for it ([0056](0056-security-model.md) §6); expensive accessors (`exists` on another page, `protectionLevels`, `redirectTarget`) count as MediaWiki counts them |
 | `mw.text` | `jsonEncode` and `jsonDecode` with Scribunto's flags; `unstrip`, `unstripNoWiki` and `killMarkers` over 0042 §4's strip state; `nowiki`, `tag` and entity tables in Rust |
 | `mw.ustring` | Scribunto's pure-Lua implementation, with its PHP fast paths (`find`, `match`, `gmatch`, `gsub`) reimplemented by a **native Lua-pattern matcher over code points**. Translating patterns to `regex` was rejected, since `regex` has neither `%b` nor back-references. Normalization through ICU4X |
 | `mw.language` | `formatNum`, `formatDate` (the code behind `#time`, [0042](0042-template-expansion-and-parsoid.md) §5), plurals and case mapping through ICU4X; `fetchLanguageName(s)` from MediaWiki's language-name data, shipped as data; `convertGrammar` and `gender` as MediaWiki defines them for each language, returning the word unchanged where it defines nothing |
@@ -297,3 +299,10 @@ Replaced text (§17):
 - **Source:** [0050](0050-adr-format.md) §13
 - **Change:** consolidates §17
 - **Summary:** A1 was folded into the Decision. The open questions were numbered, and §14's heading now says it extends 0005 §3, as 0005 A43 records. No decision changed. Before this, A1 was recorded only in 0005. The file before conversion is commit `0b26a3a`.
+
+### A3. `getContent` may not widen
+
+- **Date:** 2026-10-01
+- **Source:** [0056](0056-security-model.md) §6
+- **Change:** extends §5
+- **Summary:** `mw.title.getContent` and `exists` treat a page the rendering page may not include, under the flow rule, as missing.

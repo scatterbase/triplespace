@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-01 (A8)
+- **Updated:** 2026-10-01 (A9)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0006](0006-log-integrity-and-erasure.md), [0009](0009-keyed-entity-types-and-domain.md), [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -34,19 +34,19 @@ Patrolling is the odd one out, since it restricts nothing: it is a mark that a t
 
 ### 1. One mechanism: an ACL on a target
 
-*Changed by A5.*
+*Changed by A5, A9.*
 
 Every administrative action in this ADR except patrolling is an **ACL record** ([0016](0016-permissions-and-access-control.md) §4): a restriction of named permissions on one target to one group, until an expiry. Undoing the action retires the record.
 
 | Action | Target | Permission restricted | Restricted to | MediaWiki equivalent |
 |---|---|---|---|---|
-| **Protect** | A page, thread, talk page, entity or namespace | `edit`, `move`, or both; `createpage` for a title that does not exist yet (§2) | `autoconfirmed` (semi-protection) or `sysop` (full), or any group | Page protection; `protected_titles` |
+| **Protect** | A page, thread, talk page, board, entity, namespace or set | `edit`, `move`, or both; `createpage` for a title that does not exist yet (§2); `read`, as a **confidential** restriction that keeps the target live for its group and absent for everyone else ([0056](0056-security-model.md) §2, §4) | `autoconfirmed` (semi-protection) or `sysop` (full), or any group; for `read`, a group the actor belongs to | Page protection; `protected_titles`; no MediaWiki equivalent for `read` |
 | **Delete** | A page, thread or local entity | `read` | The deletion group, `sysop` by default | Page deletion; the `archive` table |
 | **Hide** (revision deletion) | One record, any subset of its parts | `read`, on the named parts | `sysop` | RevisionDelete bits 1, 2 and 4 |
 | **Suppress** | As Hide, or a whole page or entity | `read` | `suppress` | RevisionDelete bit 8; suppression |
 | **Hide a username** | An actor | `read` | `suppress` | `hideuser` on a block |
 
-- **Restricting `read` to a group hides the target from everyone outside it.** Evaluation is [0016](0016-permissions-and-access-control.md) §4's, unchanged: to read *T*, an actor must hold `read`, which `universe` does, **and** satisfy every ACL restricting `read` on *T* or on a target enclosing *T*. A deletion ACL naming `sysop` is satisfied only by members of `sysop`. Nothing new is evaluated; the write-only assumption is dropped.
+- **Restricting `read` to a group hides the target from everyone outside it.** This ADR's restrictions are the **moderation** kind: the target was removed, and outsiders see the notices below. The **confidential** kind, set with `protect`, hides even that the target exists ([0056](0056-security-model.md) §2, §5). Evaluation is [0016](0016-permissions-and-access-control.md) §4's, unchanged: to read *T*, an actor must hold `read`, which `universe` does, **and** satisfy every ACL restricting `read` on *T* or on a target enclosing *T*. A deletion ACL naming `sysop` is satisfied only by members of `sysop`. Nothing new is evaluated; the write-only assumption is dropped.
 - **Suppression is a narrower group, not a different mechanism.** The same record with `suppress` in place of `sysop` hides the target from administrators too. MediaWiki's fourth bit is this and nothing more.
 - **Groups, not rights, name who may still see.** MediaWiki gates deleted content on the `deletedhistory` and `deletedtext` rights and suppressed content on `viewsuppressed`. Here the ACL names a group, and those rights are what membership in that group reports to `meta=userinfo` ([0016](0016-permissions-and-access-control.md) §2). The default deletion group is `site` configuration (`moderation.delete_group`, default `sysop`; `moderation.suppress_group`, default `suppress`), so an instance that wants a separate reviewers group can have one without a new mechanism.
 - **Nothing here touches the log.** Hidden and deleted content stays in its records, keeps its IDs, its place in the Merkle tree and its inclusion proofs ([0006](0006-log-integrity-and-erasure.md)). Removing content from the log is `erase`, and an `erase` may follow a hide when hiding is not enough.
@@ -56,7 +56,7 @@ Every administrative action in this ADR except patrolling is an **ACL record** (
 
 ### 2. Targets (extends 0016 §4)
 
-*Changed by A2, A5, A7.*
+*Changed by A2, A5, A7, A9.*
 
 Four target kinds are added to the table of [0016](0016-permissions-and-access-control.md) §4, and two existing kinds gain a use:
 
@@ -69,10 +69,12 @@ Four target kinds are added to the table of [0016](0016-permissions-and-access-c
 | `statement` | `acl:statement:{guid}`, the GUID as stored in the log; the UUID part identifies the statement across the canonical-ID rewrite of [0018](0018-tenants.md) §7 | `edit`: changing, overriding or removing that one statement, its qualifiers and references. `read`: the statement is left out of the resolved view, RDF, search and diffs for viewers outside the group | Statement-level protection and hiding (A2) |
 | `property` | `acl:property:{id}` | `edit`: writing any snak whose property is *P*, as main snak, qualifier or reference, on any entity. `read`: every snak with predicate *P* is left out for viewers outside the group | Property-level protection and hiding; Scatterbase's property-specific rule (A2) |
 | `blob` | `acl:blob:{takedown id}`, at instance scope | `read` and `upload`, to no group, on every file version in every tenant whose SHA-256 or SHA-1 equals the hash in the record | Takedowns ([0039](0039-files-and-media.md) §10) |
+| `tenant` | `acl:tenant:{slug}`, in the tenant `config` | `read`: the tenant's visibility; a tenant with a `read` restriction is private. Encloses everything in the tenant | Private tenants ([0056](0056-security-model.md) §3) |
+| `set` | `acl:set:{id}`, the ID from the page-ID sequence as a reserved title takes one; in the tenant `log` | `read`, `edit`, `move` on its members: pages with their subpages, entities and threads, listed by ID in the record with the set's name; membership changes need `protect` | Groupings of pages ([0056](0056-security-model.md) §3) |
 
 **Create-protection reserves a page ID.** A title that does not exist has no page ID, and a key must never be content ([0006](0006-log-integrity-and-erasure.md) §3), so the protecting record takes a page ID from the sequence ([0015](0015-record-format-and-partition-registry.md) §2) and carries the namespace and title in its content part. The title index maps the title to the reserved ID; a `create` by an actor the ACL admits takes that ID, and the page then exists. This is the pattern [0019](0019-discussions.md) §2 uses for talk-page IDs.
 
-**Containment is unchanged** from [0016](0016-permissions-and-access-control.md) §4 and [0019](0019-discussions.md) §12: a namespace encloses its pages and entities, a page its subpages, a talk page or board the threads whose home it is, not those listed on it ([0049](0049-boards.md) §7). So a `read` ACL on a namespace makes it private, and deleting a talk page deletes the threads homed there. **A subject page does not enclose its talk page**, in either direction: protecting an item leaves its talk page open, which is what protection is for, and deleting an item leaves its talk page unless the administrator deletes that too. The delete form offers to, as MediaWiki's does, and writes two records.
+**Containment** is [0016](0016-permissions-and-access-control.md) §4's and [0019](0019-discussions.md) §12's, with the tenant at the root and sets beside namespaces ([0056](0056-security-model.md) §3): the tenant encloses everything in it, a namespace encloses its pages and entities, a set its members, a page its subpages, a talk page or board the threads whose home it is, not those listed on it ([0049](0049-boards.md) §7). So a `read` ACL on a namespace makes it private, and deleting a talk page deletes the threads homed there. **A subject page does not enclose its talk page**, in either direction: protecting an item leaves its talk page open, which is what protection is for, and deleting an item leaves its talk page unless the administrator deletes that too. The delete form offers to, as MediaWiki's does, and writes two records.
 
 **Enclosure gains a second axis.** Containment (graph ⊃ namespace ⊃ entity ⊃ statement) is joined by **predicate**: a property ACL applies to every snak using that property, wherever it sits. Evaluation stays conjunctive: to edit statement *S* on entity *E*, an actor satisfies the ACLs on *S*, on *E*, on *E*'s namespace, on the graph, and on *S*'s property. The cost is one indexed lookup per property a write touches, cached in L0 ([0014](0014-caches-and-search.md) §2); on the read side the resolution projection asks `view.acl` for the entity's GUIDs and properties in one query, and the public form of the resolved view ([0014](0014-caches-and-search.md) §1) simply lacks what a read ACL hides. A `blob` target adds **content** as a third axis of enclosure: it encloses every file version whose bytes hash to the record's value, in every tenant ([0039](0039-files-and-media.md) §10).
 
@@ -175,13 +177,13 @@ Moderation is public in the way MediaWiki's logs are, with one exception:
 
 ### 8. API (extends 0012 §4 and §5; extends 0016 §7)
 
-*Changed by A4.*
+*Changed by A4, A9.*
 
 **Action API**, additively under [0012](0012-api-requirements.md) §1, with MediaWiki's meaning:
 
 | Module | Behaviour |
 |---|---|
-| `action=protect` | `protections=edit=autoconfirmed\|move=sysop`, `expiry`, `reason`; writes or retires the ACL. `cascade=1` is refused with `ts-no-cascade`, since there is no cascading protection ([0016](0016-permissions-and-access-control.md) §4). On a title that does not exist, reserves a page ID (§2). On an entity page, restricts `edit` on the entity target |
+| `action=protect` | `protections=edit=autoconfirmed\|move=sysop`, `expiry`, `reason`; writes or retires the ACL. `read={group}` writes a confidential restriction ([0056](0056-security-model.md) §13); `list=protectedpages` takes `prtype=read` and `list=protectedsets` lists sets. `cascade=1` is refused with `ts-no-cascade`, since there is no cascading protection ([0016](0016-permissions-and-access-control.md) §4). On a title that does not exist, reserves a page ID (§2). On an entity page, restricts `edit` on the entity target |
 | `action=delete`, `action=undelete` | Pages, threads and entity pages. `deletetalk=1` writes the second record of §2. `undelete` with `timestamps` or `revisions` performs the partial form of §3 |
 | `action=revisiondelete` | `type=revision\|logging`, `ids`, `hide=content\|comment\|user`, `show=…`, `suppress=yes\|no\|nochange`, `reason`; writes or amends `record` ACLs. `type=archive` is accepted and treated as `revision`, since deleted revisions are not moved |
 | `action=block` | Gains `hidename`, which writes the actor ACL beside the block |
@@ -196,13 +198,13 @@ Every response is redacted for its viewer ([0012](0012-api-requirements.md) §8)
 
 ### 9. Site UI (extends 0010 §2, §5 and §7)
 
-*Changed by A6.*
+*Changed by A6, A9.*
 
-- **Overflow menu.** Pages and entities gain **Protect…** ([0016](0016-permissions-and-access-control.md) §7) and **Delete…**, the latter with the "also delete the talk page" option. Deleted pages show **Undelete…** to the group.
+- **Overflow menu.** Pages and entities gain **Protect…** ([0016](0016-permissions-and-access-control.md) §7), whose dialog has a **Read** row with a group picker ([0056](0056-security-model.md) §13), and **Delete…**, the latter with the "also delete the talk page" option. Deleted pages show **Undelete…** to the group.
 - **A deleted page or entity** shows, to everyone outside the group, the frame of [0010](0010-site-ui.md) §2 with the deletion log entry in place of the content, and a link to the log. To the group it shows the content under a banner naming who deleted it and why, with Undelete.
 - **History rows** gain RevisionDelete checkboxes for holders of `deleterevision`, and a suppress option for holders of `suppressrevision`, opening a dialog with the three parts and a reason. A hidden part is drawn as [0010](0010-site-ui.md) §5.2 already draws hidden actors: in place, labelled, never silently absent.
 - **Patrol.** The `!` marker, the Mark as patrolled action, and the `patrolled` filter, for holders of `patrol`.
-- **Special pages.** `Special:Log/protect`, `/delete`, `/patrol` and, for the group, `/suppress`; `Special:ProtectedPages`, `Special:ProtectedTitles`, `Special:Undelete`, `Special:DeletedContributions`, and `Special:BlockList` gains the hidden-name column, all where MediaWiki users expect them.
+- **Special pages.** `Special:Log/protect`, `/delete`, `/patrol` and, for the group, `/suppress`; `Special:ProtectedPages`, which gains a **Read** column and a **Sets** tab and lists a confidential restriction only to viewers who may read its target ([0056](0056-security-model.md) §5, §13), `Special:ProtectedTitles`, `Special:Undelete`, `Special:DeletedContributions`, and `Special:BlockList` gains the hidden-name column, all where MediaWiki users expect them.
 - **Nuke.** `Special:Nuke` applies these actions in bulk to one account's, or one tag's, contributions: one job that deletes what it created, reverts or rolls back what it changed and hides its posts, patrolled as one row and undone by **Revert this job…**.
 
 ### 10. Storage (amends 0013 §5)
@@ -407,3 +409,18 @@ Replaced text (§4):
 - **Source:** [0050](0050-adr-format.md) §13
 - **Change:** consolidates §1–13
 - **Summary:** A1–A7 were folded into the Decision. The open questions were numbered. No decision changed. Before this, A2 and A5–A7 were blockquotes, A4 a struck sentence with a note, and A3 was recorded only in 0030. The file before conversion is commit `0b26a3a`.
+
+### A9. Confidential restrictions, the tenant and set targets
+
+- **Date:** 2026-10-01
+- **Source:** [0056](0056-security-model.md) §2–5, §13
+- **Change:** amends §1, §2; extends §2, §8, §9
+- **Summary:** Protection may restrict `read`. Such a restriction is of the confidential kind: the target stays live for its group and is absent, not marked deleted, for everyone else, and it is set with `protect` by a member of the group. The `read` ACLs this ADR defines are the moderation kind and are unchanged. Two targets join the table: `tenant`, the root of enclosure, and `set`, a grouping by ID that only `protect` changes. `action=protect` takes `read=`; `Special:ProtectedPages` gains a Read column and a Sets tab.
+
+Replaced text (§1):
+
+> | **Protect** | A page, thread, talk page, entity or namespace | `edit`, `move`, or both; `createpage` for a title that does not exist yet (§2) | `autoconfirmed` (semi-protection) or `sysop` (full), or any group | Page protection; `protected_titles` |
+
+Replaced text (§2):
+
+> **Containment is unchanged** from [0016](0016-permissions-and-access-control.md) §4 and [0019](0019-discussions.md) §12: a namespace encloses its pages and entities, a page its subpages,

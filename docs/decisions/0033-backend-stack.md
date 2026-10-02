@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-01 (A7)
+- **Updated:** 2026-10-01 (A8)
 - **Author:** James Hare / Claude
 - **Changes:** [0005](0005-crate-organization.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0034](0034-frontend-stack.md)
@@ -179,9 +179,12 @@ QLever is an export destination, not a runtime dependency. It reached full SPARQ
 
 ### 12. Configuration and CLI
 
+*Changed by A8.*
+
 - `clap` for `triplespace-cli` and the server's flags.
 - `serde` + `toml` for `docs/registry/` files, embedded at build time by the crates that need them.
 - `figment` for layered instance configuration: file, then environment. Secrets are read from files (`--token-file`, `--*-file`), never from command-line values.
+- `server.mode` (`production` or `development`), `server.trusted_proxies`, `server.admin_listen` and the registered-host check, and `triplespace-cli instance check` with `--attest` and `--through`, which verify the deployment requirements of [0056](0056-security-model.md) §10; in `production` the server refuses to start while a requirement it can test fails.
 
 ### 13. Observability
 
@@ -326,3 +329,10 @@ Replaced text (§10):
 Replaced text (§10):
 
 > If a RevisionChest store is used as the local source for upstream history (0010 §8's "fetch upstream history"), it must receive the same hiding sweep as the log (0011 §5).
+
+### A8. Deployment checks
+
+- **Date:** 2026-10-01
+- **Source:** [0056](0056-security-model.md) §10
+- **Change:** extends §12
+- **Summary:** The server gains `server.mode`, `server.trusted_proxies`, `server.admin_listen` and a 421 on an unregistered host; the CLI gains `instance check`, which tests or records attestation for each requirement of the deployment boundary.

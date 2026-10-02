@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-01 (A6)
+- **Updated:** 2026-10-01 (A7)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0024](0024-subsidiary-accounts.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md)
 - **Uses:** [0023](0023-moderation.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0043](0043-lua-modules.md), [0047](0047-special-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -81,6 +81,8 @@ The operator lowers it to bound CPU on a crowded farm. Under `config.template = 
 
 ### 3. The Template namespace (amends 0008 §2)
 
+*Changed by A7.*
+
 **While `wikitext.expansion` is on**, Template (10) is a `pages` namespace and Template talk (11) is enabled:
 
 | Namespace | Kind | Models | Normalizer | Subpages | Talk |
@@ -92,7 +94,7 @@ The operator lowers it to bound CPU on a crowded farm. Under `config.template = 
 
 **Turning expansion off never removes pages.** Template pages that exist keep their records and history. The namespace refuses `create`, `edit` and `move` into it with `ts-namespace-disabled`, and its existing pages stay readable at their titles and can be deleted. Nothing transcludes them. Turning expansion on again restores everything. `meta=siteinfo` lists a disabled namespace while it still holds pages, so clients can read them.
 
-**Any `wikitext` page can be transcluded**, as in MediaWiki: `{{Foo}}` is `Template:Foo`; `{{:Foo}}` is the main-namespace page; `{{User:Example/box}}` and `{{Project:Notice}}` name their namespace. A page of another text model transcludes its text, as MediaWiki's `TextContent` does. An entity, thread or talk page has no wikitext form and transcludes as a link to itself, `[[:Item:Q42]]`, which is what MediaWiki produces for content it cannot transclude.
+**Any `wikitext` page can be transcluded**, as in MediaWiki, provided the include does not widen: a page *A* includes a page *B* only if every group a `read` restriction on *B* names is also named by one on *A*, and otherwise `{{:B}}` renders as a link to a missing page for every viewer, so that one rendering per visibility serves every reader of *A* ([0056](0056-security-model.md) §6). The forms are MediaWiki's: `{{Foo}}` is `Template:Foo`; `{{:Foo}}` is the main-namespace page; `{{User:Example/box}}` and `{{Project:Notice}}` name their namespace. A page of another text model transcludes its text, as MediaWiki's `TextContent` does. An entity, thread or talk page has no wikitext form and transcludes as a link to itself, `[[:Item:Q42]]`, which is what MediaWiki produces for content it cannot transclude.
 
 ### 4. The expander
 
@@ -521,3 +523,14 @@ Replaced text (§5):
 Replaced text (§8.1):
 
 > | TemplateData | `action=templatedata` | Not implemented. Only Parsoid's HTML-to-wikitext direction uses it, and reading never calls it |
+
+### A7. An include may not widen
+
+- **Date:** 2026-10-01
+- **Source:** [0056](0056-security-model.md) §6
+- **Change:** amends §3
+- **Summary:** Transclusion is subject to the flow rule: a page includes another only if the included page's `read` groups are a subset of the including page's; a refused include is a red link for every viewer. The §10 refresh on a `read` ACL change already re-evaluates it.
+
+Replaced text (§3):
+
+> **Any `wikitext` page can be transcluded**, as in MediaWiki:

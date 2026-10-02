@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-01 (A12)
+- **Updated:** 2026-10-01 (A13)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md)
 - **Uses:** [0000](0000-init.md), [0003](0003-statement-ui.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -27,11 +27,11 @@ MediaWiki's search is CirrusSearch, which Wikimedia now runs on OpenSearch after
 
 ### 1. Principles
 
-*Changed by A3.*
+*Changed by A3, A13.*
 
 1. **Keys name versions, not things.** A cache entry is keyed by the entity, page or record *and* the version of the data it was computed from. A write creates a new version and a new key. Old entries become unreachable and expire; nothing is purged on an ordinary edit.
 2. **Mutable state lives only in Postgres.** The one mutable question, "what is the current version of X?", is answered by `view.entity.resolved_version` and `view.page.latest_offset` ([0013](0013-postgres-storage.md) §5), cached briefly in-process and nowhere else.
-3. **Shared caches hold only the public form.** An entry is the response as an anonymous reader would see it: hidden fields removed, erased bodies absent. Administrators' views, which include hidden fields ([0012](0012-api-requirements.md) §8), bypass every shared layer. Nothing from a `private` graph is ever cached outside the holder's session.
+3. **Shared caches hold the form computed for a visibility set, keyed by that set.** The visibility set of a target is the `read` restrictions enclosing it ([0056](0056-security-model.md) §2); an entry computed under set *V* is served to any principal that satisfies *V*, and the **public form**, the response as an anonymous reader sees it with hidden fields removed and erased bodies absent, is the entry for the empty set. Only the empty set's entries reach L2 and the proxy (0056 §7). Administrators' moderation views, which include hidden fields ([0012](0012-api-requirements.md) §8), bypass every shared layer. Nothing from a `private` graph is ever cached outside the holder's session.
 4. **Erasure purges; everything else expires.** Erasure, upstream hiding ([0011](0011-logs.md) §5), and deletion and hiding by `read` ACL ([0023](0023-moderation.md) §5) are the only events that reach into caches. Every entry also has a TTL ceiling, so a purge that is missed is bounded in time.
 5. **A small instance runs with no shared cache and no search service.** The layers below are optional above the in-process cache; the code paths are the same, with the shared layer absent and the Postgres fallback (§8) in place.
 
@@ -66,7 +66,7 @@ Every cacheable thing has one version number, and the key carries it.
 
 ### 4. What L1 holds
 
-*Changed by A7, A11, A12.*
+*Changed by A7, A11, A12, A13.*
 
 | Key | Value | TTL ceiling |
 |---|---|---|
@@ -82,7 +82,7 @@ Every cacheable thing has one version number, and the key carries it.
 | `fp:{repo}:{ns}:{title}:{revid}` | A page repository's bundle: rewritten HTML and metadata ([0053](0053-mirrored-pages.md) §4) | The repository's `cache_ttl`, or until an event purges it |
 | `css:{pageid}:{gen}:{offset}` | The sanitized form of a `sanitized-css` page ([0055](0055-templatestyles-templatedata-and-page-properties.md) §2) | 24 h |
 
-`{gen}` is the entity's or page's `generation` ([0013](0013-postgres-storage.md) §5), which changes only on erasure or hiding (§5). `{ver}` is the version of §3.
+`{gen}` is the entity's or page's `generation` ([0013](0013-postgres-storage.md) §5), which changes only on erasure or hiding (§5). `{ver}` is the version of §3. Every key whose value depends on what the viewer may read (`e:`, `t:`, `prov:`, `p:`, `d:`, `sug:`, `css:`) also carries a **`{vis}`** segment, written after `{gen}`: a short hash of the sorted group names of the visibility set together with the tenant's visibility epoch, `-` for the empty set; a `read` ACL on a namespace, set or tenant bumps the epoch and every entry under it lapses at once ([0056](0056-security-model.md) §7).
 
 **Stampedes** are handled per process: concurrent requests for one missing key share one computation (single flight), and a short lock key in L1 keeps two servers from resolving the same large entity at once.
 
@@ -123,7 +123,7 @@ Media bytes are the exception to the short `s-maxage`: a public file version is 
 
 ### 7. Search on OpenSearch
 
-*Changed by A2, A4, A5, A6, A7, A10, A11, A12.*
+*Changed by A2, A4, A5, A6, A7, A10, A11, A12, A13.*
 
 **Two indexes, one query.** This settles [0008](0008-namespaces-and-document-pages.md) Q7.
 
@@ -156,7 +156,7 @@ Field semantics follow WikibaseCirrusSearch where a field exists there, so that 
 - After the resolution projection writes an entity, it enqueues `(id, resolved_version)`. The indexer reads the resolved JSON and `entity_ref` count from `view`, builds the document, and sends it in bulk with `version_type: external` and `version: resolved_version`. Out-of-order deliveries are rejected by the index, so retries and parallel workers are safe.
 - A page record does the same with `latest_offset`.
 - An erased or tombstoned entity, a deleted page, or an entity that stops being canonical is deleted from the index with the same versioning.
-- The index holds only public data: no hidden names, no erased bodies, nothing from an internal-only or private graph. Redaction is applied when the document is built, and the erasure path of §5 deletes documents.
+- The index holds no moderation-hidden data: no hidden names, no erased bodies, nothing from an internal-only or private graph. Redaction is applied when the document is built, and the erasure path of §5 deletes documents. It does hold content under a **confidential** restriction, with the target's visibility set in a `read_groups` field, and every query filters on it: a document is returned only when `read_groups` is empty or every group in it is among the principal's, which is a `terms_set` query ([0056](0056-security-model.md) §8). The per-provider shared indexes hold public form only; `read_groups` is non-empty in per-tenant indexes alone.
 - **Bootstrap** indexes from `view` in one pass after the resolution projection, with the refresh interval raised and replicas set to zero for the duration, as CirrusSearch's reindex does.
 - **Reindexing** into a new index and swapping an alias is the only way a mapping changes. The alias is what queries name.
 
@@ -378,3 +378,22 @@ Replaced text (§4):
 - **Source:** [0055](0055-templatestyles-templatedata-and-page-properties.md) §2, §6
 - **Change:** extends §4, §7
 - **Summary:** `css:` keys hold the sanitized form of `sanitized-css` pages; the `pages` index gains `short_description`.
+
+### A13. Caches and the index keyed by visibility
+
+- **Date:** 2026-10-01
+- **Source:** [0056](0056-security-model.md) §7, §8
+- **Change:** amends §1, §4, §7
+- **Summary:** Shared caches hold the form for a visibility set, keyed by it, so that a private wiki caches as a public one does; the public form is the empty set's entry and the only one L2 may hold. The L1 keys gain a `{vis}` segment with the tenant's visibility epoch. The search index holds content under confidential restrictions with a `read_groups` field and a `terms_set` filter per query; moderation-hidden content stays out.
+
+Replaced text (§1):
+
+> 3. **Shared caches hold only the public form.** An entry is the response as an anonymous reader would see it: hidden fields removed, erased bodies absent. Administrators' views, which include hidden fields ([0012](0012-api-requirements.md) §8), bypass every shared layer. Nothing from a `private` graph is ever cached outside the holder's session.
+
+Replaced text (§4):
+
+> `{gen}` is the entity's or page's `generation` ([0013](0013-postgres-storage.md) §5), which changes only on erasure or hiding (§5). `{ver}` is the version of §3.
+
+Replaced text (§7):
+
+> - The index holds only public data: no hidden names, no erased bodies, nothing from an internal-only or private graph. Redaction is applied when the document is built, and the erasure path of §5 deletes documents.

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-01 (A8)
+- **Updated:** 2026-10-01 (A9)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md), [0023](0023-moderation.md)
 - **Uses:** [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0027](0027-preferences-and-portability.md)
@@ -25,7 +25,7 @@ MediaWiki's answer to the second is CentralAuth: one global account, local accou
 
 ### 1. The tenancy policy is instance configuration, with three presets
 
-*Changed by A3, A6.*
+*Changed by A3, A6, A9.*
 
 The **tenancy policy** is a set of switches, each a `config` record of kind `tenancy` in the instance `config` partition ([0015](0015-record-format-and-partition-registry.md) §3), keyed `tenancy:{switch}`. Three **presets** ship in `docs/registry/tenancy.toml` and are what `triplespace-cli instance create --tenancy {preset}` writes; every switch can then be changed on its own with `ts-config` at the farm base, except the identity switches, which need `owner` because they are hard to reverse (§2). A single-tenant instance is the `isolated` preset and never notices any of this.
 
@@ -46,6 +46,7 @@ The **tenancy policy** is a set of switches, each a `config` record of kind `ten
 | `search.farm_wide` | `off`, `global-groups`, `everyone` | `off` | `off` | `everyone` |
 | `filters.global` | `none`, `inherited` ([0030](0030-edit-filters.md) §8) | `none` | `inherited` | `inherited` |
 | `wikitext.ceiling` | `subset`, `expansion`, `lua`: how much of template expansion and Lua a tenant may turn on ([0042](0042-template-expansion-and-parsoid.md) §2) | `lua` | `lua` | `lua` |
+| `security.restrictions` | `none`: tenants are public and `read` is restricted by moderation only; `tenant`: a tenant may be private as a whole; `any`: tenants may also restrict pages, entities, namespaces and sets ([0056](0056-security-model.md) §11) | `any` | `none` | `any` |
 
 Every switch that says "farm actor" or "global" requires `identity.farm_issuer` to be at least `optional`; the registry rejects a preset or a record that does not satisfy that. `meta=siteinfo&siprop=triplespace` reports the preset and the switches, so a client and the UI know what exists.
 
@@ -83,11 +84,11 @@ Under `blocks.global = ip`, farm-wide blocking is by IP address only, in `privat
 
 ### 5. Reading across tenants (extends 0018 §5; settles 0018 Q2, Q4 and 0020 Q4)
 
-*Changed by A2, A5, A7.*
+*Changed by A2, A5, A7, A9.*
 
 **Who may read whom.** With `providers.between_tenants = operator`, only the farm operator can make a tenant a provider, by allocating it a code ([0015](0015-record-format-and-partition-registry.md) §5) and writing its `tenant` record; the hosting case, where tenants have no business reading each other unless the operator says so. With `opt-in`, a tenant that has a code is readable by any tenant that lists it in `providers` ([0018](0018-tenants.md) §3), which is what 0018 §5 already describes.
 
-**Reader lists.** With `providers.reader_lists = on`, a provider tenant may restrict who reads it with a `config` record of kind `provider-readers` in its own `config`: `mode` (`allow` or `deny`) and a list of tenant slugs, in the shape of [0026](0026-sitelinks.md) §3's sitelink lists. A tenant not admitted sees the provider as if it had no code. This settles 0018 Q2 without a new ACL kind: it is a list, evaluated where the reading tenant's projections open the provider's partition. Reading is all or nothing; a provider does not restrict individual entities, since its `local` graph is public data by 0018 §5's definition.
+**Reader lists.** With `providers.reader_lists = on`, a provider tenant may restrict who reads it with a `config` record of kind `provider-readers` in its own `config`: `mode` (`allow` or `deny`) and a list of tenant slugs, in the shape of [0026](0026-sitelinks.md) §3's sitelink lists. A tenant not admitted sees the provider as if it had no code. This settles 0018 Q2 without a new ACL kind: it is a list, evaluated where the reading tenant's projections open the provider's partition. Reading is anonymous: a reading tenant is the `universe` principal of the provider and sees its public form, so a provider may keep confidential entities, which are simply not part of what it provides, and a private tenant provides nothing ([0056](0056-security-model.md) §6). Reader lists decide which tenants may read; visibility decides what they read.
 
 **Across instances.** A provider tenant on another instance, or one that has moved away ([0018](0018-tenants.md) §10), is read by a **Triplespace adapter**, `scatter-adapter-triplespace`, added to the ingest layer ([0005](0005-crate-organization.md) §2). It bootstraps from the provider's local-graph source dump ([0022](0022-federation.md) §1) and then follows the provider's activity stream ([0020](0020-change-feeds.md) §4), filtered to `source = local`, with `Last-Event-ID` as its version cursor, rewriting references to the reader's own entities back to bare IDs and verifying each batch against the provider's checkpoint and key chain unless the provider is registered `trust = stream` ([0022](0022-federation.md) §2), writing `put`, `redirect` and `tombstone` records into a `mirror/{provider}` partition as any adapter does. This settles 0020 Q4: same-instance reading is direct ([0018](0018-tenants.md) §5), cross-instance reading is a sync over the stream, and a tenant that leaves the instance is switched from the first to the second with no change in what its readers see.
 
@@ -166,7 +167,7 @@ When a tenant **joins** a farm with shared names, its accounts are checked again
 ## Open questions
 
 - **Q1.** ~~**Farm-level abuse filters** and other pre-save checks shared across tenants ([0016](0016-permissions-and-access-control.md) Q5), which the `enterprise` and `community` presets would both want.~~ *Settled by [0030](0030-edit-filters.md) §8: the `filters.global` switch; global filters are `scope = global` filters in the instance `log` ([0040](0040-instance-prerogatives.md) §6).*
-- **Q2. Global groups and ACLs.** Whether a tenant ACL should be able to name a global group, so that a wiki can protect a page to "stewards only".
+- **Q2.** ~~**Global groups and ACLs.** Whether a tenant ACL should be able to name a global group, so that a wiki can protect a page to "stewards only".~~ *Settled by [0056](0056-security-model.md) §11: yes, where `groups.global = inherited`; group names are one namespace on a farm, which `tenancy check` verifies, and no global group reads a private tenant unless that tenant's ACL names it.*
 - **Q3. Home tenant selection** and whether the aggregated bell should be the default view or a switch.
 - **Q4. Name registry at scale**: a unique index over every account name on a farm of thousands of tenants is one large index; whether it should be per farm issuer only, with tenant names checked against it on creation.
 - **Q5. Templates for non-config state**, such as a default set of project pages for a new tenant, which are page records rather than configuration.
@@ -302,3 +303,14 @@ Replaced text (§10):
 - **Source:** [0050](0050-adr-format.md) §13
 - **Change:** consolidates §1–14
 - **Summary:** A1–A7 were folded into the Decision. The open questions were numbered. §12's "`NULL` tenant" reads as the empty-string tenant, which 0013 A11 decided for every earlier ADR. No decision changed. Before this, A2 and A4–A7 were blockquotes, and A3 had been written in place. The file before conversion is commit `0b26a3a`.
+
+### A9. `security.restrictions`, and cross-tenant reads are anonymous
+
+- **Date:** 2026-10-01
+- **Source:** [0056](0056-security-model.md) §6, §11
+- **Change:** extends §1; amends §5
+- **Summary:** The policy gains `security.restrictions` (`none`, `tenant`, `any`; `any` in `isolated` and `enterprise`, `none` in `community`), which decides whether tenants may restrict `read` beyond moderation. A tenant reading a provider is the provider's anonymous principal and sees its public form, so a provider may hold confidential entities and a private tenant provides nothing. Q2 is settled: an ACL may name a global group where the policy has them.
+
+Replaced text (§5):
+
+> Reading is all or nothing; a provider does not restrict individual entities, since its `local` graph is public data by 0018 §5's definition.
