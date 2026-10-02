@@ -4,7 +4,7 @@
 - **Date:** 2026-09-25
 - **Updated:** 2026-10-01 (A50)
 - **Author:** James Hare / Claude Opus; revision by James Hare / Claude Fable
-- **Changes:** [0001](0001-revision-metadata-rdf.md), [0008](0008-namespaces-and-document-pages.md)
+- **Changes:** [0001](0001-revision-metadata-rdf.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
 ## Context
@@ -265,6 +265,7 @@ This settles 0001 Q1, the exact namespace IRI: it is `https://scatter.red/terms/
 | [0001](0001-revision-metadata-rdf.md) §2, §5, §6 | §5 | amends | 0001 A2 |
 | [0001](0001-revision-metadata-rdf.md) Q1 | §5 | settles | 0001 Q1 |
 | [0008](0008-namespaces-and-document-pages.md) §11 | §2 | supersedes | 0008 A1 |
+| [0009](0009-keyed-entity-types-and-domain.md) §12 | §2 | supersedes | 0009 A1 |
 
 ## References
 

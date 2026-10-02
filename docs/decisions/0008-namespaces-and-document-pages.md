@@ -4,7 +4,7 @@
 - **Date:** 2026-09-26
 - **Updated:** 2026-10-01 (A20)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md)
+- **Changes:** [0005](0005-crate-organization.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
@@ -286,6 +286,7 @@ Pywikibot reading and editing `Project` pages is the acceptance test for this su
 | Target | By | Change | Target's log |
 |---|---|---|---|
 | [0005](0005-crate-organization.md) §2, §4.1 | §4, §11 | amends | 0005 A3 |
+| [0009](0009-keyed-entity-types-and-domain.md) Q1 | §2 | settles | 0009 Q1 |
 
 ## References
 
