@@ -83,6 +83,12 @@ impl Value {
         Self::Text(s.to_string())
     }
 
+    /// Whether this is the text `s`.
+    #[must_use]
+    pub fn text_eq(&self, s: &str) -> bool {
+        matches!(self, Self::Text(t) if t == s)
+    }
+
     /// A map with its pairs in canonical key order. The encoder sorts regardless; this
     /// makes values built here compare equal to decoded ones.
     #[must_use]

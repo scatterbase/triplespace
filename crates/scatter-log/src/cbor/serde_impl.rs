@@ -18,6 +18,14 @@ use super::Value;
 #[error("{0}")]
 pub struct SerdeError(String);
 
+impl SerdeError {
+    /// An error with a message.
+    #[must_use]
+    pub fn message(msg: impl Into<String>) -> Self {
+        Self(msg.into())
+    }
+}
+
 impl ser::Error for SerdeError {
     fn custom<T: fmt::Display>(msg: T) -> Self {
         Self(msg.to_string())

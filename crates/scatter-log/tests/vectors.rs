@@ -143,3 +143,65 @@ fn record_vectors() {
         assert_eq!(back.header().commitment, record.body().commitment());
     }
 }
+
+#[test]
+fn tree_vectors() {
+    use scatter_log::tree::{Frontier, Segments, root_of};
+    let doc = vectors();
+    let tree = &doc["tree"];
+    let expect = &tree["expect"];
+    let leaves: Vec<[u8; 32]> = tree["leaf_data"]
+        .as_array()
+        .expect("leaf_data")
+        .iter()
+        .map(|d| hash::merkle_leaf(&unhex(d.as_str().expect("hex"))))
+        .collect();
+    for (i, leaf) in leaves.iter().enumerate() {
+        assert_eq!(
+            hex(leaf),
+            expect["leaves"][i].as_str().expect("hex"),
+            "leaf {i}"
+        );
+    }
+    let roots = expect["roots"].as_array().expect("roots");
+    assert_eq!(roots.len(), leaves.len() + 1);
+    let mut frontier = Frontier::new();
+    for (n, want) in roots.iter().enumerate() {
+        let want = want.as_str().expect("hex");
+        assert_eq!(hex(&root_of(&leaves[..n])), want, "root of {n}");
+        assert_eq!(hex(&frontier.root()), want, "frontier root of {n}");
+        if n < leaves.len() {
+            frontier.push_leaf(leaves[n]);
+        }
+    }
+    for k in tree["segment_exponents"].as_array().expect("exponents") {
+        let k = u8::try_from(k.as_u64().expect("k")).expect("u8");
+        let seg = Segments::new(k).expect("layout");
+        let want = expect["segment_roots"][k.to_string()]
+            .as_array()
+            .expect("roots");
+        let size = u64::try_from(leaves.len()).expect("u64");
+        assert_eq!(
+            want.len(),
+            usize::try_from(seg.full_segments(size)).expect("usize")
+        );
+        let mut folded = Frontier::new();
+        for (n, root) in want.iter().enumerate() {
+            let r = seg.range(u64::try_from(n).expect("u64"));
+            let chunk = &leaves
+                [usize::try_from(r.start).expect("usize")..usize::try_from(r.end).expect("usize")];
+            assert_eq!(
+                hex(&root_of(chunk)),
+                root.as_str().expect("hex"),
+                "k={k} segment {n}"
+            );
+            folded
+                .push_subtree(u32::from(k), root_of(chunk))
+                .expect("aligned");
+        }
+        for leaf in &leaves[usize::try_from(seg.full_segments(size) << k).expect("usize")..] {
+            folded.push_leaf(*leaf);
+        }
+        assert_eq!(folded.root(), root_of(&leaves), "k={k} folded root");
+    }
+}

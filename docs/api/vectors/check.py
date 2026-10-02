@@ -147,11 +147,38 @@ def json_to_cbor_header(hd, commitment):
     ]
 
 
+# --- the Merkle tree (RFC 6962 §2.1) ---------------------------------------------
+
+
+def mth(leaves):
+    if not leaves:
+        return hashlib.sha256(b"").digest()
+    if len(leaves) == 1:
+        return leaves[0]
+    k = 1
+    while k * 2 < len(leaves):
+        k *= 2
+    return h(TAG_NODE, mth(leaves[:k]), mth(leaves[k:]))
+
+
+def derive_tree(t):
+    leaves = [h(TAG_LEAF, bytes.fromhex(d)) for d in t["leaf_data"]]
+    return {
+        "leaves": [l.hex() for l in leaves],
+        "roots": [mth(leaves[:n]).hex() for n in range(len(leaves) + 1)],
+        "segment_roots": {
+            str(k): [mth(leaves[i : i + 2**k]).hex() for i in range(0, len(leaves) - 2**k + 1, 2**k)]
+            for k in t["segment_exponents"]
+        },
+    }
+
+
 def derive(doc):
     for c in doc["cbor"]:
         c["expect"] = {"hex": encode(c["json"]).hex()}
     for r in doc["records"]:
         r["expect"] = derive_record(r)
+    doc["tree"]["expect"] = derive_tree(doc["tree"])
 
 
 # --- cross-check with cbor2, when present --------------------------------------
@@ -208,7 +235,7 @@ def main():
         return
     if json.dumps(doc, sort_keys=True) != before:
         raise SystemExit("log-v1.json is out of date: run check.py --write and review the diff")
-    print(f"{len(doc['cbor'])} CBOR vectors and {len(doc['records'])} records check out")
+    print(f"{len(doc['cbor'])} CBOR vectors, {len(doc['records'])} records and the tree check out")
 
 
 if __name__ == "__main__":
