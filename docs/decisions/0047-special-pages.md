@@ -2,8 +2,10 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
+- **Updated:** 2026-10-01 (A2)
 - **Author:** James Hare / Claude Opus
-- **Related:** [0002 — Source graphs and mass ingest](0002-source-graphs-and-mass-ingest.md) (§6 extends §7: the correction list is `Special:Corrections`), [0004 — Identity clusters and equivalence](0004-identity-clusters-and-equivalence.md) (§6 extends §10: the conflict list is `Special:IdentityConflicts`; §5 uses §2 and §9 for merges), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§14 amends §2), [0007 — Actor identity](0007-actor-identity.md) (§9 settles the open question on serving `Special:Redirect` locally), [0008 — Namespaces and document pages](0008-namespaces-and-document-pages.md) (§8 extends §9: `Special:Import`, and `Special:Export` as its counterpart), [0010 — Site UI](0010-site-ui.md) (§9 extends §2, §3 and §12: the Special pages index, the search results page and the New menu's forms; §1 replaces §12's address table with the registry), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md) (§13 amends §5.6 and §7: page and actor columns, report tables, site statistics; §4.3 amends §5.6's rebuild rule for batch reports), [0015 — Record format and partition registry](0015-record-format-and-partition-registry.md) (§1 extends §5: `special-pages.toml`; §4.3 extends §3: the instance-scope `reports` config kind), [0016 — Permissions and access control](0016-permissions-and-access-control.md) (§12 extends §2: `nuke`), [0018 — Tenants](0018-tenants.md) (§3 extends §11: where special pages are served), [0023 — Protection, deletion, hiding and patrolling](0023-moderation.md) (§7 extends §9 and §11: `Special:Nuke` and `nuke`), [0024 — Subsidiary accounts, API keys and rate limits](0024-subsidiary-accounts.md) (§8 and §12 amend §5: the `export` class and a `sysop` row for `job`), [0029 — Resolver namespaces](0029-resolver-namespaces.md) (§5 extends §3: the item form is `Special:NewItem`), [0031 — Property constraints](0031-property-constraints.md) (§4.2 amends §3: `ConstraintReport` defaults to the local graph), [0034 — Frontend technology stack](0034-frontend-stack.md) (§5 follows §1 and §10: forms without JavaScript, through the public API), [0042 — Template expansion and the Parsoid renderer](0042-template-expansion-and-parsoid.md) (§4.3 extends §10: the refresh job applies report deltas; §13's site statistics serve §5's `NUMBEROF*` variables), [0046 — The primary tenant](0046-primary-tenant.md) (§3 extends §7: special pages where the farm base is a tenant's base)
+- **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0029](0029-resolver-namespaces.md), [0031](0031-property-constraints.md), [0042](0042-template-expansion-and-parsoid.md), [0046](0046-primary-tenant.md)
+- **Uses:** [0019](0019-discussions.md), [0021](0021-notifications.md), [0028](0028-tenancy-policy.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md)
 
 ## Context
 
@@ -103,7 +105,7 @@ James's direction, from the design discussion of 2026-09-30:
 
 **Localized aliases** are messages in `i18n/` ([0034](0034-frontend-stack.md) §9), in the shape of MediaWiki's `*.alias.php` files. The first alias in the tenant's content language is the name the UI links to. Every alias in every language resolves. The registry holds the English names, which are the ones a tool can rely on.
 
-### 3. Where a page is served (extends 0018 §11; refines 0046 §7)
+### 3. Where a page is served (extends 0018 §11 and 0046 §7)
 
 **A page is served where its subject lives.**
 
@@ -288,7 +290,7 @@ All three are in the `identity` group of `Special:SpecialPages`.
 | A new version of someone else's file | Reverts the file to the previous version ([0039](0039-files-and-media.md) §2, `upload/revert`) |
 | Change sets on others' entities, or on page statements ([0038](0038-page-metadata-and-categories.md) §1) | Appends the inverse change sets. Later edits by others are kept, as a job revert keeps them ([0010](0010-site-ui.md) §9). |
 | Text edits to others' pages | Rolls back, restoring the latest revision by another actor, where the target's edits are the latest. Otherwise the page is listed and left alone, as rollback does. |
-| Posts in others' threads | Hides the post's `text` part with a `record` ACL (0023 §5), since only a whole thread is deleted ([0019](0019-discussions.md) §1, as amended by 0023 §4) and a post's text is its record's `text` part (0019 §4) |
+| Posts in others' threads | Hides the post's `text` part with a `record` ACL (0023 §5), since only a whole thread is deleted ([0019](0019-discussions.md) §1) and a post's text is its record's `text` part (0019 §4) |
 | Edit summaries, optionally | Hides the `comment` part of each of the target's records. Needs `deleterevision`. |
 
 Foreign entities are never deleted (0023 §1). The target's local assertions about them are reverted, and upstream's content is untouched.
@@ -347,7 +349,7 @@ It needs `ts-revertjob` and, because it retires deletions, `undelete`.
 - **Foreign entities are not exported.** Their content is upstream's. `Special:EntityData` serves their resolved view.
 - **Files.** With `files`, file versions are added as `<upload>` elements with their contents, which 0039 §14's import accepts. The total is capped by `export.max_bytes`. Over the cap, URLs are written in place of contents.
 - **Not in the XML:**
-  - page statements ([0038](0038-page-metadata-and-categories.md)), which no Wikibase slot carries (open questions);
+  - page statements ([0038](0038-page-metadata-and-categories.md) §1), which no Wikibase slot carries (Q4);
   - threads and composite talk pages. They are left out by default, and with `threads` they are written with their own content models, which a MediaWiki importer refuses.
 
 **A second format, `records`, is verifiable.**
@@ -385,9 +387,9 @@ These are served with MediaWiki's or Wikibase's meaning and parameters. The note
 | `ChangeContentModel` | [0041](0041-content-models.md)'s `action=changecontentmodel` |
 | `ExpandTemplates` | [0042](0042-template-expansion-and-parsoid.md)'s expander, in the `parse` rate class; listed while `wikitext.expansion` is on |
 | `ComparePages` | Any two pages or revisions, with 0010 §6's diff |
-| `Redirect` | `user/{id}`, `revision/{id}`, `page/{id}`, `file/{name}` and `logid/{id}`, resolved locally. `file` was already served by 0039 §7. This settles 0007's open question about serving it locally (§15). |
+| `Redirect` | `user/{id}`, `revision/{id}`, `page/{id}`, `file/{name}` and `logid/{id}`, resolved locally. `file` was already served by 0039 §7. This settles [0007](0007-actor-identity.md) Q7. |
 | `RenameUser` | Renaming another account ([0007](0007-actor-identity.md) §4; `renameuser`) |
-| `UserLogout`, `PasswordReset` | Session end; a reset for the built-in `password` issuer (0007 §3, amended 2026-09-27), sent by the email channel of 0021 |
+| `UserLogout`, `PasswordReset` | Session end; a reset for the built-in `password` issuer (0007 §3), sent by the email channel of 0021 |
 | `UploadStash` | One's stashed uploads (0039) |
 | `ItemDisambiguation` | Wikibase's label lookup (`/{language}/{label}`). 0029 §3's resolver disambiguation uses its layout. |
 | `Statistics` | `view.site_stats` (§13), which also serves `siprop=statistics`, the `NUMBEROF*` variables ([0042](0042-template-expansion-and-parsoid.md) §5) and `mw.site.stats` ([0043](0043-lua-modules.md)) |
@@ -400,7 +402,7 @@ These are served with MediaWiki's or Wikibase's meaning and parameters. The note
 |---|---|---|
 | `LinkSearch` | deferred | An external-links table. [0042](0042-template-expansion-and-parsoid.md) §9 extracts external links, but no table holds them. |
 | `PagesWithProp` | deferred | A page-properties table. 0042 §4 returns page properties, but none are stored. |
-| `ListRedirects`, `BrokenRedirects`, `DoubleRedirects`, `RandomRedirect` | deferred | Page redirects ([0008](0008-namespaces-and-document-pages.md) open questions) |
+| `ListRedirects`, `BrokenRedirects`, `DoubleRedirects`, `RandomRedirect` | deferred | Page redirects ([0008](0008-namespaces-and-document-pages.md) Q8) |
 | `Mute` | deferred | Undecided |
 | `BookSources` | deferred | A bound ISBN resolver (`resolvers.toml` has a draft). It would then be an alias of that resolver. |
 | `AutoblockList` | deferred | Autoblocks, which [0016](0016-permissions-and-access-control.md) does not specify |
@@ -492,32 +494,11 @@ CREATE TABLE view.site_stats (                  -- §9: MediaWiki's site_stats
 
 ### 14. Crates (amends 0005 §2)
 
-| Crate | Change |
-|---|---|
-| `triplespace-titles` | Embeds `special-pages.toml`. Resolves `Special:` names, aliases (case-folded) and section aliases, and applies the farm/tenant scope rules (§1–3). |
-| `triplespace-projections` | The `report` and `site_stats` projections, the new `page` and `actor` columns, and the batch report runner (§4, §13) |
-| `scatter-integrity` | Building and verifying a `records` export: a selection of records with inclusion proofs (§8) |
-| `triplespace-api-action`, `triplespace-api-rest` | `specialpagealiases`, `list=querypage`, `export`, and the routes of §11 |
-| `triplespace-server` | Serves the pages the registry marks `served`, including the forms of §5 and the pages of §6–9 |
-| `triplespace-cli` | `verify --records` |
+*Changed by A1.*
 
-No crate is added.
+*Superseded by [0005](0005-crate-organization.md) §2 (A1).*
 
-### 15. Changes to other ADRs
-
-- **[0002](0002-source-graphs-and-mass-ingest.md) §7 and [0004](0004-identity-clusters-and-equivalence.md) §10:** the correction list and the conflict list are `Special:Corrections` and `Special:IdentityConflicts` (§6).
-- **[0005](0005-crate-organization.md) §2:** the crate changes listed above.
-- **[0007](0007-actor-identity.md):** the open question on serving `Special:Redirect/user/{id}` locally is settled: it is served, with the other `Redirect` forms (§9).
-- **[0008](0008-namespaces-and-document-pages.md) §9:** `Special:Import` is the form for the import job, and `Special:Export` its counterpart (§8).
-- **[0010](0010-site-ui.md) §2, §3 and §12:** the Special pages link goes to `Special:SpecialPages`, the **New** menu to `NewItem` and `NewProperty`, and the full results page is `Special:Search`. The address table is now the registry.
-- **[0013](0013-postgres-storage.md) §5.6 and §7:** the tables, columns and projection order of §13.
-- **[0015](0015-record-format-and-partition-registry.md) §3 and §5, and [0016](0016-permissions-and-access-control.md) §2:** the `reports` config kind, a new registry file, and `nuke`.
-- **[0018](0018-tenants.md) §11 and [0046](0046-primary-tenant.md) §7:** the scope rule of §3.
-- **[0023](0023-moderation.md) §9 and §11:** `Special:Nuke` and `nuke`.
-- **[0024](0024-subsidiary-accounts.md) §5:** the `export` class and the `sysop` row of the `job` class.
-- **[0029](0029-resolver-namespaces.md) §3:** "Create an item with this DOI" opens `Special:NewItem` with the statement filled in.
-- **[0031](0031-property-constraints.md) §3:** `ConstraintReport` defaults to the local graph.
-- **[0042](0042-template-expansion-and-parsoid.md) §10:** the refresh job applies report deltas for the tables it writes (§4.3); `view.site_stats` serves the `NUMBEROF*` variables (§13).
+[0005](0005-crate-organization.md) §2 keeps the crate table that CI checks, with every change this section listed. The table this section first gave is in A1.
 
 ## Consequences
 
@@ -527,17 +508,39 @@ No crate is added.
 - **Reports are live without miser mode.** The price is one more projection and some fan-out per link and category change. The instance's `reports` configuration is the escape hatch where a tenant's write rate makes that too costly. Operators can apply it to the whole instance or to one tenant.
 - **Nuke is a job, so it is one row, one patrol mark and one undo.** It reaches entities, statements, files and posts as well as pages, and it can go back further than recent changes.
 - **Exports can be verified.** The `records` format lets someone who holds an export prove what the wiki held, which suits Scatterbase's purposes as well.
-- **Some familiar pages wait on other designs.** `LinkSearch` and `PagesWithProp` wait on tables that 0042 implies but never defines. The redirect reports wait on 0008's page-redirect question.
+- **Some familiar pages wait on other designs.** `LinkSearch` and `PagesWithProp` wait on tables that 0042 implies but never defines. The redirect reports wait on [0008](0008-namespaces-and-document-pages.md) Q8.
 
 ## Open questions
 
-- **The external-links table.** Its shape (MediaWiki's `externallinks` stores reversed domains for prefix search) decides `LinkSearch`, `list=exturlusage`, and edit-filter variables over added links.
-- **A page-properties table.** It would serve `PagesWithProp`, `list=pageswithprop` and `prop=pageprops`.
-- **Global Nuke.** Whether a global group at the farm base ([0028](0028-tenancy-policy.md) §3) may nuke a farm account across every tenant it is linked to, as one job per tenant or as an instance act ([0040](0040-instance-prerogatives.md)).
-- **Page statements in exports.** Whether to carry them in MediaWiki XML as an extra slot, which only Triplespace would read, or only in `records`.
-- **Mute.** Whether `Special:Mute` and user-level muting of notifications ([0021](0021-notifications.md)) and email should exist at all.
-- **Reports over mirror graphs.** Which batch reports over a mirror are worth offering by default, for example mirrored properties without a local constraint, and whether their snapshots should be shared across tenants that mirror the same provider.
-- **Thresholds.** The defaults are placeholders: `nuke.confirm_threshold` (500), `export.sync_revisions` (5,000), `export.max_history` (1,000) and the `reports` `batch_limit` (1,000).
+- **Q1. The external-links table.** Its shape (MediaWiki's `externallinks` stores reversed domains for prefix search) decides `LinkSearch`, `list=exturlusage`, and edit-filter variables over added links.
+- **Q2. A page-properties table.** It would serve `PagesWithProp`, `list=pageswithprop` and `prop=pageprops`.
+- **Q3. Global Nuke.** Whether a global group at the farm base ([0028](0028-tenancy-policy.md) §3) may nuke a farm account across every tenant it is linked to, as one job per tenant or as an instance act ([0040](0040-instance-prerogatives.md)).
+- **Q4. Page statements in exports.** Whether to carry them in MediaWiki XML as an extra slot, which only Triplespace would read, or only in `records`.
+- **Q5. Mute.** Whether `Special:Mute` and user-level muting of notifications ([0021](0021-notifications.md)) and email should exist at all.
+- **Q6. Reports over mirror graphs.** Which batch reports over a mirror are worth offering by default, for example mirrored properties without a local constraint, and whether their snapshots should be shared across tenants that mirror the same provider.
+- **Q7. Thresholds.** The defaults are placeholders: `nuke.confirm_threshold` (500), `export.sync_revisions` (5,000), `export.max_history` (1,000) and the `reports` `batch_limit` (1,000).
+
+## Changes to other ADRs
+
+| Target | By | Change | Target's log |
+|---|---|---|---|
+| [0002](0002-source-graphs-and-mass-ingest.md) §7 | §6 | extends | 0002 A16 |
+| [0004](0004-identity-clusters-and-equivalence.md) §10 | §5–6 | extends | 0004 A8 |
+| [0005](0005-crate-organization.md) §2 | §14 | extends | 0005 A47 |
+| [0007](0007-actor-identity.md) Q7 | §9 | settles | 0007 Q7 |
+| [0008](0008-namespaces-and-document-pages.md) §9 | §8 | extends | 0008 A16 |
+| [0010](0010-site-ui.md) §2, §3, §12 | §1, §5, §9 | extends | 0010 A27 |
+| [0013](0013-postgres-storage.md) §5.6 | §4.3, §13 | amends | 0013 A19 |
+| [0013](0013-postgres-storage.md) §7 | §4.3, §13 | extends | 0013 A19 |
+| [0015](0015-record-format-and-partition-registry.md) §3, §5 | §1, §4.3 | extends | 0015 A21 |
+| [0016](0016-permissions-and-access-control.md) §2 | §12 | extends | 0016 A16 |
+| [0018](0018-tenants.md) §11 | §3 | extends | 0018 A9 |
+| [0023](0023-moderation.md) §9, §11 | §7, §12 | extends | 0023 A6 |
+| [0024](0024-subsidiary-accounts.md) §5 | §8, §12 | amends | 0024 A7 |
+| [0029](0029-resolver-namespaces.md) §3 | §5, §9 | extends | 0029 A4 |
+| [0031](0031-property-constraints.md) §3 | §4.2 | amends | 0031 A2 |
+| [0042](0042-template-expansion-and-parsoid.md) §10 | §4.3, §13 | extends | 0042 A3 |
+| [0046](0046-primary-tenant.md) §7 | §3 | extends | 0046 A2 |
 
 ## References
 
@@ -547,3 +550,48 @@ No crate is added.
 - [API:Querypage](https://www.mediawiki.org/wiki/API:Querypage), [API:Siteinfo](https://www.mediawiki.org/wiki/API:Siteinfo) (`specialpagealiases`, `statistics`)
 - [Extension:Nuke](https://www.mediawiki.org/wiki/Extension:Nuke)
 - [Help:Export](https://www.mediawiki.org/wiki/Help:Export), [Manual:$wgExportMaxHistory](https://www.mediawiki.org/wiki/Manual:$wgExportMaxHistory)
+
+## Amendment log
+
+### A1. Crate table
+
+- **Date:** 2026-09-30
+- **Source:** [0005](0005-crate-organization.md) §2
+- **Change:** supersedes §14
+- **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A47).
+
+Replaced text (§14):
+
+> | Crate | Change |
+> |---|---|
+> | `triplespace-titles` | Embeds `special-pages.toml`. Resolves `Special:` names, aliases (case-folded) and section aliases, and applies the farm/tenant scope rules (§1–3). |
+> | `triplespace-projections` | The `report` and `site_stats` projections, the new `page` and `actor` columns, and the batch report runner (§4, §13) |
+> | `scatter-integrity` | Building and verifying a `records` export: a selection of records with inclusion proofs (§8) |
+> | `triplespace-api-action`, `triplespace-api-rest` | `specialpagealiases`, `list=querypage`, `export`, and the routes of §11 |
+> | `triplespace-server` | Serves the pages the registry marks `served`, including the forms of §5 and the pages of §6–9 |
+> | `triplespace-cli` | `verify --records` |
+>
+> No crate is added.
+
+### A2. Converted to the 0050 format
+
+- **Date:** 2026-10-01
+- **Source:** [0050](0050-adr-format.md) §13
+- **Change:** consolidates §14–15
+- **Summary:** A1 was folded into the Decision. The open questions were numbered, and the list this ADR kept as §15, "Changes to other ADRs" (quoted below), was replaced by the generated table, so the Decision now ends at §14. No decision changed. Before this, A1 was recorded only in 0005. The file before conversion is commit `0b26a3a`.
+
+Replaced text (§15):
+
+> - **[0002](0002-source-graphs-and-mass-ingest.md) §7 and [0004](0004-identity-clusters-and-equivalence.md) §10:** the correction list and the conflict list are `Special:Corrections` and `Special:IdentityConflicts` (§6).
+> - **[0005](0005-crate-organization.md) §2:** the crate changes listed above.
+> - **[0007](0007-actor-identity.md):** the open question on serving `Special:Redirect/user/{id}` locally is settled: it is served, with the other `Redirect` forms (§9).
+> - **[0008](0008-namespaces-and-document-pages.md) §9:** `Special:Import` is the form for the import job, and `Special:Export` its counterpart (§8).
+> - **[0010](0010-site-ui.md) §2, §3 and §12:** the Special pages link goes to `Special:SpecialPages`, the **New** menu to `NewItem` and `NewProperty`, and the full results page is `Special:Search`. The address table is now the registry.
+> - **[0013](0013-postgres-storage.md) §5.6 and §7:** the tables, columns and projection order of §13.
+> - **[0015](0015-record-format-and-partition-registry.md) §3 and §5, and [0016](0016-permissions-and-access-control.md) §2:** the `reports` config kind, a new registry file, and `nuke`.
+> - **[0018](0018-tenants.md) §11 and [0046](0046-primary-tenant.md) §7:** the scope rule of §3.
+> - **[0023](0023-moderation.md) §9 and §11:** `Special:Nuke` and `nuke`.
+> - **[0024](0024-subsidiary-accounts.md) §5:** the `export` class and the `sysop` row of the `job` class.
+> - **[0029](0029-resolver-namespaces.md) §3:** "Create an item with this DOI" opens `Special:NewItem` with the statement filled in.
+> - **[0031](0031-property-constraints.md) §3:** `ConstraintReport` defaults to the local graph.
+> - **[0042](0042-template-expansion-and-parsoid.md) §10:** the refresh job applies report deltas for the tables it writes (§4.3); `view.site_stats` serves the `NUMBEROF*` variables (§13).
