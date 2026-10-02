@@ -32,7 +32,7 @@ James's direction, from the design discussion of 2026-10-01:
 
 **Everything else is what a document page does.** A board is renamed with a page `move` ([0008](0008-namespaces-and-document-pages.md) §4), and its threads follow because they are attached by page ID. It is protected and deleted with ACLs ([0023](0023-moderation.md)), with the effect on its threads given in §7. It carries page statements, as every document page does ([0038](0038-page-metadata-and-categories.md) §1), and they are the board's metadata, not its threads'.
 
-**Where boards fit.** Boards are for village pumps, noticeboards, help desks, project chat and announcement channels. `Project talk:` stays what every talk namespace is: discussion of the page beside it. The importer for existing wikitext talk pages (0019, open questions) gains a natural destination: a village pump splits into threads homed on a board.
+**Where boards fit.** Boards are for village pumps, noticeboards, help desks, project chat and announcement channels. `Project talk:` stays what every talk namespace is: discussion of the page beside it. The importer for existing wikitext talk pages (0019 Q5) gains a natural destination: a village pump splits into threads homed on a board.
 
 **No subpages.** `Board:Help/Images` would be a second way to express a hierarchy that scopes (§14) express better. Subpages are off, so that turning them on later breaks no title.
 
@@ -294,7 +294,7 @@ No new crate.
 - **Pinned threads.** Whether a board's definition may name threads to show first, as an announcements board needs.
 - **Detaching one's own thread.** Whether a thread's author may remove their thread from a listing without `move`.
 - **Board moderators.** Whether a board needs a group of its own beyond what ACLs on it express.
-- **DiscussionTools** (0019, open questions): which page a `discussiontoolspageinfo` call on a listing page reports for a listed thread.
+- **DiscussionTools** (0019 Q4): which page a `discussiontoolspageinfo` call on a listing page reports for a listed thread.
 
 ## References
 
