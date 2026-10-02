@@ -1,9 +1,11 @@
-# 0034 — Frontend technology stack
+# 0034. Frontend technology stack
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Amended by:** [0042 — Template expansion and the Parsoid renderer](0042-template-expansion-and-parsoid.md) (§15 amends §6: pages that need expansion preview on the server), [0043 — Lua modules](0043-lua-modules.md) (§13 extends §7: a Lua mode), [0045 — Tables](0045-table-content-model.md) (§11 extends §4: the table grid editor)
-- **Related:** [0010 — Site UI](0010-site-ui.md) (§1–6 settle the rendering open question and amend §4 and §13), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (amends §2: `triplespace-ui` and `scatter-wasm`), 0003, 0005, 0008, 0010, 0012, 0014, 0019, 0020, 0021, 0027, 0033
+- **Updated:** 2026-10-01 (A4)
+- **Author:** James Hare / Claude
+- **Changes:** [0005](0005-crate-organization.md), [0010](0010-site-ui.md)
+- **Uses:** [0003](0003-statement-ui.md), [0012](0012-api-requirements.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0029](0029-resolver-namespaces.md), [0033](0033-backend-stack.md)
 
 ## Context
 
@@ -23,7 +25,7 @@ The backend stack is in 0033.
 4. **Codex as-is.** Codex tokens, components and icons without overrides. Where a design needs something Codex lacks, it is built from Codex tokens and proposed upstream.
 5. **The public API only** (0012 §1). The browser calls public routes. The server-side renderer calls the API crates' handler layer in-process, never `view` tables directly, so every page gets the same per-viewer redaction as the API.
 
-### 2. Server rendering (`triplespace-ui`)
+### 2. Server rendering, in `triplespace-ui`
 
 - **Templates:** `askama`, compiled and type-checked with the Rust code.
 - **Codex markup:** a Rust builder module that emits Codex CSS-only component markup (buttons, fields, tables, cards, tabs, messages, chips, progress bars), following the approach of WMF's Codex PHP. Templates call the builder instead of writing Codex class names by hand, so a Codex markup change is one edit.
@@ -31,7 +33,7 @@ The backend stack is in 0033.
 - **Assets:** Codex CSS, design tokens and icons come from the pinned `@wikimedia/codex`, `@wikimedia/codex-design-tokens` and `@wikimedia/codex-icons` packages at build time (§8), with hashed file names, served by the binary with long-lived cache headers.
 - **Mobile:** one responsive site built on Codex's breakpoints. No separate mobile domain or skin. Detailed mobile layouts stay open (0010).
 
-### 3. Statement groups (0003)
+### 3. Statement groups (uses 0003 §3)
 
 - The layouts of 0003 (table, matrix, chart, timeline, chips, "Same for all N", footnoted shared references) are rendered **only on the server**.
 - Tables use Codex's CSS-only Table.
@@ -39,6 +41,8 @@ The backend stack is in 0033.
 - The shape classifier lives in a pure, wasm-capable crate, so an editor can predict the layout a change will produce (§6).
 
 ### 4. Interactive components
+
+*Changed by A3.*
 
 Vue 3 with Codex's Vue components, written in TypeScript, mounted into placeholders in the server-rendered HTML. Each component reads its initial data from a `<script type="application/json">` block the server writes beside the placeholder.
 
@@ -54,9 +58,7 @@ Vue 3 with Codex's Vue components, written in TypeScript, mounted into placehold
 | Job progress (0012) | ProgressBar | `Special:Jobs/{id}` |
 | User, group and consumer pickers on special pages | Lookup | the form field |
 
-Statement editing requires JavaScript, as on Wikidata. Reading, page source editing through a plain form, and the account pages work without it.
-
-> **Extended by [0045](0045-table-content-model.md) §11.** A table grid editor (Codex Table, Lookup, TextInput; the statement value editor for cells) over the server-rendered grid of a `Table` page. Reading a table needs no JavaScript.
+Statement editing requires JavaScript, as on Wikidata. Reading, page source editing through a plain form, and the account pages work without it. A **table grid editor** (Codex Table, Lookup, TextInput; the statement value editor for cells) sits over the server-rendered grid of a `Table` page; reading a table needs no JavaScript ([0045](0045-table-content-model.md) §11).
 
 ### 5. Fragment routes
 
@@ -68,7 +70,9 @@ After a component saves, it fetches the server's rendering of the changed region
 
 They carry the same `ETag`, `Cache-Tag` and redaction as full pages (0014 §3). Full page renders are assembled from the same fragment functions, so a fragment and its page cannot drift.
 
-### 6. Rust in the browser (`scatter-wasm`)
+### 6. Rust in the browser, in `scatter-wasm`
+
+*Changed by A1.*
 
 One `wasm-bindgen` crate re-exports what editors need from the pure crates:
 
@@ -76,15 +80,13 @@ One `wasm-bindgen` crate re-exports what editors need from the pure crates:
 - `scatter-normalize` (value normalization and keyed-ID grammars, 0017, 0029);
 - `scatter-wikitext` and the `scatter-pages` markdown renderer, for live preview.
 
-It is built with `wasm-bindgen-cli` and `wasm-opt`, lazy-loaded only by editors, and never needed for reading. This is one reason 0033 §9.1 chose a pure-Rust wikitext parser.
-
-> **Amended by [0042](0042-template-expansion-and-parsoid.md) §15.** When the source needs expansion the browser cannot do, the preview comes from `action=parse` on the server instead.
+It is built with `wasm-bindgen-cli` and `wasm-opt`, lazy-loaded only by editors, and never needed for reading. This is one reason 0033 §9.1 chose a pure-Rust wikitext parser. When the source needs expansion the browser cannot do, the preview comes from `action=parse` on the server instead ([0042](0042-template-expansion-and-parsoid.md) §15).
 
 ### 7. Source editor
 
-CodeMirror 6, which MediaWiki's CodeMirror extension also uses, with its wikitext mode and a markdown mode. Edit conflicts (0010 §5) are shown as line decorations. `[[` triggers link autocomplete through the suggest route (0012). `tree-sitter-wikitext` through `web-tree-sitter` is an optional later enhancement for structural highlighting.
+*Changed by A2.*
 
-> **Extended by [0043](0043-lua-modules.md) §13.** A Lua mode for module pages.
+CodeMirror 6, which MediaWiki's CodeMirror extension also uses, with its wikitext mode, a markdown mode and a Lua mode for module pages ([0043](0043-lua-modules.md) §13). Edit conflicts (0010 §5) are shown as line decorations. `[[` triggers link autocomplete through the suggest route (0012). `tree-sitter-wikitext` through `web-tree-sitter` is an optional later enhancement for structural highlighting.
 
 ### 8. Build
 
@@ -144,19 +146,63 @@ Nothing in the UI changes when the source becomes a Triplespace instance, becaus
 - The build needs Node, though the running system does not.
 - Codex upgrades are deliberate: versions are pinned and bumped in their own commits, with snapshot and accessibility tests as the check.
 
-## Changes to other ADRs
-
-- **0010:** the server-or-client rendering question is settled by §1–§5; mobile is settled as one responsive site (§2), with detailed layouts still open.
-- **0003:** renderers and chart drawing per §3.
-- **0012:** fragment routes of §5 added to the REST route groups.
-- **0014:** fragments cached and purged like pages (§5).
-- **0005:** new crates `triplespace-ui` (surfaces layer) and `scatter-wasm` (wasm bindings over pure crates); `ui/` workspace noted; changelog row.
-
 ## Open questions
 
-1. Codex upgrade cadence, and whether to track the version bundled with a MediaWiki release.
-2. Night mode: adopt Codex's dark-mode tokens when they are stable.
-3. Whether the Rust Codex builder becomes a published crate other projects can use.
-4. An interactive charting library for exploring a property's full view (0003), beyond the static SVGs.
-5. Visual regression testing.
-6. The maturity of the `banana-i18n` Rust crate (§9).
+- **Q1.** Codex upgrade cadence, and whether to track the version bundled with a MediaWiki release.
+- **Q2.** Night mode: adopt Codex's dark-mode tokens when they are stable.
+- **Q3.** Whether the Rust Codex builder becomes a published crate other projects can use.
+- **Q4.** An interactive charting library for exploring a property's full view (0003), beyond the static SVGs.
+- **Q5.** Visual regression testing.
+- **Q6.** The maturity of the `banana-i18n` Rust crate (§9).
+
+## Changes to other ADRs
+
+| Target | By | Change | Target's log |
+|---|---|---|---|
+| [0005](0005-crate-organization.md) §2, §3 | §2, §6 | extends | 0005 A33 |
+| [0005](0005-crate-organization.md) Consequences | §2, §6 | amends | 0005 A33 |
+| [0010](0010-site-ui.md) §4, §13 | §1–6 | amends | 0010 A21 |
+| [0010](0010-site-ui.md) Q6 | §1–5 | settles | 0010 Q6 |
+| [0010](0010-site-ui.md) Q7 | §2 | settles | 0010 Q7 |
+
+## Amendment log
+
+### A1. Expansion preview on the server
+
+- **Date:** 2026-09-30
+- **Source:** [0042](0042-template-expansion-and-parsoid.md) §15
+- **Change:** amends §6
+- **Summary:** When the source needs expansion the browser cannot do, the preview comes from `action=parse` on the server instead.
+
+Replaced text (§6):
+
+> It is built with `wasm-bindgen-cli` and `wasm-opt`, lazy-loaded only by editors, and never needed for reading. This is one reason 0033 §9.1 chose a pure-Rust wikitext parser.
+
+### A2. A Lua mode
+
+- **Date:** 2026-09-30
+- **Source:** [0043](0043-lua-modules.md) §13
+- **Change:** extends §7
+- **Summary:** A Lua mode for module pages.
+
+### A3. The table grid editor
+
+- **Date:** 2026-09-30
+- **Source:** [0045](0045-table-content-model.md) §11
+- **Change:** extends §4
+- **Summary:** A table grid editor (Codex Table, Lookup, TextInput; the statement value editor for cells) over the server-rendered grid of a `Table` page. Reading a table needs no JavaScript.
+
+### A4. Converted to the 0050 format
+
+- **Date:** 2026-10-01
+- **Source:** [0050](0050-adr-format.md) §13
+- **Change:** consolidates §1–13
+- **Summary:** A1–A3 were folded into the Decision. The title's em dash became a full stop, the open questions were numbered, the Author line was added, and the list this ADR kept under "Changes to other ADRs" (quoted below) was replaced by the generated table. That list also claimed changes to 0003 §3, 0012 §5 and 0014 §5 (renderers, the fragment routes, fragment caching); none was ever written into those ADRs, and nothing records them there, so the fragment routes and their caching are stated in §5 of this ADR alone. No decision changed. Before this, A1–A3 were blockquotes. The file before conversion is commit `0b26a3a`.
+
+Replaced text (Changes to other ADRs):
+
+> - **0010:** the server-or-client rendering question is settled by §1–§5; mobile is settled as one responsive site (§2), with detailed layouts still open.
+> - **0003:** renderers and chart drawing per §3.
+> - **0012:** fragment routes of §5 added to the REST route groups.
+> - **0014:** fragments cached and purged like pages (§5).
+> - **0005:** new crates `triplespace-ui` (surfaces layer) and `scatter-wasm` (wasm bindings over pure crates); `ui/` workspace noted; changelog row.
