@@ -2,8 +2,10 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
+- **Updated:** 2026-10-01 (A2)
 - **Author:** James Hare / Claude Opus
-- **Related:** [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§17 amends §2: `triplespace-scribunto`; amends §3 rule 2), [0008 — Namespaces and document pages](0008-namespaces-and-document-pages.md) (§2 amends §2: Module and Module talk; §3 amends §5: a server-run model is not an executable model in §5's sense), [0012 — API requirements for the site UI](0012-api-requirements.md) (§16 extends §4), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md) (§10 extends §5.6: `view.entity_usage`), [0014 — Cache layers and search](0014-caches-and-search.md) (§6 extends §4: parsed data modules in L1), [0017 — Entity ID grammar](0017-entity-id-grammar.md) (§8 uses §1), [0018 — Tenants](0018-tenants.md) (§8 uses §3: a Lua ID letter can name only a provider the tenant reads), [0026 — Sitelinks are URLs](0026-sitelinks.md) (§9 uses §2: the client site is a site alias), [0033 — Backend technology stack](0033-backend-stack.md) (§4 and §14 extend §1: Lua 5.1 through `mlua`, and vendored GPL Lua), [0034 — Frontend technology stack](0034-frontend-stack.md) (§13 extends §7: a Lua mode), [0038 — Page metadata, legacy categories and articles](0038-page-metadata-and-categories.md) (§9 uses §6: the default client site is the tenant's own), [0041 — Content models](0041-content-models.md) (§3 extends §3: the `Scribunto` model), [0042 — Template expansion and the Parsoid renderer](0042-template-expansion-and-parsoid.md) (§1 extends §2; §10 extends §10: entity usage), [0044 — Tenant-relative IDs](0044-tenant-relative-ids.md) (§8 uses §1)
+- **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md)
+- **Uses:** [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0026](0026-sitelinks.md), [0038](0038-page-metadata-and-categories.md), [0044](0044-tenant-relative-ids.md)
 
 ## Context
 
@@ -191,7 +193,7 @@ The output rule applies everywhere an ID appears in what the host returns: an en
 
 The source editor gains CodeMirror's Lua mode. **Previewing a module** runs a chosen page with the edited module in its place, server-side, under the `parse` rate class ([0042](0042-template-expansion-and-parsoid.md) §16), as Scribunto's "Preview page with this module" does. Editing needs `edit`, as in MediaWiki; protection works as for any page.
 
-### 14. Licensing (extends 0033 §1; amends 0005 §3)
+### 14. Licensing (extends 0033 §1 and 0005 §3)
 
 **The vendored Lua is GPL code:** Scribunto is "GPL-2.0-or-later AND MIT", WikibaseClient GPL-2.0-or-later. Both are on 0033 §1's accepted list, so the binary may include them.
 
@@ -218,18 +220,11 @@ The source editor gains CodeMirror's Lua mode. **Previewing a module** runs a ch
 
 ### 17. Crates (amends 0005 §2)
 
-| Crate | Change |
-|---|---|
-| `triplespace-scribunto` *(new)* | Pure; links Lua 5.1 through `mlua`. The interpreter and sandbox (§4); the vendored Scribunto and WikibaseClient Lua (§5, §7); the Rust side of their interfaces behind a host trait; the Lua-pattern matcher; data-module trees (§6); the ID translation of §8; Wikibase Client formatting, `#property` and `#statements` (§7); usage-aspect recording (§10). Depends on `scatter-wikitext-expand`, `scatter-wikibase-model`, `scatter-providers` and `mlua` |
-| `scatter-wikitext-expand` | `#invoke` calls out through `ExpandHost`; `#property` and `#statements` are registered (§7) |
-| `triplespace-render` | Implements the Lua host trait over the serving model; `view.entity_usage` and aspect-matched invalidation (§10); the unheld-entity expiry (§11). Gains a dependency on `triplespace-scribunto` |
-| `triplespace-titles` | Module and Module talk, with the title rules of §2 |
-| `triplespace-db` | The migration for `view.entity_usage` |
-| `triplespace-cache` | `ld:` keys (§6) |
-| `triplespace-api-action` | The modules of §16 |
-| `scatter-pages` | The `Scribunto` model's registry entry and syntax check hook (§3) |
+*Changed by A1.*
 
-The workspace goes from fifty-one crates to fifty-two.
+*Superseded by [0005](0005-crate-organization.md) §2 (A1).*
+
+[0005](0005-crate-organization.md) §2 keeps the crate table that CI checks, with `triplespace-scribunto` and every change this section listed. The table this section first gave is in A1.
 
 ## Consequences
 
@@ -242,12 +237,27 @@ The workspace goes from fifty-one crates to fifty-two.
 
 ## Open questions
 
-- **The debug console** (`action=scribunto-console`), and where its sessions live.
-- **Fetching unheld entities on demand** (§11): a bounded, rate-limited fetch into the mirror, against 0012 §6's rule that live fetches are never written to the log.
-- **`convertGrammar` and `gender` coverage,** which MediaWiki implements per language in code.
-- **Lexemes.** `mw.wikibase.lexeme` waits for the Lexeme namespace (146) to be implemented.
-- **`mw.ext.data`** (Commons tabular and map data), which many Wikipedia modules use for lookup tables.
-- **LuaJIT** for speed, if a differential run shows it is safe for real modules.
+- **Q1. The debug console** (`action=scribunto-console`), and where its sessions live.
+- **Q2. Fetching unheld entities on demand** (§11): a bounded, rate-limited fetch into the mirror, against 0012 §6's rule that live fetches are never written to the log.
+- **Q3. `convertGrammar` and `gender` coverage,** which MediaWiki implements per language in code.
+- **Q4. Lexemes.** `mw.wikibase.lexeme` waits for the Lexeme namespace (146) to be implemented.
+- **Q5. `mw.ext.data`** (Commons tabular and map data), which many Wikipedia modules use for lookup tables.
+- **Q6. LuaJIT** for speed, if a differential run shows it is safe for real modules.
+
+## Changes to other ADRs
+
+| Target | By | Change | Target's log |
+|---|---|---|---|
+| [0005](0005-crate-organization.md) §2, §3 | §17 | extends | 0005 A43 |
+| [0008](0008-namespaces-and-document-pages.md) §5 | §2–3 | amends | 0008 A13 |
+| [0008](0008-namespaces-and-document-pages.md) §2 | §2–3 | extends | 0008 A13 |
+| [0012](0012-api-requirements.md) §4 | §16 | extends | 0012 A27 |
+| [0013](0013-postgres-storage.md) §5.6 | §10 | extends | 0013 A17 |
+| [0014](0014-caches-and-search.md) §10 | §6 | extends | 0014 A8 |
+| [0033](0033-backend-stack.md) §1 | §4, §14 | extends | 0033 A4 |
+| [0034](0034-frontend-stack.md) §7 | §13 | extends | 0034 A2 |
+| [0041](0041-content-models.md) §3 | §3 | extends | 0041 A2 |
+| [0042](0042-template-expansion-and-parsoid.md) §2, §10 | §1, §10 | extends | 0042 A2 |
 
 ## References
 
@@ -256,3 +266,34 @@ The workspace goes from fifty-one crates to fifty-two.
 - [Extension:Wikibase Client/Lua](https://www.mediawiki.org/wiki/Extension:Wikibase_Client/Lua); WikibaseClient `client/includes/DataAccess/Scribunto/mw.wikibase.lua`
 - [Wikibase usage tracking](https://doc.wikimedia.org/Wikibase/master/php/docs_topics_usagetracking.html)
 - [mlua](https://github.com/mlua-rs/mlua); [Lua 5.1 reference manual](https://www.lua.org/manual/5.1/)
+
+## Amendment log
+
+### A1. Crate table
+
+- **Date:** 2026-09-30
+- **Source:** [0005](0005-crate-organization.md) §2
+- **Change:** supersedes §17
+- **Summary:** 0005 §2 is the one crate table CI checks, and carries `triplespace-scribunto` and every change this section listed (0005 A43).
+
+Replaced text (§17):
+
+> | Crate | Change |
+> |---|---|
+> | `triplespace-scribunto` *(new)* | Pure; links Lua 5.1 through `mlua`. The interpreter and sandbox (§4); the vendored Scribunto and WikibaseClient Lua (§5, §7); the Rust side of their interfaces behind a host trait; the Lua-pattern matcher; data-module trees (§6); the ID translation of §8; Wikibase Client formatting, `#property` and `#statements` (§7); usage-aspect recording (§10). Depends on `scatter-wikitext-expand`, `scatter-wikibase-model`, `scatter-providers` and `mlua` |
+> | `scatter-wikitext-expand` | `#invoke` calls out through `ExpandHost`; `#property` and `#statements` are registered (§7) |
+> | `triplespace-render` | Implements the Lua host trait over the serving model; `view.entity_usage` and aspect-matched invalidation (§10); the unheld-entity expiry (§11). Gains a dependency on `triplespace-scribunto` |
+> | `triplespace-titles` | Module and Module talk, with the title rules of §2 |
+> | `triplespace-db` | The migration for `view.entity_usage` |
+> | `triplespace-cache` | `ld:` keys (§6) |
+> | `triplespace-api-action` | The modules of §16 |
+> | `scatter-pages` | The `Scribunto` model's registry entry and syntax check hook (§3) |
+>
+> The workspace goes from fifty-one crates to fifty-two.
+
+### A2. Converted to the 0050 format
+
+- **Date:** 2026-10-01
+- **Source:** [0050](0050-adr-format.md) §13
+- **Change:** consolidates §17
+- **Summary:** A1 was folded into the Decision. The open questions were numbered, and §14's heading now says it extends 0005 §3, as 0005 A43 records. No decision changed. Before this, A1 was recorded only in 0005. The file before conversion is commit `0b26a3a`.

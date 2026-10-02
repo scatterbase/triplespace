@@ -351,7 +351,7 @@ The importer may bring the Template and Module pages with full history, as ordin
 
 **Limits** are deployment configuration with MediaWiki's names and MediaWiki's defaults, read from the reference install's `limitreport` output: maximum article size, post-expand include size, template argument size, expansion depth, node count, and expensive function count (shared with Lua, [0043](0043-lua-modules.md) §4). A tenant may lower them and not raise them.
 
-**A new rate class, `parse`** ([0024](0024-subsidiary-accounts.md) §5), counts the expansions a client asks for directly: `action=parse` with `text`, `action=expandtemplates`, server preview, and the Lua console if it is ever added ([0043](0043-lua-modules.md), open questions). The default is 60 per minute for `user` and 600 per minute for `bot`. Page views are not counted; they are cached renders.
+**A new rate class, `parse`** ([0024](0024-subsidiary-accounts.md) §5), counts the expansions a client asks for directly: `action=parse` with `text`, `action=expandtemplates`, server preview, and the Lua console if it is ever added ([0043](0043-lua-modules.md) Q1). The default is 60 per minute for `user` and 600 per minute for `bot`. Page views are not counted; they are cached renders.
 
 ### 17. Search and filters (extends 0014 §7; amends 0030 §2)
 
