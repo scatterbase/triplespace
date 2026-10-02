@@ -2,8 +2,10 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
+- **Updated:** 2026-10-01 (A3)
 - **Author:** James Hare / Claude Fable
-- **Related:** [0001 — Revision metadata in RDF](0001-revision-metadata-rdf.md) (§1 extends §2: a consumer of the main graph can stay current, not only load it; §4 uses §2's graph split), [0002 — Source graphs and mass ingest](0002-source-graphs-and-mass-ingest.md) (§2 diffs the states of §2 and §3; §8.6 bootstrap mode), [0004 — Identity clusters and equivalence](0004-identity-clusters-and-equivalence.md) (§2 follows §4 and its Consequences: a cluster change re-resolves referrers, and every one is an event), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§9 amends §2 and §4.4: the quad store becomes a consumer of the delta), [0006 — Log integrity and erasure](0006-log-integrity-and-erasure.md) (§5 carries erasure to consumers, as §7 asks), [0012 — API requirements for the site UI](0012-api-requirements.md) (§6 extends §5 with the update routes; §7 already computes the truthy delta), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md) (§3 extends §5.6 with `view.rdf_delta` and §7 with the delta projection; §1 and §7 amend §8: dumps are stamped, and the local quad store is fed by the delta), [0014 — Cache layers and search](0014-caches-and-search.md) (§5 extends §5: erasure purges delta rows; §6 is never cached), [0018 — Tenants](0018-tenants.md) (§4 follows §6: shared and overlay deltas), [0020 — Change feeds](0020-change-feeds.md) (§6 amends §4: a second stream, of triples, beside the activity stream), [0022 — Federation: verified data sync and ActivityPub](0022-federation.md) (§8: this stream is not the verified sync of Part A), [0024 — Subsidiary accounts, API keys and rate limits](0024-subsidiary-accounts.md) (§6 uses the `stream` class of §5), [Wikibase data model and ontology contract](../api/wikibase-compat.md) (§4–7)
+- **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0020](0020-change-feeds.md)
+- **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [Wikibase contract](../api/wikibase-compat.md)
 
 ## Context
 
@@ -18,6 +20,8 @@ Three choices James made in review shape the rest: the stream is **selectable pe
 ## Decision
 
 ### 1. The stream is the dump, kept current (extends 0001 §2 and 0013 §8)
+
+*Changed by A2.*
 
 For every graph an instance publishes in RDF, it also publishes the **sequence of changes** to that graph as SPARQL 1.1 Update requests. A consumer loads a dump, notes the **cursor** the dump was taken at, and applies every event after that cursor in order. The result is, at every cursor, the same set of triples the dump would contain if it were taken then. This is the contract, and the end-to-end test in the Consequences checks it.
 
@@ -49,6 +53,8 @@ Each side is rendered to triples by `scatter-wikibase-rdf` ([wikibase-compat.md]
 
 ### 3. Storage: `view.rdf_delta` (extends 0013 §5.6)
 
+*Changed by A2.*
+
 ```sql
 CREATE TABLE view.rdf_delta (
   seq          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,   -- the cursor; one sequence per instance
@@ -69,12 +75,12 @@ CREATE INDEX rdf_delta_entity ON view.rdf_delta (entity_id, seq);   -- the erasu
 ```
 
 - **`seq` is the cursor.** It is one sequence for the instance, so every tenant's stream is a filter over one total order, and it is monotonic in the order deltas were produced, which is the order projections applied them. Consumers apply events in `seq` order and never see two events for one entity out of order.
-- **A transaction is one event.** Every row carries the `txn` of the appending transaction that produced it (`txn bigint NOT NULL`, indexed with `seq`); the deltas of one transaction, an edit with its fan-out within the synchronous budget ([0013](0013-postgres-storage.md) §7, as amended) or one batch of a sync job, are delivered as one event whose cursor is the transaction's last `seq`, so a consumer applies an edit atomically and never sees half of it. The queued remainder of a large fan-out is its own transactions and its own events.
+- **A transaction is one event.** Every row carries the `txn` of the appending transaction that produced it (`txn bigint NOT NULL`, indexed with `seq`); the deltas of one transaction, an edit with its fan-out within the synchronous budget ([0013](0013-postgres-storage.md) §7) or one batch of a sync job, are delivered as one event whose cursor is the transaction's last `seq`, so a consumer applies an edit atomically and never sees half of it. The queued remainder of a large fan-out is its own transactions and its own events.
 - **Retention is a window.** Rows older than `updates.retention` (`site` configuration, default 30 days) are deleted by a daily sweep. A consumer whose cursor has fallen out of the window is told to reload (§6). This is how a Kafka-fed updater behaves, with the window as the topic's retention.
 - **The table is a projection**, rebuilt from the log with every other `view` table ([0013](0013-postgres-storage.md) §7). A rebuild reproduces the same *final* state, but not the same sequence of intermediate states under compaction, and its rows take new `seq` values. Every cursor therefore carries an **epoch**, a number in `ops` that a rebuild increments; a cursor from an earlier epoch is refused with the reload response, as an expired one is.
 - **A delta is never a record.** Nothing here enters the log; the stream is derived, unverifiable and rebuildable, which is what distinguishes it from the verified sync of [0022](0022-federation.md) Part A (§8).
 
-### 4. Tenants: shared deltas and overlay deltas (follows 0018 §6)
+### 4. Tenants: shared deltas and overlay deltas (uses 0018 §6)
 
 A tenant's stream is the sequence of changes to **what that tenant's resolved view shows**. Under [0018](0018-tenants.md) §6 most of a tenant's view is shared rows computed once for the instance; only entities the tenant has touched have overlay rows.
 
@@ -92,6 +98,8 @@ A tenant's stream is the sequence of changes to **what that tenant's resolved vi
 **Hidden and suppressed content never enters a delta**, because the delta is computed from the public form.
 
 ### 6. Delivery: pull, with a sync client (extends 0012 §5)
+
+*Changed by A2.*
 
 The instance **serves**; it never pushes, and it holds no consumer's credentials.
 
@@ -116,9 +124,13 @@ triplespace-cli sparql-sync --source https://librarybase.org --graphs resolved \
 
 It loads the dump on first run when asked, then follows the stream, POSTs each event (or a batch) to the endpoint as `application/sparql-update` with the endpoint's own authorization, and commits the cursor to its state file after the endpoint acknowledges. On `410` it stops and names the dump to load. It speaks only standard SPARQL 1.1 Update over HTTP, so it works against QLever, Oxigraph, Fuseki and any store that does; endpoint-specific options (QLever's access token, a graph-store URL) are flags, not code paths.
 
+**The local quad store is a consumer** ([0013](0013-postgres-storage.md) §8, [0005](0005-crate-organization.md) §4.4). An instance that runs Oxigraph or QLever for its own SPARQL endpoint feeds it from `view.rdf_delta` in process, through `scatter-quadstore`'s `apply(delta)`, or from its own stream with `sparql-sync`; either way it is the same rows the stream serializes, and the separate quad projection of 0013 §8 is retired. `scatter-quadstore` gains `apply(deleted, inserted)` beside `lookup`, which Scatterbase's drivers may implement or ignore.
+
 **Rate limits** are the `stream` class of [0024](0024-subsidiary-accounts.md) §5; a consumer that needs more opens a subsidiary and asks for it. **Permissions:** `read`. A tenant whose partitions are `private` has no stream, as it has no dump.
 
-### 7. Blank nodes are skolemized (amends the dump shape for this purpose)
+### 7. Blank nodes are skolemized (extends 0013 §8)
+
+*Changed by A2.*
 
 Wikibase's RDF gives an *unknown value* snak a blank node object. `DELETE DATA` cannot name a blank node, and a diff between two renderings of one entity cannot match blank nodes at all. In the stream, and in every dump the stream continues from, a blank node is replaced by a **skolem IRI**:
 
@@ -140,17 +152,11 @@ Nothing else in the resolved view's RDF changes. Statement, reference and value 
 
 ### 9. Crates (amends 0005 §2 and §4.4)
 
-| Layer | Crate | Change |
-|---|---|---|
-| Wikibase | `scatter-wikibase-rdf` | The triple-set diff of two entity renderings; blank-node skolemization by statement, role, property and index (§7); serializing a delta as SPARQL 1.1 Update, single-graph and `GRAPH` forms (§1, §6). Pure |
-| Triplespace | `triplespace-projections` | The delta projection: computes deltas in the resolution, source-graph and metadata projections and writes `view.rdf_delta` (§2–3); the tenant filter and overlay transitions (§4); the epoch; the retention sweep; the sixth erasure step (§5) |
-| | `triplespace-rdf` | Stamps every dump with its cursor; the `?bnodes=skolem` dump form; the batch files and `manifest.json` (§6) |
-| | `triplespace-api-rest` | The routes of §6 |
-| | `triplespace-cli` | `sparql-sync` (§6) |
+*Changed by A1.*
 
-**The local quad store is a consumer** ([0013](0013-postgres-storage.md) §8, [0005](0005-crate-organization.md) §4.4). An instance that runs Oxigraph or QLever for its own SPARQL endpoint feeds it from `view.rdf_delta` in process, through `scatter-quadstore`'s `apply(delta)`, or from its own stream with `sparql-sync`; either way it is the same rows the stream serializes, and the separate quad projection of 0013 §8 is retired. `scatter-quadstore` gains `apply(deleted, inserted)` beside `lookup`, which Scatterbase's drivers may implement or ignore.
+*Superseded by [0005](0005-crate-organization.md) §2 (A1).*
 
-No crate is added.
+[0005](0005-crate-organization.md) §2 keeps the crate table that CI checks, with every change this section listed. The table this section first gave is in A1; the paragraph on the local quad store that followed it is now in §6.
 
 ## Consequences
 
@@ -166,13 +172,26 @@ No crate is added.
 
 ## Open questions
 
-- **Retention default and the epoch's lifetime.** Thirty days is a guess; the right value is the longest a consumer is expected to be down, measured against the table's size at Wikidata scale.
-- ~~**Metadata-graph volume under `full`.** Thin revision nodes for a Wikidata mirror ([0002](0002-source-graphs-and-mass-ingest.md) §8.3) are on the order of a billion triples; whether a `full` subscription should be able to exclude the mirror's revision nodes and keep only local ones is a `graphs=` refinement to decide from a consumer's actual need.~~ *Settled 2026-09-27 (§1): `metadata=local` by default, `metadata=all` on request, on the stream and the full dump alike.*
-- ~~**Batching within an event.** One event per delta row is simple and ordered; a consumer applying a million-entity sync one request at a time is slow.~~ *Settled 2026-09-27 (§3, §6): one event per appending transaction.*
-- **Other formats.** RDF Patch (Jena's delta format) and LDES both express the same delta; whether to offer either beside SPARQL Update, once a consumer asks.
-- **A farm-wide stream.** Whether a consumer may subscribe to every tenant's resolved view at the farm base, each event carrying its tenant, under the `feeds.farm_wide` policy of [0028](0028-tenancy-policy.md) §9.
-- ~~**The skolem hash input.** Statement ID, snak role, property and index are enough for uniqueness; whether the IRI should instead be content-derived, so that two instances skolemize a mirrored Wikidata blank node identically, as [0009](0009-keyed-entity-types-and-domain.md) §6 does for Domain IRIs.~~ *Settled 2026-09-27 (§7): content-derived, under `https://scatter.red/genid/`.*
-- ~~**Consumers verifying what they applied.** A consumer holds triples and no proofs. Whether an event should carry the record coordinates and checkpoint of the change that caused it, so a consumer could check a delta against `/record/` on demand, without turning this into the verified sync of 0022.~~ *Settled 2026-09-27 (§6): as event metadata in a comment line, never as triples; spot-checkable per event, unverifiable as a whole.*
+- **Q1. Retention default and the epoch's lifetime.** Thirty days is a guess; the right value is the longest a consumer is expected to be down, measured against the table's size at Wikidata scale.
+- **Q2.** ~~**Metadata-graph volume under `full`.** Thin revision nodes for a Wikidata mirror ([0002](0002-source-graphs-and-mass-ingest.md) §8.3) are on the order of a billion triples; whether a `full` subscription should be able to exclude the mirror's revision nodes and keep only local ones is a `graphs=` refinement to decide from a consumer's actual need.~~ *Settled by A2: `metadata=local` by default, `metadata=all` on request, on the stream and the full dump alike.*
+- **Q3.** ~~**Batching within an event.** One event per delta row is simple and ordered; a consumer applying a million-entity sync one request at a time is slow.~~ *Settled by A2: one event per appending transaction.*
+- **Q4. Other formats.** RDF Patch (Jena's delta format) and LDES both express the same delta; whether to offer either beside SPARQL Update, once a consumer asks.
+- **Q5. A farm-wide stream.** Whether a consumer may subscribe to every tenant's resolved view at the farm base, each event carrying its tenant, under the `feeds.farm_wide` policy of [0028](0028-tenancy-policy.md) §9.
+- **Q6.** ~~**The skolem hash input.** Statement ID, snak role, property and index are enough for uniqueness; whether the IRI should instead be content-derived, so that two instances skolemize a mirrored Wikidata blank node identically, as [0009](0009-keyed-entity-types-and-domain.md) §6 does for Domain IRIs.~~ *Settled by A2: content-derived, under `https://scatter.red/genid/`.*
+- **Q7.** ~~**Consumers verifying what they applied.** A consumer holds triples and no proofs. Whether an event should carry the record coordinates and checkpoint of the change that caused it, so a consumer could check a delta against `/record/` on demand, without turning this into the verified sync of 0022.~~ *Settled by A2: as event metadata in a comment line, never as triples; spot-checkable per event, unverifiable as a whole.*
+
+## Changes to other ADRs
+
+| Target | By | Change | Target's log |
+|---|---|---|---|
+| [0001](0001-revision-metadata-rdf.md) §2, §3 | §1, §7 | extends | 0001 A11 |
+| [0005](0005-crate-organization.md) §2, §4.4 | §9 | extends | 0005 A28 |
+| [0012](0012-api-requirements.md) §5 | §6 | extends | 0012 A20 |
+| [0013](0013-postgres-storage.md) §8 | §1–3, §7, §9 | amends | 0013 A10 |
+| [0013](0013-postgres-storage.md) §5.6, §7 | §1–3, §7, §9 | extends | 0013 A10 |
+| [0014](0014-caches-and-search.md) §1, §5 | §5–6 | amends | 0014 A3 |
+| [0014](0014-caches-and-search.md) §10 | §5–6 | extends | 0014 A3 |
+| [0020](0020-change-feeds.md) §4 | §6 | extends | 0020 A8 |
 
 ## References
 
@@ -183,3 +202,42 @@ No crate is added.
 - [Server-sent events](https://html.spec.whatwg.org/multipage/server-sent-events.html)
 - [RDF Patch](https://afs.github.io/rdf-patch/), [LDES — Linked Data Event Streams](https://w3id.org/ldes/specification)
 - [0013 — Postgres as the log store and serving model](0013-postgres-storage.md) §8, [0020 — Change feeds](0020-change-feeds.md) §4, [0022 — Federation](0022-federation.md) Part A
+
+## Amendment log
+
+### A1. Crate table
+
+- **Date:** 2026-09-27
+- **Source:** [0005](0005-crate-organization.md) §2
+- **Change:** supersedes §9
+- **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A28). The paragraph on the local quad store as a consumer, which followed the table, moved to §6 at conversion.
+
+Replaced text (§9):
+
+> | Layer | Crate | Change |
+> |---|---|---|
+> | Wikibase | `scatter-wikibase-rdf` | The triple-set diff of two entity renderings; blank-node skolemization by statement, role, property and index (§7); serializing a delta as SPARQL 1.1 Update, single-graph and `GRAPH` forms (§1, §6). Pure |
+> | Triplespace | `triplespace-projections` | The delta projection: computes deltas in the resolution, source-graph and metadata projections and writes `view.rdf_delta` (§2–3); the tenant filter and overlay transitions (§4); the epoch; the retention sweep; the sixth erasure step (§5) |
+> | | `triplespace-rdf` | Stamps every dump with its cursor; the `?bnodes=skolem` dump form; the batch files and `manifest.json` (§6) |
+> | | `triplespace-api-rest` | The routes of §6 |
+> | | `triplespace-cli` | `sparql-sync` (§6) |
+>
+> **The local quad store is a consumer** ([0013](0013-postgres-storage.md) §8, [0005](0005-crate-organization.md) §4.4). An instance that runs Oxigraph or QLever for its own SPARQL endpoint feeds it from `view.rdf_delta` in process, through `scatter-quadstore`'s `apply(delta)`, or from its own stream with `sparql-sync`; either way it is the same rows the stream serializes, and the separate quad projection of 0013 §8 is retired. `scatter-quadstore` gains `apply(deleted, inserted)` beside `lookup`, which Scatterbase's drivers may implement or ignore.
+>
+> No crate is added.
+
+### A2. Decisions of 2026-09-27 (evening)
+
+- **Date:** 2026-09-27
+- **Source:** Direct: James, decisions of 2026-09-27 (evening)
+- **Change:** amends §1, §3, §6, §7
+- **Summary:** Decision 16, 0032's calls: `metadata=local` by default and `metadata=all` on request, on the stream and the full dump alike (§1); one event per appending transaction, with a `txn` column (§3, §6); skolem IRIs content-derived under `https://scatter.red/genid/` (§7); provenance (tenant, partition, offset, revid) as a comment line per event, never as triples (§6). The sections were revised in place. This settled Q2, Q3, Q6 and Q7.
+
+Replaced text: not recorded; the sections were revised in place before the repository's history begins (commit `1e53c95`, 2026-09-27).
+
+### A3. Converted to the 0050 format
+
+- **Date:** 2026-10-01
+- **Source:** [0050](0050-adr-format.md) §13
+- **Change:** consolidates §1–9
+- **Summary:** A1–A2 were folded into the Decision. The open questions were numbered. §9's quad-store paragraph moved to §6. No decision changed. Before this, A2 was four struck questions with notes. The file before conversion is commit `0b26a3a`.
