@@ -3,7 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-10-01
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0008](0008-namespaces-and-document-pages.md)
+- **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0008](0008-namespaces-and-document-pages.md)
 - **Uses:** [0005](0005-crate-organization.md), [0013](0013-postgres-storage.md)
 
 ## Context
@@ -259,6 +259,7 @@ Files still in the old format keep the existing checks until they are converted.
 |---|---|---|---|
 | [0000](0000-init.md) §3 | §13 | consolidates | 0000 A4 |
 | [0001](0001-revision-metadata-rdf.md) §1–6 | §13 | consolidates | 0001 A14 |
+| [0002](0002-source-graphs-and-mass-ingest.md) §3–9 | §13 | consolidates | 0002 A17 |
 | [0008](0008-namespaces-and-document-pages.md) §1–5, §8–11 | §13 | consolidates | 0008 A20 |
 
 ## References
