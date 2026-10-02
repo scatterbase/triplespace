@@ -5,6 +5,7 @@ members = [
     "crates/scatter-providers",
     "crates/scatter-normalize",
     "crates/scatter-wikibase-model",
+    "crates/scatter-actors",
     "xtask",
 ]
 
@@ -25,6 +26,7 @@ scatter-vocab = { path = "crates/scatter-vocab" }
 scatter-providers = { path = "crates/scatter-providers" }
 scatter-normalize = { path = "crates/scatter-normalize" }
 scatter-wikibase-model = { path = "crates/scatter-wikibase-model" }
+scatter-actors = { path = "crates/scatter-actors" }
 
 # RDF terms: the oxrdf family only (0005 §3, rule 5)
 oxrdf = "0.3"
@@ -45,8 +47,10 @@ indexmap = { version = "2", features = ["serde"] }
 # references, MD5 for RDF value nodes. Not used for anything Triplespace secures.
 sha1 = "0.10"
 md-5 = "0.10"
-# Statement keys (0004 §8) and, later, the log's SHA-256 (0006 §2)
+# Statement keys (0004 §8), signing-key IDs (0015 §1) and, later, the log's SHA-256 (0006 §2)
 sha2 = "0.10"
+# Instance and client signatures (0033 §6; 0006 §6; 0024 §4)
+ed25519-dalek = { version = "2", default-features = false, features = ["std", "zeroize"] }
 
 # Registry files and configuration (0033 §12)
 serde = { version = "1", features = ["derive"] }
