@@ -74,7 +74,7 @@ Each reason can be delivered on each channel, subject to the account's preferenc
 | **Email** | Immediate, or a daily or weekly digest, to an address held in `private` and verified by a token link. No address is ever shown or exported |
 | **Fediverse** | A direct message to the account's registered fediverse account (§5) |
 
-**Web Push** is not in this ADR (open questions). Every channel renders the same item: who, did what, where, when, and a permalink (`Special:PermanentLink/{revid}` for a post, the job or log page otherwise), in the recipient's interface language.
+**Web Push** is not in this ADR (Q1). Every channel renders the same item: who, did what, where, when, and a permalink (`Special:PermanentLink/{revid}` for a post, the job or log page otherwise), in the recipient's interface language.
 
 ### 5. The fediverse channel
 

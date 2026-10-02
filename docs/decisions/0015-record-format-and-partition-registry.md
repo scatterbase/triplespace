@@ -210,7 +210,7 @@ CREATE INDEX upstream_revision_entity ON view.upstream_revision (entity_id, time
 
 An upstream revision node is `prov:specializationOf` the **upstream** document node, `https://www.wikidata.org/wiki/Special:EntityData/Q123`. This settles [0002](0002-source-graphs-and-mass-ingest.md) Q10.
 
-### 5. Graph names and IRIs (settles the open question of 0001, 0002 and 0005)
+### 5. Graph names and IRIs (settles 0001 Q2, 0002 Q1 and 0005 Q6)
 
 *Changed by A2, A3, A4, A5, A7, A9, A10, A11, A12, A16, A17, A19, A20, A21.*
 

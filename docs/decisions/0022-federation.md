@@ -111,7 +111,7 @@ Replies from fediverse actors may become posts on this instance, under rules fix
 - **Replay.** every accepted activity's `id` is recorded in `ops.ap_inbox_seen` for `federation.replay_window` (default seven days) and a repeat is acknowledged with 202 and dropped; a request whose `Date` lies outside ±`federation.clock_skew` (default twelve hours) is rejected; inbound activities are verified on receipt and then handled through the `ops` queue, so a burst never blocks the request path.
 - **Promotion.** a `federated` surrogate is never merged into a local account. A local account that proves control of the remote actor, by the instance finding a `rel="me"` link from the remote profile to its user page, may add it as a public **account link** under [0007](0007-actor-identity.md) §7, the same act as linking a Wikidata account; the surrogate stays the actor of every post it made, and contributions and history show "also {remote} here" as for any linked account. Attribution never moves, which is the invariant every inclusion proof relies on.
 
-### 9. Tenancy (follows 0028 §8)
+### 9. Tenancy (uses 0028 §8)
 
 ActivityPub is per tenant, as its notifier is: each tenant has its own host, actors and keys. A farm sets defaults and locks for `federation.*` settings through templates ([0028](0028-tenancy-policy.md) §8) and keeps the instance deny list. Data federation (Part A) is between *tenants*, wherever they are hosted: a tenant on another instance is a provider like any other, and the same instance's tenants read each other directly ([0018](0018-tenants.md) §5).
 
@@ -162,7 +162,7 @@ ActivityPub is per tenant, as its notifier is: each tenant has its own host, act
 - **Q1.** ~~**Inbound protocol details** (§8): signature versions, integrity proofs, replay protection, and promotion of a `federated` actor.~~ *Settled by A2: cavage now, with 9421 and FEP-8b32 behind switches; an activity-ID seen table with a `Date` window; link, never merge.*
 - **Q2.** ~~**Verification depth for very large providers**: whether to verify every record or sample under a `sample` trust mode with a stated rate.~~ *Settled by A2: every record, always; "verified" never means "probably". The cost is kept low by a **multi-proof**: `GET /record/proofs?checkpoint=&from=&to=` returns the inclusion proofs of a range of records against one checkpoint with their shared upper path sent once, so a batch of N costs one checkpoint, one consistency proof and O(N log N) hashes; a bootstrap from the source dump is verified the same way against the checkpoint the dump is stamped with ([0032](0032-sparql-update-stream.md) §6). The route joins §1's table and [0012](0012-api-requirements.md) §5; `scatter-integrity` produces and checks multi-proofs.*
 - **Q3. A Scatterbase adapter** as the payload mapping of §5.
-- **Q4. Witnesses across federated instances** ([0006](0006-log-integrity-and-erasure.md), open): whether federation partners should cosign each other's checkpoints.
+- **Q4. Witnesses across federated instances** ([0006](0006-log-integrity-and-erasure.md) Q1): whether federation partners should cosign each other's checkpoints.
 - **Q5. Entity data on ActivityPub**: whether an entity's document node should be an `as:Article` that announces its revisions, for readers who want to follow an item. Deliberately not done here.
 - **Q6. Followers as private state**: whether the follower list of a `Group` is public, as Mastodon shows it, or private as the notifier's is.
 
