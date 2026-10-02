@@ -2,9 +2,10 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
+- **Updated:** 2026-10-01 (A4)
 - **Author:** James Hare / Claude Fable
-- **Amended by:** [0038 — Page metadata, legacy categories and articles](0038-page-metadata-and-categories.md) (§6 amends §1: a local sitelink to the tenant's own host is stored by page ID; extends §2: the tenant's own site alias)
-- **Related:** [0002 — Source graphs and mass ingest](0002-source-graphs-and-mass-ingest.md) (§4 amends the sitelink row of §3), [0004 — Identity clusters and equivalence](0004-identity-clusters-and-equivalence.md) (§1 extends §7 with a URL normalizer), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§10 amends §2), [0009 — Keyed entity types and Domain](0009-keyed-entity-types-and-domain.md) (§3 uses §2 and §8; §5 extends §5), [0010 — Site UI](0010-site-ui.md) (§9 extends §2), [0012 — API requirements for the site UI](0012-api-requirements.md) (§7 extends §4 and §5), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md) (§6 amends `view.sitelink` in §5.2), [0015 — Record format and partition registry](0015-record-format-and-partition-registry.md) (§3 extends §3 with the `sitelink-policy` kind; §2 extends §5 with `sites.toml`), [0016 — Permissions and access control](0016-permissions-and-access-control.md) (§9), [0018 — Tenants](0018-tenants.md) (§3 extends §3: tenant and instance lists), [Wikibase data model and ontology contract](../api/wikibase-compat.md) (§2, §3.1, §5.2), [MediaWiki API contract](../api/mediawiki-compat.md) (§4.1, `wbsetsitelink`), [0022 — Federation: verified data sync and ActivityPub](0022-federation.md) (§8 reuses §3's list shape for `federation-policy`)
+- **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0009](0009-keyed-entity-types-and-domain.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0018](0018-tenants.md)
+- **Uses:** [0016](0016-permissions-and-access-control.md), [0022](0022-federation.md), [Wikibase contract](../api/wikibase-compat.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
 
@@ -20,6 +21,8 @@ Two constraints shape the rest. The **host of a URL is a Domain** ([0009](0009-k
 
 ### 1. A sitelink is a normalized URL, with badges
 
+*Changed by A3.*
+
 A sitelink has a **URL**, a set of **badges** (item IDs, as in Wikibase) and an optional **title** for display. The URL is normalized when it is written, and the normalized form is the link's identity:
 
 1. parse as a WHATWG URL; reject anything that does not parse;
@@ -28,18 +31,22 @@ A sitelink has a **URL**, a set of **badges** (item IDs, as in Wikibase) and an 
 4. normalize percent-encoding in the path, query and fragment (RFC 3986 §6.2.2: uppercase hex digits, decode unreserved characters); an empty path becomes `/`;
 5. keep the query and the fragment. A fragment names a section, and a section is a legitimate target.
 
-Nothing else is folded: `/Foo` and `/Foo/` are different URLs, as they are to the server that serves them. The normalizer is added to [0004](0004-identity-clusters-and-equivalence.md) §7's table as the `url` data type's key, and the `url` data type used by statements gets it too.
+Nothing else is folded: `/Foo` and `/Foo/` are different URLs, as they are to the server that serves them.
+
+**A link to the tenant's own pages is stored by page ID,** not URL: a sitelink in the local graph whose host is one the tenant is served at derives its URL and title from the page's current title, so a move does not break it; a title with no page is refused with `ts-sitelink-no-page` ([0038](0038-page-metadata-and-categories.md) §6). The normalizer is added to [0004](0004-identity-clusters-and-equivalence.md) §7's table as the `url` data type's key, and the `url` data type used by statements gets it too.
 
 **Badges** are item IDs in the resolved view's canonical form ([0004](0004-identity-clusters-and-equivalence.md) §4). Which items may be badges is `site` configuration, as `$wgWBRepoSettings['badgeItems']` is.
 
-> **Amended by [0038](0038-page-metadata-and-categories.md) §6.** A sitelink in the local graph whose host is one the tenant is served at is stored by page ID, not URL. Its URL and title are derived from the page's current title, so a move does not break it; a title with no page is refused with `ts-sitelink-no-page`.
-
 ### 2. The host is the site ID; one link per host; one item per URL
+
+*Changed by A2, A3.*
 
 **The site ID of a sitelink is its host**, in A-label form: `en.wikipedia.org`, `collections.example.museum`. This keeps both Wikibase invariants, with the host in place of the site:
 
 - **An item has at most one sitelink per host.** Writing a second is a `sitelink-conflict`, as Wikibase reports it. An item that needs two pages on one host says so with statements, not sitelinks.
 - **A normalized URL belongs to at most one item.** Writing it on a second item is the same error, naming the first.
+
+A sitelink to another tenant's or instance's entity page is a plain sitelink, asserting nothing about identity, like a link to any page. An editor who means "this is Librarybase's Q6" writes `same-as` to `LBQ6` ([0004](0004-identity-clusters-and-equivalence.md) §9, [0018](0018-tenants.md) §5); the two are different statements and the UI does not convert one into the other.
 
 **Site aliases keep Wikidata tooling working.** Tools and clients hard-code MediaWiki site IDs (`enwiki`, `dewikisource`, `commonswiki`) and pass titles, not URLs. A **site alias** maps a MediaWiki site ID to a host, an article path and a language, so that `enwiki` + `Douglas Adams` and `https://en.wikipedia.org/wiki/Douglas_Adams` are the same sitelink:
 
@@ -52,7 +59,7 @@ Nothing else is folded: `/Foo` and `/Foo/` are different URLs, as they are to th
 
 The defaults ship in `docs/registry/sites.toml` ([0015](0015-record-format-and-partition-registry.md) §5), generated from Wikimedia's site matrix and committed; a tenant adds aliases for other MediaWiki hosts as `config` records of kind `site-alias`. Where a host has an alias, the JSON `sitelinks` map is keyed by the alias's site ID and the entry carries the title in MediaWiki form; where it has none, the map is keyed by the host and `title` is the URL's path, query and fragment. Every entry carries `url`, as Wikibase's JSON already does. Input accepts either form everywhere.
 
-> **Extended by [0038](0038-page-metadata-and-categories.md) §6.** A tenant registers a site alias for its own host, so that `wbgetentities` by `sites` and `titles`, `wbsetsitelink` and `Special:ItemByTitle` reach an item from a local page's title. The one-link-per-host and one-item-per-URL invariants make that pairing one-to-one.
+A tenant registers a site alias for its own host, so that `wbgetentities` by `sites` and `titles`, `wbsetsitelink` and `Special:ItemByTitle` reach an item from a local page's title; the two invariants above make that pairing one-to-one ([0038](0038-page-metadata-and-categories.md) §6).
 
 ### 3. Allow and deny lists (extends 0015 §3 and 0018 §3)
 
@@ -134,17 +141,11 @@ The **Sitelinks** tab ([0010](0010-site-ui.md) §2) groups links by host, showin
 
 ### 10. Crates (amends 0005 §2)
 
-| Crate | Change |
-|---|---|
-| `scatter-normalize` | The URL normalizer (§1), built on the `url` crate, which already depends on `idna` |
-| `scatter-wikibase-model` | Sitelinks as URLs with badges and an optional title; the alias mapping between (site ID, title) and URL; `sitelink-conflict` checks. Embeds `docs/registry/sites.toml` |
-| `scatter-wikibase-rdf` | The RDF of §8 |
-| `scatter-wikibase-resolve` | Reconciliation by URL and host (§4); the denied-host filter (§3) |
-| `scatter-adapter-wikidata` | Resolving upstream site IDs to URLs from the provider's site table (§4) |
-| `triplespace-projections` | `view.sitelink` (§6); re-resolution on policy change |
-| `triplespace-api-action`, `triplespace-api-rest` | §7 |
+*Changed by A1.*
 
-No crate is added. `sites.toml` is embedded by `scatter-wikibase-model` rather than `scatter-providers` because the alias is a Wikibase-compatibility concern, not a provider one: a site alias exists for hosts the instance never mirrors.
+*Superseded by [0005](0005-crate-organization.md) §2 (A1).*
+
+[0005](0005-crate-organization.md) §2 keeps the crate table that CI checks, with every change this section listed; `sites.toml` is embedded by `scatter-wikibase-model`, since a site alias is a Wikibase-compatibility concern, not a provider one. The table this section first gave is in A1.
 
 ## Consequences
 
@@ -158,12 +159,27 @@ No crate is added. `sites.toml` is embedded by `scatter-wikibase-model` rather t
 
 ## Open questions
 
-- **Liveness.** Whether to check that a linked URL resolves, at write or periodically, and what to do when it stops.
-- **Titles for non-wiki links.** Whether to fetch a page's `<title>` for display, or leave the path as the title.
-- **Trailing slashes and case.** Whether hosts that treat `/Foo` and `/Foo/` alike should be foldable per host, and whether a site alias should declare case-insensitivity.
-- ~~**Links to other tenants and instances.** A sitelink to another tenant's entity page is better expressed as a cluster link ([0004](0004-identity-clusters-and-equivalence.md), [0018](0018-tenants.md) §5); whether to refuse it, or convert it, is open.~~ *Settled 2026-09-27: it is a plain sitelink, asserting nothing about identity, like a link to any page. An editor who means "this is Librarybase's Q6" writes `same-as` to `LBQ6`; the two are different statements and the UI does not convert one into the other.*
-- **Language for non-aliased hosts**, so that `schema:inLanguage` can be emitted more often.
-- **Whether a sitelink should make its host's Domain present** (§5), for tenants that treat their linked sites as data.
+- **Q1. Liveness.** Whether to check that a linked URL resolves, at write or periodically, and what to do when it stops.
+- **Q2. Titles for non-wiki links.** Whether to fetch a page's `<title>` for display, or leave the path as the title.
+- **Q3. Trailing slashes and case.** Whether hosts that treat `/Foo` and `/Foo/` alike should be foldable per host, and whether a site alias should declare case-insensitivity.
+- **Q4.** ~~**Links to other tenants and instances.** A sitelink to another tenant's entity page is better expressed as a cluster link ([0004](0004-identity-clusters-and-equivalence.md), [0018](0018-tenants.md) §5); whether to refuse it, or convert it, is open.~~ *Settled by A2: it is a plain sitelink, asserting nothing about identity, like a link to any page. An editor who means "this is Librarybase's Q6" writes `same-as` to `LBQ6`; the two are different statements and the UI does not convert one into the other.*
+- **Q5. Language for non-aliased hosts**, so that `schema:inLanguage` can be emitted more often.
+- **Q6. Whether a sitelink should make its host's Domain present** (§5), for tenants that treat their linked sites as data.
+
+## Changes to other ADRs
+
+| Target | By | Change | Target's log |
+|---|---|---|---|
+| [0002](0002-source-graphs-and-mass-ingest.md) §3 | §4 | amends | 0002 A13 |
+| [0004](0004-identity-clusters-and-equivalence.md) §7 | §1 | extends | 0004 A6 |
+| [0005](0005-crate-organization.md) §2 | §10 | extends | 0005 A22 |
+| [0009](0009-keyed-entity-types-and-domain.md) §5 | §5 | extends | 0009 A3 |
+| [0010](0010-site-ui.md) §2 | §9 | extends | 0010 A16 |
+| [0012](0012-api-requirements.md) §4, §5 | §7 | extends | 0012 A15 |
+| [0013](0013-postgres-storage.md) §5, §5.2, §5.6 | §6 | amends | 0013 A9 |
+| [0013](0013-postgres-storage.md) §4, §5.4, §5.5, §7, §8 | §6 | extends | 0013 A9 |
+| [0015](0015-record-format-and-partition-registry.md) §3, §5 | §2–3 | extends | 0015 A9 |
+| [0018](0018-tenants.md) §3 | §3 | extends | 0018 A2 |
 
 ## References
 
@@ -172,3 +188,53 @@ No crate is added. `sites.toml` is embedded by `scatter-wikibase-model` rather t
 - [WHATWG URL Standard](https://url.spec.whatwg.org/) and [RFC 3986 §6.2.2 — syntax-based normalization](https://www.rfc-editor.org/rfc/rfc3986#section-6.2.2)
 - [`url` crate](https://crates.io/crates/url)
 - `docs/registry/sites.toml`
+
+## Amendment log
+
+### A1. Crate table
+
+- **Date:** 2026-09-27
+- **Source:** [0005](0005-crate-organization.md) §2
+- **Change:** supersedes §10
+- **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A22).
+
+Replaced text (§10):
+
+> | Crate | Change |
+> |---|---|
+> | `scatter-normalize` | The URL normalizer (§1), built on the `url` crate, which already depends on `idna` |
+> | `scatter-wikibase-model` | Sitelinks as URLs with badges and an optional title; the alias mapping between (site ID, title) and URL; `sitelink-conflict` checks. Embeds `docs/registry/sites.toml` |
+> | `scatter-wikibase-rdf` | The RDF of §8 |
+> | `scatter-wikibase-resolve` | Reconciliation by URL and host (§4); the denied-host filter (§3) |
+> | `scatter-adapter-wikidata` | Resolving upstream site IDs to URLs from the provider's site table (§4) |
+> | `triplespace-projections` | `view.sitelink` (§6); re-resolution on policy change |
+> | `triplespace-api-action`, `triplespace-api-rest` | §7 |
+>
+> No crate is added. `sites.toml` is embedded by `scatter-wikibase-model` rather than `scatter-providers` because the alias is a Wikibase-compatibility concern, not a provider one: a site alias exists for hosts the instance never mirrors.
+
+### A2. Decisions of 2026-09-27 (evening)
+
+- **Date:** 2026-09-27
+- **Source:** Direct: James, decisions of 2026-09-27 (evening)
+- **Change:** extends §2
+- **Summary:** Tenant sitelinks (decision 14): a sitelink to another tenant's entity page is a plain sitelink, asserting nothing about identity, like a link to any page. An editor who means "this is Librarybase's Q6" writes `same-as` to `LBQ6`; the two are different statements and the UI does not convert one into the other. This settled Q4.
+
+### A3. Links to the tenant's own pages
+
+- **Date:** 2026-09-29
+- **Source:** [0038](0038-page-metadata-and-categories.md) §6
+- **Change:** amends §1; extends §2
+- **Summary:** By section:
+  - §1: A sitelink in the local graph whose host is one the tenant is served at is stored by page ID, not URL. Its URL and title are derived from the page's current title, so a move does not break it; a title with no page is refused with `ts-sitelink-no-page`.
+  - §2: A tenant registers a site alias for its own host, so that `wbgetentities` by `sites` and `titles`, `wbsetsitelink` and `Special:ItemByTitle` reach an item from a local page's title. The one-link-per-host and one-item-per-URL invariants make that pairing one-to-one.
+
+Replaced text (§1):
+
+> Nothing else is folded: `/Foo` and `/Foo/` are different URLs, as they are to the server that serves them.
+
+### A4. Converted to the 0050 format
+
+- **Date:** 2026-10-01
+- **Source:** [0050](0050-adr-format.md) §13
+- **Change:** consolidates §1–2, §10
+- **Summary:** A1–A3 were folded into the Decision. The open questions were numbered. No decision changed. Before this, A3 was two blockquotes and A2 a struck question with a note. The file before conversion is commit `0b26a3a`.
