@@ -83,6 +83,42 @@ impl Value {
         Self::Text(s.to_string())
     }
 
+    /// The value under a text key, when this is a map that has it.
+    #[must_use]
+    pub fn get(&self, key: &str) -> Option<&Self> {
+        match self {
+            Self::Map(pairs) => pairs.iter().find(|(k, _)| k.text_eq(key)).map(|(_, v)| v),
+            _ => None,
+        }
+    }
+
+    /// The string, when this is text.
+    #[must_use]
+    pub fn as_text(&self) -> Option<&str> {
+        match self {
+            Self::Text(t) => Some(t),
+            _ => None,
+        }
+    }
+
+    /// The bytes, when this is a byte string.
+    #[must_use]
+    pub fn as_bytes(&self) -> Option<&[u8]> {
+        match self {
+            Self::Bytes(b) => Some(b),
+            _ => None,
+        }
+    }
+
+    /// The integer as `u64`, when this is one in range.
+    #[must_use]
+    pub fn as_u64(&self) -> Option<u64> {
+        match self {
+            Self::Int(i) => u64::try_from(*i).ok(),
+            _ => None,
+        }
+    }
+
     /// Whether this is the text `s`.
     #[must_use]
     pub fn text_eq(&self, s: &str) -> bool {

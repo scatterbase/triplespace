@@ -405,6 +405,38 @@ impl GraphEntry {
     }
 }
 
+/// z-base-32 (0006 §2: the text form of identifiers), as Scatterbase writes it: the
+/// alphabet `ybndrfg8ejkmcpqxot1uwisza345h769`, no padding.
+#[must_use]
+pub fn zbase32(bytes: &[u8]) -> String {
+    const ALPHABET: &[u8; 32] = b"ybndrfg8ejkmcpqxot1uwisza345h769";
+    let mut out = String::with_capacity(bytes.len().div_ceil(5) * 8);
+    let mut buffer: u64 = 0;
+    let mut bits = 0u32;
+    for &b in bytes {
+        buffer = (buffer << 8) | u64::from(b);
+        bits += 8;
+        while bits >= 5 {
+            bits -= 5;
+            out.push(ALPHABET[((buffer >> bits) & 31) as usize] as char);
+        }
+    }
+    if bits > 0 {
+        out.push(ALPHABET[((buffer << (5 - bits)) & 31) as usize] as char);
+    }
+    out
+}
+
+/// The key ID of a public key: z-base-32 of its SHA-256 (0015 §1; 0006 §6).
+#[must_use]
+pub fn key_id(public_key: &[u8]) -> String {
+    use sha2::Digest as _;
+    zbase32(&sha2::Sha256::digest(public_key))
+}
+
+/// The algorithm name of the one signature scheme this version defines.
+pub const ALG_ED25519: &str = "ed25519";
+
 /// The content of a `key:` record: the instance's public key (payloads.md §4).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KeyEntry {
@@ -419,6 +451,23 @@ pub struct KeyEntry {
 }
 
 impl KeyEntry {
+    /// The entry for an Ed25519 public key, with its ID derived.
+    #[must_use]
+    pub fn ed25519(public_key: [u8; 32]) -> Self {
+        Self {
+            key_id: key_id(&public_key),
+            alg: ALG_ED25519.into(),
+            public_key: public_key.to_vec(),
+            final_checkpoint: None,
+        }
+    }
+
+    /// Whether the key ID is the one the public key derives.
+    #[must_use]
+    pub fn id_matches(&self) -> bool {
+        self.key_id == key_id(&self.public_key)
+    }
+
     /// The header key, `key:{key_id}`.
     #[must_use]
     pub fn key(&self) -> String {
@@ -617,5 +666,22 @@ mod tests {
             k
         );
         assert!(KeyEntry::from_value(&Value::Null).is_err());
+    }
+
+    #[test]
+    fn zbase32_vectors_and_key_ids() {
+        // From the z-base-32 specification and common test vectors.
+        assert_eq!(zbase32(b""), "");
+        assert_eq!(zbase32(&[0x00]), "yy");
+        assert_eq!(zbase32(&[0xff]), "9h");
+        assert_eq!(zbase32(b"hello"), "pb1sa5dx");
+        assert_eq!(zbase32(&[0x10, 0x11, 0x10]), "nyety");
+        let k = KeyEntry::ed25519([7; 32]);
+        assert_eq!(k.key_id.len(), 52, "256 bits in z-base-32");
+        assert!(k.id_matches());
+        assert_eq!(k.alg, "ed25519");
+        let mut wrong = k;
+        wrong.key_id.replace_range(0..1, "x");
+        assert!(!wrong.id_matches());
     }
 }

@@ -4,7 +4,7 @@
 use std::collections::BTreeMap;
 
 use crate::hash::Hash;
-use crate::store::{Appended, Draft, Head, LogStore, Slot, StoreError};
+use crate::store::{Appended, Draft, Head, LogStore, Slot, StoreError, check_restorable};
 use crate::tree::{Frontier, Segments};
 
 #[derive(Debug, Clone)]
@@ -97,6 +97,20 @@ impl LogStore for MemoryStore {
         let leaf = record.leaf();
         p.frontier.push_leaf(leaf);
         p.slots.push(Slot::Record(record));
+        Ok(Appended {
+            offset,
+            leaf,
+            root: p.frontier.root(),
+        })
+    }
+
+    async fn append_slot(&mut self, partition: u64, slot: Slot) -> Result<Appended, StoreError> {
+        let p = self.partition_mut(partition)?;
+        let offset = p.frontier.size();
+        check_restorable(&slot, partition, offset)?;
+        let leaf = slot.leaf();
+        p.frontier.push_leaf(leaf);
+        p.slots.push(slot);
         Ok(Appended {
             offset,
             leaf,

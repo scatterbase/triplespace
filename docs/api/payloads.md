@@ -409,7 +409,48 @@ temporary file and a rename. Every file is canonical CBOR (§1), so a bundle ver
 with nothing but the crate. Checkpoints and segment manifests are stored beside the
 partition by `scatter-integrity`, which defines their names.
 
-## 11. Settled points
+## 11. Checkpoints, manifests and export bundles
+
+Checkpoints are [C2SP tlog-checkpoints](https://c2sp.org/tlog-checkpoint) signed as
+[C2SP signed notes](https://c2sp.org/signed-note) by the instance key, under the origin
+as the key name, with no extension lines (0006 §6):
+
+```
+librarybase.org/log/local
+42
+<base64 root>
+
+— librarybase.org/log/local <base64(key hash[0..4] ‖ Ed25519 signature)>
+```
+
+The origin is `{tenant host}/log/{name}` for a tenant partition and
+`{farm host}/instance/log/{name}` for an instance partition. A segment manifest in a
+`hashed` partition is a checkpoint under `{origin}/segment/{n}` whose size is `2^k` and
+whose root is the segment's own tree head; since a compacted offset keeps its leaf (§10;
+0006 A14) a manifest is unchanged by compaction. Beside a `segments` partition they live
+in `checkpoints/{size, 20 digits}.txt` and `manifests/{n, 8 digits}.txt`; the Postgres
+backend keeps them in its own tables (0013 §2).
+
+An **export bundle** (0006 §9) is a directory that is itself a `segments` root:
+
+```
+{dir}/
+  bundle.cbor      {"format": 1, "created": µs, "partitions": [{"partition": …, "name": "local", "origin": "…"}]}
+  keys.seg         the `key:` records of the signing config partition, as a CBOR sequence of records
+  {partition}/     the partition's segments, checkpoints and manifests
+```
+
+`keys.seg` is the key chain: the first record is the trust anchor, each later one a
+rotation whose attestation is signed by the key before it. `verify` (0006 §9) checks
+level 1 — gapless offsets, headers that name their partition and offset, the tree head
+over every leaf, every checkpoint's origin, signature, root and consistency with the one
+before it, every manifest against its segment, and the chain — and level 2 — every body
+against its commitment, every erased part against an `erase` record (§6) in the same
+partition, every client signature against the actor keys supplied, and every instance
+attestation against the key current when the record was appended. The authority extract
+of 0040 §8 is not written yet.
+
+## 12. Settled points
 
 Decided 2026-10-02 (James), so that the first instance's bytes are not revisited:
 

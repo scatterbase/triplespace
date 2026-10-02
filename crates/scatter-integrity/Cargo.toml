@@ -1,0 +1,23 @@
+[package]
+name = "scatter-integrity"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Signed checkpoints, inclusion and consistency proofs, the key chain, attestation signatures, export bundles and verify"
+publish = false
+
+[dependencies]
+scatter-log.workspace = true
+ed25519-dalek.workspace = true
+sha2.workspace = true
+base64.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+pollster.workspace = true
+
+[lints]
+workspace = true

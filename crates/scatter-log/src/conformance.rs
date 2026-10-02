@@ -32,6 +32,62 @@ pub fn draft(n: u64) -> Draft {
     }
 }
 
+/// Restoring slots reproduces a partition: every slot of `from` appended to `to`.
+async fn restore<S: LogStore>(from: &S, to: &mut S, partition: u64) {
+    let head = from.head(partition).await.unwrap();
+    to.create_partition(partition, head.segments).await.unwrap();
+    for offset in 0..head.size {
+        let slot = from.read(partition, offset).await.unwrap();
+        let a = to.append_slot(partition, slot).await.unwrap();
+        assert_eq!(a.offset, offset);
+    }
+    assert_eq!(to.head(partition).await.unwrap(), head);
+}
+
+async fn restoring_slots<S: LogStore>(make: &impl Fn() -> S) {
+    let mut from = make();
+    from.create_partition(1, Segments::new(1).unwrap())
+        .await
+        .unwrap();
+    for n in 0..5 {
+        from.append(1, draft(n)).await.unwrap();
+    }
+    from.erase_parts(1, 1, &[COMMENT]).await.unwrap();
+    from.compact(1, &[3]).await.unwrap();
+    let mut to = make();
+    restore(&from, &mut to, 1).await;
+    for offset in 0..5 {
+        assert_eq!(
+            to.read(1, offset).await.unwrap(),
+            from.read(1, offset).await.unwrap(),
+            "slot {offset}"
+        );
+    }
+    // A record for another offset or partition is refused; so is a wrong commitment.
+    let Slot::Record(r) = from.read(1, 0).await.unwrap() else {
+        panic!("a record")
+    };
+    assert!(matches!(
+        to.append_slot(1, Slot::Record(r.clone())).await,
+        Err(StoreError::NotNext { offset: 5, .. })
+    ));
+    let mut other = make();
+    other
+        .create_partition(2, Segments::new(1).unwrap())
+        .await
+        .unwrap();
+    assert!(matches!(
+        other.append_slot(2, Slot::Record(r)).await,
+        Err(StoreError::NotNext { .. })
+    ));
+    let a = to
+        .append_slot(1, Slot::Compacted { leaf: [9; 32] })
+        .await
+        .unwrap();
+    assert_eq!(a.offset, 5);
+    assert_eq!(a.leaf, [9; 32]);
+}
+
 /// Runs the suite against fresh stores from `make`.
 ///
 /// # Panics
@@ -44,6 +100,7 @@ pub async fn run<S: LogStore>(make: impl Fn() -> S) {
     erasure_keeps_leaves(&mut make()).await;
     compaction_leaves_holes(&mut make()).await;
     segment_boundaries(&mut make()).await;
+    restoring_slots(&make).await;
 }
 
 /// Runs the persistence checks: everything written before `reopen` is read after it.
