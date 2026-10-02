@@ -2,8 +2,10 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
+- **Updated:** 2026-10-01 (A2)
 - **Author:** James Hare / Claude Opus
-- **Related:** [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§15 amends §2), [0008 — Namespaces and document pages](0008-namespaces-and-document-pages.md) (§2 amends §2 and extends §3: the `Board` namespaces and forwarding talk namespaces), [0011 — Upstream and local logs](0011-logs.md) (§9 extends §6.1 and §8: `thread/attach` and `thread/detach`), [0012 — API requirements for the site UI](0012-api-requirements.md) (§11 uses §5), [0014 — Cache layers and search](0014-caches-and-search.md) (§12 uses §7), [0016 — Permissions and access control](0016-permissions-and-access-control.md) (§7 amends §4: only a thread's home encloses it), [0019 — Discussions](0019-discussions.md) (§2 amends §3: `Thread talk` forwards; §5–8 and §11–13 amend §1, §2, §4, §7, §8, §9, §11 and §12: a thread has a home and listings), [0020 — Change feeds](0020-change-feeds.md) (§7 extends §2: listed threads join a talk page's one-target set), [0021 — Notifications](0021-notifications.md) (§5 uses §2: an actor target is home-only, so `talk` is unchanged), [0022 — Federation: verified data sync and ActivityPub](0022-federation.md) (§10 extends §6 and §7: boards as `Group` actors; listings `Announce`), [0023 — Protection, deletion, hiding and patrolling](0023-moderation.md) (§7 amends §2 and §4: deleting a talk page or board deletes only the threads homed there), [0028 — Tenancy policy](0028-tenancy-policy.md) (§7 uses §6), [0038 — Page metadata, legacy categories and articles](0038-page-metadata-and-categories.md) (§1 extends §1: boards carry statements; §14 uses §2), [0041 — Content models](0041-content-models.md) (§3 extends §3: the `triplespace-board` model), [0045 — Tables](0045-table-content-model.md) (§4 follows §4: a definition with a reserved scope), [0047 — Special pages](0047-special-pages.md) (`Special:TalkPage` and `Special:NewSection` on boards and threads)
+- **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0011](0011-logs.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0022](0022-federation.md), [0023](0023-moderation.md), [0038](0038-page-metadata-and-categories.md), [0041](0041-content-models.md)
+- **Uses:** [0012](0012-api-requirements.md), [0014](0014-caches-and-search.md), [0021](0021-notifications.md), [0028](0028-tenancy-policy.md), [0045](0045-table-content-model.md), [0047](0047-special-pages.md)
 
 ## Context
 
@@ -44,7 +46,7 @@ James's direction, from the design discussion of 2026-10-01:
 | 311 | `Board talk` | `virtual` | — | Forwards to 310 |
 | 215 | `Thread talk` | `virtual` *(was `reserved`)* | — | Forwards to 214 |
 
-**310 and 311 are the first pair of the second Triplespace block** ([0008](0008-namespaces-and-document-pages.md) §2, as amended 2026-10-01), since 210–219 is full.
+**310 and 311 are the first pair of the second Triplespace block** ([0008](0008-namespaces-and-document-pages.md) §2, by 0008 A17), since 210–219 is full.
 
 **A forwarding namespace.** MediaWiki clients find a page's talk page at the next odd namespace number, so 311 has to be registered. It holds no pages. The registry gains a field, `forwards_to`, on namespaces of kind `virtual`: every title in such a namespace resolves to the title with the same text in the namespace it names, normalized by that namespace's rules. `Board talk:General chat` resolves to `Board:General chat`. This is a step of the one title resolver of [0008](0008-namespaces-and-document-pages.md) §3, the same step by which `Item:P31` resolves to `Property:P31`:
 
@@ -75,7 +77,7 @@ It is a **text** model ([0041](0041-content-models.md) §5), as `triplespace-tab
 | Diff | Line diff of the canonical JSON, with `header` split into its own lines so that an edit to the header diffs as markdown does |
 | Render | `description`, then `header` rendered as markdown ([0019](0019-discussions.md) §5: wiki links, sanitized HTML), then the thread listing (§8) |
 
-**A board's history** is its own revisions and the composite history of the threads attached to it ([0019](0019-discussions.md) §7, as amended by §7 here), in one sequence ordered by time. `prop=revisions` on a board title returns both kinds of row, each with its own content model.
+**A board's history** is its own revisions and the composite history of the threads attached to it ([0019](0019-discussions.md) §7, as §9 extends it), in one sequence ordered by time. `prop=revisions` on a board title returns both kinds of row, each with its own content model.
 
 ### 4. The definition
 
@@ -263,18 +265,11 @@ Candidate kinds, roughly cheapest first:
 
 ### 15. Crates (amends 0005 §2)
 
-No new crate.
+*Changed by A1.*
 
-| Crate | Change |
-|---|---|
-| `scatter-threads` | `attach`, `detach`, `also` and `keep`; the fold to a home and a listing set; their validation (§6). The `triplespace-board` model: definition types, schema validation and canonical serialization (§3–4). Pure |
-| `scatter-pages` | The `triplespace-board` registry entry |
-| `triplespace-titles` | Namespaces 310 and 311; `forwards_to` in the resolver; 215 changes kind (§2) |
-| `triplespace-projections` | `view.thread_attachment`; `view.talk_page` rows for boards; `page_link` rows from board headers; `thread/*` log events |
-| `triplespace-rdf` | The nodes and event types of §9 |
-| `triplespace-federation` | Announces from listings, and `Undo` on detach (§10) |
-| `triplespace-search` | The attachments field (§12) |
-| `triplespace-api-action`, `triplespace-api-rest` | §11 |
+*Superseded by [0005](0005-crate-organization.md) §2 (A1).*
+
+[0005](0005-crate-organization.md) §2 keeps the crate table that CI checks, with every change this section listed. The table this section first gave is in A1.
 
 ## Consequences
 
@@ -289,12 +284,29 @@ No new crate.
 
 ## Open questions
 
-- **`Group` handles for boards.** 0022 §6 addresses a talk page's `Group` by its subject's title. A board's title is free text, and could match an entity ID or a username.
-- **Scopes** (§14): which kinds come first, whether a scoped board's members are announced and notify watchers as listed ones do, and the bound on a scope's size for feeds (`feeds.related_limit`, [0020](0020-change-feeds.md) §2).
-- **Pinned threads.** Whether a board's definition may name threads to show first, as an announcements board needs.
-- **Detaching one's own thread.** Whether a thread's author may remove their thread from a listing without `move`.
-- **Board moderators.** Whether a board needs a group of its own beyond what ACLs on it express.
-- **DiscussionTools** (0019 Q4): which page a `discussiontoolspageinfo` call on a listing page reports for a listed thread.
+- **Q1. `Group` handles for boards.** 0022 §6 addresses a talk page's `Group` by its subject's title. A board's title is free text, and could match an entity ID or a username.
+- **Q2. Scopes** (§14): which kinds come first, whether a scoped board's members are announced and notify watchers as listed ones do, and the bound on a scope's size for feeds (`feeds.related_limit`, [0020](0020-change-feeds.md) §2).
+- **Q3. Pinned threads.** Whether a board's definition may name threads to show first, as an announcements board needs.
+- **Q4. Detaching one's own thread.** Whether a thread's author may remove their thread from a listing without `move`.
+- **Q5. Board moderators.** Whether a board needs a group of its own beyond what ACLs on it express.
+- **Q6. DiscussionTools** (0019 Q4): which page a `discussiontoolspageinfo` call on a listing page reports for a listed thread.
+
+## Changes to other ADRs
+
+| Target | By | Change | Target's log |
+|---|---|---|---|
+| [0005](0005-crate-organization.md) §2 | §15 | extends | 0005 A49 |
+| [0008](0008-namespaces-and-document-pages.md) §2 | §2 | amends | 0008 A19 |
+| [0008](0008-namespaces-and-document-pages.md) §1, §3 | §2 | extends | 0008 A19 |
+| [0011](0011-logs.md) §6.1, §8 | §9 | extends | 0011 A16 |
+| [0016](0016-permissions-and-access-control.md) §4 | §7 | amends | 0016 A17 |
+| [0019](0019-discussions.md) §1, §2, §3, §7, §8, §12 | §2, §5–9, §11–13 | amends | 0019 A10 |
+| [0019](0019-discussions.md) §4, §9, §11 | §2, §5–9, §11–13 | extends | 0019 A10 |
+| [0020](0020-change-feeds.md) §2 | §7 | amends | 0020 A9 |
+| [0022](0022-federation.md) §6, §7 | §10 | extends | 0022 A3 |
+| [0023](0023-moderation.md) §2, §4 | §7 | amends | 0023 A7 |
+| [0038](0038-page-metadata-and-categories.md) §1 | §1 | extends | 0038 A5 |
+| [0041](0041-content-models.md) §3 | §3 | extends | 0041 A5 |
 
 ## References
 
@@ -302,3 +314,34 @@ No new crate.
 - [Extension:StructuredDiscussions](https://www.mediawiki.org/wiki/Extension:StructuredDiscussions) (Flow boards)
 - [Activity Vocabulary](https://www.w3.org/TR/activitystreams-vocabulary/): `Add`, `Remove`, `Announce`, `Undo`
 - [Extension default namespaces](https://www.mediawiki.org/wiki/Extension_default_namespaces)
+
+## Amendment log
+
+### A1. Crate table
+
+- **Date:** 2026-10-01
+- **Source:** [0005](0005-crate-organization.md) §2
+- **Change:** supersedes §15
+- **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A49).
+
+Replaced text (§15):
+
+> No new crate.
+>
+> | Crate | Change |
+> |---|---|
+> | `scatter-threads` | `attach`, `detach`, `also` and `keep`; the fold to a home and a listing set; their validation (§6). The `triplespace-board` model: definition types, schema validation and canonical serialization (§3–4). Pure |
+> | `scatter-pages` | The `triplespace-board` registry entry |
+> | `triplespace-titles` | Namespaces 310 and 311; `forwards_to` in the resolver; 215 changes kind (§2) |
+> | `triplespace-projections` | `view.thread_attachment`; `view.talk_page` rows for boards; `page_link` rows from board headers; `thread/*` log events |
+> | `triplespace-rdf` | The nodes and event types of §9 |
+> | `triplespace-federation` | Announces from listings, and `Undo` on detach (§10) |
+> | `triplespace-search` | The attachments field (§12) |
+> | `triplespace-api-action`, `triplespace-api-rest` | §11 |
+
+### A2. Converted to the 0050 format
+
+- **Date:** 2026-10-01
+- **Source:** [0050](0050-adr-format.md) §13
+- **Change:** consolidates §15
+- **Summary:** A1 was folded into the Decision. The open questions were numbered. No decision changed. Before this, A1 was recorded only in 0005. The file before conversion is commit `0b26a3a`.
