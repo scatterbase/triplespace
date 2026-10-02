@@ -9,6 +9,7 @@ use serde::de::Error as _;
 use serde::{Deserialize, Serialize};
 
 use crate::id::{EntityId, StatementId};
+use crate::json::Wire;
 use crate::value::{DataType, DataValue};
 
 /// A statement's rank.
@@ -122,12 +123,12 @@ impl<'de> Deserialize<'de> for Snak {
 impl Serialize for Snak {
     /// The storage form; the Wikibase form is produced by [`crate::json`].
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        self.to_wire(false).serialize(s)
+        self.to_wire(Wire::STORAGE).serialize(s)
     }
 }
 
 impl Snak {
-    pub(crate) fn to_wire(&self, numeric_ids: bool) -> serde_json::Value {
+    pub(crate) fn to_wire(&self, wire: Wire<'_>) -> serde_json::Value {
         use serde_json::{Map, Value};
         let mut m = Map::new();
         m.insert(
@@ -138,11 +139,18 @@ impl Snak {
             "property".into(),
             Value::String(self.property.as_str().into()),
         );
-        if let Some(h) = &self.hash {
-            m.insert("hash".into(), Value::String(h.clone()));
+        // A kept upstream hash as stored; otherwise recomputed, in the Wikibase form.
+        match (&self.hash, wire.hasher) {
+            (Some(h), _) => {
+                m.insert("hash".into(), Value::String(h.clone()));
+            }
+            (None, Some(hasher)) => {
+                m.insert("hash".into(), Value::String(hasher.snak(self)));
+            }
+            (None, None) => {}
         }
         if let SnakKind::Value(v) = &self.kind {
-            m.insert("datavalue".into(), v.to_wire(numeric_ids));
+            m.insert("datavalue".into(), v.to_wire(wire.numeric_ids));
         }
         if let Some(dt) = &self.datatype {
             m.insert("datatype".into(), Value::String(dt.id().into()));
@@ -259,12 +267,12 @@ impl<'de> Deserialize<'de> for Reference {
     }
 }
 
-fn groups_to_wire(groups: &SnakGroups, numeric_ids: bool) -> serde_json::Value {
+fn groups_to_wire(groups: &SnakGroups, wire: Wire<'_>) -> serde_json::Value {
     let mut m = serde_json::Map::new();
     for (p, snaks) in groups {
         m.insert(
             p.as_str().into(),
-            serde_json::Value::Array(snaks.iter().map(|s| s.to_wire(numeric_ids)).collect()),
+            serde_json::Value::Array(snaks.iter().map(|s| s.to_wire(wire)).collect()),
         );
     }
     serde_json::Value::Object(m)
@@ -280,12 +288,21 @@ fn order_to_wire(groups: &SnakGroups) -> serde_json::Value {
 }
 
 impl Reference {
-    pub(crate) fn to_wire(&self, numeric_ids: bool) -> serde_json::Value {
+    pub(crate) fn to_wire(&self, wire: Wire<'_>) -> serde_json::Value {
         let mut m = serde_json::Map::new();
-        if let Some(h) = &self.hash {
-            m.insert("hash".into(), serde_json::Value::String(h.clone()));
+        match (&self.hash, wire.hasher) {
+            (Some(h), _) => {
+                m.insert("hash".into(), serde_json::Value::String(h.clone()));
+            }
+            (None, Some(hasher)) => {
+                m.insert(
+                    "hash".into(),
+                    serde_json::Value::String(hasher.reference(self)),
+                );
+            }
+            (None, None) => {}
         }
-        m.insert("snaks".into(), groups_to_wire(&self.snaks, numeric_ids));
+        m.insert("snaks".into(), groups_to_wire(&self.snaks, wire));
         m.insert("snaks-order".into(), order_to_wire(&self.snaks));
         serde_json::Value::Object(m)
     }
@@ -293,7 +310,7 @@ impl Reference {
 
 impl Serialize for Reference {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        self.to_wire(false).serialize(s)
+        self.to_wire(Wire::STORAGE).serialize(s)
     }
 }
 
@@ -338,16 +355,13 @@ impl<'de> Deserialize<'de> for Statement {
 }
 
 impl Statement {
-    pub(crate) fn to_wire(&self, numeric_ids: bool) -> serde_json::Value {
+    pub(crate) fn to_wire(&self, wire: Wire<'_>) -> serde_json::Value {
         use serde_json::Value;
         let mut m = serde_json::Map::new();
-        m.insert("mainsnak".into(), self.mainsnak.to_wire(numeric_ids));
+        m.insert("mainsnak".into(), self.mainsnak.to_wire(wire));
         m.insert("type".into(), Value::String("statement".into()));
         if !self.qualifiers.is_empty() {
-            m.insert(
-                "qualifiers".into(),
-                groups_to_wire(&self.qualifiers, numeric_ids),
-            );
+            m.insert("qualifiers".into(), groups_to_wire(&self.qualifiers, wire));
             m.insert("qualifiers-order".into(), order_to_wire(&self.qualifiers));
         }
         if let Some(id) = &self.id {
@@ -360,12 +374,7 @@ impl Statement {
         if !self.references.is_empty() {
             m.insert(
                 "references".into(),
-                Value::Array(
-                    self.references
-                        .iter()
-                        .map(|r| r.to_wire(numeric_ids))
-                        .collect(),
-                ),
+                Value::Array(self.references.iter().map(|r| r.to_wire(wire)).collect()),
             );
         }
         Value::Object(m)
@@ -374,7 +383,7 @@ impl Statement {
 
 impl Serialize for Statement {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        self.to_wire(false).serialize(s)
+        self.to_wire(Wire::STORAGE).serialize(s)
     }
 }
 
@@ -400,7 +409,7 @@ mod tests {
         assert_eq!(q, ["P2", "P4"]);
         let r: Vec<_> = s.references[0].snaks.keys().map(EntityId::as_str).collect();
         assert_eq!(r, ["P4", "P8"]);
-        let out = s.to_wire(true);
+        let out = s.to_wire(Wire::STORAGE.with_numeric_ids());
         assert_eq!(out["qualifiers-order"], json!(["P2", "P4"]));
         assert_eq!(out["references"][0]["snaks-order"], json!(["P4", "P8"]));
         assert_eq!(s.snaks().count(), 5);
@@ -413,7 +422,7 @@ mod tests {
             DataValue::String("x".into()),
             Some(DataType::String),
         ));
-        let out = s.to_wire(true);
+        let out = s.to_wire(Wire::STORAGE.with_numeric_ids());
         assert_eq!(
             out,
             json!({"mainsnak": snak("P1", &json!("x")), "type": "statement", "rank": "normal"})

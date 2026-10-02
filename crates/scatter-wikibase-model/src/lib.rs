@@ -13,9 +13,10 @@
 //! Two derivable fields are dropped at ingest and recomputed on output (0006 §2, as
 //! amended): the `hash` on snaks and references, and `numeric-id` beside `id` on entity
 //! values. [`json::Form::Storage`] is the form without them, which the log stores;
-//! [`json::Form::Wikibase`] is what the API serves. The hash computation itself is the
-//! next slice of this crate; until then a stored hash is emitted and an absent one is
-//! left out.
+//! [`json::Form::Wikibase`] is what the API serves. [`hash::Hasher`] reproduces Wikibase's
+//! own hash computation, PHP serializations and all, so that a recomputed hash equals the
+//! one Wikidata serves for mirrored data; [`hash::Hasher::reconcile`] is the ingest guard
+//! that checks it does, and keeps upstream's hash in place where it does not.
 //!
 //! Canonical JSON ([`json::canonical`]) sorts object keys the way the core deterministic
 //! CBOR encoding does (by encoded bytes: shorter keys first, then bytewise), so that
@@ -27,13 +28,16 @@
 #![forbid(unsafe_code)]
 
 pub mod entity;
+pub mod hash;
 pub mod id;
 pub mod json;
+mod php;
 pub mod sites;
 pub mod statement;
 pub mod value;
 
 pub use entity::{Entity, EntityType, PageInfo, ParsedEntity, Sitelink, Term};
+pub use hash::{HashMismatches, Hasher};
 pub use id::{EntityId, IdForm, IdParseError, StatementId, Subject};
 pub use json::{Form, JsonError};
 pub use sites::{Site, SiteRegistry, SiteRegistryError};

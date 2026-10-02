@@ -4,12 +4,14 @@
 //! - The storage form is a fixed point: parse → canonical → parse → canonical is stable.
 //! - The storage form loses nothing but the derived fields: the original, with `hash`,
 //!   `numeric-id` and page metadata removed, equals the canonical output as a JSON value.
-//! - The Wikibase form reproduces the original exactly: `numeric-id` recomputed, page
-//!   metadata carried, and the hashes as parsed (until the hash slice recomputes them).
+//! - The hash guard finds no mismatch: every snak and reference hash upstream sent is the
+//!   one [`Hasher`] recomputes, so all of them are dropped from the storage form.
+//! - The Wikibase form reproduces the original exactly: `numeric-id` and every hash
+//!   recomputed, page metadata carried.
 
 use std::path::PathBuf;
 
-use scatter_wikibase_model::{Entity, json};
+use scatter_wikibase_model::{Entity, Hasher, json};
 use serde_json::Value;
 
 fn snapshots() -> Vec<(String, Value)> {
@@ -60,12 +62,36 @@ fn strip_derived(v: &Value) -> Value {
 fn every_snapshot_round_trips() {
     for (name, response) in snapshots() {
         for (id, original) in response["entities"].as_object().unwrap() {
-            let parsed = Entity::from_value(original.clone())
+            let mut parsed = Entity::from_value(original.clone())
                 .unwrap_or_else(|e| panic!("{name}: {id}: {e}"));
             assert_eq!(parsed.entity.id.as_str(), id, "{name}");
 
+            // The guard (0006 §2): every hash upstream sent is recomputed and matches, so
+            // none is kept.
+            let hasher = Hasher::local();
+            let mismatches = hasher.reconcile(&mut parsed.entity);
+            assert!(
+                mismatches.is_empty(),
+                "{name}: {id}: hash mismatches {:?}",
+                mismatches.by_kind()
+            );
+            let stored_hashes = parsed
+                .entity
+                .all_statements()
+                .flat_map(|s| {
+                    s.snaks()
+                        .filter_map(|k| k.hash.as_deref())
+                        .chain(s.references.iter().filter_map(|r| r.hash.as_deref()))
+                })
+                .count();
+            assert_eq!(stored_hashes, 0, "{name}: every matching hash is dropped");
+
             // Storage form: a fixed point that loses nothing but the derived fields.
             let canonical = parsed.entity.to_canonical_json();
+            assert!(
+                !canonical.contains("\"hash\""),
+                "{name}: the storage form carries no recomputable hash"
+            );
             let reparsed =
                 Entity::from_json(&canonical).unwrap_or_else(|e| panic!("{name}: reparse: {e}"));
             assert_eq!(
@@ -83,16 +109,10 @@ fn every_snapshot_round_trips() {
             );
             let expected = strip_derived(original);
             let stored: Value = serde_json::from_str(&canonical).unwrap();
-            // The parse keeps upstream's hashes; the storage form emits what it holds, so
-            // compare with hashes stripped from both sides here.
-            assert_eq!(
-                strip_derived(&stored),
-                expected,
-                "{name}: storage form lost or added data"
-            );
+            assert_eq!(stored, expected, "{name}: storage form lost or added data");
 
-            // Wikibase form: the original, exactly.
-            let served: Value = serde_json::from_str(&parsed.to_wikibase_json()).unwrap();
+            // Wikibase form: the original, exactly, with every hash recomputed.
+            let served: Value = serde_json::from_str(&parsed.to_wikibase_json(&hasher)).unwrap();
             assert_eq!(
                 &served, original,
                 "{name}: Wikibase form differs from the original"
@@ -144,7 +164,31 @@ fn q8_specifics() {
     );
     assert_eq!(
         p1[0].references[0].hash.as_deref(),
-        Some("eaf0a11b92f297234266b31f9331c3ebcfe09c1e")
+        Some("eaf0a11b92f297234266b31f9331c3ebcfe09c1e"),
+        "as parsed, before the guard runs"
+    );
+    assert_eq!(
+        Hasher::local().reference(&p1[0].references[0]),
+        "eaf0a11b92f297234266b31f9331c3ebcfe09c1e"
+    );
+    // A mirrored copy hashes the same once its IDs are read in the source's form.
+    let mirrored: Entity = serde_json::from_str(
+        &e.to_canonical_json()
+            .replace("\"P", "\"WDP")
+            .replace("\"Q", "\"WDQ"),
+    )
+    .map(|p: scatter_wikibase_model::ParsedEntity| p.entity)
+    .unwrap();
+    let wd = Hasher::mirrored_from("WD");
+    let hashes = |e: &Entity, h: &Hasher| {
+        let mut v: Vec<String> = e.all_statements().map(|s| h.statement(s)).collect();
+        v.sort();
+        v
+    };
+    assert_eq!(hashes(e, &Hasher::local()), hashes(&mirrored, &wd));
+    assert_ne!(
+        hashes(e, &Hasher::local()),
+        hashes(&mirrored, &Hasher::local())
     );
     // Every value type in the contract's table appears and is typed, not kept as Unknown.
     let unknown = e
