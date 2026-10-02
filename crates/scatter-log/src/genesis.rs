@@ -69,16 +69,16 @@ impl Genesis {
     }
 
     /// Creates the partition in `store` and appends the two records.
-    pub fn append<S: LogStore>(
+    pub async fn append<S: LogStore>(
         &self,
         store: &mut S,
         registry: &GraphRegistry,
     ) -> Result<[Appended; 2], GenesisError> {
         let [key, graph] = self.drafts(registry)?;
         let segments = Segments::new(self.segment_exponent).ok_or(GenesisError::Exponent)?;
-        store.create_partition(self.partition, segments)?;
-        let a = store.append(self.partition, key)?;
-        let b = store.append(self.partition, graph)?;
+        store.create_partition(self.partition, segments).await?;
+        let a = store.append(self.partition, key).await?;
+        let b = store.append(self.partition, graph).await?;
         Ok([a, b])
     }
 }
@@ -150,59 +150,66 @@ mod tests {
 
     #[test]
     fn the_instance_config_starts_with_key_then_graph() {
-        let registry = GraphRegistry::embedded();
-        let mut store = MemoryStore::new();
-        let [a, b] = genesis(CONFIG_PARTITION, Scope::Instance)
-            .append(&mut store, &registry)
-            .unwrap();
-        assert_eq!((a.offset, b.offset), (0, 1));
-        let head = store.head(CONFIG_PARTITION).unwrap();
-        assert_eq!(head.size, 2);
-        assert_eq!(head.root, b.root);
-        assert_eq!(head.segments, Segments::new(16).unwrap());
+        pollster::block_on(async {
+            let registry = GraphRegistry::embedded();
+            let mut store = MemoryStore::new();
+            let [a, b] = genesis(CONFIG_PARTITION, Scope::Instance)
+                .append(&mut store, &registry)
+                .await
+                .unwrap();
+            assert_eq!((a.offset, b.offset), (0, 1));
+            let head = store.head(CONFIG_PARTITION).await.unwrap();
+            assert_eq!(head.size, 2);
+            assert_eq!(head.root, b.root);
+            assert_eq!(head.segments, Segments::new(16).unwrap());
 
-        let Slot::Record(key) = store.read(0, 0).unwrap() else {
-            panic!("a record")
-        };
-        assert_eq!(
-            key.header().key.as_deref(),
-            Some("key:ybndrfg8ejkmcpqxot1uwisza345h769")
-        );
-        assert_eq!(key.header().payload_type, PAYLOAD_CONFIG);
-        assert_eq!(key.header().revid, None);
-        let k = KeyEntry::from_value(&key.body().content().value().unwrap().unwrap()).unwrap();
-        assert_eq!(k.public_key, vec![3; 32]);
+            let Slot::Record(key) = store.read(0, 0).await.unwrap() else {
+                panic!("a record")
+            };
+            assert_eq!(
+                key.header().key.as_deref(),
+                Some("key:ybndrfg8ejkmcpqxot1uwisza345h769")
+            );
+            assert_eq!(key.header().payload_type, PAYLOAD_CONFIG);
+            assert_eq!(key.header().revid, None);
+            let k = KeyEntry::from_value(&key.body().content().value().unwrap().unwrap()).unwrap();
+            assert_eq!(k.public_key, vec![3; 32]);
 
-        let Slot::Record(graph) = store.read(0, 1).unwrap() else {
-            panic!("a record")
-        };
-        assert_eq!(graph.header().key.as_deref(), Some("graph:config"));
-        let g = GraphEntry::from_value(graph.body().content().value().unwrap().unwrap()).unwrap();
-        assert_eq!(g.name, "config");
-        assert_eq!(g.partition, Some(0));
-        assert_eq!(g.scope, Scope::Instance);
-        assert_eq!(g.segment_exponent, Some(16));
-        assert_eq!(g.history, Some(History::Full));
-        assert_eq!(g.integrity, Some(Integrity::Logged));
-        assert!(g.payload_types.iter().any(|t| t == PAYLOAD_CONFIG));
-        assert_eq!(
-            graph.body().comment().value().unwrap(),
-            Some(Value::text("instance create"))
-        );
+            let Slot::Record(graph) = store.read(0, 1).await.unwrap() else {
+                panic!("a record")
+            };
+            assert_eq!(graph.header().key.as_deref(), Some("graph:config"));
+            let g =
+                GraphEntry::from_value(graph.body().content().value().unwrap().unwrap()).unwrap();
+            assert_eq!(g.name, "config");
+            assert_eq!(g.partition, Some(0));
+            assert_eq!(g.scope, Scope::Instance);
+            assert_eq!(g.segment_exponent, Some(16));
+            assert_eq!(g.history, Some(History::Full));
+            assert_eq!(g.integrity, Some(Integrity::Logged));
+            assert!(g.payload_types.iter().any(|t| t == PAYLOAD_CONFIG));
+            assert_eq!(
+                graph.body().comment().value().unwrap(),
+                Some(Value::text("instance create"))
+            );
 
-        // A second genesis of the same partition is refused by the store.
-        assert!(matches!(
-            genesis(CONFIG_PARTITION, Scope::Instance).append(&mut store, &registry),
-            Err(GenesisError::Store(StoreError::PartitionExists(0)))
-        ));
-        // A tenant's config has its own ID and scope.
-        let id = fresh_partition_id();
-        assert_ne!(id, CONFIG_PARTITION);
-        let [a, _] = genesis(id, Scope::Tenant)
-            .append(&mut store, &registry)
-            .unwrap();
-        assert_eq!(a.offset, 0);
-        assert_eq!(store.partitions().unwrap().len(), 2);
+            // A second genesis of the same partition is refused by the store.
+            assert!(matches!(
+                genesis(CONFIG_PARTITION, Scope::Instance)
+                    .append(&mut store, &registry)
+                    .await,
+                Err(GenesisError::Store(StoreError::PartitionExists(0)))
+            ));
+            // A tenant's config has its own ID and scope.
+            let id = fresh_partition_id();
+            assert_ne!(id, CONFIG_PARTITION);
+            let [a, _] = genesis(id, Scope::Tenant)
+                .append(&mut store, &registry)
+                .await
+                .unwrap();
+            assert_eq!(a.offset, 0);
+            assert_eq!(store.partitions().await.unwrap().len(), 2);
+        });
     }
 
     #[test]

@@ -12,6 +12,8 @@
 //! [`SegmentStore`](crate::segments::SegmentStore) file backend here, and
 //! `scatter-log-postgres`. All of them pass [`conformance`](crate::conformance).
 
+use std::future::Future;
+
 use crate::body::{Body, BodyError};
 use crate::hash::Hash;
 use crate::header::{FORMAT_VERSION, Header, HeaderError};
@@ -162,30 +164,49 @@ impl From<std::io::Error> for StoreError {
 }
 
 /// An append-only log of partitions.
-pub trait LogStore {
+///
+/// The methods are asynchronous so that a backend can run them inside a transaction the
+/// caller holds on an async driver (0013 §7: an interactive write appends and applies
+/// projections in one transaction). The trait needs no runtime: a synchronous caller
+/// drives a call to completion with any executor, and the file backend does plain
+/// synchronous I/O inside its futures (0005 rule 2). Every future is `Send`, so a
+/// store can be used from a multi-threaded server.
+pub trait LogStore: Send {
     /// Creates an empty partition with the given segment layout.
-    fn create_partition(&mut self, partition: u64, segments: Segments) -> Result<(), StoreError>;
+    fn create_partition(
+        &mut self,
+        partition: u64,
+        segments: Segments,
+    ) -> impl Future<Output = Result<(), StoreError>> + Send;
 
     /// The partitions this store holds, ascending.
-    fn partitions(&self) -> Result<Vec<u64>, StoreError>;
+    fn partitions(&self) -> impl Future<Output = Result<Vec<u64>, StoreError>> + Send;
 
     /// The partition's size, root and layout.
-    fn head(&self, partition: u64) -> Result<Head, StoreError>;
+    fn head(&self, partition: u64) -> impl Future<Output = Result<Head, StoreError>> + Send;
 
     /// Appends a record at the next offset.
-    fn append(&mut self, partition: u64, draft: Draft) -> Result<Appended, StoreError>;
+    fn append(
+        &mut self,
+        partition: u64,
+        draft: Draft,
+    ) -> impl Future<Output = Result<Appended, StoreError>> + Send;
 
     /// The slot at an offset.
-    fn read(&self, partition: u64, offset: u64) -> Result<Slot, StoreError>;
+    fn read(
+        &self,
+        partition: u64,
+        offset: u64,
+    ) -> impl Future<Output = Result<Slot, StoreError>> + Send;
 
-    /// Up to `limit` slots from `from`, with their offsets, in order. Compacted offsets
-    /// are skipped but count towards nothing; the scan ends at the head.
+    /// Up to `limit` records from `from`, with their offsets, in order. Compacted
+    /// offsets are skipped; the scan ends at the head.
     fn scan(
         &self,
         partition: u64,
         from: u64,
         limit: usize,
-    ) -> Result<Vec<(u64, Record)>, StoreError>;
+    ) -> impl Future<Output = Result<Vec<(u64, Record)>, StoreError>> + Send;
 
     /// Erases the named parts of the record at `offset`, keeping its leaves (0015 §1).
     /// Erasing an erased part is a no-op; an index past the body is an error.
@@ -194,9 +215,13 @@ pub trait LogStore {
         partition: u64,
         offset: u64,
         parts: &[usize],
-    ) -> Result<(), StoreError>;
+    ) -> impl Future<Output = Result<(), StoreError>> + Send;
 
-    /// Removes whole records, leaving holes (0002 §2; 0013 §1). Compacting a compacted
-    /// offset is a no-op.
-    fn compact(&mut self, partition: u64, offsets: &[u64]) -> Result<(), StoreError>;
+    /// Removes whole records, leaving holes that keep their leaves (0002 §2; 0013 §1;
+    /// 0006 A14). Compacting a compacted offset is a no-op.
+    fn compact(
+        &mut self,
+        partition: u64,
+        offsets: &[u64],
+    ) -> impl Future<Output = Result<(), StoreError>> + Send;
 }

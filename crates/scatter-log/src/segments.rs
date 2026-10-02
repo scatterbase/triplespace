@@ -306,7 +306,11 @@ impl Partition {
 }
 
 impl LogStore for SegmentStore {
-    fn create_partition(&mut self, partition: u64, segments: Segments) -> Result<(), StoreError> {
+    async fn create_partition(
+        &mut self,
+        partition: u64,
+        segments: Segments,
+    ) -> Result<(), StoreError> {
         if self.partitions.contains_key(&partition) {
             return Err(StoreError::PartitionExists(partition));
         }
@@ -339,11 +343,11 @@ impl LogStore for SegmentStore {
         Ok(())
     }
 
-    fn partitions(&self) -> Result<Vec<u64>, StoreError> {
+    async fn partitions(&self) -> Result<Vec<u64>, StoreError> {
         Ok(self.partitions.keys().copied().collect())
     }
 
-    fn head(&self, partition: u64) -> Result<Head, StoreError> {
+    async fn head(&self, partition: u64) -> Result<Head, StoreError> {
         let p = self.partition(partition)?;
         Ok(Head {
             size: p.frontier.size(),
@@ -352,7 +356,7 @@ impl LogStore for SegmentStore {
         })
     }
 
-    fn append(&mut self, partition: u64, draft: Draft) -> Result<Appended, StoreError> {
+    async fn append(&mut self, partition: u64, draft: Draft) -> Result<Appended, StoreError> {
         let p = self.partition_mut(partition)?;
         let offset = p.frontier.size();
         let record = draft.seal(partition, offset);
@@ -391,13 +395,13 @@ impl LogStore for SegmentStore {
         })
     }
 
-    fn read(&self, partition: u64, offset: u64) -> Result<Slot, StoreError> {
+    async fn read(&self, partition: u64, offset: u64) -> Result<Slot, StoreError> {
         let p = self.partition(partition)?;
         let (n, i) = p.locate(partition, offset)?;
         p.read_slot(n, i)
     }
 
-    fn scan(
+    async fn scan(
         &self,
         partition: u64,
         from: u64,
@@ -428,7 +432,7 @@ impl LogStore for SegmentStore {
         Ok(out)
     }
 
-    fn erase_parts(
+    async fn erase_parts(
         &mut self,
         partition: u64,
         offset: u64,
@@ -447,7 +451,7 @@ impl LogStore for SegmentStore {
         })
     }
 
-    fn compact(&mut self, partition: u64, offsets: &[u64]) -> Result<(), StoreError> {
+    async fn compact(&mut self, partition: u64, offsets: &[u64]) -> Result<(), StoreError> {
         let p = self.partition_mut(partition)?;
         // Group by segment file so each is rewritten once.
         let mut by_file: BTreeMap<u64, Vec<usize>> = BTreeMap::new();
@@ -494,49 +498,52 @@ mod tests {
             counter.set(counter.get() + 1);
             SegmentStore::open(root.join(counter.get().to_string())).unwrap()
         };
-        conformance::run(make);
-        conformance::run_reopen(make, |s| {
+        pollster::block_on(conformance::run(make));
+        pollster::block_on(conformance::run_reopen(make, |s| {
             let r = s.root().to_path_buf();
             drop(s);
             SegmentStore::open(r).unwrap()
-        });
+        }));
         fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]
     fn layout_on_disk() {
-        let root = temp_root("layout");
-        let mut s = SegmentStore::open(&root).unwrap();
-        s.create_partition(0x1234, Segments::new(1).unwrap())
-            .unwrap();
-        for n in 0..3 {
-            s.append(0x1234, conformance::draft(n)).unwrap();
-        }
-        let dir = root.join("0000000000001234");
-        assert!(dir.join("partition.cbor").exists());
-        assert!(dir.join("00000000.seg").exists());
-        assert!(dir.join("00000001.seg").exists());
-        assert!(!dir.join("00000002.seg").exists());
-        // The first file is two records, each a canonical [header, body].
-        let bytes = fs::read(dir.join("00000000.seg")).unwrap();
-        let (first, len) = cbor::decode_prefix(&bytes).unwrap();
-        let r = Record::from_value(&first).unwrap();
-        assert_eq!(r.header().offset, 0);
-        let (second, len2) = cbor::decode_prefix(&bytes[len..]).unwrap();
-        assert_eq!(Record::from_value(&second).unwrap().header().offset, 1);
-        assert_eq!(len + len2, bytes.len());
-        // Compaction leaves a 32-byte leaf in the file.
-        s.compact(0x1234, &[1]).unwrap();
-        let bytes = fs::read(dir.join("00000000.seg")).unwrap();
-        let (_, len) = cbor::decode_prefix(&bytes).unwrap();
-        assert_eq!(&bytes[len..len + 2], &[0x58, 0x20]);
-        assert_eq!(bytes.len(), len + 34);
-        // A damaged file is refused on open.
-        fs::write(dir.join("00000001.seg"), b"\x80").unwrap();
-        assert!(matches!(
-            SegmentStore::open(&root),
-            Err(StoreError::Corrupt(_) | StoreError::Record(_))
-        ));
-        fs::remove_dir_all(&root).unwrap();
+        pollster::block_on(async {
+            let root = temp_root("layout");
+            let mut s = SegmentStore::open(&root).unwrap();
+            s.create_partition(0x1234, Segments::new(1).unwrap())
+                .await
+                .unwrap();
+            for n in 0..3 {
+                s.append(0x1234, conformance::draft(n)).await.unwrap();
+            }
+            let dir = root.join("0000000000001234");
+            assert!(dir.join("partition.cbor").exists());
+            assert!(dir.join("00000000.seg").exists());
+            assert!(dir.join("00000001.seg").exists());
+            assert!(!dir.join("00000002.seg").exists());
+            // The first file is two records, each a canonical [header, body].
+            let bytes = fs::read(dir.join("00000000.seg")).unwrap();
+            let (first, len) = cbor::decode_prefix(&bytes).unwrap();
+            let r = Record::from_value(&first).unwrap();
+            assert_eq!(r.header().offset, 0);
+            let (second, len2) = cbor::decode_prefix(&bytes[len..]).unwrap();
+            assert_eq!(Record::from_value(&second).unwrap().header().offset, 1);
+            assert_eq!(len + len2, bytes.len());
+            // Compaction leaves a 32-byte leaf in the file.
+            s.compact(0x1234, &[1]).await.unwrap();
+            let bytes = fs::read(dir.join("00000000.seg")).unwrap();
+            let (_, len) = cbor::decode_prefix(&bytes).unwrap();
+            assert_eq!(&bytes[len..len + 2], &[0x58, 0x20]);
+            assert_eq!(bytes.len(), len + 34);
+            // A damaged file is refused on open.
+            fs::write(dir.join("00000001.seg"), b"\x80").unwrap();
+            assert!(matches!(
+                SegmentStore::open(&root),
+                Err(StoreError::Corrupt(_) | StoreError::Record(_))
+            ));
+            fs::remove_dir_all(&root).unwrap();
+        });
     }
 }

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-10-01 (A55)
+- **Updated:** 2026-10-02 (A56)
 - **Author:** James Hare / Claude Opus; revision by James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -113,10 +113,10 @@ Crates named by earlier ADRs that no longer exist as separate crates: `scatter-g
 
 ### 3. Rules
 
-*Changed by A8, A10, A33, A42, A43, A54.*
+*Changed by A8, A10, A33, A42, A43, A54, A56.*
 
 1. **Dependencies point only downward.** No `scatter-*` crate depends on a `triplespace-*` crate. No crate below the surfaces layer names Triplespace or a specific graph IRI, and only the adapters name a specific provider. CI checks the dependency graph against the table in §2.
-2. **The core is pure.** `scatter-providers`, `scatter-identity`, `scatter-normalize`, `scatter-actors`, `scatter-pages`, `scatter-wikitext`, `scatter-threads`, `scatter-activitypub`, `scatter-filter`, `scatter-mwlog`, `scatter-wikitext-expand` ([0042](0042-template-expansion-and-parsoid.md) §4), `scatter-css` ([0055](0055-templatestyles-templatedata-and-page-properties.md) §2), `triplespace-scribunto` ([0043](0043-lua-modules.md) §14) and every `scatter-wikibase-*` crate perform no I/O, use no async runtime, and depend on no tokio. `scatter-activitypub` signs and verifies; it never sends. Async appears only in `scatter-log-postgres`, `scatter-ingest` and the surfaces. `scatter-log`'s file backend does synchronous I/O and nothing else. Other runtimes can then call the core without bridging.
+2. **The core is pure.** `scatter-providers`, `scatter-identity`, `scatter-normalize`, `scatter-actors`, `scatter-pages`, `scatter-wikitext`, `scatter-threads`, `scatter-activitypub`, `scatter-filter`, `scatter-mwlog`, `scatter-wikitext-expand` ([0042](0042-template-expansion-and-parsoid.md) §4), `scatter-css` ([0055](0055-templatestyles-templatedata-and-page-properties.md) §2), `triplespace-scribunto` ([0043](0043-lua-modules.md) §14) and every `scatter-wikibase-*` crate perform no I/O, use no async runtime, and depend on no tokio. `scatter-activitypub` signs and verifies; it never sends. Async appears only in `scatter-log-postgres`, `scatter-ingest` and the surfaces. `LogStore`'s methods return futures (§4.2), which is a type signature, not a runtime: `scatter-log` depends on `std::future` alone, and its file backend does synchronous I/O inside those futures and nothing else. Other runtimes can then call the core without bridging, and a synchronous caller drives a `LogStore` call with any executor.
 3. **Policy is data.** The graph and partition registry, the provider registry, the issuer registry, the namespace registry, the keyed-type registry, the role map, the provider order, reconciliation rules and normalizer overrides are values passed in by the caller. They are not enums, constants or globals. [0004](0004-identity-clusters-and-equivalence.md) §9 records them in the log as configuration, in the `config` partition of [0015](0015-record-format-and-partition-registry.md) §3; their defaults come from `docs/registry/` ([0015](0015-record-format-and-partition-registry.md) §5), and [0013](0013-postgres-storage.md) §5.5 projects their current state.
 4. **Each hashed type has exactly one canonical encoding,** produced by one function in the crate that owns the type. No other code path computes a hash or signature preimage for it. The encodings are specified in [0006](0006-log-integrity-and-erasure.md) §2.
 5. **RDF terms and I/O use the `oxrdf` family** (`oxrdf`, `oxttl`, `oxrdfio`). Shared crates do not define their own term types.
@@ -157,7 +157,7 @@ The table shows a correspondence, not an identity. Triplespace's `metadata` grap
 
 #### 4.2 Log partitions carry their own policy
 
-*Changed by A1, A8, A10, A14.*
+*Changed by A1, A8, A10, A14, A56.*
 
 The log is split into partitions by source graph ([0002](0002-source-graphs-and-mass-ingest.md), Consequences). Each partition has:
 
@@ -168,6 +168,8 @@ The log is split into partitions by source graph ([0002](0002-source-graphs-and-
 Scatterbase's claim partition keeps everything and is `logged`. Triplespace's mirror partitions compact. `scatter-log` supports both from its first release. Adding either one later would change the on-disk format.
 
 **A partition may be backed by files or by Postgres.** The `segments` backend writes one file per segment. The Postgres backend of [0013](0013-postgres-storage.md) §1–2 stores records as rows, and a segment is then the offset range `[n·2^k, (n+1)·2^k)`. Both implement `LogStore`, and export bundles use the file format whichever backend is live.
+
+**`LogStore` is asynchronous and transaction-shaped.** Its methods (`create_partition`, `partitions`, `head`, `append`, `read`, `scan`, `erase_parts`, `compact`) return `Send` futures, because an interactive write in Postgres appends and applies its projections in one transaction on the async driver ([0013](0013-postgres-storage.md) §7): the Postgres backend implements the trait on a handle that borrows the caller's transaction, so the append composes with everything else in it, and the conformance suite (rule 8) exercises the same append the write path uses. The trait needs no runtime (rule 2). The store fills in only the header fields it alone can know, the partition, the offset and the commitment; the caller's `Draft` carries the time, the payload type, the key and the global IDs, which the write path allocates from its own per-tenant sequences in the same transaction ([0013](0013-postgres-storage.md) §6, [0015](0015-record-format-and-partition-registry.md) §2). A compacted offset keeps its Merkle leaf ([0006](0006-log-integrity-and-erasure.md) A14).
 
 #### 4.3 A record is a header plus a payload
 
@@ -259,7 +261,7 @@ This settles 0001 Q1, the exact namespace IRI: it is `https://scatter.red/terms/
 - **Q4. When to extract the shared repository.** The trigger in §6 is Scatterbase's first dependency. An earlier split may suit contributors.
 - **Q5. Whether `scatter.wiki` should redirect** to `scatter.red/terms/v0/` or stay unused.
 - **Q6.** ~~**Graph IRIs.** Their form, and whether they are fixed or per instance. Carried over from 0001 and 0002. The registry (§4.1) accepts either, and [0013](0013-postgres-storage.md) §2 stores one per partition.~~ *Settled by [0015](0015-record-format-and-partition-registry.md) §5: `{base}/graph/{name}`, per instance (per tenant since [0018](0018-tenants.md) §2), with the names fixed in `docs/registry/graphs.toml`.*
-- **Q7.** ~~**Whether `scatter-log-postgres` should offer a blocking API** so that rule 2's async exception can be withdrawn.~~ *Settled by [0033](0033-backend-stack.md) §4: the synchronous `postgres` crate, a wrapper over the same driver, offers one without a second implementation.*
+- **Q7.** ~~**Whether `scatter-log-postgres` should offer a blocking API** so that rule 2's async exception can be withdrawn.~~ *Settled by [0033](0033-backend-stack.md) §4: the synchronous `postgres` crate, a wrapper over the same driver, offers one without a second implementation. Revised by A56: `LogStore` itself is asynchronous, so a blocking caller drives it with an executor rather than through the `postgres` wrapper, which cannot join the write path's transaction.*
 
 ## Changes to other ADRs
 
@@ -708,3 +710,12 @@ Replaced text (§2, `scatter-adapter-wikidata`):
 - **Source:** [0056](0056-security-model.md) §16
 - **Change:** extends §2
 - **Summary:** `scatter-actors` gains the `tenant` and `set` targets, visibility sets, the include subset test and the lock-out check; `triplespace-projections` the visibility tables; `triplespace-cache` the `{vis}` segment and epoch; `triplespace-search` `read_groups` and its filter; `scatter-wikitext-expand` the include rule; `triplespace-server` the deployment settings, host check and landing page; `triplespace-cli` `instance check`.
+
+### A56. `LogStore` is asynchronous
+
+- **Date:** 2026-10-02
+- **Source:** Direct: James, decision of 2026-10-02 (`scatter-log`)
+- **Change:** amends §3 (rule 2) and §4.2, and Q7
+- **Summary:** `LogStore`'s methods return `Send` futures so that the Postgres backend can run an append inside the transaction that also applies projections ([0013](0013-postgres-storage.md) §7), on a handle borrowing that transaction. `scatter-log` still depends on no runtime; its file backend does synchronous I/O inside the futures, and synchronous callers use any executor. ID allocation stays outside the trait: the write path fills revid, logid and page ID into the `Draft` from its own sequences. The `postgres` blocking wrapper of Q7 is no longer how a blocking API is offered, since it cannot share the async driver's transaction.
+
+Replaced text (rule 2): "`scatter-log`'s file backend does synchronous I/O and nothing else. Other runtimes can then call the core without bridging."

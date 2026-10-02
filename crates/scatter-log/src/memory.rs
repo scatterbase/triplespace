@@ -58,7 +58,11 @@ fn slot_mut(p: &mut Partition, partition: u64, offset: u64) -> Result<&mut Slot,
 }
 
 impl LogStore for MemoryStore {
-    fn create_partition(&mut self, partition: u64, segments: Segments) -> Result<(), StoreError> {
+    async fn create_partition(
+        &mut self,
+        partition: u64,
+        segments: Segments,
+    ) -> Result<(), StoreError> {
         if self.partitions.contains_key(&partition) {
             return Err(StoreError::PartitionExists(partition));
         }
@@ -73,11 +77,11 @@ impl LogStore for MemoryStore {
         Ok(())
     }
 
-    fn partitions(&self) -> Result<Vec<u64>, StoreError> {
+    async fn partitions(&self) -> Result<Vec<u64>, StoreError> {
         Ok(self.partitions.keys().copied().collect())
     }
 
-    fn head(&self, partition: u64) -> Result<Head, StoreError> {
+    async fn head(&self, partition: u64) -> Result<Head, StoreError> {
         let p = self.partition(partition)?;
         Ok(Head {
             size: p.frontier.size(),
@@ -86,7 +90,7 @@ impl LogStore for MemoryStore {
         })
     }
 
-    fn append(&mut self, partition: u64, draft: Draft) -> Result<Appended, StoreError> {
+    async fn append(&mut self, partition: u64, draft: Draft) -> Result<Appended, StoreError> {
         let p = self.partition_mut(partition)?;
         let offset = p.frontier.size();
         let record = draft.seal(partition, offset);
@@ -100,7 +104,7 @@ impl LogStore for MemoryStore {
         })
     }
 
-    fn read(&self, partition: u64, offset: u64) -> Result<Slot, StoreError> {
+    async fn read(&self, partition: u64, offset: u64) -> Result<Slot, StoreError> {
         let p = self.partition(partition)?;
         usize::try_from(offset)
             .ok()
@@ -109,7 +113,7 @@ impl LogStore for MemoryStore {
             .ok_or(StoreError::NoOffset { partition, offset })
     }
 
-    fn scan(
+    async fn scan(
         &self,
         partition: u64,
         from: u64,
@@ -127,7 +131,7 @@ impl LogStore for MemoryStore {
             .collect())
     }
 
-    fn erase_parts(
+    async fn erase_parts(
         &mut self,
         partition: u64,
         offset: u64,
@@ -145,7 +149,7 @@ impl LogStore for MemoryStore {
         }
     }
 
-    fn compact(&mut self, partition: u64, offsets: &[u64]) -> Result<(), StoreError> {
+    async fn compact(&mut self, partition: u64, offsets: &[u64]) -> Result<(), StoreError> {
         let p = self.partition_mut(partition)?;
         for &offset in offsets {
             let slot = slot_mut(p, partition, offset)?;
@@ -154,5 +158,27 @@ impl LogStore for MemoryStore {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::conformance::draft;
+
+    fn assert_send<T: Send>(_: &T) {}
+
+    #[test]
+    fn futures_are_send() {
+        // A store must be usable from a multi-threaded server: every future is `Send`.
+        let mut s = MemoryStore::new();
+        assert_send(&s.create_partition(1, Segments::new(1).unwrap()));
+        assert_send(&s.append(1, draft(0)));
+        assert_send(&s.read(1, 0));
+        assert_send(&s.scan(1, 0, 1));
+        assert_send(&s.head(1));
+        assert_send(&s.partitions());
+        assert_send(&s.erase_parts(1, 0, &[]));
+        assert_send(&s.compact(1, &[]));
     }
 }
