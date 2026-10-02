@@ -3,7 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-10-01
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0010](0010-site-ui.md), [0011](0011-logs.md)
+- **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md)
 - **Uses:** [0005](0005-crate-organization.md), [0013](0013-postgres-storage.md)
 
 ## Context
@@ -269,6 +269,7 @@ Files still in the old format keep the existing checks until they are converted.
 | [0009](0009-keyed-entity-types-and-domain.md) §1–12 | §13 | consolidates | 0009 A7 |
 | [0010](0010-site-ui.md) §1–13 | §13 | consolidates | 0010 A28 |
 | [0011](0011-logs.md) §2–10 | §13 | consolidates | 0011 A17 |
+| [0012](0012-api-requirements.md) §2–9 | §13 | consolidates | 0012 A29 |
 
 ## References
 
