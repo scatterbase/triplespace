@@ -285,7 +285,7 @@ Pywikibot reading and editing `Project` pages is the acceptance test for this su
 
 | Target | By | Change | Target's log |
 |---|---|---|---|
-| [0005](0005-crate-organization.md) §2, §4.1 | §4, §11 | amends | 0005 §8 (changelog row for 0008 §4, §11) |
+| [0005](0005-crate-organization.md) §2, §4.1 | §4, §11 | amends | 0005 A3 |
 
 ## References
 

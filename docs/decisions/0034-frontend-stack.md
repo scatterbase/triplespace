@@ -3,7 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-09-27
 - **Amended by:** [0042 — Template expansion and the Parsoid renderer](0042-template-expansion-and-parsoid.md) (§15 amends §6: pages that need expansion preview on the server), [0043 — Lua modules](0043-lua-modules.md) (§13 extends §7: a Lua mode), [0045 — Tables](0045-table-content-model.md) (§11 extends §4: the table grid editor)
-- **Related:** 0003, 0005, 0008, 0010, 0012, 0014, 0019, 0020, 0021, 0027, 0033
+- **Related:** [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (amends §2: `triplespace-ui` and `scatter-wasm`), 0003, 0005, 0008, 0010, 0012, 0014, 0019, 0020, 0021, 0027, 0033
 
 ## Context
 

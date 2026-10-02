@@ -3,7 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-09-30
 - **Author:** James Hare / Claude Opus
-- **Related:** [0008 — Namespaces and document pages](0008-namespaces-and-document-pages.md) (§5 extends §3: the `entity-id` normalizer accepts the form), [0012 — API requirements for the site UI](0012-api-requirements.md) (§3 uses §4 and §5), [0017 — Entity ID grammar](0017-entity-id-grammar.md) (§1 extends §1: an input form of local IDs; §2 extends §2), [0018 — Tenants](0018-tenants.md) (§4 uses §5), [0022 — Federation](0022-federation.md) (§4 uses §2), [0043 — Lua modules](0043-lua-modules.md), [Provider registry](../registry/providers.toml)
+- **Related:** [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§6 amends §2), [0008 — Namespaces and document pages](0008-namespaces-and-document-pages.md) (§5 extends §3: the `entity-id` normalizer accepts the form), [0012 — API requirements for the site UI](0012-api-requirements.md) (§3 uses §4 and §5), [0017 — Entity ID grammar](0017-entity-id-grammar.md) (§1 extends §1: an input form of local IDs; §2 extends §2), [0018 — Tenants](0018-tenants.md) (§4 uses §5), [0022 — Federation](0022-federation.md) (§4 uses §2), [0043 — Lua modules](0043-lua-modules.md), [Provider registry](../registry/providers.toml)
 
 ## Context
 

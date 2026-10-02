@@ -3,7 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-09-27
 - **Amended by:** [0039 — Files, blob storage and foreign file repositories](0039-files-and-media.md) (§3 and §6 extend §5: `object_store`, `image` and `resvg`), [0042 — Template expansion and the Parsoid renderer](0042-template-expansion-and-parsoid.md) (§1 and §8 refine §9.1: rendering expanded text, and the Parsoid service; §8.3 amends §1: one optional service needs PHP; §18 extends §15: ParserFunctions and Scribunto on the reference install), [0043 — Lua modules](0043-lua-modules.md) (§4 and §14 extend §1: Lua 5.1 through `mlua`, and vendored GPL Lua in a Triplespace crate)
-- **Related:** 0005, 0006, 0007, 0008, 0011, 0012, 0013, 0014, 0015, 0019, 0021, 0022, 0025, 0027, 0030, 0032, 0034
+- **Related:** [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (amends §2: dependency notes), 0005, 0006, 0007, 0008, 0011, 0012, 0013, 0014, 0015, 0019, 0021, 0022, 0025, 0027, 0030, 0032, 0034
 
 ## Context
 
