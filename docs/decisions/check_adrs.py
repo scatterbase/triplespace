@@ -183,7 +183,7 @@ def adr_nums(s):
 
 def settlers(note):
     """The sources of '*Settled by X and Y: answer*' are what comes before the colon (0050 §10)."""
-    return re.split(r":(?!//)", note, maxsplit=1)[0]
+    return re.split(r": ", note, maxsplit=1)[0]
 
 for name in sorted(new_format):
     text = texts[name]
