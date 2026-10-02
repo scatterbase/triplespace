@@ -1,0 +1,299 @@
+{
+  "format": "scatter-log/1",
+  "description": "Test vectors for docs/api/payloads.md §1–2: canonical CBOR, the record header, salted body parts and the hash tags. Inputs are under `cbor[].json`, `records[].header` and `records[].parts`; everything under `expect` is derived. `check.py` regenerates and checks the derived values independently of the Rust crate; `crates/scatter-log/tests/vectors.rs` checks the crate against this file.",
+  "cbor": [
+    {
+      "name": "integers and the shortest heads",
+      "json": [
+        0,
+        1,
+        23,
+        24,
+        255,
+        256,
+        65535,
+        65536,
+        4294967295,
+        4294967296,
+        18446744073709551615,
+        -1,
+        -24,
+        -25,
+        -256,
+        -257,
+        -65536,
+        -65537,
+        -4294967296,
+        -4294967297,
+        -9223372036854775808
+      ],
+      "expect": {
+        "hex": "95000117181818ff19010019ffff1a000100001affffffff1b00000001000000001bffffffffffffffff2037381838ff39010039ffff3a000100003affffffff3b00000001000000003b7fffffffffffffff"
+      }
+    },
+    {
+      "name": "floats in the shortest width",
+      "json": [
+        0.0,
+        -0.0,
+        1.0,
+        1.5,
+        65504.0,
+        65536.0,
+        0.1,
+        -0.1275,
+        5.960464477539063e-08,
+        3.4028234663852886e+38,
+        1.5e+300,
+        1e-45,
+        51.5
+      ],
+      "expect": {
+        "hex": "8df90000f98000f93c00f93e00f97bfffa47800000fb3fb999999999999afbbfc051eb851eb852f90001fa7f7ffffffb7e41eb2d66005835fb3696d601ad376ab9f95270"
+      }
+    },
+    {
+      "name": "text, bytes-free",
+      "json": [
+        "",
+        "a",
+        "ü",
+        "水",
+        "𐍈",
+        "aaaaaaaaaaaaaaaaaaaaaaaa",
+        "\n\"\\"
+      ],
+      "expect": {
+        "hex": "8760616162c3bc63e6b0b464f0908d887818616161616161616161616161616161616161616161616161630a225c"
+      }
+    },
+    {
+      "name": "simple values",
+      "json": [
+        true,
+        false,
+        null
+      ],
+      "expect": {
+        "hex": "83f5f4f6"
+      }
+    },
+    {
+      "name": "map keys in encoded-byte order",
+      "json": {
+        "b": 1,
+        "a": 2,
+        "aa": 3,
+        "": 4,
+        "ab": 5,
+        "B": 6,
+        "zzz": 7,
+        "é": 8
+      },
+      "expect": {
+        "hex": "a86004614206616102616201626161036261620562c3a908637a7a7a07"
+      }
+    },
+    {
+      "name": "nesting",
+      "json": {
+        "labels": {
+          "en": {
+            "language": "en",
+            "value": "Earth"
+          }
+        },
+        "claims": [],
+        "x": {},
+        "n": [
+          1,
+          [
+            2,
+            [
+              3,
+              []
+            ]
+          ]
+        ]
+      },
+      "expect": {
+        "hex": "a4616e820182028203806178a066636c61696d7380666c6162656c73a162656ea26576616c7565654561727468686c616e677561676562656e"
+      }
+    }
+  ],
+  "records": [
+    {
+      "name": "a local changeset with three parts",
+      "header": {
+        "version": 1,
+        "partition": 12345678901234567890,
+        "offset": 41,
+        "appended_at": 1790000000000042,
+        "payload_type": "scatter:v0/changeset",
+        "key": "Q6",
+        "revid": 900,
+        "logid": null,
+        "page_id": 12
+      },
+      "parts": [
+        {
+          "salt": "000102030405060708090a0b0c0d0e0f",
+          "json": {
+            "op": "add",
+            "id": "Q6",
+            "labels": {
+              "en": {
+                "language": "en",
+                "value": "Earth"
+              },
+              "de": {
+                "language": "de",
+                "value": "Erde"
+              }
+            },
+            "claims": {
+              "P31": [
+                {
+                  "mainsnak": {
+                    "snaktype": "value",
+                    "property": "P31",
+                    "datavalue": {
+                      "value": {
+                        "entity-type": "item",
+                        "id": "Q634"
+                      },
+                      "type": "wikibase-entityid"
+                    }
+                  },
+                  "type": "statement",
+                  "rank": "normal"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "salt": "101112131415161718191a1b1c1d1e1f",
+          "json": "Added English and German labels"
+        },
+        {
+          "salt": "202122232425262728292a2b2c2d2e2f",
+          "json": {
+            "actor": "local:42",
+            "tags": [
+              "OAuth CID: 12"
+            ]
+          }
+        }
+      ],
+      "erase": [
+        2
+      ],
+      "expect": {
+        "part_cbor": [
+          "a4626964625136626f706361646466636c61696d73a16350333181a36472616e6b666e6f726d616c64747970656973746174656d656e74686d61696e736e616ba36870726f70657274796350333168736e616b747970656576616c7565696461746176616c7565a264747970657177696b69626173652d656e7469747969646576616c7565a262696464513633346b656e746974792d74797065646974656d666c6162656c73a2626465a26576616c75656445726465686c616e677561676562646562656ea26576616c7565654561727468686c616e677561676562656e",
+          "781f416464656420456e676c69736820616e64204765726d616e206c6162656c73",
+          "a26474616773816d4f41757468204349443a203132656163746f72686c6f63616c3a3432"
+        ],
+        "part_leaves": [
+          "4a051ba67735eff31cbfebf2fadda859eb9d414a52a59b93056db3269aec227f",
+          "a75f198bdf57088d2873140f44acecf180acf380b5cbcaf7708ea6b60b7c6a64",
+          "46390881727aadefe228c5ac62a0a29d453ce0204a54467c622815f61419f681"
+        ],
+        "commitment": "b9731363b4e199ebfb0f9e65209cb7ae008e4d83d9356ed8ec89a94c82107eec",
+        "header_cbor": "8a011bab54a98ceb1f0ad218291b00065bfeda25e02a74736361747465723a76302f6368616e67657365746251365820b9731363b4e199ebfb0f9e65209cb7ae008e4d83d9356ed8ec89a94c82107eec190384f60c",
+        "leaf": "06b7ba901210bd5b38bc623181aaf3a7352ae14b61bdb2b1419d26738207182d",
+        "content_hash": "6b935e44b354184e0ab8a6b2085049c14749c64def00f7d8a3e0fd8e915efc31",
+        "signature_preimage": "041f307856d12408f57f31564cb2e95b1fe537fdb6e0716afcdcaa450e4d867e",
+        "record_cbor": "828a011bab54a98ceb1f0ad218291b00065bfeda25e02a74736361747465723a76302f6368616e67657365746251365820b9731363b4e199ebfb0f9e65209cb7ae008e4d83d9356ed8ec89a94c82107eec190384f60c838250000102030405060708090a0b0c0d0e0f58dea4626964625136626f706361646466636c61696d73a16350333181a36472616e6b666e6f726d616c64747970656973746174656d656e74686d61696e736e616ba36870726f70657274796350333168736e616b747970656576616c7565696461746176616c7565a264747970657177696b69626173652d656e7469747969646576616c7565a262696464513633346b656e746974792d74797065646974656d666c6162656c73a2626465a26576616c75656445726465686c616e677561676562646562656ea26576616c7565654561727468686c616e677561676562656e8250101112131415161718191a1b1c1d1e1f5821781f416464656420456e676c69736820616e64204765726d616e206c6162656c738250202122232425262728292a2b2c2d2e2f5824a26474616773816d4f41757468204349443a203132656163746f72686c6f63616c3a3432",
+        "record_cbor_erased": "828a011bab54a98ceb1f0ad218291b00065bfeda25e02a74736361747465723a76302f6368616e67657365746251365820b9731363b4e199ebfb0f9e65209cb7ae008e4d83d9356ed8ec89a94c82107eec190384f60c838250000102030405060708090a0b0c0d0e0f58dea4626964625136626f706361646466636c61696d73a16350333181a36472616e6b666e6f726d616c64747970656973746174656d656e74686d61696e736e616ba36870726f70657274796350333168736e616b747970656576616c7565696461746176616c7565a264747970657177696b69626173652d656e7469747969646576616c7565a262696464513633346b656e746974792d74797065646974656d666c6162656c73a2626465a26576616c75656445726465686c616e677561676562646562656ea26576616c7565654561727468686c616e677561676562656e8250101112131415161718191a1b1c1d1e1f5821781f416464656420456e676c69736820616e64204765726d616e206c6162656c7382f6582046390881727aadefe228c5ac62a0a29d453ce0204a54467c622815f61419f681"
+      }
+    },
+    {
+      "name": "a config record at the genesis offset, with a null comment and a fourth part",
+      "header": {
+        "version": 1,
+        "partition": 0,
+        "offset": 1,
+        "appended_at": 1700000000000000,
+        "payload_type": "scatter:v0/config",
+        "key": "graph:config",
+        "revid": null,
+        "logid": 1099511627777,
+        "page_id": null
+      },
+      "parts": [
+        {
+          "salt": "ffffffffffffffffffffffffffffffff",
+          "json": {
+            "kind": "graph",
+            "name": "config",
+            "scope": "instance",
+            "partition": 0,
+            "segment_exponent": 16,
+            "hash": "sha-256",
+            "payload_types": [
+              "scatter:v0/config"
+            ],
+            "weights": [
+              0.5,
+              -0.1275,
+              1e-45
+            ],
+            "flags": {
+              "history": true,
+              "export": false,
+              "note": null
+            }
+          }
+        },
+        {
+          "salt": "00000000000000000000000000000000",
+          "json": null
+        },
+        {
+          "salt": "0123456789abcdef0123456789abcdef",
+          "json": {
+            "actor": "instance:scatter",
+            "binding": "provision",
+            "authority": {
+              "partition": 0,
+              "offset": 0
+            }
+          }
+        },
+        {
+          "salt": "fedcba9876543210fedcba9876543210",
+          "json": "a fourth part: text"
+        }
+      ],
+      "erase": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "expect": {
+        "part_cbor": [
+          "a96468617368677368612d323536646b696e64656772617068646e616d6566636f6e66696765666c616773a3646e6f7465f6666578706f7274f467686973746f7279f56573636f706568696e7374616e6365677765696768747383f93800fbbfc051eb851eb852fb3696d601ad376ab969706172746974696f6e006d7061796c6f61645f74797065738171736361747465723a76302f636f6e666967707365676d656e745f6578706f6e656e7410",
+          "f6",
+          "a3656163746f7270696e7374616e63653a736361747465726762696e64696e676970726f766973696f6e69617574686f72697479a2666f66667365740069706172746974696f6e00",
+          "736120666f7572746820706172743a2074657874"
+        ],
+        "part_leaves": [
+          "9884b110483d665b3bc1a5366ab6e5cbf4e178755a41528d73881d4c0a547f1b",
+          "609f0e1b81c7caf7bdca2d20ae8d24090c39c41eff3670e7f3c17ef33f6b305c",
+          "7ef0f57c3e55ba4cd95005bd750699a949880aab867524c82ba54e7fb926da9b",
+          "08f56d5b3c70174f4db8d43c61f28004dfc36f3c156861c1d38886d054918eb3"
+        ],
+        "commitment": "7ff3138d74ea6c259a10a1912aca50095797bbd4e39719db19242b3d11fd173e",
+        "header_cbor": "8a0100011b00060a24181e400071736361747465723a76302f636f6e6669676c67726170683a636f6e66696758207ff3138d74ea6c259a10a1912aca50095797bbd4e39719db19242b3d11fd173ef61b0000010000000001f6",
+        "leaf": "ab9196283638aaaed2b2682958a95cf1e11b3b39b49c53c41546b39d822ca9a5",
+        "content_hash": "43aaf0743ce866cebac89a780122abccce4f473738682a3c7ea28fba62b6b91c",
+        "signature_preimage": "4830fa915a6979df7b8927434039908bdb451df16ced1f9ec2069ad64e7db7ce",
+        "record_cbor": "828a0100011b00060a24181e400071736361747465723a76302f636f6e6669676c67726170683a636f6e66696758207ff3138d74ea6c259a10a1912aca50095797bbd4e39719db19242b3d11fd173ef61b0000010000000001f6848250ffffffffffffffffffffffffffffffff58aea96468617368677368612d323536646b696e64656772617068646e616d6566636f6e66696765666c616773a3646e6f7465f6666578706f7274f467686973746f7279f56573636f706568696e7374616e6365677765696768747383f93800fbbfc051eb851eb852fb3696d601ad376ab969706172746974696f6e006d7061796c6f61645f74797065738171736361747465723a76302f636f6e666967707365676d656e745f6578706f6e656e741082500000000000000000000000000000000041f682500123456789abcdef0123456789abcdef5848a3656163746f7270696e7374616e63653a736361747465726762696e64696e676970726f766973696f6e69617574686f72697479a2666f66667365740069706172746974696f6e008250fedcba9876543210fedcba987654321054736120666f7572746820706172743a2074657874",
+        "record_cbor_erased": "828a0100011b00060a24181e400071736361747465723a76302f636f6e6669676c67726170683a636f6e66696758207ff3138d74ea6c259a10a1912aca50095797bbd4e39719db19242b3d11fd173ef61b0000010000000001f68482f658209884b110483d665b3bc1a5366ab6e5cbf4e178755a41528d73881d4c0a547f1b82f65820609f0e1b81c7caf7bdca2d20ae8d24090c39c41eff3670e7f3c17ef33f6b305c82f658207ef0f57c3e55ba4cd95005bd750699a949880aab867524c82ba54e7fb926da9b82f6582008f56d5b3c70174f4db8d43c61f28004dfc36f3c156861c1d38886d054918eb3"
+      }
+    }
+  ]
+}

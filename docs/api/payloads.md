@@ -13,13 +13,16 @@ Companion: [payloads-actors.md](payloads-actors.md) holds the six actor-side pay
 ## 1. Encoding
 
 Every record, header and part is **core-deterministic CBOR** (RFC 8949 §4.2.1): shortest
-integer and length encodings, definite lengths only, map keys sorted by their encoded
-bytes (shorter first, then bytewise), no duplicate keys, no tags, no floats where an
-integer will do, and floats in the shortest width that round-trips. JSON maps onto it
-structurally (0006 §2): strings are text strings, JSON numbers are integers or floats as
-JSON typed them, objects are maps with text keys, `true`/`false`/`null` are the simple
+integer and length encodings, definite lengths only, map keys sorted bytewise by their
+encoded form (for text keys that is shorter first, then by UTF-8 bytes), no duplicate
+keys, no tags, no floats where an integer will do, and floats in the shortest width that
+round-trips (half, single or double; NaN is `f97e00`). JSON maps onto it structurally
+(0006 §2): strings are text strings, JSON numbers are integers or floats as JSON typed
+them (`51` is an integer, `51.0` a float; a float is parsed correctly rounded, never
+approximately), objects are maps with text keys, `true`/`false`/`null` are the simple
 values. The decoder is strict: a record whose re-encoding differs from its bytes is
-rejected.
+rejected. Test vectors for this section and §2 are in [vectors/log-v1.json](vectors/log-v1.json),
+checked by `vectors/check.py` and by `scatter-log`'s tests.
 
 Conventions this document uses throughout:
 
