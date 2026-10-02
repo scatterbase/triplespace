@@ -1,9 +1,11 @@
-//! The OSM tag or key (ADR 0036 §3): `amenity` or `amenity=cafe`, the exact string,
-//! case-sensitive, in Unicode NFC. There is no normalizer; input that is not already a
-//! valid key is rejected rather than repaired.
+//! The grammar of the `osm` notation scheme (ADR 0036 §3, 0048 §6): an OSM key or tag,
+//! `amenity` or `amenity=cafe`, the exact string, case-sensitive, in Unicode NFC. The
+//! scheme's normalizer is `exact`; input that is not already valid is rejected rather
+//! than repaired.
 //!
-//! Since ADR 0048 this is the `osm-tag` grammar of the `osm` notation scheme
-//! ([`crate::notation`]): `notation:osm:amenity=cafe`, not a keyed type of its own.
+//! An OSM key or tag is a notation with the `osm` scheme ([`crate::notation`]),
+//! `notation:osm:amenity=cafe`, not a keyed type of its own. The registry names this
+//! grammar `osm-tag` (`docs/registry/notation-schemes.toml`).
 //!
 //! Grammar: a key of 1 to 255 characters, or a key, `=` and a value of 1 to 255
 //! characters; no control characters; no `=` in the key; no leading or trailing
@@ -15,7 +17,7 @@ pub const MAX_PART_CHARS: usize = 255;
 /// Why a string is not an OSM tag or key.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[non_exhaustive]
-pub enum OsmTagError {
+pub enum OsmNotationError {
     /// Not in Unicode NFC.
     #[error("`{0}` is not in Unicode NFC")]
     NotNfc(String),
@@ -36,7 +38,7 @@ pub enum OsmTagError {
 /// Checks that `input` is a valid OSM tag or key and returns it unchanged.
 ///
 /// ```
-/// use scatter_normalize::osmtag::normalize;
+/// use scatter_normalize::notation::osm::normalize;
 /// assert_eq!(normalize("amenity").unwrap(), "amenity");
 /// assert_eq!(normalize("amenity=cafe").unwrap(), "amenity=cafe");
 /// assert_eq!(normalize("addr:street=Main Street").unwrap(), "addr:street=Main Street");
@@ -44,13 +46,13 @@ pub enum OsmTagError {
 /// assert!(normalize("amenity=").is_err());
 /// assert!(normalize(" amenity").is_err());
 /// ```
-pub fn normalize(input: &str) -> Result<String, OsmTagError> {
-    let err = |f: fn(String) -> OsmTagError| f(input.to_string());
+pub fn normalize(input: &str) -> Result<String, OsmNotationError> {
+    let err = |f: fn(String) -> OsmNotationError| f(input.to_string());
     if !crate::is_nfc(input) {
-        return Err(err(OsmTagError::NotNfc));
+        return Err(err(OsmNotationError::NotNfc));
     }
     if input.chars().any(char::is_control) {
-        return Err(err(OsmTagError::Control));
+        return Err(err(OsmNotationError::Control));
     }
     let (key, value) = match input.split_once('=') {
         Some((k, v)) => (k, Some(v)),
@@ -58,13 +60,13 @@ pub fn normalize(input: &str) -> Result<String, OsmTagError> {
     };
     for part in std::iter::once(key).chain(value) {
         if part.is_empty() {
-            return Err(err(OsmTagError::EmptyPart));
+            return Err(err(OsmNotationError::EmptyPart));
         }
         if part.chars().count() > MAX_PART_CHARS {
-            return Err(err(OsmTagError::TooLong));
+            return Err(err(OsmNotationError::TooLong));
         }
         if part.trim() != part {
-            return Err(err(OsmTagError::Whitespace));
+            return Err(err(OsmNotationError::Whitespace));
         }
     }
     Ok(input.to_string())
@@ -107,29 +109,35 @@ mod tests {
 
     #[test]
     fn rejections() {
-        assert!(matches!(normalize("=cafe"), Err(OsmTagError::EmptyPart(_))));
+        assert!(matches!(
+            normalize("=cafe"),
+            Err(OsmNotationError::EmptyPart(_))
+        ));
         assert!(matches!(
             normalize("amenity="),
-            Err(OsmTagError::EmptyPart(_))
+            Err(OsmNotationError::EmptyPart(_))
         ));
-        assert!(matches!(normalize(""), Err(OsmTagError::EmptyPart(_))));
+        assert!(matches!(normalize(""), Err(OsmNotationError::EmptyPart(_))));
         assert!(matches!(
             normalize("amenity =cafe"),
-            Err(OsmTagError::Whitespace(_))
+            Err(OsmNotationError::Whitespace(_))
         ));
         assert!(matches!(
             normalize("amenity= cafe"),
-            Err(OsmTagError::Whitespace(_))
+            Err(OsmNotationError::Whitespace(_))
         ));
-        assert!(matches!(normalize("a\tb"), Err(OsmTagError::Control(_))));
+        assert!(matches!(
+            normalize("a\tb"),
+            Err(OsmNotationError::Control(_))
+        ));
         assert!(matches!(
             normalize(&"k".repeat(MAX_PART_CHARS + 1)),
-            Err(OsmTagError::TooLong(_))
+            Err(OsmNotationError::TooLong(_))
         ));
         // "é" as e + combining acute is NFD, not NFC.
         assert!(matches!(
             normalize("cafe\u{301}"),
-            Err(OsmTagError::NotNfc(_))
+            Err(OsmNotationError::NotNfc(_))
         ));
         assert!(normalize("caf\u{e9}").is_ok());
     }

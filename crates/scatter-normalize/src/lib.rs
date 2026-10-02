@@ -6,7 +6,7 @@
 //! - **Keyed entity types** ([`keyed`]): the registry embedded from
 //!   `docs/registry/keyed-types.toml`, the key grammars and normalizers of each type
 //!   ([`domain`], [`keyword`], and [`notation`] with its scheme registry embedded from
-//!   `docs/registry/notation-schemes.toml` and the [`osmtag`] grammar of its `osm` scheme),
+//!   `docs/registry/notation-schemes.toml` and the [`notation::osm`] grammar of its `osm` scheme),
 //!   keyed IDs such as `domain:en.wikipedia.org`,
 //!   concept IRIs, and the surrogate allocator trait ([`surrogate`]) that keeps keys out
 //!   of log headers.
@@ -25,7 +25,6 @@ pub mod domain;
 pub mod keyed;
 pub mod keyword;
 pub mod notation;
-pub mod osmtag;
 pub mod resolver;
 pub mod surrogate;
 pub mod url;
