@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-01 (A18)
+- **Updated:** 2026-10-01 (A20)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -45,7 +45,7 @@ The Scatterbase permissions map onto MediaWiki's rights and are known to MediaWi
 
 ### 2. Permissions
 
-*Changed by A2, A3, A4, A5, A6, A7, A8, A10, A13, A14, A15, A16.*
+*Changed by A2, A3, A4, A5, A6, A7, A8, A10, A13, A14, A15, A16, A19, A20.*
 
 The permission set is the union of MediaWiki's rights that Triplespace implements, Wikibase's, and the `ts-*` rights of [0012](0012-api-requirements.md) §8, with three additions. Each is listed with the action it governs and the group that holds it by default.
 
@@ -98,6 +98,8 @@ The permission set is the union of MediaWiki's rights that Triplespace implement
 | Instance acts | `ts-viewoperator` | [0040](0040-instance-prerogatives.md) §9 |
 | The primary tenant | `ts-primary` | [0046](0046-primary-tenant.md) §8 |
 | Nuke | `nuke`, MediaWiki's right from the Nuke extension; default `sysop`, and part of the `delete` grant | [0047](0047-special-pages.md) §12 |
+| Redirects | `suppressredirect` (`sysop`, `bot`), `delete-redirect`, `move-subpages`, `move-rootuserpages`, `move-categorypages` (`user`), MediaWiki's rights with MediaWiki's defaults | [0051](0051-page-redirects.md) §8 |
+| Forks | None new: forking needs `createpage` and `edit`, never `import`; copying a fork's files needs `upload` and `reupload-shared`; the `fork` rate class | [0054](0054-forking-a-mirrored-page.md) §8 |
 
 **Instance rights** authorize instance acts and are evaluated only on the primary tenant, the tenant that is primary at the time of the act, or through a global group at the farm base; held on any other tenant they grant nothing at instance scope ([0040](0040-instance-prerogatives.md) §9, [0046](0046-primary-tenant.md) §8). They are `ts-keys`, `ts-primary`, `ts-config` at the farm base, `abusefilter-modify` for global filters, `userrights`, `block` and `renameuser` on farm accounts, `ts-takedown`, `ts-expunge`, `mwoauthmanageconsumer`, and `ts-runjob` for instance jobs.
 
@@ -409,3 +411,17 @@ Replaced text (§4):
 - **Source:** [0050](0050-adr-format.md) §13
 - **Change:** consolidates §2–9
 - **Summary:** A1–A17 were folded into the Decision; the permissions later ADRs add are indexed in one table in §2, which points to the ADR that specifies each. The open questions were numbered. No decision changed. Before this, A6, A12, A13 (in part), A14, A15 (in part), A16 and A17 were blockquotes; A2, A5, A8, A11, A13 and A15 had also been written in place; the other entries were recorded only in other ADRs. The file before conversion is commit `0b26a3a`.
+
+### A19. Redirect rights
+
+- **Date:** 2026-10-01
+- **Source:** [0051](0051-page-redirects.md) §8
+- **Change:** extends §2
+- **Summary:** `suppressredirect`, `delete-redirect`, `move-subpages`, `move-rootuserpages` and `move-categorypages`, with MediaWiki's default groups.
+
+### A20. Forking needs no new right
+
+- **Date:** 2026-10-01
+- **Source:** [0054](0054-forking-a-mirrored-page.md) §8
+- **Change:** extends §2
+- **Summary:** A fork is an edit: `createpage` and `edit` on the title, with the history, dependency and talk-page seeding part of what saving means, and `import` not required. Copying a fork's files needs the upload rights.

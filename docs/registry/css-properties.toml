@@ -1,0 +1,272 @@
+# CSS properties and at-rules the sanitizer allows.  ADR 0055 §2.
+#
+# Embedded by scatter-css, which validates every `sanitized-css` page at save and sanitizes mirrored
+# and site stylesheets at render (0055 §1–4). The policy is TemplateStyles': the rules of Wikimedia's
+# css-sanitizer, so that Wikipedia's template stylesheets are accepted as they are written.
+#
+# at_rules      The at-rules allowed, each with whether its block is sanitized as rules (`@media`,
+#               `@supports`, `@keyframes`) or as declarations (`@page`, `@font-feature-values`).
+#               Every other at-rule is refused: @import, @charset, @namespace, @font-face above all.
+# forbidden     Values and properties refused wherever they appear.
+# [property]    Each allowed property, with the CSS module it comes from, as css-sanitizer groups them.
+#               A property not listed is refused. Vendor-prefixed properties are never allowed.
+# url_policy    Where `url()` may point: a local or inherited file, written as the media base URL
+#               (0039 §11), or a `data:` image under `data_max_bytes`. Nothing else.
+#
+# This file is the hand-written seed and the shape. The full list is generated from css-sanitizer's
+# published property set by `scripts/gen-css-properties.py` (to be written), as `sites.toml` is from
+# the site matrix; which modules are included is hand-edited (0055 Q3). Names are never removed: a
+# property that stops being allowed changes `allowed` to false.
+
+version = 1
+
+[at_rules]
+media               = { block = "rules" }
+supports            = { block = "rules" }
+keyframes           = { block = "rules", prefix = ".mw-parser-output" }   # keyframe names are scoped too
+page                = { block = "declarations" }
+font-feature-values = { block = "declarations" }
+
+[forbidden]
+functions  = ["expression"]
+properties = ["behavior", "-moz-binding"]
+values     = [ { property = "position", value = "fixed" } ]
+selectors  = ["html", "body", ":root"]        # rewritten to match nothing; every selector is prefixed with .mw-parser-output
+
+[url_policy]
+files          = true                           # a file title resolved through the file lookup (0039 §11)
+data_images    = true
+data_max_bytes = 32768
+external       = false
+
+# --- Properties ----------------------------------------------------------------------------------
+# module  "css21" | "backgrounds" | "borders" | "box" | "align" | "flexbox" | "grid" | "fonts" | "text" |
+#         "text-decor" | "color" | "transforms" | "transitions" | "animations" | "multicol" | "writing" |
+#         "ui" | "images" | "lists" | "tables" | "sizing" | "position" | "display" | "overflow" | "masking" |
+#         "logical" | "ruby" | "break"
+[property]
+# CSS 2.1 and the box model
+margin              = { module = "css21" }
+margin-top          = { module = "css21" }
+margin-right        = { module = "css21" }
+margin-bottom       = { module = "css21" }
+margin-left         = { module = "css21" }
+padding             = { module = "css21" }
+padding-top         = { module = "css21" }
+padding-right       = { module = "css21" }
+padding-bottom      = { module = "css21" }
+padding-left        = { module = "css21" }
+width               = { module = "sizing" }
+height              = { module = "sizing" }
+min-width           = { module = "sizing" }
+min-height          = { module = "sizing" }
+max-width           = { module = "sizing" }
+max-height          = { module = "sizing" }
+box-sizing          = { module = "sizing" }
+display             = { module = "display" }
+visibility          = { module = "display" }
+float               = { module = "css21" }
+clear               = { module = "css21" }
+position            = { module = "position" }     # fixed is forbidden (above)
+top                 = { module = "position" }
+right               = { module = "position" }
+bottom              = { module = "position" }
+left                = { module = "position" }
+z-index             = { module = "position" }
+overflow            = { module = "overflow" }
+overflow-x          = { module = "overflow" }
+overflow-y          = { module = "overflow" }
+text-overflow       = { module = "overflow" }
+vertical-align      = { module = "css21" }
+line-height         = { module = "css21" }
+cursor              = { module = "ui" }
+outline             = { module = "ui" }
+outline-width       = { module = "ui" }
+outline-style       = { module = "ui" }
+outline-color       = { module = "ui" }
+outline-offset      = { module = "ui" }
+content             = { module = "css21" }        # strings, counters and attr() only; url() follows url_policy
+quotes              = { module = "css21" }
+counter-reset       = { module = "lists" }
+counter-increment   = { module = "lists" }
+list-style          = { module = "lists" }
+list-style-type     = { module = "lists" }
+list-style-position = { module = "lists" }
+list-style-image    = { module = "lists" }
+table-layout        = { module = "tables" }
+border-collapse     = { module = "tables" }
+border-spacing      = { module = "tables" }
+caption-side        = { module = "tables" }
+empty-cells         = { module = "tables" }
+# Backgrounds and borders
+background          = { module = "backgrounds" }
+background-color    = { module = "backgrounds" }
+background-image    = { module = "backgrounds" }
+background-repeat   = { module = "backgrounds" }
+background-position = { module = "backgrounds" }
+background-size     = { module = "backgrounds" }
+background-clip     = { module = "backgrounds" }
+background-origin   = { module = "backgrounds" }
+background-attachment = { module = "backgrounds" }
+border              = { module = "borders" }
+border-top          = { module = "borders" }
+border-right        = { module = "borders" }
+border-bottom       = { module = "borders" }
+border-left         = { module = "borders" }
+border-width        = { module = "borders" }
+border-style        = { module = "borders" }
+border-color        = { module = "borders" }
+border-top-width    = { module = "borders" }
+border-right-width  = { module = "borders" }
+border-bottom-width = { module = "borders" }
+border-left-width   = { module = "borders" }
+border-top-style    = { module = "borders" }
+border-right-style  = { module = "borders" }
+border-bottom-style = { module = "borders" }
+border-left-style   = { module = "borders" }
+border-top-color    = { module = "borders" }
+border-right-color  = { module = "borders" }
+border-bottom-color = { module = "borders" }
+border-left-color   = { module = "borders" }
+border-radius       = { module = "borders" }
+border-top-left-radius     = { module = "borders" }
+border-top-right-radius    = { module = "borders" }
+border-bottom-right-radius = { module = "borders" }
+border-bottom-left-radius  = { module = "borders" }
+border-image        = { module = "borders" }
+box-shadow          = { module = "borders" }
+# Color, fonts and text
+color               = { module = "color" }
+opacity             = { module = "color" }
+font                = { module = "fonts" }
+font-family         = { module = "fonts" }
+font-size           = { module = "fonts" }
+font-style          = { module = "fonts" }
+font-weight         = { module = "fonts" }
+font-variant        = { module = "fonts" }
+font-variant-caps   = { module = "fonts" }
+font-variant-numeric = { module = "fonts" }
+font-stretch        = { module = "fonts" }
+font-feature-settings = { module = "fonts" }
+font-kerning        = { module = "fonts" }
+text-align          = { module = "text" }
+text-align-last     = { module = "text" }
+text-indent         = { module = "text" }
+text-transform      = { module = "text" }
+white-space         = { module = "text" }
+word-break          = { module = "text" }
+word-spacing        = { module = "text" }
+word-wrap           = { module = "text" }
+overflow-wrap       = { module = "text" }
+letter-spacing      = { module = "text" }
+hyphens             = { module = "text" }
+tab-size            = { module = "text" }
+text-decoration     = { module = "text-decor" }
+text-decoration-line  = { module = "text-decor" }
+text-decoration-style = { module = "text-decor" }
+text-decoration-color = { module = "text-decor" }
+text-shadow         = { module = "text-decor" }
+text-underline-position = { module = "text-decor" }
+direction           = { module = "writing" }
+unicode-bidi        = { module = "writing" }
+writing-mode        = { module = "writing" }
+text-orientation    = { module = "writing" }
+# Flexbox, grid and alignment
+flex                = { module = "flexbox" }
+flex-basis          = { module = "flexbox" }
+flex-direction      = { module = "flexbox" }
+flex-flow           = { module = "flexbox" }
+flex-grow           = { module = "flexbox" }
+flex-shrink         = { module = "flexbox" }
+flex-wrap           = { module = "flexbox" }
+order               = { module = "flexbox" }
+grid                = { module = "grid" }
+grid-area           = { module = "grid" }
+grid-template       = { module = "grid" }
+grid-template-areas = { module = "grid" }
+grid-template-columns = { module = "grid" }
+grid-template-rows  = { module = "grid" }
+grid-auto-columns   = { module = "grid" }
+grid-auto-rows      = { module = "grid" }
+grid-auto-flow      = { module = "grid" }
+grid-column         = { module = "grid" }
+grid-column-start   = { module = "grid" }
+grid-column-end     = { module = "grid" }
+grid-row            = { module = "grid" }
+grid-row-start      = { module = "grid" }
+grid-row-end        = { module = "grid" }
+gap                 = { module = "align" }
+row-gap             = { module = "align" }
+column-gap          = { module = "align" }
+align-content       = { module = "align" }
+align-items         = { module = "align" }
+align-self          = { module = "align" }
+justify-content     = { module = "align" }
+justify-items       = { module = "align" }
+justify-self        = { module = "align" }
+place-content       = { module = "align" }
+place-items         = { module = "align" }
+place-self          = { module = "align" }
+# Multi-column, transforms, transitions, animations, images and masking
+columns             = { module = "multicol" }
+column-count        = { module = "multicol" }
+column-width        = { module = "multicol" }
+column-rule         = { module = "multicol" }
+column-span         = { module = "multicol" }
+column-fill         = { module = "multicol" }
+break-before        = { module = "break" }
+break-after         = { module = "break" }
+break-inside        = { module = "break" }
+transform           = { module = "transforms" }
+transform-origin    = { module = "transforms" }
+transform-style     = { module = "transforms" }
+transition          = { module = "transitions" }
+transition-property = { module = "transitions" }
+transition-duration = { module = "transitions" }
+transition-timing-function = { module = "transitions" }
+transition-delay    = { module = "transitions" }
+animation           = { module = "animations" }
+animation-name      = { module = "animations" }
+animation-duration  = { module = "animations" }
+animation-timing-function = { module = "animations" }
+animation-delay     = { module = "animations" }
+animation-iteration-count = { module = "animations" }
+animation-direction = { module = "animations" }
+animation-fill-mode = { module = "animations" }
+animation-play-state = { module = "animations" }
+object-fit          = { module = "images" }
+object-position     = { module = "images" }
+image-rendering     = { module = "images" }
+clip-path           = { module = "masking" }
+mask                = { module = "masking" }
+# Logical properties, as css-sanitizer allows them
+margin-inline       = { module = "logical" }
+margin-inline-start = { module = "logical" }
+margin-inline-end   = { module = "logical" }
+margin-block        = { module = "logical" }
+margin-block-start  = { module = "logical" }
+margin-block-end    = { module = "logical" }
+padding-inline      = { module = "logical" }
+padding-inline-start = { module = "logical" }
+padding-inline-end  = { module = "logical" }
+padding-block       = { module = "logical" }
+padding-block-start = { module = "logical" }
+padding-block-end   = { module = "logical" }
+border-inline       = { module = "logical" }
+border-inline-start = { module = "logical" }
+border-inline-end   = { module = "logical" }
+border-block        = { module = "logical" }
+border-block-start  = { module = "logical" }
+border-block-end    = { module = "logical" }
+inset               = { module = "logical" }
+inset-inline        = { module = "logical" }
+inset-block         = { module = "logical" }
+inline-size         = { module = "logical" }
+block-size          = { module = "logical" }
+min-inline-size     = { module = "logical" }
+min-block-size      = { module = "logical" }
+max-inline-size     = { module = "logical" }
+max-block-size      = { module = "logical" }
+# Ruby
+ruby-position       = { module = "ruby" }
+ruby-align          = { module = "ruby" }

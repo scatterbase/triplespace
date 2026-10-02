@@ -35,6 +35,11 @@ reserved_codes = ["AA", "BB", "CC", "DD", "EE", "FF", "GG", "HH", "II", "JJ", "K
 #              (14 digits, `-`, optional `T`, digits) or "token" (uppercase letters, digits and
 #              underscores, starting with a letter; 0037 §2). May be set on a provider or, overriding it,
 #              on a single type.
+# pages        true for a provider whose pages a page repository serves (0052 §1). Such a provider may
+#              mint no entities: it then has no code and no [[provider.type]], and its number ranges the
+#              page IDs and revision IDs of its pages (0052 §6). `rest` is its MediaWiki REST base (0053 §1).
+#              scatter-providers does not accept a codeless entry yet, so English Wikipedia's entry
+#              (slug enwiki, number 9, issuer enwiki) is a pending allocation (README) rather than a row here.
 # key_mapped   On a type: upstream entities of this type are written under a keyed type's keys
 #              (0009 §9) instead of prefixed IDs. The type code stays reserved.
 
@@ -509,4 +514,3 @@ adapter = "scatter-adapter-gdelt"
   iri = "https://scatter.red/gdelt/theme/{upstream_id}"
   namespace = "Item"
   label = "GKG theme"            # TAX_FNCACT_MAYOR
-

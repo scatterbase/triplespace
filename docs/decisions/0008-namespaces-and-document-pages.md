@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-01 (A20)
+- **Updated:** 2026-10-01 (A24)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -82,7 +82,7 @@ Talk namespaces default to `triplespace-talk`. 210–219 is full; the next resol
 
 ### 3. Titles
 
-*Changed by A2, A3, A5, A10, A11, A14, A19.*
+*Changed by A2, A3, A5, A10, A11, A14, A19, A21, A22.*
 
 **One resolver handles every title.** Page views, API `titles=` parameters, redirects and wiki links (§8) all go through it. It works in three steps:
 
@@ -97,7 +97,7 @@ Talk namespaces default to `triplespace-talk`. 210–219 is full; the next resol
    - in an entity namespace, to an entity, following aliases and identity clusters to the canonical ID ([0004](0004-identity-clusters-and-equivalence.md) §4), exactly as the API resolves IDs;
    - in a forwarding namespace, to the same title in the namespace named by `forwards_to` ([0049](0049-boards.md) §2);
    - in a `resolver` namespace, by the resolver's lookup ([0029](0029-resolver-namespaces.md) §3);
-   - in any other `pages` namespace, to a page ID (§4).
+   - in any other `pages` namespace, to the **primary of the title's stack** ([0052](0052-page-repositories-and-title-inheritance.md) §2): the local page ID, or, where no local page exists and a page repository in `pages.repos` serves the namespace and has the title, that repository's page ([0052](0052-page-repositories-and-title-inheritance.md) §3). A primary that is a **redirect** ([0051](0051-page-redirects.md) §1), local or foreign, is followed one hop, to the stack of its target title, unless the request says `redirect=no` ([0051](0051-page-redirects.md) §2).
 
 **A title that resolves somewhere else redirects there.** `Item:P31` redirects to `Property:P31`, and `Item:WDQ123` redirects to `Item:Q456` once `WDQ123` belongs to a cluster whose canonical ID is `Q456`. `Special:EntityPage/{id}` resolves any entity ID to its page, as it does in Wikibase. A forwarding title is a permanent redirect: `Board talk:X` answers 301 to `Board:X`, and has no page ID ([0049](0049-boards.md) §2).
 
@@ -107,12 +107,12 @@ Talk namespaces default to `triplespace-talk`. 210–219 is full; the next resol
 
 ### 4. Document pages
 
-*Changed by A4, A9.*
+*Changed by A4, A9, A21, A23.*
 
 **A page is identified by a page ID, not by its title.** Page IDs are minted by the instance in sequence, start at 1 and are never reused. The title is an attribute of the page, in the same way a username is an attribute of an actor ([0007](0007-actor-identity.md) §4). This has three effects:
 
 - **The log key is the page ID.** A log header key must be an identifier, never content ([0006](0006-log-integrity-and-erasure.md) §3). A title is content, and a user page title contains a username.
-- **A move is one record.** Moving a page appends a record with its new title, and nothing else changes.
+- **A move is one record on the moved page.** Moving a page appends a record with its new title, and nothing else about that page changes. By default a second page is created at the old title, a redirect to the new one ([0051](0051-page-redirects.md) §3).
 - **A title index is a projection.** It maps each current title to its page ID, and it is rebuilt from the log.
 
 **Pages live in their own partition.** A `pages` source partition is added to the registry ([0005](0005-crate-organization.md) §4.1):
@@ -127,7 +127,7 @@ The partition holds page records, not quads. Its RDF output is revision metadata
 
 | Operation | Meaning |
 |---|---|
-| `create` | Mints the page ID, sets the title and content model, and stores the first text |
+| `create` | Mints the page ID, sets the title and content model, and stores the first text; may carry `forked_from`, naming the repository, page and revision a fork was taken from ([0054](0054-forking-a-mirrored-page.md) §1) |
 | `edit` | Stores the page's **complete new text**, optionally with a new content model |
 | `move` | Sets a new title |
 
@@ -141,7 +141,7 @@ The partition holds page records, not quads. Its RDF output is revision metadata
 
 ### 5. Content models
 
-*Changed by A3, A11, A13.*
+*Changed by A3, A11, A13, A24.*
 
 **Every page has one content model** ([0041](0041-content-models.md) §1). The model decides where the page's content comes from, how the content is validated and serialized, and how it is rendered. Models are registry data in `docs/registry/content-models.toml` ([0041](0041-content-models.md) §2). IDs follow one rule: MediaWiki's and Wikibase extensions' IDs are kept and reserved, generic formats take no prefix, and models unique to Triplespace take `triplespace-`.
 
@@ -159,7 +159,7 @@ The partition holds page records, not quads. Its RDF output is revision metadata
 - **A title suffix overrides the default** when a page is created, as in MediaWiki: `.md` gives `markdown`, `.json` gives `json`, `.yaml` or `.yml` gives `yaml`, and `.txt` gives `text`.
 - **The model can be changed** with `action=changecontentmodel`, which appends an `edit` carrying the new model. It moves a page only between text models its namespace allows.
 - **Content that fails validation is rejected** when it is saved.
-- **Models whose code reaches the reader's browser are not supported.** `css`, `javascript` and `sanitized-css` are not registered. User-supplied scripts and styles are an injection risk that nothing on the roadmap needs. `Scribunto`, whose modules run on the server in a sandbox and return wikitext, is supported while a tenant has Lua on ([0043](0043-lua-modules.md) §3).
+- **Models whose code reaches the reader's browser unsanitized are not supported.** `css` and `javascript` are not registered: user-supplied scripts and unsanitized styles are an injection risk. `sanitized-css`, TemplateStyles' model, is supported, because every sheet passes a sanitizer that scopes it to rendered content before it reaches a browser ([0055](0055-templatestyles-templatedata-and-page-properties.md) §1–2). `Scribunto`, whose modules run on the server in a sandbox and return wikitext, is supported while a tenant has Lua on ([0043](0043-lua-modules.md) §3).
 
 **Rendering code is per model.** Each model implements the content-model trait in `scatter-pages` ([0005](0005-crate-organization.md) §2), so an instance can add models without changing the page format. In Scatterbase's terms, the stored text is the blob and the content model is the view.
 
@@ -181,7 +181,7 @@ The partition holds page records, not quads. Its RDF output is revision metadata
 
 ### 8. The wikitext subset
 
-*Changed by A3, A9, A10, A12.*
+*Changed by A3, A9, A10, A12, A21, A22.*
 
 Triplespace renders a fixed subset of wikitext. It does not implement MediaWiki's parser.
 
@@ -203,6 +203,7 @@ Triplespace renders a fixed subset of wikitext. It does not implement MediaWiki'
 | Page controls | `__NOTOC__`, `__TOC__`, `__FORCETOC__` |
 | Signatures | `~~~~` and `~~~` are expanded when the page is saved, as in MediaWiki |
 | Horizontal rule | `----` |
+| Redirects | `#REDIRECT [[Target]]` as the first line makes the page a redirect ([0051](0051-page-redirects.md) §1) |
 | Safe inline HTML | An allow-list of formatting tags, such as `<br>`, `<span>`, `<div>`, `<sup>` and `<sub>`, with attributes restricted to `class`, `id` and a sanitized `style` |
 
 **Everything else is kept and shown, not dropped.**
@@ -213,11 +214,11 @@ Triplespace renders a fixed subset of wikitext. It does not implement MediaWiki'
 
 **Category links define category membership.** The category links in the latest revision of a `wikitext` page are its membership, a projection like MediaWiki's `categorylinks`. The foot of the page lists the categories as links to their pages in the `Category` namespace, with hidden categories collapsed ([0038](0038-page-metadata-and-categories.md) §3).
 
-**Links are resolved by the title resolver** (§3). A link to an entity that exists renders with its label, as Wikibase does.
+**Links are resolved by the title resolver** (§3). A link to an entity that exists renders with its label, as Wikibase does. A link to a redirect carries the class `mw-redirect` ([0051](0051-page-redirects.md) §2); a link to a title whose primary is a repository's page is an ordinary link carrying `ts-inherited`, and a link into a namespace no repository serves here leaves the wiki as an interwiki link ([0052](0052-page-repositories-and-title-inheritance.md) §4).
 
 ### 9. Importing pages from another wiki
 
-*Changed by A7, A10, A12, A16.*
+*Changed by A7, A10, A12, A16, A23.*
 
 Pages are imported from a MediaWiki XML export with full history. An import is a job ([0002](0002-source-graphs-and-mass-ingest.md) §8.3), and the procedure is:
 
@@ -231,13 +232,15 @@ Pages are imported from a MediaWiki XML export with full history. An import is a
 
 **Files.** Exports with `<upload>` elements import file versions, and `triplespace-cli files import` imports a directory as `importImages.php` does ([0039](0039-files-and-media.md) §14).
 
+**Talk namespaces are converted to threads.** A wikitext talk page in an export is imported as threads homed on its subject's talk page, split by level-two heading with the frontmatter first, each created closed with the `archived` status and holding its section's wikitext as the opening post ([0054](0054-forking-a-mirrored-page.md) §5); a project-wide discussion page lands on a board the importer names.
+
 **The forms.** `Special:Import` starts this job after showing the census. `Special:Export` is its counterpart: it writes MediaWiki XML of pages and local entities, and a verifiable `records` format ([0047](0047-special-pages.md) §8).
 
 ### 10. Links and metadata
 
-*Changed by A3, A9, A12.*
+*Changed by A3, A9, A12, A21, A22.*
 
-**A links projection** records every link from a document page to a page or entity, after resolution. It serves "What links here" for both kinds of page. So `Item:Q5` lists the project pages that link to it, and `list=backlinks` works across namespaces. Links in thread posts are rows too, so it also lists the threads that discuss it ([0019](0019-discussions.md) §5). On a tenant with expansion on, the projection reads the expanded text, so links that templates emit count, and its rows are written by the refresh job of [0042](0042-template-expansion-and-parsoid.md) §10.
+**A links projection** records every link from a document page to a page or entity, after resolution. It serves "What links here" for both kinds of page. So `Item:Q5` lists the project pages that link to it, and `list=backlinks` works across namespaces. Links in thread posts are rows too, so it also lists the threads that discuss it ([0019](0019-discussions.md) §5). On a tenant with expansion on, the projection reads the expanded text, so links that templates emit count, and its rows are written by the refresh job of [0042](0042-template-expansion-and-parsoid.md) §10. A redirect's row points at its target, so "What links here" lists a page's redirects ([0051](0051-page-redirects.md) §5); a link to a title whose primary is a repository's page is recorded by namespace and title, as a link to a missing page is, so a later fork inherits its backlinks ([0052](0052-page-repositories-and-title-inheritance.md) §4).
 
 **Page revisions get revision nodes** in the metadata graph, as entity revisions do ([0001](0001-revision-metadata-rdf.md) §1, §6):
 
@@ -279,7 +282,7 @@ Pywikibot reading and editing `Project` pages is the acceptance test for this su
 - **Q5.** ~~**Categories.** Whether category links should ever become data, for example as statements or as a list projection.~~ *Settled by [0038](0038-page-metadata-and-categories.md) §3 and §5: categories are defined only in wikitext and projected as a list; configured mappings turn membership into page statements.*
 - **Q6.** ~~**Page protection and permissions.** Who may create, move, delete and protect pages, beyond the owner rule in §6.~~ *Settled by [0016](0016-permissions-and-access-control.md) §5 (who) and [0023](0023-moderation.md) §1–4 (what protection and deletion are: ACLs on the page).*
 - **Q7.** ~~**Search.** Whether one search index covers entity labels and page text together, as `list=search` would expect.~~ *Settled by [0014](0014-caches-and-search.md) §7: two indexes (`entities`, `pages`), one query, with a Postgres fallback (§8).*
-- **Q8.** **Page redirects.** Whether document pages may be redirects (`#REDIRECT [[…]]`), and whether a move leaves one for `Project` pages, where no erasable names are involved.
+- **Q8.** ~~**Page redirects.** Whether document pages may be redirects (`#REDIRECT [[…]]`), and whether a move leaves one for `Project` pages, where no erasable names are involved.~~ *Settled by [0051](0051-page-redirects.md) §1 and §3: a `wikitext` page whose text begins with a redirect line is a redirect, and a move leaves one everywhere except user renames and thread renames.*
 
 ## Changes to other ADRs
 
@@ -560,3 +563,43 @@ Replaced text (§2). The table as it stood, with rows 1, 210 and 211 already edi
 > | 123 | Property talk | Reserved | |
 > | 210 | Domain | Entity view | [0009](0009-keyed-entity-types-and-domain.md); number allocated 2026-09-27 (amendment below) |
 > | 211 | Domain talk | Composite | |
+
+### A21. Page redirects
+
+- **Date:** 2026-10-01
+- **Source:** [0051](0051-page-redirects.md) §1–3, §5
+- **Change:** amends §4; extends §3, §8, §10
+- **Summary:** A `wikitext` page whose text begins with `#REDIRECT [[Target]]` is a redirect; the resolver follows one hop unless told `redirect=no`; a move leaves a redirect page at the old title by default, so a move is one record on the moved page and a `create` of a second; links to redirects carry `mw-redirect`; the links projection records a redirect's target. Q8 settled.
+
+Replaced text (§4):
+
+> - **A move is one record.** Moving a page appends a record with its new title, and nothing else changes.
+
+### A22. Page repositories and title inheritance
+
+- **Date:** 2026-10-01
+- **Source:** [0052](0052-page-repositories-and-title-inheritance.md) §3–4
+- **Change:** amends §3; extends §8, §10
+- **Summary:** A `pages` title resolves to the primary of its stack: the local page, else the first page repository in `pages.repos` that serves the namespace and has the title. Links to inherited titles are ordinary links carrying `ts-inherited`; links into namespaces no repository serves leave the wiki; the links projection records links to inherited titles by title.
+
+Replaced text (§3):
+
+> - in any other `pages` namespace, to a page ID (§4).
+
+### A23. Forks, and talk pages imported as threads
+
+- **Date:** 2026-10-01
+- **Source:** [0054](0054-forking-a-mirrored-page.md) §1, §5
+- **Change:** extends §4, §9
+- **Summary:** A `create` may carry `forked_from`, naming the repository, page and revision a fork was taken from. A wikitext talk page in an import is converted into closed threads on the subject's talk page, split by level-two heading.
+
+### A24. `sanitized-css` is supported
+
+- **Date:** 2026-10-01
+- **Source:** [0055](0055-templatestyles-templatedata-and-page-properties.md) §1
+- **Change:** amends §5
+- **Summary:** The exclusion of style models is narrowed to `css` and `javascript`, which reach the browser as written. `sanitized-css`, TemplateStyles' model, is implemented behind a sanitizer that scopes every sheet to rendered content.
+
+Replaced text (§5):
+
+> - **Models whose code reaches the reader's browser are not supported.** `css`, `javascript` and `sanitized-css` are not registered. User-supplied scripts and styles are an injection risk that nothing on the roadmap needs. `Scribunto`, whose modules run on the server in a sandbox and return wikitext, is supported while a tenant has Lua on ([0043](0043-lua-modules.md) §3).

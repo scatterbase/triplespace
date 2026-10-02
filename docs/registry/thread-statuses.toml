@@ -54,3 +54,9 @@ name = "stale"
 label = "Stale"
 category = "closed"
 order = 70
+
+[[status]]
+name = "archived"               # threads an import creates, already over (0054 §5)
+label = "Archived"
+category = "closed"
+order = 80

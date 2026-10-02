@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-01 (A9)
+- **Updated:** 2026-10-01 (A12)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md)
 - **Uses:** [0000](0000-init.md), [0003](0003-statement-ui.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -66,7 +66,7 @@ Every cacheable thing has one version number, and the key carries it.
 
 ### 4. What L1 holds
 
-*Changed by A7.*
+*Changed by A7, A11, A12.*
 
 | Key | Value | TTL ceiling |
 |---|---|---|
@@ -79,6 +79,8 @@ Every cacheable thing has one version number, and the key carries it.
 | `up:{provider}:{id}:{from}:{to}` | Upstream edits fetched live ([0012](0012-api-requirements.md) §6) | Configured; minutes |
 | `rl:{scope}:{key}` | Rate-limit counters for upstream fetches and writes | The limit window |
 | `s:{session}` | Session state | The session lifetime |
+| `fp:{repo}:{ns}:{title}:{revid}` | A page repository's bundle: rewritten HTML and metadata ([0053](0053-mirrored-pages.md) §4) | The repository's `cache_ttl`, or until an event purges it |
+| `css:{pageid}:{gen}:{offset}` | The sanitized form of a `sanitized-css` page ([0055](0055-templatestyles-templatedata-and-page-properties.md) §2) | 24 h |
 
 `{gen}` is the entity's or page's `generation` ([0013](0013-postgres-storage.md) §5), which changes only on erasure or hiding (§5). `{ver}` is the version of §3.
 
@@ -121,14 +123,15 @@ Media bytes are the exception to the short `s-maxage`: a public file version is 
 
 ### 7. Search on OpenSearch
 
-*Changed by A2, A4, A5, A6, A7.*
+*Changed by A2, A4, A5, A6, A7, A10, A11, A12.*
 
 **Two indexes, one query.** This settles [0008](0008-namespaces-and-document-pages.md) Q7.
 
 | Index | One document per | Fields |
 |---|---|---|
 | `entities` | Canonical entity in the resolved view: local, foreign and keyed, of every type | `id`, `type`, `provider`, `namespace` (MediaWiki number); `labels.{lang}` with `.prefix` and `.near_match` subfields; `labels_all`; `descriptions.{lang}`; `aliases.{lang}`; `key`, `key_ulabel` and `key_parents` for keyed types; `statement_keywords`; `sitelink_count`, `statement_count`, `incoming_links`; `resolved_version` |
-| `pages` | Document page that is not deleted | `page_id`, `namespace`, `title` with `.prefix`, `text` (the content model rendered to plain text; with template expansion on, the rendered text, and `source_text` the source, [0042](0042-template-expansion-and-parsoid.md) §17), `content_model` (a content model registry ID; threads are `triplespace-thread`, [0041](0041-content-models.md) §10), `origin`, `latest_offset`, `categories` (for `incategory:`) and `statement_keywords` over the page's statements (for `haswbstatement:`, [0038](0038-page-metadata-and-categories.md) §12) |
+| `pages` | Document page that is not deleted | `page_id`, `namespace`, `title` with `.prefix`, `text` (the content model rendered to plain text; with template expansion on, the rendered text, and `source_text` the source, [0042](0042-template-expansion-and-parsoid.md) §17), `content_model` (a content model registry ID; threads are `triplespace-thread`, [0041](0041-content-models.md) §10), `origin`, `latest_offset`, `categories` (for `incategory:`) and `statement_keywords` over the page's statements (for `haswbstatement:`, [0038](0038-page-metadata-and-categories.md) §12), `redirect_titles` (the titles of the page's redirects, [0051](0051-page-redirects.md) §5; redirect pages themselves are not documents unless broken or external) and `short_description` ([0055](0055-templatestyles-templatedata-and-page-properties.md) §6) |
+| `pages-{repo}` | A page a repository in `mirror` mode holds, one shared index per repository at instance scope ([0053](0053-mirrored-pages.md) §7) | `title`, `text` (the HTML stripped), `categories`, `redirect_titles`, `origin`; searched beside the tenant's `pages` index when `search.inherited` is on |
 
 Field semantics follow WikibaseCirrusSearch where a field exists there, so that its analysis configuration, its query builders and its ranking can be reused or compared:
 
@@ -354,3 +357,24 @@ Replaced text (§4):
 - **Source:** [0050](0050-adr-format.md) §13
 - **Change:** consolidates §1–10
 - **Summary:** A1–A8 were folded into the Decision. The open questions were numbered. §9's mappings paragraph moved to §7. No decision changed. Before this, A4, A6 and the §3 part of A7 were blockquotes; A5, A8 and A7's §10 paragraph had been written into §10 in place; A2, A3 and A7's §7 part were recorded only in other ADRs and, for A3, in §10. The file before conversion is commit `0b26a3a`.
+
+### A10. Redirect titles in search
+
+- **Date:** 2026-10-01
+- **Source:** [0051](0051-page-redirects.md) §5
+- **Change:** extends §7
+- **Summary:** A redirect's title is indexed on its target's document in `redirect_titles`; redirect pages are documents of their own only when broken or external.
+
+### A11. Bundles and the mirrored-page indexes
+
+- **Date:** 2026-10-01
+- **Source:** [0053](0053-mirrored-pages.md) §4, §7
+- **Change:** extends §4, §7
+- **Summary:** `fp:` keys hold a page repository's rewritten bundles; a repository in `mirror` mode has one shared `pages-{repo}` index, searched beside the tenant's `pages` index under `search.inherited`; in `proxy` mode foreign pages are not indexed and the suggester reads the title index.
+
+### A12. Sanitized CSS and short descriptions
+
+- **Date:** 2026-10-01
+- **Source:** [0055](0055-templatestyles-templatedata-and-page-properties.md) §2, §6
+- **Change:** extends §4, §7
+- **Summary:** `css:` keys hold the sanitized form of `sanitized-css` pages; the `pages` index gains `short_description`.

@@ -184,6 +184,18 @@ format = "application/json"
 direct_editing = true
 defined_in = "0049 §3–4"
 
+# TemplateStyles' model: validated and sanitized by scatter-css at save, scoped to .mw-parser-output at
+# render (0055 §1–2). The one style model that reaches a browser; css and javascript stay reserved.
+[[model]]
+id = "sanitized-css"
+origin = "TemplateStyles"
+status = "implemented"
+source = "text"
+slot = "main"
+format = "text/css"
+direct_editing = true
+defined_in = "0055 §1"
+
 # --- Secondary slot -----------------------------------------------------------------------------
 # A File page's statements as a MediaInfo entity, M{page ID} (0041 §6–7). Terms are not supported yet.
 [[model]]

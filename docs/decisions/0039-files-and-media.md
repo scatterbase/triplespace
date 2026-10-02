@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-01 (A4)
+- **Updated:** 2026-10-01 (A7)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [0033](0033-backend-stack.md), [0035](0035-adopting-a-wikibase.md), [0038](0038-page-metadata-and-categories.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0007](0007-actor-identity.md), [0019](0019-discussions.md), [0040](0040-instance-prerogatives.md), [0041](0041-content-models.md)
@@ -28,7 +28,7 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 1. The File and Media namespaces (amends 0008 §2)
 
-*Changed by A3.*
+*Changed by A3, A5.*
 
 Three reserved numbers are implemented, as [0008](0008-namespaces-and-document-pages.md) §2 rule 1 allows:
 
@@ -39,6 +39,8 @@ Three reserved numbers are implemented, as [0008](0008-namespaces-and-document-p
 | 7 | File talk | Composite | Enabled with its subject, as [0008](0008-namespaces-and-document-pages.md) §2 rule 2 requires |
 
 **An `uploads` namespace is a `pages` namespace plus uploads.** Everything 0008 says of document pages holds: page IDs, full-text revisions, moves, the title index, statements ([0038](0038-page-metadata-and-categories.md) §1). A file page may exist with no upload, as in MediaWiki ("No file by this name exists"); it may also exist with no upload because it describes a **foreign** file of the same name (§11), in which case its text and statements are local annotations on someone else's file.
+
+**A File page may be a redirect** ([0051](0051-page-redirects.md) §4): the file lookup below (§11) follows a local redirect page one hop before trying repositories, as MediaWiki's `RepoGroup::findFile` does, so `[[File:Old name.jpg]]` embeds the renamed file, and `movefile` leaves one as any move does.
 
 **The `file-name` normalizer** is `first-letter` with MediaWiki's file-name rules: the title must end in an extension the type registry allows (§5), may not contain `/`, `\`, `:` (after the prefix) or control characters, and is at most 240 bytes in UTF-8. Extensions are matched without regard to case and kept as written, so `File:Example.JPG` and `File:Example.jpg` are different titles, as in MediaWiki.
 
@@ -224,6 +226,8 @@ And, unchanged from [0023](0023-moderation.md) §5, **hide** (and **suppress**) 
 
 ### 11. Foreign file repositories (uses 0002 §2, §5, 0012 §6 and 0028 §5)
 
+*Changed by A6.*
+
 A **file repository** is a source of files a tenant can use by name without uploading them. It is configured as a `config` record of kind `file-repo`, keyed `file-repo:{name}`, either in a tenant's `config` or in the instance `config`, where a tenant refers to it by name; it can be supplied by a tenancy template ([0028](0028-tenancy-policy.md) §8). The tenant `site` setting `files.repos` lists the repositories a tenant uses, in lookup order.
 
 **Lookup follows MediaWiki.** A file title is looked up locally first, then in each repository in order, and the first match wins. A local file **shadows** a foreign one of the same name, and creating one needs `reupload-shared` (§5). `Special:ListDuplicatedFiles` and the file page say when a local file shadows a foreign one.
@@ -250,6 +254,8 @@ A **file repository** is a source of files a tenant can use by name without uplo
 **A mirror** follows [0002](0002-source-graphs-and-mass-ingest.md): `files/{repo}` is an instance mirror partition (`hashed`, history `latest` by default, export `public` without bytes), synced by an instance job. It mirrors the files that are **used**: referenced by a page of any tenant using the repository, or by a `commonsMedia` value in such a tenant's resolved view (§12). A file unused for `repo.mirror_grace` (default 30 days) is tombstoned. Upstream deletions, read from the repository's deletion log and event stream as [0011](0011-logs.md) §4 reads Wikidata's, are tombstoned too. Compaction erases tombstoned records, and their bytes go when unreferenced (§9). Mirroring keeps a repository's files available when the repository is down and makes them verifiable, at the cost of storage; most instances will proxy.
 
 **What a foreign file looks like.** `File:Example.jpg` with no local page shows the repository's description, sanitized ([0019](0019-discussions.md) §5's sanitizer) and labelled with its source, as MediaWiki shows "This file is from Wikimedia Commons". A **local page** for a foreign file holds local text and statements ([0038](0038-page-metadata-and-categories.md) §1) shown beside the foreign description: local annotations on someone else's file, which is the foreign-entity pattern of [0002](0002-source-graphs-and-mass-ingest.md) applied to files. Its talk page is local.
+
+**Images in mirrored pages follow the same policy.** An `<img>` in the HTML of a page served by a page repository ([0053](0053-mirrored-pages.md) §2) is served by the first file repository in `files.repos` that holds the file, in that repository's mode, and its `File:` link goes to the local file title; an image that is no repository's file is fetched through the page repository's `media_hosts` allow-list in `proxy` mode and dropped otherwise. The attribution line a page repository's page carries ([0053](0053-mirrored-pages.md) §9) is this section's attribution rule applied to whole pages.
 
 **API.** `meta=filerepoinfo` lists the local repository and every configured one with MediaWiki's fields (`name`, `displayname`, `rootUrl`, `local`, `url`, `thumbUrl`, `initialCapital`, `scriptDirUrl`, `canUpload`, `fetchDescription`, `descBaseUrl`); `prop=imageinfo` reports `imagerepository` as `local` or the repository's name, and URLs per the mode.
 
@@ -282,7 +288,11 @@ A missing file renders as a red link to `Special:Upload?wpDestFile={name}`. Exte
 
 ### 14. Import, adoption, export and verification (extends 0008 §9, 0035 §2 and 0006 §9)
 
+*Changed by A7.*
+
 **Import** ([0008](0008-namespaces-and-document-pages.md) §9) accepts MediaWiki XML exports with `<upload>` elements, from embedded contents or from the source wiki's URLs, and a directory import, `triplespace-cli files import`, which does what MediaWiki's `importImages.php` does: one upload per file, with a summary and description text from options or a sidecar file. Imported versions are `upload` records with action `import`, the upstream timestamp and uploader, projected as `import/upload` ([0011](0011-logs.md) §6.1).
+
+**A fork's files** are copied on request, never by default: the file job of [0054](0054-forking-a-mirrored-page.md) §7 imports each file a forked page's render uses, the latest version or every version, as `import` uploads attributed to their upstream uploaders, with the description page forked, skipping files already local or held by a `mirror` repository; it needs `upload` and `reupload-shared`.
 
 **Adoption** ([0035](0035-adopting-a-wikibase.md) §2) of a wiki with files reads its file tables (`image`, `oldimage`, or `list=allimages` and `prop=imageinfo&iilimit=max` from its API) and its upload directory (`images/` with `archive/` for old versions), and writes each version as an `import` upload on the file page, which keeps its source page ID ([0035](0035-adopting-a-wikibase.md) §4). Deleted files in the source's `filearchive` are imported as deleted versions, so that the adopted wiki's administrators keep what they could restore before.
 
@@ -507,3 +517,24 @@ Replaced text (§1):
 - **Source:** [0050](0050-adr-format.md) §13
 - **Change:** consolidates §1–23
 - **Summary:** A1–A3 were folded into the Decision. The open questions were numbered. No decision changed. Before this, A3 was a blockquote, A2 was written in place with no note, and A1 was recorded only in 0005. The file before conversion is commit `0b26a3a`.
+
+### A5. File redirects
+
+- **Date:** 2026-10-01
+- **Source:** [0051](0051-page-redirects.md) §4
+- **Change:** extends §1
+- **Summary:** A File page may be a redirect; the file lookup follows it one hop before trying repositories, and `movefile` leaves one.
+
+### A6. Images in mirrored pages
+
+- **Date:** 2026-10-01
+- **Source:** [0053](0053-mirrored-pages.md) §2, §9
+- **Change:** extends §11
+- **Summary:** Images in a page repository's HTML are served by the tenant's file repositories in their modes, with an allow-list for images that are no repository's file; the attribution rule applies to whole mirrored pages.
+
+### A7. Copying a fork's files
+
+- **Date:** 2026-10-01
+- **Source:** [0054](0054-forking-a-mirrored-page.md) §7
+- **Change:** extends §14
+- **Summary:** A separate job copies the files a forked page uses as `import` uploads, on request, under `upload` and `reupload-shared`.

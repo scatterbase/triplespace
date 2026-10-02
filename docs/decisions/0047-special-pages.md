@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-01 (A2)
+- **Updated:** 2026-10-01 (A5)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0029](0029-resolver-namespaces.md), [0031](0031-property-constraints.md), [0042](0042-template-expansion-and-parsoid.md), [0046](0046-primary-tenant.md)
 - **Uses:** [0019](0019-discussions.md), [0021](0021-notifications.md), [0028](0028-tenancy-policy.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md)
@@ -200,6 +200,8 @@ As with 0042 §10's tables, this is stated rather than left to be assumed.
 
 #### 4.4 The reports
 
+*Changed by A3, A5.*
+
 **Index-backed:**
 
 | Report | Reads |
@@ -219,6 +221,8 @@ As with 0042 §10's tables, this is stated rather than left to be assumed.
 | `ConstraintReport` | `view.constraint_violation` ([0031](0031-property-constraints.md) §5) |
 | `Corrections`, `IdentityConflicts` | `view.correction`; `view.link` (§6) |
 | `Random`, `RandomInCategory`, `RandomRootPage` | `view.page.random` (§13), as MediaWiki's `page_random` |
+| `ListRedirects`, `BrokenRedirects`, `DoubleRedirects`, `RandomRedirect` | `view.redirect` joined to `view.page` ([0051](0051-page-redirects.md) §6) |
+| `PagesWithProp` | `view.page_prop` ([0055](0055-templatestyles-templatedata-and-page-properties.md) §6) |
 
 **Projection-backed:**
 
@@ -374,6 +378,8 @@ It needs `ts-revertjob` and, because it retires deletions, `undelete`.
 
 ### 9. Other pages (extends 0010 §2, §3 and §12)
 
+*Changed by A4.*
+
 These are served with MediaWiki's or Wikibase's meaning and parameters. The notes say what they read or write.
 
 | Page | Notes |
@@ -385,6 +391,7 @@ These are served with MediaWiki's or Wikibase's meaning and parameters. The note
 | `Unblock`, `RemoveGlobalBlock` | Retire a block, or a global block at the farm base ([0028](0028-tenancy-policy.md)) |
 | `EditWatchlist` | The watch set, with `/raw` and `/clear` ([0020](0020-change-feeds.md) §3) |
 | `ChangeContentModel` | [0041](0041-content-models.md)'s `action=changecontentmodel` |
+| `Fork` | Forks a title whose primary is a page repository's page, without an edit: shows the stack, the licence and the fork options, and appends the fork's `create` ([0054](0054-forking-a-mirrored-page.md) §2). Origin `triplespace`; restricted to `createpage` |
 | `ExpandTemplates` | [0042](0042-template-expansion-and-parsoid.md)'s expander, in the `parse` rate class; listed while `wikitext.expansion` is on |
 | `ComparePages` | Any two pages or revisions, with 0010 §6's diff |
 | `Redirect` | `user/{id}`, `revision/{id}`, `page/{id}`, `file/{name}` and `logid/{id}`, resolved locally. `file` was already served by 0039 §7. This settles [0007](0007-actor-identity.md) Q7. |
@@ -398,11 +405,11 @@ These are served with MediaWiki's or Wikibase's meaning and parameters. The note
 
 ### 10. Deferred, declined and reserved
 
+*Changed by A3, A5.*
+
 | Page | Status | Until, or why |
 |---|---|---|
 | `LinkSearch` | deferred | An external-links table. [0042](0042-template-expansion-and-parsoid.md) §9 extracts external links, but no table holds them. |
-| `PagesWithProp` | deferred | A page-properties table. 0042 §4 returns page properties, but none are stored. |
-| `ListRedirects`, `BrokenRedirects`, `DoubleRedirects`, `RandomRedirect` | deferred | Page redirects ([0008](0008-namespaces-and-document-pages.md) Q8) |
 | `Mute` | deferred | Undecided |
 | `BookSources` | deferred | A bound ISBN resolver (`resolvers.toml` has a draft). It would then be an alias of that resolver. |
 | `AutoblockList` | deferred | Autoblocks, which [0016](0016-permissions-and-access-control.md) does not specify |
@@ -508,12 +515,12 @@ CREATE TABLE view.site_stats (                  -- §9: MediaWiki's site_stats
 - **Reports are live without miser mode.** The price is one more projection and some fan-out per link and category change. The instance's `reports` configuration is the escape hatch where a tenant's write rate makes that too costly. Operators can apply it to the whole instance or to one tenant.
 - **Nuke is a job, so it is one row, one patrol mark and one undo.** It reaches entities, statements, files and posts as well as pages, and it can go back further than recent changes.
 - **Exports can be verified.** The `records` format lets someone who holds an export prove what the wiki held, which suits Scatterbase's purposes as well.
-- **Some familiar pages wait on other designs.** `LinkSearch` and `PagesWithProp` wait on tables that 0042 implies but never defines. The redirect reports wait on [0008](0008-namespaces-and-document-pages.md) Q8.
+- ~~**Some familiar pages wait on other designs.** `LinkSearch` and `PagesWithProp` wait on tables that 0042 implies but never defines. The redirect reports wait on [0008](0008-namespaces-and-document-pages.md) Q8.~~ *The redirect reports are served ([0051](0051-page-redirects.md) §6; A3) and `PagesWithProp` is ([0055](0055-templatestyles-templatedata-and-page-properties.md) §6; A5). `LinkSearch` still waits on an external-links table.*
 
 ## Open questions
 
 - **Q1. The external-links table.** Its shape (MediaWiki's `externallinks` stores reversed domains for prefix search) decides `LinkSearch`, `list=exturlusage`, and edit-filter variables over added links.
-- **Q2. A page-properties table.** It would serve `PagesWithProp`, `list=pageswithprop` and `prop=pageprops`.
+- **Q2.** ~~**A page-properties table.** It would serve `PagesWithProp`, `list=pageswithprop` and `prop=pageprops`.~~ *Settled by [0055](0055-templatestyles-templatedata-and-page-properties.md) §6: `view.page_prop`.*
 - **Q3. Global Nuke.** Whether a global group at the farm base ([0028](0028-tenancy-policy.md) §3) may nuke a farm account across every tenant it is linked to, as one job per tenant or as an instance act ([0040](0040-instance-prerogatives.md)).
 - **Q4. Page statements in exports.** Whether to carry them in MediaWiki XML as an extra slot, which only Triplespace would read, or only in `records`.
 - **Q5. Mute.** Whether `Special:Mute` and user-level muting of notifications ([0021](0021-notifications.md)) and email should exist at all.
@@ -595,3 +602,32 @@ Replaced text (§15):
 > - **[0029](0029-resolver-namespaces.md) §3:** "Create an item with this DOI" opens `Special:NewItem` with the statement filled in.
 > - **[0031](0031-property-constraints.md) §3:** `ConstraintReport` defaults to the local graph.
 > - **[0042](0042-template-expansion-and-parsoid.md) §10:** the refresh job applies report deltas for the tables it writes (§4.3); `view.site_stats` serves the `NUMBEROF*` variables (§13).
+
+### A3. The redirect reports
+
+- **Date:** 2026-10-01
+- **Source:** [0051](0051-page-redirects.md) §6
+- **Change:** amends §10; extends §4.4
+- **Summary:** `ListRedirects`, `BrokenRedirects`, `DoubleRedirects` and `RandomRedirect` leave the deferred table and are served as index-backed reports over `view.redirect`.
+
+Replaced text (§10):
+
+> | `ListRedirects`, `BrokenRedirects`, `DoubleRedirects`, `RandomRedirect` | deferred | Page redirects ([0008](0008-namespaces-and-document-pages.md) Q8) |
+
+### A4. `Special:Fork`
+
+- **Date:** 2026-10-01
+- **Source:** [0054](0054-forking-a-mirrored-page.md) §2
+- **Change:** extends §9
+- **Summary:** A Triplespace page that forks an inherited title without an edit, restricted to `createpage`.
+
+### A5. `PagesWithProp`
+
+- **Date:** 2026-10-01
+- **Source:** [0055](0055-templatestyles-templatedata-and-page-properties.md) §6
+- **Change:** amends §10; extends §4.4
+- **Summary:** `view.page_prop` exists, so `PagesWithProp` leaves the deferred table and is served over it. Q2 settled.
+
+Replaced text (§10):
+
+> | `PagesWithProp` | deferred | A page-properties table. 0042 §4 returns page properties, but none are stored. |

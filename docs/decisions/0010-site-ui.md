@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-01 (A28)
+- **Updated:** 2026-10-01 (A31)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md)
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -59,7 +59,7 @@ These extend the principles of [0003](0003-statement-ui.md) §1. That ADR's prin
 
 ### 2. The frame
 
-*Changed by A5, A9, A11, A12, A13, A16, A20, A22, A23, A27.*
+*Changed by A5, A9, A11, A12, A13, A16, A20, A22, A23, A27, A29, A30.*
 
 **The global header** holds:
 
@@ -96,6 +96,7 @@ These extend the principles of [0003](0003-statement-ui.md) §1. That ADR's prin
 - **A deleted page or entity** shows, to everyone outside the deleting group, the frame with the deletion log entry in place of the content ([0023](0023-moderation.md) §9).
 - **A file page** shows, for a taken-down version, the operator's notice in place of the file ([0039](0039-files-and-media.md) §18).
 - **A talk page's header** shows its `Group`'s fediverse handle when its namespace is federated, and a mirrored entity's identity line carries a `verified` chip when its provider is verified ([0022](0022-federation.md) §11).
+- **A page served by a page repository** carries the repository's origin chip and an identity line naming the upstream revision and licence; a title with alternates gains **Other versions**, listing each alternate its repositories and the page's `page-alternates` statement allow, reached with `origin={repository}`; its Edit tab is the fork form ([0052](0052-page-repositories-and-title-inheritance.md) §5). A **fork** reads "Forked from English Wikipedia at revision N", and a page followed through a redirect shows "(Redirected from …)" ([0054](0054-forking-a-mirrored-page.md) §6, [0051](0051-page-redirects.md) §2).
 
 **Chips** are the shared marks for kinds of thing. The set is kept small.
 
@@ -122,7 +123,7 @@ These extend the principles of [0003](0003-statement-ui.md) §1. That ADR's prin
 
 ### 4. Document pages
 
-*Changed by A21, A22, A25, A26.*
+*Changed by A21, A22, A25, A26, A30, A31.*
 
 **Read**
 
@@ -132,13 +133,14 @@ These extend the principles of [0003](0003-statement-ui.md) §1. That ADR's prin
   - Categories are listed at the foot of the page as links to their category pages, with hidden categories collapsed ([0038](0038-page-metadata-and-categories.md) §3).
 
 - **Links to entities** render with the entity's label.
-- **An "About this page" panel** shows the last edit, the revision count by origin (imported, bot, local), where the page came from, the content model, and the backlink count; with expansion on, also "Templates used" and the limit report, and on a Template page "Pages that use this template" ([0042](0042-template-expansion-and-parsoid.md) §7).
+- **An "About this page" panel** shows the last edit, the revision count by origin (imported, bot, local), where the page came from, the content model, and the backlink count; with expansion on, also "Templates used" and the limit report, and on a Template page "Pages that use this template" ([0042](0042-template-expansion-and-parsoid.md) §7). On a fork it also shows the revisions imported, the dependencies copied, whether files were copied, how many newer revisions upstream has, **Compare with upstream** and **Copy files used by this page** ([0054](0054-forking-a-mirrored-page.md) §6–7). A page's heading is its `displaytitle` where one is set, and a disambiguation page is marked as one ([0055](0055-templatestyles-templatedata-and-page-properties.md) §6).
 
 **Edit**
 
 - **The source and a live preview sit side by side.** The preview runs the server's own renderer compiled to WebAssembly (`scatter-wasm`, [0034](0034-frontend-stack.md) §6). A page that needs expansion previews through `action=parse` on the server instead ([0042](0042-template-expansion-and-parsoid.md) §15).
 - **A Format selector** changes the content model (`action=changecontentmodel`). It, and the model shown beside the title, appear only for text models, and the selector only where the namespace allows more than one model ([0041](0041-content-models.md) §10).
 - **Link autocomplete** opens after `[[` and suggests titles and entities in any namespace, through the title resolver. For an entity, it inserts the link and the entity's label.
+- **Insert template…** searches Template titles through the stack and builds a parameter form from the template's TemplateData; a parameter popup lists a template's parameters when the cursor is inside a call ([0055](0055-templatestyles-templatedata-and-page-properties.md) §5). **The Edit tab of an inherited page** opens the editor on the upstream wikitext with the fork banner, and saving forks ([0054](0054-forking-a-mirrored-page.md) §2).
 - **Saving** asks for a summary and a minor-edit flag, and sends the base offset ([0008](0008-namespaces-and-document-pages.md) §4). On a conflict, the editor keeps the user's text and marks only the lines that clash.
 
 ### 5. History
@@ -672,3 +674,24 @@ Replaced text: the chip rule quoted under A22, which applies only with expansion
 - **Source:** [0050](0050-adr-format.md) §13
 - **Change:** consolidates §1–13
 - **Summary:** A1–A27 were folded into the Decision, the open questions were numbered, Q7's open half became Q12, and the consequence that hid revision numbers was struck. No decision changed. Before this, A6 and A22–A27 were blockquotes; A12 and A15 had been written into §11 and §12 in place; the other entries were recorded only in this ADR's header or in other ADRs. The file before conversion is commit `0b26a3a`.
+
+### A29. Origin chips and Other versions
+
+- **Date:** 2026-10-01
+- **Source:** [0052](0052-page-repositories-and-title-inheritance.md) §5
+- **Change:** extends §2
+- **Summary:** A page served by a page repository carries an origin chip and an identity line naming the upstream revision and licence; a title with alternates gains the Other versions menu; the Edit tab of an inherited page is the fork form.
+
+### A30. Forks in the frame and the About panel
+
+- **Date:** 2026-10-01
+- **Source:** [0054](0054-forking-a-mirrored-page.md) §2, §6–7
+- **Change:** extends §2, §4
+- **Summary:** The fork's identity line, the About panel's fork information and controls, the fork banner on the edit form, and the redirect notice of 0051 §2.
+
+### A31. Templates in the editor, display titles
+
+- **Date:** 2026-10-01
+- **Source:** [0055](0055-templatestyles-templatedata-and-page-properties.md) §5–6
+- **Change:** extends §4
+- **Summary:** Insert template… and the parameter popup from TemplateData; `displaytitle` as the heading and the disambiguation mark from page properties.

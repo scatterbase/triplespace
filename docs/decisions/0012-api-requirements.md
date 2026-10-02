@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-01 (A29)
+- **Updated:** 2026-10-01 (A34)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0005](0005-crate-organization.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -130,7 +130,7 @@ History, recent changes, contributions and the log all use one row shape in the 
 
 ### 4. Action API changes
 
-*Changed by A3, A4, A5, A7, A8, A9, A10, A12, A13, A14, A15, A16, A17, A18, A19, A21, A23, A24, A25, A26, A27.*
+*Changed by A3, A4, A5, A7, A8, A9, A10, A12, A13, A14, A15, A16, A17, A18, A19, A21, A23, A24, A25, A26, A27, A30, A31, A32, A33, A34.*
 
 All of these changes are additive (§1.2).
 
@@ -172,10 +172,15 @@ All of these changes are additive (§1.2).
 | Content models | `defaultcontentmodel`; `contentmodels` in `siprop=triplespace`; `contentmodel` for every page in `prop=info` and `prop=revisions`; `rvslots` with `main` and, on File pages, `mediainfo`; `no-direct-editing` from `action=edit` on a non-text model; `action=changecontentmodel` with MediaWiki's codes | [0041](0041-content-models.md) §8 |
 | Templates | `action=expandtemplates`; expansion, `prop=templates` and the limit report in `action=parse`; `prop=transcludedin`, `list=embeddedin`, `list=alltransclusions`; `magicwords`, `functionhooks`, `extensiontags`, `variables` and `doubleunderscores` in `meta=siteinfo`; `inprop=linkclasses`; `meta=allmessages` | [0042](0042-template-expansion-and-parsoid.md) §14 |
 | Lua | `prop=wbentityusage`, `list=wblistentityusage`, `wikibase_item` in `prop=pageprops` | [0043](0043-lua-modules.md) §16 |
+| Redirects | `redirects` on `action=query` and `action=parse`; `redirect` and `linkclasses` in `prop=info`; `prop=redirects`, `list=allredirects`, `apfilterredir`, `blredirect`; `noredirect`, `movesubpages` and the move-over-redirect rule in `action=move` | [0051](0051-page-redirects.md) §7 |
+| Page repositories | `origin` in `prop=info`; the latest upstream revision in `prop=revisions` with `ts-foreign-history` for older ones; `tsorigin=all` on `list=allpages` and `list=prefixsearch`; `ts-foreign-page` from writes to an inherited title; `page_repos` in `siprop=triplespace` | [0052](0052-page-repositories-and-title-inheritance.md) §6 |
+| Mirrored pages | `action=parse` and `prop=revisions&rvprop=content` on an inherited title from its bundle; `action=purge` refetching | [0053](0053-mirrored-pages.md) §10 |
+| Forks | `tsfork` and `tsforkrevid` on `action=edit`, `ts-fork-required`; seeded revisions with provider-ranged IDs in `prop=revisions` and `action=compare`; `forkedfrom` in `prop=info`; forks as `import/interwiki` in `list=logevents` | [0054](0054-forking-a-mirrored-page.md) §11 |
+| TemplateData and page properties | `action=templatedata`; `prop=pageprops` with `ppprop`, `list=pageswithprop`, `prop=description`, `inprop=displaytitle` | [0055](0055-templatestyles-templatedata-and-page-properties.md) §5–6 |
 
 ### 5. REST routes under `rest.php/triplespace/v0`
 
-*Changed by A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A28.*
+*Changed by A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A28, A30, A31, A32, A33.*
 
 **Every route is served per tenant base,** which the host selects. Instance-level routes are served at the farm base and, on a single-tenant instance, at the tenant's as well ([0018](0018-tenants.md) §11).
 
@@ -271,6 +276,10 @@ When each binding was last used is stored in the operational store, never in the
 | Content models | Page summaries carry `content_model`, and File page summaries `mediainfo_id` | [0041](0041-content-models.md) §9 |
 | Rendering | `GET /page/{id}/render`, the render manifest; `GET /page/{id}/html` with `as_of=revision`, rendering a revision with its dependencies as of the revision's offset | [0042](0042-template-expansion-and-parsoid.md) §12, §14 |
 | Tables | `GET /table/{pageid}/rows`, `POST /table/{pageid}/rows/{id}`, `GET /table/{pageid}/export` | [0045](0045-table-content-model.md) §10 |
+| Redirects | `redirect_to` in page summaries; `redirected_from` from `GET /resolve` | [0051](0051-page-redirects.md) §7 |
+| Page repositories | `GET /page/{id}` with a provider-ranged ID, carrying `origin`, `upstream` and `stack`; `GET /page/stack/{title}` | [0052](0052-page-repositories-and-title-inheritance.md) §6 |
+| Mirrored pages | `GET /page/{id}/html` and `/render` for an inherited page; `GET /repo/{name}` | [0053](0053-mirrored-pages.md) §10 |
+| Forks | `POST /page/fork`, `GET /page/{id}/fork`, `GET /page/{id}/upstream-diff`, `POST /page/{id}/fork/files`; the fork's origin in `GET /page/{id}/provenance` | [0054](0054-forking-a-mirrored-page.md) §11 |
 
 ### 6. Fetching upstream edits live
 
@@ -644,3 +653,38 @@ Replaced text (§2.1):
 - **Source:** [0050](0050-adr-format.md) §13
 - **Change:** consolidates §2–9
 - **Summary:** A1–A28 were folded into the Decision; the additions of later ADRs are indexed in two tables, one in §4 and one in §5, which point to the ADR that specifies each module or route. The open questions were numbered; Q7, partly struck, was struck whole, and its rest is Q9. No decision changed. Before this, A2 and A4 were one blockquote, A23–A28 were blockquotes, A11, A13–A14, A20 and A21 had been edited in place without a note, and the other entries were recorded only in other ADRs. The file before conversion is commit `0b26a3a`.
+
+### A30. Redirects
+
+- **Date:** 2026-10-01
+- **Source:** [0051](0051-page-redirects.md) §7
+- **Change:** extends §4, §5
+- **Summary:** MediaWiki's redirect parameters and modules, and `redirect_to` and `redirected_from` in REST.
+
+### A31. Page repositories
+
+- **Date:** 2026-10-01
+- **Source:** [0052](0052-page-repositories-and-title-inheritance.md) §6
+- **Change:** extends §4, §5
+- **Summary:** `origin` in `prop=info` and page summaries, provider-ranged page IDs, `tsorigin=all`, `ts-foreign-page`, `page_repos` in siteinfo, and `GET /page/stack/{title}`.
+
+### A32. Mirrored pages
+
+- **Date:** 2026-10-01
+- **Source:** [0053](0053-mirrored-pages.md) §10
+- **Change:** extends §4, §5
+- **Summary:** Parse, revision content, purge, HTML and render routes for inherited pages, and `GET /repo/{name}`.
+
+### A33. Forks
+
+- **Date:** 2026-10-01
+- **Source:** [0054](0054-forking-a-mirrored-page.md) §11
+- **Change:** extends §4, §5
+- **Summary:** `tsfork` on `action=edit`, seeded revisions in the revision modules, `forkedfrom`, and the fork routes.
+
+### A34. TemplateData and page properties
+
+- **Date:** 2026-10-01
+- **Source:** [0055](0055-templatestyles-templatedata-and-page-properties.md) §5–6
+- **Change:** extends §4
+- **Summary:** `action=templatedata`, `prop=pageprops`, `list=pageswithprop`, `prop=description` and `inprop=displaytitle`, served from `view.page_prop`.

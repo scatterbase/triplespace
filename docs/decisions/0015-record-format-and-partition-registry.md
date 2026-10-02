@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-01 (A22)
+- **Updated:** 2026-10-01 (A26)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md)
 - **Uses:** [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md)
@@ -67,7 +67,7 @@ Hiding ([0001](0001-revision-metadata-rdf.md) §4) is unchanged: it is a project
 
 ### 2. Global IDs live in the header (amends 0006 §3 and 0013 §6)
 
-*Changed by A3, A15.*
+*Changed by A3, A15, A23.*
 
 Three fields are appended to the header array of [0006](0006-log-integrity-and-erasure.md) §3:
 
@@ -98,13 +98,15 @@ Log IDs are unchanged: upstream log events keep their upstream log ID in their c
 
 **Page IDs are carried forward.** A page ID is taken from one sequence the first time a key is written in any partition — or supplied by an adoption job, which carries the source wiki's page ID and has set the sequence past it ([0035](0035-adopting-a-wikibase.md) §4) — and every later record for that key, in every partition, repeats it in field 9. It is never derived from replay order. This replaces 0013 §6's rule that an entity's first record recovers it, which fails for a mirrored entity once compaction has removed that record. Bootstrap writers ([0013](0013-postgres-storage.md) §9) take page IDs in blocks from the coordinator, as they take offsets.
 
+**A page a page repository serves has a provider-ranged page ID,** `provider_number << 40 | upstream page ID`, derived and never minted, so that a foreign page has a stable `pageid` on every tenant without any write; in `mirror` mode the `pages/{repo}` records carry it in field 9 and the ranged upstream revision ID in field 7 ([0052](0052-page-repositories-and-title-inheritance.md) §6, [0053](0053-mirrored-pages.md) §5). Local page IDs stay below 2^40.
+
 **Why in the header.** An inclusion proof is about the leaf. MediaWiki clients cite revisions as `oldid=N`; with the ID inside the leaf, a permalink or `Special:Diff/N` is something a third party can verify, and an export bundle needs no sidecar. It also honours 0012 §2.1's requirement that IDs be "stored in the record": the sidecar column in 0013 §6 stored them beside it.
 
 In [0013](0013-postgres-storage.md) §2, `revid`, `logid` and a new `page_id` column are denormalized from `header`, like the other header columns, and the sidecar in the segment file format is dropped. The `view.page_id` sequence of 0013 §6 becomes `log.page_id`. An erased record keeps all three IDs, as its header survives.
 
 ### 3. The `config` partition (amends 0005 §4.1; extends 0006 §4 and §6)
 
-*Changed by A3, A4, A5, A6, A8, A9, A10, A11, A12, A13, A16, A19, A20, A21.*
+*Changed by A3, A4, A5, A6, A8, A9, A10, A11, A12, A13, A16, A19, A20, A21, A23, A24, A26.*
 
 A source partition is registered for instance configuration. It corresponds to Scatterbase's `server` graph in the table of [0005](0005-crate-organization.md) §4.1, and the two share one record shape so that Scatterbase can adopt it.
 
@@ -131,7 +133,7 @@ The remaining kinds are Triplespace's, and each product declares its own:
 | `keyed-type` | The type name | The keyed-type entry | [0009](0009-keyed-entity-types-and-domain.md) §1 |
 | `role` | The role name | The properties bound to a role | [0003](0003-statement-ui.md) §7, [0004](0004-identity-clusters-and-equivalence.md) §6 |
 | `reconcile` | `default` or a provider code | Provider order, an optional `order_by_type` override, link properties, identifier properties for inference, normalizer overrides, reconciliation rules | [0004](0004-identity-clusters-and-equivalence.md) §9 |
-| `site` | A setting name | Site name, content languages, the recent-changes window, checkpoint cadence, and other scalar settings, among them the `wikitext.*` and `lua.*` settings of template expansion ([0042](0042-template-expansion-and-parsoid.md) §2, [0043](0043-lua-modules.md) §8–9) | [0006](0006-log-integrity-and-erasure.md) §6, [0010](0010-site-ui.md) §7 |
+| `site` | A setting name | Site name, content languages, the recent-changes window, checkpoint cadence, and other scalar settings, among them the `wikitext.*` and `lua.*` settings of template expansion ([0042](0042-template-expansion-and-parsoid.md) §2, [0043](0043-lua-modules.md) §8–9), `pages.repos` and `pages.share` ([0052](0052-page-repositories-and-title-inheritance.md) §1), `search.inherited` and `content.licence` ([0053](0053-mirrored-pages.md) §7, §9), the `fork.*` settings ([0054](0054-forking-a-mirrored-page.md) §3–4, §8), and `wikitext.site_styles` and `templatestyles.max_bytes` ([0055](0055-templatestyles-templatedata-and-page-properties.md) §2, §4) | [0006](0006-log-integrity-and-erasure.md) §6, [0010](0010-site-ui.md) §7 |
 | `group` | The group name | A permission group; a global group carries `scope` ([0028](0028-tenancy-policy.md) §8) | [0016](0016-permissions-and-access-control.md) §3 |
 | `tenant`, `alias` | Instance scope | A tenant; a base-URI change | [0018](0018-tenants.md) §3, §9 |
 | `primary` | `primary` | Instance scope: the primary tenant's slug and, for a transfer, the offer it accepts; one current record | [0046](0046-primary-tenant.md) §2 |
@@ -149,7 +151,7 @@ The remaining kinds are Triplespace's, and each product declares its own:
 | `consumer-policy` | `list` | Tenant scope: which approved consumers may be authorized, and which are auto-approved | [0025](0025-oauth-server.md) §2 |
 | `tag` | The tag name | Tenant scope: a user-defined change tag, its description, whether it is active, and the group that may apply it | [0030](0030-edit-filters.md) §5 |
 | `category-mapping` | The mapping name | Tenant scope: a category name or pattern, and the page statement its members get | [0038](0038-page-metadata-and-categories.md) §5 |
-| `template-repo` | The repository name | Tenant or instance scope: a foreign template repository, its kind (`tenant` or `mediawiki`), endpoint and cache lifetime | [0042](0042-template-expansion-and-parsoid.md) §11 |
+| `page-repo` | The repository name | Tenant or instance scope: a page repository, its kind (`tenant` or `mediawiki`), provider, served namespaces, mode, `shadowed`, `titles`, cache lifetime, events, licence and display name. Replaces `template-repo` (A23) | [0052](0052-page-repositories-and-title-inheritance.md) §1 |
 | `reports` | `default` or a tenant slug | Instance scope: which reports run as batch, their mirror-graph widenings, the batch schedule and the row limit; written with `ts-config` at the farm base | [0047](0047-special-pages.md) §4.3 |
 
 **Scope.** The kinds split by scope ([0018](0018-tenants.md) §3). The instance's `config` holds `key`, `graph`, `provider`, `issuer`, `keyed-type`, `tenant`, `alias`, `primary`, `tenancy`, `template` and `consumer`, the instance lists of `sitelink-policy` and `federation-policy`, and global `group`s; each tenant's `config` holds the rest. A tenant's `config` begins with a `key:` record, the current instance key, and every `key:` record of the instance is appended to it as well, so a tenant's partitions verify from the tenant's bundle alone ([0018](0018-tenants.md) §2).
@@ -162,7 +164,7 @@ ACLs were first listed here as a config kind. Under [0023](0023-moderation.md) �
 
 ### 4. Upstream revision records (amends 0002 §8.3 and 0011 §2, §3, §5, §8)
 
-*Changed by A14.*
+*Changed by A14, A25.*
 
 An upstream revision that the instance learns about from a backfill ([0002](0002-source-graphs-and-mass-ingest.md) §5), from a history dump, or from the live stream is recorded as an **upstream revision record**.
 
@@ -174,6 +176,7 @@ An upstream revision that the instance learns about from a backfill ([0002](0002
 | Content part | Upstream revision ID and parent ID; upstream timestamp; size and SHA-1; content model; change tags; minor and bot flags; and, where the revision was also observed as a state, the `(partition, offset)` of that `put` |
 | Comment part | The upstream edit summary |
 | Attestation part | The upstream actor key ([0007](0007-actor-identity.md) §1), or a hidden marker (0007 §5), and the job that brought the record in |
+| Text part (optional, fourth) | For a **page** revision seeded by a fork, the revision's wikitext, kept apart so that hiding or erasing the content touches nothing else; such records live in the tenant's `log` partition keyed by the fork's page ID ([0054](0054-forking-a-mirrored-page.md) §3) |
 
 A revision is identified by its upstream revision ID. Re-reading one the instance already holds changes nothing, as for log events ([0011](0011-logs.md) §4). Where the same revision was already observed as a state, 0002 §8.3's "enriches that revision's existing node" is a join on (provider, upstream revision ID).
 
@@ -212,7 +215,7 @@ An upstream revision node is `prov:specializationOf` the **upstream** document n
 
 ### 5. Graph names and IRIs (settles 0001 Q2, 0002 Q1 and 0005 Q6)
 
-*Changed by A2, A3, A4, A5, A7, A9, A10, A11, A12, A16, A17, A19, A20, A21.*
+*Changed by A2, A3, A4, A5, A7, A9, A10, A11, A12, A16, A17, A19, A20, A21, A23, A24, A26.*
 
 **A graph's IRI is `{base}/graph/{name}`** for a tenant's partitions, where `{base}` is the tenant's base URI: the origin that serves its `/wiki/`, `/w/api.php` and `/entity/`, the same base that [0001](0001-revision-metadata-rdf.md) §5 gives its data ([0018](0018-tenants.md) §2). The instance's own partitions are under the reserved path `{farm base}/instance/graph/{name}`, so that they cannot be confused with a tenant's when the farm base is a tenant's base ([0046](0046-primary-tenant.md) §7). The IRI is therefore per instance, which it has to be: the metadata graph attributes triples to this instance's revisions, and two instances' full dumps ([0013](0013-postgres-storage.md) §8) must be loadable together without their `local` graphs colliding, especially now that [0009](0009-keyed-entity-types-and-domain.md) §6 gives Domain subjects the same IRI everywhere.
 
@@ -239,7 +242,7 @@ An upstream revision node is `prov:specializationOf` the **upstream** document n
 
 | File | Lists | Defined in |
 |---|---|---|
-| `graphs.toml` | The reserved graph names above, with each one's kind, policies and payload type | this section, §3 |
+| `graphs.toml` | The reserved graph names above, with each one's kind, policies and payload type; `pages/{repo}`, the mirrored-page partition of a page repository in `mirror` mode, with its five-part payload type `scatter:v0/mirrored-page` ([0053](0053-mirrored-pages.md) §5) | this section, §3 |
 | `providers.toml` | Each provider's two-letter code, slug, **provider number** (§2), type codes with their upstream prefixes and IRI templates, issuer, whether it publishes revision IDs, and its `trust` mode and key-chain URL ([0022](0022-federation.md) §2) | [0000](0000-init.md) §3, [0002](0002-source-graphs-and-mass-ingest.md) §4 |
 | `issuers.toml` | The issuer codes and actor models | [0007](0007-actor-identity.md) §1 |
 | `namespaces.toml` | The default namespace numbers and kinds | [0008](0008-namespaces-and-document-pages.md) §2 |
@@ -254,6 +257,7 @@ An upstream revision node is `prov:specializationOf` the **upstream** document n
 | `file-types.toml` | The permitted file types: extensions, MIME and media types, magic signatures, inline or attachment, thumbnailer | [0039](0039-files-and-media.md) §5 |
 | `wikitext-functions.toml` | The variables, parser functions, tags and switches of template expansion | [0042](0042-template-expansion-and-parsoid.md) §5 |
 | `special-pages.toml` | Every special page name with its MediaWiki name, aliases, scope and status | [0047](0047-special-pages.md) §1 |
+| `css-properties.toml` | The CSS properties and at-rules the `scatter-css` sanitizer allows, with the module each came from | [0055](0055-templatestyles-templatedata-and-page-properties.md) §2 |
 
 `scatter-log`, `scatter-providers`, `scatter-actors` and, for special pages, `triplespace-titles` embed these files and ship them as defaults; an instance's `config` partition (§3) starts from them and may diverge. Allocating a new provider code, slug, number or graph name is a change to the file, in a commit; a code is never reused. This is the same rule [0005](0005-crate-organization.md) §5 already applies to the `scatter:` vocabulary through `scatter-vocab`, and it settles [0000](0000-init.md) Q4. The code for internetdomains.wiki ([0009](0009-keyed-entity-types-and-domain.md) Q2) is allocated there when its adapter is written; the slug `internetdomains` is reserved now. MusicBrainz (`MB`, number 4) and the other providers registered since are allocated the same way ([0017](0017-entity-id-grammar.md) §6).
 
@@ -552,3 +556,35 @@ Replaced text (§5):
 - **Source:** [0050](0050-adr-format.md) §13
 - **Change:** consolidates §1–7
 - **Summary:** A1–A21 were folded into the Decision. The open questions were numbered. No decision changed. Before this, A14, A17 (in part), A18, A19 and A21 were blockquotes; most of the rows A3–A13, A16 and A20 name had been added to the tables of §3 and §5 in place; the rest were recorded only in other ADRs. The file before conversion is commit `0b26a3a`.
+
+### A23. Page repositories
+
+- **Date:** 2026-10-01
+- **Source:** [0052](0052-page-repositories-and-title-inheritance.md) §1, §6
+- **Change:** extends §2, §3, §5
+- **Summary:** The `page-repo` config kind replaces `template-repo`; `pages.repos` and `pages.share` join the `site` settings; a page a repository serves has a provider-ranged page ID, derived from its upstream page ID; a provider that mints no entities may have no code.
+
+Replaced text (§3):
+
+> | `template-repo` | The repository name | Tenant or instance scope: a foreign template repository, its kind (`tenant` or `mediawiki`), endpoint and cache lifetime | [0042](0042-template-expansion-and-parsoid.md) §11 |
+
+### A24. The `pages/{repo}` partition
+
+- **Date:** 2026-10-01
+- **Source:** [0053](0053-mirrored-pages.md) §5, §7, §9
+- **Change:** extends §3, §5
+- **Summary:** `graphs.toml` gains `pages/{repo}`, an instance mirror partition per page repository in `mirror` mode, with the payload type `scatter:v0/mirrored-page` and its five parts; `search.inherited` and `content.licence` join the `site` settings.
+
+### A25. Upstream revision records with text
+
+- **Date:** 2026-10-01
+- **Source:** [0054](0054-forking-a-mirrored-page.md) §3
+- **Change:** extends §4
+- **Summary:** `scatter:v0/upstream-revision` may carry a fourth part, `text`, for a page revision seeded by a fork; such records are keyed by the fork's page ID in the tenant's `log` partition and take provider-ranged revision IDs.
+
+### A26. `css-properties.toml` and the style settings
+
+- **Date:** 2026-10-01
+- **Source:** [0055](0055-templatestyles-templatedata-and-page-properties.md) §2, §4, §7
+- **Change:** extends §3, §5
+- **Summary:** The registry gains `css-properties.toml`, embedded by `scatter-css`; `wikitext.site_styles` and `templatestyles.max_bytes` join the `site` settings, and the `fork.*` settings of 0054 are listed with them.

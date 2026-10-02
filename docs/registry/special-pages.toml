@@ -44,10 +44,11 @@ version = 1
 [[page]]
 name = "BrokenRedirects"
 origin = "mediawiki"
-status = "deferred"
+status = "served"
 scope = "tenant"
 group = "maintenance"
-until = "page redirects (0008 open questions)"
+report = { backing = "index", reads = "view.redirect where target_page_id is null and not external, joined to view.page", graphs = "local" }
+adr = "0051 §6"
 
 [[page]]
 name = "DeadendPages"
@@ -62,10 +63,11 @@ adr = "0047 §4.4"
 [[page]]
 name = "DoubleRedirects"
 origin = "mediawiki"
-status = "deferred"
+status = "served"
 scope = "tenant"
 group = "maintenance"
-until = "page redirects (0008 open questions)"
+report = { backing = "index", reads = "view.redirect self-joined on its target", graphs = "local" }
+adr = "0051 §6"
 
 [[page]]
 name = "LongPages"
@@ -305,19 +307,21 @@ adr = "0047 §4.4"
 name = "ListRedirects"
 mediawiki_name = "Listredirects"
 origin = "mediawiki"
-status = "deferred"
+status = "served"
 scope = "tenant"
 group = "pages"
-until = "page redirects (0008 open questions)"
+report = { backing = "index", reads = "view.redirect joined to view.page", graphs = "local" }
+adr = "0051 §6"
 
 [[page]]
 name = "PagesWithProp"
 origin = "mediawiki"
-status = "deferred"
+status = "served"
 scope = "tenant"
 group = "pages"
 aliases = ["PagesByProp"]
-until = "a page-properties table (0047 open questions)"
+report = { backing = "index", reads = "view.page_prop (name, sortkey, page_id)", graphs = "local" }
+adr = "0055 §6"
 
 [[page]]
 name = "TrackingCategories"
@@ -729,10 +733,11 @@ adr = "0047 §4.4"
 name = "RandomRedirect"
 mediawiki_name = "Randomredirect"
 origin = "mediawiki"
-status = "deferred"
+status = "served"
 scope = "tenant"
 group = "redirects"
-until = "page redirects (0008 open questions)"
+report = { backing = "index", reads = "view.redirect joined to view.page (random)", graphs = "local" }
+adr = "0051 §6"
 
 [[page]]
 name = "RandomRootpage"
@@ -885,6 +890,17 @@ scope = "tenant"
 group = "pagetools"
 requires = "wikitext.expansion"
 adr = "0047 §9"
+
+# Forks a title whose primary is a page repository's page, without an edit (0054 §2).
+[[page]]
+name = "Fork"
+origin = "triplespace"
+status = "served"
+scope = "tenant"
+group = "pagetools"
+restricted = "createpage"
+requires = "pages.repos"
+adr = "0054 §2"
 
 [[page]]
 name = "ChangeContentModel"

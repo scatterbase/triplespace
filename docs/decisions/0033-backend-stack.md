@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-01 (A5)
+- **Updated:** 2026-10-01 (A7)
 - **Author:** James Hare / Claude
 - **Changes:** [0005](0005-crate-organization.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0034](0034-frontend-stack.md)
@@ -152,7 +152,9 @@ The `cel` crate. This is the crate formerly published as `cel-interpreter`; 0030
 
 ### 10. Wikidata history dumps: RevisionChest
 
-**RevisionChest runs as a separate binary** to turn Wikidata's XML history dumps into its `.mwrev.zst` revision files with an index (SQLite, Postgres or Parquet). It has no library target, so Triplespace does not link it. Its licence (GPL-3.0) is compatible with Triplespace's; keeping it a separate process is an architectural choice (fixed point 4), not a licensing one. The Wikidata adapter contains an **independent reader** for the `.mwrev.zst` format and its index. Reading a file format does not make the reader a derivative work.
+*Changed by A6, A7.*
+
+**RevisionChest runs as a separate binary** to turn Wikidata's XML history dumps into its `.mwrev.zst` revision files with an index (SQLite, Postgres or Parquet). It has no library target, so Triplespace does not link it. Its licence (GPL-3.0) is compatible with Triplespace's; keeping it a separate process is an architectural choice (fixed point 4), not a licensing one. `scatter-adapter-mediawiki` contains an **independent reader** for the `.mwrev.zst` format and its index, which the Wikidata adapter uses ([0053](0053-mirrored-pages.md) §12; it was first placed in the Wikidata adapter, A6). Reading a file format does not make the reader a derivative work. RevisionChest reads any MediaWiki wiki's dumps, and a store of a Wikipedia's history is what seeds a fork's revisions ([0054](0054-forking-a-mirrored-page.md) §3).
 
 A RevisionChest store is accepted wherever 0015 §4 accepts `dump:{path}` as a backfill source.
 
@@ -165,7 +167,7 @@ A RevisionChest store is accepted wherever 0015 §4 accepts `dump:{path}` as a b
 
 Contributing upstream will need a library split in RevisionChest. The licences are compatible in both directions. Code moving from RevisionChest into the Wikidata adapter still needs the Internet Archive's agreement, because `scatter-*` crates are dual-licensed and Scatter must hold copyright in them ([0005](0005-crate-organization.md) §6). Code Triplespace contributes to RevisionChest needs no agreement.
 
-If a RevisionChest store is used as the local source for upstream history (0010 §8's "fetch upstream history"), it must receive the same hiding sweep as the log (0011 §5).
+If a RevisionChest store is used as the local source for upstream history (0010 §8's "fetch upstream history", or `fork.history_source = chest:` for pages, [0054](0054-forking-a-mirrored-page.md) §3), it must receive the same hiding sweep as the log (0011 §5), read for a page repository from its `revision-visibility-change` events and deletion log.
 
 ### 11. QLever
 
@@ -302,3 +304,25 @@ Replaced text (Changes to other ADRs):
 > - **0005 open question** on a blocking Postgres API: settled by §4.
 > - **0005 §6:** licence paragraph rewritten with the licence decision of 2026-09-27, and the Python-bindings open question settled.
 > - **0027 open question** on the extract sealing scheme: proposed by §6, pending confirmation.
+
+### A6. The RevisionChest reader moves to `scatter-adapter-mediawiki`
+
+- **Date:** 2026-10-01
+- **Source:** [0053](0053-mirrored-pages.md) §12
+- **Change:** amends §10
+- **Summary:** The `.mwrev.zst` reader lives in the new MediaWiki adapter, on which the Wikidata adapter now depends, so that Wikipedia page revisions and Wikidata entity revisions share it.
+
+Replaced text (§10):
+
+> The Wikidata adapter contains an **independent reader** for the `.mwrev.zst` format and its index. Reading a file format does not make the reader a derivative work.
+
+### A7. RevisionChest stores for page history
+
+- **Date:** 2026-10-01
+- **Source:** [0054](0054-forking-a-mirrored-page.md) §3
+- **Change:** amends §10
+- **Summary:** A RevisionChest store of a Wikipedia's history is the source a fork's revisions are seeded from, and receives the hiding sweep read from the repository's events.
+
+Replaced text (§10):
+
+> If a RevisionChest store is used as the local source for upstream history (0010 §8's "fetch upstream history"), it must receive the same hiding sweep as the log (0011 §5).

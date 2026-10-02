@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-01 (A6)
+- **Updated:** 2026-10-01 (A7)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0019](0019-discussions.md), [0029](0029-resolver-namespaces.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md)
 - **Uses:** [0035](0035-adopting-a-wikibase.md), [0043](0043-lua-modules.md), [0045](0045-table-content-model.md), [0048](0048-notation.md), [0049](0049-boards.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -58,7 +58,7 @@ IDs that other MediaWiki extensions use are not reserved. A generic ID is used o
 
 ### 3. The content model registry (extends 0008 §5)
 
-*Changed by A2, A3, A4, A5.*
+*Changed by A2, A3, A4, A5, A7.*
 
 The models are registry data, in a new file, `docs/registry/content-models.toml`, embedded by `scatter-pages`. Each entry records the ID, its origin, its **source** (§5), its **slot role**, the entity type where there is one, the serialization format reported as MediaWiki's `contentformat`, and whether it supports direct editing. The defaults:
 
@@ -80,6 +80,7 @@ The models are registry data, in a new file, `docs/registry/content-models.toml`
 | `Scribunto` | Scribunto | text | main | `text/plain` | Yes | 828, by Scribunto's title rules ([0043](0043-lua-modules.md) §3) |
 | `triplespace-table` | Triplespace | text | main | `application/json` | Yes | 218 ([0045](0045-table-content-model.md) §3) |
 | `triplespace-board` | Triplespace | text | main | `application/json` | Yes | 310 ([0049](0049-boards.md) §3) |
+| `sanitized-css` | TemplateStyles | text | main | `text/css` | Yes | Template (10) for titles ending in `.css`; allowed in Project (4) for the site-styles page ([0055](0055-templatestyles-templatedata-and-page-properties.md) §1) |
 
 **Two models hold a definition, not the page's content.** A `triplespace-table` page is a definition naming entities and properties, from which the grid is generated ([0045](0045-table-content-model.md) §3); a `triplespace-board` page is a definition, from which the thread listing is generated ([0049](0049-boards.md) §3).
 
@@ -315,3 +316,10 @@ Replaced text (Q2):
 - **Source:** [0050](0050-adr-format.md) §13
 - **Change:** consolidates §3, §12
 - **Summary:** A1–A5 were folded into the Decision: the three added models are rows of §3's table, with a paragraph on the two definition models. The open questions were numbered. No decision changed. Before this, A2–A5 were blockquotes, and A1 was recorded only in 0005. The file before conversion is commit `0b26a3a`.
+
+### A7. `sanitized-css`
+
+- **Date:** 2026-10-01
+- **Source:** [0055](0055-templatestyles-templatedata-and-page-properties.md) §1
+- **Change:** extends §3
+- **Summary:** TemplateStyles' model joins the table as a text model, `text/css`, directly editable, validated by the `scatter-css` sanitizer at save; the default for `.css` titles in Template and allowed in Project for the site-styles page. 0008 §5's exclusion now covers `css` and `javascript` only.

@@ -27,7 +27,7 @@ permissions = ["edit", "editcontentmodel"]
 [[grant]]
 name = "createeditmovepage"
 description = "editpage plus creating and moving pages"
-permissions = ["edit", "editcontentmodel", "createpage", "move"]
+permissions = ["edit", "editcontentmodel", "createpage", "move", "delete-redirect", "move-subpages", "move-rootuserpages", "move-categorypages", "suppressredirect"]   # 0051 §8, as MediaWiki's editmove grant; forks need nothing more (0054 §8)
 
 [[grant]]
 name = "editentity"

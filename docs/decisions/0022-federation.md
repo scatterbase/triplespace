@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-01 (A4)
+- **Updated:** 2026-10-01 (A5)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md), [0028](0028-tenancy-policy.md)
 - **Uses:** [0000](0000-init.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0014](0014-caches-and-search.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0030](0030-edit-filters.md)
@@ -124,8 +124,10 @@ ActivityPub is per tenant, as its notifier is: each tenant has its own host, act
 
 ### 11. API and UI (extends 0012 §5, 0010 §2 and §11)
 
+*Changed by A5.*
+
 - **Publishing** (§1): `/dumps/local/`, `/.well-known/tlog/…`, and the existing record and proof routes.
-- **Provider pages**: `Special:Providers` lists each provider with its trust mode, last verified checkpoint and lag; a `verified` chip on the identity line of mirrored entities.
+- **Provider pages**: `Special:Providers` lists each provider with its trust mode, last verified checkpoint and lag, and each page repository with the date of its title index, its event lag and, in `mirror` mode, its sync lag ([0053](0053-mirrored-pages.md) §3, §5); a `verified` chip on the identity line of mirrored entities.
 - **Account page**: a **Fediverse** section (Public where it concerns actors, Private where it concerns keys): make this account followable, the follower count, `rel="me"` links.
 - **Talk page header**: the `Group`'s handle when the namespace is federated.
 - **REST**: `GET /providers/{slug}/verification` (last checkpoint, key chain, failures); the ActivityPub endpoints at their fixed paths for each actor kind.
@@ -249,3 +251,10 @@ Replaced text (§2):
 - **Source:** [0050](0050-adr-format.md) §13
 - **Change:** consolidates §1–13
 - **Summary:** A1–A3 were folded into the Decision. The open questions were numbered. The header's note that a placeholder of the same date was replaced is dropped. No decision changed. Before this, A2's §8 part and A3 were blockquotes. The file before conversion is commit `0b26a3a`.
+
+### A5. Page repositories on `Special:Providers`
+
+- **Date:** 2026-10-01
+- **Source:** [0053](0053-mirrored-pages.md) §3, §5
+- **Change:** extends §11
+- **Summary:** `Special:Providers` lists page repositories with their index date, event lag and mirror sync lag beside the data providers.

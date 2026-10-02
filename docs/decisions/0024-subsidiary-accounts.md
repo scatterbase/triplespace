@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-01 (A8)
+- **Updated:** 2026-10-01 (A9)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -104,7 +104,7 @@ A grant covers a permission only if the subsidiary holds it; a grant is never a 
 
 ### 5. Rate limits (settles 0012, 0016, 0020 and 0021)
 
-*Changed by A4, A5, A7.*
+*Changed by A4, A5, A7, A9.*
 
 **Rate limits are site policy, by action class and group.** They are `site` configuration ([0015](0015-record-format-and-partition-registry.md) §3) in the shape of MediaWiki's `$wgRateLimits`: for each **action class**, for each group, a count per window. The classes:
 
@@ -123,6 +123,7 @@ A grant covers a permission only if the subsidiary holds it; a grant is never a 
 | `upload`, `renderfile`, `renderfile-nonstandard` | Uploads, per actor and per IP; thumbnails rendered on a miss, per IP; renders whose transform is not in `files.thumb_widths` ([0039](0039-files-and-media.md) §15) | per 0039 §15 |
 | `parse` | Expansions a client asks for directly: `action=parse` with `text`, `action=expandtemplates` and server preview ([0042](0042-template-expansion-and-parsoid.md) §16) | 60 / 600 per minute |
 | `export` | Exports ([0047](0047-special-pages.md) §8) | 30 / 300 per hour |
+| `fork` | Forks started, each of which is a job that may fetch and write thousands of revisions ([0054](0054-forking-a-mirrored-page.md) §8) | 5 / 100 per hour |
 
 The defaults are starting values, as [0014](0014-caches-and-search.md)'s TTLs are. `universe` and `temp` get limits below `user`'s; the `newbie` distinction MediaWiki draws is the `autoconfirmed` group here, which may carry its own row. **The most permissive limit among an actor's groups applies**, as in MediaWiki, and the `noratelimit` right (§11) exempts an actor from every class but `job`. **Which limit a bot gets is exactly what the `bot` group's row says**, so "how fast bots may edit versus non-bots" is one table an instance edits with `ts-config`, and an unapproved subsidiary edits at `user`'s rate.
 
@@ -347,3 +348,10 @@ Replaced text (§5):
 - **Source:** [0050](0050-adr-format.md) §13
 - **Change:** consolidates §1–13
 - **Summary:** A1–A7 were folded into the Decision. The open questions were numbered. No decision changed. Before this, A3's signing keys and A4–A7 were blockquotes, and A2 had been written in place. The file before conversion is commit `0b26a3a`.
+
+### A9. The `fork` rate class
+
+- **Date:** 2026-10-01
+- **Source:** [0054](0054-forking-a-mirrored-page.md) §8
+- **Change:** extends §5
+- **Summary:** Forks started count in a new class, 5 per hour for `user` and 100 for `bot`; the seeding runs under the repository's fetch budget, not the user's.

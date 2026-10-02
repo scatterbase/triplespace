@@ -37,6 +37,7 @@ mediawiki = [
   "changetags", "managechangetags",              # 0030 §5 as amended 2026-09-27: apply a registered tag; manage the tag registry
   "upload", "reupload", "reupload-own", "reupload-shared", "upload_by_url", "movefile",   # 0039 §21
   "nuke",                                         # 0047 §12: Special:Nuke (the Nuke extension's right)
+  "suppressredirect", "delete-redirect", "move-subpages", "move-rootuserpages", "move-categorypages",   # 0051 §8
 ]
 wikibase = ["item-term", "property-term", "item-redirect", "item-merge", "property-create"]
 triplespace = [
@@ -68,6 +69,7 @@ name = "user"
 implicit = "registered-accounts"
 permissions = [
   "edit", "createpage", "editcontentmodel",
+  "delete-redirect", "move-subpages", "move-rootuserpages", "move-categorypages",   # 0051 §8, MediaWiki's defaults
   "item-term", "property-term", "item-redirect", "item-merge",
   "viewmywatchlist", "editmywatchlist", "editmyoptions", "viewmyprivateinfo",   # 0020 §7, 0021 §9
   "mwoauthmanagemygrants",                                                        # 0025 §10: revoke one's own authorizations
@@ -88,7 +90,7 @@ permissions = ["autopatrol"]
 
 [[group]]
 name = "bot"                        # the bot flag: granted by a bureaucrat to a subsidiary account after review (0024 §2).
-permissions = ["bot", "ts-runjob", "autopatrol"]   # its rate limits are the `bot` row of the site rate-limit table (0024 §5)
+permissions = ["bot", "ts-runjob", "autopatrol", "suppressredirect"]   # its rate limits are the `bot` row of the site rate-limit table (0024 §5); suppressredirect per 0051 §8
 
 [[group]]
 name = "federated"                  # 0022 §8: surrogates for fediverse actors replying to federated talk pages.
@@ -111,6 +113,7 @@ permissions = [
   "managechangetags",                            # 0030 §5 as amended: the tag registry
   "reupload-shared",                             # 0039 §21: shadow a foreign repository's file
   "nuke",                                        # 0047 §12: Special:Nuke
+  "suppressredirect",                            # 0051 §8: move without leaving a redirect
 ]
 
 [[group]]
