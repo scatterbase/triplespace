@@ -2,9 +2,10 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-29
+- **Updated:** 2026-10-01 (A6)
 - **Author:** James Hare / Claude Opus
-- **Amended by:** [0039 — Files, blob storage and foreign file repositories](0039-files-and-media.md) (§2 extends §1: uploads join a page's one history), [0041 — Content models](0041-content-models.md) (§6–7 amend §1 and §13: on File pages, page statements are served over the Wikibase Action API as the MediaInfo entity `M{page ID}` in a `mediainfo` slot; other pages' statements stay REST-only), [0042 — Template expansion and the Parsoid renderer](0042-template-expansion-and-parsoid.md) (§9 amends §3: categories come from expanded output while expansion is on, with tracking categories), [0049 — Boards, and threads on several pages](0049-boards.md) (§1 extends §1: boards carry page statements)
-- **Related:** [0001 — Revision metadata in RDF](0001-revision-metadata-rdf.md) (§11 amends §3: page statements add subjects to the main graph), [0002 — Source graphs and mass ingest](0002-source-graphs-and-mass-ingest.md) (§5 uses the name-based statement IDs of §8.4), [0003 — Statement UI](0003-statement-ui.md) (§2 uses §6 provenance; §2 and §9 extend §7 with the `subject-page`, `subject-thread` and `thread-status` roles), [0004 — Identity clusters and equivalence](0004-identity-clusters-and-equivalence.md) (§2 uses §8 statement fusion), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§15 amends §2), [0008 — Namespaces and document pages](0008-namespaces-and-document-pages.md) (§4 and §8 amend §2; §3 amends §8 and settles the categories open question; §1 extends §4; §11 amends §10), [0009 — Keyed entity types and Domain](0009-keyed-entity-types-and-domain.md) (§1 uses the statement-ID form of §3), [0010 — Site UI](0010-site-ui.md) (§7 extends §1 and §2; §3 amends §4; §8 extends §3), [0012 — API requirements for the site UI](0012-api-requirements.md) (§13 extends §4 and §5), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md) (§10 extends §5.6 and §7), [0014 — Cache layers and search](0014-caches-and-search.md) (§12 extends §7), [0015 — Record format and partition registry](0015-record-format-and-partition-registry.md) (§5 extends §3 with the `category-mapping` kind; §1 extends §5: `changeset` in the `pages` partition), [0016 — Permissions and access control](0016-permissions-and-access-control.md) (§14 uses §5), [0017 — Entity ID grammar](0017-entity-id-grammar.md) (§1 uses §1), [0018 — Tenants](0018-tenants.md) (§6 uses §9), [0019 — Discussions](0019-discussions.md) (§9 extends §6 and amends §7; §8 amends §5: a bare `[[Q42]]` in markdown is a main-namespace link), [0023 — Protection, deletion, hiding and patrolling](0023-moderation.md) (§1 and §6 follow §4), [0026 — Sitelinks are URLs](0026-sitelinks.md) (§6 amends §1 and extends §2 for the tenant's own hosts), [0029 — Resolver namespaces](0029-resolver-namespaces.md) (§8 extends §6: main-namespace titles last in the `/resolve` order; §6 uses §5), [0030 — Edit filters](0030-edit-filters.md) (§14 uses §2), [0031 — Property constraints](0031-property-constraints.md) (§2 uses §1), [0032 — SPARQL Update stream](0032-sparql-update-stream.md) (§11 uses §2), [0035 — Adopting an existing Wikibase as a tenant](0035-adopting-a-wikibase.md) (§3 uses §4)
+- **Changes:** [0001](0001-revision-metadata-rdf.md), [0003](0003-statement-ui.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0026](0026-sitelinks.md), [0029](0029-resolver-namespaces.md)
+- **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md), [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0030](0030-edit-filters.md), [0031](0031-property-constraints.md), [0032](0032-sparql-update-stream.md), [0035](0035-adopting-a-wikibase.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0049](0049-boards.md)
 
 ## Context
 
@@ -28,21 +29,17 @@ James's direction, from the design discussion of 2026-09-29:
 
 ### 1. Pages carry statements (extends 0008 §4)
 
-**Which pages.** Every document page (the `document` namespaces of [0008](0008-namespaces-and-document-pages.md) §1: main, `User`, `Project` and `Category`) and every thread ([0019](0019-discussions.md) §1). Not talk pages, which are composite and have no records of their own, and not entity views, whose subjects are entities with statements of their own.
+*Changed by A2, A3, A5.*
 
-> **Extended by [0049](0049-boards.md) §1.** Boards (310) carry page statements, as document pages do. They describe the board, not its threads.
+**Which pages.** Every document page (the `document` namespaces of [0008](0008-namespaces-and-document-pages.md) §1: main, `User`, `Project` and `Category`), every thread ([0019](0019-discussions.md) §1) and every board ([0049](0049-boards.md) §1), whose statements describe the board, not its threads. Not talk pages, which are composite and have no records of their own, and not entity views, whose subjects are entities with statements of their own.
 
-**Records.** A page's statements are written as change sets: payload type `scatter:v0/changeset`, appended to the tenant's `pages` partition and keyed by the page ID, beside the page's `page` or `thread` records. A change set on a page may add, change and remove statements. It may not carry labels, descriptions, aliases or sitelinks; a page has a title, and its sitelinks are held by items (§6). Like every record in `pages`, it takes a revision ID ([0013](0013-postgres-storage.md) §6) and needs a base offset ([0006](0006-log-integrity-and-erasure.md) §8). So **a page has one history**, in which text revisions and statement revisions interleave in the order they were made.
+**Records.** A page's statements are written as change sets: payload type `scatter:v0/changeset`, appended to the tenant's `pages` partition and keyed by the page ID, beside the page's `page` or `thread` records. A change set on a page may add, change and remove statements. It may not carry labels, descriptions, aliases or sitelinks; a page has a title, and its sitelinks are held by items (§6). Like every record in `pages`, it takes a revision ID ([0013](0013-postgres-storage.md) §6) and needs a base offset ([0006](0006-log-integrity-and-erasure.md) §8). So **a page has one history**, in which text revisions and statement revisions interleave in the order they were made; a file page's uploads are records in the same partition, keyed by the page ID, so file versions share that history too ([0039](0039-files-and-media.md) §2).
 
 **The subject is the page ID.** Statements use the same properties and data types as entity statements, local and mirrored. Where a subject has to be written as a string, in a statement ID or in a `view` column (§10), it is the page ID in decimal: statement IDs take the Wikibase form of [0009](0009-keyed-entity-types-and-domain.md) §3 as `{page ID}$<UUID>`. A string of digits alone never parses as an entity ID under [0017](0017-entity-id-grammar.md) §1, since every local, foreign and keyed ID starts with a letter, so the two kinds of subject cannot be confused.
 
-**No entity ID.** Page statements have no `M`-style or other entity ID, are not returned by `wbgetentities`, and cannot be edited through the Wikibase Action API modules. They are served by the REST routes of §13. In `prop=revisions`, a statement revision appears as MediaWiki shows a revision that changed only a secondary slot: the main text is unchanged, and the summary describes the change.
-
-> **Amended by [0041](0041-content-models.md) §6–7.** On **File pages** the statements have the MediaInfo ID `M{page ID}` and are read and written through `wbgetentities` and the Wikibase statement modules, as on Commons, because tools written for Structured Data on Commons expect that contract. They appear in the `mediainfo` slot (`wikibase-mediainfo`) in `prop=revisions`. Terms and sitelinks on `M` IDs are refused with `not-supported` until page terms are settled. Statements on every other page stay as written here: no entity ID and no Action API.
+**No entity ID, except on File pages.** Page statements have no `M`-style or other entity ID, are not returned by `wbgetentities`, and cannot be edited through the Wikibase Action API modules. They are served by the REST routes of §13. In `prop=revisions`, a statement revision appears as MediaWiki shows a revision that changed only a secondary slot: the main text is unchanged, and the summary describes the change. File pages are the exception ([0041](0041-content-models.md) §6–7): their statements have the MediaInfo ID `M{page ID}` and are read and written through `wbgetentities` and the Wikibase statement modules, as on Commons, because tools written for Structured Data on Commons expect that contract; they appear in the `mediainfo` slot (`wikibase-mediainfo`) in `prop=revisions`, and terms and sitelinks on `M` IDs are refused with `not-supported` until page terms are settled (Q4).
 
 **Moderation follows the page.** Protection and deletion are ACLs on the page ([0023](0023-moderation.md) §4), and they cover its statements: a protected page's statements need the same right as its text, and a deleted page's statements leave every view with it. Erasure and hiding apply to statement records as to any record.
-
-> **Extended by [0039](0039-files-and-media.md) §2.** A file page's uploads are records in the same partition, keyed by the page ID, so text revisions, statement revisions and file versions share one history.
 
 ### 2. A page's statements: asserted and projected
 
@@ -59,7 +56,9 @@ A page's resolved statements are the union of two kinds:
 
 **Constraints apply to pages.** The constraint projection checks page statements as it checks entity statements ([0031](0031-property-constraints.md) §1). Wikidata's *allowed entity types* constraint (Q52004125) lists its allowed types as items; two roles, `subject-page` and `subject-thread`, name the items that stand for "document page" and "thread", so a tenant can mark a property as page-only or keep it off pages. Like every constraint, it reports and never refuses.
 
-### 3. Legacy categories are defined only in wikitext (amends 0008 §8; settles its categories open question)
+### 3. Legacy categories are defined only in wikitext (amends 0008 §8; settles 0008 Q5)
+
+*Changed by A4.*
 
 **Membership is read from the text.** A page is in a category when the **latest revision** of a page whose content model is `wikitext` contains a category link:
 
@@ -79,9 +78,7 @@ Names are normalized by the `Category` namespace's `first-letter` normalizer (§
 
 **A category needs no page.** A page can be in a category whose page does not exist, as on MediaWiki. The link renders red and the category still has members.
 
-**Templates are not parsed.** Categories that templates emit reach the text only through the flattening revision of [0008](0008-namespaces-and-document-pages.md) §9 step 3, whose `action=expandtemplates` runs on the source wiki and writes the category links and `__HIDDENCAT__` into the flattened text. A template call added after an import renders as a placeholder (0008 §8) and emits nothing. Categories MediaWiki's parser adds on its own, such as tracking categories for broken file links, are not in any text and are out of scope.
-
-> **Amended by [0042](0042-template-expansion-and-parsoid.md) §9.** While a tenant's `wikitext.expansion` is on, membership is read from the **expanded** text: categories that templates emit count, `<includeonly>` categories reach transcluding pages, and expansion adds MediaWiki's tracking categories for its own conditions. The paragraph above holds for tenants with expansion off.
+**Templates are not parsed while expansion is off.** For a tenant with `wikitext.expansion` off, categories that templates emit reach the text only through the flattening revision of [0008](0008-namespaces-and-document-pages.md) §9 step 3, whose `action=expandtemplates` runs on the source wiki and writes the category links and `__HIDDENCAT__` into the flattened text. A template call added after an import renders as a placeholder (0008 §8) and emits nothing, and categories MediaWiki's parser adds on its own, such as tracking categories for broken file links, are in no text. With expansion on ([0042](0042-template-expansion-and-parsoid.md) §9), membership is read from the **expanded** text: categories that templates emit count, `<includeonly>` categories reach transcluding pages, and expansion adds MediaWiki's tracking categories for its own conditions.
 
 **Rendering.** The foot of a page lists its categories as links to their category pages, replacing 0008 §8's plain-text list. Hidden categories are listed separately, collapsed. The source text is still never rewritten.
 
@@ -133,7 +130,7 @@ value    = { entity = "Q812" }
 - **Hidden categories are mapped like any other.** Most maintenance categories are hidden.
 - **Statement IDs are name-based UUIDs** of the page ID, the mapping name and the category name, following the rule of [0002](0002-source-graphs-and-mass-ingest.md) §8.4 for sources with no IDs of their own. They stay stable across rebuilds.
 - **A change to a mapping re-runs it** over the members of every category it matches, as a job with progress, as a constraint change re-checks a property ([0031](0031-property-constraints.md) §2).
-- **Mappings produce statements about the page only.** A category such as "1952 births" is a fact about the subject, and projecting it onto the linked item would let an article's text change the item's data. That boundary is not crossed until there is a UI that makes the difference plain (open questions).
+- **Mappings produce statements about the page only.** A category such as "1952 births" is a fact about the subject, and projecting it onto the linked item would let an article's text change the item's data. That boundary is not crossed until there is a UI that makes the difference plain (Q1).
 
 **Migrating a page off a category is optional.** A page can keep its category and still have the native statement. When a tenant wants the text free of a category, the **make-it-real job** does it per mapping: for each member page, it appends a change set asserting the statement and a text revision removing the category link, in one transaction with one base check, grouped in history under the job ([0010](0010-site-ui.md) §1, principle 3). Because the asserted and projected statements fuse, there is no moment at which the page shows two versions of the fact.
 
@@ -216,7 +213,7 @@ CREATE TABLE view.category (                    -- categoryinfo (§4)
 
 **Projection order.** `page_category` and `category` run in step 2, with `page`, since they read the latest text. The mapping and status projections, and the resolution of `page_statements`, run in step 4. The search and RDF projections pick up pages in step 7. A text edit's own categories and mapped statements are among its own rows under the synchronous budget, so an editor who adds a category sees the mapped statement on reload.
 
-### 11. RDF (amends 0001 §3 and 0008 §10; extends 0032)
+### 11. RDF (amends 0001 §3 and 0008 §10; uses 0032 §2)
 
 **Page statements are in the main graph,** in Wikibase's statement shape (`p:`, `ps:`, `pq:`, `prov:wasDerivedFrom`, the truthy direct claims and statement nodes named from the statement ID), with the page's node `{base}/page/{page ID}` of 0008 §10 as subject. That node gets `a schema:WebPage`, `schema:name` (the current title) and `schema:url`. For a page paired with an item (§6), the sitelink's `schema:Article` node is this same page node, not the URL, so a query can join an item's article with the article's statements. The URL remains available through `schema:url`.
 
@@ -231,6 +228,8 @@ The `pages` index gains two fields:
 
 ### 13. API (extends 0012 §4 and §5)
 
+*Changed by A3.*
+
 **REST**, under `rest.php/triplespace/v0`. The statement routes follow the Wikibase REST API's statement routes, with the page ID in place of an entity ID:
 
 | Route | Meaning |
@@ -243,9 +242,7 @@ The `pages` index gains two fields:
 | `GET`, `PUT`, `DELETE /category-mappings/{name}`, `GET /category-mappings` | Mappings, as configuration records |
 | `POST /category-mappings/{name}/make-real` | Starts the make-it-real job (§5) |
 
-**Action API.** `prop=categories` with `clprop=sortkey|hidden` and `clshow`; `list=categorymembers` and `generator=categorymembers` with `cmtype` and `cmsort`; `prop=categoryinfo`; `list=allcategories`. `wbgetentities` by `sites` and `titles` finds a page's paired item (§6). Page statements are not in the Action API.
-
-> **Amended by [0041](0041-content-models.md) §7.** File pages are the exception: their statements are in the Action API as MediaInfo entities.
+**Action API.** `prop=categories` with `clprop=sortkey|hidden` and `clshow`; `list=categorymembers` and `generator=categorymembers` with `cmtype` and `cmsort`; `prop=categoryinfo`; `list=allcategories`. `wbgetentities` by `sites` and `titles` finds a page's paired item (§6). Page statements are not in the Action API, except File pages', which are MediaInfo entities ([0041](0041-content-models.md) §7; §1).
 
 ### 14. Permissions and filters
 
@@ -253,37 +250,51 @@ Asserting, changing and removing a page's statements needs `edit` on the page ([
 
 ### 15. Crates (amends 0005 §2)
 
-No new crate.
+*Changed by A1.*
 
-| Crate | Adds |
-|---|---|
-| `scatter-wikitext` | Extraction of category links, sort keys, `DEFAULTSORT` and `__HIDDENCAT__` from the subset; the leading-colon link (§3). Still builds for `wasm32`, so the editor's preview shows categories |
-| `scatter-wikibase-model` | The page subject and `{page ID}$<UUID>` statement IDs (§1); sitelinks held by page ID for the tenant's own hosts (§6) |
-| `scatter-wikibase-changeset` | Change sets keyed by page ID, restricted to statements (§1) |
-| `triplespace-titles` | The main and `Category` namespaces; bare titles in the main namespace, and main-namespace titles last in the `/resolve` order with the `also` field (§8) |
-| `triplespace-projections` | `page_category`, `category`, the mapping and thread-status projections, `page_statements` resolution, page subjects in `statement_assertion`, `entity_ref` and constraint checking, the mapping re-run and make-it-real jobs (§2–5, §9–10) |
-| `triplespace-rdf` | Page statements and page nodes in the main graph; the sitelink article node for paired pages (§11) |
-| `triplespace-search` | `categories` and `statement_keywords` on `pages` (§12) |
-| `triplespace-api-rest`, `triplespace-api-action` | The routes and modules of §13 |
+*Superseded by [0005](0005-crate-organization.md) §2 (A1).*
+
+[0005](0005-crate-organization.md) §2 keeps the crate table that CI checks, with every change this section listed. The table this section first gave is in A1.
 
 ## Consequences
 
 - **Pages and concepts have metadata of the same kind, kept apart.** Page statements use the same properties, UI, constraints, search and SPARQL as item statements, and the display rule (§7) keeps each on its own subject.
 - **Legacy categories keep working with no second source of truth.** Imported pages keep their categories exactly as their text defines them, `prop=categories` and `list=categorymembers` work, and mappings give them native form without touching the text.
 - **A category change in the text changes data.** Removing `[[Category:Articles needing cleanup]]` removes a statement. That is intended, and the statement's provenance says where it came from.
-- **Template-emitted categories are frozen at import.** After the flattening revision, adding `{{Cleanup}}` does not categorize a page. Editors add the category link, or the native statement.
+- ~~**Template-emitted categories are frozen at import.** After the flattening revision, adding `{{Cleanup}}` does not categorize a page. Editors add the category link, or the native statement.~~ *Only with expansion off; with a tenant's expansion on, `{{Cleanup}}` categorizes the page (A4).*
 - **Namespace 0 now holds pages.** Two numbers leave the reserved set (0 and 14) and their talk namespaces (1 and 15) are enabled.
 - **The main graph has non-entity subjects.** Tools that assume every subject of `p:` is a `wikibase:Item` or `wikibase:Property` will meet `schema:WebPage` subjects. The local-host sitelink's article node is a page IRI rather than a URL.
 - **Page history mixes text and statement revisions.** MediaWiki clients see statement revisions as revisions that left the main text unchanged.
 
 ## Open questions
 
-- **Crossing to concept data.** Mappings from categories to statements about the paired item, once a UI can show that a statement on an item came from an article's categories.
-- **Subject-level categories.** A report comparing categories such as "1952 births" with the paired item's statements, as a way to migrate them without mapping them.
-- **Template calls after import.** Whether a narrow, non-parsing recognition of template calls (name and parameters only) should ever feed mappings.
-- **Page terms.** Whether pages get a label or description, for a display title or short description, or whether those stay statements.
-- **Category redirects.** MediaWiki's soft category redirects are templates; hard redirects wait on 0008's page-redirect question.
-- **Collation.** Whether `uppercase` is enough, or tenants need ICU collations per language.
+- **Q1. Crossing to concept data.** Mappings from categories to statements about the paired item, once a UI can show that a statement on an item came from an article's categories.
+- **Q2. Subject-level categories.** A report comparing categories such as "1952 births" with the paired item's statements, as a way to migrate them without mapping them.
+- **Q3. Template calls after import.** Whether a narrow, non-parsing recognition of template calls (name and parameters only) should ever feed mappings.
+- **Q4. Page terms.** Whether pages get a label or description, for a display title or short description, or whether those stay statements.
+- **Q5. Category redirects.** MediaWiki's soft category redirects are templates; hard redirects wait on [0008](0008-namespaces-and-document-pages.md) Q8.
+- **Q6. Collation.** Whether `uppercase` is enough, or tenants need ICU collations per language.
+
+## Changes to other ADRs
+
+| Target | By | Change | Target's log |
+|---|---|---|---|
+| [0001](0001-revision-metadata-rdf.md) §3 | §11 | amends | 0001 A12 |
+| [0003](0003-statement-ui.md) §2, §7 | §2, §9 | extends | 0003 A7 |
+| [0005](0005-crate-organization.md) §2 | §15 | extends | 0005 A38 |
+| [0008](0008-namespaces-and-document-pages.md) §2, §4, §8, §10 | §1, §3, §4, §8, §11 | amends | 0008 A9 |
+| [0008](0008-namespaces-and-document-pages.md) Q5 | §3, §5 | settles | 0008 Q5 |
+| [0010](0010-site-ui.md) §4 | §3, §7, §8 | amends | 0010 A22 |
+| [0010](0010-site-ui.md) §1, §2, §3 | §3, §7, §8 | extends | 0010 A22 |
+| [0012](0012-api-requirements.md) §4, §5 | §8, §13 | extends | 0012 A23 |
+| [0013](0013-postgres-storage.md) §5.6, §7 | §10 | extends | 0013 A13 |
+| [0014](0014-caches-and-search.md) §7 | §12 | extends | 0014 A4 |
+| [0015](0015-record-format-and-partition-registry.md) §3, §5 | §1, §5 | extends | 0015 A16 |
+| [0019](0019-discussions.md) §5, §7 | §8–9, §11 | amends | 0019 A8 |
+| [0019](0019-discussions.md) §6 | §8–9, §11 | extends | 0019 A8 |
+| [0026](0026-sitelinks.md) §1 | §6 | amends | 0026 A3 |
+| [0026](0026-sitelinks.md) §2 | §6 | extends | 0026 A3 |
+| [0029](0029-resolver-namespaces.md) §6 | §8 | extends | 0029 A2 |
 
 ## References
 
@@ -292,3 +303,76 @@ No new crate.
 - [Wikibase REST API](https://www.wikidata.org/wiki/Wikidata:REST_API) statement routes
 - [Extension:WikibaseMediaInfo](https://www.mediawiki.org/wiki/Extension:WikibaseMediaInfo), for the design not taken (§1)
 - [Wikidata: allowed entity types constraint (Q52004125)](https://www.wikidata.org/wiki/Q52004125)
+
+## Amendment log
+
+### A1. Crate table
+
+- **Date:** 2026-09-29
+- **Source:** [0005](0005-crate-organization.md) §2
+- **Change:** supersedes §15
+- **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A38).
+
+Replaced text (§15):
+
+> No new crate.
+>
+> | Crate | Adds |
+> |---|---|
+> | `scatter-wikitext` | Extraction of category links, sort keys, `DEFAULTSORT` and `__HIDDENCAT__` from the subset; the leading-colon link (§3). Still builds for `wasm32`, so the editor's preview shows categories |
+> | `scatter-wikibase-model` | The page subject and `{page ID}$<UUID>` statement IDs (§1); sitelinks held by page ID for the tenant's own hosts (§6) |
+> | `scatter-wikibase-changeset` | Change sets keyed by page ID, restricted to statements (§1) |
+> | `triplespace-titles` | The main and `Category` namespaces; bare titles in the main namespace, and main-namespace titles last in the `/resolve` order with the `also` field (§8) |
+> | `triplespace-projections` | `page_category`, `category`, the mapping and thread-status projections, `page_statements` resolution, page subjects in `statement_assertion`, `entity_ref` and constraint checking, the mapping re-run and make-it-real jobs (§2–5, §9–10) |
+> | `triplespace-rdf` | Page statements and page nodes in the main graph; the sitelink article node for paired pages (§11) |
+> | `triplespace-search` | `categories` and `statement_keywords` on `pages` (§12) |
+> | `triplespace-api-rest`, `triplespace-api-action` | The routes and modules of §13 |
+
+### A2. Uploads in the page's history
+
+- **Date:** 2026-09-30
+- **Source:** [0039](0039-files-and-media.md) §2
+- **Change:** extends §1
+- **Summary:** A file page's uploads are records in the same partition, keyed by the page ID, so text revisions, statement revisions and file versions share one history.
+
+### A3. File pages' statements as MediaInfo entities
+
+- **Date:** 2026-09-30
+- **Source:** [0041](0041-content-models.md) §6–7
+- **Change:** amends §1, §13
+- **Summary:** By section:
+  - §1: On **File pages** the statements have the MediaInfo ID `M{page ID}` and are read and written through `wbgetentities` and the Wikibase statement modules, as on Commons, because tools written for Structured Data on Commons expect that contract. They appear in the `mediainfo` slot (`wikibase-mediainfo`) in `prop=revisions`. Terms and sitelinks on `M` IDs are refused with `not-supported` until page terms are settled. Statements on every other page stay as written here: no entity ID and no Action API.
+  - §13: File pages are the exception: their statements are in the Action API as MediaInfo entities.
+
+Replaced text (§1):
+
+> **No entity ID.** Page statements have no `M`-style or other entity ID, are not returned by `wbgetentities`, and cannot be edited through the Wikibase Action API modules. They are served by the REST routes of §13. In `prop=revisions`, a statement revision appears as MediaWiki shows a revision that changed only a secondary slot: the main text is unchanged, and the summary describes the change.
+
+Replaced text (§13):
+
+> `wbgetentities` by `sites` and `titles` finds a page's paired item (§6). Page statements are not in the Action API.
+
+### A4. Categories from expanded text
+
+- **Date:** 2026-09-30
+- **Source:** [0042](0042-template-expansion-and-parsoid.md) §9
+- **Change:** amends §3
+- **Summary:** While a tenant's `wikitext.expansion` is on, membership is read from the **expanded** text: categories that templates emit count, `<includeonly>` categories reach transcluding pages, and expansion adds MediaWiki's tracking categories for its own conditions. The paragraph above holds for tenants with expansion off. The consequence that template-emitted categories are frozen at import was struck for tenants with expansion on.
+
+Replaced text (§3):
+
+> **Templates are not parsed.** Categories that templates emit reach the text only through the flattening revision of [0008](0008-namespaces-and-document-pages.md) §9 step 3, whose `action=expandtemplates` runs on the source wiki and writes the category links and `__HIDDENCAT__` into the flattened text. A template call added after an import renders as a placeholder (0008 §8) and emits nothing. Categories MediaWiki's parser adds on its own, such as tracking categories for broken file links, are not in any text and are out of scope.
+
+### A5. Boards carry statements
+
+- **Date:** 2026-10-01
+- **Source:** [0049](0049-boards.md) §1
+- **Change:** extends §1
+- **Summary:** Boards (310) carry page statements, as document pages do. They describe the board, not its threads.
+
+### A6. Converted to the 0050 format
+
+- **Date:** 2026-10-01
+- **Source:** [0050](0050-adr-format.md) §13
+- **Change:** consolidates §1–15
+- **Summary:** A1–A5 were folded into the Decision. The open questions were numbered, and §11's heading, which said it extended 0032, now says it uses 0032 §2, as the Related line already said. No decision changed. Before this, A2–A5 were blockquotes, and A1 was recorded only in 0005. The file before conversion is commit `0b26a3a`.

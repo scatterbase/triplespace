@@ -2,9 +2,10 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
+- **Updated:** 2026-10-01 (A4)
 - **Author:** James Hare / Claude Opus
-- **Amended by:** [0040 — Instance prerogatives](0040-instance-prerogatives.md) (§6 amends §9 and §10: reclamation and expunge are prerogatives, replacing 0039's attestation exception), [0041 — Content models](0041-content-models.md) (§4 amends §1: the `file` kind becomes the `uploads` flag on a `pages` namespace; §6–7 give File pages a `mediainfo` slot)
-- **Related:** [0002 — Source graphs and mass ingest](0002-source-graphs-and-mass-ingest.md) (§11 uses §2 and §5: a file repository mirror is a mirror partition with tombstones and compaction), [0003 — Statement UI](0003-statement-ui.md) (§12 uses §9: media values render as thumbnails), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§23 amends §2), [0006 — Log integrity and erasure](0006-log-integrity-and-erasure.md) (§8 and §10 extend §7: erasing an upload's content part destroys its bytes once unreferenced; §14 extends §9: blob verification and bundles with blobs), [0008 — Namespaces and document pages](0008-namespaces-and-document-pages.md) (§1 amends §2: File, File talk and Media are implemented; §13 amends §8: file embedding; §14 extends §9: file import), [0010 — Site UI](0010-site-ui.md) (§18 extends §2 and §5), [0011 — Upstream and local logs](0011-logs.md) (§16 amends §6.1: `upload/*` and `takedown/*`), [0012 — API requirements for the site UI](0012-api-requirements.md) (§17 extends §4 and §5; §11 uses §6 for proxied repositories), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md) (§20 extends §5.6 and §7), [0014 — Cache layers and search](0014-caches-and-search.md) (§7 extends §6; §19 extends §7; §20 extends §10), [0015 — Record format and partition registry](0015-record-format-and-partition-registry.md) (§2 extends §1 with the `upload` payload type; §10 and §11 extend §5 with the instance `log` and `files/{repo}` partitions), [0016 — Permissions and access control](0016-permissions-and-access-control.md) (§21 extends §2; §10 extends §6 for operator erasures), [0018 — Tenants](0018-tenants.md) (§4 extends §2: storage scopes; §10 extends §2 with the instance `log` partition), [0019 — Discussions](0019-discussions.md) (§13 uses §5: markdown embeds), [0023 — Protection, deletion, hiding and patrolling](0023-moderation.md) (§8 extends §1: the removal vocabulary; §10 extends §2 with the instance `blob` target), [0024 — Subsidiary accounts, API keys and rate limits](0024-subsidiary-accounts.md) (§15 extends §5 with the `upload`, `renderfile` and `renderfile-nonstandard` classes), [0028 — Tenancy policy](0028-tenancy-policy.md) (§10 extends §8: takedowns are an operator rule every preset has; §11 uses §5 for tenant repositories), [0030 — Edit filters](0030-edit-filters.md) (§5 extends §2 with the `upload` context), [0033 — Backend technology stack](0033-backend-stack.md) (§3 follows §1: a directory keeps the one-service deployment; §3 and §6 extend §5 with `object_store`, `image` and `resvg`), [0035 — Adopting an existing Wikibase as a tenant](0035-adopting-a-wikibase.md) (§14 extends §2: adoption brings the wiki's files), [0038 — Page metadata, legacy categories and articles](0038-page-metadata-and-categories.md) (§2 extends §1: uploads join a page's one history; §12 uses §1: file pages carry statements)
+- **Changes:** [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [0033](0033-backend-stack.md), [0035](0035-adopting-a-wikibase.md), [0038](0038-page-metadata-and-categories.md)
+- **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0007](0007-actor-identity.md), [0019](0019-discussions.md), [0040](0040-instance-prerogatives.md), [0041](0041-content-models.md)
 
 ## Context
 
@@ -27,19 +28,19 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 1. The File and Media namespaces (amends 0008 §2)
 
+*Changed by A3.*
+
 Three reserved numbers are implemented, as [0008](0008-namespaces-and-document-pages.md) §2 rule 1 allows:
 
 | ID | Canonical name | Kind | Notes |
 |---|---|---|---|
 | −2 | Media | Virtual | `Media:X` resolves to the current version of the file `File:X`, local or foreign (§11), and links to its bytes. It never names a page |
-| 6 | File | **File** *(new kind)* | A document namespace whose pages may also carry uploads (§2). Content models: `wikitext` only, as MediaWiki's description pages are |
+| 6 | File | `pages`, with `uploads = true` | A `pages` namespace ([0041](0041-content-models.md) §4) whose pages may also carry uploads (§2). Content model `wikitext` only, as MediaWiki's description pages are, and a second slot, `mediainfo` (model `wikibase-mediainfo`), which presents the page's statements as the MediaInfo entity `M{page ID}` over the Wikibase Action API ([0041](0041-content-models.md) §6–7) |
 | 7 | File talk | Composite | Enabled with its subject, as [0008](0008-namespaces-and-document-pages.md) §2 rule 2 requires |
 
-**The `file` kind is `document` plus uploads.** Everything 0008 says of document pages holds: page IDs, full-text revisions, moves, the title index, statements ([0038](0038-page-metadata-and-categories.md) §1). A file page may exist with no upload, as in MediaWiki ("No file by this name exists"); it may also exist with no upload because it describes a **foreign** file of the same name (§11), in which case its text and statements are local annotations on someone else's file.
+**An `uploads` namespace is a `pages` namespace plus uploads.** Everything 0008 says of document pages holds: page IDs, full-text revisions, moves, the title index, statements ([0038](0038-page-metadata-and-categories.md) §1). A file page may exist with no upload, as in MediaWiki ("No file by this name exists"); it may also exist with no upload because it describes a **foreign** file of the same name (§11), in which case its text and statements are local annotations on someone else's file.
 
 **The `file-name` normalizer** is `first-letter` with MediaWiki's file-name rules: the title must end in an extension the type registry allows (§5), may not contain `/`, `\`, `:` (after the prefix) or control characters, and is at most 240 bytes in UTF-8. Extensions are matched without regard to case and kept as written, so `File:Example.JPG` and `File:Example.jpg` are different titles, as in MediaWiki.
-
-> **Amended by [0041](0041-content-models.md) §4 and §6–7.** The `file` kind is gone: File (6) is a `pages` namespace with the `wikitext` model and `uploads = true`. A File page also has a second slot, `mediainfo` (model `wikibase-mediainfo`), which presents its statements as the MediaInfo entity `M{page ID}` over the Wikibase Action API.
 
 ### 2. Upload records (extends 0015 §1 and 0038 §1)
 
@@ -59,7 +60,7 @@ A file version is a record of a new payload type, **`scatter:v0/upload`**, appen
 
 **Extended metadata is not in the record.** EXIF, XMP and IPTC fields, colour profiles and embedded text are derived from the bytes (§6). The record holds only what describes the version on its own: what `prop=imageinfo` returns by default, and what an export without blobs still needs.
 
-### 3. The blob store (follows 0033 §1)
+### 3. The blob store (uses 0033 §1)
 
 **Bytes live in a blob store, addressed by SHA-256.** A new substrate crate, `scatter-blob`, defines the store over the [`object_store`](https://crates.io/crates/object_store) crate, which gives one interface to a local directory, S3 and S3-compatible services (MinIO, Ceph RGW, Garage, Cloudflare R2), Google Cloud Storage and Azure. Two backends are supported and tested:
 
@@ -128,7 +129,7 @@ A **scope** is the part of the store a reference counts against. The instance `s
 
 **Thumbnails are cache, not data.** A thumbnail is rendered on first request, stored under `thumb/{h}/{transform}` in the same scope as its original, and served from there afterwards. It is never logged and never exported, and it can be deleted at any time and rendered again. Its key is the original's hash and a normalized **transform**: width, page or time offset, and output format. Requested widths are rounded up to the next entry of `files.thumb_widths`, so that a client cannot fill the store with every width from 1 to 10,000; MediaWiki's `renderfile-nonstandard` limit (§15) covers what rounding does not. Rendering runs on a bounded pool (`files.thumb_concurrency`) with single flight per key ([0014](0014-caches-and-search.md) §2).
 
-**Thumbnailers** are registered per type. This ADR ships two: raster images through the `image` crate, and SVG rasterized through `resvg`. Both are pure Rust under licences [0033](0033-backend-stack.md) §1 accepts. Video posters and transcodes, PDF pages, audio waveforms and 3D previews are left open (open questions); until a thumbnailer exists for a type, its files show an icon.
+**Thumbnailers** are registered per type. This ADR ships two: raster images through the `image` crate, and SVG rasterized through `resvg`. Both are pure Rust under licences [0033](0033-backend-stack.md) §1 accepts. Video posters and transcodes, PDF pages, audio waveforms and 3D previews are left open (Q4); until a thumbnailer exists for a type, its files show an icon.
 
 ### 7. Serving: every byte behind an access check (extends 0014 §6)
 
@@ -173,6 +174,8 @@ And, unchanged from [0023](0023-moderation.md) §5, **hide** (and **suppress**) 
 
 ### 9. Tenant removal: delete, hide, erase and reclaim
 
+*Changed by A2.*
+
 **Deleting a file page** is [0023](0023-moderation.md) §4 unchanged: a `read` ACL on the page, which covers its text, statements and every upload. Its versions stop being served (§7), leave search and file usage, and their L2 tags are purged.
 
 **Deleting one old version** (MediaWiki's `action=delete&oldimage=`) is a `record` ACL on that `upload` record with no `parts`, so the whole version is hidden from everyone outside the deletion group. **Hiding** a version's bytes (MediaWiki's revision deletion of type `oldimage`) is a `record` ACL with `parts = [content]`; its summary or uploader likewise. The **current version** cannot be deleted or hidden on its own, as in MediaWiki: an administrator reverts to an earlier version first, which the UI offers as one action, or deletes the page.
@@ -185,6 +188,8 @@ And, unchanged from [0023](0023-moderation.md) §5, **hide** (and **suppress**) 
 
 ### 10. Operator removal: take down, reinstate, expunge (extends 0023 §2; extends 0028 §8)
 
+*Changed by A2.*
+
 **Where operator records live.** The instance gains its own `log` partition, beside its `config` ([0018](0018-tenants.md) §2): `logged`, `full`, **internal**, attested by the primary tenant's actors as every instance-level record is ([0018](0018-tenants.md) §4). It is the instance counterpart of a tenant's `log`, and like it is never in a public dump, because the notices behind a takedown can themselves be sensitive.
 
 **A takedown is an ACL on a new target kind**, `blob`, at instance scope, so that it reuses everything [0023](0023-moderation.md) §1 built and is undone the same way:
@@ -194,7 +199,7 @@ And, unchanged from [0023](0023-moderation.md) §5, **hide** (and **suppress**) 
 | `blob` | `acl:blob:{takedown id}` | `read` and `upload` of every file version, local or foreign, in every tenant and scope, whose `sha256` or `sha1` equals the hash in the record's content |
 
 - **The key is an ID, not the hash.** The takedown ID is a random 64-bit number shown in decimal. The hash (algorithm and value) is in the content part, so no header carries the hash of something taken down ([0006](0006-log-integrity-and-erasure.md) §3).
-- **Content is an enclosure axis.** A `blob` target encloses every version with that hash, as a property encloses every snak that uses it ([0023](0023-moderation.md) §2, as amended). Evaluation stays conjunctive, so a tenant's own ACLs cannot satisfy or override it.
+- **Content is an enclosure axis.** A `blob` target encloses every version with that hash, as a property encloses every snak that uses it ([0023](0023-moderation.md) §2). Evaluation stays conjunctive, so a tenant's own ACLs cannot satisfy or override it.
 - **The restriction names no group.** Nobody reads a taken-down version through any tenant, including the tenant's administrators and its suppressors. Operators review taken-down bytes through the instance's takedown pages (§18), which need `ts-viewtakedown`.
 - **SHA-1 is accepted as a target** because a foreign repository in `link` mode (§11) reports only SHA-1, and an operator must be able to stop the instance showing a foreign file. Every local version records both hashes (§2), so a SHA-1 takedown covers local copies too.
 - **Content of the record:** the hash; the reason class (`legal` or `privacy`, [0016](0016-permissions-and-access-control.md) §6); a reference to the notice (a Lumen URL, a case or ticket number); and `confidential`, a flag. **Comment:** the public reason.
@@ -376,26 +381,11 @@ Scatterbase gets `scatter-blob` whole: its blobs and Triplespace's files are the
 
 ### 23. Crates (amends 0005 §2)
 
-| Layer | Crate | Change |
-|---|---|---|
-| Substrate | `scatter-blob` *(new)* | The blob store over `object_store`: the `fs` and `s3` backends, scopes and the key layout, streaming SHA-256 and SHA-1, copy-if-absent, ranged and streamed reads, prefix deletion, and the listing the orphan sweep and `verify` walk (§3–4). Async, like `scatter-log-postgres` |
-| | `scatter-files` *(new)* | The `scatter:v0/upload` and `scatter:v0/expunge` payload types (§2, §10); the `file-name` normalizer; the type registry, embedding `docs/registry/file-types.toml`; type detection, the script and SVG checks (§5); metadata extraction; the transform grammar and the raster and SVG thumbnailers (§6). Pure |
-| | `scatter-log` | The instance `log` partition and `files/{repo}` in the graph registry (§10–11) |
-| | `scatter-actors` | The `blob` target kind at instance scope, the content axis of enclosure, restriction to no group, and the file and operator rights (§10, §21) |
-| | `scatter-integrity` | Blob verification at `presence` and `full`, and bundles with `--blobs` (§14) |
-| Wikibase | `scatter-wikibase-model`, `scatter-wikibase-rdf` | The `localMedia` data type and its RDF (§12) |
-| | `scatter-wikitext`, `scatter-pages` | File embeds, gallery and `Media:` links; markdown image syntax with file targets (§13) |
-| | `scatter-filter` | The `upload` context (§5) |
-| | `scatter-mwlog` | `upload/*`, `takedown/*` and `import/upload` for files (§16) |
-| Triplespace | `triplespace-files` *(new)* | The upload pipeline and stash; the media routes, signed URLs and headers (§7); thumbnail rendering and caching; reclamation, the orphan sweep and `ops.blob_delete`; takedown and expunge execution; the `tenant` and `mediawiki` repositories in their three modes, and the mirror job (§11); file import and the adoption step (§14) |
-| | `triplespace-projections` | `view.file`, `file_version`, `blob`, `file_link`, `file_block` and the metadata projection (§20) |
-| | `triplespace-titles` | The `file` kind, `Media:` resolution and repository fall-through (§1, §11) |
-| | `triplespace-upstream` | `prop=imageinfo` and rendered descriptions from `mediawiki` repositories (§11) |
-| | `triplespace-cache`, `triplespace-search` | The tags and keys of §20; file fields in `pages` (§19) |
-| | `triplespace-api-action`, `triplespace-api-rest` | §17 |
-| | `triplespace-server`, `triplespace-cli` | The media routes; `files import`, `files rescope`, `files verify`, `takedown`, `reinstate` and `expunge` |
+*Changed by A1.*
 
-The workspace goes from forty-six crates to forty-nine.
+*Superseded by [0005](0005-crate-organization.md) §2 (A1).*
+
+[0005](0005-crate-organization.md) §2 keeps the crate table that CI checks, with `scatter-blob`, `scatter-files`, `triplespace-files` and every change this section listed. The table this section first gave is in A1.
 
 ## Consequences
 
@@ -407,19 +397,42 @@ The workspace goes from forty-six crates to forty-nine.
 - **Deletion has a full vocabulary.** Tenants delete, hide and erase; the instance reclaims what has stayed deleted long enough; operators take down, reinstate and expunge across every tenant. Permanent removal exists, is always a separate and named act, and leaves a verifiable trace. MediaWiki's only equivalent is a maintenance script.
 - **Tenant isolation is the default and can be traded away.** Separate scopes cost duplicate storage across tenants and buy privacy and clean moves; an instance that prefers deduplication can choose it and is told what it gives up.
 - **Foreign files are first-class.** Commons, a farm's shared tenant and any MediaWiki work as InstantCommons does, with reader privacy by default, a mirror for those who want resilience, and local annotations on foreign files.
-- **Expunge and reclamation are instance prerogatives** ([0040](0040-instance-prerogatives.md)): written into tenants' partitions on the instance's authority, attributed to the instance operator. **One earlier rule gains an exception,** stated where it is made: `link` mode serves no bytes through the binary (§11).
+- **Expunge and reclamation are instance prerogatives** ([0040](0040-instance-prerogatives.md) §6): written into tenants' partitions on the instance's authority, attributed to the instance operator. **One earlier rule gains an exception,** stated where it is made: `link` mode serves no bytes through the binary (§11).
 
 ## Open questions
 
-- **Delivery by presigned redirect.** For very large instances on S3, whether public versions may be served by a short-lived presigned redirect after the check, so that bytes skip the binary. The check would still run; a redirect stays valid for its lifetime after a takedown.
-- **Location metadata.** Whether uploads should have GPS EXIF stripped, or the uploader warned, by default. Stripping changes the bytes, and therefore the hash, of what was uploaded.
-- **Perceptual hashing and hash lists.** A takedown blocks exact bytes only. Matching re-encoded copies (PDQ, PhotoDNA) and importing industry hash lists for illegal material are operator tools this ADR does not specify.
-- **More thumbnailers.** PDF and DjVu pages, video posters and transcoding (MediaWiki's TimedMediaHandler), audio waveforms, 3D models. Each needs a renderer that fits the licence and sandboxing rules.
-- **`files.reclaim_after`.** Whether 365 days is the right default, and whether an instance should be able to set reclamation per namespace or per reason.
-- **Mirroring at Wikidata scale.** A full Wikidata mirror references millions of Commons files through P18 and similar properties; whether `used` should count mirrored statements by default, or only local use.
-- **MediaInfo.** If an instance mirrors Commons' MediaInfo entities (`WDM`, [0000](0000-init.md)), whether a foreign Commons file's page should show them as its page data.
-- **`geo-shape` and `tabular-data`**, which point at Commons' Data namespace rather than at files.
-- **Two-person expunge.** Whether `ts-expunge` should need a second operator's confirmation, given that it cannot be undone.
+- **Q1. Delivery by presigned redirect.** For very large instances on S3, whether public versions may be served by a short-lived presigned redirect after the check, so that bytes skip the binary. The check would still run; a redirect stays valid for its lifetime after a takedown.
+- **Q2. Location metadata.** Whether uploads should have GPS EXIF stripped, or the uploader warned, by default. Stripping changes the bytes, and therefore the hash, of what was uploaded.
+- **Q3. Perceptual hashing and hash lists.** A takedown blocks exact bytes only. Matching re-encoded copies (PDQ, PhotoDNA) and importing industry hash lists for illegal material are operator tools this ADR does not specify.
+- **Q4. More thumbnailers.** PDF and DjVu pages, video posters and transcoding (MediaWiki's TimedMediaHandler), audio waveforms, 3D models. Each needs a renderer that fits the licence and sandboxing rules.
+- **Q5. `files.reclaim_after`.** Whether 365 days is the right default, and whether an instance should be able to set reclamation per namespace or per reason.
+- **Q6. Mirroring at Wikidata scale.** A full Wikidata mirror references millions of Commons files through P18 and similar properties; whether `used` should count mirrored statements by default, or only local use.
+- **Q7. MediaInfo.** If an instance mirrors Commons' MediaInfo entities (`WDM`, [0000](0000-init.md)), whether a foreign Commons file's page should show them as its page data.
+- **Q8. `geo-shape` and `tabular-data`**, which point at Commons' Data namespace rather than at files.
+- **Q9. Two-person expunge.** Whether `ts-expunge` should need a second operator's confirmation, given that it cannot be undone.
+
+## Changes to other ADRs
+
+| Target | By | Change | Target's log |
+|---|---|---|---|
+| [0005](0005-crate-organization.md) §2 | §23 | extends | 0005 A39 |
+| [0006](0006-log-integrity-and-erasure.md) §7, §9 | §8–10, §14 | extends | 0006 A10 |
+| [0008](0008-namespaces-and-document-pages.md) §1, §2, §3, §8, §9 | §1, §13, §14 | extends | 0008 A10 |
+| [0010](0010-site-ui.md) §2, §5.1 | §18 | extends | 0010 A23 |
+| [0011](0011-logs.md) §6.1 | §2, §10, §14 | extends | 0011 A13 |
+| [0012](0012-api-requirements.md) §4, §5, §8 | §17 | extends | 0012 A24 |
+| [0013](0013-postgres-storage.md) §5.6, §7 | §20 | extends | 0013 A14 |
+| [0014](0014-caches-and-search.md) §6, §7, §10 | §7, §19–20 | extends | 0014 A5 |
+| [0015](0015-record-format-and-partition-registry.md) §1, §5 | §2, §5, §10–11 | extends | 0015 A17 |
+| [0016](0016-permissions-and-access-control.md) §2, §6 | §10, §21 | extends | 0016 A13 |
+| [0018](0018-tenants.md) §2 | §4, §10 | extends | 0018 A6 |
+| [0023](0023-moderation.md) §1, §2 | §8–10 | extends | 0023 A5 |
+| [0024](0024-subsidiary-accounts.md) §5 | §15 | extends | 0024 A4 |
+| [0028](0028-tenancy-policy.md) §8 | §10 | extends | 0028 A4 |
+| [0030](0030-edit-filters.md) §2 | §5 | extends | 0030 A4 |
+| [0033](0033-backend-stack.md) §5 | §3, §6 | extends | 0033 A2 |
+| [0035](0035-adopting-a-wikibase.md) §2 | §14 | extends | 0035 A2 |
+| [0038](0038-page-metadata-and-categories.md) §1 | §2 | extends | 0038 A2 |
 
 ## References
 
@@ -433,3 +446,64 @@ The workspace goes from forty-six crates to forty-nine.
 - [Help:CirrusSearch](https://www.mediawiki.org/wiki/Help:CirrusSearch) (file keywords)
 - [`object_store`](https://docs.rs/object_store) (Apache Arrow)
 - [Lumen](https://lumendatabase.org/), the public database of takedown notices
+
+## Amendment log
+
+### A1. Crate table
+
+- **Date:** 2026-09-30
+- **Source:** [0005](0005-crate-organization.md) §2
+- **Change:** supersedes §23
+- **Summary:** 0005 §2 is the one crate table CI checks, and carries the three new crates and every change this section listed (0005 A39).
+
+Replaced text (§23):
+
+> | Layer | Crate | Change |
+> |---|---|---|
+> | Substrate | `scatter-blob` *(new)* | The blob store over `object_store`: the `fs` and `s3` backends, scopes and the key layout, streaming SHA-256 and SHA-1, copy-if-absent, ranged and streamed reads, prefix deletion, and the listing the orphan sweep and `verify` walk (§3–4). Async, like `scatter-log-postgres` |
+> | | `scatter-files` *(new)* | The `scatter:v0/upload` and `scatter:v0/expunge` payload types (§2, §10); the `file-name` normalizer; the type registry, embedding `docs/registry/file-types.toml`; type detection, the script and SVG checks (§5); metadata extraction; the transform grammar and the raster and SVG thumbnailers (§6). Pure |
+> | | `scatter-log` | The instance `log` partition and `files/{repo}` in the graph registry (§10–11) |
+> | | `scatter-actors` | The `blob` target kind at instance scope, the content axis of enclosure, restriction to no group, and the file and operator rights (§10, §21) |
+> | | `scatter-integrity` | Blob verification at `presence` and `full`, and bundles with `--blobs` (§14) |
+> | Wikibase | `scatter-wikibase-model`, `scatter-wikibase-rdf` | The `localMedia` data type and its RDF (§12) |
+> | | `scatter-wikitext`, `scatter-pages` | File embeds, gallery and `Media:` links; markdown image syntax with file targets (§13) |
+> | | `scatter-filter` | The `upload` context (§5) |
+> | | `scatter-mwlog` | `upload/*`, `takedown/*` and `import/upload` for files (§16) |
+> | Triplespace | `triplespace-files` *(new)* | The upload pipeline and stash; the media routes, signed URLs and headers (§7); thumbnail rendering and caching; reclamation, the orphan sweep and `ops.blob_delete`; takedown and expunge execution; the `tenant` and `mediawiki` repositories in their three modes, and the mirror job (§11); file import and the adoption step (§14) |
+> | | `triplespace-projections` | `view.file`, `file_version`, `blob`, `file_link`, `file_block` and the metadata projection (§20) |
+> | | `triplespace-titles` | The `file` kind, `Media:` resolution and repository fall-through (§1, §11) |
+> | | `triplespace-upstream` | `prop=imageinfo` and rendered descriptions from `mediawiki` repositories (§11) |
+> | | `triplespace-cache`, `triplespace-search` | The tags and keys of §20; file fields in `pages` (§19) |
+> | | `triplespace-api-action`, `triplespace-api-rest` | §17 |
+> | | `triplespace-server`, `triplespace-cli` | The media routes; `files import`, `files rescope`, `files verify`, `takedown`, `reinstate` and `expunge` |
+>
+> The workspace goes from forty-six crates to forty-nine.
+
+### A2. Reclamation and expunge are instance prerogatives
+
+- **Date:** 2026-09-30
+- **Source:** [0040](0040-instance-prerogatives.md) §6
+- **Change:** amends §9, §10
+- **Summary:** The erasures that reclamation and expunge write into a tenant's `pages` carry the instance attestation of 0040 §3, with the reclamation job record or the `expunge` record in the instance `log` as authority. This replaced the exception to 0018 §4 this ADR first made for files alone; §9, §10 and the consequence were written to it in place.
+
+Replaced text: not recorded; 0040's change was written into §9, §10 and the Consequences before this ADR was first committed, together with 0040 (commit `644c2b6`, 2026-09-30).
+
+### A3. File is a `pages` namespace with uploads and a `mediainfo` slot
+
+- **Date:** 2026-09-30
+- **Source:** [0041](0041-content-models.md) §4, §6–7
+- **Change:** amends §1
+- **Summary:** The `file` kind is gone: File (6) is a `pages` namespace with the `wikitext` model and `uploads = true`. A File page also has a second slot, `mediainfo` (model `wikibase-mediainfo`), which presents its statements as the MediaInfo entity `M{page ID}` over the Wikibase Action API.
+
+Replaced text (§1):
+
+> | 6 | File | **File** *(new kind)* | A document namespace whose pages may also carry uploads (§2). Content models: `wikitext` only, as MediaWiki's description pages are |
+>
+> **The `file` kind is `document` plus uploads.** Everything 0008 says of document pages holds:
+
+### A4. Converted to the 0050 format
+
+- **Date:** 2026-10-01
+- **Source:** [0050](0050-adr-format.md) §13
+- **Change:** consolidates §1–23
+- **Summary:** A1–A3 were folded into the Decision. The open questions were numbered. No decision changed. Before this, A3 was a blockquote, A2 was written in place with no note, and A1 was recorded only in 0005. The file before conversion is commit `0b26a3a`.

@@ -2,9 +2,10 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-28
+- **Updated:** 2026-10-01 (A3)
 - **Author:** James Hare / Claude Fable
-- **Amended by:** [0039 — Files, blob storage and foreign file repositories](0039-files-and-media.md) (§14 extends §2: adoption brings the wiki's files)
-- **Related:** [0002 — Source graphs and mass ingest](0002-source-graphs-and-mass-ingest.md) (§3 amends §8.2 and §8.5: the `adopt` operation), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§8 extends §2 and §7; narrows the log-granularity open question), [0007 — Actor identity](0007-actor-identity.md) (§4 and §5 amend §3: the user-ID floor and adopted accounts), [0008 — Namespaces and document pages](0008-namespaces-and-document-pages.md) (§9: the page import this ADR parallels; §4 extends it with page IDs), [0011 — Upstream and local logs](0011-logs.md) (§6 amends §6.1: an adopted entity's first record projects as `import/*`), [0012 — API requirements for the site UI](0012-api-requirements.md) (§2.3, §5), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md) (§4 extends §6: entity-ID sequences and adoption floors), [0015 — Record format and partition registry](0015-record-format-and-partition-registry.md) (§4 amends §2: an adoption job supplies page IDs), [0016 — Permissions and access control](0016-permissions-and-access-control.md) (§5 amends §3: the owner account on an adopting tenant), [0018 — Tenants](0018-tenants.md) (§1 extends §1 and §5; adoption is distinct from the move of §10), [0024 — Subsidiary accounts, API keys and rate limits](0024-subsidiary-accounts.md) (§6: the adoption job's actor is a subsidiary), [Wikibase data model and ontology contract](../api/wikibase-compat.md) (§5.1)
+- **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md)
+- **Uses:** [0024](0024-subsidiary-accounts.md), [Wikibase contract](../api/wikibase-compat.md)
 
 ## Context
 
@@ -37,6 +38,8 @@ The tenant's `tenant` config record ([0018](0018-tenants.md) §3) gains an **`ad
 
 ### 2. Preconditions and the job
 
+*Changed by A2.*
+
 An adoption is a job ([0002](0002-source-graphs-and-mass-ingest.md) §8.3, [0011](0011-logs.md) §6.3) with mode `adopt`, run by a subsidiary of the tenant's operators ([0024](0024-subsidiary-accounts.md) §6). It is refused unless:
 
 1. **the source is frozen.** The operator declares the source read-only and takes the final dump; adoption is a one-way door (§3), and anything edited on the source after the dump is lost;
@@ -44,9 +47,7 @@ An adoption is a job ([0002](0002-source-graphs-and-mass-ingest.md) §8.3, [0011
 3. **the tenant's `local` partition holds no entity records** other than those written by earlier adoption jobs for the same source. This is what makes a failed adoption resumable (§3) and everything else an ordinary edit;
 4. **the job's operator holds `ts-runjob` and `ts-config`,** since the job seeds sequences (§4).
 
-The job record carries the source's base URL, the dump's identity and date as the source version, the adapter version, the floors it set (§4), and the counts by outcome. It projects as `job/start` and `job/finish` like any job.
-
-> **Extended by [0039](0039-files-and-media.md) §14.** Adopting a wiki with files imports every file version from its file tables and upload directory, deleted versions included, onto file pages that keep their source page IDs.
+The job record carries the source's base URL, the dump's identity and date as the source version, the adapter version, the floors it set (§4), and the counts by outcome. It projects as `job/start` and `job/finish` like any job. Adopting a wiki with files imports every file version from its file tables and upload directory, deleted versions included, onto file pages that keep their source page IDs ([0039](0039-files-and-media.md) §14).
 
 ### 3. The `adopt` operation (amends 0002 §8.2 and §8.5)
 
@@ -85,7 +86,7 @@ Every sequence the source consumed is set past what it consumed, so that no numb
 | **Log IDs** (`log.log_id`) | The source's highest log ID | The same, for `logid` |
 | **User IDs** ([0007](0007-actor-identity.md) §3: "sequential, start at 1") | The source's highest user ID | Source accounts keep their numbers (§5) |
 
-### 5. Accounts (amends 0007 §3 and 0016 §3; follows 0018 §4 and §10)
+### 5. Accounts (amends 0007 §3 and 0016 §3; uses 0018 §4 and §10)
 
 **Source accounts become tenant accounts by number.** The tenant is the source's issuer ([0018](0018-tenants.md) §4), so the source's user 42 is `{slug}:42`. Adoption writes an actor record ([0007](0007-actor-identity.md) §4) for every account in the source's user list: kind `registered`, the current name, status `active`, and no binding. A source account whose name is hidden or that was vanished is written with the corresponding status and no name. Source group memberships become membership records ([0016](0016-permissions-and-access-control.md) §3), with one exception: a source bot account has no structural operator ([0024](0024-subsidiary-accounts.md) §1), so it is adopted as an ordinary account without the `bot` group, keeps its history, and its operator, once reclaimed, creates a subsidiary in its place.
 
@@ -110,17 +111,11 @@ Adopting current state only forecloses (a) for that tenant. Librarybase accepts 
 
 ### 8. Crates (amends 0005 §2 and §7)
 
-| Crate | Change |
-|---|---|
-| `scatter-wikibase-changeset` | The `adopt` operation and its source fields (§3) |
-| `scatter-ingest` | The adoption job: preconditions, idempotent resume, floors, actor records (§2, §4, §5) |
-| `scatter-adapter-wikidata` | Adoption mode: reading a MediaWiki+Wikibase dump or API parameterised by the tenant's own provider entry, emitting IDs in home form and rewriting only the source's entity-source prefixes (§3) |
-| `scatter-log-postgres`, `triplespace-db` | The entity-ID sequences; setting floors; an explicit page ID on append (§4) |
-| `scatter-mwlog` | `import/upload` and `import/interwiki` for entities (§6) |
-| `triplespace-rdf` | `prov:wasRevisionOf` and `pav:importedOn` on adopted records (§6) |
-| `triplespace-cli` | `instance create --adopt --owner`; `adopt` (§2, §5) |
+*Changed by A1.*
 
-No crate is added. In the build order of [0005](0005-crate-organization.md) §7, the adoption job sits in step 4 beside the mirror bootstrap: a tenant continuing an existing Wikibase needs it before step 5.
+*Superseded by [0005](0005-crate-organization.md) §2 (A1).*
+
+[0005](0005-crate-organization.md) §2 keeps the crate table that CI checks, with every change this section listed, and 0005 §7 places the adoption job in build step 4 beside the mirror bootstrap. The table this section first gave is in A1.
 
 ## Consequences
 
@@ -133,10 +128,25 @@ No crate is added. In the build order of [0005](0005-crate-organization.md) §7,
 
 ## Open questions
 
-- **History for tenants that have not yet adopted** (§7): whether (a) or (b) is the default, or whether both are offered as modes of one job.
-- **Pages in the same job.** Whether an adoption should carry the source's document pages ([0008](0008-namespaces-and-document-pages.md) §9) in the same run, sharing the page-ID floor, or leave them to a second job.
-- **Vouching.** Whether a still-running source wiki can act as an identity provider for reclaiming, which needs an OAuth issuer on the source, or whether the manual `reclaim/reclaim` path is the only one a MediaWiki source offers.
-- **Sitelinks.** A source's `wb_items_per_site` rows are site IDs and titles; they become URLs through the site aliases of [0026](0026-sitelinks.md) §2, and a site ID the registry does not know is a reject. Whether adoption should register unknown site IDs as aliases on the fly is open.
+- **Q1. History for tenants that have not yet adopted** (§7): whether (a) or (b) is the default, or whether both are offered as modes of one job.
+- **Q2. Pages in the same job.** Whether an adoption should carry the source's document pages ([0008](0008-namespaces-and-document-pages.md) §9) in the same run, sharing the page-ID floor, or leave them to a second job.
+- **Q3. Vouching.** Whether a still-running source wiki can act as an identity provider for reclaiming, which needs an OAuth issuer on the source, or whether the manual `reclaim/reclaim` path is the only one a MediaWiki source offers.
+- **Q4. Sitelinks.** A source's `wb_items_per_site` rows are site IDs and titles; they become URLs through the site aliases of [0026](0026-sitelinks.md) §2, and a site ID the registry does not know is a reject. Whether adoption should register unknown site IDs as aliases on the fly is open.
+
+## Changes to other ADRs
+
+| Target | By | Change | Target's log |
+|---|---|---|---|
+| [0002](0002-source-graphs-and-mass-ingest.md) §8.2, §8.5 | §3 | extends | 0002 A15 |
+| [0005](0005-crate-organization.md) §2, §7 | §8 | extends | 0005 A34 |
+| [0007](0007-actor-identity.md) §3 | §4–5 | extends | 0007 A12 |
+| [0008](0008-namespaces-and-document-pages.md) §9 | §4 | extends | 0008 A7 |
+| [0011](0011-logs.md) §6.1 | §6 | extends | 0011 A12 |
+| [0012](0012-api-requirements.md) §5 | §6 | extends | 0012 A22 |
+| [0013](0013-postgres-storage.md) §6 | §4 | extends | 0013 A12 |
+| [0015](0015-record-format-and-partition-registry.md) §2 | §4 | amends | 0015 A15 |
+| [0016](0016-permissions-and-access-control.md) §3 | §5 | amends | 0016 A12 |
+| [0018](0018-tenants.md) §1, §3, §5 | §1 | extends | 0018 A5 |
 
 ## References
 
@@ -144,3 +154,40 @@ No crate is added. In the build order of [0005](0005-crate-organization.md) §7,
 - [0008 — Namespaces and document pages](0008-namespaces-and-document-pages.md) §9 (importing pages)
 - [Manual:Importing XML dumps](https://www.mediawiki.org/wiki/Manual:Importing_XML_dumps) and [Manual:Log actions](https://www.mediawiki.org/wiki/Manual:Log_actions) (`import/upload`, `import/interwiki`)
 - [Wikibase `wb_id_counters`](https://www.mediawiki.org/wiki/Wikibase/Schema/wb_id_counters)
+
+## Amendment log
+
+### A1. Crate table
+
+- **Date:** 2026-09-28
+- **Source:** [0005](0005-crate-organization.md) §2, §7
+- **Change:** supersedes §8
+- **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed; its §7 build order places the adoption job (0005 A34).
+
+Replaced text (§8):
+
+> | Crate | Change |
+> |---|---|
+> | `scatter-wikibase-changeset` | The `adopt` operation and its source fields (§3) |
+> | `scatter-ingest` | The adoption job: preconditions, idempotent resume, floors, actor records (§2, §4, §5) |
+> | `scatter-adapter-wikidata` | Adoption mode: reading a MediaWiki+Wikibase dump or API parameterised by the tenant's own provider entry, emitting IDs in home form and rewriting only the source's entity-source prefixes (§3) |
+> | `scatter-log-postgres`, `triplespace-db` | The entity-ID sequences; setting floors; an explicit page ID on append (§4) |
+> | `scatter-mwlog` | `import/upload` and `import/interwiki` for entities (§6) |
+> | `triplespace-rdf` | `prov:wasRevisionOf` and `pav:importedOn` on adopted records (§6) |
+> | `triplespace-cli` | `instance create --adopt --owner`; `adopt` (§2, §5) |
+>
+> No crate is added. In the build order of [0005](0005-crate-organization.md) §7, the adoption job sits in step 4 beside the mirror bootstrap: a tenant continuing an existing Wikibase needs it before step 5.
+
+### A2. Adoption brings the wiki's files
+
+- **Date:** 2026-09-30
+- **Source:** [0039](0039-files-and-media.md) §14
+- **Change:** extends §2
+- **Summary:** Adopting a wiki with files imports every file version from its file tables and upload directory, deleted versions included, onto file pages that keep their source page IDs.
+
+### A3. Converted to the 0050 format
+
+- **Date:** 2026-10-01
+- **Source:** [0050](0050-adr-format.md) §13
+- **Change:** consolidates §2, §8
+- **Summary:** A1–A2 were folded into the Decision. The open questions were numbered. No decision changed. Before this, A2 was a blockquote. The file before conversion is commit `0b26a3a`.

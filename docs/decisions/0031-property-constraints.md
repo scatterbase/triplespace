@@ -2,9 +2,10 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
+- **Updated:** 2026-10-01 (A3)
 - **Author:** James Hare / Claude Fable
-- **Amended by:** [0047 — Special pages](0047-special-pages.md) (§4.2 amends §3: `ConstraintReport` defaults to the local graph)
-- **Related:** [0002 — Source graphs and mass ingest](0002-source-graphs-and-mass-ingest.md) (§2: constraints are evaluated on the resolved view of §3), [0003 — Statement UI](0003-statement-ui.md) (§1 binds constraint vocabulary by role, §7; §6 extends §9 with the constraint marker; the "constraints as hints" of §7 stand), [0004 — Identity clusters and equivalence](0004-identity-clusters-and-equivalence.md) (§2 uses §4 and §7), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§9 amends §2: adds `scatter-wikibase-constraints`), [0010 — Site UI](0010-site-ui.md) (§6 extends §2), [0012 — API requirements for the site UI](0012-api-requirements.md) (§7 extends §4 and §5), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md) (§5 extends §5.6 and §7), [0014 — Cache layers and search](0014-caches-and-search.md) (§5), [0018 — Tenants](0018-tenants.md) (§4 follows §6), [0020 — Change feeds](0020-change-feeds.md) (§6: not a feed), [0029 — Resolver namespaces](0029-resolver-namespaces.md) (§2: normalized values), [0030 — Edit filters](0030-edit-filters.md) (§1 settles its property-constraints open question; constraints report, filters gate), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
+- **Changes:** [0003](0003-statement-ui.md), [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0030](0030-edit-filters.md)
+- **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0018](0018-tenants.md), [0020](0020-change-feeds.md), [0029](0029-resolver-namespaces.md), [Wikibase contract](../api/wikibase-compat.md)
 
 ## Context
 
@@ -59,16 +60,16 @@ Violations are **derived facts**, not records. A **constraint projection** runs 
 
 ### 3. Where violations appear
 
+*Changed by A2.*
+
 - **On the entity page** ([0003](0003-statement-ui.md) §9), a **constraint marker** beside a violating value: an icon by severity, whose popover names the constraint, its source (Wikidata or this instance), its clarification text, and the parameter that failed, with a link to the property's constraint statement. This is what WikibaseQualityConstraints shows, drawn with the components 0003 already has, and hidden when there are no violations ([0003](0003-statement-ui.md) §1, principle 1).
 - **On the property page**, a **Constraints** tab listing each constraint with its violation count and a link to the report.
-- **`Special:ConstraintReport/{property}`** and **`Special:ConstraintReport/{type}`**: violations by property or by type, paged, filterable by severity and source graph, with the entity, the statement and the failing value on each row. This is where a community works through a class of problems.
+- **`Special:ConstraintReport/{property}`** and **`Special:ConstraintReport/{type}`**: violations by property or by type, paged, filterable by severity and source graph, with the entity, the statement and the failing value on each row. The source-graph filter defaults to the local graph, as every report does ([0047](0047-special-pages.md) §4.2); widening it is live, since `view.constraint_violation` already covers the resolved view. This is where a community works through a class of problems.
 - **`Special:ConstraintReport/{entity}`**: everything on one entity, which is also what `wbcheckconstraints` returns.
-
-> **Amended by [0047](0047-special-pages.md) §4.2.** The source-graph filter defaults to the local graph, as every report does. Widening it is live, since `view.constraint_violation` already covers the resolved view.
 
 Violations are **not a feed** ([0020](0020-change-feeds.md)): they are facts about the present, not events, and a reader who wants to know when a violation appeared reads the entity's history. A count of violations by property is published for the dashboard-style view above.
 
-### 4. Tenants (follows 0018 §6)
+### 4. Tenants (uses 0018 §6)
 
 Constraints and violations follow the overlay rule of [0018](0018-tenants.md) §6: violations on shared rows are computed once for the instance and shown to every tenant that reads the provider; a tenant whose overlay changes an entity, or whose constraints differ from the shared ones because it overrides a mirrored constraint, has its own violation rows for that entity. A tenant that has not bound the constraint roles checks nothing and shows nothing.
 
@@ -108,19 +109,17 @@ The provenance response ([0003](0003-statement-ui.md) §6, [0012](0012-api-requi
 
 The entity page's marker (§3) sits in the value cell of [0003](0003-statement-ui.md) §9 and follows its rule that nothing is drawn where nothing differs: an entity with no violations looks as it did. The property page gains the **Constraints** tab. `Special:ConstraintReport` uses the site frame with the filters of §3. Severity and the constraint's source are the two facts every row leads with, since "Wikidata says this is mandatory" and "we suggested this here" call for different responses.
 
-### 8. Relationship to edit filters (settles 0030's open question)
+### 8. Relationship to edit filters (settles 0030 Q1)
 
 Filters gate; constraints report. A filter ([0030](0030-edit-filters.md)) sees the change and the actor and refuses or tags a write in microseconds. A constraint sees the data and the graph around it and marks a statement after the fact. A tenant that wants a hard rule writes a filter; a tenant that wants to know where its data disagrees with its own norms writes a constraint. The two never read each other, and [0030](0030-edit-filters.md)'s "bounded lookup in v1" question stays open on its own terms.
 
 ### 9. Crates (amends 0005 §2)
 
-| Layer | Crate | Change |
-|---|---|---|
-| Wikibase | `scatter-wikibase-constraints` *(new)* | Parsing constraints from a property's statements by role; one checker per constraint type over a resolved entity, with a `Lookup` trait for the types that need other entities or indexes; severity, scope and exceptions; the `wbcheckconstraints` result shape. Pure; the lookups are passed in |
-| Triplespace | `triplespace-projections` | The constraint projection, `view.constraint_violation`, `view.constraint_count`, `view.value_key`; the property-wide re-check job |
-| | `triplespace-api-action`, `triplespace-api-rest` | §6 |
+*Changed by A1.*
 
-The workspace goes from forty-one crates to forty-two.
+*Superseded by [0005](0005-crate-organization.md) §2 (A1).*
+
+[0005](0005-crate-organization.md) §2 keeps the crate table that CI checks, with `scatter-wikibase-constraints` and every change this section listed. The table this section first gave is in A1.
 
 ## Consequences
 
@@ -134,12 +133,28 @@ The workspace goes from forty-one crates to forty-two.
 
 ## Open questions
 
-- **Constraint types beyond Wikidata's**, such as a resolver-aware "resolves uniquely" check ([0029](0029-resolver-namespaces.md)) or a Domain-hierarchy check ([0009](0009-keyed-entity-types-and-domain.md)).
-- **Checking mirrored entities at Wikidata scale**: whether to check every mirrored statement or only entities a tenant has touched, and how often to re-check as mirrors sync.
-- **Depth and cache limits** for the *type* check's class-chain walk.
-- **Suggested fixes**: whether a violation should offer a one-click correction where the fix is unambiguous (a *format* violation with a known normalization, say), which would be an edit like any other.
-- **Constraint via SPARQL** if a tenant runs a local quad store ([0013](0013-postgres-storage.md) §8).
-- ~~**Whether `mandatory` violations should influence patrolling** ([0023](0023-moderation.md) §6), for example by clearing autopatrol on the write that introduced one; that would be the first thing to read the graph on the write path, and is deliberately not done here.~~ *Settled 2026-09-27 with [0030](0030-edit-filters.md): no. Nothing on the write path reads the graph; constraints report after the fact and a reviewer acts on the report.*
+- **Q1. Constraint types beyond Wikidata's**, such as a resolver-aware "resolves uniquely" check ([0029](0029-resolver-namespaces.md)) or a Domain-hierarchy check ([0009](0009-keyed-entity-types-and-domain.md)).
+- **Q2. Checking mirrored entities at Wikidata scale**: whether to check every mirrored statement or only entities a tenant has touched, and how often to re-check as mirrors sync.
+- **Q3. Depth and cache limits** for the *type* check's class-chain walk.
+- **Q4. Suggested fixes**: whether a violation should offer a one-click correction where the fix is unambiguous (a *format* violation with a known normalization, say), which would be an edit like any other.
+- **Q5. Constraint via SPARQL** if a tenant runs a local quad store ([0013](0013-postgres-storage.md) §8).
+- **Q6.** ~~**Whether `mandatory` violations should influence patrolling** ([0023](0023-moderation.md) §6), for example by clearing autopatrol on the write that introduced one; that would be the first thing to read the graph on the write path, and is deliberately not done here.~~ *Settled by [0030](0030-edit-filters.md) A3: no. Nothing on the write path reads the graph; constraints report after the fact and a reviewer acts on the report.*
+
+## Changes to other ADRs
+
+| Target | By | Change | Target's log |
+|---|---|---|---|
+| [0003](0003-statement-ui.md) §6, §7 | §1, §3, §6 | extends | 0003 A4 |
+| [0003](0003-statement-ui.md) §9 | §1, §3, §6 | amends | 0003 A4 |
+| [0005](0005-crate-organization.md) §2 | §9 | extends | 0005 A27 |
+| [0010](0010-site-ui.md) §2, §12 | §7 | extends | 0010 A20 |
+| [0012](0012-api-requirements.md) §4, §5 | §6 | extends | 0012 A19 |
+| [0013](0013-postgres-storage.md) §5, §5.2, §5.6 | §5 | amends | 0013 A9 |
+| [0013](0013-postgres-storage.md) §4, §5.4, §5.5, §7, §8 | §5 | extends | 0013 A9 |
+| [0014](0014-caches-and-search.md) §1, §5 | §5 | amends | 0014 A3 |
+| [0014](0014-caches-and-search.md) §10 | §5 | extends | 0014 A3 |
+| [0030](0030-edit-filters.md) §2 | §1, §8 | extends | 0030 A2 |
+| [0030](0030-edit-filters.md) Q1 | — | settles | 0030 Q1 |
 
 ## References
 
@@ -147,3 +162,40 @@ The workspace goes from forty-one crates to forty-two.
 - [API:wbcheckconstraints](https://www.wikidata.org/w/api.php?action=help&modules=wbcheckconstraints)
 - [Wikidata: property constraint (P2302)](https://www.wikidata.org/wiki/Property:P2302), [constraint status (P2316)](https://www.wikidata.org/wiki/Property:P2316), [exception to constraint (P2303)](https://www.wikidata.org/wiki/Property:P2303)
 - [0003 — Statement UI](0003-statement-ui.md) §7, [0030 — Edit filters](0030-edit-filters.md)
+
+## Amendment log
+
+### A1. Crate table
+
+- **Date:** 2026-09-27
+- **Source:** [0005](0005-crate-organization.md) §2
+- **Change:** supersedes §9
+- **Summary:** 0005 §2 is the one crate table CI checks, and carries `scatter-wikibase-constraints` and every change this section listed (0005 A27).
+
+Replaced text (§9):
+
+> | Layer | Crate | Change |
+> |---|---|---|
+> | Wikibase | `scatter-wikibase-constraints` *(new)* | Parsing constraints from a property's statements by role; one checker per constraint type over a resolved entity, with a `Lookup` trait for the types that need other entities or indexes; severity, scope and exceptions; the `wbcheckconstraints` result shape. Pure; the lookups are passed in |
+> | Triplespace | `triplespace-projections` | The constraint projection, `view.constraint_violation`, `view.constraint_count`, `view.value_key`; the property-wide re-check job |
+> | | `triplespace-api-action`, `triplespace-api-rest` | §6 |
+>
+> The workspace goes from forty-one crates to forty-two.
+
+### A2. Reports default to the local graph
+
+- **Date:** 2026-10-01
+- **Source:** [0047](0047-special-pages.md) §4.2
+- **Change:** amends §3
+- **Summary:** The source-graph filter defaults to the local graph, as every report does. Widening it is live, since `view.constraint_violation` already covers the resolved view.
+
+Replaced text (§3):
+
+> - **`Special:ConstraintReport/{property}`** and **`Special:ConstraintReport/{type}`**: violations by property or by type, paged, filterable by severity and source graph, with the entity, the statement and the failing value on each row. This is where a community works through a class of problems.
+
+### A3. Converted to the 0050 format
+
+- **Date:** 2026-10-01
+- **Source:** [0050](0050-adr-format.md) §13
+- **Change:** consolidates §3, §9
+- **Summary:** A1–A2 were folded into the Decision. The open questions were numbered. No decision changed. Before this, A2 was a blockquote. The file before conversion is commit `0b26a3a`.

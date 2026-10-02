@@ -2,9 +2,10 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
+- **Updated:** 2026-10-01 (A6)
 - **Author:** James Hare / Claude Opus
-- **Amended by:** [0043 — Lua modules](0043-lua-modules.md) (§3 extends §3: the `Scribunto` model), [0045 — Tables](0045-table-content-model.md) (§3 extends §3: the `triplespace-table` model), [0048 — Notation](0048-notation.md) (§7 amends §3: `triplespace-osm-tag` becomes `triplespace-notation`), [0049 — Boards, and threads on several pages](0049-boards.md) (§3 extends §3: the `triplespace-board` model)
-- **Related:** [0001 — Revision metadata in RDF](0001-revision-metadata-rdf.md) (§10 extends §6: every revision node carries a content model), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§12 amends §2), [0008 — Namespaces and document pages](0008-namespaces-and-document-pages.md) (§1 and §4 amend §1: a namespace names content models, not a kind of page; §3 and §5 extend §5: the content model registry and what a model provides), [0010 — Site UI](0010-site-ui.md) (§10 refines §4: the Format selector), [0012 — API requirements for the site UI](0012-api-requirements.md) (§8 extends §4; §9 extends §5), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md) (§10 amends `view.page` in §5), [0014 — Cache layers and search](0014-caches-and-search.md) (§10 amends the `content_model` field of §7), [0017 — Entity ID grammar](0017-entity-id-grammar.md) (§7 extends §1: `M` IDs are derived from page IDs), [0019 — Discussions](0019-discussions.md) (§4 amends §2 and §3: talk and thread namespaces become `pages` namespaces; §8 amends §9: `action=edit` is refused with MediaWiki's `no-direct-editing`; §10 amends §11: the `triplespace-thread` and `triplespace-talk` model IDs), [0029 — Resolver namespaces](0029-resolver-namespaces.md) (§4 amends §2: the kinds `resolver` joins are now `pages`, `reserved` and `virtual`; `resolver` stays a kind, since a resolver namespace holds no pages), [0038 — Page metadata, legacy categories and articles](0038-page-metadata-and-categories.md) (§6 and §7 amend §1 and §13: a File page's statements are served over the Wikibase Action API as a MediaInfo entity), [0039 — Files, blob storage and foreign file repositories](0039-files-and-media.md) (§4 amends §1: the `file` kind becomes the `uploads` flag on a `pages` namespace), [MediaWiki API contract](../api/mediawiki-compat.md)
+- **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0019](0019-discussions.md), [0029](0029-resolver-namespaces.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md)
+- **Uses:** [0035](0035-adopting-a-wikibase.md), [0043](0043-lua-modules.md), [0045](0045-table-content-model.md), [0048](0048-notation.md), [0049](0049-boards.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
 
@@ -57,6 +58,8 @@ IDs that other MediaWiki extensions use are not reserved. A generic ID is used o
 
 ### 3. The content model registry (extends 0008 §5)
 
+*Changed by A2, A3, A4, A5.*
+
 The models are registry data, in a new file, `docs/registry/content-models.toml`, embedded by `scatter-pages`. Each entry records the ID, its origin, its **source** (§5), its **slot role**, the entity type where there is one, the serialization format reported as MediaWiki's `contentformat`, and whether it supports direct editing. The defaults:
 
 | ID | Origin | Source | Slot | Format | Direct editing | Default in |
@@ -70,18 +73,15 @@ The models are registry data, in a new file, `docs/registry/content-models.toml`
 | `wikibase-property` | Wikibase | entity (`property`) | main | `application/json` | No | 122 |
 | `triplespace-domain` | Triplespace | entity (`domain`) | main | `application/json` | No | 210 |
 | `triplespace-keyword` | Triplespace | entity (`keyword`) | main | `application/json` | No | 212 |
-| `triplespace-osm-tag` | Triplespace | entity (`osm-tag`) | main | `application/json` | No | 216 |
+| `triplespace-notation` | Triplespace | entity (`notation`) | main | `application/json` | No | 216 ([0048](0048-notation.md) §7) |
 | `triplespace-thread` | Triplespace | thread | main | `application/json` | No | 214 |
 | `triplespace-talk` | Triplespace | composite | main | — | No | Every enabled talk namespace |
 | `wikibase-mediainfo` | WikibaseMediaInfo | statements (`mediainfo`) | `mediainfo` | `application/json` | No | The second slot of every File page (§6) |
+| `Scribunto` | Scribunto | text | main | `text/plain` | Yes | 828, by Scribunto's title rules ([0043](0043-lua-modules.md) §3) |
+| `triplespace-table` | Triplespace | text | main | `application/json` | Yes | 218 ([0045](0045-table-content-model.md) §3) |
+| `triplespace-board` | Triplespace | text | main | `application/json` | Yes | 310 ([0049](0049-boards.md) §3) |
 
-> **Extended by [0043](0043-lua-modules.md) §3.** `Scribunto` (Scribunto's ID, origin Scribunto): source text, slot `main`, format `text/plain`, direct editing yes, the default in Module (828) by Scribunto's title rules.
-
-> **Extended by [0045](0045-table-content-model.md) §3.** `triplespace-table` (origin Triplespace): source text, slot `main`, format `application/json`, direct editing yes, the default in Table (218). Its content is a definition naming entities and properties; the grid is generated from the entities.
-
-> **Amended by [0048](0048-notation.md) §7.** `triplespace-osm-tag` is replaced by `triplespace-notation`, entity type `notation`, the default in Notation (216). The rest of its row is unchanged.
-
-> **Extended by [0049](0049-boards.md) §3.** `triplespace-board` (origin Triplespace): source text, slot `main`, format `application/json`, direct editing yes, the default in Board (310). Its content is a definition; the thread listing is generated.
+**Two models hold a definition, not the page's content.** A `triplespace-table` page is a definition naming entities and properties, from which the grid is generated ([0045](0045-table-content-model.md) §3); a `triplespace-board` page is a definition, from which the thread listing is generated ([0049](0049-boards.md) §3).
 
 **One model per entity type.** Every entity namespace hosts one entity type ([0008](0008-namespaces-and-document-pages.md) §1), so it has one model, whichever provider the entity comes from: `Item:Q5`, `Item:WDQ42` and `Item:OAW123` are all `wikibase-item`. An entity type added by a later ADR takes a model in the same change: `wikibase-` and the type if a Wikibase extension already defines it, `triplespace-` and the type otherwise. When Lexeme (146) is implemented, it takes `wikibase-lexeme`.
 
@@ -163,7 +163,7 @@ On File pages, 0038 §1's "no entity ID" is replaced by WikibaseMediaInfo's cont
 
 **Writing.** The statement modules accept an `M` ID: `wbeditentity` (statements only), `wbcreateclaim`, `wbsetclaim`, `wbremoveclaims`, `wbsetclaimvalue`, `wbsetqualifier`, `wbremovequalifiers`, `wbsetreference` and `wbremovereferences`. Each writes a page change set exactly as the REST routes do (0038 §1): the same records, permissions, protection, filters and constraints. `baserevid` is the page's latest revision ID of any kind (text, statements or upload), which gives the base offset. A write to a projected statement is refused with `ts-derived-statement` (0038 §13).
 
-**Terms and sitelinks are not supported yet.** MediaInfo's labels are Commons' *captions*. They are page terms, which [0038](0038-page-metadata-and-categories.md) left open, and 0038 §1 keeps terms out of page change sets. Until that is settled, `labels` and `descriptions` are always empty, and `wbsetlabel`, `wbsetdescription`, `wbsetaliases`, `wbsetsitelink` and a `wbeditentity` carrying terms or sitelinks on an `M` ID are refused with Wikibase's `not-supported` ("The requested feature is not supported by the given entity").
+**Terms and sitelinks are not supported yet.** MediaInfo's labels are Commons' *captions*. They are page terms, which [0038](0038-page-metadata-and-categories.md) Q4 leaves open, and 0038 §1 keeps terms out of page change sets. Until that is settled, `labels` and `descriptions` are always empty, and `wbsetlabel`, `wbsetdescription`, `wbsetaliases`, `wbsetsitelink` and a `wbeditentity` carrying terms or sitelinks on an `M` ID are refused with Wikibase's `not-supported` ("The requested feature is not supported by the given entity").
 
 **Unchanged:** REST stays `/page/{pageid}/statements` for every page, File pages included; the Wikibase REST API has no MediaInfo routes to follow. RDF stays as [0038](0038-page-metadata-and-categories.md) §11 has it, with the page node as subject. Statements on pages other than File pages stay out of the Action API.
 
@@ -199,16 +199,11 @@ In Scatterbase's terms, the stored bytes are the blob and the content model is t
 
 ### 12. Crates (amends 0005 §2)
 
-| Crate | Change |
-|---|---|
-| `scatter-pages` | The content model registry, embedding `docs/registry/content-models.toml`; the trait of §5 with source, slot, format and direct-editing; text models as before |
-| `scatter-threads` | Implements `triplespace-thread`: serialization as of a revision, and per-post diff |
-| `scatter-wikibase-model` | Implements the entity models and `wikibase-mediainfo`: the `mediainfo` entity type and its serialization, and derived `M` IDs in the ID parser ([0017](0017-entity-id-grammar.md) §1). Gains a dependency on `scatter-pages` for the trait; `scatter-pages` depends on nothing, so no cycle results |
-| `triplespace-titles` | The `pages` kind, allowed and default models and the `uploads` flag in the namespace registry; the registry check that a namespace's models share a source |
-| `triplespace-projections` | `view.page.content_model` from the registry; the `content_model` registry kind |
-| `triplespace-api-action`, `triplespace-api-rest` | `defaultcontentmodel`, `siprop=triplespace` `contentmodels`, the `contentmodel` enumerations, `no-direct-editing` and the `changecontentmodel` codes, the `mediainfo` slot, the Wikibase modules on `M` IDs, `content_model` on page objects |
+*Changed by A1.*
 
-No crate is added.
+*Superseded by [0005](0005-crate-organization.md) §2 (A1).*
+
+[0005](0005-crate-organization.md) §2 keeps the crate table that CI checks, with every change this section listed. The table this section first gave is in A1.
 
 ## Consequences
 
@@ -222,12 +217,30 @@ No crate is added.
 
 ## Open questions
 
-- **Captions.** MediaInfo labels are page terms, which 0038 left open. If File pages get captions, they are the first page terms, and the term modules on `M` IDs start working.
-- **Data type IDs.** `wikibase-domain`, `wikibase-keyword` and `wikibase-osm-tag` (now `wikibase-notation`, [0048](0048-notation.md)) ([0009](0009-keyed-entity-types-and-domain.md), [0017](0017-entity-id-grammar.md) §5, [0036](0036-openstreetmap-providers.md)) are unique to Triplespace but carry Wikibase's prefix. Whether §2's rule applies to data types too, so they become `triplespace-domain` and so on before any data exists, is for a later decision.
-- **A MediaInfo IRI.** Whether the RDF should also give each File page's statements the entity IRI `{base}/entity/M{pageid}`, so that queries written for the Commons Query Service (`sdc:M…`) work unchanged.
-- **Adopting a wiki that ran WikibaseMediaInfo.** Importing its `mediainfo` slots as page statements on the adopted File pages ([0035](0035-adopting-a-wikibase.md), [0039](0039-files-and-media.md) §14).
-- **Mirrored Commons MediaInfo** (`WDM`) shown on foreign files, which 0039 left open. With this ADR, a mirrored `WDM` entity would be the `mediainfo` slot of a foreign File page, not the page of a MediaInfo namespace.
-- **EntitySchema's namespace.** This ADR reserves the `EntitySchema` model; by [0008](0008-namespaces-and-document-pages.md) §2 rule 1, its namespace numbers should be reserved in `namespaces.toml` too.
+- **Q1. Captions.** MediaInfo labels are page terms, which [0038](0038-page-metadata-and-categories.md) Q4 leaves open. If File pages get captions, they are the first page terms, and the term modules on `M` IDs start working.
+- **Q2. Data type IDs.** `wikibase-domain`, `wikibase-keyword` and `wikibase-notation` ([0009](0009-keyed-entity-types-and-domain.md), [0017](0017-entity-id-grammar.md) §5, [0048](0048-notation.md) §1) are unique to Triplespace but carry Wikibase's prefix. Whether §2's rule applies to data types too, so they become `triplespace-domain` and so on before any data exists, is for a later decision.
+- **Q3. A MediaInfo IRI.** Whether the RDF should also give each File page's statements the entity IRI `{base}/entity/M{pageid}`, so that queries written for the Commons Query Service (`sdc:M…`) work unchanged.
+- **Q4. Adopting a wiki that ran WikibaseMediaInfo.** Importing its `mediainfo` slots as page statements on the adopted File pages ([0035](0035-adopting-a-wikibase.md), [0039](0039-files-and-media.md) §14).
+- **Q5. Mirrored Commons MediaInfo** (`WDM`) shown on foreign files, which [0039](0039-files-and-media.md) Q7 leaves open. With this ADR, a mirrored `WDM` entity would be the `mediainfo` slot of a foreign File page, not the page of a MediaInfo namespace.
+- **Q6. EntitySchema's namespace.** This ADR reserves the `EntitySchema` model; by [0008](0008-namespaces-and-document-pages.md) §2 rule 1, its namespace numbers should be reserved in `namespaces.toml` too.
+
+## Changes to other ADRs
+
+| Target | By | Change | Target's log |
+|---|---|---|---|
+| [0001](0001-revision-metadata-rdf.md) §6 | §10 | extends | 0001 A13 |
+| [0005](0005-crate-organization.md) §2 | §12 | extends | 0005 A41 |
+| [0008](0008-namespaces-and-document-pages.md) §1, §3, §5 | §1–5 | amends | 0008 A11 |
+| [0009](0009-keyed-entity-types-and-domain.md) §11 | §3–4 | amends | 0009 A5 |
+| [0010](0010-site-ui.md) §4 | §10 | amends | 0010 A25 |
+| [0012](0012-api-requirements.md) §4, §5 | §8–9 | extends | 0012 A25 |
+| [0013](0013-postgres-storage.md) §5.4 | §10 | amends | 0013 A15 |
+| [0014](0014-caches-and-search.md) §7 | §10 | amends | 0014 A6 |
+| [0017](0017-entity-id-grammar.md) §1 | §7 | extends | 0017 A5 |
+| [0019](0019-discussions.md) §2, §3, §9, §11 | §4, §8, §10 | amends | 0019 A9 |
+| [0029](0029-resolver-namespaces.md) §2 | §4 | amends | 0029 A3 |
+| [0038](0038-page-metadata-and-categories.md) §1, §13 | §6–7 | amends | 0038 A3 |
+| [0039](0039-files-and-media.md) §1 | §4, §6–7 | amends | 0039 A3 |
 
 ## References
 
@@ -237,3 +250,68 @@ No crate is added.
 - [T223792](https://phabricator.wikimedia.org/T223792): `wbgetentities` by `sites` and `titles` on Commons File pages
 - Wikibase API message `wikibase-api-not-supported`
 - [RFC 7763](https://www.rfc-editor.org/rfc/rfc7763) (`text/markdown`) and [RFC 9512](https://www.rfc-editor.org/rfc/rfc9512) (`application/yaml`)
+
+## Amendment log
+
+### A1. Crate table
+
+- **Date:** 2026-09-30
+- **Source:** [0005](0005-crate-organization.md) §2
+- **Change:** supersedes §12
+- **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A41).
+
+Replaced text (§12):
+
+> | Crate | Change |
+> |---|---|
+> | `scatter-pages` | The content model registry, embedding `docs/registry/content-models.toml`; the trait of §5 with source, slot, format and direct-editing; text models as before |
+> | `scatter-threads` | Implements `triplespace-thread`: serialization as of a revision, and per-post diff |
+> | `scatter-wikibase-model` | Implements the entity models and `wikibase-mediainfo`: the `mediainfo` entity type and its serialization, and derived `M` IDs in the ID parser ([0017](0017-entity-id-grammar.md) §1). Gains a dependency on `scatter-pages` for the trait; `scatter-pages` depends on nothing, so no cycle results |
+> | `triplespace-titles` | The `pages` kind, allowed and default models and the `uploads` flag in the namespace registry; the registry check that a namespace's models share a source |
+> | `triplespace-projections` | `view.page.content_model` from the registry; the `content_model` registry kind |
+> | `triplespace-api-action`, `triplespace-api-rest` | `defaultcontentmodel`, `siprop=triplespace` `contentmodels`, the `contentmodel` enumerations, `no-direct-editing` and the `changecontentmodel` codes, the `mediainfo` slot, the Wikibase modules on `M` IDs, `content_model` on page objects |
+>
+> No crate is added.
+
+### A2. The `Scribunto` model
+
+- **Date:** 2026-09-30
+- **Source:** [0043](0043-lua-modules.md) §3
+- **Change:** extends §3
+- **Summary:** `Scribunto` (Scribunto's ID, origin Scribunto): source text, slot `main`, format `text/plain`, direct editing yes, the default in Module (828) by Scribunto's title rules.
+
+### A3. The `triplespace-table` model
+
+- **Date:** 2026-09-30
+- **Source:** [0045](0045-table-content-model.md) §3
+- **Change:** extends §3
+- **Summary:** `triplespace-table` (origin Triplespace): source text, slot `main`, format `application/json`, direct editing yes, the default in Table (218). Its content is a definition naming entities and properties; the grid is generated from the entities.
+
+### A4. `triplespace-osm-tag` becomes `triplespace-notation`
+
+- **Date:** 2026-10-01
+- **Source:** [0048](0048-notation.md) §1, §7
+- **Change:** amends §3
+- **Summary:** `triplespace-osm-tag` is replaced by `triplespace-notation`, entity type `notation`, the default in Notation (216). The rest of its row is unchanged. Q2 names `wikibase-notation` in place of `wikibase-osm-tag`.
+
+Replaced text (§3):
+
+> | `triplespace-osm-tag` | Triplespace | entity (`osm-tag`) | main | `application/json` | No | 216 |
+
+Replaced text (Q2):
+
+> - **Data type IDs.** `wikibase-domain`, `wikibase-keyword` and `wikibase-osm-tag` (now `wikibase-notation`, [0048](0048-notation.md)) ([0009](0009-keyed-entity-types-and-domain.md), [0017](0017-entity-id-grammar.md) §5, [0036](0036-openstreetmap-providers.md)) are unique to Triplespace
+
+### A5. The `triplespace-board` model
+
+- **Date:** 2026-10-01
+- **Source:** [0049](0049-boards.md) §3
+- **Change:** extends §3
+- **Summary:** `triplespace-board` (origin Triplespace): source text, slot `main`, format `application/json`, direct editing yes, the default in Board (310). Its content is a definition; the thread listing is generated.
+
+### A6. Converted to the 0050 format
+
+- **Date:** 2026-10-01
+- **Source:** [0050](0050-adr-format.md) §13
+- **Change:** consolidates §3, §12
+- **Summary:** A1–A5 were folded into the Decision: the three added models are rows of §3's table, with a paragraph on the two definition models. The open questions were numbered. No decision changed. Before this, A2–A5 were blockquotes, and A1 was recorded only in 0005. The file before conversion is commit `0b26a3a`.

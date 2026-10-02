@@ -3,7 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-10-01
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0008](0008-namespaces-and-document-pages.md)
+- **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0026](0026-sitelinks.md), [0027](0027-preferences-and-portability.md), [0028](0028-tenancy-policy.md), [0029](0029-resolver-namespaces.md), [0030](0030-edit-filters.md), [0031](0031-property-constraints.md), [0032](0032-sparql-update-stream.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0035](0035-adopting-a-wikibase.md), [0036](0036-openstreetmap-providers.md), [0037](0037-gdelt-provider.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0044](0044-tenant-relative-ids.md), [0045](0045-table-content-model.md), [0046](0046-primary-tenant.md), [0047](0047-special-pages.md), [0048](0048-notation.md), [0049](0049-boards.md)
 - **Uses:** [0005](0005-crate-organization.md), [0013](0013-postgres-storage.md)
 
 ## Context
@@ -257,7 +257,56 @@ Files still in the old format keep the existing checks until they are converted.
 
 | Target | By | Change | Target's log |
 |---|---|---|---|
+| [0000](0000-init.md) §3 | §13 | consolidates | 0000 A4 |
+| [0001](0001-revision-metadata-rdf.md) §1–6 | §13 | consolidates | 0001 A14 |
+| [0002](0002-source-graphs-and-mass-ingest.md) §3–9 | §13 | consolidates | 0002 A17 |
+| [0003](0003-statement-ui.md) §2–9 | §13 | consolidates | 0003 A9 |
+| [0004](0004-identity-clusters-and-equivalence.md) §1–10 | §13 | consolidates | 0004 A10 |
+| [0005](0005-crate-organization.md) §2, §3, §8 | §13 | consolidates | 0005 A50 |
+| [0006](0006-log-integrity-and-erasure.md) §1–9 | §13 | consolidates | 0006 A13 |
+| [0007](0007-actor-identity.md) §1–8 | §13 | consolidates | 0007 A15 |
 | [0008](0008-namespaces-and-document-pages.md) §1–5, §8–11 | §13 | consolidates | 0008 A20 |
+| [0009](0009-keyed-entity-types-and-domain.md) §1–12 | §13 | consolidates | 0009 A7 |
+| [0010](0010-site-ui.md) §1–13 | §13 | consolidates | 0010 A28 |
+| [0011](0011-logs.md) §2–10 | §13 | consolidates | 0011 A17 |
+| [0012](0012-api-requirements.md) §2–9 | §13 | consolidates | 0012 A29 |
+| [0013](0013-postgres-storage.md) §4–12 | §13 | consolidates | 0013 A20 |
+| [0014](0014-caches-and-search.md) §1–10 | §13 | consolidates | 0014 A9 |
+| [0015](0015-record-format-and-partition-registry.md) §1–7 | §13 | consolidates | 0015 A22 |
+| [0016](0016-permissions-and-access-control.md) §2–9 | §13 | consolidates | 0016 A18 |
+| [0017](0017-entity-id-grammar.md) §1–7 | §13 | consolidates | 0017 A8 |
+| [0018](0018-tenants.md) §1–12 | §13 | consolidates | 0018 A10 |
+| [0019](0019-discussions.md) §1–13 | §13 | consolidates | 0019 A11 |
+| [0020](0020-change-feeds.md) §1–8 | §13 | consolidates | 0020 A10 |
+| [0021](0021-notifications.md) §2–10 | §13 | consolidates | 0021 A7 |
+| [0022](0022-federation.md) §1–13 | §13 | consolidates | 0022 A4 |
+| [0023](0023-moderation.md) §1–13 | §13 | consolidates | 0023 A8 |
+| [0024](0024-subsidiary-accounts.md) §1–13 | §13 | consolidates | 0024 A8 |
+| [0025](0025-oauth-server.md) §5, §10–11 | §13 | consolidates | 0025 A3 |
+| [0026](0026-sitelinks.md) §1–2, §10 | §13 | consolidates | 0026 A4 |
+| [0027](0027-preferences-and-portability.md) §9 | §13 | consolidates | 0027 A2 |
+| [0028](0028-tenancy-policy.md) §1–14 | §13 | consolidates | 0028 A8 |
+| [0029](0029-resolver-namespaces.md) §1–9 | §13 | consolidates | 0029 A6 |
+| [0030](0030-edit-filters.md) §1–13 | §13 | consolidates | 0030 A7 |
+| [0031](0031-property-constraints.md) §3, §9 | §13 | consolidates | 0031 A3 |
+| [0032](0032-sparql-update-stream.md) §1–9 | §13 | consolidates | 0032 A3 |
+| [0033](0033-backend-stack.md) §1–17 | §13 | consolidates | 0033 A5 |
+| [0034](0034-frontend-stack.md) §1–13 | §13 | consolidates | 0034 A4 |
+| [0035](0035-adopting-a-wikibase.md) §2, §8 | §13 | consolidates | 0035 A3 |
+| [0036](0036-openstreetmap-providers.md) §3–7 | §13 | consolidates | 0036 A3 |
+| [0037](0037-gdelt-provider.md) §2, §8 | §13 | consolidates | 0037 A4 |
+| [0038](0038-page-metadata-and-categories.md) §1–15 | §13 | consolidates | 0038 A6 |
+| [0039](0039-files-and-media.md) §1–23 | §13 | consolidates | 0039 A4 |
+| [0040](0040-instance-prerogatives.md) §2, §4, §9, §11 | §13 | consolidates | 0040 A3 |
+| [0041](0041-content-models.md) §3, §12 | §13 | consolidates | 0041 A6 |
+| [0042](0042-template-expansion-and-parsoid.md) §10, §19 | §13 | consolidates | 0042 A4 |
+| [0043](0043-lua-modules.md) §17 | §13 | consolidates | 0043 A2 |
+| [0044](0044-tenant-relative-ids.md) §6 | §13 | consolidates | 0044 A2 |
+| [0045](0045-table-content-model.md) §13 | §13 | consolidates | 0045 A2 |
+| [0046](0046-primary-tenant.md) §7, §10 | §13 | consolidates | 0046 A3 |
+| [0047](0047-special-pages.md) §14–15 | §13 | consolidates | 0047 A2 |
+| [0048](0048-notation.md) §8 | §13 | consolidates | 0048 A2 |
+| [0049](0049-boards.md) §15 | §13 | consolidates | 0049 A2 |
 
 ## References
 

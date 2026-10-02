@@ -2,9 +2,9 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
+- **Updated:** 2026-10-01 (A9)
 - **Author:** James Hare / Claude Opus
-- **Amended by:** [0004 — Identity clusters and equivalence](0004-identity-clusters-and-equivalence.md), [0012 — API requirements for the site UI](0012-api-requirements.md), [0027 — Preferences, private state and portability](0027-preferences-and-portability.md) (§5 settles the shape-pin open question), [0031 — Property constraints](0031-property-constraints.md) (§1 binds the constraint vocabulary by role through §7; §3 extends §9 with the constraint marker), [0038 — Page metadata, legacy categories and articles](0038-page-metadata-and-categories.md) (§2 and §9 extend §7 with the `subject-page`, `subject-thread` and `thread-status` roles), [0048 — Notation](0048-notation.md) (§4 extends §7 with the `notation-scheme` role)
-- **Related:** [0000 — Initial proposition](0000-init.md), [0001 — Revision metadata in RDF](0001-revision-metadata-rdf.md), [0002 — Source graphs and mass ingest](0002-source-graphs-and-mass-ingest.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md), [MediaWiki API contract](../api/mediawiki-compat.md)
+- **Uses:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [MediaWiki API contract](../api/mediawiki-compat.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
 ## Context
 
@@ -40,6 +40,8 @@ Triplespace does not come with MediaWiki's editing UI ([0000](0000-init.md), Con
 
 ### 2. The UI reads canonical Wikibase JSON
 
+*Changed by A7.*
+
 The UI takes three inputs:
 
 - the entity's canonical JSON ([wikibase-compat.md](../api/wikibase-compat.md) §3);
@@ -50,7 +52,11 @@ A stock Wikibase serves all three, so the same frontend can drive Triplespace or
 
 A **statement group** is all the statements for one property on one entity, after reconciliation ([0002](0002-source-graphs-and-mass-ingest.md) §3).
 
+**Pages and threads have statements too.** The same UI serves them, with the page as subject, in the Page data tab of [0010](0010-site-ui.md) §2 ([0038](0038-page-metadata-and-categories.md) §2).
+
 ### 3. Shape detection
+
+*Changed by A2.*
 
 Each statement group gets exactly one shape. The rules are checked in order, and the first one that matches wins.
 
@@ -89,7 +95,7 @@ In the Matrix, a cell with no statement reads "no value".
 
 **Large groups.** When n > 25, the first 10 values are shown inline, followed by "Open full view". The full view is a page for that one property on that one entity, with paging, sorting and filtering. Because an item is a view and not a page, the full view is just another query.
 
-**Overrides.** An editor can pin a different shape for a property, for the whole instance or for one entity. The pin is stored as a view preference, never as a statement.
+**Overrides.** An editor can pin a different shape for a property, for the whole instance or for one entity. The pin is stored as a view preference, never as a statement. A viewer's own pin is the `shapes.pins` preference, and a tenant-wide pin is a `view-pin` config record ([0027](0027-preferences-and-portability.md) §5).
 
 ### 4. Rank
 
@@ -125,11 +131,15 @@ Rank is shown only when it changes what a reader or a query sees.
 
 ### 6. Provenance
 
+*Changed by A1, A4.*
+
 Canonical JSON does not say which graph asserts a statement. Triplespace serves that separately, as a **provenance response** keyed by statement ID. For each statement it gives:
 
 - the source graphs that assert it;
 - whether it is overridden, and by what;
-- its correction state (§4).
+- its correction state (§4);
+- for a fused statement, every member statement and the graph it comes from ([0004](0004-identity-clusters-and-equivalence.md) §8);
+- its constraint violations ([0031](0031-property-constraints.md) §6).
 
 Where there is no provenance response, as on a stock Wikibase, the UI draws no provenance.
 
@@ -145,6 +155,8 @@ Where there is one:
 
 ### 7. Semantic roles
 
+*Changed by A1, A3, A4, A5, A6, A7, A8.*
+
 Property IDs differ between Wikibases, so shape detection and the rank rules refer to **roles**. Each instance maps its own properties onto those roles.
 
 | Role | Used by | Wikidata property |
@@ -158,8 +170,17 @@ Property IDs differ between Wikibases, so shape detection and the rank rules ref
 - **Mirrored properties.** On an instance that mirrors Wikidata, mirrored properties carry the `WDP` prefix, so the map reads `WDP585`, `WDP580` and so on.
 - **Local and mirrored forms together.** One role can have both a local and a mirrored property: for example, `P12` and `WDP585` can both be `time-point`.
 - **Constraints as hints.** Wikidata properties declare allowed and required qualifiers as property constraints (P2302). When a group has no statements, or only one or two, these constraints can seed the table's columns before any data exists. They are hints only: once there is enough data, detection on that data wins.
+- **Linked forms.** If a local and a mirrored property are linked by `equivalent-property`, a role map can name either one ([0004](0004-identity-clusters-and-equivalence.md) §6).
 
-> **Extended by [0038](0038-page-metadata-and-categories.md) §2 and §9.** Three roles are added. `subject-page` and `subject-thread` name the items that stand for a document page and a thread as values of Wikidata's *allowed entity types* constraint (Q52004125). `thread-status` names the `string` property that carries a thread's projected status. The statement UI also serves page statements, with the page as subject, in the Page data tab of [0010](0010-site-ui.md) §2.
+**Other ADRs bind further roles the same way:**
+
+- adapters name their local targets by role ([0004](0004-identity-clusters-and-equivalence.md) §6);
+- a resolver names the property it looks up by role, such as `doi` ([0029](0029-resolver-namespaces.md) §1);
+- the constraint vocabulary: `constraint`, `constraint-status`, `constraint-exception`, `constraint-scope`, `constraint-clarification`, and one role for each constraint type and each parameter ([0031](0031-property-constraints.md) §1);
+- `osm-tag`, `osm-tag-text` and `osm-key`, for OpenStreetMap keys and tags ([0036](0036-openstreetmap-providers.md) §4);
+- GDELT's document and event properties, such as `document-url`, `published`, `theme`, `event-type` and `mentioned-in` ([0037](0037-gdelt-provider.md) §3–4);
+- `subject-page` and `subject-thread`, the items that stand for a document page and a thread as values of Wikidata's *allowed entity types* constraint (Q52004125), and `thread-status`, the `string` property that carries a thread's projected status ([0038](0038-page-metadata-and-categories.md) §2, §9);
+- `notation-scheme`, the property that restricts which notation schemes a `wikibase-notation` property takes ([0048](0048-notation.md) §4).
 
 ### 8. Editing
 
@@ -180,7 +201,9 @@ Editing happens inside the group, and the group keeps its shape. Every action ma
 
 ### 9. Components
 
-The shapes are arrangements of eleven shared components, not separate widgets.
+*Changed by A4.*
+
+The shapes are arrangements of twelve shared components, not separate widgets.
 
 | Component | Contents |
 |---|---|
@@ -194,6 +217,7 @@ The shapes are arrangements of eleven shared components, not separate widgets.
 | Fold | A disclosure button: "N other values" or "N deprecated" |
 | Source chip | The provider code in monospace, or "Local" |
 | Correction chip | Collapsed, expanded, redundant and dangling states (§4) |
+| Constraint marker | An icon by severity beside a violating value. Its popover names the constraint, its source, its clarification text and the parameter that failed. Nothing is drawn where there is no violation ([0031](0031-property-constraints.md) §3) |
 | Value menu | Edit; Make this the best value; Mark as deprecated…; Copy statement ID; History of this value |
 
 The visual tokens (color, type, spacing) on the canvas are placeholders. They are outside the scope of this ADR.
@@ -231,23 +255,92 @@ The prototype lives in `ui/` in this repository. The classifier is its own modul
 - **One property can look different on different items.** Consistency within an item is traded for fit to the data. The view switch and shape pins make up for it.
 - **Rank is harder to find at first glance.** Power users used to the always-visible control have to open the value menu instead. The API and exports are unchanged.
 - **Hoisting only catches identical references.** Two references that differ only in, say, their retrieved date have different hashes, so they are numbered separately. Near-duplicates may need their own rule later.
-- **The provenance response is new API surface.** Once published, it becomes a compatibility commitment, just as the `scatter.wiki` vocabulary did in [0001](0001-revision-metadata-rdf.md).
+- ~~**The provenance response is new API surface.** Once published, it becomes a compatibility commitment, just as the `scatter.wiki` vocabulary did in [0001](0001-revision-metadata-rdf.md).~~ *Holds; the vocabulary it compares with is now `scatter:` under `https://scatter.red/terms/v0/` (0001 A2).*
 - **The thresholds are heuristics.** Changing them after release changes how existing items are laid out. They should be settled by the audit before release.
 - **The UI has to branch on the backend's capabilities.** Corrections and retention exist only on Triplespace. Against a stock Wikibase, those controls are hidden, not disabled.
 - **Folding and repeat-suppression must stay accessible.** Hidden cells and folded values must remain in the accessibility tree, or screen-reader users lose data that sighted users can still see.
 
 ## Open questions
 
-- **Thresholds.** The values in §3 (0.8 and 0.5 coverage; n ≥ 3 for Table, n ≥ 4 for Series, n > 25 for the full view) are starting guesses for the audit to replace.
-- ~~**Where shape pins live.** One option is log records in a view-preferences graph; the other is instance configuration outside the log.~~ *Settled by [0027](0027-preferences-and-portability.md) §5: a viewer's pin is the `shapes.pins` preference; a tenant-wide pin is a `view-pin` config record.*
-- ~~**The provenance response's form.** It could be a new REST route for each entity, or an Action API `prop` module.~~ *Settled by [0012](0012-api-requirements.md) §5: `GET /entity/{id}/provenance` under `triplespace/v0`, extended by [0004](0004-identity-clusters-and-equivalence.md) §8 (member statements) and [0031](0031-property-constraints.md) §6 (constraint violations).*
-- **Several preferred values in Series and Timeline.** It is not settled whether the headline shows all of them or only the most recent.
-- **Mixed units in one column,** such as km² and mi². The options are converting to a single unit or adding a unit column.
-- **Overlapping intervals in Timeline,** such as co-holders of an office or disputed periods. The options are stacked lanes or marked rows.
-- **Foreign values in cells.** It is not settled whether a cell holding an OpenAlex entity on a Wikidata-mirrored item shows its provider code inline or only on hover.
+- **Q1. Thresholds.** The values in §3 (0.8 and 0.5 coverage; n ≥ 3 for Table, n ≥ 4 for Series, n > 25 for the full view) are starting guesses for the audit to replace.
+- **Q2.** ~~**Where shape pins live.** One option is log records in a view-preferences graph; the other is instance configuration outside the log.~~ *Settled by [0027](0027-preferences-and-portability.md) §5: a viewer's pin is the `shapes.pins` preference; a tenant-wide pin is a `view-pin` config record.*
+- **Q3.** ~~**The provenance response's form.** It could be a new REST route for each entity, or an Action API `prop` module.~~ *Settled by [0012](0012-api-requirements.md) §5: `GET /entity/{id}/provenance` under `triplespace/v0`, extended by [0004](0004-identity-clusters-and-equivalence.md) §8 (member statements) and [0031](0031-property-constraints.md) §6 (constraint violations).*
+- **Q4. Several preferred values in Series and Timeline.** It is not settled whether the headline shows all of them or only the most recent.
+- **Q5. Mixed units in one column,** such as km² and mi². The options are converting to a single unit or adding a unit column.
+- **Q6. Overlapping intervals in Timeline,** such as co-holders of an office or disputed periods. The options are stacked lanes or marked rows.
+- **Q7. Foreign values in cells.** It is not settled whether a cell holding an OpenAlex entity on a Wikidata-mirrored item shows its provider code inline or only on hover.
 
 ## References
 
 - [Statement UI design canvas](https://claude.ai/artifact/69M2T2HYrkafzearFUoJ4X) (private until shared)
 - [Wikidata: Help:Ranking](https://www.wikidata.org/wiki/Help:Ranking)
 - [Wikidata: Help:Property constraints portal](https://www.wikidata.org/wiki/Help:Property_constraints_portal)
+
+## Amendment log
+
+### A1. Fused statements and linked properties
+
+- **Date:** 2026-09-25
+- **Source:** [0004](0004-identity-clusters-and-equivalence.md) §6, §8
+- **Change:** extends §6, §7
+- **Summary:** The provenance response lists every member statement of a fused statement and its graph. Adapters name their local targets by role. A role map may name either of two properties linked by `equivalent-property`.
+
+### A2. Where shape pins live
+
+- **Date:** 2026-09-27
+- **Source:** [0027](0027-preferences-and-portability.md) §5
+- **Change:** extends §3
+- **Summary:** A viewer's pin is the `shapes.pins` preference; a tenant-wide pin is a `view-pin` config record. This settled Q2.
+
+### A3. Resolvers bound by role
+
+- **Date:** 2026-09-27
+- **Source:** [0029](0029-resolver-namespaces.md) §1
+- **Change:** extends §7
+- **Summary:** A resolver namespace is bound to a property by a role, such as `doi`, or to sitelinks.
+
+### A4. Constraints
+
+- **Date:** 2026-09-27
+- **Source:** [0031](0031-property-constraints.md) §1, §3, §6
+- **Change:** extends §6, §7; amends §9
+- **Summary:** The constraint vocabulary is bound by roles. A violating value carries a constraint marker in its value cell, drawn only where there is a violation. The provenance response gains a `constraints` list per statement, so the statement UI needs one request. The constraints-as-hints rule of §7 stands.
+
+Replaced text (§9):
+
+> The shapes are arrangements of eleven shared components, not separate widgets.
+
+### A5. OpenStreetMap roles
+
+- **Date:** 2026-09-28
+- **Source:** [0036](0036-openstreetmap-providers.md) §4
+- **Change:** extends §7
+- **Summary:** `osm-tag`, `osm-tag-text` and `osm-key` are registered with the other roles; the OpenStreetMap adapter's key map names properties by role.
+
+### A6. GDELT roles
+
+- **Date:** 2026-09-28
+- **Source:** [0037](0037-gdelt-provider.md) §3–4
+- **Change:** extends §7
+- **Summary:** GDELT documents and events carry their statements by role: `document-url`, `published`, `source-domain`, `theme`, `location`, the tone roles, `event-type`, `event-date`, `event-actor`, `mentioned-in` and the rest.
+
+### A7. Page and thread roles
+
+- **Date:** 2026-09-29
+- **Source:** [0038](0038-page-metadata-and-categories.md) §2, §9
+- **Change:** extends §2, §7
+- **Summary:** Three roles are added. `subject-page` and `subject-thread` name the items that stand for a document page and a thread as values of Wikidata's *allowed entity types* constraint (Q52004125). `thread-status` names the `string` property that carries a thread's projected status. The statement UI also serves page statements, with the page as subject, in the Page data tab of [0010](0010-site-ui.md) §2.
+
+### A8. The notation-scheme role
+
+- **Date:** 2026-10-01
+- **Source:** [0048](0048-notation.md) §4
+- **Change:** extends §7
+- **Summary:** A new role, `notation-scheme`, names the `string` property whose values restrict which schemes a `wikibase-notation` property accepts. A value in another scheme is refused on the write path.
+
+### A9. Converted to the 0050 format
+
+- **Date:** 2026-10-01
+- **Source:** [0050](0050-adr-format.md) §13
+- **Change:** consolidates §2–9
+- **Summary:** A1–A8 were folded into the Decision, the open questions were numbered, and the consequence that named the `scatter.wiki` vocabulary was struck. No decision changed. Before this, A7 was a blockquote under §7, and the other entries were recorded only in this ADR's header or in other ADRs. The file before conversion is commit `0b26a3a`.

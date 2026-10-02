@@ -2,9 +2,10 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
+- **Updated:** 2026-10-01 (A7)
 - **Author:** James Hare / Claude Fable
-- **Amended by:** [0031 — Property constraints](0031-property-constraints.md) (§8 settles the property-constraints open question), [0039 — Files, blob storage and foreign file repositories](0039-files-and-media.md) (§5 extends §2: the `upload` context), [0040 — Instance prerogatives](0040-instance-prerogatives.md) (§6 amends §8: global filters move to the instance `log`, and their blocks are prerogatives), [0042 — Template expansion and the Parsoid renderer](0042-template-expansion-and-parsoid.md) (§17 refines §2: link variables from expanded output)
-- **Related:** [0001 — Revision metadata in RDF](0001-revision-metadata-rdf.md) (§5 gives change tags a home), [0002 — Source graphs and mass ingest](0002-source-graphs-and-mass-ingest.md) (§7 extends §8.5: filter rejects), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§12 amends §2: adds `scatter-filter`), [0007 — Actor identity](0007-actor-identity.md) (§3: IP in the abuse store only), [0010 — Site UI](0010-site-ui.md) (§10 extends §2 and §7), [0011 — Upstream and local logs](0011-logs.md) (§6 extends §6.1 and §2: filter and hit records in the local log), [0012 — API requirements for the site UI](0012-api-requirements.md) (§9 extends §4 and §5; §5 extends the activity row of §3), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md) (§11 extends §5.6 and §7), [0014 — Cache layers and search](0014-caches-and-search.md) (§4 uses the counters of §4), [0015 — Record format and partition registry](0015-record-format-and-partition-registry.md) (§5 amends §1: the attestation part carries change tags), [0016 — Permissions and access control](0016-permissions-and-access-control.md) (§8 extends §2; settles the abuse-filter open question), [0020 — Change feeds](0020-change-feeds.md) (§6 extends §2 with the filter-hits set), [0021 — Notifications](0021-notifications.md) (§4: the `notify` action), [0023 — Protection, deletion, hiding and patrolling](0023-moderation.md) (§4: the `unpatrol` action; §6 places filters beside ACLs in `log`), [0024 — Subsidiary accounts, API keys and rate limits](0024-subsidiary-accounts.md) (§4: throttles as counters; §7: jobs), [0028 — Tenancy policy](0028-tenancy-policy.md) (§9 extends §1 with `filters.global`; settles the farm-filter open question), [0029 — Resolver namespaces](0029-resolver-namespaces.md) (§2: normalized identifier values in the context), [0022 — Federation: verified data sync and ActivityPub](0022-federation.md) (§8 uses §2: inbound posts are filtered in the `text` context with `user_kind = federated`), [0025 — The instance as an OAuth server](0025-oauth-server.md) (§4 writes the `oauth:{slug}` tag that §5 gives a home)
+- **Changes:** [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md)
+- **Uses:** [0007](0007-actor-identity.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0029](0029-resolver-namespaces.md)
 
 ## Context
 
@@ -31,7 +32,9 @@ Filters run in order of ID. Every match is recorded (§5); the actions decide wh
 
 **What is never filtered:** mirror partitions, since upstream data is upstream's and a mirror is faithful by design ([0002](0002-source-graphs-and-mass-ingest.md) §2); `config`, `actors` and `accounts` records, which are administrative actions with their own permissions; and moderation records ([0023](0023-moderation.md)), for the same reason. A filter governs what editors and their bots write.
 
-### 2. Two contexts and one actor
+### 2. Three contexts and one actor
+
+*Changed by A2, A3, A4, A6.*
 
 A rule sees a **context**: a typed set of variables derived from the candidate record and the actor. Variable names follow AbuseFilter's where AbuseFilter has one, so that a filter author can port a rule by hand and the API of §9 can answer in MediaWiki's shape.
 
@@ -57,14 +60,14 @@ A rule sees a **context**: a typed set of variables derived from the candidate r
 | `action` | `edit`, `create`, `move`, `rename`, `post`, `reply`, `thread-create` |
 | `page_namespace`, `page_title`, `page_id`, `content_model` | As MediaWiki names them |
 | `old_text`, `new_text`, `added_lines`, `removed_lines`, `edit_delta` | The full texts and a line diff, as AbuseFilter gives them |
-| `added_links`, `removed_links` | Resolved wiki links and mentions ([0008](0008-namespaces-and-document-pages.md) §10, [0019](0019-discussions.md) §5) |
+| `added_links`, `removed_links` | Resolved wiki links and mentions ([0008](0008-namespaces-and-document-pages.md) §10, [0019](0019-discussions.md) §5); with template expansion on, from the expanded text, computed only when an enabled filter reads them ([0042](0042-template-expansion-and-parsoid.md) §17) |
 | `added_external_links`, `added_external_hosts` | External URLs and their hosts |
 | `thread_id`, `thread_target`, `post_depth`, `in_reply_to` | For posts ([0019](0019-discussions.md) §1–2) |
 | `summary`, `new_title` | The comment part; the target of a move or rename |
 
-> **Refined by [0042](0042-template-expansion-and-parsoid.md) §17.** With expansion on, `added_links` and `removed_links` come from the expanded text, computed only when an enabled filter reads them.
+**The upload context** (`upload`), for file uploads: AbuseFilter's file variables and `file_sha256`; `action` is `upload` or `stashupload` ([0039](0039-files-and-media.md) §5).
 
-**The actor context**, present in both:
+**The actor context**, present in every context:
 
 | Variable | Meaning |
 |---|---|
@@ -77,9 +80,7 @@ A rule sees a **context**: a typed set of variables derived from the candidate r
 | `ip`, `ip_in_range(cidr)` | The request's address, available to the rule and never written anywhere but the abuse-handling store of [0007](0007-actor-identity.md) §3 |
 | `timestamp`, `job_id`, `api_key_label` | When; the job if any ([0002](0002-source-graphs-and-mass-ingest.md) §8.3); the key label if the actor is a subsidiary ([0024](0024-subsidiary-accounts.md) §4) |
 
-**Rules see the change and the actor, and nothing else.** A rule cannot read the graph: "the value of P31 must be an instance of Q5" is a property constraint, a separate reporting mechanism as on Wikidata, and is left to its own ADR (open questions). This bounds the cost of a filtered write to the cost of building the context from the record in hand.
-
-> **Extended by [0039](0039-files-and-media.md) §5.** A third context, `upload`, with AbuseFilter's file variables and `file_sha256`; `action` is `upload` or `stashupload`.
+**Rules see the change and the actor, and nothing else.** A rule cannot read the graph: "the value of P31 must be an instance of Q5" is a property constraint, a separate reporting mechanism as on Wikidata ([0031](0031-property-constraints.md)), which reports and never gates. This bounds the cost of a filtered write to the cost of building the context from the record in hand, and the bound is permanent: no `has_statement()` or other lookup will enter the rule language.
 
 ### 3. The rule language is CEL
 
@@ -100,6 +101,8 @@ values_added.exists(v, v.property == "doi" && !v.text.matches("^10\\.[0-9]{4,9}/
 
 ### 4. Actions
 
+*Changed by A3.*
+
 | Action | Effect | Requires |
 |---|---|---|
 | `log` | Record the hit (§5). Every match is logged; this action only says nothing else happens | — |
@@ -114,17 +117,21 @@ values_added.exists(v, v.property == "doi" && !v.text.matches("^10\\.[0-9]{4,9}/
 
 **Exempt groups.** A filter may name groups whose members it does not apply to; `bot` is the usual one, and a filter that names none applies to everyone including administrators, as AbuseFilter does.
 
+**Every enabled filter evaluates every write,** and every match is a hit, as AbuseFilter does; a `disallow` does not stop later filters. The write is refused once, naming the first disallowing filter's message, so hit counts and the test tool stay complete.
+
 `warn`, `disallow`, `block` and `degroup` are **refusals**: the write is not appended, so no record exists for it. The Action API reports them as `abusefilter-warning` and `abusefilter-disallowed`, the REST API as `403` with the same codes, in every case naming the filter's public message and, for `warn`, the resubmission token.
 
 ### 5. Records: filters, hits and tags (extends 0011 §2, §6.1; amends 0015 §1)
 
+*Changed by A3.*
+
 **A filter is a record in the tenant `log` partition**, payload type `scatter:v0/filter`, keyed `filter:{id}` where the ID is minted in sequence. Its content part holds the rule, contexts, scope, actions, exempt groups, privacy and enabled flags, name and notes; its comment part the reason for the change; its attestation who changed it. A later record for the same key replaces the filter, so a filter's history is its records, and `Special:EditFilter/history/{id}` is a history page. Filters live in `log`, not `config`, for the reason moderation ACLs do ([0023](0023-moderation.md) §3): `config` is publicly exported, and a **private filter** must not be. A private filter's records are behind a `read` ACL ([0023](0023-moderation.md) §1) restricted to holders of `abusefilter-view-private`, written with the filter. Each change projects as `abusefilter/create` or `abusefilter/modify` in the local log ([0011](0011-logs.md) §6.1).
 
-**A hit is a record**, payload type `scatter:v0/filter-hit`, in the tenant `log` partition, keyed `filter:{id}` as well so that a filter's hits and its history are one key. Its content holds: the filter ID and the version matched; the actions taken; the context's non-personal variables; for a write that was appended, the record's coordinates and revision ID; for a refused write, the **attempted change set or text**, so that reviewers can see what was stopped. Its attestation is the actor. IP is not in the hit: it is in the abuse-handling store of [0007](0007-actor-identity.md) §3 under that store's retention, keyed by the hit's coordinates, and shown on the hit page only to holders of the right that store already requires. A hit of a private filter is visible only to `abusefilter-log-private`; every other hit is public, as AbuseFilter's log is. Hits are activity rows of kind `log` with `log_type = abusefilter`, `log_action = hit`, so the filter log is a feed (§6). Hits are erasable per part like any record; the attempted content of a refused write is the part a suppressor erases when it should never have been kept.
+**A hit is a record**, payload type `scatter:v0/filter-hit`, in the tenant `log` partition, keyed `filter:{id}` as well so that a filter's hits and its history are one key. Its content holds: the filter ID and the version matched; the actions taken; the context's non-personal variables; for a write that was appended, the record's coordinates and revision ID; for a refused write, the **attempted change set or text**, so that reviewers can see what was stopped. Its attestation is the actor. IP is not in the hit: it is in the abuse-handling store of [0007](0007-actor-identity.md) §3 under that store's retention, keyed by the hit's coordinates, and shown on the hit page only to holders of the right that store already requires. A hit of a private filter is visible only to `abusefilter-log-private`; every other hit is public, as AbuseFilter's log is. Hits are activity rows of kind `log` with `log_type = abusefilter`, `log_action = hit`, so the filter log is a feed (§6). Hits are erasable per part like any record; the attempted content of a refused write is the part a suppressor erases when it should never have been kept. A filter record may set **`hit_retention`**: a daily sweep erases ([0006](0006-log-integrity-and-erasure.md) §7, reason class `operational`) its hit records older than that whose actions were only `log` or `tag`, by the filter's key; hits that warned, refused, throttled, blocked or degrouped are never swept, and headers remain, as erasure always leaves them.
 
 **Change tags get a home (amends 0015 §1).** [0001](0001-revision-metadata-rdf.md) §6 and [0012](0012-api-requirements.md) §3 carry change tags without saying where a record stores them. They go in the **attestation part**, whose meaning widens from "who is responsible" to "who, and how": the actor, the job, and now the tags. A tag is a short registered string; `tag` actions add the filter's tags, `job:{id}` ([0010](0010-site-ui.md) §7) and the OAuth consumer tag of [0025](0025-oauth-server.md) are tags of the same kind, and MediaWiki's `mw-undo` and `mw-manual-revert` are written by the undo path of [0010](0010-site-ui.md) §6. Tags are in the erasable body, since a tag can be an accusation.
 
-> **Amended 2026-09-27: the tag registry.** A user-defined tag is a tenant `config` record of kind `tag` ([0015](0015-record-format-and-partition-registry.md) §3): its name is the key, and the content holds a description, an `active` flag and the group whose members may apply it by hand with `action=tag`. The prefixes `job:`, `oauth:`, `filter:` and `mw-` are reserved for the paths that write them and cannot be registered. `managetags/*` events project from the records and `tag/update` from manual application ([0011](0011-logs.md) §6.1); `list=tags` and `Special:Tags` read the registry; a filter's `tag` action names a registered, active tag. The right is `managechangetags` (`sysop`); applying a tag by hand needs `changetags`, held by `user`, subject to the tag's own group.
+**The tag registry.** A user-defined tag is a tenant `config` record of kind `tag` ([0015](0015-record-format-and-partition-registry.md) §3): its name is the key, and the content holds a description, an `active` flag and the group whose members may apply it by hand with `action=tag`. The prefixes `job:`, `oauth:`, `filter:` and `mw-` are reserved for the paths that write them and cannot be registered. `managetags/*` events project from the records and `tag/update` from manual application ([0011](0011-logs.md) §6.1); `list=tags` and `Special:Tags` read the registry; a filter's `tag` action names a registered, active tag. The right is `managechangetags` (`sysop`); applying a tag by hand needs `changetags`, held by `user`, subject to the tag's own group.
 
 ### 6. The filter log is a feed (extends 0020 §2)
 
@@ -140,9 +147,9 @@ Cost: building a change-set context per operation is a walk over a change set al
 
 ### 8. Farm-wide filters (extends 0028 §1)
 
-The tenancy policy gains a switch, `filters.global` (`none` or `inherited`; `none` in the `isolated` preset, `inherited` in `community` and `enterprise`). Under `inherited`, filters in the **primary tenant's** `log` partition with `scope = global` run on every tenant before the tenant's own filters, in ID order, and a tenant cannot exclude them, as with global groups ([0028](0028-tenancy-policy.md) §3). Their hits are recorded in the tenant where the write happened, with the filter's home noted, so each tenant's log shows what stopped its editors and the farm's filter editors see every hit through the all-tenants set ([0028](0028-tenancy-policy.md) §9). Writing a global filter needs `abusefilter-modify` held through a global group. This settles 0028's open question without a new partition.
+*Changed by A5.*
 
-> **Amended by [0040](0040-instance-prerogatives.md) §6.** Global filters are records in the **instance `log`**, not the primary tenant's, since the instance now has a log of its own; evaluation order is unchanged. A `block` or `degroup` a global filter appends to a tenant's `actors` is an instance prerogative, binding for its duration: a tenant unblock lifts only the tenant's own block. Hits are unchanged: they stay in the tenant's `log`, attested by the actor whose write was hit.
+The tenancy policy gains a switch, `filters.global` (`none` or `inherited`; `none` in the `isolated` preset, `inherited` in `community` and `enterprise`). Under `inherited`, filters in the **instance `log`** partition ([0040](0040-instance-prerogatives.md) §6) with `scope = global` run on every tenant before the tenant's own filters, in ID order, and a tenant cannot exclude them, as with global groups ([0028](0028-tenancy-policy.md) §3). A `block` or `degroup` a global filter appends to a tenant's `actors` is an instance prerogative, binding for its duration: a tenant unblock lifts only the tenant's own block. Their hits are recorded in the tenant where the write happened, with the filter's home noted, so each tenant's log shows what stopped its editors and the farm's filter editors see every hit through the all-tenants set ([0028](0028-tenancy-policy.md) §9). Writing a global filter needs `abusefilter-modify` held through a global group. This settles 0028 Q1 without a new partition.
 
 ### 9. API (extends 0012 §4 and §5)
 
@@ -162,7 +169,7 @@ The tenancy policy gains a switch, `filters.global` (`none` or `inherited`; `non
 - Throttle counters are `rl:filter:{id}:{key}` in Valkey ([0014](0014-caches-and-search.md) §4) with the filter's window as TTL.
 - The abuse-handling store of [0007](0007-actor-identity.md) §3 gains a row per hit `(hit partition, hit offset, ip, expires)`, in `private`, under the store's retention.
 
-### 12. Permissions (extends 0016 §2; settles its abuse-filter open question)
+### 12. Permissions (extends 0016 §2; settles 0016 Q5)
 
 MediaWiki's right names are kept for compatibility, though the UI says edit filter:
 
@@ -180,17 +187,11 @@ The IP shown on a hit page needs the right the abuse-handling store already requ
 
 ### 13. Crates (amends 0005 §2)
 
-| Layer | Crate | Change |
-|---|---|---|
-| Wikibase | `scatter-filter` *(new)* | The `filter` and `filter-hit` payload types; the change-set, text and actor context types and their derivation from a change set, a page or thread operation and an actor state; the CEL environment with the AbuseFilter-compatible functions; compiled-rule evaluation and the action decision. Pure. Depends on `scatter-wikibase-changeset`, `scatter-pages`, `scatter-threads`, `scatter-normalize` and the CEL crate |
-| Ingest | `scatter-ingest` | Per-operation filtering with rejects (§7) |
-| Triplespace | `triplespace-projections` | `view.filter`, `view.filter_hit`; the filter-hits target set; the test job |
-| | `triplespace-accounts` | The per-hit IP row in the abuse-handling store |
-| | `triplespace-notify` | The `filter` reason |
-| | `triplespace-api-action`, `triplespace-api-rest` | §9; the refusal errors on every write module; filter evaluation in the write path |
-| | `triplespace-cli` | `filter test`, `filter import` |
+*Changed by A1.*
 
-The workspace goes from forty crates to forty-one.
+*Superseded by [0005](0005-crate-organization.md) §2 (A1).*
+
+[0005](0005-crate-organization.md) §2 keeps the crate table that CI checks, with `scatter-filter` and every change this section listed. The table this section first gave is in A1.
 
 ## Consequences
 
@@ -199,20 +200,46 @@ The workspace goes from forty crates to forty-one.
 - **Every hit is a record and every filter has history**, so the filter log is a feed, filters can be audited, and a refused write's content is kept for review and erasable when it should not be.
 - **Change tags finally have a home**, in the attestation part, which closes a gap open since 0001.
 - **Bots are filtered by default and still run**: a disallowed operation goes to the rejects file rather than killing the job, and a filter may exempt `bot` when that is the policy.
-- **Farm filters need no new partition**; the primary tenant's `log` and a policy switch suffice.
+- ~~**Farm filters need no new partition**; the primary tenant's `log` and a policy switch suffice.~~ *Global filters live in the instance `log`, which exists for other reasons (A5).*
 - **The write path gains a step.** Building a context and evaluating compiled rules costs microseconds per write; the test tool costs a job, not a request.
 - **Private filters stay private** because they are moderation records in an internal partition behind a read ACL, not configuration in a public one.
 
 ## Open questions
 
-- ~~**Property constraints**: data-dependent rules that need the graph ("P31 values must be instances of Q5") are a reporting mechanism of their own, as on Wikidata, and the obvious next ADR.~~ *Settled by [0031](0031-property-constraints.md): soft recommendations, never a gate.*
-- ~~**Where tags are registered.** §5 makes a change tag "a short registered string" and relies on [0011](0011-logs.md) §7's `tag/*` log for management, but 0011 §4 does not mirror `tag/*` or `managetags/*` and §6.1 projects neither.~~ *Settled 2026-09-27: a tenant `config` record of kind `tag` ([0015](0015-record-format-and-partition-registry.md) §3, as amended), keyed by the tag name, holding a description, an `active` flag and the group that may apply it by hand. System tags (`job:*`, `oauth:*`, `filter:*`, `mw-*`) are reserved prefixes no record may claim and are written only by the paths that own them. `managetags/create`, `/delete`, `/activate` and `/deactivate` project from these records ([0011](0011-logs.md) §6.1); `action=tag` and `Special:Tags` write `tag/update` events and read them; `list=tags` lists them; a filter's `tag` action may name only a registered, active tag. Writing a `tag` record needs `managechangetags`, held by `sysop`, added to `groups.toml`.*
-- ~~**Lookups in v1**: whether a bounded `has_statement()` should ever enter the rule language, once constraints exist and the need is clearer.~~ *Settled 2026-09-27: no. A filter sees the change and the actor and nothing else; a rule that needs the graph is a constraint ([0031](0031-property-constraints.md)), which reports. The bound in §2 is permanent, and with it [0031](0031-property-constraints.md)'s question about violations touching patrolling is closed the same way.*
-- **Importing Wikidata's filters**: how far the `import` mapping can go for rules that regex `new_wikitext`.
-- **`ccnorm` and friends**: which of AbuseFilter's normalization functions to carry, and whether CEL's Unicode handling needs help.
-- ~~**Filter ordering and short-circuiting**: whether a `disallow` should stop later filters from evaluating (AbuseFilter continues, for logging).~~ *Settled 2026-09-27: every enabled filter evaluates every write and every match is a hit, as AbuseFilter does; the write is refused once, naming the first disallowing filter's message. Hit counts and the test tool therefore stay complete.*
-- ~~**Hit retention**: hits are records and never expire; whether a tenant may compact old hits of high-volume `log`-only filters.~~ *Settled 2026-09-27: a filter record may set `hit_retention`; a daily sweep erases ([0006](0006-log-integrity-and-erasure.md) §7, reason class `operational`) its hit records older than that whose actions were only `log` or `tag`, by the filter's key. Hits that warned, refused, throttled, blocked or degrouped are never swept. Headers remain, as erasure always leaves them.*
-- **Autopromote**: MediaWiki's `abusefilter-unblockautopromote` presumes autopromotion; whether `autoconfirmed` thresholds ([0016](0016-permissions-and-access-control.md), open) interact with filters.
+- **Q1.** ~~**Property constraints**: data-dependent rules that need the graph ("P31 values must be instances of Q5") are a reporting mechanism of their own, as on Wikidata, and the obvious next ADR.~~ *Settled by [0031](0031-property-constraints.md): soft recommendations, never a gate.*
+- **Q2.** ~~**Where tags are registered.** §5 makes a change tag "a short registered string" and relies on [0011](0011-logs.md) §7's `tag/*` log for management, but 0011 §4 does not mirror `tag/*` or `managetags/*` and §6.1 projects neither.~~ *Settled by A3: a tenant `config` record of kind `tag` ([0015](0015-record-format-and-partition-registry.md) §3), keyed by the tag name, holding a description, an `active` flag and the group that may apply it by hand. System tags (`job:*`, `oauth:*`, `filter:*`, `mw-*`) are reserved prefixes no record may claim and are written only by the paths that own them. `managetags/create`, `/delete`, `/activate` and `/deactivate` project from these records ([0011](0011-logs.md) §6.1); `action=tag` and `Special:Tags` write `tag/update` events and read them; `list=tags` lists them; a filter's `tag` action may name only a registered, active tag. Writing a `tag` record needs `managechangetags`, held by `sysop`, added to `groups.toml`.*
+- **Q3.** ~~**Lookups in v1**: whether a bounded `has_statement()` should ever enter the rule language, once constraints exist and the need is clearer.~~ *Settled by A3: no. A filter sees the change and the actor and nothing else; a rule that needs the graph is a constraint ([0031](0031-property-constraints.md)), which reports. The bound in §2 is permanent, and with it [0031](0031-property-constraints.md)'s question about violations touching patrolling is closed the same way.*
+- **Q4. Importing Wikidata's filters**: how far the `import` mapping can go for rules that regex `new_wikitext`.
+- **Q5. `ccnorm` and friends**: which of AbuseFilter's normalization functions to carry, and whether CEL's Unicode handling needs help.
+- **Q6.** ~~**Filter ordering and short-circuiting**: whether a `disallow` should stop later filters from evaluating (AbuseFilter continues, for logging).~~ *Settled by A3: every enabled filter evaluates every write and every match is a hit, as AbuseFilter does; the write is refused once, naming the first disallowing filter's message. Hit counts and the test tool therefore stay complete.*
+- **Q7.** ~~**Hit retention**: hits are records and never expire; whether a tenant may compact old hits of high-volume `log`-only filters.~~ *Settled by A3: a filter record may set `hit_retention`; a daily sweep erases ([0006](0006-log-integrity-and-erasure.md) §7, reason class `operational`) its hit records older than that whose actions were only `log` or `tag`, by the filter's key. Hits that warned, refused, throttled, blocked or degrouped are never swept. Headers remain, as erasure always leaves them.*
+- **Q8. Autopromote**: MediaWiki's `abusefilter-unblockautopromote` presumes autopromotion; whether `autoconfirmed` thresholds ([0016](0016-permissions-and-access-control.md) Q2) interact with filters.
+
+## Changes to other ADRs
+
+| Target | By | Change | Target's log |
+|---|---|---|---|
+| [0001](0001-revision-metadata-rdf.md) §6 | §5 | extends | 0001 A10 |
+| [0002](0002-source-graphs-and-mass-ingest.md) §8.5 | §7 | extends | 0002 A12 |
+| [0005](0005-crate-organization.md) §2 | §13 | extends | 0005 A26 |
+| [0010](0010-site-ui.md) §7, §12 | §10 | extends | 0010 A19 |
+| [0011](0011-logs.md) §3, §6.1 | §5 | extends | 0011 A10 |
+| [0011](0011-logs.md) Q7 | §5 | settles | 0011 Q7 |
+| [0012](0012-api-requirements.md) §3, §4, §5 | §5, §9 | extends | 0012 A18 |
+| [0013](0013-postgres-storage.md) §5, §5.2, §5.6 | §11 | amends | 0013 A9 |
+| [0013](0013-postgres-storage.md) §4, §5.4, §5.5, §7, §8 | §11 | extends | 0013 A9 |
+| [0014](0014-caches-and-search.md) §1, §5 | §11 | amends | 0014 A3 |
+| [0014](0014-caches-and-search.md) §10 | §11 | extends | 0014 A3 |
+| [0015](0015-record-format-and-partition-registry.md) §1 | §5 | amends | 0015 A13 |
+| [0015](0015-record-format-and-partition-registry.md) §3 | §5 | extends | 0015 A13 |
+| [0016](0016-permissions-and-access-control.md) §2 | §12 | extends | 0016 A10 |
+| [0016](0016-permissions-and-access-control.md) Q5 | — | settles | 0016 Q5 |
+| [0020](0020-change-feeds.md) §2 | §6 | extends | 0020 A7 |
+| [0021](0021-notifications.md) §2 | §4 | extends | 0021 A6 |
+| [0023](0023-moderation.md) §3, §6 | §4–5 | extends | 0023 A3 |
+| [0023](0023-moderation.md) Q3 | — | settles | 0023 Q3 |
+| [0028](0028-tenancy-policy.md) §1 | §8 | extends | 0028 A3 |
+| [0028](0028-tenancy-policy.md) Q1 | §8 | settles | 0028 Q1 |
 
 ## References
 
@@ -221,3 +248,83 @@ The workspace goes from forty crates to forty-one.
 - [Wikidata:Abuse filter](https://www.wikidata.org/wiki/Wikidata:Abuse_filter)
 - [Common Expression Language](https://cel.dev/) and the [`cel-interpreter`](https://crates.io/crates/cel-interpreter) crate
 - [Manual:Tags](https://www.mediawiki.org/wiki/Manual:Tags)
+
+## Amendment log
+
+### A1. Crate table
+
+- **Date:** 2026-09-27
+- **Source:** [0005](0005-crate-organization.md) §2
+- **Change:** supersedes §13
+- **Summary:** 0005 §2 is the one crate table CI checks, and carries `scatter-filter` and every change this section listed (0005 A26).
+
+Replaced text (§13):
+
+> | Layer | Crate | Change |
+> |---|---|---|
+> | Wikibase | `scatter-filter` *(new)* | The `filter` and `filter-hit` payload types; the change-set, text and actor context types and their derivation from a change set, a page or thread operation and an actor state; the CEL environment with the AbuseFilter-compatible functions; compiled-rule evaluation and the action decision. Pure. Depends on `scatter-wikibase-changeset`, `scatter-pages`, `scatter-threads`, `scatter-normalize` and the CEL crate |
+> | Ingest | `scatter-ingest` | Per-operation filtering with rejects (§7) |
+> | Triplespace | `triplespace-projections` | `view.filter`, `view.filter_hit`; the filter-hits target set; the test job |
+> | | `triplespace-accounts` | The per-hit IP row in the abuse-handling store |
+> | | `triplespace-notify` | The `filter` reason |
+> | | `triplespace-api-action`, `triplespace-api-rest` | §9; the refusal errors on every write module; filter evaluation in the write path |
+> | | `triplespace-cli` | `filter test`, `filter import` |
+>
+> The workspace goes from forty crates to forty-one.
+
+### A2. Property constraints report, filters gate
+
+- **Date:** 2026-09-27
+- **Source:** [0031](0031-property-constraints.md) §1, §8
+- **Change:** extends §2
+- **Summary:** Data-dependent rules are property constraints, soft recommendations that never gate a write. This settled Q1.
+
+### A3. Decisions of 2026-09-27 (evening)
+
+- **Date:** 2026-09-27
+- **Source:** Direct: James, decisions of 2026-09-27 (evening)
+- **Change:** amends §5; extends §2, §4
+- **Summary:** By section:
+  - §5: The tag registry (decision 2). A user-defined tag is a tenant `config` record of kind `tag` ([0015](0015-record-format-and-partition-registry.md) §3): its name is the key, and the content holds a description, an `active` flag and the group whose members may apply it by hand with `action=tag`. The prefixes `job:`, `oauth:`, `filter:` and `mw-` are reserved for the paths that write them and cannot be registered. `managetags/*` events project from the records and `tag/update` from manual application ([0011](0011-logs.md) §6.1); `list=tags` and `Special:Tags` read the registry; a filter's `tag` action names a registered, active tag. The right is `managechangetags` (`sysop`); applying a tag by hand needs `changetags`, held by `user`, subject to the tag's own group. A filter record may set `hit_retention` (decision 15): a daily sweep erases its hit records older than that whose actions were only `log` or `tag`; hits that warned, refused, throttled, blocked or degrouped are never swept.
+  - §2: No graph reads in filters, ever (decision 15): the bound of §2 is permanent, and 0031's question about violations touching patrolling closes the same way.
+  - §4: Every enabled filter evaluates every write and every match is a hit, as AbuseFilter does; the write is refused once, naming the first disallowing filter's message (decision 15).
+
+Replaced text (§2):
+
+> A rule cannot read the graph: "the value of P31 must be an instance of Q5" is a property constraint, a separate reporting mechanism as on Wikidata, and is left to its own ADR (open questions). This bounds the cost of a filtered write to the cost of building the context from the record in hand.
+
+### A4. The upload context
+
+- **Date:** 2026-09-30
+- **Source:** [0039](0039-files-and-media.md) §5
+- **Change:** extends §2
+- **Summary:** A third context, `upload`, with AbuseFilter's file variables and `file_sha256`; `action` is `upload` or `stashupload`.
+
+### A5. Global filters in the instance log
+
+- **Date:** 2026-09-30
+- **Source:** [0040](0040-instance-prerogatives.md) §6
+- **Change:** amends §8
+- **Summary:** Global filters are records in the **instance `log`**, not the primary tenant's, since the instance now has a log of its own; evaluation order is unchanged. A `block` or `degroup` a global filter appends to a tenant's `actors` is an instance prerogative, binding for its duration: a tenant unblock lifts only the tenant's own block. Hits are unchanged: they stay in the tenant's `log`, attested by the actor whose write was hit.
+
+Replaced text (§8):
+
+> Under `inherited`, filters in the **primary tenant's** `log` partition with `scope = global` run on every tenant before the tenant's own filters, in ID order, and a tenant cannot exclude them, as with global groups ([0028](0028-tenancy-policy.md) §3).
+
+### A6. Link variables from expanded text
+
+- **Date:** 2026-09-30
+- **Source:** [0042](0042-template-expansion-and-parsoid.md) §17
+- **Change:** amends §2
+- **Summary:** With expansion on, `added_links` and `removed_links` come from the expanded text, computed only when an enabled filter reads them.
+
+Replaced text (§2):
+
+> | `added_links`, `removed_links` | Resolved wiki links and mentions ([0008](0008-namespaces-and-document-pages.md) §10, [0019](0019-discussions.md) §5) |
+
+### A7. Converted to the 0050 format
+
+- **Date:** 2026-10-01
+- **Source:** [0050](0050-adr-format.md) §13
+- **Change:** consolidates §1–13
+- **Summary:** A1–A6 were folded into the Decision. The open questions were numbered. No decision changed. Before this, A3's tag registry and A4–A6 were blockquotes, the rest of A3 struck questions with notes, and A2 a struck question. The file before conversion is commit `0b26a3a`.

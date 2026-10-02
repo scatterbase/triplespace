@@ -2,9 +2,10 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
+- **Updated:** 2026-10-01 (A8)
 - **Author:** James Hare / Claude Fable
-- **Amended by:** [0028 — Tenancy policy](0028-tenancy-policy.md) (§4 settles the cross-tenant actor ACL open question), [0030 — Edit filters](0030-edit-filters.md) (§4 adds the `unpatrol` action to §6; §5 places filter records beside ACLs in `log`). §2 was amended on 2026-09-27 to add the `statement` and `property` target kinds and the predicate axis of enclosure, [0039 — Files, blob storage and foreign file repositories](0039-files-and-media.md) (§8 extends §1: delete, erase, reclaim, take down, reinstate and expunge; §10 extends §2: the instance `blob` target), [0047 — Special pages](0047-special-pages.md) (§7 and §12 extend §9 and §11: `Special:Nuke` and `nuke`), [0049 — Boards, and threads on several pages](0049-boards.md) (§7 amends §2 and §4: a talk page or board encloses, and on deletion takes, only the threads whose home it is)
-- **Related:** [0001 — Revision metadata in RDF](0001-revision-metadata-rdf.md) (§4: hiding as application policy; §5 gives it a record), [0002 — Source graphs and mass ingest](0002-source-graphs-and-mass-ingest.md) (§5; §2 places upstream deletion and retention in the taxonomy), [0004 — Identity clusters and equivalence](0004-identity-clusters-and-equivalence.md) (§6 amends §4: a deleted member leaves its cluster), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§13 amends §2), [0006 — Log integrity and erasure](0006-log-integrity-and-erasure.md) (Context: hide, strike, erase; §5 gives *hide* its record), [0007 — Actor identity](0007-actor-identity.md) (§5 amends §4: the `hidden` status is an ACL), [0008 — Namespaces and document pages](0008-namespaces-and-document-pages.md) (§4 amends §4: page `delete` and `undelete` are ACLs; §4 settles the protection open question), [0010 — Site UI](0010-site-ui.md) (§9 extends §2, §5 and §7; §7 settles the patrolling open question), [0011 — Upstream and local logs](0011-logs.md) (§7 amends §6.1: protection, deletion, hiding and patrol events come from `acl` and patrol records in the local log; settles the patrol-log open question), [0012 — API requirements for the site UI](0012-api-requirements.md) (§8 extends §4 and §5), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md) (§10 amends §5), [0014 — Cache layers and search](0014-caches-and-search.md) (§10 extends §5), [0015 — Record format and partition registry](0015-record-format-and-partition-registry.md) (§3 amends §3: `acl` is a payload type, not a config kind), [0016 — Permissions and access control](0016-permissions-and-access-control.md) (§2–3 amend §4: read ACLs, record and actor targets, moderation ACLs in `log`; §11 extends §2; settles the patrolling open question), [0019 — Discussions](0019-discussions.md) (§4 amends §1: thread `delete` and `undelete` are ACLs), [0020 — Change feeds](0020-change-feeds.md) (§8 extends §1: patrol filter; settles the patrolling open question), [MediaWiki API contract](../api/mediawiki-compat.md), [0022 — Federation: verified data sync and ActivityPub](0022-federation.md) (§8 moderates federated actors with §1–5 unchanged)
+- **Changes:** [0001](0001-revision-metadata-rdf.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md)
+- **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0006](0006-log-integrity-and-erasure.md), [0009](0009-keyed-entity-types-and-domain.md), [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
 
@@ -33,6 +34,8 @@ Patrolling is the odd one out, since it restricts nothing: it is a mark that a t
 
 ### 1. One mechanism: an ACL on a target
 
+*Changed by A5.*
+
 Every administrative action in this ADR except patrolling is an **ACL record** ([0016](0016-permissions-and-access-control.md) §4): a restriction of named permissions on one target to one group, until an expiry. Undoing the action retires the record.
 
 | Action | Target | Permission restricted | Restricted to | MediaWiki equivalent |
@@ -49,11 +52,13 @@ Every administrative action in this ADR except patrolling is an **ACL record** (
 - **Nothing here touches the log.** Hidden and deleted content stays in its records, keeps its IDs, its place in the Merkle tree and its inclusion proofs ([0006](0006-log-integrity-and-erasure.md)). Removing content from the log is `erase`, and an `erase` may follow a hide when hiding is not enough.
 - **Foreign entities are not deleted here.** What upstream holds is upstream's to delete ([0002](0002-source-graphs-and-mass-ingest.md) §5). A local assertion *about* a foreign entity is a local record and can be hidden like any other; the entity `WDQ42` itself cannot be. Keyed entities ([0009](0009-keyed-entity-types-and-domain.md) §4) likewise: a Domain exists because its key is valid, so it has no deletion; its local records can be hidden.
 
-> **Extended by [0039](0039-files-and-media.md) §8–10.** For files, removal has two axes: who acts (a tenant, or the instance operator across every tenant) and how final it is. Tenants **delete** (this section), **hide** (§5) and **erase**; the instance **reclaims** versions that have stayed deleted for a retention period; operators **take down** and **reinstate**, and **expunge**, which erases every reference to a hash and destroys its bytes.
+**Files.** For files, removal has two axes: who acts (a tenant, or the instance operator across every tenant) and how final it is. Tenants **delete** (this section), **hide** (§5) and **erase**; the instance **reclaims** versions that have stayed deleted for a retention period; operators **take down** and **reinstate**, and **expunge**, which erases every reference to a hash and destroys its bytes.
 
 ### 2. Targets (extends 0016 §4)
 
-Two target kinds are added to the table of [0016](0016-permissions-and-access-control.md) §4, and one existing kind gains a use:
+*Changed by A2, A5, A7.*
+
+Four target kinds are added to the table of [0016](0016-permissions-and-access-control.md) §4, and two existing kinds gain a use:
 
 | Target kind | Key | Restricts | Added for |
 |---|---|---|---|
@@ -61,29 +66,23 @@ Two target kinds are added to the table of [0016](0016-permissions-and-access-co
 | `actor` | `acl:actor:{key}` | `read` of the actor's name and other attributes, everywhere they appear; the actor key and IRI, which never contain a name ([0007](0007-actor-identity.md) §2), stay visible | Hiding a username |
 | `page` (existing) | `acl:page:{page id}` | Now also `read` (deletion) and, for a **reserved** page ID, `createpage` (below) | Deletion; create-protection |
 | `entity` (existing) | `acl:entity:{id}` | Now also `read` (deletion of a local entity) | Entity deletion |
-
-> **Amended 2026-09-27: `statement` and `property` targets.** The two kinds [0016](0016-permissions-and-access-control.md) §4 reserved are added, and inherit everything above.
->
-> | Target kind | Key | Restricts |
-> |---|---|---|
-> | `statement` | `acl:statement:{guid}`, the GUID as stored in the log; the UUID part identifies the statement across the canonical-ID rewrite of [0018](0018-tenants.md) §7 | `edit`: changing, overriding or removing that one statement, its qualifiers and references. `read`: the statement is left out of the resolved view, RDF, search and diffs for viewers outside the group |
-> | `property` | `acl:property:{id}` | `edit`: writing any snak whose property is *P*, as main snak, qualifier or reference, on any entity. `read`: every snak with predicate *P* is left out for viewers outside the group |
->
-> **Enclosure gains a second axis.** Containment (graph ⊃ namespace ⊃ entity ⊃ statement) is joined by **predicate**: a property ACL applies to every snak using that property, wherever it sits. Evaluation stays conjunctive: to edit statement *S* on entity *E*, an actor satisfies the ACLs on *S*, on *E*, on *E*'s namespace, on the graph, and on *S*'s property. The cost is one indexed lookup per property a write touches, cached in L0 ([0014](0014-caches-and-search.md) §2); on the read side the resolution projection asks `view.acl` for the entity's GUIDs and properties in one query, and the public form of the resolved view ([0014](0014-caches-and-search.md) §1) simply lacks what a read ACL hides.
->
-> **A read ACL on a mirrored statement is not an `override`.** [0002](0002-source-graphs-and-mass-ingest.md) §3's suppression is an editorial act, a local record public in history, and the resolved view says the statement was suppressed. A `read` ACL is moderation: the statement is hidden for privacy or legal reasons, only the group sees that it exists, and the source graph is untouched. Both are available; they answer different questions. Setting either target kind needs `protect` for `edit` and `deleterevision` for `read`, as for a page; they project as `protect/*` and as a new `delete/statement` event. This settles 0016's open question and answers Scatterbase's property-specific rule.
+| `statement` | `acl:statement:{guid}`, the GUID as stored in the log; the UUID part identifies the statement across the canonical-ID rewrite of [0018](0018-tenants.md) §7 | `edit`: changing, overriding or removing that one statement, its qualifiers and references. `read`: the statement is left out of the resolved view, RDF, search and diffs for viewers outside the group | Statement-level protection and hiding (A2) |
+| `property` | `acl:property:{id}` | `edit`: writing any snak whose property is *P*, as main snak, qualifier or reference, on any entity. `read`: every snak with predicate *P* is left out for viewers outside the group | Property-level protection and hiding; Scatterbase's property-specific rule (A2) |
+| `blob` | `acl:blob:{takedown id}`, at instance scope | `read` and `upload`, to no group, on every file version in every tenant whose SHA-256 or SHA-1 equals the hash in the record | Takedowns ([0039](0039-files-and-media.md) §10) |
 
 **Create-protection reserves a page ID.** A title that does not exist has no page ID, and a key must never be content ([0006](0006-log-integrity-and-erasure.md) §3), so the protecting record takes a page ID from the sequence ([0015](0015-record-format-and-partition-registry.md) §2) and carries the namespace and title in its content part. The title index maps the title to the reserved ID; a `create` by an actor the ACL admits takes that ID, and the page then exists. This is the pattern [0019](0019-discussions.md) §2 uses for talk-page IDs.
 
-**Enclosure is unchanged** from [0016](0016-permissions-and-access-control.md) §4 and [0019](0019-discussions.md) §12: a namespace encloses its pages and entities, a page its subpages, a talk page its threads. So a `read` ACL on a namespace makes it private, and deleting a talk page deletes its threads. **A subject page does not enclose its talk page**, in either direction: protecting an item leaves its talk page open, which is what protection is for, and deleting an item leaves its talk page unless the administrator deletes that too. The delete form offers to, as MediaWiki's does, and writes two records.
+**Containment is unchanged** from [0016](0016-permissions-and-access-control.md) §4 and [0019](0019-discussions.md) §12: a namespace encloses its pages and entities, a page its subpages, a talk page or board the threads whose home it is, not those listed on it ([0049](0049-boards.md) §7). So a `read` ACL on a namespace makes it private, and deleting a talk page deletes the threads homed there. **A subject page does not enclose its talk page**, in either direction: protecting an item leaves its talk page open, which is what protection is for, and deleting an item leaves its talk page unless the administrator deletes that too. The delete form offers to, as MediaWiki's does, and writes two records.
 
-> **Amended by [0049](0049-boards.md) §7.** A talk page or board encloses the threads whose home it is, not the threads listed on it.
+**Enclosure gains a second axis.** Containment (graph ⊃ namespace ⊃ entity ⊃ statement) is joined by **predicate**: a property ACL applies to every snak using that property, wherever it sits. Evaluation stays conjunctive: to edit statement *S* on entity *E*, an actor satisfies the ACLs on *S*, on *E*, on *E*'s namespace, on the graph, and on *S*'s property. The cost is one indexed lookup per property a write touches, cached in L0 ([0014](0014-caches-and-search.md) §2); on the read side the resolution projection asks `view.acl` for the entity's GUIDs and properties in one query, and the public form of the resolved view ([0014](0014-caches-and-search.md) §1) simply lacks what a read ACL hides. A `blob` target adds **content** as a third axis of enclosure: it encloses every file version whose bytes hash to the record's value, in every tenant ([0039](0039-files-and-media.md) §10).
 
-> **Extended by [0039](0039-files-and-media.md) §10.** A `blob` target at instance scope, keyed `acl:blob:{takedown id}`, encloses every file version, in every tenant, whose SHA-256 or SHA-1 equals the hash in the record. Content becomes an axis of enclosure beside containment and predicate. A takedown restricts `read` and `upload` on it to no group.
+**A read ACL on a mirrored statement is not an `override`.** [0002](0002-source-graphs-and-mass-ingest.md) §3's suppression is an editorial act, a local record public in history, and the resolved view says the statement was suppressed. A `read` ACL is moderation: the statement is hidden for privacy or legal reasons, only the group sees that it exists, and the source graph is untouched. Both are available; they answer different questions. Setting either target kind needs `protect` for `edit` and `deleterevision` for `read`, as for a page; they project as `protect/*` and as a new `delete/statement` event. This settles [0016](0016-permissions-and-access-control.md) Q1 and answers Scatterbase's property-specific rule.
 
 ### 3. Records (amends 0015 §3 and 0016 §4)
 
-**`scatter:v0/acl` is a payload type, not a `config` kind.** [0016](0016-permissions-and-access-control.md) §4 made ACLs `config` records of kind `acl`. Graph ACLs are configuration and stay in the tenant `config` partition. Every other target is **moderation**, and its records go to the tenant `log` partition ([0011](0011-logs.md) §2), which is where 0011 §6.1 already expected protection to be written: it is "an action with no other record". The same payload type is used in both partitions; `docs/registry/graphs.toml` lists it for both.
+*Changed by A3.*
+
+**`scatter:v0/acl` is a payload type, not a `config` kind.** [0016](0016-permissions-and-access-control.md) §4 made ACLs `config` records of kind `acl`. Graph ACLs are configuration and stay in the tenant `config` partition. Every other target is **moderation**, and its records go to the tenant `log` partition ([0011](0011-logs.md) §2), which is where 0011 §6.1 already expected protection to be written: it is "an action with no other record". The same payload type is used in both partitions; `docs/registry/graphs.toml` lists it for both. Edit filter and hit records share the `log` partition for the same reason ([0030](0030-edit-filters.md) §5).
 
 Why `log` and not `config`: moderation records are frequent, they are not configuration, and the `config` partition is exported publicly. Suppression records must not be. The `log` partition is `logged`, `full` and **internal**: served by the API under §7's visibility rule, never in a public dump.
 
@@ -111,14 +110,14 @@ A record whose target is itself hidden appears with its target hidden, as MediaW
 
 ### 4. What deletion does (amends 0008 §4 and 0019 §1; amends 0004 §4)
 
+*Changed by A7.*
+
 **A deleted page or thread** ([0008](0008-namespaces-and-document-pages.md) §4, [0019](0019-discussions.md) §1) is a page with a `read` ACL naming the deletion group. The `delete` and `undelete` operations those ADRs gave page and thread records are **retired**; their log events (`delete/delete`, `delete/restore`) now come from the ACL, and everything they said about the effect stands:
 
 - the page leaves the title index, so its title can be taken by a new page (`view.page.deleted` is derived from the ACL; the partial unique index of [0013](0013-postgres-storage.md) §5.4 already excludes deleted rows);
 - it leaves search, backlinks, `list=allpages`, feeds and the resolved metadata graph for everyone outside the group;
 - `action=parse`, `prop=revisions` and the page itself answer as MediaWiki does: the page is reported missing, with the deletion log entry shown in its place, and members of the group see the content behind a banner;
-- a deleted thread leaves its talk page's listing and history; a deleted talk page takes its threads with it by enclosure.
-
-> **Amended by [0049](0049-boards.md) §7.** A deleted talk page or board takes with it the threads whose home it is. A thread only listed there is untouched; the listing goes dormant, hidden outside the deletion group, and returns on undelete.
+- a deleted thread leaves its talk page's listing and history; a deleted talk page or board takes with it the threads whose home it is, by enclosure. A thread only listed there is untouched: the listing goes dormant, hidden outside the deletion group, and returns on undelete ([0049](0049-boards.md) §7).
 
 **Undeleting into a taken title.** If a new page has taken the title meanwhile, the two have different page IDs and there is nothing to merge. The undelete is refused with a new error code, `ts-title-taken`, unless the request supplies a new title, in which case a `move` record follows the retirement in the same request.
 
@@ -153,13 +152,15 @@ A suppressed part adds MediaWiki's `suppressed` flag for those who may see that 
 
 ### 6. Patrolling
 
-**A patrol mark is a log event**, `patrol/patrol`, in the tenant `log` partition, keyed by the patrolled record's coordinates and carrying its revision ID, as MediaWiki's patrol log does. The projection sets `patrolled` on the activity row. ~~There is no unpatrol, as there is none in MediaWiki core.~~ *Since 2026-09-27 there is: `patrol/unpatrol`, same key, same right, and the newest event wins (open questions).*
+*Changed by A3, A4.*
+
+**A patrol mark is a log event**, `patrol/patrol`, in the tenant `log` partition, keyed by the patrolled record's coordinates and carrying its revision ID, as MediaWiki's patrol log does. The projection sets `patrolled` on the activity row. **Unpatrol** is `patrol/unpatrol`, same key, same right; the projection sets `patrolled` false, and the newest of the two events for a record wins.
 
 **What is patrollable:** every activity row of kind `edit` in the tenant's `local` and `pages` partitions, which includes posts and thread operations ([0019](0019-discussions.md) §7), and page creations. Mirror syncs are not: upstream's edits are upstream's to review. A **job** is patrolled as one row; marking the job marks every change it made, which is the grouping [0010](0010-site-ui.md) §7 already gives jobs.
 
-**Autopatrol is a projection rule, not a record.** A change made by an actor who held `autopatrol` when the record was appended is patrolled from the start. The projection decides this from the membership records in `actors` as of the record's `appended_at`, so a rebuild reaches the same answer, and no record is written per bot edit. MediaWiki writes a `patrol/autopatrol` entry for each; Triplespace does not, and `list=logevents&letype=patrol` returns only manual marks. Whether a viewer sees the unpatrolled mark at all depends on the `patrol` right, as in MediaWiki.
+**Autopatrol is a projection rule, not a record.** A change made by an actor who held `autopatrol` when the record was appended is patrolled from the start. The projection decides this from the membership records in `actors` as of the record's `appended_at`, so a rebuild reaches the same answer, and no record is written per bot edit. MediaWiki writes a `patrol/autopatrol` entry for each; Triplespace does not, and `list=logevents&letype=patrol` returns only manual marks. An edit filter's `unpatrol` action withholds autopatrol as a write lands ([0030](0030-edit-filters.md) §4). Whether a viewer sees the unpatrolled mark at all depends on the `patrol` right, as in MediaWiki.
 
-**Where the mark shows:** the `!` marker on rows in recent changes, related changes, the watchlist and histories ([0020](0020-change-feeds.md) §1) for viewers with `patrol`; a **Mark as patrolled** action on the diff and on the row; a `patrolled` filter on every feed, which is the `rcshow=patrolled|!patrolled` of `list=recentchanges` and `list=watchlist`. Marks are shown only within the recent-changes window (`site` setting `rc.max_age`, [0010](0010-site-ui.md) §7), as MediaWiki's are.
+**Where the mark shows:** the `!` marker on rows in recent changes, related changes, the watchlist and histories ([0020](0020-change-feeds.md) §1) for viewers with `patrol`; a **Mark as patrolled** action on the diff and on the row, and **Mark as unpatrolled** on a patrolled one; a `patrolled` filter on every feed, which is the `rcshow=patrolled|!patrolled` of `list=recentchanges` and `list=watchlist`. Marks are shown only within the recent-changes window (`site` setting `rc.max_age`, [0010](0010-site-ui.md) §7), as MediaWiki's are.
 
 **Rights.** `patrol` marks; `autopatrol` exempts. Defaults are in §11.
 
@@ -174,6 +175,8 @@ Moderation is public in the way MediaWiki's logs are, with one exception:
 
 ### 8. API (extends 0012 §4 and §5; extends 0016 §7)
 
+*Changed by A4.*
+
 **Action API**, additively under [0012](0012-api-requirements.md) §1, with MediaWiki's meaning:
 
 | Module | Behaviour |
@@ -182,7 +185,7 @@ Moderation is public in the way MediaWiki's logs are, with one exception:
 | `action=delete`, `action=undelete` | Pages, threads and entity pages. `deletetalk=1` writes the second record of §2. `undelete` with `timestamps` or `revisions` performs the partial form of §3 |
 | `action=revisiondelete` | `type=revision\|logging`, `ids`, `hide=content\|comment\|user`, `show=…`, `suppress=yes\|no\|nochange`, `reason`; writes or amends `record` ACLs. `type=archive` is accepted and treated as `revision`, since deleted revisions are not moved |
 | `action=block` | Gains `hidename`, which writes the actor ACL beside the block |
-| `action=patrol` | `revid` or `rcid`; writes the patrol event. `list=recentchanges` and `list=watchlist` gain `rcshow=patrolled\|!patrolled\|autopatrolled` and `rcprop=patrolled` |
+| `action=patrol` | `revid` or `rcid`; writes the patrol event, or the unpatrol event with `unpatrol=1`. `list=recentchanges` and `list=watchlist` gain `rcshow=patrolled\|!patrolled\|autopatrolled` and `rcprop=patrolled` |
 | `prop=info` | `inprop=protection` reports the page's or entity's edit and move ACLs as MediaWiki `protection` entries; `list=protectedtitles` lists reserved titles; `list=protectedpages` the rest |
 | `prop=deletedrevisions`, `list=alldeletedrevisions`, `list=deletedrevs` | The hidden records, for members of the group only |
 | `wbgetentities` | `missing` for a deleted local entity; `prop=revisions` on its page as for a deleted page |
@@ -193,13 +196,14 @@ Every response is redacted for its viewer ([0012](0012-api-requirements.md) §8)
 
 ### 9. Site UI (extends 0010 §2, §5 and §7)
 
+*Changed by A6.*
+
 - **Overflow menu.** Pages and entities gain **Protect…** ([0016](0016-permissions-and-access-control.md) §7) and **Delete…**, the latter with the "also delete the talk page" option. Deleted pages show **Undelete…** to the group.
 - **A deleted page or entity** shows, to everyone outside the group, the frame of [0010](0010-site-ui.md) §2 with the deletion log entry in place of the content, and a link to the log. To the group it shows the content under a banner naming who deleted it and why, with Undelete.
 - **History rows** gain RevisionDelete checkboxes for holders of `deleterevision`, and a suppress option for holders of `suppressrevision`, opening a dialog with the three parts and a reason. A hidden part is drawn as [0010](0010-site-ui.md) §5.2 already draws hidden actors: in place, labelled, never silently absent.
 - **Patrol.** The `!` marker, the Mark as patrolled action, and the `patrolled` filter, for holders of `patrol`.
 - **Special pages.** `Special:Log/protect`, `/delete`, `/patrol` and, for the group, `/suppress`; `Special:ProtectedPages`, `Special:ProtectedTitles`, `Special:Undelete`, `Special:DeletedContributions`, and `Special:BlockList` gains the hidden-name column, all where MediaWiki users expect them.
-
-> **Extended by [0047](0047-special-pages.md) §7.** `Special:Nuke` applies these actions in bulk to one account's, or one tag's, contributions: one job that deletes what it created, reverts or rolls back what it changed and hides its posts, patrolled as one row and undone by **Revert this job…**.
+- **Nuke.** `Special:Nuke` applies these actions in bulk to one account's, or one tag's, contributions: one job that deletes what it created, reverts or rolls back what it changed and hides its posts, patrolled as one row and undone by **Revert this job…**.
 
 ### 10. Storage (amends 0013 §5)
 
@@ -210,6 +214,8 @@ Every response is redacted for its viewer ([0012](0012-api-requirements.md) §8)
 - **Reserved page IDs** are rows in `view.page` with `latest_offset` null and a `reserved boolean`; the title index includes them so that `create` finds the ID.
 
 ### 11. Permissions (extends 0016 §2)
+
+*Changed by A6.*
 
 | Permission | Governs | Default groups |
 |---|---|---|
@@ -222,12 +228,11 @@ Every response is redacted for its viewer ([0012](0012-api-requirements.md) §8)
 | `deletedhistory`, `deletedtext`, `browsearchive` | Reported to MediaWiki clients by members of the deletion group; they gate no evaluation of their own | `sysop` |
 | `patrol` *(new default)* | Writing patrol events; seeing the unpatrolled mark | `autoconfirmed` |
 | `autopatrol` *(new)* | Changes by this actor are patrolled from the start (§6) | `autopatrolled` *(new group)*, `bot`, `sysop` |
+| `nuke` | `Special:Nuke` (§9); each write it makes also needs its own right from this table ([0047](0047-special-pages.md) §12) | `sysop` |
 
 `autopatrolled` is a group administrators assign with `userrights`, as on Wikimedia projects. `docs/registry/groups.toml` is updated with the two permissions and the group.
 
 **Ownership rules** ([0016](0016-permissions-and-access-control.md) §2) are unchanged; none applies here. A user may not delete or hide their own contributions without the right.
-
-> **Extended by [0047](0047-special-pages.md) §12.** `nuke` (default `sysop`) runs `Special:Nuke`; each write it makes also needs its own right from this table.
 
 ### 12. Scatterbase
 
@@ -235,18 +240,11 @@ Scatterbase inherits §1–3 and §5 whole. Read ACLs suit it better than deleti
 
 ### 13. Crates (amends 0005 §2)
 
-| Crate | Change |
-|---|---|
-| `scatter-actors` | ACL evaluation for `read`, with `parts` on `record` targets and the `actor` target; the autopatrol rule as a pure function over memberships as of a time |
-| `scatter-log` | The `scatter:v0/acl` payload type, replacing the `acl` config kind; registered for the `config` and `log` partitions |
-| `scatter-pages`, `scatter-threads` | The `delete` and `undelete` operations are removed from `scatter:v0/page` and `scatter:v0/thread` |
-| `scatter-mwlog` | `patrol` and `suppress` log types; `protect/*` and `delete/*` parameters as typed in §3 |
-| `triplespace-projections` | The ACL projection; derived `deleted`, `visibility`, `hidden` and `status` flags; the patrol projection; cluster re-evaluation on entity deletion and undeletion |
-| `triplespace-titles` | Reserved page IDs in the title index |
-| `triplespace-api-action`, `triplespace-api-rest` | The modules and routes of §8 |
-| `triplespace-cache`, `triplespace-search` | Hiding and deletion on the purge path of 0014 §5, as erasure already is |
+*Changed by A1.*
 
-No crate is added.
+*Superseded by [0005](0005-crate-organization.md) §2 (A1).*
+
+[0005](0005-crate-organization.md) §2 keeps the crate table that CI checks, with every change this section listed. The table this section first gave is in A1.
 
 ## Consequences
 
@@ -261,14 +259,45 @@ No crate is added.
 
 ## Open questions
 
-- ~~**`statement` and `property` ACL targets** ([0016](0016-permissions-and-access-control.md), open questions) are unchanged: hiding one statement of a large local entity is not possible without them, only the whole record that added it.~~ *Settled by the 2026-09-27 amendment of §2: both targets exist, with predicate as a second axis of enclosure.*
-- **Deleting a heavily referenced local entity.** Dangling values are Wikidata's behaviour, but an instance may want a warning, or a redirect, when an entity with many referrers is deleted.
-- ~~**Abuse filters and pre-save checks**, still neither permissions nor ACLs ([0016](0016-permissions-and-access-control.md), open questions).~~ *Settled by [0030](0030-edit-filters.md): edit filters, a third mechanism beside permissions and ACLs, evaluated in the appending transaction.*
-- **Reviewing threads.** Whether a post should be patrollable separately from the thread operation that carried it, and whether `thread-status` marks ([0019](0019-discussions.md) §6) should count as review.
-- **`autopatrolled` thresholds**, if an instance wants the group granted automatically as `autoconfirmed` is.
-- ~~**Unpatrol**, which MediaWiki lacks and some wikis want.~~ *Settled 2026-09-27: a `patrol/unpatrol` log event in the tenant `log`, keyed like `patrol/patrol` (§6) and written by holders of `patrol`; the projection sets `patrolled` false, and the newest of the two events for a record wins. `action=patrol` gains `unpatrol=1`; the row's action is "Mark as unpatrolled". [0030](0030-edit-filters.md) §4's `unpatrol` filter action, which withholds autopatrol as a write lands, is unchanged.*
-- **Whether deletion should expire.** The record allows it; MediaWiki has no temporary deletion, and none is offered here.
-- ~~**Blocking and hiding across tenants** ([0018](0018-tenants.md), open questions): whether an `actor` ACL written by the primary tenant should apply to every tenant.~~ *Settled by [0028](0028-tenancy-policy.md) §4: an actor ACL on a farm account applies everywhere; a tenant's applies to its own account.*
+- **Q1.** ~~**`statement` and `property` ACL targets** ([0016](0016-permissions-and-access-control.md) Q1) are unchanged: hiding one statement of a large local entity is not possible without them, only the whole record that added it.~~ *Settled by A2: both targets exist, with predicate as a second axis of enclosure.*
+- **Q2. Deleting a heavily referenced local entity.** Dangling values are Wikidata's behaviour, but an instance may want a warning, or a redirect, when an entity with many referrers is deleted.
+- **Q3.** ~~**Abuse filters and pre-save checks**, still neither permissions nor ACLs ([0016](0016-permissions-and-access-control.md) Q5).~~ *Settled by [0030](0030-edit-filters.md): edit filters, a third mechanism beside permissions and ACLs, evaluated in the appending transaction.*
+- **Q4. Reviewing threads.** Whether a post should be patrollable separately from the thread operation that carried it, and whether `thread-status` marks ([0019](0019-discussions.md) §6) should count as review.
+- **Q5. `autopatrolled` thresholds**, if an instance wants the group granted automatically as `autoconfirmed` is.
+- **Q6.** ~~**Unpatrol**, which MediaWiki lacks and some wikis want.~~ *Settled by A5: a `patrol/unpatrol` log event in the tenant `log`, keyed like `patrol/patrol` (§6) and written by holders of `patrol`; the projection sets `patrolled` false, and the newest of the two events for a record wins. `action=patrol` gains `unpatrol=1`; the row's action is "Mark as unpatrolled". [0030](0030-edit-filters.md) §4's `unpatrol` filter action, which withholds autopatrol as a write lands, is unchanged.*
+- **Q7. Whether deletion should expire.** The record allows it; MediaWiki has no temporary deletion, and none is offered here.
+- **Q8.** ~~**Blocking and hiding across tenants** ([0018](0018-tenants.md) Q3): whether an `actor` ACL written by the primary tenant should apply to every tenant.~~ *Settled by [0028](0028-tenancy-policy.md) §4: an actor ACL on a farm account applies everywhere; a tenant's applies to its own account.*
+
+## Changes to other ADRs
+
+| Target | By | Change | Target's log |
+|---|---|---|---|
+| [0001](0001-revision-metadata-rdf.md) §4 | §5 | extends | 0001 A9 |
+| [0004](0004-identity-clusters-and-equivalence.md) §4 | §4 | extends | 0004 A5 |
+| [0005](0005-crate-organization.md) §2 | §13 | amends | 0005 A19 |
+| [0005](0005-crate-organization.md) §2 | §2 | extends | 0005 A25 |
+| [0007](0007-actor-identity.md) §4 | §5 | extends | 0007 A7 |
+| [0008](0008-namespaces-and-document-pages.md) §4 | §4 | amends | 0008 A4 |
+| [0008](0008-namespaces-and-document-pages.md) Q6 | §1–4 | settles | 0008 Q6 |
+| [0010](0010-site-ui.md) §2, §5.2, §7 | §9 | extends | 0010 A13 |
+| [0010](0010-site-ui.md) Q2 | §6 | settles | 0010 Q2 |
+| [0011](0011-logs.md) §3, §6.1 | §3, §5–7 | extends | 0011 A7 |
+| [0011](0011-logs.md) Q4 | §3 | settles | 0011 Q4 |
+| [0011](0011-logs.md) Q7 | §6 | settles | 0011 Q7 |
+| [0012](0012-api-requirements.md) §3, §4, §5, §8 | §8 | extends | 0012 A12 |
+| [0013](0013-postgres-storage.md) §5, §5.2, §5.6 | §10 | amends | 0013 A9 |
+| [0013](0013-postgres-storage.md) §4, §5.4, §5.5, §7, §8 | §10 | extends | 0013 A9 |
+| [0014](0014-caches-and-search.md) §1, §5 | §2, §5, §10 | amends | 0014 A3 |
+| [0014](0014-caches-and-search.md) §10 | §2, §5, §10 | extends | 0014 A3 |
+| [0015](0015-record-format-and-partition-registry.md) §3 | §3 | amends | 0015 A6 |
+| [0016](0016-permissions-and-access-control.md) §4, §8 | §1–3, §11 | amends | 0016 A6 |
+| [0016](0016-permissions-and-access-control.md) §2 | §1–3, §11 | extends | 0016 A6 |
+| [0016](0016-permissions-and-access-control.md) Q1 | §2 | settles | 0016 Q1 |
+| [0016](0016-permissions-and-access-control.md) Q4 | §6, §11 | settles | 0016 Q4 |
+| [0019](0019-discussions.md) §1, §7, §12 | §4, §6 | amends | 0019 A4 |
+| [0019](0019-discussions.md) §9 | §4, §6 | extends | 0019 A4 |
+| [0020](0020-change-feeds.md) §1 | §6 | extends | 0020 A3 |
+| [0020](0020-change-feeds.md) Q2 | §6 | settles | 0020 Q2 |
 
 ## References
 
@@ -278,3 +307,103 @@ No crate is added.
 - [Manual:Patrolled edits](https://www.mediawiki.org/wiki/Manual:Patrolled_edits), [Help:Patrolled edits](https://www.mediawiki.org/wiki/Help:Patrolled_edits)
 - [API:Protect](https://www.mediawiki.org/wiki/API:Protect), [API:Delete](https://www.mediawiki.org/wiki/API:Delete), [API:Undelete](https://www.mediawiki.org/wiki/API:Undelete), [API:Revisiondelete](https://www.mediawiki.org/wiki/API:Revisiondelete), [API:Patrol](https://www.mediawiki.org/wiki/API:Patrol)
 - Scatterbase decision record (`view_deleted`; URI ACLs over "individual claims")
+
+## Amendment log
+
+### A1. Crate table
+
+- **Date:** 2026-09-27
+- **Source:** [0005](0005-crate-organization.md) §2
+- **Change:** supersedes §13
+- **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A19).
+
+Replaced text (§13):
+
+> | Crate | Change |
+> |---|---|
+> | `scatter-actors` | ACL evaluation for `read`, with `parts` on `record` targets and the `actor` target; the autopatrol rule as a pure function over memberships as of a time |
+> | `scatter-log` | The `scatter:v0/acl` payload type, replacing the `acl` config kind; registered for the `config` and `log` partitions |
+> | `scatter-pages`, `scatter-threads` | The `delete` and `undelete` operations are removed from `scatter:v0/page` and `scatter:v0/thread` |
+> | `scatter-mwlog` | `patrol` and `suppress` log types; `protect/*` and `delete/*` parameters as typed in §3 |
+> | `triplespace-projections` | The ACL projection; derived `deleted`, `visibility`, `hidden` and `status` flags; the patrol projection; cluster re-evaluation on entity deletion and undeletion |
+> | `triplespace-titles` | Reserved page IDs in the title index |
+> | `triplespace-api-action`, `triplespace-api-rest` | The modules and routes of §8 |
+> | `triplespace-cache`, `triplespace-search` | Hiding and deletion on the purge path of 0014 §5, as erasure already is |
+>
+> No crate is added.
+
+### A2. Statement and property targets
+
+- **Date:** 2026-09-27
+- **Source:** Direct: James, design discussion of 2026-09-27 (resolvers and statement ACLs)
+- **Change:** extends §2
+- **Summary:** The two kinds [0016](0016-permissions-and-access-control.md) §4 reserved are added, and inherit everything above.
+  
+  | Target kind | Key | Restricts |
+  |---|---|---|
+  | `statement` | `acl:statement:{guid}`, the GUID as stored in the log; the UUID part identifies the statement across the canonical-ID rewrite of [0018](0018-tenants.md) §7 | `edit`: changing, overriding or removing that one statement, its qualifiers and references. `read`: the statement is left out of the resolved view, RDF, search and diffs for viewers outside the group |
+  | `property` | `acl:property:{id}` | `edit`: writing any snak whose property is *P*, as main snak, qualifier or reference, on any entity. `read`: every snak with predicate *P* is left out for viewers outside the group |
+  
+  **Enclosure gains a second axis.** Containment (graph ⊃ namespace ⊃ entity ⊃ statement) is joined by **predicate**: a property ACL applies to every snak using that property, wherever it sits. Evaluation stays conjunctive: to edit statement *S* on entity *E*, an actor satisfies the ACLs on *S*, on *E*, on *E*'s namespace, on the graph, and on *S*'s property. The cost is one indexed lookup per property a write touches, cached in L0 ([0014](0014-caches-and-search.md) §2); on the read side the resolution projection asks `view.acl` for the entity's GUIDs and properties in one query, and the public form of the resolved view ([0014](0014-caches-and-search.md) §1) simply lacks what a read ACL hides.
+  
+  **A read ACL on a mirrored statement is not an `override`.** [0002](0002-source-graphs-and-mass-ingest.md) §3's suppression is an editorial act, a local record public in history, and the resolved view says the statement was suppressed. A `read` ACL is moderation: the statement is hidden for privacy or legal reasons, only the group sees that it exists, and the source graph is untouched. Both are available; they answer different questions. Setting either target kind needs `protect` for `edit` and `deleterevision` for `read`, as for a page; they project as `protect/*` and as a new `delete/statement` event. This settles 0016's open question and answers Scatterbase's property-specific rule. This settled Q1.
+
+### A3. Edit filters
+
+- **Date:** 2026-09-27
+- **Source:** [0030](0030-edit-filters.md) §4–5
+- **Change:** extends §3, §6
+- **Summary:** Filter and hit records live in the `log` partition beside moderation ACLs, for the same reason; a filter's `unpatrol` action withholds autopatrol as a write lands.
+
+### A4. Decisions of 2026-09-27 (evening)
+
+- **Date:** 2026-09-27
+- **Source:** Direct: James, decisions of 2026-09-27 (evening)
+- **Change:** amends §6, §8
+- **Summary:** Unpatrol exists (decision 15): a `patrol/unpatrol` log event in the tenant `log`, keyed like `patrol/patrol` and written by holders of `patrol`; the projection sets `patrolled` false, and the newest of the two events for a record wins. `action=patrol` gains `unpatrol=1`; the row's action is "Mark as unpatrolled". §6 had been given a struck sentence with a note. This settled Q5.
+
+Replaced text (§6):
+
+> There is no unpatrol, as there is none in MediaWiki core.
+
+### A5. Files
+
+- **Date:** 2026-09-30
+- **Source:** [0039](0039-files-and-media.md) §8–10
+- **Change:** extends §1, §2
+- **Summary:** By section:
+  - §1: For files, removal has two axes: who acts (a tenant, or the instance operator across every tenant) and how final it is. Tenants **delete** (this section), **hide** (§5) and **erase**; the instance **reclaims** versions that have stayed deleted for a retention period; operators **take down** and **reinstate**, and **expunge**, which erases every reference to a hash and destroys its bytes.
+  - §2: A `blob` target at instance scope, keyed `acl:blob:{takedown id}`, encloses every file version, in every tenant, whose SHA-256 or SHA-1 equals the hash in the record. Content becomes an axis of enclosure beside containment and predicate. A takedown restricts `read` and `upload` on it to no group.
+
+### A6. Nuke
+
+- **Date:** 2026-10-01
+- **Source:** [0047](0047-special-pages.md) §7, §12
+- **Change:** extends §9, §11
+- **Summary:** By section:
+  - §9: `Special:Nuke` applies these actions in bulk to one account's, or one tag's, contributions: one job that deletes what it created, reverts or rolls back what it changed and hides its posts, patrolled as one row and undone by **Revert this job…**.
+  - §11: `nuke` (default `sysop`) runs `Special:Nuke`; each write it makes also needs its own right from this table.
+
+### A7. Boards
+
+- **Date:** 2026-10-01
+- **Source:** [0049](0049-boards.md) §7
+- **Change:** amends §2, §4
+- **Summary:** By section:
+  - §2: A talk page or board encloses the threads whose home it is, not the threads listed on it.
+  - §4: A deleted talk page or board takes with it the threads whose home it is. A thread only listed there is untouched; the listing goes dormant, hidden outside the deletion group, and returns on undelete.
+
+Replaced text (§2):
+
+> **Enclosure is unchanged** from [0016](0016-permissions-and-access-control.md) §4 and [0019](0019-discussions.md) §12: a namespace encloses its pages and entities, a page its subpages, a talk page its threads. So a `read` ACL on a namespace makes it private, and deleting a talk page deletes its threads.
+
+Replaced text (§4):
+
+> - a deleted thread leaves its talk page's listing and history; a deleted talk page takes its threads with it by enclosure.
+
+### A8. Converted to the 0050 format
+
+- **Date:** 2026-10-01
+- **Source:** [0050](0050-adr-format.md) §13
+- **Change:** consolidates §1–13
+- **Summary:** A1–A7 were folded into the Decision. The open questions were numbered. No decision changed. Before this, A2 and A5–A7 were blockquotes, A4 a struck sentence with a note, and A3 was recorded only in 0030. The file before conversion is commit `0b26a3a`.

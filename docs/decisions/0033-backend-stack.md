@@ -1,9 +1,11 @@
-# 0033 — Backend technology stack
+# 0033. Backend technology stack
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Amended by:** [0039 — Files, blob storage and foreign file repositories](0039-files-and-media.md) (§3 and §6 extend §5: `object_store`, `image` and `resvg`), [0042 — Template expansion and the Parsoid renderer](0042-template-expansion-and-parsoid.md) (§1 and §8 refine §9.1: rendering expanded text, and the Parsoid service; §8.3 amends §1: one optional service needs PHP; §18 extends §15: ParserFunctions and Scribunto on the reference install), [0043 — Lua modules](0043-lua-modules.md) (§4 and §14 extend §1: Lua 5.1 through `mlua`, and vendored GPL Lua in a Triplespace crate)
-- **Related:** 0005, 0006, 0007, 0008, 0011, 0012, 0013, 0014, 0015, 0019, 0021, 0022, 0025, 0027, 0030, 0032, 0034
+- **Updated:** 2026-10-01 (A5)
+- **Author:** James Hare / Claude
+- **Changes:** [0005](0005-crate-organization.md)
+- **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0034](0034-frontend-stack.md)
 
 ## Context
 
@@ -22,15 +24,16 @@ This ADR records the rest. The frontend is in 0034.
 
 ### 1. Principles
 
-1. **One binary, one required service.** A small instance runs with the `triplespace` binary and Postgres. Valkey, OpenSearch and QLever are optional services a larger instance adds (0013 §11 profiles, 0014 §1). Nothing needs a message broker, a JVM or a Node runtime.
+*Changed by A1, A3, A4.*
+
+1. **One binary, one required service.** A small instance runs with the `triplespace` binary and Postgres. Valkey, OpenSearch, QLever and a Parsoid service are optional services a larger instance adds (0013 §11 profiles, 0014 §1, [0042](0042-template-expansion-and-parsoid.md) §8.3); Parsoid is a separate PHP program never linked into the binary, and the only one that needs a PHP runtime. Nothing needs a message broker, a JVM or a Node runtime.
 2. **Pure crates stay pure.** Crates on 0005 rule 2's pure list do no I/O and pull in no async runtime. The ones on rule 7's wasm list must build for `wasm32-unknown-unknown`, so they avoid C dependencies.
 3. **GPLv3-compatible licences inside the binary.** Triplespace is GPL-3.0-or-later ([0005](0005-crate-organization.md) §6).
    - **Accepted.** Every third-party crate linked into `triplespace` carries one of these licences: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, Zlib, Unicode-3.0, MPL-2.0, BlueOak-1.0.0 (`minicbor`), CDLA-Permissive-2.0 (root-certificate data in `webpki-roots`), LGPL, GPL-2.0-or-later or GPL-3.0.
    - **Denied.** Licences that cannot be combined with GPLv3: the pre-3.0 OpenSSL/SSLeay licence, GPL-2.0-only and non-commercial terms. AGPL is also denied, as a policy choice, so that its network clause never reaches the combined work.
    - **Enforcement.** `cargo-deny` enforces both lists in CI.
+   - **Lua.** Lua 5.1 is linked through `mlua` (MIT) in `triplespace-scribunto`, which vendors Scribunto's and WikibaseClient's GPL-2.0-or-later Lua and is therefore never dual-licensed ([0043](0043-lua-modules.md) §4, §14).
 4. **Prefer a small, well-understood dependency to a framework.** Where a protocol surface is small (OAuth server, HTTP Signatures, OpenSearch's REST API), Triplespace implements it over general-purpose crates rather than adopting a framework that would dictate structure.
-
-> **Amended by [0042](0042-template-expansion-and-parsoid.md) §8.3 and [0043](0043-lua-modules.md) §4, §14.** The Parsoid service, a separate PHP program never linked into the binary, joins the optional services; it is the only one that needs a PHP runtime. Lua 5.1 is linked through `mlua` (MIT) in `triplespace-scribunto`, which vendors Scribunto's and WikibaseClient's GPL-2.0-or-later Lua and is therefore never dual-licensed.
 
 ### 2. Language and toolchain
 
@@ -52,20 +55,22 @@ The write path of 0013 §7 (auth → grants → rate limit → ACLs → filters 
 ### 4. Postgres
 
 - **Version:** 17 is the minimum; 18 is the target. The schema uses features from 15 and later (`UNIQUE NULLS NOT DISTINCT`), 14 (lz4 TOAST) and none from extensions. **No Postgres extension is required**, so the small profile runs on any managed Postgres.
-- **Driver:** `tokio-postgres` with `deadpool-postgres` for pooling. It gives binary `COPY` for bootstrap (0013 §9), pipelining, and exact control of the append transaction and its row lock (0013 §2). The synchronous `postgres` crate, a wrapper over the same driver, answers 0005's open question about a blocking API for `scatter-log-postgres`: it can be offered without a second implementation.
+- **Driver:** `tokio-postgres` with `deadpool-postgres` for pooling. It gives binary `COPY` for bootstrap (0013 §9), pipelining, and exact control of the append transaction and its row lock (0013 §2). The synchronous `postgres` crate, a wrapper over the same driver, answers [0005](0005-crate-organization.md) Q7, on a blocking API for `scatter-log-postgres`: it can be offered without a second implementation.
 - **Queries:** hand-written SQL in each owning crate. No ORM. Query shapes are checked by integration tests against a real database (§15), not by compile-time macros, because several crates share one schema and migrations run in a fixed cross-crate order.
 - **Migrations:** each owning crate embeds its SQL files (0005 rule 9). A small runner in `triplespace-db` applies them in 0005's build order and records them in `ops.migration`. `refinery` is an acceptable substitute if the in-house runner stops being small.
 - **Queues and background work:** `ops` tables claimed with `FOR UPDATE SKIP LOCKED`, woken with `LISTEN/NOTIFY`. This covers the ActivityPub delivery queue (0021), exports (0027), filter tests (0030), constraint re-checks (0031) and jobs (0012). No broker.
 
 ### 5. Cache and search clients
 
+*Changed by A2.*
+
 | Service | Client | Notes |
 |---|---|---|
 | In-process cache (L0) | `moka` | As 0014. |
 | Valkey (L1) | `redis` (redis-rs) with its tokio connection manager | Works against Valkey unchanged. Prefix deletion for erasure (0014 §5) uses `SCAN` + `UNLINK`. |
 | OpenSearch | `reqwest` with typed request and response structs | The surface used (index, bulk, msearch, aliases, `version_type: external`) is small; a typed client module in `triplespace-search` is easier to keep current than the official client crate. |
-
-> **Extended by [0039](0039-files-and-media.md) §3 and §6.** Blob storage uses `object_store` (Apache Arrow), with its local-filesystem and S3 backends, in the new `scatter-blob` crate; thumbnails use `image` for raster formats and `resvg` for SVG, in `scatter-files`. Each is to be confirmed against §16 by `cargo deny` when the crates are added.
+| Blob storage | `object_store` (Apache Arrow), local-filesystem and S3 backends, in `scatter-blob` | [0039](0039-files-and-media.md) §3. To be confirmed against the licence allowlist of §1 like every dependency |
+| Thumbnails | `image` for raster formats, `resvg` for SVG, in `scatter-files` | [0039](0039-files-and-media.md) §6 |
 
 ### 6. Encoding, hashing and cryptography
 
@@ -78,7 +83,7 @@ The write path of 0013 §7 (auth → grants → rate limit → ACLs → filters 
 | RSA for ActivityPub HTTP Signatures (0021 §5, 0022) | `aws-lc-rs` | Constant-time RSA signing. Not the `rsa` crate. |
 | TLS | `rustls` with the `aws-lc-rs` provider | One crypto provider for TLS and RSA signing. `ring` is the fallback if musl builds (§17) become a requirement. |
 | Password issuer (0007 §1, decision #1) | `argon2` | Argon2id, parameters in site config. |
-| Sealing private extracts (0027 open question) | `age` (X25519 recipients) | Proposed here; 0027 §… settles it only if James agrees. Never the Ed25519 instance key. |
+| Sealing private extracts ([0027](0027-preferences-and-portability.md) Q1) | `age` (X25519 recipients) | Proposed here; 0027 Q1 stays open until James agrees. Never the Ed25519 instance key. |
 | Randomness | `getrandom`, `rand_core` | |
 | Token and ID encoding | `base64` (URL-safe, no padding), `ulid` only where 0015 names ULIDs | |
 
@@ -95,7 +100,9 @@ The write path of 0013 §7 (auth → grants → rate limit → ACLs → filters 
 
 ### 9. Text and markup
 
-#### 9.1 Wikitext (`scatter-wikitext`, 0008)
+#### 9.1 Wikitext, in `scatter-wikitext` (uses 0008 §5)
+
+*Changed by A3.*
 
 **Parser.** Vendor `parse-wiki-text-2` (a maintained fork of Fredrik Portström's `parse_wiki_text`, MIT-style licence without a notice clause) into `scatter-wikitext`. It is pure Rust, gives every node start and end positions, recognises templates, parameters, tags, tables, lists, links, images, categories and comments, reports warnings for malformed markup, and bounds its own running time. Its `Configuration` (namespaces, extension tags, URL protocols) is generated from `namespaces.toml`.
 
@@ -122,11 +129,11 @@ Everything else renders as a **visible chip** showing its source: templates, par
 - A subset of MediaWiki's `tests/parser/parserTests.txt` covering only the rendered subset, run in CI as a fixture. The file is GPL-2.0-or-later, which is compatible with Triplespace's licence; it is test data and is not compiled into the binary.
 - A differential test against Parsoid on the MediaWiki 1.43 reference install (0000): sampled pages rendered by both, DOMs normalized and compared for the supported constructs.
 
+**Expanded text.** With a tenant's expansion on, the parser renders and extracts from **expanded** text, produced by `scatter-wikitext-expand`; a tenant may instead render through a Parsoid service that calls back into Triplespace for expansion ([0042](0042-template-expansion-and-parsoid.md) §1, §8). Parsoid stays rejected as an in-process parser.
+
 **Not chosen as the core parser:** `tree-sitter-wikitext` (Wikimedia, MIT). It produces a concrete syntax tree that would need lowering, and its C core complicates `wasm32-unknown-unknown` builds. It remains available for editor highlighting in the browser (0034 §7). `wikitext-parser` (approximate, unmaintained) and Parsoid or mwparserfromhell (not in-process) were also rejected.
 
-> **Refined by [0042](0042-template-expansion-and-parsoid.md) §1 and §8.** With a tenant's expansion on, the parser renders and extracts from **expanded** text, produced by `scatter-wikitext-expand`; a tenant may instead render through a Parsoid service that calls back into Triplespace for expansion. Parsoid stays rejected as an in-process parser.
-
-#### 9.2 Markdown (`scatter-pages`, 0019 §5)
+#### 9.2 Markdown, in `scatter-pages` (uses 0019 §5)
 
 `comrak`, with its wikilinks extension for `[[wiki links]]`, and `ammonia` for sanitization. Both build for wasm.
 
@@ -139,7 +146,7 @@ Everything else renders as a **visible chip** showing its source: templates, par
 | Case folding (DOI resolver, 0029) and plural rules | `icu_casemap`, `icu_plurals` (ICU4X; wasm-friendly) |
 | Unicode normalization | `unicode-normalization` |
 
-#### 9.4 Edit filter language (0030)
+#### 9.4 Edit filter language (uses 0030 §3)
 
 The `cel` crate. This is the crate formerly published as `cel-interpreter`; 0030 §7 and 0005 are amended to the new name.
 
@@ -186,6 +193,8 @@ QLever is an export destination, not a runtime dependency. It reached full SPARQ
 
 ### 15. Testing
 
+*Changed by A3.*
+
 | Tool | Use |
 |---|---|
 | `cargo-nextest` | test runner |
@@ -193,13 +202,13 @@ QLever is an export destination, not a runtime dependency. It reached full SPARQ
 | `insta` | snapshots of JSON, RDF and rendered HTML |
 | `testcontainers` | Postgres, Valkey, OpenSearch and QLever in integration tests |
 | `cargo-fuzz` | wikitext and markdown parsers, CBOR decoding, HTTP Signature parsing, CEL compilation, inbound ActivityPub bodies |
-| MediaWiki 1.43 reference install | API compatibility (0012), Parsoid differential tests (§9.1), Pywikibot acceptance (0008 §12) |
-
-> **Extended by [0042](0042-template-expansion-and-parsoid.md) §18.** The reference install gains ParserFunctions and Scribunto, beside WikibaseClient, for differential `action=expandtemplates` tests and Lua conformance ([0043](0043-lua-modules.md) §15).
+| MediaWiki 1.43 reference install, with WikibaseClient, ParserFunctions and Scribunto | API compatibility (0012), Parsoid differential tests (§9.1), differential `action=expandtemplates` tests and Lua conformance ([0042](0042-template-expansion-and-parsoid.md) §18, [0043](0043-lua-modules.md) §15), Pywikibot acceptance (0008 §12) |
 
 The `LogStore` conformance suite (0005 rule 8) runs against both the file and Postgres implementations.
 
 ### 16. Licensing and supply chain
+
+*Changed by A1.*
 
 - `cargo-deny` checks licences (allowlist in §1), bans (no duplicate crypto providers, no `openssl-sys`), advisories and sources.
 - `parse-wiki-text-2`'s non-standard licence text is recorded as a clarify entry.
@@ -223,20 +232,73 @@ The `LogStore` conformance suite (0005 rule 8) runs against both the file and Po
 - The binary, the OCI image, and the JavaScript and wasm served to browsers are all object code conveyed under GPLv3 §6. Each must come with its corresponding source, or point to where it can be obtained.
 - GPLv3, not AGPL: an operator who modifies Triplespace and only runs it as a service is not required to publish the changes.
 
-## Changes to other ADRs
-
-- **0005:** dependency notes on `scatter-wikitext` (vendored parser), `scatter-pages` (`comrak`, `ammonia`), `scatter-filter` (`cel`), `scatter-log-postgres` (blocking API via `postgres`), the Wikidata adapter (`.mwrev.zst` reader); changelog row.
-- **0008:** §… points at §9.1 for the parser, subset and conformance tests.
-- **0030:** §7 crate name `cel-interpreter` → `cel`.
-- **0005 open question** on a blocking Postgres API: settled by §4.
-- **0005 §6:** licence paragraph rewritten with the licence decision of 2026-09-27, and the Python-bindings open question settled.
-- **0027 open question** on the extract sealing scheme: proposed by §6, pending confirmation.
-
 ## Open questions
 
-1. ~~Triplespace's own licence. It decides whether RevisionChest code can ever flow in, and the `cargo-deny` allowlist.~~ *Settled 2026-09-27: GPL-3.0-or-later; `docs/` CC0-1.0; bindings in other languages Apache-2.0 ([0005](0005-crate-organization.md) §6).*
-2. `minicbor` versus `ciborium` is confirmed once 0006's test vectors exist.
-3. Whether `parse-wiki-text-2` changes are upstreamed or the vendored copy diverges for good.
-4. MSRV policy: how far behind stable.
-5. `aws-lc-rs` versus `ring` if musl or FIPS requirements appear.
-6. Whether `refinery` replaces the in-house migration runner.
+- **Q1.** ~~Triplespace's own licence. It decides whether RevisionChest code can ever flow in, and the `cargo-deny` allowlist.~~ *Settled by A1: GPL-3.0-or-later; `docs/` CC0-1.0; bindings in other languages Apache-2.0 ([0005](0005-crate-organization.md) §6).*
+- **Q2.** `minicbor` versus `ciborium` is confirmed once 0006's test vectors exist.
+- **Q3.** Whether `parse-wiki-text-2` changes are upstreamed or the vendored copy diverges for good.
+- **Q4.** MSRV policy: how far behind stable.
+- **Q5.** `aws-lc-rs` versus `ring` if musl or FIPS requirements appear.
+- **Q6.** Whether `refinery` replaces the in-house migration runner.
+
+## Changes to other ADRs
+
+| Target | By | Change | Target's log |
+|---|---|---|---|
+| [0005](0005-crate-organization.md) §2 | §4, §9.1–9.4, §10 | amends | 0005 A32 |
+| [0005](0005-crate-organization.md) Q7 | §4 | settles | 0005 Q7 |
+
+## Amendment log
+
+### A1. The licence
+
+- **Date:** 2026-09-27
+- **Source:** Direct: James, licence decision of 2026-09-27
+- **Change:** amends §1, §16
+- **Summary:** Triplespace is GPL-3.0-or-later, `docs/` CC0-1.0, and bindings in other languages Apache-2.0 and independent of Triplespace code (recorded in full as 0005 A30). Principle 3 and §16 were written to it in place. This settled Q1.
+
+Replaced text: not recorded; the sections were revised in place before the repository's history begins (commit `1e53c95`, 2026-09-27).
+
+### A2. Blob storage and thumbnails
+
+- **Date:** 2026-09-30
+- **Source:** [0039](0039-files-and-media.md) §3, §6
+- **Change:** extends §5
+- **Summary:** Blob storage uses `object_store` (Apache Arrow), with its local-filesystem and S3 backends, in the new `scatter-blob` crate; thumbnails use `image` for raster formats and `resvg` for SVG, in `scatter-files`. Each is to be confirmed against §16 by `cargo deny` when the crates are added.
+
+### A3. Expansion and the Parsoid service
+
+- **Date:** 2026-09-30
+- **Source:** [0042](0042-template-expansion-and-parsoid.md) §1, §8, §18
+- **Change:** amends §1, §9.1; extends §15
+- **Summary:** By section:
+  - §1: The Parsoid service, a separate PHP program never linked into the binary, joins the optional services; it is the only one that needs a PHP runtime.
+  - §9.1: With a tenant's expansion on, the parser renders and extracts from **expanded** text, produced by `scatter-wikitext-expand`; a tenant may instead render through a Parsoid service that calls back into Triplespace for expansion. Parsoid stays rejected as an in-process parser.
+  - §15: The reference install gains ParserFunctions and Scribunto, beside WikibaseClient, for differential `action=expandtemplates` tests and Lua conformance ([0043](0043-lua-modules.md) §15).
+
+Replaced text (§1):
+
+> 1. **One binary, one required service.** A small instance runs with the `triplespace` binary and Postgres. Valkey, OpenSearch and QLever are optional services a larger instance adds (0013 §11 profiles, 0014 §1). Nothing needs a message broker, a JVM or a Node runtime.
+
+### A4. Lua
+
+- **Date:** 2026-09-30
+- **Source:** [0043](0043-lua-modules.md) §4, §14
+- **Change:** extends §1
+- **Summary:** Lua 5.1 is linked through `mlua` (MIT) in `triplespace-scribunto`, which vendors Scribunto's and WikibaseClient's GPL-2.0-or-later Lua and is therefore never dual-licensed.
+
+### A5. Converted to the 0050 format
+
+- **Date:** 2026-10-01
+- **Source:** [0050](0050-adr-format.md) §13
+- **Change:** consolidates §1–17
+- **Summary:** A1–A4 were folded into the Decision. The title's em dash became a full stop, the open questions were numbered, the Author line was added, and the list this ADR kept under "Changes to other ADRs" (quoted below) was replaced by the generated table; the placeholder "0027 §…" in §6 now cites 0027 Q1. No decision changed. Before this, A2–A4 were blockquotes. 0005 A32 records the dependency notes this ADR gave 0005 §2. The file before conversion is commit `0b26a3a`.
+
+Replaced text (Changes to other ADRs):
+
+> - **0005:** dependency notes on `scatter-wikitext` (vendored parser), `scatter-pages` (`comrak`, `ammonia`), `scatter-filter` (`cel`), `scatter-log-postgres` (blocking API via `postgres`), the Wikidata adapter (`.mwrev.zst` reader); changelog row.
+> - **0008:** §… points at §9.1 for the parser, subset and conformance tests.
+> - **0030:** §7 crate name `cel-interpreter` → `cel`.
+> - **0005 open question** on a blocking Postgres API: settled by §4.
+> - **0005 §6:** licence paragraph rewritten with the licence decision of 2026-09-27, and the Python-bindings open question settled.
+> - **0027 open question** on the extract sealing scheme: proposed by §6, pending confirmation.

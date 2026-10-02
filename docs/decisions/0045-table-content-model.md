@@ -2,8 +2,10 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
+- **Updated:** 2026-10-01 (A2)
 - **Author:** James Hare / Claude Opus
-- **Related:** [0002 — Source graphs and mass ingest](0002-source-graphs-and-mass-ingest.md), [0003 — Statement UI](0003-statement-ui.md), [0004 — Identity clusters and equivalence](0004-identity-clusters-and-equivalence.md), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§13 amends §2), [0008 — Namespaces and document pages](0008-namespaces-and-document-pages.md) (§2 extends §2: the `Table` namespaces), [0011 — Logs](0011-logs.md), [0012 — API requirements for the site UI](0012-api-requirements.md) (§10 extends §5: the table routes), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md), [0016 — Permissions and access control](0016-permissions-and-access-control.md), [0020 — Change feeds](0020-change-feeds.md), [0023 — Protection, deletion, hiding and patrolling](0023-moderation.md), [0024 — Subsidiary accounts, API keys and rate limits](0024-subsidiary-accounts.md), [0026 — Sitelinks are URLs](0026-sitelinks.md), [0030 — Edit filters](0030-edit-filters.md), [0031 — Property constraints](0031-property-constraints.md), [0034 — Frontend stack](0034-frontend-stack.md) (§11 extends §4: the table grid editor), [0041 — Content models](0041-content-models.md) (§3 extends §3: the `triplespace-table` model), [0044 — Tenant-relative IDs](0044-tenant-relative-ids.md), [MediaWiki API contract](../api/mediawiki-compat.md)
+- **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0034](0034-frontend-stack.md), [0041](0041-content-models.md)
+- **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [0016](0016-permissions-and-access-control.md), [0020](0020-change-feeds.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0030](0030-edit-filters.md), [0031](0031-property-constraints.md), [0044](0044-tenant-relative-ids.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
 
@@ -202,15 +204,11 @@ Cell edits made with the Wikibase modules directly are ordinary entity edits: a 
 
 ### 13. Crates (amends 0005 §2)
 
-No new crate.
+*Changed by A1.*
 
-| Crate | Change |
-|---|---|
-| `scatter-wikibase-shape` | The `triplespace-table` model: the definition types, schema validation, canonical serialization, the cell rule of §5 (best values, fold count). Builds for `wasm32`, so the grid editor validates definitions and predicts cells in the browser. Gains a direct dependency on `scatter-pages` for the content-model trait, which it already had through `scatter-wikibase-model` |
-| `scatter-pages` | The model's registry entry |
-| `triplespace-titles` | Namespaces 218 and 219, with the `/doc` rule |
-| `triplespace-projections` | `page_link` rows from table definitions |
-| `triplespace-api-action`, `triplespace-api-rest` | The behaviour of §9, the routes of §10, and the mapping from cell edits to change-set operations (§6) |
+*Superseded by [0005](0005-crate-organization.md) §2 (A1).*
+
+[0005](0005-crate-organization.md) §2 keeps the crate table that CI checks, with every change this section listed. The table this section first gave is in A1.
 
 ## Consequences
 
@@ -223,17 +221,55 @@ No new crate.
 
 ## Open questions
 
-- **Query scopes.** Further kinds of `rows`, in rough order of cost: every entity with a given statement (`P31` = `Q5`), served from the statement indexes; the members of a category ([0038](0038-page-metadata-and-categories.md) §3); the entities in a column of another table; a restricted query language. All under `tables.max_rows`. A query scope also removes §7's two-write problem: an entity created with the right statements appears in the table by itself.
-- **More column kinds:** a qualifier of a property's statements; a rank filter; references; a computed column (a count, a constraint status).
-- **Values as of a time.** `revid` gives the definition as of a revision but current values. Showing a table's values as they were needs entity states as of a time.
-- **Watching a table's rows,** as a watch option that expands to them, if related changes proves not to be enough.
-- **Tables in wikitext and Lua.** Transcluding `{{Table:Journals}}` into a page, or reading a table from a module, with usage tracking through the render manifest ([0042](0042-template-expansion-and-parsoid.md) §10).
-- **`M` IDs as rows.** File pages' statements ([0041](0041-content-models.md) §7) would make tables useful for Commons-style curation; term columns would be read-only until captions are settled.
-- **A faster lane for people.** Whether a large paste by a person should count against a class other than `edit`, or whether rate limits as they stand are the right brake.
-- ~~**The next namespace block** for Triplespace-specific namespaces, now that 210–219 is full.~~ *Settled 2026-10-01: 310–319 ([0008](0008-namespaces-and-document-pages.md) §2, as amended).*
+- **Q1. Query scopes.** Further kinds of `rows`, in rough order of cost: every entity with a given statement (`P31` = `Q5`), served from the statement indexes; the members of a category ([0038](0038-page-metadata-and-categories.md) §3); the entities in a column of another table; a restricted query language. All under `tables.max_rows`. A query scope also removes §7's two-write problem: an entity created with the right statements appears in the table by itself.
+- **Q2. More column kinds:** a qualifier of a property's statements; a rank filter; references; a computed column (a count, a constraint status).
+- **Q3. Values as of a time.** `revid` gives the definition as of a revision but current values. Showing a table's values as they were needs entity states as of a time.
+- **Q4. Watching a table's rows,** as a watch option that expands to them, if related changes proves not to be enough.
+- **Q5. Tables in wikitext and Lua.** Transcluding `{{Table:Journals}}` into a page, or reading a table from a module, with usage tracking through the render manifest ([0042](0042-template-expansion-and-parsoid.md) §10).
+- **Q6. `M` IDs as rows.** File pages' statements ([0041](0041-content-models.md) §7) would make tables useful for Commons-style curation; term columns would be read-only until captions are settled.
+- **Q7. A faster lane for people.** Whether a large paste by a person should count against a class other than `edit`, or whether rate limits as they stand are the right brake.
+- **Q8.** ~~**The next namespace block** for Triplespace-specific namespaces, now that 210–219 is full.~~ *Settled by the numbering policy of 0008 A17: 310–319.*
+
+## Changes to other ADRs
+
+| Target | By | Change | Target's log |
+|---|---|---|---|
+| [0005](0005-crate-organization.md) §2 | §13 | extends | 0005 A45 |
+| [0008](0008-namespaces-and-document-pages.md) §2 | §2 | extends | 0008 A15 |
+| [0012](0012-api-requirements.md) §5 | §10 | extends | 0012 A28 |
+| [0034](0034-frontend-stack.md) §4 | §11 | extends | 0034 A3 |
+| [0041](0041-content-models.md) §3 | §3 | extends | 0041 A3 |
 
 ## References
 
 - [Extension:JsonConfig/Tabular](https://www.mediawiki.org/wiki/Extension:JsonConfig/Tabular) and [Help:Tabular data](https://www.mediawiki.org/wiki/Help:Tabular_data) (Commons `Data:*.tab`)
 - Tabernacle and Listeria, Wikidata tools on Toolforge (prior art; not dependencies)
 - [Codex Table](https://doc.wikimedia.org/codex/latest/components/demos/table.html), including its CSS-only form
+
+## Amendment log
+
+### A1. Crate table
+
+- **Date:** 2026-09-30
+- **Source:** [0005](0005-crate-organization.md) §2
+- **Change:** supersedes §13
+- **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A45).
+
+Replaced text (§13):
+
+> No new crate.
+>
+> | Crate | Change |
+> |---|---|
+> | `scatter-wikibase-shape` | The `triplespace-table` model: the definition types, schema validation, canonical serialization, the cell rule of §5 (best values, fold count). Builds for `wasm32`, so the grid editor validates definitions and predicts cells in the browser. Gains a direct dependency on `scatter-pages` for the content-model trait, which it already had through `scatter-wikibase-model` |
+> | `scatter-pages` | The model's registry entry |
+> | `triplespace-titles` | Namespaces 218 and 219, with the `/doc` rule |
+> | `triplespace-projections` | `page_link` rows from table definitions |
+> | `triplespace-api-action`, `triplespace-api-rest` | The behaviour of §9, the routes of §10, and the mapping from cell edits to change-set operations (§6) |
+
+### A2. Converted to the 0050 format
+
+- **Date:** 2026-10-01
+- **Source:** [0050](0050-adr-format.md) §13
+- **Change:** consolidates §13
+- **Summary:** A1 was folded into the Decision. The open questions were numbered. No decision changed. Before this, A1 was recorded only in 0005. The file before conversion is commit `0b26a3a`.

@@ -1,10 +1,11 @@
 # 0022. Federation: verified data sync and ActivityPub
 
 - **Status:** Proposed
-- **Date:** 2026-09-27 (placeholder of the same date replaced)
+- **Date:** 2026-09-27
+- **Updated:** 2026-10-01 (A4)
 - **Author:** James Hare / Claude Fable
-- **Amended by:** [0049 — Boards, and threads on several pages](0049-boards.md) (§10 extends §6 and §7: boards as `Group` actors; a listing's `Group` announces the thread)
-- **Related:** [0000 — Initial proposition](0000-init.md) (§3 realises "foreign entities alongside local ones" between instances), [0002 — Source graphs and mass ingest](0002-source-graphs-and-mass-ingest.md) (§2 refines §8.4 for a Triplespace provider; §3 uses §3 and §7), [0004 — Identity clusters and equivalence](0004-identity-clusters-and-equivalence.md) (§3 uses §9 and §10), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§13 amends §2: extends `scatter-integrity`, `scatter-activitypub` and `scatter-adapter-triplespace`, adds `triplespace-federation`), [0006 — Log integrity and erasure](0006-log-integrity-and-erasure.md) (§1 settles where checkpoints are served; §2 uses §6, §7 and §9 across instances), [0007 — Actor identity](0007-actor-identity.md) (§8 extends §5 with the `federated` actor kind; §6 extends §7 with `rel="me"`), [0010 — Site UI](0010-site-ui.md) (§11 extends §2 and §11; §6 amends the vanish page), [0011 — Upstream and local logs](0011-logs.md) (§8 follows §5 for remote `Delete`), [0012 — API requirements for the site UI](0012-api-requirements.md) (§11 extends §5), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md) (§1 extends §8: the local-graph source dump; §10 extends §5.6; §13 adds a third reader of `private` to §4), [0015 — Record format and partition registry](0015-record-format-and-partition-registry.md) (§8 amends §1: the attestation part carries evidence; §8 extends §3 with `federation-policy`; §2 and §10 extend §5), [0016 — Permissions and access control](0016-permissions-and-access-control.md) (§12 extends §2–3 with the `federated` group that §8 introduces), [0018 — Tenants](0018-tenants.md) (§9 follows §5), [0019 — Discussions](0019-discussions.md) (§6–8 use §7 and §10), [0020 — Change feeds](0020-change-feeds.md) (§1 uses §4), [0021 — Notifications](0021-notifications.md) (§6–8 build on §5 and §10; §13 moves ActivityPub delivery out of `triplespace-notify`; settles its 0022 open question), [0023 — Protection, deletion, hiding and patrolling](0023-moderation.md) (§8 uses §1–5), [0026 — Sitelinks are URLs](0026-sitelinks.md) (§8 reuses §3's list shape), [0028 — Tenancy policy](0028-tenancy-policy.md) (§2 refines §5: the adapter it added becomes the verified sync; §9 follows §8), [0030 — Edit filters](0030-edit-filters.md) (§8 uses §2: inbound posts pass filters with `user_kind = federated`)
+- **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md), [0028](0028-tenancy-policy.md)
+- **Uses:** [0000](0000-init.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0014](0014-caches-and-search.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0030](0030-edit-filters.md)
 
 ## Context
 
@@ -14,7 +15,9 @@ The two halves share a stance. Triplespace federates **facts and speech, not ide
 
 ## Part A — Data federation
 
-### 1. What a Triplespace instance publishes (settles 0006's checkpoint-location question)
+### 1. What a Triplespace instance publishes (settles 0006 Q3)
+
+*Changed by A2.*
 
 Every instance, for each tenant that has a provider code ([0015](0015-record-format-and-partition-registry.md) §5), publishes at the tenant's base:
 
@@ -24,19 +27,21 @@ Every instance, for each tenant that has a provider code ([0015](0015-record-for
 | The **Wikibase-compatible** and **full** dumps, as before | `{base}/dumps/` | [0013](0013-postgres-storage.md) §8 |
 | The **activity stream**, with `Last-Event-ID` | `GET /activity/stream` | [0020](0020-change-feeds.md) §4 |
 | **Records**: header and body of any record in a public partition, redacted as any response is | `GET /record/{partition}/{offset}` | [0012](0012-api-requirements.md) §5 |
-| **Checkpoints and segment manifests**, current and historical, as C2SP signed notes | `{base}/.well-known/tlog/{partition name}/checkpoint` and `/checkpoint/{tree size}`; manifests at `/segment/{n}` | [0006](0006-log-integrity-and-erasure.md) §6; this settles its open question about where checkpoints are served |
-| **Inclusion and consistency proofs** | `GET /record/{partition}/{offset}/proof?checkpoint=`; `GET /.well-known/tlog/{name}/consistency?from=&to=`; and, since 2026-09-27, the multi-proof `GET /record/proofs?partition=&checkpoint=&from=&to=` for a range of records against one checkpoint | [0006](0006-log-integrity-and-erasure.md) §9, [0012](0012-api-requirements.md) §5 |
+| **Checkpoints and segment manifests**, current and historical, as C2SP signed notes | `{base}/.well-known/tlog/{partition name}/checkpoint` and `/checkpoint/{tree size}`; manifests at `/segment/{n}` | [0006](0006-log-integrity-and-erasure.md) §6; this settles 0006 Q3 |
+| **Inclusion and consistency proofs** | `GET /record/{partition}/{offset}/proof?checkpoint=`; `GET /.well-known/tlog/{name}/consistency?from=&to=`; and the multi-proof `GET /record/proofs?partition=&checkpoint=&from=&to=` for a range of records against one checkpoint, with their shared upper path sent once | [0006](0006-log-integrity-and-erasure.md) §9, [0012](0012-api-requirements.md) §5 |
 | The **key chain**: every `key:` record of the tenant's `config` partition | `GET /.well-known/tlog/keys` | [0015](0015-record-format-and-partition-registry.md) §3, [0018](0018-tenants.md) §2 |
 
 Only partitions whose export policy is `public` are published ([0005](0005-crate-organization.md) §4.1); `internal` and `private` partitions have no records, checkpoints or proofs here. The local-graph source dump is new; it exists so that a reader can take a tenant's own assertions without the tenant's mirrors, for the reason §2 gives.
 
-### 2. The Triplespace adapter reads the local graph and verifies it (refines 0002 §8.4 and 0028 §5)
+### 2. The Triplespace adapter reads the local graph and verifies it (extends 0002 §8.4; amends 0028 §5)
+
+*Changed by A2.*
 
 `scatter-adapter-triplespace` ([0028](0028-tenancy-policy.md) §5) is the adapter for a provider that is itself a Triplespace instance. Three rules refine what 0028 said of it.
 
 **It reads the provider's `local` graph, and nothing else.** A provider's Wikibase-compatible dump is its *resolved view*, which includes its Wikidata mirror, its OpenAlex mirror and every other provider it reads. A reader has those from their sources already, under their own codes. So the adapter bootstraps from the local-graph source dump (§1) and follows the stream filtered to `source = local`, and the mirror partition `mirror/{provider}` holds only what the provider itself asserts. References inside those assertions are rewritten as [0018](0018-tenants.md) §5 rewrites them: the provider's own `Q6` becomes `LBQ6`; a reference to a global entity, `WDQ42` or `domain:x`, passes through; and a reference to **the reader's own entities**, which the provider holds under the reader's code (`EXQ9`), is rewritten **back to the bare local ID** `Q9`. That last rule is what makes §3 work.
 
-**It verifies by default.** For each record it mirrors, the adapter fetches the record with its header, checks the header's leaf against the provider's latest checkpoint with an inclusion proof, checks the checkpoint's signature against the provider's key chain, and checks consistency between the checkpoint it last saw and the current one ([0006](0006-log-integrity-and-erasure.md) §5–6, §9). A batch of records is verified with one checkpoint and one consistency proof; the cost is a handful of hashes per record. The **provider's header** (partition, offset, revision ID, commitment) and the **checkpoint tree size** it was verified against are stored in the mirror record's content part beside the entity state, so that a third party holding the reader's log can re-verify against the provider without trusting the reader. A verification failure fails the sync job ([0002](0002-source-graphs-and-mass-ingest.md) §8.3), notifies the job's operator ([0021](0021-notifications.md) §2, reason `job`), and leaves the mirror where it was; nothing unverified is appended.
+**It verifies by default.** For each record it mirrors, the adapter fetches the record with its header, checks the header's leaf against the provider's latest checkpoint with an inclusion proof, checks the checkpoint's signature against the provider's key chain, and checks consistency between the checkpoint it last saw and the current one ([0006](0006-log-integrity-and-erasure.md) §5–6, §9). A batch of N records is verified with one checkpoint, one consistency proof and one multi-proof (§1), at O(N log N) hashes; every record is verified, always, and "verified" never means "probably". The **provider's header** (partition, offset, revision ID, commitment) and the **checkpoint tree size** it was verified against are stored in the mirror record's content part beside the entity state, so that a third party holding the reader's log can re-verify against the provider without trusting the reader. A verification failure fails the sync job ([0002](0002-source-graphs-and-mass-ingest.md) §8.3), notifies the job's operator ([0021](0021-notifications.md) §2, reason `job`), and leaves the mirror where it was; nothing unverified is appended.
 
 **Trusted is the fallback, not the default.** A provider registered with `trust = stream` ([0015](0015-record-format-and-partition-registry.md) §5, `providers.toml`) is mirrored from its stream and dumps without proofs, as any non-Triplespace source is. The provider registry entry records which; the identity line and the source chip ([0010](0010-site-ui.md) §2) show a verification mark for a `verified` provider and none for a `stream` one.
 
@@ -65,6 +70,8 @@ Any provider that publishes a C2SP tlog checkpoint, RFC 6962 proofs and records 
 
 ### 6. Actors (extends 0021 §5)
 
+*Changed by A3.*
+
 [0021](0021-notifications.md) §5 gave each tenant one `as:Service` notifier. This ADR adds three actor kinds, each **opt-in** and each with its own keypair in `private.ap_key`, keyed by actor:
 
 | Actor | Type | Who turns it on | Address |
@@ -79,13 +86,17 @@ The **vanish page** ([0010](0010-site-ui.md) §11) gains a sentence: copies of p
 
 ### 7. Outbound: what a follower receives
 
+*Changed by A3.*
+
 A talk-page `Group` **`Announce`s** every thread created on it and every post in those threads, which is the Lemmy pattern Mastodon and its kin understand. A person actor's outbox carries `Create` for their posts. Edits are `Update` with the new content; hiding or erasing a post ([0023](0023-moderation.md) §5, [0006](0006-log-integrity-and-erasure.md) §7) is `Delete` with an `as:Tombstone`, and a deleted thread `Delete`s its collection. Every object uses the fixed profile of [0019](0019-discussions.md) §10 with `source` carrying the markdown. Delivery is the signed `POST` of [0021](0021-notifications.md) §5, through the same `ops` queue, rate-limited in the `notify` class ([0024](0024-subsidiary-accounts.md) §5), fanned out to followers' shared inboxes. Followers are `private.ap_follower` rows per actor; a `Follow` is accepted automatically for a `Group` and for a person who opted in, and `Undo` removes it.
 
-> **Extended by [0049](0049-boards.md) §10.** Boards (310) may be federated as talk pages are. A thread listed on a page whose `Group` is federated is announced by that `Group` too, with every later post; removing the listing sends `Undo` of the `Announce`. Inbound replies are governed by the thread's home.
+**Boards.** Boards (310) may be federated as talk pages are. A thread listed on a page whose `Group` is federated is announced by that `Group` too, with every later post; removing the listing sends `Undo` of the `Announce`. Inbound replies are governed by the thread's home.
 
 Nothing about entity data is federated this way. Statements move between instances by Part A; ActivityPub carries speech.
 
 ### 8. Inbound: the rules fixed now, the protocol left open
+
+*Changed by A2.*
 
 Replies from fediverse actors may become posts on this instance, under rules fixed here and mechanics left for implementation:
 
@@ -96,11 +107,11 @@ Replies from fediverse actors may become posts on this instance, under rules fix
 - **A remote `Delete` is followed** as [0011](0011-logs.md) §5 follows upstream hiding: the post's text part is erased with reason class `upstream`, and the tree keeps its shape ([0019](0019-discussions.md) §4).
 - **Moderation is [0023](0023-moderation.md) unchanged**: hide, suppress, block the surrogate, protect the talk page; edit filters ([0030](0030-edit-filters.md)) see an inbound post in the `text` context with `user_kind = federated`.
 
-~~Left open: which HTTP Signatures versions and object-integrity proofs to accept, inbox queueing and replay protection, and whether a `federated` actor may be promoted to a fuller kind by a local account that proves control of it.~~
+- **Signatures.** the inbox accepts draft-cavage HTTP Signatures with a mandatory `Digest`, which is what every Mastodon-compatible server sends; RFC 9421 signatures and FEP-8b32 object-integrity proofs are implemented in `scatter-activitypub` behind `site` switches (`federation.accept_rfc9421`, `federation.accept_fep8b32`, both off) and turned on when the fediverse turns, with no change to the inbox path; outbound stays cavage until Mastodon accepts 9421 ([0021](0021-notifications.md) §5).
+- **Replay.** every accepted activity's `id` is recorded in `ops.ap_inbox_seen` for `federation.replay_window` (default seven days) and a repeat is acknowledged with 202 and dropped; a request whose `Date` lies outside ±`federation.clock_skew` (default twelve hours) is rejected; inbound activities are verified on receipt and then handled through the `ops` queue, so a burst never blocks the request path.
+- **Promotion.** a `federated` surrogate is never merged into a local account. A local account that proves control of the remote actor, by the instance finding a `rel="me"` link from the remote profile to its user page, may add it as a public **account link** under [0007](0007-actor-identity.md) §7, the same act as linking a Wikidata account; the surrogate stays the actor of every post it made, and contributions and history show "also {remote} here" as for any linked account. Attribution never moves, which is the invariant every inclusion proof relies on.
 
-> **Settled 2026-09-27.** *Signatures:* the inbox accepts draft-cavage HTTP Signatures with a mandatory `Digest`, which is what every Mastodon-compatible server sends; RFC 9421 signatures and FEP-8b32 object-integrity proofs are implemented in `scatter-activitypub` behind `site` switches (`federation.accept_rfc9421`, `federation.accept_fep8b32`, both off) and turned on when the fediverse turns, with no change to the inbox path; outbound stays cavage until Mastodon accepts 9421 ([0021](0021-notifications.md) §5). *Replay:* every accepted activity's `id` is recorded in `ops.ap_inbox_seen` for `federation.replay_window` (default seven days) and a repeat is acknowledged with 202 and dropped; a request whose `Date` lies outside ±`federation.clock_skew` (default twelve hours) is rejected; inbound activities are verified on receipt and then handled through the `ops` queue, so a burst never blocks the request path. *Promotion:* a `federated` surrogate is never merged into a local account. A local account that proves control of the remote actor, by the instance finding a `rel="me"` link from the remote profile to its user page, may add it as a public **account link** under [0007](0007-actor-identity.md) §7, the same act as linking a Wikidata account; the surrogate stays the actor of every post it made, and contributions and history show "also {remote} here" as for any linked account. Attribution never moves, which is the invariant every inclusion proof relies on.
-
-### 9. Tenancy (follows 0028 §8)
+### 9. Tenancy (uses 0028 §8)
 
 ActivityPub is per tenant, as its notifier is: each tenant has its own host, actors and keys. A farm sets defaults and locks for `federation.*` settings through templates ([0028](0028-tenancy-policy.md) §8) and keeps the instance deny list. Data federation (Part A) is between *tenants*, wherever they are hosted: a tenant on another instance is a provider like any other, and the same instance's tenants read each other directly ([0018](0018-tenants.md) §5).
 
@@ -130,15 +141,11 @@ ActivityPub is per tenant, as its notifier is: each tenant has its own host, act
 
 ### 13. Crates (amends 0005 §2)
 
-| Layer | Crate | Change |
-|---|---|---|
-| Substrate | `scatter-integrity` | Verifying a remote checkpoint, key chain, inclusion and consistency proof from fetched bytes (§2); pure, as before |
-| | `scatter-activitypub` | Person, Group and Collection actor documents, `Announce`, `Update`, `Delete` and `Tombstone`, inbound activity parsing and signature verification (§6–8) |
-| Ingest | `scatter-adapter-triplespace` | Local-graph-only reads, the back-rewrite of the reader's own IDs, verification per batch, provider header storage, following `erase` and `delete/statement` (§2) |
-| Triplespace | `triplespace-federation` *(new)* | Per-actor keys and followers, outbox fan-out, inbox handling and the `federated` surrogate flow, the federation lists (§6–9). Takes ActivityPub delivery from `triplespace-notify`, which keeps the notifier and its channels, and becomes the third crate that reads `private` ([0013](0013-postgres-storage.md) §4), for `ap_key` and `ap_follower` only |
-| | `triplespace-rdf`, `triplespace-api-rest` | The local-graph source dump and `/.well-known/tlog/` (§1) |
+*Changed by A1.*
 
-The workspace goes from forty-two crates to forty-three.
+*Superseded by [0005](0005-crate-organization.md) §2 (A1).*
+
+[0005](0005-crate-organization.md) §2 keeps the crate table that CI checks, with `triplespace-federation` and every change this section listed. The table this section first gave is in A1.
 
 ## Consequences
 
@@ -152,12 +159,36 @@ The workspace goes from forty-two crates to forty-three.
 
 ## Open questions
 
-- ~~**Inbound protocol details** (§8): signature versions, integrity proofs, replay protection, and promotion of a `federated` actor.~~ *Settled 2026-09-27 (§8 note): cavage now with 9421 and FEP-8b32 behind switches; activity-ID seen-table with a `Date` window; link, never merge.*
-- ~~**Verification depth for very large providers**: whether to verify every record or sample under a `sample` trust mode with a stated rate.~~ *Settled 2026-09-27: every record, always; "verified" never means "probably". The cost is kept low by a **multi-proof**: `GET /record/proofs?checkpoint=&from=&to=` returns the inclusion proofs of a range of records against one checkpoint with their shared upper path sent once, so a batch of N costs one checkpoint, one consistency proof and O(N log N) hashes; a bootstrap from the source dump is verified the same way against the checkpoint the dump is stamped with ([0032](0032-sparql-update-stream.md) §6). The route joins §1's table and [0012](0012-api-requirements.md) §5; `scatter-integrity` produces and checks multi-proofs.*
-- **A Scatterbase adapter** as the payload mapping of §5.
-- **Witnesses across federated instances** ([0006](0006-log-integrity-and-erasure.md), open): whether federation partners should cosign each other's checkpoints.
-- **Entity data on ActivityPub**: whether an entity's document node should be an `as:Article` that announces its revisions, for readers who want to follow an item. Deliberately not done here.
-- **Followers as private state**: whether the follower list of a `Group` is public, as Mastodon shows it, or private as the notifier's is.
+- **Q1.** ~~**Inbound protocol details** (§8): signature versions, integrity proofs, replay protection, and promotion of a `federated` actor.~~ *Settled by A2: cavage now, with 9421 and FEP-8b32 behind switches; an activity-ID seen table with a `Date` window; link, never merge.*
+- **Q2.** ~~**Verification depth for very large providers**: whether to verify every record or sample under a `sample` trust mode with a stated rate.~~ *Settled by A2: every record, always; "verified" never means "probably". The cost is kept low by a **multi-proof**: `GET /record/proofs?checkpoint=&from=&to=` returns the inclusion proofs of a range of records against one checkpoint with their shared upper path sent once, so a batch of N costs one checkpoint, one consistency proof and O(N log N) hashes; a bootstrap from the source dump is verified the same way against the checkpoint the dump is stamped with ([0032](0032-sparql-update-stream.md) §6). The route joins §1's table and [0012](0012-api-requirements.md) §5; `scatter-integrity` produces and checks multi-proofs.*
+- **Q3. A Scatterbase adapter** as the payload mapping of §5.
+- **Q4. Witnesses across federated instances** ([0006](0006-log-integrity-and-erasure.md) Q1): whether federation partners should cosign each other's checkpoints.
+- **Q5. Entity data on ActivityPub**: whether an entity's document node should be an `as:Article` that announces its revisions, for readers who want to follow an item. Deliberately not done here.
+- **Q6. Followers as private state**: whether the follower list of a `Group` is public, as Mastodon shows it, or private as the notifier's is.
+
+## Changes to other ADRs
+
+| Target | By | Change | Target's log |
+|---|---|---|---|
+| [0002](0002-source-graphs-and-mass-ingest.md) §8.4 | §2 | extends | 0002 A11 |
+| [0005](0005-crate-organization.md) §2, §7 | §13 | amends | 0005 A18 |
+| [0006](0006-log-integrity-and-erasure.md) §6 | §1 | extends | 0006 A8 |
+| [0006](0006-log-integrity-and-erasure.md) Q3 | §1 | settles | 0006 Q3 |
+| [0007](0007-actor-identity.md) §4, §5, §7 | §6, §8 | extends | 0007 A6 |
+| [0010](0010-site-ui.md) §2, §11 | §6, §11 | extends | 0010 A12 |
+| [0011](0011-logs.md) §5 | §8 | extends | 0011 A6 |
+| [0012](0012-api-requirements.md) §5 | §1, §11 | extends | 0012 A11 |
+| [0013](0013-postgres-storage.md) §5, §5.2, §5.6 | §1, §8, §10, §13 | amends | 0013 A9 |
+| [0013](0013-postgres-storage.md) §4, §5.4, §5.5, §7, §8 | §1, §8, §10, §13 | extends | 0013 A9 |
+| [0015](0015-record-format-and-partition-registry.md) §1 | §2, §8, §10 | amends | 0015 A5 |
+| [0015](0015-record-format-and-partition-registry.md) §3, §5 | §2, §8, §10 | extends | 0015 A5 |
+| [0016](0016-permissions-and-access-control.md) §2, §3 | §8, §12 | extends | 0016 A5 |
+| [0019](0019-discussions.md) Q7 | — | settles | 0019 Q7 |
+| [0020](0020-change-feeds.md) Q4 | §2 | settles | 0020 Q4 |
+| [0021](0021-notifications.md) §5, §8 | §6–8, §10, §13 | extends | 0021 A2 |
+| [0021](0021-notifications.md) Q5 | §8 | settles | 0021 Q5 |
+| [0021](0021-notifications.md) Q6 | — | settles | 0021 Q6 |
+| [0028](0028-tenancy-policy.md) §5 | §2 | amends | 0028 A2 |
 
 ## References
 
@@ -166,3 +197,55 @@ The workspace goes from forty-two crates to forty-three.
 - [FEP-8b32: Object Integrity Proofs](https://codeberg.org/fediverse/fep/src/branch/main/fep/8b32/fep-8b32.md), [RFC 9421 — HTTP Message Signatures](https://www.rfc-editor.org/rfc/rfc9421)
 - [PAV ontology](https://pav-ontology.github.io/pav/)
 - [0006 — Log integrity and erasure](0006-log-integrity-and-erasure.md), [0021 — Notifications](0021-notifications.md), [0028 — Tenancy policy](0028-tenancy-policy.md)
+
+## Amendment log
+
+### A1. Crate table
+
+- **Date:** 2026-09-27
+- **Source:** [0005](0005-crate-organization.md) §2
+- **Change:** supersedes §13
+- **Summary:** 0005 §2 is the one crate table CI checks, and carries `triplespace-federation` and every change this section listed (0005 A18).
+
+Replaced text (§13):
+
+> | Layer | Crate | Change |
+> |---|---|---|
+> | Substrate | `scatter-integrity` | Verifying a remote checkpoint, key chain, inclusion and consistency proof from fetched bytes (§2); pure, as before |
+> | | `scatter-activitypub` | Person, Group and Collection actor documents, `Announce`, `Update`, `Delete` and `Tombstone`, inbound activity parsing and signature verification (§6–8) |
+> | Ingest | `scatter-adapter-triplespace` | Local-graph-only reads, the back-rewrite of the reader's own IDs, verification per batch, provider header storage, following `erase` and `delete/statement` (§2) |
+> | Triplespace | `triplespace-federation` *(new)* | Per-actor keys and followers, outbox fan-out, inbox handling and the `federated` surrogate flow, the federation lists (§6–9). Takes ActivityPub delivery from `triplespace-notify`, which keeps the notifier and its channels, and becomes the third crate that reads `private` ([0013](0013-postgres-storage.md) §4), for `ap_key` and `ap_follower` only |
+> | | `triplespace-rdf`, `triplespace-api-rest` | The local-graph source dump and `/.well-known/tlog/` (§1) |
+>
+> The workspace goes from forty-two crates to forty-three.
+
+### A2. Decisions of 2026-09-27 (evening)
+
+- **Date:** 2026-09-27
+- **Source:** Direct: James, decisions of 2026-09-27 (evening)
+- **Change:** amends §8; extends §1, §2
+- **Summary:** By section:
+  - §8: Inbound protocol details (decision 13). *Signatures:* the inbox accepts draft-cavage HTTP Signatures with a mandatory `Digest`, which is what every Mastodon-compatible server sends; RFC 9421 signatures and FEP-8b32 object-integrity proofs are implemented in `scatter-activitypub` behind `site` switches (`federation.accept_rfc9421`, `federation.accept_fep8b32`, both off) and turned on when the fediverse turns, with no change to the inbox path; outbound stays cavage until Mastodon accepts 9421 ([0021](0021-notifications.md) §5). *Replay:* every accepted activity's `id` is recorded in `ops.ap_inbox_seen` for `federation.replay_window` (default seven days) and a repeat is acknowledged with 202 and dropped; a request whose `Date` lies outside ±`federation.clock_skew` (default twelve hours) is rejected; inbound activities are verified on receipt and then handled through the `ops` queue, so a burst never blocks the request path. *Promotion:* a `federated` surrogate is never merged into a local account. A local account that proves control of the remote actor, by the instance finding a `rel="me"` link from the remote profile to its user page, may add it as a public **account link** under [0007](0007-actor-identity.md) §7, the same act as linking a Wikidata account; the surrogate stays the actor of every post it made, and contributions and history show "also {remote} here" as for any linked account. Attribution never moves, which is the invariant every inclusion proof relies on.
+  - §1, §2: Verification depth (decision 14): every record, always; no `sample` trust mode. The cost is kept low by a multi-proof, `GET /record/proofs?checkpoint=&from=&to=`, which returns the inclusion proofs of a range of records against one checkpoint with their shared upper path sent once, so a batch of N costs one checkpoint, one consistency proof and O(N log N) hashes. §1 had been given the route in place.
+
+Replaced text (§8):
+
+> Left open: which HTTP Signatures versions and object-integrity proofs to accept, inbox queueing and replay protection, and whether a `federated` actor may be promoted to a fuller kind by a local account that proves control of it.
+
+Replaced text (§2):
+
+> A batch of records is verified with one checkpoint and one consistency proof; the cost is a handful of hashes per record.
+
+### A3. Boards
+
+- **Date:** 2026-10-01
+- **Source:** [0049](0049-boards.md) §10
+- **Change:** extends §6, §7
+- **Summary:** Boards (310) may be federated as talk pages are. A thread listed on a page whose `Group` is federated is announced by that `Group` too, with every later post; removing the listing sends `Undo` of the `Announce`. Inbound replies are governed by the thread's home.
+
+### A4. Converted to the 0050 format
+
+- **Date:** 2026-10-01
+- **Source:** [0050](0050-adr-format.md) §13
+- **Change:** consolidates §1–13
+- **Summary:** A1–A3 were folded into the Decision. The open questions were numbered. The header's note that a placeholder of the same date was replaced is dropped. No decision changed. Before this, A2's §8 part and A3 were blockquotes. The file before conversion is commit `0b26a3a`.

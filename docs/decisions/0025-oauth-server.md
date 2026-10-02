@@ -2,9 +2,10 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
+- **Updated:** 2026-10-01 (A3)
 - **Author:** James Hare / Claude Fable
-- **Amended by:** [0046 — The primary tenant](0046-primary-tenant.md) (§4 amends §5: consumer events are in the instance `log`; §8 amends §10: `mwoauthmanageconsumer` is an instance right)
-- **Related:** [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§11 amends §2), [0007 — Actor identity](0007-actor-identity.md) (§3 amends §4: the `pending` status; §3 of that ADR is how a person logs in, this ADR is how a tool acts), [0010 — Site UI](0010-site-ui.md) (§5 extends §11), [0011 — Upstream and local logs](0011-logs.md) (§5 extends §6.1), [0012 — API requirements for the site UI](0012-api-requirements.md) (§9 extends §4 and §5), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md) (§8 extends §4 and §5.6), [0014 — Cache layers and search](0014-caches-and-search.md) (§8 uses §2 and §4), [0015 — Record format and partition registry](0015-record-format-and-partition-registry.md) (§2 extends §3 with the `consumer` and `consumer-policy` kinds), [0016 — Permissions and access control](0016-permissions-and-access-control.md) (§3 refines §3; §10 extends §2), [0018 — Tenants](0018-tenants.md) (§7 follows §4), [0024 — Subsidiary accounts, API keys and rate limits](0024-subsidiary-accounts.md) (§3 extends §2 and refines §4; §4 settles its per-key-tag question; §6 uses §5; this ADR is the delegated-tool case its open questions leave), [0028 — Tenancy policy](0028-tenancy-policy.md) (§7 uses §8), [0030 — Edit filters](0030-edit-filters.md) (§4 writes the tag §5 reserves), [MediaWiki API contract](../api/mediawiki-compat.md)
+- **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0024](0024-subsidiary-accounts.md)
+- **Uses:** [0018](0018-tenants.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
 
@@ -46,7 +47,7 @@ The client-credentials flow is **not offered**: a tool acting for nobody is a bo
 
 **`/oauth/identify`** returns the **subsidiary** the token acts as, and its operator: `sub` (the subsidiary's user ID, [0007](0007-actor-identity.md) §3), `username` (its name), `groups`, `rights` (its effective permissions), `grants` (the token's), `blocked`, `registered`, and an `operator` object with the primary account's `sub` and `username`. The MediaWiki-compatible `profile` route returns the same fields in the extension's shape, so a tool that greets the person by `username` greets the subsidiary; a tool that wants the person's own name reads `operator.username`. There is no `email` or `realname` field: the instance holds neither ([0007](0007-actor-identity.md) §3, [0021](0021-notifications.md) §3), and a tool that needs to reach the person notifies the subsidiary, which routes to the operator ([0024](0024-subsidiary-accounts.md) §6).
 
-**OAuth 1.0a is not offered** in this ADR. Pywikibot and several older tools speak only 1.0a; Pywikibot also speaks bot passwords, which are 0024's keys. Whether a 1.0a shim is worth its signing code is an open question below.
+**OAuth 1.0a is not offered** in this ADR. Pywikibot and several older tools speak only 1.0a; Pywikibot also speaks bot passwords, which are 0024's keys. Whether a 1.0a shim is worth its signing code is Q1 below.
 
 ### 2. Consumers are instance configuration (extends 0015 §3)
 
@@ -58,7 +59,7 @@ A **consumer** is a registered tool. Its record is a `config` record of kind **`
 
 A consumer whose owner vanishes ([0007](0007-actor-identity.md) §4) is disabled; a disabled consumer's tokens stop working at once (§5). `Special:OAuthConsumers` lists consumers, their status and their requested grants, and is where registration and approval happen (§5).
 
-### 3. Authorization selects or creates a subsidiary, and a created one is pending (amends 0007 §4; extends 0024 §2; refines 0024 §4)
+### 3. Authorization selects or creates a subsidiary, and a created one is pending (amends 0007 §4; extends 0024 §2; amends 0024 §4)
 
 The consent page at `/oauth/authorize` is shown to a **primary account** with an interactive session; a subsidiary cannot reach it, since it cannot log in ([0024](0024-subsidiary-accounts.md) §1), and a temporary account is refused. It shows the consumer's name and description, the grants requested, intersected with what the consumer was approved for, and **which subsidiary the tool will act as**:
 
@@ -75,7 +76,7 @@ The person may also narrow the grants below what the consumer asked for, as Medi
 
 **One authorization per (subsidiary, consumer).** Authorizing the same consumer again for the same subsidiary replaces the earlier tokens. A subsidiary may be bound to several consumers, each with its own tokens and grants; the tag of §4 keeps their edits apart.
 
-### 4. Attribution and the consumer tag (extends 0030 §5; settles 0024's per-key-tag question)
+### 4. Attribution and the consumer tag (extends 0030 §5; settles 0024 Q3)
 
 Every record written with a token is attributed to the **subsidiary**, with `prov:actedOnBehalfOf` its operator as for any subsidiary ([0007](0007-actor-identity.md) §6, [0024](0024-subsidiary-accounts.md) §6). The attestation part of the record ([0015](0015-record-format-and-partition-registry.md) §1, as [0030](0030-edit-filters.md) §5 widened it) carries the change tag **`oauth:{slug}`**, so a contributions page can show and filter which tool made an edit and the metadata graph can emit it. This is the tag 0030 §5 reserves for this ADR, and it corresponds to MediaWiki's `OAuth CID: n` with the slug in place of the number.
 
@@ -85,19 +86,19 @@ The tag is written by the request path, not by the client: a client cannot omit 
 
 ### 5. Management, revocation and log events (extends 0010 §11 and 0011 §6.1)
 
+*Changed by A2.*
+
 **Connected applications**, a section of `Special:Account` ([0010](0010-site-ui.md) §11), Private, lists each authorization the person's subsidiaries hold: consumer, subsidiary, grants, authorized and last-used dates, and **Revoke**. A subsidiary's own user page gains no such list; authorizations are private state of the operator. `Special:OAuthConsumers` is the consumer registry: a developer registers and updates their own; a holder of `mwoauthmanageconsumer` approves, rejects and disables; everyone reads it.
 
 **Revocation is immediate**, as for keys: revoking an authorization marks its tokens revoked and drops every session opened with them, which is why sessions record the token ID ([0024](0024-subsidiary-accounts.md) §4). Tokens are also revoked when the subsidiary is retired or transferred ([0024](0024-subsidiary-accounts.md) §2, since the new operator did not consent), when the operator is blocked in a way that removes `edit` (they simply fail, since blocks reach subsidiaries), when the consumer is disabled, and when the operator vanishes, which requires the subsidiary to have been retired or transferred first anyway.
 
-**Log events.** The consumer lifecycle is public and is logged: `oauth/propose`, `oauth/update`, `oauth/approve`, `oauth/reject`, `oauth/disable`, with the consumer slug as target and the reason in the comment part, written to the primary tenant's `log` partition, or `log/{farm}` where [0028](0028-tenancy-policy.md) §2 creates one. **Authorizations and revocations are not logged**: an authorization is private state, like the issue of a key ([0024](0024-subsidiary-accounts.md) §4), and nothing about a token is ever a log record. What is public is what the subsidiary then does, and its creation and approval, which `newusers/create2` and `rights/rights` already cover.
-
-> **Amended by [0046](0046-primary-tenant.md) §4.** Consumer events are written to the **instance `log`**, not to the primary tenant's `log` or to `log/{farm}`: consumers are instance configuration, and their record must not move when the primary role does.
+**Log events.** The consumer lifecycle is public and is logged: `oauth/propose`, `oauth/update`, `oauth/approve`, `oauth/reject`, `oauth/disable`, with the consumer slug as target and the reason in the comment part, written to the **instance `log`** ([0046](0046-primary-tenant.md) §4): consumers are instance configuration, and their record must not move when the primary role does. **Authorizations and revocations are not logged**: an authorization is private state, like the issue of a key ([0024](0024-subsidiary-accounts.md) §4), and nothing about a token is ever a log record. What is public is what the subsidiary then does, and its creation and approval, which `newusers/create2` and `rights/rights` already cover.
 
 ### 6. Rate limits (uses 0024 §5)
 
 A request made with a token is limited as the **subsidiary** is limited: its groups pick the row of the rate-limit table, so an approved-but-unflagged tool account edits at `user`'s rate and a community that has flagged one as `bot` gets bot rates for it. Authorization attempts, consent, and device-code entry count under the **`account`** class against the primary account; token refreshes count under `read` against the subsidiary. There is no per-consumer limit: a consumer is code, and what is limited is the account it acts as.
 
-### 7. Tenants (follows 0018 §4 and 0024 §7; uses 0028 §8)
+### 7. Tenants (uses 0018 §4, 0024 §7 and 0028 §8)
 
 A token is a credential of one subsidiary, and a subsidiary belongs to one tenant ([0024](0024-subsidiary-accounts.md) §7), so a token acts in one tenant. A person who uses a tool in two tenants authorizes it twice, once on each tenant's host, and gets two subsidiaries or chooses two existing ones. The consent page is served on the tenant host where the person is logged in, and the tokens work only against that tenant's API; the same consumer record serves both. On a farm with a shared account database ([0028](0028-tenancy-policy.md) §2) this is unchanged: the farm actor logs in, but the subsidiary created is a tenant actor with the farm actor's tenant account as operator.
 
@@ -124,17 +125,17 @@ The endpoints of §1, at both paths. Additionally:
 
 `docs/api/mediawiki-compat.md` gains a section on the OAuth 2.0 routes and their MediaWiki paths, noting the 1.0a gap.
 
-### 10. Permissions (extends 0016 §2; refines 0016 §3)
+### 10. Permissions (extends 0016 §2; amends 0016 §3)
+
+*Changed by A2.*
 
 | Permission | Governs | Default groups |
 |---|---|---|
 | `mwoauthproposeconsumer` | Registering a consumer (§2) | `autoconfirmed` |
 | `mwoauthupdateownconsumer` | Updating and rotating the secret of a consumer one owns (§2) | `autoconfirmed` |
-| `mwoauthmanageconsumer` | Approving, rejecting and disabling consumers (§2) | `bureaucrat` |
+| `mwoauthmanageconsumer` | Approving, rejecting and disabling consumers (§2). An instance right ([0040](0040-instance-prerogatives.md) §9, [0046](0046-primary-tenant.md) §8): evaluated on the primary tenant or through a global group, and held to no effect by a bureaucrat of any other tenant | `bureaucrat` |
 | `mwoauthmanagemygrants` | Viewing and revoking authorizations of one's own subsidiaries (§5) | `user` |
 | `mwoauthviewprivate` | Viewing any account's authorizations and token metadata, for abuse investigation (§5) | `sysop` |
-
-> **Amended by [0046](0046-primary-tenant.md) §8.** `mwoauthmanageconsumer` is an **instance right** ([0040](0040-instance-prerogatives.md) §9): it is evaluated on the primary tenant or through a global group, and a bureaucrat of any other tenant holds it to no effect.
 
 The names are MediaWiki's so a Wikimedia administrator recognises them. `mwoauthsuppress` and `mwoauthviewsuppressed` are not offered: consumer records are `config`, and hiding one is disabling it. Approval of a pending subsidiary is `userrights`, as in 0024, and creating one in the consent page is `createaccount`. `docs/registry/groups.toml` gains the five permissions.
 
@@ -142,16 +143,11 @@ The one refinement to 0016 §3's evaluation is §3's: an actor with status `pend
 
 ### 11. Crates (amends 0005 §2)
 
-| Layer | Crate | Change |
-|---|---|---|
-| Substrate | `scatter-actors` | The `pending` status and its effect on implicit membership (§3); the grant-intersection rule already exists for keys and is reused unchanged |
-| | `scatter-mwlog` | The `oauth/*` actions (§5) |
-| Triplespace | `triplespace-oauth` *(new)* | The authorization server: metadata, authorize, token, device, revoke and identify endpoints at both paths; PKCE; consent page; consumer registry and policy evaluation; the `oauth:{slug}` tag on the request path (§1–4). Depends on `triplespace-accounts` for every read or write of `private` and on `scatter-actors` for permissions |
-| | `triplespace-accounts` | `private.oauth_token` and `private.oauth_consumer`; token authentication beside key authentication; session–token binding; revocation on retirement and transfer (§5, §8) |
-| | `triplespace-api-action`, `triplespace-api-rest` | §9; the `oauth-pending` refusal in front of every write |
-| | `triplespace-server` | `Special:OAuthConsumers`, `Special:PendingSubsidiaries`, `Special:OAuth/device` and the Connected applications section, served from `triplespace-oauth` (§5) |
+*Changed by A1.*
 
-The workspace goes from forty-three crates to forty-four.
+*Superseded by [0005](0005-crate-organization.md) §2 (A1).*
+
+[0005](0005-crate-organization.md) §2 keeps the crate table that CI checks, with `triplespace-oauth` and every change this section listed. The table this section first gave is in A1.
 
 ### 12. Scatterbase
 
@@ -164,17 +160,38 @@ Nothing here is Scatterbase's. A crawler has no users to delegate for. Consumer 
 - **A tool's failure mode is a pending account, not a rejected login.** Authorization completes; writes wait; the tool can say so.
 - **Tokens and keys are one mechanism** in the request path: a credential of a subsidiary, with grants, checked by hash, revocable at once, never in a header.
 - **One registration serves a farm**, and each tenant chooses what to allow, which fits all three tenancy presets without a switch of their own.
-- **Wikimedia-written tools need a host change**, not a rewrite, provided they speak OAuth 2.0; 1.0a tools do not work until the open question is settled.
+- **Wikimedia-written tools need a host change**, not a rewrite, provided they speak OAuth 2.0; 1.0a tools do not work until Q1 is settled.
 - **One more crate, two `private` tables, one status, five permissions**, and no new log partition or record kind beyond two `config` kinds.
 
 ## Open questions
 
-- **OAuth 1.0a shim.** Whether to serve `Special:OAuth/initiate|authorize|token` with HMAC-SHA1 signing for Pywikibot's OAuth login and other 1.0a-only tools, or to point them at bot passwords ([0024](0024-subsidiary-accounts.md) §4) and leave 1.0a unimplemented. The signing code is small; the cost is a second token shape to revoke and audit.
-- **OpenID Connect.** Whether `/oauth/identify` should grow into an OIDC `userinfo` with an ID token, so that other sites can offer "log in with this instance". Deliberately outside this ADR; it would make the instance an identity provider, and [0007](0007-actor-identity.md) §3's choice was to consume providers, not to be one.
-- **Consent for grant changes.** When a consumer's approved grants widen, whether existing authorizations keep their narrower grants (as here) or the person is asked again on next use.
-- **Auto-approval by track record.** Whether a tenant should be able to auto-approve a subsidiary whose operator already has an approved one, or whose operator holds a given group, rather than only per consumer.
-- **Pending-subsidiary notifications.** Whether creation of a pending subsidiary should notify bureaucrats through [0021](0021-notifications.md), as a `rights`-like event, or only appear on `Special:PendingSubsidiaries`.
-- **Subsidiary name suggestion**: `{Operator}-{slug}` versus `{Operator}Bot` for all tools, pending 0024's name-pattern question.
+- **Q1. OAuth 1.0a shim.** Whether to serve `Special:OAuth/initiate|authorize|token` with HMAC-SHA1 signing for Pywikibot's OAuth login and other 1.0a-only tools, or to point them at bot passwords ([0024](0024-subsidiary-accounts.md) §4) and leave 1.0a unimplemented. The signing code is small; the cost is a second token shape to revoke and audit.
+- **Q2. OpenID Connect.** Whether `/oauth/identify` should grow into an OIDC `userinfo` with an ID token, so that other sites can offer "log in with this instance". Deliberately outside this ADR; it would make the instance an identity provider, and [0007](0007-actor-identity.md) §3's choice was to consume providers, not to be one.
+- **Q3. Consent for grant changes.** When a consumer's approved grants widen, whether existing authorizations keep their narrower grants (as here) or the person is asked again on next use.
+- **Q4. Auto-approval by track record.** Whether a tenant should be able to auto-approve a subsidiary whose operator already has an approved one, or whose operator holds a given group, rather than only per consumer.
+- **Q5. Pending-subsidiary notifications.** Whether creation of a pending subsidiary should notify bureaucrats through [0021](0021-notifications.md), as a `rights`-like event, or only appear on `Special:PendingSubsidiaries`.
+- **Q6. Subsidiary name suggestion**: `{Operator}-{slug}` versus `{Operator}Bot` for all tools, pending 0024 Q2.
+
+## Changes to other ADRs
+
+| Target | By | Change | Target's log |
+|---|---|---|---|
+| [0005](0005-crate-organization.md) §2 | §11 | extends | 0005 A21 |
+| [0007](0007-actor-identity.md) §4 | §3 | extends | 0007 A9 |
+| [0010](0010-site-ui.md) §11 | §5 | extends | 0010 A15 |
+| [0011](0011-logs.md) §6.1 | §5 | extends | 0011 A9 |
+| [0012](0012-api-requirements.md) §4, §5 | §1, §9 | extends | 0012 A14 |
+| [0013](0013-postgres-storage.md) §5, §5.2, §5.6 | §8 | amends | 0013 A9 |
+| [0013](0013-postgres-storage.md) §4, §5.4, §5.5, §7, §8 | §8 | extends | 0013 A9 |
+| [0014](0014-caches-and-search.md) §1, §5 | §5, §8 | amends | 0014 A3 |
+| [0014](0014-caches-and-search.md) §10 | §5, §8 | extends | 0014 A3 |
+| [0015](0015-record-format-and-partition-registry.md) §3 | §2 | extends | 0015 A8 |
+| [0016](0016-permissions-and-access-control.md) §2 | §3, §10 | extends | 0016 A8 |
+| [0016](0016-permissions-and-access-control.md) §3 | §3, §10 | amends | 0016 A8 |
+| [0024](0024-subsidiary-accounts.md) §1, §2 | §3–4 | extends | 0024 A2 |
+| [0024](0024-subsidiary-accounts.md) §4 | §3–4 | amends | 0024 A2 |
+| [0024](0024-subsidiary-accounts.md) Q1 | — | settles | 0024 Q1 |
+| [0024](0024-subsidiary-accounts.md) Q3 | §4 | settles | 0024 Q3 |
 
 ## References
 
@@ -183,3 +200,49 @@ Nothing here is Scatterbase's. A crawler has no users to delegate for. Consumer 
 - [Help:QuickStatements](https://www.wikidata.org/wiki/Help:QuickStatements), [OpenRefine: Wikibase reconciliation and editing](https://openrefine.org/docs/manual/wikibase/overview)
 - [Wikidata:Bots](https://www.wikidata.org/wiki/Wikidata:Bots) (semi-automated editing and approval)
 - [0007 — Actor identity](0007-actor-identity.md), [0024 — Subsidiary accounts, API keys and rate limits](0024-subsidiary-accounts.md)
+
+## Amendment log
+
+### A1. Crate table
+
+- **Date:** 2026-09-27
+- **Source:** [0005](0005-crate-organization.md) §2
+- **Change:** supersedes §11
+- **Summary:** 0005 §2 is the one crate table CI checks, and carries `triplespace-oauth` and every change this section listed (0005 A21).
+
+Replaced text (§11):
+
+> | Layer | Crate | Change |
+> |---|---|---|
+> | Substrate | `scatter-actors` | The `pending` status and its effect on implicit membership (§3); the grant-intersection rule already exists for keys and is reused unchanged |
+> | | `scatter-mwlog` | The `oauth/*` actions (§5) |
+> | Triplespace | `triplespace-oauth` *(new)* | The authorization server: metadata, authorize, token, device, revoke and identify endpoints at both paths; PKCE; consent page; consumer registry and policy evaluation; the `oauth:{slug}` tag on the request path (§1–4). Depends on `triplespace-accounts` for every read or write of `private` and on `scatter-actors` for permissions |
+> | | `triplespace-accounts` | `private.oauth_token` and `private.oauth_consumer`; token authentication beside key authentication; session–token binding; revocation on retirement and transfer (§5, §8) |
+> | | `triplespace-api-action`, `triplespace-api-rest` | §9; the `oauth-pending` refusal in front of every write |
+> | | `triplespace-server` | `Special:OAuthConsumers`, `Special:PendingSubsidiaries`, `Special:OAuth/device` and the Connected applications section, served from `triplespace-oauth` (§5) |
+>
+> The workspace goes from forty-three crates to forty-four.
+
+### A2. The primary tenant
+
+- **Date:** 2026-09-30
+- **Source:** [0046](0046-primary-tenant.md) §4, §8
+- **Change:** amends §5, §10
+- **Summary:** By section:
+  - §5: Consumer events are written to the **instance `log`**, not to the primary tenant's `log` or to `log/{farm}`: consumers are instance configuration, and their record must not move when the primary role does.
+  - §10: `mwoauthmanageconsumer` is an **instance right** ([0040](0040-instance-prerogatives.md) §9): it is evaluated on the primary tenant or through a global group, and a bureaucrat of any other tenant holds it to no effect.
+
+Replaced text (§5):
+
+> with the consumer slug as target and the reason in the comment part, written to the primary tenant's `log` partition, or `log/{farm}` where [0028](0028-tenancy-policy.md) §2 creates one.
+
+Replaced text (§10):
+
+> | `mwoauthmanageconsumer` | Approving, rejecting and disabling consumers (§2) | `bureaucrat` |
+
+### A3. Converted to the 0050 format
+
+- **Date:** 2026-10-01
+- **Source:** [0050](0050-adr-format.md) §13
+- **Change:** consolidates §5, §10–11
+- **Summary:** A1–A2 were folded into the Decision. The open questions were numbered. No decision changed. Before this, A2 was two blockquotes. The file before conversion is commit `0b26a3a`.
