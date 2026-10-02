@@ -2,8 +2,10 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
+- **Updated:** 2026-10-01 (A2)
 - **Author:** James Hare / Claude Opus
-- **Related:** [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§6 amends §2), [0008 — Namespaces and document pages](0008-namespaces-and-document-pages.md) (§5 extends §3: the `entity-id` normalizer accepts the form), [0012 — API requirements for the site UI](0012-api-requirements.md) (§3 uses §4 and §5), [0017 — Entity ID grammar](0017-entity-id-grammar.md) (§1 extends §1: an input form of local IDs; §2 extends §2), [0018 — Tenants](0018-tenants.md) (§4 uses §5), [0022 — Federation](0022-federation.md) (§4 uses §2), [0043 — Lua modules](0043-lua-modules.md), [Provider registry](../registry/providers.toml)
+- **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0017](0017-entity-id-grammar.md)
+- **Uses:** [0012](0012-api-requirements.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0043](0043-lua-modules.md)
 
 ## Context
 
@@ -60,14 +62,13 @@ Reserving all twenty-six, not only the letters local types use today, means a ty
 
 **The `entity-id` normalizer accepts the form** ([0008](0008-namespaces-and-document-pages.md) §3): `Item:QQQ5` normalizes to `Item:Q5`, as `Item:q5` already does, and the title resolver serves the canonical title. This is normalization, not a redirect record.
 
-### 6. Crates
+### 6. Crates (amends 0005 §2)
 
-| Crate | Change |
-|---|---|
-| `scatter-wikibase-model` | The ID parser accepts the tenant-relative form and returns the local ID (§1) |
-| `scatter-providers` | The reserved doubled codes, rejected when a provider is registered (§2) |
+*Changed by A1.*
 
-No crate is added.
+*Superseded by [0005](0005-crate-organization.md) §2 (A1).*
+
+[0005](0005-crate-organization.md) §2 keeps the crate table that CI checks, with both changes this section listed. The table this section first gave is in A1.
 
 ## Consequences
 
@@ -78,10 +79,43 @@ No crate is added.
 
 ## Open questions
 
-- **Output in the tenant-relative form on request.** Whether a client may ask the API to write every local ID as `QQQ…`, so that output has three-letter prefixes across the board as input already can. Doing so would need an additive parameter under [0012](0012-api-requirements.md) §1's rules.
-- **Keyed IDs** (`domain:…`) have no prefix of this shape, and are left as they are.
+- **Q1. Output in the tenant-relative form on request.** Whether a client may ask the API to write every local ID as `QQQ…`, so that output has three-letter prefixes across the board as input already can. Doing so would need an additive parameter under [0012](0012-api-requirements.md) §1's rules.
+- **Q2. Keyed IDs** (`domain:…`) have no prefix of this shape, and are left as they are.
+
+## Changes to other ADRs
+
+| Target | By | Change | Target's log |
+|---|---|---|---|
+| [0005](0005-crate-organization.md) §2 | §6 | extends | 0005 A44 |
+| [0008](0008-namespaces-and-document-pages.md) §3 | §5 | extends | 0008 A14 |
+| [0017](0017-entity-id-grammar.md) §1, §2 | §1–2 | extends | 0017 A6 |
 
 ## References
 
 - `docs/registry/providers.toml` (allocated codes)
 - [Wikibase entity IDs and federation](https://doc.wikimedia.org/Wikibase/master/php/docs_topics_entitysources.html)
+
+## Amendment log
+
+### A1. Crate table
+
+- **Date:** 2026-09-30
+- **Source:** [0005](0005-crate-organization.md) §2
+- **Change:** supersedes §6
+- **Summary:** 0005 §2 is the one crate table CI checks, and carries both changes this section listed (0005 A44).
+
+Replaced text (§6):
+
+> | Crate | Change |
+> |---|---|
+> | `scatter-wikibase-model` | The ID parser accepts the tenant-relative form and returns the local ID (§1) |
+> | `scatter-providers` | The reserved doubled codes, rejected when a provider is registered (§2) |
+>
+> No crate is added.
+
+### A2. Converted to the 0050 format
+
+- **Date:** 2026-10-01
+- **Source:** [0050](0050-adr-format.md) §13
+- **Change:** consolidates §6
+- **Summary:** A1 was folded into the Decision. The open questions were numbered. No decision changed. Before this, A1 was recorded only in 0005. The file before conversion is commit `0b26a3a`.
