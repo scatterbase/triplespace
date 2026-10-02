@@ -2,9 +2,10 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
+- **Updated:** 2026-10-01 (A4)
 - **Author:** James Hare / Claude Opus
-- **Amended by:** [0043 — Lua modules](0043-lua-modules.md) (§1 extends §2: `wikitext.lua`; §10 extends §10: entity usage), [0047 — Special pages](0047-special-pages.md) (§4.3 and §13 extend §10: report deltas from the refresh job; `view.site_stats` serves §5's `NUMBEROF*` variables)
-- **Related:** [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§19 amends §2: `scatter-wikitext-expand` and `triplespace-render`), [0008 — Namespaces and document pages](0008-namespaces-and-document-pages.md) (§1 amends §8: rendering is expansion, then rendering; §3 amends §2: Template and Template talk are implemented while expansion is on; §9 amends §10: links come from expanded output; §13 amends §9: flattening on import becomes optional), [0010 — Site UI](0010-site-ui.md) (§7 amends §4: chips after expansion; §15 amends §4: server preview and templates used), [0012 — API requirements for the site UI](0012-api-requirements.md) (§14 extends §4 and §5; §12 extends §5), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md) (§10 extends §5.6, and amends its rule that every `view` table is a pure projection of the log), [0014 — Cache layers and search](0014-caches-and-search.md) (§10 amends §3 and §4: the render epoch; extends §5: erasure reaches transcluding pages; §17 extends §7), [0015 — Record format and partition registry](0015-record-format-and-partition-registry.md) (§2 and §11 extend §3: `wikitext.*` settings and the `template-repo` kind; §5 extends §5: the `wikitext-functions.toml` registry), [0024 — Subsidiary accounts](0024-subsidiary-accounts.md) (§16 extends §5: the `parse` rate class), [0028 — Tenancy policy](0028-tenancy-policy.md) (§2 extends §1: the `wikitext.ceiling` switch), [0030 — Edit filters](0030-edit-filters.md) (§17 refines §2: link variables from expanded output), [0033 — Backend technology stack](0033-backend-stack.md) (§1 and §8 refine §9.1: the parser renders expanded text, and Parsoid joins as a service; §8.3 amends §1: one optional service needs PHP; §18 extends §15: the reference install gains ParserFunctions and Scribunto), [0034 — Frontend technology stack](0034-frontend-stack.md) (§15 amends §6: pages that need expansion preview on the server), [0038 — Page metadata, legacy categories and articles](0038-page-metadata-and-categories.md) (§9 amends §3: categories come from expanded output while expansion is on, including tracking categories), [0039 — Files, blob storage and foreign file repositories](0039-files-and-media.md) (§11 follows §11: template repositories are configured as file repositories are), [0041 — Content models](0041-content-models.md), [0043 — Lua modules](0043-lua-modules.md), [MediaWiki API contract](../api/mediawiki-compat.md)
+- **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0024](0024-subsidiary-accounts.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md)
+- **Uses:** [0023](0023-moderation.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0043](0043-lua-modules.md), [0047](0047-special-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
 
@@ -35,7 +36,7 @@ James's direction, from the design discussion of 2026-09-30:
 
 ## Decision
 
-### 1. Expansion, then rendering (amends 0008 §8; refines 0033 §9.1)
+### 1. Expansion, then rendering (amends 0008 §8 and 0033 §9.1)
 
 **A `wikitext` page renders in two stages, as in MediaWiki:**
 
@@ -49,6 +50,8 @@ James's direction, from the design discussion of 2026-09-30:
 **The source is still parsed as source.** Positions for conflict marking and link autocomplete ([0010](0010-site-ui.md) §4) come from the source, as now. Rendering and page metadata (§9) come from the expanded text.
 
 ### 2. Settings (extends 0015 §3; extends 0028 §1)
+
+*Changed by A2.*
 
 **Per tenant**, as `site` settings ([0015](0015-record-format-and-partition-registry.md) §3):
 
@@ -239,6 +242,8 @@ A template's `<includeonly>` categories reach the pages that transclude it; its 
 
 ### 10. The render manifest and refresh (extends 0013 §5.6 and 0014 §3–5)
 
+*Changed by A2, A3.*
+
 **Every expansion produces a manifest:** what it read, and until when the result holds.
 
 | Entry | Recorded as |
@@ -280,9 +285,9 @@ Its lifetime is the lower of 0014 §4's ceiling and `expires_at`. A miss renders
 
 **Erasure, deletion and hiding reach transcluding pages (extends 0014 §5).** Every rendered response carries a `Cache-Tag` for each page and entity in its manifest. Erasing, deleting or hiding a dependency bumps the epoch of every page that depends on it, deletes their `p:` keys, and purges their tags, because the public form of those pages has changed.
 
-> **Extended by [0047](0047-special-pages.md) §4.3 and §13.** The refresh job applies report deltas (`view.report_entry`) in the same transaction as the `transclusion`, link, category and `entity_usage` rows it writes. Site statistics, a volatile input here, are read from `view.site_stats`.
+**Reports and statistics.** The refresh job applies report deltas (`view.report_entry`) in the same transaction as the `transclusion`, link, category and `entity_usage` rows it writes ([0047](0047-special-pages.md) §4.3). Site statistics, a volatile input here, are read from `view.site_stats` ([0047](0047-special-pages.md) §13).
 
-### 11. Foreign template repositories (follows 0039 §11)
+### 11. Foreign template repositories (uses 0039 §11)
 
 **A template repository is a source of Template and Module pages that a tenant uses without copying them,** configured exactly as file repositories are ([0039](0039-files-and-media.md) §11): a `config` record of kind `template-repo`, keyed `template-repo:{name}`, in a tenant's or the instance's `config`, and listed in lookup order in the tenant's `wikitext.template_repos`.
 
@@ -348,7 +353,7 @@ The importer may bring the Template and Module pages with full history, as ordin
 
 **A new rate class, `parse`** ([0024](0024-subsidiary-accounts.md) §5), counts the expansions a client asks for directly: `action=parse` with `text`, `action=expandtemplates`, server preview, and the Lua console if it is ever added ([0043](0043-lua-modules.md), open questions). The default is 60 per minute for `user` and 600 per minute for `bot`. Page views are not counted; they are cached renders.
 
-### 17. Search and filters (extends 0014 §7; refines 0030 §2)
+### 17. Search and filters (extends 0014 §7; amends 0030 §2)
 
 - **Search.** With expansion on, the `text` field of the `pages` index is the rendered text, as CirrusSearch indexes it, and `source_text` keeps the source. A `hastemplate:` keyword reads `view.transclusion`.
 - **Filters.** `added_links` and `removed_links` ([0030](0030-edit-filters.md) §2) come from the expanded text when expansion is on. They are computed only when an enabled filter reads them, as AbuseFilter computes its variables lazily.
@@ -362,19 +367,11 @@ The importer may bring the Template and Module pages with full history, as ordin
 
 ### 19. Crates (amends 0005 §2)
 
-| Crate | Change |
-|---|---|
-| `scatter-wikitext-expand` *(new)* | Substrate, pure, no C dependencies. The preprocessor tree, frames, strip markers, pre-save `subst:`, core variables and parser functions, ParserFunctions, the registry embedding `docs/registry/wikitext-functions.toml`, the `ExpandHost` trait, and the manifest and limit-report types (§4–6, §10). Depends on the ICU4X crates already chosen ([0033](0033-backend-stack.md) §9.3) for dates, numbers and plurals |
-| `scatter-wikitext` | Renders expanded text with its strip state; extracts links, categories, file links, external links and indicators from expanded text (§7, §9); `poem` and `indicator` |
-| `triplespace-render` *(new)* | `ExpandHost` over the serving model; the render pipeline and renderer choice; the Parsoid client and the render-scoped endpoint's manifest collection (§8); the refresh job, `ops.render_refresh` and the invalidation fan-out (§10); foreign template repositories (§11). Depends on `triplespace-db`, `triplespace-projections`, `triplespace-titles`, `triplespace-cache`, `triplespace-upstream`, `scatter-wikitext`, `scatter-wikitext-expand` and `scatter-pages` |
-| `triplespace-titles` | Conditional namespaces (`enabled_by`) and the disabled-namespace refusal (§3) |
-| `triplespace-db` | Migrations for `view.transclusion`, `view.render_state` and `ops.render_refresh` |
-| `triplespace-cache` | The render epoch in `p:` keys; dependency `Cache-Tag`s (§10) |
-| `triplespace-search` | Rendered `text`, `source_text` and `hastemplate:` (§17) |
-| `triplespace-api-action`, `triplespace-api-rest` | The modules and routes of §14; the render-scoped endpoint (§8.2) |
-| `triplespace-cli` | `render refresh` (a tenant or the instance) and `render rebuild` (§10) |
+*Changed by A1.*
 
-`services/parsoid/` is a PHP program, not a crate. The workspace goes from forty-nine crates to fifty-one.
+*Superseded by [0005](0005-crate-organization.md) §2 (A1).*
+
+[0005](0005-crate-organization.md) §2 keeps the crate table that CI checks, with `scatter-wikitext-expand`, `triplespace-render` and every change this section listed. `services/parsoid/` is a PHP program, not a crate. The table this section first gave is in A1.
 
 ## Consequences
 
@@ -385,20 +382,42 @@ The importer may bring the Template and Module pages with full history, as ordin
 - **Some `view` tables are no longer replayable.** Links, categories and transclusions on a tenant with expansion on are rebuilt by re-rendering, and with foreign repositories or volatile inputs the rebuild can differ. The log stays the source of truth for what was written; it is not the record of what was rendered.
 - **Categories can come from templates.** 0038's projection now reads the expanded text, so categorizing by template works, and so do tracking categories for broken templates.
 - **One optional service needs PHP.** Instances that never choose Parsoid never run it.
-- **Pages will look plainer than on Wikipedia** until site styles exist. Templates assume `MediaWiki:Common.css` and TemplateStyles, and neither is available (open questions).
+- **Pages will look plainer than on Wikipedia** until site styles exist. Templates assume `MediaWiki:Common.css` and TemplateStyles, and neither is available (Q2, Q3).
 - **History can render as it was.** `as_of=revision` is something MediaWiki cannot offer, and it falls out of the append-only log.
 
 ## Open questions
 
-- **Cascading protection.** With transclusion, protecting a page without protecting its templates protects little. `cascade=1` is still refused ([0023](0023-moderation.md) §8); whether to implement it as an enclosure over `view.transclusion`.
-- **TemplateStyles.** A `sanitized-css` model and a CSS sanitizer in Rust. 0008 §5 excluded it with the other style models; templates from Wikipedia depend on it.
-- **Site styles.** Whether a tenant may have any site CSS, given 0008 §5's exclusion of `css`.
-- **Mirror mode for template repositories,** copying used foreign pages into an instance partition as 0039 §11's file mirrors do, for availability and verification.
-- **Push invalidation from Wikimedia repositories.** Following EventStreams `recentchange` for the repository's Template and Module namespaces, instead of waiting for `repo.cache_ttl`.
-- **Editing through Parsoid HTML.** VisualEditor-style editing needs Parsoid's HTML-to-wikitext direction, page bundles stored per revision, and TemplateData.
-- **Section editing of transcluded sections,** which MediaWiki numbers `T-1`.
-- **Language variants.** `languagevariants` is empty and LanguageConverter is not implemented.
-- **Labeled Section Transclusion** (`#lst`), which Wikisource depends on.
+- **Q1. Cascading protection.** With transclusion, protecting a page without protecting its templates protects little. `cascade=1` is still refused ([0023](0023-moderation.md) §8); whether to implement it as an enclosure over `view.transclusion`.
+- **Q2. TemplateStyles.** A `sanitized-css` model and a CSS sanitizer in Rust. 0008 §5 excluded it with the other style models; templates from Wikipedia depend on it.
+- **Q3. Site styles.** Whether a tenant may have any site CSS, given 0008 §5's exclusion of `css`.
+- **Q4. Mirror mode for template repositories,** copying used foreign pages into an instance partition as 0039 §11's file mirrors do, for availability and verification.
+- **Q5. Push invalidation from Wikimedia repositories.** Following EventStreams `recentchange` for the repository's Template and Module namespaces, instead of waiting for `repo.cache_ttl`.
+- **Q6. Editing through Parsoid HTML.** VisualEditor-style editing needs Parsoid's HTML-to-wikitext direction, page bundles stored per revision, and TemplateData.
+- **Q7. Section editing of transcluded sections,** which MediaWiki numbers `T-1`.
+- **Q8. Language variants.** `languagevariants` is empty and LanguageConverter is not implemented.
+- **Q9. Labeled Section Transclusion** (`#lst`), which Wikisource depends on.
+
+## Changes to other ADRs
+
+| Target | By | Change | Target's log |
+|---|---|---|---|
+| [0005](0005-crate-organization.md) §2, §3, §7 | §19 | extends | 0005 A42 |
+| [0008](0008-namespaces-and-document-pages.md) §8, §9 | §1, §3, §7–9, §13 | amends | 0008 A12 |
+| [0008](0008-namespaces-and-document-pages.md) §2, §10 | §1, §3, §7–9, §13 | extends | 0008 A12 |
+| [0010](0010-site-ui.md) §4 | §7, §15 | amends | 0010 A26 |
+| [0012](0012-api-requirements.md) §4, §5 | §12, §14 | extends | 0012 A26 |
+| [0013](0013-postgres-storage.md) §5.6 | §10 | amends | 0013 A16 |
+| [0013](0013-postgres-storage.md) §7 | §10 | extends | 0013 A16 |
+| [0014](0014-caches-and-search.md) §3, §4 | §10, §17 | amends | 0014 A7 |
+| [0014](0014-caches-and-search.md) §5, §7, §10 | §10, §17 | extends | 0014 A7 |
+| [0015](0015-record-format-and-partition-registry.md) §3, §5 | §2, §5, §11 | extends | 0015 A19 |
+| [0024](0024-subsidiary-accounts.md) §5 | §16 | extends | 0024 A5 |
+| [0028](0028-tenancy-policy.md) §1 | §2 | extends | 0028 A6 |
+| [0030](0030-edit-filters.md) §2 | §17 | amends | 0030 A6 |
+| [0033](0033-backend-stack.md) §1, §9.1 | §1, §8, §18 | amends | 0033 A3 |
+| [0033](0033-backend-stack.md) §15 | §1, §8, §18 | extends | 0033 A3 |
+| [0034](0034-frontend-stack.md) §6 | §15 | amends | 0034 A1 |
+| [0038](0038-page-metadata-and-categories.md) §3 | §9 | amends | 0038 A4 |
 
 ## References
 
@@ -407,3 +426,49 @@ The importer may bring the Template and Module pages with full history, as ordin
 - [API:Expandtemplates](https://www.mediawiki.org/wiki/API:Expandtemplates), [API:Parse](https://www.mediawiki.org/wiki/API:Parse), [API:Siteinfo](https://www.mediawiki.org/wiki/API:Siteinfo)
 - [Manual:Templatelinks table](https://www.mediawiki.org/wiki/Manual:Templatelinks_table), [Manual:Job queue](https://www.mediawiki.org/wiki/Manual:Job_queue) (`refreshLinks`, `htmlCacheUpdate`)
 - [Help:Tracking categories](https://www.mediawiki.org/wiki/Help:Tracking_categories)
+
+## Amendment log
+
+### A1. Crate table
+
+- **Date:** 2026-09-30
+- **Source:** [0005](0005-crate-organization.md) §2
+- **Change:** supersedes §19
+- **Summary:** 0005 §2 is the one crate table CI checks, and carries the two new crates and every change this section listed (0005 A42).
+
+Replaced text (§19):
+
+> | Crate | Change |
+> |---|---|
+> | `scatter-wikitext-expand` *(new)* | Substrate, pure, no C dependencies. The preprocessor tree, frames, strip markers, pre-save `subst:`, core variables and parser functions, ParserFunctions, the registry embedding `docs/registry/wikitext-functions.toml`, the `ExpandHost` trait, and the manifest and limit-report types (§4–6, §10). Depends on the ICU4X crates already chosen ([0033](0033-backend-stack.md) §9.3) for dates, numbers and plurals |
+> | `scatter-wikitext` | Renders expanded text with its strip state; extracts links, categories, file links, external links and indicators from expanded text (§7, §9); `poem` and `indicator` |
+> | `triplespace-render` *(new)* | `ExpandHost` over the serving model; the render pipeline and renderer choice; the Parsoid client and the render-scoped endpoint's manifest collection (§8); the refresh job, `ops.render_refresh` and the invalidation fan-out (§10); foreign template repositories (§11). Depends on `triplespace-db`, `triplespace-projections`, `triplespace-titles`, `triplespace-cache`, `triplespace-upstream`, `scatter-wikitext`, `scatter-wikitext-expand` and `scatter-pages` |
+> | `triplespace-titles` | Conditional namespaces (`enabled_by`) and the disabled-namespace refusal (§3) |
+> | `triplespace-db` | Migrations for `view.transclusion`, `view.render_state` and `ops.render_refresh` |
+> | `triplespace-cache` | The render epoch in `p:` keys; dependency `Cache-Tag`s (§10) |
+> | `triplespace-search` | Rendered `text`, `source_text` and `hastemplate:` (§17) |
+> | `triplespace-api-action`, `triplespace-api-rest` | The modules and routes of §14; the render-scoped endpoint (§8.2) |
+> | `triplespace-cli` | `render refresh` (a tenant or the instance) and `render rebuild` (§10) |
+>
+> `services/parsoid/` is a PHP program, not a crate. The workspace goes from forty-nine crates to fifty-one.
+
+### A2. Lua: the `wikitext.lua` setting and entity usage
+
+- **Date:** 2026-09-30
+- **Source:** [0043](0043-lua-modules.md) §1, §10
+- **Change:** extends §2, §10
+- **Summary:** `wikitext.lua` (`off`, `on`; default `off`; requires `wikitext.expansion = on`) joins the settings of §2, and the manifest records an entity with the usage aspects of 0043 §10, kept in `view.entity_usage`. Both were written into §2 and §10 before this ADR was first committed, together with 0043 (commit `644c2b6`).
+
+### A3. Report deltas and site statistics
+
+- **Date:** 2026-09-30
+- **Source:** [0047](0047-special-pages.md) §4.3, §13
+- **Change:** extends §10
+- **Summary:** The refresh job applies report deltas (`view.report_entry`) in the same transaction as the `transclusion`, link, category and `entity_usage` rows it writes. Site statistics, a volatile input here, are read from `view.site_stats`.
+
+### A4. Converted to the 0050 format
+
+- **Date:** 2026-10-01
+- **Source:** [0050](0050-adr-format.md) §13
+- **Change:** consolidates §10, §19
+- **Summary:** A1–A3 were folded into the Decision. The open questions were numbered, and the headings of §1, §11 and §17 now use the verbs of 0050 §3 (amends, uses). No decision changed. Before this, A3 was a blockquote, A2 was written in place with no note, and A1 was recorded only in 0005. The file before conversion is commit `0b26a3a`.
