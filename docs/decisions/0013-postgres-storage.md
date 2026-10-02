@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-01 (A25)
+- **Updated:** 2026-10-01 (A26)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
@@ -448,7 +448,7 @@ The `view.filter`, `view.filter_hit`, `view.constraint_violation`, `view.constra
 
 #### 5.6 Tables added by later ADRs
 
-*Changed by A2, A3, A6, A7, A8, A9, A10, A11, A13, A14, A16, A17, A19, A21, A22, A23, A24, A25.*
+*Changed by A2, A3, A6, A7, A8, A9, A10, A11, A13, A14, A16, A17, A19, A21, A22, A23, A24, A25, A26.*
 
 The ADRs after this one add tables in the same style. Each is specified where it is listed; this table is the index, so that the schema has one map.
 
@@ -491,6 +491,7 @@ The ADRs after this one add tables in the same style. Each is specified where it
 | `view`, `ops` | `foreign_page` (instance scope); `ops.repo_cursor`, `ops.page_fetch` | The bundles the instance holds for repository pages, in `proxy` mode the L2 cache's index and in `mirror` mode the projection of `pages/{repo}`; the event cursor and fetch queue | [0053](0053-mirrored-pages.md) §8 |
 | `view`, `ops` | `fork`; page subjects in `upstream_revision`; `ops.fork` | Forks and their seeding state; seeded upstream revisions of forked pages; the fork job queue | [0054](0054-forking-a-mirrored-page.md) §3, §10 |
 | `view` | `page_prop` | MediaWiki's page properties: `templatedata` and `defaultsort` in step 2, the rest by the refresh job | [0055](0055-templatestyles-templatedata-and-page-properties.md) §6 |
+| `view` | `set_member`; `read_groups` on `activity`; `visibility_epoch` on `tenant`; the `tenant` and `set` target kinds and a `kind` (confidential or moderation) on `acl` | The sets a target is in; feed and log rows filtered by principal; the cache purge epoch; the two kinds of `read` restriction | [0056](0056-security-model.md) §14 |
 
 Two rules follow from the table. Every `view` table is a projection under §7 and is rebuilt from the log, with two exceptions that are not pure functions of it. On a tenant with expansion on, `transclusion`, `render_state`, `entity_usage`, and the links, categories and file usage they drive are written by the refresh job and rebuilt by re-rendering, not by replay; where a render read a foreign template repository or the clock, a rebuild can differ ([0042](0042-template-expansion-and-parsoid.md) §10); the page properties a render sets follow the same rule ([0055](0055-templatestyles-templatedata-and-page-properties.md) §6). `view.foreign_page` in `proxy` mode indexes a cache rather than a log, and is the one `view` table that is a projection of nothing ([0053](0053-mirrored-pages.md) §8). A report configured as `batch` keeps a dated snapshot in `view.report_entry`: a rebuild empties it, and the next scheduled run fills it; projection-backed report rows are rebuilt with the tables they read ([0047](0047-special-pages.md) §4.3). Nothing in `private` is: the watch set, inboxes and contact details survive on the strength of that schema's backups, and two things in it are not recoverable at all, `seen` on a watch and `read_at` on a notification ([0020](0020-change-feeds.md) §3, [0021](0021-notifications.md) §3). Each `private` table also carries a portability class in `triplespace-db`'s schema definition, from which the user data bundle and the private extract are generated ([0027](0027-preferences-and-portability.md) §2).
 
@@ -859,3 +860,10 @@ Replaced text: the rule as A16 states it, which this extended to batch reports.
 - **Source:** [0055](0055-templatestyles-templatedata-and-page-properties.md) §6
 - **Change:** extends §5.6
 - **Summary:** `view.page_prop`, MediaWiki's `page_props`; the properties a render sets are rebuilt by re-rendering, like the render tables.
+
+### A26. Visibility tables
+
+- **Date:** 2026-10-01
+- **Source:** [0056](0056-security-model.md) §14
+- **Change:** extends §5.6
+- **Summary:** `view.set_member`, `read_groups` on `view.activity`, `visibility_epoch` on `view.tenant`, and the `tenant` and `set` target kinds with a confidential-or-moderation `kind` on `view.acl`. Nothing is added to `private`.

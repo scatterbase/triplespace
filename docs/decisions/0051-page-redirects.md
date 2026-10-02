@@ -2,6 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
+- **Updated:** 2026-10-01 (A1)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0030](0030-edit-filters.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0047](0047-special-pages.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0011](0011-logs.md), [0023](0023-moderation.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -30,7 +31,9 @@ James's direction, from the design discussion of 2026-10-01, was for the mirrori
 
 ### 2. Following a redirect (extends 0008 §3)
 
-**The title resolver follows one hop.** Its resolve step ([0008](0008-namespaces-and-document-pages.md) §3) gains a fourth rule: when a `pages` namespace title resolves to a page that is a redirect, the resolver resolves the target title and answers with *that* page, carrying the redirect's page ID alongside as `redirected_from`. It follows **exactly one** hop, as MediaWiki does: a redirect to a redirect is a **double redirect**, served as the second redirect page, and listed by the report of §6. There is therefore no loop to detect. A redirect whose target does not resolve is a **broken redirect**, served as the redirect page itself, with the target as a red link.
+*Changed by A1.*
+
+**The title resolver follows one hop, and only to a target the principal may read.** When the target is under a confidential `read` restriction the principal does not satisfy, the resolver answers with the redirect page itself, whose text names the target as a link to a missing page ([0056](0056-security-model.md) §6). Its resolve step ([0008](0008-namespaces-and-document-pages.md) §3) gains a fourth rule: when a `pages` namespace title resolves to a page that is a redirect, the resolver resolves the target title and answers with *that* page, carrying the redirect's page ID alongside as `redirected_from`. It follows **exactly one** hop, as MediaWiki does: a redirect to a redirect is a **double redirect**, served as the second redirect page, and listed by the report of §6. There is therefore no loop to detect. A redirect whose target does not resolve is a **broken redirect**, served as the redirect page itself, with the target as a red link.
 
 **`redirect=no` stops it.** A page view with `redirect=no`, the API's page-set parameters without `redirects`, `action=edit`, `action=move`, `action=delete`, `prop=info` and every write address the redirect page itself, as in MediaWiki. Only reads that ask to follow are followed.
 
@@ -184,3 +187,12 @@ These are MediaWiki's rights with MediaWiki's default groups, so bots that check
 - MediaWiki core 1.43: `MovePage` (`delete-redirect`, `move-subpages`, `suppressredirect`), `RedirectLookup`, `WikitextContentHandler::getRedirectTarget`
 - [Wikipedia:Redirect](https://en.wikipedia.org/wiki/Wikipedia:Redirect) and [Wikipedia:Categorizing redirects](https://en.wikipedia.org/wiki/Wikipedia:Categorizing_redirects) (`{{R from …}}`)
 - CirrusSearch's `redirect` field, for §5
+
+## Amendment log
+
+### A1. A redirect is followed only to a readable target
+
+- **Date:** 2026-10-01
+- **Source:** [0056](0056-security-model.md) §6
+- **Change:** extends §2
+- **Summary:** Following requires `read` on the target; otherwise the redirect page is served as itself, with the target a red link.

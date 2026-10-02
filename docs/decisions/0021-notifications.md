@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-01 (A7)
+- **Updated:** 2026-10-01 (A8)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0011](0011-logs.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0028](0028-tenancy-policy.md)
@@ -27,7 +27,7 @@ Every local account has an **inbox**. An activity row ([0012](0012-api-requireme
 
 ### 2. Addressing rules (amends 0020 §3)
 
-*Changed by A3, A5, A6.*
+*Changed by A3, A5, A6, A8.*
 
 | Reason | An account is addressed when | Echo's name |
 |---|---|---|
@@ -45,6 +45,7 @@ Every local account has an **inbox**. An activity row ([0012](0012-api-requireme
 - **Across tenants**, under `notifications.cross_tenant = home`, a person's bell aggregates the inboxes of every tenant account linked to their farm account, and a mention that resolves to a farm account is delivered to the inbox of the person's home tenant ([0028](0028-tenancy-policy.md) §7). Under `off`, the rule above stands.
 - **Auto-subscription** follows 0020 §3's auto-watch preferences: an account may choose that threads it starts and threads it posts in are watched with `notify`.
 - **Hidden and erased content is not delivered**, and an already-delivered notification whose activity is later hidden or erased is removed from every inbox by the same purge that clears caches ([0014](0014-caches-and-search.md) §5).
+- **A target the addressed account may not read addresses nobody.** A mention, `talk` message or `watch` change on a page, thread or entity under a confidential `read` restriction the account does not satisfy is not delivered, and a delivered notification whose target becomes restricted is removed by the same purge ([0056](0056-security-model.md) §6). A watch on such a target stays in `private` and produces nothing until the account may read it again.
 - **Bundling** is presentational: rows with the same (reason, target) within a window are shown as one item with a count, as Echo bundles. The rows stay separate.
 
 ### 3. The inbox is private state (extends 0007 §8, 0013 §4)
@@ -271,3 +272,10 @@ Replaced text (§7):
 - **Source:** [0050](0050-adr-format.md) §13
 - **Change:** consolidates §2–10
 - **Summary:** A1–A6 were folded into the Decision. The open questions were numbered. No decision changed. Before this, A4 was a blockquote, part of A2 had been written into §8 in place, and the other entries were recorded in the header, the open questions or other ADRs. The file before conversion is commit `0b26a3a`.
+
+### A8. Restricted targets address nobody
+
+- **Date:** 2026-10-01
+- **Source:** [0056](0056-security-model.md) §6
+- **Change:** extends §2
+- **Summary:** No notification is delivered for a target the addressed account may not read under a confidential restriction, and one already delivered is purged when the target becomes restricted; a watch on it stays and goes quiet.

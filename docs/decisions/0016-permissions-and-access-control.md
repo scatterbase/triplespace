@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-01 (A20)
+- **Updated:** 2026-10-01 (A21)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -45,7 +45,7 @@ The Scatterbase permissions map onto MediaWiki's rights and are known to MediaWi
 
 ### 2. Permissions
 
-*Changed by A2, A3, A4, A5, A6, A7, A8, A10, A13, A14, A15, A16, A19, A20.*
+*Changed by A2, A3, A4, A5, A6, A7, A8, A10, A13, A14, A15, A16, A19, A20, A21.*
 
 The permission set is the union of MediaWiki's rights that Triplespace implements, Wikibase's, and the `ts-*` rights of [0012](0012-api-requirements.md) §8, with three additions. Each is listed with the action it governs and the group that holds it by default.
 
@@ -64,7 +64,7 @@ The permission set is the union of MediaWiki's rights that Triplespace implement
 | `deletedhistory`, `deletedtext` | Seeing hidden revisions, hidden usernames and deleted pages ([0001](0001-revision-metadata-rdf.md) §4) | `sysop` |
 | `deleterevision`, `deletelogentry` | Hiding parts of revisions and log events | `sysop` |
 | `suppressrevision`, `viewsuppressed`, `hideuser` | Suppression, and seeing what is suppressed | `suppress` |
-| `protect` | Setting ACLs on pages, entities and namespaces (§4) | `sysop` |
+| `protect` | Setting ACLs, including confidential `read` restrictions, on pages, entities, namespaces, threads, boards and sets (§4, [0056](0056-security-model.md) §4) | `sysop` |
 | `block` | Blocking accounts (§3) | `sysop` |
 | `userrights` | Changing memberships in any group except `owner` | `bureaucrat` |
 | `renameuser` | Renaming any account ([0007](0007-actor-identity.md) §4) | `bureaucrat` |
@@ -121,7 +121,7 @@ The permission set is the union of MediaWiki's rights that Triplespace implement
 
 ### 4. ACLs (amends 0005 §4.1)
 
-*Changed by A2, A6, A17.*
+*Changed by A2, A6, A17, A21.*
 
 An ACL attaches a restriction to a **target**, named by identifier so that the record's key is never content ([0006](0006-log-integrity-and-erasure.md) §3):
 
@@ -135,10 +135,12 @@ An ACL attaches a restriction to a **target**, named by identifier so that the r
 | `property` | `acl:property:{id}` | Every snak using the property, as main snak, qualifier or reference, on any entity; enclosure by predicate ([0023](0023-moderation.md) §2) |
 | `record` | `acl:record:{partition}:{offset}`, with a `parts` list | Reading the named parts of one record: revision-hiding and suppression ([0023](0023-moderation.md) §2) |
 | `actor` | `acl:actor:{key}` | Reading an account's name: username-hiding ([0023](0023-moderation.md) §2) |
+| `tenant` | `acl:tenant:{slug}` | Everything in the tenant: its visibility ([0056](0056-security-model.md) §3) |
+| `set` | `acl:set:{id}` | Its members, pages with their subpages, entities and threads listed by ID; a grouping only `protect` can change ([0056](0056-security-model.md) §3) |
 
-An ACL record has the payload type `scatter:v0/acl` ([0023](0023-moderation.md) §3): a graph ACL is appended to the `config` partition, and every other target's ACL is a moderation record in the tenant `log` partition, so that suppressions stay out of public dumps. Its content lists, for each permission it restricts, the group whose members may still perform it, and an expiry. ACLs restrict `read` as well as write permissions, which is what deletion, revision-hiding, suppression and username-hiding are ([0023](0023-moderation.md) §1). Setting an ACL on a page, entity or namespace needs `protect`; on a graph, `ts-config`; a `read` ACL needs `delete`, `deleterevision`, `suppressrevision` or `hideuser` by target ([0023](0023-moderation.md) §11). Page ACLs project as `protect/protect`, `protect/modify` and `protect/unprotect` log events with the parameters [0011](0011-logs.md) §7 already lists.
+An ACL record has the payload type `scatter:v0/acl` ([0023](0023-moderation.md) §3): a graph ACL is appended to the `config` partition, and every other target's ACL is a moderation record in the tenant `log` partition, so that suppressions stay out of public dumps. Its content lists, for each permission it restricts, the group whose members may still perform it, and an expiry. ACLs restrict `read` as well as write permissions, which is what deletion, revision-hiding, suppression and username-hiding are ([0023](0023-moderation.md) §1). Setting an ACL on a page, entity, namespace or set needs `protect`; on a graph or the tenant, `ts-config`. A `read` ACL is of one of two kinds ([0056](0056-security-model.md) §2): a **moderation** restriction, deletion, hiding, suppression or username-hiding, needs `delete`, `deleterevision`, `suppressrevision` or `hideuser` by target ([0023](0023-moderation.md) §11); a **confidential** restriction, which keeps the target live for its group and absent for everyone else, is set with `protect`, by an actor who is a member of the group it names ([0056](0056-security-model.md) §4). Page ACLs project as `protect/protect`, `protect/modify` and `protect/unprotect` log events with the parameters [0011](0011-logs.md) §7 already lists.
 
-**Evaluation is conjunctive.** To perform action *A* on target *T*, an actor must hold the permission for *A* after blocks (§3), **and** satisfy every ACL that restricts *A* on *T* or on a target enclosing *T*. Enclosure is fixed: a graph encloses the records written to it; a namespace encloses its pages and entities; a page encloses its subpages; a talk page or board encloses the threads whose **home** it is, not those only listed on it, and the page's `edit` ACL governs what may be listed there ([0019](0019-discussions.md) §12, [0049](0049-boards.md) §7). There is no other inheritance, no cascading protection, and no rule under which a more specific ACL loosens a broader one. This is how MediaWiki protection composes with group rights, and it dissolves Scatterbase's questions about exact matching, inheritance and deny precedence: matching is by target and enclosures, inheritance is enclosure only, and nothing denies except a block.
+**Evaluation is conjunctive.** To perform action *A* on target *T*, an actor must hold the permission for *A* after blocks (§3), **and** satisfy every ACL that restricts *A* on *T* or on a target enclosing *T*. Enclosure is fixed: the tenant encloses everything in it; a graph encloses the records written to it; a namespace encloses its pages and entities; a set encloses its members ([0056](0056-security-model.md) §3); a page encloses its subpages; a talk page or board encloses the threads whose **home** it is, not those only listed on it, and the page's `edit` ACL governs what may be listed there ([0019](0019-discussions.md) §12, [0049](0049-boards.md) §7). There is no other inheritance, no cascading protection, and no rule under which a more specific ACL loosens a broader one. This is how MediaWiki protection composes with group rights, and it dissolves Scatterbase's questions about exact matching, inheritance and deny precedence: matching is by target and enclosures, inheritance is enclosure only, and nothing denies except a block.
 
 **Default graph ACLs**, written with the instance:
 
@@ -170,9 +172,11 @@ That a record was erased is public: the gap row of [0010](0010-site-ui.md) §5.2
 
 ### 7. API and UI
 
+*Changed by A21.*
+
 **Action API.** Additive, under [0012](0012-api-requirements.md) §1: `meta=siteinfo&siprop=usergroups` lists every group with its permissions, reporting `universe` as `*`; `meta=userinfo&uiprop=rights|groups|blockinfo`; `list=users&usprop=groups|rights|blockinfo`; `action=userrights`, `action=protect`, `action=block` and `action=unblock` as in MediaWiki; `list=blocks` and `list=protectedtitles`; `prop=info&inprop=protection`. Every write module returns `permissiondenied` with the missing permission named. `action=protect` on an entity page sets an `entity` ACL.
 
-**REST.** `GET /acl/{kind}/{id}` and `PUT /acl/{kind}/{id}` under `triplespace/v0` for graph and entity targets, which `action=protect` cannot express fully.
+**REST.** `GET /acl/{kind}/{id}` and `PUT /acl/{kind}/{id}` under `triplespace/v0` for graph and entity targets, which `action=protect` cannot express fully; the `tenant` and `set` kinds, `POST /acl/set` and the member routes, and the `visibility` field on every `GET`, are in [0056](0056-security-model.md) §13.
 
 **Site UI** ([0010](0010-site-ui.md)). `Special:ListGroupRights`, `Special:UserRights`, `Special:Block`, `Special:BlockList` and `Special:ProtectedPages` appear where MediaWiki users expect them. The page overflow menu gains **Protect…** for pages and entities. The account settings page (0010 §11) is unchanged, since every action on it is an ownership rule.
 
@@ -425,3 +429,20 @@ Replaced text (§4):
 - **Source:** [0054](0054-forking-a-mirrored-page.md) §8
 - **Change:** extends §2
 - **Summary:** A fork is an edit: `createpage` and `edit` on the title, with the history, dependency and talk-page seeding part of what saving means, and `import` not required. Copying a fork's files needs the upload rights.
+
+### A21. Confidential `read` restrictions, the tenant and set targets
+
+- **Date:** 2026-10-01
+- **Source:** [0056](0056-security-model.md) §3, §4, §13
+- **Change:** amends §2, §4; extends §4, §7
+- **Summary:** `protect` may restrict `read`: a confidential restriction, distinct from the moderation kind that deletion and suppression set, which keeps the target live for its group and absent for everyone else; the setting actor must be a member of the group named. Two ACL targets are added: `tenant`, the root of enclosure and a tenant's visibility, and `set`, a grouping of pages, entities and threads by ID that only `protect` can change. The REST routes for both are in 0056 §13.
+
+Replaced text (§2):
+
+> | `protect` | Setting ACLs on pages, entities and namespaces (§4) | `sysop` |
+
+Replaced text (§4):
+
+> Setting an ACL on a page, entity or namespace needs `protect`; on a graph, `ts-config`; a `read` ACL needs `delete`, `deleterevision`, `suppressrevision` or `hideuser` by target ([0023](0023-moderation.md) §11).
+
+> Enclosure is fixed: a graph encloses the records written to it; a namespace encloses its pages and entities; a page encloses its subpages;
