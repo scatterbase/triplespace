@@ -181,6 +181,10 @@ questions = {name: parse_questions(texts[name]) for name in new_format}
 def adr_nums(s):
     return set(re.findall(r"\((\d{4})-[^)]+\.md\)", s))
 
+def settlers(note):
+    """The sources of '*Settled by X and Y: answer*' are what comes before the colon (0050 §10)."""
+    return re.split(r":(?!//)", note, maxsplit=1)[0]
+
 for name in sorted(new_format):
     text = texts[name]
     me = name[:4]
@@ -325,7 +329,7 @@ for name in sorted(new_format):
                 P.append(f"Changes to other ADRs: a settles row for {tnum} names its question ({tnum} Qn)")
             elif q is None:
                 P.append(f"Changes to other ADRs: {tnum} Q{m.group(1)} does not exist")
-            elif not re.search(rf"\*Settled by [^*]*\({me}-", q):
+            elif not any(me in adr_nums(settlers(sm)) for sm in re.findall(r"\*Settled by ([^*]*)\*", q)):
                 P.append(f"Changes to other ADRs: {tnum} Q{m.group(1)} is not settled by {me}")
         elif tfile in new_format:
             m = re.search(rf"{tnum} A(\d+)", r[3])
@@ -352,7 +356,7 @@ for name, text in texts.items():
             srcs |= adr_nums(e["fields"].get("Source", ""))
         for q in questions[name].values():
             for m in re.finditer(r"\*Settled by ([^*]*)\*", q):
-                srcs |= adr_nums(m.group(1))
+                srcs |= adr_nums(settlers(m.group(1)))
         amended_by[name] = srcs
         related[name] = set(re.findall(r"\[(\d{4})\]", header_field(text, "Changes") + header_field(text, "Uses")))
         continue
