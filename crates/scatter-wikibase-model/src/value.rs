@@ -56,6 +56,8 @@ pub enum DataType {
     Url,
     /// `commonsMedia`
     CommonsMedia,
+    /// `localMedia`: a file in the tenant's own File namespace (0039 §12; WikibaseLocalMedia)
+    LocalMedia,
     /// `geo-shape`
     GeoShape,
     /// `tabular-data`
@@ -103,6 +105,7 @@ impl DataType {
             "external-id" => Self::ExternalId,
             "url" => Self::Url,
             "commonsMedia" => Self::CommonsMedia,
+            "localMedia" => Self::LocalMedia,
             "geo-shape" => Self::GeoShape,
             "tabular-data" => Self::TabularData,
             "math" => Self::Math,
@@ -132,6 +135,7 @@ impl DataType {
             Self::ExternalId => "external-id",
             Self::Url => "url",
             Self::CommonsMedia => "commonsMedia",
+            Self::LocalMedia => "localMedia",
             Self::GeoShape => "geo-shape",
             Self::TabularData => "tabular-data",
             Self::Math => "math",
@@ -161,6 +165,7 @@ impl DataType {
             | Self::ExternalId
             | Self::Url
             | Self::CommonsMedia
+            | Self::LocalMedia
             | Self::GeoShape
             | Self::TabularData
             | Self::Math
@@ -465,6 +470,9 @@ mod tests {
             serde_json::to_value(DataType::CommonsMedia).unwrap(),
             json!("commonsMedia")
         );
+        // 0039 §12: the WikibaseLocalMedia type, a string naming a local file.
+        assert_eq!(DataType::parse("localMedia"), DataType::LocalMedia);
+        assert_eq!(DataType::LocalMedia.value_type(), Some(ValueType::String));
     }
 
     #[test]

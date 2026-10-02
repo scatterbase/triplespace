@@ -34,7 +34,7 @@ pub mod statement;
 pub mod value;
 
 pub use entity::{Entity, EntityType, PageInfo, ParsedEntity, Sitelink, Term};
-pub use id::{EntityId, IdForm, IdParseError, StatementId};
+pub use id::{EntityId, IdForm, IdParseError, StatementId, Subject};
 pub use json::{Form, JsonError};
 pub use sites::{Site, SiteRegistry, SiteRegistryError};
 pub use statement::{Rank, Reference, Snak, SnakKind, Statement};

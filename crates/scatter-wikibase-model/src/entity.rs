@@ -202,6 +202,10 @@ struct EntityWire {
     aliases: BTreeMap<String, Vec<Term>>,
     #[serde(default)]
     claims: StatementGroups,
+    /// MediaInfo entities write their statements under `statements`, as Commons does
+    /// (0041 §7). Accepted for every type; emitted for `mediainfo`.
+    #[serde(default)]
+    statements: StatementGroups,
     #[serde(default)]
     sitelinks: BTreeMap<String, Sitelink>,
     // Page metadata (wikibase-compat §3.1).
@@ -236,13 +240,24 @@ fn terms<E: serde::de::Error>(
 
 impl<'de> Deserialize<'de> for ParsedEntity {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        let w = EntityWire::deserialize(d)?;
+        let mut w = EntityWire::deserialize(d)?;
         let entity_type = EntityType::parse(&w.entity_type);
         if entity_type != EntityType::Item && !w.sitelinks.is_empty() {
             return Err(D::Error::custom(format!(
                 "a {} has no sitelinks",
                 entity_type.name()
             )));
+        }
+        if entity_type == EntityType::MediaInfo && !w.aliases.is_empty() {
+            return Err(D::Error::custom("a mediainfo has no aliases"));
+        }
+        if !w.statements.is_empty() {
+            if !w.claims.is_empty() {
+                return Err(D::Error::custom(
+                    "an entity has `claims` or `statements`, not both",
+                ));
+            }
+            w.claims = std::mem::take(&mut w.statements);
         }
         if entity_type == EntityType::Property && w.datatype.is_none() {
             return Err(D::Error::custom("a property has a datatype"));
@@ -342,26 +357,31 @@ impl Entity {
         };
         m.insert("labels".into(), term_map(&self.labels));
         m.insert("descriptions".into(), term_map(&self.descriptions));
+        // A MediaInfo entity has no aliases and writes `statements`, as Commons does
+        // (0041 §7); everything else writes `claims`.
+        let mediainfo = self.entity_type == EntityType::MediaInfo;
+        if !mediainfo {
+            m.insert(
+                "aliases".into(),
+                Value::Object(
+                    self.aliases
+                        .iter()
+                        .map(|(l, vs)| {
+                            (
+                                l.clone(),
+                                Value::Array(
+                                    vs.iter()
+                                        .map(|v| json!({"language": l, "value": v}))
+                                        .collect(),
+                                ),
+                            )
+                        })
+                        .collect(),
+                ),
+            );
+        }
         m.insert(
-            "aliases".into(),
-            Value::Object(
-                self.aliases
-                    .iter()
-                    .map(|(l, vs)| {
-                        (
-                            l.clone(),
-                            Value::Array(
-                                vs.iter()
-                                    .map(|v| json!({"language": l, "value": v}))
-                                    .collect(),
-                            ),
-                        )
-                    })
-                    .collect(),
-            ),
-        );
-        m.insert(
-            "claims".into(),
+            if mediainfo { "statements" } else { "claims" }.into(),
             Value::Object(
                 self.statements
                     .iter()
@@ -471,5 +491,46 @@ mod tests {
                 .get("sitelinks")
                 .is_none()
         );
+    }
+
+    #[test]
+    fn mediainfo_in_the_commons_shape() {
+        // 0041 §7: a File page's statements have the derived ID `M{page ID}` and are
+        // served in the shape Commons serves, with `statements` and no aliases.
+        let text = json!({
+            "pageid": 1234, "ns": 6, "title": "File:Example.jpg", "lastrevid": 9, "modified": "2026-09-30T00:00:00Z",
+            "type": "mediainfo", "id": "M1234",
+            "labels": {"en": {"language": "en", "value": "An example"}},
+            "descriptions": {},
+            "statements": {"P1": [{
+                "mainsnak": {"snaktype": "value", "property": "P1", "datatype": "string",
+                             "datavalue": {"value": "x", "type": "string"}},
+                "type": "statement", "id": "M1234$C13E7A23-11E7-4C91-A799-3D1806B65444", "rank": "normal"
+            }]}
+        });
+        let m: ParsedEntity = serde_json::from_value(text.clone()).unwrap();
+        assert_eq!(m.entity.entity_type, EntityType::MediaInfo);
+        assert_eq!(m.entity.id.derived_page_id(), Some(1234));
+        assert_eq!(m.entity.statements.len(), 1);
+        let out = m.entity.to_wire(true, m.page.as_ref());
+        assert!(out.get("claims").is_none());
+        assert!(out.get("aliases").is_none());
+        assert!(out.get("sitelinks").is_none());
+        assert_eq!(out, text, "Commons shape is a fixed point");
+        // `claims` is accepted too, so a Wikibase that wrote it that way still parses.
+        let via_claims: ParsedEntity = serde_json::from_value(json!({
+            "type": "mediainfo", "id": "M1", "claims": {}
+        }))
+        .unwrap();
+        assert!(via_claims.entity.statements.is_empty());
+        for bad in [
+            json!({"type": "mediainfo", "id": "M1", "aliases": {"en": [{"language": "en", "value": "x"}]}}),
+            json!({"type": "item", "id": "Q1", "claims": {"P1": []}, "statements": {"P2": []}}),
+        ] {
+            assert!(
+                serde_json::from_value::<ParsedEntity>(bad.clone()).is_err(),
+                "{bad}"
+            );
+        }
     }
 }

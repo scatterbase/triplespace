@@ -62,8 +62,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Broken links and header symmetry
+      - name: ADR checks (0050 §12)
         run: |
           python3 docs/decisions/check_adrs.py docs | tee adr-report.txt
-          # The § heuristic is advisory; broken links and Amended-by/Related asymmetry are not.
-          ! grep -E "broken link|does not list|but .* does not" adr-report.txt
+          # Every line the checker lists under a file is a problem: broken links, header
+          # asymmetry, § and A/Q citations that do not exist, and a stale INDEX.md.
+          ! grep -q "^   - " adr-report.txt
