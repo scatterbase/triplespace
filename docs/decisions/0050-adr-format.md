@@ -3,7 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-10-01
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md)
+- **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md)
 - **Uses:** [0005](0005-crate-organization.md), [0013](0013-postgres-storage.md)
 
 ## Context
@@ -263,6 +263,7 @@ Files still in the old format keep the existing checks until they are converted.
 | [0003](0003-statement-ui.md) §2–9 | §13 | consolidates | 0003 A9 |
 | [0004](0004-identity-clusters-and-equivalence.md) §1–10 | §13 | consolidates | 0004 A10 |
 | [0005](0005-crate-organization.md) §2, §3, §8 | §13 | consolidates | 0005 A50 |
+| [0006](0006-log-integrity-and-erasure.md) §1–9 | §13 | consolidates | 0006 A13 |
 | [0008](0008-namespaces-and-document-pages.md) §1–5, §8–11 | §13 | consolidates | 0008 A20 |
 
 ## References
