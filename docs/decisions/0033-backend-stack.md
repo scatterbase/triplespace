@@ -240,7 +240,7 @@ The `LogStore` conformance suite (0005 rule 8) runs against both the file and Po
 ## Open questions
 
 - **Q1.** ~~Triplespace's own licence. It decides whether RevisionChest code can ever flow in, and the `cargo-deny` allowlist.~~ *Settled by A1: GPL-3.0-or-later; `docs/` CC0-1.0; bindings in other languages Apache-2.0 ([0005](0005-crate-organization.md) §6).*
-- **Q2.** `minicbor` versus `ciborium` is confirmed once 0006's test vectors exist.
+- **Q2.** ~~`minicbor` versus `ciborium` is confirmed once 0006's test vectors exist.~~ *Settled by the `scatter-log` vectors, 2026-10-02: `minicbor` stays, for strict decoding of primitives; the canonical encoder is `scatter-log`'s own. The vectors are `docs/api/vectors/log-v1.json`, derived by an independent Python implementation and checked by the crate.*
 - **Q3.** Whether `parse-wiki-text-2` changes are upstreamed or the vendored copy diverges for good.
 - **Q4.** MSRV policy: how far behind stable.
 - **Q5.** `aws-lc-rs` versus `ring` if musl or FIPS requirements appear.
