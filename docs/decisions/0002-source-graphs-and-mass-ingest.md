@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-24
-- **Updated:** 2026-10-01 (A18)
+- **Updated:** 2026-10-02 (A19)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md)
 - **Uses:** [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -190,14 +190,15 @@ All writes use a single internal change-set type. There are three ways to submit
 
 #### 8.2 Operations
 
-*Changed by A1, A4, A15.*
+*Changed by A1, A4, A15, A19.*
 
 | Operation | Graph | Meaning |
 |---|---|---|
 | `put` | Mirror | Replaces the entity's mirrored state. It is skipped when the upstream version is not newer or the content hash is unchanged. It carries `prev_upstream`, `first_seen`, the old and new sizes, a summary of what changed and, optionally, the statement-level delta, so that history survives compaction ([0012](0012-api-requirements.md) §2.2). |
 | `tombstone` | Mirror | Records an upstream deletion and applies the entity's retention policy (§5). |
 | `redirect` | Mirror or local | In a mirror graph, records an upstream merge. In the local graph, records a merge within one namespace; for properties only, it may cross namespaces, retiring a local property in favour of a mirrored one ([0004](0004-identity-clusters-and-equivalence.md) §9). |
-| `create` | Local | Creates a new local entity. It takes an optional temporary `ref` and an optional `match` key (§8.5). |
+| `create` | Local | Creates a new local entity under a freshly minted ID. It takes an optional temporary `ref` (§8.5). It never writes to an entity that exists: a keyed entity, which exists by its key ([0009](0009-keyed-entity-types-and-domain.md) §4), is written with `add`. |
+| `create-or-add` | Local | `create` with a `match` key (§8.5): if an entity with that identifier exists, the operation becomes an `add` to it; otherwise it creates one. With `overwrite` and an explicit base revision, it replaces the matched entity's state instead of merging. |
 | `add` | Local | Merges statements, terms or references onto any subject, local or foreign. |
 | `remove` | Local | Retracts local assertions. |
 | `override` | Local | Overrides the rank or a term of an assertion from another graph, or suppresses it. |
@@ -253,10 +254,10 @@ Every entity change in the run points to its job. This answers 0001 Q5, what a r
 
 #### 8.5 Local bulk creation
 
-*Changed by A12, A15.*
+*Changed by A12, A15, A19.*
 
 - **Temporary refs.** New entities in a batch are named with handles such as `$w1`, and claims in the same batch can refer to those handles. The server allocates the real IDs and returns the mapping.
-- **Match keys.** A `create` can carry a match key, for example `"match": {"P356": "10.1234/x"}`. If an entity with that identifier exists, the operation updates it; otherwise it creates one. This makes re-runs idempotent. It requires a uniqueness index on designated identifier properties. A match key may also be a foreign entity ID.
+- **Match keys.** A `create-or-add` carries a match key, for example `"match": {"P356": "10.1234/x"}`. If an entity with that identifier exists, the operation becomes an `add` to it; otherwise it creates one. This makes re-runs idempotent. It requires a uniqueness index on designated identifier properties. A match key may also be a foreign entity ID. `create` itself takes no match key and always mints: a job that must not touch existing entities says `create`, and one that may says `create-or-add`. The log records what happened, not only what was asked: a matched `create-or-add` is appended as an `add` keyed by the matched entity, carrying `match` and `via: "create-or-add"`; an unmatched one as a `create` with the same two fields.
 - **Merging statements by default.** A statement is added only if no identical statement already exists. Two statements are identical when their main snak and qualifiers hash the same. If an identical statement exists, the incoming references are merged onto it.
 - **ID blocks.** An ingester can reserve a block of IDs up front instead of making a round trip for each entity. Gaps in the ID sequence are acceptable.
 - **Adoption keeps the source's IDs.** An adoption job writes local entities under the IDs the source wiki minted, with `adopt`, not `create` ([0035](0035-adopting-a-wikibase.md) §3).
@@ -497,3 +498,18 @@ Replaced text (§3):
 Replaced text (§4):
 
 > - **The canonical IRI is the provider's own.** `WDQ123` projects to `http://www.wikidata.org/entity/Q123`, and `OAW123` projects to `https://openalex.org/W123`.
+
+### A19. `create` is strictly creation; `create-or-add` takes the match key
+
+- **Date:** 2026-10-02
+- **Source:** Direct: James, decisions of 2026-10-02
+- **Change:** amends §8.2, §8.5
+- **Summary:** `create` always mints a new local entity and never writes to one that exists; the match-key behaviour moves to a new operation, `create-or-add`, which becomes an `add` when its match key finds an entity and may replace the entity's state with `overwrite` and an explicit base revision. The log records the resolved operation with `match` and `via: "create-or-add"` ([payloads.md](../api/payloads.md) §3.2).
+
+Replaced text (§8.2):
+
+> | `create` | Local | Creates a new local entity. It takes an optional temporary `ref` and an optional `match` key (§8.5). |
+
+Replaced text (§8.5):
+
+> - **Match keys.** A `create` can carry a match key, for example `"match": {"P356": "10.1234/x"}`. If an entity with that identifier exists, the operation updates it; otherwise it creates one. This makes re-runs idempotent. It requires a uniqueness index on designated identifier properties. A match key may also be a foreign entity ID.
