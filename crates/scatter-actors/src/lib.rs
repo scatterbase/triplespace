@@ -16,9 +16,13 @@
 //! farm account's), intersected with a credential's grants. [`RateLimitPolicy`] picks the
 //! limit a request is under, and [`autopatrolled`] is the rule of 0023 §6.
 //!
-//! **ACLs and visibility** (0016 §4; 0023 §1–2; 0056): targets, enclosure, the conjunctive
-//! evaluation of reads and writes, the visibility set of a target and the include subset
-//! test are the next slice of this crate.
+//! **ACLs and visibility** (0016 §4; 0023 §1–3; 0039 §10; 0056 §2–6). An [`Acl`] restricts
+//! permissions on a [`Target`] to a group until an expiry; [`acl::check`] evaluates an
+//! action conjunctively over the ACLs along a target's enclosure chain, which the caller
+//! supplies; [`acl::visibility`] is the set of groups a reader must be in,
+//! [`acl::read_decision`] tells readable from removed from absent, and
+//! [`acl::may_include`] is the subset rule for includes. The tenancy policy
+//! ([`TenancyPolicy`]) says which restrictions an instance allows and what is locked.
 //!
 //! This crate is pure (0005 §3, rule 2): no I/O, no async, no globals beyond the embedded
 //! registries. Everything it evaluates is passed in as data: the records, the registries
@@ -26,6 +30,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod acl;
 pub mod actor;
 pub mod evaluate;
 pub mod grant;
@@ -37,12 +42,20 @@ pub mod link;
 pub mod membership;
 pub mod ratelimit;
 pub mod signing;
+pub mod tenancy;
 pub mod time;
 
+pub use acl::{
+    Acl, AclError, AclPartition, Denied, ReadDecision, ReadKind, Restriction, SetMember, Target,
+    TargetError, Visibility, current_acl, may_include, read_decision, visibility,
+};
 pub use actor::{
     ActorKind, ActorRecord, ActorRecordError, ActorStatus, check_name, normalize_name,
 };
-pub use evaluate::{Credential, Effective, Principal, autopatrolled, evaluate, groups_of};
+pub use evaluate::{
+    Credential, Effective, INSTANCE_RIGHTS, Principal, autopatrolled, evaluate, groups_of,
+    instance_rights,
+};
 pub use grant::{Grant, GrantRegistry, GrantRegistryError};
 pub use group::{
     GraphAclDefault, GraphWriters, Group, GroupRegistry, GroupRegistryError, Implicit, Scope,
@@ -59,6 +72,7 @@ pub use signing::{
     KeyRecord, PublicKey, SigningError, current_keys, key_id, signature_preimage, verify_submitted,
     zbase32,
 };
+pub use tenancy::{Preset, TenancyError, TenancyPolicy, TenancyRegistry};
 pub use time::Timestamp;
 
 /// The default issuer registry, `docs/registry/issuers.toml`, embedded at build time.
@@ -67,3 +81,5 @@ pub const ISSUERS_TOML: &str = include_str!("../../../docs/registry/issuers.toml
 pub const GROUPS_TOML: &str = include_str!("../../../docs/registry/groups.toml");
 /// The grants, `docs/registry/grants.toml`, embedded at build time.
 pub const GRANTS_TOML: &str = include_str!("../../../docs/registry/grants.toml");
+/// The tenancy presets, `docs/registry/tenancy.toml`, embedded at build time.
+pub const TENANCY_TOML: &str = include_str!("../../../docs/registry/tenancy.toml");

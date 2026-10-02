@@ -153,6 +153,42 @@ pub fn evaluate(p: &Principal, groups: &GroupRegistry, grants: &GrantRegistry) -
     }
 }
 
+/// The instance rights (0016 §2; 0040 §9): permissions that authorize instance acts.
+/// They are evaluated on the tenant that is primary at the time of the act, or through a
+/// global group at the farm base; held on any other tenant they grant nothing at instance
+/// scope. Some of these names also do ordinary tenant work (`userrights`, `block`,
+/// `ts-config`); at instance scope they are the farm-account and farm-base forms.
+pub const INSTANCE_RIGHTS: [&str; 11] = [
+    "ts-keys",
+    "ts-primary",
+    "ts-config",
+    "abusefilter-modify",
+    "userrights",
+    "block",
+    "renameuser",
+    "ts-takedown",
+    "ts-expunge",
+    "mwoauthmanageconsumer",
+    "ts-runjob",
+];
+
+/// The instance rights a person holds (0040 §9): the union of what they hold on the
+/// primary tenant and through global groups at the farm base, kept to
+/// [`INSTANCE_RIGHTS`]. `None` for a scope the person has no account in.
+#[must_use]
+pub fn instance_rights(
+    on_primary: Option<&Effective>,
+    via_global_groups: Option<&Effective>,
+) -> BTreeSet<String> {
+    on_primary
+        .into_iter()
+        .chain(via_global_groups)
+        .flat_map(|e| e.permissions.iter())
+        .filter(|p| INSTANCE_RIGHTS.contains(&p.as_str()))
+        .cloned()
+        .collect()
+}
+
 /// The autopatrol rule (0023 §6): a change by an actor who held `autopatrol` when the
 /// record was appended is patrolled from the start. `p` is the principal as of that
 /// moment; a credential's grants do not matter, since patrol state is about the actor.
@@ -320,6 +356,24 @@ mod tests {
                 .collect()
         );
         assert!(e.holds("read") && !e.holds("edit"));
+    }
+
+    #[test]
+    fn instance_rights_come_from_the_primary_tenant_or_global_groups() {
+        let (g, gr) = regs();
+        let owner = evaluate(&Principal::registered(["owner".to_string()]), g, gr);
+        let rights = instance_rights(Some(&owner), None);
+        assert!(rights.contains("ts-keys") && rights.contains("ts-takedown"));
+        assert!(!rights.contains("edit"), "not an instance right");
+        assert!(instance_rights(None, None).is_empty());
+        let sysop = evaluate(&Principal::registered(["sysop".to_string()]), g, gr);
+        assert_eq!(
+            instance_rights(None, Some(&sysop)),
+            ["abusefilter-modify", "block", "ts-runjob"]
+                .iter()
+                .map(|s| (*s).to_string())
+                .collect()
+        );
     }
 
     #[test]
