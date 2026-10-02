@@ -4,9 +4,12 @@
 //! `{issuer}:{subject}` ([`ActorKey`]) that never contains a name. Issuers come from
 //! `docs/registry/issuers.toml` ([`IssuerRegistry`]), with the `{tenant}` and `{farm}`
 //! templates instantiated per tenant. Names, kinds and statuses live in actor records
-//! ([`ActorRecord`]); account links ([`AccountLink`]) are the holder's opt-in; a
-//! subsidiary's signing keys are [`KeyRecord`]s, and [`verify_submitted`] checks a
-//! submitted signature against them.
+//! ([`ActorRecord`]); actors with no stable ID get surrogates ([`ActorSurrogates`]);
+//! account links ([`AccountLink`]) are the holder's opt-in; a subsidiary's signing keys
+//! are [`KeyRecord`]s, and [`verify_submitted`] checks a submitted signature against them.
+//!
+//! The payload shapes this crate defines are documented in
+//! [payloads-actors.md](../../../docs/api/payloads-actors.md).
 //!
 //! **Permissions** (0016 §3; 0024 §3–5; 0025 §3; 0028 §3–4). Groups come from
 //! `docs/registry/groups.toml` ([`GroupRegistry`]) and grants from `grants.toml`
@@ -42,6 +45,7 @@ pub mod link;
 pub mod membership;
 pub mod ratelimit;
 pub mod signing;
+pub mod surrogate;
 pub mod tenancy;
 pub mod time;
 
@@ -65,13 +69,15 @@ pub use issuer::{ActorModel, Issuer, IssuerRegistry, IssuerRegistryError, RESERV
 pub use key::{ActorKey, ActorKeyError, normalize_sub};
 pub use link::{AccountLink, LinkError, LinkRequest, check_link};
 pub use membership::{
-    Appended, Block, BlockScope, Membership, MembershipAction, blocked_as_of, memberships_as_of,
+    Appended, Block, BlockScope, Membership, MembershipAction, blocked_as_of, blocked_in_layers,
+    memberships_as_of,
 };
 pub use ratelimit::{Limit, RateLimitPolicy};
 pub use signing::{
     KeyRecord, PublicKey, SigningError, current_keys, key_id, signature_preimage, verify_submitted,
     zbase32,
 };
+pub use surrogate::{ActorSurrogates, InMemoryActorSurrogates};
 pub use tenancy::{Preset, TenancyError, TenancyPolicy, TenancyRegistry};
 pub use time::Timestamp;
 

@@ -179,6 +179,21 @@ pub fn blocked_as_of(
     }
 }
 
+/// What an actor's blocks remove across the two layers of 0040 §5: the tenant's own
+/// records and the instance's (a global filter's block), each folded on its own. The
+/// instance's layer is a floor: a tenant unblock lifts only the tenant's block.
+#[must_use]
+pub fn blocked_in_layers(
+    tenant_records: &[Appended<Block>],
+    instance_records: &[Appended<Block>],
+    at: Timestamp,
+    all: &BTreeSet<String>,
+) -> BTreeSet<String> {
+    let mut removed = blocked_as_of(tenant_records, at, all);
+    removed.extend(blocked_as_of(instance_records, at, all));
+    removed
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -253,6 +268,29 @@ mod tests {
         );
         assert!(
             serde_json::from_str::<Block>(r#"{"action":"block","removes":"everything"}"#).is_err()
+        );
+    }
+
+    #[test]
+    fn the_instance_layer_is_a_floor() {
+        let all: BTreeSet<String> = ["read", "edit", "createpage"]
+            .iter()
+            .map(|s| (*s).to_string())
+            .collect();
+        let tenant = vec![at(10, Block::default_block(None)), at(20, Block::Unblock)];
+        let instance = vec![at(
+            15,
+            Block::Block {
+                removes: BlockScope::Permissions(["edit".to_string()].into()),
+                expires: None,
+            },
+        )];
+        let b = |t| blocked_in_layers(&tenant, &instance, Timestamp(t), &all);
+        assert_eq!(b(12), ["edit".to_string(), "createpage".to_string()].into());
+        assert_eq!(
+            b(25),
+            ["edit".to_string()].into(),
+            "the tenant's unblock lifts only its own"
         );
     }
 }

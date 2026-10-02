@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use crate::key::ActorKey;
 
 /// What kind of actor this is (0007 §4–5).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ActorKind {
     /// A registered account of its issuer, a person's.
