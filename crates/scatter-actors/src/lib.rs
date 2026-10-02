@@ -16,13 +16,15 @@
 //! ([`GrantRegistry`]). Memberships and blocks are actor records ([`Membership`],
 //! [`Block`]) folded as of a time; [`evaluate()`] turns a [`Principal`] into its
 //! [`Effective`] permissions: the union over groups, minus blocks (own, operator's,
-//! farm account's), intersected with a credential's grants. [`RateLimitPolicy`] picks the
-//! limit a request is under, and [`autopatrolled`] is the rule of 0023 §6.
+//! farm account's), intersected with a credential's grants; [`AutoconfirmThreshold`] says
+//! when an account joins `autoconfirmed`. [`RateLimitPolicy`] picks the limit a request is
+//! under, and [`autopatrolled`] is the rule of 0023 §6.
 //!
 //! **ACLs and visibility** (0016 §4; 0023 §1–3; 0039 §10; 0056 §2–6). An [`Acl`] restricts
-//! permissions on a [`Target`] to a group until an expiry; [`acl::check`] evaluates an
-//! action conjunctively over the ACLs along a target's enclosure chain, which the caller
-//! supplies; [`acl::visibility`] is the set of groups a reader must be in,
+//! permissions on a [`Target`] to a group until an expiry; [`enclosure::chain`] lists the
+//! targets whose ACLs apply, from the facts the projection holds; [`acl::check`] evaluates
+//! an action conjunctively over those ACLs; [`acl::visibility`] is the set of groups a
+//! reader must be in,
 //! [`acl::read_decision`] tells readable from removed from absent, and
 //! [`acl::may_include`] is the subset rule for includes. The tenancy policy
 //! ([`TenancyPolicy`]) says which restrictions an instance allows and what is locked.
@@ -35,6 +37,8 @@
 
 pub mod acl;
 pub mod actor;
+pub mod autoconfirm;
+pub mod enclosure;
 pub mod evaluate;
 pub mod grant;
 pub mod group;
@@ -56,6 +60,8 @@ pub use acl::{
 pub use actor::{
     ActorKind, ActorRecord, ActorRecordError, ActorStatus, check_name, normalize_name,
 };
+pub use autoconfirm::AutoconfirmThreshold;
+pub use enclosure::{Enclosure, chain};
 pub use evaluate::{
     Credential, Effective, INSTANCE_RIGHTS, Principal, autopatrolled, evaluate, groups_of,
     instance_rights,

@@ -6,7 +6,7 @@
 //! (`MapValueHasher`), and the RDF names a value node `v:{hash}` by the MD5 of the value's
 //! serialization (`DataValueObject::getHash()`). The JSON drops the first two at ingest
 //! and recomputes them on output, and the RDF needs the third, so this module reproduces
-//! the serializations byte for byte. The [`php`](crate::php) module has the PHP encodings.
+//! the serializations byte for byte. The crate's private `php` module has the PHP encodings.
 //!
 //! **Mirrored data.** Wikidata hashes `Q42`; Triplespace stores the same entity value as
 //! `WDQ42` (0017 §1). A [`Hasher`] built with [`Hasher::mirrored_from`] writes IDs under
@@ -247,7 +247,8 @@ impl Hasher {
         sha1_hex(&hashes.join("|"))
     }
 
-    /// A reference's `hash`: [`Self::snak_list`] over its snaks.
+    /// A reference's `hash`: `SnakList::getHash()` over its snaks, the SHA-1 of the
+    /// distinct snak hashes sorted and joined with `|`.
     #[must_use]
     pub fn reference(&self, reference: &Reference) -> String {
         self.snak_list(reference.snaks.values().flatten())
