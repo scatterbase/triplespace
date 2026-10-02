@@ -2,8 +2,10 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
+- **Updated:** 2026-10-01 (A2)
 - **Author:** James Hare / Claude Fable
-- **Related:** [0003 — Statement UI](0003-statement-ui.md) (§5 settles the shape-pin open question), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§9 amends §2), [0007 — Actor identity](0007-actor-identity.md) (§2 classifies the private state §3 and §8 define; §4 extends §4's vanish), [0010 — Site UI](0010-site-ui.md) (§7 extends §11), [0012 — API requirements for the site UI](0012-api-requirements.md) (§6 extends `action=options` in §4 and the account routes of §5), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md) (§8 extends §4 and §5.6), [0015 — Record format and partition registry](0015-record-format-and-partition-registry.md) (§5 extends §3 with `view-pin`; §1 extends §5 with `preferences.toml`), [0016 — Permissions and access control](0016-permissions-and-access-control.md) (§2: `editmyoptions`, `viewmyprivateinfo`), [0018 — Tenants](0018-tenants.md) (§4 extends §10 with the private extract), [0019 — Discussions](0019-discussions.md) (§6 visibility rule as a preference), [0020 — Change feeds](0020-change-feeds.md) (§1 settles the preferences open question; §3), [0021 — Notifications](0021-notifications.md) (§1 amends §3: the preference matrix is a preference; §3), [0024 — Subsidiary accounts, API keys and rate limits](0024-subsidiary-accounts.md) (§4, §10), [MediaWiki API contract](../api/mediawiki-compat.md) (`action=options`, `meta=userinfo`)
+- **Changes:** [0003](0003-statement-ui.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0018](0018-tenants.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md)
+- **Uses:** [0016](0016-permissions-and-access-control.md), [0024](0024-subsidiary-accounts.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
 
@@ -77,7 +79,7 @@ A **cooperative** move ([0018](0018-tenants.md) §10) now carries three things b
 
 **Rehosting an instance whole** carries `private` with it ([0018](0018-tenants.md) §10) and needs none of this.
 
-### 5. Shape pins (settles 0003)
+### 5. Shape pins (settles 0003 Q2)
 
 [0003](0003-statement-ui.md) §3 lets an editor pin a shape for a property "for the whole instance or for one entity" and left open where the pin lives. It lives in two places by scope:
 
@@ -111,16 +113,11 @@ The **Preferences** section of `Special:Account` ([0010](0010-site-ui.md) §11) 
 
 ### 9. Crates (amends 0005 §2)
 
-| Crate | Change |
-|---|---|
-| `triplespace-db` | The portability class on each `private` table (§2) |
-| `triplespace-accounts` | `private.preference` and the key registry, embedding `docs/registry/preferences.toml`; the user data bundle, export and import (§3); applying a private extract on reclaim (§4) |
-| `triplespace-notify` | Reads `notifications.*` preferences in place of `notification_pref` |
-| `triplespace-projections` | `view-pin` records (§5) |
-| `triplespace-api-action`, `triplespace-api-rest` | §6 |
-| `triplespace-cli` | `tenant export` produces the private extract; `tenant import` seals and stores it for reclaim (§4) |
+*Changed by A1.*
 
-No crate is added. The bundle format is a Triplespace surface, not a shared seam, so nothing enters a `scatter-*` crate.
+*Superseded by [0005](0005-crate-organization.md) §2 (A1).*
+
+[0005](0005-crate-organization.md) §2 keeps the crate table that CI checks, with every change this section listed; the bundle format is a Triplespace surface, not a shared seam, so nothing enters a `scatter-*` crate. The table this section first gave is in A1.
 
 ## Consequences
 
@@ -128,17 +125,37 @@ No crate is added. The bundle format is a Triplespace surface, not a shared seam
 - **A person can leave with their state**, on their own terms, and arrive with it on a cooperative move without doing anything but reclaiming their account. This is the trusty transition [0018](0018-tenants.md) §10 was missing.
 - **Nothing private is ever in a public bundle**, and the classification is enforced by the schema, so a new private table has to declare what it is before it can exist.
 - **Secrets never travel.** Keys and tokens are reissued and bindings are re-proved; a compromised export cannot log anyone in.
-- **Two more open questions close**: shape pins ([0003](0003-statement-ui.md)) and the rest of preferences ([0020](0020-change-feeds.md)).
+- **Two more open questions close**: shape pins ([0003](0003-statement-ui.md) Q2) and the rest of preferences ([0020](0020-change-feeds.md) Q3).
 - **Exports are a compatibility surface.** The bundle's payload type is versioned like a record's; a change needs a new version and an importer that reads the old one.
 
 ## Open questions
 
-- **The encryption scheme for the private extract**: age-style sealing to an X25519 key supplied for the move is the obvious choice, and the receiving instance's Ed25519 signing key must not be reused for it.
-- **Inbox in the self-service bundle by default**, or only on request, given its size and its references to records the new instance may not hold.
-- **Per-device preferences** (a phone and a desktop), which MediaWiki also lacks.
-- **Anonymous preferences**, held in a cookie for readers who are not logged in, as MediaWiki's client-side preferences are.
-- **Retention of an unreclaimed account's extract**: the grace period of [0018](0018-tenants.md) §10 is not yet a number.
-- **Third-party import**: whether to read a MediaWiki `list=watchlistraw` dump or an Echo preference export directly, for people arriving from a Wikibase.
+- **Q1. The encryption scheme for the private extract**: age-style sealing to an X25519 key supplied for the move is the obvious choice, and the receiving instance's Ed25519 signing key must not be reused for it.
+- **Q2. Inbox in the self-service bundle by default**, or only on request, given its size and its references to records the new instance may not hold.
+- **Q3. Per-device preferences** (a phone and a desktop), which MediaWiki also lacks.
+- **Q4. Anonymous preferences**, held in a cookie for readers who are not logged in, as MediaWiki's client-side preferences are.
+- **Q5. Retention of an unreclaimed account's extract**: the grace period of [0018](0018-tenants.md) §10 is not yet a number.
+- **Q6. Third-party import**: whether to read a MediaWiki `list=watchlistraw` dump or an Echo preference export directly, for people arriving from a Wikibase.
+
+## Changes to other ADRs
+
+| Target | By | Change | Target's log |
+|---|---|---|---|
+| [0003](0003-statement-ui.md) §3 | §5 | extends | 0003 A2 |
+| [0003](0003-statement-ui.md) Q2 | §5 | settles | 0003 Q2 |
+| [0005](0005-crate-organization.md) §2 | §9 | extends | 0005 A23 |
+| [0007](0007-actor-identity.md) §4, §8 | §2, §4 | extends | 0007 A10 |
+| [0010](0010-site-ui.md) §11 | §7 | amends | 0010 A17 |
+| [0012](0012-api-requirements.md) §4, §5 | §6 | extends | 0012 A16 |
+| [0013](0013-postgres-storage.md) §5, §5.2, §5.6 | §8 | amends | 0013 A9 |
+| [0013](0013-postgres-storage.md) §4, §5.4, §5.5, §7, §8 | §8 | extends | 0013 A9 |
+| [0015](0015-record-format-and-partition-registry.md) §3, §5 | §1, §5 | extends | 0015 A10 |
+| [0018](0018-tenants.md) §10 | §4 | extends | 0018 A3 |
+| [0019](0019-discussions.md) §6 | §1 | amends | 0019 A5 |
+| [0020](0020-change-feeds.md) §3 | §1, §3–4 | amends | 0020 A5 |
+| [0020](0020-change-feeds.md) Q3 | §1 | settles | 0020 Q3 |
+| [0020](0020-change-feeds.md) Q5 | §1 | settles | 0020 Q5 |
+| [0021](0021-notifications.md) §3 | §1–4, §8 | amends | 0021 A4 |
 
 ## References
 
@@ -147,3 +164,32 @@ No crate is added. The bundle format is a Triplespace surface, not a shared seam
 - [Wikimedia: Right to data portability](https://foundation.wikimedia.org/wiki/Policy:Privacy_policy) (privacy policy)
 - [age encryption](https://age-encryption.org/) (sealing to an X25519 recipient)
 - [0018 — Tenants](0018-tenants.md) §10, [0020 — Change feeds](0020-change-feeds.md) §3, [0021 — Notifications](0021-notifications.md) §3
+
+## Amendment log
+
+### A1. Crate table
+
+- **Date:** 2026-09-27
+- **Source:** [0005](0005-crate-organization.md) §2
+- **Change:** supersedes §9
+- **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A23).
+
+Replaced text (§9):
+
+> | Crate | Change |
+> |---|---|
+> | `triplespace-db` | The portability class on each `private` table (§2) |
+> | `triplespace-accounts` | `private.preference` and the key registry, embedding `docs/registry/preferences.toml`; the user data bundle, export and import (§3); applying a private extract on reclaim (§4) |
+> | `triplespace-notify` | Reads `notifications.*` preferences in place of `notification_pref` |
+> | `triplespace-projections` | `view-pin` records (§5) |
+> | `triplespace-api-action`, `triplespace-api-rest` | §6 |
+> | `triplespace-cli` | `tenant export` produces the private extract; `tenant import` seals and stores it for reclaim (§4) |
+>
+> No crate is added. The bundle format is a Triplespace surface, not a shared seam, so nothing enters a `scatter-*` crate.
+
+### A2. Converted to the 0050 format
+
+- **Date:** 2026-10-01
+- **Source:** [0050](0050-adr-format.md) §13
+- **Change:** consolidates §9
+- **Summary:** The open questions were numbered and §9 became a stub. No decision changed; nothing had amended this ADR. The file before conversion is commit `0b26a3a`.
