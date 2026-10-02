@@ -57,10 +57,11 @@ impl Membership {
     }
 }
 
-/// A record with the time it was appended.
+/// A record with the time it was appended. The slice a fold takes is in **log order**;
+/// `at` only says as of when the record counts, and never reorders.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Appended<T> {
-    /// `appended_at` from the record header.
+    /// `appended_at` from the record header, in microseconds (0013 §5).
     pub at: Timestamp,
     /// The content.
     pub content: T,
