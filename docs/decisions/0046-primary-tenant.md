@@ -2,9 +2,10 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
+- **Updated:** 2026-10-01 (A3)
 - **Author:** James Hare / Claude Opus
-- **Amended by:** [0047 — Special pages](0047-special-pages.md) (§3 extends §7: special pages where the farm base is a tenant's base)
-- **Related:** [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (§10 amends §2), [0006 — Log integrity and erasure](0006-log-integrity-and-erasure.md) (§7 amends §6: origin lines of instance partitions), [0007 — Actor identity](0007-actor-identity.md) (§7 amends the IRIs of the farm issuer and the operator actor), [0011 — Upstream and local logs](0011-logs.md) (§4 amends §6.3: mirror sync job records are in the instance `log`), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md) (§2 extends §5: `primary` is an instance-level kind), [0015 — Record format and partition registry](0015-record-format-and-partition-registry.md) (§2 extends §3: the `primary` config kind; the `tenant` record loses its primary flag), [0016 — Permissions and access control](0016-permissions-and-access-control.md) (§1 refines §3: `owner` on the primary tenant is the instance's; §8 extends §2: `ts-primary`), [0018 — Tenants](0018-tenants.md) (§1 amends §1: what the primary tenant is; §2 amends §3; §5 amends §10: the primary tenant cannot move away; §7 amends §2: instance graph IRIs), [0024 — Subsidiary accounts, API keys and rate limits](0024-subsidiary-accounts.md) (§5 refines §1: instance-job subsidiaries follow the primary role), [0025 — The instance as an OAuth server](0025-oauth-server.md) (§4 amends §5: consumer events are in the instance `log`; §8 amends §10: `mwoauthmanageconsumer` is an instance right), [0028 — Tenancy policy](0028-tenancy-policy.md) (§6 settles §2's undefined farm slug; §5 amends §5: the primary tenant cannot be deleted; §7 amends §2 and §10: farm account IRIs), [0040 — Instance prerogatives](0040-instance-prerogatives.md) (§1 refines §4: "an actor of the primary tenant" means primary when the record is appended; §7 amends §2: the operator IRI; §8 amends §9: the instance-rights list)
+- **Changes:** [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0028](0028-tenancy-policy.md), [0040](0040-instance-prerogatives.md)
+- **Uses:** [0010](0010-site-ui.md), [0039](0039-files-and-media.md), [0047](0047-special-pages.md)
 
 ## Context
 
@@ -82,7 +83,7 @@ Two cases move accordingly:
 - **Mirror sync job records** ([0011](0011-logs.md) §6.3) are appended to the **instance `log`**, keyed by job ID, as the records of jobs that write instance acts already are ([0040](0040-instance-prerogatives.md) §4). "A mirror sync is a local action" now reads "an instance action". Tenant bulk jobs stay in the tenant's `log`.
 - **OAuth consumer events** (`oauth/propose`, `oauth/update`, `oauth/approve`, `oauth/reject`, `oauth/disable`; [0025](0025-oauth-server.md) §5) are appended to the **instance `log`**, not the primary tenant's `log` or `log/{farm}`.
 
-The instance `log` stays `internal` ([0039](0039-files-and-media.md) §10). Its public records (job records, consumer events, the public reasons of authority records) are served at the farm base by the same projections as a tenant's log: `Special:Log`, `list=logevents` and the job pages ([0010](0010-site-ui.md) §9). Whether they should also go into a public dump is an open question below.
+The instance `log` stays `internal` ([0039](0039-files-and-media.md) §10). Its public records (job records, consumer events, the public reasons of authority records) are served at the farm base by the same projections as a tenant's log: `Special:Log`, `list=logevents` and the job pages ([0010](0010-site-ui.md) §9). Whether they should also go into a public dump is open (Q2).
 
 ### 5. Transferring the role
 
@@ -106,6 +107,8 @@ A transfer is not an instance act on either tenant: it writes nothing into eithe
 
 ### 7. Instance IRIs have their own path (amends 0006 §6, 0018 §2, 0028 §2 and §10, 0040 §2 and §7)
 
+*Changed by A2.*
+
 Every IRI and origin line the instance mints for something of instance scope is under the reserved path segment **`instance`** of the farm base:
 
 | Thing | Was | Is |
@@ -115,9 +118,7 @@ Every IRI and origin line the instance mints for something of instance scope is 
 | Farm account ([0028](0028-tenancy-policy.md) §2, §10) | `{farm base}/user/{id}` | `{farm base}/instance/user/{id}` |
 | Operator actor ([0040](0040-instance-prerogatives.md) §2) | `{farm base}/operator` | `{farm base}/instance/operator` |
 
-Tenant IRIs and origin lines are unchanged, and no tenant route, article path or IRI template may begin with `/instance/`. The farm base may then be any host, including the base of the primary tenant or of any other tenant. Record IRIs `{base}/record/{partition}/{offset}` and job IRIs `{base}/job/{id}` are unchanged, because partition IDs and job IDs are unique on the instance. Special pages and REST routes served at the farm base are addresses for people and clients, not identifiers, and keep their paths.
-
-> **Extended by [0047](0047-special-pages.md) §3.** Where the farm base is also a tenant's base, a special page with a tenant and an instance form, such as `Special:Log` or `Special:Jobs`, shows both, with a `scope` filter; the registry's names are unique, so nothing else collides.
+Tenant IRIs and origin lines are unchanged, and no tenant route, article path or IRI template may begin with `/instance/`. The farm base may then be any host, including the base of the primary tenant or of any other tenant. Record IRIs `{base}/record/{partition}/{offset}` and job IRIs `{base}/job/{id}` are unchanged, because partition IDs and job IDs are unique on the instance. Special pages and REST routes served at the farm base are addresses for people and clients, not identifiers, and keep their paths. Where the farm base is also a tenant's base, a special page with a tenant and an instance form, such as `Special:Log` or `Special:Jobs`, shows both, with a `scope` filter ([0047](0047-special-pages.md) §3); the registry's names are unique, so nothing else collides.
 
 Nothing has been published under the old forms, so this is a change to the documents only.
 
@@ -142,17 +143,11 @@ Accepting an offer needs no permission beyond membership of `owner` on the offer
 
 ### 10. Crates (amends 0005 §2)
 
-| Crate | Change |
-|---|---|
-| `scatter-log` | The `primary` config kind and its single-record rule; the instance path in graph IRIs and origin lines (§2, §7) |
-| `scatter-actors` | Instance-right evaluation against the primary tenant at the record's offset; `ts-primary`; acceptance by the offered tenant's `owner` (§1, §5, §8) |
-| `scatter-integrity` | Verifying that an authority record's attester belonged to the primary tenant at its offset (§1) |
-| `scatter-mwlog` | `primary/offer`, `primary/withdraw`, `primary/transfer` (§5) |
-| `triplespace-projections` | Mirror sync job records and consumer events from the instance `log` (§4) |
-| `triplespace-api-action`, `triplespace-api-rest` | `siprop=triplespace` and `/tenancy` fields; `Special:Tenants` offer and accept; the two refusals (§9) |
-| `triplespace-cli` | `--farm-slug`; `primary offer`, `withdraw` and `accept` (§9) |
+*Changed by A1.*
 
-No crate is added.
+*Superseded by [0005](0005-crate-organization.md) §2 (A1).*
+
+[0005](0005-crate-organization.md) §2 keeps the crate table that CI checks, with every change this section listed. The table this section first gave is in A1.
 
 ## Consequences
 
@@ -165,12 +160,69 @@ No crate is added.
 
 ## Open questions
 
-- **Instance groups separate from the primary tenant's groups.** Whether instance rights should be granted by instance-scope group records rather than by the primary tenant's own groups, so that a community wiki can be primary without its bureaucrats approving consumers. Global groups already do this on farms with farm identity; the question is for farms without it.
-- **Public dumps of the instance `log`.** Its job records and consumer events are public; its takedown and expunge records are not. Whether to give the instance `log` an export policy per payload type, or keep the whole partition `internal` and serve the public records only through the API.
-- **Two owners for a transfer.** Whether offering the role should, like expunge ([0040](0040-instance-prerogatives.md), open), need two members of `owner`.
-- **Offer expiry default.** Seven days is a placeholder.
+- **Q1. Instance groups separate from the primary tenant's groups.** Whether instance rights should be granted by instance-scope group records rather than by the primary tenant's own groups, so that a community wiki can be primary without its bureaucrats approving consumers. Global groups already do this on farms with farm identity; the question is for farms without it.
+- **Q2. Public dumps of the instance `log`.** Its job records and consumer events are public; its takedown and expunge records are not. Whether to give the instance `log` an export policy per payload type, or keep the whole partition `internal` and serve the public records only through the API.
+- **Q3. Two owners for a transfer.** Whether offering the role should, like expunge ([0040](0040-instance-prerogatives.md) Q1), need two members of `owner`.
+- **Q4. Offer expiry default.** Seven days is a placeholder.
+
+## Changes to other ADRs
+
+| Target | By | Change | Target's log |
+|---|---|---|---|
+| [0005](0005-crate-organization.md) §2 | §10 | extends | 0005 A46 |
+| [0006](0006-log-integrity-and-erasure.md) §6 | §7 | amends | 0006 A12 |
+| [0007](0007-actor-identity.md) §1 | §7 | amends | 0007 A14 |
+| [0007](0007-actor-identity.md) §2 | §7 | extends | 0007 A14 |
+| [0011](0011-logs.md) §6.3 | §4 | amends | 0011 A15 |
+| [0013](0013-postgres-storage.md) §5.5 | §2 | extends | 0013 A18 |
+| [0015](0015-record-format-and-partition-registry.md) §5 | §2, §7 | amends | 0015 A20 |
+| [0015](0015-record-format-and-partition-registry.md) §3 | §2, §7 | extends | 0015 A20 |
+| [0016](0016-permissions-and-access-control.md) §3 | §1, §8 | amends | 0016 A15 |
+| [0016](0016-permissions-and-access-control.md) §2 | §1, §8 | extends | 0016 A15 |
+| [0018](0018-tenants.md) §1, §2, §3, §10 | §1–3, §5, §7 | amends | 0018 A8 |
+| [0024](0024-subsidiary-accounts.md) §1 | §5, §8 | amends | 0024 A6 |
+| [0025](0025-oauth-server.md) §5, §10 | §4, §8 | amends | 0025 A2 |
+| [0028](0028-tenancy-policy.md) §2, §5, §10 | §5–7 | amends | 0028 A7 |
+| [0040](0040-instance-prerogatives.md) §2, §4, §9 | §1, §6–8 | amends | 0040 A2 |
 
 ## References
 
 - [0018 — Tenants](0018-tenants.md), [0028 — Tenancy policy](0028-tenancy-policy.md), [0040 — Instance prerogatives](0040-instance-prerogatives.md)
 - [Meta-Wiki: OAuth administrators](https://meta.wikimedia.org/wiki/OAuth_administrators) (consumer approval on Wikimedia's primary-like wiki)
+
+## Amendment log
+
+### A1. Crate table
+
+- **Date:** 2026-09-30
+- **Source:** [0005](0005-crate-organization.md) §2
+- **Change:** supersedes §10
+- **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A46).
+
+Replaced text (§10):
+
+> | Crate | Change |
+> |---|---|
+> | `scatter-log` | The `primary` config kind and its single-record rule; the instance path in graph IRIs and origin lines (§2, §7) |
+> | `scatter-actors` | Instance-right evaluation against the primary tenant at the record's offset; `ts-primary`; acceptance by the offered tenant's `owner` (§1, §5, §8) |
+> | `scatter-integrity` | Verifying that an authority record's attester belonged to the primary tenant at its offset (§1) |
+> | `scatter-mwlog` | `primary/offer`, `primary/withdraw`, `primary/transfer` (§5) |
+> | `triplespace-projections` | Mirror sync job records and consumer events from the instance `log` (§4) |
+> | `triplespace-api-action`, `triplespace-api-rest` | `siprop=triplespace` and `/tenancy` fields; `Special:Tenants` offer and accept; the two refusals (§9) |
+> | `triplespace-cli` | `--farm-slug`; `primary offer`, `withdraw` and `accept` (§9) |
+>
+> No crate is added.
+
+### A2. Special pages at a shared farm base
+
+- **Date:** 2026-09-30
+- **Source:** [0047](0047-special-pages.md) §3
+- **Change:** extends §7
+- **Summary:** Where the farm base is also a tenant's base, a special page with a tenant and an instance form, such as `Special:Log` or `Special:Jobs`, shows both, with a `scope` filter; the registry's names are unique, so nothing else collides.
+
+### A3. Converted to the 0050 format
+
+- **Date:** 2026-10-01
+- **Source:** [0050](0050-adr-format.md) §13
+- **Change:** consolidates §7, §10
+- **Summary:** A1–A2 were folded into the Decision. The open questions were numbered. No decision changed. Before this, A2 was a blockquote, and A1 was recorded only in 0005. The file before conversion is commit `0b26a3a`.
