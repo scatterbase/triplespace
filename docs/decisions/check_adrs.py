@@ -318,7 +318,16 @@ for name in sorted(new_format):
         if verb not in VERBS | {"consolidates", "retitles"}:
             P.append(f"Changes to other ADRs: verb '{verb}' for {tnum}")
         tfile = num2file.get(tnum)
-        if tfile in new_format:
+        if tfile in new_format and verb == "settles":
+            m = re.search(rf"{tnum} Q(\d+)", r[3])
+            q = questions[tfile].get(int(m.group(1))) if m else None
+            if not m:
+                P.append(f"Changes to other ADRs: a settles row for {tnum} names its question ({tnum} Qn)")
+            elif q is None:
+                P.append(f"Changes to other ADRs: {tnum} Q{m.group(1)} does not exist")
+            elif not re.search(rf"\*Settled by [^*]*\({me}-", q):
+                P.append(f"Changes to other ADRs: {tnum} Q{m.group(1)} is not settled by {me}")
+        elif tfile in new_format:
             m = re.search(rf"{tnum} A(\d+)", r[3])
             if not m:
                 P.append(f"Changes to other ADRs: {tnum} is in the 0050 format, so name its log entry ({tnum} An)")
