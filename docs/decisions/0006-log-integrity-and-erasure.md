@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-10-01 (A13)
+- **Updated:** 2026-10-02 (A14)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md)
 
@@ -146,13 +146,14 @@ A mirror with the `full` history policy is still `hashed`. It simply never compa
 
 ### 5. The Merkle tree and segments
 
-*Changed by A2.*
+*Changed by A2, A14.*
 
 - **The tree is the RFC 6962 Merkle tree** (as updated by [RFC 9162](https://www.rfc-editor.org/rfc/rfc9162) §2.1), with SHA-256 as the hash. Leaves are `H(0x00 ‖ header)`. Inclusion proofs and consistency proofs follow the RFC.
 - **Segments hold 2^k records,** except the last one. The exponent k is fixed for each partition when it is created. A full segment is then a complete subtree of the partition's tree. In Postgres a segment is the offset range `[n·2^k, (n+1)·2^k)`, sealed when every offset in it has been appended and its manifest written; the file backend writes one file per segment ([0013](0013-postgres-storage.md) §1).
 - **Bulk ingest hashes in parallel.** In bootstrap mode ([0002](0002-source-graphs-and-mass-ingest.md) §8.6), each segment's leaves and subtree root are computed independently. The partition root is then folded from the segment roots. The only sequential step runs once per segment.
 - **Appends in steady state** keep the tree's right edge in memory, which is O(log n) hashes. Each append costs one leaf hash plus O(log n) node hashes in the worst case.
 - **In a `hashed` partition,** each segment's tree stands alone. Its root is what the segment manifest signs.
+- **A compacted offset keeps its leaf.** Compaction ([0002](0002-source-graphs-and-mass-ingest.md) §2) removes the record but leaves its 32-byte leaf hash in its place, so the tree over every offset still folds, offsets are never reused, and a reader can tell a hole from a gap. In Postgres the leaf is already in `log.merkle_node`; the file backend stores it as the slot (`docs/api/payloads.md` §10).
 
 ### 6. Checkpoints and keys
 
@@ -453,3 +454,12 @@ Replaced text: the tenant-host origin line of A6, for instance partitions.
 - **Source:** [0050](0050-adr-format.md) §13
 - **Change:** consolidates §1–9
 - **Summary:** A1–A12 were folded into the Decision, the open questions were numbered, and two consequences were struck. No decision changed. Before this, A3 (in part), A7, A9, A10, A11 and A12 were blockquotes; A5 had been written into §1 in place; the other entries were recorded only in other ADRs. The file before conversion is commit `0b26a3a`.
+
+### A14. Compacted offsets keep their leaf
+
+- **Date:** 2026-10-02
+- **Source:** Direct: James, review of 2026-10-02 (`scatter-log`'s file backend, `docs/api/payloads.md` §10)
+- **Change:** amends §5
+- **Summary:** Compaction leaves a record's Merkle leaf in its slot, so the tree over every offset still folds after compaction and the `segments` file format needs no separate frontier. Decided when the file backend was written; the Postgres backend already keeps leaves in `log.merkle_node`.
+
+Replaced text: none; §5 gains its last bullet.

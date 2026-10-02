@@ -6,6 +6,7 @@ members = [
     "crates/scatter-normalize",
     "crates/scatter-wikibase-model",
     "crates/scatter-actors",
+    "crates/scatter-log",
     "xtask",
 ]
 
@@ -27,6 +28,7 @@ scatter-providers = { path = "crates/scatter-providers" }
 scatter-normalize = { path = "crates/scatter-normalize" }
 scatter-wikibase-model = { path = "crates/scatter-wikibase-model" }
 scatter-actors = { path = "crates/scatter-actors" }
+scatter-log = { path = "crates/scatter-log" }
 
 # RDF terms: the oxrdf family only (0005 §3, rule 5)
 oxrdf = "0.3"
@@ -49,17 +51,24 @@ sha1 = "0.10"
 md-5 = "0.10"
 # Statement keys (0004 §8), signing-key IDs (0015 §1) and, later, the log's SHA-256 (0006 §2)
 sha2 = "0.10"
+# Canonical CBOR, hand-written to the core-deterministic rules over minicbor's primitives
+# (0006 §2; 0033 §6)
+minicbor = { version = "2", default-features = false, features = ["std", "half"] }
+
 # Instance and client signatures (0033 §6; 0006 §6; 0024 §4)
 ed25519-dalek = { version = "2", default-features = false, features = ["std", "zeroize"] }
 
 # Registry files and configuration (0033 §12)
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde_json = { version = "1", features = ["float_roundtrip"] }
 toml = "1"
 
 # Errors (0033 §14)
 thiserror = "2"
 anyhow = "1"
+
+# Driving async traits from synchronous tests (0005 rule 2: no runtime in the core)
+pollster = "1"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

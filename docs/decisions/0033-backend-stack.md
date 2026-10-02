@@ -55,7 +55,7 @@ The write path of 0013 §7 (auth → grants → rate limit → ACLs → filters 
 ### 4. Postgres
 
 - **Version:** 17 is the minimum; 18 is the target. The schema uses features from 15 and later (`UNIQUE NULLS NOT DISTINCT`), 14 (lz4 TOAST) and none from extensions. **No Postgres extension is required**, so the small profile runs on any managed Postgres.
-- **Driver:** `tokio-postgres` with `deadpool-postgres` for pooling. It gives binary `COPY` for bootstrap (0013 §9), pipelining, and exact control of the append transaction and its row lock (0013 §2). The synchronous `postgres` crate, a wrapper over the same driver, answers [0005](0005-crate-organization.md) Q7, on a blocking API for `scatter-log-postgres`: it can be offered without a second implementation.
+- **Driver:** `tokio-postgres` with `deadpool-postgres` for pooling. It gives binary `COPY` for bootstrap (0013 §9), pipelining, and exact control of the append transaction and its row lock (0013 §2). The synchronous `postgres` crate, a wrapper over the same driver, answered [0005](0005-crate-organization.md) Q7 on a blocking API for `scatter-log-postgres`; since 0005 A56 `LogStore` is itself asynchronous, because the append shares the write path's transaction (0013 §7), and a blocking caller drives it with an executor instead.
 - **Queries:** hand-written SQL in each owning crate. No ORM. Query shapes are checked by integration tests against a real database (§15), not by compile-time macros, because several crates share one schema and migrations run in a fixed cross-crate order.
 - **Migrations:** each owning crate embeds its SQL files (0005 rule 9). A small runner in `triplespace-db` applies them in 0005's build order and records them in `ops.migration`. `refinery` is an acceptable substitute if the in-house runner stops being small.
 - **Queues and background work:** `ops` tables claimed with `FOR UPDATE SKIP LOCKED`, woken with `LISTEN/NOTIFY`. This covers the ActivityPub delivery queue (0021), exports (0027), filter tests (0030), constraint re-checks (0031) and jobs (0012). No broker.
@@ -240,7 +240,7 @@ The `LogStore` conformance suite (0005 rule 8) runs against both the file and Po
 ## Open questions
 
 - **Q1.** ~~Triplespace's own licence. It decides whether RevisionChest code can ever flow in, and the `cargo-deny` allowlist.~~ *Settled by A1: GPL-3.0-or-later; `docs/` CC0-1.0; bindings in other languages Apache-2.0 ([0005](0005-crate-organization.md) §6).*
-- **Q2.** `minicbor` versus `ciborium` is confirmed once 0006's test vectors exist.
+- **Q2.** ~~`minicbor` versus `ciborium` is confirmed once 0006's test vectors exist.~~ *Settled by the `scatter-log` vectors, 2026-10-02: `minicbor` stays, for strict decoding of primitives; the canonical encoder is `scatter-log`'s own. The vectors are `docs/api/vectors/log-v1.json`, derived by an independent Python implementation and checked by the crate.*
 - **Q3.** Whether `parse-wiki-text-2` changes are upstreamed or the vendored copy diverges for good.
 - **Q4.** MSRV policy: how far behind stable.
 - **Q5.** `aws-lc-rs` versus `ring` if musl or FIPS requirements appear.
