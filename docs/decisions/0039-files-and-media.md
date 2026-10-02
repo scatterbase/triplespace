@@ -129,7 +129,7 @@ A **scope** is the part of the store a reference counts against. The instance `s
 
 **Thumbnails are cache, not data.** A thumbnail is rendered on first request, stored under `thumb/{h}/{transform}` in the same scope as its original, and served from there afterwards. It is never logged and never exported, and it can be deleted at any time and rendered again. Its key is the original's hash and a normalized **transform**: width, page or time offset, and output format. Requested widths are rounded up to the next entry of `files.thumb_widths`, so that a client cannot fill the store with every width from 1 to 10,000; MediaWiki's `renderfile-nonstandard` limit (§15) covers what rounding does not. Rendering runs on a bounded pool (`files.thumb_concurrency`) with single flight per key ([0014](0014-caches-and-search.md) §2).
 
-**Thumbnailers** are registered per type. This ADR ships two: raster images through the `image` crate, and SVG rasterized through `resvg`. Both are pure Rust under licences [0033](0033-backend-stack.md) §1 accepts. Video posters and transcodes, PDF pages, audio waveforms and 3D previews are left open (open questions); until a thumbnailer exists for a type, its files show an icon.
+**Thumbnailers** are registered per type. This ADR ships two: raster images through the `image` crate, and SVG rasterized through `resvg`. Both are pure Rust under licences [0033](0033-backend-stack.md) §1 accepts. Video posters and transcodes, PDF pages, audio waveforms and 3D previews are left open (Q4); until a thumbnailer exists for a type, its files show an icon.
 
 ### 7. Serving: every byte behind an access check (extends 0014 §6)
 

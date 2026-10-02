@@ -266,7 +266,7 @@ Boards have `view.talk_page` rows too. These are projections in the sense of 001
 ## Consequences
 
 - **A post is a revision, so everything that works on revisions works on posts.** History, diffs, contributions, recent changes, permalinks, hiding, erasure, inclusion proofs and export bundles need no discussion-specific code. This is the property Flow and LiquidThreads lacked.
-- **Talk pages are not text.** Bots that edit, archive or template talk pages do not work; `action=edit` tells them so. Existing wikitext talk pages cannot be imported as they are (open questions).
+- **Talk pages are not text.** Bots that edit, archive or template talk pages do not work; `action=edit` tells them so. Existing wikitext talk pages cannot be imported as they are (Q5).
 - **The three-part uniformity of 0015 is loosened.** One payload type has four parts. Verification, erasure and the storage schema were already written for *n* parts, so the cost is one sentence and one more `parts` value.
 - **Thread names are readable and stable across moves, and renames do not redirect.** A link to a renamed thread breaks, as a link to a renamed user page does. Permalinks by revision or page ID do not.
 - **Status is social.** Anyone may mark a thread resolved, and anyone may reopen it, in public, with attribution. The instance decides only what the marks are called and how the UI folds them.
