@@ -387,7 +387,29 @@ a password hash is `private.password`, a key is `private.api_key`.
 None is on the first milestone's path. Each follows §1–2 and adds its parts after the
 three standard ones.
 
-## 10. Settled points
+## 10. The `segments` file format
+
+The file backend of `scatter-log` (0013 §1; 0005 §4.2), and the form every partition
+takes in an export bundle (0006 §9):
+
+```
+{root}/
+  {partition, 16 lower-case hex digits}/
+    partition.cbor      {"format": 1, "partition": 12345678901234567890, "segment_exponent": 16}
+    00000000.seg        a CBOR sequence (RFC 8742) of slots, one per offset
+    00000001.seg        …
+```
+
+Segment `n` holds offsets `[n·2^k, (n+1)·2^k)` (0006 §5), so every file but the last is
+full. A slot is the record `[header, body]` of §2, or, for an offset that compaction
+removed, the record's 32-byte Merkle leaf as a byte string, so that the tree over every
+offset still folds and offsets are never reused. An append goes to the end of the last
+file; an erasure (§6) or a compaction rewrites the one file it touches, through a
+temporary file and a rename. Every file is canonical CBOR (§1), so a bundle verifies
+with nothing but the crate. Checkpoints and segment manifests are stored beside the
+partition by `scatter-integrity`, which defines their names.
+
+## 11. Settled points
 
 Decided 2026-10-02 (James), so that the first instance's bytes are not revisited:
 

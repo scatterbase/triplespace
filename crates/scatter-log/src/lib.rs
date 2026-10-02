@@ -10,23 +10,34 @@
 //! - [`record`]: `[header, body]`, and the global revision ID scheme;
 //! - [`tree`]: the RFC 6962 Merkle tree over headers and the segment layout;
 //! - [`registry`]: the graph registry of `graphs.toml`, and the `key:` and `graph:`
-//!   configuration records.
+//!   configuration records;
+//! - [`store`]: the `LogStore` contract, with [`memory`] and the [`segments`] file
+//!   backend, the [`conformance`] suite every backend passes, and [`genesis`], which
+//!   starts a `config` partition.
 //!
-//! Each shape is specified in `docs/api/payloads.md` §1–2, with test vectors under
-//! `docs/api/vectors/`. The Merkle tree, checkpoints and the `LogStore` trait follow.
+//! Each shape is specified in `docs/api/payloads.md` §1–2 and §4, with test vectors
+//! under `docs/api/vectors/`. Checkpoints, proofs and `verify` are `scatter-integrity`'s.
 
 pub mod body;
 pub mod cbor;
+pub mod conformance;
+pub mod genesis;
 pub mod hash;
 pub mod header;
+pub mod memory;
 pub mod record;
 pub mod registry;
+pub mod segments;
+pub mod store;
 pub mod tree;
 
 pub use body::{Body, BodyError, Part, Salt};
 pub use cbor::{CborError, Value};
 pub use hash::Hash;
 pub use header::{Header, HeaderError};
+pub use memory::MemoryStore;
 pub use record::{Record, RecordError};
 pub use registry::{Graph, GraphRegistry};
+pub use segments::SegmentStore;
+pub use store::{Draft, LogStore, Slot, StoreError};
 pub use tree::{Frontier, Segments};

@@ -346,22 +346,29 @@ fn f16_bits(x: f64) -> Option<u16> {
 /// Decodes one canonical item, consuming the whole input. Non-canonical input is
 /// rejected: the item is re-encoded and compared with the bytes.
 pub fn decode(bytes: &[u8]) -> Result<Value, CborError> {
-    let mut d = minicbor::Decoder::new(bytes);
-    let value = read(&mut d)?;
-    let consumed = d.position();
+    let (value, consumed) = decode_prefix(bytes)?;
     if consumed != bytes.len() {
         return Err(CborError::Trailing(bytes.len() - consumed));
     }
+    Ok(value)
+}
+
+/// Strictly decodes the first data item of a CBOR sequence (RFC 8742), returning it
+/// with the number of bytes it took.
+pub fn decode_prefix(bytes: &[u8]) -> Result<(Value, usize), CborError> {
+    let mut d = minicbor::Decoder::new(bytes);
+    let value = read(&mut d)?;
+    let consumed = d.position();
     let again = encode(&value)?;
-    if again != bytes {
+    if again != bytes[..consumed] {
         let at = again
             .iter()
             .zip(bytes)
             .position(|(a, b)| a != b)
-            .unwrap_or(again.len().min(bytes.len()));
+            .unwrap_or(again.len().min(consumed));
         return Err(CborError::NotCanonical(at));
     }
-    Ok(value)
+    Ok((value, consumed))
 }
 
 fn malformed<E: fmt::Display>(e: E) -> CborError {
