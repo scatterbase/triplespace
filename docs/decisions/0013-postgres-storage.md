@@ -2,10 +2,10 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
+- **Updated:** 2026-10-01 (A20)
 - **Author:** James Hare / Claude Fable
-- **Revised:** 2026-09-27, to apply the schema changes of [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md) and [0018](0018-tenants.md) to the SQL in §2 and §5, and to gather the tables that [0015](0015-record-format-and-partition-registry.md) through [0021](0021-notifications.md) add in §5.6 and §4; and again later that day, to carry the columns, readers, queues and projection steps of [0022](0022-federation.md) through [0031](0031-property-constraints.md) into §4, §5 and §7, and to make every `partition` column `bigint`. §12 lists what changed. Like the crate table of [0005](0005-crate-organization.md) §2, the schema here is the one migrations are written from, so it is kept current in this ADR rather than spread across the amending ones.
-- **Amended by:** [0015 — Record format and partition registry](0015-record-format-and-partition-registry.md) (§2 and §7 amend §2, §3 and §6; §4 adds `view.upstream_revision`), [0016 — Permissions and access control](0016-permissions-and-access-control.md) (§3 and §9 add group, membership, ACL and block tables and IP blocks in `private`), [0017 — Entity ID grammar](0017-entity-id-grammar.md) (§4 amends `view.entity.id`), [0018 — Tenants](0018-tenants.md) (§2 and §6 amend §2 and §5), [0019 — Discussions](0019-discussions.md) (§11 adds tables), [0020 — Change feeds](0020-change-feeds.md) (§3 adds `private.watch`), [0021 — Notifications](0021-notifications.md) (§3 and §8 add inbox and contact tables to `private` and a delivery queue to `ops`; §10 makes `triplespace-notify` a second reader of `private`), [0023 — Protection, deletion, hiding and patrolling](0023-moderation.md) (§10 amends §5: moderation ACLs in `view.acl`, `deleted` on `view.entity`, `patrolled` on `view.activity`, reserved page IDs), [0024 — Subsidiary accounts, API keys and rate limits](0024-subsidiary-accounts.md) (§10 extends §4 and §5: `private.api_key`, `operator` on `view.actor`), [0026 — Sitelinks are URLs](0026-sitelinks.md) (§6 amends `view.sitelink` in §5.2), [0027 — Preferences, private state and portability](0027-preferences-and-portability.md) (§8 extends §4 and §5.6: `private.preference`, portability classes; `notification_pref` dropped), [0028 — Tenancy policy](0028-tenancy-policy.md) (§12: farm partitions, the name registry index, evaluation joins over `account_link`), [0029 — Resolver namespaces](0029-resolver-namespaces.md) (§3 reads `view.identifier` and `view.sitelink`; no table added), [0030 — Edit filters](0030-edit-filters.md) (§11 adds `view.filter` and `view.filter_hit`, and evaluation as step 0 of the write path), [0031 — Property constraints](0031-property-constraints.md) (§5 adds `view.constraint_violation`, `constraint_count`, `value_key`; the constraint projection in step 4), [0022 — Federation: verified data sync and ActivityPub](0022-federation.md) (§10 extends §5.6: `entity_source.provider_revid` and `verified_at_size`, per-actor `ap_key` and `ap_follower`, `federated` actors, `federation-policy`; §1 extends §8 with the local-graph source dump; §13 adds a third reader of `private` to §4), [0025 — The instance as an OAuth server](0025-oauth-server.md) (§8 extends §4 and §5.6: `private.oauth_token` and `private.oauth_consumer`; `actor.status` gains `pending`), [0032 — The SPARQL Update stream](0032-sparql-update-stream.md) (§3 extends §5.6 with `view.rdf_delta` and §7 with the delta projection; §1 and §9 amend §8: dumps are stamped with a cursor and offered in a skolemized form, and the local quad store is fed from the delta table rather than by a separate quad projection), [0035 — Adopting an existing Wikibase as a tenant](0035-adopting-a-wikibase.md) (§4 extends §6: one entity-ID sequence per minted type per tenant, and the floors an adoption sets on every sequence), [0038 — Page metadata, legacy categories and articles](0038-page-metadata-and-categories.md) (§10 extends §5.6 and §7: `page_statements`, `page_category`, `category`; page subjects in existing tables), [0039 — Files, blob storage and foreign file repositories](0039-files-and-media.md) (§20 extends §5.6 and §7: file tables, `ops.upload_stash` and `ops.blob_delete`), [0041 — Content models](0041-content-models.md) (§10 amends `view.page` in §5: `content_model` holds content model registry IDs), [0042 — Template expansion and the Parsoid renderer](0042-template-expansion-and-parsoid.md) (§10 extends §5.6: `transclusion`, `render_state` and `ops.render_refresh`, rebuilt by re-rendering rather than replay), [0043 — Lua modules](0043-lua-modules.md) (§10 extends §5.6: `view.entity_usage`), [0046 — The primary tenant](0046-primary-tenant.md) (§2 extends §5: the `primary` instance-level kind), [0047 — Special pages](0047-special-pages.md) (§4.3 and §13 amend §5.6 and §7: `report_entry`, `report_state`, `site_stats`, new `page` and `actor` columns; batch report rows are a dated snapshot)
-- **Related:** [0000 — Initial proposition](0000-init.md) (settles the storage-engine question), [0001 — Revision metadata in RDF](0001-revision-metadata-rdf.md) (amends §2; §8 says which dumps carry the metadata graph), [0002 — Source graphs and mass ingest](0002-source-graphs-and-mass-ingest.md) (§9 refines §8.6; §5.2 answers the match-key open question), [0004 — Identity clusters and equivalence](0004-identity-clusters-and-equivalence.md), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (amends §2 and §4.4), [0006 — Log integrity and erasure](0006-log-integrity-and-erasure.md) (amends §5 and §7), [0007 — Actor identity](0007-actor-identity.md), [0008 — Namespaces and document pages](0008-namespaces-and-document-pages.md) (§6 settles the global-revision-ID and entity page-ID open questions), [0009 — Keyed entity types and Domain](0009-keyed-entity-types-and-domain.md), [0010 — Site UI](0010-site-ui.md) (amends §13; §6 settles the global-revision-ID open question), [0011 — Upstream and local logs](0011-logs.md) (§6 settles the log-ID open question; §8 refines the export rule of §2), [0012 — API requirements for the site UI](0012-api-requirements.md) (amends §2.1), [0014 — Cache layers and search](0014-caches-and-search.md)
+- **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md)
+- **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
 
 ## Context
 
@@ -61,11 +61,13 @@ In one database, these are one transaction. Erasure becomes an `UPDATE`, compact
 - **export bundles** ([0006](0006-log-integrity-and-erasure.md) §9), which `verify` reads without a database;
 - **Scatterbase**, which may store its claim log in files.
 
-`scatter-log` therefore defines a `LogStore` trait with two backends (§10). The record and header formats, the hash tags, the Merkle tree and the checkpoint format of 0006 are unchanged. What changes is where the bytes live.
+`scatter-log` therefore defines a `LogStore` trait with two backends ([0005](0005-crate-organization.md) §2). The record and header formats, the hash tags, the Merkle tree and the checkpoint format of 0006 are unchanged. What changes is where the bytes live.
 
 **Segments become offset ranges (amends 0006 §5).** A segment is the range `[n·2^k, (n+1)·2^k)` of a partition. It is sealed when every offset in the range has been appended and its manifest written. Nothing physical corresponds to it in Postgres. The file backend writes one file per segment, as before.
 
 ### 2. The `log` schema
+
+*Changed by A2, A5.*
 
 ```sql
 CREATE TABLE log.partition (
@@ -150,6 +152,8 @@ CREATE TABLE log.segment_manifest (
 
 ### 3. Erasure and compaction in Postgres (amends 0006 §7)
 
+*Changed by A2.*
+
 **Erasure.** In the same transaction that appends the `erase` record, each target's body is rewritten with the named parts replaced by `[null, leaf]` ([0015](0015-record-format-and-partition-registry.md) §1), and the row is marked:
 
 ```sql
@@ -177,11 +181,13 @@ Offsets are never reused, so a compacted partition has holes. That is the model 
 
 ### 4. Four schemas
 
+*Changed by A3, A7, A8, A9, A11.*
+
 | Schema | Holds | Lifetime | Role that may read it |
 |---|---|---|---|
 | `log` | §2: partitions, records, Merkle nodes, checkpoints, manifests | Permanent. The source of truth. | The server, the ingester, `verify` |
 | `view` | §5: every projection the API and UI read | Rebuildable from `log` at any time | The server |
-| `private` | State that belongs to one account and has no public history: the accounts graph's binding index, password hashes for the built-in `password` issuer ([0007](0007-actor-identity.md) §3, as amended), sessions' secrets, IP addresses held for abuse handling and IP blocks, when each binding was last used ([0007](0007-actor-identity.md) §3, [0012](0012-api-requirements.md) §5, [0016](0016-permissions-and-access-control.md) §3); the watch set and its Atom token ([0020](0020-change-feeds.md) §3); inboxes and read state ([0021](0021-notifications.md) §3); email addresses, fediverse handles, and the ActivityPub keys and followers of the notifier and of every opted-in actor ([0021](0021-notifications.md) §5, §8, [0022](0022-federation.md) §6); subsidiaries' API keys, OAuth tokens and confidential consumers' secrets ([0024](0024-subsidiary-accounts.md) §4, [0025](0025-oauth-server.md) §8); every preference, including the notification matrix and the auto-watch flags ([0027](0027-preferences-and-portability.md) §1); the IP row behind each edit-filter hit ([0030](0030-edit-filters.md) §11). §5.6 lists the tables | Permanent; never exported. The portable part travels with an account as a user data bundle, and with a cooperative tenant move as a sealed private extract applied on reclaim ([0027](0027-preferences-and-portability.md) §2–4); nothing else leaves ([0018](0018-tenants.md) §10) | `triplespace-accounts`, `triplespace-notify` and, for `ap_key` and `ap_follower` only, `triplespace-federation` |
+| `private` | State that belongs to one account and has no public history: the accounts graph's binding index, password hashes for the built-in `password` issuer ([0007](0007-actor-identity.md) A3), sessions' secrets, IP addresses held for abuse handling and IP blocks, when each binding was last used ([0007](0007-actor-identity.md) §3, [0012](0012-api-requirements.md) §5, [0016](0016-permissions-and-access-control.md) §3); the watch set and its Atom token ([0020](0020-change-feeds.md) §3); inboxes and read state ([0021](0021-notifications.md) §3); email addresses, fediverse handles, and the ActivityPub keys and followers of the notifier and of every opted-in actor ([0021](0021-notifications.md) §5, §8, [0022](0022-federation.md) §6); subsidiaries' API keys, OAuth tokens and confidential consumers' secrets ([0024](0024-subsidiary-accounts.md) §4, [0025](0025-oauth-server.md) §8); every preference, including the notification matrix and the auto-watch flags ([0027](0027-preferences-and-portability.md) §1); the IP row behind each edit-filter hit ([0030](0030-edit-filters.md) §11). §5.6 lists the tables | Permanent; never exported. The portable part travels with an account as a user data bundle, and with a cooperative tenant move as a sealed private extract applied on reclaim ([0027](0027-preferences-and-portability.md) §2–4); nothing else leaves ([0018](0018-tenants.md) §10) | `triplespace-accounts`, `triplespace-notify` and, for `ap_key` and `ap_follower` only, `triplespace-federation` |
 | `ops` | Projection positions (§7), job runtime state, the bootstrap coordinator's block table (§9), the email and fediverse delivery queue ([0021](0021-notifications.md) §8, [0022](0022-federation.md) §7), and the asynchronous jobs that are not log jobs: large user-data exports ([0027](0027-preferences-and-portability.md) §3), filter tests ([0030](0030-edit-filters.md) §6) and property-wide constraint re-checks ([0031](0031-property-constraints.md) §2) | Operational | The server, the ingester, the notifier |
 
 **Privacy is enforced by grants.** The database role the public API connects with has no privilege on `private`. Only the accounts service ([0007](0007-actor-identity.md) §10), the notifier ([0021](0021-notifications.md) §10) and, since [0022](0022-federation.md) §13, the federation service, for actor keys and followers, connect with a role that does; all three are holder-only services, and none serves a route that returns another account's rows. The OAuth server ([0025](0025-oauth-server.md) §8) reaches `private` only through the accounts service. The privacy test of [0012](0012-api-requirements.md) §8, which checks that no route returns private data, is backed by a check that no query outside those three crates can. Where a private set has to meet public data, as the watch set meets `view.activity`, the private side resolves to a list of identifiers and hands it to a query under the public role ([0020](0020-change-feeds.md) §3); there is no cross-schema join. `pg_dump` for exports and verification bundles excludes `private` and `ops`.
@@ -190,11 +196,15 @@ Offsets are never reused, so a compacted partition has holes. That is the model 
 
 ### 5. The `view` schema
 
+*Changed by A5, A9, A11.*
+
 The rule for the serving model is: **the blob serves the page; tables serve queries.** A table exists only where a route needs a lookup or an order that the entity's own JSON cannot give. Nothing is normalized for its own sake.
 
-**Tenants.** Under [0018](0018-tenants.md) §6, `view.entity` and the tables that hang off it (`term`, `sitelink`, `identifier`, `entity_ref`, `statement_assertion`, `correction`, `constraint_violation`, `value_key`) gain a `tenant text NOT NULL DEFAULT ''` column that leads every primary key: the **empty string is the instance**, and the row with `tenant = ''` is the shared row computed from the shared source graphs; a tenant that has local assertions, a cluster link or a correction touching the entity has its own `(tenant, id)` row; a tenant with none reads the shared one. A read is therefore one primary-key lookup with the viewer's tenant, falling back to one with `''`. Every other table in this section is per tenant outright and carries `tenant` in its key. The sentinel is chosen over a `NULL` tenant (decided 2026-09-27) because a primary key cannot hold `NULL` and a plain unique constraint would not reject a duplicate shared row; no slug can be empty ([0018](0018-tenants.md) §1), so nothing collides. Where an earlier ADR says "a `NULL` tenant", read `''`. The SQL below is written for one tenant; the column is implied throughout. `partition` columns are `bigint`, as in §2.
+**Tenants.** Under [0018](0018-tenants.md) §6, `view.entity` and the tables that hang off it (`term`, `sitelink`, `identifier`, `entity_ref`, `statement_assertion`, `correction`, `constraint_violation`, `value_key`) gain a `tenant text NOT NULL DEFAULT ''` column that leads every primary key: the **empty string is the instance**, and the row with `tenant = ''` is the shared row computed from the shared source graphs; a tenant that has local assertions, a cluster link or a correction touching the entity has its own `(tenant, id)` row; a tenant with none reads the shared one. A read is therefore one primary-key lookup with the viewer's tenant, falling back to one with `''`. Every other table in this section is per tenant outright and carries `tenant` in its key. The sentinel is chosen over a `NULL` tenant (A11) because a primary key cannot hold `NULL` and a plain unique constraint would not reject a duplicate shared row; no slug can be empty ([0018](0018-tenants.md) §1), so nothing collides. Where an earlier ADR says "a `NULL` tenant", read `''`. The SQL below is written for one tenant; the column is implied throughout. `partition` columns are `bigint`, as in §2.
 
 #### 5.1 Entities
+
+*Changed by A4.*
 
 ```sql
 CREATE TABLE view.entity (
@@ -243,6 +253,8 @@ Either way, a reader gets the entity with one or two primary-key lookups, and `r
 **Only canonical members have a full row.** A non-canonical cluster member keeps its row for resolution (`canonical_id` points at the canonical entity), its `entity_source` rows and its terms in the per-graph views, but its resolved JSON is the canonical entity's.
 
 #### 5.2 Terms, sitelinks, identifiers and references
+
+*Changed by A9.*
 
 ```sql
 CREATE TABLE view.term (                        -- the resolved fingerprint (wikibase-compat §2)
@@ -330,6 +342,8 @@ CREATE TABLE view.property_link (a text NOT NULL, b text NOT NULL, "offset" bigi
 
 #### 5.4 Keyed types, pages, actors
 
+*Changed by A9, A11, A15.*
+
 ```sql
 CREATE TABLE view.keyed_surrogate (             -- 0009 §7; key is NULLed on erasure
   keyed_type text NOT NULL, surrogate bigint NOT NULL, key text,
@@ -366,7 +380,7 @@ CREATE TABLE view.actor (                       -- 0007 §4; name and raw are NU
   iri text NOT NULL
 );
 CREATE UNIQUE INDEX actor_local_name ON view.actor (lower(name)) WHERE issuer = 'local' AND name IS NOT NULL;
--- Name tombstones (0010 §10, as amended 2026-09-27) are not here: a vanished account's names are erased
+-- Name tombstones (0010 A6) are not here: a vanished account's names are erased
 -- from the log, so they live as keyed hashes in private.name_tombstone (§5.6), which survives a rebuild.
 CREATE TABLE view.account_link (                -- public links only (0007 §7); a row is deleted on unlink
   local_actor text NOT NULL, foreign_actor text NOT NULL UNIQUE, "offset" bigint NOT NULL,
@@ -377,6 +391,8 @@ CREATE TABLE view.account_link (                -- public links only (0007 §7);
 Entity pages get their `page_id` from the same sequence as document pages (§6), so `view.entity.page_id` and `view.page.page_id` never collide and one `pageid` space covers both kinds of page.
 
 #### 5.5 Activity, jobs and configuration
+
+*Changed by A9, A18.*
 
 ```sql
 CREATE TABLE view.activity (                    -- 0010 §13, 0012 §3: one row per local record, job or event
@@ -425,13 +441,13 @@ CREATE TABLE view.registry (                    -- current configuration (0004 �
 
 `job_reject` holds the first N rejects for the job page ([0010](0010-site-ui.md) §9); the full rejects file lives on disk or in object storage, and the download route streams it.
 
-`view.registry`'s key is `(tenant, kind, code)` since [0018](0018-tenants.md) §3 split the config kinds by scope; instance-level kinds (`key`, `graph`, `provider`, `issuer`, `keyed-type`, `tenant`, `alias`, and since then `tenancy`, `template`, `consumer`, the instance `sitelink-policy` and `federation-policy` lists and global `group`s) have the empty-string tenant.
-
-> **Extended by [0046](0046-primary-tenant.md) §2.** `primary` is an instance-level kind, with the single code `primary`.
+`view.registry`'s key is `(tenant, kind, code)` since [0018](0018-tenants.md) §3 split the config kinds by scope; instance-level kinds (`key`, `graph`, `provider`, `issuer`, `keyed-type`, `tenant`, `alias`, and since then `tenancy`, `template`, `consumer`, the instance `sitelink-policy` and `federation-policy` lists, global `group`s, and `primary`, whose single code is `primary` ([0046](0046-primary-tenant.md) §2)) have the empty-string tenant.
 
 The `view.filter`, `view.filter_hit`, `view.constraint_violation`, `view.constraint_count` and `view.value_key` tables of [0030](0030-edit-filters.md) §11 and [0031](0031-property-constraints.md) §5 sit beside these and are indexed in §5.6.
 
 #### 5.6 Tables added by later ADRs
+
+*Changed by A2, A3, A6, A7, A8, A9, A10, A11, A13, A14, A16, A17, A19.*
 
 The ADRs after this one add tables in the same style. Each is specified where it is listed; this table is the index, so that the schema has one map.
 
@@ -448,8 +464,8 @@ The ADRs after this one add tables in the same style. Each is specified where it
 | `view` | `constraint_violation`, `constraint_count`, `value_key` | Property-constraint violations, derived from the resolved view | [0031](0031-property-constraints.md) §5 |
 | `private` | `email`, `fediverse_handle`, `ap_key`, `ap_follower` | Contact details and their verification; the notifier's key and followers and, since [0022](0022-federation.md) §6, each opted-in actor's, keyed by actor | [0021](0021-notifications.md) §5, §8, [0022](0022-federation.md) §10 |
 | `private` | IP blocks | Blocks on addresses before a temporary account exists | [0016](0016-permissions-and-access-control.md) §3 |
-| `private` | `password` | `(actor_key, hash, updated)` for the built-in `password` issuer; a portable-class-"re-established" table under 0027 §2 | [0007](0007-actor-identity.md) §3, as amended 2026-09-27 |
-| `private` | `name_tombstone` | `(name_hmac PRIMARY KEY, released)`: a keyed hash of every name a local account has released by rename or vanish, so that no name is ever reused; holds no actor key and no plaintext, survives erasure by design, and is "never leaves" class under 0027 §2 | [0010](0010-site-ui.md) §10, as amended 2026-09-27 |
+| `private` | `password` | `(actor_key, hash, updated)` for the built-in `password` issuer; a portable-class-"re-established" table under 0027 §2 | [0007](0007-actor-identity.md) A3 |
+| `private` | `name_tombstone` | `(name_hmac PRIMARY KEY, released)`: a keyed hash of every name a local account has released by rename or vanish, so that no name is ever reused; holds no actor key and no plaintext, survives erasure by design, and is "never leaves" class under 0027 §2 | [0010](0010-site-ui.md) A6 |
 | `view` | Moderation ACLs in `acl`; `entity.deleted`, `activity.patrolled`, `page.reserved`; `visibility`, `hidden` and `actor.status` derived from `record` and `actor` ACLs | Protection, deletion, hiding, suppression and patrolling | [0023](0023-moderation.md) §10 |
 | `private` | `api_key` | Subsidiary accounts' keys: label, hash, grants, IP ranges, expiry, last used | [0024](0024-subsidiary-accounts.md) §4, §10 |
 | `view` | `actor.operator`; status `retired` | The operator of a subsidiary account | [0024](0024-subsidiary-accounts.md) §1, §10 |
@@ -470,13 +486,11 @@ The ADRs after this one add tables in the same style. Each is specified where it
 | `view` | `entity_usage` | Wikibase usage aspects per page and entity | [0043](0043-lua-modules.md) §10 |
 | `view` | `report_entry`, `report_state`, `site_stats`; `len`, `latest_at`, `revisions` and `random` on `page`; `last_active` on `actor` | Report pages, live or batch; site statistics; page and user reports | [0047](0047-special-pages.md) §4, §13 |
 
-> **Amended by [0042](0042-template-expansion-and-parsoid.md) §10.** On a tenant with expansion on, `transclusion`, `render_state`, `entity_usage`, and the links, categories and file usage they drive are written by the refresh job and rebuilt by re-rendering, not by replay. Where a render read a foreign template repository or the clock, a rebuild can differ, so the first rule below does not hold for them.
+Two rules follow from the table. Every `view` table is a projection under §7 and is rebuilt from the log, with two exceptions that are not pure functions of it. On a tenant with expansion on, `transclusion`, `render_state`, `entity_usage`, and the links, categories and file usage they drive are written by the refresh job and rebuilt by re-rendering, not by replay; where a render read a foreign template repository or the clock, a rebuild can differ ([0042](0042-template-expansion-and-parsoid.md) §10). A report configured as `batch` keeps a dated snapshot in `view.report_entry`: a rebuild empties it, and the next scheduled run fills it; projection-backed report rows are rebuilt with the tables they read ([0047](0047-special-pages.md) §4.3). Nothing in `private` is: the watch set, inboxes and contact details survive on the strength of that schema's backups, and two things in it are not recoverable at all, `seen` on a watch and `read_at` on a notification ([0020](0020-change-feeds.md) §3, [0021](0021-notifications.md) §3). Each `private` table also carries a portability class in `triplespace-db`'s schema definition, from which the user data bundle and the private extract are generated ([0027](0027-preferences-and-portability.md) §2).
 
-Two rules follow from the table. Every `view` table is a projection under §7 and is rebuilt from the log. Nothing in `private` is: the watch set, inboxes and contact details survive on the strength of that schema's backups, and two things in it are not recoverable at all, `seen` on a watch and `read_at` on a notification ([0020](0020-change-feeds.md) §3, [0021](0021-notifications.md) §3). Each `private` table also carries a portability class in `triplespace-db`'s schema definition, from which the user data bundle and the private extract are generated ([0027](0027-preferences-and-portability.md) §2).
+### 6. Global revision, log and page IDs (amends 0012 §2.1)
 
-> **Amended by [0047](0047-special-pages.md) §4.3.** A report configured as `batch` keeps a dated snapshot in `view.report_entry`. Like 0042 §10's tables, it is not a pure function of the log: a rebuild empties it, and the next scheduled run fills it. Projection-backed report rows are rebuilt with the tables they read.
-
-### 6. Global revision, log and page IDs (amends 0012 §2.1; amended by 0015 §2 and 0018 §2)
+*Changed by A2, A5, A6, A12.*
 
 [0012](0012-api-requirements.md) §2.1 asks for one sequence for revisions and one for log events, assigned at append and stored in the record. Postgres sequences do this, one set per tenant ([0018](0018-tenants.md) §2), since MediaWiki clients expect one sequence per wiki:
 
@@ -484,32 +498,31 @@ Two rules follow from the table. Every `view` table is a projection under §7 an
 - `log.log_id` is taken for every record that projects as a log event ([0011](0011-logs.md) §6.1), which includes the records of the tenant's `actors` partition, and for every record in the tenant's log partition, written to header field 8 and `log.record.logid`.
 - `log.page_id` is taken the first time a key is written in any partition, and every later record for that key repeats it in header field 9 ([0015](0015-record-format-and-partition-registry.md) §2). It is never derived from replay order. Talk pages take theirs from the same sequence through the thread record that first attaches to them ([0019](0019-discussions.md) §2).
 - Mirror records take a **provider-ranged** revision ID, `provider_number << 40 | n` ([0015](0015-record-format-and-partition-registry.md) §2), computed by the writer with no allocation.
+- Local entity IDs come from one more set of per-tenant sequences, one per minted entity type (`log.item_id`, `log.property_id`, …), taken in the appending transaction as Wikibase's `wb_id_counters` are; the ID blocks of [0002](0002-source-graphs-and-mass-ingest.md) §8.5 reserve ranges from them. An adoption sets every sequence here, entity, page, revision, log and user IDs, past what the source wiki consumed, records the floors in its job record, and supplies `page_id` for adopted records rather than taking one ([0035](0035-adopting-a-wikibase.md) §4).
 
-The IDs are inside the hashed header, so an inclusion proof covers them, an export bundle needs no sidecar, and an erased record keeps them. This closes the global-ID question that 0012 opened; the first revision of this ADR kept them outside the header, and 0015 §2 moved them in.
-
-> **Extended by [0035](0035-adopting-a-wikibase.md) §4.** Local entity IDs come from one more set of per-tenant sequences, one per minted entity type (`log.item_id`, `log.property_id`, …), taken in the appending transaction as Wikibase's `wb_id_counters` are; the ID blocks of [0002](0002-source-graphs-and-mass-ingest.md) §8.5 reserve ranges from them. An adoption sets every sequence here — entity, page, revision, log and user IDs — past what the source wiki consumed, records the floors in its job record, and supplies `page_id` for adopted records rather than taking one.
+The IDs are inside the hashed header, so an inclusion proof covers them, an export bundle needs no sidecar, and an erased record keeps them. This closes the global-ID question that 0012 opened; the first form of this ADR kept them outside the header, and 0015 §2 moved them in (A2).
 
 ### 7. Projections, synchrony and read-your-writes
+
+*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A16, A19.*
 
 Every table in `view` belongs to a named projection. `ops.projection_state (projection, partition, applied_offset)` records how far each has replayed; lag is the distance to the partition's head, and it is what job pages report ([0010](0010-site-ui.md) §9). A rebuild truncates the projection's tables and replays from offset 0.
 
 Projections run in dependency order:
 
 1. `registry`, `keyed_surrogate`, `actor`, and `group`, `membership`, `acl`, `block` ([0016](0016-permissions-and-access-control.md) §9, [0023](0023-moderation.md) §10), and `filter` ([0030](0030-edit-filters.md) §11), since the write path reads all of these;
-2. `entity_source`, `keyed_map` ([0009](0009-keyed-entity-types-and-domain.md) §9), `page`, `job`, `upstream_revision` ([0015](0015-record-format-and-partition-registry.md) §4);
+2. `entity_source`, `keyed_map` ([0009](0009-keyed-entity-types-and-domain.md) §9), `page`, `job`, `upstream_revision` ([0015](0015-record-format-and-partition-registry.md) §4), `page_category` and `category` ([0038](0038-page-metadata-and-categories.md) §10), and the file projection ([0039](0039-files-and-media.md) §20);
 3. `cluster` and `link`;
-4. `entity` (resolution), `term`, `sitelink` with the denied-host filter ([0026](0026-sitelinks.md) §6), `identifier`, `value_key`, `entity_ref`, `statement_assertion`, `correction`, then `constraint_violation` and `constraint_count` ([0031](0031-property-constraints.md) §2), which read them;
-5. `activity` with `patrolled` ([0023](0023-moderation.md) §6), `filter_hit` ([0030](0030-edit-filters.md) §11), `page_link`, `record_statement`, and `thread`, `post`, `talk_page` ([0019](0019-discussions.md) §11);
+4. `entity` (resolution), `term`, `sitelink` with the denied-host filter ([0026](0026-sitelinks.md) §6), `identifier`, `value_key`, `entity_ref`, `statement_assertion`, `correction`, then `constraint_violation` and `constraint_count` ([0031](0031-property-constraints.md) §2), which read them, and page-statement resolution ([0038](0038-page-metadata-and-categories.md) §10);
+5. `activity` with `patrolled` ([0023](0023-moderation.md) §6), `filter_hit` ([0030](0030-edit-filters.md) §11), `page_link`, `record_statement`, and `thread`, `post`, `talk_page` ([0019](0019-discussions.md) §11), then `report` and `site_stats`, after `activity` and `page_link` ([0047](0047-special-pages.md) §4.3, §13);
 6. the addressing projection that fills inboxes ([0021](0021-notifications.md) §1), which reads `activity` and writes to `private`; it is the one projection whose target is not `view`, and it runs asynchronously under the notifier's role;
 7. the RDF and search projections (§8, [0014](0014-caches-and-search.md) §7). The **delta projection** of [0032](0032-sparql-update-stream.md) §2 is not a separate step: it runs inside steps 2, 4 and 7, wherever a projection has both the old and the new state of an entity in hand, and writes `view.rdf_delta` in the same transaction.
-
-> **Extended by [0047](0047-special-pages.md) §4.3 and §13.** The `report` and `site_stats` projections run in step 5, after `activity` and `page_link`. Report entries are fan-out under the synchronous budget; the refresh job of 0042 §10 applies them for the tables it writes.
 
 **Edit filters run before the append** ([0030](0030-edit-filters.md) §1, §11), in the same transaction, after the permission and ACL checks and the rate-limit check ([0024](0024-subsidiary-accounts.md) §5); a refusal appends only the hit record. The write path in full is therefore: authenticate the credential and resolve the actor and its effective permissions, including a key's or token's grants ([0024](0024-subsidiary-accounts.md) §4, [0025](0025-oauth-server.md) §3); rate limit; ACLs on the target and its enclosures; edit filters; the base-offset check ([0006](0006-log-integrity-and-erasure.md) §8); the append with ID allocation; projections 1–5 for the affected keys; commit.
 
 **Interactive writes update the synchronous set in the same transaction as the append.** An editor who saves and reloads must see their edit, as they do on MediaWiki. So a write through the edit API appends the record and, before commit, applies projections 1–5 for the affected keys. Bulk jobs apply projections in batches behind the append, and report lag.
 
-> **Amended 2026-09-27: the synchronous budget.** A write's own rows are always synchronous: the written entity's or page's resolution, terms, identifiers, sitelinks, its own `entity_ref` rows, its own constraint checks ([0031](0031-property-constraints.md) §2), its activity row and its delta ([0032](0032-sparql-update-stream.md) §2). **Fan-out** to other entities, meaning referrers re-resolved by a cluster change ([0004](0004-identity-clusters-and-equivalence.md), Consequences), `type`, `inverse` and `symmetric` constraint re-checks of statements that point at the changed entity (0031 §2), and the deltas those produce, is applied inline until a budget is spent and then handed to the projection worker: `projections.sync_budget` (`site` configuration, default 1,000 rows) or `projections.sync_time` (default 250 ms), whichever comes first. The remainder is queued in `ops.projection_state` as work for the affected keys, applied in append order by the worker that serves bulk jobs, and reported as lag on the entity page's identity line ("N referrers updating") and in `siprop=triplespace`. Read-your-writes therefore holds for the thing edited and for small fan-outs; a link to a heavily cited author shows its effect on referrers within lag. The append lock of §2 is released at commit, before the queued remainder runs, so a large fan-out never blocks the next editor.
+**The synchronous budget.** A write's own rows are always synchronous: the written entity's or page's resolution, terms, identifiers, sitelinks, its own `entity_ref` rows, its own constraint checks ([0031](0031-property-constraints.md) §2), its activity row and its delta ([0032](0032-sparql-update-stream.md) §2). **Fan-out** to other entities, meaning referrers re-resolved by a cluster change ([0004](0004-identity-clusters-and-equivalence.md), Consequences), `type`, `inverse` and `symmetric` constraint re-checks of statements that point at the changed entity (0031 §2), and the deltas those produce, is applied inline until a budget is spent and then handed to the projection worker: `projections.sync_budget` (`site` configuration, default 1,000 rows) or `projections.sync_time` (default 250 ms), whichever comes first. The remainder is queued in `ops.projection_state` as work for the affected keys, applied in append order by the worker that serves bulk jobs, and reported as lag on the entity page's identity line ("N referrers updating") and in `siprop=triplespace`. Read-your-writes therefore holds for the thing edited and for small fan-outs; a link to a heavily cited author shows its effect on referrers within lag. The append lock of §2 is released at commit, before the queued remainder runs, so a large fan-out never blocks the next editor. Report entries are fan-out under this budget; the refresh job of [0042](0042-template-expansion-and-parsoid.md) §10 applies them for the tables it writes ([0047](0047-special-pages.md) §13).
 
 **Tenant overlays.** Under [0018](0018-tenants.md) §6 the shared rows are computed once from the shared partitions, and a tenant's rows only where its own partitions change the result. A record in a tenant partition therefore re-runs steps 3–5 for that tenant's overlay of the affected keys; a record in a shared partition re-runs them for the shared row and for every tenant that holds an overlay row for the key.
 
@@ -517,18 +530,20 @@ Projections run in dependency order:
 
 ### 8. RDF becomes an output, not the read path (amends 0001 §2 and 0005 §4.4)
 
+*Changed by A9, A10.*
+
 - **The API and UI read only `view`.** No request path queries a triplestore.
-- **The RDF projection streams.** The resolved view (the main graph of [0001](0001-revision-metadata-rdf.md) §2, computed as [0002](0002-source-graphs-and-mass-ingest.md) §3 describes), the source graphs and the metadata graph are produced as N-Quads from `view` and `log` by `triplespace-rdf` (§10). No intermediate quad store is needed to produce them. Two dump products are offered:
+- **The RDF projection streams.** The resolved view (the main graph of [0001](0001-revision-metadata-rdf.md) §2, computed as [0002](0002-source-graphs-and-mass-ingest.md) §3 describes), the source graphs and the metadata graph are produced as N-Quads from `view` and `log` by `triplespace-rdf` ([0005](0005-crate-organization.md) §2). No intermediate quad store is needed to produce them. Three dump products are offered:
   - **A Wikibase-compatible dump** holds the resolved view only. It is what QLever and any Wikibase or Wikidata tool load, and it never contains the metadata graph ([0001](0001-revision-metadata-rdf.md) §2). Source graphs may be added to it for consumers who want to compare what a provider asserts with what the instance asserts ([0002](0002-source-graphs-and-mass-ingest.md) §3).
   - **A full dump** holds the resolved view, every source graph whose export policy allows it ([0005](0005-crate-organization.md) §4.1), and the metadata graph. It is the RDF form of the instance's own history: for the instance's own SPARQL endpoint, for backups, and for another instance that wants the whole record.
-  Neither is the log export bundle of [0006](0006-log-integrity-and-erasure.md) §9, which carries records, not RDF.
-- **A local quad store is a deployment option.** An instance that wants its own SPARQL endpoint runs the quad projection into Oxigraph or QLever as one more consumer of the log. `scatter-quadstore` keeps its contract for Scatterbase, whose drivers implement it; in Triplespace it is a projection target, not the store projections write into.
+  - **A local-graph source dump** holds the `local` partition's current state as N-Quads and as canonical JSON, one file per snapshot, with the record coordinates of each entity's newest record. It is what another instance reads for verified sync ([0022](0022-federation.md) §1).
 
-> **Amended by [0032](0032-sparql-update-stream.md).** Every dump is stamped with the cursor of the SPARQL Update stream it continues into, and is offered in a second form with blank nodes skolemized (0032 §7); the plain form is unchanged. The local quad store is no longer a separate projection: it is fed from `view.rdf_delta`, the same rows the stream serializes, in process through `scatter-quadstore::apply` or externally through `triplespace-cli sparql-sync` (0032 §9).
+  Every dump is stamped with the cursor of the SPARQL Update stream it continues into, and is offered in a second form with blank nodes skolemized; the plain form is unchanged ([0032](0032-sparql-update-stream.md) §1, §7). None is the log export bundle of [0006](0006-log-integrity-and-erasure.md) §9, which carries records, not RDF.
+- **A local quad store is a deployment option.** An instance that wants its own SPARQL endpoint feeds Oxigraph or QLever from `view.rdf_delta`, the same rows the SPARQL Update stream serializes, in process through `scatter-quadstore::apply` or externally through `triplespace-cli sparql-sync` ([0032](0032-sparql-update-stream.md) §9). There is no separate quad projection. `scatter-quadstore` keeps its contract for Scatterbase, whose drivers implement it; in Triplespace it is a projection target, not the store projections write into.
 
 [0001](0001-revision-metadata-rdf.md) §2's consumers column therefore reads: resolved view (main graph) for external triplestores and Wikibase tools; metadata graph for the instance's own SPARQL endpoint and full dumps. "Not published to external RDF stores" in 0001 §2 and "never exported to external stores" in [0011](0011-logs.md) §2 mean the Wikibase-compatible dump; a full dump is the instance's own export and carries both. The application's history, attribution, diffs and moderation views come from `view.activity` and the records.
 
-### 9. Bootstrap mode (refines 0002 §8.6 and 0006 §5)
+### 9. Bootstrap mode (extends 0002 §8.6; uses 0006 §5)
 
 An initial load writes records first and builds everything else afterwards, as 0002 §8.6 already says. In Postgres:
 
@@ -542,16 +557,11 @@ Nothing about this is specific to Postgres except the use of `COPY` and the defe
 
 ### 10. Crates (amends 0005 §2)
 
-| Layer | Crate | Change |
-|---|---|---|
-| Substrate | `scatter-log` | Gains the `LogStore` trait: `append`, `read`, `scan`, `erase_parts` (named `erase_bodies` until [0015](0015-record-format-and-partition-registry.md) §7), `compact`, `head`. Its file backend, `segments`, implements it and remains the export-bundle format. |
-| | `scatter-log-postgres` (new) | `LogStore` over the `log` schema of §2, with `sqlx`. It also owns that schema's migrations. Shared with Scatterbase, which may use it in place of files. |
-| | `scatter-projection` | The projection trait gains a transactional variant, so a projection can apply inside the appending transaction (§7). |
-| Triplespace | `triplespace-db` (new) | The `view`, `private` and `ops` schemas, their migrations, roles and grants (§4), connection pools, and replica routing (§7) |
-| | `triplespace-projections` (new) | Every `view` projection of §5, in the order of §7. Absorbs `triplespace-activity` from [0010](0010-site-ui.md) §13. Pure computation stays in `scatter-wikibase-resolve`, `scatter-identity` and the other core crates; this crate only reads records and writes rows. |
-| | `triplespace-rdf` (new) | The streaming RDF projection of §8, using `scatter-wikibase-rdf`. Absorbs `triplespace-revmeta`, the metadata-graph projection of [0001](0001-revision-metadata-rdf.md) and [0011](0011-logs.md) §10. |
+*Changed by A1.*
 
-The rules of [0005](0005-crate-organization.md) §3 hold: no core crate depends on `sqlx` or Postgres, async and I/O appear only in `scatter-log-postgres`, `scatter-ingest` and the surfaces, and the `segments` backend keeps `scatter-log` usable without a database.
+*Superseded by [0005](0005-crate-organization.md) §2 (A1).*
+
+[0005](0005-crate-organization.md) §2 keeps the crate table that CI checks, with every crate this section named. The table this section first gave is in A1.
 
 ### 11. Deployment profiles
 
@@ -569,17 +579,7 @@ This is [0000](0000-init.md) §4's rule that smaller deployments follow as corol
 
 ### 12. Changelog of the 2026-09-27 revision
 
-| Source | Change to this ADR |
-|---|---|
-| [0015](0015-record-format-and-partition-registry.md) §1–2, §7 | `log.record`: `revid`, `logid` and `page_id` as header columns; `body` never `NULL`; `erased` bitmask beside `erased_by`; the erasure statement in §3 rewrites parts; `erase_bodies` → `erase_parts` in §10; §6 rewritten for header IDs, provider-ranged revision IDs and carried-forward page IDs; two open questions closed |
-| [0016](0016-permissions-and-access-control.md) §3, §9 | Permission tables in §5.6 and step 1 of §7; IP blocks in `private` |
-| [0017](0017-entity-id-grammar.md) §4 | `view.entity.id` comment |
-| [0018](0018-tenants.md) §2–3, §6 | `partition` as `bigint` everywhere; `tenant` on `log.partition` with the `(tenant, name)` key; the tenant column rule at the head of §5; `view.registry` keyed by tenant; per-tenant sequences in §6; overlay recomputation in §7; a farm-scale open question |
-| [0019](0019-discussions.md) §2, §11 | Thread tables in §5.6 and step 5 of §7; talk-page IDs from the page sequence in §6 |
-| [0020](0020-change-feeds.md) §3 | `private.watch` and `watch_token` in §4 and §5.6; the no-cross-schema-join rule in §4 |
-| [0021](0021-notifications.md) §3, §5, §8, §10 | Inbox and contact tables in §4 and §5.6; the delivery queue in `ops`; `triplespace-notify` as the second reader of `private`; the addressing projection as step 6 of §7 |
-| Third pass, 2026-09-27: [0022](0022-federation.md) through [0031](0031-property-constraints.md) | `partition` made `bigint` in `view.record_statement` and `view.activity` (and in `view.upstream_revision`, 0015 §4), which the head of §5 already required; `view.entity.deleted`, `view.page.reserved`, `view.actor.operator`, `groups`, the `kind` and `status` vocabularies, and `view.activity.patrolled` with its partial index written into the SQL they were listed against in §5.6; the `private` and `ops` cells of §4 list keys, tokens, consumer secrets, preferences, the hit IP row, per-actor ActivityPub keys, and the export, filter-test and re-check jobs; `triplespace-federation` named as the third reader in the table; the write path of §7 stated in order, with `filter` in step 1, `keyed_map` in step 2, `value_key` and `constraint_count` in step 4 and `filter_hit` in step 5; §5.6 gains the `ops` job rows, the rewritten `sitelink`, `view-pin` and `resolver`; the `NULL`-tenant key question added below |
-| [0032](0032-sparql-update-stream.md) §2–3, §9 | `view.rdf_delta` and the delta epoch in §5.6; the delta projection noted in §7; §8 amended: stamped and skolemized dumps, and the local quad store fed from the delta table |
+*Superseded by the Amendment log.* Each row of the changelog this section held is an entry there, among A2–A10.
 
 ## Consequences
 
@@ -595,16 +595,37 @@ This is [0000](0000-init.md) §4's rule that smaller deployments follow as corol
 
 ## Open questions
 
-- **Measured sizes.** Record, `entity_ref` and `term` sizes for a full Wikidata mirror, and the compression ratio of canonical CBOR under `lz4` versus `zstd` (which needs an extension or a newer Postgres).
-- **Where large mirrors live.** Whether mirror child tables should go to a separate database or tablespace, or whether their bodies should move to object storage behind the same `LogStore` trait once measured sizes justify it. Sharding is out of scope until then.
-- ~~**Whether `revid` and `logid` enter the header.** Left to the global-ID ADR, which this ADR otherwise answers.~~ *Settled by [0015](0015-record-format-and-partition-registry.md) §2: they do, with `page_id`, as header fields 7–9 inside the Merkle tree.*
-- **Statement rows for the local graph.** Whether `statement_assertion` should also index property and rank for every local statement, so that per-property views of large local entities can be paged in SQL instead of from the blob.
-- **Vacuum policy.** How soon after an `erase` the affected child table is vacuumed, and whether `VACUUM FULL` is the default for reason class `legal`.
-- ~~**Which projections are synchronous.** §7 puts 1–5 in the write transaction. `entity_ref` for an entity with tens of thousands of referrers may be too slow; the threshold at which a projection goes asynchronous for one write is to be set from measurement.~~ *Settled 2026-09-27 (§7 amendment): a write's own rows are always synchronous; fan-out to other entities is inline up to `projections.sync_budget` / `projections.sync_time`, then queued with lag reported. The default values are tuning.*
-- ~~**`page_id` for entities on rebuild.** §6 assigns it from the entity's first record in append order. If two partitions first mention an entity in records that interleave differently on rebuild, the ID could differ; the rule may need to be "first record in the local partition, else first mirror record by partition number".~~ *Settled by [0015](0015-record-format-and-partition-registry.md) §2: the ID is in the header and carried forward, never derived.*
-- **Partition count at farm scale** and whether small tenants share physical child tables ([0018](0018-tenants.md), open questions). [0028](0028-tenancy-policy.md) §2 adds three instance partitions per farm, which does not change the shape of the question.
-- **The addressing projection's role.** §7 runs it under the notifier's role because it writes to `private`; whether `ops.projection_state` should record its position like the others, or `private.inbox` should carry its own high-water mark, is an implementation choice to settle with [0021](0021-notifications.md).
-- ~~**A `NULL` tenant in a key.** §5 and [0018](0018-tenants.md) §6 give shared rows and instance-level registry entries a `NULL` tenant and say the tenant is in the key, but a Postgres primary key cannot hold `NULL`.~~ *Settled 2026-09-27 (§5): `tenant text NOT NULL DEFAULT ''`, the empty string being the instance, leading every primary key; a read tries the viewer's tenant and falls back to `''`.*
+- **Q1. Measured sizes.** Record, `entity_ref` and `term` sizes for a full Wikidata mirror, and the compression ratio of canonical CBOR under `lz4` versus `zstd` (which needs an extension or a newer Postgres).
+- **Q2. Where large mirrors live.** Whether mirror child tables should go to a separate database or tablespace, or whether their bodies should move to object storage behind the same `LogStore` trait once measured sizes justify it. Sharding is out of scope until then.
+- **Q3.** ~~**Whether `revid` and `logid` enter the header.** Left to the global-ID ADR, which this ADR otherwise answers.~~ *Settled by [0015](0015-record-format-and-partition-registry.md) §2: they do, with `page_id`, as header fields 7–9 inside the Merkle tree.*
+- **Q4. Statement rows for the local graph.** Whether `statement_assertion` should also index property and rank for every local statement, so that per-property views of large local entities can be paged in SQL instead of from the blob.
+- **Q5. Vacuum policy.** How soon after an `erase` the affected child table is vacuumed, and whether `VACUUM FULL` is the default for reason class `legal`.
+- **Q6.** ~~**Which projections are synchronous.** §7 puts 1–5 in the write transaction. `entity_ref` for an entity with tens of thousands of referrers may be too slow; the threshold at which a projection goes asynchronous for one write is to be set from measurement.~~ *Settled by A11: a write's own rows are always synchronous; fan-out to other entities is inline up to `projections.sync_budget` / `projections.sync_time`, then queued with lag reported. The default values are tuning.*
+- **Q7.** ~~**`page_id` for entities on rebuild.** §6 assigns it from the entity's first record in append order. If two partitions first mention an entity in records that interleave differently on rebuild, the ID could differ; the rule may need to be "first record in the local partition, else first mirror record by partition number".~~ *Settled by [0015](0015-record-format-and-partition-registry.md) §2: the ID is in the header and carried forward, never derived.*
+- **Q8. Partition count at farm scale** and whether small tenants share physical child tables ([0018](0018-tenants.md), open questions). [0028](0028-tenancy-policy.md) §2 adds three instance partitions per farm, which does not change the shape of the question.
+- **Q9. The addressing projection's role.** §7 runs it under the notifier's role because it writes to `private`; whether `ops.projection_state` should record its position like the others, or `private.inbox` should carry its own high-water mark, is an implementation choice to settle with [0021](0021-notifications.md).
+- **Q10.** ~~**A `NULL` tenant in a key.** §5 and [0018](0018-tenants.md) §6 give shared rows and instance-level registry entries a `NULL` tenant and say the tenant is in the key, but a Postgres primary key cannot hold `NULL`.~~ *Settled by A11: `tenant text NOT NULL DEFAULT ''`, the empty string being the instance, leading every primary key; a read tries the viewer's tenant and falls back to `''`.*
+
+## Changes to other ADRs
+
+| Target | By | Change | Target's log |
+|---|---|---|---|
+| [0000](0000-init.md) Q6 | §1 | settles | 0000 Q6 |
+| [0001](0001-revision-metadata-rdf.md) §2 | §8 | amends | 0001 A6 |
+| [0002](0002-source-graphs-and-mass-ingest.md) §8.6 | §9 | extends | 0002 A5 |
+| [0002](0002-source-graphs-and-mass-ingest.md) Q8 | §5.2 | settles | 0002 Q8 |
+| [0005](0005-crate-organization.md) §2, §3, §4.2, §4.4 | §1, §8, §10 | amends | 0005 A8 |
+| [0006](0006-log-integrity-and-erasure.md) §5 | §1, §3 | extends | 0006 A2 |
+| [0006](0006-log-integrity-and-erasure.md) §7 | §1, §3 | amends | 0006 A2 |
+| [0008](0008-namespaces-and-document-pages.md) Q1 | §6 | settles | 0008 Q1 |
+| [0008](0008-namespaces-and-document-pages.md) Q2 | §6 | settles | 0008 Q2 |
+| [0010](0010-site-ui.md) §13 | §5.5, §10 | amends | 0010 A2 |
+| [0010](0010-site-ui.md) §5.2, §12 | §6 | amends | 0010 A3 |
+| [0010](0010-site-ui.md) Q3 | §6 | settles | 0010 Q3 |
+| [0011](0011-logs.md) §2, §8 | §6, §8 | amends | 0011 A2 |
+| [0011](0011-logs.md) Q1 | §6 | settles | 0011 Q1 |
+| [0012](0012-api-requirements.md) §2.1 | §6 | amends | 0012 A2 |
+| [0012](0012-api-requirements.md) Q1 | §6 | settles | 0012 Q1 |
 
 ## References
 
@@ -613,3 +634,187 @@ This is [0000](0000-init.md) §4's rule that smaller deployments follow as corol
 - [Manual:ChronologyProtector](https://www.mediawiki.org/wiki/Manual:ChronologyProtector)
 - [PostgreSQL: table partitioning](https://www.postgresql.org/docs/current/ddl-partitioning.html), [TOAST and compression](https://www.postgresql.org/docs/current/storage-toast.html), [`COPY`](https://www.postgresql.org/docs/current/sql-copy.html), [`pg_last_wal_replay_lsn()`](https://www.postgresql.org/docs/current/functions-admin.html)
 - [Kafka log compaction](https://kafka.apache.org/documentation/#compaction)
+
+## Amendment log
+
+### A1. Crate table
+
+- **Date:** 2026-09-26
+- **Source:** [0005](0005-crate-organization.md) §2, revision of 2026-09-26
+- **Change:** supersedes §10
+- **Summary:** 0005 §2 became the one crate table CI checks, and carries every crate of this section (0005 A8). The section was kept in step with it until this conversion: A2 renamed `erase_bodies`. It still named `sqlx`, which 0033 §4 replaced with `tokio-postgres` in 0005 §2's dependency notes.
+
+Replaced text (§10):
+
+> | Layer | Crate | Change |
+> |---|---|---|
+> | Substrate | `scatter-log` | Gains the `LogStore` trait: `append`, `read`, `scan`, `erase_parts` (named `erase_bodies` until [0015](0015-record-format-and-partition-registry.md) §7), `compact`, `head`. Its file backend, `segments`, implements it and remains the export-bundle format. |
+> | | `scatter-log-postgres` (new) | `LogStore` over the `log` schema of §2, with `sqlx`. It also owns that schema's migrations. Shared with Scatterbase, which may use it in place of files. |
+> | | `scatter-projection` | The projection trait gains a transactional variant, so a projection can apply inside the appending transaction (§7). |
+> | Triplespace | `triplespace-db` (new) | The `view`, `private` and `ops` schemas, their migrations, roles and grants (§4), connection pools, and replica routing (§7) |
+> | | `triplespace-projections` (new) | Every `view` projection of §5, in the order of §7. Absorbs `triplespace-activity` from [0010](0010-site-ui.md) §13. Pure computation stays in `scatter-wikibase-resolve`, `scatter-identity` and the other core crates; this crate only reads records and writes rows. |
+> | | `triplespace-rdf` (new) | The streaming RDF projection of §8, using `scatter-wikibase-rdf`. Absorbs `triplespace-revmeta`, the metadata-graph projection of [0001](0001-revision-metadata-rdf.md) and [0011](0011-logs.md) §10. |
+>
+> The rules of [0005](0005-crate-organization.md) §3 hold: no core crate depends on `sqlx` or Postgres, async and I/O appear only in `scatter-log-postgres`, `scatter-ingest` and the surfaces, and the `segments` backend keeps `scatter-log` usable without a database.
+
+### A2. Header IDs, erasable parts and upstream revisions
+
+- **Date:** 2026-09-26
+- **Source:** [0015](0015-record-format-and-partition-registry.md) §1–2, §4, §7
+- **Change:** amends §2, §3, §6; extends §5.6
+- **Summary:** `log.record`: `revid`, `logid` and `page_id` as header columns; `body` never `NULL`; `erased` bitmask beside `erased_by`; the erasure statement in §3 rewrites parts; `erase_bodies` → `erase_parts` in §10; §6 rewritten for header IDs, provider-ranged revision IDs and carried-forward page IDs; two open questions closed. §4 adds `view.upstream_revision`. This settled Q3 and Q7.
+
+Replaced text: not recorded. 0013 was revised in place before the repository's history begins (commit `1e53c95`, 2026-09-27).
+
+### A3. Permission tables
+
+- **Date:** 2026-09-26
+- **Source:** [0016](0016-permissions-and-access-control.md) §3, §9
+- **Change:** extends §4, §5.6, §7
+- **Summary:** Permission tables in §5.6 and step 1 of §7; IP blocks in `private`.
+
+### A4. Entity IDs
+
+- **Date:** 2026-09-27
+- **Source:** [0017](0017-entity-id-grammar.md) §4
+- **Change:** amends §5.1
+- **Summary:** `view.entity.id` comment.
+
+Replaced text: not recorded. 0013 was revised in place before the repository's history begins (commit `1e53c95`, 2026-09-27).
+
+### A5. Tenants
+
+- **Date:** 2026-09-27
+- **Source:** [0018](0018-tenants.md) §2–3, §6
+- **Change:** amends §2, §5, §6, §7
+- **Summary:** `partition` as `bigint` everywhere; `tenant` on `log.partition` with the `(tenant, name)` key; the tenant column rule at the head of §5; `view.registry` keyed by tenant; per-tenant sequences in §6; overlay recomputation in §7; a farm-scale open question.
+
+Replaced text: not recorded. 0013 was revised in place before the repository's history begins (commit `1e53c95`, 2026-09-27).
+
+### A6. Threads
+
+- **Date:** 2026-09-27
+- **Source:** [0019](0019-discussions.md) §2, §11
+- **Change:** extends §5.6, §6, §7
+- **Summary:** Thread tables in §5.6 and step 5 of §7; talk-page IDs from the page sequence in §6.
+
+### A7. The watch set
+
+- **Date:** 2026-09-27
+- **Source:** [0020](0020-change-feeds.md) §3
+- **Change:** extends §4, §5.6
+- **Summary:** `private.watch` and `watch_token` in §4 and §5.6; the no-cross-schema-join rule in §4.
+
+### A8. Notifications
+
+- **Date:** 2026-09-27
+- **Source:** [0021](0021-notifications.md) §3, §5, §8, §10
+- **Change:** extends §4, §5.6, §7
+- **Summary:** Inbox and contact tables in §4 and §5.6; the delivery queue in `ops`; `triplespace-notify` as the second reader of `private`; the addressing projection as step 6 of §7.
+
+### A9. Third pass: 0022 through 0031
+
+- **Date:** 2026-09-27
+- **Source:** [0022](0022-federation.md) §1, §8, §10, §13; [0023](0023-moderation.md) §10; [0024](0024-subsidiary-accounts.md) §10; [0025](0025-oauth-server.md) §8; [0026](0026-sitelinks.md) §6; [0027](0027-preferences-and-portability.md) §8; [0028](0028-tenancy-policy.md) §12; [0029](0029-resolver-namespaces.md) §3; [0030](0030-edit-filters.md) §11; [0031](0031-property-constraints.md) §5
+- **Change:** amends §5, §5.2, §5.6; extends §4, §5.4, §5.5, §7, §8
+- **Summary:** `partition` made `bigint` in `view.record_statement` and `view.activity` (and in `view.upstream_revision`, 0015 §4), which the head of §5 already required; `view.entity.deleted`, `view.page.reserved`, `view.actor.operator`, `groups`, the `kind` and `status` vocabularies, and `view.activity.patrolled` with its partial index written into the SQL they were listed against in §5.6; the `private` and `ops` cells of §4 list keys, tokens, consumer secrets, preferences, the hit IP row, per-actor ActivityPub keys, and the export, filter-test and re-check jobs; `triplespace-federation` named as the third reader in the table; the write path of §7 stated in order, with `filter` in step 1, `keyed_map` in step 2, `value_key` and `constraint_count` in step 4 and `filter_hit` in step 5; §5.6 gains the `ops` job rows, the rewritten `sitelink`, `view-pin` and `resolver`; the `NULL`-tenant key question added below. The sitelink table was rewritten (0026), `notification_pref` was dropped for preferences (0027), and `ap_inbox_seen` joined `ops` (0022 §8). 0022 §1's local-graph source dump, which extends §8, was recorded only in 0022 until this conversion.
+
+Replaced text: not recorded. 0013 was revised in place before the repository's history begins (commit `1e53c95`, 2026-09-27).
+
+### A10. The SPARQL Update stream
+
+- **Date:** 2026-09-27
+- **Source:** [0032](0032-sparql-update-stream.md) §1–3, §7, §9
+- **Change:** amends §8; extends §5.6, §7
+- **Summary:** By section:
+  - §5.6, §7, §8: `view.rdf_delta` and the delta epoch in §5.6; the delta projection noted in §7; §8 amended: stamped and skolemized dumps, and the local quad store fed from the delta table.
+  - §8: Every dump is stamped with the cursor of the SPARQL Update stream it continues into, and is offered in a second form with blank nodes skolemized (0032 §7); the plain form is unchanged. The local quad store is no longer a separate projection: it is fed from `view.rdf_delta`, the same rows the stream serializes, in process through `scatter-quadstore::apply` or externally through `triplespace-cli sparql-sync` (0032 §9).
+
+Replaced text (§8):
+
+> - **A local quad store is a deployment option.** An instance that wants its own SPARQL endpoint runs the quad projection into Oxigraph or QLever as one more consumer of the log.
+
+### A11. Decisions of 2026-09-27 (evening)
+
+- **Date:** 2026-09-27
+- **Source:** Direct: James, decisions of 2026-09-27 (evening)
+- **Change:** amends §5; extends §4, §5.4, §5.6, §7
+- **Summary:** By section:
+  - §4, §5.6: Password hashes for the built-in `password` issuer live in `private.password` (decision 1, recorded as 0007 A3). Names a local account releases are kept as keyed hashes in `private.name_tombstone`, so that no name is ever reused (decision 7, recorded as 0010 A6).
+  - §5: `tenant text NOT NULL DEFAULT ''` leads every primary key, the empty string being the instance; a read tries the viewer's tenant, then `''` (decision 3). This settled Q10.
+  - §7: A write's own rows are always synchronous: the written entity's or page's resolution, terms, identifiers, sitelinks, its own `entity_ref` rows, its own constraint checks ([0031](0031-property-constraints.md) §2), its activity row and its delta ([0032](0032-sparql-update-stream.md) §2). **Fan-out** to other entities, meaning referrers re-resolved by a cluster change ([0004](0004-identity-clusters-and-equivalence.md), Consequences), `type`, `inverse` and `symmetric` constraint re-checks of statements that point at the changed entity (0031 §2), and the deltas those produce, is applied inline until a budget is spent and then handed to the projection worker: `projections.sync_budget` (`site` configuration, default 1,000 rows) or `projections.sync_time` (default 250 ms), whichever comes first. The remainder is queued in `ops.projection_state` as work for the affected keys, applied in append order by the worker that serves bulk jobs, and reported as lag on the entity page's identity line ("N referrers updating") and in `siprop=triplespace`. Read-your-writes therefore holds for the thing edited and for small fan-outs; a link to a heavily cited author shows its effect on referrers within lag. The append lock of §2 is released at commit, before the queued remainder runs, so a large fan-out never blocks the next editor. (decision 6). This settled Q6.
+
+Replaced text: not recorded. 0013 was revised in place before the repository's history begins (commit `1e53c95`, 2026-09-27).
+
+### A12. Entity-ID sequences
+
+- **Date:** 2026-09-28
+- **Source:** [0035](0035-adopting-a-wikibase.md) §4
+- **Change:** extends §6
+- **Summary:** Local entity IDs come from one more set of per-tenant sequences, one per minted entity type (`log.item_id`, `log.property_id`, …), taken in the appending transaction as Wikibase's `wb_id_counters` are; the ID blocks of [0002](0002-source-graphs-and-mass-ingest.md) §8.5 reserve ranges from them. An adoption sets every sequence here — entity, page, revision, log and user IDs — past what the source wiki consumed, records the floors in its job record, and supplies `page_id` for adopted records rather than taking one.
+
+### A13. Page statements and categories
+
+- **Date:** 2026-09-29
+- **Source:** [0038](0038-page-metadata-and-categories.md) §10
+- **Change:** extends §5.6, §7
+- **Summary:** `page_statements`, `page_category`, `category`; page subjects in existing tables. §5.6 had been given its row in place; the projection steps it names were added to §7 at conversion.
+
+### A14. Files
+
+- **Date:** 2026-09-30
+- **Source:** [0039](0039-files-and-media.md) §20
+- **Change:** extends §5.6, §7
+- **Summary:** File tables, `ops.upload_stash` and `ops.blob_delete`. §5.6 had been given its row in place; the file projection's step was added to §7 at conversion.
+
+### A15. Content model IDs
+
+- **Date:** 2026-09-30
+- **Source:** [0041](0041-content-models.md) §10
+- **Change:** amends §5.4
+- **Summary:** `view.page.content_model` holds content model registry IDs. The SQL had been given the comment in place.
+
+Replaced text: `content_model text NOT NULL, owner_actor text,` with no comment.
+
+### A16. Tables written by rendering
+
+- **Date:** 2026-09-30
+- **Source:** [0042](0042-template-expansion-and-parsoid.md) §10
+- **Change:** amends §5.6; extends §7
+- **Summary:** On a tenant with expansion on, `transclusion`, `render_state`, `entity_usage`, and the links, categories and file usage they drive are written by the refresh job and rebuilt by re-rendering, not by replay. Where a render read a foreign template repository or the clock, a rebuild can differ, so the first rule below does not hold for them. §5.6 had been given the table row in place.
+
+Replaced text (§5.6):
+
+> Every `view` table is a projection under §7 and is rebuilt from the log.
+
+### A17. Entity usage
+
+- **Date:** 2026-09-30
+- **Source:** [0043](0043-lua-modules.md) §10
+- **Change:** extends §5.6
+- **Summary:** `view.entity_usage`. §5.6 had been given its row in place.
+
+### A18. The primary tenant
+
+- **Date:** 2026-09-30
+- **Source:** [0046](0046-primary-tenant.md) §2
+- **Change:** extends §5.5
+- **Summary:** `primary` is an instance-level kind, with the single code `primary`.
+
+### A19. Reports and site statistics
+
+- **Date:** 2026-10-01
+- **Source:** [0047](0047-special-pages.md) §4.3, §13
+- **Change:** amends §5.6; extends §7
+- **Summary:** As noted under each section before the migration:
+  - §5.6: A report configured as `batch` keeps a dated snapshot in `view.report_entry`. Like 0042 §10's tables, it is not a pure function of the log: a rebuild empties it, and the next scheduled run fills it. Projection-backed report rows are rebuilt with the tables they read. §5.6 had been given the table row in place.
+  - §7: The `report` and `site_stats` projections run in step 5, after `activity` and `page_link`. Report entries are fan-out under the synchronous budget; the refresh job of 0042 §10 applies them for the tables it writes.
+
+Replaced text: the rule as A16 states it, which this extended to batch reports.
+
+### A20. Converted to the 0050 format
+
+- **Date:** 2026-10-01
+- **Source:** [0050](0050-adr-format.md) §13
+- **Change:** consolidates §4–12
+- **Summary:** A1–A19 were folded into the Decision, and §12, the changelog of the 2026-09-27 revision, became the log: A2–A8 are its rows, A9 its third-pass row, which named ten ADRs, and A10 its 0032 row. The `Revised` header line is retired. The open questions were numbered. No decision changed. Before this, A10–A12, A16, A18 and A19 were blockquotes, A13–A17 and A19 had also been given rows or comments in place, and A9's local-graph dump was recorded only in 0022. The file before conversion is commit `0b26a3a`.
