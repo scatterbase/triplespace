@@ -170,6 +170,11 @@ CASCADINGSOURCES      = { origin = "mediawiki", status = "implemented", expensiv
 # Wikibase Client (0043 §7). Bare IDs follow the tenant's lua.ids (0043 §8).
 "#property"           = { origin = "WikibaseClient", status = "implemented" }
 "#statements"         = { origin = "WikibaseClient", status = "implemented" }
+SHORTDESC             = { origin = "WikibaseClient", status = "implemented" }   # the `wikibase-shortdesc` page property (0055 §6)
+
+# Redirects (0051 §1). The magic word that makes a wikitext page a redirect; localized synonyms come
+# from MediaWiki's message files.
+"#REDIRECT"           = { origin = "mediawiki", status = "implemented" }
 
 # --- Extension tags --------------------------------------------------------------------------
 [tag]
@@ -181,8 +186,8 @@ ref                   = { origin = "Cite", status = "implemented" }
 references            = { origin = "Cite", status = "implemented" }
 poem                  = { origin = "Poem", status = "implemented" }
 syntaxhighlight       = { origin = "SyntaxHighlight", status = "implemented", synonyms = ["source"] }   # as plain <pre> (0033 §9.1)
-templatestyles        = { origin = "TemplateStyles", status = "chip" }    # open question (0042)
-templatedata          = { origin = "TemplateData", status = "chip" }
+templatestyles        = { origin = "TemplateStyles", status = "implemented" }   # 0055 §3
+templatedata          = { origin = "TemplateData", status = "implemented" }     # 0055 §5
 math                  = { origin = "Math", status = "chip" }
 chem                  = { origin = "Math", status = "chip" }
 ce                    = { origin = "Math", status = "chip" }
@@ -214,4 +219,5 @@ STATICREDIRECT        = { origin = "mediawiki", status = "ignored" }
 EXPECTUNUSEDCATEGORY  = { origin = "mediawiki", status = "ignored" }
 NOCONTENTCONVERT      = { origin = "mediawiki", status = "ignored", synonyms = ["NOCC"] }
 NOTITLECONVERT        = { origin = "mediawiki", status = "ignored", synonyms = ["NOTC"] }
-DISAMBIG              = { origin = "Disambiguator", status = "ignored" }
+DISAMBIG              = { origin = "Disambiguator", status = "implemented" }   # the `disambiguation` page property (0055 §6)
+EXPECTED_UNCONNECTED_PAGE = { origin = "WikibaseClient", status = "ignored" }

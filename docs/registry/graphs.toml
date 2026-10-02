@@ -183,3 +183,14 @@ integrity = "hashed"
 export = "public"           # records only; bytes are never in a public dump (0039 §14)
 payload_types = ["scatter:v0/upload", "scatter:v0/erase"]
 defined_in = "0039 §11"
+
+[[graph]]
+name = "pages/{repo}"
+kind = "source"
+scope = "instance"
+per_repo = true             # one per page repository configured in `mirror` mode (0053 §5)
+history = "latest"          # an instance may set "full" per repository
+integrity = "hashed"
+export = "public"
+payload_types = ["scatter:v0/mirrored-page", "scatter:v0/erase"]   # five parts: content, comment, attestation, wikitext, html
+defined_in = "0053 §5"

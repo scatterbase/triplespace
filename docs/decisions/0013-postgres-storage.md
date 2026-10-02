@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-01 (A20)
+- **Updated:** 2026-10-01 (A25)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
@@ -342,7 +342,7 @@ CREATE TABLE view.property_link (a text NOT NULL, b text NOT NULL, "offset" bigi
 
 #### 5.4 Keyed types, pages, actors
 
-*Changed by A9, A11, A15.*
+*Changed by A9, A11, A15, A21.*
 
 ```sql
 CREATE TABLE view.keyed_surrogate (             -- 0009 §7; key is NULLed on erasure
@@ -360,6 +360,7 @@ CREATE TABLE view.page (                        -- 0008 §4; rows for threads an
   latest_offset bigint, latest_revid bigint,    -- NULL while the page ID is only reserved (0023 §2)
   reserved boolean NOT NULL DEFAULT false,      -- create-protection holds the ID (0023 §2, §10)
   deleted boolean NOT NULL DEFAULT false,       -- derived from a read ACL on the page (0023 §4)
+  is_redirect boolean NOT NULL DEFAULT false,   -- the latest text begins with a redirect line (0051 §5)
   generation integer NOT NULL DEFAULT 0
 );
 CREATE UNIQUE INDEX page_title ON view.page (ns, title) WHERE NOT deleted;   -- the title index; reserved rows included
@@ -447,7 +448,7 @@ The `view.filter`, `view.filter_hit`, `view.constraint_violation`, `view.constra
 
 #### 5.6 Tables added by later ADRs
 
-*Changed by A2, A3, A6, A7, A8, A9, A10, A11, A13, A14, A16, A17, A19.*
+*Changed by A2, A3, A6, A7, A8, A9, A10, A11, A13, A14, A16, A17, A19, A21, A22, A23, A24, A25.*
 
 The ADRs after this one add tables in the same style. Each is specified where it is listed; this table is the index, so that the schema has one map.
 
@@ -485,19 +486,24 @@ The ADRs after this one add tables in the same style. Each is specified where it
 | `view`, `ops` | `transclusion`, `render_state`; `ops.render_refresh` | What each render read, its epoch and expiry, and the refresh queue; written by the refresh job, not by replay | [0042](0042-template-expansion-and-parsoid.md) §10 |
 | `view` | `entity_usage` | Wikibase usage aspects per page and entity | [0043](0043-lua-modules.md) §10 |
 | `view` | `report_entry`, `report_state`, `site_stats`; `len`, `latest_at`, `revisions` and `random` on `page`; `last_active` on `actor` | Report pages, live or batch; site statistics; page and user reports | [0047](0047-special-pages.md) §4, §13 |
+| `view` | `redirect`; `is_redirect` on `page` | Page redirects and their targets, written in step 2 with `page` | [0051](0051-page-redirects.md) §5 |
+| `view` | `foreign_title` (instance scope) | The title index of a page repository, over which the title stack is computed | [0052](0052-page-repositories-and-title-inheritance.md) §8, [0053](0053-mirrored-pages.md) §3 |
+| `view`, `ops` | `foreign_page` (instance scope); `ops.repo_cursor`, `ops.page_fetch` | The bundles the instance holds for repository pages, in `proxy` mode the L2 cache's index and in `mirror` mode the projection of `pages/{repo}`; the event cursor and fetch queue | [0053](0053-mirrored-pages.md) §8 |
+| `view`, `ops` | `fork`; page subjects in `upstream_revision`; `ops.fork` | Forks and their seeding state; seeded upstream revisions of forked pages; the fork job queue | [0054](0054-forking-a-mirrored-page.md) §3, §10 |
+| `view` | `page_prop` | MediaWiki's page properties: `templatedata` and `defaultsort` in step 2, the rest by the refresh job | [0055](0055-templatestyles-templatedata-and-page-properties.md) §6 |
 
-Two rules follow from the table. Every `view` table is a projection under §7 and is rebuilt from the log, with two exceptions that are not pure functions of it. On a tenant with expansion on, `transclusion`, `render_state`, `entity_usage`, and the links, categories and file usage they drive are written by the refresh job and rebuilt by re-rendering, not by replay; where a render read a foreign template repository or the clock, a rebuild can differ ([0042](0042-template-expansion-and-parsoid.md) §10). A report configured as `batch` keeps a dated snapshot in `view.report_entry`: a rebuild empties it, and the next scheduled run fills it; projection-backed report rows are rebuilt with the tables they read ([0047](0047-special-pages.md) §4.3). Nothing in `private` is: the watch set, inboxes and contact details survive on the strength of that schema's backups, and two things in it are not recoverable at all, `seen` on a watch and `read_at` on a notification ([0020](0020-change-feeds.md) §3, [0021](0021-notifications.md) §3). Each `private` table also carries a portability class in `triplespace-db`'s schema definition, from which the user data bundle and the private extract are generated ([0027](0027-preferences-and-portability.md) §2).
+Two rules follow from the table. Every `view` table is a projection under §7 and is rebuilt from the log, with two exceptions that are not pure functions of it. On a tenant with expansion on, `transclusion`, `render_state`, `entity_usage`, and the links, categories and file usage they drive are written by the refresh job and rebuilt by re-rendering, not by replay; where a render read a foreign template repository or the clock, a rebuild can differ ([0042](0042-template-expansion-and-parsoid.md) §10); the page properties a render sets follow the same rule ([0055](0055-templatestyles-templatedata-and-page-properties.md) §6). `view.foreign_page` in `proxy` mode indexes a cache rather than a log, and is the one `view` table that is a projection of nothing ([0053](0053-mirrored-pages.md) §8). A report configured as `batch` keeps a dated snapshot in `view.report_entry`: a rebuild empties it, and the next scheduled run fills it; projection-backed report rows are rebuilt with the tables they read ([0047](0047-special-pages.md) §4.3). Nothing in `private` is: the watch set, inboxes and contact details survive on the strength of that schema's backups, and two things in it are not recoverable at all, `seen` on a watch and `read_at` on a notification ([0020](0020-change-feeds.md) §3, [0021](0021-notifications.md) §3). Each `private` table also carries a portability class in `triplespace-db`'s schema definition, from which the user data bundle and the private extract are generated ([0027](0027-preferences-and-portability.md) §2).
 
 ### 6. Global revision, log and page IDs (amends 0012 §2.1)
 
-*Changed by A2, A5, A6, A12.*
+*Changed by A2, A5, A6, A12, A22.*
 
 [0012](0012-api-requirements.md) §2.1 asks for one sequence for revisions and one for log events, assigned at append and stored in the record. Postgres sequences do this, one set per tenant ([0018](0018-tenants.md) §2), since MediaWiki clients expect one sequence per wiki:
 
 - `log.revision_id` is taken for every record appended to a partition whose records are this tenant's revisions: `local` and `pages`. It is written to header field 7 and to `log.record.revid` in the appending transaction.
 - `log.log_id` is taken for every record that projects as a log event ([0011](0011-logs.md) §6.1), which includes the records of the tenant's `actors` partition, and for every record in the tenant's log partition, written to header field 8 and `log.record.logid`.
 - `log.page_id` is taken the first time a key is written in any partition, and every later record for that key repeats it in header field 9 ([0015](0015-record-format-and-partition-registry.md) §2). It is never derived from replay order. Talk pages take theirs from the same sequence through the thread record that first attaches to them ([0019](0019-discussions.md) §2).
-- Mirror records take a **provider-ranged** revision ID, `provider_number << 40 | n` ([0015](0015-record-format-and-partition-registry.md) §2), computed by the writer with no allocation.
+- Mirror records take a **provider-ranged** revision ID, `provider_number << 40 | n` ([0015](0015-record-format-and-partition-registry.md) §2), computed by the writer with no allocation. A page served by a page repository takes a provider-ranged **page ID** the same way, `provider_number << 40 | upstream page ID`, derived and never minted; `log.page_id` therefore stays below 2^40 ([0052](0052-page-repositories-and-title-inheritance.md) §6).
 - Local entity IDs come from one more set of per-tenant sequences, one per minted entity type (`log.item_id`, `log.property_id`, …), taken in the appending transaction as Wikibase's `wb_id_counters` are; the ID blocks of [0002](0002-source-graphs-and-mass-ingest.md) §8.5 reserve ranges from them. An adoption sets every sequence here, entity, page, revision, log and user IDs, past what the source wiki consumed, records the floors in its job record, and supplies `page_id` for adopted records rather than taking one ([0035](0035-adopting-a-wikibase.md) §4).
 
 The IDs are inside the hashed header, so an inclusion proof covers them, an export bundle needs no sidecar, and an erased record keeps them. This closes the global-ID question that 0012 opened; the first form of this ADR kept them outside the header, and 0015 §2 moved them in (A2).
@@ -818,3 +824,38 @@ Replaced text: the rule as A16 states it, which this extended to batch reports.
 - **Source:** [0050](0050-adr-format.md) §13
 - **Change:** consolidates §4–12
 - **Summary:** A1–A19 were folded into the Decision, and §12, the changelog of the 2026-09-27 revision, became the log: A2–A8 are its rows, A9 its third-pass row, which named ten ADRs, and A10 its 0032 row. The `Revised` header line is retired. The open questions were numbered. No decision changed. Before this, A10–A12, A16, A18 and A19 were blockquotes, A13–A17 and A19 had also been given rows or comments in place, and A9's local-graph dump was recorded only in 0022. The file before conversion is commit `0b26a3a`.
+
+### A21. Redirects
+
+- **Date:** 2026-10-01
+- **Source:** [0051](0051-page-redirects.md) §5
+- **Change:** extends §5.4, §5.6
+- **Summary:** `view.redirect` and `is_redirect` on `view.page`, written in step 2.
+
+### A22. The title index and ranged page IDs
+
+- **Date:** 2026-10-01
+- **Source:** [0052](0052-page-repositories-and-title-inheritance.md) §6, §8
+- **Change:** extends §5.6, §6
+- **Summary:** `view.foreign_title` at instance scope; a repository page's `pageid` is provider-ranged, derived from its upstream page ID.
+
+### A23. Bundles, cursors and the fetch queue
+
+- **Date:** 2026-10-01
+- **Source:** [0053](0053-mirrored-pages.md) §8
+- **Change:** extends §5.6
+- **Summary:** `view.foreign_page`, `ops.repo_cursor` and `ops.page_fetch`; in `proxy` mode `foreign_page` indexes the L2 cache and is a projection of no log, which the two-rules paragraph now notes.
+
+### A24. Forks
+
+- **Date:** 2026-10-01
+- **Source:** [0054](0054-forking-a-mirrored-page.md) §3, §10
+- **Change:** extends §5.6
+- **Summary:** `view.fork`, page subjects in `view.upstream_revision`, and `ops.fork`.
+
+### A25. Page properties
+
+- **Date:** 2026-10-01
+- **Source:** [0055](0055-templatestyles-templatedata-and-page-properties.md) §6
+- **Change:** extends §5.6
+- **Summary:** `view.page_prop`, MediaWiki's `page_props`; the properties a render sets are rebuilt by re-rendering, like the render tables.

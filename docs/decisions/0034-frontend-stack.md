@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-01 (A4)
+- **Updated:** 2026-10-01 (A5)
 - **Author:** James Hare / Claude
 - **Changes:** [0005](0005-crate-organization.md), [0010](0010-site-ui.md)
 - **Uses:** [0003](0003-statement-ui.md), [0012](0012-api-requirements.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0029](0029-resolver-namespaces.md), [0033](0033-backend-stack.md)
@@ -72,21 +72,22 @@ They carry the same `ETag`, `Cache-Tag` and redaction as full pages (0014 §3). 
 
 ### 6. Rust in the browser, in `scatter-wasm`
 
-*Changed by A1.*
+*Changed by A1, A5.*
 
 One `wasm-bindgen` crate re-exports what editors need from the pure crates:
 
 - the 0003 shape classifier;
 - `scatter-normalize` (value normalization and keyed-ID grammars, 0017, 0029);
-- `scatter-wikitext` and the `scatter-pages` markdown renderer, for live preview.
+- `scatter-wikitext` and the `scatter-pages` markdown renderer, for live preview;
+- `scatter-css`, so the editor lints a `sanitized-css` page as it is typed ([0055](0055-templatestyles-templatedata-and-page-properties.md) §2).
 
 It is built with `wasm-bindgen-cli` and `wasm-opt`, lazy-loaded only by editors, and never needed for reading. This is one reason 0033 §9.1 chose a pure-Rust wikitext parser. When the source needs expansion the browser cannot do, the preview comes from `action=parse` on the server instead ([0042](0042-template-expansion-and-parsoid.md) §15).
 
 ### 7. Source editor
 
-*Changed by A2.*
+*Changed by A2, A5.*
 
-CodeMirror 6, which MediaWiki's CodeMirror extension also uses, with its wikitext mode, a markdown mode and a Lua mode for module pages ([0043](0043-lua-modules.md) §13). Edit conflicts (0010 §5) are shown as line decorations. `[[` triggers link autocomplete through the suggest route (0012). `tree-sitter-wikitext` through `web-tree-sitter` is an optional later enhancement for structural highlighting.
+CodeMirror 6, which MediaWiki's CodeMirror extension also uses, with its wikitext mode, a markdown mode and a Lua mode for module pages ([0043](0043-lua-modules.md) §13). Edit conflicts (0010 §5) are shown as line decorations. `[[` triggers link autocomplete through the suggest route (0012). `tree-sitter-wikitext` through `web-tree-sitter` is an optional later enhancement for structural highlighting. A CSS mode serves `sanitized-css` pages. **Insert template…** builds a form from a template's TemplateData, and a parameter popup lists a call's parameters ([0055](0055-templatestyles-templatedata-and-page-properties.md) §5).
 
 ### 8. Build
 
@@ -206,3 +207,10 @@ Replaced text (Changes to other ADRs):
 > - **0012:** fragment routes of §5 added to the REST route groups.
 > - **0014:** fragments cached and purged like pages (§5).
 > - **0005:** new crates `triplespace-ui` (surfaces layer) and `scatter-wasm` (wasm bindings over pure crates); `ui/` workspace noted; changelog row.
+
+### A5. CSS linting and TemplateData in the editor
+
+- **Date:** 2026-10-01
+- **Source:** [0055](0055-templatestyles-templatedata-and-page-properties.md) §2, §5
+- **Change:** extends §6, §7
+- **Summary:** `scatter-wasm` re-exports `scatter-css` for linting stylesheets; the source editor gains a CSS mode, Insert template… and a TemplateData parameter popup.

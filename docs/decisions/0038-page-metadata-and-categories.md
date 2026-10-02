@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-29
-- **Updated:** 2026-10-01 (A6)
+- **Updated:** 2026-10-01 (A8)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0003](0003-statement-ui.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0026](0026-sitelinks.md), [0029](0029-resolver-namespaces.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md), [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0030](0030-edit-filters.md), [0031](0031-property-constraints.md), [0032](0032-sparql-update-stream.md), [0035](0035-adopting-a-wikibase.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0049](0049-boards.md)
@@ -136,9 +136,11 @@ value    = { entity = "Q812" }
 
 ### 6. Pages paired with items (amends 0026 §1; extends 0026 §2)
 
+*Changed by A7.*
+
 **A sitelink to the tenant's own host targets a page.** A tenant is served at one or more hosts ([0018](0018-tenants.md) §1, §9). A sitelink in the local graph whose host is one of them is stored by **page ID**, not by URL. It is written as any sitelink is written, by site ID and title or by URL ([0026](0026-sitelinks.md) §2), and the title is resolved to a page ID at write time. A title with no page is refused with `ts-sitelink-no-page`, as Wikibase refuses a link to a missing page. The URL and title in the canonical JSON are derived from the page's current title, so **a move does not break the link** and no record is written when a page moves.
 
-**Targets** are document pages in any document namespace. Threads and talk pages cannot be sitelinked.
+**Targets** are document pages in any document namespace. Threads and talk pages cannot be sitelinked, and nor can a title whose primary is a page repository's page, which is refused with `ts-sitelink-foreign`, because a foreign page's ID changes when it is forked ([0052](0052-page-repositories-and-title-inheritance.md) §6).
 
 **The invariants of 0026 §2 give a one-to-one pairing.** For the per-host rule, all of a tenant's own hosts count as one host, so an item has at most one link to the tenant's pages; and a page ID belongs to at most one item, as a URL does. So a paired page leads to one item and the item back to one page, with no disambiguation.
 
@@ -215,7 +217,9 @@ CREATE TABLE view.category (                    -- categoryinfo (§4)
 
 ### 11. RDF (amends 0001 §3 and 0008 §10; uses 0032 §2)
 
-**Page statements are in the main graph,** in Wikibase's statement shape (`p:`, `ps:`, `pq:`, `prov:wasDerivedFrom`, the truthy direct claims and statement nodes named from the statement ID), with the page's node `{base}/page/{page ID}` of 0008 §10 as subject. That node gets `a schema:WebPage`, `schema:name` (the current title) and `schema:url`. For a page paired with an item (§6), the sitelink's `schema:Article` node is this same page node, not the URL, so a query can join an item's article with the article's statements. The URL remains available through `schema:url`.
+*Changed by A8.*
+
+**Page statements are in the main graph,** in Wikibase's statement shape (`p:`, `ps:`, `pq:`, `prov:wasDerivedFrom`, the truthy direct claims and statement nodes named from the statement ID), with the page's node `{base}/page/{page ID}` of 0008 §10 as subject. That node gets `a schema:WebPage`, `schema:name` (the current title), `schema:url` and, where the page sets a short description, `schema:description` from its `wikibase-shortdesc` page property ([0055](0055-templatestyles-templatedata-and-page-properties.md) §6). For a page paired with an item (§6), the sitelink's `schema:Article` node is this same page node, not the URL, so a query can join an item's article with the article's statements. The URL remains available through `schema:url`.
 
 0001 §3 said nothing is added to the main graph. This adds subjects, not vocabulary: every predicate is Wikibase's or schema.org's, and a Wikibase consumer that reads `p:`/`ps:` reads page statements unchanged. Projected statements are output like asserted ones. Categories themselves are not RDF; the triples they produce come through mappings. The SPARQL Update stream ([0032](0032-sparql-update-stream.md)) carries page statements' deltas like any other.
 
@@ -272,7 +276,7 @@ Asserting, changing and removing a page's statements needs `edit` on the page ([
 - **Q2. Subject-level categories.** A report comparing categories such as "1952 births" with the paired item's statements, as a way to migrate them without mapping them.
 - **Q3. Template calls after import.** Whether a narrow, non-parsing recognition of template calls (name and parameters only) should ever feed mappings.
 - **Q4. Page terms.** Whether pages get a label or description, for a display title or short description, or whether those stay statements.
-- **Q5. Category redirects.** MediaWiki's soft category redirects are templates; hard redirects wait on [0008](0008-namespaces-and-document-pages.md) Q8.
+- **Q5.** ~~**Category redirects.** MediaWiki's soft category redirects are templates; hard redirects wait on [0008](0008-namespaces-and-document-pages.md) Q8.~~ *Settled by [0051](0051-page-redirects.md) §4: a hard redirect on a category page is followed for viewing only, membership stays with the name in each member's text, and soft redirects stay templates.*
 - **Q6. Collation.** Whether `uppercase` is enough, or tenants need ICU collations per language.
 
 ## Changes to other ADRs
@@ -376,3 +380,17 @@ Replaced text (§3):
 - **Source:** [0050](0050-adr-format.md) §13
 - **Change:** consolidates §1–15
 - **Summary:** A1–A5 were folded into the Decision. The open questions were numbered, and §11's heading, which said it extended 0032, now says it uses 0032 §2, as the Related line already said. No decision changed. Before this, A2–A5 were blockquotes, and A1 was recorded only in 0005. The file before conversion is commit `0b26a3a`.
+
+### A7. Sitelinks cannot target inherited titles
+
+- **Date:** 2026-10-01
+- **Source:** [0052](0052-page-repositories-and-title-inheritance.md) §6
+- **Change:** extends §6
+- **Summary:** A title whose primary is a page repository's page is refused as a sitelink target with `ts-sitelink-foreign`, because the page ID a sitelink stores changes when the title is forked.
+
+### A8. Short descriptions in RDF
+
+- **Date:** 2026-10-01
+- **Source:** [0055](0055-templatestyles-templatedata-and-page-properties.md) §6
+- **Change:** extends §11
+- **Summary:** The page node gains `schema:description` from the `wikibase-shortdesc` page property, where set. Page terms (Q4) stay open.

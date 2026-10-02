@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-01 (A4)
+- **Updated:** 2026-10-01 (A6)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0024](0024-subsidiary-accounts.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md)
 - **Uses:** [0023](0023-moderation.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0043](0043-lua-modules.md), [0047](0047-special-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -51,7 +51,7 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 2. Settings (extends 0015 §3; extends 0028 §1)
 
-*Changed by A2.*
+*Changed by A2, A5.*
 
 **Per tenant**, as `site` settings ([0015](0015-record-format-and-partition-registry.md) §3):
 
@@ -60,8 +60,8 @@ James's direction, from the design discussion of 2026-09-30:
 | `wikitext.expansion` | `off`, `on` | `off` | Expand templates and parser functions (§4); enables Template and Template talk (§3) |
 | `wikitext.lua` | `off`, `on` | `off` | Lua modules ([0043](0043-lua-modules.md) §1). Requires `wikitext.expansion = on` |
 | `wikitext.renderer` | `builtin`, `parsoid` | `builtin` | Which stage-2 renderer serves HTML (§7, §8). `parsoid` requires expansion on and a Parsoid service on the instance |
-| `wikitext.template_repos` | A list of repository names | Empty | Foreign template repositories, in lookup order (§11) |
-| `wikitext.share` | `off`, `on` | `off` | Whether this tenant's Template and Module pages may serve other tenants as a `tenant` repository (§11) |
+| `pages.repos` | A list of repository names | Empty | Page repositories, in inheritance order ([0052](0052-page-repositories-and-title-inheritance.md) §1); a template repository is one that serves `Template` and `Module` (§11). Replaces `wikitext.template_repos` (A5) |
+| `pages.share` | `off`, `on` | `off` | Whether this tenant's pages may serve other tenants as a `tenant` repository ([0052](0052-page-repositories-and-title-inheritance.md) §7). Replaces `wikitext.share` (A5) |
 
 A record that breaks a requirement in the table is refused when it is written, as any invalid `site` record is. Turning `wikitext.expansion` off also turns `wikitext.lua` off and `wikitext.renderer` back to `builtin`.
 
@@ -96,6 +96,8 @@ The operator lowers it to bound CPU on a crowded farm. Under `config.template = 
 
 ### 4. The expander
 
+*Changed by A6.*
+
 **The expander is a new pure crate, `scatter-wikitext-expand`** (§19). It implements MediaWiki's preprocessor and frame expansion:
 
 - **The preprocessor tree** of MediaWiki's `Preprocessor_Hash`: template, template-argument, comment, ignored, extension-tag and heading nodes, with `<onlyinclude>`, `<includeonly>` and `<noinclude>` resolved for transclusion or for viewing.
@@ -115,11 +117,13 @@ The operator lowers it to bound CPU on a crowded farm. Under `config.template = 
 
 Given the same host answers, it produces the same output. The same code serves page views, `action=expandtemplates`, pre-save transform, server preview and Parsoid's callbacks.
 
-**What expansion returns:** the expanded text, the strip state, the page properties it set (`DEFAULTSORT`, `DISPLAYTITLE`, behaviour switches), the render manifest (§10), the limit report and any errors.
+**What expansion returns:** the expanded text, the strip state, the page properties it set (`DEFAULTSORT`, `DISPLAYTITLE`, `SHORTDESC`, `__DISAMBIG__`, behaviour switches), which the refresh job stores in `view.page_prop` ([0055](0055-templatestyles-templatedata-and-page-properties.md) §6), the render manifest (§10), the limit report and any errors.
 
 **It is written from MediaWiki's documented behaviour and test files, not translated from MediaWiki's PHP.** That keeps the crate original code under the shared crates' dual licence ([0005](0005-crate-organization.md) §6). The same applies to `#expr` and `#time` (§5).
 
 ### 5. Variables, parser functions, tags and switches: a registry (extends 0015 §5)
+
+*Changed by A6.*
 
 **What the expander knows is registry data**, in a new file, `docs/registry/wikitext-functions.toml`, embedded by `scatter-wikitext-expand`. Each entry is a variable, parser function, extension tag or behaviour switch, with its synonyms, its origin (MediaWiki core, ParserFunctions, Scribunto, Wikibase Client, Cite, or another extension) and a status:
 
@@ -140,11 +144,15 @@ Given the same host answers, it produces the same output. The same code serves p
 | **ParserFunctions:** `#expr`, `#if`, `#ifeq`, `#iferror`, `#ifexpr`, `#ifexist`, `#rel2abs`, `#switch`, `#time`, `#timel`, `#timef`, `#timefl`, `#titleparts` | `implemented`. The string functions (`#len`, `#pos` and the rest) are not registered, since ParserFunctions leaves them off by default; a call renders as literal text, as on MediaWiki |
 | **Scribunto:** `#invoke` | `implemented` when `wikitext.lua` is on ([0043](0043-lua-modules.md)); otherwise `chip` |
 | **Wikibase Client:** `#property`, `#statements` | `implemented` when expansion is on ([0043](0043-lua-modules.md) §7) |
+| **Wikibase Client:** `SHORTDESC` | `implemented`, as the page property `wikibase-shortdesc` ([0055](0055-templatestyles-templatedata-and-page-properties.md) §6); `__EXPECTED_UNCONNECTED_PAGE__` is `ignored` |
+| **Core:** `#REDIRECT` | `implemented` ([0051](0051-page-redirects.md) §1) |
+| **Extension tags:** `templatestyles`, `templatedata` | `implemented` ([0055](0055-templatestyles-templatedata-and-page-properties.md) §3, §5) |
 | **Extension tags:** `nowiki`, `pre`, `ref`, `references`, `gallery`, `indicator`, `poem`; `syntaxhighlight` and `source` as plain `<pre>` | `implemented` |
-| **Extension tags:** `templatestyles`, `templatedata`, `math`, `chem`, `ce`, `score`, `timeline`, `graph`, `mapframe`, `maplink`, `categorytree`, `inputbox`, `imagemap`, `hiero`, `charinsert` | `chip` |
+| **Extension tags:** `math`, `chem`, `ce`, `score`, `timeline`, `graph`, `mapframe`, `maplink`, `categorytree`, `inputbox`, `imagemap`, `hiero`, `charinsert` | `chip` |
 | **Extension tag:** `section` (Labeled Section Transclusion) | `ignored`: it renders nothing, as on MediaWiki. `#lst` and its relatives are not registered |
 | **Behaviour switches:** `__NOTOC__`, `__TOC__`, `__FORCETOC__`, `__HIDDENCAT__` | `implemented` (0008 §8, [0038](0038-page-metadata-and-categories.md) §3) |
-| **Behaviour switches:** `__NOEDITSECTION__`, `__NEWSECTIONLINK__`, `__NONEWSECTIONLINK__`, `__NOGALLERY__`, `__INDEX__`, `__NOINDEX__`, `__STATICREDIRECT__`, `__EXPECTUNUSEDCATEGORY__`, `__DISAMBIG__`, `__NOCONTENTCONVERT__`, `__NOTITLECONVERT__` | `ignored` |
+| **Behaviour switch:** `__DISAMBIG__` | `implemented`, as the page property `disambiguation` ([0055](0055-templatestyles-templatedata-and-page-properties.md) §6) |
+| **Behaviour switches:** `__NOEDITSECTION__`, `__NEWSECTIONLINK__`, `__NONEWSECTIONLINK__`, `__NOGALLERY__`, `__INDEX__`, `__NOINDEX__`, `__STATICREDIRECT__`, `__EXPECTUNUSEDCATEGORY__`, `__NOCONTENTCONVERT__`, `__NOTITLECONVERT__` | `ignored` for rendering; each is stored as a page property where MediaWiki stores one ([0055](0055-templatestyles-templatedata-and-page-properties.md) §6) |
 
 **Messages.** `{{int:}}`, tracking-category names (§9) and Parsoid's `meta=allmessages` calls (§8.1) read MediaWiki core's message files for the languages the instance serves, shipped as data. The MediaWiki namespace (8) stays reserved, so no wiki can override a message.
 
@@ -156,10 +164,12 @@ Given the same host answers, it produces the same output. The same code serves p
 
 ### 7. The built-in renderer after expansion (amends 0010 §4)
 
+*Changed by A6.*
+
 The built-in renderer renders the **expanded** text with the subset of 0008 §8. After expansion:
 
 - **No template calls remain to chip.** A missing template renders as MediaWiki renders it: a red link to `Template:Name`.
-- **Chips are for what is still outside the subset:** extension tags with status `chip` (§5), and HTML or table attributes the sanitizer drops are dropped as now.
+- **Chips are for what is still outside the subset:** extension tags with status `chip` (§5), and HTML or table attributes the sanitizer drops are dropped as now. `<templatestyles>` renders as a deduplicated `<style>` element holding the sheet's sanitized form ([0055](0055-templatestyles-templatedata-and-page-properties.md) §3).
 - **Expansion errors** render as MediaWiki's error spans (`<strong class="error">…</strong>`) and add their tracking category (§9).
 
 With expansion off, the "Template not rendered" chip of 0010 §4 is unchanged.
@@ -167,6 +177,8 @@ With expansion off, the "Template not rendered" chip of 0010 §4 is unchanged.
 ### 8. The Parsoid renderer
 
 #### 8.1 Parsoid calls back into Triplespace
+
+*Changed by A6.*
 
 Parsoid's host interface, `SiteConfig`, `DataAccess` and `PageConfig`, has an implementation over a remote wiki's Action API in Parsoid itself (`Wikimedia\Parsoid\Config\Api\*`, the code behind `bin/parse.php --apiURL`). **Triplespace points those classes at the tenant's own Action API**, so Triplespace is Parsoid's host and the single source of truth. The requests Parsoid sends, and what serves them:
 
@@ -180,7 +192,7 @@ Parsoid's host interface, `SiteConfig`, `DataAccess` and `PageConfig`, has an im
 | Expansion | `action=expandtemplates`, `prop=wikitext\|modules\|jsconfigvars\|categories\|properties`, `showstrategykeys` | The expander (§4) |
 | Tags Parsoid does not implement natively | `action=parse`, `prop=text\|modules\|jsconfigvars\|categories\|properties\|externallinks` | The built-in renderer, never Parsoid (§8.2) |
 | Tracking-category names | `meta=allmessages` | Shipped messages (§5) |
-| TemplateData | `action=templatedata` | Not implemented. Only Parsoid's HTML-to-wikitext direction uses it, and reading never calls it |
+| TemplateData | `action=templatedata` | `view.page_prop` ([0055](0055-templatestyles-templatedata-and-page-properties.md) §5). Only Parsoid's HTML-to-wikitext direction uses it, and reading never calls it |
 
 **Rejected alternatives:**
 
@@ -223,6 +235,8 @@ POST /transform/wikitext/to/html
 
 ### 9. Links, categories and other metadata come from expanded output (amends 0038 §3; amends 0008 §10)
 
+*Changed by A6.*
+
 **While expansion is on**, everything a page links to or belongs to is read from its **expanded** text, as in MediaWiki:
 
 - page and entity links ([0008](0008-namespaces-and-document-pages.md) §10);
@@ -232,7 +246,7 @@ POST /transform/wikitext/to/html
 
 A template's `<includeonly>` categories reach the pages that transclude it; its `<noinclude>` categories stay on the template page.
 
-**Tracking categories join.** Expansion adds MediaWiki's tracking categories for its own conditions, named by MediaWiki's message keys and so by MediaWiki's names: `expansion-depth-exceeded-category`, `template-loop-category`, `post-expand-template-inclusion-category`, `post-expand-template-argument-category`, `node-count-exceeded-category`, `expensive-parserfunction-category` and `broken-file-category`, and Scribunto's `scribunto-common-error-category` ([0043](0043-lua-modules.md) §12). This replaces 0038 §3's "out of scope" for the categories expansion itself detects.
+**Tracking categories join.** Expansion adds MediaWiki's tracking categories for its own conditions, named by MediaWiki's message keys and so by MediaWiki's names: `expansion-depth-exceeded-category`, `template-loop-category`, `post-expand-template-inclusion-category`, `post-expand-template-argument-category`, `node-count-exceeded-category`, `expensive-parserfunction-category` and `broken-file-category`, Scribunto's `scribunto-common-error-category` ([0043](0043-lua-modules.md) §12) and TemplateStyles' `templatestyles-stylesheet-error-category` ([0055](0055-templatestyles-templatedata-and-page-properties.md) §3). This replaces 0038 §3's "out of scope" for the categories expansion itself detects.
 
 **0038's rule that a category is defined in one place still holds.** The place is now the expanded text: the page's own text and the templates it uses. Categories remain a projection, never records.
 
@@ -242,13 +256,13 @@ A template's `<includeonly>` categories reach the pages that transclude it; its 
 
 ### 10. The render manifest and refresh (extends 0013 §5.6 and 0014 §3–5)
 
-*Changed by A2, A3.*
+*Changed by A2, A3, A6.*
 
 **Every expansion produces a manifest:** what it read, and until when the result holds.
 
 | Entry | Recorded as |
 |---|---|
-| A transcluded or tested page | Namespace and title, with page ID and offset, or **missing**, so that creating the page invalidates (red links, `#ifexist`, missing templates) |
+| A transcluded or tested page | Namespace and title, with page ID and offset, or **missing**, so that creating the page invalidates (red links, `#ifexist`, missing templates). A stylesheet loaded by `<templatestyles>` is one ([0055](0055-templatestyles-templatedata-and-page-properties.md) §3) |
 | An entity | Entity ID and usage aspects ([0043](0043-lua-modules.md) §10) |
 | A file | Title and the file version used |
 | A foreign repository page | Repository, title, remote revision ID and expiry (§11) |
@@ -289,13 +303,15 @@ Its lifetime is the lower of 0014 §4's ceiling and `expires_at`. A miss renders
 
 ### 11. Foreign template repositories (uses 0039 §11)
 
-**A template repository is a source of Template and Module pages that a tenant uses without copying them,** configured exactly as file repositories are ([0039](0039-files-and-media.md) §11): a `config` record of kind `template-repo`, keyed `template-repo:{name}`, in a tenant's or the instance's `config`, and listed in lookup order in the tenant's `wikitext.template_repos`.
+*Changed by A5.*
+
+**A template repository is a page repository that serves `Template` and `Module`** ([0052](0052-page-repositories-and-title-inheritance.md) §1): a `config` record of kind `page-repo`, keyed `page-repo:{name}`, in a tenant's or the instance's `config`, listed in inheritance order in the tenant's `pages.repos`, and configured as file repositories are ([0039](0039-files-and-media.md) §11). The `template-repo` kind and `wikitext.template_repos` are retired (A5). The lookup below is the title stack of [0052](0052-page-repositories-and-title-inheritance.md) §3, as it applies to transclusion; `mirror` mode for a repository is [0053](0053-mirrored-pages.md) §5.
 
 **Lookup is local first, then each repository in order.** It applies to Template and Module titles ([0043](0043-lua-modules.md) §2), including data modules. A local page shadows a foreign one of the same title; no special right is needed, since shadowing a template is an ordinary edit. **Lookup restarts at the local tenant at every level:** a foreign `Template:Infobox` that calls `{{Infobox/row}}` gets the local `Template:Infobox/row` if one exists. That is the consistent rule, and it is how a wiki adapts a borrowed template.
 
 | Kind | What it is | How it is read |
 |---|---|---|
-| `tenant` | Another tenant on this instance | Directly, from the source tenant's pages, with its ACLs. The source must set `wikitext.share = on`; provider reader lists apply ([0028](0028-tenancy-policy.md) §5); a private tenant cannot share |
+| `tenant` | Another tenant on this instance | Directly, from the source tenant's pages, with its ACLs. The source must set `pages.share = on`; provider reader lists apply ([0028](0028-tenancy-policy.md) §5); a private tenant cannot share |
 | `mediawiki` | Any MediaWiki Action API, a Wikipedia above all, or a Triplespace tenant elsewhere | `prop=revisions&rvprop=content\|ids&rvslots=main&redirects` through the live upstream client ([0012](0012-api-requirements.md) §6): User-Agent and `maxlag` set, rate-limited, cached, never logged |
 
 **`mediawiki` repositories proxy.** Fetched source is cached for `repo.cache_ttl` (default one hour), and each manifest entry carries the remote revision ID and that expiry, so a page using a remote template refreshes when the cache does (§10). **The render shows the remote template as it is now**, which is the behaviour James chose: a borrowed template behaves like a local one that someone else edits.
@@ -382,16 +398,16 @@ The importer may bring the Template and Module pages with full history, as ordin
 - **Some `view` tables are no longer replayable.** Links, categories and transclusions on a tenant with expansion on are rebuilt by re-rendering, and with foreign repositories or volatile inputs the rebuild can differ. The log stays the source of truth for what was written; it is not the record of what was rendered.
 - **Categories can come from templates.** 0038's projection now reads the expanded text, so categorizing by template works, and so do tracking categories for broken templates.
 - **One optional service needs PHP.** Instances that never choose Parsoid never run it.
-- **Pages will look plainer than on Wikipedia** until site styles exist. Templates assume `MediaWiki:Common.css` and TemplateStyles, and neither is available (Q2, Q3).
+- ~~**Pages will look plainer than on Wikipedia** until site styles exist. Templates assume `MediaWiki:Common.css` and TemplateStyles, and neither is available (Q2, Q3).~~ *TemplateStyles and one site-styles page are available ([0055](0055-templatestyles-templatedata-and-page-properties.md) §3–4; A6).*
 - **History can render as it was.** `as_of=revision` is something MediaWiki cannot offer, and it falls out of the append-only log.
 
 ## Open questions
 
 - **Q1. Cascading protection.** With transclusion, protecting a page without protecting its templates protects little. `cascade=1` is still refused ([0023](0023-moderation.md) §8); whether to implement it as an enclosure over `view.transclusion`.
-- **Q2. TemplateStyles.** A `sanitized-css` model and a CSS sanitizer in Rust. 0008 §5 excluded it with the other style models; templates from Wikipedia depend on it.
-- **Q3. Site styles.** Whether a tenant may have any site CSS, given 0008 §5's exclusion of `css`.
-- **Q4. Mirror mode for template repositories,** copying used foreign pages into an instance partition as 0039 §11's file mirrors do, for availability and verification.
-- **Q5. Push invalidation from Wikimedia repositories.** Following EventStreams `recentchange` for the repository's Template and Module namespaces, instead of waiting for `repo.cache_ttl`.
+- **Q2.** ~~**TemplateStyles.** A `sanitized-css` model and a CSS sanitizer in Rust. 0008 §5 excluded it with the other style models; templates from Wikipedia depend on it.~~ *Settled by [0055](0055-templatestyles-templatedata-and-page-properties.md) §1–3: the `sanitized-css` model, the `scatter-css` sanitizer, and `<templatestyles>` implemented.*
+- **Q3.** ~~**Site styles.** Whether a tenant may have any site CSS, given 0008 §5's exclusion of `css`.~~ *Settled by [0055](0055-templatestyles-templatedata-and-page-properties.md) §4: one designated `sanitized-css` page, named by `wikitext.site_styles`, scoped to rendered content.*
+- **Q4.** ~~**Mirror mode for template repositories,** copying used foreign pages into an instance partition as 0039 §11's file mirrors do, for availability and verification.~~ *Settled by [0053](0053-mirrored-pages.md) §5: a page repository in `mirror` mode keeps its pages, templates and modules included, in the `pages/{repo}` instance partition.*
+- **Q5.** ~~**Push invalidation from Wikimedia repositories.** Following EventStreams `recentchange` for the repository's Template and Module namespaces, instead of waiting for `repo.cache_ttl`.~~ *Settled by [0053](0053-mirrored-pages.md) §6: a repository's `events` stream bumps the render epoch of every page whose manifest names a changed foreign template.*
 - **Q6. Editing through Parsoid HTML.** VisualEditor-style editing needs Parsoid's HTML-to-wikitext direction, page bundles stored per revision, and TemplateData.
 - **Q7. Section editing of transcluded sections,** which MediaWiki numbers `T-1`.
 - **Q8. Language variants.** `languagevariants` is empty and LanguageConverter is not implemented.
@@ -472,3 +488,36 @@ Replaced text (§19):
 - **Source:** [0050](0050-adr-format.md) §13
 - **Change:** consolidates §10, §19
 - **Summary:** A1–A3 were folded into the Decision. The open questions were numbered, and the headings of §1, §11 and §17 now use the verbs of 0050 §3 (amends, uses). No decision changed. Before this, A3 was a blockquote, A2 was written in place with no note, and A1 was recorded only in 0005. The file before conversion is commit `0b26a3a`.
+
+### A5. Template repositories become page repositories
+
+- **Date:** 2026-10-01
+- **Source:** [0052](0052-page-repositories-and-title-inheritance.md) §1, §3
+- **Change:** amends §2, §11
+- **Summary:** The `template-repo` config kind is retired into `page-repo`, a repository that may serve any `pages` namespace; `wikitext.template_repos` becomes `pages.repos` and `wikitext.share` becomes `pages.share`. §11's lookup is the title stack of 0052 §3 applied to transclusion, and is otherwise unchanged. Nothing had been written under the old names.
+
+Replaced text (§2):
+
+> | `wikitext.template_repos` | A list of repository names | Empty | Foreign template repositories, in lookup order (§11) |
+> | `wikitext.share` | `off`, `on` | `off` | Whether this tenant's Template and Module pages may serve other tenants as a `tenant` repository (§11) |
+
+Replaced text (§11):
+
+> **A template repository is a source of Template and Module pages that a tenant uses without copying them,** configured exactly as file repositories are ([0039](0039-files-and-media.md) §11): a `config` record of kind `template-repo`, keyed `template-repo:{name}`, in a tenant's or the instance's `config`, and listed in lookup order in the tenant's `wikitext.template_repos`.
+
+### A6. TemplateStyles, TemplateData and page properties
+
+- **Date:** 2026-10-01
+- **Source:** [0055](0055-templatestyles-templatedata-and-page-properties.md) §3, §5–7
+- **Change:** amends §5, §8.1; extends §4, §7, §9, §10
+- **Summary:** `templatestyles` and `templatedata` move from `chip` to `implemented`; `__DISAMBIG__` from `ignored` to `implemented`; `SHORTDESC` and `#REDIRECT` are registered; the page properties expansion returns are stored in `view.page_prop`; `action=templatedata` is served to Parsoid; stylesheets are manifest entries and have a tracking category. Q2 and Q3 settled by 0055; Q4 and Q5 by [0053](0053-mirrored-pages.md) §5–6.
+
+Replaced text (§5):
+
+> | **Extension tags:** `templatestyles`, `templatedata`, `math`, `chem`, `ce`, `score`, `timeline`, `graph`, `mapframe`, `maplink`, `categorytree`, `inputbox`, `imagemap`, `hiero`, `charinsert` | `chip` |
+
+> | **Behaviour switches:** `__NOEDITSECTION__`, `__NEWSECTIONLINK__`, `__NONEWSECTIONLINK__`, `__NOGALLERY__`, `__INDEX__`, `__NOINDEX__`, `__STATICREDIRECT__`, `__EXPECTUNUSEDCATEGORY__`, `__DISAMBIG__`, `__NOCONTENTCONVERT__`, `__NOTITLECONVERT__` | `ignored` |
+
+Replaced text (§8.1):
+
+> | TemplateData | `action=templatedata` | Not implemented. Only Parsoid's HTML-to-wikitext direction uses it, and reading never calls it |

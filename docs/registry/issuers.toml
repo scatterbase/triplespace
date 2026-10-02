@@ -141,3 +141,12 @@ actor_model = "provider-only"    # machine-coded; there are no individual editor
 login = false
 providers = ["gdelt"]
 
+[[issuer]]
+code = "enwiki"
+name = "English Wikipedia"
+actor_model = "numeric"           # the authors of mirrored and forked pages' revisions (0053 §5, 0054 §1, §3)
+iri = "https://en.wikipedia.org/wiki/Special:Redirect/user/{id}"
+users_api = "https://en.wikipedia.org/w/api.php"
+login = false
+providers = ["enwiki"]
+

@@ -90,7 +90,7 @@ kind = "pages"
 normalizer = "first-letter"
 case = "first-letter"
 subpages = true
-content_models = ["wikitext", "markdown", "json", "yaml", "text"]
+content_models = ["wikitext", "markdown", "json", "yaml", "text", "sanitized-css"]   # sanitized-css for the site-styles page (0055 §4)
 default_model = "wikitext"
 talk = 5
 
@@ -133,8 +133,9 @@ enabled_by = "wikitext.expansion"
 normalizer = "first-letter"
 case = "first-letter"
 subpages = true
-content_models = ["wikitext"]
+content_models = ["wikitext", "sanitized-css"]
 default_model = "wikitext"
+default_model_rules = [ { suffix = ".css", model = "sanitized-css" } ]   # TemplateStyles sheets (0055 §1)
 talk = 11
 
 [[namespace]]

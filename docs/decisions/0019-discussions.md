@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-01 (A11)
+- **Updated:** 2026-10-01 (A13)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0018](0018-tenants.md), [0022](0022-federation.md)
@@ -51,13 +51,13 @@ Deleting a thread is not an operation: it is a `read` ACL on its page ID, writte
 
 ### 2. Talk pages are composite; attachment is by identifier (amends 0008 §2)
 
-*Changed by A6, A9, A10.*
+*Changed by A6, A9, A10, A12.*
 
 **A thread has exactly one home, and may have listings.** The home is the attachment `create` sets and `move` changes; listings are further talk pages and boards the thread appears on, up to `thread.max_attachments` ([0049](0049-boards.md) §5). Only the home encloses the thread, is its `as:context`, and may be a user talk page; listing, composite history and watches treat every attachment alike ([0049](0049-boards.md) §7). A board ([0049](0049-boards.md) §1) is a `page` target whose talk page is itself. A target is named by identifier, never by title, so that a thread follows its subject through a rename or a move and the record's key is never content ([0006](0006-log-integrity-and-erasure.md) §3):
 
 | Target kind | Identifier | Talk page |
 |---|---|---|
-| `page` | A page ID: an entity's ([0015](0015-record-format-and-partition-registry.md) §2, carried forward, so a mirrored entity has one) or a document page's | The subject namespace's paired talk namespace |
+| `page` | A page ID: an entity's ([0015](0015-record-format-and-partition-registry.md) §2, carried forward, so a mirrored entity has one), a document page's, or the provider-ranged page ID of a page a repository serves ([0052](0052-page-repositories-and-title-inheritance.md) §6–7) | The subject namespace's paired talk namespace |
 | `actor` | A local actor key ([0007](0007-actor-identity.md) §1) | `User talk` |
 
 `User talk` attaches to the actor rather than to the user page because MediaWiki lets a user's talk page exist when the user page does not. The creation rule is that of 0008 §6: the account must be local, registered and not vanished.
@@ -68,21 +68,21 @@ Deleting a thread is not an operation: it is a `read` ACL on its page ID, writte
 
 **A `move` moves the whole thread.** Its posts leave the old home's history and join the new one's, and one `move/move` log event, with the source and target talk pages as parameters, appears in both pages' logs (§7). A thread is listed on further pages with `attach`, never by a second home.
 
-**Foreign talk pages are never loaded.** The talk page of a mirrored entity holds local threads only. They live in the tenant's `pages` partition, which is not what a tenant exposes when it is a provider to others ([0018](0018-tenants.md) §5), so a local historical society's discussion of a Librarybase item stays on the society's wiki. The talk page of a mirrored entity offers a link to the upstream talk page for readers who want the provider's own discussion.
+**Foreign talk pages are never loaded.** The talk page of a mirrored entity holds local threads only. They live in the tenant's `pages` partition, which is not what a tenant exposes when it is a provider to others ([0018](0018-tenants.md) §5), so a local historical society's discussion of a Librarybase item stays on the society's wiki. The talk page of a mirrored entity offers a link to the upstream talk page for readers who want the provider's own discussion. A page inherited from a page repository has a local talk page the same way, on its ranged page ID, and when the page is forked the fork job moves its threads to the fork's talk page ([0054](0054-forking-a-mirrored-page.md) §5).
 
 ### 3. The `Thread` namespace and thread titles (extends 0008 §1 and §3)
 
-*Changed by A9, A10.*
+*Changed by A9, A10, A13.*
 
 **`Thread` is a `pages` namespace whose model is `triplespace-thread`** ([0041](0041-content-models.md) §4): pages composed from thread records. Its paired `Thread talk` is a `virtual` namespace that forwards to `Thread`: `Thread talk:X` resolves to `Thread:X`, since a thread is its own talk page ([0049](0049-boards.md) §2). Subpages are not allowed. The numbers are 214 and 215, in the Triplespace range of [0008](0008-namespaces-and-document-pages.md) §2; LiquidThreads' 90 and 91 are not reused.
 
-**A thread's title is its creation date and its subject:** `Thread:2026-09-27/Why is P31 wrong here`. The date is the UTC date of the `create` record and never changes. The subject is what the author typed, normalized as a `first-letter` title with MediaWiki's forbidden characters (`# < > [ ] | { }`) rejected. Two threads created on the same date with the same subject are told apart with a MediaWiki-style suffix: `…/Why is P31 wrong here (2)`. The `create` and `rename` records carry the minted title, as a page `move` carries its new title, so the title index is a projection and a rebuild reproduces it.
+**A thread's title is its creation date and its subject:** `Thread:2026-09-27/Why is P31 wrong here`. The date is the UTC date of the `create` record, or, for a thread an import creates, the date the import supplies ([0054](0054-forking-a-mirrored-page.md) §5), and never changes. The subject is what the author typed, normalized as a `first-letter` title with MediaWiki's forbidden characters (`# < > [ ] | { }`) rejected. Two threads created on the same date with the same subject are told apart with a MediaWiki-style suffix: `…/Why is P31 wrong here (2)`. The `create` and `rename` records carry the minted title, as a page `move` carries its new title, so the title index is a projection and a rebuild reproduces it.
 
 This is what Flow lacked. The title says what the thread is about and when it began, it can be typed, and it never depends on which talk page the thread is attached to, so a `move` changes nothing about how the thread is cited. A `rename` does: the old title stops resolving, as 0008 §6 rules for user pages, because subjects can contain usernames. Stable references are `Special:Redirect/page/{page ID}` for a thread and `Special:PermanentLink/{revid}` for a post (§8).
 
 ### 4. The record: four parts (amends 0015 §1)
 
-*Changed by A10.*
+*Changed by A10, A13.*
 
 The payload type `scatter:v0/thread` is added to the `pages` partition's list ([registry](../registry/graphs.toml)). It declares **four** body parts. The first three keep the meaning and index that [0015](0015-record-format-and-partition-registry.md) §1 gives every Triplespace payload type; the fourth is new:
 
@@ -108,7 +108,9 @@ The payload type `scatter:v0/thread` is added to the `pages` partition's list ([
 | `talk` | `create`, `move` | The talk page's page ID, minted by this record if the target had none |
 | `inReplyTo` | `post` | The parent post's revision ID, or null for a top-level post |
 | `object` | `edit` | The revision ID of the post whose text this replaces |
-| `status` | `post` | A status value (§6), when the post sets one |
+| `status` | `post`, `create` | A status value (§6), when the post sets one; on `create`, a thread that arrives already closed, as an import's does ([0054](0054-forking-a-mirrored-page.md) §5) |
+| `mediaType` | `create`, `post`, `edit` (optional) | The text part's media type: `text/markdown` by default, `text/x-wiki` for a post an import writes ([0054](0054-forking-a-mirrored-page.md) §5) |
+| `imported_from` | `create` (optional) | The repository, talk page, revision and archive subpage an imported thread came from ([0054](0054-forking-a-mirrored-page.md) §5) |
 | `also` | `create` (optional) | Further targets listed at creation, each `{target, talk}` ([0049](0049-boards.md) §6) |
 | `target`, `talk` | `attach`, `detach` | The target (a `page` target only) and its talk page ID, minted by an `attach` if the target had none ([0049](0049-boards.md) §6) |
 | `keep` | `move` (optional) | `true` keeps the old home as a listing ([0049](0049-boards.md) §6) |
@@ -117,9 +119,9 @@ Mentions, links and the rendered HTML are never stored; they are derived from th
 
 ### 5. Text: markdown, mentions and links (extends 0008 §5, §8 and §10)
 
-*Changed by A8.*
+*Changed by A8, A13.*
 
-**Posts are markdown**, rendered by the `markdown` content model of 0008 §5, with two additions that apply to that model everywhere:
+**Posts are markdown** by default, rendered by the `markdown` content model of 0008 §5, with two additions that apply to that model everywhere; a post whose `mediaType` is `text/x-wiki`, which only an import writes, is rendered by the wikitext pipeline instead, with expansion, so the banners and templates of an imported talk page render through the title stack ([0054](0054-forking-a-mirrored-page.md) §5):
 
 - **Wiki links.** `[[Title]]`, `[[Title|text]]` and `[[Title#Section]]` are resolved by the title resolver of 0008 §3, as in the wikitext subset. An entity is mentioned with its namespace, `[[Item:Q42]]`, which renders with the entity's label, as Wikibase does; a bare `[[Q42]]` links to the main-namespace page of that title, in markdown as in wikitext ([0038](0038-page-metadata-and-categories.md) §8). This is the mention syntax; it is what every editor already knows.
 
@@ -135,9 +137,9 @@ Mentions, links and the rendered HTML are never stored; they are derived from th
 
 ### 6. Status and visibility
 
-*Changed by A3, A5, A7, A8.*
+*Changed by A3, A5, A7, A8, A13.*
 
-**A thread's status is set by posting.** A `post` may carry a `status` value. The thread's status is the value of its latest post that carries one; a thread with none is `open`. Posting `open` reopens a thread. The values are `config` records of kind `thread-status` in the tenant `config` ([0015](0015-record-format-and-partition-registry.md) §3), each with a label, a **category** (`open` or `closed`) and a display order, so an instance can add its own; the defaults ship in `docs/registry/thread-statuses.toml` and follow the labels of bug trackers and project tools: **Open**, **In progress** and **Blocked** (open), and **Resolved**, **Won't fix**, **Declined** and **Stale** (closed). The category, not the name, drives the default visibility rule below (closed threads collapse) and the `thread-status` notification of [0021](0021-notifications.md) §2, which fires when a thread moves from an open to a closed status. `open` is required and cannot be retired. A status is therefore a claim made in public, in the thread, by a named actor, and disputing it is another post. Anyone who may post may set one.
+**A thread's status is set by posting.** A `post` may carry a `status` value, and so may a `create`, for a thread that arrives already closed ([0054](0054-forking-a-mirrored-page.md) §5). The thread's status is the value of its latest post that carries one; a thread with none is `open`. Posting `open` reopens a thread. The values are `config` records of kind `thread-status` in the tenant `config` ([0015](0015-record-format-and-partition-registry.md) §3), each with a label, a **category** (`open` or `closed`) and a display order, so an instance can add its own; the defaults ship in `docs/registry/thread-statuses.toml` and follow the labels of bug trackers and project tools: **Open**, **In progress** and **Blocked** (open), and **Resolved**, **Won't fix**, **Declined**, **Stale** and **Archived** (closed), the last for threads an import creates ([0054](0054-forking-a-mirrored-page.md) §5). The category, not the name, drives the default visibility rule below (closed threads collapse) and the `thread-status` notification of [0021](0021-notifications.md) §2, which fires when a thread moves from an open to a closed status. `open` is required and cannot be retired. A status is therefore a claim made in public, in the thread, by a named actor, and disputing it is another post. Anyone who may post may set one.
 
 **Visibility is a viewer preference, not data.** Each thread on a talk page is shown *visible*, *collapsed* or *hidden*, chosen by a rule over its status category and the age of its last post. The instance sets the defaults (for example: closed statuses collapsed; anything quiet for ninety days collapsed; nothing hidden), and a viewer overrides them in the `threads.visibility` preference ([0027](0027-preferences-and-portability.md) §1). The server renders the threads; the UI applies the rule; so the shared caches hold one public form ([0014](0014-caches-and-search.md) §1) and no viewer's choice reaches them.
 
@@ -280,7 +282,7 @@ Boards have `view.talk_page` rows too. These are projections in the sense of 001
 - **Q2. Temporary accounts.** Whether a `temp` account gets a `User talk` page for messages, as MediaWiki gives one. [0021](0021-notifications.md) asks the same of their notifications.
 - **Q3.** ~~**Notifications**: whether `[[User:Example]]` in a post notifies that user, and what a reply to one's post delivers. Watching is settled by [0020](0020-change-feeds.md).~~ *Settled by [0021](0021-notifications.md) §2: `mention`, `reply`, `talk` and `thread-status` reasons.*
 - **Q4. DiscussionTools compatibility.** Whether to implement `discussiontoolsedit` and `discussiontoolspageinfo` on these records, and how far Convenient Discussions and similar scripts can be made to work.
-- **Q5. Importing existing talk pages.** A Wikibase's `Item_talk:` and a project's `Project_talk:` pages are wikitext. One option is a job that splits a page by `==` heading into threads with one post each, attributed to the section's signatures where they parse and to an `imported` surrogate otherwise.
+- **Q5.** ~~**Importing existing talk pages.** A Wikibase's `Item_talk:` and a project's `Project_talk:` pages are wikitext. One option is a job that splits a page by `==` heading into threads with one post each, attributed to the section's signatures where they parse and to an `imported` surrogate otherwise.~~ *Settled by [0054](0054-forking-a-mirrored-page.md) §5: split by level-two heading with the frontmatter first, one wikitext post per section attributed to the importer and the job, each thread created `archived` and dated from its earliest signature.*
 - **Q6.** ~~**Cross-tenant discussion.** Whether a tenant may show, read-only, another tenant's threads about an entity it mirrors from that tenant.~~ *Settled by [0028](0028-tenancy-policy.md) §6: by policy, read-only.*
 - **Q7.** ~~**Federation.** Inbox, outbox and actor keys, if ever.~~ *Settled by [0022](0022-federation.md) Part B: opt-in `Person` actors, talk pages as `Group` actors that `Announce` threads, inbound replies as posts by `federated` surrogates; the inbound protocol details stay open there.*
 - **Q8.** ~~**Limits.** The post size limit, the depth default, and rate limits on posting.~~ *Settled by [0024](0024-subsidiary-accounts.md) §5, as to where they live: the size limit and `thread.max_depth` are `site` settings (§5, §8); posting is rate-limited in the `edit` and `create` classes. The values are tuning.*
@@ -500,3 +502,35 @@ Replaced text (§12):
 - **Source:** [0050](0050-adr-format.md) §13
 - **Change:** consolidates §1–13
 - **Summary:** A1–A10 were folded into the Decision. The open questions were numbered. No decision changed. Before this, A4 (in part), A7, A8, A9 and A10 were eighteen blockquotes, and A2, A3, A5 and A6 were recorded in the header or in other ADRs. The file before conversion is commit `0b26a3a`.
+
+### A12. Talk pages of inherited pages
+
+- **Date:** 2026-10-01
+- **Source:** [0052](0052-page-repositories-and-title-inheritance.md) §7
+- **Change:** extends §2
+- **Summary:** A page a repository serves has a local talk page on its provider-ranged page ID, as a mirrored entity has one; the fork job moves those threads to the fork's talk page.
+
+### A13. Imported threads: wikitext posts, closed on creation, dated by the import
+
+- **Date:** 2026-10-01
+- **Source:** [0054](0054-forking-a-mirrored-page.md) §5
+- **Change:** amends §3, §4, §5, §6
+- **Summary:** `status` may appear on `create`; the content part gains `mediaType` (`text/markdown` or `text/x-wiki`, the latter written only by imports and rendered by the wikitext pipeline) and `imported_from`; a thread an import creates takes the date the import supplies for its title; the default statuses gain **Archived** (closed). Q5 settled.
+
+Replaced text (§3):
+
+> The date is the UTC date of the `create` record and never changes.
+
+Replaced text (§4):
+
+> | `status` | `post` | A status value (§6), when the post sets one |
+
+Replaced text (§5):
+
+> **Posts are markdown**, rendered by the `markdown` content model of 0008 §5, with two additions that apply to that model everywhere:
+
+Replaced text (§6):
+
+> **A thread's status is set by posting.** A `post` may carry a `status` value.
+
+> **Resolved**, **Won't fix**, **Declined** and **Stale** (closed).
