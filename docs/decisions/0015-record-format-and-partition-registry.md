@@ -2,9 +2,10 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
+- **Updated:** 2026-10-01 (A22)
 - **Author:** James Hare / Claude Fable
-- **Amended by:** [0017 — Entity ID grammar](0017-entity-id-grammar.md), [0018 — Tenants](0018-tenants.md), [0019 — Discussions](0019-discussions.md) (§4: a payload type may declare more than three parts), [0023 — Protection, deletion, hiding and patrolling](0023-moderation.md) (§3 amends §3: `acl` is the payload type `scatter:v0/acl`, in `config` for graph targets and in `log` for the rest, not a config kind), [0024 — Subsidiary accounts, API keys and rate limits](0024-subsidiary-accounts.md) (§4 extends §5 with `grants.toml`), [0026 — Sitelinks are URLs](0026-sitelinks.md) (§2–3 extend §3 with the `site-alias` and `sitelink-policy` kinds and §5 with `sites.toml`), [0027 — Preferences, private state and portability](0027-preferences-and-portability.md) (§5 extends §3 with `view-pin`; §1 extends §5 with `preferences.toml`), the 2026-09-27 amendment of [0019](0019-discussions.md) §6 (the `thread-status` kind and `thread-statuses.toml`), [0028 — Tenancy policy](0028-tenancy-policy.md) (§1, §5 and §8 extend §3 with the `tenancy`, `template` and `provider-readers` kinds and `scope` on `group`; §2 extends §5 with `tenancy.toml` and the farm's three instance partitions), [0029 — Resolver namespaces](0029-resolver-namespaces.md) (§1 extends §3 with the `resolver` kind and §5 with `resolvers.toml`), and [0030 — Edit filters](0030-edit-filters.md) (§5 amends §1: the attestation part carries change tags), [0022 — Federation: verified data sync and ActivityPub](0022-federation.md) (§8 amends §1: the attestation part may carry `evidence`; §8 extends §3 with `federation-policy`; §2 and §10 extend §5: `providers.toml` gains `trust`), [0025 — The instance as an OAuth server](0025-oauth-server.md) (§2 extends §3 with `consumer` and `consumer-policy`), [0035 — Adopting an existing Wikibase as a tenant](0035-adopting-a-wikibase.md) (§4 amends §2: an adoption job supplies the page ID of an adopted record), [0038 — Page metadata, legacy categories and articles](0038-page-metadata-and-categories.md) (§5 extends §3 with the `category-mapping` kind; §1 extends §5: `scatter:v0/changeset` in the `pages` partition), [0039 — Files, blob storage and foreign file repositories](0039-files-and-media.md) (§2 extends §1: the `upload` payload type; §10 extends §5: the instance `log` partition; §11 extends §5: `files/{repo}`; §5 extends §5: `file-types.toml`), [0040 — Instance prerogatives](0040-instance-prerogatives.md) (§3 extends §1: the instance attestation), [0042 — Template expansion and the Parsoid renderer](0042-template-expansion-and-parsoid.md) (§2 and §11 extend §3: `wikitext.*` settings and the `template-repo` kind; §5 extends §5: `wikitext-functions.toml`), [0046 — The primary tenant](0046-primary-tenant.md) (§2 extends §3: the `primary` config kind; the `tenant` record loses its primary flag), [0047 — Special pages](0047-special-pages.md) (§1 extends §5: `docs/registry/special-pages.toml`; §4.3 extends §3: the instance-scope `reports` kind)
-- **Related:** [0010 — Site UI](0010-site-ui.md) (§2 settles the global-revision-ID open question and amends §5.2 and §12), [0000 — Initial proposition](0000-init.md) (§5 settles the provider-code registry open question), [0001 — Revision metadata in RDF](0001-revision-metadata-rdf.md) (§6 extends §1; §5 settles the graph-IRI open question), [0002 — Source graphs and mass ingest](0002-source-graphs-and-mass-ingest.md) (amends §8.3; §4 settles the upstream-revision-IRI open question; §5 settles graph IRIs), [0004 — Identity clusters and equivalence](0004-identity-clusters-and-equivalence.md) (§9), [0005 — Crate organization for reuse by Scatterbase](0005-crate-organization.md) (amends §2, §4.1, §4.2, §4.3; settles the graph-IRI open question), [0006 — Log integrity and erasure](0006-log-integrity-and-erasure.md) (amends §2, §3, §6, §7, §9), [0007 — Actor identity](0007-actor-identity.md) (§1 settles the attestation-erasure open question), [0008 — Namespaces and document pages](0008-namespaces-and-document-pages.md) (§4), [0009 — Keyed entity types and Domain](0009-keyed-entity-types-and-domain.md) (§6, §7), [0011 — Upstream and local logs](0011-logs.md) (amends §2, §3, §5, §8), [0012 — API requirements for the site UI](0012-api-requirements.md) (§2 amends §2.1 and settles the remaining global-ID question; §3, §6), [0013 — Postgres as the log store and serving model](0013-postgres-storage.md) (amends §2, §3, §5, §6; settles the header and `page_id` open questions)
+- **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md)
+- **Uses:** [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md)
 
 ## Context
 
@@ -22,6 +23,8 @@ Two smaller gaps are closed with them: the document node of a foreign entity on 
 
 ### 1. The body is a tree of erasable parts (amends 0006 §3 and §7)
 
+*Changed by A4, A5, A13, A14, A17, A18.*
+
 The header of [0006](0006-log-integrity-and-erasure.md) §3 is unchanged. What changes is what its body commitment (field 6) commits to.
 
 **A body is a fixed list of parts.** Each payload type declares how many parts it has and what each holds. Every Triplespace payload type has at least these three, in this order, and a type may declare more after them ([0019](0019-discussions.md) §4 declares a fourth, the post text):
@@ -30,9 +33,9 @@ The header of [0006](0006-log-integrity-and-erasure.md) §3 is unchanged. What c
 |---|---|---|---|
 | 0 | **Content** | The payload: a change set, a page operation and its text, an actor record, a log event, an upstream revision (§4), a configuration record (§3) | text |
 | 1 | **Comment** | The edit summary or comment, as one string. Its parsed form ([0001](0001-revision-metadata-rdf.md) §6) is a projection | comment |
-| 2 | **Attestation** | Who is responsible, and how: the actor key, the job ([0006](0006-log-integrity-and-erasure.md) §3), since [0030](0030-edit-filters.md) §5 the change tags, and since [0022](0022-federation.md) §8 an optional `evidence` field holding a signed remote activity | user |
+| 2 | **Attestation** | Who is responsible, and how: the actor key, the job ([0006](0006-log-integrity-and-erasure.md) §3), the change tags ([0030](0030-edit-filters.md) §5), an optional `evidence` field holding a signed remote activity ([0022](0022-federation.md) §8), and an optional client `signature` (below) | user |
 
-The comment therefore leaves the change-set payload. A payload type with no comment, such as an actor record, carries a null in that part; the slot still exists, so every record has the same shape.
+The comment therefore leaves the change-set payload. A payload type with no comment, such as an actor record, carries a null in that part; the slot still exists, so every record has the same shape. `scatter:v0/upload`, in `pages`, has the three standard parts; its content part holds the SHA-256 of bytes kept outside the log, so erasing that part is what allows the bytes to be destroyed ([0039](0039-files-and-media.md) §2).
 
 **Each part is salted and hashed on its own.** Part *i* is stored as the CBOR array `[salt, bytes]`, where the salt is 16 random bytes. Its leaf is `H(0x04 ‖ i ‖ salt ‖ bytes)`, with *i* as one byte. The body commitment in the header is the root over the leaves in order:
 
@@ -54,17 +57,17 @@ Hiding ([0001](0001-revision-metadata-rdf.md) §4) is unchanged: it is a project
 
 **Verification** ([0006](0006-log-integrity-and-erasure.md) §9, level 2) checks each part: a present part hashes to a leaf that reproduces the commitment; a missing part carries its leaf and is named by an `erase` record. Anything else is a failure.
 
-> **Amended 2026-09-27: client signatures in the attestation part.** The attestation map may carry a **`signature`** field: `{key: <key ID>, alg: "ed25519", sig: <64 bytes>}`, a signature by the *actor's own key* over `H(0x05 ‖ H(0x03 ‖ content) ‖ H(0x03 ‖ comment))`, where `0x03` is the content hash of [0006](0006-log-integrity-and-erasure.md) §2 and `0x05` is a new domain tag that never appears in the header tree. The preimage is the canonical bytes of the two parts before the server salts them, so a client that produces canonical CBOR can sign what it submits and a verifier holding the record can check it; erasing either part makes the signature unverifiable, which 0006 §7 already accepts. **Keys are actor records:** a `scatter:v0/key` record in the tenant `actors` partition, keyed by the actor, whose content holds the key ID (the Base32z hash of the public key), algorithm, public key and validity; a later record rotates or revokes it. The server verifies a submitted signature against the actor's current key before appending and refuses a mismatch with `ts-bad-signature`; `verify` (0006 §9, level 2) checks every present signature against the key records in the bundle. Which actors may hold keys, and how they sign, is [0024](0024-subsidiary-accounts.md) §4 as amended: subsidiaries. The instance key (0006 §6) still signs every checkpoint; a client signature is in addition, never instead. This fills the slot 0006 §1 reserved and answers [0007](0007-actor-identity.md)'s keys question for Triplespace; Scatterbase's client and server signatures are the same field shape in its own part layout.
+**Client signatures.** The attestation map may carry a **`signature`** field: `{key: <key ID>, alg: "ed25519", sig: <64 bytes>}`, a signature by the *actor's own key* over `H(0x05 ‖ H(0x03 ‖ content) ‖ H(0x03 ‖ comment))`, where `0x03` is the content hash of [0006](0006-log-integrity-and-erasure.md) §2 and `0x05` is a new domain tag that never appears in the header tree. The preimage is the canonical bytes of the two parts before the server salts them, so a client that produces canonical CBOR can sign what it submits and a verifier holding the record can check it; erasing either part makes the signature unverifiable, which 0006 §7 already accepts. **Keys are actor records:** a `scatter:v0/key` record in the tenant `actors` partition, keyed by the actor, whose content holds the key ID (the Base32z hash of the public key), algorithm, public key and validity; a later record rotates or revokes it. The server verifies a submitted signature against the actor's current key before appending and refuses a mismatch with `ts-bad-signature`; `verify` (0006 §9, level 2) checks every present signature against the key records in the bundle. Which actors may hold keys, and how they sign, is [0024](0024-subsidiary-accounts.md) §4: subsidiaries. The instance key (0006 §6) still signs every checkpoint; a client signature is in addition, never instead. This fills the slot 0006 §1 reserved and answers [0007](0007-actor-identity.md)'s keys question for Triplespace; Scatterbase's client and server signatures are the same field shape in its own part layout.
+
+**The instance attestation.** The attestation part has a second form, the **instance attestation**, for records the instance writes into a tenant on its own authority: `actor` (`instance:{farm slug}`), `authority` (an instance record's partition, offset and leaf hash), `job`, `binding`, and a `signature` by the instance key. Only the server writes it; a submitted record carrying one is refused with `ts-prerogative`.
 
 **Right to vanish** ([0007](0007-actor-identity.md) §4) and **unlinking** (0007 §7) are unchanged; they erase whole records. What this section adds is the case 0007 left open: a demand to cut the tie between a record and an account erases the attestation part only.
 
 **Scatterbase** declares its own part list for its claim payload type: the claim, the attribution, the client signature, the server signature and, later, prior-use acknowledgments. The root rule is the same, so the same `verify` checks both products.
 
-> **Extended by [0039](0039-files-and-media.md) §2.** `scatter:v0/upload`, in `pages`, has the three standard parts. Its content part holds the SHA-256 of bytes kept outside the log, so erasing that part is what allows the bytes to be destroyed.
-
-> **Extended by [0040](0040-instance-prerogatives.md) §3.** The attestation part has a second form, the **instance attestation**, for records the instance writes into a tenant on its own authority: `actor` (`instance:{farm slug}`), `authority` (an instance record's partition, offset and leaf hash), `job`, `binding`, and a `signature` by the instance key. Only the server writes it; a submitted record carrying one is refused with `ts-prerogative`.
-
 ### 2. Global IDs live in the header (amends 0006 §3 and 0013 §6)
+
+*Changed by A3, A15.*
 
 Three fields are appended to the header array of [0006](0006-log-integrity-and-erasure.md) §3:
 
@@ -74,7 +77,7 @@ Three fields are appended to the header array of [0006](0006-log-integrity-and-e
 | 8 | Log ID | uint or null | The global log ID of 0012 §2.1 |
 | 9 | Page ID | uint or null | The page ID of the record's key ([0008](0008-namespaces-and-document-pages.md) §4, [0013](0013-postgres-storage.md) §6) |
 
-They are assigned in the appending transaction, before the leaf hash is computed, so they are inside the Merkle tree. The rules of 0013 §6 stand for local records: a revision ID for every record in `local` and `pages`; a log ID for every record in the local log and every record that projects as a log event ([0011](0011-logs.md) §6.1), including local actor records.
+They are assigned in the appending transaction, before the leaf hash is computed, so they are inside the Merkle tree. The sequences are per tenant, because MediaWiki clients expect one sequence per wiki ([0018](0018-tenants.md) §2). The rules of 0013 §6 stand for local records: a revision ID for every record in `local` and `pages`; a log ID for every record in the local log and every record that projects as a log event ([0011](0011-logs.md) §6.1), including local actor records.
 
 **Mirror records get provider-ranged revision IDs (amends 0012 §2.1 and 0013 §6).** Those two ADRs gave mirror records no revision ID, which left `lastrevid`, `baserevid` and `schema:version` undefined for an entity with no local revision. Both are integers in the contracts (`baserevid` in the Action API; `schema:version "26"^^xsd:integer` in [wikibase-compat.md §5.2](../api/wikibase-compat.md)), so the provider cannot be a letter prefix as it is in entity IDs. It is a number prefix instead. The revision-ID space is 63 bits, partitioned by **provider number**:
 
@@ -82,7 +85,7 @@ They are assigned in the appending transaction, before the leaf hash is computed
 revid = provider_number << 40  |  n
 ```
 
-Provider number 0 is the instance itself, so local revision IDs are the plain sequence of 0013 §6. Each provider has a number in the registry (§5). For a provider that publishes revision IDs, *n* is the upstream revision ID; for one that does not, such as OpenAlex, *n* is the record's offset in the mirror partition. Forty bits hold a thousand billion upstream revisions, and the split is the same on every instance, so the ID is computed by the writer, needs no allocation, and never changes on rebuild. A `put` therefore carries its revision ID in field 7 like any other record.
+Provider number 0 is the instance itself, so local revision IDs are the plain sequence of 0013 §6. Each provider has a number in the registry (§5). For a provider that publishes revision IDs, *n* is the upstream revision ID; for one that does not, such as OpenAlex, *n* is the record's offset in the mirror partition. Forty bits hold a thousand billion upstream revisions, and the split is the same on every instance, so the ID is computed by the writer, needs no allocation, and never changes on rebuild. It works across tenants without a new rule: Librarybase's revision 900 is `900` at home and `LB_number << 40 | 900` when another tenant reads it ([0018](0018-tenants.md) §2, §5). A `put` therefore carries its revision ID in field 7 like any other record.
 
 What this gives the compatibility surfaces:
 
@@ -99,7 +102,9 @@ Log IDs are unchanged: upstream log events keep their upstream log ID in their c
 
 In [0013](0013-postgres-storage.md) §2, `revid`, `logid` and a new `page_id` column are denormalized from `header`, like the other header columns, and the sidecar in the segment file format is dropped. The `view.page_id` sequence of 0013 §6 becomes `log.page_id`. An erased record keeps all three IDs, as its header survives.
 
-### 3. The `config` partition (amends 0005 §4.1; fills 0006 §4 and §6)
+### 3. The `config` partition (amends 0005 §4.1; extends 0006 §4 and §6)
+
+*Changed by A3, A4, A5, A6, A8, A9, A10, A11, A12, A13, A16, A19, A20, A21.*
 
 A source partition is registered for instance configuration. It corresponds to Scatterbase's `server` graph in the table of [0005](0005-crate-organization.md) §4.1, and the two share one record shape so that Scatterbase can adopt it.
 
@@ -125,9 +130,9 @@ The remaining kinds are Triplespace's, and each product declares its own:
 | `namespace` | The namespace number | The namespace entry | [0008](0008-namespaces-and-document-pages.md) §1 |
 | `keyed-type` | The type name | The keyed-type entry | [0009](0009-keyed-entity-types-and-domain.md) §1 |
 | `role` | The role name | The properties bound to a role | [0003](0003-statement-ui.md) §7, [0004](0004-identity-clusters-and-equivalence.md) §6 |
-| `reconcile` | `default` or a provider code | Provider order, an optional `order_by_type` override, link properties, identifier properties for inference, normalizer overrides, reconciliation rules | [0004](0004-identity-clusters-and-equivalence.md) §9, as amended 2026-09-27 |
-| `site` | A setting name | Site name, content languages, the recent-changes window, checkpoint cadence, and other scalar settings | [0006](0006-log-integrity-and-erasure.md) §6, [0010](0010-site-ui.md) §7 |
-| `group` | The group name | A permission group | [0016](0016-permissions-and-access-control.md) §3 |
+| `reconcile` | `default` or a provider code | Provider order, an optional `order_by_type` override, link properties, identifier properties for inference, normalizer overrides, reconciliation rules | [0004](0004-identity-clusters-and-equivalence.md) §9 |
+| `site` | A setting name | Site name, content languages, the recent-changes window, checkpoint cadence, and other scalar settings, among them the `wikitext.*` and `lua.*` settings of template expansion ([0042](0042-template-expansion-and-parsoid.md) §2, [0043](0043-lua-modules.md) §8–9) | [0006](0006-log-integrity-and-erasure.md) §6, [0010](0010-site-ui.md) §7 |
+| `group` | The group name | A permission group; a global group carries `scope` ([0028](0028-tenancy-policy.md) §8) | [0016](0016-permissions-and-access-control.md) §3 |
 | `tenant`, `alias` | Instance scope | A tenant; a base-URI change | [0018](0018-tenants.md) §3, §9 |
 | `primary` | `primary` | Instance scope: the primary tenant's slug and, for a transfer, the offer it accepts; one current record | [0046](0046-primary-tenant.md) §2 |
 | `providers` | `list` | Tenant scope: the providers whose graphs contribute to this tenant's resolved view and search; the default is Wikidata | [0018](0018-tenants.md) §3, §5 |
@@ -142,13 +147,12 @@ The remaining kinds are Triplespace's, and each product declares its own:
 | `federation-policy` | `deny` (instance), `mode` or `list` (tenant) | Fediverse domain allow and deny lists | [0022](0022-federation.md) §8 |
 | `consumer` | The consumer slug | Instance scope: a registered OAuth consumer, its owner, redirect URIs, requested grants and status | [0025](0025-oauth-server.md) §2 |
 | `consumer-policy` | `list` | Tenant scope: which approved consumers may be authorized, and which are auto-approved | [0025](0025-oauth-server.md) §2 |
-| `tag` | The tag name | Tenant scope: a user-defined change tag, its description, whether it is active, and the group that may apply it | [0030](0030-edit-filters.md) §5, as amended 2026-09-27 |
+| `tag` | The tag name | Tenant scope: a user-defined change tag, its description, whether it is active, and the group that may apply it | [0030](0030-edit-filters.md) §5 |
 | `category-mapping` | The mapping name | Tenant scope: a category name or pattern, and the page statement its members get | [0038](0038-page-metadata-and-categories.md) §5 |
 | `template-repo` | The repository name | Tenant or instance scope: a foreign template repository, its kind (`tenant` or `mediawiki`), endpoint and cache lifetime | [0042](0042-template-expansion-and-parsoid.md) §11 |
+| `reports` | `default` or a tenant slug | Instance scope: which reports run as batch, their mirror-graph widenings, the batch schedule and the row limit; written with `ts-config` at the farm base | [0047](0047-special-pages.md) §4.3 |
 
-> **Extended by [0042](0042-template-expansion-and-parsoid.md) §2 and §5.** `site` settings `wikitext.expansion`, `wikitext.lua`, `wikitext.renderer`, `wikitext.template_repos` and `wikitext.share`, and, with [0043](0043-lua-modules.md) §8–9, `lua.ids` and `lua.client_site`. The registry of §5 gains `wikitext-functions.toml`.
-
-> **Extended by [0047](0047-special-pages.md) §4.3.** An instance-scope kind `reports`, with code `default` or a tenant slug, holds which reports run as batch, their mirror-graph widenings, the batch schedule and the row limit. It is written with `ts-config` at the farm base.
+**Scope.** The kinds split by scope ([0018](0018-tenants.md) §3). The instance's `config` holds `key`, `graph`, `provider`, `issuer`, `keyed-type`, `tenant`, `alias`, `primary`, `tenancy`, `template` and `consumer`, the instance lists of `sitelink-policy` and `federation-policy`, and global `group`s; each tenant's `config` holds the rest. A tenant's `config` begins with a `key:` record, the current instance key, and every `key:` record of the instance is appended to it as well, so a tenant's partitions verify from the tenant's bundle alone ([0018](0018-tenants.md) §2).
 
 ACLs were first listed here as a config kind. Under [0023](0023-moderation.md) §3 they are records of their own payload type, `scatter:v0/acl`: graph ACLs are appended to `config`, and page, entity, record and actor ACLs to the tenant `log` partition.
 
@@ -158,12 +162,14 @@ ACLs were first listed here as a config kind. Under [0023](0023-moderation.md) �
 
 ### 4. Upstream revision records (amends 0002 §8.3 and 0011 §2, §3, §5, §8)
 
+*Changed by A14.*
+
 An upstream revision that the instance learns about from a backfill ([0002](0002-source-graphs-and-mass-ingest.md) §5), from a history dump, or from the live stream is recorded as an **upstream revision record**.
 
 | | |
 |---|---|
 | Partition | The provider log, `log/{provider}` ([0011](0011-logs.md) §2). It is already `full`, `hashed` and internal, keyed by target with upstream IDs, and is where 0011 §5's redaction runs |
-| Payload type | `scatter:v0/upstream-revision`. [0011](0011-logs.md) §3's rule that every record in a log graph is a `logevent` is amended to admit this second type |
+| Payload type | `scatter:v0/upstream-revision`, one of the types [0011](0011-logs.md) §3 admits in a log graph |
 | Header key | The entity's prefixed ID, or its surrogate for a keyed type, as 0011 §3 |
 | Content part | Upstream revision ID and parent ID; upstream timestamp; size and SHA-1; content model; change tags; minor and bot flags; and, where the revision was also observed as a state, the `(partition, offset)` of that `put` |
 | Comment part | The upstream edit summary |
@@ -171,11 +177,11 @@ An upstream revision that the instance learns about from a backfill ([0002](0002
 
 A revision is identified by its upstream revision ID. Re-reading one the instance already holds changes nothing, as for log events ([0011](0011-logs.md) §4). Where the same revision was already observed as a state, 0002 §8.3's "enriches that revision's existing node" is a join on (provider, upstream revision ID).
 
-**Content is a `put`.** If a backfill brings the content of an upstream revision, not only its metadata, the content is written as a `put` in the mirror partition carrying the upstream revision ID ([0002](0002-source-graphs-and-mass-ingest.md) §8.2), the same shape a sync writes. No new content record exists. Such `put`s are written only for entities exempt from compaction: retained entities and `full` mirrors.
+**Content is a `put`.** When a backfill brings the content of an upstream revision, not only its metadata, the content is written as a `put` in the mirror partition carrying the upstream revision ID ([0002](0002-source-graphs-and-mass-ingest.md) §8.2), the same shape a sync writes. No new content record exists. Such `put`s are written only for entities exempt from compaction: retained entities and `full` mirrors.
 
-> **Amended 2026-09-27: content by default, from the API or a dump.** A `retain` backfill fetches **every upstream revision's content** as well as its metadata, so a rescued entity's whole history is diffable and exportable here and survives upstream deletion whole; `retain --history metadata` narrows it to `upstream-revision` records alone. The backfill job takes a **source**: `api`, the provider's revision API ([mediawiki-compat.md](../api/mediawiki-compat.md) §2.8, under the `upstream` rate class), which is the default and suits a modest set; or `dump:{path}`, a provider history dump the operator has on hand, which is what a mass rescue of Wikidata or another very large dataset uses. A bulk `retain` whose set exceeds `retention.api_max_entities` (`site`, default 10,000) is refused for `api` unless forced, so a million-entity rescue is not attempted one request at a time. Either source writes the same records; a `dump` job records the dump's identity as its source version ([0002](0002-source-graphs-and-mass-ingest.md) §8.3), and revisions newer than the dump are fetched from the API to close the gap. The automatic retention of properties ([0002](0002-source-graphs-and-mass-ingest.md) §6, as amended) uses the API, since a property's history is small.
+**Content by default, from the API or a dump.** A `retain` backfill fetches **every upstream revision's content** as well as its metadata, so a rescued entity's whole history is diffable and exportable here and survives upstream deletion whole; `retain --history metadata` narrows it to `upstream-revision` records alone. The backfill job takes a **source**: `api`, the provider's revision API ([mediawiki-compat.md](../api/mediawiki-compat.md) §2.8, under the `upstream` rate class), which is the default and suits a modest set; or `dump:{path}`, a provider history dump the operator has on hand, which is what a mass rescue of Wikidata or another very large dataset uses. A bulk `retain` whose set exceeds `retention.api_max_entities` (`site`, default 10,000) is refused for `api` unless forced, so a million-entity rescue is not attempted one request at a time. Either source writes the same records; a `dump` job records the dump's identity as its source version ([0002](0002-source-graphs-and-mass-ingest.md) §8.3), and revisions newer than the dump are fetched from the API to close the gap. The automatic retention of properties ([0002](0002-source-graphs-and-mass-ingest.md) §6) uses the API, since a property's history is small.
 
-**Redaction becomes partial erasure (amends 0011 §5).** When upstream hides part of a revision or a log event, the sync job erases that part with reason class `upstream`, under §1: a hidden comment erases the comment part, a hidden user erases the attestation part, and hidden content erases the content part of the observed `put`. The redacted copy that 0011 §5 appended before erasing is no longer written. The visibility bits a projection reports are derived from which parts are erased with reason `upstream`. Outright suppression, where an event or revision vanishes from upstream's public record, still erases all three parts.
+**Redaction becomes partial erasure (amends 0011 §5).** When upstream hides part of a revision or a log event, the sync job erases that part with reason class `upstream`, under §1: a hidden comment erases the comment part, a hidden user erases the attestation part, and hidden content erases the content part of the observed `put`. 0011 §5 no longer writes a redacted copy before erasing (0011 A3). The visibility bits a projection reports are derived from which parts are erased with reason `upstream`. Outright suppression, where an event or revision vanishes from upstream's public record, still erases all three parts.
 
 **Serving.** [0013](0013-postgres-storage.md) §5 gains one table, kept apart from `view.activity` because it grows with backfilled history rather than local activity:
 
@@ -202,13 +208,15 @@ CREATE INDEX upstream_revision_entity ON view.upstream_revision (entity_id, time
 | Local revision | `{base}/revision/{revid}` ([0001](0001-revision-metadata-rdf.md) §1), which §2 now makes well-defined |
 | Observed state from a provider with no revision IDs, such as OpenAlex | `{base}/record/{partition}/{offset}`, the record IRI of 0011 §8 |
 
-An upstream revision node is `prov:specializationOf` the **upstream** document node, `https://www.wikidata.org/wiki/Special:EntityData/Q123`. This settles [0002](0002-source-graphs-and-mass-ingest.md)'s open question about upstream revision IRIs.
+An upstream revision node is `prov:specializationOf` the **upstream** document node, `https://www.wikidata.org/wiki/Special:EntityData/Q123`. This settles [0002](0002-source-graphs-and-mass-ingest.md) Q10.
 
 ### 5. Graph names and IRIs (settles the open question of 0001, 0002 and 0005)
 
-**A graph's IRI is `{base}/graph/{name}`.** `{base}` is the instance's base URI: the origin that serves `/wiki/`, `/w/api.php` and `/entity/`, the same base that [0001](0001-revision-metadata-rdf.md) §5 gives instance data. The IRI is therefore per instance, which it has to be: the metadata graph attributes triples to this instance's revisions, and two instances' full dumps ([0013](0013-postgres-storage.md) §8) must be loadable together without their `local` graphs colliding, especially now that [0009](0009-keyed-entity-types-and-domain.md) §6 gives Domain subjects the same IRI everywhere.
+*Changed by A2, A3, A4, A5, A7, A9, A10, A11, A12, A16, A17, A19, A20, A21.*
 
-**Graph names are fixed by convention.** They are the partition names of [0013](0013-postgres-storage.md) §2, and the registry (§3, kind `graph`) stores both name and IRI:
+**A graph's IRI is `{base}/graph/{name}`** for a tenant's partitions, where `{base}` is the tenant's base URI: the origin that serves its `/wiki/`, `/w/api.php` and `/entity/`, the same base that [0001](0001-revision-metadata-rdf.md) §5 gives its data ([0018](0018-tenants.md) §2). The instance's own partitions are under the reserved path `{farm base}/instance/graph/{name}`, so that they cannot be confused with a tenant's when the farm base is a tenant's base ([0046](0046-primary-tenant.md) §7). The IRI is therefore per instance, which it has to be: the metadata graph attributes triples to this instance's revisions, and two instances' full dumps ([0013](0013-postgres-storage.md) §8) must be loadable together without their `local` graphs colliding, especially now that [0009](0009-keyed-entity-types-and-domain.md) §6 gives Domain subjects the same IRI everywhere.
+
+**Graph names are fixed by convention.** They are the partition names of [0013](0013-postgres-storage.md) §2, and the registry (§3, kind `graph`), keyed by (tenant, name), stores both name and IRI. Each tenant has its own `config`, `local`, `pages`, `log`, `actors` and `accounts`; the instance holds its `config` and `log`, every provider's partitions and, with farm identity, `actors/{farm}`, `accounts/{farm}` and `log/{farm}` under the per-issuer names ([0018](0018-tenants.md) §2, [0028](0028-tenancy-policy.md) §2, [0039](0039-files-and-media.md) §10):
 
 | Name | Kind | Defined in |
 |---|---|---|
@@ -225,14 +233,14 @@ An upstream revision node is `prov:specializationOf` the **upstream** document n
 
 `{provider}` is the provider's **slug**, a lower-case name such as `wikidata`, `openalex`, `librarybase` or `internetdomains`. The provider registry entry ([0002](0002-source-graphs-and-mass-ingest.md) §4) records the slug alongside the two-letter code used in IDs.
 
-**Checkpoint origin lines stay `{host}/log/{name}`** ([0006](0006-log-integrity-and-erasure.md) §6). They are a transparency-log convention, not a graph IRI, and the two are deliberately different.
+**Checkpoint origin lines stay `{host}/log/{name}`** ([0006](0006-log-integrity-and-erasure.md) §6), with the tenant's host for a tenant's partitions and `{farm host}/instance/log/{name}` for the instance's ([0018](0018-tenants.md) §2, [0046](0046-primary-tenant.md) §7). They are a transparency-log convention, not a graph IRI, and the two are deliberately different.
 
 **The repository is the authority for names and codes.** The files under `docs/registry/` in the Triplespace repository are the registry of record:
 
 | File | Lists | Defined in |
 |---|---|---|
 | `graphs.toml` | The reserved graph names above, with each one's kind, policies and payload type | this section, §3 |
-| `providers.toml` | Each provider's two-letter code, slug, **provider number** (§2), type codes with their upstream prefixes and IRI templates, issuer, whether it publishes revision IDs, and, since [0022](0022-federation.md) §2, its `trust` mode and key-chain URL | [0000](0000-init.md) §3, [0002](0002-source-graphs-and-mass-ingest.md) §4 |
+| `providers.toml` | Each provider's two-letter code, slug, **provider number** (§2), type codes with their upstream prefixes and IRI templates, issuer, whether it publishes revision IDs, and its `trust` mode and key-chain URL ([0022](0022-federation.md) §2) | [0000](0000-init.md) §3, [0002](0002-source-graphs-and-mass-ingest.md) §4 |
 | `issuers.toml` | The issuer codes and actor models | [0007](0007-actor-identity.md) §1 |
 | `namespaces.toml` | The default namespace numbers and kinds | [0008](0008-namespaces-and-document-pages.md) §2 |
 | `keyed-types.toml` | The keyed entity types | [0009](0009-keyed-entity-types-and-domain.md) §1 |
@@ -244,12 +252,14 @@ An upstream revision node is `prov:specializationOf` the **upstream** document n
 | `tenancy.toml` | The tenancy switches, the three presets and their global groups | [0028](0028-tenancy-policy.md) §1 |
 | `resolvers.toml` | The default resolvers (`doi`, `url`) and drafted candidates | [0029](0029-resolver-namespaces.md) §8 |
 | `file-types.toml` | The permitted file types: extensions, MIME and media types, magic signatures, inline or attachment, thumbnailer | [0039](0039-files-and-media.md) §5 |
+| `wikitext-functions.toml` | The variables, parser functions, tags and switches of template expansion | [0042](0042-template-expansion-and-parsoid.md) §5 |
+| `special-pages.toml` | Every special page name with its MediaWiki name, aliases, scope and status | [0047](0047-special-pages.md) §1 |
 
-`scatter-log`, `scatter-providers` and `scatter-actors` embed these files and ship them as defaults; an instance's `config` partition (§3) starts from them and may diverge. Allocating a new provider code, slug, number or graph name is a change to the file, in a commit; a code is never reused. This is the same rule [0005](0005-crate-organization.md) §5 already applies to the `scatter:` vocabulary through `scatter-vocab`, and it settles [0000](0000-init.md)'s open question about who allocates provider codes. The code for internetdomains.wiki ([0009](0009-keyed-entity-types-and-domain.md), open questions) is allocated there when its adapter is written; the slug `internetdomains` is reserved now.
-
-> **Extended by [0047](0047-special-pages.md) §1.** `special-pages.toml` registers every special page name with its MediaWiki name, aliases, scope and status, embedded by `triplespace-titles`.
+`scatter-log`, `scatter-providers`, `scatter-actors` and, for special pages, `triplespace-titles` embed these files and ship them as defaults; an instance's `config` partition (§3) starts from them and may diverge. Allocating a new provider code, slug, number or graph name is a change to the file, in a commit; a code is never reused. This is the same rule [0005](0005-crate-organization.md) §5 already applies to the `scatter:` vocabulary through `scatter-vocab`, and it settles [0000](0000-init.md) Q4. The code for internetdomains.wiki ([0009](0009-keyed-entity-types-and-domain.md) Q2) is allocated there when its adapter is written; the slug `internetdomains` is reserved now. MusicBrainz (`MB`, number 4) and the other providers registered since are allocated the same way ([0017](0017-entity-id-grammar.md) §6).
 
 ### 6. Document nodes for foreign entities (extends 0001 §1, 0002 §4 and 0009 §6)
+
+*Changed by A14.*
 
 Every entity on the instance has a document node under the instance's base, whatever minted its ID: `data:Q6`, `data:WDQ42` and `data:en.wikipedia.org` are all `{base}/wiki/Special:EntityData/{id}`, as [0009](0009-keyed-entity-types-and-domain.md) §6 already states for Domains. It is what local revisions of the entity specialize, and where the instance's own metadata about the record lives.
 
@@ -264,23 +274,15 @@ data:WDQ42 pav:importedFrom <https://www.wikidata.org/wiki/Special:EntityData/Q4
 
 `pav:importedFrom` is the term [0001](0001-revision-metadata-rdf.md) §6 reserved for this. Upstream revisions specialize the upstream document node (§4); the instance's document node reaches them through `pav:hasCurrentVersion` and the job.
 
-> **Amended 2026-09-27: the document node is the stable handle.** In the resolved view, every member of a cluster keeps its own document node, and each carries `schema:about` pointing at the cluster's **current canonical** concept IRI ([0004](0004-identity-clusters-and-equivalence.md) §4), beside the redirect-form `owl:sameAs` between concept IRIs. A document node never moves, so `{base}/wiki/Special:EntityData/{id}` for any member ID is what external consumers are told to cite; the SPARQL Update stream ([0032](0032-sparql-update-stream.md)) rewrites the `schema:about` triple when the canonical member changes.
+**The document node is the stable handle.** In the resolved view, every member of a cluster keeps its own document node, and each carries `schema:about` pointing at the cluster's **current canonical** concept IRI ([0004](0004-identity-clusters-and-equivalence.md) §4), beside the redirect-form `owl:sameAs` between concept IRIs. A document node never moves, so `{base}/wiki/Special:EntityData/{id}` for any member ID is what external consumers are told to cite; the SPARQL Update stream ([0032](0032-sparql-update-stream.md)) rewrites the `schema:about` triple when the canonical member changes.
 
 ### 7. Crates (amends 0005 §2)
 
-| Crate | Change |
-|---|---|
-| `scatter-log` | Body parts and part leaves (§1); header fields 7–9 and the provider-ranged revision ID (§2); the `config` payload type with kinds `key` and `graph` (§3); `erase` with `parts`, and `LogStore::erase_bodies` becomes `erase_parts`; `docs/registry/graphs.toml` embedded as the default registry (§5) |
-| `scatter-log-postgres` | The `page_id` column; `erased` as a bitmask of parts; partial erasure as a body rewrite ([0013](0013-postgres-storage.md) §3) |
-| `scatter-integrity` | `verify` per part (§1) |
-| `scatter-providers` | Provider slugs and numbers; `docs/registry/providers.toml` embedded as the default registry (§5) |
-| `scatter-actors` | `docs/registry/issuers.toml` embedded as the default issuer registry (§5) |
-| `scatter-mwlog` | The `upstream-revision` payload type beside `logevent` (§4) |
-| `scatter-adapter-wikidata` | Emits upstream revision records from history dumps, `prop=revisions` and the stream (§4) |
-| `triplespace-projections` | The `upstream_revision` projection; the registry projection reads `config` (§3, §4) |
-| `triplespace-rdf` | The IRI rules of §4–6 |
+*Changed by A1.*
 
-No crate is added.
+*Superseded by [0005](0005-crate-organization.md) §2 (A1).*
+
+[0005](0005-crate-organization.md) §2 keeps the crate table that CI checks, with every change this section listed. The table this section first gave is in A1.
 
 ## Consequences
 
@@ -288,7 +290,7 @@ No crate is added.
 - **Erasure matches MediaWiki's three bits exactly.** Text, comment and user can each be hidden or erased on their own, so every RevisionDelete case has an answer, and [0011](0011-logs.md) §5 no longer needs redacted copies.
 - **Each record carries two more salts and three more header fields.** About 40 bytes on the ~100 of 0006's estimate; for a 100-million-entity mirror, on the order of 4 GB.
 - **Permalinks are verifiable.** An inclusion proof for `oldid=N` proves that revision N is the record it claims to be.
-- **Rebuild is deterministic.** Page IDs are read from headers, never derived, and 0013's last open question closes.
+- **Rebuild is deterministic.** Page IDs are read from headers, never derived, and [0013](0013-postgres-storage.md) Q7 closes.
 - **Configuration has history, integrity and an export.** Every registry change is a signed, ordered record, and `view.registry` is rebuildable like any projection. Administrators change configuration through the API, not files.
 - **Scatterbase can adopt §1, §3 and §5 unchanged.** Its claim type declares its own parts; its `server` graph is the `config` partition under another name; its graph names come from the same registry file.
 - **Backfilled history grows the provider log.** The audit [0011](0011-logs.md) already calls for should measure revision volume for retained entities, not only log events.
@@ -296,10 +298,47 @@ No crate is added.
 
 ## Open questions
 
-- ~~**Content backfill by default.** Whether retaining an entity should fetch the content of every upstream revision, or only the metadata, given the cost noted in [0002](0002-source-graphs-and-mass-ingest.md) Consequences.~~ *Settled 2026-09-27 (§4 amendment): content by default, from the provider's API for modest sets and from a history dump the operator supplies for large ones; `--history metadata` opts out.*
-- **Whether `site` settings should each be a record,** or one record per settings group.
-- **Revision IDs beyond 2^40 upstream.** No provider is near it; if one ever is, its number is re-registered with a wider split, which is a format version.
-- ~~**Reason classes.** `upstream`, `legal` and `privacy` are now used; the full vocabulary and its visibility are settled in [0016](0016-permissions-and-access-control.md) §6.~~ *Settled by [0016](0016-permissions-and-access-control.md) §6: `legal`, `privacy`, `upstream` and `operational`, extensible in `site` configuration; the class and authority reference are visible to `ts-viewerasures` only.*
+- **Q1.** ~~**Content backfill by default.** Whether retaining an entity should fetch the content of every upstream revision, or only the metadata, given the cost noted in [0002](0002-source-graphs-and-mass-ingest.md) Consequences.~~ *Settled by A13: content by default, from the provider's API for modest sets and from a history dump the operator supplies for large ones; `--history metadata` opts out.*
+- **Q2. Whether `site` settings should each be a record,** or one record per settings group.
+- **Q3. Revision IDs beyond 2^40 upstream.** No provider is near it; if one ever is, its number is re-registered with a wider split, which is a format version.
+- **Q4.** ~~**Reason classes.** `upstream`, `legal` and `privacy` are now used; the full vocabulary and its visibility are settled in [0016](0016-permissions-and-access-control.md) §6.~~ *Settled by [0016](0016-permissions-and-access-control.md) §6: `legal`, `privacy`, `upstream` and `operational`, extensible in `site` configuration; the class and authority reference are visible to `ts-viewerasures` only.*
+
+## Changes to other ADRs
+
+| Target | By | Change | Target's log |
+|---|---|---|---|
+| [0000](0000-init.md) §3 | §5 | amends | 0000 A2 |
+| [0000](0000-init.md) Q4 | §5 | settles | 0000 Q4 |
+| [0000](0000-init.md) Q6 | §1–2 | settles | 0000 Q6 |
+| [0001](0001-revision-metadata-rdf.md) §1 | §6 | extends | 0001 A7 |
+| [0001](0001-revision-metadata-rdf.md) Q2 | §5 | settles | 0001 Q2 |
+| [0001](0001-revision-metadata-rdf.md) Q5 | §4 | settles | 0001 Q5 |
+| [0002](0002-source-graphs-and-mass-ingest.md) §5, §8.3 | §4 | extends | 0002 A6 |
+| [0002](0002-source-graphs-and-mass-ingest.md) Q1 | §5 | settles | 0002 Q1 |
+| [0002](0002-source-graphs-and-mass-ingest.md) Q2 | §3 | settles | 0002 Q2 |
+| [0002](0002-source-graphs-and-mass-ingest.md) Q5 | §1 | settles | 0002 Q5 |
+| [0002](0002-source-graphs-and-mass-ingest.md) Q10 | §4 | settles | 0002 Q10 |
+| [0005](0005-crate-organization.md) §2, §3, §4.1, §4.2, §4.3 | §7 | amends | 0005 A10 |
+| [0005](0005-crate-organization.md) Q6 | §5 | settles | 0005 Q6 |
+| [0006](0006-log-integrity-and-erasure.md) §2, §3, §7, §9 | §1–3 | amends | 0006 A3 |
+| [0006](0006-log-integrity-and-erasure.md) §6, §8 | §1–3 | extends | 0006 A3 |
+| [0006](0006-log-integrity-and-erasure.md) §1, §2 | §1 | extends | 0006 A5 |
+| [0007](0007-actor-identity.md) Q1 | §1 | settles | 0007 Q1 |
+| [0007](0007-actor-identity.md) Q5 | §1 | settles | 0007 Q5 |
+| [0008](0008-namespaces-and-document-pages.md) Q1 | §2 | settles | 0008 Q1 |
+| [0008](0008-namespaces-and-document-pages.md) Q2 | §2 | settles | 0008 Q2 |
+| [0010](0010-site-ui.md) §5.2, §12 | §2 | amends | 0010 A3 |
+| [0010](0010-site-ui.md) Q3 | §2 | settles | 0010 Q3 |
+| [0010](0010-site-ui.md) Q9 | §5 | settles | 0010 Q9 |
+| [0011](0011-logs.md) §3, §5 | §1, §4 | amends | 0011 A3 |
+| [0011](0011-logs.md) Q1 | §2 | settles | 0011 Q1 |
+| [0012](0012-api-requirements.md) §2.1, §4 | §1–2, §4 | amends | 0012 A4 |
+| [0012](0012-api-requirements.md) §6 | §1–2, §4 | extends | 0012 A4 |
+| [0012](0012-api-requirements.md) Q1 | §2 | settles | 0012 Q1 |
+| [0013](0013-postgres-storage.md) §2, §3, §6 | §1–2, §4, §7 | amends | 0013 A2 |
+| [0013](0013-postgres-storage.md) §5.6 | §1–2, §4, §7 | extends | 0013 A2 |
+| [0013](0013-postgres-storage.md) Q3 | §2 | settles | 0013 Q3 |
+| [0013](0013-postgres-storage.md) Q7 | §2 | settles | 0013 Q7 |
 
 ## References
 
@@ -308,3 +347,208 @@ No crate is added.
 - [MediaWiki `Special:Redirect`](https://www.mediawiki.org/wiki/Help:Special_pages) (lookup by revision, user, page or log ID)
 - [PAV ontology](https://pav-ontology.github.io/pav/) (`pav:importedFrom`, `pav:hasCurrentVersion`)
 - Scatterbase decision record (`server` graph, server-key registration claim)
+
+## Amendment log
+
+### A1. Crate table
+
+- **Date:** 2026-09-26
+- **Source:** [0005](0005-crate-organization.md) §2, revision of 2026-09-26
+- **Change:** supersedes §7
+- **Summary:** 0005 §2 became the one crate table CI checks, and carries every change this section listed (0005 A10).
+
+Replaced text (§7):
+
+> | Crate | Change |
+> |---|---|
+> | `scatter-log` | Body parts and part leaves (§1); header fields 7–9 and the provider-ranged revision ID (§2); the `config` payload type with kinds `key` and `graph` (§3); `erase` with `parts`, and `LogStore::erase_bodies` becomes `erase_parts`; `docs/registry/graphs.toml` embedded as the default registry (§5) |
+> | `scatter-log-postgres` | The `page_id` column; `erased` as a bitmask of parts; partial erasure as a body rewrite ([0013](0013-postgres-storage.md) §3) |
+> | `scatter-integrity` | `verify` per part (§1) |
+> | `scatter-providers` | Provider slugs and numbers; `docs/registry/providers.toml` embedded as the default registry (§5) |
+> | `scatter-actors` | `docs/registry/issuers.toml` embedded as the default issuer registry (§5) |
+> | `scatter-mwlog` | The `upstream-revision` payload type beside `logevent` (§4) |
+> | `scatter-adapter-wikidata` | Emits upstream revision records from history dumps, `prop=revisions` and the stream (§4) |
+> | `triplespace-projections` | The `upstream_revision` projection; the registry projection reads `config` (§3, §4) |
+> | `triplespace-rdf` | The IRI rules of §4–6 |
+>
+> No crate is added.
+
+### A2. Providers registered
+
+- **Date:** 2026-09-27
+- **Source:** [0017](0017-entity-id-grammar.md) §6
+- **Change:** extends §5
+- **Summary:** MusicBrainz is registered in `providers.toml` with code `MB`, slug `musicbrainz` and provider number 4, by the allocation rule of §5; later providers follow. The registry file changed, not this text, until the conversion added a sentence.
+
+### A3. Tenants
+
+- **Date:** 2026-09-27
+- **Source:** [0018](0018-tenants.md) §2–3, §5
+- **Change:** amends §2, §3, §5
+- **Summary:** The ID sequences are per tenant, and the provider-ranged revision ID carries a tenant's revisions to other tenants. The config kinds split by instance and tenant scope, and a tenant's `config` carries the instance's key chain. Graph names are per tenant: each tenant has its own source partitions under its base, and the registry is keyed by (tenant, name). The `tenant` and `alias` kinds and the `providers` list had been given rows in place.
+
+Replaced text (§2):
+
+> They are assigned in the appending transaction, before the leaf hash is computed, so they are inside the Merkle tree. The rules of 0013 §6 stand for local records:
+
+Replaced text: not recorded. 0015 was revised in place before the repository's history begins (commit `1e53c95`, 2026-09-27).
+
+Replaced text (§5):
+
+> **A graph's IRI is `{base}/graph/{name}`.** `{base}` is the instance's base URI: the origin that serves `/wiki/`, `/w/api.php` and `/entity/`, the same base that [0001](0001-revision-metadata-rdf.md) §5 gives instance data.
+>
+> **Graph names are fixed by convention.** They are the partition names of [0013](0013-postgres-storage.md) §2, and the registry (§3, kind `graph`) stores both name and IRI:
+
+### A4. Threads
+
+- **Date:** 2026-09-27
+- **Source:** [0019](0019-discussions.md) §4, §6
+- **Change:** extends §1, §3, §5
+- **Summary:** `scatter:v0/thread` declares a fourth part, the post text; §1 had been given the clause in place. With 0019's amendment of 2026-09-27, thread statuses are `config` records of kind `thread-status`, with defaults in `thread-statuses.toml`; both tables had been given rows in place.
+
+### A5. Evidence and federation policy
+
+- **Date:** 2026-09-27
+- **Source:** [0022](0022-federation.md) §2, §8, §10
+- **Change:** amends §1; extends §3, §5
+- **Summary:** The attestation part may carry `evidence`, a signed remote activity. `federation-policy` is a config kind. `providers.toml` gains `trust` and a key-chain URL. The rows and the clause had been written in place.
+
+Replaced text (§1):
+
+> | 2 | **Attestation** | Who is responsible, and how: the actor key, the job ([0006](0006-log-integrity-and-erasure.md) §3), since [0030](0030-edit-filters.md) §5 the change tags, and since [0022](0022-federation.md) §8 an optional `evidence` field holding a signed remote activity | user |
+
+### A6. ACLs are a payload type
+
+- **Date:** 2026-09-27
+- **Source:** [0023](0023-moderation.md) §3
+- **Change:** amends §3
+- **Summary:** `acl` is the payload type `scatter:v0/acl`, in `config` for graph targets and in the tenant `log` for the rest, not a config kind. The row was removed and the note under the table written in place.
+
+Replaced text: not recorded. 0015 was revised in place before the repository's history begins (commit `1e53c95`, 2026-09-27).
+
+### A7. Grants
+
+- **Date:** 2026-09-27
+- **Source:** [0024](0024-subsidiary-accounts.md) §4
+- **Change:** extends §5
+- **Summary:** `grants.toml` lists the API-key grants. The row had been added in place.
+
+### A8. OAuth consumers
+
+- **Date:** 2026-09-27
+- **Source:** [0025](0025-oauth-server.md) §2
+- **Change:** extends §3
+- **Summary:** The `consumer` and `consumer-policy` kinds. The rows had been added in place.
+
+### A9. Sitelinks
+
+- **Date:** 2026-09-27
+- **Source:** [0026](0026-sitelinks.md) §2–3
+- **Change:** extends §3, §5
+- **Summary:** The `site-alias` and `sitelink-policy` kinds, and `sites.toml`. The rows had been added in place.
+
+### A10. Preferences
+
+- **Date:** 2026-09-27
+- **Source:** [0027](0027-preferences-and-portability.md) §1, §5
+- **Change:** extends §3, §5
+- **Summary:** The `view-pin` kind, and `preferences.toml`. The rows had been added in place.
+
+### A11. Tenancy policy
+
+- **Date:** 2026-09-27
+- **Source:** [0028](0028-tenancy-policy.md) §1–2, §5, §8
+- **Change:** extends §3, §5
+- **Summary:** The `tenancy`, `template` and `provider-readers` kinds; `scope` on `group`; `tenancy.toml`; the farm's three instance partitions `actors/{farm}`, `accounts/{farm}` and `log/{farm}`. The rows had been added in place; `scope` on `group` and the farm partitions were recorded only in 0028 until this conversion.
+
+### A12. Resolvers
+
+- **Date:** 2026-09-27
+- **Source:** [0029](0029-resolver-namespaces.md) §1
+- **Change:** extends §3, §5
+- **Summary:** The `resolver` kind, and `resolvers.toml`. The rows had been added in place.
+
+### A13. Change tags
+
+- **Date:** 2026-09-27
+- **Source:** [0030](0030-edit-filters.md) §5
+- **Change:** amends §1; extends §3
+- **Summary:** The attestation part carries the change tags. With 0030's amendment of 2026-09-27, a user-defined tag is a `config` record of kind `tag`. The clause and the row had been written in place.
+
+Replaced text: the attestation row as A5 quotes it, before the change tags were added.
+
+### A14. Decisions of 2026-09-27 (evening)
+
+- **Date:** 2026-09-27
+- **Source:** Direct: James, decisions of 2026-09-27 (evening)
+- **Change:** extends §1, §4, §6
+- **Summary:** By section:
+  - §1: Client signatures in the attestation part (decision 4). The attestation map may carry a **`signature`** field: `{key: <key ID>, alg: "ed25519", sig: <64 bytes>}`, a signature by the *actor's own key* over `H(0x05 ‖ H(0x03 ‖ content) ‖ H(0x03 ‖ comment))`, where `0x03` is the content hash of [0006](0006-log-integrity-and-erasure.md) §2 and `0x05` is a new domain tag that never appears in the header tree. The preimage is the canonical bytes of the two parts before the server salts them, so a client that produces canonical CBOR can sign what it submits and a verifier holding the record can check it; erasing either part makes the signature unverifiable, which 0006 §7 already accepts. **Keys are actor records:** a `scatter:v0/key` record in the tenant `actors` partition, keyed by the actor, whose content holds the key ID (the Base32z hash of the public key), algorithm, public key and validity; a later record rotates or revokes it. The server verifies a submitted signature against the actor's current key before appending and refuses a mismatch with `ts-bad-signature`; `verify` (0006 §9, level 2) checks every present signature against the key records in the bundle. Which actors may hold keys, and how they sign, is [0024](0024-subsidiary-accounts.md) §4 as amended: subsidiaries. The instance key (0006 §6) still signs every checkpoint; a client signature is in addition, never instead. This fills the slot 0006 §1 reserved and answers [0007](0007-actor-identity.md)'s keys question for Triplespace; Scatterbase's client and server signatures are the same field shape in its own part layout.
+  - §4: Content by default, from the API or a dump (decision 10). A `retain` backfill fetches **every upstream revision's content** as well as its metadata, so a rescued entity's whole history is diffable and exportable here and survives upstream deletion whole; `retain --history metadata` narrows it to `upstream-revision` records alone. The backfill job takes a **source**: `api`, the provider's revision API ([mediawiki-compat.md](../api/mediawiki-compat.md) §2.8, under the `upstream` rate class), which is the default and suits a modest set; or `dump:{path}`, a provider history dump the operator has on hand, which is what a mass rescue of Wikidata or another very large dataset uses. A bulk `retain` whose set exceeds `retention.api_max_entities` (`site`, default 10,000) is refused for `api` unless forced, so a million-entity rescue is not attempted one request at a time. Either source writes the same records; a `dump` job records the dump's identity as its source version ([0002](0002-source-graphs-and-mass-ingest.md) §8.3), and revisions newer than the dump are fetched from the API to close the gap. The automatic retention of properties ([0002](0002-source-graphs-and-mass-ingest.md) §6, as amended) uses the API, since a property's history is small. This settled Q1.
+  - §6: The document node is the stable handle (decision 12). In the resolved view, every member of a cluster keeps its own document node, and each carries `schema:about` pointing at the cluster's **current canonical** concept IRI ([0004](0004-identity-clusters-and-equivalence.md) §4), beside the redirect-form `owl:sameAs` between concept IRIs. A document node never moves, so `{base}/wiki/Special:EntityData/{id}` for any member ID is what external consumers are told to cite; the SPARQL Update stream ([0032](0032-sparql-update-stream.md)) rewrites the `schema:about` triple when the canonical member changes.
+
+### A15. Adoption supplies page IDs
+
+- **Date:** 2026-09-28
+- **Source:** [0035](0035-adopting-a-wikibase.md) §4
+- **Change:** amends §2
+- **Summary:** An adoption job supplies the page ID of an adopted record, carrying the source wiki's page ID, and has set the sequence past it. The sentence had been edited in place.
+
+Replaced text (§2):
+
+> **Page IDs are carried forward.** A page ID is taken from one sequence the first time a key is written in any partition, and every later record for that key, in every partition, repeats it in field 9. It is never derived from replay order.
+
+### A16. Category mappings
+
+- **Date:** 2026-09-29
+- **Source:** [0038](0038-page-metadata-and-categories.md) §1, §5
+- **Change:** extends §3, §5
+- **Summary:** The `category-mapping` kind; `scatter:v0/changeset` in the `pages` partition. The row had been added in place.
+
+### A17. Files
+
+- **Date:** 2026-09-30
+- **Source:** [0039](0039-files-and-media.md) §2, §5, §10–11
+- **Change:** extends §1, §5
+- **Summary:** `scatter:v0/upload`, in `pages`, has the three standard parts. Its content part holds the SHA-256 of bytes kept outside the log, so erasing that part is what allows the bytes to be destroyed. The instance `log` partition, the `files/{repo}` partitions and `file-types.toml`; §5 had been given these rows in place.
+
+### A18. The instance attestation
+
+- **Date:** 2026-09-30
+- **Source:** [0040](0040-instance-prerogatives.md) §3
+- **Change:** extends §1
+- **Summary:** The attestation part has a second form, the **instance attestation**, for records the instance writes into a tenant on its own authority: `actor` (`instance:{farm slug}`), `authority` (an instance record's partition, offset and leaf hash), `job`, `binding`, and a `signature` by the instance key. Only the server writes it; a submitted record carrying one is refused with `ts-prerogative`.
+
+### A19. Template expansion
+
+- **Date:** 2026-09-30
+- **Source:** [0042](0042-template-expansion-and-parsoid.md) §2, §5, §11
+- **Change:** extends §3, §5
+- **Summary:** `site` settings `wikitext.expansion`, `wikitext.lua`, `wikitext.renderer`, `wikitext.template_repos` and `wikitext.share`, and, with [0043](0043-lua-modules.md) §8–9, `lua.ids` and `lua.client_site`. The registry of §5 gains `wikitext-functions.toml`. The `template-repo` kind; its row had been added in place.
+
+### A20. The primary tenant
+
+- **Date:** 2026-09-30
+- **Source:** [0046](0046-primary-tenant.md) §2, §7
+- **Change:** amends §5; extends §3
+- **Summary:** The `primary` config kind, whose row had been added in place; the `tenant` record loses its primary flag. Instance graph IRIs are `{farm base}/instance/graph/{name}` and instance origin lines `{farm host}/instance/log/{name}`, which was recorded only in 0046 until this conversion.
+
+Replaced text (§5):
+
+> **Checkpoint origin lines stay `{host}/log/{name}`** ([0006](0006-log-integrity-and-erasure.md) §6). They are a transparency-log convention, not a graph IRI, and the two are deliberately different.
+
+### A21. Special pages and reports
+
+- **Date:** 2026-10-01
+- **Source:** [0047](0047-special-pages.md) §1, §4.3
+- **Change:** extends §3, §5
+- **Summary:** By section:
+  - §3: An instance-scope kind `reports`, with code `default` or a tenant slug, holds which reports run as batch, their mirror-graph widenings, the batch schedule and the row limit. It is written with `ts-config` at the farm base.
+  - §5: `special-pages.toml` registers every special page name with its MediaWiki name, aliases, scope and status, embedded by `triplespace-titles`.
+
+### A22. Converted to the 0050 format
+
+- **Date:** 2026-10-01
+- **Source:** [0050](0050-adr-format.md) §13
+- **Change:** consolidates §1–7
+- **Summary:** A1–A21 were folded into the Decision. The open questions were numbered. No decision changed. Before this, A14, A17 (in part), A18, A19 and A21 were blockquotes; most of the rows A3–A13, A16 and A20 name had been added to the tables of §3 and §5 in place; the rest were recorded only in other ADRs. The file before conversion is commit `0b26a3a`.
