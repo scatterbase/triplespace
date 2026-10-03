@@ -1,8 +1,9 @@
 //! The `LogStore` conformance suite (0005 rule 8; 0033 §8): one set of checks every
 //! backend passes. A backend's tests call [`run`] with a constructor for a fresh,
 //! empty store, and [`run_reopen`] when the store persists, with a function that
-//! closes and reopens it. Both are futures: drive them with the backend's runtime, or
-//! with `pollster::block_on` where there is none.
+//! closes and reopens it. The factories are asynchronous, since a database backend
+//! connects; drive the suite with the backend's runtime, or with `pollster::block_on`
+//! where there is none.
 
 use crate::body::{ATTESTATION, Body, COMMENT, Part};
 use crate::cbor::Value;
@@ -44,8 +45,8 @@ async fn restore<S: LogStore>(from: &S, to: &mut S, partition: u64) {
     assert_eq!(to.head(partition).await.unwrap(), head);
 }
 
-async fn restoring_slots<S: LogStore>(make: &impl Fn() -> S) {
-    let mut from = make();
+async fn restoring_slots<S: LogStore>(make: &impl AsyncFn() -> S) {
+    let mut from = make().await;
     from.create_partition(1, Segments::new(1).unwrap())
         .await
         .unwrap();
@@ -54,7 +55,7 @@ async fn restoring_slots<S: LogStore>(make: &impl Fn() -> S) {
     }
     from.erase_parts(1, 1, &[COMMENT]).await.unwrap();
     from.compact(1, &[3]).await.unwrap();
-    let mut to = make();
+    let mut to = make().await;
     restore(&from, &mut to, 1).await;
     for offset in 0..5 {
         assert_eq!(
@@ -71,7 +72,7 @@ async fn restoring_slots<S: LogStore>(make: &impl Fn() -> S) {
         to.append_slot(1, Slot::Record(r.clone())).await,
         Err(StoreError::NotNext { offset: 5, .. })
     ));
-    let mut other = make();
+    let mut other = make().await;
     other
         .create_partition(2, Segments::new(1).unwrap())
         .await
@@ -93,13 +94,13 @@ async fn restoring_slots<S: LogStore>(make: &impl Fn() -> S) {
 /// # Panics
 ///
 /// On the first check the backend fails.
-pub async fn run<S: LogStore>(make: impl Fn() -> S) {
-    partitions_and_heads(&mut make()).await;
-    appends_are_gapless_and_hashed(&mut make()).await;
-    reads_and_scans(&mut make()).await;
-    erasure_keeps_leaves(&mut make()).await;
-    compaction_leaves_holes(&mut make()).await;
-    segment_boundaries(&mut make()).await;
+pub async fn run<S: LogStore>(make: impl AsyncFn() -> S) {
+    partitions_and_heads(&mut make().await).await;
+    appends_are_gapless_and_hashed(&mut make().await).await;
+    reads_and_scans(&mut make().await).await;
+    erasure_keeps_leaves(&mut make().await).await;
+    compaction_leaves_holes(&mut make().await).await;
+    segment_boundaries(&mut make().await).await;
     restoring_slots(&make).await;
 }
 
@@ -108,8 +109,8 @@ pub async fn run<S: LogStore>(make: impl Fn() -> S) {
 /// # Panics
 ///
 /// On the first check the backend fails.
-pub async fn run_reopen<S: LogStore>(make: impl Fn() -> S, reopen: impl Fn(S) -> S) {
-    let mut s = make();
+pub async fn run_reopen<S: LogStore>(make: impl AsyncFn() -> S, reopen: impl AsyncFn(S) -> S) {
+    let mut s = make().await;
     s.create_partition(7, Segments::new(2).unwrap())
         .await
         .unwrap();
@@ -125,7 +126,7 @@ pub async fn run_reopen<S: LogStore>(make: impl Fn() -> S, reopen: impl Fn(S) ->
     s.compact(7, &[5, 6]).await.unwrap();
     let before = s.head(7).await.unwrap();
 
-    let s = reopen(s);
+    let s = reopen(s).await;
     assert_eq!(s.partitions().await.unwrap(), vec![CONFIG_PARTITION, 7]);
     let after = s.head(7).await.unwrap();
     assert_eq!(after, before, "the head survives a reopen");
@@ -379,7 +380,7 @@ mod tests {
 
     #[test]
     fn memory_store_conforms() {
-        pollster::block_on(super::run(MemoryStore::new));
-        pollster::block_on(super::run_reopen(MemoryStore::new, |s| s));
+        pollster::block_on(super::run(async || MemoryStore::new()));
+        pollster::block_on(super::run_reopen(async || MemoryStore::new(), async |s| s));
     }
 }
