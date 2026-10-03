@@ -11,6 +11,7 @@ members = [
     "crates/scatter-log-postgres",
     "crates/triplespace-db",
     "crates/scatter-projection",
+    "crates/triplespace-projections",
     "xtask",
 ]
 
@@ -36,6 +37,7 @@ scatter-log = { path = "crates/scatter-log" }
 scatter-integrity = { path = "crates/scatter-integrity" }
 scatter-log-postgres = { path = "crates/scatter-log-postgres" }
 triplespace-db = { path = "crates/triplespace-db" }
+triplespace-projections = { path = "crates/triplespace-projections" }
 scatter-projection = { path = "crates/scatter-projection" }
 
 # RDF terms: the oxrdf family only (0005 §3, rule 5)
@@ -82,7 +84,7 @@ pollster = "1"
 
 # Postgres: the one async substrate crate (0005 rule 2; 0033 §4)
 tokio = { version = "1", default-features = false }
-tokio-postgres = "0.7"
+tokio-postgres = { version = "0.7", features = ["with-serde_json-1"] }
 deadpool-postgres = "0.14"
 
 [workspace.lints.rust]
