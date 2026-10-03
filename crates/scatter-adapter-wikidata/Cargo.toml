@@ -1,0 +1,23 @@
+[package]
+name = "scatter-adapter-wikidata"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "The Wikibase adapter: entity JSON dumps and MediaWiki XML dumps of a Wikibase, in mirror mode and in adoption mode"
+publish = false
+
+[dependencies]
+scatter-wikibase-changeset.workspace = true
+scatter-wikibase-model.workspace = true
+scatter-providers.workspace = true
+quick-xml.workspace = true
+flate2.workspace = true
+bzip2.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true
