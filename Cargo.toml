@@ -8,6 +8,7 @@ members = [
     "crates/scatter-actors",
     "crates/scatter-log",
     "crates/scatter-integrity",
+    "crates/scatter-log-postgres",
     "xtask",
 ]
 
@@ -31,6 +32,7 @@ scatter-wikibase-model = { path = "crates/scatter-wikibase-model" }
 scatter-actors = { path = "crates/scatter-actors" }
 scatter-log = { path = "crates/scatter-log" }
 scatter-integrity = { path = "crates/scatter-integrity" }
+scatter-log-postgres = { path = "crates/scatter-log-postgres" }
 
 # RDF terms: the oxrdf family only (0005 §3, rule 5)
 oxrdf = "0.3"
@@ -73,6 +75,11 @@ anyhow = "1"
 
 # Driving async traits from synchronous tests (0005 rule 2: no runtime in the core)
 pollster = "1"
+
+# Postgres: the one async substrate crate (0005 rule 2; 0033 §4)
+tokio = { version = "1", default-features = false }
+tokio-postgres = "0.7"
+deadpool-postgres = "0.14"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

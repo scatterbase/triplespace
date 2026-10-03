@@ -506,12 +506,12 @@ mod tests {
     fn segment_store_conforms() {
         let root = temp_root("conformance");
         let counter = std::cell::Cell::new(0u32);
-        let make = || {
+        let make = async || {
             counter.set(counter.get() + 1);
             SegmentStore::open(root.join(counter.get().to_string())).unwrap()
         };
-        pollster::block_on(conformance::run(make));
-        pollster::block_on(conformance::run_reopen(make, |s| {
+        pollster::block_on(conformance::run(&make));
+        pollster::block_on(conformance::run_reopen(&make, async |s| {
             let r = s.root().to_path_buf();
             drop(s);
             SegmentStore::open(r).unwrap()
