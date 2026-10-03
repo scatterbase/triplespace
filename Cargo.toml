@@ -8,6 +8,7 @@ members = [
     "crates/scatter-wikibase-changeset",
     "crates/scatter-wikibase-resolve",
     "crates/scatter-ingest",
+    "crates/triplespace-api-ingest",
     "crates/scatter-actors",
     "crates/scatter-log",
     "crates/scatter-integrity",
@@ -38,6 +39,7 @@ scatter-wikibase-model = { path = "crates/scatter-wikibase-model" }
 scatter-wikibase-changeset = { path = "crates/scatter-wikibase-changeset" }
 scatter-wikibase-resolve = { path = "crates/scatter-wikibase-resolve" }
 scatter-ingest = { path = "crates/scatter-ingest" }
+triplespace-api-ingest = { path = "crates/triplespace-api-ingest" }
 scatter-actors = { path = "crates/scatter-actors" }
 scatter-log = { path = "crates/scatter-log" }
 scatter-integrity = { path = "crates/scatter-integrity" }

@@ -143,7 +143,16 @@ pub async fn run_sync<S: IngestStore>(
             tenant: String::new(),
             graph: graph_name.clone(),
         })?;
-    let mut job = Job::start(store, &mut cx, "", header.clone(), attestation, now).await?;
+    let mut job = Job::start(
+        store,
+        pipeline,
+        &mut cx,
+        "",
+        header.clone(),
+        attestation,
+        now,
+    )
+    .await?;
     let mut request = Request::new("", job.record_attestation(), now);
     request.budget = Budget::NONE;
     let mut counts = Counts::default();
@@ -253,7 +262,8 @@ pub async fn run_sync<S: IngestStore>(
                 count: gone.len(),
                 threshold,
             };
-            job.fail(store, &mut cx, &err.to_string(), now).await?;
+            job.fail(store, pipeline, &mut cx, &err.to_string(), now)
+                .await?;
             store.commit(cx).await?;
             return Err(err);
         }
@@ -272,7 +282,8 @@ pub async fn run_sync<S: IngestStore>(
             serde_json::json!({"count": swept, "threshold": threshold}),
         );
     }
-    job.finish(store, &mut cx, &counts, extra, now).await?;
+    job.finish(store, pipeline, &mut cx, &counts, extra, now)
+        .await?;
     store.commit(cx).await?;
     Ok(SyncOutcome {
         job_id: job.id,

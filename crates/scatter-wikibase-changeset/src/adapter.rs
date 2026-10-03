@@ -14,7 +14,7 @@ use std::fmt::Write as _;
 use scatter_providers::{IdError, Provider, Registry};
 use scatter_wikibase_model::entity::Entity;
 use scatter_wikibase_model::hash::Hasher;
-use scatter_wikibase_model::id::{EntityId, IdForm, IdParseError, StatementId};
+use scatter_wikibase_model::id::{EntityId, IdForm, IdParseError, StatementId, Subject};
 use scatter_wikibase_model::statement::{Reference, Snak, SnakGroups, Statement};
 use scatter_wikibase_model::value::DataValue;
 use sha1::Digest as _;
@@ -294,9 +294,19 @@ pub fn deterministic_statement_id(
     statement: &Statement,
     hasher: &Hasher,
 ) -> StatementId {
+    deterministic_statement_id_for(&Subject::Entity(subject.clone()), statement, hasher)
+}
+
+/// [`deterministic_statement_id`] for any subject, a page's statements included (0038 §1).
+#[must_use]
+pub fn deterministic_statement_id_for(
+    subject: &Subject,
+    statement: &Statement,
+    hasher: &Hasher,
+) -> StatementId {
     let mut h = sha1::Sha1::new();
     h.update(NAMESPACE);
-    h.update(subject.as_str().as_bytes());
+    h.update(subject.to_string().as_bytes());
     h.update([0]);
     h.update(hasher.snak_serialization(&statement.mainsnak).as_bytes());
     let d = h.finalize();

@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 use crate::IngestError;
 use crate::job::{Counts, Job, Reject};
 use crate::store::{IngestStore, Sequence};
-use crate::write::{Attestation, Request, write_to};
+use crate::write::{Attestation, Request, append_projected, write_to};
 
 /// The source's consumed counters (0035 §4), from its `wb_id_counters` and highest IDs.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -184,7 +184,7 @@ pub async fn run_adoption<S: IngestStore>(
         "floors".into(),
         serde_json::to_value(&adoption.floors).map_err(|e| e.to_string())?,
     );
-    let mut job = Job::start(store, &mut cx, tenant, header, attestation, now).await?;
+    let mut job = Job::start(store, pipeline, &mut cx, tenant, header, attestation, now).await?;
     set_floors(store, &mut cx, tenant, &adoption.floors).await?;
 
     // Accounts (0035 §5): the source's users under the tenant's issuer, skipping any
@@ -206,7 +206,7 @@ pub async fn run_adoption<S: IngestStore>(
             if draft.logid.is_none() {
                 draft.logid = Some(store.next_id(&mut cx, tenant, &Sequence::Log).await?);
             }
-            store.append(&mut cx, actors, draft).await?;
+            append_projected(store, pipeline, &mut cx, actors, draft, Budget::NONE).await?;
             accounts += 1;
         }
     }
@@ -306,7 +306,8 @@ pub async fn run_adoption<S: IngestStore>(
         serde_json::to_value(&adoption.floors).map_err(|e| e.to_string())?,
     );
     extra.insert("accounts".into(), accounts.into());
-    job.finish(store, &mut cx, &counts, extra, now).await?;
+    job.finish(store, pipeline, &mut cx, &counts, extra, now)
+        .await?;
     store.commit(cx).await?;
     Ok(AdoptionOutcome {
         job_id: job.id,

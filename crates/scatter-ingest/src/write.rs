@@ -14,8 +14,10 @@ use scatter_log::record::{Record, global_id};
 use scatter_log::store::Draft;
 use scatter_projection::{Budget, Inline, Pipeline};
 use scatter_providers::Registry;
-use scatter_wikibase_changeset::{Graph, Operation};
+use scatter_wikibase_changeset::{Graph, Operation, deterministic_statement_id_for};
+use scatter_wikibase_model::hash::Hasher;
 use scatter_wikibase_model::id::{EntityId, IdForm, Subject};
+use scatter_wikibase_model::statement::Statement;
 
 use crate::IngestError;
 use crate::store::{IngestStore, Sequence};
@@ -155,6 +157,23 @@ pub fn destination(op: &Operation, registry: &Registry) -> Result<Graph, IngestE
     }
 }
 
+/// Appends a draft and runs the synchronous projections on the record it became, inside
+/// the unit of work: every record the write side produces goes through this, so the
+/// `view` tables are current when the unit commits (0013 §7).
+pub async fn append_projected<S: IngestStore>(
+    store: &S,
+    pipeline: &Pipeline<S>,
+    cx: &mut S::Cx,
+    partition: u64,
+    draft: Draft,
+    budget: Budget,
+) -> Result<(Record, Inline), IngestError> {
+    let appended = store.append(cx, partition, draft.clone()).await?;
+    let record = draft.seal(partition, appended.offset);
+    let inline = pipeline.apply_inline(store, cx, &record, budget).await?;
+    Ok((record, inline))
+}
+
 /// The header key of a subject: the entity ID, or a keyed entity's surrogate, minted and
 /// recorded in the instance `log` when it has none yet. The mapping record is projected
 /// inline, so the resolution projection finds the surrogate in the same unit of work.
@@ -203,11 +222,7 @@ pub async fn key_for<S: IngestStore>(
         )
         .map_err(|e| e.to_string())?,
     };
-    let appended = store.append(cx, instance_log, draft.clone()).await?;
-    let record = draft.seal(instance_log, appended.offset);
-    pipeline
-        .apply_inline(store, cx, &record, Budget::NONE)
-        .await?;
+    append_projected(store, pipeline, cx, instance_log, draft, Budget::NONE).await?;
     Ok(surrogate)
 }
 
@@ -306,7 +321,10 @@ pub async fn write_to<S: IngestStore>(
         }
         Graph::Local | Graph::Pages => Some(store.next_id(cx, owner, &Sequence::Revision).await?),
     };
-    let content = serde_json::to_value(op).map_err(|e| e.to_string())?;
+    // Local statements without a GUID get one here, as Wikibase assigns them on save;
+    // deterministic, so the same statement re-added gets the same ID (0002 §8.4).
+    let op = with_statement_ids(op, &subject);
+    let content = serde_json::to_value(&op).map_err(|e| e.to_string())?;
     let comment = request.comment.as_deref().map_or(Value::Null, Value::text);
     let draft = Draft {
         appended_at: request.now,
@@ -322,16 +340,47 @@ pub async fn write_to<S: IngestStore>(
         )
         .map_err(|e| e.to_string())?,
     };
-    let appended = store.append(cx, partition, draft.clone()).await?;
-    let record = draft.seal(partition, appended.offset);
-    let inline = pipeline
-        .apply_inline(store, cx, &record, request.budget)
-        .await?;
+    let (record, inline) =
+        append_projected(store, pipeline, cx, partition, draft, request.budget).await?;
     Ok(Written {
         partition,
         record,
         inline,
     })
+}
+
+/// The operation with every statement it carries given an ID under `subject`, where it
+/// had none. Mirror operations are returned as they are: their adapter owns the IDs.
+#[must_use]
+pub fn with_statement_ids(op: &Operation, subject: &Subject) -> Operation {
+    let hasher = Hasher::local();
+    let mut op = op.clone();
+    let fill = |statements: &mut Vec<Statement>, subject: &Subject| {
+        for s in statements {
+            if s.id.is_none() {
+                s.id = Some(deterministic_statement_id_for(subject, s, &hasher));
+            }
+        }
+    };
+    match &mut op {
+        Operation::Create { entity, .. } | Operation::Adopt { entity, .. } => {
+            for group in entity.statements.values_mut() {
+                fill(group, subject);
+            }
+        }
+        Operation::Add { claims, entity, .. } => {
+            for group in claims.values_mut() {
+                fill(group, subject);
+            }
+            if let Some(e) = entity {
+                for group in e.statements.values_mut() {
+                    fill(group, subject);
+                }
+            }
+        }
+        _ => {}
+    }
+    op
 }
 
 /// The ID a freshly minted local entity of a type gets: the type letter and the next

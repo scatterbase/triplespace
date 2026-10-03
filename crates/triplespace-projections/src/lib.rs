@@ -31,13 +31,14 @@ pub use registry::RegistryProjection;
 pub use sources::{EntitySourceProjection, KeyedMapProjection, KeyedSurrogateProjection};
 
 use scatter_actors::issuer::IssuerRegistry;
-use scatter_projection::{Pipeline, ProjectionError};
+use scatter_projection::{Backend, Pipeline, ProjectionError};
 
-/// The pipeline of every projection built so far, in step order.
-pub fn milestone_pipeline(
+/// The pipeline of every projection built so far, in step order, over any backend whose
+/// unit of work is a [`PgCx`] (the projections' own [`PgBackend`], or a store wrapping it).
+pub fn milestone_pipeline<B: Backend<Cx = PgCx>>(
     issuers: IssuerRegistry,
     farm: Farm,
-) -> Result<Pipeline<PgBackend>, ProjectionError> {
+) -> Result<Pipeline<B>, ProjectionError> {
     Pipeline::new()
         .with(RegistryProjection)?
         .with(KeyedSurrogateProjection)?

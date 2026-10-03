@@ -6,9 +6,9 @@
 use scatter_log::cbor::Value;
 use scatter_log::header::Header;
 use scatter_log::record::Record;
-use scatter_projection::{Applied, BoxFuture, Projection, Step};
+use scatter_projection::{Applied, Backend, BoxFuture, Projection, Step};
 
-use crate::backend::{PgBackend, PgCx};
+use crate::backend::PgCx;
 use crate::common::{
     PAYLOAD_LOGEVENT, attested, content, offset_db, partition_info, time_of, to_jsonb,
 };
@@ -167,7 +167,7 @@ async fn close(cx: &PgCx, ev: &Event<'_>, action: &str) -> Result<u64, String> {
     Ok(n)
 }
 
-impl Projection<PgBackend> for JobProjection {
+impl<B: Backend<Cx = PgCx>> Projection<B> for JobProjection {
     fn name(&self) -> &'static str {
         "job"
     }

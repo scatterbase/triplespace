@@ -1487,6 +1487,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "triplespace-api-ingest"
+version = "0.0.1"
+dependencies = [
+ "ed25519-dalek",
+ "scatter-actors",
+ "scatter-ingest",
+ "scatter-log",
+ "scatter-log-postgres",
+ "scatter-projection",
+ "scatter-providers",
+ "scatter-wikibase-changeset",
+ "scatter-wikibase-model",
+ "serde_json",
+ "tokio",
+ "tokio-postgres",
+ "triplespace-db",
+ "triplespace-projections",
+]
+
+[[package]]
 name = "triplespace-db"
 version = "0.0.1"
 dependencies = [

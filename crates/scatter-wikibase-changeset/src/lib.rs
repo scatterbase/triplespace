@@ -33,7 +33,10 @@ pub mod rank;
 pub mod validate;
 pub mod wire;
 
-pub use adapter::{Adapter, AdapterError, KeyMap, WikibaseAdapter, deterministic_statement_id};
+pub use adapter::{
+    Adapter, AdapterError, KeyMap, WikibaseAdapter, deterministic_statement_id,
+    deterministic_statement_id_for,
+};
 pub use apply::{Correction, LocalState};
 pub use changes::{Changes, Counts};
 pub use job::{Graph, JobHeader, Mode};

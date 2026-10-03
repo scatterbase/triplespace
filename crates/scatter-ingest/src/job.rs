@@ -1,7 +1,8 @@
 //! A job's records (0002 §8.3; 0011 §6.3; payloads.md §5): a `job/start` log event when
 //! it starts, keyed by the job ID the instance mints, and a `job/finish` or `job/fail`
 //! under the same key. A tenant's bulk job writes them to the tenant's `log`; a mirror
-//! sync, an instance action, to the instance `log`.
+//! sync, an instance action, to the instance `log`. Every record is projected inline, so
+//! `view.job` is current when the unit of work commits.
 
 use std::collections::BTreeMap;
 
@@ -13,7 +14,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::IngestError;
 use crate::store::{IngestStore, Sequence};
-use crate::write::Attestation;
+use crate::write::{Attestation, append_projected};
+use scatter_projection::{Budget, Pipeline};
 
 /// The log-event payload type.
 pub const PAYLOAD_LOGEVENT: &str = "scatter:v0/logevent";
@@ -89,6 +91,7 @@ impl Job {
     /// when `tenant` is `""`), with the job line's fields as parameters.
     pub async fn start<S: IngestStore>(
         store: &S,
+        pipeline: &Pipeline<S>,
         cx: &mut S::Cx,
         tenant: &str,
         header: JobHeader,
@@ -139,8 +142,9 @@ impl Job {
         let draft = job
             .event(store, cx, "start", serde_json::Value::Object(params), now)
             .await?;
-        let appended = store.append(cx, log_partition, draft).await?;
-        job.start_offset = appended.offset;
+        let (record, _) =
+            append_projected(store, pipeline, cx, log_partition, draft, Budget::NONE).await?;
+        job.start_offset = record.header().offset;
         Ok(job)
     }
 
@@ -198,6 +202,7 @@ impl Job {
     pub async fn finish<S: IngestStore>(
         &self,
         store: &S,
+        pipeline: &Pipeline<S>,
         cx: &mut S::Cx,
         counts: &Counts,
         extra: serde_json::Map<String, serde_json::Value>,
@@ -223,13 +228,16 @@ impl Job {
         let draft = self
             .event(store, cx, "finish", serde_json::Value::Object(params), now)
             .await?;
-        Ok(store.append(cx, self.log_partition, draft).await?.offset)
+        let (record, _) =
+            append_projected(store, pipeline, cx, self.log_partition, draft, Budget::NONE).await?;
+        Ok(record.header().offset)
     }
 
     /// Appends the failure record.
     pub async fn fail<S: IngestStore>(
         &self,
         store: &S,
+        pipeline: &Pipeline<S>,
         cx: &mut S::Cx,
         error: &str,
         now: u64,
@@ -237,7 +245,9 @@ impl Job {
         let draft = self
             .event(store, cx, "fail", serde_json::json!({"error": error}), now)
             .await?;
-        Ok(store.append(cx, self.log_partition, draft).await?.offset)
+        let (record, _) =
+            append_projected(store, pipeline, cx, self.log_partition, draft, Budget::NONE).await?;
+        Ok(record.header().offset)
     }
 
     /// The attestation a record this job writes carries: the actor, the job ID and tags.

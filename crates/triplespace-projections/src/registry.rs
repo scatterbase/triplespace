@@ -5,9 +5,9 @@
 use scatter_log::header::Header;
 use scatter_log::record::Record;
 use scatter_log::registry::PAYLOAD_CONFIG;
-use scatter_projection::{Applied, BoxFuture, Projection, Step};
+use scatter_projection::{Applied, Backend, BoxFuture, Projection, Step};
 
-use crate::backend::{PgBackend, PgCx};
+use crate::backend::PgCx;
 use crate::common::{content, offset_db, split_key, tenant_of, to_jsonb};
 
 /// The registry projection.
@@ -17,7 +17,7 @@ pub struct RegistryProjection;
 /// The projection's name.
 pub const NAME: &str = "registry";
 
-impl Projection<PgBackend> for RegistryProjection {
+impl<B: Backend<Cx = PgCx>> Projection<B> for RegistryProjection {
     fn name(&self) -> &'static str {
         NAME
     }

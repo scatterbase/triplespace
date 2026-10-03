@@ -381,6 +381,34 @@ async fn sequences_and_floors() {
             .unwrap(),
         1
     );
+    assert_eq!(
+        sequences::next(&client, "librarybase", &Sequence::User)
+            .await
+            .unwrap(),
+        1
+    );
+    // The instance's own, under the reserved name.
+    assert!(sequences::create(&client, "", &[]).await.is_err());
+    sequences::create_instance(&client, &["domain"])
+        .await
+        .unwrap();
+    assert_eq!(
+        sequences::next(&client, "", &Sequence::Job).await.unwrap(),
+        1
+    );
+    assert_eq!(
+        sequences::next(&client, "", &Sequence::Surrogate("domain".into()))
+            .await
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        sequences::next(&client, "instance", &Sequence::Job)
+            .await
+            .unwrap(),
+        2,
+        "`` and `instance` name the same sequences"
+    );
     // An adoption floors the item counter at what the source consumed.
     sequences::floor(&client, "librarybase", &item, 350_000)
         .await
