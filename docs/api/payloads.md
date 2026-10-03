@@ -222,7 +222,8 @@ Every operation has `op` and a subject, `id` (an entity) or `page` (a page ID):
   `equivalent-property` by repeating it.
 - **`override`** carries one of `rank` (`preferred`, `normal`, `deprecated`) or `suppress`
   (`true`); a later override on the same statement replaces it. The subject is the
-  statement's entity; the record is keyed by it.
+  statement's entity; the record is keyed by it. On the wire `id` may be omitted, as the
+  0002 §8.7 sketch does; the server fills it from `statement`.
 - **`retain`**: on the wire a bulk `{"op": "retain", "ids": […], "policy": …}` fans out to
   one record per entity. `policy` is `cascade`, `orphan` or `retain`.
 - **`convert`**: `local` is the minted ID; the record is keyed by the foreign ID, and the
@@ -232,6 +233,14 @@ Every operation has `op` and a subject, `id` (an entity) or `page` (a page ID):
   instance's order): `id` names it and `ids` lists both. The key is the record's
   identifier for compaction and erasure, not the cluster's canonical ID, which the
   resolved view computes from the same order and which can change as members come and go.
+  On the wire `id` may be omitted, as the 0004 §9 and 0009 §10 sketches do; the server
+  fills it. An `id` that is given must be the highest-ranked member.
+- **Temporary handles** (`$w1`; 0002 §8.5) are `$` followed by letters, digits or `_`, and
+  are replaced only in ID positions: `id`, `ref`, `to`, `from`, `local`, `property`, the
+  members of `ids` and `badges`, the keys of `claims`, `qualifiers`, `snaks` and `match`,
+  and the `id` of an entity value. A label or string value that starts with `$` is text.
+  The `entity` of a `create` or `create-or-add` carries the handle as its `id` on the wire;
+  the server replaces it with the minted or matched ID.
 
 ### 3.3 Base revision
 

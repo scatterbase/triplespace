@@ -417,6 +417,14 @@ impl Serialize for Entity {
     }
 }
 
+impl<'de> Deserialize<'de> for Entity {
+    /// The storage form, as [`ParsedEntity`] parses it, with any page metadata dropped:
+    /// a change-set operation carries model data only.
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        ParsedEntity::deserialize(d).map(|p| p.entity)
+    }
+}
+
 impl Serialize for ParsedEntity {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         self.entity
