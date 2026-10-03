@@ -1439,6 +1439,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "triplespace-db"
+version = "0.0.1"
+dependencies = [
+ "deadpool-postgres",
+ "scatter-log",
+ "scatter-log-postgres",
+ "sha2 0.10.9",
+ "thiserror",
+ "tokio",
+ "tokio-postgres",
+]
+
+[[package]]
 name = "typenum"
 version = "1.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
