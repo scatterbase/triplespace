@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-01 (A26)
+- **Updated:** 2026-10-02 (A27)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
@@ -67,7 +67,7 @@ In one database, these are one transaction. Erasure becomes an `UPDATE`, compact
 
 ### 2. The `log` schema
 
-*Changed by A2, A5.*
+*Changed by A2, A5, A27.*
 
 ```sql
 CREATE TABLE log.partition (
@@ -131,7 +131,7 @@ CREATE TABLE log.checkpoint (
   partition   bigint   NOT NULL,
   tree_size   bigint   NOT NULL,
   root        bytea    NOT NULL,
-  key_id      text     NOT NULL,
+  key_id      text     NOT NULL,               -- the signed-note key hash of the signing key, 8 hex digits (0006 §6)
   signed_note text     NOT NULL,               -- the C2SP note, verbatim
   written_at  timestamptz NOT NULL,
   PRIMARY KEY (partition, tree_size)
@@ -181,7 +181,7 @@ Offsets are never reused, so a compacted partition has holes. That is the model 
 
 ### 4. Four schemas
 
-*Changed by A3, A7, A8, A9, A11.*
+*Changed by A3, A7, A8, A9, A11, A27.*
 
 | Schema | Holds | Lifetime | Role that may read it |
 |---|---|---|---|
@@ -191,6 +191,8 @@ Offsets are never reused, so a compacted partition has holes. That is the model 
 | `ops` | Projection positions (§7), job runtime state, the bootstrap coordinator's block table (§9), the email and fediverse delivery queue ([0021](0021-notifications.md) §8, [0022](0022-federation.md) §7), and the asynchronous jobs that are not log jobs: large user-data exports ([0027](0027-preferences-and-portability.md) §3), filter tests ([0030](0030-edit-filters.md) §6) and property-wide constraint re-checks ([0031](0031-property-constraints.md) §2) | Operational | The server, the ingester, the notifier |
 
 **Privacy is enforced by grants.** The database role the public API connects with has no privilege on `private`. Only the accounts service ([0007](0007-actor-identity.md) §10), the notifier ([0021](0021-notifications.md) §10) and, since [0022](0022-federation.md) §13, the federation service, for actor keys and followers, connect with a role that does; all three are holder-only services, and none serves a route that returns another account's rows. The OAuth server ([0025](0025-oauth-server.md) §8) reaches `private` only through the accounts service. The privacy test of [0012](0012-api-requirements.md) §8, which checks that no route returns private data, is backed by a check that no query outside those three crates can. Where a private set has to meet public data, as the watch set meets `view.activity`, the private side resolves to a list of identifiers and hands it to a query under the public role ([0020](0020-change-feeds.md) §3); there is no cross-schema join. `pg_dump` for exports and verification bundles excludes `private` and `ops`.
+
+**The roles are named** `ts_server` (the server and the ingester), `ts_accounts`, `ts_notify`, `ts_federation` and `ts_verify` (read-only on `log`), created by `triplespace-db`'s migrations as `NOLOGIN` group roles that a deployment grants to its login roles; `ts_server` holds no privilege on `private`.
 
 **The accounts partition is still in `log`.** Bindings are log records ([0007](0007-actor-identity.md) §8), and they keep their `logged` integrity. Their child table is in the `log` schema but owned by the accounts role, and the public role's `SELECT` on `log.record` is granted per child table, excluding it.
 
@@ -342,7 +344,7 @@ CREATE TABLE view.property_link (a text NOT NULL, b text NOT NULL, "offset" bigi
 
 #### 5.4 Keyed types, pages, actors
 
-*Changed by A9, A11, A15, A21.*
+*Changed by A9, A11, A15, A21, A27.*
 
 ```sql
 CREATE TABLE view.keyed_surrogate (             -- 0009 §7; key is NULLed on erasure
@@ -387,7 +389,29 @@ CREATE TABLE view.account_link (                -- public links only (0007 §7);
   local_actor text NOT NULL, foreign_actor text NOT NULL UNIQUE, "offset" bigint NOT NULL,
   PRIMARY KEY (local_actor, foreign_actor)
 );
+
+-- The permission tables of 0016 §9 (A27). `layer` is `tenant` for a tenant's own partition and
+-- `instance` for an instance partition, which is a floor the tenant layer cannot lower (0040 §5).
+-- Expiry is stored and evaluated on read; `actor.groups` lists every current membership row.
+CREATE TABLE view."group" (                     -- a group's current definition: the registry's group: entry
+  name text NOT NULL, permissions text[] NOT NULL DEFAULT '{}', scope text, "offset" bigint NOT NULL,
+  PRIMARY KEY (name)                             -- a global group has tenant '' and a scope (0028 §8)
+);
+CREATE TABLE view.membership (
+  actor_key text NOT NULL, "group" text NOT NULL, layer text NOT NULL, expires bigint, "offset" bigint NOT NULL,
+  PRIMARY KEY (actor_key, "group", layer)
+);
+CREATE TABLE view.block (                       -- the latest block per actor and layer; an unblock deletes it
+  actor_key text NOT NULL, layer text NOT NULL, removes text[], expires bigint, "offset" bigint NOT NULL,
+  PRIMARY KEY (actor_key, layer)                 -- removes NULL is all-but-read
+);
+CREATE TABLE view.acl (                         -- the current ACL per target; a null record retires it
+  target text NOT NULL, restrictions jsonb NOT NULL, read_kind text, extra jsonb, "offset" bigint NOT NULL,
+  PRIMARY KEY (target)                           -- extra: parts, reserved, talk, name, members
+);
 ```
+
+**An erased actor record still projects a row.** Erasure NULLs `name` and `raw` and sets `status = 'vanished'` (0010 A6); on a rebuild the erased record may be the first for its key, so the row is then created with the default kind, the erased content having held the real one.
 
 Entity pages get their `page_id` from the same sequence as document pages (§6), so `view.entity.page_id` and `view.page.page_id` never collide and one `pageid` space covers both kinds of page.
 
@@ -455,7 +479,7 @@ The ADRs after this one add tables in the same style. Each is specified where it
 | Schema | Table | Serves | Specified in |
 |---|---|---|---|
 | `view` | `upstream_revision` | Backfilled and observed upstream revisions; the stored half of the upstream-edits fold | [0015](0015-record-format-and-partition-registry.md) §4 |
-| `view` | `group`, `membership`, `acl`, `block`; `groups text[]` on `actor` | Permissions, ACLs by target and enclosure, blocks | [0016](0016-permissions-and-access-control.md) §9 |
+| `view` | `group`, `membership`, `acl`, `block`; `groups text[]` on `actor` | Permissions, ACLs by target and enclosure, blocks | [0016](0016-permissions-and-access-control.md) §9; the SQL is in §5.4 (A27) |
 | `view` | `thread`, `post`, `talk_page`; rows in `page` for threads and talk pages | Threads, posts and composite talk pages | [0019](0019-discussions.md) §11 |
 | `private` | `watch`, `watch_token` | The watch set, its expiry and `seen`, the Atom token; the four auto-watch preferences | [0020](0020-change-feeds.md) §3 |
 | `private` | `inbox`, `inbox_state` | Notifications, seen and read state (the reason × channel matrix was `notification_pref`, now preferences) | [0021](0021-notifications.md) §3, [0027](0027-preferences-and-portability.md) §1 |
@@ -511,7 +535,7 @@ The IDs are inside the hashed header, so an inclusion proof covers them, an expo
 
 ### 7. Projections, synchrony and read-your-writes
 
-*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A16, A19.*
+*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A16, A19, A27.*
 
 Every table in `view` belongs to a named projection. `ops.projection_state (projection, partition, applied_offset)` records how far each has replayed; lag is the distance to the partition's head, and it is what job pages report ([0010](0010-site-ui.md) §9). A rebuild truncates the projection's tables and replays from offset 0.
 
@@ -529,11 +553,11 @@ Projections run in dependency order:
 
 **Interactive writes update the synchronous set in the same transaction as the append.** An editor who saves and reloads must see their edit, as they do on MediaWiki. So a write through the edit API appends the record and, before commit, applies projections 1–5 for the affected keys. Bulk jobs apply projections in batches behind the append, and report lag.
 
-**The synchronous budget.** A write's own rows are always synchronous: the written entity's or page's resolution, terms, identifiers, sitelinks, its own `entity_ref` rows, its own constraint checks ([0031](0031-property-constraints.md) §2), its activity row and its delta ([0032](0032-sparql-update-stream.md) §2). **Fan-out** to other entities, meaning referrers re-resolved by a cluster change ([0004](0004-identity-clusters-and-equivalence.md), Consequences), `type`, `inverse` and `symmetric` constraint re-checks of statements that point at the changed entity (0031 §2), and the deltas those produce, is applied inline until a budget is spent and then handed to the projection worker: `projections.sync_budget` (`site` configuration, default 1,000 rows) or `projections.sync_time` (default 250 ms), whichever comes first. The remainder is queued in `ops.projection_state` as work for the affected keys, applied in append order by the worker that serves bulk jobs, and reported as lag on the entity page's identity line ("N referrers updating") and in `siprop=triplespace`. Read-your-writes therefore holds for the thing edited and for small fan-outs; a link to a heavily cited author shows its effect on referrers within lag. The append lock of §2 is released at commit, before the queued remainder runs, so a large fan-out never blocks the next editor. Report entries are fan-out under this budget; the refresh job of [0042](0042-template-expansion-and-parsoid.md) §10 applies them for the tables it writes ([0047](0047-special-pages.md) §13).
+**The synchronous budget.** A write's own rows are always synchronous: the written entity's or page's resolution, terms, identifiers, sitelinks, its own `entity_ref` rows, its own constraint checks ([0031](0031-property-constraints.md) §2), its activity row and its delta ([0032](0032-sparql-update-stream.md) §2). **Fan-out** to other entities, meaning referrers re-resolved by a cluster change ([0004](0004-identity-clusters-and-equivalence.md), Consequences), `type`, `inverse` and `symmetric` constraint re-checks of statements that point at the changed entity (0031 §2), and the deltas those produce, is applied inline until a budget is spent and then handed to the projection worker: `projections.sync_budget` (`site` configuration, default 1,000 rows) or `projections.sync_time` (default 250 ms), whichever comes first. The remainder is queued in `ops.projection_work` as work for the affected keys (one row per projection, tenant, record and key; `ops.projection_state` holds only positions), applied in append order by the worker that serves bulk jobs, and reported as lag on the entity page's identity line ("N referrers updating") and in `siprop=triplespace`. Read-your-writes therefore holds for the thing edited and for small fan-outs; a link to a heavily cited author shows its effect on referrers within lag. The append lock of §2 is released at commit, before the queued remainder runs, so a large fan-out never blocks the next editor. Report entries are fan-out under this budget; the refresh job of [0042](0042-template-expansion-and-parsoid.md) §10 applies them for the tables it writes ([0047](0047-special-pages.md) §13).
 
 **Tenant overlays.** Under [0018](0018-tenants.md) §6 the shared rows are computed once from the shared partitions, and a tenant's rows only where its own partitions change the result. A record in a tenant partition therefore re-runs steps 3–5 for that tenant's overlay of the affected keys; a record in a shared partition re-runs them for the shared row and for every tenant that holds an overlay row for the key.
 
-**Replicas.** Reads may go to streaming replicas. After a write, the session records the commit's WAL position; a read is routed to a replica only when `pg_last_wal_replay_lsn()` on that replica has passed it, and to the primary otherwise. This is MediaWiki's ChronologyProtector, with the LSN in place of the binlog position.
+**Replicas.** Reads may go to streaming replicas. After a write, the session records the commit's WAL position; a read is routed to a replica only when `pg_last_wal_replay_lsn()` on that replica has passed it, and to the primary otherwise; a server for which `pg_is_in_recovery()` is false is the primary whatever its replay position says, since a crash-recovered or promoted primary keeps a stale one. This is MediaWiki's ChronologyProtector, with the LSN in place of the binlog position.
 
 ### 8. RDF becomes an output, not the read path (amends 0001 §2 and 0005 §4.4)
 
@@ -867,3 +891,12 @@ Replaced text: the rule as A16 states it, which this extended to batch reports.
 - **Source:** [0056](0056-security-model.md) §14
 - **Change:** extends §5.6
 - **Summary:** `view.set_member`, `read_groups` on `view.activity`, `visibility_epoch` on `view.tenant`, and the `tenant` and `set` target kinds with a confidential-or-moderation `kind` on `view.acl`. Nothing is added to `private`.
+
+### A27. Clarifications from the first implementation
+
+- **Date:** 2026-10-02
+- **Source:** Direct: James, review of 2026-10-02 (`scatter-log-postgres`, `triplespace-db`, `triplespace-projections`)
+- **Change:** amends §2, §4, §5.4 and §7
+- **Summary:** Five things the ADR left to the implementation, written down as built: `log.checkpoint.key_id` is the signed-note key hash; the database roles are named (`ts_server`, `ts_accounts`, `ts_notify`, `ts_federation`, `ts_verify`); the `group`, `membership`, `block` and `acl` tables that [0016](0016-permissions-and-access-control.md) §9 names get their SQL, with a `layer` column for the instance floor of [0040](0040-instance-prerogatives.md) §5; an erased actor record projects a vanished row, created on replay if missing; queued fan-out lives in `ops.projection_work`, not in `ops.projection_state`, which holds positions only; and the replica route checks `pg_is_in_recovery()` before trusting a replay position.
+
+Replaced text (§7): "The remainder is queued in `ops.projection_state` as work for the affected keys," and "a read is routed to a replica only when `pg_last_wal_replay_lsn()` on that replica has passed it, and to the primary otherwise." §2, §4 and §5.4 gain text.

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-01 (A8)
+- **Updated:** 2026-10-02 (A9)
 - **Author:** James Hare / Claude
 - **Changes:** [0005](0005-crate-organization.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0034](0034-frontend-stack.md)
@@ -54,10 +54,12 @@ The write path of 0013 §7 (auth → grants → rate limit → ACLs → filters 
 
 ### 4. Postgres
 
+*Changed by A9.*
+
 - **Version:** 17 is the minimum; 18 is the target. The schema uses features from 15 and later (`UNIQUE NULLS NOT DISTINCT`), 14 (lz4 TOAST) and none from extensions. **No Postgres extension is required**, so the small profile runs on any managed Postgres.
 - **Driver:** `tokio-postgres` with `deadpool-postgres` for pooling. It gives binary `COPY` for bootstrap (0013 §9), pipelining, and exact control of the append transaction and its row lock (0013 §2). The synchronous `postgres` crate, a wrapper over the same driver, answered [0005](0005-crate-organization.md) Q7 on a blocking API for `scatter-log-postgres`; since 0005 A56 `LogStore` is itself asynchronous, because the append shares the write path's transaction (0013 §7), and a blocking caller drives it with an executor instead.
 - **Queries:** hand-written SQL in each owning crate. No ORM. Query shapes are checked by integration tests against a real database (§15), not by compile-time macros, because several crates share one schema and migrations run in a fixed cross-crate order.
-- **Migrations:** each owning crate embeds its SQL files (0005 rule 9). A small runner in `triplespace-db` applies them in 0005's build order and records them in `ops.migration`. `refinery` is an acceptable substitute if the in-house runner stops being small.
+- **Migrations:** each owning crate embeds its SQL files (0005 rule 9). A small runner in `triplespace-db` applies them in 0005's build order, each in its own transaction, and records each with a checksum in `ops.migration`; a recorded migration whose SQL has changed is refused, since a schema change is a new migration, never an edit (0005 rule 9). `refinery` is an acceptable substitute if the in-house runner stops being small.
 - **Queues and background work:** `ops` tables claimed with `FOR UPDATE SKIP LOCKED`, woken with `LISTEN/NOTIFY`. This covers the ActivityPub delivery queue (0021), exports (0027), filter tests (0030), constraint re-checks (0031) and jobs (0012). No broker.
 
 ### 5. Cache and search clients
@@ -336,3 +338,12 @@ Replaced text (§10):
 - **Source:** [0056](0056-security-model.md) §10
 - **Change:** extends §12
 - **Summary:** The server gains `server.mode`, `server.trusted_proxies`, `server.admin_listen` and a 421 on an unregistered host; the CLI gains `instance check`, which tests or records attestation for each requirement of the deployment boundary.
+
+### A9. Checksummed migrations
+
+- **Date:** 2026-10-02
+- **Source:** Direct: James, review of 2026-10-02 (`triplespace-db`)
+- **Change:** amends §4
+- **Summary:** The runner records each migration with a checksum and refuses one whose SQL has changed since it was applied; each runs in its own transaction with its bookkeeping row.
+
+Replaced text (§4): "A small runner in `triplespace-db` applies them in 0005's build order and records them in `ops.migration`."
