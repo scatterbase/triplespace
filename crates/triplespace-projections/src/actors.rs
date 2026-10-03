@@ -16,7 +16,7 @@ use scatter_log::registry::PAYLOAD_CONFIG;
 use scatter_projection::{Applied, BoxFuture, Projection, Step};
 
 use crate::backend::{PgBackend, PgCx};
-use crate::common::{content, layer_of, offset_db, split_key, tenant_of, to_jsonb};
+use crate::common::{content, layer_of, offset_db, quote, split_key, tenant_of, to_jsonb};
 
 /// Payload types.
 pub mod payload {
@@ -227,10 +227,6 @@ impl Projection<PgBackend> for ActorProjection {
                 .map_err(|e| sql(&e))
         })
     }
-}
-
-fn quote(s: &str) -> String {
-    format!("'{}'", s.replace('\'', "''"))
 }
 
 // --- groups --------------------------------------------------------------------------

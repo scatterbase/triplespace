@@ -6,6 +6,7 @@ members = [
     "crates/scatter-normalize",
     "crates/scatter-wikibase-model",
     "crates/scatter-wikibase-changeset",
+    "crates/scatter-wikibase-resolve",
     "crates/scatter-actors",
     "crates/scatter-log",
     "crates/scatter-integrity",
@@ -34,6 +35,7 @@ scatter-providers = { path = "crates/scatter-providers" }
 scatter-normalize = { path = "crates/scatter-normalize" }
 scatter-wikibase-model = { path = "crates/scatter-wikibase-model" }
 scatter-wikibase-changeset = { path = "crates/scatter-wikibase-changeset" }
+scatter-wikibase-resolve = { path = "crates/scatter-wikibase-resolve" }
 scatter-actors = { path = "crates/scatter-actors" }
 scatter-log = { path = "crates/scatter-log" }
 scatter-integrity = { path = "crates/scatter-integrity" }

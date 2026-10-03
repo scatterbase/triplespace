@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-02 (A27)
+- **Updated:** 2026-10-02 (A28)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
@@ -206,7 +206,7 @@ The rule for the serving model is: **the blob serves the page; tables serve quer
 
 #### 5.1 Entities
 
-*Changed by A4.*
+*Changed by A4, A28.*
 
 ```sql
 CREATE TABLE view.entity (
@@ -249,6 +249,7 @@ CREATE TABLE view.entity_source (               -- the version cursor of 0002 §
 - The projection computes the resolved JSON and compares its content hash with the single source's.
 - If they match, `resolved_kind = 'source'` and `resolved` is `NULL`. A reader takes the body at `entity_source.offset`.
 - Otherwise `resolved_kind = 'materialized'` and `resolved` holds the JSON.
+- The single source has to be a whole-state record for the reader to take it: a `put`, a `create` or an `adopt` that is the key's only local record. A local entity that has been edited with `add` or `remove` is materialized even when it is the only graph, since no record holds its state (A28). `resolved` is compressed by the column's TOAST method (`lz4`, as §2 compresses bodies); the projection writes the plain canonical JSON.
 
 Either way, a reader gets the entity with one or two primary-key lookups, and `resolved_version` is what the cache and `ETag` key on ([0014](0014-caches-and-search.md) §3).
 
@@ -535,7 +536,7 @@ The IDs are inside the hashed header, so an inclusion proof covers them, an expo
 
 ### 7. Projections, synchrony and read-your-writes
 
-*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A16, A19, A27.*
+*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A16, A19, A27, A28.*
 
 Every table in `view` belongs to a named projection. `ops.projection_state (projection, partition, applied_offset)` records how far each has replayed; lag is the distance to the partition's head, and it is what job pages report ([0010](0010-site-ui.md) §9). A rebuild truncates the projection's tables and replays from offset 0.
 
@@ -548,6 +549,8 @@ Projections run in dependency order:
 5. `activity` with `patrolled` ([0023](0023-moderation.md) §6), `filter_hit` ([0030](0030-edit-filters.md) §11), `page_link`, `record_statement`, and `thread`, `post`, `talk_page` ([0019](0019-discussions.md) §11), then `report` and `site_stats`, after `activity` and `page_link` ([0047](0047-special-pages.md) §4.3, §13);
 6. the addressing projection that fills inboxes ([0021](0021-notifications.md) §1), which reads `activity` and writes to `private`; it is the one projection whose target is not `view`, and it runs asynchronously under the notifier's role;
 7. the RDF and search projections (§8, [0014](0014-caches-and-search.md) §7). The **delta projection** of [0032](0032-sparql-update-stream.md) §2 is not a separate step: it runs inside steps 2, 4 and 7, wherever a projection has both the old and the new state of an entity in hand, and writes `view.rdf_delta` in the same transaction.
+
+**One projection may own several tables** (A28). The list above names tables; `term` and `identifier` are written by the `entity` projection from the same resolution pass, since each is a function of the resolved state and splitting them would resolve every subject three times. `ops.projection_state` has one row per projection, so their position is `entity`'s. A rebuild orders partitions by dependency: the `config` partition, then the instance `log` (surrogates, instance jobs), then mirrors, then tenant partitions; the resolution projection fails loudly on a keyed subject whose surrogate it cannot find ([0009](0009-keyed-entity-types-and-domain.md) §7).
 
 **Edit filters run before the append** ([0030](0030-edit-filters.md) §1, §11), in the same transaction, after the permission and ACL checks and the rate-limit check ([0024](0024-subsidiary-accounts.md) §5); a refusal appends only the hit record. The write path in full is therefore: authenticate the credential and resolve the actor and its effective permissions, including a key's or token's grants ([0024](0024-subsidiary-accounts.md) §4, [0025](0025-oauth-server.md) §3); rate limit; ACLs on the target and its enclosures; edit filters; the base-offset check ([0006](0006-log-integrity-and-erasure.md) §8); the append with ID allocation; projections 1–5 for the affected keys; commit.
 
@@ -900,3 +903,10 @@ Replaced text: the rule as A16 states it, which this extended to batch reports.
 - **Summary:** Five things the ADR left to the implementation, written down as built: `log.checkpoint.key_id` is the signed-note key hash; the database roles are named (`ts_server`, `ts_accounts`, `ts_notify`, `ts_federation`, `ts_verify`); the `group`, `membership`, `block` and `acl` tables that [0016](0016-permissions-and-access-control.md) §9 names get their SQL, with a `layer` column for the instance floor of [0040](0040-instance-prerogatives.md) §5; an erased actor record projects a vanished row, created on replay if missing; queued fan-out lives in `ops.projection_work`, not in `ops.projection_state`, which holds positions only; and the replica route checks `pg_is_in_recovery()` before trusting a replay position.
 
 Replaced text (§7): "The remainder is queued in `ops.projection_state` as work for the affected keys," and "a read is routed to a replica only when `pg_last_wal_replay_lsn()` on that replica has passed it, and to the primary otherwise." §2, §4 and §5.4 gain text.
+
+### A28. Resolution as built
+
+- **Date:** 2026-10-02
+- **Source:** Direct: James, implementation of 2026-10-02 (`triplespace-projections`, `scatter-wikibase-resolve`)
+- **Change:** extends §5.1, §7
+- **Summary:** The `entity` projection writes `term` and `identifier` from the same resolution pass, so the three tables share one position; a rebuild orders partitions by dependency and the resolution projection fails loudly on a keyed subject without a surrogate. The `source` kind of §5.1 requires a whole-state record (`put`, or a `create`/`adopt` that is the only local record); an edited local entity is materialized. `resolved` is lz4-compressed by TOAST, not by the application.

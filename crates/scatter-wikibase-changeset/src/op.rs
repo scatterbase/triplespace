@@ -188,6 +188,10 @@ pub enum Operation {
         /// The statement-level difference, under `sync_deltas: full`.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         delta: Option<serde_json::Value>,
+        /// The provider's own ID of the upstream entity, when `id` is a keyed ID the
+        /// entity was mapped onto (0009 §9): what the `keyed_map` index records.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        upstream_id: Option<String>,
     },
     /// Records an upstream deletion (mirror).
     Tombstone {
