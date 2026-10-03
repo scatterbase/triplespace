@@ -828,6 +828,8 @@ dependencies = [
  "bytes",
  "fallible-iterator",
  "postgres-protocol",
+ "serde_core",
+ "serde_json",
 ]
 
 [[package]]
@@ -1458,6 +1460,25 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-postgres",
+]
+
+[[package]]
+name = "triplespace-projections"
+version = "0.0.1"
+dependencies = [
+ "deadpool-postgres",
+ "ed25519-dalek",
+ "oxrdf",
+ "scatter-actors",
+ "scatter-log",
+ "scatter-log-postgres",
+ "scatter-projection",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tokio-postgres",
+ "triplespace-db",
 ]
 
 [[package]]

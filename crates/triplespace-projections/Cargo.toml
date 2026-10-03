@@ -1,0 +1,30 @@
+[package]
+name = "triplespace-projections"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "The view projections over Postgres: the Backend for scatter-projection's pipeline, and the projections of 0013 §7 in step order"
+publish = false
+
+[dependencies]
+triplespace-db.workspace = true
+scatter-projection.workspace = true
+scatter-log.workspace = true
+scatter-log-postgres.workspace = true
+scatter-actors.workspace = true
+oxrdf.workspace = true
+tokio-postgres.workspace = true
+deadpool-postgres.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+ed25519-dalek.workspace = true
+serde.workspace = true
+
+[lints]
+workspace = true
