@@ -23,7 +23,7 @@ use std::path::{Path, PathBuf};
 use crate::cbor::{self, Value};
 use crate::hash::Hash;
 use crate::record::Record;
-use crate::store::{Appended, Draft, Head, LogStore, Slot, StoreError};
+use crate::store::{Appended, Draft, Head, LogStore, Slot, StoreError, check_restorable};
 use crate::tree::{Frontier, Segments};
 
 /// The file format version written to `partition.cbor`.
@@ -235,6 +235,42 @@ impl SegmentStore {
 }
 
 impl Partition {
+    /// Appends one encoded slot with its leaf at the next offset.
+    fn append_bytes(&mut self, bytes: &[u8], leaf: Hash) -> Result<Appended, StoreError> {
+        let offset = self.frontier.size();
+        let n = self.segments.segment_of(offset);
+        let new_file = offset == self.segments.range(n).start;
+        let path = self.dir.join(segment_file_name(n));
+        if new_file {
+            if path.exists() {
+                return Err(corrupt(format!(
+                    "{} exists before its first append",
+                    path.display()
+                )));
+            }
+            self.files.push(SegmentIndex::default());
+        }
+        let index = self.files.last_mut().expect("pushed");
+        let mut f = OpenOptions::new()
+            .append(true)
+            .create(new_file)
+            .open(&path)?;
+        let start = f.seek(SeekFrom::End(0))?;
+        if start != index.end {
+            return Err(corrupt("a segment file changed underneath the store"));
+        }
+        f.write_all(bytes)?;
+        f.sync_data()?;
+        index.starts.push(start);
+        index.end = start + bytes.len() as u64;
+        self.frontier.push_leaf(leaf);
+        Ok(Appended {
+            offset,
+            leaf,
+            root: self.frontier.root(),
+        })
+    }
+
     fn locate(&self, partition: u64, offset: u64) -> Result<(u64, usize), StoreError> {
         if offset >= self.frontier.size() {
             return Err(StoreError::NoOffset { partition, offset });
@@ -360,39 +396,15 @@ impl LogStore for SegmentStore {
         let p = self.partition_mut(partition)?;
         let offset = p.frontier.size();
         let record = draft.seal(partition, offset);
-        let bytes = record.encode();
-        let n = p.segments.segment_of(offset);
-        let new_file = offset == p.segments.range(n).start;
-        let path = p.dir.join(segment_file_name(n));
-        if new_file {
-            if path.exists() {
-                return Err(corrupt(format!(
-                    "{} exists before its first append",
-                    path.display()
-                )));
-            }
-            p.files.push(SegmentIndex::default());
-        }
-        let index = p.files.last_mut().expect("pushed");
-        let mut f = OpenOptions::new()
-            .append(true)
-            .create(new_file)
-            .open(&path)?;
-        let start = f.seek(SeekFrom::End(0))?;
-        if start != index.end {
-            return Err(corrupt("a segment file changed underneath the store"));
-        }
-        f.write_all(&bytes)?;
-        f.sync_data()?;
-        index.starts.push(start);
-        index.end = start + bytes.len() as u64;
         let leaf = record.leaf();
-        p.frontier.push_leaf(leaf);
-        Ok(Appended {
-            offset,
-            leaf,
-            root: p.frontier.root(),
-        })
+        p.append_bytes(&record.encode(), leaf)
+    }
+
+    async fn append_slot(&mut self, partition: u64, slot: Slot) -> Result<Appended, StoreError> {
+        let p = self.partition_mut(partition)?;
+        check_restorable(&slot, partition, p.frontier.size())?;
+        let leaf = slot.leaf();
+        p.append_bytes(&encode_slot(&slot), leaf)
     }
 
     async fn read(&self, partition: u64, offset: u64) -> Result<Slot, StoreError> {

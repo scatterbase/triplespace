@@ -81,6 +81,23 @@ pub struct Head {
     pub segments: Segments,
 }
 
+/// Checks that a slot may be restored at `offset` of `partition`.
+pub fn check_restorable(slot: &Slot, partition: u64, offset: u64) -> Result<(), StoreError> {
+    if let Slot::Record(r) = slot {
+        let h = r.header();
+        if h.partition != partition || h.offset != offset {
+            return Err(StoreError::NotNext {
+                partition,
+                offset,
+                found_partition: h.partition,
+                found_offset: h.offset,
+            });
+        }
+        r.body().verify(&h.commitment)?;
+    }
+    Ok(())
+}
+
 /// What is at an offset.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Slot {
@@ -131,6 +148,20 @@ pub enum StoreError {
         /// The offset asked for.
         offset: u64,
     },
+    /// A restored record's header names another partition or offset.
+    #[error(
+        "partition {partition}: a restored record is for partition {found_partition} offset {found_offset}, not offset {offset}"
+    )]
+    NotNext {
+        /// The partition.
+        partition: u64,
+        /// The next offset.
+        offset: u64,
+        /// What the header said.
+        found_partition: u64,
+        /// What the header said.
+        found_offset: u64,
+    },
     /// The offset was compacted, so there is nothing to erase.
     #[error("partition {partition} offset {offset} was compacted")]
     Compacted {
@@ -169,9 +200,9 @@ impl From<std::io::Error> for StoreError {
 /// caller holds on an async driver (0013 §7: an interactive write appends and applies
 /// projections in one transaction). The trait needs no runtime: a synchronous caller
 /// drives a call to completion with any executor, and the file backend does plain
-/// synchronous I/O inside its futures (0005 rule 2). Every future is `Send`, so a
-/// store can be used from a multi-threaded server.
-pub trait LogStore: Send {
+/// synchronous I/O inside its futures (0005 rule 2). Every future is `Send` and a store
+/// is `Sync`, so one can be shared by the handlers of a multi-threaded server.
+pub trait LogStore: Send + Sync {
     /// Creates an empty partition with the given segment layout.
     fn create_partition(
         &mut self,
@@ -190,6 +221,15 @@ pub trait LogStore: Send {
         &mut self,
         partition: u64,
         draft: Draft,
+    ) -> impl Future<Output = Result<Appended, StoreError>> + Send;
+
+    /// Restores an existing slot at the next offset, as when loading an export bundle
+    /// or replicating: a record keeps its own header, which must name this partition
+    /// and the next offset; a compacted slot keeps its leaf.
+    fn append_slot(
+        &mut self,
+        partition: u64,
+        slot: Slot,
     ) -> impl Future<Output = Result<Appended, StoreError>> + Send;
 
     /// The slot at an offset.

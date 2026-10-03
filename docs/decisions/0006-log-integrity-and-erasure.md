@@ -129,6 +129,8 @@ Part *i* is stored as `[salt, bytes]` with a 16-byte random salt. Its leaf is `H
 
 ### 4. Integrity policies
 
+*Changed by A14.*
+
 This specifies the integrity policy of [0005](0005-crate-organization.md) §4.2. Each partition has one of two policies, fixed when the partition is created:
 
 | Policy | What is committed | Compaction | Used for |
@@ -138,7 +140,7 @@ This specifies the integrity policy of [0005](0005-crate-organization.md) §4.2.
 
 **`logged` partitions prove that history is complete and in order.** A verifier can show that no record was added, removed, altered or reordered between any two checkpoints.
 
-**`hashed` partitions prove less.** A verifier can show that each record in a live segment is unaltered since the segment was sealed. When compaction replaces segments, the new segment's manifest lists the segments it replaces. A verifier cannot show that compaction kept the right records. That limit is deliberate: a mirror's source of truth is upstream, and [0002](0002-source-graphs-and-mass-ingest.md) §2 lets a mirror forget.
+**`hashed` partitions prove less.** A verifier can show that each record in a live segment is unaltered since the segment was sealed. ~~When compaction replaces segments, the new segment's manifest lists the segments it replaces.~~ *Since A14 a compacted offset keeps its leaf, so a segment's tree and its manifest are unchanged by compaction, and the holes are visible.* A verifier cannot show that compaction kept the right records. That limit is deliberate: a mirror's source of truth is upstream, and [0002](0002-source-graphs-and-mass-ingest.md) §2 lets a mirror forget.
 
 **Retained mirror entities stay in `hashed` partitions.** They are exempt from compaction ([0002](0002-source-graphs-and-mass-ingest.md) §5), but they get no extra commitment. Their durable copy is the record that materializes them into the local graph when the tombstone arrives, and that record is in a `logged` partition.
 
@@ -459,7 +461,7 @@ Replaced text: the tenant-host origin line of A6, for instance partitions.
 
 - **Date:** 2026-10-02
 - **Source:** Direct: James, review of 2026-10-02 (`scatter-log`'s file backend, `docs/api/payloads.md` §10)
-- **Change:** amends §5
-- **Summary:** Compaction leaves a record's Merkle leaf in its slot, so the tree over every offset still folds after compaction and the `segments` file format needs no separate frontier. Decided when the file backend was written; the Postgres backend already keeps leaves in `log.merkle_node`.
+- **Change:** amends §4 and §5
+- **Summary:** Compaction leaves a record's Merkle leaf in its slot, so the tree over every offset still folds after compaction and the `segments` file format needs no separate frontier. Decided when the file backend was written; the Postgres backend already keeps leaves in `log.merkle_node`. A consequence in §4: a segment manifest is unchanged by compaction, so no manifest lists the segments it replaces.
 
-Replaced text: none; §5 gains its last bullet.
+Replaced text (§4): "When compaction replaces segments, the new segment's manifest lists the segments it replaces." §5 gains its last bullet.
