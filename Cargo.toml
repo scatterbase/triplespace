@@ -9,6 +9,8 @@ members = [
     "crates/scatter-wikibase-resolve",
     "crates/scatter-ingest",
     "crates/triplespace-api-ingest",
+    "crates/scatter-adapter-wikidata",
+    "crates/triplespace-cli",
     "crates/scatter-actors",
     "crates/scatter-log",
     "crates/scatter-integrity",
@@ -40,6 +42,7 @@ scatter-wikibase-changeset = { path = "crates/scatter-wikibase-changeset" }
 scatter-wikibase-resolve = { path = "crates/scatter-wikibase-resolve" }
 scatter-ingest = { path = "crates/scatter-ingest" }
 triplespace-api-ingest = { path = "crates/triplespace-api-ingest" }
+scatter-adapter-wikidata = { path = "crates/scatter-adapter-wikidata" }
 scatter-actors = { path = "crates/scatter-actors" }
 scatter-log = { path = "crates/scatter-log" }
 scatter-integrity = { path = "crates/scatter-integrity" }
@@ -86,6 +89,14 @@ toml = "1"
 # Errors (0033 §14)
 thiserror = "2"
 anyhow = "1"
+
+# Dumps (0033 §10): MediaWiki XML and Wikibase JSON dumps, gzip and bzip2 compressed
+quick-xml = "0.41"
+flate2 = "1"
+bzip2 = "0.5"
+
+# The CLI (0033 §13)
+clap = { version = "4", features = ["derive", "env"] }
 
 # Driving async traits from synchronous tests (0005 rule 2: no runtime in the core)
 pollster = "1"
