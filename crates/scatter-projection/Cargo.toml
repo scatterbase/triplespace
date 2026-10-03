@@ -1,0 +1,20 @@
+[package]
+name = "scatter-projection"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "The projection contract: apply records in dependency order, inline in the appending transaction or catching up behind it, with positions per partition, rebuild from offset 0 and lag reporting"
+publish = false
+
+[dependencies]
+scatter-log.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+pollster.workspace = true
+
+[lints]
+workspace = true

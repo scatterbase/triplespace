@@ -1030,6 +1030,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "scatter-projection"
+version = "0.0.1"
+dependencies = [
+ "pollster",
+ "scatter-log",
+ "thiserror",
+]
+
+[[package]]
 name = "scatter-providers"
 version = "0.0.1"
 dependencies = [
