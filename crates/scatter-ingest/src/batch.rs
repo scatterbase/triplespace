@@ -255,6 +255,7 @@ pub async fn run_batch<S: IngestStore>(
         let mut cx = store.begin().await?;
         let job = Job::start(
             store,
+            pipeline,
             &mut cx,
             tenant,
             header.clone(),
@@ -281,8 +282,15 @@ pub async fn run_batch<S: IngestStore>(
         .await;
         match outcome {
             Ok(ids) => {
-                job.finish(store, &mut cx, &counts, serde_json::Map::new(), now)
-                    .await?;
+                job.finish(
+                    store,
+                    pipeline,
+                    &mut cx,
+                    &counts,
+                    serde_json::Map::new(),
+                    now,
+                )
+                .await?;
                 store.commit(cx).await?;
                 Ok(BatchOutcome {
                     job_id: job.id,
@@ -294,8 +302,10 @@ pub async fn run_batch<S: IngestStore>(
             Err(e) => {
                 store.rollback(cx).await?;
                 let mut cx = store.begin().await?;
-                let job = Job::start(store, &mut cx, tenant, header, attestation, now).await?;
-                job.fail(store, &mut cx, &e.to_string(), now).await?;
+                let job =
+                    Job::start(store, pipeline, &mut cx, tenant, header, attestation, now).await?;
+                job.fail(store, pipeline, &mut cx, &e.to_string(), now)
+                    .await?;
                 store.commit(cx).await?;
                 Err(e)
             }
@@ -304,7 +314,8 @@ pub async fn run_batch<S: IngestStore>(
         // Streamed: the job starts, each operation is its own unit of work, rejects are
         // recorded, the job finishes.
         let mut cx = store.begin().await?;
-        let mut job = Job::start(store, &mut cx, tenant, header, attestation, now).await?;
+        let mut job =
+            Job::start(store, pipeline, &mut cx, tenant, header, attestation, now).await?;
         let (ids, prepared) = prepare(store, &mut cx, tenant, &mut batch, order, registry).await?;
         store.commit(cx).await?;
         let mut request = Request::new(tenant, job.record_attestation(), now);
@@ -355,8 +366,15 @@ pub async fn run_batch<S: IngestStore>(
             }
         }
         let mut cx = store.begin().await?;
-        job.finish(store, &mut cx, &counts, serde_json::Map::new(), now)
-            .await?;
+        job.finish(
+            store,
+            pipeline,
+            &mut cx,
+            &counts,
+            serde_json::Map::new(),
+            now,
+        )
+        .await?;
         store.commit(cx).await?;
         Ok(BatchOutcome {
             job_id: job.id,

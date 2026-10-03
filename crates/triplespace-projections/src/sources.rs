@@ -6,12 +6,12 @@
 use scatter_log::cbor::Value;
 use scatter_log::header::Header;
 use scatter_log::record::Record;
-use scatter_projection::{Applied, BoxFuture, Projection, Step};
+use scatter_projection::{Applied, Backend, BoxFuture, Projection, Step};
 use scatter_providers::Registry;
 use scatter_wikibase_changeset::{Operation, Upstream};
 use scatter_wikibase_model::id::{EntityId, IdForm, Subject};
 
-use crate::backend::{PgBackend, PgCx};
+use crate::backend::PgCx;
 use crate::common::{
     PAYLOAD_CHANGESET, PAYLOAD_KEYED_SURROGATE, PartitionInfo, attested, content, offset_db,
     operation, parse_surrogate_key, partition_info, quote, time_of,
@@ -52,7 +52,7 @@ pub fn version_text(upstream: &Upstream) -> Option<String> {
 #[derive(Debug, Default, Clone, Copy)]
 pub struct KeyedSurrogateProjection;
 
-impl Projection<PgBackend> for KeyedSurrogateProjection {
+impl<B: Backend<Cx = PgCx>> Projection<B> for KeyedSurrogateProjection {
     fn name(&self) -> &'static str {
         "keyed_surrogate"
     }
@@ -216,7 +216,7 @@ fn content_size(record: &Record, declared: Option<u64>) -> i32 {
     i32::try_from(n).unwrap_or(i32::MAX)
 }
 
-impl Projection<PgBackend> for EntitySourceProjection {
+impl<B: Backend<Cx = PgCx>> Projection<B> for EntitySourceProjection {
     fn name(&self) -> &'static str {
         "entity_source"
     }
@@ -351,7 +351,7 @@ impl KeyedMapProjection {
     }
 }
 
-impl Projection<PgBackend> for KeyedMapProjection {
+impl<B: Backend<Cx = PgCx>> Projection<B> for KeyedMapProjection {
     fn name(&self) -> &'static str {
         "keyed_map"
     }

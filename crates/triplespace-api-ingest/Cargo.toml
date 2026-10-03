@@ -1,0 +1,31 @@
+[package]
+name = "triplespace-api-ingest"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "The bulk-job side of the server: scatter-ingest's store over Postgres, and the job runner the endpoint and the CLI share"
+publish = false
+
+[dependencies]
+scatter-ingest.workspace = true
+scatter-projection.workspace = true
+scatter-log.workspace = true
+scatter-log-postgres.workspace = true
+triplespace-db.workspace = true
+triplespace-projections.workspace = true
+scatter-wikibase-changeset.workspace = true
+scatter-wikibase-model.workspace = true
+tokio-postgres.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+ed25519-dalek.workspace = true
+scatter-actors.workspace = true
+scatter-providers.workspace = true
+
+[lints]
+workspace = true

@@ -13,9 +13,9 @@ use scatter_log::cbor::{self, Value};
 use scatter_log::header::Header;
 use scatter_log::record::Record;
 use scatter_log::registry::PAYLOAD_CONFIG;
-use scatter_projection::{Applied, BoxFuture, Projection, Step};
+use scatter_projection::{Applied, Backend, BoxFuture, Projection, Step};
 
-use crate::backend::{PgBackend, PgCx};
+use crate::backend::PgCx;
 use crate::common::{content, layer_of, offset_db, quote, split_key, tenant_of, to_jsonb};
 
 /// Payload types.
@@ -184,7 +184,7 @@ fn actor_key_of(header: &Header) -> Result<ActorKey, String> {
     ActorKey::parse(key).map_err(|e| e.to_string())
 }
 
-impl Projection<PgBackend> for ActorProjection {
+impl<B: Backend<Cx = PgCx>> Projection<B> for ActorProjection {
     fn name(&self) -> &'static str {
         "actor"
     }
@@ -235,7 +235,7 @@ impl Projection<PgBackend> for ActorProjection {
 #[derive(Debug, Default, Clone, Copy)]
 pub struct GroupProjection;
 
-impl Projection<PgBackend> for GroupProjection {
+impl<B: Backend<Cx = PgCx>> Projection<B> for GroupProjection {
     fn name(&self) -> &'static str {
         "group"
     }
@@ -332,7 +332,7 @@ async fn refresh_groups(cx: &PgCx, tenant: &str, actor_key: &str) -> Result<(), 
     Ok(())
 }
 
-impl Projection<PgBackend> for MembershipProjection {
+impl<B: Backend<Cx = PgCx>> Projection<B> for MembershipProjection {
     fn name(&self) -> &'static str {
         "membership"
     }
@@ -428,7 +428,7 @@ impl Projection<PgBackend> for MembershipProjection {
 #[derive(Debug, Default, Clone, Copy)]
 pub struct BlockProjection;
 
-impl Projection<PgBackend> for BlockProjection {
+impl<B: Backend<Cx = PgCx>> Projection<B> for BlockProjection {
     fn name(&self) -> &'static str {
         "block"
     }
@@ -513,7 +513,7 @@ impl Projection<PgBackend> for BlockProjection {
 #[derive(Debug, Default, Clone, Copy)]
 pub struct AclProjection;
 
-impl Projection<PgBackend> for AclProjection {
+impl<B: Backend<Cx = PgCx>> Projection<B> for AclProjection {
     fn name(&self) -> &'static str {
         "acl"
     }

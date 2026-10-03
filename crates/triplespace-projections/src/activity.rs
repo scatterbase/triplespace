@@ -11,11 +11,11 @@
 use scatter_log::cbor::Value;
 use scatter_log::header::{CONFIG_PARTITION, Header};
 use scatter_log::record::Record;
-use scatter_projection::{Applied, BoxFuture, Projection, Step};
+use scatter_projection::{Applied, Backend, BoxFuture, Projection, Step};
 use scatter_wikibase_changeset::Operation;
 use scatter_wikibase_model::id::Subject;
 
-use crate::backend::{PgBackend, PgCx};
+use crate::backend::PgCx;
 use crate::common::{
     PAYLOAD_CHANGESET, PAYLOAD_LOGEVENT, attested, comment, content, operation, partition_info,
     target_kind, time_of, to_jsonb,
@@ -289,7 +289,7 @@ fn logevent_columns(record: &Record) -> Result<Columns, String> {
     })
 }
 
-impl Projection<PgBackend> for ActivityProjection {
+impl<B: Backend<Cx = PgCx>> Projection<B> for ActivityProjection {
     fn name(&self) -> &'static str {
         "activity"
     }

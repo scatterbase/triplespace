@@ -24,7 +24,7 @@ use scatter_log::header::Header;
 use scatter_log::record::Record;
 use scatter_log::store::Slot;
 use scatter_log_postgres::log;
-use scatter_projection::{Applied, BoxFuture, Projection, Step};
+use scatter_projection::{Applied, Backend, BoxFuture, Projection, Step};
 use scatter_providers::Registry;
 use scatter_wikibase_changeset::apply::{Correction as LocalCorrection, LocalState};
 use scatter_wikibase_changeset::{Operation, Retention};
@@ -35,7 +35,7 @@ use scatter_wikibase_model::statement::SnakKind;
 use scatter_wikibase_model::value::{DataType, DataValue};
 use scatter_wikibase_resolve::{Contribution, Correction, Resolved, resolve};
 
-use crate::backend::{PgBackend, PgCx};
+use crate::backend::PgCx;
 use crate::common::{
     PAYLOAD_CHANGESET, header_key_for, operation, parse_surrogate_key, partition_info,
     partition_of, time_of,
@@ -439,7 +439,7 @@ impl EntityProjection {
     }
 }
 
-impl Projection<PgBackend> for EntityProjection {
+impl<B: Backend<Cx = PgCx>> Projection<B> for EntityProjection {
     fn name(&self) -> &'static str {
         "entity"
     }

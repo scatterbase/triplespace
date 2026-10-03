@@ -1,8 +1,11 @@
-//! The per-tenant ID sequences of 0013 §6: `revision_id`, `log_id` and `page_id`, and
-//! one per minted entity type (`item_id`, `property_id`, …), each a Postgres sequence
-//! named `log."{tenant}.{kind}"`. They are taken in the appending transaction, like
-//! Wikibase's `wb_id_counters`; an adoption sets their floors past what the source
-//! consumed (0035 §4).
+//! The ID sequences of 0013 §6: per tenant, `revision_id`, `log_id`, `page_id`, `user_id`
+//! (0007 §3) and one per minted entity type (`item_id`, `property_id`, …); for the
+//! instance, under the reserved tenant name `instance`, `job_id` (0011 §6.3), `log_id`
+//! and `page_id` for the instance partitions, and one surrogate counter per keyed type
+//! (`domain_surrogate`, 0009 §7). Each is a Postgres sequence named
+//! `log."{tenant}.{kind}"`. They are taken in the appending transaction, like Wikibase's
+//! `wb_id_counters`; an adoption sets a tenant's floors past what the source consumed
+//! (0035 §4). The empty tenant `""` names the instance.
 
 use scatter_log::store::StoreError;
 use tokio_postgres::GenericClient;
@@ -21,7 +24,16 @@ pub enum Sequence {
     Page,
     /// A minted entity type's counter, by the type name (`item`, `property`).
     Entity(String),
+    /// Local user IDs (0007 §3).
+    User,
+    /// Job IDs (0011 §6.3); instance only.
+    Job,
+    /// A keyed type's surrogate counter (0009 §7); instance only.
+    Surrogate(String),
 }
+
+/// The tenant name the instance's sequences live under. No tenant may take this slug.
+pub const INSTANCE: &str = "instance";
 
 impl Sequence {
     fn kind(&self) -> String {
@@ -30,6 +42,9 @@ impl Sequence {
             Self::Log => "log_id".into(),
             Self::Page => "page_id".into(),
             Self::Entity(t) => format!("{t}_id"),
+            Self::User => "user_id".into(),
+            Self::Job => "job_id".into(),
+            Self::Surrogate(t) => format!("{t}_surrogate"),
         }
     }
 }
@@ -40,8 +55,9 @@ fn is_slug(s: &str) -> bool {
             .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-' || b == b'_')
 }
 
-/// The quoted sequence name for a tenant and a kind.
+/// The quoted sequence name for a tenant and a kind; `""` is the instance.
 fn sequence_name(tenant: &str, seq: &Sequence) -> Result<String, StoreError> {
+    let tenant = if tenant.is_empty() { INSTANCE } else { tenant };
     let kind = seq.kind();
     if !is_slug(tenant) || !is_slug(&kind) {
         return Err(StoreError::Storage(format!(
@@ -58,14 +74,47 @@ pub async fn create<C: GenericClient + Sync>(
     tenant: &str,
     entity_types: &[&str],
 ) -> Result<(), StoreError> {
-    let mut seqs = vec![Sequence::Revision, Sequence::Log, Sequence::Page];
+    if tenant.is_empty() {
+        return Err(StoreError::Storage(
+            "the instance's sequences are made by `create_instance`".into(),
+        ));
+    }
+    let mut seqs = vec![
+        Sequence::Revision,
+        Sequence::Log,
+        Sequence::Page,
+        Sequence::User,
+    ];
     seqs.extend(
         entity_types
             .iter()
             .map(|t| Sequence::Entity((*t).to_string())),
     );
+    create_all(client, tenant, &seqs).await
+}
+
+/// Creates the instance's sequences, if they do not exist: job, log and page IDs, and a
+/// surrogate counter per keyed type, given by name.
+pub async fn create_instance<C: GenericClient + Sync>(
+    client: &C,
+    keyed_types: &[&str],
+) -> Result<(), StoreError> {
+    let mut seqs = vec![Sequence::Job, Sequence::Log, Sequence::Page];
+    seqs.extend(
+        keyed_types
+            .iter()
+            .map(|t| Sequence::Surrogate((*t).to_string())),
+    );
+    create_all(client, INSTANCE, &seqs).await
+}
+
+async fn create_all<C: GenericClient + Sync>(
+    client: &C,
+    tenant: &str,
+    seqs: &[Sequence],
+) -> Result<(), StoreError> {
     let mut sql = String::new();
-    for s in &seqs {
+    for s in seqs {
         use std::fmt::Write as _;
         let _ = writeln!(
             sql,
@@ -129,6 +178,14 @@ mod tests {
         assert_eq!(
             sequence_name("librarybase", &Sequence::Entity("item".into())).unwrap(),
             "log.\"librarybase.item_id\""
+        );
+        assert_eq!(
+            sequence_name("", &Sequence::Surrogate("domain".into())).unwrap(),
+            "log.\"instance.domain_surrogate\""
+        );
+        assert_eq!(
+            sequence_name("", &Sequence::Job).unwrap(),
+            "log.\"instance.job_id\""
         );
         assert!(sequence_name("Bad Slug", &Sequence::Log).is_err());
         assert!(sequence_name("t", &Sequence::Entity("x\"; DROP".into())).is_err());

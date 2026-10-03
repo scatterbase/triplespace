@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-02 (A28)
+- **Updated:** 2026-10-03 (A29)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
@@ -522,7 +522,7 @@ Two rules follow from the table. Every `view` table is a projection under §7 an
 
 ### 6. Global revision, log and page IDs (amends 0012 §2.1)
 
-*Changed by A2, A5, A6, A12, A22.*
+*Changed by A2, A5, A6, A12, A22, A29.*
 
 [0012](0012-api-requirements.md) §2.1 asks for one sequence for revisions and one for log events, assigned at append and stored in the record. Postgres sequences do this, one set per tenant ([0018](0018-tenants.md) §2), since MediaWiki clients expect one sequence per wiki:
 
@@ -531,6 +531,8 @@ Two rules follow from the table. Every `view` table is a projection under §7 an
 - `log.page_id` is taken the first time a key is written in any partition, and every later record for that key repeats it in header field 9 ([0015](0015-record-format-and-partition-registry.md) §2). It is never derived from replay order. Talk pages take theirs from the same sequence through the thread record that first attaches to them ([0019](0019-discussions.md) §2).
 - Mirror records take a **provider-ranged** revision ID, `provider_number << 40 | n` ([0015](0015-record-format-and-partition-registry.md) §2), computed by the writer with no allocation. A page served by a page repository takes a provider-ranged **page ID** the same way, `provider_number << 40 | upstream page ID`, derived and never minted; `log.page_id` therefore stays below 2^40 ([0052](0052-page-repositories-and-title-inheritance.md) §6).
 - Local entity IDs come from one more set of per-tenant sequences, one per minted entity type (`log.item_id`, `log.property_id`, …), taken in the appending transaction as Wikibase's `wb_id_counters` are; the ID blocks of [0002](0002-source-graphs-and-mass-ingest.md) §8.5 reserve ranges from them. An adoption sets every sequence here, entity, page, revision, log and user IDs, past what the source wiki consumed, records the floors in its job record, and supplies `page_id` for adopted records rather than taking one ([0035](0035-adopting-a-wikibase.md) §4).
+
+**The instance's own sequences** (A29) live under the reserved tenant name `instance`, which no tenant may take as its slug: `log."instance.job_id"` for job IDs ([0011](0011-logs.md) §6.3), `log."instance.log_id"` and `log."instance.page_id"` for records in the instance partitions, and one `log."instance.{type}_surrogate"` per keyed type ([0009](0009-keyed-entity-types-and-domain.md) §7). A mirrored entity's page ID is taken from `log."instance.page_id"` the first time its key is written, since it belongs to no tenant; only a page served by a page repository has a provider-ranged page ID ([0052](0052-page-repositories-and-title-inheritance.md) §6). Per-tenant sequences also include `log."{tenant}.user_id"` ([0007](0007-actor-identity.md) §3).
 
 The IDs are inside the hashed header, so an inclusion proof covers them, an export bundle needs no sidecar, and an erased record keeps them. This closes the global-ID question that 0012 opened; the first form of this ADR kept them outside the header, and 0015 §2 moved them in (A2).
 
@@ -910,3 +912,10 @@ Replaced text (§7): "The remainder is queued in `ops.projection_state` as work 
 - **Source:** Direct: James, implementation of 2026-10-02 (`triplespace-projections`, `scatter-wikibase-resolve`)
 - **Change:** extends §5.1, §7
 - **Summary:** The `entity` projection writes `term` and `identifier` from the same resolution pass, so the three tables share one position; a rebuild orders partitions by dependency and the resolution projection fails loudly on a keyed subject without a surrogate. The `source` kind of §5.1 requires a whole-state record (`put`, or a `create`/`adopt` that is the only local record); an edited local entity is materialized. `resolved` is lz4-compressed by TOAST, not by the application.
+
+### A29. Instance sequences and mirrored page IDs
+
+- **Date:** 2026-10-03
+- **Source:** Direct: James, decision of 2026-10-03 (`scatter-ingest`, `scatter-log-postgres`)
+- **Change:** extends §6
+- **Summary:** The instance's sequences (`job_id`, `log_id`, `page_id`, one surrogate counter per keyed type) live under the reserved tenant name `instance`; a mirrored entity's first record takes its page ID from the instance's `page_id` sequence, provider-ranged page IDs being for page repositories only; the per-tenant set gains `user_id`.
