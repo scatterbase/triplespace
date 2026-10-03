@@ -9,6 +9,7 @@ members = [
     "crates/scatter-log",
     "crates/scatter-integrity",
     "crates/scatter-log-postgres",
+    "crates/triplespace-db",
     "xtask",
 ]
 
@@ -33,6 +34,7 @@ scatter-actors = { path = "crates/scatter-actors" }
 scatter-log = { path = "crates/scatter-log" }
 scatter-integrity = { path = "crates/scatter-integrity" }
 scatter-log-postgres = { path = "crates/scatter-log-postgres" }
+triplespace-db = { path = "crates/triplespace-db" }
 
 # RDF terms: the oxrdf family only (0005 §3, rule 5)
 oxrdf = "0.3"
