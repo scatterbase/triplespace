@@ -1060,6 +1060,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "scatter-wikibase-changeset"
+version = "0.0.1"
+dependencies = [
+ "indexmap",
+ "scatter-providers",
+ "scatter-wikibase-model",
+ "serde",
+ "serde_json",
+ "sha1",
+ "thiserror",
+]
+
+[[package]]
 name = "scatter-wikibase-model"
 version = "0.0.1"
 dependencies = [
