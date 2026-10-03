@@ -111,12 +111,14 @@ into a tenant on its own authority (0015 §1; 0040 §3):
 {"actor": "instance:scatter",
  "authority": {"partition": 7, "offset": 3, "leaf": <32 bytes>},
  "job": 17,
- "binding": "prerogative",
+ "binding": true,
  "signature": {"key": "…instance key ID…", "alg": "ed25519", "sig": <64 bytes>}}
 ```
 
 `authority` names the instance record (an expunge, a template, a global filter's block)
-the act cites; `binding` is `prerogative` or `provision` (0040 §5–6); the signature is by
+the act cites; `binding` is `true` for a prerogative and `false` for a provision (0040 §3,
+§5–6: a prerogative is an act that binds, and whether it binds is the whole distinction,
+so the field is the boolean and not a kind name); the signature is by
 the instance key over `SHA-256(0x06 ‖ content_hash ‖ comment_hash ‖ authority)`, where
 `authority` is the canonical CBOR of that map. A submitted record carrying one is refused
 with `ts-prerogative`.

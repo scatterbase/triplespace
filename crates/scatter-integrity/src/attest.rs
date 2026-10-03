@@ -303,7 +303,7 @@ mod tests {
         let r = record(&Value::map(vec![
             (Value::text("actor"), Value::text("instance:scatter")),
             (Value::text("authority"), authority.clone()),
-            (Value::text("binding"), Value::text("prerogative")),
+            (Value::text("binding"), Value::Bool(true)),
             (Value::text("signature"), sig.clone()),
         ]));
         let a = Attestation::of(&r).unwrap();
