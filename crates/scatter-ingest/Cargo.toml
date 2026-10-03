@@ -1,0 +1,26 @@
+[package]
+name = "scatter-ingest"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Jobs, version cursors, upsert and snapshot modes, temporary refs and match keys, the adoption job, and the write path: appending operations and projecting them in one unit of work"
+publish = false
+
+[dependencies]
+scatter-log.workspace = true
+scatter-projection.workspace = true
+scatter-wikibase-changeset.workspace = true
+scatter-wikibase-model.workspace = true
+scatter-providers.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+pollster.workspace = true
+
+[lints]
+workspace = true
