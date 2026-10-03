@@ -1090,6 +1090,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "scatter-wikibase-resolve"
+version = "0.0.1"
+dependencies = [
+ "scatter-normalize",
+ "scatter-wikibase-model",
+ "serde_json",
+]
+
+[[package]]
 name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1486,6 +1495,10 @@ dependencies = [
  "scatter-log",
  "scatter-log-postgres",
  "scatter-projection",
+ "scatter-providers",
+ "scatter-wikibase-changeset",
+ "scatter-wikibase-model",
+ "scatter-wikibase-resolve",
  "serde",
  "serde_json",
  "thiserror",

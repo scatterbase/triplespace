@@ -25,6 +25,7 @@
 #![forbid(unsafe_code)]
 
 pub mod adapter;
+pub mod apply;
 pub mod changes;
 pub mod job;
 pub mod op;
@@ -33,6 +34,7 @@ pub mod validate;
 pub mod wire;
 
 pub use adapter::{Adapter, AdapterError, KeyMap, WikibaseAdapter, deterministic_statement_id};
+pub use apply::{Correction, LocalState};
 pub use changes::{Changes, Counts};
 pub use job::{Graph, JobHeader, Mode};
 pub use op::{Link, MatchKey, Operation, Resolution, Retention, SitelinkPatch, Upstream, Via};

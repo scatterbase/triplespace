@@ -175,6 +175,10 @@ Every operation has `op` and a subject, `id` (an entity) or `page` (a page ID):
   and is present only under `sync_deltas: full`. In bootstrap mode all five are absent.
 - A keyed entity's mirror contribution is cleared with a `put` whose `entity` is the empty
   state, never a `tombstone` (0002 §5).
+- A `put` whose `id` is a keyed ID the upstream item was mapped onto (0009 §9) carries
+  `upstream_id`, the provider's own item ID (`"upstream_id": "Q9"`); it is what the
+  `keyed_map` index records. An upstream `tombstone` or `redirect` of that item, under its
+  prefixed foreign ID, removes the mapping.
 
 ### 3.2 Local writes
 
@@ -248,6 +252,21 @@ A local write's `baserevid` (0006 §8) is a request field, checked against the n
 record for the key before the append; it is **not** content and is not stored. The
 record's own place in history is its offset and header field 7.
 
+### 3.4 Keyed subjects and `scatter:v0/keyed-surrogate`
+
+A keyed entity's records (`domain:example.org`) are keyed in the header by its
+**surrogate**, `{type}#{n}` (`domain#17`), never by the key (0009 §7); the content names
+the entity by its ID as every operation does. The `#` keeps a surrogate key from being
+any entity ID. The mapping from surrogate to key is its own record, in the **instance
+`log`**, keyed by the surrogate and appended before the first record under it:
+
+```json
+{"keyed_type": "domain", "surrogate": 17, "key": "example.org"}
+```
+
+Erasing its content leaves the surrogate with no key (0009 §7). `view.keyed_surrogate` is
+projected from these records at the instance tenant.
+
 ## 4. `scatter:v0/config`
 
 In the instance and tenant `config` partitions, keyed `{kind}:{code}`. The content is the
@@ -308,7 +327,9 @@ actor key, a job ID) or `null`.
  "params": {"source": "https://librarybase.org/", "version": "librarybase-20260928.json.gz", "mode": "adopt", "graph": "local", "adapter": "scatter-adapter-wikidata 0.0.1", "args": {…}}}
 {"type": "job", "action": "finish", "time": 1790000001000000, "target": {"kind": "job", "id": 17},
  "params": {"counts": {"created": 0, "merged": 0, "unchanged": 0, "rejected": 3, "adopted": 349982},
-            "hash_mismatches": {"time": 2}, "checkpoint": "librarybase.org/log/local\n350103\nBASE64ROOT\n\n— librarybase.org/log/local SIGNATURE\n"}}
+            "hash_mismatches": {"time": 2}, "checkpoint": "librarybase.org/log/local\n350103\nBASE64ROOT\n\n— librarybase.org/log/local SIGNATURE\n",
+            "sweep": {"count": 0, "threshold": 1000},
+            "rejects": [{"line": 4, "match": {"P356": "10.1234/x"}, "reason": "ts-invalid-key"}]}}
 {"type": "job", "action": "fail", "time": …, "target": {"kind": "job", "id": 17}, "params": {"error": "ts-adopt-not-empty"}}
 {"type": "job", "action": "revert", "time": …, "target": {"kind": "job", "id": 17}, "params": {"by": 18}}
 {"type": "delete", "action": "delete", "time": 1700000000000000, "upstream_logid": 123456,
@@ -321,6 +342,8 @@ actor key, a job ID) or `null`.
 | `time` | The event's time at its source |
 | `target` | `{kind, …}`: `entity {id}`, `page {id}`, `actor {key}`, `job {id}`, `record {partition, offset, revid?}`, or `null` when hidden or unresolvable (0011 §3) |
 | `upstream_logid` | Provider logs only |
+| `params` of a `job/start` | `source`, `version` (or `snapshot`), `mode`, `graph`, `adapter` and `args`, the job line's fields (§3) plus the adapter version; `view.job` is projected from them |
+| `params` of a `job/finish` | `counts` by outcome, `hash_mismatches` by value type (0011 §6.3), `checkpoint` (the signed note, whose second line is the tree size), `sweep` (`count`, `threshold`) for a `snapshot` job, and `rejects`: the first N rejected lines, each `{line, match?, reason}`, for the job page (0010 §9); the full rejects file is the job's own |
 
 The performer, local or upstream, is the attestation's `actor` and nowhere else, so that
 hiding the user (0015 §4: erase the attestation part) touches nothing in the content.

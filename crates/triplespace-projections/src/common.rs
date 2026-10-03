@@ -1,10 +1,191 @@
-//! What every projection needs: the tenant a partition belongs to, the record's content
-//! as JSON, and the shape of errors.
+//! What every projection needs: the tenant and name of a partition, the record's parts
+//! decoded, the operation a change-set record carries, and the header key a subject's
+//! records are filed under.
 
-use scatter_log::cbor::Value;
+use scatter_log::cbor::{self, Value};
 use scatter_log::record::Record;
 use scatter_log_postgres::ids::partition_to_db;
+use scatter_wikibase_changeset::Operation;
+use scatter_wikibase_model::id::{EntityId, IdForm};
 use tokio_postgres::GenericClient;
+
+/// The change-set payload type.
+pub const PAYLOAD_CHANGESET: &str = "scatter:v0/changeset";
+/// The log-event payload type.
+pub const PAYLOAD_LOGEVENT: &str = "scatter:v0/logevent";
+/// The keyed-surrogate mapping payload type (0009 §7).
+pub const PAYLOAD_KEYED_SURROGATE: &str = "scatter:v0/keyed-surrogate";
+
+/// `view.activity.target_kind` codes.
+pub mod target_kind {
+    /// An entity, by ID.
+    pub const ENTITY: i16 = 1;
+    /// A page, by page ID.
+    pub const PAGE: i16 = 2;
+    /// An actor, by key.
+    pub const ACTOR: i16 = 3;
+    /// A job, by ID.
+    pub const JOB: i16 = 4;
+    /// A record, as `{partition}:{offset}`.
+    pub const RECORD: i16 = 5;
+}
+
+/// A partition's tenant and graph name.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PartitionInfo {
+    /// The tenant slug, `""` for an instance partition.
+    pub tenant: String,
+    /// The graph name: `local`, `mirror/wikidata`, `pages`, `log`, …
+    pub name: String,
+}
+
+impl PartitionInfo {
+    /// Whether the partition is a provider's mirror.
+    #[must_use]
+    pub fn is_mirror(&self) -> bool {
+        self.name.starts_with("mirror/")
+    }
+
+    /// The provider slug of a mirror partition.
+    #[must_use]
+    pub fn provider_slug(&self) -> Option<&str> {
+        self.name.strip_prefix("mirror/")
+    }
+}
+
+/// The tenant and name of a partition, from `log.partition`.
+pub async fn partition_info<C: GenericClient>(
+    client: &C,
+    partition: u64,
+) -> Result<PartitionInfo, String> {
+    let row = client
+        .query_opt(
+            "SELECT tenant, name FROM log.partition WHERE partition = $1",
+            &[&partition_to_db(partition)],
+        )
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("partition {partition} is not registered"))?;
+    Ok(PartitionInfo {
+        tenant: row.get::<_, Option<String>>(0).unwrap_or_default(),
+        name: row.get(1),
+    })
+}
+
+/// The partition of a graph: the tenant's own for `local` and `pages`, the instance's for
+/// a mirror (0018 §2). `None` when no such partition exists.
+pub async fn partition_of<C: GenericClient>(
+    client: &C,
+    tenant: &str,
+    name: &str,
+) -> Result<Option<u64>, String> {
+    let tenant = (!tenant.is_empty()).then_some(tenant);
+    let row = client
+        .query_opt(
+            "SELECT partition FROM log.partition WHERE tenant IS NOT DISTINCT FROM $1 AND name = $2",
+            &[&tenant, &name],
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(row.map(|r| scatter_log_postgres::ids::partition_from_db(r.get(0))))
+}
+
+/// The record's comment part as text; `None` when erased, `null` or not text.
+pub fn comment(record: &Record) -> Option<String> {
+    record
+        .body()
+        .comment()
+        .value()
+        .ok()
+        .flatten()
+        .and_then(|v| v.as_text().map(str::to_owned))
+}
+
+/// The record's attestation part; `None` when erased.
+pub fn attestation(record: &Record) -> Option<Value> {
+    record.body().attestation().value().ok().flatten()
+}
+
+/// The attestation's `actor`, `job` and `tags`.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Attested {
+    /// The actor key, absent when erased or hidden.
+    pub actor: Option<String>,
+    /// The job ID, for a record a job wrote.
+    pub job: Option<u64>,
+    /// Change tags.
+    pub tags: Vec<String>,
+}
+
+/// Reads the attestation's common fields.
+#[must_use]
+pub fn attested(record: &Record) -> Attested {
+    let Some(a) = attestation(record) else {
+        return Attested::default();
+    };
+    Attested {
+        actor: a.get("actor").and_then(Value::as_text).map(str::to_owned),
+        job: a.get("job").and_then(Value::as_u64),
+        tags: match a.get("tags") {
+            Some(Value::Array(items)) => items
+                .iter()
+                .filter_map(Value::as_text)
+                .map(str::to_owned)
+                .collect(),
+            _ => Vec::new(),
+        },
+    }
+}
+
+/// The operation a change-set record carries; `None` when its content is erased.
+pub fn operation(record: &Record) -> Result<Option<Operation>, String> {
+    let Some(value) = content(record)? else {
+        return Ok(None);
+    };
+    cbor::from_value(value)
+        .map(Some)
+        .map_err(|e| format!("not a change-set operation: {e}"))
+}
+
+/// The header key a subject's records are filed under: the entity ID itself, or for a
+/// keyed entity its surrogate as `{type}#{n}` (0009 §7), looked up in
+/// `view.keyed_surrogate`. `None` for a keyed entity that has no surrogate yet.
+pub async fn header_key_for<C: GenericClient>(
+    client: &C,
+    id: &EntityId,
+) -> Result<Option<String>, String> {
+    if id.form() != IdForm::Keyed {
+        return Ok(Some(id.as_str().to_string()));
+    }
+    let (keyed_type, key) = id.keyed_parts().ok_or("a keyed ID has a type and a key")?;
+    let row = client
+        .query_opt(
+            "SELECT surrogate FROM view.keyed_surrogate WHERE tenant = '' AND keyed_type = $1 AND key = $2",
+            &[&keyed_type, &key],
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(row.map(|r| surrogate_key(keyed_type, r.get::<_, i64>(0))))
+}
+
+/// The header key of a surrogate, `domain#17`.
+#[must_use]
+pub fn surrogate_key(keyed_type: &str, surrogate: i64) -> String {
+    format!("{keyed_type}#{surrogate}")
+}
+
+/// Splits a surrogate header key into its type and number.
+#[must_use]
+pub fn parse_surrogate_key(key: &str) -> Option<(&str, i64)> {
+    let (t, n) = key.split_once('#')?;
+    Some((t, n.parse().ok()?))
+}
+
+/// Quotes a string for use inside SQL text.
+#[must_use]
+pub fn quote(s: &str) -> String {
+    format!("'{}'", s.replace('\'', "''"))
+}
 
 /// The tenant of a partition, `""` for an instance partition (0018 §2).
 pub async fn tenant_of<C: GenericClient>(client: &C, partition: u64) -> Result<String, String> {
@@ -108,5 +289,9 @@ mod tests {
         assert_eq!(split_key("acl:page:7"), Some(("acl", "page:7")));
         assert_eq!(layer_of(""), "instance");
         assert_eq!(layer_of("librarybase"), "tenant");
+        assert_eq!(surrogate_key("domain", 17), "domain#17");
+        assert_eq!(parse_surrogate_key("domain#17"), Some(("domain", 17)));
+        assert_eq!(parse_surrogate_key("Q17"), None);
+        assert_eq!(quote("it's"), "'it''s'");
     }
 }

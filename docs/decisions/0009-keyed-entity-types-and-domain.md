@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-01 (A7)
+- **Updated:** 2026-10-02 (A8)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md)
 - **Uses:** [0000](0000-init.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -115,6 +115,8 @@ The IRI depends only on the key, so every instance mints the same one. Under [00
 
 ### 7. Log keys are surrogates
 
+*Changed by A8.*
+
 A domain name can be personal data: a person's own name registered as a domain, for example. A log header key survives erasure ([0006](0006-log-integrity-and-erasure.md) §3, §7), so a key must not be the domain name itself. A hash of the name is no better, because domain names can be enumerated from zone files and any hash can be checked against them.
 
 **Each present keyed entity gets a surrogate for log headers.** The rules are:
@@ -125,6 +127,8 @@ A domain name can be personal data: a person's own name registered as a domain, 
 - An index projected from the mapping records resolves keys to surrogates when a change set is appended.
 
 This is the same pattern as the actor surrogates in [0007](0007-actor-identity.md) §5. Erasing a Domain by key erases the mapping record along with everything else keyed to the surrogate, and only an opaque number remains.
+
+**The forms** (A8). The header key of a keyed entity's records is `{type}#{n}`, `domain#17`: the `#` keeps it from being any entity ID, since no ID form contains one. The mapping record is a `scatter:v0/keyed-surrogate` record in the **instance `log`**, keyed by the same surrogate, with content `{keyed_type, surrogate, key}` ([payloads.md §3.4](../api/payloads.md)); surrogates are instance-wide, so the mapping does not belong to any tenant, and the record is appended before the first record under the surrogate. `view.keyed_surrogate` is projected from it at the instance tenant (`''`); a projection that folds a keyed entity's records looks the surrogate up there, and fails rather than guess when it is missing, which makes a rebuild that orders the instance `log` after a tenant partition fail loudly instead of silently dropping the tenant's assertions.
 
 ### 8. Keyed types rank first in identity clusters (amends 0004 §4)
 
@@ -362,3 +366,10 @@ Replaced text (§11):
 - **Source:** [0050](0050-adr-format.md) §13
 - **Change:** consolidates §1–12
 - **Summary:** A1–A6 were folded into the Decision, the open questions were numbered, and the partly struck Q3 was split, its open half becoming Q8. No decision changed. Before this, every entry was recorded only in this ADR's header or in other ADRs, apart from the `composite` talk namespace, written into §11 in place. The file before conversion is commit `0b26a3a`.
+
+### A8. Surrogate key form and mapping record
+
+- **Date:** 2026-10-02
+- **Source:** Direct: James, implementation of 2026-10-02 (`triplespace-projections`)
+- **Change:** extends §7
+- **Summary:** The header key of a keyed entity's records is `{type}#{n}`; the surrogate-to-key mapping is a `scatter:v0/keyed-surrogate` record in the instance `log`, keyed by the surrogate, appended before the first record under it; `view.keyed_surrogate` is projected from it at the instance tenant and a replay that cannot find a surrogate fails rather than drops data. A `put` written under a key-mapped subject carries `upstream_id`, the provider's own item ID, which is what `view.keyed_map` records (§9).

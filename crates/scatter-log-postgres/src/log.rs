@@ -283,6 +283,28 @@ pub async fn read<C: GenericClient + Sync>(
     Ok(Slot::Compacted { leaf })
 }
 
+/// Every record under a header key, in offset order: the replay a projection does to
+/// fold one subject's history (0013 §2: the `(key, "offset")` index). Compacted offsets
+/// have no row and are not returned.
+pub async fn read_by_key<C: GenericClient + Sync>(
+    client: &C,
+    partition: u64,
+    key: &str,
+) -> Result<Vec<(u64, Record)>, StoreError> {
+    partition_row(client, partition, false).await?;
+    let rows = client
+        .query(
+            "SELECT \"offset\", header, body FROM log.record
+             WHERE partition = $1 AND key = $2 ORDER BY \"offset\"",
+            &[&partition_to_db(partition), &key],
+        )
+        .await
+        .map_err(|e| storage_error(&e))?;
+    rows.iter()
+        .map(|r| Ok((from_db(r.get(0))?, record_from(r.get(1), r.get(2))?)))
+        .collect()
+}
+
 /// Up to `limit` records from `from`.
 pub async fn scan<C: GenericClient + Sync>(
     client: &C,

@@ -953,6 +953,7 @@ fn a_put_carries_its_summary() {
         prev_size: Some(9),
         changes: Some(changes),
         delta: None,
+        upstream_id: None,
     };
     let text = serde_json::to_string(&put).unwrap();
     assert!(text.contains(r#""changes":{"labels":{"de":{"added":1,"removed":0,"changed":0}}}"#));
