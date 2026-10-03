@@ -343,7 +343,8 @@ actor key, a job ID) or `null`.
 | `target` | `{kind, …}`: `entity {id}`, `page {id}`, `actor {key}`, `job {id}`, `record {partition, offset, revid?}`, or `null` when hidden or unresolvable (0011 §3) |
 | `upstream_logid` | Provider logs only |
 | `params` of a `job/start` | `source`, `version` (or `snapshot`), `mode`, `graph`, `adapter` and `args`, the job line's fields (§3) plus the adapter version; `view.job` is projected from them |
-| `params` of a `job/finish` | `counts` by outcome, `hash_mismatches` by value type (0011 §6.3), `checkpoint` (the signed note, whose second line is the tree size), `sweep` (`count`, `threshold`) for a `snapshot` job, and `rejects`: the first N rejected lines, each `{line, match?, reason}`, for the job page (0010 §9); the full rejects file is the job's own |
+| `params` of a `job/finish` | `counts` by outcome (`created`, `merged`, `unchanged`, `rejected`, and where non-zero `adopted`, `tombstoned`, `other`), `hash_mismatches` by value type (0011 §6.3), `checkpoint` (the signed note, whose second line is the tree size), `sweep` (`count`, `threshold`) for a `snapshot` job, `rejects`: the first 100 rejected lines, each `{line, match?, reason}`, for the job page (0010 §9), the full rejects file being the job's own; an adoption adds `floors` (0035 §4) and `accounts`, the actor records it wrote |
+| `params` of a `job/fail` | `error`: the refusal code or message |
 
 The performer, local or upstream, is the attestation's `actor` and nowhere else, so that
 hiding the user (0015 §4: erase the attestation part) touches nothing in the content.

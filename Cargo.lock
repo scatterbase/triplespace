@@ -976,6 +976,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "scatter-ingest"
+version = "0.0.1"
+dependencies = [
+ "pollster",
+ "scatter-log",
+ "scatter-projection",
+ "scatter-providers",
+ "scatter-wikibase-changeset",
+ "scatter-wikibase-model",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "scatter-integrity"
 version = "0.0.1"
 dependencies = [

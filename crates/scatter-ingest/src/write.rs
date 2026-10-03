@@ -1,0 +1,355 @@
+//! The write path (0013 §7; 0015 §1–2): one record-shaped operation becomes one record.
+//!
+//! The partition is the operation's: a mirror operation goes to the provider's
+//! `mirror/{slug}` (an instance partition), a page's statements to the tenant's `pages`,
+//! everything else to the tenant's `local`. The key is the subject, or for a keyed entity
+//! its surrogate, minted and recorded in the instance `log` the first time (0009 §7). The
+//! page ID is the key's, or a fresh one; the revision ID is the tenant's next, or for a
+//! mirror record the provider-ranged upstream revision (0015 §2). After the append, the
+//! synchronous projections run on the record inside the same unit of work.
+
+use scatter_log::body::Body;
+use scatter_log::cbor::Value;
+use scatter_log::record::{Record, global_id};
+use scatter_log::store::Draft;
+use scatter_projection::{Budget, Inline, Pipeline};
+use scatter_providers::Registry;
+use scatter_wikibase_changeset::{Graph, Operation};
+use scatter_wikibase_model::id::{EntityId, IdForm, Subject};
+
+use crate::IngestError;
+use crate::store::{IngestStore, Sequence};
+
+/// The change-set payload type.
+pub const PAYLOAD_CHANGESET: &str = "scatter:v0/changeset";
+/// The surrogate mapping payload type (0009 §7; payloads.md §3.4).
+pub const PAYLOAD_KEYED_SURROGATE: &str = "scatter:v0/keyed-surrogate";
+
+/// Who is responsible for a record (payloads.md §2.3).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Attestation {
+    /// The actor key, `local:42`.
+    pub actor: String,
+    /// The job whose run writes the record.
+    pub job: Option<u64>,
+    /// Change tags.
+    pub tags: Vec<String>,
+}
+
+impl Attestation {
+    /// An interactive edit by an actor.
+    #[must_use]
+    pub fn by(actor: &str) -> Self {
+        Self {
+            actor: actor.to_string(),
+            job: None,
+            tags: Vec::new(),
+        }
+    }
+
+    /// The same attestation under a job.
+    #[must_use]
+    pub fn with_job(&self, job: Option<u64>) -> Self {
+        Self {
+            job,
+            ..self.clone()
+        }
+    }
+
+    /// The attestation part's value.
+    #[must_use]
+    pub fn to_value(&self) -> Value {
+        let mut pairs = vec![(Value::text("actor"), Value::text(&self.actor))];
+        if let Some(j) = self.job {
+            pairs.push((Value::text("job"), Value::Int(i128::from(j))));
+        }
+        if !self.tags.is_empty() {
+            pairs.push((
+                Value::text("tags"),
+                Value::Array(self.tags.iter().map(|t| Value::text(t)).collect()),
+            ));
+        }
+        Value::map(pairs)
+    }
+}
+
+/// What a write asks for beyond the operation.
+#[derive(Debug, Clone)]
+pub struct Request {
+    /// The tenant whose write it is.
+    pub tenant: String,
+    /// Who is responsible.
+    pub attestation: Attestation,
+    /// The edit summary.
+    pub comment: Option<String>,
+    /// The offset the editor last saw for the key (0006 §8); a newer record is a conflict.
+    pub base_offset: Option<u64>,
+    /// `appended_at`, µs since the epoch.
+    pub now: u64,
+    /// The inline fan-out budget.
+    pub budget: Budget,
+}
+
+impl Request {
+    /// A request at `now` by an actor, no base offset, the default budget.
+    #[must_use]
+    pub fn new(tenant: &str, attestation: Attestation, now: u64) -> Self {
+        Self {
+            tenant: tenant.to_string(),
+            attestation,
+            comment: None,
+            base_offset: None,
+            now,
+            budget: Budget::default(),
+        }
+    }
+}
+
+/// What a write produced.
+#[derive(Debug, Clone)]
+pub struct Written {
+    /// The partition written.
+    pub partition: u64,
+    /// The record.
+    pub record: Record,
+    /// What the inline projections did.
+    pub inline: Inline,
+}
+
+impl Written {
+    /// The record's offset.
+    #[must_use]
+    pub fn offset(&self) -> u64 {
+        self.record.header().offset
+    }
+}
+
+/// Where an operation is written: a mirror operation to its provider's mirror, a page's
+/// statements to `pages`, everything else to `local`.
+pub fn destination(op: &Operation, registry: &Registry) -> Result<Graph, IngestError> {
+    if op.is_mirror() {
+        let id = op.subject().and_then(|s| s.entity_id().cloned());
+        let slug = match id {
+            Some(id) if id.form() == IdForm::Foreign => registry
+                .by_code(&id.as_str()[..2])
+                .map(|p| p.slug.clone())
+                .ok_or_else(|| IngestError::UnknownProvider(id.to_string()))?,
+            Some(id) if id.form() == IdForm::Keyed => {
+                // A key-mapped put names its provider only through `upstream_id`'s
+                // owner, which the caller knows; the mirror graph is given by the job.
+                return Err(IngestError::Adapter(format!(
+                    "a mirror operation on `{id}` needs its graph named by the job (write_to)"
+                )));
+            }
+            other => {
+                return Err(IngestError::Adapter(format!(
+                    "a mirror operation without a foreign subject: {other:?}"
+                )));
+            }
+        };
+        return Ok(Graph::Mirror(slug));
+    }
+    match op.subject() {
+        Some(Subject::Page(_)) => Ok(Graph::Pages),
+        _ => Ok(Graph::Local),
+    }
+}
+
+/// The header key of a subject: the entity ID, or a keyed entity's surrogate, minted and
+/// recorded in the instance `log` when it has none yet. The mapping record is projected
+/// inline, so the resolution projection finds the surrogate in the same unit of work.
+pub async fn key_for<S: IngestStore>(
+    store: &S,
+    pipeline: &Pipeline<S>,
+    cx: &mut S::Cx,
+    id: &EntityId,
+    attestation: &Attestation,
+    now: u64,
+) -> Result<String, IngestError> {
+    if id.form() != IdForm::Keyed {
+        return Ok(id.as_str().to_string());
+    }
+    let (keyed_type, key) = id
+        .keyed_parts()
+        .ok_or_else(|| IngestError::Store("a keyed ID has a type".into()))?;
+    if let Some(n) = store.surrogate(cx, keyed_type, key).await? {
+        return Ok(format!("{keyed_type}#{n}"));
+    }
+    let n = store
+        .next_id(cx, "", &Sequence::Surrogate(keyed_type.to_string()))
+        .await?;
+    let surrogate = format!("{keyed_type}#{n}");
+    let instance_log =
+        store
+            .partition(cx, "", "log")
+            .await?
+            .ok_or_else(|| IngestError::NoPartition {
+                tenant: String::new(),
+                graph: "log".into(),
+            })?;
+    let content = serde_json::json!({"keyed_type": keyed_type, "surrogate": n, "key": key});
+    let logid = store.next_id(cx, "", &Sequence::Log).await?;
+    let draft = Draft {
+        appended_at: now,
+        payload_type: PAYLOAD_KEYED_SURROGATE.into(),
+        key: Some(surrogate.clone()),
+        revid: None,
+        logid: Some(logid),
+        page_id: None,
+        body: Body::core(
+            &Value::from_json(&content),
+            &Value::Null,
+            &attestation.to_value(),
+        )
+        .map_err(|e| e.to_string())?,
+    };
+    let appended = store.append(cx, instance_log, draft.clone()).await?;
+    let record = draft.seal(instance_log, appended.offset);
+    pipeline
+        .apply_inline(store, cx, &record, Budget::NONE)
+        .await?;
+    Ok(surrogate)
+}
+
+/// Writes one record-shaped operation to the partition [`destination`] names, then runs
+/// the synchronous projections on it.
+pub async fn write_operation<S: IngestStore>(
+    store: &S,
+    pipeline: &Pipeline<S>,
+    cx: &mut S::Cx,
+    request: &Request,
+    op: &Operation,
+    registry: &Registry,
+) -> Result<Written, IngestError> {
+    let graph = destination(op, registry)?;
+    write_to(store, pipeline, cx, request, op, &graph, registry).await
+}
+
+/// Writes one record-shaped operation to a named graph: the tenant's for `local` and
+/// `pages`, the instance's for a mirror.
+#[allow(clippy::too_many_lines)]
+pub async fn write_to<S: IngestStore>(
+    store: &S,
+    pipeline: &Pipeline<S>,
+    cx: &mut S::Cx,
+    request: &Request,
+    op: &Operation,
+    graph: &Graph,
+    registry: &Registry,
+) -> Result<Written, IngestError> {
+    if !op.is_record_shape() {
+        return Err(IngestError::Adapter(format!(
+            "`{}` is not a record shape; resolve it first",
+            op.name()
+        )));
+    }
+    let owner = match graph {
+        Graph::Mirror(_) => "",
+        Graph::Local | Graph::Pages => request.tenant.as_str(),
+    };
+    let partition = store
+        .partition(cx, owner, &graph.name())
+        .await?
+        .ok_or_else(|| IngestError::NoPartition {
+            tenant: owner.to_string(),
+            graph: graph.name(),
+        })?;
+    let subject = op
+        .subject()
+        .ok_or_else(|| IngestError::Adapter(format!("`{}` has no subject", op.name())))?;
+    let key = match &subject {
+        Subject::Entity(id) => {
+            key_for(store, pipeline, cx, id, &request.attestation, request.now).await?
+        }
+        Subject::Page(p) => p.to_string(),
+    };
+    // The base-offset check (0006 §8).
+    let latest = store.latest_for_key(cx, partition, &key).await?;
+    if let (Some(base), Some((latest_offset, _))) = (request.base_offset, &latest)
+        && *latest_offset > base
+    {
+        return Err(IngestError::Conflict {
+            key,
+            base,
+            latest: *latest_offset,
+        });
+    }
+    // The page ID: the key's, the adoption's, or a fresh one (0015 §2; 0035 §4).
+    let page_id = match store.page_id_of(cx, &request.tenant, &key).await? {
+        Some(p) => p,
+        None => match op {
+            Operation::Adopt { source_pageid, .. } => *source_pageid,
+            _ => store.next_id(cx, owner, &Sequence::Page).await?,
+        },
+    };
+    // The revision ID (0013 §6; 0015 §2).
+    let revid = match graph {
+        Graph::Mirror(slug) => {
+            let provider = registry
+                .by_slug(slug)
+                .ok_or_else(|| IngestError::UnknownProvider(slug.clone()))?;
+            let upstream = match op {
+                Operation::Put { upstream, .. } | Operation::Tombstone { upstream, .. } => {
+                    upstream.revid
+                }
+                Operation::Redirect {
+                    upstream: Some(u), ..
+                } => u.revid,
+                _ => None,
+            };
+            match upstream {
+                Some(n) => Some(global_id(u64::from(provider.number), n).ok_or_else(|| {
+                    IngestError::Adapter(format!("upstream revision {n} is out of range"))
+                })?),
+                None => None,
+            }
+        }
+        Graph::Local | Graph::Pages => Some(store.next_id(cx, owner, &Sequence::Revision).await?),
+    };
+    let content = serde_json::to_value(op).map_err(|e| e.to_string())?;
+    let comment = request.comment.as_deref().map_or(Value::Null, Value::text);
+    let draft = Draft {
+        appended_at: request.now,
+        payload_type: PAYLOAD_CHANGESET.into(),
+        key: Some(key),
+        revid,
+        logid: None,
+        page_id: Some(page_id),
+        body: Body::core(
+            &Value::from_json(&content),
+            &comment,
+            &request.attestation.to_value(),
+        )
+        .map_err(|e| e.to_string())?,
+    };
+    let appended = store.append(cx, partition, draft.clone()).await?;
+    let record = draft.seal(partition, appended.offset);
+    let inline = pipeline
+        .apply_inline(store, cx, &record, request.budget)
+        .await?;
+    Ok(Written {
+        partition,
+        record,
+        inline,
+    })
+}
+
+/// The ID a freshly minted local entity of a type gets: the type letter and the next
+/// number of the tenant's sequence for the type (0013 §6).
+pub async fn mint_entity_id<S: IngestStore>(
+    store: &S,
+    cx: &mut S::Cx,
+    tenant: &str,
+    entity_type: &str,
+) -> Result<EntityId, IngestError> {
+    let letter = match entity_type {
+        "item" => 'Q',
+        "property" => 'P',
+        "lexeme" => 'L',
+        other => return Err(IngestError::NoIdFor(other.to_string())),
+    };
+    let n = store
+        .next_id(cx, tenant, &Sequence::Entity(entity_type.to_string()))
+        .await?;
+    EntityId::parse(&format!("{letter}{n}")).map_err(|e| IngestError::Store(e.to_string()))
+}
