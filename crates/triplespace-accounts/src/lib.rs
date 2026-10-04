@@ -15,6 +15,8 @@
 //!   bearer request, from the key) with the instance secret.
 //! - [`identity`]: who a request is, from its cookie or bearer header, and the
 //!   [`scatter_actors::evaluate::Effective`] permissions that follow.
+//! - [`forwarder`]: forwarder keys in `private.forwarder_key`, which let a proxy vouch
+//!   for the client address it forwards (0057 §10).
 //!
 //! This is one of the three crates that read `private` (0013 §4). Everything here takes a
 //! connection and runs inside whatever transaction the caller holds; nothing opens one.
@@ -23,6 +25,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod forwarder;
 pub mod identity;
 pub mod keys;
 pub mod login;

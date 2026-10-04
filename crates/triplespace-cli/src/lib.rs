@@ -6,6 +6,7 @@
 pub mod accounts;
 pub mod adopt;
 pub mod common;
+pub mod forwarder;
 pub mod instance;
 pub mod status;
 pub mod sync;

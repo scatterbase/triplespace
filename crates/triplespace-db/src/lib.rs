@@ -51,6 +51,10 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "0006_private_session",
         sql: include_str!("../migrations/0006_private_session.sql"),
     },
+    Migration {
+        name: "0007_private_forwarder",
+        sql: include_str!("../migrations/0007_private_forwarder.sql"),
+    },
 ];
 
 /// The crate name migrations are recorded under.

@@ -1,7 +1,6 @@
 //! The shared state: the pool, the write store and its pipeline, the token secret, the
 //! farm, and the deployment settings of 0056 §10.
 
-use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use deadpool_postgres::Pool;
@@ -10,6 +9,8 @@ use scatter_providers::Registry;
 use triplespace_accounts::Secret;
 use triplespace_api_ingest::PgIngest;
 use triplespace_projections::{EntityProjection, Farm, PgBackend, milestone_pipeline};
+
+use crate::forwarded::{KeyCache, TrustList};
 
 /// `server.mode` (0056 §10).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -38,7 +39,8 @@ impl Mode {
 pub struct Config {
     /// The mode.
     pub mode: Mode,
-    /// Proxies whose `X-Forwarded-*` headers are trusted, as the operator wrote them.
+    /// Proxies whose `X-Forwarded-*` headers are trusted, as the operator wrote them:
+    /// addresses and CIDR ranges (0057 §10).
     pub trusted_proxies: Vec<String>,
     /// In development mode, the tenant an unregistered host is served as.
     pub dev_tenant: Option<String>,
@@ -61,11 +63,16 @@ struct Inner {
     order: EntityProjection,
     secret: Secret,
     config: Config,
+    trust: TrustList,
+    forwarder_keys: KeyCache,
 }
 
 impl App {
-    /// Builds the state over a pool.
+    /// Builds the state over a pool. An entry of `trusted_proxies` that is not an
+    /// address or a CIDR range is an error.
     pub fn new(pool: Pool, secret: Secret, config: Config) -> Result<Self, String> {
+        let trust = TrustList::parse(&config.trusted_proxies)
+            .map_err(|e| format!("trusted proxies: {e}"))?;
         let store = PgIngest::new(PgBackend::new(pool.clone()));
         let registry = Registry::default_registry();
         let pipeline = milestone_pipeline(
@@ -89,6 +96,8 @@ impl App {
                 order,
                 secret,
                 config,
+                trust,
+                forwarder_keys: KeyCache::default(),
             }),
         })
     }
@@ -135,14 +144,15 @@ impl App {
         Registry::default_registry()
     }
 
-    /// The hosts `X-Forwarded-*` is trusted from.
+    /// The proxies trusted by address (0057 §10).
     #[must_use]
-    pub fn trusted_proxies(&self) -> BTreeSet<&str> {
-        self.inner
-            .config
-            .trusted_proxies
-            .iter()
-            .map(String::as_str)
-            .collect()
+    pub fn trust(&self) -> &TrustList {
+        &self.inner.trust
+    }
+
+    /// The cache of forwarder key checks.
+    #[must_use]
+    pub fn forwarder_keys(&self) -> &KeyCache {
+        &self.inner.forwarder_keys
     }
 }

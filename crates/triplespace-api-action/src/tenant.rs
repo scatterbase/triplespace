@@ -1,11 +1,12 @@
 //! Which tenant a request is for (0056 §10 #5; 0018 §3): the one whose registered base
-//! has the request's `Host`. The farm base serves the primary tenant. An unregistered
+//! has the request's `Host`, or the `X-Forwarded-Host` of a trusted proxy (0057 §10). The farm base serves the primary tenant. An unregistered
 //! host is 421, unless development mode names a fallback.
 
 use axum::http::HeaderMap;
 use tokio_postgres::GenericClient;
 
 use crate::app::{App, Mode};
+use crate::forwarded::Origin;
 
 /// A tenant as the request sees it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -21,16 +22,11 @@ pub struct Tenant {
     pub host: String,
 }
 
-/// The host of a request: `X-Forwarded-Host` from a trusted proxy, else `Host`.
+/// The host of a request: `X-Forwarded-Host` from a trusted proxy (0057 §10), else `Host`.
 #[must_use]
-pub fn request_host(app: &App, headers: &HeaderMap) -> Option<String> {
-    let trusted = !app.trusted_proxies().is_empty();
-    if trusted
-        && let Some(h) = headers
-            .get("x-forwarded-host")
-            .and_then(|v| v.to_str().ok())
-    {
-        return Some(h.split(',').next().unwrap_or(h).trim().to_string());
+pub fn request_host(origin: &Origin, headers: &HeaderMap) -> Option<String> {
+    if let Some(h) = &origin.forwarded_host {
+        return Some(h.clone());
     }
     headers
         .get(axum::http::header::HOST)
@@ -38,19 +34,11 @@ pub fn request_host(app: &App, headers: &HeaderMap) -> Option<String> {
         .map(str::to_string)
 }
 
-fn request_scheme(app: &App, headers: &HeaderMap) -> &'static str {
-    if !app.trusted_proxies().is_empty()
-        && headers
-            .get("x-forwarded-proto")
-            .and_then(|v| v.to_str().ok())
-            .is_some_and(|p| p.eq_ignore_ascii_case("https"))
-    {
-        return "https";
-    }
-    if app.config().mode == Mode::Development {
-        "http"
-    } else {
-        "https"
+fn request_scheme(app: &App, origin: &Origin) -> &'static str {
+    match origin.forwarded_proto.as_deref() {
+        Some("https") => "https",
+        _ if app.config().mode == Mode::Development => "http",
+        _ => "https",
     }
 }
 
@@ -84,9 +72,10 @@ pub async fn registered<C: GenericClient>(
 pub async fn resolve<C: GenericClient>(
     app: &App,
     client: &C,
+    origin: &Origin,
     headers: &HeaderMap,
 ) -> Result<Option<Tenant>, tokio_postgres::Error> {
-    let Some(host) = request_host(app, headers) else {
+    let Some(host) = request_host(origin, headers) else {
         return Ok(None);
     };
     let tenants = registered(client).await?;
@@ -117,7 +106,7 @@ pub async fn resolve<C: GenericClient>(
         && let Some(dev) = &app.config().dev_tenant
         && let Some((slug, base)) = tenants.iter().find(|(s, _)| s == dev)
     {
-        let scheme = request_scheme(app, headers);
+        let scheme = request_scheme(app, origin);
         return Ok(Some(Tenant {
             slug: slug.clone(),
             base: base.clone(),

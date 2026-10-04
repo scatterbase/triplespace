@@ -24,6 +24,7 @@ pub mod app;
 pub mod auth;
 pub mod edit;
 pub mod entity_json;
+pub mod forwarded;
 pub mod modules;
 pub mod params;
 pub mod response;
@@ -36,6 +37,10 @@ use axum::Router;
 use axum::routing::get;
 
 /// The router: `api.php` at both MediaWiki paths, the entity routes, and a health check.
+///
+/// Every route runs behind [`forwarded::layer`], which works out the client behind
+/// trusted proxies. The server must be served with
+/// `into_make_service_with_connect_info::<SocketAddr>()` for the peer address to be known.
 pub fn router(app: App) -> Router {
     Router::new()
         .route("/api.php", get(api::handle).post(api::handle))
@@ -46,5 +51,9 @@ pub fn router(app: App) -> Router {
         )
         .route("/entity/{id}", get(modules::entitydata::concept_uri))
         .route("/healthz", get(|| async { "ok" }))
+        .layer(axum::middleware::from_fn_with_state(
+            app.clone(),
+            forwarded::layer,
+        ))
         .with_state(app)
 }

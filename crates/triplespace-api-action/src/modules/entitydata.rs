@@ -1,7 +1,7 @@
 //! `Special:EntityData/{id}.json` (0001 §1; 0009 §6; special-pages.toml) and the concept
 //! URI `/entity/{id}` (0002 §4), which answers 303 to the data document, as Wikibase does.
 
-use axum::extract::{Path, State};
+use axum::extract::{Extension, Path, State};
 use axum::http::{HeaderMap, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use serde_json::json;
@@ -9,6 +9,7 @@ use serde_json::json;
 use crate::api::Ctx;
 use crate::app::App;
 use crate::auth::Caller;
+use crate::forwarded::Origin;
 use crate::modules::entities::{entity_json, parse_id};
 use crate::params::Params;
 use crate::response::ApiError;
@@ -23,13 +24,13 @@ fn plain(status: StatusCode, text: String) -> Response {
         .into_response()
 }
 
-async fn context(app: App, headers: &HeaderMap) -> Result<Ctx, Response> {
+async fn context(app: App, origin: Origin, headers: &HeaderMap) -> Result<Ctx, Response> {
     let client = app
         .pool()
         .get()
         .await
         .map_err(|e| plain(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    let tenant = match tenant::resolve(&app, &**client, headers).await {
+    let tenant = match tenant::resolve(&app, &**client, &origin, headers).await {
         Ok(Some(t)) => t,
         Ok(None) => {
             return Err(plain(
@@ -46,6 +47,7 @@ async fn context(app: App, headers: &HeaderMap) -> Result<Ctx, Response> {
         app,
         client,
         tenant,
+        origin,
         params: Params::default(),
         caller,
         formatversion: 2,
@@ -57,6 +59,7 @@ async fn context(app: App, headers: &HeaderMap) -> Result<Ctx, Response> {
 /// `GET /wiki/Special:EntityData/{id}.json`: the entity document, or 404.
 pub async fn special_entity_data(
     State(app): State<App>,
+    Extension(origin): Extension<Origin>,
     headers: HeaderMap,
     Path(file): Path<String>,
 ) -> Response {
@@ -66,7 +69,7 @@ pub async fn special_entity_data(
             "only the .json form is served\n".into(),
         );
     };
-    let ctx = match context(app, &headers).await {
+    let ctx = match context(app, origin, &headers).await {
         Ok(c) => c,
         Err(r) => return r,
     };

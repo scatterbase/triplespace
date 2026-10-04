@@ -2,13 +2,14 @@
 //! on `action`.
 
 use axum::body::Bytes;
-use axum::extract::{RawQuery, State};
+use axum::extract::{Extension, RawQuery, State};
 use axum::http::{HeaderMap, Method, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use deadpool_postgres::Object;
 
 use crate::app::App;
 use crate::auth::Caller;
+use crate::forwarded::Origin;
 use crate::modules;
 use crate::params::Params;
 use crate::response::{ApiError, ApiResponse};
@@ -22,6 +23,8 @@ pub struct Ctx {
     pub client: Object,
     /// The tenant the host named.
     pub tenant: Tenant,
+    /// Where the request came from: the client address behind trusted proxies.
+    pub origin: Origin,
     /// The parameters.
     pub params: Params,
     /// The caller.
@@ -63,6 +66,7 @@ fn misdirected(host: Option<&str>) -> Response {
 /// The `api.php` handler.
 pub async fn handle(
     State(app): State<App>,
+    Extension(origin): Extension<Origin>,
     method: Method,
     headers: HeaderMap,
     RawQuery(query): RawQuery,
@@ -72,9 +76,9 @@ pub async fn handle(
         Ok(c) => c,
         Err(e) => return ApiResponse::err(ApiError::internal(e)).into_response(),
     };
-    let tenant = match tenant::resolve(&app, &**client, &headers).await {
+    let tenant = match tenant::resolve(&app, &**client, &origin, &headers).await {
         Ok(Some(t)) => t,
-        Ok(None) => return misdirected(tenant::request_host(&app, &headers).as_deref()),
+        Ok(None) => return misdirected(tenant::request_host(&origin, &headers).as_deref()),
         Err(e) => return ApiResponse::err(ApiError::internal(e)).into_response(),
     };
     let posted = method == Method::POST;
@@ -101,6 +105,7 @@ pub async fn handle(
         app,
         client,
         tenant,
+        origin,
         params,
         caller,
         formatversion,
