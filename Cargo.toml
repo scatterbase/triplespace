@@ -13,6 +13,7 @@ members = [
     "crates/scatter-adapter-internetdomains",
     "crates/triplespace-accounts",
     "crates/triplespace-api-action",
+    "crates/triplespace-api-rest",
     "crates/triplespace-server",
     "crates/triplespace-cli",
     "crates/scatter-actors",
@@ -48,6 +49,7 @@ scatter-ingest = { path = "crates/scatter-ingest" }
 triplespace-api-ingest = { path = "crates/triplespace-api-ingest" }
 triplespace-accounts = { path = "crates/triplespace-accounts" }
 triplespace-api-action = { path = "crates/triplespace-api-action" }
+triplespace-api-rest = { path = "crates/triplespace-api-rest" }
 triplespace-server = { path = "crates/triplespace-server" }
 triplespace-cli = { path = "crates/triplespace-cli" }
 scatter-adapter-wikidata = { path = "crates/scatter-adapter-wikidata" }

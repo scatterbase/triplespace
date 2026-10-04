@@ -134,3 +134,84 @@ pub async fn current(
         corrections,
     }))
 }
+
+/// One graph's cursor for an entity (0002 §8.4), as the provenance response shows it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GraphState {
+    /// The graph: `local`, `mirror/wikidata`, …
+    pub graph: String,
+    /// When the graph's current record for the entity was appended or synced.
+    pub synced_at: std::time::SystemTime,
+    /// The upstream version that record carries (Wikidata's `lastrevid`), for a mirror.
+    pub upstream_version: Option<String>,
+    /// The job that wrote it, if a job did.
+    pub job_id: Option<i64>,
+    /// The graph's history policy, `full` or `latest` (0002 §2), from its registry entry.
+    pub history: Option<String>,
+}
+
+/// What the serving tables say about an entity beside its state (0012 §5, provenance).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Standing {
+    /// When the instance first held the entity.
+    pub first_seen: Option<std::time::SystemTime>,
+    /// The retention policy (0002 §5), where one is set.
+    pub retention: Option<String>,
+    /// The canonical ID of its identity cluster (0004 §4); itself when it is in none.
+    pub canonical_id: Option<String>,
+    /// The cluster, where it is in one.
+    pub cluster_id: Option<i64>,
+    /// Whether a `read` ACL has deleted it (0023 §4).
+    pub deleted: bool,
+    /// Each graph that holds a record for it.
+    pub graphs: Vec<GraphState>,
+}
+
+/// Reads an entity's [`Standing`]: the tenant's own rows over the shared ones.
+pub async fn standing(
+    client: &tokio_postgres::Client,
+    tenant: &str,
+    id: &EntityId,
+) -> Result<Standing, String> {
+    let err = |e: tokio_postgres::Error| e.to_string();
+    let entity = client
+        .query_opt(
+            "SELECT first_seen, retention, canonical_id, cluster_id, deleted FROM view.entity
+             WHERE id = $1 AND tenant IN ($2, '') ORDER BY tenant DESC LIMIT 1",
+            &[&id.as_str(), &tenant],
+        )
+        .await
+        .map_err(err)?;
+    let mut out = Standing::default();
+    if let Some(r) = entity {
+        out.first_seen = r.get(0);
+        out.retention = r.get(1);
+        out.canonical_id = r.get(2);
+        out.cluster_id = r.get(3);
+        out.deleted = r.get(4);
+    }
+    let rows = client
+        .query(
+            "SELECT s.graph, s.synced_at, s.upstream_version, s.job_id,
+                    (SELECT g.config->>'history' FROM view.registry g
+                     WHERE g.kind = 'graph' AND g.code = s.graph AND g.tenant IN ($2, '')
+                     ORDER BY g.tenant DESC LIMIT 1)
+             FROM view.entity_source s
+             WHERE s.entity_id = $1 AND s.tenant IN ($2, '')
+             ORDER BY s.graph <> 'local', s.graph",
+            &[&id.as_str(), &tenant],
+        )
+        .await
+        .map_err(err)?;
+    out.graphs = rows
+        .iter()
+        .map(|r| GraphState {
+            graph: r.get(0),
+            synced_at: r.get(1),
+            upstream_version: r.get(2),
+            job_id: r.get(3),
+            history: r.get(4),
+        })
+        .collect();
+    Ok(out)
+}

@@ -1,0 +1,23 @@
+[package]
+name = "triplespace-api-rest"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "The triplespace/v0 REST API (ADR 0012 §5): data only Triplespace has, under rest.php/triplespace/v0, with its OpenAPI contract"
+publish = false
+
+[dependencies]
+triplespace-api-action.workspace = true
+triplespace-projections.workspace = true
+scatter-wikibase-model.workspace = true
+scatter-wikibase-resolve.workspace = true
+scatter-providers.workspace = true
+axum.workspace = true
+serde_json.workspace = true
+tokio-postgres.workspace = true
+
+[lints]
+workspace = true

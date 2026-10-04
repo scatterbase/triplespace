@@ -15,6 +15,7 @@ path = "src/main.rs"
 
 [dependencies]
 triplespace-api-action.workspace = true
+triplespace-api-rest.workspace = true
 triplespace-accounts.workspace = true
 triplespace-cli.workspace = true
 triplespace-db.workspace = true
@@ -28,6 +29,8 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "io-util"] }
 triplespace-projections.workspace = true
 scatter-projection.workspace = true
+scatter-ingest.workspace = true
+scatter-log.workspace = true
 tower.workspace = true
 http-body-util.workspace = true
 serde_json.workspace = true

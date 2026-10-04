@@ -19,7 +19,7 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     let mut response = ApiResponse::default();
     for meta in ctx.params.list("meta") {
         match meta.as_str() {
-            "siteinfo" => siteinfo(ctx, &mut query),
+            "siteinfo" => siteinfo(ctx, &mut query).await?,
             "tokens" => tokens(ctx, &mut query, &mut response).await?,
             "userinfo" => userinfo(ctx, &mut query),
             other => response.warn(
@@ -27,6 +27,14 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
                 &format!("Unrecognized value for parameter \"meta\": {other}."),
             ),
         }
+    }
+    // `meta=siteinfo` alone changes only with configuration, which no purge touches, so
+    // the web tier may keep it for a minute (0057 §5).
+    if ctx.params.list("meta") == ["siteinfo"]
+        && ctx.params.list("prop").is_empty()
+        && ctx.params.list("list").is_empty()
+    {
+        ctx.cache_class = crate::http_cache::Class::Stable;
     }
     for p in ctx.params.list("prop") {
         response.warn(
@@ -273,10 +281,29 @@ fn providers() -> Value {
         .collect()
 }
 
+/// The tenant's theme (0034 §1, 0012 A38): the `site:ui.theme` setting's `value`, the
+/// tenant's own or else the instance's; `None` when neither is set, and the site then
+/// wears its shipped default. Not yet withheld from outsiders of a private tenant,
+/// since there are none until 0056 §3 is built.
+async fn theme(ctx: &Ctx) -> Result<Option<Value>, ApiError> {
+    let row = ctx
+        .db()
+        .query_opt(
+            "SELECT config->'value' FROM view.registry
+             WHERE kind = 'site' AND code = 'ui.theme' AND tenant IN ($1, '')
+             ORDER BY tenant DESC LIMIT 1",
+            &[&ctx.tenant.slug],
+        )
+        .await?;
+    Ok(row
+        .and_then(|r| r.get::<_, Option<Value>>(0))
+        .filter(Value::is_object))
+}
+
 /// `meta=siteinfo`: `general`, `namespaces`, `namespacealiases`, `extensions`,
 /// `statistics`, `usergroups`, `providers`, `triplespace`; unknown `siprop` values warn.
 #[allow(clippy::too_many_lines)]
-fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) {
+async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), ApiError> {
     let mut props = ctx.params.list("siprop");
     if props.is_empty() {
         props.push("general".into());
@@ -372,7 +399,11 @@ fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) {
                     "providers": Registry::default_registry().providers().iter().map(|p| p.slug.clone()).collect::<Vec<_>>(),
                     "rate_limits": [],
                     "grants": scatter_actors::grant::GrantRegistry::default_registry().grants().iter().map(|g| g.name.clone()).collect::<Vec<_>>(),
+                    "api_version": crate::API_VERSION,
                 });
+                if let Some(theme) = theme(ctx).await? {
+                    t["theme"] = theme;
+                }
                 if ctx.app.config().mode == Mode::Development {
                     t["insecure"] = json!(true);
                 }
@@ -384,6 +415,7 @@ fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) {
             ),
         }
     }
+    Ok(())
 }
 
 /// `action=paraminfo`: enough for a client to see which modules exist.
