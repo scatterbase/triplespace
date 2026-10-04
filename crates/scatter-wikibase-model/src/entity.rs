@@ -195,19 +195,19 @@ struct EntityWire {
     id: EntityId,
     #[serde(default)]
     datatype: Option<DataType>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "crate::php::empty_array_as_map")]
     labels: BTreeMap<String, Term>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "crate::php::empty_array_as_map")]
     descriptions: BTreeMap<String, Term>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "crate::php::empty_array_as_map")]
     aliases: BTreeMap<String, Vec<Term>>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "crate::php::empty_array_as_map")]
     claims: StatementGroups,
     /// MediaInfo entities write their statements under `statements`, as Commons does
     /// (0041 §7). Accepted for every type; emitted for `mediainfo`.
-    #[serde(default)]
+    #[serde(default, deserialize_with = "crate::php::empty_array_as_map")]
     statements: StatementGroups,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "crate::php::empty_array_as_map")]
     sitelinks: BTreeMap<String, Sitelink>,
     // Page metadata (wikibase-compat §3.1).
     #[serde(default)]
@@ -473,6 +473,28 @@ mod tests {
             serde_json::to_value(&bare.entity).unwrap(),
             json!({"type": "item", "id": "Q8", "labels": {}, "descriptions": {}, "aliases": {}, "claims": {}, "sitelinks": {}})
         );
+    }
+
+    #[test]
+    fn php_empty_arrays_read_as_empty_maps() {
+        // Revision text from an XML dump of a Wikibase Cloud wiki: `json_encode()` writes
+        // every empty map as `[]`.
+        let text = r#"{"type":"item","id":"Q1","labels":{"en":{"language":"en","value":"miscellany"}},"descriptions":[],"aliases":[],"claims":[],"sitelinks":[]}"#;
+        let p = Entity::from_json(text).unwrap();
+        assert_eq!(
+            p.entity.labels.get("en").map(String::as_str),
+            Some("miscellany")
+        );
+        assert!(p.entity.descriptions.is_empty());
+        assert!(p.entity.statements.is_empty());
+        let prop = r#"{"type":"property","datatype":"string","id":"P2","labels":[],"descriptions":[],"aliases":[],"claims":{"P3":[{"mainsnak":{"snaktype":"value","property":"P3","datavalue":{"value":"x","type":"string"}},"type":"statement","qualifiers":[],"rank":"normal","references":[{"snaks":[],"snaks-order":[]}]}]}}"#;
+        let p = Entity::from_json(prop).unwrap();
+        assert_eq!(
+            p.entity.statements[&EntityId::parse("P3").unwrap()].len(),
+            1
+        );
+        // A non-empty array is still not a map.
+        assert!(Entity::from_json(r#"{"type":"item","id":"Q1","claims":[1]}"#).is_err());
     }
 
     #[test]

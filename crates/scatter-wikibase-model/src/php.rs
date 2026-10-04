@@ -1,12 +1,51 @@
 //! The pieces of PHP's `serialize()`, `json_encode()` and float-to-string conversion that
 //! Wikibase's hashes are computed over (see [`crate::hash`]).
 //!
-//! Only what the hashes need is here. The formats are PHP 7.1+ with the default settings
+//! Only what the hashes need is here, plus [`empty_array_as_map`] for reading what
+//! `json_encode()` wrote. The formats are PHP 7.1+ with the default settings
 //! Wikibase runs under: `serialize_precision = -1` (shortest round-trip digits) for
 //! `serialize()` and `json_encode()`, `precision = 14` for `(string)$float`, and
 //! `json_encode()` with no flags, so `/` is written `\/` and non-ASCII as `\uXXXX`.
 
 use std::fmt::Write as _;
+use std::marker::PhantomData;
+
+use serde::de::{self, Deserialize, Deserializer, IgnoredAny, MapAccess, SeqAccess, Visitor};
+
+/// Deserializes a JSON object into a map type, also accepting `[]` as the empty map.
+///
+/// PHP has one array type, so `json_encode()` of an empty associative array is `[]`:
+/// revision text in XML dumps and older API output carry `"claims":[]`, `"labels":[]`,
+/// `"sitelinks":[]` and so on wherever a map is empty. Wikibase's own readers accept the
+/// same. A non-empty array is still an error.
+pub(crate) fn empty_array_as_map<'de, D, M>(d: D) -> Result<M, D::Error>
+where
+    D: Deserializer<'de>,
+    M: Deserialize<'de> + Default,
+{
+    struct MapOrEmpty<M>(PhantomData<M>);
+
+    impl<'de, M: Deserialize<'de> + Default> Visitor<'de> for MapOrEmpty<M> {
+        type Value = M;
+
+        fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str("a map, or an empty array")
+        }
+
+        fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<M, A::Error> {
+            if seq.next_element::<IgnoredAny>()?.is_some() {
+                return Err(de::Error::invalid_type(de::Unexpected::Seq, &self));
+            }
+            Ok(M::default())
+        }
+
+        fn visit_map<A: MapAccess<'de>>(self, map: A) -> Result<M, A::Error> {
+            M::deserialize(de::value::MapAccessDeserializer::new(map))
+        }
+    }
+
+    d.deserialize_any(MapOrEmpty(PhantomData))
+}
 
 /// `serialize($string)`: `s:<byte length>:"<raw bytes>";`.
 pub(crate) fn serialize_str(out: &mut String, s: &str) {
@@ -301,6 +340,25 @@ mod tests {
         ] {
             assert_eq!(php_array_key(k), want, "{k:?}");
         }
+    }
+
+    #[test]
+    fn empty_array_reads_as_empty_map() {
+        use std::collections::BTreeMap;
+
+        #[derive(serde::Deserialize)]
+        struct W {
+            #[serde(default, deserialize_with = "empty_array_as_map")]
+            m: BTreeMap<String, u32>,
+        }
+        let w: W = serde_json::from_str(r#"{"m":[]}"#).unwrap();
+        assert!(w.m.is_empty());
+        let w: W = serde_json::from_str(r#"{"m":{"a":1}}"#).unwrap();
+        assert_eq!(w.m.get("a"), Some(&1));
+        let w: W = serde_json::from_str("{}").unwrap();
+        assert!(w.m.is_empty());
+        assert!(serde_json::from_str::<W>(r#"{"m":[1]}"#).is_err());
+        assert!(serde_json::from_str::<W>(r#"{"m":"x"}"#).is_err());
     }
 
     #[test]

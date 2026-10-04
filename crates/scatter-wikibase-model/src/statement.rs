@@ -251,6 +251,7 @@ fn apply_order<E: serde::de::Error>(
 struct ReferenceWire {
     #[serde(default)]
     hash: Option<String>,
+    #[serde(deserialize_with = "crate::php::empty_array_as_map")]
     snaks: SnakGroups,
     #[serde(rename = "snaks-order", default)]
     snaks_order: Option<Vec<EntityId>>,
@@ -324,7 +325,7 @@ struct StatementWire {
     kind: Option<String>,
     #[serde(default)]
     rank: Rank,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "crate::php::empty_array_as_map")]
     qualifiers: SnakGroups,
     #[serde(rename = "qualifiers-order", default)]
     qualifiers_order: Option<Vec<EntityId>>,
