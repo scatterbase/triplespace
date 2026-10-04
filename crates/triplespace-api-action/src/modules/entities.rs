@@ -104,6 +104,7 @@ pub async fn wbgetentities(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     for given in ids {
         let id = parse_id(&given)?;
         let mut v = entity_json(ctx, &id, &given).await?;
+        ctx.cache_tags.push(format!("entity:{}", id.as_str()));
         if v.get("missing").is_none() {
             entity_json::filter(&mut v, &props, &languages);
         }

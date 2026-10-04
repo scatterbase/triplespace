@@ -2,7 +2,7 @@
 //! URI `/entity/{id}` (0002 §4), which answers 303 to the data document, as Wikibase does.
 
 use axum::extract::{Extension, Path, State};
-use axum::http::{HeaderMap, StatusCode, header};
+use axum::http::{HeaderMap, Method, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use serde_json::json;
 
@@ -10,6 +10,7 @@ use crate::api::Ctx;
 use crate::app::App;
 use crate::auth::Caller;
 use crate::forwarded::Origin;
+use crate::http_cache::{self, Class};
 use crate::modules::entities::{entity_json, parse_id};
 use crate::params::Params;
 use crate::response::ApiError;
@@ -53,6 +54,8 @@ async fn context(app: App, origin: Origin, headers: &HeaderMap) -> Result<Ctx, R
         formatversion: 2,
         set_cookie: None,
         warnings: Vec::new(),
+        cache_class: crate::http_cache::Class::Public,
+        cache_tags: Vec::new(),
     })
 }
 
@@ -84,15 +87,16 @@ pub async fn special_entity_data(
         ),
         Ok(v) => {
             let body = json!({"entities": {id.as_str(): v}}).to_string();
-            (
+            let credentialed = ctx.caller.has_session() || crate::auth::bearer(&headers).is_some();
+            let class = Class::Public.permitted(&Method::GET, credentialed, false, false);
+            http_cache::respond(
+                &headers,
                 StatusCode::OK,
-                [
-                    (header::CONTENT_TYPE, "application/json; charset=utf-8"),
-                    (header::CACHE_CONTROL, "public, max-age=60"),
-                ],
+                "application/json; charset=utf-8",
                 body,
+                class,
+                &[format!("entity:{}", id.as_str())],
             )
-                .into_response()
         }
         Err(ApiError { code, info, .. }) => plain(
             StatusCode::INTERNAL_SERVER_ERROR,

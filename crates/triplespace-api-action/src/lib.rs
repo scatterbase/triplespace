@@ -25,23 +25,37 @@ pub mod auth;
 pub mod edit;
 pub mod entity_json;
 pub mod forwarded;
+pub mod http_cache;
 pub mod modules;
 pub mod params;
 pub mod response;
 pub mod tenant;
 
 pub use app::{App, Config, Mode};
+
+/// The API level the site checks against the minimum it was built for (0057 §9),
+/// reported as `api_version` in `meta=siteinfo&siprop=triplespace`. It rises whenever a
+/// route, module or field the site relies on is added; it never falls.
+///
+/// - 1: `siprop=triplespace` with `api_version` and `theme`; `ETag`, `Cache-Control`,
+///   `Cache-Tag` and `304` on public responses; `GET /entity/{id}/provenance` in REST v0.
+pub const API_VERSION: u32 = 1;
 pub use response::ApiError;
 
 use axum::Router;
 use axum::routing::get;
 
 /// The router: `api.php` at both MediaWiki paths, the entity routes, and a health check.
+pub fn router(app: App) -> Router {
+    router_with(app, Router::new())
+}
+
+/// The router with more routes merged in (the REST API's), all behind the same layers.
 ///
 /// Every route runs behind [`forwarded::layer`], which works out the client behind
 /// trusted proxies. The server must be served with
 /// `into_make_service_with_connect_info::<SocketAddr>()` for the peer address to be known.
-pub fn router(app: App) -> Router {
+pub fn router_with(app: App, extra: Router<App>) -> Router {
     Router::new()
         .route("/api.php", get(api::handle).post(api::handle))
         .route("/w/api.php", get(api::handle).post(api::handle))
@@ -51,6 +65,7 @@ pub fn router(app: App) -> Router {
         )
         .route("/entity/{id}", get(modules::entitydata::concept_uri))
         .route("/healthz", get(|| async { "ok" }))
+        .merge(extra)
         .layer(axum::middleware::from_fn_with_state(
             app.clone(),
             forwarded::layer,

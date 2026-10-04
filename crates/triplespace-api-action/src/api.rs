@@ -10,6 +10,7 @@ use deadpool_postgres::Object;
 use crate::app::App;
 use crate::auth::Caller;
 use crate::forwarded::Origin;
+use crate::http_cache::{self, Class};
 use crate::modules;
 use crate::params::Params;
 use crate::response::{ApiError, ApiResponse};
@@ -35,6 +36,11 @@ pub struct Ctx {
     pub set_cookie: Option<String>,
     /// Warnings gathered along the way.
     pub warnings: Vec<(String, String)>,
+    /// The cache class a module asks for; the request may only lower it
+    /// ([`Class::permitted`]).
+    pub cache_class: Class,
+    /// The `Cache-Tag`s of the entities the response drew on (0014 §5).
+    pub cache_tags: Vec<String>,
 }
 
 impl Ctx {
@@ -111,6 +117,8 @@ pub async fn handle(
         formatversion,
         set_cookie: None,
         warnings: Vec::new(),
+        cache_class: Class::Public,
+        cache_tags: Vec::new(),
     };
     let mut response = match dispatch(&mut ctx).await {
         Ok(r) => r,
@@ -120,7 +128,32 @@ pub async fn handle(
     if response.set_cookie.is_none() {
         response.set_cookie = ctx.set_cookie.take();
     }
-    response.into_response()
+    let credentialed = ctx.caller.has_session() || crate::auth::bearer(&headers).is_some();
+    let class = ctx.cache_class.permitted(
+        &method,
+        credentialed,
+        response.set_cookie.is_some(),
+        response.error.is_some(),
+    );
+    let mut r = http_cache::respond(
+        &headers,
+        StatusCode::OK,
+        "application/json; charset=utf-8",
+        response.to_value().to_string(),
+        class,
+        &ctx.cache_tags,
+    );
+    if let Some(e) = &response.error
+        && let Ok(v) = header::HeaderValue::from_str(&e.code)
+    {
+        r.headers_mut().insert("MediaWiki-API-Error", v);
+    }
+    if let Some(c) = &response.set_cookie
+        && let Ok(v) = header::HeaderValue::from_str(c)
+    {
+        r.headers_mut().insert(header::SET_COOKIE, v);
+    }
+    r
 }
 
 async fn dispatch(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {

@@ -14,7 +14,7 @@ use serde_json::{Value, json};
 use tokio_postgres::{Config, NoTls};
 use tower::ServiceExt as _;
 use triplespace_accounts::{Secret, keys};
-use triplespace_api_action::{App, Config as ServerConfig, Mode, router};
+use triplespace_api_action::{App, Config as ServerConfig, Mode, router_with};
 use triplespace_cli::forwarder::{Create, Forwarder, Revoke, Target};
 use triplespace_cli::{accounts, adopt, instance, sync};
 use triplespace_projections::Farm;
@@ -319,7 +319,7 @@ async fn a_bot_logs_in_reads_and_edits() {
     )
     .unwrap();
     let mut c = Client {
-        router: router(app),
+        router: router_with(app, triplespace_api_rest::routes()),
         cookie: None,
         bearer: None,
     };
@@ -680,6 +680,9 @@ async fn a_bot_logs_in_reads_and_edits() {
         "{ui}"
     );
 
+    // What the site reads in its first phase (0057 §5–6, §9; 0012 §5).
+    what_the_site_reads(&c.router, &database).await;
+
     // 10. Everything the API wrote replays from the log.
     let status = triplespace_cli::status::Target {
         database: database.clone(),
@@ -698,4 +701,184 @@ async fn a_bot_logs_in_reads_and_edits() {
         r["entities"]["domain:wikipedia.org"]["claims"]["P12"][0]["mainsnak"]["datavalue"]["value"],
         "an assertion of ours"
     );
+}
+
+/// Sends a request with no credentials, or with the headers given, and returns the
+/// status, the headers and the body.
+async fn send(
+    router: &Router,
+    uri: &str,
+    extra: &[(&str, String)],
+) -> (StatusCode, axum::http::HeaderMap, Value) {
+    let mut req = Request::builder().uri(uri).header(header::HOST, HOST);
+    for (k, v) in extra {
+        req = req.header(*k, v.as_str());
+    }
+    let response = router
+        .clone()
+        .oneshot(req.body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    let status = response.status();
+    let headers = response.headers().clone();
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let body = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
+    (status, headers, body)
+}
+
+#[allow(clippy::too_many_lines)]
+async fn what_the_site_reads(router: &Router, database: &str) {
+    // siteinfo: the API level, and no theme until one is set.
+    let siteinfo = "/w/api.php?action=query&meta=siteinfo&siprop=triplespace&format=json";
+    let (status, h, body) = send(router, siteinfo, &[]).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        body["query"]["triplespace"]["api_version"],
+        json!(triplespace_api_action::API_VERSION)
+    );
+    assert!(body["query"]["triplespace"].get("theme").is_none());
+    assert!(
+        h["cache-control"]
+            .to_str()
+            .unwrap()
+            .starts_with("public, max-age=60"),
+        "siteinfo alone is stable: {h:?}"
+    );
+
+    // A tenant theme set in its config is what siteinfo reports.
+    let farm = Farm {
+        slug: TENANT.into(),
+        base: format!("https://{HOST}"),
+    };
+    let (store, pipeline) = triplespace_cli::common::store(database, &farm).unwrap();
+    let mut cx = scatter_projection::Backend::begin(&store).await.unwrap();
+    let config = scatter_ingest::store::IngestStore::partition(&store, &mut cx, TENANT, "config")
+        .await
+        .unwrap()
+        .expect("the tenant has a config partition");
+    let theme =
+        json!({"color-progressive": "#2b559e", "font-family-heading-main": "Newsreader, serif"});
+    let d = triplespace_cli::common::draft(
+        scatter_log::registry::PAYLOAD_CONFIG,
+        "site:ui.theme",
+        &json!({"kind": "site", "name": "ui.theme", "value": theme}),
+        "librarybase:7",
+        None,
+        triplespace_cli::common::now(),
+    )
+    .unwrap();
+    scatter_ingest::write::append_projected(
+        &store,
+        &pipeline,
+        &mut cx,
+        config,
+        d,
+        scatter_projection::Budget::NONE,
+    )
+    .await
+    .unwrap();
+    scatter_projection::Backend::commit(&store, cx)
+        .await
+        .unwrap();
+    let (_, _, body) = send(router, siteinfo, &[]).await;
+    assert_eq!(body["query"]["triplespace"]["theme"], theme);
+
+    // An anonymous entity read is public, tagged and revalidates to 304.
+    let get = "/w/api.php?action=wbgetentities&ids=Q6|domain:wikipedia.org&format=json";
+    let (status, h, _) = send(router, get, &[]).await;
+    assert_eq!(status, StatusCode::OK);
+    let cc = h["cache-control"].to_str().unwrap();
+    assert!(cc.starts_with("public, max-age=0, s-maxage=60"), "{cc}");
+    assert_eq!(h["cache-tag"], "entity:Q6, entity:domain:wikipedia.org");
+    let etag = h["etag"].to_str().unwrap().to_string();
+    let (status, h2, _) = send(router, get, &[("if-none-match", etag.clone())]).await;
+    assert_eq!(status, StatusCode::NOT_MODIFIED);
+    assert_eq!(h2["etag"].to_str().unwrap(), etag);
+
+    // With credentials it is private, and carries no tags.
+    let (_, h, _) = send(
+        router,
+        get,
+        &[("authorization", "Bearer nonsense.key".into())],
+    )
+    .await;
+    assert_eq!(h["cache-control"], "private, no-cache");
+    assert!(h.get("cache-tag").is_none());
+
+    // The data document caches the same way.
+    let doc = "/wiki/Special:EntityData/Q6.json";
+    let (status, h, _) = send(router, doc, &[]).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(h["cache-control"].to_str().unwrap().contains("s-maxage=60"));
+    let etag = h["etag"].to_str().unwrap().to_string();
+    let (status, _, _) = send(router, doc, &[("if-none-match", etag)]).await;
+    assert_eq!(status, StatusCode::NOT_MODIFIED);
+
+    // Provenance: a local item adopted from Librarybase.
+    let (status, h, p) = send(
+        router,
+        "/w/rest.php/triplespace/v0/entity/Q6/provenance",
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{p}");
+    assert_eq!(p["id"], "Q6");
+    assert_eq!(p["type"], "item");
+    assert_eq!(p["minted_by"]["kind"], "tenant");
+    assert_eq!(p["minted_by"]["adopted_from"], "https://librarybase.org/");
+    assert_eq!(p["graphs"][0]["graph"], "local");
+    assert_eq!(p["graphs"][0]["history"], "full");
+    // The test removed Q6's one statement earlier, so no graph dominates.
+    assert_eq!(p["graphs"][0]["statements"], 0);
+    assert!(p.get("dominant").is_none());
+    assert_eq!(h["cache-tag"], "entity:Q6");
+
+    // A Domain: the mirror's record and the tenant's assertion, side by side.
+    let (status, _, p) = send(
+        router,
+        "/rest.php/triplespace/v0/entity/domain:wikipedia.org/provenance",
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{p}");
+    assert_eq!(p["minted_by"], json!({"kind": "keyed", "type": "domain"}));
+    let graphs: Vec<&str> = p["graphs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|g| g["graph"].as_str().unwrap())
+        .collect();
+    assert_eq!(graphs, ["local", "mirror/internetdomains"]);
+    let mirror = &p["graphs"][1];
+    assert!(mirror.get("upstream_version").is_some(), "{mirror}");
+    assert_eq!(mirror["history"], "latest");
+    assert!(mirror.get("job").is_some(), "the sync job: {mirror}");
+    // One statement each; a tie goes to the earlier graph, local first.
+    assert_eq!(p["dominant"], "local");
+    assert!(
+        p["statements"]
+            .as_object()
+            .unwrap()
+            .values()
+            .any(|s| s["graphs"] == json!(["local"])),
+        "the tenant's own statement on the Domain: {p}"
+    );
+
+    // Missing and malformed IDs.
+    let (status, _, e) = send(
+        router,
+        "/w/rest.php/triplespace/v0/entity/Q999999/provenance",
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert_eq!(e["code"], "entity-not-found");
+    let (status, _, e) = send(
+        router,
+        "/w/rest.php/triplespace/v0/entity/not-an-id/provenance",
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(e["code"], "invalid-entity-id");
 }

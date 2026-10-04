@@ -1,0 +1,396 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Triplespace REST API",
+    "version": "0",
+    "summary": "Data only Triplespace has, under rest.php/triplespace/v0 (ADR 0012 §1.3, §5).",
+    "description": "The normative contract of the triplespace/v0 REST API. `v0` makes no stability promise yet (ADR 0005 §5). A route and its entry here change together. Every route is served per tenant base, which the request's host selects; responses are redacted for their viewer (ADR 0012 §8) and cached as ADR 0014 §6 has it: a public response carries `ETag`, `Cache-Control: public, max-age=0, s-maxage=60` and the `Cache-Tag` of every entity it drew on, and a request whose `If-None-Match` names the `ETag` gets `304`.",
+    "license": {
+      "name": "CC0-1.0",
+      "identifier": "CC0-1.0"
+    }
+  },
+  "servers": [
+    {
+      "url": "{base}/w/rest.php/triplespace/v0",
+      "variables": {
+        "base": {
+          "default": "https://librarybase.org",
+          "description": "A tenant base"
+        }
+      }
+    },
+    {
+      "url": "{base}/rest.php/triplespace/v0",
+      "variables": {
+        "base": {
+          "default": "https://librarybase.org"
+        }
+      }
+    }
+  ],
+  "paths": {
+    "/entity/{id}/provenance": {
+      "get": {
+        "operationId": "getEntityProvenance",
+        "summary": "Where an entity and each of its statements come from",
+        "description": "Which graphs hold a record for the entity, with their statement counts, sync state and history policy; the dominant graph; the graphs that assert each statement of the resolved view; the local corrections; who minted the ID; retention; the canonical ID (ADR 0003 §6, ADR 0012 §5). Fields whose projections are not built yet (cluster members, constraint results, the backlink count) are absent. A valid keyed ID that no graph holds answers with an empty provenance, as `wbgetentities` serves an empty entity for it (ADR 0009 §4).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "An entity ID in any form the Action API accepts: `Q6`, `XDQ12`, `domain:wikipedia.org`, `Item:Q6`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The provenance.",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Tag": {
+                "description": "Public responses only: `entity:{id}`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Provenance"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "The client's copy, named by `If-None-Match`, is current."
+          },
+          "400": {
+            "description": "Not an entity ID, or one of no registered provider.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller lacks `read`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such entity, or one the caller may not know exists (ADR 0056 §5).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The host is not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "examples": [
+              "entity-not-found",
+              "invalid-entity-id",
+              "permissiondenied",
+              "misdirected"
+            ]
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "Provenance": {
+        "type": "object",
+        "required": [
+          "id",
+          "canonical",
+          "minted_by",
+          "graphs",
+          "statements",
+          "corrections"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The entity ID in canonical form."
+          },
+          "canonical": {
+            "type": "string",
+            "description": "The canonical ID of the entity's identity cluster (ADR 0004 §4); the ID itself when it is in none."
+          },
+          "type": {
+            "type": "string",
+            "examples": [
+              "item",
+              "property",
+              "domain"
+            ]
+          },
+          "page_id": {
+            "type": "integer"
+          },
+          "lastrevid": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "modified": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "first_seen": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "retention": {
+            "type": "string",
+            "enum": [
+              "cascade",
+              "orphan",
+              "retain"
+            ]
+          },
+          "minted_by": {
+            "$ref": "#/components/schemas/MintedBy"
+          },
+          "dominant": {
+            "type": "string",
+            "description": "The graph that asserts the most statements; a tie goes to the earlier graph, local first. Absent when no graph asserts any."
+          },
+          "graphs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GraphState"
+            },
+            "description": "Each graph that holds a record for the entity, local first."
+          },
+          "statements": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/StatementProvenance"
+            },
+            "description": "Keyed by the statement ID of the resolved view."
+          },
+          "corrections": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Correction"
+            },
+            "description": "The tenant's corrections of mirrored statements (ADR 0002 §7), keyed by the statement ID they correct."
+          }
+        }
+      },
+      "MintedBy": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "kind",
+              "tenant"
+            ],
+            "properties": {
+              "kind": {
+                "const": "tenant"
+              },
+              "tenant": {
+                "type": "string"
+              },
+              "adopted_from": {
+                "type": "string",
+                "format": "uri",
+                "description": "The wiki the tenant was adopted from (ADR 0035)."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "provider"
+              },
+              "provider": {
+                "type": "string"
+              },
+              "code": {
+                "type": "string"
+              },
+              "upstream_id": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind",
+              "type"
+            ],
+            "properties": {
+              "kind": {
+                "const": "keyed"
+              },
+              "type": {
+                "type": "string",
+                "description": "The keyed type; a keyed ID names the thing itself and is minted by no one (ADR 0017 §1)."
+              }
+            }
+          }
+        ]
+      },
+      "GraphState": {
+        "type": "object",
+        "required": [
+          "graph",
+          "statements",
+          "synced_at"
+        ],
+        "properties": {
+          "graph": {
+            "type": "string",
+            "examples": [
+              "local",
+              "mirror/wikidata"
+            ]
+          },
+          "statements": {
+            "type": "integer",
+            "description": "How many statements the graph asserts."
+          },
+          "synced_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the graph's current record for the entity was written."
+          },
+          "upstream_version": {
+            "type": "string",
+            "description": "The upstream version that record carries, for a mirror."
+          },
+          "job": {
+            "type": "integer",
+            "description": "The job that wrote it."
+          },
+          "history": {
+            "type": "string",
+            "enum": [
+              "full",
+              "latest"
+            ],
+            "description": "The graph's history policy (ADR 0002 §2)."
+          }
+        }
+      },
+      "StatementProvenance": {
+        "type": "object",
+        "required": [
+          "graphs",
+          "members"
+        ],
+        "properties": {
+          "graphs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The graphs that assert a member, in graph order."
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The member statements' own IDs, in graph order (ADR 0004 §8)."
+          }
+        }
+      },
+      "Correction": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "rank"
+            ],
+            "properties": {
+              "rank": {
+                "type": "string",
+                "enum": [
+                  "preferred",
+                  "normal",
+                  "deprecated"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "suppressed"
+            ],
+            "properties": {
+              "suppressed": {
+                "const": true
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

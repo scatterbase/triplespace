@@ -1,4 +1,5 @@
-//! `triplespace-server`: the Action API over axum (0033 §3; 0056 §10).
+//! `triplespace-server`: the Action API and the `triplespace/v0` REST API over axum
+//! (0033 §3; 0056 §10).
 
 #![forbid(unsafe_code)]
 
@@ -7,7 +8,7 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result, bail};
 use clap::Parser;
-use triplespace_api_action::{App, Config, Mode, router};
+use triplespace_api_action::{App, Config, Mode, router_with};
 
 /// The Triplespace server.
 #[derive(Debug, Parser)]
@@ -103,7 +104,8 @@ async fn main() -> Result<()> {
     );
     axum::serve(
         listener,
-        router(app).into_make_service_with_connect_info::<SocketAddr>(),
+        router_with(app, triplespace_api_rest::routes())
+            .into_make_service_with_connect_info::<SocketAddr>(),
     )
     .with_graceful_shutdown(async {
         let _ = tokio::signal::ctrl_c().await;
