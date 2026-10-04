@@ -14,7 +14,7 @@
 //! Each statement group takes the shape `scatter-wikibase-shape` gives it (0003 §3):
 //! Single, Timeline, Series, Table (or a numbered list, or a Matrix), Chips or List, with
 //! best values leading, other and deprecated values folded, shared qualifiers stated once
-//! and references as footnotes (§4–5). [`shapes`] draws them; [`chart`] draws the
+//! and references as footnotes (§4–5). `shapes` draws them; `chart` draws the
 //! Series chart and the Timeline axis as SVG.
 //!
 //! One page costs three API calls in parallel with the frame's (`wbgetentities` for the
