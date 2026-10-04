@@ -54,6 +54,9 @@ npm-debug.log*
 /data/
 /dumps/
 *.mwrev.zst
+# Samples too large for git (the Wikidata audit sample of tools/wikidata-sample.py,
+# 140 MB compressed; GitHub refuses files over 100 MB). Shared out of band.
+/docs/api/snapshots/big/
 # Bind-mounted volumes from compose.yaml
 /.compose/
 
