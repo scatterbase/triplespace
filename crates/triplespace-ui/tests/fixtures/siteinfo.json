@@ -6,7 +6,7 @@
                 "local"
             ],
             "articlepath": "/wiki/$1",
-            "base": "https://librarybase.org/wiki/Main_Page",
+            "base": "https://librarybase.org/wiki/Project:Home",
             "case": "first-letter",
             "centralidlookupprovider": "local",
             "dbtype": "postgres",
@@ -14,7 +14,7 @@
             "generator": "Triplespace 0.0.1",
             "lang": "en",
             "legaltitlechars": " %!\"$&'()*,\\-.\\/0-9:;=?@A-Z\\\\^_`a-z~\\x80-\\xFF+",
-            "mainpage": "Main Page",
+            "mainpage": "Project:Home",
             "maxarticlesize": 2097152,
             "phpversion": "0",
             "readonly": false,

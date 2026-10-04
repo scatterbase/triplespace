@@ -175,7 +175,9 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
         ))));
 
     for path in [
-        "/wiki/Main_Page",
+        "/wiki/Project:Home",
+        "/wiki/Special:SpecialPages",
+        "/wiki/Project:About",
         "/wiki/Item:Q6",
         "/wiki/Item:Q6?tab=identifiers",
         "/wiki/Item:Q6?tab=sitelinks",
@@ -186,7 +188,7 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
         "/wiki/Domain:wikipedia.org",
         "/wiki/Item:Q404",
         "/w/index.php?title=Item:Q6&action=history",
-        "/w/index.php?title=Special:Search&search=six",
+        "/w/index.php?title=Special:Search&search=six&fulltext=1",
         "/nothing/here",
     ] {
         let a = get(&web, path, None).await;
@@ -210,25 +212,32 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
             "{path}: an anonymous page is public"
         );
     }
-    let page = get(&web, "/wiki/Main_Page", None).await;
+    let page = get(&web, "/wiki/Project:Home", None).await;
     assert!(
-        page.body.contains("<title>Main Page – librarybase</title>"),
+        page.body
+            .contains("<title>Project:Home – librarybase</title>"),
         "{}",
         page.body
     );
-    assert!(page.body.contains("Log in"));
+    assert!(page.body.contains("This page is generated"));
+    let main = get(&web, "/wiki/Main_Page", None).await;
+    assert_eq!(
+        main.status,
+        StatusCode::FOUND,
+        "the old main page redirects"
+    );
 
     // A session cookie the API does not know: the site asks who the viewer is, and the
     // API answers with the anonymous, public form, so the page is the anonymous page.
     let a = get(
         &web,
-        "/wiki/Main_Page",
+        "/wiki/Project:Home",
         Some("triplespace_session=nonsense"),
     )
     .await;
     let b = get(
         &embedded,
-        "/wiki/Main_Page",
+        "/wiki/Project:Home",
         Some("triplespace_session=nonsense"),
     )
     .await;

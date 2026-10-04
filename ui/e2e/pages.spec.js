@@ -17,7 +17,9 @@ function overflow( page ) {
 }
 
 const pages = [
-	{ path: '/wiki/Main_Page', heading: 'Main Page' },
+	{ path: '/wiki/Project:Home', heading: 'librarybase' },
+	{ path: '/wiki/Special:SpecialPages', heading: 'Special pages' },
+	{ path: '/wiki/Project:About', heading: 'Project:About', status: 404 },
 	{ path: '/wiki/Item:Q6', heading: 'Six & more' },
 	{ path: '/wiki/Item:Q6?tab=identifiers', heading: 'Six & more' },
 	{ path: '/wiki/Item:Q6?tab=sitelinks', heading: 'Six & more' },
@@ -79,6 +81,18 @@ test( 'the header box goes to an ID and searches words without JavaScript', asyn
 	await expect( page.locator( '.ts-hit__title' ).first() ).toHaveText( 'Six & more' );
 } );
 
+test( 'the main page is Project:Home, and unbuilt features are not linked', async ( { page } ) => {
+	await page.goto( '/' );
+	await expect( page ).toHaveURL( /\/wiki\/Project:Home$/ );
+	await page.goto( '/wiki/Main_Page' );
+	await expect( page ).toHaveURL( /\/wiki\/Project:Home$/ );
+	for ( const absent of [ 'Special:RecentChanges', 'Special:Jobs', 'Special:NewItem', 'action=history' ] ) {
+		await expect( page.locator( `a[href*="${ absent }"]` ) ).toHaveCount( 0 );
+	}
+	await page.goto( '/wiki/Item:Q6' );
+	await expect( page.locator( 'a[href*="action=history"]' ) ).toHaveCount( 0 );
+} );
+
 test( 'a phone reads an item without scrolling sideways', async ( { browser } ) => {
 	const context = await browser.newContext( {
 		viewport: { width: 390, height: 844 },
@@ -118,7 +132,7 @@ test( 'an anonymous page is public; a signed-in page is private', async ( { play
 			formatversion: '2',
 			username: 'Alice',
 			password: process.env.E2E_OWNER_PASSWORD,
-			loginreturnurl: `${ baseURL }/wiki/Main_Page`,
+			loginreturnurl: `${ baseURL }/wiki/Project:Home`,
 			logintoken: tokens.query.tokens.logintoken
 		}
 	} ) ).json();
@@ -128,7 +142,7 @@ test( 'an anonymous page is public; a signed-in page is private', async ( { play
 		const mine = await alice.get( '/wiki/Item:Q6' );
 		expect( mine.headers()[ 'cache-control' ] ).toBe( 'private, no-cache' );
 		expect( mine.headers()[ 'cache-tag' ] ).toBeUndefined();
-		expect( await mine.text() ).toContain( 'Account menu for Alice' );
+		expect( await mine.text() ).toContain( '<span class="ts-header__user">Alice</span>' );
 	}
 	await alice.dispose();
 } );

@@ -17,7 +17,6 @@ expression: main_of(&html)
 		<a class="ts-tabs__link" href="/wiki/Item:Q6?tab=identifiers">Identifiers</a>
 		<a class="ts-tabs__link" href="/wiki/Item:Q6?tab=sitelinks" aria-current="page">Sitelinks</a>
 		<a class="ts-tabs__link" href="/wiki/Item:Q6?tab=labels">Labels in other languages</a>
-		<a class="ts-tabs__link" href="/w/index.php?title=Item:Q6&#38;action=history">History</a>
 	</nav>
 	<div class="ts-page__body">
 		<div class="ts-sitelinks" data-region="sitelinks">

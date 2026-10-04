@@ -221,3 +221,59 @@ h3 {
 		margin-left: 0;
 	}
 }
+
+/* The signed-in viewer's name, where the account menu has nothing to offer yet */
+
+.ts-header__user {
+	padding: 0 var( --spacing-75, 0.75rem );
+	color: var( --color-base, #202122 );
+	font-weight: bold;
+}
+
+/* The generated main page */
+
+.ts-home {
+	display: flex;
+	flex-direction: column;
+	gap: var( --spacing-100, 1rem );
+	max-width: 40rem;
+}
+
+.ts-home p {
+	margin: 0;
+}
+
+.ts-home__lead {
+	font-size: var( --font-size-x-large, 1.25rem );
+}
+
+.ts-home__hint,
+.ts-home__generated {
+	color: var( --color-subtle, #54595d );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+.ts-home__generated {
+	padding-top: var( --spacing-100, 1rem );
+	border-top: 1px solid var( --border-color-muted, #dadde3 );
+}
+
+/* Special:SpecialPages */
+
+.ts-specialpages {
+	display: flex;
+	flex-direction: column;
+	gap: var( --spacing-75, 0.75rem );
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.ts-specialpages p {
+	margin: 0;
+}
+
+.ts-specialpages__description {
+	color: var( --color-subtle, #54595d );
+	font-size: var( --font-size-small, 0.875rem );
+}

@@ -94,6 +94,10 @@ pub struct SiteInfo {
     pub concept_base: String,
     /// `providers`: the registered providers.
     pub providers: Vec<ProviderInfo>,
+    /// `triplespace.capabilities`: what the API serves (0012 §1.4).
+    pub capabilities: Vec<String>,
+    /// `general.mainpage`: the main page's title.
+    pub mainpage: String,
 }
 
 /// A provider as `siprop=providers` reports it.
@@ -210,6 +214,11 @@ impl Client {
                 .unwrap_or_default()
                 .to_string(),
             providers: serde_json::from_value(v["query"]["providers"].clone()).unwrap_or_default(),
+            capabilities: serde_json::from_value(ts["capabilities"].clone()).unwrap_or_default(),
+            mainpage: general["mainpage"]
+                .as_str()
+                .unwrap_or("Main Page")
+                .to_string(),
         };
         Ok(Fetched { value, cache })
     }

@@ -1,8 +1,13 @@
 //! Special pages (0047): those the site serves so far, by name.
 //!
+//! - [`index`]: `Special:SpecialPages`, the list of the others.
 //! - [`search`]: `Special:Search`, the full results page, and its **Go to** rule
 //!   (0010 §3; 0047 §9).
+//!
+//! A special page the site does not serve is a `404`, as MediaWiki answers for a special
+//! page it does not have.
 
+pub mod index;
 pub mod search;
 
 use std::collections::BTreeMap;
@@ -34,6 +39,7 @@ pub async fn serve(
 ) -> Option<Response> {
     match name_of(title)?.as_str() {
         "Search" => Some(search::serve(site, headers, peer, query).await),
+        "SpecialPages" => Some(index::serve(site, headers, peer, query).await),
         _ => None,
     }
 }

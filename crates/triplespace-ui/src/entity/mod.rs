@@ -241,14 +241,10 @@ enum TabName {
     Identifiers,
     Sitelinks,
     Labels,
-    History,
 }
 
 impl TabName {
     fn of(query: &BTreeMap<String, String>) -> Self {
-        if query.get("action").is_some_and(|a| a == "history") {
-            return Self::History;
-        }
         match query.get("tab").map(String::as_str) {
             Some("identifiers") => Self::Identifiers,
             Some("sitelinks") => Self::Sitelinks,
@@ -286,11 +282,7 @@ fn tabs(m: &Messages, title: &str, current: TabName, items: bool) -> Vec<Tab> {
         "ts-tab-labels",
         format!("{base}?tab=labels"),
     ));
-    v.push(tab(
-        TabName::History,
-        "ts-tab-history",
-        format!("/w/index.php?title={}&action=history", title_url(title)),
-    ));
+    // History joins when the API serves it and the site has built it (Feature::History).
     v
 }
 
@@ -451,7 +443,6 @@ fn page(
         TabName::Identifiers => r.identifiers(),
         TabName::Sitelinks => r.sitelinks(),
         TabName::Labels => r.labels(),
-        TabName::History => pages::message(MessageKind::Notice, &cx.m.get("ts-not-served")),
     };
     let title_lang = r
         .label()

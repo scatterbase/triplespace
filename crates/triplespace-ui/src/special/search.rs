@@ -31,6 +31,7 @@ use triplespace_client::{ClientError, Fetched, Hit, Hits, SiteInfo};
 use crate::Site;
 use crate::codex::{Chip, ChipKind, MessageKind, SearchInput};
 use crate::entity;
+use crate::features::Feature;
 use crate::frame::{Page, title_url};
 use crate::html::{esc, lang_attrs, link};
 use crate::i18n::Messages;
@@ -507,6 +508,9 @@ pub async fn serve(
         Ok(cx) => cx,
         Err(r) => return r,
     };
+    if !cx.features.has(Feature::Search) {
+        return pages::no_page(&cx, headers, "Special:Search".into());
+    }
     let ask = Ask::of(query);
 
     let mut go = None;
