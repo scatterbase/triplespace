@@ -4,7 +4,7 @@
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use triplespace_cli::{accounts, adopt, instance, status, sync};
+use triplespace_cli::{accounts, adopt, forwarder, instance, status, sync};
 
 /// Triplespace: a Wikibase as an append-only log.
 #[derive(Debug, Parser)]
@@ -16,7 +16,7 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    /// The instance: create it.
+    /// The instance: create it; its forwarder keys.
     Instance {
         #[command(subcommand)]
         command: InstanceCommand,
@@ -51,6 +51,11 @@ enum PasswordCommand {
 enum InstanceCommand {
     /// Create the instance and its first tenant.
     Create(instance::Create),
+    /// Forwarder keys, which let a proxy vouch for the client address (0057 §10).
+    Forwarder {
+        #[command(subcommand)]
+        command: forwarder::Forwarder,
+    },
 }
 
 #[tokio::main]
@@ -59,6 +64,9 @@ async fn main() -> Result<()> {
         Command::Instance {
             command: InstanceCommand::Create(args),
         } => instance::run(args).await,
+        Command::Instance {
+            command: InstanceCommand::Forwarder { command },
+        } => forwarder::run(command).await,
         Command::Adopt(args) => adopt::run(args).await,
         Command::Sync(args) => sync::run(args).await,
         Command::Password {

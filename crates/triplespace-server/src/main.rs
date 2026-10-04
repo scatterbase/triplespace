@@ -2,6 +2,7 @@
 
 #![forbid(unsafe_code)]
 
+use std::net::SocketAddr;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result, bail};
@@ -24,7 +25,8 @@ struct Args {
     /// `production` or `development` (`server.mode`).
     #[arg(long, env = "TRIPLESPACE_MODE", default_value = "production")]
     mode: String,
-    /// Proxies whose X-Forwarded-* headers are trusted (`server.trusted_proxies`).
+    /// Proxies whose X-Forwarded-* headers are trusted by address: addresses and CIDR
+    /// ranges (`server.trusted_proxies`, 0057 §10). Forwarder keys need no setting here.
     #[arg(
         long = "trusted-proxy",
         env = "TRIPLESPACE_TRUSTED_PROXIES",
@@ -99,12 +101,15 @@ async fn main() -> Result<()> {
         args.listen,
         args.mode
     );
-    axum::serve(listener, router(app))
-        .with_graceful_shutdown(async {
-            let _ = tokio::signal::ctrl_c().await;
-        })
-        .await
-        .context("serve")?;
+    axum::serve(
+        listener,
+        router(app).into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .with_graceful_shutdown(async {
+        let _ = tokio::signal::ctrl_c().await;
+    })
+    .await
+    .context("serve")?;
     Ok(())
 }
 

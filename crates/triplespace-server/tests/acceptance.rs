@@ -15,6 +15,7 @@ use tokio_postgres::{Config, NoTls};
 use tower::ServiceExt as _;
 use triplespace_accounts::{Secret, keys};
 use triplespace_api_action::{App, Config as ServerConfig, Mode, router};
+use triplespace_cli::forwarder::{Create, Forwarder, Revoke, Target};
 use triplespace_cli::{accounts, adopt, instance, sync};
 use triplespace_projections::Farm;
 
@@ -255,6 +256,53 @@ async fn a_bot_logs_in_reads_and_edits() {
     .await
     .unwrap();
     let (_, secret) = issued.bearer.split_once('.').unwrap();
+
+    // A forwarder key (0057 §10): the hash in `private`, the act in the instance config,
+    // and its revocation a null record that retires the registry row.
+    let target = || Target {
+        database: database.clone(),
+        farm_slug: None,
+        farm_base: None,
+    };
+    triplespace_cli::forwarder::run(Forwarder::Create(Create {
+        target: target(),
+        label: "edge".into(),
+    }))
+    .await
+    .unwrap();
+    let key_id: String = conn
+        .query_one(
+            "SELECT key_id FROM private.forwarder_key WHERE label = 'edge'",
+            &[],
+        )
+        .await
+        .unwrap()
+        .get(0);
+    let row = conn
+        .query_one(
+            "SELECT config FROM view.registry WHERE tenant = '' AND kind = 'forwarder' AND code = $1",
+            &[&key_id],
+        )
+        .await
+        .unwrap();
+    let entry: Value = row.get(0);
+    assert_eq!(entry["label"], "edge");
+    assert!(entry.get("hash").is_none() && entry.get("secret").is_none());
+    triplespace_cli::forwarder::run(Forwarder::Revoke(Revoke {
+        target: target(),
+        key_id: key_id.clone(),
+    }))
+    .await
+    .unwrap();
+    assert!(
+        conn.query_opt(
+            "SELECT 1 FROM view.registry WHERE kind = 'forwarder' AND code = $1",
+            &[&key_id],
+        )
+        .await
+        .unwrap()
+        .is_none()
+    );
 
     // 3. The server.
     let signing = triplespace_cli::common::signing_key(&key_file).unwrap();

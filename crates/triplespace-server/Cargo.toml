@@ -25,6 +25,7 @@ anyhow.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "net"] }
 
 [dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "io-util"] }
 triplespace-projections.workspace = true
 scatter-projection.workspace = true
 tower.workspace = true

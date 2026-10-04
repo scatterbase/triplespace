@@ -85,10 +85,24 @@ triplespace-server --listen 0.0.0.0:8080 --key-file triplespace.key
 
 The server answers for the hosts of its registered tenant bases and the farm base (0056 §10);
 anything else is 421, so it expects to sit behind a proxy that terminates TLS for those hosts
-and forwards `Host` (`--trusted-proxy` names the proxies whose `X-Forwarded-*` headers are
-believed). For a laptop, `--mode development --dev-tenant librarybase` serves any host as that
+and forwards `Host`. For a laptop, `--mode development --dev-tenant librarybase` serves any host as that
 tenant over plain HTTP and marks the API as insecure in `meta=siteinfo&siprop=triplespace`.
 `/healthz` answers on the public listener and on `--admin-listen` if given.
+
+**Proxies.** The server reads `X-Forwarded-For` from the right and believes one more entry for
+each hop it trusts (0057 §10), so the client address behind your proxies is the one blocks and
+rate limits see. A hop is trusted by its address, `--trusted-proxy 10.0.0.2,10.0.1.0/24`
+(addresses and CIDR ranges), which suits a network only the instance's services share. Where
+other workloads share the network, give each proxy a forwarder key instead:
+
+```sh
+triplespace instance forwarder create --label edge     # prints the key once
+```
+
+The proxy appends it to `Triplespace-Forwarder` on every request it forwards (Caddy:
+`header_up Triplespace-Forwarder <key>`). `forwarder list` and `forwarder revoke --key-id` manage
+the keys; a revoked key stops being believed within 30 seconds. `X-Forwarded-Host` and
+`X-Forwarded-Proto` are believed only from a trusted peer.
 
 A client then uses the usual Wikibase surface at `/w/api.php` (or `/api.php`): `meta=siteinfo`,
 `meta=tokens`, `action=login` with the bot password, `wbgetentities`, `wbsearchentities`, and the
