@@ -1,0 +1,19 @@
+{
+	"root": true,
+	"extends": [
+		"wikimedia/client",
+		"wikimedia/language/es2022"
+	],
+	"parserOptions": {
+		"sourceType": "module"
+	},
+	"overrides": [
+		{
+			"files": [ "vite.config.js" ],
+			"extends": [ "wikimedia/server" ],
+			"rules": {
+				"n/no-unpublished-import": "off"
+			}
+		}
+	]
+}

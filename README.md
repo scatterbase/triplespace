@@ -17,7 +17,8 @@ the crate map and build order.
 | `crates/` | One Cargo workspace. `scatter-*` crates are shared with Scatterbase and know nothing about Triplespace; `triplespace-*` crates are the product (0005 §1). |
 | `xtask/` | Repository tasks: `cargo xtask deps` checks the workspace dependency graph against the table in 0005 §2; `cargo xtask wasm` builds the crates 0005 rule 7 requires to build for `wasm32-unknown-unknown`. |
 | `docs/` | ADRs, registry, API contracts and test vectors. CC0-1.0 (`docs/LICENSE`), so other implementations can embed them. |
-| `ui/` | The frontend (0034). Not yet started. |
+| `ui/` | The site's front end (0034): Codex, its design tokens and the default theme's fonts, built by Vite into `ui/dist`, which `triplespace-ui` embeds. |
+| `i18n/` | The site's interface messages, banana JSON for translatewiki.net (0034 §9). |
 
 ## Building
 
@@ -32,15 +33,25 @@ cargo deny check
 cargo xtask deps
 ```
 
+The site's styles and script come from `ui/` (Node 22):
+
+```
+cd ui && npm ci && npm run build   # writes ui/dist; rebuild the Rust afterwards to embed it
+npm run lint && npm test           # ESLint, Stylelint, banana-checker; Vitest
+```
+
+A Rust build without `ui/dist` still compiles and serves pages, unstyled.
+
 The tests that need a database read `TRIPLESPACE_TEST_DATABASE_URL` (a Postgres URL whose role
 may create databases) and are vacuous without it. `python3 docs/decisions/check_adrs.py --index
 docs` checks the ADRs and regenerates their index.
 
 ## Setting up an instance
 
-Two binaries come out of the workspace: `triplespace`, the command line that creates and loads
-an instance, and `triplespace-server`, which serves the Action API. Both take the database as
-`--database` or `TRIPLESPACE_DATABASE_URL`.
+Three binaries come out of the workspace: `triplespace`, the command line that creates and loads
+an instance; `triplespace-server`, which serves the API and, unless `--ui off`, the site; and
+`triplespace-web`, the stateless web tier that serves the site from the API (below). The first
+two take the database as `--database` or `TRIPLESPACE_DATABASE_URL`.
 
 ```sh
 createdb triplespace
@@ -103,6 +114,24 @@ The proxy appends it to `Triplespace-Forwarder` on every request it forwards (Ca
 `header_up Triplespace-Forwarder <key>`). `forwarder list` and `forwarder revoke --key-id` manage
 the keys; a revoked key stops being believed within 30 seconds. `X-Forwarded-Host` and
 `X-Forwarded-Proto` are believed only from a trusted peer.
+
+**The site.** `triplespace-server` serves the site itself by default (`--ui embedded`): whatever
+path the API does not route, the site answers, calling the API in process. To scale the site
+apart from the API, or run several replicas of it, start the server with `--ui off` and run the
+web tier beside it:
+
+```sh
+triplespace-web --api http://api.svc:8080 --listen 0.0.0.0:8081 --admin-listen 127.0.0.1:9091
+triplespace-web routes --format caddy    # or nginx, haproxy: which paths go where
+```
+
+The web tier keeps no state, holds no database credentials and reaches the instance only through
+its public API (0057). Plain `http` is refused unless the API's host resolves only to internal
+addresses; otherwise give it `https`. The edge sends the API's paths to the API and everything
+else to the web tier; `routes` prints that split for your proxy, from the same table the site
+uses. Add the web tier to `--trusted-proxy`, or give it a forwarder key with
+`--forwarder-key-file`, so the API sees the browser's address rather than the web tier's.
+`/readyz` on the admin listener answers once the API does.
 
 A client then uses the usual Wikibase surface at `/w/api.php` (or `/api.php`): `meta=siteinfo`,
 `meta=tokens`, `action=login` with the bot password, `wbgetentities`, `wbsearchentities`, and the

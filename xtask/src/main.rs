@@ -1,7 +1,8 @@
 //! Repository tasks, run as `cargo xtask <command>` (alias in `.cargo/config.toml`).
 //!
 //! - `deps`: checks the workspace dependency graph against the crate table in ADR 0005 §2
-//!   and the rules of 0005 §3 (dependencies point only downward; the core is pure).
+//!   and the rules of 0005 §3 (dependencies point only downward; the core is pure; the
+//!   site's crates reach no store).
 //! - `wasm`: builds every crate that 0005 §3 rule 7 requires to build for
 //!   `wasm32-unknown-unknown`, skipping the ones that do not exist yet.
 
@@ -49,6 +50,29 @@ const IMPURE_DEPS: &[&str] = &[
     "reqwest",
     "axum",
     "hyper",
+];
+
+/// The site's crates (0005 §3 rule 10): they reach the instance only through its API.
+const SITE_CRATES: &[&str] = &["triplespace-ui", "triplespace-client", "triplespace-web"];
+
+/// Clients of the instance's stores; no crate the site's crates reach may depend on one
+/// (0005 §3 rule 10). `redis` is not here: the response cache's Valkey client holds
+/// public API responses only.
+const STORE_CLIENTS: &[&str] = &[
+    "tokio-postgres",
+    "deadpool-postgres",
+    "postgres",
+    "sqlx",
+    "opensearch",
+    "elasticsearch",
+];
+
+/// Workspace crates the site's crates may not reach, whatever their dependencies: the
+/// API crates, and those that open the instance's stores (0005 §3 rule 10).
+const STORE_CRATES: &[&str] = &[
+    "triplespace-db",
+    "triplespace-projections",
+    "triplespace-accounts",
 ];
 
 fn main() {
@@ -312,6 +336,8 @@ fn deps(root: &Path) -> Result<()> {
         }
     }
 
+    problems.extend(site_reaches_no_store(&meta, &members));
+
     let checked = members.len().saturating_sub(1);
     if problems.is_empty() {
         println!(
@@ -325,6 +351,67 @@ fn deps(root: &Path) -> Result<()> {
         }
         bail!("{} dependency problem(s)", problems.len())
     }
+}
+
+/// Rule 10: walks every workspace crate a site crate reaches through normal and build
+/// dependencies, and reports any that is an API or store crate or depends on a store
+/// client.
+fn site_reaches_no_store(meta: &Metadata, members: &BTreeSet<&str>) -> Vec<String> {
+    let by_name: BTreeMap<&str, &Package> = meta
+        .packages
+        .iter()
+        .filter(|p| members.contains(p.name.as_str()))
+        .map(|p| (p.name.as_str(), p))
+        .collect();
+    let mut problems = Vec::new();
+    for site in SITE_CRATES {
+        let Some(start) = by_name.get(site) else {
+            continue;
+        };
+        // Breadth first, remembering the path to each crate for the message.
+        let mut path_to: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
+        path_to.insert(start.name.as_str(), vec![start.name.as_str()]);
+        let mut queue = vec![*start];
+        while let Some(pkg) = queue.pop() {
+            let here = path_to[pkg.name.as_str()].clone();
+            for dep in pkg
+                .dependencies
+                .iter()
+                .filter(|d| d.kind.as_deref() != Some("dev"))
+            {
+                let name = dep.name.as_str();
+                let via = || {
+                    let mut p = here.clone();
+                    p.push(name);
+                    p.join(" → ")
+                };
+                if STORE_CLIENTS.contains(&name) {
+                    problems.push(format!(
+                        "`{site}` reaches the store client `{name}` ({}): the site's crates reach no store (0005 §3 rule 10)",
+                        via()
+                    ));
+                    continue;
+                }
+                let Some(next) = by_name.get(name) else {
+                    continue;
+                };
+                if STORE_CRATES.contains(&name) || name.starts_with("triplespace-api-") {
+                    problems.push(format!(
+                        "`{site}` reaches `{name}` ({}): the site's crates reach the instance only through its API (0005 §3 rule 10)",
+                        via()
+                    ));
+                    continue;
+                }
+                if !path_to.contains_key(name) {
+                    let mut p = here.clone();
+                    p.push(name);
+                    path_to.insert(name, p);
+                    queue.push(next);
+                }
+            }
+        }
+    }
+    problems
 }
 
 // ---------------------------------------------------------------------------------------

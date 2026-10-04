@@ -1,0 +1,34 @@
+{
+	"@metadata": {
+		"authors": [
+			"Triplespace contributors"
+		]
+	},
+	"ts-skip-to-content": "Link at the very top of every page, visible on keyboard focus, that jumps past the header to the page's content.",
+	"ts-search-placeholder": "Placeholder of the search box in the global header. Search covers entity labels, domain keys and page titles (ADR 0010 §3).",
+	"ts-search-label": "Accessible label of the search box in the global header.",
+	"ts-search-button": "Label of the button beside the search box.\n{{Identical|Search}}",
+	"ts-nav-label": "Accessible name of the site navigation in the global header.",
+	"ts-nav-recentchanges": "Link in the global header to Special:RecentChanges.\n{{Identical|Recent changes}}",
+	"ts-nav-jobs": "Link in the global header to Special:Jobs, the list of import jobs (ADR 0010 §9).",
+	"ts-nav-specialpages": "Link in the global header to Special:SpecialPages.\n{{Identical|Special pages}}",
+	"ts-new": "Label of the menu in the global header for creating items, properties and pages.\n{{Identical|New}}",
+	"ts-new-item": "Entry of the New menu that opens Special:NewItem.",
+	"ts-new-property": "Entry of the New menu that opens Special:NewProperty.",
+	"ts-new-page": "Entry of the New menu that creates a document page.",
+	"ts-login": "Link in the global header for a viewer who is not logged in.\n{{Identical|Log in}}",
+	"ts-account": "Link in the account menu to Special:Account, the account settings (ADR 0010 §11).",
+	"ts-account-menu": "Accessible name of the account menu button.\n\nParameters:\n* $1 - the account's name",
+	"ts-account-userpage": "Link in the account menu to the viewer's own user page.",
+	"ts-logout": "Link in the account menu that logs the viewer out.\n{{Identical|Log out}}",
+	"ts-tabs-label": "Accessible name of the row of tabs under a page's title.",
+	"ts-tab-read": "Tab under a page's title that shows the page.\n{{Identical|Read}}",
+	"ts-tab-history": "Tab under a page's title that shows its history.\n{{Identical|History}}",
+	"ts-not-served": "Shown on a page the site does not serve yet, while the site is built phase by phase.",
+	"ts-not-found-title": "Title of the page shown for an address the site has no page for.\n{{Identical|Not found}}",
+	"ts-not-found": "Body of the page shown for an address the site has no page for.",
+	"ts-api-unavailable-title": "Title of the page shown when the site cannot reach the API.",
+	"ts-api-unavailable": "Body of the page shown when the site cannot reach the API.",
+	"ts-api-too-old": "Body of the page shown when the API reports an older api_version than the site needs (ADR 0057 §9).",
+	"ts-footer-powered": "Footer line on every page.\n\"Triplespace\" is the software's name and is not translated."
+}

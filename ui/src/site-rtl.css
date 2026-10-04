@@ -1,0 +1,4 @@
+/* The site's stylesheet, right to left. The frame uses logical layout where it matters. */
+@import '@wikimedia/codex/dist/codex.style-rtl.css';
+@import './fonts.css';
+@import './frame.css';

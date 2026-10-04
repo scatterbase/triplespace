@@ -1,5 +1,5 @@
 //! `triplespace-server`: the Action API and the `triplespace/v0` REST API over axum
-//! (0033 §3; 0056 §10).
+//! (0033 §3; 0056 §10), and the site embedded unless `--ui off` (0057 §1.4).
 
 #![forbid(unsafe_code)]
 
@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use anyhow::{Context, Result, bail};
 use clap::Parser;
 use triplespace_api_action::{App, Config, Mode, router_with};
+use triplespace_client::{Client, ServiceTransport};
 
 /// The Triplespace server.
 #[derive(Debug, Parser)]
@@ -49,11 +50,20 @@ struct Args {
     /// The farm base.
     #[arg(long)]
     farm_base: Option<String>,
+    /// `embedded` to serve the site from this process, over the API's own router;
+    /// `off` when a separate web tier serves it (`server.ui`, 0057 §1.4).
+    #[arg(long, env = "TRIPLESPACE_UI", default_value = "embedded")]
+    ui: String,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
+    let embedded = match args.ui.as_str() {
+        "embedded" => true,
+        "off" => false,
+        other => bail!("--ui is embedded or off, not `{other}`"),
+    };
     let mode = Mode::parse(&args.mode)
         .with_context(|| format!("--mode is production or development, not `{}`", args.mode))?;
     if mode == Mode::Production && args.dev_tenant.is_some() {
@@ -97,15 +107,17 @@ async fn main() -> Result<()> {
         .await
         .with_context(|| format!("bind {}", args.listen))?;
     eprintln!(
-        "triplespace-server {} on {} ({})",
+        "triplespace-server {} on {} ({}, site {})",
         env!("CARGO_PKG_VERSION"),
         args.listen,
-        args.mode
+        args.mode,
+        args.ui
     );
+    let api = router_with(app, triplespace_api_rest::routes());
+    let router = if embedded { with_site(api) } else { api };
     axum::serve(
         listener,
-        router_with(app, triplespace_api_rest::routes())
-            .into_make_service_with_connect_info::<SocketAddr>(),
+        router.into_make_service_with_connect_info::<SocketAddr>(),
     )
     .with_graceful_shutdown(async {
         let _ = tokio::signal::ctrl_c().await;
@@ -113,6 +125,14 @@ async fn main() -> Result<()> {
     .await
     .context("serve")?;
     Ok(())
+}
+
+/// The API's router with the site as its fallback, calling the API in process (0057 §1.4,
+/// §2): whatever the API does not route, the site serves, except the API's own paths,
+/// which the site refuses.
+fn with_site(api: axum::Router) -> axum::Router {
+    let client = Client::new(ServiceTransport::new(api.clone()));
+    api.fallback_service(triplespace_ui::router(client))
 }
 
 fn triplespace_accounts_secret(key: &ed25519_dalek::SigningKey) -> triplespace_accounts::Secret {
