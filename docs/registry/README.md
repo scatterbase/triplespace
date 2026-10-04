@@ -22,6 +22,7 @@ This directory is the registry of record for the names and codes that Triplespac
 | `wikitext-functions.toml` | Wikitext variables, parser functions, extension tags and behaviour switches, with origin and status (`implemented`, `chip`, `ignored`); what `meta=siteinfo` reports as `magicwords`, `functionhooks`, `extensiontags`, `variables` and `doubleunderscores` (seed; generated from the reference install) | `scatter-wikitext-expand` | 0042 §5, 0043 §7, 0051 §1, 0055 §7 |
 | `special-pages.toml` | Special pages: canonical and MediaWiki names, origin, status (`served`, `deferred`, `declined`, `reserved`), farm or tenant scope, `Special:SpecialPages` group, restriction, aliases and section aliases, and each report's backing and graph scope (names and English aliases copied from MediaWiki and Wikibase REL1_43) | `triplespace-titles` | 0047 §1–4, 0051 §6, 0054 §2, 0055 §6 |
 | `css-properties.toml` | The CSS at-rules and properties the `sanitized-css` sanitizer allows, with the module each came from, the forbidden values and the `url()` policy (seed; generated from css-sanitizer's published set) | `scatter-css` | 0055 §2 |
+| `themes.toml` | Themes as values for Codex design tokens, and the typefaces each serves; `default` is the theme Triplespace ships (the canvases' palette and Newsreader headings) | `triplespace-ui` | 0034 §1–2 |
 
 ## Rules
 

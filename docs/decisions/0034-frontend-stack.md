@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-03 (A7)
+- **Updated:** 2026-10-03 (A8)
 - **Author:** James Hare / Claude
 - **Changes:** [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0003](0003-statement-ui.md), [0012](0012-api-requirements.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0029](0029-resolver-namespaces.md), [0033](0033-backend-stack.md)
@@ -19,22 +19,22 @@ The backend stack is in 0033.
 
 ### 1. Principles
 
-*Changed by A6, A7.*
+*Changed by A6, A7, A8.*
 
 1. **The server renders every page.** Reading never needs JavaScript. Rendered pages are cacheable at the L2 layer (0014 §3).
 2. **JavaScript enhances regions, never whole pages.** An interactive component takes over one region of a server-rendered page. There is no client-side router.
 3. **One renderer per thing.** Anything the server draws is drawn only by the server. A component that changes it fetches the server's rendering afterwards (§5) rather than drawing its own copy.
-4. **Codex components, themed by tokens.** Codex's components, icons and markup are used without overrides. Their look comes from Codex's design tokens, and the instance or a tenant may give those tokens values of its own as a **theme** (`ui.theme`, [0015](0015-record-format-and-partition-registry.md) §3): colours, typefaces, radii and spacing, never a component's markup or behaviour. A theme is served as a stylesheet of CSS custom properties, so it needs no inline style under §11, and it is refused when its colours fail WCAG 2.1 AA contrast for the token pairs Codex uses for text, borders and focus. The theme's values are reported in `meta=siteinfo&siprop=triplespace` ([0012](0012-api-requirements.md) §4), from which the site reads them as it reads any setting, and the site serves them as a stylesheet named by a hash of its values, so a changed theme is a new URL and each one caches as immutable. Without a theme, Codex's own values apply. Where a design needs something Codex lacks, it is built from Codex tokens and proposed upstream. Codex is used for its accessible components, its right-to-left and language support, and CSS-only components that need no JavaScript, more than for its look.
+4. **Codex components, themed by tokens.** Codex's components, icons and markup are used without overrides. Their look comes from Codex's design tokens, and the instance or a tenant may give those tokens values of its own as a **theme** (`ui.theme`, [0015](0015-record-format-and-partition-registry.md) §3): colours, typefaces, radii and spacing, never a component's markup or behaviour. A theme is served as a stylesheet of CSS custom properties, so it needs no inline style under §11, and it is refused when its colours fail WCAG 2.1 AA contrast for the token pairs Codex uses for text, borders and focus. The theme's values are reported in `meta=siteinfo&siprop=triplespace` ([0012](0012-api-requirements.md) §4), from which the site reads them as it reads any setting, and the site serves them as a stylesheet named by a hash of its values, so a changed theme is a new URL and each one caches as immutable. Without one, the site wears the **shipped default theme**, `default` in `docs/registry/themes.toml`: the palette and type of the site and statement UI canvases, Newsreader for headings over IBM Plex Sans and IBM Plex Mono, on a warm ground; tokens it does not name keep Codex's values. Where a design needs something Codex lacks, it is built from Codex tokens and proposed upstream. Codex is used for its accessible components, its right-to-left and language support, and CSS-only components that need no JavaScript, more than for its look.
 5. **The public API only** (0012 §1). The browser calls public routes, and so does the server-side renderer: it calls the public HTTP API with the viewer's own credentials, over the network from `triplespace-web` or through an in-process call into the API's router from `triplespace-server`, and never links an API crate's handlers or reads `view` ([0057](0057-web-tier.md) §1). Every page therefore carries exactly the API's per-viewer redaction.
 
 ### 2. Server rendering, in `triplespace-ui`
 
-*Changed by A6.*
+*Changed by A6, A8.*
 
 - **Templates:** `askama`, compiled and type-checked with the Rust code.
 - **Codex markup:** a Rust builder module that emits Codex CSS-only component markup (buttons, fields, tables, cards, tabs, messages, chips, progress bars), following the approach of WMF's Codex PHP. Templates call the builder instead of writing Codex class names by hand, so a Codex markup change is one edit.
 - **Frame:** the page frame of 0010 §2 (global header, identity line, title, tabs) is one template shared by every page kind.
-- **Assets:** Codex CSS, design tokens and icons come from the pinned `@wikimedia/codex`, `@wikimedia/codex-design-tokens` and `@wikimedia/codex-icons` packages at build time (§8), with hashed file names, served with long-lived cache headers by whichever binary serves the site: `triplespace-web`, or `triplespace-server` with `server.ui = embedded` ([0057](0057-web-tier.md) §2).
+- **Assets:** Codex CSS, design tokens and icons come from the pinned `@wikimedia/codex`, `@wikimedia/codex-design-tokens` and `@wikimedia/codex-icons` packages at build time (§8), with hashed file names, served with long-lived cache headers by whichever binary serves the site: `triplespace-web`, or `triplespace-server` with `server.ui = embedded` ([0057](0057-web-tier.md) §2). The default theme's typefaces (Newsreader, IBM Plex Sans, IBM Plex Mono, all under the SIL Open Font License) are served the same way, from the site's own origin, as §11's policy requires.
 - **Mobile:** one responsive site built on Codex's breakpoints. No separate mobile domain or skin. Detailed mobile layouts stay open (0010).
 
 ### 3. Statement groups (uses 0003 §3)
@@ -93,9 +93,9 @@ CodeMirror 6, which MediaWiki's CodeMirror extension also uses, with its wikitex
 
 ### 8. Build
 
-*Changed by A6.*
+*Changed by A6, A8.*
 
-- `ui/` is an npm workspace: TypeScript, Vue 3, Codex packages pinned to exact versions, CodeMirror 6.
+- `ui/` is an npm workspace: TypeScript, Vue 3, Codex packages pinned to exact versions, CodeMirror 6. Codex is pinned at its latest release when work begins (2.7.0 on 2026-10-03) and moves to a newer release deliberately, in a commit of its own with the snapshot and accessibility tests as the check, not with the version a MediaWiki release bundles.
 - **Vite** builds the components into hashed ES modules and a manifest.
 - The release build embeds `ui/dist` into both binaries that can serve the site, `triplespace-web` and `triplespace-server` (`rust-embed`); templates read the manifest to emit `<script type="module">` tags. **Node is a build-time dependency only**; a small instance stays one binary (0033 §1), and an instance that runs the web tier separately runs two ([0057](0057-web-tier.md) §2).
 - In development, whichever binary serves the site proxies asset requests to the Vite dev server for hot reload.
@@ -160,7 +160,7 @@ Nothing in the UI changes when the source becomes a Triplespace instance, becaus
 
 ## Open questions
 
-- **Q1.** Codex upgrade cadence, and whether to track the version bundled with a MediaWiki release.
+- **Q1.** ~~Codex upgrade cadence, and whether to track the version bundled with a MediaWiki release.~~ *Settled by A8: the latest release, bumped deliberately in its own commit; MediaWiki's bundled version is not tracked.*
 - **Q2.** Night mode: adopt Codex's dark-mode tokens when they are stable.
 - **Q3.** Whether the Rust Codex builder becomes a published crate other projects can use.
 - **Q4.** An interactive charting library for exploring a property's full view (0003), beyond the static SVGs.
@@ -274,3 +274,14 @@ Replaced text (§11):
 Replaced text (§1):
 
 > 4. **Codex as-is.** Codex tokens, components and icons without overrides. Where a design needs something Codex lacks, it is built from Codex tokens and proposed upstream.
+
+### A8. The shipped default theme; the Codex release
+
+- **Date:** 2026-10-03
+- **Source:** Direct: James, design discussion of 2026-10-03
+- **Change:** amends §1; extends §2, §8
+- **Summary:** "Let's ship the canvases' palette and Newsreader headings as the shipped default theme." A site with no `ui.theme` wears `default` from the new `docs/registry/themes.toml`: Codex token values taken from the site and statement UI canvases, with Newsreader for headings (`font-family-heading-main`), IBM Plex Sans for text and IBM Plex Mono for IDs, every text pair at WCAG 2.1 AA and the boundaries of controls at 3:1; the canvases' light input borders were darkened to meet the latter. The typefaces are self-hosted under the OFL. "Codex latest release": Codex is pinned at its latest release, 2.7.0, and bumped deliberately, which settles Q1.
+
+Replaced text (§1):
+
+> Without a theme, Codex's own values apply.

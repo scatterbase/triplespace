@@ -1,0 +1,98 @@
+# Themes: values for Codex design tokens.  ADR 0034 §1.
+#
+# A theme sets Codex's design tokens (colours, typefaces, radii, spacing), never a component's
+# markup or behaviour. The site serves a theme as a stylesheet of CSS custom properties named by a
+# hash of its values (0034 §1). An instance or a tenant sets its own with the `ui.theme` site
+# setting (0015 §3), whose `value` holds tokens in the form below and overrides these one by one.
+#
+# [theme.default] is what Triplespace ships: the palette and type of the site and statement UI
+# canvases (0010, 0003), as decided on 2026-10-03 (0034 A8). Tokens it does not name keep Codex's
+# values. Keys are Codex token names without the leading `--`, as @wikimedia/codex-design-tokens
+# names them in theme-wikimedia-ui.css; a key Codex does not define is an error when the site
+# builds its stylesheet.
+#
+# Contrast. Every text colour here meets WCAG 2.1 AA (4.5:1) on background-color-base and on
+# background-color-neutral-subtle, white text meets it on background-color-progressive, and the
+# boundaries of interactive controls (border-color-base, border-color-interactive) and the focus
+# outline meet 3:1 (WCAG 1.4.11). border-color-subtle and border-color-muted are decorative. A
+# theme set through `ui.theme` is refused when it breaks one of these pairs (0034 §1).
+#
+# Fonts. The typefaces are served by the site from its own origin, as CSP requires (0034 §11):
+# Newsreader for headings, IBM Plex Sans for text, IBM Plex Mono for IDs and code. All three are
+# under the SIL Open Font License 1.1, which permits bundling them with GPL software.
+
+version = 1
+
+[theme.default]
+label = "Triplespace"
+
+# Text
+color-base = "#1D1C1A"
+color-emphasized = "#0F0E0D"
+color-neutral = "#3F3C36"
+color-subtle = "#5E5A52"
+color-placeholder = "#6B665D"
+
+# Links and progressive actions
+color-progressive = "#2B559E"
+"color-progressive--hover" = "#1C3D78"
+"color-progressive--active" = "#142C59"
+"color-progressive--focus" = "#2B559E"
+color-visited = "#5A4D91"
+"color-visited--hover" = "#463A78"
+"color-visited--active" = "#2E2652"
+
+# Surfaces: components on a warm ground
+background-color-base = "#FCFBF8"
+background-color-neutral-subtle = "#F4F2EC"
+background-color-neutral = "#EDEAE2"
+background-color-interactive = "#EDEAE2"
+"background-color-interactive--hover" = "#E4E0D6"
+"background-color-interactive--active" = "#D9D4C8"
+background-color-progressive = "#2B559E"
+"background-color-progressive--hover" = "#1C3D78"
+"background-color-progressive--active" = "#142C59"
+"background-color-progressive--focus" = "#2B559E"
+background-color-progressive-subtle = "#EEF2F8"
+"background-color-progressive-subtle--hover" = "#E1E8F3"
+"background-color-progressive-subtle--active" = "#CCD8EC"
+
+# Borders
+border-color-base = "#8C867A"
+border-color-subtle = "#D9D4C8"
+border-color-muted = "#E4E0D6"
+border-color-divider = "#D9D4C8"
+border-color-emphasized = "#1D1C1A"
+border-color-interactive = "#7A7468"
+"border-color-interactive--hover" = "#3F3C36"
+"border-color-interactive--active" = "#1D1C1A"
+border-color-progressive = "#2B559E"
+"border-color-progressive--hover" = "#1C3D78"
+"border-color-progressive--active" = "#142C59"
+"border-color-progressive--focus" = "#2B559E"
+"outline-color-progressive--focus" = "#2B559E"
+"box-shadow-color-progressive--focus" = "#2B559E"
+
+# Type
+font-family-base = "'IBM Plex Sans', system-ui, sans-serif"
+font-family-heading-main = "'Newsreader', Georgia, 'Times New Roman', serif"
+font-family-monospace = "'IBM Plex Mono', Menlo, Consolas, monospace"
+
+# Shape
+border-radius-base = "6px"
+
+# The typefaces the site serves for this theme, with their licence.
+[[theme.default.font]]
+family = "Newsreader"
+weights = [400, 500]
+licence = "OFL-1.1"
+
+[[theme.default.font]]
+family = "IBM Plex Sans"
+weights = [400, 500, 600]
+licence = "OFL-1.1"
+
+[[theme.default.font]]
+family = "IBM Plex Mono"
+weights = [400, 500]
+licence = "OFL-1.1"
