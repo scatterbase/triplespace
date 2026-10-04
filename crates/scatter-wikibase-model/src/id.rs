@@ -240,7 +240,7 @@ impl fmt::Debug for EntityId {
 
 impl Serialize for EntityId {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        s.serialize_str(&self.0)
+        s.serialize_str(self.as_str())
     }
 }
 
@@ -313,41 +313,103 @@ impl fmt::Display for Subject {
 /// A statement ID, `<Subject>$<UUID>` (wikibase-compat §2; 0017 §1; 0018 §7; 0038 §1).
 ///
 /// The subject is an entity ID, or for a page's own statements the page ID in decimal.
-/// The GUID is kept as written. Wikibase compares the UUID part case-insensitively and
-/// writes it in uppercase; the resolved view rewrites the entity part to the canonical
-/// member's ID and keeps the UUID (0018 §7).
-#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct StatementId(String);
+/// The subject is canonicalized as [`Subject::parse`] does: the tenant-relative `QQQ8`
+/// becomes `Q8` (0044 §3) and a page ID loses its leading zeros. Where the written
+/// subject differs from the canonical one only in letter case, the ID is also kept as
+/// written: Wikidata holds statements whose GUIDs start `q731$` (Q731, manganese), and a
+/// stored value is never changed (0004 §7; 0006 §2), so the storage and Wikibase forms
+/// keep that spelling. [`Self::as_str`] gives the ID as kept; comparison, ordering and
+/// hashing use the canonical form, so `q731$…` and `Q731$…` are one statement, as
+/// Wikibase's own GUID parser has it.
+///
+/// The UUID part is kept as written. Wikibase compares it case-insensitively and writes
+/// it in uppercase; the resolved view rewrites the entity part to the canonical member's
+/// ID and keeps the UUID (0018 §7).
+#[derive(Clone)]
+pub struct StatementId {
+    /// The ID with its subject canonical.
+    canonical: String,
+    /// The ID as written, where it differs from `canonical` (only in case).
+    written: Option<Box<str>>,
+}
+
+impl PartialEq for StatementId {
+    fn eq(&self, other: &Self) -> bool {
+        self.canonical == other.canonical
+    }
+}
+
+impl Eq for StatementId {}
+
+impl std::hash::Hash for StatementId {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.canonical.hash(state);
+    }
+}
+
+impl PartialOrd for StatementId {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for StatementId {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.canonical.cmp(&other.canonical)
+    }
+}
 
 impl StatementId {
-    /// Parses and checks the shape; the subject is canonicalized as [`Subject::parse`]
-    /// does, the UUID part kept as given.
+    fn canonical_of(canonical: String) -> Self {
+        Self {
+            canonical,
+            written: None,
+        }
+    }
+
+    /// Parses and checks the shape: the subject canonicalized, the spelling kept where it
+    /// differs only in case.
     pub fn parse(s: &str) -> Result<Self, IdParseError> {
         let Some((subject, uuid)) = s.rsplit_once('$') else {
             return Err(IdParseError::Statement(s.to_string()));
         };
-        let subject =
+        let canonical_subject =
             Subject::parse(subject).map_err(|_| IdParseError::Statement(s.to_string()))?;
         if !is_guid(uuid) {
             return Err(IdParseError::Statement(s.to_string()));
         }
-        Ok(Self(format!("{subject}${uuid}")))
+        let canonical = format!("{canonical_subject}${uuid}");
+        let written = (canonical != s && canonical.eq_ignore_ascii_case(s))
+            .then(|| s.to_string().into_boxed_str());
+        Ok(Self { canonical, written })
     }
 
-    /// The ID as a string.
+    /// The ID as kept: as written where only its case differed, else canonical.
     #[must_use]
     pub fn as_str(&self) -> &str {
-        &self.0
+        self.written.as_deref().unwrap_or(&self.canonical)
     }
 
-    /// The subject part.
+    /// The ID with its subject canonical (`q731$…` → `Q731$…`).
+    #[must_use]
+    pub fn canonical_str(&self) -> &str {
+        &self.canonical
+    }
+
+    /// The same ID with its subject canonical.
+    #[must_use]
+    pub fn canonical(&self) -> Self {
+        Self::canonical_of(self.canonical.clone())
+    }
+
+    /// The subject part, canonical.
     ///
     /// # Panics
     ///
     /// Never: the constructor checked the shape.
     #[must_use]
     pub fn subject(&self) -> Subject {
-        let s = self.0.rsplit_once('$').expect("checked at parse").0;
+        let s = self.canonical.rsplit_once('$').expect("checked at parse").0;
         if s.as_bytes()[0].is_ascii_digit() {
             Subject::Page(s.parse().expect("checked at parse"))
         } else {
@@ -371,20 +433,20 @@ impl StatementId {
     /// Never: the constructor checked the shape.
     #[must_use]
     pub fn uuid(&self) -> &str {
-        self.0.rsplit_once('$').expect("checked at parse").1
+        self.canonical.rsplit_once('$').expect("checked at parse").1
     }
 
     /// The same statement under another subject.
     #[must_use]
     pub fn with_subject(&self, subject: &Subject) -> Self {
-        Self(format!("{subject}${}", self.uuid()))
+        Self::canonical_of(format!("{subject}${}", self.uuid()))
     }
 
     /// The same statement under another entity ID, for the canonical-ID rewrite of
     /// 0018 §7.
     #[must_use]
     pub fn with_entity(&self, entity: &EntityId) -> Self {
-        Self(format!("{entity}${}", self.uuid()))
+        Self::canonical_of(format!("{entity}${}", self.uuid()))
     }
 }
 
@@ -399,19 +461,19 @@ fn is_guid(s: &str) -> bool {
 
 impl fmt::Display for StatementId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
+        f.write_str(self.as_str())
     }
 }
 
 impl fmt::Debug for StatementId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "StatementId({})", self.0)
+        write!(f, "StatementId({})", self.as_str())
     }
 }
 
 impl Serialize for StatementId {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        s.serialize_str(&self.0)
+        s.serialize_str(self.as_str())
     }
 }
 
@@ -573,15 +635,31 @@ mod tests {
     #[test]
     fn statement_ids() {
         let s = StatementId::parse("q8$C13E7A23-11E7-4C91-A799-3D1806B65444").unwrap();
-        assert_eq!(s.as_str(), "Q8$C13E7A23-11E7-4C91-A799-3D1806B65444");
+        // Kept as written (0006 §2), compared canonical.
+        assert_eq!(s.as_str(), "q8$C13E7A23-11E7-4C91-A799-3D1806B65444");
+        assert_eq!(s.canonical_str(), "Q8$C13E7A23-11E7-4C91-A799-3D1806B65444");
+        assert_eq!(
+            s,
+            StatementId::parse("Q8$C13E7A23-11E7-4C91-A799-3D1806B65444").unwrap()
+        );
+        assert_eq!(
+            s.canonical().as_str(),
+            "Q8$C13E7A23-11E7-4C91-A799-3D1806B65444"
+        );
+        assert_eq!(
+            serde_json::to_string(&s).unwrap(),
+            "\"q8$C13E7A23-11E7-4C91-A799-3D1806B65444\""
+        );
         assert_eq!(s.entity_id().unwrap().as_str(), "Q8");
         assert_eq!(s.uuid(), "C13E7A23-11E7-4C91-A799-3D1806B65444");
         let k = StatementId::parse("domain:en.wikipedia.org$c13e7a23-11e7-4c91-a799-3d1806b65444")
             .unwrap();
         assert_eq!(k.entity_id().unwrap().as_str(), "domain:en.wikipedia.org");
-        // The tenant-relative form canonicalizes inside a statement ID too (0044 §3).
+        // The tenant-relative form canonicalizes inside a statement ID too (0044 §3), and
+        // is not kept: it differs from the canonical subject by more than case.
         let t = StatementId::parse("QQQ8$C13E7A23-11E7-4C91-A799-3D1806B65444").unwrap();
         assert_eq!(t, s);
+        assert_eq!(t.as_str(), "Q8$C13E7A23-11E7-4C91-A799-3D1806B65444");
         let rewritten = s.with_entity(&EntityId::parse("LBQ8").unwrap());
         assert_eq!(
             rewritten.as_str(),
