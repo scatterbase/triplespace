@@ -156,6 +156,9 @@ impl FixtureApi {
                 vec![],
             );
         }
+        if query.contains("action=wbsearchentities") {
+            return (StatusCode::OK, self.search(query), vec![]);
+        }
         if query.contains("action=wbgetentities") {
             let mut out = serde_json::Map::new();
             let mut tags = Vec::new();
@@ -181,6 +184,72 @@ impl FixtureApi {
             return (StatusCode::OK, json!({"entities": out, "success": 1}), tags);
         }
         (StatusCode::NOT_FOUND, json!({}), vec![])
+    }
+}
+
+impl FixtureApi {
+    /// `wbsearchentities` over the fixtures, as the API's Postgres fallback answers it: a
+    /// prefix of a label (first) or an alias, in the language, `mul` or English.
+    fn search(&self, query: &str) -> Value {
+        let text = param(query, "search").unwrap_or_default().to_lowercase();
+        let lang = param(query, "language").unwrap_or_else(|| "en".into());
+        let ty = param(query, "type").unwrap_or_else(|| "item".into());
+        let limit: usize = param(query, "limit")
+            .and_then(|l| l.parse().ok())
+            .unwrap_or(7);
+        let offset: usize = param(query, "continue")
+            .and_then(|l| l.parse().ok())
+            .unwrap_or(0);
+        let langs = [lang.as_str(), "mul", "en"];
+        let mut hits = Vec::new();
+        for (id, e) in &self.entities {
+            if e["type"].as_str() != Some(ty.as_str()) {
+                continue;
+            }
+            let label = langs
+                .iter()
+                .find_map(|l| e["labels"][*l]["value"].as_str().map(|v| (*l, v)));
+            let matched = langs
+                .iter()
+                .find_map(|l| {
+                    e["labels"][*l]["value"]
+                        .as_str()
+                        .filter(|v| v.to_lowercase().starts_with(&text))
+                        .map(|v| ("label", *l, v))
+                })
+                .or_else(|| {
+                    langs.iter().find_map(|l| {
+                        e["aliases"][*l].as_array().and_then(|a| {
+                            a.iter()
+                                .filter_map(|x| x["value"].as_str())
+                                .find(|v| v.to_lowercase().starts_with(&text))
+                                .map(|v| ("alias", *l, v))
+                        })
+                    })
+                });
+            let Some((kind, ml, mt)) = matched else {
+                continue;
+            };
+            let mut hit = json!({
+                "id": id, "title": e["title"].as_str().unwrap_or(id),
+                "display": {}, "match": {"type": kind, "language": ml, "text": mt}
+            });
+            if let Some((l, v)) = label {
+                hit["display"]["label"] = json!({"value": v, "language": l});
+            }
+            if let Some(d) = langs
+                .iter()
+                .find_map(|l| e["descriptions"][*l]["value"].as_str().map(|v| (*l, v)))
+            {
+                hit["display"]["description"] = json!({"value": d.1, "language": d.0});
+            }
+            hits.push(hit);
+        }
+        let mut body = json!({"searchinfo": {"search": text}, "search": hits.iter().skip(offset).take(limit).collect::<Vec<_>>(), "success": 1});
+        if hits.len() > offset + limit {
+            body["search-continue"] = json!(offset + limit);
+        }
+        body
     }
 }
 
@@ -534,4 +603,101 @@ async fn preview() {
     )
     .await
     .unwrap();
+}
+
+/// The redirect a request answers with, if any.
+async fn location(uri: &str) -> (StatusCode, Option<String>) {
+    let (status, h, _) = get(uri).await;
+    (
+        status,
+        h.get(header::LOCATION)
+            .map(|v| v.to_str().unwrap().to_string()),
+    )
+}
+
+#[tokio::test]
+async fn the_header_box_goes_straight_to_an_entity() {
+    for (text, to) in [
+        ("Q6", "/wiki/Item:Q6"),
+        ("q6", "/wiki/Item:Q6"),
+        ("P3", "/wiki/Property:P3"),
+        ("Item:Q6", "/wiki/Item:Q6"),
+        ("WDQ65", "/wiki/Item:WDQ65"),
+        ("wikipedia.org", "/wiki/Domain:wikipedia.org"),
+        ("Domain:Wikipedia.org", "/wiki/Domain:wikipedia.org"),
+    ] {
+        let (status, loc) = location(&format!(
+            "/w/index.php?title=Special:Search&search={}",
+            text.replace(':', "%3A")
+        ))
+        .await;
+        assert_eq!(status, StatusCode::FOUND, "{text}");
+        assert_eq!(loc.as_deref(), Some(to), "{text}");
+    }
+}
+
+#[tokio::test]
+async fn search_results_are_grouped_by_kind() {
+    let (status, h, html) = get("/w/index.php?title=Special:Search&search=six&fulltext=1").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        h[header::CACHE_CONTROL]
+            .to_str()
+            .unwrap()
+            .starts_with("public")
+    );
+    assert!(html.contains("<title>Search – librarybase</title>"));
+    assert!(html.contains("href=\"/wiki/Item:Q6\" class=\"ts-hit__title\""));
+    assert!(html.contains(">Items</h2>"));
+    assert!(
+        !html.contains(">Properties</h2>"),
+        "a kind with no results is left out"
+    );
+    assert!(html.contains("value=\"six\""), "the boxes keep the text");
+    insta::assert_snapshot!("search_six", main_of(&html));
+
+    let (_, _, alias) = get("/w/index.php?title=Special:Search&search=half&fulltext=1").await;
+    assert!(alias.contains("Also known as <bdi><span>half dozen</span></bdi>"));
+
+    let (_, _, props) = get("/w/index.php?title=Special:Search&search=in&fulltext=1&ns122=1").await;
+    assert!(props.contains(">Properties</h2>"));
+    assert!(props.contains(">instance of<"));
+    assert!(!props.contains(">Items</h2>"));
+    assert!(props.contains("aria-current=\"page\">Properties</a>"));
+}
+
+#[tokio::test]
+async fn an_id_is_offered_or_reported_missing() {
+    let (_, _, html) = get("/w/index.php?title=Special:Search&search=Q6&fulltext=1").await;
+    assert!(html.contains(">Go to Item:Q6</a>"));
+    let (status, _, missing) = get("/w/index.php?title=Special:Search&search=Q404").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(missing.contains("There is no entity at Item:Q404."));
+    let (status, _, word) = get("/w/index.php?title=Special:Search&search=Paris").await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "a word is searched, not taken for an ID"
+    );
+    assert!(!word.contains("There is no entity"));
+    assert!(word.contains("No items, properties or domains match “Paris”."));
+    let (_, _, empty) = get("/wiki/Special:Search").await;
+    assert!(empty.contains("class=\"ts-search-intro\""));
+}
+
+#[tokio::test]
+async fn search_pages_through_one_kind() {
+    let (_, _, first) =
+        get("/w/index.php?title=Special:Search&search=&fulltext=1&ns122=1&limit=5").await;
+    assert!(
+        first.contains("class=\"ts-search-intro\""),
+        "no text, no search"
+    );
+    let (_, _, page1) =
+        get("/w/index.php?title=Special:Search&search=p&fulltext=1&ns122=1&limit=1").await;
+    assert!(page1.contains("rel=\"next\""), "{page1}");
+    assert!(!page1.contains("rel=\"prev\""));
+    let (_, _, page2) =
+        get("/w/index.php?title=Special:Search&search=p&fulltext=1&ns122=1&limit=1&offset=1").await;
+    assert!(page2.contains("rel=\"prev\""));
 }

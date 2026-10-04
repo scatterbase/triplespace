@@ -25,12 +25,12 @@ use sha2::{Digest as _, Sha256};
 use triplespace_client::{CacheInfo, ClientError, Incoming, SiteInfo};
 
 use crate::codex::{Message, MessageKind};
-use crate::entity;
 use crate::frame::{self, Page, Tab, title_url};
 use crate::i18n::{self, Messages};
 use crate::routes::{self, Target};
 use crate::theme::Theme;
 use crate::{MIN_API_VERSION, Site, assets};
+use crate::{entity, special};
 
 /// The connection address, when the server was started with `ConnectInfo`.
 pub type Peer = Option<Extension<ConnectInfo<SocketAddr>>>;
@@ -246,7 +246,7 @@ fn not_modified(request: &HeaderMap, etag: &str) -> bool {
 }
 
 /// The caching headers of a page drawn from `inputs`.
-fn caching(h: &mut HeaderMap, etag: Option<&str>, inputs: &[CacheInfo]) {
+pub(crate) fn caching(h: &mut HeaderMap, etag: Option<&str>, inputs: &[CacheInfo]) {
     let public = inputs.iter().all(|i| i.public);
     let cc = if public {
         format!("public, max-age=0, s-maxage={S_MAXAGE}, stale-while-revalidate=300")
@@ -430,6 +430,9 @@ async fn dispatch(
 ) -> Response {
     if entity::is_entity_title(&title) {
         return entity::serve(site, headers, peer, title, query).await;
+    }
+    if let Some(r) = special::serve(site, headers, peer, &title, query).await {
+        return r;
     }
     let incoming = incoming(headers, peer);
     let cx = match context(site, &incoming, query).await {

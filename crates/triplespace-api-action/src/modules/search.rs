@@ -1,6 +1,7 @@
 //! `wbsearchentities` (compat §4.1; 0014 §8): the Postgres fallback — a prefix match on
 //! `view.term` in the requested language (labels first, then aliases), the tenant's rows
-//! and the shared rows together, in Wikibase's response shape.
+//! and the shared rows together, in Wikibase's response shape. Its public form carries the
+//! `Cache-Tag` of each entity it lists.
 
 use serde_json::{Value, json};
 
@@ -65,6 +66,8 @@ pub async fn wbsearchentities(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         let text: String = r.get(3);
         let page_id: i64 = r.get(4);
         let (label, description) = display_terms(ctx, &id, &languages).await?;
+        // The public form names every entity it shows, so erasing one purges it (0014 §5).
+        ctx.cache_tags.push(format!("entity:{id}"));
         let entity_id =
             scatter_wikibase_model::id::EntityId::parse(&id).map_err(ApiError::internal)?;
         let (_, title) = title_of(

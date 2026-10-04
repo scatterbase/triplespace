@@ -17,7 +17,7 @@ use crate::transport::ClientError;
 use crate::{Client, Incoming};
 
 /// What a query value keeps unencoded.
-const QUERY: &AsciiSet = &NON_ALPHANUMERIC
+pub(crate) const QUERY: &AsciiSet = &NON_ALPHANUMERIC
     .remove(b'-')
     .remove(b'.')
     .remove(b'_')

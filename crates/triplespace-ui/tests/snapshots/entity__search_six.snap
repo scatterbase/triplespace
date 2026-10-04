@@ -1,0 +1,52 @@
+---
+source: crates/triplespace-ui/tests/entity.rs
+expression: main_of(&html)
+---
+<main class="ts-page" id="content">
+	<h1 class="ts-page__title">Search</h1>
+	<div class="ts-page__body">
+		<div class="ts-search">
+<form class="ts-search-form" role="search" aria-label="Search" action="/w/index.php" method="get">
+<input type="hidden" name="title" value="Special:Search">
+<input type="hidden" name="fulltext" value="1">
+<div class="cdx-search-input cdx-search-input--has-end-button">
+	<div class="cdx-search-input__input-wrapper">
+		<div class="cdx-text-input">
+			<input class="cdx-text-input__input" type="search" name="search" value="six" placeholder="Search items, properties and domains" aria-label="Search">
+		</div>
+	</div>
+	<button type="submit" class="cdx-button cdx-search-input__end-button">Search</button>
+</div>
+</form>
+<nav class="ts-search-filter" aria-label="Search in">
+<ul>
+<li>
+<a href="/w/index.php?title=Special:Search&amp;search=six&amp;fulltext=1" aria-current="page">Everything</a>
+</li>
+<li>
+<a href="/w/index.php?title=Special:Search&amp;search=six&amp;fulltext=1&amp;ns120=1">Items</a>
+</li>
+<li>
+<a href="/w/index.php?title=Special:Search&amp;search=six&amp;fulltext=1&amp;ns122=1">Properties</a>
+</li>
+<li>
+<a href="/w/index.php?title=Special:Search&amp;search=six&amp;fulltext=1&amp;ns210=1">Domains</a>
+</li>
+</ul>
+</nav>
+<section class="ts-results" aria-labelledby="ts-results-item">
+<h2 class="ts-results__heading" id="ts-results-item">Items</h2>
+<ol class="ts-hits">
+<li class="ts-hit">
+<div class="ts-hit__head">
+<a href="/wiki/Item:Q6" class="ts-hit__title">
+<span>Six &amp; more</span>
+</a> <span class="ts-chip ts-chip--local">Q6</span>
+</div>
+<p class="ts-hit__description">a number</p>
+</li>
+</ol>
+</section>
+</div>
+	</div>
+</main>
