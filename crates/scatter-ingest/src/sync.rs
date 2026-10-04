@@ -17,7 +17,7 @@ use scatter_wikibase_model::hash::Hasher;
 use scatter_wikibase_model::id::EntityId;
 
 use crate::IngestError;
-use crate::job::{Counts, Job};
+use crate::job::{Counts, Job, Reject};
 use crate::store::IngestStore;
 use crate::write::{Attestation, Request, write_to};
 
@@ -48,6 +48,15 @@ pub enum SyncItem {
         to: EntityId,
         /// The merging version.
         upstream: Upstream,
+    },
+    /// The adapter could not shape an upstream entity as intended and reports it (0009
+    /// §9: an invalid or duplicate identity value). Nothing is written for this item;
+    /// an adapter that still has a state to write hands that over as a separate `State`.
+    Rejected {
+        /// The upstream ID.
+        upstream_id: String,
+        /// Why.
+        reason: String,
     },
 }
 
@@ -158,6 +167,8 @@ pub async fn run_sync<S: IngestStore>(
     let mut counts = Counts::default();
     let mut seen: BTreeSet<EntityId> = BTreeSet::new();
     let mut in_unit = 0usize;
+    // Rejects are numbered in the order they arrive; a sync has no batch lines.
+    let mut rejected_line = 1usize;
 
     for item in items {
         if in_unit >= batch.max(1) {
@@ -229,6 +240,19 @@ pub async fn run_sync<S: IngestStore>(
                     to,
                     upstream: Some(upstream),
                 }
+            }
+            SyncItem::Rejected {
+                upstream_id,
+                reason,
+            } => {
+                counts.rejected += 1;
+                job.reject(Reject {
+                    line: rejected_line,
+                    match_key: None,
+                    reason: format!("{upstream_id}: {reason}"),
+                });
+                rejected_line += 1;
+                continue;
             }
         };
         let created = matches!(

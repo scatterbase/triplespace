@@ -12,6 +12,33 @@ use tokio_postgres::{Client, Config, NoTls};
 use triplespace_api_ingest::PgIngest;
 use triplespace_projections::{Farm, PgBackend, milestone_pipeline};
 
+/// The farm a database serves, for the pipeline and the instance actor: the overrides,
+/// else the first registered tenant's slug and base (0046: the primary tenant stands in
+/// for the farm until one is named).
+pub async fn farm_of(
+    client: &Client,
+    farm_slug: Option<&str>,
+    farm_base: Option<&str>,
+) -> Result<Farm> {
+    let row = client
+        .query_opt(
+            "SELECT code, config->>'base' FROM view.registry WHERE tenant = '' AND kind = 'tenant' ORDER BY code LIMIT 1",
+            &[],
+        )
+        .await?;
+    let (slug, base): (String, Option<String>) = match row {
+        Some(r) => (r.get(0), r.get(1)),
+        None => (String::from("scatter"), None),
+    };
+    Ok(Farm {
+        slug: farm_slug.map_or(slug, str::to_owned),
+        base: farm_base
+            .map(str::to_owned)
+            .or(base)
+            .unwrap_or_else(|| "https://scatter.example".into()),
+    })
+}
+
 /// Microseconds since the epoch, now.
 pub fn now() -> u64 {
     u64::try_from(

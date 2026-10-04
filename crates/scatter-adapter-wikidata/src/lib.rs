@@ -11,17 +11,21 @@
 //!   [`adoption::Survey`] that derives the sequence floors and the accounts from a pass
 //!   over the dump.
 //! - [`mirror`]: a dump's entities as mirror states under the provider's prefixed IDs.
+//! - [`entities`]: either dump as one stream of entities with their revision metadata,
+//!   for a mirror sync.
 //!
 //! The crate reads files and parses; it knows no log and no database (0005 §2).
 
 #![forbid(unsafe_code)]
 
 pub mod adoption;
+pub mod entities;
 pub mod json_dump;
 pub mod mirror;
 pub mod xml_dump;
 
 pub use adoption::{Account, AdoptedRevision, Survey, adopt_page};
+pub use entities::Entities;
 pub use json_dump::JsonDump;
 pub use xml_dump::{DumpPage, Revision, XmlDump};
 

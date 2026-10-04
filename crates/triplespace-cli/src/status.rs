@@ -5,9 +5,8 @@
 use anyhow::{Context, Result};
 use clap::Args;
 use scatter_log_postgres::PgLog;
-use triplespace_projections::Farm;
 
-use crate::common::{connect, store};
+use crate::common::{connect, farm_of, store};
 
 /// `status` / `rebuild`.
 #[derive(Debug, Args)]
@@ -66,30 +65,15 @@ fn ordered(partitions: &[Partition]) -> Vec<u64> {
     sorted.into_iter().map(|p| p.id).collect()
 }
 
-async fn farm_of(client: &tokio_postgres::Client, args: &Target) -> Result<Farm> {
-    let row = client
-        .query_opt(
-            "SELECT code, config->>'base' FROM view.registry WHERE tenant = '' AND kind = 'tenant' ORDER BY code LIMIT 1",
-            &[],
-        )
-        .await?;
-    let (slug, base): (String, Option<String>) = match row {
-        Some(r) => (r.get(0), r.get(1)),
-        None => (String::from("scatter"), None),
-    };
-    Ok(Farm {
-        slug: args.farm_slug.clone().unwrap_or(slug),
-        base: args
-            .farm_base
-            .clone()
-            .or(base)
-            .unwrap_or_else(|| "https://scatter.example".into()),
-    })
-}
-
+/// Prints every partition with its head and each projection's lag.
 pub async fn status(args: Target) -> Result<()> {
     let client = connect(&args.database).await?;
-    let farm = farm_of(&client, &args).await?;
+    let farm = farm_of(
+        &client,
+        args.farm_slug.as_deref(),
+        args.farm_base.as_deref(),
+    )
+    .await?;
     let (store, pipeline) = store(&args.database, &farm)?;
     let parts = partitions(&client).await?;
     let log_store = PgLog::new(client);
@@ -120,9 +104,15 @@ pub async fn status(args: Target) -> Result<()> {
     Ok(())
 }
 
+/// Replays every projection from offset 0, in dependency order.
 pub async fn rebuild(args: Target) -> Result<()> {
     let client = connect(&args.database).await?;
-    let farm = farm_of(&client, &args).await?;
+    let farm = farm_of(
+        &client,
+        args.farm_slug.as_deref(),
+        args.farm_base.as_deref(),
+    )
+    .await?;
     let (store, pipeline) = store(&args.database, &farm)?;
     let parts = partitions(&client).await?;
     let order = ordered(&parts);

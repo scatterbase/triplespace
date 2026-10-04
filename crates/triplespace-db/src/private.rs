@@ -42,6 +42,7 @@ impl Portability {
 pub const PRIVATE_TABLES: &[(&str, Portability)] = &[
     ("password", Portability::ReEstablished),
     ("api_key", Portability::ReEstablished),
+    ("session", Portability::NeverLeaves),
 ];
 
 /// Why the live schema disagrees with [`PRIVATE_TABLES`].

@@ -61,20 +61,20 @@ impl Default for EntityProjection {
 }
 
 /// One source graph's cursor row.
-struct Source {
-    tenant: String,
-    graph: String,
-    offset: u64,
-    synced_at: std::time::SystemTime,
+pub(crate) struct Source {
+    pub(crate) tenant: String,
+    pub(crate) graph: String,
+    pub(crate) offset: u64,
+    pub(crate) synced_at: std::time::SystemTime,
 }
 
 /// What the local graph contributed, beyond its state.
 #[derive(Default)]
-struct Local {
-    state: LocalState,
-    latest: Option<Header>,
+pub(crate) struct Local {
+    pub(crate) state: LocalState,
+    pub(crate) latest: Option<Header>,
     /// Whether the local records are exactly one whole-state record.
-    single_whole: bool,
+    pub(crate) single_whole: bool,
 }
 
 impl EntityProjection {
@@ -90,16 +90,19 @@ impl EntityProjection {
         Self { order }
     }
 
-    fn mirror_rank(&self, graph: &str) -> usize {
+    pub(crate) fn mirror_rank(&self, graph: &str) -> usize {
         graph
             .strip_prefix("mirror/")
             .and_then(|slug| self.order.iter().position(|s| s == slug))
             .unwrap_or(usize::MAX)
     }
 
-    async fn sources(cx: &PgCx, tenant: &str, id: &EntityId) -> Result<Vec<Source>, String> {
-        let rows = cx
-            .conn()
+    pub(crate) async fn sources(
+        client: &tokio_postgres::Client,
+        tenant: &str,
+        id: &EntityId,
+    ) -> Result<Vec<Source>, String> {
+        let rows = client
             .query(
                 "SELECT tenant, graph, \"offset\", synced_at FROM view.entity_source
                  WHERE entity_id = $1 AND (tenant = $2 OR tenant = '')",
@@ -121,20 +124,24 @@ impl EntityProjection {
     }
 
     /// Folds the tenant's local records for the subject.
-    async fn local(cx: &PgCx, tenant: &str, id: &EntityId) -> Result<Local, String> {
-        let Some(partition) = partition_of(cx.conn(), tenant, "local").await? else {
+    pub(crate) async fn local(
+        client: &tokio_postgres::Client,
+        tenant: &str,
+        id: &EntityId,
+    ) -> Result<Local, String> {
+        let Some(partition) = partition_of(client, tenant, "local").await? else {
             return Ok(Local::default());
         };
         // A keyed subject with local records has a surrogate, written before them; its
         // absence means the instance `log` has not been projected yet, which a rebuild
         // that orders partitions wrongly would do. Fail loudly rather than drop the local
         // contribution.
-        let Some(key) = header_key_for(cx.conn(), id).await? else {
+        let Some(key) = header_key_for(client, id).await? else {
             return Err(format!(
                 "`{id}` has local records but no surrogate in view.keyed_surrogate; project the instance log first"
             ));
         };
-        let records = log::read_by_key(cx.conn(), partition, &key)
+        let records = log::read_by_key(client, partition, &key)
             .await
             .map_err(|e| e.to_string())?;
         let mut local = Local::default();
@@ -164,11 +171,14 @@ impl EntityProjection {
     }
 
     /// The state a mirror's cursor names.
-    async fn mirror(cx: &PgCx, source: &Source) -> Result<Option<(Entity, Header)>, String> {
-        let Some(partition) = partition_of(cx.conn(), &source.tenant, &source.graph).await? else {
+    pub(crate) async fn mirror(
+        client: &tokio_postgres::Client,
+        source: &Source,
+    ) -> Result<Option<(Entity, Header)>, String> {
+        let Some(partition) = partition_of(client, &source.tenant, &source.graph).await? else {
             return Err(format!("graph `{}` has no partition", source.graph));
         };
-        let slot = log::read(cx.conn(), partition, source.offset)
+        let slot = log::read(client, partition, source.offset)
             .await
             .map_err(|e| e.to_string())?;
         let Slot::Record(record) = slot else {
@@ -206,7 +216,7 @@ impl EntityProjection {
     /// Recomputes one `(tenant, id)` row and its terms and identifiers.
     #[allow(clippy::too_many_lines)]
     async fn resolve_subject(&self, cx: &PgCx, tenant: &str, id: &EntityId) -> Result<u64, String> {
-        let mut sources = Self::sources(cx, tenant, id).await?;
+        let mut sources = Self::sources(cx.conn(), tenant, id).await?;
         sources.sort_by_key(|s| {
             (
                 s.graph != "local",
@@ -219,7 +229,7 @@ impl EntityProjection {
                 .iter()
                 .any(|s| s.graph == "local" && s.tenant == tenant);
         let local = if has_local {
-            Self::local(cx, tenant, id).await?
+            Self::local(cx.conn(), tenant, id).await?
         } else {
             Local::default()
         };
@@ -234,7 +244,7 @@ impl EntityProjection {
         }
         let mut mirror_states = 0usize;
         for s in sources.iter().filter(|s| s.graph.starts_with("mirror/")) {
-            if let Some((entity, header)) = Self::mirror(cx, s).await? {
+            if let Some((entity, header)) = Self::mirror(cx.conn(), s).await? {
                 headers.push(header);
                 mirror_states += 1;
                 contributions.push(Contribution {

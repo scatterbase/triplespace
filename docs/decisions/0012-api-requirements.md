@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-01 (A35)
+- **Updated:** 2026-10-03 (A36)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0005](0005-crate-organization.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -130,7 +130,7 @@ History, recent changes, contributions and the log all use one row shape in the 
 
 ### 4. Action API changes
 
-*Changed by A3, A4, A5, A7, A8, A9, A10, A12, A13, A14, A15, A16, A17, A18, A19, A21, A23, A24, A25, A26, A27, A30, A31, A32, A33, A34, A35.*
+*Changed by A3, A4, A5, A7, A8, A9, A10, A12, A13, A14, A15, A16, A17, A18, A19, A21, A23, A24, A25, A26, A27, A30, A31, A32, A33, A34, A35, A36.*
 
 All of these changes are additive (§1.2). [0056](0056-security-model.md) §13 adds `read=` to `action=protect`, `prtype=read` to `list=protectedpages`, `list=protectedsets`, and the reduced `meta=siteinfo` an outsider receives from a private tenant.
 
@@ -697,3 +697,10 @@ Replaced text (§2.1):
 - **Source:** [0056](0056-security-model.md) §5, §13, §15
 - **Change:** extends §4, §8
 - **Summary:** A target under a confidential `read` restriction is absent for principals outside its group, not redacted: the missing-target answer from every route, and omission from every list, count and log. The privacy test gains 0056 §15's cases, and `instance check`'s failures. `action=protect` takes `read=`; `list=protectedsets` is added.
+
+### A36. What the write modules write; the API paths
+
+- **Date:** 2026-10-03
+- **Source:** Direct: James, decision of 2026-10-03 (`triplespace-accounts`, `triplespace-api-action`, `triplespace-server`, `scatter-adapter-internetdomains`)
+- **Change:** extends §4
+- **Summary:** A write module computes the entity as the editor wants it and writes the difference from the current state (0002 §8.1, a batch of one): a new entity is a `create`; additions are one `add`; retractions one `remove`; a changed statement is a `remove` of its GUID then an `add` under the same GUID; a mirrored statement the editor removes or changes is suppressed with an `override` and, if changed, re-added under a fresh local GUID; a Domain's first local write is an `add` (0009 §10). All the records of one edit go in one transaction with the base offset carried from record to record, so `baserevid` yields either the whole edit or `editconflict`, which carries `currentrevid`; an unknown `baserevid` is `nosuchrevid`; conflicts are never patched around. The module reports the last record's revision as `lastrevid`. `api.php` is served at `/w/api.php` and `/api.php` (`scriptpath` is `/w`, `articlepath` `/wiki/$1`); `Special:EntityData/{id}.json` and `/entity/{id}` (303 to the former) are routes of the server.

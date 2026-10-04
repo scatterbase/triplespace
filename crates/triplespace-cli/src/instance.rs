@@ -19,6 +19,7 @@ use scatter_log::registry::{
 };
 use scatter_log::tree::Segments;
 use scatter_log_postgres::{PartitionInfo, log, sequences};
+use scatter_projection::Backend as _;
 use tokio_postgres::Client;
 use triplespace_projections::Farm;
 use triplespace_projections::actors::payload;
@@ -61,6 +62,10 @@ pub struct Create {
     /// The owner's name.
     #[arg(long, default_value = "Owner")]
     pub owner_name: String,
+    /// A file holding the owner's password (else `TRIPLESPACE_OWNER_PASSWORD`); without
+    /// either, the owner has no password until `triplespace password set`.
+    #[arg(long)]
+    pub owner_password_file: Option<PathBuf>,
 }
 
 fn is_slug(s: &str) -> bool {
@@ -116,6 +121,7 @@ async fn open_partition(
     ))
 }
 
+/// Creates the instance.
 #[allow(clippy::too_many_lines)]
 pub async fn run(args: Create) -> Result<()> {
     if !is_slug(&args.tenant) {
@@ -328,6 +334,32 @@ pub async fn run(args: Create) -> Result<()> {
             .await
             .with_context(|| format!("project partition {p:#x}"))?;
     }
+
+    // The owner's password (0016 §3 as amended): the hash in `private`, the binding in
+    // `accounts`.
+    let password = match &args.owner_password_file {
+        Some(f) => Some(crate::accounts::secret_from(
+            Some(f),
+            "TRIPLESPACE_OWNER_PASSWORD",
+        )?),
+        None => std::env::var("TRIPLESPACE_OWNER_PASSWORD").ok(),
+    };
+    if let Some(text) = &password {
+        let mut cx = store.begin().await?;
+        crate::accounts::set_password(
+            &store,
+            &pipeline,
+            &mut cx,
+            &args.tenant,
+            &owner.to_string(),
+            owner_id,
+            text,
+            &instance_actor,
+            t,
+        )
+        .await?;
+        store.commit(cx).await?;
+    }
     println!("instance created");
     println!("  key file      {}", args.key_file.display());
     println!("  farm          {farm_slug} ({farm_base})");
@@ -345,6 +377,16 @@ pub async fn run(args: Create) -> Result<()> {
             args.tenant
         );
     }
-    println!("  note          no password binding yet: logins arrive with triplespace-accounts");
+    if password.is_some() {
+        println!(
+            "  login         action=clientlogin as \"{}\"",
+            args.owner_name
+        );
+    } else {
+        println!(
+            "  note          the owner has no password yet: triplespace password set --tenant {} --id {owner_id} --password-file <file>",
+            args.tenant
+        );
+    }
     Ok(())
 }

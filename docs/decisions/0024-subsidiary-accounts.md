@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-01 (A9)
+- **Updated:** 2026-10-03 (A10)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -66,7 +66,7 @@ A **subsidiary account** is a local account of kind `bot` ([0007](0007-actor-ide
 
 ### 4. API keys (extends 0007 §3)
 
-*Changed by A2, A3.*
+*Changed by A2, A3, A10.*
 
 **A key is a credential of a subsidiary and of nothing else.** A primary account cannot hold one, so revoking a key never touches a person's login, and every automated edit is attributable to a named agent with a named operator. This also settles the acceptance test of [0008](0008-namespaces-and-document-pages.md) §12: Pywikibot logs in as a subsidiary.
 
@@ -143,6 +143,8 @@ Identity is per tenant, so a subsidiary belongs to the tenant its operator belon
 
 ### 8. API (extends 0012 §4 and §5)
 
+
+*Changed by A10.*
 **Action API**, additively under [0012](0012-api-requirements.md) §1:
 
 | Module | Behaviour |
@@ -355,3 +357,10 @@ Replaced text (§5):
 - **Source:** [0054](0054-forking-a-mirrored-page.md) §8
 - **Change:** extends §5
 - **Summary:** Forks started count in a new class, 5 per hour for `user` and 100 for `bot`; the seeding runs under the repository's fetch budget, not the user's.
+
+### A10. Key format, labels, login responses, bearer tokens
+
+- **Date:** 2026-10-03
+- **Source:** Direct: James, decision of 2026-10-03 (`triplespace-accounts`, `triplespace-api-action`, `triplespace-server`, `scatter-adapter-internetdomains`)
+- **Change:** extends §4, §8
+- **Summary:** A key ID is 16 random bytes and a secret 32, both URL-safe base64 without padding, presented as `{key ID}.{secret}`; the stored hash is the SHA-256 of the secret, a fast hash being right for a 256-bit random secret. A label is 1–64 ASCII letters, digits, `-`, `_` or `.`, unique per subsidiary, and never `@`. `action=login` answers in MediaWiki's shape: `{"login": {"result": "Success", "lguserid", "lgusername"}}`, `NeedToken` with a fresh `token` (an anonymous session is opened for it), `WrongToken`, or `Failed` with a `reason`; a primary account's name is `Failed` with `"code": "ts-use-oauth"`. A bearer request is stateless but still carries a CSRF token on writes (0056 §1): `meta=tokens` with a bearer header derives it from the key ID, as a session's is derived from the session ID. `meta=userinfo` for a subsidiary carries `operator` (the operator's actor key) and `grants` (the key's) as top-level fields. `triplespace subsidiary create|key|keys|revoke` are the operator's CLI, until the account page exists.

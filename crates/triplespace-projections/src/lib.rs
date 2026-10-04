@@ -19,6 +19,7 @@ pub mod backend;
 pub mod common;
 pub mod entities;
 pub mod jobs;
+pub mod read;
 pub mod registry;
 pub mod sources;
 

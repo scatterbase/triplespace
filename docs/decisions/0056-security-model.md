@@ -2,6 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
+- **Updated:** 2026-10-03 (A1)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0021](0021-notifications.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md), [0033](0033-backend-stack.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0051](0051-page-redirects.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md), [0045](0045-table-content-model.md), [0046](0046-primary-tenant.md), [0047](0047-special-pages.md), [0049](0049-boards.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -167,6 +168,8 @@ The write path of [0013](0013-postgres-storage.md) §7 is unchanged: authenticat
 
 ### 10. The deployment boundary (extends 0033 §12)
 
+
+*Changed by A1.*
 The evaluator runs in `triplespace-server`. Everything behind it holds restricted data in the clear: Postgres `log` and `view`, OpenSearch (§8), Valkey (§7), the blob store, the render and job queues, the backups, the access logs. **The model holds only inside a deployment where the Triplespace services are the only readers of those stores.** That is a property of how the instance is set up, and Triplespace checks what it can and says what it cannot.
 
 **Requirements.** Each is a line in `triplespace-cli instance check`, which reports `pass`, `fail` or `attest`: the last for a requirement the server cannot verify from inside, which the operator confirms with `instance check --attest {name}` and which is recorded in the instance `config` with the operator and the date.
@@ -313,3 +316,12 @@ The test of [0012](0012-api-requirements.md) §8 gains these cases, each run for
 - [PostgreSQL: Row Security Policies](https://www.postgresql.org/docs/current/ddl-rowsecurity.html) (Q2)
 - Anderson, *Security Engineering*, 3rd ed., ch. 9 (multilevel security), for the "no write up without read up" shape of §6 and §9
 - `docs/registry/tenancy.toml` (§11), `docs/registry/groups.toml`
+
+## Amendment log
+
+### A1. Development mode's fallback tenant
+
+- **Date:** 2026-10-03
+- **Source:** Direct: James, decision of 2026-10-03 (`triplespace-accounts`, `triplespace-api-action`, `triplespace-server`, `scatter-adapter-internetdomains`)
+- **Change:** extends §10
+- **Summary:** In `development` mode the server may name a fallback tenant (`--dev-tenant`), which an unregistered `Host` (a developer's `localhost:8080`) is served as, with `siprop=general` reporting the request's own scheme and host as `server`; the session cookie then also drops `Secure`. In `production` an unregistered host is 421 and the setting is refused.
