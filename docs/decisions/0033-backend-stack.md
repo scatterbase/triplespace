@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-02 (A9)
+- **Updated:** 2026-10-03 (A10)
 - **Author:** James Hare / Claude
 - **Changes:** [0005](0005-crate-organization.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0034](0034-frontend-stack.md)
@@ -24,9 +24,9 @@ This ADR records the rest. The frontend is in 0034.
 
 ### 1. Principles
 
-*Changed by A1, A3, A4.*
+*Changed by A1, A3, A4, A10.*
 
-1. **One binary, one required service.** A small instance runs with the `triplespace` binary and Postgres. Valkey, OpenSearch, QLever and a Parsoid service are optional services a larger instance adds (0013 §11 profiles, 0014 §1, [0042](0042-template-expansion-and-parsoid.md) §8.3); Parsoid is a separate PHP program never linked into the binary, and the only one that needs a PHP runtime. Nothing needs a message broker, a JVM or a Node runtime.
+1. **One binary, one required service.** A small instance runs with the `triplespace` binary and Postgres, and the binary serves the site itself. Valkey, OpenSearch, QLever and a Parsoid service are optional services a larger instance adds (0013 §11 profiles, 0014 §1, [0042](0042-template-expansion-and-parsoid.md) §8.3); Parsoid is a separate PHP program never linked into the binary, and the only one that needs a PHP runtime. A larger instance may also run `triplespace-web`, a second binary from the same workspace that renders the site, holds no state and reaches the instance only through its API, so that page rendering scales apart from the API ([0057](0057-web-tier.md) §2). Nothing needs a message broker, a JVM or a Node runtime.
 2. **Pure crates stay pure.** Crates on 0005 rule 2's pure list do no I/O and pull in no async runtime. The ones on rule 7's wasm list must build for `wasm32-unknown-unknown`, so they avoid C dependencies.
 3. **GPLv3-compatible licences inside the binary.** Triplespace is GPL-3.0-or-later ([0005](0005-crate-organization.md) §6).
    - **Accepted.** Every third-party crate linked into `triplespace` carries one of these licences: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, Zlib, Unicode-3.0, MPL-2.0, BlueOak-1.0.0 (`minicbor`), CDLA-Permissive-2.0 (root-certificate data in `webpki-roots`), LGPL, GPL-2.0-or-later or GPL-3.0.
@@ -181,12 +181,13 @@ QLever is an export destination, not a runtime dependency. It reached full SPARQ
 
 ### 12. Configuration and CLI
 
-*Changed by A8.*
+*Changed by A8, A10.*
 
 - `clap` for `triplespace-cli` and the server's flags.
 - `serde` + `toml` for `docs/registry/` files, embedded at build time by the crates that need them.
 - `figment` for layered instance configuration: file, then environment. Secrets are read from files (`--token-file`, `--*-file`), never from command-line values.
 - `server.mode` (`production` or `development`), `server.trusted_proxies`, `server.admin_listen` and the registered-host check, and `triplespace-cli instance check` with `--attest` and `--through`, which verify the deployment requirements of [0056](0056-security-model.md) §10; in `production` the server refuses to start while a requirement it can test fails.
+- `server.ui` (`embedded` or `off`) chooses whether the server serves the site; `triplespace-web` takes the `web.*` settings of [0057](0057-web-tier.md) §2 by the same rules, its forwarder key and its cache's Valkey password from files. `triplespace-cli instance forwarder create`, `list` and `revoke` manage forwarder keys ([0057](0057-web-tier.md) §10).
 
 ### 13. Observability
 
@@ -225,8 +226,10 @@ The `LogStore` conformance suite (0005 rule 8) runs against both the file and Po
 
 ### 17. Packaging
 
-- One binary per target, built for Linux (x86-64, arm64, glibc) and macOS for development.
-- An OCI image with the binary, the embedded frontend assets (0034 §8) and nothing else.
+*Changed by A10.*
+
+- The server binary and the web binary for each target, built for Linux (x86-64, arm64, glibc) and macOS for development.
+- An OCI image with both binaries, the frontend assets embedded in each (0034 §8), and nothing else; the web tier runs from the same image with another entry point ([0057](0057-web-tier.md) §2).
 - A `compose.yaml` for development with Postgres, and optional Valkey, OpenSearch and QLever services.
 - musl static builds are not a goal; if they become one, the crypto provider moves from `aws-lc-rs` to `ring` (§6).
 
@@ -347,3 +350,19 @@ Replaced text (§10):
 - **Summary:** The runner records each migration with a checksum and refuses one whose SQL has changed since it was applied; each runs in its own transaction with its bookkeeping row.
 
 Replaced text (§4): "A small runner in `triplespace-db` applies them in 0005's build order and records them in `ops.migration`."
+
+### A10. The web tier
+
+- **Date:** 2026-10-03
+- **Source:** [0057](0057-web-tier.md) §2
+- **Change:** amends §1, §17; extends §12
+- **Summary:** The server binary serves the site itself, so a small instance is still one binary and Postgres; a larger one may add `triplespace-web`, a stateless second binary that renders the site through the API. `server.ui` chooses whether the server serves the site, and the web tier's settings, its forwarder key among them, follow §12's rules. The image carries both binaries.
+
+Replaced text (§1):
+
+> 1. **One binary, one required service.** A small instance runs with the `triplespace` binary and Postgres. Valkey, OpenSearch, QLever and a Parsoid service are optional services a larger instance adds (0013 §11 profiles, 0014 §1, [0042](0042-template-expansion-and-parsoid.md) §8.3); Parsoid is a separate PHP program never linked into the binary, and the only one that needs a PHP runtime. Nothing needs a message broker, a JVM or a Node runtime.
+
+Replaced text (§17):
+
+> - One binary per target, built for Linux (x86-64, arm64, glibc) and macOS for development.
+> - An OCI image with the binary, the embedded frontend assets (0034 §8) and nothing else.

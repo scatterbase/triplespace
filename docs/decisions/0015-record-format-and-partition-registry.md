@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-01 (A26)
+- **Updated:** 2026-10-03 (A28)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md)
 - **Uses:** [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md)
@@ -106,7 +106,7 @@ In [0013](0013-postgres-storage.md) §2, `revid`, `logid` and a new `page_id` co
 
 ### 3. The `config` partition (amends 0005 §4.1; extends 0006 §4 and §6)
 
-*Changed by A3, A4, A5, A6, A8, A9, A10, A11, A12, A13, A16, A19, A20, A21, A23, A24, A26.*
+*Changed by A3, A4, A5, A6, A8, A9, A10, A11, A12, A13, A16, A19, A20, A21, A23, A24, A26, A27, A28.*
 
 A source partition is registered for instance configuration. It corresponds to Scatterbase's `server` graph in the table of [0005](0005-crate-organization.md) §4.1, and the two share one record shape so that Scatterbase can adopt it.
 
@@ -133,7 +133,7 @@ The remaining kinds are Triplespace's, and each product declares its own:
 | `keyed-type` | The type name | The keyed-type entry | [0009](0009-keyed-entity-types-and-domain.md) §1 |
 | `role` | The role name | The properties bound to a role | [0003](0003-statement-ui.md) §7, [0004](0004-identity-clusters-and-equivalence.md) §6 |
 | `reconcile` | `default` or a provider code | Provider order, an optional `order_by_type` override, link properties, identifier properties for inference, normalizer overrides, reconciliation rules | [0004](0004-identity-clusters-and-equivalence.md) §9 |
-| `site` | A setting name | Site name, content languages, the recent-changes window, checkpoint cadence, and other scalar settings, among them the `wikitext.*` and `lua.*` settings of template expansion ([0042](0042-template-expansion-and-parsoid.md) §2, [0043](0043-lua-modules.md) §8–9), `pages.repos` and `pages.share` ([0052](0052-page-repositories-and-title-inheritance.md) §1), `search.inherited` and `content.licence` ([0053](0053-mirrored-pages.md) §7, §9), the `fork.*` settings ([0054](0054-forking-a-mirrored-page.md) §3–4, §8), and `wikitext.site_styles` and `templatestyles.max_bytes` ([0055](0055-templatestyles-templatedata-and-page-properties.md) §2, §4) | [0006](0006-log-integrity-and-erasure.md) §6, [0010](0010-site-ui.md) §7 |
+| `site` | A setting name | Site name, content languages, the recent-changes window, checkpoint cadence, and other scalar settings, among them the `wikitext.*` and `lua.*` settings of template expansion ([0042](0042-template-expansion-and-parsoid.md) §2, [0043](0043-lua-modules.md) §8–9), `pages.repos` and `pages.share` ([0052](0052-page-repositories-and-title-inheritance.md) §1), `search.inherited` and `content.licence` ([0053](0053-mirrored-pages.md) §7, §9), the `fork.*` settings ([0054](0054-forking-a-mirrored-page.md) §3–4, §8), `wikitext.site_styles` and `templatestyles.max_bytes` ([0055](0055-templatestyles-templatedata-and-page-properties.md) §2, §4), and `ui.theme`, the Codex token values a site is themed with ([0034](0034-frontend-stack.md) §1) | [0006](0006-log-integrity-and-erasure.md) §6, [0010](0010-site-ui.md) §7 |
 | `group` | The group name | A permission group; a global group carries `scope` ([0028](0028-tenancy-policy.md) §8) | [0016](0016-permissions-and-access-control.md) §3 |
 | `tenant`, `alias` | Instance scope | A tenant; a base-URI change | [0018](0018-tenants.md) §3, §9 |
 | `primary` | `primary` | Instance scope: the primary tenant's slug and, for a transfer, the offer it accepts; one current record | [0046](0046-primary-tenant.md) §2 |
@@ -148,13 +148,14 @@ The remaining kinds are Triplespace's, and each product declares its own:
 | `resolver` | The resolver name | A resolver namespace: binding, grammar, normalizer with case rule, external IRI | [0029](0029-resolver-namespaces.md) §1 |
 | `federation-policy` | `deny` (instance), `mode` or `list` (tenant) | Fediverse domain allow and deny lists | [0022](0022-federation.md) §8 |
 | `consumer` | The consumer slug | Instance scope: a registered OAuth consumer, its owner, redirect URIs, requested grants and status | [0025](0025-oauth-server.md) §2 |
+| `forwarder` | The forwarder key ID | Instance scope: a forwarder key's label and dates, never its secret or hash; a null record revokes it | [0057](0057-web-tier.md) §10 |
 | `consumer-policy` | `list` | Tenant scope: which approved consumers may be authorized, and which are auto-approved | [0025](0025-oauth-server.md) §2 |
 | `tag` | The tag name | Tenant scope: a user-defined change tag, its description, whether it is active, and the group that may apply it | [0030](0030-edit-filters.md) §5 |
 | `category-mapping` | The mapping name | Tenant scope: a category name or pattern, and the page statement its members get | [0038](0038-page-metadata-and-categories.md) §5 |
 | `page-repo` | The repository name | Tenant or instance scope: a page repository, its kind (`tenant` or `mediawiki`), provider, served namespaces, mode, `shadowed`, `titles`, cache lifetime, events, licence and display name. Replaces `template-repo` (A23) | [0052](0052-page-repositories-and-title-inheritance.md) §1 |
 | `reports` | `default` or a tenant slug | Instance scope: which reports run as batch, their mirror-graph widenings, the batch schedule and the row limit; written with `ts-config` at the farm base | [0047](0047-special-pages.md) §4.3 |
 
-**Scope.** The kinds split by scope ([0018](0018-tenants.md) §3). The instance's `config` holds `key`, `graph`, `provider`, `issuer`, `keyed-type`, `tenant`, `alias`, `primary`, `tenancy`, `template` and `consumer`, the instance lists of `sitelink-policy` and `federation-policy`, and global `group`s; each tenant's `config` holds the rest. A tenant's `config` begins with a `key:` record, the current instance key, and every `key:` record of the instance is appended to it as well, so a tenant's partitions verify from the tenant's bundle alone ([0018](0018-tenants.md) §2).
+**Scope.** The kinds split by scope ([0018](0018-tenants.md) §3). The instance's `config` holds `key`, `graph`, `provider`, `issuer`, `keyed-type`, `tenant`, `alias`, `primary`, `tenancy`, `template`, `consumer` and `forwarder`, the instance lists of `sitelink-policy` and `federation-policy`, and global `group`s; each tenant's `config` holds the rest. A tenant's `config` begins with a `key:` record, the current instance key, and every `key:` record of the instance is appended to it as well, so a tenant's partitions verify from the tenant's bundle alone ([0018](0018-tenants.md) §2).
 
 ACLs were first listed here as a config kind. Under [0023](0023-moderation.md) §3 they are records of their own payload type, `scatter:v0/acl`: graph ACLs are appended to `config`, and page, entity, record and actor ACLs to the tenant `log` partition.
 
@@ -588,3 +589,17 @@ Replaced text (§3):
 - **Source:** [0055](0055-templatestyles-templatedata-and-page-properties.md) §2, §4, §7
 - **Change:** extends §3, §5
 - **Summary:** The registry gains `css-properties.toml`, embedded by `scatter-css`; `wikitext.site_styles` and `templatestyles.max_bytes` join the `site` settings, and the `fork.*` settings of 0054 are listed with them.
+
+### A27. Forwarder keys
+
+- **Date:** 2026-10-03
+- **Source:** [0057](0057-web-tier.md) §10
+- **Change:** extends §3
+- **Summary:** The instance `config` partition gains the `forwarder` kind: each forwarder key's ID, label and dates, so that issuing and revoking the keys that let a proxy vouch for a client's address is in the log. The secret's hash is kept in `private`.
+
+### A28. Themes
+
+- **Date:** 2026-10-03
+- **Source:** [0034](0034-frontend-stack.md) §1
+- **Change:** extends §3
+- **Summary:** `ui.theme` joins the `site` settings: the Codex token values the instance or a tenant themes its site with.

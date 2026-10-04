@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-01 (A31)
+- **Updated:** 2026-10-03 (A32)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md)
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -340,7 +340,7 @@ The foot of the list states where history on this instance begins, for example "
 
 ### 12. Addresses
 
-*Changed by A3, A5, A10, A11, A19, A20, A27.*
+*Changed by A3, A5, A10, A11, A19, A20, A27, A32.*
 
 MediaWiki's URL forms are kept so that links and tools keep working. **`docs/registry/special-pages.toml` is authoritative** for special pages: it lists each with its aliases, scope and status ([0047](0047-special-pages.md) §1). The table names the addresses this ADR relied on, and its rows are entries there.
 
@@ -349,6 +349,8 @@ MediaWiki's URL forms are kept so that links and tools keep working. **`docs/reg
 | Any page | `/wiki/{title}` and `index.php?title={title}` |
 | History | `index.php?title={title}&action=history` |
 | Edit (document pages) | `index.php?title={title}&action=edit` |
+| Content without the frame | `index.php?title={title}&action=render`, with `region` for part of it ([0057](0057-web-tier.md) §8) |
+| Purge | `index.php?title={title}&action=purge`, a confirmation form ([0057](0057-web-tier.md) §14) |
 | Diff | `Special:Diff/N` and `index.php?diff=…&oldid=N`, for local and mirror revisions alike ([0013](0013-postgres-storage.md) §6, [0015](0015-record-format-and-partition-registry.md) §2) |
 | Links here | `Special:WhatLinksHere/{title}` |
 | Recent changes | `Special:RecentChanges` |
@@ -364,7 +366,7 @@ MediaWiki's URL forms are kept so that links and tools keep working. **`docs/reg
 
 ### 13. Implementation
 
-*Changed by A1, A2, A21.*
+*Changed by A1, A2, A21, A32.*
 
 - **A new activity projection** lives in the surfaces layer ([0005](0005-crate-organization.md) §1), as `view.activity` in `triplespace-projections` ([0013](0013-postgres-storage.md) §5.5, §10). It is a time-ordered index with these inputs:
   - every record in the local, `pages` and `actors` partitions;
@@ -373,7 +375,7 @@ MediaWiki's URL forms are kept so that links and tools keep working. **`docs/reg
 
   It serves recent changes, contributions, histories, `list=recentchanges`, `list=usercontribs` and `list=logevents`. Like every projection, it can be rebuilt from the log. It grows with local activity and the number of jobs, not with the size of the mirrors.
 - **The upstream history fetch** is a server component. It reads the provider registry's API endpoint and reuses the adapter's parsing of upstream revisions. Its cache is operational state, not log data.
-- **The frontend extends the `ui/` prototype of [0003](0003-statement-ui.md) §10.** Statement diffs reuse `scatter-wikibase-shape`, and the page editor's preview reuses `scatter-wikitext` and the markdown renderer of `scatter-pages`, all built for `wasm32-unknown-unknown` ([0005](0005-crate-organization.md) §2). Pages are rendered on the server by `triplespace-ui`, and editors load `scatter-wasm` ([0034](0034-frontend-stack.md) §2, §6).
+- **The frontend extends the `ui/` prototype of [0003](0003-statement-ui.md) §10.** Statement diffs reuse `scatter-wikibase-shape`, and the page editor's preview reuses `scatter-wikitext` and the markdown renderer of `scatter-pages`, all built for `wasm32-unknown-unknown` ([0005](0005-crate-organization.md) §2). Pages are rendered on the server by `triplespace-ui`, and editors load `scatter-wasm` ([0034](0034-frontend-stack.md) §2, §6). `triplespace-ui` runs in the server or in the stateless web tier, and reaches the instance only through the public API ([0057](0057-web-tier.md) §1–2).
 
 ## Consequences
 
@@ -695,3 +697,10 @@ Replaced text: the chip rule quoted under A22, which applies only with expansion
 - **Source:** [0055](0055-templatestyles-templatedata-and-page-properties.md) §5–6
 - **Change:** extends §4
 - **Summary:** Insert template… and the parameter popup from TemplateData; `displaytitle` as the heading and the disambiguation mark from page properties.
+
+### A32. The web tier and `action=render`
+
+- **Date:** 2026-10-03
+- **Source:** [0057](0057-web-tier.md) §1, §2, §8, §14
+- **Change:** extends §12, §13
+- **Summary:** `index.php?title={title}&action=render` returns a page's content without the frame, as in MediaWiki, and `region` selects part of it; the site's components fetch regions this way after a save. `action=purge` is MediaWiki's confirmation form. `triplespace-ui` may run in the server or in a separate, stateless web tier, and in either reaches the instance only through the public API.

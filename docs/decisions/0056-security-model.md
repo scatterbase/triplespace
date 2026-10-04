@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-10-03 (A1)
+- **Updated:** 2026-10-03 (A2)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0021](0021-notifications.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md), [0033](0033-backend-stack.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0051](0051-page-redirects.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md), [0045](0045-table-content-model.md), [0046](0046-primary-tenant.md), [0047](0047-special-pages.md), [0049](0049-boards.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -168,8 +168,8 @@ The write path of [0013](0013-postgres-storage.md) §7 is unchanged: authenticat
 
 ### 10. The deployment boundary (extends 0033 §12)
 
+*Changed by A1, A2.*
 
-*Changed by A1.*
 The evaluator runs in `triplespace-server`. Everything behind it holds restricted data in the clear: Postgres `log` and `view`, OpenSearch (§8), Valkey (§7), the blob store, the render and job queues, the backups, the access logs. **The model holds only inside a deployment where the Triplespace services are the only readers of those stores.** That is a property of how the instance is set up, and Triplespace checks what it can and says what it cannot.
 
 **Requirements.** Each is a line in `triplespace-cli instance check`, which reports `pass`, `fail` or `attest`: the last for a requirement the server cannot verify from inside, which the operator confirms with `instance check --attest {name}` and which is recorded in the instance `config` with the operator and the date.
@@ -180,13 +180,14 @@ The evaluator runs in `triplespace-server`. Everything behind it holds restricte
 | 2 | OpenSearch is reachable only from the servers and requires credentials; no dashboard or other client is configured against it | The index holds restricted text (§8) | `fail` if the configured endpoint is a public address or accepts an unauthenticated request; `attest` for other clients |
 | 3 | Valkey requires `AUTH` or runs on a loopback or private address, and persists, if at all, to a volume with the same protection as the database | Sessions and restricted forms live there (§7) | `fail` on a public address or an unauthenticated connection |
 | 4 | The blob store is private. File bytes and thumbnails are served by the binary after `read` is evaluated, and a version only some may read only from a signed URL valid for minutes, exactly as [0039](0039-files-and-media.md) §7 has it; the media origin is separate from the wiki origin | A public bucket is a public dump of every tenant's files | `fail` if an object URL in the store answers 200 without a signature; `attest` for a media base that is same-origin with the wiki, which 0039 §7 recommends against |
-| 5 | The server rejects a request whose `Host` is not a registered tenant base or the farm base, with 421, and trusts `X-Forwarded-For` and `X-Forwarded-Proto` only from `server.trusted_proxies` | The host selects the tenant ([0018](0018-tenants.md) §11); IP blocks, rate limits and filter IP rows depend on the client address ([0016](0016-permissions-and-access-control.md) §3, [0024](0024-subsidiary-accounts.md) §5, [0030](0030-edit-filters.md) §11) | `pass`/`fail` by sending a request with an unregistered host; `fail` if the server is behind a proxy and the trust list is empty |
+| 5 | The server rejects a request whose `Host` is not a registered tenant base or the farm base, with 421, and believes `X-Forwarded-For`, `X-Forwarded-Host` and `X-Forwarded-Proto` only from hops it trusts: by address in `server.trusted_proxies` (the default), or by a forwarder key, read from the right ([0057](0057-web-tier.md) §10) | The host selects the tenant ([0018](0018-tenants.md) §11); IP blocks, rate limits and filter IP rows depend on the client address ([0016](0016-permissions-and-access-control.md) §3, [0024](0024-subsidiary-accounts.md) §5, [0030](0030-edit-filters.md) §11) | `pass`/`fail` by sending a request with an unregistered host, and one with a forged `X-Forwarded-For` from an untrusted address; `fail` if the server is behind a proxy and trusts no hop; `attest`, where trust is by address, that only trusted hops can reach the server's listener |
 | 6 | The reverse proxy or CDN forwards `Host` unchanged, caches only responses with public `Cache-Control` and never one carrying `Set-Cookie` or answering a request with `Authorization` or a session cookie, strips inbound `X-Forwarded-*` from clients before setting its own, terminates TLS and sends HSTS | L2 may hold public form only (§7); a proxy that caches an authenticated page serves it to the next visitor | `attest`; the privacy test of §15 exercises the first two through the proxy when `instance check --through {url}` is given |
 | 7 | A SPARQL endpoint, QLever or any other external index is loaded from the public dump or the update stream, never from `view` or `log` | Those carry ∅ form by construction ([0032](0032-sparql-update-stream.md) §1); a direct load bypasses the evaluator | `attest` |
 | 8 | The Parsoid service and any other helper process reach content only through the server's internal endpoint, with a service credential, on a private address | A renderer that reads the database reads everything | `fail` if the configured Parsoid endpoint is a public address |
 | 9 | `/metrics`, health and debug routes are served on `server.admin_listen`, a separate listener, never on the public one | They expose names, counts and timings | `fail` if the admin listener is the public one |
 | 10 | Backups of Postgres, the blob store and Valkey's persistence are encrypted at rest and held with access equal to the database's | They are the whole instance, `private` included | `attest` |
 | 11 | Secrets come from files or the environment, never from the command line ([0033](0033-backend-stack.md) §12), and the instance key is in a file readable by the server alone | A command line is visible to every process | `fail` on a world-readable key file |
+| 12 | A web tier ([0057](0057-web-tier.md)) holds no credential of the instance's beyond an optional forwarder key, reads no store of it, and reaches the API over TLS unless the API's address resolves only to internal addresses; it appends to forwarded headers and judges none of them (line 5), and the Valkey of its response cache is held to line 3 | It sees every viewer's cookie in transit | `fail` if the web tier's cache names a Valkey that fails line 3, or its `web.api` is plain HTTP to an address that is not internal |
 
 **Modes.** `server.mode` is `production` or `development`. In `production`, the server refuses to start while any `fail` stands and logs every `attest` not yet given; `development` starts anyway and marks `siprop=triplespace` with `insecure: true`. `instance create` writes `production`.
 
@@ -227,6 +228,8 @@ The visibility set of a target is computed at read time from the enclosure chain
 
 ### 15. The privacy test (extends 0012 §8)
 
+*Changed by A2.*
+
 The test of [0012](0012-api-requirements.md) §8 gains these cases, each run for an anonymous principal, an account outside the group, a subsidiary of an account inside the group whose grants lack `basic`, and another tenant reading through every repository kind:
 
 1. A confidential page, entity, thread, statement and property, a set, a namespace and a whole private tenant: every route that can name the target answers exactly as for a missing target; byte-equal bodies and equal status codes.
@@ -237,7 +240,11 @@ The test of [0012](0012-api-requirements.md) §8 gains these cases, each run for
 6. `instance check` fails on: a public-role grant on `private`, a superuser role in the server's configuration, a store on a public address without credentials, an unregistered `Host` answered with anything but 421, an empty trust list behind a proxy, a public admin listener, a world-readable key file.
 7. Making a public tenant private, and retiring that, purges and restores its public forms within the TTL ceiling, and no public cache or index entry survives the first.
 
+Where the site is served by a web tier ([0057](0057-web-tier.md)), every case is also run through it: a confidential target's page, and its `action=render`, are byte-equal to a missing target's, and case 7 covers the web tier's response cache.
+
 ### 16. Crates (amends 0005 §2)
+
+*Changed by A2.*
 
 | Crate | Change |
 |---|---|
@@ -246,7 +253,8 @@ The test of [0012](0012-api-requirements.md) §8 gains these cases, each run for
 | `triplespace-cache` | The `{vis}` key segment, the epoch, and the purge of §7 |
 | `triplespace-search` | `read_groups` on documents and the `terms_set` filter of §8; the fallback's SQL predicate |
 | `scatter-wikitext-expand`, `triplespace-scribunto`, `triplespace-render` | The include rule of §6 through the host: a refused include is a missing page, `nil`, an empty row or no stylesheet |
-| `triplespace-server` | `server.mode`, `server.trusted_proxies`, `server.admin_listen`, 421 on an unregistered host, the landing page, the internal endpoint for Parsoid |
+| `triplespace-server` | `server.mode`, `server.trusted_proxies`, `server.admin_listen`, 421 on an unregistered host, the internal endpoint for Parsoid |
+| `triplespace-ui` | The landing page, rendered wherever the site is served ([0057](0057-web-tier.md) §3) |
 | `triplespace-cli` | `instance check`, `--attest`, `--through`; `tenancy check` extended to confidential restrictions and group names |
 
 ## Alternatives considered
@@ -325,3 +333,18 @@ The test of [0012](0012-api-requirements.md) §8 gains these cases, each run for
 - **Source:** Direct: James, decision of 2026-10-03 (`triplespace-accounts`, `triplespace-api-action`, `triplespace-server`, `scatter-adapter-internetdomains`)
 - **Change:** extends §10
 - **Summary:** In `development` mode the server may name a fallback tenant (`--dev-tenant`), which an unregistered `Host` (a developer's `localhost:8080`) is served as, with `siprop=general` reporting the request's own scheme and host as `server`; the session cookie then also drops `Secure`. In `production` an unregistered host is 421 and the setting is refused.
+
+### A2. The web tier
+
+- **Date:** 2026-10-03
+- **Source:** [0057](0057-web-tier.md) §10, §12
+- **Change:** amends §10, §16; extends §15
+- **Summary:** Proxy trust is read from the right along a chain of proxies, and a hop is trusted by its address in `server.trusted_proxies`, the default, or by a forwarder key, for networks shared with workloads that are not trusted (line 5). A web tier that serves the site through the API is a hop inside the request path and outside the stores, and line 12 states what it must do. The privacy test also runs through the web tier. The landing page is rendered by `triplespace-ui`, wherever the site is served.
+
+Replaced text (§10, line 5):
+
+> | 5 | The server rejects a request whose `Host` is not a registered tenant base or the farm base, with 421, and trusts `X-Forwarded-For` and `X-Forwarded-Proto` only from `server.trusted_proxies` | The host selects the tenant ([0018](0018-tenants.md) §11); IP blocks, rate limits and filter IP rows depend on the client address ([0016](0016-permissions-and-access-control.md) §3, [0024](0024-subsidiary-accounts.md) §5, [0030](0030-edit-filters.md) §11) | `pass`/`fail` by sending a request with an unregistered host; `fail` if the server is behind a proxy and the trust list is empty |
+
+Replaced text (§16):
+
+> | `triplespace-server` | `server.mode`, `server.trusted_proxies`, `server.admin_listen`, 421 on an unregistered host, the landing page, the internal endpoint for Parsoid |

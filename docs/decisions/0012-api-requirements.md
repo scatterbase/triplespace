@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-03 (A36)
+- **Updated:** 2026-10-03 (A37)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0005](0005-crate-organization.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -130,13 +130,13 @@ History, recent changes, contributions and the log all use one row shape in the 
 
 ### 4. Action API changes
 
-*Changed by A3, A4, A5, A7, A8, A9, A10, A12, A13, A14, A15, A16, A17, A18, A19, A21, A23, A24, A25, A26, A27, A30, A31, A32, A33, A34, A35, A36.*
+*Changed by A3, A4, A5, A7, A8, A9, A10, A12, A13, A14, A15, A16, A17, A18, A19, A21, A23, A24, A25, A26, A27, A30, A31, A32, A33, A34, A35, A36, A37.*
 
 All of these changes are additive (§1.2). [0056](0056-security-model.md) §13 adds `read=` to `action=protect`, `prtype=read` to `list=protectedpages`, `list=protectedsets`, and the reduced `meta=siteinfo` an outsider receives from a private tenant.
 
 | Module | Requirement |
 |---|---|
-| `meta=siteinfo` | Describes the tenant the host selects ([0018](0018-tenants.md) §11). New `siprop` values:<br>• `providers`: codes, entity types, namespaces, IRI templates, and whether upstream history can be fetched.<br>• `issuers`: the issuers allowed for login, without any secrets.<br>• `triplespace`: capabilities, the REST base path, the tenant and its opted-in providers ([0018](0018-tenants.md) §11), the search backend, `opensearch` or `postgres` ([0014](0014-caches-and-search.md) §8), and `hash_mismatches`, the instance-wide count of upstream hashes kept because the recomputation differed ([0006](0006-log-integrity-and-erasure.md) A9). Later ADRs add more (below).<br>Namespaces come from the registry ([0008](0008-namespaces-and-document-pages.md) §1). |
+| `meta=siteinfo` | Describes the tenant the host selects ([0018](0018-tenants.md) §11). New `siprop` values:<br>• `providers`: codes, entity types, namespaces, IRI templates, and whether upstream history can be fetched.<br>• `issuers`: the issuers allowed for login, without any secrets.<br>• `triplespace`: capabilities, `api_version`, which the web tier checks against the minimum it was built for ([0057](0057-web-tier.md) §9), the REST base path, the tenant and its opted-in providers ([0018](0018-tenants.md) §11), the search backend, `opensearch` or `postgres` ([0014](0014-caches-and-search.md) §8), and `hash_mismatches`, the instance-wide count of upstream hashes kept because the recomputation differed ([0006](0006-log-integrity-and-erasure.md) A9). Later ADRs add more (below).<br>Namespaces come from the registry ([0008](0008-namespaces-and-document-pages.md) §1). |
 | `prop=revisions`, core REST `/v1/page/{title}/history` | Local revisions only: the local graph for entities, the `pages` partition for document pages. An erased part sets its MediaWiki hidden flag, `texthidden` for the content, `commenthidden` for the comment, `userhidden` for the attestation, and a new `erased` flag is set with it ([0015](0015-record-format-and-partition-registry.md) §1). That a record was erased is shown to everyone ([0016](0016-permissions-and-access-control.md) §6). New `rvprop` values: `source`, `job` and `operator`. |
 | `list=recentchanges` | One row per local revision, as in MediaWiki. Job changes carry the `bot` flag and a `job:{id}` tag. A new `rcjob` parameter filters by job. Mirror records never appear. Each mirror job run appears as a `job` log event ([0011](0011-logs.md) §6.3). `rctype=external` is not used, because Wikibase clients already give it a meaning. |
 | `list=usercontribs` | By local account. Job changes appear with their tags. A new `ucjob` parameter filters by job. |
@@ -146,7 +146,7 @@ All of these changes are additive (§1.2). [0056](0056-security-model.md) §13 a
 | `action=compare` | For document pages, as in MediaWiki. For entities, a diff of the canonical JSON of the local graph's assertions: the "JSON" view in [0010](0010-site-ui.md) §6. The statement view is served over REST (§5). |
 | `action=edit`, `wbeditentity` and the other write modules | Map `baserevid` to base offsets ([0006](0006-log-integrity-and-erasure.md) §8). An `editconflict` error includes the current revision's ID, so the client can merge a document page three ways. |
 | `action=options` | New preference keys: `ts-upstream-fold` and `ts-rc-syncs` ([0010](0010-site-ui.md) §11). Only registered keys are accepted ([0027](0027-preferences-and-portability.md) §6) |
-| `action=clientlogin`, `action=createaccount`, `meta=authmanagerinfo` | Offer a redirect-based OAuth flow for each issuer allowed for login, and MediaWiki's own `username`/`password` fields where the built-in `password` issuer is on ([0007](0007-actor-identity.md) A3). These are not offered to subsidiaries |
+| `action=clientlogin`, `action=createaccount`, `meta=authmanagerinfo` | Offer a redirect-based OAuth flow for each issuer allowed for login, and MediaWiki's own `username`/`password` fields where the built-in `password` issuer is on ([0007](0007-actor-identity.md) A3). These are not offered to subsidiaries. `returnto` is honoured only on the request's own origin, here and on the `/auth` routes of §5, and ignored otherwise ([0057](0057-web-tier.md) §7) |
 | `action=login` | The bot-password form only, for subsidiaries' API keys ([0024](0024-subsidiary-accounts.md) §4). A primary account's name is refused with `ts-use-oauth` |
 | `action=linkaccount`, `action=unlinkaccount`, `action=removeauthenticationdata` | Manage **bindings**, the private sign-in methods of [0007](0007-actor-identity.md) §3, because that is what these modules mean in MediaWiki. They never create or remove the public account links of [0007](0007-actor-identity.md) §7. Removing the last binding is refused. |
 | `action=acquiretempusername` | Temporary accounts ([0007](0007-actor-identity.md) §3) |
@@ -180,7 +180,7 @@ All of these changes are additive (§1.2). [0056](0056-security-model.md) §13 a
 
 ### 5. REST routes under `rest.php/triplespace/v0`
 
-*Changed by A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A28, A30, A31, A32, A33.*
+*Changed by A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A28, A30, A31, A32, A33, A37.*
 
 **Every route is served per tenant base,** which the host selects. Instance-level routes are served at the farm base and, on a single-tenant instance, at the tenant's as well ([0018](0018-tenants.md) §11).
 
@@ -264,7 +264,7 @@ When each binding was last used is stored in the operational store, never in the
 | Notifications | `/inbox`; `/notifications/…` | [0021](0021-notifications.md) §7 |
 | Verified sync | `/.well-known/tlog/{partition}/checkpoint`, `/dumps/local/`, `GET /providers/{slug}/verification`: what an instance publishes for verified sync, and how a reader reports it | [0022](0022-federation.md) §1, §11 |
 | Subsidiaries and keys | `/account/subsidiaries/…` and their keys; `POST /actor/{key}/transfer` | [0024](0024-subsidiary-accounts.md) §8 |
-| OAuth | `/oauth/authorize`, `/oauth/token`, `/oauth/device`, `/oauth/revoke`, `/oauth/identify`, `/.well-known/oauth-authorization-server`: the instance's own OAuth 2.0 server, whose tokens are credentials of a subsidiary, never of a primary account. `/oauth/consumers/…`; `/account/authorizations`, `/account/pending-subsidiaries` | [0025](0025-oauth-server.md) §1, §9 |
+| OAuth | `/oauth/authorize`, `/oauth/token`, `/oauth/device`, `/oauth/revoke`, `/oauth/identify`, `/.well-known/oauth-authorization-server`: the instance's own OAuth 2.0 server, whose tokens are credentials of a subsidiary, never of a primary account. `/oauth/consumers/…`; `/account/authorizations`, `/account/pending-subsidiaries`; `/oauth/requests/{handle}`, read and decided by the site's consent page ([0057](0057-web-tier.md) §13) | [0025](0025-oauth-server.md) §1, §9 |
 | Sitelinks | `GET /sitelinks`, `GET /sitelinks/resolve`, `/entity/{id}/sitelinks/{host}` | [0026](0026-sitelinks.md) §7 |
 | Preferences and portability | `/account/preferences`, `GET /account/export`, `POST /account/import`, `GET /preferences/schema` | [0027](0027-preferences-and-portability.md) §6 |
 | Resolvers | `GET /resolvers`, `GET /resolvers/{name}/{key}` | [0029](0029-resolver-namespaces.md) §6 |
@@ -704,3 +704,10 @@ Replaced text (§2.1):
 - **Source:** Direct: James, decision of 2026-10-03 (`triplespace-accounts`, `triplespace-api-action`, `triplespace-server`, `scatter-adapter-internetdomains`)
 - **Change:** extends §4
 - **Summary:** A write module computes the entity as the editor wants it and writes the difference from the current state (0002 §8.1, a batch of one): a new entity is a `create`; additions are one `add`; retractions one `remove`; a changed statement is a `remove` of its GUID then an `add` under the same GUID; a mirrored statement the editor removes or changes is suppressed with an `override` and, if changed, re-added under a fresh local GUID; a Domain's first local write is an `add` (0009 §10). All the records of one edit go in one transaction with the base offset carried from record to record, so `baserevid` yields either the whole edit or `editconflict`, which carries `currentrevid`; an unknown `baserevid` is `nosuchrevid`; conflicts are never patched around. The module reports the last record's revision as `lastrevid`. `api.php` is served at `/w/api.php` and `/api.php` (`scriptpath` is `/w`, `articlepath` `/wiki/$1`); `Special:EntityData/{id}.json` and `/entity/{id}` (303 to the former) are routes of the server.
+
+### A37. `api_version` and same-origin `returnto`
+
+- **Date:** 2026-10-03
+- **Source:** [0057](0057-web-tier.md) §7, §9
+- **Change:** extends §4, §5
+- **Summary:** `siprop=triplespace` reports `api_version`, so a web tier deployed apart from the API can tell whether the API is recent enough. `action=clientlogin`, `action=createaccount` and the `/auth` routes honour `returnto` only on the request's own origin, so the web tier's forms can return the user to the page they came from without opening a redirect. The OAuth routes gain the request handle of 0057 §13: `POST /oauth/requests`, `GET /oauth/requests/{handle}` and its `approve` and `deny`, which the site's consent and device pages use.

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-03 (A14)
+- **Updated:** 2026-10-03 (A15)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md)
 - **Uses:** [0000](0000-init.md), [0003](0003-statement-ui.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -38,12 +38,14 @@ MediaWiki's search is CirrusSearch, which Wikimedia now runs on OpenSearch after
 ### 2. Layers
 
 
-*Changed by A14.*
+*Changed by A14, A15.*
+
 | Layer | Technology | Holds | Bounded by |
 |---|---|---|---|
 | **L0, in-process** | An in-memory LRU in each server process (`moka`) | Registries and role maps; property data types; the canonical ID of each cluster member; labels in the instance's hot languages; current versions of recently read entities and pages | Size, and a TTL of seconds for current versions |
 | **L1, shared** | Valkey (Redis protocol) | §4 and §10: resolved entity JSON, term batches, rendered pages, provenance responses, structured diffs, suggestions, upstream fetches. Also rate-limit counters and sessions. | Per-key TTL ceilings (§5) |
 | **L2, HTTP** | `ETag` and `Cache-Control` on anonymous responses, honoured by the reverse proxy and CDN in front of the instance | Whole responses | Short `s-maxage`, `stale-while-revalidate`, purge by tag on erasure |
+| **L2, web tier** | The response cache of `triplespace-web`, in each process (`moka`) or in a Valkey its configuration names ([0057](0057-web-tier.md) §5) | Public API responses to the requests it sends without credentials | Revalidated with `If-None-Match` on every use, except responses whose `max-age` the API sets because no purge can change them, kept for up to 60 seconds; never purged, so it never holds what a purge or an erasure has changed beyond the next request |
 | **Replicas** | Postgres streaming replicas | Everything in `view` | LSN routing ([0013](0013-postgres-storage.md) §7) |
 
 L1 is the layer MediaWiki fills with memcached. Valkey is chosen over memcached for one reason: keys can be enumerated by prefix, so an erasure can delete every entry for an entity rather than rely on generation keys alone (§5). Sessions live in Valkey; OAuth tokens and bindings do not, they stay in Postgres `private` ([0013](0013-postgres-storage.md) §4).
@@ -109,7 +111,7 @@ The TTL ceilings in §4 are the bound on a missed purge. An instance under a leg
 
 ### 6. HTTP caching
 
-*Changed by A5.*
+*Changed by A5, A15.*
 
 For anonymous requests:
 
@@ -120,6 +122,8 @@ For anonymous requests:
 MediaWiki purges its CDN on every edit because its `s-maxage` is long. Triplespace keeps `s-maxage` short and purges only on erasure. A proxy that can purge by tag may raise `s-maxage`; the default is chosen so that a proxy that cannot is still correct.
 
 For authenticated requests: `Cache-Control: private, no-cache`, with `ETag` still present so the client revalidates.
+
+**A page the web tier composes** from several API responses is public only if every response it used was public, and `private, no-cache` otherwise; its `ETag` hashes the web tier's build, the interface language and the `ETag`s it used, its `Cache-Tag` is the union of theirs, and it varies on `Cookie` and `Accept-Language` ([0057](0057-web-tier.md) §6). A region fetched with `action=render` is cached the same way, with its page's tags.
 
 Media bytes are the exception to the short `s-maxage`: a public file version is served with a long one, because any change that makes it unreadable purges its tags ([0039](0039-files-and-media.md) §7, §10 below).
 
@@ -406,3 +410,10 @@ Replaced text (§7):
 - **Source:** Direct: James, decision of 2026-10-03 (`triplespace-accounts`, `triplespace-api-action`, `triplespace-server`, `scatter-adapter-internetdomains`)
 - **Change:** extends §2
 - **Summary:** An instance without a shared cache keeps sessions in `private.session` (0013 §5.6, as amended) rather than requiring Valkey for login; the cookie is `triplespace_session` (`HttpOnly`, `SameSite=Lax`, `Secure` outside development mode), an anonymous session lives an hour and a logged-in one thirty days from its last use, and expired rows are swept on login. When Valkey is present it may hold the same rows as `s:{session}`; the shape is the same.
+
+### A15. The web tier's cache and composed pages
+
+- **Date:** 2026-10-03
+- **Source:** [0057](0057-web-tier.md) §5, §6
+- **Change:** extends §2, §6
+- **Summary:** The web tier may cache public API responses to its credential-free requests, in memory or in a named Valkey. It cannot be purged, and it sits beneath a CDN that can, so it revalidates every use, keeping without revalidation only responses whose `max-age` the API sets because no purge, erasure or moderation can change them, for at most 60 seconds; it never honours `s-maxage`. A page it composes is public only if all its inputs were, with an `ETag` and `Cache-Tag` derived from theirs.

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-01 (A3)
+- **Updated:** 2026-10-03 (A4)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0024](0024-subsidiary-accounts.md)
 - **Uses:** [0018](0018-tenants.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -20,6 +20,8 @@ This ADR makes the instance an OAuth 2.0 authorization server under those two ru
 ## Decision
 
 ### 1. An OAuth 2.0 authorization server, at MediaWiki's paths
+
+*Changed by A4.*
 
 The instance is an **OAuth 2.0 authorization server** ([RFC 6749](https://www.rfc-editor.org/rfc/rfc6749)) offering:
 
@@ -39,7 +41,7 @@ The client-credentials flow is **not offered**: a tool acting for nobody is a bo
 | Native | MediaWiki-compatible | Purpose |
 |---|---|---|
 | `/.well-known/oauth-authorization-server` | — | Metadata ([RFC 8414](https://www.rfc-editor.org/rfc/rfc8414)): endpoints, PKCE methods, the grant names as `scopes_supported` |
-| `/oauth/authorize` | `/w/rest.php/oauth2/authorize` | Consent page (§3); requires an interactive session of a **primary** account |
+| `/oauth/authorize` | `/w/rest.php/oauth2/authorize` | Validates the request and hands it, under a request handle, to the consent page (§3); requires an interactive session of a **primary** account |
 | `/oauth/token` | `/w/rest.php/oauth2/access_token` | Code, device and refresh exchanges |
 | `/oauth/device` | — | Device authorization request |
 | `/oauth/revoke` | — | Revocation by the client |
@@ -61,7 +63,9 @@ A consumer whose owner vanishes ([0007](0007-actor-identity.md) §4) is disabled
 
 ### 3. Authorization selects or creates a subsidiary, and a created one is pending (amends 0007 §4; extends 0024 §2; amends 0024 §4)
 
-The consent page at `/oauth/authorize` is shown to a **primary account** with an interactive session; a subsidiary cannot reach it, since it cannot log in ([0024](0024-subsidiary-accounts.md) §1), and a temporary account is refused. It shows the consumer's name and description, the grants requested, intersected with what the consumer was approved for, and **which subsidiary the tool will act as**:
+*Changed by A4.*
+
+The consent page, `Special:OAuth/authorize`, a page of the site to which `/oauth/authorize` hands the validated request ([0057](0057-web-tier.md) §13), is shown to a **primary account** with an interactive session; a subsidiary cannot reach it, since it cannot log in ([0024](0024-subsidiary-accounts.md) §1), and a temporary account is refused. It shows the consumer's name and description, the grants requested, intersected with what the consumer was approved for, and **which subsidiary the tool will act as**:
 
 - **An existing subsidiary** of the person, offered if it is **approved** (below) and not retired. The tool then acts as an account the community has already reviewed, at whatever rate its groups allow.
 - **A new subsidiary**, created here. The form suggests `{Operator}-{slug}` (`Example-quickstatements`), subject to the same name rules and `subsidiaries.name_pattern` and `subsidiaries.max_per_account` as [0024](0024-subsidiary-accounts.md) §2, and creation requires `createaccount` as there. The instance appends the actor record with kind `bot`, the person as operator, and status **`pending`**, and projects `newusers/create2` as for any subsidiary.
@@ -86,9 +90,9 @@ The tag is written by the request path, not by the client: a client cannot omit 
 
 ### 5. Management, revocation and log events (extends 0010 §11 and 0011 §6.1)
 
-*Changed by A2.*
+*Changed by A2, A4.*
 
-**Connected applications**, a section of `Special:Account` ([0010](0010-site-ui.md) §11), Private, lists each authorization the person's subsidiaries hold: consumer, subsidiary, grants, authorized and last-used dates, and **Revoke**. A subsidiary's own user page gains no such list; authorizations are private state of the operator. `Special:OAuthConsumers` is the consumer registry: a developer registers and updates their own; a holder of `mwoauthmanageconsumer` approves, rejects and disables; everyone reads it.
+**Connected applications**, a section of `Special:Account` ([0010](0010-site-ui.md) §11), Private, lists each authorization the person's subsidiaries hold: consumer, subsidiary, grants, authorized and last-used dates, and **Revoke**. A subsidiary's own user page gains no such list; authorizations are private state of the operator. `Special:OAuthConsumers` is the consumer registry: a developer registers and updates their own; a holder of `mwoauthmanageconsumer` approves, rejects and disables; everyone reads it. These pages, `Special:PendingSubsidiaries` and `Special:OAuth/device` are rendered by the site over §9's routes, and the consent and device pages cannot be framed ([0057](0057-web-tier.md) §13).
 
 **Revocation is immediate**, as for keys: revoking an authorization marks its tokens revoked and drops every session opened with them, which is why sessions record the token ID ([0024](0024-subsidiary-accounts.md) §4). Tokens are also revoked when the subsidiary is retired or transferred ([0024](0024-subsidiary-accounts.md) §2, since the new operator did not consent), when the operator is blocked in a way that removes `edit` (they simply fail, since blocks reach subsidiaries), when the consumer is disabled, and when the operator vanishes, which requires the subsidiary to have been retired or transferred first anyway.
 
@@ -106,20 +110,24 @@ Consumer registration and approval are instance-level (§2), so under the `isola
 
 ### 8. Storage (extends 0013 §4 and §5.6; uses 0014 §2 and §4)
 
+*Changed by A4.*
+
 - **`view.actor.status`** gains the value `pending`.
 - **Consumers** are `config` records and project into `view.registry` like every other setting. **`private.oauth_consumer`** `(slug, secret_hash, created, rotated_at)` holds confidential clients' secrets.
 - **`private.oauth_token`** `(actor_key, token_id, consumer_slug, grants text[], refresh_hash, access_hash, issued, access_expires, refresh_expires, last_used, revoked_at)`, unique on `(actor_key, consumer_slug)`. Read and written by `triplespace-accounts`, which stores tokens as it stores keys; `triplespace-oauth` (§11) speaks the protocol and calls it, so the set of crates that read `private` is unchanged. `last_used` is written at most once a minute per token, as for keys.
-- **Authorization codes and device codes** are Valkey keys, `oauth:code:{hash}` and `oauth:device:{hash}`, with the ten-minute TTL as their expiry ([0014](0014-caches-and-search.md) §2); they are never rows. An instance without a shared cache holds them in process, which the small profile accepts. Sessions opened with a token carry `token_id` beside 0024's `key_id`.
+- **Authorization codes and device codes** are Valkey keys, `oauth:code:{hash}` and `oauth:device:{hash}`, with the ten-minute TTL as their expiry ([0014](0014-caches-and-search.md) §2); they are never rows. An instance without a shared cache holds them, with the request handles of §9, in `private` through `triplespace-accounts`, as it holds sessions, so that any replica of an API pool can finish a flow another began ([0057](0057-web-tier.md) §13). Sessions opened with a token carry `token_id` beside 0024's `key_id`.
 - **The `oauth:{slug}` tag** is in the attestation part of each record it applies to ([0030](0030-edit-filters.md) §11); no table is added for it.
 
 Nothing here enters a header ([0006](0006-log-integrity-and-erasure.md) §3): a token, a consumer and a grant are operational state, and the attestation names the subsidiary only.
 
 ### 9. API (extends 0012 §4 and §5)
 
+*Changed by A4.*
+
 The endpoints of §1, at both paths. Additionally:
 
 - **Action API.** `action=login` and `action=clientlogin` are unchanged. `meta=userinfo` for a token-authenticated request returns the subsidiary, with `uiprop=operator` ([0024](0024-subsidiary-accounts.md) §8) and a new `uiprop=oauth` giving the consumer slug and the token's grants. `action=query&list=oauthconsumers` lists consumers; `action=oauthconsumer` with `do=propose|update|approve|reject|disable` manages them, under §10's permissions.
-- **REST.** `GET/POST /oauth/consumers`, `GET/PATCH /oauth/consumers/{slug}`, `POST /oauth/consumers/{slug}/status`; `GET /account/authorizations` and `DELETE /account/authorizations/{subsidiary}/{slug}` for the account page; `GET /account/pending-subsidiaries` for `Special:PendingSubsidiaries`.
+- **REST.** `GET/POST /oauth/consumers`, `GET/PATCH /oauth/consumers/{slug}`, `POST /oauth/consumers/{slug}/status`; `GET /account/authorizations` and `DELETE /account/authorizations/{subsidiary}/{slug}` for the account page; `GET /account/pending-subsidiaries` for `Special:PendingSubsidiaries`. `POST /oauth/requests` (from a device code), `GET /oauth/requests/{handle}`, `POST /oauth/requests/{handle}/approve` and `/deny`: the validated authorization request the consent page reads and decides, readable only in the session that began it ([0057](0057-web-tier.md) §13).
 - **Refusals.** `oauth-pending` (§3); `oauth-consumer-disabled`; `oauth-not-allowed` when a tenant's `consumer-policy` denies the consumer; and the standard OAuth error responses at the token endpoint.
 - **`meta=siteinfo&siprop=triplespace`** reports whether `subsidiaries.oauth_requires_approval` is on, so a tool can tell the person in advance that its account will await approval.
 
@@ -246,3 +254,22 @@ Replaced text (§10):
 - **Source:** [0050](0050-adr-format.md) §13
 - **Change:** consolidates §5, §10–11
 - **Summary:** A1–A2 were folded into the Decision. The open questions were numbered. No decision changed. Before this, A2 was two blockquotes. The file before conversion is commit `0b26a3a`.
+
+### A4. The OAuth pages move to the site
+
+- **Date:** 2026-10-03
+- **Source:** [0057](0057-web-tier.md) §13
+- **Change:** amends §1, §3, §5, §8, §9
+- **Summary:** The authorization server keeps its endpoints and checks; its pages become pages of the site, rendered by `triplespace-ui` wherever the site is served. `/oauth/authorize` validates the request, stores it under a ten-minute request handle and redirects to `Special:OAuth/authorize`, which reads the request and posts the decision back through the new `/oauth/requests` routes; the device page joins the same flow. Pending state (codes, device codes, request handles) falls back to `private` rather than process memory, so an API pool of several replicas can complete a flow.
+
+Replaced text (§1):
+
+> | `/oauth/authorize` | `/w/rest.php/oauth2/authorize` | Consent page (§3); requires an interactive session of a **primary** account |
+
+Replaced text (§3):
+
+> The consent page at `/oauth/authorize` is shown to a **primary account** with an interactive session;
+
+Replaced text (§8):
+
+> An instance without a shared cache holds them in process, which the small profile accepts.
