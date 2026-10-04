@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-01 (A13)
+- **Updated:** 2026-10-03 (A14)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md)
 - **Uses:** [0000](0000-init.md), [0003](0003-statement-ui.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -37,6 +37,8 @@ MediaWiki's search is CirrusSearch, which Wikimedia now runs on OpenSearch after
 
 ### 2. Layers
 
+
+*Changed by A14.*
 | Layer | Technology | Holds | Bounded by |
 |---|---|---|---|
 | **L0, in-process** | An in-memory LRU in each server process (`moka`) | Registries and role maps; property data types; the canonical ID of each cluster member; labels in the instance's hot languages; current versions of recently read entities and pages | Size, and a TTL of seconds for current versions |
@@ -236,7 +238,7 @@ The ADRs after this one add to the layers of §2 without adding a layer, and cha
 - **Q2. Analysis configuration.** Whether to vendor CirrusSearch's per-language analyzer settings, which are extensive and depend on plugins, or start from OpenSearch's built-in language analyzers and grow.
 - **Q3. `statement_keywords` scope.** Which properties are indexed for `haswbstatement:` at Wikidata scale; indexing all of them is what makes that field large.
 - **Q4. Whether the pages index should hold entity pages' rendered text,** so that a full-text search over an entity's descriptions and statement values in the viewer's language is possible without a statement table.
-- **Q5. Session store.** Valkey is chosen for sessions; whether they should fall back to Postgres when the shared cache is absent, or a small instance should require Valkey for login.
+- **Q5.** ~~**Session store.** Valkey is chosen for sessions; whether they should fall back to Postgres when the shared cache is absent, or a small instance should require Valkey for login.~~ *Settled by A14: sessions fall back to `private.session` in Postgres when the shared cache is absent; a small instance needs nothing but Postgres to log in.*
 - **Q6. Proxy support for tag purges.** Which reverse proxies and CDNs in the deployment stack honour `Cache-Tag`, and what `s-maxage` is safe where none does.
 - **Q7. Suggest ranking for keyed types.** Whether domains should rank by `incoming_links` like items, or by their depth in the hierarchy.
 - **Q8. Label caching per language at scale.** Whether `t:` keys for hundreds of languages are worth holding, or whether label batches should be cached per request language only.
@@ -397,3 +399,10 @@ Replaced text (§4):
 Replaced text (§7):
 
 > - The index holds only public data: no hidden names, no erased bodies, nothing from an internal-only or private graph. Redaction is applied when the document is built, and the erasure path of §5 deletes documents.
+
+### A14. Sessions fall back to Postgres
+
+- **Date:** 2026-10-03
+- **Source:** Direct: James, decision of 2026-10-03 (`triplespace-accounts`, `triplespace-api-action`, `triplespace-server`, `scatter-adapter-internetdomains`)
+- **Change:** extends §2
+- **Summary:** An instance without a shared cache keeps sessions in `private.session` (0013 §5.6, as amended) rather than requiring Valkey for login; the cookie is `triplespace_session` (`HttpOnly`, `SameSite=Lax`, `Secure` outside development mode), an anonymous session lives an hour and a logged-in one thirty days from its last use, and expired rows are swept on login. When Valkey is present it may hold the same rows as `s:{session}`; the shape is the same.

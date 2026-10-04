@@ -1,0 +1,37 @@
+[package]
+name = "triplespace-server"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "The Triplespace server binary: the Action API over axum, with the deployment settings of 0056 §10"
+publish = false
+
+[[bin]]
+name = "triplespace-server"
+path = "src/main.rs"
+
+[dependencies]
+triplespace-api-action.workspace = true
+triplespace-accounts.workspace = true
+triplespace-cli.workspace = true
+triplespace-db.workspace = true
+ed25519-dalek.workspace = true
+axum.workspace = true
+clap.workspace = true
+anyhow.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "net"] }
+
+[dev-dependencies]
+triplespace-projections.workspace = true
+scatter-projection.workspace = true
+tower.workspace = true
+http-body-util.workspace = true
+serde_json.workspace = true
+tokio-postgres.workspace = true
+url.workspace = true
+
+[lints]
+workspace = true

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-01 (A21)
+- **Updated:** 2026-10-03 (A22)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -105,7 +105,7 @@ The permission set is the union of MediaWiki's rights that Triplespace implement
 
 ### 3. Groups, memberships and blocks
 
-*Changed by A5, A7, A8, A9, A11, A12, A15.*
+*Changed by A5, A7, A8, A9, A11, A12, A15, A22.*
 
 **Default groups.** The instance ships with `universe`, `temp`, `user`, `autoconfirmed`, `bot`, `propertycreator`, `sysop`, `bureaucrat`, `suppress`, `owner` and `federated`, the group of fediverse surrogates, which holds no permissions until a tenant's ACL names it ([0022](0022-federation.md) §8). MediaWiki's `interface-admin` is not created, because there are no user scripts or styles ([0008](0008-namespaces-and-document-pages.md) §5). `temp` is the group of temporary accounts ([0007](0007-actor-identity.md) §3); its default permissions are `read`, `edit` and `createpage`, and an instance may empty it to require login. `user` is every registered local account, except a subsidiary with status `pending` ([0025](0025-oauth-server.md) §3), which receives `user` only by an explicit membership. `autoconfirmed` is granted automatically once an account meets an age and edit-count threshold set in `site` configuration.
 
@@ -446,3 +446,10 @@ Replaced text (§4):
 > Setting an ACL on a page, entity or namespace needs `protect`; on a graph, `ts-config`; a `read` ACL needs `delete`, `deleterevision`, `suppressrevision` or `hideuser` by target ([0023](0023-moderation.md) §11).
 
 > Enclosure is fixed: a graph encloses the records written to it; a namespace encloses its pages and entities; a page encloses its subpages;
+
+### A22. How `instance create` sets the owner's password
+
+- **Date:** 2026-10-03
+- **Source:** Direct: James, decision of 2026-10-03 (`triplespace-accounts`, `triplespace-api-action`, `triplespace-server`, `scatter-adapter-internetdomains`)
+- **Change:** extends §3
+- **Summary:** The password `instance create` gives the first administrator comes from `--owner-password-file` or `TRIPLESPACE_OWNER_PASSWORD`; without either the owner has no binding until `triplespace password set`. The owner group is written to the tenant's `config` as `group:owner`; the other default groups come from the embedded registry until an instance customizes them.

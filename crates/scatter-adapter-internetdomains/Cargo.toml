@@ -1,0 +1,23 @@
+[package]
+name = "scatter-adapter-internetdomains"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "The key-mapped adapter for internetdomains.wiki: domain items become Domains, everything else stays XD"
+publish = false
+
+[dependencies]
+scatter-wikibase-changeset.workspace = true
+scatter-wikibase-model.workspace = true
+scatter-providers.workspace = true
+scatter-normalize.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

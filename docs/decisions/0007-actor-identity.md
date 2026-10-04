@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-10-01 (A15)
+- **Updated:** 2026-10-03 (A16)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md)
@@ -91,7 +91,7 @@ Another Wikibase or Miraheze wiki gets an issuer of its own, keyed by its wiki I
 
 ### 3. Local users and delegated authentication
 
-*Changed by A2, A3, A8, A11, A12.*
+*Changed by A2, A3, A8, A11, A12, A16.*
 
 **The instance mints its own user IDs.** They are sequential, start at 1 and are never reused. A local user's identity is `local:{id}`, whatever the user logged in with. On a tenant that adopts an existing Wikibase, the sequence starts past the source's highest user ID, and the source's accounts are written as `{slug}:{id}` actor records under their own numbers, without bindings, reclaimable as [0018](0018-tenants.md) §10 describes ([0035](0035-adopting-a-wikibase.md) §4–5).
 
@@ -410,3 +410,10 @@ Replaced text: the operator IRI `{farm base}/operator` of A13.
 - **Source:** [0050](0050-adr-format.md) §13
 - **Change:** consolidates §1–8
 - **Summary:** A1–A14 were folded into the Decision and the open questions were numbered. No decision changed. Before this, A3, A12, A13 and A14 were blockquotes; A3, A6, A8 and A9 had also been written into the text in place, without a note; the other entries were recorded only in other ADRs. The file before conversion is commit `0b26a3a`.
+
+### A16. Setting a password; the key form in `private`
+
+- **Date:** 2026-10-03
+- **Source:** Direct: James, decision of 2026-10-03 (`triplespace-accounts`, `triplespace-api-action`, `triplespace-server`, `scatter-adapter-internetdomains`)
+- **Change:** extends §3
+- **Summary:** A password is set by `triplespace instance create --owner-password-file` (or the `TRIPLESPACE_OWNER_PASSWORD` environment variable) and `triplespace password set --password-file`, never on the command line (0033 §12); the hash is Argon2id with the `argon2` crate's defaults as a PHC string, so parameters travel with the hash; the binding record `{"issuer": "password", "subject": "{user id}"}` is appended to the tenant's `accounts` partition the first time an account gets a password. Actor keys in every `private` table are tenant-qualified (`librarybase:7`), as `view.actor` writes them; `local:{id}` is the relative form a tenant uses in its own records, not a storage key.

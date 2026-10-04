@@ -1,0 +1,36 @@
+[package]
+name = "triplespace-api-action"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "The MediaWiki Action API surface: the Wikibase modules a bot client needs, login, tokens, siteinfo, Special:EntityData"
+publish = false
+
+[dependencies]
+scatter-actors.workspace = true
+scatter-ingest.workspace = true
+scatter-normalize.workspace = true
+scatter-providers.workspace = true
+scatter-projection.workspace = true
+scatter-wikibase-changeset.workspace = true
+scatter-wikibase-model.workspace = true
+scatter-wikibase-resolve.workspace = true
+triplespace-accounts.workspace = true
+triplespace-api-ingest.workspace = true
+triplespace-db.workspace = true
+triplespace-projections.workspace = true
+axum.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tokio-postgres.workspace = true
+deadpool-postgres.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+url.workspace = true
+toml.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

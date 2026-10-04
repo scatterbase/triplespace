@@ -140,7 +140,12 @@ impl ActorProjection {
                 ],
             )
             .await
-            .map_err(|e| sql(&e))
+            .map_err(|e| sql(&e))?;
+        // Memberships may have been projected before the actor row existed (the two
+        // projections replay independently), so the denormalized groups are refreshed here
+        // as well as on every membership record.
+        refresh_groups(cx, tenant, &key.to_string()).await?;
+        Ok(1)
     }
 
     async fn apply_link(
@@ -390,7 +395,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for MembershipProjection {
             // The actor row lives with its tenant; an instance-layer membership of a
             // tenant actor is keyed by the actor's own tenant, which the actor key names.
             let actor_tenant = actor_key_of(h)?;
-            let actor_tenant = if actor_tenant.is_local() {
+            let actor_tenant = if actor_tenant.is_local() || actor_tenant.issuer() == tenant {
                 tenant.clone()
             } else {
                 String::new()

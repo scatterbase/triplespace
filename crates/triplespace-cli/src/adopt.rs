@@ -78,6 +78,7 @@ fn parse_pairs(text: &str) -> Result<BTreeMap<String, String>> {
     Ok(out)
 }
 
+/// Runs the adoption.
 #[allow(clippy::too_many_lines)]
 pub async fn run(args: Adopt) -> Result<()> {
     if !args.frozen {
