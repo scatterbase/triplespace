@@ -2233,6 +2233,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "scatter-wikibase-shape"
+version = "0.0.1"
+dependencies = [
+ "flate2",
+ "getrandom 0.3.4",
+ "scatter-wikibase-model",
+ "serde_json",
+]
+
+[[package]]
 name = "schannel"
 version = "0.1.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
