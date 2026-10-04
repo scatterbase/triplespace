@@ -1,0 +1,27 @@
+[package]
+name = "scatter-wikibase-shape"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Statement group shapes (ADR 0003 §3–5): which layout a group takes, its columns, folds, hoisted qualifiers and footnotes, and the role map of §7"
+publish = false
+
+[dependencies]
+scatter-wikibase-model.workspace = true
+
+# The model's oxrdf → rand → getrandom needs the JavaScript backend in the browser.
+[target.'cfg(target_family = "wasm")'.dependencies]
+getrandom = { workspace = true, features = ["wasm_js"] }
+
+[dev-dependencies]
+serde_json.workspace = true
+flate2.workspace = true
+
+[[example]]
+name = "audit"
+
+[lints]
+workspace = true
