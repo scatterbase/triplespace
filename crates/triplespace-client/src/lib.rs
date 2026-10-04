@@ -13,19 +13,21 @@
 //!   API's own router in process: the browser's request passed as it arrived, with its
 //!   connection address, so the API judges it exactly as if the browser had called it.
 //!
-//! [`api`], [`entity`] and [`search`] have the typed calls the site makes, each returning the value with the
+//! [`api`], [`entity`], [`search`] and [`account`] have the typed calls the site makes, each returning the value with the
 //! [`api::CacheInfo`] a page needs to compose its own caching (0057 §6).
 //!
 //! This crate reaches no store and depends on no API crate (0005 §3 rule 10).
 
 #![forbid(unsafe_code)]
 
+pub mod account;
 pub mod api;
 pub mod entity;
 pub mod forward;
 pub mod search;
 pub mod transport;
 
+pub use account::{LoginResult, WithCookies};
 pub use api::{CacheInfo, ChipColours, Fetched, ProviderInfo, ProviderType, SiteInfo, UserInfo};
 pub use entity::{Entities, Provenance};
 pub use forward::Incoming;

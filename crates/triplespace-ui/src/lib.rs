@@ -83,9 +83,12 @@ pub fn router(client: Client) -> Router {
     Router::new()
         .route("/", get(pages::root))
         .route("/wiki/", get(pages::root))
-        .route("/wiki/{*title}", get(pages::wiki))
-        .route("/w/index.php", get(pages::index_php))
-        .route("/index.php", get(pages::index_php))
+        .route("/wiki/{*title}", get(pages::wiki).post(pages::wiki_post))
+        .route(
+            "/w/index.php",
+            get(pages::index_php).post(pages::index_post),
+        )
+        .route("/index.php", get(pages::index_php).post(pages::index_post))
         .route("/ui/assets/{*path}", get(pages::asset))
         .route("/ui/theme/{file}", get(pages::theme_css))
         .fallback(pages::not_found)

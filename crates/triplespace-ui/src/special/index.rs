@@ -15,12 +15,20 @@ use crate::pages::{self, Peer};
 
 /// The special pages the site serves: title, label message, description message, and
 /// the feature each needs.
-pub const PAGES: &[(&str, &str, &str, Feature)] = &[(
-    "Special:Search",
-    "ts-search-title",
-    "ts-specialpages-search",
-    Feature::Search,
-)];
+pub const PAGES: &[(&str, &str, &str, Feature)] = &[
+    (
+        "Special:Search",
+        "ts-search-title",
+        "ts-specialpages-search",
+        Feature::Search,
+    ),
+    (
+        "Special:UserLogin",
+        "ts-login-title",
+        "ts-specialpages-login",
+        Feature::Login,
+    ),
+];
 
 /// `Special:SpecialPages`.
 pub async fn serve(

@@ -19,6 +19,7 @@ function overflow( page ) {
 const pages = [
 	{ path: '/wiki/Project:Home', heading: 'librarybase' },
 	{ path: '/wiki/Special:SpecialPages', heading: 'Special pages' },
+	{ path: '/wiki/Special:UserLogin', heading: 'Log in' },
 	{ path: '/wiki/Project:About', heading: 'Project:About', status: 404 },
 	{ path: '/wiki/Item:Q6', heading: 'Six & more' },
 	{ path: '/wiki/Item:Q6?tab=identifiers', heading: 'Six & more' },
@@ -93,6 +94,26 @@ test( 'the main page is Project:Home, and unbuilt features are not linked', asyn
 	await expect( page.locator( 'a[href*="action=history"]' ) ).toHaveCount( 0 );
 } );
 
+test( 'logging in and out works without JavaScript, through either replica', async ( { page } ) => {
+	await page.goto( '/wiki/Item:Q6' );
+	await page.getByRole( 'link', { name: 'Log in' } ).click();
+	await expect( page.getByRole( 'heading', { level: 1 } ) ).toHaveText( 'Log in' );
+	await page.getByLabel( 'Username' ).fill( 'Alice' );
+	await page.getByLabel( 'Password' ).fill( 'not her password' );
+	await page.getByRole( 'button', { name: 'Log in' } ).click();
+	await expect( page.getByText( 'Incorrect username or password.' ) ).toBeVisible();
+	await page.getByLabel( 'Password' ).fill( process.env.E2E_OWNER_PASSWORD );
+	await page.getByRole( 'button', { name: 'Log in' } ).click();
+	await expect( page ).toHaveURL( /\/wiki\/Item:Q6$/ );
+	await expect( page.locator( 'summary[aria-label="Account menu for Alice"]' ) ).toBeVisible();
+	await page.locator( 'summary[aria-label="Account menu for Alice"]' ).click();
+	await page.getByRole( 'link', { name: 'Log out' } ).click();
+	await expect( page.getByText( 'Do you want to log out?' ) ).toBeVisible();
+	await page.getByRole( 'button', { name: 'Log out' } ).click();
+	await expect( page ).toHaveURL( /\/wiki\/Item:Q6$/ );
+	await expect( page.getByRole( 'link', { name: 'Log in' } ) ).toBeVisible();
+} );
+
 test( 'a phone reads an item without scrolling sideways', async ( { browser } ) => {
 	const context = await browser.newContext( {
 		viewport: { width: 390, height: 844 },
@@ -142,7 +163,7 @@ test( 'an anonymous page is public; a signed-in page is private', async ( { play
 		const mine = await alice.get( '/wiki/Item:Q6' );
 		expect( mine.headers()[ 'cache-control' ] ).toBe( 'private, no-cache' );
 		expect( mine.headers()[ 'cache-tag' ] ).toBeUndefined();
-		expect( await mine.text() ).toContain( '<span class="ts-header__user">Alice</span>' );
+		expect( await mine.text() ).toContain( 'Account menu for Alice' );
 	}
 	await alice.dispose();
 } );
