@@ -129,8 +129,9 @@ impl Render<'_> {
             }
         }
         if q.unit != "1" {
-            s.push(' ');
-            s.push_str(&self.unit(&q.unit));
+            // Underlined: in running text beside the number, a link needs more than its
+            // colour to stand out (WCAG 1.4.1).
+            let _ = write!(s, " <span class=\"ts-unit\">{}</span>", self.unit(&q.unit));
         }
         s
     }

@@ -20,17 +20,19 @@ expression: main_of(&html)
 		<div class="ts-entity">
 <div class="ts-entity__main">
 <h2 class="ts-visually-hidden">Statements</h2>
-<section class="ts-group" id="XDP8" data-region="statements/XDP8">
+<section class="ts-group ts-group--single" id="XDP8" data-region="statements/XDP8" data-shape="single">
 <div class="ts-group__property">
 <a href="/wiki/Property:XDP8" title="XDP8">related domain</a>
 </div>
-<ol class="ts-group__values">
-<li class="ts-statement" id="domain:wikipedia.org$00000000-0000-0000-0000-0000000000B2">
+<div class="ts-group__body">
+<div class="ts-statement ts-statement--headline" id="domain:wikipedia.org$00000000-0000-0000-0000-0000000000B2">
 <div class="ts-statement__value">
+<span class="ts-statement__main">
 <a href="/wiki/Domain:example.org" title="domain:example.org">example.org</a>
+</span>
 </div>
-</li>
-</ol>
+</div>
+</div>
 </section>
 </div>
 <aside class="ts-sources" aria-labelledby="ts-sources-title">

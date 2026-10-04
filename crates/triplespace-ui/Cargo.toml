@@ -22,6 +22,7 @@ percent-encoding.workspace = true
 icu_plurals.workspace = true
 icu_locale_core.workspace = true
 scatter-wikibase-model.workspace = true
+scatter-wikibase-shape.workspace = true
 tokio = { workspace = true, features = ["macros"] }
 
 [dev-dependencies]

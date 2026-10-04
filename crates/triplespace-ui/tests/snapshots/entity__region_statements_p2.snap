@@ -2,26 +2,40 @@
 source: crates/triplespace-ui/tests/entity.rs
 expression: "html.replace(\"><\", \">\\n<\")"
 ---
-<section class="ts-group" id="P2" data-region="statements/P2">
+<section class="ts-group ts-group--chips" id="P2" data-region="statements/P2" data-shape="chips">
 <div class="ts-group__property">
 <a href="/wiki/Property:P2" title="P2">instance of</a>
 <span class="ts-group__count">3 values</span>
 </div>
-<ol class="ts-group__values">
-<li class="ts-statement ts-statement--preferred" id="Q6$00000002-0000-0000-0000-000000000000">
-<div class="ts-statement__value">
-<a href="/wiki/Item:Q2" title="Q2">number</a> <span class="ts-chip ts-chip--rank">Preferred rank</span>
-</div>
+<div class="ts-group__body">
+<ul class="ts-chips">
+<li class="ts-chips__item" id="Q6$00000002-0000-0000-0000-000000000000">
+<span class="ts-statement__main">
+<a href="/wiki/Item:Q2" title="Q2">number</a>
+</span> <span class="ts-chip ts-chip--best" title="Queries and infoboxes return only this value">Best value</span>
 </li>
-<li class="ts-statement" id="Q6$00000003-0000-0000-0000-000000000000">
-<div class="ts-statement__value">
+</ul>
+<details class="ts-fold">
+<summary>1 other value</summary>
+<ul class="ts-chips">
+<li class="ts-chips__item" id="Q6$00000003-0000-0000-0000-000000000000">
+<span class="ts-statement__main">
 <a href="/wiki/Item:Q1" title="Q1">city</a>
-</div>
+</span>
 </li>
+</ul>
+</details>
+<details class="ts-fold ts-fold--deprecated">
+<summary>1 deprecated</summary>
+<ol class="ts-group__values">
 <li class="ts-statement ts-statement--deprecated" id="Q6$00000004-0000-0000-0000-000000000000">
 <div class="ts-statement__value">
-<a href="/wiki/Item:Q3" title="Q3">Example Gazette</a> <span class="ts-chip ts-chip--rank">Deprecated rank</span>
+<span class="ts-statement__main">
+<a href="/wiki/Item:Q3" title="Q3">Example Gazette</a>
+</span>
 </div>
 </li>
 </ol>
+</details>
+</div>
 </section>

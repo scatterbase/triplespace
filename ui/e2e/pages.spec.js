@@ -55,12 +55,15 @@ for ( const p of pages ) {
 	} );
 }
 
-test( 'references open without JavaScript', async ( { page } ) => {
+test( 'folds open and footnotes link without JavaScript', async ( { page } ) => {
 	await page.goto( '/wiki/Item:Q6' );
-	const refs = page.locator( '#P3 details' );
-	await expect( refs.getByText( 'reference URL' ) ).toBeHidden();
-	await refs.locator( 'summary' ).click();
-	await expect( refs.getByText( 'reference URL' ) ).toBeVisible();
+	const fold = page.locator( '#P2 details.ts-fold' ).first();
+	await expect( fold.getByText( 'city' ) ).toBeHidden();
+	await fold.locator( 'summary' ).click();
+	await expect( fold.getByText( 'city' ) ).toBeVisible();
+	await page.locator( '#P3 a.ts-fn' ).click();
+	await expect( page ).toHaveURL( /#P3-fn-1$/ );
+	await expect( page.locator( '#P3-fn-1' ).getByText( 'reference URL' ) ).toBeVisible();
 } );
 
 test( 'a phone reads an item without scrolling sideways', async ( { browser } ) => {

@@ -1,5 +1,6 @@
-//! The entity page's parts as HTML: the identity line, the terms, statement groups,
-//! the Identifiers, Sitelinks and Labels tabs, and "Where this comes from".
+//! The entity page's parts as HTML: the identity line, the terms, the tabs that hold
+//! statement groups (drawn by [`super::shapes`]), the Identifiers, Sitelinks and Labels
+//! tabs, and "Where this comes from".
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
@@ -7,7 +8,7 @@ use std::fmt::Write as _;
 use askama::Template as _;
 use scatter_wikibase_model::id::IdForm;
 use scatter_wikibase_model::sites::SiteRegistry;
-use scatter_wikibase_model::statement::{Rank, Reference, SnakGroups, Statement};
+use scatter_wikibase_model::statement::{Reference, SnakGroups, Statement};
 
 use super::Render;
 use crate::codex::{Accordion, Align, Cell, Chip, ChipKind, Column, Table};
@@ -216,7 +217,7 @@ impl Render<'_> {
     }
 
     /// A statement's property's data type: from its main snak, else from the lookup.
-    fn datatype_of(&self, property: &str, statements: &[Statement]) -> Option<String> {
+    pub(super) fn datatype_of(&self, property: &str, statements: &[Statement]) -> Option<String> {
         statements
             .iter()
             .find_map(|s| s.mainsnak.datatype.as_ref().map(|d| d.id().to_string()))
@@ -227,11 +228,11 @@ impl Render<'_> {
         self.datatype_of(property, statements).as_deref() == Some("external-id")
     }
 
-    fn property_link(&self, property: &str) -> String {
+    pub(super) fn property_link(&self, property: &str) -> String {
         self.id_link(property, "property")
     }
 
-    fn snak_groups(&self, groups: &SnakGroups, class: &str) -> String {
+    pub(super) fn snak_groups(&self, groups: &SnakGroups, class: &str) -> String {
         let mut s = format!("<dl class=\"{class}\">");
         for (p, snaks) in groups {
             let values = snaks
@@ -249,7 +250,7 @@ impl Render<'_> {
         s
     }
 
-    fn references(&self, refs: &[Reference]) -> String {
+    pub(super) fn references(&self, refs: &[Reference]) -> String {
         if refs.is_empty() {
             return String::new();
         }
@@ -271,7 +272,7 @@ impl Render<'_> {
 
     /// The chips for where a statement comes from: shown only where its graphs are not
     /// the entity's dominant one, so the usual case stays quiet; and "Corrected here".
-    fn statement_chips(&self, st: &Statement) -> String {
+    pub(super) fn statement_chips(&self, st: &Statement) -> String {
         let mut s = String::new();
         let (Some(p), Some(sid)) = (self.provenance, st.id.as_ref()) else {
             return s;
@@ -303,88 +304,8 @@ impl Render<'_> {
         chip(ChipKind::Namespace, graph)
     }
 
-    fn statement(&self, st: &Statement) -> String {
-        let mut class = String::from("ts-statement");
-        let mut rank = String::new();
-        match st.rank {
-            Rank::Preferred => {
-                class.push_str(" ts-statement--preferred");
-                rank = format!(
-                    " {}",
-                    chip(ChipKind::Rank, &self.m.get("ts-rank-preferred"))
-                );
-            }
-            Rank::Deprecated => {
-                class.push_str(" ts-statement--deprecated");
-                rank = format!(
-                    " {}",
-                    chip(ChipKind::Rank, &self.m.get("ts-rank-deprecated"))
-                );
-            }
-            Rank::Normal => {}
-        }
-        let id_attr = st
-            .id
-            .as_ref()
-            .map(|i| format!(" id=\"{}\"", esc(i.as_str())))
-            .unwrap_or_default();
-        let mut s = format!(
-            "<li class=\"{class}\"{id_attr}><div class=\"ts-statement__value\">{}{rank}{}</div>",
-            self.snak(&st.mainsnak),
-            self.statement_chips(st)
-        );
-        if !st.qualifiers.is_empty() {
-            s.push_str(&self.snak_groups(&st.qualifiers, "ts-qualifiers"));
-        }
-        s.push_str(&self.references(&st.references));
-        s.push_str("</li>");
-        s
-    }
-
-    /// The `statements/{P}` region: one statement group, or the empty group for a
-    /// property the entity does not use.
-    #[must_use]
-    pub fn group(&self, property: &str) -> String {
-        let statements = self
-            .entity
-            .statements
-            .iter()
-            .find(|(p, _)| p.as_str() == property)
-            .map_or(&[][..], |(_, v)| v.as_slice());
-        let mut s = format!(
-            "<section class=\"ts-group\" id=\"{p}\" data-region=\"statements/{p}\"><div class=\"ts-group__property\">{}",
-            self.property_link(property),
-            p = esc(property)
-        );
-        if statements.len() > 1 {
-            let n = statements.len().to_string();
-            let _ = write!(
-                s,
-                "<span class=\"ts-group__count\">{}</span>",
-                esc(&self.m.with("ts-values-count", &[&n]))
-            );
-        }
-        s.push_str("</div>");
-        if statements.is_empty() {
-            let _ = write!(
-                s,
-                "<p class=\"ts-empty\">{}</p>",
-                esc(&self.m.get("ts-group-empty"))
-            );
-        } else {
-            s.push_str("<ol class=\"ts-group__values\">");
-            for st in statements {
-                s.push_str(&self.statement(st));
-            }
-            s.push_str("</ol>");
-        }
-        s.push_str("</section>");
-        s
-    }
-
     /// The groups of one tab, in property order: by provider, then by number, so that
-    /// `P2` comes before `P10` (the API serves them in canonical, textual order). The
-    /// classifier's sections replace this order with `scatter-wikibase-shape`.
+    /// `P2` comes before `P10` (the API serves them in canonical, textual order).
     fn groups(&self, identifiers: bool) -> String {
         let mut props: Vec<&str> = self
             .entity

@@ -1,6 +1,6 @@
 /*
- * Entity pages (ADR 0010 §2, 0003): the terms under the title, statement groups in the
- * plain layout, the Identifiers, Sitelinks and Labels tabs, and "Where this comes from".
+ * Entity pages (ADR 0010 §2, 0003): the terms under the title, statement groups in their
+ * shapes, the Identifiers, Sitelinks and Labels tabs, and "Where this comes from".
  * Logical properties throughout, so the right-to-left stylesheet needs nothing of its own.
  */
 
@@ -27,6 +27,12 @@
 
 .ts-special-value {
 	font-style: italic;
+}
+
+.ts-unit a {
+	text-decoration: underline;
+	text-decoration-thickness: 1px;
+	text-underline-offset: 0.15em;
 }
 
 .ts-number,
@@ -75,7 +81,7 @@
 	min-width: 0;
 }
 
-/* A statement group in the plain layout */
+/* A statement group: the property cell, then the body holding the shape */
 
 .ts-group {
 	display: grid;
@@ -128,7 +134,7 @@
 	gap: var( --spacing-50, 0.5rem );
 }
 
-.ts-statement--deprecated > .ts-statement__value > :first-child {
+.ts-statement--deprecated .ts-statement__main {
 	color: var( --color-subtle, #54595d );
 	text-decoration: line-through;
 }
@@ -161,6 +167,19 @@
 	margin: 0;
 }
 
+/* Folds: "N other values", "N deprecated", "Show N more values" */
+
+.ts-fold > summary {
+	width: fit-content;
+	color: var( --color-progressive, #36c );
+	font-size: var( --font-size-small, 0.875rem );
+	cursor: pointer;
+}
+
+.ts-fold[ open ] > summary {
+	margin-bottom: var( --spacing-50, 0.5rem );
+}
+
 .ts-statement .cdx-accordion {
 	margin-top: var( --spacing-25, 0.25rem );
 	font-size: var( --font-size-small, 0.875rem );
@@ -173,6 +192,296 @@
 .ts-references {
 	margin: 0;
 	padding-inline-start: var( --spacing-150, 1.5rem );
+}
+
+.ts-group__body {
+	display: flex;
+	flex-direction: column;
+	gap: var( --spacing-75, 0.75rem );
+	min-width: 0;
+}
+
+.ts-statement--headline > .ts-statement__value {
+	font-size: var( --font-size-large, 1.125rem );
+}
+
+/* Chips: values with no qualifiers, wrapping onto new lines */
+
+.ts-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var( --spacing-50, 0.5rem );
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.ts-chips__item {
+	display: inline-flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: var( --spacing-25, 0.25rem );
+	max-width: 100%;
+	padding: var( --spacing-12, 0.125rem ) var( --spacing-50, 0.5rem );
+	border: 1px solid var( --border-color-muted, #dadde3 );
+	border-radius: var( --border-radius-base, 4px );
+	overflow-wrap: anywhere;
+}
+
+/* Numbered lists: a Table whose only column is the series ordinal */
+
+.ts-numbered {
+	display: flex;
+	flex-direction: column;
+	gap: var( --spacing-50, 0.5rem );
+	margin: 0;
+	padding-inline-start: var( --spacing-200, 2rem );
+	list-style: decimal;
+}
+
+.ts-numbered > li::marker {
+	color: var( --color-subtle, #54595d );
+	font-variant-numeric: tabular-nums;
+}
+
+/* Timeline: the shared axis, then the rows with their periods */
+
+.ts-axis {
+	display: block;
+	width: 100%;
+	max-height: 10rem;
+}
+
+/* The axis has no text, so it turns with the writing direction: time runs from the
+ * start of the line to its end, as the year labels under it do. */
+.ts-axis:dir( rtl ) {
+	transform: scaleX( -1 );
+}
+
+.ts-axis__track {
+	fill: var( --background-color-neutral-subtle, #f8f9fa );
+}
+
+.ts-axis__bar {
+	fill: var( --border-color-base, #a2a9b1 );
+}
+
+.ts-axis__bar--open {
+	opacity: 0.7;
+}
+
+.ts-axis__bar--best {
+	fill: var( --background-color-progressive, #36c );
+}
+
+.ts-axis__span {
+	display: flex;
+	justify-content: space-between;
+	margin: var( --spacing-12, 0.125rem ) 0 0;
+	color: var( --color-subtle, #54595d );
+	font-size: var( --font-size-x-small, 0.75rem );
+	font-variant-numeric: tabular-nums;
+}
+
+.ts-period {
+	margin: var( --spacing-12, 0.125rem ) 0 0;
+	color: var( --color-subtle, #54595d );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+/* Series: the line chart */
+
+.ts-chart {
+	display: block;
+	width: 100%;
+	max-width: 37.5rem;
+	height: auto;
+}
+
+.ts-chart__axis {
+	stroke: var( --border-color-subtle, #c8ccd1 );
+	stroke-width: 1;
+}
+
+.ts-chart__line {
+	fill: none;
+	stroke: var( --background-color-progressive, #36c );
+	stroke-width: 2;
+}
+
+.ts-chart__point {
+	fill: var( --background-color-progressive, #36c );
+}
+
+.ts-chart__label {
+	fill: var( --color-subtle, #54595d );
+	font-size: var( --font-size-x-small, 0.75rem );
+}
+
+/* Tables in a group */
+
+.ts-grid .cdx-table__table {
+	width: 100%;
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+.ts-grid th,
+.ts-grid td {
+	vertical-align: top;
+}
+
+.ts-grid td {
+	overflow-wrap: anywhere;
+}
+
+.ts-grid .ts-qualifiers {
+	margin-top: var( --spacing-25, 0.25rem );
+}
+
+.ts-grid__row--best > * {
+	background-color: var( --background-color-progressive-subtle, #f1f4fd );
+}
+
+/* The view switch: two radio buttons as a segmented control, and their panels */
+
+.ts-views {
+	display: flex;
+	flex-direction: column;
+	gap: var( --spacing-50, 0.5rem );
+	min-width: 0;
+}
+
+.ts-views__switch {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0;
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+.ts-views__legend {
+	float: inline-start;
+	margin-inline-end: var( --spacing-50, 0.5rem );
+	padding: 0;
+	color: var( --color-subtle, #54595d );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+.ts-views__input {
+	position: absolute;
+	opacity: 0;
+	width: 1px;
+	height: 1px;
+}
+
+.ts-views__option label {
+	display: inline-block;
+	padding: var( --spacing-12, 0.125rem ) var( --spacing-75, 0.75rem );
+	border: 1px solid var( --border-color-base, #a2a9b1 );
+	background-color: var( --background-color-base, #fff );
+	color: var( --color-base, #202122 );
+	font-size: var( --font-size-small, 0.875rem );
+	cursor: pointer;
+}
+
+.ts-views__option:first-of-type label {
+	border-start-start-radius: var( --border-radius-base, 4px );
+	border-end-start-radius: var( --border-radius-base, 4px );
+}
+
+.ts-views__option:last-of-type label {
+	margin-inline-start: -1px;
+	border-start-end-radius: var( --border-radius-base, 4px );
+	border-end-end-radius: var( --border-radius-base, 4px );
+}
+
+.ts-views__input:checked + label {
+	border-color: var( --border-color-progressive, #36c );
+	background-color: var( --background-color-progressive, #36c );
+	color: var( --color-inverted-fixed, #fff );
+}
+
+.ts-views__input:focus-visible + label {
+	outline: 2px solid var( --outline-color-progressive--focus, #36c );
+	outline-offset: 1px;
+}
+
+.ts-views:has( .ts-views__input--a:checked ) .ts-views__panel--b,
+.ts-views:has( .ts-views__input--b:checked ) .ts-views__panel--a {
+	display: none;
+}
+
+.ts-views__panel {
+	min-width: 0;
+}
+
+.ts-deprecated__reason {
+	color: var( --color-subtle, #54595d );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+/* Footnote markers and the group's footer */
+
+.ts-fns {
+	display: inline-flex;
+	gap: var( --spacing-12, 0.125rem );
+}
+
+.ts-fn {
+	display: inline-block;
+	min-width: 1.25em;
+	padding: 0 var( --spacing-25, 0.25rem );
+	border-radius: 999px;
+	background-color: var( --background-color-neutral, #eaecf0 );
+	color: var( --color-base, #202122 );
+	font-size: var( --font-size-x-small, 0.75rem );
+	font-variant-numeric: tabular-nums;
+	line-height: 1.5;
+	text-align: center;
+	text-decoration: none;
+}
+
+.ts-fn:hover,
+.ts-fn:focus-visible {
+	text-decoration: underline;
+}
+
+.ts-group__footer {
+	display: flex;
+	flex-direction: column;
+	gap: var( --spacing-50, 0.5rem );
+	padding-top: var( --spacing-50, 0.5rem );
+	border-top: 1px dashed var( --border-color-muted, #dadde3 );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+.ts-hoisted__title {
+	margin: 0;
+	color: var( --color-subtle, #54595d );
+}
+
+.ts-footnotes {
+	margin: 0;
+	padding-inline-start: var( --spacing-150, 1.5rem );
+}
+
+.ts-footnotes > li:target {
+	background-color: var( --background-color-warning-subtle, #fdf2d5 );
+}
+
+.ts-footnotes__shared {
+	display: block;
+	color: var( --color-subtle, #54595d );
+}
+
+.ts-footnotes .ts-snaks {
+	margin: 0;
+}
+
+.ts-unsourced {
+	margin: 0;
 }
 
 /* Sitelinks */

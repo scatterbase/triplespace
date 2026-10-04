@@ -1,0 +1,385 @@
+---
+source: crates/triplespace-ui/tests/entity.rs
+expression: "html.replace(\"><\", \">\\n<\")"
+---
+<section class="ts-group ts-group--table" id="WDP10685" data-region="statements/WDP10685" data-shape="table">
+<div class="ts-group__property">
+<a href="/wiki/Property:WDP10685">
+<span class="ts-mono">WDP10685</span>
+</a>
+<span class="ts-group__count">9 values</span>
+</div>
+<div class="ts-group__body">
+<div class="ts-views">
+<fieldset class="ts-views__switch">
+<legend class="ts-views__legend">View as</legend>
+<span class="ts-views__option">
+<input type="radio" class="ts-views__input ts-views__input--a" name="ts-view-WDP10685" id="WDP10685-view-a" checked>
+<label for="WDP10685-view-a">Table</label>
+</span>
+<span class="ts-views__option">
+<input type="radio" class="ts-views__input ts-views__input--b" name="ts-view-WDP10685" id="WDP10685-view-b">
+<label for="WDP10685-view-b">Matrix</label>
+</span>
+</fieldset>
+<div class="ts-views__panel ts-views__panel--a">
+<div class="cdx-table ts-grid">
+<div class="cdx-table__table-wrapper">
+<table class="cdx-table__table">
+<caption class="ts-visually-hidden">WDP10685</caption>
+<thead>
+<tr>
+<th scope="col" class="cdx-table__table__cell--align-number">WDP10685</th>
+<th scope="col" class="cdx-table__table__cell--align-number">
+<a href="/wiki/Property:WDP10764">
+<span class="ts-mono">WDP10764</span>
+</a>
+</th>
+<th scope="col" class="cdx-table__table__cell--align-number">
+<a href="/wiki/Property:WDP10795">
+<span class="ts-mono">WDP10795</span>
+</a>
+</th>
+</tr>
+</thead>
+<tbody>
+<tr id="WDQ731$dc3bbd24-420a-1588-b30c-e2e0546e6af9">
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-statement__main">
+<span class="ts-number">0.66</span> <span class="ts-unit">
+<a href="/wiki/Item:WDQ81454">
+<span class="ts-mono">WDQ81454</span>
+</a>
+</span>
+</span>
+</td>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-number">2</span>
+</td>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-number">4</span>
+</td>
+</tr>
+<tr id="WDQ731$05cd9516-4c38-1119-fbc5-3fa34c8d4518">
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-statement__main">
+<span class="ts-number">0.83</span> <span class="ts-unit">
+<a href="/wiki/Item:WDQ81454">
+<span class="ts-mono">WDQ81454</span>
+</a>
+</span>
+</span>
+</td>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-visually-hidden">
+<span class="ts-number">2</span>
+</span>
+</td>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-number">6</span>
+</td>
+</tr>
+<tr id="WDQ731$cda86da8-4e84-62ec-3e24-0ba54a1f7928">
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-statement__main">
+<span class="ts-number">0.96</span> <span class="ts-unit">
+<a href="/wiki/Item:WDQ81454">
+<span class="ts-mono">WDQ81454</span>
+</a>
+</span>
+</span>
+</td>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-visually-hidden">
+<span class="ts-number">2</span>
+</span>
+</td>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-number">8</span>
+</td>
+</tr>
+<tr id="WDQ731$349c22e0-4f36-4612-a5c6-4190adf60fba">
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-statement__main">
+<span class="ts-number">0.58</span> <span class="ts-unit">
+<a href="/wiki/Item:WDQ81454">
+<span class="ts-mono">WDQ81454</span>
+</a>
+</span>
+</span>
+</td>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-number">3</span>
+</td>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-number">6</span>
+</td>
+</tr>
+<tr id="WDQ731$5230b641-4032-f4dd-0fb1-f3b3b904ca44">
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-statement__main">
+<span class="ts-number">0.39</span> <span class="ts-unit">
+<a href="/wiki/Item:WDQ81454">
+<span class="ts-mono">WDQ81454</span>
+</a>
+</span>
+</span>
+</td>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-number">4</span>
+</td>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-number">4</span>
+</td>
+</tr>
+<tr id="WDQ731$3e6ffe6a-400e-f574-6ebc-e9e89016f333">
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-statement__main">
+<span class="ts-number">0.53</span> <span class="ts-unit">
+<a href="/wiki/Item:WDQ81454">
+<span class="ts-mono">WDQ81454</span>
+</a>
+</span>
+</span>
+</td>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-visually-hidden">
+<span class="ts-number">4</span>
+</span>
+</td>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-number">6</span>
+</td>
+</tr>
+<tr id="WDQ731$544f9217-400c-187d-8b7b-4ead33d6a0be">
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-statement__main">
+<span class="ts-number">0.33</span> <span class="ts-unit">
+<a href="/wiki/Item:WDQ81454">
+<span class="ts-mono">WDQ81454</span>
+</a>
+</span>
+</span>
+</td>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-number">5</span>
+</td>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-number">4</span>
+</td>
+</tr>
+<tr id="WDQ731$299463be-4867-180a-01ae-1a81931f5f0e">
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-statement__main">
+<span class="ts-number">0.26</span> <span class="ts-unit">
+<a href="/wiki/Item:WDQ81454">
+<span class="ts-mono">WDQ81454</span>
+</a>
+</span>
+</span>
+</td>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-number">6</span>
+</td>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-number">4</span>
+</td>
+</tr>
+<tr id="WDQ731$58da70f4-465d-07ea-0c6d-92e0692ae181">
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-statement__main">
+<span class="ts-number">0.25</span> <span class="ts-unit">
+<a href="/wiki/Item:WDQ81454">
+<span class="ts-mono">WDQ81454</span>
+</a>
+</span>
+</span>
+</td>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-number">7</span>
+</td>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-number">4</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<div class="ts-views__panel ts-views__panel--b">
+<div class="cdx-table ts-grid">
+<div class="cdx-table__table-wrapper">
+<table class="cdx-table__table">
+<caption class="ts-visually-hidden">WDP10685</caption>
+<thead>
+<tr>
+<th scope="col">
+<bdi>
+<a href="/wiki/Property:WDP10764">
+<span class="ts-mono">WDP10764</span>
+</a>
+</bdi> ↓ / <bdi>
+<a href="/wiki/Property:WDP10795">
+<span class="ts-mono">WDP10795</span>
+</a>
+</bdi> →</th>
+<th scope="col" class="cdx-table__table__cell--align-number">
+<span class="ts-number">4</span>
+</th>
+<th scope="col" class="cdx-table__table__cell--align-number">
+<span class="ts-number">6</span>
+</th>
+<th scope="col" class="cdx-table__table__cell--align-number">
+<span class="ts-number">8</span>
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th scope="row" class="cdx-table__table__cell--align-number">
+<span class="ts-number">2</span>
+</th>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-number">0.66</span> <span class="ts-unit">
+<a href="/wiki/Item:WDQ81454">
+<span class="ts-mono">WDQ81454</span>
+</a>
+</span>
+</td>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-number">0.83</span> <span class="ts-unit">
+<a href="/wiki/Item:WDQ81454">
+<span class="ts-mono">WDQ81454</span>
+</a>
+</span>
+</td>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-number">0.96</span> <span class="ts-unit">
+<a href="/wiki/Item:WDQ81454">
+<span class="ts-mono">WDQ81454</span>
+</a>
+</span>
+</td>
+</tr>
+<tr>
+<th scope="row" class="cdx-table__table__cell--align-number">
+<span class="ts-number">3</span>
+</th>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-special-value">no value</span>
+</td>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-number">0.58</span> <span class="ts-unit">
+<a href="/wiki/Item:WDQ81454">
+<span class="ts-mono">WDQ81454</span>
+</a>
+</span>
+</td>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-special-value">no value</span>
+</td>
+</tr>
+<tr>
+<th scope="row" class="cdx-table__table__cell--align-number">
+<span class="ts-number">4</span>
+</th>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-number">0.39</span> <span class="ts-unit">
+<a href="/wiki/Item:WDQ81454">
+<span class="ts-mono">WDQ81454</span>
+</a>
+</span>
+</td>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-number">0.53</span> <span class="ts-unit">
+<a href="/wiki/Item:WDQ81454">
+<span class="ts-mono">WDQ81454</span>
+</a>
+</span>
+</td>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-special-value">no value</span>
+</td>
+</tr>
+<tr>
+<th scope="row" class="cdx-table__table__cell--align-number">
+<span class="ts-number">5</span>
+</th>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-number">0.33</span> <span class="ts-unit">
+<a href="/wiki/Item:WDQ81454">
+<span class="ts-mono">WDQ81454</span>
+</a>
+</span>
+</td>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-special-value">no value</span>
+</td>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-special-value">no value</span>
+</td>
+</tr>
+<tr>
+<th scope="row" class="cdx-table__table__cell--align-number">
+<span class="ts-number">6</span>
+</th>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-number">0.26</span> <span class="ts-unit">
+<a href="/wiki/Item:WDQ81454">
+<span class="ts-mono">WDQ81454</span>
+</a>
+</span>
+</td>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-special-value">no value</span>
+</td>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-special-value">no value</span>
+</td>
+</tr>
+<tr>
+<th scope="row" class="cdx-table__table__cell--align-number">
+<span class="ts-number">7</span>
+</th>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-number">0.25</span> <span class="ts-unit">
+<a href="/wiki/Item:WDQ81454">
+<span class="ts-mono">WDQ81454</span>
+</a>
+</span>
+</td>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-special-value">no value</span>
+</td>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-special-value">no value</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<div class="ts-group__footer">
+<ol class="ts-footnotes" aria-label="Sources">
+<li id="WDP10685-fn-1">
+<span class="ts-footnotes__shared">Cited by all 9 values</span>
+<dl class="ts-snaks">
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:WDP957">
+<span class="ts-mono">WDP957</span>
+</a>
+</dt>
+<dd>
+<span class="ts-mono" dir="ltr">0-8493-0485-7</span>
+</dd>
+</div>
+</dl>
+</li>
+</ol>
+</div>
+</div>
+</section>

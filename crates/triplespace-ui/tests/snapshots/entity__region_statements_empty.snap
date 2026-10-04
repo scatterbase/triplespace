@@ -2,11 +2,13 @@
 source: crates/triplespace-ui/tests/entity.rs
 expression: "html.replace(\"><\", \">\\n<\")"
 ---
-<section class="ts-group" id="P99" data-region="statements/P99">
+<section class="ts-group ts-group--empty" id="P99" data-region="statements/P99" data-shape="empty">
 <div class="ts-group__property">
 <a href="/wiki/Property:P99">
 <span class="ts-mono">P99</span>
 </a>
 </div>
+<div class="ts-group__body">
 <p class="ts-empty">No values</p>
+</div>
 </section>

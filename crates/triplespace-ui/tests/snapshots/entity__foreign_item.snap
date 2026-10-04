@@ -23,29 +23,33 @@ expression: main_of(&html)
 		<div class="ts-entity">
 <div class="ts-entity__main">
 <h2 class="ts-visually-hidden">Statements</h2>
-<section class="ts-group" id="P12" data-region="statements/P12">
+<section class="ts-group ts-group--single" id="P12" data-region="statements/P12" data-shape="single">
 <div class="ts-group__property">
 <a href="/wiki/Property:P12" title="P12">note</a>
 </div>
-<ol class="ts-group__values">
-<li class="ts-statement" id="WDQ65$bbbbbbbb-0000-0000-0000-000000000002">
+<div class="ts-group__body">
+<div class="ts-statement ts-statement--headline" id="WDQ65$bbbbbbbb-0000-0000-0000-000000000002">
 <div class="ts-statement__value">
-<bdi>added here</bdi> <span class="ts-chip ts-chip--local">Local</span>
+<span class="ts-statement__main">
+<bdi>added here</bdi>
+</span> <span class="ts-chip ts-chip--local">Local</span>
 </div>
-</li>
-</ol>
+</div>
+</div>
 </section>
-<section class="ts-group" id="WDP31" data-region="statements/WDP31">
+<section class="ts-group ts-group--single" id="WDP31" data-region="statements/WDP31" data-shape="single">
 <div class="ts-group__property">
 <a href="/wiki/Property:WDP31" title="WDP31">instance of</a>
 </div>
-<ol class="ts-group__values">
-<li class="ts-statement" id="WDQ65$aaaaaaaa-0000-0000-0000-000000000001">
+<div class="ts-group__body">
+<div class="ts-statement ts-statement--headline" id="WDQ65$aaaaaaaa-0000-0000-0000-000000000001">
 <div class="ts-statement__value">
+<span class="ts-statement__main">
 <a href="/wiki/Item:WDQ1093829" title="WDQ1093829">city in the United States</a>
+</span>
 </div>
-</li>
-</ol>
+</div>
+</div>
 </section>
 </div>
 <aside class="ts-sources" aria-labelledby="ts-sources-title">
