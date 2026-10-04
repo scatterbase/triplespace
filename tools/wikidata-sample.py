@@ -17,6 +17,9 @@ and a page rendered from the sample shows an ID where a label is missing.
     python3 tools/wikidata-sample.py --contact you@example.org --items 50000 \\
         --out wikidata-sample.json.gz
 
+The sample is too large for git: keep it in `docs/api/snapshots/big/`, which is ignored,
+with its manifest beside it, and share it out of band.
+
 Wikimedia's API etiquette is kept: one request at a time, a User-Agent with your contact
 (required), `maxlag=5` with the server's `Retry-After` honoured, and a pause between
 requests. 50,000 items take about 1,500 requests: roughly half an hour. Standard library
