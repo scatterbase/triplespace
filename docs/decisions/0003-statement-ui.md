@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-10-01 (A9)
+- **Updated:** 2026-10-04 (A10)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [MediaWiki API contract](../api/mediawiki-compat.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
@@ -56,7 +56,7 @@ A **statement group** is all the statements for one property on one entity, afte
 
 ### 3. Shape detection
 
-*Changed by A2.*
+*Changed by A2, A10.*
 
 Each statement group gets exactly one shape. The rules are checked in order, and the first one that matches wins.
 
@@ -83,7 +83,9 @@ Terms:
 - Qualifier keys below 0.5 coverage are listed under the row as extra qualifiers.
 - A key with the same value on every statement is hoisted instead (§5).
 
-**Row order.** Rows are sorted by their column values, from left to right. When a column's value repeats down consecutive rows, only the first row of the run shows it. The hidden cells still carry the value as accessible text.
+**Numbered lists.** A Table whose only column is the `series-ordinal` role (§7), such as an article's authors by their position, is drawn as a list numbered by that column rather than as a one-column table.
+
+**Row order.** Rows are sorted by their column values, from left to right. Numeric strings, such as series ordinals, compare as numbers, so 2 comes before 10. When a column's value repeats down consecutive rows, only the first row of the run shows it. The hidden cells still carry the value as accessible text.
 
 **Matrix.** A Matrix view is offered when all of these hold:
 
@@ -155,7 +157,7 @@ Where there is one:
 
 ### 7. Semantic roles
 
-*Changed by A1, A3, A4, A5, A6, A7, A8.*
+*Changed by A1, A3, A4, A5, A6, A7, A8, A10.*
 
 Property IDs differ between Wikibases, so shape detection and the rank rules refer to **roles**. Each instance maps its own properties onto those roles.
 
@@ -166,6 +168,7 @@ Property IDs differ between Wikibases, so shape detection and the rank rules ref
 | `time-end` | Timeline shape | P582 end time |
 | `deprecation-reason` | The deprecated fold's labels; "Mark as deprecated…" | P2241 reason for deprecated rank |
 | `reference-work` | Footnote titles | P248 stated in |
+| `series-ordinal` | Numbered lists (§3) | P1545 series ordinal |
 
 - **Mirrored properties.** On an instance that mirrors Wikidata, mirrored properties carry the `WDP` prefix, so the map reads `WDP585`, `WDP580` and so on.
 - **Local and mirrored forms together.** One role can have both a local and a mirrored property: for example, `P12` and `WDP585` can both be `time-point`.
@@ -262,7 +265,7 @@ The prototype lives in `ui/` in this repository. The classifier is its own modul
 
 ## Open questions
 
-- **Q1. Thresholds.** The values in §3 (0.8 and 0.5 coverage; n ≥ 3 for Table, n ≥ 4 for Series, n > 25 for the full view) are starting guesses for the audit to replace.
+- **Q1.** ~~**Thresholds.** The values in §3 (0.8 and 0.5 coverage; n ≥ 3 for Table, n ≥ 4 for Series, n > 25 for the full view) are starting guesses for the audit to replace.~~ *Settled by A10: the audit of 2026-10-04 kept every value (Direct).*
 - **Q2.** ~~**Where shape pins live.** One option is log records in a view-preferences graph; the other is instance configuration outside the log.~~ *Settled by [0027](0027-preferences-and-portability.md) §5: a viewer's pin is the `shapes.pins` preference; a tenant-wide pin is a `view-pin` config record.*
 - **Q3.** ~~**The provenance response's form.** It could be a new REST route for each entity, or an Action API `prop` module.~~ *Settled by [0012](0012-api-requirements.md) §5: `GET /entity/{id}/provenance` under `triplespace/v0`, extended by [0004](0004-identity-clusters-and-equivalence.md) §8 (member statements) and [0031](0031-property-constraints.md) §6 (constraint violations).*
 - **Q4. Several preferred values in Series and Timeline.** It is not settled whether the headline shows all of them or only the most recent.
@@ -344,3 +347,10 @@ Replaced text (§9):
 - **Source:** [0050](0050-adr-format.md) §13
 - **Change:** consolidates §2–9
 - **Summary:** A1–A8 were folded into the Decision, the open questions were numbered, and the consequence that named the `scatter.wiki` vocabulary was struck. No decision changed. Before this, A7 was a blockquote under §7, and the other entries were recorded only in this ADR's header or in other ADRs. The file before conversion is commit `0b26a3a`.
+
+### A10. The thresholds kept; the series-ordinal role
+
+- **Date:** 2026-10-04
+- **Source:** Direct: James, 2026-10-04, on the shape audit ([docs/audits/0003-shapes-2026-10-04.md](../audits/0003-shapes-2026-10-04.md))
+- **Change:** extends §3, §7
+- **Summary:** "Keep the thresholds. A series ordinal role is a good idea." The audit ran `scatter-wikibase-shape` over 50,000 Wikidata items drawn at random. Every coverage threshold of §3 fell in a low-density region, and the minimum sizes were the levers that moved the most groups, so all the values stay as written. 92% of Tables had one column, mostly scholarly author lists ordered by P1545. A new role, `series-ordinal`, makes such a Table a numbered list. Numeric strings in a column compare as numbers. This settles Q1.

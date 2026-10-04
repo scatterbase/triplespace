@@ -17,16 +17,19 @@ pub enum Role {
     DeprecationReason,
     /// The work a reference cites: footnote titles.
     ReferenceWork,
+    /// A position in a series: a Table with only this column is a numbered list.
+    SeriesOrdinal,
 }
 
 impl Role {
     /// Every role, in table order.
-    pub const ALL: [Role; 5] = [
+    pub const ALL: [Role; 6] = [
         Role::TimePoint,
         Role::TimeStart,
         Role::TimeEnd,
         Role::DeprecationReason,
         Role::ReferenceWork,
+        Role::SeriesOrdinal,
     ];
 
     /// The role's name, as the ADRs and configuration write it.
@@ -38,6 +41,7 @@ impl Role {
             Role::TimeEnd => "time-end",
             Role::DeprecationReason => "deprecation-reason",
             Role::ReferenceWork => "reference-work",
+            Role::SeriesOrdinal => "series-ordinal",
         }
     }
 
@@ -56,6 +60,7 @@ impl Role {
             Role::TimeEnd => "P582",
             Role::DeprecationReason => "P2241",
             Role::ReferenceWork => "P248",
+            Role::SeriesOrdinal => "P1545",
         }
     }
 }
