@@ -1,0 +1,74 @@
+---
+source: crates/triplespace-ui/tests/entity.rs
+expression: main_of(&html)
+---
+<main class="ts-page" id="content">
+	<p class="ts-page__identity">
+<span class="ts-chip ts-chip--provider ts-chip--p-wd">WDQ65</span> <span>Foreign item, minted by Wikidata</span> <span aria-hidden="true">·</span> <a href="http://www.wikidata.org/entity/Q65" class="external" rel="noopener" dir="ltr">wikidata.org/entity/Q65 ↗</a>
+</p>
+	<h1 class="ts-page__title">Los Angeles</h1>
+	<div class="ts-terms" data-region="terms">
+<p class="ts-terms__description">largest city in California, United States</p>
+<p class="ts-terms__aliases">Also known as <span>LA · City of Angels</span>
+</p>
+</div>
+	<nav class="ts-tabs" aria-label="Page">
+		<a class="ts-tabs__link" href="/wiki/Item:WDQ65" aria-current="page">Statements</a>
+		<a class="ts-tabs__link" href="/wiki/Item:WDQ65?tab=identifiers">Identifiers</a>
+		<a class="ts-tabs__link" href="/wiki/Item:WDQ65?tab=sitelinks">Sitelinks</a>
+		<a class="ts-tabs__link" href="/wiki/Item:WDQ65?tab=labels">Labels in other languages</a>
+		<a class="ts-tabs__link" href="/w/index.php?title=Item:WDQ65&#38;action=history">History</a>
+	</nav>
+	<div class="ts-page__body">
+		<div class="ts-entity">
+<div class="ts-entity__main">
+<h2 class="ts-visually-hidden">Statements</h2>
+<section class="ts-group" id="P12" data-region="statements/P12">
+<div class="ts-group__property">
+<a href="/wiki/Property:P12" title="P12">note</a>
+</div>
+<ol class="ts-group__values">
+<li class="ts-statement" id="WDQ65$bbbbbbbb-0000-0000-0000-000000000002">
+<div class="ts-statement__value">
+<bdi>added here</bdi> <span class="ts-chip ts-chip--local">Local</span>
+</div>
+</li>
+</ol>
+</section>
+<section class="ts-group" id="WDP31" data-region="statements/WDP31">
+<div class="ts-group__property">
+<a href="/wiki/Property:WDP31" title="WDP31">instance of</a>
+</div>
+<ol class="ts-group__values">
+<li class="ts-statement" id="WDQ65$aaaaaaaa-0000-0000-0000-000000000001">
+<div class="ts-statement__value">
+<a href="/wiki/Item:WDQ1093829" title="WDQ1093829">city in the United States</a>
+</div>
+</li>
+</ol>
+</section>
+</div>
+<aside class="ts-sources" aria-labelledby="ts-sources-title">
+<h2 class="ts-sources__title" id="ts-sources-title">Where this comes from</h2>
+<section class="ts-sources__graph">
+<h3>
+<span class="ts-chip ts-chip--provider ts-chip--p-wd">WD</span> Wikidata mirror</h3>
+<p>1 statement</p>
+<p class="ts-subtle">Synced 1 October 2026 · upstream revision 2412345678</p>
+</section>
+<section class="ts-sources__graph">
+<h3>
+<span class="ts-chip ts-chip--local">Local</span> This instance</h3>
+<p>1 statement</p>
+<p class="ts-subtle">Synced 2 October 2026</p>
+</section>
+<section class="ts-sources__graph">
+<p class="ts-subtle">If the upstream deletes it: keep-hidden</p>
+</section>
+<p class="ts-sources__actions">
+<a href="/wiki/Special:EntityData/WDQ65.json">Download as JSON</a>
+</p>
+</aside>
+</div>
+	</div>
+</main>

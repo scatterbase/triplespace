@@ -53,6 +53,15 @@ pub enum ClientError {
     /// The configuration is refused: plain HTTP to an address that is not internal.
     #[error("{0}")]
     Config(String),
+    /// The API refused the request with a MediaWiki error code (`invalid-entity-id`,
+    /// `permissiondenied`, …), which the page shows as the API meant it.
+    #[error("the API refused the request: {code}: {info}")]
+    Api {
+        /// The error code.
+        code: String,
+        /// The message.
+        info: String,
+    },
 }
 
 /// A boxed future, as the transport trait returns it.

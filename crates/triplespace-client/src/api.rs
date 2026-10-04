@@ -3,6 +3,8 @@
 
 use axum::http::{StatusCode, header};
 use serde_json::{Map, Value};
+use sha2::Digest as _;
+use std::fmt::Write as _;
 
 use crate::transport::{ApiResponse, ClientError};
 use crate::{Client, Incoming};
@@ -46,6 +48,24 @@ impl CacheInfo {
     }
 }
 
+impl CacheInfo {
+    /// The facts of several responses taken together: public only if each was, the
+    /// `ETag`s joined (none if any lacks one), every tag kept.
+    #[must_use]
+    pub fn combine(all: &[CacheInfo]) -> Self {
+        let public = !all.is_empty() && all.iter().all(|c| c.public);
+        let etag = all
+            .iter()
+            .map(|c| c.etag.clone())
+            .collect::<Option<Vec<_>>>()
+            .map(|v| v.join(" "));
+        let mut tags: Vec<String> = all.iter().flat_map(|c| c.tags.iter().cloned()).collect();
+        tags.sort();
+        tags.dedup();
+        Self { public, etag, tags }
+    }
+}
+
 /// A value and the caching facts of the response it came from.
 #[derive(Debug, Clone)]
 pub struct Fetched<T> {
@@ -70,6 +90,50 @@ pub struct SiteInfo {
     pub theme: Option<Map<String, Value>>,
     /// Whether the API reports itself in development mode (`triplespace.insecure`).
     pub insecure: bool,
+    /// `general.wikibase-conceptbaseuri`: the base of local entities' concept IRIs.
+    pub concept_base: String,
+    /// `providers`: the registered providers.
+    pub providers: Vec<ProviderInfo>,
+}
+
+/// A provider as `siprop=providers` reports it.
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Deserialize)]
+pub struct ProviderInfo {
+    /// The two-letter code.
+    pub code: String,
+    /// The slug, as in `mirror/{slug}`.
+    pub slug: String,
+    /// The display name.
+    pub name: String,
+    /// The entity types it mints.
+    #[serde(default)]
+    pub types: Vec<ProviderType>,
+    /// The chip's colours.
+    #[serde(default)]
+    pub chip: Option<ChipColours>,
+}
+
+/// One entity type a provider mints.
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Deserialize)]
+pub struct ProviderType {
+    /// The one-letter type code.
+    pub code: String,
+    /// The Wikibase entity type.
+    pub entity_type: String,
+    /// The concept IRI template, with `{upstream_id}`.
+    pub iri: String,
+    /// What the provider's own IDs start with.
+    #[serde(default)]
+    pub upstream_prefix: String,
+}
+
+/// A provider chip's colours.
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Deserialize)]
+pub struct ChipColours {
+    /// The text colour.
+    pub color: String,
+    /// The background colour.
+    pub background: String,
 }
 
 /// What the site needs of `meta=userinfo`.
@@ -84,10 +148,19 @@ pub struct UserInfo {
 }
 
 /// What happens when the API refuses the request outright.
-fn check(response: &ApiResponse) -> Result<Value, ClientError> {
+pub(crate) fn check(response: &ApiResponse) -> Result<Value, ClientError> {
     match response.status {
-        StatusCode::OK => serde_json::from_slice(&response.body)
-            .map_err(|e| ClientError::Unexpected(format!("not JSON: {e}"))),
+        StatusCode::OK => {
+            let v: Value = serde_json::from_slice(&response.body)
+                .map_err(|e| ClientError::Unexpected(format!("not JSON: {e}")))?;
+            if let Some(e) = v.get("error") {
+                return Err(ClientError::Api {
+                    code: e["code"].as_str().unwrap_or("unknown").to_string(),
+                    info: e["info"].as_str().unwrap_or_default().to_string(),
+                });
+            }
+            Ok(v)
+        }
         StatusCode::MISDIRECTED_REQUEST => Err(ClientError::Unexpected(
             "the API does not serve this host (421)".into(),
         )),
@@ -96,18 +169,29 @@ fn check(response: &ApiResponse) -> Result<Value, ClientError> {
 }
 
 impl Client {
-    /// `meta=siteinfo&siprop=general|triplespace`, alone, so that the API may mark it
-    /// stable and the response is the same for every viewer (0057 §5).
+    /// `meta=siteinfo&siprop=general|triplespace|providers`, alone, so that the API may
+    /// mark it stable and the response is the same for every viewer (0057 §5).
     pub async fn siteinfo(&self, incoming: &Incoming) -> Result<Fetched<SiteInfo>, ClientError> {
         let r = self
             .get(
                 incoming,
-                "/w/api.php?action=query&meta=siteinfo&siprop=general%7Ctriplespace&format=json&formatversion=2",
+                "/w/api.php?action=query&meta=siteinfo&siprop=general%7Ctriplespace%7Cproviders&format=json&formatversion=2",
             )
             .await?;
-        let v = check(&r)?;
-        if let Some(e) = v.get("error") {
-            return Err(ClientError::Unexpected(format!("siteinfo: {e}")));
+        let mut v = check(&r)?;
+        // `general.time` is the server's clock, which makes every response's `ETag` new
+        // each second: the page's validator is taken from the rest (0057 §6).
+        let mut cache = CacheInfo::of(&r);
+        if let Some(g) = v["query"]["general"].as_object_mut() {
+            g.remove("time");
+        }
+        if cache.etag.is_some() {
+            let digest = sha2::Sha256::digest(v.to_string().as_bytes());
+            let hex = digest[..16].iter().fold(String::new(), |mut h, b| {
+                let _ = write!(h, "{b:02x}");
+                h
+            });
+            cache.etag = Some(format!("\"{hex}\""));
         }
         let general = &v["query"]["general"];
         let ts = &v["query"]["triplespace"];
@@ -121,11 +205,13 @@ impl Client {
                 .unwrap_or(0),
             theme: ts["theme"].as_object().cloned(),
             insecure: ts["insecure"].as_bool().unwrap_or(false),
+            concept_base: general["wikibase-conceptbaseuri"]
+                .as_str()
+                .unwrap_or_default()
+                .to_string(),
+            providers: serde_json::from_value(v["query"]["providers"].clone()).unwrap_or_default(),
         };
-        Ok(Fetched {
-            value,
-            cache: CacheInfo::of(&r),
-        })
+        Ok(Fetched { value, cache })
     }
 
     /// `meta=userinfo`: who the viewer is.
@@ -137,9 +223,6 @@ impl Client {
             )
             .await?;
         let v = check(&r)?;
-        if let Some(e) = v.get("error") {
-            return Err(ClientError::Unexpected(format!("userinfo: {e}")));
-        }
         let u = &v["query"]["userinfo"];
         let anon = match &u["anon"] {
             Value::Bool(b) => *b,

@@ -1,0 +1,65 @@
+/*
+ * The chips of ADR 0010 §2: the shared marks for kinds of thing, from Codex tokens. A
+ * provider's colours come from the theme stylesheet (.ts-chip--p-{code}), which the site
+ * builds from the provider registry and loads after this one.
+ */
+
+.ts-chip {
+	display: inline-flex;
+	align-items: center;
+	box-sizing: border-box;
+	max-width: 100%;
+	padding: 0 var( --spacing-50, 0.5rem );
+	border: 1px solid transparent;
+	border-radius: var( --border-radius-pill, 9999px );
+	font-size: var( --font-size-x-small, 0.8125rem );
+	font-weight: 600;
+	line-height: 1.6;
+	vertical-align: baseline;
+	white-space: nowrap;
+}
+
+.ts-chip--provider {
+	border-radius: var( --border-radius-base, 4px );
+	background-color: var( --background-color-neutral, #eaecf0 );
+	color: var( --color-base, #202122 );
+	font-family: var( --font-family-monospace, monospace );
+	font-weight: 500;
+}
+
+.ts-chip--local {
+	background-color: var( --background-color-warning-subtle, #fdf2d5 );
+	color: var( --color-warning, #886425 );
+}
+
+.ts-chip--namespace,
+.ts-chip--rank {
+	background-color: var( --background-color-neutral, #eaecf0 );
+	color: var( --color-neutral, #404244 );
+}
+
+.ts-chip--job {
+	border-radius: var( --border-radius-base, 4px );
+	background-color: var( --background-color-inverted, #101418 );
+	color: var( --color-inverted, #fff );
+}
+
+.ts-chip--log {
+	border-color: var( --border-color-base, #a2a9b1 );
+	border-radius: var( --border-radius-base, 4px );
+	color: var( --color-neutral, #404244 );
+}
+
+.ts-chip--corrected {
+	border-color: var( --border-color-warning, #ab7f2a );
+	color: var( --color-warning, #886425 );
+}
+
+.ts-chip--best {
+	background-color: var( --background-color-progressive-subtle, #e8eeff );
+	color: var( --color-progressive, #36c );
+}
+
+a .ts-chip {
+	text-decoration: none;
+}

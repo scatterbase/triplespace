@@ -1,0 +1,38 @@
+---
+source: crates/triplespace-ui/tests/entity.rs
+expression: main_of(&html)
+---
+<main class="ts-page" id="content">
+	<p class="ts-page__identity">
+<span class="ts-chip ts-chip--local">Q6</span> <span>Item</span> <span aria-hidden="true">·</span> <span>Adopted from https://librarybase.org/</span> <span aria-hidden="true">·</span> <a href="https://librarybase.org/entity/Q6" class="external" rel="noopener" dir="ltr">librarybase.org/entity/Q6 ↗</a>
+</p>
+	<h1 class="ts-page__title">Six &#38; more</h1>
+	<div class="ts-terms" data-region="terms">
+<p class="ts-terms__description">a number</p>
+<p class="ts-terms__aliases">Also known as <span>6 · half dozen</span>
+</p>
+</div>
+	<nav class="ts-tabs" aria-label="Page">
+		<a class="ts-tabs__link" href="/wiki/Item:Q6">Statements</a>
+		<a class="ts-tabs__link" href="/wiki/Item:Q6?tab=identifiers" aria-current="page">Identifiers</a>
+		<a class="ts-tabs__link" href="/wiki/Item:Q6?tab=sitelinks">Sitelinks</a>
+		<a class="ts-tabs__link" href="/wiki/Item:Q6?tab=labels">Labels in other languages</a>
+		<a class="ts-tabs__link" href="/w/index.php?title=Item:Q6&#38;action=history">History</a>
+	</nav>
+	<div class="ts-page__body">
+		<div class="ts-identifiers" data-region="identifiers">
+<section class="ts-group" id="P7" data-region="statements/P7">
+<div class="ts-group__property">
+<a href="/wiki/Property:P7" title="P7">ISNI</a>
+</div>
+<ol class="ts-group__values">
+<li class="ts-statement" id="Q6$00000009-0000-0000-0000-000000000000">
+<div class="ts-statement__value">
+<span class="ts-mono" dir="ltr">0000 0001 2103 2683</span>
+</div>
+</li>
+</ol>
+</section>
+</div>
+	</div>
+</main>

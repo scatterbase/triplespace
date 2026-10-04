@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{{ title }} – {{ sitename }}</title>
+<title>{{ doc_title }} – {{ sitename }}</title>
 {%- if let Some(css) = css %}
 <link rel="stylesheet" href="{{ css }}">
 {%- endif %}
@@ -50,9 +50,12 @@
 </header>
 <main class="ts-page" id="content">
 	{%- if let Some(identity) = identity %}
-	<p class="ts-page__identity">{{ identity }}</p>
+	<p class="ts-page__identity">{{ identity|safe }}</p>
 	{%- endif %}
-	<h1 class="ts-page__title">{{ title }}</h1>
+	<h1 class="ts-page__title"{% if let Some(l) = title_lang %} lang="{{ l }}" dir="auto"{% endif %}>{{ title }}</h1>
+	{%- if let Some(sub) = subtitle %}
+	{{ sub|safe }}
+	{%- endif %}
 	{%- if !tabs.is_empty() %}
 	<nav class="ts-tabs" aria-label="{{ m.get("ts-tabs-label") }}">
 		{%- for tab in tabs %}

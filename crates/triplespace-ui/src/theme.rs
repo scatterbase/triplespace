@@ -9,6 +9,7 @@
 //! [`Theme::contrast_problems`] is not served, and the default is served in its place.
 
 use std::collections::BTreeMap;
+use std::fmt::Write as _;
 use std::sync::LazyLock;
 
 use serde::Deserialize;
@@ -38,6 +39,8 @@ pub struct Font {
 pub struct Theme {
     tokens: BTreeMap<String, String>,
     fonts: Vec<Font>,
+    /// Provider chips: the class suffix (the code in lower case), text and background.
+    chips: Vec<(String, String, String)>,
 }
 
 static DEFAULT: LazyLock<Theme> = LazyLock::new(|| {
@@ -67,7 +70,11 @@ static DEFAULT: LazyLock<Theme> = LazyLock::new(|| {
             (name, _) => panic!("themes.toml: `{name}` is not a string"),
         }
     }
-    Theme { tokens, fonts }
+    Theme {
+        tokens,
+        fonts,
+        chips: Vec::new(),
+    }
 });
 
 /// Whether a key can name a Codex token: lower-case letters, digits and hyphens.
@@ -128,6 +135,8 @@ const TEXT_PAIRS: &[(&str, &str)] = &[
     ("color-progressive", "background-color-neutral-subtle"),
     ("color-visited", "background-color-base"),
     ("color-placeholder", "background-color-base"),
+    ("color-warning", "background-color-warning-subtle"),
+    ("color-progressive", "background-color-progressive-subtle"),
 ];
 
 /// The boundaries of controls and the focus outline, at 3:1 (WCAG 1.4.11).
@@ -163,6 +172,32 @@ impl Theme {
         } else {
             Self::shipped().clone()
         }
+    }
+
+    /// The theme with the providers' chip colours (0010 §2), each kept only where its text
+    /// meets 4.5:1 on its background; a provider without one wears the neutral chip.
+    #[must_use]
+    pub fn with_chips(mut self, providers: &[triplespace_client::ProviderInfo]) -> Self {
+        self.chips = providers
+            .iter()
+            .filter_map(|p| {
+                let c = p.chip.as_ref()?;
+                let code: String = p
+                    .code
+                    .chars()
+                    .filter(char::is_ascii_alphanumeric)
+                    .map(|c| c.to_ascii_lowercase())
+                    .collect();
+                let ok = !code.is_empty()
+                    && plain_value(&c.color)
+                    && plain_value(&c.background)
+                    && contrast(&c.color, &c.background).is_some_and(|r| r >= 4.5);
+                ok.then(|| (code, c.color.clone(), c.background.clone()))
+            })
+            .collect();
+        self.chips.sort();
+        self.chips.dedup();
+        self
     }
 
     /// A token's value.
@@ -206,6 +241,12 @@ impl Theme {
             s.push_str(";\n");
         }
         s.push_str("}\n");
+        for (code, color, background) in &self.chips {
+            let _ = write!(
+                s,
+                ".ts-chip--p-{code} {{\n\tcolor: {color};\n\tbackground-color: {background};\n}}\n"
+            );
+        }
         s
     }
 

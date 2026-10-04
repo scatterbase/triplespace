@@ -2,7 +2,7 @@
 // typefaces and the site's own styles, built into hashed files with a manifest that
 // triplespace-ui reads to name them in each page. The release build embeds ui/dist into
 // the binaries that serve the site (rust-embed); Node is a build-time dependency only.
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig( {
 	base: '/ui/assets/',
@@ -19,5 +19,9 @@ export default defineConfig( {
 				main: 'src/main.js'
 			}
 		}
+	},
+	test: {
+		// Vitest's unit tests live beside the code; e2e/ is Playwright's (npm run e2e).
+		include: [ 'src/**/*.{test,spec}.js' ]
 	}
 } );

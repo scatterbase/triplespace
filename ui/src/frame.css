@@ -39,13 +39,22 @@ h3 {
 	outline-offset: 2px;
 }
 
+/* Hidden by clipping rather than by moving it off screen, which would widen a right-to-left
+   page. */
 .ts-skip {
 	position: absolute;
-	left: -9999px;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip: rect( 0, 0, 0, 0 );
+	white-space: nowrap;
 }
 
 .ts-skip:focus {
-	left: var( --size-100, 1rem );
+	width: auto;
+	height: auto;
+	clip: auto;
+	inset-inline-start: var( --size-100, 1rem );
 	top: var( --size-50, 0.5rem );
 	z-index: 10;
 	padding: var( --size-50, 0.5rem ) var( --size-100, 1rem );
@@ -145,7 +154,7 @@ h3 {
 /* The page header */
 
 .ts-page {
-	max-width: var( --size-5600, 56rem );
+	max-width: 80rem;
 	margin: 0 auto;
 	padding: var( --size-200, 2rem ) var( --size-250, 2.5rem );
 }
@@ -167,6 +176,8 @@ h3 {
 .ts-tabs {
 	display: flex;
 	gap: var( --size-25, 0.25rem );
+	overflow-x: auto;
+	white-space: nowrap;
 	margin: 0 0 var( --size-150, 1.5rem );
 	padding: 0;
 	list-style: none;

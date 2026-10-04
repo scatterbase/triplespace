@@ -79,6 +79,8 @@ pub enum Format {
     Nginx,
     /// HAProxy frontend rules.
     Haproxy,
+    /// The table as JSON, for tools (the end-to-end suite's proxy reads it).
+    Json,
 }
 
 impl Format {
@@ -89,6 +91,7 @@ impl Format {
             "caddy" => Some(Self::Caddy),
             "nginx" => Some(Self::Nginx),
             "haproxy" => Some(Self::Haproxy),
+            "json" => Some(Self::Json),
             _ => None,
         }
     }
@@ -103,7 +106,26 @@ pub fn print(format: Format) -> String {
         Format::Caddy => caddy(),
         Format::Nginx => nginx(),
         Format::Haproxy => haproxy(),
+        Format::Json => json(),
     }
+}
+
+/// `{"api": [{"path": "/w/api.php", "match": "exact"}, …]}`: the API's paths; every other
+/// path is the web tier's.
+fn json() -> String {
+    let api: Vec<serde_json::Value> = TABLE
+        .iter()
+        .filter(|r| r.target == Target::Api)
+        .map(|r| {
+            serde_json::json!({
+                "path": r.path,
+                "match": match r.how { Match::Exact => "exact", Match::Prefix => "prefix" },
+            })
+        })
+        .collect();
+    let mut s = serde_json::json!({"api": api}).to_string();
+    s.push('\n');
+    s
 }
 
 fn caddy() -> String {
@@ -209,6 +231,14 @@ mod tests {
             }
         }
         assert!(print(Format::Caddy).contains("/w/rest.php/*"));
+        let j: serde_json::Value = serde_json::from_str(&print(Format::Json)).unwrap();
+        assert!(
+            j["api"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|r| r["path"] == "/w/api.php" && r["match"] == "exact")
+        );
         assert!(print(Format::Nginx).contains("location = /w/api.php"));
         assert!(print(Format::Nginx).contains("location ^~ /w/rest.php/"));
     }

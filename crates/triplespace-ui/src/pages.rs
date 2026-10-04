@@ -9,8 +9,8 @@
 //! When the API cannot be reached, or is older than [`MIN_API_VERSION`], the site says so
 //! with a `503` and `Retry-After`, in the frame and the shipped theme, and keeps nothing.
 //!
-//! Phase 0 serves the frame only: every title shows the frame and a notice that it is not
-//! served yet.
+//! Entity titles are served by [`crate::entity`]; every other title shows the frame and a
+//! notice that it is not served yet.
 
 use std::collections::BTreeMap;
 use std::net::SocketAddr;
@@ -25,14 +25,15 @@ use sha2::{Digest as _, Sha256};
 use triplespace_client::{CacheInfo, ClientError, Incoming, SiteInfo};
 
 use crate::codex::{Message, MessageKind};
+use crate::entity;
 use crate::frame::{self, Page, Tab, title_url};
-use crate::i18n::Messages;
+use crate::i18n::{self, Messages};
 use crate::routes::{self, Target};
 use crate::theme::Theme;
 use crate::{MIN_API_VERSION, Site, assets};
 
 /// The connection address, when the server was started with `ConnectInfo`.
-type Peer = Option<Extension<ConnectInfo<SocketAddr>>>;
+pub type Peer = Option<Extension<ConnectInfo<SocketAddr>>>;
 
 /// How long a shared cache keeps a public page.
 const S_MAXAGE: u32 = 60;
@@ -79,22 +80,38 @@ pub async fn api_paths_refused(request: Request, next: Next) -> Response {
     next.run(request).await
 }
 
-/// What every framed page needs from the API.
-struct Context {
-    site: SiteInfo,
-    user: Option<String>,
-    inputs: Vec<CacheInfo>,
-    m: Messages,
-    theme: Theme,
+/// What every framed page needs from the API, and the caching facts of each response a
+/// page draws on; a page adds its own.
+pub struct Context {
+    /// The site.
+    pub site: SiteInfo,
+    /// The signed-in viewer's name.
+    pub user: Option<String>,
+    /// The caching facts of every API response the page used.
+    pub inputs: Vec<CacheInfo>,
+    /// The interface messages.
+    pub m: Messages,
+    /// The theme.
+    pub theme: Theme,
 }
 
-fn incoming(headers: &HeaderMap, peer: Peer) -> Incoming {
+/// The browser's request, as the client forwards it.
+pub fn incoming(headers: &HeaderMap, peer: Peer) -> Incoming {
     Incoming::new(headers, peer.map(|Extension(ConnectInfo(a))| a))
 }
 
 /// Asks the API who the site is and who the viewer is. A request without credentials is
-/// anonymous whatever the API would say, so it is spared the second call.
-async fn context(site: &Site, incoming: &Incoming) -> Result<Context, Response> {
+/// anonymous whatever the API would say, so it is spared the second call. The interface
+/// language is `uselang` where given and valid, else the site's (0034 §9).
+///
+/// # Errors
+///
+/// The `503` page when the API cannot be reached or is too old.
+pub async fn context(
+    site: &Site,
+    incoming: &Incoming,
+    query: &BTreeMap<String, String>,
+) -> Result<Context, Response> {
     let client = site.client();
     let (si, ui) = if incoming.credentialed() {
         let (si, ui) = tokio::join!(client.siteinfo(incoming), client.userinfo(incoming));
@@ -122,8 +139,12 @@ async fn context(site: &Site, incoming: &Incoming) -> Result<Context, Response> 
         }
         None => None,
     };
-    let m = Messages::for_language(&si.value.lang);
-    let theme = Theme::with_overrides(si.value.theme.as_ref());
+    let lang = query
+        .get("uselang")
+        .and_then(|l| i18n::valid_code(l))
+        .unwrap_or_else(|| si.value.lang.clone());
+    let m = Messages::for_language(&lang);
+    let theme = Theme::with_overrides(si.value.theme.as_ref()).with_chips(&si.value.providers);
     Ok(Context {
         site: si.value,
         user,
@@ -144,7 +165,7 @@ fn unavailable(incoming: &Incoming, error: &ClientError, key: &str) -> Response 
         body: message(MessageKind::Error, &text),
         ..Page::default()
     };
-    let html = match frame::render(m, &sitename, Theme::shipped(), None, &page) {
+    let html = match frame::render(&m, &sitename, Theme::shipped(), None, &page) {
         Ok(h) => h,
         Err(e) => return render_failed(&e),
     };
@@ -160,18 +181,46 @@ fn unavailable(incoming: &Incoming, error: &ClientError, key: &str) -> Response 
         .into_response()
 }
 
+/// A call a page needed failed after the frame's had succeeded: the API is away (`503`),
+/// refused the viewer (`403`), or answered something the site cannot read (`502`). The
+/// page says which, in the frame, and keeps nothing.
+pub fn api_failed(cx: &Context, headers: &HeaderMap, error: &ClientError) -> Response {
+    eprintln!("triplespace-ui: an API call failed: {error}");
+    let (status, key) = match error {
+        ClientError::Unreachable(_) => (StatusCode::SERVICE_UNAVAILABLE, "ts-api-unavailable"),
+        ClientError::Api { code, .. } if code == "permissiondenied" || code == "readapidenied" => {
+            (StatusCode::FORBIDDEN, "ts-permission-denied")
+        }
+        _ => (StatusCode::BAD_GATEWAY, "ts-api-unexpected"),
+    };
+    let mut r = respond(cx, headers, status, |m| Page {
+        title: m.get("ts-api-unavailable-title"),
+        body: message(MessageKind::Error, &m.get(key)),
+        ..Page::default()
+    });
+    let h = r.headers_mut();
+    h.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    h.remove(header::ETAG);
+    h.remove("cache-tag");
+    if status == StatusCode::SERVICE_UNAVAILABLE {
+        h.insert(header::RETRY_AFTER, HeaderValue::from_static(RETRY_AFTER));
+    }
+    r
+}
+
 fn render_failed(e: &askama::Error) -> Response {
     eprintln!("triplespace-ui: a template failed to render: {e}");
     (StatusCode::INTERNAL_SERVER_ERROR, "Internal error\n").into_response()
 }
 
-fn message(kind: MessageKind, text: &str) -> String {
+/// A Codex message, as HTML.
+pub fn message(kind: MessageKind, text: &str) -> String {
     use askama::Template as _;
     Message::block(kind, text).render().unwrap_or_default()
 }
 
 /// The composed `ETag`, if every input had one.
-fn composed_etag(m: Messages, status: StatusCode, inputs: &[CacheInfo]) -> Option<String> {
+fn composed_etag(m: &Messages, status: StatusCode, inputs: &[CacheInfo]) -> Option<String> {
     let mut h = Sha256::new();
     for part in [assets::build_id(), m.lang(), status.as_str()] {
         h.update(part.as_bytes());
@@ -229,20 +278,13 @@ fn caching(h: &mut HeaderMap, etag: Option<&str>, inputs: &[CacheInfo]) {
     }
 }
 
-/// A page in the frame, with its caching.
-async fn framed(
-    site: &Site,
+/// A `304` for a client that holds the response already, when the status allows one.
+fn revalidated(
+    cx: &Context,
     headers: &HeaderMap,
-    peer: Peer,
     status: StatusCode,
-    build: impl FnOnce(Messages) -> Page,
-) -> Response {
-    let incoming = incoming(headers, peer);
-    let cx = match context(site, &incoming).await {
-        Ok(cx) => cx,
-        Err(r) => return r,
-    };
-    let etag = composed_etag(cx.m, status, &cx.inputs);
+) -> (Option<String>, Option<Response>) {
+    let etag = composed_etag(&cx.m, status, &cx.inputs);
     if status == StatusCode::OK
         && let Some(e) = &etag
         && not_modified(headers, e)
@@ -250,11 +292,26 @@ async fn framed(
         let mut r = Response::new(Body::empty());
         *r.status_mut() = StatusCode::NOT_MODIFIED;
         caching(r.headers_mut(), Some(e), &cx.inputs);
+        return (etag, Some(r));
+    }
+    (etag, None)
+}
+
+/// A page in the frame, with the caching its inputs allow: a `304` before rendering when
+/// the client holds it.
+pub fn respond(
+    cx: &Context,
+    headers: &HeaderMap,
+    status: StatusCode,
+    build: impl FnOnce(&Messages) -> Page,
+) -> Response {
+    let (etag, fresh) = revalidated(cx, headers, status);
+    if let Some(r) = fresh {
         return r;
     }
-    let page = build(cx.m);
+    let page = build(&cx.m);
     let html = match frame::render(
-        cx.m,
+        &cx.m,
         &cx.site.sitename,
         &cx.theme,
         cx.user.as_deref(),
@@ -273,6 +330,54 @@ async fn framed(
     r
 }
 
+/// A region for `action=render` (0057 §8): its HTML alone, with the caching of the page
+/// it belongs to.
+pub fn fragment(
+    cx: &Context,
+    headers: &HeaderMap,
+    status: StatusCode,
+    build: impl FnOnce() -> String,
+) -> Response {
+    let (etag, fresh) = revalidated(cx, headers, status);
+    if let Some(r) = fresh {
+        return r;
+    }
+    let mut r = Response::new(Body::from(build()));
+    *r.status_mut() = status;
+    r.headers_mut().insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("text/html; charset=utf-8"),
+    );
+    caching(r.headers_mut(), etag.as_deref(), &cx.inputs);
+    r
+}
+
+/// A component built for another release asked for a region: `409` with no body, so it
+/// reloads the page instead of swapping in markup its styles do not match (0057 §8).
+#[must_use]
+pub fn build_skew() -> Response {
+    (StatusCode::CONFLICT, [(header::CACHE_CONTROL, "no-store")]).into_response()
+}
+
+/// `400` for a region no page has, MediaWiki-shaped.
+#[must_use]
+pub fn unknown_region(region: &str) -> Response {
+    let body = serde_json::json!({"error": {
+        "code": "badregion",
+        "info": format!("Unrecognized value for parameter \"region\": {region}."),
+    }})
+    .to_string();
+    (
+        StatusCode::BAD_REQUEST,
+        [
+            (header::CONTENT_TYPE, "application/json; charset=utf-8"),
+            (header::CACHE_CONTROL, "no-store"),
+        ],
+        body,
+    )
+        .into_response()
+}
+
 /// A title from a URL: underscores as spaces; the main page when empty.
 fn display_title(raw: &str) -> String {
     let t = raw.replace('_', " ");
@@ -284,8 +389,8 @@ fn display_title(raw: &str) -> String {
     }
 }
 
-/// The placeholder page of Phase 0 for a title.
-fn placeholder(m: Messages, title: String, query: &BTreeMap<String, String>) -> Page {
+/// The placeholder page for a title the site does not serve yet.
+fn placeholder(m: &Messages, title: String, query: &BTreeMap<String, String>) -> Page {
     let special = title.starts_with("Special:");
     let history = query.get("action").is_some_and(|a| a == "history");
     let tabs = if special {
@@ -315,6 +420,30 @@ fn placeholder(m: Messages, title: String, query: &BTreeMap<String, String>) -> 
     }
 }
 
+/// A title: an entity's page, or the placeholder.
+async fn dispatch(
+    site: &Site,
+    headers: &HeaderMap,
+    peer: Peer,
+    title: String,
+    query: &BTreeMap<String, String>,
+) -> Response {
+    if entity::is_entity_title(&title) {
+        return entity::serve(site, headers, peer, title, query).await;
+    }
+    let incoming = incoming(headers, peer);
+    let cx = match context(site, &incoming, query).await {
+        Ok(cx) => cx,
+        Err(r) => return r,
+    };
+    if query.get("action").is_some_and(|a| a == "render") {
+        return fragment(&cx, headers, StatusCode::NOT_FOUND, String::new);
+    }
+    respond(&cx, headers, StatusCode::OK, |m| {
+        placeholder(m, title, query)
+    })
+}
+
 /// `/`: the main page.
 pub async fn root() -> Response {
     (StatusCode::FOUND, [(header::LOCATION, "/wiki/Main_Page")]).into_response()
@@ -328,11 +457,7 @@ pub async fn wiki(
     headers: HeaderMap,
     peer: Peer,
 ) -> Response {
-    let title = display_title(&title);
-    framed(&site, &headers, peer, StatusCode::OK, |m| {
-        placeholder(m, title, &query)
-    })
-    .await
+    dispatch(&site, &headers, peer, display_title(&title), &query).await
 }
 
 /// `/w/index.php` and `/index.php`: the title in `title=`.
@@ -343,20 +468,21 @@ pub async fn index_php(
     peer: Peer,
 ) -> Response {
     let title = display_title(query.get("title").map_or("", String::as_str));
-    framed(&site, &headers, peer, StatusCode::OK, |m| {
-        placeholder(m, title, &query)
-    })
-    .await
+    dispatch(&site, &headers, peer, title, &query).await
 }
 
 /// Everything else: the site's own 404.
 pub async fn not_found(State(site): State<Site>, headers: HeaderMap, peer: Peer) -> Response {
-    framed(&site, &headers, peer, StatusCode::NOT_FOUND, |m| Page {
+    let incoming = incoming(&headers, peer);
+    let cx = match context(&site, &incoming, &BTreeMap::new()).await {
+        Ok(cx) => cx,
+        Err(r) => return r,
+    };
+    respond(&cx, &headers, StatusCode::NOT_FOUND, |m| Page {
         title: m.get("ts-not-found-title"),
         body: message(MessageKind::Warning, &m.get("ts-not-found")),
         ..Page::default()
     })
-    .await
 }
 
 /// `/ui/assets/{path}`: a file of the build, kept for a year, since its name is its hash.
@@ -385,7 +511,7 @@ pub async fn theme_css(
 ) -> Response {
     let incoming = incoming(&headers, peer);
     let theme = match site.client().siteinfo(&incoming).await {
-        Ok(si) => Theme::with_overrides(si.value.theme.as_ref()),
+        Ok(si) => Theme::with_overrides(si.value.theme.as_ref()).with_chips(&si.value.providers),
         Err(e) => {
             eprintln!("triplespace-ui: the API is unavailable: {e}");
             Theme::shipped().clone()
@@ -451,12 +577,13 @@ mod tests {
     #[test]
     fn the_composed_etag_needs_every_input_etag() {
         let m = Messages::for_language("en");
-        let a = composed_etag(m, StatusCode::OK, &[info(true, Some("\"a\""), &[])]).unwrap();
-        let b = composed_etag(m, StatusCode::OK, &[info(true, Some("\"b\""), &[])]).unwrap();
-        let n = composed_etag(m, StatusCode::NOT_FOUND, &[info(true, Some("\"a\""), &[])]).unwrap();
+        let a = composed_etag(&m, StatusCode::OK, &[info(true, Some("\"a\""), &[])]).unwrap();
+        let b = composed_etag(&m, StatusCode::OK, &[info(true, Some("\"b\""), &[])]).unwrap();
+        let n =
+            composed_etag(&m, StatusCode::NOT_FOUND, &[info(true, Some("\"a\""), &[])]).unwrap();
         assert_ne!(a, b);
         assert_ne!(a, n);
-        assert!(composed_etag(m, StatusCode::OK, &[info(true, None, &[])]).is_none());
+        assert!(composed_etag(&m, StatusCode::OK, &[info(true, None, &[])]).is_none());
         let mut req = HeaderMap::new();
         req.insert(header::IF_NONE_MATCH, format!("W/{a}").parse().unwrap());
         assert!(not_modified(&req, &a));
@@ -469,12 +596,12 @@ mod tests {
         assert_eq!(display_title(""), "Main Page");
         let m = Messages::for_language("en");
         let q: BTreeMap<String, String> = [("action".to_string(), "history".to_string())].into();
-        let p = placeholder(m, "Item:Q6".into(), &q);
+        let p = placeholder(&m, "Item:Q6".into(), &q);
         assert_eq!(p.tabs.len(), 2);
         assert!(p.tabs[1].current && !p.tabs[0].current);
         assert_eq!(p.tabs[1].href, "/w/index.php?title=Item:Q6&action=history");
         assert!(
-            placeholder(m, "Special:Search".into(), &BTreeMap::new())
+            placeholder(&m, "Special:Search".into(), &BTreeMap::new())
                 .tabs
                 .is_empty()
         );

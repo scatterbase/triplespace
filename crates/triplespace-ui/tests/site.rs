@@ -96,9 +96,9 @@ async fn get(
 #[tokio::test]
 async fn an_anonymous_page_is_public_and_revalidates() {
     let fake = api();
-    let (status, h, html) = get(&fake, "/wiki/Item:Q6", &[]).await;
+    let (status, h, html) = get(&fake, "/wiki/Project:About", &[]).await;
     assert_eq!(status, StatusCode::OK);
-    assert!(html.contains("<title>Item:Q6 – Librarybase</title>"));
+    assert!(html.contains("<title>Project:About – Librarybase</title>"));
     assert!(html.contains("Log in"));
     assert!(html.contains("This page is not served yet"));
     assert!(
@@ -120,7 +120,7 @@ async fn an_anonymous_page_is_public_and_revalidates() {
         assert_eq!(seen[0].headers["x-forwarded-host"], "librarybase.org");
     }
     let etag = h[header::ETAG].to_str().unwrap().to_string();
-    let (status, h, body) = get(&fake, "/wiki/Item:Q6", &[("if-none-match", &etag)]).await;
+    let (status, h, body) = get(&fake, "/wiki/Project:About", &[("if-none-match", &etag)]).await;
     assert_eq!(status, StatusCode::NOT_MODIFIED);
     assert!(body.is_empty());
     assert_eq!(h[header::ETAG].to_str().unwrap(), etag);

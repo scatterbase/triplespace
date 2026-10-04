@@ -38,7 +38,13 @@ The site's styles and script come from `ui/` (Node 22):
 ```
 cd ui && npm ci && npm run build   # writes ui/dist; rebuild the Rust afterwards to embed it
 npm run lint && npm test           # ESLint, Stylelint, banana-checker; Vitest
+npm run e2e                        # Playwright and axe, JavaScript off, two web replicas
 ```
+
+`npm run e2e` loads the server's test fixtures into a fresh database (it needs
+`TRIPLESPACE_TEST_DATABASE_URL` and the three binaries built), starts the API with its site
+off, two `triplespace-web` replicas and an edge that alternates them, and runs the suite in
+`ui/e2e/` against it.
 
 A Rust build without `ui/dist` still compiles and serves pages, unstyled.
 
@@ -124,6 +130,13 @@ web tier beside it:
 triplespace-web --api http://api.svc:8080 --listen 0.0.0.0:8081 --admin-listen 127.0.0.1:9091
 triplespace-web routes --format caddy    # or nginx, haproxy: which paths go where
 ```
+
+The site serves entity pages (`/wiki/Item:Q6`, `/wiki/Property:P12`, `/wiki/Item:WDQ65`,
+`/wiki/Domain:wikipedia.org`) with their Statements, Identifiers, Sitelinks and Labels tabs
+(`?tab=identifiers` and so on), in the language of `uselang` where given. With
+`action=render` a page answers with one region instead of the whole page: `terms`,
+`statements/{P}`, `identifiers` or `sitelinks` (0057 §8). Other titles show the frame and a
+notice that they are not served yet.
 
 The web tier keeps no state, holds no database credentials and reaches the instance only through
 its public API (0057). Plain `http` is refused unless the API's host resolves only to internal

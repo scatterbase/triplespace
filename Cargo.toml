@@ -77,6 +77,8 @@ url = "2"
 percent-encoding = "2"
 unicode-normalization = "0.1"
 icu_casemap = "2"
+icu_plurals = "2"
+icu_locale_core = "2"
 # Only on wasm targets, with the `wasm_js` feature (see .cargo/config.toml)
 getrandom = "0.3"
 
@@ -128,12 +130,13 @@ deadpool-postgres = "0.14"
 # The HTTP server (0033 §3): axum on hyper, tower middleware
 axum = { version = "0.8", default-features = false, features = ["http1", "tokio", "query", "form", "json", "matched-path"] }
 tower = "0.5"
+insta = "1"
 http-body-util = "0.1"
 # The web tier (0057): its HTTP client to the API, rustls on aws-lc-rs (0033 §6–7)
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "http2"] }
 # Server-rendered pages (0034 §2): compiled templates; the built frontend embedded (0034 §8)
 askama = "0.16"
-rust-embed = "8"
+rust-embed = { version = "8", features = ["include-exclude"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
