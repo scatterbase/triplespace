@@ -194,3 +194,53 @@ fn every_group_of_the_snapshots_classifies_and_keeps_every_value() {
         }
     }
 }
+
+#[test]
+fn an_ordinal_only_table_is_a_numbered_list_in_numeric_order() {
+    // An article's authors, by series ordinal: one column, P1545, strings "1" … "12".
+    let statements: Vec<Statement> = (1..=12)
+        .rev()
+        .map(|n| {
+            let json = serde_json::json!({
+                "mainsnak": {"snaktype": "value", "property": "P2093", "datatype": "string",
+                    "datavalue": {"value": format!("Author {n}"), "type": "string"}},
+                "type": "statement", "rank": "normal",
+                "qualifiers": {"P1545": [{"snaktype": "value", "property": "P1545", "datatype": "string",
+                    "datavalue": {"value": n.to_string(), "type": "string"}}]},
+                "qualifiers-order": ["P1545"],
+                "id": format!("Q1$00000000-0000-0000-0000-{n:012}")
+            });
+            let entity = serde_json::json!({"type": "item", "id": "Q1", "claims": {"P2093": [json]}});
+            Entity::from_value(entity).unwrap().entity.statements.into_values().next().unwrap().remove(0)
+        })
+        .collect();
+    let g = classify(
+        &statements,
+        None,
+        &Roles::wikidata(),
+        &Thresholds::default(),
+    );
+    assert_eq!(g.shape, Shape::Table);
+    assert!(g.numbered);
+    let first = Group::cell(&statements, g.order[0], &g.columns[0]).unwrap();
+    let last = Group::cell(&statements, *g.order.last().unwrap(), &g.columns[0]).unwrap();
+    assert_eq!(
+        format!("{:?}", first.kind),
+        format!(
+            "{:?}",
+            statements[11].qualifiers.values().next().unwrap()[0].kind
+        ),
+        "1 first"
+    );
+    assert_eq!(
+        format!("{:?}", last.kind),
+        format!(
+            "{:?}",
+            statements[0].qualifiers.values().next().unwrap()[0].kind
+        ),
+        "12 last, not between 1 and 2"
+    );
+    // Without the role, the same group is an ordinary Table.
+    let plain = classify(&statements, None, &Roles::empty(), &Thresholds::default());
+    assert!(!plain.numbered);
+}

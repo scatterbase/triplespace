@@ -158,6 +158,9 @@ pub struct Group {
     pub hoisted: Vec<EntityId>,
     /// Whether the Table offers a Matrix view.
     pub matrix: bool,
+    /// Whether the Table is drawn as a numbered list: its only column is the
+    /// `series-ordinal` role (0003 §3, A10).
+    pub numbered: bool,
     /// The footnotes.
     pub footnotes: Footnotes,
     /// For a large group, how many values show inline before "Open full view".
@@ -490,6 +493,9 @@ pub fn classify(
 
     let (order, folded) = display_order(statements, &current, &best, shape, &columns, roles);
     let matrix = shape == Shape::Table && matrix_allowed(statements, &order, &columns, t);
+    let numbered = shape == Shape::Table
+        && columns.len() == 1
+        && roles.is(columns[0].as_str(), Role::SeriesOrdinal);
     let footnotes = footnotes(statements, &order);
     let inline = (n > t.large).then_some(t.large_inline);
     Group {
@@ -502,6 +508,7 @@ pub fn classify(
         extra,
         hoisted,
         matrix,
+        numbered,
         footnotes,
         inline,
     }

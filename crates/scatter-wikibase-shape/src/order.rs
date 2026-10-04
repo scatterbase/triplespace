@@ -2,7 +2,7 @@
 //!
 //! Values of one type compare by what they mean: times by date (historical numbering:
 //! `-0044` is before `+0001`), quantities by amount, entities by provider then number,
-//! texts by their characters. Values of different types compare by type, and "unknown
+//! numeric strings as numbers (0003 A10), other texts by their characters. Values of different types compare by type, and "unknown
 //! value" and "no value" sort after every value.
 
 use std::cmp::Ordering;
@@ -63,6 +63,16 @@ fn rank_of(v: &DataValue) -> u8 {
     }
 }
 
+/// Compares two strings, numerically where both are numbers (series ordinals: "2" before
+/// "10"), and by their characters otherwise.
+#[must_use]
+pub fn cmp_strings(left: &str, right: &str) -> Ordering {
+    match (left.trim().parse::<f64>(), right.trim().parse::<f64>()) {
+        (Ok(l), Ok(r)) => l.total_cmp(&r).then_with(|| left.cmp(right)),
+        _ => left.cmp(right),
+    }
+}
+
 /// Compares two data values.
 #[must_use]
 pub fn cmp_values(left: &DataValue, right: &DataValue) -> Ordering {
@@ -84,7 +94,7 @@ pub fn cmp_values(left: &DataValue, right: &DataValue) -> Ordering {
             .text
             .cmp(&r.text)
             .then_with(|| l.language.cmp(&r.language)),
-        (DataValue::String(l), DataValue::String(r)) => l.cmp(r),
+        (DataValue::String(l), DataValue::String(r)) => cmp_strings(l, r),
         (DataValue::GlobeCoordinate(l), DataValue::GlobeCoordinate(r)) => l
             .latitude
             .total_cmp(&r.latitude)
@@ -125,6 +135,13 @@ mod tests {
         assert!(time_key("+1999-12-31T00:00:00Z") < time_key("+2000-00-00T00:00:00Z"));
         assert_eq!(time_key("+2020-00-00T00:00:00Z"), Some((2020, 0, 0)));
         assert_eq!(time_key("nonsense"), None);
+    }
+
+    #[test]
+    fn numeric_strings_compare_as_numbers() {
+        let mut v = vec!["10", "2", "1", "b", "a"];
+        v.sort_by(|a, b| cmp_strings(a, b));
+        assert_eq!(v, vec!["1", "2", "10", "a", "b"]);
     }
 
     #[test]
