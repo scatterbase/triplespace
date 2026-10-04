@@ -2039,6 +2039,7 @@ dependencies = [
  "scatter-wikibase-resolve",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "thiserror",
  "tokio",
  "tokio-postgres",
@@ -2067,6 +2068,20 @@ dependencies = [
  "tokio",
  "tokio-postgres",
  "triplespace-db",
+ "triplespace-projections",
+]
+
+[[package]]
+name = "triplespace-api-rest"
+version = "0.0.1"
+dependencies = [
+ "axum",
+ "scatter-providers",
+ "scatter-wikibase-model",
+ "scatter-wikibase-resolve",
+ "serde_json",
+ "tokio-postgres",
+ "triplespace-api-action",
  "triplespace-projections",
 ]
 
@@ -2142,6 +2157,8 @@ dependencies = [
  "clap",
  "ed25519-dalek",
  "http-body-util",
+ "scatter-ingest",
+ "scatter-log",
  "scatter-projection",
  "serde_json",
  "tokio",
@@ -2149,6 +2166,7 @@ dependencies = [
  "tower",
  "triplespace-accounts",
  "triplespace-api-action",
+ "triplespace-api-rest",
  "triplespace-cli",
  "triplespace-db",
  "triplespace-projections",
