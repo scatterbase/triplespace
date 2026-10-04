@@ -2,9 +2,9 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-01 (A5)
+- **Updated:** 2026-10-03 (A7)
 - **Author:** James Hare / Claude
-- **Changes:** [0005](0005-crate-organization.md), [0010](0010-site-ui.md)
+- **Changes:** [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0003](0003-statement-ui.md), [0012](0012-api-requirements.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0029](0029-resolver-namespaces.md), [0033](0033-backend-stack.md)
 
 ## Context
@@ -19,18 +19,22 @@ The backend stack is in 0033.
 
 ### 1. Principles
 
+*Changed by A6, A7.*
+
 1. **The server renders every page.** Reading never needs JavaScript. Rendered pages are cacheable at the L2 layer (0014 §3).
 2. **JavaScript enhances regions, never whole pages.** An interactive component takes over one region of a server-rendered page. There is no client-side router.
 3. **One renderer per thing.** Anything the server draws is drawn only by the server. A component that changes it fetches the server's rendering afterwards (§5) rather than drawing its own copy.
-4. **Codex as-is.** Codex tokens, components and icons without overrides. Where a design needs something Codex lacks, it is built from Codex tokens and proposed upstream.
-5. **The public API only** (0012 §1). The browser calls public routes. The server-side renderer calls the API crates' handler layer in-process, never `view` tables directly, so every page gets the same per-viewer redaction as the API.
+4. **Codex components, themed by tokens.** Codex's components, icons and markup are used without overrides. Their look comes from Codex's design tokens, and the instance or a tenant may give those tokens values of its own as a **theme** (`ui.theme`, [0015](0015-record-format-and-partition-registry.md) §3): colours, typefaces, radii and spacing, never a component's markup or behaviour. A theme is served as a stylesheet of CSS custom properties, so it needs no inline style under §11, and it is refused when its colours fail WCAG 2.1 AA contrast for the token pairs Codex uses for text, borders and focus. Without a theme, Codex's own values apply. Where a design needs something Codex lacks, it is built from Codex tokens and proposed upstream. Codex is used for its accessible components, its right-to-left and language support, and CSS-only components that need no JavaScript, more than for its look.
+5. **The public API only** (0012 §1). The browser calls public routes, and so does the server-side renderer: it calls the public HTTP API with the viewer's own credentials, over the network from `triplespace-web` or through an in-process call into the API's router from `triplespace-server`, and never links an API crate's handlers or reads `view` ([0057](0057-web-tier.md) §1). Every page therefore carries exactly the API's per-viewer redaction.
 
 ### 2. Server rendering, in `triplespace-ui`
+
+*Changed by A6.*
 
 - **Templates:** `askama`, compiled and type-checked with the Rust code.
 - **Codex markup:** a Rust builder module that emits Codex CSS-only component markup (buttons, fields, tables, cards, tabs, messages, chips, progress bars), following the approach of WMF's Codex PHP. Templates call the builder instead of writing Codex class names by hand, so a Codex markup change is one edit.
 - **Frame:** the page frame of 0010 §2 (global header, identity line, title, tabs) is one template shared by every page kind.
-- **Assets:** Codex CSS, design tokens and icons come from the pinned `@wikimedia/codex`, `@wikimedia/codex-design-tokens` and `@wikimedia/codex-icons` packages at build time (§8), with hashed file names, served by the binary with long-lived cache headers.
+- **Assets:** Codex CSS, design tokens and icons come from the pinned `@wikimedia/codex`, `@wikimedia/codex-design-tokens` and `@wikimedia/codex-icons` packages at build time (§8), with hashed file names, served with long-lived cache headers by whichever binary serves the site: `triplespace-web`, or `triplespace-server` with `server.ui = embedded` ([0057](0057-web-tier.md) §2).
 - **Mobile:** one responsive site built on Codex's breakpoints. No separate mobile domain or skin. Detailed mobile layouts stay open (0010).
 
 ### 3. Statement groups (uses 0003 §3)
@@ -60,15 +64,13 @@ Vue 3 with Codex's Vue components, written in TypeScript, mounted into placehold
 
 Statement editing requires JavaScript, as on Wikidata. Reading, page source editing through a plain form, and the account pages work without it. A **table grid editor** (Codex Table, Lookup, TextInput; the statement value editor for cells) sits over the server-rendered grid of a `Table` page; reading a table needs no JavaScript ([0045](0045-table-content-model.md) §11).
 
-### 5. Fragment routes
+### 5. Fragments
 
-After a component saves, it fetches the server's rendering of the changed region and swaps it in. The fragments are public API routes under `rest.php/triplespace/v0` (0012 §2), in the spirit of Wikibase's `wbformatvalue`:
+*Changed by A6.*
 
-- `GET /entity/{id}/render/statements/{property}`: one statement group.
-- `GET /entity/{id}/render/terms`: the term box.
-- `GET /page/{id}/render`: a document or thread body.
+After a component saves, it fetches the server's rendering of the changed region from the page's own URL and swaps it in: MediaWiki's `action=render`, with a `region` parameter that names part of the content, such as `index.php?title=Item:Q42&action=render&region=statements/P1082` or `region=terms` ([0057](0057-web-tier.md) §8). The web tier serves it like the page, so there are no fragment routes in the API.
 
-They carry the same `ETag`, `Cache-Tag` and redaction as full pages (0014 §3). Full page renders are assembled from the same fragment functions, so a fragment and its page cannot drift.
+A region carries the same `ETag`, `Cache-Tag` and redaction as its page ([0014](0014-caches-and-search.md) §3, 0057 §6). Full pages are assembled from the same region functions, so a region and its page cannot drift. A component sends the build ID of its page, and a web tier on another build answers `409` so that the component reloads the page instead (0057 §8).
 
 ### 6. Rust in the browser, in `scatter-wasm`
 
@@ -91,10 +93,12 @@ CodeMirror 6, which MediaWiki's CodeMirror extension also uses, with its wikitex
 
 ### 8. Build
 
+*Changed by A6.*
+
 - `ui/` is an npm workspace: TypeScript, Vue 3, Codex packages pinned to exact versions, CodeMirror 6.
 - **Vite** builds the components into hashed ES modules and a manifest.
-- The release build embeds `ui/dist` into the binary (`rust-embed`); templates read the manifest to emit `<script type="module">` tags. **Node is a build-time dependency only**; the deliverable stays one binary (0033 §1).
-- In development, the server proxies asset requests to the Vite dev server for hot reload.
+- The release build embeds `ui/dist` into both binaries that can serve the site, `triplespace-web` and `triplespace-server` (`rust-embed`); templates read the manifest to emit `<script type="module">` tags. **Node is a build-time dependency only**; a small instance stays one binary (0033 §1), and an instance that runs the web tier separately runs two ([0057](0057-web-tier.md) §2).
+- In development, whichever binary serves the site proxies asset requests to the Vite dev server for hot reload.
 - Lint: ESLint with `eslint-config-wikimedia`, Stylelint with `stylelint-config-wikimedia`. Styles are plain CSS using Codex's CSS custom-property tokens; no Less.
 
 ### 9. Internationalisation
@@ -106,13 +110,17 @@ CodeMirror 6, which MediaWiki's CodeMirror extension also uses, with its wikitex
 
 ### 10. Accessibility and browser support
 
-- WCAG 2.1 AA, inherited from Codex and checked by axe in end-to-end tests (§12).
+*Changed by A7.*
+
+- WCAG 2.1 AA, inherited from Codex and checked by axe in end-to-end tests (§12), and kept under a theme by the contrast check that admits it (§1).
 - Browser support follows MediaWiki's: modern browsers get the components; older browsers get the server-rendered pages without them.
 
 ### 11. Security
 
+*Changed by A6.*
+
 - A strict Content Security Policy: scripts only from the instance's own origin, no inline scripts, no `eval`. Initial data is passed in `application/json` blocks, which CSP does not execute.
-- Components never insert HTML they built from user input. HTML they insert comes only from fragment routes, which the server has sanitized (0033 §9).
+- Components never insert HTML they built from user input. HTML they insert comes only from `action=render` (§5), which is built from `askama`'s escaped templates and from HTML the API has sanitized (0033 §9).
 
 ### 12. Testing
 
@@ -125,13 +133,15 @@ CodeMirror 6, which MediaWiki's CodeMirror extension also uses, with its wikitex
 
 ### 13. Prototyping path
 
+*Changed by A6.*
+
 As the statement UI spec planned, the UI is built before the backend is complete:
 
 1. `triplespace-ui` renders item pages from Wikidata's canonical JSON (`Special:EntityData`) through the shape classifier.
 2. Provenance panels use fixtures.
 3. The editing components write through the Action API to test.wikidata.org or the MediaWiki 1.43 reference install.
 
-Nothing in the UI changes when the source becomes a Triplespace instance, because it only speaks the public API.
+Nothing in the UI changes when the source becomes a Triplespace instance, because it only speaks the public API. In development, `triplespace-web` with `web.upstream_host = fixed` is pointed at Wikidata or the reference install directly ([0057](0057-web-tier.md) §4).
 
 ## Alternatives considered
 
@@ -145,6 +155,7 @@ Nothing in the UI changes when the source becomes a Triplespace instance, becaus
 - Wikimedia developers who know Vue and Codex can work on the editors without learning Rust; Rust developers own the templates and renderers.
 - Pages read and cache without JavaScript, and the statement layouts exist in one implementation.
 - The build needs Node, though the running system does not.
+- Page rendering can run on machines of its own, as `triplespace-web`, and scale apart from the API ([0057](0057-web-tier.md)).
 - Codex upgrades are deliberate: versions are pinned and bumped in their own commits, with snapshot and accessibility tests as the check.
 
 ## Open questions
@@ -165,6 +176,7 @@ Nothing in the UI changes when the source becomes a Triplespace instance, becaus
 | [0010](0010-site-ui.md) §4, §13 | §1–6 | amends | 0010 A21 |
 | [0010](0010-site-ui.md) Q6 | §1–5 | settles | 0010 Q6 |
 | [0010](0010-site-ui.md) Q7 | §2 | settles | 0010 Q7 |
+| [0015](0015-record-format-and-partition-registry.md) §3 | §1 | extends | 0015 A28 |
 
 ## Amendment log
 
@@ -214,3 +226,50 @@ Replaced text (Changes to other ADRs):
 - **Source:** [0055](0055-templatestyles-templatedata-and-page-properties.md) §2, §5
 - **Change:** extends §6, §7
 - **Summary:** `scatter-wasm` re-exports `scatter-css` for linting stylesheets; the source editor gains a CSS mode, Insert template… and a TemplateData parameter popup.
+
+### A6. The web tier
+
+- **Date:** 2026-10-03
+- **Source:** [0057](0057-web-tier.md) §1, §2, §4, §8
+- **Change:** amends §1, §2, §5, §8, §11; extends §13
+- **Summary:** The server-side renderer is an API client like the browser: it calls the public HTTP API with the viewer's credentials, from `triplespace-web` over the network or from `triplespace-server` in-process, and never the API crates' handlers. Either binary serves the site and its assets. Fragment routes are gone: a component fetches its region with `action=render` and `region` on the page's own URL, which also ends the collision of `GET /page/{id}/render` with 0042 §12's render manifest. In development the web tier can be pointed at Wikidata directly. A consequence is added.
+
+Replaced text (§1):
+
+> 5. **The public API only** (0012 §1). The browser calls public routes. The server-side renderer calls the API crates' handler layer in-process, never `view` tables directly, so every page gets the same per-viewer redaction as the API.
+
+Replaced text (§2):
+
+> - **Assets:** Codex CSS, design tokens and icons come from the pinned `@wikimedia/codex`, `@wikimedia/codex-design-tokens` and `@wikimedia/codex-icons` packages at build time (§8), with hashed file names, served by the binary with long-lived cache headers.
+
+Replaced text (§5):
+
+> ### 5. Fragment routes
+>
+> After a component saves, it fetches the server's rendering of the changed region and swaps it in. The fragments are public API routes under `rest.php/triplespace/v0` (0012 §2), in the spirit of Wikibase's `wbformatvalue`:
+>
+> - `GET /entity/{id}/render/statements/{property}`: one statement group.
+> - `GET /entity/{id}/render/terms`: the term box.
+> - `GET /page/{id}/render`: a document or thread body.
+>
+> They carry the same `ETag`, `Cache-Tag` and redaction as full pages (0014 §3). Full page renders are assembled from the same fragment functions, so a fragment and its page cannot drift.
+
+Replaced text (§8):
+
+> - The release build embeds `ui/dist` into the binary (`rust-embed`); templates read the manifest to emit `<script type="module">` tags. **Node is a build-time dependency only**; the deliverable stays one binary (0033 §1).
+> - In development, the server proxies asset requests to the Vite dev server for hot reload.
+
+Replaced text (§11):
+
+> - Components never insert HTML they built from user input. HTML they insert comes only from fragment routes, which the server has sanitized (0033 §9).
+
+### A7. Codex, themed by tokens
+
+- **Date:** 2026-10-03
+- **Source:** Direct: James, design discussion of 2026-10-03
+- **Change:** amends §1; extends §10
+- **Summary:** Codex stays, for its accessible components, its right-to-left and language support and its CSS-only components, but no longer strictly as-is: the instance or a tenant may set Codex's design tokens to its own values as a theme (`ui.theme`), served as a stylesheet of custom properties and refused unless its colours meet WCAG 2.1 AA contrast. Components, markup and behaviour stay Codex's. James, asked whether to keep Codex at all: "I like your middle path with Codex. It has more to do with the accessibility and right-to-left benefits than pure visual or UX fidelity. Being able to get HTML-only too is a bonus."
+
+Replaced text (§1):
+
+> 4. **Codex as-is.** Codex tokens, components and icons without overrides. Where a design needs something Codex lacks, it is built from Codex tokens and proposed upstream.

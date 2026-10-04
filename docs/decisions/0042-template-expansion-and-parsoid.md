@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-01 (A7)
+- **Updated:** 2026-10-03 (A8)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0024](0024-subsidiary-accounts.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md)
 - **Uses:** [0023](0023-moderation.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0043](0043-lua-modules.md), [0047](0047-special-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -258,7 +258,7 @@ A template's `<includeonly>` categories reach the pages that transclude it; its 
 
 ### 10. The render manifest and refresh (extends 0013 §5.6 and 0014 §3–5)
 
-*Changed by A2, A3, A6.*
+*Changed by A2, A3, A6, A8.*
 
 **Every expansion produces a manifest:** what it read, and until when the result holds.
 
@@ -289,7 +289,7 @@ The queue is `ops.render_refresh`: page IDs with a reason, deduplicated.
 3. A change to an entity's `resolved_version`, for usage rows whose aspects the change touches ([0043](0043-lua-modules.md) §10).
 4. `expires_at` passing, for volatile and foreign inputs. This is lazy: the next read finds the entry expired and renders again.
 5. A change to any `wikitext.*` setting (§2).
-6. `action=purge` with `forcelinkupdate` or `forcerecursivelinkupdate`.
+6. `action=purge`. A plain purge bumps the page's epoch, deletes its `p:` keys and purges its `Cache-Tag`, so the next read renders afresh, as MediaWiki's purge re-parses; `forcelinkupdate` and `forcerecursivelinkupdate` also queue refreshes of its links and, recursively, of the pages that depend on it ([0057](0057-web-tier.md) §14).
 
 **Caching (amends 0014 §3 and §4).** A rendered page's version gains the page's **render epoch**:
 
@@ -347,6 +347,8 @@ The importer may bring the Template and Module pages with full history, as ordin
 
 ### 14. API (extends 0012 §4 and §5)
 
+*Changed by A8.*
+
 | Module or route | Behaviour |
 |---|---|
 | `action=expandtemplates` | MediaWiki's parameters: `text`, `title`, `revid`, `prop=wikitext\|categories\|properties\|volatile\|ttl\|modules\|jsconfigvars\|encodedjsconfigvars\|parsetree`, `includecomments`, `showstrategykeys`. With expansion off: `ts-expansion-off` |
@@ -355,7 +357,7 @@ The importer may bring the Template and Module pages with full history, as ordin
 | `meta=siteinfo` | `magicwords`, `functionhooks`, `extensiontags`, `variables`, `doubleunderscores` from the registry (§5); `protocols`, `interwikimap`, `languagevariants`, `defaultoptions` and `specialpagealiases` for Parsoid (§8.1) |
 | `prop=info` | `inprop=linkclasses` |
 | `meta=allmessages` | The shipped MediaWiki messages (§5) |
-| `action=purge` | `forcelinkupdate` and `forcerecursivelinkupdate` queue refreshes (§10) |
+| `action=purge` | A plain purge bumps the render epoch and purges the page's tag; `forcelinkupdate` and `forcerecursivelinkupdate` also queue refreshes (§10). By `POST` without a token, for any principal who may read the page, in the `parse` rate class ([0057](0057-web-tier.md) §14) |
 | `GET /page/{id}/render` *(REST v0)* | The page's manifest summary: templates and modules used, entities and aspects, foreign repositories, `expires_at`, renderer, limit report and errors |
 | `GET /page/{id}/html` *(REST v0)* | Gains `as_of` (§12) |
 
@@ -534,3 +536,18 @@ Replaced text (§8.1):
 Replaced text (§3):
 
 > **Any `wikitext` page can be transcluded**, as in MediaWiki:
+
+### A8. A plain purge re-renders
+
+- **Date:** 2026-10-03
+- **Source:** [0057](0057-web-tier.md) §14
+- **Change:** amends §10, §14
+- **Summary:** A plain `action=purge` on a local page bumps its render epoch, deletes its `p:` keys and purges its `Cache-Tag`, as MediaWiki's purge re-parses a page whose output depends on the clock or on expanded templates. The new epoch changes the page's `ETag`, which is how the web tier's revalidating cache and the CDN see it. Anyone who may read the page may purge it, as in MediaWiki.
+
+Replaced text (§10):
+
+> 6. `action=purge` with `forcelinkupdate` or `forcerecursivelinkupdate`.
+
+Replaced text (§14):
+
+> | `action=purge` | `forcelinkupdate` and `forcerecursivelinkupdate` queue refreshes (§10) |
