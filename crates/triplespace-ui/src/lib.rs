@@ -12,6 +12,7 @@
 //! - [`pages`]: the handlers, and the caching a page composes from the API responses it
 //!   used (0057 §6).
 //! - [`entity`]: entity pages and their `action=render` regions (0010 §2; 0057 §8).
+//! - [`special`]: the special pages served so far (0047), starting with `Special:Search`.
 //! - [`frame`]: the page frame of 0010 §2, with the [`codex`] builder's components.
 //! - [`theme`]: the shipped default theme and a tenant's overrides, as a stylesheet of
 //!   Codex token values (0034 §1).
@@ -29,6 +30,7 @@ pub mod html;
 pub mod i18n;
 pub mod pages;
 pub mod routes;
+pub mod special;
 pub mod theme;
 
 use axum::Router;

@@ -26,7 +26,8 @@ const pages = [
 	{ path: '/wiki/Property:P3', heading: 'population' },
 	{ path: '/wiki/Domain:wikipedia.org', heading: 'Wikipedia' },
 	{ path: '/wiki/Item:Q404', heading: 'Item:Q404', status: 404 },
-	{ path: '/w/index.php?title=Special:Search&search=six', heading: 'Special:Search' }
+	{ path: '/w/index.php?title=Special:Search&search=six&fulltext=1', heading: 'Search' },
+	{ path: '/wiki/Special:Search', heading: 'Search' }
 ];
 
 for ( const p of pages ) {
@@ -64,6 +65,18 @@ test( 'folds open and footnotes link without JavaScript', async ( { page } ) => 
 	await page.locator( '#P3 a.ts-fn' ).click();
 	await expect( page ).toHaveURL( /#P3-fn-1$/ );
 	await expect( page.locator( '#P3-fn-1' ).getByText( 'reference URL' ) ).toBeVisible();
+} );
+
+test( 'the header box goes to an ID and searches words without JavaScript', async ( { page } ) => {
+	await page.goto( '/wiki/Item:Q6' );
+	const box = page.locator( 'header input[name="search"]' );
+	await box.fill( 'P3' );
+	await box.press( 'Enter' );
+	await expect( page ).toHaveURL( /\/wiki\/Property:P3$/ );
+	await box.fill( 'six' );
+	await box.press( 'Enter' );
+	await expect( page.getByRole( 'heading', { level: 1 } ) ).toHaveText( 'Search' );
+	await expect( page.locator( '.ts-hit__title' ).first() ).toHaveText( 'Six & more' );
 } );
 
 test( 'a phone reads an item without scrolling sideways', async ( { browser } ) => {
