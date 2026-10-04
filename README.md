@@ -15,6 +15,7 @@ the crate map and build order.
 | Path | Holds |
 |---|---|
 | `crates/` | One Cargo workspace. `scatter-*` crates are shared with Scatterbase and know nothing about Triplespace; `triplespace-*` crates are the product (0005 §1). |
+| `tools/` | Scripts that are not part of the build: `wikidata-sample.py` draws a random sample of Wikidata items in the dump's shape, for the classifier audit (0003 §10). |
 | `xtask/` | Repository tasks: `cargo xtask deps` checks the workspace dependency graph against the table in 0005 §2; `cargo xtask wasm` builds the crates 0005 rule 7 requires to build for `wasm32-unknown-unknown`. |
 | `docs/` | ADRs, registry, API contracts and test vectors. CC0-1.0 (`docs/LICENSE`), so other implementations can embed them. |
 | `ui/` | The site's front end (0034): Codex, its design tokens and the default theme's fonts, built by Vite into `ui/dist`, which `triplespace-ui` embeds. |
