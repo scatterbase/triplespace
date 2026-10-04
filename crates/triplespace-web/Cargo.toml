@@ -1,0 +1,25 @@
+[package]
+name = "triplespace-web"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "The stateless web tier (ADR 0057): the site over the public API, deployable apart from the server"
+publish = false
+
+[[bin]]
+name = "triplespace-web"
+path = "src/main.rs"
+
+[dependencies]
+triplespace-client.workspace = true
+triplespace-ui.workspace = true
+axum.workspace = true
+clap.workspace = true
+anyhow.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "net"] }
+
+[lints]
+workspace = true

@@ -1,0 +1,4 @@
+/* The site's stylesheet, left to right: Codex's CSS-only components, the typefaces, the frame. */
+@import '@wikimedia/codex/dist/codex.style.css';
+@import './fonts.css';
+@import './frame.css';

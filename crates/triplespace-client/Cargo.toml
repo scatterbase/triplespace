@@ -1,0 +1,27 @@
+[package]
+name = "triplespace-client"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "The site's client of the Triplespace API (ADR 0057 §1, §4): typed calls over HTTP or an in-process tower service, with the viewer's credentials forwarded"
+publish = false
+
+[dependencies]
+axum.workspace = true
+tower.workspace = true
+http-body-util.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+url.workspace = true
+tokio = { workspace = true, features = ["net"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net"] }
+
+[lints]
+workspace = true

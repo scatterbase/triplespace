@@ -1,0 +1,34 @@
+{
+	"@metadata": {
+		"authors": [
+			"Triplespace contributors"
+		]
+	},
+	"ts-skip-to-content": "Skip to content",
+	"ts-search-placeholder": "Search items, properties, domains and pages",
+	"ts-search-label": "Search",
+	"ts-search-button": "Search",
+	"ts-nav-label": "Site",
+	"ts-nav-recentchanges": "Recent changes",
+	"ts-nav-jobs": "Jobs",
+	"ts-nav-specialpages": "Special pages",
+	"ts-new": "New",
+	"ts-new-item": "New item",
+	"ts-new-property": "New property",
+	"ts-new-page": "New page",
+	"ts-login": "Log in",
+	"ts-account": "Your account",
+	"ts-account-menu": "Account menu for $1",
+	"ts-account-userpage": "Your user page",
+	"ts-logout": "Log out",
+	"ts-tabs-label": "Page",
+	"ts-tab-read": "Read",
+	"ts-tab-history": "History",
+	"ts-not-served": "This page is not served yet. The site is being built in phases, and this part of it comes later.",
+	"ts-not-found-title": "Not found",
+	"ts-not-found": "There is no page at this address.",
+	"ts-api-unavailable-title": "The site is unavailable",
+	"ts-api-unavailable": "The site cannot reach its server just now. Please try again in a minute.",
+	"ts-api-too-old": "The server is older than this version of the site expects. An administrator needs to update it.",
+	"ts-footer-powered": "Powered by Triplespace"
+}

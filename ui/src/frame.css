@@ -1,0 +1,212 @@
+/*
+ * The page frame of ADR 0010 §2: the global header, the page header (identity line, title,
+ * tabs), the content and the footer. Built from Codex design tokens (ADR 0034 §1.4), so a
+ * theme reaches it as it reaches Codex's own components.
+ */
+
+body {
+	margin: 0;
+	background-color: var( --background-color-neutral-subtle, #f8f9fa );
+	color: var( --color-base, #202122 );
+	font-family: var( --font-family-base, sans-serif );
+	font-size: var( --font-size-medium, 1rem );
+	line-height: var( --line-height-medium, 1.625rem );
+}
+
+a {
+	color: var( --color-progressive, #36c );
+	text-decoration: none;
+}
+
+a:hover {
+	color: var( --color-progressive--hover, #3056a9 );
+	text-decoration: underline;
+}
+
+a:visited {
+	color: var( --color-visited, #6a60b0 );
+}
+
+h1,
+h2,
+h3 {
+	font-family: var( --font-family-heading-main, serif );
+	font-weight: var( --font-weight-normal, 400 );
+}
+
+:focus-visible {
+	outline: 2px solid var( --outline-color-progressive--focus, #36c );
+	outline-offset: 2px;
+}
+
+.ts-skip {
+	position: absolute;
+	left: -9999px;
+}
+
+.ts-skip:focus {
+	left: var( --size-100, 1rem );
+	top: var( --size-50, 0.5rem );
+	z-index: 10;
+	padding: var( --size-50, 0.5rem ) var( --size-100, 1rem );
+	background-color: var( --background-color-base, #fff );
+}
+
+/* The global header */
+
+.ts-header {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var( --size-75, 0.75rem ) var( --size-125, 1.25rem );
+	padding: var( --size-75, 0.75rem ) var( --size-250, 2.5rem );
+	border-bottom: 1px solid var( --border-color-muted, #dadde3 );
+	background-color: var( --background-color-base, #fff );
+}
+
+.ts-header__site {
+	color: var( --color-base, #202122 );
+	font-family: var( --font-family-heading-main, serif );
+	font-size: var( --font-size-xx-large, 1.5rem );
+	font-weight: 500;
+}
+
+.ts-header__site:visited {
+	color: var( --color-base, #202122 );
+}
+
+.ts-header__search {
+	flex: 1 1 var( --size-2400, 24rem );
+	min-width: 0;
+	max-width: var( --size-3200, 32rem );
+}
+
+.ts-header__nav {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var( --size-25, 0.25rem ) var( --size-100, 1rem );
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.ts-header__nav-link,
+.ts-header__nav-link:visited {
+	color: var( --color-neutral, #404244 );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+.ts-header__end {
+	display: flex;
+	align-items: center;
+	gap: var( --size-75, 0.75rem );
+	margin-left: auto;
+}
+
+/* A menu that works without JavaScript: a disclosure */
+
+.ts-menu {
+	position: relative;
+}
+
+.ts-menu > summary {
+	list-style: none;
+}
+
+.ts-menu > summary::-webkit-details-marker {
+	display: none;
+}
+
+.ts-menu__items {
+	position: absolute;
+	right: 0;
+	z-index: 5;
+	min-width: var( --size-1200, 12rem );
+	margin: var( --size-25, 0.25rem ) 0 0;
+	padding: var( --size-25, 0.25rem ) 0;
+	list-style: none;
+	border: 1px solid var( --border-color-subtle, #c8ccd1 );
+	border-radius: var( --border-radius-base, 2px );
+	background-color: var( --background-color-base, #fff );
+}
+
+.ts-menu__link,
+.ts-menu__link:visited {
+	display: block;
+	padding: var( --size-50, 0.5rem ) var( --size-100, 1rem );
+	color: var( --color-base, #202122 );
+}
+
+.ts-menu__link:hover {
+	background-color: var( --background-color-interactive--hover, #dadde3 );
+	text-decoration: none;
+}
+
+/* The page header */
+
+.ts-page {
+	max-width: var( --size-5600, 56rem );
+	margin: 0 auto;
+	padding: var( --size-200, 2rem ) var( --size-250, 2.5rem );
+}
+
+.ts-page__identity {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var( --size-50, 0.5rem );
+	color: var( --color-subtle, #54595d );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+.ts-page__title {
+	margin: var( --size-25, 0.25rem ) 0 var( --size-75, 0.75rem );
+	font-size: 2.5rem;
+	line-height: 1.15;
+}
+
+.ts-tabs {
+	display: flex;
+	gap: var( --size-25, 0.25rem );
+	margin: 0 0 var( --size-150, 1.5rem );
+	padding: 0;
+	list-style: none;
+	border-bottom: 1px solid var( --border-color-subtle, #c8ccd1 );
+}
+
+.ts-tabs__link,
+.ts-tabs__link:visited {
+	display: block;
+	padding: var( --size-50, 0.5rem ) var( --size-100, 1rem );
+	border-bottom: 2px solid transparent;
+	color: var( --color-neutral, #404244 );
+}
+
+.ts-tabs__link[ aria-current='page' ] {
+	border-bottom-color: var( --border-color-progressive, #36c );
+	color: var( --color-progressive, #36c );
+}
+
+.ts-footer {
+	max-width: var( --size-5600, 56rem );
+	margin: 0 auto;
+	padding: var( --size-150, 1.5rem ) var( --size-250, 2.5rem );
+	color: var( --color-subtle, #54595d );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+@media ( max-width: 640px ) {
+	.ts-header,
+	.ts-page,
+	.ts-footer {
+		padding-left: var( --size-100, 1rem );
+		padding-right: var( --size-100, 1rem );
+	}
+
+	.ts-header__search {
+		flex-basis: 100%;
+	}
+
+	.ts-header__end {
+		margin-left: 0;
+	}
+}

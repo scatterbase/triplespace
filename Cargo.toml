@@ -14,6 +14,9 @@ members = [
     "crates/triplespace-accounts",
     "crates/triplespace-api-action",
     "crates/triplespace-api-rest",
+    "crates/triplespace-client",
+    "crates/triplespace-ui",
+    "crates/triplespace-web",
     "crates/triplespace-server",
     "crates/triplespace-cli",
     "crates/scatter-actors",
@@ -51,6 +54,9 @@ triplespace-accounts = { path = "crates/triplespace-accounts" }
 triplespace-api-action = { path = "crates/triplespace-api-action" }
 triplespace-api-rest = { path = "crates/triplespace-api-rest" }
 triplespace-server = { path = "crates/triplespace-server" }
+triplespace-client = { path = "crates/triplespace-client" }
+triplespace-ui = { path = "crates/triplespace-ui" }
+triplespace-web = { path = "crates/triplespace-web" }
 triplespace-cli = { path = "crates/triplespace-cli" }
 scatter-adapter-wikidata = { path = "crates/scatter-adapter-wikidata" }
 scatter-adapter-internetdomains = { path = "crates/scatter-adapter-internetdomains" }
@@ -123,6 +129,11 @@ deadpool-postgres = "0.14"
 axum = { version = "0.8", default-features = false, features = ["http1", "tokio", "query", "form", "json", "matched-path"] }
 tower = "0.5"
 http-body-util = "0.1"
+# The web tier (0057): its HTTP client to the API, rustls on aws-lc-rs (0033 §6–7)
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "http2"] }
+# Server-rendered pages (0034 §2): compiled templates; the built frontend embedded (0034 §8)
+askama = "0.16"
+rust-embed = "8"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
