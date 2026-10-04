@@ -4,7 +4,7 @@
 - **Date:** 2026-09-27
 - **Updated:** 2026-10-03 (A7)
 - **Author:** James Hare / Claude
-- **Changes:** [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0015](0015-record-format-and-partition-registry.md)
+- **Changes:** [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0003](0003-statement-ui.md), [0012](0012-api-requirements.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0029](0029-resolver-namespaces.md), [0033](0033-backend-stack.md)
 
 ## Context
@@ -24,7 +24,7 @@ The backend stack is in 0033.
 1. **The server renders every page.** Reading never needs JavaScript. Rendered pages are cacheable at the L2 layer (0014 §3).
 2. **JavaScript enhances regions, never whole pages.** An interactive component takes over one region of a server-rendered page. There is no client-side router.
 3. **One renderer per thing.** Anything the server draws is drawn only by the server. A component that changes it fetches the server's rendering afterwards (§5) rather than drawing its own copy.
-4. **Codex components, themed by tokens.** Codex's components, icons and markup are used without overrides. Their look comes from Codex's design tokens, and the instance or a tenant may give those tokens values of its own as a **theme** (`ui.theme`, [0015](0015-record-format-and-partition-registry.md) §3): colours, typefaces, radii and spacing, never a component's markup or behaviour. A theme is served as a stylesheet of CSS custom properties, so it needs no inline style under §11, and it is refused when its colours fail WCAG 2.1 AA contrast for the token pairs Codex uses for text, borders and focus. Without a theme, Codex's own values apply. Where a design needs something Codex lacks, it is built from Codex tokens and proposed upstream. Codex is used for its accessible components, its right-to-left and language support, and CSS-only components that need no JavaScript, more than for its look.
+4. **Codex components, themed by tokens.** Codex's components, icons and markup are used without overrides. Their look comes from Codex's design tokens, and the instance or a tenant may give those tokens values of its own as a **theme** (`ui.theme`, [0015](0015-record-format-and-partition-registry.md) §3): colours, typefaces, radii and spacing, never a component's markup or behaviour. A theme is served as a stylesheet of CSS custom properties, so it needs no inline style under §11, and it is refused when its colours fail WCAG 2.1 AA contrast for the token pairs Codex uses for text, borders and focus. The theme's values are reported in `meta=siteinfo&siprop=triplespace` ([0012](0012-api-requirements.md) §4), from which the site reads them as it reads any setting, and the site serves them as a stylesheet named by a hash of its values, so a changed theme is a new URL and each one caches as immutable. Without a theme, Codex's own values apply. Where a design needs something Codex lacks, it is built from Codex tokens and proposed upstream. Codex is used for its accessible components, its right-to-left and language support, and CSS-only components that need no JavaScript, more than for its look.
 5. **The public API only** (0012 §1). The browser calls public routes, and so does the server-side renderer: it calls the public HTTP API with the viewer's own credentials, over the network from `triplespace-web` or through an in-process call into the API's router from `triplespace-server`, and never links an API crate's handlers or reads `view` ([0057](0057-web-tier.md) §1). Every page therefore carries exactly the API's per-viewer redaction.
 
 ### 2. Server rendering, in `triplespace-ui`
@@ -176,6 +176,7 @@ Nothing in the UI changes when the source becomes a Triplespace instance, becaus
 | [0010](0010-site-ui.md) §4, §13 | §1–6 | amends | 0010 A21 |
 | [0010](0010-site-ui.md) Q6 | §1–5 | settles | 0010 Q6 |
 | [0010](0010-site-ui.md) Q7 | §2 | settles | 0010 Q7 |
+| [0012](0012-api-requirements.md) §4 | §1 | extends | 0012 A38 |
 | [0015](0015-record-format-and-partition-registry.md) §3 | §1 | extends | 0015 A28 |
 
 ## Amendment log
@@ -268,7 +269,7 @@ Replaced text (§11):
 - **Date:** 2026-10-03
 - **Source:** Direct: James, design discussion of 2026-10-03
 - **Change:** amends §1; extends §10
-- **Summary:** Codex stays, for its accessible components, its right-to-left and language support and its CSS-only components, but no longer strictly as-is: the instance or a tenant may set Codex's design tokens to its own values as a theme (`ui.theme`), served as a stylesheet of custom properties and refused unless its colours meet WCAG 2.1 AA contrast. Components, markup and behaviour stay Codex's. James, asked whether to keep Codex at all: "I like your middle path with Codex. It has more to do with the accessibility and right-to-left benefits than pure visual or UX fidelity. Being able to get HTML-only too is a bonus."
+- **Summary:** Codex stays, for its accessible components, its right-to-left and language support and its CSS-only components, but no longer strictly as-is: the instance or a tenant may set Codex's design tokens to its own values as a theme (`ui.theme`), served as a stylesheet of custom properties and refused unless its colours meet WCAG 2.1 AA contrast. The site reads the theme from `siprop=triplespace`, since it reaches the instance only through the API, and serves it under a URL named by its hash. Components, markup and behaviour stay Codex's. James, asked whether to keep Codex at all: "I like your middle path with Codex. It has more to do with the accessibility and right-to-left benefits than pure visual or UX fidelity. Being able to get HTML-only too is a bonus."
 
 Replaced text (§1):
 

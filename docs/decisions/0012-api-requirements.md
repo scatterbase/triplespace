@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-03 (A37)
+- **Updated:** 2026-10-03 (A38)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0005](0005-crate-organization.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -130,13 +130,13 @@ History, recent changes, contributions and the log all use one row shape in the 
 
 ### 4. Action API changes
 
-*Changed by A3, A4, A5, A7, A8, A9, A10, A12, A13, A14, A15, A16, A17, A18, A19, A21, A23, A24, A25, A26, A27, A30, A31, A32, A33, A34, A35, A36, A37.*
+*Changed by A3, A4, A5, A7, A8, A9, A10, A12, A13, A14, A15, A16, A17, A18, A19, A21, A23, A24, A25, A26, A27, A30, A31, A32, A33, A34, A35, A36, A37, A38.*
 
 All of these changes are additive (§1.2). [0056](0056-security-model.md) §13 adds `read=` to `action=protect`, `prtype=read` to `list=protectedpages`, `list=protectedsets`, and the reduced `meta=siteinfo` an outsider receives from a private tenant.
 
 | Module | Requirement |
 |---|---|
-| `meta=siteinfo` | Describes the tenant the host selects ([0018](0018-tenants.md) §11). New `siprop` values:<br>• `providers`: codes, entity types, namespaces, IRI templates, and whether upstream history can be fetched.<br>• `issuers`: the issuers allowed for login, without any secrets.<br>• `triplespace`: capabilities, `api_version`, which the web tier checks against the minimum it was built for ([0057](0057-web-tier.md) §9), the REST base path, the tenant and its opted-in providers ([0018](0018-tenants.md) §11), the search backend, `opensearch` or `postgres` ([0014](0014-caches-and-search.md) §8), and `hash_mismatches`, the instance-wide count of upstream hashes kept because the recomputation differed ([0006](0006-log-integrity-and-erasure.md) A9). Later ADRs add more (below).<br>Namespaces come from the registry ([0008](0008-namespaces-and-document-pages.md) §1). |
+| `meta=siteinfo` | Describes the tenant the host selects ([0018](0018-tenants.md) §11). New `siprop` values:<br>• `providers`: codes, entity types, namespaces, IRI templates, and whether upstream history can be fetched.<br>• `issuers`: the issuers allowed for login, without any secrets.<br>• `triplespace`: capabilities, `api_version`, which the web tier checks against the minimum it was built for ([0057](0057-web-tier.md) §9), the REST base path, the tenant and its opted-in providers ([0018](0018-tenants.md) §11), the search backend, `opensearch` or `postgres` ([0014](0014-caches-and-search.md) §8), `theme`, the tenant's `ui.theme` token values, which the site serves as its stylesheet ([0034](0034-frontend-stack.md) §1) and which an outsider of a private tenant is not given, its landing page wearing Codex's own values, and `hash_mismatches`, the instance-wide count of upstream hashes kept because the recomputation differed ([0006](0006-log-integrity-and-erasure.md) A9). Later ADRs add more (below).<br>Namespaces come from the registry ([0008](0008-namespaces-and-document-pages.md) §1). |
 | `prop=revisions`, core REST `/v1/page/{title}/history` | Local revisions only: the local graph for entities, the `pages` partition for document pages. An erased part sets its MediaWiki hidden flag, `texthidden` for the content, `commenthidden` for the comment, `userhidden` for the attestation, and a new `erased` flag is set with it ([0015](0015-record-format-and-partition-registry.md) §1). That a record was erased is shown to everyone ([0016](0016-permissions-and-access-control.md) §6). New `rvprop` values: `source`, `job` and `operator`. |
 | `list=recentchanges` | One row per local revision, as in MediaWiki. Job changes carry the `bot` flag and a `job:{id}` tag. A new `rcjob` parameter filters by job. Mirror records never appear. Each mirror job run appears as a `job` log event ([0011](0011-logs.md) §6.3). `rctype=external` is not used, because Wikibase clients already give it a meaning. |
 | `list=usercontribs` | By local account. Job changes appear with their tags. A new `ucjob` parameter filters by job. |
@@ -711,3 +711,10 @@ Replaced text (§2.1):
 - **Source:** [0057](0057-web-tier.md) §7, §9
 - **Change:** extends §4, §5
 - **Summary:** `siprop=triplespace` reports `api_version`, so a web tier deployed apart from the API can tell whether the API is recent enough. `action=clientlogin`, `action=createaccount` and the `/auth` routes honour `returnto` only on the request's own origin, so the web tier's forms can return the user to the page they came from without opening a redirect. The OAuth routes gain the request handle of 0057 §13: `POST /oauth/requests`, `GET /oauth/requests/{handle}` and its `approve` and `deny`, which the site's consent and device pages use.
+
+### A38. The theme in `siteinfo`
+
+- **Date:** 2026-10-03
+- **Source:** [0034](0034-frontend-stack.md) §1
+- **Change:** extends §4
+- **Summary:** `siprop=triplespace` reports `theme`, the tenant's `ui.theme` token values, so the site, which reaches the instance only through the API, can serve the tenant's theme. An outsider of a private tenant is not given it, since 0056 §13 gives an outsider only the name, language and privacy of the wiki; its landing page uses Codex's own values.
