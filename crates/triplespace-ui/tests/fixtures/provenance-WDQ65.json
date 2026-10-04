@@ -1,0 +1,43 @@
+{
+    "id": "WDQ65",
+    "canonical": "WDQ65",
+    "type": "item",
+    "minted_by": {
+        "kind": "provider",
+        "provider": "wikidata",
+        "code": "WD",
+        "upstream_id": "Q65"
+    },
+    "graphs": [
+        {
+            "graph": "mirror/wikidata",
+            "statements": 1,
+            "synced_at": "2026-10-01T00:00:00Z",
+            "upstream_version": "2412345678"
+        },
+        {
+            "graph": "local",
+            "statements": 1,
+            "synced_at": "2026-10-02T09:00:00Z"
+        }
+    ],
+    "dominant": "mirror/wikidata",
+    "statements": {
+        "WDQ65$aaaaaaaa-0000-0000-0000-000000000001": {
+            "graphs": [
+                "mirror/wikidata"
+            ],
+            "members": []
+        },
+        "WDQ65$bbbbbbbb-0000-0000-0000-000000000002": {
+            "graphs": [
+                "local"
+            ],
+            "members": []
+        }
+    },
+    "corrections": {},
+    "retention": "keep-hidden",
+    "lastrevid": 1099511629000,
+    "modified": "2026-10-02T09:00:00Z"
+}

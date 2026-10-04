@@ -258,7 +258,7 @@ fn property_types() -> Value {
 }
 
 /// `siprop=providers` (0012 §4): codes, entity types, namespaces, IRI templates, whether
-/// upstream history can be fetched.
+/// upstream history can be fetched, and the colours of each provider's chip (0010 §2).
 fn providers() -> Value {
     Registry::default_registry()
         .providers()
@@ -275,7 +275,9 @@ fn providers() -> Value {
                     "entity_type": t.entity_type,
                     "namespace": t.namespace,
                     "iri": t.iri,
+                    "upstream_prefix": t.upstream_prefix,
                 })).collect::<Vec<_>>(),
+                "chip": p.chip.as_ref().map(|c| json!({"color": c.color, "background": c.background})),
             })
         })
         .collect()

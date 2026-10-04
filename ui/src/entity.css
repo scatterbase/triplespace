@@ -1,0 +1,254 @@
+/*
+ * Entity pages (ADR 0010 §2, 0003): the terms under the title, statement groups in the
+ * plain layout, the Identifiers, Sitelinks and Labels tabs, and "Where this comes from".
+ * Logical properties throughout, so the right-to-left stylesheet needs nothing of its own.
+ */
+
+.ts-visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	padding: 0;
+	overflow: hidden;
+	clip: rect( 0, 0, 0, 0 );
+	border: 0;
+	white-space: nowrap;
+}
+
+.ts-mono {
+	font-family: var( --font-family-monospace, monospace );
+}
+
+.ts-subtle,
+.ts-special-value {
+	color: var( --color-subtle, #54595d );
+}
+
+.ts-special-value {
+	font-style: italic;
+}
+
+.ts-number,
+.ts-time {
+	font-variant-numeric: tabular-nums;
+}
+
+.ts-empty {
+	margin: var( --spacing-75, 0.75rem ) 0;
+	color: var( --color-subtle, #54595d );
+}
+
+/* Terms */
+
+.ts-terms {
+	margin: 0 0 var( --spacing-100, 1rem );
+}
+
+.ts-terms__description {
+	margin: 0;
+	color: var( --color-neutral, #404244 );
+	font-size: var( --font-size-large, 1.125rem );
+}
+
+.ts-terms__description--none {
+	color: var( --color-subtle, #54595d );
+	font-style: italic;
+}
+
+.ts-terms__aliases {
+	margin: var( --spacing-25, 0.25rem ) 0 0;
+	color: var( --color-subtle, #54595d );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+/* The Statements tab: groups beside "Where this comes from" */
+
+.ts-entity {
+	display: grid;
+	grid-template-columns: minmax( 0, 1fr ) 20rem;
+	gap: var( --spacing-250, 2.5rem );
+	align-items: start;
+}
+
+.ts-entity__main {
+	min-width: 0;
+}
+
+/* A statement group in the plain layout */
+
+.ts-group {
+	display: grid;
+	grid-template-columns: 12.5rem minmax( 0, 1fr );
+	gap: var( --spacing-150, 1.5rem );
+	padding: var( --spacing-100, 1rem ) 0;
+	border-top: 1px solid var( --border-color-muted, #dadde3 );
+}
+
+.ts-group:first-of-type {
+	border-top-color: var( --border-color-subtle, #c8ccd1 );
+}
+
+.ts-group__property {
+	display: flex;
+	flex-direction: column;
+	gap: var( --spacing-25, 0.25rem );
+	font-weight: 500;
+	overflow-wrap: anywhere;
+}
+
+.ts-group__count {
+	color: var( --color-subtle, #54595d );
+	font-size: var( --font-size-small, 0.875rem );
+	font-weight: normal;
+}
+
+.ts-group__values {
+	display: flex;
+	flex-direction: column;
+	gap: var( --spacing-75, 0.75rem );
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.ts-group .ts-empty {
+	margin: 0;
+}
+
+.ts-statement {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.ts-statement__value {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: var( --spacing-50, 0.5rem );
+}
+
+.ts-statement--deprecated > .ts-statement__value > :first-child {
+	color: var( --color-subtle, #54595d );
+	text-decoration: line-through;
+}
+
+.ts-qualifiers,
+.ts-snaks {
+	margin: var( --spacing-25, 0.25rem ) 0 0;
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+.ts-qualifiers {
+	padding-inline-start: var( --spacing-75, 0.75rem );
+	border-inline-start: 2px solid var( --border-color-muted, #dadde3 );
+}
+
+.ts-qualifiers__row,
+.ts-snaks__row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0 var( --spacing-50, 0.5rem );
+}
+
+.ts-qualifiers dt,
+.ts-snaks dt {
+	color: var( --color-subtle, #54595d );
+}
+
+.ts-qualifiers dd,
+.ts-snaks dd {
+	margin: 0;
+}
+
+.ts-statement .cdx-accordion {
+	margin-top: var( --spacing-25, 0.25rem );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+.ts-statement .cdx-accordion > summary {
+	padding: var( --spacing-25, 0.25rem ) 0;
+}
+
+.ts-references {
+	margin: 0;
+	padding-inline-start: var( --spacing-150, 1.5rem );
+}
+
+/* Sitelinks */
+
+.ts-sitelinks__host {
+	padding: var( --spacing-75, 0.75rem ) 0;
+	border-top: 1px solid var( --border-color-muted, #dadde3 );
+}
+
+.ts-sitelinks__host h3 {
+	margin: 0 0 var( --spacing-50, 0.5rem );
+	font-family: inherit;
+	font-size: inherit;
+}
+
+.ts-sitelinks__host ul {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var( --spacing-50, 0.5rem ) var( --spacing-150, 1.5rem );
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+/* Where this comes from */
+
+.ts-sources {
+	border: 1px solid var( --border-color-muted, #dadde3 );
+	border-radius: var( --border-radius-base, 4px );
+	background-color: var( --background-color-base, #fff );
+}
+
+.ts-sources__title {
+	margin: 0;
+	padding: var( --spacing-100, 1rem ) var( --spacing-125, 1.25rem ) var( --spacing-75, 0.75rem );
+	border-bottom: 1px solid var( --border-color-muted, #dadde3 );
+	font-size: var( --font-size-x-large, 1.25rem );
+}
+
+.ts-sources__graph {
+	padding: var( --spacing-75, 0.75rem ) var( --spacing-125, 1.25rem );
+	border-bottom: 1px solid var( --border-color-muted, #dadde3 );
+}
+
+.ts-sources__graph h3 {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var( --spacing-50, 0.5rem );
+	margin: 0;
+	font-family: inherit;
+	font-size: inherit;
+	font-weight: 500;
+}
+
+.ts-sources__graph p {
+	margin: var( --spacing-25, 0.25rem ) 0 0;
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+.ts-sources > .ts-empty,
+.ts-sources__actions {
+	margin: 0;
+	padding: var( --spacing-75, 0.75rem ) var( --spacing-125, 1.25rem );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+@media ( max-width: 900px ) {
+	.ts-entity {
+		grid-template-columns: minmax( 0, 1fr );
+	}
+}
+
+@media ( max-width: 640px ) {
+	.ts-group {
+		grid-template-columns: minmax( 0, 1fr );
+		gap: var( --spacing-50, 0.5rem );
+	}
+}

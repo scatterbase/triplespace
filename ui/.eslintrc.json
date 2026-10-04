@@ -9,10 +9,29 @@
 	},
 	"overrides": [
 		{
-			"files": [ "vite.config.js" ],
-			"extends": [ "wikimedia/server" ],
+			"files": [
+				"vite.config.js"
+			],
+			"extends": [
+				"wikimedia/server"
+			],
 			"rules": {
 				"n/no-unpublished-import": "off"
+			}
+		},
+		{
+			"files": [
+				"playwright.config.js",
+				"e2e/**/*.js",
+				"e2e/**/*.mjs"
+			],
+			"extends": [
+				"wikimedia/server"
+			],
+			"rules": {
+				"n/no-unpublished-import": "off",
+				"n/no-missing-import": "off",
+				"es-x/no-import-meta": "off"
 			}
 		}
 	]

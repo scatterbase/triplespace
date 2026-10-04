@@ -1,0 +1,34 @@
+---
+source: crates/triplespace-ui/tests/entity.rs
+expression: main_of(&html)
+---
+<main class="ts-page" id="content">
+	<p class="ts-page__identity">
+<span class="ts-chip ts-chip--local">P3</span> <span>Property · Quantity</span> <span aria-hidden="true">·</span> <a href="https://librarybase.org/entity/P3" class="external" rel="noopener" dir="ltr">librarybase.org/entity/P3 ↗</a>
+</p>
+	<h1 class="ts-page__title">population</h1>
+	<div class="ts-terms" data-region="terms">
+<p class="ts-terms__description ts-terms__description--none">No description</p>
+</div>
+	<nav class="ts-tabs" aria-label="Page">
+		<a class="ts-tabs__link" href="/wiki/Property:P3" aria-current="page">Statements</a>
+		<a class="ts-tabs__link" href="/wiki/Property:P3?tab=identifiers">Identifiers</a>
+		<a class="ts-tabs__link" href="/wiki/Property:P3?tab=labels">Labels in other languages</a>
+		<a class="ts-tabs__link" href="/w/index.php?title=Property:P3&#38;action=history">History</a>
+	</nav>
+	<div class="ts-page__body">
+		<div class="ts-entity">
+<div class="ts-entity__main">
+<h2 class="ts-visually-hidden">Statements</h2>
+<p class="ts-empty">No statements yet.</p>
+</div>
+<aside class="ts-sources" aria-labelledby="ts-sources-title">
+<h2 class="ts-sources__title" id="ts-sources-title">Where this comes from</h2>
+<p class="ts-empty">The server did not say where this comes from.</p>
+<p class="ts-sources__actions">
+<a href="/wiki/Special:EntityData/P3.json">Download as JSON</a>
+</p>
+</aside>
+</div>
+	</div>
+</main>

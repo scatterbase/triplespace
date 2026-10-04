@@ -1,0 +1,492 @@
+{
+    "batchcomplete": true,
+    "query": {
+        "general": {
+            "allcentralidlookupproviders": [
+                "local"
+            ],
+            "articlepath": "/wiki/$1",
+            "base": "https://librarybase.org/wiki/Main_Page",
+            "case": "first-letter",
+            "centralidlookupprovider": "local",
+            "dbtype": "postgres",
+            "fallback": [],
+            "generator": "Triplespace 0.0.1",
+            "lang": "en",
+            "legaltitlechars": " %!\"$&'()*,\\-.\\/0-9:;=?@A-Z\\\\^_`a-z~\\x80-\\xFF+",
+            "mainpage": "Main Page",
+            "maxarticlesize": 2097152,
+            "phpversion": "0",
+            "readonly": false,
+            "script": "/w/index.php",
+            "scriptpath": "/w",
+            "server": "https://librarybase.org",
+            "servername": "librarybase.org",
+            "sitename": "librarybase",
+            "time": "2026-10-04T05:39:04Z",
+            "timeoffset": 0,
+            "timezone": "UTC",
+            "uploadsenabled": false,
+            "variantarticlepath": false,
+            "wikibase-conceptbaseuri": "https://librarybase.org/entity/",
+            "wikibase-propertytypes": {
+                "commonsMedia": {
+                    "valuetype": "string"
+                },
+                "external-id": {
+                    "valuetype": "string"
+                },
+                "geo-shape": {
+                    "valuetype": "string"
+                },
+                "globe-coordinate": {
+                    "valuetype": "globecoordinate"
+                },
+                "monolingualtext": {
+                    "valuetype": "monolingualtext"
+                },
+                "quantity": {
+                    "valuetype": "quantity"
+                },
+                "string": {
+                    "valuetype": "string"
+                },
+                "tabular-data": {
+                    "valuetype": "string"
+                },
+                "time": {
+                    "valuetype": "time"
+                },
+                "url": {
+                    "valuetype": "string"
+                },
+                "wikibase-domain": {
+                    "valuetype": "wikibase-entityid"
+                },
+                "wikibase-item": {
+                    "valuetype": "wikibase-entityid"
+                },
+                "wikibase-property": {
+                    "valuetype": "wikibase-entityid"
+                }
+            },
+            "wikiid": "librarybase",
+            "writeapi": true
+        },
+        "providers": [
+            {
+                "chip": {
+                    "background": "#E3EEE8",
+                    "color": "#1F5139"
+                },
+                "code": "WD",
+                "name": "Wikidata",
+                "number": 1,
+                "revision_ids": true,
+                "slug": "wikidata",
+                "types": [
+                    {
+                        "code": "Q",
+                        "entity_type": "item",
+                        "iri": "http://www.wikidata.org/entity/{upstream_id}",
+                        "namespace": "Item",
+                        "upstream_prefix": "Q"
+                    },
+                    {
+                        "code": "P",
+                        "entity_type": "property",
+                        "iri": "http://www.wikidata.org/entity/{upstream_id}",
+                        "namespace": "Property",
+                        "upstream_prefix": "P"
+                    },
+                    {
+                        "code": "L",
+                        "entity_type": "lexeme",
+                        "iri": "http://www.wikidata.org/entity/{upstream_id}",
+                        "namespace": "Lexeme",
+                        "upstream_prefix": "L"
+                    },
+                    {
+                        "code": "M",
+                        "entity_type": "mediainfo",
+                        "iri": "https://commons.wikimedia.org/entity/{upstream_id}",
+                        "namespace": "File",
+                        "upstream_prefix": "M"
+                    }
+                ]
+            },
+            {
+                "chip": {
+                    "background": "#EFE6F5",
+                    "color": "#5A2C7A"
+                },
+                "code": "LB",
+                "name": "Librarybase",
+                "number": 2,
+                "revision_ids": true,
+                "slug": "librarybase",
+                "types": [
+                    {
+                        "code": "Q",
+                        "entity_type": "item",
+                        "iri": "https://librarybase.org/entity/{upstream_id}",
+                        "namespace": "Item",
+                        "upstream_prefix": "Q"
+                    },
+                    {
+                        "code": "P",
+                        "entity_type": "property",
+                        "iri": "https://librarybase.org/entity/{upstream_id}",
+                        "namespace": "Property",
+                        "upstream_prefix": "P"
+                    }
+                ]
+            },
+            {
+                "chip": {
+                    "background": "#F6E5E2",
+                    "color": "#6B2A2A"
+                },
+                "code": "OA",
+                "name": "OpenAlex",
+                "number": 3,
+                "revision_ids": false,
+                "slug": "openalex",
+                "types": [
+                    {
+                        "code": "W",
+                        "entity_type": "item",
+                        "iri": "https://openalex.org/{upstream_id}",
+                        "namespace": "Item",
+                        "upstream_prefix": "W"
+                    },
+                    {
+                        "code": "A",
+                        "entity_type": "item",
+                        "iri": "https://openalex.org/{upstream_id}",
+                        "namespace": "Item",
+                        "upstream_prefix": "A"
+                    },
+                    {
+                        "code": "S",
+                        "entity_type": "item",
+                        "iri": "https://openalex.org/{upstream_id}",
+                        "namespace": "Item",
+                        "upstream_prefix": "S"
+                    },
+                    {
+                        "code": "I",
+                        "entity_type": "item",
+                        "iri": "https://openalex.org/{upstream_id}",
+                        "namespace": "Item",
+                        "upstream_prefix": "I"
+                    },
+                    {
+                        "code": "T",
+                        "entity_type": "item",
+                        "iri": "https://openalex.org/{upstream_id}",
+                        "namespace": "Item",
+                        "upstream_prefix": "T"
+                    },
+                    {
+                        "code": "K",
+                        "entity_type": "keyword",
+                        "iri": "https://openalex.org/keywords/{upstream_id}",
+                        "namespace": null,
+                        "upstream_prefix": "keywords/"
+                    },
+                    {
+                        "code": "P",
+                        "entity_type": "item",
+                        "iri": "https://openalex.org/{upstream_id}",
+                        "namespace": "Item",
+                        "upstream_prefix": "P"
+                    },
+                    {
+                        "code": "F",
+                        "entity_type": "item",
+                        "iri": "https://openalex.org/{upstream_id}",
+                        "namespace": "Item",
+                        "upstream_prefix": "F"
+                    },
+                    {
+                        "code": "G",
+                        "entity_type": "item",
+                        "iri": "https://openalex.org/{upstream_id}",
+                        "namespace": "Item",
+                        "upstream_prefix": "G"
+                    }
+                ]
+            },
+            {
+                "chip": {
+                    "background": "#F5E3EE",
+                    "color": "#6A2150"
+                },
+                "code": "MB",
+                "name": "MusicBrainz",
+                "number": 4,
+                "revision_ids": false,
+                "slug": "musicbrainz",
+                "types": [
+                    {
+                        "code": "A",
+                        "entity_type": "item",
+                        "iri": "https://musicbrainz.org/artist/{upstream_id}",
+                        "namespace": "Item",
+                        "upstream_prefix": ""
+                    },
+                    {
+                        "code": "G",
+                        "entity_type": "item",
+                        "iri": "https://musicbrainz.org/release-group/{upstream_id}",
+                        "namespace": "Item",
+                        "upstream_prefix": ""
+                    },
+                    {
+                        "code": "R",
+                        "entity_type": "item",
+                        "iri": "https://musicbrainz.org/release/{upstream_id}",
+                        "namespace": "Item",
+                        "upstream_prefix": ""
+                    },
+                    {
+                        "code": "C",
+                        "entity_type": "item",
+                        "iri": "https://musicbrainz.org/recording/{upstream_id}",
+                        "namespace": "Item",
+                        "upstream_prefix": ""
+                    },
+                    {
+                        "code": "W",
+                        "entity_type": "item",
+                        "iri": "https://musicbrainz.org/work/{upstream_id}",
+                        "namespace": "Item",
+                        "upstream_prefix": ""
+                    },
+                    {
+                        "code": "L",
+                        "entity_type": "item",
+                        "iri": "https://musicbrainz.org/label/{upstream_id}",
+                        "namespace": "Item",
+                        "upstream_prefix": ""
+                    },
+                    {
+                        "code": "D",
+                        "entity_type": "item",
+                        "iri": "https://musicbrainz.org/area/{upstream_id}",
+                        "namespace": "Item",
+                        "upstream_prefix": ""
+                    },
+                    {
+                        "code": "P",
+                        "entity_type": "item",
+                        "iri": "https://musicbrainz.org/place/{upstream_id}",
+                        "namespace": "Item",
+                        "upstream_prefix": ""
+                    },
+                    {
+                        "code": "E",
+                        "entity_type": "item",
+                        "iri": "https://musicbrainz.org/event/{upstream_id}",
+                        "namespace": "Item",
+                        "upstream_prefix": ""
+                    },
+                    {
+                        "code": "S",
+                        "entity_type": "item",
+                        "iri": "https://musicbrainz.org/series/{upstream_id}",
+                        "namespace": "Item",
+                        "upstream_prefix": ""
+                    },
+                    {
+                        "code": "I",
+                        "entity_type": "item",
+                        "iri": "https://musicbrainz.org/instrument/{upstream_id}",
+                        "namespace": "Item",
+                        "upstream_prefix": ""
+                    },
+                    {
+                        "code": "N",
+                        "entity_type": "item",
+                        "iri": "https://musicbrainz.org/genre/{upstream_id}",
+                        "namespace": "Item",
+                        "upstream_prefix": ""
+                    }
+                ]
+            },
+            {
+                "chip": {
+                    "background": "#DFF0F2",
+                    "color": "#0F4C5C"
+                },
+                "code": "XD",
+                "name": "Internet Domains Wikibase",
+                "number": 5,
+                "revision_ids": true,
+                "slug": "internetdomains",
+                "types": [
+                    {
+                        "code": "Q",
+                        "entity_type": "item",
+                        "iri": "https://internetdomains.wiki/entity/{upstream_id}",
+                        "namespace": "Item",
+                        "upstream_prefix": "Q"
+                    },
+                    {
+                        "code": "P",
+                        "entity_type": "property",
+                        "iri": "https://internetdomains.wiki/entity/{upstream_id}",
+                        "namespace": "Property",
+                        "upstream_prefix": "P"
+                    }
+                ]
+            },
+            {
+                "chip": {
+                    "background": "#ECF1DC",
+                    "color": "#3D4F12"
+                },
+                "code": "OS",
+                "name": "OpenStreetMap",
+                "number": 6,
+                "revision_ids": false,
+                "slug": "openstreetmap",
+                "types": [
+                    {
+                        "code": "N",
+                        "entity_type": "item",
+                        "iri": "https://www.openstreetmap.org/node/{upstream_id}",
+                        "namespace": "Item",
+                        "upstream_prefix": ""
+                    },
+                    {
+                        "code": "W",
+                        "entity_type": "item",
+                        "iri": "https://www.openstreetmap.org/way/{upstream_id}",
+                        "namespace": "Item",
+                        "upstream_prefix": ""
+                    },
+                    {
+                        "code": "R",
+                        "entity_type": "item",
+                        "iri": "https://www.openstreetmap.org/relation/{upstream_id}",
+                        "namespace": "Item",
+                        "upstream_prefix": ""
+                    }
+                ]
+            },
+            {
+                "chip": {
+                    "background": "#F2E8DE",
+                    "color": "#5C3A1E"
+                },
+                "code": "OW",
+                "name": "OpenStreetMap Wiki data items",
+                "number": 7,
+                "revision_ids": true,
+                "slug": "osmwiki",
+                "types": [
+                    {
+                        "code": "Q",
+                        "entity_type": "item",
+                        "iri": "https://wiki.openstreetmap.org/entity/{upstream_id}",
+                        "namespace": "Item",
+                        "upstream_prefix": "Q"
+                    },
+                    {
+                        "code": "P",
+                        "entity_type": "property",
+                        "iri": "https://wiki.openstreetmap.org/entity/{upstream_id}",
+                        "namespace": "Property",
+                        "upstream_prefix": "P"
+                    }
+                ]
+            },
+            {
+                "chip": {
+                    "background": "#E8E9EC",
+                    "color": "#3A3F4A"
+                },
+                "code": "GD",
+                "name": "GDELT",
+                "number": 8,
+                "revision_ids": false,
+                "slug": "gdelt",
+                "types": [
+                    {
+                        "code": "E",
+                        "entity_type": "item",
+                        "iri": "https://scatter.red/gdelt/event/{upstream_id}",
+                        "namespace": "Item",
+                        "upstream_prefix": ""
+                    },
+                    {
+                        "code": "D",
+                        "entity_type": "item",
+                        "iri": "https://scatter.red/gdelt/document/{upstream_id}",
+                        "namespace": "Item",
+                        "upstream_prefix": ""
+                    },
+                    {
+                        "code": "C",
+                        "entity_type": "item",
+                        "iri": "https://scatter.red/gdelt/cameo/{upstream_id}",
+                        "namespace": "Item",
+                        "upstream_prefix": ""
+                    },
+                    {
+                        "code": "T",
+                        "entity_type": "item",
+                        "iri": "https://scatter.red/gdelt/theme/{upstream_id}",
+                        "namespace": "Item",
+                        "upstream_prefix": ""
+                    }
+                ]
+            }
+        ],
+        "triplespace": {
+            "api_version": 1,
+            "capabilities": [
+                "wbgetentities",
+                "wbsearchentities",
+                "wbeditentity",
+                "statements",
+                "terms",
+                "login",
+                "clientlogin",
+                "bearer"
+            ],
+            "farm": "librarybase",
+            "grants": [
+                "basic",
+                "highvolume",
+                "editpage",
+                "createeditmovepage",
+                "editentity",
+                "editprotected",
+                "patrol",
+                "delete",
+                "protect",
+                "blockusers",
+                "viewdeleted",
+                "editmywatchlist",
+                "ts-jobs"
+            ],
+            "insecure": true,
+            "providers": [
+                "wikidata",
+                "librarybase",
+                "openalex",
+                "musicbrainz",
+                "internetdomains",
+                "openstreetmap",
+                "osmwiki",
+                "gdelt"
+            ],
+            "rate_limits": [],
+            "search": "postgres",
+            "tenant": "librarybase"
+        }
+    }
+}

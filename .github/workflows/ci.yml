@@ -88,6 +88,47 @@ jobs:
       # The manifest and hashed files that triplespace-ui embeds.
       - run: npm run build
 
+  e2e:
+    name: End to end (two web replicas, JavaScript off, axe)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TRIPLESPACE_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      # ui/dist first: the binaries embed it.
+      - name: Front end
+        working-directory: ui
+        run: npm ci && npm run build
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.95.0
+      - uses: Swatinem/rust-cache@v2
+      - name: Binaries
+        run: cargo build -p triplespace-cli -p triplespace-server -p triplespace-web
+      - name: Browser
+        working-directory: ui
+        run: npx playwright install --with-deps chromium
+      - name: Suite
+        working-directory: ui
+        run: npm run e2e
+
   deny:
     name: Licences and advisories
     runs-on: ubuntu-latest

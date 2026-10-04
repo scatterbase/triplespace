@@ -1,0 +1,50 @@
+---
+source: crates/triplespace-ui/tests/entity.rs
+expression: main_of(&html)
+---
+<main class="ts-page" id="content">
+	<p class="ts-page__identity">
+<span class="ts-chip ts-chip--namespace">Domain</span> <span class="ts-mono" dir="ltr">wikipedia.org</span> <span>Named by its key, minted by no one</span>
+</p>
+	<h1 class="ts-page__title">Wikipedia</h1>
+	<div class="ts-terms" data-region="terms">
+<p class="ts-terms__description">the free encyclopedia</p>
+</div>
+	<nav class="ts-tabs" aria-label="Page">
+		<a class="ts-tabs__link" href="/wiki/Domain:wikipedia.org" aria-current="page">Statements</a>
+		<a class="ts-tabs__link" href="/wiki/Domain:wikipedia.org?tab=identifiers">Identifiers</a>
+		<a class="ts-tabs__link" href="/wiki/Domain:wikipedia.org?tab=labels">Labels in other languages</a>
+		<a class="ts-tabs__link" href="/w/index.php?title=Domain:wikipedia.org&#38;action=history">History</a>
+	</nav>
+	<div class="ts-page__body">
+		<div class="ts-entity">
+<div class="ts-entity__main">
+<h2 class="ts-visually-hidden">Statements</h2>
+<section class="ts-group" id="XDP8" data-region="statements/XDP8">
+<div class="ts-group__property">
+<a href="/wiki/Property:XDP8" title="XDP8">related domain</a>
+</div>
+<ol class="ts-group__values">
+<li class="ts-statement" id="domain:wikipedia.org$00000000-0000-0000-0000-0000000000B2">
+<div class="ts-statement__value">
+<a href="/wiki/Domain:example.org" title="domain:example.org">example.org</a>
+</div>
+</li>
+</ol>
+</section>
+</div>
+<aside class="ts-sources" aria-labelledby="ts-sources-title">
+<h2 class="ts-sources__title" id="ts-sources-title">Where this comes from</h2>
+<section class="ts-sources__graph">
+<h3>
+<span class="ts-chip ts-chip--provider ts-chip--p-xd">XD</span> Internet Domains Wikibase mirror</h3>
+<p>1 statement</p>
+<p class="ts-subtle">Synced 4 October 2026 · upstream revision 56</p>
+</section>
+<p class="ts-sources__actions">
+<a href="/wiki/Special:EntityData/domain:wikipedia.org.json">Download as JSON</a>
+</p>
+</aside>
+</div>
+	</div>
+</main>

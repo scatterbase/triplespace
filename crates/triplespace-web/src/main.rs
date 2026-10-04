@@ -41,7 +41,7 @@ struct Args {
 enum Command {
     /// Prints the edge proxy's routing: which paths go to the API, which to the web tier.
     Routes {
-        /// `caddy`, `nginx` or `haproxy`.
+        /// `caddy`, `nginx`, `haproxy`, or `json` for tools.
         #[arg(long, default_value = "caddy")]
         format: String,
     },
@@ -71,7 +71,7 @@ async fn main() -> Result<()> {
     let args = Args::parse();
     if let Some(Command::Routes { format }) = args.command {
         let Some(f) = Format::parse(&format) else {
-            bail!("--format is caddy, nginx or haproxy, not `{format}`");
+            bail!("--format is caddy, nginx, haproxy or json, not `{format}`");
         };
         print!("{}", print(f));
         return Ok(());

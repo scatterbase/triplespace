@@ -1,0 +1,102 @@
+<mediawiki xmlns="http://www.mediawiki.org/xml/export-0.11/" version="0.11" xml:lang="en">
+  <siteinfo><sitename>Librarybase</sitename><namespaces>
+    <namespace key="120" case="first-letter">Item</namespace>
+    <namespace key="122" case="first-letter">Property</namespace>
+  </namespaces></siteinfo>
+  <page><title>Property:P12</title><ns>122</ns><id>11</id>
+    <revision><id>901</id><timestamp>2026-09-20T14:02:11Z</timestamp>
+      <contributor><username>Alice</username><id>7</id></contributor>
+      <model>wikibase-property</model><format>application/json</format>
+      <text xml:space="preserve">{"type": "property", "id": "P12", "datatype": "string", "labels": {"en": {"language": "en", "value": "note"}}, "descriptions": {}, "aliases": {}, "claims": {}}</text>
+    </revision></page>
+  <page><title>Property:P2</title><ns>122</ns><id>12</id>
+    <revision><id>902</id><timestamp>2026-09-20T14:02:11Z</timestamp>
+      <contributor><username>Alice</username><id>7</id></contributor>
+      <model>wikibase-property</model><format>application/json</format>
+      <text xml:space="preserve">{"type": "property", "id": "P2", "datatype": "wikibase-item", "labels": {"en": {"language": "en", "value": "instance of"}}, "descriptions": {}, "aliases": {}, "claims": {}}</text>
+    </revision></page>
+  <page><title>Property:P3</title><ns>122</ns><id>13</id>
+    <revision><id>903</id><timestamp>2026-09-20T14:02:11Z</timestamp>
+      <contributor><username>Alice</username><id>7</id></contributor>
+      <model>wikibase-property</model><format>application/json</format>
+      <text xml:space="preserve">{"type": "property", "id": "P3", "datatype": "quantity", "labels": {"en": {"language": "en", "value": "population"}}, "descriptions": {}, "aliases": {}, "claims": {}}</text>
+    </revision></page>
+  <page><title>Property:P4</title><ns>122</ns><id>14</id>
+    <revision><id>904</id><timestamp>2026-09-20T14:02:11Z</timestamp>
+      <contributor><username>Alice</username><id>7</id></contributor>
+      <model>wikibase-property</model><format>application/json</format>
+      <text xml:space="preserve">{"type": "property", "id": "P4", "datatype": "time", "labels": {"en": {"language": "en", "value": "inception"}}, "descriptions": {}, "aliases": {}, "claims": {}}</text>
+    </revision></page>
+  <page><title>Property:P5</title><ns>122</ns><id>15</id>
+    <revision><id>905</id><timestamp>2026-09-20T14:02:11Z</timestamp>
+      <contributor><username>Alice</username><id>7</id></contributor>
+      <model>wikibase-property</model><format>application/json</format>
+      <text xml:space="preserve">{"type": "property", "id": "P5", "datatype": "globe-coordinate", "labels": {"en": {"language": "en", "value": "coordinate location"}}, "descriptions": {}, "aliases": {}, "claims": {}}</text>
+    </revision></page>
+  <page><title>Property:P6</title><ns>122</ns><id>16</id>
+    <revision><id>906</id><timestamp>2026-09-20T14:02:11Z</timestamp>
+      <contributor><username>Alice</username><id>7</id></contributor>
+      <model>wikibase-property</model><format>application/json</format>
+      <text xml:space="preserve">{"type": "property", "id": "P6", "datatype": "url", "labels": {"en": {"language": "en", "value": "official website"}}, "descriptions": {}, "aliases": {}, "claims": {}}</text>
+    </revision></page>
+  <page><title>Property:P7</title><ns>122</ns><id>17</id>
+    <revision><id>907</id><timestamp>2026-09-20T14:02:11Z</timestamp>
+      <contributor><username>Alice</username><id>7</id></contributor>
+      <model>wikibase-property</model><format>application/json</format>
+      <text xml:space="preserve">{"type": "property", "id": "P7", "datatype": "external-id", "labels": {"en": {"language": "en", "value": "ISNI"}}, "descriptions": {}, "aliases": {}, "claims": {}}</text>
+    </revision></page>
+  <page><title>Property:P8</title><ns>122</ns><id>18</id>
+    <revision><id>908</id><timestamp>2026-09-20T14:02:11Z</timestamp>
+      <contributor><username>Alice</username><id>7</id></contributor>
+      <model>wikibase-property</model><format>application/json</format>
+      <text xml:space="preserve">{"type": "property", "id": "P8", "datatype": "monolingualtext", "labels": {"en": {"language": "en", "value": "native label"}}, "descriptions": {}, "aliases": {}, "claims": {}}</text>
+    </revision></page>
+  <page><title>Property:P9</title><ns>122</ns><id>19</id>
+    <revision><id>909</id><timestamp>2026-09-20T14:02:11Z</timestamp>
+      <contributor><username>Alice</username><id>7</id></contributor>
+      <model>wikibase-property</model><format>application/json</format>
+      <text xml:space="preserve">{"type": "property", "id": "P9", "datatype": "time", "labels": {"en": {"language": "en", "value": "point in time"}}, "descriptions": {}, "aliases": {}, "claims": {}}</text>
+    </revision></page>
+  <page><title>Property:P10</title><ns>122</ns><id>20</id>
+    <revision><id>910</id><timestamp>2026-09-20T14:02:11Z</timestamp>
+      <contributor><username>Alice</username><id>7</id></contributor>
+      <model>wikibase-property</model><format>application/json</format>
+      <text xml:space="preserve">{"type": "property", "id": "P10", "datatype": "wikibase-item", "labels": {"en": {"language": "en", "value": "stated in"}}, "descriptions": {}, "aliases": {}, "claims": {}}</text>
+    </revision></page>
+  <page><title>Property:P11</title><ns>122</ns><id>21</id>
+    <revision><id>911</id><timestamp>2026-09-20T14:02:11Z</timestamp>
+      <contributor><username>Alice</username><id>7</id></contributor>
+      <model>wikibase-property</model><format>application/json</format>
+      <text xml:space="preserve">{"type": "property", "id": "P11", "datatype": "url", "labels": {"en": {"language": "en", "value": "reference URL"}}, "descriptions": {}, "aliases": {}, "claims": {}}</text>
+    </revision></page>
+  <page><title>Item:Q1</title><ns>120</ns><id>22</id>
+    <revision><id>912</id><timestamp>2026-09-20T14:02:11Z</timestamp>
+      <contributor><username>Alice</username><id>7</id></contributor>
+      <model>wikibase-item</model><format>application/json</format>
+      <text xml:space="preserve">{"type": "item", "id": "Q1", "labels": {"en": {"language": "en", "value": "city"}, "de": {"language": "de", "value": "Stadt"}}, "descriptions": {}, "aliases": {}, "claims": {}, "sitelinks": {}}</text>
+    </revision></page>
+  <page><title>Item:Q2</title><ns>120</ns><id>23</id>
+    <revision><id>913</id><timestamp>2026-09-20T14:02:11Z</timestamp>
+      <contributor><username>Alice</username><id>7</id></contributor>
+      <model>wikibase-item</model><format>application/json</format>
+      <text xml:space="preserve">{"type": "item", "id": "Q2", "labels": {"en": {"language": "en", "value": "number"}, "de": {"language": "de", "value": "Zahl"}}, "descriptions": {}, "aliases": {}, "claims": {}, "sitelinks": {}}</text>
+    </revision></page>
+  <page><title>Item:Q3</title><ns>120</ns><id>24</id>
+    <revision><id>914</id><timestamp>2026-09-20T14:02:11Z</timestamp>
+      <contributor><username>Alice</username><id>7</id></contributor>
+      <model>wikibase-item</model><format>application/json</format>
+      <text xml:space="preserve">{"type": "item", "id": "Q3", "labels": {"en": {"language": "en", "value": "Example Gazette"}}, "descriptions": {}, "aliases": {}, "claims": {}, "sitelinks": {}}</text>
+    </revision></page>
+  <page><title>Item:Q5</title><ns>120</ns><id>25</id>
+    <revision><id>915</id><timestamp>2026-09-20T14:02:11Z</timestamp>
+      <contributor><username>Alice</username><id>7</id></contributor>
+      <model>wikibase-item</model><format>application/json</format>
+      <text xml:space="preserve">{"type": "item", "id": "Q5", "labels": {"en": {"language": "en", "value": "inhabitant"}}, "descriptions": {}, "aliases": {}, "claims": {}, "sitelinks": {}}</text>
+    </revision></page>
+  <page><title>Item:Q6</title><ns>120</ns><id>26</id>
+    <revision><id>916</id><timestamp>2026-09-20T14:02:11Z</timestamp>
+      <contributor><username>Alice</username><id>7</id></contributor>
+      <model>wikibase-item</model><format>application/json</format>
+      <text xml:space="preserve">{"type": "item", "id": "Q6", "labels": {"en": {"language": "en", "value": "Six &amp; more"}, "de": {"language": "de", "value": "Sechs"}, "ar": {"language": "ar", "value": "ستة"}}, "descriptions": {"en": {"language": "en", "value": "a number"}, "de": {"language": "de", "value": "eine Zahl"}}, "aliases": {"en": [{"language": "en", "value": "6"}, {"language": "en", "value": "half dozen"}]}, "claims": {"P12": [{"mainsnak": {"snaktype": "value", "property": "P12", "datatype": "string", "datavalue": {"value": "six", "type": "string"}}, "type": "statement", "rank": "normal", "id": "Q6$00000001-0000-0000-0000-000000000000"}], "P2": [{"mainsnak": {"snaktype": "value", "property": "P2", "datatype": "wikibase-item", "datavalue": {"value": {"entity-type": "item", "id": "Q2"}, "type": "wikibase-entityid"}}, "type": "statement", "rank": "preferred", "id": "Q6$00000002-0000-0000-0000-000000000000"}, {"mainsnak": {"snaktype": "value", "property": "P2", "datatype": "wikibase-item", "datavalue": {"value": {"entity-type": "item", "id": "Q1"}, "type": "wikibase-entityid"}}, "type": "statement", "rank": "normal", "id": "Q6$00000003-0000-0000-0000-000000000000"}, {"mainsnak": {"snaktype": "value", "property": "P2", "datatype": "wikibase-item", "datavalue": {"value": {"entity-type": "item", "id": "Q3"}, "type": "wikibase-entityid"}}, "type": "statement", "rank": "deprecated", "id": "Q6$00000004-0000-0000-0000-000000000000"}], "P3": [{"mainsnak": {"snaktype": "value", "property": "P3", "datatype": "quantity", "datavalue": {"value": {"amount": "+3898747", "unit": "https://librarybase.org/entity/Q5", "upperBound": "+3898757", "lowerBound": "+3898737"}, "type": "quantity"}}, "type": "statement", "rank": "normal", "id": "Q6$00000005-0000-0000-0000-000000000000", "qualifiers": {"P9": [{"snaktype": "value", "property": "P9", "datatype": "time", "datavalue": {"value": {"time": "+2020-00-00T00:00:00Z", "timezone": 0, "before": 0, "after": 0, "precision": 9, "calendarmodel": "http://www.wikidata.org/entity/Q1985727"}, "type": "time"}}]}, "qualifiers-order": ["P9"], "references": [{"snaks": {"P10": [{"snaktype": "value", "property": "P10", "datatype": "wikibase-item", "datavalue": {"value": {"entity-type": "item", "id": "Q3"}, "type": "wikibase-entityid"}}], "P11": [{"snaktype": "value", "property": "P11", "datatype": "url", "datavalue": {"value": "https://example.org/census", "type": "string"}}]}, "snaks-order": ["P10", "P11"]}]}], "P4": [{"mainsnak": {"snaktype": "value", "property": "P4", "datatype": "time", "datavalue": {"value": {"time": "+1952-03-11T00:00:00Z", "timezone": 0, "before": 0, "after": 0, "precision": 11, "calendarmodel": "http://www.wikidata.org/entity/Q1985727"}, "type": "time"}}, "type": "statement", "rank": "normal", "id": "Q6$00000006-0000-0000-0000-000000000000"}], "P5": [{"mainsnak": {"snaktype": "value", "property": "P5", "datatype": "globe-coordinate", "datavalue": {"value": {"latitude": 34.0522, "longitude": -118.2437, "altitude": null, "precision": 0.016666666666666666, "globe": "http://www.wikidata.org/entity/Q2"}, "type": "globecoordinate"}}, "type": "statement", "rank": "normal", "id": "Q6$00000007-0000-0000-0000-000000000000"}], "P6": [{"mainsnak": {"snaktype": "value", "property": "P6", "datatype": "url", "datavalue": {"value": "https://six.example/", "type": "string"}}, "type": "statement", "rank": "normal", "id": "Q6$00000008-0000-0000-0000-000000000000"}], "P7": [{"mainsnak": {"snaktype": "value", "property": "P7", "datatype": "external-id", "datavalue": {"value": "0000 0001 2103 2683", "type": "string"}}, "type": "statement", "rank": "normal", "id": "Q6$00000009-0000-0000-0000-000000000000"}], "P8": [{"mainsnak": {"snaktype": "value", "property": "P8", "datatype": "monolingualtext", "datavalue": {"value": {"text": "ستة", "language": "ar"}, "type": "monolingualtext"}}, "type": "statement", "rank": "normal", "id": "Q6$00000010-0000-0000-0000-000000000000"}], "P10": [{"mainsnak": {"snaktype": "somevalue", "property": "P10", "datatype": "wikibase-item"}, "type": "statement", "rank": "normal", "id": "Q6$00000011-0000-0000-0000-000000000000"}]}, "sitelinks": {}}</text>
+    </revision></page>
+</mediawiki>

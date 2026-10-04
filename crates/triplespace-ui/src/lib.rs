@@ -11,17 +11,21 @@
 //!   edge proxy's configuration and the embedded mode both come from (0057 §3).
 //! - [`pages`]: the handlers, and the caching a page composes from the API responses it
 //!   used (0057 §6).
+//! - [`entity`]: entity pages and their `action=render` regions (0010 §2; 0057 §8).
 //! - [`frame`]: the page frame of 0010 §2, with the [`codex`] builder's components.
 //! - [`theme`]: the shipped default theme and a tenant's overrides, as a stylesheet of
 //!   Codex token values (0034 §1).
 //! - [`assets`]: the built frontend (`ui/dist`), embedded, and its manifest.
 //! - [`i18n`]: interface messages from `i18n/` (0034 §9).
+//! - [`html`]: escaping, for the pieces too small for a template.
 
 #![forbid(unsafe_code)]
 
 pub mod assets;
 pub mod codex;
+pub mod entity;
 pub mod frame;
+pub mod html;
 pub mod i18n;
 pub mod pages;
 pub mod routes;

@@ -3,8 +3,15 @@
 //! themed by the token values of [`crate::theme`].
 //!
 //! Each component is an askama template that escapes what it is given; its rendering is
-//! therefore safe to place in another template unescaped. Phase 0 has the three the frame
-//! uses; Phase 1 adds fields, table, card, tabs, chip and progress.
+//! therefore safe to place in another template unescaped, except where a field is named
+//! `…_html` or is a [`Cell`]'s HTML, which the caller builds from escaped parts.
+//!
+//! Codex's components: button, search input, message, table, accordion, card, field with
+//! a text input, and the indeterminate progress bar (a determinate one sets its width in
+//! a `style` attribute, which the content security policy refuses). Page tabs are links
+//! styled from tokens in the frame (`ts-tabs`), since Codex's Tabs are in-page panels.
+//! The chips of 0010 §2 are the site's own (`ts-chip`), built from Codex tokens; a
+//! provider's colours come from the theme stylesheet ([`crate::theme`]).
 
 use askama::Template;
 
@@ -156,6 +163,210 @@ impl<'a> Message<'a> {
     }
 }
 
+/// What a chip marks (0010 §2).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ChipKind {
+    /// A provider's code, in the provider's colours.
+    Provider(String),
+    /// Made on this instance.
+    Local,
+    /// A namespace or kind of page.
+    Namespace,
+    /// An import job.
+    Job,
+    /// A log action.
+    Log,
+    /// A local correction of a mirrored value.
+    Corrected,
+    /// The value a reader should use (0003 §9).
+    Best,
+    /// A rank other than normal.
+    Rank,
+}
+
+/// A chip.
+#[derive(Debug, Clone, Template)]
+#[template(path = "codex/chip.html")]
+pub struct Chip<'a> {
+    /// What it marks.
+    pub kind: ChipKind,
+    /// Its text.
+    pub text: &'a str,
+    /// A tooltip.
+    pub title: Option<&'a str>,
+}
+
+impl<'a> Chip<'a> {
+    /// A chip of a kind.
+    #[must_use]
+    pub fn new(kind: ChipKind, text: &'a str) -> Self {
+        Self {
+            kind,
+            text,
+            title: None,
+        }
+    }
+
+    /// The `class` attribute. A provider's class is its code in lower case, which the
+    /// registry restricts to letters (0017 §2).
+    #[must_use]
+    pub fn classes(&self) -> String {
+        match &self.kind {
+            ChipKind::Provider(code) => {
+                let code: String = code
+                    .chars()
+                    .filter(char::is_ascii_alphanumeric)
+                    .map(|c| c.to_ascii_lowercase())
+                    .collect();
+                format!("ts-chip ts-chip--provider ts-chip--p-{code}")
+            }
+            ChipKind::Local => "ts-chip ts-chip--local".into(),
+            ChipKind::Namespace => "ts-chip ts-chip--namespace".into(),
+            ChipKind::Job => "ts-chip ts-chip--job".into(),
+            ChipKind::Log => "ts-chip ts-chip--log".into(),
+            ChipKind::Corrected => "ts-chip ts-chip--corrected".into(),
+            ChipKind::Best => "ts-chip ts-chip--best".into(),
+            ChipKind::Rank => "ts-chip ts-chip--rank".into(),
+        }
+    }
+}
+
+/// How a column's cells align.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Align {
+    /// At the start of the line.
+    #[default]
+    Start,
+    /// Centred.
+    Center,
+    /// At the end of the line.
+    End,
+    /// As numbers: at the right in either direction.
+    Number,
+}
+
+impl Align {
+    /// The cell class, if any.
+    #[must_use]
+    pub fn class(self) -> Option<&'static str> {
+        match self {
+            Self::Start => None,
+            Self::Center => Some("cdx-table__table__cell--align-center"),
+            Self::End => Some("cdx-table__table__cell--align-end"),
+            Self::Number => Some("cdx-table__table__cell--align-number"),
+        }
+    }
+}
+
+/// A table column.
+#[derive(Debug, Clone)]
+pub struct Column {
+    /// The heading.
+    pub label: String,
+    /// How its cells align.
+    pub align: Align,
+}
+
+/// A table cell: HTML built from escaped parts.
+#[derive(Debug, Clone, Default)]
+pub struct Cell {
+    /// The content.
+    pub html: String,
+    /// How it aligns.
+    pub align: Align,
+    /// A row header (`<th scope="row">`).
+    pub header: bool,
+    /// The language of its text, where it differs from the page's.
+    pub lang: Option<String>,
+}
+
+impl Cell {
+    /// A cell of HTML.
+    #[must_use]
+    pub fn html(html: String) -> Self {
+        Self {
+            html,
+            ..Self::default()
+        }
+    }
+}
+
+/// A Codex table.
+#[derive(Debug, Clone, Template)]
+#[template(path = "codex/table.html")]
+pub struct Table {
+    /// A visible heading above the table, if any.
+    pub header: Option<String>,
+    /// The caption, for screen readers.
+    pub caption: String,
+    /// The columns.
+    pub columns: Vec<Column>,
+    /// The rows.
+    pub rows: Vec<Vec<Cell>>,
+    /// What an empty table says.
+    pub empty: String,
+}
+
+/// A Codex accordion: a `<details>` that opens without JavaScript.
+#[derive(Debug, Clone, Template)]
+#[template(path = "codex/accordion.html")]
+pub struct Accordion<'a> {
+    /// The title.
+    pub title: &'a str,
+    /// A line under the title.
+    pub description: Option<&'a str>,
+    /// The content, as HTML built from escaped parts.
+    pub content: &'a str,
+    /// Open to start with.
+    pub open: bool,
+}
+
+/// A Codex card, a link when it has an `href`.
+#[derive(Debug, Clone, Template)]
+#[template(path = "codex/card.html")]
+pub struct Card<'a> {
+    /// The title.
+    pub title: &'a str,
+    /// The description.
+    pub description: Option<&'a str>,
+    /// The supporting text.
+    pub supporting: Option<&'a str>,
+    /// Where it goes.
+    pub href: Option<&'a str>,
+}
+
+/// A Codex field: a label, a text input, a description and help text.
+#[derive(Debug, Clone, Template)]
+#[template(path = "codex/field.html")]
+pub struct Field<'a> {
+    /// The input's `id`.
+    pub id: &'a str,
+    /// The input's `name`.
+    pub name: &'a str,
+    /// The input's `type`: `text`, `password`, `email`, ….
+    pub kind: &'a str,
+    /// Its value.
+    pub value: &'a str,
+    /// The label.
+    pub label: &'a str,
+    /// A description under the label.
+    pub description: Option<&'a str>,
+    /// Help under the input.
+    pub help: Option<&'a str>,
+    /// Whether it must be filled.
+    pub required: bool,
+}
+
+/// A Codex progress bar, indeterminate.
+#[derive(Debug, Clone, Template)]
+#[template(path = "codex/progress.html")]
+pub struct ProgressBar<'a> {
+    /// Its accessible name.
+    pub label: &'a str,
+    /// The inline (thin) variant.
+    pub inline: bool,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -184,6 +395,120 @@ mod tests {
         assert!(m.contains("a &#38; b"));
         let n = Message::block(MessageKind::Notice, "x").render().unwrap();
         assert!(n.contains("class=\"cdx-message\" aria-live=\"polite\""));
+    }
+
+    #[test]
+    fn chips() {
+        let c = Chip::new(ChipKind::Provider("WD\"x".into()), "WDQ65")
+            .render()
+            .unwrap();
+        assert_eq!(
+            c,
+            "<span class=\"ts-chip ts-chip--provider ts-chip--p-wdx\">WDQ65</span>"
+        );
+        let l = Chip {
+            title: Some("Made here"),
+            ..Chip::new(ChipKind::Local, "Local")
+        };
+        assert!(l.render().unwrap().contains("title=\"Made here\""));
+    }
+
+    #[test]
+    fn tables_escape_headings_and_keep_cell_html() {
+        let t = Table {
+            header: None,
+            caption: "Labels <all>".into(),
+            columns: vec![
+                Column {
+                    label: "Language".into(),
+                    align: Align::Start,
+                },
+                Column {
+                    label: "Count".into(),
+                    align: Align::Number,
+                },
+            ],
+            rows: vec![vec![
+                Cell {
+                    header: true,
+                    lang: Some("de".into()),
+                    ..Cell::html("<b>de</b>".into())
+                },
+                Cell {
+                    align: Align::Number,
+                    ..Cell::html("3".into())
+                },
+            ]],
+            empty: "None".into(),
+        }
+        .render()
+        .unwrap();
+        assert!(t.contains("<caption>Labels &#60;all&#62;</caption>"));
+        assert!(t.contains("<th scope=\"row\" lang=\"de\" dir=\"auto\"><b>de</b></th>"));
+        assert!(t.contains("class=\"cdx-table__table__cell--align-number\">3</td>"));
+        let empty = Table {
+            rows: vec![],
+            ..Table {
+                header: Some("H".into()),
+                caption: "c".into(),
+                columns: vec![Column {
+                    label: "a".into(),
+                    align: Align::Start,
+                }],
+                rows: vec![],
+                empty: "Nothing".into(),
+            }
+        }
+        .render()
+        .unwrap();
+        assert!(empty.contains("colspan=\"1\">Nothing</td>"));
+        assert!(empty.contains("cdx-table__header__caption"));
+    }
+
+    #[test]
+    fn accordion_card_field_progress() {
+        let a = Accordion {
+            title: "2 references",
+            description: None,
+            content: "<p>x</p>",
+            open: false,
+        }
+        .render()
+        .unwrap();
+        assert!(a.starts_with("<details class=\"cdx-accordion\">"));
+        assert!(a.contains("<p>x</p>"));
+        let c = Card {
+            title: "T",
+            description: Some("d"),
+            supporting: None,
+            href: Some("/wiki/X"),
+        }
+        .render()
+        .unwrap();
+        assert!(c.starts_with("<a class=\"cdx-card cdx-card--is-link\" href=\"/wiki/X\">"));
+        assert!(c.trim_end().ends_with("</a>"));
+        let f = Field {
+            id: "wpName",
+            name: "username",
+            kind: "text",
+            value: "\"",
+            label: "Username",
+            description: Some("Your name"),
+            help: None,
+            required: true,
+        }
+        .render()
+        .unwrap();
+        assert!(f.contains("aria-describedby=\"wpName-description\""));
+        assert!(f.contains("value=\"&#34;\""));
+        assert!(f.contains(" required>"));
+        let p = ProgressBar {
+            label: "Loading",
+            inline: true,
+        }
+        .render()
+        .unwrap();
+        assert!(p.contains("cdx-progress-bar--inline"));
     }
 
     #[test]

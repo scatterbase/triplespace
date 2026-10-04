@@ -2,7 +2,7 @@
 	"name": "triplespace-ui",
 	"private": true,
 	"version": "0.0.1",
-	"description": "The site's assets: Codex, the default theme's typefaces, and (from Phase 2) the Vue components of ADR 0034 \u00a74",
+	"description": "The site's assets: Codex, the default theme's typefaces, and (from Phase 2) the Vue components of ADR 0034 §4",
 	"license": "GPL-3.0-or-later",
 	"type": "module",
 	"engines": {
@@ -14,7 +14,8 @@
 		"lint:js": "eslint --max-warnings 0 .",
 		"lint:css": "stylelint \"src/**/*.css\"",
 		"lint:i18n": "banana-checker ../i18n",
-		"test": "vitest run --passWithNoTests"
+		"test": "vitest run --passWithNoTests",
+		"e2e": "e2e/run.sh"
 	},
 	"dependencies": {
 		"@fontsource/ibm-plex-mono": "5.3.0",
@@ -25,6 +26,8 @@
 		"@wikimedia/codex-icons": "2.7.0"
 	},
 	"devDependencies": {
+		"@axe-core/playwright": "4.13.0",
+		"@playwright/test": "1.56.0",
 		"eslint": "8.57.1",
 		"eslint-config-wikimedia": "0.32.6",
 		"grunt-banana-checker": "0.13.0",

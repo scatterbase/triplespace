@@ -1,4 +1,7 @@
-/* The site's stylesheet, left to right: Codex's CSS-only components, the typefaces, the frame. */
+/* The site's stylesheet, left to right: Codex's CSS-only components, the typefaces, the frame, the
+   chips and the entity pages. */
 @import '@wikimedia/codex/dist/codex.style.css';
 @import './fonts.css';
 @import './frame.css';
+@import './chips.css';
+@import './entity.css';

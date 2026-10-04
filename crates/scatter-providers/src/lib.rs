@@ -25,7 +25,7 @@ mod revid;
 
 pub use grammar::IdGrammar;
 pub use id::{ForeignId, IdError};
-pub use registry::{EntityType, Provider, Registry, RegistryError, Trust};
+pub use registry::{Chip, EntityType, Provider, Registry, RegistryError, Trust};
 pub use revid::{RevidError, provider_revid, split_revid};
 
 /// The default registry, `docs/registry/providers.toml`, embedded at build time.

@@ -1,0 +1,35 @@
+{
+    "canonical": "domain:wikipedia.org",
+    "corrections": {},
+    "dominant": "mirror/internetdomains",
+    "first_seen": "2026-10-04T05:36:04Z",
+    "graphs": [
+        {
+            "graph": "mirror/internetdomains",
+            "history": "latest",
+            "job": 2,
+            "statements": 1,
+            "synced_at": "2026-10-04T05:36:04Z",
+            "upstream_version": "56"
+        }
+    ],
+    "id": "domain:wikipedia.org",
+    "lastrevid": 5497558138936,
+    "minted_by": {
+        "kind": "keyed",
+        "type": "domain"
+    },
+    "modified": "2026-10-04T05:36:04Z",
+    "page_id": 2,
+    "statements": {
+        "domain:wikipedia.org$00000000-0000-0000-0000-0000000000B2": {
+            "graphs": [
+                "mirror/internetdomains"
+            ],
+            "members": [
+                "domain:wikipedia.org$00000000-0000-0000-0000-0000000000B2"
+            ]
+        }
+    },
+    "type": "domain"
+}

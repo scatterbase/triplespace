@@ -5,7 +5,7 @@ This directory is the registry of record for the names and codes that Triplespac
 | File | Lists | Embedded by | Defined in |
 |---|---|---|---|
 | `graphs.toml` | Reserved graph names, their kind, policies and payload type | `scatter-log` | 0015 §3, §5, 0039 §10–11, 0053 §5 |
-| `providers.toml` | Provider codes, slugs, numbers, type codes and ID grammars, IRI templates, issuers, trust mode and key-chain URL; the reserved doubled codes `AA`–`ZZ`; page providers with no code, pending (English Wikipedia) | `scatter-providers` | 0000 §3, 0002 §4, 0015 §2, §5, 0017 §2, 0022 §2, 0044 §2, 0052 §1 |
+| `providers.toml` | Provider codes, slugs, numbers, type codes and ID grammars, IRI templates, issuers, trust mode and key-chain URL, chip colours; the reserved doubled codes `AA`–`ZZ`; page providers with no code, pending (English Wikipedia) | `scatter-providers` | 0000 §3, 0002 §4, 0010 §2, 0015 §2, §5, 0017 §2, 0022 §2, 0044 §2, 0052 §1 |
 | `issuers.toml` | Issuer codes and actor models | `scatter-actors` | 0007 §1, 0054 §1 |
 | `namespaces.toml` | Default namespace numbers and kinds, each `pages` namespace's allowed and default content models, the reserved MediaWiki and Wikibase numbers, and the 210–229 and 310–329 ranges | `triplespace-titles` | 0008 §2 (amended), 0009 §11, 0017 §5, 0019 §3, 0029, 0038 §4, §8, 0039 §1, 0041 §4, 0042 §3, 0043 §2, 0045 §2, 0048 §7, 0055 §1 |
 | `content-models.toml` | Content models: ID, origin, source, slot, entity type, serialization format and direct editing; the reserved MediaWiki and Wikibase model IDs | `scatter-pages` | 0008 §5, 0041 §2–3, 0043 §3, 0045 §3, 0055 §1 |

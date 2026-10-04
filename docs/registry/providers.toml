@@ -13,6 +13,11 @@
 #              "verified" (default for scatter-adapter-triplespace) checks every mirrored batch against
 #              the provider's checkpoint and key chain; "stream" mirrors without proofs (0022 §2).
 # keys         The provider's key-chain URL, {base}/.well-known/tlog/keys, required when trust = "verified".
+# chip_color, chip_background
+#              The provider chip's text and background colours in the site, #RRGGBB, both or neither
+#              (0010 §2). The text must meet 4.5:1 on the background; the site checks it and shows a
+#              neutral chip where it does not. Each provider's pair differs from the others in hue, and
+#              from the Local and Best value chips the site draws itself.
 #
 # Each [[provider.type]] gives one entity type the provider mints:
 #   code             One-letter type code; the entity ID prefix is provider.code + type.code.
@@ -50,6 +55,8 @@ reserved_codes = ["AA", "BB", "CC", "DD", "EE", "FF", "GG", "HH", "II", "JJ", "K
 code = "WD"
 slug = "wikidata"
 name = "Wikidata"
+chip_color = "#1F5139"
+chip_background = "#E3EEE8"
 number = 1
 issuer = "wikidatawiki"
 revision_ids = true
@@ -94,6 +101,8 @@ agent_iri = "http://www.wikidata.org/entity/Q2013"    # the provider as a prov:O
 code = "LB"
 slug = "librarybase"
 name = "Librarybase"
+chip_color = "#5A2C7A"
+chip_background = "#EFE6F5"
 number = 2
 issuer = "librarybase"
 revision_ids = true
@@ -122,6 +131,8 @@ adapter = "scatter-adapter-wikidata"                            # any MediaWiki+
 code = "OA"
 slug = "openalex"
 name = "OpenAlex"
+chip_color = "#6B2A2A"
+chip_background = "#F6E5E2"
 number = 3
 issuer = "openalex"
 revision_ids = false             # no revision history; n is the mirror record's offset (0015 §2)
@@ -213,6 +224,8 @@ adapter = "scatter-adapter-openalex"
 code = "MB"
 slug = "musicbrainz"
 name = "MusicBrainz"
+chip_color = "#6A2150"
+chip_background = "#F5E3EE"
 number = 4
 issuer = "musicbrainz"
 revision_ids = false             # no per-entity revision IDs; n is the mirror record's offset (0015 §2)
@@ -331,6 +344,8 @@ id_grammar = "uuid"
 code = "XD"
 slug = "internetdomains"
 name = "Internet Domains Wikibase"
+chip_color = "#0F4C5C"
+chip_background = "#DFF0F2"
 number = 5
 issuer = "internetdomains"
 revision_ids = true
@@ -374,6 +389,8 @@ adapter = "scatter-adapter-internetdomains"
 code = "OS"
 slug = "openstreetmap"
 name = "OpenStreetMap"
+chip_color = "#3D4F12"
+chip_background = "#ECF1DC"
 number = 6
 issuer = "openstreetmap"
 revision_ids = false             # versions are per object and changesets are not global revisions; n is the mirror record's offset (0015 §2)
@@ -418,6 +435,8 @@ adapter = "scatter-adapter-openstreetmap"
 code = "OW"
 slug = "osmwiki"
 name = "OpenStreetMap Wiki data items"
+chip_color = "#5C3A1E"
+chip_background = "#F2E8DE"
 number = 7
 issuer = "osmwiki"
 revision_ids = true
@@ -473,6 +492,8 @@ adapter = "scatter-adapter-wikidata"    # any MediaWiki+Wikibase; the adapter is
 code = "GD"
 slug = "gdelt"
 name = "GDELT"
+chip_color = "#3A3F4A"
+chip_background = "#E8E9EC"
 number = 8
 issuer = "gdelt"
 revision_ids = false             # append-only files; n is the mirror record's offset (0015 §2)

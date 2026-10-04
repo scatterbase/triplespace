@@ -14,7 +14,7 @@ use tokio_postgres::{Config, NoTls};
 use tower::ServiceExt as _;
 use triplespace_accounts::Secret;
 use triplespace_api_action::{App, Config as ServerConfig, Mode, router_with};
-use triplespace_cli::instance;
+use triplespace_cli::{adopt, instance, sync};
 use triplespace_client::{Client, HttpTransport, ServiceTransport};
 use triplespace_projections::Farm;
 
@@ -91,14 +91,48 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
         base: format!("https://{HOST}"),
         farm_slug: None,
         farm_base: None,
-        providers: vec![],
-        adopt: None,
-        owner: None,
-        owner_name: "Owner".into(),
+        providers: vec!["internetdomains".into()],
+        adopt: Some(format!("https://{HOST}/")),
+        owner: Some(7),
+        owner_name: "Alice".into(),
         owner_password_file: None,
     })
     .await
     .expect("instance create");
+    // The entities of the site's fixtures: every data type, ranks, qualifiers and a
+    // reference, terms in three languages, and a Domain from the mirror.
+    let fixtures = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
+    adopt::run(adopt::Adopt {
+        database: database.clone(),
+        tenant: "librarybase".into(),
+        dump: fixtures.join("site-entities.xml"),
+        source: format!("https://{HOST}/"),
+        version: Some("test".into()),
+        frozen: true,
+        counters: Some("item=6,property=12".into()),
+        log_floor: 0,
+        entity_sources: vec![],
+        subsidiary: None,
+        batch: 200,
+        no_accounts: false,
+        farm_slug: None,
+        farm_base: None,
+    })
+    .await
+    .expect("adopt");
+    sync::run(sync::Sync {
+        database: database.clone(),
+        provider: "internetdomains".into(),
+        dump: fixtures.join("internetdomains.json"),
+        version: Some("20261001".into()),
+        snapshot: false,
+        threshold: 1000,
+        batch: 200,
+        farm_slug: None,
+        farm_base: None,
+    })
+    .await
+    .expect("sync");
 
     // The API, trusting the web tier on loopback by address (0057 §10).
     let app = App::new(
@@ -143,6 +177,14 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
     for path in [
         "/wiki/Main_Page",
         "/wiki/Item:Q6",
+        "/wiki/Item:Q6?tab=identifiers",
+        "/wiki/Item:Q6?tab=sitelinks",
+        "/wiki/Item:Q6?tab=labels",
+        "/wiki/Item:Q6?uselang=ar",
+        "/wiki/Item:Q6?action=render&region=statements/P3",
+        "/wiki/Property:P3",
+        "/wiki/Domain:wikipedia.org",
+        "/wiki/Item:Q404",
         "/w/index.php?title=Item:Q6&action=history",
         "/w/index.php?title=Special:Search&search=six",
         "/nothing/here",

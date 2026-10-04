@@ -1,0 +1,303 @@
+//! Entity pages against a fake API serving recorded responses (`tests/fixtures/`, taken
+//! from a server loaded with `crates/triplespace-server/tests/fixtures/`, plus a foreign
+//! item written by hand): snapshots of each page kind and region, and their caching.
+//!
+//! Update the snapshots with `INSTA_UPDATE=always cargo test -p triplespace-ui --test entity`
+//! and review the diff.
+
+use std::collections::BTreeMap;
+
+use axum::body::Body;
+use axum::http::{HeaderMap, Request, StatusCode, header};
+use http_body_util::BodyExt as _;
+use serde_json::{Value, json};
+use tower::ServiceExt as _;
+use triplespace_client::transport::BoxFuture;
+use triplespace_client::{ApiRequest, ApiResponse, Client, ClientError, Transport};
+
+fn fixture(name: &str) -> Option<Value> {
+    let path = format!("{}/tests/fixtures/{name}", env!("CARGO_MANIFEST_DIR"));
+    std::fs::read_to_string(path)
+        .ok()
+        .map(|t| serde_json::from_str(&t).expect("fixture parses"))
+}
+
+/// An ID as the API normalizes a title.
+fn id_of(text: &str) -> String {
+    let t = text.trim();
+    for (prefix, keyed) in [("Item:", ""), ("Property:", ""), ("Domain:", "domain:")] {
+        if let Some(rest) = t.strip_prefix(prefix) {
+            return format!("{keyed}{rest}");
+        }
+    }
+    t.to_string()
+}
+
+fn decode(s: &str) -> String {
+    percent_encoding::percent_decode_str(s)
+        .decode_utf8_lossy()
+        .into_owned()
+}
+
+fn param(q: &str, name: &str) -> Option<String> {
+    q.split('&')
+        .find_map(|kv| kv.strip_prefix(&format!("{name}=")))
+        .map(decode)
+}
+
+#[derive(Clone)]
+struct FixtureApi {
+    entities: BTreeMap<String, Value>,
+}
+
+impl FixtureApi {
+    fn new() -> Self {
+        let e = fixture("entities.json").unwrap();
+        Self {
+            entities: e["entities"]
+                .as_object()
+                .unwrap()
+                .iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect(),
+        }
+    }
+
+    fn answer(&self, path_and_query: &str) -> (StatusCode, Value, Vec<String>) {
+        let (path, query) = path_and_query
+            .split_once('?')
+            .unwrap_or((path_and_query, ""));
+        if let Some(rest) = path.strip_prefix("/w/rest.php/triplespace/v0/entity/") {
+            let id = id_of(&decode(rest.trim_end_matches("/provenance")));
+            return match fixture(&format!("provenance-{}.json", id.replace(':', "-"))) {
+                Some(v) => (StatusCode::OK, v, vec![format!("entity:{id}")]),
+                None => (
+                    StatusCode::NOT_FOUND,
+                    json!({"code": "entity-not-found", "message": "no entity"}),
+                    vec![],
+                ),
+            };
+        }
+        if query.contains("meta=siteinfo") {
+            return (StatusCode::OK, fixture("siteinfo.json").unwrap(), vec![]);
+        }
+        if query.contains("meta=userinfo") {
+            return (
+                StatusCode::OK,
+                json!({"query": {"userinfo": {"id": 0, "name": "127.0.0.1", "anon": true}}}),
+                vec![],
+            );
+        }
+        if query.contains("action=wbgetentities") {
+            let mut out = serde_json::Map::new();
+            let mut tags = Vec::new();
+            for given in param(query, "ids").unwrap_or_default().split('|') {
+                let id = id_of(given);
+                if id.chars().next().is_some_and(char::is_lowercase) && !id.contains(':') {
+                    return (
+                        StatusCode::OK,
+                        json!({"error": {"code": "invalid-entity-id", "info": "Invalid entity ID"}}),
+                        vec![],
+                    );
+                }
+                tags.push(format!("entity:{id}"));
+                match self.entities.get(&id) {
+                    Some(v) => {
+                        out.insert(id, v.clone());
+                    }
+                    None => {
+                        out.insert(given.to_string(), json!({"id": given, "missing": ""}));
+                    }
+                }
+            }
+            return (StatusCode::OK, json!({"entities": out, "success": 1}), tags);
+        }
+        (StatusCode::NOT_FOUND, json!({}), vec![])
+    }
+}
+
+impl Transport for FixtureApi {
+    fn send(&self, request: ApiRequest) -> BoxFuture<'_, Result<ApiResponse, ClientError>> {
+        Box::pin(async move {
+            let (status, body, tags) = self.answer(&request.path_and_query);
+            let body = serde_json::to_vec(&body).unwrap();
+            let mut headers = HeaderMap::new();
+            if status == StatusCode::OK {
+                let etag = format!("\"{:x}\"", body.len() * 31 + request.path_and_query.len());
+                headers.insert(header::ETAG, etag.parse().unwrap());
+                headers.insert(
+                    header::CACHE_CONTROL,
+                    "public, max-age=0, s-maxage=60".parse().unwrap(),
+                );
+                if !tags.is_empty() {
+                    headers.insert("cache-tag", tags.join(", ").parse().unwrap());
+                }
+            }
+            Ok(ApiResponse {
+                status,
+                headers,
+                body,
+            })
+        })
+    }
+
+    fn embedded(&self) -> bool {
+        false
+    }
+}
+
+async fn get(uri: &str) -> (StatusCode, HeaderMap, String) {
+    let req = Request::get(uri)
+        .header(header::HOST, "librarybase.org")
+        .body(Body::empty())
+        .unwrap();
+    let r = triplespace_ui::router(Client::new(FixtureApi::new()))
+        .oneshot(req)
+        .await
+        .unwrap();
+    let status = r.status();
+    let headers = r.headers().clone();
+    let body = r.into_body().collect().await.unwrap().to_bytes();
+    (status, headers, String::from_utf8(body.to_vec()).unwrap())
+}
+
+/// The page's `<main>`, which is what these snapshots are about; the frame has its own
+/// tests.
+fn main_of(html: &str) -> String {
+    let start = html.find("<main").expect("a <main>");
+    let end = html.find("</main>").expect("a </main>") + "</main>".len();
+    html[start..end].replace("><", ">\n<")
+}
+
+#[tokio::test]
+async fn a_local_item_reads_without_javascript() {
+    let (status, h, html) = get("/wiki/Item:Q6").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(html.contains("<title>Six &#38; more (Q6) – librarybase</title>"));
+    assert!(
+        h[header::CACHE_CONTROL]
+            .to_str()
+            .unwrap()
+            .starts_with("public")
+    );
+    let tags = h["cache-tag"].to_str().unwrap();
+    assert!(tags.contains("entity:Q6"), "{tags}");
+    assert!(
+        tags.contains("entity:P2"),
+        "the labels' tags are the page's too: {tags}"
+    );
+    assert!(h.get(header::ETAG).is_some());
+    insta::assert_snapshot!("item_statements", main_of(&html));
+}
+
+#[tokio::test]
+async fn item_tabs() {
+    for (tab, name) in [
+        ("identifiers", "item_identifiers"),
+        ("labels", "item_labels"),
+        ("sitelinks", "item_sitelinks"),
+    ] {
+        let (status, _, html) = get(&format!("/wiki/Item:Q6?tab={tab}")).await;
+        assert_eq!(status, StatusCode::OK, "{tab}");
+        insta::assert_snapshot!(name, main_of(&html));
+    }
+}
+
+#[tokio::test]
+async fn a_property_a_domain_and_a_foreign_item() {
+    for (uri, name) in [
+        ("/wiki/Property:P3", "property"),
+        ("/wiki/Domain:wikipedia.org", "domain"),
+        ("/wiki/Item:WDQ65", "foreign_item"),
+        ("/wiki/Item:WDQ65?tab=sitelinks", "foreign_item_sitelinks"),
+    ] {
+        let (status, _, html) = get(uri).await;
+        assert_eq!(status, StatusCode::OK, "{uri}");
+        insta::assert_snapshot!(name, main_of(&html));
+    }
+    let (_, _, prop) = get("/wiki/Property:P3").await;
+    assert!(
+        !prop.contains("tab=sitelinks"),
+        "a property has no Sitelinks tab"
+    );
+}
+
+#[tokio::test]
+async fn regions_are_the_pages_own_parts() {
+    let (_, _, page) = get("/wiki/Item:Q6").await;
+    let (_, _, identifiers_tab) = get("/wiki/Item:Q6?tab=identifiers").await;
+    for (region, name) in [
+        ("statements/P2", "region_statements_p2"),
+        ("statements/P99", "region_statements_empty"),
+        ("terms", "region_terms"),
+        ("identifiers", "region_identifiers"),
+    ] {
+        let (status, h, html) = get(&format!(
+            "/w/index.php?title=Item:Q6&action=render&region={region}"
+        ))
+        .await;
+        assert_eq!(status, StatusCode::OK, "{region}");
+        assert!(!html.contains("<html"), "{region} has no frame");
+        assert!(
+            h[header::CACHE_CONTROL]
+                .to_str()
+                .unwrap()
+                .starts_with("public")
+        );
+        let holder = if region == "identifiers" {
+            &identifiers_tab
+        } else {
+            &page
+        };
+        if region != "statements/P99" {
+            assert!(
+                holder.contains(&html),
+                "{region} is drawn on its page as served alone"
+            );
+        }
+        insta::assert_snapshot!(name, html.replace("><", ">\n<"));
+    }
+    let (status, _, _) = get("/wiki/Item:Q6?action=render&region=nonsense").await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let req = Request::get("/wiki/Item:Q6?action=render&region=terms")
+        .header(header::HOST, "librarybase.org")
+        .header("x-triplespace-ui-build", "an-older-build")
+        .body(Body::empty())
+        .unwrap();
+    let r = triplespace_ui::router(Client::new(FixtureApi::new()))
+        .oneshot(req)
+        .await
+        .unwrap();
+    assert_eq!(
+        r.status(),
+        StatusCode::CONFLICT,
+        "build skew reloads instead of swapping"
+    );
+}
+
+#[tokio::test]
+async fn missing_and_invalid_entities_are_404() {
+    for uri in ["/wiki/Item:Q404", "/wiki/Item:bogus"] {
+        let (status, _, html) = get(uri).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{uri}");
+        assert!(html.contains("There is no entity at"), "{uri}");
+    }
+}
+
+#[tokio::test]
+async fn uselang_sets_language_direction_and_labels() {
+    let (_, _, html) = get("/wiki/Item:Q6?uselang=ar").await;
+    assert!(html.contains("<html class=\"client-nojs\" lang=\"ar\" dir=\"rtl\">"));
+    assert!(html.contains(">ستة</h1>"), "the Arabic label");
+    let (_, _, de) = get("/wiki/Item:Q6?uselang=de").await;
+    assert!(de.contains(">Sechs</h1>"));
+    assert!(
+        de.contains(">Zahl</a>"),
+        "linked labels follow the reader's language too"
+    );
+    let (_, _, fallback) = get("/wiki/Item:WDQ65?uselang=de").await;
+    assert!(
+        fallback.contains("lang=\"en\" dir=\"auto\">Los Angeles</h1>"),
+        "an English fallback is marked"
+    );
+}

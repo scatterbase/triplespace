@@ -91,6 +91,24 @@ pub struct Provider {
     pub adapter_config: Option<toml::Table>,
     /// The entity types the provider mints, in registry order.
     pub types: Vec<EntityType>,
+    /// The colours of the provider's chip in the site (0010 §2), where the registry gives
+    /// them.
+    pub chip: Option<Chip>,
+}
+
+/// A provider chip's colours (0010 §2): text on a background, both `#RRGGBB`. The site
+/// checks them for 4.5:1 contrast before using them.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Chip {
+    /// The text colour.
+    pub color: String,
+    /// The background colour.
+    pub background: String,
+}
+
+/// Whether a string is a `#RRGGBB` colour.
+fn is_hex_colour(s: &str) -> bool {
+    s.len() == 7 && s.starts_with('#') && s[1..].bytes().all(|b| b.is_ascii_hexdigit())
 }
 
 impl Provider {
@@ -253,6 +271,8 @@ struct RawProvider {
     #[serde(default)]
     retired: bool,
     adapter_config: Option<toml::Table>,
+    chip_color: Option<String>,
+    chip_background: Option<String>,
     #[serde(default, rename = "type")]
     types: Vec<RawType>,
 }
@@ -327,6 +347,19 @@ impl RawProvider {
         }
 
         let types = validate_types(&slug, p.types, id_grammar)?;
+        let chip = match (p.chip_color, p.chip_background) {
+            (None, None) => None,
+            (Some(color), Some(background))
+                if is_hex_colour(&color) && is_hex_colour(&background) =>
+            {
+                Some(Chip { color, background })
+            }
+            _ => {
+                return Err(RegistryError::Toml(format!(
+                    "provider `{slug}`: chip_color and chip_background are both #RRGGBB, or neither is given"
+                )));
+            }
+        };
 
         Ok(Some(Provider {
             code,
@@ -346,6 +379,7 @@ impl RawProvider {
             retired: p.retired,
             adapter_config: p.adapter_config,
             types,
+            chip,
         }))
     }
 }
@@ -564,6 +598,31 @@ impl Registry {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_provider_has_a_chip_and_chips_are_checked() {
+        for p in Registry::default_registry().providers() {
+            assert!(p.chip.is_some(), "{} has no chip colours", p.slug);
+        }
+        let one = |extra: &str| {
+            format!("version = 1\n[[provider]]\ncode = \"ZQ\"\nslug = \"z\"\nnumber = 99\n{extra}")
+        };
+        assert!(Registry::parse(&one("chip_color = \"#000000\"\n")).is_err());
+        assert!(
+            Registry::parse(&one(
+                "chip_color = \"red\"\nchip_background = \"#FFFFFF\"\n"
+            ))
+            .is_err()
+        );
+        let r = Registry::parse(&one(
+            "chip_color = \"#000000\"\nchip_background = \"#FFFFFF\"\n",
+        ))
+        .unwrap();
+        assert_eq!(
+            r.providers()[0].chip.as_ref().unwrap().background,
+            "#FFFFFF"
+        );
+    }
 
     #[test]
     fn default_registry_parses_and_is_consistent() {

@@ -12,7 +12,8 @@
 # builds its stylesheet.
 #
 # Contrast. Every text colour here meets WCAG 2.1 AA (4.5:1) on background-color-base and on
-# background-color-neutral-subtle, white text meets it on background-color-progressive, and the
+# background-color-neutral-subtle, white text meets it on background-color-progressive,
+# color-warning meets it on background-color-warning-subtle (the Local chip, 0010 §2), and the
 # boundaries of interactive controls (border-color-base, border-color-interactive) and the focus
 # outline meet 3:1 (WCAG 1.4.11). border-color-subtle and border-color-muted are decorative. A
 # theme set through `ui.theme` is refused when it breaks one of these pairs (0034 §1).
@@ -30,6 +31,7 @@ label = "Triplespace"
 color-base = "#1D1C1A"
 color-emphasized = "#0F0E0D"
 color-neutral = "#3F3C36"
+color-warning = "#7A3F05"
 color-subtle = "#5E5A52"
 color-placeholder = "#6B665D"
 
@@ -46,6 +48,7 @@ color-visited = "#5A4D91"
 background-color-base = "#FCFBF8"
 background-color-neutral-subtle = "#F4F2EC"
 background-color-neutral = "#EDEAE2"
+background-color-warning-subtle = "#FBEFD9"
 background-color-interactive = "#EDEAE2"
 "background-color-interactive--hover" = "#E4E0D6"
 "background-color-interactive--active" = "#D9D4C8"

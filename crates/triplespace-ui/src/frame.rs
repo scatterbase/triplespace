@@ -62,8 +62,15 @@ pub struct Page {
     /// The title the login and logout links return to, as shown; none for a page that is
     /// not one (a 404).
     pub returnto: Option<String>,
-    /// The identity line.
-    pub identity: Option<String>,
+    /// The title's language, where it differs from the page's (a label in a fallback
+    /// language).
+    pub title_lang: Option<String>,
+    /// The document title, where it differs from the title (`Label (Q6)`).
+    pub doc_title: Option<String>,
+    /// The identity line, as HTML built from escaped parts.
+    pub identity_html: Option<String>,
+    /// What goes under the title (an entity's terms), as HTML built from escaped parts.
+    pub subtitle_html: Option<String>,
     /// The tabs.
     pub tabs: Vec<Tab>,
     /// The body, as HTML the page built from escaped parts.
@@ -76,10 +83,13 @@ pub struct Page {
 #[derive(Debug, Template)]
 #[template(path = "frame.html")]
 pub struct Frame<'a> {
-    m: Messages,
+    m: &'a Messages,
     sitename: &'a str,
     title: &'a str,
+    title_lang: Option<&'a str>,
+    doc_title: &'a str,
     identity: Option<&'a str>,
+    subtitle: Option<&'a str>,
     tabs: &'a [Tab],
     body: &'a str,
     search: String,
@@ -96,7 +106,7 @@ pub struct Frame<'a> {
 ///
 /// If the template fails to render, which it does only on a write error.
 pub fn render(
-    m: Messages,
+    m: &Messages,
     sitename: &str,
     theme: &Theme,
     user: Option<&str>,
@@ -125,7 +135,10 @@ pub fn render(
         m,
         sitename,
         title: &page.title,
-        identity: page.identity.as_deref(),
+        title_lang: page.title_lang.as_deref(),
+        doc_title: page.doc_title.as_deref().unwrap_or(&page.title),
+        identity: page.identity_html.as_deref(),
+        subtitle: page.subtitle_html.as_deref(),
         tabs: &page.tabs,
         body: &page.body,
         search,
@@ -162,7 +175,7 @@ mod tests {
     #[test]
     fn anonymous_frame() {
         let m = Messages::for_language("en");
-        let html = render(m, "Librarybase", Theme::shipped(), None, &page()).unwrap();
+        let html = render(&m, "Librarybase", Theme::shipped(), None, &page()).unwrap();
         assert!(
             html.starts_with(
                 "<!DOCTYPE html>\n<html class=\"client-nojs\" lang=\"en\" dir=\"ltr\">"
@@ -180,7 +193,7 @@ mod tests {
     #[test]
     fn account_menu_escapes_the_name() {
         let m = Messages::for_language("en");
-        let html = render(m, "L", Theme::shipped(), Some("A <b> C"), &page()).unwrap();
+        let html = render(&m, "L", Theme::shipped(), Some("A <b> C"), &page()).unwrap();
         assert!(html.contains("aria-label=\"Account menu for A &#60;b&#62; C\""));
         assert!(html.contains("href=\"/wiki/User:A_%3Cb%3E_C\""));
         assert!(!html.contains("Special:UserLogin"));
