@@ -11,14 +11,18 @@
 //! | `sitelinks` | The Sitelinks tab, grouped by host |
 //! | (none) | The Statements tab: its groups and "Where this comes from" |
 //!
-//! Every statement group uses the plain layout here: values in order, with their
-//! qualifiers, references and rank. The classified layouts of 0003 §3 (matrix, chart,
-//! timeline, chips) come with `scatter-wikibase-shape`.
+//! Each statement group takes the shape `scatter-wikibase-shape` gives it (0003 §3):
+//! Single, Timeline, Series, Table (or a numbered list, or a Matrix), Chips or List, with
+//! best values leading, other and deprecated values folded, shared qualifiers stated once
+//! and references as footnotes (§4–5). [`shapes`] draws them; [`chart`] draws the
+//! Series chart and the Timeline axis as SVG.
 //!
 //! One page costs three API calls in parallel with the frame's (`wbgetentities` for the
 //! entity, its provenance, and `siteinfo`), then one `wbgetentities` per 50 entities it
 //! refers to, for their labels and data types.
 
+mod chart;
+mod shapes;
 mod values;
 mod view;
 
@@ -32,6 +36,8 @@ use scatter_wikibase_model::statement::{Snak, SnakKind};
 use scatter_wikibase_model::value::DataValue;
 use serde_json::Value;
 use triplespace_client::{CacheInfo, ClientError, Provenance, SiteInfo};
+
+use scatter_wikibase_shape::Roles;
 
 use crate::Site;
 use crate::codex::MessageKind;
@@ -170,6 +176,23 @@ pub struct Render<'a> {
     pub entity: &'a Entity,
     /// Where it comes from, if the API said.
     pub provenance: Option<&'a Provenance>,
+    /// The role map shape detection reads (0003 §7).
+    pub roles: &'a Roles,
+}
+
+/// The role map: Wikidata's roles in their mirrored form for each provider that copies
+/// Wikidata's properties (`WDP585`). A local property plays a role only where the
+/// instance maps it, which the API does not report yet, so local groups take the shapes
+/// that need no role (Table, Chips, List).
+#[must_use]
+pub fn site_roles(site: &SiteInfo) -> Roles {
+    let mut roles = Roles::empty();
+    for p in &site.providers {
+        if p.slug == "wikidata" {
+            roles = roles.with_mirror(&p.code);
+        }
+    }
+    roles
 }
 
 /// The IDs a page needs labels for: properties and entity values in statements,
@@ -370,12 +393,14 @@ pub async fn serve(
             }
         }
     };
+    let roles = site_roles(&cx.site);
     let r = Render {
         m: &cx.m,
         site: &cx.site,
         lookup: &lookup,
         entity: &entity,
         provenance: provenance.as_ref(),
+        roles: &roles,
     };
     if render {
         region(&r, &cx, headers, query)

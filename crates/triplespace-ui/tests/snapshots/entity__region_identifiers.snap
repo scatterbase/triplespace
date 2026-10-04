@@ -3,16 +3,18 @@ source: crates/triplespace-ui/tests/entity.rs
 expression: "html.replace(\"><\", \">\\n<\")"
 ---
 <div class="ts-identifiers" data-region="identifiers">
-<section class="ts-group" id="P7" data-region="statements/P7">
+<section class="ts-group ts-group--single" id="P7" data-region="statements/P7" data-shape="single">
 <div class="ts-group__property">
 <a href="/wiki/Property:P7" title="P7">ISNI</a>
 </div>
-<ol class="ts-group__values">
-<li class="ts-statement" id="Q6$00000009-0000-0000-0000-000000000000">
+<div class="ts-group__body">
+<div class="ts-statement ts-statement--headline" id="Q6$00000009-0000-0000-0000-000000000000">
 <div class="ts-statement__value">
+<span class="ts-statement__main">
 <span class="ts-mono" dir="ltr">0000 0001 2103 2683</span>
+</span>
 </div>
-</li>
-</ol>
+</div>
+</div>
 </section>
 </div>

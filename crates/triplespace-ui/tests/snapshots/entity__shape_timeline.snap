@@ -1,0 +1,146 @@
+---
+source: crates/triplespace-ui/tests/entity.rs
+expression: "html.replace(\"><\", \">\\n<\")"
+---
+<section class="ts-group ts-group--timeline" id="WDP6" data-region="statements/WDP6" data-shape="timeline">
+<div class="ts-group__property">
+<a href="/wiki/Property:WDP6">
+<span class="ts-mono">WDP6</span>
+</a>
+<span class="ts-group__count">2 values</span>
+</div>
+<div class="ts-group__body">
+<svg class="ts-axis" viewBox="0 0 1000 12" height="12" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+<rect class="ts-axis__track" x="0" y="0" width="1000" height="12"/>
+<rect class="ts-axis__bar ts-axis__bar--open ts-axis__bar--best" x="901.4" y="1" width="98.6" height="4"/>
+<rect class="ts-axis__bar" x="0.0" y="7" width="904.3" height="4"/>
+</svg>
+<p class="ts-axis__span" aria-hidden="true">
+<span>2013</span>
+<span>2022</span>
+</p>
+<ol class="ts-group__values ts-timeline">
+<li class="ts-statement" id="WDQ65$5b4eebdb-4798-9de8-a570-ed8ca2da27bf">
+<div class="ts-statement__value">
+<span class="ts-statement__main">
+<a href="/wiki/Item:WDQ461739">
+<span class="ts-mono">WDQ461739</span>
+</a>
+</span> <span class="ts-chip ts-chip--best" title="Queries and infoboxes return only this value">Best value</span> <span class="ts-fns">
+<a class="ts-fn" href="#WDP6-fn-1" aria-label="Source 1">1</a>
+</span>
+</div>
+<p class="ts-period">since <bdi>
+<span class="ts-time">December 2022</span>
+</bdi>
+</p>
+<dl class="ts-qualifiers">
+<div class="ts-qualifiers__row">
+<dt>
+<a href="/wiki/Property:WDP39">
+<span class="ts-mono">WDP39</span>
+</a>
+</dt>
+<dd>
+<a href="/wiki/Item:WDQ1465319">
+<span class="ts-mono">WDQ1465319</span>
+</a>
+</dd>
+</div>
+<div class="ts-qualifiers__row">
+<dt>
+<a href="/wiki/Property:WDP585">
+<span class="ts-mono">WDP585</span>
+</a>
+</dt>
+<dd>
+<span class="ts-time">February 2023</span>
+</dd>
+</div>
+<div class="ts-qualifiers__row">
+<dt>
+<a href="/wiki/Property:WDP7452">
+<span class="ts-mono">WDP7452</span>
+</a>
+</dt>
+<dd>
+<a href="/wiki/Item:WDQ71536244">
+<span class="ts-mono">WDQ71536244</span>
+</a>
+</dd>
+</div>
+</dl>
+</li>
+<li class="ts-statement" id="q65$39ED6D00-2499-4ABE-A060-00967483008E">
+<div class="ts-statement__value">
+<span class="ts-statement__main">
+<a href="/wiki/Item:WDQ5386557">
+<span class="ts-mono">WDQ5386557</span>
+</a>
+</span> <span class="ts-fns">
+<a class="ts-fn" href="#WDP6-fn-2" aria-label="Source 2">2</a>
+</span>
+</div>
+<p class="ts-period">
+<bdi>
+<span class="ts-time">1 July 2013</span>
+</bdi> – <bdi>
+<span class="ts-time">12 December 2022</span>
+</bdi>
+</p>
+</li>
+</ol>
+<div class="ts-group__footer">
+<ol class="ts-footnotes" aria-label="Sources">
+<li id="WDP6-fn-1">
+<dl class="ts-snaks">
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:WDP854">
+<span class="ts-mono">WDP854</span>
+</a>
+</dt>
+<dd>
+<a href="https://mayor.lacity.gov/about-mayor-karen-bass" class="external" rel="nofollow ugc noopener" dir="ltr">https://mayor.lacity.gov/about-mayor-karen-bass</a>
+</dd>
+</div>
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:WDP813">
+<span class="ts-mono">WDP813</span>
+</a>
+</dt>
+<dd>
+<span class="ts-time">12 February 2023</span>
+</dd>
+</div>
+</dl>
+</li>
+<li id="WDP6-fn-2">
+<dl class="ts-snaks">
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:WDP854">
+<span class="ts-mono">WDP854</span>
+</a>
+</dt>
+<dd>
+<a href="https://www.lamayor.org/" class="external" rel="nofollow ugc noopener" dir="ltr">https://www.lamayor.org/</a>
+</dd>
+</div>
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:WDP813">
+<span class="ts-mono">WDP813</span>
+</a>
+</dt>
+<dd>
+<span class="ts-time">17 June 2022</span>
+</dd>
+</div>
+</dl>
+</li>
+</ol>
+</div>
+</div>
+</section>

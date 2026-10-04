@@ -1,0 +1,230 @@
+---
+source: crates/triplespace-ui/tests/entity.rs
+expression: "html.replace(\"><\", \">\\n<\")"
+---
+<section class="ts-group ts-group--list" id="WDP31" data-region="statements/WDP31" data-shape="list">
+<div class="ts-group__property">
+<a href="/wiki/Property:WDP31" title="WDP31">instance of</a>
+<span class="ts-group__count">7 values</span>
+</div>
+<div class="ts-group__body">
+<ol class="ts-group__values">
+<li class="ts-statement" id="WDQ339$f39773d0-4d5b-f925-e59c-899325b87914">
+<div class="ts-statement__value">
+<span class="ts-statement__main">
+<a href="/wiki/Item:WDQ2199">
+<span class="ts-mono">WDQ2199</span>
+</a>
+</span> <span class="ts-chip ts-chip--best" title="Queries and infoboxes return only this value">Best value</span> <span class="ts-fns">
+<a class="ts-fn" href="#WDP31-fn-1" aria-label="Source 1">1</a>
+</span>
+</div>
+<dl class="ts-qualifiers">
+<div class="ts-qualifiers__row">
+<dt>
+<a href="/wiki/Property:WDP580">
+<span class="ts-mono">WDP580</span>
+</a>
+</dt>
+<dd>
+<span class="ts-time">13 September 2006</span>
+</dd>
+</div>
+<div class="ts-qualifiers__row">
+<dt>
+<a href="/wiki/Property:WDP805">
+<span class="ts-mono">WDP805</span>
+</a>
+</dt>
+<dd>
+<a href="/wiki/Item:WDQ2361306">
+<span class="ts-mono">WDQ2361306</span>
+</a>
+</dd>
+</div>
+</dl>
+</li>
+</ol>
+<details class="ts-fold">
+<summary>5 other values</summary>
+<ol class="ts-group__values">
+<li class="ts-statement" id="q339$6491284B-134B-4415-9479-96C30CDBB413">
+<div class="ts-statement__value">
+<span class="ts-statement__main">
+<a href="/wiki/Item:WDQ131731">
+<span class="ts-mono">WDQ131731</span>
+</a>
+</span> <span class="ts-fns">
+<a class="ts-fn" href="#WDP31-fn-2" aria-label="Source 2">2</a>
+</span>
+</div>
+</li>
+<li class="ts-statement" id="WDQ339$5A550CA1-A7A5-4B5B-8835-216AE2CB9D4B">
+<div class="ts-statement__value">
+<span class="ts-statement__main">
+<a href="/wiki/Item:WDQ6592">
+<span class="ts-mono">WDQ6592</span>
+</a>
+</span> <span class="ts-fns">
+<a class="ts-fn" href="#WDP31-fn-2" aria-label="Source 2">2</a>
+</span>
+</div>
+</li>
+<li class="ts-statement" id="q339$181A2006-9FCE-44EF-ACCD-6AC544D06762">
+<div class="ts-statement__value">
+<span class="ts-statement__main">
+<a href="/wiki/Item:WDQ6599">
+<span class="ts-mono">WDQ6599</span>
+</a>
+</span> <span class="ts-fns">
+<a class="ts-fn" href="#WDP31-fn-2" aria-label="Source 2">2</a>
+</span>
+</div>
+</li>
+<li class="ts-statement" id="WDQ339$c2c0af40-4bc8-9fb6-21b8-815d2bc5c174">
+<div class="ts-statement__value">
+<span class="ts-statement__main">
+<a href="/wiki/Item:WDQ2517610">
+<span class="ts-mono">WDQ2517610</span>
+</a>
+</span> <span class="ts-fns">
+<a class="ts-fn" href="#WDP31-fn-2" aria-label="Source 2">2</a>
+</span>
+</div>
+</li>
+<li class="ts-statement" id="WDQ339$bedcef0c-4847-aba3-0a09-733feb64971c">
+<div class="ts-statement__value">
+<span class="ts-statement__main">
+<a href="/wiki/Item:WDQ11290231">
+<span class="ts-mono">WDQ11290231</span>
+</a>
+</span> <span class="ts-fns">
+<a class="ts-fn" href="#WDP31-fn-3" aria-label="Source 3">3</a>
+</span>
+</div>
+</li>
+</ol>
+</details>
+<details class="ts-fold ts-fold--deprecated">
+<summary>1 deprecated</summary>
+<ol class="ts-group__values">
+<li class="ts-statement ts-statement--deprecated" id="WDQ339$ae25df2c-4ac4-9e48-6811-2b8148275657">
+<div class="ts-statement__value">
+<span class="ts-statement__main">
+<a href="/wiki/Item:WDQ634">
+<span class="ts-mono">WDQ634</span>
+</a>
+</span>
+</div>
+<dl class="ts-qualifiers">
+<div class="ts-qualifiers__row">
+<dt>
+<a href="/wiki/Property:WDP582">
+<span class="ts-mono">WDP582</span>
+</a>
+</dt>
+<dd>
+<span class="ts-time">13 September 2006</span>
+</dd>
+</div>
+</dl>
+<details class="cdx-accordion">
+	<summary>
+<span class="cdx-accordion__header">
+<span class="cdx-accordion__header__title">1 reference</span>
+</span>
+</summary>
+	<div class="cdx-accordion__content">
+<ol class="ts-references">
+<li>
+<dl class="ts-snaks">
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:WDP1065">
+<span class="ts-mono">WDP1065</span>
+</a>
+</dt>
+<dd>
+<a href="https://web.archive.org/web/20070205035336/http://www.cfa.harvard.edu/iau/special/08747.pdf" class="external" rel="nofollow ugc noopener" dir="ltr">https://web.archive.org/web/20070205035336/http://www.cfa.harvard.edu/iau/special/08747.pdf</a>
+</dd>
+</div>
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:WDP813">
+<span class="ts-mono">WDP813</span>
+</a>
+</dt>
+<dd>
+<span class="ts-time">1 March 2026</span>
+</dd>
+</div>
+</dl>
+</li>
+</ol>
+</div>
+</details>
+</li>
+</ol>
+</details>
+<div class="ts-group__footer">
+<ol class="ts-footnotes" aria-label="Sources">
+<li id="WDP31-fn-1">
+<dl class="ts-snaks">
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:WDP1065">
+<span class="ts-mono">WDP1065</span>
+</a>
+</dt>
+<dd>
+<a href="https://web.archive.org/web/20070205035336/http://www.cfa.harvard.edu/iau/special/08747.pdf" class="external" rel="nofollow ugc noopener" dir="ltr">https://web.archive.org/web/20070205035336/http://www.cfa.harvard.edu/iau/special/08747.pdf</a>
+</dd>
+</div>
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:WDP813">
+<span class="ts-mono">WDP813</span>
+</a>
+</dt>
+<dd>
+<span class="ts-time">1 March 2026</span>
+</dd>
+</div>
+</dl>
+</li>
+<li id="WDP31-fn-2">
+<dl class="ts-snaks">
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:WDP143">
+<span class="ts-mono">WDP143</span>
+</a>
+</dt>
+<dd>
+<a href="/wiki/Item:WDQ177837">
+<span class="ts-mono">WDQ177837</span>
+</a>
+</dd>
+</div>
+</dl>
+</li>
+<li id="WDP31-fn-3">
+<dl class="ts-snaks">
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:WDP248">
+<span class="ts-mono">WDP248</span>
+</a>
+</dt>
+<dd>
+<a href="/wiki/Item:WDQ654724">
+<span class="ts-mono">WDQ654724</span>
+</a>
+</dd>
+</div>
+</dl>
+</li>
+</ol>
+</div>
+</div>
+</section>

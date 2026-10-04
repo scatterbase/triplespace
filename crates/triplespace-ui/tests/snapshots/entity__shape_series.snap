@@ -1,0 +1,456 @@
+---
+source: crates/triplespace-ui/tests/entity.rs
+expression: "html.replace(\"><\", \">\\n<\")"
+---
+<section class="ts-group ts-group--series" id="WDP1082" data-region="statements/WDP1082" data-shape="series">
+<div class="ts-group__property">
+<a href="/wiki/Property:WDP1082">
+<span class="ts-mono">WDP1082</span>
+</a>
+<span class="ts-group__count">11 values</span>
+</div>
+<div class="ts-group__body">
+<div class="ts-statement ts-statement--headline">
+<div class="ts-statement__value">
+<span class="ts-statement__main">
+<span class="ts-number">3,898,747</span>
+</span> <span class="ts-subtle">in <bdi>
+<span class="ts-time">1 April 2020</span>
+</bdi>
+</span> <span class="ts-chip ts-chip--best" title="Queries and infoboxes return only this value">Best value</span>
+</div>
+</div>
+<div class="ts-views">
+<fieldset class="ts-views__switch">
+<legend class="ts-views__legend">View as</legend>
+<span class="ts-views__option">
+<input type="radio" class="ts-views__input ts-views__input--a" name="ts-view-WDP1082" id="WDP1082-view-a" checked>
+<label for="WDP1082-view-a">Chart</label>
+</span>
+<span class="ts-views__option">
+<input type="radio" class="ts-views__input ts-views__input--b" name="ts-view-WDP1082" id="WDP1082-view-b">
+<label for="WDP1082-view-b">Table</label>
+</span>
+</fieldset>
+<div class="ts-views__panel ts-views__panel--a">
+<svg class="ts-chart" viewBox="0 0 600 180" role="img" aria-label="WDP1082 from 1850 to 2020">
+<line class="ts-chart__axis" x1="78" y1="154" x2="586" y2="154"/>
+<line class="ts-chart__axis" x1="78" y1="12" x2="78" y2="154"/>
+<polyline class="ts-chart__line" points="78.0,154.0 107.8,153.9 137.7,153.9 167.5,153.7 197.4,152.3 227.2,150.4 257.0,142.7 556.2,19.0 573.3,12.5 579.3,12.0 586.0,15.3"/>
+<circle class="ts-chart__point" cx="78.0" cy="154.0" r="2.5"/>
+<circle class="ts-chart__point" cx="107.8" cy="153.9" r="2.5"/>
+<circle class="ts-chart__point" cx="137.7" cy="153.9" r="2.5"/>
+<circle class="ts-chart__point" cx="167.5" cy="153.7" r="2.5"/>
+<circle class="ts-chart__point" cx="197.4" cy="152.3" r="2.5"/>
+<circle class="ts-chart__point" cx="227.2" cy="150.4" r="2.5"/>
+<circle class="ts-chart__point" cx="257.0" cy="142.7" r="2.5"/>
+<circle class="ts-chart__point" cx="556.2" cy="19.0" r="2.5"/>
+<circle class="ts-chart__point" cx="573.3" cy="12.5" r="2.5"/>
+<circle class="ts-chart__point" cx="579.3" cy="12.0" r="2.5"/>
+<circle class="ts-chart__point" cx="586.0" cy="15.3" r="2.5"/>
+<text class="ts-chart__label" x="78" y="172" text-anchor="start">1850</text>
+<text class="ts-chart__label" x="586" y="172" text-anchor="end">2020</text>
+<text class="ts-chart__label" x="72" y="22" text-anchor="end">3,990,456</text>
+<text class="ts-chart__label" x="72" y="154" text-anchor="end">1,610</text>
+</svg>
+</div>
+<div class="ts-views__panel ts-views__panel--b">
+<div class="cdx-table ts-grid">
+<div class="cdx-table__table-wrapper">
+<table class="cdx-table__table">
+<caption class="ts-visually-hidden">WDP1082</caption>
+<thead>
+<tr>
+<th scope="col">
+<a href="/wiki/Property:WDP585">
+<span class="ts-mono">WDP585</span>
+</a>
+</th>
+<th scope="col" class="cdx-table__table__cell--align-number">WDP1082</th>
+<th scope="col">Sources</th>
+</tr>
+</thead>
+<tbody>
+<tr id="WDQ65$0f56419b-40d7-192a-1c1b-8ebba652b180" class="ts-grid__row--best">
+<th scope="row">
+<span class="ts-time">1 April 2020</span>
+</th>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-number">3,898,747</span> <span class="ts-chip ts-chip--best" title="Queries and infoboxes return only this value">Best value</span>
+<dl class="ts-qualifiers">
+<div class="ts-qualifiers__row">
+<dt>
+<a href="/wiki/Property:WDP459">
+<span class="ts-mono">WDP459</span>
+</a>
+</dt>
+<dd>
+<a href="/wiki/Item:WDQ23766566">
+<span class="ts-mono">WDQ23766566</span>
+</a>, <a href="/wiki/Item:WDQ39825">
+<span class="ts-mono">WDQ39825</span>
+</a>
+</dd>
+</div>
+<div class="ts-qualifiers__row">
+<dt>
+<a href="/wiki/Property:WDP805">
+<span class="ts-mono">WDP805</span>
+</a>
+</dt>
+<dd>
+<a href="/wiki/Item:WDQ23766566">
+<span class="ts-mono">WDQ23766566</span>
+</a>
+</dd>
+</div>
+</dl>
+</td>
+<td> <span class="ts-fns">
+<a class="ts-fn" href="#WDP1082-fn-1" aria-label="Source 1">1</a>
+<a class="ts-fn" href="#WDP1082-fn-2" aria-label="Source 2">2</a>
+</span>
+</td>
+</tr>
+<tr id="WDQ65$f794d1a0-49cb-d05e-f9a0-dfe7666e9e4e">
+<th scope="row">
+<span class="ts-time">2018</span>
+</th>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-number">3,990,456</span>
+</td>
+<td> <span class="ts-fns">
+<a class="ts-fn" href="#WDP1082-fn-3" aria-label="Source 3">3</a>
+</span>
+</td>
+</tr>
+<tr id="WDQ65$2248b00d-4035-dd70-85ed-cc7a38a8ef74">
+<th scope="row">
+<span class="ts-time">2016</span>
+</th>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-number">3,976,322</span>
+</td>
+<td> <span class="ts-fns">
+<a class="ts-fn" href="#WDP1082-fn-3" aria-label="Source 3">3</a>
+</span>
+</td>
+</tr>
+<tr id="WDQ65$F2CCCF60-A227-4135-8410-498417575EB0">
+<th scope="row">
+<span class="ts-time">1 April 2010</span>
+</th>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-number">3,792,621</span>
+<dl class="ts-qualifiers">
+<div class="ts-qualifiers__row">
+<dt>
+<a href="/wiki/Property:WDP459">
+<span class="ts-mono">WDP459</span>
+</a>
+</dt>
+<dd>
+<a href="/wiki/Item:WDQ523716">
+<span class="ts-mono">WDQ523716</span>
+</a>, <a href="/wiki/Item:WDQ39825">
+<span class="ts-mono">WDQ39825</span>
+</a>
+</dd>
+</div>
+<div class="ts-qualifiers__row">
+<dt>
+<a href="/wiki/Property:WDP3680">
+<span class="ts-mono">WDP3680</span>
+</a>
+</dt>
+<dd>
+<a href="/wiki/Item:WDQ523716">
+<span class="ts-mono">WDQ523716</span>
+</a>
+</dd>
+</div>
+</dl>
+</td>
+<td> <span class="ts-fns">
+<a class="ts-fn" href="#WDP1082-fn-4" aria-label="Source 4">4</a>
+<a class="ts-fn" href="#WDP1082-fn-5" aria-label="Source 5">5</a>
+</span>
+</td>
+</tr>
+<tr id="WDQ65$DDB01923-D5E5-4C88-A719-AD7BB5B98F50">
+<th scope="row">
+<span class="ts-time">1910</span>
+</th>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-number">319,198</span>
+</td>
+<td>
+</td>
+</tr>
+<tr id="WDQ65$6FB50192-6340-4F2E-898C-1838A9CAEF21">
+<th scope="row">
+<span class="ts-time">1900</span>
+</th>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-number">102,479</span>
+</td>
+<td> <span class="ts-fns">
+<a class="ts-fn" href="#WDP1082-fn-6" aria-label="Source 6">6</a>
+</span>
+</td>
+</tr>
+<tr id="WDQ65$9CBF3E8C-255E-4E29-9CE3-CB014A70A758">
+<th scope="row">
+<span class="ts-time">1890</span>
+</th>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-number">50,395</span>
+</td>
+<td> <span class="ts-fns">
+<a class="ts-fn" href="#WDP1082-fn-7" aria-label="Source 7">7</a>
+</span>
+</td>
+</tr>
+<tr id="WDQ65$635404C8-EF49-4A1F-BA55-AE88FDF448BD">
+<th scope="row">
+<span class="ts-time">1880</span>
+</th>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-number">11,183</span>
+</td>
+<td> <span class="ts-fns">
+<a class="ts-fn" href="#WDP1082-fn-6" aria-label="Source 6">6</a>
+</span>
+</td>
+</tr>
+<tr id="WDQ65$D70208A9-005A-4AE0-A475-E487898E8A50">
+<th scope="row">
+<span class="ts-time">1870</span>
+</th>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-number">5,728</span>
+</td>
+<td>
+</td>
+</tr>
+<tr id="WDQ65$BBF5AB30-8C48-4AC6-845B-6A21ECD2F63E">
+<th scope="row">
+<span class="ts-time">1860</span>
+</th>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-number">4,385</span>
+</td>
+<td>
+</td>
+</tr>
+<tr id="WDQ65$B9F51C05-4B49-488B-9728-153A40453C07">
+<th scope="row">
+<span class="ts-time">1850</span>
+</th>
+<td class="cdx-table__table__cell--align-number">
+<span class="ts-number">1,610</span>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<div class="ts-group__footer">
+<ol class="ts-footnotes" aria-label="Sources">
+<li id="WDP1082-fn-1">
+<dl class="ts-snaks">
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:WDP854">
+<span class="ts-mono">WDP854</span>
+</a>
+</dt>
+<dd>
+<a href="https://data.census.gov/cedsci/table?q=United%20States&amp;tid=DECENNIALPL2020.P1" class="external" rel="nofollow ugc noopener" dir="ltr">https://data.census.gov/cedsci/table?q=United%20States&amp;tid=DECENNIALPL2020.P1</a>
+</dd>
+</div>
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:WDP813">
+<span class="ts-mono">WDP813</span>
+</a>
+</dt>
+<dd>
+<span class="ts-time">21 September 2021</span>
+</dd>
+</div>
+</dl>
+</li>
+<li id="WDP1082-fn-2">
+<dl class="ts-snaks">
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:WDP248">
+<span class="ts-mono">WDP248</span>
+</a>
+</dt>
+<dd>
+<a href="/wiki/Item:WDQ23766566">
+<span class="ts-mono">WDQ23766566</span>
+</a>
+</dd>
+</div>
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:WDP813">
+<span class="ts-mono">WDP813</span>
+</a>
+</dt>
+<dd>
+<span class="ts-time">1 January 2022</span>
+</dd>
+</div>
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:WDP854">
+<span class="ts-mono">WDP854</span>
+</a>
+</dt>
+<dd>
+<a href="https://data.census.gov/cedsci/table?t=Populations%20and%20People&amp;g=0100000US,%241600000&amp;y=2020" class="external" rel="nofollow ugc noopener" dir="ltr">https://data.census.gov/cedsci/table?t=Populations%20and%20People&amp;g=0100000US,%241600000&amp;y=2020</a>
+</dd>
+</div>
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:WDP98">
+<span class="ts-mono">WDP98</span>
+</a>
+</dt>
+<dd>
+<a href="/wiki/Item:WDQ637413">
+<span class="ts-mono">WDQ637413</span>
+</a>
+</dd>
+</div>
+</dl>
+</li>
+<li id="WDP1082-fn-3">
+<dl class="ts-snaks">
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:WDP854">
+<span class="ts-mono">WDP854</span>
+</a>
+</dt>
+<dd>
+<a href="https://factfinder.census.gov/faces/tableservices/jsf/pages/productview.xhtml?src=bkmk" class="external" rel="nofollow ugc noopener" dir="ltr">https://factfinder.census.gov/faces/tableservices/jsf/pages/productview.xhtml?src=bkmk</a>
+</dd>
+</div>
+</dl>
+</li>
+<li id="WDP1082-fn-4">
+<dl class="ts-snaks">
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:WDP248">
+<span class="ts-mono">WDP248</span>
+</a>
+</dt>
+<dd>
+<a href="/wiki/Item:WDQ107569809">
+<span class="ts-mono">WDQ107569809</span>
+</a>
+</dd>
+</div>
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:WDP813">
+<span class="ts-mono">WDP813</span>
+</a>
+</dt>
+<dd>
+<span class="ts-time">9 July 2020</span>
+</dd>
+</div>
+</dl>
+</li>
+<li id="WDP1082-fn-5">
+<dl class="ts-snaks">
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:WDP248">
+<span class="ts-mono">WDP248</span>
+</a>
+</dt>
+<dd>
+<a href="/wiki/Item:WDQ523716">
+<span class="ts-mono">WDQ523716</span>
+</a>
+</dd>
+</div>
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:WDP813">
+<span class="ts-mono">WDP813</span>
+</a>
+</dt>
+<dd>
+<span class="ts-time">10 May 2022</span>
+</dd>
+</div>
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:WDP854">
+<span class="ts-mono">WDP854</span>
+</a>
+</dt>
+<dd>
+<a href="https://data.census.gov/cedsci/table?g=0100000US%241600000&amp;y=2010&amp;d=DEC%20Redistricting%20Data%20%28PL%2094-171%29" class="external" rel="nofollow ugc noopener" dir="ltr">https://data.census.gov/cedsci/table?g=0100000US%241600000&amp;y=2010&amp;d=DEC%20Redistricting%20Data%20%28PL%2094-171%29</a>
+</dd>
+</div>
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:WDP98">
+<span class="ts-mono">WDP98</span>
+</a>
+</dt>
+<dd>
+<a href="/wiki/Item:WDQ637413">
+<span class="ts-mono">WDQ637413</span>
+</a>
+</dd>
+</div>
+</dl>
+</li>
+<li id="WDP1082-fn-6">
+<dl class="ts-snaks">
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:WDP854">
+<span class="ts-mono">WDP854</span>
+</a>
+</dt>
+<dd>
+<a href="http://www.laalmanac.com/population/po02.htm" class="external" rel="nofollow ugc noopener" dir="ltr">http://www.laalmanac.com/population/po02.htm</a>
+</dd>
+</div>
+</dl>
+</li>
+<li id="WDP1082-fn-7">
+<dl class="ts-snaks">
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:WDP854">
+<span class="ts-mono">WDP854</span>
+</a>
+</dt>
+<dd>
+<a href="http://physics.bu.edu/~redner/projects/population/cities/la.html" class="external" rel="nofollow ugc noopener" dir="ltr">http://physics.bu.edu/~redner/projects/population/cities/la.html</a>
+</dd>
+</div>
+</dl>
+</li>
+</ol>
+<p class="ts-subtle ts-unsourced">4 values have no source</p>
+</div>
+</div>
+</section>

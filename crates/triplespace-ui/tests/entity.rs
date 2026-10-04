@@ -2,6 +2,10 @@
 //! from a server loaded with `crates/triplespace-server/tests/fixtures/`, plus a foreign
 //! item written by hand): snapshots of each page kind and region, and their caching.
 //!
+//! The statement shapes (0003 §3–5) are tested against the Wikidata snapshots in
+//! `docs/api/snapshots`, served as a Wikidata mirror would serve them (`WDQ65`, `WDP1082`),
+//! so that the mirror's role map applies.
+//!
 //! Update the snapshots with `INSTA_UPDATE=always cargo test -p triplespace-ui --test entity`
 //! and review the diff.
 
@@ -50,6 +54,52 @@ struct FixtureApi {
     entities: BTreeMap<String, Value>,
 }
 
+/// Whether `s` is a Wikidata item, property or lexeme ID (`Q65`, `P1082`), or a
+/// statement ID with one as its subject.
+fn wikidata_id(s: &str) -> bool {
+    let subject = s.split_once('$').map_or(s, |(subject, _)| subject);
+    let mut chars = subject.chars();
+    matches!(chars.next(), Some('Q' | 'P' | 'L'))
+        && !chars.as_str().is_empty()
+        && chars.as_str().bytes().all(|b| b.is_ascii_digit())
+}
+
+/// A Wikidata entity as the mirror serves it: every Wikidata ID it names, in IDs,
+/// properties, keys, orders and badges, in its `WD` form (0017 §2).
+fn mirrored(v: &Value, key: &str) -> Value {
+    let wd = |s: &str| {
+        if wikidata_id(s) {
+            format!("WD{s}")
+        } else {
+            s.to_string()
+        }
+    };
+    match v {
+        Value::String(s) if matches!(key, "id" | "property" | "list") => Value::String(wd(s)),
+        Value::Array(a) => {
+            let inner = if matches!(key, "qualifiers-order" | "snaks-order" | "badges") {
+                "list"
+            } else {
+                key
+            };
+            Value::Array(a.iter().map(|x| mirrored(x, inner)).collect())
+        }
+        Value::Object(o) => {
+            let keyed = matches!(key, "claims" | "qualifiers" | "snaks");
+            Value::Object(
+                o.iter()
+                    .filter(|(k, _)| k.as_str() != "numeric-id")
+                    .map(|(k, x)| {
+                        let k2 = if keyed { wd(k) } else { k.clone() };
+                        (k2, mirrored(x, k))
+                    })
+                    .collect(),
+            )
+        }
+        other => other.clone(),
+    }
+}
+
 impl FixtureApi {
     fn new() -> Self {
         let e = fixture("entities.json").unwrap();
@@ -61,6 +111,24 @@ impl FixtureApi {
                 .map(|(k, v)| (k.clone(), v.clone()))
                 .collect(),
         }
+    }
+
+    /// The fixtures, with the Wikidata snapshots mirrored over them (the real `WDQ65`
+    /// replaces the one written by hand), and an item made up for the shapes the
+    /// snapshots lack.
+    fn wikidata() -> Self {
+        let mut api = Self::new();
+        for q in ["Q65", "Q339", "Q731", "Q1520"] {
+            let path = format!(
+                "{}/../../docs/api/snapshots/wikidata-{q}.json",
+                env!("CARGO_MANIFEST_DIR")
+            );
+            let v: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+            api.entities
+                .insert(format!("WD{q}"), mirrored(&v["entities"][q], ""));
+        }
+        api.entities.insert("WDQ900001".into(), made_up());
+        api
     }
 
     fn answer(&self, path_and_query: &str) -> (StatusCode, Value, Vec<String>) {
@@ -146,12 +214,49 @@ impl Transport for FixtureApi {
     }
 }
 
+/// An item with an article's authors by series ordinal (a numbered list) and a property
+/// whose only value is deprecated (no current value).
+fn made_up() -> Value {
+    let author = |n: u32| {
+        json!({
+            "id": format!("WDQ900001$00000000-0000-0000-0000-{n:012}"),
+            "mainsnak": {"snaktype": "value", "property": "WDP2093", "datatype": "string",
+                "datavalue": {"type": "string", "value": format!("Author {n}")}},
+            "qualifiers": {"WDP1545": [{"snaktype": "value", "property": "WDP1545", "datatype": "string",
+                "datavalue": {"type": "string", "value": n.to_string()}}]},
+            "qualifiers-order": ["WDP1545"],
+            "rank": "normal", "type": "statement"
+        })
+    };
+    let authors: Vec<Value> = [12, 3, 1, 10, 2].into_iter().map(author).collect();
+    json!({
+        "type": "item", "id": "WDQ900001", "title": "Item:WDQ900001", "ns": 120,
+        "labels": {"en": {"language": "en", "value": "A made-up article"}},
+        "claims": {
+            "WDP2093": authors,
+            "WDP31": [{
+                "id": "WDQ900001$00000000-0000-0000-0000-00000000aaaa",
+                "mainsnak": {"snaktype": "value", "property": "WDP31", "datatype": "wikibase-item",
+                    "datavalue": {"type": "wikibase-entityid", "value": {"entity-type": "item", "id": "WDQ5"}}},
+                "qualifiers": {"WDP2241": [{"snaktype": "value", "property": "WDP2241", "datatype": "wikibase-item",
+                    "datavalue": {"type": "wikibase-entityid", "value": {"entity-type": "item", "id": "WDQ6"}}}]},
+                "qualifiers-order": ["WDP2241"],
+                "rank": "deprecated", "type": "statement"
+            }]
+        }
+    })
+}
+
 async fn get(uri: &str) -> (StatusCode, HeaderMap, String) {
+    get_from(FixtureApi::new(), uri).await
+}
+
+async fn get_from(api: FixtureApi, uri: &str) -> (StatusCode, HeaderMap, String) {
     let req = Request::get(uri)
         .header(header::HOST, "librarybase.org")
         .body(Body::empty())
         .unwrap();
-    let r = triplespace_ui::router(Client::new(FixtureApi::new()))
+    let r = triplespace_ui::router(Client::new(api))
         .oneshot(req)
         .await
         .unwrap();
@@ -300,4 +405,133 @@ async fn uselang_sets_language_direction_and_labels() {
         fallback.contains("lang=\"en\" dir=\"auto\">Los Angeles</h1>"),
         "an English fallback is marked"
     );
+}
+
+/// One group of a mirrored Wikidata item, as `action=render` serves it.
+async fn wd_group(q: &str, p: &str) -> String {
+    let (status, _, html) = get_from(
+        FixtureApi::wikidata(),
+        &format!("/w/index.php?title=Item:WD{q}&action=render&region=statements/WD{p}"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{q} {p}");
+    html
+}
+
+#[tokio::test]
+async fn los_angeles_population_is_a_series_with_a_chart_and_a_table() {
+    let html = wd_group("Q65", "P1082").await;
+    assert!(html.contains("data-shape=\"series\""));
+    assert!(html.contains("<svg class=\"ts-chart\""), "the chart");
+    assert!(html.contains("ts-views__panel--b"), "a table to switch to");
+    assert!(
+        html.contains("<span class=\"ts-subtle\">in "),
+        "when the headline was measured"
+    );
+    insta::assert_snapshot!("shape_series", html.replace("><", ">\n<"));
+}
+
+#[tokio::test]
+async fn los_angeles_mayors_are_a_timeline() {
+    let html = wd_group("Q65", "P6").await;
+    assert!(html.contains("data-shape=\"timeline\""));
+    assert!(html.contains("<svg class=\"ts-axis\""));
+    assert!(html.contains("class=\"ts-period\">since ") || html.contains("class=\"ts-period\">"));
+    assert!(html.contains("Best value"), "the best value leads");
+    insta::assert_snapshot!("shape_timeline", html.replace("><", ">\n<"));
+}
+
+#[tokio::test]
+async fn pluto_folds_its_other_classes_and_the_deprecated_planet() {
+    let html = wd_group("Q339", "P31").await;
+    assert!(html.contains(">5 other values</summary>"), "{html}");
+    assert!(html.contains(">1 deprecated</summary>"));
+    assert!(html.contains("ts-statement--deprecated"));
+    assert!(
+        html.contains("title=\"Queries and infoboxes return only this value\""),
+        "the badge's tooltip"
+    );
+    let best = html.find("ts-chip--best").unwrap();
+    assert!(
+        best < html.find("other values").unwrap(),
+        "the best value leads"
+    );
+    insta::assert_snapshot!("shape_best_and_deprecated", html.replace("><", ">\n<"));
+}
+
+#[tokio::test]
+async fn manganese_ionic_radii_are_a_table_with_a_matrix() {
+    let html = wd_group("Q731", "P10685").await;
+    assert!(html.contains("data-shape=\"table\""));
+    assert!(html.contains(">Matrix</label>"));
+    assert!(html.contains("<table class=\"cdx-table__table\">"));
+    assert!(
+        html.contains("<span class=\"ts-visually-hidden\">"),
+        "repeated cells are hidden but kept"
+    );
+    insta::assert_snapshot!("shape_table_matrix", html.replace("><", ">\n<"));
+}
+
+#[tokio::test]
+async fn large_groups_show_ten_values_then_the_rest() {
+    let html = wd_group("Q731", "P2877").await;
+    assert!(html.contains("data-shape=\"chips\""));
+    assert!(html.contains(">Show 87 more values</summary>"));
+    let names = wd_group("Q1520", "P1448").await;
+    assert!(names.contains("data-shape=\"timeline\""));
+    assert!(names.contains(">Show 18 more values</summary>"));
+}
+
+#[tokio::test]
+async fn authors_by_ordinal_are_a_numbered_list_and_deprecated_only_is_no_current_value() {
+    let html = wd_group("Q900001", "P2093").await;
+    assert!(html.contains("<ol class=\"ts-numbered\">"));
+    let order: Vec<usize> = [
+        "value=\"1\"",
+        "value=\"2\"",
+        "value=\"3\"",
+        "value=\"10\"",
+        "value=\"12\"",
+    ]
+    .iter()
+    .map(|v| html.find(v).unwrap_or_else(|| panic!("{v} in {html}")))
+    .collect();
+    assert!(
+        order.windows(2).all(|w| w[0] < w[1]),
+        "10 after 3, not after 1"
+    );
+    let none = wd_group("Q900001", "P31").await;
+    assert!(none.contains(">No current value</p>"));
+    assert!(none.contains("<details class=\"ts-fold ts-fold--deprecated\" open>"));
+    assert!(
+        none.contains("ts-deprecated__reason"),
+        "labeled with its reason"
+    );
+}
+
+#[tokio::test]
+async fn every_mirrored_group_renders_on_its_page() {
+    let (status, _, html) = get_from(FixtureApi::wikidata(), "/wiki/Item:WDQ731").await;
+    assert_eq!(status, StatusCode::OK);
+    let region = wd_group("Q731", "P10685").await;
+    assert!(
+        html.contains(&region),
+        "the region is drawn on its page as served alone"
+    );
+}
+
+/// Serves the fixture site, the mirrored Wikidata snapshots included, for screenshots
+/// and axe: `TS_PREVIEW=127.0.0.1:8099 cargo test -p triplespace-ui --test entity
+/// preview -- --ignored`, then open `/wiki/Item:WDQ65`.
+#[tokio::test]
+#[ignore = "serves until stopped"]
+async fn preview() {
+    let addr = std::env::var("TS_PREVIEW").unwrap_or_else(|_| "127.0.0.1:8099".into());
+    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
+    axum::serve(
+        listener,
+        triplespace_ui::router(Client::new(FixtureApi::wikidata())),
+    )
+    .await
+    .unwrap();
 }

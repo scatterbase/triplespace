@@ -23,37 +23,57 @@ expression: main_of(&html)
 		<div class="ts-entity">
 <div class="ts-entity__main">
 <h2 class="ts-visually-hidden">Statements</h2>
-<section class="ts-group" id="P2" data-region="statements/P2">
+<section class="ts-group ts-group--chips" id="P2" data-region="statements/P2" data-shape="chips">
 <div class="ts-group__property">
 <a href="/wiki/Property:P2" title="P2">instance of</a>
 <span class="ts-group__count">3 values</span>
 </div>
-<ol class="ts-group__values">
-<li class="ts-statement ts-statement--preferred" id="Q6$00000002-0000-0000-0000-000000000000">
-<div class="ts-statement__value">
-<a href="/wiki/Item:Q2" title="Q2">number</a> <span class="ts-chip ts-chip--rank">Preferred rank</span>
-</div>
+<div class="ts-group__body">
+<ul class="ts-chips">
+<li class="ts-chips__item" id="Q6$00000002-0000-0000-0000-000000000000">
+<span class="ts-statement__main">
+<a href="/wiki/Item:Q2" title="Q2">number</a>
+</span> <span class="ts-chip ts-chip--best" title="Queries and infoboxes return only this value">Best value</span>
 </li>
-<li class="ts-statement" id="Q6$00000003-0000-0000-0000-000000000000">
-<div class="ts-statement__value">
+</ul>
+<details class="ts-fold">
+<summary>1 other value</summary>
+<ul class="ts-chips">
+<li class="ts-chips__item" id="Q6$00000003-0000-0000-0000-000000000000">
+<span class="ts-statement__main">
 <a href="/wiki/Item:Q1" title="Q1">city</a>
-</div>
+</span>
 </li>
+</ul>
+</details>
+<details class="ts-fold ts-fold--deprecated">
+<summary>1 deprecated</summary>
+<ol class="ts-group__values">
 <li class="ts-statement ts-statement--deprecated" id="Q6$00000004-0000-0000-0000-000000000000">
 <div class="ts-statement__value">
-<a href="/wiki/Item:Q3" title="Q3">Example Gazette</a> <span class="ts-chip ts-chip--rank">Deprecated rank</span>
+<span class="ts-statement__main">
+<a href="/wiki/Item:Q3" title="Q3">Example Gazette</a>
+</span>
 </div>
 </li>
 </ol>
+</details>
+</div>
 </section>
-<section class="ts-group" id="P3" data-region="statements/P3">
+<section class="ts-group ts-group--single" id="P3" data-region="statements/P3" data-shape="single">
 <div class="ts-group__property">
 <a href="/wiki/Property:P3" title="P3">population</a>
 </div>
-<ol class="ts-group__values">
-<li class="ts-statement" id="Q6$00000005-0000-0000-0000-000000000000">
+<div class="ts-group__body">
+<div class="ts-statement ts-statement--headline" id="Q6$00000005-0000-0000-0000-000000000000">
 <div class="ts-statement__value">
-<span class="ts-number">3,898,747</span>±10 <a href="/wiki/Item:Q5" title="Q5">inhabitant</a>
+<span class="ts-statement__main">
+<span class="ts-number">3,898,747</span>±10 <span class="ts-unit">
+<a href="/wiki/Item:Q5" title="Q5">inhabitant</a>
+</span>
+</span> <span class="ts-fns">
+<a class="ts-fn" href="#P3-fn-1" aria-label="Source 1">1</a>
+</span>
 </div>
 <dl class="ts-qualifiers">
 <div class="ts-qualifiers__row">
@@ -65,15 +85,10 @@ expression: main_of(&html)
 </dd>
 </div>
 </dl>
-<details class="cdx-accordion">
-	<summary>
-<span class="cdx-accordion__header">
-<span class="cdx-accordion__header__title">1 reference</span>
-</span>
-</summary>
-	<div class="cdx-accordion__content">
-<ol class="ts-references">
-<li>
+</div>
+<div class="ts-group__footer">
+<ol class="ts-footnotes" aria-label="Sources">
+<li id="P3-fn-1">
 <dl class="ts-snaks">
 <div class="ts-snaks__row">
 <dt>
@@ -95,81 +110,91 @@ expression: main_of(&html)
 </li>
 </ol>
 </div>
-</details>
-</li>
-</ol>
+</div>
 </section>
-<section class="ts-group" id="P4" data-region="statements/P4">
+<section class="ts-group ts-group--single" id="P4" data-region="statements/P4" data-shape="single">
 <div class="ts-group__property">
 <a href="/wiki/Property:P4" title="P4">inception</a>
 </div>
-<ol class="ts-group__values">
-<li class="ts-statement" id="Q6$00000006-0000-0000-0000-000000000000">
+<div class="ts-group__body">
+<div class="ts-statement ts-statement--headline" id="Q6$00000006-0000-0000-0000-000000000000">
 <div class="ts-statement__value">
+<span class="ts-statement__main">
 <span class="ts-time">11 March 1952</span>
+</span>
 </div>
-</li>
-</ol>
+</div>
+</div>
 </section>
-<section class="ts-group" id="P5" data-region="statements/P5">
+<section class="ts-group ts-group--single" id="P5" data-region="statements/P5" data-shape="single">
 <div class="ts-group__property">
 <a href="/wiki/Property:P5" title="P5">coordinate location</a>
 </div>
-<ol class="ts-group__values">
-<li class="ts-statement" id="Q6$00000007-0000-0000-0000-000000000000">
+<div class="ts-group__body">
+<div class="ts-statement ts-statement--headline" id="Q6$00000007-0000-0000-0000-000000000000">
 <div class="ts-statement__value">
+<span class="ts-statement__main">
 <span class="ts-number">34°3′N, 118°15′W</span>
+</span>
 </div>
-</li>
-</ol>
+</div>
+</div>
 </section>
-<section class="ts-group" id="P6" data-region="statements/P6">
+<section class="ts-group ts-group--single" id="P6" data-region="statements/P6" data-shape="single">
 <div class="ts-group__property">
 <a href="/wiki/Property:P6" title="P6">official website</a>
 </div>
-<ol class="ts-group__values">
-<li class="ts-statement" id="Q6$00000008-0000-0000-0000-000000000000">
+<div class="ts-group__body">
+<div class="ts-statement ts-statement--headline" id="Q6$00000008-0000-0000-0000-000000000000">
 <div class="ts-statement__value">
+<span class="ts-statement__main">
 <a href="https://six.example/" class="external" rel="nofollow ugc noopener" dir="ltr">https://six.example/</a>
+</span>
 </div>
-</li>
-</ol>
+</div>
+</div>
 </section>
-<section class="ts-group" id="P8" data-region="statements/P8">
+<section class="ts-group ts-group--single" id="P8" data-region="statements/P8" data-shape="single">
 <div class="ts-group__property">
 <a href="/wiki/Property:P8" title="P8">native label</a>
 </div>
-<ol class="ts-group__values">
-<li class="ts-statement" id="Q6$00000010-0000-0000-0000-000000000000">
+<div class="ts-group__body">
+<div class="ts-statement ts-statement--headline" id="Q6$00000010-0000-0000-0000-000000000000">
 <div class="ts-statement__value">
+<span class="ts-statement__main">
 <span lang="ar" dir="auto">ستة</span> <span class="ts-subtle">(ar)</span>
+</span>
 </div>
-</li>
-</ol>
+</div>
+</div>
 </section>
-<section class="ts-group" id="P10" data-region="statements/P10">
+<section class="ts-group ts-group--single" id="P10" data-region="statements/P10" data-shape="single">
 <div class="ts-group__property">
 <a href="/wiki/Property:P10" title="P10">stated in</a>
 </div>
-<ol class="ts-group__values">
-<li class="ts-statement" id="Q6$00000011-0000-0000-0000-000000000000">
+<div class="ts-group__body">
+<div class="ts-statement ts-statement--headline" id="Q6$00000011-0000-0000-0000-000000000000">
 <div class="ts-statement__value">
+<span class="ts-statement__main">
 <span class="ts-special-value">unknown value</span>
+</span>
 </div>
-</li>
-</ol>
+</div>
+</div>
 </section>
-<section class="ts-group" id="P12" data-region="statements/P12">
+<section class="ts-group ts-group--single" id="P12" data-region="statements/P12" data-shape="single">
 <div class="ts-group__property">
 <a href="/wiki/Property:P12" title="P12">note</a>
 </div>
-<ol class="ts-group__values">
-<li class="ts-statement" id="Q6$00000001-0000-0000-0000-000000000000">
+<div class="ts-group__body">
+<div class="ts-statement ts-statement--headline" id="Q6$00000001-0000-0000-0000-000000000000">
 <div class="ts-statement__value">
+<span class="ts-statement__main">
 <bdi>six</bdi>
+</span>
 </div>
-</li>
-</ol>
+</div>
+</div>
 </section>
 </div>
 <aside class="ts-sources" aria-labelledby="ts-sources-title">
