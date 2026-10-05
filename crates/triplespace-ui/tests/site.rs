@@ -16,6 +16,7 @@ use triplespace_client::{ApiRequest, ApiResponse, Client, ClientError, Transport
 struct FakeApi {
     down: bool,
     api_version: u64,
+    no_search: bool,
     seen: Arc<Mutex<Vec<ApiRequest>>>,
 }
 
@@ -30,8 +31,9 @@ impl Transport for FakeApi {
             let (body, etag) = if request.path_and_query.contains("meta=siteinfo") {
                 (
                     json!({"query": {
-                        "general": {"sitename": "Librarybase", "server": "https://librarybase.org", "lang": "en"},
-                        "triplespace": {"api_version": self.api_version, "insecure": false}
+                        "general": {"sitename": "Librarybase", "server": "https://librarybase.org", "lang": "en", "mainpage": "Project:Home"},
+                        "triplespace": {"api_version": self.api_version, "insecure": false,
+                            "capabilities": if self.no_search { json!(["wbgetentities"]) } else { json!(["wbgetentities", "wbsearchentities"]) }}
                     }}),
                     "\"si\"",
                 )
@@ -96,11 +98,14 @@ async fn get(
 #[tokio::test]
 async fn an_anonymous_page_is_public_and_revalidates() {
     let fake = api();
-    let (status, h, html) = get(&fake, "/wiki/Project:About", &[]).await;
+    let (status, h, html) = get(&fake, "/wiki/Project:Home", &[]).await;
     assert_eq!(status, StatusCode::OK);
-    assert!(html.contains("<title>Project:About – Librarybase</title>"));
-    assert!(html.contains("Log in"));
-    assert!(html.contains("This page is not served yet"));
+    assert!(html.contains("<title>Project:Home – Librarybase</title>"));
+    assert!(html.contains(">Librarybase</h1>"));
+    assert!(html.contains(
+        "This page is generated because the page Project:Home has not been written yet."
+    ));
+    assert!(!html.contains("Log in"), "logging in is not built yet");
     assert!(
         h[header::CACHE_CONTROL]
             .to_str()
@@ -120,26 +125,83 @@ async fn an_anonymous_page_is_public_and_revalidates() {
         assert_eq!(seen[0].headers["x-forwarded-host"], "librarybase.org");
     }
     let etag = h[header::ETAG].to_str().unwrap().to_string();
-    let (status, h, body) = get(&fake, "/wiki/Project:About", &[("if-none-match", &etag)]).await;
+    let (status, h, body) = get(&fake, "/wiki/Project:Home", &[("if-none-match", &etag)]).await;
     assert_eq!(status, StatusCode::NOT_MODIFIED);
     assert!(body.is_empty());
     assert_eq!(h[header::ETAG].to_str().unwrap(), etag);
 }
 
 #[tokio::test]
-async fn a_signed_in_page_is_private_and_has_the_account_menu() {
+async fn a_signed_in_page_is_private_and_names_the_viewer() {
     let fake = api();
     let (status, h, html) = get(
         &fake,
-        "/wiki/Main_Page",
+        "/wiki/Project:Home",
         &[("cookie", "triplespace_session=s")],
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    assert!(html.contains("aria-label=\"Account menu for Alice\""));
+    assert!(html.contains("<span class=\"ts-header__user\">Alice</span>"));
     assert!(!html.contains("Special:UserLogin"));
     assert_eq!(h[header::CACHE_CONTROL], "private, no-cache");
     assert_eq!(fake.seen.lock().unwrap().len(), 2);
+}
+
+#[tokio::test]
+async fn the_main_page_has_its_old_names_and_other_titles_are_404() {
+    let fake = api();
+    for path in ["/", "/wiki/Main_Page", "/wiki/", "/w/index.php"] {
+        let (status, h, _) = get(&fake, path, &[]).await;
+        assert_eq!(status, StatusCode::FOUND, "{path}");
+        assert_eq!(h[header::LOCATION], "/wiki/Project:Home", "{path}");
+    }
+    let (status, _, html) = get(&fake, "/wiki/Librarybase:Home", &[]).await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "the project namespace by the site's name"
+    );
+    assert!(html.contains("This page is generated"));
+    let (status, _, html) = get(&fake, "/wiki/Project:About", &[]).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert!(html.contains("There is no page called Project:About."));
+    for absent in [
+        "Special:Jobs",
+        "Special:RecentChanges",
+        "Special:UserLogin",
+        "Special:NewItem",
+    ] {
+        let (status, _, html) = get(&fake, &format!("/wiki/{absent}"), &[]).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{absent}");
+        assert!(html.contains(&format!("There is no special page called {absent}.")));
+    }
+    let (status, _, html) = get(&fake, "/wiki/Special:SpecialPages", &[]).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(html.contains("href=\"/wiki/Special:Search\""));
+}
+
+#[tokio::test]
+async fn features_the_api_lacks_are_hidden() {
+    let fake = FakeApi {
+        no_search: true,
+        ..api()
+    };
+    let (_, _, home) = get(&fake, "/wiki/Project:Home", &[]).await;
+    assert!(!home.contains("name=\"search\""), "no search box anywhere");
+    let (status, _, _) = get(&fake, "/wiki/Special:Search", &[]).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (_, _, index) = get(&fake, "/wiki/Special:SpecialPages", &[]).await;
+    assert!(!index.contains("Special:Search\""));
+    let (_, _, full) = get(&api(), "/wiki/Project:Home", &[]).await;
+    for absent in [
+        "Special:RecentChanges",
+        "Special:Jobs",
+        "Special:NewItem",
+        "action=edit",
+        "Special:UserLogin",
+    ] {
+        assert!(!full.contains(absent), "{absent} is not built yet");
+    }
 }
 
 #[tokio::test]
@@ -187,7 +249,7 @@ async fn root_search_and_theme() {
     let fake = api();
     let (status, h, _) = get(&fake, "/", &[]).await;
     assert_eq!(status, StatusCode::FOUND);
-    assert_eq!(h[header::LOCATION], "/wiki/Main_Page");
+    assert_eq!(h[header::LOCATION], "/wiki/Project:Home");
     let (status, _, html) = get(
         &fake,
         "/w/index.php?title=Special:Search&search=Douglas+Adams",

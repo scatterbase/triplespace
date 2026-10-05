@@ -17,7 +17,7 @@ use std::net::SocketAddr;
 
 use axum::Extension;
 use axum::body::Body;
-use axum::extract::{ConnectInfo, Path, Query, Request, State};
+use axum::extract::{ConnectInfo, Form, Path, Query, Request, State};
 use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
@@ -25,12 +25,13 @@ use sha2::{Digest as _, Sha256};
 use triplespace_client::{CacheInfo, ClientError, Incoming, SiteInfo};
 
 use crate::codex::{Message, MessageKind};
-use crate::frame::{self, Page, Tab, title_url};
+use crate::features::Features;
+use crate::frame::{self, Chrome, Page, title_url};
 use crate::i18n::{self, Messages};
 use crate::routes::{self, Target};
 use crate::theme::Theme;
 use crate::{MIN_API_VERSION, Site, assets};
-use crate::{entity, special};
+use crate::{entity, home, special};
 
 /// The connection address, when the server was started with `ConnectInfo`.
 pub type Peer = Option<Extension<ConnectInfo<SocketAddr>>>;
@@ -93,6 +94,20 @@ pub struct Context {
     pub m: Messages,
     /// The theme.
     pub theme: Theme,
+    /// What the site offers.
+    pub features: Features,
+}
+
+impl Context {
+    /// What the frame needs of the site.
+    #[must_use]
+    pub fn chrome(&self) -> Chrome<'_> {
+        Chrome {
+            sitename: &self.site.sitename,
+            mainpage: &self.site.mainpage,
+            features: &self.features,
+        }
+    }
 }
 
 /// The browser's request, as the client forwards it.
@@ -145,12 +160,14 @@ pub async fn context(
         .unwrap_or_else(|| si.value.lang.clone());
     let m = Messages::for_language(&lang);
     let theme = Theme::with_overrides(si.value.theme.as_ref()).with_chips(&si.value.providers);
+    let features = Features::of(&si.value);
     Ok(Context {
         site: si.value,
         user,
         inputs,
         m,
         theme,
+        features,
     })
 }
 
@@ -165,7 +182,13 @@ fn unavailable(incoming: &Incoming, error: &ClientError, key: &str) -> Response 
         body: message(MessageKind::Error, &text),
         ..Page::default()
     };
-    let html = match frame::render(&m, &sitename, Theme::shipped(), None, &page) {
+    let none = Features::default();
+    let chrome = Chrome {
+        sitename: &sitename,
+        mainpage: DEFAULT_MAINPAGE,
+        features: &none,
+    };
+    let html = match frame::render(&m, &chrome, Theme::shipped(), None, &page) {
         Ok(h) => h,
         Err(e) => return render_failed(&e),
     };
@@ -310,13 +333,7 @@ pub fn respond(
         return r;
     }
     let page = build(&cx.m);
-    let html = match frame::render(
-        &cx.m,
-        &cx.site.sitename,
-        &cx.theme,
-        cx.user.as_deref(),
-        &page,
-    ) {
+    let html = match frame::render(&cx.m, &cx.chrome(), &cx.theme, cx.user.as_deref(), &page) {
         Ok(h) => h,
         Err(e) => return render_failed(&e),
     };
@@ -378,49 +395,73 @@ pub fn unknown_region(region: &str) -> Response {
         .into_response()
 }
 
-/// A title from a URL: underscores as spaces; the main page when empty.
+/// The main page's title when the API does not say (a stock Wikibase says `Main Page`).
+pub const DEFAULT_MAINPAGE: &str = "Project:Home";
+
+/// A title from a URL: underscores as spaces; empty for the main page.
 fn display_title(raw: &str) -> String {
-    let t = raw.replace('_', " ");
-    let t = t.trim();
-    if t.is_empty() {
-        "Main Page".to_string()
-    } else {
-        t.to_string()
-    }
+    raw.replace('_', " ").trim().to_string()
 }
 
-/// The placeholder page for a title the site does not serve yet.
-fn placeholder(m: &Messages, title: String, query: &BTreeMap<String, String>) -> Page {
+/// A title with its first letter upper-cased, as MediaWiki's titles have it.
+fn first_upper(t: &str) -> String {
+    let mut c = t.chars();
+    c.next()
+        .map_or_else(String::new, |f| f.to_uppercase().chain(c).collect())
+}
+
+/// A title with the project namespace written canonically: `librarybase:Home` and
+/// `project:home` are `Project:Home`.
+fn canonical(title: &str, sitename: &str) -> String {
+    let t = title.replace('_', " ");
+    if let Some((ns, rest)) = t.split_once(':')
+        && (ns.trim().eq_ignore_ascii_case("project") || ns.trim().eq_ignore_ascii_case(sitename))
+    {
+        return format!("Project:{}", first_upper(rest.trim()));
+    }
+    first_upper(t.trim())
+}
+
+/// Whether a title is the main page's.
+#[must_use]
+pub fn is_mainpage(title: &str, site: &SiteInfo) -> bool {
+    canonical(title, &site.sitename) == canonical(&site.mainpage, &site.sitename)
+}
+
+/// A `302` to a page, cached as its inputs allow.
+pub fn redirect_to(cx: &Context, title: &str) -> Response {
+    let mut r = Response::new(Body::empty());
+    *r.status_mut() = StatusCode::FOUND;
+    if let Ok(v) = HeaderValue::from_str(&format!("/wiki/{}", title_url(title))) {
+        r.headers_mut().insert(header::LOCATION, v);
+    }
+    caching(r.headers_mut(), None, &cx.inputs);
+    r
+}
+
+/// The `404` for a title the site has no page for: a special page it does not serve, or
+/// any other title, since the site has no document pages yet (0008).
+pub(crate) fn no_page(cx: &Context, headers: &HeaderMap, title: String) -> Response {
     let special = title.starts_with("Special:");
-    let history = query.get("action").is_some_and(|a| a == "history");
-    let tabs = if special {
-        Vec::new()
-    } else {
-        let url = title_url(&title);
-        vec![
-            Tab {
-                label: m.get("ts-tab-read"),
-                href: format!("/wiki/{url}"),
-                current: !history,
-            },
-            Tab {
-                label: m.get("ts-tab-history"),
-                href: format!("/w/index.php?title={url}&action=history"),
-                current: history,
-            },
-        ]
-    };
-    Page {
-        returnto: Some(title.clone()),
-        title,
-        tabs,
-        body: message(MessageKind::Notice, &m.get("ts-not-served")),
-        search: query.get("search").cloned().unwrap_or_default(),
-        ..Page::default()
+    if cx.site.mainpage != "Main Page" && title.eq_ignore_ascii_case("Main Page") {
+        return redirect_to(cx, &cx.site.mainpage.clone());
     }
+    respond(cx, headers, StatusCode::NOT_FOUND, |m| {
+        let text = if special {
+            m.with("ts-no-special-page", &[&title])
+        } else {
+            m.with("ts-no-page", &[&title])
+        };
+        Page {
+            returnto: Some(title.clone()),
+            title,
+            body: message(MessageKind::Notice, &text),
+            ..Page::default()
+        }
+    })
 }
 
-/// A title: an entity's page, or the placeholder.
+/// A title: an entity's page, a special page, the main page, or the `404`.
 async fn dispatch(
     site: &Site,
     headers: &HeaderMap,
@@ -439,17 +480,110 @@ async fn dispatch(
         Ok(cx) => cx,
         Err(r) => return r,
     };
+    if title.is_empty() {
+        return redirect_to(&cx, &cx.site.mainpage);
+    }
+    if is_mainpage(&title, &cx.site) {
+        if query.get("action").is_some_and(|a| a == "render") {
+            return fragment(&cx, headers, StatusCode::OK, || home::body(&cx));
+        }
+        return respond(&cx, headers, StatusCode::OK, |_| home::page(&cx));
+    }
     if query.get("action").is_some_and(|a| a == "render") {
         return fragment(&cx, headers, StatusCode::NOT_FOUND, String::new);
     }
-    respond(&cx, headers, StatusCode::OK, |m| {
-        placeholder(m, title, query)
-    })
+    no_page(&cx, headers, title)
 }
 
-/// `/`: the main page.
-pub async fn root() -> Response {
-    (StatusCode::FOUND, [(header::LOCATION, "/wiki/Main_Page")]).into_response()
+/// Relays the API's `Set-Cookie` headers on a response, which is then the viewer's alone
+/// and kept by no one (0057 §4, §6).
+#[must_use]
+pub fn with_cookies(mut r: Response, cookies: &[HeaderValue]) -> Response {
+    if cookies.is_empty() {
+        return r;
+    }
+    let h = r.headers_mut();
+    for c in cookies {
+        h.append(header::SET_COOKIE, c.clone());
+    }
+    h.insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("private, no-store"),
+    );
+    h.remove("cache-tag");
+    h.remove(header::ETAG);
+    r
+}
+
+/// A `303` after a form: on to `href`, with the cookies the API set.
+#[must_use]
+pub fn see_other(href: &str, cookies: &[HeaderValue]) -> Response {
+    let mut r = Response::new(Body::empty());
+    *r.status_mut() = StatusCode::SEE_OTHER;
+    if let Ok(v) = HeaderValue::from_str(href) {
+        r.headers_mut().insert(header::LOCATION, v);
+    }
+    r.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("private, no-store"),
+    );
+    with_cookies(r, cookies)
+}
+
+/// A form posted to a title: a special page that takes one, or `405`.
+async fn dispatch_post(
+    site: &Site,
+    headers: &HeaderMap,
+    peer: Peer,
+    title: &str,
+    query: &BTreeMap<String, String>,
+    form: &BTreeMap<String, String>,
+) -> Response {
+    if let Some(r) = special::post(site, headers, peer, title, query, form).await {
+        return r;
+    }
+    (
+        StatusCode::METHOD_NOT_ALLOWED,
+        [
+            (header::ALLOW, "GET, HEAD"),
+            (header::CACHE_CONTROL, "no-store"),
+        ],
+    )
+        .into_response()
+}
+
+/// `POST /wiki/{title}`.
+pub async fn wiki_post(
+    State(site): State<Site>,
+    Path(title): Path<String>,
+    Query(query): Query<BTreeMap<String, String>>,
+    headers: HeaderMap,
+    peer: Peer,
+    Form(form): Form<BTreeMap<String, String>>,
+) -> Response {
+    dispatch_post(&site, &headers, peer, &display_title(&title), &query, &form).await
+}
+
+/// `POST /w/index.php` and `/index.php`: the title in `title=`.
+pub async fn index_post(
+    State(site): State<Site>,
+    Query(query): Query<BTreeMap<String, String>>,
+    headers: HeaderMap,
+    peer: Peer,
+    Form(form): Form<BTreeMap<String, String>>,
+) -> Response {
+    let title = display_title(
+        query
+            .get("title")
+            .or_else(|| form.get("title"))
+            .map_or("", String::as_str),
+    );
+    dispatch_post(&site, &headers, peer, &title, &query, &form).await
+}
+
+/// `/`: a redirect to the main page.
+pub async fn root(State(site): State<Site>, headers: HeaderMap, peer: Peer) -> Response {
+    dispatch(&site, &headers, peer, String::new(), &BTreeMap::new()).await
 }
 
 /// `/wiki/{title}`.
@@ -596,17 +730,21 @@ mod tests {
     #[test]
     fn titles() {
         assert_eq!(display_title("Main_Page"), "Main Page");
-        assert_eq!(display_title(""), "Main Page");
-        let m = Messages::for_language("en");
-        let q: BTreeMap<String, String> = [("action".to_string(), "history".to_string())].into();
-        let p = placeholder(&m, "Item:Q6".into(), &q);
-        assert_eq!(p.tabs.len(), 2);
-        assert!(p.tabs[1].current && !p.tabs[0].current);
-        assert_eq!(p.tabs[1].href, "/w/index.php?title=Item:Q6&action=history");
-        assert!(
-            placeholder(&m, "Special:Search".into(), &BTreeMap::new())
-                .tabs
-                .is_empty()
-        );
+        assert_eq!(display_title(""), "");
+        let site = SiteInfo {
+            sitename: "librarybase".into(),
+            mainpage: "Project:Home".into(),
+            ..SiteInfo::default()
+        };
+        for t in [
+            "Project:Home",
+            "project:home",
+            "librarybase:Home",
+            "Project:_Home",
+        ] {
+            assert!(is_mainpage(t, &site), "{t}");
+        }
+        assert!(!is_mainpage("Home", &site));
+        assert!(!is_mainpage("Main Page", &site));
     }
 }

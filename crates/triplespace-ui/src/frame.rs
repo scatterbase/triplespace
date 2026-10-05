@@ -1,6 +1,7 @@
 //! The page frame (0010 §2): the global header (site name, search, the site's links, the
 //! **New** menu, the account menu or **Log in**), the page header (identity line, title,
-//! tabs), the page's body and the footer.
+//! tabs), the page's body and the footer. Each part of the header shows only where its
+//! feature is offered ([`Features`]).
 //!
 //! The notifications bell comes with the inbox (0021 §6), which is not in Phase 0.
 
@@ -9,6 +10,7 @@ use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
 
 use crate::assets;
 use crate::codex::SearchInput;
+use crate::features::{Feature, Features};
 use crate::i18n::Messages;
 use crate::theme::Theme;
 
@@ -50,8 +52,8 @@ pub struct Account {
     pub name: String,
     /// The account menu's accessible name.
     pub label: String,
-    /// The user page.
-    pub href: String,
+    /// The menu's links, as label and target; the name alone where there are none.
+    pub items: Vec<(String, String)>,
 }
 
 /// What a page puts in the frame.
@@ -79,6 +81,17 @@ pub struct Page {
     pub search: String,
 }
 
+/// What the frame needs of the site.
+#[derive(Debug, Clone, Copy)]
+pub struct Chrome<'a> {
+    /// The site's name.
+    pub sitename: &'a str,
+    /// The main page's title.
+    pub mainpage: &'a str,
+    /// What the site offers.
+    pub features: &'a Features,
+}
+
 /// The frame.
 #[derive(Debug, Template)]
 #[template(path = "frame.html")]
@@ -92,8 +105,12 @@ pub struct Frame<'a> {
     subtitle: Option<&'a str>,
     tabs: &'a [Tab],
     body: &'a str,
-    search: String,
+    search: Option<String>,
     account: Option<Account>,
+    mainpage_href: String,
+    login: bool,
+    nav: Vec<(String, String)>,
+    new_menu: Vec<(String, String)>,
     returnto: String,
     css: Option<&'a str>,
     js: Option<&'a str>,
@@ -107,24 +124,78 @@ pub struct Frame<'a> {
 /// If the template fails to render, which it does only on a write error.
 pub fn render(
     m: &Messages,
-    sitename: &str,
+    chrome: &Chrome,
     theme: &Theme,
     user: Option<&str>,
     page: &Page,
 ) -> askama::Result<String> {
-    let search = SearchInput {
-        name: "search",
-        value: &page.search,
-        placeholder: &m.get("ts-search-placeholder"),
-        label: &m.get("ts-search-label"),
-        button: &m.get("ts-search-button"),
-    }
-    .render()?;
-    let account = user.map(|name| Account {
-        name: name.to_string(),
-        label: m.with("ts-account-menu", &[name]),
-        href: format!("/wiki/User:{}", title_url(name)),
+    let f = chrome.features;
+    let search = if f.has(Feature::Search) {
+        Some(
+            SearchInput {
+                name: "search",
+                value: &page.search,
+                placeholder: &m.get("ts-search-placeholder"),
+                label: &m.get("ts-search-label"),
+                button: &m.get("ts-search-button"),
+            }
+            .render()?,
+        )
+    } else {
+        None
+    };
+    let returnto = page
+        .returnto
+        .as_deref()
+        .map_or_else(|| title_url(chrome.mainpage), title_url);
+    let account = user.map(|name| {
+        let mut items = Vec::new();
+        if f.has(Feature::Pages) {
+            items.push((
+                m.get("ts-account-userpage"),
+                format!("/wiki/User:{}", title_url(name)),
+            ));
+        }
+        if f.has(Feature::Account) {
+            items.push((m.get("ts-account"), "/wiki/Special:Account".to_string()));
+        }
+        if f.has(Feature::Login) {
+            items.push((
+                m.get("ts-logout"),
+                format!("/wiki/Special:UserLogout?returnto={returnto}"),
+            ));
+        }
+        Account {
+            name: name.to_string(),
+            label: m.with("ts-account-menu", &[name]),
+            items,
+        }
     });
+    let mut nav = Vec::new();
+    if f.has(Feature::RecentChanges) {
+        nav.push((
+            m.get("ts-nav-recentchanges"),
+            "/wiki/Special:RecentChanges".to_string(),
+        ));
+    }
+    if f.has(Feature::Jobs) {
+        nav.push((m.get("ts-nav-jobs"), "/wiki/Special:Jobs".to_string()));
+    }
+    nav.push((
+        m.get("ts-nav-specialpages"),
+        "/wiki/Special:SpecialPages".to_string(),
+    ));
+    let mut new_menu = Vec::new();
+    if f.has(Feature::Create) {
+        new_menu.push((m.get("ts-new-item"), "/wiki/Special:NewItem".to_string()));
+        new_menu.push((
+            m.get("ts-new-property"),
+            "/wiki/Special:NewProperty".to_string(),
+        ));
+    }
+    if f.has(Feature::Pages) {
+        new_menu.push((m.get("ts-new-page"), "/w/index.php?action=edit".to_string()));
+    }
     let entries = assets::entries();
     let css = if m.dir() == "rtl" {
         entries.css_rtl.as_deref()
@@ -133,7 +204,7 @@ pub fn render(
     };
     Frame {
         m,
-        sitename,
+        sitename: chrome.sitename,
         title: &page.title,
         title_lang: page.title_lang.as_deref(),
         doc_title: page.doc_title.as_deref().unwrap_or(&page.title),
@@ -143,10 +214,11 @@ pub fn render(
         body: &page.body,
         search,
         account,
-        returnto: page
-            .returnto
-            .as_deref()
-            .map_or_else(|| "Main_Page".to_string(), title_url),
+        mainpage_href: format!("/wiki/{}", title_url(chrome.mainpage)),
+        login: f.has(Feature::Login),
+        nav,
+        new_menu,
+        returnto,
         css,
         js: entries.js.as_deref(),
         theme_href: theme.href(),
@@ -172,10 +244,23 @@ mod tests {
         }
     }
 
+    fn chrome(features: &Features) -> Chrome<'_> {
+        Chrome {
+            sitename: "Librarybase",
+            mainpage: "Project:Home",
+            features,
+        }
+    }
+
+    fn all() -> Features {
+        Features::all_built()
+    }
+
     #[test]
     fn anonymous_frame() {
         let m = Messages::for_language("en");
-        let html = render(&m, "Librarybase", Theme::shipped(), None, &page()).unwrap();
+        let f = all();
+        let html = render(&m, &chrome(&f), Theme::shipped(), None, &page()).unwrap();
         assert!(
             html.starts_with(
                 "<!DOCTYPE html>\n<html class=\"client-nojs\" lang=\"en\" dir=\"ltr\">"
@@ -184,7 +269,7 @@ mod tests {
         assert!(html.contains("<title>Main Page – Librarybase</title>"));
         assert!(html.contains(">Librarybase</a>"));
         assert!(html.contains("name=\"search\""));
-        assert!(html.contains("href=\"/wiki/Special:UserLogin?returnto=Main_Page\">Log in</a>"));
+        assert!(html.contains("href=\"/wiki/Project:Home\">Librarybase</a>"));
         assert!(html.contains("aria-current=\"page\">Read</a>"));
         assert!(html.contains(&Theme::shipped().href()));
         assert!(html.contains("<p>x</p>"));
@@ -193,10 +278,36 @@ mod tests {
     #[test]
     fn account_menu_escapes_the_name() {
         let m = Messages::for_language("en");
-        let html = render(&m, "L", Theme::shipped(), Some("A <b> C"), &page()).unwrap();
-        assert!(html.contains("aria-label=\"Account menu for A &#60;b&#62; C\""));
-        assert!(html.contains("href=\"/wiki/User:A_%3Cb%3E_C\""));
+        let f = all();
+        let html = render(&m, &chrome(&f), Theme::shipped(), Some("A <b> C"), &page()).unwrap();
+        assert!(html.contains("A &#60;b&#62; C"));
         assert!(!html.contains("Special:UserLogin"));
+    }
+
+    #[test]
+    fn features_not_offered_are_not_shown() {
+        let m = Messages::for_language("en");
+        let none = Features::default();
+        let html = render(&m, &chrome(&none), Theme::shipped(), None, &page()).unwrap();
+        assert!(
+            !html.contains("name=\"search\""),
+            "no search box without search"
+        );
+        for absent in [
+            "RecentChanges",
+            "Special:Jobs",
+            "Special:NewItem",
+            "action=edit",
+            "Special:UserLogin",
+        ] {
+            assert!(!html.contains(absent), "{absent}");
+        }
+        assert!(html.contains("Special:SpecialPages"));
+        let signed_in =
+            render(&m, &chrome(&none), Theme::shipped(), Some("Alice"), &page()).unwrap();
+        assert!(signed_in.contains("Alice"));
+        assert!(!signed_in.contains("Special:Account"));
+        assert!(!signed_in.contains("User:Alice"));
     }
 
     #[test]

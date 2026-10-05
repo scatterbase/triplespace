@@ -355,6 +355,8 @@ pub struct Field<'a> {
     pub help: Option<&'a str>,
     /// Whether it must be filled.
     pub required: bool,
+    /// The input's `autocomplete` hint (`username`, `current-password`).
+    pub autocomplete: Option<&'a str>,
 }
 
 /// A Codex progress bar, indeterminate.
@@ -496,12 +498,13 @@ mod tests {
             description: Some("Your name"),
             help: None,
             required: true,
+            autocomplete: Some("username"),
         }
         .render()
         .unwrap();
         assert!(f.contains("aria-describedby=\"wpName-description\""));
         assert!(f.contains("value=\"&#34;\""));
-        assert!(f.contains(" required>"));
+        assert!(f.contains(" required autocomplete=\"username\">"));
         let p = ProgressBar {
             label: "Loading",
             inline: true,

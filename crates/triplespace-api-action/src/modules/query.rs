@@ -302,6 +302,10 @@ async fn theme(ctx: &Ctx) -> Result<Option<Value>, ApiError> {
         .filter(Value::is_object))
 }
 
+/// The main page's title: the project namespace's `Home`, which the site generates until
+/// a page of that title exists.
+pub const MAIN_PAGE: &str = "Project:Home";
+
 /// `meta=siteinfo`: `general`, `namespaces`, `namespacealiases`, `extensions`,
 /// `statistics`, `usergroups`, `providers`, `triplespace`; unknown `siprop` values warn.
 #[allow(clippy::too_many_lines)]
@@ -317,8 +321,8 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
         match p.as_str() {
             "general" => {
                 query.insert("general".into(), json!({
-                    "mainpage": "Main Page",
-                    "base": format!("{base}/wiki/Main_Page"),
+                    "mainpage": MAIN_PAGE,
+                    "base": format!("{base}/wiki/{}", MAIN_PAGE.replace(' ', "_")),
                     "sitename": sitename,
                     "generator": ctx.app.config().generator,
                     "phpversion": "0",
