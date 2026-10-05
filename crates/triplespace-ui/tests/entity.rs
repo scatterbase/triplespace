@@ -763,6 +763,17 @@ async fn a_signed_in_viewer_gets_the_edit_buttons_and_data_on_a_local_entity() {
         region.contains("data-ts-edit=\"terms\""),
         "the region keeps its button"
     );
+    assert!(html.contains(
+        "data-ts-edit=\"group\" data-property=\"P3\" aria-label=\"Edit the values of population\""
+    ));
+    assert!(html.contains("data-ts-edit=\"add-statement\""));
+    assert_eq!(data["conceptBase"], "https://librarybase.org/entity/");
+    let (_, _, group) =
+        get_signed_in("/w/index.php?title=Item:Q6&action=render&region=statements/P3").await;
+    assert!(
+        group.contains("data-ts-edit=\"group\""),
+        "a group's region keeps its button"
+    );
 
     let (_, _, foreign) = get_signed_in("/wiki/Item:WDQ65").await;
     assert!(

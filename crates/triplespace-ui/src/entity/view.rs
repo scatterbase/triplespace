@@ -326,6 +326,17 @@ impl Render<'_> {
         props.into_iter().map(|p| self.group(p)).collect()
     }
 
+    /// **Add statement**, for a viewer who may edit.
+    fn add_statement(&self) -> String {
+        if !self.editable {
+            return String::new();
+        }
+        format!(
+            "<p class=\"ts-edit-bar ts-edit-bar--add\"><button type=\"button\" class=\"cdx-button ts-edit\" data-ts-edit=\"add-statement\" hidden>{}</button></p>",
+            esc(&self.m.get("ts-edit-add-statement"))
+        )
+    }
+
     /// The Statements tab: its groups and "Where this comes from".
     #[must_use]
     pub fn statements_tab(&self) -> String {
@@ -336,6 +347,7 @@ impl Render<'_> {
                 esc(&self.m.get("ts-statements-none"))
             );
         }
+        groups.push_str(&self.add_statement());
         format!(
             "<div class=\"ts-entity\"><div class=\"ts-entity__main\"><h2 class=\"ts-visually-hidden\">{}</h2>{groups}</div>{}</div>",
             esc(&self.m.get("ts-tab-statements")),
@@ -353,6 +365,7 @@ impl Render<'_> {
                 esc(&self.m.get("ts-identifiers-none"))
             );
         }
+        groups.push_str(&self.add_statement());
         format!("<div class=\"ts-identifiers\" data-region=\"identifiers\">{groups}</div>")
     }
 

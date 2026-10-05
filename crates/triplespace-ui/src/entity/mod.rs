@@ -152,6 +152,18 @@ impl Lookup {
         out
     }
 
+    /// Adds the page's own entity, which a statement may name (an item that is an
+    /// instance of itself), so it shows with its label rather than its ID.
+    pub fn add_self(&mut self, entity: &Entity, chain: &[String]) {
+        if let Some((lang, text)) = chain
+            .iter()
+            .find_map(|l| entity.labels.get(l).map(|t| (l.clone(), t.clone())))
+        {
+            self.labels
+                .insert(entity.id.as_str().to_string(), (text, lang));
+        }
+    }
+
     /// An entity's label and its language.
     #[must_use]
     pub fn label(&self, id: &str) -> Option<(&str, &str)> {
@@ -371,7 +383,7 @@ pub async fn serve(
     };
     let chain = cx.m.term_chain();
     let ids = referenced(&entity, &cx.site);
-    let lookup = if ids.is_empty() {
+    let mut lookup = if ids.is_empty() {
         Lookup::default()
     } else {
         match client
@@ -389,6 +401,7 @@ pub async fn serve(
             }
         }
     };
+    lookup.add_self(&entity, &chain);
     let roles = site_roles(&cx.site);
     let editable =
         cx.user.is_some() && cx.features.has(Feature::Edit) && entity.id.form() == IdForm::Local;
@@ -446,6 +459,7 @@ fn edit_data(r: &Render<'_>, cx: &Context, title: &str) -> String {
         "lang": cx.m.lang(),
         "dir": cx.m.dir(),
         "build": crate::assets::build_id(),
+        "conceptBase": cx.site.concept_base,
         "messages": cx.m.with_prefix("ts-edit-"),
     });
     format!(

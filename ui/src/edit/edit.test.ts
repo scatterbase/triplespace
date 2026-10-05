@@ -12,6 +12,7 @@ const data: EditData = {
 	lang: 'en',
 	dir: 'ltr',
 	build: 'b1',
+	conceptBase: 'https://librarybase.org/entity/',
 	messages: { 'ts-edit-failed': 'Not saved: $1', 'ts-edit-in-language': 'In $1' },
 };
 
@@ -78,21 +79,34 @@ describe( 'regions', () => {
 	it( 'asks for the region with the page\'s build and swaps it in', async () => {
 		document.body.innerHTML = '<div data-region="terms"><p>old</p></div>';
 		let sent: RequestInit | undefined;
-		const fresh = await refreshRegion( document, data, 'terms', async ( url, init ) => {
+		const fresh = await refreshRegion( document, data, 'terms', { fetcher: async ( url, init ) => {
 			sent = init;
 			expect( url ).toBe( regionUrl( data, 'terms' ) );
 			return new Response( '<div class="ts-terms" data-region="terms"><p>new</p></div>' );
-		} );
+		} } );
 		expect( ( sent?.headers as Record<string, string> )[ 'X-Triplespace-UI-Build' ] ).toBe( 'b1' );
 		expect( fresh?.textContent ).toBe( 'new' );
 		expect( document.body.innerHTML ).toBe( '<div class="ts-terms" data-region="terms"><p>new</p></div>' );
 		expect( regionUrl( data, 'statements/P31' ) ).toBe( '/w/index.php?title=Item%3AQ6&action=render&region=statements%2FP31&uselang=en' );
 	} );
 
+	it( 'puts a region the page lacks where it is told', async () => {
+		document.body.innerHTML = '<p class="ts-edit-bar">add</p>';
+		const fresh = await refreshRegion( document, data, 'statements/P9', {
+			fetcher: async () => new Response( '<section data-region="statements/P9">P9</section>' ),
+			place: ( el ) => document.querySelector( '.ts-edit-bar' )?.before( el ),
+		} );
+		expect( fresh?.textContent ).toBe( 'P9' );
+		expect( document.body.firstElementChild?.tagName ).toBe( 'SECTION' );
+	} );
+
 	it( 'reloads the page when the server is on another build', async () => {
 		document.body.innerHTML = '<div data-region="terms">old</div>';
 		const reload = vi.fn();
-		const r = await refreshRegion( document, data, 'terms', async () => new Response( null, { status: 409 } ), reload );
+		const r = await refreshRegion( document, data, 'terms', {
+			fetcher: async () => new Response( null, { status: 409 } ),
+			reload,
+		} );
 		expect( r ).toBeNull();
 		expect( reload ).toHaveBeenCalledOnce();
 		expect( document.body.textContent ).toBe( 'old' );
