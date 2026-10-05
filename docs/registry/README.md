@@ -37,6 +37,8 @@ This directory is the registry of record for the names and codes that Triplespac
 
 ## Pending allocations
 
+- **Commons as the source of Wikidata's `M` type** ([0065](../decisions/0065-mediainfo-captions-and-commons.md) §2, §5): the per-type fields `api`, `entity_data` and `dumps` on `[[provider.type]]`, pointing at `commons.wikimedia.org`. They are written as comments beside the `M` type in `providers.toml` until `scatter-providers` accepts them; the registry parser rejects unknown fields.
+
 - **English Wikipedia as a page provider** ([0052](../decisions/0052-page-repositories-and-title-inheritance.md) §1): slug `enwiki`, provider number 9, issuer `enwiki` (in `issuers.toml`), `pages = true`, no code and no types. The number is reserved here; the `[[provider]]` row is written once `scatter-providers` accepts an entry without a code.
 
 - Filing the registration of 210–229 and 310–329 on mediawiki.org's [Extension default namespaces](https://www.mediawiki.org/wiki/Extension_default_namespaces) page. The numbers are allocated in `namespaces.toml` ([0008](../decisions/0008-namespaces-and-document-pages.md) §2, as amended 2026-09-27 and 2026-10-01): Domain 210/211, Keyword 212/213, Thread 214/215, Notation 216/217 (allocated to OSM by 0036, renamed by [0048](../decisions/0048-notation.md) §7 before filing), Table 218/219 ([0045](../decisions/0045-table-content-model.md) §2), DOI 220/221, URL 222/223, Board 310/311 ([0049](../decisions/0049-boards.md) §2); 210–219 is full, 224–229 and 312–319 are free, and 320–329 (resolvers) holds nothing yet. As of 2026-09-27 the page lists nothing between 204 and 240, and as of 2026-10-01 nothing in 310–329.

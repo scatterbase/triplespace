@@ -93,10 +93,11 @@ agent_iri = "http://www.wikidata.org/entity/Q2013"    # the provider as a prov:O
   upstream_prefix = "M"
   iri = "https://commons.wikimedia.org/entity/{upstream_id}"
   namespace = "File"               # a MediaInfo entity is the `mediainfo` slot of a File page, not a namespace of its own (0041 §6–7)
-  # Commons is the source of this type under Wikidata's provider (0065 §2): the adapter reads M entities here.
-  api = "https://commons.wikimedia.org/w/api.php"
-  entity_data = "https://commons.wikimedia.org/wiki/Special:EntityData/"
-  dumps = "https://dumps.wikimedia.org/commonswiki/entities/"
+  # Commons is the source of this type under Wikidata's provider (0065 §2). The per-type source fields
+  # 0065 §5 adds to scatter-providers are a pending allocation (README) until the crate accepts them:
+  #   api = "https://commons.wikimedia.org/w/api.php"
+  #   entity_data = "https://commons.wikimedia.org/wiki/Special:EntityData/"
+  #   dumps = "https://dumps.wikimedia.org/commonswiki/entities/"
 
   [[provider.type]]
   code = "E"
