@@ -1,0 +1,43 @@
+# Fragment paths for packed record storage.  ADR 0058 §3.
+#
+# In a packed partition (log.partition.storage = 'packed'), each subtree of a present
+# part's content that matches one of these paths, and encodes to at least `min_bytes`,
+# is stored once per dedup domain in log.fragment, and the record refers to it by a
+# fragment reference.
+#
+# Nothing here is part of the record format: the logical bytes never change, so this
+# file can change at any time, and `triplespace-cli storage repack` applies it to old rows.
+#
+# path    = JSON-Pointer-like segments over the content part's CBOR:
+#           "name" a map key; "*" any one map key or array index; "**" zero or more segments.
+#           Inner matches are packed before the subtrees that contain them.
+# history = "any" | "full": "full" paths apply only in partitions whose history is full
+#           (0002 §2), where whole statements repeat across an entity's revisions.
+
+version = 1
+min_bytes = 64        # a reference costs 22 bytes; smaller subtrees stay inline
+max_depth = 4         # nesting of fragments within fragments
+
+[[path]]
+payload_type = "scatter:v0/changeset"
+path = "/**/claims/*/*/references/*"
+history = "any"
+what = "One reference of a statement: snaks, snaks-order, and hash where kept"
+
+[[path]]
+payload_type = "scatter:v0/changeset"
+path = "/references/*/*"
+history = "any"
+what = "One reference added to an existing statement by an `add` op"
+
+[[path]]
+payload_type = "scatter:v0/changeset"
+path = "/**/claims/*/*/qualifiers"
+history = "any"
+what = "A statement's qualifier map"
+
+[[path]]
+payload_type = "scatter:v0/changeset"
+path = "/**/claims/*/*"
+history = "full"
+what = "A whole statement, GUID included"

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-03 (A15)
+- **Updated:** 2026-10-04 (A16)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md)
 - **Uses:** [0000](0000-init.md), [0003](0003-statement-ui.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -192,7 +192,7 @@ The fallback has no `haswbstatement:`, no ranking beyond incoming links, and no 
 
 ### 10. Caches, indexes and stores added by later ADRs
 
-*Changed by A3, A5, A7, A8.*
+*Changed by A3, A5, A7, A8, A16.*
 
 The ADRs after this one add to the layers of §2 without adding a layer, and change §4 and §7 where they say so ([0018](0018-tenants.md) §6 makes keys tenant-aware and indexes per provider and tenant). This section is the index, so that erasure (§5) and the privacy test have one list to walk.
 
@@ -205,13 +205,13 @@ The ADRs after this one add to the layers of §2 without adding a layer, and cha
 | `tp:{pageid}:{gen}:{revid}` | A talk page's thread listing, keyed likewise by the talk page ID | 0019 §11 |
 | `t:`, `e:`, `prov:` and the rest of §4 | Gain a tenant component where the value is tenant-specific, and omit it where the value is shared, so a mirrored entity's JSON is cached once for every tenant that reads it unchanged | [0018](0018-tenants.md) §6 |
 
-**L0 additions** (extends §2), all small, all invalidated by the record that changes them: the current ACLs of a target and its enclosures, including the `statement` and `property` targets ([0023](0023-moderation.md) §2, §10); the compiled CEL rule of every enabled filter ([0030](0030-edit-filters.md) §11); the parsed constraints of a property, keyed by its `resolved_version` ([0031](0031-property-constraints.md) §5); the class chain walked by a *type* constraint check, to its depth limit (0031 §2); the farm-account join behind global groups and blocks, per session ([0028](0028-tenancy-policy.md) §12).
+**L0 additions** (extends §2), all small, all invalidated by the record that changes them: the current ACLs of a target and its enclosures, including the `statement` and `property` targets ([0023](0023-moderation.md) §2, §10); the compiled CEL rule of every enabled filter ([0030](0030-edit-filters.md) §11); the parsed constraints of a property, keyed by its `resolved_version` ([0031](0031-property-constraints.md) §5); the class chain walked by a *type* constraint check, to its depth limit (0031 §2); the farm-account join behind global groups and blocks, per session ([0028](0028-tenancy-policy.md) §12); the fragment cache of packed storage, an LRU of immutable fragments by domain and ref with the set of refs known to be shared, dropped for a domain when its epoch changes or on `NOTIFY ts_fragment` and otherwise bounded by the L0 ceiling ([0058](0058-packed-record-storage.md) §11).
 
 **Valkey keys that are not caches** (extends §4): `rl:filter:{id}:{key}`, a filter's throttle counter with the filter's window as TTL ([0030](0030-edit-filters.md) §4, §11); `oauth:code:{hash}` and `oauth:device:{hash}`, authorization and device codes with a ten-minute TTL ([0025](0025-oauth-server.md) §8). Sessions (`s:`) record the API key ID or OAuth token ID that opened them, so revoking either can end them ([0024](0024-subsidiary-accounts.md) §4, [0025](0025-oauth-server.md) §5).
 
 **Never cached above L2,** in addition to the activity lists of §4: the watchlist and every response under `/watchlist` ([0020](0020-change-feeds.md) §5), the inbox and everything under `/inbox` and `/notifications` ([0021](0021-notifications.md) §7), everything under `/account`, including preferences, subsidiaries, keys, authorizations and the data export ([0024](0024-subsidiary-accounts.md) §8, [0025](0025-oauth-server.md) §9, [0027](0027-preferences-and-portability.md) §6), all of which are `Cache-Control: private` or `no-store`. The everything feed's page and Atom forms are public and cache briefly at L2 (0020 §5). The stream ([0020](0020-change-feeds.md) §4) is not cached; it is a fan-out from the activity projection. Constraint reports and the filter log are feeds or lists over `view` and follow the activity-list rule. The SPARQL Update stream and `/updates` ([0032](0032-sparql-update-stream.md) §6) are range reads over `view.rdf_delta` and are not cached either; its batch files under `/dumps/updates/` are immutable once written and cache like dumps.
 
-**Erasure** (extends §5) has a fifth step: **delete the inbox rows** whose activity was hidden or erased, in every inbox ([0021](0021-notifications.md) §2), and a sixth: **delete or rewrite the `rdf_delta` rows** within the retention window whose triples include the erased ones, and emit the deleting delta ([0032](0032-sparql-update-stream.md) §5). The end-to-end erasure test of the Consequences covers both. **Deletion and hiding** ([0023](0023-moderation.md) §4–5) take the same path: a `read` ACL on a page, entity, record, actor, statement or property bumps the target's generation, purges its keys and tags, deletes or re-sends its search document and clears its inbox rows, because the shared layers hold only the public form (§1) and the public form has changed; a `property` read ACL bumps every entity the property appears on, found through `view.statement_assertion` and the resolved JSON, which is the one moderation action with a fan-out. Protection purges nothing. A **sitelink or federation policy change** ([0026](0026-sitelinks.md) §3, [0022](0022-federation.md) §8) re-resolves the affected entities through the `host` index and bumps their versions, not their generations, since nothing was hidden for privacy.
+**Erasure** (extends §5) has a fifth step: **delete the inbox rows** whose activity was hidden or erased, in every inbox ([0021](0021-notifications.md) §2), and a sixth: **delete or rewrite the `rdf_delta` rows** within the retention window whose triples include the erased ones, and emit the deleting delta ([0032](0032-sparql-update-stream.md) §5), and a seventh, in a packed partition: **sweep the erased parts' fragments** and drop the domain's fragment cache in every process ({L} §6, §11). The end-to-end erasure test of the Consequences covers all three. **Deletion and hiding** ([0023](0023-moderation.md) §4–5) take the same path: a `read` ACL on a page, entity, record, actor, statement or property bumps the target's generation, purges its keys and tags, deletes or re-sends its search document and clears its inbox rows, because the shared layers hold only the public form (§1) and the public form has changed; a `property` read ACL bumps every entity the property appears on, found through `view.statement_assertion` and the resolved JSON, which is the one moderation action with a fan-out. Protection purges nothing. A **sitelink or federation policy change** ([0026](0026-sitelinks.md) §3, [0022](0022-federation.md) §8) re-resolves the affected entities through the `host` index and bumps their versions, not their generations, since nothing was hidden for privacy.
 
 **Search** (extends §7):
 
@@ -417,3 +417,10 @@ Replaced text (§7):
 - **Source:** [0057](0057-web-tier.md) §5, §6
 - **Change:** extends §2, §6
 - **Summary:** The web tier may cache public API responses to its credential-free requests, in memory or in a named Valkey. It cannot be purged, and it sits beneath a CDN that can, so it revalidates every use, keeping without revalidation only responses whose `max-age` the API sets because no purge, erasure or moderation can change them, for at most 60 seconds; it never honours `s-maxage`. A page it composes is public only if all its inputs were, with an `ETag` and `Cache-Tag` derived from theirs.
+
+### A16. The fragment cache
+
+- **Date:** 2026-10-04
+- **Source:** [0058](0058-packed-record-storage.md) §11
+- **Change:** extends §10
+- **Summary:** Packed storage adds an L0 fragment cache: immutable fragments by domain and ref, and the refs known to be shared in the domain's current epoch. Erasure gains a seventh step, the fragment sweep and the cache drop that follows it.
