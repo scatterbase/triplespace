@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-01 (A7)
+- **Updated:** 2026-10-05 (A13)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0019](0019-discussions.md), [0029](0029-resolver-namespaces.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md)
 - **Uses:** [0035](0035-adopting-a-wikibase.md), [0043](0043-lua-modules.md), [0045](0045-table-content-model.md), [0048](0048-notation.md), [0049](0049-boards.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -58,7 +58,7 @@ IDs that other MediaWiki extensions use are not reserved. A generic ID is used o
 
 ### 3. The content model registry (extends 0008 §5)
 
-*Changed by A2, A3, A4, A5, A7.*
+*Changed by A2, A3, A4, A5, A7, A8, A9, A10, A11, A13.*
 
 The models are registry data, in a new file, `docs/registry/content-models.toml`, embedded by `scatter-pages`. Each entry records the ID, its origin, its **source** (§5), its **slot role**, the entity type where there is one, the serialization format reported as MediaWiki's `contentformat`, and whether it supports direct editing. The defaults:
 
@@ -80,9 +80,14 @@ The models are registry data, in a new file, `docs/registry/content-models.toml`
 | `Scribunto` | Scribunto | text | main | `text/plain` | Yes | 828, by Scribunto's title rules ([0043](0043-lua-modules.md) §3) |
 | `triplespace-table` | Triplespace | text | main | `application/json` | Yes | 218 ([0045](0045-table-content-model.md) §3) |
 | `triplespace-board` | Triplespace | text | main | `application/json` | Yes | 310 ([0049](0049-boards.md) §3) |
+| `triplespace-scope` | Triplespace | text | main | `application/json` | Yes | 312 ([0060](0060-scopes.md) §3) |
+| `triplespace-sprint` | Triplespace | text | main | `application/json` | Yes | — ; allowed on Project (4) subpages ([0061](0061-sprints-and-tasks.md) §2–3) |
+| `triplespace-sparql` | Triplespace | text | main | `application/json` | Yes | 124 ([0063](0063-query-namespace.md) §3) |
+| `EntitySchema` | EntitySchema | entity (`entityschema`) | main | `application/json` | No | 640 ([0064](0064-entityschema-and-validation.md) §3) |
+| `wikibase-lexeme` | WikibaseLexeme | entity (`lexeme`) | main | `application/json` | No | 146 ([0066](0066-lexemes.md) §3) |
 | `sanitized-css` | TemplateStyles | text | main | `text/css` | Yes | Template (10) for titles ending in `.css`; allowed in Project (4) for the site-styles page ([0055](0055-templatestyles-templatedata-and-page-properties.md) §1) |
 
-**Two models hold a definition, not the page's content.** A `triplespace-table` page is a definition naming entities and properties, from which the grid is generated ([0045](0045-table-content-model.md) §3); a `triplespace-board` page is a definition, from which the thread listing is generated ([0049](0049-boards.md) §3).
+**Five models hold a definition, not the page's content.** A `triplespace-table` page is a definition naming entities and properties, from which the grid is generated ([0045](0045-table-content-model.md) §3); a `triplespace-board` page is a definition, from which the thread listing is generated ([0049](0049-boards.md) §3); a `triplespace-scope` page is a definition of a set of subjects, from which the member list is projected ([0060](0060-scopes.md) §3). A `triplespace-sprint` page is a definition of a scope, rules and a window, from which the task board is projected ([0061](0061-sprints-and-tasks.md) §3). A `triplespace-sparql` page is a parameterized query, from which the result table is computed ([0063](0063-query-namespace.md) §3).
 
 **One model per entity type.** Every entity namespace hosts one entity type ([0008](0008-namespaces-and-document-pages.md) §1), so it has one model, whichever provider the entity comes from: `Item:Q5`, `Item:WDQ42` and `Item:OAW123` are all `wikibase-item`. An entity type added by a later ADR takes a model in the same change: `wikibase-` and the type if a Wikibase extension already defines it, `triplespace-` and the type otherwise. When Lexeme (146) is implemented, it takes `wikibase-lexeme`.
 
@@ -150,6 +155,8 @@ Rendering stays where earlier ADRs put it: text models in `scatter-pages` and `s
 
 ### 7. MediaInfo: a File page's statements over the Wikibase API (amends 0038 §1 and §13; extends 0017 §1)
 
+*Changed by A12.*
+
 On File pages, 0038 §1's "no entity ID" is replaced by WikibaseMediaInfo's contract, because tools written for Structured Data on Commons expect it.
 
 **The ID is `M` followed by the page ID**: the File page with page ID 1234 has the MediaInfo ID `M1234`, as on Commons. It has the local form of [0017](0017-entity-id-grammar.md) §1, but it is **derived, not minted**: it is a name for one File page's statements. It is not a row in `view.entity`, never joins an identity cluster, cannot be the value of an entity data type, and goes when the page goes. `M` followed by the ID of a page that is not a File page, or does not exist, is a missing entity. Because adoption keeps source page IDs ([0035](0035-adopting-a-wikibase.md) §4, [0039](0039-files-and-media.md) §14), a file's `M` ID survives adoption from a wiki that numbered it.
@@ -164,7 +171,7 @@ On File pages, 0038 §1's "no entity ID" is replaced by WikibaseMediaInfo's cont
 
 **Writing.** The statement modules accept an `M` ID: `wbeditentity` (statements only), `wbcreateclaim`, `wbsetclaim`, `wbremoveclaims`, `wbsetclaimvalue`, `wbsetqualifier`, `wbremovequalifiers`, `wbsetreference` and `wbremovereferences`. Each writes a page change set exactly as the REST routes do (0038 §1): the same records, permissions, protection, filters and constraints. `baserevid` is the page's latest revision ID of any kind (text, statements or upload), which gives the base offset. A write to a projected statement is refused with `ts-derived-statement` (0038 §13).
 
-**Terms and sitelinks are not supported yet.** MediaInfo's labels are Commons' *captions*. They are page terms, which [0038](0038-page-metadata-and-categories.md) Q4 leaves open, and 0038 §1 keeps terms out of page change sets. Until that is settled, `labels` and `descriptions` are always empty, and `wbsetlabel`, `wbsetdescription`, `wbsetaliases`, `wbsetsitelink` and a `wbeditentity` carrying terms or sitelinks on an `M` ID are refused with Wikibase's `not-supported` ("The requested feature is not supported by the given entity").
+**Labels and descriptions are captions; aliases and sitelinks are not supported.** MediaInfo's labels are Commons' *captions*. They are the File page's terms, written by a `terms` operation on the page's change set and projected into `view.term` under the `M` ID ([0065](0065-mediainfo-captions-and-commons.md) §1), so `wbsetlabel`, `wbsetdescription` and a `wbeditentity` carrying `labels` or `descriptions` on an `M` ID are accepted. `wbsetaliases`, `wbsetsitelink` and a `wbeditentity` carrying aliases or sitelinks are refused with Wikibase's `not-supported` ("The requested feature is not supported by the given entity"), as Commons refuses them.
 
 **Unchanged:** REST stays `/page/{pageid}/statements` for every page, File pages included; the Wikibase REST API has no MediaInfo routes to follow. RDF stays as [0038](0038-page-metadata-and-categories.md) §11 has it, with the page node as subject. Statements on pages other than File pages stay out of the Action API.
 
@@ -223,7 +230,7 @@ In Scatterbase's terms, the stored bytes are the blob and the content model is t
 - **Q3. A MediaInfo IRI.** Whether the RDF should also give each File page's statements the entity IRI `{base}/entity/M{pageid}`, so that queries written for the Commons Query Service (`sdc:M…`) work unchanged.
 - **Q4. Adopting a wiki that ran WikibaseMediaInfo.** Importing its `mediainfo` slots as page statements on the adopted File pages ([0035](0035-adopting-a-wikibase.md), [0039](0039-files-and-media.md) §14).
 - **Q5. Mirrored Commons MediaInfo** (`WDM`) shown on foreign files, which [0039](0039-files-and-media.md) Q7 leaves open. With this ADR, a mirrored `WDM` entity would be the `mediainfo` slot of a foreign File page, not the page of a MediaInfo namespace.
-- **Q6. EntitySchema's namespace.** This ADR reserves the `EntitySchema` model; by [0008](0008-namespaces-and-document-pages.md) §2 rule 1, its namespace numbers should be reserved in `namespaces.toml` too.
+- **Q6.** ~~**EntitySchema's namespace.** This ADR reserves the `EntitySchema` model; by [0008](0008-namespaces-and-document-pages.md) §2 rule 1, its namespace numbers should be reserved in `namespaces.toml` too.~~ *Settled by [0064](0064-entityschema-and-validation.md) §2: 640 and 641 are implemented with the extension's meaning.*
 
 ## Changes to other ADRs
 
@@ -323,3 +330,53 @@ Replaced text (Q2):
 - **Source:** [0055](0055-templatestyles-templatedata-and-page-properties.md) §1
 - **Change:** extends §3
 - **Summary:** TemplateStyles' model joins the table as a text model, `text/css`, directly editable, validated by the `scatter-css` sanitizer at save; the default for `.css` titles in Template and allowed in Project for the site-styles page. 0008 §5's exclusion now covers `css` and `javascript` only.
+
+### A8. The `triplespace-scope` model
+
+- **Date:** 2026-10-04
+- **Source:** [0060](0060-scopes.md) §3
+- **Change:** extends §3
+- **Summary:** `triplespace-scope` (origin Triplespace): source text, slot `main`, format `application/json`, direct editing yes, the default in Scope (312). Its content is a definition; the member list is projected.
+
+Replaced text (§3, in part):
+
+> **Two models hold a definition, not the page's content.**
+
+### A9. The `triplespace-sprint` model
+
+- **Date:** 2026-10-04
+- **Source:** [0061](0061-sprints-and-tasks.md) §3
+- **Change:** extends §3
+- **Summary:** `triplespace-sprint` (origin Triplespace): source text, slot `main`, format `application/json`, direct editing yes; allowed on `Project` subpages, default nowhere. Its content is a definition; the task board is projected.
+
+### A10. The `triplespace-sparql` model
+
+- **Date:** 2026-10-05
+- **Source:** [0063](0063-query-namespace.md) §3
+- **Change:** extends §3
+- **Summary:** `triplespace-sparql` (origin Triplespace): text, `application/json`, direct editing, the default in Query (124). A parameterized query; the result table is computed.
+
+### A11. The `EntitySchema` model
+
+- **Date:** 2026-10-05
+- **Source:** [0064](0064-entityschema-and-validation.md) §3
+- **Change:** extends §3
+- **Summary:** `EntitySchema` moves from reserved to implemented as an entity model for the `entityschema` type, the default in 640. Q6 is settled.
+
+### A12. Captions
+
+- **Date:** 2026-10-05
+- **Source:** [0065](0065-mediainfo-captions-and-commons.md) §1
+- **Change:** amends §7
+- **Summary:** Labels and descriptions on `M` IDs are captions, accepted and stored as the File page's terms; aliases and sitelinks stay refused.
+
+Replaced text (§7):
+
+> **Terms and sitelinks are not supported yet.** MediaInfo's labels are Commons' *captions*. They are page terms, which [0038](0038-page-metadata-and-categories.md) Q4 leaves open, and 0038 §1 keeps terms out of page change sets. Until that is settled, `labels` and `descriptions` are always empty, and `wbsetlabel`, `wbsetdescription`, `wbsetaliases`, `wbsetsitelink` and a `wbeditentity` carrying terms or sitelinks on an `M` ID are refused with Wikibase's `not-supported` ("The requested feature is not supported by the given entity").
+
+### A13. The `wikibase-lexeme` model
+
+- **Date:** 2026-10-05
+- **Source:** [0066](0066-lexemes.md) §3
+- **Change:** extends §3
+- **Summary:** `wikibase-lexeme` moves from reserved to implemented as the entity model for `lexeme`, the default in 146.

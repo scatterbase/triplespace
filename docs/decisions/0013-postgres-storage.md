@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-04 (A31)
+- **Updated:** 2026-10-05 (A35)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
@@ -474,7 +474,7 @@ The `view.filter`, `view.filter_hit`, `view.constraint_violation`, `view.constra
 
 #### 5.6 Tables added by later ADRs
 
-*Changed by A2, A3, A6, A7, A8, A9, A10, A11, A13, A14, A16, A17, A19, A21, A22, A23, A24, A25, A26, A30.*
+*Changed by A2, A3, A6, A7, A8, A9, A10, A11, A13, A14, A16, A17, A19, A21, A22, A23, A24, A25, A26, A30, A33, A34, A35.*
 
 The ADRs after this one add tables in the same style. Each is specified where it is listed; this table is the index, so that the schema has one map.
 
@@ -505,6 +505,9 @@ The ADRs after this one add tables in the same style. Each is specified where it
 | `view` | `view-pin` in `registry` | Tenant-wide shape pins | [0027](0027-preferences-and-portability.md) §5 |
 | `view` | `resolver` in `registry`; no table | Resolver namespaces read `identifier` and `sitelink` | [0029](0029-resolver-namespaces.md) §3 |
 | `view` | `rdf_delta` | The deleted and inserted triples of every change to a public graph, in one sequence, kept for a retention window; the SPARQL Update stream and the local quad store read it | [0032](0032-sparql-update-stream.md) §3 |
+| `view` | `schema_report` | A subject's conformance to an entity schema bound to a scope it is in: `conforms`, the reasons, `depth_limited`, the revisions checked; written after the scope projection, by the subject's write, a scope change, a schema revision or the recheck job | [0064](0064-entityschema-and-validation.md) §5 |
+| `view` | `term` rows with `entity_id` of the forms `M{page ID}` and `WDM{page ID}` | Captions: a File page's labels and descriptions, local and mirrored | [0065](0065-mediainfo-captions-and-commons.md) §4 |
+| `view` | `term` kinds 4 lemma, 5 representation, 6 gloss | Lexeme terms, with the part's ID as `entity_id` for representations and glosses | [0066](0066-lexemes.md) §5 |
 | `ops` | The delta epoch | Incremented by a `view` rebuild, so that cursors from before it are refused | [0032](0032-sparql-update-stream.md) §3 |
 | `ops` | `ap_inbox_seen` | Accepted inbound activity IDs for the replay window | [0022](0022-federation.md) §8, as settled 2026-09-27 |
 | `view` | `page_statements`, `page_category`, `category`; page subjects (the page ID in decimal) in `statement_assertion`, `entity_ref` and `constraint_violation`. `page_category` and `category` run in step 2 of §7, page-statement resolution in step 4 | Page statements, asserted and projected; category membership and category info | [0038](0038-page-metadata-and-categories.md) §10 |
@@ -539,7 +542,7 @@ The IDs are inside the hashed header, so an inclusion proof covers them, an expo
 
 ### 7. Projections, synchrony and read-your-writes
 
-*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A16, A19, A27, A28.*
+*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A16, A19, A27, A28, A33.*
 
 Every table in `view` belongs to a named projection. `ops.projection_state (projection, partition, applied_offset)` records how far each has replayed; lag is the distance to the partition's head, and it is what job pages report ([0010](0010-site-ui.md) §9). A rebuild truncates the projection's tables and replays from offset 0.
 
@@ -551,7 +554,7 @@ Projections run in dependency order:
 4. `entity` (resolution), `term`, `sitelink` with the denied-host filter ([0026](0026-sitelinks.md) §6), `identifier`, `value_key`, `entity_ref`, `statement_assertion`, `correction`, then `constraint_violation` and `constraint_count` ([0031](0031-property-constraints.md) §2), which read them, and page-statement resolution ([0038](0038-page-metadata-and-categories.md) §10);
 5. `activity` with `patrolled` ([0023](0023-moderation.md) §6), `filter_hit` ([0030](0030-edit-filters.md) §11), `page_link`, `record_statement`, and `thread`, `post`, `talk_page` ([0019](0019-discussions.md) §11), then `report` and `site_stats`, after `activity` and `page_link` ([0047](0047-special-pages.md) §4.3, §13);
 6. the addressing projection that fills inboxes ([0021](0021-notifications.md) §1), which reads `activity` and writes to `private`; it is the one projection whose target is not `view`, and it runs asynchronously under the notifier's role;
-7. the RDF and search projections (§8, [0014](0014-caches-and-search.md) §7). The **delta projection** of [0032](0032-sparql-update-stream.md) §2 is not a separate step: it runs inside steps 2, 4 and 7, wherever a projection has both the old and the new state of an entity in hand, and writes `view.rdf_delta` in the same transaction.
+7. the RDF and search projections (§8, [0014](0014-caches-and-search.md) §7). The **delta projection** of [0032](0032-sparql-update-stream.md) §2 is not a separate step: it runs inside steps 2, 4 and 7, wherever a projection has both the old and the new state of an entity in hand, and writes `view.rdf_delta` in the same transaction. The scope, task and validation projections ([0060](0060-scopes.md) §5, [0061](0061-sprints-and-tasks.md) §6, [0064](0064-entityschema-and-validation.md) §5) run at the end of this step, in that order, within the fan-out budget.
 
 **One projection may own several tables** (A28). The list above names tables; `term` and `identifier` are written by the `entity` projection from the same resolution pass, since each is a function of the resolved state and splitting them would resolve every subject three times. `ops.projection_state` has one row per projection, so their position is `entity`'s. A rebuild orders partitions by dependency: the `config` partition, then the instance `log` (surrogates, instance jobs), then mirrors, then tenant partitions; the resolution projection fails loudly on a keyed subject whose surrogate it cannot find ([0009](0009-keyed-entity-types-and-domain.md) §7).
 
@@ -567,7 +570,7 @@ Projections run in dependency order:
 
 ### 8. RDF becomes an output, not the read path (amends 0001 §2 and 0005 §4.4)
 
-*Changed by A9, A10.*
+*Changed by A9, A10, A32.*
 
 - **The API and UI read only `view`.** No request path queries a triplestore.
 - **The RDF projection streams.** The resolved view (the main graph of [0001](0001-revision-metadata-rdf.md) §2, computed as [0002](0002-source-graphs-and-mass-ingest.md) §3 describes), the source graphs and the metadata graph are produced as N-Quads from `view` and `log` by `triplespace-rdf` ([0005](0005-crate-organization.md) §2). No intermediate quad store is needed to produce them. Three dump products are offered:
@@ -576,7 +579,7 @@ Projections run in dependency order:
   - **A local-graph source dump** holds the `local` partition's current state as N-Quads and as canonical JSON, one file per snapshot, with the record coordinates of each entity's newest record. It is what another instance reads for verified sync ([0022](0022-federation.md) §1).
 
   Every dump is stamped with the cursor of the SPARQL Update stream it continues into, and is offered in a second form with blank nodes skolemized; the plain form is unchanged ([0032](0032-sparql-update-stream.md) §1, §7). None is the log export bundle of [0006](0006-log-integrity-and-erasure.md) §9, which carries records, not RDF.
-- **A local quad store is a deployment option.** An instance that wants its own SPARQL endpoint feeds Oxigraph or QLever from `view.rdf_delta`, the same rows the SPARQL Update stream serializes, in process through `scatter-quadstore::apply` or externally through `triplespace-cli sparql-sync` ([0032](0032-sparql-update-stream.md) §9). There is no separate quad projection. `scatter-quadstore` keeps its contract for Scatterbase, whose drivers implement it; in Triplespace it is a projection target, not the store projections write into.
+- **A local quad store is a deployment option.** An instance that wants its own SPARQL endpoint feeds Oxigraph or QLever from `view.rdf_delta`, the same rows the SPARQL Update stream serializes, in process through `scatter-quadstore::apply` or externally through `triplespace-cli sparql-sync` ([0032](0032-sparql-update-stream.md) §9). There is no separate quad projection. `scatter-quadstore` keeps its contract for Scatterbase, whose drivers implement it; in Triplespace it is a projection target, not the store projections write into. **Nothing reads from it but the query service** ([0059](0059-query-service.md) §1): compiled queries for scope membership and raw SPARQL for people, under the dataset isolation of 0059 §4. The application's own views still come from `view`.
 
 [0001](0001-revision-metadata-rdf.md) §2's consumers column therefore reads: resolved view (main graph) for external triplestores and Wikibase tools; metadata graph for the instance's own SPARQL endpoint and full dumps. "Not published to external RDF stores" in 0001 §2 and "never exported to external stores" in [0011](0011-logs.md) §2 mean the Wikibase-compatible dump; a full dump is the instance's own export and carries both. The application's history, attribution, diffs and moderation views come from `view.activity` and the records.
 
@@ -945,3 +948,33 @@ Replaced text (§2):
 Replaced text (Consequences):
 
 > - **Migrations become part of the compatibility surface.** A `view` change needs a rebuild or a migration; a `log` change needs a new payload or header version and a migration that keeps every existing header verifiable.
+
+### A32. The query service reads the quad store
+
+- **Date:** 2026-10-04
+- **Source:** [0059](0059-query-service.md) §1
+- **Change:** amends §8
+- **Summary:** The local quad store gains exactly one reader, the query service: compiled queries that materialize scope membership and raw SPARQL for people, isolated per tenant by the protocol's dataset. "Nothing in the API reads from it" becomes "nothing reads from it but the query service". The store stays a consumer of `view.rdf_delta`, holds public form only, and is never the authority.
+
+Replaced text (§8): none removed. The rule quoted in the Summary was stated in [0005](0005-crate-organization.md) §4.4 (A10 here brought the store in as a consumer) and is amended there by 0005 A62.
+
+### A33. Schema reports
+
+- **Date:** 2026-10-05
+- **Source:** [0064](0064-entityschema-and-validation.md) §5
+- **Change:** extends §5.6, §7
+- **Summary:** `view.schema_report`; the scope, task and validation projections named at the end of step 7.
+
+### A34. Caption terms
+
+- **Date:** 2026-10-05
+- **Source:** [0065](0065-mediainfo-captions-and-commons.md) §4
+- **Change:** extends §5.6
+- **Summary:** `view.term` rows keyed by `M` and `WDM` IDs.
+
+### A35. Lexeme term kinds
+
+- **Date:** 2026-10-05
+- **Source:** [0066](0066-lexemes.md) §5
+- **Change:** extends §5.6
+- **Summary:** Term kinds 4–6 for lemmas, representations and glosses.

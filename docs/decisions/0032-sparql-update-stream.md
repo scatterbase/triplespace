@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-01 (A3)
+- **Updated:** 2026-10-04 (A4)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0020](0020-change-feeds.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [Wikibase contract](../api/wikibase-compat.md)
@@ -99,7 +99,7 @@ A tenant's stream is the sequence of changes to **what that tenant's resolved vi
 
 ### 6. Delivery: pull, with a sync client (extends 0012 §5)
 
-*Changed by A2.*
+*Changed by A2, A4.*
 
 The instance **serves**; it never pushes, and it holds no consumer's credentials.
 
@@ -124,7 +124,7 @@ triplespace-cli sparql-sync --source https://librarybase.org --graphs resolved \
 
 It loads the dump on first run when asked, then follows the stream, POSTs each event (or a batch) to the endpoint as `application/sparql-update` with the endpoint's own authorization, and commits the cursor to its state file after the endpoint acknowledges. On `410` it stops and names the dump to load. It speaks only standard SPARQL 1.1 Update over HTTP, so it works against QLever, Oxigraph, Fuseki and any store that does; endpoint-specific options (QLever's access token, a graph-store URL) are flags, not code paths.
 
-**The local quad store is a consumer** ([0013](0013-postgres-storage.md) §8, [0005](0005-crate-organization.md) §4.4). An instance that runs Oxigraph or QLever for its own SPARQL endpoint feeds it from `view.rdf_delta` in process, through `scatter-quadstore`'s `apply(delta)`, or from its own stream with `sparql-sync`; either way it is the same rows the stream serializes, and the separate quad projection of 0013 §8 is retired. `scatter-quadstore` gains `apply(deleted, inserted)` beside `lookup`, which Scatterbase's drivers may implement or ignore.
+**The local quad store is a consumer** ([0013](0013-postgres-storage.md) §8, [0005](0005-crate-organization.md) §4.4). An instance that runs Oxigraph or QLever for its own SPARQL endpoint feeds it from `view.rdf_delta` in process, through `scatter-quadstore`'s `apply(delta)`, or from its own stream with `sparql-sync`; either way it is the same rows the stream serializes, and the separate quad projection of 0013 §8 is retired. `scatter-quadstore` gains `apply(deleted, inserted)` beside `lookup`, which Scatterbase's drivers may implement or ignore. Since [0059](0059-query-service.md) §1 the local store has one reader, the query service, which answers compiled queries and raw SPARQL for the instance from it; it remains a consumer of these rows and nothing else writes to it.
 
 **Rate limits** are the `stream` class of [0024](0024-subsidiary-accounts.md) §5; a consumer that needs more opens a subsidiary and asks for it. **Permissions:** `read`. A tenant whose partitions are `private` has no stream, as it has no dump.
 
@@ -241,3 +241,10 @@ Replaced text: not recorded; the sections were revised in place before the repos
 - **Source:** [0050](0050-adr-format.md) §13
 - **Change:** consolidates §1–9
 - **Summary:** A1–A2 were folded into the Decision. The open questions were numbered. §9's quad-store paragraph moved to §6. No decision changed. Before this, A2 was four struck questions with notes. The file before conversion is commit `0b26a3a`.
+
+### A4. The query service
+
+- **Date:** 2026-10-04
+- **Source:** [0059](0059-query-service.md) §1
+- **Change:** extends §6
+- **Summary:** The local quad store, a consumer of `view.rdf_delta`, now has one reader: the query service of 0059, which answers compiled queries and raw SPARQL from it. Nothing about the stream or its deltas changes.

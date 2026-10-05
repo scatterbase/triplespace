@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-29
-- **Updated:** 2026-10-01 (A8)
+- **Updated:** 2026-10-05 (A10)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0003](0003-statement-ui.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0026](0026-sitelinks.md), [0029](0029-resolver-namespaces.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md), [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0030](0030-edit-filters.md), [0031](0031-property-constraints.md), [0032](0032-sparql-update-stream.md), [0035](0035-adopting-a-wikibase.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0049](0049-boards.md)
@@ -29,11 +29,11 @@ James's direction, from the design discussion of 2026-09-29:
 
 ### 1. Pages carry statements (extends 0008 §4)
 
-*Changed by A2, A3, A5.*
+*Changed by A2, A3, A5, A9.*
 
 **Which pages.** Every document page (the `document` namespaces of [0008](0008-namespaces-and-document-pages.md) §1: main, `User`, `Project` and `Category`), every thread ([0019](0019-discussions.md) §1) and every board ([0049](0049-boards.md) §1), whose statements describe the board, not its threads. Not talk pages, which are composite and have no records of their own, and not entity views, whose subjects are entities with statements of their own.
 
-**Records.** A page's statements are written as change sets: payload type `scatter:v0/changeset`, appended to the tenant's `pages` partition and keyed by the page ID, beside the page's `page` or `thread` records. A change set on a page may add, change and remove statements. It may not carry labels, descriptions, aliases or sitelinks; a page has a title, and its sitelinks are held by items (§6). Like every record in `pages`, it takes a revision ID ([0013](0013-postgres-storage.md) §6) and needs a base offset ([0006](0006-log-integrity-and-erasure.md) §8). So **a page has one history**, in which text revisions and statement revisions interleave in the order they were made; a file page's uploads are records in the same partition, keyed by the page ID, so file versions share that history too ([0039](0039-files-and-media.md) §2).
+**Records.** A page's statements are written as change sets: payload type `scatter:v0/changeset`, appended to the tenant's `pages` partition and keyed by the page ID, beside the page's `page` or `thread` records. A change set on a page may add, change and remove statements. It may not carry aliases or sitelinks; a page has a title, and its sitelinks are held by items (§6). It may not carry labels or descriptions either, **except on File pages**, where a `terms` operation writes the MediaInfo captions ([0065](0065-mediainfo-captions-and-commons.md) §1). Like every record in `pages`, it takes a revision ID ([0013](0013-postgres-storage.md) §6) and needs a base offset ([0006](0006-log-integrity-and-erasure.md) §8). So **a page has one history**, in which text revisions and statement revisions interleave in the order they were made; a file page's uploads are records in the same partition, keyed by the page ID, so file versions share that history too ([0039](0039-files-and-media.md) §2).
 
 **The subject is the page ID.** Statements use the same properties and data types as entity statements, local and mirrored. Where a subject has to be written as a string, in a statement ID or in a `view` column (§10), it is the page ID in decimal: statement IDs take the Wikibase form of [0009](0009-keyed-entity-types-and-domain.md) §3 as `{page ID}$<UUID>`. A string of digits alone never parses as an entity ID under [0017](0017-entity-id-grammar.md) §1, since every local, foreign and keyed ID starts with a letter, so the two kinds of subject cannot be confused.
 
@@ -181,11 +181,15 @@ value    = { entity = "Q812" }
 
 ### 9. Threads (extends 0019 §6; amends 0019 §7)
 
+*Changed by A10.*
+
 **Threads carry statements as pages do** (§1): change sets keyed by the thread's page ID. Priority, component or an assignee are ordinary asserted statements.
 
 **A thread's status is a projected statement.** 0019 §6 stays the one place a status is set: by a post, in public, by a named actor. A new role, `thread-status`, names the property that represents it. The property's data type is `string`, and its value is the status name from the `thread-status` registry. Statuses are configuration records, not items, and the UI shows the registry's label. When the role is bound, the projection writes one statement per thread from its latest status-bearing post, with provenance naming the post and its author. Asserting a statement with that property on a thread is refused with `ts-derived-property`, because a second definition of status is exactly what this ADR avoids. When the role is unbound, no statement is written and status works as 0019 §6 describes.
 
 0019 §7's rule that nothing about threads enters the main or resolved graph now excepts thread statements, which are output as page statements are (§11).
+
+**A proposal's state is a projected statement in the same way** ([0067](0067-proposals.md) §5): the role `proposal-state`, bound to a `string` property, projects `view.proposal.state` onto the proposal thread, so proposals can be scoped, listed and counted like any statement.
 
 ### 10. Storage (extends 0013 §5.6 and §7)
 
@@ -275,9 +279,10 @@ Asserting, changing and removing a page's statements needs `edit` on the page ([
 - **Q1. Crossing to concept data.** Mappings from categories to statements about the paired item, once a UI can show that a statement on an item came from an article's categories.
 - **Q2. Subject-level categories.** A report comparing categories such as "1952 births" with the paired item's statements, as a way to migrate them without mapping them.
 - **Q3. Template calls after import.** Whether a narrow, non-parsing recognition of template calls (name and parameters only) should ever feed mappings.
-- **Q4. Page terms.** Whether pages get a label or description, for a display title or short description, or whether those stay statements.
+- **Q4.** ~~**Page terms.** Whether pages get a label or description, for a display title or short description, or whether those stay statements.~~ *Settled by [0065](0065-mediainfo-captions-and-commons.md) §1 for File pages: captions are the page's labels and descriptions. Open for other pages, where the short description is a page property ([0055](0055-templatestyles-templatedata-and-page-properties.md) §6); see Q7.*
 - **Q5.** ~~**Category redirects.** MediaWiki's soft category redirects are templates; hard redirects wait on [0008](0008-namespaces-and-document-pages.md) Q8.~~ *Settled by [0051](0051-page-redirects.md) §4: a hard redirect on a category page is followed for viewing only, membership stays with the name in each member's text, and soft redirects stay templates.*
 - **Q6. Collation.** Whether `uppercase` is enough, or tenants need ICU collations per language.
+- **Q7.** (Rest of Q4.) Whether pages other than File pages get a label or description beyond the short description.
 
 ## Changes to other ADRs
 
@@ -394,3 +399,21 @@ Replaced text (§3):
 - **Source:** [0055](0055-templatestyles-templatedata-and-page-properties.md) §6
 - **Change:** extends §11
 - **Summary:** The page node gains `schema:description` from the `wikibase-shortdesc` page property, where set. Page terms (Q4) stay open.
+
+### A9. Captions
+
+- **Date:** 2026-10-05
+- **Source:** [0065](0065-mediainfo-captions-and-commons.md) §1
+- **Change:** amends §1
+- **Summary:** File pages' change sets may carry labels and descriptions (captions) through a `terms` operation; Q4 settled for File pages, the rest as Q7.
+
+Replaced text (§1):
+
+> It may not carry labels, descriptions, aliases or sitelinks; a page has a title, and its sitelinks are held by items (§6).
+
+### A10. `proposal-state`
+
+- **Date:** 2026-10-05
+- **Source:** [0067](0067-proposals.md) §5
+- **Change:** extends §9
+- **Summary:** A second projected thread statement, from the proposal projection.

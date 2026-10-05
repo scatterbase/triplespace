@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-01 (A8)
+- **Updated:** 2026-10-05 (A10)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0011](0011-logs.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0028](0028-tenancy-policy.md)
@@ -27,7 +27,7 @@ Every local account has an **inbox**. An activity row ([0012](0012-api-requireme
 
 ### 2. Addressing rules (amends 0020 §3)
 
-*Changed by A3, A5, A6, A8.*
+*Changed by A3, A5, A6, A8, A9, A10.*
 
 | Reason | An account is addressed when | Echo's name |
 |---|---|---|
@@ -39,6 +39,8 @@ Every local account has an **inbox**. An activity row ([0012](0012-api-requireme
 | `rights` | Its group memberships changed, or it was blocked or unblocked ([0016](0016-permissions-and-access-control.md) §3) | user-rights |
 | `thread-status` | A thread it started moved from an open to a closed status ([0019](0019-discussions.md) §6) | — |
 | `filter` | It is a member of a group an edit filter's `notify` action names, and the filter matched ([0030](0030-edit-filters.md) §4) | — |
+| `task-resolved` | It holds a live claim on a sprint task that someone else's write resolved; the activity row is the resolving record ([0061](0061-sprints-and-tasks.md) §8) | — |
+| `proposal-state` | It proposed a change whose state became `adopted`, `partly adopted`, `reverted` or `declined`; the activity row is the mirror record or status post that changed it ([0067](0067-proposals.md) §5) | — |
 
 - **Nobody is notified of their own action.** A subsidiary has no inbox of its own: its operator is notified of its jobs, of mentions of it, of its `rights` changes, and of `talk` messages on its user talk page, since that is who can answer them ([0024](0024-subsidiary-accounts.md) §6).
 - **Only local accounts have inboxes.** A mention of a foreign actor, such as a Wikidata editor's IRI, addresses nobody here.
@@ -279,3 +281,17 @@ Replaced text (§7):
 - **Source:** [0056](0056-security-model.md) §6
 - **Change:** extends §2
 - **Summary:** No notification is delivered for a target the addressed account may not read under a confidential restriction, and one already delivered is purged when the target becomes restricted; a watch on it stays and goes quiet.
+
+### A9. `task-resolved`
+
+- **Date:** 2026-10-04
+- **Source:** [0061](0061-sprints-and-tasks.md) §8
+- **Change:** extends §2
+- **Summary:** A `task-resolved` reason for the claimant of a task resolved by someone else, under the `*` matrix defaults.
+
+### A10. `proposal-state`
+
+- **Date:** 2026-10-05
+- **Source:** [0067](0067-proposals.md) §5
+- **Change:** extends §2
+- **Summary:** A reason for the proposer when a proposal's state changes.

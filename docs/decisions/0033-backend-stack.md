@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-03 (A10)
+- **Updated:** 2026-10-04 (A11)
 - **Author:** James Hare / Claude
 - **Changes:** [0005](0005-crate-organization.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0034](0034-frontend-stack.md)
@@ -24,9 +24,9 @@ This ADR records the rest. The frontend is in 0034.
 
 ### 1. Principles
 
-*Changed by A1, A3, A4, A10.*
+*Changed by A1, A3, A4, A10, A11.*
 
-1. **One binary, one required service.** A small instance runs with the `triplespace` binary and Postgres, and the binary serves the site itself. Valkey, OpenSearch, QLever and a Parsoid service are optional services a larger instance adds (0013 §11 profiles, 0014 §1, [0042](0042-template-expansion-and-parsoid.md) §8.3); Parsoid is a separate PHP program never linked into the binary, and the only one that needs a PHP runtime. A larger instance may also run `triplespace-web`, a second binary from the same workspace that renders the site, holds no state and reaches the instance only through its API, so that page rendering scales apart from the API ([0057](0057-web-tier.md) §2). Nothing needs a message broker, a JVM or a Node runtime.
+1. **One binary, one required service.** A small instance runs with the `triplespace` binary and Postgres, and the binary serves the site itself. Valkey, OpenSearch, QLever and a Parsoid service are optional services a larger instance adds (0013 §11 profiles, 0014 §1, [0042](0042-template-expansion-and-parsoid.md) §8.3), and the query service of [0059](0059-query-service.md) §2 runs embedded in the binary by default, moving to QLever only when an instance chooses; Parsoid is a separate PHP program never linked into the binary, and the only one that needs a PHP runtime. A larger instance may also run `triplespace-web`, a second binary from the same workspace that renders the site, holds no state and reaches the instance only through its API, so that page rendering scales apart from the API ([0057](0057-web-tier.md) §2). Nothing needs a message broker, a JVM or a Node runtime.
 2. **Pure crates stay pure.** Crates on 0005 rule 2's pure list do no I/O and pull in no async runtime. The ones on rule 7's wasm list must build for `wasm32-unknown-unknown`, so they avoid C dependencies.
 3. **GPLv3-compatible licences inside the binary.** Triplespace is GPL-3.0-or-later ([0005](0005-crate-organization.md) §6).
    - **Accepted.** Every third-party crate linked into `triplespace` carries one of these licences: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, Zlib, Unicode-3.0, MPL-2.0, BlueOak-1.0.0 (`minicbor`), CDLA-Permissive-2.0 (root-certificate data in `webpki-roots`), LGPL, GPL-2.0-or-later or GPL-3.0.
@@ -173,11 +173,13 @@ If a RevisionChest store is used as the local source for upstream history (0010 
 
 ### 11. QLever
 
-QLever is an export destination, not a runtime dependency. It reached full SPARQL 1.1 compliance, including Update and the Graph Store Protocol, in June 2025, and its own tooling keeps a Wikidata index current from a change stream (`qlever update-wikidata`). 0032's stream matches that model.
+*Changed by A11.*
+
+QLever is an export destination, and optionally the remote backend of the query service ([0059](0059-query-service.md) §2). It is never a required dependency: the service's default backend is Oxigraph embedded in the binary. It reached full SPARQL 1.1 compliance, including Update and the Graph Store Protocol, in June 2025, and its own tooling keeps a Wikidata index current from a change stream (`qlever update-wikidata`). 0032's stream matches that model.
 
 - `triplespace-cli sparql-sync` (0032 §6) is the reference consumer and is tested against QLever in CI (§15).
 - A `qlever update-triplespace` command in qlever-control, pointed at `/updates/stream`, is to be offered upstream.
-- The `resolved` subscription is the default for QLever; `full`, with its named graphs, is benchmarked before being recommended.
+- The `resolved` subscription is the default for a QLever that serves outside consumers only. A QLever that is the query service's remote backend loads `full`, with its named graphs, since the service isolates tenants by dataset ([0059](0059-query-service.md) §4); 0059's test plan carries the `full` benchmark this line once deferred.
 
 ### 12. Configuration and CLI
 
@@ -366,3 +368,20 @@ Replaced text (§17):
 
 > - One binary per target, built for Linux (x86-64, arm64, glibc) and macOS for development.
 > - An OCI image with the binary, the embedded frontend assets (0034 §8) and nothing else.
+
+### A11. The query service
+
+- **Date:** 2026-10-04
+- **Source:** [0059](0059-query-service.md) §2
+- **Change:** amends §1, §11
+- **Summary:** The query service runs embedded (Oxigraph, in the binary) by default and may use QLever as a remote backend, so the one-binary rule of §1 holds with the service on, and QLever becomes an optional runtime service as well as an export destination. A QLever that backs the service loads the `full` form.
+
+Replaced text (§1, item 1, in part):
+
+> Valkey, OpenSearch, QLever and a Parsoid service are optional services a larger instance adds (0013 §11 profiles, 0014 §1, [0042](0042-template-expansion-and-parsoid.md) §8.3); Parsoid is a separate PHP program
+
+Replaced text (§11):
+
+> QLever is an export destination, not a runtime dependency. It reached full SPARQL 1.1 compliance
+
+> - The `resolved` subscription is the default for QLever; `full`, with its named graphs, is benchmarked before being recommended.

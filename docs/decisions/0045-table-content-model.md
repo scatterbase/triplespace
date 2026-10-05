@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-01 (A2)
+- **Updated:** 2026-10-05 (A5)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0034](0034-frontend-stack.md), [0041](0041-content-models.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [0016](0016-permissions-and-access-control.md), [0020](0020-change-feeds.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0030](0030-edit-filters.md), [0031](0031-property-constraints.md), [0044](0044-tenant-relative-ids.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -65,6 +65,8 @@ It is a **text** model ([0041](0041-content-models.md) §5): the definition is s
 
 ### 4. The definition
 
+*Changed by A3, A5.*
+
 ```json
 {
   "version": 1,
@@ -96,7 +98,7 @@ It is a **text** model ([0041](0041-content-models.md) §5): the definition is s
 |---|---|---|
 | `version` | Yes | `1`. A later scope or column kind that old readers cannot ignore raises it |
 | `description` | No | Plain text, shown under the title and indexed for search |
-| `rows` | Yes | The scope: an object holding exactly one scope kind. Version 1 has one kind, **`ids`**: a list of entity IDs in any form the tenant accepts (local, foreign, another tenant's, keyed). An object rather than a bare list so that query scopes (Open questions) can be added without changing the shape |
+| `rows` | Yes | The scope: an object holding exactly one scope kind. **`ids`**: a list of entity IDs in any form the tenant accepts (local, foreign, another tenant's, keyed). Since [0060](0060-scopes.md) §6, also every kind of 0060 §4 and **`scope`**, naming a scope page; a page-subject scope gives rows that are pages, whose statement columns read page statements. A scope larger than `tables.max_rows` is shown to that many rows with the scope's notice. `M`, `WDM`, `L` and lexeme part IDs are accepted as rows; term columns show captions ([0065](0065-mediainfo-captions-and-commons.md) §3) and the lexeme term fields `lemma:{lang}`, `representation:{lang}`, `gloss:{lang}` ([0066](0066-lexemes.md) §9) |
 | `columns` | Yes | An ordered list of one or more columns (below) |
 | `default_reference` | No | One reference in Wikibase's canonical JSON, without its hash. New statements written from the grid carry it unless the editor unchecks it (§6) |
 | `sort` | No | The default order: a list of column positions (zero-based) and `ascending` or `descending`. Without it, rows appear in the order listed. A viewer can re-sort without saving |
@@ -164,12 +166,16 @@ It is a **text** model ([0041](0041-content-models.md) §5): the definition is s
 
 ### 8. Links, feeds and backlinks
 
+*Changed by A4.*
+
 **The links projection** ([0008](0008-namespaces-and-document-pages.md) §10, `view.page_link`) records a link from the table to each row entity and each column property, after resolution. That gives, with nothing new built:
 
 - **"What links here"** on an entity or property lists the tables that show it, and `list=backlinks` returns them.
 - **Related changes** from a table ([0020](0020-change-feeds.md) §2, *related, outward*) is the recent changes to its rows and its column properties: the table's data as a feed. `tables.max_rows` defaults to `feeds.related_limit`, so the feed covers every row.
 
 **Watching a table watches its definition**, as watching any page does. Following its data is what related changes is for.
+
+**A table is transcluded with `{{#table:Table:Journals}}`**, and `{{Table:Journals}}` means the same; the render manifest records the dependency and the page re-renders when the table or its rows change ([0062](0062-workspaces.md) §3). Lua reads a table with `mw.ext.triplespace.table`.
 
 ### 9. Action API (uses 0041 §8)
 
@@ -221,12 +227,12 @@ Cell edits made with the Wikibase modules directly are ordinary entity edits: a 
 
 ## Open questions
 
-- **Q1. Query scopes.** Further kinds of `rows`, in rough order of cost: every entity with a given statement (`P31` = `Q5`), served from the statement indexes; the members of a category ([0038](0038-page-metadata-and-categories.md) §3); the entities in a column of another table; a restricted query language. All under `tables.max_rows`. A query scope also removes §7's two-write problem: an entity created with the right statements appears in the table by itself.
+- **Q1.** ~~**Query scopes.** Further kinds of `rows`, in rough order of cost: every entity with a given statement (`P31` = `Q5`), served from the statement indexes; the members of a category ([0038](0038-page-metadata-and-categories.md) §3); the entities in a column of another table; a restricted query language. All under `tables.max_rows`. A query scope also removes §7's two-write problem: an entity created with the right statements appears in the table by itself.~~ *Settled by [0060](0060-scopes.md) §6: `rows` takes every scope kind and a named scope; the two-write problem is gone for any kind but `ids`.*
 - **Q2. More column kinds:** a qualifier of a property's statements; a rank filter; references; a computed column (a count, a constraint status).
 - **Q3. Values as of a time.** `revid` gives the definition as of a revision but current values. Showing a table's values as they were needs entity states as of a time.
-- **Q4. Watching a table's rows,** as a watch option that expands to them, if related changes proves not to be enough.
-- **Q5. Tables in wikitext and Lua.** Transcluding `{{Table:Journals}}` into a page, or reading a table from a module, with usage tracking through the render manifest ([0042](0042-template-expansion-and-parsoid.md) §10).
-- **Q6. `M` IDs as rows.** File pages' statements ([0041](0041-content-models.md) §7) would make tables useful for Commons-style curation; term columns would be read-only until captions are settled.
+- **Q4.** ~~**Watching a table's rows,** as a watch option that expands to them, if related changes proves not to be enough.~~ *Settled by [0060](0060-scopes.md) §7: a `rows` watch kind expands the table's rows as a scope.*
+- **Q5.** ~~**Tables in wikitext and Lua.** Transcluding `{{Table:Journals}}` into a page, or reading a table from a module, with usage tracking through the render manifest ([0042](0042-template-expansion-and-parsoid.md) §10).~~ *Settled by [0062](0062-workspaces.md) §3: the `#table` block and `mw.ext.triplespace.table`, tracked by the scoped-block manifest entry.*
+- **Q6.** ~~**`M` IDs as rows.** File pages' statements ([0041](0041-content-models.md) §7) would make tables useful for Commons-style curation; term columns would be read-only until captions are settled.~~ *Settled by [0065](0065-mediainfo-captions-and-commons.md) §3: `M` and `WDM` rows, with captions in term columns and a `thumb` column.*
 - **Q7. A faster lane for people.** Whether a large paste by a person should count against a class other than `edit`, or whether rate limits as they stand are the right brake.
 - **Q8.** ~~**The next namespace block** for Triplespace-specific namespaces, now that 210–219 is full.~~ *Settled by the numbering policy of 0008 A17: 310–319.*
 
@@ -273,3 +279,28 @@ Replaced text (§13):
 - **Source:** [0050](0050-adr-format.md) §13
 - **Change:** consolidates §13
 - **Summary:** A1 was folded into the Decision. The open questions were numbered. No decision changed. Before this, A1 was recorded only in 0005. The file before conversion is commit `0b26a3a`.
+
+### A3. Scopes
+
+- **Date:** 2026-10-04
+- **Source:** [0060](0060-scopes.md) §6
+- **Change:** amends §4
+- **Summary:** `rows` accepts every scope kind of 0060 §4 and a named scope; page-subject scopes give page rows. Q1 and Q4 are settled.
+
+Replaced text (§4, the `rows` row):
+
+> | `rows` | Yes | The scope: an object holding exactly one scope kind. Version 1 has one kind, **`ids`**: a list of entity IDs in any form the tenant accepts (local, foreign, another tenant's, keyed). An object rather than a bare list so that query scopes (Open questions) can be added without changing the shape |
+
+### A4. Transclusion
+
+- **Date:** 2026-10-05
+- **Source:** [0062](0062-workspaces.md) §3
+- **Change:** extends §8
+- **Summary:** Tables transclude through the `#table` block and read from Lua; Q5 is settled.
+
+### A5. MediaInfo and lexeme rows
+
+- **Date:** 2026-10-05
+- **Source:** [0065](0065-mediainfo-captions-and-commons.md) §3; [0066](0066-lexemes.md) §9
+- **Change:** extends §4
+- **Summary:** `M`, `WDM`, `L` and part IDs as rows; caption and lexeme term columns; Q6 settled.

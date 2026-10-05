@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-01 (A24)
+- **Updated:** 2026-10-05 (A29)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -42,7 +42,7 @@ Namespaces are configuration: data passed in by the caller and recorded in the l
 
 ### 2. Namespace numbering
 
-*Changed by A3, A6, A8, A9, A10, A12, A13, A15, A17, A18, A19.*
+*Changed by A3, A6, A8, A9, A10, A12, A13, A15, A17, A18, A19, A25, A26, A27, A28, A29.*
 
 MediaWiki's canonical numbers are kept wherever a namespace has one, because clients hard-code them. Three rules govern every other number (A6, A17):
 
@@ -58,7 +58,7 @@ MediaWiki's canonical numbers are kept wherever a namespace has one, because cli
 | −1 | Special | `virtual` | — | §1 |
 | 0, 1 | (main), Talk | `pages` | `wikitext` | [0038](0038-page-metadata-and-categories.md) §8 |
 | 2, 3 | User, User talk | `pages` | `wikitext` | §6 |
-| 4, 5 | Project, Project talk | `pages` | `wikitext` | §7 |
+| 4, 5 | Project, Project talk | `pages` | `wikitext`; `triplespace-sprint` on subpages | §7; [0061](0061-sprints-and-tasks.md) §2 |
 | 6, 7 | File, File talk | `pages`, `uploads` | `wikitext` | [0039](0039-files-and-media.md) §1 |
 | 8 | MediaWiki | `reserved` | — | Rule 1 |
 | 10, 11 | Template, Template talk | `pages` while `wikitext.expansion` is on | `wikitext` | [0042](0042-template-expansion-and-parsoid.md) §3 |
@@ -66,8 +66,8 @@ MediaWiki's canonical numbers are kept wherever a namespace has one, because cli
 | 14, 15 | Category, Category talk | `pages` | `wikitext` | [0038](0038-page-metadata-and-categories.md) §4 |
 | 120, 121 | Item, Item talk | `pages` | `wikibase-item` | Wikibase's default number |
 | 122, 123 | Property, Property talk | `pages` | `wikibase-property` | Wikibase's default number |
-| 124 | Query | `reserved` | — | Rule 1 |
-| 146 | Lexeme | `reserved` | — | Rule 1 |
+| 124, 125 | Query, Query talk | `pages` | `triplespace-sparql`; `wikitext` for `/doc` subpages | [0063](0063-query-namespace.md) §2: Wikibase's number, with Wikibase's meaning |
+| 146, 147 | Lexeme, Lexeme talk | `pages` | `wikibase-lexeme` | [0066](0066-lexemes.md) §2 |
 | 210, 211 | Domain, Domain talk | `pages` | `triplespace-domain` | [0009](0009-keyed-entity-types-and-domain.md) §11 |
 | 212, 213 | Keyword, Keyword talk | `pages` | `triplespace-keyword` | [0017](0017-entity-id-grammar.md) §5 |
 | 214, 215 | Thread, Thread talk | `pages`; 215 forwards to 214 | `triplespace-thread` | [0019](0019-discussions.md) §3, [0049](0049-boards.md) §2 |
@@ -76,6 +76,8 @@ MediaWiki's canonical numbers are kept wherever a namespace has one, because cli
 | 220, 221 | DOI, DOI talk | `resolver`; 221 `reserved` | — | [0029](0029-resolver-namespaces.md) |
 | 222, 223 | URL, URL talk | `resolver`; 223 `reserved` | — | [0029](0029-resolver-namespaces.md) |
 | 310, 311 | Board, Board talk | `pages`; 311 forwards to 310 | `triplespace-board` | [0049](0049-boards.md) §2 |
+| 312, 313 | Scope, Scope talk | `pages` | `triplespace-scope`; `wikitext` for `/doc` subpages | [0060](0060-scopes.md) §2 |
+| 640, 641 | EntitySchema, EntitySchema talk | `pages` | `EntitySchema` | [0064](0064-entityschema-and-validation.md) §2: the extension's numbers |
 | 828, 829 | Module, Module talk | `pages` while `wikitext.lua` is on | `Scribunto`; `wikitext` for `/doc` subpages | [0043](0043-lua-modules.md) §2, Scribunto's numbers |
 
 Talk namespaces default to `triplespace-talk`. 210–219 is full; the next resolver takes 224.
@@ -603,3 +605,50 @@ Replaced text (§3):
 Replaced text (§5):
 
 > - **Models whose code reaches the reader's browser are not supported.** `css`, `javascript` and `sanitized-css` are not registered. User-supplied scripts and styles are an injection risk that nothing on the roadmap needs. `Scribunto`, whose modules run on the server in a sandbox and return wikitext, is supported while a tenant has Lua on ([0043](0043-lua-modules.md) §3).
+
+### A25. Scope
+
+- **Date:** 2026-10-04
+- **Source:** [0060](0060-scopes.md) §2
+- **Change:** extends §2
+- **Summary:** Scope (312) and Scope talk (313), the second pair of the 310–319 block, with the `/doc` rule of Table.
+
+### A26. Sprints in Project
+
+- **Date:** 2026-10-04
+- **Source:** [0061](0061-sprints-and-tasks.md) §2
+- **Change:** extends §2
+- **Summary:** `Project` (4) allows `triplespace-sprint`, for subpages only; the default stays `wikitext`.
+
+Replaced text (§2, the Project row):
+
+> | 4, 5 | Project, Project talk | `pages` | `wikitext` | §7 |
+
+### A27. Query
+
+- **Date:** 2026-10-05
+- **Source:** [0063](0063-query-namespace.md) §2
+- **Change:** amends §2
+- **Summary:** Query (124) moves from `reserved` to `pages` with model `triplespace-sparql`, keeping Wikibase's meaning for the number; Query talk (125) is added.
+
+Replaced text (§2):
+
+> | 124 | Query | `reserved` | — | Rule 1 |
+
+### A28. EntitySchema
+
+- **Date:** 2026-10-05
+- **Source:** [0064](0064-entityschema-and-validation.md) §2
+- **Change:** extends §2
+- **Summary:** EntitySchema (640) and EntitySchema talk (641), the extension's numbers, hosting the `entityschema` entity type.
+
+### A29. Lexeme
+
+- **Date:** 2026-10-05
+- **Source:** [0066](0066-lexemes.md) §2
+- **Change:** amends §2
+- **Summary:** Lexeme (146) moves from `reserved` to `pages` with model `wikibase-lexeme`; Lexeme talk (147) is added.
+
+Replaced text (§2):
+
+> | 146 | Lexeme | `reserved` | — | Rule 1 |

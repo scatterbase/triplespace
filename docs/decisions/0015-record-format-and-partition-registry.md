@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-03 (A28)
+- **Updated:** 2026-10-04 (A29)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md)
 - **Uses:** [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md)
@@ -23,7 +23,7 @@ Two smaller gaps are closed with them: the document node of a foreign entity on 
 
 ### 1. The body is a tree of erasable parts (amends 0006 §3 and §7)
 
-*Changed by A4, A5, A13, A14, A17, A18.*
+*Changed by A4, A5, A13, A14, A17, A18, A29.*
 
 The header of [0006](0006-log-integrity-and-erasure.md) §3 is unchanged. What changes is what its body commitment (field 6) commits to.
 
@@ -35,7 +35,7 @@ The header of [0006](0006-log-integrity-and-erasure.md) §3 is unchanged. What c
 | 1 | **Comment** | The edit summary or comment, as one string. Its parsed form ([0001](0001-revision-metadata-rdf.md) §6) is a projection | comment |
 | 2 | **Attestation** | Who is responsible, and how: the actor key, the job ([0006](0006-log-integrity-and-erasure.md) §3), the change tags ([0030](0030-edit-filters.md) §5), an optional `evidence` field holding a signed remote activity ([0022](0022-federation.md) §8), and an optional client `signature` (below) | user |
 
-The comment therefore leaves the change-set payload. A payload type with no comment, such as an actor record, carries a null in that part; the slot still exists, so every record has the same shape. `scatter:v0/upload`, in `pages`, has the three standard parts; its content part holds the SHA-256 of bytes kept outside the log, so erasing that part is what allows the bytes to be destroyed ([0039](0039-files-and-media.md) §2).
+The comment therefore leaves the change-set payload. A payload type with no comment, such as an actor record, carries a null in that part; the slot still exists, so every record has the same shape. `scatter:v0/upload`, in `pages`, has the three standard parts; its content part holds the SHA-256 of bytes kept outside the log, so erasing that part is what allows the bytes to be destroyed ([0039](0039-files-and-media.md) §2). `scatter:v0/task`, in `pages`, has the three standard parts and is keyed to a sprint's page ID; its content part names the rule and subject claimed ([0061](0061-sprints-and-tasks.md) §5).
 
 **Each part is salted and hashed on its own.** Part *i* is stored as the CBOR array `[salt, bytes]`, where the salt is 16 random bytes. Its leaf is `H(0x04 ‖ i ‖ salt ‖ bytes)`, with *i* as one byte. The body commitment in the header is the root over the leaves in order:
 
@@ -603,3 +603,10 @@ Replaced text (§3):
 - **Source:** [0034](0034-frontend-stack.md) §1
 - **Change:** extends §3
 - **Summary:** `ui.theme` joins the `site` settings: the Codex token values the instance or a tenant themes its site with.
+
+### A29. The `scatter:v0/task` payload type
+
+- **Date:** 2026-10-04
+- **Source:** [0061](0061-sprints-and-tasks.md) §5
+- **Change:** extends §1
+- **Summary:** `scatter:v0/task`, in `pages`, three standard parts, keyed to the sprint page; operations `claim` and `release`. Added to `graphs.toml`.

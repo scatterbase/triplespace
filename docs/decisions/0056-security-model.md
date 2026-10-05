@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-10-03 (A2)
+- **Updated:** 2026-10-04 (A4)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0021](0021-notifications.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md), [0033](0033-backend-stack.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0051](0051-page-redirects.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md), [0045](0045-table-content-model.md), [0046](0046-primary-tenant.md), [0047](0047-special-pages.md), [0049](0049-boards.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -80,6 +80,8 @@ Where both apply, nothing new is evaluated: a deleted confidential page is seen 
 
 ### 3. Two targets: the tenant and the set (extends 0016 §4; extends 0023 §2)
 
+*Changed by A3, A4.*
+
 | Target kind | Key | Partition | Encloses | Set with |
 |---|---|---|---|---|
 | `tenant` | `acl:tenant:{slug}` | The tenant's `config` | Every partition of the tenant, and so every page, entity, thread, file, record and log event in it | `ts-config` on the tenant; a locked template under `config.template = locks` makes it a prerogative ([0028](0028-tenancy-policy.md) §8) |
@@ -87,11 +89,13 @@ Where both apply, nothing new is evaluated: a deleted confidential page is seen 
 
 **A tenant's visibility is its `tenant` ACL.** A tenant with none is **public**. A tenant whose `tenant` ACL restricts `read` is **private**: readable by the group the ACL names, `user` by default, which is every account of the tenant ([0016](0016-permissions-and-access-control.md) §3), or any group the tenant chooses for a narrower membership. The ACL lives in `config` because it is not secret: that a tenant is private is the first thing a visitor learns (§5). A private tenant usually also removes `createaccount` from `universe`, so that accounts are made by its bureaucrats or by invitation; the tenant settings page offers both switches together. `temp` is irrelevant on a private tenant, since a temporary account is created by an edit and nobody outside `user` can read what they would edit.
 
-What a private tenant does not have, because each of these is a public form of its data: a public dump or bundle ([0006](0006-log-integrity-and-erasure.md) §9; its partitions are exported as `private` for every purpose but the operator's own backups and a tenant move, [0018](0018-tenants.md) §10), an update stream ([0032](0032-sparql-update-stream.md) §6), a SPARQL endpoint fed from either, a provider code (0018 §5), `pages.share` or a file or template repository that other tenants read ([0042](0042-template-expansion-and-parsoid.md) §2, §11, [0052](0052-page-repositories-and-title-inheritance.md) §7), outbound federation ([0022](0022-federation.md)), a sitemap, or indexable pages: every response carries `noindex`. It may still *read* everything the tenancy policy lets it: Wikidata, a provider tenant, Wikipedia as a page repository. Public data flows in; nothing flows out.
+What a private tenant does not have, because each of these is a public form of its data: a public dump or bundle ([0006](0006-log-integrity-and-erasure.md) §9; its partitions are exported as `private` for every purpose but the operator's own backups and a tenant move, [0018](0018-tenants.md) §10), an update stream ([0032](0032-sparql-update-stream.md) §6), a SPARQL endpoint fed from either or the query service ([0059](0059-query-service.md) §4, whose Q1 asks about a store of its own behind the evaluator), a provider code (0018 §5), `pages.share` or a file or template repository that other tenants read ([0042](0042-template-expansion-and-parsoid.md) §2, §11, [0052](0052-page-repositories-and-title-inheritance.md) §7), outbound federation ([0022](0022-federation.md)), a sitemap, or indexable pages: every response carries `noindex`. It may still *read* everything the tenancy policy lets it: Wikidata, a provider tenant, Wikipedia as a page repository. Public data flows in; nothing flows out.
 
 **A set is a grouping that only `protect` can change.** Its record carries a `name`, shown where the restriction is shown (§13), and `members`. Members are IDs, never titles, because a key is never content ([0006](0006-log-integrity-and-erasure.md) §3) and a move must not change what is restricted. A set is flat: it does not contain sets or namespaces, which have ACLs of their own, and a target may be in any number of sets. Adding or removing a member is a new version of the record, needs `protect`, and projects as `protect/modify` with the member named; the set's `read` restriction is in the same record as its membership, so there is no moment at which a member is listed and unrestricted. The ID is taken from the page-ID sequence ([0015](0015-record-format-and-partition-registry.md) §2) as a create-protection reserves one ([0023](0023-moderation.md) §2); a set is not a page and has no title.
 
 Why not a category, a title prefix or a tag: all three are content. A category link is written by whoever may edit the page; a prefix changes with a move; a tag on a revision is a claim by its author. A grouping that restricts reading has to be changed only by the right that sets restrictions, and only by ID.
+
+**A scope ([0060](0060-scopes.md) §1) is not a set.** It is content: a page that anyone with `edit` may change, naming subjects by title and by query. It restricts nothing, is never a target, and shares no table with sets.
 
 **Enclosure after this ADR**, for the containment axis: tenant ⊃ graph ⊃ namespace ⊃ page ⊃ subpage; tenant ⊃ set ⊃ member; a talk page or board ⊃ the threads homed there ([0049](0049-boards.md) §7); entity ⊃ statement; the predicate and content axes of 0023 §2 unchanged. Evaluation stays conjunctive and nothing loosens: a page in a public namespace of a private tenant is private; a public page added to a restricted set becomes restricted; a page in two sets is read by members of both groups.
 
@@ -168,7 +172,7 @@ The write path of [0013](0013-postgres-storage.md) §7 is unchanged: authenticat
 
 ### 10. The deployment boundary (extends 0033 §12)
 
-*Changed by A1, A2.*
+*Changed by A1, A2, A3.*
 
 The evaluator runs in `triplespace-server`. Everything behind it holds restricted data in the clear: Postgres `log` and `view`, OpenSearch (§8), Valkey (§7), the blob store, the render and job queues, the backups, the access logs. **The model holds only inside a deployment where the Triplespace services are the only readers of those stores.** That is a property of how the instance is set up, and Triplespace checks what it can and says what it cannot.
 
@@ -182,12 +186,13 @@ The evaluator runs in `triplespace-server`. Everything behind it holds restricte
 | 4 | The blob store is private. File bytes and thumbnails are served by the binary after `read` is evaluated, and a version only some may read only from a signed URL valid for minutes, exactly as [0039](0039-files-and-media.md) §7 has it; the media origin is separate from the wiki origin | A public bucket is a public dump of every tenant's files | `fail` if an object URL in the store answers 200 without a signature; `attest` for a media base that is same-origin with the wiki, which 0039 §7 recommends against |
 | 5 | The server rejects a request whose `Host` is not a registered tenant base or the farm base, with 421, and believes `X-Forwarded-For`, `X-Forwarded-Host` and `X-Forwarded-Proto` only from hops it trusts: by address in `server.trusted_proxies` (the default), or by a forwarder key, read from the right ([0057](0057-web-tier.md) §10) | The host selects the tenant ([0018](0018-tenants.md) §11); IP blocks, rate limits and filter IP rows depend on the client address ([0016](0016-permissions-and-access-control.md) §3, [0024](0024-subsidiary-accounts.md) §5, [0030](0030-edit-filters.md) §11) | `pass`/`fail` by sending a request with an unregistered host, and one with a forged `X-Forwarded-For` from an untrusted address; `fail` if the server is behind a proxy and trusts no hop; `attest`, where trust is by address, that only trusted hops can reach the server's listener |
 | 6 | The reverse proxy or CDN forwards `Host` unchanged, caches only responses with public `Cache-Control` and never one carrying `Set-Cookie` or answering a request with `Authorization` or a session cookie, strips inbound `X-Forwarded-*` from clients before setting its own, terminates TLS and sends HSTS | L2 may hold public form only (§7); a proxy that caches an authenticated page serves it to the next visitor | `attest`; the privacy test of §15 exercises the first two through the proxy when `instance check --through {url}` is given |
-| 7 | A SPARQL endpoint, QLever or any other external index is loaded from the public dump or the update stream, never from `view` or `log` | Those carry ∅ form by construction ([0032](0032-sparql-update-stream.md) §1); a direct load bypasses the evaluator | `attest` |
+| 7 | A SPARQL endpoint, QLever or any other external index, and the embedded query store ([0059](0059-query-service.md) §2), is loaded from the public dump or the update stream, or from `view.rdf_delta`, which carries the same rows, never from `view` or `log` otherwise | Those carry ∅ form by construction ([0032](0032-sparql-update-stream.md) §1); a direct load bypasses the evaluator | `attest` |
 | 8 | The Parsoid service and any other helper process reach content only through the server's internal endpoint, with a service credential, on a private address | A renderer that reads the database reads everything | `fail` if the configured Parsoid endpoint is a public address |
 | 9 | `/metrics`, health and debug routes are served on `server.admin_listen`, a separate listener, never on the public one | They expose names, counts and timings | `fail` if the admin listener is the public one |
 | 10 | Backups of Postgres, the blob store and Valkey's persistence are encrypted at rest and held with access equal to the database's | They are the whole instance, `private` included | `attest` |
 | 11 | Secrets come from files or the environment, never from the command line ([0033](0033-backend-stack.md) §12), and the instance key is in a file readable by the server alone | A command line is visible to every process | `fail` on a world-readable key file |
 | 12 | A web tier ([0057](0057-web-tier.md)) holds no credential of the instance's beyond an optional forwarder key, reads no store of it, and reaches the API over TLS unless the API's address resolves only to internal addresses; it appends to forwarded headers and judges none of them (line 5), and the Valkey of its response cache is held to line 3 | It sees every viewer's cookie in transit | `fail` if the web tier's cache names a Valkey that fails line 3, or its `web.api` is plain HTTP to an address that is not internal |
+| 13 | The query service's remote store ([0059](0059-query-service.md) §4) is reachable only from the servers and requires credentials, and every query against it passes through the service, which fixes the tenant's dataset; the embedded store's directory is readable by the server alone | A shared store holds every public tenant's graphs; a query that reached it directly would choose its own dataset | `fail` if `query.endpoint` is a public address or accepts an unauthenticated request; `fail` on a world-readable `query.path`; `attest` for other clients |
 
 **Modes.** `server.mode` is `production` or `development`. In `production`, the server refuses to start while any `fail` stands and logs every `attest` not yet given; `development` starts anyway and marks `siprop=triplespace` with `insecure: true`. `instance create` writes `production`.
 
@@ -348,3 +353,21 @@ Replaced text (§10, line 5):
 Replaced text (§16):
 
 > | `triplespace-server` | `server.mode`, `server.trusted_proxies`, `server.admin_listen`, 421 on an unregistered host, the landing page, the internal endpoint for Parsoid |
+
+### A3. The query service
+
+- **Date:** 2026-10-04
+- **Source:** [0059](0059-query-service.md) §4
+- **Change:** extends §3, §10
+- **Summary:** A private tenant has no query service either (§3). The deployment boundary (§10) gains the embedded query store in line 7, fed from `view.rdf_delta`, and a line 13 for the shared remote store: reachable only from the servers, credentialed, and queried only through the service, which fixes the tenant's dataset.
+
+Replaced text (§10, line 7, in part):
+
+> | 7 | A SPARQL endpoint, QLever or any other external index is loaded from the public dump or the update stream, never from `view` or `log` |
+
+### A4. Scopes are not sets
+
+- **Date:** 2026-10-04
+- **Source:** [0060](0060-scopes.md) §1
+- **Change:** extends §3
+- **Summary:** A scope is content and never a restriction target; the paragraph after the set rationale says so.

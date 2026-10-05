@@ -2,6 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
+- **Updated:** 2026-10-05 (A1)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0047](0047-special-pages.md)
 - **Uses:** [0016](0016-permissions-and-access-control.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md), [0033](0033-backend-stack.md), [0039](0039-files-and-media.md), [0043](0043-lua-modules.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -101,6 +102,8 @@ It is a text model under [0041](0041-content-models.md) §5, stored in the page'
 
 ### 6. Page properties: `view.page_prop` (extends 0013 §5.6; extends 0042 §4 and §10; amends 0047 §10)
 
+*Changed by A1.*
+
 **Page properties are stored,** in the table MediaWiki has and 0047 §10 was waiting for:
 
 ```sql
@@ -120,6 +123,7 @@ CREATE INDEX page_prop_name ON view.page_prop (name, sortkey, page_id);
 |---|---|---|
 | `templatedata` | `<templatedata>` (§5) | The page projection, in step 2, synchronously; copied to the transcluding template by the refresh job |
 | `defaultsort` | `{{DEFAULTSORT:}}` ([0038](0038-page-metadata-and-categories.md) §3) | The page projection, in step 2, as the category sort key already is |
+| `workspace.{role}` | `{{#workspace:}}` on a project page ([0062](0062-workspaces.md) §2) | The refresh job, from the expander's page properties; read by blocks on the page and its subpages |
 | `displaytitle` | `{{DISPLAYTITLE:}}` | The refresh job ([0042](0042-template-expansion-and-parsoid.md) §10), from the expander's page properties, under MediaWiki's `$wgRestrictDisplayTitle` rule: the value must normalize to the page's title, else it is ignored |
 | `wikibase-shortdesc` | `{{SHORTDESC:…}}`, the Wikibase Client magic word Wikipedia's `{{Short description}}` template wraps, now `implemented` in the registry under origin Wikibase Client | The refresh job |
 | `disambiguation` | `__DISAMBIG__`, whose status changes from `ignored` to `implemented` | The refresh job |
@@ -230,3 +234,12 @@ Properties the refresh job writes are written in the same transaction as the lin
 - [Manual:Page_props table](https://www.mediawiki.org/wiki/Manual:Page_props_table), [API:Pageprops](https://www.mediawiki.org/wiki/API:Pageprops) and [API:Pageswithprop](https://www.mediawiki.org/wiki/API:Pageswithprop)
 - [Help:Magic words](https://www.mediawiki.org/wiki/Help:Magic_words) (`DISPLAYTITLE`, `__DISAMBIG__`) and [Wikibase Client's `SHORTDESC`](https://www.mediawiki.org/wiki/Extension:Wikibase_Client), with [Wikipedia:Short description](https://en.wikipedia.org/wiki/Wikipedia:Short_description)
 - [Wikipedia's `MediaWiki:Common.css`](https://en.wikipedia.org/wiki/MediaWiki:Common.css), for what §4 is for
+
+## Amendment log
+
+### A1. Workspace roles as page properties
+
+- **Date:** 2026-10-05
+- **Source:** [0062](0062-workspaces.md) §2
+- **Change:** extends §6
+- **Summary:** `workspace.{role}` page properties, set by `{{#workspace:}}` and stored by the refresh job.

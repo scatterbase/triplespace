@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-10-01 (A2)
+- **Updated:** 2026-10-04 (A3)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0011](0011-logs.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0022](0022-federation.md), [0023](0023-moderation.md), [0038](0038-page-metadata-and-categories.md), [0041](0041-content-models.md)
 - **Uses:** [0012](0012-api-requirements.md), [0014](0014-caches-and-search.md), [0021](0021-notifications.md), [0028](0028-tenancy-policy.md), [0045](0045-table-content-model.md), [0047](0047-special-pages.md)
@@ -81,6 +81,8 @@ It is a **text** model ([0041](0041-content-models.md) §5), as `triplespace-tab
 
 ### 4. The definition
 
+*Changed by A3.*
+
 ```json
 {
   "version": 1,
@@ -98,7 +100,7 @@ It is a **text** model ([0041](0041-content-models.md) §5), as `triplespace-tab
 | `header` | No | Markdown shown above the listing. Its links become `page_link` rows from the board, as a post's do ([0019](0019-discussions.md) §5) |
 | `sort` | No | `attached` (the default, §8) or `activity`. A viewer can switch without saving |
 | `homes` | No | Default `true`. When `false`, the board is a **listing board**: threads may be listed on it (§5) but not started on it or moved to it. `Board:Requests for comment` is one: each request lives on the talk page it concerns and is listed here. A listing board shows no new-thread form |
-| `scope` | — | Reserved for automatic scopes (§14). A definition carrying it is refused in version 1 |
+| `scope` | No | Accepted at `version: 2` ([0060](0060-scopes.md) §6): a scope page or an inline kind of 0060 §4, selecting the threads attached to the talk pages of the scope's members, or one of this ADR's own kinds, `thread_statement` and `boards` (§14). Refused at version 1 |
 
 Unknown keys are refused. Changing `homes` to `false` does not move threads already homed on the board. It stops new ones.
 
@@ -246,22 +248,22 @@ CREATE UNIQUE INDEX thread_attachment_home ON view.thread_attachment (thread_id)
 
 ### 14. Scopes, later
 
+*Changed by A3.*
+
 Automatic scopes are not part of this ADR, but one rule is fixed now so that they fit: **attachments are records, and scope membership is a projection.** This is the same split [0038](0038-page-metadata-and-categories.md) §2 makes between asserted and projected statements.
 
 - A scoped board's threads are its attachments, plus the threads its scope selects, minus any its definition excludes.
 - Selection by scope writes nothing to the thread. It does not enclose, it is not a `thread/attach` event, and it ends when the scope stops selecting the thread.
-- The scope is the definition's `scope` key: an object holding exactly one scope kind, as a table's `rows` is ([0045](0045-table-content-model.md) §4). Version 1 refuses it. A version that accepts it raises `version`.
+- The scope is the definition's `scope` key: an object holding exactly one scope kind, as a table's `rows` is ([0045](0045-table-content-model.md) §4). Version 1 refuses it; version 2 accepts it ([0060](0060-scopes.md) §6).
 
-Candidate kinds, roughly cheapest first:
+The kinds are those of [0060](0060-scopes.md) §4, each selecting the threads attached to the talk pages of the subjects it selects, and two of this ADR's own:
 
 | Kind | Selects |
 |---|---|
-| `subjects` | Threads attached to the talk pages of entities with a given statement (`P31` = `Q5`), from the statement indexes |
-| `statement` | Threads carrying a given statement ([0038](0038-page-metadata-and-categories.md) §9), such as a topic property bound to a role |
-| `mentions` | Threads whose posts link to matching entities, from `page_link` |
+| `thread_statement` | Threads carrying a given statement ([0038](0038-page-metadata-and-categories.md) §9), such as a topic property bound to a role |
 | `boards` | The threads of other boards, which is how boards nest |
 
-`statement` is where manual and automatic meet: a person states a thread's topic once, and every board scoped to that topic shows it.
+`mentions`, once a candidate here, is withdrawn in favour of 0060 Q2's `links` kind. `thread_statement` is where manual and automatic meet: a person states a thread's topic once, and every board scoped to that topic shows it.
 
 ### 15. Crates (amends 0005 §2)
 
@@ -285,11 +287,12 @@ Candidate kinds, roughly cheapest first:
 ## Open questions
 
 - **Q1. `Group` handles for boards.** 0022 §6 addresses a talk page's `Group` by its subject's title. A board's title is free text, and could match an entity ID or a username.
-- **Q2. Scopes** (§14): which kinds come first, whether a scoped board's members are announced and notify watchers as listed ones do, and the bound on a scope's size for feeds (`feeds.related_limit`, [0020](0020-change-feeds.md) §2).
+- **Q2.** ~~**Scopes** (§14): which kinds come first, whether a scoped board's members are announced and notify watchers as listed ones do, and the bound on a scope's size for feeds (`feeds.related_limit`, [0020](0020-change-feeds.md) §2).~~ *Settled by [0060](0060-scopes.md) §6: the kinds are 0060 §4's plus `thread_statement` and `boards`, and the bound is `scopes.max_members`; the announcement question is Q7.*
 - **Q3. Pinned threads.** Whether a board's definition may name threads to show first, as an announcements board needs.
 - **Q4. Detaching one's own thread.** Whether a thread's author may remove their thread from a listing without `move`.
 - **Q5. Board moderators.** Whether a board needs a group of its own beyond what ACLs on it express.
 - **Q6. DiscussionTools** (0019 Q4): which page a `discussiontoolspageinfo` call on a listing page reports for a listed thread.
+- **Q7.** (Rest of Q2.) Whether a scoped board's members are announced and notify watchers as listed ones do.
 
 ## Changes to other ADRs
 
@@ -345,3 +348,31 @@ Replaced text (§15):
 - **Source:** [0050](0050-adr-format.md) §13
 - **Change:** consolidates §15
 - **Summary:** A1 was folded into the Decision. The open questions were numbered. No decision changed. Before this, A1 was recorded only in 0005. The file before conversion is commit `0b26a3a`.
+
+### A3. Scopes
+
+- **Date:** 2026-10-04
+- **Source:** [0060](0060-scopes.md) §6
+- **Change:** amends §4, §14
+- **Summary:** The `scope` key is accepted at board definition version 2 and takes a scope page or an inline kind of 0060 §4, meaning the threads attached to the talk pages of the selected subjects, or the board kinds `thread_statement` (this ADR's former `statement`) and `boards`. `subjects` is 0060's `statement`; `mentions` is withdrawn for 0060 Q2's `links`. Q2 is settled in part; Q7 holds the rest.
+
+Replaced text (§14, in part):
+
+> Version 1 refuses it. A version that accepts it raises `version`.
+
+Replaced text (§4):
+
+> | `scope` | — | Reserved for automatic scopes (§14). A definition carrying it is refused in version 1 |
+
+Replaced text (§14):
+
+> Candidate kinds, roughly cheapest first:
+>
+> | Kind | Selects |
+> |---|---|
+> | `subjects` | Threads attached to the talk pages of entities with a given statement (`P31` = `Q5`), from the statement indexes |
+> | `statement` | Threads carrying a given statement ([0038](0038-page-metadata-and-categories.md) §9), such as a topic property bound to a role |
+> | `mentions` | Threads whose posts link to matching entities, from `page_link` |
+> | `boards` | The threads of other boards, which is how boards nest |
+>
+> `statement` is where manual and automatic meet: a person states a thread's topic once, and every board scoped to that topic shows it.

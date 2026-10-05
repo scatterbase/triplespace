@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-01 (A13)
+- **Updated:** 2026-10-05 (A14)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0018](0018-tenants.md), [0022](0022-federation.md)
@@ -23,7 +23,7 @@ Two goals from the earlier ADRs constrain the design. Every unit of contribution
 
 ### 1. A thread is a page; a post is a record
 
-*Changed by A4, A10.*
+*Changed by A4, A10, A14.*
 
 **A thread is a page in the `Thread` namespace (§3).** It has a page ID from the tenant's sequence ([0015](0015-record-format-and-partition-registry.md) §2, [0018](0018-tenants.md) §2), a subject, a home and any listings (§2), a status (§6) and a history. Its records live in the tenant's `pages` partition, keyed by the thread's page ID, with the payload type `scatter:v0/thread` (§4).
 
@@ -40,6 +40,9 @@ Two goals from the earlier ADRs constrain the design. Every unit of contribution
 | `move` | Attaches the thread to a different home (§2); with `keep`, the old home stays as a listing | — | Required |
 | `attach` | Lists the thread on a further talk page or board ([0049](0049-boards.md) §6) | — | Required |
 | `detach` | Removes a listing ([0049](0049-boards.md) §6) | — | Required |
+| `propose` | Makes the thread a proposal, or re-compiles one: kind, upstream target, base and payload ([0067](0067-proposals.md) §3) | — | Required |
+| `submit` | Records that the proposal was exported or pushed, with the upstream revision IDs ([0067](0067-proposals.md) §3) | — | Required |
+| `withdraw` | The proposer takes the proposal back ([0067](0067-proposals.md) §3) | — | Required |
 
 Deleting a thread is not an operation: it is a `read` ACL on its page ID, written to the tenant `log` partition, and undeletion retires it; hiding one post is a `record` ACL on that post's record with `parts: [text]` ([0023](0023-moderation.md) §4).
 
@@ -534,3 +537,10 @@ Replaced text (§6):
 > **A thread's status is set by posting.** A `post` may carry a `status` value.
 
 > **Resolved**, **Won't fix**, **Declined** and **Stale** (closed).
+
+### A14. Proposal operations
+
+- **Date:** 2026-10-05
+- **Source:** [0067](0067-proposals.md) §3
+- **Change:** extends §1
+- **Summary:** `propose`, `submit` and `withdraw` join the operation table; a `create` may carry `propose`'s fields.

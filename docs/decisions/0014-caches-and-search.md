@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-04 (A16)
+- **Updated:** 2026-10-05 (A17)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md)
 - **Uses:** [0000](0000-init.md), [0003](0003-statement-ui.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -129,7 +129,7 @@ Media bytes are the exception to the short `s-maxage`: a public file version is 
 
 ### 7. Search on OpenSearch
 
-*Changed by A2, A4, A5, A6, A7, A10, A11, A12, A13.*
+*Changed by A2, A4, A5, A6, A7, A10, A11, A12, A13, A17.*
 
 **Two indexes, one query.** This settles [0008](0008-namespaces-and-document-pages.md) Q7.
 
@@ -169,6 +169,8 @@ Field semantics follow WikibaseCirrusSearch where a field exists there, so that 
 **Mappings.** The mappings and analysis settings are committed as JSON under `docs/search/`, versioned, and named in the alias, so a running instance can report which mapping it serves. Building a document from the resolved JSON is pure and lives in `scatter-wikibase-model` as a function, so the audit tooling can produce the same documents without a server.
 
 **Consistency.** The index is eventually consistent with `view`, by the projection's lag. A suggestion may name an entity whose page has moved on; the page is served from `view`, and the difference is the lag reported by `ops.projection_state`.
+
+**Lexemes** ([0066](0066-lexemes.md) §5): the entity index gains lexeme documents with `lemma`, `language`, `lexical_category`, `representation` and `gloss` fields; `wbsearchentities&type=lexeme` matches lemmas and returns the lexeme, `type=form` representations and `type=sense` glosses, each returning the part's ID. Entity schemas ([0064](0064-entityschema-and-validation.md) §7) index their terms as any entity's and their ShExC text as a plain-text field; captions ([0065](0065-mediainfo-captions-and-commons.md) §1) index as the File page's terms.
 
 ### 8. Postgres fallback
 
@@ -424,3 +426,10 @@ Replaced text (§7):
 - **Source:** [0058](0058-packed-record-storage.md) §11
 - **Change:** extends §10
 - **Summary:** Packed storage adds an L0 fragment cache: immutable fragments by domain and ref, and the refs known to be shared in the domain's current epoch. Erasure gains a seventh step, the fragment sweep and the cache drop that follows it.
+
+### A17. Lexemes, schemas and captions in search
+
+- **Date:** 2026-10-05
+- **Source:** [0066](0066-lexemes.md) §5; [0064](0064-entityschema-and-validation.md) §7; [0065](0065-mediainfo-captions-and-commons.md) §1
+- **Change:** extends §7
+- **Summary:** Lexeme documents and the three lexeme search types; schema terms and text; captions as File page terms.

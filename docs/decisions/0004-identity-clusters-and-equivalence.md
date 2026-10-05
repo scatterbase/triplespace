@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-10-01 (A10)
+- **Updated:** 2026-10-05 (A11)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md)
 - **Uses:** [0000](0000-init.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -24,7 +24,7 @@ There are three needs:
 
 ### 1. Identity clusters
 
-*Changed by A1, A2, A7, A9.*
+*Changed by A1, A2, A7, A9, A11.*
 
 IDs that denote the same thing form an **identity cluster**. Each member of a cluster belongs to a **namespace**, meaning whoever minted the ID: the local instance, Wikidata or OpenAlex. The namespace is the provider, not the type code. A Wikidata item can share a cluster with an OpenAlex work (`OAW`) or an OpenAlex author (`OAA`).
 
@@ -33,6 +33,8 @@ IDs that denote the same thing form an **identity cluster**. Each member of a cl
 **A keyed type is a namespace of its own** ([0009](0009-keyed-entity-types-and-domain.md) §8). Its keys are minted by the thing itself, and a cluster holds at most one member from it.
 
 **Keyed entities that are names never join a cluster.** Keywords ([0017](0017-entity-id-grammar.md) §5) and notations ([0048](0048-notation.md) §3, and the OpenStreetMap tags they replaced, [0036](0036-openstreetmap-providers.md) §6) are phrases, not concepts. `same-as` with one on either side is rejected at write time, and no tier-2 or tier-3 link may produce one.
+
+**Clusters are of lexemes, never of their parts.** `same-as` between forms or senses, or between a part and a lexeme, is refused with `ts-cluster-part`; a non-canonical lexeme's forms and senses keep their IDs under the canonical lexeme's page and are not merged into its own ([0066](0066-lexemes.md) §4).
 
 ### 2. Clusters are strictly one-to-one
 
@@ -356,3 +358,10 @@ Replaced text (§9):
 - **Source:** [0050](0050-adr-format.md) §13
 - **Change:** consolidates §1–10
 - **Summary:** A1–A9 were folded into the Decision and the open questions were numbered; the review decisions that settled Q1–Q4 and Q7 are A4. No decision changed. Before this, A4's §9 part and A8 were blockquotes, and the other entries were recorded only in this ADR's header, its open questions or other ADRs. The file before conversion is commit `0b26a3a`.
+
+### A11. Lexeme parts
+
+- **Date:** 2026-10-05
+- **Source:** [0066](0066-lexemes.md) §4
+- **Change:** extends §1
+- **Summary:** Clusters hold lexemes; forms and senses never join one and keep their IDs across a cluster.

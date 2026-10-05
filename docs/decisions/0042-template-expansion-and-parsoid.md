@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-03 (A8)
+- **Updated:** 2026-10-05 (A10)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0024](0024-subsidiary-accounts.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md)
 - **Uses:** [0023](0023-moderation.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0043](0043-lua-modules.md), [0047](0047-special-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -98,7 +98,7 @@ The operator lowers it to bound CPU on a crowded farm. Under `config.template = 
 
 ### 4. The expander
 
-*Changed by A6.*
+*Changed by A6, A9.*
 
 **The expander is a new pure crate, `scatter-wikitext-expand`** (§19). It implements MediaWiki's preprocessor and frame expansion:
 
@@ -115,7 +115,8 @@ The operator lowers it to bound CPU on a crowded farm. Under `config.template = 
 - namespaces and site statistics;
 - the render's one timestamp ("now"), fixed per render as MediaWiki fixes it per parse;
 - file facts ([0039](0039-files-and-media.md));
-- `#invoke` ([0043](0043-lua-modules.md)).
+- `#invoke` ([0043](0043-lua-modules.md));
+- scope members and counts, table rows, sprint tasks and board listings, for the block functions ([0062](0062-workspaces.md) §3).
 
 Given the same host answers, it produces the same output. The same code serves page views, `action=expandtemplates`, pre-save transform, server preview and Parsoid's callbacks.
 
@@ -125,7 +126,7 @@ Given the same host answers, it produces the same output. The same code serves p
 
 ### 5. Variables, parser functions, tags and switches: a registry (extends 0015 §5)
 
-*Changed by A6.*
+*Changed by A6, A9, A10.*
 
 **What the expander knows is registry data**, in a new file, `docs/registry/wikitext-functions.toml`, embedded by `scatter-wikitext-expand`. Each entry is a variable, parser function, extension tag or behaviour switch, with its synonyms, its origin (MediaWiki core, ParserFunctions, Scribunto, Wikibase Client, Cite, or another extension) and a status:
 
@@ -148,6 +149,8 @@ Given the same host answers, it produces the same output. The same code serves p
 | **Wikibase Client:** `#property`, `#statements` | `implemented` when expansion is on ([0043](0043-lua-modules.md) §7) |
 | **Wikibase Client:** `SHORTDESC` | `implemented`, as the page property `wikibase-shortdesc` ([0055](0055-templatestyles-templatedata-and-page-properties.md) §6); `__EXPECTED_UNCONNECTED_PAGE__` is `ignored` |
 | **Core:** `#REDIRECT` | `implemented` ([0051](0051-page-redirects.md) §1) |
+| **Triplespace:** `#workspace`, `#table`, `#scope-count`, `#scope-members`, `#completeness`, `#tasks`, `#sprint-progress`, `#board`, `#scope-changes` | `implemented`, `expensive`, and `scoped`: their output depends on a scope's, table's, sprint's or board's state, recorded in the manifest (§10) ([0062](0062-workspaces.md) §2–3) |
+| **Triplespace:** `#query` ([0063](0063-query-namespace.md) §6), `#conformance` ([0064](0064-entityschema-and-validation.md) §6) | `implemented`, `expensive`, `scoped` |
 | **Extension tags:** `templatestyles`, `templatedata` | `implemented` ([0055](0055-templatestyles-templatedata-and-page-properties.md) §3, §5) |
 | **Extension tags:** `nowiki`, `pre`, `ref`, `references`, `gallery`, `indicator`, `poem`; `syntaxhighlight` and `source` as plain `<pre>` | `implemented` |
 | **Extension tags:** `math`, `chem`, `ce`, `score`, `timeline`, `graph`, `mapframe`, `maplink`, `categorytree`, `inputbox`, `imagemap`, `hiero`, `charinsert` | `chip` |
@@ -258,7 +261,7 @@ A template's `<includeonly>` categories reach the pages that transclude it; its 
 
 ### 10. The render manifest and refresh (extends 0013 §5.6 and 0014 §3–5)
 
-*Changed by A2, A3, A6, A8.*
+*Changed by A2, A3, A6, A8, A9.*
 
 **Every expansion produces a manifest:** what it read, and until when the result holds.
 
@@ -269,6 +272,7 @@ A template's `<includeonly>` categories reach the pages that transclude it; its 
 | A file | Title and the file version used |
 | A foreign repository page | Repository, title, remote revision ID and expiry (§11) |
 | A volatile input | Current time, site statistics, `PAGESINCATEGORY` and the like, with the earliest moment the output could change |
+| A scoped block | The scope page and its `(definition_revid, computed_at)`, or the table's, sprint's or board's page and revision, with the sprint's last task state change; indexed in `view.render_dep_scoped` so the scope and task projections enqueue the refresh, debounced by `blocks.refresh_debounce` ([0062](0062-workspaces.md) §3) |
 
 **Tables** (`view`, written by the refresh job):
 
@@ -551,3 +555,17 @@ Replaced text (§10):
 Replaced text (§14):
 
 > | `action=purge` | `forcelinkupdate` and `forcerecursivelinkupdate` queue refreshes (§10) |
+
+### A9. Blocks
+
+- **Date:** 2026-10-05
+- **Source:** [0062](0062-workspaces.md) §2–3
+- **Change:** extends §4, §5, §10
+- **Summary:** `ExpandHost` gains scope, table, sprint and board reads; the registry gains the `#workspace` declaration and eight block functions, flagged `scoped`; the manifest gains the scoped-block entry and `view.render_dep_scoped`, with refreshes enqueued by the scope and task projections.
+
+### A10. `#query` and `#conformance`
+
+- **Date:** 2026-10-05
+- **Source:** [0063](0063-query-namespace.md) §6; [0064](0064-entityschema-and-validation.md) §6
+- **Change:** extends §5
+- **Summary:** Two more scoped blocks: a saved query's result table, and a schema's conformance figures.

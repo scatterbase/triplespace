@@ -1,6 +1,6 @@
 # Default namespaces.  ADR 0008 §2 (as amended 2026-09-27), 0009 §11, 0017 §5, 0019 §2–3, 0029 §2,
 # 0038 §4 and §8 (main and Category implemented), 0039 §1 (File, File talk and Media implemented),
-# 0041 §4, 0042 §3 and 0043 §2 (Template and Module, conditionally), 0045 §2 (Table), 0048 §7 (Notation), 0049 §2 (Board and Board talk; Thread talk forwards) (kinds say only whether a namespace holds pages; pages namespaces name content models).
+# 0041 §4, 0042 §3 and 0043 §2 (Template and Module, conditionally), 0045 §2 (Table), 0048 §7 (Notation), 0049 §2 (Board and Board talk; Thread talk forwards), 0060 §2 (Scope), 0061 §2 (triplespace-sprint in Project), 0063 §2 (Query), 0064 §2 (EntitySchema), 0066 §2 (Lexeme) (kinds say only whether a namespace holds pages; pages namespaces name content models).
 #
 # kind        "pages" | "reserved" | "virtual" | "resolver" (0041 §4). Only "pages" namespaces hold pages.
 # forwards_to For "virtual": every title resolves, as a permanent redirect, to the same title in the
@@ -90,7 +90,7 @@ kind = "pages"
 normalizer = "first-letter"
 case = "first-letter"
 subpages = true
-content_models = ["wikitext", "markdown", "json", "yaml", "text", "sanitized-css"]   # sanitized-css for the site-styles page (0055 §4)
+content_models = ["wikitext", "markdown", "json", "yaml", "text", "sanitized-css", "triplespace-sprint"]   # sanitized-css for the site-styles page (0055 §4); triplespace-sprint on subpages only (0061 §2)
 default_model = "wikitext"
 talk = 5
 
@@ -209,12 +209,73 @@ default_model = "triplespace-talk"
 [[namespace]]
 id = 124
 canonical = "Query"
-kind = "reserved"           # Wikibase's historical query namespace
+kind = "pages"              # Wikibase's query namespace, implemented with its meaning: saved, parameterized SPARQL (0063 §2)
+content_models = ["triplespace-sparql", "wikitext"]
+default_model = "triplespace-sparql"
+default_model_rules = [ { suffix = "/doc", model = "wikitext" } ]
+normalizer = "first-letter"
+case = "first-letter"
+subpages = true
+talk = 125
+defined_in = "0063 §2"
+
+[[namespace]]
+id = 125
+canonical = "Query talk"
+kind = "pages"
+content_models = ["triplespace-talk"]
+default_model = "triplespace-talk"
+normalizer = "first-letter"
+case = "first-letter"
+subpages = true
+defined_in = "0063 §2"
 
 [[namespace]]
 id = 146
 canonical = "Lexeme"
-kind = "reserved"           # WikibaseLexeme; mirroring WDL entities requires implementing it (providers.toml)
+kind = "pages"              # WikibaseLexeme's number (0066 §2)
+content_models = ["wikibase-lexeme"]
+default_model = "wikibase-lexeme"
+normalizer = "entity-id"
+case = "case-sensitive"
+subpages = false
+talk = 147
+defined_in = "0066 §2"
+
+[[namespace]]
+id = 147
+canonical = "Lexeme talk"
+kind = "pages"
+content_models = ["triplespace-talk"]
+default_model = "triplespace-talk"
+normalizer = "entity-id"
+case = "case-sensitive"
+subpages = false
+defined_in = "0066 §2"
+
+# --- EntitySchema: 640–641 (0064 §2) ------------------------------------------------------------
+[[namespace]]
+id = 640
+canonical = "EntitySchema"
+kind = "pages"
+content_models = ["EntitySchema"]
+default_model = "EntitySchema"
+normalizer = "entity-id"
+case = "case-sensitive"
+subpages = false
+talk = 641
+defined_in = "0064 §2"
+
+[[namespace]]
+id = 641
+canonical = "EntitySchema talk"
+kind = "pages"
+content_models = ["triplespace-talk"]
+default_model = "triplespace-talk"
+normalizer = "entity-id"
+case = "case-sensitive"
+subpages = false
+defined_in = "0064 §2"
 
 # --- Triplespace-specific: 210–219 --------------------------------------------------------------
 [[namespace]]
@@ -371,7 +432,31 @@ canonical = "Board talk"
 kind = "virtual"            # Board talk:X resolves to Board:X (0049 §2)
 forwards_to = 310
 
-# 312–319 unallocated.
+[[namespace]]
+id = 312
+canonical = "Scope"
+kind = "pages"
+content_models = ["triplespace-scope", "wikitext"]
+default_model = "triplespace-scope"
+default_model_rules = [ { suffix = "/doc", model = "wikitext" } ]
+normalizer = "first-letter"
+case = "first-letter"
+subpages = true
+talk = 313
+defined_in = "0060 §2"
+
+[[namespace]]
+id = 313
+canonical = "Scope talk"
+kind = "pages"
+content_models = ["triplespace-talk"]
+default_model = "triplespace-talk"
+normalizer = "first-letter"
+case = "first-letter"
+subpages = true
+defined_in = "0060 §2"
+
+# 314–319 unallocated.
 
 # --- Resolver prefixes, second block: 320–329 (0008 §2, amended 2026-10-01) ----------------------
 # Unallocated. Used once 224–229 is taken.
