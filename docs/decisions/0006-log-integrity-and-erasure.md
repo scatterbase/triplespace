@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-10-02 (A14)
+- **Updated:** 2026-10-04 (A15)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md)
 
@@ -191,7 +191,7 @@ Checkpoints are stored beside their partition. They are not log records, since a
 
 ### 7. Erasure
 
-*Changed by A1, A2, A3, A4, A10.*
+*Changed by A1, A2, A3, A4, A10, A15.*
 
 **Erasure is a record.** An `erase` record is appended to the same partition as its targets. It names its targets in one of two ways:
 
@@ -203,6 +203,7 @@ It also names the **parts** it erases, any subset of the payload type's parts an
 **Effect on storage.**
 
 - Each erased part's `[salt, bytes]` is replaced by `[null, leaf]`, so the commitment still reproduces. In Postgres the target's row is rewritten in the transaction that appends the `erase` record ([0013](0013-postgres-storage.md) §3).
+- In a `packed` partition, where repeated subtrees are stored once per dedup domain, the erased parts' fragments are reclaimed by a candidate sweep in the same erasure job. A fragment other live rows still use stays with them; for reason class `legal` a full sweep of the domain also runs, so no fragment survives that only erased parts used ([0058](0058-packed-record-storage.md) §6).
 - Headers are kept, so the Merkle tree and every existing checkpoint still verify.
 - Projections replay the `erase` record and remove everything derived from the targets: resolved and source-graph triples, metadata-graph revision nodes, content hashes in the version cursor, and search entries. Rebuilding from the log excludes erased bodies automatically.
 
@@ -465,3 +466,10 @@ Replaced text: the tenant-host origin line of A6, for instance partitions.
 - **Summary:** Compaction leaves a record's Merkle leaf in its slot, so the tree over every offset still folds after compaction and the `segments` file format needs no separate frontier. Decided when the file backend was written; the Postgres backend already keeps leaves in `log.merkle_node`. A consequence in §4: a segment manifest is unchanged by compaction, so no manifest lists the segments it replaces.
 
 Replaced text (§4): "When compaction replaces segments, the new segment's manifest lists the segments it replaces." §5 gains its last bullet.
+
+### A15. Packed record storage
+
+- **Date:** 2026-10-04
+- **Source:** [0058](0058-packed-record-storage.md) §6
+- **Change:** extends §7
+- **Summary:** In a packed partition, erasing a part also reclaims the fragments only that part used, by a candidate sweep in the erasure job, and a `legal` erasure runs a full sweep of the dedup domain, so shared storage never keeps an erased part alive once no live row holds the same bytes.

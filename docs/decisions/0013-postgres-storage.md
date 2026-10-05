@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-03 (A30)
+- **Updated:** 2026-10-04 (A31)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
@@ -67,7 +67,7 @@ In one database, these are one transaction. Erasure becomes an `UPDATE`, compact
 
 ### 2. The `log` schema
 
-*Changed by A2, A5, A27.*
+*Changed by A2, A5, A27, A31.*
 
 ```sql
 CREATE TABLE log.partition (
@@ -105,7 +105,7 @@ CREATE TABLE log.record (
 
 - **One child table per log partition**, which since [0018](0018-tenants.md) §2 means one per tenant partition as well as one per shared partition. Compaction, vacuum, bootstrap loading and index choice are then per partition. A mirror partition under `latest` carries an index on `(key, "offset" DESC)` for compaction and the version cursor. The local partition carries the same index for base-offset checks. Whether small tenants should share physical tables is open in 0018.
 - **The header columns are denormalized from `header`.** The CBOR bytes are the preimage that `leaf` and every proof are computed over. The columns exist so that the header can be queried without decoding. A test checks that re-encoding the columns reproduces the bytes. `revid`, `logid` and `page_id` are header fields 7–9 ([0015](0015-record-format-and-partition-registry.md) §2), so they are inside the Merkle tree; the sidecar this ADR first gave them is gone.
-- **Bodies use TOAST with `lz4` compression.** Canonical CBOR compresses well, and `lz4` decompresses fast enough for the read path. Bodies are never queried inside the database; they are decoded by the server.
+- **Bodies use TOAST with `lz4` compression in a `plain` partition.** Canonical CBOR compresses well, and `lz4` decompresses fast enough for the read path. Bodies are never queried inside the database; they are decoded by the server. A `packed` partition ([0058](0058-packed-record-storage.md) §2–4) stores each body instead as zstd, against a dictionary trained per dedup domain, over a packed form in which repeated subtrees (references, qualifier sets and, under `full` history, whole statements) are fragment references into `log.fragment`; `log.partition` gains `storage`, `log.record` gains `codec` and `dict`, and `log.fragment_domain`, `log.fragment` and `log.dict` hold the domains, fragments and dictionaries. The packed form is physical: the body is rebuilt byte for byte, and every rebuilt body, plain or packed, is checked against `commitment` before it is used (0058 §1).
 - **A body is never `NULL`.** Under [0015](0015-record-format-and-partition-registry.md) §1 erasure is per part, and an erased part is rewritten as `[null, leaf]` so the commitment still verifies. `erased` records which parts are gone; a fully erased record has every bit set. Which `erase` record removed which part is recoverable from the `erase` records themselves, which name their targets and parts; `erased_by` is a convenience for the gap row of [0010](0010-site-ui.md) §5.2 and holds the latest one.
 
 **Offsets are allocated in the appending transaction.** The transaction locks the partition's row in `log.partition`, takes `next_offset`, inserts, and advances it. A rollback releases the offsets, so the sequence stays gapless as [0006](0006-log-integrity-and-erasure.md) §3 requires. Appends to one partition are serialized by that lock. This is the correct behaviour for the local partition, where edits must be ordered, and irrelevant for bulk ingest, which uses §9.
@@ -152,7 +152,7 @@ CREATE TABLE log.segment_manifest (
 
 ### 3. Erasure and compaction in Postgres (amends 0006 §7)
 
-*Changed by A2.*
+*Changed by A2, A31.*
 
 **Erasure.** In the same transaction that appends the `erase` record, each target's body is rewritten with the named parts replaced by `[null, leaf]` ([0015](0015-record-format-and-partition-registry.md) §1), and the row is marked:
 
@@ -166,6 +166,7 @@ one row at a time, since each body is rewritten from its own bytes; erasing by k
 **Erased bytes linger until vacuumed.** MVCC keeps the old tuple until `VACUUM` reclaims it, and the WAL archive keeps it for the archive's retention. This is the "backups must be handled operationally" caveat of 0006 §7, made concrete:
 
 - the erasure worker runs `VACUUM` on the affected child table after an `erase`, and the instance's runbook sets a WAL retention window that bounds how long erased bytes can survive in archives;
+- in a `packed` partition the erased parts' fragment references become candidates in `ops.fragment_candidate`, and the erasure worker runs a candidate sweep before its `VACUUM`, deleting the fragments only the erased parts used; for reason class `legal` it also runs a full sweep of the dedup domain and vacuums the domain's fragment table ([0058](0058-packed-record-storage.md) §6);
 - an instance under a legal deadline runs `VACUUM FULL` or `pg_repack` on that child table, which rewrites it.
 
 **Compaction** of a `latest` partition is a batched delete of every record for a key except the newest:
@@ -177,7 +178,7 @@ DELETE FROM log.record_mirror_wikidata r
  WHERE r.key = k.key AND r."offset" < k.keep;
 ```
 
-Offsets are never reused, so a compacted partition has holes. That is the model 0002 §2 borrowed from Kafka. The compaction worker re-signs the manifest of each segment it touched, listing the manifest it replaces. A tombstoned entity that is not retained loses every record for its key, including the tombstone once its retention policy has been applied.
+Offsets are never reused, so a compacted partition has holes. That is the model 0002 §2 borrowed from Kafka. The compaction worker re-signs the manifest of each segment it touched, listing the manifest it replaces. A tombstoned entity that is not retained loses every record for its key, including the tombstone once its retention policy has been applied. In a `packed` partition the deleted rows' fragment references become candidates for the next candidate sweep, and fragments they shared with other rows wait for a full sweep ([0058](0058-packed-record-storage.md) §6).
 
 ### 4. Four schemas
 
@@ -581,10 +582,12 @@ Projections run in dependency order:
 
 ### 9. Bootstrap mode (extends 0002 §8.6; uses 0006 §5)
 
+*Changed by A31.*
+
 An initial load writes records first and builds everything else afterwards, as 0002 §8.6 already says. In Postgres:
 
 1. The target child tables are created with the primary key only. The mirror partition's `(key, offset)` index and every `view` table are absent.
-2. A coordinator hands each writer a contiguous block of offsets from `ops.bootstrap_block`. Writers `COPY` records in parallel. A block whose writer fails is handed out again, so no segment is sealed with a hole.
+2. A coordinator hands each writer a contiguous block of offsets from `ops.bootstrap_block`. Writers `COPY` records in parallel. A block whose writer fails is handed out again, so no segment is sealed with a hole. Into a `packed` partition, writers pack bodies in-process with the domain's key and dictionaries and `COPY` new fragments into a staging table, merged into `log.fragment` after the load; a load and a sweep of the same domain exclude each other ([0058](0058-packed-record-storage.md) §7).
 3. Leaf hashes are computed by the writers. Segment subtrees and the partition root are folded in one pass afterwards, as 0006 §5 describes, and written to `log.merkle_node`.
 4. Indexes are built, then projections run in the order of §7, each in one pass over the partition.
 5. Checkpoints are signed and the partition goes live.
@@ -627,7 +630,8 @@ This is [0000](0000-init.md) §4's rule that smaller deployments follow as corol
 - **Scatterbase gains a Postgres backend without asking for one.** `scatter-log-postgres` is a substrate crate; its claim partition can live in Postgres or in files with no change above the trait.
 - **The quad store is demoted.** Anything that assumed the metadata graph would be queried by the application has to read `view` instead. Nothing in 0010–0012 did.
 - **Privacy is enforceable in two places.** The route-level test of 0012 §8 and the grant-level separation of §4 have to agree; a table that moves between schemas changes what a role can read.
-- **Migrations become part of the compatibility surface.** A `view` change needs a rebuild or a migration; a `log` change needs a new payload or header version and a migration that keeps every existing header verifiable.
+- ~~**Migrations become part of the compatibility surface.** A `view` change needs a rebuild or a migration; a `log` change needs a new payload or header version and a migration that keeps every existing header verifiable.~~ *Only a change to what `log` records are; a change to how they are stored needs a migration alone (A31).*
+- **Migrations become part of the compatibility surface.** A `view` change needs a rebuild or a migration. A change to what `log` records are needs a new payload or header version and a migration that keeps every existing header verifiable; a change to how they are stored that keeps every record's logical bytes ([0058](0058-packed-record-storage.md) §1) needs only a migration.
 
 ## Open questions
 
@@ -926,3 +930,18 @@ Replaced text (§7): "The remainder is queued in `ops.projection_state` as work 
 - **Source:** Direct: James, decision of 2026-10-03 (`triplespace-accounts`, `triplespace-api-action`, `triplespace-server`, `scatter-adapter-internetdomains`)
 - **Change:** extends §5.6
 - **Summary:** `private.session (id text PRIMARY KEY, tenant, actor_key, key_id, created, expires, last_seen)`, `portability: never-leaves`: the session store of an instance without a shared cache (0014 A14). `id` is the cookie value, 32 random bytes; `actor_key` is NULL for an anonymous session that holds only tokens; `key_id` is the API key a bot-password login used, so revoking the key finds the sessions (0024 §4). Migration `0006_private_session`.
+
+### A31. Packed record storage
+
+- **Date:** 2026-10-04
+- **Source:** [0058](0058-packed-record-storage.md) §1, §2, §6, §7
+- **Change:** amends §2, Consequences; extends §3, §9
+- **Summary:** A partition's `storage` is `plain` or `packed`. A packed body is stored as zstd, against a per-domain dictionary, over a packed form in which repeated subtrees named by `docs/registry/fragments.toml` are 16-byte keyed references into `log.fragment`, stored once per dedup domain (each tenant, and the instance's shared partitions). `log.record` gains `codec` and `dict`; `log.fragment_domain`, `log.fragment`, `log.dict` and `ops.fragment_candidate` are added. The logical bytes, header, leaf and commitment do not change, and every rebuilt body is checked against the commitment. Erasure and compaction make the removed refs candidates for a candidate sweep, which deletes unshared fragments; shared ones wait for a full sweep, which a `legal` erasure runs at once. Bootstrap writers pack in-process and merge fragments after the load. A storage-only change to the `log` schema no longer needs a format version.
+
+Replaced text (§2):
+
+> - **Bodies use TOAST with `lz4` compression.** Canonical CBOR compresses well, and `lz4` decompresses fast enough for the read path. Bodies are never queried inside the database; they are decoded by the server.
+
+Replaced text (Consequences):
+
+> - **Migrations become part of the compatibility surface.** A `view` change needs a rebuild or a migration; a `log` change needs a new payload or header version and a migration that keeps every existing header verifiable.

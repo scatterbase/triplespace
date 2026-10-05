@@ -23,6 +23,7 @@ This directory is the registry of record for the names and codes that Triplespac
 | `special-pages.toml` | Special pages: canonical and MediaWiki names, origin, status (`served`, `deferred`, `declined`, `reserved`), farm or tenant scope, `Special:SpecialPages` group, restriction, aliases and section aliases, and each report's backing and graph scope (names and English aliases copied from MediaWiki and Wikibase REL1_43) | `triplespace-titles` | 0047 §1–4, 0051 §6, 0054 §2, 0055 §6 |
 | `css-properties.toml` | The CSS at-rules and properties the `sanitized-css` sanitizer allows, with the module each came from, the forbidden values and the `url()` policy (seed; generated from css-sanitizer's published set) | `scatter-css` | 0055 §2 |
 | `themes.toml` | Themes as values for Codex design tokens, and the typefaces each serves; `default` is the theme Triplespace ships (the canvases' palette and Newsreader headings) | `triplespace-ui` | 0034 §1–2 |
+| `fragments.toml` | Fragment paths for packed record storage: per payload type, the CBOR path patterns whose subtrees are stored once per dedup domain, the history condition, `min_bytes` and `max_depth`. Physical policy, never part of the record format | `scatter-log` | 0058 §3 |
 
 ## Rules
 
