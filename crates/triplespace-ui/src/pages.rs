@@ -17,7 +17,7 @@ use std::net::SocketAddr;
 
 use axum::Extension;
 use axum::body::Body;
-use axum::extract::{ConnectInfo, Path, Query, Request, State};
+use axum::extract::{ConnectInfo, Form, Path, Query, Request, State};
 use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
@@ -493,6 +493,92 @@ async fn dispatch(
         return fragment(&cx, headers, StatusCode::NOT_FOUND, String::new);
     }
     no_page(&cx, headers, title)
+}
+
+/// Relays the API's `Set-Cookie` headers on a response, which is then the viewer's alone
+/// and kept by no one (0057 §4, §6).
+#[must_use]
+pub fn with_cookies(mut r: Response, cookies: &[HeaderValue]) -> Response {
+    if cookies.is_empty() {
+        return r;
+    }
+    let h = r.headers_mut();
+    for c in cookies {
+        h.append(header::SET_COOKIE, c.clone());
+    }
+    h.insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("private, no-store"),
+    );
+    h.remove("cache-tag");
+    h.remove(header::ETAG);
+    r
+}
+
+/// A `303` after a form: on to `href`, with the cookies the API set.
+#[must_use]
+pub fn see_other(href: &str, cookies: &[HeaderValue]) -> Response {
+    let mut r = Response::new(Body::empty());
+    *r.status_mut() = StatusCode::SEE_OTHER;
+    if let Ok(v) = HeaderValue::from_str(href) {
+        r.headers_mut().insert(header::LOCATION, v);
+    }
+    r.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("private, no-store"),
+    );
+    with_cookies(r, cookies)
+}
+
+/// A form posted to a title: a special page that takes one, or `405`.
+async fn dispatch_post(
+    site: &Site,
+    headers: &HeaderMap,
+    peer: Peer,
+    title: &str,
+    query: &BTreeMap<String, String>,
+    form: &BTreeMap<String, String>,
+) -> Response {
+    if let Some(r) = special::post(site, headers, peer, title, query, form).await {
+        return r;
+    }
+    (
+        StatusCode::METHOD_NOT_ALLOWED,
+        [
+            (header::ALLOW, "GET, HEAD"),
+            (header::CACHE_CONTROL, "no-store"),
+        ],
+    )
+        .into_response()
+}
+
+/// `POST /wiki/{title}`.
+pub async fn wiki_post(
+    State(site): State<Site>,
+    Path(title): Path<String>,
+    Query(query): Query<BTreeMap<String, String>>,
+    headers: HeaderMap,
+    peer: Peer,
+    Form(form): Form<BTreeMap<String, String>>,
+) -> Response {
+    dispatch_post(&site, &headers, peer, &display_title(&title), &query, &form).await
+}
+
+/// `POST /w/index.php` and `/index.php`: the title in `title=`.
+pub async fn index_post(
+    State(site): State<Site>,
+    Query(query): Query<BTreeMap<String, String>>,
+    headers: HeaderMap,
+    peer: Peer,
+    Form(form): Form<BTreeMap<String, String>>,
+) -> Response {
+    let title = display_title(
+        query
+            .get("title")
+            .or_else(|| form.get("title"))
+            .map_or("", String::as_str),
+    );
+    dispatch_post(&site, &headers, peer, &title, &query, &form).await
 }
 
 /// `/`: a redirect to the main page.

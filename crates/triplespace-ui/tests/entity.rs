@@ -156,6 +156,13 @@ impl FixtureApi {
                 vec![],
             );
         }
+        if query.contains("meta=tokens") {
+            return (
+                StatusCode::OK,
+                json!({"query": {"tokens": {"logintoken": "t+\\", "csrftoken": "c+\\"}}}),
+                vec![],
+            );
+        }
         if query.contains("action=wbsearchentities") {
             return (StatusCode::OK, self.search(query), vec![]);
         }
