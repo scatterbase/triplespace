@@ -28,23 +28,33 @@ export function regionUrl( data: EditData, region: string ): string {
 	return `/w/index.php?${ q.toString() }`;
 }
 
+/** How a region is fetched and placed; a test passes its own fetch and reload. */
+export interface RefreshOptions {
+	/** The fetch function. */
+	fetcher?: Fetcher;
+	/** What to do on a build mismatch. */
+	reload?: Reload;
+	/** Where to put a region the page does not have yet. */
+	place?: ( el: Element ) => void;
+}
+
 /**
  * Fetches a region and puts it in place of the element that holds it now.
  *
  * @param doc The document
  * @param data The edit data
  * @param region The region name
- * @param fetcher The fetch function
- * @param reload What to do on a build mismatch
+ * @param options How to fetch and place it
  * @return The new element, or null when the page reloads
  */
 export async function refreshRegion(
 	doc: Document,
 	data: EditData,
 	region: string,
-	fetcher: Fetcher = ( i, init ) => fetch( i, init ),
-	reload: Reload = () => doc.defaultView?.location.reload(),
+	options: RefreshOptions = {},
 ): Promise<Element | null> {
+	const fetcher = options.fetcher ?? ( ( i: string, init?: RequestInit ) => fetch( i, init ) );
+	const reload = options.reload ?? ( () => doc.defaultView?.location.reload() );
 	const r = await fetcher( regionUrl( data, region ), {
 		credentials: 'same-origin',
 		cache: 'no-cache',
@@ -67,6 +77,8 @@ export async function refreshRegion(
 	}
 	if ( old ) {
 		old.replaceWith( fresh );
+	} else if ( options.place ) {
+		options.place( fresh );
 	}
 	return fresh;
 }

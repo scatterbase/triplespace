@@ -16,6 +16,8 @@ export interface EditData {
 	dir: string;
 	/** The build of the page, sent with every region request (ADR 0057 §8). */
 	build: string;
+	/** The base of the site's concept IRIs, for units. */
+	conceptBase: string;
 	/** The `ts-edit-*` messages, unexpanded. */
 	messages: Record<string, string>;
 }

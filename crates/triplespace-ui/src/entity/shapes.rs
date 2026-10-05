@@ -155,6 +155,15 @@ impl Render<'_> {
                 esc(&self.m.with("ts-values-count", &[&n]))
             );
         }
+        if self.editable {
+            let label = self.property_label(property);
+            let _ = write!(
+                s,
+                "<button type=\"button\" class=\"cdx-button cdx-button--action-progressive cdx-button--weight-quiet ts-edit\" data-ts-edit=\"group\" data-property=\"{pid}\" aria-label=\"{}\" hidden>{}</button>",
+                esc(&self.m.with("ts-edit-group-label", &[&label])),
+                esc(&self.m.get("ts-edit-group"))
+            );
+        }
         s.push_str("</div><div class=\"ts-group__body\">");
         match c.g.shape {
             Shape::Empty => {

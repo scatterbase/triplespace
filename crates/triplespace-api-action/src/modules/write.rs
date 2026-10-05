@@ -393,10 +393,18 @@ fn merge_edit_data(
                 };
                 for claim in items {
                     let guid = claim.get("id").and_then(Value::as_str).map(str::to_string);
+                    // Where the statement stood, so a changed one keeps its place in its
+                    // group, as Wikibase keeps it.
+                    let mut place: Option<(String, usize)> = None;
                     if let Some(g) = &guid {
-                        for group in claims.values_mut() {
-                            if let Value::Array(a) = group {
-                                a.retain(|s| s.get("id").and_then(Value::as_str) != Some(g));
+                        for (p, group) in claims.iter_mut() {
+                            if let Value::Array(a) = group
+                                && let Some(i) = a
+                                    .iter()
+                                    .position(|s| s.get("id").and_then(Value::as_str) == Some(g))
+                            {
+                                a.remove(i);
+                                place = Some((p.clone(), i));
                             }
                         }
                     }
@@ -421,12 +429,17 @@ fn merge_edit_data(
                         m.entry("type").or_insert(json!("statement"));
                         m.entry("rank").or_insert(json!("normal"));
                     }
-                    claims
+                    let group = claims
                         .entry(property.to_string())
                         .or_insert_with(|| json!([]))
                         .as_array_mut()
-                        .ok_or_else(|| ApiError::internal("claims group is not an array"))?
-                        .push(claim);
+                        .ok_or_else(|| ApiError::internal("claims group is not an array"))?;
+                    match place {
+                        Some((p, i)) if p == property && i <= group.len() => {
+                            group.insert(i, claim);
+                        }
+                        _ => group.push(claim),
+                    }
                 }
                 claims.retain(|_, g| g.as_array().is_some_and(|a| !a.is_empty()));
             }
@@ -881,4 +894,50 @@ async fn wbremovereferences(ctx: &Ctx, meta: &EditMeta) -> Result<ApiResponse, A
     s.references.retain(|r| !hashes.contains(&h.reference(r)));
     let (lastrevid, _) = save(ctx, &subject, &after, meta).await?;
     Ok(pageinfo_response(lastrevid, Map::new()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn st(id: &str, p: &str, v: &str) -> Value {
+        json!({"id": id, "type": "statement", "rank": "normal",
+            "mainsnak": {"snaktype": "value", "property": p, "datatype": "string",
+                "datavalue": {"type": "string", "value": v}}})
+    }
+
+    fn ids(v: &Value, p: &str) -> Vec<String> {
+        v["claims"][p]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|s| {
+                format!(
+                    "{}={}",
+                    s["id"].as_str().unwrap_or("new"),
+                    s["mainsnak"]["datavalue"]["value"].as_str().unwrap()
+                )
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_changed_statement_keeps_its_place() {
+        let id = EntityId::parse("Q6").unwrap();
+        let mut cur = json!({"claims": {"P1": [st("Q6$a", "P1", "a"), st("Q6$b", "P1", "b"), st("Q6$c", "P1", "c")]}});
+        let data = json!({"claims": [st("Q6$a", "P1", "A")]});
+        merge_edit_data(&mut cur, data.as_object().unwrap(), &id).unwrap();
+        assert_eq!(ids(&cur, "P1"), vec!["Q6$a=A", "Q6$b=b", "Q6$c=c"]);
+        // Removed, changed and added in one edit.
+        let data = json!({"claims": [{"id": "Q6$b", "remove": ""}, st("Q6$c", "P1", "C"),
+            {"mainsnak": {"snaktype": "value", "property": "P1", "datatype": "string",
+                "datavalue": {"type": "string", "value": "d"}}}]});
+        merge_edit_data(&mut cur, data.as_object().unwrap(), &id).unwrap();
+        assert_eq!(ids(&cur, "P1"), vec!["Q6$a=A", "Q6$c=C", "new=d"]);
+        // A statement moved to another property goes to the end of that group.
+        let data = json!({"claims": [st("Q6$a", "P2", "moved")]});
+        merge_edit_data(&mut cur, data.as_object().unwrap(), &id).unwrap();
+        assert_eq!(ids(&cur, "P2"), vec!["Q6$a=moved"]);
+        assert_eq!(ids(&cur, "P1"), vec!["Q6$c=C", "new=d"]);
+    }
 }
