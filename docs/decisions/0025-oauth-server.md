@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-03 (A4)
+- **Updated:** 2026-10-05 (A5)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0024](0024-subsidiary-accounts.md)
 - **Uses:** [0018](0018-tenants.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -21,7 +21,7 @@ This ADR makes the instance an OAuth 2.0 authorization server under those two ru
 
 ### 1. An OAuth 2.0 authorization server, at MediaWiki's paths
 
-*Changed by A4.*
+*Changed by A4, A5.*
 
 The instance is an **OAuth 2.0 authorization server** ([RFC 6749](https://www.rfc-editor.org/rfc/rfc6749)) offering:
 
@@ -50,6 +50,8 @@ The client-credentials flow is **not offered**: a tool acting for nobody is a bo
 **`/oauth/identify`** returns the **subsidiary** the token acts as, and its operator: `sub` (the subsidiary's user ID, [0007](0007-actor-identity.md) §3), `username` (its name), `groups`, `rights` (its effective permissions), `grants` (the token's), `blocked`, `registered`, and an `operator` object with the primary account's `sub` and `username`. The MediaWiki-compatible `profile` route returns the same fields in the extension's shape, so a tool that greets the person by `username` greets the subsidiary; a tool that wants the person's own name reads `operator.username`. There is no `email` or `realname` field: the instance holds neither ([0007](0007-actor-identity.md) §3, [0021](0021-notifications.md) §3), and a tool that needs to reach the person notifies the subsidiary, which routes to the operator ([0024](0024-subsidiary-accounts.md) §6).
 
 **OAuth 1.0a is not offered** in this ADR. Pywikibot and several older tools speak only 1.0a; Pywikibot also speaks bot passwords, which are 0024's keys. Whether a 1.0a shim is worth its signing code is Q1 below.
+
+**The instance is also an OAuth client of other wikis, for one purpose.** [0067](0067-proposals.md) §6 has it obtain, as a separate authorization from login, an edit-scoped grant on the wiki a proposal is destined for, stored in `private.upstream_grant` and used only to push that person's proposals as that person. The server role here and the client role there never share a credential, and the rule that a tool's edits are a subsidiary's holds on this side: a subsidiary may hold a grant of its own under its operator.
 
 ### 2. Consumers are instance configuration (extends 0015 §3)
 
@@ -273,3 +275,10 @@ Replaced text (§3):
 Replaced text (§8):
 
 > An instance without a shared cache holds them in process, which the small profile accepts.
+
+### A5. The instance as an OAuth client
+
+- **Date:** 2026-10-05
+- **Source:** [0067](0067-proposals.md) §6
+- **Change:** extends §1
+- **Summary:** An edit-scoped grant on the destination wiki, separate from login, used only to push the person's proposals.

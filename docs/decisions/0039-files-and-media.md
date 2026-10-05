@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-01 (A7)
+- **Updated:** 2026-10-05 (A8)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [0033](0033-backend-stack.md), [0035](0035-adopting-a-wikibase.md), [0038](0038-page-metadata-and-categories.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0007](0007-actor-identity.md), [0019](0019-discussions.md), [0040](0040-instance-prerogatives.md), [0041](0041-content-models.md)
@@ -226,7 +226,7 @@ And, unchanged from [0023](0023-moderation.md) §5, **hide** (and **suppress**) 
 
 ### 11. Foreign file repositories (uses 0002 §2, §5, 0012 §6 and 0028 §5)
 
-*Changed by A6.*
+*Changed by A6, A8.*
 
 A **file repository** is a source of files a tenant can use by name without uploading them. It is configured as a `config` record of kind `file-repo`, keyed `file-repo:{name}`, either in a tenant's `config` or in the instance `config`, where a tenant refers to it by name; it can be supplied by a tenancy template ([0028](0028-tenancy-policy.md) §8). The tenant `site` setting `files.repos` lists the repositories a tenant uses, in lookup order.
 
@@ -258,6 +258,8 @@ A **file repository** is a source of files a tenant can use by name without uplo
 **Images in mirrored pages follow the same policy.** An `<img>` in the HTML of a page served by a page repository ([0053](0053-mirrored-pages.md) §2) is served by the first file repository in `files.repos` that holds the file, in that repository's mode, and its `File:` link goes to the local file title; an image that is no repository's file is fetched through the page repository's `media_hosts` allow-list in `proxy` mode and dropped otherwise. The attribution line a page repository's page carries ([0053](0053-mirrored-pages.md) §9) is this section's attribution rule applied to whole pages.
 
 **API.** `meta=filerepoinfo` lists the local repository and every configured one with MediaWiki's fields (`name`, `displayname`, `rootUrl`, `local`, `url`, `thumbUrl`, `initialCapital`, `scriptDirUrl`, `canUpload`, `fetchDescription`, `descBaseUrl`); `prop=imageinfo` reports `imagerepository` as `local` or the repository's name, and URLs per the mode.
+
+**Commons' MediaInfo on a foreign file** ([0065](0065-mediainfo-captions-and-commons.md) §2). A file served from a Commons repository has its MediaInfo mirrored as `WDM{Commons page ID}` under the Wikidata provider, fetched on demand by default (`mediainfo.mirror`), and the local page for the foreign file shows it as its page data with the local graph's overlays applied. This settles Q7.
 
 ### 12. Media data types (uses 0003 §9 and 0038 §1)
 
@@ -417,7 +419,7 @@ Scatterbase gets `scatter-blob` whole: its blobs and Triplespace's files are the
 - **Q4. More thumbnailers.** PDF and DjVu pages, video posters and transcoding (MediaWiki's TimedMediaHandler), audio waveforms, 3D models. Each needs a renderer that fits the licence and sandboxing rules.
 - **Q5. `files.reclaim_after`.** Whether 365 days is the right default, and whether an instance should be able to set reclamation per namespace or per reason.
 - **Q6. Mirroring at Wikidata scale.** A full Wikidata mirror references millions of Commons files through P18 and similar properties; whether `used` should count mirrored statements by default, or only local use.
-- **Q7. MediaInfo.** If an instance mirrors Commons' MediaInfo entities (`WDM`, [0000](0000-init.md)), whether a foreign Commons file's page should show them as its page data.
+- **Q7.** ~~**MediaInfo.** If an instance mirrors Commons' MediaInfo entities (`WDM`, [0000](0000-init.md)), whether a foreign Commons file's page should show them as its page data.~~ *Settled by [0065](0065-mediainfo-captions-and-commons.md) §2: it does, overlaid with local corrections.*
 - **Q8. `geo-shape` and `tabular-data`**, which point at Commons' Data namespace rather than at files.
 - **Q9. Two-person expunge.** Whether `ts-expunge` should need a second operator's confirmation, given that it cannot be undone.
 
@@ -538,3 +540,10 @@ Replaced text (§1):
 - **Source:** [0054](0054-forking-a-mirrored-page.md) §7
 - **Change:** extends §14
 - **Summary:** A separate job copies the files a forked page uses as `import` uploads, on request, under `upload` and `reupload-shared`.
+
+### A8. Commons' MediaInfo on foreign files
+
+- **Date:** 2026-10-05
+- **Source:** [0065](0065-mediainfo-captions-and-commons.md) §2
+- **Change:** extends §11
+- **Summary:** `WDM` mirrored on demand and shown as the foreign file's page data; Q7 settled.

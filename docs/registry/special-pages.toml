@@ -902,6 +902,64 @@ restricted = "createpage"
 requires = "pages.repos"
 adr = "0054 §2"
 
+# The SPARQL editor over /sparql, with the tenant's prefix set (0059 §6).
+[[page]]
+name = "Query"
+origin = "triplespace"
+status = "served"
+scope = "tenant"
+group = "wikibaserepo"
+requires = "query.enabled"
+adr = "0059 §6"
+
+# Writes a triplespace-sprint subpage under a project page (0061 §9).
+[[page]]
+name = "CreateSprint"
+origin = "triplespace"
+status = "served"
+scope = "tenant"
+group = "pagetools"
+restricted = "createpage"
+adr = "0061 §9"
+
+# The workspace wizard: scope builder, kit, creates in dependency order (0062 §7).
+[[page]]
+name = "CreateWorkspace"
+origin = "triplespace"
+status = "served"
+scope = "tenant"
+group = "pagetools"
+restricted = "createpage"
+adr = "0062 §7"
+
+# A schema and a subject; shows the ShEx result-shape map (0064 §7).
+[[page]]
+name = "CheckEntitySchema"
+origin = "triplespace"
+status = "served"
+scope = "tenant"
+group = "wikibaserepo"
+adr = "0064 §7"
+
+# The tenant's proposals to other wikis, by state, destination and proposer (0067 §7).
+[[page]]
+name = "Proposals"
+origin = "triplespace"
+status = "served"
+scope = "tenant"
+group = "identity"
+adr = "0067 §7"
+
+# The guided three-way merge of a fork with its repository (0068 §6).
+[[page]]
+name = "MergeUpstream"
+origin = "triplespace"
+status = "served"
+scope = "tenant"
+group = "pagetools"
+restricted = "edit"
+adr = "0068 §6"
+
 [[page]]
 name = "ChangeContentModel"
 origin = "mediawiki"
@@ -1699,39 +1757,39 @@ adr = "0002 §7, 0047 §6"
 [[page]]
 name = "NewLexeme"
 origin = "WikibaseLexeme"
-status = "reserved"
+status = "served"
 scope = "tenant"
 group = "wikibaserepo"
-reason = "Lexeme and EntitySchema are reserved, not implemented (0009, 0041)"
+adr = "0066 §7"
 
 [[page]]
 name = "MergeLexemes"
 origin = "WikibaseLexeme"
-status = "reserved"
+status = "served"
 scope = "tenant"
 group = "wikibaserepo"
-reason = "Lexeme and EntitySchema are reserved, not implemented (0009, 0041)"
+adr = "0066 §7"
 
 [[page]]
 name = "NewEntitySchema"
 origin = "EntitySchema"
-status = "reserved"
+status = "served"
 scope = "tenant"
 group = "wikibaserepo"
-reason = "Lexeme and EntitySchema are reserved, not implemented (0009, 0041)"
+adr = "0064 §7"
 
 [[page]]
 name = "EntitySchemaText"
 origin = "EntitySchema"
-status = "reserved"
+status = "served"
 scope = "tenant"
 group = "wikibaserepo"
-reason = "Lexeme and EntitySchema are reserved, not implemented (0009, 0041)"
+adr = "0064 §7"
 
 [[page]]
 name = "SetEntitySchemaLabelDescriptionAliases"
 origin = "EntitySchema"
-status = "reserved"
+status = "served"
 scope = "tenant"
 group = "wikibaserepo"
-reason = "Lexeme and EntitySchema are reserved, not implemented (0009, 0041)"
+adr = "0064 §7"

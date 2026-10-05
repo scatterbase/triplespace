@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-03 (A38)
+- **Updated:** 2026-10-05 (A48)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0005](0005-crate-organization.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -180,7 +180,7 @@ All of these changes are additive (§1.2). [0056](0056-security-model.md) §13 a
 
 ### 5. REST routes under `rest.php/triplespace/v0`
 
-*Changed by A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A28, A30, A31, A32, A33, A37.*
+*Changed by A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A28, A30, A31, A32, A33, A37, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48.*
 
 **Every route is served per tenant base,** which the host selects. Instance-level routes are served at the farm base and, on a single-tenant instance, at the tenant's as well ([0018](0018-tenants.md) §11).
 
@@ -271,11 +271,21 @@ When each binding was last used is stored in the operational store, never in the
 | Edit filters | `/filters/…`, `GET /filters/log` | [0030](0030-edit-filters.md) §9 |
 | Constraints | `GET /entity/{id}/constraints`, `GET /constraints/report`, `GET /constraints/counts`, `POST /constraints/recheck` | [0031](0031-property-constraints.md) §6 |
 | SPARQL Update stream | `GET /updates/stream`, `GET /updates`, `GET /updates/cursor`, `/dumps/updates/`: keeps a triplestore current with a dump; public, rate-limited in the `stream` class | [0032](0032-sparql-update-stream.md) §6 |
+| SPARQL queries | `GET` and `POST /sparql`, the SPARQL 1.1 Protocol for queries only, over the tenant's dataset, with `Query-Cursor` and `Query-Truncated` headers; `GET /sparql/prefixes`; rate class `query` | [0059](0059-query-service.md) §6 |
 | Page statements and categories | `/page/{pageid}/statements`, following the Wikibase REST API's statement routes; `GET /page/{pageid}/categories`, `GET /category/{title}/members`, `/category-mappings/…` | [0038](0038-page-metadata-and-categories.md) §13 |
 | Files | `/file/{title}` and its versions and usage, `GET /blob/{sha256}/references`; `/takedowns` and `POST /expunge` at the farm base | [0039](0039-files-and-media.md) §17 |
 | Content models | Page summaries carry `content_model`, and File page summaries `mediainfo_id` | [0041](0041-content-models.md) §9 |
 | Rendering | `GET /page/{id}/render`, the render manifest; `GET /page/{id}/html` with `as_of=revision`, rendering a revision with its dependencies as of the revision's offset | [0042](0042-template-expansion-and-parsoid.md) §12, §14 |
 | Tables | `GET /table/{pageid}/rows`, `POST /table/{pageid}/rows/{id}`, `GET /table/{pageid}/export` | [0045](0045-table-content-model.md) §10 |
+| Scopes | `GET /scope/{pageid}`, `GET /scope/{pageid}/members`, `GET /scope/{pageid}/export`, `POST /scope/{pageid}/refresh`, `GET /subject/{kind}/{id}/scopes`; in the Action API `list=scopemembers` and `rcscope` | [0060](0060-scopes.md) §8 |
+| Sprints | `GET /sprint/{pageid}`, `/tasks`, `/leaderboard`; `POST /sprint/{pageid}/tasks/{rule}/{kind}/{id}/claim` and `/release`; `GET /subject/{kind}/{id}/tasks`; in the Action API `list=sprinttasks` and `letype=task` | [0061](0061-sprints-and-tasks.md) §10 |
+| Workspaces | `POST /scope/preview` (count, sample and shared statements for an unsaved definition; rate class `query`), `GET /scope/{pageid}/facets`, `GET /workspace/{pageid}`, `POST /workspace` (create from a kit), `GET /kits` | [0062](0062-workspaces.md) §8 |
+| Query pages | `GET /query/{pageid}/run?{param}=…` with `/sparql`'s headers and formats plus the labelled table; `GET /query/{pageid}/params` | [0063](0063-query-namespace.md) §7 |
+| EntitySchema | `GET /entity/E1`; `GET /schema/{id}/report`, `POST /schema/{id}/check`, `GET /entity/{id}/schemas`; Action API `wbgetentities` and the term modules on `E`, `wbsearchentities&type=entityschema`, `action=entityschema` | [0064](0064-entityschema-and-validation.md) §7 |
+| MediaInfo | `wbsetlabel`, `wbsetdescription` and `wbeditentity` terms on `M` accepted; `wbgetentities` on `WDM`; `GET /file/{title}/mediainfo` | [0065](0065-mediainfo-captions-and-commons.md) §4 |
+| Lexemes | WikibaseLexeme's modules (`wbladdform` … `wblmergelexemes`), `wbeditentity` with `new=lexeme`, `wbsearchentities&type=lexeme|form|sense`; REST `GET /entity/L1` and `GET /entity/L1-F1` | [0066](0066-lexemes.md) §8 |
+| Proposals | `POST /proposal`, `GET /proposal/{thread}`, `POST /proposal/{thread}/export`, `/push`, `/withdraw`, `GET /entity/{id}/proposals`, `GET /page/{id}/proposals`; `list=proposals`, `letype=proposal` | [0067](0067-proposals.md) §7 |
+| Merging with upstream | `GET /page/{id}/merge-preview?direction=`, `POST /page/{id}/merge`, `POST /page/{id}/refollow`; `tsmerge` on `action=edit` | [0068](0068-merging-with-upstream.md) §6 |
 | Redirects | `redirect_to` in page summaries; `redirected_from` from `GET /resolve` | [0051](0051-page-redirects.md) §7 |
 | Page repositories | `GET /page/{id}` with a provider-ranged ID, carrying `origin`, `upstream` and `stack`; `GET /page/stack/{title}` | [0052](0052-page-repositories-and-title-inheritance.md) §6 |
 | Mirrored pages | `GET /page/{id}/html` and `/render` for an inherited page; `GET /repo/{name}` | [0053](0053-mirrored-pages.md) §10 |
@@ -718,3 +728,73 @@ Replaced text (§2.1):
 - **Source:** [0034](0034-frontend-stack.md) §1
 - **Change:** extends §4
 - **Summary:** `siprop=triplespace` reports `theme`, the tenant's `ui.theme` token values, so the site, which reaches the instance only through the API, can serve the tenant's theme. An outsider of a private tenant is not given it, since 0056 §13 gives an outsider only the name, language and privacy of the wiki; its landing page uses Codex's own values.
+
+### A39. SPARQL queries
+
+- **Date:** 2026-10-04
+- **Source:** [0059](0059-query-service.md) §6
+- **Change:** extends §5
+- **Summary:** `/sparql` implements the SPARQL 1.1 Protocol for queries over the tenant's dataset, with the cursor and truncation headers, and `/sparql/prefixes` serves the pre-declared prefix set.
+
+### A40. Scope routes
+
+- **Date:** 2026-10-04
+- **Source:** [0060](0060-scopes.md) §8
+- **Change:** extends §5
+- **Summary:** The scope routes: count and cursor, paged members, export, refresh, and the scopes a subject is in; `list=scopemembers` and the `rcscope` feed parameter in the Action API.
+
+### A41. Sprint routes
+
+- **Date:** 2026-10-04
+- **Source:** [0061](0061-sprints-and-tasks.md) §10
+- **Change:** extends §5
+- **Summary:** The sprint routes: counts and window, paged tasks, leaderboard, claim and release, and the open tasks about a subject; `list=sprinttasks` in the Action API.
+
+### A42. Workspace routes
+
+- **Date:** 2026-10-05
+- **Source:** [0062](0062-workspaces.md) §8
+- **Change:** extends §5
+- **Summary:** Scope preview and facets for the builder; a workspace's roles and components; creation from a kit; the kit list.
+
+### A43. Query page routes
+
+- **Date:** 2026-10-05
+- **Source:** [0063](0063-query-namespace.md) §7
+- **Change:** extends §5
+- **Summary:** Running a `Query:` page with parameters, and its parameter schema.
+
+### A44. EntitySchema routes and modules
+
+- **Date:** 2026-10-05
+- **Source:** [0064](0064-entityschema-and-validation.md) §7
+- **Change:** extends §5
+- **Summary:** The schema entity, its report, the ad hoc check, the schemas bound to an entity, and the Action API modules on `E`.
+
+### A45. MediaInfo terms
+
+- **Date:** 2026-10-05
+- **Source:** [0065](0065-mediainfo-captions-and-commons.md) §4
+- **Change:** extends §5
+- **Summary:** Term modules accepted on `M`; `WDM` through `wbgetentities`; the file's resolved MediaInfo route.
+
+### A46. Lexeme modules and routes
+
+- **Date:** 2026-10-05
+- **Source:** [0066](0066-lexemes.md) §8
+- **Change:** extends §5
+- **Summary:** WikibaseLexeme's modules, lexeme search types, and the lexeme and part REST routes.
+
+### A47. Proposal routes
+
+- **Date:** 2026-10-05
+- **Source:** [0067](0067-proposals.md) §7
+- **Change:** extends §5
+- **Summary:** Opening, reading, exporting, pushing and withdrawing proposals; a subject's proposals.
+
+### A48. Merge routes
+
+- **Date:** 2026-10-05
+- **Source:** [0068](0068-merging-with-upstream.md) §6
+- **Change:** extends §5
+- **Summary:** Merge previews in either direction, pulls, re-follow, and `tsmerge`.

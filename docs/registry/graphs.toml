@@ -51,7 +51,7 @@ scope = "tenant"
 history = "full"
 integrity = "logged"
 export = "public"
-payload_types = ["scatter:v0/page", "scatter:v0/thread", "scatter:v0/changeset", "scatter:v0/upload", "scatter:v0/erase"]   # changeset: page statements (0038 §1); upload: file versions (0039 §2)
+payload_types = ["scatter:v0/page", "scatter:v0/thread", "scatter:v0/changeset", "scatter:v0/upload", "scatter:v0/task", "scatter:v0/erase"]   # changeset: page statements (0038 §1); upload: file versions (0039 §2); task: sprint claims, keyed to the sprint page (0061 §5)
 defined_in = "0008 §4, 0019 §4, 0038 §1, 0039 §2"
 
 [[graph]]

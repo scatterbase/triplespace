@@ -2,6 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
+- **Updated:** 2026-10-05 (A1)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0024](0024-subsidiary-accounts.md), [0030](0030-edit-filters.md), [0033](0033-backend-stack.md), [0039](0039-files-and-media.md), [0047](0047-special-pages.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0023](0023-moderation.md), [0035](0035-adopting-a-wikibase.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0049](0049-boards.md), [0051](0051-page-redirects.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0055](0055-templatestyles-templatedata-and-page-properties.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -112,9 +113,11 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 6. What a fork knows about upstream (extends 0010 §2 and §4; uses 0001 §1)
 
+*Changed by A1.*
+
 - **Provenance.** The fork's first revision node carries `prov:wasDerivedFrom` the upstream revision's IRI, `{article path}Special:Redirect/revision/{revid}` ([0015](0015-record-format-and-partition-registry.md) §4), and `pav:importedFrom` the repository's page; `GET /page/{id}/provenance` reports the repository, the upstream page and revision, the job and the dependency forks. The seeded revisions carry the upstream vocabulary of [0001](0001-revision-metadata-rdf.md) §1 as any backfilled revision does.
 - **The identity line** reads "Forked from English Wikipedia at revision 1234567890 (30 September 2026)", linking both; the **About this page** panel ([0010](0010-site-ui.md) §4) shows the revisions imported, the dependencies copied, whether files were copied (§7), and **"English Wikipedia has 14 newer revisions"**, from a live `prop=info` on the repository, cached and rate-limited as an upstream fetch is ([0012](0012-api-requirements.md) §6).
-- **Compare with upstream.** `GET /page/{id}/upstream-diff` *(REST v0)* and a link in the panel diff the fork's **base** (the `create`'s text) against the repository's **current** wikitext, and the fork's current text against it, so an editor can see what upstream changed since the fork and what the fork changed since upstream. The diff is computed live and never stored. Applying upstream's changes is a manual edit; a merge tool is Q1.
+- **Compare with upstream.** `GET /page/{id}/upstream-diff` *(REST v0)* and a link in the panel diff the fork's **base** (the `create`'s text) against the repository's **current** wikitext, and the fork's current text against it, so an editor can see what upstream changed since the fork and what the fork changed since upstream. The diff is computed live and never stored. Its base is the fork's `create` or, once the fork has pulled, its latest `merge` record. **Merge from upstream** applies upstream's changes as a guided three-way merge, and **Propose to the repository** compiles the fork's changes the other way ([0068](0068-merging-with-upstream.md) §2–3).
 - **The attribution line** of [0053](0053-mirrored-pages.md) §9 stays on a fork for as long as the page exists, reading "Forked from English Wikipedia; the original authors are listed in this page's history", which is what the licence asks and what the seeded history provides.
 
 ### 7. Files, on request (extends 0039 §14)
@@ -138,6 +141,9 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 9. Deleting, moving and re-forking
 
+*Changed by A1.*
+
+- **Re-following upstream** is deleting a fork that no longer differs from the repository, offered under `fork.refollow = ask` and automated under `auto` ([0068](0068-merging-with-upstream.md) §5).
 - **Deleting a fork** is a `read` ACL on its page ID ([0023](0023-moderation.md) §4). The title's stack loses its local primary and the repository's page is primary again ([0052](0052-page-repositories-and-title-inheritance.md) §2): deleting a fork is how a tenant goes back to the mirror. The threads homed on its talk page go with it, by enclosure, and come back with undeletion. A new fork at a deleted fork's title is an ordinary create; the deleted page keeps its history, as a deleted page does.
 - **Moving a fork** is an ordinary move and leaves a redirect ([0051](0051-page-redirects.md) §3). The old title's redirect is now the local primary there, so a reader arriving by the old name lands on the fork, while the repository's page at that title becomes an alternate of a redirect, which is listed as such.
 - **Redirects are not forked.** The repository's redirects to a forked title keep resolving through the stack to the fork ([0051](0051-page-redirects.md) §2); a tenant that wants a redirect local creates it.
@@ -211,7 +217,7 @@ CREATE INDEX fork_repo_page ON view.fork (repo, upstream_page_id);
 
 ## Open questions
 
-- **Q1. Merging upstream changes.** A three-way merge of upstream's diff since the fork onto the fork's current text, as a guided edit; and whether a tenant may choose to re-follow upstream for a fork nobody has changed.
+- **Q1.** ~~**Merging upstream changes.** A three-way merge of upstream's diff since the fork onto the fork's current text, as a guided edit; and whether a tenant may choose to re-follow upstream for a fork nobody has changed.~~ *Settled by [0068](0068-merging-with-upstream.md) §2 and §5: `Special:MergeUpstream` and `fork.refollow`.*
 - **Q2. Forking into another namespace.** Whether a repository's page may be forked under a different local title, which the stack's title identity does not allow today.
 - **Q3. Partial seeding by date.** Whether `fork.max_revisions` should be a span of years rather than a count, which is what readers of a history usually want.
 - **Q4. Signature-level attribution.** Whether, where a section's signatures parse cleanly, the import should attribute the thread's opening post to the first signer under the repository's issuer, as 0019 Q5 suggested, instead of to the forker.
@@ -246,3 +252,16 @@ CREATE INDEX fork_repo_page ON view.fork (repo, upstream_page_id);
 - [Wikipedia:Copying within Wikipedia](https://en.wikipedia.org/wiki/Wikipedia:Copying_within_Wikipedia) and [Wikipedia:Reusing Wikipedia content](https://en.wikipedia.org/wiki/Wikipedia:Reusing_Wikipedia_content), on attribution through history
 - [Help:Archiving a talk page](https://en.wikipedia.org/wiki/Help:Archiving_a_talk_page), for the archive subpages §5 reads
 - [Extension:DiscussionTools](https://www.mediawiki.org/wiki/Extension:DiscussionTools), for the finer parsing not taken
+
+## Amendment log
+
+### A1. Merging and re-following
+
+- **Date:** 2026-10-05
+- **Source:** [0068](0068-merging-with-upstream.md) §2, §5
+- **Change:** amends §6, §9
+- **Summary:** The upstream diff's base follows `merge` records; merging and proposing replace the manual edit; re-following is a setting. Q1 settled.
+
+Replaced text (§6, in part):
+
+> The diff is computed live and never stored. Applying upstream's changes is a manual edit; a merge tool is Q1.

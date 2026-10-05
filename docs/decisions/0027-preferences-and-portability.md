@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-02 (A3)
+- **Updated:** 2026-10-05 (A4)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0003](0003-statement-ui.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0018](0018-tenants.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md)
 - **Uses:** [0016](0016-permissions-and-access-control.md), [0024](0024-subsidiary-accounts.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -41,14 +41,14 @@ Preferences belong to primary accounts. A subsidiary ([0024](0024-subsidiary-acc
 
 ### 2. What private state is, and which of it is portable
 
-*Changed by A3.*
+*Changed by A3, A4.*
 
 Everything in `private` ([0013](0013-postgres-storage.md) §4, §5.6) belongs to one account, and this ADR classifies it by whether it may leave the instance with that account:
 
 | Class | State | Why |
 |---|---|---|
 | **Portable** | Preferences (§1); the watch set with `seen` and expiries ([0020](0020-change-feeds.md) §3); contact details: email address and fediverse handle, with their verification state ([0021](0021-notifications.md) §5, §8); subsidiary **metadata**: names, operator, key labels, grants, IP ranges and expiries, never secrets ([0024](0024-subsidiary-accounts.md) §4); the inbox within its retention, with read state ([0021](0021-notifications.md) §3) | Chosen by the person, about the person, useful on any instance |
-| **Re-established, not carried** | Bindings ([0007](0007-actor-identity.md) §3): the person logs in again and the identity provider proves who they are; API-key secrets and OAuth tokens ([0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md)): reissued; the Atom watch token ([0020](0020-change-feeds.md) §4): reissued; sessions | Secrets are minted by an instance for itself, and a proof of identity is not transferable |
+| **Re-established, not carried** | Bindings ([0007](0007-actor-identity.md) §3): the person logs in again and the identity provider proves who they are; API-key secrets and OAuth tokens ([0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md)): reissued; the Atom watch token ([0020](0020-change-feeds.md) §4): reissued; sessions; upstream OAuth grants ([0067](0067-proposals.md) §6): reissued | Secrets are minted by an instance for itself, and a proof of identity is not transferable |
 | **Never leaves** | IP addresses held for abuse handling and IP blocks ([0007](0007-actor-identity.md) §3, [0016](0016-permissions-and-access-control.md) §3); the notifier's private key ([0021](0021-notifications.md) §5) | Not the person's, or bound to one instance |
 
 The classification is data: each `private` table is tagged in `triplespace-db`'s schema definition with its class, as a table comment `portability: {class}` that the crate checks against the live schema, and the export of §3 is generated from the tags, so a table added later cannot be forgotten. A table whose columns fall in two classes, as `api_key` does (portable metadata, a re-established secret), takes the stricter class, and the export reads only its portable columns. The privacy test of [0012](0012-api-requirements.md) §8 checks that nothing in the second or third class appears in a bundle.
@@ -204,3 +204,10 @@ Replaced text (§9):
 - **Summary:** The class is a table comment `portability: portable | re-established | never-leaves`, checked by `triplespace-db` against its own list so that an unclassified or misclassified table fails; a table with columns of two classes takes the stricter one and the export reads only its portable columns.
 
 Replaced text: none; §2 gains two sentences.
+
+### A4. Upstream grants
+
+- **Date:** 2026-10-05
+- **Source:** [0067](0067-proposals.md) §6
+- **Change:** extends §2
+- **Summary:** `private.upstream_grant` is re-established, not carried.

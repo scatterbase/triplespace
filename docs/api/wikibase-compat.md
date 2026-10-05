@@ -53,7 +53,7 @@ Statements marked **(observed)** come from these outputs. Snapshots are committe
 
 ## 2. Conceptual data model
 
-- **Entities.** Wikibase REL1_43 defines two entity types: **item** (`Q<n>`) and **property** (`P<n>`). Other extensions add more, such as lexemes, forms, senses and entity schemas; those are out of scope here.
+- **Entities.** Wikibase REL1_43 defines two entity types: **item** (`Q<n>`) and **property** (`P<n>`). Other extensions add more: lexemes, forms and senses (WikibaseLexeme) are covered by §5.6 since ADR 0066; entity schemas (EntitySchema) have terms only and no RDF of their own (ADR 0064 §8); MediaInfo is covered by ADR 0041 §7 and 0065.
 - **Terms.** Every entity carries a *fingerprint*: labels and descriptions (at most one per language) and aliases (several per language).
 - **Sitelinks.** Items also carry sitelinks: at most one page per site, each with an optional set of badge items.
 - **Data types.** Properties carry a data type, which is fixed at creation.
@@ -384,6 +384,10 @@ The simple form is the object of `wdt:`, `ps:`, `pq:` and `pr:`. The full form i
 | `quantity` | `"+1.96"^^xsd:decimal` | `a wikibase:QuantityValue ; quantityAmount ; quantityUpperBound ; quantityLowerBound ; quantityUnit <unit IRI>`. A unitless quantity has unit **`<http://www.wikidata.org/entity/Q199>`**. |
 | `globe-coordinate` | `"Point(-0.1275 51.5)"^^geo:wktLiteral`. The order is longitude then latitude, and the WKT is prefixed with the globe IRI when the globe is not Earth. | `a wikibase:GlobecoordinateValue ; geoLatitude ; geoLongitude ; geoPrecision` (all `xsd:double`) `; geoGlobe <…Q2>` |
 | `edtf` | **Two or more literals**; see §6.4 | `wikibase:TimeValue` nodes derived from the EDTF value; see §6.4 |
+
+### 5.6 Lexemes (ADR 0066 §6)
+
+*To be filled from the observed dump, as §5.2–5.5 were.* The mapping ADR 0066 §6 fixes: a lexeme is an `ontolex:LexicalEntry` with `wikibase:lemma` and `rdfs:label` per lemma, `dct:language`, `wikibase:lexicalCategory`, `ontolex:lexicalForm` and `ontolex:sense`; a form is an `ontolex:Form` with `ontolex:representation` and `wikibase:grammaticalFeature`; a sense is an `ontolex:LexicalSense` with `skos:definition`; statements on all three as §5.4. Part IRIs carry the `-F`/`-S` suffix in the entity's local part.
 
 ## 6. EDTF extension (WikibaseEDTF)
 

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-01 (A10)
+- **Updated:** 2026-10-04 (A11)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0011](0011-logs.md), [0018](0018-tenants.md), [0022](0022-federation.md)
@@ -33,7 +33,7 @@ Its rows are the activity rows of [0012](0012-api-requirements.md) §3, redacted
 
 ### 2. Target sets
 
-*Changed by A6, A7, A9.*
+*Changed by A6, A7, A9, A11.*
 
 | Set | Members | Source |
 |---|---|---|
@@ -44,6 +44,7 @@ Its rows are the activity rows of [0012](0012-api-requirements.md) §3, redacted
 | **Watched** | the account's watch set (§3), each member expanded as a *one target* set | `private.watch` |
 | **All tenants** | the union of every tenant's everything set, each row carrying its tenant, served at the farm base under `feeds.farm_wide` ([0028](0028-tenancy-policy.md) §9) | every tenant's `view.activity` |
 | **Filter hits** | the hits of one edit filter, of all filters, or of one actor, filtered by action taken ([0030](0030-edit-filters.md) §6) | `view.filter_hit` |
+| **Scope** | the one-target sets of every member of a scope, from its materialized members; bounded by `scopes.max_members` rather than `feeds.related_limit`, and carrying the scope's truncation notice ([0060](0060-scopes.md) §7) | `view.scope_member` |
 
 **A subject and its talk page are one target.** The one-target set for `Item:Q42` includes `Item talk:Q42` and every thread attached to it, home or listing; for `User:Example`, the user page and `User talk:Example`; for a board, the board and its threads ([0049](0049-boards.md) §7). A thread is its own target, and a thread that moves, is listed or is detached leaves or joins a talk page's set at query time, so history and watches follow the talk page, not the thread ([0019](0019-discussions.md) §2).
 
@@ -53,7 +54,7 @@ Its rows are the activity rows of [0012](0012-api-requirements.md) §3, redacted
 
 ### 3. The watch set is private state, not records (extends 0007 §8, 0013 §4)
 
-*Changed by A2, A5.*
+*Changed by A2, A5, A11.*
 
 **A watch is a row in the `private` schema**, not a record in any partition. It is the same kind of thing as a session or an OAuth token: state that belongs to an account, that nobody else may see, and that has no public history. It follows every rule [0007](0007-actor-identity.md) §8 and [0013](0013-postgres-storage.md) §4 set for that schema: never projected, never exported, never placed on a feed, readable only by the accounts role, excluded from every bundle.
 
@@ -69,7 +70,7 @@ CREATE INDEX watch_expiry ON private.watch (expires) WHERE expires IS NOT NULL;
 CREATE TABLE private.watch_token (actor_key text PRIMARY KEY, token text NOT NULL, issued timestamptz NOT NULL);
 ```
 
-- **Target kinds** are `entity`, `page`, `thread` and `actor`. An entity watch stores the entity ID and is expanded through its cluster when the feed is read, so a merge or a redirect never loses it. A `page` watch is a document page; a `thread` watch is a thread; an `actor` watch is the actor's user page and user talk page. Watching a talk page is watching its subject, and watching a subject watches its talk page (§2): the UI's watch star on either page toggles the same row.
+- **Target kinds** are `entity`, `page`, `thread`, `actor`, `scope` and `rows`. A `scope` watch expands at query time to the Scope set of §2, one row however many members the scope has; a `rows` watch on a table expands the table's `rows` the same way ([0060](0060-scopes.md) §7). An entity watch stores the entity ID and is expanded through its cluster when the feed is read, so a merge or a redirect never loses it. A `page` watch is a document page; a `thread` watch is a thread; an `actor` watch is the actor's user page and user talk page. Watching a talk page is watching its subject, and watching a subject watches its talk page (§2): the UI's watch star on either page toggles the same row.
 - **Expiry** is optional, with MediaWiki's choices (a week, a month, three months, six months, permanent). A daily sweep deletes expired rows.
 - **`seen`** is updated when the holder reads the target or the watchlist, and drives the "changed since you last looked" mark. It is written often and matters little, which is why it lives here and not in a record.
 - **Auto-watch** is a preference: pages and entities the account edits, pages it creates, threads it posts in, and threads it starts, each on or off, and whether auto-watches carry `notify`. These are the `autowatch.*` keys of the preference store ([0027](0027-preferences-and-portability.md) §1), which holds every preference beside the watch set.
@@ -281,3 +282,14 @@ Replaced text (§2):
 - **Source:** [0050](0050-adr-format.md) §13
 - **Change:** consolidates §1–8
 - **Summary:** A1–A9 were folded into the Decision. The open questions were numbered. No decision changed. Before this, A8 and A9 were blockquotes, A2's column had been added in place, and the other entries were recorded in the header, the open questions or other ADRs. The file before conversion is commit `0b26a3a`.
+
+### A11. Scopes as target sets and watches
+
+- **Date:** 2026-10-04
+- **Source:** [0060](0060-scopes.md) §7
+- **Change:** extends §2, §3
+- **Summary:** A Scope target set, joined against `view.scope_member` and bounded by `scopes.max_members`; `scope` and `rows` watch kinds, expanded at query time.
+
+Replaced text (§3, in part):
+
+> - **Target kinds** are `entity`, `page`, `thread` and `actor`.

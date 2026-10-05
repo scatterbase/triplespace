@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-01 (A9)
+- **Updated:** 2026-10-04 (A10)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md), [0023](0023-moderation.md)
 - **Uses:** [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0027](0027-preferences-and-portability.md)
@@ -132,11 +132,14 @@ When a tenant **joins** a farm with shared names, its accounts are checked again
 
 ### 12. Storage (extends 0013)
 
+*Changed by A10.*
+
 - Three instance partitions, `actors/{farm}`, `accounts/{farm}`, `log/{farm}`, as child tables like any partition; farm accounts are rows in `view.actor` with the farm issuer, and their memberships and blocks in the tables [0016](0016-permissions-and-access-control.md) §9 already has, with the empty-string tenant that marks the instance ([0013](0013-postgres-storage.md) §5).
 - The **name registry** is a unique index over the names of farm accounts and of every tenant's accounts, maintained by the actor projection when `identity.shared_names` is on; it is the farm-wide form of `actor_local_name` ([0013](0013-postgres-storage.md) §5.4).
 - Evaluation joins `view.account_link` to reach a tenant account's farm account (§3–4); L0 caches the result per session ([0014](0014-caches-and-search.md) §2).
 - `view.registry` holds the `tenancy`, `template`, `provider-readers` and global `group` kinds.
 - Nothing new in `private`: farm bindings are bindings; the aggregated bell reads existing inboxes.
+- **The query store** ([0059](0059-query-service.md) §4) is instance infrastructure like OpenSearch (§9): one store holding every public tenant's graphs under their names, isolated at query time by the SPARQL Protocol's dataset. A tenant may instead have an embedded store of its own (`query.isolation = store`), which the `isolated` preset of §1 selects. A private tenant has no graphs in any store.
 
 ### 13. Permissions (extends 0016 §2)
 
@@ -314,3 +317,10 @@ Replaced text (§10):
 Replaced text (§5):
 
 > Reading is all or nothing; a provider does not restrict individual entities, since its `local` graph is public data by 0018 §5's definition.
+
+### A10. The query store
+
+- **Date:** 2026-10-04
+- **Source:** [0059](0059-query-service.md) §4
+- **Change:** extends §12
+- **Summary:** One query store per instance, every public tenant's graphs under their names, tenant isolation by dataset at query time; `store` isolation per tenant as an embedded store, selected by the `isolated` preset. Private tenants are in no store.

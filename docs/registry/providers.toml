@@ -85,14 +85,26 @@ agent_iri = "http://www.wikidata.org/entity/Q2013"    # the provider as a prov:O
   entity_type = "lexeme"
   upstream_prefix = "L"
   iri = "http://www.wikidata.org/entity/{upstream_id}"
-  namespace = "Lexeme"             # reserved as 146 in namespaces.toml, not implemented; mirroring lexemes requires implementing it
+  namespace = "Lexeme"             # implemented by 0066
 
   [[provider.type]]
   code = "M"
   entity_type = "mediainfo"
   upstream_prefix = "M"
   iri = "https://commons.wikimedia.org/entity/{upstream_id}"
-  namespace = "File"               # a MediaInfo entity is the `mediainfo` slot of a File page, not a namespace of its own (0041 §6–7); mirroring it onto foreign files is open (0039)
+  namespace = "File"               # a MediaInfo entity is the `mediainfo` slot of a File page, not a namespace of its own (0041 §6–7)
+  # Commons is the source of this type under Wikidata's provider (0065 §2). The per-type source fields
+  # 0065 §5 adds to scatter-providers are a pending allocation (README) until the crate accepts them:
+  #   api = "https://commons.wikimedia.org/w/api.php"
+  #   entity_data = "https://commons.wikimedia.org/wiki/Special:EntityData/"
+  #   dumps = "https://dumps.wikimedia.org/commonswiki/entities/"
+
+  [[provider.type]]
+  code = "E"
+  entity_type = "entityschema"
+  upstream_prefix = "E"
+  iri = "http://www.wikidata.org/entity/{upstream_id}"
+  namespace = "EntitySchema"       # 0064 §1: read from namespace 640 pages, not the entity dumps
 
 # ---------------------------------------------------------------------------
 # Librarybase

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-24
-- **Updated:** 2026-10-02 (A19)
+- **Updated:** 2026-10-05 (A20)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md)
 - **Uses:** [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -149,7 +149,7 @@ Retention keeps the foreign identity. Conversion gives the entity a local identi
 
 ### 7. Corrections and extensions (scenarios C and D)
 
-*Changed by A16.*
+*Changed by A16, A20.*
 
 Every local edit to a foreign entity is a **local-graph assertion whose subject is the foreign entity**. No local entity has to be created.
 
@@ -169,7 +169,7 @@ GRAPH <{base}/graph/local> {
 
 Local corrections are tracked against upstream:
 
-- If upstream comes to agree with a correction, the application detects that the correction is redundant and can retire it.
+- If upstream comes to agree with a correction, the application detects that the correction is redundant and retires it: automatically, as an instance act, when the agreement follows a proposal and `upstream.retire_adopted` is on, which is the default; otherwise from `Special:Corrections` ([0067](0067-proposals.md) §5).
 - If upstream removes the statement a local override points at, the override is flagged as dangling.
 - The set of local corrections doubles as a list of fixes to report upstream.
 - The set is served as `Special:Corrections`, filterable by state, kind and upstream graph, with **Retire** for redundant corrections and an export per upstream graph ([0047](0047-special-pages.md) §6).
@@ -513,3 +513,14 @@ Replaced text (§8.2):
 Replaced text (§8.5):
 
 > - **Match keys.** A `create` can carry a match key, for example `"match": {"P356": "10.1234/x"}`. If an entity with that identifier exists, the operation updates it; otherwise it creates one. This makes re-runs idempotent. It requires a uniqueness index on designated identifier properties. A match key may also be a foreign entity ID.
+
+### A20. Proposals retire redundant corrections
+
+- **Date:** 2026-10-05
+- **Source:** [0067](0067-proposals.md) §5
+- **Change:** amends §7
+- **Summary:** A redundant correction that followed a proposal is retired automatically under `upstream.retire_adopted`; the list of fixes to report upstream is now the proposals feature.
+
+Replaced text (§7):
+
+> - If upstream comes to agree with a correction, the application detects that the correction is redundant and can retire it.

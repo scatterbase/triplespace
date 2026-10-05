@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-01 (A5)
+- **Updated:** 2026-10-05 (A11)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0029](0029-resolver-namespaces.md), [0031](0031-property-constraints.md), [0042](0042-template-expansion-and-parsoid.md), [0046](0046-primary-tenant.md)
 - **Uses:** [0019](0019-discussions.md), [0021](0021-notifications.md), [0028](0028-tenancy-policy.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md)
@@ -43,6 +43,8 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 1. One registry of special pages (extends 0015 §5)
 
+*Changed by A9.*
+
 **`docs/registry/special-pages.toml` lists every special page name the instance knows**, including pages it serves, pages it defers or declines, and names it reserves. It is embedded by `triplespace-titles`, which already resolves titles in the `Special` namespace ([0008](0008-namespaces-and-document-pages.md) §3). Each entry has these fields:
 
 | Field | Meaning |
@@ -71,7 +73,7 @@ James's direction, from the design discussion of 2026-09-30:
 - **`served`:** the instance serves the page. "Served" records a decision, not an implementation. Implementation is tracked in the milestones.
 - **`deferred`:** undecided, with the open question it waits on.
 - **`declined`:** decided against, with the reason. Requests get MediaWiki's "no such special page" response.
-- **`reserved`:** the name belongs to an entity type Triplespace has reserved but not implemented. These are Lexeme and EntitySchema ([0009](0009-keyed-entity-types-and-domain.md), [0041](0041-content-models.md)). The name will not be used for anything else.
+- **`reserved`:** the name belongs to an entity type Triplespace has reserved but not implemented. Lexeme and EntitySchema were the cases until [0064](0064-entityschema-and-validation.md) and [0066](0066-lexemes.md) implemented them; no name is reserved today. The name will not be used for anything else.
 
 ### 2. Names, aliases and section aliases
 
@@ -268,6 +270,8 @@ The forms are `NewItem`, `NewProperty`, `SetLabel`, `SetDescription`, `SetAliase
 
 ### 6. Identity and correction pages
 
+*Changed by A11.*
+
 Three pages give addresses to things 0002 and 0004 already describe:
 
 - **`Special:LinkEntities`** *(new)* is the form for `same-as`, `different-from` and `equivalent-property` ([0004](0004-identity-clusters-and-equivalence.md) §9). It needs `ts-link` and counts in the `link` rate class ([0024](0024-subsidiary-accounts.md) §5). It is prefilled from a refused merge and from a conflict row.
@@ -277,9 +281,10 @@ Three pages give addresses to things 0002 and 0004 already describe:
 - **`Special:Corrections`** *(new)* is 0002 §7's maintenance list of local corrections.
   - It can be filtered by state (`active`, `redundant`, `dangling`; [0003](0003-statement-ui.md) §4), kind (`rank`, `suppress`, `term`) and upstream graph.
   - It offers **Retire** for redundant corrections, singly or in bulk, and review for dangling ones.
-  - 0002 §7 notes that this list "doubles as a list of fixes to report upstream", so it can be exported per upstream graph.
+  - 0002 §7 notes that this list "doubles as a list of fixes to report upstream": its export per upstream graph is now **Propose**, which opens a proposal thread per subject for the selection ([0067](0067-proposals.md) §4).
+- **`Special:Proposals`** *(new)* lists the tenant's proposals by state, destination wiki and proposer ([0067](0067-proposals.md) §7).
 
-All three are in the `identity` group of `Special:SpecialPages`.
+All four are in the `identity` group of `Special:SpecialPages`.
 
 ### 7. Special:Nuke
 
@@ -378,7 +383,7 @@ It needs `ts-revertjob` and, because it retires deletions, `undelete`.
 
 ### 9. Other pages (extends 0010 §2, §3 and §12)
 
-*Changed by A4.*
+*Changed by A4, A6, A7, A8, A9, A10, A11.*
 
 These are served with MediaWiki's or Wikibase's meaning and parameters. The notes say what they read or write.
 
@@ -392,6 +397,13 @@ These are served with MediaWiki's or Wikibase's meaning and parameters. The note
 | `EditWatchlist` | The watch set, with `/raw` and `/clear` ([0020](0020-change-feeds.md) §3) |
 | `ChangeContentModel` | [0041](0041-content-models.md)'s `action=changecontentmodel` |
 | `Fork` | Forks a title whose primary is a page repository's page, without an edit: shows the stack, the licence and the fork options, and appends the fork's `create` ([0054](0054-forking-a-mirrored-page.md) §2). Origin `triplespace`; restricted to `createpage` |
+| `Query` | A SPARQL editor and result table over `/sparql`, with the tenant's prefix set, labels resolved, a shareable `?query=` URL and a "Try with scope" button ([0059](0059-query-service.md) §6). Origin `triplespace`; listed while `query.enabled` is on; group `wikibaserepo` |
+| `CreateSprint` | The form that writes a `triplespace-sprint` subpage under a project page, with its scope, rules, window and an optional board ([0061](0061-sprints-and-tasks.md) §9). Origin `triplespace`; restricted to `createpage`; group `pagetools` |
+| `CreateWorkspace` | The wizard that gives a project page a scope and a kit's pages: name, scope through the builder, kit with a preview, then the creates in dependency order as one job ([0062](0062-workspaces.md) §7). Origin `triplespace`; restricted to `createpage`; group `pagetools` |
+| `NewEntitySchema`, `EntitySchemaText`, `SetEntitySchemaLabelDescriptionAliases` | EntitySchema's pages, with its parameters: create a schema, serve its ShExC as `text/shex`, set its terms ([0064](0064-entityschema-and-validation.md) §7). Origin `EntitySchema` |
+| `CheckEntitySchema` | A schema and a subject; shows the result-shape map ([0064](0064-entityschema-and-validation.md) §7). Origin `triplespace`; rate class `query` |
+| `NewLexeme`, `MergeLexemes` | WikibaseLexeme's pages: create a lexeme from lemma, language and category; merge two lexemes as `same-as` plus conversion ([0066](0066-lexemes.md) §7). Origin `WikibaseLexeme` |
+| `MergeUpstream` | The guided three-way merge of a fork with its repository's current text ([0068](0068-merging-with-upstream.md) §6). Origin `triplespace`; restricted to `edit` on the page; group `pagetools` |
 | `ExpandTemplates` | [0042](0042-template-expansion-and-parsoid.md)'s expander, in the `parse` rate class; listed while `wikitext.expansion` is on |
 | `ComparePages` | Any two pages or revisions, with 0010 §6's diff |
 | `Redirect` | `user/{id}`, `revision/{id}`, `page/{id}`, `file/{name}` and `logid/{id}`, resolved locally. `file` was already served by 0039 §7. This settles [0007](0007-actor-identity.md) Q7. |
@@ -405,7 +417,7 @@ These are served with MediaWiki's or Wikibase's meaning and parameters. The note
 
 ### 10. Deferred, declined and reserved
 
-*Changed by A3, A5.*
+*Changed by A3, A5, A9.*
 
 | Page | Status | Until, or why |
 |---|---|---|
@@ -423,7 +435,7 @@ These are served with MediaWiki's or Wikibase's meaning and parameters. The note
 | `Lockdb`, `Unlockdb` | declined | Read-only is a tenant freeze ([0018](0018-tenants.md) §10) or an instance act ([0040](0040-instance-prerogatives.md)) |
 | `RunJobs`, `JavaScriptTest`, `AuthenticationPopupSuccess`, `Contribute` | declined | Internal to MediaWiki, a development tool, MediaWiki's popup login flow, and a skin feature |
 | `DispatchStats` | declined | Wikibase's client-change dispatching has no counterpart. `Special:Providers` reports sync lag. |
-| `NewLexeme`, `MergeLexemes`, `NewEntitySchema`, `EntitySchemaText`, `SetEntitySchemaLabelDescriptionAliases` | reserved | Lexeme and EntitySchema are reserved, not implemented |
+| ~~`NewLexeme`, `MergeLexemes`, `NewEntitySchema`, `EntitySchemaText`, `SetEntitySchemaLabelDescriptionAliases`~~ | served | Were reserved while Lexeme and EntitySchema were; served since [0064](0064-entityschema-and-validation.md) §7 and [0066](0066-lexemes.md) §7 (§9) |
 
 ### 11. API (extends 0012 §4 and §5)
 
@@ -631,3 +643,49 @@ Replaced text (§10):
 Replaced text (§10):
 
 > | `PagesWithProp` | deferred | A page-properties table. 0042 §4 returns page properties, but none are stored. |
+
+### A6. `Special:Query`
+
+- **Date:** 2026-10-04
+- **Source:** [0059](0059-query-service.md) §6
+- **Change:** extends §9
+- **Summary:** `Special:Query`, the SPARQL editor over `/sparql`, served while `query.enabled` is on. Registered in `special-pages.toml` with `requires = "query.enabled"`.
+
+### A7. `Special:CreateSprint`
+
+- **Date:** 2026-10-04
+- **Source:** [0061](0061-sprints-and-tasks.md) §9
+- **Change:** extends §9
+- **Summary:** `Special:CreateSprint`, restricted to `createpage`, registered in `special-pages.toml`.
+
+### A8. `Special:CreateWorkspace`
+
+- **Date:** 2026-10-05
+- **Source:** [0062](0062-workspaces.md) §7
+- **Change:** extends §9
+- **Summary:** `Special:CreateWorkspace`, restricted to `createpage`, registered in `special-pages.toml`.
+
+### A9. EntitySchema pages
+
+- **Date:** 2026-10-05
+- **Source:** [0064](0064-entityschema-and-validation.md) §7
+- **Change:** amends §10; extends §1, §9
+- **Summary:** The three EntitySchema pages move from reserved to served, with `CheckEntitySchema` added; §1's `reserved` status has no current members.
+
+Replaced text (§10):
+
+> - **`reserved`:** the name belongs to an entity type Triplespace has reserved but not implemented. These are Lexeme and EntitySchema ([0009](0009-keyed-entity-types-and-domain.md), [0041](0041-content-models.md)).
+
+### A10. Lexeme pages
+
+- **Date:** 2026-10-05
+- **Source:** [0066](0066-lexemes.md) §7
+- **Change:** extends §9
+- **Summary:** `NewLexeme` and `MergeLexemes` move from reserved to served.
+
+### A11. Proposals and merging
+
+- **Date:** 2026-10-05
+- **Source:** [0067](0067-proposals.md) §4, §7; [0068](0068-merging-with-upstream.md) §6
+- **Change:** extends §6, §9
+- **Summary:** `Special:Corrections`' export becomes Propose; `Special:Proposals` is new; `Special:MergeUpstream` is new.

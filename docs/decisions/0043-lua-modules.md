@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-01 (A3)
+- **Updated:** 2026-10-05 (A4)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md)
 - **Uses:** [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0026](0026-sitelinks.md), [0038](0038-page-metadata-and-categories.md), [0044](0044-tenant-relative-ids.md)
@@ -107,6 +107,8 @@ The limits are deployment configuration, as 0042 §16's are; a tenant may lower 
 
 ### 7. Wikibase Client: `mw.wikibase`, `#property` and `#statements`
 
+*Changed by A4.*
+
 **The tenant is its own Wikibase client.** Its modules read its resolved view: local entities and those of the providers it reads ([0018](0018-tenants.md) §3), as `wbgetentities` serves them, with redirects followed as Wikibase Client follows them.
 
 **`mw.wikibase` and `mw.wikibase.entity` are vendored from WikibaseClient's `REL1_43`,** and their callbacks are implemented in Rust: `getEntity`, `getEntityStatements`, `getEntityId`, `getEntityUrl`, `getLabel`, `getLabelByLanguage`, `getDescription`, `getDescriptionByLanguage`, `getSiteLinkPageName`, `getBadges`, `isValidEntityId`, `entityExists`, `renderSnak`, `formatValue`, `renderSnaks`, `formatValues`, `resolvePropertyId`, `orderProperties`, `getPropertyOrder` and `getReferencedEntityId`. `getGlobalSiteId` is §9's client site.
@@ -116,6 +118,8 @@ The limits are deployment configuration, as 0042 §16's are; a tenant may lower 
 **`{{#property:}}` and `{{#statements:}}`** are implemented with Wikibase Client's parameters (`from=` for arbitrary access) and its output: plain text for `#property`, rich wikitext for `#statements`.
 
 **Formatting** (`renderSnak`, `formatValue`, `#statements`) produces the wikitext Wikibase Client produces for each data type, pinned by contract tests against the reference install. Triplespace's own data types, such as `wikibase-domain`, `wikibase-keyword` and `localMedia`, format as links to their pages.
+
+**`mw.wikibase.lexeme`** ([0066](0066-lexemes.md) §9) is provided as WikibaseLexeme documents it, with its `entity` classes for lexemes, forms and senses, once Lexeme (146) is implemented; usage is tracked per lexeme ID. This settles Q4.
 
 ### 8. The Lua ID space, per tenant (uses 0017 §1 and 0044 §1)
 
@@ -242,7 +246,7 @@ The source editor gains CodeMirror's Lua mode. **Previewing a module** runs a ch
 - **Q1. The debug console** (`action=scribunto-console`), and where its sessions live.
 - **Q2. Fetching unheld entities on demand** (§11): a bounded, rate-limited fetch into the mirror, against 0012 §6's rule that live fetches are never written to the log.
 - **Q3. `convertGrammar` and `gender` coverage,** which MediaWiki implements per language in code.
-- **Q4. Lexemes.** `mw.wikibase.lexeme` waits for the Lexeme namespace (146) to be implemented.
+- **Q4.** ~~**Lexemes.** `mw.wikibase.lexeme` waits for the Lexeme namespace (146) to be implemented.~~ *Settled by [0066](0066-lexemes.md) §9: provided as the extension documents it.*
 - **Q5. `mw.ext.data`** (Commons tabular and map data), which many Wikipedia modules use for lookup tables.
 - **Q6. LuaJIT** for speed, if a differential run shows it is safe for real modules.
 
@@ -306,3 +310,10 @@ Replaced text (§17):
 - **Source:** [0056](0056-security-model.md) §6
 - **Change:** extends §5
 - **Summary:** `mw.title.getContent` and `exists` treat a page the rendering page may not include, under the flow rule, as missing.
+
+### A4. `mw.wikibase.lexeme`
+
+- **Date:** 2026-10-05
+- **Source:** [0066](0066-lexemes.md) §9
+- **Change:** extends §7
+- **Summary:** The lexeme library, as WikibaseLexeme documents it; Q4 settled.

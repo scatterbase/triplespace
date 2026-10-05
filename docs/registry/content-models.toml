@@ -1,4 +1,4 @@
-# Content models.  ADR 0041 §2–3, §5–6; extends 0008 §5; 0043 §3 (Scribunto); 0045 §3 (triplespace-table).
+# Content models.  ADR 0041 §2–3, §5–6; extends 0008 §5; 0043 §3 (Scribunto); 0045 §3 (triplespace-table); 0060 §3 (triplespace-scope); 0061 §3 (triplespace-sprint); 0063 §3 (triplespace-sparql); 0064 §3 (EntitySchema); 0066 §3 (wikibase-lexeme).
 #
 # Every page has one content model in its main slot (0041 §1). A namespace entry in namespaces.toml
 # names its allowed models and its default (0041 §4).
@@ -184,6 +184,39 @@ format = "application/json"
 direct_editing = true
 defined_in = "0049 §3–4"
 
+# A scope: a definition of a set of subjects, from which the member list is projected (0060 §3–5).
+[[model]]
+id = "triplespace-scope"
+origin = "triplespace"
+status = "implemented"
+source = "text"
+slot = "main"
+format = "application/json"
+direct_editing = true
+defined_in = "0060 §3"
+
+# A sprint: a scope, rules and a window, from which the task board is projected; Project subpages only (0061 §2–4).
+[[model]]
+id = "triplespace-sprint"
+origin = "triplespace"
+status = "implemented"
+source = "text"
+slot = "main"
+format = "application/json"
+direct_editing = true
+defined_in = "0061 §3"
+
+# A saved, parameterized SPARQL query; the result table is computed (0063 §3–5).
+[[model]]
+id = "triplespace-sparql"
+origin = "triplespace"
+status = "implemented"
+source = "text"
+slot = "main"
+format = "application/json"
+direct_editing = true
+defined_in = "0063 §3"
+
 # TemplateStyles' model: validated and sanitized by scatter-css at save, scoped to .mw-parser-output at
 # render (0055 §1–2). The one style model that reaches a browser; css and javascript stay reserved.
 [[model]]
@@ -228,10 +261,21 @@ status = "reserved"              # MediaWiki's placeholder for content with no r
 [[model]]
 id = "wikibase-lexeme"
 origin = "WikibaseLexeme"
-status = "reserved"              # taken when Lexeme (146) is implemented (0041 §3)
+status = "implemented"           # Lexeme (146), 0066 §3
+source = "entity"
+slot = "main"
+format = "application/json"
+direct_editing = false
 entity_type = "lexeme"
+defined_in = "0066 §3"
 
 [[model]]
 id = "EntitySchema"
 origin = "EntitySchema"
-status = "reserved"
+status = "implemented"           # EntitySchema (640), 0064 §3: an entity with terms and a ShExC text body
+source = "entity"
+slot = "main"
+format = "application/json"
+direct_editing = false
+entity_type = "entityschema"
+defined_in = "0064 §3"

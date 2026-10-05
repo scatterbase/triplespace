@@ -1,4 +1,4 @@
-# Variables, parser functions, extension tags and behaviour switches.  ADR 0042 §5; 0043 §7.
+# Variables, parser functions, extension tags and behaviour switches.  ADR 0042 §5; 0043 §7; 0062 §2–3 (blocks).
 #
 # What the expander (scatter-wikitext-expand) recognises, and what meta=siteinfo reports as
 # `variables`, `magicwords`, `functionhooks`, `extensiontags` and `doubleunderscores` (0042 §5, §8.1).
@@ -13,6 +13,7 @@
 #   expensive  counts against the expensive-function limit (0042 §16)
 #   volatile   the output changes with time or site statistics; recorded in the render manifest (0042 §10)
 #   requires   a `site` setting that must be on, beyond wikitext.expansion
+#   scoped     a workspace block: output depends on a scope, table, sprint or board; a scoped-block manifest entry (0062 §3)
 #
 # Variables in the page-name, namespace and revision families also take an argument as functions
 # ({{PAGENAME:Some title}}), as in MediaWiki; that is implied and not listed twice.
@@ -175,6 +176,20 @@ SHORTDESC             = { origin = "WikibaseClient", status = "implemented" }   
 # Redirects (0051 §1). The magic word that makes a wikitext page a redirect; localized synonyms come
 # from MediaWiki's message files.
 "#REDIRECT"           = { origin = "mediawiki", status = "implemented" }
+
+# Workspaces (0062 §2–3). scoped: the output depends on a scope's, table's, sprint's or board's state, recorded
+# in the render manifest as a scoped-block entry (0042 §10).
+"#workspace"          = { origin = "triplespace", status = "implemented" }
+"#table"              = { origin = "triplespace", status = "implemented", expensive = true, scoped = true }
+"#scope-count"        = { origin = "triplespace", status = "implemented", expensive = true, scoped = true }
+"#scope-members"      = { origin = "triplespace", status = "implemented", expensive = true, scoped = true }
+"#completeness"       = { origin = "triplespace", status = "implemented", expensive = true, scoped = true }
+"#tasks"              = { origin = "triplespace", status = "implemented", expensive = true, scoped = true }
+"#sprint-progress"    = { origin = "triplespace", status = "implemented", expensive = true, scoped = true }
+"#board"              = { origin = "triplespace", status = "implemented", expensive = true, scoped = true }
+"#scope-changes"      = { origin = "triplespace", status = "implemented", expensive = true, scoped = true, volatile = true }
+"#query"              = { origin = "triplespace", status = "implemented", expensive = true, scoped = true }   # a saved query's result (0063 §6)
+"#conformance"        = { origin = "triplespace", status = "implemented", expensive = true, scoped = true }   # a schema's conformance (0064 §6)
 
 # --- Extension tags --------------------------------------------------------------------------
 [tag]
