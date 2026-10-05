@@ -150,6 +150,11 @@ pub async fn context(
         Some(ui) => {
             let ui = ui.map_err(|e| unavailable(incoming, &e, "ts-api-unavailable"))?;
             inputs.push(ui.cache);
+            if !ui.value.anon {
+                // A page drawn for a signed-in viewer is theirs alone, whatever its
+                // inputs say: it may hold their name, their tokens or their controls.
+                inputs.push(CacheInfo::default());
+            }
             (!ui.value.anon).then_some(ui.value.name)
         }
         None => None,

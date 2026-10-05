@@ -1,13 +1,46 @@
 {
 	"root": true,
 	"extends": [
-		"wikimedia/client",
+		"wikimedia/client/es2022",
 		"wikimedia/language/es2022"
 	],
 	"parserOptions": {
 		"sourceType": "module"
 	},
 	"overrides": [
+		{
+			"files": [
+				"src/**/*.ts"
+			],
+			"extends": [
+				"wikimedia/client/es2022",
+				"wikimedia/language/es2022",
+				"wikimedia/typescript"
+			],
+			"rules": {
+				"jsdoc/require-param-type": "off",
+				"jsdoc/require-returns-type": "off",
+				"jsdoc/no-undefined-types": "off"
+			}
+		},
+		{
+			"files": [
+				"src/**/*.vue"
+			],
+			"extends": [
+				"wikimedia/client/es2022",
+				"wikimedia/language/es2022",
+				"wikimedia/vue3/common"
+			],
+			"parserOptions": {
+				"parser": "@typescript-eslint/parser",
+				"sourceType": "module"
+			},
+			"rules": {
+				"jsdoc/require-param-type": "off",
+				"jsdoc/require-returns-type": "off"
+			}
+		},
 		{
 			"files": [
 				"vite.config.js"

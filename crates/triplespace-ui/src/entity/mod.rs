@@ -31,7 +31,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Response;
 use scatter_wikibase_model::entity::Entity;
-use scatter_wikibase_model::id::EntityId;
+use scatter_wikibase_model::id::{EntityId, IdForm};
 use scatter_wikibase_model::statement::{Snak, SnakKind};
 use scatter_wikibase_model::value::DataValue;
 use serde_json::Value;
@@ -41,6 +41,7 @@ use scatter_wikibase_shape::Roles;
 
 use crate::Site;
 use crate::codex::MessageKind;
+use crate::features::Feature;
 use crate::frame::{Page, Tab, title_url};
 use crate::i18n::Messages;
 use crate::pages::{self, Context, Peer};
@@ -178,6 +179,9 @@ pub struct Render<'a> {
     pub provenance: Option<&'a Provenance>,
     /// The role map shape detection reads (0003 §7).
     pub roles: &'a Roles,
+    /// Whether the viewer may edit here: signed in, editing offered, and a local entity
+    /// (a mirrored one is corrected through overrides, which come later, 0003 §8).
+    pub editable: bool,
 }
 
 /// The role map: Wikidata's roles in their mirrored form for each provider that copies
@@ -386,6 +390,8 @@ pub async fn serve(
         }
     };
     let roles = site_roles(&cx.site);
+    let editable =
+        cx.user.is_some() && cx.features.has(Feature::Edit) && entity.id.form() == IdForm::Local;
     let r = Render {
         m: &cx.m,
         site: &cx.site,
@@ -393,6 +399,7 @@ pub async fn serve(
         entity: &entity,
         provenance: provenance.as_ref(),
         roles: &roles,
+        editable,
     };
     if render {
         region(&r, &cx, headers, query)
@@ -428,6 +435,25 @@ fn region(
     pages::fragment(cx, headers, StatusCode::OK, move || html)
 }
 
+/// The data the editing components start from (0034 §4): a JSON block beside the
+/// content, which the browser reads only when it has script. `</` is escaped so the
+/// block cannot end early.
+fn edit_data(r: &Render<'_>, cx: &Context, title: &str) -> String {
+    let data = serde_json::json!({
+        "id": r.entity.id.as_str(),
+        "type": r.entity.entity_type.name(),
+        "title": title,
+        "lang": cx.m.lang(),
+        "dir": cx.m.dir(),
+        "build": crate::assets::build_id(),
+        "messages": cx.m.with_prefix("ts-edit-"),
+    });
+    format!(
+        "<script type=\"application/json\" id=\"ts-edit-data\">{}</script>",
+        data.to_string().replace("</", "<\\/")
+    )
+}
+
 /// The page in the frame, with the tab the request asks for.
 fn page(
     r: &Render<'_>,
@@ -438,12 +464,15 @@ fn page(
     let entity = r.entity;
     let canonical_title = page_title(entity.id.as_str(), entity.entity_type.name());
     let tab = TabName::of(query);
-    let body = match tab {
+    let mut body = match tab {
         TabName::Statements => r.statements_tab(),
         TabName::Identifiers => r.identifiers(),
         TabName::Sitelinks => r.sitelinks(),
         TabName::Labels => r.labels(),
     };
+    if r.editable {
+        body.push_str(&edit_data(r, cx, &canonical_title));
+    }
     let title_lang = r
         .label()
         .map(|(_, l)| l.to_string())

@@ -561,3 +561,42 @@
 		gap: var( --spacing-50, 0.5rem );
 	}
 }
+
+/* Editing (with JavaScript, for a viewer who may edit): the edit buttons and the term
+ * editor */
+
+.ts-edit-bar {
+	margin: var( --spacing-25, 0.25rem ) 0 0;
+}
+
+.ts-edit-bar .ts-edit {
+	padding-inline: 0;
+}
+
+.ts-terms-editor {
+	display: flex;
+	flex-direction: column;
+	gap: var( --spacing-75, 0.75rem );
+	max-width: 36rem;
+	margin: 0 0 var( --spacing-100, 1rem );
+	padding: var( --spacing-100, 1rem );
+	border: 1px solid var( --border-color-subtle, #c8ccd1 );
+	border-radius: var( --border-radius-base, 4px );
+	background-color: var( --background-color-base, #fff );
+}
+
+.ts-terms-editor .cdx-field {
+	margin: 0;
+}
+
+.ts-terms-editor__language {
+	margin: 0;
+	color: var( --color-subtle, #54595d );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+.ts-terms-editor__actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var( --spacing-50, 0.5rem );
+}

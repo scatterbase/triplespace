@@ -48,7 +48,7 @@ impl Feature {
 }
 
 /// The features this build of the site has built.
-pub const BUILT: &[Feature] = &[Feature::Search, Feature::Login];
+pub const BUILT: &[Feature] = &[Feature::Search, Feature::Login, Feature::Edit];
 
 /// What the site offers on one request.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
