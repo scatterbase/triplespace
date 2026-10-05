@@ -169,6 +169,16 @@ impl Messages {
             .find_map(|l| catalogue(l).and_then(|c| c.get(key).map(|m| (m.clone(), l.clone()))))
     }
 
+    /// Every message whose key starts with `prefix`, unexpanded (`$1` kept), from the
+    /// first language in the chain that has it: what a component needs in the browser.
+    #[must_use]
+    pub fn with_prefix(&self, prefix: &str) -> BTreeMap<String, String> {
+        EN.keys()
+            .filter(|k| k.starts_with(prefix))
+            .filter_map(|k| self.raw(k).map(|(m, _)| (k.clone(), m)))
+            .collect()
+    }
+
     /// A message, or `⧼key⧽` where it is missing, as MediaWiki shows one.
     #[must_use]
     pub fn get(&self, key: &str) -> String {

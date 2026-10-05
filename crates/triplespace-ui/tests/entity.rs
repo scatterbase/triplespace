@@ -131,7 +131,7 @@ impl FixtureApi {
         api
     }
 
-    fn answer(&self, path_and_query: &str) -> (StatusCode, Value, Vec<String>) {
+    fn answer(&self, path_and_query: &str, signed_in: bool) -> (StatusCode, Value, Vec<String>) {
         let (path, query) = path_and_query
             .split_once('?')
             .unwrap_or((path_and_query, ""));
@@ -148,6 +148,13 @@ impl FixtureApi {
         }
         if query.contains("meta=siteinfo") {
             return (StatusCode::OK, fixture("siteinfo.json").unwrap(), vec![]);
+        }
+        if query.contains("meta=userinfo") && signed_in {
+            return (
+                StatusCode::OK,
+                json!({"query": {"userinfo": {"id": 7, "name": "Alice"}}}),
+                vec![],
+            );
         }
         if query.contains("meta=userinfo") {
             return (
@@ -263,16 +270,19 @@ impl FixtureApi {
 impl Transport for FixtureApi {
     fn send(&self, request: ApiRequest) -> BoxFuture<'_, Result<ApiResponse, ClientError>> {
         Box::pin(async move {
-            let (status, body, tags) = self.answer(&request.path_and_query);
+            let signed_in = request.headers.contains_key(header::COOKIE);
+            let (status, body, tags) = self.answer(&request.path_and_query, signed_in);
             let body = serde_json::to_vec(&body).unwrap();
             let mut headers = HeaderMap::new();
             if status == StatusCode::OK {
                 let etag = format!("\"{:x}\"", body.len() * 31 + request.path_and_query.len());
                 headers.insert(header::ETAG, etag.parse().unwrap());
-                headers.insert(
-                    header::CACHE_CONTROL,
-                    "public, max-age=0, s-maxage=60".parse().unwrap(),
-                );
+                let cc = if signed_in {
+                    "private, no-cache"
+                } else {
+                    "public, max-age=0, s-maxage=60"
+                };
+                headers.insert(header::CACHE_CONTROL, cc.parse().unwrap());
                 if !tags.is_empty() {
                     headers.insert("cache-tag", tags.join(", ").parse().unwrap());
                 }
@@ -707,4 +717,61 @@ async fn search_pages_through_one_kind() {
     let (_, _, page2) =
         get("/w/index.php?title=Special:Search&search=p&fulltext=1&ns122=1&limit=1&offset=1").await;
     assert!(page2.contains("rel=\"prev\""));
+}
+
+async fn get_signed_in(uri: &str) -> (StatusCode, HeaderMap, String) {
+    let req = Request::get(uri)
+        .header(header::HOST, "librarybase.org")
+        .header(header::COOKIE, "triplespace_session=alice")
+        .body(Body::empty())
+        .unwrap();
+    let r = triplespace_ui::router(Client::new(FixtureApi::new()))
+        .oneshot(req)
+        .await
+        .unwrap();
+    let status = r.status();
+    let headers = r.headers().clone();
+    let body = r.into_body().collect().await.unwrap().to_bytes();
+    (status, headers, String::from_utf8(body.to_vec()).unwrap())
+}
+
+#[tokio::test]
+async fn a_signed_in_viewer_gets_the_edit_buttons_and_data_on_a_local_entity() {
+    let (status, h, html) = get_signed_in("/wiki/Item:Q6").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(h[header::CACHE_CONTROL], "private, no-cache");
+    assert!(html.contains("data-ts-edit=\"terms\""));
+    assert!(
+        html.contains(" hidden>Edit</button>"),
+        "hidden until the script shows it"
+    );
+    let start = html
+        .find("<script type=\"application/json\" id=\"ts-edit-data\">")
+        .expect("the data block");
+    let rest = &html[start..];
+    let end = rest.find("</script>").unwrap();
+    let json_text = &rest[rest.find('>').unwrap() + 1..end];
+    let data: Value = serde_json::from_str(&json_text.replace("<\\/", "</")).unwrap();
+    assert_eq!(data["id"], "Q6");
+    assert_eq!(data["title"], "Item:Q6");
+    assert_eq!(data["messages"]["ts-edit-save"], "Save");
+    let (_, _, region) = {
+        let req = "/w/index.php?title=Item:Q6&action=render&region=terms";
+        get_signed_in(req).await
+    };
+    assert!(
+        region.contains("data-ts-edit=\"terms\""),
+        "the region keeps its button"
+    );
+
+    let (_, _, foreign) = get_signed_in("/wiki/Item:WDQ65").await;
+    assert!(
+        !foreign.contains("ts-edit-data"),
+        "a mirrored entity is not edited here"
+    );
+    let (_, _, anon) = get("/wiki/Item:Q6").await;
+    assert!(
+        !anon.contains("ts-edit"),
+        "nor by an anonymous reader, whose page is public"
+    );
 }

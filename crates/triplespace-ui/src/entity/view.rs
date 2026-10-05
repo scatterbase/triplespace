@@ -212,6 +212,14 @@ impl Render<'_> {
                 lang_attrs(l, self.m.lang())
             );
         }
+        if self.editable {
+            let _ = write!(
+                s,
+                "<p class=\"ts-edit-bar\"><button type=\"button\" class=\"cdx-button cdx-button--action-progressive cdx-button--weight-quiet ts-edit\" data-ts-edit=\"terms\" aria-label=\"{}\" hidden>{}</button></p>",
+                esc(&self.m.get("ts-edit-terms-label")),
+                esc(&self.m.get("ts-edit-terms"))
+            );
+        }
         s.push_str("</div>");
         s
     }

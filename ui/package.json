@@ -2,7 +2,7 @@
 	"name": "triplespace-ui",
 	"private": true,
 	"version": "0.0.1",
-	"description": "The site's assets: Codex, the default theme's typefaces, and (from Phase 2) the Vue components of ADR 0034 §4",
+	"description": "The site's assets: Codex, the default theme's typefaces, and the Vue components of ADR 0034 §4",
 	"license": "GPL-3.0-or-later",
 	"type": "module",
 	"engines": {
@@ -10,12 +10,13 @@
 	},
 	"scripts": {
 		"build": "vite build",
-		"lint": "npm run lint:js && npm run lint:css && npm run lint:i18n",
+		"lint": "npm run lint:js && npm run lint:types && npm run lint:css && npm run lint:i18n",
 		"lint:js": "eslint --max-warnings 0 .",
 		"lint:css": "stylelint \"src/**/*.css\"",
 		"lint:i18n": "banana-checker ../i18n",
 		"test": "vitest run --passWithNoTests",
-		"e2e": "e2e/run.sh"
+		"e2e": "e2e/run.sh",
+		"lint:types": "vue-tsc --noEmit"
 	},
 	"dependencies": {
 		"@fontsource/ibm-plex-mono": "5.3.0",
@@ -23,16 +24,22 @@
 		"@fontsource/newsreader": "5.3.0",
 		"@wikimedia/codex": "2.7.0",
 		"@wikimedia/codex-design-tokens": "2.7.0",
-		"@wikimedia/codex-icons": "2.7.0"
+		"@wikimedia/codex-icons": "2.7.0",
+		"vue": "3.5.43"
 	},
 	"devDependencies": {
 		"@axe-core/playwright": "4.13.0",
 		"@playwright/test": "1.56.0",
+		"@vitejs/plugin-vue": "6.0.9",
+		"@vue/test-utils": "2.5.1",
 		"eslint": "8.57.1",
 		"eslint-config-wikimedia": "0.32.6",
 		"grunt-banana-checker": "0.13.0",
+		"happy-dom": "20.14.5",
 		"stylelint-config-wikimedia": "0.19.4",
+		"typescript": "5.9.3",
 		"vite": "8.3.2",
-		"vitest": "5.0.3"
+		"vitest": "5.0.3",
+		"vue-tsc": "3.3.12"
 	}
 }
