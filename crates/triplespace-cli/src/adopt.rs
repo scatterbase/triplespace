@@ -14,6 +14,7 @@ use scatter_adapter_wikidata::xml_dump::XmlDump;
 use scatter_ingest::adopt::{Adopted, Adoption, Floors, run_adoption};
 use scatter_ingest::write::Attestation;
 use scatter_providers::Registry;
+use scatter_wikibase_model::id::EntityId;
 use triplespace_projections::Farm;
 use triplespace_projections::actors::payload;
 
@@ -211,14 +212,16 @@ pub async fn run(args: Adopt) -> Result<()> {
     let (store, pipeline) = store(&args.database, &farm)?;
     let mut read_errors = 0u64;
     let mut seen = 0u64;
-    let mut untyped_snaks = 0u64;
+    let mut untyped: BTreeMap<EntityId, u64> = BTreeMap::new();
     let entities = XmlDump::open(&args.dump)
         .context("open dump")?
         .filter_map(|page| match page {
             Ok(page) => match adopt_page(&page, &sources, registry, &survey.property_types) {
                 Ok(Some(a)) => {
                     seen += 1;
-                    untyped_snaks += a.untyped_snaks;
+                    for (p, n) in &a.untyped_snaks {
+                        *untyped.entry(p.clone()).or_default() += n;
+                    }
                     if seen.is_multiple_of(10_000) {
                         eprintln!("  {seen} entities adopted");
                     }
@@ -263,8 +266,14 @@ pub async fn run(args: Adopt) -> Result<()> {
     if read_errors > 0 {
         println!("  unreadable {read_errors} (see stderr)");
     }
-    if untyped_snaks > 0 {
-        println!("  untyped    {untyped_snaks} snaks (their property is not defined in the dump)");
+    if !untyped.is_empty() {
+        let total: u64 = untyped.values().sum();
+        let by_property: Vec<String> = untyped.iter().map(|(p, n)| format!("{p}×{n}")).collect();
+        println!(
+            "  untyped    {total} snaks on {} properties the dump does not define: {}",
+            untyped.len(),
+            by_property.join(", ")
+        );
     }
     for r in outcome.rejects.iter().take(20) {
         println!("  reject #{}: {}", r.line, r.reason);
