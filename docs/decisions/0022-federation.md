@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-01 (A5)
+- **Updated:** 2026-10-06 (A6)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md), [0028](0028-tenancy-policy.md)
 - **Uses:** [0000](0000-init.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0014](0014-caches-and-search.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0030](0030-edit-filters.md)
@@ -86,11 +86,13 @@ The **vanish page** ([0010](0010-site-ui.md) §11) gains a sentence: copies of p
 
 ### 7. Outbound: what a follower receives
 
-*Changed by A3.*
+*Changed by A3, A6.*
 
 A talk-page `Group` **`Announce`s** every thread created on it and every post in those threads, which is the Lemmy pattern Mastodon and its kin understand. A person actor's outbox carries `Create` for their posts. Edits are `Update` with the new content; hiding or erasing a post ([0023](0023-moderation.md) §5, [0006](0006-log-integrity-and-erasure.md) §7) is `Delete` with an `as:Tombstone`, and a deleted thread `Delete`s its collection. Every object uses the fixed profile of [0019](0019-discussions.md) §10 with `source` carrying the markdown. Delivery is the signed `POST` of [0021](0021-notifications.md) §5, through the same `ops` queue, rate-limited in the `notify` class ([0024](0024-subsidiary-accounts.md) §5), fanned out to followers' shared inboxes. Followers are `private.ap_follower` rows per actor; a `Follow` is accepted automatically for a `Group` and for a person who opted in, and `Undo` removes it.
 
 **Boards.** Boards (310) may be federated as talk pages are. A thread listed on a page whose `Group` is federated is announced by that `Group` too, with every later post; removing the listing sends `Undo` of the `Announce`. Inbound replies are governed by the thread's home.
+
+**Pins and foreign threads.** A talk page's or board's `Group` publishes its pinned threads as its `featured` collection, as Mastodon and Lemmy expose pinned posts. Foreign threads on a followed talk page ([0069](0069-synchronized-talk-pages.md) §3) are never announced: they are the repository's speech, not the tenant's ([0069](0069-synchronized-talk-pages.md) §4, §8).
 
 Nothing about entity data is federated this way. Statements move between instances by Part A; ActivityPub carries speech.
 
@@ -258,3 +260,10 @@ Replaced text (§2):
 - **Source:** [0053](0053-mirrored-pages.md) §3, §5
 - **Change:** extends §11
 - **Summary:** `Special:Providers` lists page repositories with their index date, event lag and mirror sync lag beside the data providers.
+
+### A6. Pins and foreign threads
+
+- **Date:** 2026-10-06
+- **Source:** [0069](0069-synchronized-talk-pages.md) §4, §8
+- **Change:** extends §7
+- **Summary:** A `Group`'s `featured` collection is its pinned threads; foreign threads are never announced.

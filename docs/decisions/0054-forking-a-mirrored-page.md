@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-10-05 (A1)
+- **Updated:** 2026-10-06 (A2)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0024](0024-subsidiary-accounts.md), [0030](0030-edit-filters.md), [0033](0033-backend-stack.md), [0039](0039-files-and-media.md), [0047](0047-special-pages.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0023](0023-moderation.md), [0035](0035-adopting-a-wikibase.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0049](0049-boards.md), [0051](0051-page-redirects.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0055](0055-templatestyles-templatedata-and-page-properties.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -30,15 +30,18 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 1. A fork is a local page whose first record names its origin (extends 0008 §4 and 0011 §6.1)
 
+*Changed by A2.*
+
 **A fork is an ordinary local page in the tenant's `pages` partition,** with a page ID from the tenant's sequence, a `wikitext` model and the full history of any local page. What makes it a fork is its first record: a **`create`** whose content part carries **`forked_from`**:
 
 ```json
 {"op":"create","title":"Myocardial infarction","model":"wikitext",
- "forked_from":{"repo":"enwiki","page_id":19927,"revid":1234567890,"time":"2026-09-30T14:02:11Z"}}
+ "forked_from":{"repo":"enwiki","page_id":19927,"revid":1234567890,"time":"2026-09-30T14:02:11Z","talk":"follow"}}
 ```
 
 - **Its text is the upstream revision's wikitext**, the one the editor was shown ([0053](0053-mirrored-pages.md) §1), so the fork's base is exactly what was edited and the editor's change has a diff.
 - **Its actor is the upstream revision's author,** resolved under the repository's issuer ([0052](0052-page-repositories-and-title-inheritance.md) §1, [0007](0007-actor-identity.md) §5): a registered user by numeric ID, an IP edit as an `anonymous` surrogate, a hidden user as a marker. Its summary is the upstream summary; its upstream timestamp is kept as upstream metadata, as [0008](0008-namespaces-and-document-pages.md) §9 keeps one. The record's own time is the time of the fork, and its attestation names the forking user and the fork job (§3), so the attribution is the upstream author's and the responsibility is the forker's, as for an import.
+- **Its `talk` says what became of the talk page:** `follow`, the fork's talk page keeps following the repository's (§5), or `fork`, it was converted. The person chooses when forking; a later change is a `follow` page operation, a null revision ([0069](0069-synchronized-talk-pages.md) §7).
 - **It is tagged `fork`** and projects as **`import/interwiki`** in the log ([0011](0011-logs.md) §6.1), with the repository as the interwiki and the upstream revision in its parameters, as an adopted entity projects as `import/upload` ([0035](0035-adopting-a-wikibase.md) §6). The activity row is an `edit` with `new` set.
 
 **The forker's own edit follows as the second record,** an `edit` whose base offset is the `create`'s, in the same transaction (§2). A fork made without a change (§2, `Special:Fork`) has only the first.
@@ -91,15 +94,19 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 5. The talk page: sections become closed threads (amends 0019 §3, §4, §5, §6; settles 0019 Q5; extends 0008 §9)
 
-**The repository's talk page is converted into threads homed on the fork's talk page.** The fork job fetches `Talk:{title}` at the fork's upstream revision time, and every archive subpage under it (`Talk:{title}/Archive 1` and the rest, found with `list=allpages&apprefix=`), and splits each by its **level-two headings**:
+*Changed by A2.*
+
+**The person forking chooses whether the talk page follows or is forked** ([0069](0069-synchronized-talk-pages.md) §7). **Keep following**, the default under `fork.talk = follow` where the repository's `talk` is `sync`, converts nothing: the fork's talk page shows the repository's talk page as foreign threads beside its own, and **Stop following** later runs the conversion below from the talk page as it then stands. **Fork the talk page**, the only choice where the repository's `talk` is `link`, runs the conversion at once.
+
+**The conversion turns the repository's talk page into threads homed on the fork's talk page.** The fork job fetches `Talk:{title}` at the fork's upstream revision time, and every archive subpage under it (`Talk:{title}/Archive 1` and the rest, found with `list=allpages&apprefix=`), and splits each by its **level-two headings**:
 
 | Piece | Becomes |
 |---|---|
-| **The text above the first heading**: the frontmatter of banners, WikiProject templates and talk headers | One thread, subject "*{title}*: talk page header", holding that text as its opening post. The direction says to treat the frontmatter as a section, and this is how |
+| **The text above the first heading**: the frontmatter of banners, WikiProject templates and talk headers | One thread, subject "*{title}*: talk page header", holding that text as its opening post, created **pinned** and **open** ([0069](0069-synchronized-talk-pages.md) §4), since banners do not go stale as discussions do. The direction says to treat the frontmatter as a section, and this is how |
 | **Each `== Section ==`**, with its subsections | One thread whose subject is the heading's text and whose opening post is the whole section's wikitext, signatures, indentation and subsections intact |
 | **Each archive subpage** | The same, with each thread's content part naming the archive it came from |
 
-**Every thread is created closed.** The `create` record carries `status: archived`, a new default status in `docs/registry/thread-statuses.toml` ([0019](0019-discussions.md) §6): category `closed`, label **Archived**, ordered after Stale. [0019](0019-discussions.md) §4 is amended so that `status` may appear on `create` as on `post`, which says exactly what an import means: the thread arrived already over. Anyone who may post can reopen one.
+**Every other thread is created closed.** The `create` record carries `status: archived`, a new default status in `docs/registry/thread-statuses.toml` ([0019](0019-discussions.md) §6): category `closed`, label **Archived**, ordered after Stale. [0019](0019-discussions.md) §4 is amended so that `status` may appear on `create` as on `post`, which says exactly what an import means: the thread arrived already over. Anyone who may post can reopen one.
 
 **The post is wikitext.** [0019](0019-discussions.md) §5 made posts markdown. The thread payload's text part gains a media type: the content part's **`mediaType`** is `text/markdown` by default and **`text/x-wiki`** for a post an import writes. A wikitext post renders through the tenant's wikitext pipeline, with expansion, so `{{WikiProject Medicine}}` and `{{Talk header}}` render through the stack ([0052](0052-page-repositories-and-title-inheritance.md) §3) without being forked, and `~~~~` signatures stay the text they were. No editor composes a wikitext post; only an import writes one, and editing such a post keeps its media type. The AS2 profile ([0019](0019-discussions.md) §10) emits it as `as:source`'s `mediaType`.
 
@@ -265,3 +272,18 @@ CREATE INDEX fork_repo_page ON view.fork (repo, upstream_page_id);
 Replaced text (§6, in part):
 
 > The diff is computed live and never stored. Applying upstream's changes is a manual edit; a merge tool is Q1.
+
+### A2. Following the talk page
+
+- **Date:** 2026-10-06
+- **Source:** [0069](0069-synchronized-talk-pages.md) §7
+- **Change:** amends §1, §5
+- **Summary:** Forking asks whether the talk page follows upstream (the default where the repository's `talk` is `sync`) or is forked; `forked_from` records `talk`, and the `follow` page operation changes it. The conversion of §5 runs at fork time only for **Fork the talk page**, and later on **Stop following**. The front matter thread is created pinned and open.
+
+Replaced text (§5):
+
+> **The repository's talk page is converted into threads homed on the fork's talk page.**
+
+> | **The text above the first heading**: the frontmatter of banners, WikiProject templates and talk headers | One thread, subject "*{title}*: talk page header", holding that text as its opening post. The direction says to treat the frontmatter as a section, and this is how |
+
+> **Every thread is created closed.**

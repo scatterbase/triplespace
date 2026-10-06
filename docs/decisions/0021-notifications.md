@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-05 (A10)
+- **Updated:** 2026-10-06 (A11)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0011](0011-logs.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0028](0028-tenancy-policy.md)
@@ -27,12 +27,12 @@ Every local account has an **inbox**. An activity row ([0012](0012-api-requireme
 
 ### 2. Addressing rules (amends 0020 §3)
 
-*Changed by A3, A5, A6, A8, A9, A10.*
+*Changed by A3, A5, A6, A8, A9, A10, A11.*
 
 | Reason | An account is addressed when | Echo's name |
 |---|---|---|
 | `mention` | A post ([0019](0019-discussions.md)) or a document page revision links to its user page with `[[User:Name]]`, resolved by the title resolver; in AS2 terms, an `as:Mention` tag whose `href` is the actor IRI ([0007](0007-actor-identity.md) §2) | mention |
-| `reply` | A post's `inReplyTo` names a post attributed to it | (DiscussionTools) |
+| `reply` | A post's `inReplyTo` names a post attributed to it; or a synced comment on a followed talk page answers a comment by the upstream account the account's upstream grant acts as ([0069](0069-synchronized-talk-pages.md) §8) | (DiscussionTools) |
 | `talk` | A thread is created on, or a post is added to a thread attached to, its user talk page: the thread's target is `actor:{its key}` ([0019](0019-discussions.md) §2) | edit-user-talk |
 | `watch` | A change reaches a target it watches with **`notify`** set. `private.watch` ([0020](0020-change-feeds.md) §3) gains a `notify boolean NOT NULL DEFAULT false`. This is DiscussionTools' topic subscription, generalized to every watchable target, and it inherits the subject-and-talk pairing and the sync default of 0020 §2 | (DiscussionTools subscription) |
 | `job` | A job it ran, or that ran on its behalf as operator ([0007](0007-actor-identity.md) §6), finished, failed or was reverted ([0011](0011-logs.md) §6.3) | — |
@@ -295,3 +295,10 @@ Replaced text (§7):
 - **Source:** [0067](0067-proposals.md) §5
 - **Change:** extends §2
 - **Summary:** A reason for the proposer when a proposal's state changes.
+
+### A11. Replies upstream
+
+- **Date:** 2026-10-06
+- **Source:** [0069](0069-synchronized-talk-pages.md) §8
+- **Change:** extends §2
+- **Summary:** `reply` also addresses a person when a synced upstream comment answers one by the upstream account their grant acts as.

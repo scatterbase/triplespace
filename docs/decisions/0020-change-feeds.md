@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-04 (A11)
+- **Updated:** 2026-10-06 (A12)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0011](0011-logs.md), [0018](0018-tenants.md), [0022](0022-federation.md)
@@ -33,7 +33,7 @@ Its rows are the activity rows of [0012](0012-api-requirements.md) §3, redacted
 
 ### 2. Target sets
 
-*Changed by A6, A7, A9, A11.*
+*Changed by A6, A7, A9, A11, A12.*
 
 | Set | Members | Source |
 |---|---|---|
@@ -49,6 +49,8 @@ Its rows are the activity rows of [0012](0012-api-requirements.md) §3, redacted
 **A subject and its talk page are one target.** The one-target set for `Item:Q42` includes `Item talk:Q42` and every thread attached to it, home or listing; for `User:Example`, the user page and `User talk:Example`; for a board, the board and its threads ([0049](0049-boards.md) §7). A thread is its own target, and a thread that moves, is listed or is detached leaves or joins a talk page's set at query time, so history and watches follow the talk page, not the thread ([0019](0019-discussions.md) §2).
 
 **Related changes are a join, not a list.** The relation is evaluated inside the query against the period window, as MediaWiki joins `pagelinks`, and is never materialized. A relation with more than `feeds.related_limit` members (site configuration, default 5,000) is truncated to that many, and the feed says so. This is the one place the model has a scale edge, and it is MediaWiki's edge too: inward relations of `Q5` are unbounded, and nobody's related-changes page can be.
+
+**Followed talk pages.** The one-target set of a talk page that follows a repository's talk page ([0069](0069-synchronized-talk-pages.md) §3) includes that page's `put` records in `pages/{repo}`, each a row naming the foreign threads it changed; a foreign thread is its own target, the `put` rows that changed it. They are sync rows for the `syncs` filter below ([0069](0069-synchronized-talk-pages.md) §8).
 
 **Mirror syncs in target-scoped feeds.** Recent changes has no per-entity sync rows, because a sync of a million entities is one job row ([0010](0010-site-ui.md) §7). A history does show them, because it is scoped to one target and draws its sync rows from that target's mirror records ([0010](0010-site-ui.md) §5). A watchlist is scoped to the watch set, so its cost is bounded the same way, and it shows them too. The `syncs` filter therefore defaults **on** for a watchlist and a history, **off** for recent changes and related changes. That settles [0010](0010-site-ui.md)'s question: a watch on a mirrored entity covers its syncs, because the person chose that entity, and "Wikidata changed it" is the thing they most want to know. They can turn it off.
 
@@ -293,3 +295,10 @@ Replaced text (§2):
 Replaced text (§3, in part):
 
 > - **Target kinds** are `entity`, `page`, `thread` and `actor`.
+
+### A12. Followed talk pages
+
+- **Date:** 2026-10-06
+- **Source:** [0069](0069-synchronized-talk-pages.md) §8
+- **Change:** extends §2
+- **Summary:** A talk page that follows upstream includes the followed page's `put` rows in its one-target set; a foreign thread is a target of its own.

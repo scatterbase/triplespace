@@ -105,6 +105,12 @@ type = "json"                        # map: status category and age → visible 
 default = { closed = "collapsed", quiet-days = 90, quiet = "collapsed" }
 from = "0019 §6"
 
+[[preference]]
+key = "threads.destination"
+type = "string"                      # "here" | "upstream": where the new-thread form posts on a talk page that follows upstream
+default = ""                         # empty: the site setting talk.new_thread_default decides
+from = "0069 §6"
+
 # --- Notifications (0021 §3): one boolean per reason × channel -------------------------------
 # Keys are notifications.{reason}.{channel}; reasons are 0021 §2's, channels web | email | fediverse.
 # Web is on for every reason by default; email and fediverse are off except for `talk`.

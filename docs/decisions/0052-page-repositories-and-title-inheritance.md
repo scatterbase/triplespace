@@ -2,6 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
+- **Updated:** 2026-10-06 (A1)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0038](0038-page-metadata-and-categories.md), [0042](0042-template-expansion-and-parsoid.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0026](0026-sitelinks.md), [0028](0028-tenancy-policy.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0043](0043-lua-modules.md), [0051](0051-page-redirects.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -38,6 +39,8 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 1. A page repository (amends 0042 §2 and §11; extends 0015 §3)
 
+*Changed by A1.*
+
 **A page repository is a source of pages a tenant serves by title without holding them.** It generalises the template repository of [0042](0042-template-expansion-and-parsoid.md) §11 to any `pages` namespace, and it is configured as a file repository is ([0039](0039-files-and-media.md) §11): a `config` record of kind **`page-repo`**, keyed `page-repo:{name}`, in a tenant's `config` or in the instance `config`, where a tenant refers to it by name and a tenancy template may supply it ([0028](0028-tenancy-policy.md) §8).
 
 | Field | Meaning |
@@ -50,6 +53,7 @@ James's direction, from the design discussion of 2026-10-01:
 | `titles` | `index` (default for `mediawiki`): the repository's titles are mirrored into a title index ([0053](0053-mirrored-pages.md) §3), so links, redirects and `#ifexist` are answered locally. `assume`: every title is presumed to exist, for a repository with no dump to index |
 | `cache_ttl` | How long fetched source and bundles are held, default one hour, as [0042](0042-template-expansion-and-parsoid.md) §11 had it |
 | `events` | Optional: an EventStreams endpoint for push invalidation ([0053](0053-mirrored-pages.md) §6) |
+| `talk` | `link` (default): a foreign page's talk page holds local threads and links to the repository's talk page (§7). `sync`: the repository's talk pages paired with the served namespaces are followed, mirrored whatever the `mode`, and their sections are shown as foreign threads ([0069](0069-synchronized-talk-pages.md) §1–3) |
 | `licence`, `display_name` | The licence of the repository's text, as an SPDX identifier (`CC-BY-SA-4.0` for Wikimedia projects), required for `mediawiki`; and the name shown on origin chips and attribution lines |
 
 **The tenant's order is the inheritance.** The `site` setting **`pages.repos`** lists the repositories the tenant uses, by name, in order. It replaces `wikitext.template_repos`, and **`pages.share`** replaces `wikitext.share` ([0042](0042-template-expansion-and-parsoid.md) §2): a tenant that sets it may serve its pages to other tenants as a `tenant` repository. Nothing has been written under the old names, so this is a change to the documents and the registry only.
@@ -128,7 +132,9 @@ Two things in the order are fixed and not configuration:
 
 ### 7. Talk pages, statements, categories and feeds
 
-**A foreign page's talk page is local.** Threads attach to `{kind: page, id: <the ranged page ID>}` ([0019](0019-discussions.md) §2), exactly as they attach to a mirrored entity, and the talk page offers a link to the repository's own talk page for readers who want that discussion. When the page is forked, the fork job moves these threads to the fork's talk page ([0054](0054-forking-a-mirrored-page.md) §5). Threads about a hidden alternate's talk page attach to the primary's.
+*Changed by A1.*
+
+**A foreign page's talk page is local.** Threads attach to `{kind: page, id: <the ranged page ID>}` ([0019](0019-discussions.md) §2), exactly as they attach to a mirrored entity. Under `talk = link` the talk page offers a link to the repository's own talk page for readers who want that discussion; under `talk = sync` it shows that discussion, the repository's sections as foreign threads beside the local ones, and a person holding an upstream grant may reply to them or start a section upstream ([0069](0069-synchronized-talk-pages.md) §3, §5–6). When the page is forked, the fork job moves these threads to the fork's talk page ([0054](0054-forking-a-mirrored-page.md) §5). Threads about a hidden alternate's talk page attach to the primary's.
 
 **A foreign page carries no local statements.** Page statements are keyed by page ID in the tenant's `pages` partition ([0038](0038-page-metadata-and-categories.md) §1), and a ranged ID could key them; but a page with local statements and no local text would be a third kind of entry, neither inherited nor forked, and the fork would have to carry the statements across a change of page ID. Local metadata about a foreign page waits for a decision on that shape (Q1). Until then, a fork is the way to say anything local about a page.
 
@@ -226,3 +232,16 @@ An instance-scope `page-repo` is shared machinery under `config.template` ([0028
 - [Global templates](https://www.mediawiki.org/wiki/Global_templates), the proposal MediaWiki never shipped
 - [Manual:Interwiki](https://www.mediawiki.org/wiki/Manual:Interwiki) and [Help:Interwiki linking](https://www.mediawiki.org/wiki/Help:Interwiki_linking), for what §4 replaces
 - [API:Info](https://www.mediawiki.org/wiki/API:Info) and [API:Filerepoinfo](https://www.mediawiki.org/wiki/API:Filerepoinfo)
+
+## Amendment log
+
+### A1. Followed talk pages
+
+- **Date:** 2026-10-06
+- **Source:** [0069](0069-synchronized-talk-pages.md) §1, §3
+- **Change:** extends §1; amends §7
+- **Summary:** A `page-repo` gains `talk`: `link` (as before) or `sync`, under which the repository's talk pages are followed and their sections shown on the local talk page as foreign threads, with replies and new sections sent upstream by people holding a grant.
+
+Replaced text (§7):
+
+> Threads attach to `{kind: page, id: <the ranged page ID>}` ([0019](0019-discussions.md) §2), exactly as they attach to a mirrored entity, and the talk page offers a link to the repository's own talk page for readers who want that discussion.

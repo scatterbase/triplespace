@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-05 (A48)
+- **Updated:** 2026-10-06 (A49)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0005](0005-crate-organization.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -180,7 +180,7 @@ All of these changes are additive (§1.2). [0056](0056-security-model.md) §13 a
 
 ### 5. REST routes under `rest.php/triplespace/v0`
 
-*Changed by A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A28, A30, A31, A32, A33, A37, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48.*
+*Changed by A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A28, A30, A31, A32, A33, A37, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49.*
 
 **Every route is served per tenant base,** which the host selects. Instance-level routes are served at the farm base and, on a single-tenant instance, at the tenant's as well ([0018](0018-tenants.md) §11).
 
@@ -286,6 +286,7 @@ When each binding was last used is stored in the operational store, never in the
 | Lexemes | WikibaseLexeme's modules (`wbladdform` … `wblmergelexemes`), `wbeditentity` with `new=lexeme`, `wbsearchentities&type=lexeme|form|sense`; REST `GET /entity/L1` and `GET /entity/L1-F1` | [0066](0066-lexemes.md) §8 |
 | Proposals | `POST /proposal`, `GET /proposal/{thread}`, `POST /proposal/{thread}/export`, `/push`, `/withdraw`, `GET /entity/{id}/proposals`, `GET /page/{id}/proposals`; `list=proposals`, `letype=proposal` | [0067](0067-proposals.md) §7 |
 | Merging with upstream | `GET /page/{id}/merge-preview?direction=`, `POST /page/{id}/merge`, `POST /page/{id}/refollow`; `tsmerge` on `action=edit` | [0068](0068-merging-with-upstream.md) §6 |
+| Followed talk pages and pins | Foreign threads in `GET /page/{id}/threads` (`origin=`) and `GET /thread/{id}`; `POST /thread/{id}/upstream-reply`, `POST /page/{id}/upstream-topic`, `GET /upstream-post/{id}`; `POST /thread/{id}/pin`, `/unpin`; `POST /page/{id}/talk-follow`; `discussiontoolsedit` and `discussiontoolspageinfo` on followed talk titles, `thorigin` on `list=threads`, `ts-upstream-talk` | [0069](0069-synchronized-talk-pages.md) §9 |
 | Redirects | `redirect_to` in page summaries; `redirected_from` from `GET /resolve` | [0051](0051-page-redirects.md) §7 |
 | Page repositories | `GET /page/{id}` with a provider-ranged ID, carrying `origin`, `upstream` and `stack`; `GET /page/stack/{title}` | [0052](0052-page-repositories-and-title-inheritance.md) §6 |
 | Mirrored pages | `GET /page/{id}/html` and `/render` for an inherited page; `GET /repo/{name}` | [0053](0053-mirrored-pages.md) §10 |
@@ -798,3 +799,10 @@ Replaced text (§2.1):
 - **Source:** [0068](0068-merging-with-upstream.md) §6
 - **Change:** extends §5
 - **Summary:** Merge previews in either direction, pulls, re-follow, and `tsmerge`.
+
+### A49. Followed talk pages and pins
+
+- **Date:** 2026-10-06
+- **Source:** [0069](0069-synchronized-talk-pages.md) §9
+- **Change:** extends §5
+- **Summary:** Routes for foreign threads, upstream replies and sections, pins and a fork's talk-follow state; DiscussionTools modules on followed talk titles.

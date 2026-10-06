@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-01 (A9)
+- **Updated:** 2026-10-06 (A10)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md)
 - **Uses:** [0007](0007-actor-identity.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0029](0029-resolver-namespaces.md)
@@ -34,7 +34,7 @@ Filters run in order of ID. Every match is recorded (§5); the actions decide wh
 
 ### 2. Three contexts and one actor
 
-*Changed by A2, A3, A4, A6, A8, A9.*
+*Changed by A2, A3, A4, A6, A8, A9, A10.*
 
 A rule sees a **context**: a typed set of variables derived from the candidate record and the actor. Variable names follow AbuseFilter's where AbuseFilter has one, so that a filter author can port a rule by hand and the API of §9 can answer in MediaWiki's shape.
 
@@ -57,7 +57,8 @@ A rule sees a **context**: a typed set of variables derived from the candidate r
 
 | Variable | Meaning |
 |---|---|
-| `action` | `edit`, `create`, `move`, `rename`, `post`, `reply`, `thread-create` |
+| `action` | `edit`, `create`, `move`, `rename`, `post`, `reply`, `thread-create`, or `upstream-post` for a reply or section about to be sent to a repository as the person, which a `disallow` stops ([0069](0069-synchronized-talk-pages.md) §5) |
+| `upstream_repo` | For `upstream-post`, the repository it would be sent to |
 | `page_namespace`, `page_title`, `page_id`, `content_model` | As MediaWiki names them |
 | `old_redirect`, `new_redirect` | Whether the text before and after the edit begins with a redirect line ([0051](0051-page-redirects.md) §9) |
 | `fork`, `fork_repo`, `fork_revid` | Whether the edit forks an inherited title, and from which repository and upstream revision ([0054](0054-forking-a-mirrored-page.md) §2) |
@@ -344,3 +345,10 @@ Replaced text (§2):
 - **Source:** [0054](0054-forking-a-mirrored-page.md) §2
 - **Change:** extends §2
 - **Summary:** `fork`, `fork_repo` and `fork_revid` in the page context, so a tenant can gate or tag forks.
+
+### A10. Upstream posts
+
+- **Date:** 2026-10-06
+- **Source:** [0069](0069-synchronized-talk-pages.md) §5
+- **Change:** extends §2
+- **Summary:** The text context covers a reply or section about to be sent upstream, as `action = upstream-post` with `upstream_repo`.

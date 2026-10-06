@@ -2,6 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
+- **Updated:** 2026-10-06 (A1)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0022](0022-federation.md), [0033](0033-backend-stack.md), [0039](0039-files-and-media.md), [0042](0042-template-expansion-and-parsoid.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0040](0040-instance-prerogatives.md), [0047](0047-special-pages.md), [0051](0051-page-redirects.md), [0052](0052-page-repositories-and-title-inheritance.md), [0054](0054-forking-a-mirrored-page.md), [0055](0055-templatestyles-templatedata-and-page-properties.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -24,6 +25,8 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 1. The page bundle
 
+*Changed by A1.*
+
 **What the instance holds for a foreign page is a bundle,** one per page per repository, for the latest upstream revision only:
 
 | Part | Holds |
@@ -31,7 +34,7 @@ James's direction, from the design discussion of 2026-10-01:
 | **Identity** | The repository, the upstream namespace and title, the upstream page ID, the upstream revision ID and its timestamp, the content model, and the licence from the repository's entry |
 | **Wikitext** | The revision's source, for the Edit tab, `prop=revisions&rvprop=content`, transclusion ([0042](0042-template-expansion-and-parsoid.md) §11) and forking ([0054](0054-forking-a-mirrored-page.md) §3) |
 | **HTML** | The repository's rendering of the revision, rewritten (§2) and sanitized, ready to place in the frame |
-| **Metadata** | Categories, templates and modules used, images used, interlanguage links, page properties (display title, short description, disambiguation, `noindex`), the redirect target if the page is one, and the `data-mw`-bearing section map |
+| **Metadata** | Categories, templates and modules used, images used, interlanguage links, page properties (display title, short description, disambiguation, `noindex`), the redirect target if the page is one, and the `data-mw`-bearing section map; for a followed talk page, the thread items of `action=discussiontoolspageinfo` ([0069](0069-synchronized-talk-pages.md) §2) |
 | **Freshness** | When it was retrieved, the upstream `ETag` or render ID, and `expires_at` |
 
 **Three sources, chosen per repository with `source`:**
@@ -100,6 +103,8 @@ A `tenant` repository has no index: the source tenant's `view.page` is read dire
 
 ### 5. Mirror mode: the `pages/{repo}` partition (extends 0015 §3 and §5; uses 0002 §2, §5, 0006 §4)
 
+*Changed by A1.*
+
 **With `mode = mirror`, the bundles of a chosen set of pages are records in an instance partition,** so that the pages stay readable when the repository is down, are verifiable, and can be exported. The partition is registered in `graphs.toml` beside `files/{repo}`:
 
 | Graph | Illustrative IRI | Kind | Scope | Written by | History | Integrity | Export |
@@ -117,6 +122,8 @@ A `tenant` repository has no index: the source tenant's `view.page` is read dire
 | 4 | HTML | The rewritten HTML, compressed | text |
 
 Two parts for the two forms, so that a takedown can erase the rendering and keep the source, or the reverse, and so that `full` history need not keep every rendering.
+
+**A followed talk page** ([0069](0069-synchronized-talk-pages.md) §1–2) is mirrored here whatever the repository's `mode`. Its content part gains `threads`: for each section, its number `n` in the repository, the hash of its DiscussionTools name, its section index, and its comments' name hashes and parents, from which [0069](0069-synchronized-talk-pages.md) §2 derives foreign threads with stable IDs; its comment authors go in the attestation part, and a `put` lists the threads it changed. Archive subpages are mirrored when a thread is found to have moved to one.
 
 **Operations** follow a mirror graph's ([0002](0002-source-graphs-and-mass-ingest.md) §8.2): **`put`** writes the bundle and is skipped when the upstream revision is not newer; a **`put`** with a new title records an upstream move, since MediaWiki keeps the page ID across moves; **`tombstone`** records an upstream deletion, and compaction erases the page. Upstream hiding of a revision's text, summary or user is followed with an `erase` of the part, reason class `upstream` ([0011](0011-logs.md) §5); a suppressed page is tombstoned.
 
@@ -263,3 +270,12 @@ Reading a foreign page needs `read`. Fetches are server-initiated and are bounde
 - [EventStreams](https://wikitech.wikimedia.org/wiki/Event_Platform/EventStreams) and the [`mediawiki/page/change` schema](https://schema.wikimedia.org/#!/primary/jsonschema/mediawiki/page/change)
 - [Wikimedia Enterprise HTML dumps](https://dumps.wikimedia.org/other/enterprise_html/) and the [`page` and `redirect` SQL dumps](https://meta.wikimedia.org/wiki/Data_dumps/What%27s_available_for_download)
 - [Creative Commons Attribution-ShareAlike 4.0](https://creativecommons.org/licenses/by-sa/4.0/) §3(a), on attribution, and [Wikipedia:Reusing Wikipedia content](https://en.wikipedia.org/wiki/Wikipedia:Reusing_Wikipedia_content)
+
+## Amendment log
+
+### A1. Followed talk pages
+
+- **Date:** 2026-10-06
+- **Source:** [0069](0069-synchronized-talk-pages.md) §1, §2
+- **Change:** extends §1, §5
+- **Summary:** A followed talk page's bundle carries DiscussionTools' thread items; it is mirrored in `pages/{repo}` whatever the `mode`, with `threads` in the content part (numbers, name hashes, comment structure), comment authors in the attestation part, and the changed threads listed per `put`.
