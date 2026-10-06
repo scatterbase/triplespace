@@ -11,10 +11,11 @@ use scatter_log::store::Draft;
 use scatter_projection::{Budget, Pipeline};
 use scatter_providers::Registry;
 use scatter_wikibase_changeset::{
-    Context, Graph, JobHeader, Mode, NoProperties, Operation, ProviderOrder, validate,
+    Context, Graph, JobHeader, Mode, Operation, ProviderOrder, validate,
 };
 use scatter_wikibase_model::entity::Entity;
 use scatter_wikibase_model::id::EntityId;
+use scatter_wikibase_model::value::DataType;
 use serde::{Deserialize, Serialize};
 
 use crate::IngestError;
@@ -71,6 +72,10 @@ pub struct Adoption {
     /// The source's accounts as actor-record drafts, keyed by actor key, for the tenant's
     /// `actors` partition; one already present is left alone (0035 §5).
     pub accounts: Vec<Draft>,
+    /// The source's property types, for validation: the dump's own properties (the
+    /// adapter's survey collects them). Empty means snaks are checked against their own
+    /// `datatype` only.
+    pub property_types: BTreeMap<EntityId, DataType>,
 }
 
 /// What an adoption produced.
@@ -218,7 +223,7 @@ pub async fn run_adoption<S: IngestStore>(
         mode: Some(Mode::Adopt),
         order: &order,
         providers: registry,
-        types: &NoProperties,
+        types: &adoption.property_types,
         strict_properties: false,
     };
     let mut request = Request::new(tenant, job.record_attestation(), now);

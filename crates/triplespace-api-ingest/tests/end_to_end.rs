@@ -266,6 +266,7 @@ async fn adoption_batch_sync_and_edit_end_to_end() {
             user: 40,
         },
         accounts: vec![account("librarybase:7", "Editor")],
+        property_types: BTreeMap::new(),
     };
     let items = vec![
         Adopted {
@@ -347,6 +348,7 @@ async fn adoption_batch_sync_and_edit_end_to_end() {
             frozen: true,
             floors: Floors::default(),
             accounts: vec![],
+            property_types: BTreeMap::new(),
         },
         vec![Adopted {
             entity: entity(item("Q8", "Eight", &json!({}))),

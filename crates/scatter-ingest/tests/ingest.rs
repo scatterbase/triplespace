@@ -782,6 +782,7 @@ fn adoption(frozen: bool) -> Adoption {
             account("librarybase:1", "Owner"),
             account("librarybase:7", "Editor"),
         ],
+        property_types: BTreeMap::new(),
     }
 }
 
