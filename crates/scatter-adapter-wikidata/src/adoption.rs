@@ -45,9 +45,9 @@ pub struct AdoptedRevision {
     pub source_time: String,
     /// The page ID on the source.
     pub source_pageid: u64,
-    /// Snaks whose property the dump does not type (a foreign property, or one missing
-    /// from the dump); their `datatype` stays absent.
-    pub untyped_snaks: u64,
+    /// Snaks whose property the dump does not type (a foreign property, or one deleted
+    /// on the source), by property; their `datatype` stays absent.
+    pub untyped_snaks: BTreeMap<EntityId, u64>,
 }
 
 /// What a pass over the dump learns: the floors and the accounts.
@@ -234,11 +234,11 @@ pub fn home_form(
     Ok(())
 }
 
-/// Gives every snak without a `datatype` its property's, from `types`. Returns the number
-/// of snaks left untyped because `types` does not know their property. Run after
+/// Gives every snak without a `datatype` its property's, from `types`. Returns, per
+/// property `types` does not know, how many snaks were left untyped. Run after
 /// [`home_form`], so that the property IDs are in the form `types` is keyed by.
-pub fn type_snaks(entity: &mut Entity, types: &impl PropertyTypes) -> u64 {
-    let mut untyped = 0;
+pub fn type_snaks(entity: &mut Entity, types: &impl PropertyTypes) -> BTreeMap<EntityId, u64> {
+    let mut untyped = BTreeMap::new();
     for statement in entity.statements.values_mut().flatten() {
         for snak in statement.snaks_mut() {
             if snak.datatype.is_some() {
@@ -246,7 +246,7 @@ pub fn type_snaks(entity: &mut Entity, types: &impl PropertyTypes) -> u64 {
             }
             match types.datatype(&snak.property) {
                 Some(dt) => snak.datatype = Some(dt.clone()),
-                None => untyped += 1,
+                None => *untyped.entry(snak.property.clone()).or_default() += 1,
             }
         }
     }
@@ -395,7 +395,12 @@ mod tests {
             (EntityId::parse("P1").unwrap(), DataType::ExternalId),
             (EntityId::parse("P2").unwrap(), DataType::WikibaseItem),
         ]);
-        assert_eq!(type_snaks(&mut e, &types), 1, "P3 is unknown to the dump");
+        let p3 = EntityId::parse("P3").unwrap();
+        assert_eq!(
+            type_snaks(&mut e, &types),
+            BTreeMap::from([(p3.clone(), 1)]),
+            "P3 is unknown to the dump"
+        );
         let s = e.all_statements().next().unwrap();
         assert_eq!(s.mainsnak.datatype, Some(DataType::ExternalId));
         assert_eq!(
@@ -413,6 +418,6 @@ mod tests {
                 .is_none()
         );
         // Typing is idempotent and never overrides a type the source wrote.
-        assert_eq!(type_snaks(&mut e, &types), 1);
+        assert_eq!(type_snaks(&mut e, &types), BTreeMap::from([(p3, 1)]));
     }
 }
