@@ -20,6 +20,7 @@
 //! `TRIPLESPACE_TEST_DATABASE_URL` (0033 §4, §15).
 
 pub mod checkpoints;
+pub mod client;
 pub mod ids;
 pub mod log;
 pub mod merkle;
@@ -27,6 +28,8 @@ pub mod partition;
 pub mod sequences;
 
 pub use checkpoints::PgCheckpoints;
+pub use client::PgClient;
+pub use log::Frontiers;
 pub use log::PgLog;
 pub use partition::PartitionInfo;
 

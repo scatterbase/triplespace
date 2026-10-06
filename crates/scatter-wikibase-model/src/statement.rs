@@ -215,6 +215,17 @@ impl Statement {
                     .flat_map(|r| r.snaks.values().flatten()),
             )
     }
+
+    /// Every snak, mutably: main, qualifiers, then references, in order.
+    pub fn snaks_mut(&mut self) -> impl Iterator<Item = &mut Snak> {
+        std::iter::once(&mut self.mainsnak)
+            .chain(self.qualifiers.values_mut().flatten())
+            .chain(
+                self.references
+                    .iter_mut()
+                    .flat_map(|r| r.snaks.values_mut().flatten()),
+            )
+    }
 }
 
 // ---------------------------------------------------------------------------------------

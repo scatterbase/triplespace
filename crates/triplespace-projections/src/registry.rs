@@ -9,6 +9,7 @@ use scatter_projection::{Applied, Backend, BoxFuture, Projection, Step};
 
 use crate::backend::PgCx;
 use crate::common::{content, offset_db, split_key, tenant_of, to_jsonb};
+use scatter_log_postgres::PgClient;
 
 /// The registry projection.
 #[derive(Debug, Default, Clone, Copy)]
@@ -39,10 +40,9 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for RegistryProjection {
             let h = record.header();
             let key = h.key.as_deref().ok_or("a config record has a key")?;
             let (kind, code) = split_key(key).ok_or("a config key is kind:code")?;
-            let tenant = tenant_of(cx.conn(), h.partition).await?;
+            let tenant = tenant_of(cx, h.partition).await?;
             let rows = match content(record)? {
                 None => cx
-                    .conn()
                     .execute(
                         "DELETE FROM view.registry WHERE tenant = $1 AND kind = $2 AND code = $3",
                         &[&tenant, &kind, &code],
@@ -50,7 +50,6 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for RegistryProjection {
                     .await
                     .map_err(|e| e.to_string())?,
                 Some(v) => cx
-                    .conn()
                     .execute(
                         "INSERT INTO view.registry (tenant, kind, code, config, \"offset\")
                          VALUES ($1, $2, $3, $4, $5)
@@ -67,9 +66,8 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for RegistryProjection {
 
     fn reset<'a>(&'a self, cx: &'a mut PgCx, partition: u64) -> BoxFuture<'a, Result<(), String>> {
         Box::pin(async move {
-            let tenant = tenant_of(cx.conn(), partition).await?;
-            cx.conn()
-                .execute("DELETE FROM view.registry WHERE tenant = $1", &[&tenant])
+            let tenant = tenant_of(cx, partition).await?;
+            cx.execute("DELETE FROM view.registry WHERE tenant = $1", &[&tenant])
                 .await
                 .map_err(|e| e.to_string())?;
             Ok(())
@@ -78,7 +76,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for RegistryProjection {
 }
 
 /// Reads one current entry.
-pub async fn entry<C: tokio_postgres::GenericClient>(
+pub async fn entry<C: PgClient>(
     client: &C,
     tenant: &str,
     kind: &str,

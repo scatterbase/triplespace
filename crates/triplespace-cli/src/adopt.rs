@@ -199,18 +199,26 @@ pub async fn run(args: Adopt) -> Result<()> {
         frozen: true,
         floors,
         accounts,
+        property_types: survey.property_types.clone(),
     };
+    if survey.property_types.is_empty() {
+        eprintln!(
+            "warning: the dump defines no properties, so adopted snaks keep no datatype and identifiers are not indexed"
+        );
+    }
 
     // Pass 2: the job.
     let (store, pipeline) = store(&args.database, &farm)?;
     let mut read_errors = 0u64;
     let mut seen = 0u64;
+    let mut untyped_snaks = 0u64;
     let entities = XmlDump::open(&args.dump)
         .context("open dump")?
         .filter_map(|page| match page {
-            Ok(page) => match adopt_page(&page, &sources, registry) {
+            Ok(page) => match adopt_page(&page, &sources, registry, &survey.property_types) {
                 Ok(Some(a)) => {
                     seen += 1;
+                    untyped_snaks += a.untyped_snaks;
                     if seen.is_multiple_of(10_000) {
                         eprintln!("  {seen} entities adopted");
                     }
@@ -254,6 +262,9 @@ pub async fn run(args: Adopt) -> Result<()> {
     println!("  accounts   {}", outcome.accounts);
     if read_errors > 0 {
         println!("  unreadable {read_errors} (see stderr)");
+    }
+    if untyped_snaks > 0 {
+        println!("  untyped    {untyped_snaks} snaks (their property is not defined in the dump)");
     }
     for r in outcome.rejects.iter().take(20) {
         println!("  reject #{}: {}", r.line, r.reason);

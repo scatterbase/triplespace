@@ -94,6 +94,29 @@ impl Frontier {
         self.size += 1;
     }
 
+    /// Appends one leaf hash and returns every node it completes, as `(level, index,
+    /// hash)`: the leaf itself at level 0, then one node per level the new leaf closes.
+    /// These are exactly the rows a stored tree gains on the append (0013 §2), so a
+    /// store that holds the frontier writes them without reading any sibling back.
+    pub fn push_leaf_completing(&mut self, leaf: Hash) -> Vec<(u32, u64, Hash)> {
+        let index = self.size;
+        let mut out = vec![(0, index, leaf)];
+        let mut h = 0u32;
+        let mut r = leaf;
+        while let Some(&(top_h, top)) = self.nodes.last() {
+            if top_h != h {
+                break;
+            }
+            self.nodes.pop();
+            r = hash::merkle_node(&top, &r);
+            h += 1;
+            out.push((h, index >> h, r));
+        }
+        self.nodes.push((h, r));
+        self.size += 1;
+        out
+    }
+
     /// Appends a perfect subtree of `2^height` leaves by its root, as when folding sealed
     /// segments. The tree's size must be a multiple of `2^height`.
     pub fn push_subtree(&mut self, height: u32, root: Hash) -> Result<(), Misaligned> {
@@ -246,6 +269,39 @@ mod tests {
                 f.push_leaf(leaves[n]);
             }
         }
+    }
+
+    #[test]
+    fn completed_nodes_are_the_complete_subtrees() {
+        // Every node push_leaf_completing reports is the root of a complete subtree of
+        // the leaves so far, at the (level, index) a stored tree files it under; the
+        // frontier itself advances exactly as push_leaf does.
+        let leaves: Vec<Hash> = (0..64u32).map(|i| merkle_leaf(&i.to_be_bytes())).collect();
+        let mut f = Frontier::new();
+        let mut plain = Frontier::new();
+        let mut total = 0usize;
+        for (i, leaf) in leaves.iter().enumerate() {
+            let done = f.push_leaf_completing(*leaf);
+            plain.push_leaf(*leaf);
+            assert_eq!(f, plain);
+            assert_eq!(
+                done.len(),
+                1 + (i as u64).trailing_ones() as usize,
+                "leaf {i}"
+            );
+            for (level, index, hash) in &done {
+                let start = usize::try_from(index << level).unwrap();
+                let end = start + (1usize << level);
+                assert_eq!(
+                    *hash,
+                    root_of(&leaves[start..end]),
+                    "node ({level}, {index})"
+                );
+            }
+            total += done.len();
+        }
+        // A tree over n leaves stores 2n - popcount(n) nodes.
+        assert_eq!(total, 2 * 64 - 1);
     }
 
     #[test]

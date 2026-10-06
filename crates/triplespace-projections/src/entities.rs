@@ -23,6 +23,7 @@ use std::collections::BTreeMap;
 use scatter_log::header::Header;
 use scatter_log::record::Record;
 use scatter_log::store::Slot;
+use scatter_log_postgres::PgClient;
 use scatter_log_postgres::log;
 use scatter_projection::{Applied, Backend, BoxFuture, Projection, Step};
 use scatter_providers::Registry;
@@ -37,7 +38,7 @@ use scatter_wikibase_resolve::{Contribution, Correction, Resolved, resolve};
 
 use crate::backend::PgCx;
 use crate::common::{
-    PAYLOAD_CHANGESET, header_key_for, operation, parse_surrogate_key, partition_info,
+    PAYLOAD_CHANGESET, Partitions, header_key_for, operation, parse_surrogate_key, partition_info,
     partition_of, time_of,
 };
 use crate::sources::entity_subject;
@@ -97,8 +98,8 @@ impl EntityProjection {
             .unwrap_or(usize::MAX)
     }
 
-    pub(crate) async fn sources(
-        client: &tokio_postgres::Client,
+    pub(crate) async fn sources<C: Partitions>(
+        client: &C,
         tenant: &str,
         id: &EntityId,
     ) -> Result<Vec<Source>, String> {
@@ -124,8 +125,8 @@ impl EntityProjection {
     }
 
     /// Folds the tenant's local records for the subject.
-    pub(crate) async fn local(
-        client: &tokio_postgres::Client,
+    pub(crate) async fn local<C: Partitions>(
+        client: &C,
         tenant: &str,
         id: &EntityId,
     ) -> Result<Local, String> {
@@ -171,8 +172,8 @@ impl EntityProjection {
     }
 
     /// The state a mirror's cursor names.
-    pub(crate) async fn mirror(
-        client: &tokio_postgres::Client,
+    pub(crate) async fn mirror<C: Partitions>(
+        client: &C,
         source: &Source,
     ) -> Result<Option<(Entity, Header)>, String> {
         let Some(partition) = partition_of(client, &source.tenant, &source.graph).await? else {
@@ -194,7 +195,6 @@ impl EntityProjection {
         let mut n = 0;
         for table in ["view.term", "view.identifier"] {
             n += cx
-                .conn()
                 .execute(
                     &format!("DELETE FROM {table} WHERE tenant = $1 AND entity_id = $2"),
                     &[&tenant, &id.as_str()],
@@ -203,7 +203,6 @@ impl EntityProjection {
                 .map_err(|e| sql(&e))?;
         }
         n += cx
-            .conn()
             .execute(
                 "DELETE FROM view.entity WHERE tenant = $1 AND id = $2",
                 &[&tenant, &id.as_str()],
@@ -216,7 +215,7 @@ impl EntityProjection {
     /// Recomputes one `(tenant, id)` row and its terms and identifiers.
     #[allow(clippy::too_many_lines)]
     async fn resolve_subject(&self, cx: &PgCx, tenant: &str, id: &EntityId) -> Result<u64, String> {
-        let mut sources = Self::sources(cx.conn(), tenant, id).await?;
+        let mut sources = Self::sources(cx, tenant, id).await?;
         sources.sort_by_key(|s| {
             (
                 s.graph != "local",
@@ -229,7 +228,7 @@ impl EntityProjection {
                 .iter()
                 .any(|s| s.graph == "local" && s.tenant == tenant);
         let local = if has_local {
-            Self::local(cx.conn(), tenant, id).await?
+            Self::local(cx, tenant, id).await?
         } else {
             Local::default()
         };
@@ -244,7 +243,7 @@ impl EntityProjection {
         }
         let mut mirror_states = 0usize;
         for s in sources.iter().filter(|s| s.graph.starts_with("mirror/")) {
-            if let Some((entity, header)) = Self::mirror(cx.conn(), s).await? {
+            if let Some((entity, header)) = Self::mirror(cx, s).await? {
                 headers.push(header);
                 mirror_states += 1;
                 contributions.push(Contribution {
@@ -287,7 +286,7 @@ impl EntityProjection {
         };
         let size = i32::try_from(json.len()).unwrap_or(i32::MAX);
         let surrogate = if id.form() == IdForm::Keyed {
-            header_key_for(cx.conn(), id)
+            header_key_for(cx, id)
                 .await?
                 .and_then(|k| parse_surrogate_key(&k).map(|(_, n)| n))
         } else {
@@ -316,9 +315,13 @@ impl EntityProjection {
                 time_of(headers.iter().map(|h| h.appended_at).min().unwrap_or(0))
             })
             .to_owned();
-        let mut n = cx
-            .conn()
-            .execute(
+        // The three writes are independent once resolution is done; issued together they
+        // go down the connection in one flush (tokio-postgres pipelines concurrently
+        // polled queries), and the order within each pair (delete, then insert) holds.
+        let id_text = id.as_str();
+        let type_name = resolved.entity.entity_type.name();
+        let entity_row = async {
+            cx.execute(
                 "INSERT INTO view.entity (tenant, id, type, page_id, surrogate, cluster_id, canonical_id, retention,
                                           first_seen, local_offset, local_revid, resolved_version, generation,
                                           resolved_kind, resolved, resolved_size, deleted)
@@ -331,8 +334,8 @@ impl EntityProjection {
                    resolved_kind = EXCLUDED.resolved_kind, resolved = EXCLUDED.resolved, resolved_size = EXCLUDED.resolved_size",
                 &[
                     &tenant,
-                    &id.as_str(),
-                    &resolved.entity.entity_type.name(),
+                    &id_text,
+                    &type_name,
                     &page_id,
                     &surrogate,
                     &retention,
@@ -345,12 +348,17 @@ impl EntityProjection {
                 ],
             )
             .await
-            .map_err(|e| sql(&e))?;
-        n += Self::write_terms(cx, tenant, id, &resolved).await?;
-        n += Self::write_identifiers(cx, tenant, id, &resolved).await?;
-        Ok(n)
+            .map_err(|e| sql(&e))
+        };
+        let (n, terms, identifiers) = tokio::try_join!(
+            entity_row,
+            Self::write_terms(cx, tenant, id, &resolved),
+            Self::write_identifiers(cx, tenant, id, &resolved),
+        )?;
+        Ok(n + terms + identifiers)
     }
 
+    /// Replaces the subject's `view.term` rows: one delete, one multi-row insert.
     async fn write_terms(
         cx: &PgCx,
         tenant: &str,
@@ -358,7 +366,6 @@ impl EntityProjection {
         resolved: &Resolved,
     ) -> Result<u64, String> {
         let mut n = cx
-            .conn()
             .execute(
                 "DELETE FROM view.term WHERE tenant = $1 AND entity_id = $2",
                 &[&tenant, &id.as_str()],
@@ -366,24 +373,37 @@ impl EntityProjection {
             .await
             .map_err(|e| sql(&e))?;
         let e = &resolved.entity;
-        let mut rows: Vec<(i16, &str, i16, &str)> = Vec::new();
+        let mut kinds: Vec<i16> = Vec::new();
+        let mut langs: Vec<&str> = Vec::new();
+        let mut ordinals: Vec<i16> = Vec::new();
+        let mut texts: Vec<&str> = Vec::new();
         for (lang, text) in &e.labels {
-            rows.push((1, lang, 0, text));
+            kinds.push(1);
+            langs.push(lang);
+            ordinals.push(0);
+            texts.push(text);
         }
         for (lang, text) in &e.descriptions {
-            rows.push((2, lang, 0, text));
+            kinds.push(2);
+            langs.push(lang);
+            ordinals.push(0);
+            texts.push(text);
         }
         for (lang, values) in &e.aliases {
             for (i, v) in values.iter().enumerate() {
-                rows.push((3, lang, i16::try_from(i).unwrap_or(i16::MAX), v));
+                kinds.push(3);
+                langs.push(lang);
+                ordinals.push(i16::try_from(i).unwrap_or(i16::MAX));
+                texts.push(v);
             }
         }
-        for (kind, lang, ordinal, text) in rows {
+        if !kinds.is_empty() {
             n += cx
-                .conn()
                 .execute(
-                    "INSERT INTO view.term (tenant, entity_id, kind, lang, ordinal, text) VALUES ($1, $2, $3, $4, $5, $6)",
-                    &[&tenant, &id.as_str(), &kind, &lang, &ordinal, &text],
+                    "INSERT INTO view.term (tenant, entity_id, kind, lang, ordinal, text)
+                     SELECT $1, $2, t.kind, t.lang, t.ordinal, t.text
+                     FROM unnest($3::smallint[], $4::text[], $5::smallint[], $6::text[]) AS t(kind, lang, ordinal, text)",
+                    &[&tenant, &id.as_str(), &kinds, &langs, &ordinals, &texts],
                 )
                 .await
                 .map_err(|e| sql(&e))?;
@@ -391,6 +411,9 @@ impl EntityProjection {
         Ok(n)
     }
 
+    /// Replaces the subject's `view.identifier` rows: one delete, one multi-row insert.
+    /// The same `(property, value, graph)` asserted twice keeps the later statement's
+    /// ID, as the row-at-a-time upsert did.
     async fn write_identifiers(
         cx: &PgCx,
         tenant: &str,
@@ -398,13 +421,13 @@ impl EntityProjection {
         resolved: &Resolved,
     ) -> Result<u64, String> {
         let mut n = cx
-            .conn()
             .execute(
                 "DELETE FROM view.identifier WHERE tenant = $1 AND entity_id = $2",
                 &[&tenant, &id.as_str()],
             )
             .await
             .map_err(|e| sql(&e))?;
+        let mut rows: BTreeMap<(&str, String, &str), &str> = BTreeMap::new();
         for (s, prov) in resolved.entity.all_statements().zip(&resolved.statements) {
             let (Some(DataType::ExternalId), SnakKind::Value(v @ DataValue::String(_)), Some(sid)) =
                 (s.mainsnak.datatype.as_ref(), &s.mainsnak.kind, &s.id)
@@ -418,18 +441,38 @@ impl EntityProjection {
                 &Identity,
             );
             for graph in &prov.graphs {
-                n += cx
-                    .conn()
-                    .execute(
-                        "INSERT INTO view.identifier (tenant, property, value_key, entity_id, graph, statement_id)
-                         VALUES ($1, $2, $3, $4, $5, $6)
-                         ON CONFLICT (tenant, property, value_key, entity_id, graph) DO UPDATE SET statement_id = EXCLUDED.statement_id",
-                        &[&tenant, &s.mainsnak.property.as_str(), &key.as_str(), &id.as_str(), &graph, &sid.as_str()],
-                    )
-                    .await
-                    .map_err(|e| sql(&e))?;
+                rows.insert(
+                    (
+                        s.mainsnak.property.as_str(),
+                        key.as_str().to_string(),
+                        graph.as_str(),
+                    ),
+                    sid.as_str(),
+                );
             }
         }
+        if rows.is_empty() {
+            return Ok(n);
+        }
+        let mut properties: Vec<&str> = Vec::with_capacity(rows.len());
+        let mut keys: Vec<&str> = Vec::with_capacity(rows.len());
+        let mut graphs: Vec<&str> = Vec::with_capacity(rows.len());
+        let mut sids: Vec<&str> = Vec::with_capacity(rows.len());
+        for ((property, key, graph), sid) in &rows {
+            properties.push(property);
+            keys.push(key.as_str());
+            graphs.push(graph);
+            sids.push(sid);
+        }
+        n += cx
+            .execute(
+                "INSERT INTO view.identifier (tenant, property, value_key, entity_id, graph, statement_id)
+                 SELECT $1, t.property, t.value_key, $2, t.graph, t.statement_id
+                 FROM unnest($3::text[], $4::text[], $5::text[], $6::text[]) AS t(property, value_key, graph, statement_id)",
+                &[&tenant, &id.as_str(), &properties, &keys, &graphs, &sids],
+            )
+            .await
+            .map_err(|e| sql(&e))?;
         Ok(n)
     }
 
@@ -437,7 +480,6 @@ impl EntityProjection {
     /// with an overlay row or a local cursor for the key.
     async fn overlay_tenants(cx: &PgCx, id: &EntityId) -> Result<Vec<String>, String> {
         let rows = cx
-            .conn()
             .query(
                 "SELECT tenant FROM view.entity WHERE id = $1 AND tenant <> ''
                  UNION SELECT tenant FROM view.entity_source WHERE entity_id = $1 AND tenant <> ''",
@@ -468,7 +510,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for EntityProjection {
         record: &'a Record,
     ) -> BoxFuture<'a, Result<Applied, String>> {
         Box::pin(async move {
-            let info = partition_info(cx.conn(), record.header().partition).await?;
+            let info = partition_info(cx, record.header().partition).await?;
             let Some(op) = operation(record)? else {
                 return Ok(Applied::default());
             };
@@ -506,19 +548,17 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for EntityProjection {
 
     fn reset<'a>(&'a self, cx: &'a mut PgCx, partition: u64) -> BoxFuture<'a, Result<(), String>> {
         Box::pin(async move {
-            let info = partition_info(cx.conn(), partition).await?;
+            let info = partition_info(cx, partition).await?;
             // A tenant partition resets the tenant's rows; a shared one the shared rows.
             for table in ["view.term", "view.identifier"] {
-                cx.conn()
-                    .execute(
-                        &format!("DELETE FROM {table} WHERE tenant = $1"),
-                        &[&info.tenant],
-                    )
-                    .await
-                    .map_err(|e| sql(&e))?;
+                cx.execute(
+                    &format!("DELETE FROM {table} WHERE tenant = $1"),
+                    &[&info.tenant],
+                )
+                .await
+                .map_err(|e| sql(&e))?;
             }
-            cx.conn()
-                .execute("DELETE FROM view.entity WHERE tenant = $1", &[&info.tenant])
+            cx.execute("DELETE FROM view.entity WHERE tenant = $1", &[&info.tenant])
                 .await
                 .map(|_| ())
                 .map_err(|e| sql(&e))

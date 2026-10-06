@@ -6,7 +6,9 @@ use std::time::SystemTime;
 use scatter_integrity::checkpoint::SignedCheckpoint;
 use scatter_integrity::checkpoints::{CheckpointStore, CheckpointStoreError};
 use scatter_log::hash::hex;
-use tokio_postgres::{Client, GenericClient, Transaction};
+use tokio_postgres::{Client, Transaction};
+
+use crate::client::PgClient;
 
 use crate::ids::{partition_to_db, to_db};
 
@@ -47,7 +49,7 @@ fn key_id_of(checkpoint: &SignedCheckpoint) -> String {
 }
 
 /// Stores a checkpoint, replacing one of the same size.
-pub async fn put<C: GenericClient + Sync>(
+pub async fn put<C: PgClient>(
     client: &C,
     partition: u64,
     checkpoint: &SignedCheckpoint,
@@ -74,7 +76,7 @@ pub async fn put<C: GenericClient + Sync>(
 }
 
 /// Every checkpoint of a partition, ascending by size.
-pub async fn list<C: GenericClient + Sync>(
+pub async fn list<C: PgClient>(
     client: &C,
     partition: u64,
 ) -> Result<Vec<SignedCheckpoint>, CheckpointStoreError> {
@@ -92,7 +94,7 @@ pub async fn list<C: GenericClient + Sync>(
 
 /// The checkpoint a record is first covered by: the smallest size past its offset
 /// (0012 §5, `GET /record/{partition}/{offset}/checkpoint`).
-pub async fn covering<C: GenericClient + Sync>(
+pub async fn covering<C: PgClient>(
     client: &C,
     partition: u64,
     offset: u64,
@@ -110,7 +112,7 @@ pub async fn covering<C: GenericClient + Sync>(
 }
 
 /// Stores a segment manifest. A later one for the same segment is a new row.
-pub async fn put_manifest<C: GenericClient + Sync>(
+pub async fn put_manifest<C: PgClient>(
     client: &C,
     partition: u64,
     n: u64,
@@ -134,7 +136,7 @@ pub async fn put_manifest<C: GenericClient + Sync>(
 }
 
 /// The latest manifest of every sealed segment, by segment.
-pub async fn manifests<C: GenericClient + Sync>(
+pub async fn manifests<C: PgClient>(
     client: &C,
     partition: u64,
 ) -> Result<Vec<(u64, SignedCheckpoint)>, CheckpointStoreError> {

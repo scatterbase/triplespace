@@ -2,15 +2,22 @@
 //! entities. IDs stay in home form; an entity-source prefix from a federated install
 //! (`wikidata:Q42`, wikibase-compat §5.1) is rewritten to the provider form through the
 //! source table. [`Survey`] derives the floors of 0035 §4 and the accounts of §5 from a
-//! pass over the same dump.
+//! pass over the same dump, and the data type of every property the dump defines.
+//!
+//! The revision text of an entity page is Wikibase's *stored* JSON, which carries no
+//! `datatype` on its snaks: Wikibase adds that at output time from the property. Only
+//! property entities carry their `datatype`, at the top level. So the survey collects
+//! the property types, and [`adopt_page`] types every snak from them, so that the adopted
+//! record says what a Wikibase JSON dump of the same entity would say.
 
 use std::collections::BTreeMap;
 
 use scatter_providers::Registry;
+use scatter_wikibase_changeset::PropertyTypes;
 use scatter_wikibase_model::entity::Entity;
 use scatter_wikibase_model::id::EntityId;
 use scatter_wikibase_model::statement::{Snak, SnakKind};
-use scatter_wikibase_model::value::DataValue;
+use scatter_wikibase_model::value::{DataType, DataValue};
 
 use crate::DumpError;
 use crate::xml_dump::DumpPage;
@@ -38,6 +45,9 @@ pub struct AdoptedRevision {
     pub source_time: String,
     /// The page ID on the source.
     pub source_pageid: u64,
+    /// Snaks whose property the dump does not type (a foreign property, or one missing
+    /// from the dump); their `datatype` stays absent.
+    pub untyped_snaks: u64,
 }
 
 /// What a pass over the dump learns: the floors and the accounts.
@@ -61,6 +71,8 @@ pub struct Survey {
     pub hidden_users: u64,
     /// Anonymous revisions.
     pub anonymous: u64,
+    /// The data type of every property the dump defines, by ID.
+    pub property_types: BTreeMap<EntityId, DataType>,
 }
 
 impl Survey {
@@ -89,6 +101,12 @@ impl Survey {
                 self.redirects += 1;
             } else {
                 self.entities += 1;
+                if latest.model.as_deref() == Some("wikibase-property")
+                    && let Ok(parsed) = Entity::from_json(&latest.text)
+                    && let Some(dt) = parsed.entity.datatype
+                {
+                    self.property_types.insert(parsed.entity.id, dt);
+                }
             }
             // The ID is in the title's last segment: `Item:Q6`, `Q6`.
             let id_text = page.title.rsplit(':').next().unwrap_or(&page.title);
@@ -216,13 +234,34 @@ pub fn home_form(
     Ok(())
 }
 
-/// The adopted entity of a page: its newest revision parsed as an entity in home form.
-/// `None` for a page that is not an entity (another namespace, a redirect, an empty
-/// text), with the reason counted by the caller's [`Survey`].
+/// Gives every snak without a `datatype` its property's, from `types`. Returns the number
+/// of snaks left untyped because `types` does not know their property. Run after
+/// [`home_form`], so that the property IDs are in the form `types` is keyed by.
+pub fn type_snaks(entity: &mut Entity, types: &impl PropertyTypes) -> u64 {
+    let mut untyped = 0;
+    for statement in entity.statements.values_mut().flatten() {
+        for snak in statement.snaks_mut() {
+            if snak.datatype.is_some() {
+                continue;
+            }
+            match types.datatype(&snak.property) {
+                Some(dt) => snak.datatype = Some(dt.clone()),
+                None => untyped += 1,
+            }
+        }
+    }
+    untyped
+}
+
+/// The adopted entity of a page: its newest revision parsed as an entity in home form,
+/// its snaks typed from `types` (the survey's [`Survey::property_types`]). `None` for a
+/// page that is not an entity (another namespace, a redirect, an empty text), with the
+/// reason counted by the caller's [`Survey`].
 pub fn adopt_page(
     page: &DumpPage,
     sources: &BTreeMap<String, String>,
     registry: &Registry,
+    types: &impl PropertyTypes,
 ) -> Result<Option<AdoptedRevision>, DumpError> {
     let Some(latest) = page.latest() else {
         return Ok(None);
@@ -242,11 +281,13 @@ pub fn adopt_page(
     })?;
     let mut entity = parsed.entity;
     home_form(&mut entity, sources, registry)?;
+    let untyped_snaks = type_snaks(&mut entity, types);
     Ok(Some(AdoptedRevision {
         entity,
         source_revid: latest.id,
         source_time: latest.timestamp.clone(),
         source_pageid: page.id,
+        untyped_snaks,
     }))
 }
 
@@ -275,11 +316,18 @@ mod tests {
         assert_eq!(survey.max_user_id(), 9);
         assert_eq!(survey.accounts().len(), 2);
         assert_eq!((survey.hidden_users, survey.anonymous), (1, 1));
+        assert_eq!(
+            survey.property_types,
+            BTreeMap::from([(EntityId::parse("P12").unwrap(), DataType::WikibaseItem)]),
+            "the dump's properties are typed from their own top-level datatype"
+        );
 
         let registry = Registry::default_registry();
         let adopted: Vec<AdoptedRevision> = pages
             .iter()
-            .filter_map(|p| adopt_page(p, &BTreeMap::new(), registry).unwrap())
+            .filter_map(|p| {
+                adopt_page(p, &BTreeMap::new(), registry, &survey.property_types).unwrap()
+            })
             .collect();
         assert_eq!(adopted.len(), 2);
         assert_eq!(adopted[0].entity.id.as_str(), "Q6");
@@ -322,5 +370,49 @@ mod tests {
         assert_eq!(s.qualifiers.keys().next().unwrap().as_str(), "WDP31");
         assert!(is_redirect_json(r#"{"entity":"Q6","redirect":"Q7"}"#));
         assert!(!is_redirect_json(r#"{"type":"item","id":"Q6"}"#));
+    }
+
+    #[test]
+    fn stored_snaks_are_typed_from_the_properties() {
+        // Stored JSON, as a MediaWiki XML dump carries it: no `datatype` on any snak.
+        let mut e = Entity::from_json(r#"{"type":"item","id":"Q6","labels":{},
+            "claims":{"P1":[{"mainsnak":{"snaktype":"value","property":"P1",
+                "datavalue":{"value":"10.1000/xyz","type":"string"}},"type":"statement","rank":"normal",
+                "qualifiers":{"P2":[{"snaktype":"somevalue","property":"P2"}]},"qualifiers-order":["P2"],
+                "references":[{"snaks":{"P3":[{"snaktype":"value","property":"P3",
+                    "datavalue":{"value":"x","type":"string"}}]},"snaks-order":["P3"]}]}]}}"#)
+        .unwrap()
+        .entity;
+        assert!(
+            e.all_statements()
+                .next()
+                .unwrap()
+                .mainsnak
+                .datatype
+                .is_none()
+        );
+        let types = BTreeMap::from([
+            (EntityId::parse("P1").unwrap(), DataType::ExternalId),
+            (EntityId::parse("P2").unwrap(), DataType::WikibaseItem),
+        ]);
+        assert_eq!(type_snaks(&mut e, &types), 1, "P3 is unknown to the dump");
+        let s = e.all_statements().next().unwrap();
+        assert_eq!(s.mainsnak.datatype, Some(DataType::ExternalId));
+        assert_eq!(
+            s.qualifiers.values().flatten().next().unwrap().datatype,
+            Some(DataType::WikibaseItem)
+        );
+        assert!(
+            s.references[0]
+                .snaks
+                .values()
+                .flatten()
+                .next()
+                .unwrap()
+                .datatype
+                .is_none()
+        );
+        // Typing is idempotent and never overrides a type the source wrote.
+        assert_eq!(type_snaks(&mut e, &types), 1);
     }
 }

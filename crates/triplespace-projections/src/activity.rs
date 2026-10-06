@@ -20,6 +20,7 @@ use crate::common::{
     PAYLOAD_CHANGESET, PAYLOAD_LOGEVENT, attested, comment, content, operation, partition_info,
     target_kind, time_of, to_jsonb,
 };
+use scatter_log_postgres::PgClient;
 
 fn sql(e: &tokio_postgres::Error) -> String {
     e.to_string()
@@ -310,7 +311,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for ActivityProjection {
     ) -> BoxFuture<'a, Result<Applied, String>> {
         Box::pin(async move {
             let h = record.header();
-            let info = partition_info(cx.conn(), h.partition).await?;
+            let info = partition_info(cx, h.partition).await?;
             let columns = if h.payload_type == PAYLOAD_CHANGESET {
                 changeset_columns(record, info.is_mirror())?
             } else {
@@ -322,9 +323,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for ActivityProjection {
                     .transpose()
                     .map_err(|e: std::num::TryFromIntError| e.to_string())
             };
-            let n = cx
-                .conn()
-                .execute(
+            let n = cx.execute(
                     "INSERT INTO view.activity
                        (tenant, time, partition, \"offset\", kind, source, revid, logid, target_kind, target_id, target_member,
                         actor_key, job_id, summary_op, summary_args, comment, tags, new, size, delta,
@@ -372,18 +371,17 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for ActivityProjection {
 
     fn reset<'a>(&'a self, cx: &'a mut PgCx, partition: u64) -> BoxFuture<'a, Result<(), String>> {
         Box::pin(async move {
-            let info = partition_info(cx.conn(), partition).await?;
-            cx.conn()
-                .execute(
-                    "DELETE FROM view.activity WHERE tenant = $1 AND partition = $2",
-                    &[
-                        &info.tenant,
-                        &scatter_log_postgres::ids::partition_to_db(partition),
-                    ],
-                )
-                .await
-                .map(|_| ())
-                .map_err(|e| sql(&e))
+            let info = partition_info(cx, partition).await?;
+            cx.execute(
+                "DELETE FROM view.activity WHERE tenant = $1 AND partition = $2",
+                &[
+                    &info.tenant,
+                    &scatter_log_postgres::ids::partition_to_db(partition),
+                ],
+            )
+            .await
+            .map(|_| ())
+            .map_err(|e| sql(&e))
         })
     }
 }
