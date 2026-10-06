@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-05
-- **Updated:** 2026-10-05 (A1)
+- **Updated:** 2026-10-06 (A2)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0019](0019-discussions.md), [0021](0021-notifications.md), [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0038](0038-page-metadata-and-categories.md), [0047](0047-special-pages.md)
 - **Uses:** [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0020](0020-change-feeds.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0040](0040-instance-prerogatives.md), [0049](0049-boards.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [0060](0060-scopes.md), [0061](0061-sprints-and-tasks.md)
@@ -102,11 +102,15 @@ Nothing here needs a credential, a consumer registration or a policy conversatio
 
 ### 6. Push as the person: the later phase (extends 0025; extends 0027 §2)
 
+*Changed by A2.*
+
 **Specified now, built later.** `proposals.push` (site, default `off`) is refused until the instance implements this section, and the ADR's status reads `Proposed` until it does ([0050](0050-adr-format.md) §3).
 
 **The instance becomes an OAuth client of the destination wiki with edit scopes.** Wikimedia's OAuth 2 (`editpage`, `createeditmovepage`, `highvolume` where granted) through the identity issuer the tenant already uses for login ([0007](0007-actor-identity.md) §3), as a **second authorization** the person grants from the proposal thread ("Allow this wiki to edit Wikidata as you"), separate from login so that logging in never grants editing. The grant is stored in **`private.upstream_grant (actor_key, wiki, scopes text[], access_hash, refresh_hash, issued, expires)`**, portability class **re-established, not carried** ([0027](0027-preferences-and-portability.md) §2): it is reissued on a new instance and revocable from `Special:Preferences` and from the destination wiki's own settings. **One consumer per instance**, registered with the destination wiki by the operator with the instance's callback; on a farm the callback is the farm base and the tenant is carried in `state`, so a forty-tenant farm registers once.
 
 **Pushing** appends the compiled payload as the person: `wbeditentity` with the JSON for an entity, or an edit to the destination page for a page ([0068](0068-merging-with-upstream.md) §4), with the summary "Proposed at {proposal URL} via {instance}" and the destination's `maxlag` honoured; the resulting revision IDs go into the `submit` record. Rate class `upstream` ([0024](0024-subsidiary-accounts.md) §5), counted per person. **The instance never holds a shared upstream account** and never pushes under its own name: attribution belongs to the person, the destination's bot policy applies to them, and a tenant's reputation upstream is its editors'. A subsidiary ([0024](0024-subsidiary-accounts.md)) may hold a grant of its own when its operator authorizes it, which is how a tenant's reconciliation bot pushes under a flagged upstream bot account that is also the operator's responsibility.
+
+**Talk pages use the grant first.** Replies and new sections sent to a followed talk page ([0069](0069-synchronized-talk-pages.md) §5–6) are the first use of this client, which is therefore built with 0069; pushing a proposal still waits on `proposals.push`.
 
 **For 0025**: the instance is now an OAuth server for its own API ([0025](0025-oauth-server.md)) *and* a client of other wikis' APIs for one purpose; §6's grant table sits beside 0025 §8's consumer and token tables, and the two never share a credential.
 
@@ -187,3 +191,10 @@ Proposing needs `edit` on the subject's talk page (to open a thread there) and `
 - **Source:** [0068](0068-merging-with-upstream.md) §3
 - **Change:** extends §1, §3
 - **Summary:** The page kind's payload and destination are defined by 0068.
+
+### A2. The grant serves talk pages
+
+- **Date:** 2026-10-06
+- **Source:** [0069](0069-synchronized-talk-pages.md) §5
+- **Change:** extends §6
+- **Summary:** The upstream grant and client are built with 0069, whose upstream replies and sections are their first use; `proposals.push` stays off until this section is implemented.

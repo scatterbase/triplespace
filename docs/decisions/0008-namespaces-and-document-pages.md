@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-05 (A29)
+- **Updated:** 2026-10-06 (A30)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -109,7 +109,7 @@ Talk namespaces default to `triplespace-talk`. 210–219 is full; the next resol
 
 ### 4. Document pages
 
-*Changed by A4, A9, A21, A23.*
+*Changed by A4, A9, A21, A23, A30.*
 
 **A page is identified by a page ID, not by its title.** Page IDs are minted by the instance in sequence, start at 1 and are never reused. The title is an attribute of the page, in the same way a username is an attribute of an actor ([0007](0007-actor-identity.md) §4). This has three effects:
 
@@ -132,6 +132,7 @@ The partition holds page records, not quads. Its RDF output is revision metadata
 | `create` | Mints the page ID, sets the title and content model, and stores the first text; may carry `forked_from`, naming the repository, page and revision a fork was taken from ([0054](0054-forking-a-mirrored-page.md) §1) |
 | `edit` | Stores the page's **complete new text**, optionally with a new content model |
 | `move` | Sets a new title |
+| `follow` | On a fork, whether its talk page follows the repository's (`follow`) or has been forked (`fork`); no text, so it is a null revision in the page's history, as MediaWiki writes for protection ([0069](0069-synchronized-talk-pages.md) §7) |
 
 **Deletion is an ACL, not a page operation** ([0023](0023-moderation.md) §4). Deleting a page writes a `read` ACL on its page ID to the tenant `log` partition, and undeleting retires the ACL. The page and its history are hidden from everyone but administrators. This is hiding in the sense of [0006](0006-log-integrity-and-erasure.md) (Context), not erasure.
 
@@ -652,3 +653,10 @@ Replaced text (§2):
 Replaced text (§2):
 
 > | 146 | Lexeme | `reserved` | — | Rule 1 |
+
+### A30. The `follow` operation
+
+- **Date:** 2026-10-06
+- **Source:** [0069](0069-synchronized-talk-pages.md) §7
+- **Change:** extends §4
+- **Summary:** A fork's page records gain `follow`, a null revision recording whether the fork's talk page follows the repository's or has been forked.

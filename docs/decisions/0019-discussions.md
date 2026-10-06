@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-05 (A14)
+- **Updated:** 2026-10-06 (A15)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0018](0018-tenants.md), [0022](0022-federation.md)
@@ -23,7 +23,7 @@ Two goals from the earlier ADRs constrain the design. Every unit of contribution
 
 ### 1. A thread is a page; a post is a record
 
-*Changed by A4, A10, A14.*
+*Changed by A4, A10, A14, A15.*
 
 **A thread is a page in the `Thread` namespace (§3).** It has a page ID from the tenant's sequence ([0015](0015-record-format-and-partition-registry.md) §2, [0018](0018-tenants.md) §2), a subject, a home and any listings (§2), a status (§6) and a history. Its records live in the tenant's `pages` partition, keyed by the thread's page ID, with the payload type `scatter:v0/thread` (§4).
 
@@ -40,6 +40,7 @@ Two goals from the earlier ADRs constrain the design. Every unit of contribution
 | `move` | Attaches the thread to a different home (§2); with `keep`, the old home stays as a listing | — | Required |
 | `attach` | Lists the thread on a further talk page or board ([0049](0049-boards.md) §6) | — | Required |
 | `detach` | Removes a listing ([0049](0049-boards.md) §6) | — | Required |
+| `pin`, `unpin` | Pins or unpins the thread on one of its attachments ([0069](0069-synchronized-talk-pages.md) §4) | — | Required |
 | `propose` | Makes the thread a proposal, or re-compiles one: kind, upstream target, base and payload ([0067](0067-proposals.md) §3) | — | Required |
 | `submit` | Records that the proposal was exported or pushed, with the upstream revision IDs ([0067](0067-proposals.md) §3) | — | Required |
 | `withdraw` | The proposer takes the proposal back ([0067](0067-proposals.md) §3) | — | Required |
@@ -48,13 +49,13 @@ Deleting a thread is not an operation: it is a `read` ACL on its page ID, writte
 
 **Full text per post, as 0008 §4 stores full text per revision.** A post's edit history is the chain of `edit` records naming its revision ID, and the diff between two versions is computed when it is read.
 
-**Replies need no base offset.** Two people answering the same post at once both succeed. `edit`, `rename`, `move`, `attach` and `detach` carry the base offset of [0006](0006-log-integrity-and-erasure.md) §8, and a mismatch is an `editconflict`. A `post` whose parent is not a post of the same thread, and any operation on a deleted thread, is rejected.
+**Replies need no base offset.** Two people answering the same post at once both succeed. `edit`, `rename`, `move`, `attach`, `detach`, `pin` and `unpin` carry the base offset of [0006](0006-log-integrity-and-erasure.md) §8, and a mismatch is an `editconflict`. A `post` whose parent is not a post of the same thread, and any operation on a deleted thread, is rejected.
 
 **The true parent is always stored.** The instance's indentation limit (§8) is a rendering rule, not a constraint on the data. Changing the limit later rewrites nothing.
 
 ### 2. Talk pages are composite; attachment is by identifier (amends 0008 §2)
 
-*Changed by A6, A9, A10, A12.*
+*Changed by A6, A9, A10, A12, A15.*
 
 **A thread has exactly one home, and may have listings.** The home is the attachment `create` sets and `move` changes; listings are further talk pages and boards the thread appears on, up to `thread.max_attachments` ([0049](0049-boards.md) §5). Only the home encloses the thread, is its `as:context`, and may be a user talk page; listing, composite history and watches treat every attachment alike ([0049](0049-boards.md) §7). A board ([0049](0049-boards.md) §1) is a `page` target whose talk page is itself. A target is named by identifier, never by title, so that a thread follows its subject through a rename or a move and the record's key is never content ([0006](0006-log-integrity-and-erasure.md) §3):
 
@@ -71,7 +72,7 @@ Deleting a thread is not an operation: it is a `read` ACL on its page ID, writte
 
 **A `move` moves the whole thread.** Its posts leave the old home's history and join the new one's, and one `move/move` log event, with the source and target talk pages as parameters, appears in both pages' logs (§7). A thread is listed on further pages with `attach`, never by a second home.
 
-**Foreign talk pages are never loaded.** The talk page of a mirrored entity holds local threads only. They live in the tenant's `pages` partition, which is not what a tenant exposes when it is a provider to others ([0018](0018-tenants.md) §5), so a local historical society's discussion of a Librarybase item stays on the society's wiki. The talk page of a mirrored entity offers a link to the upstream talk page for readers who want the provider's own discussion. A page inherited from a page repository has a local talk page the same way, on its ranged page ID, and when the page is forked the fork job moves its threads to the fork's talk page ([0054](0054-forking-a-mirrored-page.md) §5).
+**A mirrored entity's talk page is never loaded from upstream.** The talk page of a mirrored entity holds local threads only. They live in the tenant's `pages` partition, which is not what a tenant exposes when it is a provider to others ([0018](0018-tenants.md) §5), so a local historical society's discussion of a Librarybase item stays on the society's wiki. The talk page of a mirrored entity offers a link to the upstream talk page for readers who want the provider's own discussion. A page inherited from a page repository has a local talk page the same way, on its ranged page ID, and when the page is forked the fork job moves its threads to the fork's talk page ([0054](0054-forking-a-mirrored-page.md) §5). **A page repository's talk page is followed** when the repository's `talk` is `sync`: its sections are shown on the local talk page as foreign threads, mirrored records with upstream attribution and provider-ranged IDs, beside the local threads, and a fork may follow its upstream talk page the same way ([0069](0069-synchronized-talk-pages.md) §1–3, §7).
 
 ### 3. The `Thread` namespace and thread titles (extends 0008 §1 and §3)
 
@@ -85,7 +86,7 @@ This is what Flow lacked. The title says what the thread is about and when it be
 
 ### 4. The record: four parts (amends 0015 §1)
 
-*Changed by A10, A13.*
+*Changed by A10, A13, A15.*
 
 The payload type `scatter:v0/thread` is added to the `pages` partition's list ([registry](../registry/graphs.toml)). It declares **four** body parts. The first three keep the meaning and index that [0015](0015-record-format-and-partition-registry.md) §1 gives every Triplespace payload type; the fourth is new:
 
@@ -113,9 +114,10 @@ The payload type `scatter:v0/thread` is added to the `pages` partition's list ([
 | `object` | `edit` | The revision ID of the post whose text this replaces |
 | `status` | `post`, `create` | A status value (§6), when the post sets one; on `create`, a thread that arrives already closed, as an import's does ([0054](0054-forking-a-mirrored-page.md) §5) |
 | `mediaType` | `create`, `post`, `edit` (optional) | The text part's media type: `text/markdown` by default, `text/x-wiki` for a post an import writes ([0054](0054-forking-a-mirrored-page.md) §5) |
-| `imported_from` | `create` (optional) | The repository, talk page, revision and archive subpage an imported thread came from ([0054](0054-forking-a-mirrored-page.md) §5) |
+| `imported_from` | `create` (optional) | The repository, talk page, revision and archive subpage an imported thread came from, and the hash of the section's DiscussionTools name where there is one ([0054](0054-forking-a-mirrored-page.md) §5, [0069](0069-synchronized-talk-pages.md) §7) |
 | `also` | `create` (optional) | Further targets listed at creation, each `{target, talk}` ([0049](0049-boards.md) §6) |
-| `target`, `talk` | `attach`, `detach` | The target (a `page` target only) and its talk page ID, minted by an `attach` if the target had none ([0049](0049-boards.md) §6) |
+| `target`, `talk` | `attach`, `detach`, `pin`, `unpin` | The target (a `page` target only) and its talk page ID, minted by an `attach` if the target had none ([0049](0049-boards.md) §6); for `pin` and `unpin`, the attachment pinned or unpinned ([0069](0069-synchronized-talk-pages.md) §4) |
+| `pinned` | `create` (optional) | `true` pins the thread on its home from the start, as an import does for front matter ([0069](0069-synchronized-talk-pages.md) §4, §7) |
 | `keep` | `move` (optional) | `true` keeps the old home as a listing ([0049](0049-boards.md) §6) |
 
 Mentions, links and the rendered HTML are never stored; they are derived from the text part (§5). Nothing in the content part names the record's own ID, which is assigned at append and read from the header.
@@ -173,10 +175,10 @@ The post's revision node of [0001](0001-revision-metadata-rdf.md) §1 is the sam
 
 ### 8. Rendering and the UI (extends 0010)
 
-*Changed by A2, A10.*
+*Changed by A2, A10, A15.*
 
 - **A thread page** shows its posts as a tree, indented to the instance's `thread.max_depth`. A post deeper than that is shown at the limit with a "replying to" link to its parent; its stored parent is unaffected (§1). Each post has an anchor `#post-{revid}`, a permalink (`Special:PermanentLink/{revid}`), reply, edit and history controls, and the hiding controls of 0010 for those who hold the rights.
-- **A talk page** lists its threads, by default in the order they were attached to it, which is creation order unless a thread was moved or listed there, with the newest last, as MediaWiki readers expect, and a switch to order by last activity ([0049](0049-boards.md) §8). Each thread shows its subject, status, home and listings, participant count, last activity, and its posts or a collapsed summary per §6. A "new thread" form creates one attached to this page.
+- **A talk page** lists its pinned threads first, in pin order, exempt from the age rule of §6 ([0069](0069-synchronized-talk-pages.md) §4); then its threads, by default in the order they were attached to it, which is creation order unless a thread was moved or listed there, with the newest last, as MediaWiki readers expect, and a switch to order by last activity ([0049](0049-boards.md) §8). Each thread shows its subject, status, home and listings, participant count, last activity, and its posts or a collapsed summary per §6. A "new thread" form creates one attached to this page. A talk page that follows a repository's talk page also lists that page's sections as foreign threads, by their first comment's time, each marked with its origin, with a filter by origin; its new-thread form offers to post here or upstream ([0069](0069-synchronized-talk-pages.md) §3, §6).
 - **Subject pages** get the talk tab of 0010, with the thread count.
 - **Watching** a subject watches its talk page and the threads attached to it; a thread can be watched on its own. The watchlist is [0020](0020-change-feeds.md).
 - **Editing another actor's post** is permitted only with `ts-editpost` (§12) and always shows an "edited by" note, because a post is speech.
@@ -544,3 +546,14 @@ Replaced text (§6):
 - **Source:** [0067](0067-proposals.md) §3
 - **Change:** extends §1
 - **Summary:** `propose`, `submit` and `withdraw` join the operation table; a `create` may carry `propose`'s fields.
+
+### A15. Followed talk pages and pinned threads
+
+- **Date:** 2026-10-06
+- **Source:** [0069](0069-synchronized-talk-pages.md) §3, §4, §7
+- **Change:** amends §2; extends §1, §4, §8
+- **Summary:** "Foreign talk pages are never loaded" is narrowed to mirrored entities: a page repository with `talk = sync` has its talk pages followed, and their sections are shown as foreign threads beside local ones, as are those of a fork that follows upstream. `pin` and `unpin` join the operations; `create` may carry `pinned`; `imported_from` may carry a section's name hash. Talk pages list pinned threads first and merge foreign threads by time.
+
+Replaced text (§2):
+
+> **Foreign talk pages are never loaded.** The talk page of a mirrored entity holds local threads only.

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-10-04 (A3)
+- **Updated:** 2026-10-06 (A4)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0011](0011-logs.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0022](0022-federation.md), [0023](0023-moderation.md), [0038](0038-page-metadata-and-categories.md), [0041](0041-content-models.md)
 - **Uses:** [0012](0012-api-requirements.md), [0014](0014-caches-and-search.md), [0021](0021-notifications.md), [0028](0028-tenancy-policy.md), [0045](0045-table-content-model.md), [0047](0047-special-pages.md)
@@ -129,20 +129,24 @@ So the home keeps every one of these (§7), and a listing adds only visibility.
 
 ### 6. Records (amends 0019 §1 and §4)
 
+*Changed by A4.*
+
 Two operations join the `scatter:v0/thread` payload type:
 
 | Operation | Meaning | Text part | Base offset |
 |---|---|---|---|
 | `attach` | Lists the thread on another talk page or board | — | Required |
 | `detach` | Removes one listing | — | Required |
+| `pin`, `unpin` | Pins or unpins the thread on one of its attachments ([0069](0069-synchronized-talk-pages.md) §4) | — | Required |
 
 Both carry a summary in the comment part, as `move` does. **Content part fields**, beside those of 0019 §4:
 
 | Field | Present on | Meaning |
 |---|---|---|
 | `also` | `create` (optional) | A list of further targets, each `{target, talk}`, listed at creation |
-| `target`, `talk` | `attach`, `detach` | The target (a `page` target only) and its talk page ID, minted by an `attach` if the target has none |
-| `keep` | `move` (optional) | `true` keeps the old home as a listing |
+| `target`, `talk` | `attach`, `detach`, `pin`, `unpin` | The target (a `page` target only, for `attach` and `detach`) and its talk page ID, minted by an `attach` if the target has none |
+| `keep` | `move` (optional) | `true` keeps the old home as a listing, with its pin if it had one |
+| `pinned` | `create` (optional) | `true` pins the thread on its home from the start ([0069](0069-synchronized-talk-pages.md) §4) |
 
 **Validation**, against the thread's state:
 
@@ -151,7 +155,9 @@ Both carry a summary in the comment part, as `move` does. **Content part fields*
 - A `create` or `move` whose home would be a board with `homes: false` is refused.
 - A `move` to a page that is currently a listing promotes it: the listing is gone and that page is the home. With `keep`, the old home becomes a listing, and the move is refused if the old home is an `actor` target or the limit would be passed.
 
-The fold of 0019 §1 now yields the home and the listing set, each with the revision ID of the record that attached it.
+- A `pin` is refused on a page the thread is not attached to, on one where it is already pinned, or past `thread.max_pinned` (`site`, default 3) pinned threads on that page; an `unpin` where it is not pinned. Detaching a listing, or moving the home without `keep`, ends the pin there ([0069](0069-synchronized-talk-pages.md) §4).
+
+The fold of 0019 §1 now yields the home and the listing set, each with the revision ID of the record that attached it and the time it was pinned there, if it is.
 
 ### 7. What the home decides, and what every attachment shares (amends 0016 §4, 0019 §12, 0023 §2 and §4; extends 0020 §2)
 
@@ -175,7 +181,10 @@ The fold of 0019 §1 now yields the home and the listing set, each with the revi
 
 ### 8. Rendering and the UI (amends 0019 §8)
 
-- **Order.** A talk page or board lists its threads in the order they were attached *to that page*, newest last, with the switch to last activity of 0019 §8. A thread is attached to its home when it is created or moved there, and to a listing when it is listed. This replaces 0019 §8's creation order, so a thread listed on a board today appears as new there rather than among threads from last year. For a thread that never moves and is never listed, the two orders agree.
+*Changed by A4.*
+
+- **Pinned threads first.** Threads pinned on a page come first there, in the order they were pinned, marked with a pin, and are exempt from the age rule of [0019](0019-discussions.md) §6, though not the status rule ([0069](0069-synchronized-talk-pages.md) §4). A thread page has **Pin here** and **Unpin** beside each attachment, for those who hold the rights (§13).
+- **Order.** After the pinned threads, a talk page or board lists its threads in the order they were attached *to that page*, newest last, with the switch to last activity of 0019 §8. A thread is attached to its home when it is created or moved there, and to a listing when it is listed. This replaces 0019 §8's creation order, so a thread listed on a board today appears as new there rather than among threads from last year. For a thread that never moves and is never listed, the two orders agree.
 - **Where a thread lives.** A thread's header shows its home first, marked as home, then its listings, as "Also on …" links. On a listing page, the summary in the listing says "Started on Item talk:Q42".
 - **Attaching.** The new-thread form has an "Also post to…" field that takes titles of talk pages and boards, up to the limit. A thread page has **List on…** and, beside each listing, **Remove from here**, for those who hold the rights (§13). Moving a thread offers "Keep listed on the old page".
 - **A board page** has the tabs Board, Definition (the source editor of [0034](0034-frontend-stack.md), as for a table) and History. It shows the new-thread form when `homes` is true.
@@ -217,6 +226,8 @@ A board's definition is read and written with the page routes of [0012](0012-api
 
 ### 12. Storage, caches and search (extends 0019 §11)
 
+*Changed by A4.*
+
 ```sql
 CREATE TABLE view.thread_attachment (
   thread_id bigint NOT NULL REFERENCES view.thread,
@@ -224,6 +235,7 @@ CREATE TABLE view.thread_attachment (
   home boolean NOT NULL,
   attached timestamptz NOT NULL,
   attached_revid bigint NOT NULL,          -- the record that attached it here
+  pinned timestamptz,                      -- when it was pinned here, if it is (0069 §4)
   PRIMARY KEY (thread_id, talk_page_id)
 );
 CREATE INDEX thread_attachment_talk ON view.thread_attachment (talk_page_id, attached);
@@ -237,12 +249,15 @@ CREATE UNIQUE INDEX thread_attachment_home ON view.thread_attachment (thread_id)
 
 ### 13. Permissions (extends 0019 §12)
 
+*Changed by A4.*
+
 | Action | Needs | Default groups |
 |---|---|---|
 | Create a board | `createpage` in 310 | `user`, `temp` |
 | Edit a board's definition | `edit` on the board | `user`, `temp` |
 | `create` with `also` | `edit` on the home and on each listed target | `user`, `temp` |
 | `attach`, `detach` | `move` on the thread, and `edit` on the target | `autoconfirmed` |
+| `pin`, `unpin` | `move` on the thread, and `edit` on the page ([0069](0069-synchronized-talk-pages.md) §4) | `autoconfirmed` |
 
 `edit` on the target means that a board protected to `sysop` decides for itself what is listed on it and what is removed. A tenant that wants fewer boards restricts `createpage` in namespace 310 with an ACL ([0023](0023-moderation.md) §1).
 
@@ -288,7 +303,7 @@ The kinds are those of [0060](0060-scopes.md) §4, each selecting the threads at
 
 - **Q1. `Group` handles for boards.** 0022 §6 addresses a talk page's `Group` by its subject's title. A board's title is free text, and could match an entity ID or a username.
 - **Q2.** ~~**Scopes** (§14): which kinds come first, whether a scoped board's members are announced and notify watchers as listed ones do, and the bound on a scope's size for feeds (`feeds.related_limit`, [0020](0020-change-feeds.md) §2).~~ *Settled by [0060](0060-scopes.md) §6: the kinds are 0060 §4's plus `thread_statement` and `boards`, and the bound is `scopes.max_members`; the announcement question is Q7.*
-- **Q3. Pinned threads.** Whether a board's definition may name threads to show first, as an announcements board needs.
+- **Q3.** ~~**Pinned threads.** Whether a board's definition may name threads to show first, as an announcements board needs.~~ *Settled by [0069](0069-synchronized-talk-pages.md) §4: not in the definition; `pin` and `unpin` records pin a thread on any one of its attachments, talk pages and boards alike.*
 - **Q4. Detaching one's own thread.** Whether a thread's author may remove their thread from a listing without `move`.
 - **Q5. Board moderators.** Whether a board needs a group of its own beyond what ACLs on it express.
 - **Q6. DiscussionTools** (0019 Q4): which page a `discussiontoolspageinfo` call on a listing page reports for a listed thread.
@@ -376,3 +391,10 @@ Replaced text (§14):
 > | `boards` | The threads of other boards, which is how boards nest |
 >
 > `statement` is where manual and automatic meet: a person states a thread's topic once, and every board scoped to that topic shows it.
+
+### A4. Pinned threads
+
+- **Date:** 2026-10-06
+- **Source:** [0069](0069-synchronized-talk-pages.md) §4
+- **Change:** extends §6, §8, §12, §13
+- **Summary:** The `pin` and `unpin` operations, and `pinned` on `create`, pin a thread on one of its attachments; pinned threads come first, in pin order, exempt from the age rule; `thread.max_pinned` (default 3); `view.thread_attachment.pinned`; the rights of `attach`. A detach or a move without `keep` ends the pin. Q3 settled.
