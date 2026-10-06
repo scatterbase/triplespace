@@ -7,7 +7,11 @@
 //!
 //! An append locks the partition's row (`FOR UPDATE`), takes `next_offset`, inserts the
 //! record and its Merkle nodes, and advances the offset; a rollback releases it, so
-//! offsets stay gapless (0006 §3). Erasure rewrites the body in place and marks the
+//! offsets stay gapless (0006 §3). The tree nodes an append completes, and the new root,
+//! come from the partition's [`Frontier`], which a writer carries in a [`Frontiers`]
+//! across the appends of one unit of work: loaded once per partition from the stored
+//! nodes, checked against `next_offset` under the lock on every append, so the append
+//! itself reads nothing back from `log.merkle_node`. Erasure rewrites the body in place and marks the
 //! `erased` bitmask (bit *i* for part *i* below 15; bit 15 for any part beyond).
 //! Compaction deletes the row; the leaf stays in `log.merkle_node` (0006 A14).
 
@@ -15,8 +19,10 @@ use scatter_log::body::Body;
 use scatter_log::header::Header;
 use scatter_log::record::Record;
 use scatter_log::store::{Appended, Draft, Head, LogStore, Slot, StoreError, check_restorable};
-use scatter_log::tree::Segments;
-use tokio_postgres::{Client, GenericClient, Transaction};
+use scatter_log::tree::{Frontier, Segments};
+use tokio_postgres::{Client, Transaction};
+
+use crate::client::PgClient;
 
 use crate::ids::{from_db, partition_from_db, partition_to_db, record_table, to_db};
 use crate::merkle;
@@ -27,13 +33,61 @@ use crate::storage_error;
 #[derive(Debug)]
 pub struct PgLog<C> {
     client: C,
+    frontiers: Frontiers,
+}
+
+/// The frontiers of the partitions a writer has appended to, by partition. One per unit
+/// of work: a frontier is valid for as long as the writer holds the partition's row
+/// lock, and [`Frontiers::load`] reloads one whose size disagrees with `next_offset`,
+/// which is how an append after another writer's, or after a rollback, recovers.
+#[derive(Debug, Default)]
+pub struct Frontiers {
+    by_partition: std::collections::HashMap<u64, Frontier>,
+}
+
+impl Frontiers {
+    /// No frontiers yet.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// The frontier of a partition at `size` leaves: the cached one when its size agrees,
+    /// else read from the stored nodes.
+    pub async fn load<C: PgClient>(
+        &mut self,
+        client: &C,
+        partition: u64,
+        size: u64,
+    ) -> Result<&mut Frontier, StoreError> {
+        let stale = self
+            .by_partition
+            .get(&partition)
+            .is_none_or(|f| f.size() != size);
+        if stale {
+            let f = merkle::frontier(client, partition, size).await?;
+            self.by_partition.insert(partition, f);
+        }
+        Ok(self
+            .by_partition
+            .get_mut(&partition)
+            .expect("just inserted"))
+    }
+
+    /// Forgets a partition's frontier, as after a failed append.
+    pub fn forget(&mut self, partition: u64) {
+        self.by_partition.remove(&partition);
+    }
 }
 
 impl<C> PgLog<C> {
     /// Wraps a client (every mutating call in its own transaction) or a borrowed
     /// transaction (joining it).
     pub fn new(client: C) -> Self {
-        Self { client }
+        Self {
+            client,
+            frontiers: Frontiers::new(),
+        }
     }
 
     /// The client or transaction.
@@ -61,7 +115,7 @@ pub fn erased_mask(parts: impl IntoIterator<Item = usize>) -> i16 {
 }
 
 /// Registers a partition with its registry row and creates its record table.
-pub async fn create_partition<C: GenericClient + Sync>(
+pub async fn create_partition<C: PgClient>(
     client: &C,
     partition: u64,
     segments: Segments,
@@ -105,7 +159,7 @@ pub async fn create_partition<C: GenericClient + Sync>(
 }
 
 /// Every partition, ascending by ID.
-pub async fn partitions<C: GenericClient + Sync>(client: &C) -> Result<Vec<u64>, StoreError> {
+pub async fn partitions<C: PgClient>(client: &C) -> Result<Vec<u64>, StoreError> {
     let rows = client
         .query("SELECT partition FROM log.partition", &[])
         .await
@@ -123,7 +177,7 @@ struct PartitionRow {
     segments: Segments,
 }
 
-async fn partition_row<C: GenericClient + Sync>(
+async fn partition_row<C: PgClient>(
     client: &C,
     partition: u64,
     lock: bool,
@@ -150,7 +204,7 @@ async fn partition_row<C: GenericClient + Sync>(
 }
 
 /// The partition's size, root and layout.
-pub async fn head<C: GenericClient + Sync>(client: &C, partition: u64) -> Result<Head, StoreError> {
+pub async fn head<C: PgClient>(client: &C, partition: u64) -> Result<Head, StoreError> {
     let row = partition_row(client, partition, false).await?;
     Ok(Head {
         size: row.size,
@@ -159,7 +213,7 @@ pub async fn head<C: GenericClient + Sync>(client: &C, partition: u64) -> Result
     })
 }
 
-async fn insert_record<C: GenericClient + Sync>(
+async fn insert_record<C: PgClient>(
     client: &C,
     partition: u64,
     record: &Record,
@@ -194,44 +248,68 @@ async fn insert_record<C: GenericClient + Sync>(
     Ok(())
 }
 
-async fn advance<C: GenericClient + Sync>(
+/// Writes the tree nodes the leaf at `offset` completes and moves `next_offset` past it.
+/// The frontier is the partition's at `offset` leaves; it is advanced here, and dropped
+/// from the cache if the write fails, so a retry reloads it.
+async fn advance<C: PgClient>(
     client: &C,
     partition: u64,
     offset: u64,
     leaf: [u8; 32],
+    frontiers: &mut Frontiers,
 ) -> Result<Appended, StoreError> {
-    merkle::put_leaf(client, partition, offset, leaf).await?;
-    client
-        .execute(
-            "UPDATE log.partition SET next_offset = $2 WHERE partition = $1",
-            &[&partition_to_db(partition), &to_db(offset + 1)?],
-        )
-        .await
-        .map_err(|e| storage_error(&e))?;
-    Ok(Appended {
-        offset,
-        leaf,
-        root: merkle::root(client, partition, offset + 1).await?,
-    })
+    let frontier = frontiers.load(client, partition, offset).await?;
+    let nodes = frontier.push_leaf_completing(leaf);
+    let root = frontier.root();
+    let written = async {
+        merkle::put_nodes(client, partition, &nodes).await?;
+        client
+            .execute(
+                "UPDATE log.partition SET next_offset = $2 WHERE partition = $1",
+                &[&partition_to_db(partition), &to_db(offset + 1)?],
+            )
+            .await
+            .map_err(|e| storage_error(&e))?;
+        Ok::<(), StoreError>(())
+    }
+    .await;
+    if let Err(e) = written {
+        frontiers.forget(partition);
+        return Err(e);
+    }
+    Ok(Appended { offset, leaf, root })
 }
 
-/// Appends a draft at the next offset. Must run inside a transaction.
-pub async fn append<C: GenericClient + Sync>(
+/// Appends a draft at the next offset, carrying the partition's frontier in `frontiers`
+/// (0013 §2). Must run inside a transaction.
+pub async fn append_with<C: PgClient>(
     client: &C,
     partition: u64,
     draft: Draft,
+    frontiers: &mut Frontiers,
 ) -> Result<Appended, StoreError> {
     let row = partition_row(client, partition, true).await?;
     let record = draft.seal(partition, row.size);
     insert_record(client, partition, &record, 0).await?;
-    advance(client, partition, row.size, record.leaf()).await
+    advance(client, partition, row.size, record.leaf(), frontiers).await
+}
+
+/// Appends a draft at the next offset, with no frontier carried between calls: the
+/// frontier is read once from the stored nodes. Must run inside a transaction.
+pub async fn append<C: PgClient>(
+    client: &C,
+    partition: u64,
+    draft: Draft,
+) -> Result<Appended, StoreError> {
+    append_with(client, partition, draft, &mut Frontiers::new()).await
 }
 
 /// Restores a slot at the next offset. Must run inside a transaction.
-pub async fn append_slot<C: GenericClient + Sync>(
+pub async fn append_slot_with<C: PgClient>(
     client: &C,
     partition: u64,
     slot: Slot,
+    frontiers: &mut Frontiers,
 ) -> Result<Appended, StoreError> {
     let row = partition_row(client, partition, true).await?;
     check_restorable(&slot, partition, row.size)?;
@@ -248,7 +326,16 @@ pub async fn append_slot<C: GenericClient + Sync>(
         );
         insert_record(client, partition, record, erased).await?;
     }
-    advance(client, partition, row.size, leaf).await
+    advance(client, partition, row.size, leaf, frontiers).await
+}
+
+/// Restores a slot at the next offset, with no frontier carried between calls.
+pub async fn append_slot<C: PgClient>(
+    client: &C,
+    partition: u64,
+    slot: Slot,
+) -> Result<Appended, StoreError> {
+    append_slot_with(client, partition, slot, &mut Frontiers::new()).await
 }
 
 fn record_from(header: &[u8], body: &[u8]) -> Result<Record, StoreError> {
@@ -256,7 +343,7 @@ fn record_from(header: &[u8], body: &[u8]) -> Result<Record, StoreError> {
 }
 
 /// The slot at an offset.
-pub async fn read<C: GenericClient + Sync>(
+pub async fn read<C: PgClient>(
     client: &C,
     partition: u64,
     offset: u64,
@@ -285,13 +372,13 @@ pub async fn read<C: GenericClient + Sync>(
 
 /// Every record under a header key, in offset order: the replay a projection does to
 /// fold one subject's history (0013 §2: the `(key, "offset")` index). Compacted offsets
-/// have no row and are not returned.
-pub async fn read_by_key<C: GenericClient + Sync>(
+/// have no row and are not returned; nor is anything for a partition that does not
+/// exist, since its caller has the partition from the registry already.
+pub async fn read_by_key<C: PgClient>(
     client: &C,
     partition: u64,
     key: &str,
 ) -> Result<Vec<(u64, Record)>, StoreError> {
-    partition_row(client, partition, false).await?;
     let rows = client
         .query(
             "SELECT \"offset\", header, body FROM log.record
@@ -306,7 +393,7 @@ pub async fn read_by_key<C: GenericClient + Sync>(
 }
 
 /// Up to `limit` records from `from`.
-pub async fn scan<C: GenericClient + Sync>(
+pub async fn scan<C: PgClient>(
     client: &C,
     partition: u64,
     from: u64,
@@ -335,7 +422,7 @@ pub async fn scan<C: GenericClient + Sync>(
 
 /// Erases parts of a record, recording `erased_by`, the offset of the `erase` record
 /// (0013 §3), when the caller has one. Must run inside a transaction.
-pub async fn erase_parts<C: GenericClient + Sync>(
+pub async fn erase_parts<C: PgClient>(
     client: &C,
     partition: u64,
     offset: u64,
@@ -378,7 +465,7 @@ pub async fn erase_parts<C: GenericClient + Sync>(
 }
 
 /// Deletes records, leaving their leaves. Must run inside a transaction.
-pub async fn compact<C: GenericClient + Sync>(
+pub async fn compact<C: PgClient>(
     client: &C,
     partition: u64,
     offsets: &[u64],
@@ -406,7 +493,7 @@ pub async fn compact<C: GenericClient + Sync>(
 
 /// Compacts a `latest` partition by key: every record for each key but the newest
 /// (0013 §3). Returns the offsets removed. Must run inside a transaction.
-pub async fn compact_keys<C: GenericClient + Sync>(
+pub async fn compact_keys<C: PgClient>(
     client: &C,
     partition: u64,
     keys: &[String],
@@ -460,7 +547,7 @@ impl LogStore for PgLog<Client> {
             .transaction()
             .await
             .map_err(|e| storage_error(&e))?;
-        let a = append(&tx, partition, draft).await?;
+        let a = append_with(&tx, partition, draft, &mut self.frontiers).await?;
         tx.commit().await.map_err(|e| storage_error(&e))?;
         Ok(a)
     }
@@ -471,7 +558,7 @@ impl LogStore for PgLog<Client> {
             .transaction()
             .await
             .map_err(|e| storage_error(&e))?;
-        let a = append_slot(&tx, partition, slot).await?;
+        let a = append_slot_with(&tx, partition, slot, &mut self.frontiers).await?;
         tx.commit().await.map_err(|e| storage_error(&e))?;
         Ok(a)
     }
@@ -539,11 +626,11 @@ impl LogStore for PgLog<&Transaction<'_>> {
     }
 
     async fn append(&mut self, partition: u64, draft: Draft) -> Result<Appended, StoreError> {
-        append(self.client, partition, draft).await
+        append_with(self.client, partition, draft, &mut self.frontiers).await
     }
 
     async fn append_slot(&mut self, partition: u64, slot: Slot) -> Result<Appended, StoreError> {
-        append_slot(self.client, partition, slot).await
+        append_slot_with(self.client, partition, slot, &mut self.frontiers).await
     }
 
     async fn read(&self, partition: u64, offset: u64) -> Result<Slot, StoreError> {

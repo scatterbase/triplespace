@@ -22,6 +22,9 @@ scatter-providers.workspace = true
 oxrdf.workspace = true
 tokio-postgres.workspace = true
 deadpool-postgres.workspace = true
+# `try_join!` only: the projections send independent statements of one record together,
+# which tokio-postgres pipelines on the one connection.
+tokio = { workspace = true, features = ["macros"] }
 serde_json.workspace = true
 thiserror.workspace = true
 

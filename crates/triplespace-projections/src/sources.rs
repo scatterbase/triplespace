@@ -16,6 +16,7 @@ use crate::common::{
     PAYLOAD_CHANGESET, PAYLOAD_KEYED_SURROGATE, PartitionInfo, attested, content, offset_db,
     operation, parse_surrogate_key, partition_info, quote, time_of,
 };
+use scatter_log_postgres::PgClient;
 
 fn sql(e: &tokio_postgres::Error) -> String {
     e.to_string()
@@ -72,7 +73,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for KeyedSurrogateProjection {
     ) -> BoxFuture<'a, Result<Applied, String>> {
         Box::pin(async move {
             let h = record.header();
-            let tenant = partition_info(cx.conn(), h.partition).await?.tenant;
+            let tenant = partition_info(cx, h.partition).await?.tenant;
             let key = h
                 .key
                 .as_deref()
@@ -101,9 +102,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for KeyedSurrogateProjection {
                     )
                 }
             };
-            let n = cx
-                .conn()
-                .execute(
+            let n = cx.execute(
                     "INSERT INTO view.keyed_surrogate (tenant, keyed_type, surrogate, key) VALUES ($1, $2, $3, $4)
                      ON CONFLICT (tenant, keyed_type, surrogate) DO UPDATE SET key = EXCLUDED.key",
                     &[&tenant, &keyed_type, &surrogate, &mapped],
@@ -116,14 +115,13 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for KeyedSurrogateProjection {
 
     fn reset<'a>(&'a self, cx: &'a mut PgCx, partition: u64) -> BoxFuture<'a, Result<(), String>> {
         Box::pin(async move {
-            let tenant = partition_info(cx.conn(), partition).await?.tenant;
-            cx.conn()
-                .batch_execute(&format!(
-                    "DELETE FROM view.keyed_surrogate WHERE tenant = {}",
-                    quote(&tenant)
-                ))
-                .await
-                .map_err(|e| sql(&e))
+            let tenant = partition_info(cx, partition).await?.tenant;
+            cx.batch_execute(&format!(
+                "DELETE FROM view.keyed_surrogate WHERE tenant = {}",
+                quote(&tenant)
+            ))
+            .await
+            .map_err(|e| sql(&e))
         })
     }
 }
@@ -166,8 +164,7 @@ impl EntitySourceProjection {
             .map(i64::try_from)
             .transpose()
             .map_err(|e| e.to_string())?;
-        cx.conn()
-            .execute(
+        cx.execute(
                 "INSERT INTO view.entity_source
                    (tenant, entity_id, graph, \"offset\", upstream_version, prev_upstream, content_hash, size, synced_at, job_id)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
@@ -193,13 +190,12 @@ impl EntitySourceProjection {
     }
 
     async fn delete(cx: &PgCx, tenant: &str, id: &EntityId, graph: &str) -> Result<u64, String> {
-        cx.conn()
-            .execute(
-                "DELETE FROM view.entity_source WHERE tenant = $1 AND entity_id = $2 AND graph = $3",
-                &[&tenant, &id.as_str(), &graph],
-            )
-            .await
-            .map_err(|e| sql(&e))
+        cx.execute(
+            "DELETE FROM view.entity_source WHERE tenant = $1 AND entity_id = $2 AND graph = $3",
+            &[&tenant, &id.as_str(), &graph],
+        )
+        .await
+        .map_err(|e| sql(&e))
     }
 }
 
@@ -235,7 +231,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for EntitySourceProjection {
         record: &'a Record,
     ) -> BoxFuture<'a, Result<Applied, String>> {
         Box::pin(async move {
-            let info = partition_info(cx.conn(), record.header().partition).await?;
+            let info = partition_info(cx, record.header().partition).await?;
             let Some(op) = operation(record)? else {
                 return Ok(Applied::default());
             };
@@ -306,15 +302,14 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for EntitySourceProjection {
 
     fn reset<'a>(&'a self, cx: &'a mut PgCx, partition: u64) -> BoxFuture<'a, Result<(), String>> {
         Box::pin(async move {
-            let info = partition_info(cx.conn(), partition).await?;
-            cx.conn()
-                .execute(
-                    "DELETE FROM view.entity_source WHERE tenant = $1 AND graph = $2",
-                    &[&info.tenant, &info.name],
-                )
-                .await
-                .map(|_| ())
-                .map_err(|e| sql(&e))
+            let info = partition_info(cx, partition).await?;
+            cx.execute(
+                "DELETE FROM view.entity_source WHERE tenant = $1 AND graph = $2",
+                &[&info.tenant, &info.name],
+            )
+            .await
+            .map(|_| ())
+            .map_err(|e| sql(&e))
         })
     }
 }
@@ -370,7 +365,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for KeyedMapProjection {
         record: &'a Record,
     ) -> BoxFuture<'a, Result<Applied, String>> {
         Box::pin(async move {
-            let info: PartitionInfo = partition_info(cx.conn(), record.header().partition).await?;
+            let info: PartitionInfo = partition_info(cx, record.header().partition).await?;
             let Some(slug) = info.provider_slug() else {
                 return Ok(Applied::default());
             };
@@ -385,8 +380,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for KeyedMapProjection {
                 } if id.form() == IdForm::Keyed => {
                     let (keyed_type, key) =
                         id.keyed_parts().ok_or("a keyed ID has a type and a key")?;
-                    cx.conn()
-                        .execute(
+                    cx.execute(
                             "INSERT INTO view.keyed_map (tenant, provider, upstream_id, keyed_type, key)
                              VALUES ($1, $2, $3, $4, $5)
                              ON CONFLICT (tenant, provider, upstream_id) DO UPDATE
@@ -402,8 +396,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for KeyedMapProjection {
                     let Some(upstream) = self.upstream_form(id) else {
                         return Ok(Applied::default());
                     };
-                    cx.conn()
-                        .execute(
+                    cx.execute(
                             "DELETE FROM view.keyed_map WHERE tenant = $1 AND provider = $2 AND upstream_id = $3",
                             &[&info.tenant, &slug, &upstream],
                         )
@@ -418,18 +411,17 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for KeyedMapProjection {
 
     fn reset<'a>(&'a self, cx: &'a mut PgCx, partition: u64) -> BoxFuture<'a, Result<(), String>> {
         Box::pin(async move {
-            let info = partition_info(cx.conn(), partition).await?;
+            let info = partition_info(cx, partition).await?;
             let Some(slug) = info.provider_slug() else {
                 return Ok(());
             };
-            cx.conn()
-                .execute(
-                    "DELETE FROM view.keyed_map WHERE tenant = $1 AND provider = $2",
-                    &[&info.tenant, &slug],
-                )
-                .await
-                .map(|_| ())
-                .map_err(|e| sql(&e))
+            cx.execute(
+                "DELETE FROM view.keyed_map WHERE tenant = $1 AND provider = $2",
+                &[&info.tenant, &slug],
+            )
+            .await
+            .map(|_| ())
+            .map_err(|e| sql(&e))
         })
     }
 }

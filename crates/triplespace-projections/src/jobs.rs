@@ -12,6 +12,7 @@ use crate::backend::PgCx;
 use crate::common::{
     PAYLOAD_LOGEVENT, attested, content, offset_db, partition_info, time_of, to_jsonb,
 };
+use scatter_log_postgres::PgClient;
 
 fn sql(e: &tokio_postgres::Error) -> String {
     e.to_string()
@@ -52,8 +53,7 @@ async fn start(cx: &PgCx, ev: &Event<'_>, record: &Record) -> Result<u64, String
     let args = params
         .get("args")
         .map_or_else(|| serde_json::json!({}), to_jsonb);
-    cx.conn()
-            .execute(
+    cx.execute(
                 "INSERT INTO view.job (tenant, job_id, actor_key, requested_by, source, source_version, adapter_version,
                                        mode, graph, params, status, started, start_offset)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'running', $11, $12)
@@ -118,7 +118,6 @@ async fn close(cx: &PgCx, ev: &Event<'_>, action: &str) -> Result<u64, String> {
         .and_then(Value::as_u64)
         .and_then(|n| i32::try_from(n).ok());
     let mut n = cx
-        .conn()
         .execute(
             "UPDATE view.job SET status = $3, finished = $4, counts = $5, checkpoint_size = $6,
                                      sweep_count = $7, sweep_threshold = $8, finish_offset = $9
@@ -153,9 +152,7 @@ async fn close(cx: &PgCx, ev: &Event<'_>, action: &str) -> Result<u64, String> {
                 .get("match")
                 .map(|m| serde_json::to_string(&to_jsonb(m)).unwrap_or_default());
             let reason = text(r, "reason").unwrap_or_default();
-            n += cx
-                    .conn()
-                    .execute(
+            n += cx.execute(
                         "INSERT INTO view.job_reject (tenant, job_id, line, match_key, reason) VALUES ($1, $2, $3, $4, $5)
                          ON CONFLICT (tenant, job_id, line) DO UPDATE SET match_key = EXCLUDED.match_key, reason = EXCLUDED.reason",
                         &[&tenant, &job_id, &line, &match_key, &reason],
@@ -192,9 +189,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for JobProjection {
             if !event.get("type").is_some_and(|t| t.text_eq("job")) {
                 return Ok(Applied::default());
             }
-            let tenant = partition_info(cx.conn(), record.header().partition)
-                .await?
-                .tenant;
+            let tenant = partition_info(cx, record.header().partition).await?.tenant;
             let action = event
                 .get("action")
                 .and_then(Value::as_text)
@@ -253,13 +248,11 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for JobProjection {
 
     fn reset<'a>(&'a self, cx: &'a mut PgCx, partition: u64) -> BoxFuture<'a, Result<(), String>> {
         Box::pin(async move {
-            let tenant = partition_info(cx.conn(), partition).await?.tenant;
-            cx.conn()
-                .execute("DELETE FROM view.job_reject WHERE tenant = $1", &[&tenant])
+            let tenant = partition_info(cx, partition).await?.tenant;
+            cx.execute("DELETE FROM view.job_reject WHERE tenant = $1", &[&tenant])
                 .await
                 .map_err(|e| sql(&e))?;
-            cx.conn()
-                .execute("DELETE FROM view.job WHERE tenant = $1", &[&tenant])
+            cx.execute("DELETE FROM view.job WHERE tenant = $1", &[&tenant])
                 .await
                 .map(|_| ())
                 .map_err(|e| sql(&e))

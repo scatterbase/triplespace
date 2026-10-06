@@ -4,13 +4,15 @@ use scatter_ingest::{Cursor, IngestError, IngestStore, Sequence};
 use scatter_log::header::Header;
 use scatter_log::record::Record;
 use scatter_log::store::{Appended, Draft, Slot};
-use scatter_log_postgres::ids::{from_db, partition_from_db, partition_to_db};
+use scatter_log_postgres::PgClient;
+use scatter_log_postgres::ids::{from_db, partition_to_db};
 use scatter_log_postgres::{log, sequences};
 use scatter_projection::{Backend, ProjectionError, Work};
 use scatter_wikibase_changeset::{MatchKey, Operation};
 use scatter_wikibase_model::id::EntityId;
 use scatter_wikibase_model::key::{Identity, value_key};
 use scatter_wikibase_model::value::{DataType, DataValue};
+use triplespace_projections::common::Partitions;
 use triplespace_projections::{PgBackend, PgCx};
 
 /// The store: the projections' backend plus the ingest reads.
@@ -67,9 +69,7 @@ impl PgIngest {
         tenant: &str,
         property: &EntityId,
     ) -> Result<Option<DataType>, IngestError> {
-        let row = cx
-            .conn()
-            .query_opt(
+        let row = cx.query_opt(
                 "SELECT tenant, resolved FROM view.entity WHERE id = $1 AND (tenant = $2 OR tenant = '') AND type = 'property'
                  ORDER BY tenant DESC LIMIT 1",
                 &[&property.as_str(), &tenant],
@@ -87,9 +87,7 @@ impl PgIngest {
                 .map(DataType::parse));
         }
         let owner: String = row.get(0);
-        let source = cx
-            .conn()
-            .query_opt(
+        let source = cx.query_opt(
                 "SELECT graph, \"offset\" FROM view.entity_source WHERE entity_id = $1 AND (tenant = $2 OR tenant = '')
                  ORDER BY tenant DESC LIMIT 1",
                 &[&property.as_str(), &owner],
@@ -109,7 +107,7 @@ impl PgIngest {
         let Some(partition) = partition_lookup(cx, partition_owner, &graph).await? else {
             return Ok(None);
         };
-        let Slot::Record(record) = log::read(cx.conn(), partition, offset).await? else {
+        let Slot::Record(record) = log::read(cx, partition, offset).await? else {
             return Ok(None);
         };
         let Some(content) = record.body().content().value().map_err(store)? else {
@@ -125,16 +123,9 @@ async fn partition_lookup(
     tenant: &str,
     graph: &str,
 ) -> Result<Option<u64>, IngestError> {
-    let tenant = (!tenant.is_empty()).then_some(tenant);
-    let row = cx
-        .conn()
-        .query_opt(
-            "SELECT partition FROM log.partition WHERE tenant IS NOT DISTINCT FROM $1 AND name = $2",
-            &[&tenant, &graph],
-        )
+    cx.partition_of(tenant, graph)
         .await
-        .map_err(store)?;
-    Ok(row.map(|r| partition_from_db(r.get(0))))
+        .map_err(IngestError::Store)
 }
 
 impl Backend for PgIngest {
@@ -194,7 +185,8 @@ impl IngestStore for PgIngest {
         partition: u64,
         draft: Draft,
     ) -> Result<Appended, IngestError> {
-        Ok(log::append(cx.conn(), partition, draft).await?)
+        let (conn, frontiers) = cx.for_append();
+        Ok(log::append_with(conn, partition, draft, frontiers).await?)
     }
 
     async fn read(
@@ -203,7 +195,7 @@ impl IngestStore for PgIngest {
         partition: u64,
         offset: u64,
     ) -> Result<Option<Record>, IngestError> {
-        match log::read(cx.conn(), partition, offset).await? {
+        match log::read(cx, partition, offset).await? {
             Slot::Record(r) => Ok(Some(r)),
             Slot::Compacted { .. } => Ok(None),
         }
@@ -215,9 +207,7 @@ impl IngestStore for PgIngest {
         partition: u64,
         key: &str,
     ) -> Result<Option<(u64, Header)>, IngestError> {
-        let row = cx
-            .conn()
-            .query_opt(
+        let row = cx.query_opt(
                 "SELECT \"offset\", header FROM log.record WHERE partition = $1 AND key = $2 ORDER BY \"offset\" DESC LIMIT 1",
                 &[&partition_to_db(partition), &key],
             )
@@ -239,9 +229,7 @@ impl IngestStore for PgIngest {
         key: &str,
     ) -> Result<Option<u64>, IngestError> {
         let tenant = (!tenant.is_empty()).then_some(tenant);
-        let row = cx
-            .conn()
-            .query_opt(
+        let row = cx.query_opt(
                 "SELECT r.page_id FROM log.record r JOIN log.partition p ON p.partition = r.partition
                  WHERE r.key = $1 AND r.page_id IS NOT NULL AND (p.tenant IS NOT DISTINCT FROM $2 OR p.tenant IS NULL)
                  LIMIT 1",
@@ -268,7 +256,7 @@ impl IngestStore for PgIngest {
         tenant: &str,
         seq: &Sequence,
     ) -> Result<u64, IngestError> {
-        Ok(sequences::next(cx.conn(), tenant, &sequence(seq)).await?)
+        Ok(sequences::next(cx, tenant, &sequence(seq)).await?)
     }
 
     async fn floor(
@@ -278,7 +266,7 @@ impl IngestStore for PgIngest {
         seq: &Sequence,
         consumed: u64,
     ) -> Result<(), IngestError> {
-        Ok(sequences::floor(cx.conn(), tenant, &sequence(seq), consumed).await?)
+        Ok(sequences::floor(cx, tenant, &sequence(seq), consumed).await?)
     }
 
     async fn cursor(
@@ -293,9 +281,7 @@ impl IngestStore for PgIngest {
         } else {
             tenant
         };
-        let row = cx
-            .conn()
-            .query_opt(
+        let row = cx.query_opt(
                 "SELECT \"offset\", upstream_version, content_hash, synced_at, size FROM view.entity_source
                  WHERE tenant = $1 AND entity_id = $2 AND graph = $3",
                 &[&owner, &entity_id.as_str(), &graph],
@@ -332,7 +318,6 @@ impl IngestStore for PgIngest {
             tenant
         };
         let rows = cx
-            .conn()
             .query(
                 "SELECT entity_id FROM view.entity_source WHERE tenant = $1 AND graph = $2",
                 &[&owner, &graph],
@@ -360,7 +345,6 @@ impl IngestStore for PgIngest {
                         &Identity,
                     );
                     let row = cx
-                        .conn()
                         .query_opt(
                             "SELECT entity_id FROM view.identifier
                              WHERE (tenant = $1 OR tenant = '') AND property = $2 AND value_key = $3
@@ -376,9 +360,7 @@ impl IngestStore for PgIngest {
                 Ok(None)
             }
             MatchKey::Entity(id) => {
-                let row = cx
-                    .conn()
-                    .query_opt(
+                let row = cx.query_opt(
                         "SELECT 1 FROM view.entity WHERE id = $1 AND (tenant = $2 OR tenant = '') LIMIT 1",
                         &[&id.as_str(), &tenant],
                     )
@@ -395,9 +377,7 @@ impl IngestStore for PgIngest {
         keyed_type: &str,
         key: &str,
     ) -> Result<Option<u64>, IngestError> {
-        let row = cx
-            .conn()
-            .query_opt(
+        let row = cx.query_opt(
                 "SELECT surrogate FROM view.keyed_surrogate WHERE tenant = '' AND keyed_type = $1 AND key = $2",
                 &[&keyed_type, &key],
             )
@@ -419,9 +399,7 @@ impl IngestStore for PgIngest {
     async fn only_adoptions(&self, cx: &mut PgCx, partition: u64) -> Result<bool, IngestError> {
         // The activity projection names every change set's operation; the write path
         // projects inline, so it is current for anything this instance wrote.
-        let row = cx
-            .conn()
-            .query_one(
+        let row = cx.query_one(
                 "SELECT NOT EXISTS (SELECT 1 FROM view.activity WHERE partition = $1 AND kind IN ('edit', 'erased')
                                     AND (summary_op IS DISTINCT FROM 'adopt'))",
                 &[&partition_to_db(partition)],
@@ -437,7 +415,6 @@ impl IngestStore for PgIngest {
         tenant: &str,
     ) -> Result<Vec<String>, IngestError> {
         let rows = cx
-            .conn()
             .query(
                 "SELECT DISTINCT source FROM view.job WHERE tenant = $1 AND mode = 'adopt'",
                 &[&tenant],

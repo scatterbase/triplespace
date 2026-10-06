@@ -7,8 +7,8 @@
 //! `wb_id_counters`; an adoption sets a tenant's floors past what the source consumed
 //! (0035 §4). The empty tenant `""` names the instance.
 
+use crate::client::PgClient;
 use scatter_log::store::StoreError;
-use tokio_postgres::GenericClient;
 
 use crate::ids::{from_db, to_db};
 use crate::storage_error;
@@ -69,7 +69,7 @@ fn sequence_name(tenant: &str, seq: &Sequence) -> Result<String, StoreError> {
 
 /// Creates the sequences for a tenant, if they do not exist. Entity types are given
 /// by name.
-pub async fn create<C: GenericClient + Sync>(
+pub async fn create<C: PgClient>(
     client: &C,
     tenant: &str,
     entity_types: &[&str],
@@ -95,7 +95,7 @@ pub async fn create<C: GenericClient + Sync>(
 
 /// Creates the instance's sequences, if they do not exist: job, log and page IDs, and a
 /// surrogate counter per keyed type, given by name.
-pub async fn create_instance<C: GenericClient + Sync>(
+pub async fn create_instance<C: PgClient>(
     client: &C,
     keyed_types: &[&str],
 ) -> Result<(), StoreError> {
@@ -108,7 +108,7 @@ pub async fn create_instance<C: GenericClient + Sync>(
     create_all(client, INSTANCE, &seqs).await
 }
 
-async fn create_all<C: GenericClient + Sync>(
+async fn create_all<C: PgClient>(
     client: &C,
     tenant: &str,
     seqs: &[Sequence],
@@ -129,7 +129,7 @@ async fn create_all<C: GenericClient + Sync>(
 }
 
 /// The next value of a sequence.
-pub async fn next<C: GenericClient + Sync>(
+pub async fn next<C: PgClient>(
     client: &C,
     tenant: &str,
     seq: &Sequence,
@@ -146,7 +146,7 @@ pub async fn next<C: GenericClient + Sync>(
 
 /// Raises the sequence so that its next value is above `consumed`, never lowering it:
 /// an adoption's floor (0035 §4).
-pub async fn floor<C: GenericClient + Sync>(
+pub async fn floor<C: PgClient>(
     client: &C,
     tenant: &str,
     seq: &Sequence,

@@ -2,12 +2,14 @@
 //! decoded, the operation a change-set record carries, and the header key a subject's
 //! records are filed under.
 
+use std::future::Future;
+
 use scatter_log::cbor::{self, Value};
 use scatter_log::record::Record;
+use scatter_log_postgres::PgClient;
 use scatter_log_postgres::ids::partition_to_db;
 use scatter_wikibase_changeset::Operation;
 use scatter_wikibase_model::id::{EntityId, IdForm};
-use tokio_postgres::GenericClient;
 
 /// The change-set payload type.
 pub const PAYLOAD_CHANGESET: &str = "scatter:v0/changeset";
@@ -53,11 +55,28 @@ impl PartitionInfo {
     }
 }
 
-/// The tenant and name of a partition, from `log.partition`.
-pub async fn partition_info<C: GenericClient>(
-    client: &C,
-    partition: u64,
-) -> Result<PartitionInfo, String> {
+/// A connection that answers for `log.partition`: which tenant and graph a partition is,
+/// and which partition a tenant's graph is. Rows there are fixed at creation, so a unit
+/// of work ([`crate::PgCx`]) answers from its cache after the first lookup; a plain
+/// client asks the table each time.
+pub trait Partitions: PgClient {
+    /// The tenant and name of a partition.
+    fn partition_info(
+        &self,
+        partition: u64,
+    ) -> impl Future<Output = Result<PartitionInfo, String>> + Send;
+
+    /// The partition of a graph: the tenant's own for `local` and `pages`, the
+    /// instance's (`""`) for a mirror (0018 §2). `None` when no such partition exists.
+    fn partition_of(
+        &self,
+        tenant: &str,
+        name: &str,
+    ) -> impl Future<Output = Result<Option<u64>, String>> + Send;
+}
+
+/// `log.partition`'s row for a partition, asked of the table.
+async fn lookup_info<C: PgClient>(client: &C, partition: u64) -> Result<PartitionInfo, String> {
     let row = client
         .query_opt(
             "SELECT tenant, name FROM log.partition WHERE partition = $1",
@@ -72,9 +91,8 @@ pub async fn partition_info<C: GenericClient>(
     })
 }
 
-/// The partition of a graph: the tenant's own for `local` and `pages`, the instance's for
-/// a mirror (0018 §2). `None` when no such partition exists.
-pub async fn partition_of<C: GenericClient>(
+/// The partition of a tenant's graph, asked of the table.
+async fn lookup_partition<C: PgClient>(
     client: &C,
     tenant: &str,
     name: &str,
@@ -88,6 +106,44 @@ pub async fn partition_of<C: GenericClient>(
         .await
         .map_err(|e| e.to_string())?;
     Ok(row.map(|r| scatter_log_postgres::ids::partition_from_db(r.get(0))))
+}
+
+/// A plain client, and a pooled connection outside a unit of work, ask the table.
+macro_rules! uncached_partitions {
+    ($($t:ty),*) => {$(
+        impl Partitions for $t {
+            async fn partition_info(&self, partition: u64) -> Result<PartitionInfo, String> {
+                lookup_info(self, partition).await
+            }
+
+            async fn partition_of(&self, tenant: &str, name: &str) -> Result<Option<u64>, String> {
+                lookup_partition(self, tenant, name).await
+            }
+        }
+    )*};
+}
+uncached_partitions!(
+    tokio_postgres::Client,
+    tokio_postgres::Transaction<'_>,
+    deadpool_postgres::ClientWrapper,
+    deadpool_postgres::Object
+);
+
+/// The tenant and name of a partition.
+pub async fn partition_info<C: Partitions>(
+    client: &C,
+    partition: u64,
+) -> Result<PartitionInfo, String> {
+    client.partition_info(partition).await
+}
+
+/// The partition of a graph (see [`Partitions::partition_of`]).
+pub async fn partition_of<C: Partitions>(
+    client: &C,
+    tenant: &str,
+    name: &str,
+) -> Result<Option<u64>, String> {
+    client.partition_of(tenant, name).await
 }
 
 /// The record's comment part as text; `None` when erased, `null` or not text.
@@ -150,7 +206,7 @@ pub fn operation(record: &Record) -> Result<Option<Operation>, String> {
 /// The header key a subject's records are filed under: the entity ID itself, or for a
 /// keyed entity its surrogate as `{type}#{n}` (0009 §7), looked up in
 /// `view.keyed_surrogate`. `None` for a keyed entity that has no surrogate yet.
-pub async fn header_key_for<C: GenericClient>(
+pub async fn header_key_for<C: PgClient>(
     client: &C,
     id: &EntityId,
 ) -> Result<Option<String>, String> {
@@ -188,16 +244,8 @@ pub fn quote(s: &str) -> String {
 }
 
 /// The tenant of a partition, `""` for an instance partition (0018 §2).
-pub async fn tenant_of<C: GenericClient>(client: &C, partition: u64) -> Result<String, String> {
-    let row = client
-        .query_opt(
-            "SELECT tenant FROM log.partition WHERE partition = $1",
-            &[&partition_to_db(partition)],
-        )
-        .await
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| format!("partition {partition} is not registered"))?;
-    Ok(row.get::<_, Option<String>>(0).unwrap_or_default())
+pub async fn tenant_of<C: Partitions>(client: &C, partition: u64) -> Result<String, String> {
+    Ok(client.partition_info(partition).await?.tenant)
 }
 
 /// The layer a membership or block record is in: `tenant` for a tenant's own partition,

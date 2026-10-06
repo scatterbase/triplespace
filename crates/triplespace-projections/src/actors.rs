@@ -17,6 +17,7 @@ use scatter_projection::{Applied, Backend, BoxFuture, Projection, Step};
 
 use crate::backend::PgCx;
 use crate::common::{content, layer_of, offset_db, quote, split_key, tenant_of, to_jsonb};
+use scatter_log_postgres::PgClient;
 
 /// Payload types.
 pub mod payload {
@@ -47,7 +48,7 @@ fn sql(e: &tokio_postgres::Error) -> String {
 
 /// The base of a tenant, from its `tenant:` registry entry.
 async fn tenant_base(cx: &PgCx, slug: &str) -> Result<String, String> {
-    let entry = crate::registry::entry(cx.conn(), "", "tenant", slug)
+    let entry = crate::registry::entry(cx, "", "tenant", slug)
         .await
         .map_err(|e| sql(&e))?
         .ok_or_else(|| format!("tenant `{slug}` has no registry entry"))?;
@@ -104,9 +105,7 @@ impl ActorProjection {
             // first for its key, so the row is made if it is missing; its kind is then
             // the default, since the erased content held it.
             let iri = self.iri(cx, key, tenant).await?;
-            return cx
-                .conn()
-                .execute(
+            return cx.execute(
                     "INSERT INTO view.actor (tenant, actor_key, issuer, subject, kind, name, status, raw, iri, \"offset\")
                      VALUES ($1, $2, $3, $4, 'registered', NULL, 'vanished', NULL, $5, $6)
                      ON CONFLICT (tenant, actor_key) DO UPDATE
@@ -118,8 +117,7 @@ impl ActorProjection {
         };
         let actor: ActorRecord = cbor::from_value(value).map_err(|e| e.to_string())?;
         let iri = self.iri(cx, key, tenant).await?;
-        cx.conn()
-            .execute(
+        cx.execute(
                 "INSERT INTO view.actor (tenant, actor_key, issuer, subject, kind, name, status, raw, operator, iri, \"offset\")
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                  ON CONFLICT (tenant, actor_key) DO UPDATE
@@ -156,9 +154,7 @@ impl ActorProjection {
     ) -> Result<u64, String> {
         let Some(value) = content(record)? else {
             // An erased link is an unlink (0007 §7).
-            return cx
-                .conn()
-                .execute(
+            return cx.execute(
                     "DELETE FROM view.account_link WHERE tenant = $1 AND local_actor = $2 AND \"offset\" = $3",
                     &[&tenant, &key.to_string(), &offset_db(record)?],
                 )
@@ -169,8 +165,7 @@ impl ActorProjection {
             .get("foreign")
             .and_then(Value::as_text)
             .ok_or("a link-account record has `foreign`")?;
-        cx.conn()
-            .execute(
+        cx.execute(
                 "INSERT INTO view.account_link (tenant, local_actor, foreign_actor, \"offset\")
                  VALUES ($1, $2, $3, $4)
                  ON CONFLICT (tenant, local_actor, foreign_actor) DO UPDATE SET \"offset\" = EXCLUDED.\"offset\"",
@@ -209,7 +204,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for ActorProjection {
     ) -> BoxFuture<'a, Result<Applied, String>> {
         Box::pin(async move {
             let h = record.header();
-            let tenant = tenant_of(cx.conn(), h.partition).await?;
+            let tenant = tenant_of(cx, h.partition).await?;
             let key = actor_key_of(h)?;
             let rows = if h.payload_type == payload::ACTOR {
                 self.apply_actor(cx, record, &tenant, &key).await?
@@ -222,9 +217,8 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for ActorProjection {
 
     fn reset<'a>(&'a self, cx: &'a mut PgCx, partition: u64) -> BoxFuture<'a, Result<(), String>> {
         Box::pin(async move {
-            let tenant = tenant_of(cx.conn(), partition).await?;
-            cx.conn()
-                .batch_execute(&format!(
+            let tenant = tenant_of(cx, partition).await?;
+            cx.batch_execute(&format!(
                     "DELETE FROM view.account_link WHERE tenant = {t}; DELETE FROM view.actor WHERE tenant = {t};",
                     t = quote(&tenant)
                 ))
@@ -264,11 +258,10 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for GroupProjection {
     ) -> BoxFuture<'a, Result<Applied, String>> {
         Box::pin(async move {
             let h = record.header();
-            let tenant = tenant_of(cx.conn(), h.partition).await?;
+            let tenant = tenant_of(cx, h.partition).await?;
             let (_, name) = split_key(h.key.as_deref().unwrap_or_default()).ok_or("group:name")?;
             let rows = match content(record)? {
                 None => cx
-                    .conn()
                     .execute(
                         "DELETE FROM view.\"group\" WHERE tenant = $1 AND name = $2",
                         &[&tenant, &name],
@@ -287,8 +280,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for GroupProjection {
                         })
                         .unwrap_or_default();
                     let scope = j.get("scope").and_then(serde_json::Value::as_str);
-                    cx.conn()
-                        .execute(
+                    cx.execute(
                             "INSERT INTO view.\"group\" (tenant, name, permissions, scope, \"offset\")
                              VALUES ($1, $2, $3, $4, $5)
                              ON CONFLICT (tenant, name) DO UPDATE
@@ -305,9 +297,8 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for GroupProjection {
 
     fn reset<'a>(&'a self, cx: &'a mut PgCx, partition: u64) -> BoxFuture<'a, Result<(), String>> {
         Box::pin(async move {
-            let tenant = tenant_of(cx.conn(), partition).await?;
-            cx.conn()
-                .execute("DELETE FROM view.\"group\" WHERE tenant = $1", &[&tenant])
+            let tenant = tenant_of(cx, partition).await?;
+            cx.execute("DELETE FROM view.\"group\" WHERE tenant = $1", &[&tenant])
                 .await
                 .map_err(|e| sql(&e))?;
             Ok(())
@@ -324,16 +315,15 @@ pub struct MembershipProjection;
 async fn refresh_groups(cx: &PgCx, tenant: &str, actor_key: &str) -> Result<(), String> {
     // Current memberships of the actor across layers, unexpired at the record's time
     // are kept as rows; `groups` lists them all, expiry being evaluated on read.
-    cx.conn()
-        .execute(
-            "UPDATE view.actor SET groups = COALESCE(
+    cx.execute(
+        "UPDATE view.actor SET groups = COALESCE(
                  (SELECT array_agg(DISTINCT \"group\" ORDER BY \"group\") FROM view.membership
                   WHERE tenant = $1 AND actor_key = $2), '{}')
              WHERE tenant = $1 AND actor_key = $2",
-            &[&tenant, &actor_key],
-        )
-        .await
-        .map_err(|e| sql(&e))?;
+        &[&tenant, &actor_key],
+    )
+    .await
+    .map_err(|e| sql(&e))?;
     Ok(())
 }
 
@@ -357,7 +347,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for MembershipProjection {
     ) -> BoxFuture<'a, Result<Applied, String>> {
         Box::pin(async move {
             let h = record.header();
-            let tenant = tenant_of(cx.conn(), h.partition).await?;
+            let tenant = tenant_of(cx, h.partition).await?;
             let key = actor_key_of(h)?.to_string();
             let Some(value) = content(record)? else {
                 return Ok(Applied::rows(0));
@@ -365,9 +355,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for MembershipProjection {
             let m: Membership = cbor::from_value(value).map_err(|e| e.to_string())?;
             let layer = layer_of(&tenant);
             let rows = match m.action {
-                MembershipAction::Add => cx
-                    .conn()
-                    .execute(
+                MembershipAction::Add => cx.execute(
                         "INSERT INTO view.membership (tenant, actor_key, \"group\", layer, expires, \"offset\")
                          VALUES ($1, $2, $3, $4, $5, $6)
                          ON CONFLICT (tenant, actor_key, \"group\", layer) DO UPDATE
@@ -383,9 +371,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for MembershipProjection {
                     )
                     .await
                     .map_err(|e| sql(&e))?,
-                MembershipAction::Remove => cx
-                    .conn()
-                    .execute(
+                MembershipAction::Remove => cx.execute(
                         "DELETE FROM view.membership WHERE tenant = $1 AND actor_key = $2 AND \"group\" = $3 AND layer = $4",
                         &[&tenant, &key, &m.group, &layer],
                     )
@@ -407,21 +393,19 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for MembershipProjection {
 
     fn reset<'a>(&'a self, cx: &'a mut PgCx, partition: u64) -> BoxFuture<'a, Result<(), String>> {
         Box::pin(async move {
-            let tenant = tenant_of(cx.conn(), partition).await?;
-            cx.conn()
-                .execute(
-                    "DELETE FROM view.membership WHERE tenant = $1 AND layer = $2",
-                    &[&tenant, &layer_of(&tenant)],
-                )
-                .await
-                .map_err(|e| sql(&e))?;
-            cx.conn()
-                .execute(
-                    "UPDATE view.actor SET groups = '{}' WHERE tenant = $1",
-                    &[&tenant],
-                )
-                .await
-                .map_err(|e| sql(&e))?;
+            let tenant = tenant_of(cx, partition).await?;
+            cx.execute(
+                "DELETE FROM view.membership WHERE tenant = $1 AND layer = $2",
+                &[&tenant, &layer_of(&tenant)],
+            )
+            .await
+            .map_err(|e| sql(&e))?;
+            cx.execute(
+                "UPDATE view.actor SET groups = '{}' WHERE tenant = $1",
+                &[&tenant],
+            )
+            .await
+            .map_err(|e| sql(&e))?;
             Ok(())
         })
     }
@@ -453,7 +437,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for BlockProjection {
     ) -> BoxFuture<'a, Result<Applied, String>> {
         Box::pin(async move {
             let h = record.header();
-            let tenant = tenant_of(cx.conn(), h.partition).await?;
+            let tenant = tenant_of(cx, h.partition).await?;
             let key = actor_key_of(h)?.to_string();
             let layer = layer_of(&tenant);
             let Some(value) = content(record)? else {
@@ -466,8 +450,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for BlockProjection {
                         BlockScope::AllButRead => None,
                         BlockScope::Permissions(p) => Some(p.into_iter().collect()),
                     };
-                    cx.conn()
-                        .execute(
+                    cx.execute(
                             "INSERT INTO view.block (tenant, actor_key, layer, removes, expires, \"offset\")
                              VALUES ($1, $2, $3, $4, $5, $6)
                              ON CONFLICT (tenant, actor_key, layer) DO UPDATE
@@ -484,9 +467,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for BlockProjection {
                         .await
                         .map_err(|e| sql(&e))?
                 }
-                Block::Unblock => cx
-                    .conn()
-                    .execute(
+                Block::Unblock => cx.execute(
                         "DELETE FROM view.block WHERE tenant = $1 AND actor_key = $2 AND layer = $3",
                         &[&tenant, &key, &layer],
                     )
@@ -499,14 +480,13 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for BlockProjection {
 
     fn reset<'a>(&'a self, cx: &'a mut PgCx, partition: u64) -> BoxFuture<'a, Result<(), String>> {
         Box::pin(async move {
-            let tenant = tenant_of(cx.conn(), partition).await?;
-            cx.conn()
-                .execute(
-                    "DELETE FROM view.block WHERE tenant = $1 AND layer = $2",
-                    &[&tenant, &layer_of(&tenant)],
-                )
-                .await
-                .map_err(|e| sql(&e))?;
+            let tenant = tenant_of(cx, partition).await?;
+            cx.execute(
+                "DELETE FROM view.block WHERE tenant = $1 AND layer = $2",
+                &[&tenant, &layer_of(&tenant)],
+            )
+            .await
+            .map_err(|e| sql(&e))?;
             Ok(())
         })
     }
@@ -538,14 +518,13 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for AclProjection {
     ) -> BoxFuture<'a, Result<Applied, String>> {
         Box::pin(async move {
             let h = record.header();
-            let tenant = tenant_of(cx.conn(), h.partition).await?;
+            let tenant = tenant_of(cx, h.partition).await?;
             let target = h
                 .key
                 .as_deref()
                 .ok_or("an acl record is keyed by its target")?;
             let rows = match content(record)? {
                 None => cx
-                    .conn()
                     .execute(
                         "DELETE FROM view.acl WHERE tenant = $1 AND target = $2",
                         &[&tenant, &target],
@@ -576,8 +555,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for AclProjection {
                         }
                     }
                     let extra = (!extra.is_empty()).then_some(serde_json::Value::Object(extra));
-                    cx.conn()
-                        .execute(
+                    cx.execute(
                             "INSERT INTO view.acl (tenant, target, restrictions, read_kind, extra, \"offset\")
                              VALUES ($1, $2, $3, $4, $5, $6)
                              ON CONFLICT (tenant, target) DO UPDATE
@@ -595,9 +573,8 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for AclProjection {
 
     fn reset<'a>(&'a self, cx: &'a mut PgCx, partition: u64) -> BoxFuture<'a, Result<(), String>> {
         Box::pin(async move {
-            let tenant = tenant_of(cx.conn(), partition).await?;
-            cx.conn()
-                .execute("DELETE FROM view.acl WHERE tenant = $1", &[&tenant])
+            let tenant = tenant_of(cx, partition).await?;
+            cx.execute("DELETE FROM view.acl WHERE tenant = $1", &[&tenant])
                 .await
                 .map_err(|e| sql(&e))?;
             Ok(())

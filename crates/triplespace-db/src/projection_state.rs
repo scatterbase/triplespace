@@ -1,13 +1,12 @@
 //! `ops.projection_state` (0013 §7): how far each projection has replayed each
 //! partition, and the lag to the partition's head.
 
-use tokio_postgres::GenericClient;
-
+use scatter_log_postgres::PgClient;
 use scatter_log_postgres::ids::{partition_to_db, to_db};
 
 /// The applied offset of a projection on a partition: offsets below it are applied.
 /// Zero, and no row, mean nothing is.
-pub async fn applied<C: GenericClient>(
+pub async fn applied<C: PgClient>(
     client: &C,
     projection: &str,
     partition: u64,
@@ -23,7 +22,7 @@ pub async fn applied<C: GenericClient>(
 
 /// Records that offsets below `applied_offset` are applied. Runs in the caller's
 /// transaction with the projection's own writes (0013 §7).
-pub async fn set_applied<C: GenericClient>(
+pub async fn set_applied<C: PgClient>(
     client: &C,
     projection: &str,
     partition: u64,
@@ -45,9 +44,40 @@ pub async fn set_applied<C: GenericClient>(
     Ok(())
 }
 
+/// Records several positions at once: one row per `(projection, partition, applied)`,
+/// in one statement. The write path collects a unit of work's positions in memory and
+/// writes them here at commit (0013 §7), rather than one row per record.
+pub async fn set_applied_many<C: PgClient>(
+    client: &C,
+    positions: &[(&str, u64, u64)],
+) -> Result<(), tokio_postgres::Error> {
+    if positions.is_empty() {
+        return Ok(());
+    }
+    let mut projections: Vec<&str> = Vec::with_capacity(positions.len());
+    let mut partitions: Vec<i64> = Vec::with_capacity(positions.len());
+    let mut offsets: Vec<i64> = Vec::with_capacity(positions.len());
+    for (projection, partition, applied) in positions {
+        projections.push(projection);
+        partitions.push(partition_to_db(*partition));
+        offsets.push(to_db(*applied).map_err(|_| never())?);
+    }
+    client
+        .execute(
+            "INSERT INTO ops.projection_state (projection, partition, applied_offset, updated_at)
+             SELECT t.projection, t.partition, t.applied_offset, now()
+             FROM unnest($1::text[], $2::bigint[], $3::bigint[]) AS t(projection, partition, applied_offset)
+             ON CONFLICT (projection, partition) DO UPDATE
+             SET applied_offset = EXCLUDED.applied_offset, updated_at = now()",
+            &[&projections, &partitions, &offsets],
+        )
+        .await?;
+    Ok(())
+}
+
 /// Every projection's applied offset on a partition, with the partition's head, so lag
 /// is `head - applied`.
-pub async fn lags<C: GenericClient>(
+pub async fn lags<C: PgClient>(
     client: &C,
     partition: u64,
 ) -> Result<Vec<(String, u64, u64)>, tokio_postgres::Error> {

@@ -11,6 +11,7 @@ use scatter_wikibase_model::id::EntityId;
 use scatter_wikibase_model::id::StatementId;
 use scatter_wikibase_resolve::{Contribution, Correction, Resolved, resolve};
 
+use crate::common::Partitions;
 use crate::entities::EntityProjection;
 
 /// An entity as it stands.
@@ -56,8 +57,8 @@ impl Current {
 }
 
 /// Reads an entity's current state on a tenant: `None` when no graph holds it.
-pub async fn current(
-    client: &tokio_postgres::Client,
+pub async fn current<C: Partitions>(
+    client: &C,
     order: &EntityProjection,
     tenant: &str,
     id: &EntityId,
@@ -168,8 +169,8 @@ pub struct Standing {
 }
 
 /// Reads an entity's [`Standing`]: the tenant's own rows over the shared ones.
-pub async fn standing(
-    client: &tokio_postgres::Client,
+pub async fn standing<C: Partitions>(
+    client: &C,
     tenant: &str,
     id: &EntityId,
 ) -> Result<Standing, String> {

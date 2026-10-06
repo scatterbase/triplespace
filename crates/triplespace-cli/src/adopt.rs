@@ -264,9 +264,7 @@ pub async fn run(args: Adopt) -> Result<()> {
         println!("  unreadable {read_errors} (see stderr)");
     }
     if untyped_snaks > 0 {
-        println!(
-            "  untyped    {untyped_snaks} snaks (their property is not defined in the dump)"
-        );
+        println!("  untyped    {untyped_snaks} snaks (their property is not defined in the dump)");
     }
     for r in outcome.rejects.iter().take(20) {
         println!("  reject #{}: {}", r.line, r.reason);

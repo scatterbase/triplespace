@@ -7,13 +7,12 @@
 //! inclusion proof reads one sibling per level, computing a partial right sibling from
 //! its children when the tree's right edge cuts through it.
 
+use crate::client::PgClient;
+use crate::ids::{partition_to_db, to_db};
+use crate::storage_error;
 use scatter_log::hash::{Hash, merkle_node};
 use scatter_log::store::StoreError;
 use scatter_log::tree::Frontier;
-use tokio_postgres::GenericClient;
-
-use crate::ids::{partition_to_db, to_db};
-use crate::storage_error;
 
 fn hash_from(row: &tokio_postgres::Row) -> Result<Hash, StoreError> {
     let bytes: Vec<u8> = row.get(0);
@@ -23,7 +22,7 @@ fn hash_from(row: &tokio_postgres::Row) -> Result<Hash, StoreError> {
 }
 
 /// The stored node at `(level, index)`, if the subtree is complete.
-pub async fn node<C: GenericClient + Sync>(
+pub async fn node<C: PgClient>(
     client: &C,
     partition: u64,
     level: u32,
@@ -40,7 +39,7 @@ pub async fn node<C: GenericClient + Sync>(
     row.as_ref().map(hash_from).transpose()
 }
 
-async fn required<C: GenericClient + Sync>(
+async fn required<C: PgClient>(
     client: &C,
     partition: u64,
     level: u32,
@@ -51,42 +50,59 @@ async fn required<C: GenericClient + Sync>(
         .ok_or_else(|| StoreError::Corrupt(format!("merkle node ({level}, {index}) is missing")))
 }
 
-/// Stores the leaf at `index` and every ancestor it completes.
-pub async fn put_leaf<C: GenericClient + Sync>(
+/// Stores the nodes an append completed, as [`Frontier::push_leaf_completing`] reports
+/// them: one multi-row insert, no sibling read. The caller holds the frontier, so the
+/// left sibling of every completed node is already in memory (0013 §2).
+pub async fn put_nodes<C: PgClient>(
+    client: &C,
+    partition: u64,
+    nodes: &[(u32, u64, Hash)],
+) -> Result<(), StoreError> {
+    let mut levels: Vec<i16> = Vec::with_capacity(nodes.len());
+    let mut indexes: Vec<i64> = Vec::with_capacity(nodes.len());
+    let mut hashes: Vec<&[u8]> = Vec::with_capacity(nodes.len());
+    for (level, index, hash) in nodes {
+        levels.push(i16::try_from(*level).map_err(|_| StoreError::Corrupt("level".into()))?);
+        indexes.push(to_db(*index)?);
+        hashes.push(hash.as_slice());
+    }
+    client
+        .execute(
+            "INSERT INTO log.merkle_node (partition, level, index, hash)
+             SELECT $1, t.level, t.index, t.hash
+             FROM unnest($2::smallint[], $3::bigint[], $4::bytea[]) AS t(level, index, hash)",
+            &[&partition_to_db(partition), &levels, &indexes, &hashes],
+        )
+        .await
+        .map_err(|e| storage_error(&e))?;
+    Ok(())
+}
+
+/// Stores the leaf at `index` and every ancestor it completes, reading the left
+/// sibling of each from the table. [`put_nodes`] with a frontier in hand is the write
+/// path's form; this one serves a caller with no frontier.
+pub async fn put_leaf<C: PgClient>(
     client: &C,
     partition: u64,
     index: u64,
     leaf: Hash,
 ) -> Result<(), StoreError> {
-    let p = partition_to_db(partition);
+    let mut nodes = vec![(0u32, index, leaf)];
     let mut level: u32 = 0;
     let mut idx = index;
     let mut hash = leaf;
-    loop {
-        client
-            .execute(
-                "INSERT INTO log.merkle_node (partition, level, index, hash) VALUES ($1, $2, $3, $4)",
-                &[
-                    &p,
-                    &i16::try_from(level).map_err(|_| StoreError::Corrupt("level".into()))?,
-                    &to_db(idx)?,
-                    &hash.as_slice(),
-                ],
-            )
-            .await
-            .map_err(|e| storage_error(&e))?;
-        if idx & 1 == 0 {
-            return Ok(());
-        }
+    while idx & 1 == 1 {
         let left = required(client, partition, level, idx - 1).await?;
         hash = merkle_node(&left, &hash);
         level += 1;
         idx >>= 1;
+        nodes.push((level, idx, hash));
     }
+    put_nodes(client, partition, &nodes).await
 }
 
 /// The right edge of the tree over the first `size` leaves, from stored nodes.
-pub async fn frontier<C: GenericClient + Sync>(
+pub async fn frontier<C: PgClient>(
     client: &C,
     partition: u64,
     size: u64,
@@ -107,17 +123,13 @@ pub async fn frontier<C: GenericClient + Sync>(
 }
 
 /// The tree head over the first `size` leaves.
-pub async fn root<C: GenericClient + Sync>(
-    client: &C,
-    partition: u64,
-    size: u64,
-) -> Result<Hash, StoreError> {
+pub async fn root<C: PgClient>(client: &C, partition: u64, size: u64) -> Result<Hash, StoreError> {
     Ok(frontier(client, partition, size).await?.root())
 }
 
 /// The RFC 6962 head of the leaves the subtree `(level, index)` covers, cut at `size`:
 /// the stored node when the subtree is complete, otherwise folded from its children.
-pub async fn subtree_root<C: GenericClient + Sync>(
+pub async fn subtree_root<C: PgClient>(
     client: &C,
     partition: u64,
     level: u32,
@@ -150,7 +162,7 @@ pub async fn subtree_root<C: GenericClient + Sync>(
 
 /// The inclusion proof of leaf `index` against the tree of `size` leaves (RFC 9162
 /// §2.1.3.1), leaf level first, from stored nodes.
-pub async fn inclusion_proof<C: GenericClient + Sync>(
+pub async fn inclusion_proof<C: PgClient>(
     client: &C,
     partition: u64,
     index: u64,
