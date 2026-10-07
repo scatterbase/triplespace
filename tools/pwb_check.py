@@ -10,7 +10,9 @@ Every step runs on its own and reports PASS, FAIL (with the exception) or SKIP, 
 failure does not hide the next; the exit status is the number of failures. Pywikibot is
 configured in-process (no user-config.py, no pwb wrapper): a WikibaseFamily is written
 to a temporary directory and registered, the bot password goes into a temporary
-password file, throttling is off and retries are few so a wrong answer fails fast.
+password file, throttling is off and retries are few so a wrong answer fails fast. The
+"user-config.py cannot be loaded" lines Pywikibot prints at import are expected: the
+same settings are made in code right after.
 
 What is exercised, roughly in the order Pywikibot itself needs it:
   site      siteinfo, version parsing, paraminfo, the data repository, concept base URI
@@ -87,7 +89,8 @@ def main():
     import pywikibot
     from pywikibot import config
 
-    config.register_family_file("triplespace", family_path)
+    # Pywikibot finds `<name>_family.py` in registered folders.
+    config.register_families_folder(tmp)
     config.family = "triplespace"
     config.mylang = a.tenant
     config.usernames["triplespace"][a.tenant] = user
