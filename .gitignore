@@ -77,3 +77,7 @@ Thumbs.db
 
 # --- Trash --------------------------------------------------------
 .trash/
+
+# Dump slices made with tools/dump_slice.py for local rehearsals; the fixture lives in crates/triplespace-server/tests/fixtures/
+tools/*.xml.gz
+tools/*.xml
