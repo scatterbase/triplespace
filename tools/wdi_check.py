@@ -204,15 +204,17 @@ def main():
 
     def stale_delete():
         stale = state["rev_after_label"]  # older than the revision the claim was added in
+        # WDI prints an API error body and returns None rather than raising, so the
+        # verdict is read from the entity: the statement must still be there.
         try:
-            r = wdi_core.WDItemEngine.delete_statement(state["claim"], stale, lg, mediawiki_api_url=api_url)
+            wdi_core.WDItemEngine.delete_statement(state["claim"], stale, lg, mediawiki_api_url=api_url)
         except Exception as e:  # noqa: BLE001
-            if "editconflict" in str(e).lower() or "conflict" in str(e).lower():
-                return "refused with editconflict"
-            raise
-        if isinstance(r, dict) and "error" in r and "conflict" in json.dumps(r["error"]).lower():
-            return f"refused with {r['error'].get('code')}"
-        raise RuntimeError(f"stale baserevid {stale} was accepted: {r}")
+            if "conflict" not in str(e).lower():
+                raise
+        got = entity(a.api, a.item)
+        if any(c["id"] == state["claim"] for c in got["claims"].get(prop, [])):
+            return f"refused: statement still present (WDI printed the editconflict body above)"
+        raise RuntimeError(f"stale baserevid {stale} was accepted: statement removed")
     step("write: delete_statement with a stale baserevid is refused", stale_delete,
          skip=skip_w or "claim" not in state)
 
