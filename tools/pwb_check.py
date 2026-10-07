@@ -12,7 +12,8 @@ configured in-process (no user-config.py, no pwb wrapper): a WikibaseFamily is w
 to a temporary directory and registered, the bot password goes into a temporary
 password file, throttling is off and retries are few so a wrong answer fails fast. The
 "user-config.py cannot be loaded" lines Pywikibot prints at import are expected: the
-same settings are made in code right after.
+same settings are made in code right after. Pywikibot's on-disk API cache is kept in the
+temporary directory too, so each run sees the server as it is now, not as it was.
 
 What is exercised, roughly in the order Pywikibot itself needs it:
   site      siteinfo, version parsing, paraminfo, the data repository, concept base URI
@@ -91,6 +92,10 @@ def main():
 
     # Pywikibot finds `<name>_family.py` in registered folders.
     config.register_families_folder(tmp)
+    # Pywikibot caches API answers on disk (paraminfo for 30 days, `meta=wikibase` for
+    # 7) under base_dir, which would replay a previous run's answers against a changed
+    # server. A fresh directory per run keeps every answer live.
+    config.base_dir = tmp
     config.family = "triplespace"
     config.mylang = a.tenant
     config.usernames["triplespace"][a.tenant] = user
