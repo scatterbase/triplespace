@@ -14,7 +14,8 @@ What is checked, per entity:
   3. wbsearchentities finds it by its English (or first) label.
   4. With --db: view.identifier holds a row for each external-id mainsnak with a value.
   5. With --compare: the entity equals the source's Special:EntityData output, ignoring
-     lastrevid/modified/pageid/ns/title (the test plan's spot check).
+     lastrevid/modified/pageid/ns/title (the test plan's spot check); pageid equals the
+     source's; lastrevid is a fresh local ID above the source's (0035 section 3-4).
 Exit status is non-zero when any check fails. Standard library only.
 """
 
@@ -149,7 +150,20 @@ def main():
                            language=lang, type=ent.get("type", "item"), limit=50)
                 found = {h["id"] for h in hits.get("search", [])}
                 if eid not in found:
-                    fail(eid, f"wbsearchentities({lang!r}, {label['value']!r}) did not return it")
+                    # A catalogue has many records sharing a title prefix; past the
+                    # limit the miss is ambiguity, not a search fault.
+                    sharing = None
+                    if a.db:
+                        q = label["value"].replace("'", "''")
+                        sharing = int(psql(a.db, "SELECT count(*) FROM view.term WHERE tenant = "
+                                           f"'{a.tenant}' AND kind = 1 AND lang = '{lang}' AND "
+                                           f"lower(text) LIKE lower('{q}') || '%'")[0])
+                    if sharing is not None and sharing > 50:
+                        print(f"note {eid}: label shared as a prefix by {sharing} entities; "
+                              "wbsearchentities(limit=50) cannot single it out")
+                    else:
+                        fail(eid, f"wbsearchentities({lang!r}, {label['value']!r}) did not return it"
+                                  + (f" ({sharing} entities share the prefix)" if sharing is not None else ""))
             except Exception as e:  # noqa: BLE001
                 fail(eid, f"wbsearchentities: {e}")
 
@@ -178,9 +192,12 @@ def main():
                 if mine != theirs:
                     diff = [k for k in sorted(set(mine) | set(theirs)) if mine.get(k) != theirs.get(k)]
                     fail(eid, f"differs from source in: {', '.join(diff)}")
-                for k in ("pageid", "lastrevid"):
-                    if ent.get(k) != src.get(k):
-                        fail(eid, f"{k} {ent.get(k)} != source {src.get(k)}")
+                if ent.get("pageid") != src.get("pageid"):
+                    fail(eid, f"pageid {ent.get('pageid')} != source {src.get('pageid')}")
+                # 0035 section 3: an adopted record is a fresh local revision above the
+                # floor (section 4), never the source's number.
+                if not (ent.get("lastrevid") or 0) > (src.get("lastrevid") or 0):
+                    fail(eid, f"lastrevid {ent.get('lastrevid')} is not above the source's {src.get('lastrevid')}")
 
         print(f"seen {eid}: {total} snaks" + (f", label {label['value']!r}" if label else ""))
 
