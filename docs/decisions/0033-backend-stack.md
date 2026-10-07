@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-04 (A11)
+- **Updated:** 2026-10-06 (A12)
 - **Author:** James Hare / Claude
 - **Changes:** [0005](0005-crate-organization.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0034](0034-frontend-stack.md)
@@ -37,9 +37,12 @@ This ADR records the rest. The frontend is in 0034.
 
 ### 2. Language and toolchain
 
+*Changed by A12.*
+
 - Stable Rust, edition 2024, pinned in `rust-toolchain.toml`. The minimum supported Rust version moves deliberately, in its own commit.
 - One Cargo workspace for all 0005 crates.
 - CI runs `cargo nextest`, `cargo clippy -D warnings`, `cargo deny check`, `cargo hack --feature-powerset` on crates with features, and a `wasm32-unknown-unknown` build of every rule-7 crate.
+- CI also runs the Wikibase client libraries — WikibaseIntegrator, Pywikibot and WikidataIntegrator, at pinned versions — against a server loaded from a sample of the Librarybase dump (`tools/client_compat.sh`, `docs/clients.md`). The compatibility 0012 promises is a measured property, not a reading of the reference contract, and a client's probes (`siteinfo`, `paraminfo`, `meta=wikibase`) are part of the API surface the tests hold fixed.
 
 ### 3. Async runtime and HTTP server
 
@@ -385,3 +388,10 @@ Replaced text (§11):
 > QLever is an export destination, not a runtime dependency. It reached full SPARQL 1.1 compliance
 
 > - The `resolved` subscription is the default for QLever; `full`, with its named graphs, is benchmarked before being recommended.
+
+### A12. Client compatibility in CI
+
+- **Date:** 2026-10-06
+- **Source:** Direct: James, Librarybase acceptance run of 2026-10-06 (test plan stage 1)
+- **Change:** extends §2
+- **Summary:** CI runs WikibaseIntegrator, Pywikibot and WikidataIntegrator, at pinned versions, against a server adopted from a Librarybase sample fixture; any failing check fails the build. Running the libraries found server requirements the reference contract does not state (Pywikibot's `siteinfo` and `paraminfo` structure, `meta=wikibase`), which are now part of the surface the job holds fixed.
