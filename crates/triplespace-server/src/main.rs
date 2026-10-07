@@ -88,7 +88,13 @@ async fn main() -> Result<()> {
             trusted_proxies: args.trusted_proxies.clone(),
             dev_tenant: args.dev_tenant.clone(),
             farm,
-            generator: format!("Triplespace {}", env!("CARGO_PKG_VERSION")),
+            // Clients parse a MediaWiki version out of this (Pywikibot refuses anything
+            // under 1.31); the reference install this API is measured against is 1.43.9
+            // (mediawiki-compat.md), so that is the version claimed.
+            generator: format!(
+                "MediaWiki 1.43.9 (Triplespace {})",
+                env!("CARGO_PKG_VERSION")
+            ),
         },
     )
     .map_err(|e| anyhow::anyhow!(e))?;
