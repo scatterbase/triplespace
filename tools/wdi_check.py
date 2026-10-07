@@ -145,12 +145,16 @@ def main():
          sparql_default, info=True)
 
     def search():
-        ids = wdi_core.WDItemEngine.get_wd_search_results("Librarybase", mediawiki_api_url=api_url,
-                                                         language="en", max_results=10)
+        # The item's own English label (or any label it has): the hit must include it.
+        labels = state["item"].get_wd_json_representation().get("labels", {})
+        lang = "en" if "en" in labels else next(iter(labels))
+        text = labels[lang]["value"]
+        ids = wdi_core.WDItemEngine.get_wd_search_results(text, mediawiki_api_url=api_url,
+                                                         language=lang, max_results=10)
         if a.item not in ids:
-            raise RuntimeError(f"{a.item} not in {ids}")
-        return ids
-    step("search: get_wd_search_results('Librarybase')", search)
+            raise RuntimeError(f"{a.item} not in {ids} for {text!r} ({lang})")
+        return f"{text!r} ({lang}) -> {ids}"
+    step("search: get_wd_search_results by the item's label", search, skip="item" not in state)
 
     def find_property():
         if a.property:

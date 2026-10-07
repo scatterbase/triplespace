@@ -15,7 +15,7 @@ the crate map and build order.
 | Path | Holds |
 |---|---|
 | `crates/` | One Cargo workspace. `scatter-*` crates are shared with Scatterbase and know nothing about Triplespace; `triplespace-*` crates are the product (0005 §1). |
-| `tools/` | Scripts that are not part of the build: `wikidata-sample.py` draws a random sample of Wikidata items in the dump's shape, for the classifier audit (0003 §10). |
+| `tools/` | Scripts that are not part of the build (`tools/README.md`): `wikidata-sample.py` samples a Wikidata dump for the classifier audit (0003 §10); `dump_slice.py` cuts a smaller XML dump; `api_check.py`, `pwb_check.py` and `wdi_check.py` exercise a running server through WikibaseIntegrator, Pywikibot and WikidataIntegrator, and `client_compat.sh` runs all three from scratch. |
 | `xtask/` | Repository tasks: `cargo xtask deps` checks the workspace dependency graph against the table in 0005 §2; `cargo xtask wasm` builds the crates 0005 rule 7 requires to build for `wasm32-unknown-unknown`. |
 | `docs/` | ADRs, registry, API contracts and test vectors. CC0-1.0 (`docs/LICENSE`), so other implementations can embed them. |
 | `ui/` | The site's front end (0034): Codex, its design tokens and the default theme's fonts, built by Vite into `ui/dist`, which `triplespace-ui` embeds. |
@@ -48,6 +48,17 @@ off, two `triplespace-web` replicas and an edge that alternates them, and runs t
 `ui/e2e/` against it.
 
 A Rust build without `ui/dist` still compiles and serves pages, unstyled.
+
+The Wikibase client libraries are checked the same way (`docs/clients.md`):
+
+```
+python3 -m venv .venv && .venv/bin/pip install -r tools/requirements-compat.txt
+PYTHON=.venv/bin/python tools/client_compat.sh   # WikibaseIntegrator, Pywikibot, WikidataIntegrator
+```
+
+It adopts the Librarybase sample fixture into a fresh database, starts the API with its site
+off, issues a bot key, and runs `tools/{api,pwb,wdi}_check.py` against it; CI runs it on every
+push.
 
 The tests that need a database read `TRIPLESPACE_TEST_DATABASE_URL` (a Postgres URL whose role
 may create databases) and are vacuous without it. `python3 docs/decisions/check_adrs.py --index
@@ -87,13 +98,14 @@ triplespace subsidiary key --tenant librarybase --name "Alice bot" --label lapto
     --grant editentity --grant highvolume
 ```
 
-The second command prints the key once: `lgname=Alice bot@laptop` with the secret is a
-MediaWiki bot password, and `Authorization: Bearer {key ID}.{secret}` is the same credential
-without a session. WikibaseIntegrator logs in, reads and edits with it unchanged (the acceptance
-test in `crates/triplespace-server/tests/` is that flow); Pywikibot speaks the same forms but has
-not been run against it yet. `subsidiary
-keys` lists a subsidiary's keys and `subsidiary revoke --key-id` ends one together with every
-session it opened. `triplespace password set` sets or replaces a person's password.
+The second command prints the key once (`--json` prints it as one object, for scripts):
+`lgname=Alice bot@laptop` with the secret is a MediaWiki bot password, and `Authorization:
+Bearer {key ID}.{secret}` is the same credential without a session. WikibaseIntegrator,
+Pywikibot and WikidataIntegrator log in, read and edit with it unchanged; `docs/clients.md` has
+what each needs to know (Pywikibot's family file, WikidataIntegrator's SPARQL backoff and
+`setuptools<80`) and CI runs all three against every push. `subsidiary keys` lists a
+subsidiary's keys and `subsidiary revoke --key-id` ends one together with every session it
+opened. `triplespace password set` sets or replaces a person's password.
 
 Then serve it:
 
