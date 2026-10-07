@@ -205,13 +205,14 @@ def main():
 
     def edit_label():
         text = f"pwb {stamp}"
+        before = item.latest_revision_id
         item.editLabels({"de": text}, summary="pwb_check: label")
         fresh = pywikibot.ItemPage(repo, a.item)
         fresh.get()
         if fresh.labels.get("de") != text:
             raise RuntimeError(f"de label is {fresh.labels.get('de')!r}")
         state["rev_after_label"] = fresh.latest_revision_id
-        return f"revision {item.latest_revision_id} -> {fresh.latest_revision_id}"
+        return f"revision {before} -> {fresh.latest_revision_id}"
     step("write: editLabels (de)", edit_label, skip=skip_w)
 
     def add_claim():
@@ -241,9 +242,11 @@ def main():
         # Pywikibot passes baserevid from the entity it holds; hold an old one on purpose.
         stale = pywikibot.ItemPage(repo, a.item)
         stale.get()
+        # editLabels sends baserevid=latest_revision_id itself; an old value there is a
+        # stale base revision (0006 section 8).
         stale.latest_revision_id = state.get("rev_after_label", stale.latest_revision_id) - 1
         try:
-            stale.editLabels({"de": f"pwb stale {stamp}"}, summary="pwb_check: must fail", baserevid=stale.latest_revision_id)
+            stale.editLabels({"de": f"pwb stale {stamp}"}, summary="pwb_check: must fail")
         except pywikibot.exceptions.APIError as e:
             if "conflict" in e.code or "conflict" in str(e).lower():
                 return f"refused with {e.code}"
