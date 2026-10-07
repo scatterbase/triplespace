@@ -6,6 +6,8 @@
     tools/api_check.py --ids Q1 Q100 P1
     tools/api_check.py --db "$URL" --sample 20                  # random adopted entities
     tools/api_check.py --db "$URL" --sample 20 --compare https://librarybase.org/
+    tools/api_check.py --db "$URL" --ids Q1 --wbi-login "James bot@test" --wbi-secret "$SECRET" \
+        [--wbi-property P5] [--wbi-create-property]       # test plan 1.4, needs wikibaseintegrator
 
 What is checked, per entity:
   1. Special:EntityData/{id}.json serves it, and EVERY snak (mainsnak, qualifiers,
@@ -16,7 +18,13 @@ What is checked, per entity:
   5. With --compare: the entity equals the source's Special:EntityData output, ignoring
      lastrevid/modified/pageid/ns/title (the test plan's spot check); pageid equals the
      source's; lastrevid is a fresh local ID above the source's (0035 section 3-4).
-Exit status is non-zero when any check fails. Standard library only.
+With --wbi-login/--wbi-secret (a subsidiary key, `name@label` and its secret), the
+WikibaseIntegrator section of test plan 1.4 runs on the first --ids entity: log in as a
+bot; set a label; add then remove a string statement; a stale baserevid is refused; create
+an item (and with --wbi-create-property a property) whose number is above the counter
+floor; every write is read back through wbgetentities. These writes are permanent on the
+tenant, so point them at a test database. Needs `pip install wikibaseintegrator`.
+Exit status is non-zero when any check fails. Standard library only otherwise.
 """
 
 import argparse
@@ -81,6 +89,10 @@ def main():
     ap.add_argument("--sample", type=int, default=0, help="also check N random adopted entities (needs --db)")
     ap.add_argument("--db", help="Postgres URL, for --sample and the view.identifier check (uses psql)")
     ap.add_argument("--compare", metavar="SOURCE_BASE", help="compare with the source wiki's Special:EntityData")
+    ap.add_argument("--wbi-login", metavar="NAME@LABEL", help="bot-password login name from `subsidiary key`")
+    ap.add_argument("--wbi-secret", help="the key's secret (or set TRIPLESPACE_WBI_SECRET)")
+    ap.add_argument("--wbi-property", help="a string-typed property to add a statement with (found automatically if omitted)")
+    ap.add_argument("--wbi-create-property", action="store_true", help="also create a property (consumes a P number)")
     a = ap.parse_args()
 
     ids = list(a.ids)
@@ -201,8 +213,173 @@ def main():
 
         print(f"seen {eid}: {total} snaks" + (f", label {label['value']!r}" if label else ""))
 
+    if a.wbi_login:
+        failures += wbi_section(a, ids[0])
+
     print(f"\n{len(ids)} entities, {failures} failures")
     sys.exit(1 if failures else 0)
+
+
+def sequence_value(db, tenant, kind):
+    """`last_value` of a tenant's ID sequence (0013 section 6), or None without --db."""
+    if not db:
+        return None
+    rows = psql(db, f"""SELECT last_value FROM log."{tenant}.{kind}" """)
+    return int(rows[0]) if rows else None
+
+
+def numeric(eid):
+    return int("".join(ch for ch in eid if ch.isdigit()))
+
+
+def wbi_section(a, eid):
+    """Test plan 1.4: edits through WikibaseIntegrator, as a bot. Returns the failure count."""
+    import os
+    import time
+
+    try:
+        from wikibaseintegrator import WikibaseIntegrator, wbi_login
+        from wikibaseintegrator.datatypes import String
+        from wikibaseintegrator.wbi_config import config as wbi_config
+        from wikibaseintegrator.wbi_enums import ActionIfExists
+    except ImportError:
+        print("FAIL wbi: wikibaseintegrator is not installed (pip install wikibaseintegrator)")
+        return 1
+
+    secret = a.wbi_secret or os.environ.get("TRIPLESPACE_WBI_SECRET")
+    if not secret:
+        print("FAIL wbi: no secret (--wbi-secret or TRIPLESPACE_WBI_SECRET)")
+        return 1
+    failures = 0
+
+    def fail(what):
+        nonlocal failures
+        failures += 1
+        print(f"FAIL wbi: {what}")
+
+    api_url = f"{a.api.rstrip('/')}/w/api.php"
+    wbi_config["MEDIAWIKI_API_URL"] = api_url
+    wbi_config["USER_AGENT"] = "triplespace api_check (tools/api_check.py)"
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+
+    # 1. Bot-password login, as the acceptance test does by hand.
+    try:
+        login = wbi_login.Login(user=a.wbi_login, password=secret, mediawiki_api_url=api_url)
+    except Exception as e:  # noqa: BLE001
+        fail(f"login as {a.wbi_login!r}: {e}")
+        return failures
+    wbi = WikibaseIntegrator(login=login)
+    ui = api(a.api, action="query", meta="userinfo", uiprop="groups|rights")
+    print(f"wbi: logged in; userinfo via plain GET is {ui['query']['userinfo'].get('name')!r} (anonymous, as expected)")
+
+    # 2. Read the entity, set a label, write with baserevid.
+    try:
+        item = wbi.item.get(entity_id=eid)
+    except Exception as e:  # noqa: BLE001
+        fail(f"item.get({eid}): {e}")
+        return failures
+    before = item.lastrevid
+    label = f"api_check {stamp}"
+    item.labels.set(language="fr", value=label)
+    try:
+        item.write(summary="api_check: label")
+    except Exception as e:  # noqa: BLE001
+        fail(f"write label on {eid}: {e}")
+        return failures
+    got = api(a.api, action="wbgetentities", ids=eid)["entities"][eid]
+    if got.get("labels", {}).get("fr", {}).get("value") != label:
+        fail(f"{eid}: fr label not {label!r} after write")
+    if not got.get("lastrevid", 0) > before:
+        fail(f"{eid}: lastrevid did not advance ({before} -> {got.get('lastrevid')})")
+    else:
+        print(f"wbi: {eid} label set, lastrevid {before} -> {got['lastrevid']}")
+
+    # 3. A stale baserevid must be refused (0006 section 8).
+    session = login.get_session()
+    token = login.get_edit_token()
+    r = session.post(api_url, data={
+        "action": "wbsetlabel", "format": "json", "id": eid, "language": "fr",
+        "value": label + " stale", "baserevid": before, "token": token,
+    }, timeout=60).json()
+    if "error" not in r:
+        fail(f"{eid}: wbsetlabel with stale baserevid {before} was accepted: {r}")
+    else:
+        print(f"wbi: stale baserevid refused ({r['error'].get('code')})")
+
+    # 4. Add a string statement, then remove it.
+    prop = a.wbi_property
+    if not prop:
+        for n in range(1, 200):
+            try:
+                p = api(a.api, action="wbgetentities", ids=f"P{n}", props="datatype")["entities"][f"P{n}"]
+            except Exception:  # noqa: BLE001
+                continue
+            if p.get("datatype") == "string":
+                prop = f"P{n}"
+                break
+    if not prop:
+        fail("no string-typed property found in P1..P199; pass --wbi-property")
+    else:
+        item = wbi.item.get(entity_id=eid)
+        item.claims.add(String(prop_nr=prop, value=f"api_check {stamp}"),
+                        action_if_exists=ActionIfExists.APPEND_OR_REPLACE)
+        try:
+            item.write(summary="api_check: add statement")
+        except Exception as e:  # noqa: BLE001
+            fail(f"add {prop} statement on {eid}: {e}")
+        item = wbi.item.get(entity_id=eid)
+        mine = [c for c in item.claims.get(prop) if c.mainsnak.datavalue
+                and c.mainsnak.datavalue.get("value") == f"api_check {stamp}"]
+        if not mine:
+            fail(f"{eid}: added {prop} statement not read back")
+        else:
+            print(f"wbi: {eid} statement {mine[0].id} added on {prop}")
+            r = session.post(api_url, data={
+                "action": "wbremoveclaims", "format": "json", "claim": mine[0].id,
+                "baserevid": item.lastrevid, "token": login.get_edit_token(),
+            }, timeout=60).json()
+            if "error" in r:
+                fail(f"{eid}: wbremoveclaims: {r['error']}")
+            else:
+                item = wbi.item.get(entity_id=eid)
+                if any(c.id == mine[0].id for c in item.claims.get(prop)):
+                    fail(f"{eid}: statement {mine[0].id} still present after removal")
+                else:
+                    print(f"wbi: {eid} statement removed")
+
+    # 5. A new item lands above the item counter floor (0035 section 4).
+    floor = sequence_value(a.db, a.tenant, "item_id")
+    new = wbi.item.new()
+    new.labels.set(language="en", value=f"api_check item {stamp}")
+    new.descriptions.set(language="en", value="created by tools/api_check.py; safe to delete")
+    try:
+        new.write(summary="api_check: new item")
+        n = numeric(new.id)
+        if floor is not None and n <= floor:
+            fail(f"new item {new.id} is not above the item floor {floor}")
+        else:
+            print(f"wbi: created {new.id}" + (f" (floor was {floor})" if floor is not None else ""))
+        if "missing" in api(a.api, action="wbgetentities", ids=new.id)["entities"][new.id]:
+            fail(f"new item {new.id} not readable back")
+    except Exception as e:  # noqa: BLE001
+        fail(f"create item: {e}")
+
+    # 6. Optionally a property, likewise above its floor.
+    if a.wbi_create_property:
+        floor = sequence_value(a.db, a.tenant, "property_id")
+        newp = wbi.property.new(datatype="string")
+        newp.labels.set(language="en", value=f"api_check property {stamp}")
+        try:
+            newp.write(summary="api_check: new property")
+            n = numeric(newp.id)
+            if floor is not None and n <= floor:
+                fail(f"new property {newp.id} is not above the property floor {floor}")
+            else:
+                print(f"wbi: created {newp.id}" + (f" (floor was {floor})" if floor is not None else ""))
+        except Exception as e:  # noqa: BLE001
+            fail(f"create property: {e}")
+
+    return failures
 
 
 if __name__ == "__main__":
