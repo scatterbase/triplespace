@@ -1,0 +1,9 @@
+# The client libraries tools/client_compat.sh exercises, pinned so that a client release
+# cannot change CI's verdict on its own; bump deliberately and record the result in the
+# test plan's log.
+wikibaseintegrator==0.12.15
+pywikibot==11.8.0
+wikidataintegrator==0.9.30
+# wikidataintegrator 0.9.30 imports pkg_resources, which setuptools 80 removed.
+setuptools<80
+requests

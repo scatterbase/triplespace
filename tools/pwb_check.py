@@ -194,10 +194,16 @@ def main():
     prop = step("read: PropertyPage.get() and a string-typed property", find_property)
 
     def search():
-        hits = list(site.search_entities("Librarybase", "en", total=10))
+        # The item's own English label (or any label it has): the hit must include it.
+        item = state["item"]
+        lang, text = next(((lg, t) for lg, t in item.labels.items() if lg == "en"),
+                          next(iter(item.labels.items())))
+        hits = list(site.search_entities(text, lang, total=10))
         ids = [h["id"] for h in hits]
-        return f"{ids}"
-    step("search: search_entities('Librarybase', 'en')", search)
+        if a.item not in ids:
+            raise RuntimeError(f"{a.item} not in {ids} for {text!r} ({lang})")
+        return f"{text!r} ({lang}) -> {ids}"
+    step("search: search_entities by the item's label", search, skip="item" not in state)
 
     # --- write ------------------------------------------------------------------------
     skip_w = a.no_write or not logged_in or "item" not in state

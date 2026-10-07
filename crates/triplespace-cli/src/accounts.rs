@@ -224,6 +224,10 @@ pub struct SubsidiaryKey {
     /// Days until the key expires; never by default.
     #[arg(long)]
     pub expires_days: Option<u64>,
+    /// Print the issued key as one JSON object (`key_id`, `login`, `secret`, `bearer`)
+    /// instead of the prose, for scripts.
+    #[arg(long)]
+    pub json: bool,
 }
 
 /// `subsidiary revoke`.
@@ -345,12 +349,23 @@ pub async fn run_subsidiary(cmd: Subsidiary) -> Result<()> {
                 .expires_days
                 .map(|d| SystemTime::now() + Duration::from_secs(d * 24 * 60 * 60));
             let issued = keys::issue(&client, &key, &args.label, &args.grants, expires).await?;
+            let login = format!("{}@{}", args.target.name, args.label);
+            let secret = issued.bearer.split_once('.').map_or("", |(_, s)| s);
+            if args.json {
+                println!(
+                    "{}",
+                    serde_json::json!({
+                        "key_id": issued.key_id,
+                        "login": login,
+                        "secret": secret,
+                        "bearer": issued.bearer,
+                    })
+                );
+                return Ok(());
+            }
             println!("key {} issued for {key}", issued.key_id);
-            println!("  login   lgname={}@{}", args.target.name, args.label);
-            println!(
-                "  secret  {}",
-                issued.bearer.split_once('.').map_or("", |(_, s)| s)
-            );
+            println!("  login   lgname={login}");
+            println!("  secret  {secret}");
             println!("  bearer  Authorization: Bearer {}", issued.bearer);
             println!("  shown once; store it now");
             Ok(())
