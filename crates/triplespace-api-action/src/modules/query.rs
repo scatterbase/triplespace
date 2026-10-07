@@ -22,6 +22,7 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
             "siteinfo" => siteinfo(ctx, &mut query).await?,
             "tokens" => tokens(ctx, &mut query, &mut response).await?,
             "userinfo" => userinfo(ctx, &mut query),
+            "wikibase" => wikibase(ctx, &mut query),
             other => response.warn(
                 "query",
                 &format!("Unrecognized value for parameter \"meta\": {other}."),
@@ -98,8 +99,8 @@ async fn tokens(
     let mut out = Map::new();
     for t in types {
         match t.as_str() {
-            "createaccount" | "csrf" | "login" | "patrol" | "rollback" | "userrights" | "watch" => {
-                out.insert(format!("{t}token"), json!(ctx.caller.token(&ctx.app, &t)));
+            t if TOKEN_TYPES.contains(&t) => {
+                out.insert(format!("{t}token"), json!(ctx.caller.token(&ctx.app, t)));
             }
             other => response.warn(
                 "tokens",
@@ -302,6 +303,275 @@ async fn theme(ctx: &Ctx) -> Result<Option<Value>, ApiError> {
         .filter(Value::is_object))
 }
 
+/// `meta=wikibase` (Wikibase Client's module): where this site's repository is. The
+/// site is its own repository, so the URL is the tenant's own; Pywikibot asks this to
+/// decide whether a site has a data repository at all, and builds its `DataSite` from
+/// the answer.
+fn wikibase(ctx: &Ctx, query: &mut Map<String, Value>) {
+    let base = ctx.tenant.public_base.trim_end_matches('/');
+    query.insert(
+        "wikibase".into(),
+        json!({
+            "repo": {"url": {"base": base, "scriptpath": "/w", "articlepath": "/wiki/$1"}},
+            "siteid": ctx.tenant.slug.replace('-', "_"),
+        }),
+    );
+}
+
+/// The token types `meta=tokens` issues (MediaWiki's set).
+pub const TOKEN_TYPES: &[&str] = &[
+    "createaccount",
+    "csrf",
+    "login",
+    "patrol",
+    "rollback",
+    "userrights",
+    "watch",
+];
+
+/// Language codes the term API accepts, for `paraminfo` (Wikibase lists every
+/// MediaWiki language; clients such as Pywikibot refuse a code not in the list). The
+/// ISO 639-1 codes, `mul`, and the variant codes Wikibase terms commonly use.
+pub const TERM_LANGUAGES: &[&str] = &[
+    "mul",
+    "aa",
+    "ab",
+    "ae",
+    "af",
+    "ak",
+    "am",
+    "an",
+    "ar",
+    "as",
+    "av",
+    "ay",
+    "az",
+    "ba",
+    "be",
+    "bg",
+    "bi",
+    "bm",
+    "bn",
+    "bo",
+    "br",
+    "bs",
+    "ca",
+    "ce",
+    "ch",
+    "co",
+    "cr",
+    "cs",
+    "cu",
+    "cv",
+    "cy",
+    "da",
+    "de",
+    "dv",
+    "dz",
+    "ee",
+    "el",
+    "en",
+    "eo",
+    "es",
+    "et",
+    "eu",
+    "fa",
+    "ff",
+    "fi",
+    "fj",
+    "fo",
+    "fr",
+    "fy",
+    "ga",
+    "gd",
+    "gl",
+    "gn",
+    "gu",
+    "gv",
+    "ha",
+    "he",
+    "hi",
+    "ho",
+    "hr",
+    "ht",
+    "hu",
+    "hy",
+    "hz",
+    "ia",
+    "id",
+    "ie",
+    "ig",
+    "ii",
+    "ik",
+    "io",
+    "is",
+    "it",
+    "iu",
+    "ja",
+    "jv",
+    "ka",
+    "kg",
+    "ki",
+    "kj",
+    "kk",
+    "kl",
+    "km",
+    "kn",
+    "ko",
+    "kr",
+    "ks",
+    "ku",
+    "kv",
+    "kw",
+    "ky",
+    "la",
+    "lb",
+    "lg",
+    "li",
+    "ln",
+    "lo",
+    "lt",
+    "lu",
+    "lv",
+    "mg",
+    "mh",
+    "mi",
+    "mk",
+    "ml",
+    "mn",
+    "mr",
+    "ms",
+    "mt",
+    "my",
+    "na",
+    "nb",
+    "nd",
+    "ne",
+    "ng",
+    "nl",
+    "nn",
+    "no",
+    "nr",
+    "nv",
+    "ny",
+    "oc",
+    "oj",
+    "om",
+    "or",
+    "os",
+    "pa",
+    "pi",
+    "pl",
+    "ps",
+    "pt",
+    "qu",
+    "rm",
+    "rn",
+    "ro",
+    "ru",
+    "rw",
+    "sa",
+    "sc",
+    "sd",
+    "se",
+    "sg",
+    "si",
+    "sk",
+    "sl",
+    "sm",
+    "sn",
+    "so",
+    "sq",
+    "sr",
+    "ss",
+    "st",
+    "su",
+    "sv",
+    "sw",
+    "ta",
+    "te",
+    "tg",
+    "th",
+    "ti",
+    "tk",
+    "tl",
+    "tn",
+    "to",
+    "tr",
+    "ts",
+    "tt",
+    "tw",
+    "ty",
+    "ug",
+    "uk",
+    "ur",
+    "uz",
+    "ve",
+    "vi",
+    "vo",
+    "wa",
+    "wo",
+    "xh",
+    "yi",
+    "yo",
+    "za",
+    "zh",
+    "zu",
+    "ast",
+    "azb",
+    "bar",
+    "be-tarask",
+    "ceb",
+    "ckb",
+    "de-at",
+    "de-ch",
+    "de-formal",
+    "en-ca",
+    "en-gb",
+    "es-419",
+    "eml",
+    "fil",
+    "frr",
+    "gsw",
+    "hak",
+    "hsb",
+    "ilo",
+    "jbo",
+    "kab",
+    "ksh",
+    "lmo",
+    "lzh",
+    "min",
+    "nan",
+    "nap",
+    "nds",
+    "nds-nl",
+    "pms",
+    "pnb",
+    "pt-br",
+    "sco",
+    "scn",
+    "sh",
+    "simple",
+    "sr-ec",
+    "sr-el",
+    "szl",
+    "tt-cyrl",
+    "tt-latn",
+    "vec",
+    "war",
+    "yue",
+    "zh-cn",
+    "zh-hans",
+    "zh-hant",
+    "zh-hk",
+    "zh-mo",
+    "zh-my",
+    "zh-sg",
+    "zh-tw",
+    "zxx",
+];
+
 /// The main page's title: the project namespace's `Home`, which the site generates until
 /// a page of that title exists.
 pub const MAIN_PAGE: &str = "Project:Home";
@@ -464,7 +734,7 @@ const ACTION_MODULES: &[(&str, bool)] = &[
 
 /// `action=query`'s submodules by kind: `(kind, names)`.
 const QUERY_MODULES: &[(&str, &[&str])] = &[
-    ("meta", &["siteinfo", "tokens", "userinfo"]),
+    ("meta", &["siteinfo", "tokens", "userinfo", "wikibase"]),
     ("prop", &[]),
     ("list", &[]),
 ];
@@ -515,6 +785,114 @@ fn submodule_parameter(index: usize, name: &str, names: &[&str], parent: Option<
     p.insert("lowlimit".into(), json!(50));
     p.insert("highlimit".into(), json!(500));
     Value::Object(p)
+}
+
+fn multi(mut p: Map<String, Value>, limit: u32) -> Map<String, Value> {
+    p.insert("multi".into(), json!(true));
+    p.insert("limit".into(), json!(limit));
+    p.insert("lowlimit".into(), json!(limit));
+    p.insert("highlimit".into(), json!(limit * 10));
+    p
+}
+
+fn with_default(mut p: Map<String, Value>, default: Value) -> Map<String, Value> {
+    p.insert("default".into(), default);
+    p
+}
+
+/// The parameters of the modules a client validates against before calling them:
+/// Pywikibot reads `query+tokens.type` for the token types and
+/// `wbsearchentities.language` for the languages it may search in, and sends only
+/// parameters a module lists. Modules not described here answer with no parameters.
+fn module_parameters(name: &str) -> Vec<Value> {
+    let entity_types = json!(["item", "property", "domain"]);
+    match name {
+        "tokens" => vec![Value::Object(with_default(
+            multi(parameter(0, "type", json!(TOKEN_TYPES)), 50),
+            json!("csrf"),
+        ))],
+        "siteinfo" => vec![Value::Object(with_default(
+            multi(
+                parameter(
+                    0,
+                    "prop",
+                    json!([
+                        "general",
+                        "namespaces",
+                        "namespacealiases",
+                        "extensions",
+                        "statistics",
+                        "usergroups",
+                        "providers",
+                        "issuers",
+                        "triplespace"
+                    ]),
+                ),
+                50,
+            ),
+            json!("general"),
+        ))],
+        "userinfo" => vec![Value::Object(multi(
+            parameter(
+                0,
+                "prop",
+                json!([
+                    "blockinfo",
+                    "groups",
+                    "rights",
+                    "ratelimits",
+                    "operator",
+                    "grants"
+                ]),
+            ),
+            50,
+        ))],
+        "wikibase" => vec![Value::Object(with_default(
+            multi(parameter(0, "prop", json!(["url", "siteid"])), 50),
+            json!("url|siteid"),
+        ))],
+        "wbsearchentities" => vec![
+            Value::Object(parameter(0, "search", json!("string"))),
+            Value::Object(parameter(1, "language", json!(TERM_LANGUAGES))),
+            Value::Object(parameter(2, "strictlanguage", json!("boolean"))),
+            Value::Object(with_default(
+                parameter(3, "type", entity_types),
+                json!("item"),
+            )),
+            Value::Object(with_default(
+                parameter(4, "limit", json!("limit")),
+                json!(7),
+            )),
+            Value::Object(with_default(
+                parameter(5, "continue", json!("integer")),
+                json!(0),
+            )),
+        ],
+        "wbgetentities" => vec![
+            Value::Object(multi(parameter(0, "ids", json!("string")), 50)),
+            Value::Object(with_default(
+                multi(
+                    parameter(
+                        1,
+                        "props",
+                        json!([
+                            "info",
+                            "sitelinks",
+                            "aliases",
+                            "labels",
+                            "descriptions",
+                            "claims",
+                            "datatype"
+                        ]),
+                    ),
+                    50,
+                ),
+                json!("info|sitelinks|aliases|labels|descriptions|claims|datatype"),
+            )),
+            Value::Object(multi(parameter(2, "languages", json!(TERM_LANGUAGES)), 50)),
+        ],
+        _ => Vec::new(),
+    }
 }
 
 /// `action=paraminfo` (mediawiki-compat.md §5): the module tree and each module's
@@ -592,12 +970,13 @@ pub fn paraminfo_modules(requested: &[String]) -> Vec<Value> {
                         match sub {
                             "siteinfo" => "si",
                             "userinfo" => "ui",
+                            "wikibase" => "wb",
                             _ => "",
                         },
                     ),
                     None => (other, ""),
                 };
-                let mut module = paraminfo_module(name, other, prefix, &[]);
+                let mut module = paraminfo_module(name, other, prefix, &module_parameters(name));
                 if let Some((_, post)) = ACTION_MODULES.iter().find(|(n, _)| *n == name)
                     && *post
                 {
@@ -696,5 +1075,18 @@ mod paraminfo_tests {
         assert_eq!(by_path(&modules, "wbeditentity")["mustbeposted"], true);
         assert_eq!(by_path(&modules, "query+nothing")["missing"], true);
         param(&by_path(&modules, "paraminfo"), "modules");
+
+        // What Pywikibot validates against before calling: token types and languages.
+        let more: Vec<String> = ["query+tokens", "wbsearchentities"]
+            .iter()
+            .map(ToString::to_string)
+            .collect();
+        let more = paraminfo_modules(&more);
+        let tokens = by_path(&more, "query+tokens");
+        let types = param(&tokens, "type");
+        assert!(types["type"].as_array().unwrap().contains(&json!("csrf")));
+        let search = by_path(&more, "wbsearchentities");
+        let langs = param(&search, "language");
+        assert!(langs["type"].as_array().unwrap().contains(&json!("en")));
     }
 }
