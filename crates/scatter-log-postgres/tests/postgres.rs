@@ -2,7 +2,6 @@
 //! `TRIPLESPACE_TEST_DATABASE_URL`, a libpq-style URL for a role that may create
 //! databases. Without it every test here passes vacuously and says so.
 
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use scatter_integrity::checkpoint::Checkpoint;
@@ -18,7 +17,13 @@ use scatter_log_postgres::{PgCheckpoints, PgLog, log, merkle, migrate};
 use tokio_postgres::{Client, Config, NoTls};
 
 static COUNTER: AtomicU32 = AtomicU32::new(0);
-static CREATED: Mutex<Vec<String>> = Mutex::new(Vec::new());
+thread_local! {
+    /// The scratch databases this test made. Per thread, not per process: the tests run
+    /// in parallel, each on its own thread, and `cleanup` must drop only its own
+    /// databases — `DROP DATABASE … WITH (FORCE)` on another test's would terminate
+    /// that test's connections mid-run (SQLSTATE 57P01).
+    static CREATED: std::cell::RefCell<Vec<String>> = const { std::cell::RefCell::new(Vec::new()) };
+}
 
 fn admin_config() -> Option<Config> {
     let url = std::env::var("TRIPLESPACE_TEST_DATABASE_URL").ok()?;
@@ -48,7 +53,7 @@ async fn fresh() -> Client {
         .batch_execute(&format!("CREATE DATABASE {name}"))
         .await
         .expect("create database");
-    CREATED.lock().unwrap().push(name.clone());
+    CREATED.with_borrow_mut(|c| c.push(name.clone()));
     let mut config = admin;
     config.dbname(&name);
     let client = connect(&config).await;
@@ -72,7 +77,7 @@ async fn reconnect(client: Client) -> Client {
 async fn cleanup() {
     let Some(admin) = admin_config() else { return };
     let client = connect(&admin).await;
-    let names: Vec<String> = std::mem::take(&mut *CREATED.lock().unwrap());
+    let names: Vec<String> = CREATED.with_borrow_mut(std::mem::take);
     for n in names {
         let _ = client
             .batch_execute(&format!("DROP DATABASE IF EXISTS {n} WITH (FORCE)"))

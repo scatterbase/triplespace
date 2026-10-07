@@ -3,7 +3,6 @@
 //! edits it, a key-mapped provider mirrors a Domain the tenant also asserts about, jobs
 //! start and finish, and the rows come out as 0013 §5 describes them.
 
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use ed25519_dalek::SigningKey;
@@ -27,7 +26,13 @@ use triplespace_projections::common::{
 use triplespace_projections::{Farm, PgBackend, milestone_pipeline};
 
 static COUNTER: AtomicU32 = AtomicU32::new(0);
-static CREATED: Mutex<Vec<String>> = Mutex::new(Vec::new());
+thread_local! {
+    /// The scratch databases this test made. Per thread, not per process: the tests run
+    /// in parallel, each on its own thread, and `cleanup` must drop only its own
+    /// databases — `DROP DATABASE … WITH (FORCE)` on another test's would terminate
+    /// that test's connections mid-run (SQLSTATE 57P01).
+    static CREATED: std::cell::RefCell<Vec<String>> = const { std::cell::RefCell::new(Vec::new()) };
+}
 
 const TENANT: &str = "librarybase";
 const LOCAL: u64 = 0x2001;
@@ -70,7 +75,7 @@ async fn fresh() -> (Client, PgBackend) {
         .batch_execute(&format!("CREATE DATABASE {name}"))
         .await
         .expect("create database");
-    CREATED.lock().unwrap().push(name.clone());
+    CREATED.with_borrow_mut(|c| c.push(name.clone()));
     let mut config = admin;
     config.dbname(&name);
     let mut client = connect(&config).await;
@@ -90,7 +95,7 @@ async fn fresh() -> (Client, PgBackend) {
 async fn cleanup() {
     let Some(admin) = admin_config() else { return };
     let client = connect(&admin).await;
-    let names: Vec<String> = std::mem::take(&mut *CREATED.lock().unwrap());
+    let names: Vec<String> = CREATED.with_borrow_mut(std::mem::take);
     for n in names {
         let _ = client
             .batch_execute(&format!("DROP DATABASE IF EXISTS {n} WITH (FORCE)"))
