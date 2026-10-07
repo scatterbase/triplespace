@@ -59,8 +59,15 @@ def main():
 
     try:
         from wikidataintegrator import wdi_core, wdi_login
-    except ImportError:
-        sys.exit("wikidataintegrator is not installed (pip install wikidataintegrator)")
+    except ImportError as e:
+        # WDI imports pandas, pyshex, shexer and the antlr runtime at import time; any one
+        # of them failing surfaces here as an ImportError, so show which.
+        import importlib.util
+        if importlib.util.find_spec("wikidataintegrator") is None:
+            sys.exit(f"wikidataintegrator is not installed in {sys.executable} (pip install wikidataintegrator)")
+        sys.exit(f"wikidataintegrator is installed but failed to import: {type(e).__name__}: {e}\n"
+                 "(a dependency of WDI, not WDI itself; `pip install -U pyshex shexer antlr4-python3-runtime` "
+                 "or check the pandas/numpy pair)")
 
     results = []
 
