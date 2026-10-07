@@ -345,6 +345,17 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                     "wikiid": sitename.replace('-', "_"),
                     "time": crate::entity_json::iso8601(crate::edit::now_micros()),
                     "uploadsenabled": false,
+                    // Pywikibot's Siteinfo converts these three unconditionally, so they
+                    // must be present, as MediaWiki emits them (index-keyed objects, even
+                    // in formatversion 2; `magiclinks` a name → bool map). Values are
+                    // MediaWiki's defaults; nothing here renders thumbnails.
+                    "thumblimits": {"0": 120, "1": 150, "2": 180, "3": 200, "4": 250, "5": 300},
+                    "imagelimits": {"0": {"width": 320, "height": 240}, "1": {"width": 640, "height": 480},
+                                    "2": {"width": 800, "height": 600}, "3": {"width": 1024, "height": 768},
+                                    "4": {"width": 1280, "height": 1024}},
+                    "magiclinks": {"ISBN": false, "PMID": false, "RFC": false},
+                    "linktrail": "/^([a-z]+)(.*)$/sD",
+                    "misermode": false,
                     "centralidlookupprovider": "local",
                     "allcentralidlookupproviders": ["local"],
                     "wikibase-propertytypes": property_types(),
@@ -425,12 +436,265 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
 }
 
 /// `action=paraminfo`: enough for a client to see which modules exist.
-pub fn paraminfo(ctx: &Ctx) -> Result<ApiResponse, ApiError> {
-    let modules: Vec<Value> = ctx
-        .params
-        .list("modules")
-        .into_iter()
-        .map(|m| json!({"name": m, "classname": "Triplespace", "path": m, "parameters": []}))
+/// The action modules, as `action=paraminfo` describes them. Every `wb*` write module
+/// is one entry here (`write::run` dispatches on the name), so a client that validates
+/// against paraminfo, as Pywikibot does, sees each of them.
+const ACTION_MODULES: &[(&str, bool)] = &[
+    // (name, must be POSTed)
+    ("query", false),
+    ("paraminfo", false),
+    ("help", false),
+    ("login", true),
+    ("clientlogin", true),
+    ("logout", true),
+    ("wbgetentities", false),
+    ("wbsearchentities", false),
+    ("wbeditentity", true),
+    ("wbcreateclaim", true),
+    ("wbsetclaim", true),
+    ("wbremoveclaims", true),
+    ("wbsetlabel", true),
+    ("wbsetdescription", true),
+    ("wbsetaliases", true),
+    ("wbsetqualifier", true),
+    ("wbremovequalifiers", true),
+    ("wbsetreference", true),
+    ("wbremovereferences", true),
+];
+
+/// `action=query`'s submodules by kind: `(kind, names)`.
+const QUERY_MODULES: &[(&str, &[&str])] = &[
+    ("meta", &["siteinfo", "tokens", "userinfo"]),
+    ("prop", &[]),
+    ("list", &[]),
+];
+
+fn paraminfo_module(name: &str, path: &str, prefix: &str, parameters: &[Value]) -> Value {
+    let mut m = json!({
+        "name": name,
+        "classname": "Triplespace",
+        "path": path,
+        "prefix": prefix,
+        "source": "Triplespace",
+        "sourcename": "Triplespace",
+        "licensetag": "GPL-3.0-or-later",
+        "parameters": parameters,
+    });
+    if path.starts_with("query+")
+        && let Some((kind, _)) = QUERY_MODULES
+            .iter()
+            .find(|(_, names)| names.contains(&name))
+    {
+        m["group"] = json!(kind);
+    }
+    m
+}
+
+fn parameter(index: usize, name: &str, kind: Value) -> Map<String, Value> {
+    let mut p = Map::new();
+    p.insert("index".into(), json!(index));
+    p.insert("name".into(), json!(name));
+    p.insert("type".into(), kind);
+    p
+}
+
+/// A parameter that names submodules: its `type` lists them and `submodules` maps each
+/// to its path, which is how Pywikibot learns the module tree.
+fn submodule_parameter(index: usize, name: &str, names: &[&str], parent: Option<&str>) -> Value {
+    let mut p = parameter(index, name, json!(names));
+    let paths: Map<String, Value> = names
+        .iter()
+        .map(|n| {
+            let path = parent.map_or_else(|| (*n).to_string(), |pa| format!("{pa}+{n}"));
+            ((*n).to_string(), json!(path))
+        })
         .collect();
+    p.insert("submodules".into(), Value::Object(paths));
+    p.insert("multi".into(), json!(true));
+    p.insert("limit".into(), json!(50));
+    p.insert("lowlimit".into(), json!(50));
+    p.insert("highlimit".into(), json!(500));
+    Value::Object(p)
+}
+
+/// `action=paraminfo` (mediawiki-compat.md §5): the module tree and each module's
+/// parameters, in MediaWiki's shape. `main`, `query` and `paraminfo` are described in
+/// full, since Pywikibot's `ParamInfo` reads the module tree from them; the action
+/// modules carry their POST requirement; a `query+…` submodule or any other module
+/// name is answered with an empty parameter list rather than refused.
+pub fn paraminfo(ctx: &Ctx) -> Result<ApiResponse, ApiError> {
+    let modules = paraminfo_modules(&ctx.params.list("modules"));
     Ok(ApiResponse::ok(json!({"paraminfo": {"modules": modules}})))
+}
+
+/// The `modules` array of `action=paraminfo` for the requested module paths.
+#[allow(clippy::too_many_lines)]
+pub fn paraminfo_modules(requested: &[String]) -> Vec<Value> {
+    let mut out = Vec::new();
+    for m in requested {
+        let module = match m.as_str() {
+            "main" => {
+                let actions: Vec<&str> = ACTION_MODULES.iter().map(|(n, _)| *n).collect();
+                let mut action = submodule_parameter(0, "action", &actions, None);
+                action["default"] = json!("help");
+                if let Some(o) = action.as_object_mut() {
+                    o.remove("multi");
+                }
+                let mut format = parameter(1, "format", json!(["json"]));
+                format.insert("default".into(), json!("jsonfm"));
+                format.insert("submodules".into(), json!({"json": "json"}));
+                let mut maxlag = parameter(2, "maxlag", json!("integer"));
+                maxlag.insert("default".into(), Value::Null);
+                paraminfo_module(
+                    "main",
+                    "main",
+                    "",
+                    &[
+                        action,
+                        Value::Object(format),
+                        Value::Object(maxlag),
+                        Value::Object(parameter(3, "formatversion", json!(["1", "2", "latest"]))),
+                    ],
+                )
+            }
+            "paraminfo" => {
+                let mut modules = parameter(0, "modules", json!("string"));
+                modules.insert("multi".into(), json!(true));
+                modules.insert("limit".into(), json!(50));
+                modules.insert("lowlimit".into(), json!(50));
+                modules.insert("highlimit".into(), json!(500));
+                let mut helpformat =
+                    parameter(1, "helpformat", json!(["html", "wikitext", "raw", "none"]));
+                helpformat.insert("default".into(), json!("none"));
+                paraminfo_module(
+                    "paraminfo",
+                    "paraminfo",
+                    "",
+                    &[Value::Object(modules), Value::Object(helpformat)],
+                )
+            }
+            "query" => {
+                let mut params: Vec<Value> = QUERY_MODULES
+                    .iter()
+                    .enumerate()
+                    .map(|(i, (kind, names))| submodule_parameter(i, kind, names, Some("query")))
+                    .collect();
+                // Generators are submodules usable as a page set; none yet.
+                let mut generator = parameter(params.len(), "generator", json!([]));
+                generator.insert("submodules".into(), json!({}));
+                params.push(Value::Object(generator));
+                paraminfo_module("query", "query", "", &params)
+            }
+            other => {
+                let (name, prefix) = match other.strip_prefix("query+") {
+                    Some(sub) => (
+                        sub,
+                        match sub {
+                            "siteinfo" => "si",
+                            "userinfo" => "ui",
+                            _ => "",
+                        },
+                    ),
+                    None => (other, ""),
+                };
+                let mut module = paraminfo_module(name, other, prefix, &[]);
+                if let Some((_, post)) = ACTION_MODULES.iter().find(|(n, _)| *n == name)
+                    && *post
+                {
+                    module["mustbeposted"] = json!(true);
+                    module["writerights"] = json!(true);
+                }
+                if let Some(sub) = other.strip_prefix("query+")
+                    && !QUERY_MODULES.iter().any(|(_, names)| names.contains(&sub))
+                    && !ACTION_MODULES.iter().any(|(n, _)| *n == name)
+                {
+                    module = json!({"name": name, "path": other, "missing": true});
+                }
+                module
+            }
+        };
+        out.push(module);
+    }
+    out
+}
+
+#[cfg(test)]
+mod paraminfo_tests {
+    use super::*;
+
+    fn by_path(modules: &[Value], path: &str) -> Value {
+        modules
+            .iter()
+            .find(|m| m["path"] == path)
+            .cloned()
+            .unwrap_or_else(|| panic!("module {path}"))
+    }
+
+    fn param<'a>(module: &'a Value, name: &str) -> &'a Value {
+        module["parameters"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["name"] == name)
+            .unwrap_or_else(|| panic!("parameter {name}"))
+    }
+
+    /// The invariants Pywikibot's `ParamInfo._init` and `_generate_submodules` assert.
+    #[test]
+    fn pywikibot_reads_the_module_tree() {
+        let req: Vec<String> = [
+            "main",
+            "paraminfo",
+            "query",
+            "query+siteinfo",
+            "wbeditentity",
+            "query+nothing",
+        ]
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+        let modules = paraminfo_modules(&req);
+
+        // main: `action` lists the actions and maps each to itself; `format` exists.
+        let main = by_path(&modules, "main");
+        let action = param(&main, "action");
+        let names: Vec<&str> = action["type"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap())
+            .collect();
+        let sub = action["submodules"].as_object().unwrap();
+        assert_eq!(names.len(), sub.len());
+        for n in &names {
+            assert_eq!(sub[*n], json!(n));
+        }
+        assert!(names.contains(&"query") && names.contains(&"wbeditentity"));
+        param(&main, "format");
+
+        // query: prop/list/meta carry type, submodules (`query+name`) and limit; a
+        // generator parameter exists and its type is within the submodules.
+        let query = by_path(&modules, "query");
+        let mut all_sub = std::collections::BTreeSet::new();
+        for kind in ["prop", "list", "meta"] {
+            let p = param(&query, kind);
+            assert!(p["limit"].is_number(), "{kind} limit");
+            for (child, path) in p["submodules"].as_object().unwrap() {
+                assert_eq!(path.as_str().unwrap(), format!("query+{child}"));
+                all_sub.insert(child.clone());
+            }
+        }
+        assert!(all_sub.contains("siteinfo"));
+        let generator = param(&query, "generator");
+        for g in generator["type"].as_array().unwrap() {
+            assert!(all_sub.contains(g.as_str().unwrap()));
+        }
+
+        // Submodules and action modules are described; an unknown submodule is `missing`.
+        assert_eq!(by_path(&modules, "query+siteinfo")["group"], "meta");
+        assert_eq!(by_path(&modules, "query+siteinfo")["prefix"], "si");
+        assert_eq!(by_path(&modules, "wbeditentity")["mustbeposted"], true);
+        assert_eq!(by_path(&modules, "query+nothing")["missing"], true);
+        param(&by_path(&modules, "paraminfo"), "modules");
+    }
 }
