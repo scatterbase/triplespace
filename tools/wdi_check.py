@@ -10,11 +10,14 @@ in ways this script records:
   - `WDItemEngine.write()` sends no baserevid at all: WDI relies on maxlag, not on edit
     conflicts, so a WDI bot can overwrite a concurrent edit. Only `delete_statement()`
     passes a revision, so the stale-baserevid check (0006 section 8) runs through it.
-  - Unless `core_props` is given, the constructor queries a SPARQL endpoint for
-    distinct-value constraints, defaulting to query.wikidata.org. Triplespace has no
-    SPARQL endpoint yet (ADR 0059 is proposed). The clean steps pass `core_props=set()`;
-    one step deliberately uses WDI's default path against `<api>/sparql` and records
-    what a user who only set `mediawiki_api_url` would see.
+  - The constructor always queries a SPARQL endpoint (MappingRelationHelper, and unless
+    `core_props` is given, distinct-value constraints), defaulting to query.wikidata.org.
+    Triplespace has no SPARQL endpoint yet (ADR 0059 is proposed), and WDI retries a
+    failed SPARQL request without limit, so against a bare Triplespace a WDItemEngine
+    never finishes constructing unless `BACKOFF_MAX_TRIES` is set. This script sets it
+    to 2; a WDI user must do the same (or point `sparql_endpoint_url` somewhere that
+    answers) until 0059 lands. The clean steps also pass `core_props=set()`; one step
+    uses WDI's default discovery against `<api>/sparql` and records what happens.
 Every step runs on its own and reports PASS, FAIL (with the exception), INFO or SKIP;
 the exit status is the number of failures. Writes are permanent; --no-write skips them.
 """
@@ -59,15 +62,24 @@ def main():
 
     try:
         from wikidataintegrator import wdi_core, wdi_login
+        from wikidataintegrator.wdi_config import config as wdi_config
     except ImportError as e:
         # WDI imports pandas, pyshex, shexer and the antlr runtime at import time; any one
         # of them failing surfaces here as an ImportError, so show which.
         import importlib.util
         if importlib.util.find_spec("wikidataintegrator") is None:
             sys.exit(f"wikidataintegrator is not installed in {sys.executable} (pip install wikidataintegrator)")
-        sys.exit(f"wikidataintegrator is installed but failed to import: {type(e).__name__}: {e}\n"
+        sys.exit(f"wikidataintegrator is installed in {sys.executable} but failed to import: "
+                 f"{type(e).__name__}: {e}\n"
                  "(a dependency of WDI, not WDI itself; `pip install -U pyshex shexer antlr4-python3-runtime` "
                  "or check the pandas/numpy pair)")
+
+    # WDI retries failed SPARQL requests without limit (BACKOFF_MAX_TRIES = None, waits up
+    # to an hour). With no SPARQL endpoint behind <api>/sparql that is a hang, not a
+    # failure: the constructor's own try/except around MappingRelationHelper never gets
+    # to run. Bounded, the HTTPError propagates and WDI continues without the helper.
+    wdi_config["BACKOFF_MAX_TRIES"] = 2
+    wdi_config["BACKOFF_MAX_VALUE"] = 1
 
     results = []
 
@@ -127,9 +139,9 @@ def main():
         # What a user who sets only mediawiki_api_url (and points SPARQL here) gets.
         wdi_core.WDItemEngine.DISTINCT_VALUE_PROPS.pop(sparql_url, None)
         engine(wd_item_id=a.item, core_props=None)
-        return ("constructed; WDI asked <api>/sparql for distinct-value constraints and continued "
-                "with no core_props (see its warning above)")
-    step("sparql: default core_props discovery against <api>/sparql (no endpoint yet, 0059)",
+        return ("constructed; WDI asked <api>/sparql for distinct-value constraints and the mapping "
+                "relation helper, got no endpoint, and continued (see its warnings above)")
+    step("sparql: WDI's default discovery against <api>/sparql (no endpoint yet, 0059; bounded retries)",
          sparql_default, info=True)
 
     def search():
