@@ -247,9 +247,10 @@ def main():
         stale.latest_revision_id = state.get("rev_after_label", stale.latest_revision_id) - 1
         try:
             stale.editLabels({"de": f"pwb stale {stamp}"}, summary="pwb_check: must fail")
-        except pywikibot.exceptions.APIError as e:
-            if "conflict" in e.code or "conflict" in str(e).lower():
-                return f"refused with {e.code}"
+        except (pywikibot.exceptions.APIError, pywikibot.exceptions.PageSaveRelatedError) as e:
+            # Pywikibot's save decorators wrap the API error in OtherPageSaveError.
+            if "editconflict" in str(e).lower() or "conflict" in str(e).lower():
+                return "refused with editconflict"
             raise
         raise RuntimeError("edit with a stale baserevid was accepted")
     step("write: stale baserevid is refused", stale_baserevid, skip=skip_w)
