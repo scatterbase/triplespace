@@ -194,3 +194,16 @@ integrity = "hashed"
 export = "public"
 payload_types = ["scatter:v0/mirrored-page", "scatter:v0/erase"]   # five parts: content, comment, attestation, wikitext, html
 defined_in = "0053 §5"
+
+# Pending (0071 §1, §3): a tenant's derived graph, one per extraction source. Commented out until
+# `scatter-log`'s registry accepts `per_source` (placeholder `{source}`); the parser rejects unknown fields.
+# [[graph]]
+# name = "derived/{source}"
+# kind = "source"
+# scope = "tenant"
+# per_source = true           # one per `extraction` config record (0071 §2)
+# history = "latest"          # a tenant may set "full"
+# integrity = "logged"
+# export = "public"
+# payload_types = ["scatter:v0/derivation", "scatter:v0/erase"]   # four parts: content, comment, attestation, evidence
+# defined_in = "0071 §1, §3"

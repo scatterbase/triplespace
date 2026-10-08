@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-04 (A29)
+- **Updated:** 2026-10-07 (A35)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md)
 - **Uses:** [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md)
@@ -23,7 +23,7 @@ Two smaller gaps are closed with them: the document node of a foreign entity on 
 
 ### 1. The body is a tree of erasable parts (amends 0006 §3 and §7)
 
-*Changed by A4, A5, A13, A14, A17, A18, A29.*
+*Changed by A4, A5, A13, A14, A17, A18, A29, A31.*
 
 The header of [0006](0006-log-integrity-and-erasure.md) §3 is unchanged. What changes is what its body commitment (field 6) commits to.
 
@@ -35,7 +35,7 @@ The header of [0006](0006-log-integrity-and-erasure.md) §3 is unchanged. What c
 | 1 | **Comment** | The edit summary or comment, as one string. Its parsed form ([0001](0001-revision-metadata-rdf.md) §6) is a projection | comment |
 | 2 | **Attestation** | Who is responsible, and how: the actor key, the job ([0006](0006-log-integrity-and-erasure.md) §3), the change tags ([0030](0030-edit-filters.md) §5), an optional `evidence` field holding a signed remote activity ([0022](0022-federation.md) §8), and an optional client `signature` (below) | user |
 
-The comment therefore leaves the change-set payload. A payload type with no comment, such as an actor record, carries a null in that part; the slot still exists, so every record has the same shape. `scatter:v0/upload`, in `pages`, has the three standard parts; its content part holds the SHA-256 of bytes kept outside the log, so erasing that part is what allows the bytes to be destroyed ([0039](0039-files-and-media.md) §2). `scatter:v0/task`, in `pages`, has the three standard parts and is keyed to a sprint's page ID; its content part names the rule and subject claimed ([0061](0061-sprints-and-tasks.md) §5).
+The comment therefore leaves the change-set payload. A payload type with no comment, such as an actor record, carries a null in that part; the slot still exists, so every record has the same shape. `scatter:v0/upload`, in `pages`, has the three standard parts; its content part holds the SHA-256 of bytes kept outside the log, so erasing that part is what allows the bytes to be destroyed ([0039](0039-files-and-media.md) §2). `scatter:v0/task`, in `pages`, has the three standard parts and is keyed to a sprint's page ID; its content part names the rule and subject claimed ([0061](0061-sprints-and-tasks.md) §5). `scatter:v0/derivation`, in `derived/{source}`, has four parts, the fourth being **evidence**, the page text the statements came from, so that it can be erased on its own; it is keyed by page ID and extractor ([0071](0071-derived-statements-from-mirrored-pages.md) §3).
 
 **Each part is salted and hashed on its own.** Part *i* is stored as the CBOR array `[salt, bytes]`, where the salt is 16 random bytes. Its leaf is `H(0x04 ‖ i ‖ salt ‖ bytes)`, with *i* as one byte. The body commitment in the header is the root over the leaves in order:
 
@@ -106,7 +106,7 @@ In [0013](0013-postgres-storage.md) §2, `revid`, `logid` and a new `page_id` co
 
 ### 3. The `config` partition (amends 0005 §4.1; extends 0006 §4 and §6)
 
-*Changed by A3, A4, A5, A6, A8, A9, A10, A11, A12, A13, A16, A19, A20, A21, A23, A24, A26, A27, A28.*
+*Changed by A3, A4, A5, A6, A8, A9, A10, A11, A12, A13, A16, A19, A20, A21, A23, A24, A26, A27, A28, A30, A31, A32, A33, A34, A35.*
 
 A source partition is registered for instance configuration. It corresponds to Scatterbase's `server` graph in the table of [0005](0005-crate-organization.md) §4.1, and the two share one record shape so that Scatterbase can adopt it.
 
@@ -133,7 +133,7 @@ The remaining kinds are Triplespace's, and each product declares its own:
 | `keyed-type` | The type name | The keyed-type entry | [0009](0009-keyed-entity-types-and-domain.md) §1 |
 | `role` | The role name | The properties bound to a role | [0003](0003-statement-ui.md) §7, [0004](0004-identity-clusters-and-equivalence.md) §6 |
 | `reconcile` | `default` or a provider code | Provider order, an optional `order_by_type` override, link properties, identifier properties for inference, normalizer overrides, reconciliation rules | [0004](0004-identity-clusters-and-equivalence.md) §9 |
-| `site` | A setting name | Site name, content languages, the recent-changes window, checkpoint cadence, and other scalar settings, among them the `wikitext.*` and `lua.*` settings of template expansion ([0042](0042-template-expansion-and-parsoid.md) §2, [0043](0043-lua-modules.md) §8–9), `pages.repos` and `pages.share` ([0052](0052-page-repositories-and-title-inheritance.md) §1), `search.inherited` and `content.licence` ([0053](0053-mirrored-pages.md) §7, §9), the `fork.*` settings ([0054](0054-forking-a-mirrored-page.md) §3–4, §8), `wikitext.site_styles` and `templatestyles.max_bytes` ([0055](0055-templatestyles-templatedata-and-page-properties.md) §2, §4), and `ui.theme`, the Codex token values a site is themed with ([0034](0034-frontend-stack.md) §1) | [0006](0006-log-integrity-and-erasure.md) §6, [0010](0010-site-ui.md) §7 |
+| `site` | A setting name | Site name, content languages, the recent-changes window, checkpoint cadence, and other scalar settings, among them the `wikitext.*` and `lua.*` settings of template expansion ([0042](0042-template-expansion-and-parsoid.md) §2, [0043](0043-lua-modules.md) §8–9), `pages.repos` and `pages.share` ([0052](0052-page-repositories-and-title-inheritance.md) §1), `search.inherited` and `content.licence` ([0053](0053-mirrored-pages.md) §7, §9), the `fork.*` settings ([0054](0054-forking-a-mirrored-page.md) §3–4, §8), `wikitext.site_styles` and `templatestyles.max_bytes` ([0055](0055-templatestyles-templatedata-and-page-properties.md) §2, §4), and `ui.theme`, the Codex token values a site is themed with ([0034](0034-frontend-stack.md) §1), the `entities.*` settings of shallow mirroring ([0070](0070-shallow-entity-mirroring.md) §2.1, §4, §6), and the `mcp.*` settings ([0075](0075-mcp-server.md) §6) | [0006](0006-log-integrity-and-erasure.md) §6, [0010](0010-site-ui.md) §7 |
 | `group` | The group name | A permission group; a global group carries `scope` ([0028](0028-tenancy-policy.md) §8) | [0016](0016-permissions-and-access-control.md) §3 |
 | `tenant`, `alias` | Instance scope | A tenant; a base-URI change | [0018](0018-tenants.md) §3, §9 |
 | `primary` | `primary` | Instance scope: the primary tenant's slug and, for a transfer, the offer it accepts; one current record | [0046](0046-primary-tenant.md) §2 |
@@ -154,6 +154,11 @@ The remaining kinds are Triplespace's, and each product declares its own:
 | `category-mapping` | The mapping name | Tenant scope: a category name or pattern, and the page statement its members get | [0038](0038-page-metadata-and-categories.md) §5 |
 | `page-repo` | The repository name | Tenant or instance scope: a page repository, its kind (`tenant` or `mediawiki`), provider, served namespaces, mode, `shadowed`, `titles`, cache lifetime, events, licence and display name. Replaces `template-repo` (A23) | [0052](0052-page-repositories-and-title-inheritance.md) §1 |
 | `reports` | `default` or a tenant slug | Instance scope: which reports run as batch, their mirror-graph widenings, the batch schedule and the row limit; written with `ts-config` at the farm base | [0047](0047-special-pages.md) §4.3 |
+| `extraction` | The source name | Tenant scope: an extraction source: its repository, pages, extractors, mappings, line settings, page subject and reference properties | [0071](0071-derived-statements-from-mirrored-pages.md) §2 |
+| `template-mapping` | The mapping name | Tenant scope: a template, conditions, subject, match keys, label and statements | [0072](0072-template-mappings.md) §2 |
+| `value-map` | The map name | Tenant scope: strings to values, for parsers and heading facets | [0072](0072-template-mappings.md) §4 |
+| `publication` | The publication name | Tenant scope: a destination wiki, account, scope, rows, data pages and kits | [0074](0074-publishing-a-scope-to-an-external-wiki.md) §1 |
+| `jsonld-context` | The profile name | Tenant scope: the schema.org types, property terms, intervals and identifiers of a JSON-LD profile | [0076](0076-dataset-publication.md) §2 |
 
 **Scope.** The kinds split by scope ([0018](0018-tenants.md) §3). The instance's `config` holds `key`, `graph`, `provider`, `issuer`, `keyed-type`, `tenant`, `alias`, `primary`, `tenancy`, `template`, `consumer` and `forwarder`, the instance lists of `sitelink-policy` and `federation-policy`, and global `group`s; each tenant's `config` holds the rest. A tenant's `config` begins with a `key:` record, the current instance key, and every `key:` record of the instance is appended to it as well, so a tenant's partitions verify from the tenant's bundle alone ([0018](0018-tenants.md) §2).
 
@@ -216,7 +221,7 @@ An upstream revision node is `prov:specializationOf` the **upstream** document n
 
 ### 5. Graph names and IRIs (settles 0001 Q2, 0002 Q1 and 0005 Q6)
 
-*Changed by A2, A3, A4, A5, A7, A9, A10, A11, A12, A16, A17, A19, A20, A21, A23, A24, A26.*
+*Changed by A2, A3, A4, A5, A7, A9, A10, A11, A12, A16, A17, A19, A20, A21, A23, A24, A26, A31.*
 
 **A graph's IRI is `{base}/graph/{name}`** for a tenant's partitions, where `{base}` is the tenant's base URI: the origin that serves its `/wiki/`, `/w/api.php` and `/entity/`, the same base that [0001](0001-revision-metadata-rdf.md) §5 gives its data ([0018](0018-tenants.md) §2). The instance's own partitions are under the reserved path `{farm base}/instance/graph/{name}`, so that they cannot be confused with a tenant's when the farm base is a tenant's base ([0046](0046-primary-tenant.md) §7). The IRI is therefore per instance, which it has to be: the metadata graph attributes triples to this instance's revisions, and two instances' full dumps ([0013](0013-postgres-storage.md) §8) must be loadable together without their `local` graphs colliding, especially now that [0009](0009-keyed-entity-types-and-domain.md) §6 gives Domain subjects the same IRI everywhere.
 
@@ -232,6 +237,7 @@ An upstream revision node is `prov:specializationOf` the **upstream** document n
 | `mirror/{provider}`, `actors/{provider}`, `log/{provider}` | Source, one set per provider | 0002 §2, 0007 §8, 0011 §2 |
 | `log` (instance) | Source: the instance's own log, for operator records | [0039](0039-files-and-media.md) §10 |
 | `files/{repo}` | Source, one per mirrored file repository | [0039](0039-files-and-media.md) §11 |
+| `derived/{source}` | Source, one per extraction source of a tenant | [0071](0071-derived-statements-from-mirrored-pages.md) §1 |
 | `resolved` | Projection: the main graph of [0001](0001-revision-metadata-rdf.md) §2 as [0002](0002-source-graphs-and-mass-ingest.md) §3 computes it | 0002 §3 |
 | `metadata` | Projection | 0001 §2 |
 
@@ -243,7 +249,7 @@ An upstream revision node is `prov:specializationOf` the **upstream** document n
 
 | File | Lists | Defined in |
 |---|---|---|
-| `graphs.toml` | The reserved graph names above, with each one's kind, policies and payload type; `pages/{repo}`, the mirrored-page partition of a page repository in `mirror` mode, with its five-part payload type `scatter:v0/mirrored-page` ([0053](0053-mirrored-pages.md) §5) | this section, §3 |
+| `graphs.toml` | The reserved graph names above, with each one's kind, policies and payload type; `pages/{repo}`, the mirrored-page partition of a page repository in `mirror` mode, with its five-part payload type `scatter:v0/mirrored-page` ([0053](0053-mirrored-pages.md) §5); `derived/{source}`, a tenant's derived graph per extraction source, with the four-part `scatter:v0/derivation` ([0071](0071-derived-statements-from-mirrored-pages.md) §1, §3) | this section, §3 |
 | `providers.toml` | Each provider's two-letter code, slug, **provider number** (§2), type codes with their upstream prefixes and IRI templates, issuer, whether it publishes revision IDs, and its `trust` mode and key-chain URL ([0022](0022-federation.md) §2) | [0000](0000-init.md) §3, [0002](0002-source-graphs-and-mass-ingest.md) §4 |
 | `issuers.toml` | The issuer codes and actor models | [0007](0007-actor-identity.md) §1 |
 | `namespaces.toml` | The default namespace numbers and kinds | [0008](0008-namespaces-and-document-pages.md) §2 |
@@ -610,3 +616,45 @@ Replaced text (§3):
 - **Source:** [0061](0061-sprints-and-tasks.md) §5
 - **Change:** extends §1
 - **Summary:** `scatter:v0/task`, in `pages`, three standard parts, keyed to the sprint page; operations `claim` and `release`. Added to `graphs.toml`.
+
+### A30. Shallow mirroring settings
+
+- **Date:** 2026-10-07
+- **Source:** [0070](0070-shallow-entity-mirroring.md) §2.1
+- **Change:** extends §3
+- **Summary:** `entities.mirror`, `entities.closure`, `entities.closure_depth`, `entities.label_ttl` and `entities.term_languages` join the `site` settings.
+
+### A31. Derived graphs and extraction sources
+
+- **Date:** 2026-10-07
+- **Source:** [0071](0071-derived-statements-from-mirrored-pages.md) §1–3
+- **Change:** extends §1, §3, §5
+- **Summary:** The four-part `scatter:v0/derivation` payload type; the `extraction` config kind; the `derived/{source}` graph, one per extraction source of a tenant. Added to `graphs.toml`.
+
+### A32. Template mappings and value maps
+
+- **Date:** 2026-10-07
+- **Source:** [0072](0072-template-mappings.md) §2, §4
+- **Change:** extends §3
+- **Summary:** The `template-mapping` and `value-map` config kinds.
+
+### A33. Publications
+
+- **Date:** 2026-10-07
+- **Source:** [0074](0074-publishing-a-scope-to-an-external-wiki.md) §1
+- **Change:** extends §3
+- **Summary:** The `publication` config kind.
+
+### A34. MCP settings
+
+- **Date:** 2026-10-07
+- **Source:** [0075](0075-mcp-server.md) §6
+- **Change:** extends §3
+- **Summary:** The `mcp.*` settings join the `site` settings.
+
+### A35. JSON-LD profiles
+
+- **Date:** 2026-10-07
+- **Source:** [0076](0076-dataset-publication.md) §2
+- **Change:** extends §3
+- **Summary:** The `jsonld-context` config kind.

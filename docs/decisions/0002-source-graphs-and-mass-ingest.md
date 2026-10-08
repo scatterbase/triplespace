@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-24
-- **Updated:** 2026-10-05 (A20)
+- **Updated:** 2026-10-07 (A22)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md)
 - **Uses:** [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -38,15 +38,18 @@ An entity with ID `WDQ123` can have triples in the Wikidata mirror graph, in the
 
 ### 2. Source graphs
 
+*Changed by A22.*
+
 Every log record names the graph it writes to.
 
 | Graph | Illustrative IRI | Written by | History in the log |
 |---|---|---|---|
 | **Local** | `{base}/graph/local` | Editors, local bulk jobs, and retention when it materializes data (§5) | Full |
 | **Mirror**, one per provider | `{base}/graph/mirror/wikidata`, `{base}/graph/mirror/openalex` | Only that provider's sync jobs | Set per provider: `latest` or `full`. Retained entities always keep full history (§5). |
+| **Derived**, one per extraction source of a tenant ([0071](0071-derived-statements-from-mirrored-pages.md) §1) | `{base}/graph/derived/familysearch` | Only that source's extraction job | `latest` by default; a tenant may set `full` |
 | **Metadata** ([0001](0001-revision-metadata-rdf.md)) | `{base}/graph/metadata` | Projection | Derived |
 
-The local and mirror graphs are *sources*. The metadata graph and the resolved graph (§3) are *projections*.
+The local, mirror and derived graphs are *sources*. The metadata graph and the resolved graph (§3) are *projections*.
 
 **How much mirror history the log keeps is a storage policy.** It does not limit what the model can represent. Each mirror graph has a history policy:
 
@@ -64,7 +67,7 @@ No editor or local bulk job can write to a mirror graph.
 
 ### 3. The main graph becomes a resolved view (amends 0001 §2)
 
-*Changed by A13.*
+*Changed by A13, A22.*
 
 [0001](0001-revision-metadata-rdf.md) §2 describes the main graph as the Wikibase-compatible RDF. That main graph is now **computed**. A reconciliation policy is applied over the source graphs to produce it. The result is still Wikibase-shaped, it is still what gets exported to QLever, and it is still rebuildable from the log. The source graphs may also be exported, for consumers who want to compare what the upstream source asserts with what the instance asserts.
 
@@ -75,7 +78,7 @@ Default reconciliation rules:
 | What | Rule |
 |---|---|
 | Statements, references, aliases | Union across graphs. A statement IRI that appears in two graphs is one statement. |
-| Labels and descriptions (one per language), statement rank | The local graph wins wherever it says anything. Otherwise the mirror graph's value is used. |
+| Labels and descriptions (one per language), statement rank | The local graph wins wherever it says anything. Otherwise the tenant's derived graphs supply it, in `reconcile` order ([0071](0071-derived-statements-from-mirrored-pages.md) §7), and otherwise the mirror graph's value is used. |
 | Sitelinks | Union by normalized URL: a sitelink is a URL, and its site is its host. Where two graphs give one host different URLs for an entity, the local graph wins, then the provider order. Badges are the union. A denied host is left out of the resolved view ([0026](0026-sitelinks.md) §3–4). |
 | Suppressions | An explicit local-graph assertion removes a mirrored statement or term from the resolved view. |
 | Truthy (`wdt:`) and normalized (`wdtn:`) triples | Computed only in the resolved view, from the resolved ranks. Never stored in a source graph. |
@@ -232,7 +235,7 @@ Every entity change in the run points to its job. This answers 0001 Q5, what a r
 
 #### 8.4 Foreign imports
 
-*Changed by A11, A14.*
+*Changed by A11, A14, A21.*
 
 - **Adapters** are Rust trait implementations, one per provider type. An adapter:
   - rewrites IDs (`Q`→`WDQ`, `P`→`WDP`);
@@ -249,6 +252,7 @@ Every entity change in the run points to its job. This answers 0001 Q5, what a r
   - a list of IDs;
   - the closure of everything the local graph references;
   - terms only, meaning labels, descriptions and aliases without statements.
+- **Shallow mirroring** ([0070](0070-shallow-entity-mirroring.md) §1–2) keeps a referenced subset current without a dump: each entity is fetched whole the first time it is read or referenced, written as an ordinary `put` with its upstream version, and followed by the provider's event stream. Its neighbours are not fetched, except along configured closure properties. A later dump sync continues from those records.
 - **A provider that is itself a Triplespace instance** is read from its `local` graph only. The adapter rewrites references to the reader's own entities back to bare local IDs, and verifies each batch against the provider's checkpoint and key chain by default; a provider registered `trust = stream` is read like any other source. ([0022](0022-federation.md) §2)
 - **Upstream hashes.** A `put` carries upstream's snak and reference hashes only where they differ from the instance's own recomputation; the ingester compares every one, keeps a differing hash in place and counts it on the job ([0006](0006-log-integrity-and-erasure.md) §2, as amended 2026-09-28).
 
@@ -524,3 +528,25 @@ Replaced text (§8.5):
 Replaced text (§7):
 
 > - If upstream comes to agree with a correction, the application detects that the correction is redundant and can retire it.
+
+### A21. Shallow mirroring
+
+- **Date:** 2026-10-07
+- **Source:** [0070](0070-shallow-entity-mirroring.md) §1
+- **Change:** extends §8.4
+- **Summary:** A referenced subset of a provider is kept current without a dump, entity by entity, as whole-state `put`s; a later dump sync continues from it.
+
+### A22. Derived graphs
+
+- **Date:** 2026-10-07
+- **Source:** [0071](0071-derived-statements-from-mirrored-pages.md) §1, §7
+- **Change:** extends §2; amends §3
+- **Summary:** A tenant has one derived graph per extraction source, written only by that source's extraction job, holding statements derived from pages. Derived graphs are sources; for labels, descriptions and rank they rank after the local graph and before the mirrors.
+
+Replaced text (§2):
+
+> The local and mirror graphs are *sources*. The metadata graph and the resolved graph (§3) are *projections*.
+
+Replaced text (§3, table):
+
+> | Labels and descriptions (one per language), statement rank | The local graph wins wherever it says anything. Otherwise the mirror graph's value is used. |
