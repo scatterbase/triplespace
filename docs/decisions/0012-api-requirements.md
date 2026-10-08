@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-07 (A55)
+- **Updated:** 2026-10-08 (A56)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0005](0005-crate-organization.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -181,7 +181,7 @@ All of these changes are additive (§1.2). [0056](0056-security-model.md) §13 a
 
 ### 5. REST routes under `rest.php/triplespace/v0`
 
-*Changed by A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A28, A30, A31, A32, A33, A37, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A50, A51, A52, A53, A54, A55.*
+*Changed by A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A28, A30, A31, A32, A33, A37, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A50, A51, A52, A53, A54, A55, A56.*
 
 **Every route is served per tenant base,** which the host selects. Instance-level routes are served at the farm base and, on a single-tenant instance, at the tenant's as well ([0018](0018-tenants.md) §11).
 
@@ -293,6 +293,7 @@ When each binding was last used is stored in the operational store, never in the
 | Mirrored pages | `GET /page/{id}/html` and `/render` for an inherited page; `GET /repo/{name}` | [0053](0053-mirrored-pages.md) §10 |
 | Forks | `POST /page/fork`, `GET /page/{id}/fork`, `GET /page/{id}/upstream-diff`, `POST /page/{id}/fork/files`; the fork's origin in `GET /page/{id}/provenance` | [0054](0054-forking-a-mirrored-page.md) §11 |
 | Shallow mirroring | `GET /provider/{code}/mirror`, `POST /provider/{code}/mirror/fetch`; `mirror` per type in `siprop=providers` | [0070](0070-shallow-entity-mirroring.md) §9 |
+| Entity sources | `GET /entity-sources`; `entity_sources` in `siprop=triplespace`; source IDs in `wbgetentities` and `/resolve`; a source's name in place of `{code}` in the shallow-mirroring routes | [0078](0078-entity-sources.md) §10 |
 | Extraction | `GET /extraction/{source}`, `POST /extraction/{source}/run`, `GET /extraction/{source}/orphans`, `GET /extraction/{source}/unmapped`; `GET /page/{id}/derivations`, `GET /entity/{id}/derivations` | [0071](0071-derived-statements-from-mirrored-pages.md) §13 |
 | Publications | `GET /publication/{name}`, `POST /publication/{name}/run` | [0074](0074-publishing-a-scope-to-an-external-wiki.md) §8 |
 | MCP | The MCP endpoint `{base}/mcp`, outside `rest.php`, reported by `siprop=triplespace` and the REST root | [0075](0075-mcp-server.md) §1, §6 |
@@ -855,3 +856,10 @@ Replaced text (§2.1):
 - **Source:** [0077](0077-special-version.md) §10
 - **Change:** extends §4, §5
 - **Summary:** `GET /version`; `siprop=extensions` lists only extensions whose modules are served, `siprop=libraries` the third-party components, `general.dbtype` and `dbversion` PostgreSQL subject to `version.services`, and `siprop=triplespace` the build.
+
+### A56. Entity sources
+
+- **Date:** 2026-10-08
+- **Source:** [0078](0078-entity-sources.md) §10
+- **Change:** extends §5
+- **Summary:** `GET /entity-sources`, public, lists the tenant's entity sources with their IRI templates; siteinfo gains `entity_sources`; source IDs work in `wbgetentities` and `/resolve`; the shallow-mirroring routes take a source's name where they take a provider code.

@@ -2,6 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-07
+- **Updated:** 2026-10-08 (A1)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0011](0011-logs.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0040](0040-instance-prerogatives.md), [0053](0053-mirrored-pages.md), [0065](0065-mediainfo-captions-and-commons.md), [0067](0067-proposals.md), [0071](0071-derived-statements-from-mirrored-pages.md)
@@ -37,6 +38,8 @@ James's direction, from the design discussion of 2026-10-07:
 
 #### 2.1 The setting
 
+*Changed by A1.*
+
 **`entities.mirror`** is a `site` setting, per provider and entity type, with four values ([0015](0015-record-format-and-partition-registry.md) §3):
 
 | Value | Mirrors |
@@ -47,6 +50,8 @@ James's direction, from the design discussion of 2026-10-07:
 | `all` | The provider's whole type, by dump sync; what 0002 §8.4 already does |
 
 The setting is written as `entities.mirror = { WD = { item = "linked", property = "linked", lexeme = "on-demand" } }`. Properties are always at least `on-demand`, since a statement cannot be validated or rendered without its property's data type. 0065 §2's `mediainfo.mirror` is this setting for Wikidata's type `M`, under its own name for compatibility; it keeps its default of `on-demand`.
+
+A tenant's entity source takes the setting under its name, `entities.mirror = { mhc = { item = "linked" } }`, as `entities.closure` does; its default is `linked` for a source with an `api` and `off` for one without, and its closure list is empty by default ([0078](0078-entity-sources.md) §4).
 
 #### 2.2 When `linked` fetches
 
@@ -73,11 +78,15 @@ The depth cap bounds the walk up `P279`, which is deep. A tenant may add propert
 
 ### 3. Fetching and records
 
+*Changed by A1.*
+
 **A fetch is an instance job per provider**, run by the instance ([0040](0040-instance-prerogatives.md) §6), like a page repository's sync job ([0053](0053-mirrored-pages.md) §5):
 
 - It drains `ops.entity_fetch` in batches through `wbgetentities` (50 IDs per request, the API's limit for clients without `apihighlimits`) or `Special:EntityData/{id}.json` for a single entity, through the upstream client and its `upstream` rate class ([0012](0012-api-requirements.md) §6).
 - Each entity becomes a `put` with the same fields a dump sync writes. An upstream redirect becomes a `redirect`, and a missing entity a `tombstone`, as 0002 §8.4 says.
 - The job's records are one long-running job per provider, with a `job/start` when the instance starts it and periodic checkpoints, so `Special:Jobs` and `Special:Providers` show the set's size, the queue and the lag.
+
+**An entity source's fetch is the tenant's job, one per source**, not an instance job ([0078](0078-entity-sources.md) §4). It writes to the tenant's `source/{name}` partition through the source's own `api` and `entity_data`, follows the source's `events` where it declares them, and is otherwise kept current by the sweep of §5 alone.
 
 ### 4. Labels of entities not mirrored
 
@@ -110,7 +119,9 @@ The depth cap bounds the walk up `P279`, which is deep. A tenant may add propert
 
 ### 10. Storage (extends 0013 §5.6)
 
-- `ops.entity_fetch (provider, entity_id, reason, enqueued, attempts)` with reasons `read`, `linked`, `closure`, `event`, `sweep`, `manual`; a unique key on `(provider, entity_id)` so a busy entity is fetched once.
+*Changed by A1.*
+
+- `ops.entity_fetch (tenant, provider, entity_id, reason, enqueued, attempts)` with reasons `read`, `linked`, `closure`, `event`, `sweep`, `manual`; a unique key on `(tenant, provider, entity_id)` so a busy entity is fetched once. `tenant` is `''` for a registry provider; for a tenant's entity source it is the tenant, and `provider` is the source's name ([0078](0078-entity-sources.md) §4).
 - `ops.repo_cursor` gains rows keyed by provider for the entity stream.
 - The set itself is `view.entity_source` rows for the provider (`tenant = ''`); no new table.
 
@@ -143,8 +154,9 @@ The depth cap bounds the walk up `P279`, which is deep. A tenant may add propert
 
 - **Q1. Eviction.** An entity mirrored `on-demand` and no longer read or referenced stays forever. Whether to add a compaction-only eviction that is not a tombstone, and how it interacts with retention.
 - **Q2. Terms under `all`.** Whether a full mirror writes `view.term` rows for every language, a configured subset, or none, with search delegated (the adoption-results note, §2).
-- **Q3. Other Wikibase providers.** The fetch path is Wikidata's API; whether a Wikibase Cloud provider or another Triplespace instance ([0022](0022-federation.md) §2) uses the same job with its own endpoint, and how a provider without an event stream is kept current beyond the sweep.
+- **Q3.** ~~**Other Wikibase providers.** The fetch path is Wikidata's API; whether a Wikibase Cloud provider or another Triplespace instance ([0022](0022-federation.md) §2) uses the same job with its own endpoint, and how a provider without an event stream is kept current beyond the sweep.~~ *Settled by [0078](0078-entity-sources.md) §4, in part: a Wikibase declared as a tenant's entity source uses the same job with its own endpoint, and without an event stream is kept current by the sweep alone.*
 - **Q4. Lexemes and forms under `linked`.** A form or sense ID as a value fetches its lexeme; whether that should be the default for `lexeme`.
+- **Q5.** (Rest of Q3.) Whether a registry Wikibase provider other than Wikidata, or another Triplespace instance ([0022](0022-federation.md) §2), uses the same job with its own endpoint.
 
 ## Changes to other ADRs
 
@@ -162,3 +174,16 @@ The depth cap bounds the walk up `P279`, which is deep. A tenant may add propert
 - [Wikimedia EventStreams](https://wikitech.wikimedia.org/wiki/Event_Platform/EventStreams): `mediawiki.recentchange`
 - `claude/adoption-results-and-wikidata-projection.md` (Triplespace project notes, 2026-10-06): why a full Wikidata sync is not yet practical, and the term-table question
 - `claude/familysearch-semantic-layer-plan.md` (Triplespace project notes, 2026-10-07): the first use
+
+## Amendment log
+
+### A1. Entity sources
+
+- **Date:** 2026-10-08
+- **Source:** [0078](0078-entity-sources.md) §4
+- **Change:** extends §2.1, §3, §10
+- **Summary:** A tenant's entity source takes `entities.mirror` and `entities.closure` under its name, with `linked` as the default where it has an `api` and `off` where it does not, and an empty closure list. Its fetch is a tenant job per source, writing to `source/{name}`, following the source's events if any and otherwise the sweep. `ops.entity_fetch` gains a `tenant` column.
+
+Replaced text (§10):
+
+> - `ops.entity_fetch (provider, entity_id, reason, enqueued, attempts)` with reasons `read`, `linked`, `closure`, `event`, `sweep`, `manual`; a unique key on `(provider, entity_id)` so a busy entity is fetched once.

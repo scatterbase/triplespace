@@ -31,6 +31,10 @@
 #   - Second blocks (0008 §2, amended 2026-10-01): 310–319 for Triplespace-specific namespaces and
 #     320–329 for resolver prefixes. A first block is used up before its second. As of 2026-10-01
 #     the mediawiki.org page lists nothing in 310–329.
+#   - A tenant's own namespaces (0008 §2 rule 4, 0078 §5) are not listed here. They take 3000 and above,
+#     which mediawiki.org's Extension default namespaces page leaves to system administrators, or
+#     100–199 except the numbers listed here; an adopted wiki keeps its own numbers. An entity source's
+#     namespace is one of these, of kind "resolver".
 #   - The local name of Project is the site name (0008 §7) and is set per instance.
 
 version = 1

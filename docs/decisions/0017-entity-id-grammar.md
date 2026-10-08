@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-05 (A9)
+- **Updated:** 2026-10-08 (A10)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0003](0003-statement-ui.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0016](0016-permissions-and-access-control.md)
@@ -22,9 +22,9 @@ This ADR replaces the one grammar of 0009 §3 with three, each declared in the r
 
 ### 1. Three ID forms
 
-*Changed by A5, A6, A9.*
+*Changed by A5, A6, A9, A10.*
 
-Every entity ID has one of three forms, told apart by its first character and by the presence of a colon:
+Every entity ID has one of these forms, told apart by its first character, by the presence of a colon and, for a colon form, by the kind of its prefix in the tenant's table of names ([0078](0078-entity-sources.md) §3):
 
 | Form | Shape | Examples | Minted by |
 |---|---|---|---|
@@ -32,8 +32,9 @@ Every entity ID has one of three forms, told apart by its first character and by
 | **Local, lexeme part** | `L`, digits, then `-F` or `-S` and digits; on `L` only | `L3-F1`, `L3-S2` | This instance; the part belongs to the lexeme's record stream ([0066](0066-lexemes.md) §4). Foreign: `WDL3-F1`; input form `LLL3-F1` |
 | **Foreign** | Two-letter provider code, one-letter type code, and the rest in the type's **ID grammar** (§2) | `WDQ42`, `OAW123`, `MBAb10bbbfc-cf9e-42e0-be17-e2c3e1d2600d` | A provider (0000 §3, [0002](0002-source-graphs-and-mass-ingest.md) §1) |
 | **Keyed** | The keyed type's name, a colon, and the normalized key | `domain:en.wikipedia.org`, `keyword:p53` | The thing itself ([0009](0009-keyed-entity-types-and-domain.md) §1) |
+| **Source** | An entity source's name, a colon, and the source's own ID in the type's grammar | `mhc:Q1`, `mhc:P31` | An entity source the tenant declares ([0078](0078-entity-sources.md) §1–2). A foreign ID in the colon shape, relative to the tenant |
 
-No minted ID contains a colon, and every keyed ID does, so the two never collide, whatever a key looks like. This replaces the disjointness argument of 0009 §3, and it applies uniformly: **a Domain's ID is now `domain:en.wikipedia.org`**, not the bare key. The colon form is the one Wikibase already uses for entities from another repository (`wikidata:Q42` in a federated install), so clients that parse federated IDs parse these.
+No local or provider-form ID contains a colon, and every keyed and source ID does, so they never collide, whatever a key looks like; a colon form's prefix names one kind of thing on a tenant, so keyed and source IDs never collide either ([0078](0078-entity-sources.md) §3). A registry provider's slug before a colon, `wikidata:Q42`, is an input form of the provider-form ID, `WDQ42` ([0078](0078-entity-sources.md) §3). This replaces the disjointness argument of 0009 §3, and it applies uniformly: **a Domain's ID is now `domain:en.wikipedia.org`**, not the bare key. The colon form is the one Wikibase already uses for entities from another repository (`wikidata:Q42` in a federated install), so clients that parse federated IDs parse these.
 
 **Statement IDs** keep Wikibase's form, `<EntityId>$<UUID>`: `domain:en.wikipedia.org$C7C2A847-…`. **Entity values** carry the same ID: `{"entity-type": "domain", "id": "domain:en.wikipedia.org"}`.
 
@@ -260,3 +261,16 @@ Replaced text (§2):
 - **Source:** [0066](0066-lexemes.md) §4
 - **Change:** extends §1
 - **Summary:** A sub-entity suffix on `L` only: `-F` or `-S` and digits, in the local, foreign and input forms. No other letter takes a suffix.
+
+### A10. Entity sources
+
+- **Date:** 2026-10-08
+- **Source:** [0078](0078-entity-sources.md) §2–3
+- **Change:** amends §1
+- **Summary:** A fifth form, the **source** ID, `{name}:{upstream ID}` (`mhc:Q1`): a foreign ID in the colon shape, minted by an entity source a tenant declares, and meaning that source only on that tenant. Colon forms are told apart by the kind of their prefix in the tenant's table of names. Registry provider slugs join that table, and `wikidata:Q42` is an input form of `WDQ42`.
+
+Replaced text (§1):
+
+> Every entity ID has one of three forms, told apart by its first character and by the presence of a colon:
+
+> No minted ID contains a colon, and every keyed ID does, so the two never collide, whatever a key looks like.
