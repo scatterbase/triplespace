@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-07 (A35)
+- **Updated:** 2026-10-07 (A36)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md)
 - **Uses:** [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md)
@@ -106,7 +106,7 @@ In [0013](0013-postgres-storage.md) §2, `revid`, `logid` and a new `page_id` co
 
 ### 3. The `config` partition (amends 0005 §4.1; extends 0006 §4 and §6)
 
-*Changed by A3, A4, A5, A6, A8, A9, A10, A11, A12, A13, A16, A19, A20, A21, A23, A24, A26, A27, A28, A30, A31, A32, A33, A34, A35.*
+*Changed by A3, A4, A5, A6, A8, A9, A10, A11, A12, A13, A16, A19, A20, A21, A23, A24, A26, A27, A28, A30, A31, A32, A33, A34, A35, A36.*
 
 A source partition is registered for instance configuration. It corresponds to Scatterbase's `server` graph in the table of [0005](0005-crate-organization.md) §4.1, and the two share one record shape so that Scatterbase can adopt it.
 
@@ -133,7 +133,7 @@ The remaining kinds are Triplespace's, and each product declares its own:
 | `keyed-type` | The type name | The keyed-type entry | [0009](0009-keyed-entity-types-and-domain.md) §1 |
 | `role` | The role name | The properties bound to a role | [0003](0003-statement-ui.md) §7, [0004](0004-identity-clusters-and-equivalence.md) §6 |
 | `reconcile` | `default` or a provider code | Provider order, an optional `order_by_type` override, link properties, identifier properties for inference, normalizer overrides, reconciliation rules | [0004](0004-identity-clusters-and-equivalence.md) §9 |
-| `site` | A setting name | Site name, content languages, the recent-changes window, checkpoint cadence, and other scalar settings, among them the `wikitext.*` and `lua.*` settings of template expansion ([0042](0042-template-expansion-and-parsoid.md) §2, [0043](0043-lua-modules.md) §8–9), `pages.repos` and `pages.share` ([0052](0052-page-repositories-and-title-inheritance.md) §1), `search.inherited` and `content.licence` ([0053](0053-mirrored-pages.md) §7, §9), the `fork.*` settings ([0054](0054-forking-a-mirrored-page.md) §3–4, §8), `wikitext.site_styles` and `templatestyles.max_bytes` ([0055](0055-templatestyles-templatedata-and-page-properties.md) §2, §4), and `ui.theme`, the Codex token values a site is themed with ([0034](0034-frontend-stack.md) §1), the `entities.*` settings of shallow mirroring ([0070](0070-shallow-entity-mirroring.md) §2.1, §4, §6), and the `mcp.*` settings ([0075](0075-mcp-server.md) §6) | [0006](0006-log-integrity-and-erasure.md) §6, [0010](0010-site-ui.md) §7 |
+| `site` | A setting name | Site name, content languages, the recent-changes window, checkpoint cadence, and other scalar settings, among them the `wikitext.*` and `lua.*` settings of template expansion ([0042](0042-template-expansion-and-parsoid.md) §2, [0043](0043-lua-modules.md) §8–9), `pages.repos` and `pages.share` ([0052](0052-page-repositories-and-title-inheritance.md) §1), `search.inherited` and `content.licence` ([0053](0053-mirrored-pages.md) §7, §9), the `fork.*` settings ([0054](0054-forking-a-mirrored-page.md) §3–4, §8), `wikitext.site_styles` and `templatestyles.max_bytes` ([0055](0055-templatestyles-templatedata-and-page-properties.md) §2, §4), and `ui.theme`, the Codex token values a site is themed with ([0034](0034-frontend-stack.md) §1), the `entities.*` settings of shallow mirroring ([0070](0070-shallow-entity-mirroring.md) §2.1, §4, §6), the `mcp.*` settings ([0075](0075-mcp-server.md) §6), and `version.services` and `instance.source_url` ([0077](0077-special-version.md) §13) | [0006](0006-log-integrity-and-erasure.md) §6, [0010](0010-site-ui.md) §7 |
 | `group` | The group name | A permission group; a global group carries `scope` ([0028](0028-tenancy-policy.md) §8) | [0016](0016-permissions-and-access-control.md) §3 |
 | `tenant`, `alias` | Instance scope | A tenant; a base-URI change | [0018](0018-tenants.md) §3, §9 |
 | `primary` | `primary` | Instance scope: the primary tenant's slug and, for a transfer, the offer it accepts; one current record | [0046](0046-primary-tenant.md) §2 |
@@ -221,7 +221,7 @@ An upstream revision node is `prov:specializationOf` the **upstream** document n
 
 ### 5. Graph names and IRIs (settles 0001 Q2, 0002 Q1 and 0005 Q6)
 
-*Changed by A2, A3, A4, A5, A7, A9, A10, A11, A12, A16, A17, A19, A20, A21, A23, A24, A26, A31.*
+*Changed by A2, A3, A4, A5, A7, A9, A10, A11, A12, A16, A17, A19, A20, A21, A23, A24, A26, A31, A36.*
 
 **A graph's IRI is `{base}/graph/{name}`** for a tenant's partitions, where `{base}` is the tenant's base URI: the origin that serves its `/wiki/`, `/w/api.php` and `/entity/`, the same base that [0001](0001-revision-metadata-rdf.md) §5 gives its data ([0018](0018-tenants.md) §2). The instance's own partitions are under the reserved path `{farm base}/instance/graph/{name}`, so that they cannot be confused with a tenant's when the farm base is a tenant's base ([0046](0046-primary-tenant.md) §7). The IRI is therefore per instance, which it has to be: the metadata graph attributes triples to this instance's revisions, and two instances' full dumps ([0013](0013-postgres-storage.md) §8) must be loadable together without their `local` graphs colliding, especially now that [0009](0009-keyed-entity-types-and-domain.md) §6 gives Domain subjects the same IRI everywhere.
 
@@ -265,8 +265,9 @@ An upstream revision node is `prov:specializationOf` the **upstream** document n
 | `wikitext-functions.toml` | The variables, parser functions, tags and switches of template expansion | [0042](0042-template-expansion-and-parsoid.md) §5 |
 | `special-pages.toml` | Every special page name with its MediaWiki name, aliases, scope and status | [0047](0047-special-pages.md) §1 |
 | `css-properties.toml` | The CSS properties and at-rules the `scatter-css` sanitizer allows, with the module each came from | [0055](0055-templatestyles-templatedata-and-page-properties.md) §2 |
+| `version.toml` | What `Special:Version` credits and lists that nothing else records: developer, contributors, funders, AI agents, services, feature switches, and the extensions an `origin` names | [0077](0077-special-version.md) §14 |
 
-`scatter-log`, `scatter-providers`, `scatter-actors` and, for special pages, `triplespace-titles` embed these files and ship them as defaults; an instance's `config` partition (§3) starts from them and may diverge. Allocating a new provider code, slug, number or graph name is a change to the file, in a commit; a code is never reused. This is the same rule [0005](0005-crate-organization.md) §5 already applies to the `scatter:` vocabulary through `scatter-vocab`, and it settles [0000](0000-init.md) Q4. The code for internetdomains.wiki ([0009](0009-keyed-entity-types-and-domain.md) Q2) is allocated there when its adapter is written; the slug `internetdomains` is reserved now. MusicBrainz (`MB`, number 4) and the other providers registered since are allocated the same way ([0017](0017-entity-id-grammar.md) §6).
+`scatter-log`, `scatter-providers`, `scatter-actors`, for special pages `triplespace-titles`, and for `version.toml` `triplespace-api-rest` embed these files and ship them as defaults; an instance's `config` partition (§3) starts from them and may diverge. Allocating a new provider code, slug, number or graph name is a change to the file, in a commit; a code is never reused. This is the same rule [0005](0005-crate-organization.md) §5 already applies to the `scatter:` vocabulary through `scatter-vocab`, and it settles [0000](0000-init.md) Q4. The code for internetdomains.wiki ([0009](0009-keyed-entity-types-and-domain.md) Q2) is allocated there when its adapter is written; the slug `internetdomains` is reserved now. MusicBrainz (`MB`, number 4) and the other providers registered since are allocated the same way ([0017](0017-entity-id-grammar.md) §6).
 
 ### 6. Document nodes for foreign entities (extends 0001 §1, 0002 §4 and 0009 §6)
 
@@ -658,3 +659,10 @@ Replaced text (§3):
 - **Source:** [0076](0076-dataset-publication.md) §2
 - **Change:** extends §3
 - **Summary:** The `jsonld-context` config kind.
+
+### A36. Special:Version
+
+- **Date:** 2026-10-07
+- **Source:** [0077](0077-special-version.md) §13, §14
+- **Change:** extends §3, §5
+- **Summary:** The instance `site` settings `version.services` and `instance.source_url`; the registry file `version.toml`, embedded by `triplespace-api-rest`.

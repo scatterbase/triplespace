@@ -1,0 +1,353 @@
+# Special:Version.  ADR 0077.
+#
+# What Special:Version shows that nothing else records: who develops Triplespace, who has contributed to
+# it and funded it, the AI agents named in the ADRs, the services an instance may run, the feature
+# switches the page reports, and where each MediaWiki extension named as an `origin` is documented.
+# Embedded by triplespace-api-rest, which serves it with the build manifest at GET /version (0077 §10).
+#
+# Everything else on the page is derived, not listed here (0077 §1): the crates and third-party components
+# from the build manifest (0077 §6), extension lineage from the `origin` field of content-models.toml,
+# special-pages.toml and wikitext-functions.toml (0077 §8), and wikitext from wikitext-functions.toml
+# (0077 §7).
+#
+# Rules: entries are never removed. A funder whose support has ended gets `until`; a contributor who asks
+# to be credited differently has `name` changed. Names are written as their holder wishes to be credited.
+# check_adrs.py check 9 keeps the agents here and the ADRs' Author lines in step, and check 10 keeps every
+# `origin` in the registries listed under [[extension]] (0077 §12).
+
+version = 1
+
+# The credit line (0077 §2): "This wiki is powered by Triplespace, developed by {name} in {place}".
+[developer]
+name = "Scatter LLC"
+place = "Portland, Oregon"
+source = "https://github.com/scatterbase/triplespace"
+
+# ADRs whose Author line names "Claude" without the model. 0033 and 0034 were written by Claude Opus or
+# Claude Fable; which of the two was not recorded.
+[agent_attribution]
+unattributed = ["0033", "0034"]
+
+# --- Contributors (0077 §2) --------------------------------------------------------------------------
+# [[contributor]]
+# name        As credited
+# since       Date of the first merged contribution. Entries are kept in this order.
+# cla         Date the contributor licence agreement was signed. Required: the scatter-* crates are
+#             dual-licensed (0005 §6), so nothing is merged without one.
+# url         Optional
+#
+# Scatter LLC is the developer, not a contributor, and AI agents are credited under [[agent]].
+# None yet.
+
+# --- Funders (0077 §2) -------------------------------------------------------------------------------
+# [[funder]]
+# name        As credited
+# funded      What the support was for, as a short phrase ("the query service")
+# since       Date the support began
+# until       Optional: date it ended. A funder whose support ended stays listed.
+# url         Optional
+#
+# None yet.
+
+# --- AI agents (0077 §9) -----------------------------------------------------------------------------
+# name        As ADR Author lines write it: "James Hare / Claude Opus"
+# maker       The organization that makes the model
+# versions    Model versions recorded in commit trailers (Co-Authored-By); empty where none is recorded
+[[agent]]
+name = "Claude Opus"
+maker = "Anthropic"
+versions = ["5.5"]
+
+[[agent]]
+name = "Claude Fable"
+maker = "Anthropic"
+versions = ["5.1"]
+
+[[agent]]
+name = "Claude Sonnet"
+maker = "Anthropic"
+versions = []
+
+# --- Services (0077 §4) ------------------------------------------------------------------------------
+# name        As shown
+# role        What the instance uses it for
+# kind        "service" (a separate program the instance connects to) | "embedded" (in the binary)
+# required    Whether every instance needs it (0033 §1: only Postgres)
+# version     How the version is read: a probe for a service, "crate" for an embedded component (from the
+#             build manifest), or a fixed string. Absent: not yet decided (0077 Q1).
+# adr         Where the service is specified
+[[service]]
+name = "PostgreSQL"
+role = "Log store and serving model"
+kind = "service"
+required = true
+version = "SHOW server_version"
+adr = "0013"
+
+[[service]]
+name = "Valkey"
+role = "Shared cache (L1), sessions and rate limits"
+kind = "service"
+required = false
+version = "INFO server: valkey_version, or redis_version from a Redis server"
+adr = "0014 §2"
+
+[[service]]
+name = "OpenSearch"
+role = "Search"
+kind = "service"
+required = false
+version = "GET /: version.number"
+adr = "0014"
+
+[[service]]
+name = "QLever"
+role = "SPARQL export destination; optional query service backend"
+kind = "service"
+required = false
+adr = "0033 §11"
+
+[[service]]
+name = "Parsoid"
+role = "Wikitext rendering, for tenants with wikitext.renderer = parsoid"
+kind = "service"
+required = false
+adr = "0042 §8"
+
+[[service]]
+name = "Object storage"
+role = "File blobs, when files are stored in S3 rather than on the local filesystem"
+kind = "service"
+required = false
+version = "none: the backend kind (local or S3) is shown"
+adr = "0039 §3"
+
+[[service]]
+name = "Oxigraph"
+role = "Query service, embedded backend"
+kind = "embedded"
+required = false
+version = "crate"
+adr = "0059 §2"
+
+[[service]]
+name = "Lua"
+role = "Scribunto modules"
+kind = "embedded"
+required = false
+version = "5.1"
+adr = "0043 §4"
+
+# --- Feature switches (0077 §11) ---------------------------------------------------------------------
+# key         The `site` setting
+# scope       "tenant": shown on a tenant's form of the page | "instance": shown on the farm form
+# adr         Where the setting is specified
+# Also shown, without a setting here: the providers a tenant has opted into (with a link to
+# Special:Providers), its tenancy preset (0028 §1) and whether it is a private tenant (0056 §3).
+[[feature]]
+key = "content.licence"
+scope = "tenant"
+adr = "0053 §9"
+
+[[feature]]
+key = "wikitext.expansion"
+scope = "tenant"
+adr = "0042 §2"
+
+[[feature]]
+key = "wikitext.lua"
+scope = "tenant"
+adr = "0042 §2"
+
+[[feature]]
+key = "wikitext.renderer"
+scope = "tenant"
+adr = "0042 §2"
+
+[[feature]]
+key = "pages.repos"
+scope = "tenant"
+adr = "0052 §1"
+
+[[feature]]
+key = "search.inherited"
+scope = "tenant"
+adr = "0053 §7"
+
+[[feature]]
+key = "query.enabled"
+scope = "tenant"
+adr = "0059 §1"
+
+[[feature]]
+key = "mcp.enabled"
+scope = "tenant"
+adr = "0075 §1"
+
+[[feature]]
+key = "proposals.push"
+scope = "tenant"
+adr = "0067 §6"
+
+[[feature]]
+key = "search.farm_wide"
+scope = "instance"
+adr = "0028 §9"
+
+[[feature]]
+key = "files.separation"
+scope = "instance"
+adr = "0039 §4"
+
+# --- Extensions (0077 §8) ----------------------------------------------------------------------------
+# name        As an `origin` writes it in another registry, or as `inspired_by` names it
+# url         Its page on mediawiki.org
+# inspired_by Optional: what Triplespace took from an extension that leaves no `origin` in any other
+#             registry, with the ADR. Inspired by, never installed (0077 §8).
+[[extension]]
+name = "AbuseFilter"
+url = "https://www.mediawiki.org/wiki/Extension:AbuseFilter"
+
+[[extension]]
+name = "CategoryTree"
+url = "https://www.mediawiki.org/wiki/Extension:CategoryTree"
+
+[[extension]]
+name = "CentralAuth"
+url = "https://www.mediawiki.org/wiki/Extension:CentralAuth"
+
+[[extension]]
+name = "CharInsert"
+url = "https://www.mediawiki.org/wiki/Extension:CharInsert"
+
+[[extension]]
+name = "CirrusSearch"
+url = "https://www.mediawiki.org/wiki/Extension:CirrusSearch"
+inspired_by = [{ what = "Search keywords and fields: redirect titles, file keywords, hastemplate:", adr = "0014" }]
+
+[[extension]]
+name = "Cite"
+url = "https://www.mediawiki.org/wiki/Extension:Cite"
+
+[[extension]]
+name = "CodeMirror"
+url = "https://www.mediawiki.org/wiki/Extension:CodeMirror"
+inspired_by = [{ what = "The source editor, CodeMirror 6 with wikitext and Lua modes", adr = "0034 §4" }]
+
+[[extension]]
+name = "Disambiguator"
+url = "https://www.mediawiki.org/wiki/Extension:Disambiguator"
+
+[[extension]]
+name = "DiscussionTools"
+url = "https://www.mediawiki.org/wiki/Extension:DiscussionTools"
+inspired_by = [{ what = "Stable names for sections and comments, which keep synchronized threads matched", adr = "0069" }]
+
+[[extension]]
+name = "EasyTimeline"
+url = "https://www.mediawiki.org/wiki/Extension:EasyTimeline"
+
+[[extension]]
+name = "Echo"
+url = "https://www.mediawiki.org/wiki/Extension:Echo"
+
+[[extension]]
+name = "EntitySchema"
+url = "https://www.mediawiki.org/wiki/Extension:EntitySchema"
+
+[[extension]]
+name = "GlobalBlocking"
+url = "https://www.mediawiki.org/wiki/Extension:GlobalBlocking"
+
+[[extension]]
+name = "GlobalContributions"
+url = "https://www.mediawiki.org/wiki/Extension:GlobalContributions"
+
+[[extension]]
+name = "Graph"
+url = "https://www.mediawiki.org/wiki/Extension:Graph"
+
+[[extension]]
+name = "ImageMap"
+url = "https://www.mediawiki.org/wiki/Extension:ImageMap"
+
+[[extension]]
+name = "InputBox"
+url = "https://www.mediawiki.org/wiki/Extension:InputBox"
+
+[[extension]]
+name = "Kartographer"
+url = "https://www.mediawiki.org/wiki/Extension:Kartographer"
+
+[[extension]]
+name = "LabeledSectionTransclusion"
+url = "https://www.mediawiki.org/wiki/Extension:Labeled_Section_Transclusion"
+
+[[extension]]
+name = "Math"
+url = "https://www.mediawiki.org/wiki/Extension:Math"
+
+[[extension]]
+name = "Nuke"
+url = "https://www.mediawiki.org/wiki/Extension:Nuke"
+
+[[extension]]
+name = "OAuth"
+url = "https://www.mediawiki.org/wiki/Extension:OAuth"
+
+[[extension]]
+name = "ParserFunctions"
+url = "https://www.mediawiki.org/wiki/Extension:ParserFunctions"
+
+[[extension]]
+name = "Poem"
+url = "https://www.mediawiki.org/wiki/Extension:Poem"
+
+[[extension]]
+name = "Score"
+url = "https://www.mediawiki.org/wiki/Extension:Score"
+
+[[extension]]
+name = "Scribunto"
+url = "https://www.mediawiki.org/wiki/Extension:Scribunto"
+
+[[extension]]
+name = "SyntaxHighlight"
+url = "https://www.mediawiki.org/wiki/Extension:SyntaxHighlight"
+
+[[extension]]
+name = "TemplateData"
+url = "https://www.mediawiki.org/wiki/Extension:TemplateData"
+
+[[extension]]
+name = "TemplateStyles"
+url = "https://www.mediawiki.org/wiki/Extension:TemplateStyles"
+
+[[extension]]
+name = "Wikibase"
+url = "https://www.mediawiki.org/wiki/Extension:Wikibase_Repository"
+
+[[extension]]
+name = "WikibaseCirrusSearch"
+url = "https://www.mediawiki.org/wiki/Extension:WikibaseCirrusSearch"
+inspired_by = [{ what = "Per-language label and description fields for entity search", adr = "0014" }]
+
+[[extension]]
+name = "WikibaseClient"
+url = "https://www.mediawiki.org/wiki/Extension:Wikibase_Client"
+
+[[extension]]
+name = "WikibaseLexeme"
+url = "https://www.mediawiki.org/wiki/Extension:WikibaseLexeme"
+
+[[extension]]
+name = "WikibaseMediaInfo"
+url = "https://www.mediawiki.org/wiki/Extension:WikibaseMediaInfo"
+
+[[extension]]
+name = "WikibaseQualityConstraints"
+url = "https://www.mediawiki.org/wiki/Extension:WikibaseQualityConstraints"
+
+[[extension]]
+name = "WikiHiero"
+url = "https://www.mediawiki.org/wiki/Extension:WikiHiero"

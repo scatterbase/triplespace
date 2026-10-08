@@ -673,7 +673,7 @@ origin = "mediawiki"
 status = "served"
 scope = "both"
 group = "wiki"
-adr = "0016 §7"
+adr = "0077"
 
 [[page]]
 name = "LockDB"

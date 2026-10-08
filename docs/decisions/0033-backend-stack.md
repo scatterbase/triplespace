@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-06 (A12)
+- **Updated:** 2026-10-07 (A13)
 - **Author:** James Hare / Claude
 - **Changes:** [0005](0005-crate-organization.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0034](0034-frontend-stack.md)
@@ -221,13 +221,14 @@ The `LogStore` conformance suite (0005 rule 8) runs against both the file and Po
 
 ### 16. Licensing and supply chain
 
-*Changed by A1.*
+*Changed by A1, A13.*
 
 - `cargo-deny` checks licences (allowlist in §1), bans (no duplicate crypto providers, no `openssl-sys`), advisories and sources.
 - `parse-wiki-text-2`'s non-standard licence text is recorded as a clarify entry.
 - Workspace crates and `ui/package.json` declare `GPL-3.0-or-later`, set once in `[workspace.package]`.
 - `aws-lc-sys` is required at 0.39 or later. Earlier versions included code under the OpenSSL licence, which is incompatible with GPLv3. For the same reason, if `ring` replaces it (§6), `ring` must be 0.17.9 or later.
 - The repository root carries the GPLv3 text in `LICENSE`; `docs/LICENSE` carries CC0-1.0 ([0005](0005-crate-organization.md) §6).
+- `cargo xtask manifest` writes the component manifest of [0077](0077-special-version.md) §15: the build, the crates linked into each binary, the frontend packages that reach the browser and vendored code, each with its licence, copyright and notice files. It uses the allowlist above, `triplespace-server` and `triplespace-web` embed it, and release builds fail without it.
 
 ### 17. Packaging
 
@@ -395,3 +396,10 @@ Replaced text (§11):
 - **Source:** Direct: James, Librarybase acceptance run of 2026-10-06 (test plan stage 1)
 - **Change:** extends §2
 - **Summary:** CI runs WikibaseIntegrator, Pywikibot and WikidataIntegrator, at pinned versions, against a server adopted from a Librarybase sample fixture; any failing check fails the build. Running the libraries found server requirements the reference contract does not state (Pywikibot's `siteinfo` and `paraminfo` structure, `meta=wikibase`), which are now part of the surface the job holds fixed.
+
+### A13. The component manifest
+
+- **Date:** 2026-10-07
+- **Source:** [0077](0077-special-version.md) §15
+- **Change:** extends §16
+- **Summary:** `cargo xtask manifest` records the build and every component linked into or sent from the binaries, with their licence texts, for `Special:Version` and its licence subpages; release builds require it.

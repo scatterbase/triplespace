@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-07 (A54)
+- **Updated:** 2026-10-07 (A55)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0005](0005-crate-organization.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -130,7 +130,7 @@ History, recent changes, contributions and the log all use one row shape in the 
 
 ### 4. Action API changes
 
-*Changed by A3, A4, A5, A7, A8, A9, A10, A12, A13, A14, A15, A16, A17, A18, A19, A21, A23, A24, A25, A26, A27, A30, A31, A32, A33, A34, A35, A36, A37, A38.*
+*Changed by A3, A4, A5, A7, A8, A9, A10, A12, A13, A14, A15, A16, A17, A18, A19, A21, A23, A24, A25, A26, A27, A30, A31, A32, A33, A34, A35, A36, A37, A38, A55.*
 
 All of these changes are additive (§1.2). [0056](0056-security-model.md) §13 adds `read=` to `action=protect`, `prtype=read` to `list=protectedpages`, `list=protectedsets`, and the reduced `meta=siteinfo` an outsider receives from a private tenant.
 
@@ -177,10 +177,11 @@ All of these changes are additive (§1.2). [0056](0056-security-model.md) §13 a
 | Mirrored pages | `action=parse` and `prop=revisions&rvprop=content` on an inherited title from its bundle; `action=purge` refetching | [0053](0053-mirrored-pages.md) §10 |
 | Forks | `tsfork` and `tsforkrevid` on `action=edit`, `ts-fork-required`; seeded revisions with provider-ranged IDs in `prop=revisions` and `action=compare`; `forkedfrom` in `prop=info`; forks as `import/interwiki` in `list=logevents` | [0054](0054-forking-a-mirrored-page.md) §11 |
 | TemplateData and page properties | `action=templatedata`; `prop=pageprops` with `ppprop`, `list=pageswithprop`, `prop=description`, `inprop=displaytitle` | [0055](0055-templatestyles-templatedata-and-page-properties.md) §5–6 |
+| Version | `siprop=extensions` limited to extensions whose modules are served; `siprop=libraries`; `general.dbtype` and `general.dbversion`; `build` in `siprop=triplespace` | [0077](0077-special-version.md) §10 |
 
 ### 5. REST routes under `rest.php/triplespace/v0`
 
-*Changed by A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A28, A30, A31, A32, A33, A37, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A50, A51, A52, A53, A54.*
+*Changed by A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A28, A30, A31, A32, A33, A37, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A50, A51, A52, A53, A54, A55.*
 
 **Every route is served per tenant base,** which the host selects. Instance-level routes are served at the farm base and, on a single-tenant instance, at the tenant's as well ([0018](0018-tenants.md) §11).
 
@@ -296,6 +297,7 @@ When each binding was last used is stored in the operational store, never in the
 | Publications | `GET /publication/{name}`, `POST /publication/{name}/run` | [0074](0074-publishing-a-scope-to-an-external-wiki.md) §8 |
 | MCP | The MCP endpoint `{base}/mcp`, outside `rest.php`, reported by `siprop=triplespace` and the REST root | [0075](0075-mcp-server.md) §1, §6 |
 | Datasets | `GET /entity/{id}/referrers`, `GET /scope/{title}/dataset.jsonld`, `GET /scope/{title}/dumps` and `/dumps/{file}`, `GET /jsonld/by-url`; the `profile` parameter of `Special:EntityData/{id}.jsonld` | [0076](0076-dataset-publication.md) §2–6 |
+| Version | `GET /version`: everything `Special:Version` shows, per tenant base and at the farm base | [0077](0077-special-version.md) §10 |
 
 ### 6. Fetching upstream edits live
 
@@ -846,3 +848,10 @@ Replaced text (§2.1):
 - **Source:** [0076](0076-dataset-publication.md) §3, §6
 - **Change:** extends §5
 - **Summary:** Referrers by property, dataset descriptions, scope dumps, lookup by URL, and the schema.org profile of `Special:EntityData`.
+
+### A55. Special:Version
+
+- **Date:** 2026-10-07
+- **Source:** [0077](0077-special-version.md) §10
+- **Change:** extends §4, §5
+- **Summary:** `GET /version`; `siprop=extensions` lists only extensions whose modules are served, `siprop=libraries` the third-party components, `general.dbtype` and `dbversion` PostgreSQL subject to `version.services`, and `siprop=triplespace` the build.

@@ -24,6 +24,7 @@ This directory is the registry of record for the names and codes that Triplespac
 | `css-properties.toml` | The CSS at-rules and properties the `sanitized-css` sanitizer allows, with the module each came from, the forbidden values and the `url()` policy (seed; generated from css-sanitizer's published set) | `scatter-css` | 0055 §2 |
 | `themes.toml` | Themes as values for Codex design tokens, and the typefaces each serves; `default` is the theme Triplespace ships (the canvases' palette and Newsreader headings) | `triplespace-ui` | 0034 §1–2 |
 | `fragments.toml` | Fragment paths for packed record storage: per payload type, the CBOR path patterns whose subtrees are stored once per dedup domain, the history condition, `min_bytes` and `max_depth`. Physical policy, never part of the record format | `scatter-log` | 0058 §3 |
+| `version.toml` | What `Special:Version` shows that nothing else records: the developer, contributors and funders, the AI agents named in ADR Author lines, the services an instance may run and how each reports its version, the feature switches shown on the page, and the mediawiki.org page of every extension an `origin` names, with what Triplespace took from extensions that leave no other trace | `triplespace-api-rest` | 0077 §2, §4, §8–9, §11 |
 
 ## Rules
 

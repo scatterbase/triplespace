@@ -4,7 +4,8 @@
 # names its allowed models and its default (0041 §4).
 #
 # id              The model ID, as MediaWiki's `contentmodel` reports it.
-# origin          "mediawiki" | "wikibase" | a MediaWiki or Wikibase extension's name | "generic" | "triplespace"
+# origin          "mediawiki" | a MediaWiki extension's name, as written in special-pages.toml ("Wikibase",
+#                 "Scribunto", ...) | "generic" | "triplespace". Shown on Special:Version (0077 §8).
 # status          "implemented" | "reserved" (listed so it is never given another meaning; not served)
 # source          Where content comes from (0041 §5):
 #                   "text"       full text stored in each `page` record (0008 §4); editable with action=edit
@@ -90,7 +91,7 @@ defined_in = "0043 §3"
 # One model per entity type, whichever provider the entity comes from (0041 §3).
 [[model]]
 id = "wikibase-item"
-origin = "wikibase"
+origin = "Wikibase"
 status = "implemented"
 source = "entity"
 slot = "main"
@@ -100,7 +101,7 @@ direct_editing = false
 
 [[model]]
 id = "wikibase-property"
-origin = "wikibase"
+origin = "Wikibase"
 status = "implemented"
 source = "entity"
 slot = "main"
