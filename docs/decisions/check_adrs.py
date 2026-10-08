@@ -18,6 +18,11 @@ Checks:
     `Changes` and `Uses` for `Related`.
  7. every `NNNN An` and `NNNN Qn` citation names a log entry or question that exists
  8. decisions/INDEX.md is current (0050 §12). Run with --index to rewrite it.
+ 9. every agent an ADR's Author line names is an [[agent]] in registry/version.toml, and every
+    [[agent]] is named by an ADR; a bare "Claude" only for [agent_attribution].unattributed (0077 §12)
+10. every `origin` in content-models.toml, special-pages.toml and wikitext-functions.toml is
+    mediawiki, triplespace, generic or an [[extension]] in registry/version.toml; no two names differ
+    only in case; every [[extension]] is named by an origin or has inspired_by (0077 §12)
 
 Usage: check_adrs.py [--index] [DOCS_DIR]
 """
@@ -481,12 +486,71 @@ if os.path.exists(_sp):
 else:
     print("== registry/special-pages.toml not found; check 5 skipped ==")
 
+# 9 and 10: registry/version.toml (0077 §12). Parsed with regexes, like check 5.
+reg_problems = collections.defaultdict(list)
+_vt = os.path.join(ROOT, "registry", "version.toml")
+if os.path.exists(_vt):
+    _v = open(_vt, encoding="utf-8").read()
+    agents = set(re.findall(r'^\[\[agent\]\]\nname = "([^"]+)"', _v, re.M))
+    _ua = re.search(r'^\[agent_attribution\]\nunattributed = \[([^\]]*)\]', _v, re.M)
+    unattributed = set(re.findall(r'"(\d{4})"', _ua.group(1))) if _ua else set()
+    named = set()
+    for name, text in texts.items():
+        line = header_field(text, "Author")
+        for who in re.findall(r"/\s*([^;/]+?)\s*(?=;|$)", line):
+            if who == "Claude":
+                if name[:4] not in unattributed:
+                    problems[name].append('Author names "Claude" without the model, and the ADR is not in version.toml\'s [agent_attribution].unattributed')
+            elif who not in agents:
+                problems[name].append(f"Author names {who}, which is not an [[agent]] in registry/version.toml")
+            else:
+                named.add(who)
+    for a in sorted(agents - named):
+        reg_problems["registry/version.toml"].append(f"[[agent]] {a} is named by no ADR's Author line")
+    for n in sorted(unattributed - {x[:4] for x in texts}):
+        reg_problems["registry/version.toml"].append(f"[agent_attribution] names {n}, which is not an ADR")
+
+    ext = {}
+    for block in re.split(r"^\[\[extension\]\]$", _v, flags=re.M)[1:]:
+        m = re.search(r'^name = "([^"]+)"', block, re.M)
+        if m:
+            ext[m.group(1)] = "inspired_by" in block.split("\n[")[0]
+    keywords = {"mediawiki", "triplespace", "generic"}
+    origins = collections.defaultdict(set)
+    for f in ("content-models.toml", "special-pages.toml", "wikitext-functions.toml"):
+        fp = os.path.join(ROOT, "registry", f)
+        if not os.path.exists(fp):
+            continue
+        for line in open(fp, encoding="utf-8"):
+            if line.lstrip().startswith("#"):
+                continue
+            for o in re.findall(r'\borigin = "([^"]+)"', line):
+                origins[o].add(f)
+    for o, where in sorted(origins.items()):
+        if o not in keywords and o not in ext:
+            reg_problems["registry/version.toml"].append(f"origin {o} ({', '.join(sorted(where))}) is not an [[extension]]")
+    seen = collections.defaultdict(set)
+    for o in set(origins) | set(ext) | keywords:
+        seen[o.lower()].add(o)
+    for k, v in sorted(seen.items()):
+        if len(v) > 1:
+            reg_problems["registry/version.toml"].append(f"names differ only in case: {', '.join(sorted(v))}")
+    for e, inspired in sorted(ext.items()):
+        if e not in origins and not inspired:
+            reg_problems["registry/version.toml"].append(f"[[extension]] {e} is named by no origin and has no inspired_by")
+else:
+    print("== registry/version.toml not found; checks 9 and 10 skipped ==")
+
 print("== per-ADR problems ==")
 for name in sorted(texts):
     if problems[name]:
         print(name)
         for p in problems[name]:
             print("   -", p)
+for name in sorted(reg_problems):
+    print(name)
+    for p in reg_problems[name]:
+        print("   -", p)
 if index_problem:
     print("INDEX.md")
     print("   -", index_problem)

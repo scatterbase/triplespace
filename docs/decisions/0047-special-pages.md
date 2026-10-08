@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-05 (A11)
+- **Updated:** 2026-10-07 (A12)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0029](0029-resolver-namespaces.md), [0031](0031-property-constraints.md), [0042](0042-template-expansion-and-parsoid.md), [0046](0046-primary-tenant.md)
 - **Uses:** [0019](0019-discussions.md), [0021](0021-notifications.md), [0028](0028-tenancy-policy.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md)
@@ -383,7 +383,7 @@ It needs `ts-revertjob` and, because it retires deletions, `undelete`.
 
 ### 9. Other pages (extends 0010 §2, §3 and §12)
 
-*Changed by A4, A6, A7, A8, A9, A10, A11.*
+*Changed by A4, A6, A7, A8, A9, A10, A11, A12.*
 
 These are served with MediaWiki's or Wikibase's meaning and parameters. The notes say what they read or write.
 
@@ -412,7 +412,8 @@ These are served with MediaWiki's or Wikibase's meaning and parameters. The note
 | `UploadStash` | One's stashed uploads (0039) |
 | `ItemDisambiguation` | Wikibase's label lookup (`/{language}/{label}`). 0029 §3's resolver disambiguation uses its layout. |
 | `Statistics` | `view.site_stats` (§13), which also serves `siprop=statistics`, the `NUMBEROF*` variables ([0042](0042-template-expansion-and-parsoid.md) §5) and `mw.site.stats` ([0043](0043-lua-modules.md)) |
-| `Version`, `ApiSandbox`, `ApiHelp`, `AllMessages`, `NamespaceInfo`, `PasswordPolicies`, `ListDatatypes`, `AvailableBadges`, `MyLanguageFallbackChain`, `Blankpage` | From the registry, configuration and i18n |
+| `Version` | Credits and licence notice, installed software and services, features, entry points, crates and third-party components, wikitext, the extensions that inspired features, and the AI agents named in the ADRs ([0077](0077-special-version.md)) |
+| `ApiSandbox`, `ApiHelp`, `AllMessages`, `NamespaceInfo`, `PasswordPolicies`, `ListDatatypes`, `AvailableBadges`, `MyLanguageFallbackChain`, `Blankpage` | From the registry, configuration and i18n |
 | `MyPage`, `MyTalk`, `MyContributions`, `MyLanguage`, `MyLog`, `MyUploads`, `AllMyUploads`, `EditPage`, `PageHistory`, `PageInfo`, `Purge`, `DeletePage`, `ProtectPage`, `NewSection`, `TalkPage`, `EditTags` | MediaWiki's redirecting pages, to the matching page or action. `NewSection` opens the talk page's new-thread form ([0019](0019-discussions.md)). |
 
 ### 10. Deferred, declined and reserved
@@ -689,3 +690,14 @@ Replaced text (§10):
 - **Source:** [0067](0067-proposals.md) §4, §7; [0068](0068-merging-with-upstream.md) §6
 - **Change:** extends §6, §9
 - **Summary:** `Special:Corrections`' export becomes Propose; `Special:Proposals` is new; `Special:MergeUpstream` is new.
+
+### A12. Special:Version
+
+- **Date:** 2026-10-07
+- **Source:** [0077](0077-special-version.md) §1
+- **Change:** amends §9
+- **Summary:** `Special:Version` gets its own row, pointing to 0077, which specifies its sections, subpages and sources; it is no longer described as built from the registry, configuration and i18n alone.
+
+Replaced text (§9):
+
+> | `Version`, `ApiSandbox`, `ApiHelp`, `AllMessages`, `NamespaceInfo`, `PasswordPolicies`, `ListDatatypes`, `AvailableBadges`, `MyLanguageFallbackChain`, `Blankpage` | From the registry, configuration and i18n |

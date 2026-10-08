@@ -207,14 +207,14 @@ math                  = { origin = "Math", status = "chip" }
 chem                  = { origin = "Math", status = "chip" }
 ce                    = { origin = "Math", status = "chip" }
 score                 = { origin = "Score", status = "chip" }
-timeline              = { origin = "timeline", status = "chip" }
+timeline              = { origin = "EasyTimeline", status = "chip" }
 graph                 = { origin = "Graph", status = "chip" }
 mapframe              = { origin = "Kartographer", status = "chip" }
 maplink               = { origin = "Kartographer", status = "chip" }
 categorytree          = { origin = "CategoryTree", status = "chip" }
 inputbox              = { origin = "InputBox", status = "chip" }
 imagemap              = { origin = "ImageMap", status = "chip" }
-hiero                 = { origin = "wikihiero", status = "chip" }
+hiero                 = { origin = "WikiHiero", status = "chip" }
 charinsert            = { origin = "CharInsert", status = "chip" }
 section               = { origin = "LabeledSectionTransclusion", status = "ignored" }   # renders nothing, as on MediaWiki
 
