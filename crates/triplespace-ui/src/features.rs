@@ -28,6 +28,8 @@ pub enum Feature {
     Account,
     /// Document pages: user pages, project pages, **New page**.
     Pages,
+    /// `Special:Version` (`GET /version`).
+    Version,
 }
 
 impl Feature {
@@ -43,12 +45,18 @@ impl Feature {
             Self::Jobs => "jobs",
             Self::Account => "account",
             Self::Pages => "pages",
+            Self::Version => "version",
         }
     }
 }
 
 /// The features this build of the site has built.
-pub const BUILT: &[Feature] = &[Feature::Search, Feature::Login, Feature::Edit];
+pub const BUILT: &[Feature] = &[
+    Feature::Search,
+    Feature::Login,
+    Feature::Edit,
+    Feature::Version,
+];
 
 /// What the site offers on one request.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]

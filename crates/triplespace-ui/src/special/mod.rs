@@ -4,6 +4,7 @@
 //! - [`login`]: `Special:UserLogin` and `Special:UserLogout`, the site's only forms.
 //! - [`search`]: `Special:Search`, the full results page, and its **Go to** rule
 //!   (0010 §3; 0047 §9).
+//! - [`version`]: `Special:Version` and its `Credits` and `License` subpages (0077).
 //!
 //! A special page the site does not serve is a `404`, as MediaWiki answers for a special
 //! page it does not have.
@@ -11,6 +12,7 @@
 pub mod index;
 pub mod login;
 pub mod search;
+pub mod version;
 
 use std::collections::BTreeMap;
 
@@ -44,6 +46,7 @@ pub async fn serve(
         "SpecialPages" => Some(index::serve(site, headers, peer, query).await),
         "UserLogin" => Some(login::login(site, headers, peer, query).await),
         "UserLogout" => Some(login::logout(site, headers, peer, query).await),
+        "Version" => Some(version::serve(site, headers, peer, title, query).await),
         _ => None,
     }
 }

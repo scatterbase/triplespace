@@ -21,5 +21,8 @@ clap.workspace = true
 anyhow.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "net"] }
 
+[build-dependencies]
+serde_json.workspace = true
+
 [lints]
 workspace = true

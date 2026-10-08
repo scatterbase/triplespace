@@ -147,6 +147,7 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
                 base: format!("https://{HOST}"),
             },
             generator: "Triplespace test".into(),
+            version: None,
         },
     )
     .unwrap();

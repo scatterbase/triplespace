@@ -74,8 +74,8 @@ versions = []
 # kind        "service" (a separate program the instance connects to) | "embedded" (in the binary)
 # required    Whether every instance needs it (0033 §1: only Postgres)
 # version     How the version is read: a probe for a service, "crate" for an embedded component (from the
-#             build manifest), or a fixed string. Absent: not yet decided (0077 Q1).
-# adr         Where the service is specified
+#             build manifest), or a fixed string. Absent: shown without a version (deferred, 0077 Q1).
+# adr         Where the service is specified. For maintainers; Special:Version names no ADRs (0077 §1).
 [[service]]
 name = "PostgreSQL"
 role = "Log store and serving model"
@@ -141,7 +141,8 @@ adr = "0043 §4"
 # --- Feature switches (0077 §11) ---------------------------------------------------------------------
 # key         The `site` setting
 # scope       "tenant": shown on a tenant's form of the page | "instance": shown on the farm form
-# adr         Where the setting is specified
+# default     The value when neither the tenant nor the instance sets it. Absent: "not set".
+# adr         Where the setting is specified. For maintainers; not shown.
 # Also shown, without a setting here: the providers a tenant has opted into (with a link to
 # Special:Providers), its tenancy preset (0028 §1) and whether it is a private tenant (0056 §3).
 [[feature]]
@@ -152,58 +153,68 @@ adr = "0053 §9"
 [[feature]]
 key = "wikitext.expansion"
 scope = "tenant"
+default = "off"
 adr = "0042 §2"
 
 [[feature]]
 key = "wikitext.lua"
 scope = "tenant"
+default = "off"
 adr = "0042 §2"
 
 [[feature]]
 key = "wikitext.renderer"
 scope = "tenant"
+default = "builtin"
 adr = "0042 §2"
 
 [[feature]]
 key = "pages.repos"
 scope = "tenant"
+default = []
 adr = "0052 §1"
 
 [[feature]]
 key = "search.inherited"
 scope = "tenant"
+default = "on"
 adr = "0053 §7"
 
 [[feature]]
 key = "query.enabled"
 scope = "tenant"
+default = false
 adr = "0059 §1"
 
 [[feature]]
 key = "mcp.enabled"
 scope = "tenant"
+default = "off"
 adr = "0075 §1"
 
 [[feature]]
 key = "proposals.push"
 scope = "tenant"
+default = "off"
 adr = "0067 §6"
 
 [[feature]]
 key = "search.farm_wide"
 scope = "instance"
+default = "off"
 adr = "0028 §9"
 
 [[feature]]
 key = "files.separation"
 scope = "instance"
+default = "tenant"
 adr = "0039 §4"
 
 # --- Extensions (0077 §8) ----------------------------------------------------------------------------
 # name        As an `origin` writes it in another registry, or as `inspired_by` names it
 # url         Its page on mediawiki.org
 # inspired_by Optional: what Triplespace took from an extension that leaves no `origin` in any other
-#             registry, with the ADR. Inspired by, never installed (0077 §8).
+#             registry, with the ADR (not shown). Inspired by, never installed (0077 §8).
 [[extension]]
 name = "AbuseFilter"
 url = "https://www.mediawiki.org/wiki/Extension:AbuseFilter"

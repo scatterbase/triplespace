@@ -577,7 +577,8 @@ pub const TERM_LANGUAGES: &[&str] = &[
 pub const MAIN_PAGE: &str = "Project:Home";
 
 /// `meta=siteinfo`: `general`, `namespaces`, `namespacealiases`, `extensions`,
-/// `statistics`, `usergroups`, `providers`, `triplespace`; unknown `siprop` values warn.
+/// `libraries`, `statistics`, `usergroups`, `providers`, `triplespace`; unknown `siprop`
+/// values warn.
 #[allow(clippy::too_many_lines)]
 async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), ApiError> {
     let mut props = ctx.params.list("siprop");
@@ -631,6 +632,14 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                     "wikibase-propertytypes": property_types(),
                     "wikibase-conceptbaseuri": format!("{}/entity/", ctx.tenant.base.trim_end_matches('/')),
                 }));
+                // PostgreSQL's version, as MediaWiki reports its database server's, unless
+                // `version.services` withholds versions (0077 §10).
+                if crate::version::disclosure(ctx.db()).await?.versions()
+                    && let Some(v) = ctx.app.probes().postgres().and_then(|p| p.version)
+                    && let Some(g) = query.get_mut("general").and_then(Value::as_object_mut)
+                {
+                    g.insert("dbversion".into(), json!(v));
+                }
             }
             "namespaces" => {
                 query.insert("namespaces".into(), namespaces(&sitename));
@@ -639,10 +648,20 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                 query.insert("namespacealiases".into(), json!([]));
             }
             "extensions" => {
+                // Only extensions whose API modules are served, since clients choose the
+                // modules they call from this list (Pywikibot's `has_extension`); the
+                // extensions that inspired features are on Special:Version, not here
+                // (0077 §8, §10).
+                let version = ctx.app.build().build()["version"].clone();
                 query.insert("extensions".into(), json!([
-                    {"type": "wikibase", "name": "WikibaseRepository", "descriptionmsg": "wikibase-desc", "url": "https://github.com/scatterbase/triplespace", "license-name": "GPL-3.0-or-later"},
-                    {"type": "other", "name": "Triplespace", "url": "https://github.com/scatterbase/triplespace", "license-name": "GPL-3.0-or-later"}
+                    {"type": "wikibase", "name": "WikibaseRepository", "descriptionmsg": "wikibase-desc", "version": version, "url": "https://github.com/scatterbase/triplespace", "license-name": "GPL-3.0-or-later"},
+                    {"type": "other", "name": "Triplespace", "version": version, "url": "https://github.com/scatterbase/triplespace", "license-name": "GPL-3.0-or-later"}
                 ]));
+            }
+            "libraries" => {
+                // The third-party crates and frontend packages, as MediaWiki lists its
+                // Composer and npm libraries (0077 §10).
+                query.insert("libraries".into(), json!(ctx.app.build().libraries()));
             }
             "statistics" => {
                 query.insert("statistics".into(), json!({"pages": 0, "articles": 0, "edits": 0, "images": 0, "users": 0, "activeusers": 0, "admins": 1, "jobs": 0}));
@@ -682,11 +701,16 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                     "tenant": sitename,
                     "farm": ctx.app.config().farm.slug,
                     "search": "postgres",
-                    "capabilities": ["wbgetentities", "wbsearchentities", "wbeditentity", "statements", "terms", "login", "clientlogin", "bearer"],
+                    "capabilities": ["wbgetentities", "wbsearchentities", "wbeditentity", "statements", "terms", "login", "clientlogin", "bearer", "version"],
                     "providers": Registry::default_registry().providers().iter().map(|p| p.slug.clone()).collect::<Vec<_>>(),
                     "rate_limits": [],
                     "grants": scatter_actors::grant::GrantRegistry::default_registry().grants().iter().map(|g| g.name.clone()).collect::<Vec<_>>(),
                     "api_version": crate::API_VERSION,
+                    "build": {
+                        "version": ctx.app.build().build()["version"],
+                        "commit": ctx.app.build().build()["commit"],
+                        "modified": ctx.app.build().build()["modified"],
+                    },
                 });
                 if let Some(theme) = theme(ctx).await? {
                     t["theme"] = theme;
@@ -821,6 +845,7 @@ fn module_parameters(name: &str) -> Vec<Value> {
                         "namespaces",
                         "namespacealiases",
                         "extensions",
+                        "libraries",
                         "statistics",
                         "usergroups",
                         "providers",

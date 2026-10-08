@@ -30,6 +30,7 @@ pub mod modules;
 pub mod params;
 pub mod response;
 pub mod tenant;
+pub mod version;
 
 pub use app::{App, Config, Mode};
 
@@ -39,7 +40,9 @@ pub use app::{App, Config, Mode};
 ///
 /// - 1: `siprop=triplespace` with `api_version` and `theme`; `ETag`, `Cache-Control`,
 ///   `Cache-Tag` and `304` on public responses; `GET /entity/{id}/provenance` in REST v0.
-pub const API_VERSION: u32 = 1;
+/// - 2: `GET /version` and `GET /version/licenses/{id}` in REST v0; `siprop=libraries`;
+///   `general.dbversion`; `build` in `siprop=triplespace` (0077 §10).
+pub const API_VERSION: u32 = 2;
 pub use response::ApiError;
 
 use axum::Router;

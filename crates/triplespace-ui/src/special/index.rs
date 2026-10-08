@@ -28,6 +28,12 @@ pub const PAGES: &[(&str, &str, &str, Feature)] = &[
         "ts-specialpages-login",
         Feature::Login,
     ),
+    (
+        "Special:Version",
+        "ts-version-title",
+        "ts-specialpages-version",
+        Feature::Version,
+    ),
 ];
 
 /// `Special:SpecialPages`.

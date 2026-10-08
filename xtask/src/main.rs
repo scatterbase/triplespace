@@ -5,6 +5,7 @@
 //!   site's crates reach no store).
 //! - `wasm`: builds every crate that 0005 §3 rule 7 requires to build for
 //!   `wasm32-unknown-unknown`, skipping the ones that do not exist yet.
+//! - `manifest`: writes the component manifest of ADR 0077 §15 ([`manifest`]).
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -12,6 +13,8 @@ use std::process::Command;
 
 use anyhow::{Context, Result, anyhow, bail};
 use serde::Deserialize;
+
+mod manifest;
 
 const CRATE_TABLE: &str = "docs/decisions/0005-crate-organization.md";
 
@@ -88,8 +91,9 @@ fn run() -> Result<()> {
     match args.next().as_deref() {
         Some("deps") => deps(&root),
         Some("wasm") => wasm(&root),
-        Some(other) => bail!("unknown task `{other}`; tasks: deps, wasm"),
-        None => bail!("usage: cargo xtask <deps|wasm>"),
+        Some("manifest") => manifest::run(&root, args),
+        Some(other) => bail!("unknown task `{other}`; tasks: deps, wasm, manifest"),
+        None => bail!("usage: cargo xtask <deps|wasm|manifest>"),
     }
 }
 

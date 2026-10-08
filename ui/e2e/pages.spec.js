@@ -30,7 +30,10 @@ const pages = [
 	{ path: '/wiki/Domain:wikipedia.org', heading: 'Wikipedia' },
 	{ path: '/wiki/Item:Q404', heading: 'Item:Q404', status: 404 },
 	{ path: '/w/index.php?title=Special:Search&search=six&fulltext=1', heading: 'Search' },
-	{ path: '/wiki/Special:Search', heading: 'Search' }
+	{ path: '/wiki/Special:Search', heading: 'Search' },
+	{ path: '/wiki/Special:Version', heading: 'Version' },
+	{ path: '/wiki/Special:Version/Credits', heading: 'Credits' },
+	{ path: '/wiki/Special:Version/License', heading: 'GNU General Public License' }
 ];
 
 for ( const p of pages ) {

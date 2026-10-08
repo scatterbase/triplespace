@@ -37,6 +37,10 @@ allow = [
     "GPL-3.0",
     "GPL-3.0-or-later",
     "CC0-1.0",
+    # The default theme's typefaces (IBM Plex, Newsreader; 0034 §1), served to browsers as
+    # separate files and listed with their licence on Special:Version (0077 §6). Not in
+    # 0033 §1's list yet: to be confirmed and recorded there.
+    "OFL-1.1",
 ]
 confidence-threshold = 0.9
 # The allow list is the policy, not a record of what is in the tree today.

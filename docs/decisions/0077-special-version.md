@@ -2,6 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-07
+- **Updated:** 2026-10-07 (A2)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md), [0033](0033-backend-stack.md), [0047](0047-special-pages.md)
 - **Uses:** [0005](0005-crate-organization.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0028](0028-tenancy-policy.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0046](0046-primary-tenant.md), [0056](0056-security-model.md), [0057](0057-web-tier.md), [0059](0059-query-service.md), [0075](0075-mcp-server.md)
@@ -40,6 +41,8 @@ And on the first proposal, the same day:
 
 ### 1. One page, two forms (amends 0047 §9)
 
+*Changed by A1.*
+
 **`Special:Version` has these sections, in this order:**
 
 1. The credit line and licence notice (§2, §3).
@@ -53,6 +56,8 @@ And on the first proposal, the same day:
 9. The instance: its name, and its owner of record where `instance.owner_of_record` is set (0016 A11).
 
 Subpages: `Special:Version/Credits` (§2), `Special:Version/License` and `Special:Version/License/{component}` (§3).
+
+**The page names no ADRs.** The `adr` fields in `version.toml` are for maintainers and are not shown.
 
 **The tenant form and the farm form** differ only in §11's features and in §5's entry points, which are the tenant's at a tenant base and the instance's at the farm base. Where the two bases share a host, both forms show behind 0047 §3's `scope` filter.
 
@@ -102,16 +107,17 @@ Two more sentences follow: the `scatter-*` crates are also available from Scatte
 
 ### 4. Installed software and services
 
+*Changed by A1, A2.*
+
 **The build row** shows Triplespace's version, the commit, whether the build is modified, the commit's date (not the build time, so builds stay reproducible), the rustc version, the target and the cargo features compiled in, from the manifest (§15). Where `triplespace-web` serves the site, a second row shows the web tier's build (§1).
 
-**Then each service and embedded component** in `version.toml`'s `[[service]]` list, with:
+**Then each service the instance is configured to use, and each embedded component in use,** from `version.toml`'s `[[service]]` list. A service that is not configured, or an embedded component not in use, is not shown. Each row has:
 
 | Column | Shows |
 |---|---|
 | Name and role | From the registry |
-| State | `connected`, `configured but unreachable`, or `not configured`. An embedded component shows `in use` or `not in use` |
-| Version | Read by the registry's `version` probe for a service (`SHOW server_version` for PostgreSQL; Valkey's `INFO server`; OpenSearch's `GET /`), from the manifest for an embedded component (Oxigraph), or a fixed string (Lua 5.1) |
-| Specified in | The ADR |
+| State | `connected` or `unreachable`. An embedded component has no state |
+| Version | Read by the registry's `version` probe for a service (`SHOW server_version` for PostgreSQL; Valkey's `INFO server`; OpenSearch's `GET /`), from the manifest for an embedded component (Oxigraph), or a fixed string (Lua 5.1). QLever and Parsoid are shown without a version for now (Q1) |
 
 The services are PostgreSQL, Valkey, OpenSearch, QLever, Parsoid and object storage, and the embedded components are Oxigraph and Lua; adding a service to the stack adds a registry entry.
 
@@ -147,6 +153,8 @@ Native code that a `-sys` crate bundles (Lua 5.1 through `mlua`, RocksDB through
 
 ### 8. Inspired by
 
+*Changed by A1.*
+
 **Triplespace runs no MediaWiki extension.** This section lists the extensions whose features, names or APIs it implements, so that their users, tools and pages work here. It is headed "Inspired by", introduced by `ts-version-inspiredby-intro`, and never says "installed".
 
 **It is derived from every registry that records an `origin`**: `special-pages.toml`, `wikitext-functions.toml` and `content-models.toml`. MediaWiki core comes first, then the extensions in alphabetical order. Each row links to the extension's page on mediawiki.org (`[[extension]]` in `version.toml`) and lists what came from it, by kind:
@@ -157,7 +165,7 @@ Native code that a `-sys` crate bundles (Lua 5.1 through `mlua`, RocksDB through
 
 Entries that are `deferred`, `declined` or `reserved` are not shown. An extension with no shown entry is not listed.
 
-**Extensions that leave no `origin`** in any registry, but from which Triplespace took something, carry `inspired_by` in `version.toml`: what was taken, and the ADR. The seed is CirrusSearch and WikibaseCirrusSearch (search fields and keywords, [0014](0014-caches-and-search.md)), CodeMirror (the source editor, 0034 §4) and DiscussionTools (stable names for sections and comments, 0069). An ADR that takes something from an extension adds an `origin` to the registry it fills or, failing that, an `inspired_by` entry.
+**Extensions that leave no `origin`** in any registry, but from which Triplespace took something, carry `inspired_by` in `version.toml`: what was taken, which the page shows, and the ADR, which it does not. The seed is CirrusSearch and WikibaseCirrusSearch (search fields and keywords, [0014](0014-caches-and-search.md)), CodeMirror (the source editor, 0034 §4) and DiscussionTools (stable names for sections and comments, 0069). An ADR that takes something from an extension adds an `origin` to the registry it fills or, failing that, an `inspired_by` entry.
 
 **`origin` values** are `mediawiki`, `triplespace`, `generic` (content models only) or an extension's name as `version.toml` lists it. The three registries now agree: `wikibase` became `Wikibase` in `content-models.toml`, and `timeline` and `wikihiero` became `EasyTimeline` and `WikiHiero` in `wikitext-functions.toml`.
 
@@ -181,7 +189,9 @@ Entries that are `deferred`, `declined` or `reserved` are not shown. An extensio
 
 ### 11. Features
 
-**The tenant form shows the tenant's feature switches:** the value of each `[[feature]]` setting of scope `tenant` in `version.toml` (`content.licence`, `wikitext.expansion`, `wikitext.lua`, `wikitext.renderer`, `pages.repos`, `search.inherited`, `query.enabled`, `mcp.enabled` and `proposals.push`), each linked to its ADR. It also shows the providers the tenant has opted into, linked to `Special:Providers`, its tenancy preset ([0028](0028-tenancy-policy.md) §1), and whether it is a private tenant (0056 §3).
+*Changed by A1.*
+
+**The tenant form shows the tenant's feature switches:** the value of each `[[feature]]` setting of scope `tenant` in `version.toml` (`content.licence`, `wikitext.expansion`, `wikitext.lua`, `wikitext.renderer`, `pages.repos`, `search.inherited`, `query.enabled`, `mcp.enabled` and `proposals.push`). It also shows the providers the tenant has opted into, linked to `Special:Providers`, its tenancy preset ([0028](0028-tenancy-policy.md) §1), and whether it is a private tenant (0056 §3).
 
 **The farm form shows the instance's:** the settings of scope `instance` (`search.farm_wide` and `files.separation`), the tenancy policy's preset and the number of tenants.
 
@@ -241,9 +251,9 @@ Two instance `site` settings, written with `ts-config` at the farm base:
 
 ## Open questions
 
-- **Q1. Version probes for QLever and Parsoid.** Which endpoint, if any, reports each one's version; until one is chosen, they are shown without a version.
+- **Q1. Version probes for QLever and Parsoid.** Deferred by direction: both are shown without a version until a probe is chosen for each.
 - **Q2. JavaScript licence labels.** Whether to add LibreJS-style labels, a table of every script with its licence and source, beside the header comments of §3.
-- **Q3. Agents and their ADRs.** Whether each agent's row should list the ADRs it wrote, which would put the Author lines' data into `version.toml` or the manifest.
+- **Q3.** ~~**Agents and their ADRs.** Whether each agent's row should list the ADRs it wrote, which would put the Author lines' data into `version.toml` or the manifest.~~ *Withdrawn: the page names no ADRs (§1).*
 - **Q4. Translators.** If messages are translated on translatewiki.net, whether translators are credited on `Special:Version/Credits`, as MediaWiki credits them through each message file's `@metadata`.
 
 ## Changes to other ADRs
@@ -266,3 +276,38 @@ Two instance `site` settings, written with `ts-config` at the farm base:
 - [SIL Open Font License](https://openfontlicense.org/): the licence of IBM Plex and Newsreader
 - [Pywikibot `APISite.has_extension`](https://doc.wikimedia.org/pywikibot/stable/api_ref/pywikibot.site.html)
 - [cargo-about](https://github.com/EmbarkStudios/cargo-about)
+
+## Amendment log
+
+### A1. No ADRs on the page; QLever and Parsoid versions deferred
+
+- **Date:** 2026-10-07
+- **Source:** Direct: James, review of the draft, 2026-10-07
+- **Change:** extends §1; amends §4, §8, §11
+- **Summary:** "I don't think it's necessary to mention ADRs directly in Special:Version." The page names no ADRs: the services table loses its "Specified in" column, features are no longer linked to their ADRs, and an `inspired_by` entry shows what was taken but not its ADR. The `adr` fields in `version.toml` stay, for maintainers. Showing QLever's and Parsoid's versions is deferred: both are shown without one (Q1). Q3 is withdrawn.
+
+Replaced text (§4):
+
+> | Version | Read by the registry's `version` probe for a service (`SHOW server_version` for PostgreSQL; Valkey's `INFO server`; OpenSearch's `GET /`), from the manifest for an embedded component (Oxigraph), or a fixed string (Lua 5.1) |
+> | Specified in | The ADR |
+
+Replaced text (§8):
+
+> **Extensions that leave no `origin`** in any registry, but from which Triplespace took something, carry `inspired_by` in `version.toml`: what was taken, and the ADR.
+
+Replaced text (§11):
+
+> **The tenant form shows the tenant's feature switches:** the value of each `[[feature]]` setting of scope `tenant` in `version.toml` (`content.licence`, `wikitext.expansion`, `wikitext.lua`, `wikitext.renderer`, `pages.repos`, `search.inherited`, `query.enabled`, `mcp.enabled` and `proposals.push`), each linked to its ADR.
+
+### A2. Services not configured are not shown
+
+- **Date:** 2026-10-07
+- **Source:** Direct: James, review of the draft, 2026-10-07
+- **Change:** amends §4
+- **Summary:** "If a service is not configured, it shouldn't be shown." §4 lists only the services the instance is configured to use and the embedded components in use; a configured service is `connected` or `unreachable`.
+
+Replaced text (§4):
+
+> **Then each service and embedded component** in `version.toml`'s `[[service]]` list, with:
+>
+> | State | `connected`, `configured but unreachable`, or `not configured`. An embedded component shows `in use` or `not in use` |
