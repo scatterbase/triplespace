@@ -207,3 +207,17 @@ defined_in = "0053 §5"
 # export = "public"
 # payload_types = ["scatter:v0/derivation", "scatter:v0/erase"]   # four parts: content, comment, attestation, evidence
 # defined_in = "0071 §1, §3"
+
+# Pending (0078 §4): an entity source's mirror partition, one per `entity-source` config record of a
+# tenant, written only by the source's fetch job. Commented out until `scatter-log`'s registry accepts
+# a per-source placeholder (`{name}`); the parser rejects unknown fields.
+# [[graph]]
+# name = "source/{name}"
+# kind = "source"
+# scope = "tenant"
+# per_source = true           # one per `entity-source` config record (0078 §1)
+# history = "latest"          # a tenant may set "full", as for mirror/{provider}
+# integrity = "hashed"
+# export = "public"
+# payload_types = ["scatter:v0/changeset", "scatter:v0/erase"]
+# defined_in = "0078 §4"

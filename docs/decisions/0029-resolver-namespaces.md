@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-01 (A6)
+- **Updated:** 2026-10-08 (A7)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0003](0003-statement-ui.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0017](0017-entity-id-grammar.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md)
@@ -36,11 +36,11 @@ A **resolver** is a registry entry, a `config` record of kind `resolver` in the 
 
 ### 2. The `resolver` namespace kind (extends 0008 §1 and §3)
 
-*Changed by A3, A5.*
+*Changed by A3, A5, A7.*
 
 `resolver` joins the namespace kinds of [0008](0008-namespaces-and-document-pages.md) §1, beside `pages`, `reserved` and `virtual` ([0041](0041-content-models.md) §4): entity view, document, composite and thread namespaces are `pages` namespaces told apart by content model, and `resolver` stays a kind of its own because a resolver namespace holds no pages and so has no model. It holds no records either: every title in it is a key, and viewing it performs the lookup of §3. Its paired talk namespace is `reserved` and empty, as `Thread talk` is ([0019](0019-discussions.md) §3). Its **title normalizer** is the resolver's normalizer, and `meta=siteinfo` reports its `case` as `case-sensitive` whatever the case rule, because the server normalizes ([0008](0008-namespaces-and-document-pages.md) §3). Subpages are not allowed; a `/` inside a DOI is part of the key, and the resolver's grammar, not the namespace, decides what a key may contain.
 
-**Resolver names and keyed-type names share one namespace.** `doi` cannot be both a resolver and a keyed type, so `doi:10.1000/xyz` in an API parameter can mean only one thing ([0017](0017-entity-id-grammar.md) §1). The registry refuses a resolver whose name is a keyed type's, and the reverse. Notation scheme names join the same namespace ([0048](0048-notation.md) §2): `osm:amenity=cafe` typed into `/resolve` means the notation, as `doi:10.1000/x` means the DOI resolver.
+**Resolver names and keyed-type names share one namespace.** `doi` cannot be both a resolver and a keyed type, so `doi:10.1000/xyz` in an API parameter can mean only one thing ([0017](0017-entity-id-grammar.md) §1). The registry refuses a resolver whose name is a keyed type's, and the reverse. Notation scheme names join the same namespace ([0048](0048-notation.md) §2): `osm:amenity=cafe` typed into `/resolve` means the notation, as `doi:10.1000/x` means the DOI resolver. So do registry provider slugs, `wikidata:Q42` being an input form of `WDQ42`, and, on one tenant only, the names of that tenant's entity sources ([0078](0078-entity-sources.md) §3). A source may not take a name the registry has; a registry name added later that a tenant's source already uses is shadowed on that tenant. An entity source's namespace is a `resolver` namespace whose lookup is [0078](0078-entity-sources.md) §5's.
 
 ### 3. Resolution
 
@@ -76,11 +76,11 @@ A resolver's binding may be `sitelink` instead of a role. Its key is then a URL,
 
 ### 6. API (extends 0012 §5)
 
-*Changed by A2, A5.*
+*Changed by A2, A5, A7.*
 
 | Route or module | Behaviour |
 |---|---|
-| `GET /resolve?q=` | Now tries, in order: entity IDs, keyed-type IDs, notation keys ([0048](0048-notation.md) §2), then resolver-prefixed strings (`doi:10.1000/xyz`) and bare strings that normalize to a valid key of exactly one resolver, and last main-namespace titles ([0038](0038-page-metadata-and-categories.md) §8): a bare ID still reaches its entity first, and a main-namespace page with the same title is returned in an `also` field. The response carries `kind: resolver`, the resolver, the normalized key and either the target entity or the candidate list |
+| `GET /resolve?q=` | Now tries, in order: entity IDs, source IDs among them ([0078](0078-entity-sources.md) §3), keyed-type IDs, notation keys ([0048](0048-notation.md) §2), then resolver-prefixed strings (`doi:10.1000/xyz`) and bare strings that normalize to a valid key of exactly one resolver, and last main-namespace titles ([0038](0038-page-metadata-and-categories.md) §8): a bare ID still reaches its entity first, and a main-namespace page with the same title is returned in an `also` field. The response carries `kind: resolver`, the resolver, the normalized key and either the target entity or the candidate list |
 | `GET /resolvers` | The tenant's resolvers with their grammars and bindings (public) |
 | `GET /resolvers/{name}/{key}` | The lookup of §3 as JSON, with `303` semantics available by `Accept` |
 | `wbgetentities` | A new `resolver` and `key` pair of parameters, mirroring `sites`+`titles`, returning the entity when the lookup is unique and `missing` with a `candidates` list otherwise |
@@ -200,3 +200,10 @@ Replaced text (§2):
 - **Source:** [0050](0050-adr-format.md) §13
 - **Change:** consolidates §1–9
 - **Summary:** A1–A5 were folded into the Decision. The open questions were numbered. No decision changed. Before this, A2–A4 were blockquotes, and A5 was recorded only in 0048. The file before conversion is commit `0b26a3a`.
+
+### A7. Entity sources
+
+- **Date:** 2026-10-08
+- **Source:** [0078](0078-entity-sources.md) §3, §5
+- **Change:** extends §2, §6
+- **Summary:** Registry provider slugs and, per tenant, the tenant's entity-source names join the one namespace of keyed-type, resolver and notation scheme names; `wikidata:Q42` is an input form of `WDQ42`. A source may not take a registry name, and a registry name added later is shadowed on a tenant whose source has it. An entity source's namespace is a `resolver` namespace with its own lookup. `/resolve` tries source IDs with the other entity IDs.

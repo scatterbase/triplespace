@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-28
-- **Updated:** 2026-10-01 (A3)
+- **Updated:** 2026-10-08 (A4)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md)
 - **Uses:** [0024](0024-subsidiary-accounts.md), [Wikibase contract](../api/wikibase-compat.md)
@@ -51,6 +51,8 @@ The job record carries the source's base URL, the dump's identity and date as th
 
 ### 3. The `adopt` operation (amends 0002 §8.2 and §8.5)
 
+*Changed by A4.*
+
 One operation is added to the table of [0002](0002-source-graphs-and-mass-ingest.md) §8.2:
 
 | Operation | Graph | Meaning |
@@ -64,7 +66,7 @@ One operation is added to the table of [0002](0002-source-graphs-and-mass-ingest
 ```
 
 - **`id`** is in local form ([0017](0017-entity-id-grammar.md) §1): the source's own ID, with no prefix. Any minted entity type the source has may be adopted (`Q`, `P`, and `L` once the Lexeme namespace is implemented).
-- **`entity`** is the source's canonical JSON ([wikibase-compat.md §3](../api/wikibase-compat.md)). IDs the source wrote with an entity-source prefix, such as `wikidata:Q42` from a federated install ([wikibase-compat.md §5.1](../api/wikibase-compat.md)), are rewritten to the provider form, `WDQ42`, by the rule of [0002](0002-source-graphs-and-mass-ingest.md) §4, using the source's own entity-source table. Every other ID is kept as written: the source's `Q` numbers *are* the tenant's.
+- **`entity`** is the source's canonical JSON ([wikibase-compat.md §3](../api/wikibase-compat.md)). IDs the source wrote with an entity-source prefix, such as `wikidata:Q42` from a federated install ([wikibase-compat.md §5.1](../api/wikibase-compat.md)), are rewritten to the provider form, `WDQ42`, by the rule of [0002](0002-source-graphs-and-mass-ingest.md) §4, using the source's own entity-source table. A prefix whose entity source is not a registry provider becomes an entity source of the tenant under the same name, declared by the job before the first `adopt` from that table, and its IDs are kept as written, `mhc:Q1`; if the name is taken, the preconditions (§2) fail and name it ([0078](0078-entity-sources.md) §11). Every other ID is kept as written: the source's `Q` numbers *are* the tenant's.
 - **`source_revid`, `source_time`, `source_pageid`** are the source's revision ID and timestamp for the adopted state and the page ID of the entity's page on the source. They are content, kept in the content part, and they give the record its provenance (§6) and its page ID (§4).
 - **Statement GUIDs** are kept as the source wrote them. They already carry the entity's own ID as their prefix, which is the invariant [0018](0018-tenants.md) §7 preserves.
 
@@ -191,3 +193,10 @@ Replaced text (§8):
 - **Source:** [0050](0050-adr-format.md) §13
 - **Change:** consolidates §2, §8
 - **Summary:** A1–A2 were folded into the Decision. The open questions were numbered. No decision changed. Before this, A2 was a blockquote. The file before conversion is commit `0b26a3a`.
+
+### A4. Unregistered entity sources
+
+- **Date:** 2026-10-08
+- **Source:** [0078](0078-entity-sources.md) §11
+- **Change:** extends §3
+- **Summary:** An adopted wiki's entity-source prefix that names no registry provider is declared as an entity source of the tenant under the same name, and its IDs are kept as written. A prefix whose name the registry already has fails the preconditions. Before this, such a prefix had no rule.

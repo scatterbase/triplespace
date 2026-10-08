@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-06 (A30)
+- **Updated:** 2026-10-08 (A31)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -42,13 +42,14 @@ Namespaces are configuration: data passed in by the caller and recorded in the l
 
 ### 2. Namespace numbering
 
-*Changed by A3, A6, A8, A9, A10, A12, A13, A15, A17, A18, A19, A25, A26, A27, A28, A29.*
+*Changed by A3, A6, A8, A9, A10, A12, A13, A15, A17, A18, A19, A25, A26, A27, A28, A29, A31.*
 
-MediaWiki's canonical numbers are kept wherever a namespace has one, because clients hard-code them. Three rules govern every other number (A6, A17):
+MediaWiki's canonical numbers are kept wherever a namespace has one, because clients hard-code them. Four rules govern every other number (A6, A17, A31):
 
 1. **Every number MediaWiki core or any Wikibase extension uses is reserved.** It is listed with kind `reserved`, is never given another meaning, and is not implemented unless an ADR says so. An ADR may implement one conditionally, by a tenant setting named in the entry's `enabled_by` ([0042](0042-template-expansion-and-parsoid.md) §3). Turning the setting off keeps the namespace's pages readable and refuses writes with `ts-namespace-disabled`.
 2. **Talk namespaces exist only for implemented subject namespaces,** at the next odd number. A talk namespace is a `pages` namespace with the model `triplespace-talk` ([0019](0019-discussions.md) §2, [0041](0041-content-models.md) §4). Where a page is its own talk page, as a board and a thread are, the talk number is `virtual` and forwards to the subject namespace ([0049](0049-boards.md) §2). A resolver's talk number is `reserved` ([0029](0029-resolver-namespaces.md) §2). A reserved, unimplemented subject namespace has no talk namespace.
 3. **Triplespace's own namespaces take 210–219, then 310–319. Resolver prefixes ([0029](0029-resolver-namespaces.md)) take 220–229, then 320–329.** A first block is used up before its second. All four blocks are registered on mediawiki.org's Extension default namespaces page, which listed nothing in 204–240 on 2026-09-27 and nothing in 310–329 on 2026-10-01. Allocation is a change to `namespaces.toml`, under the registry's rules ([0015](0015-record-format-and-partition-registry.md) §5).
+4. **A tenant's own namespaces take 3000 and above,** the numbers mediawiki.org's Extension default namespaces page leaves to system administrators, **or 100–199,** MediaWiki's block for site-specific namespaces, except the numbers `namespaces.toml` lists. An adopted wiki keeps the numbers it already gave its namespaces ([0035](0035-adopting-a-wikibase.md)). A tenant `namespace` record with any other number not in `namespaces.toml` is refused with `ts-namespace-number`; one whose name or alias equals another namespace's name or alias on the tenant, or an interwiki prefix from its site aliases ([0026](0026-sitelinks.md) §2), is refused with `ts-namespace-name-taken`. An entity source's namespace is one of these ([0078](0078-entity-sources.md) §5).
 
 **Allocations.** `namespaces.toml` is authoritative. This table matches it as of A19:
 
@@ -84,7 +85,7 @@ Talk namespaces default to `triplespace-talk`. 210–219 is full; the next resol
 
 ### 3. Titles
 
-*Changed by A2, A3, A5, A10, A11, A14, A19, A21, A22.*
+*Changed by A2, A3, A5, A10, A11, A14, A19, A21, A22, A31.*
 
 **One resolver handles every title.** Page views, API `titles=` parameters, redirects and wiki links (§8) all go through it. It works in three steps:
 
@@ -95,10 +96,11 @@ Talk namespaces default to `triplespace-talk`. 210–219 is full; the next resol
    - `file-name`: `first-letter` with MediaWiki's file-name rules ([0039](0039-files-and-media.md) §1).
    - A keyed type's own normalizer ([0009](0009-keyed-entity-types-and-domain.md) §2).
    - A resolver's normalizer ([0029](0029-resolver-namespaces.md) §2).
+   - An entity source's ID normalizer, in its namespace ([0078](0078-entity-sources.md) §2, §5).
 3. **Resolve** the normalized title:
    - in an entity namespace, to an entity, following aliases and identity clusters to the canonical ID ([0004](0004-identity-clusters-and-equivalence.md) §4), exactly as the API resolves IDs;
    - in a forwarding namespace, to the same title in the namespace named by `forwards_to` ([0049](0049-boards.md) §2);
-   - in a `resolver` namespace, by the resolver's lookup ([0029](0029-resolver-namespaces.md) §3);
+   - in a `resolver` namespace, by the resolver's lookup ([0029](0029-resolver-namespaces.md) §3), or, in an entity source's namespace, by the source's ([0078](0078-entity-sources.md) §5);
    - in any other `pages` namespace, to the **primary of the title's stack** ([0052](0052-page-repositories-and-title-inheritance.md) §2): the local page ID, or, where no local page exists and a page repository in `pages.repos` serves the namespace and has the title, that repository's page ([0052](0052-page-repositories-and-title-inheritance.md) §3). A primary that is a **redirect** ([0051](0051-page-redirects.md) §1), local or foreign, is followed one hop, to the stack of its target title, unless the request says `redirect=no` ([0051](0051-page-redirects.md) §2).
 
 **A title that resolves somewhere else redirects there.** `Item:P31` redirects to `Property:P31`, and `Item:WDQ123` redirects to `Item:Q456` once `WDQ123` belongs to a cluster whose canonical ID is `Q456`. `Special:EntityPage/{id}` resolves any entity ID to its page, as it does in Wikibase. A forwarding title is a permanent redirect: `Board talk:X` answers 301 to `Board:X`, and has no page ID ([0049](0049-boards.md) §2).
@@ -660,3 +662,14 @@ Replaced text (§2):
 - **Source:** [0069](0069-synchronized-talk-pages.md) §7
 - **Change:** extends §4
 - **Summary:** A fork's page records gain `follow`, a null revision recording whether the fork's talk page follows the repository's or has been forked.
+
+### A31. A tenant range, and entity-source namespaces
+
+- **Date:** 2026-10-08
+- **Source:** [0078](0078-entity-sources.md) §5
+- **Change:** extends §2, §3
+- **Summary:** Rule 4: a tenant's own namespaces take 3000 and above, or 100–199 except registered numbers, and an adopted wiki keeps its numbers; other numbers are refused with `ts-namespace-number`, and names that equal another namespace's or an interwiki prefix with `ts-namespace-name-taken`. Until now nothing said which numbers a tenant's namespaces may take. An entity source's namespace is a `resolver` namespace with the source's ID normalizer and the source's lookup.
+
+Replaced text (§2):
+
+> MediaWiki's canonical numbers are kept wherever a namespace has one, because clients hard-code them. Three rules govern every other number (A6, A17):

@@ -3,7 +3,8 @@
 # code         Two-letter code that prefixes entity IDs minted by the provider (WDQ42).
 # slug         Lower-case name used in graph names (mirror/{slug}) and in the API.
 # number       Provider number for the revision-ID range: revid = number << 40 | n (0015 §2).
-#              0 is the instance itself and is never assigned.
+#              0 is the instance itself and is never assigned. 4194304–8388607 (2^22 to 2^23 − 1) are
+#              never assigned here either: each tenant assigns them to its entity sources (0078 §4).
 # issuer       The issuer (issuers.toml) that the provider's revisions attribute actors to,
 #              or the provider itself for providers without individual actors (0007 §6).
 # revision_ids true if the provider publishes revision IDs; then n is the upstream revision ID,

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-07 (A36)
+- **Updated:** 2026-10-08 (A37)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md)
 - **Uses:** [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md)
@@ -67,7 +67,7 @@ Hiding ([0001](0001-revision-metadata-rdf.md) §4) is unchanged: it is a project
 
 ### 2. Global IDs live in the header (amends 0006 §3 and 0013 §6)
 
-*Changed by A3, A15, A23.*
+*Changed by A3, A15, A23, A37.*
 
 Three fields are appended to the header array of [0006](0006-log-integrity-and-erasure.md) §3:
 
@@ -85,7 +85,7 @@ They are assigned in the appending transaction, before the leaf hash is computed
 revid = provider_number << 40  |  n
 ```
 
-Provider number 0 is the instance itself, so local revision IDs are the plain sequence of 0013 §6. Each provider has a number in the registry (§5). For a provider that publishes revision IDs, *n* is the upstream revision ID; for one that does not, such as OpenAlex, *n* is the record's offset in the mirror partition. Forty bits hold a thousand billion upstream revisions, and the split is the same on every instance, so the ID is computed by the writer, needs no allocation, and never changes on rebuild. It works across tenants without a new rule: Librarybase's revision 900 is `900` at home and `LB_number << 40 | 900` when another tenant reads it ([0018](0018-tenants.md) §2, §5). A `put` therefore carries its revision ID in field 7 like any other record.
+Provider number 0 is the instance itself, so local revision IDs are the plain sequence of 0013 §6. Each provider has a number in the registry (§5). Numbers from 2^22 to 2^23 − 1 are never allocated in the registry: each tenant assigns them to its entity sources, and they are unique on their tenant only, which suffices because revision and page IDs are per tenant and no other tenant reads a source's records ([0078](0078-entity-sources.md) §4). For a provider that publishes revision IDs, *n* is the upstream revision ID; for one that does not, such as OpenAlex, *n* is the record's offset in the mirror partition. Forty bits hold a thousand billion upstream revisions, and the split is the same on every instance, so the ID is computed by the writer, needs no allocation, and never changes on rebuild. It works across tenants without a new rule: Librarybase's revision 900 is `900` at home and `LB_number << 40 | 900` when another tenant reads it ([0018](0018-tenants.md) §2, §5). A `put` therefore carries its revision ID in field 7 like any other record.
 
 What this gives the compatibility surfaces:
 
@@ -106,7 +106,7 @@ In [0013](0013-postgres-storage.md) §2, `revid`, `logid` and a new `page_id` co
 
 ### 3. The `config` partition (amends 0005 §4.1; extends 0006 §4 and §6)
 
-*Changed by A3, A4, A5, A6, A8, A9, A10, A11, A12, A13, A16, A19, A20, A21, A23, A24, A26, A27, A28, A30, A31, A32, A33, A34, A35, A36.*
+*Changed by A3, A4, A5, A6, A8, A9, A10, A11, A12, A13, A16, A19, A20, A21, A23, A24, A26, A27, A28, A30, A31, A32, A33, A34, A35, A36, A37.*
 
 A source partition is registered for instance configuration. It corresponds to Scatterbase's `server` graph in the table of [0005](0005-crate-organization.md) §4.1, and the two share one record shape so that Scatterbase can adopt it.
 
@@ -159,6 +159,7 @@ The remaining kinds are Triplespace's, and each product declares its own:
 | `value-map` | The map name | Tenant scope: strings to values, for parsers and heading facets | [0072](0072-template-mappings.md) §4 |
 | `publication` | The publication name | Tenant scope: a destination wiki, account, scope, rows, data pages and kits | [0074](0074-publishing-a-scope-to-an-external-wiki.md) §1 |
 | `jsonld-context` | The profile name | Tenant scope: the schema.org types, property terms, intervals and identifiers of a JSON-LD profile | [0076](0076-dataset-publication.md) §2 |
+| `entity-source` | The source's name | Tenant scope: an entity source: label, entity types with upstream prefixes, ID grammars and IRI templates, namespace, `api`, `entity_data`, `revision_ids`, `events`, `role`, licence, its assigned provider number and `promoted_to` | [0078](0078-entity-sources.md) §1 |
 
 **Scope.** The kinds split by scope ([0018](0018-tenants.md) §3). The instance's `config` holds `key`, `graph`, `provider`, `issuer`, `keyed-type`, `tenant`, `alias`, `primary`, `tenancy`, `template`, `consumer` and `forwarder`, the instance lists of `sitelink-policy` and `federation-policy`, and global `group`s; each tenant's `config` holds the rest. A tenant's `config` begins with a `key:` record, the current instance key, and every `key:` record of the instance is appended to it as well, so a tenant's partitions verify from the tenant's bundle alone ([0018](0018-tenants.md) §2).
 
@@ -221,7 +222,7 @@ An upstream revision node is `prov:specializationOf` the **upstream** document n
 
 ### 5. Graph names and IRIs (settles 0001 Q2, 0002 Q1 and 0005 Q6)
 
-*Changed by A2, A3, A4, A5, A7, A9, A10, A11, A12, A16, A17, A19, A20, A21, A23, A24, A26, A31, A36.*
+*Changed by A2, A3, A4, A5, A7, A9, A10, A11, A12, A16, A17, A19, A20, A21, A23, A24, A26, A31, A36, A37.*
 
 **A graph's IRI is `{base}/graph/{name}`** for a tenant's partitions, where `{base}` is the tenant's base URI: the origin that serves its `/wiki/`, `/w/api.php` and `/entity/`, the same base that [0001](0001-revision-metadata-rdf.md) §5 gives its data ([0018](0018-tenants.md) §2). The instance's own partitions are under the reserved path `{farm base}/instance/graph/{name}`, so that they cannot be confused with a tenant's when the farm base is a tenant's base ([0046](0046-primary-tenant.md) §7). The IRI is therefore per instance, which it has to be: the metadata graph attributes triples to this instance's revisions, and two instances' full dumps ([0013](0013-postgres-storage.md) §8) must be loadable together without their `local` graphs colliding, especially now that [0009](0009-keyed-entity-types-and-domain.md) §6 gives Domain subjects the same IRI everywhere.
 
@@ -238,6 +239,7 @@ An upstream revision node is `prov:specializationOf` the **upstream** document n
 | `log` (instance) | Source: the instance's own log, for operator records | [0039](0039-files-and-media.md) §10 |
 | `files/{repo}` | Source, one per mirrored file repository | [0039](0039-files-and-media.md) §11 |
 | `derived/{source}` | Source, one per extraction source of a tenant | [0071](0071-derived-statements-from-mirrored-pages.md) §1 |
+| `source/{name}` | Source, one per entity source of a tenant: its mirrored entities | [0078](0078-entity-sources.md) §4 |
 | `resolved` | Projection: the main graph of [0001](0001-revision-metadata-rdf.md) §2 as [0002](0002-source-graphs-and-mass-ingest.md) §3 computes it | 0002 §3 |
 | `metadata` | Projection | 0001 §2 |
 
@@ -249,7 +251,7 @@ An upstream revision node is `prov:specializationOf` the **upstream** document n
 
 | File | Lists | Defined in |
 |---|---|---|
-| `graphs.toml` | The reserved graph names above, with each one's kind, policies and payload type; `pages/{repo}`, the mirrored-page partition of a page repository in `mirror` mode, with its five-part payload type `scatter:v0/mirrored-page` ([0053](0053-mirrored-pages.md) §5); `derived/{source}`, a tenant's derived graph per extraction source, with the four-part `scatter:v0/derivation` ([0071](0071-derived-statements-from-mirrored-pages.md) §1, §3) | this section, §3 |
+| `graphs.toml` | The reserved graph names above, with each one's kind, policies and payload type; `pages/{repo}`, the mirrored-page partition of a page repository in `mirror` mode, with its five-part payload type `scatter:v0/mirrored-page` ([0053](0053-mirrored-pages.md) §5); `derived/{source}`, a tenant's derived graph per extraction source, with the four-part `scatter:v0/derivation` ([0071](0071-derived-statements-from-mirrored-pages.md) §1, §3); `source/{name}`, an entity source's mirror partition of tenant scope ([0078](0078-entity-sources.md) §4) | this section, §3 |
 | `providers.toml` | Each provider's two-letter code, slug, **provider number** (§2), type codes with their upstream prefixes and IRI templates, issuer, whether it publishes revision IDs, and its `trust` mode and key-chain URL ([0022](0022-federation.md) §2) | [0000](0000-init.md) §3, [0002](0002-source-graphs-and-mass-ingest.md) §4 |
 | `issuers.toml` | The issuer codes and actor models | [0007](0007-actor-identity.md) §1 |
 | `namespaces.toml` | The default namespace numbers and kinds | [0008](0008-namespaces-and-document-pages.md) §2 |
@@ -666,3 +668,10 @@ Replaced text (§3):
 - **Source:** [0077](0077-special-version.md) §13, §14
 - **Change:** extends §3, §5
 - **Summary:** The instance `site` settings `version.services` and `instance.source_url`; the registry file `version.toml`, embedded by `triplespace-api-rest`.
+
+### A37. Entity sources
+
+- **Date:** 2026-10-08
+- **Source:** [0078](0078-entity-sources.md) §1, §4
+- **Change:** extends §2, §3, §5
+- **Summary:** Provider numbers from 2^22 to 2^23 − 1 are left out of the registry and assigned per tenant to entity sources. A tenant-scope config kind, `entity-source`, keyed by the source's name. A tenant-scope graph per source, `source/{name}`, with the policies of `mirror/{provider}`.

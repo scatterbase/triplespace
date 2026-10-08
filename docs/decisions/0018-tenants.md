@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-01 (A11)
+- **Updated:** 2026-10-08 (A12)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0003](0003-statement-ui.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md), [0017](0017-entity-id-grammar.md), [0022](0022-federation.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md)
@@ -89,11 +89,12 @@ A tenant's `config` partition begins, as the instance's does, with a `key:` reco
 
 ### 5. A tenant can be a provider (amends 0002 §4)
 
-*Changed by A4, A5, A11.*
+*Changed by A4, A5, A11, A12.*
 
 **A tenant's local graph is, to every other tenant, a foreign source graph.** A tenant becomes a provider by taking a code, a slug and a provider number in `providers.toml` ([0015](0015-record-format-and-partition-registry.md) §5), as Librarybase has `LB`, `librarybase` and 2. Nothing else is needed on the instance that hosts it: there is no sync job and no mirror partition, because the tenant's `local` partition is the source.
 
 - **IDs are rewritten when read, not when written.** Librarybase stores `Q6`; example.wiki's projections read Librarybase's partition and rewrite `Q6` to `LBQ6`, `P12` to `LBP12`, exactly as an adapter rewrites `Q42` to `WDQ42` at ingest ([0002](0002-source-graphs-and-mass-ingest.md) §4). References to global entities, `WDQ42` or `domain:x`, pass through unchanged.
+- **References to the provider's entity sources are rewritten by IRI** ([0078](0078-entity-sources.md) §8). Librarybase's `mhc:Q1` becomes a registry provider's ID where the IRI is a provider's, or the reader's own source ID where the reader declares a source with the same IRI templates; otherwise every statement that uses it is withheld from the reader and counted on its `Special:Providers`. An unpublished source's references never cross.
 - **`https://example.wiki/entity/LBQ6` is an alias** of `https://librarybase.org/entity/Q6`, which is canonical, as 0002 §4 already says for foreign entities.
 - **Reconciliation is unchanged.** A Librarybase assertion about `WDQ42` is, on example.wiki, a foreign assertion with an `LB` source chip ([0003](0003-statement-ui.md) §6), and example.wiki's local graph wins over it ([0002](0002-source-graphs-and-mass-ingest.md) §3). Librarybase's `same-as` and `convert` records are tier-1 links for Librarybase and tier-2 links for everyone else ([0004](0004-identity-clusters-and-equivalence.md) §3), ranked where the reading tenant's provider order puts `LB`.
 - **Opt-in.** A tenant reads a provider's graph only if the provider is in its `providers` list (§3). A tenant that has not opted into Librarybase never sees `LBQ6`. Under `providers.between_tenants = operator`, only the farm operator can make a tenant a provider; with `providers.reader_lists`, a provider tenant restricts who reads it with a `provider-readers` record in its own `config` ([0028](0028-tenancy-policy.md) §5).
@@ -143,9 +144,9 @@ So `domains.wikibase.cloud` becoming `internetdomains.wiki` is one record and on
 
 ### 10. Moving a tenant (extends 0006 §6 and §9)
 
-*Changed by A3, A7, A8.*
+*Changed by A3, A7, A8, A12.*
 
-**What moves.** The tenant's six partitions (§2) as an export bundle ([0006](0006-log-integrity-and-erasure.md) §9), except `accounts`, which is private and never exported ([0007](0007-actor-identity.md) §8). The bundle carries the tenant's IDs (in headers), its surrogates ([0009](0009-keyed-entity-types-and-domain.md) §7), its actors, memberships and blocks, its configuration and its key chain. Three extracts and a digest go with it: the **retention extract**, every record in the instance's `mirror/*` and `log/{provider}` partitions keyed to an entity the tenant has set `retain` on, including backfilled upstream revisions, which [0002](0002-source-graphs-and-mass-ingest.md) §5 warns may be unrecoverable later; and the **binding digest**, an HMAC of each (issuer, subject) in the tenant's `accounts`, keyed with a secret passed operator to operator, so the receiving instance learns nothing until a subject logs in; on a cooperative move, the **private extract**, every account's user data bundle sealed to a key the receiving instance supplies and applied only when the account is reclaimed ([0027](0027-preferences-and-portability.md) §4); and the **authority extract**, every authority record the bundle's instance attestations cite, with an inclusion proof and with the operator's attestation withheld ([0040](0040-instance-prerogatives.md) §8). Prerogatives of the old instance stop binding once the tenant is registered elsewhere; they stay in history, verifiable through the old key. Views, indexes and caches are rebuilt on arrival.
+**What moves.** The tenant's six partitions (§2), and the mirror partition of each of its entity sources, `source/{name}` ([0078](0078-entity-sources.md) §4), as an export bundle ([0006](0006-log-integrity-and-erasure.md) §9), except `accounts`, which is private and never exported ([0007](0007-actor-identity.md) §8). The bundle carries the tenant's IDs (in headers), its surrogates ([0009](0009-keyed-entity-types-and-domain.md) §7), its actors, memberships and blocks, its configuration and its key chain. Three extracts and a digest go with it: the **retention extract**, every record in the instance's `mirror/*` and `log/{provider}` partitions keyed to an entity the tenant has set `retain` on, including backfilled upstream revisions, which [0002](0002-source-graphs-and-mass-ingest.md) §5 warns may be unrecoverable later; and the **binding digest**, an HMAC of each (issuer, subject) in the tenant's `accounts`, keyed with a secret passed operator to operator, so the receiving instance learns nothing until a subject logs in; on a cooperative move, the **private extract**, every account's user data bundle sealed to a key the receiving instance supplies and applied only when the account is reclaimed ([0027](0027-preferences-and-portability.md) §4); and the **authority extract**, every authority record the bundle's instance attestations cite, with an inclusion proof and with the operator's attestation withheld ([0040](0040-instance-prerogatives.md) §8). Prerogatives of the old instance stop binding once the tenant is registered elsewhere; they stay in history, verifiable through the old key. Views, indexes and caches are rebuilt on arrival.
 
 **Procedure, cooperatively.** The old instance freezes the tenant read-only and writes a final checkpoint. The new instance supplies its public key, and the old instance appends a `key:` rotation record to the tenant's key chain naming the new key and the final checkpoint, signed by the old key as [0006](0006-log-integrity-and-erasure.md) §6 rotation is. The new instance runs `verify` on the bundle, registers the six partitions under their existing IDs, replays projections and rebuilds search, re-appends the retention extract as a job with `pav:retrievedFrom` naming the old instance, and maps the tenant's `providers` list onto its own mirrors, which is trivial because slugs come from the same registry. DNS moves, or an alias record is written (§9). If the tenant is a provider, the old instance replaces its direct read with a sync job against the new home (§5).
 
@@ -351,3 +352,14 @@ Replaced text (§3):
 Replaced text (§5):
 
 > - **A tenant without a code cannot be referenced.** Its IDs have no absolute form. A private tenant, whose partitions carry the `private` export policy, cannot take a code.
+
+### A12. Entity sources
+
+- **Date:** 2026-10-08
+- **Source:** [0078](0078-entity-sources.md) §4, §8
+- **Change:** extends §5, §10
+- **Summary:** A provider tenant's references to its entity sources cross to a reader by IRI: to a registry provider's ID, to the reader's own source for the same IRIs, or else the statements using them are withheld and counted. Unpublished sources never cross. A move carries each `source/{name}` partition with the six.
+
+Replaced text (§10):
+
+> **What moves.** The tenant's six partitions (§2) as an export bundle
