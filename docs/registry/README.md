@@ -4,7 +4,7 @@ This directory is the registry of record for the names and codes that Triplespac
 
 | File | Lists | Embedded by | Defined in |
 |---|---|---|---|
-| `graphs.toml` | Reserved graph names, their kind, policies and payload type | `scatter-log` | 0015 §3, §5, 0039 §10–11, 0053 §5, 0061 §5 |
+| `graphs.toml` | Reserved graph names, their kind, policies and payload type | `scatter-log` | 0015 §3, §5, 0039 §10–11, 0053 §5, 0061 §5, 0071 §1, §3 |
 | `providers.toml` | Provider codes, slugs, numbers, type codes and ID grammars, IRI templates, issuers, trust mode and key-chain URL, chip colours; the reserved doubled codes `AA`–`ZZ`; page providers with no code, pending (English Wikipedia) | `scatter-providers` | 0000 §3, 0002 §4, 0010 §2, 0015 §2, §5, 0017 §2, 0022 §2, 0044 §2, 0052 §1, 0064 §1, 0065 §2 |
 | `issuers.toml` | Issuer codes and actor models | `scatter-actors` | 0007 §1, 0054 §1 |
 | `namespaces.toml` | Default namespace numbers and kinds, each `pages` namespace's allowed and default content models, the reserved MediaWiki and Wikibase numbers, and the 210–229 and 310–329 ranges | `triplespace-titles` | 0008 §2 (amended), 0009 §11, 0017 §5, 0019 §3, 0029, 0038 §4, §8, 0039 §1, 0041 §4, 0042 §3, 0043 §2, 0045 §2, 0048 §7, 0055 §1, 0060 §2, 0061 §2, 0063 §2, 0064 §2, 0066 §2 |
@@ -40,5 +40,7 @@ This directory is the registry of record for the names and codes that Triplespac
 - **Commons as the source of Wikidata's `M` type** ([0065](../decisions/0065-mediainfo-captions-and-commons.md) §2, §5): the per-type fields `api`, `entity_data` and `dumps` on `[[provider.type]]`, pointing at `commons.wikimedia.org`. They are written as comments beside the `M` type in `providers.toml` until `scatter-providers` accepts them; the registry parser rejects unknown fields.
 
 - **English Wikipedia as a page provider** ([0052](../decisions/0052-page-repositories-and-title-inheritance.md) §1): slug `enwiki`, provider number 9, issuer `enwiki` (in `issuers.toml`), `pages = true`, no code and no types. The number is reserved here; the `[[provider]]` row is written once `scatter-providers` accepts an entry without a code.
+
+- **Derived graphs** ([0071](../decisions/0071-derived-statements-from-mirrored-pages.md) §1, §3): `derived/{source}`, one per extraction source of a tenant, with the four-part `scatter:v0/derivation`. Written as a comment at the end of `graphs.toml` until `scatter-log`'s registry accepts `per_source`, since the parser rejects unknown fields.
 
 - Filing the registration of 210–229 and 310–329 on mediawiki.org's [Extension default namespaces](https://www.mediawiki.org/wiki/Extension_default_namespaces) page. The numbers are allocated in `namespaces.toml` ([0008](../decisions/0008-namespaces-and-document-pages.md) §2, as amended 2026-09-27 and 2026-10-01): Domain 210/211, Keyword 212/213, Thread 214/215, Notation 216/217 (allocated to OSM by 0036, renamed by [0048](../decisions/0048-notation.md) §7 before filing), Table 218/219 ([0045](../decisions/0045-table-content-model.md) §2), DOI 220/221, URL 222/223, Board 310/311 ([0049](../decisions/0049-boards.md) §2); 210–219 is full, 224–229 and 312–319 are free, and 320–329 (resolvers) holds nothing yet. As of 2026-09-27 the page lists nothing between 204 and 240, and as of 2026-10-01 nothing in 310–329.
