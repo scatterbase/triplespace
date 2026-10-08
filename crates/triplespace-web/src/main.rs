@@ -129,7 +129,8 @@ async fn serve(args: Serve) -> Result<()> {
     );
     axum::serve(
         listener,
-        triplespace_ui::router(client).into_make_service_with_connect_info::<SocketAddr>(),
+        triplespace_ui::router_with_build(client, VERSION_JSON)
+            .into_make_service_with_connect_info::<SocketAddr>(),
     )
     .with_graceful_shutdown(async {
         let _ = tokio::signal::ctrl_c().await;
@@ -152,3 +153,7 @@ async fn ready(client: &Client) -> axum::response::Response {
         Err(e) => (StatusCode::SERVICE_UNAVAILABLE, format!("{e}\n")).into_response(),
     }
 }
+
+/// This binary's build and its part of the component manifest (0077 §15), written by
+/// `build.rs`: Special:Version shows the web tier's build beside the API server's.
+const VERSION_JSON: &str = include_str!(concat!(env!("OUT_DIR"), "/version.json"));

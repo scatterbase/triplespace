@@ -6,8 +6,55 @@
 import { defineConfig } from 'vitest/config';
 import vue from '@vitejs/plugin-vue';
 
+/**
+ * The npm packages whose files end up in the build, as `packages.json` beside the
+ * manifest: the frontend packages `cargo xtask manifest` lists on Special:Version with
+ * their licences (ADR 0077 §6, §15). A package that is only a build tool, such as Vue's
+ * compiler, is not in it.
+ *
+ * @return {Object} The plugin.
+ */
+function bundledPackages() {
+	const nameOf = ( id ) => {
+		const path = id.replace( /\\/g, '/' );
+		const at = path.lastIndexOf( 'node_modules/' );
+		if ( at < 0 ) {
+			return null;
+		}
+		const parts = path.slice( at + 'node_modules/'.length ).split( '/' );
+		return parts[ 0 ].startsWith( '@' ) ? parts.slice( 0, 2 ).join( '/' ) : parts[ 0 ];
+	};
+	return {
+		name: 'triplespace-bundled-packages',
+		generateBundle( options, bundle ) {
+			const names = new Set();
+			for ( const item of Object.values( bundle ) ) {
+				let ids;
+				if ( item.type === 'chunk' ) {
+					ids = item.moduleIds || Object.keys( item.modules || {} );
+				} else if ( item.originalFileNames ) {
+					ids = item.originalFileNames;
+				} else {
+					ids = item.originalFileName ? [ item.originalFileName ] : [];
+				}
+				for ( const id of ids ) {
+					const name = nameOf( id );
+					if ( name ) {
+						names.add( name );
+					}
+				}
+			}
+			this.emitFile( {
+				type: 'asset',
+				fileName: 'packages.json',
+				source: JSON.stringify( [ ...names ].sort(), null, '\t' ) + '\n'
+			} );
+		}
+	};
+}
+
 export default defineConfig( {
-	plugins: [ vue() ],
+	plugins: [ vue(), bundledPackages() ],
 	base: '/ui/assets/',
 	build: {
 		outDir: 'dist',

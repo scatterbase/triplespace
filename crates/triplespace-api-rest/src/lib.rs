@@ -8,6 +8,8 @@
 //! - `GET /entity/{id}/provenance` ([`provenance`]): which graphs assert the entity and
 //!   each statement, the local corrections, each graph's sync state and history policy,
 //!   who minted the ID, retention and the canonical ID (0003 §6; 0012 §5).
+//! - `GET /version` and `GET /version/licenses/{id}` ([`version`]): everything
+//!   `Special:Version` shows, and one component's licence texts (0077 §10).
 //!
 //! Every route runs behind the Action API's request layers ([`triplespace_api_action`]):
 //! the tenant the host names (421 otherwise), the caller, the redaction of 0012 §8, and
@@ -17,6 +19,7 @@
 #![forbid(unsafe_code)]
 
 pub mod provenance;
+pub mod version;
 
 use axum::Router;
 use axum::routing::get;
@@ -26,13 +29,20 @@ use triplespace_api_action::App;
 pub const BASES: [&str; 2] = ["/w/rest.php/triplespace/v0", "/rest.php/triplespace/v0"];
 
 /// The paths served, relative to a base; each is a path of the OpenAPI document.
-pub const PATHS: &[&str] = &["/entity/{id}/provenance"];
+pub const PATHS: &[&str] = &[
+    "/entity/{id}/provenance",
+    "/version",
+    "/version/licenses/{id}",
+];
 
 /// The REST routes, to be merged into the server's router.
 pub fn routes() -> Router<App> {
     let mut r = Router::new();
     for base in BASES {
-        r = r.route(&format!("{base}{}", PATHS[0]), get(provenance::handle));
+        r = r
+            .route(&format!("{base}{}", PATHS[0]), get(provenance::handle))
+            .route(&format!("{base}{}", PATHS[1]), get(version::handle))
+            .route(&format!("{base}{}", PATHS[2]), get(version::license));
     }
     r
 }
@@ -54,7 +64,7 @@ mod tests {
         }
         assert_eq!(
             paths.len(),
-            1,
+            super::PATHS.len(),
             "a path in the contract that no route serves"
         );
     }

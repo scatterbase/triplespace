@@ -2876,6 +2876,7 @@ dependencies = [
  "scatter-wikibase-resolve",
  "serde_json",
  "tokio-postgres",
+ "toml",
  "triplespace-api-action",
  "triplespace-projections",
 ]
@@ -3018,6 +3019,7 @@ dependencies = [
  "anyhow",
  "axum",
  "clap",
+ "serde_json",
  "tokio",
  "triplespace-client",
  "triplespace-ui",
@@ -3379,6 +3381,8 @@ dependencies = [
  "anyhow",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
+ "toml",
 ]
 
 [[package]]

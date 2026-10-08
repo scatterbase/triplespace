@@ -192,6 +192,10 @@ async fn features_the_api_lacks_are_hidden() {
     assert_eq!(status, StatusCode::NOT_FOUND);
     let (_, _, index) = get(&fake, "/wiki/Special:SpecialPages", &[]).await;
     assert!(!index.contains("Special:Search\""));
+    // An API without `GET /version` (API level 1): no Special:Version.
+    let (status, _, _) = get(&fake, "/wiki/Special:Version", &[]).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert!(!index.contains("Special:Version\""));
     let (_, _, full) = get(&api(), "/wiki/Project:Home", &[]).await;
     for absent in [
         "Special:RecentChanges",

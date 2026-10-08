@@ -56,17 +56,33 @@ pub(crate) fn hex(bytes: &[u8]) -> String {
 /// The lowest `api_version` this build of the site works with (0057 §9).
 pub const MIN_API_VERSION: u32 = 1;
 
-/// The site's state: its client of the API. Cheap to clone.
+/// The site's state: its client of the API and, in the web tier, the tier's own build.
+/// Cheap to clone.
 #[derive(Clone, Debug)]
 pub struct Site {
     client: Client,
+    build: Option<std::sync::Arc<triplespace_client::version::Build>>,
 }
 
 impl Site {
     /// The site over a client.
     #[must_use]
     pub fn new(client: Client) -> Self {
-        Self { client }
+        Self {
+            client,
+            build: None,
+        }
+    }
+
+    /// The site of a separate web tier, whose own build `Special:Version` shows beside
+    /// the API server's (0077 §1, §4): `version_json` is the binary's `version.json`.
+    #[must_use]
+    pub fn with_build(mut self, version_json: &str) -> Self {
+        self.build = serde_json::from_str::<serde_json::Value>(version_json)
+            .ok()
+            .and_then(|v| serde_json::from_value(v["build"].clone()).ok())
+            .map(std::sync::Arc::new);
+        self
     }
 
     /// The client.
@@ -74,12 +90,28 @@ impl Site {
     pub fn client(&self) -> &Client {
         &self.client
     }
+
+    /// The web tier's own build, where the site runs in one.
+    #[must_use]
+    pub fn build(&self) -> Option<&triplespace_client::version::Build> {
+        self.build.as_deref()
+    }
 }
 
 /// The site's router: every path of [`routes::TABLE`] the site serves, with its own 404
 /// page for everything else but the API's paths, which it refuses with a plain 404, so
 /// that it can be the fallback of the API's router (0057 §3).
 pub fn router(client: Client) -> Router {
+    router_for(Site::new(client))
+}
+
+/// The router of a separate web tier: [`router`], with the tier's own build for
+/// `Special:Version` (`version_json`, its binary's `version.json`).
+pub fn router_with_build(client: Client, version_json: &str) -> Router {
+    router_for(Site::new(client).with_build(version_json))
+}
+
+fn router_for(site: Site) -> Router {
     Router::new()
         .route("/", get(pages::root))
         .route("/wiki/", get(pages::root))
@@ -92,7 +124,7 @@ pub fn router(client: Client) -> Router {
         .route("/ui/assets/{*path}", get(pages::asset))
         .route("/ui/theme/{file}", get(pages::theme_css))
         .fallback(pages::not_found)
-        .with_state(Site::new(client))
+        .with_state(site)
         .layer(axum::middleware::from_fn(pages::api_paths_refused))
         .layer(axum::middleware::from_fn(pages::security_headers))
 }

@@ -95,9 +95,24 @@ async fn main() -> Result<()> {
                 "MediaWiki 1.43.9 (Triplespace {})",
                 env!("CARGO_PKG_VERSION")
             ),
+            version: Some(VERSION_JSON),
         },
     )
     .map_err(|e| anyhow::anyhow!(e))?;
+    // The services' states and versions for Special:Version and siteinfo: read now and
+    // every minute, never while answering a request (0077 §4).
+    triplespace_api_action::version::refresh(&app).await;
+    {
+        let app = app.clone();
+        tokio::spawn(async move {
+            let mut every = tokio::time::interval(PROBE_EVERY);
+            every.tick().await;
+            loop {
+                every.tick().await;
+                triplespace_api_action::version::refresh(&app).await;
+            }
+        });
+    }
     if let Some(admin) = &args.admin_listen {
         let admin_router =
             axum::Router::new().route("/healthz", axum::routing::get(|| async { "ok" }));
@@ -140,6 +155,14 @@ fn with_site(api: axum::Router) -> axum::Router {
     let client = Client::new(ServiceTransport::new(api.clone()));
     api.fallback_service(triplespace_ui::router(client))
 }
+
+/// How often the services are probed for Special:Version (0077 §4), in seconds.
+const PROBE_SECS: u64 = 60;
+const PROBE_EVERY: std::time::Duration = std::time::Duration::from_secs(PROBE_SECS);
+
+/// This binary's build and its part of the component manifest (0077 §15), written by
+/// `build.rs`.
+const VERSION_JSON: &str = include_str!(concat!(env!("OUT_DIR"), "/version.json"));
 
 fn triplespace_accounts_secret(key: &ed25519_dalek::SigningKey) -> triplespace_accounts::Secret {
     triplespace_accounts::Secret::derive(&key.to_bytes())

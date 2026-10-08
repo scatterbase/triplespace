@@ -315,6 +315,7 @@ async fn a_bot_logs_in_reads_and_edits() {
             dev_tenant: None,
             farm,
             generator: "Triplespace test".into(),
+            version: None,
         },
     )
     .unwrap();

@@ -128,6 +128,133 @@
           }
         }
       }
+    },
+    "/version": {
+      "get": {
+        "operationId": "getVersion",
+        "summary": "Everything Special:Version shows",
+        "description": "The credit line's parts (developer, contributors, funders), the licence and where the source of this build is, the build, the services the instance is configured to use with their states and (unless the instance's `version.services` setting withholds them) versions, the Triplespace crates and third-party components, the feature switches of the tenant (at a tenant base) or the instance (at the farm base), the entry points, the wikitext the tenant's expansion recognizes, the MediaWiki extensions that inspired features, the AI agents used, and the instance (ADR 0077 §10). `components_listed` is false for a build made without a component manifest; the component lists are then empty.",
+        "parameters": [
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "What Special:Version shows.",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Version"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not modified."
+          },
+          "421": {
+            "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/version/licenses/{id}": {
+      "get": {
+        "operationId": "getComponentLicense",
+        "summary": "One component's licence, copyright and notice files",
+        "description": "The files a third-party crate, frontend package or vendored tree ships, as this build embeds them (ADR 0077 §3): what `Special:Version/License/{component}` serves.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The component's `name@version`, as `GET /version` lists it: `url@2.5.4`, `@wikimedia/codex@2.7.0`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The component and its files.",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComponentLicense"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not modified."
+          },
+          "404": {
+            "description": "No component of that ID in this build.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -390,6 +517,507 @@
             }
           }
         ]
+      },
+      "Component": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "version",
+          "license"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "`name@version`"
+          },
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "license": {
+            "type": "string",
+            "description": "An SPDX licence expression"
+          },
+          "repository": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "path": {
+            "type": "string",
+            "description": "Vendored trees only: where the tree is in the repository"
+          }
+        }
+      },
+      "ComponentLicense": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "version",
+          "license",
+          "texts"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "license": {
+            "type": "string"
+          },
+          "repository": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "texts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "file",
+                "text"
+              ],
+              "properties": {
+                "file": {
+                  "type": "string"
+                },
+                "text": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "Version": {
+        "type": "object",
+        "required": [
+          "product",
+          "developer",
+          "contributors",
+          "funders",
+          "license",
+          "build",
+          "services",
+          "components_listed",
+          "workspace",
+          "crates",
+          "packages",
+          "vendored",
+          "features",
+          "entry_points",
+          "wikitext",
+          "inspired_by",
+          "agents",
+          "instance"
+        ],
+        "properties": {
+          "product": {
+            "type": "string"
+          },
+          "developer": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "place": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              }
+            }
+          },
+          "contributors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "name"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "since": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "funders": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "name"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "funded": {
+                  "type": "string"
+                },
+                "since": {
+                  "type": "string"
+                },
+                "until": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "license": {
+            "type": "object",
+            "required": [
+              "spdx",
+              "modified"
+            ],
+            "properties": {
+              "spdx": {
+                "type": "string"
+              },
+              "source": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Where the corresponding source is; null for a modified build whose instance names no `instance.source_url`"
+              },
+              "modified": {
+                "type": "boolean"
+              }
+            }
+          },
+          "build": {
+            "type": "object",
+            "required": [
+              "version"
+            ],
+            "properties": {
+              "version": {
+                "type": "string"
+              },
+              "commit": {
+                "type": "string"
+              },
+              "modified": {
+                "type": "boolean"
+              },
+              "commit_date": {
+                "type": "string"
+              },
+              "rustc": {
+                "type": "string"
+              },
+              "target": {
+                "type": "string"
+              },
+              "profile": {
+                "type": "string"
+              },
+              "features": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "services": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "name",
+                "state"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "role": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "state": {
+                  "enum": [
+                    "connected",
+                    "unreachable"
+                  ]
+                },
+                "version": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "components_listed": {
+            "type": "boolean"
+          },
+          "workspace": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "name",
+                "version",
+                "license"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "version": {
+                  "type": "string"
+                },
+                "license": {
+                  "type": "string"
+                },
+                "commercial": {
+                  "type": "boolean",
+                  "description": "Also available under a commercial licence from Scatter LLC"
+                }
+              }
+            }
+          },
+          "crates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Component"
+            }
+          },
+          "packages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Component"
+            }
+          },
+          "vendored": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Component"
+            }
+          },
+          "features": {
+            "type": "object",
+            "properties": {
+              "tenant": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/FeatureSwitch"
+                }
+              },
+              "instance": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/FeatureSwitch"
+                }
+              },
+              "providers": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "The providers the instance mirrors, which the tenant reads"
+              }
+            }
+          },
+          "entry_points": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "name",
+                "url"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "wikitext": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "kind",
+                "name",
+                "written",
+                "status",
+                "active"
+              ],
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "tag",
+                    "function",
+                    "variable",
+                    "switch"
+                  ]
+                },
+                "name": {
+                  "type": "string"
+                },
+                "written": {
+                  "type": "string",
+                  "description": "As written on a page: `{{#if:…}}`, `<ref>`, `__NOTOC__`"
+                },
+                "origin": {
+                  "type": "string"
+                },
+                "status": {
+                  "enum": [
+                    "implemented",
+                    "chip",
+                    "ignored"
+                  ]
+                },
+                "active": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "inspired_by": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "name",
+                "special_pages",
+                "content_models",
+                "wikitext",
+                "inspired_by"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "special_pages": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "content_models": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "wikitext": {
+                  "type": "object",
+                  "properties": {
+                    "implemented": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "recognized": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "inspired_by": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "agents": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "name"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "maker": {
+                  "type": "string"
+                },
+                "versions": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "instance": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "owner_of_record": {}
+            }
+          }
+        }
+      },
+      "FeatureSwitch": {
+        "type": "object",
+        "required": [
+          "key",
+          "set"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "set": {
+            "type": "boolean",
+            "description": "Whether the tenant or the instance sets it; otherwise `value` is the default"
+          },
+          "value": {}
+        }
       }
     }
   }

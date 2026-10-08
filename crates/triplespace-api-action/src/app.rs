@@ -48,6 +48,9 @@ pub struct Config {
     pub farm: Farm,
     /// `MediaWiki`-compatible `generator` string.
     pub generator: String,
+    /// The binary's `version.json` (0077 §15), which its build script writes; `None` in
+    /// tests, which then report a stub build.
+    pub version: Option<&'static str>,
 }
 
 /// The state behind every handler.
@@ -65,6 +68,8 @@ struct Inner {
     config: Config,
     trust: TrustList,
     forwarder_keys: KeyCache,
+    build: crate::version::BuildInfo,
+    probes: crate::version::Probes,
 }
 
 impl App {
@@ -88,6 +93,7 @@ impl App {
             .map(|p| p.slug.as_str())
             .collect();
         let order = EntityProjection::new(&slugs, registry);
+        let build = crate::version::BuildInfo::parse(config.version);
         Ok(Self {
             inner: Arc::new(Inner {
                 pool,
@@ -98,6 +104,8 @@ impl App {
                 config,
                 trust,
                 forwarder_keys: KeyCache::default(),
+                build,
+                probes: crate::version::Probes::default(),
             }),
         })
     }
@@ -154,5 +162,17 @@ impl App {
     #[must_use]
     pub fn forwarder_keys(&self) -> &KeyCache {
         &self.inner.forwarder_keys
+    }
+
+    /// This binary's build and components (0077 §15).
+    #[must_use]
+    pub fn build(&self) -> &crate::version::BuildInfo {
+        &self.inner.build
+    }
+
+    /// The services' last known states (0077 §4).
+    #[must_use]
+    pub fn probes(&self) -> &crate::version::Probes {
+        &self.inner.probes
     }
 }
