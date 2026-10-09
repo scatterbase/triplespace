@@ -2,10 +2,11 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-06 (A11)
+- **Updated:** 2026-10-09 (A15)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0011](0011-logs.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0028](0028-tenancy-policy.md)
+- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -19,128 +20,55 @@ Echo is the precedent. It has notification *types* (mention, edit-user-talk, rev
 
 ### 1. A notification is an activity delivered to an inbox
 
-Every local account has an **inbox**. An activity row ([0012](0012-api-requirements.md) §3, [0020](0020-change-feeds.md) §1) is delivered to an inbox when an **addressing rule** (§2) says the account is a recipient. A notification is one inbox row: the activity, the recipient, the reason it was addressed, and its seen and read state. In AS2 terms, the reasons of §2 compute the activity's `to` and `cc`; the inbox is the account's `as:inbox`.
-
-**Addressing is a projection.** It runs over activity rows after they are written, like every other projection ([0013](0013-postgres-storage.md) §7), and is idempotent on (activity, recipient, reason). Nothing about who was notified is a record: an inbox is private state (§3), for the reason the watch set is.
-
-**The inbox is a feed** in 0020's sense: rows ordered by (time, partition, offset), with a per-row read state and a per-account seen time, delivered as a page, a bell, an email, or a fediverse message (§4).
+*Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.1.*
 
 ### 2. Addressing rules (amends 0020 §3)
 
-*Changed by A3, A5, A6, A8, A9, A10, A11.*
+*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14.*
 
-| Reason | An account is addressed when | Echo's name |
-|---|---|---|
-| `mention` | A post ([0019](0019-discussions.md)) or a document page revision links to its user page with `[[User:Name]]`, resolved by the title resolver; in AS2 terms, an `as:Mention` tag whose `href` is the actor IRI ([0007](0007-actor-identity.md) §2) | mention |
-| `reply` | A post's `inReplyTo` names a post attributed to it; or a synced comment on a followed talk page answers a comment by the upstream account the account's upstream grant acts as ([0069](0069-synchronized-talk-pages.md) §8) | (DiscussionTools) |
-| `talk` | A thread is created on, or a post is added to a thread attached to, its user talk page: the thread's target is `actor:{its key}` ([0019](0019-discussions.md) §2) | edit-user-talk |
-| `watch` | A change reaches a target it watches with **`notify`** set. `private.watch` ([0020](0020-change-feeds.md) §3) gains a `notify boolean NOT NULL DEFAULT false`. This is DiscussionTools' topic subscription, generalized to every watchable target, and it inherits the subject-and-talk pairing and the sync default of 0020 §2 | (DiscussionTools subscription) |
-| `job` | A job it ran, or that ran on its behalf as operator ([0007](0007-actor-identity.md) §6), finished, failed or was reverted ([0011](0011-logs.md) §6.3) | — |
-| `rights` | Its group memberships changed, or it was blocked or unblocked ([0016](0016-permissions-and-access-control.md) §3) | user-rights |
-| `thread-status` | A thread it started moved from an open to a closed status ([0019](0019-discussions.md) §6) | — |
-| `filter` | It is a member of a group an edit filter's `notify` action names, and the filter matched ([0030](0030-edit-filters.md) §4) | — |
-| `task-resolved` | It holds a live claim on a sprint task that someone else's write resolved; the activity row is the resolving record ([0061](0061-sprints-and-tasks.md) §8) | — |
-| `proposal-state` | It proposed a change whose state became `adopted`, `partly adopted`, `reverted` or `declined`; the activity row is the mirror record or status post that changed it ([0067](0067-proposals.md) §5) | — |
-
-- **Nobody is notified of their own action.** A subsidiary has no inbox of its own: its operator is notified of its jobs, of mentions of it, of its `rights` changes, and of `talk` messages on its user talk page, since that is who can answer them ([0024](0024-subsidiary-accounts.md) §6).
-- **Only local accounts have inboxes.** A mention of a foreign actor, such as a Wikidata editor's IRI, addresses nobody here.
-- **Across tenants**, under `notifications.cross_tenant = home`, a person's bell aggregates the inboxes of every tenant account linked to their farm account, and a mention that resolves to a farm account is delivered to the inbox of the person's home tenant ([0028](0028-tenancy-policy.md) §7). Under `off`, the rule above stands.
-- **Auto-subscription** follows 0020 §3's auto-watch preferences: an account may choose that threads it starts and threads it posts in are watched with `notify`.
-- **Hidden and erased content is not delivered**, and an already-delivered notification whose activity is later hidden or erased is removed from every inbox by the same purge that clears caches ([0014](0014-caches-and-search.md) §5).
-- **A target the addressed account may not read addresses nobody.** A mention, `talk` message or `watch` change on a page, thread or entity under a confidential `read` restriction the account does not satisfy is not delivered, and a delivered notification whose target becomes restricted is removed by the same purge ([0056](0056-security-model.md) §6). A watch on such a target stays in `private` and produces nothing until the account may read it again.
-- **Bundling** is presentational: rows with the same (reason, target) within a window are shown as one item with a count, as Echo bundles. The rows stay separate.
+*Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.2.*
 
 ### 3. The inbox is private state (extends 0007 §8, 0013 §4)
 
 *Changed by A4.*
 
-```sql
-CREATE TABLE private.inbox (
-  actor_key text NOT NULL, id bigint GENERATED ALWAYS AS IDENTITY,
-  partition bigint NOT NULL, "offset" bigint NOT NULL,      -- the activity row
-  reason text NOT NULL, target_kind smallint, target_id text,
-  published timestamptz NOT NULL, read_at timestamptz,
-  PRIMARY KEY (actor_key, id), UNIQUE (actor_key, partition, "offset", reason)
-);
-CREATE TABLE private.inbox_state (actor_key text PRIMARY KEY, seen_at timestamptz);
-```
-
-The reason-by-channel **preference matrix** is the set of `notifications.{reason}.{channel}` keys in `private.preference`, which the addressing projection reads ([0027](0027-preferences-and-portability.md) §1). The rules of [0013](0013-postgres-storage.md) §4 apply to the inbox: readable by the accounts role only, never exported, never in a tenant's public bundle ([0018](0018-tenants.md) §10). It is portable state ([0027](0027-preferences-and-portability.md) §2): it travels in the user data bundle and in the private extract of a cooperative tenant move (0027 §4). Rows are deleted after `notifications.retention` (site configuration, default 90 days; read rows sooner). An inbox is rebuildable from the activity rows and the addressing rules for the retention window, except for read state, which is lost on a rebuild and costs only bold text, as `seen` does in 0020 §3.
+*Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.3.*
 
 ### 4. Channels
 
-Each reason can be delivered on each channel, subject to the account's preference matrix (§3) and the instance's defaults.
-
-| Channel | Delivery |
-|---|---|
-| **Web** | The bell in the global header ([0010](0010-site-ui.md) §2), with the unseen count; `Special:Notifications`, which is the inbox as a page with mark-read and mark-all-read |
-| **Email** | Immediate, or a daily or weekly digest, to an address held in `private` and verified by a token link. No address is ever shown or exported |
-| **Fediverse** | A direct message to the account's registered fediverse account (§5) |
-
-**Web Push** is not in this ADR (Q1). Every channel renders the same item: who, did what, where, when, and a permalink (`Special:PermanentLink/{revid}` for a post, the job or log page otherwise), in the recipient's interface language.
+*Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.4.*
 
 ### 5. The fediverse channel
 
 *Changed by A2.*
 
-This is the smallest step ActivityPub allows: the instance **sends** activities and accepts only what it needs to be allowed to send. Nothing here makes any local user, page or thread visible to the fediverse.
-
-**The notifier actor.** Each tenant has one ActivityPub actor, of type `as:Service`, at `{base}/notifier`, discoverable by WebFinger as `acct:notifier@{host}`. Its document carries `inbox`, `outbox` (empty), `preferredUsername`, `name`, `summary` explaining what it is, and `publicKey`. Its keypair is generated at tenant creation and held in `private.ap_key`; it is unrelated to the instance key of [0006](0006-log-integrity-and-erasure.md) §6, whose job is checkpoints, and it does not travel when a tenant moves, since nothing private does ([0018](0018-tenants.md) §10): a moved tenant's notifier is a new actor, and its users re-register. The notifier is one actor among those a tenant may have: local accounts and talk pages may opt in as `as:Person` and `as:Group` actors, each with its own keypair in `private.ap_key`, keyed by actor, and ActivityPub delivery for all of them is `triplespace-federation`'s ([0022](0022-federation.md) §6, §13).
-
-**What the notifier accepts.** Its inbox handles `Follow` (answered with `Accept`, and the follower recorded in `private.ap_follower`), `Undo` of a `Follow`, and nothing else: every other activity is acknowledged with 202 and dropped. Following the notifier is what lets a Mastodon account receive its messages when the account filters messages from strangers, and the registration flow says so.
-
-**Registering an account.** In `Special:Account`, under a new **Notifications** section labelled Private ([0010](0010-site-ui.md) §11), a user enters a fediverse handle. The instance resolves it by WebFinger, fetches the actor document (with a signed request, since many servers require one), stores the actor and inbox IRIs in `private.fediverse_handle`, and sends one direct message containing a confirmation link with a token. Clicking it marks the handle verified. Until then nothing else is sent.
-
-**What is sent.** One `Create` of an `as:Note` per notification or bundle, addressed only to the recipient: `to` is their actor IRI, there is no `as:Public` and no followers collection, and the Note carries an `as:Mention` tag for them, which is what Mastodon requires to show a message as a direct message. `content` is the rendered item of §4 as HTML with a permalink; `attributedTo` is the notifier; `published` is the notification's time. There is no `inReplyTo`, and the Note is not a post on this wiki: it is the notifier speaking. Delivery is an HTTP-signed `POST` to the recipient's inbox with a `Digest` header, using the HTTP Signatures profile Mastodon accepts (draft-cavage; RFC 9421 and FEP-8b32 integrity proofs are implemented behind `federation.accept_*` switches, off until Mastodon accepts them, [0022](0022-federation.md) §8), through a queue in `ops` with exponential backoff, giving up after seven days; a handle that fails repeatedly is marked broken and the account page says so. Bundled notifications are sent as one message, and no account is sent more than one message per `notifications.fediverse_interval` (default five minutes).
-
-**Privacy.** The handle is private in this instance's sense: never shown, projected or exported, and unrelated to the public account links of [0007](0007-actor-identity.md) §7. But a message that says "Example replied to you on Librarybase" is delivered to another server, which thereby learns that this fediverse account belongs to a Librarybase user, and stores the message under its own rules. The registration form says this in plain words. The channel is off until a user registers a handle, and an instance may disable it, or restrict it to a domain allow-list, in site configuration.
-
-**Discovery endpoints**, all public and read-only: `/.well-known/webfinger` (answering only for the notifier), `/.well-known/nodeinfo` with a minimal NodeInfo 2.1 document naming the software, and the notifier's actor document, served as `application/activity+json`. WebFinger answers for a local user, and their actor document is served, once they have opted in ([0022](0022-federation.md) §6); otherwise a lookup of `acct:example@{host}` returns 404.
+*Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.5.*
 
 ### 6. UI (extends 0010 §2 and §11)
 
-- **The bell** in the global header shows the unseen count and opens the inbox as a panel; opening it sets `seen_at`. Items link to their permalink, and each has mark-read.
-- **`Special:Notifications`** is the inbox as a page, filterable by reason and read state, with mark-all-read.
-- **`Special:Account`** gains a **Notifications** section (Private): the preference matrix of reasons by channel; the email address with its verification state; the fediverse handle with its verification state, a *follow the notifier* hint with the notifier's handle, and *Remove*.
-- **Watch controls** gain a *notify me* toggle beside the star, which sets `notify` on the watch row; subscribing to a thread is watching it with `notify`.
-- **The orange bar** is kept in spirit: an unread `talk` notification shows a persistent banner until read, as MediaWiki's "You have new messages" did, because a message on one's talk page is the one notification a wiki must not let pass.
+*Current text: [19](../architecture/19-site-ui.md) §1.2, §2.4, §6.2.*
 
 ### 7. API (extends 0012 §4 and §5)
 
 *Changed by A5.*
 
-**Action API**, additively under [0012](0012-api-requirements.md) §1, in **Echo's shape**, because the Wikipedia apps, Convenient Discussions and other scripts speak it: `meta=notifications` with `notprop=list|count|seenTime`, `notfilter=read|!read`, `notsections`, `notlimit` and continuation, returning Echo's model format; `action=echomarkread` with `list` or `all`; `action=echomarkseen`. `meta=userinfo&uiprop=hasmsg` reports an unread `talk` notification. Echo's `notwikis` cross-wiki parameter is accepted; under `notifications.cross_tenant = home` it has its real meaning ([0028](0028-tenancy-policy.md) §11), and otherwise it is ignored.
-
-**REST**, under `rest.php/triplespace/v0`:
-
-| Route | Meaning |
-|---|---|
-| `GET /inbox` | The inbox as an `as:OrderedCollection` of activities, each with `scatter:reason` and read state, paginated with 0020's continuation |
-| `POST /inbox/read`, `POST /inbox/seen` | Mark items read; set the seen time |
-| `GET /notifications/preferences`, `PUT …` | The matrix of §3 |
-| `PUT /notifications/email`, `DELETE …` | Register (sends the verification link) and remove |
-| `PUT /notifications/fediverse`, `DELETE …` | Register (resolves the handle, sends the confirmation message) and remove |
-| `GET /notifications/verify/{token}` | The link target for both verifications |
-
-The ActivityPub endpoints of §5 are outside `triplespace/v0`, at the paths ActivityPub and WebFinger fix.
+*Current text: [18](../architecture/18-api.md) §2.3, §3.2.*
 
 ### 8. Storage and operations (extends 0013 §4)
 
-*Changed by A2, A3.*
+*Changed by A2, A3, A12.*
 
-Beside §3: `private.fediverse_handle` (actor key, handle, actor IRI, inbox IRI, verified, broken, added), `private.email` (actor key, address, verified, added), `private.ap_key` (tenant, key ID, private key, public key, created) and `private.ap_follower` (the notifier's followers: actor IRI, accepted). The last two are keyed by actor, the notifier being one actor among the opted-in ones, and are read by `triplespace-federation` ([0022](0022-federation.md) §10, §13). The delivery queue for email and fediverse messages lives in `ops`, with attempts, next attempt and last error per item. Outbound requests go through the same egress path as live upstream fetches ([0012](0012-api-requirements.md) §6); requests an actor initiates, verification messages and handle registrations, are rate-limited in the `notify` class ([0024](0024-subsidiary-accounts.md) §5). The `notifications.fediverse_domains` allow and deny lists are site configuration.
+*Current text: [03](../architecture/03-storage-caches-and-search.md) §4.16, §5.*
 
 ### 9. Permissions (extends 0016 §2)
 
-MediaWiki's `editmyoptions` governs the preference matrix, addresses and handles; `viewmyprivateinfo` governs reading them. Both default to `user`. The inbox needs no permission beyond being its holder. The discovery endpoints of §5 need `read`.
+*Current text: [09](../architecture/09-security-and-moderation.md) §2.2, §8.2.*
 
 ### 10. Crates
 
 *Changed by A1.*
 
-*Superseded by [0005](0005-crate-organization.md) §2 (A1).*
-
-[0005](0005-crate-organization.md) §2 keeps the crate table that CI checks, with `scatter-activitypub`, `triplespace-notify` and every change this section listed. The table this section first gave is in A1.
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
 
 ## Consequences
 
@@ -302,3 +230,35 @@ Replaced text (§7):
 - **Source:** [0069](0069-synchronized-talk-pages.md) §8
 - **Change:** extends §2
 - **Summary:** `reply` also addresses a person when a synced upstream comment answers one by the upstream account their grant acts as.
+
+### A12. The delivery queue is `ops.delivery`
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** extends §8
+- **Summary:** The delivery queue for email and fediverse messages is one `ops` table, and §8 gives it its name: `ops.delivery` (proposed, since this ADR never named it), with attempts, next attempt and last error per item. [0022](0022-federation.md) §10 uses that name in place of its `private.ap_outbox_queue`, so ActivityPub fan-out and the notifier's deliveries share one queue. The ledger verb is corrects, but §8 lacked a name rather than stating a wrong one, so this entry extends §8 and contradicts no text of it. (PENDING A8)
+
+### A13. The `rename` reason
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** extends §2
+- **Summary:** A `rename` reason joins the table of §2: the renamed account is addressed when its actor record changes its name ([0007](0007-actor-identity.md) §4); the performer is the renamer or, for a rename the instance carries out, the instance operator ([0040](0040-instance-prerogatives.md) §7). Echo has no name for it. (PENDING E32)
+
+### A14. The `watch` reason stops at single targets
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** amends §2
+- **Summary:** The `watch` reason is not "generalized to every watchable target": `notify` is refused on a `scope` or `rows` watch with `ts-watch-notify-unsupported`, because those watches are feed filters that expand at query time, not subscriptions ([0020](0020-change-feeds.md) §3, 0020 A13; [0060](0060-scopes.md) §7). The reason addresses an account only for `entity`, `page`, `thread` and `actor` watches with `notify` set. (PENDING E31)
+
+Replaced text (§2):
+
+> | `watch` | A change reaches a target it watches with **`notify`** set. `private.watch` ([0020](0020-change-feeds.md) §3) gains a `notify boolean NOT NULL DEFAULT false`. This is DiscussionTools' topic subscription, generalized to every watchable target, and it inherits the subject-and-talk pairing and the sync default of 0020 §2 | (DiscussionTools subscription) |
+
+### A15. Current text relocated to the architecture chapters
+
+- **Date:** 2026-10-09
+- **Source:** [0050](0050-adr-format.md) §14
+- **Change:** relocates §1–§10
+- **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.

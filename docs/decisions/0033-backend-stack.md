@@ -2,10 +2,11 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-07 (A13)
+- **Updated:** 2026-10-09 (A17)
 - **Author:** James Hare / Claude
 - **Changes:** [0005](0005-crate-organization.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0034](0034-frontend-stack.md)
+- **Chapters:** [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [04](../architecture/04-entities-and-identifiers.md), [09](../architecture/09-security-and-moderation.md), [11](../architecture/11-rendering-templates-and-modules.md), [13](../architecture/13-mirrored-pages.md), [14](../architecture/14-discussions.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md)
 
 ## Context
 
@@ -24,220 +25,109 @@ This ADR records the rest. The frontend is in 0034.
 
 ### 1. Principles
 
-*Changed by A1, A3, A4, A10, A11.*
+*Changed by A1, A3, A4, A10, A11, A16.*
 
-1. **One binary, one required service.** A small instance runs with the `triplespace` binary and Postgres, and the binary serves the site itself. Valkey, OpenSearch, QLever and a Parsoid service are optional services a larger instance adds (0013 §11 profiles, 0014 §1, [0042](0042-template-expansion-and-parsoid.md) §8.3), and the query service of [0059](0059-query-service.md) §2 runs embedded in the binary by default, moving to QLever only when an instance chooses; Parsoid is a separate PHP program never linked into the binary, and the only one that needs a PHP runtime. A larger instance may also run `triplespace-web`, a second binary from the same workspace that renders the site, holds no state and reaches the instance only through its API, so that page rendering scales apart from the API ([0057](0057-web-tier.md) §2). Nothing needs a message broker, a JVM or a Node runtime.
-2. **Pure crates stay pure.** Crates on 0005 rule 2's pure list do no I/O and pull in no async runtime. The ones on rule 7's wasm list must build for `wasm32-unknown-unknown`, so they avoid C dependencies.
-3. **GPLv3-compatible licences inside the binary.** Triplespace is GPL-3.0-or-later ([0005](0005-crate-organization.md) §6).
-   - **Accepted.** Every third-party crate linked into `triplespace` carries one of these licences: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, Zlib, Unicode-3.0, MPL-2.0, BlueOak-1.0.0 (`minicbor`), CDLA-Permissive-2.0 (root-certificate data in `webpki-roots`), LGPL, GPL-2.0-or-later or GPL-3.0.
-   - **Denied.** Licences that cannot be combined with GPLv3: the pre-3.0 OpenSSL/SSLeay licence, GPL-2.0-only and non-commercial terms. AGPL is also denied, as a policy choice, so that its network clause never reaches the combined work.
-   - **Enforcement.** `cargo-deny` enforces both lists in CI.
-   - **Lua.** Lua 5.1 is linked through `mlua` (MIT) in `triplespace-scribunto`, which vendors Scribunto's and WikibaseClient's GPL-2.0-or-later Lua and is therefore never dual-licensed ([0043](0043-lua-modules.md) §4, §14).
-4. **Prefer a small, well-understood dependency to a framework.** Where a protocol surface is small (OAuth server, HTTP Signatures, OpenSearch's REST API), Triplespace implements it over general-purpose crates rather than adopting a framework that would dictate structure.
+*Current text: [22](../architecture/22-crates-and-stack.md) §3.3, §4.1, §6.*
 
 ### 2. Language and toolchain
 
 *Changed by A12.*
 
-- Stable Rust, edition 2024, pinned in `rust-toolchain.toml`. The minimum supported Rust version moves deliberately, in its own commit.
-- One Cargo workspace for all 0005 crates.
-- CI runs `cargo nextest`, `cargo clippy -D warnings`, `cargo deny check`, `cargo hack --feature-powerset` on crates with features, and a `wasm32-unknown-unknown` build of every rule-7 crate.
-- CI also runs the Wikibase client libraries — WikibaseIntegrator, Pywikibot and WikidataIntegrator, at pinned versions — against a server loaded from a sample of the Librarybase dump (`tools/client_compat.sh`, `docs/clients.md`). The compatibility 0012 promises is a measured property, not a reading of the reference contract, and a client's probes (`siteinfo`, `paraminfo`, `meta=wikibase`) are part of the API surface the tests hold fixed.
+*Current text: [22](../architecture/22-crates-and-stack.md) §4.2.*
 
 ### 3. Async runtime and HTTP server
 
-| Concern | Choice |
-|---|---|
-| Runtime | `tokio` (multi-threaded) |
-| HTTP server | `axum` on `hyper`, with `tower` middleware |
-| Middleware | `tower-http` (compression, request IDs, timeouts, CORS for the documented public routes) |
-| Server-sent events | `axum::response::sse` for `/activity/stream` (0020), `/updates/stream` (0032), job progress (0012) |
-
-The write path of 0013 §7 (auth → grants → rate limit → ACLs → filters → base offset → append → projections) is built as tower layers in that order, so the order is visible in one place and testable on its own. Redaction for the viewer (0012 §1) is a response layer shared by every route.
+*Current text: [22](../architecture/22-crates-and-stack.md) §4.3.*
 
 ### 4. Postgres
 
 *Changed by A9.*
 
-- **Version:** 17 is the minimum; 18 is the target. The schema uses features from 15 and later (`UNIQUE NULLS NOT DISTINCT`), 14 (lz4 TOAST) and none from extensions. **No Postgres extension is required**, so the small profile runs on any managed Postgres.
-- **Driver:** `tokio-postgres` with `deadpool-postgres` for pooling. It gives binary `COPY` for bootstrap (0013 §9), pipelining, and exact control of the append transaction and its row lock (0013 §2). The synchronous `postgres` crate, a wrapper over the same driver, answered [0005](0005-crate-organization.md) Q7 on a blocking API for `scatter-log-postgres`; since 0005 A56 `LogStore` is itself asynchronous, because the append shares the write path's transaction (0013 §7), and a blocking caller drives it with an executor instead.
-- **Queries:** hand-written SQL in each owning crate. No ORM. Query shapes are checked by integration tests against a real database (§15), not by compile-time macros, because several crates share one schema and migrations run in a fixed cross-crate order.
-- **Migrations:** each owning crate embeds its SQL files (0005 rule 9). A small runner in `triplespace-db` applies them in 0005's build order, each in its own transaction, and records each with a checksum in `ops.migration`; a recorded migration whose SQL has changed is refused, since a schema change is a new migration, never an edit (0005 rule 9). `refinery` is an acceptable substitute if the in-house runner stops being small.
-- **Queues and background work:** `ops` tables claimed with `FOR UPDATE SKIP LOCKED`, woken with `LISTEN/NOTIFY`. This covers the ActivityPub delivery queue (0021), exports (0027), filter tests (0030), constraint re-checks (0031) and jobs (0012). No broker.
+*Current text: [03](../architecture/03-storage-caches-and-search.md) §1.4, §5.*
 
 ### 5. Cache and search clients
 
 *Changed by A2.*
 
-| Service | Client | Notes |
-|---|---|---|
-| In-process cache (L0) | `moka` | As 0014. |
-| Valkey (L1) | `redis` (redis-rs) with its tokio connection manager | Works against Valkey unchanged. Prefix deletion for erasure (0014 §5) uses `SCAN` + `UNLINK`. |
-| OpenSearch | `reqwest` with typed request and response structs | The surface used (index, bulk, msearch, aliases, `version_type: external`) is small; a typed client module in `triplespace-search` is easier to keep current than the official client crate. |
-| Blob storage | `object_store` (Apache Arrow), local-filesystem and S3 backends, in `scatter-blob` | [0039](0039-files-and-media.md) §3. To be confirmed against the licence allowlist of §1 like every dependency |
-| Thumbnails | `image` for raster formats, `resvg` for SVG, in `scatter-files` | [0039](0039-files-and-media.md) §6 |
+*Current text: [03](../architecture/03-storage-caches-and-search.md) §8, §9.2.*
 
 ### 6. Encoding, hashing and cryptography
 
-| Concern | Choice | Notes |
-|---|---|---|
-| Canonical CBOR (0006 §2, 0015 §1) | `minicbor` | Encoding is written by hand to the canonical rules, with no derive magic in the hashed path. Round-trip tests over Wikidata snapshots (decision #5 of 2026-09-27). `no_std`-capable and wasm-friendly. |
-| Hashing | `sha2` | Merkle leaves and nodes (0006). |
-| Instance and client signatures | `ed25519-dalek` | 0006 key chain; subsidiary signing keys (0024 §4). |
-| HMAC | `hmac` | Binding digests (0018 §10), Atom tokens. |
-| RSA for ActivityPub HTTP Signatures (0021 §5, 0022) | `aws-lc-rs` | Constant-time RSA signing. Not the `rsa` crate. |
-| TLS | `rustls` with the `aws-lc-rs` provider | One crypto provider for TLS and RSA signing. `ring` is the fallback if musl builds (§17) become a requirement. |
-| Password issuer (0007 §1, decision #1) | `argon2` | Argon2id, parameters in site config. |
-| Sealing private extracts ([0027](0027-preferences-and-portability.md) Q1) | `age` (X25519 recipients) | Proposed here; 0027 Q1 stays open until James agrees. Never the Ed25519 instance key. |
-| Randomness | `getrandom`, `rand_core` | |
-| Token and ID encoding | `base64` (URL-safe, no padding), `ulid` only where 0015 names ULIDs | |
+*Current text: [22](../architecture/22-crates-and-stack.md) §4.4.*
 
 ### 7. HTTP client and upstream access
 
-- `reqwest` with rustls for the Wikidata Action API, WebFinger, ActivityPub delivery and cross-instance reads (0022).
-- `eventsource-stream` over `reqwest` for Wikimedia EventStreams (`recentchange`, `revision-visibility-change`; 0011 §4).
-- Every upstream request carries a policy-compliant `User-Agent` and `maxlag`. The upstream fetch budget (0010, 0012 §9) is enforced with `governor` token buckets per provider.
+*Current text: [22](../architecture/22-crates-and-stack.md) §4.5.*
 
 ### 8. RDF
 
-- `oxrdf` and `oxttl`, the Oxigraph project's standalone model and serializer crates, in `scatter-wikibase-rdf` and `triplespace-rdf`. They serialize N-Quads, N-Triples and Turtle for dumps and for the SPARQL Update stream (0032) without a store.
-- The `oxigraph` store is used only behind `scatter-quadstore` (Scatterbase, and the optional local quad store that consumes the update stream, 0032 §6).
+*Current text: [02](../architecture/02-graphs-rdf-and-query.md) §4.1, §6.5.*
 
 ### 9. Text and markup
 
+*Current text: [22](../architecture/22-crates-and-stack.md) §4.6.*
+
 #### 9.1 Wikitext, in `scatter-wikitext` (uses 0008 §5)
 
-*Changed by A3.*
+*Changed by A3, A14, A15.*
 
-**Parser.** Vendor `parse-wiki-text-2` (a maintained fork of Fredrik Portström's `parse_wiki_text`, MIT-style licence without a notice clause) into `scatter-wikitext`. It is pure Rust, gives every node start and end positions, recognises templates, parameters, tags, tables, lists, links, images, categories and comments, reports warnings for malformed markup, and bounds its own running time. Its `Configuration` (namespaces, extension tags, URL protocols) is generated from `namespaces.toml`.
-
-Vendoring, rather than a crates.io dependency, is because the fork's last release is over a year old and the crate becomes part of Triplespace's content model. Changes are offered upstream where they are general.
-
-**What the parser must do.** Parse any wikitext without failing, because imported history predates the template-flattening revision (0008 §8); recognise what it will not render; keep positions for line-level conflict marking and link autocomplete (0010); extract `page_link` rows and categories; build for wasm so the preview (0034) runs the same code as the server.
-
-**Renderer.** Written in `scatter-wikitext`. It shares with the markdown path (`scatter-pages`, `markdown` feature) the `ammonia` sanitizer, wiki-link resolution (entity links rendered with labels, red links) and `page_link` extraction, so both content models render and link-index the same way.
-
-**Rendered subset:**
-
-| Kind | Rendered |
-|---|---|
-| Blocks | headings, paragraphs, lists (`*`, `#`, `;`, `:`), `----`, tables, leading-space `<pre>` |
-| Inline | bold and italic (MediaWiki's apostrophe algorithm), internal links through `namespaces.toml`, external links, bare URLs, `<nowiki>`, comments (dropped) |
-| HTML | MediaWiki Sanitizer's allowlisted tags and attributes |
-| References | `<ref>`, `<ref name>`, `<references />` |
-| Pre-save transform | `~~~`, `~~~~`, `~~~~~` on wikitext pages (not posts, 0019 §5) |
-
-Everything else renders as a **visible chip** showing its source: templates, parser functions, magic words and variables, `File:` and `Image:` links (namespace reserved, not implemented, 0008 §2), galleries, and other extension tags. Categories are listed as plain text (0010). Behaviour switches (`__NOTOC__` and the like) are ignored. Magic links (`ISBN`, `RFC`, `PMID`) are off.
-
-**Conformance.** Two test sources:
-
-- A subset of MediaWiki's `tests/parser/parserTests.txt` covering only the rendered subset, run in CI as a fixture. The file is GPL-2.0-or-later, which is compatible with Triplespace's licence; it is test data and is not compiled into the binary.
-- A differential test against Parsoid on the MediaWiki 1.43 reference install (0000): sampled pages rendered by both, DOMs normalized and compared for the supported constructs.
-
-**Expanded text.** With a tenant's expansion on, the parser renders and extracts from **expanded** text, produced by `scatter-wikitext-expand`; a tenant may instead render through a Parsoid service that calls back into Triplespace for expansion ([0042](0042-template-expansion-and-parsoid.md) §1, §8). Parsoid stays rejected as an in-process parser.
-
-**Not chosen as the core parser:** `tree-sitter-wikitext` (Wikimedia, MIT). It produces a concrete syntax tree that would need lowering, and its C core complicates `wasm32-unknown-unknown` builds. It remains available for editor highlighting in the browser (0034 §7). `wikitext-parser` (approximate, unmaintained) and Parsoid or mwparserfromhell (not in-process) were also rejected.
+*Current text: [11](../architecture/11-rendering-templates-and-modules.md) §1.1, §1.2, §1.5, §8; [22](../architecture/22-crates-and-stack.md) §4.6.*
 
 #### 9.2 Markdown, in `scatter-pages` (uses 0019 §5)
 
-`comrak`, with its wikilinks extension for `[[wiki links]]`, and `ammonia` for sanitization. Both build for wasm.
+*Current text: [14](../architecture/14-discussions.md) §1.6; [22](../architecture/22-crates-and-stack.md) §4.6.*
 
 #### 9.3 Identifiers, URLs and case
 
-| Concern | Choice |
-|---|---|
-| URLs (0026 §1) | `url` (WHATWG parsing) |
-| IDNA / UTS 46 (0009) | `idna` |
-| Case folding (DOI resolver, 0029) and plural rules | `icu_casemap`, `icu_plurals` (ICU4X; wasm-friendly) |
-| Unicode normalization | `unicode-normalization` |
+*Current text: [04](../architecture/04-entities-and-identifiers.md) §3.10; [22](../architecture/22-crates-and-stack.md) §4.6.*
 
 #### 9.4 Edit filter language (uses 0030 §3)
 
-The `cel` crate. This is the crate formerly published as `cel-interpreter`; 0030 §7 and 0005 are amended to the new name.
+*Current text: [09](../architecture/09-security-and-moderation.md) §7.3; [22](../architecture/22-crates-and-stack.md) §4.6.*
 
 ### 10. Wikidata history dumps: RevisionChest
 
 *Changed by A6, A7.*
 
-**RevisionChest runs as a separate binary** to turn Wikidata's XML history dumps into its `.mwrev.zst` revision files with an index (SQLite, Postgres or Parquet). It has no library target, so Triplespace does not link it. Its licence (GPL-3.0) is compatible with Triplespace's; keeping it a separate process is an architectural choice (fixed point 4), not a licensing one. `scatter-adapter-mediawiki` contains an **independent reader** for the `.mwrev.zst` format and its index, which the Wikidata adapter uses ([0053](0053-mirrored-pages.md) §12; it was first placed in the Wikidata adapter, A6). Reading a file format does not make the reader a derivative work. RevisionChest reads any MediaWiki wiki's dumps, and a store of a Wikipedia's history is what seeds a fork's revisions ([0054](0054-forking-a-mirrored-page.md) §3).
-
-A RevisionChest store is accepted wherever 0015 §4 accepts `dump:{path}` as a backfill source.
-
-**Live upstream sync stays in Triplespace** (0011 §4): EventStreams, the logging dump and `list=logevents`. It is built so that it can later be contributed to RevisionChest. The reader and sync code must handle what RevisionChest's current `sync` does not, observed in its source on 2026-09-27:
-
-- a revision whose content is hidden upstream is written as empty text, which would read as an empty entity; Triplespace treats hidden content as hidden (0011 §5);
-- log events (deletion, suppression, revision visibility) are not fetched;
-- no `maxlag`, and no resume beyond the 30-day recent-changes window;
-- the sync path's index `offset_begin` appears to add a compressed file offset to an uncompressed header length; the reader locates revisions by zstd frame start, not by that offset, until this is confirmed.
-
-Contributing upstream will need a library split in RevisionChest. The licences are compatible in both directions. Code moving from RevisionChest into the Wikidata adapter still needs the Internet Archive's agreement, because `scatter-*` crates are dual-licensed and Scatter must hold copyright in them ([0005](0005-crate-organization.md) §6). Code Triplespace contributes to RevisionChest needs no agreement.
-
-If a RevisionChest store is used as the local source for upstream history (0010 §8's "fetch upstream history", or `fork.history_source = chest:` for pages, [0054](0054-forking-a-mirrored-page.md) §3), it must receive the same hiding sweep as the log (0011 §5), read for a page repository from its `revision-visibility-change` events and deletion log.
+*Current text: [13](../architecture/13-mirrored-pages.md) §3.5.*
 
 ### 11. QLever
 
 *Changed by A11.*
 
-QLever is an export destination, and optionally the remote backend of the query service ([0059](0059-query-service.md) §2). It is never a required dependency: the service's default backend is Oxigraph embedded in the binary. It reached full SPARQL 1.1 compliance, including Update and the Graph Store Protocol, in June 2025, and its own tooling keeps a Wikidata index current from a change stream (`qlever update-wikidata`). 0032's stream matches that model.
-
-- `triplespace-cli sparql-sync` (0032 §6) is the reference consumer and is tested against QLever in CI (§15).
-- A `qlever update-triplespace` command in qlever-control, pointed at `/updates/stream`, is to be offered upstream.
-- The `resolved` subscription is the default for a QLever that serves outside consumers only. A QLever that is the query service's remote backend loads `full`, with its named graphs, since the service isolates tenants by dataset ([0059](0059-query-service.md) §4); 0059's test plan carries the `full` benchmark this line once deferred.
+*Current text: [02](../architecture/02-graphs-rdf-and-query.md) §6.5, §7.2.*
 
 ### 12. Configuration and CLI
 
 *Changed by A8, A10.*
 
-- `clap` for `triplespace-cli` and the server's flags.
-- `serde` + `toml` for `docs/registry/` files, embedded at build time by the crates that need them.
-- `figment` for layered instance configuration: file, then environment. Secrets are read from files (`--token-file`, `--*-file`), never from command-line values.
-- `server.mode` (`production` or `development`), `server.trusted_proxies`, `server.admin_listen` and the registered-host check, and `triplespace-cli instance check` with `--attest` and `--through`, which verify the deployment requirements of [0056](0056-security-model.md) §10; in `production` the server refuses to start while a requirement it can test fails.
-- `server.ui` (`embedded` or `off`) chooses whether the server serves the site; `triplespace-web` takes the `web.*` settings of [0057](0057-web-tier.md) §2 by the same rules, its forwarder key and its cache's Valkey password from files. `triplespace-cli instance forwarder create`, `list` and `revoke` manage forwarder keys ([0057](0057-web-tier.md) §10).
+*Current text: [23](../architecture/23-configuration-and-registry.md) §3.1, §3.6, §5.1.*
 
 ### 13. Observability
 
-- `tracing` and `tracing-subscriber` for structured logs.
-- `opentelemetry` with the OTLP exporter for traces.
-- `metrics` with the Prometheus exporter. Required metrics: projection lag per projection, append latency, sync lag per provider, upstream fetch budget used, delivery queue depth, cache hit rates per layer, update-stream consumer lag.
+*Current text: [22](../architecture/22-crates-and-stack.md) §4.7.*
 
 ### 14. Error handling
 
-`thiserror` in library crates, `anyhow` only in `triplespace-cli` and test code. API errors map to MediaWiki-shaped error codes (0012) in one place in the API crates.
+*Current text: [22](../architecture/22-crates-and-stack.md) §4.8.*
 
 ### 15. Testing
 
 *Changed by A3.*
 
-| Tool | Use |
-|---|---|
-| `cargo-nextest` | test runner |
-| `proptest` | canonical CBOR, Merkle proofs, normalizers, filter evaluation |
-| `insta` | snapshots of JSON, RDF and rendered HTML |
-| `testcontainers` | Postgres, Valkey, OpenSearch and QLever in integration tests |
-| `cargo-fuzz` | wikitext and markdown parsers, CBOR decoding, HTTP Signature parsing, CEL compilation, inbound ActivityPub bodies |
-| MediaWiki 1.43 reference install, with WikibaseClient, ParserFunctions and Scribunto | API compatibility (0012), Parsoid differential tests (§9.1), differential `action=expandtemplates` tests and Lua conformance ([0042](0042-template-expansion-and-parsoid.md) §18, [0043](0043-lua-modules.md) §15), Pywikibot acceptance (0008 §12) |
-
-The `LogStore` conformance suite (0005 rule 8) runs against both the file and Postgres implementations.
+*Current text: [22](../architecture/22-crates-and-stack.md) §4.9.*
 
 ### 16. Licensing and supply chain
 
 *Changed by A1, A13.*
 
-- `cargo-deny` checks licences (allowlist in §1), bans (no duplicate crypto providers, no `openssl-sys`), advisories and sources.
-- `parse-wiki-text-2`'s non-standard licence text is recorded as a clarify entry.
-- Workspace crates and `ui/package.json` declare `GPL-3.0-or-later`, set once in `[workspace.package]`.
-- `aws-lc-sys` is required at 0.39 or later. Earlier versions included code under the OpenSSL licence, which is incompatible with GPLv3. For the same reason, if `ring` replaces it (§6), `ring` must be 0.17.9 or later.
-- The repository root carries the GPLv3 text in `LICENSE`; `docs/LICENSE` carries CC0-1.0 ([0005](0005-crate-organization.md) §6).
-- `cargo xtask manifest` writes the component manifest of [0077](0077-special-version.md) §15: the build, the crates linked into each binary, the frontend packages that reach the browser and vendored code, each with its licence, copyright and notice files. It uses the allowlist above, `triplespace-server` and `triplespace-web` embed it, and release builds fail without it.
+*Current text: [22](../architecture/22-crates-and-stack.md) §3.3, §3.4, §7.1.*
 
 ### 17. Packaging
 
-*Changed by A10.*
+*Changed by A10, A16.*
 
-- The server binary and the web binary for each target, built for Linux (x86-64, arm64, glibc) and macOS for development.
-- An OCI image with both binaries, the frontend assets embedded in each (0034 §8), and nothing else; the web tier runs from the same image with another entry point ([0057](0057-web-tier.md) §2).
-- A `compose.yaml` for development with Postgres, and optional Valkey, OpenSearch and QLever services.
-- musl static builds are not a goal; if they become one, the crypto provider moves from `aws-lc-rs` to `ring` (§6).
+*Current text: [22](../architecture/22-crates-and-stack.md) §4.10.*
 
 ## Consequences
 
@@ -403,3 +293,48 @@ Replaced text (§11):
 - **Source:** [0077](0077-special-version.md) §15
 - **Change:** extends §16
 - **Summary:** `cargo xtask manifest` records the build and every component linked into or sent from the binaries, with their licence texts, for `Special:Version` and its licence subpages; release builds require it.
+
+### A14. File links are not chips
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** corrects §9.1
+- **Summary:** `File:` and `Image:` links are no longer rendered as chips, and the File namespace is no longer "reserved, not implemented": files in wikitext follow [0039](0039-files-and-media.md) §13's rule. The chip list of §9.1 loses that entry. (PENDING E19)
+
+Replaced text (§9.1):
+
+> Everything else renders as a **visible chip** showing its source: templates, parser functions, magic words and variables, `File:` and `Image:` links (namespace reserved, not implemented, 0008 §2), galleries, and other extension tags.
+
+### A15. Implemented tags and switches render without expansion
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** amends §9.1
+- **Summary:** Tags and behaviour switches the registry marks `implemented` are rendered by the built-in renderer whether or not the tenant's expansion is on; §9.1's chip list is pruned to what the registry keeps as `chip`, and behaviour switches are no longer ignored wholesale ([0042](0042-template-expansion-and-parsoid.md) §5). (PENDING E20)
+
+Replaced text (§9.1):
+
+> Everything else renders as a **visible chip** showing its source: templates, parser functions, magic words and variables, `File:` and `Image:` links (namespace reserved, not implemented, 0008 §2), galleries, and other extension tags. Categories are listed as plain text (0010). Behaviour switches (`__NOTOC__` and the like) are ignored.
+
+### A16. Three binaries
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design discussion of 2026-10-09
+- **Change:** corrects §1, §17
+- **Summary:** The server binary is `triplespace-server`, not `triplespace`; `triplespace` is the CLI's binary. Packaging ships three binaries, `triplespace-server`, `triplespace-web` and `triplespace`, and the OCI image carries all three. Principle 1's "one binary" still means that a small instance runs one server process beside Postgres. (PENDING F27)
+
+Replaced text (§1):
+
+> 1. **One binary, one required service.** A small instance runs with the `triplespace` binary and Postgres, and the binary serves the site itself.
+
+Replaced text (§17):
+
+> - The server binary and the web binary for each target, built for Linux (x86-64, arm64, glibc) and macOS for development.
+> - An OCI image with both binaries, the frontend assets embedded in each (0034 §8), and nothing else; the web tier runs from the same image with another entry point ([0057](0057-web-tier.md) §2).
+
+### A17. Current text relocated to the architecture chapters
+
+- **Date:** 2026-10-09
+- **Source:** [0050](0050-adr-format.md) §14
+- **Change:** relocates §1–§17
+- **Summary:** The Decision's current text now lives in the architecture chapters [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [04](../architecture/04-entities-and-identifiers.md), [09](../architecture/09-security-and-moderation.md), [11](../architecture/11-rendering-templates-and-modules.md), [13](../architecture/13-mirrored-pages.md), [14](../architecture/14-discussions.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.

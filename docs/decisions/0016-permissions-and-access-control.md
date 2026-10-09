@@ -2,10 +2,11 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-03 (A22)
+- **Updated:** 2026-10-09 (A29)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [MediaWiki API contract](../api/mediawiki-compat.md)
+- **Chapters:** [09](../architecture/09-security-and-moderation.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -23,176 +24,57 @@ The two agree on the shape: users, groups, memberships, named permissions, and r
 
 ### 1. Vocabulary
 
-| Term | Meaning | MediaWiki clients see |
-|---|---|---|
-| **Permission** | A named capability, such as `edit` or `ts-erase`. A string. | A right |
-| **Group** | A named set of permissions | A user group |
-| **Membership** | An actor's membership in a group, with an optional expiry | Group membership |
-| **`universe`** | The group that contains everyone, including anonymous readers and temporary accounts. It cannot be joined or left. | `*` |
-| **`owner`** | The group that holds every permission, including any added later. It always has at least one member. | A group named `owner` whose rights are the full list |
-| **ACL** | An access-control entry attached to a target by identifier, restricting named permissions to a group until an expiry | Page protection, where the target is a page |
-| **Block** | A record that removes named permissions from one actor until an expiry | A block |
+*Changed by A23.*
 
-The Scatterbase permissions map onto MediaWiki's rights and are known to MediaWiki clients by MediaWiki's names:
-
-| Scatterbase | MediaWiki | Meaning |
-|---|---|---|
-| `view` | `read` | Read public data |
-| `edit` | `edit` | Write to the local graph and to document pages |
-| `delete` | `delete` | Delete document pages |
-| `view_deleted` | `deletedhistory`, `deletedtext` | See hidden revisions and deleted pages |
-| `block_user` | `block` | Block accounts |
+*Current text: [09](../architecture/09-security-and-moderation.md) §1.1.*
 
 ### 2. Permissions
 
-*Changed by A2, A3, A4, A5, A6, A7, A8, A10, A13, A14, A15, A16, A19, A20, A21.*
+*Changed by A2, A3, A4, A5, A6, A7, A8, A10, A13, A14, A15, A16, A19, A20, A21, A24, A25, A27.*
 
-The permission set is the union of MediaWiki's rights that Triplespace implements, Wikibase's, and the `ts-*` rights of [0012](0012-api-requirements.md) §8, with three additions. Each is listed with the action it governs and the group that holds it by default.
-
-| Permission | Governs | Default groups |
-|---|---|---|
-| `read` | Reading anything public | `universe` |
-| `edit` | Local-graph `add`, `remove` and `override` on any subject ([0002](0002-source-graphs-and-mass-ingest.md) §8.2); page `edit` ([0008](0008-namespaces-and-document-pages.md) §4) | `user`, `temp` |
-| `createpage` | Page `create` | `user`, `temp` |
-| `item-term`, `property-term` | Labels, descriptions and aliases of items and properties | `user` |
-| `item-redirect`, `item-merge` | Local `redirect` between local items ([0004](0004-identity-clusters-and-equivalence.md) §9) | `user` |
-| `property-create` | Creating a local property; `equivalent-property` links, because they change predicates for every consumer (0004 §6) | `propertycreator`, `sysop` |
-| `ts-link` *(new)* | `same-as` and `different-from`; resolving held conflicts (0004 §3, §10) | `autoconfirmed` |
-| `move` | Page `move` | `autoconfirmed` |
-| `editcontentmodel` | `action=changecontentmodel` (0008 §5) | `user` |
-| `delete`, `undelete` | Page `delete` and `undelete` | `sysop` |
-| `deletedhistory`, `deletedtext` | Seeing hidden revisions, hidden usernames and deleted pages ([0001](0001-revision-metadata-rdf.md) §4) | `sysop` |
-| `deleterevision`, `deletelogentry` | Hiding parts of revisions and log events | `sysop` |
-| `suppressrevision`, `viewsuppressed`, `hideuser` | Suppression, and seeing what is suppressed | `suppress` |
-| `protect` | Setting ACLs, including confidential `read` restrictions, on pages, entities, namespaces, threads, boards and sets (§4, [0056](0056-security-model.md) §4) | `sysop` |
-| `block` | Blocking accounts (§3) | `sysop` |
-| `userrights` | Changing memberships in any group except `owner` | `bureaucrat` |
-| `renameuser` | Renaming any account ([0007](0007-actor-identity.md) §4) | `bureaucrat` |
-| `import`, `importupload` | Page imports (0008 §9) | `sysop` |
-| `bot` | The bot flag on edits ([0010](0010-site-ui.md) §7) | `bot` |
-| `ts-retain`, `ts-convert` | `retain` and `convert` on entities ([0002](0002-source-graphs-and-mass-ingest.md) §5–6) | `sysop` |
-| `ts-runjob` | Submitting bulk jobs (0002 §8.1). A bulk `retain` or `convert` also needs the right above | `bot`, `sysop` |
-| `ts-revertjob` | Reverting a job ([0010](0010-site-ui.md) §9) | `sysop`, and the job's own actor |
-| `ts-viewrejects` | Downloading a job's rejects file | `sysop`, and the job's own actor |
-| `ts-erase` | Appending `erase` records ([0006](0006-log-integrity-and-erasure.md) §7, [0015](0015-record-format-and-partition-registry.md) §1) | `suppress` |
-| `ts-viewerasures` | Seeing an erasure's reason class and authority reference (§6) | `sysop` |
-| `ts-unlink` *(new)* | Removing another user's account link (0007 §7) | `sysop` |
-| `ts-config` *(new)* | Writing `config` records ([0015](0015-record-format-and-partition-registry.md) §3): providers, issuers, namespaces, keyed types, roles, reconciliation, site settings, graph ACLs, the default retention policy | `bureaucrat` |
-| `ts-keys` *(new)* | Registering and rotating the instance key (0006 §6) | `owner` only |
-
-**Ownership rules** are built in and are not records. The holder of an account may rename it ([0010](0010-site-ui.md) §11), vanish it, and add or remove its own bindings and links ([0007](0007-actor-identity.md) §3, §7). The owner of a user page may edit its `json` and `yaml` subpages ([0008](0008-namespaces-and-document-pages.md) §6). The actor who ran a job may revert it and read its rejects. The operator of a subsidiary may edit its user pages, issue and revoke its keys, retire, reactivate and rename it ([0024](0024-subsidiary-accounts.md) §3). No permission grants access to another user's bindings: the `accounts` graph is outside this model entirely ([0012](0012-api-requirements.md) §8).
-
-**Permissions added by later ADRs.** Each ADR lists its permissions with their defaults; `docs/registry/groups.toml` is the registry of record.
-
-| Area | Permissions | ADR |
-|---|---|---|
-| Threads | `ts-editpost`; `edit`, `move`, `delete`, `deleterevision` and `ts-erase` applied to threads and posts | [0019](0019-discussions.md) §12 |
-| Watchlists | `viewmywatchlist`, `editmywatchlist` | [0020](0020-change-feeds.md) §7 |
-| Preferences and contacts | `editmyoptions`, `viewmyprivateinfo` | [0021](0021-notifications.md) §9 |
-| Federation | `ts-config` for trust modes and policy lists; `protect` to enable inbound replies on a talk namespace | [0022](0022-federation.md) §12 |
-| Moderation | `protect`, `delete`, `deleterevision`, `suppressrevision`, `hideuser` and the rest, by ACL target; `patrol`, `autopatrol` and the `autopatrolled` group | [0023](0023-moderation.md) §11 |
-| Subsidiaries | `createaccount`, `ts-transferaccount`, `noratelimit`; `bot` also selects the rate-limit row | [0024](0024-subsidiary-accounts.md) §11 |
-| OAuth | `mwoauthproposeconsumer`, `mwoauthupdateownconsumer`, `mwoauthmanageconsumer`, `mwoauthmanagemygrants`, `mwoauthviewprivate` | [0025](0025-oauth-server.md) §10 |
-| Edit filters | `abusefilter-view`, `abusefilter-log`, `abusefilter-view-private`, `abusefilter-log-private`, `abusefilter-log-detail`, `abusefilter-modify`, `abusefilter-modify-restricted`, `abusefilter-revert`, `abusefilter-bypass` | [0030](0030-edit-filters.md) §12 |
-| Files | `upload`, `reupload`, `reupload-own`, `reupload-shared`, `upload_by_url`, `movefile`; the operator rights `ts-takedown`, `ts-expunge`, `ts-viewtakedown` | [0039](0039-files-and-media.md) §21 |
-| Instance acts | `ts-viewoperator` | [0040](0040-instance-prerogatives.md) §9 |
-| The primary tenant | `ts-primary` | [0046](0046-primary-tenant.md) §8 |
-| Nuke | `nuke`, MediaWiki's right from the Nuke extension; default `sysop`, and part of the `delete` grant | [0047](0047-special-pages.md) §12 |
-| Redirects | `suppressredirect` (`sysop`, `bot`), `delete-redirect`, `move-subpages`, `move-rootuserpages`, `move-categorypages` (`user`), MediaWiki's rights with MediaWiki's defaults | [0051](0051-page-redirects.md) §8 |
-| Forks | None new: forking needs `createpage` and `edit`, never `import`; copying a fork's files needs `upload` and `reupload-shared`; the `fork` rate class | [0054](0054-forking-a-mirrored-page.md) §8 |
-
-**Instance rights** authorize instance acts and are evaluated only on the primary tenant, the tenant that is primary at the time of the act, or through a global group at the farm base; held on any other tenant they grant nothing at instance scope ([0040](0040-instance-prerogatives.md) §9, [0046](0046-primary-tenant.md) §8). They are `ts-keys`, `ts-primary`, `ts-config` at the farm base, `abusefilter-modify` for global filters, `userrights`, `block` and `renameuser` on farm accounts, `ts-takedown`, `ts-expunge`, `mwoauthmanageconsumer`, and `ts-runjob` for instance jobs.
+*Current text: [09](../architecture/09-security-and-moderation.md) §2.1, §2.2, §2.3.*
 
 ### 3. Groups, memberships and blocks
 
 *Changed by A5, A7, A8, A9, A11, A12, A15, A22.*
 
-**Default groups.** The instance ships with `universe`, `temp`, `user`, `autoconfirmed`, `bot`, `propertycreator`, `sysop`, `bureaucrat`, `suppress`, `owner` and `federated`, the group of fediverse surrogates, which holds no permissions until a tenant's ACL names it ([0022](0022-federation.md) §8). MediaWiki's `interface-admin` is not created, because there are no user scripts or styles ([0008](0008-namespaces-and-document-pages.md) §5). `temp` is the group of temporary accounts ([0007](0007-actor-identity.md) §3); its default permissions are `read`, `edit` and `createpage`, and an instance may empty it to require login. `user` is every registered local account, except a subsidiary with status `pending` ([0025](0025-oauth-server.md) §3), which receives `user` only by an explicit membership. `autoconfirmed` is granted automatically once an account meets an age and edit-count threshold set in `site` configuration.
-
-**Groups are configuration.** A group is a `config` record of kind `group` ([0015](0015-record-format-and-partition-registry.md) §3) listing its permissions. The defaults above ship in `docs/registry/groups.toml` (0015 §5) and are written to `config` when an instance is created. Changing a group's permissions needs `ts-config`.
-
-**Memberships are actor records.** A membership change is a record of payload type `scatter:v0/membership` in the `actors` partition ([0007](0007-actor-identity.md) §8), keyed by the actor, whose content names the group, whether the actor is added or removed, and an expiry. Its comment part holds the reason. It projects as a `rights/rights` log event ([0011](0011-logs.md) §6.1). Vanishing an account erases its memberships with everything else keyed to it.
-
-**Blocks are actor records too.** A block is a record of payload type `scatter:v0/block` in the `actors` partition, keyed by the blocked actor, naming the permissions removed (by default `edit` and `createpage`, optionally everything but `read`) and an expiry. It projects as `block/block`, `block/reblock` or `block/unblock`. A block is the only negative rule in the model: an actor's effective permissions are the union of their groups' permissions, minus what their active blocks remove. A subsidiary's permissions are the union over its own groups, minus its own blocks and its operator's, so blocking a person blocks their bots; a block on a subsidiary does not reach its operator ([0024](0024-subsidiary-accounts.md) §3). On a farm with global groups, a tenant account's permissions also include the global groups of the farm account it is publicly linked to, and subtract that farm account's global blocks ([0028](0028-tenancy-policy.md) §3–4). There is no revocation at the group level.
-
-**Blocks on IP addresses** apply to anonymous requests before a temporary account exists. IP addresses are never written to the log ([0007](0007-actor-identity.md) §3), so IP blocks live in the `private` schema ([0013](0013-postgres-storage.md) §4) and appear in `list=blocks` without appearing in the log.
-
-**`owner` is created with the instance,** on the primary tenant, and that group is the instance's `owner`: the one that holds `ts-keys` and `ts-primary`. A tenant created later has an `owner` of its own, which is that wiki's owner and exercises no instance right there ([0046](0046-primary-tenant.md) §1). `instance create` creates the first local user, `local:1`, as the sole member of `owner`, and gives it a binding to the built-in `password` issuer with a password the CLI sets ([0007](0007-actor-identity.md) A3); a primary account holds no token ([0024](0024-subsidiary-accounts.md) §1). On a tenant that adopts an existing Wikibase, `instance create --adopt {source} --owner {user_id}` creates the owner under the source's user ID instead, with the same password binding, and sets the user-ID floor ([0035](0035-adopting-a-wikibase.md) §5). That is the single-user fallback Scatterbase asks for: an instance with no external issuer configured has exactly this one user, who logs in with a password and registers issuers, groups and the sync subsidiaries from there. Membership in `owner` is changed only by a member of `owner`, and the last member cannot be removed.
+*Current text: [09](../architecture/09-security-and-moderation.md) §3.1, §3.2, §3.3, §3.4, §3.5, §3.6.*
 
 ### 4. ACLs (amends 0005 §4.1)
 
-*Changed by A2, A6, A17, A21.*
+*Changed by A2, A6, A17, A21, A26.*
 
-An ACL attaches a restriction to a **target**, named by identifier so that the record's key is never content ([0006](0006-log-integrity-and-erasure.md) §3):
-
-| Target kind | Key | Restricts |
-|---|---|---|
-| `graph` | `acl:graph:{name}` | Writing records to the graph. This replaces the *writers* field of [0005](0005-crate-organization.md) §4.1, which was already an ACL under another name |
-| `namespace` | `acl:namespace:{number}` | Actions on every page or entity in the namespace |
-| `page` | `acl:page:{page id}` | Actions on one document page and, if the namespace allows subpages, its subpages |
-| `entity` | `acl:entity:{id}` | Local assertions about one entity, and its `retain` and `convert` |
-| `statement` | `acl:statement:{guid}` | One statement, its qualifiers and references; `read` hides it ([0023](0023-moderation.md) §2) |
-| `property` | `acl:property:{id}` | Every snak using the property, as main snak, qualifier or reference, on any entity; enclosure by predicate ([0023](0023-moderation.md) §2) |
-| `record` | `acl:record:{partition}:{offset}`, with a `parts` list | Reading the named parts of one record: revision-hiding and suppression ([0023](0023-moderation.md) §2) |
-| `actor` | `acl:actor:{key}` | Reading an account's name: username-hiding ([0023](0023-moderation.md) §2) |
-| `tenant` | `acl:tenant:{slug}` | Everything in the tenant: its visibility ([0056](0056-security-model.md) §3) |
-| `set` | `acl:set:{id}` | Its members, pages with their subpages, entities and threads listed by ID; a grouping only `protect` can change ([0056](0056-security-model.md) §3) |
-
-An ACL record has the payload type `scatter:v0/acl` ([0023](0023-moderation.md) §3): a graph ACL is appended to the `config` partition, and every other target's ACL is a moderation record in the tenant `log` partition, so that suppressions stay out of public dumps. Its content lists, for each permission it restricts, the group whose members may still perform it, and an expiry. ACLs restrict `read` as well as write permissions, which is what deletion, revision-hiding, suppression and username-hiding are ([0023](0023-moderation.md) §1). Setting an ACL on a page, entity, namespace or set needs `protect`; on a graph or the tenant, `ts-config`. A `read` ACL is of one of two kinds ([0056](0056-security-model.md) §2): a **moderation** restriction, deletion, hiding, suppression or username-hiding, needs `delete`, `deleterevision`, `suppressrevision` or `hideuser` by target ([0023](0023-moderation.md) §11); a **confidential** restriction, which keeps the target live for its group and absent for everyone else, is set with `protect`, by an actor who is a member of the group it names ([0056](0056-security-model.md) §4). Page ACLs project as `protect/protect`, `protect/modify` and `protect/unprotect` log events with the parameters [0011](0011-logs.md) §7 already lists.
-
-**Evaluation is conjunctive.** To perform action *A* on target *T*, an actor must hold the permission for *A* after blocks (§3), **and** satisfy every ACL that restricts *A* on *T* or on a target enclosing *T*. Enclosure is fixed: the tenant encloses everything in it; a graph encloses the records written to it; a namespace encloses its pages and entities; a set encloses its members ([0056](0056-security-model.md) §3); a page encloses its subpages; a talk page or board encloses the threads whose **home** it is, not those only listed on it, and the page's `edit` ACL governs what may be listed there ([0019](0019-discussions.md) §12, [0049](0049-boards.md) §7). There is no other inheritance, no cascading protection, and no rule under which a more specific ACL loosens a broader one. This is how MediaWiki protection composes with group rights, and it dissolves Scatterbase's questions about exact matching, inheritance and deny precedence: matching is by target and enclosures, inheritance is enclosure only, and nothing denies except a block.
-
-**Default graph ACLs**, written with the instance:
-
-| Graph | `edit` restricted to |
-|---|---|
-| `local`, `pages` | `universe` (no restriction beyond the permission itself) |
-| `mirror/{provider}`, `actors/{provider}`, `log/{provider}` | `bot`, so only sync jobs write there ([0002](0002-source-graphs-and-mass-ingest.md) §2) |
-| `config` | `bureaucrat`; `key:` records additionally need `ts-keys` |
-| `actors` | Written only by account management; `rights` and `block` records need `userrights` and `block` respectively |
-| `accounts` | The login system only; no group |
+*Current text: [09](../architecture/09-security-and-moderation.md) §4.1, §4.2, §4.3, §4.4, §4.5, §4.6.*
 
 ### 5. What each earlier ADR's question resolves to
 
-| ADR | Question | Answer |
-|---|---|---|
-| [0002](0002-source-graphs-and-mass-ingest.md) | Bulk `retain` or `convert`; the default retention policy | `ts-retain` or `ts-convert` with `ts-runjob`; the default is a `config` record, so `ts-config` |
-| [0004](0004-identity-clusters-and-equivalence.md) | `same-as`, `different-from`, bulk links, conflict resolution | `ts-link`; in bulk, with `ts-runjob`; `equivalent-property` needs `property-create` |
-| [0007](0007-actor-identity.md) | Rename, hide, vanish, remove a link | Own account: the holder. Others: `renameuser`, `hideuser`, `ts-unlink`. Nobody vanishes another's account |
-| [0008](0008-namespaces-and-document-pages.md) | Create, move, delete, protect pages | `createpage`, `move`, `delete`, `protect`, plus the user-page ownership rule |
-| [0010](0010-site-ui.md) | Revert a job, see hidden usernames, erase, retain from the history page | `ts-revertjob`, `deletedhistory`, `ts-erase`, `ts-retain` |
-| [0011](0011-logs.md) | Protection, blocks, user rights | §3–4; each projects as the log events 0011 §6.1 reserved |
-| [0012](0012-api-requirements.md) | Which groups hold which rights | §2 |
+*Changed by A27.*
+
+*Current text: [09](../architecture/09-security-and-moderation.md) §2.4, §6.*
 
 ### 6. Erasure visibility (settles 0006, 0010 and 0011)
 
 *Changed by A13, A14.*
 
-That a record was erased is public: the gap row of [0010](0010-site-ui.md) §5.2 and the `erased` flag of [0012](0012-api-requirements.md) §4 are shown to everyone, as MediaWiki shows that a revision was deleted. The **reason class** and the **authority reference** of an `erase` record ([0006](0006-log-integrity-and-erasure.md) §7) are shown only to holders of `ts-viewerasures`. The `erase/erase` log event ([0011](0011-logs.md) §6.1) follows the same rule: listed for everyone, with its parameters visible to `ts-viewerasures`. The reason-class vocabulary is `legal`, `privacy`, `upstream` and `operational`; an instance may add classes in `site` configuration. Erasures the instance makes in a tenant's partitions (an operator's expunge, scheduled reclamation of long-deleted file versions) follow the same rule. They are attributed to the instance operator, and their authority is a record in the instance `log`.
+*Current text: [09](../architecture/09-security-and-moderation.md) §6.6.*
 
 ### 7. API and UI
 
-*Changed by A21.*
+*Changed by A21, A28.*
 
-**Action API.** Additive, under [0012](0012-api-requirements.md) §1: `meta=siteinfo&siprop=usergroups` lists every group with its permissions, reporting `universe` as `*`; `meta=userinfo&uiprop=rights|groups|blockinfo`; `list=users&usprop=groups|rights|blockinfo`; `action=userrights`, `action=protect`, `action=block` and `action=unblock` as in MediaWiki; `list=blocks` and `list=protectedtitles`; `prop=info&inprop=protection`. Every write module returns `permissiondenied` with the missing permission named. `action=protect` on an entity page sets an `entity` ACL.
-
-**REST.** `GET /acl/{kind}/{id}` and `PUT /acl/{kind}/{id}` under `triplespace/v0` for graph and entity targets, which `action=protect` cannot express fully; the `tenant` and `set` kinds, `POST /acl/set` and the member routes, and the `visibility` field on every `GET`, are in [0056](0056-security-model.md) §13.
-
-**Site UI** ([0010](0010-site-ui.md)). `Special:ListGroupRights`, `Special:UserRights`, `Special:Block`, `Special:BlockList` and `Special:ProtectedPages` appear where MediaWiki users expect them. The page overflow menu gains **Protect…** for pages and entities. The account settings page (0010 §11) is unchanged, since every action on it is an ownership rule.
+*Current text: [18](../architecture/18-api.md) §1.5, §2.2, §2.3, §3.2.*
 
 ### 8. Scatterbase
 
 *Changed by A6.*
 
-Scatterbase inherits §1, §3 and §4 whole: the vocabulary, groups and memberships as records, blocks as the only negative rule, ACLs by target with conjunctive evaluation over enclosures, and the single-user fallback. Its five open points are answered as follows. Matching is exact on the target plus its enclosures. Inheritance is enclosure only. Deny has no precedence because there is no deny; a block is the only subtraction and it applies before ACLs are consulted. A property-specific rule is the `property` target kind ([0023](0023-moderation.md) §2). ACL changes are records, in the `config` partition for graphs and in `log` for moderation ([0023](0023-moderation.md) §3), signed by the server like every record ([0006](0006-log-integrity-and-erasure.md) §1); Scatterbase may make them client-signed claims in its `server` graph without changing their shape.
+*Current text: [22](../architecture/22-crates-and-stack.md) §1.3.*
 
 ### 9. Crates (amends 0005 §2)
 
 *Changed by A1.*
 
-*Superseded by [0005](0005-crate-organization.md) §2 (A1).*
-
-[0005](0005-crate-organization.md) §2 keeps the crate table that CI checks, with every change this section listed; the tables are in [0013](0013-postgres-storage.md) §5.6. The table this section first gave is in A1.
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
 
 ## Consequences
 
@@ -453,3 +335,72 @@ Replaced text (§4):
 - **Source:** Direct: James, decision of 2026-10-03 (`triplespace-accounts`, `triplespace-api-action`, `triplespace-server`, `scatter-adapter-internetdomains`)
 - **Change:** extends §3
 - **Summary:** The password `instance create` gives the first administrator comes from `--owner-password-file` or `TRIPLESPACE_OWNER_PASSWORD`; without either the owner has no binding until `triplespace password set`. The owner group is written to the tenant's `config` as `group:owner`; the other default groups come from the embedded registry until an instance customizes them.
+
+### A23. MediaWiki names are the permission names
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** amends §1
+- **Summary:** The MediaWiki names are the permission names. The Scatterbase column of §1's mapping table (`view`, `view_deleted`, `block_user`) is historical: it records where the five early permissions came from and names nothing a client or a record uses. (PENDING C10)
+
+Replaced text (§1):
+
+> The Scatterbase permissions map onto MediaWiki's rights and are known to MediaWiki clients by MediaWiki's names:
+
+### A24. Rights the index of later ADRs lacked
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** extends §2
+- **Summary:** The table of permissions added by later ADRs gains `browsearchive` in the Moderation row ([0023](0023-moderation.md) §11) and `managechangetags` and `changetags` in the Edit filters row ([0030](0030-edit-filters.md) §5), and the instance-rights list gains `ts-viewoperator` ([0040](0040-instance-prerogatives.md) §9). `docs/registry/groups.toml` already carries all four. (PENDING C11)
+
+### A25. Jobs run under subsidiaries
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** amends §2
+- **Summary:** Jobs run under subsidiaries: `ts-runjob` defaults to `bot` everywhere, and §2 drops `sysop` from its default groups. An administrator runs a job by creating or approving a subsidiary they operate ([0024](0024-subsidiary-accounts.md) §3); 0047 §12's `sysop` job rate row goes with it (0047's log). James: "administrators should be able to run jobs under subsidiaries", read as this. (PENDING C14)
+
+Replaced text (§2):
+
+> | `ts-runjob` | Submitting bulk jobs (0002 §8.1). A bulk `retain` or `convert` also needs the right above | `bot`, `sysop` |
+
+### A26. The `actors` graph's record kinds
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** corrects §4
+- **Summary:** The default graph ACL table's `actors` row names the records by their payload types: "`membership` and `block` records" (payload type `scatter:v0/membership`, as §3 says), not "`rights` and `block` records"; `rights/rights` is the log event a membership projects as, not the record. (PENDING C15)
+
+Replaced text (§4):
+
+> | `actors` | Written only by account management; `rights` and `block` records need `userrights` and `block` respectively |
+
+### A27. `deletedhistory` and `deletedtext` gate nothing
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** corrects §2, §5
+- **Summary:** `deletedhistory` and `deletedtext` are reported to MediaWiki clients by members of the deletion group and gate no evaluation of their own: what may still be seen is decided by the `read` ACL's group ([0023](0023-moderation.md) §11). §5's answer to 0010's "see hidden usernames" is therefore membership in the deletion group, not `deletedhistory`. (PENDING C16)
+
+Replaced text (§2):
+
+> | `deletedhistory`, `deletedtext` | Seeing hidden revisions, hidden usernames and deleted pages ([0001](0001-revision-metadata-rdf.md) §4) | `sysop` |
+
+Replaced text (§5):
+
+> | [0010](0010-site-ui.md) | Revert a job, see hidden usernames, erase, retain from the history page | `ts-revertjob`, `deletedhistory`, `ts-erase`, `ts-retain` |
+
+### A28. Retiring an ACL over REST
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** extends §7
+- **Summary:** `DELETE /acl/{kind}/{id}` under `triplespace/v0` retires an ACL, beside the `GET` and `PUT` of §7; [0023](0023-moderation.md) §8 already assumes it. (PENDING E38)
+
+### A29. Current text relocated to the architecture chapters
+
+- **Date:** 2026-10-09
+- **Source:** [0050](0050-adr-format.md) §14
+- **Change:** relocates §1–§9
+- **Summary:** The Decision's current text now lives in the architecture chapters [09](../architecture/09-security-and-moderation.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.

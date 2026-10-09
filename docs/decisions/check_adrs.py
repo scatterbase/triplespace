@@ -23,6 +23,10 @@ Checks:
 10. every `origin` in content-models.toml, special-pages.toml and wikitext-functions.toml is
     mediawiki, triplespace, generic or an [[extension]] in registry/version.toml; no two names differ
     only in case; every [[extension]] is named by an origin or has inspired_by (0077 §12)
+11. a Decision section that is a pointer (0050 §14) names an existing section of an architecture
+    chapter whose provenance line cites it back, and the Chapters header lists exactly the chapters
+    the pointers name; check 4 reads the crate map from chapter 22 §2.1, and check 5 compares
+    canonical special-page names case-sensitively (0050 §14, checks 12–15)
 
 Usage: check_adrs.py [--index] [DOCS_DIR]
 """
@@ -105,9 +109,9 @@ for name, text in texts.items():
 # --- the 0050 format -------------------------------------------------------------
 
 VERBS = {"amends", "extends", "supersedes", "corrects", "settles", "uses"}   # 0050 §7
-LOG_VERBS = {"amends", "extends", "supersedes", "corrects", "retitles", "consolidates"}  # 0050 §8
+LOG_VERBS = {"amends", "extends", "supersedes", "corrects", "retitles", "consolidates", "relocates"}  # 0050 §8, §14
 NEEDS_REPLACED = {"amends", "supersedes", "corrects"}
-HEADER_ORDER = ["Status", "Date", "Updated", "Author", "Changes", "Uses"]          # 0050 §3
+HEADER_ORDER = ["Status", "Date", "Updated", "Author", "Changes", "Uses", "Chapters"]  # 0050 §3, §14
 STATUS_RE = re.compile(r"^(Proposed|Accepted|Accepted with proposed amendment \((A\d+)(, A\d+)*\)|Withdrawn|Superseded by \[?\d{4}\]?(\([^)]*\))?)$")
 
 def header_fields(text):
@@ -170,14 +174,36 @@ def parse_questions(text):
     return qs
 
 def decision_sections(text):
-    """Numbered ### and #### headings under ## Decision, with their bodies."""
-    block = h2_block(text, "Decision") or ""
+    """Numbered ### and #### headings under ## Decision (or ## Part … blocks), with their bodies."""
+    block = h2_block(text, "Decision")
+    if block is None:   # an ADR in parts (0022) heads each part with its own H2
+        t = strip_fences(text)
+        block = "".join(m.group(0) for m in re.finditer(r"^## Part .*?(?=^## (?!Part)|\Z)", t, re.M | re.S))
     heads = list(re.finditer(r"^(#{3,4}) (.*)$", block, re.M))
     out = []
     for i, h in enumerate(heads):
         body = block[h.end(): heads[i + 1].start() if i + 1 < len(heads) else len(block)]
         out.append((len(h.group(1)), h.group(2), body))
     return out
+
+_chapter_cache = {}
+def chapter_text(path):
+    if path not in _chapter_cache:
+        _chapter_cache[path] = strip_fences(open(path, encoding="utf-8").read())
+    return _chapter_cache[path]
+
+def chapter_section_sources(ctext, num):
+    """The *Sources:* line under chapter heading `## N.` or `### N.M`, or None if no such heading."""
+    m = re.search(rf"^#{{2,3}} {re.escape(num)}\.?\s", ctext, re.M)
+    if not m:
+        return None
+    rest = ctext[m.end():].split("\n")
+    for line in rest[1:6]:
+        if line.startswith("*Sources:"):
+            return line
+        if line.startswith("#"):
+            break
+    return ""
 
 new_format = {name for name, text in texts.items() if is_new_format(text)}
 logs = {name: parse_log(texts[name]) for name in new_format}
@@ -266,7 +292,7 @@ for name in sorted(new_format):
                 P.append(f"A{n}: change verb '{v}' is not one of {sorted(LOG_VERBS)}")
             if v in NEEDS_REPLACED and "Replaced text" not in e["body"]:
                 P.append(f"A{n} {v} but quotes no Replaced text")
-            if v not in ("consolidates", "retitles"):
+            if v not in ("consolidates", "retitles", "relocates"):
                 for s in ss:
                     touched[s].add(n)
         if not f.get("Source", "").startswith("Direct") and not adr_nums(f.get("Source", "")):
@@ -291,6 +317,42 @@ for name in sorted(new_format):
     for s in touched:
         if s not in secs[name]:
             P.append(f"the log changes §{s}, which does not exist")
+
+    # pointers (0050 §14): each names a chapter section that cites this section back
+    pointed_chapters = set()
+    for level, head, body in decision_sections(text):
+        m = re.match(r"(\d+(?:\.\d+)?)", head)
+        if not m:
+            continue
+        sec = m.group(1)
+        ptrs = re.findall(r"^\*Current text: (.*)\*$", body, re.M)
+        if not ptrs:
+            continue
+        rest = re.sub(r"^\*(Changed by|Current text:)[^\n]*$", "", body, flags=re.M).strip()
+        if rest:
+            P.append(f"§{sec}: is a pointer but still carries text (0050 §14: text or pointer, never both)")
+        for ptr in ptrs:
+            for ch, path, specs in re.findall(r"\[(\d{2})\]\(([^)]*)\)((?:\s*§\d+(?:\.\d+)?[,;]?)+)", ptr):
+                pointed_chapters.add(ch)
+                cpath = os.path.normpath(os.path.join(DEC, path))
+                if not os.path.exists(cpath):
+                    P.append(f"§{sec}: pointer to missing chapter file {path}")
+                    continue
+                ctext = chapter_text(cpath)
+                for cs in re.findall(r"§(\d+(?:\.\d+)?)", specs):
+                    prov = chapter_section_sources(ctext, cs)
+                    if prov is None:
+                        P.append(f"§{sec}: pointer names {ch} §{cs}, which does not exist")
+                    else:
+                        cited = set()
+                        for a_, specs_ in re.findall(r"\[(\d{4})\]\([^)]*\)((?:\s*§\d+(?:\.\d+)?,?)+)", prov):
+                            if a_ == me:
+                                cited |= set(re.findall(r"§(\d+(?:\.\d+)?)", specs_))
+                        if sec not in cited and sec.split(".")[0] not in cited:
+                            P.append(f"§{sec}: pointer names {ch} §{cs}, whose provenance does not cite {me} §{sec}")
+    listed_chapters = set(re.findall(r"\[(\d{2})\]", fd.get("Chapters", "")))
+    if pointed_chapters != listed_chapters:
+        P.append(f"Chapters header {sorted(listed_chapters)} ≠ chapters the pointers name {sorted(pointed_chapters)}")
 
     # callouts: every change is folded (0050 §6)
     for m in re.finditer(r"^\s*> \*\*(A\d+)\.\*\*", strip_fences(text), re.M):
@@ -324,7 +386,7 @@ for name in sorted(new_format):
     for r in rows:
         tnum = re.search(r"\[(\d{4})\]", r[0]).group(1)
         verb = r[2].split()[0] if r[2] else ""
-        if verb not in VERBS | {"consolidates", "retitles"}:
+        if verb not in VERBS | {"consolidates", "retitles", "relocates"}:
             P.append(f"Changes to other ADRs: verb '{verb}' for {tnum}")
         tfile = num2file.get(tnum)
         if tfile in new_format and verb == "settles":
@@ -448,8 +510,12 @@ for name, text in texts.items():
             problems[name].append(f"cites {tnum} Q{n}, which is not among its open questions")
 
 # 4: crate names
-table = texts[num2file["0005"]]
-tbl_crates = set(re.findall(r"`((?:scatter|triplespace)-[a-z0-9-]+)`", table.split("### 2. Crate map")[1].split("### 3.")[0]))
+_ch22 = os.path.join(ROOT, "architecture", "22-crates-and-stack.md")
+if os.path.exists(_ch22):   # 0050 §14 check 14: the crate map lives in chapter 22 §2.1
+    table = open(_ch22, encoding="utf-8").read().split("### 2.1 The table")[1].split("### 2.2")[0]
+else:
+    table = texts[num2file["0005"]].split("### 2. Crate map")[1].split("### 3.")[0]
+tbl_crates = set(re.findall(r"`((?:scatter|triplespace)-[a-z0-9-]+)`", table))
 retired = {"scatter-graphs", "scatter-markdown", "scatter-keyed", "triplespace-activity", "triplespace-revmeta"}
 # Content model IDs unique to Triplespace share the `triplespace-` prefix (0041 §2); they are not crates.
 _cm = os.path.join(ROOT, "registry", "content-models.toml")
@@ -472,8 +538,11 @@ print()
 _sp = os.path.join(ROOT, "registry", "special-pages.toml")
 if os.path.exists(_sp):
     _t = open(_sp, encoding="utf-8").read()
-    sp_known = {m.group(2).lower() for m in re.finditer(r'^(name|mediawiki_name) = "([^"]+)"', _t, re.M)}
+    sp_canonical = {m.group(2) for m in re.finditer(r'^(name|mediawiki_name) = "([^"]+)"', _t, re.M)}
+    sp_exact = set(sp_canonical)
+    sp_known = {x.lower() for x in sp_canonical}
     for m in re.finditer(r'^aliases = \[([^\]]*)\]', _t, re.M):
+        sp_exact |= set(re.findall(r'"([^"]+)"', m.group(1)))
         sp_known |= {x.lower() for x in re.findall(r'"([^"]+)"', m.group(1))}
     for m in re.finditer(r'^section_aliases = \{(.*)\}$', _t, re.M):
         sp_known |= {x.lower() for x in re.findall(r'([A-Za-z]+) = ', m.group(1))}
@@ -483,6 +552,8 @@ if os.path.exists(_sp):
         for u in sorted(set(re.findall(r"Special:([A-Za-z]+)", text))):
             if u.lower() not in sp_known:
                 problems[name].append(f"Special:{u} is not in registry/special-pages.toml")
+            elif u not in sp_exact and u.lower() in {c.lower() for c in sp_canonical}:
+                problems[name].append(f"Special:{u} differs in case from the registry's canonical name (0050 §14 check 15)")
 else:
     print("== registry/special-pages.toml not found; check 5 skipped ==")
 

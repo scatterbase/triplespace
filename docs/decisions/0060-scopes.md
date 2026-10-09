@@ -2,10 +2,11 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-04
-- **Updated:** 2026-10-05 (A4)
+- **Updated:** 2026-10-09 (A8)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0020](0020-change-feeds.md), [0041](0041-content-models.md), [0045](0045-table-content-model.md), [0049](0049-boards.md), [0056](0056-security-model.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0023](0023-moderation.md), [0026](0026-sitelinks.md), [0038](0038-page-metadata-and-categories.md), [0042](0042-template-expansion-and-parsoid.md), [0044](0044-tenant-relative-ids.md), [0059](0059-query-service.md)
+- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), [15](../architecture/15-structured-pages.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -27,151 +28,57 @@ James's direction, from the design discussion of 2026-10-04:
 
 ### 1. A scope is a page that names a set of subjects (extends 0056 §3)
 
-**A scope is a page in the `Scope` namespace (§2) whose content is a definition (§4) of a set of subjects**, entities or pages. The set itself is computed: **membership is a projection** (§5), `view.scope_member`, recomputed as the definition and the data change, and written nowhere else. Nothing is added to a member when it joins a scope, and nothing is removed when it leaves; a scope is what a WikiProject banner would be if the banner were never placed.
-
-A scope is **content**, and is never a target of restriction. The sets of [0056](0056-security-model.md) §3 are the other thing: a grouping only `protect` may change, by ID, because it restricts reading. A scope is edited by whoever may edit the page, may name things by title and by query, and grants and withholds nothing. The two do not meet.
-
-What references a scope: a table's rows, a board's selection (§6), a feed and a watch (§7), and the sprints and workspaces that later ADRs build on it. Each names the scope by title and reads its members from the projection.
+*Current text: [15](../architecture/15-structured-pages.md) §1.1.*
 
 ### 2. The `Scope` namespace (extends 0008 §2)
 
-| Number | Canonical name | Kind | Allowed models | Default model |
-|---|---|---|---|---|
-| 312 | `Scope` | `pages` | `triplespace-scope`, `wikitext` | `triplespace-scope`; `wikitext` for titles ending `/doc` |
-| 313 | `Scope talk` | `pages` | `triplespace-talk` | `triplespace-talk` |
-
-The second pair of the 310–319 block ([0008](0008-namespaces-and-document-pages.md) §2, by 0008 A17), after Board. Titles normalize first-letter; subpages are on, and the `/doc` rule is Table's ([0045](0045-table-content-model.md) §2). A scope has an ordinary talk page, unlike a board, because a scope is a subject to discuss.
+*Current text: [15](../architecture/15-structured-pages.md) §1.2.*
 
 ### 3. The `triplespace-scope` content model (extends 0041 §3)
 
-| ID | Origin | Source | Slot | Format | Direct editing | Default in |
-|---|---|---|---|---|---|---|
-| `triplespace-scope` | Triplespace | text | main | `application/json` | Yes | 312 |
-
-A **text** model ([0041](0041-content-models.md) §5), as `triplespace-table` is: the definition is the page's content, revised and diffed as text. The operations follow 0045 §3 exactly, with these particulars: validation checks the schema, the syntax of every ID and title, the limits of §4, and the absence of cycles among referenced scopes (§4); the pre-save transform canonicalizes IDs to their stored form ([0044](0044-tenant-relative-ids.md) §1), titles to their normalized form, keys to schema order, and one ID per line in `ids`, `include` and `exclude`; plain text for search is the title, the description and the titles and properties the definition names; render is the scope page (§8).
+*Current text: [15](../architecture/15-structured-pages.md) §1.2.*
 
 ### 4. The definition
 
 *Changed by A2, A3, A4.*
 
-```json
-{
-  "version": 1,
-  "description": "Women writers born in the 19th century",
-  "members": {
-    "intersection": [
-      "Scope:Women",
-      "Scope:Writers",
-      { "statement": { "property": "WDP569", "range": { "from": "1801", "to": "1900" } } }
-    ]
-  },
-  "include": [ "WDQ7259" ],
-  "exclude": [ "WDQ1234" ]
-}
-```
-
-| Key | Required | Meaning |
-|---|---|---|
-| `version` | Yes | `1`. A kind that old readers cannot ignore raises it |
-| `description` | No | Plain text, shown under the title and indexed |
-| `members` | Yes | An object holding exactly one **kind** (below), the same shape as a table's `rows` |
-| `include` | No | Subject IDs that are members whatever `members` says |
-| `exclude` | No | Subject IDs that are never members. Applied last |
-| `schemas` | No | Entity schema IDs every member is validated against; the report is `view.schema_report` ([0064](0064-entityschema-and-validation.md) §5) |
-
-**Kinds.** A kind selects subjects. Each has a **subject type** — entity or page, and since [0066](0066-lexemes.md) §5 also `form` and `sense` for lexeme parts, which `statement` selects when the property's statements sit on parts — which the scope takes from its kind; set algebra requires its operands to agree.
-
-| Kind | Keys | Selects | Subject type | Computed by |
-|---|---|---|---|---|
-| `ids` | a list | The listed subjects. Entity IDs in any form the tenant accepts; pages by title | as listed | the definition |
-| `statement` | `property`; one of `value`, `range {from, to}`, or none | Subjects with a best-rank statement of the property, with that value, in that range, or at all. Page subjects count ([0038](0038-page-metadata-and-categories.md) §1) | entity, or page if `subjects: "pages"` | `view.statement_assertion`, incrementally |
-| `category` | `title` | The pages in the category, direct members only (`depth` is Q1) | page | `view.page_category`, incrementally |
-| `column` | `table`, `column` | The entities in a column of a table: its rows for the ID column, the best values for a statement column | entity | the table's resolved rows |
-| `query` | `sparql` | The subjects a `SELECT` projecting `?item` returns | entity or page, by IRI | the query service ([0059](0059-query-service.md) §5), on refresh |
-| `pages_of` | `scope` or an inline kind | The articles paired with the entities of the operand ([0038](0038-page-metadata-and-categories.md) §6) | page | the pairing index |
-| `entities_of` | `scope` or an inline kind | The entities paired with the pages of the operand | entity | the pairing index |
-| `union`, `intersection` | a list of operands | The union or intersection of the operands' members | the operands' | set algebra over the operands' member rows |
-| `difference` | `of`, `minus` | The members of `of` that are not in `minus` | `of`'s | set algebra |
-| `saved` | `query` (a `Query:` title), `params` | The subjects bound to `?item` in a saved query's result, with the parameters given ([0063](0063-query-namespace.md) §6) | entity or page, by IRI | the query service, on refresh |
-| `conforms` | `schema`, optional `not` | The subjects whose schema report says they conform, or with `not`, fail ([0064](0064-entityschema-and-validation.md) §6) | the report's | `view.schema_report` |
-
-An **operand** is a scope title (`"Scope:Women"`) or an inline kind object. Operands nest to `scopes.max_depth` (default 8, counting referenced scopes' own definitions). **Cycles are refused** at save: the validator walks every referenced scope's current definition, and a save that would make a scope a member of its own ancestry fails with `ts-scope-cycle`. A referenced scope that does not exist is allowed, as a missing row entity is in a table: the reference is shown red and contributes nothing until the scope exists.
-
-`subjects: "pages"` on a `statement` kind selects pages by their page statements instead of entities by theirs; without it a `statement` kind selects entities. A `query` kind's `sparql` is checked as [0059](0059-query-service.md) §5 says, at save, and refused with the compiler's reason; it is saved even while the query service is off, and the page says the scope is not computed (§5).
-
-**Limits.** `scopes.max_members` (site, default **100,000**): the bound on a scope's materialized members (§5). `scopes.max_depth` (default 8). `scopes.max_ids` (default 5,000, as `tables.max_rows`) on `ids`, `include` and `exclude` together.
+*Current text: [15](../architecture/15-structured-pages.md) §1.3, §5.5.*
 
 ### 5. Membership is a projection
 
-```sql
-CREATE TABLE view.scope (
-  tenant        text    NOT NULL,
-  page_id       bigint  NOT NULL,          -- the scope page
-  count         integer NOT NULL,          -- members materialized
-  truncated     boolean NOT NULL,          -- cut at scopes.max_members
-  cursor_epoch  integer, cursor_seq bigint, -- the query service cursor, for query kinds
-  computed_at   timestamptz,               -- NULL: never computed (service off)
-  definition_revid bigint NOT NULL,
-  PRIMARY KEY (tenant, page_id)
-);
-CREATE TABLE view.scope_member (
-  tenant   text   NOT NULL,
-  page_id  bigint NOT NULL,
-  kind     text   NOT NULL,                -- 'entity' | 'page'
-  id       text   NOT NULL,                -- entity ID in stored form, or page ID in decimal
-  PRIMARY KEY (tenant, page_id, kind, id)
-);
-CREATE INDEX ON view.scope_member (tenant, kind, id);  -- "scopes this subject is in"
-```
+*Changed by A7.*
 
-**Two speeds.** `ids`, `statement`, `category`, `column`, `pages_of`, `entities_of` and the set algebra over them are **incremental**: the scope projection runs in step 7 of [0013](0013-postgres-storage.md) §7, after the statement, category and page projections, and applies the effect of each write to the scopes it touches, found through the inverted index above and through `page_link` (§8) for the kinds that name a property, category or table. These scopes are current within the fan-out budget of 0013 §7 (as amended), like referrers. `query` kinds, and any set algebra with a `query` operand, are **refreshed**: a job runs the compiled query at `scopes.refresh` (default 15 min) and whenever the definition is saved or a person asks (§8), and replaces the members in one transaction with the cursor the service reported. Which deltas affect an arbitrary query is not knowable, so these scopes are as fresh as the last refresh, and say so.
-
-**The bound.** Members are materialized in a deterministic order, entity IDs then page IDs, each ascending, so that the prefix kept is stable between computations. When a computation yields more than `scopes.max_members`, the first `scopes.max_members` are kept and `truncated` is set. **The scope page, and every table, board, feed and watch that uses the scope, shows the notice**: "This scope has more than 100,000 members; the first 100,000 are shown." A truncated scope is still a full operand: `intersection` and `difference` are computed over the operands' complete sets where the operand is incremental, and by the query service where any operand is a query, and only the result is bounded. So `Scope:Humans` is useless to list and fine to intersect with.
-
-**What the projection does not do.** It writes no record, produces no activity row and sends no notification: joining or leaving a scope is not an event, as [0049](0049-boards.md) §14 fixed for boards. A scope's history is the history of its definition.
-
-**Read ACLs** ([0023](0023-moderation.md) §2) apply when members are shown, not when they are computed: a member the viewer may not read is omitted from the list and the count the viewer sees, as a search result is ([0056](0056-security-model.md) §8). A `query` kind can only ever select public subjects ([0059](0059-query-service.md) §3).
+*Current text: [15](../architecture/15-structured-pages.md) §1.4.*
 
 ### 6. Scopes in tables and boards (amends 0045 §4; amends 0049 §4 and §14; settles 0045 Q1 and 0049 Q2)
 
-**Tables.** `rows` gains every kind of §4, and a kind **`scope`** that names a scope page: `"rows": { "scope": "Scope:Women writers" }`. A table over a page-subject scope has pages as rows: its statement columns read page statements ([0038](0038-page-metadata-and-categories.md) §1), its term columns are empty, and its sitelink column shows the paired item's. `tables.max_rows` still bounds the grid: a scope larger than it is shown to that many rows with the scope's own notice beneath. 0045 Q1 is settled by this section; 0045 §7's two-write problem is gone for any scope that is not `ids`, since an entity created with the right statements appears by itself.
-
-**Boards.** A board's `scope` key, refused in 0049 version 1, is accepted at `version: 2` of the board definition and selects **threads**: `{ "scope": "Scope:X" }` selects the threads attached to the talk pages of the scope's members; the kinds of §4 may be written inline with the same meaning. The thread-specific kinds of [0049](0049-boards.md) §14 are redrawn against this ADR: 0049's `subjects` is this ADR's `statement`; 0049's `statement` (threads carrying a statement themselves) stays a board kind, `thread_statement`, since a thread is not a subject in this ADR's sense; `boards` stays; `mentions` is withdrawn in favour of a later `links` kind (Q2). Selected threads are listed as 0049 §14 says: no attachment, no enclosure, no event, gone when the scope stops selecting them. 0049 Q2's "which kinds first" is this section; whether scoped threads announce and notify is still open there.
+*Current text: [15](../architecture/15-structured-pages.md) §1.5, §2.3, §2.6.*
 
 ### 7. Feeds and watching (extends 0020 §2 and §3; settles 0045 Q4)
 
-**A scope is a target set.** [0020](0020-change-feeds.md) §2 gains a row: **Scope** — the one-target sets of every member of a scope, from `view.scope_member`. Related changes of `Scope:Women writers` is the project's recent changes, and it is a join against materialized rows, not a relation evaluated in the query, so `feeds.related_limit` does not apply; `scopes.max_members` is its bound, and the feed carries the truncation notice when the scope is truncated. `Special:RecentChangesLinked/Scope:X` and the `rcscope` parameter of `list=recentchanges` serve it.
+*Changed by A6.*
 
-**Watching a scope** is a row in `private.watch` with kind `scope` ([0020](0020-change-feeds.md) §3), expanded at query time as the Scope set. It is one watch however many members the scope has, and it follows the members as they change. **A table's rows are watched the same way** (0045 Q4): a watch on a table with kind `rows` expands the table's `rows` as a scope would, whatever its kind. Notifications are not fanned out per member: a scope watch is a watchlist filter, not a subscription to each member ([0021](0021-notifications.md) is unchanged).
+*Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.2, §4.3, §5.2.*
 
 ### 8. The scope page, links and the API (extends 0012 §5)
 
 *Changed by A1.*
 
-**The page** has a **Builder** tab beside the Definition tab, by example, by facet and by algebra, with a live count and sample through `POST /scope/preview` ([0062](0062-workspaces.md) §5). It shows the description, the count with its notice and its "as of" (the `computed_at`, and for query scopes the cursor's lag), the members in pages of 100 with their kind and label, a **Refresh** button for scopes with a `query` operand (needs `edit` on the page; rate class `query`), and tabs: Members, Definition (the JSON source editor, as a table's), Related changes, and the usual talk and history. A scope that has never been computed because the query service is off says so instead of a count.
-
-**Links.** The page projection writes `page_link` rows ([0038](0038-page-metadata-and-categories.md) §10) from a scope to every scope, table, category and property its definition names, so that "What links here" on `Scope:Women` lists the scopes built on it, and moving or deleting a scope shows what it would break (Q3). Members get no link row: a hundred thousand backlinks would be the banner clutter this ADR removes.
-
-**REST** (`triplespace/v0`): `GET /scope/{pageid}` (count, truncated, cursor, computed_at), `GET /scope/{pageid}/members?after=&limit=` (paged, kind and ID, labels on request), `GET /scope/{pageid}/export` (TSV of IDs), `POST /scope/{pageid}/refresh`. `GET /subject/{kind}/{id}/scopes` lists the scopes a subject is in, which the entity and page UIs show in the About panel ("In 3 scopes"). **Action API:** the definition through `prop=revisions` and `action=edit`, as a table's; `list=scopemembers&smscope=`.
+*Current text: [18](../architecture/18-api.md) §2.3, §3.2; [19](../architecture/19-site-ui.md) §3.1, §6.9.*
 
 ### 9. Permissions and filters
 
-Creating a scope needs `createpage` in namespace 312; editing one, `edit`. A tenant that wants fewer scopes restricts the namespace with an ACL ([0023](0023-moderation.md) §1). Edit filters ([0030](0030-edit-filters.md)) see a scope save as a page edit with the definition as text. There is no right to compute: a scope computes for everyone or no one, and a reader sees the members they may read.
+*Current text: [09](../architecture/09-security-and-moderation.md) §7.2, §8.10.*
 
 ### 10. Storage, caches and search
 
-`view.scope` and `view.scope_member` as in §5; the scope projection in step 7 of [0013](0013-postgres-storage.md) §7 and the refresh job in `ops`. Cache keys: `sc:{page id}:{definition revid}:{computed_at}` for member pages, purged on recomputation; the scope page itself follows the page rules of [0014](0014-caches-and-search.md). Search indexes the plain text of §3; member lists are not indexed.
+*Changed by A5.*
+
+*Current text: [03](../architecture/03-storage-caches-and-search.md) §4.15, §5, §6.1, §11.1, §12.1.*
 
 ### 11. Crates (amends 0005 §2)
 
-| Crate | Change |
-|---|---|
-| `scatter-scope` | **New, layer 2, pure, wasm.** The `triplespace-scope` definition: schema, validation, canonicalization, cycle detection given a resolver of referenced definitions, the subject-type rules, and compilation of `query` and set-algebra kinds to SPARQL through the compiler contract of [0059](0059-query-service.md) §5. Depends on `scatter-pages` (the content model trait) and `scatter-wikibase-model` |
-| `triplespace-projections` | `view.scope` and `view.scope_member`; the incremental scope projection and its inverted-index fan-out; the refresh job; the Scope target set and `rows` watch expansion; `page_link` rows from scope definitions |
-| `triplespace-api-rest`, `triplespace-api-action` | The `/scope` routes and `/subject/…/scopes`; `list=scopemembers`; `rcscope` |
-| `triplespace-ui` | The scope page and its editor; the scope notice component shared with tables, boards and feeds; "In n scopes" in About panels |
-| `scatter-wikibase-shape` | `rows` kinds of §6 in the table model, by depending on `scatter-scope` |
-| `scatter-threads` | Board definition `version: 2` with `scope` and `thread_statement` |
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
 
 ## Alternatives considered
 
@@ -250,3 +157,41 @@ Creating a scope needs `createpage` in namespace 312; editing one, `edit`. A ten
 Replaced text (§4, in part):
 
 > **Kinds.** A kind selects subjects. Each has a **subject type**, entity or page, which the scope takes from its kind; set algebra requires its operands to agree.
+
+### A5. Listing keys carry a listing version
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** amends §10
+- **Summary:** The scope listing key `sc:` (with `tp:` of [0049](0049-boards.md) §12 and `sp:` of [0061](0061-sprints-and-tasks.md) §11) carries a **listing version**, the maximum activity ID over the listing's members, computed in Postgres at read time, in place of purges on ordinary writes; [0014](0014-caches-and-search.md) §1 principles 1 and 4 hold unchanged. Tag purges remain for erasure and hiding. (PENDING B4)
+
+Replaced text (§10):
+
+> Cache keys: `sc:{page id}:{definition revid}:{computed_at}` for member pages, purged on recomputation; the scope page itself follows the page rules of [0014](0014-caches-and-search.md).
+
+### A6. `notify` refused on scope and rows watches
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** extends §7
+- **Summary:** `notify` is refused on a `scope` or `rows` watch (`ts-watch-notify-unsupported`): those watches are feed filters, not subscriptions. The ledger row says amends; this ADR's §7 already calls a scope watch a watchlist filter and not a subscription, and nothing in it accepts `notify`, so the refusal extends it. (PENDING E31)
+
+### A7. Form and sense members
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design discussion of 2026-10-09
+- **Change:** corrects §5
+- **Summary:** `view.scope_member.kind` admits `form` and `sense` beside `entity` and `page`, as A4's form and sense subjects need; a lexeme part is keyed by its part ID. (PENDING F9)
+
+Replaced text (§5):
+
+> ```
+>   kind     text   NOT NULL,                -- 'entity' | 'page'
+> ```
+
+### A8. Current text relocated to the architecture chapters
+
+- **Date:** 2026-10-09
+- **Source:** [0050](0050-adr-format.md) §14
+- **Change:** relocates §1–§11
+- **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), [15](../architecture/15-structured-pages.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.

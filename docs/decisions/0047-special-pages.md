@@ -2,10 +2,11 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-07 (A12)
+- **Updated:** 2026-10-09 (A17)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0029](0029-resolver-namespaces.md), [0031](0031-property-constraints.md), [0042](0042-template-expansion-and-parsoid.md), [0046](0046-primary-tenant.md)
 - **Uses:** [0019](0019-discussions.md), [0021](0021-notifications.md), [0028](0028-tenancy-policy.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md)
+- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), [18](../architecture/18-api.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -43,482 +44,95 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 1. One registry of special pages (extends 0015 §5)
 
-*Changed by A9.*
+*Changed by A9, A15.*
 
-**`docs/registry/special-pages.toml` lists every special page name the instance knows**, including pages it serves, pages it defers or declines, and names it reserves. It is embedded by `triplespace-titles`, which already resolves titles in the `Special` namespace ([0008](0008-namespaces-and-document-pages.md) §3). Each entry has these fields:
-
-| Field | Meaning |
-|---|---|
-| `name` | The canonical name. Where MediaWiki or an extension has the page, this is the first English alias MediaWiki gives it, so `RecentChanges` and not `Recentchanges`, and `MostLinkedFiles` and not `Mostimages`. |
-| `mediawiki_name` | MediaWiki's internal name, where it differs from `name`. `meta=siteinfo&siprop=specialpagealiases` reports it as `realname`, and `list=querypage` accepts it as `qppage`. |
-| `origin` | `mediawiki`, an extension's name (`Wikibase`, `WikibaseClient`, `Nuke`, `AbuseFilter`, `OAuth`, `Echo`, `CentralAuth`, `GlobalBlocking`, `WikibaseQualityConstraints`, `WikibaseLexeme`, `EntitySchema`), or `triplespace` |
-| `status` | `served`, `deferred` (with `until`), `declined` (with `reason`) or `reserved` |
-| `scope` | `tenant`, `farm` or `both` (§3) |
-| `group` | The heading under which `Special:SpecialPages` lists it. These are MediaWiki's group keys plus `wikibaserepo`, `wikibaseclient`, `identity` and `instance`. |
-| `aliases` | Other names that reach the page (§2) |
-| `section_aliases` | MediaWiki pages whose function is part of this page, each mapped to a subpage or an anchor (§2) |
-| `restricted` | The permission without which the page is not listed and refuses to act, as MediaWiki's restricted special pages do |
-| `report` | For reports only: `backing`, the tables it reads, and its default graph scope (§4) |
-| `adr` | Where the page is specified |
-
-**Rules**, as for the other registry files:
-
-- Names are never removed. A page that stops being served changes status.
-- A name is never given a second meaning.
-- **Every `Special:` name an ADR uses must be in the file**, as a `name`, an alias or a section alias. `check_adrs.py` gains a fifth check that enforces this.
-- Upstream page names that this ADR does not decide can be added later as `deferred`.
-
-**Statuses:**
-
-- **`served`:** the instance serves the page. "Served" records a decision, not an implementation. Implementation is tracked in the milestones.
-- **`deferred`:** undecided, with the open question it waits on.
-- **`declined`:** decided against, with the reason. Requests get MediaWiki's "no such special page" response.
-- **`reserved`:** the name belongs to an entity type Triplespace has reserved but not implemented. Lexeme and EntitySchema were the cases until [0064](0064-entityschema-and-validation.md) and [0066](0066-lexemes.md) implemented them; no name is reserved today. The name will not be used for anything else.
+*Current text: [21](../architecture/21-special-pages.md) §1.1, §8.*
 
 ### 2. Names, aliases and section aliases
 
-**An alias resolves to its page.**
-
-- Aliases are matched case-insensitively, as MediaWiki matches them.
-- A `GET` for an alias is redirected (301) to the canonical name, with the subpage and query string kept. A `POST` is served in place. This is how MediaWiki's `SpecialPageFactory::executePath` handles a name that is not the page's local name.
-- Aliases cover MediaWiki's other English names (`Special:Random` and `Special:RandomPage`). They also cover the MediaWiki names of pages Triplespace renamed:
-
-| Triplespace page | Aliases |
-|---|---|
-| `EditFilter` ([0030](0030-edit-filters.md)) | `AbuseFilter` |
-| `EditFilterLog` | `AbuseLog` |
-| `OAuthConsumers` ([0025](0025-oauth-server.md) §5) | `OAuthListConsumers`, `OAuthConsumerRegistration`, `OAuthManageConsumers` |
-| `GlobalGroupMembership` ([0028](0028-tenancy-policy.md)) | `GlobalUserRights` |
-| `GlobalBlockList` | `ListGlobalBlocks` |
-
-**A section alias redirects to the part of a page that does the job.** The target is a subpage or an anchor. These are mostly sections of `Special:Account` ([0010](0010-site-ui.md) §11 and its extensions):
-
-| MediaWiki page | Goes to |
-|---|---|
-| `Preferences`, `ResetTokens`, `DisplayNotificationsConfiguration` | `Account#preferences`, `Account#preferences`, `Account#notifications` |
-| `ChangeCredentials`, `RemoveCredentials`, `ChangePassword`, `LinkAccounts`, `UnlinkAccounts` | `Account#sign-in-methods`. MediaWiki's "linked accounts" are external sign-in providers, which are bindings here ([0007](0007-actor-identity.md) §3). Triplespace's own **Linked accounts** section is a different thing (0007 §7). |
-| `ChangeEmail`, `Confirmemail`, `Invalidateemail` | `Account#notifications`, where the email address and its verification live ([0021](0021-notifications.md) §4, §6) |
-| `BotPasswords` | `Account#subsidiaries` ([0024](0024-subsidiary-accounts.md) §4) |
-| `OAuthManageMyGrants` | `Account#connected-applications` ([0025](0025-oauth-server.md) §5) |
-| `NotificationsMarkRead` | `Notifications` |
-| `Listadmins`, `Listbots` | `ListUsers/sysop`, `ListUsers/bot` |
-
-**`siprop=specialpagealiases`** reports one entry per served page. Its `realname` is `mediawiki_name`, or `name` where there is no `mediawiki_name`. Its aliases are `name` followed by `aliases`. Each section alias is reported as an entry of its own, so a client asking for `Preferences` finds it.
-
-**Localized aliases** are messages in `i18n/` ([0034](0034-frontend-stack.md) §9), in the shape of MediaWiki's `*.alias.php` files. The first alias in the tenant's content language is the name the UI links to. Every alias in every language resolves. The registry holds the English names, which are the ones a tool can rely on.
+*Current text: [21](../architecture/21-special-pages.md) §1.2.*
 
 ### 3. Where a page is served (extends 0018 §11 and 0046 §7)
 
-**A page is served where its subject lives.**
-
-- **`farm`:** pages about instance-scope things. These are tenants and the tenancy policy, farm accounts, global groups and global blocks, instance acts and takedowns:
-  - `Tenants`, `GlobalUsers`, `GlobalGroupMembership`, `GlobalBlock`, `GlobalBlockList`, `RemoveGlobalBlock`, `GlobalRecentChanges`;
-  - `InstanceAction`, `Takedowns`, `Takedown`;
-  - `OAuthConsumers`, whose approval is an instance right ([0046](0046-primary-tenant.md) §8).
-- **`both`:** pages with a tenant form and an instance form.
-  - `Log`: a tenant's log, or the public records of the instance `log` (0046 §4).
-  - `Jobs`: tenant bulk jobs, or instance jobs such as mirror syncs (0046 §4).
-  - `Contributions`: at the farm base, the operator's acts for `ts-viewoperator` ([0040](0040-instance-prerogatives.md) §7).
-  - `Providers`: every provider at the farm base; at a tenant, the providers it has opted into, with its own lag.
-  - `Tenancy`: the policy at the farm base, and a tenant's own view of it with 0046 §9's **Accept**.
-  - `Version` and `SpecialPages`.
-- **`tenant`:** everything else, including `GlobalContributions`, which [0018](0018-tenants.md) §8 serves on a tenant for the accounts linked to it.
-
-A `farm` page requested at a tenant base is redirected to the farm base.
-
-**Where the farm base is also a tenant's base**, the two sets of pages share a host. That is always so on a single-tenant instance, and it may be so on a farm ([0046](0046-primary-tenant.md) §7). Names are unique in the registry, so nothing collides.
-
-A `both` page at such a host shows both forms together, with a `scope=tenant|instance` filter that defaults to both. 0046 §7 says special pages "keep their paths". This is how two pages keep one path.
+*Current text: [21](../architecture/21-special-pages.md) §1.3.*
 
 ### 4. Reports
 
+*Current text: [21](../architecture/21-special-pages.md) §2.*
+
 #### 4.1 What a report is
 
-**A report lists the things that meet a condition, sorted and paged.** Reports include:
-
-- MediaWiki's QueryPage pages: the `qppage` list of `list=querypage` and its unlisted siblings;
-- Wikibase's lists (`ItemsWithoutSitelinks`, `ListProperties`, `UnconnectedPages`, `PagesWithBadges`, `EntityUsage`);
-- Triplespace's own lists (§6).
-
-Feeds ([0020](0020-change-feeds.md)), logs, forms and pages about a single thing are not reports. Every report has a `report` table in the registry.
+*Current text: [21](../architecture/21-special-pages.md) §2.1.*
 
 #### 4.2 Local graphs by default
 
-**A report reads the tenant's own partitions** (`local`, `pages`, `log`, `actors`, `config` and its file versions) and nothing else by default. It does not read `mirror/*`, `log/{provider}`, `files/{repo}` or any other tenant's partitions. This is the general rule for report pages.
-
-- **Page and file reports are unaffected.** Pages and uploads are always the tenant's own.
-- **Entity reports list local subjects.** The rows are local entities, and local assertions where a report is about statements. Conditions are evaluated on the **resolved view**, as a reader sees it. For example:
-  - `EntitiesWithoutLabel` lists local entities that have no label in the language. A local item fused with a labelled Wikidata item ([0004](0004-identity-clusters-and-equivalence.md) §4) has a label, so it is not listed.
-  - `ListProperties` lists local properties.
-  - `ItemsWithoutSitelinks` lists local items.
-
-  The report answers "what is missing among the things this wiki made, as its readers see them".
-- **Widening takes a `graphs=` parameter** that names source graphs.
-  - It is served live only where the report's backing already covers those graphs. `ConstraintReport` is the main case: `view.constraint_violation` covers the resolved view ([0031](0031-property-constraints.md) §2, §5), and `IdentityConflicts` (§6) is another.
-  - Elsewhere, widening must be configured by the instance's operators in its `reports` configuration (§4.3), and a report configured for mirror graphs is always **batch** for that graph set. No live projection is maintained at mirror scale.
-- **`ConstraintReport` defaults to the local graph** (amends 0031 §3). Its existing source-graph filter widens it.
+*Current text: [21](../architecture/21-special-pages.md) §2.2.*
 
 #### 4.3 Live projections by default; batch by configuration
 
-Every report has one of three backings:
-
-| Backing | What serves it | Freshness |
-|---|---|---|
-| `index` | A keyset-paged query over a `view` table and one of its indexes. The report has no rows of its own. | Live, at the lag of the table it reads |
-| `projection` | Rows in `view.report_entry` (§13), maintained incrementally by the `report` projection as the tables it reads change | Live, at that projection's lag |
-| `batch` | Rows in `view.report_entry`, recomputed by a scheduled `ops` job | As of the last run |
-
-**No report is batch by default.** The registry gives each report `index` or `projection`, and §4.4 lists them.
-
-**Whether a report is batch is an instance setting, not a tenant's.** The mode exists to manage the instance's load. A small instance runs every report live and needs no setup. A large instance plans batch runs for its expensive reports. That is the operators' call, made where they manage the rest of the instance's capacity.
-
-**Settings live in an instance-scope `config` kind, `reports`** (extends [0015](0015-record-format-and-partition-registry.md) §3). The code is `default`, or a tenant's slug for an override that applies to that tenant only. For example, a farm can run one large tenant's reports in batch while every other tenant stays live. An override replaces the default key by key. The entry holds:
-
-| Key | Meaning | Default |
-|---|---|---|
-| `batch` | Report names to run as batch. Any `projection` report can be listed. | None |
-| `widen` | Report name → the mirror graphs it also covers (§4.2). Each widening is a batch run for that graph set. | None |
-| `schedule` | When batch runs start | Daily |
-| `batch_limit` | Rows kept per batch report, as MediaWiki's `$wgQueryCacheLimit` | 1,000 |
-
-The settings are written with `ts-config` at the farm base, which is an instance right ([0040](0040-instance-prerogatives.md) §9). A tenant's administrators cannot change them. They see each report's mode on the report page and in `GET /reports` (§11). On a single-tenant instance the operators and the wiki's owners are usually the same people, so nothing changes for them.
-
-Changing a mode writes nothing into any tenant's partitions, so it is not an instance act ([0040](0040-instance-prerogatives.md) §1). When a report moves from live to batch, its next run fills its rows. When it moves from batch to live, the `report` projection rebuilds its rows for that tenant.
-
-A batch report's page says when it was computed, as MediaWiki's cached reports do. `list=querypage` returns `cached`, `cachedtimestamp` and `maxresults` for it.
-
-**How the projection keeps up.**
-
-- The `report` projection runs after the tables it reads, in step 5 of [0013](0013-postgres-storage.md) §7. Each change to an input key recomputes only the entries that key affects. For example, a new `page_link` row to a missing title adds one to that title's `WantedPages` count.
-- Report entries are **fan-out**, not part of a write's own rows. They are applied by the projection worker under 0013 §7's synchronous budget, and their lag is reported with the other projections'.
-- Some inputs are written by the refresh job rather than by replay ([0042](0042-template-expansion-and-parsoid.md) §10): `transclusion`, `entity_usage`, and links and categories under expansion. For those, the refresh job applies the report deltas in the same transaction as the rows it writes.
-
-**Rebuilds** (amends 0013 §5.6's rule).
-
-- `projection` entries are a function of the `view` tables they read, and are rebuilt with them.
-- `batch` entries are a dated snapshot. A rebuild empties them, and the next run fills them.
-
-As with 0042 §10's tables, this is stated rather than left to be assumed.
+*Current text: [21](../architecture/21-special-pages.md) §2.3.*
 
 #### 4.4 The reports
 
-*Changed by A3, A5.*
+*Changed by A3, A5, A16.*
 
-**Index-backed:**
-
-| Report | Reads |
-|---|---|
-| `AllPages`, `PrefixIndex` | `view.page (ns, title)` |
-| `Categories`, `TrackingCategories` | `view.category`; 0042 §9's tracking-category names |
-| `ShortPages`, `LongPages` | `view.page.len` (§13) |
-| `AncientPages` | `view.page.latest_at` (§13) |
-| `FewestRevisions`, `MostRevisions` | `view.page.revisions` (§13) |
-| `NewPages` | Creations in `view.activity`, with the `patrolled` filter ([0023](0023-moderation.md) §6) |
-| `ProtectedPages`, `ProtectedTitles` | `view.acl`; reserved rows in `view.page` (0023 §10) |
-| `ListFiles`, `NewFiles`, `MIMESearch`, `FileDuplicateSearch` | `view.file`, `view.file_version` ([0039](0039-files-and-media.md) §20) |
-| `ListUsers`, `ActiveUsers` | `view.actor`; `view.actor.last_active` (§13); active means within `$wgActiveUserDays`, default 30 |
-| `ListProperties` | `view.entity` by type and datatype |
-| `EntityUsage` | `view.entity_usage` ([0043](0043-lua-modules.md) §10) |
-| `PagesWithBadges` | `view.sitelink` for the tenant's own host ([0038](0038-page-metadata-and-categories.md) §6) |
-| `ConstraintReport` | `view.constraint_violation` ([0031](0031-property-constraints.md) §5) |
-| `Corrections`, `IdentityConflicts` | `view.correction`; `view.link` (§6) |
-| `Random`, `RandomInCategory`, `RandomRootPage` | `view.page.random` (§13), as MediaWiki's `page_random` |
-| `ListRedirects`, `BrokenRedirects`, `DoubleRedirects`, `RandomRedirect` | `view.redirect` joined to `view.page` ([0051](0051-page-redirects.md) §6) |
-| `PagesWithProp` | `view.page_prop` ([0055](0055-templatestyles-templatedata-and-page-properties.md) §6) |
-
-**Projection-backed:**
-
-| Report | Entry key and sort |
-|---|---|
-| `WantedPages`, `WantedCategories`, `WantedTemplates`, `WantedFiles` | A missing target; links, members, transclusions or uses to it |
-| `MostLinkedPages`, `MostLinkedCategories`, `MostTranscludedPages`, `MostLinkedFiles`, `MostCategories` | A page or file; the count |
-| `DeadendPages`, `LonelyPages` | A page with no outgoing links; a page with no incoming links and no transclusions |
-| `UncategorizedPages`, `UncategorizedCategories`, `UncategorizedTemplates`, `UncategorizedFiles` | A page in no category |
-| `UnusedCategories`, `UnusedTemplates`, `UnusedFiles` | A category with no members; a template nothing transcludes; a file nothing uses |
-| `ListDuplicatedFiles`, `MediaStatistics` | A hash with more than one current file; a MIME type and its count and bytes |
-| `ItemsWithoutSitelinks` | A local item with no sitelink |
-| `EntitiesWithoutLabel`, `EntitiesWithoutDescription` | A local entity and a language, for each language in `reports.term_languages` (default: the content language). Other languages are added to the setting, not computed on request. |
-| `UnconnectedPages` | A main-namespace page with no item paired through 0038 §6's own-host sitelink |
-
-Reports about templates are listed only while `wikitext.expansion` is on (0042 §3). Before that the Template namespace is reserved.
+*Current text: [21](../architecture/21-special-pages.md) §2.4, §8.*
 
 #### 4.5 Who sees what
 
-**Report entries are stored in their public form** ([0014](0014-caches-and-search.md) §1, principle 3). Nothing behind a `read` ACL becomes an entry: deleted pages and entities, hidden names, and pages in a namespace with a read ACL.
-
-A report never lists what an anonymous reader could not see. Every viewer sees the same report, as on MediaWiki. On a tenant whose graphs are private, the report page itself is behind the graph ACL ([0016](0016-permissions-and-access-control.md) §4).
+*Current text: [21](../architecture/21-special-pages.md) §2.5.*
 
 ### 5. Wikibase compatibility forms
 
-The forms are `NewItem`, `NewProperty`, `SetLabel`, `SetDescription`, `SetAliases`, `SetLabelDescriptionAliases`, `SetSiteLink`, `MergeItems` and `RedirectEntity`. Each is served at its Wikibase address, with Wikibase's subpage and query forms (`Special:SetLabel/Q42/en`, `Special:SetSiteLink/Q42/enwiki`, `?id=…&language=…`), because tools and gadgets link to them.
-
-**They are server-rendered forms that need no JavaScript.** [0034](0034-frontend-stack.md) §10 gives older browsers the server-rendered pages without components. That leaves those browsers without the statement UI's editing, and these forms are their editing path.
-
-**They write through the same handlers as `wbsetlabel`, `wbsetsitelink`, `wbmergeitems` and the rest** (0034 §1.5). Permissions, edit filters, rate limits and base offsets are therefore the same as for the API. The forms show the current value and nothing else, so they are not a second renderer of entities (0034 §1.3).
-
-- **On a foreign entity,** `SetLabel`, `SetDescription` and `SetAliases` write a local term correction ([0002](0002-source-graphs-and-mass-ingest.md) §7; kind `term` in `view.correction`). `SetSiteLink` writes a local sitelink ([0026](0026-sitelinks.md)). Both are what the statement UI writes for the same edit.
-- **`NewItem` and `NewProperty`** are the targets of the **New** menu (0010 §2).
-  - They take Wikibase's `label`, `description`, `aliases` and `lang`.
-  - They also take a Triplespace parameter, `statement={property}:{value}`, repeatable, which prefills statements. [0029](0029-resolver-namespaces.md) §3's "Create an item with this DOI" opens `NewItem` with the resolver's property and key filled in.
-  - `NewProperty` needs `property-create` and a `datatype`.
-- **`MergeItems`** (`fromid`, `toid`, `ignoreconflicts`):
-  - **Two local entities:** Wikibase's merge. Content moves to the target, the source is emptied and becomes a redirect, and both get ordinary revisions ([0011](0011-logs.md) Context).
-  - **Two foreign entities in one namespace:** a local `redirect` and nothing more ([0004](0004-identity-clusters-and-equivalence.md) §2). Upstream's content is not moved.
-  - **Across namespaces:** refused with `ts-cross-namespace-merge`, which links to `Special:LinkEntities` with both IDs filled in (§6).
-  - Needs `item-merge`.
-- **`RedirectEntity`** writes a `redirect` (0004 §9), including the cross-namespace property redirect amended there on 2026-09-27. Needs `item-redirect`.
+*Current text: [21](../architecture/21-special-pages.md) §3.1.*
 
 ### 6. Identity and correction pages
 
 *Changed by A11.*
 
-Three pages give addresses to things 0002 and 0004 already describe:
-
-- **`Special:LinkEntities`** *(new)* is the form for `same-as`, `different-from` and `equivalent-property` ([0004](0004-identity-clusters-and-equivalence.md) §9). It needs `ts-link` and counts in the `link` rate class ([0024](0024-subsidiary-accounts.md) §5). It is prefilled from a refused merge and from a conflict row.
-- **`Special:IdentityConflicts`** *(new)* is 0004 §10's review list. It shows held links (`view.link` with `status = 'held'`) and the duplicate-key conflicts of [0009](0009-keyed-entity-types-and-domain.md) §9.
-  - Each row offers 0004 §10's resolutions as actions: a local `same-as`, `different-from`, a merging `redirect`, or deprecating the source statement.
-  - By §4.2's rule it lists conflicts that involve the tenant's own records or entities it has local assertions on. `graphs=all` lists every held link in the tenant's view. That is live, because the table already holds them.
-- **`Special:Corrections`** *(new)* is 0002 §7's maintenance list of local corrections.
-  - It can be filtered by state (`active`, `redundant`, `dangling`; [0003](0003-statement-ui.md) §4), kind (`rank`, `suppress`, `term`) and upstream graph.
-  - It offers **Retire** for redundant corrections, singly or in bulk, and review for dangling ones.
-  - 0002 §7 notes that this list "doubles as a list of fixes to report upstream": its export per upstream graph is now **Propose**, which opens a proposal thread per subject for the selection ([0067](0067-proposals.md) §4).
-- **`Special:Proposals`** *(new)* lists the tenant's proposals by state, destination wiki and proposer ([0067](0067-proposals.md) §7).
-
-All four are in the `identity` group of `Special:SpecialPages`.
+*Current text: [21](../architecture/21-special-pages.md) §3.2.*
 
 ### 7. Special:Nuke
 
-**MediaWiki's Nuke** lists pages that one user created, taken from recent changes, and deletes the selected pages one deletion at a time. It takes `target`, `pattern`, `namespace` and `limit`, and needs the `nuke` right, held by `sysop`. Triplespace serves `Special:Nuke` at that address with that right and those parameters. It extends Nuke in three ways that the log makes cheap.
-
-**What it covers.** Everything the target did on the tenant, by kind:
-
-| The target's contribution | What Nuke does |
-|---|---|
-| A page, thread or local entity it created | Deletes it: a `read` ACL naming the deletion group ([0023](0023-moderation.md) §4). With `deletetalk`, the talk page too. |
-| A file it uploaded first | Deletes the file page (0039 §9) |
-| A new version of someone else's file | Reverts the file to the previous version ([0039](0039-files-and-media.md) §2, `upload/revert`) |
-| Change sets on others' entities, or on page statements ([0038](0038-page-metadata-and-categories.md) §1) | Appends the inverse change sets. Later edits by others are kept, as a job revert keeps them ([0010](0010-site-ui.md) §9). |
-| Text edits to others' pages | Rolls back, restoring the latest revision by another actor, where the target's edits are the latest. Otherwise the page is listed and left alone, as rollback does. |
-| Posts in others' threads | Hides the post's `text` part with a `record` ACL (0023 §5), since only a whole thread is deleted ([0019](0019-discussions.md) §1) and a post's text is its record's `text` part (0019 §4) |
-| Edit summaries, optionally | Hides the `comment` part of each of the target's records. Needs `deleterevision`. |
-
-Foreign entities are never deleted (0023 §1). The target's local assertions about them are reverted, and upstream's content is untouched.
-
-**Who it targets.**
-
-- An account, by default together with its subsidiaries ([0024](0024-subsidiary-accounts.md) §1), so that a spammer's bots go with it. Temporary accounts are accounts.
-- Alternatively a **change tag**. An `oauth:{slug}` tag ([0025](0025-oauth-server.md) §4) cleans up after a tool that misbehaved.
-- IP addresses are private state ([0016](0016-permissions-and-access-control.md) §3) and are not a target.
-
-**When.** The window defaults to the recent-changes window, `rc.max_age` (0010 §7). MediaWiki's Nuke can see no further back than that, because it reads `recentchanges`. Here the log is complete, so the window can be extended to the target's whole history. `pattern` (a title pattern) and `namespace` narrow it further.
-
-**How it runs.**
-
-1. **Preview.** The page lists every candidate, grouped by the kinds above, with counts and a checkbox each, all checked as in MediaWiki. Candidates that will be left alone are marked with the reason, such as a page edited since.
-2. **Confirm.** Above `nuke.confirm_threshold` items (`site` setting, default 500), the form asks for the target's name to be typed, as the snapshot safety threshold does ([0002](0002-source-graphs-and-mass-ingest.md) §8.4).
-3. **One job.** Submitting starts a job with mode `nuke` ([0011](0011-logs.md) §6.3).
-   - Its actor is the administrator. Its parameters are the target, the filters, the window, the selection and the reason.
-   - Every record it writes carries the job ID in its attestation: ACLs in the tenant `log`, inverse change sets, page records and record ACLs.
-   - Each write goes through the write path as the administrator's own would.
-
-**What others see.**
-
-- Recent changes shows **one row** for the job (0010 §7). A patroller marks it once (0023 §6).
-- The deletion log still gets one `delete/delete` event per deleted page, each tagged `job:{id}`. A tool reading `list=logevents` sees what it would see after MediaWiki's Nuke.
-
-**Undo.** **Revert this job…** on the job's page (0010 §9) does three things:
-
-- retires the ACLs the job wrote;
-- appends the inverse of its inverse change sets;
-- restores the revisions it rolled back where nobody has edited since, and lists the rest.
-
-It needs `ts-revertjob` and, because it retires deletions, `undelete`.
-
-**Blocking is separate.** A block is an actor record with its own form ([0016](0016-permissions-and-access-control.md) §3). The Nuke page links to `Special:Block` for the target and offers **Block after nuking**, which opens that form prefilled.
+*Current text: [21](../architecture/21-special-pages.md) §4.1.*
 
 ### 8. Special:Export and Special:Import
 
-**`Special:Export` keeps MediaWiki's form and parameters:**
-
-- a list of titles;
-- `addcat` with a category, and, where the `site` setting `export.from_namespaces` is on (MediaWiki's `$wgExportFromNamespaces`), `addns` with a namespace;
-- `curonly` or full history;
-- `templates`;
-- `wpDownload`.
-
-`action=query&export` and `exportnowrap` give the same output.
-
-**The default format is MediaWiki XML**, export schema version 0.11, which carries content models and slots.
-
-- **Pages.** Each page record is a `<revision>`, with its content model and format ([0041](0041-content-models.md)).
-  - A part hidden from the viewer is written as MediaWiki writes revision-deleted content (`<text deleted="deleted"/>`, and likewise `comment` and `contributor`). An erased part is written the same way.
-  - Full history is governed by `export.history` (default on) and `export.max_history` (revisions per page, default 1,000), MediaWiki's `$wgExportAllowHistory` and `$wgExportMaxHistory`.
-- **Templates and modules.** With `templates`, the pages that `view.transclusion` lists for the selection ([0042](0042-template-expansion-and-parsoid.md) §10) are added.
-- **Local entities** are exported as Wikibase exports entity pages. The model is `wikibase-item` or `wikibase-property`. Each revision is one local change set, and its text is the canonical JSON of the entity's **local-graph** state at that revision ([wikibase-compat.md](../api/wikibase-compat.md)). A MediaWiki Wikibase with free IDs can import them, which is the reverse of adoption ([0035](0035-adopting-a-wikibase.md)).
-- **Foreign entities are not exported.** Their content is upstream's. `Special:EntityData` serves their resolved view.
-- **Files.** With `files`, file versions are added as `<upload>` elements with their contents, which 0039 §14's import accepts. The total is capped by `export.max_bytes`. Over the cap, URLs are written in place of contents.
-- **Not in the XML:**
-  - page statements ([0038](0038-page-metadata-and-categories.md) §1), which no Wikibase slot carries (Q4);
-  - threads and composite talk pages. They are left out by default, and with `threads` they are written with their own content models, which a MediaWiki importer refuses.
-
-**A second format, `records`, is verifiable.**
-
-- It contains the selected pages' and local entities' records from `pages` and `local`, each with an inclusion proof against the latest checkpoint. It also carries that checkpoint and the key-chain records needed to check it ([0006](0006-log-integrity-and-erasure.md) §9).
-- A part withheld from the viewer appears as its commitment only, as an erased part does, so every proof still verifies.
-- `log`-partition records are left out, because the `log` partition is internal (0023 §7).
-- `triplespace-cli verify --records` checks such an export. A third party can then confirm that an export is exactly what the wiki holds, which no MediaWiki export can show.
-
-**Size.**
-
-- An export up to `export.sync_revisions` (default 5,000 revisions) streams.
-- A larger one becomes an `ops` export job, as [0027](0027-preferences-and-portability.md) §3's data bundle does. The page then links to it when it is ready.
-- Exports count in a new rate class, `export` ([0024](0024-subsidiary-accounts.md) §5), default 30 / 300 per hour for `user` / `bot`.
-- Export needs only `read`, and every response is redacted per viewer ([0012](0012-api-requirements.md) §8).
-
-**`Special:Import` is the form for [0008](0008-namespaces-and-document-pages.md) §9's import job.**
-
-- **Upload an XML file** (`importupload`), or **import from another wiki** named by site alias ([0026](0026-sitelinks.md) §2) in place of MediaWiki's interwiki sources (`import`).
-- It runs the template census first, shows its report, and on confirmation starts the job and goes to `Special:Jobs/{id}`.
-- It accepts MediaWiki XML only. Data moves between instances by a tenant move ([0018](0018-tenants.md) §10) or verified sync ([0022](0022-federation.md)), not by importing `records`.
+*Current text: [21](../architecture/21-special-pages.md) §4.2, §4.3.*
 
 ### 9. Other pages (extends 0010 §2, §3 and §12)
 
 *Changed by A4, A6, A7, A8, A9, A10, A11, A12.*
 
-These are served with MediaWiki's or Wikibase's meaning and parameters. The notes say what they read or write.
-
-| Page | Notes |
-|---|---|
-| `SpecialPages` | The index the header links to (0010 §2), grouped by `group`. Restricted pages are listed only to holders of the right. At the farm base it also lists the `farm` pages. |
-| `Search` | The full results page of 0010 §3: `search`, `fulltext`, `ns{n}`, `profile`, `offset`, `limit`. `go` follows 0010 §3's **Go to** rule. |
-| `MovePage` | The overflow menu's **Move** (0010 §2); a `move` record ([0008](0008-namespaces-and-document-pages.md) §4) |
-| `RevisionDelete` | The history dialog of 0023 §9 as a page: `type`, `target`, `ids` |
-| `Unblock`, `RemoveGlobalBlock` | Retire a block, or a global block at the farm base ([0028](0028-tenancy-policy.md)) |
-| `EditWatchlist` | The watch set, with `/raw` and `/clear` ([0020](0020-change-feeds.md) §3) |
-| `ChangeContentModel` | [0041](0041-content-models.md)'s `action=changecontentmodel` |
-| `Fork` | Forks a title whose primary is a page repository's page, without an edit: shows the stack, the licence and the fork options, and appends the fork's `create` ([0054](0054-forking-a-mirrored-page.md) §2). Origin `triplespace`; restricted to `createpage` |
-| `Query` | A SPARQL editor and result table over `/sparql`, with the tenant's prefix set, labels resolved, a shareable `?query=` URL and a "Try with scope" button ([0059](0059-query-service.md) §6). Origin `triplespace`; listed while `query.enabled` is on; group `wikibaserepo` |
-| `CreateSprint` | The form that writes a `triplespace-sprint` subpage under a project page, with its scope, rules, window and an optional board ([0061](0061-sprints-and-tasks.md) §9). Origin `triplespace`; restricted to `createpage`; group `pagetools` |
-| `CreateWorkspace` | The wizard that gives a project page a scope and a kit's pages: name, scope through the builder, kit with a preview, then the creates in dependency order as one job ([0062](0062-workspaces.md) §7). Origin `triplespace`; restricted to `createpage`; group `pagetools` |
-| `NewEntitySchema`, `EntitySchemaText`, `SetEntitySchemaLabelDescriptionAliases` | EntitySchema's pages, with its parameters: create a schema, serve its ShExC as `text/shex`, set its terms ([0064](0064-entityschema-and-validation.md) §7). Origin `EntitySchema` |
-| `CheckEntitySchema` | A schema and a subject; shows the result-shape map ([0064](0064-entityschema-and-validation.md) §7). Origin `triplespace`; rate class `query` |
-| `NewLexeme`, `MergeLexemes` | WikibaseLexeme's pages: create a lexeme from lemma, language and category; merge two lexemes as `same-as` plus conversion ([0066](0066-lexemes.md) §7). Origin `WikibaseLexeme` |
-| `MergeUpstream` | The guided three-way merge of a fork with its repository's current text ([0068](0068-merging-with-upstream.md) §6). Origin `triplespace`; restricted to `edit` on the page; group `pagetools` |
-| `ExpandTemplates` | [0042](0042-template-expansion-and-parsoid.md)'s expander, in the `parse` rate class; listed while `wikitext.expansion` is on |
-| `ComparePages` | Any two pages or revisions, with 0010 §6's diff |
-| `Redirect` | `user/{id}`, `revision/{id}`, `page/{id}`, `file/{name}` and `logid/{id}`, resolved locally. `file` was already served by 0039 §7. This settles [0007](0007-actor-identity.md) Q7. |
-| `RenameUser` | Renaming another account ([0007](0007-actor-identity.md) §4; `renameuser`) |
-| `UserLogout`, `PasswordReset` | Session end; a reset for the built-in `password` issuer (0007 §3), sent by the email channel of 0021 |
-| `UploadStash` | One's stashed uploads (0039) |
-| `ItemDisambiguation` | Wikibase's label lookup (`/{language}/{label}`). 0029 §3's resolver disambiguation uses its layout. |
-| `Statistics` | `view.site_stats` (§13), which also serves `siprop=statistics`, the `NUMBEROF*` variables ([0042](0042-template-expansion-and-parsoid.md) §5) and `mw.site.stats` ([0043](0043-lua-modules.md)) |
-| `Version` | Credits and licence notice, installed software and services, features, entry points, crates and third-party components, wikitext, the extensions that inspired features, and the AI agents named in the ADRs ([0077](0077-special-version.md)) |
-| `ApiSandbox`, `ApiHelp`, `AllMessages`, `NamespaceInfo`, `PasswordPolicies`, `ListDatatypes`, `AvailableBadges`, `MyLanguageFallbackChain`, `Blankpage` | From the registry, configuration and i18n |
-| `MyPage`, `MyTalk`, `MyContributions`, `MyLanguage`, `MyLog`, `MyUploads`, `AllMyUploads`, `EditPage`, `PageHistory`, `PageInfo`, `Purge`, `DeletePage`, `ProtectPage`, `NewSection`, `TalkPage`, `EditTags` | MediaWiki's redirecting pages, to the matching page or action. `NewSection` opens the talk page's new-thread form ([0019](0019-discussions.md)). |
+*Current text: [21](../architecture/21-special-pages.md) §5.1, §6.1, §8.*
 
 ### 10. Deferred, declined and reserved
 
 *Changed by A3, A5, A9.*
 
-| Page | Status | Until, or why |
-|---|---|---|
-| `LinkSearch` | deferred | An external-links table. [0042](0042-template-expansion-and-parsoid.md) §9 extracts external links, but no table holds them. |
-| `Mute` | deferred | Undecided |
-| `BookSources` | deferred | A bound ISBN resolver (`resolvers.toml` has a draft). It would then be an alias of that resolver. |
-| `AutoblockList` | deferred | Autoblocks, which [0016](0016-permissions-and-access-control.md) does not specify |
-| `PageLanguage` | deferred | Per-page content language, which nothing specifies |
-| `EditRecovery` | deferred | The source editor's own recovery ([0034](0034-frontend-stack.md) §7) |
-| `PageData` | deferred | Whether to alias it to the document node `{base}/page/{id}` (0008 §10) |
-| `EmailUser` | declined | No user-to-user email |
-| `Unwatchedpages` | declined | The watch set is private state ([0020](0020-change-feeds.md) §3). An aggregate over it would make the report projection a reader of `private`. |
-| `WithoutInterwiki`, `MostInterwikis`, `GoToInterwiki` | declined | Interlanguage links are sitelinks ([0026](0026-sitelinks.md)). Interwiki prefixes come from site aliases, and their links render as their targets. |
-| `MergeHistory` | declined | It would move revisions between pages, which the log cannot do |
-| `Lockdb`, `Unlockdb` | declined | Read-only is a tenant freeze ([0018](0018-tenants.md) §10) or an instance act ([0040](0040-instance-prerogatives.md)) |
-| `RunJobs`, `JavaScriptTest`, `AuthenticationPopupSuccess`, `Contribute` | declined | Internal to MediaWiki, a development tool, MediaWiki's popup login flow, and a skin feature |
-| `DispatchStats` | declined | Wikibase's client-change dispatching has no counterpart. `Special:Providers` reports sync lag. |
-| ~~`NewLexeme`, `MergeLexemes`, `NewEntitySchema`, `EntitySchemaText`, `SetEntitySchemaLabelDescriptionAliases`~~ | served | Were reserved while Lexeme and EntitySchema were; served since [0064](0064-entityschema-and-validation.md) §7 and [0066](0066-lexemes.md) §7 (§9) |
+*Current text: [21](../architecture/21-special-pages.md) §7, §8.*
 
 ### 11. API (extends 0012 §4 and §5)
 
-**Action API.**
-
-- `meta=siteinfo&siprop=specialpagealiases` reports from the registry (§2).
-- `list=querypage`:
-  - `qppage` accepts the `mediawiki_name` of every served MediaWiki report, and the names of served Wikibase and Triplespace reports.
-  - A deferred or declined name is refused with `ts-report-unavailable`, which says which.
-  - `qpoffset` continues. A batch report returns `cached`, `cachedtimestamp` and `maxresults`.
-  - `generator=querypage` works as in MediaWiki.
-- The forms of §5 use the existing `wb*` modules. Export is `action=query&export`.
-
-**REST**, under `rest.php/triplespace/v0`:
-
-| Route | |
-|---|---|
-| `GET /reports` | Every report with its backing, mode, graph scope, lag or `computed_at` |
-| `GET /reports/{name}?graphs=&limit=&continue=` | A report's rows, with its own filters (`language`, `type`, `datatype`, `state` and so on) |
-| `GET /nuke/preview?target=&tag=&subsidiaries=&from=&until=&pattern=&namespace=` | The candidates of §7, grouped |
-| `POST /nuke` | Starts the job; returns its ID. Reverting is `POST /jobs/{id}/revert`. |
-| `POST /export` | Streams an export, or starts an export job and returns its ID |
-| `GET /export/{id}` | An export job's state and, when ready, its download |
+*Current text: [18](../architecture/18-api.md) §2.2, §2.3, §3.2.*
 
 ### 12. Permissions (extends 0016 §2)
 
-| Permission | Governs | Default groups |
-|---|---|---|
-| `nuke` *(MediaWiki's, from the Nuke extension)* | Running Nuke (§7). Each write it makes also needs its own right: `delete`, and `deleterevision` for hiding. | `sysop` |
+*Changed by A14.*
 
-- `nuke` joins the `delete` grant in `grants.toml`, so a subsidiary or OAuth consumer granted deletion can nuke.
-- Configuring report modes and widening needs `ts-config` at the farm base, an instance right (§4.3).
-- Export needs `read`. The forms need the rights their API modules already need.
-
-The `job` rate class gains a `sysop` row, 10 per hour (amends [0024](0024-subsidiary-accounts.md) §5, which gave only `user` and `bot`). Without that row an administrator who is not a bot could not start a Nuke or a job revert.
+*Current text: [09](../architecture/09-security-and-moderation.md) §2.2, §8.6.*
 
 ### 13. Storage (amends 0013 §5 and §7)
 
-**`view.page` gains four columns.** They are maintained by the page projection:
+*Changed by A13.*
 
-- `len integer`: bytes of the latest text, as MediaWiki's `page_len`;
-- `latest_at timestamptz`;
-- `revisions integer`;
-- `random double precision`: drawn at creation, as `page_random`.
-
-Each has an index with `ns`. **`view.actor` gains `last_active timestamptz`.**
-
-**Report tables:**
-
-```sql
-CREATE TABLE view.report_entry (                -- §4.3: projection and batch reports
-  tenant bigint NOT NULL, report text NOT NULL, scope text NOT NULL DEFAULT 'local',  -- graph set (§4.2)
-  key text NOT NULL, sort_value bigint, detail jsonb,
-  PRIMARY KEY (tenant, report, scope, key)
-);
-CREATE INDEX report_entry_order ON view.report_entry (tenant, report, scope, sort_value DESC, key);
-CREATE TABLE view.report_state (
-  tenant bigint NOT NULL, report text NOT NULL, scope text NOT NULL,
-  mode text NOT NULL,                           -- projection | batch
-  computed_at timestamptz, row_count bigint,
-  PRIMARY KEY (tenant, report, scope)
-);
-CREATE TABLE view.site_stats (                  -- §9: MediaWiki's site_stats
-  tenant bigint PRIMARY KEY,
-  pages bigint, articles bigint, edits bigint, files bigint, users bigint, active_users bigint, entities bigint
-);
-```
-
-`articles` counts main-namespace pages with at least one link, MediaWiki's default `$wgArticleCountMethod`.
-
-**Projection order:**
-
-- The `report` and `site_stats` projections run in step 5 of 0013 §7, after `activity` and `page_link`. The refresh job applies their deltas for the tables it writes (§4.3).
-- Batch runs and export jobs are `ops` work, beside the export jobs 0013 §5.6 already lists.
+*Current text: [03](../architecture/03-storage-caches-and-search.md) §4.5, §4.10, §5, §6.1.*
 
 ### 14. Crates (amends 0005 §2)
 
 *Changed by A1.*
 
-*Superseded by [0005](0005-crate-organization.md) §2 (A1).*
-
-[0005](0005-crate-organization.md) §2 keeps the crate table that CI checks, with every change this section listed. The table this section first gave is in A1.
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
 
 ## Consequences
 
@@ -701,3 +315,57 @@ Replaced text (§10):
 Replaced text (§9):
 
 > | `Version`, `ApiSandbox`, `ApiHelp`, `AllMessages`, `NamespaceInfo`, `PasswordPolicies`, `ListDatatypes`, `AvailableBadges`, `MyLanguageFallbackChain`, `Blankpage` | From the registry, configuration and i18n |
+
+### A13. `tenant` is the slug
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** corrects §13
+- **Summary:** The `tenant` column of `view.report_entry`, `view.report_state` and `view.site_stats` is `tenant text NOT NULL DEFAULT ''`, the column as [0013](0013-postgres-storage.md) §5 (0013 A11) defines it for every `view` table, not `tenant bigint`. (PENDING A6)
+
+Replaced text (§13):
+
+> CREATE TABLE view.report_entry (                -- §4.3: projection and batch reports
+>   tenant bigint NOT NULL, report text NOT NULL, scope text NOT NULL DEFAULT 'local',  -- graph set (§4.2)
+
+> CREATE TABLE view.report_state (
+>   tenant bigint NOT NULL, report text NOT NULL, scope text NOT NULL,
+
+> CREATE TABLE view.site_stats (                  -- §9: MediaWiki's site_stats
+>   tenant bigint PRIMARY KEY,
+
+### A14. No `sysop` job rate row
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** amends §12
+- **Summary:** Jobs run under subsidiaries: `ts-runjob` defaults to `bot` everywhere ([0016](0016-permissions-and-access-control.md) §2 drops `sysop`; [0046](0046-primary-tenant.md) §8), and an administrator runs a job, a Nuke or a job revert included, by creating or approving a subsidiary they operate. The `sysop` row this section added to the `job` rate class of [0024](0024-subsidiary-accounts.md) §5 goes with it. James: "administrators should be able to run jobs under subsidiaries", read as this. (PENDING C14)
+
+Replaced text (§12):
+
+> The `job` rate class gains a `sysop` row, 10 per hour (amends [0024](0024-subsidiary-accounts.md) §5, which gave only `user` and `bot`). Without that row an administrator who is not a bot could not start a Nuke or a job revert.
+
+### A15. `listed`, `requires`, `note` and extension origins
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design discussion of 2026-10-09
+- **Change:** extends §1
+- **Summary:** The field table of §1 gains `listed` (whether `Special:SpecialPages` lists the page), `requires` (the setting the page is served under, as A6 used for `Special:Query`), both of which the registry file already carries, and `note`; and `origin` may be any extension's name as `version.toml` lists it ([0077](0077-special-version.md) §8), not only the names §1 enumerates. (PENDING F20)
+
+### A16. `RandomRootpage`
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design discussion of 2026-10-09
+- **Change:** corrects §4.4
+- **Summary:** The report is `RandomRootpage`, the registry's spelling and MediaWiki's first English alias; §4.4 had `RandomRootPage`. `check_adrs.py` check 5 becomes case-sensitive on canonical names so the difference is caught ([0050](0050-adr-format.md) §14, check 15). (PENDING F21)
+
+Replaced text (§4.4):
+
+> | `Random`, `RandomInCategory`, `RandomRootPage` | `view.page.random` (§13), as MediaWiki's `page_random` |
+
+### A17. Current text relocated to the architecture chapters
+
+- **Date:** 2026-10-09
+- **Source:** [0050](0050-adr-format.md) §14
+- **Change:** relocates §1–§14
+- **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), [18](../architecture/18-api.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.

@@ -2,10 +2,11 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-04
-- **Updated:** 2026-10-05 (A2)
+- **Updated:** 2026-10-09 (A5)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md), [0021](0021-notifications.md), [0041](0041-content-models.md), [0047](0047-special-pages.md)
 - **Uses:** [0003](0003-statement-ui.md), [0007](0007-actor-identity.md), [0013](0013-postgres-storage.md), [0016](0016-permissions-and-access-control.md), [0020](0020-change-feeds.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0030](0030-edit-filters.md), [0031](0031-property-constraints.md), [0038](0038-page-metadata-and-categories.md), [0042](0042-template-expansion-and-parsoid.md), [0049](0049-boards.md), [0059](0059-query-service.md), [0060](0060-scopes.md)
+- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [10](../architecture/10-pages-and-content-models.md), [15](../architecture/15-structured-pages.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -26,178 +27,57 @@ James's direction, from the design discussion of 2026-10-04:
 
 ### 1. A sprint is a page; a task is a projection; a claim is a record
 
-**A sprint is a subpage in the `Project` namespace whose content model is `triplespace-sprint`** (§2–3). Its definition (§4) names a scope, a list of rules and a window. **A task** is one (sprint, rule, subject) triple that the rule currently finds open for a member of the scope. Tasks are **computed**: `view.task` (§6) is a projection over the scope's members and the indexes each rule reads, and a task is resolved by whatever write makes the rule's condition false, whoever made it and whether or not they knew the sprint existed. Credit goes to that write's actor (§7).
-
-The one thing a person asserts is **a claim**: "I am working on this" (§5). It is a record, because it is a statement by a person that others act on, and it has to be visible, attributable and reversible. It is the only write a sprint adds to the log. A sprint page's history is its definition's revisions and its claims.
-
-This is the asserted/projected split of [0038](0038-page-metadata-and-categories.md) §2 and [0049](0049-boards.md) §14 once more: membership and task state are projected; the claim is asserted.
+*Current text: [15](../architecture/15-structured-pages.md) §3.1.*
 
 ### 2. The `triplespace-sprint` model in the `Project` namespace (extends 0008 §2)
 
-`Project` (4) gains `triplespace-sprint` among its allowed models. The default stays `wikitext`. **A `triplespace-sprint` page must be a subpage**: a title with no `/` in namespace 4, or any title in another namespace, is refused with `ts-sprint-title`. So `Project:WikiProject Women/Sprint March 2027` is a sprint; `Project:Sprint March 2027` is not; and a project's sprints sit under its page, where `Special:PrefixIndex` lists them. The restriction keeps the project page itself a document and keeps sprints findable, without a namespace.
-
-A sprint is created by **`Special:CreateSprint`** (§9), which writes the page with the model set, or by creating a wikitext subpage and changing its model with `action=changecontentmodel` ([0041](0041-content-models.md) §8). Both are page `create` records in `pages`.
+*Current text: [10](../architecture/10-pages-and-content-models.md) §1.4, §3.5; [15](../architecture/15-structured-pages.md) §3.2.*
 
 ### 3. The `triplespace-sprint` content model (extends 0041 §3)
 
-| ID | Origin | Source | Slot | Format | Direct editing | Default in |
-|---|---|---|---|---|---|---|
-| `triplespace-sprint` | Triplespace | text | main | `application/json` | Yes | — (allowed in 4) |
-
-A **text** model, as the table, board and scope models are ([0045](0045-table-content-model.md) §3, [0060](0060-scopes.md) §3): the definition is the page's content, revised and diffed as text. Validation checks the schema, the title rule of §2, the syntax of IDs and titles, the rule parameters (§4) and the limits; the pre-save transform canonicalizes IDs ([0044](0044-tenant-relative-ids.md) §1), titles and key order; plain text for search is the title, description and rule titles; render is the sprint page (§8).
+*Current text: [15](../architecture/15-structured-pages.md) §3.2.*
 
 ### 4. The definition
 
-*Changed by A1, A2.*
+*Changed by A1, A2, A4.*
 
-```json
-{
-  "version": 1,
-  "description": "Women writers born in the 19th century: gender, birth date, article",
-  "scope": "Scope:Women writers",
-  "rules": [
-    { "kind": "missing-statement", "property": "WDP21", "title": "Add gender" },
-    { "kind": "missing-statement", "property": "WDP569" },
-    { "kind": "constraint-violation", "severity": "mandatory" },
-    { "kind": "missing-page", "title": "Write the article" }
-  ],
-  "from": "2027-03-01T00:00:00Z",
-  "to": "2027-04-01T00:00:00Z",
-  "board": "Board:Women writers sprint"
-}
-```
-
-| Key | Required | Meaning |
-|---|---|---|
-| `version` | Yes | `1` |
-| `description` | No | Plain text, shown under the title and indexed |
-| `scope` | Yes | A scope title, or an inline kind object of [0060](0060-scopes.md) §4. The subjects the rules are evaluated over |
-| `rules` | Yes | One to `sprints.max_rules` (default 20) rules, each with a `kind`, its parameters and an optional `title` shown on its tasks |
-| `from`, `to` | No | The window, RFC 3339. Without `from`, the window starts at the definition's first revision; without `to`, it never ends: an open-ended sprint is a project's standing backlog |
-| `board` | No | A board ([0049](0049-boards.md)) linked from the sprint page as its discussion. Without it, the sprint's own talk page serves |
-
-**Rules.** A rule names a condition evaluated per member of the scope. Each has a **subject type** it applies to; members of the other type are skipped.
-
-| Kind | Parameters | Open for a member when | Resolved when | Subject type | Reads |
-|---|---|---|---|---|---|
-| `missing-statement` | `property`; optional `value` | The member has no best-rank statement of the property, or none with that value | Such a statement exists | entity, or page with `subjects: "pages"` | `view.statement_assertion` |
-| `constraint-violation` | optional `property`, `constraint_type`, `severity` | The member has at least one `view.constraint_violation` row matching the parameters. One task per (member, property), however many rows | No matching row remains | entity, or page | `view.constraint_violation` ([0031](0031-property-constraints.md) §5) |
-| `missing-page` | optional `namespace` (default 0) | The member entity has no paired page in that namespace ([0038](0038-page-metadata-and-categories.md) §6) | A paired page exists | entity | the sitelink projection |
-| `query` | `query` (a `Query:` title), `params` | The member is bound to `?item` in the saved query's result ([0063](0063-query-namespace.md) §6) | It is not, at the next refresh | the query's | the query service, on refresh |
-| `schema-violation` | `schema` | The member's schema report says `conforms = false` ([0064](0064-entityschema-and-validation.md) §6) | It says `true` | the report's | `view.schema_report` |
-
-A rule's parameters are validated for syntax, not existence, as a table's columns are. **Limits:** `sprints.max_rules` (20); `sprints.max_tasks` (site, default 100,000, as `scopes.max_members`): tasks are materialized in the scope's member order, rule by rule, and cut at the limit with the scope notice component of [0060](0060-scopes.md) §5 ("This sprint has more than 100,000 tasks; the first 100,000 are shown"); a truncated scope passes its notice through.
-
-**What the rules do not cover,** on purpose: anything a person has to judge. "Needs copyediting" is a category or a page statement someone asserts, and a `category` scope with a `missing-statement` rule over a "reviewed" property expresses it; this ADR adds no free-text task.
+*Current text: [15](../architecture/15-structured-pages.md) §3.3, §5.5.*
 
 ### 5. Claims (extends 0015 §1)
 
-**A claim is a record** of a new payload type, **`scatter:v0/task`**, in the tenant's `pages` partition, keyed to the sprint's page ID so that it appears in the sprint's history and is enclosed by the sprint page's ACLs ([0023](0023-moderation.md) §2). Three standard parts. Operations:
-
-| Operation | Content part | Meaning |
-|---|---|---|
-| `claim` | `rule` (index into the definition), `subject` `{kind, id}`, optional `note` | The actor is working on the task |
-| `release` | `rule`, `subject` | The actor's claim, or any claim if the actor may `edit` the sprint page and passes `force: true`, is withdrawn |
-
-**Validation**, against the sprint's projected state: a `claim` is refused if the task is not open (`ts-task-not-open`), if it is claimed by someone else and the claim has not expired (`ts-task-claimed`), or if the actor already holds `sprints.max_claims` (default 10) live claims on the sprint; a `release` is refused if there is no live claim to release. **A claim expires** after `sprints.claim_ttl` (default 7 days) without a `release`: the projection treats it as released, and nothing is written. A task that is resolved while claimed stays credited to its resolver, not its claimant (§7); the claimant is told (§8).
-
-**Permissions.** `claim` and `release` need `edit` on the sprint page, which is how a sprint restricts who may claim: protect the page. Anonymous and temporary accounts may not claim, since a claim is a promise with a name on it. Edit filters see a claim as a record with its content part ([0030](0030-edit-filters.md) §5). Rate class `edit`.
-
-**Logs** (extends 0011 §6.1, §8): `task/claim` and `task/release`, projected from the records, visible to everyone; `as:Add` and `as:Remove` with `as:target` the sprint page and `as:object` the subject.
+*Current text: [15](../architecture/15-structured-pages.md) §3.4; [16](../architecture/16-logs-feeds-and-notifications.md) §2.3.*
 
 ### 6. The task projection (extends 0013 §5.6 and §7)
 
-```sql
-CREATE TABLE view.sprint (
-  tenant text NOT NULL, page_id bigint NOT NULL,
-  scope_page_id bigint,                 -- NULL for an inline scope, which is computed as a scope would be
-  from_ts timestamptz, to_ts timestamptz,
-  task_count integer NOT NULL, truncated boolean NOT NULL,
-  definition_revid bigint NOT NULL,
-  PRIMARY KEY (tenant, page_id)
-);
-CREATE TABLE view.task (
-  tenant text NOT NULL, sprint_page_id bigint NOT NULL,
-  rule smallint NOT NULL,
-  subject_kind text NOT NULL, subject_id text NOT NULL,
-  state text NOT NULL,                  -- open | claimed | resolved
-  opened_at timestamptz NOT NULL,
-  claimed_by text, claimed_at timestamptz, claim_record text,
-  resolved_by text, resolved_at timestamptz, resolved_record text, resolved_revid bigint,
-  reopened integer NOT NULL DEFAULT 0,
-  PRIMARY KEY (tenant, sprint_page_id, rule, subject_kind, subject_id)
-);
-CREATE INDEX ON view.task (tenant, sprint_page_id, state);
-CREATE INDEX ON view.task (tenant, subject_kind, subject_id);   -- "tasks about this subject"
-CREATE INDEX ON view.task (tenant, sprint_page_id, resolved_by) WHERE state = 'resolved';
-```
-
-**When it runs.** The task projection runs after the scope projection in step 7 of [0013](0013-postgres-storage.md) §7 and reads three kinds of change:
-
-- **The scope changed.** Members added to the sprint's scope get a task per rule that finds them open; members removed lose their open and claimed tasks (resolved ones are kept, for credit). For a `query` scope this follows the refresh ([0060](0060-scopes.md) §5).
-- **A member changed.** A write to a subject that is a member of a sprint's scope (found through `view.scope_member`'s inverted index, then `view.sprint.scope_page_id`) re-evaluates that sprint's rules for that subject: a task whose condition is now false is **resolved**, with the write's actor, time, record and revision; a resolved task whose condition is true again is **reopened**, its resolution cleared and `reopened` incremented. Constraint re-checks by the property-wide job ([0031](0031-property-constraints.md) §5) are writes by the job: a violation that disappears under a re-check resolves the task with the job as `resolved_by`, which the leaderboard (§7) does not count.
-- **A claim record.** Sets or clears `claimed_by`; the state is `claimed` while a live claim exists on an open task.
-
-All of this is inside the fan-out budget of 0013 §7 (as amended): a scope of a hundred thousand members with twenty rules is two million rows to compute when the sprint is saved, which is a job, and small per-write work after that. The sprint page shows "Tasks are being computed" until the job is done.
-
-**What it does not do.** No activity row, no notification and no record for a task opening, resolving or reopening: these are projections of other people's writes, as [0060](0060-scopes.md) §5 says of membership. The one row a sprint adds to feeds is a claim.
+*Current text: [15](../architecture/15-structured-pages.md) §3.5.*
 
 ### 7. Credit, and the window
 
-**Whoever's write resolved the task is credited**, read from the record the projection was applying: `resolved_by` is that record's actor ([0007](0007-actor-identity.md) §1), `resolved_record` and `resolved_revid` point at it. There is no self-reporting and no sign-up: a person who never saw the sprint page and fixed a birth date on an item in scope counts, as the direction asks. Subsidiary accounts ([0024](0024-subsidiary-accounts.md)) are credited to the subsidiary, shown with its operator; jobs are credited to the job and not counted.
-
-**The window frames the counting, not the computing.** Tasks are computed from the sprint's first revision, so that organizers see the backlog before the start. A resolution with `resolved_at` before `from` or after `to` is a resolved task (it is not open) but is **outside the window**, and the leaderboard and the progress figures count only resolutions inside it. The sprint page says "Starts in 3 days", "Day 12 of 31" or "Ended 2 April 2027".
-
-**A revert takes the credit back.** When a task reopens, its resolution is cleared, and the actor's count falls. This is the correct answer for a reverted edit and the wrong one for a statement legitimately removed and re-added by someone else (the second resolver gets the credit; Q1).
+*Current text: [15](../architecture/15-structured-pages.md) §3.6.*
 
 ### 8. The sprint page and notifications (extends 0021 §2)
 
 *Changed by A2.*
 
-**The page** shows, above the tabs: the description, the window and its state, a progress bar (resolved in window / total), one count per rule, and the **leaderboard**: actors by resolutions in the window, with their counts per rule, linking to their contributions filtered to the sprint's scope. Then tabs: **Tasks** (the board: Open, Claimed, Done; filter by rule, by claimant, by subject label; each task showing the subject's label and description, the rule's title, the claimant, and the rule's **action**), **Definition** (the JSON source editor), **Related changes** (the scope's, [0060](0060-scopes.md) §7), and the usual talk and history. A `board` named in the definition is linked beside the talk tab.
-
-**Actions** open the existing editing surface positioned on the task:
-
-| Rule | Action |
-|---|---|
-| `missing-statement` | The subject's page with the statement UI ([0003](0003-statement-ui.md)) adding a statement of the property, the value pre-filled when the rule names one |
-| `constraint-violation` | The subject's page with the violating statement's popover open ([0031](0031-property-constraints.md) §3) |
-| `missing-page` | The page editor for a new page in the rule's namespace, titled from the subject's label in the content language, with the sitelink to the subject written on save ([0038](0038-page-metadata-and-categories.md) §6), so the pairing that resolves the task is made in the same flow. A **Link existing page** alternative writes the sitelink alone |
-| `query` | The subject's page |
-| `schema-violation` | The subject's page at the first failing constraint, with the reason ([0064](0064-entityschema-and-validation.md) §6) |
-
-**Claim** and **Release** buttons on each task write the records of §5. A claimed task shows who holds it and when the claim expires.
-
-**Notifications** ([0021](0021-notifications.md) §2): one new reason, `task-resolved`, addressed to the claimant of a task that someone else's write resolved; the activity row is the resolving record, and the item carries the subject, the rule and the resolver. Nothing else notifies; a sprint's progress is read from its page and its scope's feed. The reason joins the `notifications.{reason}.{channel}` matrix of 0021 §3 under the `*` defaults.
-
-**In a project page.** Transcluding a sprint's progress bar or task board into `Project:WikiProject Women` is the workspaces ADR's job, with tables and board listings ([0045](0045-table-content-model.md) Q5); nothing here prevents it.
+*Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.2, §5.6.*
 
 ### 9. `Special:CreateSprint` (extends 0047 §9)
 
-A form, restricted to `createpage`: the parent project page (any namespace-4 page, defaulting to the page the form was opened from), the sprint's name, the scope (an existing scope by title, or a new inline `statement`/`category` kind), the rules from a picker with their parameters, the window, and an optional board to create alongside. It writes the sprint page with the model set, and the board if asked, and opens the sprint page. Listed under `pagetools`, origin `triplespace`. It is the essay's "form-based interface" for a sprint; the workspace form that also creates a scope, tables and a project page is the next ADR's.
+*Current text: [21](../architecture/21-special-pages.md) §6.2, §8.*
 
 ### 10. API (extends 0012 §5)
 
-| Area | Routes |
-|---|---|
-| Definition | `prop=revisions` and `action=edit`, as any text model; `action=changecontentmodel` to or from `triplespace-sprint` |
-| Tasks | `GET /sprint/{pageid}` (counts, window, truncated, progress), `GET /sprint/{pageid}/tasks?state=&rule=&claimant=&after=&limit=`, `GET /sprint/{pageid}/leaderboard`, `GET /subject/{kind}/{id}/tasks` (open tasks about a subject, shown in About panels as "3 open tasks") |
-| Claims | `POST /sprint/{pageid}/tasks/{rule}/{kind}/{id}/claim`, `…/release` (`force` for holders of `edit`); `list=logevents&letype=task` |
-| Action API | `list=sprinttasks&stsprint=&ststate=` |
+*Current text: [18](../architecture/18-api.md) §2.3, §3.2.*
 
 ### 11. Storage, caches and search
 
-`view.sprint` and `view.task` (§6); the initial computation as an `ops` job. Cache keys `sp:{page id}:{definition revid}` for the page's counts and leaderboard, purged when any task of the sprint changes state, which is the one hot key here and is cached at L1 for `sprints.cache_ttl` (default 30 s) to absorb a busy drive. Search indexes the plain text of §3; tasks are not indexed.
+*Changed by A3.*
+
+*Current text: [03](../architecture/03-storage-caches-and-search.md) §4.15, §5, §11.1, §12.1.*
 
 ### 12. Crates (amends 0005 §2)
 
-| Crate | Change |
-|---|---|
-| `scatter-tasks` | **New, layer 2, pure, wasm.** The `triplespace-sprint` definition: schema, validation, canonicalization; the `scatter:v0/task` payload type, its operations and the fold to claim state with expiry; each rule as a pure predicate over the facts it is given (statements, violations, pairing) |
-| `triplespace-projections` | `view.sprint` and `view.task`; the task projection of §6 after the scope projection; the initial computation job; credit and the window |
-| `triplespace-api-rest`, `triplespace-api-action` | The `/sprint` routes, `/subject/…/tasks`, the claim routes; `list=sprinttasks` |
-| `triplespace-ui` | The sprint page, task board, leaderboard and actions; `Special:CreateSprint`; "open tasks" in About panels |
-| `triplespace-notify` | The `task-resolved` reason |
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
 
 ## Alternatives considered
 
@@ -259,3 +139,32 @@ A form, restricted to `createpage`: the parent project page (any namespace-4 pag
 - **Source:** [0064](0064-entityschema-and-validation.md) §6
 - **Change:** extends §4, §8
 - **Summary:** A task per member failing a schema, resolved when it conforms; its action opens the first failing constraint.
+
+### A3. Listing keys carry a listing version
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** amends §11
+- **Summary:** The sprint listing key `sp:` (with `tp:` of [0049](0049-boards.md) §12 and `sc:` of [0060](0060-scopes.md) §10) carries a **listing version**, the maximum activity ID over the listing's members, computed in Postgres at read time, in place of purges on ordinary writes such as a task changing state; [0014](0014-caches-and-search.md) §1 principles 1 and 4 hold unchanged. Tag purges remain for erasure and hiding. (PENDING B4)
+
+Replaced text (§11):
+
+> Cache keys `sp:{page id}:{definition revid}` for the page's counts and leaderboard, purged when any task of the sprint changes state, which is the one hot key here and is cached at L1 for `sprints.cache_ttl` (default 30 s) to absorb a busy drive.
+
+### A4. No `subjects` rule parameter
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design discussion of 2026-10-09
+- **Change:** corrects §4
+- **Summary:** `subjects` is not a rule parameter: a rule's subject type follows the sprint's scope. (PENDING F11)
+
+Replaced text (§4):
+
+> | `missing-statement` | `property`; optional `value` | The member has no best-rank statement of the property, or none with that value | Such a statement exists | entity, or page with `subjects: "pages"` | `view.statement_assertion` |
+
+### A5. Current text relocated to the architecture chapters
+
+- **Date:** 2026-10-09
+- **Source:** [0050](0050-adr-format.md) §14
+- **Change:** relocates §1–§12
+- **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [10](../architecture/10-pages-and-content-models.md), [15](../architecture/15-structured-pages.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.

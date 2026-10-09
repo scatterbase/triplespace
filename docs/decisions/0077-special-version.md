@@ -2,10 +2,11 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-07
-- **Updated:** 2026-10-07 (A2)
+- **Updated:** 2026-10-09 (A3)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md), [0033](0033-backend-stack.md), [0047](0047-special-pages.md)
 - **Uses:** [0005](0005-crate-organization.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0028](0028-tenancy-policy.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0046](0046-primary-tenant.md), [0056](0056-security-model.md), [0057](0057-web-tier.md), [0059](0059-query-service.md), [0075](0075-mcp-server.md)
+- **Chapters:** [18](../architecture/18-api.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md)
 
 ## Context
 
@@ -43,193 +44,69 @@ And on the first proposal, the same day:
 
 *Changed by A1.*
 
-**`Special:Version` has these sections, in this order:**
-
-1. The credit line and licence notice (§2, §3).
-2. Installed software: Triplespace's build, then the services and embedded components (§4).
-3. Features: the tenant's on its form, the instance's on the farm form (§11).
-4. Entry points (§5).
-5. Triplespace crates, then third-party components (§6).
-6. Wikitext: extension tags, parser functions, variables and switches (§7).
-7. Inspired by: MediaWiki and its extensions (§8).
-8. AI agents (§9).
-9. The instance: its name, and its owner of record where `instance.owner_of_record` is set (0016 A11).
-
-Subpages: `Special:Version/Credits` (§2), `Special:Version/License` and `Special:Version/License/{component}` (§3).
-
-**The page names no ADRs.** The `adr` fields in `version.toml` are for maintainers and are not shown.
-
-**The tenant form and the farm form** differ only in §11's features and in §5's entry points, which are the tenant's at a tenant base and the instance's at the farm base. Where the two bases share a host, both forms show behind 0047 §3's `scope` filter.
-
-**What is listed and what is derived.** `docs/registry/version.toml` (§14) holds what nothing else records: the developer, contributors, funders, AI agents, services, feature switches and extension pages. Everything else is derived: the build and its components from the component manifest (§15), lineage from the registries' `origin` fields, wikitext from `wikitext-functions.toml`, and features from configuration.
-
-**The page is rendered by `triplespace-ui` from `GET /version`** (§10), since the site's crates reach the instance only through its API ([0005](0005-crate-organization.md) §3 rule 10). Where `triplespace-web` serves the site, it adds its own build to §4, so a web tier and an API server built from different commits are both shown.
+*Current text: [21](../architecture/21-special-pages.md) §5.1, §5.6, §8.*
 
 ### 2. The credit line, contributors and funders
 
-**The credit line** is one sentence:
-
-> This wiki is powered by [Triplespace](https://github.com/scatterbase/triplespace), developed by Scatter LLC in Portland, Oregon, with contributions from Alice, Bob and others.
-
-- **The product, developer and place are message parameters,** from `[developer]` in `version.toml`, so translators never translate them. The messages are `ts-version-poweredby` (no contributors) and `ts-version-poweredby-contributors`.
-- **Contributors are `[[contributor]]` entries in `version.toml`,** in order of first merged contribution. Each has a name as its holder wishes to be credited, the date of the first merged contribution, and the date the contributor licence agreement was signed; nothing is merged without one (0005 §6). Git history is not read.
-- **The line names the first ten.** With more, it ends "and [[Special:Version/Credits|others]]", as MediaWiki's does. The list is formatted by the reader's language's list rules.
-- **`Special:Version/Credits` lists every contributor**, then every funder, then the AI agents of §9.
-- **Scatter LLC is the developer, not a contributor,** and AI agents are never contributors: they sign no agreement and are credited separately (§9).
-
-**Funders are `[[funder]]` entries**: a name, what the support was for, and the dates it began and, if it has, ended. When there is at least one, a second sentence follows the credit line: "Development has been supported by {funders}." (`ts-version-funders`). A funder whose support has ended stays listed. There are none today.
+*Current text: [21](../architecture/21-special-pages.md) §5.2.*
 
 ### 3. The licence notice and licence texts
 
-**The notice follows the credit line.** It is the FSF's recommended notice for GPLv3-or-later, with "Triplespace" for "this program", in the message `ts-version-license-info`:
-
-> Triplespace is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation; either version 3 of the License, or (at your option) any later version.
->
-> Triplespace is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
->
-> You should have received [[Special:Version/License|a copy of the GNU General Public License]] along with this program; if not, see https://www.gnu.org/licenses/.
-
-MediaWiki's `version-license-info` is not reused, because it names version 2.
-
-Two more sentences follow: the `scatter-*` crates are also available from Scatter LLC under a commercial licence (0005 §6), and the documentation and registry data the binary embeds are dedicated to the public domain under CC0 1.0 (`docs/LICENSE`).
-
-**The licence text is in the binary.** The repository root's `LICENSE` is embedded at build time (`include_str!`), so every build carries its own copy, whatever was or was not shipped beside it.
-
-- **`Special:Version/License` serves it verbatim, in English only,** in a `<pre>` block with no interface translation. The FSF treats only the English text as the licence; the notice above is translated like any message.
-- **`Special:Version/License/{component}`** serves a third-party component's licence texts and copyright notices from the manifest (§15): the texts a crate or package ships, not a generic text for its SPDX identifier. Each row of §6 links to its component's page.
-
-**The source.** §4's build row links to the corresponding source:
-
-- For a build from a clean tree, `{developer.source}/tree/{commit}`.
-- `instance.source_url` (§13) replaces it, for an operator who publishes a modified build elsewhere.
-- A build from a modified tree (the manifest's `modified` flag) without `instance.source_url` shows "modified build; source location not configured" to everyone, and `triplespace instance check` warns. The JavaScript and wasm sent to browsers are conveyed to every reader, so their source must be offered whatever the server's licence would otherwise require of a hosted service (0033 §16).
-- The built JavaScript, CSS and wasm files carry a header comment with `@license GPL-3.0-or-later` and the path `Special:Version`.
+*Current text: [21](../architecture/21-special-pages.md) §5.3.*
 
 ### 4. Installed software and services
 
 *Changed by A1, A2.*
 
-**The build row** shows Triplespace's version, the commit, whether the build is modified, the commit's date (not the build time, so builds stay reproducible), the rustc version, the target and the cargo features compiled in, from the manifest (§15). Where `triplespace-web` serves the site, a second row shows the web tier's build (§1).
-
-**Then each service the instance is configured to use, and each embedded component in use,** from `version.toml`'s `[[service]]` list. A service that is not configured, or an embedded component not in use, is not shown. Each row has:
-
-| Column | Shows |
-|---|---|
-| Name and role | From the registry |
-| State | `connected` or `unreachable`. An embedded component has no state |
-| Version | Read by the registry's `version` probe for a service (`SHOW server_version` for PostgreSQL; Valkey's `INFO server`; OpenSearch's `GET /`), from the manifest for an embedded component (Oxigraph), or a fixed string (Lua 5.1). QLever and Parsoid are shown without a version for now (Q1) |
-
-The services are PostgreSQL, Valkey, OpenSearch, QLever, Parsoid and object storage, and the embedded components are Oxigraph and Lua; adding a service to the stack adds a registry entry.
-
-**Probes run at startup and with each health check** and are cached in the process. Rendering the page never contacts a service, so it cannot be used to make the instance probe its services on demand.
-
-**Disclosure** is the instance setting `version.services` (§13):
-
-- **`full`** (default), as MediaWiki shows its database server's version to everyone;
-- **`names`**: names, roles and states, without versions;
-- **`off`**: the build row only.
-
-Holders of `ts-config` at the farm base always see `full`. Whatever the setting, the page never shows a host, port, URL, bucket, index name, database name or credential.
+*Current text: [21](../architecture/21-special-pages.md) §5.4.*
 
 ### 5. Entry points
 
-**The URLs a client needs, as MediaWiki's "Entry point URLs" lists them:** the article path, script path, `api.php` and `rest.php`, then Triplespace's: the `triplespace/v0` REST base, `/entity/` and `Special:EntityData`, the update stream (0032), the SPARQL endpoint while `query.enabled` is on ([0059](0059-query-service.md) §6), the MCP endpoint while `mcp.enabled` is on ([0075](0075-mcp-server.md) §1), and the OAuth endpoints (0025). Each is shown only where it is served, and at the base that serves it.
+*Current text: [21](../architecture/21-special-pages.md) §5.5.*
 
 ### 6. Crates and third-party components
 
-**Triplespace crates:** each workspace crate linked into the binary, with its version and licence. A `scatter-*` crate is marked as also available under a commercial licence (0005 §6).
-
-**Third-party components,** grouped and sorted by name, each with its version, licence expression, upstream URL and a link to its licence page (§3):
-
-- **Crates:** the binary's dependencies for its target, as linked: normal dependencies only, not build or development dependencies.
-- **Frontend packages:** the packages in `ui/package-lock.json` reachable from `dependencies` (Codex, Vue and the typefaces), not `devDependencies`, since only those reach the browser.
-- **Vendored code:** source copied into the tree, such as Scribunto's and WikibaseClient's Lua in `triplespace-scribunto` (0043 §4) and `parse-wiki-text-2` in `scatter-wikitext` (0033 §9), each with its upstream and revision.
-
-Native code that a `-sys` crate bundles (Lua 5.1 through `mlua`, RocksDB through Oxigraph, `aws-lc`) is covered by its crate's licence files, which the manifest collects whole.
+*Current text: [21](../architecture/21-special-pages.md) §5.6; [22](../architecture/22-crates-and-stack.md) §7.2.*
 
 ### 7. Wikitext
 
-**Extension tags, parser functions, variables and behaviour switches,** from `wikitext-functions.toml`, as MediaWiki's "Parser extension tags" and "Parser function hooks" list them. Each shows its origin and status (`implemented`, `chip` or `ignored`) and, on the tenant form, whether it is active there, given the settings its `requires` and `enabled_by` name ([0042](0042-template-expansion-and-parsoid.md) §2).
+*Current text: [21](../architecture/21-special-pages.md) §5.7.*
 
 ### 8. Inspired by
 
 *Changed by A1.*
 
-**Triplespace runs no MediaWiki extension.** This section lists the extensions whose features, names or APIs it implements, so that their users, tools and pages work here. It is headed "Inspired by", introduced by `ts-version-inspiredby-intro`, and never says "installed".
-
-**It is derived from every registry that records an `origin`**: `special-pages.toml`, `wikitext-functions.toml` and `content-models.toml`. MediaWiki core comes first, then the extensions in alphabetical order. Each row links to the extension's page on mediawiki.org (`[[extension]]` in `version.toml`) and lists what came from it, by kind:
-
-- **Special pages** that are `served`;
-- **Content models** that are `implemented`;
-- **Wikitext** entries, `implemented` ones first, then those that are only recognized (`chip` or `ignored`), labelled as such.
-
-Entries that are `deferred`, `declined` or `reserved` are not shown. An extension with no shown entry is not listed.
-
-**Extensions that leave no `origin`** in any registry, but from which Triplespace took something, carry `inspired_by` in `version.toml`: what was taken, which the page shows, and the ADR, which it does not. The seed is CirrusSearch and WikibaseCirrusSearch (search fields and keywords, [0014](0014-caches-and-search.md)), CodeMirror (the source editor, 0034 §4) and DiscussionTools (stable names for sections and comments, 0069). An ADR that takes something from an extension adds an `origin` to the registry it fills or, failing that, an `inspired_by` entry.
-
-**`origin` values** are `mediawiki`, `triplespace`, `generic` (content models only) or an extension's name as `version.toml` lists it. The three registries now agree: `wikibase` became `Wikibase` in `content-models.toml`, and `timeline` and `wikihiero` became `EasyTimeline` and `WikiHiero` in `wikitext-functions.toml`.
+*Current text: [21](../architecture/21-special-pages.md) §5.8.*
 
 ### 9. AI agents
 
-**The AI agents named in the ADRs' Author lines,** from `[[agent]]` in `version.toml`: Claude Opus, Claude Fable and Claude Sonnet, made by Anthropic. Each shows the model versions recorded in commit trailers, where there are any (Claude Opus 5.5 and Claude Fable 5.1; none for Claude Sonnet). The section is introduced by `ts-version-agents-intro`: "Triplespace's design records and code were written with these AI agents."
-
-- **The list is the ADRs' Author lines,** not the commit history, and the checker keeps them in step (§12).
-- **0033 and 0034 name "Claude" without the model.** They were written by Claude Opus or Claude Fable; `[agent_attribution]` records them as unattributed rather than guessing.
+*Current text: [21](../architecture/21-special-pages.md) §5.9.*
 
 ### 10. API (extends 0012 §4 and §5)
 
-**`GET /version`** under `rest.php/triplespace/v0` returns everything the page shows, as one JSON document, at each tenant base and at the farm base. It is public, cached like any public response ([0014](0014-caches-and-search.md)), and subject to `version.services`. On a private tenant ([0056](0056-security-model.md) §3), an outsider gets what the farm base would show, without the tenant's features or entry points, as with 0056 §13's reduced `meta=siteinfo`.
-
-**`meta=siteinfo`:**
-
-- **`siprop=extensions` lists only extensions whose API Triplespace serves.** An extension is listed when at least one module that [mediawiki-compat.md](../api/mediawiki-compat.md) attributes to it is served: `WikibaseRepository` today, and `WikibaseClient`, `Echo`, `AbuseFilter`, `OAuth`, `TemplateData` and the others as their modules are built. Each entry carries Triplespace's version, URL and licence, with `Triplespace` itself as a last entry of type `other`. §8's lineage is not reported here: a client that finds an extension listed will call its modules.
-- **`siprop=libraries`** lists §6's third-party crates and frontend packages as `{name, version}`, as MediaWiki lists its Composer and npm libraries.
-- **`general.dbtype`** is `postgres`, and `general.dbversion` is PostgreSQL's version unless `version.services` is `names` or `off`, in which case it is absent. `generator` is unchanged ([docs/clients.md](../clients.md)).
-- **`siprop=triplespace`** gains `build`: the version, commit and `modified` flag.
+*Current text: [18](../architecture/18-api.md) §2.2, §3.2, §8.*
 
 ### 11. Features
 
 *Changed by A1.*
 
-**The tenant form shows the tenant's feature switches:** the value of each `[[feature]]` setting of scope `tenant` in `version.toml` (`content.licence`, `wikitext.expansion`, `wikitext.lua`, `wikitext.renderer`, `pages.repos`, `search.inherited`, `query.enabled`, `mcp.enabled` and `proposals.push`). It also shows the providers the tenant has opted into, linked to `Special:Providers`, its tenancy preset ([0028](0028-tenancy-policy.md) §1), and whether it is a private tenant (0056 §3).
-
-**The farm form shows the instance's:** the settings of scope `instance` (`search.farm_wide` and `files.separation`), the tenancy policy's preset and the number of tenants.
-
-An ADR that adds a setting turning a feature on or off adds it to `[[feature]]`.
+*Current text: [21](../architecture/21-special-pages.md) §5.10.*
 
 ### 12. The checker
 
-`check_adrs.py` gains two checks:
-
-- **Check 9.** Every agent an ADR's Author line names ("James Hare / Claude Opus", and "revision by James Hare / Claude Fable") is an `[[agent]]` in `version.toml`, and every `[[agent]]` is named by at least one ADR. An Author line naming only "Claude" is accepted for the ADRs in `[agent_attribution].unattributed` and reported for any other.
-- **Check 10.** Every `origin` in the three registries is `mediawiki`, `triplespace`, `generic` or the `name` of an `[[extension]]`; no two names differ only in case; and every `[[extension]]` is named by an `origin` or carries `inspired_by`.
+*Current text: [22](../architecture/22-crates-and-stack.md) §7.3.*
 
 ### 13. Settings (extends 0015 §3)
 
-Two instance `site` settings, written with `ts-config` at the farm base:
-
-| Setting | Values | Default |
-|---|---|---|
-| `version.services` | `full`, `names`, `off` (§4) | `full` |
-| `instance.source_url` | A URL for the corresponding source of this build (§3) | Unset: `{developer.source}/tree/{commit}` for an unmodified build |
+*Current text: [23](../architecture/23-configuration-and-registry.md) §3.1, §3.3, §5.2.*
 
 ### 14. The registry file (extends 0015 §5)
 
-**`docs/registry/version.toml`** lists the developer, contributors, funders, AI agents and their attribution, services, feature switches and extensions, as §2, §4, §8, §9 and §11 describe. It is embedded by `triplespace-api-rest`, like the other registries ([0015](0015-record-format-and-partition-registry.md) §5), and is CC0 like the rest of `docs/`.
+*Current text: [23](../architecture/23-configuration-and-registry.md) §4.1, §4.6.*
 
 ### 15. The component manifest (extends 0033 §16)
 
-**`cargo xtask manifest`** writes the component manifest that §3, §4 and §6 read:
-
-- the build: version, commit, `modified` (a dirty tree), the commit date, rustc, target and features;
-- the workspace crates and the third-party crates linked into each binary, from `cargo metadata` for the binary's target with normal dependencies only;
-- the frontend packages reachable from `ui/package.json`'s `dependencies`, from `ui/package-lock.json`;
-- vendored code, from a `vendor.toml` beside each vendored tree (name, upstream, revision, licence);
-- for each component, its licence expression and the licence, copyright and notice files it ships (`LICENSE*`, `COPYING*`, `NOTICE*`, `AUTHORS*`), deduplicated by content.
-
-**It shares `cargo-deny`'s allowlist** (0033 §1): a component whose licence is not on it fails the manifest as it fails `cargo deny`.
-
-**`triplespace-server` and `triplespace-web` embed it** at build time. A build without one, such as an ordinary development build, embeds a stub, and §6 says "development build: components not listed". Release builds and the OCI image fail without a manifest.
+*Current text: [22](../architecture/22-crates-and-stack.md) §7.1.*
 
 ## Alternatives considered
 
@@ -311,3 +188,10 @@ Replaced text (§4):
 > **Then each service and embedded component** in `version.toml`'s `[[service]]` list, with:
 >
 > | State | `connected`, `configured but unreachable`, or `not configured`. An embedded component shows `in use` or `not in use` |
+
+### A3. Current text relocated to the architecture chapters
+
+- **Date:** 2026-10-09
+- **Source:** [0050](0050-adr-format.md) §14
+- **Change:** relocates §1–§15
+- **Summary:** The Decision's current text now lives in the architecture chapters [18](../architecture/18-api.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.

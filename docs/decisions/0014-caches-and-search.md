@@ -2,10 +2,11 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-05 (A17)
+- **Updated:** 2026-10-09 (A23)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md)
 - **Uses:** [0000](0000-init.md), [0003](0003-statement-ui.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [MediaWiki API contract](../api/mediawiki-compat.md)
+- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -29,204 +30,59 @@ MediaWiki's search is CirrusSearch, which Wikimedia now runs on OpenSearch after
 
 *Changed by A3, A13.*
 
-1. **Keys name versions, not things.** A cache entry is keyed by the entity, page or record *and* the version of the data it was computed from. A write creates a new version and a new key. Old entries become unreachable and expire; nothing is purged on an ordinary edit.
-2. **Mutable state lives only in Postgres.** The one mutable question, "what is the current version of X?", is answered by `view.entity.resolved_version` and `view.page.latest_offset` ([0013](0013-postgres-storage.md) §5), cached briefly in-process and nowhere else.
-3. **Shared caches hold the form computed for a visibility set, keyed by that set.** The visibility set of a target is the `read` restrictions enclosing it ([0056](0056-security-model.md) §2); an entry computed under set *V* is served to any principal that satisfies *V*, and the **public form**, the response as an anonymous reader sees it with hidden fields removed and erased bodies absent, is the entry for the empty set. Only the empty set's entries reach L2 and the proxy (0056 §7). Administrators' moderation views, which include hidden fields ([0012](0012-api-requirements.md) §8), bypass every shared layer. Nothing from a `private` graph is ever cached outside the holder's session.
-4. **Erasure purges; everything else expires.** Erasure, upstream hiding ([0011](0011-logs.md) §5), and deletion and hiding by `read` ACL ([0023](0023-moderation.md) §5) are the only events that reach into caches. Every entry also has a TTL ceiling, so a purge that is missed is bounded in time.
-5. **A small instance runs with no shared cache and no search service.** The layers below are optional above the in-process cache; the code paths are the same, with the shared layer absent and the Postgres fallback (§8) in place.
+*Current text: [03](../architecture/03-storage-caches-and-search.md) §9.1, §13.*
 
 ### 2. Layers
 
+*Changed by A14, A15, A19.*
 
-*Changed by A14, A15.*
-
-| Layer | Technology | Holds | Bounded by |
-|---|---|---|---|
-| **L0, in-process** | An in-memory LRU in each server process (`moka`) | Registries and role maps; property data types; the canonical ID of each cluster member; labels in the instance's hot languages; current versions of recently read entities and pages | Size, and a TTL of seconds for current versions |
-| **L1, shared** | Valkey (Redis protocol) | §4 and §10: resolved entity JSON, term batches, rendered pages, provenance responses, structured diffs, suggestions, upstream fetches. Also rate-limit counters and sessions. | Per-key TTL ceilings (§5) |
-| **L2, HTTP** | `ETag` and `Cache-Control` on anonymous responses, honoured by the reverse proxy and CDN in front of the instance | Whole responses | Short `s-maxage`, `stale-while-revalidate`, purge by tag on erasure |
-| **L2, web tier** | The response cache of `triplespace-web`, in each process (`moka`) or in a Valkey its configuration names ([0057](0057-web-tier.md) §5) | Public API responses to the requests it sends without credentials | Revalidated with `If-None-Match` on every use, except responses whose `max-age` the API sets because no purge can change them, kept for up to 60 seconds; never purged, so it never holds what a purge or an erasure has changed beyond the next request |
-| **Replicas** | Postgres streaming replicas | Everything in `view` | LSN routing ([0013](0013-postgres-storage.md) §7) |
-
-L1 is the layer MediaWiki fills with memcached. Valkey is chosen over memcached for one reason: keys can be enumerated by prefix, so an erasure can delete every entry for an entity rather than rely on generation keys alone (§5). Sessions live in Valkey; OAuth tokens and bindings do not, they stay in Postgres `private` ([0013](0013-postgres-storage.md) §4).
+*Current text: [03](../architecture/03-storage-caches-and-search.md) §9.2, §12.2.*
 
 ### 3. Versions
 
 *Changed by A7.*
 
-Every cacheable thing has one version number, and the key carries it.
-
-| Thing | Version | Where it comes from |
-|---|---|---|
-| Resolved entity | `resolved_version` | Bumped by the resolution projection on every re-resolution, including ones caused by another entity's cluster change ([0013](0013-postgres-storage.md) §5.1) |
-| Document page | `latest_offset` | The page's newest record ([0013](0013-postgres-storage.md) §5.4) |
-| Record-derived data: a diff, a change set, a proof | `(partition, offset)` | Immutable by construction |
-| Label batch | The max `resolved_version` of the entities in the batch | Computed at lookup |
-| Rendered page HTML | `latest_offset`, the render epoch, the renderer version ([0012](0012-api-requirements.md) §4, `action=parse`), and the interface language | The epoch is bumped when anything the render read changes, and the entry's lifetime is capped by the render's `expires_at` ([0042](0042-template-expansion-and-parsoid.md) §10) |
-
-**`ETag` is the version.** An entity response carries `ETag: "Q42:<resolved_version>:<generation>"`. `If-None-Match` is answered from L0's current-version cache without touching Postgres when the version is unchanged. The version also appears in the JSON response body, so a client that has just written can wait for the version its write returned.
-
-**Read-your-writes** follows from [0013](0013-postgres-storage.md) §7. The write transaction commits the new version; the response reports it; the write path also writes the new resolved JSON into L1 so the editor's next read hits. Replica routing by LSN covers the Postgres side.
+*Current text: [03](../architecture/03-storage-caches-and-search.md) §9.3.*
 
 ### 4. What L1 holds
 
-*Changed by A7, A11, A12, A13.*
+*Changed by A7, A11, A12, A13, A22.*
 
-| Key | Value | TTL ceiling |
-|---|---|---|
-| `e:{id}:{gen}:{ver}` | Resolved canonical JSON, compressed | 24 h |
-| `t:{lang}:{id}:{gen}:{ver}` | Label and description in one language | 24 h |
-| `prov:{id}:{gen}:{ver}` | The provenance response ([0003](0003-statement-ui.md) §6, [0012](0012-api-requirements.md) §5) | 24 h |
-| `p:{pageid}:{gen}:{offset}:{epoch}:{renderer}:{lang}` | Rendered HTML of a document page | 24 h, or the render's `expires_at` if sooner |
-| `d:{partition}:{offset}:{gen}` | A structured diff ([0012](0012-api-requirements.md) §7) | 24 h |
-| `sug:{lang}:{kinds}:{q}` | A suggestion list ([0012](0012-api-requirements.md) §5) | 60 s |
-| `up:{provider}:{id}:{from}:{to}` | Upstream edits fetched live ([0012](0012-api-requirements.md) §6) | Configured; minutes |
-| `rl:{scope}:{key}` | Rate-limit counters for upstream fetches and writes | The limit window |
-| `s:{session}` | Session state | The session lifetime |
-| `fp:{repo}:{ns}:{title}:{revid}` | A page repository's bundle: rewritten HTML and metadata ([0053](0053-mirrored-pages.md) §4) | The repository's `cache_ttl`, or until an event purges it |
-| `css:{pageid}:{gen}:{offset}` | The sanitized form of a `sanitized-css` page ([0055](0055-templatestyles-templatedata-and-page-properties.md) §2) | 24 h |
-
-`{gen}` is the entity's or page's `generation` ([0013](0013-postgres-storage.md) §5), which changes only on erasure or hiding (§5). `{ver}` is the version of §3. Every key whose value depends on what the viewer may read (`e:`, `t:`, `prov:`, `p:`, `d:`, `sug:`, `css:`) also carries a **`{vis}`** segment, written after `{gen}`: a short hash of the sorted group names of the visibility set together with the tenant's visibility epoch, `-` for the empty set; a `read` ACL on a namespace, set or tenant bumps the epoch and every entry under it lapses at once ([0056](0056-security-model.md) §7).
-
-**Stampedes** are handled per process: concurrent requests for one missing key share one computation (single flight), and a short lock key in L1 keeps two servers from resolving the same large entity at once.
-
-**What is not cached.** Activity lists, histories and contributions are served from `view.activity` with continuation, and are not cached above L2: their pages change with every edit and their cost is one index scan. Anything under `/account` and `/auth` is `no-store` ([0012](0012-api-requirements.md) §8) and never enters L1 or L2.
+*Current text: [03](../architecture/03-storage-caches-and-search.md) §9.4, §9.7, §12.1, §12.3.*
 
 ### 5. Erasure and hiding reach every layer
 
 *Changed by A3, A7.*
 
-When an `erase` record is appended ([0006](0006-log-integrity-and-erasure.md) §7), an upstream hiding is followed ([0011](0011-logs.md) §5), or a `read` ACL deletes or hides something ([0023](0023-moderation.md) §5), the projection that removes the derived data also:
-
-1. **bumps `generation`** on every affected entity and page, so every existing key for them is unreachable at once;
-2. **deletes the old keys** in L1 by prefix (`e:{id}:*`, `t:*:{id}:*`, `prov:{id}:*`, `p:{pageid}:*`, `d:{partition}:{offset}:*`), so the bytes leave memory rather than wait for the ceiling;
-3. **purges L2 by tag.** Every anonymous response carries a cache tag for each entity and page it drew on (`Cache-Tag: entity:Q42, page:17`); the purge names the tags. A proxy or CDN that cannot purge by tag gets a shorter `s-maxage` in configuration instead;
-4. **deletes the search documents** (§7).
-
-§10 adds the steps later ADRs need: inbox rows, delta rows, files and rendering.
-
-A rename or vanish ([0007](0007-actor-identity.md) §4) bumps the generation of the actor's user pages and of every activity row's actor display, which is served uncached in any case.
-
-The TTL ceilings in §4 are the bound on a missed purge. An instance under a legal deadline lowers them for the duration.
+*Current text: [03](../architecture/03-storage-caches-and-search.md) §9.6, §12.4.*
 
 ### 6. HTTP caching
 
 *Changed by A5, A15.*
 
-For anonymous requests:
-
-- `Cache-Control: public, max-age=0, s-maxage=60, stale-while-revalidate=300`, and `ETag` as in §3. Readers see at most a minute of staleness through a proxy, and none when they revalidate, because `If-None-Match` is cheap.
-- `Vary: Accept, Accept-Language`. Cookies are absent on anonymous requests, so `Vary: Cookie` is not needed; an authenticated request is never served from L2.
-- `Cache-Tag` as in §5.
-
-MediaWiki purges its CDN on every edit because its `s-maxage` is long. Triplespace keeps `s-maxage` short and purges only on erasure. A proxy that can purge by tag may raise `s-maxage`; the default is chosen so that a proxy that cannot is still correct.
-
-For authenticated requests: `Cache-Control: private, no-cache`, with `ETag` still present so the client revalidates.
-
-**A page the web tier composes** from several API responses is public only if every response it used was public, and `private, no-cache` otherwise; its `ETag` hashes the web tier's build, the interface language and the `ETag`s it used, its `Cache-Tag` is the union of theirs, and it varies on `Cookie` and `Accept-Language` ([0057](0057-web-tier.md) §6). A region fetched with `action=render` is cached the same way, with its page's tags.
-
-Media bytes are the exception to the short `s-maxage`: a public file version is served with a long one, because any change that makes it unreadable purges its tags ([0039](0039-files-and-media.md) §7, §10 below).
+*Current text: [03](../architecture/03-storage-caches-and-search.md) §10.1, §10.3.*
 
 ### 7. Search on OpenSearch
 
 *Changed by A2, A4, A5, A6, A7, A10, A11, A12, A13, A17.*
 
-**Two indexes, one query.** This settles [0008](0008-namespaces-and-document-pages.md) Q7.
-
-| Index | One document per | Fields |
-|---|---|---|
-| `entities` | Canonical entity in the resolved view: local, foreign and keyed, of every type | `id`, `type`, `provider`, `namespace` (MediaWiki number); `labels.{lang}` with `.prefix` and `.near_match` subfields; `labels_all`; `descriptions.{lang}`; `aliases.{lang}`; `key`, `key_ulabel` and `key_parents` for keyed types; `statement_keywords`; `sitelink_count`, `statement_count`, `incoming_links`; `resolved_version` |
-| `pages` | Document page that is not deleted | `page_id`, `namespace`, `title` with `.prefix`, `text` (the content model rendered to plain text; with template expansion on, the rendered text, and `source_text` the source, [0042](0042-template-expansion-and-parsoid.md) §17), `content_model` (a content model registry ID; threads are `triplespace-thread`, [0041](0041-content-models.md) §10), `origin`, `latest_offset`, `categories` (for `incategory:`) and `statement_keywords` over the page's statements (for `haswbstatement:`, [0038](0038-page-metadata-and-categories.md) §12), `redirect_titles` (the titles of the page's redirects, [0051](0051-page-redirects.md) §5; redirect pages themselves are not documents unless broken or external) and `short_description` ([0055](0055-templatestyles-templatedata-and-page-properties.md) §6) |
-| `pages-{repo}` | A page a repository in `mirror` mode holds, one shared index per repository at instance scope ([0053](0053-mirrored-pages.md) §7) | `title`, `text` (the HTML stripped), `categories`, `redirect_titles`, `origin`; searched beside the tenant's `pages` index when `search.inherited` is on |
-
-Field semantics follow WikibaseCirrusSearch where a field exists there, so that its analysis configuration, its query builders and its ranking can be reused or compared:
-
-- **`labels.{lang}`** holds the label and the aliases for that language, so a prefix match finds either. Language analyzers come from the same analysis configuration CirrusSearch uses, including the ICU plugin.
-- **`labels_all`** holds every label and alias in every language, for a query with no language or a language with no label.
-- **`statement_keywords`** holds `P31=Q5`-style tokens for item-valued and external-id statements in the resolved view, using canonical IDs, so `haswbstatement:` works. Properties excluded from it are registry configuration.
-- **`incoming_links`** is the count of distinct referrers in `view.entity_ref`, resolved to canonical IDs. `sitelink_count` and `statement_count` are read from the resolved JSON.
-- **Keyed types** ([0009](0009-keyed-entity-types-and-domain.md)): `id` is the prefixed ID, `domain:en.wikipedia.org`, as everywhere an entity ID appears ([0017](0017-entity-id-grammar.md) §4); `key` keeps the bare key in its A-label form, `key_ulabel` the display form, and `key_parents` is the list of the key and every parent by removing labels from the left, so `wikipedia.org` matches `en.wikipedia.org` and a search for a zone finds its hosts. This is the DNS hierarchy of 0009 §5, made searchable.
-- **Non-canonical cluster members have no document.** Their terms are already merged into the canonical entity's resolved view. A search for a non-canonical ID is a `/resolve`, not a search.
-
-**Queries:**
-
-| Route | Query |
-|---|---|
-| `GET /suggest?q=` ([0010](0010-site-ui.md) §3) | One `msearch` with a request per kind: items and properties, foreign entities by type, keyed entities, and pages. Entities match `labels.{lang}.prefix` with the viewer's language fallback chain, rescored by `incoming_links` and `sitelink_count`; pages match `title.prefix`. If the input parses as an ID or a key, the title resolver's answer is the first suggestion and the index is not asked for it. |
-| `wbsearchentities` | The entity request of `/suggest`, with `type` and `language` as given and the same continuation as Wikibase |
-| `list=search` | Full text over both indexes, with `srnamespace` selecting which. Entity results use `labels_all` and `descriptions`; page results use `text` and `title`. `haswbstatement:` is honoured, and `hastemplate:` reads `view.transclusion` ([0042](0042-template-expansion-and-parsoid.md) §17). |
-| `list=prefixsearch` | `title.prefix` on `pages`, and `labels.{lang}.prefix` on `entities` for entity namespaces |
-
-**Indexing is a projection.** The search indexer is the last consumer in [0013](0013-postgres-storage.md) §7's order:
-
-- After the resolution projection writes an entity, it enqueues `(id, resolved_version)`. The indexer reads the resolved JSON and `entity_ref` count from `view`, builds the document, and sends it in bulk with `version_type: external` and `version: resolved_version`. Out-of-order deliveries are rejected by the index, so retries and parallel workers are safe.
-- A page record does the same with `latest_offset`.
-- An erased or tombstoned entity, a deleted page, or an entity that stops being canonical is deleted from the index with the same versioning.
-- The index holds no moderation-hidden data: no hidden names, no erased bodies, nothing from an internal-only or private graph. Redaction is applied when the document is built, and the erasure path of §5 deletes documents. It does hold content under a **confidential** restriction, with the target's visibility set in a `read_groups` field, and every query filters on it: a document is returned only when `read_groups` is empty or every group in it is among the principal's, which is a `terms_set` query ([0056](0056-security-model.md) §8). The per-provider shared indexes hold public form only; `read_groups` is non-empty in per-tenant indexes alone.
-- **Bootstrap** indexes from `view` in one pass after the resolution projection, with the refresh interval raised and replicas set to zero for the duration, as CirrusSearch's reindex does.
-- **Reindexing** into a new index and swapping an alias is the only way a mapping changes. The alias is what queries name.
-
-**Mappings.** The mappings and analysis settings are committed as JSON under `docs/search/`, versioned, and named in the alias, so a running instance can report which mapping it serves. Building a document from the resolved JSON is pure and lives in `scatter-wikibase-model` as a function, so the audit tooling can produce the same documents without a server.
-
-**Consistency.** The index is eventually consistent with `view`, by the projection's lag. A suggestion may name an entity whose page has moved on; the page is served from `view`, and the difference is the lag reported by `ops.projection_state`.
-
-**Lexemes** ([0066](0066-lexemes.md) §5): the entity index gains lexeme documents with `lemma`, `language`, `lexical_category`, `representation` and `gloss` fields; `wbsearchentities&type=lexeme` matches lemmas and returns the lexeme, `type=form` representations and `type=sense` glosses, each returning the part's ID. Entity schemas ([0064](0064-entityschema-and-validation.md) §7) index their terms as any entity's and their ShExC text as a plain-text field; captions ([0065](0065-mediainfo-captions-and-commons.md) §1) index as the File page's terms.
+*Current text: [03](../architecture/03-storage-caches-and-search.md) §11.1, §11.2, §11.3, §11.5, §12.5.*
 
 ### 8. Postgres fallback
 
-Where OpenSearch is absent, the same routes are served from Postgres:
-
-| Route | Fallback |
-|---|---|
-| `/suggest`, `wbsearchentities`, `list=prefixsearch` for entities | `view.term` with the `term_prefix` index ([0013](0013-postgres-storage.md) §5.2): `lower(text) LIKE lower($q) || '%'` in the requested language and its fallbacks, ordered by a count from `entity_ref` |
-| `list=prefixsearch` for pages | `view.page` on `(ns, title)` |
-| `list=search` | A `tsvector` column on a `view.page_text` table with a GIN index; entities by `term_prefix` |
-
-The fallback has no `haswbstatement:`, no ranking beyond incoming links, and no analysis. It is meant for instances small enough that a prefix scan is fast, which the profile table in [0013](0013-postgres-storage.md) §11 defines. `meta=siteinfo&siprop=triplespace` ([0012](0012-api-requirements.md) §4) reports `search: opensearch` or `search: postgres` so the UI knows which features to show.
+*Current text: [03](../architecture/03-storage-caches-and-search.md) §5, §11.6.*
 
 ### 9. Crates
 
 *Changed by A1.*
 
-*Superseded by [0005](0005-crate-organization.md) §2 (A1).*
-
-[0005](0005-crate-organization.md) §2 keeps the crate table that CI checks, with both crates this section named. The table this section first gave is in A1; the paragraph that followed it is now in §7.
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
 
 ### 10. Caches, indexes and stores added by later ADRs
 
-*Changed by A3, A5, A7, A8, A16.*
+*Changed by A3, A5, A7, A8, A16, A18, A20, A21.*
 
-The ADRs after this one add to the layers of §2 without adding a layer, and change §4 and §7 where they say so ([0018](0018-tenants.md) §6 makes keys tenant-aware and indexes per provider and tenant). This section is the index, so that erasure (§5) and the privacy test have one list to walk.
-
-**L1 keys** (extends §4):
-
-| Key | Value | Added by |
-|---|---|---|
-| `post:{revid}:{gen}:{offset}` | A rendered post; `{offset}` is the record holding its current text | [0019](0019-discussions.md) §11 |
-| `th:{pageid}:{gen}:{revid}` | A thread, keyed by its page ID and latest revision ID | 0019 §11 |
-| `tp:{pageid}:{gen}:{revid}` | A talk page's thread listing, keyed likewise by the talk page ID | 0019 §11 |
-| `t:`, `e:`, `prov:` and the rest of §4 | Gain a tenant component where the value is tenant-specific, and omit it where the value is shared, so a mirrored entity's JSON is cached once for every tenant that reads it unchanged | [0018](0018-tenants.md) §6 |
-
-**L0 additions** (extends §2), all small, all invalidated by the record that changes them: the current ACLs of a target and its enclosures, including the `statement` and `property` targets ([0023](0023-moderation.md) §2, §10); the compiled CEL rule of every enabled filter ([0030](0030-edit-filters.md) §11); the parsed constraints of a property, keyed by its `resolved_version` ([0031](0031-property-constraints.md) §5); the class chain walked by a *type* constraint check, to its depth limit (0031 §2); the farm-account join behind global groups and blocks, per session ([0028](0028-tenancy-policy.md) §12); the fragment cache of packed storage, an LRU of immutable fragments by domain and ref with the set of refs known to be shared, dropped for a domain when its epoch changes or on `NOTIFY ts_fragment` and otherwise bounded by the L0 ceiling ([0058](0058-packed-record-storage.md) §11).
-
-**Valkey keys that are not caches** (extends §4): `rl:filter:{id}:{key}`, a filter's throttle counter with the filter's window as TTL ([0030](0030-edit-filters.md) §4, §11); `oauth:code:{hash}` and `oauth:device:{hash}`, authorization and device codes with a ten-minute TTL ([0025](0025-oauth-server.md) §8). Sessions (`s:`) record the API key ID or OAuth token ID that opened them, so revoking either can end them ([0024](0024-subsidiary-accounts.md) §4, [0025](0025-oauth-server.md) §5).
-
-**Never cached above L2,** in addition to the activity lists of §4: the watchlist and every response under `/watchlist` ([0020](0020-change-feeds.md) §5), the inbox and everything under `/inbox` and `/notifications` ([0021](0021-notifications.md) §7), everything under `/account`, including preferences, subsidiaries, keys, authorizations and the data export ([0024](0024-subsidiary-accounts.md) §8, [0025](0025-oauth-server.md) §9, [0027](0027-preferences-and-portability.md) §6), all of which are `Cache-Control: private` or `no-store`. The everything feed's page and Atom forms are public and cache briefly at L2 (0020 §5). The stream ([0020](0020-change-feeds.md) §4) is not cached; it is a fan-out from the activity projection. Constraint reports and the filter log are feeds or lists over `view` and follow the activity-list rule. The SPARQL Update stream and `/updates` ([0032](0032-sparql-update-stream.md) §6) are range reads over `view.rdf_delta` and are not cached either; its batch files under `/dumps/updates/` are immutable once written and cache like dumps.
-
-**Erasure** (extends §5) has a fifth step: **delete the inbox rows** whose activity was hidden or erased, in every inbox ([0021](0021-notifications.md) §2), and a sixth: **delete or rewrite the `rdf_delta` rows** within the retention window whose triples include the erased ones, and emit the deleting delta ([0032](0032-sparql-update-stream.md) §5), and a seventh, in a packed partition: **sweep the erased parts' fragments** and drop the domain's fragment cache in every process ([0058](0058-packed-record-storage.md) §6, §11). The end-to-end erasure test of the Consequences covers all three. **Deletion and hiding** ([0023](0023-moderation.md) §4–5) take the same path: a `read` ACL on a page, entity, record, actor, statement or property bumps the target's generation, purges its keys and tags, deletes or re-sends its search document and clears its inbox rows, because the shared layers hold only the public form (§1) and the public form has changed; a `property` read ACL bumps every entity the property appears on, found through `view.statement_assertion` and the resolved JSON, which is the one moderation action with a fan-out. Protection purges nothing. A **sitelink or federation policy change** ([0026](0026-sitelinks.md) §3, [0022](0022-federation.md) §8) re-resolves the affected entities through the `host` index and bumps their versions, not their generations, since nothing was hidden for privacy.
-
-**Search** (extends §7):
-
-- **Indexes multiply by provider and tenant** ([0018](0018-tenants.md) §6): one shared `entities` index per provider, holding that provider's canonical entities as the shared view has them, and one index per tenant holding its local entities and its overlay documents. `/suggest` and `wbsearchentities` run one `msearch` across the tenant's own index and the indexes of its opted-in providers; where a tenant document and a shared document share an ID, the tenant's wins. `incoming_links` on a shared document is the instance-wide count.
-- **A thread is one document in the `pages` index** ([0019](0019-discussions.md) §11): subject plus post text, with the `Thread` namespace; hidden and erased text is not indexed, and the document is re-sent with the thread's latest revision ID as its external version.
-- **Farm-wide search** ([0028](0028-tenancy-policy.md) §9): under `search.farm_wide`, `/suggest` and `list=search` at the farm base run one `msearch` across every tenant's index and every provider index, each hit carrying its tenant, gated to global groups or to everyone by policy. Redaction stays per tenant.
-- **Sitelinks and resolvers add nothing to the indexes.** A denied host's sitelink is left out of the entity document because it is left out of the resolved view ([0026](0026-sitelinks.md) §3); a resolver key is recognised by the title resolver before the index is asked ([0029](0029-resolver-namespaces.md) §4), as an ID is.
-
-**Files** ([0039](0039-files-and-media.md) §7, §20): L1 keys `fi:{tenant}:{page id}:{gen}` for a file's imageinfo and `rf:{repo}:{name}` for a foreign file's; `file_block` held whole in L0; Cache-Tags `blob:{scope}:{h}` and `file:{tenant}:{page id}` on every media response, purged by deletion, hiding, takedown and erasure. Thumbnails and proxied foreign bytes are caches kept in the blob store, not in Valkey. Responses to signed media URLs are `private, no-store`. File pages in the `pages` index gain `file_*` fields for CirrusSearch's file keywords (0039 §19).
-
-**Stores that are not caches**, listed here because they sit beside Valkey in the deployment: the email and fediverse delivery queue in `ops` ([0021](0021-notifications.md) §8), which is durable and survives a restart; and the rate-limit counters of §4, whose classes and windows are the site policy of [0024](0024-subsidiary-accounts.md) §5 (`edit`, `create`, `move`, `link`, `job`, `read`, `stream`, `atom`, `upstream`, `notify`, `account`), keyed by actor key or, for anonymous requests, by IP. Sessions stay in Valkey (§2) and record the API key that opened them, so revoking a key can end them ([0024](0024-subsidiary-accounts.md) §4).
-
-**Rendering** ([0042](0042-template-expansion-and-parsoid.md) §10, [0043](0043-lua-modules.md) §6): the render epoch in `p:` keys; `ld:{tenant}:{pageid}:{gen}:{offset}` for parsed data modules. Every rendered page carries a `Cache-Tag` for each page and entity in its manifest, and erasing, deleting or hiding a dependency bumps the epoch of each page that read it and purges their tags.
+*Current text: [03](../architecture/03-storage-caches-and-search.md) §9.4, §9.5, §9.6, §9.7, §11.4, §12.1, §12.2, §12.3, §12.4, §12.5, §13.*
 
 ## Consequences
 
@@ -433,3 +289,63 @@ Replaced text (§7):
 - **Source:** [0066](0066-lexemes.md) §5; [0064](0064-entityschema-and-validation.md) §7; [0065](0065-mediainfo-captions-and-commons.md) §1
 - **Change:** extends §7
 - **Summary:** Lexeme documents and the three lexeme search types; schema terms and text; captions as File page terms.
+
+### A18. Scope and sprint listing keys
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** extends §10
+- **Summary:** The L1 key list of §10 gains the `sc:` rows of [0060](0060-scopes.md) §10 and the `sp:` rows of [0061](0061-sprints-and-tasks.md) §11, the scope and sprint listings. (PENDING A11)
+
+### A19. Where session state lives
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** amends §2
+- **Summary:** Session state lives in Valkey when a shared cache is configured and in `private` otherwise ([0025](0025-oauth-server.md) §8; A14), so §2 no longer states Valkey as the one home of sessions; [0013](0013-postgres-storage.md) §4's "sessions' secrets" means that fallback. (PENDING A12)
+
+Replaced text (§2):
+
+> L1 is the layer MediaWiki fills with memcached. Valkey is chosen over memcached for one reason: keys can be enumerated by prefix, so an erasure can delete every entry for an entity rather than rely on generation keys alone (§5). Sessions live in Valkey; OAuth tokens and bindings do not, they stay in Postgres `private` ([0013](0013-postgres-storage.md) §4).
+
+### A20. Listing keys carry a listing version
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** amends §10
+- **Summary:** Listing keys (`tp:`, `sc:`, `sp:`) carry a **listing version**, the maximum activity ID over the listing's members, computed in Postgres at read time, in place of tag purges on ordinary writes and in place of the talk page's latest revision ID; §1's principles 1 and 4 hold unchanged. Tag purges remain for erasure and hiding. The same holds in [0049](0049-boards.md) §12, [0069](0069-synchronized-talk-pages.md) §10, [0060](0060-scopes.md) §10 and [0061](0061-sprints-and-tasks.md) §11. (PENDING B4)
+
+Replaced text (§10):
+
+> | `tp:{pageid}:{gen}:{revid}` | A talk page's thread listing, keyed likewise by the talk page ID | 0019 §11 |
+
+### A21. Every viewer-dependent key carries `{vis}`
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** amends §10
+- **Summary:** Rule: every key whose value depends on what the viewer may read carries `{vis}` ([0056](0056-security-model.md) §7), and §10's key list marks each key. Classification, to confirm: carry `{vis}`: `e:`, `t:`, `prov:`, `p:`, `d:`, `sug:`, `css:`, `post:`, `th:`, `tp:`, `fi:`, `rf:`, `ld:`, `sc:`, `sp:`; do not: `s:`, `rl:`, `up:`, `fp:` (a repository bundle is public upstream content). The thread keys of §10, which lacked the segment, gain it. (PENDING B5)
+
+Replaced text (§10):
+
+> | `post:{revid}:{gen}:{offset}` | A rendered post; `{offset}` is the record holding its current text | [0019](0019-discussions.md) §11 |
+> | `th:{pageid}:{gen}:{revid}` | A thread, keyed by its page ID and latest revision ID | 0019 §11 |
+> | `tp:{pageid}:{gen}:{revid}` | A talk page's thread listing, keyed likewise by the talk page ID | 0019 §11 |
+
+### A22. Rate-limit counter keys
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** corrects §4
+- **Summary:** Rate-limit counters are `rl:{class}:{key}`, the class being a rate-limit class of [0024](0024-subsidiary-accounts.md) §5 and the key the actor key or, for anonymous requests, the IP; 0024 §5 is corrected to the same form. (PENDING C4)
+
+Replaced text (§4):
+
+> | `rl:{scope}:{key}` | Rate-limit counters for upstream fetches and writes | The limit window |
+
+### A23. Current text relocated to the architecture chapters
+
+- **Date:** 2026-10-09
+- **Source:** [0050](0050-adr-format.md) §14
+- **Change:** relocates §1–§10
+- **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.

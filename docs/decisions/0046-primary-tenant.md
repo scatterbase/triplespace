@@ -2,10 +2,11 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-01 (A3)
+- **Updated:** 2026-10-09 (A6)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0028](0028-tenancy-policy.md), [0040](0040-instance-prerogatives.md)
 - **Uses:** [0010](0010-site-ui.md), [0039](0039-files-and-media.md), [0047](0047-special-pages.md)
+- **Chapters:** [01](../architecture/01-log-and-records.md), [02](../architecture/02-graphs-rdf-and-query.md), [08](../architecture/08-tenants-and-instances.md), [09](../architecture/09-security-and-moderation.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -37,117 +38,51 @@ James's direction, from the design discussion of 2026-09-30: the role is **trans
 
 ### 1. The primary tenant is where the instance's operators have their accounts (amends 0018 §1)
 
-**The primary tenant is the tenant whose accounts operate the instance.** An instance has exactly one at every point in its log (§2). The role is about identity: it says whose accounts may exercise instance rights, and whose actors may attest records the instance holds on its own behalf. It is **not a storage location** for instance records (§4), and it gives **no authority over other tenants' data** beyond what instance rights already give, exercised through instance acts ([0040](0040-instance-prerogatives.md)).
-
-What the role carries:
-
-| | |
-|---|---|
-| **Instance rights** | Evaluated on the primary tenant, or through a global group at the farm base ([0028](0028-tenancy-policy.md) §3); held on any other tenant they grant nothing at instance scope (§8, [0040](0040-instance-prerogatives.md) §9) |
-| **Attestation of instance records** | Records in instance partitions that are not an upstream's or a farm account's are attested by actors of the primary tenant (§4), including the authority records of instance acts ([0040](0040-instance-prerogatives.md) §4) |
-| **The instance's owners** | `owner` on the primary tenant is the instance's `owner`: the group that holds `ts-keys` and `ts-primary`. `owner` on any other tenant is that wiki's owner, whose `all_permissions` include instance rights that grant it nothing there |
-| **The instance's bots** | Instance jobs (mirror syncs, provider backfills) run as subsidiaries of primary-tenant accounts ([0024](0024-subsidiary-accounts.md) §1; §5) |
-| **Bootstrap** | `triplespace-cli instance create` creates the instance key, the primary tenant, its `owner` and its sync subsidiaries ([0016](0016-permissions-and-access-control.md) §3) |
-| **Defaults** | The operator actor's display name defaults to the primary tenant's site name ([0040](0040-instance-prerogatives.md) §2); on a single-tenant instance the farm base is the primary tenant's base ([0018](0018-tenants.md) §1) |
-
-What it does not carry: the primary tenant's records are not instance records; its blocks, ACLs and groups apply to its own accounts and content only; it is a guest under [0040](0040-instance-prerogatives.md) §1, so an instance act on it is attested by the instance like any other; farm accounts, global groups and global blocks live in the farm partitions, not in it ([0028](0028-tenancy-policy.md) §2–4); and it needs no provider code.
-
-**"An actor of the primary tenant" means primary when the record was appended.** Evaluating an instance right, and verifying the attestation of an authority record ([0040](0040-instance-prerogatives.md) §4, §8), look up which tenant held the role at that record's offset in the instance `config` (§2). A record attested by an operator of a former primary tenant stays valid.
-
-**On the primary tenant, its groups are the instance's groups for instance rights.** Whoever holds an instance right there exercises it across the farm: a primary-tenant `bureaucrat` approves OAuth consumers, as Meta's OAuth administrators do for Wikimedia. A farm whose primary tenant is a community wiki either confines instance rights to `owner` there, by its own group records, or uses an operations tenant (§3).
+*Current text: [08](../architecture/08-tenants-and-instances.md) §1, §7.1.*
 
 ### 2. The `primary` record (extends 0015 §3; amends 0018 §3)
 
-The role is held by one `config` record of a new instance-scope kind, **`primary`**, keyed `primary`, whose content is the tenant's slug and, for a transfer, the offer it accepts (§5). The `tenant` record of [0018](0018-tenants.md) §3 loses its primary flag and keeps slug, base URI and, for a provider tenant, its code and number.
-
-`instance create` appends the first `primary` record after the instance `key:` and the primary tenant's `tenant:` record. The instance `config` partition is `logged` and `full`, so its history answers "which tenant was primary at offset *n*" without a separate table, which §1 relies on.
+*Current text: [08](../architecture/08-tenants-and-instances.md) §2.5, §7.2.*
 
 ### 3. Any tenant may be primary
 
-The primary tenant may be a wiki with content, as Librarybase is on its own instance, or an **operations tenant** created only to hold the operators' accounts and the instance's bots, with no pages or entities. An operations tenant may be private (its partitions with the `private` export policy, [0018](0018-tenants.md) §5), since nothing about the role needs to be public; the public face of instance acts is the operator actor and `Special:InstanceAction` at the farm base ([0040](0040-instance-prerogatives.md) §7).
-
-This is a choice each instance makes, not a tenancy switch. By archetype ([0028](0028-tenancy-policy.md) §1): an `isolated` hosting farm will usually want an operations tenant, so that no customer's wiki carries its operators; a `community` farm will usually make its Meta-style wiki primary; an `enterprise` farm, its platform team's wiki.
+*Current text: [08](../architecture/08-tenants-and-instances.md) §7.3.*
 
 ### 4. Instance records live in instance partitions (amends 0011 §6.3 and 0025 §5)
 
-**The rule.** Every record in an instance partition is attested by one of:
-
-- an upstream actor, for the records a sync job writes into `mirror/*`, `actors/{provider}`, `log/{provider}` and `files/{repo}` (the job's ID in the attestation names the primary-tenant subsidiary that ran it);
-- a farm account, for its own records in `actors/{farm}`, `accounts/{farm}` and `log/{farm}`, and for what members of global groups write ([0028](0028-tenancy-policy.md) §2–3, [0040](0040-instance-prerogatives.md) §4);
-- an actor of the primary tenant, for everything else.
-
-It is the instance counterpart of [0040](0040-instance-prerogatives.md) §1's rule for a tenant's partitions. Nothing the instance holds on its own behalf is written into the primary tenant's partitions, so a transfer (§5) moves no records and splits no history.
-
-Two cases move accordingly:
-
-- **Mirror sync job records** ([0011](0011-logs.md) §6.3) are appended to the **instance `log`**, keyed by job ID, as the records of jobs that write instance acts already are ([0040](0040-instance-prerogatives.md) §4). "A mirror sync is a local action" now reads "an instance action". Tenant bulk jobs stay in the tenant's `log`.
-- **OAuth consumer events** (`oauth/propose`, `oauth/update`, `oauth/approve`, `oauth/reject`, `oauth/disable`; [0025](0025-oauth-server.md) §5) are appended to the **instance `log`**, not the primary tenant's `log` or `log/{farm}`.
-
-The instance `log` stays `internal` ([0039](0039-files-and-media.md) §10). Its public records (job records, consumer events, the public reasons of authority records) are served at the farm base by the same projections as a tenant's log: `Special:Log`, `list=logevents` and the job pages ([0010](0010-site-ui.md) §9). Whether they should also go into a public dump is open (Q2).
+*Current text: [01](../architecture/01-log-and-records.md) §1.4; [08](../architecture/08-tenants-and-instances.md) §7.4.*
 
 ### 5. Transferring the role
 
-**By offer and acceptance.** A member of `owner` on the primary tenant offers the role to another tenant on the instance with `ts-primary`: a `primary/offer` record in the instance `log` naming the tenant, with an expiry (default seven days). A member of `owner` **on the offered tenant** accepts by appending the new `primary` record, citing the offer. Acceptance is the receiving tenant's consent to its groups becoming the instance's (§1), and is the one write to an instance partition that an actor of a non-primary tenant may attest; it is refused without an open offer naming that tenant. The offerer may withdraw an open offer (`primary/withdraw`). The new `primary` record projects as `primary/transfer` in the instance `log`.
-
-**Effects, from the offset of the new `primary` record:**
-
-- Instance rights are evaluated on the new primary tenant. `owner` on the former primary is that wiki's owner and nothing more.
-- Authority records and instance acts made before stay valid (§1); nothing is re-attested.
-- Instance jobs already running finish under the subsidiaries that started them; new ones need subsidiaries of the new primary's accounts. `triplespace-cli primary accept` creates them beside the accepting account, as `instance create` does ([0024](0024-subsidiary-accounts.md) §1), and the former primary's sync subsidiaries are left for that tenant's bureaucrats to retire.
-- The operator actor keeps its key `instance:{farm slug}` and its IRI. Its display name follows the new primary's site name unless the instance has set its own name.
-- Farm accounts, global groups and global blocks are untouched; they never belonged to the primary tenant.
-
-A transfer is not an instance act on either tenant: it writes nothing into either tenant's partitions.
-
-**The primary tenant cannot leave (amends 0018 §10 and 0028 §5).** Moving it away, deleting it, or freezing it for a move is refused with `ts-primary-tenant` until the role has been transferred. On a single-tenant instance there is no tenant to transfer to: moving the only tenant is rehosting the instance ([0018](0018-tenants.md) §10, last paragraph), and deleting it is decommissioning the instance.
+*Current text: [08](../architecture/08-tenants-and-instances.md) §7.5, §7.6.*
 
 ### 6. The farm slug (settles 0028 §2's reference)
 
-**The farm slug is the instance's own slug.** It is chosen at `instance create` (`--farm-slug`, required, with no default derived from a tenant), registered in the shared namespace of slugs, provider slugs and issuer codes ([0018](0018-tenants.md) §1), and **never changes**, since it is part of the operator's actor key `instance:{farm slug}` ([0040](0040-instance-prerogatives.md) §2), the farm issuer's code and the farm partition names `actors/{farm}`, `accounts/{farm}` and `log/{farm}` ([0028](0028-tenancy-policy.md) §2). It differs from every tenant slug, the primary tenant's included. A single-tenant instance has one too, because the operator actor needs it whether or not a farm issuer exists. `instance` itself stays reserved ([0040](0040-instance-prerogatives.md) §2).
+*Current text: [08](../architecture/08-tenants-and-instances.md) §1.2.*
 
 ### 7. Instance IRIs have their own path (amends 0006 §6, 0018 §2, 0028 §2 and §10, 0040 §2 and §7)
 
 *Changed by A2.*
 
-Every IRI and origin line the instance mints for something of instance scope is under the reserved path segment **`instance`** of the farm base:
-
-| Thing | Was | Is |
-|---|---|---|
-| Instance graph, every name in `graphs.toml` with `scope = "instance"` or `"both"` | `{farm base}/graph/{name}` | `{farm base}/instance/graph/{name}` |
-| Checkpoint origin line of an instance partition ([0006](0006-log-integrity-and-erasure.md) §6) | `{instance host}/log/{name}` | `{farm host}/instance/log/{name}` |
-| Farm account ([0028](0028-tenancy-policy.md) §2, §10) | `{farm base}/user/{id}` | `{farm base}/instance/user/{id}` |
-| Operator actor ([0040](0040-instance-prerogatives.md) §2) | `{farm base}/operator` | `{farm base}/instance/operator` |
-
-Tenant IRIs and origin lines are unchanged, and no tenant route, article path or IRI template may begin with `/instance/`. The farm base may then be any host, including the base of the primary tenant or of any other tenant. Record IRIs `{base}/record/{partition}/{offset}` and job IRIs `{base}/job/{id}` are unchanged, because partition IDs and job IDs are unique on the instance. Special pages and REST routes served at the farm base are addresses for people and clients, not identifiers, and keep their paths. Where the farm base is also a tenant's base, a special page with a tenant and an instance form, such as `Special:Log` or `Special:Jobs`, shows both, with a `scope` filter ([0047](0047-special-pages.md) §3); the registry's names are unique, so nothing else collides.
-
-Nothing has been published under the old forms, so this is a change to the documents only.
+*Current text: [02](../architecture/02-graphs-rdf-and-query.md) §1.3, §2.2.*
 
 ### 8. Instance rights (amends 0040 §9; extends 0016 §2; amends 0025 §10)
 
-[0040](0040-instance-prerogatives.md) §9's list gains three entries:
+*Changed by A4.*
 
-| Permission | As an instance right | Default groups |
-|---|---|---|
-| `ts-primary` *(new)* | Offering and withdrawing the primary role (§5) | `owner` only |
-| `mwoauthmanageconsumer` | Approving, rejecting and disabling OAuth consumers, which are instance configuration ([0025](0025-oauth-server.md) §2) | `bureaucrat`, so the primary tenant's bureaucrats; the farm's `steward` and `platform-admin` |
-| `ts-runjob` for instance jobs | Submitting a mirror sync or another job that writes only instance partitions | `bot`, so the primary tenant's approved subsidiaries |
-
-Accepting an offer needs no permission beyond membership of `owner` on the offered tenant (§5).
+*Current text: [09](../architecture/09-security-and-moderation.md) §2.2, §2.3.*
 
 ### 9. API and UI
 
-- `meta=siteinfo&siprop=triplespace` reports the farm slug and the primary tenant's slug; `GET /tenancy` at the farm base ([0028](0028-tenancy-policy.md) §11) includes both.
-- `Special:Tenants` at the farm base ([0018](0018-tenants.md) §11) marks the primary tenant, lists open offers, and offers **Offer the primary role…** to holders of `ts-primary`. An `owner` of the offered tenant sees **Accept** there and on their own tenant's `Special:Tenancy`.
-- `triplespace-cli`: `instance create --farm-slug {slug}`; `primary offer {tenant}`, `primary withdraw`, `primary accept`.
-- Refusals: `ts-primary-tenant` (moving, deleting or freezing the primary tenant); `ts-no-offer` (accepting without an open offer).
+*Changed by A5.*
+
+*Current text: [18](../architecture/18-api.md) §1.2, §2.2; [19](../architecture/19-site-ui.md) §6.11.*
 
 ### 10. Crates (amends 0005 §2)
 
 *Changed by A1.*
 
-*Superseded by [0005](0005-crate-organization.md) §2 (A1).*
-
-[0005](0005-crate-organization.md) §2 keeps the crate table that CI checks, with every change this section listed. The table this section first gave is in A1.
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
 
 ## Consequences
 
@@ -226,3 +161,24 @@ Replaced text (§10):
 - **Source:** [0050](0050-adr-format.md) §13
 - **Change:** consolidates §7, §10
 - **Summary:** A1–A2 were folded into the Decision. The open questions were numbered. No decision changed. Before this, A2 was a blockquote, and A1 was recorded only in 0005. The file before conversion is commit `0b26a3a`.
+
+### A4. Jobs run under subsidiaries everywhere
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** extends §8
+- **Summary:** Jobs run under subsidiaries: `ts-runjob` defaults to `bot` everywhere, not only for instance jobs; [0016](0016-permissions-and-access-control.md) §2 drops `sysop` from it, and an administrator runs a job by creating or approving a subsidiary they operate ([0047](0047-special-pages.md) §12's `sysop` job rate row goes). James: "administrators should be able to run jobs under subsidiaries", read as this. The row's verb is `amends`, but §8 already gives `ts-runjob` for instance jobs the `bot` default and nothing in it is contradicted, so for this ADR it is logged as `extends`: §8's row is now the general rule, stated once for instance jobs. (PENDING C14)
+
+### A5. The tenant list
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** extends §9
+- **Summary:** The tenant list is the `tenants` array of `GET /tenancy` at the farm base, one entry per tenant with `slug`, `host`, `name` and `status`, and `Special:Tenants` is its page ([0018](0018-tenants.md) §11). §9's `/tenancy` and `Special:Tenants` entries carry the farm slug, the primary tenant and the offers on top of that list. (PENDING E33)
+
+### A6. Current text relocated to the architecture chapters
+
+- **Date:** 2026-10-09
+- **Source:** [0050](0050-adr-format.md) §14
+- **Change:** relocates §1–§10
+- **Summary:** The Decision's current text now lives in the architecture chapters [01](../architecture/01-log-and-records.md), [02](../architecture/02-graphs-rdf-and-query.md), [08](../architecture/08-tenants-and-instances.md), [09](../architecture/09-security-and-moderation.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
