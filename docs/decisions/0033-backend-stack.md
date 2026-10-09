@@ -101,7 +101,7 @@ The write path of 0013 §7 (auth → grants → rate limit → ACLs → filters 
 ### 8. RDF
 
 - `oxrdf` and `oxttl`, the Oxigraph project's standalone model and serializer crates, in `scatter-wikibase-rdf` and `triplespace-rdf`. They serialize N-Quads, N-Triples and Turtle for dumps and for the SPARQL Update stream (0032) without a store.
-- The `oxigraph` store is used only behind `scatter-quadstore` (Scatterbase, and the optional local quad store that consumes the update stream, 0032 §8).
+- The `oxigraph` store is used only behind `scatter-quadstore` (Scatterbase, and the optional local quad store that consumes the update stream, 0032 §6).
 
 ### 9. Text and markup
 

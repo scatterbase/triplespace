@@ -221,7 +221,7 @@ CREATE TABLE ops.upstream_post (                 -- tenant scope; the send of §
 ALTER TABLE view.thread_attachment ADD COLUMN pinned timestamptz;  -- §4
 ```
 
-The talk listing reads `view.thread_attachment` and `view.foreign_thread` and merges them by time. **Caches** ([0014](0014-caches-and-search.md) §7): a `put` of a followed talk page purges the `tp:` listing of every local talk page that follows it, by tag. **Search**: foreign threads are documents in the repository's `pages-{repo}` index ([0053](0053-mirrored-pages.md) §7) with the thread fields of [0019](0019-discussions.md) §11, so a talk-page search covers both.
+The talk listing reads `view.thread_attachment` and `view.foreign_thread` and merges them by time. **Caches** ([0014](0014-caches-and-search.md) §4, §10): a `put` of a followed talk page purges the `tp:` listing of every local talk page that follows it, by tag. **Search**: foreign threads are documents in the repository's `pages-{repo}` index ([0053](0053-mirrored-pages.md) §7) with the thread fields of [0019](0019-discussions.md) §11, so a talk-page search covers both.
 
 ### 11. Settings and permissions
 

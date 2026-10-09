@@ -104,7 +104,7 @@ Properties marked DEPRECATED upstream are skipped. The wiki documents only the k
 
 *Changed by A2.*
 
-No notation of any scheme joins an identity cluster ([0048](0048-notation.md) §3), as a keyword does not ([0017](0017-entity-id-grammar.md) §5), for the same reason: `notation:osm:amenity=cafe` is a tag, and a Wikidata item about cafés is the concept. `same-as` with a notation on either side is rejected at write time, and no tier-2 or tier-3 link ([0004](0004-identity-clusters-and-equivalence.md) §6) may produce one. `P7` and `P12` stay statements, so a user can follow a tag to its concept without the phrase becoming canonical over the concept.
+No notation of any scheme joins an identity cluster ([0048](0048-notation.md) §3), as a keyword does not ([0017](0017-entity-id-grammar.md) §5), for the same reason: `notation:osm:amenity=cafe` is a tag, and a Wikidata item about cafés is the concept. `same-as` with a notation on either side is rejected at write time, and no tier-2 or tier-3 link ([0004](0004-identity-clusters-and-equivalence.md) §3) may produce one. `P7` and `P12` stay statements, so a user can follow a tag to its concept without the phrase becoming canonical over the concept.
 
 ### 7. Registry, namespaces and crates
 

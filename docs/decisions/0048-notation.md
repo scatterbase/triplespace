@@ -90,7 +90,7 @@ Four mechanisms now give strings an identity. The question that tells them apart
 
 **Keyword stays its own type,** for the reasons in the Context: convergence is the point of a keyword, and a notation preserves the distinctions a keyword erases.
 
-**Notations never join identity clusters** (uses [0004](0004-identity-clusters-and-equivalence.md) §6), as 0036 §6 decided for `osm-tag` and [0017](0017-entity-id-grammar.md) §5 for keywords. `notation:osm:amenity=cafe` is a tag, and a Wikidata item about cafés is the concept. `same-as` with a notation on either side is rejected at write time, and no tier-2 or tier-3 link may produce one. A notation may carry an ordinary statement pointing at the concept it usually denotes.
+**Notations never join identity clusters** (uses [0004](0004-identity-clusters-and-equivalence.md) §3), as 0036 §6 decided for `osm-tag` and [0017](0017-entity-id-grammar.md) §5 for keywords. `notation:osm:amenity=cafe` is a tag, and a Wikidata item about cafés is the concept. `same-as` with a notation on either side is rejected at write time, and no tier-2 or tier-3 link may produce one. A notation may carry an ordinary statement pointing at the concept it usually denotes.
 
 ### 4. A property's scheme (extends 0003 §7)
 

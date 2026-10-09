@@ -244,7 +244,7 @@ CREATE UNIQUE INDEX thread_attachment_home ON view.thread_attachment (thread_id)
 
 - `view.thread.talk_page_id` stays, and is the home. The listing query reads `view.thread_attachment`, which replaces the `thread_talk` index.
 - **A board has a `view.talk_page` row** from its creation, with `target_kind` `page` and `target_id` its own page ID, so every query that starts from a talk page works on boards.
-- **Caches** ([0014](0014-caches-and-search.md) §7): any record on a thread purges the `tp:` listing of every page it is attached to, by tag.
+- **Caches** ([0014](0014-caches-and-search.md) §4, §10): any record on a thread purges the `tp:` listing of every page it is attached to, by tag.
 - **Search**: a thread's document gains the IDs of all its attachments as a field, so a search can be limited to a board or talk page.
 
 ### 13. Permissions (extends 0019 §12)
