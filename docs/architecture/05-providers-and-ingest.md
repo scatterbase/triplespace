@@ -1,0 +1,938 @@
+# 05. Providers and ingest
+
+This chapter describes where mirrored data comes from and how it enters the log: the split between who minted an ID and who asserts a triple, the source graphs and the resolved view built over them, what happens when upstream deletes, corrects or extends an entity, the one change-set format every write uses and the three paths that submit it, import jobs, adapters, bulk creation, bootstrap loading, key-mapped providers, shallow mirroring, the entity sources a tenant declares for itself, the adoption of an existing Wikibase, and the catalogue of registered providers. It assumes the log and its records from [01](01-log-and-records.md), the graph catalogue and graph IRIs from [02](02-graphs-rdf-and-query.md), the `view` tables and the bootstrap storage of [03](03-storage-caches-and-search.md), the ID forms, keyed types and identity clusters of [04](04-entities-and-identifiers.md), subsidiary accounts from [07](07-actors-and-accounts.md), and a tenant as a provider from [08](08-tenants-and-instances.md). The `scatter-adapter-*` crates are in [22](22-crates-and-stack.md); the settings named here are catalogued in [23](23-configuration-and-registry.md).
+
+## 1. Origin and assertion
+
+*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §1–4, §9.*
+
+### 1.1 Where an ID was minted is separate from who asserts a triple
+
+*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §1.*
+
+The three-letter prefix of a foreign entity records two independent facts, split apart:
+
+- **Identity origin.** The prefix records who *minted* the ID. `WDQ123` was minted by Wikidata. `Q5` was minted by this instance.
+- **Assertion source.** The named graph a triple lives in records who *asserts* it (§1.2).
+
+An entity with ID `WDQ123` can have triples in the Wikidata mirror graph, in the local graph, or in both. A three-letter prefix means "minted by provider X". It does not guarantee that provider X still holds the entity (§2.1).
+
+### 1.2 Source graphs and projections
+
+*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §2.*
+
+Every log record names the graph it writes to.
+
+| Graph | Illustrative IRI | Written by | History in the log |
+|---|---|---|---|
+| **Local** | `{base}/graph/local` | Editors, local bulk jobs, and retention when it materializes data (§2.1) | Full |
+| **Mirror**, one per provider | `{base}/graph/mirror/wikidata`, `{base}/graph/mirror/openalex` | Only that provider's sync jobs | Set per provider: `latest` or `full`. Retained entities always keep full history (§2.1). |
+| **Derived**, one per extraction source of a tenant ([0071](../decisions/0071-derived-statements-from-mirrored-pages.md) §1) | `{base}/graph/derived/familysearch` | Only that source's extraction job | `latest` by default; a tenant may set `full` |
+| **Metadata** ([0001](../decisions/0001-revision-metadata-rdf.md)) | `{base}/graph/metadata` | Projection | Derived |
+
+The local, mirror and derived graphs are *sources*. The metadata graph and the resolved graph (§1.4) are *projections*. A tenant's entity sources add one further source graph each, `source/{name}` (§6.4). The full catalogue of graphs, with their names and IRIs, is in [02](02-graphs-rdf-and-query.md).
+
+No editor or local bulk job can write to a mirror graph.
+
+### 1.3 History policies and the two histories of mirrored data
+
+*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §2.*
+
+**How much mirror history the log keeps is a storage policy.** It does not limit what the model can represent. Each mirror graph has a history policy:
+
+- **`latest`** compacts the log to the latest state of each entity, as Kafka's log compaction does. This is the practical default for full mirrors of very large graphs.
+- **`full`** keeps every state the instance has received.
+
+Individual entities can be exempted from compaction, and retained entities always are (§2.1). Under either policy, a tombstone for an entity that is not retained erases its mirrored history once it is compacted.
+
+**The metadata graph describes mirrored data just as it describes local data.** There are two kinds of history for mirrored data:
+
+- **Observed history** is the sequence of states the instance received from sync jobs. How complete it is depends on the sync. A weekly dump sync skips upstream revisions made between dumps, while a sync from an edit stream sees each one. For Wikidata, every observed state carries its upstream revision ID. Observed history is therefore a sparse subset of upstream history.
+- **Upstream history** is the provider's own revision history. For Wikidata, that is each revision's ID, timestamp, user, edit summary and tags. It can be backfilled for an entity from the provider's API or its history dumps, which fills in the gaps in observed history. OpenAlex publishes no revision history, so only observed history exists for it.
+
+### 1.4 The main graph is a resolved view
+
+*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §3.*
+
+The main graph, the Wikibase-compatible RDF of [0001](../decisions/0001-revision-metadata-rdf.md) §2, is **computed**. A reconciliation policy is applied over the source graphs to produce it. The result is still Wikibase-shaped, it is still what gets exported to QLever, and it is still rebuildable from the log. The source graphs may also be exported, for consumers who want to compare what the upstream source asserts with what the instance asserts.
+
+Reconciliation happens at the level of Wikibase statements, not individual triples. Statements, references and values are already IRI nodes, so one graph can annotate a node that another graph asserts.
+
+Default reconciliation rules:
+
+| What | Rule |
+|---|---|
+| Statements, references, aliases | Union across graphs. A statement IRI that appears in two graphs is one statement. |
+| Labels and descriptions (one per language), statement rank | The local graph wins wherever it says anything. Otherwise the tenant's derived graphs supply it, in `reconcile` order ([0071](../decisions/0071-derived-statements-from-mirrored-pages.md) §7), and otherwise the mirror graph's value is used. |
+| Sitelinks | Union by normalized URL: a sitelink is a URL, and its site is its host. Where two graphs give one host different URLs for an entity, the local graph wins, then the provider order. Badges are the union. A denied host is left out of the resolved view ([0026](../decisions/0026-sitelinks.md) §3–4). |
+| Suppressions | An explicit local-graph assertion removes a mirrored statement or term from the resolved view. |
+| Truthy (`wdt:`) and normalized (`wdtn:`) triples | Computed only in the resolved view, from the resolved ranks. Never stored in a source graph. |
+
+The provider order is the tenant's `reconcile` order ([04](04-entities-and-identifiers.md)).
+
+### 1.5 IRIs for foreign entities and the provider registry
+
+*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §4.*
+
+- **The canonical IRI is the provider's own.** `WDQ123` projects to `http://www.wikidata.org/entity/Q123`, and `OAW123` projects to `https://openalex.org/W123`. A provider that publishes no IRIs takes a template minted here: GDELT's entities project to `https://scatter.red/gdelt/{event|document|cameo|theme}/{id}` (§8.10).
+  - Nodes that come from upstream keep upstream's IRIs. Examples are Wikidata's statement nodes and mirrored property predicates such as `http://www.wikidata.org/prop/direct/P31`.
+  - Statements that the local graph makes about a foreign entity get statement IRIs under the instance's base.
+  - An item that a key-mapped provider maps onto a keyed entity takes the key's IRI instead, such as `https://scatter.red/domain/{key}`, and the resolved view emits `<upstream item IRI> owl:sameAs` it (§4).
+- **`{base}/entity/WDQ123` is an alias.** The instance can dereference it, but it is not used as a subject in RDF.
+- **The prefixed ID is the working name** in the API and UI, as in a page called `Item:WDQ123`. It exists because an ID is easier to work with than a full IRI.
+- **The provider registry** (`providers.toml`, [23](23-configuration-and-registry.md)) records the following for each type code:
+  - the canonical IRI template;
+  - the ID rewriting between upstream and prefixed forms, such as `Q123` ↔ `WDQ123`: strip or add the prefix, and canonicalize the rest by the type's ID grammar ([0017](../decisions/0017-entity-id-grammar.md) §2);
+  and, once per provider, the adapter that imports it (§3.4, §8.1).
+
+  This parallels Wikibase's own entity sources (see [wikibase-compat.md §5.1](../api/wikibase-compat.md)).
+- **A tenant can be a provider.** Its IDs are rewritten when read, not when written: another tenant's projections read its partition and rewrite `Q6` to `LBQ6`, and `{base}/entity/LBQ6` is an alias of the provider tenant's canonical IRI ([0018](../decisions/0018-tenants.md) §5; [08](08-tenants-and-instances.md)).
+
+### 1.6 How the four scenarios resolve
+
+*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §9.*
+
+The four scenarios of upstream deletion, rescue, correction and extension are worked through in §2; their resolutions are:
+
+| | Resolution |
+|---|---|
+| **A** | A `tombstone` in the mirror graph, followed by `cascade` (or `orphan`). Compaction erases the mirrored data. |
+| **B** | A bulk `retain`. IDs and canonical IRIs are kept, and data is materialized into the local graph only when each tombstone arrives. |
+| **C** | A local-graph `override` or `add` on the existing foreign entity. A local entity is needed only when the upstream identity itself is wrong. |
+| **D** | A local-graph `add` of local properties onto the foreign entity. |
+
+## 2. Upstream deletion, retention, conversion and correction
+
+*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §5–7; [0009](../decisions/0009-keyed-entity-types-and-domain.md) §9; [0012](../decisions/0012-api-requirements.md) §2.2, §6.*
+
+### 2.1 Tombstones and retention policies (scenarios A and B)
+
+*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §5.*
+
+When upstream deletes an entity, its sync job appends a tombstone to the mirror graph. Compaction later removes the mirrored data from the log. A faithful mirror therefore really forgets deleted data, including data upstream suppressed or took down. This resolves the deletion question **for mirrored data only**. A provider may instead opt into the keyed-style clear of §2.2, a `put` of the empty state in place of a tombstone, by the registry flag `deletion = clear` (§8.1); OpenStreetMap sets it (§8.7).
+
+What happens next depends on the entity's **retention policy**. Each tenant sets a default, the `site` setting `retention.default` ([23](23-configuration-and-registry.md)), and editors can override it for individual entities.
+
+| Policy | Mirrored data | Local-graph assertions about the entity |
+|---|---|---|
+| `cascade` | Erased | Retracted |
+| `orphan` | Erased | Kept, but hidden from the resolved view |
+| `retain` | Its history is kept, and its last state is **materialized into the local graph** in the same log record as the tombstone | Kept. The entity survives. |
+
+**Scenario A** is `cascade`, or `orphan` if the instance wants to keep local annotations recoverable.
+
+**Scenario B** is a bulk operation that sets `retain` on a set of entities. Nothing about their data changes when the operation runs. The mirror stays live and keeps syncing for as long as upstream holds each entity, and data moves into the local graph only when a tombstone arrives. Copying at rescue time is not done: the copy would go stale while upstream keeps editing the entity, and because local values win in reconciliation, stale labels would override current ones; and a lazy reference to the mirror's state at some log offset would break once that state is compacted away.
+
+### 2.2 Retention preserves history and identity
+
+*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §5.*
+
+Setting `retain` on an entity does two more things:
+
+1. **It exempts the entity from compaction,** so every state observed from then on is kept.
+2. **It starts a job that backfills the entity's upstream history** (§1.3). This is time-sensitive. Once Wikidata deletes an item, its revisions are visible only to Wikidata administrators, so the backfill has to finish before the deletion. The backfill brings every revision's content by default, from the provider's API or, for a large set, from a history dump the operator supplies ([0015](../decisions/0015-record-format-and-partition-registry.md) §4; [01](01-log-and-records.md)).
+
+When the tombstone arrives, the local graph continues the entity's history: the first local revision's `prov:wasRevisionOf` points at the last upstream revision. This gives the same continuity as MediaWiki's transwiki import, where imported revisions keep their original authors.
+
+**A retained entity keeps its ID and its canonical IRI.** `WDQ123` stays `WDQ123` and keeps projecting to `http://www.wikidata.org/entity/Q123`. If upstream later restores the entity, the mirror graph fills in again next to the local copy. Identical statement IRIs collapse into one statement under §1.4.
+
+**Retention does not override upstream hiding** ([0011](../decisions/0011-logs.md) §5). `retain` keeps an entity that upstream deletes, not fields that upstream hides for privacy or legal reasons. Once a retained entity has been deleted upstream and materialized into the local graph, it is local data, and hiding within it is a local decision.
+
+**Keyed entities do not stop existing** when upstream deletes the item mapped onto them (§4.2). The mirror's contribution is cleared with a `put` of an empty state, not a `tombstone`, and nothing else happens: local assertions are never retracted or hidden because of an upstream deletion, so `cascade` and `orphan` do not apply. `retain` still applies: it keeps the mirrored history and materializes the last mirrored state into the local graph when the deletion arrives. A `tombstone` is not used because it applies retention policies that assume the entity is gone.
+
+### 2.3 Converting a foreign entity into a local one
+
+*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §6.*
+
+Editors may convert a foreign entity into a local entity.
+
+- **A local ID is minted.** For example, `WDQ123` becomes `Q456`. `convert` links the two with `same-as`, and the local member is the cluster's canonical member, so the rest of this list follows from the cluster rules ([04](04-entities-and-identifiers.md)).
+- **The foreign ID becomes an alias of the local entity.** `WDQ123` resolves to `Q456` in the API and UI. In RDF, the resolved view emits Wikibase's redirect form, `wd:Q123 owl:sameAs <{base}/entity/Q456>`, where `wd:` is Wikidata's namespace.
+- **Foreign statements stay attached.** The sync job keeps writing to the mirror graph under the foreign ID, and the resolved view attaches those statements to the local entity through the alias. The same applies to any local-graph assertions previously made about `WDQ123`.
+- **The local entity survives upstream deletion.** Its mirrored statements follow its retention policy, and converted entities default to `retain`.
+
+Retention keeps the foreign identity. Conversion gives the entity a local identity, for things that are now curated primarily on the instance.
+
+### 2.4 Properties a tenant depends on are retained automatically
+
+*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §6.*
+
+The first local statement, qualifier or reference that uses a mirrored property (`WDP31`, say) sets that property's retention policy to `retain`, with a `retention/set` log event ([0011](../decisions/0011-logs.md) §6.1) whose performer is the editor and whose comment says why. An upstream deletion then materializes the property's last state into the local graph, as §2.1 provides, so its label, description and data type survive and every local statement using it keeps rendering, validating and exporting unchanged; the property page says "Deleted on Wikidata on {date}" from the provider log ([0011](../decisions/0011-logs.md) §9). If upstream later **changes the data type** of a retained property, the new mirrored state conflicts with the retained one: the retained type wins for the tenant's existing statements, new statements are validated against it, and the conflict is listed for maintenance beside the corrections of §2.5 so an editor can convert or retire the property with `equivalent-property` ([0004](../decisions/0004-identity-clusters-and-equivalence.md) §6). Adapter mappings onto a retyped property stop and are reported, as 0004 §6 says. A tenant may turn the automatic `retain` off in `site` configuration (`retention.auto_properties`) and accept dangling statements, which is Wikidata's own behaviour after a property deletion.
+
+### 2.5 Corrections and extensions (scenarios C and D)
+
+*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §7.*
+
+Every local edit to a foreign entity is a **local-graph assertion whose subject is the foreign entity**. No local entity has to be created.
+
+**Correcting a value (scenario C).** A correction is a rank override, an added statement, a suppression, or any combination of the three:
+
+```trig
+GRAPH <{base}/graph/mirror/openalex> {
+  s:OAW123-a1 ps:P577 "2019-01-01T00:00:00Z"^^xsd:dateTime ; wikibase:rank wikibase:NormalRank .
+}
+GRAPH <{base}/graph/local> {
+  s:OAW123-a1 wikibase:rank wikibase:DeprecatedRank .      # overrides the upstream rank
+  s:OAW123-b2 ps:P577 "2018-01-01T00:00:00Z"^^xsd:dateTime ; wikibase:rank wikibase:PreferredRank .
+}
+```
+
+(`s:` and `ps:` are used loosely here. Mirrored nodes carry their provider IRIs, per §1.5.)
+
+Local corrections are tracked against upstream:
+
+- If upstream comes to agree with a correction, the application detects that the correction is redundant and retires it: automatically, as an instance act, when the agreement follows a proposal and `upstream.retire_adopted` is on, which is the default; otherwise from `Special:Corrections` ([0067](../decisions/0067-proposals.md) §5).
+- If upstream removes the statement a local override points at, the override is flagged as dangling.
+- The set of local corrections doubles as a list of fixes to report upstream.
+- The set is served as `Special:Corrections`, filterable by state, kind and upstream graph, with **Retire** for redundant corrections and an export per upstream graph ([0047](../decisions/0047-special-pages.md) §6; [21](21-special-pages.md)).
+
+`upstream.retire_adopted` is a tenant `site` setting ([23](23-configuration-and-registry.md)).
+
+**Correcting identity.** If upstream has conflated two things under one ID, the split requires new local entities, with the split recorded in the local graph. If upstream has two IDs for one thing, a local redirect or same-as assertion is enough.
+
+**Extending (scenario D).** Local properties are asserted on foreign entities in the local graph. Their statement IDs take the form `WDQ42$<uuid>` and their IRIs sit under the instance's base. The UUID keeps them from colliding with upstream statement IDs.
+
+### 2.6 Mirror metadata that survives compaction
+
+*Sources: [0012](../decisions/0012-api-requirements.md) §2.2.*
+
+Under the `latest` history policy, a mirror keeps only the newest `put` for each entity. The history view ([19](19-site-ui.md)) needs facts about earlier states that compaction would otherwise destroy. Projections must be rebuildable from the log, so these facts have to be in the surviving record.
+
+A `put` therefore carries these fields:
+
+| Field | Meaning |
+|---|---|
+| `prev_upstream` | The upstream version of the state this `put` replaces, such as Wikidata's `lastrevid`. It bounds the live fetch of upstream edits (§2.7). |
+| `first_seen` | When the instance first mirrored the entity. It is copied forward from the previous `put`. |
+| `size`, `prev_size` | The sizes of the new and previous states ([0012](../decisions/0012-api-requirements.md) §2.4) |
+| `changes` | A summary of what changed. For each property, term kind (labels, descriptions, aliases, by language) and sitelink site: counts of values added, removed and changed. |
+| `delta` | Optional. The statement-level difference. It is present only when the provider's registry entry sets `sync_deltas = "full"`. |
+
+**The default is `sync_deltas = "summary"`.** `sync_deltas` is a field of the provider entry in `providers.toml` (§8.1), with the values `summary` and `full`. Without a stored delta, the diff of a sync shows the summary and links to the provider's own diff between `prev_upstream` and the new version. For Wikidata, that is `index.php?diff={new}&oldid={prev}`.
+
+**Summaries and deltas are computed at ingest,** by comparing with the entity's current mirrored state. In bootstrap mode (§3.8) there is no previous state, and these fields are left empty.
+
+### 2.7 Fetching upstream edits live
+
+*Sources: [0012](../decisions/0012-api-requirements.md) §6.*
+
+- **The server fetches, not the client.** It uses the API endpoint in the provider registry, with a proper User-Agent and `maxlag` ([mediawiki-compat.md](../api/mediawiki-compat.md) §2.8).
+- **The interval** runs from `prev_upstream` to the upstream version of the sync (§2.6).
+- **Rows** are `upstream-edit` activity rows ([16](16-logs-feeds-and-notifications.md)). Actors are identified by their upstream IRIs ([0007](../decisions/0007-actor-identity.md) §2), summaries are parsed as in [0001](../decisions/0001-revision-metadata-rdf.md), and an actor linked to a local account carries a `linked` flag.
+- **Results are cached briefly and rate-limited,** per user and per instance, in the `upstream` rate-limit class ([0024](../decisions/0024-subsidiary-accounts.md) §5; [07](07-actors-and-accounts.md)). They are never written to the log.
+- **Errors:**
+
+| Error | When |
+|---|---|
+| `upstream-unavailable` | HTTP 503 with `Retry-After`, when the provider cannot be reached |
+| `upstream-unsupported` | The provider publishes no history, as OpenAlex does not |
+| `upstream-truncated` | The interval holds more edits than the cap. The first rows are returned, with a link to the provider's history. |
+
+- **Retained and fully mirrored entities** are served from the log instead (§3.3), and their rows are marked as stored. They are read from the upstream revision records ([0015](../decisions/0015-record-format-and-partition-registry.md) §4), as `upstream-edit` rows with `record` present; the live fetch covers only the interval those records do not.
+
+## 3. The change-set format and the ingest paths
+
+*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8, §8.1–8.7; [0013](../decisions/0013-postgres-storage.md) §9; [0030](../decisions/0030-edit-filters.md) §7; [0035](../decisions/0035-adopting-a-wikibase.md) §3; [0058](../decisions/0058-packed-record-storage.md) §7.*
+
+### 3.1 One change-set format, three entry points
+
+*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8, §8.1.*
+
+All writes use a single internal change-set type. There are three ways to submit one:
+
+1. **An in-process or CLI ingester that writes straight to the log.** This is the path for full loads of Wikidata or OpenAlex. Terabyte-scale dumps do not go over HTTP.
+2. **An HTTP bulk-job endpoint.** It accepts streamed, compressed NDJSON, runs asynchronously, and reports status, rejected records and projection lag. The endpoint itself is in [18](18-api.md).
+3. **The ordinary edit API,** which submits a batch of one.
+
+### 3.2 Operations
+
+*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.2; [0035](../decisions/0035-adopting-a-wikibase.md) §3.*
+
+| Operation | Graph | Meaning |
+|---|---|---|
+| `put` | Mirror | Replaces the entity's mirrored state. It is skipped when the upstream version is not newer or the content hash is unchanged. It carries `prev_upstream`, `first_seen`, the old and new sizes, a summary of what changed and, optionally, the statement-level delta, so that history survives compaction (§2.6). |
+| `tombstone` | Mirror | Records an upstream deletion and applies the entity's retention policy (§2.1). |
+| `redirect` | Mirror or local | In a mirror graph, records an upstream merge. In the local graph, records a merge within one namespace; for properties only, it may cross namespaces, retiring a local property in favour of a mirrored one ([0004](../decisions/0004-identity-clusters-and-equivalence.md) §9). |
+| `create` | Local | Creates a new local entity under a freshly minted ID. It takes an optional temporary `ref` (§3.5). It never writes to an entity that exists: a keyed entity, which exists by its key ([0009](../decisions/0009-keyed-entity-types-and-domain.md) §4), is written with `add`. |
+| `create-or-add` | Local | `create` with a `match` key (§3.5): if an entity with that identifier exists, the operation becomes an `add` to it; otherwise it creates one. With `overwrite` and an explicit base revision, it replaces the matched entity's state instead of merging. |
+| `add` | Local | Merges statements, terms or references onto any subject, local or foreign. |
+| `remove` | Local | Retracts local assertions. |
+| `override` | Local | Overrides the rank or a term of an assertion from another graph, or suppresses it. |
+| `retain` | Local (policy) | Sets the retention policy for a set of entities. |
+| `convert` | Local | Mints a local entity and makes the foreign ID an alias of it (§2.3). |
+| `same-as` | Local | Links two items from different namespaces ([0004](../decisions/0004-identity-clusters-and-equivalence.md) §9). |
+| `different-from` | Local | Blocks two IDs from ever sharing a cluster ([0004](../decisions/0004-identity-clusters-and-equivalence.md) §9). |
+| `equivalent-property` | Local | Links two properties from different namespaces ([0004](../decisions/0004-identity-clusters-and-equivalence.md) §9). |
+| `adopt` | Local | Writes an entity's whole state as its first local record, under the ID the source minted. Accepted only from an adoption job (§7.2). An entity already present is skipped when the content hash matches and rejected otherwise; `adopt` never updates. |
+
+Local entities are merged into by default. Replacing a local entity wholesale is allowed only with an explicit base revision, so a bulk job cannot overwrite editors' work unseen; `create-or-add` with `overwrite` and a base revision is that replacement. `adopt` is accepted only from an adoption job on a tenant that is that wiki continuing on Triplespace, on a `local` partition that holds no other entity records; it never updates, and re-running it skips an entity whose content hash matches and rejects one that differs. It is the one whole-entity write to the local graph that needs no base revision, and it is confined to adoption jobs (§7.3).
+
+The operations that write identity links (`same-as`, `different-from`, `equivalent-property`, `convert`, the local `redirect`) are described with the clusters they form in [04](04-entities-and-identifiers.md).
+
+### 3.3 Import jobs
+
+*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.3.*
+
+Every ingest run is recorded as a **job** in the log: a job record keyed by a job ID the instance mints, with further records under the same key for its finish, failure or revert ([0011](../decisions/0011-logs.md) §6.3; [16](16-logs-feeds-and-notifications.md)). The job record holds:
+
+- the actor, which is always a subsidiary account, so the job's operator is known ([0024](../decisions/0024-subsidiary-accounts.md) §6; [07](07-actors-and-accounts.md)), except for an instance job such as a shallow-mirror fetch (§5.5), whose actor is the instance ([0040](../decisions/0040-instance-prerogatives.md) §2; [08](08-tenants-and-instances.md));
+- the source, and the source version (a dump date or snapshot manifest);
+- the adapter version;
+- the job's parameters.
+
+Every entity change in the run points to its job. A revision, for data that never passed through MediaWiki, is the entity's change within a job.
+
+- **Observed states get thin revisions.** When a state arrives without upstream revision metadata, its revision node carries little more than `prov:wasGeneratedBy` pointing at the job, which is a `prov:Activity`, plus the upstream revision ID where there is one. The details are stored once, on the job. Full revision nodes for every entity in a Wikidata import would add on the order of a billion metadata triples.
+- **Upstream revisions get full revision nodes.** When upstream history is backfilled (§1.3), each upstream revision becomes a revision node carrying the provider's own metadata, in the vocabulary [0001](../decisions/0001-revision-metadata-rdf.md) defines: timestamp, actor, parsed summary, tags and flags. The node describes the upstream revision itself. The job that brought it in is recorded separately, with `pav:retrievedFrom` and `pav:importedOn`. When a backfill covers a revision that was already observed, it enriches that revision's existing node instead of creating a second one. Each is recorded as an upstream revision record, identified by its upstream revision ID; content a backfill brings is a `put` carrying that ID ([0015](../decisions/0015-record-format-and-partition-registry.md) §4; [01](01-log-and-records.md)).
+- **A whole job can be reverted.** For a local-graph job, reverting appends the inverse change sets. For a mirror job, reverting means syncing again.
+
+### 3.4 Adapters and foreign imports
+
+*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.4.*
+
+- **Adapters** are Rust trait implementations, one per provider type ([22](22-crates-and-stack.md)). An adapter:
+  - rewrites IDs (`Q`→`WDQ`, `P`→`WDP`);
+  - maps non-Wikibase sources such as OpenAlex onto properties;
+  - supplies canonical IRIs.
+
+  **Statement IDs from sources that have none, such as OpenAlex, must be deterministic.** They are derived from the entity, property and value, as a name-based UUID for example, so that they stay stable across re-imports. Without that, a local override would detach on every sync.
+- **Version cursor.** An index records each entity's upstream version (Wikidata `lastrevid`, OpenAlex `updated_date`) and content hash. A re-import appends only the entities that changed.
+- **Import modes:**
+  - **`upsert`** adds and updates entities. It never deletes anything.
+  - **`snapshot`** declares that the input is complete for one provider and type. Entities the job did not see are tombstoned. This sweep runs only after the job completes successfully, and it aborts if the tombstone count exceeds a configured threshold, so a truncated dump cannot wipe out a mirror.
+- **Upstream redirects and deletions** are explicit operations. They are never inferred.
+- **Subset imports** are supported alongside full imports. A subset can be:
+  - a list of IDs;
+  - the closure of everything the local graph references, which is the `linked` setting of shallow mirroring with a depth of zero and its closure properties (§5.2–5.3);
+  - terms only, meaning labels, descriptions and aliases without statements.
+- **Shallow mirroring** (§5) keeps a referenced subset current without a dump: each entity is fetched whole the first time it is read or referenced, written as an ordinary `put` with its upstream version, and followed by the provider's event stream. Its neighbours are not fetched, except along configured closure properties. A later dump sync continues from those records.
+- **A provider that is itself a Triplespace instance** is read from its `local` graph only. The adapter rewrites references to the reader's own entities back to bare local IDs, and verifies each batch against the provider's checkpoint and key chain by default; a provider registered `trust = stream` is read like any other source ([0022](../decisions/0022-federation.md) §2; [08](08-tenants-and-instances.md); [17](17-federation-and-publication.md)).
+- **Upstream hashes.** A `put` carries upstream's snak and reference hashes only where they differ from the instance's own recomputation; the ingester compares every one, keeps a differing hash in place and counts it on the job ([0006](../decisions/0006-log-integrity-and-erasure.md) §2; [01](01-log-and-records.md)).
+
+### 3.5 Local bulk creation
+
+*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.5.*
+
+- **Temporary refs.** New entities in a batch are named with handles such as `$w1`, and claims in the same batch can refer to those handles. The server allocates the real IDs and returns the mapping.
+- **Match keys.** A `create-or-add` carries a match key, for example `"match": {"P356": "10.1234/x"}`. If an entity with that identifier exists, the operation becomes an `add` to it; otherwise it creates one. This makes re-runs idempotent. It requires a uniqueness index on designated identifier properties. A match key may also be a foreign entity ID. `create` itself takes no match key and always mints: a job that must not touch existing entities says `create`, and one that may says `create-or-add`. The log records what happened, not only what was asked: a matched `create-or-add` is appended as an `add` keyed by the matched entity, carrying `match` and `via: "create-or-add"`; an unmatched one as a `create` with the same two fields.
+- **Merging statements by default.** A statement is added only if no identical statement already exists. Two statements are identical when their main snak and qualifiers hash the same. If an identical statement exists, the incoming references are merged onto it.
+- **ID blocks.** An ingester can reserve a block of IDs up front instead of making a round trip for each entity. Gaps in the ID sequence are acceptable. The blocks reserve ranges from the per-tenant entity ID sequences (`log.item_id`, `log.property_id`, …; §7.4).
+- **Adoption keeps the source's IDs.** An adoption job writes local entities under the IDs the source wiki minted, with `adopt`, not `create` (§7.3).
+- **Atomicity:**
+  - An `atomic` batch is all-or-nothing, because temporary refs point across the batch.
+  - A `stream` job applies each entity independently and writes rejected records to a rejects file. An operation an edit filter disallows goes there too, with the filter named as the reason (§3.6).
+
+### 3.6 Edit filters on bulk jobs
+
+*Sources: [0030](../decisions/0030-edit-filters.md) §7.*
+
+Filters ([09](09-security-and-moderation.md)) apply to **each operation** of a bulk job in the `local` partition, in the job's stream, unless the filter exempts the job's group. `disallow` sends the operation to the job's **rejects file** (§3.5) with the filter named as the reason, and the job continues; the job's finish record ([0011](../decisions/0011-logs.md) §6.3) counts filter rejects separately. `warn` and `throttle` do not apply to jobs, since there is nobody to warn and the job's own rate is [0024](../decisions/0024-subsidiary-accounts.md) §5's business; `tag`, `unpatrol`, `notify` and `log` apply as usual, and a `block` or `degroup` on the job's actor stops the job. An `atomic` batch (§3.5) fails whole if any operation is disallowed, since it was asked to.
+
+Cost: building a change-set context per operation is a walk over a change set already in memory, and a compiled CEL rule evaluates in microseconds. A job of a million operations under ten filters spends seconds on them. Ingest of mirrors, which is where the billions are, is never filtered.
+
+### 3.7 Throughput and validation
+
+*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.6.*
+
+- **Bootstrap mode.** An initial load writes log segments and defers projections. The projections are then built from the log in a single pass, the way a database bulk load defers index builds. Incremental projection only needs to keep up with steady-state syncs. The Postgres form of this is §3.8.
+- **Validation in two tiers.** The shape of each change and property data types are checked eagerly; this needs only the property type map, which is small. References between entities are checked later, because dumps contain forward references.
+- **Parsing is the expected bottleneck.** Decompression should be parallel (multistream bz2, for example) and JSON parsing should use SIMD.
+
+### 3.8 Bootstrap mode in Postgres, and packed-storage bulk loading
+
+*Sources: [0013](../decisions/0013-postgres-storage.md) §9; [0058](../decisions/0058-packed-record-storage.md) §7.*
+
+An initial load writes records first and builds everything else afterwards. In Postgres ([03](03-storage-caches-and-search.md)):
+
+1. The target child tables are created with the primary key only. The mirror partition's `(key, offset)` index and every `view` table are absent.
+2. A coordinator hands each writer a contiguous block of offsets from `ops.bootstrap_block`. Writers `COPY` records in parallel. A block whose writer fails is handed out again, so no segment is sealed with a hole. Into a `packed` partition, writers pack bodies in-process with the domain's key and dictionaries and `COPY` new fragments into a staging table, merged into `log.fragment` after the load; a load and a sweep of the same domain exclude each other (below).
+3. Leaf hashes are computed by the writers. Segment subtrees and the partition root are folded in one pass afterwards, as [0006](../decisions/0006-log-integrity-and-erasure.md) §5 describes, and written to `log.merkle_node`.
+4. Indexes are built, then projections run in the order of [0013](../decisions/0013-postgres-storage.md) §7, each in one pass over the partition.
+5. Checkpoints are signed and the partition goes live.
+
+Nothing about this is specific to Postgres except the use of `COPY` and the deferred index build, which is how any bulk load into it is done.
+
+**Packed partitions.** Bootstrap writers pack in-process. Each writer holds the domain key and, if one exists yet, the dictionaries. A first block's sample trains the dictionaries before the load if none exist. Each writer computes refs locally, keeps the set of refs it has already written, and `COPY`s new fragments into an unlogged staging table beside its records. After the load, one statement merges the staging table into `log.fragment` with `ON CONFLICT DO NOTHING`, setting `shared` where a ref was written by more than one writer or already existed. Writers never wait on one another for a ref.
+
+**A bulk load and a sweep of the same domain exclude each other** by an advisory lock on the domain, so the pinning cost of [0058](../decisions/0058-packed-record-storage.md) §3.1 never meets bootstrap volume. Incremental ingest jobs take the same lock in shared mode, and a sweep takes it exclusively.
+
+### 3.9 Wire format
+
+*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.7; [0035](../decisions/0035-adopting-a-wikibase.md) §3.*
+
+A mirror sync job:
+
+```
+{"job":{"source":"openalex","snapshot":"2026-09-01","mode":"upsert","graph":"mirror/openalex"}}
+{"op":"put","id":"OAW123","upstream":"2026-08-30","entity":{…}}
+{"op":"redirect","from":"OAW99","to":"OAW123"}
+{"op":"tombstone","id":"OAW77"}
+```
+
+A local bulk job:
+
+```
+{"job":{"source":"citation-batch","graph":"local","atomic":true}}
+{"op":"create-or-add","ref":"$w1","match":{"P356":"10.1234/x"},"entity":{…}}
+{"op":"add","id":"Q5","claims":{"P50":[…"$w1"…]}}
+{"op":"add","id":"WDQ42","claims":{"P7":[…]}}
+{"op":"override","statement":"OAW123$…","rank":"deprecated"}
+{"op":"retain","ids":["WDQ123","WDQ124"]}
+```
+
+An adoption job:
+
+```
+{"job":{"source":"https://librarybase.org/","version":"librarybase-20260928.json.gz","mode":"adopt","graph":"local"}}
+{"op":"adopt","id":"Q6","entity":{…},"source_revid":41877,"source_time":"2026-09-20T14:02:11Z","source_pageid":12}
+{"op":"adopt","id":"P12","entity":{…},"source_revid":903,"source_time":"2024-01-03T09:15:40Z","source_pageid":40}
+```
+
+Entity payloads use the Wikibase canonical JSON described in [wikibase-compat.md §3](../api/wikibase-compat.md). The record forms are in [payloads.md](../api/payloads.md).
+
+## 4. Key-mapped providers
+
+*Sources: [0009](../decisions/0009-keyed-entity-types-and-domain.md) §9.*
+
+### 4.1 Mapping upstream items onto keys
+
+*Sources: [0009](../decisions/0009-keyed-entity-types-and-domain.md) §9.*
+
+internetdomains.wiki is mirrored like any other Wikibase, with one difference: its domain items are **mapped by key**, not rewritten to prefixed IDs.
+
+**Provider registry entry.** The provider gets a two-letter code, `XD`, for the parts of it that are not domains. Its adapter configuration names, by role ([0003](../decisions/0003-statement-ui.md) §7), the **identity property**: the upstream property whose value is the domain name.
+
+**What the adapter does:**
+
+- **An upstream item with one valid identity value** is written to the mirror graph with its Domain ID, `domain:{key}`, as its subject ([0017](../decisions/0017-entity-id-grammar.md) §3). Its upstream item ID never appears as a subject.
+- **Values that point at such items** are rewritten to `wikibase-domain` values with the same key.
+- **Upstream items without an identity value,** such as registrars, organizations or classes, stay ordinary foreign items under the provider's prefix.
+- **An identity value that does not normalize to a valid key** is reported as a reject. The item stays an ordinary foreign item.
+- **An item with more than one identity value** is reported and not mapped.
+
+**Other keyed types are mapped the same way.** A key map names the keyed type it maps onto: OpenAlex keywords map onto `keyword` ([0017](../decisions/0017-entity-id-grammar.md) §5), and the OpenStreetMap wiki's tag items onto notations in the `osm` scheme (§8.9; [0048](../decisions/0048-notation.md) §6). The keyed types themselves are in [04](04-entities-and-identifiers.md).
+
+### 4.2 Aliases, IRIs and upstream changes
+
+*Sources: [0009](../decisions/0009-keyed-entity-types-and-domain.md) §9.*
+
+**The upstream ID becomes an alias.** A mapping index records upstream ID ↔ key, together with the version cursor (§3.4). Sync jobs use it, because upstream reports redirects and deletions by item ID. The API and the title resolver use it too, so the prefixed upstream ID resolves to the Domain page.
+
+**The canonical IRI is the key's, not the provider's.** For a mapped item, the resolved view uses `https://scatter.red/domain/{key}` and emits `<upstream item IRI> owl:sameAs <https://scatter.red/domain/{key}>`. Nodes that come from upstream, such as statement nodes, keep their upstream IRIs as before.
+
+**Upstream changes:**
+
+| Upstream event | Effect |
+|---|---|
+| An item's identity value changes, for example a typo is fixed | The mirror's state for the old key is cleared, and the item's state is written under the new key. Local assertions about the old key stay where they are, because the old name still exists |
+| An item is deleted | The mirror's state for that key is cleared (§2.2) |
+| Two items are merged | The redirect updates the mapping index. If both carried the same key, the duplicate is resolved |
+| Two items carry the same identity value | A conflict. Neither item's statements are attached to the key until the duplicate is resolved upstream. The conflict is listed with the others ([0004](../decisions/0004-identity-clusters-and-equivalence.md) §10) |
+
+Retention for keyed entities is §2.2: the mirror's contribution is cleared with a `put` of an empty state, `cascade` and `orphan` do not apply, and `retain` still does.
+
+## 5. Shallow mirroring
+
+*Sources: [0070](../decisions/0070-shallow-entity-mirroring.md) §1–8.*
+
+### 5.1 Shallow means depth, not a slice
+
+*Sources: [0070](../decisions/0070-shallow-entity-mirroring.md) §1.*
+
+**A shallow mirror holds the whole current state of each entity it holds, and does not follow that entity's links.** "Enough of the entity" is read as *enough entities*, not *part of an entity*:
+
+- Each mirrored entity is written as an ordinary mirror `put` (§3.2) of its full upstream JSON, with `lastrevid` as its version cursor, in the provider's mirror partition. Nothing distinguishes it from an entity a dump sync wrote.
+- A partial entity is not written. A `put` of part of an entity would break two rules already in place: the `source` resolution kind needs a whole-state record ([0013](../decisions/0013-postgres-storage.md) A28), and a later dump sync would read every statement the slice left out as removed upstream.
+- The entities an entity refers to are **not** fetched because it refers to them, except along closure properties (§5.3). Their labels are needed to display it; those are read through the label cache of §5.6, which is not the mirror.
+
+### 5.2 The `entities.mirror` setting
+
+*Sources: [0070](../decisions/0070-shallow-entity-mirroring.md) §2, §2.1.*
+
+**`entities.mirror`** is a `site` setting, per provider and entity type, with four values ([0015](../decisions/0015-record-format-and-partition-registry.md) §3):
+
+| Value | Mirrors |
+|---|---|
+| `off` | Nothing; foreign IDs are shown from the label cache only |
+| `on-demand` | An entity the first time it is read (an entity page, `wbgetentities`, a table cell) on any tenant that lists the provider ([0018](../decisions/0018-tenants.md) §5) |
+| `linked` *(default)* | Everything `on-demand` mirrors, and every entity used as a statement value, qualifier value, reference value or property in a graph of a listing tenant: `local`, `pages` and any derived graph ([0071](../decisions/0071-derived-statements-from-mirrored-pages.md) §1) |
+| `all` | The provider's whole type, by dump sync; what §3.4 already does |
+
+The setting is written as `entities.mirror = { WD = { item = "linked", property = "linked", lexeme = "on-demand" } }`. Properties are always at least `on-demand`, since a statement cannot be validated or rendered without its property's data type. [0065](../decisions/0065-mediainfo-captions-and-commons.md) §2's `mediainfo.mirror` is this setting for Wikidata's type `M`, under its own name for compatibility; it keeps its default of `on-demand`.
+
+A tenant's entity source takes the setting under its name, `entities.mirror = { mhc = { item = "linked" } }`, as `entities.closure` does; its default is `linked` for a source with an `api` and `off` for one without, and its closure list is empty by default (§6.4).
+
+### 5.3 When `linked` fetches, and closure properties
+
+*Sources: [0070](../decisions/0070-shallow-entity-mirroring.md) §2.2, §2.3.*
+
+**A write that mentions a foreign ID not yet mirrored enqueues it; it does not wait for it.** The `entity_ref` projection ([0013](../decisions/0013-postgres-storage.md) §7, step 4) adds a row to `ops.entity_fetch` for each foreign entity ID it writes as a target that has no `view.entity_source` row for its provider. Validation at save time checks only the ID's grammar and its provider ([0017](../decisions/0017-entity-id-grammar.md) §2), as it does for an ID whose mirror has not caught up. The entity page shows the value from the label cache until the fetch lands, and the fetch re-renders the pages that use it through `view.entity_ref`.
+
+A bulk job that will reference many foreign entities may prefetch them: the job's `start` names `prefetch = true`, and the ingester enqueues every foreign ID it validates before writing, so that the fetch runs alongside the job.
+
+**`entities.closure`** (site setting, per provider) lists properties whose values are fetched transitively from every mirrored entity, up to `entities.closure_depth` (default **6**). The default for Wikidata is:
+
+| Property | Why |
+|---|---|
+| `P31` instance of | The type of a value, for display and for constraints |
+| `P279` subclass of | Class hierarchies, so a query for a class finds its subclasses |
+| `P131` located in the administrative territorial entity | Place hierarchies, so a query for a state finds its counties |
+| `P17` country | The top of a place hierarchy |
+
+The depth cap bounds the walk up `P279`, which is deep. A tenant may add properties (`P361` part of, `P1365`/`P1366` replaces/replaced by for historical jurisdictions) or remove them. Closure stops at an entity already mirrored, so the walk is incremental.
+
+### 5.4 Leaving the set
+
+*Sources: [0070](../decisions/0070-shallow-entity-mirroring.md) §2.4.*
+
+**A shallowly mirrored entity is never tombstoned for falling out of use.** A tombstone means "deleted upstream" and applies the entity's retention policy (§2.1), which under `cascade` retracts local assertions, so it cannot be reused for eviction. The set grows with use and is bounded by it.
+
+Not yet: eviction from the set is an open question of [0070](../decisions/0070-shallow-entity-mirroring.md).
+
+### 5.5 Fetching and records
+
+*Sources: [0070](../decisions/0070-shallow-entity-mirroring.md) §3.*
+
+**A fetch is an instance job per provider**, run by the instance ([0040](../decisions/0040-instance-prerogatives.md) §6; [08](08-tenants-and-instances.md)), like a page repository's sync job ([0053](../decisions/0053-mirrored-pages.md) §5; [13](13-mirrored-pages.md)):
+
+- It drains `ops.entity_fetch` in batches through `wbgetentities` (50 IDs per request, the API's limit for clients without `apihighlimits`) or `Special:EntityData/{id}.json` for a single entity, through the upstream client and its `upstream` rate class (§2.7).
+- Each entity becomes a `put` with the same fields a dump sync writes. An upstream redirect becomes a `redirect`, and a missing entity a `tombstone`, as §3.4 says.
+- The job's records are one long-running job per provider, with a `job/start` when the instance starts it and periodic checkpoints, so `Special:Jobs` and `Special:Providers` show the set's size, the queue and the lag.
+
+The job's actor is the instance ([0040](../decisions/0040-instance-prerogatives.md) §2), not a subsidiary: instance jobs are the exception to §3.3's rule.
+
+**An entity source's fetch is the tenant's job, one per source**, not an instance job (§6.4). It writes to the tenant's `source/{name}` partition through the source's own `api` and `entity_data`, follows the source's `events` where it declares them, and is otherwise kept current by the sweep of §5.7 alone.
+
+### 5.6 Labels of entities not mirrored
+
+*Sources: [0070](../decisions/0070-shallow-entity-mirroring.md) §4.*
+
+**Labels for display come from a cache, not the mirror.** Rendering a mirrored entity needs the labels of the entities its statements point at. The label cache is an L1/L2 entry per entity and language ([0014](../decisions/0014-caches-and-search.md) §2; [03](03-storage-caches-and-search.md)), filled by `wbgetentities&props=labels|descriptions` in batches, with a lifetime of `entities.label_ttl` (default 7 days). A label from the cache is never a term in `view.term`, never in search, and never in RDF. An entity that is mirrored reads its terms from `view.term` instead.
+
+### 5.7 Keeping mirrored entities current
+
+*Sources: [0070](../decisions/0070-shallow-entity-mirroring.md) §5.*
+
+**The set is followed by the provider's event stream, and checked by a sweep.**
+
+- **Events.** For Wikidata, the instance follows `mediawiki.recentchange` filtered to `wikidata.org`, as [0053](../decisions/0053-mirrored-pages.md) §6 follows `mediawiki.page-change.v1` for a page repository, with the same cursor table (`ops.repo_cursor`, keyed by provider), debounce and gap-closing by `list=recentchanges`. An event for an entity in the set (a `view.entity_source` row for the provider) enqueues a fetch. Events for entities outside the set are ignored.
+- **Sweep.** Daily, the job asks `wbgetentities&props=info` for every entity in the set in batches of 50 and enqueues those whose `lastrevid` is newer than the cursor. The sweep catches anything the stream missed.
+
+### 5.8 Terms of mirrored entities
+
+*Sources: [0070](../decisions/0070-shallow-entity-mirroring.md) §6.*
+
+**A mirrored entity's terms populate `view.term` in `entities.term_languages` only** (site setting; default: the tenant's content languages, `mul` and `en`). Its other languages stay in the record and are served by `wbgetentities`, which reads the record, but are not rows. A shallow mirror holds thousands or millions of entities, not 117 million, so the rows are affordable.
+
+Not yet: what a full mirror (`all`) writes to `view.term` is an open question of [0070](../decisions/0070-shallow-entity-mirroring.md).
+
+### 5.9 Becoming a full mirror
+
+*Sources: [0070](../decisions/0070-shallow-entity-mirroring.md) §7.*
+
+**Moving a type from `linked` to `all` starts a dump sync, which continues from the shallow records.** The version cursor already holds each shallow entity's `lastrevid`; the sync skips every entity whose cursor is current and writes a `put` for the rest. Nothing is replaced and nothing is deleted. Moving back from `all` to `linked` keeps every entity already mirrored (§5.4).
+
+### 5.10 Local statements on mirrored entities
+
+*Sources: [0070](../decisions/0070-shallow-entity-mirroring.md) §8.*
+
+**Nothing new is needed.** A tenant's `add`, rank override, suppression and `retain` on a mirrored entity are local-graph assertions about a foreign subject (§2.5), resolved against the mirror by [0013](../decisions/0013-postgres-storage.md) A28's resolution, as the internetdomains tests already do for Domains. Proposals ([0067](../decisions/0067-proposals.md); [14](14-discussions.md)) can offer them upstream. A local statement on a foreign entity that is not yet mirrored enqueues it (§5.3), and until it lands the resolved view is the local contribution alone.
+
+## 6. Entity sources a tenant declares
+
+*Sources: [0078](../decisions/0078-entity-sources.md) §1–6, §8, §9.*
+
+### 6.1 The `entity-source` record
+
+*Sources: [0078](../decisions/0078-entity-sources.md) §1.*
+
+**An entity source is a graph of minted entities that one tenant reads, declared in that tenant's configuration instead of the registry.** It is a `config` record of kind **`entity-source`**, keyed `entity-source:{name}`, in the tenant `config` ([0015](../decisions/0015-record-format-and-partition-registry.md) §3; [23](23-configuration-and-registry.md)), written with `ts-config`. Its fields are a provider registry entry's (§1.5, `providers.toml`), cut to what a source of entities needs:
+
+| Field | Meaning |
+|---|---|
+| `name` | The prefix of its IDs (§6.2): `[a-z][a-z0-9-]*`, at most 32 characters, the grammar of notation scheme names ([0048](../decisions/0048-notation.md) §2). Example: `mhc` |
+| `label` | The name shown on source chips and origin lines: "Miraheze Communities" |
+| `types` | One entry per entity type the source mints, with the fields of a `[[provider.type]]`: `upstream_prefix` (`Q`), `entity_type` (`item`), `id_grammar` ([0017](../decisions/0017-entity-id-grammar.md) §2; default `digits`), and `iri`, the concept IRI template over `{upstream_id}` ([02](02-graphs-rdf-and-query.md)) |
+| `namespace` | The number of the source's namespace (§6.5), with its canonical name and aliases |
+| `api`, `entity_data` | Optional: the source's Action API endpoint and `Special:EntityData` base, as [0065](../decisions/0065-mediainfo-captions-and-commons.md) §5's per-type source fields. Without `api`, the source can be named but not mirrored |
+| `revision_ids` | Whether the source publishes revision IDs, as in `providers.toml` |
+| `events` | Optional: an EventStreams endpoint and filter, as a page repository's ([0052](../decisions/0052-page-repositories-and-title-inheritance.md) §1) |
+| `role` | Optional: a role ([0003](../decisions/0003-statement-ui.md) §7) whose property holds the source's upstream ID as an `external-id`, for the lookup of §6.5 |
+| `licence` | The licence of the source's data, as an SPDX identifier; required once anything is mirrored (§6.4) |
+| `number` | Assigned by the server on the first record (§6.4); not writable |
+| `promoted_to` | Empty, or the registry provider code that replaced the source (§6.8) |
+
+**What it is for.** A graph that one tenant, or a few, need. A graph that many tenants need belongs in the registry, and §6.8 moves a source there without losing anything.
+
+### 6.2 Source IDs
+
+*Sources: [0078](../decisions/0078-entity-sources.md) §2.*
+
+**A source's entities have IDs of the form `{name}:{upstream ID}`:** `mhc:Q1`, `mhc:P31`. The rest is the source's own ID, verbatim, so the ID pastes into the source unchanged, as an MBID does ([0017](../decisions/0017-entity-id-grammar.md) §6).
+
+**A source ID is a foreign ID in the colon shape, not a keyed ID.** A keyed ID names a thing whose key is minted by the thing itself; a source's entity was minted by a provider, the source ([0009](../decisions/0009-keyed-entity-types-and-domain.md) §1). Everything §1 says of a foreign entity holds: the prefix records identity origin, the entity may have triples in the source's mirror partition (§6.4) and in the tenant's `local` graph, and the source is a namespace in [0004](../decisions/0004-identity-clusters-and-equivalence.md) §1's sense, so a cluster holds at most one of its entities. A source entity therefore needs no surrogate ([0009](../decisions/0009-keyed-entity-types-and-domain.md) §7): its log header key is its ID, as `WDQ42`'s is.
+
+- **Parsing.** A colon form is told apart by the kind of its prefix in the tenant's table of names (§6.3). For a source, the rest must be the `upstream_prefix` of one declared type followed by a string in that type's grammar, which also gives the entity type. A source that declares `lexeme` takes the part suffix of [0017](../decisions/0017-entity-id-grammar.md) §1 (`mhc:L3-F1`).
+- **Canonical form.** The name in lowercase, and the rest by the type's grammar with its upstream prefix in uppercase: input `MHC:q1` is `mhc:Q1`. Input is case-insensitive, as for every ID ([0017](../decisions/0017-entity-id-grammar.md) §2).
+- **Statement IDs and values** take the ID as any entity's do: `mhc:Q1$C7C2A847-…`, and `{"entity-type": "item", "id": "mhc:Q1"}`, which is the value form a federated Wikibase writes.
+- **Pages.** A source entity's page is in the namespace of its entity type, `Item:mhc:Q1` or `Property:mhc:P31`, since entity namespaces are keyed by type, not by provider ([0008](../decisions/0008-namespaces-and-document-pages.md) §1). The source's own namespace (§6.5) is how a reader reaches it by a short title.
+- **Relative.** `mhc:Q1` means the source's entity on the tenant where it is read, as `Q5` means the tenant's own ([0044](../decisions/0044-tenant-relative-ids.md) §1; [04](04-entities-and-identifiers.md)). It reaches another tenant only through the rewriting of §6.7.
+
+### 6.3 One table of names per tenant
+
+*Sources: [0078](../decisions/0078-entity-sources.md) §3.*
+
+**Every colon prefix on a tenant is looked up in one table.** [0029](../decisions/0029-resolver-namespaces.md) §2 made keyed-type, resolver and notation scheme names one namespace in the registry. Two kinds join it:
+
+- **Registry provider slugs.** `wikidata:Q42` is an **input form** of `WDQ42` everywhere, canonicalized as `QQQ5` is ([0044](../decisions/0044-tenant-relative-ids.md) §1): never stored, never output. This is what §7.3 already does to an adopted wiki's federated IDs, extended to all input. A slug with no entity types (a page provider, [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §1) is reserved but forms no IDs.
+- **The tenant's entity sources**, on that tenant only. Two tenants may each have an `mhc` that names different graphs.
+
+**The rules are fixed, and none of them guesses:**
+
+1. **A source may not take a name the registry has.** A declaration whose name is a keyed type, resolver, notation scheme or provider slug in the registry the instance runs is refused with `ts-source-name-taken`.
+2. **A tenant's source shadows a registry name added later.** If a registry update adds a name a tenant already uses for a source, the source keeps it on that tenant. The registry's thing stays reachable there by its other forms: its IRI, its provider code, or, for a keyed type, its namespace title. A reference from elsewhere that uses the shadowed name is matched by IRI (§6.7) and never read as the source. `triplespace-cli registry check` lists every shadowed name after an update.
+3. **Colon forms never collide with minted forms.** `mhc:Q1`, the provider-form ID `MHC1` (a provider `MH`, type `C`) and `Item:MHQ1` are three different strings, parsed by three rules ([0017](../decisions/0017-entity-id-grammar.md) §1). Whether two of them name the same entity is a question of identity, which §6.8 answers: on one tenant, they never both do.
+4. **The tenant-relative form is untouched.** `QQQ5` has no colon.
+
+`GET /resolve` ([0029](../decisions/0029-resolver-namespaces.md) §6) tries source IDs with the other entity IDs, first; the table says which kind a prefix is, so the order among colon forms decides nothing.
+
+### 6.4 Numbers, the `source/{name}` partition and fetching
+
+*Sources: [0078](../decisions/0078-entity-sources.md) §4.*
+
+**Provider numbers from 2^22 to 2^23 − 1 are reserved for entity sources.** The server assigns the lowest one not yet used on the tenant when the source's first record is written, and records it in the entry. A number is unique on its tenant and is never reused there, even after the source is retired. Uniqueness per tenant is enough: revision and page IDs are per-tenant sequences ([0015](../decisions/0015-record-format-and-partition-registry.md) §2), and no other tenant reads a source's records (§6.7). So `revid = number << 40 | n` and the derived page IDs work unchanged, and a move carries the number in the entry. The registry keeps the 4,194,303 numbers below the range.
+
+**A source's records live in a tenant partition, `source/{name}`.** It is a source graph of tenant scope, with the policies of `mirror/{provider}`: history `latest` (a tenant may set `full`), integrity `hashed`, export public unless the tenant is private ([0056](../decisions/0056-security-model.md) §3), payloads `scatter:v0/changeset` and `scatter:v0/erase`. Only the source's fetch job writes to it, and the job attests its records, as an extraction job attests a derived graph's ([0071](../decisions/0071-derived-statements-from-mirrored-pages.md) §1, §3). Its records are mirror `put`, `redirect` and `tombstone` (§3.2). A tenant move carries it with the tenant's other partitions ([0018](../decisions/0018-tenants.md) §10). A tenant therefore has one `source/{name}` partition per entity source beside the partitions of [08](08-tenants-and-instances.md).
+
+**Shallow mirroring applies as written, with the source's name in place of a provider code** (§5):
+
+- `entities.mirror = { mhc = { item = "linked", property = "linked" } }`. The default is `linked` for a source with `api` and `off` for one without. `off` is the pointer state: the source's IDs are written and shown, from the label cache where there is an `api` and as bare IDs otherwise, and nothing is fetched.
+- `entities.closure` takes the source's name too. Its default for a source is empty, since nothing is known about which of its properties form hierarchies.
+- **The fetch job is the tenant's, one per source**, not an instance job: it drains `ops.entity_fetch` rows for `(tenant, source)` through the source's `api` in the `upstream` rate class ([0024](../decisions/0024-subsidiary-accounts.md) §5), follows `events` where the source declares them, and otherwise relies on the daily sweep (§5.7).
+- The label cache keys a source entity's labels by tenant ([0018](../decisions/0018-tenants.md) §6).
+
+**Views.** A source entity has tenant rows only. Nothing about it is computed from shared graphs, so [0018](../decisions/0018-tenants.md) §6 never gives it a shared row, and it is indexed in the tenant's search index, never in a provider index ([03](03-storage-caches-and-search.md)).
+
+**No issuer.** Shallow mirroring keeps no upstream history (§5.1), so no upstream actor is recorded and a source needs no issuer.
+
+Not yet: mirroring a source's history is an open question of [0078](../decisions/0078-entity-sources.md).
+
+### 6.5 The source's namespace
+
+*Sources: [0078](../decisions/0078-entity-sources.md) §5.*
+
+**A tenant's own namespaces take numbers from 3000 upward,** the numbers mediawiki.org's Extension default namespaces page leaves to system administrators, or from 100–199, MediaWiki's block for site-specific namespaces, except the numbers `namespaces.toml` lists (120–125, 146 and 147 among them). An adopted wiki (§7) also keeps the numbers it already gave its namespaces. A tenant `namespace` record with a number outside these ranges that `namespaces.toml` does not list is refused with `ts-namespace-number`. This is rule 4 of [0008](../decisions/0008-namespaces-and-document-pages.md) §2; the Triplespace blocks of rule 3 stay the registry's ([10](10-pages-and-content-models.md)).
+
+**Each source has one namespace there, of kind `resolver`,** with its talk number `reserved`, as a resolver's is ([0029](../decisions/0029-resolver-namespaces.md) §2). The tenant chooses its canonical name, `MHC` or `Miraheze Communities`. **The source's name is always one of its aliases**, so `[[mhc:Q1]]` and `[[MHC:Q1]]` are both titles in it. A source whose namespace name or alias equals another namespace's name or alias on the tenant, or an interwiki prefix from the tenant's site aliases ([0026](../decisions/0026-sitelinks.md) §2), is refused with `ts-namespace-name-taken`. MediaWiki's precedence of namespace over interwiki therefore never decides anything. The title normalizer is the source's ID normalizer of §6.2.
+
+**Viewing `MHC:Q1`, or resolving `mhc:Q1`, does the following:**
+
+1. **The entity is known to the tenant.** If `mhc:Q1` has a row in the tenant's resolved view (it is mirrored, the tenant asserts something about it, or it is in a cluster), the response is a redirect (HTTP 303) to its canonical page. That is `Item:mhc:Q1`, or `Item:Q500` once the entity is in Q500's cluster (§6.6), by [0008](../decisions/0008-namespaces-and-document-pages.md) §3.
+2. **An item carries its ID.** Otherwise, if the source names a `role`, the upstream ID is looked up as that property's value exactly as [0029](../decisions/0029-resolver-namespaces.md) §3 looks up a DOI, with the same responses: one entity redirects, several show a disambiguation page.
+3. **Nothing is known.** Otherwise a page shows the ID, the external link (the concept IRI, or the source's entity page where the source has `entity_data`), and for editors **Create an item for this** (§6.6). If the source has `api` and its mirror setting is not `off`, the fetch is enqueued, and the page says so.
+
+`MHC:Q1` is therefore the citable address of "the source's Q1, whatever it ends up as", as a resolver permalink is ([0029](../decisions/0029-resolver-namespaces.md) §4). A wiki link to it renders with the entity's label from the view or the label cache.
+
+### 6.6 Minting a local item
+
+*Sources: [0078](../decisions/0078-entity-sources.md) §6.*
+
+**Create an item for this writes one change set:** a `create` of a local item, `Q500`, with the source entity's label where one is known; a tier-1 `same-as` between `Q500` and `mhc:Q1` ([0004](../decisions/0004-identity-clusters-and-equivalence.md) §3); and, where the source names a `role`, a statement with that property and the upstream ID. A local member ranks above every provider's ([0004](../decisions/0004-identity-clusters-and-equivalence.md) §4), so `Q500` is canonical unless the cluster has a keyed member. Among providers, a source that the tenant's `reconcile` order does not name ranks after every registry provider; the default order among registry providers is provider-number order in `providers.toml` ([04](04-entities-and-identifiers.md)).
+
+After that, `mhc:Q1` is a cluster member. Its title and every reference to it resolve to `Q500`. In the mirror states its mirrored statements keep contributing to Q500's resolved view, as a Wikidata item's do; in the pointer state it contributes only its name. The identifier is a member of a cluster, which the identity machinery already has, and not a new mechanism. Removing the `same-as` undoes it.
+
+### 6.7 Across tenants and instances
+
+*Sources: [0078](../decisions/0078-entity-sources.md) §8.*
+
+**A reference to a source entity crosses a tenant boundary by IRI.** When tenant B reads provider tenant A's `local` graph ([0018](../decisions/0018-tenants.md) §5; [08](08-tenants-and-instances.md)), or another instance reads it through `scatter-adapter-triplespace` ([0022](../decisions/0022-federation.md) §2, which rewrites as 0018 §5 does), a reference to A's `mhc:Q1` is rewritten by the first rule that applies:
+
+1. **A's source is unpublished.** The reference is not readable, as a tenant without a code cannot be referenced ([0018](../decisions/0018-tenants.md) §5).
+2. **The IRI is a registry provider's.** It becomes that provider's ID, `MHQ1`, once the registry has Miraheze Communities as `MH`.
+3. **B has a source with the same IRI template.** It becomes B's ID for the entity, `mhcom:Q1`, whatever B named its source.
+4. **Otherwise it is unbound.** Every statement whose subject, value, qualifier value or reference value is the reference is **withheld** from B's resolved view. B's `Special:Providers` counts withheld statements per IRI base, so B's administrators can see what declaring a source would add. Nothing is guessed or partly shown.
+
+B never reads A's `source/{name}` partition: the source's data comes from the source, and B fetches it itself once it declares one. The rewrite reads A's source table from A's `config` on the same instance, and from A's public `GET /entity-sources` on another ([18](18-api.md)). References to B's own entities still come back as bare IDs ([0022](../decisions/0022-federation.md) §2).
+
+### 6.8 Binding is permanent; promotion
+
+*Sources: [0078](../decisions/0078-entity-sources.md) §9.*
+
+**A source's name, number and type IRI templates are fixed by its first record.** A later record may change its label, `api`, `entity_data`, `events`, `role`, licence, namespace names and aliases, and its mirror settings; one that changes the name, the number or a template is refused with `ts-source-binding`. A retired source, one whose record is null, keeps its name and number reserved on the tenant for good, and its IDs keep parsing and resolving read-only. Records in the log carry `mhc:Q1` in their headers and content, so its meaning cannot change under them.
+
+**A source may not duplicate a registry provider.** A declaration with a type IRI template equal to a registry provider's is refused with `ts-source-is-provider`, and the tenant adds the provider to its `providers` list instead ([0018](../decisions/0018-tenants.md) §5). When the registry later gains such a provider, the tenant may not add it to its `providers` list while the source is unpromoted (`ts-source-is-provider` again), and `registry check` lists the source as promotable. So on one tenant, `mhc:Q1` and `MHQ1` never both name an entity.
+
+**Promotion.** When the registry later allocates a provider whose IRI templates equal a source's, the tenant writes the source's record with `promoted_to = "MH"`, which is refused if the templates differ. From then on:
+
+- `mhc:` is an input form of `MH` on the tenant, as a provider slug is (§6.3), and `MHC:Q1` redirects to `Item:MHQ1`.
+- Projections rewrite `mhc:Q1` to `MHQ1` when they read the tenant's records, as [0018](../decisions/0018-tenants.md) §5 rewrites a provider tenant's IDs on read. Statement IDs follow [0018](../decisions/0018-tenants.md) §7: the UUID is kept and the prefix becomes the canonical ID.
+- `source/mhc` is frozen and kept. The provider joins the tenant's `providers` list, and mirroring continues in the instance's `mirror/{slug}`.
+- Nothing in the log is rewritten.
+
+## 7. Adopting an existing Wikibase
+
+*Sources: [0035](../decisions/0035-adopting-a-wikibase.md) §1–4, §7; [0078](../decisions/0078-entity-sources.md) §11.*
+
+### 7.1 Adoption
+
+*Sources: [0035](../decisions/0035-adopting-a-wikibase.md) §1.*
+
+A tenant **adopts** a MediaWiki Wikibase when the tenant *is* that wiki, continuing on Triplespace: the same identity, the same IDs, the same accounts, usually the same host. Adoption writes the source's entities into the tenant's `local` partition under the IDs the source minted, its accounts under their own numbers ([07](07-actors-and-accounts.md)), and sets every ID sequence past the source's (§7.4).
+
+Adoption is neither of the two things it resembles:
+
+- **Not mirroring.** The source is not a foreign provider to the tenant. Nothing is rewritten to a prefixed form, no `mirror/*` partition is created, and no version cursor is kept. If the tenant is a provider to others (`LB`), an adopted `Q6` is `LBQ6` to them from the moment it lands, by [0018](../decisions/0018-tenants.md) §5, with nothing further to do.
+- **Not a move** under [0018](../decisions/0018-tenants.md) §10. There is no bundle to verify and no key chain to continue. The adopted records are new records of this instance, attested by this instance.
+
+The tenant's `tenant` config record ([0018](../decisions/0018-tenants.md) §3) gains an **`adopted_from`** field: the source wiki's base URL and the date of adoption. If the host changes, an `alias` record ([0018](../decisions/0018-tenants.md) §9) is written as for any base-URI change; if Triplespace replaces MediaWiki at the same host, nothing is. The tenant side of adoption is in [08](08-tenants-and-instances.md).
+
+### 7.2 Preconditions and the job
+
+*Sources: [0035](../decisions/0035-adopting-a-wikibase.md) §2.*
+
+An adoption is a job (§3.3; [0011](../decisions/0011-logs.md) §6.3) with mode `adopt`, run by a subsidiary of the tenant's operators ([0024](../decisions/0024-subsidiary-accounts.md) §6). It is refused unless:
+
+1. **the source is frozen.** The operator declares the source read-only and takes the final dump; adoption is a one-way door (§7.3), and anything edited on the source after the dump is lost;
+2. **the tenant's slug is the issuer** whose numeric IDs the source's users become ([0018](../decisions/0018-tenants.md) §4), which is to say the tenant was created for this source;
+3. **the tenant's `local` partition holds no entity records** other than those written by earlier adoption jobs for the same source. This is what makes a failed adoption resumable (§7.3) and everything else an ordinary edit;
+4. **the job's operator holds `ts-runjob` and `ts-config`,** since the job seeds sequences (§7.4).
+
+The job record carries the source's base URL, the dump's identity and date as the source version, the adapter version, the floors it set (§7.4), and the counts by outcome. It projects as `job/start` and `job/finish` like any job. Adopting a wiki with files imports every file version from its file tables and upload directory, deleted versions included, onto file pages that keep their source page IDs ([0039](../decisions/0039-files-and-media.md) §14; [12](12-files-and-media.md)).
+
+### 7.3 The `adopt` operation
+
+*Sources: [0035](../decisions/0035-adopting-a-wikibase.md) §3; [0078](../decisions/0078-entity-sources.md) §11.*
+
+The `adopt` row of §3.2 and the wire form of §3.9 apply. In a record:
+
+- **`id`** is in local form ([0017](../decisions/0017-entity-id-grammar.md) §1): the source's own ID, with no prefix. Any minted entity type the source has may be adopted (`Q`, `P` and `L`; lexemes are [0066](../decisions/0066-lexemes.md), [04](04-entities-and-identifiers.md) §5.1).
+- **`entity`** is the source's canonical JSON ([wikibase-compat.md §3](../api/wikibase-compat.md)). IDs the source wrote with an entity-source prefix, such as `wikidata:Q42` from a federated install ([wikibase-compat.md §5.1](../api/wikibase-compat.md)), are rewritten to the provider form, `WDQ42`, by the rule of §1.5, using the source's own entity-source table. **An adopted wiki's entity-source prefix that names no registry provider becomes an entity source of the tenant under the same name** (§6), declared by the adoption job before the first `adopt` from that table, from the source wiki's own entity-source table (concept base URI, entity types). IDs in that prefix are then kept as written, `mhc:Q1`, instead of having no rule. If the name is taken (§6.3, rule 1), the adoption's preconditions (§7.2) fail and name it. Every other ID is kept as written: the source's `Q` numbers *are* the tenant's.
+- **`source_revid`, `source_time`, `source_pageid`** are the source's revision ID and timestamp for the adopted state and the page ID of the entity's page on the source. They are content, kept in the content part, and they give the record its provenance ([0035](../decisions/0035-adopting-a-wikibase.md) §6; [07](07-actors-and-accounts.md)) and its page ID (§7.4).
+- **Statement GUIDs** are kept as the source wrote them. They already carry the entity's own ID as their prefix, which is the invariant [0018](../decisions/0018-tenants.md) §7 preserves.
+
+The record is an ordinary local revision: it takes the next revision ID from the tenant's sequence ([0015](../decisions/0015-record-format-and-partition-registry.md) §2), its comment part is empty, and its attestation names the job's subsidiary and the job ([0015](../decisions/0015-record-format-and-partition-registry.md) §1). The entity's `lastrevid` after adoption is that new local revision ID; `source_revid` is shown beside it as "adopted from revision N".
+
+**Why a separate operation.** `create` allocates an ID, merges statements into an existing entity and takes match keys; `adopt` does none of these. `put` is a mirror operation with skip-if-not-newer semantics and the `prev_upstream` fields of §2.6; none of that applies to a first and only write. A separate name gives the permission and filter layers ([09](09-security-and-moderation.md)) something to name, and `adopt` is the one whole-entity write to the local graph that needs no base revision, confined to adoption jobs (§3.2).
+
+**Re-running** an adoption job against the same dump skips every entity already present and is therefore how a partial adoption is completed. A newer dump is not a second adoption: once adopted, the wiki changes through edits.
+
+### 7.4 Sequence floors
+
+*Sources: [0035](../decisions/0035-adopting-a-wikibase.md) §4.*
+
+Every sequence the source consumed is set past what it consumed, so that no number the source ever allocated is allocated again here. The floors are recorded in the job record. Setting a floor never lowers a sequence. The sequences themselves are in [03](03-storage-caches-and-search.md) and [08](08-tenants-and-instances.md).
+
+| Sequence | Floor | Why |
+|---|---|---|
+| **Entity IDs**, one per minted entity type per tenant (`log.item_id`, `log.property_id`, …), taken in the appending transaction as Wikibase's `wb_id_counters` are; the ID blocks of §3.5 reserve ranges from them | The source's own counters, supplied by the operator from its `wb_id_counters` table (`--counters`); failing that, the highest ID in the dump, with a warning | Numbers the source allocated and then deleted must not be reused, and a dump does not show them |
+| **Page IDs** (`log.page_id`). The `adopt` record carries `source_pageid` in header field 9 in place of a freshly taken number; [0015](../decisions/0015-record-format-and-partition-registry.md) §2's rule that the ID is "taken from one sequence the first time a key is written" gains "or supplied by an adoption job" | The source's highest page ID | Clients cite `pageid`; document pages imported later from the same wiki under [0008](../decisions/0008-namespaces-and-document-pages.md) §9 keep theirs the same way |
+| **Revision IDs** (`log.revision_id`). Adopted records take fresh IDs above the floor | The source's highest revision ID | No local revision ever shares a number with a source revision, so `oldid={source revid}` resolves to the source revision once history is imported (§7.5) and to nothing before, never to an unrelated local revision |
+| **Log IDs** (`log.log_id`) | The source's highest log ID | The same, for `logid` |
+| **User IDs** ([0007](../decisions/0007-actor-identity.md) §3: "sequential, start at 1") | The source's highest user ID | Source accounts keep their numbers ([07](07-actors-and-accounts.md)) |
+
+### 7.5 History: shape fixed, content deferred
+
+*Sources: [0035](../decisions/0035-adopting-a-wikibase.md) §7.*
+
+Adoption brings **current state only**. What fixes the shape of a later history import is a constraint, not a preference: a later job must not displace the current state. `entity_source.offset` is the entity's newest record by offset ([0013](../decisions/0013-postgres-storage.md) §5.1) and the base-offset check reads the newest record for the key ([0006](../decisions/0006-log-integrity-and-erasure.md) §8), so past revisions cannot be appended into `local` behind the current one. Two shapes satisfy it:
+
+- **(a) History first, in order.** Each source revision is an `adopt` record with an explicit revision ID (the source's, below the floor), its original timestamp and its original actor, as [0008](../decisions/0008-namespaces-and-document-pages.md) §9 steps 1–2 do for pages, and the last revision *is* the current state. It needs the XML history dump at adoption time, and it makes adoption one job.
+- **(b) History after, as backfill.** Source revisions become `upstream-revision`-shaped records ([0015](../decisions/0015-record-format-and-partition-registry.md) §4) in the tenant's own `log` partition, keyed by entity, metadata first and content where wanted; the history view folds them as it folds upstream history, and `oldid=N` serves them. It works after a current-state adoption and never touches `local`.
+
+Adopting current state only forecloses (a) for that tenant. Librarybase accepts that: its first milestone is API-only and current-state, and (b) is then its path.
+
+Not yet: the choice between the two shapes for tenants that have not yet adopted is open in [0035](../decisions/0035-adopting-a-wikibase.md).
+
+## 8. The provider catalogue
+
+*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §4; [0009](../decisions/0009-keyed-entity-types-and-domain.md) §9; [0036](../decisions/0036-openstreetmap-providers.md) §1, §2, §4, §5; [0037](../decisions/0037-gdelt-provider.md) §1–7.*
+
+### 8.1 The registered providers
+
+*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §4; [0036](../decisions/0036-openstreetmap-providers.md) §1; [0037](../decisions/0037-gdelt-provider.md) §1.*
+
+`providers.toml` ([23](23-configuration-and-registry.md)) is the registry of record for providers. Codes and numbers are never reused; number 0 is the instance itself and is never assigned; numbers 4194304–8388607 are never assigned in the registry, since each tenant assigns them to its entity sources (§6.4); and the twenty-six doubled letters `AA`…`ZZ` are reserved codes, because a type letter written three times is the tenant-relative form of a local ID ([04](04-entities-and-identifiers.md)). Each provider has a two-letter `code`, a `slug` used in graph names (`mirror/{slug}`) and the API, a `number` for the revision-ID range `revid = number << 40 | n`, an `issuer` that its revisions attribute actors to (or the provider itself for providers without individual actors), an `actor_model` (`individual` when the provider's changes carry upstream actors, `provider-only` when they are attributed to the provider as a whole; `issuer == slug` is not the test, since OpenStreetMap's issuer is its slug and its changesets have authors), `revision_ids` (true when the provider publishes revision IDs, so that `n` is the upstream revision ID; otherwise `n` is the mirror record's offset), `sync_deltas` (`summary` or `full`, §2.6), `deletion` (`tombstone`, or `clear` for a provider whose upstream deletions clear the mirror's contribution with a `put` of the empty state, §2.1), one `adapter` crate per provider ([22](22-crates-and-stack.md)), an optional `trust` with `keys` for a provider that publishes a tlog checkpoint (`verified`, the default for `scatter-adapter-triplespace`, checks every mirrored batch against the provider's checkpoint and key chain; `stream` mirrors without proofs), and chip colours ([19](19-site-ui.md)). Each `[[provider.type]]` gives one entity type the provider mints: a one-letter `code`, the `entity_type`, the `upstream_prefix`, the `iri` template over `{upstream_id}` and the `namespace` whose pages host the type; `id_grammar` may be set on a provider or, overriding it, on a single type ([04](04-entities-and-identifiers.md)); `key_mapped` on a type means its upstream entities are written under a keyed type's keys (§4) and the type code stays reserved. A provider marked `pages` is one whose pages a page repository serves ([13](13-mirrored-pages.md)); it may mint no entities, and English Wikipedia's entry (slug `enwiki`, number 9, issuer `enwiki`) is a pending allocation rather than a row, since `scatter-providers` does not yet accept a codeless entry.
+
+| Code | Slug | Number | Types (code: upstream prefix → entity type) | ID grammar | Issuer | `actor_model` | `revision_ids` | `deletion` | Adapter | Trust |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `WD` | `wikidata` | 1 | `Q`: `Q` → item; `P`: `P` → property; `L`: `L` → lexeme; `M`: `M` → mediainfo (Commons, §8.2); `E`: `E` → entityschema | `digits` | `wikidatawiki`; agent `http://www.wikidata.org/entity/Q2013` | `individual` | true | `tombstone` | `scatter-adapter-wikidata` | — |
+| `LB` | `librarybase` | 2 | `Q`: `Q` → item; `P`: `P` → property | `digits` | `librarybase` | `individual` | true | `tombstone` | `scatter-adapter-wikidata` | — |
+| `OA` | `openalex` | 3 | `W` Work, `A` Author, `S` Source, `I` Institution, `T` Topic, `P` Publisher, `F` Funder, `G` Award: each `{code}` → item; `K`: `keywords/` → keyword, `key_mapped` | `digits` | `openalex` | `provider-only` | false | `tombstone` | `scatter-adapter-openalex` | — |
+| `MB` | `musicbrainz` | 4 | `A` artist, `G` release group, `R` release, `C` recording, `W` work, `L` label, `D` area, `P` place, `E` event, `S` series, `I` instrument, `N` genre: each `""` → item | `uuid` | `musicbrainz` | — | false | `tombstone` | `scatter-adapter-musicbrainz` | — |
+| `XD` | `internetdomains` | 5 | `Q`: `Q` → item (domain items key-mapped onto `domain`); `P`: `P` → property | `digits` | `internetdomains` | `individual` | true | `tombstone` (keyed items: clear, §4.2) | `scatter-adapter-internetdomains` | — |
+| `OS` | `openstreetmap` | 6 | `N` node, `W` way, `R` relation: each `""` → item | `digits` | `openstreetmap` (the changeset author's OSM user ID) | `individual` | false | `clear` | `scatter-adapter-openstreetmap` | — |
+| `OW` | `osmwiki` | 7 | `Q`: `Q` → item (key and tag items key-mapped onto `notation`, scheme `osm`); `P`: `P` → property | `digits` | `osmwiki` | `individual` | true | `tombstone` (keyed items: clear, §4.2) | `scatter-adapter-wikidata` | — |
+| `GD` | `gdelt` | 8 | `E` event, `C` CAMEO event code: `""` → item, `digits`; `D` document: `""` → item, `gdelt-record`; `T` GKG theme: `""` → item, `token` | per type | `gdelt` | `provider-only` | false | `tombstone` | `scatter-adapter-gdelt` | — |
+
+No registered provider sets `trust`; it applies to a provider that is a Triplespace instance or Scatterbase ([0022](../decisions/0022-federation.md) §2). A provider without individual actors has one actor record of kind `provider`, agent type `prov:Organization`, written when the provider is registered ([07](07-actors-and-accounts.md)).
+
+No registered provider sets `sync_deltas`, so every row takes the default `summary`. The `deletion` column is `clear` only for OpenStreetMap (§8.7); the key-mapped items of `XD` and `OW` are cleared by the keyed-entity rule of §4.2 regardless of the flag.
+
+### 8.2 Wikidata, and Commons as the source of type `M`
+
+*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §2, §4; [0012](../decisions/0012-api-requirements.md) §2.2; [0070](../decisions/0070-shallow-entity-mirroring.md) §2.1, §2.3, §5.*
+
+Wikidata is the provider the mirror model is written against: every observed state carries its upstream revision ID (`lastrevid`, the version cursor of §3.4), its upstream history can be backfilled from the API or history dumps (§1.3), and without a stored delta the diff of a sync links to `index.php?diff={new}&oldid={prev}` (§2.6). Its registry entry carries `article_path`, `api` and `entity_data`; its entities project to `http://www.wikidata.org/entity/{upstream_id}`, type `M` to `https://commons.wikimedia.org/entity/{upstream_id}`. Shallow mirroring follows `mediawiki.recentchange` filtered to `wikidata.org` (§5.7), and the default closure properties of §5.3 are Wikidata's. Type `E` is read from namespace 640 pages, not the entity dumps ([0064](../decisions/0064-entityschema-and-validation.md) §1; [15](15-structured-pages.md)); type `L` is [0066](../decisions/0066-lexemes.md) ([04](04-entities-and-identifiers.md)).
+
+**Commons.** A MediaInfo entity is the `mediainfo` slot of a File page, not a namespace of its own, and Commons is the source of type `M` under Wikidata's provider ([0065](../decisions/0065-mediainfo-captions-and-commons.md) §2); `mediainfo.mirror` is `entities.mirror` for that type under its own name, default `on-demand` (§5.2). The per-type source fields `api`, `entity_data` and `dumps` that 0065 §5 adds are a pending allocation in `providers.toml` until `scatter-providers` accepts them. The rest of Commons as a file and MediaInfo source is in [12](12-files-and-media.md).
+
+### 8.3 Librarybase
+
+*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §4; [0035](../decisions/0035-adopting-a-wikibase.md) §1, §7.*
+
+Librarybase (`LB`, number 2) is any MediaWiki+Wikibase mirrored through `scatter-adapter-wikidata`, which is parameterised by the registry entry; its entities project to `https://librarybase.org/entity/{upstream_id}`. It is also the worked example of a tenant as a provider, whose `Q6` is `LBQ6` to readers by rewriting on read ([08](08-tenants-and-instances.md)), and of adoption: its first milestone is API-only and current-state, with history as a later backfill (§7.5).
+
+### 8.4 OpenAlex
+
+*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §2, §4, §8.4; [0009](../decisions/0009-keyed-entity-types-and-domain.md) §9.*
+
+OpenAlex (`OA`, number 3) publishes no revision history, so only observed history exists for it (§1.3), its version cursor is `updated_date` (§3.4), the live fetch of upstream edits answers `upstream-unsupported` (§2.7), and its changes are attributed to the provider as a whole and to the import job ([07](07-actors-and-accounts.md)). Its adapter maps a non-Wikibase source onto properties by role, and its statement IDs are deterministic, derived from the entity, property and value (§3.4). Its entities project to `https://openalex.org/{upstream_id}`. Keywords (`K`, upstream prefix `keywords/`) are mapped by key onto the `keyword` keyed type (§4.1): no `OAK` entity is ever minted, and the code stays reserved.
+
+### 8.5 MusicBrainz
+
+*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §4.*
+
+MusicBrainz (`MB`, number 4) has `id_grammar = "uuid"`: an entity ID is the three-letter prefix followed by the MBID verbatim, lowercase, such as `MBAb10bbbfc-cf9e-42e0-be17-e2c3e1d2600d`, and each type projects to `https://musicbrainz.org/{artist|release-group|release|recording|work|label|area|place|event|series|instrument|genre}/{upstream_id}`. MusicBrainz `url` entities are not mirrored as items; they become URL-valued statements on the entity that links them. The grammar is in [04](04-entities-and-identifiers.md) §2.2.
+
+### 8.6 internetdomains.wiki
+
+*Sources: [0009](../decisions/0009-keyed-entity-types-and-domain.md) §9.*
+
+The Internet Domains Wikibase (`XD`, number 5) is the key-mapped provider of §4. Its adapter configuration names `identity_property = "P1"`, a string property holding the domain name, `key_type = "domain"`, and `identity_property_on_mapped = "drop"`: on a mapped item `P1` is dropped from the mirrored state, since the key is the value, and kept on unmapped or rejected items, where it is ordinary data. The identity property is adapter configuration, not part of the ID scheme. The wiki was domains.wikibase.cloud before it moved to internetdomains.wiki; the slug and every `internetdomains:{id}` actor key are stable across the move ([0018](../decisions/0018-tenants.md) §4).
+
+### 8.7 OpenStreetMap: two providers, and `OS` map objects
+
+*Sources: [0036](../decisions/0036-openstreetmap-providers.md) §1, §2.*
+
+| | Map data | Vocabulary |
+|---|---|---|
+| Code, slug, number | `OS`, `openstreetmap`, 6 | `OW`, `osmwiki`, 7 |
+| Types | `N` node, `W` way, `R` relation | `Q` item, `P` property |
+| IDs | `OSN123`, `OSW123`, `OSR123` | `OWQ7`, `OWP16` |
+| Source | planet, replication diffs, API | `wiki.openstreetmap.org` Wikibase |
+| Adapter | `scatter-adapter-openstreetmap` | `scatter-adapter-wikidata`, parameterised, with key-mapping (§4) |
+| `revision_ids` | false | true |
+| Issuer | `openstreetmap` (OSM user IDs) | `osmwiki` (wiki user IDs) |
+
+Both are in `providers.toml` and `issuers.toml`. They are two providers rather than five types under `OS` because `revision_ids` is one flag per provider, the revision-ID range `provider_number << 40 | n` ([0015](../decisions/0015-record-format-and-partition-registry.md) §2) needs one scheme for `n`, the issuers' user IDs are unrelated, and one mirror graph would mix two licences and two sync cursors.
+
+**`OS`: map objects.**
+
+- Each node, way and relation is a foreign item under its type code. The IDs are bare digits (`upstream_prefix = ""`, `id_grammar` `digits`), and the type code is what separates node 1 from way 1. Deleted IDs are never reused upstream; the provider sets `deletion = clear` (§8.1), so a deletion clears the mirror's contribution with a `put` of the empty state, as §2.1 allows, rather than a tombstone.
+- `revision_ids = false`: OSM versions are per object and changesets are not a global revision sequence, so `n` is the mirror record's offset. The upstream version and changeset ID are kept as source metadata on the record, and the changeset author's numeric user ID is the actor (`openstreetmap:{uid}`).
+- Canonical IRIs are `https://www.openstreetmap.org/{node|way|relation}/{id}`.
+- Way and relation membership become references to `OSN`, `OSW` and `OSR` values, by role. A node's coordinates become a coordinate value. Geometry beyond that is not derived.
+
+### 8.8 Tags on map objects
+
+*Sources: [0036](../decisions/0036-openstreetmap-providers.md) §4.*
+
+A tag `k=v` on an `OS` object becomes one of three things. Nothing is dropped.
+
+1. **A mapped key.** If `k` is in the adapter's key map, it becomes the mapped property, a term, or a link, with the native value type. `name` and `name:{lang}` become labels and `alt_name` aliases. `website` becomes a URL value. The key map names properties **by role** ([0003](../decisions/0003-statement-ui.md) §7), like the identity property in §4.1 and OpenAlex's field mapping, so it never depends on a property's number. It is adapter configuration with shipped defaults, and mapping another key later reprojects from the log.
+2. **A documented tag.** If a notation for exactly `osm:k=v` exists in the `OW` mirror, or the wiki says the key takes well-known values, the object gets a statement with role `osm-tag` and value `notation:osm:k=v`.
+3. **Everything else.** The object gets a statement with role `osm-tag-text`, string value `v`, and a qualifier with role `osm-key` and value `notation:osm:k`.
+
+Free-text keys such as `name`, `phone` and `opening_hours` should have their own properties, by role, through case 1. Case 3 is the fallback until they do, and it means no property is minted per key and no per-instance property numbers exist. The roles `osm-tag`, `osm-tag-text` and `osm-key` are registered with the other roles of [0003](../decisions/0003-statement-ui.md) §7 ([06](06-statements-and-properties.md)), and the properties bound to `osm-tag` and `osm-key` carry the `notation-scheme` statement `osm` ([0048](../decisions/0048-notation.md) §4). Without a mirrored `OW`, case 2 does not occur and every unmapped tag takes case 3.
+
+### 8.9 `OW`: the vocabulary
+
+*Sources: [0036](../decisions/0036-openstreetmap-providers.md) §5.*
+
+The wiki's Wikibase models keys and tags as items and describes them with about fifty properties. The adapter maps two classes to notations in the `osm` scheme (the key map names `key_type = "notation"` and `key_scheme = "osm"`, [0048](../decisions/0048-notation.md) §6; [04](04-entities-and-identifiers.md)):
+
+| Class | Identity property | Becomes |
+|---|---|---|
+| `Q7` OpenStreetMap key | `P16` permanent key ID, stated never to change | `notation:osm:{key}` |
+| `Q2` OpenStreetMap tag | `P19` permanent tag ID, `key=value` | `notation:osm:{key}={value}` |
+
+The rules of §4 apply. An item with one valid identity value is written under its key, and the upstream ID becomes an alias. Values pointing at such items become `wikibase-notation` values. An item with no valid identity value, or with several, is reported and stays `OWQ{n}`. `P16` and `P19` are dropped from a mapped item's mirrored state, since the key is the value (`identity_property_on_mapped = "drop"`).
+
+**What the wiki adds to the tag entity**, all as mirrored statements:
+
+- **Concept links.** `P7` (Wikidata equivalent) and `P12` (Wikidata concept) link a tag or key to a Wikidata item. They become ordinary statements, and never `same-as` (`concept_link_properties`; notation has `clusters = false`, [04](04-entities-and-identifiers.md)).
+- **Relations between tags.** `P3` (subclass of), `P45` (implies), `P44` (incompatible with), `P51` (identical to), `P18` (different from) and `P20` (property different from), with targets rewritten to notation values where the target item is mapped. These are exactly the rule-shaped facts constraints ([0031](../decisions/0031-property-constraints.md); [06](06-statements-and-properties.md)) could use, and OSM has no other place for them.
+- **Usage.** Applicability to nodes, ways, relations and areas (`P33`, `P34` and siblings), regional use (`P29`, `P30`), status, key type (`P9`) and documentation pages (`P31`).
+
+Properties marked DEPRECATED upstream are skipped (`skip_deprecated_properties = true`). The wiki documents only the keys and tags someone has written up; every other tag still exists as a keyed entity, without these statements.
+
+### 8.10 GDELT: one provider, its types and IDs
+
+*Sources: [0037](../decisions/0037-gdelt-provider.md) §1, §2.*
+
+`GD` (number 8, slug `gdelt`, issuer `gdelt`) is registered in `providers.toml` and `issuers.toml`. It has no individual actors (`actor_model = "provider-only"`, as OpenAlex), and `revision_ids = false`, so `n` in the revision-ID range is the mirror record's offset ([0015](../decisions/0015-record-format-and-partition-registry.md) §2). The adapter is `scatter-adapter-gdelt` ([22](22-crates-and-stack.md)). The GDELT 1.0 files (events only, a different column set) are out of scope; the provider covers the 2.0 files that begin in 2015.
+
+| Code | Type | ID | Notes |
+|---|---|---|---|
+| `E` | Event | `GDE1234567890` | `GlobalEventID`; grammar `digits` |
+| `D` | Document | `GDD20150218230000-12`, `GDD20150218230000-T12` | `GKGRECORDID`; grammar `gdelt-record` |
+| `C` | CAMEO event code | `GDC0311` | the code as GDELT prints it, leading zeros kept; grammar `digits`, canonical as given |
+| `T` | GKG theme | `GDTTAX_FNCACT_MAYOR` | grammar `token` |
+
+**Two grammars, and a grammar may be set on a type.** `gdelt-record` is 14 digits, `-`, an optional uppercase `T`, digits; `token` is uppercase letters, digits and underscores, starting with a letter, at most 128 characters; and `id_grammar` may be set on a single type, overriding the provider's ([04](04-entities-and-identifiers.md) §2.2). Disjointness from keyed types is unaffected: a keyed ID carries its `type:` prefix ([0017](../decisions/0017-entity-id-grammar.md) §3).
+
+**Canonical IRIs are Triplespace's.** GDELT publishes none, so `https://scatter.red/gdelt/{event|document|cameo|theme}/{id}` is minted here (§1.5). What `scatter.red` serves at those addresses is as open as it is for domains ([0009](../decisions/0009-keyed-entity-types-and-domain.md)).
+
+**Themes and CAMEO codes are provider items, not keyed types.** They are finite vocabularies that GDELT defines and lists (the Category List and the CAMEO tables). Keyed types are for open-ended natural keys that several providers share (Domain, Keyword, and the `osm` scheme of Notation, [0048](../decisions/0048-notation.md) §1, §6). Each theme and CAMEO code carries its label and, for CAMEO, its position in the hierarchy (root, base, code) as `subclass of` statements to its parent code. No namespace pair is used.
+
+### 8.11 What a GDELT document becomes
+
+*Sources: [0037](../decisions/0037-gdelt-provider.md) §3.*
+
+A document (`D`) is an item. It carries, by role:
+
+| Role | Value | From |
+|---|---|---|
+| `document-url` | a URL, normalized by the sitelink normalizer ([0026](../decisions/0026-sitelinks.md) §1) | `DocumentIdentifier` |
+| `published` | a time | the GKG date |
+| `source-domain` | a `wikibase-domain` value ([0009](../decisions/0009-keyed-entity-types-and-domain.md) §5) | `SourceCommonName`, when it is a valid Domain key |
+| `theme` | a `GDT` item | the enhanced themes, without offsets |
+| `location` | a coordinate, with qualifiers for the name, FIPS country, ADM1 code and `FeatureID` | the enhanced locations, without offsets |
+| `tone`, `positive-score`, `negative-score`, `polarity`, `word-count` | quantities | the V1.5 tone field |
+| `source-language` | an ISO 639-2 code | the translation info, when present |
+
+Documents are items, not resolver keys. The `url` resolver ([0029](../decisions/0029-resolver-namespaces.md) §5) is bound to sitelinks, so it finds an item only when the URL is one of its sitelinks.
+
+**Version 1 mirrors only web sources** (`SourceCollectionIdentifier` 1). The other collections use other kinds of identifier (citations, DOIs), and they are left for later.
+
+**People and organizations are off by default.** GKG lists the names it extracts from an article, and a private individual named in a news story is not a public figure. The adapter's `include_persons` and `include_organizations` options default to false. When on, a name is a string-valued statement on the document with no character offsets, never an entity, and never reconciled to Wikidata automatically. Erasure of a document ([01](01-log-and-records.md)) removes them with it.
+
+Not yet: version 1 does not carry quotations (verbatim text the publisher owns), amounts, GCAM, images and embeds, `AllNames`, extracted dates or the extras XML; whether a `document-url` role should also be bound to the `url` resolver is open in [0037](../decisions/0037-gdelt-provider.md).
+
+### 8.12 What a GDELT event becomes
+
+*Sources: [0037](../decisions/0037-gdelt-provider.md) §4.*
+
+An event (`E`) is an item with statements, by role:
+
+- **`event-type`**: a `GDC` item for the `EventCode`. Base and root codes follow from its `subclass of` chain, so they are not stored again.
+- **`event-date`**: the `Day`.
+- **`goldstein-scale`**, **`avg-tone`**, **`quad-class`**: quantities.
+- **`event-actor`**, once per actor: the actor's name as a string (or its CAMEO code when the name is empty), with qualifiers for its ordinal (1 or 2), CAMEO actor code, country code, known-group code, ethnic and religion codes and type codes. Actors are strings, not entities: GDELT gives them no identity beyond a code and a name.
+- **`location`**: the action geography as a coordinate, with the same qualifiers as a document's location.
+- **`source-url`**: the row's `SOURCEURL`.
+- **`mentioned-in`**, once per kept mention: the mention's document, with qualifiers for the confidence, mention time, sentence number, character offsets, and the document's tone at mention.
+
+`NumMentions`, `NumSources` and `NumArticles` are not stored. They change as mentions arrive and the projection can count `mentioned-in` statements.
+
+**Resolved references.** A `location` or `mentioned-in` value is written as a reference to another entity only when a lookup by identifier finds exactly one: a place by its `FeatureID` against the GNS or GNIS identifier properties that Wikidata mirrors carry (P2326 and P590), and a document by its normalized `document-url`. The rule is the shape of a tier-3 link ([0004](../decisions/0004-identity-clusters-and-equivalence.md) §3) but produces a value, not a cluster. Otherwise the coordinate or URL stands alone. Nothing about an event ever joins an identity cluster: an event is not the place it happened or the article that reported it.
+
+**The FIPS problem.** Geography fields use FIPS 10-4 country codes and actor countries use CAMEO codes, not ISO codes. The adapter keeps the codes as given and adds no mapping table. Wikidata's FIPS 10-4 property (P901) is the bridge, reached by ordinary identifier lookup when a tenant wants it.
+
+### 8.13 GDELT scope, feed, attribution and licence
+
+*Sources: [0037](../decisions/0037-gdelt-provider.md) §5, §6, §7.*
+
+**Scope: a configured subset.** Nothing is mirrored until an instance configures a filter. The adapter's configuration selects, independently for events and for documents:
+
+- a date range;
+- event root codes (`EventRootCode`) and `QuadClass`;
+- countries and ADM1 regions of the action geography;
+- themes;
+- source domains.
+
+A mention is kept only when its event is kept and its confidence reaches a configured threshold. A document is kept when it passes the document filter or is the target of a kept mention. Filtering is by row and is applied before anything is written, so filtered-out data never reaches the log. A tenant whose purpose is the citation graph would filter documents by source domain and mirror few events. A tenant studying an event class would filter events by root code and country.
+
+**The feed.** The adapter follows the GDELT 2.0 file lists: `lastupdate.txt` for the current slot, `masterfilelist.txt` for the backlog, and the translation list for translated records (`-T` IDs). Each 15-minute slot has an events export, a mentions file and a GKG file. The version cursor of §3.4 is the last slot fully ingested, so a slot is the unit of resumption, and re-running a slot is idempotent: the same IDs produce the same records. If GDELT ever re-emits an ID with different content, the adapter treats it as an upsert. The codebook does not say whether events are revised or deleted after publication. The adapter assumes none are and reports a surprise, so nothing here depends on the answer. Bootstrap of a large backlog uses the mode of §3.8. An instance that filters tightly will not need it.
+
+**Attribution and licence.** GDELT's terms allow use, redistribution and mirroring in any form, and require a citation to the GDELT Project with a link to its website. The `mirror/gdelt` graph's metadata carries that citation, and every dump and page that shows GDELT data shows it. This settles GDELT's licence for a mirror ([0005](../decisions/0005-crate-organization.md) §6; [22](22-crates-and-stack.md)). It does not extend to article text, which is why the adapter stores URLs, names, codes and scores and never text or quotations.
