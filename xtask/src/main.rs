@@ -1,6 +1,7 @@
 //! Repository tasks, run as `cargo xtask <command>` (alias in `.cargo/config.toml`).
 //!
-//! - `deps`: checks the workspace dependency graph against the crate table in ADR 0005 §2
+//! - `deps`: checks the workspace dependency graph against the crate table of ADR 0005 §2, which
+//!   chapter 22 §2.1 of docs/architecture/ holds (0050 §14),
 //!   and the rules of 0005 §3 (dependencies point only downward; the core is pure; the
 //!   site's crates reach no store).
 //! - `wasm`: builds every crate that 0005 §3 rule 7 requires to build for
@@ -16,7 +17,7 @@ use serde::Deserialize;
 
 mod manifest;
 
-const CRATE_TABLE: &str = "docs/decisions/0005-crate-organization.md";
+const CRATE_TABLE: &str = "docs/architecture/22-crates-and-stack.md";
 
 /// Crates that 0005 §3 rule 7 requires to build for `wasm32-unknown-unknown`, plus the
 /// browser bridge crate of 0034 §6.
@@ -25,6 +26,11 @@ const WASM_CRATES: &[&str] = &[
     "scatter-wikitext",
     "scatter-pages",
     "scatter-normalize",
+    "scatter-merge",
+    "scatter-extract",
+    "scatter-css",
+    "scatter-scope",
+    "scatter-tasks",
     "scatter-wasm",
 ];
 
@@ -42,6 +48,14 @@ const PURE_CRATES: &[&str] = &[
     "scatter-activitypub",
     "scatter-filter",
     "scatter-mwlog",
+    "scatter-wikitext-expand",
+    "scatter-css",
+    "scatter-scope",
+    "scatter-tasks",
+    "scatter-shex",
+    "scatter-merge",
+    "scatter-files",
+    "scatter-extract",
     "scatter-wikibase-*",
 ];
 
@@ -188,15 +202,16 @@ fn backticked(cell: &str) -> impl Iterator<Item = String> + '_ {
     cell.split('`').skip(1).step_by(2).map(str::to_string)
 }
 
-/// Parses the crate map of 0005 §2: one row per crate, in the order of the table.
+/// Parses the crate map of 0005 §2 from chapter 22 §2.1: one row per crate, in the order of the table.
 fn crate_table(root: &Path) -> Result<BTreeMap<String, TableRow>> {
     let text = std::fs::read_to_string(root.join(CRATE_TABLE))
         .with_context(|| format!("reading {CRATE_TABLE}"))?;
+    // The crate map of 0005 §2 lives in chapter 22 §2.1 since 0050 §14 relocated the ADRs' text.
     let section = text
-        .split("### 2. Crate map")
+        .split("### 2.1 The table")
         .nth(1)
-        .and_then(|s| s.split("### 3.").next())
-        .ok_or_else(|| anyhow!("{CRATE_TABLE}: cannot find the §2 crate map"))?;
+        .and_then(|s| s.split("### 2.2").next())
+        .ok_or_else(|| anyhow!("{CRATE_TABLE}: cannot find the §2.1 crate table"))?;
 
     let mut rows = BTreeMap::new();
     let mut layer = None;
