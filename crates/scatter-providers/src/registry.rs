@@ -71,8 +71,14 @@ pub struct Provider {
     pub api: Option<String>,
     /// The provider's `Special:EntityData/` base, where it has one.
     pub entity_data: Option<String>,
-    /// The crate that implements the provider's adapter (0002 §8.4).
+    /// The crate that implements the provider's adapter (0002 §8.4), one per provider.
     pub adapter: Option<String>,
+    /// Whether the provider's revisions name individual actors (0007 §6, 0037 §1; 0002 A28).
+    pub actor_model: ActorModel,
+    /// Whether a sync stores the per-field delta beside its summary (0012 §2.2, 0012 A58).
+    pub sync_deltas: SyncDeltas,
+    /// What an upstream deletion does to the mirror (0002 §5 as amended by 0002 A29).
+    pub deletion: Deletion,
     /// The provider as a `prov:Organization` (0007 §6).
     pub agent_iri: Option<String>,
     /// The provider-level ID grammar, applied to types that name none.
@@ -94,6 +100,36 @@ pub struct Provider {
     /// The colours of the provider's chip in the site (0010 §2), where the registry gives
     /// them.
     pub chip: Option<Chip>,
+}
+
+/// Whether a provider's revisions name individual actors (0007 §6).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ActorModel {
+    /// Revisions name actors, attributed through the provider's issuer.
+    #[default]
+    Individual,
+    /// No per-change attribution: every change is attributed to the provider's own actor record.
+    ProviderOnly,
+}
+
+/// Whether a sync stores the per-field delta of an observed change set (0012 §2.2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SyncDeltas {
+    /// The summary only (the default).
+    #[default]
+    Summary,
+    /// The summary and the per-field delta.
+    Full,
+}
+
+/// What an upstream deletion does to the mirror (0002 §5).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Deletion {
+    /// A tombstone that applies the retention policy (the default).
+    #[default]
+    Tombstone,
+    /// A `put` of the empty state, for a provider whose IDs are never reused (0036 §2).
+    Clear,
 }
 
 /// A provider chip's colours (0010 §2): text on a background, both `#RRGGBB`. The site
@@ -151,6 +187,16 @@ pub enum RegistryError {
         slug: String,
         /// The missing field.
         field: &'static str,
+    },
+    /// A field holds a value it does not take.
+    #[error("provider `{slug}`: `{field}` is `{value}`, which is not a value it takes")]
+    BadField {
+        /// The provider's slug.
+        slug: String,
+        /// The field.
+        field: &'static str,
+        /// The value given.
+        value: String,
     },
     /// A provider code is not two uppercase ASCII letters.
     #[error("provider code `{0}` is not two uppercase ASCII letters")]
@@ -262,6 +308,9 @@ struct RawProvider {
     api: Option<String>,
     entity_data: Option<String>,
     adapter: Option<String>,
+    actor_model: Option<String>,
+    sync_deltas: Option<String>,
+    deletion: Option<String>,
     agent_iri: Option<String>,
     id_grammar: Option<String>,
     trust: Option<String>,
@@ -292,13 +341,67 @@ struct RawType {
     key_mapped: bool,
 }
 
+/// The value `value` names in `table`, the first entry when absent (the default), or
+/// [`RegistryError::BadField`].
+fn enum_field<T: Copy>(
+    slug: &str,
+    field: &'static str,
+    value: Option<&str>,
+    table: &[(&str, T)],
+) -> Result<T, RegistryError> {
+    match value {
+        None => Ok(table[0].1),
+        Some(v) => table
+            .iter()
+            .find(|(name, _)| *name == v)
+            .map(|(_, t)| *t)
+            .ok_or_else(|| RegistryError::BadField {
+                slug: slug.to_string(),
+                field,
+                value: v.to_string(),
+            }),
+    }
+}
+
 impl RawProvider {
+    /// The three policy fields, each defaulting to its first value (0002 A28, A29; 0012 A58).
+    fn policies(&self) -> Result<(ActorModel, SyncDeltas, Deletion), RegistryError> {
+        let slug = &self.slug;
+        Ok((
+            enum_field(
+                slug,
+                "actor_model",
+                self.actor_model.as_deref(),
+                &[
+                    ("individual", ActorModel::Individual),
+                    ("provider-only", ActorModel::ProviderOnly),
+                ],
+            )?,
+            enum_field(
+                slug,
+                "sync_deltas",
+                self.sync_deltas.as_deref(),
+                &[("summary", SyncDeltas::Summary), ("full", SyncDeltas::Full)],
+            )?,
+            enum_field(
+                slug,
+                "deletion",
+                self.deletion.as_deref(),
+                &[
+                    ("tombstone", Deletion::Tombstone),
+                    ("clear", Deletion::Clear),
+                ],
+            )?,
+        ))
+    }
+
     /// Validates one raw entry; `None` for a pending entry.
     fn validate(self) -> Result<Option<Provider>, RegistryError> {
         let p = self;
         if p.pending {
             return Ok(None);
         }
+        let (actor_model, sync_deltas, deletion) = p.policies()?;
         let slug = p.slug;
         if !is_slug(&slug) {
             return Err(RegistryError::BadSlug(slug));
@@ -372,6 +475,9 @@ impl RawProvider {
             api: p.api,
             entity_data: p.entity_data,
             adapter: p.adapter,
+            actor_model,
+            sync_deltas,
+            deletion,
             agent_iri: p.agent_iri,
             id_grammar,
             trust,
@@ -798,5 +904,28 @@ mod tests {
         assert_eq!(z.name, "zed");
         assert_eq!(z.id_grammar, IdGrammar::Digits);
         assert!(!z.revision_ids);
+    }
+
+    #[test]
+    fn actor_model_sync_deltas_and_deletion() {
+        let r = Registry::default_registry();
+        let osm = r.by_slug("openstreetmap").expect("OS");
+        assert_eq!(osm.actor_model, ActorModel::Individual);
+        assert_eq!(osm.deletion, Deletion::Clear);
+        assert_eq!(osm.sync_deltas, SyncDeltas::Summary);
+        let oa = r.by_slug("openalex").expect("OA");
+        assert_eq!(oa.actor_model, ActorModel::ProviderOnly);
+        assert_eq!(oa.deletion, Deletion::Tombstone);
+        let err = Registry::parse(&one("deletion = \"purge\"")).expect_err("bad value");
+        assert!(
+            matches!(
+                err,
+                RegistryError::BadField {
+                    field: "deletion",
+                    ..
+                }
+            ),
+            "{err}"
+        );
     }
 }
