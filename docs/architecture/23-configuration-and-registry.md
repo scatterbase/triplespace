@@ -46,14 +46,17 @@ Under `config.template = defaults` or `locks` ([0028](../decisions/0028-tenancy-
 
 ### 2.1 Kinds defined by `scatter-log`
 
-*Sources: [0015](../decisions/0015-record-format-and-partition-registry.md) §3.*
+*Sources: [0015](../decisions/0015-record-format-and-partition-registry.md) §3; [0081](../decisions/0081-recovery-keys-and-continuations.md) §9.*
 
-Two kinds are defined by `scatter-log`, because the log cannot start without them:
+Five kinds are defined by `scatter-log`: two because the log cannot start without them, and three that carry a tenant's chain of custody, which Scatterbase's server identity needs too ([0081](../decisions/0081-recovery-keys-and-continuations.md) §9):
 
 | Kind | Code | Entry |
 |---|---|---|
 | `key` | The signed-note key ID ([0006](../decisions/0006-log-integrity-and-erasure.md) §6) | The instance's public key. Rotation is a new `key:` record whose attestation is signed by the previous key |
 | `graph` | The graph name ([02](02-graphs-rdf-and-query.md)) | The registry entry of [0005](../decisions/0005-crate-organization.md) §4.1: IRI, kind, writers, history, integrity and export policies, and, for a partition, its number, segment exponent k and hash function |
+| `recovery-key` | `recovery-key` | A tenant's recovery keys, threshold and delay, with the recovery signatures that authorize the record ([08](08-tenants-and-instances.md) §6.8) |
+| `continuation` | `continuation:{n}` | A move the old instance did not sign: the old checkpoints continued from, tail ranges, the new key and origin host, mode and recovery signatures ([08](08-tenants-and-instances.md) §6.8) |
+| `continuation-cancel` | `continuation-cancel:{n}` | Voids continuation `n` within its delay, signed by the authorizing set ([08](08-tenants-and-instances.md) §6.8) |
 
 ### 2.2 The catalogue of Triplespace's kinds
 
@@ -132,7 +135,7 @@ Preference keys, which an account owns, are listed apart in §3.7 because they s
 
 ### 3.2 Tenant `site` settings
 
-*Sources: [0015](../decisions/0015-record-format-and-partition-registry.md) §3; [0042](../decisions/0042-template-expansion-and-parsoid.md) §2; [0069](../decisions/0069-synchronized-talk-pages.md) §11; [0075](../decisions/0075-mcp-server.md) §6.*
+*Sources: [0015](../decisions/0015-record-format-and-partition-registry.md) §3; [0042](../decisions/0042-template-expansion-and-parsoid.md) §2; [0069](../decisions/0069-synchronized-talk-pages.md) §11; [0075](../decisions/0075-mcp-server.md) §6; [0081](../decisions/0081-recovery-keys-and-continuations.md) §9.*
 
 Each row cites the ADR section that defines the setting. "Scope" repeats what that section says; "`site` (by rule, §3.1)" means the section names the setting without saying which `config` holds it, and the rule of §3.1 makes it a tenant `site` setting. A default of "—" means the section gives none.
 
@@ -177,6 +180,8 @@ Each row cites the ADR section that defines the setting. "Scope" repeats what th
 | `fork.refollow_after` | `site` (by rule, §3.1) | duration | 30 days | Under `auto`, how long a fork must equal upstream before a job deletes it | [0068](../decisions/0068-merging-with-upstream.md) §5 |
 | `fork.talk` | `site` | `follow`, `fork` | `follow` | Default choice for a fork's talk page | [0069](../decisions/0069-synchronized-talk-pages.md) §7, §11 |
 | `ingest.hash_mismatch` | `site` | `keep`, `fail` | `keep` | Whether a snak or reference hash that differs from upstream's is kept or aborts the job | [0006](../decisions/0006-log-integrity-and-erasure.md) §2 |
+| `integrity.witnesses` | `site` | list of witnesses, each an endpoint URL and a signed-note verifier key | empty | C2SP tlog-witness endpoints that cosign the tenant's checkpoints ([01](01-log-and-records.md) §4.3) | [0081](../decisions/0081-recovery-keys-and-continuations.md) §6 |
+| `integrity.witness_partitions` | `site` | partition names | `["config"]` | Which partitions' checkpoints are submitted to the witnesses | [0081](../decisions/0081-recovery-keys-and-continuations.md) §6 |
 | `login.password` | `site` | off, on | on, set by `instance create` | Whether the built-in `password` issuer accepts logins | [0007](../decisions/0007-actor-identity.md) §3 |
 | `lua.client_site` | `site` | a site ID with a site alias | the tenant's own alias | Which site Lua's Wikibase client is, and so which item a page is connected to | [0043](../decisions/0043-lua-modules.md) §9 |
 | `lua.ids` | `site` | map from type letter to `local` or a provider code | empty: every letter means `local` | What a bare one-letter ID means in Lua | [0043](../decisions/0043-lua-modules.md) §8 |
@@ -272,7 +277,7 @@ Turning `wikitext.expansion` off also turns `wikitext.lua` off and `wikitext.ren
 
 ### 3.3 Instance `site` settings
 
-*Sources: [0077](../decisions/0077-special-version.md) §13; [0069](../decisions/0069-synchronized-talk-pages.md) §11.*
+*Sources: [0077](../decisions/0077-special-version.md) §13; [0069](../decisions/0069-synchronized-talk-pages.md) §11; [0081](../decisions/0081-recovery-keys-and-continuations.md) §9.*
 
 These are `site` records in the instance `config`, written with `ts-config` at the farm base. `version.toml` marks `search.farm_wide` and `files.separation` as the features of scope `instance` that `Special:Version`'s farm form shows ([0077](../decisions/0077-special-version.md) §11; `search.farm_wide` is a tenancy switch, §3.4).
 
@@ -287,6 +292,7 @@ These are `site` records in the instance `config`, written with `ts-config` at t
 | `talk.archive_window` | duration | 10 minutes | Window within which a removed thread found on an archive subpage counts as archived | [0069](../decisions/0069-synchronized-talk-pages.md) §2, §11 |
 | `thread.max_depth` | integer | — | Depth to which a thread page indents its posts | [0019](../decisions/0019-discussions.md) §8 |
 | `storage.dedup_scope` | per tenant, `"instance"` | each tenant is its own domain | Whether fragments are deduplicated per tenant or once for the instance | [0058](../decisions/0058-packed-record-storage.md) §8 |
+| `witness.enabled` | off, on, with the witnessed origins and their keys | off | Whether `triplespace-server` serves the C2SP tlog-witness API at the farm base for the listed origins ([01](01-log-and-records.md) §4.3) | [0081](../decisions/0081-recovery-keys-and-continuations.md) §6 |
 
 ### 3.4 Tenancy switches
 

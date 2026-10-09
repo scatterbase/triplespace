@@ -8,7 +8,7 @@ This chapter covers what leaves an instance for another party and what comes bac
 
 ### 1.1 What an instance publishes
 
-*Sources: [0022](../decisions/0022-federation.md) §1.*
+*Sources: [0022](../decisions/0022-federation.md) §1; [0081](../decisions/0081-recovery-keys-and-continuations.md) §9.*
 
 Every instance, for each tenant that has a provider code ([0015](../decisions/0015-record-format-and-partition-registry.md) §5), publishes at the tenant's base:
 
@@ -20,19 +20,21 @@ Every instance, for each tenant that has a provider code ([0015](../decisions/00
 | **Records**: header and body of any record in a public partition, redacted as any response is | `GET /record/{partition}/{offset}` | [0012](../decisions/0012-api-requirements.md) §5 |
 | **Checkpoints and segment manifests**, current and historical, as C2SP signed notes ([01](01-log-and-records.md) §4.2) | `{base}/.well-known/tlog/{partition name}/checkpoint` and `/checkpoint/{tree size}`; manifests at `/segment/{n}` | [0006](../decisions/0006-log-integrity-and-erasure.md) §6 |
 | **Inclusion and consistency proofs** | `GET /record/{partition}/{offset}/proof?checkpoint=`; `GET /.well-known/tlog/{name}/consistency?from=&to=`; and the multi-proof `GET /record/proofs?partition=&checkpoint=&from=&to=` for a range of records against one checkpoint, with their shared upper path sent once | [0006](../decisions/0006-log-integrity-and-erasure.md) §9, [0012](../decisions/0012-api-requirements.md) §5 |
-| The **key chain**: every `key:` record of the tenant's `config` partition ([08](08-tenants-and-instances.md) §2.4) | `GET /.well-known/tlog/keys` | [0015](../decisions/0015-record-format-and-partition-registry.md) §3, [0018](../decisions/0018-tenants.md) §2 |
+| The **key chain**: every `key:` record of the tenant's `config` partition ([08](08-tenants-and-instances.md) §2.4), with its `recovery-key`, `continuation` and `continuation-cancel` records, so a reader has the chain of custody from one URL ([0081](../decisions/0081-recovery-keys-and-continuations.md) §9) | `GET /.well-known/tlog/keys` | [0015](../decisions/0015-record-format-and-partition-registry.md) §3, [0018](../decisions/0018-tenants.md) §2 |
 
 Only partitions whose export policy is `public` are published ([0005](../decisions/0005-crate-organization.md) §4.1); `internal` and `private` partitions have no records, checkpoints or proofs here. The local-graph source dump exists so that a reader can take a tenant's own assertions without the tenant's mirrors, for the reason §1.2 gives.
 
 ### 1.2 The Triplespace adapter reads the local graph and verifies it
 
-*Sources: [0022](../decisions/0022-federation.md) §2.*
+*Sources: [0022](../decisions/0022-federation.md) §2; [0081](../decisions/0081-recovery-keys-and-continuations.md) §7.*
 
 `scatter-adapter-triplespace` ([0028](../decisions/0028-tenancy-policy.md) §5; [08](08-tenants-and-instances.md) §4.4) is the adapter for a provider that is itself a Triplespace instance. Three rules refine what 0028 said of it.
 
 **It reads the provider's `local` graph, and nothing else.** A provider's Wikibase-compatible dump is its *resolved view*, which includes its Wikidata mirror, its OpenAlex mirror and every other provider it reads. A reader has those from their sources already, under their own codes. So the adapter bootstraps from the local-graph source dump (§1.1) and follows the stream filtered to `source = local`, and the mirror partition `mirror/{provider}` holds only what the provider itself asserts. References inside those assertions are rewritten as [0018](../decisions/0018-tenants.md) §5 rewrites them: the provider's own `Q6` becomes `LBQ6`; a reference to a global entity, `WDQ42` or `domain:x`, passes through; and a reference to **the reader's own entities**, which the provider holds under the reader's code (`EXQ9`), is rewritten **back to the bare local ID** `Q9`. That last rule is what makes §1.3 work.
 
 **It verifies by default.** For each record it mirrors, the adapter fetches the record with its header, checks the header's leaf against the provider's latest checkpoint with an inclusion proof, checks the checkpoint's signature against the provider's key chain, and checks consistency between the checkpoint it last saw and the current one ([0006](../decisions/0006-log-integrity-and-erasure.md) §5–6, §9; [01](01-log-and-records.md) §4). A batch of N records is verified with one checkpoint, one consistency proof and one multi-proof (§1.1), at O(N log N) hashes; every record is verified, always, and "verified" never means "probably". The **provider's header** (partition, offset, revision ID, commitment) and the **checkpoint tree size** it was verified against are stored in the mirror record's content part beside the entity state, so that a third party holding the reader's log can re-verify against the provider without trusting the reader; `view.entity_source` holds them in `provider_revid` and `verified_at_size` ([03](03-storage-caches-and-search.md) §4.2). A verification failure fails the sync job ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.3), notifies the job's operator ([0021](../decisions/0021-notifications.md) §2, reason `job`), and leaves the mirror where it was; nothing unverified is appended.
+
+**It follows a key chain only with authority** ([0081](../decisions/0081-recovery-keys-and-continuations.md) §7). Meeting a continuation in the provider's key chain ([08](08-tenants-and-instances.md) §6.8), it follows a `recovered` one once its delay has passed with no cancel, reporting it as pending on `Special:Providers` until then. It stops on an `unauthorized` one and notifies the job's operator; an administrator of the reading tenant may accept it with `ts-config`, which writes a `provider/accept-continuation` event to the reader's `log` and resumes the sync. On a fork, where the old host has published a checkpoint the continuation does not include, it stops and reports both, and an administrator chooses by the same event. Nothing is followed silently.
 
 **Trusted is the fallback, not the default.** A provider registered with `trust = stream` ([0015](../decisions/0015-record-format-and-partition-registry.md) §5, `providers.toml`) is mirrored from its stream and dumps without proofs, as any non-Triplespace source is. The provider registry entry records which; the identity line and the source chip ([0010](../decisions/0010-site-ui.md) §2) show a verification mark for a `verified` provider and none for a `stream` one.
 

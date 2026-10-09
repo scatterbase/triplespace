@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-09 (A15)
+- **Updated:** 2026-10-09 (A17)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md), [0023](0023-moderation.md)
 - **Uses:** [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0027](0027-preferences-and-portability.md)
@@ -32,7 +32,7 @@ MediaWiki's answer to the second is CentralAuth: one global account, local accou
 
 ### 2. Farm identity (extends 0007 §1, §3 and §7; amends 0018 §4)
 
-*Changed by A5, A7, A12.*
+*Changed by A5, A7, A12, A16.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §2.1, §3.4, §3.5, §3.6, §3.7, §8.6.*
 
@@ -46,7 +46,7 @@ MediaWiki's answer to the second is CentralAuth: one global account, local accou
 
 ### 5. Reading across tenants (extends 0018 §5; settles 0018 Q2, Q4 and 0020 Q4)
 
-*Changed by A2, A5, A7, A9, A11.*
+*Changed by A2, A5, A7, A9, A11, A17.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §4.2, §4.4, §6.6.*
 
@@ -76,7 +76,7 @@ MediaWiki's answer to the second is CentralAuth: one global account, local accou
 
 ### 11. API and UI (extends 0012 and 0010)
 
-*Changed by A14.*
+*Changed by A14, A16.*
 
 *Current text: [18](../architecture/18-api.md) §1.2, §2.2, §2.3, §3.2; [19](../architecture/19-site-ui.md) §1.3, §2.4, §6.11.*
 
@@ -302,3 +302,31 @@ Replaced text (§11):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§14
 - **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [08](../architecture/08-tenants-and-instances.md), [09](../architecture/09-security-and-moderation.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A16. The farm issuer's code is the farm code
+
+- **Date:** 2026-10-09
+- **Source:** [0079](0079-derived-issuer-codes.md) §4, §7
+- **Change:** amends §2; extends §11
+- **Summary:** The farm issuer's code is the farm code derived from the instance's founding record ([0079](0079-derived-issuer-codes.md) §4), so farm accounts are `{farm code}:{id}` (§2). `GET /tenancy` includes the farm code, and its `tenants` array gives each tenant's issuer code as `issuer` (§11).
+
+Replaced text (§2, in [08](../architecture/08-tenants-and-instances.md) §3.5):
+
+> With `identity.farm_issuer` other than `none` (§5.1), the instance registers an issuer whose code is the **farm slug** (§1.2);
+
+### A17. Who may read whom, by issuer code
+
+- **Date:** 2026-10-09
+- **Source:** [0080](0080-tenants-as-entity-sources.md) §2, §5
+- **Change:** amends §5
+- **Summary:** `providers.between_tenants` governs entity sources that name a tenant of the same instance: under `operator` only the operator may write one (or set `files.share` and `pages.share`); under `opt-in` any tenant may name any public tenant of the instance. A source naming a tenant elsewhere is an ordinary entity source. `provider-readers` lists name tenants by issuer code, since the record travels with the provider. The Triplespace adapter writes a tenant source into the reader's `source/{name}` partition, after checking the provider's founding record against the source's code.
+
+Replaced text (§5, in [08](../architecture/08-tenants-and-instances.md) §4.2):
+
+> **Who may read whom.** With `providers.between_tenants = operator`, only the farm operator can make a tenant a provider, by allocating it a code ([0015](0015-record-format-and-partition-registry.md) §5) and writing its `tenant` record; the hosting case, where tenants have no business reading each other unless the operator says so. With `opt-in`, a tenant that has a code is readable by any tenant that lists it in `providers`, which is what §4.1 describes.
+>
+> … `mode` (`allow` or `deny`) and a list of tenant slugs, …
+
+Replaced text (§5, in [08](../architecture/08-tenants-and-instances.md) §4.4):
+
+> …writing `put`, `redirect` and `tombstone` records into a `mirror/{provider}` partition as any adapter does.

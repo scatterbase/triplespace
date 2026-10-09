@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-09 (A9)
+- **Updated:** 2026-10-09 (A10)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md), [0028](0028-tenancy-policy.md)
 - **Uses:** [0000](0000-init.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0014](0014-caches-and-search.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0030](0030-edit-filters.md)
@@ -18,13 +18,13 @@ The two halves share a stance. Triplespace federates **facts and speech, not ide
 
 ### 1. What a Triplespace instance publishes (settles 0006 Q3)
 
-*Changed by A2.*
+*Changed by A2, A10.*
 
 *Current text: [17](../architecture/17-federation-and-publication.md) §1.1.*
 
 ### 2. The Triplespace adapter reads the local graph and verifies it (extends 0002 §8.4; amends 0028 §5)
 
-*Changed by A2.*
+*Changed by A2, A10.*
 
 *Current text: [17](../architecture/17-federation-and-publication.md) §1.2.*
 
@@ -99,7 +99,7 @@ The two halves share a stance. Triplespace federates **facts and speech, not ide
 - **Q1.** ~~**Inbound protocol details** (§8): signature versions, integrity proofs, replay protection, and promotion of a `federated` actor.~~ *Settled by A2: cavage now, with 9421 and FEP-8b32 behind switches; an activity-ID seen table with a `Date` window; link, never merge.*
 - **Q2.** ~~**Verification depth for very large providers**: whether to verify every record or sample under a `sample` trust mode with a stated rate.~~ *Settled by A2: every record, always; "verified" never means "probably". The cost is kept low by a **multi-proof**: `GET /record/proofs?checkpoint=&from=&to=` returns the inclusion proofs of a range of records against one checkpoint with their shared upper path sent once, so a batch of N costs one checkpoint, one consistency proof and O(N log N) hashes; a bootstrap from the source dump is verified the same way against the checkpoint the dump is stamped with ([0032](0032-sparql-update-stream.md) §6). The route joins §1's table and [0012](0012-api-requirements.md) §5; `scatter-integrity` produces and checks multi-proofs.*
 - **Q3. A Scatterbase adapter** as the payload mapping of §5.
-- **Q4. Witnesses across federated instances** ([0006](0006-log-integrity-and-erasure.md) Q1): whether federation partners should cosign each other's checkpoints.
+- **Q4.** ~~**Witnesses across federated instances** ([0006](0006-log-integrity-and-erasure.md) Q1): whether federation partners should cosign each other's checkpoints.~~ *Settled by [0081](0081-recovery-keys-and-continuations.md) §6: they may, since an instance can serve the tlog-witness API under `witness.enabled`.*
 - **Q5. Entity data on ActivityPub**: whether an entity's document node should be an `as:Article` that announces its revisions, for readers who want to follow an item. Deliberately not done here.
 - **Q6. Followers as private state**: whether the follower list of a `Group` is public, as Mastodon shows it, or private as the notifier's is.
 
@@ -229,3 +229,10 @@ Replaced text (§7):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§13
 - **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), [17](../architecture/17-federation-and-publication.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A10. The chain of custody on the key chain endpoint and in the adapter
+
+- **Date:** 2026-10-09
+- **Source:** [0081](0081-recovery-keys-and-continuations.md) §7, §9
+- **Change:** extends §1, §2
+- **Summary:** `/.well-known/tlog/keys` serves a tenant's `recovery-key`, `continuation` and `continuation-cancel` records with its key records (§1). The Triplespace adapter follows a `recovered` continuation after its delay with no cancel, stops on an `unauthorized` one or a fork until an administrator accepts with a `provider/accept-continuation` event, and follows nothing silently (§2).

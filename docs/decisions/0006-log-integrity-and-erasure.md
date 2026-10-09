@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-10-09 (A18)
+- **Updated:** 2026-10-09 (A19)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md)
 - **Chapters:** [01](../architecture/01-log-and-records.md), [22](../architecture/22-crates-and-stack.md)
@@ -42,7 +42,7 @@ Three terms are used precisely below:
 
 ### 2. Encoding and hashing
 
-*Changed by A3, A5, A7, A9, A11.*
+*Changed by A3, A5, A7, A9, A11, A19.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §1.2, §3.1, §3.2, §3.3.*
 
@@ -66,7 +66,7 @@ Three terms are used precisely below:
 
 ### 6. Checkpoints and keys
 
-*Changed by A3, A6, A8, A12.*
+*Changed by A3, A6, A8, A12, A19.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §4.2, §4.3.*
 
@@ -84,7 +84,7 @@ Three terms are used precisely below:
 
 ### 9. Verification and export
 
-*Changed by A3, A6, A10, A11, A17.*
+*Changed by A3, A6, A10, A11, A17, A19.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §8.*
 
@@ -107,7 +107,7 @@ Three terms are used precisely below:
 
 ## Open questions
 
-- **Q1. Witnessing.** Whether to cosign checkpoints with external witnesses, and which ones.
+- **Q1.** ~~**Witnessing.** Whether to cosign checkpoints with external witnesses, and which ones.~~ *Settled by [0081](0081-recovery-keys-and-continuations.md) §6: yes, by any C2SP tlog-witness a tenant lists in `integrity.witnesses`, for its `config` partition by default and other partitions by choice.*
 - **Q2. Timestamp anchoring.** Whether checkpoints should be anchored externally, which is Scatterbase's TS product code.
 - **Q3.** ~~**Where checkpoints are served,** and whether the path is a well-known URL.~~ *Settled by [0022](0022-federation.md) §1: `{base}/.well-known/tlog/{partition}/checkpoint`, historical checkpoints and manifests beside it, and the key chain at `/.well-known/tlog/keys`.*
 - **Q4. Defaults** for segment size (k) and checkpoint cadence (N and T). Cadence is a `site` setting since [0015](0015-record-format-and-partition-registry.md) §3; the values are still to be chosen.
@@ -321,3 +321,20 @@ Replaced text (§1):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§10
 - **Summary:** The Decision's current text now lives in the architecture chapters [01](../architecture/01-log-and-records.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A19. Recovery keys, continuations and witnessed key chains
+
+- **Date:** 2026-10-09
+- **Source:** [0081](0081-recovery-keys-and-continuations.md) §1, §2, §3, §5, §6, §8
+- **Change:** extends §2, §9; amends §6
+- **Summary:** Domain tag `0x07` is the preimage of a recovery signature (§2). A tenant may register recovery keys, held by its community, which authorize a **continuation**: a move the old instance did not sign, cosigning the old instance's final roots in one signature per partition instead of re-signing records (§6). A tenant partition's origin line is fixed at the partition's creation or the tenant's arrival on an instance, and an alias does not change it (§6). Witnesses are for the key chain: a tenant's `integrity.witnesses` cosign its `config` checkpoints by default, and an instance may itself be a witness under `witness.enabled` (§6). `verify` reports a tenant's chain of custody at level 1 (§9).
+
+Replaced text (§6, in [01](../architecture/01-log-and-records.md) §4.2):
+
+> - **Origin line,** without a scheme: `{tenant host}/log/{partition name}` for a tenant's partition ([0018](0018-tenants.md) §2),
+
+Replaced text (§6, in [01](../architecture/01-log-and-records.md) §4.3):
+
+> - Recovering from a compromised key is out of scope. It belongs to the identity work that Scatterbase and Triplespace share.
+>
+> **Witnesses are optional.** An instance may publish its checkpoints to external witnesses that implement [C2SP tlog-witness](https://c2sp.org/tlog-witness). Because the tree is RFC 6962 with SHA-256, a witness can verify consistency proofs between checkpoints and cosign them with no changes.

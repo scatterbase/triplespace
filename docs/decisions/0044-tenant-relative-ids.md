@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-09 (A3)
+- **Updated:** 2026-10-09 (A4)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0017](0017-entity-id-grammar.md)
 - **Uses:** [0012](0012-api-requirements.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0043](0043-lua-modules.md)
@@ -19,6 +19,8 @@ James's direction, from the design discussion of 2026-09-30: **`QQQ`, `PPP` and 
 ## Decision
 
 ### 1. The tenant-relative form (extends 0017 §1)
+
+*Changed by A4.*
 
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §2.1, §2.3, §5.2, §6.*
 
@@ -100,3 +102,14 @@ Replaced text (§6):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§6
 - **Summary:** The Decision's current text now lives in the architecture chapters [04](../architecture/04-entities-and-identifiers.md), [10](../architecture/10-pages-and-content-models.md), [17](../architecture/17-federation-and-publication.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A4. Naming a tenant's entity from elsewhere
+
+- **Date:** 2026-10-09
+- **Source:** [0080](0080-tenants-as-entity-sources.md) §7
+- **Change:** amends §1
+- **Summary:** A tenant's entity is named from elsewhere by its IRI, and on a tenant that reads it by that tenant's name for it: the registry code where there is one (`LBQ6`), otherwise the reader's source name (`lb:Q6`).
+
+Replaced text (§1, in [04](../architecture/04-entities-and-identifiers.md) §2.3):
+
+> To name a tenant's entity from elsewhere, use the tenant's provider code ([0018](0018-tenants.md) §5, in [08](../architecture/08-tenants-and-instances.md)).

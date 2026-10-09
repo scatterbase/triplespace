@@ -193,7 +193,7 @@ A farm signup page states the linking consent of [0028](../decisions/0028-tenanc
 
 ### 2.5 Contributions
 
-*Sources: [0010](../decisions/0010-site-ui.md) §8; [0018](../decisions/0018-tenants.md) §8; [0024](../decisions/0024-subsidiary-accounts.md) §9; [0040](../decisions/0040-instance-prerogatives.md) §7.*
+*Sources: [0010](../decisions/0010-site-ui.md) §8; [0018](../decisions/0018-tenants.md) §8; [0024](../decisions/0024-subsidiary-accounts.md) §9; [0040](../decisions/0040-instance-prerogatives.md) §7; [0079](../decisions/0079-derived-issuer-codes.md) §4.*
 
 Contributions are per account ([07](07-actors-and-accounts.md)), and an account belongs to one tenant ([08](08-tenants-and-instances.md)). Three views follow:
 
@@ -209,7 +209,7 @@ For an actor of another tenant on the same instance the third view is complete, 
 - **Jobs run for the user** appear as single rows, and can be filtered out.
 - **A bot account** names its operator: a subsidiary's header names and links its operator, and a primary account's header lists its subsidiaries ([0024](../decisions/0024-subsidiary-accounts.md) §9).
 - **Pages are addressed by current name.** Old names do not resolve ([0008](../decisions/0008-namespaces-and-document-pages.md) §6).
-- **Contributions of `instance:{farm slug}`** at a tenant list the instance acts on that tenant; at the farm base, for `ts-viewoperator`, every instance act on every tenant with the operator who carried it out ([0040](../decisions/0040-instance-prerogatives.md) §7; [08](08-tenants-and-instances.md)).
+- **Contributions of `instance:{farm code}`** at a tenant list the instance acts on that tenant; at the farm base, for `ts-viewoperator`, every instance act on every tenant with the operator who carried it out ([0040](../decisions/0040-instance-prerogatives.md) §7; [08](08-tenants-and-instances.md)).
 
 ## 3. Document pages, history, diffs, activity and jobs
 
@@ -818,7 +818,7 @@ Proposals are [14](14-discussions.md) and [17](17-federation-and-publication.md)
 
 ### 6.11 Tenants, the farm and federation
 
-*Sources: [0018](../decisions/0018-tenants.md) §11; [0028](../decisions/0028-tenancy-policy.md) §11; [0046](../decisions/0046-primary-tenant.md) §9; [0022](../decisions/0022-federation.md) §11; [0040](../decisions/0040-instance-prerogatives.md) §7; [0056](../decisions/0056-security-model.md) §13.*
+*Sources: [0018](../decisions/0018-tenants.md) §11; [0028](../decisions/0028-tenancy-policy.md) §11; [0046](../decisions/0046-primary-tenant.md) §9; [0022](../decisions/0022-federation.md) §11; [0040](../decisions/0040-instance-prerogatives.md) §7; [0056](../decisions/0056-security-model.md) §13; [0079](../decisions/0079-derived-issuer-codes.md) §4.*
 
 Tenants, the tenancy policy and the primary tenant are [08](08-tenants-and-instances.md); the API halves of these sections are [18](18-api.md).
 
@@ -828,4 +828,4 @@ Tenants, the tenancy policy and the primary tenant are [08](08-tenants-and-insta
 - **Farm pages.** `Special:Tenancy` for the policy (owner and `ts-config`); `Special:GlobalUsers`, `Special:GlobalGroupMembership`, `Special:GlobalBlock`, `Special:GlobalBlockList`, `Special:GlobalRecentChanges` at the farm base; the account page shows the farm account and every linked tenant account under **Linked accounts** (§2.4), labelled Public; a farm signup page states the linking consent of [0028](../decisions/0028-tenancy-policy.md) §2; the identity line of a mirrored provider-tenant entity is unchanged from §1.3 ([0028](../decisions/0028-tenancy-policy.md) §11). `Special:Tenancy` also carries the **Visibility** control of §6.3.
 - **Jobs.** Mirror sync jobs are listed at the farm base; local bulk jobs at the tenant's (§3.10).
 - **Provider pages.** `Special:Providers` lists each provider with its trust mode, last verified checkpoint and lag, and each page repository with the date of its title index, its event lag and, in `mirror` mode, its sync lag ([0053](../decisions/0053-mirrored-pages.md) §3, §5; [13](13-mirrored-pages.md)); a `verified` chip sits on the identity line of mirrored entities ([0022](../decisions/0022-federation.md) §11). What an instance publishes and verifies is [17](17-federation-and-publication.md).
-- **Elsewhere in this chapter:** the account page's **Fediverse** section (§2.4), the talk page header's `Group` handle (§1.3), `Special:InstanceAction/{partition}/{offset}` (§3.4) and the contributions of `instance:{farm slug}` (§2.5; [0040](../decisions/0040-instance-prerogatives.md) §7), and a private tenant's landing page (§6.3; [0056](../decisions/0056-security-model.md) §13).
+- **Elsewhere in this chapter:** the account page's **Fediverse** section (§2.4), the talk page header's `Group` handle (§1.3), `Special:InstanceAction/{partition}/{offset}` (§3.4) and the contributions of `instance:{farm code}` (§2.5; [0040](../decisions/0040-instance-prerogatives.md) §7), and a private tenant's landing page (§6.3; [0056](../decisions/0056-security-model.md) §13).

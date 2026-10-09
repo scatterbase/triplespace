@@ -139,13 +139,13 @@ An upstream `renameuser` event does two things.
 
 ### 2.1 Projected, not written twice
 
-*Sources: [0011](../decisions/0011-logs.md) §6, §6.1; [0040](../decisions/0040-instance-prerogatives.md) §7.*
+*Sources: [0011](../decisions/0011-logs.md) §6, §6.1; [0040](../decisions/0040-instance-prerogatives.md) §7; [0079](../decisions/0079-derived-issuer-codes.md) §4.*
 
 Most local actions already have a record elsewhere: an erase record in its target's partition, a page record, an actor record, a change set. Writing a second log record for the same action would mean two writes that cannot be made atomic across partitions, and two places to erase.
 
 **A log event for such an action is a projection of its record.** The log graph holds only actions that have no other record. The catalogue in §2.3 says, for each type and action, which record it is projected from.
 
-**Instance acts keep their own types.** An event projected from an instance act ([08](08-tenants-and-instances.md) §8) keeps its type (`erase/erase`, `block/block`, `rights/rights`, `renameuser/renameuser`), names the operator actor `instance:{farm slug}` as performer and carries `instance: true` in its parameters. `list=logevents` reports the performer as the operator actor's display name, and `leprop=details` includes the authority link. Contributions of `instance:{farm slug}` at a tenant list the instance acts on that tenant; at the farm base, for `ts-viewoperator`, every instance act on every tenant with the operator who carried it out. The rest of [0040](../decisions/0040-instance-prerogatives.md) §7, the display of an instance act in history and its RDF, is in [19](19-site-ui.md) and [02](02-graphs-rdf-and-query.md) §5.1.
+**Instance acts keep their own types.** An event projected from an instance act ([08](08-tenants-and-instances.md) §8) keeps its type (`erase/erase`, `block/block`, `rights/rights`, `renameuser/renameuser`), names the operator actor `instance:{farm code}` as performer and carries `instance: true` in its parameters. `list=logevents` reports the performer as the operator actor's display name, and `leprop=details` includes the authority link. Contributions of `instance:{farm code}` at a tenant list the instance acts on that tenant; at the farm base, for `ts-viewoperator`, every instance act on every tenant with the operator who carried it out. The rest of [0040](../decisions/0040-instance-prerogatives.md) §7, the display of an instance act in history and its RDF, is in [19](19-site-ui.md) and [02](02-graphs-rdf-and-query.md) §5.1.
 
 **Erasure propagates automatically, because events are projections.**
 

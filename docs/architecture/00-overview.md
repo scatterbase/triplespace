@@ -252,7 +252,7 @@ Terms the chapters use without defining in place, each with the section that def
 
 **Extraction source.** Tenant configuration, a `config` record of kind `extraction`, that says which mirrored pages statements are derived from and how, through template mappings and line rules. [13](13-mirrored-pages.md) §6.2.
 
-**Farm.** An instance that hosts several tenants under a tenancy policy. The **farm slug** is the instance's own slug, chosen at `instance create` and never changed; the **farm base** is where the instance holds what it keeps on behalf of every tenant; **farm identity** is the optional issuer whose code is the farm slug, whose accounts are the identity a person carries across tenants; the **farm partitions** are `actors/{farm}`, `accounts/{farm}` and `log/{farm}`. [08](08-tenants-and-instances.md) §1.1, §1.2, §3.5, §2.1.
+**Farm.** An instance that hosts several tenants under a tenancy policy. The **farm slug** is the instance's own slug, chosen at `instance create` and never changed; the **farm base** is where the instance holds what it keeps on behalf of every tenant; **farm identity** is the optional issuer whose code is the farm code, derived from the instance's founding record, whose accounts are the identity a person carries across tenants; the **farm partitions** are `actors/{farm}`, `accounts/{farm}` and `log/{farm}`. [08](08-tenants-and-instances.md) §1.1, §1.2, §3.5, §2.1.
 
 **Feed.** Activity rows filtered by a target set and by filters, delivered as a page, as Atom, or as a stream. [16](16-logs-feeds-and-notifications.md) §4.1, §4.4.
 

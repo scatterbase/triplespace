@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-28
-- **Updated:** 2026-10-09 (A9)
+- **Updated:** 2026-10-09 (A10)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md)
 - **Uses:** [0024](0024-subsidiary-accounts.md), [Wikibase contract](../api/wikibase-compat.md)
@@ -48,7 +48,7 @@ One alternative needs no new operation and was rejected: load the old wiki into 
 
 ### 5. Accounts (amends 0007 §3 and 0016 §3; uses 0018 §4 and §10)
 
-*Changed by A5, A8.*
+*Changed by A5, A8, A10.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.5.*
 
@@ -190,3 +190,14 @@ Replaced text (§3):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§8
 - **Summary:** The Decision's current text now lives in the architecture chapters [05](../architecture/05-providers-and-ingest.md), [07](../architecture/07-actors-and-accounts.md), [16](../architecture/16-logs-feeds-and-notifications.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A10. Adopted accounts under the issuer code
+
+- **Date:** 2026-10-09
+- **Source:** [0079](0079-derived-issuer-codes.md) §6, §9
+- **Change:** amends §5
+- **Summary:** An adopted wiki's accounts are written under the adopting tenant's issuer code, derived from its founding record ([0079](0079-derived-issuer-codes.md) §1), and their own numbers: the source's user 42 is `{code}:42`. Where the registry already knows the source wiki as an issuer, its entry gains `tenant`, the adopting tenant's code, and the registered key becomes an input form of the tenant's: `librarybase:42` is read as `{code}:42`.
+
+Replaced text (§5, in [07](../architecture/07-actors-and-accounts.md) §2.5):
+
+> …so the source's user 42 is `{slug}:42`.

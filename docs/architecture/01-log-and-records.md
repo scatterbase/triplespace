@@ -151,13 +151,13 @@ Tag `0x02` is the body commitment; `0x04` never appears in the header tree (§3.
 
 ### 2.4 The attestation
 
-*Sources: [0005](../decisions/0005-crate-organization.md) §4.3; [0006](../decisions/0006-log-integrity-and-erasure.md) §3; [0015](../decisions/0015-record-format-and-partition-registry.md) §1.*
+*Sources: [0005](../decisions/0005-crate-organization.md) §4.3; [0006](../decisions/0006-log-integrity-and-erasure.md) §3; [0015](../decisions/0015-record-format-and-partition-registry.md) §1; [0079](../decisions/0079-derived-issuer-codes.md) §4.*
 
 **The attestation is in the body because it can identify people.** In Triplespace it is a CBOR map holding the actor and the job ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.3), the change tags ([0030](../decisions/0030-edit-filters.md) §5), a client `signature`, and, for a post that arrived from the fediverse, the signed remote activity as `evidence` ([0022](../decisions/0022-federation.md) §8); the instance key is the only signer of checkpoints and manifests, and an actor may additionally sign its own record. In Scatterbase it holds the attribution and the client and server signatures, and it can later hold prior-use acknowledgments. Nothing below the claim level reads it.
 
 **Client signatures.** The attestation map may carry a **`signature`** field: `{key: <key ID>, alg: "ed25519", sig: <64 bytes>}`, a signature by the *actor's own key* over `H(0x05 ‖ H(0x03 ‖ content) ‖ H(0x03 ‖ comment))`, where `0x03` is the content hash and `0x05` is a domain tag that never appears in the header tree (§3.3). The preimage is the canonical bytes of the two parts before the server salts them, so a client that produces canonical CBOR can sign what it submits and a verifier holding the record can check it; erasing either part makes the signature unverifiable. **Keys are actor records:** a `scatter:v0/key` record in the tenant `actors` partition, keyed by the actor, whose content holds the key ID (the Base32z hash of the public key), algorithm, public key and validity; a later record rotates or revokes it. The server verifies a submitted signature against the actor's current key before appending and refuses a mismatch with `ts-bad-signature`; `verify` (§8, level 2) checks every present signature against the key records in the bundle. Which actors may hold keys, and how they sign, is [0024](../decisions/0024-subsidiary-accounts.md) §4: subsidiaries. The instance key (§4.3) still signs every checkpoint; a client signature is in addition, never instead. Scatterbase's client and server signatures are the same field shape in its own part layout.
 
-**The instance attestation.** The attestation part has a second form, the **instance attestation**, for records the instance writes into a tenant on its own authority: `actor` (`instance:{farm slug}`), `authority` (an instance record's partition, offset and leaf hash), `job`, `binding`, and a `signature` by the instance key. Only the server writes it; a submitted record carrying one is refused with `ts-prerogative`. Its signature preimage is tag `0x06` (§3.3); the authority records are in [08](08-tenants-and-instances.md).
+**The instance attestation.** The attestation part has a second form, the **instance attestation**, for records the instance writes into a tenant on its own authority: `actor` (`instance:{farm code}`), `authority` (an instance record's partition, offset and leaf hash), `job`, `binding`, and a `signature` by the instance key. Only the server writes it; a submitted record carrying one is refused with `ts-prerogative`. Its signature preimage is tag `0x06` (§3.3); the authority records are in [08](08-tenants-and-instances.md).
 
 **Right to vanish** ([0007](../decisions/0007-actor-identity.md) §4) and **unlinking** ([0007](../decisions/0007-actor-identity.md) §7) erase whole records. A demand to cut the tie between a record and an account erases the attestation part only.
 
@@ -286,7 +286,7 @@ The NDJSON wire format of [0002](../decisions/0002-source-graphs-and-mass-ingest
 
 ### 3.3 Hashing and domain tags
 
-*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §2.*
+*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §2; [0081](../decisions/0081-recovery-keys-and-continuations.md) §2.*
 
 Every hash is **SHA-256**. This matches Scatterbase's claim IDs and content-addressed blobs, and it makes the Merkle tree exactly the RFC 6962 tree, so existing transparency-log tooling can check it. Each use prefixes its input with a one-byte domain tag, so no hash can be mistaken for another kind:
 
@@ -299,8 +299,9 @@ Every hash is **SHA-256**. This matches Scatterbase's claim IDs and content-addr
 | `0x04` | Leaf of one body part (§2.3) |
 | `0x05` | Preimage of a client signature over the content and comment parts (§2.4) |
 | `0x06` | Preimage of an instance attestation's signature: `H(0x06 ‖ H(0x03 ‖ content) ‖ H(0x03 ‖ comment) ‖ authority)`, signed by the instance key ([0040](../decisions/0040-instance-prerogatives.md) §3) |
+| `0x07` | Preimage of a recovery signature: `H(0x07 ‖ code ‖ entry)`, the tenant's issuer code and the canonical CBOR of a `recovery-key`, `continuation` or `continuation-cancel` entry without its `signatures` field, signed by a recovery key ([0081](../decisions/0081-recovery-keys-and-continuations.md) §2; [08](08-tenants-and-instances.md) §6.8) |
 
-Tags `0x00` and `0x01` are the leaf and node prefixes of RFC 6962, so the Merkle tree (§4.1) is the RFC 6962 tree unchanged. Tags `0x02` to `0x06` are Triplespace's own and never appear inside the tree.
+Tags `0x00` and `0x01` are the leaf and node prefixes of RFC 6962, so the Merkle tree (§4.1) is the RFC 6962 tree unchanged. Tags `0x02` to `0x07` are Triplespace's own and never appear inside the tree.
 
 The hash function is fixed for a partition when the partition is created, and is named in its genesis record. Changing it means starting a new partition.
 
@@ -323,11 +324,11 @@ The hash function is fixed for a partition when the partition is created, and is
 
 ### 4.2 Checkpoints
 
-*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §6.*
+*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §6; [0081](../decisions/0081-recovery-keys-and-continuations.md) §5, §6.*
 
 **Format.** Checkpoints use the [C2SP tlog-checkpoint](https://c2sp.org/tlog-checkpoint) format, signed as a [C2SP signed note](https://c2sp.org/signed-note):
 
-- **Origin line,** without a scheme: `{tenant host}/log/{partition name}` for a tenant's partition ([0018](../decisions/0018-tenants.md) §2), and `{farm host}/instance/log/{partition name}` for an instance partition, so that the two cannot collide when the farm base is a tenant's base ([0046](../decisions/0046-primary-tenant.md) §7). For segment manifests in a `hashed` partition, the origin followed by `/segment/{n}`.
+- **Origin line,** without a scheme: `{tenant host}/log/{partition name}` for a tenant's partition ([0018](../decisions/0018-tenants.md) §2), where the host is the tenant's host when the partition was created or when the tenant arrived on this instance by a move or a continuation, and an `alias` does not change it, so that a witness sees one log per origin ([0081](../decisions/0081-recovery-keys-and-continuations.md) §5), and `{farm host}/instance/log/{partition name}` for an instance partition, so that the two cannot collide when the farm base is a tenant's base ([0046](../decisions/0046-primary-tenant.md) §7). For segment manifests in a `hashed` partition, the origin followed by `/segment/{n}`.
 - **Tree size**, in decimal.
 - **Root hash**, in base64.
 - **No extension lines.** C2SP recommends against them because monitors cannot audit them.
@@ -343,17 +344,19 @@ Records appended after the latest checkpoint are durable but not yet signed.
 
 Checkpoints are stored beside their partition. They are not log records, since a checkpoint cannot be a leaf of the tree it signs. Every checkpoint is kept, so consistency between any two of them can be proved.
 
-**Checkpoints are served** at `{base}/.well-known/tlog/{partition}/checkpoint`, with historical checkpoints and manifests beside it and the key chain at `/.well-known/tlog/keys` ([0022](../decisions/0022-federation.md) §1).
+**Checkpoints are served** at `{base}/.well-known/tlog/{partition}/checkpoint`, with any witness cosignatures as additional signature lines (§4.3), with historical checkpoints and manifests beside it and the key chain at `/.well-known/tlog/keys` ([0022](../decisions/0022-federation.md) §1).
 
 ### 4.3 Keys and witnesses
 
-*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §6.*
+*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §6; [0081](../decisions/0081-recovery-keys-and-continuations.md) §1, §3, §6.*
 
 - The instance's first public key is registered in the first record of the configuration partition, the `config` partition of [0015](../decisions/0015-record-format-and-partition-registry.md) §3. This is the same shape as Scatterbase's server-key registration claim. Each tenant's `config` partition carries its own copy of the key chain ([0018](../decisions/0018-tenants.md) §2).
-- **Rotation** is a configuration record naming the new key, signed by the old key inside its attestation. Checkpoints identify their key by the signed-note key ID. Moving a tenant to another instance is one such rotation: the record names the new instance's key and the tenant's final checkpoint ([0018](../decisions/0018-tenants.md) §10).
-- Recovering from a compromised key is out of scope. It belongs to the identity work that Scatterbase and Triplespace share.
+- **Rotation** is a configuration record naming the new key, signed by the old key inside its attestation. Checkpoints identify their key by the signed-note key ID. Moving a tenant to another instance is one such rotation: the record names the new instance's key and the tenant's final checkpoint ([0018](../decisions/0018-tenants.md) §10). A move the old instance does not sign is a **continuation** instead, authorized by the tenant's **recovery keys**, keys its community holds and no host sees ([08](08-tenants-and-instances.md) §6.8; [0081](../decisions/0081-recovery-keys-and-continuations.md) §1, §3).
+- Recovering from a compromised instance key is out of scope. It belongs to the identity work that Scatterbase and Triplespace share. A tenant with recovery keys can, however, continue to a new key on the same instance ([0081](../decisions/0081-recovery-keys-and-continuations.md) §3).
 
-**Witnesses are optional.** An instance may publish its checkpoints to external witnesses that implement [C2SP tlog-witness](https://c2sp.org/tlog-witness). Because the tree is RFC 6962 with SHA-256, a witness can verify consistency proofs between checkpoints and cosign them with no changes.
+**Witnesses are optional, and the key chain is what they are for** ([0081](../decisions/0081-recovery-keys-and-continuations.md) §6). The tenant `site` setting `integrity.witnesses` lists witnesses that implement [C2SP tlog-witness](https://c2sp.org/tlog-witness), each with its endpoint and verifier key. The instance submits every checkpoint of the tenant's `config` partition to each, with the consistency proof from the witness's last-seen size, stores each cosignature beside the checkpoint and serves it as an additional signature line. Other partitions are submitted only if `integrity.witness_partitions` lists them; the default is `config` alone, which holds the founding record, the key chain, the recovery-key records and every continuation. Because the tree is RFC 6962 with SHA-256, any such witness works unchanged. A witness refuses a checkpoint inconsistent with one it has cosigned, so a host cannot show two key chains for one origin, and a continuation's delay runs on witnessed time.
+
+**An instance can be a witness.** With the instance setting `witness.enabled`, `triplespace-server` serves the tlog-witness API at the farm base for the origins and keys its operator lists, keeping its last cosigned size and root per origin in durable state that is never rolled back. Federation partners may witness each other's key chains ([0022](../decisions/0022-federation.md) §1).
 
 ## 5. Erasure
 
@@ -462,7 +465,7 @@ Scatterbase's prior-use acknowledgments are the same check applied to each term 
 
 ## 8. Verification and export
 
-*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §9; [0015](../decisions/0015-record-format-and-partition-registry.md) §1; [0058](../decisions/0058-packed-record-storage.md) §1.*
+*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §9; [0015](../decisions/0015-record-format-and-partition-registry.md) §1; [0058](../decisions/0058-packed-record-storage.md) §1; [0081](../decisions/0081-recovery-keys-and-continuations.md) §8.*
 
 **An export bundle** holds, for each exported partition:
 
@@ -475,7 +478,7 @@ It needs nothing else to verify. Bundles are written in the logical form (§2.7)
 
 **`verify` checks three levels:**
 
-1. **Structure.** Strict CBOR decoding, leaf hashes, the root at every checkpoint, checkpoint signatures, consistency proofs between successive checkpoints, and gapless offsets.
+1. **Structure.** Strict CBOR decoding, leaf hashes, the root at every checkpoint, checkpoint signatures, consistency proofs between successive checkpoints, and gapless offsets. For a tenant, level 1 also reports its **chain of custody** ([08](08-tenants-and-instances.md) §6.8): the tenant's origins in order, each with its key and the record linking it to the next (a signed rotation, a `recovered` continuation with whether its delay has passed and whether it was cancelled, or an `unauthorized` one); each partition's tail ranges attested only by the host that appended them; the witness cosignatures on each `config` checkpoint; and any fork. A `recovery-key` record without valid recovery signatures is reported and ignored.
 2. **Bodies.** Every present part against its leaf and the commitment: a present part hashes to a leaf that reproduces the commitment; a missing part carries its leaf and is named by an `erase` record, and the verifier reports it as erased, naming the erasing offset; a missing part with no `erase` record, or anything else, is a failure. Every blob a present upload record names, at depth `presence` or `full`; a missing object with no `erase` accounting for it is a failure ([0039](../decisions/0039-files-and-media.md) §14). Every present client signature against the key records in the bundle (§2.4). Every instance attestation's signature against the key chain, with the key current when the record was appended ([0040](../decisions/0040-instance-prerogatives.md) §8).
 3. **Projections** (optional and expensive). Rebuild projections from the log and compare them with the stored ones.
 

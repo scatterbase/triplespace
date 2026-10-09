@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-10-09 (A85)
+- **Updated:** 2026-10-09 (A88)
 - **Author:** James Hare / Claude Opus; revision by James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -42,7 +42,7 @@ Since this ADR was first written, twenty-six further ADRs have added crates, cha
 
 ### 2. Crate map
 
-*Changed by A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A27, A28, A29, A30, A31, A32, A33, A34, A35, A36, A37, A38, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A51, A52, A53, A54, A55, A57, A58, A59, A60, A61, A62, A63, A64, A65, A66, A67, A68, A69, A70, A71, A72, A73, A74, A75, A76, A77, A78, A79, A80, A84.*
+*Changed by A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A27, A28, A29, A30, A31, A32, A33, A34, A35, A36, A37, A38, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A51, A52, A53, A54, A55, A57, A58, A59, A60, A61, A62, A63, A64, A65, A66, A67, A68, A69, A70, A71, A72, A73, A74, A75, A76, A77, A78, A79, A80, A84, A86, A87, A88.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
@@ -827,3 +827,24 @@ Replaced text (§3, rule 2):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§7
 - **Summary:** The Decision's current text now lives in the architecture chapters [01](../architecture/01-log-and-records.md), [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A86. Derived issuer codes
+
+- **Date:** 2026-10-09
+- **Source:** [0079](0079-derived-issuer-codes.md) §8
+- **Change:** extends §2
+- **Summary:** `scatter-actors` derives tenant issuer codes and the farm code from a founding record's leaf hash, keys `IssuerRegistry::for_tenant` and `for_farm` by code, and refuses a registered issuer code longer than 25 characters. `triplespace-cli`'s `instance create` derives the farm code, and tenant creation each tenant's issuer code, once the founding record is appended.
+
+### A87. Tenant sources
+
+- **Date:** 2026-10-09
+- **Source:** [0080](0080-tenants-as-entity-sources.md) §9
+- **Change:** extends §2
+- **Summary:** `scatter-providers` gains the `tenant` and `base` fields of an `entity-source`, `ts-source-is-provider` by issuer, `ts-source-private` and promotion matched by issuer code; `triplespace-projections` reads a tenant source on the same instance directly; `scatter-adapter-triplespace` writes a tenant source into `source/{name}` after checking the provider's founding record against the source's code.
+
+### A88. Recovery keys and witnessing
+
+- **Date:** 2026-10-09
+- **Source:** [0081](0081-recovery-keys-and-continuations.md) §10
+- **Change:** extends §2
+- **Summary:** `scatter-log` gains the three chain-of-custody kinds; `scatter-integrity` recovery signatures, continuations, witness submission, fixed origins and the chain of custody in `verify`; `scatter-adapter-triplespace` acting on continuations; `triplespace-server` the tlog-witness endpoint and `triplespace-cli` the recovery-key, recovery-signing, continuing import and cancel commands.

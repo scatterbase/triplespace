@@ -544,7 +544,7 @@ Not yet: what a full mirror (`all`) writes to `view.term` is an open question of
 
 ### 6.1 The `entity-source` record
 
-*Sources: [0078](../decisions/0078-entity-sources.md) §1.*
+*Sources: [0078](../decisions/0078-entity-sources.md) §1; [0080](../decisions/0080-tenants-as-entity-sources.md) §1.*
 
 **An entity source is a graph of minted entities that one tenant reads, declared in that tenant's configuration instead of the registry.** It is a `config` record of kind **`entity-source`**, keyed `entity-source:{name}`, in the tenant `config` ([0015](../decisions/0015-record-format-and-partition-registry.md) §3; [23](23-configuration-and-registry.md)), written with `ts-config`. Its fields are a provider registry entry's (§1.5, `providers.toml`), cut to what a source of entities needs:
 
@@ -561,6 +561,10 @@ Not yet: what a full mirror (`all`) writes to `view.term` is an open question of
 | `licence` | The licence of the source's data, as an SPDX identifier; required once anything is mirrored (§6.4) |
 | `number` | Assigned by the server on the first record (§6.4); not writable |
 | `promoted_to` | Empty, or the registry provider code that replaced the source (§6.8) |
+| `tenant` | For a **tenant source**: the issuer code of the Triplespace tenant it reads ([08](08-tenants-and-instances.md) §1.2, §4). Fixed by the first record |
+| `base` | For a tenant source: the tenant's base URI, writable, and followed from the provider's `alias` records on the same instance |
+
+**A tenant source reads its description from the provider.** With `tenant` set, `types` (the provider's entity types, upstream prefixes and IRI templates over its current base), `licence` (its `content.licence`) and `api`, `entity_data` and `events` (at `base`) are not declared; `label` and `namespace` are the reader's. This is how one tenant reads another ([08](08-tenants-and-instances.md) §4; [0080](../decisions/0080-tenants-as-entity-sources.md) §1).
 
 **What it is for.** A graph that one tenant, or a few, need. A graph that many tenants need belongs in the registry, and §6.8 moves a source there without losing anything.
 
@@ -598,7 +602,7 @@ Not yet: what a full mirror (`all`) writes to `view.term` is an open question of
 
 ### 6.4 Numbers, the `source/{name}` partition and fetching
 
-*Sources: [0078](../decisions/0078-entity-sources.md) §4.*
+*Sources: [0078](../decisions/0078-entity-sources.md) §4; [0080](../decisions/0080-tenants-as-entity-sources.md) §2.*
 
 **Provider numbers from 2^22 to 2^23 − 1 are reserved for entity sources.** The server assigns the lowest one not yet used on the tenant when the source's first record is written, and records it in the entry. A number is unique on its tenant and is never reused there, even after the source is retired. Uniqueness per tenant is enough: revision and page IDs are per-tenant sequences ([0015](../decisions/0015-record-format-and-partition-registry.md) §2), and no other tenant reads a source's records (§6.7). So `revid = number << 40 | n` and the derived page IDs work unchanged, and a move carries the number in the entry. The registry keeps the 4,194,303 numbers below the range.
 
@@ -612,6 +616,8 @@ Not yet: what a full mirror (`all`) writes to `view.term` is an open question of
 - The label cache keys a source entity's labels by tenant ([0018](../decisions/0018-tenants.md) §6).
 
 **Views.** A source entity has tenant rows only. Nothing about it is computed from shared graphs, so [0018](../decisions/0018-tenants.md) §6 never gives it a shared row, and it is indexed in the tenant's search index, never in a provider index ([03](03-storage-caches-and-search.md)).
+
+**A tenant source on the same instance has no partition.** The provider's `local` partition is read directly and rewritten to the source's name and number, so it has no `source/{name}` partition, no fetch job and no mirror setting. On another instance, `scatter-adapter-triplespace` writes its `source/{name}` partition ([08](08-tenants-and-instances.md) §4.4), and a move of the provider switches between the two.
 
 **No issuer.** Shallow mirroring keeps no upstream history (§5.1), so no upstream actor is recorded and a source needs no issuer.
 
@@ -643,26 +649,26 @@ After that, `mhc:Q1` is a cluster member. Its title and every reference to it re
 
 ### 6.7 Across tenants and instances
 
-*Sources: [0078](../decisions/0078-entity-sources.md) §8.*
+*Sources: [0078](../decisions/0078-entity-sources.md) §8; [0080](../decisions/0080-tenants-as-entity-sources.md) §4.*
 
 **A reference to a source entity crosses a tenant boundary by IRI.** When tenant B reads provider tenant A's `local` graph ([0018](../decisions/0018-tenants.md) §5; [08](08-tenants-and-instances.md)), or another instance reads it through `scatter-adapter-triplespace` ([0022](../decisions/0022-federation.md) §2, which rewrites as 0018 §5 does), a reference to A's `mhc:Q1` is rewritten by the first rule that applies:
 
-1. **A's source is unpublished.** The reference is not readable, as a tenant without a code cannot be referenced ([0018](../decisions/0018-tenants.md) §5).
-2. **The IRI is a registry provider's.** It becomes that provider's ID, `MHQ1`, once the registry has Miraheze Communities as `MH`.
-3. **B has a source with the same IRI template.** It becomes B's ID for the entity, `mhcom:Q1`, whatever B named its source.
+1. **A's source is unpublished.** The reference is not readable.
+2. **The IRI is a registry provider's, or the source names a tenant that is one.** It becomes that provider's ID, `MHQ1`, once the registry has Miraheze Communities as `MH`.
+3. **B has a source for the same graph:** one with the same `tenant` code for a tenant source, which survives a change of the provider's base, or otherwise the same IRI template. It becomes B's ID for the entity, `mhcom:Q1`, whatever B named its source.
 4. **Otherwise it is unbound.** Every statement whose subject, value, qualifier value or reference value is the reference is **withheld** from B's resolved view. B's `Special:Providers` counts withheld statements per IRI base, so B's administrators can see what declaring a source would add. Nothing is guessed or partly shown.
 
 B never reads A's `source/{name}` partition: the source's data comes from the source, and B fetches it itself once it declares one. The rewrite reads A's source table from A's `config` on the same instance, and from A's public `GET /entity-sources` on another ([18](18-api.md)). References to B's own entities still come back as bare IDs ([0022](../decisions/0022-federation.md) §2).
 
 ### 6.8 Binding is permanent; promotion
 
-*Sources: [0078](../decisions/0078-entity-sources.md) §9.*
+*Sources: [0078](../decisions/0078-entity-sources.md) §9; [0080](../decisions/0080-tenants-as-entity-sources.md) §1, §3.*
 
-**A source's name, number and type IRI templates are fixed by its first record.** A later record may change its label, `api`, `entity_data`, `events`, `role`, licence, namespace names and aliases, and its mirror settings; one that changes the name, the number or a template is refused with `ts-source-binding`. A retired source, one whose record is null, keeps its name and number reserved on the tenant for good, and its IDs keep parsing and resolving read-only. Records in the log carry `mhc:Q1` in their headers and content, so its meaning cannot change under them.
+**A source's name, number and type IRI templates are fixed by its first record.** A later record may change its label, `api`, `entity_data`, `events`, `role`, licence, namespace names and aliases, and its mirror settings; one that changes the name, the number or a template is refused with `ts-source-binding`. A retired source, one whose record is null, keeps its name and number reserved on the tenant for good, and its IDs keep parsing and resolving read-only. Records in the log carry `mhc:Q1` in their headers and content, so its meaning cannot change under them. **A tenant source is bound by its `tenant` code instead of its templates,** which follow the provider's base; a record that changes `tenant` is refused with `ts-source-binding`.
 
-**A source may not duplicate a registry provider.** A declaration with a type IRI template equal to a registry provider's is refused with `ts-source-is-provider`, and the tenant adds the provider to its `providers` list instead ([0018](../decisions/0018-tenants.md) §5). When the registry later gains such a provider, the tenant may not add it to its `providers` list while the source is unpromoted (`ts-source-is-provider` again), and `registry check` lists the source as promotable. So on one tenant, `mhc:Q1` and `MHQ1` never both name an entity.
+**A source may not duplicate a registry provider.** A declaration with a type IRI template equal to a registry provider's, or a tenant source naming a tenant whose code a registry entry names as its `issuer`, is refused with `ts-source-is-provider`, and the tenant adds the provider to its `providers` list instead ([0018](../decisions/0018-tenants.md) §5). When the registry later gains such a provider, the tenant may not add it to its `providers` list while the source is unpromoted (`ts-source-is-provider` again), and `registry check` lists the source as promotable. So on one tenant, `mhc:Q1` and `MHQ1` never both name an entity.
 
-**Promotion.** When the registry later allocates a provider whose IRI templates equal a source's, the tenant writes the source's record with `promoted_to = "MH"`, which is refused if the templates differ. From then on:
+**Promotion.** When the registry later allocates a provider whose IRI templates equal a source's, or, for a tenant source, whose `issuer` is the source's `tenant` code, the tenant writes the source's record with `promoted_to = "MH"`, which is refused if the templates differ. From then on:
 
 - `mhc:` is an input form of `MH` on the tenant, as a provider slug is (§6.3), and `MHC:Q1` redirects to `Item:MHQ1`.
 - Projections rewrite `mhc:Q1` to `MHQ1` when they read the tenant's records, as [0018](../decisions/0018-tenants.md) §5 rewrites a provider tenant's IDs on read. Statement IDs follow [0018](../decisions/0018-tenants.md) §7: the UUID is kept and the prefix becomes the canonical ID.

@@ -18,11 +18,15 @@ One tenant is the instance's **primary tenant**: the tenant whose accounts opera
 
 ### 1.2 Slugs, codes and the farm slug
 
-*Sources: [0018](../decisions/0018-tenants.md) §1; [0046](../decisions/0046-primary-tenant.md) §6; [0040](../decisions/0040-instance-prerogatives.md) §2.*
+*Sources: [0018](../decisions/0018-tenants.md) §1; [0046](../decisions/0046-primary-tenant.md) §6; [0040](../decisions/0040-instance-prerogatives.md) §2; [0079](../decisions/0079-derived-issuer-codes.md) §1, §2, §3, §4.*
 
-The slug names the tenant everywhere: in partition names, in actor keys (§3.1), and, if the tenant becomes a provider, in `providers.toml` (§4). Slugs, provider slugs and issuer codes are one namespace, allocated in the registry ([0015](../decisions/0015-record-format-and-partition-registry.md) §5). No slug can be empty ([03](03-storage-caches-and-search.md) §4.1).
+**The slug names the tenant on its instance**: in the instance-scope `tenant` and `graph` records that register it and its partitions ([23](23-configuration-and-registry.md) §1.3), in hostnames by convention, in the CLI and the API's tenant list, and, if the tenant becomes a provider, in `providers.toml` (§4). It is chosen when the tenant is created and is unique on the instance: tenant slugs, provider slugs and registered issuer codes are one namespace there, and a slug may not take a name the registry has ([0015](../decisions/0015-record-format-and-partition-registry.md) §5). No slug can be empty ([03](03-storage-caches-and-search.md) §4.1). **A slug is a name, not an identity** ([0079](../decisions/0079-derived-issuer-codes.md) §3): it is in no actor key and in no record of the tenant's own partitions, since the records that hold it are instance-scope and do not travel (§6.2). Two instances may each have a `librarybase`, and a tenant that arrives where its slug is taken is registered under another (§6.3).
 
-**The farm slug is the instance's own slug.** It is chosen at `instance create` (`--farm-slug`, required, with no default derived from a tenant), registered in the same shared namespace of slugs, provider slugs and issuer codes, and **never changes**, since it is part of the operator's actor key `instance:{farm slug}` (§8.2), the farm issuer's code (§3.5) and the farm partition names `actors/{farm}`, `accounts/{farm}` and `log/{farm}` (§2.1). It differs from every tenant slug, the primary tenant's included. A single-tenant instance has one too, because the operator actor needs it whether or not a farm issuer exists. `instance` itself is reserved in the shared namespace, so no tenant or provider can take it.
+**A tenant's issuer code is derived from its founding record** ([0079](../decisions/0079-derived-issuer-codes.md) §1, §2). The founding record is the record at offset 0 of the tenant's `config` partition, the `key:` record that opens its key chain (§2.4). The issuer code is the first 26 characters of the lower-case RFC 4648 base32 encoding, without padding, of that record's Merkle leaf hash, `H(0x00 ‖ header)` ([01](01-log-and-records.md) §3.3): 130 bits in `a`–`z` and `2`–`7`, such as `vk3q7zcx2m4hrt6wd5nbfy2lpa`. The leaf covers the partition's random ID and a commitment over salted parts, so no two founding records share it. The code is fixed at creation and never changes: a move appends to the key chain and never touches offset 0 (§6.3), and erasure leaves the leaf in place ([01](01-log-and-records.md) §5). Nothing allocates it, so no registry of instances is consulted. Anyone may copy a founding record and present its code, but not extend the key chain it names: the code names the tenant, and control of it is the key chain. Registered issuer codes are at most 25 characters, so none can equal a derived one ([07](07-actors-and-accounts.md) §1.1).
+
+**The farm slug is the instance's own slug.** It is chosen at `instance create` (`--farm-slug`, required, with no default derived from a tenant), registered in the same namespace of slugs, provider slugs and issuer codes, and **never changes**. It differs from every tenant slug, the primary tenant's included. A single-tenant instance has one too. `instance` itself is reserved in the shared namespace, so no tenant or provider can take it. The farm slug is a name and is in no key.
+
+**The farm code** is derived as a tenant's issuer code is, from the instance's founding record: its first `key:` record, at offset 0 of the instance `config` partition ([23](23-configuration-and-registry.md) §1.2; [0079](../decisions/0079-derived-issuer-codes.md) §4). Every instance has one, because the operator actor needs it whether or not a farm issuer exists. It is what the farm's keys carry: the operator's actor key `instance:{farm code}` (§8.2), the farm issuer's code (§3.5) and the per-issuer farm partition names `actors/{farm}`, `accounts/{farm}` and `log/{farm}` (§2.1), where `{farm}` is the farm code.
 
 ### 1.3 Adoption
 
@@ -36,7 +40,7 @@ A tenant may be the continuation of a MediaWiki Wikibase that ran before Triples
 
 ### 2.1 Tenant partitions and instance partitions
 
-*Sources: [0018](../decisions/0018-tenants.md) §2; [0028](../decisions/0028-tenancy-policy.md) §2.*
+*Sources: [0018](../decisions/0018-tenants.md) §2; [0028](../decisions/0028-tenancy-policy.md) §2; [0081](../decisions/0081-recovery-keys-and-continuations.md) §5.*
 
 **Each tenant has its own source partitions**, and the instance holds the shared ones:
 
@@ -47,7 +51,7 @@ A tenant may be the continuation of a MediaWiki Wikibase that ran before Triples
 
 A tenant also has one `source/{name}` partition per entity source it declares ([0078](../decisions/0078-entity-sources.md) §4, in [05](05-providers-and-ingest.md)), which moves with it (§6.2); there is no fixed count of partitions per tenant. With farm identity (§3.5) the instance also holds the three **farm partitions**, under the per-issuer names [0015](../decisions/0015-record-format-and-partition-registry.md) §5 already reserves: `actors/{farm}` (`logged`, `full`, internal), `accounts/{farm}` (`logged`, `full`, private) and `log/{farm}` (`logged`, `full`, internal). Their graph IRIs are under `{farm base}/instance/graph/` ([0046](../decisions/0046-primary-tenant.md) §7).
 
-The graph registry is keyed by (tenant, name), with the instance's own partitions under a null tenant; in the `view` tables the instance is the empty string ([03](03-storage-caches-and-search.md) §4.1). The names of [0015](../decisions/0015-record-format-and-partition-registry.md) §5 are unchanged; what a name denotes now depends on the tenant. Checkpoint origin lines ([0006](../decisions/0006-log-integrity-and-erasure.md) §6) use the tenant's host, so Librarybase's local log signs as `librarybase.org/log/local`; an instance partition's is `{farm host}/instance/log/{name}`, so that the instance `config` and `log` cannot be confused with a tenant's when the farm base is a tenant's base ([0046](../decisions/0046-primary-tenant.md) §7).
+The graph registry is keyed by (tenant, name), with the instance's own partitions under a null tenant; in the `view` tables the instance is the empty string ([03](03-storage-caches-and-search.md) §4.1). The names of [0015](../decisions/0015-record-format-and-partition-registry.md) §5 are unchanged; what a name denotes now depends on the tenant. Checkpoint origin lines ([0006](../decisions/0006-log-integrity-and-erasure.md) §6) use the tenant's host as it was when the partition was created or the tenant arrived on the instance, and an `alias` (§6.1) does not change them, so Librarybase's local log signs as `librarybase.org/log/local` ([0081](../decisions/0081-recovery-keys-and-continuations.md) §5); an instance partition's is `{farm host}/instance/log/{name}`, so that the instance `config` and `log` cannot be confused with a tenant's when the farm base is a tenant's base ([0046](../decisions/0046-primary-tenant.md) §7).
 
 **The instance's own `log` and files.** The instance has its own `log` partition (internal) for operator records such as file takedowns, and `files/{repo}` mirror partitions for file repositories. File bytes live outside the log in a blob store whose **scope** is one per tenant by default (`files.separation = tenant`) or one for the instance ([0039](../decisions/0039-files-and-media.md) §4, §10, in [12](12-files-and-media.md); the blob store is in [03](03-storage-caches-and-search.md) §8).
 
@@ -67,9 +71,9 @@ The revision, log and page IDs of [0015](../decisions/0015-record-format-and-par
 
 ### 2.4 The tenant's `config` partition carries a key chain
 
-*Sources: [0018](../decisions/0018-tenants.md) §2, §3.*
+*Sources: [0018](../decisions/0018-tenants.md) §2, §3; [0079](../decisions/0079-derived-issuer-codes.md) §1.*
 
-The instance key is registered in the instance `config` partition (§2.2), which does not travel with a tenant. So every `key:` record of the instance, at registration and at every rotation, is also appended to each tenant's `config` as a `key:` record. A tenant's partitions then verify from the tenant's bundle alone. A tenant's `config` partition begins, as the instance's does, with a `key:` record: the current instance key, copied in as the first entry of its key chain. These copies are written instance acts, carrying the instance attestation with the instance `config` record as authority (§8.6).
+The instance key is registered in the instance `config` partition (§2.2), which does not travel with a tenant. So every `key:` record of the instance, at registration and at every rotation, is also appended to each tenant's `config` as a `key:` record. A tenant's partitions then verify from the tenant's bundle alone. A tenant's `config` partition begins, as the instance's does, with a `key:` record: the current instance key, copied in as the first entry of its key chain. These copies are written instance acts, carrying the instance attestation with the instance `config` record as authority (§8.6). The first of them, at offset 0, is the tenant's **founding record**: its leaf names the tenant, since the tenant's issuer code is derived from it (§1.2).
 
 ### 2.5 Configuration by scope
 
@@ -94,9 +98,11 @@ A tenant's configuration records project to `view.registry`; the tenant's `read`
 
 ### 3.1 Each tenant is an issuer
 
-*Sources: [0018](../decisions/0018-tenants.md) §4.*
+*Sources: [0018](../decisions/0018-tenants.md) §4; [0079](../decisions/0079-derived-issuer-codes.md) §1.*
 
-Its issuer code is its slug, its actor model is numeric, and its actor IRI template is `{tenant base}/user/{id}`. An edit on Librarybase is attested by `librarybase:42`; the same person editing example.wiki is `example:17`, a different actor. `local` in the earlier ADRs is read as "the current tenant's issuer" and is no longer an issuer code of its own.
+Its issuer code is the code derived from its founding record (§1.2), its actor model is numeric, and its actor IRI template is `{tenant base}/user/{id}`. An edit on Librarybase is attested by `librarybase:42`; the same person editing example.wiki is `example:17`, a different actor. `local` in the earlier ADRs is read as "the current tenant's issuer" and is no longer an issuer code of its own.
+
+**Examples write the slug.** A 26-character code is hard to read in prose, so this and the other chapters write a tenant's actor keys with its slug: `librarybase:42` stands for `{Librarybase's issuer code}:42`, as the user part is already an opaque number. The `{tenant}` issuer template of `issuers.toml` is instantiated with the code.
 
 ### 3.2 Authentication is uncoupled from identity
 
@@ -120,9 +126,9 @@ Every record in a tenant's partitions is attested **either by one of the tenant'
 
 ### 3.5 The farm as an issuer
 
-*Sources: [0028](../decisions/0028-tenancy-policy.md) §2.*
+*Sources: [0028](../decisions/0028-tenancy-policy.md) §2; [0079](../decisions/0079-derived-issuer-codes.md) §4.*
 
-With `identity.farm_issuer` other than `none` (§5.1), the instance registers an issuer whose code is the **farm slug** (§1.2); actor model `numeric`, `login = true`. Its accounts are **farm accounts**: actors `{farm}:{id}` with names, kinds and statuses like any account ([0007](../decisions/0007-actor-identity.md) §4), held in the three instance partitions `actors/{farm}`, `accounts/{farm}` and `log/{farm}` (§2.1). Farm account IRIs are `{farm base}/instance/user/{id}` ([0046](../decisions/0046-primary-tenant.md) §7). A farm account authenticates through bindings to identity providers exactly as a tenant account does ([0007](../decisions/0007-actor-identity.md) §3); the farm has no passwords of its own. **A farm account edits nothing.** It is a person's identity across the farm, not an actor on any tenant's data, and the rule of §3.4 stands: every record on a tenant is attested by that tenant's actor, and instance-level records by the primary tenant's.
+With `identity.farm_issuer` other than `none` (§5.1), the instance registers an issuer whose code is the **farm code** (§1.2); actor model `numeric`, `login = true`. Its accounts are **farm accounts**: actors `{farm}:{id}` with names, kinds and statuses like any account ([0007](../decisions/0007-actor-identity.md) §4), held in the three instance partitions `actors/{farm}`, `accounts/{farm}` and `log/{farm}` (§2.1). Farm account IRIs are `{farm base}/instance/user/{id}` ([0046](../decisions/0046-primary-tenant.md) §7). A farm account authenticates through bindings to identity providers exactly as a tenant account does ([0007](../decisions/0007-actor-identity.md) §3); the farm has no passwords of its own. **A farm account edits nothing.** It is a person's identity across the farm, not an actor on any tenant's data, and the rule of §3.4 stands: every record on a tenant is attested by that tenant's actor, and instance-level records by the primary tenant's.
 
 What this preserves: `librarybase:42` is still the actor of every edit made on Librarybase, on every instance that ever holds it (§3.3). What it adds: `librarybase:42` and `example:17` are publicly the accounts of `{farm}:123`, so a farm can act on the person rather than on each account.
 
@@ -144,43 +150,45 @@ Renaming a farm account renames every linked tenant account in one batch of acto
 
 ## 4. A tenant as a provider; reading across tenants
 
-*Sources: [0018](../decisions/0018-tenants.md) §5; [0028](../decisions/0028-tenancy-policy.md) §5.*
+*Sources: [0018](../decisions/0018-tenants.md) §5; [0028](../decisions/0028-tenancy-policy.md) §5; [0080](../decisions/0080-tenants-as-entity-sources.md) §2, §3, §5.*
 
 ### 4.1 A tenant's local graph is, to every other tenant, a foreign source graph
 
-*Sources: [0018](../decisions/0018-tenants.md) §5.*
+*Sources: [0018](../decisions/0018-tenants.md) §5; [0080](../decisions/0080-tenants-as-entity-sources.md) §2, §3.*
 
-A tenant becomes a provider by taking a code, a slug and a provider number in `providers.toml` ([0015](../decisions/0015-record-format-and-partition-registry.md) §5), as Librarybase has `LB`, `librarybase` and 2. Nothing else is needed on the instance that hosts it: there is no sync job and no mirror partition, because the tenant's `local` partition is the source.
+**A tenant is read by another tenant as an entity source** ([0080](../decisions/0080-tenants-as-entity-sources.md) §1–2; [0078](../decisions/0078-entity-sources.md), in [05](05-providers-and-ingest.md) §6). The reader declares an `entity-source` record whose `tenant` field is the provider's issuer code (§1.2), and names it, `lb` say. Nothing is needed on the provider's side, and no registry entry: any public tenant can be read. On the same instance there is no sync job and no partition, because the provider's `local` partition is the source.
 
-- **IDs are rewritten when read, not when written.** Librarybase stores `Q6`; example.wiki's projections read Librarybase's partition and rewrite `Q6` to `LBQ6`, `P12` to `LBP12`, exactly as an adapter rewrites `Q42` to `WDQ42` at ingest ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §4). References to global entities, `WDQ42` or `domain:x`, pass through unchanged.
+**A registry code is promotion.** A tenant that many tenants read may be given a code, a slug and a provider number in `providers.toml` ([0015](../decisions/0015-record-format-and-partition-registry.md) §5) by a commit, as Librarybase has `LB`, `librarybase` and 2. Its entry's `issuer` is the tenant's issuer code, which binds the code to the tenant wherever it is hosted, and its IDs, `LBQ6`, then mean one thing on every instance ([0080](../decisions/0080-tenants-as-entity-sources.md) §3). The rules below hold for both, with the reader's source name where there is no code.
+
+- **IDs are rewritten when read, not when written.** Librarybase stores `Q6`; example.wiki's projections read Librarybase's partition and rewrite `Q6` to `lb:Q6` (or `LBQ6` for a promoted provider), `P12` to `lb:P12`, exactly as an adapter rewrites `Q42` to `WDQ42` at ingest ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §4). Revision and page IDs are ranged by the reader's number for the source, or the provider number. References to global entities, `WDQ42` or `domain:x`, pass through unchanged.
 - **References to the provider's entity sources are rewritten by IRI** ([0078](../decisions/0078-entity-sources.md) §8). Librarybase's `mhc:Q1` becomes a registry provider's ID where the IRI is a provider's, or the reader's own source ID where the reader declares a source with the same IRI templates; otherwise every statement that uses it is withheld from the reader and counted on its `Special:Providers`. An unpublished source's references never cross.
 - **`https://example.wiki/entity/LBQ6` is an alias** of `https://librarybase.org/entity/Q6`, which is canonical, as [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §4 already says for foreign entities.
 - **Reconciliation is unchanged.** A Librarybase assertion about `WDQ42` is, on example.wiki, a foreign assertion with an `LB` source chip ([0003](../decisions/0003-statement-ui.md) §6), and example.wiki's local graph wins over it ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §3). Librarybase's `same-as` and `convert` records are tier-1 links for Librarybase and tier-2 links for everyone else ([04](04-entities-and-identifiers.md) §4.3), ranked where the reading tenant's provider order puts `LB`.
-- **Opt-in.** A tenant reads a provider's graph only if the provider is in its `providers` list (§2.5). A tenant that has not opted into Librarybase never sees `LBQ6`. Which tenants may become providers, and whether a provider may restrict its readers, are the tenancy switches of §4.2.
-- **A tenant without a code cannot be referenced.** Its IDs have no absolute form.
-- **Leaving the instance changes nothing for referrers.** When a provider tenant moves away (§6), the instance registers a real sync job against its new home (§4.4), and `LBQ6` means what it always meant; a deleted tenant is one that moved away with no destination (§6.6). The same code serves off-instance readers on other instances from the start, since the registry is global.
+- **Opt-in.** A tenant reads a provider's graph only if it declares it as a source, or, for a promoted provider, lists it in its `providers` list (§2.5). A tenant that has not opted into Librarybase never sees it. Which tenants may name which, and whether a provider may restrict its readers, are the tenancy switches of §4.2.
+- **Every public tenant can be referenced.** Its entities' IRIs are their global names; a tenant that reads it names them by its source name or the registry code ([0080](../decisions/0080-tenants-as-entity-sources.md) §7).
+- **Leaving the instance changes nothing for referrers.** When a provider tenant moves away (§6), readers on the old instance switch from reading it directly to the Triplespace adapter (§4.4), and `lb:Q6` and `LBQ6` mean what they always meant; a deleted tenant is one that moved away with no destination (§6.6). A source names the provider by issuer code, and a registry code by its entry's `issuer`, so neither depends on where the provider is hosted.
 
 A provider tenant's entities appear in a reading tenant's update stream under the reading tenant's rewriting (§10.5).
 
 ### 4.2 Who may read whom; reader lists
 
-*Sources: [0028](../decisions/0028-tenancy-policy.md) §5; [0018](../decisions/0018-tenants.md) §5.*
+*Sources: [0028](../decisions/0028-tenancy-policy.md) §5; [0018](../decisions/0018-tenants.md) §5; [0080](../decisions/0080-tenants-as-entity-sources.md) §5.*
 
-**Who may read whom.** With `providers.between_tenants = operator`, only the farm operator can make a tenant a provider, by allocating it a code ([0015](../decisions/0015-record-format-and-partition-registry.md) §5) and writing its `tenant` record; the hosting case, where tenants have no business reading each other unless the operator says so. With `opt-in`, a tenant that has a code is readable by any tenant that lists it in `providers`, which is what §4.1 describes.
+**Who may read whom.** `providers.between_tenants` governs entity sources that name a tenant of the same instance ([0080](../decisions/0080-tenants-as-entity-sources.md) §5). With `operator`, only the farm operator can write such a source, or set `files.share` and `pages.share`; the hosting case, where tenants have no business reading each other unless the operator says so. With `opt-in`, any tenant may name any public tenant of the instance, which is what §4.1 describes. A source naming a tenant on another instance is an ordinary entity source, which no tenancy switch governs.
 
-**Reader lists.** With `providers.reader_lists = on`, a provider tenant may restrict who reads it with a `config` record of kind `provider-readers` in its own `config`: `mode` (`allow` or `deny`) and a list of tenant slugs, in the shape of [0026](../decisions/0026-sitelinks.md) §3's sitelink lists. A tenant not admitted sees the provider as if it had no code. It is a list, not a new ACL kind, evaluated where the reading tenant's projections open the provider's partition. Reading is anonymous: a reading tenant is the `universe` principal of the provider and sees its public form, so a provider may keep confidential entities, which are simply not part of what it provides, and a private tenant provides nothing ([0056](../decisions/0056-security-model.md) §6, in [09](09-security-and-moderation.md)). Reader lists decide which tenants may read; visibility decides what they read.
+**Reader lists.** With `providers.reader_lists = on`, a provider tenant may restrict who reads it with a `config` record of kind `provider-readers` in its own `config`: `mode` (`allow` or `deny`) and a list of tenants by **issuer code**, never by slug, since the record travels with the provider and a slug may name another tenant after a move (§1.2), in the shape of [0026](../decisions/0026-sitelinks.md) §3's sitelink lists. A tenant not admitted sees the provider as if it had no code. It is a list, not a new ACL kind, evaluated where the reading tenant's projections open the provider's partition. Reading is anonymous: a reading tenant is the `universe` principal of the provider and sees its public form, so a provider may keep confidential entities, which are simply not part of what it provides, and a private tenant provides nothing ([0056](../decisions/0056-security-model.md) §6, in [09](09-security-and-moderation.md)). Reader lists decide which tenants may read; visibility decides what they read.
 
 ### 4.3 Private tenants
 
-*Sources: [0018](../decisions/0018-tenants.md) §5.*
+*Sources: [0018](../decisions/0018-tenants.md) §5; [0080](../decisions/0080-tenants-as-entity-sources.md) §5.*
 
-A **private tenant**, one whose `tenant` ACL restricts `read` ([0056](../decisions/0056-security-model.md) §3, in [09](09-security-and-moderation.md)), cannot take a code: its partitions are exported as `private` for every purpose but the operator's own backups and a move (§6.2), and nothing of it is read by another tenant. It has no graphs in any query store (§9.1). Whether a tenant may be private at all is the `security.restrictions` switch (§5.2).
+A **private tenant**, one whose `tenant` ACL restricts `read` ([0056](../decisions/0056-security-model.md) §3, in [09](09-security-and-moderation.md)), cannot take a code or be read as a source (a source naming one is refused with `ts-source-private`): its partitions are exported as `private` for every purpose but the operator's own backups and a move (§6.2), and nothing of it is read by another tenant. It has no graphs in any query store (§9.1). Whether a tenant may be private at all is the `security.restrictions` switch (§5.2).
 
 ### 4.4 Across instances: the Triplespace adapter
 
-*Sources: [0028](../decisions/0028-tenancy-policy.md) §5.*
+*Sources: [0028](../decisions/0028-tenancy-policy.md) §5; [0080](../decisions/0080-tenants-as-entity-sources.md) §2.*
 
-A provider tenant on another instance, or one that has moved away (§6), is read by a **Triplespace adapter**, `scatter-adapter-triplespace`, in the ingest layer ([0005](../decisions/0005-crate-organization.md) §2, in [22](22-crates-and-stack.md)). It bootstraps from the provider's local-graph source dump ([0022](../decisions/0022-federation.md) §1) and then follows the provider's activity stream ([0020](../decisions/0020-change-feeds.md) §4), filtered to `source = local`, with `Last-Event-ID` as its version cursor, rewriting references to the reader's own entities back to bare IDs and verifying each batch against the provider's checkpoint and key chain unless the provider is registered `trust = stream` ([0022](../decisions/0022-federation.md) §2), writing `put`, `redirect` and `tombstone` records into a `mirror/{provider}` partition as any adapter does. Same-instance reading is direct (§4.1), cross-instance reading is a sync over the stream, and a tenant that leaves the instance is switched from the first to the second with no change in what its readers see.
+A provider tenant on another instance, or one that has moved away (§6), is read by a **Triplespace adapter**, `scatter-adapter-triplespace`, in the ingest layer ([0005](../decisions/0005-crate-organization.md) §2, in [22](22-crates-and-stack.md)). It bootstraps from the provider's local-graph source dump ([0022](../decisions/0022-federation.md) §1) and then follows the provider's activity stream ([0020](../decisions/0020-change-feeds.md) §4), filtered to `source = local`, with `Last-Event-ID` as its version cursor, rewriting references to the reader's own entities back to bare IDs and verifying each batch against the provider's checkpoint and key chain unless the provider is registered `trust = stream` ([0022](../decisions/0022-federation.md) §2), writing `put`, `redirect` and `tombstone` records into the reader's `source/{name}` partition for a tenant source, or a `mirror/{provider}` partition for a promoted provider, as any adapter does. For a tenant source it first checks that the founding record at offset 0 of the provider's key chain derives the source's `tenant` code (§1.2), which binds the code to the chain it verifies against. Same-instance reading is direct (§4.1), cross-instance reading is a sync over the stream, and a tenant that leaves the instance is switched from the first to the second with no change in what its readers see.
 
 ## 5. The tenancy policy and its presets
 
@@ -246,7 +254,7 @@ File takedowns and expunges are a second operator rule every preset has, beside 
 
 ### 6.1 Aliases
 
-*Sources: [0018](../decisions/0018-tenants.md) §9.*
+*Sources: [0018](../decisions/0018-tenants.md) §9; [0079](../decisions/0079-derived-issuer-codes.md) §3.*
 
 When a tenant, provider or issuer changes its base URI, the change is an `alias` record in the instance `config`, keyed by the old host and carrying the new base and the date. Its effects:
 
@@ -254,7 +262,7 @@ When a tenant, provider or issuer changes its base URI, the change is an `alias`
 - The metadata graph carries one triple per alias, `<{old base}/> dcterms:isReplacedBy <{new base}/>`, using the term [0001](../decisions/0001-revision-metadata-rdf.md) §6 reserved. Consumers holding old dumps rewrite prefixes; nothing is emitted per actor or per entity.
 - The old host serves redirects for as long as anyone controls it.
 
-So `domains.wikibase.cloud` becoming `internetdomains.wiki` is one record and one triple, and every `internetdomains:…` actor key and every entity IRI ever emitted stays resolvable.
+So `domains.wikibase.cloud` becoming `internetdomains.wiki` is one record and one triple, every entity IRI ever emitted stays resolvable, and no actor key changes, since actor keys carry the issuer code, not the host or the slug.
 
 ### 6.2 Moving a tenant: what moves
 
@@ -271,11 +279,11 @@ Prerogatives of the old instance stop binding once the tenant is registered else
 
 ### 6.3 Procedure
 
-*Sources: [0018](../decisions/0018-tenants.md) §10.*
+*Sources: [0018](../decisions/0018-tenants.md) §10; [0079](../decisions/0079-derived-issuer-codes.md) §3, §5; [0080](../decisions/0080-tenants-as-entity-sources.md) §2; [0081](../decisions/0081-recovery-keys-and-continuations.md) §3.*
 
-**Cooperatively.** The old instance freezes the tenant read-only and writes a final checkpoint. The new instance supplies its public key, and the old instance appends a `key:` rotation record to the tenant's key chain naming the new key and the final checkpoint, signed by the old key as [0006](../decisions/0006-log-integrity-and-erasure.md) §6 rotation is. The new instance runs `verify` on the bundle, registers the six partitions under their existing IDs, replays projections and rebuilds search, re-appends the retention extract as a job with `pav:retrievedFrom` naming the old instance, and maps the tenant's `providers` list onto its own mirrors, which is trivial because slugs come from the same registry. DNS moves, or an alias record is written (§6.1). If the tenant is a provider, the old instance replaces its direct read with a sync job against the new home (§4.4).
+**Cooperatively.** The old instance freezes the tenant read-only and writes a final checkpoint. The new instance supplies its public key, and the old instance appends a `key:` rotation record to the tenant's key chain naming the new key and the final checkpoint, signed by the old key as [0006](../decisions/0006-log-integrity-and-erasure.md) §6 rotation is. The new instance runs `verify` on the bundle, registers the six partitions under their existing IDs, replays projections and rebuilds search, re-appends the retention extract as a job with `pav:retrievedFrom` naming the old instance, and maps the tenant's `providers` list onto its own mirrors, which is trivial because provider slugs come from the same registry. `verify` recomputes the tenant's issuer code from the founding record in the bundle and checks that the actor keys of the tenant's own actors use it (§1.2). The tenant is registered under that code and a slug of the new instance's choosing, its old one if free; nothing in the bundle changes when it is not. DNS moves, or an alias record is written (§6.1). If the tenant is read by other tenants, its readers on the old instance switch from reading it directly to the adapter (§4.4), and readers on the instance it joins switch the other way, freezing their `source/{name}` partitions; what they show does not change ([0080](../decisions/0080-tenants-as-entity-sources.md) §2).
 
-**Non-cooperatively**, the bundle comes from backups, the rotation record carries no signature from the old key, verifiers are told the chain has an unsigned link, and reclaiming is manual.
+**Non-cooperatively**, when the old instance has gone or refuses, the bundle comes from backups or from the old instance's public exports, and the new instance appends a **continuation** instead of a rotation (§6.8): `recovered` if the tenant's recovery keys sign it, `unauthorized` if not. Reclaiming is manual.
 
 **The primary tenant cannot leave.** It cannot be frozen for a move, moved or deleted until the primary role has been transferred to another tenant (`ts-primary-tenant`, §7.6).
 
@@ -304,6 +312,25 @@ Deleting a tenant is the same as moving one away without a destination: its part
 *Sources: [0018](../decisions/0018-tenants.md) §10.*
 
 Rehosting an instance whole is a Postgres restore plus the rejects files and the `private` schema. No ID, key or attestation changes, and a change of farm base is an alias (§6.1). On a single-tenant instance, moving the only tenant is rehosting the instance, and deleting it is decommissioning the instance (§7.6).
+
+### 6.8 Recovery keys and continuations
+
+*Sources: [0081](../decisions/0081-recovery-keys-and-continuations.md) §1, §3, §4.*
+
+**A tenant's community may hold recovery keys, which no host ever sees.** A `config` record of kind `recovery-key` in the tenant's `config` holds one or more Ed25519 public keys, a `threshold` `k` (default 1) and a `delay` (default 72 hours, at least 24), with the **recovery signatures** that authorize it ([01](01-log-and-records.md) §3.3, tag `0x07`). Registering the first set is an act of `owner` and carries a signature by every listed key. Replacing the set, including its threshold or delay, carries signatures by `k` keys of the current set and by every new key. Removing it carries `k` signatures of the current set. A record without them is refused with `ts-recovery-signature`, and `verify` ignores one. A host can append records under any account but cannot forge these, so once a set is registered no host can change it. Keys are generated off the instance by `triplespace-cli recovery-key generate`.
+
+**A move the old instance does not sign is a continuation.** The new instance B appends a `config` record of kind `continuation`, code `continuation:{n}`, holding:
+
+- `from`: for each partition, the old instance A's last signed checkpoint, verbatim with any witness cosignatures;
+- `tail`: for each partition, the offset range after that checkpoint, which only B attests;
+- `key`: B's instance key, now the current key of the tenant's chain;
+- `origin_host`: B's host for the new origin lines (§2.1);
+- `mode`: `recovered` if its recovery signatures meet the threshold of the set in force at `from`, otherwise `unauthorized`;
+- `signatures`: any recovery signatures.
+
+B's instance attestation signs it ([0040](../decisions/0040-instance-prerogatives.md) §3), with B's import job as authority. That one signature per partition, over A's own roots, is the batch re-signing; no record is re-signed and A's checkpoint signatures stay verifiable. The tail verifies structurally against A's tree but is attested by B alone. B must continue from the latest A checkpoint it can obtain, from the bundle, from A's still-served checkpoints or from a witness. Continuing from an older one is a fork, which `verify` and readers report as such. `triplespace-cli tenant import --continue` writes the draft, which names B's key and host. Holders sign it on their own machines with `triplespace-cli recovery sign`, and the import appends it once the threshold is met. A cooperative move may also carry recovery signatures but does not need them.
+
+**A recovered continuation waits.** B serves the tenant at once. But readers on other instances act on a `recovered` continuation only after the set's `delay` has passed since its first witnessed checkpoint, or since its own time if the tenant has no witnesses ([01](01-log-and-records.md) §4.3). Within the delay, a `continuation-cancel:{n}` record signed by `k` keys of the authorizing set voids it, whichever instance appends it. The old host's key can neither cancel nor contest it: leaving a host without its consent is what recovery keys are for.
 
 ## 7. The primary tenant
 
@@ -356,7 +383,7 @@ Every record in an instance partition is attested by an upstream actor (for what
 
 ### 7.5 Transferring the role
 
-*Sources: [0046](../decisions/0046-primary-tenant.md) §5.*
+*Sources: [0046](../decisions/0046-primary-tenant.md) §5; [0079](../decisions/0079-derived-issuer-codes.md) §4.*
 
 **By offer and acceptance.** A member of `owner` on the primary tenant offers the role to another tenant on the instance with `ts-primary`: a `primary/offer` record in the instance `log` naming the tenant, with an expiry (default seven days). A member of `owner` **on the offered tenant** accepts by appending the new `primary` record, citing the offer. Acceptance is the receiving tenant's consent to its groups becoming the instance's (§7.1), and is the one write to an instance partition that an actor of a non-primary tenant may attest; it is refused without an open offer naming that tenant. The offerer may withdraw an open offer (`primary/withdraw`). The new `primary` record projects as `primary/transfer` in the instance `log`.
 
@@ -365,7 +392,7 @@ Every record in an instance partition is attested by an upstream actor (for what
 - Instance rights are evaluated on the new primary tenant. `owner` on the former primary is that wiki's owner and nothing more.
 - Authority records and instance acts made before stay valid (§7.1); nothing is re-attested.
 - Instance jobs already running finish under the subsidiaries that started them; new ones need subsidiaries of the new primary's accounts. `triplespace-cli primary accept` creates them beside the accepting account, as `instance create` does ([0024](../decisions/0024-subsidiary-accounts.md) §1), and the former primary's sync subsidiaries are left for that tenant's bureaucrats to retire.
-- The operator actor keeps its key `instance:{farm slug}` and its IRI. Its display name follows the new primary's site name unless the instance has set its own name.
+- The operator actor keeps its key `instance:{farm code}` and its IRI. Its display name follows the new primary's site name unless the instance has set its own name.
 - Farm accounts, global groups and global blocks are untouched; they never belonged to the primary tenant.
 
 A transfer is not an instance act on either tenant: it writes nothing into either tenant's partitions.
@@ -395,9 +422,9 @@ An instance act is a **prerogative** when it is **binding**: the tenant cannot r
 
 ### 8.2 The instance as an actor
 
-*Sources: [0040](../decisions/0040-instance-prerogatives.md) §2.*
+*Sources: [0040](../decisions/0040-instance-prerogatives.md) §2; [0079](../decisions/0079-derived-issuer-codes.md) §4.*
 
-The instance is an actor of a reserved issuer, **`instance`**, with actor model `provider-only` ([0007](../decisions/0007-actor-identity.md) §1, §6): changes are attributed to the instance as a whole, as OpenAlex's are to OpenAlex. Its actor key is `instance:{farm slug}` (§1.2); its IRI is `{farm base}/instance/operator` ([0046](../decisions/0046-primary-tenant.md) §7); and its display name is the message "{instance name} operator" (by default the site name of the primary tenant).
+The instance is an actor of a reserved issuer, **`instance`**, with actor model `provider-only` ([0007](../decisions/0007-actor-identity.md) §1, §6): changes are attributed to the instance as a whole, as OpenAlex's are to OpenAlex. Its actor key is `instance:{farm code}` (§1.2); its IRI is `{farm base}/instance/operator` ([0046](../decisions/0046-primary-tenant.md) §7); and its display name is the message "{instance name} operator" (by default the site name of the primary tenant).
 
 **The person who acted is not the actor.** Every instance act has an **authority record** (§8.4) attested by the operator who carried it out, an actor of the primary tenant. That attestation is visible only to `ts-viewoperator` ([0040](../decisions/0040-instance-prerogatives.md) §9, in [09](09-security-and-moderation.md)). A guest's history, logs, RDF, feeds and notifications show the instance operator, as Wikimedia shows office actions under a role account. The reason is the one James gave: these are exceptional acts outside editorial scope, and the people who carry them out, often in response to legal notices, should not become the target of the guest community's disagreement with them.
 
@@ -405,13 +432,13 @@ The instance is an actor of a reserved issuer, **`instance`**, with actor model 
 
 ### 8.3 The instance attestation
 
-*Sources: [0040](../decisions/0040-instance-prerogatives.md) §3.*
+*Sources: [0040](../decisions/0040-instance-prerogatives.md) §3; [0079](../decisions/0079-derived-issuer-codes.md) §4.*
 
 A written instance act carries, in the attestation part of the record appended to the guest ([01](01-log-and-records.md) §2.4), an **instance attestation**:
 
 | Field | Holds |
 |---|---|
-| `actor` | `instance:{farm slug}` |
+| `actor` | `instance:{farm code}` |
 | `authority` | The authority record's partition, offset and leaf hash ([0006](../decisions/0006-log-integrity-and-erasure.md) §5) |
 | `job` | The job that wrote it, where one did (§8.4) |
 | `binding` | `true` for a prerogative, `false` for a provision |

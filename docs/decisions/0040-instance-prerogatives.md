@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-09 (A4)
+- **Updated:** 2026-10-09 (A5)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [0039](0039-files-and-media.md)
 - **Uses:** [0023](0023-moderation.md), [0025](0025-oauth-server.md), [0026](0026-sitelinks.md), [0046](0046-primary-tenant.md)
@@ -35,11 +35,13 @@ James's direction, from the design discussion of 2026-09-30: an instance preroga
 
 ### 2. The instance as an actor (extends 0007 §1 and §2)
 
-*Changed by A2.*
+*Changed by A2, A5.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §1.2, §8.2.*
 
 ### 3. The instance attestation (extends 0015 §1; extends 0006 §2)
+
+*Changed by A5.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §8.3.*
 
@@ -58,6 +60,8 @@ James's direction, from the design discussion of 2026-09-30: an instance preroga
 *Current text: [08](../architecture/08-tenants-and-instances.md) §8.6.*
 
 ### 7. Display, logs and RDF (extends 0010 §5 and 0011 §6.1)
+
+*Changed by A5.*
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §5.1; [16](../architecture/16-logs-feeds-and-notifications.md) §2.1, §2.3, §5.2; [19](../architecture/19-site-ui.md) §2.5, §3.4, §6.11.*
 
@@ -178,3 +182,26 @@ Replaced text (§9):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§11
 - **Summary:** The Decision's current text now lives in the architecture chapters [02](../architecture/02-graphs-rdf-and-query.md), [08](../architecture/08-tenants-and-instances.md), [09](../architecture/09-security-and-moderation.md), [16](../architecture/16-logs-feeds-and-notifications.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A5. The operator's key carries the farm code
+
+- **Date:** 2026-10-09
+- **Source:** [0079](0079-derived-issuer-codes.md) §4
+- **Change:** amends §2, §3, §7
+- **Summary:** The operator actor's key is `instance:{farm code}`, where the farm code is derived from the instance's founding record ([0079](0079-derived-issuer-codes.md) §4), not the farm slug, which no longer appears in any key. The attestation's `actor` field, log projections and contributions use that key.
+
+Replaced text (§2, in [08](../architecture/08-tenants-and-instances.md) §8.2):
+
+> Its actor key is `instance:{farm slug}` (§1.2);
+
+Replaced text (§3, in [08](../architecture/08-tenants-and-instances.md) §8.3):
+
+> | `actor` | `instance:{farm slug}` |
+
+Replaced text (§7, in [16](../architecture/16-logs-feeds-and-notifications.md) §2.1 and [19](../architecture/19-site-ui.md) §2.5, §6.11):
+
+> names the operator actor `instance:{farm slug}` as performer … Contributions of `instance:{farm slug}` at a tenant …
+>
+> - **Contributions of `instance:{farm slug}`** at a tenant …
+>
+> … and the contributions of `instance:{farm slug}` (§2.5; …

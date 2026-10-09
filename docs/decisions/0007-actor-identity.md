@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-10-09 (A20)
+- **Updated:** 2026-10-09 (A21)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md)
@@ -37,7 +37,7 @@ Four constraints follow from how MediaWiki treats accounts:
 
 ### 1. An actor is an issuer and a subject
 
-*Changed by A2, A3, A11, A13, A14.*
+*Changed by A2, A3, A11, A13, A14, A21.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §1.1.*
 
@@ -49,7 +49,7 @@ Four constraints follow from how MediaWiki treats accounts:
 
 ### 3. Local users and delegated authentication
 
-*Changed by A2, A3, A8, A11, A12, A16, A19.*
+*Changed by A2, A3, A8, A11, A12, A16, A19, A21.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.1, §2.2, §2.3, §5.1, §8.3.*
 
@@ -286,3 +286,22 @@ Replaced text (§6):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§10
 - **Summary:** The Decision's current text now lives in the architecture chapters [02](../architecture/02-graphs-rdf-and-query.md), [07](../architecture/07-actors-and-accounts.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A21. Tenant and farm issuer codes are derived
+
+- **Date:** 2026-10-09
+- **Source:** [0079](0079-derived-issuer-codes.md) §1, §2, §6
+- **Change:** amends §1, §3
+- **Summary:** A tenant's issuer code is derived from its founding record, and the farm's is the farm code ([0079](0079-derived-issuer-codes.md) §1–2, §4): 26 characters of base32 that no registry allocates. A registered issuer code is at most 25 characters, so it can never equal a derived one (§1). The operator's key is `instance:{farm code}` (§1). Adopted accounts are written under the tenant's issuer code (§3).
+
+Replaced text (§1, in [07](../architecture/07-actors-and-accounts.md) §1.1):
+
+> | Each tenant | Its slug, such as `librarybase`; `local` names the current tenant's ([0018](0018-tenants.md) §4) | Numeric | The tenant's users (§2) |
+> …
+> | The farm, where the tenancy policy gives it identity | The farm slug | Numeric | Farm accounts, which edit nothing ([0028](0028-tenancy-policy.md) §2) |
+>
+> **The `instance` issuer** has one actor, the operator: actor key `instance:{farm slug}`, …
+
+Replaced text (§3, in [07](../architecture/07-actors-and-accounts.md) §2.1):
+
+> …the source's accounts are written as `{slug}:{id}` actor records under their own numbers, …

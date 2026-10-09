@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-09 (A45)
+- **Updated:** 2026-10-09 (A47)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md)
 - **Uses:** [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md)
@@ -24,7 +24,7 @@ Two smaller gaps are closed with them: the document node of a foreign entity on 
 
 ### 1. The body is a tree of erasable parts (amends 0006 §3 and §7)
 
-*Changed by A4, A5, A13, A14, A17, A18, A29, A31.*
+*Changed by A4, A5, A13, A14, A17, A18, A29, A31, A46.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §2.3, §2.4, §5.1, §5.3, §8.*
 
@@ -36,7 +36,7 @@ Two smaller gaps are closed with them: the document node of a foreign entity on 
 
 ### 3. The `config` partition (amends 0005 §4.1; extends 0006 §4 and §6)
 
-*Changed by A3, A4, A5, A6, A8, A9, A10, A11, A12, A13, A16, A19, A20, A21, A23, A24, A26, A27, A28, A30, A31, A32, A33, A34, A35, A36, A37, A39, A40, A41, A42, A44.*
+*Changed by A3, A4, A5, A6, A8, A9, A10, A11, A12, A13, A16, A19, A20, A21, A23, A24, A26, A27, A28, A30, A31, A32, A33, A34, A35, A36, A37, A39, A40, A41, A42, A44, A47.*
 
 *Current text: [23](../architecture/23-configuration-and-registry.md) §1.1, §1.2, §1.3, §1.4, §2.1, §2.2, §2.3, §2.4, §3.1, §3.2, §3.7, §5.2.*
 
@@ -511,3 +511,21 @@ Replaced text (§3):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§7
 - **Summary:** The Decision's current text now lives in the architecture chapters [01](../architecture/01-log-and-records.md), [02](../architecture/02-graphs-rdf-and-query.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A46. The instance attestation names the farm code
+
+- **Date:** 2026-10-09
+- **Source:** [0079](0079-derived-issuer-codes.md) §4
+- **Change:** amends §1
+- **Summary:** The instance attestation's `actor` is `instance:{farm code}`, the farm code being derived from the instance's founding record ([0079](0079-derived-issuer-codes.md) §4).
+
+Replaced text (§1, in [01](../architecture/01-log-and-records.md) §2.4):
+
+> `actor` (`instance:{farm slug}`)
+
+### A47. Chain-of-custody kinds and witness settings
+
+- **Date:** 2026-10-09
+- **Source:** [0081](0081-recovery-keys-and-continuations.md) §1, §9
+- **Change:** extends §3
+- **Summary:** `scatter-log` defines three more config kinds, `recovery-key`, `continuation` and `continuation-cancel`, which carry a tenant's chain of custody. The tenant `site` settings `integrity.witnesses` and `integrity.witness_partitions`, and the instance setting `witness.enabled`, configure witnessing.

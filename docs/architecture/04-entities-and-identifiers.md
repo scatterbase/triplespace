@@ -76,7 +76,7 @@ MusicBrainz `url` entities are not mirrored as items; the adapter turns them int
 
 ### 2.3 Tenant-relative IDs
 
-*Sources: [0044](../decisions/0044-tenant-relative-ids.md) §1; [0044](../decisions/0044-tenant-relative-ids.md) §2; [0017](../decisions/0017-entity-id-grammar.md) §1.*
+*Sources: [0044](../decisions/0044-tenant-relative-ids.md) §1; [0044](../decisions/0044-tenant-relative-ids.md) §2; [0017](../decisions/0017-entity-id-grammar.md) §1; [0080](../decisions/0080-tenants-as-entity-sources.md) §7.*
 
 **A type letter written three times, then the rest of a local ID, names that local entity of the tenant where it is read:**
 
@@ -91,7 +91,7 @@ It has the shape of a foreign ID whose provider code is the type letter doubled.
 
 - **It is never stored.** It is canonicalized to the local form wherever an ID is accepted, before anything is validated, hashed, appended or cached. No record, `view` row, cache key, search document or dump contains it.
 - **It is never the canonical output.** Responses use the local form, `Q5`. The one place the tenant-relative form is written out is Lua under a mapped letter (§5.4), where the bare form already means something else.
-- **It is relative.** `QQQ5` means a different entity on each tenant, as `Q5` does. To name a tenant's entity from elsewhere, use the tenant's provider code ([0018](../decisions/0018-tenants.md) §5, in [08](08-tenants-and-instances.md)).
+- **It is relative.** `QQQ5` means a different entity on each tenant, as `Q5` does. To name a tenant's entity from elsewhere, use its IRI; on a tenant that reads it, use that tenant's name for it, the registry code where there is one (`LBQ6`) and otherwise the tenant's source name (`lb:Q6`) ([0018](../decisions/0018-tenants.md) §5, in [08](08-tenants-and-instances.md); [0080](../decisions/0080-tenants-as-entity-sources.md) §7).
 
 Input is case-insensitive, as every ID is (§2.2): `qqq5` is `Q5`. **The rest of the ID follows the local type's grammar**, which for every local type is `digits`. `QQQb10bbbfc-…` is not an ID.
 

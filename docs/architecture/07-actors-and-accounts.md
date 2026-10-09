@@ -8,7 +8,7 @@ This chapter describes who acts in Triplespace: what an actor is and how it is n
 
 ### 1.1 An actor is an issuer and a subject
 
-*Sources: [0007](../decisions/0007-actor-identity.md) §1.*
+*Sources: [0007](../decisions/0007-actor-identity.md) §1; [0079](../decisions/0079-derived-issuer-codes.md) §1, §2, §4.*
 
 Actors are namespaced by **issuer**, as entities are namespaced by provider ([04](04-entities-and-identifiers.md)). The issuer is the authority that assigns the account. The subject is the ID it assigned.
 
@@ -16,12 +16,12 @@ Actors are namespaced by **issuer**, as entities are namespaced by provider ([04
 
 | Issuer | Code | Actor model | Actors come from |
 |---|---|---|---|
-| Each tenant | Its slug, such as `librarybase`; `local` names the current tenant's ([0018](../decisions/0018-tenants.md) §4) | Numeric | The tenant's users (§2) |
+| Each tenant | Its issuer code, derived from its founding record ([08](08-tenants-and-instances.md) §1.2) and written by its slug in examples, such as `librarybase`; `local` names the current tenant's ([0018](../decisions/0018-tenants.md) §4) | Numeric | The tenant's users (§2) |
 | Wikidata | `wikidatawiki` | Numeric | Wikidata revisions and logs, in the Wikidata mirror |
 | Wikimedia central accounts | `wikimedia-central` | Numeric, never published | Wikimedia OAuth only (§2) |
 | OpenAlex | `openalex` | Provider only | None. Changes are attributed to OpenAlex as a whole (§1.5). |
 | Password on this instance (§2.2) | `password` | Numeric, the tenant's own user IDs | None. A login provider only |
-| The farm, where the tenancy policy gives it identity | The farm slug | Numeric | Farm accounts, which edit nothing ([0028](../decisions/0028-tenancy-policy.md) §2) |
+| The farm, where the tenancy policy gives it identity | The farm code ([08](08-tenants-and-instances.md) §1.2) | Numeric | Farm accounts, which edit nothing ([0028](../decisions/0028-tenancy-policy.md) §2) |
 | The instance as operator | `instance` | Provider only | Instance acts written into a tenant ([0040](../decisions/0040-instance-prerogatives.md) §2) |
 
 Another Wikibase or Miraheze wiki gets an issuer of its own, keyed by its wiki ID.
@@ -35,9 +35,11 @@ Another Wikibase or Miraheze wiki gets an issuer of its own, keyed by its wiki I
 - which providers' adapters attribute actors to it;
 - whether it may serve as an identity provider for local login.
 
+**A registered issuer code is at most 25 characters.** Tenant issuer codes and the farm code are derived, always 26 characters of base32 ([08](08-tenants-and-instances.md) §1.2), so no registered code can equal one, and the registry refuses a longer code at build time.
+
 **For Wikibase issuers, the subject is the numeric user ID.** A name is used only where no ID exists (§1.4).
 
-**The `instance` issuer** has one actor, the operator: actor key `instance:{farm slug}`, IRI `{farm base}/instance/operator` ([0046](../decisions/0046-primary-tenant.md) §7). It is the actor of every instance act written into a tenant; the person who carried the act out is recorded only on the act's authority record ([0040](../decisions/0040-instance-prerogatives.md) §2).
+**The `instance` issuer** has one actor, the operator: actor key `instance:{farm code}`, IRI `{farm base}/instance/operator` ([0046](../decisions/0046-primary-tenant.md) §7). It is the actor of every instance act written into a tenant; the person who carried the act out is recorded only on the act's authority record ([0040](../decisions/0040-instance-prerogatives.md) §2).
 
 **An actor key** is the compact form `{issuer}:{id}`, such as `wikidatawiki:12345` or `local:42`. It is what log headers carry ([01](01-log-and-records.md)). [0006](../decisions/0006-log-integrity-and-erasure.md) §3 requires a header key to be an identifier, never content. An actor key is an identifier and never contains a name.
 
@@ -137,9 +139,9 @@ The metadata graph ([0001](../decisions/0001-revision-metadata-rdf.md) §2) proj
 
 ### 2.1 User IDs and bindings
 
-*Sources: [0007](../decisions/0007-actor-identity.md) §3.*
+*Sources: [0007](../decisions/0007-actor-identity.md) §3; [0079](../decisions/0079-derived-issuer-codes.md) §6.*
 
-**The instance mints its own user IDs.** They are sequential, start at 1 and are never reused. A local user's identity is `local:{id}`, whatever the user logged in with. On a tenant that adopts an existing Wikibase, the sequence starts past the source's highest user ID, and the source's accounts are written as `{slug}:{id}` actor records under their own numbers, without bindings, reclaimable as [0018](../decisions/0018-tenants.md) §10 describes (§2.5).
+**The instance mints its own user IDs.** They are sequential, start at 1 and are never reused. A local user's identity is `local:{id}`, whatever the user logged in with. On a tenant that adopts an existing Wikibase, the sequence starts past the source's highest user ID, and the source's accounts are written as `{code}:{id}` actor records, `{code}` being the tenant's issuer code ([08](08-tenants-and-instances.md) §1.2), under their own numbers, without bindings, reclaimable as [0018](../decisions/0018-tenants.md) §10 describes (§2.5).
 
 **Logging in uses a binding.** A binding maps an identity-provider subject to a local user, for example `(wikimedia-central, 7654321) → local:42`. The rules are:
 
@@ -179,9 +181,9 @@ A person's edits are attributed by session, a program's by credential (§5.4). S
 
 ### 2.5 Adopted accounts
 
-*Sources: [0035](../decisions/0035-adopting-a-wikibase.md) §5.*
+*Sources: [0035](../decisions/0035-adopting-a-wikibase.md) §5; [0079](../decisions/0079-derived-issuer-codes.md) §6, §9.*
 
-**Source accounts become tenant accounts by number.** The tenant is the source's issuer ([0018](../decisions/0018-tenants.md) §4), so the source's user 42 is `{slug}:42`. Adoption writes an actor record (§1.3) for every account in the source's user list: kind `registered`, the current name, status `active`, and no binding. A source account that was vanished is written with status `vanished` and no name; for a source account whose name is hidden, adoption writes the `actor` ACL restricted to `suppress` that sets `hidden` for any local account (§1.3), and no name. Source group memberships become membership records ([0016](../decisions/0016-permissions-and-access-control.md) §3; [09](09-security-and-moderation.md)), with one exception: a source bot account has no structural operator (§4.1), so it is adopted as an ordinary account without the `bot` group, keeps its history, and its operator, once reclaimed, creates a subsidiary in its place.
+**Source accounts become tenant accounts by number.** The tenant is the source's issuer ([0018](../decisions/0018-tenants.md) §4), so the source's user 42 is `{code}:42`, under the tenant's issuer code. Where the registry already knows the source wiki as an issuer (`librarybase` in `issuers.toml`), its entry gains `tenant`, the adopting tenant's issuer code, and `{registered code}:{n}` becomes an input form of `{tenant code}:{n}`: canonicalized wherever an actor key is accepted, never stored or output. A reader that meets `librarybase:42` in a mirror of the source wiki and the tenant's own key reads one account ([0079](../decisions/0079-derived-issuer-codes.md) §9). Adoption writes an actor record (§1.3) for every account in the source's user list: kind `registered`, the current name, status `active`, and no binding. A source account that was vanished is written with status `vanished` and no name; for a source account whose name is hidden, adoption writes the `actor` ACL restricted to `suppress` that sets `hidden` for any local account (§1.3), and no name. Source group memberships become membership records ([0016](../decisions/0016-permissions-and-access-control.md) §3; [09](09-security-and-moderation.md)), with one exception: a source bot account has no structural operator (§4.1), so it is adopted as an ordinary account without the `bot` group, keeps its history, and its operator, once reclaimed, creates a subsidiary in its place.
 
 **Adopted accounts cannot log in until reclaimed.** The source has no binding digest, so reclaiming is the manual path of [0018](../decisions/0018-tenants.md) §10: a bureaucrat records a `reclaim/reclaim` log event, or, while the source wiki is still up, the source vouches by acting as an identity provider for a grace period. An account never reclaimed keeps its name and its history, exactly as after a move.
 

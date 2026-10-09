@@ -8,14 +8,14 @@ This chapter covers pages a tenant serves without holding them: page repositorie
 
 ### 1.1 A page repository
 
-*Sources: [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §1; [0069](../decisions/0069-synchronized-talk-pages.md) §1.*
+*Sources: [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §1; [0069](../decisions/0069-synchronized-talk-pages.md) §1; [0080](../decisions/0080-tenants-as-entity-sources.md) §6.*
 
 **A page repository is a source of pages a tenant serves by title without holding them.** It generalises the template repository of [0042](../decisions/0042-template-expansion-and-parsoid.md) §11 to any `pages` namespace, and it is configured as a file repository is ([0039](../decisions/0039-files-and-media.md) §11, in [12](12-files-and-media.md)): a `config` record of kind **`page-repo`**, keyed `page-repo:{name}`, in a tenant's `config` or in the instance `config`, where a tenant refers to it by name and a tenancy template may supply it ([0028](../decisions/0028-tenancy-policy.md) §8, in [08](08-tenants-and-instances.md)).
 
 | Field | Meaning |
 |---|---|
 | `kind` | `tenant`: another tenant on this instance (§1.8). `mediawiki`: any MediaWiki Action API, a Wikipedia above all, or a Triplespace tenant elsewhere |
-| `provider` | The provider registry entry the repository belongs to ([0015](../decisions/0015-record-format-and-partition-registry.md) §5, `providers.toml`). It supplies the provider **number**, for ranged IDs (§1.6); the **issuer**, for the actors of its revisions ([0007](../decisions/0007-actor-identity.md) §1); and its API endpoint and article path. For a `tenant` repository it is the tenant's own entry ([0018](../decisions/0018-tenants.md) §5). A provider that mints no entities has no `code` and no types; `scatter-providers` accepts such an entry, and English Wikipedia is one |
+| `provider` | The provider registry entry the repository belongs to ([0015](../decisions/0015-record-format-and-partition-registry.md) §5, `providers.toml`). It supplies the provider **number**, for ranged IDs (§1.6); the **issuer**, for the actors of its revisions ([0007](../decisions/0007-actor-identity.md) §1); and its API endpoint and article path. For a `tenant` repository it is the tenant's own entry where it has one ([0018](../decisions/0018-tenants.md) §5), and otherwise the reading tenant's tenant source for it, declared first, which supplies the number, the issuer and the IRIs ([0080](../decisions/0080-tenants-as-entity-sources.md) §6). A provider that mints no entities has no `code` and no types; `scatter-providers` accepts such an entry, and English Wikipedia is one |
 | `namespaces` | The repository's namespaces the tenant serves, by the repository's canonical names, with `main` for namespace 0. Each is served in the local namespace of the same canonical name. The default is `["Template", "Module"]`, which is what a template repository served; MDWiki's English Wikipedia entry is `["main", "Template", "Module", "Category"]` |
 | `mode` | `proxy` (default): pages are fetched and cached (§2.4). `mirror`: pages are kept in an instance partition (§2.5) |
 | `shadowed` | What becomes of this repository's page when a higher-ranked page exists under the same title: `offer` (default), it is offered as an alternate (§1.5); `hide`, it is not shown at all |
