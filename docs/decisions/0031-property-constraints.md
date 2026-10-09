@@ -2,10 +2,11 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-01 (A3)
+- **Updated:** 2026-10-09 (A5)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0003](0003-statement-ui.md), [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0030](0030-edit-filters.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0018](0018-tenants.md), [0020](0020-change-feeds.md), [0029](0029-resolver-namespaces.md), [Wikibase contract](../api/wikibase-compat.md)
+- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [06](../architecture/06-statements-and-properties.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -19,107 +20,45 @@ The instance has two advantages over Wikidata here. It **mirrors** Wikidata's pr
 
 ### 1. A constraint is a statement on a property, read by role (extends 0003 §7)
 
-Constraints are **data**: statements on a property entity whose main property plays the role `constraint`, with the constraint type as the value and the constraint's parameters as qualifiers, exactly Wikidata's `P2302` model. Nothing new is stored to define one; a tenant that mirrors Wikidata has thousands the moment the mirror lands, and a tenant that does not writes them as statements on its own properties.
+*Changed by A4.*
 
-The vocabulary is bound by **roles** ([0003](0003-statement-ui.md) §7), so that a tenant may use Wikidata's items and properties or its own:
-
-| Role | Wikidata | Meaning |
-|---|---|---|
-| `constraint` | P2302 | The property that carries constraints |
-| `constraint-status` | P2316, with Q21502408 mandatory, Q62026391 suggestion | Severity |
-| `constraint-exception` | P2303 | Entities exempt from this constraint |
-| `constraint-scope` | P4680, with main / qualifier / reference values | Which snaks the constraint checks |
-| `constraint-clarification` | P6607 | Text shown with a violation |
-| one role per constraint type | Q21502404 format, Q19474404 single value, Q21502410 distinct values, Q21510865 value type, Q21503250 type, Q21510855 inverse, Q21510862 symmetric, Q21510856 item requires statement, Q21510864 value requires statement, Q21510851 allowed qualifiers, Q21510856 required qualifier, Q21514353 allowed units, Q21510860 range, Q21510859 one of, Q52558054 none of, Q21510854 citation needed, Q52848401 integer, Q51723761 no bounds, Q53869507 property scope, Q64006792 label in language, Q54554025 Commons link, Q55819106 lexeme requires language, and the rest | The constraint type |
-| one role per parameter | P2306 property, P2305 item of property constraint, P2308 class, P2309 relation, P1793 format as a regular expression, P2313 maximum value, P2310 minimum value, P2312 maximum date, P2311 minimum date, P2305 allowed values, P2307 allowed units, P4155 separator, P2304 group by, P2429 expected completeness | The parameter |
-
-A role that a tenant has not bound is a constraint type it cannot check; the checker reports "unrecognised constraint" for it and moves on. **Constraint via SPARQL** (Q21502838) is not supported: nothing on the read path runs SPARQL ([0013](0013-postgres-storage.md) §8), and the type is unsupported in Wikidata's own checker too.
-
-**Constraints on mirrored properties are read from the resolved view**, so a tenant may override or suppress a Wikidata constraint locally ([0002](0002-source-graphs-and-mass-ingest.md) §7) and add its own, and the checker sees the result. The reference to a constraint's source is kept: a violation says whether the constraint came from Wikidata or from here.
+*Current text: [06](../architecture/06-statements-and-properties.md) §2.1.*
 
 ### 2. Checking is a projection over the resolved view (extends 0004 §4, §7)
 
-Violations are **derived facts**, not records. A **constraint projection** runs after resolution ([0013](0013-postgres-storage.md) §7, step 4), checks every statement of a changed entity against the constraints on its properties, and writes the results to `view.constraint_violation` (§5). It is rebuildable, like every projection, and it is never in the log, since a violation is a fact about the current data that the data's next change may remove.
-
-**What it checks against.** The resolved view ([0002](0002-source-graphs-and-mass-ingest.md) §3): fused statements, canonical IDs ([0004](0004-identity-clusters-and-equivalence.md) §4), normalized values ([0004](0004-identity-clusters-and-equivalence.md) §7, [0029](0029-resolver-namespaces.md) §1). So a *distinct values* check on DOIs compares casefolded keys, a *value type* check follows a value to its canonical entity, and a *single value* check counts fused statements, not source-graph duplicates. Mirrored data is checked as local data is: a tenant sees Wikidata's own constraint violations on the items it mirrors, which is also what Wikidata's checker shows.
-
-**Constraint types by what they need:**
-
-| Needs | Types | Read from |
-|---|---|---|
-| The statement alone | format, one of, none of, integer, no bounds, range, allowed units, allowed qualifiers, required qualifier, citation needed, property scope, single value, single best value | The resolved JSON |
-| Other statements of the same entity | item requires statement, label in language, lexeme requires language | The resolved JSON |
-| The value's entity | value type, value requires statement | One entity read |
-| The entity's classes | type (checks `P31`/`P279` chains up to a depth set in `site` configuration) | Entity reads along the chain, cached in L0 ([0014](0014-caches-and-search.md) §2) |
-| Every statement with the same value | distinct values | `view.identifier` for identifier-typed properties; `view.statement_assertion` and a value index otherwise |
-| The value entity's statements back | inverse, symmetric | `view.entity_ref` and one entity read |
-
-**Incremental and batch.** An entity's own statements are re-checked when the entity changes, synchronously for interactive writes so that the editor sees the marker on reload ([0013](0013-postgres-storage.md) §7). Types that depend on *other* entities are re-checked for them too, through the reverse index, in the same way a cluster change re-resolves referrers ([0004](0004-identity-clusters-and-equivalence.md), Consequences): changing an item's `P31` re-checks *type* constraints on statements that point at it. A change to a constraint itself re-checks every statement using the property, as a batch job with progress ([0010](0010-site-ui.md) §9), since that is a full scan of one property. Bootstrap ([0013](0013-postgres-storage.md) §9) runs the constraint projection last, and a Wikidata-scale instance may run it for a chosen set of properties first.
-
-**Exceptions and status** are applied as Wikidata applies them: an entity listed under `constraint-exception` produces no violation; a `suggestion` constraint produces a violation of severity `suggestion`, a `mandatory` one of severity `mandatory`, and the rest `normal`. **Nothing is refused.** A violation of any severity is a marker and a row, never an error on a write; the gate for writes is [0030](0030-edit-filters.md), which does not read the graph, and the two are kept apart on purpose.
+*Current text: [06](../architecture/06-statements-and-properties.md) §2.2, §2.5.*
 
 ### 3. Where violations appear
 
 *Changed by A2.*
 
-- **On the entity page** ([0003](0003-statement-ui.md) §9), a **constraint marker** beside a violating value: an icon by severity, whose popover names the constraint, its source (Wikidata or this instance), its clarification text, and the parameter that failed, with a link to the property's constraint statement. This is what WikibaseQualityConstraints shows, drawn with the components 0003 already has, and hidden when there are no violations ([0003](0003-statement-ui.md) §1, principle 1).
-- **On the property page**, a **Constraints** tab listing each constraint with its violation count and a link to the report.
-- **`Special:ConstraintReport/{property}`** and **`Special:ConstraintReport/{type}`**: violations by property or by type, paged, filterable by severity and source graph, with the entity, the statement and the failing value on each row. The source-graph filter defaults to the local graph, as every report does ([0047](0047-special-pages.md) §4.2); widening it is live, since `view.constraint_violation` already covers the resolved view. This is where a community works through a class of problems.
-- **`Special:ConstraintReport/{entity}`**: everything on one entity, which is also what `wbcheckconstraints` returns.
-
-Violations are **not a feed** ([0020](0020-change-feeds.md)): they are facts about the present, not events, and a reader who wants to know when a violation appeared reads the entity's history. A count of violations by property is published for the dashboard-style view above.
+*Current text: [06](../architecture/06-statements-and-properties.md) §2.3.*
 
 ### 4. Tenants (uses 0018 §6)
 
-Constraints and violations follow the overlay rule of [0018](0018-tenants.md) §6: violations on shared rows are computed once for the instance and shown to every tenant that reads the provider; a tenant whose overlay changes an entity, or whose constraints differ from the shared ones because it overrides a mirrored constraint, has its own violation rows for that entity. A tenant that has not bound the constraint roles checks nothing and shows nothing.
+*Current text: [06](../architecture/06-statements-and-properties.md) §2.4.*
 
 ### 5. Storage (extends 0013 §5.6 and §7)
 
-```sql
-CREATE TABLE view.constraint_violation (
-  entity_id text NOT NULL, statement_id text NOT NULL,
-  property text NOT NULL, constraint_type text NOT NULL, constraint_statement text NOT NULL,   -- the P2302 statement's GUID
-  constraint_source text NOT NULL,             -- the graph the constraint came from
-  severity text NOT NULL,                      -- mandatory | normal | suggestion
-  snak_role smallint NOT NULL,                 -- 1 main, 2 qualifier, 3 reference
-  detail jsonb,                                -- the failing parameter and value, for the popover
-  checked_at timestamptz NOT NULL,
-  PRIMARY KEY (statement_id, snak_role, constraint_statement)
-);
-CREATE INDEX cv_entity   ON view.constraint_violation (entity_id);
-CREATE INDEX cv_property ON view.constraint_violation (property, constraint_type, severity);
-CREATE TABLE view.constraint_count (property text NOT NULL, constraint_type text NOT NULL, severity text NOT NULL, violations bigint NOT NULL, PRIMARY KEY (property, constraint_type, severity));
-```
-
-The tenant column rule of [0013](0013-postgres-storage.md) §5 applies. The constraint projection runs in step 4 of 0013 §7, after `entity` and its dependents, and is synchronous for the changed entity's own statements. Parsed constraints per property are cached in L0 and invalidated by the property's `resolved_version` ([0014](0014-caches-and-search.md) §3). *Distinct values* on non-identifier data types needs a value index; `view.identifier` already serves `external-id`, and the projection maintains a small `view.value_key (property, value_key, entity_id, statement_id)` for the other data types a *distinct values* constraint names, populated only for those properties.
+*Current text: [03](../architecture/03-storage-caches-and-search.md) §4.4, §5, §6.1, §12.2.*
 
 ### 6. API (extends 0012 §4 and §5)
 
-| Route or module | Behaviour |
-|---|---|
-| `wbcheckconstraints` | WikibaseQualityConstraints' module, in its shape: `id`, `claimid`, `constraintid`, `status`, returning per-statement results with `status` (`violation`, `warning`, `suggestion`, `compliance`, `exception`, `not-in-scope`, `todo` for an unbound type) and the constraint's clarification, so that the gadgets and tools that read it work |
-| `GET /entity/{id}/constraints` | The same as JSON, with severity and source |
-| `GET /constraints/report?property=&type=&severity=&source=` | The report of §3, paged with [0012](0012-api-requirements.md) §2.3's continuation |
-| `GET /constraints/counts` | `view.constraint_count` |
-| `POST /constraints/recheck` | Requests a re-check of a property's statements as a job; needs `ts-runjob` |
-
-The provenance response ([0003](0003-statement-ui.md) §6, [0012](0012-api-requirements.md) §5) gains a `constraints` list per statement, so the statement UI needs one request, not two.
+*Current text: [18](../architecture/18-api.md) §2.3, §3.1, §3.2.*
 
 ### 7. UI (extends 0010 §2)
 
-The entity page's marker (§3) sits in the value cell of [0003](0003-statement-ui.md) §9 and follows its rule that nothing is drawn where nothing differs: an entity with no violations looks as it did. The property page gains the **Constraints** tab. `Special:ConstraintReport` uses the site frame with the filters of §3. Severity and the constraint's source are the two facts every row leads with, since "Wikidata says this is mandatory" and "we suggested this here" call for different responses.
+*Current text: [19](../architecture/19-site-ui.md) §4.8, §6.4.*
 
 ### 8. Relationship to edit filters (settles 0030 Q1)
 
-Filters gate; constraints report. A filter ([0030](0030-edit-filters.md)) sees the change and the actor and refuses or tags a write in microseconds. A constraint sees the data and the graph around it and marks a statement after the fact. A tenant that wants a hard rule writes a filter; a tenant that wants to know where its data disagrees with its own norms writes a constraint. The two never read each other, and [0030](0030-edit-filters.md)'s "bounded lookup in v1" question stays open on its own terms.
+*Current text: [06](../architecture/06-statements-and-properties.md) §2.5.*
 
 ### 9. Crates (amends 0005 §2)
 
 *Changed by A1.*
 
-*Superseded by [0005](0005-crate-organization.md) §2 (A1).*
-
-[0005](0005-crate-organization.md) §2 keeps the crate table that CI checks, with `scatter-wikibase-constraints` and every change this section listed. The table this section first gave is in A1.
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
 
 ## Consequences
 
@@ -199,3 +138,22 @@ Replaced text (§3):
 - **Source:** [0050](0050-adr-format.md) §13
 - **Change:** consolidates §3, §9
 - **Summary:** A1–A2 were folded into the Decision. The open questions were numbered. No decision changed. Before this, A2 was a blockquote. The file before conversion is commit `0b26a3a`.
+
+### A4. Role table corrections
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** corrects §1
+- **Summary:** In the role table, *item requires statement* is Q21503247, not Q21510856 (which is *required qualifier*, listed again later in the same row); and P2305 is the parameter of both *item of property constraint* and *allowed values*, so the parameter row lists it once with its two uses rather than twice. The decision does not change; the IDs were wrong. (PENDING E10)
+
+Replaced text (§1):
+
+> | one role per constraint type | Q21502404 format, Q19474404 single value, Q21502410 distinct values, Q21510865 value type, Q21503250 type, Q21510855 inverse, Q21510862 symmetric, Q21510856 item requires statement, Q21510864 value requires statement, Q21510851 allowed qualifiers, Q21510856 required qualifier, Q21514353 allowed units, Q21510860 range, Q21510859 one of, Q52558054 none of, Q21510854 citation needed, Q52848401 integer, Q51723761 no bounds, Q53869507 property scope, Q64006792 label in language, Q54554025 Commons link, Q55819106 lexeme requires language, and the rest | The constraint type |
+> | one role per parameter | P2306 property, P2305 item of property constraint, P2308 class, P2309 relation, P1793 format as a regular expression, P2313 maximum value, P2310 minimum value, P2312 maximum date, P2311 minimum date, P2305 allowed values, P2307 allowed units, P4155 separator, P2304 group by, P2429 expected completeness | The parameter |
+
+### A5. Current text relocated to the architecture chapters
+
+- **Date:** 2026-10-09
+- **Source:** [0050](0050-adr-format.md) §14
+- **Change:** relocates §1–§9
+- **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [06](../architecture/06-statements-and-properties.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.

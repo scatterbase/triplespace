@@ -2,9 +2,11 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-07
+- **Updated:** 2026-10-09 (A2)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0014](0014-caches-and-search.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0033](0033-backend-stack.md), [0056](0056-security-model.md), [0059](0059-query-service.md), [0060](0060-scopes.md), [0062](0062-workspaces.md), [0063](0063-query-namespace.md), [0067](0067-proposals.md), [0071](0071-derived-statements-from-mirrored-pages.md), [0074](0074-publishing-a-scope-to-an-external-wiki.md), [0076](0076-dataset-publication.md)
+- **Chapters:** [07](../architecture/07-actors-and-accounts.md), [09](../architecture/09-security-and-moderation.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md)
 
 ## Context
 
@@ -27,57 +29,33 @@ James's direction, from the design discussion of 2026-10-07:
 
 ### 1. One endpoint per tenant
 
-**Each tenant with `mcp.enabled` serves MCP at `{base}/mcp`**, over the protocol's Streamable HTTP transport, from `triplespace-server` like every other API surface ([0033](0033-backend-stack.md) §3). `mcp.enabled` is a `site` setting, default off.
-
-**A default scope narrows every tool.** `mcp.scope` names the scope the tools search within by default; `mcp.scopes` lists other scopes a client may select per session with `?scope={title}` on the endpoint URL. With no scope, the tools range over the tenant's resolved view.
+*Current text: [18](../architecture/18-api.md) §7.1.*
 
 ### 2. Tools, read-only
 
-| Tool | Answers | Backed by |
-|---|---|---|
-| `search` | Entities by name in a language, with labels, descriptions and match type | The search index ([0014](0014-caches-and-search.md) §7), as `wbsearchentities` |
-| `get_entity` | One entity: labels, descriptions, statements with property and value labels, identifiers with their URLs, and the canonical IRI | The resolved view |
-| `find` | Entities in the scope matching filters: `{property, value}`, `{property, values}` (any of), `{property, from, to}` for times and quantities, and `{path}` for transitive paths as [0074](0074-publishing-a-scope-to-an-external-wiki.md) §2 writes them; paged by cursor | A compiled query ([0059](0059-query-service.md) §5) over the scope |
-| `facets` | For a filter, the values of the configured facet properties among the matches, with counts | `/scope/{id}/facets` ([0062](0062-workspaces.md) §8) |
-| `mentions` | The pages an entity was derived from, with the lines that mention it | `GET /entity/{id}/derivations` ([0071](0071-derived-statements-from-mirrored-pages.md) §13) |
-| `run_query` | A saved `Query:` page by title, with its parameters | [0063](0063-query-namespace.md) |
-| `sparql` | A SELECT query, under the query service's limits | `/sparql` ([0059](0059-query-service.md) §6) |
-
-Every result carries labels in the language the client asks for (`lang`, default the tenant's content language), the canonical IRI of every entity, and the URL of every page. `find`, `facets`, `run_query` and `sparql` need the query service; on a tenant without one, the server lists only `search`, `get_entity` and `mentions`.
-
-No tool writes in this version (Q1).
+*Current text: [18](../architecture/18-api.md) §7.2.*
 
 ### 3. Teaching the agent the tenant's vocabulary
 
-**An agent learns which properties matter from the server, not from the property list.**
-
-- **`mcp.facets`** lists the properties offered as filters and facets, each with a short description written for the agent ("record type: the kind of records a resource holds, such as probate or census"). The descriptions of `find` and `facets` are generated from it, with the properties' labels and IDs.
-- **`mcp.instructions`** is free text returned as the server's instructions at initialization: what the tenant holds, what a typical question looks like, what the facets mean.
+*Current text: [18](../architecture/18-api.md) §7.3.*
 
 ### 4. Resources
 
-The server exposes, as MCP resources:
-
-- each scope it serves: its description, size, facet properties, and the URLs of its dumps ([0076](0076-dataset-publication.md) §1), so that an agent that wants everything downloads a dump instead of paging `find`;
-- the facet property list of §3, with each property's data type and, for items, its most common values.
+*Current text: [18](../architecture/18-api.md) §7.3.*
 
 ### 5. Access and limits
 
-- **Public tenants** serve the endpoint anonymously, with the visibility of an anonymous reader ([0056](0056-security-model.md) §2). **Other tenants** require a bearer credential: a subsidiary's API key ([0024](0024-subsidiary-accounts.md) §4) or an OAuth token ([0025](0025-oauth-server.md)), with the `read` grant. Every tool reads as that principal, so restricted data never reaches an agent that could not read it through the API.
-- Every tool call counts against the `read` rate class; `find`, `facets`, `run_query` and `sparql` also against `query` ([0024](0024-subsidiary-accounts.md) §5).
-- Results are capped at `mcp.max_results` (default 200) per call, with a cursor; queries run under `query.timeout` (0059 §6).
+*Changed by A1.*
+
+*Current text: [07](../architecture/07-actors-and-accounts.md) §5.3, §6.2, §6.4; [09](../architecture/09-security-and-moderation.md) §8.11.*
 
 ### 6. Settings and discovery (extends 0015 §3; extends 0012 §5)
 
-- `mcp.enabled`, `mcp.scope`, `mcp.scopes`, `mcp.facets`, `mcp.instructions` and `mcp.max_results` join the `site` settings.
-- `meta=siteinfo&siprop=triplespace` reports the endpoint when enabled, and the REST root lists it, so a client that knows the wiki can find the server.
+*Current text: [18](../architecture/18-api.md) §2.2, §7.1; [23](../architecture/23-configuration-and-registry.md) §3.2, §6.*
 
 ### 7. Crates (amends 0005 §2)
 
-| Crate | Change |
-|---|---|
-| `triplespace-mcp` | **New.** The Streamable HTTP transport, initialization with instructions, the tools of §2 with their JSON schemas and generated descriptions, resources, cursors, and the mapping of tool calls to the query service, scopes, search and the resolved view |
-| `triplespace-server` | Mounting `/mcp` per tenant, with authentication and rate limits as for the REST API |
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
 
 ## Alternatives considered
 
@@ -110,3 +88,23 @@ The server exposes, as MCP resources:
 
 - [Model Context Protocol specification](https://modelcontextprotocol.io/specification): tools, resources, server instructions, the Streamable HTTP transport
 - `claude/familysearch-semantic-layer-plan.md` (Triplespace project notes, 2026-10-07)
+
+## Amendment log
+
+### A1. The `basic` grant, not `read`
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** corrects §5
+- **Summary:** "the `read` grant" is `basic` (0024 §4), which every API key and OAuth token carries; there is no `read` grant. (PENDING C3)
+
+Replaced text (§5):
+
+> **Other tenants** require a bearer credential: a subsidiary's API key ([0024](0024-subsidiary-accounts.md) §4) or an OAuth token ([0025](0025-oauth-server.md)), with the `read` grant.
+
+### A2. Current text relocated to the architecture chapters
+
+- **Date:** 2026-10-09
+- **Source:** [0050](0050-adr-format.md) §14
+- **Change:** relocates §1–§7
+- **Summary:** The Decision's current text now lives in the architecture chapters [07](../architecture/07-actors-and-accounts.md), [09](../architecture/09-security-and-moderation.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.

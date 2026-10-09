@@ -2,9 +2,10 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-10-04 (A15)
+- **Updated:** 2026-10-09 (A18)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md)
+- **Chapters:** [01](../architecture/01-log-and-records.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -35,239 +36,61 @@ Three terms are used precisely below:
 
 ### 1. Scope: the log, not the claim
 
-*Changed by A5.*
+*Changed by A5, A16.*
 
-This ADR specifies integrity at the level of the log. It does not specify claim-level rules.
-
-| Concern | Level | Covered here |
-|---|---|---|
-| Canonical encoding, record hashes, Merkle log, signed checkpoints | Log | Yes |
-| Erasure with a verifiable gap | Log | Yes |
-| Edit conflicts per entity | Log | Yes (§8) |
-| Client signatures, attribution keys, key registration by clients | Claim | No. The attestation part (§3) holds them: [0015](0015-record-format-and-partition-registry.md) §1 defines the `signature` field and the `key` record, and [0024](0024-subsidiary-accounts.md) §4 lets subsidiaries use them |
-| Prior-use acknowledgments for each term | Claim | No. The attestation slot has room for them |
-| Claim IDs and their preimages | Claim | No. Scatterbase specifies them |
-
-Triplespace's instance key is the only signer. A signed checkpoint means "this instance attests that these records were appended in this order". It does not prove which person wrote a record.
+*Current text: [01](../architecture/01-log-and-records.md) §1.1.*
 
 ### 2. Encoding and hashing
 
 *Changed by A3, A5, A7, A9, A11.*
 
-**Encoding.** Record headers, record bodies and payloads are stored in the **core deterministic encoding of CBOR** ([RFC 8949](https://www.rfc-editor.org/rfc/rfc8949) §4.2.1). The encoding rules are:
-
-- the shortest form for every integer and length;
-- definite lengths only;
-- map keys sorted by their encoded bytes, with no duplicates;
-- only the CBOR tags listed in the payload type's schema.
-
-The stored bytes are the preimage, so no separate canonicalization step exists. The decoder is strict: it re-encodes every item it reads and rejects the item if the bytes differ. A payload that decodes but is not canonical is therefore a verification failure, not a variant.
-
-The NDJSON wire format of [0002](0002-source-graphs-and-mass-ingest.md) §8.7 is unchanged. Ingest converts it to CBOR before appending. Values that JSON carries as strings, such as Wikibase quantity amounts, stay strings.
-
-**The JSON → CBOR mapping is structural.** The CBOR of a change set, entity state or page operation is the JSON's structure and nothing else: every JSON string is a CBOR text string (quantity amounts and bounds, time values, coordinate decimals all stay the strings Wikibase gives them), JSON numbers are CBOR integers or floats exactly as JSON typed them, objects are maps with text keys, arrays are arrays, `true`/`false`/`null` are the CBOR simple values. No CBOR tags are used for Wikibase data. Two derivable fields are **dropped** at ingest and recomputed on output: the `hash` on snaks and references, and `numeric-id` beside `id` on entity values. `scatter-wikibase-model` implements Wikibase's own hash computation so that a recomputed reference hash equals Wikidata's for mirrored data, which is what [0003](0003-statement-ui.md) §5 and [0004](0004-identity-clusters-and-equivalence.md) §8 compare by. The test is a round trip: canonical JSON ([wikibase-compat.md](../api/wikibase-compat.md) §3) → CBOR → canonical JSON reproduces the bytes for every file in `docs/api/snapshots`. Because the content hash `0x03` and, since [0015](0015-record-format-and-partition-registry.md) §1 as amended, a client signature are computed over these bytes, this mapping is part of the record format.
-
-**The hash guard.** Dropping `hash` at ingest is safe only while the recomputation matches Wikibase's own, and nothing in a dump says whether it does. The hashes are not decoration: the RDF names reference nodes by the reference hash (`ref:{hash}`, [wikibase-compat.md](../api/wikibase-compat.md) §5.1) and value nodes by an `md5` of the serialized value (`v:{hash}`) that the JSON never carries, and the Action API takes snak and reference hashes as handles (`wbsetreference`, `wbremovereferences`, `wbremovequalifiers`). A faithful implementation is therefore required for local data and for RDF whatever happens to the JSON field; what this amendment adds is a check that it *is* faithful, made on every mirrored entity rather than only on the snapshots. **At ingest, every snak and reference hash is recomputed and compared with the one upstream sent.** When they are equal, the field is dropped as above. When they differ, **upstream's hash is kept in place**: the `hash` key stays in the CBOR map of that snak or reference, so the mapping is still structural, the content hash `0x03` covers it, and no schema changes. On output a present `hash` is emitted as stored and an absent one is recomputed, so what the instance serves equals what upstream served whether or not the implementation is right. Every mismatch is counted by value type in the job's finish record ([0011](0011-logs.md) §6.3), shown on the job page and in `GET /jobs/{id}` ([0012](0012-api-requirements.md) §5), and summed instance-wide as `hash_mismatches` in `siprop=triplespace` ([0012](0012-api-requirements.md) §4); a nonzero count means the emulation has drifted from Wikibase's `serialize()` or upstream has changed its algorithm, and the breakdown says which value types. The `site` setting `ingest.hash_mismatch` is `keep`, the default, or `fail`, which aborts the job at the first mismatch for an instance that would rather stop than store. A kept hash is never used to decide equality: statement fusion ([0004](0004-identity-clusters-and-equivalence.md) §8) and "identical references share a node" compare recomputed hashes, so a drift shows up as a count, never as a silently split node. Adopted entities ([0035](0035-adopting-a-wikibase.md) §3) pass through the same guard, since the source wiki's hashes come from the same code.
-
-**Hashing.** Every hash is **SHA-256**. This matches Scatterbase's claim IDs and content-addressed blobs, and it makes the Merkle tree exactly the RFC 6962 tree, so existing transparency-log tooling can check it. Each use prefixes its input with a one-byte domain tag, so no hash can be mistaken for another kind:
-
-| Tag | Use |
-|---|---|
-| `0x00` | Merkle leaf: the hash of a record header (§3) |
-| `0x01` | Merkle interior node: the hash of two child hashes |
-| `0x02` | Body commitment (§3) |
-| `0x03` | Content hash of a part alone, for deduplication and version cursors ([0002](0002-source-graphs-and-mass-ingest.md) §8.4) |
-| `0x04` | Leaf of one body part (§3; [0015](0015-record-format-and-partition-registry.md) §1) |
-| `0x05` | Preimage of a client signature over the content and comment parts ([0015](0015-record-format-and-partition-registry.md) §1) |
-| `0x06` | Preimage of an instance attestation's signature: `H(0x06 ‖ H(0x03 ‖ content) ‖ H(0x03 ‖ comment) ‖ authority)`, signed by the instance key ([0040](0040-instance-prerogatives.md) §3) |
-
-Tags `0x00` and `0x01` are the leaf and node prefixes of RFC 6962, so the Merkle tree (§5) is the RFC 6962 tree unchanged. Tags `0x02` to `0x06` are Triplespace's own and never appear inside the tree.
-
-The hash function is fixed for a partition when the partition is created, and is named in its genesis record. Changing it means starting a new partition.
-
-**Text forms.** Checkpoints carry hashes in base64, as C2SP requires (§6). IRIs and identifiers carry them in Base32z, matching Scatterbase.
+*Current text: [01](../architecture/01-log-and-records.md) §1.2, §3.1, §3.2, §3.3.*
 
 ### 3. A record is a header and a body
 
 *Changed by A3, A6.*
 
-This refines [0005](0005-crate-organization.md) §4.3. A record has two parts:
-
-- **The header** is small, is never erased, and is what the Merkle tree commits to. It must not contain personal data.
-- **The body** holds everything that might have to be erased: the content, the comment and the attestation, each erasable on its own.
-
-The **header** is a CBOR array, in this order:
-
-| # | Field | Type | Meaning |
-|---|---|---|---|
-| 0 | Format version | uint | Version of this layout |
-| 1 | Partition | uint | 64 random bits, drawn when the partition is created and never changed ([0018](0018-tenants.md) §2) |
-| 2 | Offset | uint | Position in the partition, starting at 0, with no gaps |
-| 3 | Appended at | uint | Microseconds since the Unix epoch, UTC |
-| 4 | Payload type | text | For example, `scatter:v0/changeset` |
-| 5 | Key | text or null | The entity or subject ID used for compaction and indexing. It must be an identifier, never content |
-| 6 | Body commitment | bstr (32) | `H(0x02 ‖ leaf_0 ‖ … ‖ leaf_{n−1})`, the root over the body's parts |
-| 7 | Revision ID | uint or null | The global revision ID ([0015](0015-record-format-and-partition-registry.md) §2) |
-| 8 | Log ID | uint or null | The global log ID ([0015](0015-record-format-and-partition-registry.md) §2) |
-| 9 | Page ID | uint or null | The page ID of the record's key ([0015](0015-record-format-and-partition-registry.md) §2) |
-
-The **body** is a fixed list of **parts** ([0015](0015-record-format-and-partition-registry.md) §1). Every Triplespace payload type has at least these three, in this order, and a type may declare more after them:
-
-| # | Part | Holds |
-|---|---|---|
-| 0 | Content | The record's content: a change set for Triplespace, a claim for Scatterbase |
-| 1 | Comment | The edit summary or comment, as one string, or null |
-| 2 | Attestation | Who is responsible for the record, and how |
-
-Part *i* is stored as `[salt, bytes]` with a 16-byte random salt. Its leaf is `H(0x04 ‖ i ‖ salt ‖ bytes)`, and header field 6 commits to the leaves in order.
-
-**The salt keeps erased content from being confirmed.** Without it, anyone holding a header could test a guess at a short erased part, such as a username or a date of birth, by hashing the guess and comparing it with the commitment. Once a part's salt is erased with it, that test is no longer possible.
-
-**The attestation is in the body because it can identify people.** In Triplespace it is a CBOR map holding the actor and the job ([0002](0002-source-graphs-and-mass-ingest.md) §8.3), and the further fields [0015](0015-record-format-and-partition-registry.md) §1 lists: change tags, a client signature, and evidence for a post that arrived from the fediverse. In Scatterbase it holds the attribution and the client and server signatures, and it can later hold prior-use acknowledgments. Nothing below the claim level reads it.
-
-**Deduplication uses the content hash** (`0x03`), which is computed over the content part's bytes alone, without its salt. It lives in indexes such as the version cursor, which are projections, never in the header. Erasing a record removes its content hash from those indexes too (§7).
+*Current text: [01](../architecture/01-log-and-records.md) §1.2, §2.1, §2.2, §2.3, §2.4.*
 
 ### 4. Integrity policies
 
 *Changed by A14.*
 
-This specifies the integrity policy of [0005](0005-crate-organization.md) §4.2. Each partition has one of two policies, fixed when the partition is created:
-
-| Policy | What is committed | Compaction | Used for |
-|---|---|---|---|
-| **`logged`** | Every header, in one Merkle tree for the whole partition, with signed checkpoints (§5, §6) | Never | Triplespace's local and configuration partitions; Scatterbase's claim, meta and server partitions |
-| **`hashed`** | Every header, in one Merkle tree for each sealed segment, with a signed manifest for each segment | Allowed | Triplespace's mirror partitions; Scatterbase's foreign partition |
-
-**`logged` partitions prove that history is complete and in order.** A verifier can show that no record was added, removed, altered or reordered between any two checkpoints.
-
-**`hashed` partitions prove less.** A verifier can show that each record in a live segment is unaltered since the segment was sealed. ~~When compaction replaces segments, the new segment's manifest lists the segments it replaces.~~ *Since A14 a compacted offset keeps its leaf, so a segment's tree and its manifest are unchanged by compaction, and the holes are visible.* A verifier cannot show that compaction kept the right records. That limit is deliberate: a mirror's source of truth is upstream, and [0002](0002-source-graphs-and-mass-ingest.md) §2 lets a mirror forget.
-
-**Retained mirror entities stay in `hashed` partitions.** They are exempt from compaction ([0002](0002-source-graphs-and-mass-ingest.md) §5), but they get no extra commitment. Their durable copy is the record that materializes them into the local graph when the tombstone arrives, and that record is in a `logged` partition.
-
-A mirror with the `full` history policy is still `hashed`. It simply never compacts.
+*Current text: [01](../architecture/01-log-and-records.md) §1.2, §6.*
 
 ### 5. The Merkle tree and segments
 
 *Changed by A2, A14.*
 
-- **The tree is the RFC 6962 Merkle tree** (as updated by [RFC 9162](https://www.rfc-editor.org/rfc/rfc9162) §2.1), with SHA-256 as the hash. Leaves are `H(0x00 ‖ header)`. Inclusion proofs and consistency proofs follow the RFC.
-- **Segments hold 2^k records,** except the last one. The exponent k is fixed for each partition when it is created. A full segment is then a complete subtree of the partition's tree. In Postgres a segment is the offset range `[n·2^k, (n+1)·2^k)`, sealed when every offset in it has been appended and its manifest written; the file backend writes one file per segment ([0013](0013-postgres-storage.md) §1).
-- **Bulk ingest hashes in parallel.** In bootstrap mode ([0002](0002-source-graphs-and-mass-ingest.md) §8.6), each segment's leaves and subtree root are computed independently. The partition root is then folded from the segment roots. The only sequential step runs once per segment.
-- **Appends in steady state** keep the tree's right edge in memory, which is O(log n) hashes. Each append costs one leaf hash plus O(log n) node hashes in the worst case.
-- **In a `hashed` partition,** each segment's tree stands alone. Its root is what the segment manifest signs.
-- **A compacted offset keeps its leaf.** Compaction ([0002](0002-source-graphs-and-mass-ingest.md) §2) removes the record but leaves its 32-byte leaf hash in its place, so the tree over every offset still folds, offsets are never reused, and a reader can tell a hole from a gap. In Postgres the leaf is already in `log.merkle_node`; the file backend stores it as the slot (`docs/api/payloads.md` §10).
+*Current text: [01](../architecture/01-log-and-records.md) §4.1, §6.*
 
 ### 6. Checkpoints and keys
 
 *Changed by A3, A6, A8, A12.*
 
-**Format.** Checkpoints use the [C2SP tlog-checkpoint](https://c2sp.org/tlog-checkpoint) format, signed as a [C2SP signed note](https://c2sp.org/signed-note):
-
-- **Origin line,** without a scheme: `{tenant host}/log/{partition name}` for a tenant's partition ([0018](0018-tenants.md) §2), and `{farm host}/instance/log/{partition name}` for an instance partition, so that the two cannot collide when the farm base is a tenant's base ([0046](0046-primary-tenant.md) §7). For segment manifests in a `hashed` partition, the origin followed by `/segment/{n}`.
-- **Tree size**, in decimal.
-- **Root hash**, in base64.
-- **No extension lines.** C2SP recommends against them because monitors cannot audit them.
-- **Signature:** the instance's Ed25519 key.
-
-**When checkpoints are written:**
-
-- at the end of every job ([0002](0002-source-graphs-and-mass-ingest.md) §8.3);
-- after every `atomic` batch;
-- in steady state, at least every N records or T seconds, whichever comes first. N and T are instance configuration.
-
-Records appended after the latest checkpoint are durable but not yet signed.
-
-Checkpoints are stored beside their partition. They are not log records, since a checkpoint cannot be a leaf of the tree it signs. Every checkpoint is kept, so consistency between any two of them can be proved.
-
-**Checkpoints are served** at `{base}/.well-known/tlog/{partition}/checkpoint`, with historical checkpoints and manifests beside it and the key chain at `/.well-known/tlog/keys` ([0022](0022-federation.md) §1).
-
-**Keys.**
-
-- The instance's first public key is registered in the first record of the configuration partition, the `config` partition of [0015](0015-record-format-and-partition-registry.md) §3. This is the same shape as Scatterbase's server-key registration claim. Each tenant's `config` partition carries its own copy of the key chain ([0018](0018-tenants.md) §2).
-- **Rotation** is a configuration record naming the new key, signed by the old key inside its attestation. Checkpoints identify their key by the signed-note key ID. Moving a tenant to another instance is one such rotation: the record names the new instance's key and the tenant's final checkpoint ([0018](0018-tenants.md) §10).
-- Recovering from a compromised key is out of scope. It belongs to the identity work that Scatterbase and Triplespace share.
-
-**Witnesses are optional.** An instance may publish its checkpoints to external witnesses that implement [C2SP tlog-witness](https://c2sp.org/tlog-witness). Because the tree is RFC 6962 with SHA-256, a witness can verify consistency proofs between checkpoints and cosign them with no changes.
+*Current text: [01](../architecture/01-log-and-records.md) §4.2, §4.3.*
 
 ### 7. Erasure
 
 *Changed by A1, A2, A3, A4, A10, A15.*
 
-**Erasure is a record.** An `erase` record is appended to the same partition as its targets. It names its targets in one of two ways:
-
-- a list of offsets;
-- a key, meaning every record in the partition with that key, for erasing a whole entity.
-
-It also names the **parts** it erases, any subset of the payload type's parts and all of them by default ([0015](0015-record-format-and-partition-registry.md) §1), a reason class and a reference to the authority for the erasure. The reason classes are `legal`, `privacy`, `upstream` ([0011](0011-logs.md) §5) and `operational`, extensible in `site` configuration ([0016](0016-permissions-and-access-control.md) §6). Its own attestation records who erased.
-
-**Effect on storage.**
-
-- Each erased part's `[salt, bytes]` is replaced by `[null, leaf]`, so the commitment still reproduces. In Postgres the target's row is rewritten in the transaction that appends the `erase` record ([0013](0013-postgres-storage.md) §3).
-- In a `packed` partition, where repeated subtrees are stored once per dedup domain, the erased parts' fragments are reclaimed by a candidate sweep in the same erasure job. A fragment other live rows still use stays with them; for reason class `legal` a full sweep of the domain also runs, so no fragment survives that only erased parts used ([0058](0058-packed-record-storage.md) §6).
-- Headers are kept, so the Merkle tree and every existing checkpoint still verify.
-- Projections replay the `erase` record and remove everything derived from the targets: resolved and source-graph triples, metadata-graph revision nodes, content hashes in the version cursor, and search entries. Rebuilding from the log excludes erased bodies automatically.
-
-**What remains after erasure:** each target's header. That is its partition, offset, time appended, payload type, key and body commitment. The commitment is salted (§3), so the erased content cannot be confirmed from it. That something was recorded about key K at time t remains visible.
-
-**This follows MediaWiki's precedent.** Revision deletion and suppression keep the revision's row (its ID, page and timestamp) and hide its content, summary or username. Erasure keeps the same kind of trace, and goes further in one respect. MediaWiki keeps an unsalted SHA-1 of deleted text in its database, which could confirm a guess at that text. An erased record's commitment is salted, so it cannot.
-
-**Verification.** A verifier reports a missing part that an `erase` record accounts for as erased, naming the erasing offset. A missing part with no `erase` record is a failure.
-
-**Later records.** Change sets are deltas, so erasing a record can leave later records that refer to what it created. Replay skips erased records, and projections apply the remaining ones as best they can. To remove an entity entirely, erase by key.
-
-**Copies outside the instance.** The `erase` record travels on the feed like any other record. Mirrors and exports taken before the erasure can comply only if they process it. Backups must be handled operationally in the same way. This ADR cannot enforce either. Inside the instance, erased bytes survive in Postgres until `VACUUM` reclaims them, and in WAL archives for their retention window; the runbook bounds both ([0013](0013-postgres-storage.md) §3).
-
-**Mirror partitions.** Upstream tombstones followed by compaction still erase mirrored data ([0002](0002-source-graphs-and-mass-ingest.md) §5). `erase` is also available in a mirror partition, for a takedown that cannot wait for the next compaction. Compaction later drops the header too.
-
-**Scatterbase.** Erasing a signed claim's body makes its signatures unverifiable, while its leaf remains. Whether a claim may be erased is Scatterbase policy. Its decision record routes destructible data to the `mutable` graph.
-
-This settles the **mechanism** for erasure from the local graph, open since [0000](0000-init.md). **Who** may erase is the `ts-erase` permission ([0016](0016-permissions-and-access-control.md) §2).
-
-**Files.** An upload record holds the SHA-256 of its file's bytes, which live in a blob store outside the log. Erasing its content part removes that reference, and the bytes are destroyed when no unerased record in their storage scope references them. An operator's **expunge** erases every reference to a hash in every tenant and destroys the bytes at once. ([0039](0039-files-and-media.md) §8–10)
+*Current text: [01](../architecture/01-log-and-records.md) §5.1, §5.2, §5.3, §5.4, §5.5, §6.*
 
 ### 8. Edit conflicts per entity
 
 *Changed by A3.*
 
-A change set in the local graph may carry a **base**: the offset of the latest record for that key that the client saw.
-
-- The log rejects the change set if a newer record for the key exists in the partition. The Action API reports this as `editconflict`, and the REST API as HTTP 409.
-- A base is **required** for replacing a local entity wholesale ([0002](0002-source-graphs-and-mass-ingest.md) §8.2).
-- A base is **optional** for everything else, as `baserevid` is in Wikibase. Bulk jobs that merge by default do not send one.
-- For a write to a foreign entity, `baserevid` is decoded to a partition and offset, and the check runs against the newest record for the key across the source partitions ([0015](0015-record-format-and-partition-registry.md) §2).
-
-The check needs an index from each key to its latest offset. For the local partition, this is the version cursor.
-
-Scatterbase's prior-use acknowledgments are the same check applied to each term instead of each entity. They are not implemented here. They can be carried in the attestation and checked by Scatterbase's own acceptance code.
+*Current text: [01](../architecture/01-log-and-records.md) §7.*
 
 ### 9. Verification and export
 
-*Changed by A3, A6, A10, A11.*
+*Changed by A3, A6, A10, A11, A17.*
 
-**An export bundle** holds, for each exported partition:
-
-- its segments, with headers and bodies;
-- every checkpoint and segment manifest;
-- the configuration records that register and rotate keys.
-
-It needs nothing else to verify. Default exports follow each graph's export policy ([0005](0005-crate-organization.md) §4.1). Bundles also take `--blobs include|list|omit` ([0039](0039-files-and-media.md) §14). A bundle that moves a tenant carries its extracts as well ([0018](0018-tenants.md) §10).
-
-**`verify` checks three levels:**
-
-1. **Structure.** Strict CBOR decoding, leaf hashes, the root at every checkpoint, checkpoint signatures, consistency proofs between successive checkpoints, and gapless offsets.
-2. **Bodies.** Every present part against its leaf and the commitment, and every missing part against an `erase` record ([0015](0015-record-format-and-partition-registry.md) §1). Every blob a present upload record names, at depth `presence` or `full`; a missing object with no `erase` accounting for it is a failure ([0039](0039-files-and-media.md) §14). Every instance attestation's signature against the key chain, with the key current when the record was appended ([0040](0040-instance-prerogatives.md) §8).
-3. **Projections** (optional and expensive). Rebuild projections from the log and compare them with the stored ones.
-
-**Inclusion proofs** are available for any record against any later checkpoint. With one, a third party can check that a particular revision is in the log without holding the whole log.
-
-**Bundles carry an authority extract:** the authority records the tenant's instance attestations cite, with inclusion proofs and with the operator's attestation part withheld ([0040](0040-instance-prerogatives.md) §8).
+*Current text: [01](../architecture/01-log-and-records.md) §8.*
 
 ### 10. Crates
 
-- **`scatter-log`** owns the header and body formats, the two policies, segment layout, and the Merkle tree.
-- **A new crate, `scatter-integrity`,** owns checkpoint signing and parsing, inclusion and consistency proofs, erasure bookkeeping, export bundles and `verify`. It depends on `scatter-log`.
-
-[0005](0005-crate-organization.md) §2 is updated to add it.
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
 
 ## Consequences
 
@@ -473,3 +296,28 @@ Replaced text (§4): "When compaction replaces segments, the new segment's manif
 - **Source:** [0058](0058-packed-record-storage.md) §6
 - **Change:** extends §7
 - **Summary:** In a packed partition, erasing a part also reclaims the fragments only that part used, by a candidate sweep in the erasure job, and a `legal` erasure runs a full sweep of the dedup domain, so shared storage never keeps an erased part alive once no live row holds the same bytes.
+
+### A16. The instance key signs checkpoints and manifests; an actor may sign its record
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** amends §1
+- **Summary:** "The instance key is the only signer" becomes: the instance key is the only signer of checkpoints and segment manifests; an actor may additionally sign its own record with the client `signature` of [0015](0015-record-format-and-partition-registry.md) §1, which §1's table already admits. A signed checkpoint still attests only to order of appending, not to who wrote a record. [0005](0005-crate-organization.md) §4.3 is amended the same way. (PENDING A2)
+
+Replaced text (§1):
+
+> Triplespace's instance key is the only signer.
+
+### A17. Bundles carry the key records of client-signed records
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** extends §9
+- **Summary:** An export bundle also carries the `scatter:v0/key` records (the `actors` partition, or the key records of every actor whose signatures appear) for each exported partition that holds client-signed records, so that `verify` level 2 can check every client signature with nothing outside the bundle. (PENDING A3)
+
+### A18. Current text relocated to the architecture chapters
+
+- **Date:** 2026-10-09
+- **Source:** [0050](0050-adr-format.md) §14
+- **Change:** relocates §1–§10
+- **Summary:** The Decision's current text now lives in the architecture chapters [01](../architecture/01-log-and-records.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.

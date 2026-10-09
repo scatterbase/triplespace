@@ -3,7 +3,8 @@
 <!--
 Format: ADR 0050. Copy to NNNN-slug.md. Delete these comments and any optional part you do not use.
 Header values are dates, statuses or lists of links, never sentences.
-Omit Updated until the first log entry; omit Changes and Uses when empty.
+Omit Updated until the first log entry; omit Changes and Uses when empty. Chapters (0050 §14) lists the
+architecture chapters that hold this ADR's current text, once any Decision section is a pointer.
 Status is Proposed until the ADR is implemented in full, then Accepted. A change to an Accepted ADR that the
 code does not implement yet makes it: Accepted with proposed amendment (An, …), until it does (0050 §3).
 After any change to an ADR, run `python3 decisions/check_adrs.py --index .` from docs/ and commit INDEX.md.
@@ -15,6 +16,7 @@ After any change to an ADR, run `python3 decisions/check_adrs.py --index .` from
 - **Author:** James Hare / Claude …
 - **Changes:** [NNNN](NNNN-slug.md), [NNNN](NNNN-slug.md)
 - **Uses:** [NNNN](NNNN-slug.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
+- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [18](../architecture/18-api.md)
 
 ## Context
 
@@ -32,7 +34,12 @@ James's direction, from the design discussion of YYYY-MM-DD:
 
 ### 1. Title
 
-<!-- Numbered and permanent: never renumbered or reused. Subsections are #### 1.1 Title. -->
+<!--
+Numbered and permanent: never renumbered or reused. Subsections are #### 1.1 Title.
+A new ADR carries its full text here until a chapter of docs/architecture/ absorbs it (0050 §14). Then the
+body becomes one line naming the chapter sections that hold it, and `pointers.py` writes it:
+*Current text: [03](../architecture/03-storage-caches-and-search.md) §4.5.*
+-->
 
 ### 2. Title (amends NNNN §N; extends NNNN §M)
 
@@ -85,7 +92,8 @@ Partly:    strike the whole question, then append - **Qn.** (Rest of Q1.) …
 <!--
 Added when another ADR or a direct decision first changes this one. Append only.
 When a change lands here:
-  1. Fold: rewrite the affected text so the Decision says what holds now, citing the source.
+  1. Fold: rewrite the affected text so it says what holds now, citing the source. For a section that is a
+     pointer, the fold is made in the chapter section the pointer names (0050 §14).
   2. Log: add the entry below, with any removed text quoted verbatim as Replaced text.
   3. Mark: add the ID to the provenance line of each changed section:  *Changed by A1, A3.*
   4. Strike consequences it falsifies, and settle questions it answers (questions need no entry).

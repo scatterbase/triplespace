@@ -2,10 +2,11 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-05 (A5)
+- **Updated:** 2026-10-09 (A7)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0034](0034-frontend-stack.md), [0041](0041-content-models.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [0016](0016-permissions-and-access-control.md), [0020](0020-change-feeds.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0030](0030-edit-filters.md), [0031](0031-property-constraints.md), [0044](0044-tenant-relative-ids.md), [MediaWiki API contract](../api/mediawiki-compat.md)
+- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [15](../architecture/15-structured-pages.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -24,197 +25,61 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 1. A table is a page that names entities and properties
 
-**A table is a page in the `Table` namespace (§2) whose content is a definition** (§4): which entities are its rows and which fields of those entities are its columns. **It stores no values.** Every cell is read from the row entity's resolved view ([0002](0002-source-graphs-and-mass-ingest.md) §3, [0004](0004-identity-clusters-and-equivalence.md) §4) when the table is shown, and every cell edit is a change set on that entity (§6).
-
-So a table has two kinds of change and two histories:
-
-| Change | Written as | History it appears in |
-|---|---|---|
-| Rows or columns added, removed or reordered; the default sort or reference changed | A page revision of the table, in `pages` ([0008](0008-namespaces-and-document-pages.md) §4) | The table's |
-| A value changed in a cell | A change set on the row's entity, in `local` | The entity's, tagged with the table (§6) |
-
-Nothing is copied, so a table can never disagree with its entities, and an edit made on the entity page shows in every table that includes it.
+*Current text: [15](../architecture/15-structured-pages.md) §2.1.*
 
 ### 2. The `Table` namespace (extends 0008 §2)
 
-| Number | Canonical name | Kind | Allowed models | Default model |
-|---|---|---|---|---|
-| 218 | `Table` | `pages` | `triplespace-table`, `wikitext` | `triplespace-table`; `wikitext` for titles ending `/doc` |
-| 219 | `Table talk` | `pages` | `triplespace-talk` | `triplespace-talk` |
-
-- The `/doc` rule follows Module's ([0043](0043-lua-modules.md) §2): `Table:Journals/doc` is the table's documentation, and is shown above the grid. Both models are text models, so the namespace satisfies [0041](0041-content-models.md) §4's one-source rule, and `changecontentmodel` may move a page between them as it may in Module.
-- Titles normalize first-letter, as in Project; subpages are on.
-- **218–219 was the last free pair in 210–219.** The next Triplespace-specific namespace needs a new block (Open questions). The mediawiki.org registration of 210–229 is updated to include them.
+*Current text: [15](../architecture/15-structured-pages.md) §2.2.*
 
 ### 3. The `triplespace-table` content model (extends 0041 §3)
 
-| ID | Origin | Source | Slot | Format | Direct editing | Default in |
-|---|---|---|---|---|---|---|
-| `triplespace-table` | Triplespace | text | main | `application/json` | Yes | 218 |
-
-It is a **text** model ([0041](0041-content-models.md) §5): the definition is stored as text in the page's `page` records, revised and diffed like any text page, and `action=edit` can change it. Only the grid is generated. No new source kind is needed.
-
-| Operation (0041 §5) | For `triplespace-table` |
-|---|---|
-| Validate | Against the definition schema (§4). Content that fails is refused, as 0008 §5 refuses invalid `json` |
-| Pre-save transform | The definition is canonicalized: IDs to their stored form ([0044](0044-tenant-relative-ids.md) §1: tenant-relative input is never stored), keys in schema order, two-space indentation, **one row ID per line**. As MediaWiki's JSON content model pretty-prints on save, so that diffs and three-way merges work line by line |
-| Serialize | The canonical JSON |
-| Plain text for search | Title, `description`, and the column headers in the content language |
-| Diff | Line diff of the canonical JSON: one line per added or removed row |
-| Render | The grid (§5) |
+*Current text: [15](../architecture/15-structured-pages.md) §2.2.*
 
 ### 4. The definition
 
-*Changed by A3, A5.*
+*Changed by A3, A5, A6.*
 
-```json
-{
-  "version": 1,
-  "description": "Journals cited in the 2026 citation sample",
-  "rows": {
-    "ids": [
-      "Q5",
-      "WDQ42",
-      "LBQ6"
-    ]
-  },
-  "columns": [
-    { "field": "label", "language": "en" },
-    { "field": "statements", "property": "P50" },
-    { "field": "statements", "property": "WDP577", "title": "Published" },
-    { "field": "sitelink", "site": "en.wikipedia.org" }
-  ],
-  "default_reference": {
-    "snaks": {
-      "P248": [ { "snaktype": "value", "property": "P248",
-                  "datavalue": { "type": "wikibase-entityid", "value": { "id": "Q1234" } } } ]
-    }
-  },
-  "sort": [ { "column": 2, "order": "descending" } ]
-}
-```
-
-| Key | Required | Meaning |
-|---|---|---|
-| `version` | Yes | `1`. A later scope or column kind that old readers cannot ignore raises it |
-| `description` | No | Plain text, shown under the title and indexed for search |
-| `rows` | Yes | The scope: an object holding exactly one scope kind. **`ids`**: a list of entity IDs in any form the tenant accepts (local, foreign, another tenant's, keyed). Since [0060](0060-scopes.md) §6, also every kind of 0060 §4 and **`scope`**, naming a scope page; a page-subject scope gives rows that are pages, whose statement columns read page statements. A scope larger than `tables.max_rows` is shown to that many rows with the scope's notice. `M`, `WDM`, `L` and lexeme part IDs are accepted as rows; term columns show captions ([0065](0065-mediainfo-captions-and-commons.md) §3) and the lexeme term fields `lemma:{lang}`, `representation:{lang}`, `gloss:{lang}` ([0066](0066-lexemes.md) §9) |
-| `columns` | Yes | An ordered list of one or more columns (below) |
-| `default_reference` | No | One reference in Wikibase's canonical JSON, without its hash. New statements written from the grid carry it unless the editor unchecks it (§6) |
-| `sort` | No | The default order: a list of column positions (zero-based) and `ascending` or `descending`. Without it, rows appear in the order listed. A viewer can re-sort without saving |
-
-**Columns.** Each column has a `field`, the keys that field needs, and an optional `title` that overrides the header:
-
-| `field` | Keys | Shows |
-|---|---|---|
-| `label`, `description`, `aliases` | `language` | The term in that language |
-| `statements` | `property` | The property's best values (§5) |
-| `sitelink` | `site` | The page linked on that site. A host or a site alias ([0026](0026-sitelinks.md) §2); aliases are canonicalized to the host on save |
-
-**What validation checks, and what it does not.** The schema, the syntax of every ID, no unknown keys, no duplicate row IDs (after canonicalization), and the limits: `tables.max_rows` (site setting, default 5,000, the same as [0020](0020-change-feeds.md) §2's `feeds.related_limit`, so a table's related changes are never truncated, §8) and `tables.max_columns` (default 50). **It does not check that entities or properties exist.** A row whose entity is missing is shown as missing, as a red link is: entities are deleted, merged and mirrored after the table is saved, so existence at save time would guarantee nothing.
-
-**Rows keep the ID as written.** Two rows that later turn out to be members of one identity cluster stay two rows; the grid marks the second as a duplicate (§5). The definition is not rewritten when clusters change, as source graphs keep IDs as asserted ([0004](0004-identity-clusters-and-equivalence.md) §4).
+*Current text: [15](../architecture/15-structured-pages.md) §2.3.*
 
 ### 5. What a cell shows
 
-**A row is the resolved view of its entity.** A non-canonical cluster member is shown as its canonical entity, as the API resolves it ([0004](0004-identity-clusters-and-equivalence.md) §4), with a note in the ID cell ("shown as Q5"). A row whose canonical entity already appears higher in the table is marked as a duplicate. A missing or deleted entity, or one the viewer may not read ([0023](0023-moderation.md) §2), is a row with its ID and the state, and no cells.
-
-**Statement cells follow 0003's rule: show the exception, not the rule.**
-
-- The cell shows the property's **best values**: the preferred values if any, else the normal ones. Deprecated values are never shown inline.
-- **One best value** is shown as 0003 §9's value cell, formatted by data type.
-- **Several best values:** the first, then a fold, "+N", which opens the property's statement group (0003) in a popover, in whatever shape it takes there.
-- **Only deprecated values:** an empty cell with a muted "N deprecated" fold.
-- Qualifiers and references are not drawn in the cell. The popover shows them.
-- A **constraint marker** ([0031](0031-property-constraints.md) §3) appears beside a violating value, and the **correction chip** ([0003](0003-statement-ui.md) §4) beside a mirrored value corrected here, as on the entity page.
-
-**Term cells** show the term in the column's language. Where it is missing, the fallback is shown in italics with its language code, as Wikibase does, and editing that cell writes the column's language. **Sitelink cells** show the linked title.
-
-**Read restrictions apply cell by cell.** A statement hidden by a `statement` ACL is absent for viewers outside the group, as it is from the resolved view. A column whose property is under a `property` read ACL the viewer does not satisfy shows its header as restricted and its cells empty ([0023](0023-moderation.md) §2).
+*Current text: [15](../architecture/15-structured-pages.md) §2.4.*
 
 ### 6. Editing cells: one row, one change set
 
-**Each row is saved on its own.** Edits accumulate in the grid by row; saving submits each changed row as **one change set on that row's entity**, an ordinary interactive edit with read-your-writes ([0013](0013-postgres-storage.md) §7) and the row's own base revision. Rows are submitted in order, and each succeeds or fails alone. There is no `atomic` batch and no job.
-
-**What a cell edit becomes:**
-
-| Cell edit | Change set operation |
-|---|---|
-| A value typed into an empty statement cell | `add` a statement with that main snak and, unless unchecked, the table's `default_reference` ([0002](0002-source-graphs-and-mass-ingest.md) §8.2, §8.5: an identical existing statement gets the reference merged onto it instead) |
-| The one best value changed | The statement's main snak replaced, keeping its GUID, qualifiers and references, as Wikibase's `wbsetclaimvalue` does |
-| The one best value cleared | `remove` of a local statement |
-| A mirrored value changed or cleared | A local `override` or `add`, leaving the mirrored statement untouched: [0003](0003-statement-ui.md) §8's "Correct a mirrored value" |
-| A term or sitelink changed or cleared | The term or sitelink operation, under the term rights ([0016](0016-permissions-and-access-control.md) §2) |
-
-**A cell with several best values is not edited inline.** The editor opens the statement group in the popover and edits there, with 0003 §8's table editing. A grid cell cannot say which of several values a typed value replaces.
-
-**Attribution.** Each change set carries the actor, an automatic summary naming the table ("Edited via [[Table:Journals]]") followed by the editor's own summary if given, and the change tag **`table:{page id}`** in its attestation part, a tag of the same kind as `job:{id}` ([0030](0030-edit-filters.md) §5). Edits made through a table can then be found by filter, feed or tag.
-
-**Everything else is the ordinary write path**, applied per row:
-
-- **Permissions** are the actor's on each entity: entity, namespace, statement and property ACLs and protection ([0023](0023-moderation.md) §2). Cells the viewer cannot edit are drawn read-only. **Protecting a table protects its definition only**; anyone who may edit an entity may edit its cells in any table.
-- **Edit filters** ([0030](0030-edit-filters.md) §4) run on each row. `warn` shows the public message on that row, and re-saving it resubmits with the token; `disallow` marks the row refused with the message. The remaining rows carry on.
-- **Rate limits** ([0024](0024-subsidiary-accounts.md) §5): each row is one `edit`, and a row that creates an entity one `create`. On a 429 the grid waits `Retry-After` and continues, showing how many rows are queued. There is no exemption: at `user`'s default of 90 a minute, a 500-row paste takes about six minutes. Volume beyond that is what subsidiaries and bulk jobs are for.
-- **Conflicts.** If the entity changed since the grid loaded, the row's edits are applied to the current state and only the cells that clash are marked, as [0003](0003-statement-ui.md) §8 does for a group. Other rows are unaffected.
-- **Patrolling** is as for any edit ([0023](0023-moderation.md) §6).
+*Current text: [15](../architecture/15-structured-pages.md) §2.5.*
 
 ### 7. Adding and removing rows
 
-**Rows are part of the definition.** Adding existing entities, by typing IDs, picking them with a lookup, or pasting a column of IDs, is a definition edit. Removing a row is a definition edit, and never touches the entity. The grid collects row additions and removals and saves them as **one page revision** per save, with the page's base revision; a conflicting definition edit is merged line by line, which the one-ID-per-line serialization (§3) makes reliable.
-
-**A new row can create a new entity.** That is two writes in two partitions: the entity's `create`, carrying the row's cells as its first change set, in `local`; then the definition edit adding its ID, in `pages`. They are **not atomic**: [0011](0011-logs.md) §6.1 does not make writes atomic across partitions, and this ADR does not start. If the second write fails, the entity exists and is not in the table; the grid says so and offers to add it again, and the creation's summary and tag name the table, so the entity can be found.
+*Current text: [15](../architecture/15-structured-pages.md) §2.6.*
 
 ### 8. Links, feeds and backlinks
 
 *Changed by A4.*
 
-**The links projection** ([0008](0008-namespaces-and-document-pages.md) §10, `view.page_link`) records a link from the table to each row entity and each column property, after resolution. That gives, with nothing new built:
-
-- **"What links here"** on an entity or property lists the tables that show it, and `list=backlinks` returns them.
-- **Related changes** from a table ([0020](0020-change-feeds.md) §2, *related, outward*) is the recent changes to its rows and its column properties: the table's data as a feed. `tables.max_rows` defaults to `feeds.related_limit`, so the feed covers every row.
-
-**Watching a table watches its definition**, as watching any page does. Following its data is what related changes is for.
-
-**A table is transcluded with `{{#table:Table:Journals}}`**, and `{{Table:Journals}}` means the same; the render manifest records the dependency and the page re-renders when the table or its rows change ([0062](0062-workspaces.md) §3). Lua reads a table with `mw.ext.triplespace.table`.
+*Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.2, §4.3.*
 
 ### 9. Action API (uses 0041 §8)
 
-| Module | Behaviour |
-|---|---|
-| `meta=siteinfo` | Namespace 218 reports `defaultcontentmodel` `triplespace-table`; `siprop=triplespace` lists the model under `contentmodels`, and the limits `tables.max_rows` and `tables.max_columns` |
-| `prop=revisions` | The definition as of each revision, `contentmodel` `triplespace-table`, `contentformat` `application/json` |
-| `action=edit` | Accepts a definition. Invalid content is refused as MediaWiki refuses content its handler rejects, with the failing schema path in the message; the exact code is pinned by a contract test against MediaWiki 1.43's `json` model. The pre-save transform (§3) applies |
-| `action=parse` | Renders the grid's first page as static HTML, without editing controls |
-| `list=backlinks` | Includes tables, through the links of §8 |
-
-Cell edits made with the Wikibase modules directly are ordinary entity edits: a bot can edit what a table shows without going through the table.
+*Current text: [18](../architecture/18-api.md) §2.2, §2.3.*
 
 ### 10. REST (extends 0012 §5)
 
-| Route | Purpose |
-|---|---|
-| `GET /table/{pageid}/rows?offset=&limit=&sort=&lang=` | The rows, paged: for each, the ID as written and as shown, the row state (§5), and per column the best values in Wikibase JSON with the fold count, constraint flags and whether the viewer may edit the cell. `revid=` reads the definition as of that revision; the values are always current |
-| `POST /table/{pageid}/rows/{id}` | One row's cell edits with `baserevid` and an optional summary. The server maps them to one change set (§6) and returns the new revision and the row as `GET` would. The grid's save path, and usable by bots |
-| `GET /table/{pageid}/export?format=tsv\|csv` | The current values as one file: an ID column, then one column per table column, multiple best values joined by `; ` |
+*Current text: [18](../architecture/18-api.md) §3.2, §4.*
 
 ### 11. UI (extends 0034 §4)
 
-- **Reading needs no JavaScript.** The server renders the grid with Codex's CSS-only table and 0003 §9's value cells ([0034](0034-frontend-stack.md) §3), a page of rows at a time, inside the frame of [0010](0010-site-ui.md) §2. Tabs: Table, Definition, Talk, History.
-- **The grid editor** is a new interactive component (0034 §4): Vue with Codex's Table, Lookup and TextInput, reusing the statement value editor for cells. Keyboard as [0003](0003-statement-ui.md) §8, with arrow keys between cells. Paste: tab-separated text maps to the columns from the focused cell, each cell parsed with `wbparsevalue` for its column's data type; a pasted column of IDs into the ID column adds rows (§7). Pending rows are marked, and a save bar shows the rows to save, progress, and refused rows with their reasons (§6).
-- **The Definition tab** is the source editor ([0034](0034-frontend-stack.md) §7) on the JSON, with schema validation in the browser.
-- **Viewer state is not saved.** Sorting and filtering in the grid are the viewer's own; "Make this the default sort" is a definition edit.
+*Current text: [19](../architecture/19-site-ui.md) §6.7.*
 
 ### 12. Storage, caches and search
 
-**No new tables.** The definition is a page record's text ([0008](0008-namespaces-and-document-pages.md) §4); the table has a `view.page` row with `content_model` `triplespace-table`; its links are `page_link` rows (§8). The grid is assembled from the entities' cached resolved views ([0014](0014-caches-and-search.md) §2) and is not cached as a whole page, since any row's edit would invalidate it. Search indexes the table as a page, with the text of §3.
+*Current text: [03](../architecture/03-storage-caches-and-search.md) §4.7, §9.7, §11.1.*
 
 ### 13. Crates (amends 0005 §2)
 
 *Changed by A1.*
 
-*Superseded by [0005](0005-crate-organization.md) §2 (A1).*
-
-[0005](0005-crate-organization.md) §2 keeps the crate table that CI checks, with every change this section listed. The table this section first gave is in A1.
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
 
 ## Consequences
 
@@ -304,3 +169,17 @@ Replaced text (§4, the `rows` row):
 - **Source:** [0065](0065-mediainfo-captions-and-commons.md) §3; [0066](0066-lexemes.md) §9
 - **Change:** extends §4
 - **Summary:** `M`, `WDM`, `L` and part IDs as rows; caption and lexeme term columns; Q6 settled.
+
+### A6. The `thumbnail` column
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design discussion of 2026-10-09
+- **Change:** extends §4
+- **Summary:** §4's columns table gains a `thumbnail` field, with a `width` key, showing the row's file at that width ([0065](0065-mediainfo-captions-and-commons.md) §3), which is the column A5 called `thumb`; `render` is struck from 0065 §3. (PENDING F10)
+
+### A7. Current text relocated to the architecture chapters
+
+- **Date:** 2026-10-09
+- **Source:** [0050](0050-adr-format.md) §14
+- **Change:** relocates §1–§13
+- **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [15](../architecture/15-structured-pages.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.

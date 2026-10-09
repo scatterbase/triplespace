@@ -2,10 +2,11 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-29
-- **Updated:** 2026-10-05 (A10)
+- **Updated:** 2026-10-09 (A14)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0003](0003-statement-ui.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0026](0026-sitelinks.md), [0029](0029-resolver-namespaces.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md), [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0030](0030-edit-filters.md), [0031](0031-property-constraints.md), [0032](0032-sparql-update-stream.md), [0035](0035-adopting-a-wikibase.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0049](0049-boards.md)
+- **Chapters:** [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [06](../architecture/06-statements-and-properties.md), [09](../architecture/09-security-and-moderation.md), [10](../architecture/10-pages-and-content-models.md), [14](../architecture/14-discussions.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -29,240 +30,79 @@ James's direction, from the design discussion of 2026-09-29:
 
 ### 1. Pages carry statements (extends 0008 §4)
 
-*Changed by A2, A3, A5, A9.*
+*Changed by A2, A3, A5, A9, A11, A12.*
 
-**Which pages.** Every document page (the `document` namespaces of [0008](0008-namespaces-and-document-pages.md) §1: main, `User`, `Project` and `Category`), every thread ([0019](0019-discussions.md) §1) and every board ([0049](0049-boards.md) §1), whose statements describe the board, not its threads. Not talk pages, which are composite and have no records of their own, and not entity views, whose subjects are entities with statements of their own.
-
-**Records.** A page's statements are written as change sets: payload type `scatter:v0/changeset`, appended to the tenant's `pages` partition and keyed by the page ID, beside the page's `page` or `thread` records. A change set on a page may add, change and remove statements. It may not carry aliases or sitelinks; a page has a title, and its sitelinks are held by items (§6). It may not carry labels or descriptions either, **except on File pages**, where a `terms` operation writes the MediaInfo captions ([0065](0065-mediainfo-captions-and-commons.md) §1). Like every record in `pages`, it takes a revision ID ([0013](0013-postgres-storage.md) §6) and needs a base offset ([0006](0006-log-integrity-and-erasure.md) §8). So **a page has one history**, in which text revisions and statement revisions interleave in the order they were made; a file page's uploads are records in the same partition, keyed by the page ID, so file versions share that history too ([0039](0039-files-and-media.md) §2).
-
-**The subject is the page ID.** Statements use the same properties and data types as entity statements, local and mirrored. Where a subject has to be written as a string, in a statement ID or in a `view` column (§10), it is the page ID in decimal: statement IDs take the Wikibase form of [0009](0009-keyed-entity-types-and-domain.md) §3 as `{page ID}$<UUID>`. A string of digits alone never parses as an entity ID under [0017](0017-entity-id-grammar.md) §1, since every local, foreign and keyed ID starts with a letter, so the two kinds of subject cannot be confused.
-
-**No entity ID, except on File pages.** Page statements have no `M`-style or other entity ID, are not returned by `wbgetentities`, and cannot be edited through the Wikibase Action API modules. They are served by the REST routes of §13. In `prop=revisions`, a statement revision appears as MediaWiki shows a revision that changed only a secondary slot: the main text is unchanged, and the summary describes the change. File pages are the exception ([0041](0041-content-models.md) §6–7): their statements have the MediaInfo ID `M{page ID}` and are read and written through `wbgetentities` and the Wikibase statement modules, as on Commons, because tools written for Structured Data on Commons expect that contract; they appear in the `mediainfo` slot (`wikibase-mediainfo`) in `prop=revisions`, and terms and sitelinks on `M` IDs are refused with `not-supported` until page terms are settled (Q4).
-
-**Moderation follows the page.** Protection and deletion are ACLs on the page ([0023](0023-moderation.md) §4), and they cover its statements: a protected page's statements need the same right as its text, and a deleted page's statements leave every view with it. Erasure and hiding apply to statement records as to any record.
+*Current text: [06](../architecture/06-statements-and-properties.md) §5.1, §5.2.*
 
 ### 2. A page's statements: asserted and projected
 
-A page's resolved statements are the union of two kinds:
-
-| Kind | Source | Editable |
-|---|---|---|
-| **Asserted** | Change sets in `pages` (§1) | Yes, in the Page data tab (§7) and the REST routes (§13) |
-| **Projected** | Category mappings (§5) and a thread's status (§9) | No. Changing the source changes them |
-
-**Projected statements are derived facts,** like constraint violations ([0031](0031-property-constraints.md) §2): never records, removed when their source goes away, rebuilt with the view. The provenance response ([0003](0003-statement-ui.md) §6) names their source, such as "from Category:Articles needing cleanup" or "set by Example in reply 1234", in a `derived` entry in place of a graph.
-
-**Identical statements fuse.** If an editor asserts a statement that a mapping also projects, the two are fused as statements from two graphs are ([0004](0004-identity-clusters-and-equivalence.md) §8), and the provenance lists both. Removing the category leaves the asserted statement. They are two independent claims, not one fact with two definitions, so nothing has to be reconciled.
-
-**Constraints apply to pages.** The constraint projection checks page statements as it checks entity statements ([0031](0031-property-constraints.md) §1). Wikidata's *allowed entity types* constraint (Q52004125) lists its allowed types as items; two roles, `subject-page` and `subject-thread`, name the items that stand for "document page" and "thread", so a tenant can mark a property as page-only or keep it off pages. Like every constraint, it reports and never refuses.
+*Current text: [06](../architecture/06-statements-and-properties.md) §5.3.*
 
 ### 3. Legacy categories are defined only in wikitext (amends 0008 §8; settles 0008 Q5)
 
 *Changed by A4.*
 
-**Membership is read from the text.** A page is in a category when the **latest revision** of a page whose content model is `wikitext` contains a category link:
-
-| Syntax | Meaning |
-|---|---|
-| `[[Category:Name]]` | The page is in `Category:Name`, with the page's default sort key |
-| `[[Category:Name\|key]]` | The same, with `key` as the sort key |
-| `{{DEFAULTSORT:key}}` | The page's default sort key. `DEFAULTSORTKEY` and `DEFAULTCATEGORYSORT` are aliases, as in MediaWiki. This is the one parser function the projection recognises |
-| `__HIDDENCAT__` | On a page in `Category`: the category is hidden |
-| `[[:Category:Name]]` | A link *to* the category page, not membership, as in MediaWiki. The leading-colon link is added to the subset of 0008 §8 |
-
-Names are normalized by the `Category` namespace's `first-letter` normalizer (§4). A category page's own category links make it a subcategory of those categories.
-
-**Categories are a projection, never records.** Membership is a `view` table (§10), like MediaWiki's `categorylinks`, rebuilt from the text. There is no API that adds a page to a category except editing its text, and there is no statement that means "member of a category". Removing a link from the text removes the membership at the next projection. This is the rule that keeps reconciliation out: **a category is defined in exactly one place.**
-
-**Only `wikitext` has categories.** Pages in `markdown`, `json`, `yaml` and `text`, and threads, are never in a category. Native pages start with native metadata.
-
-**A category needs no page.** A page can be in a category whose page does not exist, as on MediaWiki. The link renders red and the category still has members.
-
-**Templates are not parsed while expansion is off.** For a tenant with `wikitext.expansion` off, categories that templates emit reach the text only through the flattening revision of [0008](0008-namespaces-and-document-pages.md) §9 step 3, whose `action=expandtemplates` runs on the source wiki and writes the category links and `__HIDDENCAT__` into the flattened text. A template call added after an import renders as a placeholder (0008 §8) and emits nothing, and categories MediaWiki's parser adds on its own, such as tracking categories for broken file links, are in no text. With expansion on ([0042](0042-template-expansion-and-parsoid.md) §9), membership is read from the **expanded** text: categories that templates emit count, `<includeonly>` categories reach transcluding pages, and expansion adds MediaWiki's tracking categories for its own conditions.
-
-**Rendering.** The foot of a page lists its categories as links to their category pages, replacing 0008 §8's plain-text list. Hidden categories are listed separately, collapsed. The source text is still never rewritten.
+*Current text: [10](../architecture/10-pages-and-content-models.md) §5.3.*
 
 ### 4. The `Category` namespace (amends 0008 §2)
 
-Category (14) is implemented as a `document` namespace. This is the exception the numbering policy's first rule allows ("not implemented unless an ADR says so").
-
-| Field | Value |
-|---|---|
-| Normalizer and case | `first-letter` |
-| Content models | `wikitext` only, since a category page's `__HIDDENCAT__` and parent categories are wikitext (§3) |
-| Subpages | No |
-| Creation | Anyone with `edit`, as `Project` (0008 §7) |
-| Talk | Category talk (15), `composite`, under the policy's second rule |
-
-**A category page shows its description and its members.** The members are listed in two groups, subcategories and pages, each sorted by sort key. The sort order is the `category.collation` `site` setting, whose default is MediaWiki's `uppercase`. Moving a category page does not move its members, as on MediaWiki: the old name keeps its members until their text changes.
+*Current text: [10](../architecture/10-pages-and-content-models.md) §1.4, §3.6.*
 
 ### 5. Category mappings (extends 0015 §3)
 
-**A mapping turns membership into a page statement.** Mappings are tenant configuration, `config` records of a new kind, `category-mapping`, whose code is the mapping's name:
-
-| Field | Meaning |
-|---|---|
-| `category` or `pattern` | An exact category name, or a pattern over category names with named captures (below) |
-| `property` | The statement's property, local or mirrored |
-| `value` | The main value, as a canonical JSON data value, or a capture |
-| `qualifiers` | Optional: a list of `{property, value}`, where a value may be a capture |
-
-Written as TOML for illustration, with illustrative local IDs:
-
-```toml
-[mapping.cleanup]
-pattern    = "Articles needing cleanup from {when:month-year}"
-property   = "P40"                      # maintenance tag
-value      = { entity = "Q812" }        # cleanup
-qualifiers = [ { property = "P41", value = "{when}" } ]   # point in time
-
-[mapping.cleanup-undated]
-category = "All articles needing cleanup"
-property = "P40"
-value    = { entity = "Q812" }
-```
-
-**Captures** are written `{name:type}`. Four types exist: `year` and `month-year` (time values with precision 9 and 10, reading month names in the site's content language), `date` (precision 11) and `text` (a string). A category name whose capture does not parse does not match. This covers MediaWiki's dated maintenance categories, which are the common case.
-
-**Semantics.**
-
-- **Each membership that matches a mapping yields one projected statement** (§2) on the member page. A page in two matching categories gets two statements, which fuse if they are identical.
-- **Hidden categories are mapped like any other.** Most maintenance categories are hidden.
-- **Statement IDs are name-based UUIDs** of the page ID, the mapping name and the category name, following the rule of [0002](0002-source-graphs-and-mass-ingest.md) §8.4 for sources with no IDs of their own. They stay stable across rebuilds.
-- **A change to a mapping re-runs it** over the members of every category it matches, as a job with progress, as a constraint change re-checks a property ([0031](0031-property-constraints.md) §2).
-- **Mappings produce statements about the page only.** A category such as "1952 births" is a fact about the subject, and projecting it onto the linked item would let an article's text change the item's data. That boundary is not crossed until there is a UI that makes the difference plain (Q1).
-
-**Migrating a page off a category is optional.** A page can keep its category and still have the native statement. When a tenant wants the text free of a category, the **make-it-real job** does it per mapping: for each member page, it appends a change set asserting the statement and a text revision removing the category link, in one transaction with one base check, grouped in history under the job ([0010](0010-site-ui.md) §1, principle 3). Because the asserted and projected statements fuse, there is no moment at which the page shows two versions of the fact.
+*Current text: [10](../architecture/10-pages-and-content-models.md) §5.4.*
 
 ### 6. Pages paired with items (amends 0026 §1; extends 0026 §2)
 
 *Changed by A7.*
 
-**A sitelink to the tenant's own host targets a page.** A tenant is served at one or more hosts ([0018](0018-tenants.md) §1, §9). A sitelink in the local graph whose host is one of them is stored by **page ID**, not by URL. It is written as any sitelink is written, by site ID and title or by URL ([0026](0026-sitelinks.md) §2), and the title is resolved to a page ID at write time. A title with no page is refused with `ts-sitelink-no-page`, as Wikibase refuses a link to a missing page. The URL and title in the canonical JSON are derived from the page's current title, so **a move does not break the link** and no record is written when a page moves.
-
-**Targets** are document pages in any document namespace. Threads and talk pages cannot be sitelinked, and nor can a title whose primary is a page repository's page, which is refused with `ts-sitelink-foreign`, because a foreign page's ID changes when it is forked ([0052](0052-page-repositories-and-title-inheritance.md) §6).
-
-**The invariants of 0026 §2 give a one-to-one pairing.** For the per-host rule, all of a tenant's own hosts count as one host, so an item has at most one link to the tenant's pages; and a page ID belongs to at most one item, as a URL does. So a paired page leads to one item and the item back to one page, with no disambiguation.
-
-**The tenant's own site alias.** A tenant registers a `site-alias` for its own host ([0026](0026-sitelinks.md) §2) with a site ID of its choosing. Then `wbgetentities&sites={site ID}&titles=Douglas Adams`, `wbsetsitelink`, `Special:ItemByTitle` and the sitelink resolver ([0029](0029-resolver-namespaces.md) §5) all reach the item from the page's title. **The title becomes a way to reach the item**, with no new mechanism.
-
-**Mirrored sitelinks to the tenant's host** are URLs in their mirror graph. The sitelink projection resolves such a URL to a page by title when it can, and the reconciliation of [0026](0026-sitelinks.md) §4 (local wins per host) decides between it and a local link.
-
-**A deleted page's sitelink leaves the resolved view** while the page is deleted, as a denied host's does (0026 §3), and comes back when the deletion is retired. The record in the local graph is untouched.
+*Current text: [06](../architecture/06-statements-and-properties.md) §4.6.*
 
 ### 7. One subject per frame (extends 0010 §1 and §2)
 
-**A frame's tabs show data only about what its identity line names.** This is added to 0010's first principle. An item's statements are never drawn in a page's frame, and a page's statements never in an item's, so a reader always knows which thing a statement is about.
+*Changed by A13.*
 
-| Page kind | Tabs |
-|---|---|
-| Document page | Read, Edit, Page data, History, Links here |
-| Thread | The thread (0019 §8), Page data, History |
-
-**Page data** shows the page's resolved statements in the statement UI of [0003](0003-statement-ui.md), with the page as subject. Projected statements carry a source chip ("From Category:…", "Set in reply …") and no edit controls. Their value menu offers **Remove category**, which opens the editor on the text, or for a status, a link to the thread. The page's categories (§3) are listed here too, read-only, with a link to edit the text.
-
-**Crossing between a page and its item is a visible move.** A paired page's identity line carries a subject link, "About: Douglas Adams (Q42)", which opens the item in its own frame. The item's identity line carries "Article: Douglas Adams", which opens the page. The **About this page** panel of 0010 §4 keeps its role and gains the page-statement count.
+*Current text: [19](../architecture/19-site-ui.md) §1.1, §1.3, §1.4, §3.1.*
 
 ### 8. Namespace 0 holds articles (amends 0008 §2)
 
-**The main namespace is implemented as a `document` namespace.** It is the second exception to the numbering policy's first rule. Articles, including every page imported from a wiki's main namespace, go here.
-
-| Field | Value |
-|---|---|
-| Normalizer and case | `first-letter` |
-| Content models | `wikitext` (default), `markdown`, `json`, `yaml`, `text` |
-| Subpages | No, as MediaWiki's default for namespace 0 |
-| Creation | Anyone with `edit` |
-| Talk | Talk (1), `composite` |
-
-**A bare title is a main-namespace title, in every content model.** With articles in namespace 0, an unprefixed title means a main-namespace page, as on MediaWiki: `[[Q42]]` links to the page titled `Q42`, in wikitext and in markdown alike, and an entity is linked with its namespace, `[[Item:Q42]]`, as the subset of 0008 §8 already shows. This amends [0019](0019-discussions.md) §5, where `[[Q42]]` in a markdown post meant the entity; one rule for every content model is easier to explain than a link whose target depends on the page's format. Any valid title may be created, including one that looks like an entity ID: `Item:Q42` and `Q42` are different titles, as on any Wikibase that keeps items out of the main namespace.
-
-**ID shortcuts are not title resolution.** `/resolve` and the search box's "Go to" ([0010](0010-site-ui.md) §3) still try entity IDs, keyed IDs and resolver strings first, and main-namespace titles last ([0029](0029-resolver-namespaces.md) §6). When a main-namespace page has the same title as the ID, the search box offers it as the next suggestion ("Page titled Q42"), and `/resolve` returns it in an `also` field beside the entity.
+*Current text: [10](../architecture/10-pages-and-content-models.md) §1.4, §3.3.*
 
 ### 9. Threads (extends 0019 §6; amends 0019 §7)
 
 *Changed by A10.*
 
-**Threads carry statements as pages do** (§1): change sets keyed by the thread's page ID. Priority, component or an assignee are ordinary asserted statements.
-
-**A thread's status is a projected statement.** 0019 §6 stays the one place a status is set: by a post, in public, by a named actor. A new role, `thread-status`, names the property that represents it. The property's data type is `string`, and its value is the status name from the `thread-status` registry. Statuses are configuration records, not items, and the UI shows the registry's label. When the role is bound, the projection writes one statement per thread from its latest status-bearing post, with provenance naming the post and its author. Asserting a statement with that property on a thread is refused with `ts-derived-property`, because a second definition of status is exactly what this ADR avoids. When the role is unbound, no statement is written and status works as 0019 §6 describes.
-
-0019 §7's rule that nothing about threads enters the main or resolved graph now excepts thread statements, which are output as page statements are (§11).
-
-**A proposal's state is a projected statement in the same way** ([0067](0067-proposals.md) §5): the role `proposal-state`, bound to a `string` property, projects `view.proposal.state` onto the proposal thread, so proposals can be scoped, listed and counted like any statement.
+*Current text: [14](../architecture/14-discussions.md) §2.3, §5.4.*
 
 ### 10. Storage (extends 0013 §5.6 and §7)
 
-```sql
-CREATE TABLE view.page_statements (             -- the resolved statements of a page (§1–2)
-  page_id bigint PRIMARY KEY,
-  version bigint NOT NULL,                      -- bumped on every change; the cache and ETag key
-  statements bytea NOT NULL,                    -- canonical JSON statements, asserted ∪ projected, fused; compressed
-  generation integer NOT NULL DEFAULT 0         -- bumped on erasure and hiding (0014 §5)
-);
-
-CREATE TABLE view.page_category (               -- categorylinks (§3)
-  page_id bigint NOT NULL, category text NOT NULL,   -- the normalized name, without the prefix
-  sortkey text NOT NULL,
-  PRIMARY KEY (page_id, category)
-);
-CREATE INDEX page_category_members ON view.page_category (category, sortkey, page_id);
-
-CREATE TABLE view.category (                    -- categoryinfo (§4)
-  title text PRIMARY KEY, page_id bigint,       -- NULL when the category has no page
-  pages integer NOT NULL, subcats integer NOT NULL,
-  hidden boolean NOT NULL DEFAULT false
-);
-```
-
-**Subjects in existing tables.** `view.statement_assertion.entity_id`, `view.entity_ref.source_id` and `view.constraint_violation.entity_id` hold a page subject as the page ID in decimal (§1); in `statement_assertion`, `graph` is `pages` for an asserted statement and `derived` for a projected one. So "Links here" on the item for *cleanup* lists the pages whose statements use it, and constraint reports include pages. Page statements are **not** written to `view.identifier`, `view.match_key` or `view.value_key`, so a resolver ([0029](0029-resolver-namespaces.md)) or a match key never lands on a page.
-
-**Projection order.** `page_category` and `category` run in step 2, with `page`, since they read the latest text. The mapping and status projections, and the resolution of `page_statements`, run in step 4. The search and RDF projections pick up pages in step 7. A text edit's own categories and mapped statements are among its own rows under the synchronous budget, so an editor who adds a category sees the mapped statement on reload.
+*Current text: [03](../architecture/03-storage-caches-and-search.md) §4.4, §4.7, §5, §6.1.*
 
 ### 11. RDF (amends 0001 §3 and 0008 §10; uses 0032 §2)
 
 *Changed by A8.*
 
-**Page statements are in the main graph,** in Wikibase's statement shape (`p:`, `ps:`, `pq:`, `prov:wasDerivedFrom`, the truthy direct claims and statement nodes named from the statement ID), with the page's node `{base}/page/{page ID}` of 0008 §10 as subject. That node gets `a schema:WebPage`, `schema:name` (the current title), `schema:url` and, where the page sets a short description, `schema:description` from its `wikibase-shortdesc` page property ([0055](0055-templatestyles-templatedata-and-page-properties.md) §6). For a page paired with an item (§6), the sitelink's `schema:Article` node is this same page node, not the URL, so a query can join an item's article with the article's statements. The URL remains available through `schema:url`.
-
-0001 §3 said nothing is added to the main graph. This adds subjects, not vocabulary: every predicate is Wikibase's or schema.org's, and a Wikibase consumer that reads `p:`/`ps:` reads page statements unchanged. Projected statements are output like asserted ones. Categories themselves are not RDF; the triples they produce come through mappings. The SPARQL Update stream ([0032](0032-sparql-update-stream.md)) carries page statements' deltas like any other.
+*Current text: [02](../architecture/02-graphs-rdf-and-query.md) §5.4.*
 
 ### 12. Search (extends 0014 §7)
 
-The `pages` index gains two fields:
-
-- `categories`, the page's category names, so that CirrusSearch's `incategory:` works;
-- `statement_keywords`, as on `entities`, so that `haswbstatement:P40=Q812` finds the pages tagged for cleanup, whether the tag is asserted or projected.
+*Current text: [03](../architecture/03-storage-caches-and-search.md) §11.1.*
 
 ### 13. API (extends 0012 §4 and §5)
 
 *Changed by A3.*
 
-**REST**, under `rest.php/triplespace/v0`. The statement routes follow the Wikibase REST API's statement routes, with the page ID in place of an entity ID:
-
-| Route | Meaning |
-|---|---|
-| `GET`, `POST /page/{pageid}/statements` | The resolved statements; add an asserted statement |
-| `GET`, `PUT`, `PATCH`, `DELETE /page/{pageid}/statements/{statement_id}` | One statement. Writes to a projected statement are refused with `ts-derived-statement` |
-| `GET /page/{pageid}/provenance` | Extended with the statements' provenance, including `derived` entries (§2) |
-| `GET /page/{pageid}/categories` | Categories with sort keys and the hidden flag |
-| `GET /category/{title}/members?type=&from=` | Members by sort key |
-| `GET`, `PUT`, `DELETE /category-mappings/{name}`, `GET /category-mappings` | Mappings, as configuration records |
-| `POST /category-mappings/{name}/make-real` | Starts the make-it-real job (§5) |
-
-**Action API.** `prop=categories` with `clprop=sortkey|hidden` and `clshow`; `list=categorymembers` and `generator=categorymembers` with `cmtype` and `cmsort`; `prop=categoryinfo`; `list=allcategories`. `wbgetentities` by `sites` and `titles` finds a page's paired item (§6). Page statements are not in the Action API, except File pages', which are MediaInfo entities ([0041](0041-content-models.md) §7; §1).
+*Current text: [18](../architecture/18-api.md) §2.3, §3.2.*
 
 ### 14. Permissions and filters
 
-Asserting, changing and removing a page's statements needs `edit` on the page ([0016](0016-permissions-and-access-control.md) §5), subject to the page's ACLs (§1); for a thread, the right that posting needs. Category mappings are tenant configuration and need the configuration right every `config` kind needs. Edit filters ([0030](0030-edit-filters.md) §2) see a page's change sets in the change-set context, with the subject's kind (`entity` or `page`) and namespace exposed, so a filter can treat page metadata differently from item data.
+*Current text: [09](../architecture/09-security-and-moderation.md) §7.2, §8.9.*
 
 ### 15. Crates (amends 0005 §2)
 
 *Changed by A1.*
 
-*Superseded by [0005](0005-crate-organization.md) §2 (A1).*
-
-[0005](0005-crate-organization.md) §2 keeps the crate table that CI checks, with every change this section listed. The table this section first gave is in A1.
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
 
 ## Consequences
 
@@ -417,3 +257,42 @@ Replaced text (§1):
 - **Source:** [0067](0067-proposals.md) §5
 - **Change:** extends §9
 - **Summary:** A second projected thread statement, from the proposal projection.
+
+### A11. Only aliases and sitelinks are refused on `M` IDs
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** corrects §1
+- **Summary:** Only aliases and sitelinks on `M` IDs are refused with `not-supported` ([0065](0065-mediainfo-captions-and-commons.md) §1). Labels and descriptions on an `M` ID are captions, accepted since A9, so §1's sentence that terms and sitelinks are refused "until page terms are settled" was wrong about something already decided. (PENDING E11)
+
+Replaced text (§1):
+
+> they appear in the `mediainfo` slot (`wikibase-mediainfo`) in `prop=revisions`, and terms and sitelinks on `M` IDs are refused with `not-supported` until page terms are settled (Q4).
+
+### A12. A proposal's fields are page metadata of the thread page
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** extends §1
+- **Summary:** A proposal's kind, destination, base, payload, omitted and flags are **page metadata of the thread page**, set by the `propose` operation and projected to `view.proposal`; they are not fields of the thread's `create`, whose `target` stays the thread's home ([0067](0067-proposals.md) §3; [0019](0019-discussions.md) §4). For this ADR the decision adds to §1's account of what a thread page carries and contradicts nothing in it, so the row's `amends` is logged here as `extends`. (PENDING F7)
+
+### A13. One tabs table
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design discussion of 2026-10-09
+- **Change:** corrects §7
+- **Summary:** [0010](0010-site-ui.md) §2 is the one tabs table: Page data on the thread row, Talk on the document-page row. §7 refers to it instead of carrying a second table, which had lost Talk from the document-page row. (PENDING F15)
+
+Replaced text (§7):
+
+> | Page kind | Tabs |
+> |---|---|
+> | Document page | Read, Edit, Page data, History, Links here |
+> | Thread | The thread (0019 §8), Page data, History |
+
+### A14. Current text relocated to the architecture chapters
+
+- **Date:** 2026-10-09
+- **Source:** [0050](0050-adr-format.md) §14
+- **Change:** relocates §1–§15
+- **Summary:** The Decision's current text now lives in the architecture chapters [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [06](../architecture/06-statements-and-properties.md), [09](../architecture/09-security-and-moderation.md), [10](../architecture/10-pages-and-content-models.md), [14](../architecture/14-discussions.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.

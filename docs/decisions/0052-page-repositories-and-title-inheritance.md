@@ -2,10 +2,11 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-10-06 (A1)
+- **Updated:** 2026-10-09 (A5)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0038](0038-page-metadata-and-categories.md), [0042](0042-template-expansion-and-parsoid.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0026](0026-sitelinks.md), [0028](0028-tenancy-policy.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0043](0043-lua-modules.md), [0051](0051-page-redirects.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [MediaWiki API contract](../api/mediawiki-compat.md)
+- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [04](../architecture/04-entities-and-identifiers.md), [08](../architecture/08-tenants-and-instances.md), [09](../architecture/09-security-and-moderation.md), [13](../architecture/13-mirrored-pages.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -39,149 +40,49 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 1. A page repository (amends 0042 §2 and §11; extends 0015 §3)
 
-*Changed by A1.*
+*Changed by A1, A2, A3.*
 
-**A page repository is a source of pages a tenant serves by title without holding them.** It generalises the template repository of [0042](0042-template-expansion-and-parsoid.md) §11 to any `pages` namespace, and it is configured as a file repository is ([0039](0039-files-and-media.md) §11): a `config` record of kind **`page-repo`**, keyed `page-repo:{name}`, in a tenant's `config` or in the instance `config`, where a tenant refers to it by name and a tenancy template may supply it ([0028](0028-tenancy-policy.md) §8).
-
-| Field | Meaning |
-|---|---|
-| `kind` | `tenant`: another tenant on this instance (§7). `mediawiki`: any MediaWiki Action API, a Wikipedia above all, or a Triplespace tenant elsewhere |
-| `provider` | The provider registry entry the repository belongs to ([0015](0015-record-format-and-partition-registry.md) §5, `providers.toml`). It supplies the provider **number**, for ranged IDs (§6); the **issuer**, for the actors of its revisions ([0007](0007-actor-identity.md) §1); and its API endpoint and article path. For a `tenant` repository it is the tenant's own entry ([0018](0018-tenants.md) §5). A provider that mints no entities has no `code` and no types; `scatter-providers` accepts such an entry, and English Wikipedia is one |
-| `namespaces` | The repository's namespaces the tenant serves, by the repository's canonical names, with `main` for namespace 0. Each is served in the local namespace of the same canonical name. The default is `["Template", "Module"]`, which is what a template repository served; MDWiki's English Wikipedia entry is `["main", "Template", "Module", "Category"]` |
-| `mode` | `proxy` (default): pages are fetched and cached ([0053](0053-mirrored-pages.md) §4). `mirror`: pages are kept in an instance partition ([0053](0053-mirrored-pages.md) §5) |
-| `shadowed` | What becomes of this repository's page when a higher-ranked page exists under the same title: `offer` (default), it is offered as an alternate (§5); `hide`, it is not shown at all |
-| `titles` | `index` (default for `mediawiki`): the repository's titles are mirrored into a title index ([0053](0053-mirrored-pages.md) §3), so links, redirects and `#ifexist` are answered locally. `assume`: every title is presumed to exist, for a repository with no dump to index |
-| `cache_ttl` | How long fetched source and bundles are held, default one hour, as [0042](0042-template-expansion-and-parsoid.md) §11 had it |
-| `events` | Optional: an EventStreams endpoint for push invalidation ([0053](0053-mirrored-pages.md) §6) |
-| `talk` | `link` (default): a foreign page's talk page holds local threads and links to the repository's talk page (§7). `sync`: the repository's talk pages paired with the served namespaces are followed, mirrored whatever the `mode`, and their sections are shown as foreign threads ([0069](0069-synchronized-talk-pages.md) §1–3) |
-| `licence`, `display_name` | The licence of the repository's text, as an SPDX identifier (`CC-BY-SA-4.0` for Wikimedia projects), required for `mediawiki`; and the name shown on origin chips and attribution lines |
-
-**The tenant's order is the inheritance.** The `site` setting **`pages.repos`** lists the repositories the tenant uses, by name, in order. It replaces `wikitext.template_repos`, and **`pages.share`** replaces `wikitext.share` ([0042](0042-template-expansion-and-parsoid.md) §2): a tenant that sets it may serve its pages to other tenants as a `tenant` repository. Nothing has been written under the old names, so this is a change to the documents and the registry only.
-
-**The `template-repo` kind is retired.** A template repository is a page repository whose `namespaces` include `Template` and `Module`. Everything 0042 §11 says of how a foreign template is read, expanded, cached, attributed and trusted holds for a page repository and is not repeated here; 0042 §11 now reads as the Template and Module case of this ADR. Data modules ([0043](0043-lua-modules.md) §6) are keyed by repository, title and remote revision as before.
+*Current text: [13](../architecture/13-mirrored-pages.md) §1.1.*
 
 ### 2. A title names a stack
 
-**For a title in a `pages` namespace, the stack is every page that exists under it, in inheritance order:**
-
-1. the **local page**, if one exists and is not deleted ([0023](0023-moderation.md) §4);
-2. then, for each repository in `pages.repos` that serves the namespace, **that repository's page**, if its title index has the title (or `titles = assume`).
-
-Each entry carries its **origin**: `local`, or the repository's name. **The first entry is the primary; the rest are alternates.** A title whose stack is empty does not exist.
-
-Two things in the order are fixed and not configuration:
-
-- **A local page is always first.** The tenant's own page outranks every repository's, as the local graph wins over every mirror ([0002](0002-source-graphs-and-mass-ingest.md) §3), a local file shadows a foreign one ([0039](0039-files-and-media.md) §11) and a local template shadows a foreign one ([0042](0042-template-expansion-and-parsoid.md) §11). This is the MDWiki rule: where the wiki has forked a page, its fork is the page.
-- **Repositories rank in the order the tenant lists them.** A tenant that reads two Wikipedias decides which one answers first.
-
-**A deleted local page leaves the stack,** so deleting a fork makes the repository's page primary again ([0054](0054-forking-a-mirrored-page.md) §9). A create-protected title ([0023](0023-moderation.md) §2) reserves a page ID and nothing else: the stack is unaffected, and what the protection prevents is the fork.
-
-**A stack is computed, never stored.** The resolver reads `view.page` for the local entry and `view.foreign_title` (§8) for the others; nothing records the order, so changing `pages.repos` changes every stack at once.
+*Current text: [13](../architecture/13-mirrored-pages.md) §1.2.*
 
 ### 3. Resolution (amends 0008 §3; extends 0042 §11)
 
-**The title resolver resolves a `pages` title to its primary.** The resolve step of [0008](0008-namespaces-and-document-pages.md) §3 reads: in a `pages` namespace, a title resolves to the primary of its stack, which is a local page ID or a foreign page named by repository and upstream page ID. Then [0051](0051-page-redirects.md) §2 applies: if the primary is a redirect, local or foreign, the resolver resolves the **target title's stack**, one hop. So English Wikipedia's redirect *Heart attack* → *Myocardial infarction* lands a reader on MDWiki's fork of *Myocardial infarction* when there is one, and on Wikipedia's article when there is not.
-
-**Everything that asks "which page is this title?" gets the primary:** page views, `titles=` in the API, transclusion (`{{Foo}}`, `{{:Foo}}`), `#ifexist`, Lua's `mw.title` ([0043](0043-lua-modules.md) §5), link colouring, and the file lookup for a `File:` title in a served namespace. This is the lookup [0042](0042-template-expansion-and-parsoid.md) §11 already gave templates, stated once for every namespace, and its rule that **lookup restarts at local at every level** is the same rule: each nested transclusion resolves its own stack, so a foreign `Template:Infobox` that calls `{{Infobox/row}}` gets the local `Template:Infobox/row` if one exists.
-
-**Everything that asks "which pages exist under this title?" gets the stack:** the frame (§5), `GET /page/stack/{title}` (§6) and the fork form ([0054](0054-forking-a-mirrored-page.md) §2).
-
-**A title index answers without the network.** With `titles = index`, whether a foreign page exists, and whether it is a redirect and to what, is a local read of `view.foreign_title`; rendering a page with five hundred links costs no requests to the repository. With `titles = assume`, every link to a served namespace is presumed to exist, and a reader who follows one that does not meets the repository's "not found", rendered as a missing page with a link upstream. `assume` is for repositories that publish no title dump, and it is why `index` is the default.
+*Current text: [13](../architecture/13-mirrored-pages.md) §1.3.*
 
 ### 4. Links continue reading (extends 0008 §8)
 
-**A link resolves through the stack, so a reader keeps reading.** In the wikitext subset, in markdown ([0019](0019-discussions.md) §5) and in rewritten foreign HTML ([0053](0053-mirrored-pages.md) §2), a wiki link to a title whose primary is foreign is an ordinary blue link to the local URL of that title. Following it shows the foreign page in this tenant's frame (§5), whose own links resolve the same way. The link carries the class `ts-inherited` and `data-ts-origin="{repository}"`, so a tenant's styles or a reader's preference can mark it, and nothing else distinguishes it. A title with an empty stack is a red link, as any missing page is. A link to a redirect carries `mw-redirect` ([0051](0051-page-redirects.md) §2).
-
-**Links out of the served namespaces leave the wiki.** A link in a foreign page to a namespace the repository does not serve here, `Wikipedia:Manual of Style` on a tenant that serves only `main`, `Template`, `Module` and `Category`, is rewritten to the repository's own URL and rendered as an interwiki link (`class="extiw"`), because there is nothing here for it to resolve to. A tenant's own pages link to the repository explicitly with its site alias as before, `[[enwiki:Foo]]` ([0026](0026-sitelinks.md) §2), and that link is not inheritance.
-
-**"What links here" counts links to inherited titles.** The links projection ([0008](0008-namespaces-and-document-pages.md) §10) records a `page_link` row by title for a link whose primary is foreign, keyed by namespace and title as a link to a missing page is, so that when the title is forked the fork's backlinks are already there.
+*Current text: [13](../architecture/13-mirrored-pages.md) §1.4.*
 
 ### 5. The frame: primary, origin and alternates (extends 0010 §2)
 
-**The page view shows the primary** in the tenant's frame: the tenant's header, search, tabs and chrome, with the foreign content inside it as [0053](0053-mirrored-pages.md) §2 renders it.
+*Changed by A4.*
 
-**The identity line names the origin.** A foreign primary carries an **origin chip**, the provider's chip from the registry as a mirrored entity carries one ([0010](0010-site-ui.md) §2), and the line reads "From English Wikipedia, revision 1234567890 as of 2026-09-30 · CC BY-SA 4.0", linking the title upstream and the licence. A local primary with alternates reads as any local page does, and gains the control below.
-
-**Alternates are offered or hidden.** When the stack has alternates, the identity line gains **Other versions**, a menu listing each alternate whose repository is `offer`: its origin, its latest revision and date, and, for a local page that is a fork, "Forked from this at revision N" ([0054](0054-forking-a-mirrored-page.md) §6). An alternate whose repository is `hide` is not listed. When nothing is listable, the control is not drawn.
-
-**Reading an alternate** is the title's URL with **`origin={repository}`**, served in the same frame with the identity line saying so and a link back to the primary. The response is `noindex` and its canonical link is the primary; it is never what a search engine or a link indexes. An `origin` that names a hidden alternate, or one the stack does not have, answers 404 with `ts-origin-hidden` or `ts-origin-missing`.
-
-**A page may override its repositories' defaults.** A local primary may carry a page statement ([0038](0038-page-metadata-and-categories.md) §1) whose property is bound to the role **`page-alternates`**, a `string` property whose value is `offer` or `hide`. It applies to every alternate of that title and outranks the repositories' `shadowed` settings, so a wiki whose repositories default to `hide` can offer Wikipedia's article beneath one page as a supplement, and a wiki that defaults to `offer` can hide it under another. The role is registry data like `thread-status` ([0038](0038-page-metadata-and-categories.md) §9); unbound, the repositories' defaults decide.
-
-**Edit forks.** The Edit tab of a foreign primary opens the editor on the foreign page's wikitext and says, before anything is typed, that saving will create a local copy that no longer follows the repository ([0054](0054-forking-a-mirrored-page.md) §2). Move, Delete, Protect and Change content model are not offered on a foreign page; **Protect…** on a title whose primary is foreign offers create-protection only, which is how a tenant stops a title being forked.
+*Current text: [13](../architecture/13-mirrored-pages.md) §1.5.*
 
 ### 6. Identity: provider-ranged page IDs, and the API (extends 0015 §2 and 0013 §6; extends 0012 §4–5)
 
-**A foreign page has a derived page ID.** Its `pageid` is the **provider-ranged** form of the repository's own page ID, `provider_number << 40 | upstream page ID`, computed as mirror records' revision IDs are ([0015](0015-record-format-and-partition-registry.md) §2, [0013](0013-postgres-storage.md) §6). It is derived, not minted, as a File page's `M` ID is ([0041](0041-content-models.md) §7): nothing allocates it, it is the same on every tenant that reads the repository, and it never collides with a local page ID, which comes from the tenant's sequence below 2^40. Its `lastrevid` is the ranged form of the upstream revision ID the tenant currently holds. In `mirror` mode the same numbers are what the `pages/{repo}` records carry in header fields 9 and 7 ([0053](0053-mirrored-pages.md) §5).
-
-**What the API reports for a foreign primary.** Reading works as for any page, from the held bundle ([0053](0053-mirrored-pages.md) §1):
-
-| Module or route | Behaviour |
-|---|---|
-| `prop=info` | `pageid`, `lastrevid`, `touched`, `length`, `contentmodel` (the upstream page's), `redirect`; and, additively, **`origin`**: the repository name. A local page reports `origin: local` |
-| `prop=revisions` | The latest upstream revision, with `rvprop=content` the wikitext, `user` the upstream actor under its issuer and `comment` the upstream summary. Older revisions are not held: a request for them is answered with the latest and a warning, `ts-foreign-history`, naming the upstream history URL. The site UI's History tab fetches them live instead, as [0010](0010-site-ui.md) §5.5 fetches upstream edits, never logging them ([0012](0012-api-requirements.md) §6) |
-| `action=parse`, `prop=categories`, `prop=templates`, `prop=links`, `prop=images`, `prop=langlinks`, `prop=pageprops` | From the bundle |
-| `list=allpages`, `list=prefixsearch`, `generator=allpages` | Local pages, then, with **`tsorigin=all`**, the title index's titles for served namespaces, each row carrying `origin`. Without the parameter they list local pages only, so a bot that walks a wiki gets what the wiki holds |
-| `titles=`, `pageids=`, `redirects` | Resolve through the stack and through foreign redirects; a ranged `pageid` resolves to the repository page it names |
-| `action=edit`, `action=delete`, `action=move`, `action=protect` (except create-protection), `action=changecontentmodel` | `action=edit` on a foreign primary starts a fork ([0054](0054-forking-a-mirrored-page.md) §2). The others are refused with `ts-foreign-page`: there is nothing local to act on |
-| `GET /page/{id}` *(REST v0)* | Accepts a ranged ID; the summary carries `origin`, `upstream` (page ID, revision, URL) and `stack` (every origin under the title, in order, with `shown: true` or `false`) |
-| `GET /page/stack/{title}` *(REST v0)* | The stack of a title: each entry's origin, page ID, latest revision and whether it is offered |
-| `meta=siteinfo&siprop=triplespace` | Gains `page_repos`: each repository's name, kind, provider, served namespaces, mode, `shadowed`, `titles` and licence, as `meta=filerepoinfo` lists file repositories |
-
-**Sitelinks target local pages only.** A sitelink to the tenant's own host is stored by page ID ([0038](0038-page-metadata-and-categories.md) §6), and a foreign page's ID changes when it is forked, so a title whose primary is foreign is refused as a sitelink target with `ts-sitelink-foreign`. An item that wants an article here gets a fork (Q2).
+*Current text: [04](../architecture/04-entities-and-identifiers.md) §5.3; [18](../architecture/18-api.md) §2.2, §2.3, §3.1, §3.2.*
 
 ### 7. Talk pages, statements, categories and feeds
 
 *Changed by A1.*
 
-**A foreign page's talk page is local.** Threads attach to `{kind: page, id: <the ranged page ID>}` ([0019](0019-discussions.md) §2), exactly as they attach to a mirrored entity. Under `talk = link` the talk page offers a link to the repository's own talk page for readers who want that discussion; under `talk = sync` it shows that discussion, the repository's sections as foreign threads beside the local ones, and a person holding an upstream grant may reply to them or start a section upstream ([0069](0069-synchronized-talk-pages.md) §3, §5–6). When the page is forked, the fork job moves these threads to the fork's talk page ([0054](0054-forking-a-mirrored-page.md) §5). Threads about a hidden alternate's talk page attach to the primary's.
-
-**A foreign page carries no local statements.** Page statements are keyed by page ID in the tenant's `pages` partition ([0038](0038-page-metadata-and-categories.md) §1), and a ranged ID could key them; but a page with local statements and no local text would be a third kind of entry, neither inherited nor forked, and the fork would have to carry the statements across a change of page ID. Local metadata about a foreign page waits for a decision on that shape (Q1). Until then, a fork is the way to say anything local about a page.
-
-**Categories are shown, not joined.** A foreign page's categories, from its bundle, are listed at its foot as links to `Category:` titles, which resolve through the stack like any title. The page is not a member in `view.page_category`, whose rows are a projection over local pages ([0038](0038-page-metadata-and-categories.md) §3); a category page lists its local members and, when the category is served by a repository, links to the members upstream (Q3).
-
-**Feeds.** A foreign page has no activity rows in the tenant: its changes are the repository's. Watching a title whose primary is foreign watches its local talk page and, through the title, the fork when one is made. Upstream changes reach a watcher through the repository's own feeds, which the talk page links to (Q4).
-
-**Tenant repositories** (`kind = tenant`) are read directly, as `tenant` file and template repositories are: the source tenant's `view.page` rows and records, with its ACLs evaluated as the source tenant's, so a page deleted there is missing here. The source must set `pages.share = on`; under `providers.between_tenants = operator` only the operator can; reader lists apply ([0028](0028-tenancy-policy.md) §5); a private tenant cannot share. **The page is rendered here, in this tenant's context,** by this tenant's expander over this tenant's stacks, as an inherited template is expanded in the local page's context ([0042](0042-template-expansion-and-parsoid.md) §11); the source tenant's rendered HTML is not reused.
+*Current text: [13](../architecture/13-mirrored-pages.md) §1.7, §1.8.*
 
 ### 8. Storage (extends 0013 §5.6)
 
-```sql
-CREATE TABLE view.foreign_title (            -- the title index of a repository (§2–3; filled by 0053 §3)
-  repo text NOT NULL,                          -- the repository name; instance scope, shared by every tenant that lists it
-  ns integer NOT NULL, title text NOT NULL,    -- the repository's own namespace number and normalized title
-  upstream_page_id bigint NOT NULL,
-  is_redirect boolean NOT NULL DEFAULT false,
-  redirect_ns integer, redirect_title text, redirect_fragment text,
-  lastrevid bigint, touched timestamptz,
-  PRIMARY KEY (repo, ns, title)
-);
-CREATE INDEX foreign_title_page ON view.foreign_title (repo, upstream_page_id);
-```
-
-The table is instance scope, like `files/{repo}` and the shared entity views ([0018](0018-tenants.md) §6): a repository's titles are the same for every tenant, and English Wikipedia's are tens of millions of rows kept once. Which tenants read which repository is `pages.repos`. `view.page` is unchanged: foreign pages have no row in it, and the resolver joins the two.
-
-**Caches** ([0014](0014-caches-and-search.md) §4): a stack is not cached; its two reads are indexed. A rendered foreign page is cached as [0053](0053-mirrored-pages.md) §4 says. The `p:` key of a local page gains nothing, since a local primary renders as before.
+*Current text: [03](../architecture/03-storage-caches-and-search.md) §4.12, §5, §9.7, §12.*
 
 ### 9. Permissions and tenancy (extends 0016 §2)
 
-| Action | Needs |
-|---|---|
-| Writing a `page-repo` record, `pages.repos` or `pages.share` | `ts-config`, as every `config` kind does ([0016](0016-permissions-and-access-control.md) §2) |
-| Reading a foreign page | `read`; the repository's own content is public by definition |
-| Setting `page-alternates` on a page | `edit` on the page, as any page statement ([0038](0038-page-metadata-and-categories.md) §14) |
-| Forking | [0054](0054-forking-a-mirrored-page.md) §8 |
-
-An instance-scope `page-repo` is shared machinery under `config.template` ([0028](0028-tenancy-policy.md) §8): provisioned under `defaults`, locked under `locks`, as file repositories are.
+*Current text: [08](../architecture/08-tenants-and-instances.md) §5.3, §10.6; [09](../architecture/09-security-and-moderation.md) §8.8.*
 
 ### 10. Crates (amends 0005 §2)
 
-| Crate | Change |
-|---|---|
-| `triplespace-titles` | The stack (§2–3): resolving a `pages` title to its primary over `view.page` and `view.foreign_title`, following redirects through stacks, the `origin` query, and `GET /page/stack` |
-| `triplespace-render` | Link classes `ts-inherited` and `extiw` for inherited and leaving links (§4); `ExpandHost` answers template, module and `#ifexist` lookups from the stack, which is what [0042](0042-template-expansion-and-parsoid.md) §11 already had it do for templates |
-| `scatter-providers` | A provider entry with no `code` and no types (§1) |
-| `scatter-pages` | The `page-repo` config kind replaces `template-repo` in the registry; the `page-alternates` role |
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
 
 ## Alternatives considered
 
@@ -245,3 +146,43 @@ An instance-scope `page-repo` is shared machinery under `config.template` ([0028
 Replaced text (§7):
 
 > Threads attach to `{kind: page, id: <the ranged page ID>}` ([0019](0019-discussions.md) §2), exactly as they attach to a mirrored entity, and the talk page offers a link to the repository's own talk page for readers who want that discussion.
+
+### A2. `repo.cache_ttl` is per repository, with a per-kind default
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** amends §1
+- **Summary:** `repo.cache_ttl` is a per-repository field of the `page-repo` record, as it is of the `file-repo` record ([0039](0039-files-and-media.md) §11), with a per-kind default: 7 days for files, one hour for template source and page bundles. The field was named `cache_ttl` here with a flat default of one hour. (PENDING C20)
+
+Replaced text (§1):
+
+> | `cache_ttl` | How long fetched source and bundles are held, default one hour, as [0042](0042-template-expansion-and-parsoid.md) §11 had it |
+
+### A3. The field is `repo.cache_ttl` here too
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design discussion of 2026-10-09
+- **Change:** corrects §1
+- **Summary:** The repository field is named `repo.cache_ttl` in §1 too, the field A2 (PENDING C20) makes per-repository; one name everywhere, as [0053](0053-mirrored-pages.md) §4 already has it for the L2 row. §1's table called it `cache_ttl`. (PENDING F1)
+
+Replaced text (§1):
+
+> | `cache_ttl` | How long fetched source and bundles are held, default one hour, as [0042](0042-template-expansion-and-parsoid.md) §11 had it |
+
+### A4. Delete on a foreign page hides it
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design discussion of 2026-10-09
+- **Change:** amends §5
+- **Summary:** A foreign page is hidden as a local page is deleted: the Delete action, held by an administrator (`delete`), writes the `read` ACL of [0053](0053-mirrored-pages.md) §9. §5 lists Delete among the actions offered on a foreign page, with that meaning; Move, Protect and Change content model stay unoffered, Protect… offering create-protection only as before. (PENDING F2)
+
+Replaced text (§5):
+
+> Move, Delete, Protect and Change content model are not offered on a foreign page;
+
+### A5. Current text relocated to the architecture chapters
+
+- **Date:** 2026-10-09
+- **Source:** [0050](0050-adr-format.md) §14
+- **Change:** relocates §1–§10
+- **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [04](../architecture/04-entities-and-identifiers.md), [08](../architecture/08-tenants-and-instances.md), [09](../architecture/09-security-and-moderation.md), [13](../architecture/13-mirrored-pages.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.

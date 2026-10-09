@@ -2,10 +2,11 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-03 (A8)
+- **Updated:** 2026-10-09 (A10)
 - **Author:** James Hare / Claude
 - **Changes:** [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0003](0003-statement-ui.md), [0012](0012-api-requirements.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0029](0029-resolver-namespaces.md), [0033](0033-backend-stack.md)
+- **Chapters:** [09](../architecture/09-security-and-moderation.md), [19](../architecture/19-site-ui.md), [20](../architecture/20-web-tier.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -21,127 +22,73 @@ The backend stack is in 0033.
 
 *Changed by A6, A7, A8.*
 
-1. **The server renders every page.** Reading never needs JavaScript. Rendered pages are cacheable at the L2 layer (0014 §3).
-2. **JavaScript enhances regions, never whole pages.** An interactive component takes over one region of a server-rendered page. There is no client-side router.
-3. **One renderer per thing.** Anything the server draws is drawn only by the server. A component that changes it fetches the server's rendering afterwards (§5) rather than drawing its own copy.
-4. **Codex components, themed by tokens.** Codex's components, icons and markup are used without overrides. Their look comes from Codex's design tokens, and the instance or a tenant may give those tokens values of its own as a **theme** (`ui.theme`, [0015](0015-record-format-and-partition-registry.md) §3): colours, typefaces, radii and spacing, never a component's markup or behaviour. A theme is served as a stylesheet of CSS custom properties, so it needs no inline style under §11, and it is refused when its colours fail WCAG 2.1 AA contrast for the token pairs Codex uses for text, borders and focus. The theme's values are reported in `meta=siteinfo&siprop=triplespace` ([0012](0012-api-requirements.md) §4), from which the site reads them as it reads any setting, and the site serves them as a stylesheet named by a hash of its values, so a changed theme is a new URL and each one caches as immutable. Without one, the site wears the **shipped default theme**, `default` in `docs/registry/themes.toml`: the palette and type of the site and statement UI canvases, Newsreader for headings over IBM Plex Sans and IBM Plex Mono, on a warm ground; tokens it does not name keep Codex's values. Where a design needs something Codex lacks, it is built from Codex tokens and proposed upstream. Codex is used for its accessible components, its right-to-left and language support, and CSS-only components that need no JavaScript, more than for its look.
-5. **The public API only** (0012 §1). The browser calls public routes, and so does the server-side renderer: it calls the public HTTP API with the viewer's own credentials, over the network from `triplespace-web` or through an in-process call into the API's router from `triplespace-server`, and never links an API crate's handlers or reads `view` ([0057](0057-web-tier.md) §1). Every page therefore carries exactly the API's per-viewer redaction.
+*Current text: [19](../architecture/19-site-ui.md) §1, §5.1.*
 
 ### 2. Server rendering, in `triplespace-ui`
 
 *Changed by A6, A8.*
 
-- **Templates:** `askama`, compiled and type-checked with the Rust code.
-- **Codex markup:** a Rust builder module that emits Codex CSS-only component markup (buttons, fields, tables, cards, tabs, messages, chips, progress bars), following the approach of WMF's Codex PHP. Templates call the builder instead of writing Codex class names by hand, so a Codex markup change is one edit.
-- **Frame:** the page frame of 0010 §2 (global header, identity line, title, tabs) is one template shared by every page kind.
-- **Assets:** Codex CSS, design tokens and icons come from the pinned `@wikimedia/codex`, `@wikimedia/codex-design-tokens` and `@wikimedia/codex-icons` packages at build time (§8), with hashed file names, served with long-lived cache headers by whichever binary serves the site: `triplespace-web`, or `triplespace-server` with `server.ui = embedded` ([0057](0057-web-tier.md) §2). The default theme's typefaces (Newsreader, IBM Plex Sans, IBM Plex Mono, all under the SIL Open Font License) are served the same way, from the site's own origin, as §11's policy requires.
-- **Mobile:** one responsive site built on Codex's breakpoints. No separate mobile domain or skin. Detailed mobile layouts stay open (0010).
+*Current text: [19](../architecture/19-site-ui.md) §1.2, §5.2.*
 
 ### 3. Statement groups (uses 0003 §3)
 
-- The layouts of 0003 (table, matrix, chart, timeline, chips, "Same for all N", footnoted shared references) are rendered **only on the server**.
-- Tables use Codex's CSS-only Table.
-- Charts, sparklines and timeline strips are **SVG generated in Rust** from the same view model the classifier produces. They cache like any other markup and need no JavaScript. No client charting library is used for these.
-- The shape classifier lives in a pure, wasm-capable crate, so an editor can predict the layout a change will produce (§6).
+*Current text: [19](../architecture/19-site-ui.md) §4.9.*
 
 ### 4. Interactive components
 
 *Changed by A3.*
 
-Vue 3 with Codex's Vue components, written in TypeScript, mounted into placeholders in the server-rendered HTML. Each component reads its initial data from a `<script type="application/json">` block the server writes beside the placeholder.
-
-| Component | Codex parts | Region |
-|---|---|---|
-| Statement value editor, rank menu | Lookup, Combobox, Menu, Dialog, TextInput | one value or one statement |
-| Term editor (labels, descriptions, aliases) | TextInput, ChipInput | the term box |
-| Source editor with live preview (0008, 0010) | CodeMirror 6 (§7), Tabs | the edit view |
-| Search box with "Go to" suggestions (0010, 0029) | TypeaheadSearch | the global header |
-| Notifications bell and inbox (0021) | Popover, Menu | the account area |
-| Live updates switch (0020) | ToggleSwitch | feed pages |
-| Recent changes filters | Checkbox, Lookup, MultiselectLookup | the filter panel |
-| Job progress (0012) | ProgressBar | `Special:Jobs/{id}` |
-| User, group and consumer pickers on special pages | Lookup | the form field |
-
-Statement editing requires JavaScript, as on Wikidata. Reading, page source editing through a plain form, and the account pages work without it. A **table grid editor** (Codex Table, Lookup, TextInput; the statement value editor for cells) sits over the server-rendered grid of a `Table` page; reading a table needs no JavaScript ([0045](0045-table-content-model.md) §11).
+*Current text: [19](../architecture/19-site-ui.md) §3.10, §5.3.*
 
 ### 5. Fragments
 
 *Changed by A6.*
 
-After a component saves, it fetches the server's rendering of the changed region from the page's own URL and swaps it in: MediaWiki's `action=render`, with a `region` parameter that names part of the content, such as `index.php?title=Item:Q42&action=render&region=statements/P1082` or `region=terms` ([0057](0057-web-tier.md) §8). The web tier serves it like the page, so there are no fragment routes in the API.
-
-A region carries the same `ETag`, `Cache-Tag` and redaction as its page ([0014](0014-caches-and-search.md) §3, 0057 §6). Full pages are assembled from the same region functions, so a region and its page cannot drift. A component sends the build ID of its page, and a web tier on another build answers `409` so that the component reloads the page instead (0057 §8).
+*Current text: [20](../architecture/20-web-tier.md) §3.2.*
 
 ### 6. Rust in the browser, in `scatter-wasm`
 
-*Changed by A1, A5.*
+*Changed by A1, A5, A9.*
 
-One `wasm-bindgen` crate re-exports what editors need from the pure crates:
-
-- the 0003 shape classifier;
-- `scatter-normalize` (value normalization and keyed-ID grammars, 0017, 0029);
-- `scatter-wikitext` and the `scatter-pages` markdown renderer, for live preview;
-- `scatter-css`, so the editor lints a `sanitized-css` page as it is typed ([0055](0055-templatestyles-templatedata-and-page-properties.md) §2).
-
-It is built with `wasm-bindgen-cli` and `wasm-opt`, lazy-loaded only by editors, and never needed for reading. This is one reason 0033 §9.1 chose a pure-Rust wikitext parser. When the source needs expansion the browser cannot do, the preview comes from `action=parse` on the server instead ([0042](0042-template-expansion-and-parsoid.md) §15).
+*Current text: [19](../architecture/19-site-ui.md) §5.4.*
 
 ### 7. Source editor
 
 *Changed by A2, A5.*
 
-CodeMirror 6, which MediaWiki's CodeMirror extension also uses, with its wikitext mode, a markdown mode and a Lua mode for module pages ([0043](0043-lua-modules.md) §13). Edit conflicts (0010 §5) are shown as line decorations. `[[` triggers link autocomplete through the suggest route (0012). `tree-sitter-wikitext` through `web-tree-sitter` is an optional later enhancement for structural highlighting. A CSS mode serves `sanitized-css` pages. **Insert template…** builds a form from a template's TemplateData, and a parameter popup lists a call's parameters ([0055](0055-templatestyles-templatedata-and-page-properties.md) §5).
+*Current text: [19](../architecture/19-site-ui.md) §3.2, §5.5.*
 
 ### 8. Build
 
 *Changed by A6, A8.*
 
-- `ui/` is an npm workspace: TypeScript, Vue 3, Codex packages pinned to exact versions, CodeMirror 6. Codex is pinned at its latest release when work begins (2.7.0 on 2026-10-03) and moves to a newer release deliberately, in a commit of its own with the snapshot and accessibility tests as the check, not with the version a MediaWiki release bundles.
-- **Vite** builds the components into hashed ES modules and a manifest.
-- The release build embeds `ui/dist` into both binaries that can serve the site, `triplespace-web` and `triplespace-server` (`rust-embed`); templates read the manifest to emit `<script type="module">` tags. **Node is a build-time dependency only**; a small instance stays one binary (0033 §1), and an instance that runs the web tier separately runs two ([0057](0057-web-tier.md) §2).
-- In development, whichever binary serves the site proxies asset requests to the Vite dev server for hot reload.
-- Lint: ESLint with `eslint-config-wikimedia`, Stylelint with `stylelint-config-wikimedia`. Styles are plain CSS using Codex's CSS custom-property tokens; no Less.
+*Current text: [22](../architecture/22-crates-and-stack.md) §5.1.*
 
 ### 9. Internationalisation
 
-- Interface messages are **banana JSON** files in `i18n/` (`en.json`, `qqq.json` for documentation, one file per language), so the project can be registered with translatewiki.net like any MediaWiki extension.
-- The server renders messages with the `banana-i18n` Rust crate; components use the `banana-i18n` JavaScript library. Both read the same files. The Rust crate is at 0.1.0; if it proves incomplete, a small in-house implementation of `PLURAL`, `GENDER`, `GRAMMAR` and `$n` with ICU4X plural rules replaces it.
-- `banana-checker` runs in CI.
-- Interface language comes from the `language` preference (0027) with `uselang` as an override; fallback chains follow MediaWiki's. Direction comes from the language and is set on `<html dir>`; Codex handles RTL.
+*Current text: [19](../architecture/19-site-ui.md) §5.6.*
 
 ### 10. Accessibility and browser support
 
 *Changed by A7.*
 
-- WCAG 2.1 AA, inherited from Codex and checked by axe in end-to-end tests (§12), and kept under a theme by the contrast check that admits it (§1).
-- Browser support follows MediaWiki's: modern browsers get the components; older browsers get the server-rendered pages without them.
+*Current text: [19](../architecture/19-site-ui.md) §5.7.*
 
 ### 11. Security
 
 *Changed by A6.*
 
-- A strict Content Security Policy: scripts only from the instance's own origin, no inline scripts, no `eval`. Initial data is passed in `application/json` blocks, which CSP does not execute.
-- Components never insert HTML they built from user input. HTML they insert comes only from `action=render` (§5), which is built from `askama`'s escaped templates and from HTML the API has sanitized (0033 §9).
+*Current text: [09](../architecture/09-security-and-moderation.md) §1.4.*
 
 ### 12. Testing
 
-| Tool | Use |
-|---|---|
-| Vitest + `@vue/test-utils` | component tests |
-| Playwright | end-to-end flows, including a JavaScript-disabled run of every read page |
-| `@axe-core/playwright` | accessibility checks on every page kind |
-| `insta` | snapshots of rendered templates and fragments |
+*Current text: [22](../architecture/22-crates-and-stack.md) §5.2.*
 
 ### 13. Prototyping path
 
 *Changed by A6.*
 
-As the statement UI spec planned, the UI is built before the backend is complete:
-
-1. `triplespace-ui` renders item pages from Wikidata's canonical JSON (`Special:EntityData`) through the shape classifier.
-2. Provenance panels use fixtures.
-3. The editing components write through the Action API to test.wikidata.org or the MediaWiki 1.43 reference install.
-
-Nothing in the UI changes when the source becomes a Triplespace instance, because it only speaks the public API. In development, `triplespace-web` with `web.upstream_host = fixed` is pointed at Wikidata or the reference install directly ([0057](0057-web-tier.md) §4).
+*Current text: [19](../architecture/19-site-ui.md) §5.8.*
 
 ## Alternatives considered
 
@@ -285,3 +232,26 @@ Replaced text (§1):
 Replaced text (§1):
 
 > Without a theme, Codex's own values apply.
+
+### A9. The wasm list lives in 0005 rule 7
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design discussion of 2026-10-09
+- **Change:** corrects §6
+- **Summary:** [0005](0005-crate-organization.md) §3 rule 7 is the one wasm list: the nine crates its table marks. §6 and `cargo xtask wasm` read that list rather than keeping a list of their own; §6's four-item enumeration of what `scatter-wasm` re-exports is replaced by a reference to rule 7. (PENDING F23)
+
+Replaced text (§6):
+
+> One `wasm-bindgen` crate re-exports what editors need from the pure crates:
+>
+> - the 0003 shape classifier;
+> - `scatter-normalize` (value normalization and keyed-ID grammars, 0017, 0029);
+> - `scatter-wikitext` and the `scatter-pages` markdown renderer, for live preview;
+> - `scatter-css`, so the editor lints a `sanitized-css` page as it is typed ([0055](0055-templatestyles-templatedata-and-page-properties.md) §2).
+
+### A10. Current text relocated to the architecture chapters
+
+- **Date:** 2026-10-09
+- **Source:** [0050](0050-adr-format.md) §14
+- **Change:** relocates §1–§13
+- **Summary:** The Decision's current text now lives in the architecture chapters [09](../architecture/09-security-and-moderation.md), [19](../architecture/19-site-ui.md), [20](../architecture/20-web-tier.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.

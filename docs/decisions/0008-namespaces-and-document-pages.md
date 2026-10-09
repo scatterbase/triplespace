@@ -2,10 +2,11 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-08 (A31)
+- **Updated:** 2026-10-09 (A33)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [MediaWiki API contract](../api/mediawiki-compat.md)
+- **Chapters:** [10](../architecture/10-pages-and-content-models.md), [18](../architecture/18-api.md)
 
 ## Context
 
@@ -26,232 +27,57 @@ The goal is not to reimplement MediaWiki's page features. Templates, parser func
 
 *Changed by A3, A5, A10, A11, A19.*
 
-Namespaces are configuration: data passed in by the caller and recorded in the log ([0004](0004-identity-clusters-and-equivalence.md) §9, [0005](0005-crate-organization.md) §3 rule 3). The entries are in `docs/registry/namespaces.toml` ([0015](0015-record-format-and-partition-registry.md) §5). Each entry records:
-
-- the **MediaWiki fields**: numeric ID, canonical name, local name, aliases, the `case` rule, whether subpages are allowed, and the paired talk namespace;
-- the **kind**, which says only whether the namespace holds pages ([0041](0041-content-models.md) §4):
-  - **`pages`**: it holds pages. The entry names the allowed content models and the default model (§5). A namespace whose pages may also carry uploads adds `uploads = true` ([0039](0039-files-and-media.md) §2);
-  - **`reserved`**: the namespace is listed in `meta=siteinfo` but holds no pages (§2, rule 1);
-  - **`virtual`**: titles are generated or resolved by the server. `Special` and `Media` ([0039](0039-files-and-media.md) §1) are virtual, and so is a namespace with **`forwards_to`**, every title of which resolves to the same title in the namespace it names (§3, [0049](0049-boards.md) §2);
-  - **`resolver`**: every title is a key, and viewing it performs a lookup ([0029](0029-resolver-namespaces.md) §2–3). It holds no pages, so it has no model;
-- the **title normalizer** (§3);
-- the **creation rule**, where the kind needs one (§6);
-- **`enabled_by`**, where a namespace is implemented only while a tenant setting is on (§2, rule 1).
-
-**An entity namespace is keyed by entity type, not by provider.** `Item` hosts every item type: local `Q`, Wikidata `WDQ`, OpenAlex `OAW` and the rest. `Property` hosts `P` and `WDP`. What makes a namespace an entity namespace is its model: the entity type's model (`wikibase-item`, `wikibase-property`, [0041](0041-content-models.md) §3) names the type, so the entry carries no list of entity types. This matches [0002](0002-source-graphs-and-mass-ingest.md) §4, where the prefixed ID is the working name in a page title such as `Item:WDQ123`.
+*Current text: [10](../architecture/10-pages-and-content-models.md) §1.1, §1.2.*
 
 ### 2. Namespace numbering
 
-*Changed by A3, A6, A8, A9, A10, A12, A13, A15, A17, A18, A19, A25, A26, A27, A28, A29, A31.*
+*Changed by A3, A6, A8, A9, A10, A12, A13, A15, A17, A18, A19, A25, A26, A27, A28, A29, A31, A32.*
 
-MediaWiki's canonical numbers are kept wherever a namespace has one, because clients hard-code them. Four rules govern every other number (A6, A17, A31):
-
-1. **Every number MediaWiki core or any Wikibase extension uses is reserved.** It is listed with kind `reserved`, is never given another meaning, and is not implemented unless an ADR says so. An ADR may implement one conditionally, by a tenant setting named in the entry's `enabled_by` ([0042](0042-template-expansion-and-parsoid.md) §3). Turning the setting off keeps the namespace's pages readable and refuses writes with `ts-namespace-disabled`.
-2. **Talk namespaces exist only for implemented subject namespaces,** at the next odd number. A talk namespace is a `pages` namespace with the model `triplespace-talk` ([0019](0019-discussions.md) §2, [0041](0041-content-models.md) §4). Where a page is its own talk page, as a board and a thread are, the talk number is `virtual` and forwards to the subject namespace ([0049](0049-boards.md) §2). A resolver's talk number is `reserved` ([0029](0029-resolver-namespaces.md) §2). A reserved, unimplemented subject namespace has no talk namespace.
-3. **Triplespace's own namespaces take 210–219, then 310–319. Resolver prefixes ([0029](0029-resolver-namespaces.md)) take 220–229, then 320–329.** A first block is used up before its second. All four blocks are registered on mediawiki.org's Extension default namespaces page, which listed nothing in 204–240 on 2026-09-27 and nothing in 310–329 on 2026-10-01. Allocation is a change to `namespaces.toml`, under the registry's rules ([0015](0015-record-format-and-partition-registry.md) §5).
-4. **A tenant's own namespaces take 3000 and above,** the numbers mediawiki.org's Extension default namespaces page leaves to system administrators, **or 100–199,** MediaWiki's block for site-specific namespaces, except the numbers `namespaces.toml` lists. An adopted wiki keeps the numbers it already gave its namespaces ([0035](0035-adopting-a-wikibase.md)). A tenant `namespace` record with any other number not in `namespaces.toml` is refused with `ts-namespace-number`; one whose name or alias equals another namespace's name or alias on the tenant, or an interwiki prefix from its site aliases ([0026](0026-sitelinks.md) §2), is refused with `ts-namespace-name-taken`. An entity source's namespace is one of these ([0078](0078-entity-sources.md) §5).
-
-**Allocations.** `namespaces.toml` is authoritative. This table matches it as of A19:
-
-| Numbers | Names | Kind | Default model | Source |
-|---|---|---|---|---|
-| −2 | Media | `virtual` | — | [0039](0039-files-and-media.md) §1 |
-| −1 | Special | `virtual` | — | §1 |
-| 0, 1 | (main), Talk | `pages` | `wikitext` | [0038](0038-page-metadata-and-categories.md) §8 |
-| 2, 3 | User, User talk | `pages` | `wikitext` | §6 |
-| 4, 5 | Project, Project talk | `pages` | `wikitext`; `triplespace-sprint` on subpages | §7; [0061](0061-sprints-and-tasks.md) §2 |
-| 6, 7 | File, File talk | `pages`, `uploads` | `wikitext` | [0039](0039-files-and-media.md) §1 |
-| 8 | MediaWiki | `reserved` | — | Rule 1 |
-| 10, 11 | Template, Template talk | `pages` while `wikitext.expansion` is on | `wikitext` | [0042](0042-template-expansion-and-parsoid.md) §3 |
-| 12 | Help | `reserved` | — | Rule 1. Help content goes in `Project` |
-| 14, 15 | Category, Category talk | `pages` | `wikitext` | [0038](0038-page-metadata-and-categories.md) §4 |
-| 120, 121 | Item, Item talk | `pages` | `wikibase-item` | Wikibase's default number |
-| 122, 123 | Property, Property talk | `pages` | `wikibase-property` | Wikibase's default number |
-| 124, 125 | Query, Query talk | `pages` | `triplespace-sparql`; `wikitext` for `/doc` subpages | [0063](0063-query-namespace.md) §2: Wikibase's number, with Wikibase's meaning |
-| 146, 147 | Lexeme, Lexeme talk | `pages` | `wikibase-lexeme` | [0066](0066-lexemes.md) §2 |
-| 210, 211 | Domain, Domain talk | `pages` | `triplespace-domain` | [0009](0009-keyed-entity-types-and-domain.md) §11 |
-| 212, 213 | Keyword, Keyword talk | `pages` | `triplespace-keyword` | [0017](0017-entity-id-grammar.md) §5 |
-| 214, 215 | Thread, Thread talk | `pages`; 215 forwards to 214 | `triplespace-thread` | [0019](0019-discussions.md) §3, [0049](0049-boards.md) §2 |
-| 216, 217 | Notation, Notation talk | `pages` | `triplespace-notation` | [0036](0036-openstreetmap-providers.md) §3 as OSM; [0048](0048-notation.md) §7 |
-| 218, 219 | Table, Table talk | `pages` | `triplespace-table`; `wikitext` for `/doc` subpages | [0045](0045-table-content-model.md) §2 |
-| 220, 221 | DOI, DOI talk | `resolver`; 221 `reserved` | — | [0029](0029-resolver-namespaces.md) |
-| 222, 223 | URL, URL talk | `resolver`; 223 `reserved` | — | [0029](0029-resolver-namespaces.md) |
-| 310, 311 | Board, Board talk | `pages`; 311 forwards to 310 | `triplespace-board` | [0049](0049-boards.md) §2 |
-| 312, 313 | Scope, Scope talk | `pages` | `triplespace-scope`; `wikitext` for `/doc` subpages | [0060](0060-scopes.md) §2 |
-| 640, 641 | EntitySchema, EntitySchema talk | `pages` | `EntitySchema` | [0064](0064-entityschema-and-validation.md) §2: the extension's numbers |
-| 828, 829 | Module, Module talk | `pages` while `wikitext.lua` is on | `Scribunto`; `wikitext` for `/doc` subpages | [0043](0043-lua-modules.md) §2, Scribunto's numbers |
-
-Talk namespaces default to `triplespace-talk`. 210–219 is full; the next resolver takes 224.
+*Current text: [10](../architecture/10-pages-and-content-models.md) §1.3, §1.4.*
 
 ### 3. Titles
 
 *Changed by A2, A3, A5, A10, A11, A14, A19, A21, A22, A31.*
 
-**One resolver handles every title.** Page views, API `titles=` parameters, redirects and wiki links (§8) all go through it. It works in three steps:
-
-1. **Split** the namespace prefix, matching canonical names, local names and aliases without regard to case, as MediaWiki does.
-2. **Normalize** the title with the namespace's normalizer:
-   - `first-letter` (MediaWiki's default): underscores become spaces and the first letter is uppercased. Used by `User` and `Project`.
-   - `entity-id`: parses an entity ID, uppercases its prefix and applies the ID grammar's canonical form to the rest ([0017](0017-entity-id-grammar.md) §2), so `Item:q42` becomes `Item:Q42` and `Item:mbab10BBBFC-…` becomes `Item:MBAb10bbbfc-…`. It also accepts tenant-relative IDs: `Item:QQQ5` normalizes to `Item:Q5` ([0044](0044-tenant-relative-ids.md) §5).
-   - `file-name`: `first-letter` with MediaWiki's file-name rules ([0039](0039-files-and-media.md) §1).
-   - A keyed type's own normalizer ([0009](0009-keyed-entity-types-and-domain.md) §2).
-   - A resolver's normalizer ([0029](0029-resolver-namespaces.md) §2).
-   - An entity source's ID normalizer, in its namespace ([0078](0078-entity-sources.md) §2, §5).
-3. **Resolve** the normalized title:
-   - in an entity namespace, to an entity, following aliases and identity clusters to the canonical ID ([0004](0004-identity-clusters-and-equivalence.md) §4), exactly as the API resolves IDs;
-   - in a forwarding namespace, to the same title in the namespace named by `forwards_to` ([0049](0049-boards.md) §2);
-   - in a `resolver` namespace, by the resolver's lookup ([0029](0029-resolver-namespaces.md) §3), or, in an entity source's namespace, by the source's ([0078](0078-entity-sources.md) §5);
-   - in any other `pages` namespace, to the **primary of the title's stack** ([0052](0052-page-repositories-and-title-inheritance.md) §2): the local page ID, or, where no local page exists and a page repository in `pages.repos` serves the namespace and has the title, that repository's page ([0052](0052-page-repositories-and-title-inheritance.md) §3). A primary that is a **redirect** ([0051](0051-page-redirects.md) §1), local or foreign, is followed one hop, to the stack of its target title, unless the request says `redirect=no` ([0051](0051-page-redirects.md) §2).
-
-**A title that resolves somewhere else redirects there.** `Item:P31` redirects to `Property:P31`, and `Item:WDQ123` redirects to `Item:Q456` once `WDQ123` belongs to a cluster whose canonical ID is `Q456`. `Special:EntityPage/{id}` resolves any entity ID to its page, as it does in Wikibase. A forwarding title is a permanent redirect: `Board talk:X` answers 301 to `Board:X`, and has no page ID ([0049](0049-boards.md) §2).
-
-**Thread titles are minted, not chosen:** the UTC date the thread was created and its subject, `Thread:2026-09-27/Why is P31 wrong here` ([0019](0019-discussions.md) §3).
-
-**`meta=siteinfo` reports only MediaWiki's two case values,** `first-letter` and `case-sensitive`. A namespace whose normalizer is neither reports `case-sensitive`, and the server normalizes. A client that believed `first-letter` would rewrite titles the server does not accept.
+*Current text: [10](../architecture/10-pages-and-content-models.md) §2.1, §2.2.*
 
 ### 4. Document pages
 
 *Changed by A4, A9, A21, A23, A30.*
 
-**A page is identified by a page ID, not by its title.** Page IDs are minted by the instance in sequence, start at 1 and are never reused. The title is an attribute of the page, in the same way a username is an attribute of an actor ([0007](0007-actor-identity.md) §4). This has three effects:
-
-- **The log key is the page ID.** A log header key must be an identifier, never content ([0006](0006-log-integrity-and-erasure.md) §3). A title is content, and a user page title contains a username.
-- **A move is one record on the moved page.** Moving a page appends a record with its new title, and nothing else about that page changes. By default a second page is created at the old title, a redirect to the new one ([0051](0051-page-redirects.md) §3).
-- **A title index is a projection.** It maps each current title to its page ID, and it is rebuilt from the log.
-
-**Pages live in their own partition.** A `pages` source partition is added to the registry ([0005](0005-crate-organization.md) §4.1):
-
-| Graph | Illustrative IRI | Kind | Written by | History | Integrity | Export |
-|---|---|---|---|---|---|---|
-| **Pages** | `{base}/graph/pages` | Source | Page edits, moves and imports | Full | `logged` | Public |
-
-The partition holds page records, not quads. Its RDF output is revision metadata and page statements (§10).
-
-**Page record payloads.** Each record's payload type is `scatter:v0/page`, and it carries one operation:
-
-| Operation | Meaning |
-|---|---|
-| `create` | Mints the page ID, sets the title and content model, and stores the first text; may carry `forked_from`, naming the repository, page and revision a fork was taken from ([0054](0054-forking-a-mirrored-page.md) §1) |
-| `edit` | Stores the page's **complete new text**, optionally with a new content model |
-| `move` | Sets a new title |
-| `follow` | On a fork, whether its talk page follows the repository's (`follow`) or has been forked (`fork`); no text, so it is a null revision in the page's history, as MediaWiki writes for protection ([0069](0069-synchronized-talk-pages.md) §7) |
-
-**Deletion is an ACL, not a page operation** ([0023](0023-moderation.md) §4). Deleting a page writes a `read` ACL on its page ID to the tenant `log` partition, and undeleting retires the ACL. The page and its history are hidden from everyone but administrators. This is hiding in the sense of [0006](0006-log-integrity-and-erasure.md) (Context), not erasure.
-
-**A page's statements are change sets** (`scatter:v0/changeset`), keyed by its page ID in the same partition and restricted to statements ([0038](0038-page-metadata-and-categories.md) §1). They take revision IDs, so a page's history interleaves text and statement revisions.
-
-**Each revision stores the full text, not a diff.** Pages are small. Diffs are computed when they are read, as MediaWiki computes them. Because each record is self-contained, erasing one revision with an `erase` record ([0006](0006-log-integrity-and-erasure.md) §7) does not break the text of later ones.
-
-**Edit conflicts use the base offset** ([0006](0006-log-integrity-and-erasure.md) §8). An `edit` carries the offset of the page's latest record that the client saw. A mismatch is reported as `editconflict`. A base is required for `edit` and `move`.
+*Current text: [10](../architecture/10-pages-and-content-models.md) §2.5, §3.1, §3.2.*
 
 ### 5. Content models
 
 *Changed by A3, A11, A13, A24.*
 
-**Every page has one content model** ([0041](0041-content-models.md) §1). The model decides where the page's content comes from, how the content is validated and serialized, and how it is rendered. Models are registry data in `docs/registry/content-models.toml` ([0041](0041-content-models.md) §2). IDs follow one rule: MediaWiki's and Wikibase extensions' IDs are kept and reserved, generic formats take no prefix, and models unique to Triplespace take `triplespace-`.
-
-**Each model has a source:** text, entity, thread, composite or statements ([0041](0041-content-models.md) §5). Only text models are stored in the page's own records and support direct editing. This ADR introduced five of them:
-
-| Model ID | Validated as | Rendered as | Origin of the ID |
-|---|---|---|---|
-| `wikitext` | Any text | The subset in §8 | MediaWiki |
-| `markdown` | Any text | CommonMark with GitHub-style tables. Wiki links are resolved by the title resolver (§3), and raw HTML is sanitized to the allow-list of §8 ([0019](0019-discussions.md) §5) | New |
-| `json` | Well-formed JSON | Formatted, collapsible JSON | MediaWiki |
-| `yaml` | Well-formed YAML | Formatted YAML | New |
-| `text` | Any text | Preformatted text | MediaWiki |
-
-- **The default comes from the namespace:** `wikitext` for `Project` and `User`.
-- **A title suffix overrides the default** when a page is created, as in MediaWiki: `.md` gives `markdown`, `.json` gives `json`, `.yaml` or `.yml` gives `yaml`, and `.txt` gives `text`.
-- **The model can be changed** with `action=changecontentmodel`, which appends an `edit` carrying the new model. It moves a page only between text models its namespace allows.
-- **Content that fails validation is rejected** when it is saved.
-- **Models whose code reaches the reader's browser unsanitized are not supported.** `css` and `javascript` are not registered: user-supplied scripts and unsanitized styles are an injection risk. `sanitized-css`, TemplateStyles' model, is supported, because every sheet passes a sanitizer that scopes it to rendered content before it reaches a browser ([0055](0055-templatestyles-templatedata-and-page-properties.md) §1–2). `Scribunto`, whose modules run on the server in a sandbox and return wikitext, is supported while a tenant has Lua on ([0043](0043-lua-modules.md) §3).
-
-**Rendering code is per model.** Each model implements the content-model trait in `scatter-pages` ([0005](0005-crate-organization.md) §2), so an instance can add models without changing the page format. In Scatterbase's terms, the stored text is the blob and the content model is the view.
+*Current text: [10](../architecture/10-pages-and-content-models.md) §4.1, §4.2, §4.3, §4.4, §4.5.*
 
 ### 6. The User namespace
 
-**A user page belongs to a local user, identified by user ID.** The root title `User:Example` is resolved through the local actor records ([0007](0007-actor-identity.md) §4) to the actor key, such as `local:42`. The page's owner is that actor.
-
-- **User pages can be created only for local users that exist.** The user must be registered, not temporary, and not vanished. `User:Nobody` cannot be created when no local user is called Nobody. Subpages follow the same rule, through their root.
-- **Foreign actors have no user pages here.** Links to them go to their upstream page through the IRI in [0007](0007-actor-identity.md) §2.
-- **Titles follow renames.** When a user is renamed, every page under their root is moved to the new name by the same process, in one batch of `move` records. The same happens when a user vanishes: the pages move to the placeholder name. The content is not erased automatically. It can be erased on request with an `erase` record ([0006](0006-log-integrity-and-erasure.md) §7).
-- **Old names do not resolve.** A rename leaves no redirect from the old title. A redirect would keep the old name visible, and names are erasable ([0007](0007-actor-identity.md) §4). This differs from MediaWiki, which leaves a redirect after a move.
-- **Subpages with `json` or `yaml` content are editable only by their owner and administrators,** as MediaWiki protects `.json` user subpages. Other user pages follow the instance's ordinary edit permissions.
+*Current text: [10](../architecture/10-pages-and-content-models.md) §3.4.*
 
 ### 7. The Project namespace
 
-- **The canonical name is `Project`, and the local name is the site name,** as in MediaWiki. On the reference install that is `Triplespace Ref` ([siteinfo snapshot](../api/snapshots/mw-1.43.9-wb-REL1_43.siteinfo.json)). Both resolve.
-- **Subpages are allowed.**
-- **Pages can be created by anyone with the right to edit.** No owner is recorded.
+*Current text: [10](../architecture/10-pages-and-content-models.md) §3.5.*
 
 ### 8. The wikitext subset
 
 *Changed by A3, A9, A10, A12, A21, A22.*
 
-Triplespace renders a fixed subset of wikitext. It does not implement MediaWiki's parser.
-
-**Rendering has two stages** ([0042](0042-template-expansion-and-parsoid.md) §1, §7). When the tenant's `wikitext.expansion` setting is on, templates, parser functions and variables are expanded natively first, and the subset renders the expanded text. A tenant may instead render through Parsoid ([0042](0042-template-expansion-and-parsoid.md) §8). When expansion is off, the subset renders the stored text.
-
-| Supported | Syntax |
-|---|---|
-| Headings | `== … ==` through `====== … ======` |
-| Emphasis | `''…''`, `'''…'''` |
-| Lists | `*`, `#`, `;` and `:`, nested |
-| Internal links | `[[Title]]`, `[[Title\|text]]`, `[[Title#Section]]`, `[[/Subpage]]`, and links into any registered namespace, such as `[[Item:Q5]]` or `[[Domain:en.wikipedia.org]]`. An unprefixed title is a main-namespace title, so an entity is linked with its namespace ([0038](0038-page-metadata-and-categories.md) §8) |
-| Categories | `[[Category:…]]`, `{{DEFAULTSORT:…}}` and `__HIDDENCAT__`; `[[:Category:…]]` is a plain link ([0038](0038-page-metadata-and-categories.md) §3) |
-| Files | `[[File:…]]` embedding with MediaWiki's options and a caption, `[[:File:…]]` links to description pages, `[[Media:…]]` links to bytes, and `<gallery>` ([0039](0039-files-and-media.md) §13) |
-| External links | `[https://… text]` and bare URLs |
-| Tables | `{\| … \|}` with header and data cells and simple attributes |
-| Preformatted and code | `<pre>`, `<code>`, leading-space blocks, `<syntaxhighlight>` rendered as plain `<pre>` |
-| Escaping | `<nowiki>` |
-| Footnotes | `<ref>`, `<ref name=…>`, `<references />` |
-| Page controls | `__NOTOC__`, `__TOC__`, `__FORCETOC__` |
-| Signatures | `~~~~` and `~~~` are expanded when the page is saved, as in MediaWiki |
-| Horizontal rule | `----` |
-| Redirects | `#REDIRECT [[Target]]` as the first line makes the page a redirect ([0051](0051-page-redirects.md) §1) |
-| Safe inline HTML | An allow-list of formatting tags, such as `<br>`, `<span>`, `<div>`, `<sup>` and `<sub>`, with attributes restricted to `class`, `id` and a sanitized `style` |
-
-**Everything else is kept and shown, not dropped.**
-
-- Template calls (`{{…}}`) and parser functions that are not expanded render as a visible placeholder showing the call.
-- External image URLs are never embedded.
-- The stored source is never rewritten, so a page renders correctly if the subset grows later.
-
-**Category links define category membership.** The category links in the latest revision of a `wikitext` page are its membership, a projection like MediaWiki's `categorylinks`. The foot of the page lists the categories as links to their pages in the `Category` namespace, with hidden categories collapsed ([0038](0038-page-metadata-and-categories.md) §3).
-
-**Links are resolved by the title resolver** (§3). A link to an entity that exists renders with its label, as Wikibase does. A link to a redirect carries the class `mw-redirect` ([0051](0051-page-redirects.md) §2); a link to a title whose primary is a repository's page is an ordinary link carrying `ts-inherited`, and a link into a namespace no repository serves here leaves the wiki as an interwiki link ([0052](0052-page-repositories-and-title-inheritance.md) §4).
+*Current text: [10](../architecture/10-pages-and-content-models.md) §5.1, §5.2, §5.3.*
 
 ### 9. Importing pages from another wiki
 
 *Changed by A7, A10, A12, A16, A23.*
 
-Pages are imported from a MediaWiki XML export with full history. An import is a job ([0002](0002-source-graphs-and-mass-ingest.md) §8.3), and the procedure is:
-
-1. **Import every revision** as page records, in order. Each revision keeps its original timestamp as upstream metadata. The time the record is appended is still the time of the import.
-2. **Attribute each revision to its original author** under [0007](0007-actor-identity.md) §5. An author on a registered issuer keeps that issuer's numeric ID. Any other author becomes an `imported` surrogate.
-3. **Flatten templates in one extra revision, where the tenant does not expand them.** Where the latest revision uses templates, a bot fetches the expanded text from the source wiki with `action=expandtemplates` and saves it as a new revision. History stays faithful to the source, and the current text needs no template engine. With `wikitext.expansion` on, this step is optional: the importer may bring the Template and Module pages with their history instead ([0042](0042-template-expansion-and-parsoid.md) §13).
-
-**A template census comes first.** Before an import, the pages are scanned for templates, parser functions and tags outside §8. The census decides whether step 3 is enough, or whether the subset should grow first. It also reports which templates and modules the export contains ([0042](0042-template-expansion-and-parsoid.md) §13).
-
-**Page IDs on an adopted wiki.** When the source is the wiki the tenant adopted, imported pages keep their source page IDs, supplied in header field 9 as adopted entities' are, and the page-ID floor set at adoption already covers them ([0035](0035-adopting-a-wikibase.md) §4).
-
-**Files.** Exports with `<upload>` elements import file versions, and `triplespace-cli files import` imports a directory as `importImages.php` does ([0039](0039-files-and-media.md) §14).
-
-**Talk namespaces are converted to threads.** A wikitext talk page in an export is imported as threads homed on its subject's talk page, split by level-two heading with the frontmatter first, each created closed with the `archived` status and holding its section's wikitext as the opening post ([0054](0054-forking-a-mirrored-page.md) §5); a project-wide discussion page lands on a board the importer names.
-
-**The forms.** `Special:Import` starts this job after showing the census. `Special:Export` is its counterpart: it writes MediaWiki XML of pages and local entities, and a verifiable `records` format ([0047](0047-special-pages.md) §8).
+*Current text: [10](../architecture/10-pages-and-content-models.md) §6.*
 
 ### 10. Links and metadata
 
 *Changed by A3, A9, A12, A21, A22.*
 
-**A links projection** records every link from a document page to a page or entity, after resolution. It serves "What links here" for both kinds of page. So `Item:Q5` lists the project pages that link to it, and `list=backlinks` works across namespaces. Links in thread posts are rows too, so it also lists the threads that discuss it ([0019](0019-discussions.md) §5). On a tenant with expansion on, the projection reads the expanded text, so links that templates emit count, and its rows are written by the refresh job of [0042](0042-template-expansion-and-parsoid.md) §10. A redirect's row points at its target, so "What links here" lists a page's redirects ([0051](0051-page-redirects.md) §5); a link to a title whose primary is a repository's page is recorded by namespace and title, as a link to a missing page is, so a later fork inherits its backlinks ([0052](0052-page-repositories-and-title-inheritance.md) §4).
-
-**Page revisions get revision nodes** in the metadata graph, as entity revisions do ([0001](0001-revision-metadata-rdf.md) §1, §6):
-
-- The page's document node is `{base}/page/{page ID}`.
-- Its revision nodes carry the actor, timestamp, summary, tags, flags, content model, size and hash, in the vocabulary of 0001.
-- A page's statements go into the main graph, with the page's document node as subject ([0038](0038-page-metadata-and-categories.md) §11). Page text and category membership are not RDF.
+*Current text: [10](../architecture/10-pages-and-content-models.md) §5.2, §5.6.*
 
 ### 11. Crates (amends 0005 §2)
 
@@ -261,12 +87,7 @@ Pages are imported from a MediaWiki XML export with full history. An import is a
 
 ### 12. API surface
 
-Document namespaces bring these core modules into scope ([mediawiki-compat.md §5](../api/mediawiki-compat.md)):
-
-- **Reading:** `action=parse`, `action=compare`, `query&prop=revisions`, `prop=info`, `prop=links`, `list=allpages`, `list=backlinks`, `list=prefixsearch`, `list=recentchanges` and `list=usercontribs`.
-- **Writing:** `action=edit`, `action=move`, `action=delete`, `action=undelete`, `action=changecontentmodel` and `action=import`.
-
-Pywikibot reading and editing `Project` pages is the acceptance test for this surface.
+*Current text: [18](../architecture/18-api.md) §1.1, §2.1, §8.*
 
 ## Consequences
 
@@ -673,3 +494,21 @@ Replaced text (§2):
 Replaced text (§2):
 
 > MediaWiki's canonical numbers are kept wherever a namespace has one, because clients hard-code them. Three rules govern every other number (A6, A17):
+
+### A32. `triplespace-sprint` is allowed, not default, on Project subpages
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** corrects §2
+- **Summary:** In the Project row of §2's table, `triplespace-sprint` is a model *allowed* on Project subpages; the default model of a Project subpage stays `wikitext`, as [0061](0061-sprints-and-tasks.md) §2 says. The row read as though subpages defaulted to the sprint model. (PENDING E12)
+
+Replaced text (§2):
+
+> | 4, 5 | Project, Project talk | `pages` | `wikitext`; `triplespace-sprint` on subpages | §7; [0061](0061-sprints-and-tasks.md) §2 |
+
+### A33. Current text relocated to the architecture chapters
+
+- **Date:** 2026-10-09
+- **Source:** [0050](0050-adr-format.md) §14
+- **Change:** relocates §1, §2, §3, §4, §5, §6, §7, §8, §9, §10, §12
+- **Summary:** The Decision's current text now lives in the architecture chapters [10](../architecture/10-pages-and-content-models.md), [18](../architecture/18-api.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.

@@ -2,9 +2,11 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-05
+- **Updated:** 2026-10-09 (A2)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0045](0045-table-content-model.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0011](0011-logs.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0017](0017-entity-id-grammar.md), [0023](0023-moderation.md), [0032](0032-sparql-update-stream.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
+- **Chapters:** [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [12](../architecture/12-files-and-media.md), [15](../architecture/15-structured-pages.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -21,45 +23,27 @@ James's direction, from the design discussion of 2026-10-05:
 
 ### 1. Captions are the File page's terms (amends 0038 §1; amends 0041 §7; settles 0038 Q4 for File pages)
 
-**A File page's `mediainfo` slot carries labels and descriptions**, Commons' captions, in every language, as Wikibase terms. They are written by a **`terms`** operation on the page's change set in `pages` — the change-set payload already carries page statements ([0038](0038-page-metadata-and-categories.md) §1), and gains terms for File pages only — and projected into `view.term` with `entity_id = 'M{page ID}'`, so every reader of terms (search, the label in the viewer's language, `wbgetentities`, the dump) sees them with no new table. Aliases and sitelinks stay refused (`not-supported`), as Commons refuses them.
+*Changed by A1.*
 
-0041 §7's "Terms and sitelinks are not supported yet" becomes **"Labels and descriptions are captions; aliases and sitelinks are not supported"**: `wbsetlabel`, `wbsetdescription` and `wbeditentity` with `labels`/`descriptions` on an `M` ID are accepted and append the `terms` operation; `wbsetaliases` and `wbsetsitelink` stay refused. 0038 §1's "terms stay out of page change sets" is narrowed to pages other than File pages: **0038 Q4 is settled for File pages** and stays open for the rest, where the short description remains a page property ([0055](0055-templatestyles-templatedata-and-page-properties.md) §6).
-
-**Where captions show**: the File page's header, under the title, in the viewer's language with the fallback chain; the caption editor is the term editor of the entity page ([0003](0003-statement-ui.md) §8). **Search** indexes captions as the File page's terms ([0014](0014-caches-and-search.md) §7), so a search for "sunset over Lisbon" finds the file by caption. **RDF**: the `M` node ([0038](0038-page-metadata-and-categories.md) §11) gains `rdfs:label` and `schema:description` per language, as Commons' SDC export has them. **Diffs and history**: a caption change is a page revision whose diff shows the terms, as an item's does.
+*Current text: [12](../architecture/12-files-and-media.md) §8.4.*
 
 ### 2. Commons' MediaInfo on foreign files (extends 0039 §11; settles 0039 Q7)
 
-**A file served from a Commons file repository has its MediaInfo mirrored as the foreign entity `WDM{Commons page ID}`**, in the Wikidata provider's mirror graph as any `WD` entity ([0002](0002-source-graphs-and-mass-ingest.md) §2). The Wikidata provider's type `M` gains its own **source** fields in `providers.toml` — `api`, `entity_data` and `dumps` pointing at Commons — so that the adapter fetches `M` entities from `commons.wikimedia.org` while attributing them to the same provider; the IRI stays `https://commons.wikimedia.org/entity/M…` as the registry already has it.
-
-**Mirroring set**: `mediainfo.mirror` (site, default **`on-demand`**): a Commons file's MediaInfo is fetched through `Special:EntityData` ([0012](0012-api-requirements.md) §6's upstream fetch) the first time the file is used by a local page or shown, written as a `put`, and kept current by Commons' EventStreams `mediainfo` changes as [0053](0053-mirrored-pages.md) §6 keeps mirrored pages current; **`linked`** mirrors every file any local page or statement references; **`all`** loads Commons' MediaInfo JSON dump through the adapter, which is a Wikidata-scale job and off by default (0039 Q6's scale concern). `off` disables it.
-
-**The local page for a foreign file** ([0039](0039-files-and-media.md) §11) shows the mirrored statements and captions **as its page data**: the page's resolved view is the mirror's `WDM` state with the local graph's `add`/`override`/`remove` overlays ([0002](0002-source-graphs-and-mass-ingest.md) §7) applied, exactly as a foreign item's page shows Wikidata's statements with local corrections. The local page's own `M{local page ID}` names the local overlay; `wbgetentities&ids=M{local}` returns the resolved view and says `foreign: "WDM123"` in `triplespace`, and `wbgetentities&ids=WDM123` returns the mirror alone. **Captions on a foreign file** are overlaid the same way: a local caption `override`s the Commons one for that language on this tenant. Nothing is written to Commons; proposing a caption or statement back is the proposals ADR's job.
-
-**Clusters**: a local `M` entity and the `WDM` it mirrors are **one subject by construction**, not a cluster: the local page *is* the foreign file's page here, with the ranged page ID of [0052](0052-page-repositories-and-title-inheritance.md) §6 where the file is only inherited. `same-as` between `M` IDs is refused, as 0041 §7's "derived, not minted" implies.
+*Current text: [12](../architecture/12-files-and-media.md) §6.6.*
 
 ### 3. `M` and `WDM` as table rows (settles 0045 Q6)
 
-A table's `ids`, and every scope kind, accept `M` and `WDM` IDs as entity-kind subjects. Term columns show captions; statement columns read the `mediainfo` slot; the ID cell links the File page and shows the thumbnail where the table's `render` asks for it (a `thumb` column kind, `field: "thumbnail"`, `width`). A scope `statement: P180 = Q146` over `M` subjects is "files depicting cats", which is what Commons-style curation needs.
+*Current text: [15](../architecture/15-structured-pages.md) §2.3, §2.4.*
 
 ### 4. Storage, API and RDF (extends 0013 §5.6; extends 0012 §5)
 
-- `view.term` rows with `entity_id` of the form `M{page ID}` and `WDM{page ID}` (extends [0013](0013-postgres-storage.md) §5.6); the page projection writes the local ones from the `terms` operation, the mirror projection the foreign ones.
-- `view.entity` gains rows for `WDM` as for any foreign entity; `view.file` ([0039](0039-files-and-media.md) §20) gains `mediainfo_id` for the foreign file's `WDM`.
-- **REST**: `GET /file/{title}/mediainfo` returns the resolved view (local or overlaid foreign) with `foreign`; `/page/{pageid}/statements` is unchanged. **Action API**: the term modules on `M` (§1); `wbgetentities` on `WDM`.
-- **RDF**: captions on the `M` node (§1); `WDM` entities in the Wikidata mirror graph and, through resolution, in the resolved view of the tenant's own File pages for foreign files, as any mirrored entity.
-- **Logs**: a `terms` operation projects as a page edit; nothing new in [0011](0011-logs.md).
+*Changed by A1.*
+
+*Current text: [02](../architecture/02-graphs-rdf-and-query.md) §5.6; [03](../architecture/03-storage-caches-and-search.md) §4.2, §4.3, §4.9, §5, §11.1; [18](../architecture/18-api.md) §2.1, §2.3, §3.2.*
 
 ### 5. Crates (amends 0005 §2)
 
-| Crate | Change |
-|---|---|
-| `scatter-pages` | The `terms` operation on File page change sets |
-| `scatter-wikibase-model`, `scatter-wikibase-rdf` | Terms on `mediainfo` entities; `rdfs:label`/`schema:description` on the `M` node |
-| `scatter-providers` | Per-type source fields (`api`, `entity_data`, `dumps`) on a provider type |
-| `scatter-adapter-wikidata` | `M` entities from Commons' endpoints and dump; the `mediainfo` EventStreams topic |
-| `triplespace-projections` | `view.term` rows for `M`/`WDM`; the foreign-file resolved view; `mediainfo.mirror` on-demand fetch and `linked` tracking |
-| `triplespace-api-action`, `triplespace-api-rest` | The term modules on `M`; `GET /file/{title}/mediainfo` |
-| `triplespace-ui` | Captions in the File page header and editor; the overlaid view of a foreign file's data; the `thumb` table column |
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
 
 ## Alternatives considered
 
@@ -98,3 +82,27 @@ A table's `ids`, and every scope kind, accept `M` and `WDM` IDs as entity-kind s
 - [Commons:Structured data](https://commons.wikimedia.org/wiki/Commons:Structured_data) and [Extension:WikibaseMediaInfo](https://www.mediawiki.org/wiki/Extension:WikibaseMediaInfo): captions as labels, the `mediainfo` slot, `M` IDs
 - [Commons SDC RDF export](https://commons.wikimedia.org/wiki/Commons:SPARQL_query_service): `rdfs:label` for captions on `sdc:M` nodes
 - [0041](0041-content-models.md) §6–7, the contract this ADR completes; [0039](0039-files-and-media.md) §11, foreign file repositories
+
+## Amendment log
+
+### A1. Caption triples go on the page node
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** corrects §1, §4
+- **Summary:** Caption triples (`rdfs:label`, `schema:description` per language) are emitted on the page node `{base}/page/{page ID}` ([0038](0038-page-metadata-and-categories.md) §11, [0041](0041-content-models.md) §7); there is no "`M` node". (PENDING E24)
+
+Replaced text (§1):
+
+> **RDF**: the `M` node ([0038](0038-page-metadata-and-categories.md) §11) gains `rdfs:label` and `schema:description` per language, as Commons' SDC export has them.
+
+Replaced text (§4):
+
+> - **RDF**: captions on the `M` node (§1); `WDM` entities in the Wikidata mirror graph and, through resolution, in the resolved view of the tenant's own File pages for foreign files, as any mirrored entity.
+
+### A2. Current text relocated to the architecture chapters
+
+- **Date:** 2026-10-09
+- **Source:** [0050](0050-adr-format.md) §14
+- **Change:** relocates §1–§5
+- **Summary:** The Decision's current text now lives in the architecture chapters [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [12](../architecture/12-files-and-media.md), [15](../architecture/15-structured-pages.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.

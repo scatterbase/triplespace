@@ -2,10 +2,11 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-01 (A4)
+- **Updated:** 2026-10-09 (A6)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0009](0009-keyed-entity-types-and-domain.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0018](0018-tenants.md)
 - **Uses:** [0016](0016-permissions-and-access-control.md), [0022](0022-federation.md), [Wikibase contract](../api/wikibase-compat.md), [MediaWiki API contract](../api/mediawiki-compat.md)
+- **Chapters:** [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [04](../architecture/04-entities-and-identifiers.md), [06](../architecture/06-statements-and-properties.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -23,129 +24,49 @@ Two constraints shape the rest. The **host of a URL is a Domain** ([0009](0009-k
 
 *Changed by A3.*
 
-A sitelink has a **URL**, a set of **badges** (item IDs, as in Wikibase) and an optional **title** for display. The URL is normalized when it is written, and the normalized form is the link's identity:
-
-1. parse as a WHATWG URL; reject anything that does not parse;
-2. the scheme must be in the tenant's allowed set (`sitelinks.schemes` in `site` configuration; default `https` and `http`);
-3. lowercase the scheme; normalize the host with the Domain normalizer of [0009](0009-keyed-entity-types-and-domain.md) §2, so it is a valid Domain key in A-label form; drop a default port;
-4. normalize percent-encoding in the path, query and fragment (RFC 3986 §6.2.2: uppercase hex digits, decode unreserved characters); an empty path becomes `/`;
-5. keep the query and the fragment. A fragment names a section, and a section is a legitimate target.
-
-Nothing else is folded: `/Foo` and `/Foo/` are different URLs, as they are to the server that serves them.
-
-**A link to the tenant's own pages is stored by page ID,** not URL: a sitelink in the local graph whose host is one the tenant is served at derives its URL and title from the page's current title, so a move does not break it; a title with no page is refused with `ts-sitelink-no-page` ([0038](0038-page-metadata-and-categories.md) §6). The normalizer is added to [0004](0004-identity-clusters-and-equivalence.md) §7's table as the `url` data type's key, and the `url` data type used by statements gets it too.
-
-**Badges** are item IDs in the resolved view's canonical form ([0004](0004-identity-clusters-and-equivalence.md) §4). Which items may be badges is `site` configuration, as `$wgWBRepoSettings['badgeItems']` is.
+*Current text: [06](../architecture/06-statements-and-properties.md) §4.1, §4.6.*
 
 ### 2. The host is the site ID; one link per host; one item per URL
 
 *Changed by A2, A3.*
 
-**The site ID of a sitelink is its host**, in A-label form: `en.wikipedia.org`, `collections.example.museum`. This keeps both Wikibase invariants, with the host in place of the site:
-
-- **An item has at most one sitelink per host.** Writing a second is a `sitelink-conflict`, as Wikibase reports it. An item that needs two pages on one host says so with statements, not sitelinks.
-- **A normalized URL belongs to at most one item.** Writing it on a second item is the same error, naming the first.
-
-A sitelink to another tenant's or instance's entity page is a plain sitelink, asserting nothing about identity, like a link to any page. An editor who means "this is Librarybase's Q6" writes `same-as` to `LBQ6` ([0004](0004-identity-clusters-and-equivalence.md) §9, [0018](0018-tenants.md) §5); the two are different statements and the UI does not convert one into the other.
-
-**Site aliases keep Wikidata tooling working.** Tools and clients hard-code MediaWiki site IDs (`enwiki`, `dewikisource`, `commonswiki`) and pass titles, not URLs. A **site alias** maps a MediaWiki site ID to a host, an article path and a language, so that `enwiki` + `Douglas Adams` and `https://en.wikipedia.org/wiki/Douglas_Adams` are the same sitelink:
-
-| Field | Example |
-|---|---|
-| Site ID | `enwiki` |
-| Host | `en.wikipedia.org` |
-| Article path | `/wiki/$1` |
-| Language | `en` |
-
-The defaults ship in `docs/registry/sites.toml` ([0015](0015-record-format-and-partition-registry.md) §5), generated from Wikimedia's site matrix and committed; a tenant adds aliases for other MediaWiki hosts as `config` records of kind `site-alias`. Where a host has an alias, the JSON `sitelinks` map is keyed by the alias's site ID and the entry carries the title in MediaWiki form; where it has none, the map is keyed by the host and `title` is the URL's path, query and fragment. Every entry carries `url`, as Wikibase's JSON already does. Input accepts either form everywhere.
-
-A tenant registers a site alias for its own host, so that `wbgetentities` by `sites` and `titles`, `wbsetsitelink` and `Special:ItemByTitle` reach an item from a local page's title; the two invariants above make that pairing one-to-one ([0038](0038-page-metadata-and-categories.md) §6).
+*Current text: [06](../architecture/06-statements-and-properties.md) §4.2, §4.3, §4.6.*
 
 ### 3. Allow and deny lists (extends 0015 §3 and 0018 §3)
 
-Which hosts may be linked is policy in two layers, both `config` records of kind `sitelink-policy`:
-
-| Scope | Record | Meaning |
-|---|---|---|
-| **Instance** (farm) | `sitelink-policy:deny`, in the instance `config` | Domain keys that no tenant may link. A spam blocklist. **It cannot be overridden by a tenant.** |
-| **Tenant** | `sitelink-policy:mode` (`allow` or `deny`) and `sitelink-policy:list`, in the tenant `config` | In `allow` mode everything not on the list is permitted, and the list is the tenant's blocklist. In `deny` mode nothing not on the list is permitted, and the list is the tenant's allowlist. The default mode is `allow` with an empty list. |
-
-**Matching is by Domain hierarchy.** A list entry matches a host equal to it or beneath it, so `wikipedia.org` covers every language edition and `example.org` covers `www.example.org`; this is the `key_parents` relation [0014](0014-caches-and-search.md) §7 already indexes. A URL is permitted when the instance deny list does not match its host and the tenant's mode and list permit it.
-
-**Lists are evaluated at write** and refuse a link with `ts-sitelink-denied`, naming the list. They are **also applied to the resolved view**: a sitelink in any source graph whose host is denied is left out of the resolved view, the RDF and the search document, with the source graph untouched, as suppressions of [0002](0002-source-graphs-and-mass-ingest.md) §3 already work. So a farm blocklist added after the fact removes spam from every tenant's view at once without touching any log, and a mirrored sitelink to a denied host is not shown either.
-
-**Links that a list change leaves stranded** are listed for maintenance beside the corrections of [0002](0002-source-graphs-and-mass-ingest.md) §7, so an editor can remove or reconsider them. Changing a tenant's lists needs `ts-config`; the instance list, `ts-config` at the farm ([0018](0018-tenants.md) §11).
+*Current text: [06](../architecture/06-statements-and-properties.md) §4.4.*
 
 ### 4. Reconciliation (amends 0002 §3)
 
-The sitelink row of [0002](0002-source-graphs-and-mass-ingest.md) §3 read "sitelinks (one per site): the local graph wins wherever it says anything." It now reads:
-
-| What | Rule |
-|---|---|
-| Sitelinks | Union by normalized URL across graphs. Where two graphs give one host different URLs for the same entity, the local graph wins, then the provider order of [0004](0004-identity-clusters-and-equivalence.md) §4. Badges are the union. A local `override` may suppress a mirrored sitelink ([0002](0002-source-graphs-and-mass-ingest.md) §8.2) |
-
-Mirrored sitelinks arrive as site IDs. The provider's adapter resolves them to URLs through the provider's own site table (Wikidata's `sites`, read once per sync) and writes URLs, so the mirror graph holds the same shape as the local graph and nothing downstream knows about site IDs.
+*Current text: [06](../architecture/06-statements-and-properties.md) §4.5.*
 
 ### 5. Sitelinks and Domains (extends 0009 §5)
 
-Every sitelink's host is a valid Domain key by construction (§1). A sitelink does **not** make the Domain present ([0009](0009-keyed-entity-types-and-domain.md) §4): linking a page asserts nothing about its host. But the host index of §6 answers "which entities link to this site", and the Domain page's header ([0009](0009-keyed-entity-types-and-domain.md) §5) shows the count with a link to the list, beneath the DNS hierarchy it already shows. A `key_parents` query gives the count for a zone.
+*Current text: [04](../architecture/04-entities-and-identifiers.md) §3.6.*
 
 ### 6. Storage (amends 0013 §5.2)
 
-```sql
-CREATE TABLE view.sitelink (
-  url_key   text PRIMARY KEY,                  -- the normalized URL (§1); one item per URL
-  entity_id text NOT NULL,
-  host      text NOT NULL,                     -- Domain key; the site ID (§2)
-  site_id   text,                              -- alias site ID where one applies (§2)
-  title     text,                              -- display title
-  badges    text[] NOT NULL DEFAULT '{}',
-  UNIQUE (entity_id, host)                     -- one link per host per item (§2)
-);
-CREATE INDEX sitelink_host ON view.sitelink (host);
-```
-
-The tenant column rule of [0013](0013-postgres-storage.md) §5 applies. `view.registry` holds the policy records and aliases like every config kind. The denied-host filter is applied by the resolution projection, so `view.sitelink` holds only permitted links; a policy change re-runs it for the affected hosts, which the `host` index finds.
+*Current text: [03](../architecture/03-storage-caches-and-search.md) §4.3, §5.*
 
 ### 7. API (extends 0012 §4 and §5)
 
-**Action API**, additively under [0012](0012-api-requirements.md) §1, keeping MediaWiki's meaning for aliased sites:
-
-| Module | Behaviour |
-|---|---|
-| `wbsetsitelink` | `linksite` is a site alias ID or a host; `linktitle` is a title (aliased site) or a path (host). A new `linkurl` takes the whole URL and needs neither. `badges` as in Wikibase. Errors: `sitelink-conflict`, `ts-sitelink-denied`, `ts-sitelink-scheme` |
-| `wbgetentities` | `sitefilter` accepts alias IDs and hosts; `sites` and `titles` (lookup by sitelink) accept both forms, and a `urls` parameter looks up by URL |
-| `wbeditentity` | `sitelinks` entries may carry `url` in place of `site`+`title` |
-| `meta=siteinfo` | `siprop=triplespace` reports `sitelinks: {schemes, mode, alias_count}`; no site table is reported, since there is none |
-| Wikibase REST v1 | `/entities/items/{id}/sitelinks/{site_id}` accepts alias IDs and hosts |
-
-**REST**, under `rest.php/triplespace/v0`: `GET /sitelinks?host=` lists the entities linked to a host or, with `parents=1`, to it and every host beneath it; `GET /sitelinks/resolve?url=` gives the entity for a URL; `GET`, `PUT` and `DELETE /entity/{id}/sitelinks/{host}`. `Special:ItemByTitle` accepts an alias ID and title or a URL.
+*Current text: [18](../architecture/18-api.md) §2.2, §2.3, §3.2, §3.4.*
 
 ### 8. RDF
 
-The RDF shape of [wikibase-compat.md §5.2](../api/wikibase-compat.md) is kept for every sitelink, so QLever and Wikidata tooling see what they expect:
+*Changed by A5.*
 
-```turtle
-<https://collections.example.museum/object/1234> a schema:Article ;
-    schema:about wd:Q42 ;
-    schema:isPartOf <https://collections.example.museum/> ;
-    schema:name "object/1234" ;
-    wikibase:badge wd:Q17437798 .
-```
-
-`schema:inLanguage` is emitted only where an alias supplies a language; `schema:name` carries a language tag only then. `wikibase:sitelinks` on the entity counts links in the resolved view.
+*Current text: [02](../architecture/02-graphs-rdf-and-query.md) §5.5.*
 
 ### 9. UI (extends 0010 §2)
 
-The **Sitelinks** tab ([0010](0010-site-ui.md) §2) groups links by host, showing the host as a Domain chip linking to `Domain:{host}`, the title or path, and badges. Adding a link takes a URL and, for an aliased site, offers the site-and-title form with title autocomplete against that site's API, as Wikibase does. A denied host is refused with the list named.
+*Current text: [19](../architecture/19-site-ui.md) §6.4.*
 
 ### 10. Crates (amends 0005 §2)
 
 *Changed by A1.*
 
-*Superseded by [0005](0005-crate-organization.md) §2 (A1).*
-
-[0005](0005-crate-organization.md) §2 keeps the crate table that CI checks, with every change this section listed; `sites.toml` is embedded by `scatter-wikibase-model`, since a site alias is a Wikibase-compatibility concern, not a provider one. The table this section first gave is in A1.
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
 
 ## Consequences
 
@@ -238,3 +159,21 @@ Replaced text (§1):
 - **Source:** [0050](0050-adr-format.md) §13
 - **Change:** consolidates §1–2, §10
 - **Summary:** A1–A3 were folded into the Decision. The open questions were numbered. No decision changed. Before this, A3 was two blockquotes and A2 a struck question with a note. The file before conversion is commit `0b26a3a`.
+
+### A5. The page node is the sitelink node for a paired page
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** amends §8
+- **Summary:** For a page paired with an item ([0038](0038-page-metadata-and-categories.md) §6, §11) the `schema:Article` node is the page node `{base}/page/{id}`, also typed `schema:WebPage`, with the URL as `schema:url`; every other sitelink keeps wikibase-compat §5.2's shape, where the node is the page's URL. (PENDING A20)
+
+Replaced text (§8):
+
+> The RDF shape of [wikibase-compat.md §5.2](../api/wikibase-compat.md) is kept for every sitelink, so QLever and Wikidata tooling see what they expect:
+
+### A6. Current text relocated to the architecture chapters
+
+- **Date:** 2026-10-09
+- **Source:** [0050](0050-adr-format.md) §14
+- **Change:** relocates §1–§10
+- **Summary:** The Decision's current text now lives in the architecture chapters [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [04](../architecture/04-entities-and-identifiers.md), [06](../architecture/06-statements-and-properties.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.

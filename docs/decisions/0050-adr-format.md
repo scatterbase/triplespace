@@ -2,8 +2,9 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
+- **Updated:** 2026-10-09 (A1)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0026](0026-sitelinks.md), [0027](0027-preferences-and-portability.md), [0028](0028-tenancy-policy.md), [0029](0029-resolver-namespaces.md), [0030](0030-edit-filters.md), [0031](0031-property-constraints.md), [0032](0032-sparql-update-stream.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0035](0035-adopting-a-wikibase.md), [0036](0036-openstreetmap-providers.md), [0037](0037-gdelt-provider.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0044](0044-tenant-relative-ids.md), [0045](0045-table-content-model.md), [0046](0046-primary-tenant.md), [0047](0047-special-pages.md), [0048](0048-notation.md), [0049](0049-boards.md)
+- **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0026](0026-sitelinks.md), [0027](0027-preferences-and-portability.md), [0028](0028-tenancy-policy.md), [0029](0029-resolver-namespaces.md), [0030](0030-edit-filters.md), [0031](0031-property-constraints.md), [0032](0032-sparql-update-stream.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0035](0035-adopting-a-wikibase.md), [0036](0036-openstreetmap-providers.md), [0037](0037-gdelt-provider.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0044](0044-tenant-relative-ids.md), [0045](0045-table-content-model.md), [0046](0046-primary-tenant.md), [0047](0047-special-pages.md), [0048](0048-notation.md), [0049](0049-boards.md), [0051](0051-page-redirects.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [0055](0055-templatestyles-templatedata-and-page-properties.md), [0056](0056-security-model.md), [0057](0057-web-tier.md), [0058](0058-packed-record-storage.md), [0059](0059-query-service.md), [0060](0060-scopes.md), [0061](0061-sprints-and-tasks.md), [0062](0062-workspaces.md), [0063](0063-query-namespace.md), [0064](0064-entityschema-and-validation.md), [0065](0065-mediainfo-captions-and-commons.md), [0066](0066-lexemes.md), [0067](0067-proposals.md), [0068](0068-merging-with-upstream.md), [0069](0069-synchronized-talk-pages.md), [0070](0070-shallow-entity-mirroring.md), [0071](0071-derived-statements-from-mirrored-pages.md), [0072](0072-template-mappings.md), [0073](0073-lines-links-and-url-patterns.md), [0074](0074-publishing-a-scope-to-an-external-wiki.md), [0075](0075-mcp-server.md), [0076](0076-dataset-publication.md), [0077](0077-special-version.md), [0078](0078-entity-sources.md)
 - **Uses:** [0005](0005-crate-organization.md), [0013](0013-postgres-storage.md)
 
 ## Context
@@ -50,6 +51,8 @@ And later the same day, on implementation in part:
 
 ### 1. Current text and historical text
 
+*Changed by A1.*
+
 **Every part of an ADR is either current or historical, and the reader can tell which.**
 
 - **Current:** the header, the Decision, the Consequences, the state of each open question, and "Changes to other ADRs". They say what holds now. Reading the Decision alone gives the decision as it stands.
@@ -65,6 +68,8 @@ And later the same day, on implementation in part:
 - **The number and the slug never change.** A title that has gone stale, such as 0036's "the `osm-tag` keyed type", may be retitled with a log entry (`retitles`). Citations use the number, so nothing breaks.
 
 ### 3. Header
+
+*Changed by A1.*
 
 Fixed fields, in this order, one line each. Each value is a date, a status or a list of links, never a sentence.
 
@@ -109,6 +114,8 @@ An ADR in parts (0022) marks each part with a bold line before its first section
 
 ### 5. Sections
 
+*Changed by A1.*
+
 - **Every section of the Decision is numbered**, `### N. Title`, with subsections `#### N.M Title`.
 - **Numbers are permanent.** A section is never renumbered and a number is never reused. A new section takes the next free number, even where it would fit better earlier.
 - **A section that no longer holds becomes a stub.** It keeps its heading. Its body is the line *Superseded by NNNN §M (An).*, with at most one sentence of pointer, and its old text is in the log entry. See 0008 §11.
@@ -116,6 +123,8 @@ An ADR in parts (0022) marks each part with a bold line before its first section
 - **The first line of a changed section is its provenance line:** *Changed by A3, A6, A9.*, listing every log entry that changed it, in order. A section with no provenance line has not changed since it was written. A `consolidates` entry (§8) is not listed.
 
 ### 6. Changing an ADR: fold, log, mark
+
+*Changed by A1.*
 
 When an ADR, or a decision made directly, changes the text of ADR *Y*, the same change does four things to *Y*:
 
@@ -200,6 +209,8 @@ A consequence the change adds is appended as a new bullet. Consequences are not 
 
 ### 12. The checker
 
+*Changed by A1.*
+
 `check_adrs.py` recognises an ADR in this format by its header (no `Related` or `Amended by` field) and applies to it:
 
 1. The header fields of §3, in order, with a valid Status. The IDs named in an `Accepted with proposed amendment` status are in the log.
@@ -227,11 +238,41 @@ Files still in the old format keep the existing checks until they are converted.
 5. **Status.** Each ADR implemented in full becomes `Accepted` (§3). None is yet: the crates in the repository implement parts of 0006, 0009, 0017, 0048 and others.
 6. **The old checks are removed** once no ADR uses the old format.
 
+### 14. Chapters: the current text lives outside the ADR
+
+**The architecture chapters hold the current text.** `docs/architecture/` is the reference description of the system by subject: twenty-four chapters assembled from the Decision sections of every ADR, with the duplicates merged and one home for each table that spans ADRs. [`docs/architecture/MAP.md`](../architecture/MAP.md), generated by `docs/architecture/map.py`, assigns every numbered Decision section of every ADR to the chapter or chapters that absorb it. A chapter describes; an ADR decides. A chapter section opens with a provenance line, *Sources: 0013 §7; 0032 §2.*, naming the ADR sections it was assembled from.
+
+**A relocated section is a pointer.** A Decision section whose current text a chapter holds keeps its heading, its number and its provenance line (§5), and its body is the one line
+
+```
+*Current text: [03](../architecture/03-storage-caches-and-search.md) §4.5; [18](../architecture/18-api.md) §3.2.*
+```
+
+naming every chapter section whose provenance cites it. The heading stays so that every citation of the form `0013 §7` (§11) keeps resolving, and so that the Amendment log's Replaced text keeps a section to belong to. A section `MAP.md` assigns to no chapter (this ADR; the changelog stubs of 0005 §8 and 0013 §12) keeps its text. A Decision section is either full text or a pointer, never both.
+
+**The header names the chapters.** A seventh field, `Chapters`, after `Uses` (§3): linked chapter numbers, ascending, every chapter that holds this ADR's current text. Required once any section is a pointer.
+
+**A change still folds, logs and marks (§6).** When a change lands on a relocated section, the fold is made in the chapter section the pointer names, in the same commit; the log entry in the ADR quotes as Replaced text the chapter text it removed or contradicted, cited as the chapter section as it stood; the mark goes on the ADR section's provenance line as before. The chapter section's own provenance line already cites the ADR section, so the two stay joined in both directions, and the checker holds them there (§12).
+
+**Relocation is logged with its own verb.** `relocates`, within the ADR only, like `retitles` and `consolidates`: the entry names the chapter sections that now hold each section's text and the last commit in which the ADR carried it, and quotes no Replaced text, because the chapter holds the text and the commit holds the file. `relocates` touches no section's provenance line: nothing about the decision changed.
+
+**Decisions made while the chapters were written** are direct decisions (§8): one log entry per decision in the ADR it changes, with Source `Direct: James, design discussion of 2026-10-08`, the Summary holding the decision in full, and Replaced text quoted from the ADR as it then stood. The audit that found them is `docs/audits/architecture-consolidation-2026-10-08.md`. The chapters state the decided form from the day they were written, so for these entries the fold is already in the chapter.
+
+**A new ADR carries its full Decision** until a chapter absorbs it. Writing or amending an ADR is then two commits' worth of work in one: the decision in the ADR, the current text in the chapter, `map.py` run so that `MAP.md` names the new sections, and the pointer put in place.
+
+**The checker (§12) gains:**
+
+12. A pointer names an existing chapter section, and that section's provenance line cites the pointing ADR section. `docs/architecture/map.py` checks the inverse: every mapped section is cited in its chapter, and `MAP.md` is current.
+13. The `Chapters` header lists exactly the chapters the ADR's pointers name.
+14. Check 4, the crate names, reads the crate map from its home, chapter 22 §2.1, since 0005 §2 is a pointer; `cargo xtask deps` reads the same table.
+15. Check 5 compares canonical special-page names case-sensitively (0047 §4.4 had `RandomRootPage` for the registry's `RandomRootpage`).
+
 ## Alternatives considered
 
 - **Immutable ADRs, superseded wholesale** (Nygard's original practice). Each of the 365 changes would have needed a superseding ADR, or a pile of them, and every citation of "0008 §2" would have needed redirecting. Rejected: it fits slow-moving decisions, and these change daily.
 - **Keep the callouts and number them.** Cheap, and it makes every change citable, but the current decision would still have to be pieced together from the body and its callouts. Rejected for consistency: every change lands the same way (§6).
 - **Strike replaced text in the body.** Readable for a sentence, unreadable for a rewritten table or a section changed nine times. Kept for list items whose history is itself informative: consequences and open questions.
+- **Chapters that copy the ADRs and leave them whole** (considered 2026-10-08). The current text would be stated twice and drift apart; the chapters were built precisely because the ADRs had drifted from one another. Rejected: a section is either text or a pointer (A1).
 - **YAML front matter.** Easier for machines, but `check_adrs.py` deliberately has no dependencies, and long lists render poorly on GitHub. A bullet header with a fixed grammar gives the checker the same information.
 
 ## Consequences
@@ -244,6 +285,7 @@ Files still in the old format keep the existing checks until they are converted.
 - **Folding is an editorial act and can introduce errors.** The Replaced text, the source citation and a one-ADR-per-commit diff make each fold reviewable. The pilot found one existing error this way: 0017's header points at the wrong section.
 - **Every amending commit touches `INDEX.md`.** It is generated, so the cost is running the checker with `--index`; a stale index fails the check.
 - **The checker's false positives go away**, because every relation names both ends. Misdirected annotations like 0017's become errors it can find.
+- **An ADR is read with its chapters.** After A1 the Decision of a relocated ADR is a list of pointers; the text is in `docs/architecture/`, where a subject is stated once. The ADR keeps what only it can hold: why, when, by whom, what it replaced, and what is still open (A1).
 
 ## Open questions
 
@@ -307,7 +349,84 @@ Files still in the old format keep the existing checks until they are converted.
 | [0047](0047-special-pages.md) §14–15 | §13 | consolidates | 0047 A2 |
 | [0048](0048-notation.md) §8 | §13 | consolidates | 0048 A2 |
 | [0049](0049-boards.md) §15 | §13 | consolidates | 0049 A2 |
-
+| [0044](0044-tenant-relative-ids.md) §6 | §14 | relocates | 0044 A3 |
+| [0000](0000-init.md) §1–4 | §14 | relocates | 0000 A5 |
+| [0001](0001-revision-metadata-rdf.md) §1–6 | §14 | relocates | 0001 A16 |
+| [0002](0002-source-graphs-and-mass-ingest.md) §1–9 | §14 | relocates | 0002 A30 |
+| [0003](0003-statement-ui.md) §1–10 | §14 | relocates | 0003 A13 |
+| [0004](0004-identity-clusters-and-equivalence.md) §1–10 | §14 | relocates | 0004 A15 |
+| [0005](0005-crate-organization.md) §1–7 | §14 | relocates | 0005 A85 |
+| [0006](0006-log-integrity-and-erasure.md) §1–10 | §14 | relocates | 0006 A18 |
+| [0007](0007-actor-identity.md) §1–10 | §14 | relocates | 0007 A20 |
+| [0008](0008-namespaces-and-document-pages.md) §1–12 | §14 | relocates | 0008 A33 |
+| [0009](0009-keyed-entity-types-and-domain.md) §1–12 | §14 | relocates | 0009 A11 |
+| [0010](0010-site-ui.md) §1–13 | §14 | relocates | 0010 A36 |
+| [0011](0011-logs.md) §1–10 | §14 | relocates | 0011 A27 |
+| [0012](0012-api-requirements.md) §1–9 | §14 | relocates | 0012 A63 |
+| [0013](0013-postgres-storage.md) §1–11 | §14 | relocates | 0013 A51 |
+| [0014](0014-caches-and-search.md) §1–10 | §14 | relocates | 0014 A23 |
+| [0015](0015-record-format-and-partition-registry.md) §1–7 | §14 | relocates | 0015 A45 |
+| [0016](0016-permissions-and-access-control.md) §1–9 | §14 | relocates | 0016 A29 |
+| [0017](0017-entity-id-grammar.md) §1–7 | §14 | relocates | 0017 A11 |
+| [0018](0018-tenants.md) §1–12 | §14 | relocates | 0018 A19 |
+| [0019](0019-discussions.md) §1–13 | §14 | relocates | 0019 A22 |
+| [0020](0020-change-feeds.md) §1–8 | §14 | relocates | 0020 A14 |
+| [0021](0021-notifications.md) §1–10 | §14 | relocates | 0021 A15 |
+| [0022](0022-federation.md) §1–13 | §14 | relocates | 0022 A9 |
+| [0023](0023-moderation.md) §1–13 | §14 | relocates | 0023 A11 |
+| [0024](0024-subsidiary-accounts.md) §1–13 | §14 | relocates | 0024 A15 |
+| [0025](0025-oauth-server.md) §1–12 | §14 | relocates | 0025 A6 |
+| [0026](0026-sitelinks.md) §1–10 | §14 | relocates | 0026 A6 |
+| [0027](0027-preferences-and-portability.md) §1–9 | §14 | relocates | 0027 A6 |
+| [0028](0028-tenancy-policy.md) §1–14 | §14 | relocates | 0028 A15 |
+| [0029](0029-resolver-namespaces.md) §1–9 | §14 | relocates | 0029 A10 |
+| [0030](0030-edit-filters.md) §1–13 | §14 | relocates | 0030 A12 |
+| [0031](0031-property-constraints.md) §1–9 | §14 | relocates | 0031 A5 |
+| [0032](0032-sparql-update-stream.md) §1–9 | §14 | relocates | 0032 A6 |
+| [0033](0033-backend-stack.md) §1–17 | §14 | relocates | 0033 A17 |
+| [0034](0034-frontend-stack.md) §1–13 | §14 | relocates | 0034 A10 |
+| [0035](0035-adopting-a-wikibase.md) §1–8 | §14 | relocates | 0035 A9 |
+| [0036](0036-openstreetmap-providers.md) §1–7 | §14 | relocates | 0036 A5 |
+| [0037](0037-gdelt-provider.md) §1–8 | §14 | relocates | 0037 A6 |
+| [0038](0038-page-metadata-and-categories.md) §1–15 | §14 | relocates | 0038 A14 |
+| [0039](0039-files-and-media.md) §1–23 | §14 | relocates | 0039 A10 |
+| [0040](0040-instance-prerogatives.md) §1–11 | §14 | relocates | 0040 A4 |
+| [0041](0041-content-models.md) §1–12 | §14 | relocates | 0041 A16 |
+| [0042](0042-template-expansion-and-parsoid.md) §1–19 | §14 | relocates | 0042 A16 |
+| [0043](0043-lua-modules.md) §1–17 | §14 | relocates | 0043 A7 |
+| [0045](0045-table-content-model.md) §1–13 | §14 | relocates | 0045 A7 |
+| [0046](0046-primary-tenant.md) §1–10 | §14 | relocates | 0046 A6 |
+| [0047](0047-special-pages.md) §1–14 | §14 | relocates | 0047 A17 |
+| [0048](0048-notation.md) §1–8 | §14 | relocates | 0048 A3 |
+| [0049](0049-boards.md) §1–15 | §14 | relocates | 0049 A6 |
+| [0051](0051-page-redirects.md) §1–9 | §14 | relocates | 0051 A5 |
+| [0052](0052-page-repositories-and-title-inheritance.md) §1–10 | §14 | relocates | 0052 A5 |
+| [0053](0053-mirrored-pages.md) §1–12 | §14 | relocates | 0053 A5 |
+| [0054](0054-forking-a-mirrored-page.md) §1–12 | §14 | relocates | 0054 A4 |
+| [0055](0055-templatestyles-templatedata-and-page-properties.md) §1–9 | §14 | relocates | 0055 A2 |
+| [0056](0056-security-model.md) §1–16 | §14 | relocates | 0056 A12 |
+| [0057](0057-web-tier.md) §1–14 | §14 | relocates | 0057 A3 |
+| [0058](0058-packed-record-storage.md) §1–12 | §14 | relocates | 0058 A2 |
+| [0059](0059-query-service.md) §1–8 | §14 | relocates | 0059 A6 |
+| [0060](0060-scopes.md) §1–11 | §14 | relocates | 0060 A8 |
+| [0061](0061-sprints-and-tasks.md) §1–12 | §14 | relocates | 0061 A5 |
+| [0062](0062-workspaces.md) §1–10 | §14 | relocates | 0062 A3 |
+| [0063](0063-query-namespace.md) §1–8 | §14 | relocates | 0063 A1 |
+| [0064](0064-entityschema-and-validation.md) §1–9 | §14 | relocates | 0064 A3 |
+| [0065](0065-mediainfo-captions-and-commons.md) §1–5 | §14 | relocates | 0065 A2 |
+| [0066](0066-lexemes.md) §1–10 | §14 | relocates | 0066 A2 |
+| [0067](0067-proposals.md) §1–9 | §14 | relocates | 0067 A6 |
+| [0068](0068-merging-with-upstream.md) §1–7 | §14 | relocates | 0068 A2 |
+| [0069](0069-synchronized-talk-pages.md) §1–12 | §14 | relocates | 0069 A4 |
+| [0070](0070-shallow-entity-mirroring.md) §1–11 | §14 | relocates | 0070 A3 |
+| [0071](0071-derived-statements-from-mirrored-pages.md) §1–14 | §14 | relocates | 0071 A2 |
+| [0072](0072-template-mappings.md) §1–8 | §14 | relocates | 0072 A1 |
+| [0073](0073-lines-links-and-url-patterns.md) §1–8 | §14 | relocates | 0073 A2 |
+| [0074](0074-publishing-a-scope-to-an-external-wiki.md) §1–9 | §14 | relocates | 0074 A2 |
+| [0075](0075-mcp-server.md) §1–7 | §14 | relocates | 0075 A2 |
+| [0076](0076-dataset-publication.md) §1–7 | §14 | relocates | 0076 A2 |
+| [0077](0077-special-version.md) §1–15 | §14 | relocates | 0077 A3 |
+| [0078](0078-entity-sources.md) §1–12 | §14 | relocates | 0078 A1 |
 ## References
 
 - Michael Nygard, [Documenting Architecture Decisions](https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions) (2011)
@@ -315,3 +434,14 @@ Files still in the old format keep the existing checks until they are converted.
 - `docs/decisions/TEMPLATE.md`, the skeleton of §4
 - `docs/decisions/check_adrs.py`
 - `docs/decisions/INDEX.md`, generated by `check_adrs.py --index` (§12)
+- `docs/architecture/README.md`, the chapters and their conventions; `docs/architecture/map.py` and `MAP.md` (§14)
+- `docs/audits/architecture-consolidation-2026-10-08.md`, the audit that produced the chapters' decisions (§14)
+
+## Amendment log
+
+### A1. Chapters and pointers
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design discussions of 2026-10-08 and 2026-10-09
+- **Change:** extends §1, §5, §6, §12; extends §3
+- **Summary:** The current text of every ADR moves to the architecture chapters of `docs/architecture/`, one subject per chapter, assembled from the Decision sections and checked against them by `map.py`; a Decision section a chapter holds becomes a pointer to the chapter section, keeping its heading and provenance line; the header gains `Chapters`; a change to a relocated section is folded in the chapter and logged and marked in the ADR; relocation is logged with the verb `relocates` and no Replaced text; the decisions made while the chapters were written are logged as direct decisions of 2026-10-08 in the ADRs they change; the checker gains checks 12–15. James's direction, 2026-10-08: "Rather than write duplicate copy, content that is currently in the ADRs can be copied to these documents, and the ADR documents focus more on changes over time"; "Store up the proposed ADR changes, and when we are done with the architecture document, we can update the ADRs in one pass"; and 2026-10-09: "pointers reflect the direction I want the ADR log to go." §14 states it.

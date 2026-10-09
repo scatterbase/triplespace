@@ -4,11 +4,13 @@ Wikibase reimagined as an append-only log, in Rust. Bulk ingest is a first-class
 foreign entities (Wikidata's `WDQ42`, OpenAlex's `OAW123`, a domain name as `domain:example.org`)
 sit alongside local ones without being reified.
 
-The design lives in [`docs/decisions/`](docs/decisions/) as architecture decision records; the
-names and codes the code embeds live in [`docs/registry/`](docs/registry/); the compatibility
-contracts with Wikibase and MediaWiki are in [`docs/api/`](docs/api/). Start with
-[0000](docs/decisions/0000-init.md), then [0005](docs/decisions/0005-crate-organization.md) for
-the crate map and build order.
+The design is described in [`docs/architecture/`](docs/architecture/), twenty-four chapters by
+subject, and decided in [`docs/decisions/`](docs/decisions/), the architecture decision records,
+which hold why and when and point into the chapters for the current text (0050 §14); the names
+and codes the code embeds live in [`docs/registry/`](docs/registry/); the compatibility contracts
+with Wikibase and MediaWiki are in [`docs/api/`](docs/api/). Start with
+[chapter 00](docs/architecture/00-overview.md), then [22](docs/architecture/22-crates-and-stack.md)
+for the crate map and build order.
 
 ## Layout
 
@@ -16,8 +18,8 @@ the crate map and build order.
 |---|---|
 | `crates/` | One Cargo workspace. `scatter-*` crates are shared with Scatterbase and know nothing about Triplespace; `triplespace-*` crates are the product (0005 §1). |
 | `tools/` | Scripts that are not part of the build (`tools/README.md`): `wikidata-sample.py` samples a Wikidata dump for the classifier audit (0003 §10); `dump_slice.py` cuts a smaller XML dump; `api_check.py`, `pwb_check.py` and `wdi_check.py` exercise a running server through WikibaseIntegrator, Pywikibot and WikidataIntegrator, and `client_compat.sh` runs all three from scratch. |
-| `xtask/` | Repository tasks: `cargo xtask deps` checks the workspace dependency graph against the table in 0005 §2; `cargo xtask wasm` builds the crates 0005 rule 7 requires to build for `wasm32-unknown-unknown`. |
-| `docs/` | ADRs, registry, API contracts and test vectors. CC0-1.0 (`docs/LICENSE`), so other implementations can embed them. |
+| `xtask/` | Repository tasks: `cargo xtask deps` checks the workspace dependency graph against the crate table of 0005 §2 (chapter 22 §2.1); `cargo xtask wasm` builds the crates 0005 rule 7 requires to build for `wasm32-unknown-unknown`. |
+| `docs/` | Architecture chapters, ADRs, registry, API contracts and test vectors. CC0-1.0 (`docs/LICENSE`), so other implementations can embed them. |
 | `ui/` | The site's front end (0034): Codex, its design tokens and the default theme's fonts, built by Vite into `ui/dist`, which `triplespace-ui` embeds. |
 | `i18n/` | The site's interface messages, banana JSON for translatewiki.net (0034 §9). |
 
@@ -62,7 +64,8 @@ push.
 
 The tests that need a database read `TRIPLESPACE_TEST_DATABASE_URL` (a Postgres URL whose role
 may create databases) and are vacuous without it. `python3 docs/decisions/check_adrs.py --index
-docs` checks the ADRs and regenerates their index.
+docs` checks the ADRs and regenerates their index; `python3 docs/architecture/map.py docs` checks the
+chapters against them.
 
 ## Setting up an instance
 
@@ -226,4 +229,4 @@ current, and the serving tables are there to inspect: `view.entity`, `view.term`
 ## Licence
 
 Triplespace is GPL-3.0-or-later (`LICENSE`). The shared `scatter-*` crates are also available
-under a commercial licence from Scatter LLC. `docs/` is CC0-1.0. See 0005 §6 and 0033 §16.
+under a commercial licence from Scatter LLC. `docs/` is CC0-1.0. See chapter 22 §3.3 and §3.4.

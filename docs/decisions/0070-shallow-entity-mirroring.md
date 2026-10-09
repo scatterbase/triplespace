@@ -2,10 +2,11 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-07
-- **Updated:** 2026-10-08 (A1)
+- **Updated:** 2026-10-09 (A3)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0011](0011-logs.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0040](0040-instance-prerogatives.md), [0053](0053-mirrored-pages.md), [0065](0065-mediainfo-captions-and-commons.md), [0067](0067-proposals.md), [0071](0071-derived-statements-from-mirrored-pages.md)
+- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [05](../architecture/05-providers-and-ingest.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -26,115 +27,69 @@ James's direction, from the design discussion of 2026-10-07:
 
 ### 1. Shallow means depth, not a slice (extends 0002 §8.4)
 
-**A shallow mirror holds the whole current state of each entity it holds, and does not follow that entity's links.** "Enough of the entity" is read as *enough entities*, not *part of an entity*:
-
-- Each mirrored entity is written as an ordinary mirror `put` ([0002](0002-source-graphs-and-mass-ingest.md) §8.2) of its full upstream JSON, with `lastrevid` as its version cursor, in the provider's mirror partition. Nothing distinguishes it from an entity a dump sync wrote.
-- A partial entity is not written. A `put` of part of an entity would break two rules already in place: the `source` resolution kind needs a whole-state record ([0013](0013-postgres-storage.md) A28), and a later dump sync would read every statement the slice left out as removed upstream.
-- The entities an entity refers to are **not** fetched because it refers to them, except along closure properties (§2.3). Their labels are needed to display it; those are read through the label cache of §4, which is not the mirror.
-
-0002 §8.4's "closure of everything the local graph references" becomes one of the sets below, `linked`, with a depth of zero and the closure properties of §2.3.
+*Current text: [05](../architecture/05-providers-and-ingest.md) §5.1.*
 
 ### 2. Which entities are mirrored
+
+*Current text: [05](../architecture/05-providers-and-ingest.md) §5.2.*
 
 #### 2.1 The setting
 
 *Changed by A1.*
 
-**`entities.mirror`** is a `site` setting, per provider and entity type, with four values ([0015](0015-record-format-and-partition-registry.md) §3):
-
-| Value | Mirrors |
-|---|---|
-| `off` | Nothing; foreign IDs are shown from the label cache only |
-| `on-demand` | An entity the first time it is read (an entity page, `wbgetentities`, a table cell) on any tenant that lists the provider ([0018](0018-tenants.md) §5) |
-| `linked` *(default)* | Everything `on-demand` mirrors, and every entity used as a statement value, qualifier value, reference value or property in a graph of a listing tenant: `local`, `pages` and any derived graph ([0071](0071-derived-statements-from-mirrored-pages.md) §1) |
-| `all` | The provider's whole type, by dump sync; what 0002 §8.4 already does |
-
-The setting is written as `entities.mirror = { WD = { item = "linked", property = "linked", lexeme = "on-demand" } }`. Properties are always at least `on-demand`, since a statement cannot be validated or rendered without its property's data type. 0065 §2's `mediainfo.mirror` is this setting for Wikidata's type `M`, under its own name for compatibility; it keeps its default of `on-demand`.
-
-A tenant's entity source takes the setting under its name, `entities.mirror = { mhc = { item = "linked" } }`, as `entities.closure` does; its default is `linked` for a source with an `api` and `off` for one without, and its closure list is empty by default ([0078](0078-entity-sources.md) §4).
+*Current text: [05](../architecture/05-providers-and-ingest.md) §5.2, §8.2.*
 
 #### 2.2 When `linked` fetches
 
-**A write that mentions a foreign ID not yet mirrored enqueues it; it does not wait for it.** The `entity_ref` projection ([0013](0013-postgres-storage.md) §7, step 4) adds a row to `ops.entity_fetch` for each foreign entity ID it writes as a target that has no `view.entity_source` row for its provider. Validation at save time checks only the ID's grammar and its provider ([0017](0017-entity-id-grammar.md) §2), as it does today for an ID whose mirror has not caught up. The entity page shows the value from the label cache until the fetch lands, and the fetch re-renders the pages that use it through `view.entity_ref`.
-
-A bulk job that will reference many foreign entities may prefetch them: the job's `start` names `prefetch = true`, and the ingester enqueues every foreign ID it validates before writing, so that the fetch runs alongside the job.
+*Current text: [05](../architecture/05-providers-and-ingest.md) §5.3.*
 
 #### 2.3 Closure properties
 
-**`entities.closure`** (site setting, per provider) lists properties whose values are fetched transitively from every mirrored entity, up to `entities.closure_depth` (default **6**). The default for Wikidata is:
-
-| Property | Why |
-|---|---|
-| `P31` instance of | The type of a value, for display and for constraints |
-| `P279` subclass of | Class hierarchies, so a query for a class finds its subclasses |
-| `P131` located in the administrative territorial entity | Place hierarchies, so a query for a state finds its counties |
-| `P17` country | The top of a place hierarchy |
-
-The depth cap bounds the walk up `P279`, which is deep. A tenant may add properties (`P361` part of, `P1365`/`P1366` replaces/replaced by for historical jurisdictions) or remove them. Closure stops at an entity already mirrored, so the walk is incremental.
+*Current text: [05](../architecture/05-providers-and-ingest.md) §5.3, §8.2.*
 
 #### 2.4 Leaving the set
 
-**A shallowly mirrored entity is never tombstoned for falling out of use.** A tombstone means "deleted upstream" and applies the entity's retention policy ([0002](0002-source-graphs-and-mass-ingest.md) §5), which under `cascade` retracts local assertions, so it cannot be reused for eviction. The set grows with use and is bounded by it. Eviction is Q1.
+*Current text: [05](../architecture/05-providers-and-ingest.md) §5.4.*
 
 ### 3. Fetching and records
 
-*Changed by A1.*
+*Changed by A1, A2.*
 
-**A fetch is an instance job per provider**, run by the instance ([0040](0040-instance-prerogatives.md) §6), like a page repository's sync job ([0053](0053-mirrored-pages.md) §5):
-
-- It drains `ops.entity_fetch` in batches through `wbgetentities` (50 IDs per request, the API's limit for clients without `apihighlimits`) or `Special:EntityData/{id}.json` for a single entity, through the upstream client and its `upstream` rate class ([0012](0012-api-requirements.md) §6).
-- Each entity becomes a `put` with the same fields a dump sync writes. An upstream redirect becomes a `redirect`, and a missing entity a `tombstone`, as 0002 §8.4 says.
-- The job's records are one long-running job per provider, with a `job/start` when the instance starts it and periodic checkpoints, so `Special:Jobs` and `Special:Providers` show the set's size, the queue and the lag.
-
-**An entity source's fetch is the tenant's job, one per source**, not an instance job ([0078](0078-entity-sources.md) §4). It writes to the tenant's `source/{name}` partition through the source's own `api` and `entity_data`, follows the source's `events` where it declares them, and is otherwise kept current by the sweep of §5 alone.
+*Current text: [05](../architecture/05-providers-and-ingest.md) §5.5.*
 
 ### 4. Labels of entities not mirrored
 
-**Labels for display come from a cache, not the mirror.** Rendering a mirrored entity needs the labels of the entities its statements point at. The label cache is an L1/L2 entry per entity and language ([0014](0014-caches-and-search.md) §2), filled by `wbgetentities&props=labels|descriptions` in batches, with a lifetime of `entities.label_ttl` (default 7 days). A label from the cache is never a term in `view.term`, never in search, and never in RDF. An entity that is mirrored reads its terms from `view.term` instead.
+*Current text: [05](../architecture/05-providers-and-ingest.md) §5.6.*
 
 ### 5. Keeping mirrored entities current (uses 0053 §6)
 
-**The set is followed by the provider's event stream, and checked by a sweep.**
-
-- **Events.** For Wikidata, the instance follows `mediawiki.recentchange` filtered to `wikidata.org`, as [0053](0053-mirrored-pages.md) §6 follows `mediawiki.page-change.v1` for a page repository, with the same cursor table (`ops.repo_cursor`, keyed by provider), debounce and gap-closing by `list=recentchanges`. An event for an entity in the set (a `view.entity_source` row for the provider) enqueues a fetch. Events for entities outside the set are ignored.
-- **Sweep.** Daily, the job asks `wbgetentities&props=info` for every entity in the set in batches of 50 and enqueues those whose `lastrevid` is newer than the cursor. The sweep catches anything the stream missed.
+*Current text: [05](../architecture/05-providers-and-ingest.md) §5.7, §8.2.*
 
 ### 6. Terms of mirrored entities (extends 0013 §5.6)
 
-**A mirrored entity's terms populate `view.term` in `entities.term_languages` only** (site setting; default: the tenant's content languages, `mul` and `en`). Its other languages stay in the record and are served by `wbgetentities`, which reads the record, but are not rows. A shallow mirror holds thousands or millions of entities, not 117 million, so the rows are affordable; the full-mirror question of what `all` writes to `view.term` stays open (Q2).
+*Current text: [05](../architecture/05-providers-and-ingest.md) §5.8.*
 
 ### 7. Becoming a full mirror
 
-**Moving a type from `linked` to `all` starts a dump sync, which continues from the shallow records.** The version cursor already holds each shallow entity's `lastrevid`; the sync skips every entity whose cursor is current and writes a `put` for the rest. Nothing is replaced and nothing is deleted. Moving back from `all` to `linked` keeps every entity already mirrored (§2.4).
+*Current text: [05](../architecture/05-providers-and-ingest.md) §5.9.*
 
 ### 8. Local statements on mirrored entities
 
-**Nothing new is needed.** A tenant's `add`, rank override, suppression and `retain` on a mirrored entity are local-graph assertions about a foreign subject ([0002](0002-source-graphs-and-mass-ingest.md) §7), resolved against the mirror by [0013](0013-postgres-storage.md) A28's resolution, as the internetdomains tests already do for Domains. Proposals ([0067](0067-proposals.md)) can offer them upstream. A local statement on a foreign entity that is not yet mirrored enqueues it (§2.2), and until it lands the resolved view is the local contribution alone.
+*Current text: [05](../architecture/05-providers-and-ingest.md) §5.10.*
 
 ### 9. API and operations (extends 0012 §5)
 
-- `GET /provider/{code}/mirror` reports, per type, the setting, the set size, the queue length and the stream lag. `POST /provider/{code}/mirror/fetch` with a list of IDs enqueues them (the `ts-runjob` right).
-- `meta=siteinfo&siprop=providers` gains `mirror` per type.
-- `triplespace-cli mirror status`, `mirror fetch WDQ42 WDP31`, and `mirror sweep` run the same operations.
+*Current text: [18](../architecture/18-api.md) §2.2, §3.2.*
 
 ### 10. Storage (extends 0013 §5.6)
 
 *Changed by A1.*
 
-- `ops.entity_fetch (tenant, provider, entity_id, reason, enqueued, attempts)` with reasons `read`, `linked`, `closure`, `event`, `sweep`, `manual`; a unique key on `(tenant, provider, entity_id)` so a busy entity is fetched once. `tenant` is `''` for a registry provider; for a tenant's entity source it is the tenant, and `provider` is the source's name ([0078](0078-entity-sources.md) §4).
-- `ops.repo_cursor` gains rows keyed by provider for the entity stream.
-- The set itself is `view.entity_source` rows for the provider (`tenant = ''`); no new table.
+*Current text: [03](../architecture/03-storage-caches-and-search.md) §4.12, §5.*
 
 ### 11. Crates (amends 0005 §2)
 
-| Crate | Change |
-|---|---|
-| `scatter-adapter-wikidata` | Fetching entities by ID through `wbgetentities` and `Special:EntityData`; the `recentchange` filter for entity pages; the closure walk |
-| `scatter-ingest` | The shallow mirror job: drains `ops.entity_fetch`, writes `put`, `redirect` and `tombstone`; `prefetch` on job start |
-| `triplespace-projections` | Enqueuing unmirrored foreign IDs from `entity_ref`; `entities.term_languages` in the term projection |
-| `triplespace-repos` | Event following and cursors shared between page repositories and entity providers |
-| `triplespace-cache` | The label cache for entities not mirrored |
-| `triplespace-cli` | `mirror status`, `mirror fetch`, `mirror sweep` |
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
 
 ## Alternatives considered
 
@@ -187,3 +142,17 @@ The depth cap bounds the walk up `P279`, which is deep. A tenant may add propert
 Replaced text (§10):
 
 > - `ops.entity_fetch (provider, entity_id, reason, enqueued, attempts)` with reasons `read`, `linked`, `closure`, `event`, `sweep`, `manual`; a unique key on `(provider, entity_id)` so a busy entity is fetched once.
+
+### A2. Instance jobs act as the instance
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** extends §3
+- **Summary:** Instance jobs (the shallow-mirror fetches of §3, run by the instance under 0040 §6) are excepted from 0002 §8.3's "every job's actor is a subsidiary": their actor is the instance (0040 §2). The row's verb is amends, but §3 never says who the fetch job's actor is, so the entry extends it; the contradicted sentence is in 0002 §8.3. (PENDING E6)
+
+### A3. Current text relocated to the architecture chapters
+
+- **Date:** 2026-10-09
+- **Source:** [0050](0050-adr-format.md) §14
+- **Change:** relocates §1–§11
+- **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [05](../architecture/05-providers-and-ingest.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.

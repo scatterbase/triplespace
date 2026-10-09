@@ -2,10 +2,11 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-10-01 (A1)
+- **Updated:** 2026-10-09 (A5)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0030](0030-edit-filters.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0047](0047-special-pages.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0011](0011-logs.md), [0023](0023-moderation.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [MediaWiki API contract](../api/mediawiki-compat.md)
+- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), [10](../architecture/10-pages-and-content-models.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [21](../architecture/21-special-pages.md)
 
 ## Context
 
@@ -21,124 +22,47 @@ James's direction, from the design discussion of 2026-10-01, was for the mirrori
 
 ### 1. A redirect is a wikitext page whose text says so (settles 0008 Q8)
 
-**A page is a redirect when its content model is `wikitext` and its text begins with a redirect line,** `#REDIRECT [[Target]]`, exactly as MediaWiki decides it: the `redirect` magic word, with the localized synonyms MediaWiki's message files give it, followed by a wiki link, optionally with a fragment, `#REDIRECT [[Myocardial infarction#Signs and symptoms]]`. Whatever follows the first line is kept and shown on the redirect page itself (MediaWiki allows categories and `{{R from …}}` templates there) but has no other effect. The magic word is registered in `docs/registry/wikitext-functions.toml` with status `implemented`.
+*Changed by A2.*
 
-**Only `wikitext` pages can be redirects.** `markdown`, `json`, `yaml`, `text`, `Scribunto`, `triplespace-table` and `triplespace-board` pages never are, whatever their first line says, as MediaWiki's non-wikitext content handlers never produce one. Any namespace whose allowed models include `wikitext` may hold redirects ([0008](0008-namespaces-and-document-pages.md) §2): main, User, Project, File, Category, Template, Module (its `/doc` pages) and Table (its `/doc` pages).
-
-**The target may be any title.** A redirect may point into any registered namespace: another article, a Project page, a category, or an entity page, `#REDIRECT [[Item:Q42]]`. The target is resolved by the title resolver like any link, so a redirect to `Item:WDQ123` lands on the cluster's canonical page ([0004](0004-identity-clusters-and-equivalence.md) §4). A target with an interwiki prefix, `#REDIRECT [[enwiki:Foo]]`, is an **external redirect**: it is recorded, listed and rendered as a link, and never followed automatically, as MediaWiki does not follow one unless `$wgDisableHardRedirects` is off and the prefix is marked local.
-
-**A redirect is still a page.** It has a page ID, records, history, a talk page, statements and categories like any other page in its namespace. Being a redirect is a property of its latest text, read by the projection (§5), never a record of its own.
+*Current text: [10](../architecture/10-pages-and-content-models.md) §2.3.*
 
 ### 2. Following a redirect (extends 0008 §3)
 
 *Changed by A1.*
 
-**The title resolver follows one hop, and only to a target the principal may read.** When the target is under a confidential `read` restriction the principal does not satisfy, the resolver answers with the redirect page itself, whose text names the target as a link to a missing page ([0056](0056-security-model.md) §6). Its resolve step ([0008](0008-namespaces-and-document-pages.md) §3) gains a fourth rule: when a `pages` namespace title resolves to a page that is a redirect, the resolver resolves the target title and answers with *that* page, carrying the redirect's page ID alongside as `redirected_from`. It follows **exactly one** hop, as MediaWiki does: a redirect to a redirect is a **double redirect**, served as the second redirect page, and listed by the report of §6. There is therefore no loop to detect. A redirect whose target does not resolve is a **broken redirect**, served as the redirect page itself, with the target as a red link.
-
-**`redirect=no` stops it.** A page view with `redirect=no`, the API's page-set parameters without `redirects`, `action=edit`, `action=move`, `action=delete`, `prop=info` and every write address the redirect page itself, as in MediaWiki. Only reads that ask to follow are followed.
-
-**A followed view is the target with a notice.** The page view answers HTTP 200 with the target's content and a "(Redirected from *Old title*)" line under the title, linking to the redirect with `redirect=no`. It is not an HTTP redirect: the URL stays what the reader typed or followed, and a reader who wants the redirect page can reach it from the notice. This differs from a forwarding namespace ([0049](0049-boards.md) §2), which answers 301, because a page redirect is content that can change and be edited, and a forwarding title is a fixed rule with no page.
-
-**Fragments compose.** A redirect with a fragment lands the reader at that section; a link with its own fragment keeps its own, as MediaWiki does.
-
-**Links to redirects are marked.** The wikitext subset and the markdown model render a link whose target is a redirect with the class `mw-redirect`, and `prop=info&inprop=linkclasses` reports it, so Parsoid ([0042](0042-template-expansion-and-parsoid.md) §8.1) and the site UI draw it as MediaWiki does. A link is never rewritten to its target; the stored source and the rendered `href` keep the redirect's title.
-
-**Transclusion follows one hop too,** which [0042](0042-template-expansion-and-parsoid.md) §4 already provides for `{{Foo}}` where `Template:Foo` is a redirect. `#ifexist` answers true for a redirect, as it does for any page. A redirect page itself is never transcluded as its target: `{{:Foo}}` with `Foo` a redirect transcludes `Foo`'s target, one hop, as MediaWiki does.
-
-**Foreign redirects** are followed by the same rule, with the target looked up in the title stack: a redirect in a page repository's title index resolves to the stack of its target title, so a Wikipedia redirect lands on a local fork when one exists ([0052](0052-page-repositories-and-title-inheritance.md) §4).
+*Current text: [10](../architecture/10-pages-and-content-models.md) §2.4.*
 
 ### 3. Moves leave a redirect (amends 0008 §4)
 
-**A move leaves a redirect at the old title by default,** as MediaWiki's does. `action=move` and the Move form append, in one transaction with one base check:
+*Changed by A3.*
 
-1. the page's `move` record with the new title ([0008](0008-namespaces-and-document-pages.md) §4);
-2. a `create` record for a **new page** at the old title, model `wikitext`, text `#REDIRECT [[New title]]`, attributed to the mover with the move's summary.
-
-The log event is one `move/move` ([0011](0011-logs.md) §6.1) whose parameters carry the old and new titles and, as MediaWiki's do, whether a redirect was left and its page ID. With `noredirect`, which needs `suppressredirect` (§8), only the `move` record is written and the event is `move/move_redir` where MediaWiki would so name it, or `move/move` with `noredirect` set.
-
-**0008 §4's "a move is one record" now reads "one record on the moved page".** The redirect is a second page, with its own ID and its own history, as it is in MediaWiki; nothing about the moved page is rewritten.
-
-**Exceptions, kept from earlier ADRs:**
-
-- **User renames leave no redirect** ([0008](0008-namespaces-and-document-pages.md) §6): the batch of `move` records a rename or a vanishing writes carries no `create`, because names are erasable and a redirect would keep the old one visible. A user moving one of their own subpages by hand is an ordinary move and leaves one.
-- **Talk pages do not move,** because they are composite and attached by identifier ([0019](0019-discussions.md) §2): the threads of a moved page's talk page are already its new title's threads. `movetalk` is accepted and does nothing, and no talk redirect is created, since a talk title always resolves through its subject.
-- **Thread renames leave none** ([0019](0019-discussions.md) §3), for the reason user renames do.
-
-**Subpages.** `movesubpages` moves every subpage under the old title in the same batch, each leaving its own redirect, in namespaces that allow subpages. It needs `move-subpages` (§8).
-
-**Moving over a redirect.** A move onto a title that is occupied is refused with `articleexists`, with one exception that MediaWiki makes and clients expect: when the occupying page is a redirect with **one revision** whose target is the page being moved, the move proceeds. The occupying redirect is deleted first, which here is a `read` ACL on its page ID ([0023](0023-moderation.md) §4) written in the same transaction and logged as `delete/delete` with the move as its reason, so the title index frees the title before the `move` record takes it. This needs `delete-redirect` (§8). A redirect with more history, or pointing elsewhere, is not displaced: the mover edits or deletes it first.
+*Current text: [10](../architecture/10-pages-and-content-models.md) §2.5.*
 
 ### 4. Category, File and entity redirects (settles 0038 Q5; extends 0039 §1)
 
-**Category redirects.** A `Category:` page that is a redirect is followed when it is **viewed**, with the notice of §2, and nowhere else: membership is defined by the text of each member ([0038](0038-page-metadata-and-categories.md) §3), so the members of `Category:Old` stay in `Category:Old`, and a redirect page's own member list is shown beneath the notice when it has any, as MediaWiki shows it. Moving members is a job for a bot that edits their text, or for a category mapping's make-it-real job once the old category is mapped to the same statement ([0038](0038-page-metadata-and-categories.md) §5). Wikipedia's soft category redirects remain what they are there: a template, `{{Category redirect}}`, that expands to a notice. This settles 0038 Q5: hard redirects follow for viewing, soft ones stay templates, and neither moves a member.
-
-**File redirects.** A `File:` page that is a redirect redirects its file too: the file lookup of [0039](0039-files-and-media.md) §11 follows a local redirect page one hop before trying repositories, as MediaWiki's `RepoGroup::findFile` does, so `[[File:Old name.jpg]]` embeds the renamed file. `movefile` leaves a redirect as any move does.
-
-**Entity namespaces have no page redirects.** `Item:`, `Property:` and the keyed-type namespaces hold composed views with no text, so §1 cannot apply, and ID aliases ([0004](0004-identity-clusters-and-equivalence.md) §4) already do the work. `Special:Redirect/…` is unrelated: it maps IDs to pages ([0047](0047-special-pages.md)).
+*Current text: [10](../architecture/10-pages-and-content-models.md) §2.6.*
 
 ### 5. Projection, caches and search (extends 0013 §5.4, 0008 §10 and 0014 §7)
 
-```sql
-CREATE TABLE view.redirect (                   -- MediaWiki's redirect table (§1)
-  page_id bigint PRIMARY KEY REFERENCES view.page,
-  target_ns integer, target_title text NOT NULL,   -- target_ns NULL for an external redirect
-  fragment text, interwiki text,                   -- interwiki set for an external redirect
-  target_page_id bigint                            -- resolved at projection; NULL when broken or external
-);
-CREATE INDEX redirect_target ON view.redirect (target_ns, target_title);
-```
-
-- **`view.page` gains `is_redirect boolean NOT NULL DEFAULT false`,** so `prop=info` and `list=allpages&apfilterredir` need no join.
-- **Written in step 2 with `page`** ([0038](0038-page-metadata-and-categories.md) §10), because it reads only the page's latest text, and under the synchronous budget, so a saved redirect works on the next request. `target_page_id` is refreshed when the target is created, deleted, undeleted or moved, by the same title-index maintenance that keeps `page_link` targets current.
-- **The links projection** ([0008](0008-namespaces-and-document-pages.md) §10) records a `page_link` row from the redirect to its target, so "What links here" on the target lists its redirects, `list=backlinks&blredirect` expands through them, and `prop=redirects` is a query on `view.redirect`.
-- **Caches** ([0014](0014-caches-and-search.md)): a followed view is cached under the **target's** key, since its HTML is the target's with a notice whose text is the request's title; the notice is added outside the cached fragment. The title resolver's lookup of `view.redirect` is one indexed read.
-- **Search** ([0014](0014-caches-and-search.md) §7): a redirect page is not indexed as a document. Its title is added to its target's document in the `pages` index, in a `redirect_titles` field, as CirrusSearch's `redirect` field does, so that a search for *Heart attack* finds *Myocardial infarction* and the suggester offers the redirect title with "→ Myocardial infarction". Broken and external redirects are indexed as documents of their own, so they can be found and fixed.
+*Current text: [03](../architecture/03-storage-caches-and-search.md) §4.5, §4.7, §5, §6.1, §11.1, §12.1; [16](../architecture/16-logs-feeds-and-notifications.md) §2.3.*
 
 ### 6. Reports (extends 0047 §4.4; amends 0047 §10)
 
-Four pages leave the deferred table of [0047](0047-special-pages.md) §10 and are served, with the report backing of 0047 §4:
+*Changed by A4.*
 
-| Page | Lists | Backing |
-|---|---|---|
-| `Special:ListRedirects` | Every redirect with its target | `view.redirect` joined to `view.page` |
-| `Special:BrokenRedirects` | Redirects whose `target_page_id` is null and that are not external | The same |
-| `Special:DoubleRedirects` | Redirects whose target is itself a redirect, with the final target | `view.redirect` self-joined |
-| `Special:RandomRedirect` | One redirect at random, as `Special:Random` picks a page | `view.redirect` |
-
-All four read local graphs by default, as every report does ([0047](0047-special-pages.md) §4.2). Each is a live projection ([0047](0047-special-pages.md) §4.3). `special-pages.toml` is updated accordingly.
+*Current text: [21](../architecture/21-special-pages.md) §2.4, §7, §8.*
 
 ### 7. API (extends 0012 §4)
 
-| Module or parameter | Behaviour |
-|---|---|
-| `action=query&redirects` | Resolves the page set through redirects, one hop, and reports each in the `redirects` array with `from`, `to` and `tofragment`, as MediaWiki does |
-| `prop=info` | `redirect` flag; `inprop=linkclasses` reports `mw-redirect` (§2) |
-| `prop=redirects`, `generator=redirects` | The redirects to each page, from `view.redirect` |
-| `list=allredirects`, `generator=allredirects` | Every redirect into a namespace, with `arprop=ids\|title\|fragment\|interwiki` |
-| `list=allpages&apfilterredir` | `all`, `redirects` or `nonredirects` |
-| `list=backlinks&blredirect` | Expands through redirects, as MediaWiki does |
-| `action=parse&redirects` | Parses the target |
-| `action=edit` | Saving a page whose text begins with a redirect line makes it a redirect; `redirect=no` is implied on the title |
-| `action=move` | `noredirect`, `movesubpages`, `movetalk` (accepted, no effect) and the move-over-redirect rule of §3; the response reports `redirectcreated` |
-| `action=delete`, `action=undelete` | Address the redirect page itself |
-| MediaWiki REST `GET /v1/page/{title}` and relatives | Follow one hop with `redirect=no` to stop, answering as MediaWiki REST does |
-| `GET /page/{id}` *(REST v0)* | A page summary gains `redirect_to` for a redirect; `GET /resolve` ([0029](0029-resolver-namespaces.md) §6) reports `redirected_from` when it followed one |
+*Current text: [18](../architecture/18-api.md) §2.3, §3.1, §3.2, §3.3, §3.4.*
 
 ### 8. Permissions (extends 0016 §2)
 
-| Permission | Governs | Default groups |
-|---|---|---|
-| `suppressredirect` | `noredirect` on a move (§3) | `sysop`, `bot` |
-| `delete-redirect` | Moving over a one-revision redirect that points at the moved page (§3) | `user` |
-| `move-subpages` | `movesubpages` (§3) | `user` |
-| `move-rootuserpages`, `move-categorypages` | Moving a user's root page, and moving category pages, as MediaWiki gates them | `user` |
-
-These are MediaWiki's rights with MediaWiki's default groups, so bots that check them behave as they do elsewhere. `docs/registry/groups.toml` is updated.
+*Current text: [09](../architecture/09-security-and-moderation.md) §2.2, §8.7.*
 
 ### 9. Filters and feeds (extends 0030 §2)
 
-- **Edit filters** ([0030](0030-edit-filters.md) §2) see `new_redirect` and `old_redirect` in the page context, derived from the text, so a filter can catch a page turned into a redirect.
-- **Recent changes** ([0020](0020-change-feeds.md)): a move's redirect `create` is one more row, tagged `move-redirect`, grouped with the move in the UI as [0010](0010-site-ui.md) §1 groups a job's rows.
+*Current text: [09](../architecture/09-security-and-moderation.md) §7.2; [16](../architecture/16-logs-feeds-and-notifications.md) §4.2.*
 
 ## Alternatives considered
 
@@ -196,3 +120,43 @@ These are MediaWiki's rights with MediaWiki's default groups, so bots that check
 - **Source:** [0056](0056-security-model.md) §6
 - **Change:** extends §2
 - **Summary:** Following requires `read` on the target; otherwise the redirect page is served as itself, with the target a red link.
+
+### A2. Redirect-capable namespaces come from the namespace catalogue
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** corrects §1
+- **Summary:** §1's own list of the namespaces that may hold redirects is replaced by a reference to the namespace catalogue ([chapter 10 §1.4](../architecture/10-pages-and-content-models.md)): any namespace the catalogue lists with `wikitext` among its models may hold redirects, which includes the `/doc` pages of Module, Table, Scope and Query. The list ended with Table and omitted Scope and Query. (PENDING E15)
+
+Replaced text (§1):
+
+> Any namespace whose allowed models include `wikitext` may hold redirects ([0008](0008-namespaces-and-document-pages.md) §2): main, User, Project, File, Category, Template, Module (its `/doc` pages) and Table (its `/doc` pages).
+
+### A3. A move without a redirect is `move/move` with `noredirect`
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** corrects §3
+- **Summary:** A move that leaves no redirect is logged as `move/move` with `noredirect: true` in its parameters (MediaWiki's `suppressredirect`); `move/move_redir` keeps MediaWiki's meaning, a move onto an existing redirect. The ledger row names §5, but the text it corrects is in §3, which is the section this entry names; §5 says nothing about the event. (PENDING E28)
+
+Replaced text (§3):
+
+> With `noredirect`, which needs `suppressredirect` (§8), only the `move` record is written and the event is `move/move_redir` where MediaWiki would so name it, or `move/move` with `noredirect` set.
+
+### A4. The redirect reports are index-backed
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design discussion of 2026-10-09
+- **Change:** corrects §6
+- **Summary:** The four redirect reports are index-backed and live: their backing is the `index` row of [0047](0047-special-pages.md) §4.3, a keyset-paged query over `view.redirect` and its indexes, with no rows of their own, not a `projection` report. (PENDING F22)
+
+Replaced text (§6):
+
+> Each is a live projection ([0047](0047-special-pages.md) §4.3).
+
+### A5. Current text relocated to the architecture chapters
+
+- **Date:** 2026-10-09
+- **Source:** [0050](0050-adr-format.md) §14
+- **Change:** relocates §1–§9
+- **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), [10](../architecture/10-pages-and-content-models.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [21](../architecture/21-special-pages.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.

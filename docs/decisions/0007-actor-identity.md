@@ -2,10 +2,11 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-10-03 (A16)
+- **Updated:** 2026-10-09 (A20)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md)
+- **Chapters:** [02](../architecture/02-graphs-rdf-and-query.md), [07](../architecture/07-actors-and-accounts.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -38,227 +39,59 @@ Four constraints follow from how MediaWiki treats accounts:
 
 *Changed by A2, A3, A11, A13, A14.*
 
-Actors are namespaced by **issuer**, as entities are namespaced by provider in [0004](0004-identity-clusters-and-equivalence.md) §1. The issuer is the authority that assigns the account. The subject is the ID it assigned.
-
-**The issuer is not the provider.** One provider may involve several issuers, and some issuers provide no content:
-
-| Issuer | Code | Actor model | Actors come from |
-|---|---|---|---|
-| Each tenant | Its slug, such as `librarybase`; `local` names the current tenant's ([0018](0018-tenants.md) §4) | Numeric | The tenant's users (§3) |
-| Wikidata | `wikidatawiki` | Numeric | Wikidata revisions and logs, in the Wikidata mirror |
-| Wikimedia central accounts | `wikimedia-central` | Numeric, never published | Wikimedia OAuth only (§3) |
-| OpenAlex | `openalex` | Provider only | None. Changes are attributed to OpenAlex as a whole (§6). |
-| Password on this instance (§3) | `password` | Numeric, the tenant's own user IDs | None. A login provider only |
-| The farm, where the tenancy policy gives it identity | The farm slug | Numeric | Farm accounts, which edit nothing ([0028](0028-tenancy-policy.md) §2) |
-| The instance as operator | `instance` | Provider only | Instance acts written into a tenant ([0040](0040-instance-prerogatives.md) §2) |
-
-Another Wikibase or Miraheze wiki gets an issuer of its own, keyed by its wiki ID.
-
-**The issuer registry is configuration.** Like the provider registry ([0002](0002-source-graphs-and-mass-ingest.md) §4), it is data passed in by the caller and recorded in the log ([0004](0004-identity-clusters-and-equivalence.md) §9). Each entry records:
-
-- the issuer code;
-- the actor model: `numeric` or `provider-only`;
-- the actor IRI template (§2);
-- the API used to resolve names and central IDs, where there is one;
-- which providers' adapters attribute actors to it;
-- whether it may serve as an identity provider for local login.
-
-**For Wikibase issuers, the subject is the numeric user ID.** A name is used only where no ID exists (§5).
-
-**The `instance` issuer** has one actor, the operator: actor key `instance:{farm slug}`, IRI `{farm base}/instance/operator` ([0046](0046-primary-tenant.md) §7). It is the actor of every instance act written into a tenant; the person who carried the act out is recorded only on the act's authority record ([0040](0040-instance-prerogatives.md) §2).
-
-**An actor key** is the compact form `{issuer}:{id}`, such as `wikidatawiki:12345` or `local:42`. It is what log headers carry. [0006](0006-log-integrity-and-erasure.md) §3 requires a header key to be an identifier, never content. An actor key is an identifier and never contains a name.
+*Current text: [07](../architecture/07-actors-and-accounts.md) §1.1.*
 
 ### 2. Actor IRIs
 
 *Changed by A14.*
 
-| Actor | IRI | Example |
-|---|---|---|
-| Local user | `{base}/user/{id}`, under the tenant's base | `{base}/user/42` |
-| Farm account | `{farm base}/instance/user/{id}` ([0046](0046-primary-tenant.md) §7) | |
-| The instance as operator | `{farm base}/instance/operator` ([0046](0046-primary-tenant.md) §7) | |
-| User of a MediaWiki issuer | `{article path}Special:Redirect/user/{id}` | `https://www.wikidata.org/wiki/Special:Redirect/user/12345` |
-| Actor with no stable ID (§5) | `{base}/actor/{n}`, a surrogate minted by the instance | `{base}/actor/7` |
-| Provider as a whole (§6) | The agent IRI in the provider registry | The provider's Wikidata item, for example |
-| Wikimedia central account | None | Central IDs are never published (§3) |
-
-**The upstream IRI is canonical for foreign actors**, as it is for foreign entities ([0002](0002-source-graphs-and-mass-ingest.md) §4). `Special:Redirect/user/{id}` is minted in the issuer's own URL space, and MediaWiki supports it on every wiki. It survives renames, and it dereferences to the account's current user page. An issuer whose wiki has no such page names another template in the registry.
-
-**An IRI never contains a name or an IP address.** Both can change and both can be erased. The IRI must still be valid afterwards.
-
-**Local user IRIs are instance data**, under the instance's base URI ([0001](0001-revision-metadata-rdf.md) §5, [0005](0005-crate-organization.md) §5).
+*Current text: [07](../architecture/07-actors-and-accounts.md) §1.2.*
 
 ### 3. Local users and delegated authentication
 
-*Changed by A2, A3, A8, A11, A12, A16.*
+*Changed by A2, A3, A8, A11, A12, A16, A19.*
 
-**The instance mints its own user IDs.** They are sequential, start at 1 and are never reused. A local user's identity is `local:{id}`, whatever the user logged in with. On a tenant that adopts an existing Wikibase, the sequence starts past the source's highest user ID, and the source's accounts are written as `{slug}:{id}` actor records under their own numbers, without bindings, reclaimable as [0018](0018-tenants.md) §10 describes ([0035](0035-adopting-a-wikibase.md) §4–5).
-
-**Logging in uses a binding.** A binding maps an identity-provider subject to a local user, for example `(wikimedia-central, 7654321) → local:42`. The rules are:
-
-- A local user may hold several bindings, and may add or remove them.
-- A provider subject is bound to at most one local user.
-- Tokens and other secrets are never written to the log. They live in an operational store.
-- The `sub` claim is normalized. The legacy form `7654321` and the newer form `mw:CentralAuth:7654321` are the same subject.
-- A binding belongs to a tenant account and lives in that tenant's `accounts` partition. One identity-provider account may be bound on several tenants; that makes them one person's accounts, not one actor ([0018](0018-tenants.md) §4).
-
-**Keying local users on OAuth's `sub` is rejected.** An instance could then never change or add identity providers. The central ID is also not what Wikidata attributes edits to (Context, 4).
-
-**The built-in password issuer.** One issuer is operated by the instance itself, `password`, registered in `issuers.toml` with `builtin = true`. Its subject for a local user is that user's own ID, so a password login is the binding `(password, 42) → local:42`, and the hash lives in `private.password` ([0013](0013-postgres-storage.md) §4), never in the log. It is an identity provider and nothing else: no actor is ever attributed to it, and it appears on `Special:UserLogin` ([0010](0010-site-ui.md) §10) as one button among the issuers. Whether it accepts logins is the `site` setting `login.password`; `triplespace-cli instance create` turns it on and sets the first administrator's password ([0016](0016-permissions-and-access-control.md) §3), and an instance that registers an external provider may turn it off or leave it as a fallback. This is the single-user fallback Scatterbase asks for, and it settles how an instance with no external identity provider is administered ([0024](0024-subsidiary-accounts.md) Q4). It reverses the choice above only to this extent: the instance consumes providers, and is one, for its own users, never for other sites ([0025](0025-oauth-server.md) leaves OpenID Connect open).
-
-**API keys are credentials of subsidiary accounts only** ([0024](0024-subsidiary-accounts.md) §4). A primary account authenticates through a binding and never holds a key.
-
-**Farm identity.** Under a tenancy policy with farm identity, a person signs up to the farm once. Tenant accounts are created from the farm account, under its name, and publicly linked to it ([0028](0028-tenancy-policy.md) §2).
-
-**Bindings are private.** They go to a new `accounts` graph (§8), which is never projected, exported or placed on a feed. The instance may use a binding for its own decisions, such as requiring a Wikimedia account in good standing to edit. It never shows which provider a user logs in with.
-
-**Logging in does not link identities.** A binding proves that the user controls a Wikimedia account. It does not mean the user consents to that account being linked to their local account in the graph. Linking is a separate act that only the user can perform (§7).
-
-**Anonymous local editing uses temporary accounts.** If an instance allows editing without logging in, each such editor gets a local temporary account with a numeric ID. Local change sets never carry an IP address as their actor. IP addresses collected for abuse handling stay in an operational store and are never written to the log.
+*Current text: [07](../architecture/07-actors-and-accounts.md) §2.1, §2.2, §2.3, §5.1, §8.3.*
 
 ### 4. Names are attributes, kept in actor records
 
 *Changed by A1, A6, A7, A8, A9, A10, A11.*
 
-**Change sets and revisions carry actor keys, never names.** Each actor's name, kind and status live in **actor records**: log records whose header key is the actor key. The payload type is `scatter:v0/actor`, and the body holds:
-
-- the actor's kind: `registered`, `temporary`, `bot`, `anonymous` (§5), `imported` (§5), `provider` (§6) or `federated` (§5, since [0022](0022-federation.md) §8);
-- its current name, if it has one;
-- its status: `active`, `renamed`, `vanished` or `hidden` (and, for a subsidiary account, `retired`, [0024](0024-subsidiary-accounts.md) §2, and `pending`, [0025](0025-oauth-server.md) §3);
-- for surrogates only, the raw value the surrogate stands for (§5);
-- for a `bot`, its **operator**: the actor key of the primary account that owns it ([0024](0024-subsidiary-accounts.md) §1).
-
-The `hidden` status is set by an `actor` ACL restricted to `suppress` ([0023](0023-moderation.md) §5).
-
-This puts every name and IP address in one place per actor, so each can be erased in one place.
-
-**Local actors** are recorded in a new `actors` graph (§8) with full history. A rename appends a new record.
-
-**Foreign actors** are recorded in one `actors/{provider}` graph per provider, with history policy `latest`. Adapters split what upstream sends. Wikidata's XML dumps and API give a name and an ID for each revision. The ID goes into the revision, and the name goes into an actor record. When upstream renames or vanishes an account, the next sync appends an actor record with the new name. Compaction then removes the old name. The upstream `renameuser` event itself is kept in the provider log without names ([0011](0011-logs.md) §6.2).
-
-**RDF carries only the current name.** In the metadata graph, an actor node gets `sioc:name` from its latest actor record, and no past names. The name is not emitted if the actor is hidden, as 0001 §4 already requires.
-
-**Right to vanish** is handled like this:
-
-1. An `erase` record ([0006](0006-log-integrity-and-erasure.md) §7) erases the local actor's records by key. That removes every past name and every link (§7).
-2. A new actor record gives the placeholder name, with status `vanished`.
-3. Revisions stay attributed to `{base}/user/{id}`, which never contained the name.
-
-This matches Wikimedia's practice: a vanished user's edits stay attributed to the renamed account.
-
-- A primary account with subsidiaries vanishes only after each has been transferred or retired ([0024](0024-subsidiary-accounts.md) §2).
-- Vanishing a farm account vanishes each tenant account linked to it first ([0028](0028-tenancy-policy.md) §2).
-- The account page suggests **Download my data** before a vanish ([0027](0027-preferences-and-portability.md) §4).
+*Current text: [07](../architecture/07-actors-and-accounts.md) §1.3, §3.2.*
 
 ### 5. Actors with no stable numeric ID
 
 *Changed by A6.*
 
-| Case | Treatment |
-|---|---|
-| **Upstream temporary accounts** | Temporary accounts are ordinary user rows with numeric IDs, so they get normal issuer IRIs with kind `temporary`. The IP behind a temporary account is never requested or stored. |
-| **Upstream IP edits,** made before temporary accounts | The IP gets a surrogate, `{base}/actor/{n}`, of kind `anonymous`. The IP is kept only in the surrogate's actor record. The same IP maps to the same surrogate through an index projected from actor records. The IP is shown in history views as upstream shows it, and is never projected to RDF. |
-| **Imported edits** (`imported>Name`, or another interwiki prefix) | At import time, the adapter resolves the name to the source wiki's numeric ID if the source is a registered issuer, and records the actor under that issuer. Otherwise the actor gets a surrogate of kind `imported`, whose record holds the prefix and the name. |
-| **Upstream revisions whose user is hidden** (`userhidden`) | The revision carries a `hidden` marker and no actor key. MediaWiki hides the user ID as well as the name, so there is nothing more to record. |
-| **States with no revision metadata** | Observed states from JSON dumps carry no actor ([0002](0002-source-graphs-and-mass-ingest.md) §8.3). Their actor is known only after a backfill from the API or the XML history dumps. |
-| **Fediverse actors** replying to a federated talk page | A surrogate `{base}/actor/{n}` of kind `federated`, whose actor record holds the remote actor IRI and its last-seen name; the IRI is content, never a key ([0022](0022-federation.md) §8). |
-
-**Surrogates are minted by the instance, in sequence.** They carry no information about what they stand for. If a surrogate's actor record is erased, the surrogate stays behind as an opaque anonymous actor, and its revisions stay grouped. An IP seen after that erasure gets a new surrogate.
+*Current text: [07](../architecture/07-actors-and-accounts.md) §1.4.*
 
 ### 6. Providers without individual actors
 
-*Changed by A8.*
+*Changed by A8, A18.*
 
-OpenAlex publishes no per-change attribution. Its changes are attributed to:
-
-- the provider as a whole, an agent of type `prov:Organization` whose IRI comes from the provider registry;
-- the import job that brought the change in ([0002](0002-source-graphs-and-mass-ingest.md) §8.3), which is a `prov:Activity`.
-
-No actor records are kept for such providers.
-
-**The job's own actor is separate.** A job records who ran it on this instance. That is a local actor, usually a bot account. It is not the upstream actor. A local bot account is a `prov:SoftwareAgent` with `prov:actedOnBehalfOf` pointing at its operator's local account. Under [0024](0024-subsidiary-accounts.md) §1 every bot account is a **subsidiary** of a primary account, the operator is an attribute of its actor record, and a job's actor is always such a subsidiary.
+*Current text: [07](../architecture/07-actors-and-accounts.md) §1.5.*
 
 ### 7. Linking accounts is opt-in
 
 *Changed by A6, A11.*
 
-A user can **link** their local account to a foreign account they control, so that their attribution carries across sources. Nothing links accounts except the user's own request. The one link made without a separate request is a tenant account's link to the farm account it was created from, by the consent given once at farm signup ([0028](0028-tenancy-policy.md) §2).
-
-**Creating a link:**
-
-1. The user asks to link an account through an identity provider they hold a binding with (§3). The instance makes them authenticate with that provider again during the request.
-2. The instance resolves the account on the target issuer. For Wikidata, it takes the username from the identify response, queries `list=users&usprop=centralids` on Wikidata, and checks that the returned CentralAuth ID equals the binding's subject. The link target is the Wikidata `user_id` that query returns.
-3. It appends a `link-account` record to the local `actors` graph, with the local actor's key as its header key.
-
-**Rules:**
-
-- Only the account holder can create a link. Administrators can remove a link, for example after an account is compromised, but cannot create one.
-- A local user may link several foreign accounts, such as a main account and a bot account. Each one requires its own proof of control.
-- A foreign account can be linked to at most one local user.
-- A link is never inferred: not from a binding, not from a matching username, and not from any statement in the data.
-
-**Removing a link erases it.** An `unlink` request appends an `erase` record ([0006](0006-log-integrity-and-erasure.md) §7) with reason class `privacy`. That erases the `link-account` record. A strike would leave the link in history, and the history would disclose the same thing. After erasure, what remains is the trace 0006 allows: a record keyed to the local actor existed at time t.
-
-**Projection.** Only a link that exists appears in RDF. Both accounts point at one holder node in the metadata graph:
-
-```turtle
-# graph <{base}/graph/metadata>
-<{base}/user/42> a sioc:UserAccount ;
-    sioc:name "Example" ;
-    sioc:account_of <{base}/user/42#holder> .
-<https://www.wikidata.org/wiki/Special:Redirect/user/12345> a sioc:UserAccount ;
-    sioc:account_of <{base}/user/42#holder> .
-<{base}/user/42#holder> a foaf:Agent .
-```
-
-The holder node exists only while a link does. An unlinked local account has no `sioc:account_of`.
-
-**Actor links are not identity clusters.** [0004](0004-identity-clusters-and-equivalence.md) clusters content entities and rewrites them to a canonical ID. Actor links do neither:
-
-- An attribution always keeps the IRI of the account the change was made under.
-- No `owl:sameAs` is emitted between accounts. Two accounts held by one person are still two accounts.
-- An actor is never linked to a content entity. That includes an `OAA` author and a Wikidata item about a person. Wikidata's P4174 ("Wikimedia username") and similar properties are ordinary data and are never used to link actors.
-- When an account has opted in as a fediverse actor ([0022](0022-federation.md) §6), its public account links are emitted as `rel="me"` links in both directions, so a Mastodon profile and a wiki account can verify each other.
+*Current text: [07](../architecture/07-actors-and-accounts.md) §3.1.*
 
 ### 8. Graphs (amends 0005 §4.1)
 
 *Changed by A2, A4, A5, A10, A11.*
 
-Three kinds of graph are added to Triplespace's registry. The first two fill the "destructible data" row of 0005 §4.1. Each tenant has its own `accounts` and `actors` partitions ([0018](0018-tenants.md) §4); under farm identity, the farm's are instance partitions ([0028](0028-tenancy-policy.md) §2).
-
-| Graph | Illustrative IRI | Kind | Written by | History | Integrity | Export |
-|---|---|---|---|---|---|---|
-| **Accounts** | `{base}/graph/accounts` | Source | Login and account management only | Full | `logged` | **Private** |
-| **Actors** | `{base}/graph/actors` | Source | Account management, renames, links | Full | `logged` | Internal only |
-| **Foreign actors**, one per provider | `{base}/graph/actors/wikidata` | Source | That provider's sync jobs | `latest` | `hashed` | Internal only |
-
-**`private` is a new export policy.** A private graph is never projected into any graph, never placed on a feed, and never included in an export bundle ([0006](0006-log-integrity-and-erasure.md) §9), including one made for verification. Its integrity can be checked only by the instance itself.
-
-The metadata graph ([0001](0001-revision-metadata-rdf.md) §2) projects from the actor graphs: actor nodes, current names, kinds and links. It never reads the accounts graph.
-
-**Private state** belongs to an account but is not a record at all: secrets, API keys ([0024](0024-subsidiary-accounts.md) §4), the watch set ([0020](0020-change-feeds.md) §3), and the inbox, contact details and notifier key ([0021](0021-notifications.md) §3, §5). It lives in the `private` schema ([0013](0013-postgres-storage.md) §4) under the rules of the `private` export policy. [0027](0027-preferences-and-portability.md) §2 says which of it a person can carry to another instance.
+*Current text: [07](../architecture/07-actors-and-accounts.md) §1.6, §8.3.*
 
 ### 9. Vocabulary (extends 0001 §6)
 
-Existing vocabularies are reused first:
+*Changed by A17.*
 
-| Need | Vocabulary | Terms |
-|---|---|---|
-| Accounts and names | SIOC | `sioc:UserAccount`, `sioc:name`, `sioc:account_of` |
-| Holder of linked accounts | FOAF | `foaf:Agent` |
-| Attribution and delegation | PROV-O | `prov:wasAttributedTo`, `prov:Organization`, `prov:SoftwareAgent`, `prov:actedOnBehalfOf` |
-
-Terms to mint under `scatter:`:
-
-- `scatter:TemporaryAccount`, `scatter:AnonymousActor` and `scatter:ImportedActor`, as subclasses of `prov:Agent`;
-- `scatter:attributionHidden`, a flag on a revision whose actor is hidden.
+*Current text: [02](../architecture/02-graphs-rdf-and-query.md) §3.2.*
 
 ### 10. Crates (amends 0005 §2)
 
-- **`scatter-actors`** is a new substrate crate. It holds the issuer registry, actor keys, IRI templates, the surrogate allocator trait and the link rules. It is pure, following [0005](0005-crate-organization.md) §3 rule 2, and depends only on `oxrdf`.
-- **Adapters** turn upstream actor fields into actor keys and actor records.
-- **`triplespace-accounts`** is a new surface crate. It holds bindings, OAuth login, the linking flow and the operational store for secrets. It is the only crate that reads the accounts graph.
+*Current text: [22](../architecture/22-crates-and-stack.md) §1.3, §2.1, §2.2.*
 
 ## Consequences
 
@@ -417,3 +250,39 @@ Replaced text: the operator IRI `{farm base}/operator` of A13.
 - **Source:** Direct: James, decision of 2026-10-03 (`triplespace-accounts`, `triplespace-api-action`, `triplespace-server`, `scatter-adapter-internetdomains`)
 - **Change:** extends §3
 - **Summary:** A password is set by `triplespace instance create --owner-password-file` (or the `TRIPLESPACE_OWNER_PASSWORD` environment variable) and `triplespace password set --password-file`, never on the command line (0033 §12); the hash is Argon2id with the `argon2` crate's defaults as a PHC string, so parameters travel with the hash; the binding record `{"issuer": "password", "subject": "{user id}"}` is appended to the tenant's `accounts` partition the first time an account gets a password. Actor keys in every `private` table are tenant-qualified (`librarybase:7`), as `view.actor` writes them; `local:{id}` is the relative form a tenant uses in its own records, not a storage key.
+
+### A17. The minted-term list is illustrative
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** amends §9
+- **Summary:** The list in §9 of terms minted under `scatter:` is illustrative, not a catalogue: `scatter-vocab` is the catalogue of record for Triplespace's own vocabulary, and a term is defined there, not by appearing in §9 or in [0001](0001-revision-metadata-rdf.md) §6, which is amended the same way. (PENDING A21)
+
+Replaced text (§9):
+
+> Terms to mint under `scatter:`:
+
+### A18. One actor record per provider
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** amends §6
+- **Summary:** A provider without individual actors has one actor record, of kind `provider`, in `actors/{provider}`, with agent type `prov:Organization`, written when the provider is registered; every attestation, OpenAlex's mirror records included, names an actor key. "No actor records are kept for such providers" becomes this. The job's own actor stays separate, as §6 says. [0013](0013-postgres-storage.md) §5.4 is amended the same way. (PENDING C1)
+
+Replaced text (§6):
+
+> No actor records are kept for such providers.
+
+### A19. The right to see an IP in the abuse-handling store
+
+- **Date:** 2026-10-08
+- **Source:** Direct: James, design discussion of 2026-10-08
+- **Change:** extends §3
+- **Summary:** Seeing an IP address in the abuse-handling operational store requires a named right, so that the permission catalogue can list it and [0030](0030-edit-filters.md) §2, §5 and §12 can cite it. Proposed: `ts-viewip` *(new)*, default `sysop`; James to confirm the name and default. (PENDING D4)
+
+### A20. Current text relocated to the architecture chapters
+
+- **Date:** 2026-10-09
+- **Source:** [0050](0050-adr-format.md) §14
+- **Change:** relocates §1–§10
+- **Summary:** The Decision's current text now lives in the architecture chapters [02](../architecture/02-graphs-rdf-and-query.md), [07](../architecture/07-actors-and-accounts.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
