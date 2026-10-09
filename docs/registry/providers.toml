@@ -9,7 +9,16 @@
 #              or the provider itself for providers without individual actors (0007 §6).
 # revision_ids true if the provider publishes revision IDs; then n is the upstream revision ID,
 #              otherwise n is the mirror record's offset.
-# adapter      The crate that implements the provider's adapter (0002 §8.4).
+# adapter      The crate that implements the provider's adapter (0002 §8.4), one per provider (0002 A28).
+# actor_model  "individual" (default): the provider's revisions name actors, attributed through the
+#              issuer; "provider-only": no per-change attribution, every change is attributed to the
+#              provider's own actor record (0007 §6 as amended by 0007 A18, 0037 §1). Explicit, because
+#              issuer == slug is not the test: OpenStreetMap has that and has changeset authors (0002 A28).
+# sync_deltas  "summary" (default) or "full": whether a sync's observed change set stores the per-field
+#              delta beside its summary (0012 §2.2, 0012 A58).
+# deletion     "tombstone" (default): an upstream deletion is a tombstone that applies the retention
+#              policy (0002 §5); "clear": a `put` of the empty state that clears the mirror's contribution,
+#              for a provider whose IDs are never reused (0002 A29, 0036 §2: OpenStreetMap).
 # trust        For a provider that publishes a tlog checkpoint (a Triplespace instance, Scatterbase):
 #              "verified" (default for scatter-adapter-triplespace) checks every mirrored batch against
 #              the provider's checkpoint and key chain; "stream" mirrors without proofs (0022 §2).
@@ -65,6 +74,7 @@ article_path = "https://www.wikidata.org/wiki/"
 api = "https://www.wikidata.org/w/api.php"
 entity_data = "https://www.wikidata.org/wiki/Special:EntityData/"
 adapter = "scatter-adapter-wikidata"
+actor_model = "individual"
 agent_iri = "http://www.wikidata.org/entity/Q2013"    # the provider as a prov:Organization (0007 §6)
 
   [[provider.type]]
@@ -122,6 +132,7 @@ revision_ids = true
 article_path = "https://librarybase.org/wiki/"
 api = "https://librarybase.org/w/api.php"
 adapter = "scatter-adapter-wikidata"                            # any MediaWiki+Wikibase; the adapter is parameterised by this entry
+actor_model = "individual"
 
   [[provider.type]]
   code = "Q"
@@ -151,6 +162,7 @@ issuer = "openalex"
 revision_ids = false             # no revision history; n is the mirror record's offset (0015 §2)
 api = "https://api.openalex.org/"
 adapter = "scatter-adapter-openalex"
+actor_model = "provider-only"
 # agent_iri: OpenAlex's Wikidata item, as a prov:Organization (0007 §6) — to be set when confirmed
 
   [[provider.type]]
@@ -244,6 +256,7 @@ issuer = "musicbrainz"
 revision_ids = false             # no per-entity revision IDs; n is the mirror record's offset (0015 §2)
 api = "https://musicbrainz.org/ws/2/"
 adapter = "scatter-adapter-musicbrainz"
+actor_model = "provider-only"
 id_grammar = "uuid"
 
   [[provider.type]]
@@ -365,6 +378,7 @@ revision_ids = true
 article_path = "https://internetdomains.wiki/wiki/"
 api = "https://internetdomains.wiki/w/api.php"
 adapter = "scatter-adapter-internetdomains"
+actor_model = "provider-only"
 # The wiki was domains.wikibase.cloud before it moved to internetdomains.wiki (0018 §4); the
 # slug and every internetdomains:{id} actor key are stable across the move.
 
@@ -410,6 +424,8 @@ revision_ids = false             # versions are per object and changesets are no
 article_path = "https://www.openstreetmap.org/"
 api = "https://api.openstreetmap.org/api/0.6/"
 adapter = "scatter-adapter-openstreetmap"
+actor_model = "individual"
+deletion = "clear"
 # agent_iri: OpenStreetMap's Wikidata item, as a prov:Organization (0007 §6) — to be set when confirmed
 
   [[provider.type]]
@@ -456,6 +472,7 @@ revision_ids = true
 article_path = "https://wiki.openstreetmap.org/wiki/"
 api = "https://wiki.openstreetmap.org/w/api.php"
 adapter = "scatter-adapter-wikidata"    # any MediaWiki+Wikibase; the adapter is parameterised by this entry
+actor_model = "individual"
 # The concept base URI below is what Sophox uses; confirm it against Special:EntityData before the first load.
 
   # Adapter configuration (0036 §3). One entry per class of mapped item. The class and the
@@ -513,6 +530,7 @@ revision_ids = false             # append-only files; n is the mirror record's o
 article_path = "https://www.gdeltproject.org/"
 api = "http://data.gdeltproject.org/gdeltv2/"
 adapter = "scatter-adapter-gdelt"
+actor_model = "provider-only"
 # agent_iri: GDELT's Wikidata item, as a prov:Organization (0007 §6) — to be set when confirmed
 
   [[provider.type]]
