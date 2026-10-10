@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-09 (A20)
+- **Updated:** 2026-10-09 (A21)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0029](0029-resolver-namespaces.md), [0031](0031-property-constraints.md), [0042](0042-template-expansion-and-parsoid.md), [0046](0046-primary-tenant.md)
 - **Uses:** [0019](0019-discussions.md), [0021](0021-notifications.md), [0028](0028-tenancy-policy.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md)
@@ -94,7 +94,7 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 6. Identity and correction pages
 
-*Changed by A11.*
+*Changed by A11, A21.*
 
 *Current text: [21](../architecture/21-special-pages.md) §3.2.*
 
@@ -430,3 +430,14 @@ Replaced text ([21](../architecture/21-special-pages.md) §1.2, as it stood):
 Replaced text ([21](../architecture/21-special-pages.md) §4.2, as it stood):
 
 > - **Local entities** are exported as Wikibase exports entity pages. The model is `wikibase-item` or `wikibase-property`. Each revision is one local change set, and its text is the canonical JSON of the entity's **local-graph** state at that revision ([wikibase-compat.md](../api/wikibase-compat.md)). A MediaWiki Wikibase with free IDs can import them, which is the reverse of adoption ([0035](0035-adopting-a-wikibase.md); [05](../architecture/05-providers-and-ingest.md)).
+
+### A21. `Special:LinkEntities` needs `ts-linkproperty` for `equivalent-property`
+
+- **Date:** 2026-10-09
+- **Source:** [0016](0016-permissions-and-access-control.md) A32
+- **Change:** amends §6
+- **Summary:** `Special:LinkEntities` needs `ts-link` for `same-as` and `different-from` and also `ts-linkproperty` for `equivalent-property`, the right that now gates linking properties.
+
+Replaced text ([21](../architecture/21-special-pages.md) §3.2, as it stood):
+
+> It needs `ts-link` and counts in the `link` rate class ([0024](../decisions/0024-subsidiary-accounts.md) §5).

@@ -364,8 +364,8 @@ Both forms authenticate the same subsidiary with the same grants:
 | `basic` | `read`, and every read route. Always included |
 | `highvolume` | Bot rate limits (§6) and the `bot` flag, if the subsidiary holds `bot` |
 | `editpage` | `edit` on document pages, threads and posts |
-| `createeditmovepage` | `editpage` plus `createpage` and `move` |
-| `editentity` *(Triplespace)* | `edit`, `item-term`, `property-term`, `item-redirect`, `item-merge` on entities; `ts-link` |
+| `createeditmovepage` | `editpage` plus `createpage` and `move`; `property-create`, where Wikibase puts it |
+| `editentity` *(Triplespace)* | `edit`, `item-term`, `property-term`, `item-redirect`, `item-merge` and `property-create` on entities; `ts-link` and `ts-linkproperty` |
 | `editprotected` | Edits admitted by protection ACLs the subsidiary's groups satisfy ([0023](../decisions/0023-moderation.md) §1) |
 | `patrol` | `patrol` |
 | `delete`, `protect`, `blockusers` | The administrative permissions of those names |

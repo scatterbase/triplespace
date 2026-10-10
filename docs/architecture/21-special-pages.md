@@ -276,7 +276,7 @@ The forms are `NewItem`, `NewProperty`, `SetLabel`, `SetDescription`, `SetAliase
 
 Three pages give addresses to things 0002 and 0004 already describe, and a fourth lists proposals:
 
-- **`Special:LinkEntities`** is the form for `same-as`, `different-from` and `equivalent-property` ([0004](../decisions/0004-identity-clusters-and-equivalence.md) §9). It needs `ts-link` and counts in the `link` rate class ([0024](../decisions/0024-subsidiary-accounts.md) §5). It is prefilled from a refused merge and from a conflict row.
+- **`Special:LinkEntities`** is the form for `same-as`, `different-from` and `equivalent-property` ([0004](../decisions/0004-identity-clusters-and-equivalence.md) §9). It needs `ts-link`, and `ts-linkproperty` for `equivalent-property`, and counts in the `link` rate class ([0024](../decisions/0024-subsidiary-accounts.md) §5). It is prefilled from a refused merge and from a conflict row.
 - **`Special:IdentityConflicts`** is 0004 §10's review list. It shows held links (`view.link` with `status = 'held'`) and the duplicate-key conflicts of [0009](../decisions/0009-keyed-entity-types-and-domain.md) §9.
   - Each row offers 0004 §10's resolutions as actions: a local `same-as`, `different-from`, a merging `redirect`, or deprecating the source statement.
   - By §2.2's rule it lists conflicts that involve the tenant's own records or entities it has local assertions on. `graphs=all` lists every held link in the tenant's view. That is live, because the table already holds them.

@@ -591,7 +591,7 @@ A `wbgetentities` request for a non-canonical member returns the fused body unde
 
 `remove` retracts any of these. `same-as` and `different-from` apply to a Domain with an entity of another namespace, never between two Domains (§3.3), and `same-as` applies between lexemes but not their parts (§5.1).
 
-`redirect` in the local graph records a merge within one namespace. **For properties only, a local `redirect` may cross namespaces:** `{"op":"redirect","from":"P12","to":"WDP585"}` retires `P12` and makes `WDP585` the canonical predicate. `P12` becomes an alias of `WDP585` (§4.1), existing local statements keep `P12` in the log and are served under `WDP585` as any redirect's are. It needs `property-create` and a matching data type. An item never redirects across namespaces, and a local item stays canonical.
+`redirect` in the local graph records a merge within one namespace. **For properties only, a local `redirect` may cross namespaces:** `{"op":"redirect","from":"P12","to":"WDP585"}` retires `P12` and makes `WDP585` the canonical predicate. `P12` becomes an alias of `WDP585` (§4.1), existing local statements keep `P12` in the log and are served under `WDP585` as any redirect's are. It needs `ts-linkproperty` and a matching data type. An item never redirects across namespaces, and a local item stays canonical.
 
 ```
 {"op":"same-as","ids":["Q456","OAW123"]}

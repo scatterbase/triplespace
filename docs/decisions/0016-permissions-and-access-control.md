@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-09 (A31)
+- **Updated:** 2026-10-09 (A32)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -30,7 +30,7 @@ The two agree on the shape: users, groups, memberships, named permissions, and r
 
 ### 2. Permissions
 
-*Changed by A2, A3, A4, A5, A6, A7, A8, A10, A13, A14, A15, A16, A19, A20, A21, A24, A25, A27.*
+*Changed by A2, A3, A4, A5, A6, A7, A8, A10, A13, A14, A15, A16, A19, A20, A21, A24, A25, A27, A32.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §2.1, §2.2, §2.3.*
 
@@ -48,7 +48,7 @@ The two agree on the shape: users, groups, memberships, named permissions, and r
 
 ### 5. What each earlier ADR's question resolves to
 
-*Changed by A27.*
+*Changed by A27, A32.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §2.4, §6.*
 
@@ -422,3 +422,18 @@ Replaced text ([09](../architecture/09-security-and-moderation.md) §3.1, as it 
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §3
 - **Summary:** An instance's `config` starts as a copy of the registry, the default groups of §3 included: `instance create` appends a config record for every registry entry, `triplespace-cli registry sync` appends records for registry entries newer than the instance's under the instance attestation, and `instance check` warns when the instance is behind; every config record carries a per-kind `schema` integer and `view.registry` projects an unknown kind or schema opaquely. The ledger's verb is amends; §3's chapter text ([09](../architecture/09-security-and-moderation.md) §3.1–§3.6) says nothing about how the shipped groups reach an instance's log, so this entry extends; the contradicted text is [0015](0015-record-format-and-partition-registry.md) §3's and §5's, logged there as 0015 A58. (REVIEW G36)
+
+### A32. `property-create` is held by `user` by default; `ts-linkproperty` links properties
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, review of `Special:NewProperty` on 2026-10-09
+- **Change:** amends §2, §5
+- **Summary:** `property-create` is granted to `user` by default, as a stock Wikibase grants it, so a registered account can create properties through `wbeditentity` and `Special:NewProperty`, and Wikibase clients (WikibaseIntegrator, WikidataIntegrator, Pywikibot) that create properties work unchanged. `propertycreator` and `sysop` keep it, so a tenant that wants Wikidata's arrangement removes it from `user` in its configuration. What changes predicates for every consumer stays restricted: `equivalent-property` links and the cross-namespace property redirect of [0004](0004-identity-clusters-and-equivalence.md) A4 move from `property-create` to a new right, `ts-linkproperty`, held by `propertycreator` and `sysop` (0004 A22). `wbeditentity` with `new=property` enforces it, which it had not before. A key exercises `property-create` through the `editentity` or `createeditmovepage` grant, and `ts-linkproperty` through `editentity` ([0024](0024-subsidiary-accounts.md) A18).
+
+Replaced text ([09](../architecture/09-security-and-moderation.md) §2.2, as it stood):
+
+> | `property-create` | `propertycreator`, `sysop` | Creating a local property; `equivalent-property` links, because they change predicates for every consumer | [0016](../decisions/0016-permissions-and-access-control.md) §2 |
+
+Replaced text ([09](../architecture/09-security-and-moderation.md) §2.4, as it stood):
+
+> | `same-as`, `different-from`, bulk links, conflict resolution | `ts-link`; in bulk, with `ts-runjob`; `equivalent-property` needs `property-create` |

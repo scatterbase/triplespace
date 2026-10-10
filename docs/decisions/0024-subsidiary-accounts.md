@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-09 (A17)
+- **Updated:** 2026-10-09 (A18)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -41,7 +41,7 @@ James's direction is to make the relation structural: a bot is a **subsidiary ac
 
 ### 4. API keys (extends 0007 §3)
 
-*Changed by A2, A3, A10.*
+*Changed by A2, A3, A10, A18.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.4, §5.1, §5.2, §5.3, §5.4, §5.5.*
 
@@ -319,3 +319,15 @@ Replaced text ([07](../architecture/07-actors-and-accounts.md) §4.3, as it stoo
 Replaced text ([09](../architecture/09-security-and-moderation.md) §8.4, as it stood):
 
 > `userrights` covers approval of a pending subsidiary, and creating one in the consent page is `createaccount`; a subsidiary a new user creates is pending until approved.
+
+### A18. `editentity` and `createeditmovepage` cover `property-create`; `editentity` covers `ts-linkproperty`
+
+- **Date:** 2026-10-09
+- **Source:** [0016](0016-permissions-and-access-control.md) A32
+- **Change:** amends §4
+- **Summary:** With `property-create` held by `user` by default (0016 A32), a key needs a grant that covers it for a client to create properties. `editentity` covers it, so a key made for entity editing (the client compatibility suite's `editentity` and `highvolume`) creates properties as a session does; `createeditmovepage` covers it too, as Wikibase's grant of that name does, so a Pywikibot user's usual grants behave as on a stock Wikibase. `editentity` also covers `ts-linkproperty`, as it covers `ts-link`; a key still exercises it only where the account holds it.
+
+Replaced text ([07](../architecture/07-actors-and-accounts.md) §5.3, as it stood):
+
+> | `createeditmovepage` | `editpage` plus `createpage` and `move` |
+> | `editentity` *(Triplespace)* | `edit`, `item-term`, `property-term`, `item-redirect`, `item-merge` on entities; `ts-link` |

@@ -27,12 +27,13 @@ permissions = ["edit", "editcontentmodel"]
 [[grant]]
 name = "createeditmovepage"
 description = "editpage plus creating and moving pages"
-permissions = ["edit", "editcontentmodel", "createpage", "move", "delete-redirect", "move-subpages", "move-rootuserpages", "move-categorypages", "suppressredirect"]   # 0051 §8, as MediaWiki's editmove grant; forks need nothing more (0054 §8)
+permissions = ["edit", "editcontentmodel", "createpage", "move", "delete-redirect", "move-subpages", "move-rootuserpages", "move-categorypages", "suppressredirect",   # 0051 §8, as MediaWiki's editmove grant; forks need nothing more (0054 §8)
+               "property-create"]   # 0024 A18: where Wikibase puts it
 
 [[grant]]
 name = "editentity"
-description = "Edit entities: statements, terms, redirects, merges and identity links"
-permissions = ["edit", "item-term", "property-term", "item-redirect", "item-merge", "ts-link"]
+description = "Edit entities: statements, terms, redirects, merges and identity links, and create and link properties"
+permissions = ["edit", "item-term", "property-term", "item-redirect", "item-merge", "property-create", "ts-link", "ts-linkproperty"]   # property-create, ts-linkproperty: 0024 A18
 
 [[grant]]
 name = "editprotected"
