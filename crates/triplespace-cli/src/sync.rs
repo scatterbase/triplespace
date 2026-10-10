@@ -1,6 +1,8 @@
 //! `triplespace sync`: a provider's dump into its mirror partition (0002 §8.4), through the
 //! provider's adapter. Only `internetdomains` has one so far (0009 §9): two passes over the
-//! dump, the key index and then the entities.
+//! dump, the key index and then the entities. The first pass also collects the dump's
+//! property types, so that the snaks of an XML dump, whose stored JSON has no `datatype`,
+//! are typed before the adapter sees them (as `adopt` does, 0035 §3).
 
 use std::path::PathBuf;
 
@@ -8,7 +10,7 @@ use anyhow::{Context, Result, bail};
 use clap::Args;
 use scatter_actors::key::ActorKey;
 use scatter_adapter_internetdomains::{DomainKeyMap, Index, InternetDomainsAdapter, Outcome};
-use scatter_adapter_wikidata::Entities;
+use scatter_adapter_wikidata::{DumpPropertyTypes, Entities};
 use scatter_ingest::sync::{SyncItem, run_sync};
 use scatter_ingest::write::Attestation;
 use scatter_providers::Registry;
@@ -64,6 +66,7 @@ pub fn prepare_internetdomains(dump: &std::path::Path) -> Result<Prepared> {
         .context("internetdomains is not registered")?;
     let key_map = DomainKeyMap::from_provider(provider)?;
     let mut index = Index::default();
+    let mut types = DumpPropertyTypes::default();
     let mut unreadable = 0u64;
     let mut seen = 0u64;
     eprintln!("indexing {}", dump.display());
@@ -73,6 +76,7 @@ pub fn prepare_internetdomains(dump: &std::path::Path) -> Result<Prepared> {
                 seen += 1;
                 // A reject here is reported on the second pass.
                 let _ = index.observe(&p.entity, &key_map);
+                types.observe(&p.entity);
             }
             Err(e) => {
                 unreadable += 1;
@@ -82,16 +86,18 @@ pub fn prepare_internetdomains(dump: &std::path::Path) -> Result<Prepared> {
     }
     index.finish();
     eprintln!(
-        "  {seen} entities, {} mapped to domains, {} keys in conflict",
+        "  {seen} entities, {} mapped to domains, {} keys in conflict, {} property types",
         index.mapped(),
-        index.conflicts().count()
+        index.conflicts().count(),
+        types.len()
     );
     let adapter = InternetDomainsAdapter::new(index)?;
     let mut items = Vec::new();
     for parsed in Entities::open(dump).context("open dump")? {
-        let Ok(parsed) = parsed else {
+        let Ok(mut parsed) = parsed else {
             continue;
         };
+        types.apply(&mut parsed.entity);
         match adapter.sync_item(parsed) {
             Ok(Outcome::State {
                 entity,
@@ -123,6 +129,9 @@ pub fn prepare_internetdomains(dump: &std::path::Path) -> Result<Prepared> {
                 eprintln!("adapter error: {e}");
             }
         }
+    }
+    if let Some(line) = types.untyped_summary() {
+        eprintln!("  {line}");
     }
     Ok(Prepared { items, unreadable })
 }
@@ -186,4 +195,75 @@ pub async fn run(args: Sync) -> Result<()> {
         println!("  unreadable {} (see stderr)", prepared.unreadable);
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use scatter_wikibase_model::entity::EntityType;
+    use scatter_wikibase_model::id::EntityId;
+    use scatter_wikibase_model::statement::SnakKind;
+    use scatter_wikibase_model::value::{DataType, DataValue};
+
+    fn fixture(name: &str) -> std::path::PathBuf {
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../triplespace-server/tests/fixtures")
+            .join(name)
+    }
+
+    /// The XML fixture is the JSON one as Wikibase stores it: no `datatype` on any snak.
+    /// Typed from the dump's own properties, it reads to the same mirror states.
+    #[test]
+    fn an_xml_dump_syncs_like_the_json_dump_of_the_same_wiki() {
+        let json = prepare_internetdomains(&fixture("internetdomains.json")).unwrap();
+        let xml = prepare_internetdomains(&fixture("internetdomains.xml")).unwrap();
+        assert_eq!((json.unreadable, xml.unreadable), (0, 0));
+        assert_eq!(xml.items.len(), 4);
+        assert_eq!(xml.items, json.items);
+    }
+
+    /// The link from wikipedia.org to example.org, both mapped, is a Domain value; the
+    /// adapter can only see that once the snak is typed `wikibase-item`.
+    #[test]
+    fn an_xml_link_to_a_mapped_item_becomes_a_domain_value() {
+        let xml = prepare_internetdomains(&fixture("internetdomains.xml")).unwrap();
+        let wikipedia = xml
+            .items
+            .iter()
+            .find_map(|i| match i {
+                SyncItem::State {
+                    entity,
+                    upstream_id: Some(q),
+                    ..
+                } if q == "Q11" => Some(entity),
+                _ => None,
+            })
+            .expect("Q11 is mapped");
+        assert_eq!(wikipedia.entity_type, EntityType::Domain);
+        let p8 = EntityId::parse("XDP8").unwrap();
+        let snak = &wikipedia.statements[&p8][0].mainsnak;
+        assert_eq!(snak.datatype, Some(DataType::WikibaseDomain));
+        let SnakKind::Value(DataValue::EntityId(v)) = &snak.kind else {
+            panic!("an entity value");
+        };
+        assert_eq!(v.id.as_str(), "domain:example.org");
+        // Every snak of every state carries a datatype.
+        for item in &xml.items {
+            if let SyncItem::State { entity, .. } = item {
+                for s in entity.statements.values().flatten() {
+                    for snak in std::iter::once(&s.mainsnak)
+                        .chain(s.qualifiers.values().flatten())
+                        .chain(s.references.iter().flat_map(|r| r.snaks.values().flatten()))
+                    {
+                        assert!(
+                            snak.datatype.is_some(),
+                            "{}: untyped {}",
+                            entity.id,
+                            snak.property
+                        );
+                    }
+                }
+            }
+        }
+    }
 }
