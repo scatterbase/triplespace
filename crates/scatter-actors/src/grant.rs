@@ -181,6 +181,13 @@ mod tests {
         let cov = r.coverage(["editentity"]);
         assert!(cov.contains("edit") && cov.contains("item-term") && cov.contains("read"));
         assert!(!cov.contains("delete"));
+        // Creating a property, through Triplespace's entity grant and Wikibase's (0024 A18).
+        assert!(cov.contains("property-create"));
+        assert!(
+            r.coverage(["createeditmovepage"])
+                .contains("property-create")
+        );
+        assert!(!r.coverage(["editpage"]).contains("property-create"));
         let none = r.coverage([]);
         assert_eq!(none, r.by_name("basic").unwrap().permissions);
         assert!(r.by_name(EDIT_PROTECTED).unwrap().permissions.is_empty());

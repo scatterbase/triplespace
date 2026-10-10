@@ -435,6 +435,35 @@ mod tests {
         );
         assert!(r.by_name("federated").unwrap().permissions.is_empty());
         assert!(r.by_name("sysop").unwrap().permissions.contains("protect"));
+        // Wikibase's default: any registered account creates properties (0016 A32);
+        // `propertycreator` remains for a tenant that takes it from `user`.
+        assert!(
+            r.by_name("user")
+                .unwrap()
+                .permissions
+                .contains("property-create")
+        );
+        assert!(
+            !r.by_name("temp")
+                .unwrap()
+                .permissions
+                .contains("property-create")
+        );
+        assert!(
+            r.by_name("propertycreator")
+                .unwrap()
+                .permissions
+                .contains("property-create")
+        );
+        // Linking properties changes predicates for every consumer: not `user`'s.
+        let holds = |g: &str| {
+            r.by_name(g)
+                .unwrap()
+                .permissions
+                .contains("ts-linkproperty")
+        };
+        assert!(!holds("user"));
+        assert!(holds("propertycreator") && holds("sysop"));
         assert_eq!(r.mediawiki_names()["universe"], "*");
         let local = r.graph_acls().iter().find(|a| a.graph == "local").unwrap();
         assert_eq!(local.edit, GraphWriters::Group("universe".into()));
