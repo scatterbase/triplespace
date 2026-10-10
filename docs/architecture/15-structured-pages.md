@@ -26,7 +26,7 @@ What references a scope: a table's rows (§2.3), a board's selection (§1.5), a 
 
 ### 1.3 The definition
 
-*Sources: [0060](../decisions/0060-scopes.md) §4.*
+*Sources: [0060](../decisions/0060-scopes.md) §4; [0083](../decisions/0083-write-path-in-three-tiers.md) §3.*
 
 ```json
 {
@@ -69,7 +69,9 @@ What references a scope: a table's rows (§2.3), a board's selection (§1.5), a 
 | `saved` | `query` (a `Query:` title), `params` | The subjects bound to `?item` in a saved query's result, with the parameters given (§5.5) | entity or page, by IRI | the query service, on refresh |
 | `conforms` | `schema`, optional `not` | The subjects whose schema report says they conform, or with `not`, fail (§6.5) | the report's | `view.schema_report` |
 
-An **operand** is a scope title (`"Scope:Women"`) or an inline kind object. Operands nest to `scopes.max_depth` (default 8, counting referenced scopes' own definitions). **Cycles are refused** at save: the validator walks every referenced scope's current definition, and a save that would make a scope a member of its own ancestry fails with `ts-scope-cycle`. A referenced scope that does not exist is allowed, as a missing row entity is in a table: the reference is shown red and contributes nothing until the scope exists.
+An **operand** is a scope title (`"Scope:Women"`) or an inline kind object. Operands nest to `scopes.max_depth` (default 8, counting referenced scopes' own definitions). **Cycles are refused** at save: the validator walks every referenced scope's current definition, and a save that would make a scope a member of its own ancestry fails with `ts-scope-cycle`. A referenced scope that does not exist is allowed, as a missing row entity is in a table: the reference is shown red and contributes nothing until the scope exists. **An `intersection` or `difference` with a truncated operand that cannot be probed is refused** at save with `ts-scope-truncated-operand` ([0083](../decisions/0083-write-path-in-three-tiers.md) §3): set algebra over a truncated operand is correct only where the operand can answer "is this subject a member?" for any subject rather than list its members, which a `statement`, `category`, `ids` or `conforms` kind can and a `query`, `saved`, `column`, `pages_of` or `entities_of` kind cannot; a save whose non-probeable operand's current `view.scope` row is `truncated` is refused, and a scope that becomes truncated later makes the scopes that intersect it `stale` (§1.4) rather than silently wrong.
+
+**Saving compiles the triggers.** A definition is compiled at save to the rows of `view.scope_trigger` (§1.4) that say which composition events can change its membership, so that a scope costs nothing on the write path beyond one hash probe per event.
 
 `subjects: "pages"` on a `statement` kind selects pages by their page statements instead of entities by theirs; without it a `statement` kind selects entities. A `query` kind's `sparql` is checked as [0059](../decisions/0059-query-service.md) §5 says, at save, and refused with the compiler's reason; it is saved even while the query service is off, and the page says the scope is not computed (§1.4). A `query` kind can only ever select public subjects ([0059](../decisions/0059-query-service.md) §3).
 
@@ -77,7 +79,7 @@ An **operand** is a scope title (`"Scope:Women"`) or an inline kind object. Oper
 
 ### 1.4 Membership is a projection
 
-*Sources: [0060](../decisions/0060-scopes.md) §5.*
+*Sources: [0060](../decisions/0060-scopes.md) §5; [0083](../decisions/0083-write-path-in-three-tiers.md) §3, §6.*
 
 ```sql
 CREATE TABLE view.scope (
@@ -94,19 +96,29 @@ CREATE TABLE view.scope_member (
   tenant   text   NOT NULL,
   page_id  bigint NOT NULL,
   kind     text   NOT NULL,                -- 'entity' | 'page' | 'form' | 'sense'
-  id       text   NOT NULL,                -- entity ID in stored form, page ID in decimal, or a lexeme part's ID
+  id       text   NOT NULL,                -- entity ID in stored form, a page subject as 03 §4.4 keys it, or a lexeme part's ID
   PRIMARY KEY (tenant, page_id, kind, id)
 );
 CREATE INDEX ON view.scope_member (tenant, kind, id);  -- "scopes this subject is in"
+
+CREATE TABLE view.scope_trigger (                 -- compiled at save (0083 §3); held in L0
+  tenant        text   NOT NULL,
+  trigger_kind  text   NOT NULL,                  -- 'property' | 'category' | 'table-row' | 'sitelink' | 'schema'
+  key           text   NOT NULL,                  -- 'P31', the category's page ID, the table's page ID, '' for sitelink, the schema ID
+  scope_page_id bigint NOT NULL,
+  PRIMARY KEY (tenant, trigger_kind, key, scope_page_id)
+);
 ```
 
 `kind` admits `form` and `sense` beside `entity` and `page`; a lexeme part is keyed by its part ID.
 
-Both tables are in the `view` catalogue, [03](03-storage-caches-and-search.md) §4.15 and §5.
+All three tables are in the `view` catalogue, [03](03-storage-caches-and-search.md) §4.15 and §5.
 
-**Two speeds.** `ids`, `statement`, `category`, `column`, `pages_of`, `entities_of` and the set algebra over them are **incremental**: the scope projection runs in step 7 of [0013](../decisions/0013-postgres-storage.md) §7 ([03](03-storage-caches-and-search.md) §6.1), after the statement, category and page projections, and applies the effect of each write to the scopes it touches, found through the inverted index above and through `page_link` for the kinds that name a property, category or table. These scopes are current within the fan-out budget of 0013 §7, like referrers. `query` kinds, and any set algebra with a `query` operand, are **refreshed**: a job runs the compiled query at `scopes.refresh` (default 15 min) and whenever the definition is saved or a person asks (`POST /scope/{pageid}/refresh`, [18](18-api.md) §3.2), and replaces the members in one transaction with the cursor the service reported. Which deltas affect an arbitrary query is not knowable, so these scopes are as fresh as the last refresh, and say so.
+**Membership is a tier-3 consumer of composition** ([0083](../decisions/0083-write-path-in-three-tiers.md) §3). The scope projection consumes "subject X, tenant T, composed to version N" events in its own queue, with its own rate and lag, never inside the appending or composing transaction, and it is off during bootstrap and bulk modes until the operator turns it on. For each event it probes `view.scope_trigger`, held in L0, with the keys the event carries: `property:{P}` for every property whose statements the composed row gained, lost or changed, `category:{page}` for a page's category rows, `table-row:{page}` for a table whose rows changed, `sitelink` for a sitelink change and `schema:{id}` for a conformance change. **An event that matches no trigger is one hash probe and nothing more**, which is what the weekly re-sync of a Wikidata mirror mostly produces; an event that matches re-evaluates the matching scopes for that subject alone, through the inverted index above, and set algebra over them propagates one subject at a time. `ids`, `statement`, `category`, `column`, `pages_of`, `entities_of`, `conforms` and the set algebra over them are therefore **incremental**, current within the consumer's lag, which the scope page shows beside `computed_at`. `query` and `saved` kinds, and any set algebra with such an operand, are **refreshed**: a job runs the compiled query at `scopes.refresh` (default 15 min) and whenever the definition is saved or a person asks (`POST /scope/{pageid}/refresh`, [18](18-api.md) §3.2), and replaces the members in one transaction with the cursor the service reported. Which deltas affect an arbitrary query is not knowable, so these scopes are as fresh as the last refresh, and say so.
 
-**The bound.** Members are materialized in a deterministic order, entity IDs then page IDs, each ascending, so that the prefix kept is stable between computations. When a computation yields more than `scopes.max_members`, the first `scopes.max_members` are kept and `truncated` is set. **The scope page, and every table, board, feed and watch that uses the scope, shows the notice**: "This scope has more than 100,000 members; the first 100,000 are shown." A truncated scope is still a full operand: `intersection` and `difference` are computed over the operands' complete sets where the operand is incremental, and by the query service where any operand is a query, and only the result is bounded. So `Scope:Humans` is useless to list and fine to intersect with.
+**The initial computation is always a job.** Saving a definition, or changing one, never computes membership in the save: the save compiles the triggers, writes `view.scope` with `computed_at` null, and enqueues the scope's computation as a job with progress, which materializes the members from the named `view` tables and sets `computed_at`; the page says "being computed" until it does. Only events after that point are applied incrementally. A rebuild of the scope projection is the same job run for every scope of a tenant from `view`, since the projection is view-derived ([0083](../decisions/0083-write-path-in-three-tiers.md) §6).
+
+**The bound.** Members are materialized in a deterministic order, entity IDs then page IDs, each ascending, so that the prefix kept is stable between computations. **A truncated scope is "the first N found, refilled by a job when it falls below N."** When a computation yields more than `scopes.max_members`, the first `scopes.max_members` are kept and `truncated` is set; events then add nothing to a truncated scope and remove what they remove, and once removals have taken the count below `scopes.max_members`, a refill job, debounced with the refresh interval `scopes.refresh`, recomputes the scope from `view` and tops it up to the bound again. **The scope page, and every table, board, feed and watch that uses the scope, shows the notice**: "This scope has more than 100,000 members; the first 100,000 are shown." A truncated scope is a full operand only where it can be **probed**: `intersection` and `difference` test each candidate subject against a `statement`, `category`, `ids` or `conforms` operand directly rather than against its materialized prefix, so `Scope:Humans` is useless to list and fine to intersect with; where the truncated operand is a `query`, `saved`, `column`, `pages_of` or `entities_of` kind, which can only list, the save is refused (§1.3), and a scope that was saved before its operand became truncated is marked `stale` and recomputed when the operand is no longer truncated or the definition changes.
 
 **What the projection does not do.** It writes no record, produces no activity row and sends no notification: joining or leaving a scope is not an event, as [0049](../decisions/0049-boards.md) §14 fixed for boards (§1.5). A scope's history is the history of its definition.
 
@@ -366,7 +378,7 @@ A rule's parameters are validated for syntax, not existence, as a table's column
 
 ### 3.5 The task projection
 
-*Sources: [0061](../decisions/0061-sprints-and-tasks.md) §6.*
+*Sources: [0061](../decisions/0061-sprints-and-tasks.md) §6; [0083](../decisions/0083-write-path-in-three-tiers.md) §3, §6.*
 
 ```sql
 CREATE TABLE view.sprint (
@@ -395,21 +407,23 @@ CREATE INDEX ON view.task (tenant, sprint_page_id, resolved_by) WHERE state = 'r
 
 Both tables are in the `view` catalogue, [03](03-storage-caches-and-search.md) §4.15 and §5.
 
-**When it runs.** The task projection runs after the scope projection in step 7 of [0013](../decisions/0013-postgres-storage.md) §7 ([03](03-storage-caches-and-search.md) §6.1) and reads three kinds of change:
+**When it runs.** The task projection is a tier-3 consumer that follows the scope projection (§1.4): it consumes the same composition events, after the scope consumer has applied them, in its own queue and outside every transaction, and is off during bootstrap and bulk modes ([0083](../decisions/0083-write-path-in-three-tiers.md) §3). It reads three kinds of change:
 
 - **The scope changed.** Members added to the sprint's scope get a task per rule that finds them open; members removed lose their open and claimed tasks (resolved ones are kept, for credit). For a `query` scope this follows the refresh (§1.4).
 - **A member changed.** A write to a subject that is a member of a sprint's scope (found through `view.scope_member`'s inverted index, then `view.sprint.scope_page_id`) re-evaluates that sprint's rules for that subject: a task whose condition is now false is **resolved**, with the write's actor, time, record and revision; a resolved task whose condition is true again is **reopened**, its resolution cleared and `reopened` incremented. Constraint re-checks by the property-wide job ([0031](../decisions/0031-property-constraints.md) §5) are writes by the job: a violation that disappears under a re-check resolves the task with the job as `resolved_by`, which the leaderboard (§3.6) does not count.
 - **A claim record.** Sets or clears `claimed_by`; the state is `claimed` while a live claim exists on an open task.
 
-All of this is inside the fan-out budget of 0013 §7: a scope of a hundred thousand members with twenty rules is two million rows to compute when the sprint is saved, which is a job, and small per-write work after that. The sprint page shows "Tasks are being computed" until the job is done.
+A scope of a hundred thousand members with twenty rules is two million rows to compute when the sprint is saved, which is a job, as a scope's initial computation is (§1.4), and small per-event work after that. The sprint page shows "Tasks are being computed" until the job is done.
+
+**The projection is view-derived** ([0083](../decisions/0083-write-path-in-three-tiers.md) §6): it is populated by a scan of the `view` tables it reads — `view.scope_member`, `view.statement_assertion`, `view.constraint_violation`, `view.schema_report`, `view.page_category` and the claim records' rows — and by **`view.activity`** for credit, and never by a log replay. "Rebuild tasks for tenant T from `view`" recomputes every sprint's tasks from the current members and rules and then re-derives each task's resolution history from the activity rows of its subject, so a rebuild reproduces the same `resolved_by`, `resolved_at`, `resolved_record` and `reopened` as the live projection wrote.
 
 **What it does not do.** No activity row, no notification and no record for a task opening, resolving or reopening: these are projections of other people's writes, as §1.4 says of membership. The one row a sprint adds to feeds is a claim.
 
 ### 3.6 Credit, and the window
 
-*Sources: [0061](../decisions/0061-sprints-and-tasks.md) §7.*
+*Sources: [0061](../decisions/0061-sprints-and-tasks.md) §7; [0083](../decisions/0083-write-path-in-three-tiers.md) §6.*
 
-**Whoever's write resolved the task is credited**, read from the record the projection was applying: `resolved_by` is that record's actor ([0007](../decisions/0007-actor-identity.md) §1; [07](07-actors-and-accounts.md)), `resolved_record` and `resolved_revid` point at it. There is no self-reporting and no sign-up: a person who never saw the sprint page and fixed a birth date on an item in scope counts. Subsidiary accounts ([0024](../decisions/0024-subsidiary-accounts.md)) are credited to the subsidiary, shown with its operator; jobs are credited to the job and not counted.
+**Whoever's write resolved the task is credited**, read from the `view.activity` row of the write whose composition event the projection was applying: `resolved_by` is that row's actor ([0007](../decisions/0007-actor-identity.md) §1; [07](07-actors-and-accounts.md)), `resolved_record` and `resolved_revid` point at its record. **Credit follows replay order.** Where two writes to one subject compose together, or a rebuild re-derives a task's history, the write that resolved the task is the first, in `(appended_at, partition, offset)` order ([0083](../decisions/0083-write-path-in-three-tiers.md) §6), after which the rule's condition is false, so the live projection and a rebuild from `view.activity` credit the same actor whatever order the events arrived in. There is no self-reporting and no sign-up: a person who never saw the sprint page and fixed a birth date on an item in scope counts. Subsidiary accounts ([0024](../decisions/0024-subsidiary-accounts.md)) are credited to the subsidiary, shown with its operator; jobs are credited to the job and not counted.
 
 **The window frames the counting, not the computing.** Tasks are computed from the sprint's first revision, so that organizers see the backlog before the start. A resolution with `resolved_at` before `from` or after `to` is a resolved task (it is not open) but is **outside the window**, and the leaderboard and the progress figures count only resolutions inside it. The sprint page says "Starts in 3 days", "Day 12 of 31" or "Ended 2 April 2027".
 
@@ -648,7 +662,7 @@ Validation is pure and bounded: one subject, one schema, a depth, a triple budge
 
 ### 6.4 Binding a schema to a scope, and the report
 
-*Sources: [0064](../decisions/0064-entityschema-and-validation.md) §5.*
+*Sources: [0064](../decisions/0064-entityschema-and-validation.md) §5; [0083](../decisions/0083-write-path-in-three-tiers.md) §3, §6.*
 
 **A schema applies where a scope says it does.** A scope definition (§1.3) has **`schemas`**: a list of schema IDs. Every member of the scope is validated against each. A schema has no statements, so the binding lives on the scope, and a schema's page lists the scopes bound to it through `page_link`. A tenant that wants "every human is checked against E10" writes a scope `statement: P31 = Q5` with `schemas: ["E10"]`.
 
@@ -667,7 +681,7 @@ CREATE INDEX ON view.schema_report (tenant, subject_kind, subject_id);
 
 The table is in the `view` catalogue, [03](03-storage-caches-and-search.md) §4.15 and §5.
 
-**When it runs.** In step 7 of [0013](../decisions/0013-postgres-storage.md) §7 after the scope projection ([03](03-storage-caches-and-search.md) §6.1): a **subject's own write** re-validates the subject against every schema bound to a scope it is in, within the fan-out budget; **a scope's membership change** validates joining members and drops leaving ones; **a schema's revision** re-validates every member of every scope bound to it, as a job; and a periodic **`schemas.recheck`** job (default daily) re-validates subjects whose referenced nodes may have changed, which the subject's own write does not see. `schemas.max_subjects` (default `scopes.max_members`) bounds a schema's materialized report, truncated with the scope notice. The report writes no record and no activity row, as the constraint and scope projections do not.
+**When it runs: in tier 3 only.** Validation against a bound schema is a tier-3 consumer that follows the scope projection (§1.4), consuming composition events in its own queue, outside every transaction, with its own lag shown on the schema page beside "checked at"; it **never runs inline in a write or in a fan-out budget**, and only the ad hoc check of §6.5 runs on request ([0083](../decisions/0083-write-path-in-three-tiers.md) §3). Its triggers are the `schema:{id}` rows of `view.scope_trigger` (§1.4): a **subject's composition** re-validates the subject against every schema bound to a scope it is in; **a scope's membership change** validates joining members and drops leaving ones; **a schema's revision** re-validates every member of every scope bound to it, as a job; and a periodic **`schemas.recheck`** job (default daily) re-validates subjects whose referenced nodes may have changed, which the subject's own composition does not see. **The cap.** Binding a schema to a scope is refused at scope save with `ts-schema-binding-cap` when the sum over the tenant of bound-schema × scope size — each binding's scope `count` from `view.scope`, or `scopes.max_members` for a scope not yet computed — would exceed **`schemas.max_bound`** (`site`, ceiling-bounded; default 1,000,000), unless an operator raises the ceiling; the refusal names the bindings that fill the cap. `schemas.max_subjects` (default `scopes.max_members`) bounds a schema's materialized report, truncated with the scope notice. The report writes no record and no activity row, as the constraint and scope projections do not, and the projection is view-derived ([0083](../decisions/0083-write-path-in-three-tiers.md) §6): a rebuild re-validates every bound subject from `view` as a job.
 
 ### 6.5 Where conformance shows
 

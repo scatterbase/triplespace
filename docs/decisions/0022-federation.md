@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-09 (A10)
+- **Updated:** 2026-10-09 (A12)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md), [0028](0028-tenancy-policy.md)
 - **Uses:** [0000](0000-init.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0014](0014-caches-and-search.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0030](0030-edit-filters.md)
@@ -18,13 +18,13 @@ The two halves share a stance. Triplespace federates **facts and speech, not ide
 
 ### 1. What a Triplespace instance publishes (settles 0006 Q3)
 
-*Changed by A2, A10.*
+*Changed by A2, A10, A12.*
 
 *Current text: [17](../architecture/17-federation-and-publication.md) §1.1.*
 
 ### 2. The Triplespace adapter reads the local graph and verifies it (extends 0002 §8.4; amends 0028 §5)
 
-*Changed by A2, A10.*
+*Changed by A2, A10, A11, A12.*
 
 *Current text: [17](../architecture/17-federation-and-publication.md) §1.2.*
 
@@ -64,7 +64,7 @@ The two halves share a stance. Triplespace federates **facts and speech, not ide
 
 ### 10. Storage (extends 0013 §5.6)
 
-*Changed by A7.*
+*Changed by A7, A12.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.2, §4.5, §4.6, §4.16, §5.*
 
@@ -236,3 +236,29 @@ Replaced text (§7):
 - **Source:** [0081](0081-recovery-keys-and-continuations.md) §7, §9
 - **Change:** extends §1, §2
 - **Summary:** `/.well-known/tlog/keys` serves a tenant's `recovery-key`, `continuation` and `continuation-cancel` records with its key records (§1). The Triplespace adapter follows a `recovered` continuation after its delay with no cancel, stops on an `unauthorized` one or a fork until an administrator accepts with a `provider/accept-continuation` event, and follows nothing silently (§2).
+
+### A11. The verified sync resumes from the stream's per-partition token
+
+- **Date:** 2026-10-09
+- **Source:** [0083](0083-write-path-in-three-tiers.md) §7
+- **Change:** extends §2
+- **Summary:** The activity stream's resume token is a vector of per-partition high-water marks, since offsets are commit-ordered under the append lock, and the adapter of §2 resumes from that token when it follows the provider's stream filtered to `source = local`, so that a reader never misses a record that committed late; `(time, partition, offset)` stays the display order of paged lists. (REVIEW G14)
+
+### A12. Verified federation bootstraps from the export bundle; `verified_at_size` is cursor state
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §2, §10; extends §1
+- **Summary:** An instance publishes, beside the local-graph source dump, the export bundle of its `local` partition (segments with headers and bodies, checkpoints, manifests and the key records a verifier needs); a `verified` reader bootstraps from the bundle, which carries the canonical record bytes the leaf hashes commit to, and a `stream` reader from the source dump. The activity stream filtered to `source = local` may carry each row's record header and body (`bodies=1`), so the steady-state path fetches no records one by one and `GET /record/{partition}/{offset}` fills gaps only. The provider's header stays in the mirror record's content part, where it is stable; the checkpoint tree size a record was last verified against lives in `view.entity_source.verified_at_size` only, written by the sync job as cursor state, so a re-verification against a newer checkpoint updates the column and writes no `put`. A `delete/statement` event joins the log-event catalogue, telling a reading instance to drop a statement its provider hid. The skolem hash of blank nodes is over the statement UUID, never the entity part, with the snak role, property and index, reference snaks hashing the reference hash, fixed in `wikibase-compat.md` ([0032](0032-sparql-update-stream.md) §7). The ledger names §11; its chapter text ([18](../architecture/18-api.md) §3.2) is unchanged, and §1 gained the bundle and the `bodies` parameter. (REVIEW G48)
+
+Replaced text ([17](../architecture/17-federation-and-publication.md) §1.2, as it stood):
+
+> So the adapter bootstraps from the local-graph source dump (§1.1) and follows the stream filtered to `source = local`, and the mirror partition `mirror/{provider}` holds only what the provider itself asserts.
+>
+> **It verifies by default.** For each record it mirrors, the adapter fetches the record with its header, checks the header's leaf against the provider's latest checkpoint with an inclusion proof, checks the checkpoint's signature against the provider's key chain, and checks consistency between the checkpoint it last saw and the current one ([0006](../decisions/0006-log-integrity-and-erasure.md) §5–6, §9; [01](../architecture/01-log-and-records.md) §4).
+>
+> The **provider's header** (partition, offset, revision ID, commitment) and the **checkpoint tree size** it was verified against are stored in the mirror record's content part beside the entity state, so that a third party holding the reader's log can re-verify against the provider without trusting the reader; `view.entity_source` holds them in `provider_revid` and `verified_at_size` ([03](../architecture/03-storage-caches-and-search.md) §4.2).
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.2, as it stood):
+
+> **Verified providers.** The mirror record content for a `verified` provider carries the provider header and checkpoint size ([0022](../decisions/0022-federation.md) §2); `view.entity_source` holds them in `provider_revid` and `verified_at_size`.

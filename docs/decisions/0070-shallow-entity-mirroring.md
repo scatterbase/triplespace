@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-07
-- **Updated:** 2026-10-09 (A3)
+- **Updated:** 2026-10-09 (A7)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0011](0011-logs.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0040](0040-instance-prerogatives.md), [0053](0053-mirrored-pages.md), [0065](0065-mediainfo-captions-and-commons.md), [0067](0067-proposals.md), [0071](0071-derived-statements-from-mirrored-pages.md)
@@ -53,11 +53,13 @@ James's direction, from the design discussion of 2026-10-07:
 
 ### 3. Fetching and records
 
-*Changed by A1, A2.*
+*Changed by A1, A2, A5.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §5.5.*
 
 ### 4. Labels of entities not mirrored
+
+*Changed by A4.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §5.6.*
 
@@ -67,9 +69,13 @@ James's direction, from the design discussion of 2026-10-07:
 
 ### 6. Terms of mirrored entities (extends 0013 §5.6)
 
+*Changed by A4.*
+
 *Current text: [05](../architecture/05-providers-and-ingest.md) §5.8.*
 
 ### 7. Becoming a full mirror
+
+*Changed by A6, A7.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §5.9.*
 
@@ -108,7 +114,7 @@ James's direction, from the design discussion of 2026-10-07:
 ## Open questions
 
 - **Q1. Eviction.** An entity mirrored `on-demand` and no longer read or referenced stays forever. Whether to add a compaction-only eviction that is not a tombstone, and how it interacts with retention.
-- **Q2. Terms under `all`.** Whether a full mirror writes `view.term` rows for every language, a configured subset, or none, with search delegated (the adoption-results note, §2).
+- **Q2.** ~~**Terms under `all`.** Whether a full mirror writes `view.term` rows for every language, a configured subset, or none, with search delegated (the adoption-results note, §2).~~ *Settled by [0082](0082-source-form-and-the-shared-view.md) §6: the instance's term languages only, with the other languages read from the record through the label cache, search delegated to the index and no `term_prefix` on a full mirror.*
 - **Q3.** ~~**Other Wikibase providers.** The fetch path is Wikidata's API; whether a Wikibase Cloud provider or another Triplespace instance ([0022](0022-federation.md) §2) uses the same job with its own endpoint, and how a provider without an event stream is kept current beyond the sweep.~~ *Settled by [0078](0078-entity-sources.md) §4, in part: a Wikibase declared as a tenant's entity source uses the same job with its own endpoint, and without an event stream is kept current by the sweep alone.*
 - **Q4. Lexemes and forms under `linked`.** A form or sense ID as a value fetches its lexeme; whether that should be the default for `lexeme`.
 - **Q5.** (Rest of Q3.) Whether a registry Wikibase provider other than Wikidata, or another Triplespace instance ([0022](0022-federation.md) §2), uses the same job with its own endpoint.
@@ -156,3 +162,45 @@ Replaced text (§10):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§11
 - **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [05](../architecture/05-providers-and-ingest.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A4. `view.term` holds the instance's languages, for shallow and full mirrors alike
+
+- **Date:** 2026-10-09
+- **Source:** [0082](0082-source-form-and-the-shared-view.md) §6
+- **Change:** amends §4, §6
+- **Summary:** `view.term` holds rows for local entities, for entities in any tenant overlay, and for mirrored entities in the instance's term languages only: `entities.term_languages` is instance configuration for the shared rows, set in the instance policy record, and a tenant's setting of the same name only narrows the languages its own display offers. A mirrored entity's other languages stay in the record at `entity_source.offset`, served to display through the L1 label cache of §4, which thus serves unmirrored entities and the languages `view.term` does not hold alike; a value shown under one member of a cluster may take its label from another member's rows, with precedence from the policy order. The same rule holds for a full mirror: the budget is rows ≈ mirrored entities × |instance languages| × term kinds, `wbsearchentities` at Wikidata scale is the search index, and `term_prefix` is never created on an instance holding a full mirror. Settles Q2. (REVIEW G7)
+
+Replaced text ([05](../architecture/05-providers-and-ingest.md) §5.8, as it stood):
+
+> **A mirrored entity's terms populate `view.term` in `entities.term_languages` only** (site setting; default: the tenant's content languages, `mul` and `en`). Its other languages stay in the record and are served by `wbgetentities`, which reads the record, but are not rows. A shallow mirror holds thousands or millions of entities, not 117 million, so the rows are affordable.
+
+> Not yet: what a full mirror (`all`) writes to `view.term` is an open question of [0070](0070-shallow-entity-mirroring.md).
+
+Replaced text ([05](../architecture/05-providers-and-ingest.md) §5.6, as it stood):
+
+> An entity that is mirrored reads its terms from `view.term` instead.
+
+### A5. A fetch miss for an unknown entity writes no record
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §3
+- **Summary:** Only an entity already in the set, one with a `view.entity_source` row for the provider, that upstream reports missing becomes a `tombstone`. A fetch miss for an entity with no `entity_source` row writes no record: a typo'd or never-existing ID is not a deletion, nothing is tombstoned and no retention policy runs; the referring value renders unresolved, and the queue row is dropped. The rest of the row (a mirror tombstone carries nothing about retention; each tenant's policy is applied per overlay as a tenant-partition record under the instance attestation with a `retention/apply` event; the compaction exemption is any tenant's `retain` row; `cascade` is never a default) is [0002](0002-source-graphs-and-mass-ingest.md) §5's. The ledger names §5 too, whose text did not change. (REVIEW G28)
+
+Replaced text ([05](../architecture/05-providers-and-ingest.md) §5.5, as it stood):
+
+> - Each entity becomes a `put` with the same fields a dump sync writes. An upstream redirect becomes a `redirect`, and a missing entity a `tombstone`, as §3.4 says.
+
+### A6. A provider that is a tenant of this instance is never synced
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** extends §7
+- **Summary:** The instance refuses a sync job, shallow or full, for a provider whose registry `issuer` is a tenant of this instance: that tenant's `local` partition is the provider's graph, read directly. The companion rule, that an instance refuses to adopt a tenant under a code with a live mirror partition until that partition is frozen, is [0080](0080-tenants-as-entity-sources.md) A2's. (REVIEW G31)
+
+### A7. Moving to `all` is a bulk append into the live partition
+
+- **Date:** 2026-10-09
+- **Source:** [0083](0083-write-path-in-three-tiers.md) §5
+- **Change:** extends §7
+- **Summary:** The dump sync that continues from the shallow records skips every entity whose cursor is current in bulk per block, evaluated against `view.entity_source` before a block is written, and writes the rest as a bulk append into the live partition: the partition lock once per block, tier 2 composing the block set-based. (REVIEW G12)

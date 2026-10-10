@@ -113,11 +113,11 @@ Later ADRs add marks of the same kind: the Bot chip on a subsidiary's user page 
 
 ### 2.1 Search
 
-*Sources: [0010](../decisions/0010-site-ui.md) §3; [0029](../decisions/0029-resolver-namespaces.md) §7; [0066](../decisions/0066-lexemes.md) §7.*
+*Sources: [0010](../decisions/0010-site-ui.md) §3; [0029](../decisions/0029-resolver-namespaces.md) §7; [0066](../decisions/0066-lexemes.md) §7; [0082](../decisions/0082-source-form-and-the-shared-view.md) §2, §3.*
 
 - **One box covers everything.** It searches entity labels, descriptions and aliases across every provider, domain keys ([04](04-entities-and-identifiers.md)), and page titles.
 - **Suggestions are grouped by kind:** items and properties, foreign entities by type (for example "Sources and works"), domains, and pages. Each suggestion shows its label, its description, and its ID chip. The entity suggester and `Special:Search` take lexeme and part IDs ([0066](../decisions/0066-lexemes.md) §7).
-- **An ID or domain key jumps straight to its page.** Input that parses as an ID, a keyed ID or a bare key of a keyed type gets a "Go to" option as the first suggestion, and Enter follows it ([0017](../decisions/0017-entity-id-grammar.md) §1, §4). So does a resolver key, such as `DOI:10.1000/xyz`, which lands on the item it resolves to or on a disambiguation page in the site frame. Parsing and resolution use the title resolver ([0008](../decisions/0008-namespaces-and-document-pages.md) §3; [10](10-pages-and-content-models.md)), so a non-canonical cluster member lands on its canonical entity ([0004](../decisions/0004-identity-clusters-and-equivalence.md) §4). When a main-namespace page has the same title as the ID, it is offered as the next suggestion, "Page titled Q42" ([0038](../decisions/0038-page-metadata-and-categories.md) §8).
+- **An ID or domain key jumps straight to its page.** Input that parses as an ID, a keyed ID or a bare key of a keyed type gets a "Go to" option as the first suggestion, and Enter follows it ([0017](../decisions/0017-entity-id-grammar.md) §1, §4). So does a resolver key, such as `DOI:10.1000/xyz`, which lands on the item it resolves to or on a disambiguation page in the site frame. Parsing and resolution use the title resolver ([0008](../decisions/0008-namespaces-and-document-pages.md) §3; [10](10-pages-and-content-models.md)), which accepts any member of an identity cluster ([18](18-api.md) §1.4), so `WDQ42` and the local `Q9` it is clustered with land on the same entity page, shown in the site's local form (§4.2). Search results are one per cluster, the member the local preference selects. When a main-namespace page has the same title as the ID, it is offered as the next suggestion, "Page titled Q42" ([0038](../decisions/0038-page-metadata-and-categories.md) §8).
 - **The full results page** is `Special:Search`, with MediaWiki's parameters ([0047](../decisions/0047-special-pages.md) §9). It also searches page text, through a second index queried together with the first ([0014](../decisions/0014-caches-and-search.md) §7; [03](03-storage-caches-and-search.md)).
 
 **The disambiguation page** of a resolver ([06](06-statements-and-properties.md)) uses the site frame with the resolver's label and the key in the identity line, the external link, the candidate list, and the create action. A resolver namespace appears in the namespace selector wherever namespaces are listed, and its pages are excluded from `list=allpages`, since it has none ([0029](../decisions/0029-resolver-namespaces.md) §7).
@@ -201,9 +201,9 @@ Contributions are per account ([07](07-actors-and-accounts.md)), and an account 
 |---|---|
 | `Special:Contributions/{name}` on a tenant | That tenant's records attested by that tenant's actor: its `local`, `pages`, `log` and `actors` partitions |
 | `Special:GlobalContributions/{name}` on a tenant | The same for each account **linked** to it ([0007](../decisions/0007-actor-identity.md) §7), on every tenant of the instance the viewer's tenant has opted into. Nothing is matched by name. |
-| `Special:Contributions/{issuer}:{id}` for a foreign actor | **What the instance holds:** upstream revision records keyed to that actor in `log/{provider}` ([0015](../decisions/0015-record-format-and-partition-registry.md) §4), and page revisions imported with that attribution. The page says whose user this is, links to their page on the issuer's site, and does not fetch upstream, because per-actor fetching is unbounded. |
+| `Special:Contributions/{issuer}:{id}` for a foreign actor | **What `view.activity` holds for that actor:** page revisions imported with that attribution, and the rows of this tenant's log that name the actor. Upstream revision records in `log/{provider}` are not indexed by actor, so they are not listed, and the page says so: "This instance does not index Wikidata's revisions by user." The page says whose user this is, links to their page on the issuer's site, and does not fetch upstream, because per-actor fetching is unbounded. |
 
-For an actor of another tenant on the same instance the third view is complete, since the instance holds every record. For a Wikidata account it is the sparse subset the instance has observed or backfilled, and says so. `/actor/{key}/contributions` serves the same three cases ([18](18-api.md)).
+For an actor of another tenant on the same instance the third view is complete, since the instance holds every record and that tenant's `view.activity` indexes them. For a Wikidata account it is only what reached this tenant's activity rows, and says so. `/actor/{key}/contributions` serves the same three cases ([18](18-api.md)).
 
 - **The header** shows the account's linked accounts, as links to their upstream pages. Only links the holder created are shown.
 - **Jobs run for the user** appear as single rows, and can be filtered out.
@@ -226,7 +226,7 @@ For an actor of another tenant on the same instance the third view is complete, 
   - With the tenant's expansion off, a template call renders as a "Template not rendered" chip showing the call. With it on, templates are expanded before rendering, only constructs outside the subset render as chips, and a missing template is a red link ([0042](../decisions/0042-template-expansion-and-parsoid.md) §7; [11](11-rendering-templates-and-modules.md)).
   - Categories are listed at the foot of the page as links to their category pages, with hidden categories collapsed ([0038](../decisions/0038-page-metadata-and-categories.md) §3).
 - **Links to entities** render with the entity's label.
-- **An "About this page" panel** shows the last edit, the revision count by origin (imported, bot, local), where the page came from, the content model, the backlink count, and the page-statement count ([0038](../decisions/0038-page-metadata-and-categories.md) §7); with expansion on, also "Templates used" (`prop=templates`) and the limit report, and on a Template page "Pages that use this template" (`list=embeddedin`) ([0042](../decisions/0042-template-expansion-and-parsoid.md) §15). On a fork it also shows the revisions imported, the dependencies copied, whether files were copied, how many newer revisions upstream has, **Compare with upstream** and **Copy files used by this page** ([0054](../decisions/0054-forking-a-mirrored-page.md) §6–7), and gains the base revision (original or last merged), **Merge from upstream**, **Propose to {repository}**, **Re-follow upstream** under `ask`, and the dependency notice of [0068](../decisions/0068-merging-with-upstream.md) §2; its "{n} newer revisions" line reaches `Special:MergeUpstream/{title}` (§6.10). A page's heading is its `displaytitle` where one is set, and a disambiguation page is marked as one ([0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §6).
+- **An "About this page" panel** shows the last edit, the revision count by origin (imported, bot, local), where the page came from, the content model, the backlink count, and the page-statement count ([0038](../decisions/0038-page-metadata-and-categories.md) §7). The panel is its own API response with its own short `max-age`, independent of the page's or entity's `ETag`, because its numbers change when referrers, scopes and proposals change and the subject does not; the counts are counter columns (`ref_count`, the revision counts) maintained in batches by the projections ([03](03-storage-caches-and-search.md) §4.2), never counted on view, and a count above a threshold is shown as "10,000+"; with expansion on, also "Templates used" (`prop=templates`) and the limit report, and on a Template page "Pages that use this template" (`list=embeddedin`) ([0042](../decisions/0042-template-expansion-and-parsoid.md) §15). On a fork it also shows the revisions imported, the dependencies copied, whether files were copied, how many newer revisions upstream has, **Compare with upstream** and **Copy files used by this page** ([0054](../decisions/0054-forking-a-mirrored-page.md) §6–7), and gains the base revision (original or last merged), **Merge from upstream**, **Propose to {repository}**, **Re-follow upstream** under `ask`, and the dependency notice of [0068](../decisions/0068-merging-with-upstream.md) §2; its "{n} newer revisions" line reaches `Special:MergeUpstream/{title}` (§6.10). A page's heading is its `displaytitle` where one is set, and a disambiguation page is marked as one ([0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §6).
 
 **The entity page has the same "About this page" panel**, beside its "Where this comes from" panel (§4.6). On an entity page and a document page alike the panel shows the scopes the subject is in, "In 3 scopes", from `GET /subject/{kind}/{id}/scopes` ([0060](../decisions/0060-scopes.md) §8), and on an entity page the proposal count, "2 proposals: 1 adopted, 1 offered" ([0067](../decisions/0067-proposals.md) §7).
 
@@ -248,6 +248,8 @@ The editor component itself is §5.5.
 
 *Sources: [0010](../decisions/0010-site-ui.md) §5, §5.1; [0039](../decisions/0039-files-and-media.md) §18.*
 
+**One backing.** The history of an entity is read from `view.entity_history (tenant, canonical_id, time, partition, offset, kind, member)`, which composition writes ([03](03-storage-caches-and-search.md); [16](16-logs-feeds-and-notifications.md) §3.2): one row per record in any source partition keyed to the entity or a member of its cluster, and one per upstream log event keyed to a member, each with its kind and the member it is keyed to. The page is one keyset query over that index, bounded by the entity's own record count, served by `GET /entity/{id}/history` ([18](18-api.md) §3.2); nothing is merged from `log.record` or `view.activity` at request time, and upstream log events are not activity rows.
+
 The history of an entity page lists every record whose key is:
 
 - the entity itself; or
@@ -259,7 +261,7 @@ It covers records in every source partition:
 - mirror records;
 - log events such as retention changes, `convert`, redirects and `erase`.
 
-A document page's history lists its records in the `pages` partition. A file page's interleaves uploads with text and statement revisions, each row labelled by kind ([0039](../decisions/0039-files-and-media.md) §18).
+A document page's history lists its records in the `pages` partition, from `view.activity`. A file page's interleaves uploads with text and statement revisions, each row labelled by kind ([0039](../decisions/0039-files-and-media.md) §18).
 
 ### 3.4 History rows
 
@@ -295,7 +297,7 @@ Under the `latest` history policy ([0002](../decisions/0002-source-graphs-and-ma
 - a link to the full history on the provider;
 - **Keep full history here…**, which sets `retain` and starts the upstream backfill ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §5).
 
-Under `full`, or for a retained entity, every observed state is a row, and backfilled upstream revisions are read from the log.
+Under `full`, or for a retained entity, every observed state is a row of `view.entity_history` (§3.3), and backfilled upstream revisions are rows of it too.
 
 The foot of the list states where history on this instance begins, for example "first mirrored on {date}; that state was replaced by later syncs".
 
@@ -416,13 +418,15 @@ Two narrower histories exist:
 
 ### 4.2 The UI reads canonical Wikibase JSON
 
-*Sources: [0003](../decisions/0003-statement-ui.md) §2.*
+*Sources: [0003](../decisions/0003-statement-ui.md) §2; [0082](../decisions/0082-source-form-and-the-shared-view.md) §3, §6.*
 
 The UI takes three inputs:
 
 - the entity's canonical JSON ([wikibase-compat.md](../api/wikibase-compat.md) §3);
 - the labels of the entities and properties it links to;
 - the data type of each property.
+
+**The UI asks for the local form.** Every request it makes carries `prefer=local` ([18](18-api.md) §1.6), so a value whose cluster has an exact local match is shown and linked as `Q9` rather than `WDQ5`, and an ID with no local match is shown as stored; the stored graph is never rewritten, and a reader who follows a link in either form reaches the same entity ([18](18-api.md) §1.4). **Labels are fetched by cluster**, through the bulk-labels route of [18](18-api.md) §3.2 in one call per page: a value shown under one member takes its label from whichever member's rows have one, in the order of the instance's policy, so a local item clustered with a Wikidata item is labelled even where the local graph has no label.
 
 A stock Wikibase serves all three, so the same frontend can drive Triplespace or any Wikibase, Wikidata included. Information that only Triplespace has comes from a separate provenance response (§4.6). The canonical JSON stays the same as Wikibase's, as [0001](../decisions/0001-revision-metadata-rdf.md) §3 requires ([06](06-statements-and-properties.md)).
 
@@ -537,7 +541,7 @@ Where there is one:
 
 ### 4.7 Editing
 
-*Sources: [0003](../decisions/0003-statement-ui.md) §8.*
+*Sources: [0003](../decisions/0003-statement-ui.md) §8; [0084](../decisions/0084-wikibase-writes-against-the-resolved-view.md) §3, §5.*
 
 Editing happens inside the group, and the group keeps its shape. Every action maps to an existing Wikibase write, so the same UI can edit a stock Wikibase.
 
@@ -549,10 +553,11 @@ Editing happens inside the group, and the group keeps its shape. Every action ma
 | Make this the best value | Sets the rank to preferred | `wbsetclaim` |
 | Mark as deprecated… | Asks for a reason, then sets the rank to deprecated and adds the reason qualifier | `wbsetclaim` |
 | Add a qualifier column | Adds an empty column. The qualifier is written only to statements whose cell is filled in. | `wbsetqualifier` for each filled cell |
-| Correct a mirrored value | Writes a local-graph override or addition; the mirrored statement is untouched | Triplespace `override` or `add` ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.2; [05](05-providers-and-ingest.md)) |
+| Correct a mirrored value's rank or a mirrored term | Writes a local-graph override; the mirrored statement is untouched | Triplespace `override` ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.2; [05](05-providers-and-ingest.md); [18](18-api.md) §2.5) |
+| Replace a mirrored value | A value change on a mirror-owned statement is refused by the API with `ts-foreign-statement` ([18](18-api.md) §2.5). The editor never shows the refusal: editing the value of a statement whose source chip is a mirror's opens as **Replace here**, one action that suppresses the mirrored statement and adds the local one, with the new statement's GUID, and the row keeps its place with a "Corrected here" chip (§4.4). **Propose upstream** sits beside it (§6.10) | `override{suppress}` plus `add` in one change set |
 
 - **Keyboard.** Tab moves between cells, Enter adds another row, and Escape cancels the row being edited. Every input is labeled with its column's property.
-- **Conflicts.** Each save carries `baserevid`. If the group has changed since the edit began, the pending rows are applied to the current data, and only the cells that clash are marked. The rest of the save goes through.
+- **Conflicts.** Each save carries `baserevid`, which is the entity's newest local revision ([18](18-api.md) §1.3). A mirror advancing since the edit began is never a conflict. If the local graph has changed, the pending rows are applied to the current data as the API patches around a stale base (`wikibase-conflict-patched`, [18](18-api.md) §1.5), and only the cells that clash are marked. The rest of the save goes through.
 
 Statement editing requires JavaScript, as on Wikidata (§5.3).
 
@@ -600,7 +605,7 @@ The constraint marker sits in the value cell and follows the rule that nothing i
 2. **JavaScript enhances regions, never whole pages.** An interactive component takes over one region of a server-rendered page. There is no client-side router.
 3. **One renderer per thing.** Anything the server draws is drawn only by the server. A component that changes it fetches the server's rendering afterwards ([0034](../decisions/0034-frontend-stack.md) §5; [20](20-web-tier.md)) rather than drawing its own copy.
 4. **Codex components, themed by tokens.** Codex's components, icons and markup are used without overrides. Their look comes from Codex's design tokens, and the instance or a tenant may give those tokens values of its own as a **theme** (`ui.theme`, [0015](../decisions/0015-record-format-and-partition-registry.md) §3; [23](23-configuration-and-registry.md)): colours, typefaces, radii and spacing, never a component's markup or behaviour. A theme is served as a stylesheet of CSS custom properties, so it needs no inline style under the security policy of [0034](../decisions/0034-frontend-stack.md) §11 ([09](09-security-and-moderation.md)), and it is refused when its colours fail WCAG 2.1 AA contrast for the token pairs Codex uses for text, borders and focus. The theme's values are reported in `meta=siteinfo&siprop=triplespace` ([0012](../decisions/0012-api-requirements.md) §4; [18](18-api.md)), from which the site reads them as it reads any setting, and the site serves them as a stylesheet named by a hash of its values, so a changed theme is a new URL and each one caches as immutable. Without one, the site wears the **shipped default theme**, `default` in `docs/registry/themes.toml`: the palette and type of the site and statement UI canvases, Newsreader for headings over IBM Plex Sans and IBM Plex Mono, on a warm ground; tokens it does not name keep Codex's values. Where a design needs something Codex lacks, it is built from Codex tokens and proposed upstream. Codex is used for its accessible components, its right-to-left and language support, and CSS-only components that need no JavaScript, more than for its look.
-5. **The public API only** ([0012](../decisions/0012-api-requirements.md) §1). The browser calls public routes, and so does the server-side renderer: it calls the public HTTP API with the viewer's own credentials, over the network from `triplespace-web` or through an in-process call into the API's router from `triplespace-server`, and never links an API crate's handlers or reads `view` ([0057](../decisions/0057-web-tier.md) §1; [20](20-web-tier.md)). Every page therefore carries exactly the API's per-viewer redaction.
+5. **The public API only** ([0012](../decisions/0012-api-requirements.md) §1). The browser calls public routes, and so does the server-side renderer: it calls the public HTTP API with the viewer's own credentials, over the network from `triplespace-web` or through an in-process call into the API's router from `triplespace-server`, and never links an API crate's handlers or reads `view` ([0057](../decisions/0057-web-tier.md) §1; [20](20-web-tier.md)). Every page therefore carries exactly the API's per-viewer redaction. **A page reaches first byte within four API calls.** The budget is met by the page bundle `GET /entity/{id}/page` (entity, provenance and identity-line facts in one response), the bulk-labels route (up to 1,000 IDs, cacheable by language), the About panel's own response (§3.1) and the viewer's session facts (`meta=userinfo` with the inbox count), the four routes of [18](18-api.md) §3.2; inside `triplespace-server` the in-process transport resolves the session once per page and passes the principal to every sub-request, exempt from rate counting ([20](20-web-tier.md) §2.2), so a reading room behind one address is never rate-limited by a budget written for API clients.
 
 ### 5.2 Server rendering, in `triplespace-ui`
 
@@ -612,7 +617,7 @@ The constraint marker sits in the value cell and follows the rule that nothing i
 - **Assets:** Codex CSS, design tokens and icons come from the pinned `@wikimedia/codex`, `@wikimedia/codex-design-tokens` and `@wikimedia/codex-icons` packages at build time ([0034](../decisions/0034-frontend-stack.md) §8; [22](22-crates-and-stack.md)), with hashed file names, served with long-lived cache headers by whichever binary serves the site: `triplespace-web`, or `triplespace-server` with `server.ui = embedded` ([0057](../decisions/0057-web-tier.md) §2). The default theme's typefaces (Newsreader, IBM Plex Sans, IBM Plex Mono, all under the SIL Open Font License) are served the same way, from the site's own origin, as the policy of [0034](../decisions/0034-frontend-stack.md) §11 requires.
 - **Mobile:** one responsive site built on Codex's breakpoints. No separate mobile domain or skin.
 
-`triplespace-ui` renders pages on the server, runs in the server or in the stateless web tier, and reaches the instance only through the public API ([0057](../decisions/0057-web-tier.md) §1–2; [20](20-web-tier.md)). Statement diffs reuse `scatter-wikibase-shape`, and the page editor's preview reuses `scatter-wikitext` and the markdown renderer of `scatter-pages`, all built for `wasm32-unknown-unknown` ([0005](../decisions/0005-crate-organization.md) §2; [22](22-crates-and-stack.md)). Recent changes, contributions and histories are served by the activity projection, `view.activity` in `triplespace-projections`, which grows with local activity and the number of jobs, not with the size of the mirrors ([0010](../decisions/0010-site-ui.md) §13; its inputs and tables are [03](03-storage-caches-and-search.md) and [16](16-logs-feeds-and-notifications.md)).
+`triplespace-ui` renders pages on the server, runs in the server or in the stateless web tier, and reaches the instance only through the public API ([0057](../decisions/0057-web-tier.md) §1–2; [20](20-web-tier.md)). Statement diffs reuse `scatter-wikibase-shape`, and the page editor's preview reuses `scatter-wikitext` and the markdown renderer of `scatter-pages`, all built for `wasm32-unknown-unknown` ([0005](../decisions/0005-crate-organization.md) §2; [22](22-crates-and-stack.md)). Recent changes, contributions and page histories are served by the activity projection, `view.activity` in `triplespace-projections`, which grows with local activity and the number of jobs, not with the size of the mirrors; an entity's history is served by `view.entity_history` (§3.3) ([0010](../decisions/0010-site-ui.md) §13; its inputs and tables are [03](03-storage-caches-and-search.md) and [16](16-logs-feeds-and-notifications.md)).
 
 Not yet: detailed mobile layouts stay open ([0034](../decisions/0034-frontend-stack.md) §2).
 

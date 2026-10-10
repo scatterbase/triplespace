@@ -50,14 +50,14 @@ Each record carries one operation:
 
 | Target kind | Identifier | Talk page |
 |---|---|---|
-| `page` | A page ID: an entity's ([0015](../decisions/0015-record-format-and-partition-registry.md) §2, carried forward, so a mirrored entity has one), a document page's, or the provider-ranged page ID of a page a repository serves ([0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6–7) | The subject namespace's paired talk namespace |
+| `page` | A page ID, unambiguous within the tenant because every kind of page draws on one `pageid` space ([10](10-pages-and-content-models.md) §3.1): a local entity's or document page's, from the tenant's sequence below 2^40; a **mirrored entity's provider-ranged page ID**, `provider_number << 40 \| upstream page ID` ([0013](../decisions/0013-postgres-storage.md) §6; [0015](../decisions/0015-record-format-and-partition-registry.md) §2), so a mirrored entity has a talk page without any local record; or the provider-ranged page ID of a page a repository serves ([0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6–7) | The subject namespace's paired talk namespace |
 | `actor` | A local actor key ([0007](../decisions/0007-actor-identity.md) §1) | `User talk` |
 
 `User talk` attaches to the actor rather than to the user page because MediaWiki lets a user's talk page exist when the user page does not. The creation rule is that of 0008 §6: the account must be local, registered and not vanished.
 
 **Talk namespaces are `pages` namespaces whose model is `triplespace-talk`,** a model whose source is *composite* ([0041](../decisions/0041-content-models.md) §4; [10](10-pages-and-content-models.md) §4.4). The talk page for a target is the ordered set of threads currently attached to it. It has no stored text and no records of its own. A talk title resolves through its subject: `Item talk:Q42` resolves `Item:Q42` with the title resolver of 0008 §3, following aliases and clusters, so `Item talk:WDQ123` redirects to `Item talk:Q456` exactly as the subject does; `User talk:Example` resolves the username to the actor key. The talk page of a subject that does not exist does not exist either.
 
-**A talk page has a page ID** so that `prop=info`, `action=watch` and the activity row's `target` can name it. It is minted from the page-ID sequence by the first `create`, `move` or `attach` record that attaches a thread to that target, and that record carries it in its content part (§1.5), so a rebuild reads it rather than deriving it. The appending transaction takes the same lock that allocates offsets ([0013](../decisions/0013-postgres-storage.md) §2), so two threads created at once on a fresh target agree on it.
+**A talk page has a page ID** so that `prop=info`, `action=watch` and the activity row's `target` can name it. It is minted from the page-ID sequence by the first `create`, `move` or `attach` record that attaches a thread to that target, and that record carries it **in its attestation map** (§1.5), never in its content part: the ID is a value the server fills at append, and a server-filled value never enters a part the client signed over as submitted ([0015](../decisions/0015-record-format-and-partition-registry.md) §1; [01](01-log-and-records.md)), so the client's signature covers the content and comment parts as it sent them and the attestation carries what the server added. A rebuild reads the ID from the attestation map rather than deriving it. The appending transaction takes the same lock that allocates offsets ([0013](../decisions/0013-postgres-storage.md) §2), so two threads created at once on a fresh target agree on it.
 
 **A `move` moves the whole thread.** Its posts leave the old home's history and join the new one's, and one `move/move` log event, with the source and target talk pages as parameters, appears in both pages' logs ([16](16-logs-feeds-and-notifications.md)). A thread is listed on further pages with `attach`, never by a second home.
 
@@ -69,7 +69,7 @@ Each record carries one operation:
 
 **`Thread` is a `pages` namespace whose model is `triplespace-thread`** ([0041](../decisions/0041-content-models.md) §4): pages composed from thread records. Its paired `Thread talk` is a `virtual` namespace that forwards to `Thread`: `Thread talk:X` resolves to `Thread:X`, since a thread is its own talk page (§3.2). Subpages are not allowed. The numbers are 214 and 215, in the Triplespace range of [0008](../decisions/0008-namespaces-and-document-pages.md) §2; LiquidThreads' 90 and 91 are not reused. The rows are in the namespace catalogue, [10](10-pages-and-content-models.md) §1.4.
 
-**A thread's title is its creation date and its subject:** `Thread:2026-09-27/Why is P31 wrong here`. The date is the UTC date of the `create` record, or, for a thread an import creates, the date the import supplies ([0054](../decisions/0054-forking-a-mirrored-page.md) §5), and never changes. The subject is what the author typed, normalized as a `first-letter` title with MediaWiki's forbidden characters (`# < > [ ] | { }`) rejected. Two threads created on the same date with the same subject are told apart with a MediaWiki-style suffix: `…/Why is P31 wrong here (2)`. The `create` and `rename` records carry the minted title, as a page `move` carries its new title, so the title index is a projection and a rebuild reproduces it.
+**A thread's title is its creation date and its subject:** `Thread:2026-09-27/Why is P31 wrong here`. The date is the UTC date of the `create` record, or, for a thread an import creates, the date the import supplies ([0054](../decisions/0054-forking-a-mirrored-page.md) §5), and never changes. The subject is what the author typed, normalized as a `first-letter` title with MediaWiki's forbidden characters (`# < > [ ] | { }`) rejected. Two threads created on the same date with the same subject are told apart with a MediaWiki-style suffix: `…/Why is P31 wrong here (2)`. The client submits the subject in the content part; the server mints the title, suffix included, at append and carries it **in the attestation map** of the `create` or `rename` record (§1.5), as it carries the talk page ID it mints (§1.3), so the title index is a projection, a rebuild reproduces it from the attestation maps, and the client's signature stays over the content it submitted. A page `move`, by contrast, carries its new title in the content part, because the mover chose it.
 
 The title says what the thread is about and when it began, it can be typed, and it never depends on which talk page the thread is attached to, so a `move` changes nothing about how the thread is cited. A `rename` does: the old title stops resolving, as 0008 §6 rules for user pages, because subjects can contain usernames. Stable references are `Special:Redirect/page/{page ID}` for a thread and `Special:PermanentLink/{revid}` for a post ([19](19-site-ui.md)).
 
@@ -96,22 +96,27 @@ The payload type `scatter:v0/thread` is in the `pages` partition's list ([regist
 |---|---|---|
 | `op` | all | The operation |
 | `name` | `create`, `rename` | The subject |
-| `title` | `create`, `rename` | The minted title (§1.4) |
 | `target` | `create`, `move` | `{kind, id}` (§1.3) |
-| `talk` | `create`, `move` | The talk page's page ID, minted by this record if the target had none |
 | `inReplyTo` | `post` | The parent post's revision ID, or null for a top-level post |
 | `object` | `edit` | The revision ID of the post whose text this replaces |
 | `status` | `post`, `create` | A status value (§2.1), when the post sets one; on `create`, a thread that arrives already closed, as an import's does ([0054](../decisions/0054-forking-a-mirrored-page.md) §5) |
 | `mediaType` | `create`, `post`, `edit` (optional) | The text part's media type: `text/markdown` by default, `text/x-wiki` for a post an import writes ([0054](../decisions/0054-forking-a-mirrored-page.md) §5) |
 | `imported_from` | `create` (optional) | The repository, talk page, revision and archive subpage an imported thread came from, and the hash of the section's DiscussionTools name where there is one ([0054](../decisions/0054-forking-a-mirrored-page.md) §5, [0069](../decisions/0069-synchronized-talk-pages.md) §7) |
-| `also` | `create` (optional) | Further targets listed at creation, each `{target, talk}` (§3.6) |
-| `target`, `talk` | `attach`, `detach`, `pin`, `unpin` | The target (a `page` target only, for `attach` and `detach`) and its talk page ID, minted by an `attach` if the target had none (§3.6); for `pin` and `unpin`, the attachment pinned or unpinned, any attachment, `actor` included (§4) |
+| `also` | `create` (optional) | Further targets listed at creation, each a `target` (§3.6); their talk page IDs are in the attestation map |
+| `target` | `attach`, `detach`, `pin`, `unpin` | The target (a `page` target only, for `attach` and `detach`); for `pin` and `unpin`, the attachment pinned or unpinned, any attachment, `actor` included (§4) |
 | `pinned` | `create` (optional) | `true` pins the thread on its home from the start, as an import does for front matter (§4; [0069](../decisions/0069-synchronized-talk-pages.md) §7) |
 | `keep` | `move` (optional) | `true` keeps the old home as a listing, with its pin if it had one (§3.6) |
 
 The fields of `propose`, `submit` and `withdraw` are in §5.3.
 
-Mentions, links and the rendered HTML are never stored; they are derived from the text part (§1.6). Nothing in the content part names the record's own ID, which is assigned at append and read from the header.
+**The attestation map carries what the server minted.** Beside the actor and the signature that [0015](../decisions/0015-record-format-and-partition-registry.md) §1 gives every attestation part ([01](01-log-and-records.md)), a thread record's attestation map holds the values the appending transaction filled in, which the client did not submit and did not sign over:
+
+| Field | Present on | Meaning |
+|---|---|---|
+| `title` | `create`, `rename` | The minted title, with its suffix where one was needed (§1.4) |
+| `talk` | `create`, `move`, `attach`, `detach`, `pin`, `unpin`, and each entry of `also` | The talk page's page ID for the target, minted by this record if the target had none (§1.3, §3.6) |
+
+Mentions, links and the rendered HTML are never stored; they are derived from the text part (§1.6). Nothing in the content part names the record's own ID, which is assigned at append and read from the header, nor any other value the server mints.
 
 ### 1.6 Text: markdown, mentions and links
 
@@ -282,7 +287,7 @@ So the home keeps every one of these (§3.7), and a listing adds only visibility
 
 *Sources: [0049](../decisions/0049-boards.md) §6; [0019](../decisions/0019-discussions.md) §1, §4.*
 
-`attach` lists the thread on another talk page or board; `detach` removes one listing (§1.2). Both carry a summary in the comment part, as `move` does, and `target` and `talk` in the content part; `also` on `create` and `keep` on `move` are in the field table of §1.5.
+`attach` lists the thread on another talk page or board; `detach` removes one listing (§1.2). Both carry a summary in the comment part, as `move` does, `target` in the content part and the target's talk page ID in the attestation map (§1.5); `also` on `create` and `keep` on `move` are in the field table of §1.5.
 
 **Validation**, against the thread's state:
 
@@ -330,7 +335,7 @@ The fold of §1.1 yields the home and the listing set, each with the revision ID
 
 *Sources: [0069](../decisions/0069-synchronized-talk-pages.md) §4; [0049](../decisions/0049-boards.md) §6; [0019](../decisions/0019-discussions.md) §4.*
 
-`pin` pins the thread on one of its attachments and `unpin` unpins it there; both require a base offset and have no text part (§1.2). Each carries `target` and `talk` in the content part, as `attach` does, and a summary in the comment part. A `create` may carry **`pinned: true`**, pinning the thread on its home from the start, which is how an import writes front matter ([0069](../decisions/0069-synchronized-talk-pages.md) §7; [13](13-mirrored-pages.md)).
+`pin` pins the thread on one of its attachments and `unpin` unpins it there; both require a base offset and have no text part (§1.2). Each carries `target` in the content part and the attachment's talk page ID in the attestation map, as `attach` does, and a summary in the comment part. A `create` may carry **`pinned: true`**, pinning the thread on its home from the start, which is how an import writes front matter ([0069](../decisions/0069-synchronized-talk-pages.md) §7; [13](13-mirrored-pages.md)).
 
 A `pin` is refused on a page the thread is not attached to, on one where it is already pinned, or past `thread.max_pinned` (`site`, default 3; [23](23-configuration-and-registry.md) §3.2) pinned threads on that page; an `unpin` where it is not pinned. Detaching or moving a thread away from a page ends its pin there; a `move` with `keep` keeps it. The fold yields, for each attachment, the time it was pinned or none.
 
@@ -413,7 +418,7 @@ Export and push are in [17](17-federation-and-publication.md); the proposal thre
 
 ### 5.4 State, and closing the loop
 
-*Sources: [0067](../decisions/0067-proposals.md) §5; [0038](../decisions/0038-page-metadata-and-categories.md) §9.*
+*Sources: [0067](../decisions/0067-proposals.md) §5; [0038](../decisions/0038-page-metadata-and-categories.md) §9; [0083](../decisions/0083-write-path-in-three-tiers.md) §6.*
 
 **A proposal's state is projected**, not set by a post:
 
@@ -429,10 +434,10 @@ Export and push are in [17](17-federation-and-publication.md); the proposal thre
 
 `proposals.adoption_grace` is a tenant `site` setting ([23](23-configuration-and-registry.md) §3.2).
 
-`view.proposal (tenant, thread_id, kind, target, state, submitted_at, upstream_revids, adopted_at, items jsonb)` holds it, written by the mirror and page-mirror projections when the target changes and by the thread projection on records; it is a row of the schema map and of [03](03-storage-caches-and-search.md) §5.
+`view.proposal (tenant, thread_id, kind, target, state, submitted_at, upstream_revids, adopted_at, items jsonb)` holds it, written by the mirror and page-mirror projections when the target changes and by the thread projection on records; it is a row of the schema map and of [03](03-storage-caches-and-search.md) §5. **The projection writes `view.proposal.state` and nothing else**: it has no side effect during replay, so a rebuild re-derives every state and re-runs no retirement ([0083](../decisions/0083-write-path-in-three-tiers.md) §6).
 
 **The role `proposal-state`**, bound by the tenant to a `string` property as `thread-status` is (§2.3), projects `view.proposal.state` as a statement on the thread, so proposals can be scoped, listed and counted like any statement: a scope `statement: proposal-state = offered` over threads, a sprint rule, a board ([15](15-structured-pages.md)).
 
-**Redundant assertions.** When a proposal becomes `adopted`, each local assertion it carried is now **redundant** in [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §7's sense: upstream agrees ([05](05-providers-and-ingest.md) §2.5). With **`upstream.retire_adopted = true`** (`site`; the default, by direction; [23](23-configuration-and-registry.md) §3.2) the instance **retires** each redundant assertion at once — a `remove` of the local assertion as an **instance act** ([0040](../decisions/0040-instance-prerogatives.md) §7; [08](08-tenants-and-instances.md)), summary "Adopted upstream in revision {revid}; proposal {thread}" — so the entity's resolved view is upstream's and the overlay stops accumulating. With `false`, they are listed in `Special:Corrections` as `redundant` with **Retire**. If the proposal later becomes `reverted`, a retired assertion is **offered for restoration** on the thread ("Upstream reverted this; restore the local statement?"), one click re-adding it; it is not restored automatically, since the revert may have been right.
+**Redundant assertions.** When a proposal becomes `adopted`, each local assertion it carried is now **redundant** in [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §7's sense: upstream agrees ([05](05-providers-and-ingest.md) §2.5). With **`upstream.retire_adopted = true`** (`site`; the default, by direction; [23](23-configuration-and-registry.md) §3.2) the instance **retires** each redundant assertion — a `remove` of the local assertion as an **instance act** ([0040](../decisions/0040-instance-prerogatives.md) §7; [08](08-tenants-and-instances.md)), summary "Adopted upstream in revision {revid}; proposal {thread}" — so the entity's resolved view is upstream's and the overlay stops accumulating. **Retirement is an `ops` job, never a projection step.** When the projection sets the state to `adopted` it enqueues the retirement; the job re-checks the current composed state of the entity (that upstream still carries each item and the local assertion is still present) and only then appends the `remove`, carrying the proposal thread's page ID and the adopting upstream revision in its content part as an **idempotency key**, so a repeated enqueue, a retry or a rebuild appends nothing twice. The `ops` queue is not a projection target and is never truncated by a rebuild ([0083](../decisions/0083-write-path-in-three-tiers.md) §6). With `false`, they are listed in `Special:Corrections` as `redundant` with **Retire**. If the proposal later becomes `reverted`, a retired assertion is **offered for restoration** on the thread ("Upstream reverted this; restore the local statement?"), one click re-adding it; it is not restored automatically, since the revert may have been right.
 
 **Notifications** ([0021](../decisions/0021-notifications.md) §2; [16](16-logs-feeds-and-notifications.md) §5.2): one reason, `proposal-state`, to the proposer when the state changes to `adopted`, `partly adopted`, `reverted` or `declined`; the activity row is the mirror record or status post that changed it.

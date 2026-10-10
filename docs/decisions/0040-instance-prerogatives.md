@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-09 (A5)
+- **Updated:** 2026-10-09 (A6)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [0039](0039-files-and-media.md)
 - **Uses:** [0023](0023-moderation.md), [0025](0025-oauth-server.md), [0026](0026-sitelinks.md), [0046](0046-primary-tenant.md)
@@ -41,7 +41,7 @@ James's direction, from the design discussion of 2026-09-30: an instance preroga
 
 ### 3. The instance attestation (extends 0015 §1; extends 0006 §2)
 
-*Changed by A5.*
+*Changed by A5, A6.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §8.3.*
 
@@ -205,3 +205,10 @@ Replaced text (§7, in [16](../architecture/16-logs-feeds-and-notifications.md) 
 > - **Contributions of `instance:{farm slug}`** at a tenant …
 >
 > … and the contributions of `instance:{farm slug}` (§2.5; …
+
+### A6. The founding attestation
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** extends §3
+- **Summary:** The record at offset 0 of any `config` partition carries a third attestation form beside the actor attestation and the instance attestation: the **founding attestation**, with no actor, a signature by the key the record registers (self-certifying), and, for a tenant's founding record, the authority `(instance config, 0)`, the instance's own founding record, which itself has no authority at all. The issuer or farm code is derived from the founding record's leaf afterwards ([0079](0079-derived-issuer-codes.md)). Offsets 1 and 2 of the instance `config`, the `tenant:` and `primary` records, are attested by `instance:{farm code}` with the founding record as authority. A single-tenant instance therefore needs no authority record and no `ts-prerogative` path to exist before its first entity. The fold is in [08](../architecture/08-tenants-and-instances.md) §8.3, with §2.2, §3.2 and §7.2; nothing is contradicted. (REVIEW G22)

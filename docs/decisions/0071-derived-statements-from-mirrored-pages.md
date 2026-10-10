@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-07
-- **Updated:** 2026-10-09 (A2)
+- **Updated:** 2026-10-09 (A4)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0011](0011-logs.md), [0018](0018-tenants.md), [0038](0038-page-metadata-and-categories.md), [0047](0047-special-pages.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0060](0060-scopes.md), [0070](0070-shallow-entity-mirroring.md), [0072](0072-template-mappings.md), [0073](0073-lines-links-and-url-patterns.md), [Record and payload shapes](../api/payloads.md)
@@ -44,11 +44,13 @@ James's direction, from the design discussion of 2026-10-07:
 
 ### 4. Subjects: found by identifier, or created (uses 0002 §8.5)
 
-*Changed by A1.*
+*Changed by A1, A3.*
 
 *Current text: [13](../architecture/13-mirrored-pages.md) §6.4.*
 
 ### 5. Statement IDs
+
+*Changed by A3.*
 
 *Current text: [13](../architecture/13-mirrored-pages.md) §6.5.*
 
@@ -57,6 +59,8 @@ James's direction, from the design discussion of 2026-10-07:
 *Current text: [13](../architecture/13-mirrored-pages.md) §6.5.*
 
 ### 7. Resolution (amends 0002 §3)
+
+*Changed by A4.*
 
 *Current text: [13](../architecture/13-mirrored-pages.md) §6.6.*
 
@@ -77,6 +81,8 @@ James's direction, from the design discussion of 2026-10-07:
 *Current text: [13](../architecture/13-mirrored-pages.md) §6.8.*
 
 ### 12. Storage (extends 0013 §5.6)
+
+*Changed by A3, A4.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.12, §5, §6.1.*
 
@@ -146,3 +152,29 @@ Replaced text (§4):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§14
 - **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [13](../architecture/13-mirrored-pages.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A3. Foreign subjects are overlay triggers; the statement ID hashes the match key
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §5; extends §4, §12
+- **Summary:** A derivation naming a foreign subject is an overlay trigger: the tenant then has local assertions about a shared entity, so composition gives it a tenant row of `view.entity` over the shared one, found through `view.derivation_subject` exactly as a local-graph assertion is found through `view.graph_state`; a derivation that stops naming the subject removes the trigger. A derived statement's ID hashes the match key the extractor gave for the subject (`P9999 = "1804886"` or the normalized URL), never the resolved subject, so a subject that resolves differently later (a key that found a local item and now finds the Wikidata item it was merged into, or a cluster that gained or lost a member) keeps the statement's ID, and the correction moves with it; a subject with no match key hashes the page's page ID and the extractor's subject index in its place, the one case where the ID is tied to the page. The ledger names §12 alone; the ID rule is §5's and the trigger is §4's and §12's. (REVIEW G34)
+
+Replaced text ([13](../architecture/13-mirrored-pages.md) §6.5, as it stood):
+
+> **A derived statement's ID is a name-based UUID of the source name, the subject, the property, the canonical main value and the hash of its qualifiers.** It is not tied to the page or the line:
+
+### A4. Composition reads derivations as tier-2 work
+
+- **Date:** 2026-10-09
+- **Source:** [0083](0083-write-path-in-three-tiers.md) §2
+- **Change:** amends §7, §12
+- **Summary:** Composition, not "the entity projection", finds a subject's derivations through `view.derivation_subject`; a derivation's `put` recomposes the subjects it names now and the subjects its previous version named, as tier-2 work in the composition worker, after the derivation projection has written the `derived/{source}` graph's state to `view.graph_state` in tier 1. "Resolution of the subjects it names runs in step 4" is withdrawn. (REVIEW G9)
+
+Replaced text ([13](../architecture/13-mirrored-pages.md) §6.6, as it stood):
+
+> The entity projection finds a subject's derivations through `view.derivation_subject` ([03](../architecture/03-storage-caches-and-search.md) §4.12). A derivation's `put` re-resolves the subjects it names now and the subjects its previous version named.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.12, as it stood):
+
+> The derivation projection runs in step 2 of §6.1, beside `entity_source`; resolution of the subjects it names runs in step 4.

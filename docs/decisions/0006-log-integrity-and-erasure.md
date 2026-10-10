@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-10-09 (A19)
+- **Updated:** 2026-10-09 (A25)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md)
 - **Chapters:** [01](../architecture/01-log-and-records.md), [22](../architecture/22-crates-and-stack.md)
@@ -48,25 +48,25 @@ Three terms are used precisely below:
 
 ### 3. A record is a header and a body
 
-*Changed by A3, A6.*
+*Changed by A3, A6, A20, A22, A23.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §1.2, §2.1, §2.2, §2.3, §2.4.*
 
 ### 4. Integrity policies
 
-*Changed by A14.*
+*Changed by A14, A24.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §1.2, §6.*
 
 ### 5. The Merkle tree and segments
 
-*Changed by A2, A14.*
+*Changed by A2, A14, A24, A25.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §4.1, §6.*
 
 ### 6. Checkpoints and keys
 
-*Changed by A3, A6, A8, A12, A19.*
+*Changed by A3, A6, A8, A12, A19, A22, A24, A25.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §4.2, §4.3.*
 
@@ -78,13 +78,13 @@ Three terms are used precisely below:
 
 ### 8. Edit conflicts per entity
 
-*Changed by A3.*
+*Changed by A3, A20, A21.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §7.*
 
 ### 9. Verification and export
 
-*Changed by A3, A6, A10, A11, A17, A19.*
+*Changed by A3, A6, A10, A11, A17, A19, A24.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §8.*
 
@@ -338,3 +338,65 @@ Replaced text (§6, in [01](../architecture/01-log-and-records.md) §4.3):
 > - Recovering from a compromised key is out of scope. It belongs to the identity work that Scatterbase and Triplespace share.
 >
 > **Witnesses are optional.** An instance may publish its checkpoints to external witnesses that implement [C2SP tlog-witness](https://c2sp.org/tlog-witness). Because the tree is RFC 6962 with SHA-256, a witness can verify consistency proofs between checkpoints and cosign them with no changes.
+
+### A20. The base check is a step of the appending transaction; attestation carries cross-partition decisions
+
+- **Date:** 2026-10-09
+- **Source:** [0083](0083-write-path-in-three-tiers.md) §1, §6
+- **Change:** extends §3, §8
+- **Summary:** The base check (§8) is a step of tier 1, the appending transaction, made against the local graph alone, with `view.graph_state` as the local graph's current state; nothing composes inside the transaction. Where the write path decides something from the state of another partition at append time (autopatrol from the actor's memberships, the operator of a transfer), the decision is written into the attestation part of the record and a projection reads it there rather than reconstructing "as of" across partitions, which a vanish could make unreconstructible (§3). 0083's table did not list this ADR; the ledger's G8 names §8 here, and the table was extended. (REVIEW G8, G13)
+
+### A21. `lastrevid`, the per-graph base check and patching
+
+- **Date:** 2026-10-09
+- **Source:** [0084](0084-wikibase-writes-against-the-resolved-view.md) §5
+- **Change:** amends §8
+- **Summary:** The base check is per source graph. A `baserevid` that decodes to the tenant's local partition is checked against the local partition's newest record for the key; one that decodes to a mirror partition asserts only that the key still has no local record, and a mirror advancing is never a conflict, because nothing a local assertion depends on changed. The one operation whose meaning depends on mirrored state, an `override` naming a mirrored statement, is checked by whether that statement still exists in the graph's current state. A stale local base is accepted with the warning `wikibase-conflict-patched` when the change set touches no statement UUID, term, alias or sitelink that a later local record touched; otherwise the write fails with `editconflict`, naming the current `lastrevid`, and HTTP 409 on REST; a base that names a state compaction has since replaced is an `editconflict`. "The check runs against the newest record for the key across the source partitions" is withdrawn, and `lastrevid` is the newest local record's ID when the key has one ([0015](0015-record-format-and-partition-registry.md) §2). (REVIEW G17)
+
+Replaced text ([01](../architecture/01-log-and-records.md) §7, as it stood):
+
+> - The log rejects the change set if a newer record for the key exists in the partition. The Action API reports this as `editconflict`, and the REST API as HTTP 409.
+
+> - For a write to a foreign entity, `baserevid` is decoded to a partition and offset, and the check runs against the newest record for the key across the source partitions, not only the local one. A base that names a state compaction has since replaced is an `editconflict`.
+>
+> The check needs an index from each key to its latest offset. For the local partition, this is the version cursor.
+
+### A22. The founding attestation
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** extends §3, §6
+- **Summary:** The attestation part has a third form, carried by exactly one record per `config` partition: the record at offset 0, the `key:` record that opens the partition's key chain. It names no actor; its `signature` is by the key the record itself registers, so the record is self-certifying; and for a tenant's `config` it carries the `authority` `(instance config, 0)`. The issuer or farm code is derived from the record's leaf afterwards, so nothing that depends on the code exists before it; offsets 1 and 2 of the instance `config` are attested by `instance:{farm code}` with the founding record as authority. A single-tenant instance therefore needs no authority record and no `ts-prerogative` path to exist before its first entity. The instance's first public key is registered under this form, and each tenant's key chain is opened by a founding record of the same form whose authority is the instance's (§6). The ledger names [0015](0015-record-format-and-partition-registry.md) §1 and §3, [0018](0018-tenants.md) §2, [0040](0040-instance-prerogatives.md) §3 and [0079](0079-derived-issuer-codes.md) §2 and §4; the chapter folds it at [01](../architecture/01-log-and-records.md) §2.4 and §4.3, whose provenance is §3 and §6 here, and the ledger row was extended. (REVIEW G22)
+
+### A23. Server-filled values never enter a client-signed part
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** extends §3
+- **Summary:** A value the server mints into a record while appending it, such as a thread's talk-page ID and suffixed title or a sync job's `n`, is carried in the attestation map, so that the content and comment parts stay the bytes the client submitted and a client signature over them verifies. The ledger's verb is `amends`, but the chapter text under §3 ([01](../architecture/01-log-and-records.md) §2.4) said nothing this contradicts, so this entry extends; the ledger named §2, which holds the encoding, and was corrected to §3. (REVIEW G23)
+
+### A24. No genesis record; manifests only for `hashed` partitions; a `logid` for every tenant-partition record
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §4; extends §5, §6, §9
+- **Summary:** Non-`config` partitions have no genesis record: a partition's name, hash function, `k` and policies are its `graph:` record in `config`, which the export bundle carries (§9), and the partition's first record is an ordinary record at offset 0; in `config` itself that record is the founding record (A22). `log.segment_manifest` is keyed `(partition, segment)`, one per sealed segment and never re-signed, with no `replaces` and no `sealed_at` in the key. A `hashed` partition has segment manifests only and no checkpoints: the "checkpoint" a job writes at its end is the manifest of the last sealed segment plus an unsigned head offset, and records in the open segment are uncommitted until the segment is sealed; `log.checkpoint` rows exist for `logged` partitions only. Every record in `local`, `pages`, the tenant `log` and the tenant `actors` partitions takes a `logid` at append whether or not the catalogue projects it as an event (folded at [01](../architecture/01-log-and-records.md) §2.5, under [0015](0015-record-format-and-partition-registry.md) §2). The chapter section the genesis sentence stood in ([01](../architecture/01-log-and-records.md) §1.2) is shared by §2, §3 and §4 here; the policy it states is §4's. (REVIEW G24)
+
+Replaced text ([01](../architecture/01-log-and-records.md) §1.2, as it stood):
+
+> - a **segment size** 2^k and the **hash function**, fixed at creation. The hash function is named in the partition's genesis record; changing it means starting a new partition.
+
+> | **`hashed`** | Every header, in one Merkle tree for each sealed segment, with a signed manifest for each segment | Allowed | Triplespace's mirror partitions; Scatterbase's foreign partition |
+
+> **`hashed` partitions prove less.** A verifier can show that each record in a live segment is unaltered since the segment was sealed. A compacted offset keeps its leaf, so a segment's tree and its manifest are unchanged by compaction, and the holes are visible. A verifier cannot show that compaction kept the right records. That limit is deliberate: a mirror's source of truth is upstream, and [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §2 lets a mirror forget.
+
+### A25. Several processes append; the projection worker signs
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §5; extends §6
+- **Summary:** An appending transaction reads the tree's right edge under the partition's append lock and persists only the complete subtrees its append closes, so two API replicas and a bulk job writing one partition never disagree about a node; the right edge is recomputed from the persisted nodes by whoever appends next. Checkpoints and segment manifests are signed by the projection worker under an advisory lock per partition, the only process that holds the instance key; an API replica or a bulk job appends and never signs, and a checkpoint covers only complete subtrees every appender has closed. "Appends in steady state keep the tree's right edge in memory" is withdrawn. The ledger named §6; the fold is at [01](../architecture/01-log-and-records.md) §4.1 (§5 here) and §4.2 (§6), and the ledger row was extended. (REVIEW G25)
+
+Replaced text ([01](../architecture/01-log-and-records.md) §4.1, as it stood):
+
+> - **Appends in steady state** keep the tree's right edge in memory, which is O(log n) hashes. Each append costs one leaf hash plus O(log n) node hashes in the worst case.

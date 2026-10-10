@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-10-09 (A4)
+- **Updated:** 2026-10-09 (A5)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0024](0024-subsidiary-accounts.md), [0030](0030-edit-filters.md), [0033](0033-backend-stack.md), [0039](0039-files-and-media.md), [0047](0047-special-pages.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0023](0023-moderation.md), [0035](0035-adopting-a-wikibase.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0049](0049-boards.md), [0051](0051-page-redirects.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0055](0055-templatestyles-templatedata-and-page-properties.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -41,15 +41,19 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 3. History is seeded afterwards, from a RevisionChest store or the API (extends 0015 §4; extends 0035 §7; amends 0033 §10)
 
+*Changed by A5.*
+
 *Current text: [13](../architecture/13-mirrored-pages.md) §1.6, §3.4, §3.5.*
 
 ### 4. Dependencies: templates, modules and stylesheets (uses 0042 §11 and §13, 0043 §2, 0055 §2)
+
+*Changed by A5.*
 
 *Current text: [13](../architecture/13-mirrored-pages.md) §3.6.*
 
 ### 5. The talk page: sections become closed threads (amends 0019 §3, §4, §5, §6; settles 0019 Q5; extends 0008 §9)
 
-*Changed by A2.*
+*Changed by A2, A5.*
 
 *Current text: [13](../architecture/13-mirrored-pages.md) §5.11, §5.12, §5.13.*
 
@@ -76,6 +80,8 @@ James's direction, from the design discussion of 2026-10-01:
 *Current text: [13](../architecture/13-mirrored-pages.md) §3.9, §4.5.*
 
 ### 10. Storage (extends 0013 §5.6)
+
+*Changed by A5.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.12, §5.*
 
@@ -190,3 +196,24 @@ Replaced text (§8):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§12
 - **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [07](../architecture/07-actors-and-accounts.md), [09](../architecture/09-security-and-moderation.md), [13](../architecture/13-mirrored-pages.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A5. Seeding is metadata-only by default, with content for the last 100 revisions
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §3, §4, §5; extends §10
+- **Summary:** Every upstream revision is seeded as metadata (content, comment and attestation parts, no `text` part), so the history is complete as a list; the `text` part is seeded for the last `fork.content_revisions` (`site`, default 100) revisions only, which a tenant may raise up to the instance ceiling, and an article whose editors want its whole history diffable here asks the job for it explicitly. `fork.max_revisions` (default 20,000) becomes the per-job budget, the number of upstream revisions one job seeds, metadata included, beyond which the oldest are not seeded and the History tab links upstream. Seeding is never done for dependencies or archives: a dependency fork carries its upstream revision in `forked_from` and nothing more, a converted talk archive's threads carry `imported_from`, and their history is read upstream; a forked talk page's own history follows the same default. `view.upstream_revision` carries a `tenant` column leading its key, since two tenants may fork one article, and admits page subjects in the key form page subjects take across `view`. (REVIEW G37)
+
+Replaced text ([13](../architecture/13-mirrored-pages.md) §3.4, as it stood):
+
+> **`fork.max_revisions`** (`site`, default 20,000) caps what is seeded with content. Beyond it the oldest revisions are seeded as metadata only, so the history is complete and diffable for the recent past and complete as a list for all of it; the History tab says so and links upstream for the rest.
+
+> **Serving.** `view.upstream_revision` ([0015](0015-record-format-and-partition-registry.md) §4) gains rows whose `entity_id` is the page ID in decimal, as page statements use it ([0038](0038-page-metadata-and-categories.md) §1).
+
+Replaced text ([13](../architecture/13-mirrored-pages.md) §3.6, as it stood):
+
+> - **otherwise it is forked as §3.1 forks a page:** a `create` carrying `forked_from` with the repository's current revision of the template, attributed upstream, tagged `fork-dependency`, with its history seeded by the same job (§3.4).
+
+Replaced text ([13](../architecture/13-mirrored-pages.md) §5.12, as it stood):
+
+> **The talk page's own history comes too.** Its upstream revisions, and each archive's, are seeded as upstream revision records keyed by the **fork's talk page ID**, as §3.4 seeds the article's, so the talk page's composite history ([0019](0019-discussions.md) §7) gains rows "upstream revision of Talk:…" with their text at `oldid=`, and nothing of what was said is lost to the splitting.

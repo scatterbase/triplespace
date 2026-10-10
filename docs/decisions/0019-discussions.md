@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-09 (A22)
+- **Updated:** 2026-10-09 (A23)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0018](0018-tenants.md), [0022](0022-federation.md)
@@ -30,19 +30,19 @@ Two goals from the earlier ADRs constrain the design. Every unit of contribution
 
 ### 2. Talk pages are composite; attachment is by identifier (amends 0008 §2)
 
-*Changed by A6, A9, A10, A12, A15.*
+*Changed by A6, A9, A10, A12, A15, A23.*
 
 *Current text: [14](../architecture/14-discussions.md) §1.3, §3.5.*
 
 ### 3. The `Thread` namespace and thread titles (extends 0008 §1 and §3)
 
-*Changed by A9, A10, A13.*
+*Changed by A9, A10, A13, A23.*
 
 *Current text: [14](../architecture/14-discussions.md) §1.4.*
 
 ### 4. The record: four parts (amends 0015 §1)
 
-*Changed by A10, A13, A15, A17, A18, A19.*
+*Changed by A10, A13, A15, A17, A18, A19, A23.*
 
 *Current text: [14](../architecture/14-discussions.md) §1.5, §3.6, §4.2.*
 
@@ -446,3 +446,35 @@ Replaced text (§6):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§13
 - **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), [14](../architecture/14-discussions.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A23. Server-minted values move to the attestation map
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §2, §3, §4
+- **Summary:** A value the server mints into a thread record while appending it never enters a client-signed part. The talk page ID a `create`, `move`, `attach`, `detach`, `pin` or `unpin` carries for its target, the talk page IDs of each `also` entry, and the minted title of a `create` or `rename`, suffix included, are carried in the record's attestation map rather than its content part, so that the content and comment parts stay the bytes the client submitted and a client signature over them verifies; the client submits the subject, the server mints the title; a rebuild reads the IDs and titles from the attestation maps; the content part carries `target` alone. A page `move`, by contrast, carries its new title in the content part, because the mover chose it. The ledger names §2; the title rule is §3's and the parts table is §4's, so all three are changed. (REVIEW G23)
+
+Replaced text ([14](../architecture/14-discussions.md) §1.3, as it stood):
+
+> It is minted from the page-ID sequence by the first `create`, `move` or `attach` record that attaches a thread to that target, and that record carries it in its content part (§1.5), so a rebuild reads it rather than deriving it.
+
+Replaced text ([14](../architecture/14-discussions.md) §1.4, as it stood):
+
+> The `create` and `rename` records carry the minted title, as a page `move` carries its new title, so the title index is a projection and a rebuild reproduces it.
+
+Replaced text ([14](../architecture/14-discussions.md) §1.5, as it stood):
+
+> | `title` | `create`, `rename` | The minted title (§1.4) |
+> | `talk` | `create`, `move` | The talk page's page ID, minted by this record if the target had none |
+> | `also` | `create` (optional) | Further targets listed at creation, each `{target, talk}` (§3.6) |
+> | `target`, `talk` | `attach`, `detach`, `pin`, `unpin` | The target (a `page` target only, for `attach` and `detach`) and its talk page ID, minted by an `attach` if the target had none (§3.6); for `pin` and `unpin`, the attachment pinned or unpinned, any attachment, `actor` included (§4) |
+>
+> Mentions, links and the rendered HTML are never stored; they are derived from the text part (§1.6). Nothing in the content part names the record's own ID, which is assigned at append and read from the header.
+
+Replaced text ([14](../architecture/14-discussions.md) §3.6, as it stood):
+
+> Both carry a summary in the comment part, as `move` does, and `target` and `talk` in the content part; `also` on `create` and `keep` on `move` are in the field table of §1.5.
+
+Replaced text ([14](../architecture/14-discussions.md) §4.2, as it stood):
+
+> Each carries `target` and `talk` in the content part, as `attach` does, and a summary in the comment part.

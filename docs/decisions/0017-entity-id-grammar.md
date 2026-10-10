@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-09 (A11)
+- **Updated:** 2026-10-09 (A12)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0003](0003-statement-ui.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0016](0016-permissions-and-access-control.md)
@@ -23,7 +23,7 @@ This ADR replaces the one grammar of 0009 §3 with three, each declared in the r
 
 ### 1. Three ID forms
 
-*Changed by A5, A6, A9, A10.*
+*Changed by A5, A6, A9, A10, A12.*
 
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §1, §2.1, §2.3, §5.2.*
 
@@ -210,3 +210,10 @@ Replaced text (§1):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§7
 - **Summary:** The Decision's current text now lives in the architecture chapters [04](../architecture/04-entities-and-identifiers.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A12. Any member of a cluster is accepted wherever an entity ID is accepted
+
+- **Date:** 2026-10-09
+- **Source:** [0082](0082-source-form-and-the-shared-view.md) §1, §2
+- **Change:** extends §1
+- **Summary:** The three ID forms of §1 are what the store holds, in source form: the stored form of an entity keeps the IDs its source wrote, and the UUID of a statement GUID stays its identity while the entity part is a property of the response. At every entry point, API parameters, change sets, titles, the search box, `wbgetentities`, `GET /resolve` and SPARQL constants, any member of a cluster is accepted for the entity and normalized to the internal form before anything executes, as the tenant-relative form and a provider slug already are; a lookup that names a cluster is expanded to the member set, one indexed probe of `view.cluster_member` per constant with L0 in front; property paths are not expanded; search results collapse by `cluster_id`. (REVIEW G3, G4)

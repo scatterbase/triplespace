@@ -47,31 +47,31 @@ The chapters are in reading order. Each subject below is stated in two or three 
 
 ### 2.1 Part I: the log
 
-*Sources: chapters as linked.*
+*Sources: chapters as linked; [0082](../decisions/0082-source-form-and-the-shared-view.md) §1, §5; [0083](../decisions/0083-write-path-in-three-tiers.md) §1, §2, §3.*
 
 **[01 Log and records](01-log-and-records.md).** The append-only log is split into partitions, each with its own history policy, integrity policy, segment size and hash function. A record is a small header, which the Merkle tree commits to and which is never erased, and a body that is a list of salted parts, each erasable on its own; records are canonical CBOR, hashed with domain tags, and sealed into segments under signed checkpoints. Erasure, compaction, edit conflicts, verification and export are all defined at the level of the log, before any table or graph exists.
 
-**[02 Graphs, RDF and the query service](02-graphs-rdf-and-query.md).** Every record names the graph it writes to: a local graph, one mirror graph per provider, derived graphs, source graphs, log graphs, and a metadata graph, with the main graph computed as a resolved view over the sources. RDF is an output, not the read path: dumps, the SPARQL Update stream that keeps a dump current, and a query service that is the only reader of a local quad store. It rests on the log of [01](01-log-and-records.md) and the `view` schema of [03](03-storage-caches-and-search.md).
+**[02 Graphs, RDF and the query service](02-graphs-rdf-and-query.md).** Every record names the graph it writes to: a local graph, one mirror graph per provider, derived graphs, source graphs, log graphs, and a metadata graph, with the main graph computed as a resolved view over the sources, in source form, keeping the IDs each source wrote. RDF is an output, not the read path: dumps, the SPARQL Update stream that keeps a dump current, and a query service that is the only reader of a local quad store, which holds one shared resolved graph for the instance and a small overlay graph per tenant. It rests on the log of [01](01-log-and-records.md) and the `view` schema of [03](03-storage-caches-and-search.md).
 
-**[03 Storage, caches and search](03-storage-caches-and-search.md).** Postgres holds the log and every projection the API and UI read, in four schemas (`log`, `view`, `private`, `ops`) with distinct reader roles; records may be packed on disk without changing their logical bytes. Over it sit the blob store, the cache layers with keys that carry generation, version, tenant and visibility, HTTP and response caching, and search on OpenSearch with a Postgres fallback. Every ADR's "Storage" and "Search" trailer lands here, and the `view` table catalogue (§5) is the one list of every table.
+**[03 Storage, caches and search](03-storage-caches-and-search.md).** Postgres holds the log and every projection the API and UI read, in four schemas (`log`, `view`, `private`, `ops`) with distinct reader roles; records may be packed on disk without changing their logical bytes. The write path is three tiers: the appending transaction records, doing only what is a function of the written record under the partition lock; composition, a pure function of the contributing graphs' states, the instance's policy record and the cluster map, runs after commit for the written entity and in a worker for everything else; and the derived consumers, from constraints and scopes to the RDF delta and the search index, follow composition events at their own rate. The shared rows of `view`, which every tenant reads, are computed once under the instance's policy, and a tenant's rows exist only where its own partitions change the result. Over it sit the blob store, the cache layers with keys that carry generation, version, tenant and visibility, HTTP and response caching, and search on OpenSearch with a Postgres fallback. Every ADR's "Storage" and "Search" trailer lands here, and the `view` table catalogue (§5) is the one list of every table.
 
 ### 2.2 Part II: the data model
 
-*Sources: chapters as linked.*
+*Sources: chapters as linked; [0082](../decisions/0082-source-form-and-the-shared-view.md) §1, §2, §3; [0083](../decisions/0083-write-path-in-three-tiers.md) §3.*
 
-**[04 Entities and identifiers](04-entities-and-identifiers.md).** An entity ID takes one of three forms: a local ID with Wikibase's prefix, a foreign ID with a provider and type code, or a keyed ID whose key is a normalized natural key (`domain:en.wikipedia.org`). IDs from different namespaces that denote one thing form an identity cluster with one canonical member, and statements fuse under it in the resolved view. Lexemes, MediaInfo, the derived IDs of foreign pages and the per-tenant Lua ID space are here too; it rests on the log of [01](01-log-and-records.md) and the graphs of [02](02-graphs-rdf-and-query.md).
+**[04 Entities and identifiers](04-entities-and-identifiers.md).** An entity ID takes one of three forms: a local ID with Wikibase's prefix, a foreign ID with a provider and type code, or a keyed ID whose key is a normalized natural key (`domain:en.wikipedia.org`). IDs from different namespaces that denote one thing form an identity cluster, whose canonical member is an attribute of the cluster and is never written into data: the stored graph is in source form, every entry point accepts any member of a cluster, and a response is rewritten to the form its consumer prefers by exact matches only, so a cluster change touches the cluster's members and no referrer. Lexemes, MediaInfo, the derived IDs of foreign pages and the per-tenant Lua ID space are here too; it rests on the log of [01](01-log-and-records.md) and the graphs of [02](02-graphs-rdf-and-query.md).
 
-**[05 Providers and ingest](05-providers-and-ingest.md).** Who minted an ID is separate from who asserts a triple: the second is the source graph a record is written to, and the main graph is reconciled over them. One change-set format is submitted by three paths (an in-process ingester, a bulk-job endpoint, the edit API), recorded as jobs run by adapters, with bootstrap mode for terabyte loads; upstream deletion, correction, retention, shallow mirroring, key-mapped providers, the entity sources a tenant declares, the adoption of an existing Wikibase and the catalogue of providers follow. It rests on [01](01-log-and-records.md), [02](02-graphs-rdf-and-query.md), [03](03-storage-caches-and-search.md) and [04](04-entities-and-identifiers.md).
+**[05 Providers and ingest](05-providers-and-ingest.md).** Who minted an ID is separate from who asserts a triple: the second is the source graph a record is written to, and the main graph is composed over them, once per entity, from each graph's current state. One change-set format is submitted by three paths (an in-process ingester, a bulk-job endpoint, the edit API), recorded as jobs run by adapters, with bootstrap mode for terabyte loads; upstream deletion, correction, retention, shallow mirroring, key-mapped providers, the entity sources a tenant declares, the adoption of an existing Wikibase and the catalogue of providers follow. It rests on [01](01-log-and-records.md), [02](02-graphs-rdf-and-query.md), [03](03-storage-caches-and-search.md) and [04](04-entities-and-identifiers.md).
 
-**[06 Statements and properties](06-statements-and-properties.md).** A statement is canonical Wikibase JSON; semantic roles let shape detection, resolvers and constraints name a property without knowing its ID. Property constraints are checked as a projection over the resolved view, resolvers are namespaces bound to a property, sitelinks are normalized URLs, and some pages carry statements of their own. It rests on the entity model of [04](04-entities-and-identifiers.md).
+**[06 Statements and properties](06-statements-and-properties.md).** A statement is canonical Wikibase JSON; semantic roles let shape detection, resolvers and constraints name a property without knowing its ID. Property constraints are checked by a consumer of composition events, over the local graph and the tenant's overlay by default, resolvers are namespaces bound to a property, sitelinks are normalized URLs, and some pages carry statements of their own. It rests on the entity model of [04](04-entities-and-identifiers.md).
 
 ### 2.3 Part III: actors, tenancy, security
 
-*Sources: chapters as linked.*
+*Sources: chapters as linked; [0082](../decisions/0082-source-form-and-the-shared-view.md) §5.*
 
 **[07 Actors and accounts](07-actors-and-accounts.md).** An actor is an issuer and a subject, named by an actor key, with its name as an attribute kept in actor records; local users log in through a built-in password issuer or delegated authentication, and accounts may be linked or vanished. Automated edits run under subsidiary accounts with API keys, grants and rate limits; the instance is an OAuth server; preferences and private state belong to an account and are never records. It rests on the record header of [01](01-log-and-records.md) and the `private` schema of [03](03-storage-caches-and-search.md).
 
-**[08 Tenants and instances](08-tenants-and-instances.md).** An instance is one deployment; a tenant is one wiki on it, with its own base URI, partitions, configuration and users, and one tenant is primary, the one whose accounts operate the instance. A farm is an instance under a tenancy policy with farm identity; a tenant is a provider to every other tenant; a tenant can be moved, can leave or join a farm, and can be deleted. The instance's own acts on a tenant's data, prerogatives and provisions attested by the instance with an authority record, are here, with tenant isolation in the query service and in packed storage.
+**[08 Tenants and instances](08-tenants-and-instances.md).** An instance is one deployment; a tenant is one wiki on it, with its own base URI, partitions, configuration and users, and one tenant is primary, the one whose accounts operate the instance. A farm is an instance under a tenancy policy with farm identity; a tenant is a provider to every other tenant; a tenant can be moved, can leave or join a farm, and can be deleted. What every tenant shares, the rows computed over the registry providers, is computed under the instance's policy record, which a tenant may narrow but not reorder. The instance's own acts on a tenant's data, prerogatives and provisions attested by the instance with an authority record, are here, with tenant isolation in the query service and in packed storage.
 
 **[09 Security and moderation](09-security-and-moderation.md).** Permissions are named strings grouped into groups; memberships and blocks are actor records; ACLs attach a restriction of named permissions to a target by identifier, and deletion, hiding and suppression are `read` ACLs of the moderation kind, confidentiality a `read` ACL of the other. The security model gives one invariant, the visibility of a target as the set of `read` ACLs on it and on everything enclosing it, and the flow rule that derived output inherits its inputs' visibility; edit filters are CEL rules evaluated before append. It holds the one permission catalogue (§2.2) and rests on [01](01-log-and-records.md), [03](03-storage-caches-and-search.md), [07](07-actors-and-accounts.md) and [08](08-tenants-and-instances.md).
 
@@ -101,9 +101,9 @@ The chapters are in reading order. Each subject below is stated in two or three 
 
 ### 2.6 Part VI: interfaces
 
-*Sources: chapters as linked.*
+*Sources: chapters as linked; [0082](../decisions/0082-source-form-and-the-shared-view.md) §2, §3; [0084](../decisions/0084-wikibase-writes-against-the-resolved-view.md) §1, §5.*
 
-**[18 API](18-api.md).** The MediaWiki Action API as Triplespace changes and extends it, the REST routes under `rest.php/triplespace/v0`, the ingest API, structured diffs, raw SPARQL and the MCP server, all following one set of rules, with the host selecting the tenant. The compatibility contracts in `docs/api/` are the reference it builds on. It holds the module catalogue (§2.3) and the route catalogue (§3.2); every ADR's "API" trailer lands here.
+**[18 API](18-api.md).** The MediaWiki Action API as Triplespace changes and extends it, the REST routes under `rest.php/triplespace/v0`, the ingest API, structured diffs, raw SPARQL and the MCP server, all following one set of rules, with the host selecting the tenant: any member of a cluster is accepted wherever an entity ID is, responses carry IDs in the form the request prefers, a Wikibase write is diffed against the tenant's resolved view before it becomes local-graph operations, and a base revision is checked against the local graph alone. The compatibility contracts in `docs/api/` are the reference it builds on. It holds the module catalogue (§2.3) and the route catalogue (§3.2); every ADR's "API" trailer lands here.
 
 **[19 Site UI](19-site-ui.md).** The site as a reader or editor meets it: the frame every page wears, search, addresses, logging in, account settings, document pages, histories, diffs, recent changes and jobs, and the statement UI from shape detection through editing. Everything it shows it fetches through the API of [18](18-api.md); it is rendered by the frontend stack of §5. Every ADR's "UI" trailer lands here.
 
@@ -121,7 +121,7 @@ The chapters are in reading order. Each subject below is stated in two or three 
 
 ### 2.8 What runs where: the four layers and the deployment profiles
 
-*Sources: chapters as linked.*
+*Sources: chapters as linked; [0082](../decisions/0082-source-form-and-the-shared-view.md) §6.*
 
 The workspace is organized in four layers, and dependencies point only downward ([22](22-crates-and-stack.md) §1.1):
 
@@ -137,12 +137,13 @@ The schema is the same everywhere. Two deployment profiles differ only in what i
 | | Small instance | Wikidata scale |
 |---|---|---|
 | Postgres | One server | Primary plus replicas; mirror child tables on their own tablespace |
-| `term_prefix` index | Present; serves suggest and `wbsearchentities` | Absent; OpenSearch serves them |
-| `entity_ref` | Present | Present; the largest `view` table |
+| `term_prefix` index | Present, partial over local entities; serves suggest and `wbsearchentities` | Kept as schema, never created or read; OpenSearch serves them |
+| `view.term` | Local, overlaid and mirrored entities, the last in the instance's term languages | The same rule; sized by mirrored entities × instance languages × term kinds |
+| `entity_ref` | Present | Present and large, or omitted with "Links here" served from the query service |
 | Shared cache | Optional | Required |
-| Quad store | Optional | Optional; QLever from dumps |
+| Quad store | Optional; embedded, refused above a configured triple count | Required, `query.backend = remote`; QLever from dumps |
 
-This is §1.4's rule that smaller deployments follow as corollaries: they drop services, not tables. A small instance is the `triplespace` binary and Postgres; Valkey, OpenSearch, QLever, a Parsoid service and `triplespace-web` are what a larger instance adds ([22](22-crates-and-stack.md) §6, §4.1). The two ways to run the site, embedded or as a separate web tier, are [20](20-web-tier.md) §1.2.
+This is §1.4's rule that smaller deployments follow as corollaries: they drop services, not tables, and leave the one index the large profile does without unbuilt in the schema. A small instance is the `triplespace` binary and Postgres; Valkey, OpenSearch, QLever, a Parsoid service and `triplespace-web` are what a larger instance adds ([22](22-crates-and-stack.md) §6, §4.1). The two ways to run the site, embedded or as a separate web tier, are [20](20-web-tier.md) §1.2.
 
 ## 3. Where things are catalogued
 
@@ -192,7 +193,7 @@ The conventions are in [README.md](README.md); this section says only what a rea
 
 ## 5. Glossary
 
-*Sources: chapters as linked.*
+*Sources: chapters as linked; [0082](../decisions/0082-source-form-and-the-shared-view.md) §1, §3, §5; [0083](../decisions/0083-write-path-in-three-tiers.md) §1, §2, §3, §4.*
 
 Terms the chapters use without defining in place, each with the section that defines it. Where one word has two meanings, both are given.
 
@@ -216,11 +217,11 @@ Terms the chapters use without defining in place, each with the section that def
 
 **Board.** A page in the `Board` namespace: a talk page that is its own subject, with a definition and a listing of the threads attached to it. It exists because someone created it. [14](14-discussions.md) §3.1.
 
-**Bootstrap mode.** The initial-load path that writes records first and builds everything else afterwards: child tables with the primary key only, writers that `COPY` records in parallel in blocks of offsets, indexes and `view` tables built after. [05](05-providers-and-ingest.md) §3.8.
+**Bootstrap mode.** The initial-load path that writes records first and builds everything else afterwards: child tables with the primary key only, writers that `COPY` records in parallel in blocks of offsets, indexes and `view` tables built after; in the tiers' terms, tier 1 in blocks, tier 2 set-based, tier 3 off. Bulk append is the same shape into a live partition, and catch-up loads a new provider's partition this way and composes it against the live `view`. [05](05-providers-and-ingest.md) §3.8; [03](03-storage-caches-and-search.md) §6.
 
 **Bundle.** (1) The export of one or more partitions with the key records needed to verify it, [01](01-log-and-records.md) §8. (2) The **page bundle** the instance keeps for a foreign page in proxy or mirror mode, [13](13-mirrored-pages.md) §2.1. (3) The **user data bundle** an account can download, [07](07-actors-and-accounts.md) §8.4.
 
-**Canonical ID.** The highest-ranked member of an identity cluster, which the resolved view and statement IDs are rewritten to. For a keyed type, the prefix in lowercase and the key in the form the type's normalizer produces. [04](04-entities-and-identifiers.md) §4.4, §3.2.
+**Canonical ID.** The highest-ranked member of an identity cluster: an attribute of the cluster, named by `view.cluster`, never applied to stored data, and the member the RDF redirect-form `owl:sameAs` points at. For a keyed type, the prefix in lowercase and the key in the form the type's normalizer produces. [04](04-entities-and-identifiers.md) §4.4, §3.2.
 
 **Change set.** The single internal type every write uses, submitted by an in-process or CLI ingester, by the HTTP bulk-job endpoint, or by the ordinary edit API as a batch of one. Its operations and wire format are [05](05-providers-and-ingest.md) §3.2, §3.9. [05](05-providers-and-ingest.md) §3.1.
 
@@ -229,6 +230,10 @@ Terms the chapters use without defining in place, each with the section that def
 **Claim.** The one write a sprint adds to the log: a person's record that they are working on a task. [15](15-structured-pages.md) §3.1, §3.4.
 
 **Compaction.** Removing every record for a key except the newest, in a partition with the `latest` history policy. A compacted offset keeps its leaf hash, so the tree still folds and offsets are never reused. [01](01-log-and-records.md) §6, §4.1.
+
+**`composed_from`.** The inputs a composed row records: the offset of each contributing graph's state, the offset of the policy record and the cluster map version. Staleness is a comparison against it, and a row is replaced only by one whose inputs are newer. [03](03-storage-caches-and-search.md) §6.
+
+**Composition.** Tier 2 of the write path: producing an entity's fused body, its resolved view, from the contributing graphs' states under the instance's policy record and the cluster map. A pure function of its inputs, run after commit for the written entity, in a worker for everything else, on miss on the read path, and set-based in bootstrap and bulk modes; `view.entity` is a cache of it over the graph states. [03](03-storage-caches-and-search.md) §6; [05](05-providers-and-ingest.md) §1.4.
 
 **Config kind.** The kind of a configuration record in a `config` partition, instance or tenant scope; each is catalogued with its scope. [23](23-configuration-and-registry.md) §2.2.
 
@@ -242,11 +247,13 @@ Terms the chapters use without defining in place, each with the section that def
 
 **Domain.** (1) The keyed entity type whose key is a domain name, `domain:en.wikipedia.org`, hosted in the Domain namespace. [04](04-entities-and-identifiers.md) §3.6; [10](10-pages-and-content-models.md) §3.7. (2) A **storage domain**: the scope within which a packed fragment is stored once; by default each tenant is its own. [08](08-tenants-and-instances.md) §9.2.
 
-**Edit filter.** A named rule, in CEL, evaluated against every candidate write in the tenant's `local` and `pages` partitions after the permission and ACL checks and before the append, with actions taken on a match. [09](09-security-and-moderation.md) §7.1.
+**Edit filter.** A named rule, in CEL, evaluated in tier 1 against every candidate write in the tenant's `local` and `pages` partitions after the permission and ACL checks and before the append, with actions taken on a match; a filter's scope excludes job writes unless it opts in. [09](09-security-and-moderation.md) §7.1.
 
 **Entity source.** A graph of minted entities that one tenant reads, declared in that tenant's configuration as a `config` record of kind `entity-source` rather than in the provider registry; it adds one `source/{name}` partition and graph. [05](05-providers-and-ingest.md) §6.1, §6.4.
 
 **Erasure.** A record. An `erase` record is appended to the same partition as its targets, names them by offset or by key, names the parts it erases, and gives a reason class (`legal`, `privacy`, `upstream`, `operational`). The header stays; the named parts go. [01](01-log-and-records.md) §5.1.
+
+**Exact match.** A link the response rewrite may use: a tier-1 link (`same-as`, `convert`), a tier-2 link or `equivalent-property`; never tier-3 inference and never anything a `different-from` has split. Within a cluster the rewrite is therefore a bijection. [04](04-entities-and-identifiers.md) §4.12.
 
 **Expunge.** The operator's destruction of taken-down material: a record of payload type `scatter:v0/expunge` in the instance `log` only, keyed by the takedown it follows. [12](12-files-and-media.md) §5.5.
 
@@ -262,9 +269,11 @@ Terms the chapters use without defining in place, each with the section that def
 
 **Grant.** A restriction of what an API key or OAuth token may do below what its subsidiary may do; the effective permissions of a request are the subsidiary's intersected with the grants. [07](07-actors-and-accounts.md) §5.3.
 
+**Graph state.** The current state of one graph's contribution to one entity, for every graph whose records are deltas (`local`, `derived/*`, `source/*`), kept in `view.graph_state` and written in tier 1; the "old state" that composition and the RDF delta read. A mirror graph's state is its latest `put`. [03](03-storage-caches-and-search.md) §4.2, §6.
+
 **Hiding.** A `record` ACL with `parts` that restricts `read` on one revision's parts (content, comment, attestation), setting the visibility bits the API carries; deletion is the same on a page, suppression the same with a narrower group. [09](09-security-and-moderation.md) §6.1, §6.3.
 
-**Identity cluster.** The set of IDs, from different namespaces, that denote one thing. Each member belongs to a namespace, meaning whoever minted the ID; a cluster has at most one member per namespace; one member is canonical. [04](04-entities-and-identifiers.md) §4.1, §4.2.
+**Identity cluster.** The set of IDs, from different namespaces, that denote one thing. Each member belongs to a namespace, meaning whoever minted the ID; a cluster has at most one member per namespace; one member is canonical. Any member is accepted wherever an entity ID is, and a change to a cluster recomposes its members and nothing else. [04](04-entities-and-identifiers.md) §4.1, §4.2.
 
 **Instance.** One deployment: one log, one Postgres, one set of mirror partitions, one instance key. Every instance has at least one tenant. [08](08-tenants-and-instances.md) §1.1.
 
@@ -276,9 +285,9 @@ Terms the chapters use without defining in place, each with the section that def
 
 **Job.** The record of an ingest run or other background work, keyed by a job ID the instance mints, with further records under the same key for its finish, failure or revert; its actor is a subsidiary account, except for an instance job, whose actor is the instance. Jobs live in the local log. [05](05-providers-and-ingest.md) §3.3; [16](16-logs-feeds-and-notifications.md) §2.2.
 
-**Keyed type.** An entity type whose ID is a normalized natural key, not a minted identifier: Domain, Keyword, notation. Each is a registry entry; a keyed entity exists because its key is valid, and its log key is a surrogate. [04](04-entities-and-identifiers.md) §3.1, §3.3, §3.4.
-
 **Key-mapped provider.** A provider whose items of one kind are mapped onto a keyed type's keys through an identity property, rather than rewritten to prefixed IDs; internetdomains.wiki is one. [05](05-providers-and-ingest.md) §4.1.
+
+**Keyed type.** An entity type whose ID is a normalized natural key, not a minted identifier: Domain, Keyword, notation. Each is a registry entry; a keyed entity exists because its key is valid, and its log key is a surrogate. [04](04-entities-and-identifiers.md) §3.1, §3.3, §3.4.
 
 **Kit.** A page of model `json` under `Project:Kits/` from which `Special:CreateWorkspace` builds a workspace and its components. [15](15-structured-pages.md) §4.6.
 
@@ -300,11 +309,15 @@ Terms the chapters use without defining in place, each with the section that def
 
 **Partition.** One sequence of records in the log, split by source graph, identified by 64 random bits, with its own history policy (`full` or `latest`), integrity policy (`logged` or `hashed`), segment size and hash function. [01](01-log-and-records.md) §1.2.
 
+**Policy record.** The instance's `reconcile:default` config record, under which the shared rows of every `view` table are computed: provider order among registry providers, tier-2 link properties, normalizer overrides, the role bindings for shared rows and the languages of shared `view.term`. A tenant narrows it and never reorders it; each shared row names the policy record it was computed under. [23](23-configuration-and-registry.md) §2.3; [03](03-storage-caches-and-search.md) §4.1.
+
+**Prefer.** The per-request namespace order (`local`, a provider code, a source name) that the response rewrite uses to choose the form of each entity ID; it defaults to the form of the IDs in the request, and the site UI asks for local. [18](18-api.md) §1.6; [04](04-entities-and-identifiers.md) §4.12.
+
 **Primary tenant.** The tenant whose accounts operate the instance; exactly one at every point in the log. It is an identity role, not a storage location, and gives no authority over other tenants. [08](08-tenants-and-instances.md) §7.1.
 
 **Private state.** State that belongs to an account, that nobody else may see and that has no public history: sessions, keys, watches, the inbox, preferences. Rows in the `private` schema, never records, never projected, exported or placed on a feed. [07](07-actors-and-accounts.md) §1.6, §8.3; [03](03-storage-caches-and-search.md) §1.2.
 
-**Projection.** Anything derived from the log: a `view` table, the RDF output, a search index, a scope's membership. Every `view` table belongs to a named projection; `ops.projection_state` records how far each has replayed, and a rebuild truncates and replays from offset 0. [03](03-storage-caches-and-search.md) §6.1; [01](01-log-and-records.md) §1.1.
+**Projection.** Anything derived from the log: a `view` table, the RDF output, a search index, a scope's membership. Every `view` table belongs to a named projection, which declares its class: *log-replayed*, rebuilt by replaying the log from offset 0, or *view-derived*, populated by a scan of the `view` tables it names. `ops.projection_state` records how far each has replayed, the order is a partial order over the projections a build registers, and no projection has side effects during replay. [03](03-storage-caches-and-search.md) §6.1; [01](01-log-and-records.md) §1.1.
 
 **Proposal.** A thread homed on a subject's talk page whose records carry a proposal payload: what is offered, to which wiki, compiled from the local state at the moment of proposing. [14](14-discussions.md) §5.1.
 
@@ -314,7 +327,7 @@ Terms the chapters use without defining in place, each with the section that def
 
 **Record.** One entry in a partition: a header, which the Merkle tree commits to and which is never erased, and a body of salted parts. The header carries the key, the payload type and the global IDs. [01](01-log-and-records.md) §2.1, §2.2, §2.5.
 
-**Resolved view.** The main graph, computed by applying a reconciliation policy over the source graphs at the level of Wikibase statements, still Wikibase-shaped and still rebuildable from the log. [05](05-providers-and-ingest.md) §1.4.
+**Resolved view.** The main graph, computed by applying a reconciliation policy over the source graphs at the level of Wikibase statements, still Wikibase-shaped and still rebuildable from the log; the product of composition, in source form. [05](05-providers-and-ingest.md) §1.4.
 
 **Resolver.** A namespace bound to a property, so that a value of that property resolves to a page; a `config` record of kind `resolver`. [06](06-statements-and-properties.md) §3.1.
 
@@ -330,6 +343,8 @@ Terms the chapters use without defining in place, each with the section that def
 
 **Shallow mirror.** A mirror that holds the whole current state of each entity it holds and does not follow that entity's links: enough entities, never part of an entity. [05](05-providers-and-ingest.md) §5.1.
 
+**Source form.** The form of the internal graph: every stored form of an entity keeps the IDs its source wrote (`WDQ5` where Wikidata wrote `Q5`, `Q9` where a local editor wrote `Q9`), in statement subjects, values, `view.entity_ref`, search documents, the dump and the update stream. Nothing in storage is rewritten because a cluster formed, changed or dissolved; normalization happens on the way in and rewriting on the way out. [04](04-entities-and-identifiers.md) §4.4, §4.12.
+
 **Source graph.** A graph that records are written to: the local graph, the mirror graphs, the derived graphs and the `source/{name}` graphs of entity sources. The metadata graph and the resolved graph are projections, not sources. [05](05-providers-and-ingest.md) §1.2.
 
 **Sprint, task.** A sprint is a `Project:` subpage of model `triplespace-sprint` whose definition names a scope, rules and a window; a task is one (sprint, rule, subject) triple the rule currently finds open, computed in `view.task`. [15](15-structured-pages.md) §3.1.
@@ -343,6 +358,8 @@ Terms the chapters use without defining in place, each with the section that def
 **Tenant.** One wiki on an instance: a base URI, a slug, its own source partitions, its own configuration, its own users. A **tenant-relative ID** names a local entity of whichever tenant reads it. [08](08-tenants-and-instances.md) §1.1; [04](04-entities-and-identifiers.md) §2.3.
 
 **Thread, post.** A thread is a page in the `Thread` namespace with a subject, a home, listings, a status and a history; a post is a record in the tenant's `pages` partition keyed by the thread's page ID, with four parts. [14](14-discussions.md) §1.1, §1.5.
+
+**Tier 1, tier 2, tier 3.** The three tiers of the write path. Tier 1 is the appending transaction, which does only what is a function of the written record and the local graph (authenticate, rate limit, ACLs, filters, normalize and diff, the base check, allocate IDs, append, write the graph state and the activity row, commit) under the partition lock. Tier 2 is composition. Tier 3 is the consumers of composition events, each with its own queue, rate and lag, never inside a transaction and off during bootstrap and bulk modes: constraints, scopes, sprints and tasks, schema validation, entity usage, reports, the RDF delta, search documents, and the ACL and visibility re-projections. The tiers of links in an identity cluster are a different use of the word ([04](04-entities-and-identifiers.md) §4.3). [03](03-storage-caches-and-search.md) §6.
 
 **Title stack.** For a title in a `pages` namespace, every page that exists under it in inheritance order: the local page, then each page repository's page. [13](13-mirrored-pages.md) §1.2.
 

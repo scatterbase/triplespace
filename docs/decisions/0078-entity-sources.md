@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-08
-- **Updated:** 2026-10-09 (A2)
+- **Updated:** 2026-10-09 (A4)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md), [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0029](0029-resolver-namespaces.md), [0035](0035-adopting-a-wikibase.md), [0070](0070-shallow-entity-mirroring.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0043](0043-lua-modules.md), [0044](0044-tenant-relative-ids.md), [0048](0048-notation.md), [0052](0052-page-repositories-and-title-inheritance.md), [0056](0056-security-model.md), [0065](0065-mediainfo-captions-and-commons.md), [0071](0071-derived-statements-from-mirrored-pages.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -45,7 +45,7 @@ James's direction, from the design discussion of 2026-10-07 and 2026-10-08:
 
 ### 4. Numbers, the mirror partition and fetching (extends 0015 §2 and §5, 0018 §10, 0070 §2.1, §3 and §10)
 
-*Changed by A2.*
+*Changed by A2, A4.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §6.4.*
 
@@ -63,7 +63,7 @@ James's direction, from the design discussion of 2026-10-07 and 2026-10-08:
 
 ### 8. Across tenants and instances (extends 0018 §5)
 
-*Changed by A2.*
+*Changed by A2, A3.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §6.7.*
 
@@ -101,7 +101,7 @@ James's direction, from the design discussion of 2026-10-07 and 2026-10-08:
 - **Two tenants' `mhc:Q1` may be different things.** Meaning crosses a tenant only as an IRI, and a reader that has not declared the same source does not see statements that use it. The withheld count shows what declaring one would add.
 - **Clashes with the registry are possible only for names the registry adds later,** and then only shadow on the tenant that has the source.
 - **Promotion keeps every record.** It costs a rewrite on read for that tenant's old records, as a provider tenant's IDs already cost every reader.
-- **The registry's provider numbers halve**, to 4,194,303, which is far beyond the registry's use.
+- ~~**The registry's provider numbers halve**, to 4,194,303, which is far beyond the registry's use.~~ *Registry numbers are below 2^12 (4,095 of them) and entity-source numbers 2^12 to 2^13 − 1, so that every client-visible ID stays below 2^53 (A4).*
 - **0008 gains a tenant range**, which the namespaces tenants already create needed and did not have.
 - **Test plan.** Declaring `mhc` with a Wikibase API; a local statement with value `mhc:Q1` enqueues `Q1`, whose `put` lands in `source/mhc` with a ranged revision ID; `MHC:Q1` redirects to `Item:mhc:Q1`, and after Create an item for this to `Item:Q500`; with mirror `off`, `MHC:Q1` shows the external link and fetches nothing; a declaration named `doi`, or with Wikidata's IRI template, is refused; a namespace numbered 120 or 2000 is refused; `wikidata:Q42` in `wbgetentities` returns `WDQ42`; another tenant reading Librarybase without the source withholds the statement and counts it, and with a source `mhcom` for the same IRIs reads `mhcom:Q1`; promotion to a test provider rewrites on read and leaves the log unchanged.
 
@@ -166,3 +166,21 @@ Replaced text (§9, in [05](../architecture/05-providers-and-ingest.md) §6.8):
 > **A source may not duplicate a registry provider.** A declaration with a type IRI template equal to a registry provider's is refused with `ts-source-is-provider`, …
 >
 > **Promotion.** When the registry later allocates a provider whose IRI templates equal a source's, …
+
+### A3. The cross-tenant rewrite is the response rewriting layer
+
+- **Date:** 2026-10-09
+- **Source:** [0082](0082-source-form-and-the-shared-view.md) §3
+- **Change:** extends §8
+- **Summary:** The rewrite that carries a provider's reference to a source entity across a tenant boundary is the read-side rewrite of IDs between tenants, the same layer that rewrites a response to the consumer's preferred form with exact matches only ([04](../architecture/04-entities-and-identifiers.md) §4.12); the provider's records are never changed, and the four rules of §8 are applied by that layer. 0082's table and heading say `amends`, but §8's text contradicts nothing in this: the rules stand, and only their home is named, so it is logged as `extends`. (REVIEW G5)
+
+### A4. Entity-source numbers are 2^12 to 2^13 − 1
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §4
+- **Summary:** Every ID a client sees is below 2^53, so that it survives a JavaScript number and every JSON parser. Registry provider numbers are below 2^12, and entity-source numbers are assigned per tenant from 2^12 to 2^13 − 1 (4096–8191), not from 2^22 to 2^23 − 1, so `number << 40 | n` stays under 2^53 for `n` below 2^40; the registry keeps the 4,095 numbers below the range. (REVIEW G20)
+
+Replaced text ([05](../architecture/05-providers-and-ingest.md) §6.4, as it stood):
+
+> **Provider numbers from 2^22 to 2^23 − 1 are reserved for entity sources.** The server assigns the lowest one not yet used on the tenant when the source's first record is written, and records it in the entry. A number is unique on its tenant and is never reused there, even after the source is retired. Uniqueness per tenant is enough: revision and page IDs are per-tenant sequences ([0015](0015-record-format-and-partition-registry.md) §2), and no other tenant reads a source's records (§6.7). So `revid = number << 40 | n` and the derived page IDs work unchanged, and a move carries the number in the entry. The registry keeps the 4,194,303 numbers below the range.

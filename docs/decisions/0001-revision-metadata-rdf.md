@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-24
-- **Updated:** 2026-10-09 (A17)
+- **Updated:** 2026-10-09 (A18)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md)
 - **Uses:** [0000](0000-init.md), [MediaWiki API contract](../api/mediawiki-compat.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -38,7 +38,7 @@ Under [0000](0000-init.md), the append-only log is the source of truth and RDF i
 
 ### 1. Revision metadata describes the document, not the thing
 
-*Changed by A7, A8, A17.*
+*Changed by A7, A8, A17, A18.*
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §2.1, §5.1, §5.3.*
 
@@ -265,3 +265,10 @@ Replaced text (§6):
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** extends §1
 - **Summary:** `{base}/record/{partition}/{offset}` is the IRI of a post's revision node here and of a local log event in [0011](0011-logs.md) §8; a record is one or the other by its payload type, so the two never collide, and each section now says so. (PENDING T2)
+
+### A18. The fused body is emitted under every member of a cluster
+
+- **Date:** 2026-10-09
+- **Source:** [0082](0082-source-form-and-the-shared-view.md) §4
+- **Change:** extends §1
+- **Summary:** In the resolved view a cluster's fused statements are emitted under every member's concept IRI, with `owl:sameAs` between the members and the redirect-form `owl:sameAs` from each non-canonical member to the canonical one, so a query that reaches `wd:Q5` through a value and asks for its label or statements succeeds without rewriting; the duplication is bounded by the cluster's size, never by what references it. Each member's document node still carries `schema:about` pointing at the current canonical concept IRI. The dump and the stream carry the same, in source form ([0082](0082-source-form-and-the-shared-view.md) §1). The chapter folds this at [02](../architecture/02-graphs-rdf-and-query.md) §2.1 and §5, whose provenance is §1 here; 0082's table named §2, and was corrected. (REVIEW G6)

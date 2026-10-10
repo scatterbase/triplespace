@@ -2,6 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-09
+- **Updated:** 2026-10-09 (A1)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0015](0015-record-format-and-partition-registry.md), [0018](0018-tenants.md), [0028](0028-tenancy-policy.md), [0035](0035-adopting-a-wikibase.md), [0040](0040-instance-prerogatives.md), [0046](0046-primary-tenant.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0022](0022-federation.md), [0027](0027-preferences-and-portability.md)
@@ -44,11 +45,14 @@ The code names the tenant. Control of it is the key chain. Anyone can copy a ten
 
 ### 2. The derivation (amends 0007 §1)
 
+*Changed by A1.*
+
 **The code is the first 26 characters of the lower-case RFC 4648 base32 encoding, without padding, of the founding record's Merkle leaf hash**, `H(0x00 ‖ header)` ([0006](0006-log-integrity-and-erasure.md) §2). That is 130 bits, written in `a`–`z` and `2`–`7`, for example `vk3q7zcx2m4hrt6wd5nbfy2lpa`.
 
 - **Why the leaf.** It is already public, carried in every inclusion proof, and survives erasure. It covers the header: the partition's 64 random bits, the time and the body commitment, whose parts are each salted with 16 random bytes ([0015](0015-record-format-and-partition-registry.md) §1). No new domain tag and no new field are needed.
 - **Why 130 bits.** An instance that wanted two tenants with one code, to show different histories under one name, would need about 2^65 attempts. A forger matching an existing code would need about 2^130. `did:plc` uses 120 bits. 26 characters is also a whole number of base32 characters.
 - **Registered codes are shorter.** An issuer code in `issuers.toml` is at most 25 characters, so a registered code can never equal a derived one. `scatter-actors` refuses a longer registered code at build time.
+- **The founding record carries the founding attestation**, the third attestation form ([0015](0015-record-format-and-partition-registry.md) §1): no actor, a signature by the key the record itself registers, so the record is self-certifying, and for a tenant the authority `(instance config, 0)`, the instance's own founding record. The code is derived from the leaf afterwards, so nothing that depends on the code, an actor key or an authority record of the tenant's own, has to exist before it.
 
 ### 3. The slug is a name (amends 0018 §1, §9 and §10)
 
@@ -64,11 +68,15 @@ A change of base remains an `alias` record ([0018](0018-tenants.md) §9). It cha
 
 ### 4. The farm code (amends 0015 §1, 0028 §2, 0040 §2, §3 and §7, and 0046 §5 and §6)
 
+*Changed by A1.*
+
 **The farm code** is derived as in §2 from the instance's founding record: its first `key:` record, at offset 0 of the instance `config` partition ([0015](0015-record-format-and-partition-registry.md) §3). Every instance has one, whether or not a farm issuer exists. It is what the farm's keys carry:
 
 - the operator's actor key, now `instance:{farm code}` ([0040](0040-instance-prerogatives.md) §2), in instance attestations ([0040](0040-instance-prerogatives.md) §3), log projections and contributions ([0040](0040-instance-prerogatives.md) §7);
 - the farm issuer's code, so farm accounts are `{farm code}:{id}` ([0028](0028-tenancy-policy.md) §2);
 - the per-issuer names of the farm partitions, `actors/{farm}`, `accounts/{farm}` and `log/{farm}`, where `{farm}` is the farm code.
+
+**Offsets 1 and 2 of the instance `config`**, the primary tenant's `tenant:` record and the first `primary` record, are attested by `instance:{farm code}` with the founding record as authority, which exists by then. A single-tenant instance therefore needs no authority record of its own and no `ts-prerogative` path to exist before its first entity is written.
 
 **The farm slug stays the instance's readable name** ([0046](0046-primary-tenant.md) §6). It is chosen at `instance create --farm-slug`, is unique in the instance's namespace, differs from every tenant slug and never changes, but it is in no key. A primary transfer leaves the operator's key unchanged, as before ([0046](0046-primary-tenant.md) §5).
 
@@ -161,3 +169,12 @@ On Librarybase, the example convention of §1 is therefore literal.
 - [did:plc method specification](https://web.plc.directory/spec/v0.1/did-plc): identifier as a truncated base32 SHA-256 of the signed genesis operation
 - [RFC 4648](https://www.rfc-editor.org/rfc/rfc4648) §6: base32 alphabet
 - [RFC 9162](https://www.rfc-editor.org/rfc/rfc9162) §2.1: Merkle leaf hashes
+
+## Amendment log
+
+### A1. The founding attestation
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** extends §2, §4
+- **Summary:** The record at offset 0 of any `config` partition carries a third attestation form, the founding attestation: no actor, a signature by the key the record registers (self-certifying), and for a tenant the authority `(instance config, 0)`; the issuer or farm code is derived from its leaf afterwards. Offsets 1 and 2 of the instance `config` are attested by `instance:{farm code}` with the founding record as authority. A single-tenant instance therefore needs no authority record and no `ts-prerogative` path to exist before its first entity. The form itself is [0015](0015-record-format-and-partition-registry.md) §1's; the chapters hold it in [01](../architecture/01-log-and-records.md) §2.4 and [08](../architecture/08-tenants-and-instances.md) §2.4, §7.2 and §8.3. (REVIEW G22)

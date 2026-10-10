@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-09 (A16)
+- **Updated:** 2026-10-09 (A18)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0024](0024-subsidiary-accounts.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md)
 - **Uses:** [0023](0023-moderation.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0043](0043-lua-modules.md), [0047](0047-special-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -99,13 +99,13 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 9. Links, categories and other metadata come from expanded output (amends 0038 §3; amends 0008 §10)
 
-*Changed by A6.*
+*Changed by A6, A17.*
 
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §4.1.*
 
 ### 10. The render manifest and refresh (extends 0013 §5.6 and 0014 §3–5)
 
-*Changed by A2, A3, A6, A8, A9, A15.*
+*Changed by A2, A3, A6, A8, A9, A15, A17, A18.*
 
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §4.2, §4.3, §4.4, §4.5, §4.6.*
 
@@ -377,3 +377,33 @@ Replaced text (§3):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§19
 - **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [07](../architecture/07-actors-and-accounts.md), [09](../architecture/09-security-and-moderation.md), [10](../architecture/10-pages-and-content-models.md), [11](../architecture/11-rendering-templates-and-modules.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A17. Row classes with one writer each, and usage invalidation as a tier-3 consumer
+
+- **Date:** 2026-10-09
+- **Source:** [0083](0083-write-path-in-three-tiers.md) §3, §6
+- **Change:** amends §9, §10
+- **Summary:** Every projection declares its class, log-replayed or view-derived, and the render tables are neither: `transclusion`, `render_state` and the render-owned rows are render-derived, rebuilt by re-rendering every `wikitext` page, a rebuild that truncates the render-owned rows, enqueues every page on `ops.render_refresh` and re-runs no job. `view.page_link`, `view.page_category` and `view.page_prop` carry two row classes told apart by `from_render`, with one writer each: the page projection writes the source-derived rows when it applies the record, the refresh job writes the expansion-derived rows from the render; each owns its class exclusively, readers union them, the refresh job never deletes a row it did not write, and turning `wikitext.expansion` off truncates the render-owned rows and nothing else. Refresh trigger 3 is no longer "a change to an entity's `resolved_version`" but a composition event, "entity X composed to version N", consumed by the entity-usage consumer in its own queue, never inside the composing or appending transaction; the consumer checks `view.entity_usage` for the entity and every member of its cluster before diffing, is off while no tenant has `wikitext.expansion` on, and off during bootstrap and bulk modes. The chapter resolved what the ledger did not say: a page's source links are indexed as soon as its edit is projected, and only the links its templates emit wait for the refresh queue. (REVIEW G10, G13)
+
+Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §4.1, as it stood):
+
+> **These rows are written by the refresh job (§4.3), not by the page projection.** Computing them may read other pages and run Lua, which does not belong inside the appending transaction ([0013](0013-postgres-storage.md) §7). A page's links follow its edit after the refresh queue, as MediaWiki's deferred links update does.
+
+Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §4.3, as it stood):
+
+> **These are the first `view` tables that are not a pure function of the log.** They are rebuilt by re-rendering every `wikitext` page, and where a render read a foreign repository or the clock, the rebuild may differ from the original. This is the exception to [0013](0013-postgres-storage.md) §5.6's rule that every `view` table is rebuilt from the log, for these three tables and for the links and categories they drive (§4.1); the catalogue is [03](../architecture/03-storage-caches-and-search.md)'s.
+
+Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §4.4, as it stood):
+
+> 3. A change to an entity's `resolved_version`, for usage rows whose aspects the change touches (§7.9).
+
+### A18. Dependency-induced epoch bumps serve stale
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §10
+- **Summary:** An epoch bump that a dependency induces (a template or module edited, an entity recomposed, a `wikitext.*` setting changed) serves the old `p:` entry stale-while-revalidate and lets the refresh queue re-render the page in its own time, so a template edit on a mirror of Wikipedia re-renders its pages behind the readers rather than in front of them. Synchronous renders are bounded per tenant by a render pool, deployment configuration beside the Parsoid concurrency; a miss that finds the pool full is served stale where a stale entry exists and enqueued, and waits only where there is none. The page's own edit and `action=purge` keep "no stale": they delete the `p:` keys and the next read renders afresh, so read-your-writes holds for the editor; erasure, deletion and hiding of a dependency never serve stale either, whatever the pool's state. (REVIEW G46)
+
+Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §4.5, as it stood):
+
+> Its lifetime is the lower of [0014](0014-caches-and-search.md) §4's ceiling and `expires_at`. A miss renders synchronously under single flight ([0014](0014-caches-and-search.md) §4); there is no stale serving after an epoch bump, as MediaWiki renders afresh after `page_touched` moves.

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-05
-- **Updated:** 2026-10-09 (A6)
+- **Updated:** 2026-10-09 (A8)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0019](0019-discussions.md), [0021](0021-notifications.md), [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0038](0038-page-metadata-and-categories.md), [0047](0047-special-pages.md)
 - **Uses:** [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0020](0020-change-feeds.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0040](0040-instance-prerogatives.md), [0049](0049-boards.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [0060](0060-scopes.md), [0061](0061-sprints-and-tasks.md)
@@ -48,13 +48,13 @@ James's direction, from the design discussions of 2026-10-04 and 2026-10-05:
 
 ### 5. State, and closing the loop (amends 0002 §7; extends 0038 §9; extends 0021 §2)
 
-*Changed by A4.*
+*Changed by A4, A7.*
 
 *Current text: [14](../architecture/14-discussions.md) §5.4.*
 
 ### 6. Push as the person: the later phase (extends 0025; extends 0027 §2)
 
-*Changed by A2, A5.*
+*Changed by A2, A5, A8.*
 
 *Current text: [17](../architecture/17-federation-and-publication.md) §3.2.*
 
@@ -171,3 +171,25 @@ Replaced text (§6):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§9
 - **Summary:** The Decision's current text now lives in the architecture chapters [07](../architecture/07-actors-and-accounts.md), [09](../architecture/09-security-and-moderation.md), [14](../architecture/14-discussions.md), [16](../architecture/16-logs-feeds-and-notifications.md), [17](../architecture/17-federation-and-publication.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A7. Retirement is an `ops` job, never a projection step
+
+- **Date:** 2026-10-09
+- **Source:** [0083](0083-write-path-in-three-tiers.md) §6
+- **Change:** amends §5
+- **Summary:** No projection has side effects during replay: the proposal projection writes `view.proposal.state` and nothing else, so a rebuild re-derives every state and re-runs no retirement. When the projection sets the state to `adopted` it enqueues the retirement; the `ops` job re-checks the current composed state of the entity (that upstream still carries each item and the local assertion is still present) and only then appends the `remove` as an instance act, carrying the proposal thread's page ID and the adopting upstream revision in its content part as an idempotency key, so a repeated enqueue, a retry or a rebuild appends nothing twice. The `ops` queue is not a projection target and is never truncated by a rebuild. "Retires each redundant assertion at once" is withdrawn. The ledger and 0083's table named §9; the text they amend is §5's ([14](../architecture/14-discussions.md) §5.4), and the crate table did not change. (REVIEW G13)
+
+Replaced text ([14](../architecture/14-discussions.md) §5.4, as it stood):
+
+> With **`upstream.retire_adopted = true`** (`site`; the default, by direction; [23](../architecture/23-configuration-and-registry.md) §3.2) the instance **retires** each redundant assertion at once — a `remove` of the local assertion as an **instance act** ([0040](0040-instance-prerogatives.md) §7; [08](../architecture/08-tenants-and-instances.md)), summary "Adopted upstream in revision {revid}; proposal {thread}" — so the entity's resolved view is upstream's and the overlay stops accumulating.
+
+### A8. `private.upstream_grant` stores the tokens, encrypted
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** corrects §6
+- **Summary:** `private.upstream_grant` holds `access_token` and `refresh_token` encrypted at rest with the key handling of `private.publication_credential`, never hashes: the instance is the OAuth *client* here and must present the access token to the wiki and the refresh token to its token endpoint. Hashes are kept only where the instance is the server, in [0025](0025-oauth-server.md) §8's token tables. (REVIEW G47)
+
+Replaced text ([17](../architecture/17-federation-and-publication.md) §3.2, as it stood):
+
+> The grant is stored in **`private.upstream_grant (actor_key, wiki, scopes text[], access_hash, refresh_hash, issued, expires)`**

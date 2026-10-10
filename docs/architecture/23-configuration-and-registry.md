@@ -16,7 +16,7 @@ A source partition is registered for instance configuration. It corresponds to S
 |---|---|---|---|---|---|---|
 | **Config** | `{base}/graph/config` | Source | Administrators, through the configuration API ([0016](../decisions/0016-permissions-and-access-control.md)) | Full | `logged` | Public |
 
-**Records.** The payload type is `scatter:v0/config`. The header key is `{kind}:{code}`, which is the primary key of `view.registry` ([03](03-storage-caches-and-search.md)). The content part holds the entry; the comment part holds the reason for the change; the attestation names who made it. A later record for the same key replaces the entry, and a record whose content is null retires it. `view.registry` is the projection of the latest record per key.
+**Records.** The payload type is `scatter:v0/config`. The header key is `{kind}:{code}`, which is the primary key of `view.registry` ([03](03-storage-caches-and-search.md)). The content part holds the entry and a per-kind `schema` integer naming the shape the entry was written in; the comment part holds the reason for the change; the attestation names who made it. A later record for the same key replaces the entry, and a record whose content is null retires it. `view.registry` is the projection of the latest record per key, storing the entry opaquely with its schema number: a record of a kind or schema the running build does not know is projected opaquely and never fails replay, so a newer registry or an older binary can meet in one log.
 
 [0004](../decisions/0004-identity-clusters-and-equivalence.md) §9's "configuration is recorded in the log" names this partition. [0006](../decisions/0006-log-integrity-and-erasure.md) §4's `logged` policy for "the configuration partition" and §6's key registration have their home here, and 0006 §9's export bundle carries "the configuration records that register and rotate keys" because the partition is public.
 
@@ -24,13 +24,15 @@ A source partition is registered for instance configuration. It corresponds to S
 
 *Sources: [0015](../decisions/0015-record-format-and-partition-registry.md) §3.*
 
-The instance `config` partition, found by its registry name, has a random ID like every other partition; its record at offset 0 is the instance's first `key:` record, as [0006](../decisions/0006-log-integrity-and-erasure.md) §6 requires. Every other partition is created by a `graph:` record in `config`, appended before that partition's first record; that record is the "genesis record" 0006 §2 says names the partition's hash function. The `config` partition's own `graph:config` record follows its key record at offset 1.
+The instance `config` partition, found by its registry name, has a random ID like every other partition; its record at offset 0 is the instance's first `key:` record, as [0006](../decisions/0006-log-integrity-and-erasure.md) §6 requires. That record carries the **founding attestation**, the third attestation form beside the actor's and the instance's ([01](01-log-and-records.md) §2.4): it names no actor, it is signed by the key it registers, so that it certifies itself, and the issuer code the instance acts under afterwards, the farm code, is derived from its leaf hash ([08](08-tenants-and-instances.md) §3.5). The records at offsets 1 and 2 of the instance `config` are attested by `instance:{farm code}`, the actor that derivation yields. A tenant's `config` begins the same way: its offset 0 is a `key:` record under a founding attestation whose authority is `(instance config, 0)`, and the tenant's issuer code is derived from that leaf; so a single-tenant instance needs no authority record and no `ts-prerogative` path to exist before its first entity.
+
+Every other partition is created by a `graph:` record in `config`, appended before that partition's first record, and has no genesis record of its own: the partition's name, hash function, segment exponent `k` and policies are that `graph:` record, which the export bundle carries. The `config` partition's own `graph:config` record follows its key record at offset 1.
 
 ### 1.3 Scope: instance and tenant
 
 *Sources: [0015](../decisions/0015-record-format-and-partition-registry.md) §3.*
 
-The kinds split by scope ([0018](../decisions/0018-tenants.md) §3, in [08](08-tenants-and-instances.md)). The instance's `config` holds `key`, `graph`, `provider`, `issuer`, `keyed-type`, `tenant`, `alias`, `primary`, `tenancy`, `template`, `consumer`, `forwarder` and `reports`, the instance lists of `sitelink-policy` and `federation-policy`, and global `group`s; `page-repo` and `file-repo` are tenant or instance; each tenant's `config` holds the rest, `provider-readers` among them. This paragraph is the one list of instance kinds, and [0013](../decisions/0013-postgres-storage.md) §5.5's `view.registry` refers to it. A tenant's `config` begins with a `key:` record, the current instance key, and every `key:` record of the instance is appended to it as well, so a tenant's partitions verify from the tenant's bundle alone ([0018](../decisions/0018-tenants.md) §2).
+The kinds split by scope ([0018](../decisions/0018-tenants.md) §3, in [08](08-tenants-and-instances.md)). The instance's `config` holds `key`, `graph`, `provider`, `issuer`, `keyed-type`, `tenant`, `alias`, `primary`, `tenancy`, `template`, `consumer`, `forwarder` and `reports`, the instance lists of `sitelink-policy` and `federation-policy`, global `group`s, `page-repo`, and the instance records of `reconcile` and `role` that shared rows are computed under (§2.3); `file-repo` is tenant or instance; each tenant's `config` holds the rest, `provider-readers` among them. This paragraph is the one list of instance kinds, and [0013](../decisions/0013-postgres-storage.md) §5.5's `view.registry` refers to it. A tenant's `config` begins with a `key:` record, the current instance key, and every `key:` record of the instance is appended to it as well, so a tenant's partitions verify from the tenant's bundle alone ([0018](../decisions/0018-tenants.md) §2).
 
 `view.registry`'s key is `(tenant, kind, code)`; instance-level kinds have the empty-string tenant ([03](03-storage-caches-and-search.md)).
 
@@ -42,7 +44,7 @@ Under `config.template = defaults` or `locks` ([0028](../decisions/0028-tenancy-
 
 ## 2. The config kinds
 
-*Sources: [0015](../decisions/0015-record-format-and-partition-registry.md) §3; [0029](../decisions/0029-resolver-namespaces.md) §8; [0069](../decisions/0069-synchronized-talk-pages.md) §11.*
+*Sources: [0015](../decisions/0015-record-format-and-partition-registry.md) §3; [0029](../decisions/0029-resolver-namespaces.md) §8; [0069](../decisions/0069-synchronized-talk-pages.md) §11; [0082](../decisions/0082-source-form-and-the-shared-view.md) §5, §5.2.*
 
 ### 2.1 Kinds defined by `scatter-log`
 
@@ -60,7 +62,7 @@ Five kinds are defined by `scatter-log`: two because the log cannot start withou
 
 ### 2.2 The catalogue of Triplespace's kinds
 
-*Sources: [0015](../decisions/0015-record-format-and-partition-registry.md) §3; [0029](../decisions/0029-resolver-namespaces.md) §8; [0069](../decisions/0069-synchronized-talk-pages.md) §11.*
+*Sources: [0015](../decisions/0015-record-format-and-partition-registry.md) §3; [0029](../decisions/0029-resolver-namespaces.md) §8; [0069](../decisions/0069-synchronized-talk-pages.md) §11; [0082](../decisions/0082-source-form-and-the-shared-view.md) §5, §5.2.*
 
 The remaining kinds are Triplespace's, and each product declares its own. The scope column is [0015](../decisions/0015-record-format-and-partition-registry.md) §3's: where its table says nothing, the scope is the one its scope paragraph implies (§1.3).
 
@@ -70,13 +72,13 @@ The remaining kinds are Triplespace's, and each product declares its own. The sc
 | `issuer` | The issuer code | Instance | The issuer registry entry | [0007](../decisions/0007-actor-identity.md) §1 |
 | `namespace` | The namespace number | Tenant | The namespace entry | [0008](../decisions/0008-namespaces-and-document-pages.md) §1 |
 | `keyed-type` | The type name | Instance | The keyed-type entry | [0009](../decisions/0009-keyed-entity-types-and-domain.md) §1 |
-| `role` | The role name | Tenant | The properties bound to a role | [0003](../decisions/0003-statement-ui.md) §7, [0004](../decisions/0004-identity-clusters-and-equivalence.md) §6 |
-| `reconcile` | `default` or a provider code | Tenant, with an instance record for inference (§2.3) | Provider order, an optional `order_by_type` override, link properties, identifier properties for inference, normalizer overrides, reconciliation rules | [0004](../decisions/0004-identity-clusters-and-equivalence.md) §9 |
+| `role` | The role name | Tenant, and an instance-scope record beside the tenant records: the bindings the constraint checker uses for shared rows and the only bindings an adapter reads ([0082](../decisions/0082-source-form-and-the-shared-view.md) §5.2) | The properties bound to a role | [0003](../decisions/0003-statement-ui.md) §7, [0004](../decisions/0004-identity-clusters-and-equivalence.md) §6 |
+| `reconcile` | `default` or a provider code | Instance: `reconcile:default` is the policy record shared rows are computed under; a tenant's record narrows it (§2.3) | Instance: the provider order among registry providers, an optional `order_by_type` override, the tier-2 link properties, the identifier properties for inference, normalizer overrides, the role bindings for shared rows, the languages that populate shared `view.term`, reconciliation rules. Tenant: a hidden provider, a narrower display-language list, link properties and ordering for the tenant's own entity sources, inference off for itself | [0004](../decisions/0004-identity-clusters-and-equivalence.md) §9; [0082](../decisions/0082-source-form-and-the-shared-view.md) §5 |
 | `site` | A setting name | Tenant, and instance for the settings §3.3 lists | Site name, content languages, the recent-changes window, checkpoint cadence, and other scalar settings; the catalogue is §3 | [0006](../decisions/0006-log-integrity-and-erasure.md) §6, [0010](../decisions/0010-site-ui.md) §7 |
 | `group` | The group name | Tenant; a global group, which carries `scope`, is instance ([0028](../decisions/0028-tenancy-policy.md) §8) | A permission group | [0016](../decisions/0016-permissions-and-access-control.md) §3 |
 | `tenant`, `alias` | — | Instance | A tenant; a base-URI change | [0018](../decisions/0018-tenants.md) §3, §9 |
 | `primary` | `primary` | Instance | The primary tenant's slug and, for a transfer, the offer it accepts; one current record | [0046](../decisions/0046-primary-tenant.md) §2 |
-| `providers` | `list` | Tenant | The providers whose graphs contribute to this tenant's resolved view and search; the default is Wikidata | [0018](../decisions/0018-tenants.md) §3, §5 |
+| `providers` | `list` | Tenant | The providers whose graphs contribute to this tenant's view and search, a selection from the instance's registry providers in the instance's order: the list narrows what the tenant reads and never reorders it; the default is Wikidata | [0018](../decisions/0018-tenants.md) §3, §5; [0082](../decisions/0082-source-form-and-the-shared-view.md) §5 |
 | `thread-status` | The status name | Tenant | A thread status with its category and order | [0019](../decisions/0019-discussions.md) §6 |
 | `site-alias` | A MediaWiki site ID | Tenant | The host, article path and language of an aliased site | [0026](../decisions/0026-sitelinks.md) §2 |
 | `sitelink-policy` | `deny` (instance), `mode` or `list` (tenant) | Both | Sitelink allow and deny lists | [0026](../decisions/0026-sitelinks.md) §3 |
@@ -91,7 +93,7 @@ The remaining kinds are Triplespace's, and each product declares its own. The sc
 | `consumer-policy` | `list` | Tenant | Which approved consumers may be authorized, and which are auto-approved | [0025](../decisions/0025-oauth-server.md) §2 |
 | `tag` | The tag name | Tenant | A user-defined change tag, its description, whether it is active, and the group that may apply it | [0030](../decisions/0030-edit-filters.md) §5 |
 | `category-mapping` | The mapping name | Tenant | A category name or pattern, and the page statement its members get | [0038](../decisions/0038-page-metadata-and-categories.md) §5 |
-| `page-repo` | The repository name | Tenant or instance | A page repository, its kind (`tenant` or `mediawiki`), provider, served namespaces, mode, `shadowed`, `titles`, cache lifetime, events, licence, display name and `talk` (default `link`, [0069](../decisions/0069-synchronized-talk-pages.md) §1). Replaces `template-repo` | [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §1 |
+| `page-repo` | The repository name | Instance, one per provider | A page repository, its kind (`tenant` or `mediawiki`), provider, served namespaces, mode, `titles`, events, licence and display name. A tenant selects repositories with `pages.repos` (§3.2), whose entries carry the tenant's own `shadowed`, `talk` (default `link`, [0069](../decisions/0069-synchronized-talk-pages.md) §1) and `cache_ttl` per repository (§3.5). Replaces `template-repo` | [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §1 |
 | `reports` | `default` or a tenant slug | Instance | Which reports run as batch, their mirror-graph widenings, the batch schedule and the row limit; written with `ts-config` at the farm base | [0047](../decisions/0047-special-pages.md) §4.3 |
 | `extraction` | The source name | Tenant | An extraction source: its repository, pages, extractors, mappings, line settings, page subject and reference properties | [0071](../decisions/0071-derived-statements-from-mirrored-pages.md) §2 |
 | `template-mapping` | The mapping name | Tenant | A template, conditions, subject, match keys, label and statements | [0072](../decisions/0072-template-mappings.md) §2 |
@@ -102,11 +104,13 @@ The remaining kinds are Triplespace's, and each product declares its own. The sc
 
 A **file repository** is also a `config` record, of kind `file-repo`, keyed `file-repo:{name}`, either in a tenant's `config` or in the instance `config`, where a tenant refers to it by name; it can be supplied by a tenancy template ([0039](../decisions/0039-files-and-media.md) §11, in [12](12-files-and-media.md)).
 
-### 2.3 The `reconcile` record
+### 2.3 The `reconcile` record is the instance's policy record
 
-*Sources: [0015](../decisions/0015-record-format-and-partition-registry.md) §3.*
+*Sources: [0015](../decisions/0015-record-format-and-partition-registry.md) §3; [0082](../decisions/0082-source-form-and-the-shared-view.md) §5, §5.2.*
 
-`reconcile` is tenant configuration: a tenant's record sets provider order, an `order_by_type` override, link properties, normalizer overrides and reconciliation rules, and may switch inference off for itself. The identifier properties that drive tier-3 inference are instance configuration, the instance `reconcile` record, so tier-3 links stay instance-wide; a tenant's `reconcile` may not add inference properties. The operations the record governs are in [04](04-entities-and-identifiers.md).
+The instance `reconcile:default` record is the **policy record** under which the shared rows (`tenant = ''`) of every `view` table are computed ([03](03-storage-caches-and-search.md)). It holds, for shared rows, the provider order among registry providers, an `order_by_type` override, the tier-2 link properties, the identifier properties that drive tier-3 inference, the normalizer overrides, the reconciliation rules, the role bindings the constraint checker and the adapters read (the instance-scope `role` record of §2.2), and the languages that populate shared `view.term` (`entities.term_languages`, §3.2). Each shared row names the policy record it was computed under, so that resolution profiles, one shared view per policy record, can be added later by adding records and rebuilding a projection, with no change to the log; only `default` exists.
+
+**A tenant's `reconcile` record narrows; it does not reorder.** A tenant may hide a provider in its own view and API, restrict its own display languages, switch inference off for itself, and add link properties and ordering for its own entity sources, whose graphs are read per tenant in any case ([05](05-providers-and-ingest.md)). It may not reorder shared providers, change a shared normalizer, add inference properties or rebind a shared role; a tenant-scope write that tries is refused with `ts-instance-policy`, and the tenancy presets say so ([08](08-tenants-and-instances.md)). The operations the record governs are in [04](04-entities-and-identifiers.md).
 
 ### 2.4 ACLs are not config kinds
 
@@ -116,7 +120,7 @@ ACLs were first listed as a config kind. Under [0023](../decisions/0023-moderati
 
 ## 3. The settings catalogue
 
-*Sources: [0015](../decisions/0015-record-format-and-partition-registry.md) §3; [0042](../decisions/0042-template-expansion-and-parsoid.md) §2; [0069](../decisions/0069-synchronized-talk-pages.md) §11; [0075](../decisions/0075-mcp-server.md) §6; [0077](../decisions/0077-special-version.md) §13.*
+*Sources: [0015](../decisions/0015-record-format-and-partition-registry.md) §3; [0042](../decisions/0042-template-expansion-and-parsoid.md) §2; [0069](../decisions/0069-synchronized-talk-pages.md) §11; [0075](../decisions/0075-mcp-server.md) §6; [0077](../decisions/0077-special-version.md) §13; [0082](../decisions/0082-source-form-and-the-shared-view.md) §6; [0083](../decisions/0083-write-path-in-three-tiers.md) §3.*
 
 ### 3.1 Four places a setting can live
 
@@ -127,151 +131,157 @@ A named setting of the form `something.something` is one of four things, and the
 - A **`site` setting**: a `config` record of kind `site` whose code is the setting name (§2.2). Most are a tenant's (§3.2); a few are the instance's, written with `ts-config` at the farm base (§3.3). A record that breaks a requirement is refused when it is written, as any invalid `site` record is.
 - A **tenancy switch**: a `config` record of kind `tenancy` in the instance `config`, with preset values (§3.4; the presets are in [08](08-tenants-and-instances.md)).
 - A **field of another config record** (§3.5): `mirror.set` on a `page-repo`, `lines.identifiers` on an `extraction`, and the like.
-- **Deployment configuration** (§3.6): read by `figment` from file and environment, never a log record, as the Postgres and OpenSearch addresses are.
+- **Deployment configuration** (§3.6): read by `figment` from file and environment, never a log record, as the Postgres and OpenSearch addresses are. Pool sizes, concurrency caps and intervals are deployment configuration, never `site` records: how many thumbnails render at once or how often a batch file is written is a property of the machine, not of a wiki.
 
 A dotted setting key an ADR names without saying which `config` holds it is a tenant `site` setting; the catalogue marks the keys this rule settles as "`site` (by rule, §3.1)".
+
+**Every tenant setting has a bound**, the "Bound" column of §3.2, which says who has the last word:
+
+- **`tenant`**: the tenant's record is the value, and the instance can only provision or lock it through a template (§1.4).
+- **`tenant ≤ instance ceiling`**: the tenant's record is the value up to a ceiling the instance sets as a tenancy switch (§3.4), and a record above the ceiling is refused. `wikitext.ceiling` is the switch for the `wikitext.*` settings; a budget or limit (`projections.sync_budget`, `projections.sync_time`, `scopes.max_members`, `sprints.max_tasks`, `query.max_results`, `query.timeout`, `schemas.max_bound`) is capped by a switch of the setting's own name, whose preset value is the largest a tenant may set; and a list a tenant may only narrow (`entities.term_languages`) has the instance's list as its ceiling.
+- **`instance`**: the setting exists once, in the instance `config` (§3.3), and a tenant-scope record of that name is refused with `ts-instance-policy` (§2.3).
 
 Preference keys, which an account owns, are listed apart in §3.7 because they share the dotted form and are not settings.
 
 ### 3.2 Tenant `site` settings
 
-*Sources: [0015](../decisions/0015-record-format-and-partition-registry.md) §3; [0042](../decisions/0042-template-expansion-and-parsoid.md) §2; [0069](../decisions/0069-synchronized-talk-pages.md) §11; [0075](../decisions/0075-mcp-server.md) §6; [0081](../decisions/0081-recovery-keys-and-continuations.md) §9.*
+*Sources: [0015](../decisions/0015-record-format-and-partition-registry.md) §3; [0042](../decisions/0042-template-expansion-and-parsoid.md) §2; [0069](../decisions/0069-synchronized-talk-pages.md) §11; [0075](../decisions/0075-mcp-server.md) §6; [0081](../decisions/0081-recovery-keys-and-continuations.md) §9; [0082](../decisions/0082-source-form-and-the-shared-view.md) §6; [0083](../decisions/0083-write-path-in-three-tiers.md) §3.*
 
-Each row cites the ADR section that defines the setting. "Scope" repeats what that section says; "`site` (by rule, §3.1)" means the section names the setting without saying which `config` holds it, and the rule of §3.1 makes it a tenant `site` setting. A default of "—" means the section gives none.
+Each row cites the ADR section that defines the setting. "Scope" repeats what that section says; "`site` (by rule, §3.1)" means the section names the setting without saying which `config` holds it, and the rule of §3.1 makes it a tenant `site` setting. "Bound" is §3.1's: `tenant`, `tenant ≤ instance ceiling`, or `instance`. A default of "—" means the section gives none.
 
-| Setting | Scope | Values | Default | Meaning | Source |
-|---|---|---|---|---|---|
-| `blocks.max_rows` | `site` | integer | 200 | Bounds every list a block renders | [0062](../decisions/0062-workspaces.md) §3 |
-| `blocks.max_per_page` | `site` (by rule, §3.1) | integer | 20 | Bounds blocks per render | [0062](../decisions/0062-workspaces.md) §3 |
-| `blocks.refresh_debounce` | `site` (by rule, §3.1) | duration | 60 s | Coalesces the refresh of pages whose block dependencies changed | [0062](../decisions/0062-workspaces.md) §3 |
-| `category.collation` | `site` | a collation | MediaWiki's `uppercase` | Sort order of a category's members | [0038](../decisions/0038-page-metadata-and-categories.md) §4 |
-| `content.licence` | `site` | a licence | unset; a tenant with no licence set is warned, not refused | The tenant's content licence, checked against a repository's when it is added to `pages.repos` and on a push | [0053](../decisions/0053-mirrored-pages.md) §9; [0068](../decisions/0068-merging-with-upstream.md) §3; [0076](../decisions/0076-dataset-publication.md) §4 |
-| `discussion.share` | `site` | off, on | on under `discussion.cross_tenant = read-only` | Whether a provider tenant's threads are shown read-only on reading tenants | [0028](../decisions/0028-tenancy-policy.md) §6 |
-| `dumps.keep` | `site` (by rule, §3.1) | integer | 7 | Previous dumps of each format kept per scope | [0076](../decisions/0076-dataset-publication.md) §1 |
-| `entities.mirror` | `site`, per provider and entity type | `off`, `on-demand`, `linked`, `all` | `linked`; for an entity source, `linked` with an `api` and `off` without | What of a provider's entities is mirrored; properties are always at least `on-demand` | [0070](../decisions/0070-shallow-entity-mirroring.md) §2.1; [0078](../decisions/0078-entity-sources.md) §4 |
-| `entities.closure` | `site`, per provider | a property list | 0070 §2.3's list for Wikidata; empty for an entity source | Properties whose values are fetched transitively from every mirrored entity | [0070](../decisions/0070-shallow-entity-mirroring.md) §2.3; [0078](../decisions/0078-entity-sources.md) §4 |
-| `entities.closure_depth` | `site` | integer | 6 | Depth of the closure | [0070](../decisions/0070-shallow-entity-mirroring.md) §2.3 |
-| `entities.label_ttl` | `site` | duration | 7 days | Lifetime of the label cache | [0070](../decisions/0070-shallow-entity-mirroring.md) §4 |
-| `entities.term_languages` | `site` | language list | the tenant's content languages, `mul` and `en` | Languages in which a mirrored entity's terms populate `view.term` | [0070](../decisions/0070-shallow-entity-mirroring.md) §6 |
-| `export.from_namespaces` | `site` | off, on | — (MediaWiki's `$wgExportFromNamespaces`) | Allows `addns` on `Special:Export` | [0047](../decisions/0047-special-pages.md) §8 |
-| `export.history` | `site` (by rule, §3.1) | off, on | on | Full history on export (`$wgExportAllowHistory`) | [0047](../decisions/0047-special-pages.md) §8 |
-| `export.max_history` | `site` (by rule, §3.1) | integer | 1,000 | Revisions per page exported (`$wgExportMaxHistory`) | [0047](../decisions/0047-special-pages.md) §8 |
-| `export.max_bytes` | `site` (by rule, §3.1) | size | — | Cap on file contents in an export; over it, URLs are written | [0047](../decisions/0047-special-pages.md) §8 |
-| `export.sync_revisions` | `site` (by rule, §3.1) | integer | 5,000 revisions | An export up to this size streams | [0047](../decisions/0047-special-pages.md) §8 |
-| `federation.accept_rfc9421`, `federation.accept_fep8b32` | `site` | off, on | off | Accept RFC 9421 signatures and FEP-8b32 proofs inbound | [0022](../decisions/0022-federation.md) §8 |
-| `federation.clock_skew` | `site` (by rule, §3.1) | duration | twelve hours | A request whose `Date` lies outside ± this is rejected | [0022](../decisions/0022-federation.md) §8 |
-| `federation.replay_window` | `site` (by rule, §3.1) | duration | seven days | How long an accepted activity's `id` is kept in `ops.ap_inbox_seen` | [0022](../decisions/0022-federation.md) §8 |
-| `federation.talk_pages` | `site`, per namespace | namespaces | — | Which talk pages (and boards) are `as:Group` actors | [0022](../decisions/0022-federation.md) §6; [0049](../decisions/0049-boards.md) §10 |
-| `feeds.related_limit` | `site` | integer | 5,000 | Members past which a related-changes relation is truncated | [0020](../decisions/0020-change-feeds.md) §2 |
-| `files.commons_repo` | tenant `site` | a repository name | the one named `commons` if configured | The repository that resolves `commonsMedia` values | [0039](../decisions/0039-files-and-media.md) §12 |
-| `files.max_size` | `site` (by rule, §3.1) | size | — | Upload size limit (`file-too-large`) | [0039](../decisions/0039-files-and-media.md) §5 |
-| `files.orphan_grace` | `site` (by rule, §3.1) | duration | 24 hours | Grace before the orphan sweep deletes an unreferenced object | [0039](../decisions/0039-files-and-media.md) §3 |
-| `files.repos` | tenant `site` | repository names | — | The file repositories a tenant uses, in lookup order | [0039](../decisions/0039-files-and-media.md) §11 |
-| `files.share` | `site` | off, on | — | Whether this tenant's files may serve other tenants as a `tenant` repository; under `providers.between_tenants = operator` only the operator can set it | [0039](../decisions/0039-files-and-media.md) §11 |
-| `files.stash_ttl` | `site` (by rule, §3.1) | duration | 48 hours | Expiry of a stash entry | [0039](../decisions/0039-files-and-media.md) §5 |
-| `files.thumb_widths` | `site` (by rule, §3.1) | widths | — | Requested widths are rounded up to the next entry | [0039](../decisions/0039-files-and-media.md) §6 |
-| `files.thumb_concurrency` | `site` (by rule, §3.1) | integer | — | Size of the thumbnail rendering pool | [0039](../decisions/0039-files-and-media.md) §6 |
-| `fork.allow` | `site` | off, on | `on` where `pages.repos` is set | Whether pages may be forked | [0054](../decisions/0054-forking-a-mirrored-page.md) §8 |
-| `fork.dependencies` | `site` | `copy`, `inherit` | `copy` | Whether a fork copies its templates or leaves them to the repository | [0054](../decisions/0054-forking-a-mirrored-page.md) §4 |
-| `fork.max_dependencies` | `site` (by rule, §3.1) | integer | 2,000 | Stops a fork job that would copy more pages | [0054](../decisions/0054-forking-a-mirrored-page.md) §4 |
-| `fork.history_source` | `site` | `chest:{path}`, `api` | `api` | Where a fork's history is seeded from | [0054](../decisions/0054-forking-a-mirrored-page.md) §3 |
-| `fork.max_revisions` | `site` | integer | 20,000 | Revisions seeded with content; beyond it, metadata only | [0054](../decisions/0054-forking-a-mirrored-page.md) §3 |
-| `fork.refollow` | `site` | `ask`, `auto`, `never` | `ask` | Whether a fork that no longer differs from upstream is offered or automatically re-followed | [0068](../decisions/0068-merging-with-upstream.md) §5 |
-| `fork.refollow_after` | `site` (by rule, §3.1) | duration | 30 days | Under `auto`, how long a fork must equal upstream before a job deletes it | [0068](../decisions/0068-merging-with-upstream.md) §5 |
-| `fork.talk` | `site` | `follow`, `fork` | `follow` | Default choice for a fork's talk page | [0069](../decisions/0069-synchronized-talk-pages.md) §7, §11 |
-| `ingest.hash_mismatch` | `site` | `keep`, `fail` | `keep` | Whether a snak or reference hash that differs from upstream's is kept or aborts the job | [0006](../decisions/0006-log-integrity-and-erasure.md) §2 |
-| `integrity.witnesses` | `site` | list of witnesses, each an endpoint URL and a signed-note verifier key | empty | C2SP tlog-witness endpoints that cosign the tenant's checkpoints ([01](01-log-and-records.md) §4.3) | [0081](../decisions/0081-recovery-keys-and-continuations.md) §6 |
-| `integrity.witness_partitions` | `site` | partition names | `["config"]` | Which partitions' checkpoints are submitted to the witnesses | [0081](../decisions/0081-recovery-keys-and-continuations.md) §6 |
-| `login.password` | `site` | off, on | on, set by `instance create` | Whether the built-in `password` issuer accepts logins | [0007](../decisions/0007-actor-identity.md) §3 |
-| `lua.client_site` | `site` | a site ID with a site alias | the tenant's own alias | Which site Lua's Wikibase client is, and so which item a page is connected to | [0043](../decisions/0043-lua-modules.md) §9 |
-| `lua.ids` | `site` | map from type letter to `local` or a provider code | empty: every letter means `local` | What a bare one-letter ID means in Lua | [0043](../decisions/0043-lua-modules.md) §8 |
-| `lua.unheld_ttl` | `site` (by rule, §3.1) | duration | 10 minutes | Expiry of a recorded miss on an unheld entity | [0043](../decisions/0043-lua-modules.md) §11 |
-| `mcp.enabled` | `site` | off, on | off | Serve MCP at `{base}/mcp` | [0075](../decisions/0075-mcp-server.md) §1, §6 |
-| `mcp.scope` | `site` | a scope title | none: the tools range over the resolved view | The scope the tools search within by default | [0075](../decisions/0075-mcp-server.md) §1, §6 |
-| `mcp.scopes` | `site` | scope titles | — | Other scopes a client may select per session | [0075](../decisions/0075-mcp-server.md) §1, §6 |
-| `mcp.facets` | `site` | properties with descriptions | — | The properties offered as filters and facets | [0075](../decisions/0075-mcp-server.md) §3, §6 |
-| `mcp.instructions` | `site` | text | — | The server's instructions at initialization | [0075](../decisions/0075-mcp-server.md) §3, §6 |
-| `mcp.max_results` | `site` | integer | 200 | Results per call | [0075](../decisions/0075-mcp-server.md) §5, §6 |
-| `media.base_url` | tenant `site` | URL | `{tenant base}/media` | The origin files are served from | [0039](../decisions/0039-files-and-media.md) §7 |
-| `mediainfo.mirror` | `site` | `off`, `on-demand`, `linked`, `all` | `on-demand` | `entities.mirror` for Wikidata's type `M`, under its own name for compatibility | [0065](../decisions/0065-mediainfo-captions-and-commons.md) §2; [0070](../decisions/0070-shallow-entity-mirroring.md) §2.1 |
-| `moderation.delete_group` | `site` | a group | `sysop` | The default deletion group | [0023](../decisions/0023-moderation.md) §1 |
-| `moderation.suppress_group` | `site` | a group | `suppress` | The default suppression group | [0023](../decisions/0023-moderation.md) §1 |
-| `notifications.retention` | `site` | duration | 90 days; read rows sooner | When inbox rows are deleted | [0021](../decisions/0021-notifications.md) §3 |
-| `notifications.fediverse_domains` | `site` | allow and deny lists | — | Domains fediverse notifications may go to | [0021](../decisions/0021-notifications.md) §8 |
-| `notifications.fediverse_interval` | `site` (by rule, §3.1) | duration | five minutes | Bundling interval for fediverse delivery | [0021](../decisions/0021-notifications.md) §5 |
-| `nuke.confirm_threshold` | `site` | integer | 500 | Items above which `Special:Nuke` asks for the target's name | [0047](../decisions/0047-special-pages.md) §7 |
-| `oauth.access_ttl` | `site` | duration | four hours | Access token lifetime | [0025](../decisions/0025-oauth-server.md) §1 |
-| `oauth.refresh_ttl` | `site` | duration | a year unused | Refresh token lifetime | [0025](../decisions/0025-oauth-server.md) §1 |
-| `pages.repos` | `site` | repository names | empty | Page repositories, in inheritance order; replaces `wikitext.template_repos` | [0042](../decisions/0042-template-expansion-and-parsoid.md) §2; [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §1 |
-| `pages.share` | `site` | `off`, `on` | `off` | Whether this tenant's pages may serve other tenants as a `tenant` repository; replaces `wikitext.share` | [0042](../decisions/0042-template-expansion-and-parsoid.md) §2; [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §1 |
-| `preferences.defaults` | `site` | map | the registry's defaults | An instance's own defaults for registered preference keys | [0027](../decisions/0027-preferences-and-portability.md) §1 |
-| `projections.sync_budget` | `site` | rows | 1,000 rows | Fan-out rows applied inline before the rest is queued | [0013](../decisions/0013-postgres-storage.md) §7 |
-| `projections.sync_time` | `site` (by rule, §3.1) | duration | 250 ms | Fan-out time applied inline, whichever comes first | [0013](../decisions/0013-postgres-storage.md) §7 |
-| `proposals.adoption_grace` | `site` (by rule, §3.1) | duration | 7 days | After which a partly carried proposal is `partly adopted` | [0067](../decisions/0067-proposals.md) §5 |
-| `proposals.direct_edit_lines` | `site` (by rule, §3.1) | integer | 50 | Lines a clean merge may change and still push to the article itself | [0068](../decisions/0068-merging-with-upstream.md) §3 |
-| `proposals.max_items` | `site` (by rule, §3.1) | integer | 500 | Bounds a proposal payload | [0067](../decisions/0067-proposals.md) §8 |
-| `proposals.push` | `site` | off, on | `off`; refused until the instance implements pushing | Whether proposals may be pushed upstream | [0067](../decisions/0067-proposals.md) §6 |
-| `query.enabled` | `site` | `false`, `true` | `false` | Turns the query service on | [0059](../decisions/0059-query-service.md) §1 |
-| `query.isolation` | a tenancy switch (§3.4); a tenant `config` setting overrides | `dataset`, `store` | `isolated` = `store`; the shared presets `dataset` | One shared store with the dataset fixed per tenant, or an embedded store per tenant; `store` with `remote` is refused only on a farm, since on a single-tenant instance the remote store holds one tenant's graphs and satisfies `store` | [0059](../decisions/0059-query-service.md) §4 |
-| `query.cache_ttl` | `site` (by rule, §3.1) | duration | 60 s | L2 lifetime of a `GET /sparql` response and of a query page's results | [0059](../decisions/0059-query-service.md) §6; [0063](../decisions/0063-query-namespace.md) §5 |
-| `query.max_concurrent` | instance-wide | integer | 8 | Concurrent queries, beyond which a query waits up to its own timeout | [0059](../decisions/0059-query-service.md) §6 |
-| `query.max_lag` | `site` (by rule, §3.1) | duration | 1 h | Lag above which the service is unavailable | [0059](../decisions/0059-query-service.md) §3 |
-| `query.max_results` | `site` (by rule, §3.1) | integer | 100,000 solutions | Bounds every query | [0059](../decisions/0059-query-service.md) §6 |
-| `query.timeout` | `site` (by rule, §3.1) | duration | 30 s | Bounds every query, raw or compiled | [0059](../decisions/0059-query-service.md) §5, §6 |
-| `queries.max_params` | `site` (by rule, §3.1) | integer | 10 | Parameters of a query page | [0063](../decisions/0063-query-namespace.md) §4 |
-| `queries.max_scope_values` | `site` (by rule, §3.1) | integer | 5,000 | Members a scope may bind as `VALUES` | [0063](../decisions/0063-query-namespace.md) §4 |
-| `rc.max_age` | `site` | duration | 90 days (`$wgRCMaxAge`) | The recent-changes window | [0010](../decisions/0010-site-ui.md) §7; [0023](../decisions/0023-moderation.md) §6 |
-| `reports.term_languages` | `site` (by rule, §3.1) | languages | the content language | Languages the missing-label and missing-description reports cover | [0047](../decisions/0047-special-pages.md) §4.4 |
-| `retention.api_max_entities` | `site` | integer | 10,000 | A bulk `retain` over this is refused for `api` unless forced | [0015](../decisions/0015-record-format-and-partition-registry.md) §4 |
-| `retention.auto_properties` | `site` | off, on | on | Automatic `retain` of mirrored properties a tenant uses | [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §6 |
-| `repo.concurrency` | `site` (by rule, §3.1) | integer | 4 | Per-repository concurrency cap on the upstream client | [0053](../decisions/0053-mirrored-pages.md) §1 |
-| `repo.fetches_per_minute` | `site` (by rule, §3.1) | integer | 600 | Per-repository fetch budget | [0053](../decisions/0053-mirrored-pages.md) §1 |
-| `repo.debounce` | `site` (by rule, §3.1) | duration | 30 seconds | Per-page debounce of repository events | [0053](../decisions/0053-mirrored-pages.md) §6 |
-| `repo.mirror_grace` | `site` (by rule, §3.1) | duration | 30 days | A mirrored file unused this long is tombstoned | [0039](../decisions/0039-files-and-media.md) §11 |
-| `schemas.max_depth` | `site` (by rule, §3.1) | integer | 2 | Shape references followed in validation | [0064](../decisions/0064-entityschema-and-validation.md) §4 |
-| `schemas.max_triples` | `site` (by rule, §3.1) | integer | 10,000 | Triple budget per validation | [0064](../decisions/0064-entityschema-and-validation.md) §4 |
-| `schemas.source` | tenant | `query` | the resolved JSON in `view` | Validate against the query store instead | [0064](../decisions/0064-entityschema-and-validation.md) §4 |
-| `schemas.recheck` | `site` (by rule, §3.1) | schedule | daily | Periodic re-validation job | [0064](../decisions/0064-entityschema-and-validation.md) §5 |
-| `schemas.max_subjects` | `site` (by rule, §3.1) | integer | `scopes.max_members` | Bounds a schema's materialized report | [0064](../decisions/0064-entityschema-and-validation.md) §5 |
-| `scopes.max_members` | `site` | integer | 100,000 | Bound on a scope's materialized members | [0060](../decisions/0060-scopes.md) §4 |
-| `scopes.max_depth` | `site` (by rule, §3.1) | integer | 8 | Nesting of scope operands | [0060](../decisions/0060-scopes.md) §4 |
-| `scopes.max_ids` | `site` (by rule, §3.1) | integer | 5,000 | `ids`, `include` and `exclude` together | [0060](../decisions/0060-scopes.md) §4 |
-| `scopes.refresh` | `site` (by rule, §3.1) | duration | 15 min | Refresh interval of `query` scopes | [0060](../decisions/0060-scopes.md) §5 |
-| `scopes.facet_limit` | `site` (by rule, §3.1) | integer | 1,000,000 | Members below which the builder shows facets | [0062](../decisions/0062-workspaces.md) §5 |
-| `search.inherited` | `site` | off, on | `on` where a mirrored repository is listed | Whether `pages-{repo}` indexes are searched beside the tenant's | [0053](../decisions/0053-mirrored-pages.md) §7 |
-| `signing.require_for_bot` | `site` | off, on | off: a signature is never required by default | Require a client signature for the `bot` group | [0024](../decisions/0024-subsidiary-accounts.md) §4 |
-| `site.landing_text` | `site` (by rule, §3.1) | text | — | Text on a private tenant's landing page | [0056](../decisions/0056-security-model.md) §13 |
-| `sitelinks.schemes` | `site` | schemes | `https` and `http` | Allowed sitelink URL schemes | [0026](../decisions/0026-sitelinks.md) §1 |
-| `sprints.max_rules` | `site` (by rule, §3.1) | integer | 20 | Rules per sprint | [0061](../decisions/0061-sprints-and-tasks.md) §4 |
-| `sprints.max_tasks` | `site` | integer | 100,000 | Tasks materialized per sprint | [0061](../decisions/0061-sprints-and-tasks.md) §4 |
-| `sprints.max_claims` | `site` (by rule, §3.1) | integer | 10 | Live claims an actor may hold on a sprint | [0061](../decisions/0061-sprints-and-tasks.md) §5 |
-| `sprints.claim_ttl` | `site` (by rule, §3.1) | duration | 7 days | A claim expires after this without a `release` | [0061](../decisions/0061-sprints-and-tasks.md) §5 |
-| `sprints.cache_ttl` | `site` (by rule, §3.1) | duration | 30 s | L1 lifetime of the `sp:` key | [0061](../decisions/0061-sprints-and-tasks.md) §11 |
-| `subsidiaries.name_pattern` | `site` | pattern | none | Required pattern for subsidiary names | [0024](../decisions/0024-subsidiary-accounts.md) §2 |
-| `subsidiaries.max_per_account` | `site` | integer | 10 | Subsidiaries per operator | [0024](../decisions/0024-subsidiary-accounts.md) §2 |
-| `subsidiaries.request_page` | `site` | a page | — | Where "Request bot approval" links | [0024](../decisions/0024-subsidiary-accounts.md) §9 |
-| `subsidiaries.oauth_requires_approval` | `site` | `true`, `false` | `true` | Whether an OAuth-created subsidiary is pending | [0025](../decisions/0025-oauth-server.md) §3 |
-| `subsidiaries.pending_ttl` | `site` (by rule, §3.1) | duration | 90 days | A subsidiary still unapproved after this is retired | [0025](../decisions/0025-oauth-server.md) §3 |
-| `tables.max_rows` | `site` | integer | 5,000, as `feeds.related_limit` | Rows of a table | [0045](../decisions/0045-table-content-model.md) §4 |
-| `tables.max_columns` | `site` (by rule, §3.1) | integer | 50 | Columns of a table | [0045](../decisions/0045-table-content-model.md) §4 |
-| `talk.upstream_post` | `site` | off, on | `on` where any repository has `talk = sync` | Whether replies and new sections may be sent upstream at all | [0069](../decisions/0069-synchronized-talk-pages.md) §11 |
-| `talk.new_thread_default` | `site` | `here`, upstream | `here` | Which destination the new-thread form selects | [0069](../decisions/0069-synchronized-talk-pages.md) §6, §11 |
-| `talk.upstream_audit_days` | `site` | days | 90 | How long a failed upstream send's text is kept | [0069](../decisions/0069-synchronized-talk-pages.md) §5, §11 |
-| `templatestyles.max_bytes` | `site` | size | 100 KB (`$wgTemplateStylesMaxStylesheetSize`) | Largest TemplateStyles sheet | [0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §2 |
-| `thread.max_attachments` | `site` | integer | 5 | Home and listings of a thread together | [0049](../decisions/0049-boards.md) §5 |
-| `thread.max_pinned` | `site` | integer | 3 | Pinned threads per page | [0049](../decisions/0049-boards.md) §6; [0069](../decisions/0069-synchronized-talk-pages.md) §4, §11 |
-| `ui.theme` | `site`; the instance or a tenant | Codex token values | Codex's own values | The theme a site is served with; refused when its colours fail WCAG 2.1 AA contrast | [0034](../decisions/0034-frontend-stack.md) §1 |
-| `updates.retention` | `site` | duration | 30 days | Window of `view.rdf_delta` rows | [0032](../decisions/0032-sparql-update-stream.md) §3 |
-| `updates.batch_interval` | `site` (by rule, §3.1) | duration | one hour | How often update batch files are written | [0032](../decisions/0032-sparql-update-stream.md) §6 |
-| `upstream.retire_adopted` | `site` | `true`, `false` | `true` | Retire a local assertion when upstream adopts it | [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §7; [0067](../decisions/0067-proposals.md) §5 |
-| `wikitext.expansion` | `site` | `off`, `on` | `off` | Expand templates and parser functions; enables Template and Template talk | [0042](../decisions/0042-template-expansion-and-parsoid.md) §2 |
-| `wikitext.lua` | `site` | `off`, `on` | `off` | Lua modules. Requires `wikitext.expansion = on`; capped by `wikitext.ceiling` | [0042](../decisions/0042-template-expansion-and-parsoid.md) §2; [0043](../decisions/0043-lua-modules.md) §1 |
-| `wikitext.renderer` | `site` | `builtin`, `parsoid` | `builtin` | Which stage-2 renderer serves HTML. `parsoid` requires expansion on and a Parsoid service on the instance | [0042](../decisions/0042-template-expansion-and-parsoid.md) §2 |
-| `wikitext.site_styles` | `site` | a Project-namespace title | — (`Project:Site styles.css` by convention) | The tenant's `sanitized-css` site styles page | [0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §4 |
+| Setting | Scope | Bound | Values | Default | Meaning | Source |
+|---|---|---|---|---|---|---|
+| `blocks.max_rows` | `site` | tenant | integer | 200 | Bounds every list a block renders | [0062](../decisions/0062-workspaces.md) §3 |
+| `blocks.max_per_page` | `site` (by rule, §3.1) | tenant | integer | 20 | Bounds blocks per render | [0062](../decisions/0062-workspaces.md) §3 |
+| `blocks.refresh_debounce` | `site` (by rule, §3.1) | tenant | duration | 60 s | Coalesces the refresh of pages whose block dependencies changed | [0062](../decisions/0062-workspaces.md) §3 |
+| `category.collation` | `site` | tenant | a collation | MediaWiki's `uppercase` | Sort order of a category's members | [0038](../decisions/0038-page-metadata-and-categories.md) §4 |
+| `constraints.scope` | `site` | tenant | `local`, `overlay`, `all` | `local` | Which entities the constraint consumer checks on composition: `local`, the local-graph statements and the entities in the tenant's overlay; `overlay`; or `all`, which is a batch job with progress and never a per-event step ([06](06-statements-and-properties.md)) | [0083](../decisions/0083-write-path-in-three-tiers.md) §3 |
+| `content.licence` | `site` | tenant | a licence | unset; a tenant with no licence set is warned, not refused | The tenant's content licence, checked against a repository's when it is added to `pages.repos` and on a push | [0053](../decisions/0053-mirrored-pages.md) §9; [0068](../decisions/0068-merging-with-upstream.md) §3; [0076](../decisions/0076-dataset-publication.md) §4 |
+| `discussion.share` | `site` | tenant | off, on | on under `discussion.cross_tenant = read-only` | Whether a provider tenant's threads are shown read-only on reading tenants | [0028](../decisions/0028-tenancy-policy.md) §6 |
+| `dumps.keep` | `site` (by rule, §3.1) | tenant | integer | 7 | Previous dumps of each format kept per scope | [0076](../decisions/0076-dataset-publication.md) §1 |
+| `entities.mirror` | `site`, per provider and entity type | tenant | `off`, `on-demand`, `linked`, `all` | `linked`; for an entity source, `linked` with an `api` and `off` without | What of a provider's entities is mirrored; properties are always at least `on-demand` | [0070](../decisions/0070-shallow-entity-mirroring.md) §2.1; [0078](../decisions/0078-entity-sources.md) §4 |
+| `entities.closure` | `site`, per provider | tenant | a property list | 0070 §2.3's list for Wikidata; empty for an entity source | Properties whose values are fetched transitively from every mirrored entity | [0070](../decisions/0070-shallow-entity-mirroring.md) §2.3; [0078](../decisions/0078-entity-sources.md) §4 |
+| `entities.closure_depth` | `site` | tenant | integer | 6 | Depth of the closure | [0070](../decisions/0070-shallow-entity-mirroring.md) §2.3 |
+| `entities.label_ttl` | `site` | tenant | duration | 7 days | Lifetime of the label cache | [0070](../decisions/0070-shallow-entity-mirroring.md) §4 |
+| `entities.term_languages` | `site`; the instance record is the policy's | tenant ≤ instance ceiling | language list | instance: the instance's content languages, `mul` and `en`; tenant: the instance's list | The instance record sets the languages in which a mirrored entity's terms populate the shared rows of `view.term` (§2.3); a tenant's record only narrows the languages its own pages and API display, and never adds a language to the shared rows | [0070](../decisions/0070-shallow-entity-mirroring.md) §6; [0082](../decisions/0082-source-form-and-the-shared-view.md) §6 |
+| `export.from_namespaces` | `site` | tenant | off, on | — (MediaWiki's `$wgExportFromNamespaces`) | Allows `addns` on `Special:Export` | [0047](../decisions/0047-special-pages.md) §8 |
+| `export.history` | `site` (by rule, §3.1) | tenant | off, on | on | Full history on export (`$wgExportAllowHistory`) | [0047](../decisions/0047-special-pages.md) §8 |
+| `export.max_history` | `site` (by rule, §3.1) | tenant | integer | 1,000 | Revisions per page exported (`$wgExportMaxHistory`) | [0047](../decisions/0047-special-pages.md) §8 |
+| `export.max_entity_history` | `site` (by rule, §3.1) | tenant ≤ instance ceiling | integer | 100 | Revisions per entity exported: the per-entity cap, lower than `export.max_history`, under which the export job folds per-revision entity export | [0047](../decisions/0047-special-pages.md) §4, §8 |
+| `export.max_bytes` | `site` (by rule, §3.1) | tenant | size | — | Cap on file contents in an export; over it, URLs are written | [0047](../decisions/0047-special-pages.md) §8 |
+| `export.sync_revisions` | `site` (by rule, §3.1) | tenant | integer | 5,000 revisions | An export up to this size streams | [0047](../decisions/0047-special-pages.md) §8 |
+| `federation.accept_rfc9421`, `federation.accept_fep8b32` | `site` | tenant | off, on | off | Accept RFC 9421 signatures and FEP-8b32 proofs inbound | [0022](../decisions/0022-federation.md) §8 |
+| `federation.clock_skew` | `site` (by rule, §3.1) | tenant | duration | twelve hours | A request whose `Date` lies outside ± this is rejected | [0022](../decisions/0022-federation.md) §8 |
+| `federation.replay_window` | `site` (by rule, §3.1) | tenant | duration | seven days | How long an accepted activity's `id` is kept in `ops.ap_inbox_seen` | [0022](../decisions/0022-federation.md) §8 |
+| `federation.talk_pages` | `site`, per namespace | tenant | namespaces | — | Which talk pages (and boards) are `as:Group` actors | [0022](../decisions/0022-federation.md) §6; [0049](../decisions/0049-boards.md) §10 |
+| `feeds.related_limit` | `site` | tenant | integer | 5,000 | Members past which a related-changes relation is truncated | [0020](../decisions/0020-change-feeds.md) §2 |
+| `files.commons_repo` | tenant `site` | tenant | a repository name | the one named `commons` if configured | The repository that resolves `commonsMedia` values | [0039](../decisions/0039-files-and-media.md) §12 |
+| `files.max_size` | `site` (by rule, §3.1) | tenant | size | — | Upload size limit (`file-too-large`) | [0039](../decisions/0039-files-and-media.md) §5 |
+| `files.orphan_grace` | `site` (by rule, §3.1) | tenant | duration | 24 hours | Grace before the orphan sweep deletes an unreferenced object | [0039](../decisions/0039-files-and-media.md) §3 |
+| `files.repos` | tenant `site` | tenant | repository names | — | The file repositories a tenant uses, in lookup order | [0039](../decisions/0039-files-and-media.md) §11 |
+| `files.share` | `site` | tenant | off, on | — | Whether this tenant's files may serve other tenants as a `tenant` repository; under `providers.between_tenants = operator` only the operator can set it | [0039](../decisions/0039-files-and-media.md) §11 |
+| `files.stash_ttl` | `site` (by rule, §3.1) | tenant | duration | 48 hours | Expiry of a stash entry | [0039](../decisions/0039-files-and-media.md) §5 |
+| `files.thumb_widths` | `site` (by rule, §3.1) | tenant | widths | — | Requested widths are rounded up to the next entry | [0039](../decisions/0039-files-and-media.md) §6 |
+| `fork.allow` | `site` | tenant | off, on | `on` where `pages.repos` is set | Whether pages may be forked | [0054](../decisions/0054-forking-a-mirrored-page.md) §8 |
+| `fork.dependencies` | `site` | tenant | `copy`, `inherit` | `copy` | Whether a fork copies its templates or leaves them to the repository | [0054](../decisions/0054-forking-a-mirrored-page.md) §4 |
+| `fork.max_dependencies` | `site` (by rule, §3.1) | tenant | integer | 2,000 | Stops a fork job that would copy more pages | [0054](../decisions/0054-forking-a-mirrored-page.md) §4 |
+| `fork.history_source` | `site` | tenant | `chest:{path}`, `api` | `api` | Where a fork's history is seeded from | [0054](../decisions/0054-forking-a-mirrored-page.md) §3 |
+| `fork.content_revisions` | `site` | tenant ≤ instance ceiling | integer | 100 | Revisions, counted from the newest, seeded with their text; the rest of the seeded history is metadata only, and dependencies and archives are never seeded with text | [0054](../decisions/0054-forking-a-mirrored-page.md) §3 |
+| `fork.max_revisions` | `site` | tenant | integer | 20,000 | The per-job budget: revisions, with or without text, a seeding job reads before it stops | [0054](../decisions/0054-forking-a-mirrored-page.md) §3 |
+| `fork.refollow` | `site` | tenant | `ask`, `auto`, `never` | `ask` | Whether a fork that no longer differs from upstream is offered or automatically re-followed | [0068](../decisions/0068-merging-with-upstream.md) §5 |
+| `fork.refollow_after` | `site` (by rule, §3.1) | tenant | duration | 30 days | Under `auto`, how long a fork must equal upstream before a job deletes it | [0068](../decisions/0068-merging-with-upstream.md) §5 |
+| `fork.talk` | `site` | tenant | `follow`, `fork` | `follow` | Default choice for a fork's talk page | [0069](../decisions/0069-synchronized-talk-pages.md) §7, §11 |
+| `ingest.hash_mismatch` | `site` | tenant | `keep`, `fail` | `keep` | Whether a snak or reference hash that differs from upstream's is kept or aborts the job | [0006](../decisions/0006-log-integrity-and-erasure.md) §2 |
+| `integrity.witnesses` | `site` | tenant | list of witnesses, each an endpoint URL and a signed-note verifier key | empty | C2SP tlog-witness endpoints that cosign the tenant's checkpoints ([01](01-log-and-records.md) §4.3) | [0081](../decisions/0081-recovery-keys-and-continuations.md) §6 |
+| `integrity.witness_partitions` | `site` | tenant | partition names | `["config"]` | Which partitions' checkpoints are submitted to the witnesses | [0081](../decisions/0081-recovery-keys-and-continuations.md) §6 |
+| `login.password` | `site` | tenant | off, on | on, set by `instance create` | Whether the built-in `password` issuer accepts logins | [0007](../decisions/0007-actor-identity.md) §3 |
+| `lua.client_site` | `site` | tenant | a site ID with a site alias | the tenant's own alias | Which site Lua's Wikibase client is, and so which item a page is connected to | [0043](../decisions/0043-lua-modules.md) §9 |
+| `lua.ids` | `site` | tenant | map from type letter to `local` or a provider code | empty: every letter means `local` | What a bare one-letter ID means in Lua | [0043](../decisions/0043-lua-modules.md) §8 |
+| `lua.unheld_ttl` | `site` (by rule, §3.1) | tenant | duration | 10 minutes | Expiry of a recorded miss on an unheld entity | [0043](../decisions/0043-lua-modules.md) §11 |
+| `mcp.enabled` | `site` | tenant | off, on | off | Serve MCP at `{base}/mcp` | [0075](../decisions/0075-mcp-server.md) §1, §6 |
+| `mcp.scope` | `site` | tenant | a scope title | none: the tools range over the resolved view | The scope the tools search within by default | [0075](../decisions/0075-mcp-server.md) §1, §6 |
+| `mcp.scopes` | `site` | tenant | scope titles | — | Other scopes a client may select per session | [0075](../decisions/0075-mcp-server.md) §1, §6 |
+| `mcp.facets` | `site` | tenant | properties with descriptions | — | The properties offered as filters and facets | [0075](../decisions/0075-mcp-server.md) §3, §6 |
+| `mcp.instructions` | `site` | tenant | text | — | The server's instructions at initialization | [0075](../decisions/0075-mcp-server.md) §3, §6 |
+| `mcp.max_results` | `site` | tenant | integer | 200 | Results per call | [0075](../decisions/0075-mcp-server.md) §5, §6 |
+| `media.base_url` | tenant `site` | tenant | URL | `{tenant base}/media` | The origin files are served from | [0039](../decisions/0039-files-and-media.md) §7 |
+| `mediainfo.mirror` | `site` | tenant | `off`, `on-demand`, `linked`, `all` | `on-demand` | `entities.mirror` for Wikidata's type `M`, under its own name for compatibility | [0065](../decisions/0065-mediainfo-captions-and-commons.md) §2; [0070](../decisions/0070-shallow-entity-mirroring.md) §2.1 |
+| `moderation.delete_group` | `site` | tenant | a group | `sysop` | The default deletion group | [0023](../decisions/0023-moderation.md) §1 |
+| `moderation.suppress_group` | `site` | tenant | a group | `suppress` | The default suppression group | [0023](../decisions/0023-moderation.md) §1 |
+| `notifications.retention` | `site` | tenant | duration | 90 days; read rows sooner | When inbox rows are deleted | [0021](../decisions/0021-notifications.md) §3 |
+| `notifications.fediverse_domains` | `site` | tenant | allow and deny lists | — | Domains fediverse notifications may go to | [0021](../decisions/0021-notifications.md) §8 |
+| `nuke.confirm_threshold` | `site` | tenant | integer | 500 | Items above which `Special:Nuke` asks for the target's name | [0047](../decisions/0047-special-pages.md) §7 |
+| `oauth.access_ttl` | `site` | tenant | duration | four hours | Access token lifetime | [0025](../decisions/0025-oauth-server.md) §1 |
+| `oauth.refresh_ttl` | `site` | tenant | duration | a year unused | Refresh token lifetime | [0025](../decisions/0025-oauth-server.md) §1 |
+| `pages.repos` | `site` | tenant | repository names | empty | Page repositories, in inheritance order; replaces `wikitext.template_repos` | [0042](../decisions/0042-template-expansion-and-parsoid.md) §2; [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §1 |
+| `pages.share` | `site` | tenant | `off`, `on` | `off` | Whether this tenant's pages may serve other tenants as a `tenant` repository; replaces `wikitext.share` | [0042](../decisions/0042-template-expansion-and-parsoid.md) §2; [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §1 |
+| `preferences.defaults` | `site` | tenant | map | the registry's defaults | An instance's own defaults for registered preference keys | [0027](../decisions/0027-preferences-and-portability.md) §1 |
+| `projections.sync_budget` | `site` | tenant ≤ instance ceiling | rows | 1,000 rows | Rows of composition fan-out the write path applies after commit before the rest is queued to the composition worker ([03](03-storage-caches-and-search.md)) | [0013](../decisions/0013-postgres-storage.md) §7 |
+| `projections.sync_time` | `site` (by rule, §3.1) | tenant ≤ instance ceiling | duration | 250 ms | Time the write path spends on that fan-out, whichever comes first | [0013](../decisions/0013-postgres-storage.md) §7 |
+| `proposals.adoption_grace` | `site` (by rule, §3.1) | tenant | duration | 7 days | After which a partly carried proposal is `partly adopted` | [0067](../decisions/0067-proposals.md) §5 |
+| `proposals.direct_edit_lines` | `site` (by rule, §3.1) | tenant | integer | 50 | Lines a clean merge may change and still push to the article itself | [0068](../decisions/0068-merging-with-upstream.md) §3 |
+| `proposals.max_items` | `site` (by rule, §3.1) | tenant | integer | 500 | Bounds a proposal payload | [0067](../decisions/0067-proposals.md) §8 |
+| `proposals.push` | `site` | tenant | off, on | `off`; refused until the instance implements pushing | Whether proposals may be pushed upstream | [0067](../decisions/0067-proposals.md) §6 |
+| `query.enabled` | `site` | tenant | `false`, `true` | `false` | Turns the query service on | [0059](../decisions/0059-query-service.md) §1 |
+| `query.cache_ttl` | `site` (by rule, §3.1) | tenant | duration | 60 s | L2 lifetime of a `GET /sparql` response and of a query page's results | [0059](../decisions/0059-query-service.md) §6; [0063](../decisions/0063-query-namespace.md) §5 |
+| `query.max_lag` | `site` (by rule, §3.1) | tenant | duration | 1 h | Lag above which the service is unavailable | [0059](../decisions/0059-query-service.md) §3 |
+| `query.max_results` | `site` (by rule, §3.1) | tenant ≤ instance ceiling | integer | 100,000 solutions | Bounds every query | [0059](../decisions/0059-query-service.md) §6 |
+| `query.timeout` | `site` (by rule, §3.1) | tenant ≤ instance ceiling | duration | 30 s | Bounds every query, raw or compiled | [0059](../decisions/0059-query-service.md) §5, §6 |
+| `queries.max_params` | `site` (by rule, §3.1) | tenant | integer | 10 | Parameters of a query page | [0063](../decisions/0063-query-namespace.md) §4 |
+| `queries.max_scope_values` | `site` (by rule, §3.1) | tenant | integer | 5,000 | Members a scope may bind as `VALUES` | [0063](../decisions/0063-query-namespace.md) §4 |
+| `rc.max_age` | `site` | tenant | duration | 90 days (`$wgRCMaxAge`) | The recent-changes window | [0010](../decisions/0010-site-ui.md) §7; [0023](../decisions/0023-moderation.md) §6 |
+| `reports.term_languages` | `site` (by rule, §3.1) | tenant | languages | the content language | Languages the missing-label and missing-description reports cover | [0047](../decisions/0047-special-pages.md) §4.4 |
+| `retention.default` | `site` | tenant | `orphan`, `retain` | `orphan` | The retention the tenant's policy applies to a mirrored entity an upstream tombstone removes, where no `retain` row names it; `cascade` is never a default and is only ever set per entity | [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §5 |
+| `retention.api_max_entities` | `site` | tenant | integer | 10,000 | A bulk `retain` over this is refused for `api` unless forced | [0015](../decisions/0015-record-format-and-partition-registry.md) §4 |
+| `retention.auto_properties` | `site` | tenant | off, on | on | Automatic `retain` of mirrored properties a tenant uses | [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §6 |
+| `repo.debounce` | `site` (by rule, §3.1) | tenant | duration | 30 seconds | Per-page debounce of repository events | [0053](../decisions/0053-mirrored-pages.md) §6 |
+| `repo.mirror_grace` | `site` (by rule, §3.1) | tenant | duration | 30 days | A mirrored file unused this long is tombstoned | [0039](../decisions/0039-files-and-media.md) §11 |
+| `schemas.max_bound` | `site` | tenant ≤ instance ceiling | integer | — | Bound-schema × scope size above which binding a schema to a scope is refused at scope save, unless an operator raises the ceiling | [0083](../decisions/0083-write-path-in-three-tiers.md) §3 |
+| `schemas.max_depth` | `site` (by rule, §3.1) | tenant | integer | 2 | Shape references followed in validation | [0064](../decisions/0064-entityschema-and-validation.md) §4 |
+| `schemas.max_triples` | `site` (by rule, §3.1) | tenant | integer | 10,000 | Triple budget per validation | [0064](../decisions/0064-entityschema-and-validation.md) §4 |
+| `schemas.source` | tenant | tenant | `query` | the resolved JSON in `view` | Validate against the query store instead | [0064](../decisions/0064-entityschema-and-validation.md) §4 |
+| `schemas.recheck` | `site` (by rule, §3.1) | tenant | schedule | daily | Periodic re-validation job | [0064](../decisions/0064-entityschema-and-validation.md) §5 |
+| `schemas.max_subjects` | `site` (by rule, §3.1) | tenant | integer | `scopes.max_members` | Bounds a schema's materialized report | [0064](../decisions/0064-entityschema-and-validation.md) §5 |
+| `scopes.max_members` | `site` | tenant ≤ instance ceiling | integer | 100,000 | Bound on a scope's materialized members | [0060](../decisions/0060-scopes.md) §4 |
+| `scopes.max_depth` | `site` (by rule, §3.1) | tenant | integer | 8 | Nesting of scope operands | [0060](../decisions/0060-scopes.md) §4 |
+| `scopes.max_ids` | `site` (by rule, §3.1) | tenant | integer | 5,000 | `ids`, `include` and `exclude` together | [0060](../decisions/0060-scopes.md) §4 |
+| `scopes.refresh` | `site` (by rule, §3.1) | tenant | duration | 15 min | Refresh interval of `query` scopes | [0060](../decisions/0060-scopes.md) §5 |
+| `scopes.facet_limit` | `site` (by rule, §3.1) | tenant | integer | 1,000,000 | Members below which the builder shows facets | [0062](../decisions/0062-workspaces.md) §5 |
+| `search.inherited` | `site` | tenant | off, on | `on` where a mirrored repository is listed | Whether `pages-{repo}` indexes are searched beside the tenant's | [0053](../decisions/0053-mirrored-pages.md) §7 |
+| `signing.require_for_bot` | `site` | tenant | off, on | off: a signature is never required by default | Require a client signature for the `bot` group | [0024](../decisions/0024-subsidiary-accounts.md) §4 |
+| `site.landing_text` | `site` (by rule, §3.1) | tenant | text | — | Text on a private tenant's landing page | [0056](../decisions/0056-security-model.md) §13 |
+| `sitelinks.schemes` | `site` | tenant | schemes | `https` and `http` | Allowed sitelink URL schemes | [0026](../decisions/0026-sitelinks.md) §1 |
+| `sprints.max_rules` | `site` (by rule, §3.1) | tenant | integer | 20 | Rules per sprint | [0061](../decisions/0061-sprints-and-tasks.md) §4 |
+| `sprints.max_tasks` | `site` | tenant ≤ instance ceiling | integer | 100,000 | Tasks materialized per sprint | [0061](../decisions/0061-sprints-and-tasks.md) §4 |
+| `sprints.max_claims` | `site` (by rule, §3.1) | tenant | integer | 10 | Live claims an actor may hold on a sprint | [0061](../decisions/0061-sprints-and-tasks.md) §5 |
+| `sprints.claim_ttl` | `site` (by rule, §3.1) | tenant | duration | 7 days | A claim expires after this without a `release` | [0061](../decisions/0061-sprints-and-tasks.md) §5 |
+| `sprints.cache_ttl` | `site` (by rule, §3.1) | tenant | duration | 30 s | L1 lifetime of the `sp:` key | [0061](../decisions/0061-sprints-and-tasks.md) §11 |
+| `subsidiaries.name_pattern` | `site` | tenant | pattern | none | Required pattern for subsidiary names | [0024](../decisions/0024-subsidiary-accounts.md) §2 |
+| `subsidiaries.max_per_account` | `site` | tenant | integer | 10 | Subsidiaries per operator | [0024](../decisions/0024-subsidiary-accounts.md) §2 |
+| `subsidiaries.request_page` | `site` | tenant | a page | — | Where "Request bot approval" links | [0024](../decisions/0024-subsidiary-accounts.md) §9 |
+| `subsidiaries.oauth_requires_approval` | `site` | tenant | `true`, `false` | `true` | Whether an OAuth-created subsidiary is pending | [0025](../decisions/0025-oauth-server.md) §3 |
+| `subsidiaries.pending_ttl` | `site` (by rule, §3.1) | tenant | duration | 90 days | A subsidiary still unapproved after this is retired | [0025](../decisions/0025-oauth-server.md) §3 |
+| `tables.max_rows` | `site` | tenant | integer | 5,000, as `feeds.related_limit` | Rows of a table | [0045](../decisions/0045-table-content-model.md) §4 |
+| `tables.max_columns` | `site` (by rule, §3.1) | tenant | integer | 50 | Columns of a table | [0045](../decisions/0045-table-content-model.md) §4 |
+| `talk.upstream_post` | `site` | tenant | off, on | `on` where any repository has `talk = sync` | Whether replies and new sections may be sent upstream at all | [0069](../decisions/0069-synchronized-talk-pages.md) §11 |
+| `talk.new_thread_default` | `site` | tenant | `here`, upstream | `here` | Which destination the new-thread form selects | [0069](../decisions/0069-synchronized-talk-pages.md) §6, §11 |
+| `talk.upstream_audit_days` | `site` | tenant | days | 90 | How long a failed upstream send's text is kept | [0069](../decisions/0069-synchronized-talk-pages.md) §5, §11 |
+| `templatestyles.max_bytes` | `site` | tenant | size | 100 KB (`$wgTemplateStylesMaxStylesheetSize`) | Largest TemplateStyles sheet | [0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §2 |
+| `thread.max_attachments` | `site` | tenant | integer | 5 | Home and listings of a thread together | [0049](../decisions/0049-boards.md) §5 |
+| `thread.max_pinned` | `site` | tenant | integer | 3 | Pinned threads per page | [0049](../decisions/0049-boards.md) §6; [0069](../decisions/0069-synchronized-talk-pages.md) §4, §11 |
+| `ui.count_threshold` | `site` | tenant | integer | 10,000 | Counts above it (`ref_count`, revision counts) render as "10,000+" rather than exactly | [0010](../decisions/0010-site-ui.md) §2 |
+| `ui.theme` | `site`; the instance or a tenant | tenant | Codex token values | Codex's own values | The theme a site is served with; refused when its colours fail WCAG 2.1 AA contrast | [0034](../decisions/0034-frontend-stack.md) §1 |
+| `updates.enabled` | `site` | tenant | off, on | off | Whether the RDF delta consumer runs for this tenant, writing `view.rdf_delta` from composition events; off, no delta is computed and the update stream is unavailable ([02](02-graphs-rdf-and-query.md)) | [0083](../decisions/0083-write-path-in-three-tiers.md) §3 |
+| `updates.retention` | `site` | tenant | duration | 30 days | Window of `view.rdf_delta` rows | [0032](../decisions/0032-sparql-update-stream.md) §3 |
+| `upstream.retire_adopted` | `site` | tenant | `true`, `false` | `true` | Retire a local assertion when upstream adopts it | [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §7; [0067](../decisions/0067-proposals.md) §5 |
+| `wikitext.expansion` | `site` | tenant ≤ instance ceiling (`wikitext.ceiling`) | `off`, `on` | `off` | Expand templates and parser functions; enables Template and Template talk | [0042](../decisions/0042-template-expansion-and-parsoid.md) §2 |
+| `wikitext.lua` | `site` | tenant ≤ instance ceiling (`wikitext.ceiling`) | `off`, `on` | `off` | Lua modules. Requires `wikitext.expansion = on`; capped by `wikitext.ceiling` | [0042](../decisions/0042-template-expansion-and-parsoid.md) §2; [0043](../decisions/0043-lua-modules.md) §1 |
+| `wikitext.renderer` | `site` | tenant | `builtin`, `parsoid` | `builtin` | Which stage-2 renderer serves HTML. `parsoid` requires expansion on and a Parsoid service on the instance | [0042](../decisions/0042-template-expansion-and-parsoid.md) §2 |
+| `wikitext.site_styles` | `site` | tenant | a Project-namespace title | — (`Project:Site styles.css` by convention) | The tenant's `sanitized-css` site styles page | [0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §4 |
 
 Turning `wikitext.expansion` off also turns `wikitext.lua` off and `wikitext.renderer` back to `builtin`; changing any `wikitext.*` setting bumps the render epoch of every `wikitext` page in the tenant and queues them for refresh ([11](11-rendering-templates-and-modules.md)).
 
-`repo.cache_ttl` is not a `site` setting but a per-repository field of the `page-repo` or `file-repo` record, with a default per kind: 7 days for files, one hour for template source and page bundles (§3.5).
+`repo.cache_ttl` is not a `site` setting but a per-repository field: of the `file-repo` record, and for a page repository of the tenant's `pages.repos` entry, with a default per kind: 7 days for files, one hour for template source and page bundles (§3.5).
 
 `query.metadata` is a query-service setting: the store holds `full` with `metadata=local` by default for both backends, and `query.metadata = all` makes the embedded worker apply every delta and the QLever loader take the `all` dump ([02](02-graphs-rdf-and-query.md)).
 
@@ -279,7 +289,7 @@ Turning `wikitext.expansion` off also turns `wikitext.lua` off and `wikitext.ren
 
 *Sources: [0077](../decisions/0077-special-version.md) §13; [0069](../decisions/0069-synchronized-talk-pages.md) §11; [0081](../decisions/0081-recovery-keys-and-continuations.md) §9.*
 
-These are `site` records in the instance `config`, written with `ts-config` at the farm base. `version.toml` marks `search.farm_wide` and `files.separation` as the features of scope `instance` that `Special:Version`'s farm form shows ([0077](../decisions/0077-special-version.md) §11; `search.farm_wide` is a tenancy switch, §3.4).
+These are `site` records in the instance `config`, written with `ts-config` at the farm base; their bound is `instance`, and where a row says a tenant may narrow the value, the tenant record is bounded by the instance's as a ceiling. `version.toml` marks `search.farm_wide` and `files.separation` as the features of scope `instance` that `Special:Version`'s farm form shows ([0077](../decisions/0077-special-version.md) §11; `search.farm_wide` is a tenancy switch, §3.4).
 
 | Setting | Values | Default | Meaning | Source |
 |---|---|---|---|---|
@@ -291,6 +301,8 @@ These are `site` records in the instance `config`, written with `ts-config` at t
 | `files.reclaim_after` | duration, or `never` | 365 days | After how long unreadable to `universe` a file version is erased; a tenant may set a shorter period, never a longer one | [0039](../decisions/0039-files-and-media.md) §9 |
 | `talk.archive_window` | duration | 10 minutes | Window within which a removed thread found on an archive subpage counts as archived | [0069](../decisions/0069-synchronized-talk-pages.md) §2, §11 |
 | `thread.max_depth` | integer | — | Depth to which a thread page indents its posts | [0019](../decisions/0019-discussions.md) §8 |
+| `query.max_concurrent` | integer | 8 | Concurrent queries across the instance, beyond which a query waits up to its own timeout; a tenant cannot set it | [0059](../decisions/0059-query-service.md) §6 |
+| `query.embedded_max_triples` | integer | 10^9 | The triple count above which `query.backend = embedded` is refused: the embedded backend is the small profile's, and the Wikidata profile requires `remote` ([02](02-graphs-rdf-and-query.md)) | [0059](../decisions/0059-query-service.md) §2 |
 | `storage.dedup_scope` | per tenant, `"instance"` | each tenant is its own domain | Whether fragments are deduplicated per tenant or once for the instance | [0058](../decisions/0058-packed-record-storage.md) §8 |
 | `witness.enabled` | off, on, with the witnessed origins and their keys | off | Whether `triplespace-server` serves the C2SP tlog-witness API at the farm base for the listed origins ([01](01-log-and-records.md) §4.3) | [0081](../decisions/0081-recovery-keys-and-continuations.md) §6 |
 
@@ -303,7 +315,7 @@ A tenancy switch is a `config` record of kind `tenancy` in the instance `config`
 | Switch | Values | `isolated` | `community` | `enterprise` |
 |---|---|---|---|---|
 | `wikitext.ceiling` | `subset`, `expansion`, `lua` | `lua` | `lua` | `lua` |
-| `query.isolation` | `dataset`, `store` ([0059](../decisions/0059-query-service.md) §4) | `store` | `dataset` | `dataset` |
+| `query.isolation` | `dataset`, `store` ([0059](../decisions/0059-query-service.md) §4): one shared store with the dataset fixed per tenant, or an embedded store per tenant. Instance-only: no tenant record overrides it. `store` with `query.backend = remote` is refused only on a farm, since on a single-tenant instance the remote store holds one tenant's graphs and satisfies `store` | `store` | `dataset` | `dataset` |
 
 ### 3.5 Keys that are fields of a config record
 
@@ -313,11 +325,14 @@ These share the dotted form but are fields of the record named, not `site` setti
 
 | Key | On | Values | Default | Source |
 |---|---|---|---|---|
-| `talk` | `page-repo` | `link`, `sync` | `link` | [0069](../decisions/0069-synchronized-talk-pages.md) §1, §11 |
+| `namespaces` | a `pages.repos` entry, per repository | a subset of the namespaces the instance-level `page-repo` record serves | all of them | [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §1 |
+| `shadowed` | a `pages.repos` entry, per repository | `offer`, `hide` | `offer` | [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §1 |
+| `talk` | a `pages.repos` entry, per repository | `link`, `sync` | `link` | [0069](../decisions/0069-synchronized-talk-pages.md) §1, §11 |
+| `cache_ttl` | a `pages.repos` entry, per repository | duration | one hour for page bundles | [0053](../decisions/0053-mirrored-pages.md) §4 |
 | `mirror.set` | `page-repo` | `on-demand`, `linked`, `all` | `on-demand` | [0053](../decisions/0053-mirrored-pages.md) §5 |
 | `mirror.depth` | `page-repo` | integer | 1 | [0053](../decisions/0053-mirrored-pages.md) §5 |
 | `mirror.grace` | `page-repo` | duration | 90 days | [0053](../decisions/0053-mirrored-pages.md) §5 |
-| `repo.cache_ttl` | `page-repo`, `file-repo` | duration | per kind: 7 days for files; one hour for template source and page bundles | [0039](../decisions/0039-files-and-media.md) §11; [0042](../decisions/0042-template-expansion-and-parsoid.md) §11; [0053](../decisions/0053-mirrored-pages.md) §4 |
+| `repo.cache_ttl` | `file-repo`; for a page repository the tenant's `cache_ttl` above | duration | per kind: 7 days for files; one hour for template source and page bundles | [0039](../decisions/0039-files-and-media.md) §11; [0042](../decisions/0042-template-expansion-and-parsoid.md) §11; [0053](../decisions/0053-mirrored-pages.md) §4 |
 | `lines.identifiers` | `extraction` | identifier properties | every property designated for `match_key` | [0073](../decisions/0073-lines-links-and-url-patterns.md) §3 |
 | `lines.url_property` | `extraction` | a property designated for `match_key` | none | [0073](../decisions/0073-lines-links-and-url-patterns.md) §3 |
 | `lines.strip_params` | `extraction` | parameter names | `utm_*`, `fbclid`, `gclid`, `mc_cid`, `mc_eid` | [0073](../decisions/0073-lines-links-and-url-patterns.md) §3 |
@@ -345,9 +360,15 @@ Deployment configuration is read by `figment` (§5.1), never from a log record, 
 | `parsoid.url` | URL | unset: no tenant can choose `parsoid` | The Parsoid service | [0042](../decisions/0042-template-expansion-and-parsoid.md) §2 |
 | `parsoid.timeout` | duration | 30 s | Per render; also the validity of a render's API token | [0042](../decisions/0042-template-expansion-and-parsoid.md) §2 |
 | `parsoid.concurrency` | integer | — | Concurrent Parsoid renders | [0042](../decisions/0042-template-expansion-and-parsoid.md) §2 |
+| `render.pool` | integer | — | Size of the pool that bounds synchronous page renders per tenant; a render the pool cannot take serves the stale `p:` entry and leaves the re-render to the refresh queue ([11](11-rendering-templates-and-modules.md)); deployment configuration, as every pool size is (§3.1) | [0042](../decisions/0042-template-expansion-and-parsoid.md) §10 |
 | `query.backend` | `embedded`, `remote` | `embedded` | Oxigraph in process, or one remote store | [0059](../decisions/0059-query-service.md) §2 |
 | `query.path` | a directory | — | The embedded store's RocksDB directory; `query.path/{tenant}` under `query.isolation = store` | [0059](../decisions/0059-query-service.md) §2, §4 |
 | `query.endpoint` | URL | — | The remote store; its credential, if any, is read as every secret is | [0059](../decisions/0059-query-service.md) §2 |
+| `files.thumb_concurrency` | integer | — | Size of the thumbnail rendering pool; deployment configuration, as every pool size and interval is (§3.1) | [0039](../decisions/0039-files-and-media.md) §6 |
+| `repo.concurrency` | integer | 4 | Per-repository concurrency cap on the upstream client; deployment configuration, as every pool size and interval is (§3.1) | [0053](../decisions/0053-mirrored-pages.md) §1 |
+| `repo.fetches_per_minute` | integer | 600 | Per-repository fetch budget; deployment configuration, as every pool size and interval is (§3.1) | [0053](../decisions/0053-mirrored-pages.md) §1 |
+| `updates.batch_interval` | duration | one hour | How often update batch files are written; deployment configuration, as every pool size and interval is (§3.1) | [0032](../decisions/0032-sparql-update-stream.md) §6 |
+| `notifications.fediverse_interval` | duration | five minutes | Bundling interval for fediverse delivery; deployment configuration, as every pool size and interval is (§3.1) | [0021](../decisions/0021-notifications.md) §5 |
 | `web.*` | see [20](20-web-tier.md) | | `triplespace-web`'s settings: `web.listen`, `web.admin_listen`, `web.api`, `web.mode`, `web.upstream_host` (`forward`, or `fixed` in `development`), `web.assets_from`, `web.cache` (`memory`, `valkey` or `off`) with `web.cache.valkey_url`, `web.cache.valkey_password_file` and `web.cache.max_ttl` (default and ceiling 60 seconds), and `web.forwarder_key_file` | [0057](../decisions/0057-web-tier.md) §2, §4, §5, §10 |
 
 `query.backend`, `query.path` and `query.endpoint` are deployment configuration under [0033](../decisions/0033-backend-stack.md) §12, not `site` records.
@@ -373,7 +394,7 @@ The files under `docs/registry/` in the Triplespace repository are the registry 
 | `graphs.toml`, `fragments.toml` | `scatter-log` |
 | `providers.toml` | `scatter-providers` |
 | `issuers.toml`, `groups.toml`, `grants.toml`, `tenancy.toml` | `scatter-actors` |
-| `namespaces.toml`, `special-pages.toml` | `triplespace-titles` |
+| `namespaces.toml`, `special-pages.toml` | `scatter-titles` |
 | `content-models.toml` | `scatter-pages` |
 | `keyed-types.toml`, `notation-schemes.toml`, `resolvers.toml` | `scatter-normalize` |
 | `sites.toml` | `scatter-wikibase-model` |
@@ -385,7 +406,7 @@ The files under `docs/registry/` in the Triplespace repository are the registry 
 | `themes.toml` | `triplespace-ui` |
 | `version.toml` | `triplespace-api-rest` |
 
-The files are `serde` + `toml`, embedded at build time (`include_str!`) by the crates that need them and parsed at build time, so a malformed file fails the build and the defaults an instance starts from are the defaults the code was tested with ([0033](../decisions/0033-backend-stack.md) §12). They are defaults, not state: an instance's `config` partition starts from them and may diverge, adding providers, renaming groups or changing permissions, but may not reuse a provider code or number for something else, because IDs and revision IDs computed from them are shared between instances. A change is a commit; nothing is allocated at runtime, codes and numbers are never reused, and a retired entry stays in the file with `retired = true`. Provider number 0 is the current tenant and is never assigned; numbers 2^22 to 2^23 − 1 are the tenants', assigned at runtime to their entity sources, the one runtime allocation of a provider number ([0078](../decisions/0078-entity-sources.md) §4); the doubled-letter codes `AA` through `ZZ` are never allocated, because `QQQ5` is the tenant-relative form of the local `Q5` ([0044](../decisions/0044-tenant-relative-ids.md) §2); and a tenant's slug, a provider's slug and an issuer's code are one namespace, shared with keyed-type, resolver and notation scheme names, which a tenant's entity source may not take ([0078](../decisions/0078-entity-sources.md) §3).
+The files are `serde` + `toml`, embedded at build time (`include_str!`) by the crates that need them and parsed at build time, so a malformed file fails the build and the defaults an instance starts from are the defaults the code was tested with ([0033](../decisions/0033-backend-stack.md) §12). They are defaults, not state: **an instance's `config` partition starts as a copy of the registry.** `instance create` appends a config record for every registry entry, so the log carries what the instance runs under and a reader of the log needs no binary to know it; `triplespace-cli registry sync` appends records, under the instance attestation, for the entries of the embedded registry that are newer than the instance's, and `instance check` warns when the instance is behind the registry its binary carries. Every config record carries its kind's `schema` integer, and `view.registry` projects an unknown kind or schema opaquely (§1.1). An instance's configuration may diverge from the registry, declaring entity sources, renaming groups or changing permissions, but may not reuse a provider code or number for something else, because IDs and revision IDs computed from them are shared between instances; a provider's code, number, slug and per-type IRI templates are never changed once allocated. A change is a commit; nothing is allocated at runtime, codes and numbers are never reused, and a retired entry stays in the file with `retired = true`. Provider number 0 is the current tenant and is never assigned; registry provider numbers are below 2^12, and numbers 2^12 to 2^13 − 1 are the tenants', assigned at runtime, per tenant, to their entity sources, the one runtime allocation of a provider number, so that every ranged ID `number << 40 | n` a client sees stays below 2^53 ([0078](../decisions/0078-entity-sources.md) §4); the doubled-letter codes `AA` through `ZZ` are never allocated, because `QQQ5` is the tenant-relative form of the local `Q5` ([0044](../decisions/0044-tenant-relative-ids.md) §2); and a tenant's slug, a provider's slug and an issuer's code are one namespace, shared with keyed-type, resolver and notation scheme names, which a tenant's entity source may not take ([0078](../decisions/0078-entity-sources.md) §3).
 
 ### 4.2 Providers and issuers
 
@@ -449,7 +470,7 @@ The files are `serde` + `toml`, embedded at build time (`include_str!`) by the c
 
 *Sources: [0029](../decisions/0029-resolver-namespaces.md) §8; [0077](../decisions/0077-special-version.md) §13; [0015](../decisions/0015-record-format-and-partition-registry.md) §3.*
 
-Configuration in the log is written with `ts-config` ([09](09-security-and-moderation.md)): a tenant's records at its own base, and instance records such as the `reports` kind and the instance `site` settings of §3.3 at the farm base. Adding a resolver is one such record; binding its role is a `role` record. The parts of `triplespace-cli` that write configuration for an instance or a tenant (`instance create`, `tenant create`, `tenancy set`, `tenancy check`, `files rescope`) are in [08](08-tenants-and-instances.md) and [22](22-crates-and-stack.md).
+Configuration in the log is written with `ts-config` ([09](09-security-and-moderation.md)): a tenant's records at its own base, and instance records such as the `reports` kind and the instance `site` settings of §3.3 at the farm base. Adding a resolver is one such record; binding its role is a `role` record. The parts of `triplespace-cli` that write configuration for an instance or a tenant (`instance create`, `tenant create`, `tenancy set`, `tenancy check`, `files rescope`, `registry sync`) are in [08](08-tenants-and-instances.md) and [22](22-crates-and-stack.md).
 
 ## 6. What is reported
 

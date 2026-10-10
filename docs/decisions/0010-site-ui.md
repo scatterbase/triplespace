@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-09 (A36)
+- **Updated:** 2026-10-09 (A40)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md)
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -49,23 +49,25 @@ The design exploration is on the [site UI canvas](https://claude.ai/artifact/XNb
 
 ### 3. Search
 
-*Changed by A4, A7, A18, A22, A27.*
+*Changed by A4, A7, A18, A22, A27, A37.*
 
 *Current text: [19](../architecture/19-site-ui.md) §2.1.*
 
 ### 4. Document pages
 
-*Changed by A21, A22, A25, A26, A30, A31, A34.*
+*Changed by A21, A22, A25, A26, A30, A31, A34, A39.*
 
 *Current text: [19](../architecture/19-site-ui.md) §3.1, §3.2.*
 
 ### 5. History
 
+*Changed by A38.*
+
 *Current text: [19](../architecture/19-site-ui.md) §3.3.*
 
 #### 5.1 What a history covers
 
-*Changed by A23.*
+*Changed by A23, A38.*
 
 *Current text: [19](../architecture/19-site-ui.md) §3.3.*
 
@@ -80,6 +82,8 @@ The design exploration is on the [site UI canvas](https://claude.ai/artifact/XNb
 *Current text: [19](../architecture/19-site-ui.md) §3.5.*
 
 #### 5.4 Mirror states the instance did not keep
+
+*Changed by A38.*
 
 *Current text: [19](../architecture/19-site-ui.md) §3.5.*
 
@@ -107,7 +111,7 @@ The design exploration is on the [site UI canvas](https://claude.ai/artifact/XNb
 
 ### 8. Contributions
 
-*Changed by A8, A14.*
+*Changed by A8, A14, A40.*
 
 *Current text: [19](../architecture/19-site-ui.md) §2.5.*
 
@@ -135,7 +139,7 @@ The design exploration is on the [site UI canvas](https://claude.ai/artifact/XNb
 
 ### 13. Implementation
 
-*Changed by A1, A2, A21, A32, A35.*
+*Changed by A1, A2, A21, A32, A35, A38.*
 
 *Current text: [19](../architecture/19-site-ui.md) §3.6, §5.2, §5.8.*
 
@@ -502,3 +506,49 @@ Replaced text (§13):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§13
 - **Summary:** The Decision's current text now lives in the architecture chapters [19](../architecture/19-site-ui.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A37. The search box accepts any cluster member and lands in the local form
+
+- **Date:** 2026-10-09
+- **Source:** [0082](0082-source-form-and-the-shared-view.md) §2, §3
+- **Change:** amends §3
+- **Summary:** The title resolver the search box uses accepts any member of an identity cluster, so `WDQ42` and the local `Q9` it is clustered with land on the same entity page, shown in the site's local form; a non-canonical member no longer "lands on its canonical entity", since the page is served under whichever ID was asked for with values rewritten to the local preference. Search results are one per cluster, the member the local preference selects. 0082's table named §9 (Jobs); the fold is at [19](../architecture/19-site-ui.md) §2.1, whose provenance is §3 here, and the table and the ledger row were corrected. (REVIEW G4, G5)
+
+Replaced text ([19](../architecture/19-site-ui.md) §2.1, as it stood):
+
+> - **An ID or domain key jumps straight to its page.** Input that parses as an ID, a keyed ID or a bare key of a keyed type gets a "Go to" option as the first suggestion, and Enter follows it ([0017](../decisions/0017-entity-id-grammar.md) §1, §4). So does a resolver key, such as `DOI:10.1000/xyz`, which lands on the item it resolves to or on a disambiguation page in the site frame. Parsing and resolution use the title resolver ([0008](../decisions/0008-namespaces-and-document-pages.md) §3; [10](../architecture/10-pages-and-content-models.md)), so a non-canonical cluster member lands on its canonical entity ([0004](../decisions/0004-identity-clusters-and-equivalence.md) §4). When a main-namespace page has the same title as the ID, it is offered as the next suggestion, "Page titled Q42" ([0038](../decisions/0038-page-metadata-and-categories.md) §8).
+
+### A38. An entity's history has one backing, `view.entity_history`
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §5.4, §13; extends §5, §5.1
+- **Summary:** The history of an entity is read from `view.entity_history (tenant, canonical_id, time, partition, offset, kind, member)`, which composition writes: one row per record in any source partition keyed to the entity or a member of its cluster, and one per upstream log event keyed to a member, each with its kind and the member. The page is one keyset query over that index, served by `GET /entity/{id}/history`; nothing is merged from `log.record` or `view.activity` at request time, and upstream log events are rows of it, not of `view.activity`. Under `full`, or for a retained entity, every observed state and every backfilled upstream revision is a row of it too, so "read from the log" is withdrawn; document page histories, recent changes and contributions stay on `view.activity`. The default mirrored provider log is `delete/*` and `protect/*`, the backfill covers held entities only, and `create/create` is derived from the first upstream revision ([0011](0011-logs.md) §3). The ledger named §3 (Search); the folds are at [19](../architecture/19-site-ui.md) §3.3, §3.5 and §5.2, whose provenance is §5, §5.1, §5.4 and §13 here, and the ledger row was corrected. (REVIEW G42)
+
+Replaced text ([19](../architecture/19-site-ui.md) §3.5, as it stood):
+
+> Under `full`, or for a retained entity, every observed state is a row, and backfilled upstream revisions are read from the log.
+
+Replaced text ([19](../architecture/19-site-ui.md) §5.2, as it stood):
+
+> `triplespace-ui` renders pages on the server, runs in the server or in the stateless web tier, and reaches the instance only through the public API ([0057](../decisions/0057-web-tier.md) §1–2; [20](../architecture/20-web-tier.md)). Statement diffs reuse `scatter-wikibase-shape`, and the page editor's preview reuses `scatter-wikitext` and the markdown renderer of `scatter-pages`, all built for `wasm32-unknown-unknown` ([0005](../decisions/0005-crate-organization.md) §2; [22](../architecture/22-crates-and-stack.md)). Recent changes, contributions and histories are served by the activity projection, `view.activity` in `triplespace-projections`, which grows with local activity and the number of jobs, not with the size of the mirrors ([0010](../decisions/0010-site-ui.md) §13; its inputs and tables are [03](../architecture/03-storage-caches-and-search.md) and [16](../architecture/16-logs-feeds-and-notifications.md)).
+
+### A39. The About panel is its own response; counts are counters
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** extends §4
+- **Summary:** The "About this page" panel is its own API response with its own short `max-age`, independent of the page's or entity's `ETag`, because its numbers change when referrers, scopes and proposals change and the subject does not; its counts (`ref_count`, the revision counts) are counter columns maintained in batches by the projections, never counted on view, and a count above `ui.count_threshold` is shown as "10,000+". The page budget this belongs to, four API calls to first byte met by the bulk-labels route and the `GET /entity/{id}/page` bundle, is [0012](0012-api-requirements.md) §5 and [0057](0057-web-tier.md) §2. The ledger named §2 and §9; the fold is at [19](../architecture/19-site-ui.md) §3.1, whose provenance is §4 here, and the ledger row was corrected. (REVIEW G41)
+
+### A40. A foreign actor's contributions are what `view.activity` holds
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §8
+- **Summary:** `Special:Contributions/{issuer}:{id}` for a foreign actor lists what `view.activity` holds for that actor: page revisions imported with that attribution and the rows of this tenant's log that name the actor. Upstream revision records in `log/{provider}` are not indexed by actor, so they are not listed, and the page says so ("This instance does not index Wikidata's revisions by user"). For an actor of another tenant on the same instance the view is complete, since that tenant's `view.activity` indexes every record; for a Wikidata account it is only what reached this tenant's activity rows. The ledger names [0047](0047-special-pages.md) §2 and §4; the fold is at [19](../architecture/19-site-ui.md) §2.5, whose provenance is §8 here, and the ledger row was extended. (REVIEW G50)
+
+Replaced text ([19](../architecture/19-site-ui.md) §2.5, as it stood):
+
+> | `Special:Contributions/{issuer}:{id}` for a foreign actor | **What the instance holds:** upstream revision records keyed to that actor in `log/{provider}` ([0015](../decisions/0015-record-format-and-partition-registry.md) §4), and page revisions imported with that attribution. The page says whose user this is, links to their page on the issuer's site, and does not fetch upstream, because per-actor fetching is unbounded. |
+
+> For an actor of another tenant on the same instance the third view is complete, since the instance holds every record. For a Wikidata account it is the sparse subset the instance has observed or backfilled, and says so. `/actor/{key}/contributions` serves the same three cases ([18](../architecture/18-api.md)).

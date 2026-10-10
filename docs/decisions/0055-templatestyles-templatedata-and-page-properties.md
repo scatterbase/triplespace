@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-10-09 (A2)
+- **Updated:** 2026-10-09 (A3)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0047](0047-special-pages.md)
 - **Uses:** [0016](0016-permissions-and-access-control.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md), [0033](0033-backend-stack.md), [0039](0039-files-and-media.md), [0043](0043-lua-modules.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -48,7 +48,7 @@ James's direction, from the design discussion of 2026-10-01, was that the ADR se
 
 ### 6. Page properties: `view.page_prop` (extends 0013 §5.6; extends 0042 §4 and §10; amends 0047 §10)
 
-*Changed by A1.*
+*Changed by A1, A3.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §5.5.*
 
@@ -136,3 +136,16 @@ James's direction, from the design discussion of 2026-10-01, was that the ADR se
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§9
 - **Summary:** The Decision's current text now lives in the architecture chapters [09](../architecture/09-security-and-moderation.md), [10](../architecture/10-pages-and-content-models.md), [11](../architecture/11-rendering-templates-and-modules.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A3. `view.page_prop` has two row classes with one writer each
+
+- **Date:** 2026-10-09
+- **Source:** [0083](0083-write-path-in-three-tiers.md) §6
+- **Change:** amends §6
+- **Summary:** `view.page_prop` gains `from_render boolean`, joining the primary key `(page_id, name, from_render)`, and names the writer of each row: the page projection writes the rows the stored text sets, synchronously when it applies the record; the refresh job writes the rows a render sets, with `from_render = true`. Each writer owns its class exclusively, readers union the two (a property with a row in both classes reads as the render's value), the refresh job never deletes a row it did not write, and turning `wikitext.expansion` off truncates the render-owned rows and nothing else. A render-owned property the latest render did not set is deleted by that render; a source-owned row is never touched by it. `view.page_link` and `view.page_category` carry the same column under the same rule ([0038](0038-page-metadata-and-categories.md), [0042](0042-template-expansion-and-parsoid.md) A17). (REVIEW G13)
+
+Replaced text ([10](../architecture/10-pages-and-content-models.md) §5.5, as it stood):
+
+>   PRIMARY KEY (page_id, name)
+
+> Properties the refresh job writes are written in the same transaction as the links, categories and transclusions of a render ([0042](0042-template-expansion-and-parsoid.md) §10), and are therefore among the `view` tables that render re-creates rather than replays. A property the latest render did not set is deleted.

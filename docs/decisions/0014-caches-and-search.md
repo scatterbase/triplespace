@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-09 (A23)
+- **Updated:** 2026-10-09 (A27)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md)
 - **Uses:** [0000](0000-init.md), [0003](0003-statement-ui.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -40,35 +40,37 @@ MediaWiki's search is CirrusSearch, which Wikimedia now runs on OpenSearch after
 
 ### 3. Versions
 
-*Changed by A7.*
+*Changed by A7, A24, A25.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §9.3.*
 
 ### 4. What L1 holds
 
-*Changed by A7, A11, A12, A13, A22.*
+*Changed by A7, A11, A12, A13, A22, A24, A25, A26.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §9.4, §9.7, §12.1, §12.3.*
 
 ### 5. Erasure and hiding reach every layer
 
-*Changed by A3, A7.*
+*Changed by A3, A7, A26, A27.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §9.6, §12.4.*
 
 ### 6. HTTP caching
 
-*Changed by A5, A15.*
+*Changed by A5, A15, A27.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §10.1, §10.3.*
 
 ### 7. Search on OpenSearch
 
-*Changed by A2, A4, A5, A6, A7, A10, A11, A12, A13, A17.*
+*Changed by A2, A4, A5, A6, A7, A10, A11, A12, A13, A17, A24, A25, A26.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §11.1, §11.2, §11.3, §11.5, §12.5.*
 
 ### 8. Postgres fallback
+
+*Changed by A24.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §5, §11.6.*
 
@@ -80,7 +82,7 @@ MediaWiki's search is CirrusSearch, which Wikimedia now runs on OpenSearch after
 
 ### 10. Caches, indexes and stores added by later ADRs
 
-*Changed by A3, A5, A7, A8, A16, A18, A20, A21.*
+*Changed by A3, A5, A7, A8, A16, A18, A20, A21, A24, A25, A26, A27.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §9.4, §9.5, §9.6, §9.7, §11.4, §12.1, §12.2, §12.3, §12.4, §12.5, §13.*
 
@@ -349,3 +351,113 @@ Replaced text (§4):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§10
 - **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A24. Source form in the cache, the index and the fallback
+
+- **Date:** 2026-10-09
+- **Source:** [0082](0082-source-form-and-the-shared-view.md) §1, §2, §3, §5.1, §6
+- **Change:** amends §3, §7, §8, §10; extends §4
+- **Summary:** L1 holds the internal form once per entity version, and the layer that rewrites entity IDs to the consumer's preferred form runs after the cache, on a hit on the way out, so there is one `e:` entry per version and `ETag` is the version of the stored form; `resolved_version` is new on every composition, including one caused by another member of the entity's cluster, and never by a referrer's change. The `entities` index holds every entity under the ID its source wrote, every document carries `cluster_id`, `statement_keywords` is in source form with a `haswbstatement:` constant expanded to the member set at query time, `incoming_links` is `view.entity.ref_count` summed over the cluster, and results collapse by cluster, one per cluster, the member the consumer's preference selects; a search for any member's ID is a `/resolve`. A tenant document replaces the shared one in the index: the overlay projection sets `tenant_overlaid` on the shared document and a tenant's query excludes shared documents that name it, so no post-query dedup is needed. The Postgres fallback is the small profile's search: `term_prefix` is partial over the tenant's rows, ordered by `ref_count` and collapsed by `cluster_id`, and an instance holding a full mirror has no prefix index over mirrored terms at all; the `t:` label cache serves every language `view.term` does not hold. (REVIEW G3, G4, G5, G2, G7)
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §9.3, as it stood):
+
+> | Resolved entity | `resolved_version` | Bumped by the resolution projection on every re-resolution, including ones caused by another entity's cluster change (§4.2) |
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §11.1, as it stood):
+
+> | `entities` | Canonical entity in the resolved view: local, foreign and keyed, of every type | `id`, `type`, `provider`, `namespace` (MediaWiki number); `labels.{lang}` with `.prefix` and `.near_match` subfields; `labels_all`; `descriptions.{lang}`; `aliases.{lang}`; `key`, `key_ulabel` and `key_parents` for keyed types; `statement_keywords`; `sitelink_count`, `statement_count`, `incoming_links`; `resolved_version` |
+>
+> - **`statement_keywords`** holds `P31=Q5`-style tokens for item-valued and external-id statements in the resolved view, using canonical IDs, so `haswbstatement:` works.
+> - **`incoming_links`** is the count of distinct referrers in `view.entity_ref`, resolved to canonical IDs. `sitelink_count` and `statement_count` are read from the resolved JSON.
+> - **Non-canonical cluster members have no document.** Their terms are already merged into the canonical entity's resolved view. A search for a non-canonical ID is a `/resolve`, not a search.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §11.3, as it stood):
+
+> - An erased or tombstoned entity, a deleted page, or an entity that stops being canonical is deleted from the index with the same versioning.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §11.4, as it stood):
+
+> **Indexes multiply by provider and tenant** ([0018](../decisions/0018-tenants.md) §6): one shared `entities` index per provider, holding that provider's canonical entities as the shared view has them, and one index per tenant holding its local entities and its overlay documents. `/suggest` and `wbsearchentities` run one `msearch` across the tenant's own index and the indexes of its opted-in providers; where a tenant document and a shared document share an ID, the tenant's wins.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §11.6, as it stood):
+
+> | `/suggest`, `wbsearchentities`, `list=prefixsearch` for entities | `view.term` with the `term_prefix` index (§4.3): `lower(text) LIKE lower($q) || '%'` in the requested language and its fallbacks, ordered by a count from `entity_ref` |
+>
+> The fallback has no `haswbstatement:`, no ranking beyond incoming links, and no analysis. It is meant for instances small enough that a prefix scan is fast, which the profile table of [0013](../decisions/0013-postgres-storage.md) §11 (in [22](../architecture/22-crates-and-stack.md)) defines.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §12.1, as it stood):
+
+> | `e:{id}:{gen}:{ver}` | Resolved canonical JSON, compressed | 24 h | [0014](../decisions/0014-caches-and-search.md) §4 | Yes |
+> | `t:{lang}:{id}:{gen}:{ver}` | Label and description in one language | 24 h | 0014 §4 | Yes |
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §12.5, as it stood):
+
+> | `entities`, one per provider | Instance | That provider's canonical entities as the shared view has them; public form only |
+
+### A25. The composer writes L1; the indexer is a tier-3 consumer; the cache epoch
+
+- **Date:** 2026-10-09
+- **Source:** [0083](0083-write-path-in-three-tiers.md) §1, §2, §3, §6
+- **Change:** amends §3, §7; extends §4, §10
+- **Summary:** Read-your-writes follows from the write path's after-commit slot: the composer composes the written entity after commit, takes its new version, writes the resolved JSON into L1 and returns the body, so L1 is written by the composer after commit and never by the write path before it, and a rolled-back transaction leaves nothing in the cache. The search indexer is a tier-3 consumer with its own queue, rate and lag, off during bootstrap and bulk modes: it consumes the composition event `(id, tenant, resolved_version)`, reads the composed JSON and `ref_count` from `view`, and its lag is reported from `ops.projection_work`; bootstrap indexes from `view` after the set-based composition. Every L1 key begins with an instance-wide cache epoch, `c{epoch}:`, a counter in `ops` that every projection rebuild bumps, distinct from a tenant's visibility epoch and the stream epochs; §12.1 writes the keys without it. The `read` rate class is counted for authenticated principals only once a per-process count passes a fraction of the limit, and never for a response served from L0 or L1. (REVIEW G9, G10, G13, G15)
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §9.3, as it stood):
+
+> **Read-your-writes** follows from §6.2. The write transaction commits the new version; the response reports it; the write path also writes the new resolved JSON into L1 so the editor's next read hits. Replica routing by LSN covers the Postgres side.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §11.3, as it stood):
+
+> The search indexer is the last consumer in §6.1's order:
+>
+> - After the resolution projection writes an entity, it enqueues `(id, resolved_version)`. The indexer reads the resolved JSON and `entity_ref` count from `view`, builds the document, and sends it in bulk with `version_type: external` and `version: resolved_version`. Out-of-order deliveries are rejected by the index, so retries and parallel workers are safe.
+> - **Bootstrap** indexes from `view` in one pass after the resolution projection, with the refresh interval raised and replicas set to zero for the duration, as CirrusSearch's reindex does.
+>
+> **Consistency.** The index is eventually consistent with `view`, by the projection's lag. A suggestion may name an entity whose page has moved on; the page is served from `view`, and the difference is the lag reported by `ops.projection_state`.
+
+### A26. The public `{vis}` form carries the tenant epoch; enclosures, not groups, are stored
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §4, §5, §7, §10
+- **Summary:** The `{vis}` segment's empty-set form is `-{epoch}` on a tenant key, so that a public entry cached before a namespace restriction lapses with it, and plain `-` on a shared key, which carries no tenant epoch because a shared row is under no tenant's namespace. Only a `namespace` or `tenant` `read` ACL bumps the tenant's visibility epoch; a `set` change bumps the generation of the members it touched. A stored search document or feed row holds `read_enclosures`, a reference to the enclosures its target is under, never a group list, and the groups those enclosures require are evaluated at serve time from L0, so a change on an enclosure rewrites no document; the per-tenant indexes are where `read_enclosures` is non-empty. The required privacy test is that an entry cached under the empty set before a namespace restriction is not served after it. (REVIEW G38)
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §9.4, as it stood):
+
+> **Visibility.** Every key whose value depends on what the viewer may read also carries a **`{vis}`** segment, written after `{gen}`: a short hash of the sorted group names of the visibility set together with the tenant's visibility epoch, `-` for the empty set.
+>
+> A `read` ACL on a namespace, set or tenant bumps the epoch and every entry under it lapses at once (§9.6).
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §9.6, as it stood):
+
+> On a namespace, set or tenant, it bumps the tenant's **visibility epoch**, a counter in `view.tenant` that is part of every `{vis}` hash for that tenant, so that every entry under the enclosing target lapses at once. The trade is coarse purges for correctness, and these ACLs change rarely.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §11.5, as it stood):
+
+> **Documents carry `read_groups`.** Each document in a tenant's index gains `read_groups`: the sorted group names of its target's visibility set, empty for a public target. A query adds one filter: `read_groups` is empty, or every value in it is among the principal's groups, which OpenSearch expresses as a `terms_set` query whose `minimum_should_match` is the field's length.
+>
+> The per-provider shared indexes hold public form only, because they are built from public data; the per-tenant indexes are where `read_groups` is non-empty.
+>
+> **Re-indexing.** A `read` ACL change re-indexes the affected documents on the trigger of §9.6, with the same versioning §11.3 uses, and a document whose target becomes moderation-hidden is deleted.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §12.1, as it stood):
+
+> | `e:`, `t:`, `prov:`, `p:`, `d:`, `sug:`, `css:` | Gain a `{vis}` segment after `{gen}` (§9.4) | | [0056](../decisions/0056-security-model.md) §7 | Yes (§4) |
+
+### A27. Cache tags are exact and bounded
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §5, §6, §10
+- **Summary:** A composed page carries exact `Cache-Tag`s for its subjects and its render-manifest pages only; label dependencies are not tagged, since a large item draws labels from thousands of entities, and label staleness is accepted up to `s-maxage`. An anonymous API response is tagged for the entities and pages it is about, not every one it drew on. The About panel of an entity page has its own response and `max-age`, since its counters change without the entity's version changing; the page budget of four API calls to first byte, the bulk-labels route and the `GET /entity/{id}/page` bundle that meet it are in chapters 18 and 20. (REVIEW G41)
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §9.6, as it stood):
+
+> 3. **purges L2 by tag.** Every anonymous response carries a cache tag for each entity and page it drew on (`Cache-Tag: entity:Q42, page:17`); the purge names the tags.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §10.3, as it stood):
+
+> - **Its `Cache-Tag`** is the union of theirs, so the purges of §9.6 reach it.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §12.4, as it stood):
+
+> Every anonymous response carries `Cache-Tag: entity:{id}, page:{page id}` for each entity and page it drew on (§9.6); every rendered page carries a tag for each page and entity in its manifest ([0042](../decisions/0042-template-expansion-and-parsoid.md) §10); every media response carries `blob:{scope}:{h}` and `file:{tenant}:{page id}` ([0039](../decisions/0039-files-and-media.md) §20); a page the web tier composes carries the union of its components' tags (§10.3).

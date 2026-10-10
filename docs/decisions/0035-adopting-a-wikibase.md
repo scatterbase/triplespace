@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-28
-- **Updated:** 2026-10-09 (A10)
+- **Updated:** 2026-10-09 (A11)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md)
 - **Uses:** [0024](0024-subsidiary-accounts.md), [Wikibase contract](../api/wikibase-compat.md)
@@ -28,11 +28,13 @@ One alternative needs no new operation and was rejected: load the old wiki into 
 
 ### 1. Adoption (extends 0018 §1 and §5)
 
+*Changed by A11.*
+
 *Current text: [05](../architecture/05-providers-and-ingest.md) §7.1, §8.3.*
 
 ### 2. Preconditions and the job
 
-*Changed by A2.*
+*Changed by A2, A11.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §7.2.*
 
@@ -201,3 +203,10 @@ Replaced text (§3):
 Replaced text (§5, in [07](../architecture/07-actors-and-accounts.md) §2.5):
 
 > …so the source's user 42 is `{slug}:42`.
+
+### A11. No adoption beside a live mirror of the same code
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** extends §1, §2
+- **Summary:** An instance refuses a sync job, shallow or full, for a provider whose registry `issuer` is a tenant of this instance: that tenant's `local` partition is the provider's graph, read directly, and a mirror of it would be a stale copy. The adoption job gains a fifth precondition: no live mirror partition exists for the tenant's code. Where the instance had been mirroring the source as a registry provider (`mirror/librarybase` for `LB`), that partition is frozen first, its `entity_source` rows dropped and composition switched to reading the tenant's `local` partition, so that readers see one graph for the code and not a mirror beside the tenant; adoption under a code with a live mirror partition is refused until then. Whether `LB` is a remote wiki to sync or a tenant here is therefore instance configuration, read from the registry's `issuer`. The ledger row names [0018](0018-tenants.md) §5, [0080](0080-tenants-as-entity-sources.md) §3 and [0070](0070-shallow-entity-mirroring.md) §7; the precondition is this ADR's, folded in [05](../architecture/05-providers-and-ingest.md) §7.2 and §8.3, and nothing is contradicted. (REVIEW G31)

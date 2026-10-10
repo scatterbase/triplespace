@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-09 (A29)
+- **Updated:** 2026-10-09 (A31)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -36,7 +36,7 @@ The two agree on the shape: users, groups, memberships, named permissions, and r
 
 ### 3. Groups, memberships and blocks
 
-*Changed by A5, A7, A8, A9, A11, A12, A15, A22.*
+*Changed by A5, A7, A8, A9, A11, A12, A15, A22, A30, A31.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §3.1, §3.2, §3.3, §3.4, §3.5, §3.6.*
 
@@ -404,3 +404,21 @@ Replaced text (§5):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§9
 - **Summary:** The Decision's current text now lives in the architecture chapters [09](../architecture/09-security-and-moderation.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A30. `autoconfirmed` is an implicit group computed from `view.actor`; `pending` is OAuth-only
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** corrects §3
+- **Summary:** `autoconfirmed` is an implicit group, like `user`: no membership record is written for it, and an account is a member once `view.actor.created_at` and `view.actor.editcount` meet the age and edit-count thresholds set in `site` configuration; `editcount` is maintained by the activity projection from the account's local `edit` rows, erased ones included and job rows excluded, so a bot's job writes do not confirm its operator. Hand-made subsidiaries are never pending: `pending` is a status only an OAuth authorization sets, the MCP requirement is the `basic` grant, and `instance create` puts the sync subsidiaries in `bot`. (REVIEW G40)
+
+Replaced text ([09](../architecture/09-security-and-moderation.md) §3.1, as it stood):
+
+> `user` is every registered local account, except a subsidiary with status `pending`, which receives `user` only by an explicit membership. `autoconfirmed` is granted automatically once an account meets an age and edit-count threshold set in `site` configuration.
+
+### A31. Global groups are copied from the registry at `instance create` and kept by `registry sync`
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** extends §3
+- **Summary:** An instance's `config` starts as a copy of the registry, the default groups of §3 included: `instance create` appends a config record for every registry entry, `triplespace-cli registry sync` appends records for registry entries newer than the instance's under the instance attestation, and `instance check` warns when the instance is behind; every config record carries a per-kind `schema` integer and `view.registry` projects an unknown kind or schema opaquely. The ledger's verb is amends; §3's chapter text ([09](../architecture/09-security-and-moderation.md) §3.1–§3.6) says nothing about how the shipped groups reach an instance's log, so this entry extends; the contradicted text is [0015](0015-record-format-and-partition-registry.md) §3's and §5's, logged there as 0015 A58. (REVIEW G36)

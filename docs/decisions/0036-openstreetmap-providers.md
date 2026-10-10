@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-28
-- **Updated:** 2026-10-09 (A5)
+- **Updated:** 2026-10-09 (A6)
 - **Author:** James Hare / Claude Sonnet
 - **Changes:** [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0017](0017-entity-id-grammar.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0015](0015-record-format-and-partition-registry.md), [0031](0031-property-constraints.md), [0048](0048-notation.md)
@@ -25,6 +25,8 @@ Two existing mechanisms fit the rest. Keyed entity types ([0009](0009-keyed-enti
 
 ### 1. Two providers
 
+*Changed by A6.*
+
 *Current text: [05](../architecture/05-providers-and-ingest.md) §8.1, §8.7.*
 
 ### 2. `OS`: map objects
@@ -41,7 +43,7 @@ Two existing mechanisms fit the rest. Keyed entity types ([0009](0009-keyed-enti
 
 ### 4. Tags on map objects
 
-*Changed by A2.*
+*Changed by A2, A6.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §8.8.*
 
@@ -188,3 +190,16 @@ Replaced text (§2):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§7
 - **Summary:** The Decision's current text now lives in the architecture chapters [04](../architecture/04-entities-and-identifiers.md), [05](../architecture/05-providers-and-ingest.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A6. The key map binds roles in the instance record, never a tenant's properties
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §4; extends §1
+- **Summary:** Adapters never map onto a tenant's properties. The OSM key map still names properties by role, but the bindings it reads are the instance-scope `role` record's ([0082](0082-source-form-and-the-shared-view.md) §5.2), never a tenant's, and they name registry-provider properties (`WDP…`, `OWP…`) or properties of OpenStreetMap's own **property type**: a `[[provider.type]]` row with `entity_type = "property"` on a provider that publishes no properties of its own, its letter allocated when the adapter is built, whose properties the adapter mints under deterministic IDs with the mapping versioned with the adapter (§1, in [05](../architecture/05-providers-and-ingest.md) §8.1). Whatever a mapped key becomes is therefore the same property on every instance, and "no per-instance property numbers exist" holds by construction rather than by the case-3 fallback alone. The ledger named §3 (the `osm` scheme), whose chapter text did not change; the fold is in [05](../architecture/05-providers-and-ingest.md) §8.8, which holds §4. (REVIEW G26)
+
+Replaced text ([05](../architecture/05-providers-and-ingest.md) §8.8, as it stood):
+
+> The key map names properties **by role** ([0003](../decisions/0003-statement-ui.md) §7), like the identity property in §4.1 and OpenAlex's field mapping, so it never depends on a property's number.
+
+> Case 3 is the fallback until they do, and it means no property is minted per key and no per-instance property numbers exist.

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-09 (A12)
+- **Updated:** 2026-10-09 (A13)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md)
 - **Uses:** [0007](0007-actor-identity.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0029](0029-resolver-namespaces.md)
@@ -20,11 +20,13 @@ James named two dimensions, **abusive statements** and **abusive page contents**
 
 ### 1. A filter is a rule with actions, evaluated before append
 
+*Changed by A13.*
+
 *Current text: [09](../architecture/09-security-and-moderation.md) §7.1.*
 
 ### 2. Three contexts and one actor
 
-*Changed by A2, A3, A4, A6, A8, A9, A10, A11.*
+*Changed by A2, A3, A4, A6, A8, A9, A10, A11, A13.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §7.2.*
 
@@ -40,7 +42,7 @@ James named two dimensions, **abusive statements** and **abusive page contents**
 
 ### 5. Records: filters, hits and tags (extends 0011 §2, §6.1; amends 0015 §1)
 
-*Changed by A3, A11.*
+*Changed by A3, A11, A13.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §2.2, §7.5, §7.6; [16](../architecture/16-logs-feeds-and-notifications.md) §2.3.*
 
@@ -49,6 +51,8 @@ James named two dimensions, **abusive statements** and **abusive page contents**
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.2, §4.6.*
 
 ### 7. Bulk jobs (extends 0002 §8.5)
+
+*Changed by A13.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §3.6.*
 
@@ -88,7 +92,7 @@ James named two dimensions, **abusive statements** and **abusive page contents**
 - **Two dimensions, one engine.** Statements and page text differ only in context; actions, records, hits, testing, rights and the API are shared.
 - **Every hit is a record and every filter has history**, so the filter log is a feed, filters can be audited, and a refused write's content is kept for review and erasable when it should not be.
 - **Change tags finally have a home**, in the attestation part, which closes a gap open since 0001.
-- **Bots are filtered by default and still run**: a disallowed operation goes to the rejects file rather than killing the job, and a filter may exempt `bot` when that is the policy.
+- ~~**Bots are filtered by default and still run**: a disallowed operation goes to the rejects file rather than killing the job, and a filter may exempt `bot` when that is the policy.~~ *A filter's scope excludes job writes by default (`jobs = false`); a filter that opts in sees them, and its disallowed operations still go to the rejects file (A13).*
 - ~~**Farm filters need no new partition**; the primary tenant's `log` and a policy switch suffice.~~ *Global filters live in the instance `log`, which exists for other reasons (A5).*
 - **The write path gains a step.** Building a context and evaluating compiled rules costs microseconds per write; the test tool costs a job, not a request.
 - **Private filters stay private** because they are moderation records in an internal partition behind a read ACL, not configuration in a public one.
@@ -252,3 +256,16 @@ Replaced text (§2):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§13
 - **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [05](../architecture/05-providers-and-ingest.md), [09](../architecture/09-security-and-moderation.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A13. Filters are a step of tier 1; job writes are opted into
+
+- **Date:** 2026-10-09
+- **Source:** [0083](0083-write-path-in-three-tiers.md) §1
+- **Change:** amends §7; extends §1, §2, §5
+- **Summary:** Edit filters stay in the appending transaction, as a step of tier 1, since a filter is a function of the written record and the actor and nothing composes while it runs (§1). A filter's scope **excludes job writes by default** (`jobs = false`); a filter that opts in sees each operation of a bulk job in the `local` partition, unless it exempts the job's group, and `disallow` still sends the operation to the rejects file (§7). Hits from a job's writes aggregate into one hit record per (filter, job), carrying a count and the coordinates of the first N records matched, as the job's rejects file already summarizes refusals (§5). The `rate` variable is computed lazily, read from the counters only when an enabled filter's rule names it (§2). The `read` rate class of [0024](0024-subsidiary-accounts.md) §5 is counted for authenticated principals only once a per-process count passes a fraction of the limit, and never for a response served from L0 or L1. 0083's table gives this change as `extends 0030 §7`; the chapter text of §7 said every filter applied to every operation of a job unless it exempted the job's group, which the default now contradicts, so it is logged as an amendment. (REVIEW G8, G15)
+
+Replaced text ([05](../architecture/05-providers-and-ingest.md) §3.6, as it stood):
+
+> Filters ([09](../architecture/09-security-and-moderation.md)) apply to **each operation** of a bulk job in the `local` partition, in the job's stream, unless the filter exempts the job's group.
+
+> A job of a million operations under ten filters spends seconds on them.

@@ -12,11 +12,11 @@ A foreign entity can be referenced directly, without first being reified as a lo
 
 ## 2. The forms of an entity ID
 
-*Sources: [0017](../decisions/0017-entity-id-grammar.md) §1, §2, §6; [0044](../decisions/0044-tenant-relative-ids.md) §1, §2; [0066](../decisions/0066-lexemes.md) §4.*
+*Sources: [0017](../decisions/0017-entity-id-grammar.md) §1, §2, §6; [0044](../decisions/0044-tenant-relative-ids.md) §1, §2; [0066](../decisions/0066-lexemes.md) §4; [0082](../decisions/0082-source-form-and-the-shared-view.md) §2.*
 
 ### 2.1 The ID forms
 
-*Sources: [0017](../decisions/0017-entity-id-grammar.md) §1; [0066](../decisions/0066-lexemes.md) §4; [0044](../decisions/0044-tenant-relative-ids.md) §1.*
+*Sources: [0017](../decisions/0017-entity-id-grammar.md) §1; [0066](../decisions/0066-lexemes.md) §4; [0044](../decisions/0044-tenant-relative-ids.md) §1; [0082](../decisions/0082-source-form-and-the-shared-view.md) §2.*
 
 Every entity ID has one of these forms, told apart by its first character, by the presence of a colon and, for a colon form, by the kind of its prefix in the tenant's table of names ([0078](../decisions/0078-entity-sources.md) §3, in [05](05-providers-and-ingest.md)):
 
@@ -41,6 +41,8 @@ The lexeme-part suffix is part of the ID wherever an ID is stored, compared or s
 **Derived IDs.** `M` and digits, a local-form ID, names the statements of the File page with that page ID (WikibaseMediaInfo's contract). It is derived, not minted: never in `view.entity`, never in a cluster, never the value of an entity data type (§5.2). A foreign page's page ID is derived in the same sense (§5.3).
 
 **An input form.** A type letter written three times and the rest of a local ID, `QQQ5`, is an **input form** of the local ID on the tenant that reads it (§2.3). It is canonicalized to `Q5` wherever IDs are accepted and never stored or returned, except as Lua output under a remapped letter (§5.4).
+
+**Any member of a cluster is accepted wherever an entity ID is accepted.** API parameters, change sets, titles, the search box, `wbgetentities`, `GET /resolve` and SPARQL constants all take `Q9`, `WDQ5` or any other member of one cluster (§4) for the same entity, and the entry point normalizes what it is given to the internal form before anything executes, as it canonicalizes the tenant-relative form and a provider slug. Where an input names a cluster, the lookup is expanded to the member set: a lookup by `Q9` over `entity_ref`, `identifier`, `sitelink` or `term` is a lookup over `{Q9, WDQ5, …}`, one indexed probe of `view.cluster_member` per constant with L0 in front of it, and a SPARQL constant `lb:Q9` becomes `VALUES ?v { lb:Q9 wd:Q5 … }` in the query service's rewriting layer ([02](02-graphs-rdf-and-query.md)). Property paths are not expanded: `wdt:P279*` follows stored triples, and a query that needs `owl:sameAs` closure writes it. Search results collapse by cluster: every search document carries `cluster_id`, maintained by the cluster projection, and `wbsearchentities` and the search page return one result per cluster, the member the consumer's preference selects (§4.12). The map is a table, `view.cluster_member`, never a structure assumed to fit in a process. What the consumer gets back, and in which form, is §4.12.
 
 ### 2.2 ID grammars for minted types
 
@@ -183,14 +185,14 @@ A domain name can be personal data: a person's own name registered as a domain, 
 
 **Each present keyed entity gets a surrogate for log headers.** The rules are:
 
-- The instance mints the surrogates in sequence, one per keyed type, the first time a key is written to.
-- The mapping from surrogate to key is itself a log record, whose body can be erased.
+- The instance mints the surrogates in sequence, one per keyed type, the first time a key is written to. The allocation happens in the appending transaction, under an advisory lock on `(keyed_type, key)`, so two writers meeting a new key cannot mint two surrogates for it; a bulk job reserves a block of surrogates up front, as it reserves ID blocks ([05](05-providers-and-ingest.md) §3.5), so a key-mapped bootstrap of millions of keys is not millions of serialized appends.
+- The mapping from surrogate to key is itself a log record, whose body can be erased. It is appended in the same transaction as the first record that uses the surrogate.
 - Change-set payloads refer to the entity by its key. They are in the body, which can be erased.
 - An index projected from the mapping records resolves keys to surrogates when a change set is appended.
 
-This is the same pattern as the actor surrogates in [0007](../decisions/0007-actor-identity.md) §5 ([07](07-actors-and-accounts.md)). Erasing a Domain by key erases the mapping record along with everything else keyed to the surrogate, and only an opaque number remains. The log never sees the key, only the surrogate; this holds for every keyed type, with one sequence per type.
+This is the same pattern as the actor surrogates in [0007](../decisions/0007-actor-identity.md) §5 ([07](07-actors-and-accounts.md)). Erasing a Domain by key erases the mapping record along with everything else keyed to the surrogate, and only an opaque number remains; the mapping is erased only when no live record in any partition of the instance is keyed to the surrogate, so one tenant's erasure never strips the key from another tenant's assertions. The log never sees the key, only the surrogate; this holds for every keyed type, with one sequence per type.
 
-**The forms.** The header key of a keyed entity's records is `{type}#{n}`, `domain#17`: the `#` keeps it from being any entity ID, since no ID form contains one. The mapping record is a `scatter:v0/keyed-surrogate` record in the **instance `log`**, keyed by the same surrogate, with content `{keyed_type, surrogate, key}` ([payloads.md §3.4](../api/payloads.md)); surrogates are instance-wide, so the mapping does not belong to any tenant, and the record is appended before the first record under the surrogate. `view.keyed_surrogate` is projected from it at the instance tenant (`''`); a projection that folds a keyed entity's records looks the surrogate up there, and fails rather than guess when it is missing, which makes a rebuild that orders the instance `log` after a tenant partition fail loudly instead of silently dropping the tenant's assertions. The table is in [03](03-storage-caches-and-search.md).
+**The forms.** The header key of a keyed entity's records is `{type}#{n}`, `domain#17`: the `#` keeps it from being any entity ID, since no ID form contains one. The mapping record is a `scatter:v0/keyed-surrogate` record in the **instance `log`**, keyed by the same surrogate, with content `{keyed_type, surrogate, key}` ([payloads.md §3.4](../api/payloads.md)); surrogates are instance-wide, so the mapping does not belong to any tenant, and the record is committed with the first record under the surrogate. `view.keyed_surrogate` is projected from it at the instance tenant (`''`); a projection that folds a keyed entity's records looks the surrogate up there, and fails rather than guess when it is missing, which makes a rebuild that orders the instance `log` after a tenant partition fail loudly instead of silently dropping the tenant's assertions. The table is in [03](03-storage-caches-and-search.md).
 
 A source entity (§2.1) needs no surrogate: its log header key is its ID, as `WDQ42`'s is ([0078](../decisions/0078-entity-sources.md) §2).
 
@@ -372,7 +374,7 @@ Normalizers come from `scatter-normalize` ([22](22-crates-and-stack.md)), which 
 
 ## 4. Identity clusters
 
-*Sources: [0004](../decisions/0004-identity-clusters-and-equivalence.md) §1, §2, §3, §4, §5, §6, §7, §8, §9, §10; [0009](../decisions/0009-keyed-entity-types-and-domain.md) §8, §10; [0018](../decisions/0018-tenants.md) §7; [0066](../decisions/0066-lexemes.md) §4.*
+*Sources: [0004](../decisions/0004-identity-clusters-and-equivalence.md) §1, §2, §3, §4, §5, §6, §7, §8, §9, §10; [0009](../decisions/0009-keyed-entity-types-and-domain.md) §8, §10; [0018](../decisions/0018-tenants.md) §7; [0066](../decisions/0066-lexemes.md) §4; [0082](../decisions/0082-source-form-and-the-shared-view.md) §1, §3, §4, §5, §5.1.*
 
 ### 4.1 Clusters and namespaces
 
@@ -405,7 +407,7 @@ Holding every conflicting link, not only the later one, makes the result indepen
 
 ### 4.3 Where links come from
 
-*Sources: [0004](../decisions/0004-identity-clusters-and-equivalence.md) §3.*
+*Sources: [0004](../decisions/0004-identity-clusters-and-equivalence.md) §3; [0082](../decisions/0082-source-form-and-the-shared-view.md) §5.1.*
 
 Links come from three tiers of source. A higher tier beats a lower one when they conflict. Conflicting links within one tier are all held (§4.2).
 
@@ -423,30 +425,26 @@ Links come from three tiers of source. A higher tier beats a lower one when they
 
 A link value that points at an alias follows the redirect. If Wikidata says an item's OpenAlex ID is `W1` and OpenAlex has merged `W1` into `W2`, the link goes to `OAW2`. Mirror-derived links can join a Domain to a mirrored entity through a configured link property, as for any other cluster ([0009](../decisions/0009-keyed-entity-types-and-domain.md) §8).
 
-**Inferred links need a unique value.** A value that appears on more than one entity in a namespace produces no link. Values are compared by their normalized keys (§4.7). An inferred link is applied at once, for the identifier properties the **instance's** `reconcile` record names; nothing is queued for review, and the registry ships none enabled. A tenant's `reconcile` record may switch inference off for that tenant, and sets its provider order and link properties (§4.10), but cannot add inference properties, so every tenant of a farm infers the same links from a shared graph.
+**Inferred links need a unique value.** A value that appears on more than one entity in a namespace produces no link. Values are compared by their normalized keys (§4.7). An inferred link is applied at once, for the identifier properties the **instance's** `reconcile` record names (§4.10); nothing is queued for review, and the registry ships none enabled. A tenant's `reconcile` record may decline inferred links in its own view, and may add link properties for its own entity sources, but cannot add inference properties or change the link properties of a shared provider, so every tenant of a farm infers the same links from a shared graph.
 
-**On a farm,** tier-2 and tier-3 links come from shared graphs and are instance-wide. Tier-1 links and `different-from` blocks are each tenant's own. A provider tenant's `same-as` and `convert` records are tier-2 links for every other tenant ([0018](../decisions/0018-tenants.md) §5–6, in [08](08-tenants-and-instances.md)).
+**On a farm,** tier-2 and tier-3 links come from shared graphs and are instance-wide: they are shared rows (`tenant = ''`) of `view.link`, `view.cluster` and `view.cluster_member`, computed under the instance policy (§4.10). Tier-1 links and `different-from` blocks are each tenant's own: `view.cluster`, `view.cluster_member`, `view.link`, `view.different_from` and `view.entity_source` carry the `tenant` column with the `''`-then-tenant lookup of `view.entity` ([03](03-storage-caches-and-search.md)), and `cluster_member`'s unique key is `(tenant, entity_id)`, so a tenant's tier-1 link on `WDQ42` sits as a tenant row beside the shared cluster without touching it, and two tenants' local assertions on one foreign entity no longer collide in `entity_source`. A provider tenant's `same-as` and `convert` records are tier-2 links for every other tenant ([0018](../decisions/0018-tenants.md) §5–6, in [08](08-tenants-and-instances.md)).
 
 **A `different-from` block beats links from every tier.** Two IDs joined by a local `different-from` never share a cluster. Wikidata's P1889 ("different from") needs no special handling. It relates two Wikidata items, which can never share a cluster anyway.
 
 ### 4.4 The canonical ID
 
-*Sources: [0004](../decisions/0004-identity-clusters-and-equivalence.md) §4; [0009](../decisions/0009-keyed-entity-types-and-domain.md) §8.*
+*Sources: [0004](../decisions/0004-identity-clusters-and-equivalence.md) §4; [0009](../decisions/0009-keyed-entity-types-and-domain.md) §8; [0082](../decisions/0082-source-form-and-the-shared-view.md) §1, §4, §5.*
 
 **The canonical ID of a cluster is its highest-ranked member.**
 
 - A keyed member ranks first, and a local member next. The canonical order is: keyed type, then local, then the providers in the instance's order.
-- The tenant's `reconcile` record sets the order of the providers after them; the default is provider-number order in `providers.toml` (Wikidata first). The `reconcile` record ([0015](../decisions/0015-record-format-and-partition-registry.md) §3, in [23](23-configuration-and-registry.md)) may set a different order per entity type, `order_by_type`; a cluster's members share a type, so the order is always defined.
+- The instance's `reconcile` record, the policy record under which every shared row is computed (§4.10), sets the order of the registry providers after them; the default is provider-number order in `providers.toml` (Wikidata first). The record ([0015](../decisions/0015-record-format-and-partition-registry.md) §3, in [23](23-configuration-and-registry.md)) may set a different order per entity type, `order_by_type`; a cluster's members share a type, so the order is always defined. A tenant's `reconcile` record orders only the tenant's own entity sources, after every registry provider ([05](05-providers-and-ingest.md) §6.6); it cannot reorder shared providers.
 
-So if a local item `Q77` about en.wikipedia.org existed before Domains did, `same-as` between `Q77` and `domain:en.wikipedia.org` makes the Domain canonical. `Q77` resolves to it and gets the redirect-form `owl:sameAs` in RDF. A cluster whose links would join two Domains is a conflict, and the links are held (§4.11).
+So if a local item `Q77` about en.wikipedia.org existed before Domains did, `same-as` between `Q77` and `domain:en.wikipedia.org` makes the Domain canonical: the Domain's IRI is the cluster's canonical concept IRI, and `Q77` gets the redirect-form `owl:sameAs` in RDF. A cluster whose links would join two Domains is a conflict, and the links are held (§4.11).
 
-**The canonical ID is chosen when the resolved view is projected.**
+**The canonical ID is an attribute of the cluster, never applied to data.** `view.cluster` names it. The internal graph is in **source form**: every stored form of an entity keeps the IDs its source wrote. Statement subjects, entity values, qualifier and reference values, `view.entity_ref`, `view.identifier`, the search documents, the RDF dump and the update stream carry `WDQ5` where Wikidata wrote `Q5` and `Q9` where a local editor wrote `Q9`, and nothing rewrites an ID in storage because a cluster formed, changed or dissolved. The resolved view ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §3, in [05](05-providers-and-ingest.md) §1.4) is the cluster's **fused body**, composed once per cluster from the members' graph states ([03](03-storage-caches-and-search.md)); the per-graph views ([0003](../decisions/0003-statement-ui.md) §6) still show each member's own data. A `materialized` row of `view.entity` means two or more contributing graphs or local deltas, nothing else: a mirrored entity that merely references a clustered entity is `source`, served from its record, so what is materialized is bounded by what tenants have asserted about an entity, never by what references it. **A cluster change recomposes the cluster's members and nothing else**: there is no delta per referrer in the update stream, no re-resolution of referrers, and `entity_ref` is not needed for correctness. The form in which a consumer sees the IDs of a fused body is a property of the response, not of the store (§4.12).
 
-- Source graphs keep IDs exactly as they were asserted.
-- The resolved view ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §3, in [02](02-graphs-rdf-and-query.md)) rewrites subjects and entity values to the canonical ID.
-- Each non-canonical member is emitted in Wikibase's redirect form, `<member IRI> owl:sameAs <canonical IRI>`.
-- The API resolves a non-canonical member to the canonical entity, as Wikibase resolves a redirect.
-- The per-graph views ([0003](../decisions/0003-statement-ui.md) §6) still show each member's own data.
+**In RDF the fused body is emitted under every member.** The resolved graph carries the cluster's fused statements under each member's concept IRI, with `owl:sameAs` between the members and the redirect-form `<member IRI> owl:sameAs <canonical IRI>` from each non-canonical member to the canonical one. Duplication is bounded by cluster size, never by referrers, and a query that reaches `wd:Q5` through a value and asks for its label or its statements succeeds without rewriting, which is why §2.1 leaves property paths alone. The update stream and the dump carry the same ([02](02-graphs-rdf-and-query.md)).
 
 **The canonical ID changes when membership changes.** Examples:
 
@@ -454,6 +452,8 @@ So if a local item `Q77` about en.wikipedia.org existed before Domains did, `sam
 - A local member is minted (§4.5) and becomes canonical.
 - The canonical member is tombstoned under `cascade` or `orphan`. It leaves the cluster, and the next member becomes canonical. A retained member stays in the cluster.
 - A local member is deleted. It leaves the cluster as a member tombstoned under `orphan` does. `same-as` and `different-from` records naming it are kept but not applied, and apply again if it is undeleted ([0023](../decisions/0023-moderation.md) §4, in [09](09-security-and-moderation.md)).
+
+Each of these recomposes the cluster's members; no referrer's row, triple or cache entry changes.
 
 **The stable handle is the document node.** External consumers are told to cite the document node of any member, `{base}/wiki/Special:EntityData/{id}` ([0015](../decisions/0015-record-format-and-partition-registry.md) §6), which exists for every member and never moves. The resolved view carries `schema:about` from each document node to the current canonical concept IRI, and the update stream ([0032](../decisions/0032-sparql-update-stream.md), in [02](02-graphs-rdf-and-query.md)) keeps that triple current.
 
@@ -463,9 +463,9 @@ So if a local item `Q77` about en.wikipedia.org existed before Domains did, `sam
 
 `convert` mints a local entity and links it to the foreign entity with `same-as`. The local member is canonical, so the behavior of [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §6 (in [05](05-providers-and-ingest.md)) follows from the cluster rules:
 
-- `WDQ123` resolves to `Q456`;
-- mirrored statements under `WDQ123` attach to `Q456`;
-- the redirect-form `owl:sameAs` is emitted.
+- `WDQ123` and `Q456` are one entity: a request for either returns the fused body under the requested ID, with `Q456` as its `canonical` (§4.12);
+- mirrored statements under `WDQ123` are part of the fused body, and stay stored under `WDQ123` (§4.4);
+- the fused body is emitted under both IRIs, with the redirect-form `owl:sameAs` from `WDQ123` to `Q456`.
 
 **A local alias that conflicts with an upstream redirect.** Suppose `WDQ123` has been converted to `Q456`, and Wikidata then merges `Q123` into `Q789`.
 
@@ -482,20 +482,20 @@ So if a local item `Q77` about en.wikipedia.org existed before Domains did, `sam
 
 **Wikidata properties are used as they are,** as mirrored `WDP` entities.
 
-**OpenAlex properties are mapped by the adapter.** OpenAlex has no property entities. Its fields have names, not identifiers, and the set of fields is small and changes little. The OpenAlex adapter therefore maps each field:
+**Adapters never map onto a tenant's properties.** A mirror partition is an instance partition read by every tenant, a local `P12` means a different entity on each tenant, and an instance job cannot mint from a tenant's sequence; so no adapter writes a local property or item ID into a mirror graph, and none creates a local entity on import. **OpenAlex properties are mapped by the adapter.** OpenAlex has no property entities. Its fields have names, not identifiers, and the set of fields is small and changes little. The OpenAlex adapter therefore maps each field:
 
 - onto a Wikidata property, where one fits;
-- otherwise onto a local property.
+- otherwise onto a property of OpenAlex's own **provider property type**.
 
-There is no OpenAlex property namespace or type code.
+A provider that needs vocabulary of its own has a property type in the registry: one `[[provider.type]]` row with `entity_type = "property"` under its code ([05](05-providers-and-ingest.md) §8.1), its properties minted by the adapter under deterministic IDs so that every instance mints the same ones. OpenAlex, OpenStreetMap and GDELT each have one.
 
-- **Enumerated values** such as work type are mapped in the same way, onto Wikidata items or local items.
-- **Local targets are named by role.** Local property and item IDs differ between instances. The adapter therefore refers to its local targets by role, as [0003](../decisions/0003-statement-ui.md) §7 does. Each instance binds the roles to its own entities, and the adapter can create them on first import.
-- **The mapping is versioned with the adapter** ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.3).
+- **Enumerated values** such as work type are mapped in the same way, onto Wikidata items where one fits; a provider that needs items of its own for them mints those under a provider type of its own, as GDELT's themes and CAMEO codes are ([05](05-providers-and-ingest.md) §8.10).
+- **Roles are read at instance scope.** Where an adapter names a property by role, as the OpenStreetMap key map and the GDELT roles do ([05](05-providers-and-ingest.md) §8.8, §8.11), the binding it reads is the instance-scope `role` record ([06](06-statements-and-properties.md) §1), never a tenant's, and the instance binds those roles to registry-provider properties or to the provider's own property type.
+- **The mapping is versioned with the adapter** ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.3), the minted property IDs with it.
 
-**Any graph may use any property.** The OpenAlex mirror graph holds statements whose predicates are `WDP` or local properties. A graph records who asserts a triple, not whose vocabulary the triple uses. Mapped properties are affected by changes as follows:
+**Any graph may use any property.** The OpenAlex mirror graph holds statements whose predicates are `WDP` or OpenAlex's own properties, and the local graph may use either. A graph records who asserts a triple, not whose vocabulary the triple uses. Mapped properties are affected by changes as follows:
 
-- **Local properties** that an adapter maps onto are protected from deletion.
+- **A provider's own properties** change only with its adapter's mapping version.
 - **Wikidata properties** can change upstream. If one that an adapter maps onto is deleted upstream, or its data type changes, that mapping stops and the change is reported. The mapping then has to be revised.
 
 **Properties form clusters as items do.** A local property may duplicate a Wikidata property, for example because it was created before Wikidata had one. A local `equivalent-property` (§4.10) links the two. Property clusters follow the same rules as item clusters:
@@ -507,8 +507,8 @@ There is no OpenAlex property namespace or type code.
 Property links come only from local assertions. Wikidata's P1628 ("equivalent property") points at external vocabularies, not at entities this instance holds, so it is ordinary data.
 
 - **Data types must match.** A link between properties with different data types is rejected when it is written.
-- **The resolved view uses the canonical property's predicates** for every statement in the cluster.
-- **RDF output:** property entity IRIs get the redirect-form `owl:sameAs`, as items do. OWL equivalence holds between predicates, not between entity IRIs. So `owl:equivalentProperty` is emitted for each pair of predicates in the same family: `wdt:`, `p:`, `ps:`, `psv:`, `pq:`, `pqv:`, `pr:`, `prv:`, and the normalized forms.
+- **The fused body treats the cluster as one property.** Statements on `P12` and on `WDP585` fuse as statements on one property (§4.8); stored predicates keep their IDs (§4.4), and a response shows the group under the property ID the consumer's preference selects (§4.12), `equivalent-property` being an exact match.
+- **RDF output:** the fused statements are emitted under each property's predicates and property entity IRIs get the redirect-form `owl:sameAs`, as items do. OWL equivalence holds between predicates, not between entity IRIs. So `owl:equivalentProperty` is emitted for each pair of predicates in the same family: `wdt:`, `p:`, `ps:`, `psv:`, `pq:`, `pqv:`, `pr:`, `prv:`, and the normalized forms.
 
 ### 4.7 Values
 
@@ -516,8 +516,10 @@ Property links come only from local assertions. Wikidata's P1628 ("equivalent pr
 
 The resolved view compares values by a canonical form:
 
-- **Entity values** compare by the canonical ID of their cluster.
+- **Entity values** compare by their cluster: two values are one value when their IDs are members of one cluster. The stored IDs are not changed (§4.4).
 - **Literal values** compare by a **normalized key**, derived per data type. A property can override its data type's normalizer.
+
+**The `unit` of a quantity, the `globe` of a coordinate and the `calendarmodel` of a time are entity IDs in the stored form:** `"unit": "WDQ11573"`, `"unit": "Q7"`, `"unit": "1"` unchanged for a dimensionless quantity, never a concept IRI under some base. They are expanded through the current IRI template on output, as every ID is ([08](08-tenants-and-instances.md)); the adapter rewrites them on ingest as it rewrites every other ID ([05](05-providers-and-ingest.md) §3.4); the content hash is over the stored form; and they participate in `entity_ref` and in rewriting (§4.12) as entity values do. [wikibase-compat.md §4](../api/wikibase-compat.md) describes the serialization.
 
 | Data type | Normalized key |
 |---|---|
@@ -530,6 +532,8 @@ The resolved view compares values by a canonical form:
 | Everything else | The exact value |
 
 Stored values are never changed. A fused statement (§4.8) shows the value asserted by the highest-ranked graph.
+
+**A normalizer change is a rebuild, not a rewrite.** The normalized keys are stored beside the values (`view.value_key`, [03](03-storage-caches-and-search.md)), and each row carries the version of the normalizer that produced it. Changing a normalizer, whether a data type's, a property's override or a resolver's ([06](06-statements-and-properties.md) §3.1), enqueues a per-property rebuild job that recomputes the keys of every value of the affected properties, and bumps the rendering version of the update stream ([02](02-graphs-rdf-and-query.md)), since the normalized (`wdtn:`) triples change lexical form; until the job completes, rows of the old version are compared by the old key.
 
 **A coarser time does not fuse with a finer one.** "2019" and "2019-03-04" stay two values. The statement UI marks the coarser one as consistent with the finer one in the same group, and the resolved view keeps both, so it never claims a precision no source asserted.
 
@@ -563,21 +567,21 @@ In the resolved view, statements with the same key fuse into one statement. This
 
 **Non-equivalent values** are kept side by side, as 0002 §3 says.
 
-### 4.9 Statement IDs follow the canonical ID
+### 4.9 Statement IDs follow the entity ID a consumer sees
 
-*Sources: [0018](../decisions/0018-tenants.md) §7.*
+*Sources: [0018](../decisions/0018-tenants.md) §7; [0082](../decisions/0082-source-form-and-the-shared-view.md) §1, §3.*
 
-**Statement IDs in the log never change.** What clients see is derived: **the resolved view rewrites the entity-ID part of a statement GUID to the entity's canonical ID and keeps the UUID.** This is the same rewrite §4.4 applies to subjects and entity values.
+**Statement IDs in the log never change,** and the stored form keeps the entity part its source wrote (§4.4): the mirror writes `WDQ42$abc` and that is what `view` holds. What clients see is derived: **the response rewrite of §4.12 rewrites the entity-ID part of a statement GUID to the form the consumer prefers and keeps the UUID.** The UUID is the identity.
 
-- example.wiki converts `WDQ42` to `Q9` (§4.5). The mirror keeps writing `WDQ42$abc`; example.wiki shows `Q9$abc`.
+- example.wiki converts `WDQ42` to `Q9` (§4.5). The mirror keeps writing `WDQ42$abc`; example.wiki's site UI, which prefers the local form, shows `Q9$abc`, and a Wikidata-keyed bot that asked for `WDQ42` sees `WDQ42$abc`.
 - Librarybase does the same; example.wiki, reading Librarybase, shows `LBQ9$abc`.
-- An unconverted cluster {`WDQ42`, `OAW123`} shows the OpenAlex statements as `WDQ42$oa-uuid`.
+- An unconverted cluster {`WDQ42`, `OAW123`} shows the OpenAlex statements as `WDQ42$oa-uuid` to a consumer preferring Wikidata form and as `OAW123$oa-uuid` to one preferring OpenAlex form.
 
-The UUID alone identifies a statement, so overrides ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §7), the provenance response (§4.8, which lists member statements in their source form) and API writes all resolve through it. Every GUID a client sees has its entity's ID as its prefix, which is Wikibase's invariant. Re-minting statements on conversion was rejected: it would copy mirrored statements into the local graph and recreate the stale-copy problem 0002 §5 rejected for rescue.
+A `wbgetentities` request for a non-canonical member returns the fused body under the requested ID with its GUIDs prefixed by that ID (§4.12). The UUID alone identifies a statement, so overrides ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §7), the provenance response (§4.8, which lists member statements in their source form) and API writes all resolve through it, whatever prefix the client sends. Every GUID a client sees has the entity's ID, in the form the client sees it, as its prefix, which is Wikibase's invariant. Re-minting statements on conversion was rejected: it would copy mirrored statements into the local graph and recreate the stale-copy problem 0002 §5 rejected for rescue.
 
 ### 4.10 Operations and configuration
 
-*Sources: [0004](../decisions/0004-identity-clusters-and-equivalence.md) §9; [0009](../decisions/0009-keyed-entity-types-and-domain.md) §10; [0066](../decisions/0066-lexemes.md) §4.*
+*Sources: [0004](../decisions/0004-identity-clusters-and-equivalence.md) §9; [0009](../decisions/0009-keyed-entity-types-and-domain.md) §10; [0066](../decisions/0066-lexemes.md) §4; [0082](../decisions/0082-source-form-and-the-shared-view.md) §5.*
 
 | Operation | Graph | Meaning |
 |---|---|---|
@@ -587,7 +591,7 @@ The UUID alone identifies a statement, so overrides ([0002](../decisions/0002-so
 
 `remove` retracts any of these. `same-as` and `different-from` apply to a Domain with an entity of another namespace, never between two Domains (§3.3), and `same-as` applies between lexemes but not their parts (§5.1).
 
-`redirect` in the local graph records a merge within one namespace. **For properties only, a local `redirect` may cross namespaces:** `{"op":"redirect","from":"P12","to":"WDP585"}` retires `P12` and makes `WDP585` the canonical predicate. The resolved view is rewritten as §4.6 rewrites a linked pair, and existing local statements keep `P12` in the log and read as `WDP585`. It needs `property-create` and a matching data type. An item never redirects across namespaces, and a local item stays canonical.
+`redirect` in the local graph records a merge within one namespace. **For properties only, a local `redirect` may cross namespaces:** `{"op":"redirect","from":"P12","to":"WDP585"}` retires `P12` and makes `WDP585` the canonical predicate. `P12` becomes an alias of `WDP585` (§4.1), existing local statements keep `P12` in the log and are served under `WDP585` as any redirect's are. It needs `property-create` and a matching data type. An item never redirects across namespaces, and a local item stays canonical.
 
 ```
 {"op":"same-as","ids":["Q456","OAW123"]}
@@ -595,14 +599,20 @@ The UUID alone identifies a statement, so overrides ([0002](../decisions/0002-so
 {"op":"equivalent-property","ids":["P12","WDP585"]}
 ```
 
-**Configuration is recorded in the log.** The following settings are the `reconcile` record's; the first, second and fourth are the tenant's, the third the instance's (§4.3):
+**Configuration is recorded in the log, and the shared view is computed under the instance's record.** The instance's `reconcile` record, `reconcile:default` in the instance `config`, is the **policy record** under which every shared row (`tenant = ''`) of every `view` table is computed ([03](03-storage-caches-and-search.md)). It holds:
 
-- the provider order;
-- the link properties for each provider;
-- the identifier properties used for inference;
-- normalizer overrides.
+- the provider order among registry providers (§4.4);
+- the link properties for each provider (§4.3, tier 2);
+- the identifier properties used for inference (§4.3, tier 3);
+- normalizer overrides (§4.7);
+- the role bindings the constraint checker and the adapters read for shared rows ([06](06-statements-and-properties.md) §1, §2.4);
+- the languages that populate shared `view.term` ([05](05-providers-and-ingest.md) §5.8).
 
-A change to any of them is appended to the log as a record, so the resolved view stays rebuildable from the log ([0000](../decisions/0000-init.md) §1). Keyed-type registry entries are recorded the same way (§3.1). The record kinds are in [23](23-configuration-and-registry.md).
+**A tenant narrows; it does not reorder.** A tenant's `reconcile` record may hide a provider in its own view and API (a filter on read), restrict its own display languages, decline inferred links in its own view, and add link properties and an order for its own entity sources ([05](05-providers-and-ingest.md) §6), whose graphs are read per tenant anyway. It may not reorder shared providers, change a shared normalizer, add inference properties or rebind a role the instance record binds; a tenant-scope write that tries is refused with **`ts-instance-policy`**, and the tenancy presets ([08](08-tenants-and-instances.md)) say so.
+
+**The shared row names the policy it was computed under.** `view.entity` and the shared rows of its dependents carry `policy`, the policy record's code. Only `default` exists; a shared view computed once per distinct policy record, with tenants bound to a profile, can be added later by adding records and rebuilding the projection, with no change to the log.
+
+A change to any of these settings is appended to the log as a record, so the resolved view stays rebuildable from the log ([0000](../decisions/0000-init.md) §1). Keyed-type registry entries are recorded the same way (§3.1). The record kinds are in [23](23-configuration-and-registry.md).
 
 ### 4.11 Conflicts
 
@@ -621,6 +631,22 @@ Conflicts are listed for review, in the same way as the maintenance tooling for 
 - by deprecating the mirrored statement a link came from.
 
 **The forms.** The review list is `Special:IdentityConflicts`, with these resolutions as row actions. `Special:LinkEntities` is the form for `same-as`, `different-from` and `equivalent-property`; `Special:MergeItems` writes a merging `redirect` within one namespace and refuses a merge across namespaces ([0047](../decisions/0047-special-pages.md) §5–6, in [21](21-special-pages.md)).
+
+### 4.12 Rewriting in responses
+
+*Sources: [0082](../decisions/0082-source-form-and-the-shared-view.md) §3; [0004](../decisions/0004-identity-clusters-and-equivalence.md) §4; [0018](../decisions/0018-tenants.md) §7.*
+
+**A layer on the way out rewrites entity identifiers to the form the consumer prefers.** It is the read-side rewrite that already turns a provider tenant's `Q6` into `LBQ6` or `lb:Q6` for a reader ([0018](../decisions/0018-tenants.md) §5, in [08](08-tenants-and-instances.md); [05](05-providers-and-ingest.md) §6.7), with the cluster map as one more table: where the consumer prefers the local namespace and `WDQ5` has an exact match `Q9`, the response says `Q9`. The store is never rewritten (§4.4); every entry point accepts every form (§2.1); the two together let a consumer round-trip what it was shown without the server remembering what form it gave out.
+
+**Exact matches only.** The rewrite uses tier-1 links (`same-as`, `convert`), tier-2 links (an identifier statement of a configured link property, §4.3) and `equivalent-property` (§4.6). Tier-3 inference from shared identifier values is never used, nor is anything a `different-from` has split. The rewrite is therefore a bijection within a cluster and a pure function of the map, so two surfaces never disagree. A provider tenant's `same-as` records, tier-2 links for its readers ([08](08-tenants-and-instances.md)), count as exact matches.
+
+**The preference is per request.** `prefer` is a namespace order (`local`, a provider code, a source name); the default is the form of the IDs in the request itself, so a request for `WDQ42` gets values in Wikidata form and a request for `Q9` gets them local, and the site UI asks for local. **An ID with no exact match in the preferred namespace is left as stored.**
+
+**Where it applies:** Action API and REST JSON ([18](18-api.md)); SPARQL result bindings, through the concept-IRI template, since local IRIs dereference ([02](02-graphs-rdf-and-query.md)); search results; and HTML ([19](19-site-ui.md)). It rewrites the entity part of a statement GUID (§4.9) and the entity IDs in `unit`, `globe` and `calendarmodel` (§4.7). It never rewrites inside string literals or URLs. **It runs after the cache:** L1 holds the internal form once per entity version ([03](03-storage-caches-and-search.md)), and the rewrite is applied to a hit on the way out, so there is one cache entry per entity, not one per preference. **Dumps and the update stream are source form** (§4.4): the dump is the internal graph, and a rewritten dump profile, if ever wanted, is a serialization-time pass over a dump and not a stored form.
+
+**`wbgetentities` answers under the requested ID.** A request for a non-canonical member returns the fused body under that ID, with a `canonical` field naming the cluster's canonical member and GUIDs prefixed with the requested ID. The Wikibase redirect shape (`redirects: {from, to}`) is reserved for true redirects: a `redirect` operation or an upstream merge (§4.1). A clustered Wikidata item is therefore never a redirect to a client library.
+
+Two consumers of one tenant may see different IDs for one value, and a URL copied from one view resolves in the other because §2.1 accepts any member; normalization at every entry point is therefore not optional.
 
 ## 5. Other entity types and derived IDs
 
@@ -671,7 +697,7 @@ An entity model; edits go through the modules of 0066 §8 ([18](18-api.md)) and 
 
 *Sources: [0017](../decisions/0017-entity-id-grammar.md) §1; [0044](../decisions/0044-tenant-relative-ids.md) §1.*
 
-`M` and digits is the derived ID of §2.1: `M1234` names the statements of File page 1234 ([0041](../decisions/0041-content-models.md) §7), and is never in `view.entity`, never in a cluster and never the value of an entity data type. Its tenant-relative input form is `MMM1234` (§2.3), and a tenant's Lua may map the `M` letter to a provider (§5.4). Commons MediaInfo mirrored from Wikidata is the foreign type `WDM` (§1). The `mediainfo` slot, captions and Commons as a source are in [12](12-files-and-media.md).
+`M` and digits is the derived ID of §2.1: `M1234` names the statements of File page 1234 ([0041](../decisions/0041-content-models.md) §7), and is never the value of an entity data type. It is a cluster member in one case: a local `M{page ID}` and the `WDM` of the same file, where a local File page exists for a title a Commons repository serves, form an ordinary identity cluster with a fixed canonical that the file lookup sets and that no `same-as` or `different-from` record re-points; the member it fixes, and what the cluster means for resolution and rewriting, are in [12](12-files-and-media.md) §6.6. Its tenant-relative input form is `MMM1234` (§2.3), and a tenant's Lua may map the `M` letter to a provider (§5.4). Commons MediaInfo mirrored from Wikidata is the foreign type `WDM` (§1). The `mediainfo` slot, captions and Commons as a source are in [12](12-files-and-media.md).
 
 ### 5.3 Provider-ranged page IDs
 
@@ -680,6 +706,8 @@ An entity model; edits go through the modules of 0066 §8 ([18](18-api.md)) and 
 **A foreign page has a derived page ID.** Its `pageid` is the **provider-ranged** form of the repository's own page ID, `provider_number << 40 | upstream page ID`, computed as mirror records' revision IDs are ([0015](../decisions/0015-record-format-and-partition-registry.md) §2, [0013](../decisions/0013-postgres-storage.md) §6, in [03](03-storage-caches-and-search.md)). It is derived, not minted, as a File page's `M` ID is (§5.2): nothing allocates it, it is the same on every tenant that reads the repository, and it never collides with a local page ID, which comes from the tenant's sequence below 2^40. Its `lastrevid` is the ranged form of the upstream revision ID the tenant currently holds. In `mirror` mode the same numbers are what the `pages/{repo}` records carry in header fields 9 and 7 ([0053](../decisions/0053-mirrored-pages.md) §5, in [13](13-mirrored-pages.md)).
 
 In the API, `titles=`, `pageids=` and `redirects` resolve through the stack and through foreign redirects, and a ranged `pageid` resolves to the repository page it names; `GET /page/{id}` accepts a ranged ID. What else the API reports for a foreign primary is in [18](18-api.md).
+
+**A mirrored entity's page ID is provider-ranged in the same way.** The `pageid` of an entity in a mirror partition is `provider_number << 40 | upstream page ID` where the provider publishes one (Wikidata does), and `provider_number << 40 | mirror offset` otherwise; the writer computes it from the record and allocates nothing, so a bulk sync takes no page-ID sequence and every tenant that reads the provider sees one number. The instance sequence `log."instance.page_id"` is not used for entities; the range below 2^40 is the tenant's own sequence, from which local entities and pages take theirs ([03](03-storage-caches-and-search.md)), and `view.entity`'s unique key on the page ID is `(tenant, page_id)`. Every number a client sees stays below 2^53 ([05](05-providers-and-ingest.md) §8.1).
 
 **Sitelinks target local pages only.** A sitelink to the tenant's own host is stored by page ID ([0038](../decisions/0038-page-metadata-and-categories.md) §6), and a foreign page's ID changes when it is forked, so a title whose primary is foreign is refused as a sitelink target with `ts-sitelink-foreign`. An item that wants an article here gets a fork ([13](13-mirrored-pages.md)).
 
@@ -719,7 +747,7 @@ M = "WD"
 
 The output rule applies everywhere an ID appears in what the host returns: an entity's `id`; statement ID prefixes; the property keys of `claims`, `qualifiers` and reference `snaks`; `property` fields; `qualifiers-order` and `snaks-order`; entity values' `id`, with `numeric-id` its digits; and the results of `getEntityIdForCurrentPage`, `getEntityIdForTitle`, `resolvePropertyId`, `getReferencedEntityId`, `orderProperties` and `getPropertyOrder`.
 
-**The mapping is a bijection** between the strings Lua sees and canonical IDs, so a module that reads an ID and passes it back always reaches the same entity. Nothing translated is ever stored: manifests, usage rows and caches hold canonical IDs.
+**The mapping is a bijection** between the strings Lua sees and IDs in their stored form, so a module that reads an ID and passes it back always reaches the same entity. Nothing translated is ever stored: manifests, usage rows and caches hold IDs in the stored form.
 
 `resolvePropertyId` resolves a label among the properties of the provider the `P` letter names, or the local ones when `P` is unmapped.
 
@@ -727,8 +755,8 @@ The output rule applies everywhere an ID appears in what the host returns: an en
 
 ## 6. Where IDs are stored and shown
 
-*Sources: [0017](../decisions/0017-entity-id-grammar.md) §4; [0044](../decisions/0044-tenant-relative-ids.md) §1; [0043](../decisions/0043-lua-modules.md) §8.*
+*Sources: [0017](../decisions/0017-entity-id-grammar.md) §4; [0044](../decisions/0044-tenant-relative-ids.md) §1; [0043](../decisions/0043-lua-modules.md) §8; [0082](../decisions/0082-source-form-and-the-shared-view.md) §1, §3.*
 
-The ID form of §2.1 is the one that appears everywhere an entity ID does: `view.entity.id` and every column that references it ([0013](../decisions/0013-postgres-storage.md) §5, in [03](03-storage-caches-and-search.md)), the `id` field of a search document ([0014](../decisions/0014-caches-and-search.md) §7, whose `key` field keeps the bare key), the `target_id` of an ACL ([0016](../decisions/0016-permissions-and-access-control.md) §4, in [09](09-security-and-moderation.md)), the ID chip in the UI ([0010](../decisions/0010-site-ui.md) §2, in [19](19-site-ui.md)), and canonical JSON. The UI's identity line names the kind of thing in words, "Domain" or "Keyword", and the chip shows the ID as it is; for a notation the identity line shows the scheme's `label` (§3.8).
+The ID form of §2.1 is the one that appears everywhere an entity ID does: `view.entity.id` and every column that references it ([0013](../decisions/0013-postgres-storage.md) §5, in [03](03-storage-caches-and-search.md)), the `id` field of a search document ([0014](../decisions/0014-caches-and-search.md) §7, whose `key` field keeps the bare key), the `target_id` of an ACL ([0016](../decisions/0016-permissions-and-access-control.md) §4, in [09](09-security-and-moderation.md)), the ID chip in the UI ([0010](../decisions/0010-site-ui.md) §2, in [19](19-site-ui.md)), and canonical JSON. In storage, the ID is the one the source wrote (§4.4); in a response, it is the member of the entity's cluster that the consumer's preference selects (§4.12), and in a dump or the update stream it is the stored one. The UI's identity line names the kind of thing in words, "Domain" or "Keyword", and the chip shows the ID as it is; for a notation the identity line shows the scheme's `label` (§3.8).
 
 The input forms are never stored: the tenant-relative form (§2.3) and a provider slug before a colon (§2.1) are canonicalized wherever an ID is accepted, and the one place a non-canonical form is written out is Lua under a mapped letter (§5.4), where nothing translated is stored either. In the log, a keyed entity appears only under its surrogate (§3.4).

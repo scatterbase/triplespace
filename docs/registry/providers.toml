@@ -378,7 +378,7 @@ revision_ids = true
 article_path = "https://internetdomains.wiki/wiki/"
 api = "https://internetdomains.wiki/w/api.php"
 adapter = "scatter-adapter-internetdomains"
-actor_model = "provider-only"
+actor_model = "individual"
 # The wiki was domains.wikibase.cloud before it moved to internetdomains.wiki (0018 §4); the
 # slug and every internetdomains:{id} actor key are stable across the move.
 

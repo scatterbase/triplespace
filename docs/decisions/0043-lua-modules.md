@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-09 (A7)
+- **Updated:** 2026-10-09 (A8)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md)
 - **Uses:** [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0026](0026-sitelinks.md), [0038](0038-page-metadata-and-categories.md), [0044](0044-tenant-relative-ids.md)
@@ -69,6 +69,8 @@ James's direction, from the design discussion of 2026-09-30:
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §7.8.*
 
 ### 10. Usage tracking and invalidation (extends 0042 §10)
+
+*Changed by A8.*
 
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §4.2, §4.4, §7.9.*
 
@@ -214,3 +216,18 @@ Replaced text (§3):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§17
 - **Summary:** The Decision's current text now lives in the architecture chapters [04](../architecture/04-entities-and-identifiers.md), [11](../architecture/11-rendering-templates-and-modules.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A8. Usage invalidation is a tier-3 consumer of composition
+
+- **Date:** 2026-10-09
+- **Source:** [0083](0083-write-path-in-three-tiers.md) §3
+- **Change:** amends §10
+- **Summary:** Invalidation no longer hangs off "when an entity's `resolved_version` changes": the composer emits "entity X, tenant T, composed to version N" after each composed row commits, and the entity-usage consumer reads those events in its own queue, with its own rate and lag, never inside the appending or composing transaction. For each event it first checks `view.entity_usage` for existence, by index, for the canonical ID and every member of its cluster, and does nothing further when no page uses any of them; only then does it classify the change from the structured diff of the previous and new composed rows and bump the epoch of the pages whose aspects match, served stale-while-revalidate meanwhile. The consumer is off while no tenant on the instance has `wikitext.expansion` on, and off during bootstrap and bulk modes until the operator turns it on; its lag is reported on its own page, and a page's render may be behind an entity by that lag. (REVIEW G10)
+
+Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §7.9, as it stood):
+
+> **When an entity's `resolved_version` changes**, the change is classified from its structured diff ([0012](0012-api-requirements.md) §7, in [18](../architecture/18-api.md)): which languages' labels and descriptions, which properties' statements, which sitelinks, and whether it was a redirect or a change of cluster. Only pages whose aspects match get an epoch bump and a refresh. A label edit in German does not re-render pages that read only English labels.
+
+Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §4.4, as it stood):
+
+> 3. A change to an entity's `resolved_version`, for usage rows whose aspects the change touches (§7.9).

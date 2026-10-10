@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-10-09 (A88)
+- **Updated:** 2026-10-09 (A94)
 - **Author:** James Hare / Claude Opus; revision by James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -42,17 +42,19 @@ Since this ADR was first written, twenty-six further ADRs have added crates, cha
 
 ### 2. Crate map
 
-*Changed by A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A27, A28, A29, A30, A31, A32, A33, A34, A35, A36, A37, A38, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A51, A52, A53, A54, A55, A57, A58, A59, A60, A61, A62, A63, A64, A65, A66, A67, A68, A69, A70, A71, A72, A73, A74, A75, A76, A77, A78, A79, A80, A84, A86, A87, A88.*
+*Changed by A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A27, A28, A29, A30, A31, A32, A33, A34, A35, A36, A37, A38, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A51, A52, A53, A54, A55, A57, A58, A59, A60, A61, A62, A63, A64, A65, A66, A67, A68, A69, A70, A71, A72, A73, A74, A75, A76, A77, A78, A79, A80, A84, A86, A87, A88, A89, A90, A91, A92, A93.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ### 3. Rules
 
-*Changed by A8, A10, A33, A42, A43, A54, A56, A60, A61, A63, A64, A67, A71, A82, A83.*
+*Changed by A8, A10, A33, A42, A43, A54, A56, A60, A61, A63, A64, A67, A71, A82, A83, A92.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §1.2.*
 
 ### 4. Seams shared with Scatterbase
+
+*Changed by A92.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §1.3.*
 
@@ -64,7 +66,7 @@ Since this ADR was first written, twenty-six further ADRs have added crates, cha
 
 #### 4.2 Log partitions carry their own policy
 
-*Changed by A1, A8, A10, A14, A56.*
+*Changed by A1, A8, A10, A14, A56, A90, A94.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §1.2, §1.3, §4.1, §6; [22](../architecture/22-crates-and-stack.md) §1.3.*
 
@@ -92,7 +94,7 @@ Since this ADR was first written, twenty-six further ADRs have added crates, cha
 
 ### 7. Build order
 
-*Changed by A12, A17, A18, A31, A34, A42, A60.*
+*Changed by A12, A17, A18, A31, A34, A42, A60, A92, A93.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §3.1.*
 
@@ -104,7 +106,7 @@ Since this ADR was first written, twenty-six further ADRs have added crates, cha
 
 - **Scatterbase can adopt the substrate in place of its own.** To do so it has to move from its own term types and `rio` to the `oxrdf` family, and replace its write-only `Storage` trait with `scatter-quadstore` for serving and `LogStore` for the log. Both changes are already on its Phase 1–2 path, and it gains a Postgres backend for the log without asking for one.
 - **Scatterbase's planned Wikibase extension mostly exists already.** Its namespaces, data types and Wikidata import come from `scatter-providers`, `scatter-wikibase-*` and `scatter-adapter-wikidata`. What remains is binding them to signed claims.
-- **Fifty-nine crates cost more upkeep than twenty-two.** The dependency check in CI is what keeps the table honest; every ADR that adds a crate has to update §2 in the same change. The alternative, extracting crates from a single crate later, is harder than starting split.
+- **Fifty-nine crates cost more upkeep than twenty-two.** The dependency check in CI is what keeps the table honest; every ADR that adds a crate has to update §2 in the same change. The alternative, extracting crates from a single crate later, is harder than starting split. *Sixty with `scatter-titles` (A92); the claim holds.*
 - **Shared crates change for two products.** A breaking change in a `scatter-*` crate, in the `scatter:` vocabulary, or in the `log` schema has to work for both.
 - ~~**Triplespace carries features it does not use yet.** Room for client signatures in the attestation slot exists in `scatter-log` before any Triplespace code needs it.~~ *Triplespace uses it: an actor may sign its own record with the client `signature` of [0015](0015-record-format-and-partition-registry.md) §1 (A81).*
 - **The `scatter.wiki` domain is no longer part of the design.** The illustrations in 0001 now read as `scatter:`, and nothing mints terms under `scatter.wiki`.
@@ -120,7 +122,7 @@ Since this ADR was first written, twenty-six further ADRs have added crates, cha
 - **Q4. When to extract the shared repository.** The trigger in §6 is Scatterbase's first dependency. An earlier split may suit contributors.
 - **Q5. Whether `scatter.wiki` should redirect** to `scatter.red/terms/v0/` or stay unused.
 - **Q6.** ~~**Graph IRIs.** Their form, and whether they are fixed or per instance. Carried over from 0001 and 0002. The registry (§4.1) accepts either, and [0013](0013-postgres-storage.md) §2 stores one per partition.~~ *Settled by [0015](0015-record-format-and-partition-registry.md) §5: `{base}/graph/{name}`, per instance (per tenant since [0018](0018-tenants.md) §2), with the names fixed in `docs/registry/graphs.toml`.*
-- **Q7.** ~~**Whether `scatter-log-postgres` should offer a blocking API** so that rule 2's async exception can be withdrawn.~~ *Settled by [0033](0033-backend-stack.md) §4: the synchronous `postgres` crate, a wrapper over the same driver, offers one without a second implementation. Revised by A56: `LogStore` itself is asynchronous, so a blocking caller drives it with an executor rather than through the `postgres` wrapper, which cannot join the write path's transaction.*
+- **Q7.** ~~**Whether `scatter-log-postgres` should offer a blocking API** so that rule 2's async exception can be withdrawn.~~ *Settled by [0033](0033-backend-stack.md) §4: the synchronous `postgres` crate, a wrapper over the same driver, offers one without a second implementation. Revised by A56: `LogStore` itself is asynchronous, so a blocking caller drives it with an executor rather than through the `postgres` wrapper, which cannot join the write path's transaction.* *Extended by A92: `LogStore`'s methods are `impl Future + Send` in the trait, it carries an associated unit-of-work type that `Backend::apply_in` and `IngestStore` take, and a runtime caller wraps the file backend's synchronous I/O in `spawn_blocking`.*
 
 ## Changes to other ADRs
 
@@ -848,3 +850,87 @@ Replaced text (§3, rule 2):
 - **Source:** [0081](0081-recovery-keys-and-continuations.md) §10
 - **Change:** extends §2
 - **Summary:** `scatter-log` gains the three chain-of-custody kinds; `scatter-integrity` recovery signatures, continuations, witness submission, fixed origins and the chain of custody in `verify`; `scatter-adapter-triplespace` acting on continuations; `triplespace-server` the tlog-witness endpoint and `triplespace-cli` the recovery-key, recovery-signing, continuing import and cancel commands.
+
+### A89. Source form and the shared view
+
+- **Date:** 2026-10-09
+- **Source:** [0082](0082-source-form-and-the-shared-view.md) §7
+- **Change:** extends §2
+- **Summary:** `scatter-wikibase-model` keeps the source-form invariant (no rewriting of entity IDs in stored or hashed JSON; the fused body composed per cluster); `scatter-identity` holds the exact-match map (tier 1, tier 2, `equivalent-property`), `cluster_id` for search documents and the member-set expansion; `scatter-wikibase-rdf` emits under every member with `owl:sameAs`; `scatter-scope` expands constants in compiled SPARQL through the rewriting layer and leaves paths untouched; `triplespace-api-action` and `triplespace-api-rest` normalize every parameter, take `prefer` and rewrite the response after the cache, and answer `wbgetentities` under the requested ID with `canonical`; `triplespace-ui` prefers the local form and labels by cluster; `triplespace-projections` writes `policy` on shared rows, the tenant columns and `tenant_overlaid`, instance-language terms and the integer-keyed `entity_ref`, and refuses tenant-scope writes to instance policy with `ts-instance-policy`; `triplespace-db` carries the migrations. (REVIEW G1–G7)
+
+### A90. The write path in three tiers
+
+- **Date:** 2026-10-09
+- **Source:** [0083](0083-write-path-in-three-tiers.md) §1, §8
+- **Change:** amends §4.2; extends §2
+- **Summary:** An interactive write in Postgres appends and does the rest of the appending transaction (the base check, ID allocation, the written graph's state and the activity row) in one transaction on the async driver; it no longer "applies its projections" there, since composition and everything derived from it run after commit, and only the step-1 projections the write path reads stay inline (§4.2, at [01](../architecture/01-log-and-records.md) §1.3). `scatter-ingest` is tier 1, with the bulk-append mode and block coordinator and the `graph_state` and `entity_revision` writes; `scatter-wikibase-resolve` composes as a pure function with `composed_from`, coalescing and a set-based form; `scatter-projection` holds the projection classes (log-replayed, view-derived), the side-effect-free rule, rebuild by swap, the cache epoch and the replay order; `triplespace-projections` runs the composition worker, compose-on-miss, the tier-3 consumers and their queues, `view.scope_trigger`, `from_render` on the page tables, the single-sequencer delta consumer and per-tenant epochs; the API crates compose the written entity inline for the write response and serve the per-partition activity resume token; `triplespace-db` gains `view.graph_state`, `view.entity_revision`, `view.scope_trigger`, `ops.tenant_epoch`, the `rdf_delta` coordinate index and the `composed_from` and `policy` columns. (REVIEW G8–G15)
+
+Replaced text ([01](../architecture/01-log-and-records.md) §1.3, as it stood):
+
+> **`LogStore` is asynchronous and transaction-shaped.** Its methods (`create_partition`, `partitions`, `head`, `append`, `read`, `scan`, `erase_parts`, `compact`) return `Send` futures, because an interactive write in Postgres appends and applies its projections in one transaction on the async driver ([0013](../decisions/0013-postgres-storage.md) §7): the Postgres backend implements the trait on a handle that borrows the caller's transaction, so the append composes with everything else in it, and the conformance suite ([0005](../decisions/0005-crate-organization.md) rule 8) exercises the same append the write path uses. The trait needs no runtime (rule 2). The store fills in only the header fields it alone can know, the partition, the offset and the commitment; the caller's `Draft` carries the time, the payload type, the key and the global IDs, which the write path allocates from its own per-tenant sequences in the same transaction ([0013](../decisions/0013-postgres-storage.md) §6, [0015](../decisions/0015-record-format-and-partition-registry.md) §2).
+
+### A91. Wikibase writes against the resolved view
+
+- **Date:** 2026-10-09
+- **Source:** [0084](0084-wikibase-writes-against-the-resolved-view.md) §6
+- **Change:** extends §2
+- **Summary:** `scatter-wikibase-changeset` diffs a submission against a resolved view and maps it to operations by ownership, refusing a value change on a mirror-owned statement with `ts-foreign-statement`; `scatter-ingest` performs the per-graph base check and the patch rule; `triplespace-api-action` carries the `wb*` modules over the diff, `wikibase-conflict-patched` and inbound `maxlag`, `triplespace-api-rest` the same for the REST write routes; `triplespace-ui` offers suppress-and-add as one action on a refused value change. (REVIEW G16, G17)
+
+### A92. `scatter-titles`, `scatter-extract` in layer 2, payload types in their crates, the unit of work and the wasm closure
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** corrects §2, §3, §4; extends §7
+- **Summary:** `scatter-extract` is a layer-2 crate, since it produces `scatter-wikibase-model`'s types. A `scatter:v0/*` payload type or config kind lives in the lowest crate whose product needs it (rule 11): `scatter-log` defines the `config` payload type and the kinds the log cannot start without, `scatter-pages` the page records, and a payload type or config kind that only Triplespace writes is declared by the Triplespace crate that writes it, so `scatter:v0/mirrored-page` and the `page-repo` kind are `triplespace-repos`'s, `scatter:v0/derivation` is `triplespace-extraction`'s, and the `tenancy`, `template` and `provider-readers` kinds are `triplespace-accounts`'s. `scatter-titles`, a new layer-1 pure crate, holds the namespace and special-page registries, title normalization and alias resolution, everything of a title that is a function of the registry and the string, and builds for `wasm32`, so that `triplespace-ui` and `scatter-wasm` can take it; `triplespace-titles` keeps the DB-backed resolver. `LogStore` has an associated unit-of-work type that `Backend::apply_in` and `IngestStore` take, its methods are written as `impl Future + Send` (RPITIT), and a runtime caller wraps the file backend's synchronous I/O in `spawn_blocking`. Rule 7 closes over dependencies: every transitive dependency of a rule-7 crate builds for wasm, CI builds `scatter-wasm` against a 2 MB gzipped budget, and the editor bundle is two lazily loaded modules. Per-operation filtering in `scatter-ingest` is an injected `FilterHook` trait, so the ingester names no filter language. The build order (§7) adds `scatter-titles` to step 1 and puts `triplespace-titles` over it in step 6. The ledger named §1 (the four layers); the layer move is a row of the table, and the chapter's rules section ([22](../architecture/22-crates-and-stack.md) §1.2) is §3 here, so the ledger row was corrected to §2, §3, §4 and §7. (REVIEW G51)
+
+Replaced text ([22](../architecture/22-crates-and-stack.md) §1.2, as it stood):
+
+> 2. **The core is pure.** `scatter-vocab`, `scatter-providers`, `scatter-identity`, `scatter-normalize`, `scatter-actors`, `scatter-pages`, `scatter-wikitext`, `scatter-threads`, `scatter-activitypub`, `scatter-filter`, `scatter-mwlog`, `scatter-wikitext-expand` ([0042](../decisions/0042-template-expansion-and-parsoid.md) §4), `scatter-css` ([0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §2), `scatter-scope` ([0060](../decisions/0060-scopes.md) §11), `scatter-tasks` ([0061](../decisions/0061-sprints-and-tasks.md) §12), `scatter-shex` ([0064](../decisions/0064-entityschema-and-validation.md) §9), `scatter-merge` ([0068](../decisions/0068-merging-with-upstream.md) §7), `scatter-files`, `scatter-extract` ([0072](../decisions/0072-template-mappings.md) §7), `triplespace-scribunto` ([0043](../decisions/0043-lua-modules.md) §14) and every `scatter-wikibase-*` crate perform no I/O, use no async runtime, and depend on no tokio. `scatter-activitypub` signs and verifies; it never sends. Async appears only in `scatter-log-postgres`, `scatter-ingest` and the surfaces. `LogStore`'s methods return futures ([01](../architecture/01-log-and-records.md)), which is a type signature, not a runtime: `scatter-log` depends on `std::future` alone, and its file backend does synchronous I/O inside those futures and nothing else. Other runtimes can then call the core without bridging, and a synchronous caller drives a `LogStore` call with any executor. `triplespace-scribunto` is pure (no I/O, no async runtime), but through `mlua` it links Lua's C code, so it cannot build for wasm and is not on rule 7's list ([0043](../decisions/0043-lua-modules.md) §14).
+
+> 7. **`scatter-wikibase-shape`, `scatter-wikitext`, `scatter-pages`, `scatter-normalize`, `scatter-merge`, `scatter-extract`, `scatter-css`, `scatter-scope` and `scatter-tasks` must build for `wasm32-unknown-unknown`,** so that the statement UI ([0003](../decisions/0003-statement-ui.md)), the page editor's preview ([0008](../decisions/0008-namespaces-and-document-pages.md) §11), title normalization in the browser ([0009](../decisions/0009-keyed-entity-types-and-domain.md) §12) and the classifier audit over a Wikidata dump run the same code as the server. This rule is the one wasm list, the nine crates the table of §2 marks as building for `wasm32`; [0034](../decisions/0034-frontend-stack.md) §6 and `cargo xtask wasm` read it. CI builds that target. `scatter-wasm` ([0034](../decisions/0034-frontend-stack.md) §6) is the one crate that binds them for the browser ([0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §9).
+
+Replaced text ([22](../architecture/22-crates-and-stack.md) §1.3, as it stood):
+
+> - **Log partitions carry their own policy.** Each partition has a history policy (`full` or `latest`), an integrity policy (`logged` or `hashed`), a segment size 2^k and a hash function fixed at creation ([01](../architecture/01-log-and-records.md)). Scatterbase's claim partition keeps everything and is `logged`; Triplespace's mirror partitions compact. `scatter-log` supports both from its first release, since adding either one later would change the on-disk format. A partition may be backed by files or by Postgres; both implement `LogStore`, whose methods return `Send` futures, and export bundles use the file format whichever backend is live ([0005](../decisions/0005-crate-organization.md) §4.2).
+
+Replaced text ([22](../architecture/22-crates-and-stack.md) §2.1, as it stood):
+
+> | | `scatter-log` | An append-only log split into partitions and generic over the record type; the `pages/{repo}` graph and the five-part `scatter:v0/mirrored-page` payload type ([0053](../decisions/0053-mirrored-pages.md) §5), and the optional `text` part of `scatter:v0/upstream-revision` ([0054](../decisions/0054-forking-a-mirrored-page.md) §3). The `LogStore` trait (`append`, `read`, `scan`, `erase_parts`, `compact`, `head`) and its file backend, `segments` ([0013](../decisions/0013-postgres-storage.md) §1, §10). The record header and body formats, hash tags, segment layout and Merkle tree ([0006](../decisions/0006-log-integrity-and-erasure.md) §2–5). **The graph and partition registry** (§4.1, §4.2), formerly `scatter-graphs`. Header fields 7–9, the provider-ranged revision ID and the body of erasable parts ([0015](../decisions/0015-record-format-and-partition-registry.md) §1–2). The `config` payload type with kinds `key` and `graph`, the `membership` and `block` types ([0015](../decisions/0015-record-format-and-partition-registry.md) §3, [0016](../decisions/0016-permissions-and-access-control.md) §3), and the `acl` payload type, appended to `config` for graph targets and to `log` for moderation ([0023](../decisions/0023-moderation.md) §3). The `tenancy`, `template` and `provider-readers` kinds and `scope` on `group` ([0028](../decisions/0028-tenancy-policy.md) §14). Durable offsets, tombstones, bootstrap segment writing, and replay from any offset. Embeds `docs/registry/graphs.toml` as the default registry ([0015](../decisions/0015-record-format-and-partition-registry.md) §5); the instance `log` partition and `files/{repo}` mirror partitions in the graph registry ([0039](../decisions/0039-files-and-media.md) §10–11); the instance attestation, domain tag `0x06` and the refusal of submitted instance attestations ([0040](../decisions/0040-instance-prerogatives.md) §3); the stored-form codec of packed storage: path patterns over CBOR, packing a body into fragment references, splicing it back and checking the commitment on rebuild, embedding `docs/registry/fragments.toml`; it does not compress ([0058](../decisions/0058-packed-record-storage.md) §1, §3); the `derived/{source}` graph and the four-part `scatter:v0/derivation` payload type ([0071](../decisions/0071-derived-statements-from-mirrored-pages.md) §1, §3); the `recovery-key`, `continuation` and `continuation-cancel` config kinds ([0081](../decisions/0081-recovery-keys-and-continuations.md) §10) | `oxrdf` |
+
+> | | `scatter-extract` | Template mappings with `when` conditions, parsers, value maps, split and trim ([0072](../decisions/0072-template-mappings.md) §2–4, §7); line rules, URL match patterns compiled into one set with PCRE translation, identifiers from URLs, heading and column facets ([0073](../decisions/0073-lines-links-and-url-patterns.md) §3–5, §7); the result type of subjects, match keys, statements and reports. Pure; its configuration is data, so callers outside Triplespace can use it; builds for `wasm32` | `scatter-wikitext`, `scatter-wikibase-model`, `scatter-normalize`, `regex` |
+
+> | | `scatter-wasm` | `wasm-bindgen` bindings for the browser over the pure crates editors need: the shape classifier, `scatter-normalize`, and `scatter-wikitext` with the `scatter-pages` markdown renderer, for live preview. Lazy-loaded by editors only, never needed for reading ([0034](../decisions/0034-frontend-stack.md) §6); re-exports `scatter-css` for linting stylesheets ([0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §9) | `scatter-wikibase-shape`, `scatter-normalize`, `scatter-wikitext`, `scatter-pages`, `scatter-css`, `wasm-bindgen` |
+
+> | Ingest | `scatter-ingest` | Jobs, version cursors, `upsert` and `snapshot` modes with the tombstone threshold, temporary refs, match keys, ID blocks, change summaries and optional deltas ([0012](../decisions/0012-api-requirements.md) §2.2), and parallel decompression and parsing ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.3–8.6); per-operation edit filtering of local jobs, with disallowed operations sent to the rejects file and counted separately ([0030](../decisions/0030-edit-filters.md) §7); the adoption job with its preconditions, idempotent resume, sequence floors and adopted actor records ([0035](../decisions/0035-adopting-a-wikibase.md) §2, §4, §5); the hash guard: recompute, compare, keep on mismatch, count by value type ([0006](../decisions/0006-log-integrity-and-erasure.md) §2); the `IngestStore` trait, what a job needs of the store beyond a `LogStore` and a projection `Backend` (appending inside the unit of work, sequences and floors, the version cursor, match keys, surrogates, the property type map), implemented over Postgres in the surfaces and in memory here for tests; the shallow mirror job, which drains `ops.entity_fetch` and writes `put`, `redirect` and `tombstone`, and `prefetch` on job start ([0070](../decisions/0070-shallow-entity-mirroring.md) §2.2, §3); the fetch job per entity source, writing to `source/{name}`, and declaring an adopted wiki's unregistered sources ([0078](../decisions/0078-entity-sources.md) §4, §11) | `scatter-log`, `scatter-projection`, `scatter-wikibase-changeset`, `scatter-wikibase-model`, `scatter-providers`, `scatter-filter` |
+
+> | | `triplespace-titles` | The namespace registry, title normalization and the title resolver ([0008](../decisions/0008-namespaces-and-document-pages.md) §1–3); reserved page IDs for create-protected titles ([0023](../decisions/0023-moderation.md) §2); the `resolver` namespace kind, the lookup over `view.identifier` and `view.sitelink`, and the `/resolve` ordering ([0029](../decisions/0029-resolver-namespaces.md) §2–3, §6); the main and `Category` namespaces, bare titles as main-namespace titles, and main-namespace titles last in the `/resolve` order ([0038](../decisions/0038-page-metadata-and-categories.md) §4, §8); the `file` namespace kind and `file-name` normalizer, `Media:` resolution and fall-through to file repositories ([0039](../decisions/0039-files-and-media.md) §1, §11); the `pages` kind with allowed and default models and the `uploads` flag, replacing the entity, document, file, composite and thread kinds ([0041](../decisions/0041-content-models.md) §4); conditional namespaces (`enabled_by`), Template and Template talk, and the disabled-namespace refusal ([0042](../decisions/0042-template-expansion-and-parsoid.md) §3); Module and Module talk with their title rules ([0043](../decisions/0043-lua-modules.md) §2); tenant-relative IDs in the `entity-id` normalizer ([0044](../decisions/0044-tenant-relative-ids.md) §5); Table and Table talk with the `/doc` rule ([0045](../decisions/0045-table-content-model.md) §2); the `Notation` namespace and notation keys in the `/resolve` order ([0048](../decisions/0048-notation.md) §2, §7); following redirects one hop ([0051](../decisions/0051-page-redirects.md) §2); the title stack over `view.page` and `view.foreign_title`, `origin` views and `GET /page/stack` ([0052](../decisions/0052-page-repositories-and-title-inheritance.md) §2–3, §10); `Special:Fork` ([0054](../decisions/0054-forking-a-mirrored-page.md) §2); entity-source namespaces, the tenant namespace-number and name rules, and the source lookup ([0078](../decisions/0078-entity-sources.md) §5) | `triplespace-db`, `scatter-pages`, `scatter-wikibase-model`, `scatter-identity`, `scatter-normalize` |
+
+### A93. The projection order is a partial order; Postgres before the file backend
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §7; extends §2
+- **Summary:** The projection order is a partial order over the projections a build registers, with `ops.projection_state` rows for those only, so that a build without a projection has no row for it and nothing waits on it, and a later projection is added by registering it with its class and the projections it reads after; `scatter-projection` and `triplespace-projections` carry this. The build order names the first milestone's crate and projection set (the API-only single-tenant instance the three client libraries are tested against), and step 2 builds `scatter-log`'s formats, tree and trait with an in-memory backend, then `scatter-integrity`, then `scatter-log-postgres` and the conformance suite, and the `segments` file backend last against the same suite: Postgres is the backend the milestone serves from. The ledger named §3; the fold is at [22](../architecture/22-crates-and-stack.md) §3.1 (§7 here) and in the table (§2), and the ledger row was corrected. (REVIEW G52)
+
+Replaced text ([22](../architecture/22-crates-and-stack.md) §3.1, as it stood):
+
+> 2. **The log:** `scatter-log` with the `segments` backend, `scatter-integrity`, then `scatter-log-postgres` and the `LogStore` conformance suite.
+
+Replaced text ([22](../architecture/22-crates-and-stack.md) §2.1, as it stood):
+
+> | | `scatter-projection` | The projection trait, including a transactional variant that applies inside the appending transaction ([0013](../decisions/0013-postgres-storage.md) §7, §10); projection positions per partition, rebuilding from offset 0, and lag reporting | `scatter-log` |
+
+### A94. No genesis record; several processes append
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §4.2
+- **Summary:** A partition has no genesis record: its name, hash function, `k` and policies are its `graph:` record in the `config` partition, which the export bundle carries, and its first record is an ordinary record at offset 0. Several processes append to one partition: an appending transaction reads the tree's right edge under the partition's append lock and persists only the complete subtrees its append closes, rather than keeping the right edge in memory. Both are stated at [01](../architecture/01-log-and-records.md) §1.2 and §4.1, whose provenance includes §4.2 here beside [0006](0006-log-integrity-and-erasure.md) §4 and §5, where the decisions are logged in full (0006 A24, A25); the ledger rows were extended to name §4.2. (REVIEW G24, G25)
+
+Replaced text ([01](../architecture/01-log-and-records.md) §1.2, as it stood):
+
+> - a **segment size** 2^k and the **hash function**, fixed at creation. The hash function is named in the partition's genesis record; changing it means starting a new partition.
+
+Replaced text ([01](../architecture/01-log-and-records.md) §4.1, as it stood):
+
+> - **Appends in steady state** keep the tree's right edge in memory, which is O(log n) hashes. Each append costs one leaf hash plus O(log n) node hashes in the worst case.

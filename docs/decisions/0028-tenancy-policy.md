@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-09 (A17)
+- **Updated:** 2026-10-09 (A20)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md), [0023](0023-moderation.md)
 - **Uses:** [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0027](0027-preferences-and-portability.md)
@@ -26,7 +26,7 @@ MediaWiki's answer to the second is CentralAuth: one global account, local accou
 
 ### 1. The tenancy policy is instance configuration, with three presets
 
-*Changed by A3, A6, A9, A13.*
+*Changed by A3, A6, A9, A13, A18, A19.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §5.1.*
 
@@ -82,7 +82,7 @@ MediaWiki's answer to the second is CentralAuth: one global account, local accou
 
 ### 12. Storage (extends 0013)
 
-*Changed by A10.*
+*Changed by A10, A20.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.5, §4.6, §5, §12.2, §13.*
 
@@ -330,3 +330,28 @@ Replaced text (§5, in [08](../architecture/08-tenants-and-instances.md) §4.2):
 Replaced text (§5, in [08](../architecture/08-tenants-and-instances.md) §4.4):
 
 > …writing `put`, `redirect` and `tombstone` records into a `mirror/{provider}` partition as any adapter does.
+
+### A18. Every preset computes shared rows under the instance policy
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** extends §1
+- **Summary:** Under every preset the shared rows of `view` (`tenant = ''`) are computed under one named instance policy record, the instance `reconcile` record of [0082](0082-source-form-and-the-shared-view.md) §5: provider order among registry providers, tier-2 link properties, normalizer overrides, the constraint roles and the languages that populate shared `view.term` are instance configuration. A tenant on a farm may narrow (hide a provider from its own view, restrict its own display languages, add link properties and an order for its own entity sources) but may not reorder shared providers, change a shared normalizer or rebind a shared role; a tenant-scope write that tries is refused with `ts-instance-policy`, whichever preset is in force, and the presets say so. 0082 §5 names this ADR for that sentence without a row in its table, so it is logged here as a direct decision; the fold is in [08](../architecture/08-tenants-and-instances.md) §5.1. (REVIEW G1)
+
+### A19. Presets are copied on create and synced
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** extends §1
+- **Summary:** The three presets of `docs/registry/tenancy.toml` follow the copy-on-create rule: an instance's `config` starts as a copy of the registry, so `instance create --tenancy {preset}` writes the preset's switches as `tenancy:{switch}` records; `triplespace-cli registry sync` appends records for registry entries newer than the instance's under the instance attestation, and `instance check` warns when the instance is behind the registry its binary carries. Every config record's content carries its kind's `schema` integer, `view.registry` stores the entry opaquely with its schema number, and an unknown kind or schema is projected opaquely and never fails replay, so a `tenancy` switch a later release adds reaches an existing farm through `registry sync` and an older binary can replay a newer log. The ledger named §3 (global groups); the presets are §1's, and no sentence of its chapter text ([08](../architecture/08-tenants-and-instances.md) §5.1) is contradicted. The rule is stated in [23](../architecture/23-configuration-and-registry.md) §1.1 and §4.1. (REVIEW G36)
+
+### A20. A private tenant under `store` isolation has a query service
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §12
+- **Summary:** A private tenant has no graphs in the shared query store, but with `query.isolation = store` it has a query service of its own: its embedded store is fed from its own deltas, computed in the form the `tenant` ACL's group may read (nothing under any finer restriction) in place of a public form that would be empty, and the service answers only principals that satisfy that ACL, through `Special:Query`, the MCP tools and compiled queries. What a private tenant lacks is the public endpoint, the stream and the dump, and nothing else; this settles [0059](0059-query-service.md) Q1. A hosting instance needs no `tenant` restriction to keep tenants apart ([0056](0056-security-model.md) §4). The ledger named §3; the sentence this contradicts is §12's, in [03](../architecture/03-storage-caches-and-search.md) §13, and the service itself is described in [08](../architecture/08-tenants-and-instances.md) §9.1. (REVIEW G39)
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §13, as it stood):
+
+> A private tenant has no graphs in any store ([0028](../decisions/0028-tenancy-policy.md) §12).

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-03
-- **Updated:** 2026-10-09 (A3)
+- **Updated:** 2026-10-09 (A4)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0025](0025-oauth-server.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0042](0042-template-expansion-and-parsoid.md), [0056](0056-security-model.md)
 - **Uses:** [0003](0003-statement-ui.md), [0039](0039-files-and-media.md), [0045](0045-table-content-model.md), [0047](0047-special-pages.md), [0053](0053-mirrored-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -38,6 +38,8 @@ James's direction, from the design discussion of 2026-10-03:
 
 ### 1. Principles (amends 0034 §1)
 
+*Changed by A4.*
+
 *Current text: [20](../architecture/20-web-tier.md) §1.1.*
 
 ### 2. Two ways to run the site (amends 0033 §1, §17; extends 0033 §12; amends 0034 §2, §8)
@@ -50,6 +52,8 @@ James's direction, from the design discussion of 2026-10-03:
 
 ### 4. Talking to the API
 
+*Changed by A4.*
+
 *Current text: [20](../architecture/20-web-tier.md) §2.2.*
 
 ### 5. The response cache (extends 0014 §2)
@@ -58,6 +62,8 @@ James's direction, from the design discussion of 2026-10-03:
 
 ### 6. A page's own cacheability (extends 0014 §6)
 
+*Changed by A4.*
+
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §10.3, §12.4.*
 
 ### 7. Forms without JavaScript (extends 0012 §4)
@@ -65,6 +71,8 @@ James's direction, from the design discussion of 2026-10-03:
 *Current text: [20](../architecture/20-web-tier.md) §3.1.*
 
 ### 8. Fragments: `action=render` on the page's own URL (amends 0034 §5, §11; extends 0010 §12, §13)
+
+*Changed by A4.*
 
 *Current text: [20](../architecture/20-web-tier.md) §3.2.*
 
@@ -180,3 +188,22 @@ Replaced text (§10):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§14
 - **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [07](../architecture/07-actors-and-accounts.md), [11](../architecture/11-rendering-templates-and-modules.md), [20](../architecture/20-web-tier.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A4. The page budget: the in-process transport and exact `Cache-Tag`s
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §1, §6; extends §4, §8
+- **Summary:** A page has a budget of four API calls to first byte, met by a bulk-labels route and a `GET /entity/{id}/page` bundle ([0012](0012-api-requirements.md), [0010](0010-site-ui.md)) and, in the embedded server, by the in-process transport: with `server.ui = embedded` a page's sub-requests enter the API router as `tower` calls, the session is resolved once when the page request arrives and the principal is handed to every sub-request, and the sub-requests are exempt from the `read` rate counter, which counts the page itself, so a page of four calls costs one count; visibility, ACLs and redaction run on every sub-request as over HTTP, and `triplespace-web` has no such exemption. A composed page's `Cache-Tag`s are exact and bounded: a tag for each of its subjects and for every page in its render manifest, and nothing else; label dependencies are not tagged, since a large item draws labels from thousands of entities and a tag per label source would exceed every proxy's header limit and let a mirror sync purge the whole site, so label staleness is bounded by `s-maxage`. The About panel of an entity page has a response of its own with its own short `max-age`, since its counters change without the entity's version changing. The ledger names §2; the sections that carry the text are §1, §4, §6 and §8. (REVIEW G41)
+
+Replaced text ([20](../architecture/20-web-tier.md) §1.1, as it stood):
+
+> 4. **One code path, two transports.** The same `triplespace-ui` router serves pages from `triplespace-web`, over HTTP, and from `triplespace-server`, over an in-process call into the API's own router (§1.2). Both send the same requests through the same middleware.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §10.3, as it stood):
+
+> - **Its `Cache-Tag`** is the union of theirs, so the purges of §9.6 reach it.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §12.4, as it stood):
+
+> a page the web tier composes carries the union of its components' tags (§10.3).

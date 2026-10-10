@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-09 (A17)
+- **Updated:** 2026-10-09 (A20)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0029](0029-resolver-namespaces.md), [0031](0031-property-constraints.md), [0042](0042-template-expansion-and-parsoid.md), [0046](0046-primary-tenant.md)
 - **Uses:** [0019](0019-discussions.md), [0021](0021-notifications.md), [0028](0028-tenancy-policy.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md)
@@ -44,11 +44,13 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 1. One registry of special pages (extends 0015 §5)
 
-*Changed by A9, A15.*
+*Changed by A9, A15, A19.*
 
 *Current text: [21](../architecture/21-special-pages.md) §1.1, §8.*
 
 ### 2. Names, aliases and section aliases
+
+*Changed by A19.*
 
 *Current text: [21](../architecture/21-special-pages.md) §1.2.*
 
@@ -66,9 +68,13 @@ James's direction, from the design discussion of 2026-09-30:
 
 #### 4.2 Local graphs by default
 
+*Changed by A18.*
+
 *Current text: [21](../architecture/21-special-pages.md) §2.2.*
 
 #### 4.3 Live projections by default; batch by configuration
+
+*Changed by A18.*
 
 *Current text: [21](../architecture/21-special-pages.md) §2.3.*
 
@@ -94,9 +100,13 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 7. Special:Nuke
 
+*Changed by A20.*
+
 *Current text: [21](../architecture/21-special-pages.md) §4.1.*
 
 ### 8. Special:Export and Special:Import
+
+*Changed by A20.*
 
 *Current text: [21](../architecture/21-special-pages.md) §4.2, §4.3.*
 
@@ -124,7 +134,7 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 13. Storage (amends 0013 §5 and §7)
 
-*Changed by A13.*
+*Changed by A13, A20.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.5, §4.10, §5, §6.1.*
 
@@ -369,3 +379,54 @@ Replaced text (§4.4):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§14
 - **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), [18](../architecture/18-api.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A18. Reports are a view-derived, tier-3 consumer of composition
+
+- **Date:** 2026-10-09
+- **Source:** [0083](0083-write-path-in-three-tiers.md) §3, §6
+- **Change:** amends §4.2, §4.3
+- **Summary:** The `report` projection declares its class: it is view-derived, populated by a scan of the `view` tables it reads and never by a log replay, and "rebuild projection P for tenant T from `view`" is the named operation a batch-to-live switch uses. It is a tier-3 consumer: it consumes events — "entity X composed to version N" for entity reports, the page projection's and the refresh job's row changes for page reports — in its own queue, at its own rate, in no write's transaction, off during bootstrap and bulk modes until the operator turns it on. An entity report re-evaluates an entry only when the canonical's composed row changes and the cluster has a local member, found by an index on `cluster_id` restricted to local IDs, so a mirror's changes never fan through the report projection for clusters with no local member; a live entity report's freshness is bounded by composition lag, shown beside "computed at". "Step 5 of 0013 §7" and "the synchronous budget" are withdrawn; the refresh job's rows are events to the report projection like any other, not deltas it applies in the refresh transaction. (REVIEW G10, G13, G50)
+
+Replaced text ([21](../architecture/21-special-pages.md) §2.2, as it stood):
+
+> - **Entity reports list local subjects.** The rows are local entities, and local assertions where a report is about statements. Conditions are evaluated on the **resolved view**, as a reader sees it. For example:
+
+Replaced text ([21](../architecture/21-special-pages.md) §2.3, as it stood):
+
+> | `projection` | Rows in `view.report_entry` ([03](../architecture/03-storage-caches-and-search.md) §4.10), maintained incrementally by the `report` projection as the tables it reads change | Live, at that projection's lag |
+
+> Changing a mode writes nothing into any tenant's partitions, so it is not an instance act ([0040](0040-instance-prerogatives.md) §1). When a report moves from live to batch, its next run fills its rows. When it moves from batch to live, the `report` projection rebuilds its rows for that tenant.
+
+> A batch report's page says when it was computed, as MediaWiki's cached reports do. `list=querypage` returns `cached`, `cachedtimestamp` and `maxresults` for it.
+
+> - The `report` projection runs after the tables it reads, in step 5 of [0013](0013-postgres-storage.md) §7 ([03](../architecture/03-storage-caches-and-search.md) §6.1). Each change to an input key recomputes only the entries that key affects. For example, a new `page_link` row to a missing title adds one to that title's `WantedPages` count.
+> - Report entries are **fan-out**, not part of a write's own rows. They are applied by the projection worker under 0013 §7's synchronous budget, and their lag is reported with the other projections'.
+> - Some inputs are written by the refresh job rather than by replay ([0042](0042-template-expansion-and-parsoid.md) §10): `transclusion`, `entity_usage`, and links and categories under expansion. For those, the refresh job applies the report deltas in the same transaction as the rows it writes.
+
+> - `projection` entries are a function of the `view` tables they read, and are rebuilt with them.
+
+### A19. A served page exists only once the build registers its handler
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** corrects §1, §2
+- **Summary:** `served` records a decision, not an implementation, and a served page exists in a build only once it registers a handler. At startup `triplespace-titles` intersects the registry's `served` set with the handlers the binary compiled; that intersection is what the instance reports as its special pages, in `siprop=specialpagealiases` and on `Special:SpecialPages`. A served page without a handler is reported, with the difference, on `server.admin_listen`, and a request for it gets MediaWiki's "no such special page" response, so a client never learns of a page the build cannot serve. The rest of the row (`private.watch`'s `watch_target` index, encrypted upstream grants, `siprop=triplespace` as a function of configuration with the live counters moved to `GET /version`, `/provider/{code}/mirror` and `/repo/{name}`) lands in [0020](0020-change-feeds.md), [0022](0022-federation.md) and [0012](0012-api-requirements.md). (REVIEW G47)
+
+Replaced text ([21](../architecture/21-special-pages.md) §1.1, as it stood):
+
+> - **`served`:** the instance serves the page. "Served" records a decision, not an implementation. Implementation is tracked in the milestones.
+
+Replaced text ([21](../architecture/21-special-pages.md) §1.2, as it stood):
+
+> **`siprop=specialpagealiases`** reports one entry per served page.
+
+### A20. Nuke by tag, and per-entity export folded by the export job
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §8; extends §7, §13
+- **Summary:** `view.activity.tags` gets a GIN index (`activity_tags`, [03](../architecture/03-storage-caches-and-search.md) §4.6), so a change-tag target's whole history is one index scan: Nuke's window over an account reads `view.activity` by actor, and over a tag reads it through that index. Per-revision entity export is folded by the export job, which reads one row of `view.entity_revision` per revision and folds it into the XML there, never on the request path; the revisions exported per entity are capped by `export.max_entity_history` (default 100; [23](../architecture/23-configuration-and-registry.md) §3), lower than `export.max_history` for pages, since each entity revision is a whole state rather than a text. The report half of the row (entity reports consume composition events, trigger only for a canonical with a local member, and show their composition lag) is A18's. The foreign-actor contributions view, bounded to `view.activity` with a note that upstream revisions are not indexed by actor, is [0010](0010-site-ui.md) §8's text ([19](../architecture/19-site-ui.md) §2.5), not this ADR's. (REVIEW G50)
+
+Replaced text ([21](../architecture/21-special-pages.md) §4.2, as it stood):
+
+> - **Local entities** are exported as Wikibase exports entity pages. The model is `wikibase-item` or `wikibase-property`. Each revision is one local change set, and its text is the canonical JSON of the entity's **local-graph** state at that revision ([wikibase-compat.md](../api/wikibase-compat.md)). A MediaWiki Wikibase with free IDs can import them, which is the reverse of adoption ([0035](0035-adopting-a-wikibase.md); [05](../architecture/05-providers-and-ingest.md)).

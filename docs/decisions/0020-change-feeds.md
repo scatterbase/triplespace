@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-09 (A14)
+- **Updated:** 2026-10-09 (A17)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0011](0011-logs.md), [0018](0018-tenants.md), [0022](0022-federation.md)
@@ -20,25 +20,25 @@ One constraint is fixed by James: **whether a user is watching something is priv
 
 ### 1. A feed is activity rows filtered by a target set
 
-*Changed by A3.*
+*Changed by A3, A15.*
 
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.1.*
 
 ### 2. Target sets
 
-*Changed by A6, A7, A9, A11, A12.*
+*Changed by A6, A7, A9, A11, A12, A16.*
 
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.2.*
 
 ### 3. The watch set is private state, not records (extends 0007 §8, 0013 §4)
 
-*Changed by A2, A5, A11, A13.*
+*Changed by A2, A5, A11, A13, A17.*
 
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.3.*
 
 ### 4. Delivery: page, Atom, stream (settles 0012 Q6)
 
-*Changed by A6, A8.*
+*Changed by A6, A8, A15.*
 
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.4.*
 
@@ -66,7 +66,7 @@ One constraint is fixed by James: **whether a user is watching something is priv
 
 ## Consequences
 
-- **One query path.** History, recent changes, related changes, the watchlist, contributions and the downstream stream are one code path over one table with one row shape, and they cannot disagree about what a change is or who may see it.
+- ~~**One query path.** History, recent changes, related changes, the watchlist, contributions and the downstream stream are one code path over one table with one row shape, and they cannot disagree about what a change is or who may see it.~~ *A mirrored entity's history and its sync rows in a watchlist are read from `view.entity_history`, not `view.activity`, and the stream is ordered by commit where a page is ordered by source time (A15, A16).*
 - **A watch is a private filter, never data.** Nobody, including the instance's own graph, records who watches what. The price is that the watch set is not rebuildable from the log and does not follow a tenant when it moves.
 - **Watching a mirrored entity includes its upstream changes,** by default, which is the answer 0010 was waiting for.
 - **No watcher counts,** which MediaWiki tools occasionally use to gauge attention. Here attention is private.
@@ -241,3 +241,32 @@ Replaced text (§3):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§8
 - **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A15. The stream's resume token is a vector of per-partition high-water marks
+
+- **Date:** 2026-10-09
+- **Source:** [0083](0083-write-path-in-three-tiers.md) §7
+- **Change:** amends §4; extends §1
+- **Summary:** A page and a stream carry the same rows in different orders. A paged list, its Atom form included, keeps `(time, partition, offset)` as its display order, where the time is the event's time at its source; a consumer that resumed from such a key would miss a row whose source time sorts before it and which committed after it, which imported revisions, adopted history, seeded fork history and upstream events all do, the edge MediaWiki's `rccontinue` has too. The stream is therefore ordered by commit, and its resume token is a vector of per-partition high-water marks, `{partition: offset, …}`, since within a partition offsets are commit-ordered under the append lock; `Last-Event-ID` carries that vector, opaquely encoded, and the continuation token of a page carries the sort key, the two never interchanged. A cross-instance sync job resumes from the per-partition token, and the stream filtered to `source = local` may carry each row's record body. (REVIEW G14)
+
+Replaced text ([16](../architecture/16-logs-feeds-and-notifications.md) §4.4, as it stood):
+
+> | **Stream** | `GET /activity/stream` for any feed specification, as server-sent events, with `Last-Event-ID` carrying the continuation token | | | authenticated, never by token |
+
+### A16. A history's sync rows come from `view.entity_history`
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §2
+- **Summary:** A history and a watchlist draw a mirrored entity's sync rows from `view.entity_history (tenant, canonical_id, time, partition, offset, kind, member)`, the one backing of a mirrored entity's history, written by composition; upstream log events are rows of it and never of `view.activity`. The ledger names [0013](0013-postgres-storage.md) §5, [0011](0011-logs.md) §3 and [0010](0010-site-ui.md) §3; the fold also changed §2's chapter text ([16](../architecture/16-logs-feeds-and-notifications.md) §4.2), so it is logged here. (REVIEW G42)
+
+Replaced text ([16](../architecture/16-logs-feeds-and-notifications.md) §4.2, as it stood):
+
+> A history does show them, because it is scoped to one target and draws its sync rows from that target's mirror records.
+
+### A17. `private.watch` gains a target index for the addressing projection
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** extends §3
+- **Summary:** `private.watch` gains `CREATE INDEX watch_target ON private.watch (target_kind, target_id) WHERE notify`, which exists for one reader: the addressing projection, which for every activity row must find every account that watches the row's target, its cluster members or its paired talk page with `notify` set, without scanning across accounts; the watchlist itself is read by account through the primary key. The ledger names §6; the watch table's DDL is §3's text ([16](../architecture/16-logs-feeds-and-notifications.md) §4.3), and §6's ([03](../architecture/03-storage-caches-and-search.md) §4.6) is unchanged. (REVIEW G47)

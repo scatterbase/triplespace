@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-09 (A15)
+- **Updated:** 2026-10-09 (A17)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -25,13 +25,13 @@ James's direction is to make the relation structural: a bot is a **subsidiary ac
 
 ### 1. A subsidiary is a local account with an operator (amends 0007 §4 and §6)
 
-*Changed by A2, A6.*
+*Changed by A2, A6, A17.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §1.3, §1.5, §4.1.*
 
 ### 2. Creating, approving and transferring
 
-*Changed by A2.*
+*Changed by A2, A17.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §1.3, §3.2, §4.2, §4.3, §4.4.*
 
@@ -47,7 +47,7 @@ James's direction is to make the relation structural: a bot is a **subsidiary ac
 
 ### 5. Rate limits (settles 0012, 0016, 0020 and 0021)
 
-*Changed by A4, A5, A7, A9, A11, A12, A14.*
+*Changed by A4, A5, A7, A9, A11, A12, A14, A16.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §6.1, §6.2, §6.3.*
 
@@ -75,7 +75,7 @@ James's direction is to make the relation structural: a bot is a **subsidiary ac
 
 ### 11. Permissions (extends 0016 §2)
 
-*Changed by A13.*
+*Changed by A13, A17.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §2.2, §8.4.*
 
@@ -293,3 +293,29 @@ Replaced text (§5): the counters sentence as A12 quotes it.
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§13
 - **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [07](../architecture/07-actors-and-accounts.md), [08](../architecture/08-tenants-and-instances.md), [09](../architecture/09-security-and-moderation.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A16. `read` is counted lazily, and `maxlag` includes composition lag
+
+- **Date:** 2026-10-09
+- **Source:** [0083](0083-write-path-in-three-tiers.md) §1
+- **Change:** extends §5
+- **Summary:** The `read` rate class is counted for authenticated principals only once a per-process count of their reads has passed a fraction of the limit, and never for a response served from L0 or L1, so the cost of the class on a cached page is nothing; anonymous reads are counted by IP as before. The chapter also has inbound `maxlag` answer for the larger of replica lag and the tenant's local-partition composition lag ([0084](0084-wikibase-writes-against-the-resolved-view.md) §5), not for the actor's rate. (REVIEW G15)
+
+### A17. Hand-made subsidiaries are never pending; the sync subsidiaries start in `bot`
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** corrects §2, §11; extends §1
+- **Summary:** `pending` is an OAuth-only status: a subsidiary created on the OAuth consent page is pending until approved, and a subsidiary created by hand from `Special:Account` or `POST /account/subsidiaries` is a member of `user` from its first record, whoever its operator is and however new their account; "a subsidiary a new user creates is pending until approved" is struck. The MCP requirement is the `basic` grant, which every key and token carries. `triplespace-cli instance create` creates the instance's sync subsidiaries beside `local:1` and puts them in the `bot` group at creation, as `primary accept` does on a transfer. `view.actor` gains `editcount` and `created_at`, maintained by the activity projection from local `edit` rows, erased included and job rows excluded, from which the implicit `autoconfirmed` group is computed. (REVIEW G40)
+
+Replaced text ([07](../architecture/07-actors-and-accounts.md) §4.2, as it stood):
+
+> Temporary accounts cannot create subsidiaries; nor can subsidiaries. A subsidiary a new user creates is pending until approved (§4.3).
+
+Replaced text ([07](../architecture/07-actors-and-accounts.md) §4.3, as it stood):
+
+> **`pending` is an actor status** (§1.3). A subsidiary created in an OAuth authorization is `pending` instead until approved.
+
+Replaced text ([09](../architecture/09-security-and-moderation.md) §8.4, as it stood):
+
+> `userrights` covers approval of a pending subsidiary, and creating one in the consent page is `createaccount`; a subsidiary a new user creates is pending until approved.

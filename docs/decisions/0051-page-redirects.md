@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-10-09 (A5)
+- **Updated:** 2026-10-09 (A6)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0030](0030-edit-filters.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0047](0047-special-pages.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0011](0011-logs.md), [0023](0023-moderation.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -34,7 +34,7 @@ James's direction, from the design discussion of 2026-10-01, was for the mirrori
 
 ### 3. Moves leave a redirect (amends 0008 §4)
 
-*Changed by A3.*
+*Changed by A3, A6.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §2.5.*
 
@@ -160,3 +160,16 @@ Replaced text (§6):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§9
 - **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), [10](../architecture/10-pages-and-content-models.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [21](../architecture/21-special-pages.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A6. A redirect is left only where the old title may hold `wikitext`
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** corrects §3
+- **Summary:** A move leaves a redirect only where the old title may hold `wikitext`, since only a `wikitext` page can be a redirect (§1): in namespace 0, User, Project, File, Template and Category, and at the `/doc` titles of Module, Table, Query and Scope. Where the old title cannot hold `wikitext` (a Table page moved to another Table title, a Scope, a Query, a Module's code page, a sprint subpage) the move behaves as `noredirect` without needing `suppressredirect`, and the `move/move` event says so with `noredirect: true`. Entity, keyed-type, Thread and Board namespaces disallow `move` altogether: an entity's title is its ID, a thread's title is minted from its subject and changed only by the thread's own `rename` record, and a board's title names the board, so `action=move` into, out of or within these namespaces is refused, as in a `virtual` or `resolver` namespace. The ledger names §2, but the text it corrects is §3's, which this entry names; §2 says nothing about moves. (REVIEW G43)
+
+Replaced text ([10](../architecture/10-pages-and-content-models.md) §2.5, as it stood):
+
+> **A move leaves a redirect at the old title by default,** as MediaWiki's does.
+
+> - **Thread renames leave none** ([0019](0019-discussions.md) §3), for the reason user renames do.
