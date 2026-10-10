@@ -13,6 +13,8 @@
 //! - [`mirror`]: a dump's entities as mirror states under the provider's prefixed IDs.
 //! - [`entities`]: either dump as one stream of entities with their revision metadata,
 //!   for a mirror sync.
+//! - [`typing`]: the snak data types an XML dump leaves out, from the properties the
+//!   dump defines, for a mirror sync.
 //!
 //! The crate reads files and parses; it knows no log and no database (0005 §2).
 
@@ -22,11 +24,13 @@ pub mod adoption;
 pub mod entities;
 pub mod json_dump;
 pub mod mirror;
+pub mod typing;
 pub mod xml_dump;
 
 pub use adoption::{Account, AdoptedRevision, Survey, adopt_page};
 pub use entities::Entities;
 pub use json_dump::JsonDump;
+pub use typing::DumpPropertyTypes;
 pub use xml_dump::{DumpPage, Revision, XmlDump};
 
 use std::io::{BufRead, BufReader};

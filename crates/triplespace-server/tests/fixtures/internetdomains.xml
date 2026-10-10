@@ -1,0 +1,65 @@
+<mediawiki xmlns="http://www.mediawiki.org/xml/export-0.11/" version="0.11" xml:lang="en">
+  <!-- internetdomains.json as a MediaWiki XML dump carries it: Wikibase's stored JSON, with
+       no datatype on any snak, empty maps written as [], and the properties after the items
+       that use them. `triplespace sync` must read both files to the same mirror states. -->
+  <siteinfo>
+    <sitename>Internet Domains Wikibase</sitename>
+    <namespaces>
+      <namespace key="0" case="first-letter" />
+      <namespace key="120" case="first-letter">Item</namespace>
+      <namespace key="122" case="first-letter">Property</namespace>
+    </namespaces>
+  </siteinfo>
+  <page>
+    <title>Item:Q9</title>
+    <ns>120</ns>
+    <id>1</id>
+    <revision>
+      <id>55</id>
+      <timestamp>2026-10-01T00:00:00Z</timestamp>
+      <contributor><username>Fixture</username><id>1</id></contributor>
+      <model>wikibase-item</model>
+      <format>application/json</format>
+      <text xml:space="preserve">{"type":"item","id":"Q9","labels":{"en":{"language":"en","value":"example.org"}},"descriptions":[],"aliases":[],"claims":{"P1":[{"mainsnak":{"snaktype":"value","property":"P1","datavalue":{"value":"example.org","type":"string"}},"type":"statement","rank":"normal","id":"Q9$00000000-0000-0000-0000-0000000000A1"}]},"sitelinks":[]}</text>
+    </revision>
+  </page>
+  <page>
+    <title>Item:Q11</title>
+    <ns>120</ns>
+    <id>2</id>
+    <revision>
+      <id>56</id>
+      <timestamp>2026-10-01T00:00:00Z</timestamp>
+      <contributor><username>Fixture</username><id>1</id></contributor>
+      <model>wikibase-item</model>
+      <format>application/json</format>
+      <text xml:space="preserve">{"type":"item","id":"Q11","labels":{"en":{"language":"en","value":"Wikipedia"}},"descriptions":{"en":{"language":"en","value":"the free encyclopedia"}},"aliases":[],"claims":{"P1":[{"mainsnak":{"snaktype":"value","property":"P1","datavalue":{"value":"wikipedia.org","type":"string"}},"type":"statement","rank":"normal","id":"Q11$00000000-0000-0000-0000-0000000000B1"}],"P8":[{"mainsnak":{"snaktype":"value","property":"P8","datavalue":{"value":{"entity-type":"item","id":"Q9","numeric-id":9},"type":"wikibase-entityid"}},"type":"statement","rank":"normal","id":"Q11$00000000-0000-0000-0000-0000000000B2"}]},"sitelinks":[]}</text>
+    </revision>
+  </page>
+  <page>
+    <title>Property:P1</title>
+    <ns>122</ns>
+    <id>3</id>
+    <revision>
+      <id>3</id>
+      <timestamp>2026-10-01T00:00:00Z</timestamp>
+      <contributor><username>Fixture</username><id>1</id></contributor>
+      <model>wikibase-property</model>
+      <format>application/json</format>
+      <text xml:space="preserve">{"type":"property","id":"P1","datatype":"string","labels":{"en":{"language":"en","value":"domain name"}},"descriptions":[],"aliases":[],"claims":[]}</text>
+    </revision>
+  </page>
+  <page>
+    <title>Property:P8</title>
+    <ns>122</ns>
+    <id>4</id>
+    <revision>
+      <id>4</id>
+      <timestamp>2026-10-01T00:00:00Z</timestamp>
+      <contributor><username>Fixture</username><id>1</id></contributor>
+      <model>wikibase-property</model>
+      <format>application/json</format>
+      <text xml:space="preserve">{"type":"property","id":"P8","datatype":"wikibase-item","labels":{"en":{"language":"en","value":"related domain"}},"descriptions":[],"aliases":[],"claims":[]}</text>
+    </revision>
+  </page>
+</mediawiki>
