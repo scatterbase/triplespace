@@ -203,6 +203,11 @@ async fn subject_from_id_or_new(ctx: &Ctx) -> Result<(Subject, bool), ApiError> 
         ctx.caller
             .require("createpage")
             .or_else(|_| ctx.caller.require("edit"))?;
+        // Wikibase's right for a new property (0016 §2), which `Special:NewProperty`
+        // also asks for.
+        if entity_type == EntityType::Property {
+            ctx.caller.require("property-create")?;
+        }
         let mut cx = scatter_projection::Backend::begin(ctx.app.store()).await?;
         let id = scatter_ingest::write::mint_entity_id(
             ctx.app.store(),

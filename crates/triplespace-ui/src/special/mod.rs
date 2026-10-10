@@ -1,7 +1,9 @@
 //! Special pages (0047): those the site serves so far, by name.
 //!
 //! - [`index`]: `Special:SpecialPages`, the list of the others.
-//! - [`login`]: `Special:UserLogin` and `Special:UserLogout`, the site's only forms.
+//! - [`login`]: `Special:UserLogin` and `Special:UserLogout`.
+//! - [`new_entity`]: `Special:NewItem` and `Special:NewProperty`, the forms that create
+//!   an entity (0047 §5).
 //! - [`search`]: `Special:Search`, the full results page, and its **Go to** rule
 //!   (0010 §3; 0047 §9).
 //! - [`version`]: `Special:Version` and its `Credits` and `License` subpages (0077).
@@ -11,6 +13,7 @@
 
 pub mod index;
 pub mod login;
+pub mod new_entity;
 pub mod search;
 pub mod version;
 
@@ -20,7 +23,7 @@ use axum::http::HeaderMap;
 use axum::response::Response;
 
 use crate::Site;
-use crate::pages::Peer;
+use crate::pages::{Params, Peer};
 
 /// A special page's name from its title: `Special:Search/foo` → `Search`, with the
 /// first letter upper-cased, as MediaWiki's titles have it.
@@ -39,9 +42,14 @@ pub async fn serve(
     headers: &HeaderMap,
     peer: Peer,
     title: &str,
-    query: &BTreeMap<String, String>,
+    params: &Params,
 ) -> Option<Response> {
-    match name_of(title)?.as_str() {
+    let query = &params.map;
+    let name = name_of(title)?;
+    if let Some(kind) = new_entity::Kind::of(&name) {
+        return Some(new_entity::serve(site, headers, peer, kind, title, params).await);
+    }
+    match name.as_str() {
         "Search" => Some(search::serve(site, headers, peer, query).await),
         "SpecialPages" => Some(index::serve(site, headers, peer, query).await),
         "UserLogin" => Some(login::login(site, headers, peer, query).await),
@@ -58,9 +66,14 @@ pub async fn post(
     peer: Peer,
     title: &str,
     query: &BTreeMap<String, String>,
-    form: &BTreeMap<String, String>,
+    params: &Params,
 ) -> Option<Response> {
-    match name_of(title)?.as_str() {
+    let form = &params.map;
+    let name = name_of(title)?;
+    if let Some(kind) = new_entity::Kind::of(&name) {
+        return Some(new_entity::post(site, headers, peer, kind, query, params).await);
+    }
+    match name.as_str() {
         "UserLogin" => Some(login::post_login(site, headers, peer, query, form).await),
         "UserLogout" => Some(login::post_logout(site, headers, peer, query, form).await),
         _ => None,

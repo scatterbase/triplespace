@@ -278,10 +278,22 @@ h3 {
 	font-size: var( --font-size-small, 0.875rem );
 }
 
-/* The site's forms: logging in and out */
+/* The site's forms: logging in and out, and creating an entity */
 
 .ts-account-form {
 	max-width: 24rem;
+}
+
+.ts-new-entity {
+	max-width: 36rem;
+}
+
+.ts-new-entity > .cdx-message {
+	margin-bottom: var( --spacing-100, 1rem );
+}
+
+.ts-new-statements .cdx-checkbox:last-child {
+	margin-bottom: 0;
 }
 
 .ts-form {

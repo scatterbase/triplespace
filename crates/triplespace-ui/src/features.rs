@@ -55,6 +55,7 @@ pub const BUILT: &[Feature] = &[
     Feature::Search,
     Feature::Login,
     Feature::Edit,
+    Feature::Create,
     Feature::Version,
 ];
 

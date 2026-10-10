@@ -600,6 +600,20 @@ async fn a_bot_logs_in_reads_and_edits() {
         .await;
     assert_eq!(s["search"][0]["id"], "Q7", "{s}");
     assert_eq!(s["search"][0]["label"], "Seven");
+    // A new property needs `property-create` (0016 §2), which a bot does not hold.
+    let denied = c
+        .post(
+            "action=wbeditentity&format=json",
+            &format!(
+                "new=property&data={}&token={}",
+                enc(
+                    r#"{"labels":{"en":{"language":"en","value":"ISBN"}},"datatype":"external-id"}"#
+                ),
+                enc(&csrf)
+            ),
+        )
+        .await;
+    assert_eq!(denied["error"]["code"], "permissiondenied", "{denied}");
 
     // 6. The same key as a bearer credential, stateless.
     let mut b = Client {

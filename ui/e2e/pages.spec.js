@@ -31,6 +31,7 @@ const pages = [
 	{ path: '/wiki/Item:Q404', heading: 'Item:Q404', status: 404 },
 	{ path: '/w/index.php?title=Special:Search&search=six&fulltext=1', heading: 'Search' },
 	{ path: '/wiki/Special:Search', heading: 'Search' },
+	{ path: '/wiki/Special:NewItem', heading: 'Create a new item' },
 	{ path: '/wiki/Special:Version', heading: 'Version' },
 	{ path: '/wiki/Special:Version/Credits', heading: 'Credits' },
 	{ path: '/wiki/Special:Version/License', heading: 'GNU General Public License' }
@@ -90,7 +91,8 @@ test( 'the main page is Project:Home, and unbuilt features are not linked', asyn
 	await expect( page ).toHaveURL( /\/wiki\/Project:Home$/ );
 	await page.goto( '/wiki/Main_Page' );
 	await expect( page ).toHaveURL( /\/wiki\/Project:Home$/ );
-	for ( const absent of [ 'Special:RecentChanges', 'Special:Jobs', 'Special:NewItem', 'action=history' ] ) {
+	await expect( page.locator( 'a[href="/wiki/Special:NewItem"]' ) ).toHaveCount( 1 );
+	for ( const absent of [ 'Special:RecentChanges', 'Special:Jobs', 'action=history' ] ) {
 		await expect( page.locator( `a[href*="${ absent }"]` ) ).toHaveCount( 0 );
 	}
 	await page.goto( '/wiki/Item:Q6' );
