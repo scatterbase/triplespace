@@ -15,45 +15,47 @@
 <body>
 <a class="ts-skip" href="#content">{{ m.get("ts-skip-to-content") }}</a>
 <header class="ts-header">
-	<a class="ts-header__site" href="{{ mainpage_href }}">{{ sitename }}</a>
-	{%- if let Some(search) = search %}
-	<form class="ts-header__search" role="search" action="/w/index.php" method="get">
-		<input type="hidden" name="title" value="Special:Search">
-		{{ search|safe }}
-	</form>
-	{%- endif %}
-	<nav class="ts-header__nav" aria-label="{{ m.get("ts-nav-label") }}">
-		{%- for (label, href) in nav %}
-		<a class="ts-header__nav-link" href="{{ href }}">{{ label }}</a>
-		{%- endfor %}
-	</nav>
-	<div class="ts-header__end">
-		{%- if !new_menu.is_empty() %}
-		<details class="ts-menu">
-			<summary class="cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--weight-quiet">{{ m.get("ts-new") }}</summary>
-			<ul class="ts-menu__items">
-				{%- for (label, href) in new_menu %}
-				<li><a class="ts-menu__link" href="{{ href }}">{{ label }}</a></li>
-				{%- endfor %}
-			</ul>
-		</details>
+	<div class="ts-header__inner">
+		<a class="ts-header__site" href="{{ mainpage_href }}">{{ sitename }}</a>
+		{%- if let Some(search) = search %}
+		<form class="ts-header__search" role="search" action="/w/index.php" method="get">
+			<input type="hidden" name="title" value="Special:Search">
+			{{ search|safe }}
+		</form>
 		{%- endif %}
-		{%- if let Some(account) = account %}
-		{%- if account.items.is_empty() %}
-		<span class="ts-header__user">{{ account.name }}</span>
-		{%- else %}
-		<details class="ts-menu">
-			<summary class="cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--weight-quiet" aria-label="{{ account.label }}">{{ account.name }}</summary>
-			<ul class="ts-menu__items">
-				{%- for (label, href) in account.items %}
-				<li><a class="ts-menu__link" href="{{ href }}">{{ label }}</a></li>
-				{%- endfor %}
-			</ul>
-		</details>
-		{%- endif %}
-		{%- else if login %}
-		<a class="cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--weight-quiet" href="/wiki/Special:UserLogin?returnto={{ returnto }}">{{ m.get("ts-login") }}</a>
-		{%- endif %}
+		<nav class="ts-header__nav" aria-label="{{ m.get("ts-nav-label") }}">
+			{%- for (label, href) in nav %}
+			<a class="ts-header__nav-link" href="{{ href }}">{{ label }}</a>
+			{%- endfor %}
+		</nav>
+		<div class="ts-header__end">
+			{%- if !new_menu.is_empty() %}
+			<details class="ts-menu">
+				<summary class="cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--weight-quiet">{{ m.get("ts-new") }}</summary>
+				<ul class="ts-menu__items">
+					{%- for (label, href) in new_menu %}
+					<li><a class="ts-menu__link" href="{{ href }}">{{ label }}</a></li>
+					{%- endfor %}
+				</ul>
+			</details>
+			{%- endif %}
+			{%- if let Some(account) = account %}
+			{%- if account.items.is_empty() %}
+			<span class="ts-header__user">{{ account.name }}</span>
+			{%- else %}
+			<details class="ts-menu">
+				<summary class="cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--weight-quiet" aria-label="{{ account.label }}">{{ account.name }}</summary>
+				<ul class="ts-menu__items">
+					{%- for (label, href) in account.items %}
+					<li><a class="ts-menu__link" href="{{ href }}">{{ label }}</a></li>
+					{%- endfor %}
+				</ul>
+			</details>
+			{%- endif %}
+			{%- else if login %}
+			<a class="cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--weight-quiet" href="/wiki/Special:UserLogin?returnto={{ returnto }}">{{ m.get("ts-login") }}</a>
+			{%- endif %}
+		</div>
 	</div>
 </header>
 <main class="ts-page" id="content">

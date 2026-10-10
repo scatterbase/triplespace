@@ -61,16 +61,36 @@ h3 {
 	background-color: var( --background-color-base, #fff );
 }
 
+/* The frame column. The header's contents, the page and the footer all sit in it, so the
+   site name, the title, the content and the footer share one start edge and one end edge
+   however wide the window. The header's bar alone runs the full width. */
+
+:root {
+	--ts-frame-width: 80rem;
+	--ts-frame-gutter: var( --size-250, 2.5rem );
+}
+
+.ts-header__inner,
+.ts-page,
+.ts-footer {
+	max-width: var( --ts-frame-width );
+	margin-inline: auto;
+	padding-inline: var( --ts-frame-gutter );
+}
+
 /* The global header */
 
 .ts-header {
+	border-bottom: 1px solid var( --border-color-muted, #dadde3 );
+	background-color: var( --background-color-base, #fff );
+}
+
+.ts-header__inner {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
 	gap: var( --size-75, 0.75rem ) var( --size-125, 1.25rem );
-	padding: var( --size-75, 0.75rem ) var( --size-250, 2.5rem );
-	border-bottom: 1px solid var( --border-color-muted, #dadde3 );
-	background-color: var( --background-color-base, #fff );
+	padding-block: var( --size-75, 0.75rem );
 }
 
 .ts-header__site {
@@ -109,7 +129,7 @@ h3 {
 	display: flex;
 	align-items: center;
 	gap: var( --size-75, 0.75rem );
-	margin-left: auto;
+	margin-inline-start: auto;
 }
 
 /* A menu that works without JavaScript: a disclosure */
@@ -154,9 +174,7 @@ h3 {
 /* The page header */
 
 .ts-page {
-	max-width: 80rem;
-	margin: 0 auto;
-	padding: var( --size-200, 2rem ) var( --size-250, 2.5rem );
+	padding-block: var( --size-200, 2rem );
 }
 
 .ts-page__identity {
@@ -198,19 +216,14 @@ h3 {
 }
 
 .ts-footer {
-	max-width: var( --size-5600, 56rem );
-	margin: 0 auto;
-	padding: var( --size-150, 1.5rem ) var( --size-250, 2.5rem );
+	padding-block: var( --size-150, 1.5rem );
 	color: var( --color-subtle, #54595d );
 	font-size: var( --font-size-small, 0.875rem );
 }
 
 @media ( max-width: 640px ) {
-	.ts-header,
-	.ts-page,
-	.ts-footer {
-		padding-left: var( --size-100, 1rem );
-		padding-right: var( --size-100, 1rem );
+	:root {
+		--ts-frame-gutter: var( --size-100, 1rem );
 	}
 
 	.ts-header__search {
@@ -218,7 +231,7 @@ h3 {
 	}
 
 	.ts-header__end {
-		margin-left: 0;
+		margin-inline-start: 0;
 	}
 }
 
