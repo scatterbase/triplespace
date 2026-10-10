@@ -29,6 +29,18 @@ pub const PAGES: &[(&str, &str, &str, Feature)] = &[
         Feature::Login,
     ),
     (
+        "Special:NewItem",
+        "ts-newitem-title",
+        "ts-specialpages-newitem",
+        Feature::Create,
+    ),
+    (
+        "Special:NewProperty",
+        "ts-newproperty-title",
+        "ts-specialpages-newproperty",
+        Feature::Create,
+    ),
+    (
         "Special:Version",
         "ts-version-title",
         "ts-specialpages-version",

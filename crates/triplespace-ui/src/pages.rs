@@ -466,18 +466,48 @@ pub(crate) fn no_page(cx: &Context, headers: &HeaderMap, title: String) -> Respo
     })
 }
 
+/// A request's query or form: by name, the last value of each, and in order, every
+/// value, for the few parameters that repeat (`statement=` on `Special:NewItem`).
+#[derive(Debug, Clone, Default)]
+pub struct Params {
+    /// The last value of each name.
+    pub map: BTreeMap<String, String>,
+    /// Every pair, in order.
+    pub pairs: Vec<(String, String)>,
+}
+
+impl Params {
+    /// From the pairs, in order.
+    #[must_use]
+    pub fn new(pairs: Vec<(String, String)>) -> Self {
+        Self {
+            map: pairs.iter().cloned().collect(),
+            pairs,
+        }
+    }
+
+    /// Every value of a name, in order.
+    pub fn all<'a>(&'a self, name: &'a str) -> impl Iterator<Item = &'a str> + 'a {
+        self.pairs
+            .iter()
+            .filter(move |(k, _)| k == name)
+            .map(|(_, v)| v.as_str())
+    }
+}
+
 /// A title: an entity's page, a special page, the main page, or the `404`.
 async fn dispatch(
     site: &Site,
     headers: &HeaderMap,
     peer: Peer,
     title: String,
-    query: &BTreeMap<String, String>,
+    params: &Params,
 ) -> Response {
+    let query = &params.map;
     if entity::is_entity_title(&title) {
         return entity::serve(site, headers, peer, title, query).await;
     }
-    if let Some(r) = special::serve(site, headers, peer, &title, query).await {
+    if let Some(r) = special::serve(site, headers, peer, &title, params).await {
         return r;
     }
     let incoming = incoming(headers, peer);
@@ -542,7 +572,7 @@ async fn dispatch_post(
     peer: Peer,
     title: &str,
     query: &BTreeMap<String, String>,
-    form: &BTreeMap<String, String>,
+    form: &Params,
 ) -> Response {
     if let Some(r) = special::post(site, headers, peer, title, query, form).await {
         return r;
@@ -564,8 +594,9 @@ pub async fn wiki_post(
     Query(query): Query<BTreeMap<String, String>>,
     headers: HeaderMap,
     peer: Peer,
-    Form(form): Form<BTreeMap<String, String>>,
+    Form(form): Form<Vec<(String, String)>>,
 ) -> Response {
+    let form = Params::new(form);
     dispatch_post(&site, &headers, peer, &display_title(&title), &query, &form).await
 }
 
@@ -575,12 +606,13 @@ pub async fn index_post(
     Query(query): Query<BTreeMap<String, String>>,
     headers: HeaderMap,
     peer: Peer,
-    Form(form): Form<BTreeMap<String, String>>,
+    Form(form): Form<Vec<(String, String)>>,
 ) -> Response {
+    let form = Params::new(form);
     let title = display_title(
         query
             .get("title")
-            .or_else(|| form.get("title"))
+            .or_else(|| form.map.get("title"))
             .map_or("", String::as_str),
     );
     dispatch_post(&site, &headers, peer, &title, &query, &form).await
@@ -588,29 +620,37 @@ pub async fn index_post(
 
 /// `/`: a redirect to the main page.
 pub async fn root(State(site): State<Site>, headers: HeaderMap, peer: Peer) -> Response {
-    dispatch(&site, &headers, peer, String::new(), &BTreeMap::new()).await
+    dispatch(&site, &headers, peer, String::new(), &Params::default()).await
 }
 
 /// `/wiki/{title}`.
 pub async fn wiki(
     State(site): State<Site>,
     Path(title): Path<String>,
-    Query(query): Query<BTreeMap<String, String>>,
+    Query(query): Query<Vec<(String, String)>>,
     headers: HeaderMap,
     peer: Peer,
 ) -> Response {
-    dispatch(&site, &headers, peer, display_title(&title), &query).await
+    dispatch(
+        &site,
+        &headers,
+        peer,
+        display_title(&title),
+        &Params::new(query),
+    )
+    .await
 }
 
 /// `/w/index.php` and `/index.php`: the title in `title=`.
 pub async fn index_php(
     State(site): State<Site>,
-    Query(query): Query<BTreeMap<String, String>>,
+    Query(query): Query<Vec<(String, String)>>,
     headers: HeaderMap,
     peer: Peer,
 ) -> Response {
-    let title = display_title(query.get("title").map_or("", String::as_str));
-    dispatch(&site, &headers, peer, title, &query).await
+    let params = Params::new(query);
+    let title = display_title(params.map.get("title").map_or("", String::as_str));
+    dispatch(&site, &headers, peer, title, &params).await
 }
 
 /// Everything else: the site's own 404.

@@ -41,7 +41,7 @@ mediawiki = [
 ]
 wikibase = ["item-term", "property-term", "item-redirect", "item-merge", "property-create"]
 triplespace = [
-  "ts-link", "ts-retain", "ts-convert", "ts-runjob", "ts-revertjob", "ts-viewrejects",
+  "ts-link", "ts-linkproperty", "ts-retain", "ts-convert", "ts-runjob", "ts-revertjob", "ts-viewrejects",
   "ts-erase", "ts-viewerasures", "ts-unlink", "ts-config", "ts-keys",
   "ts-editpost",                                 # 0019 §12: edit another actor's post
   "ts-transferaccount",                          # 0024 §11: move a subsidiary to another operator
@@ -71,6 +71,7 @@ permissions = [
   "edit", "createpage", "editcontentmodel",
   "delete-redirect", "move-subpages", "move-rootuserpages", "move-categorypages",   # 0051 §8, MediaWiki's defaults
   "item-term", "property-term", "item-redirect", "item-merge",
+  "property-create",                                                              # 0016 A32: Wikibase's default; a tenant reserves it by removing it here in its config
   "viewmywatchlist", "editmywatchlist", "editmyoptions", "viewmyprivateinfo",   # 0020 §7, 0021 §9
   "mwoauthmanagemygrants",                                                        # 0025 §10: revoke one's own authorizations
   "changetags",                                                                   # 0030 §5 as amended: apply a registered tag, subject to the tag's group
@@ -99,13 +100,13 @@ permissions = []                    # to a group that includes it. It can never 
 
 [[group]]
 name = "propertycreator"
-permissions = ["property-create"]
+permissions = ["property-create", "ts-linkproperty"]   # ts-linkproperty: 0016 A32
 
 [[group]]
 name = "sysop"
 permissions = [
   "delete", "undelete", "deletedhistory", "deletedtext", "browsearchive", "deleterevision", "deletelogentry",
-  "protect", "block", "import", "importupload", "property-create", "autopatrol", "noratelimit",
+  "protect", "block", "import", "importupload", "property-create", "ts-linkproperty", "autopatrol", "noratelimit",
   "ts-retain", "ts-convert", "ts-runjob", "ts-revertjob", "ts-viewrejects",
   "ts-viewerasures", "ts-unlink", "ts-editpost",
   "abusefilter-view-private", "abusefilter-log-private", "abusefilter-log-detail", "abusefilter-modify", "abusefilter-revert",

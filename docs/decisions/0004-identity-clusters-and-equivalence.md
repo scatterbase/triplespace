@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-10-09 (A21)
+- **Updated:** 2026-10-09 (A22)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md)
 - **Uses:** [0000](0000-init.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -71,7 +71,7 @@ There are three needs:
 
 ### 9. Operations (amends 0002 §8.2)
 
-*Changed by A4, A13, A16, A18.*
+*Changed by A4, A13, A16, A18, A22.*
 
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §4.10.*
 
@@ -348,3 +348,14 @@ Replaced text ([04](../architecture/04-entities-and-identifiers.md) §4.6, as it
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §7
 - **Summary:** The normalized keys are stored beside the values in `view.value_key`, and each row carries the version of the normalizer that produced it. Changing a normalizer, whether a data type's, a property's override or a resolver's, enqueues a per-property rebuild job that recomputes the keys of every value of the affected properties and bumps the rendering version of the update stream, since the normalized (`wdtn:`) triples change lexical form; until the job completes, rows of the old version are compared by the old key. The sitelink half of the ledger row is under [0026](0026-sitelinks.md) §5. (REVIEW G33)
+
+### A22. Linking properties needs `ts-linkproperty`
+
+- **Date:** 2026-10-09
+- **Source:** [0016](0016-permissions-and-access-control.md) A32
+- **Change:** amends §9
+- **Summary:** A local property's `redirect` across namespaces (A4) needs `ts-linkproperty`, not `property-create`, which every registered account now holds by default; `equivalent-property` needs it too ([09](../architecture/09-security-and-moderation.md) §2.4). Both change predicates for every consumer, so the right stays with `propertycreator` and `sysop`.
+
+Replaced text ([04](../architecture/04-entities-and-identifiers.md) §4.10, as it stood):
+
+> It needs `property-create` and a matching data type.

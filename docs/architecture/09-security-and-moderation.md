@@ -87,7 +87,8 @@ Every permission the ADRs name, with the group that holds it by default and what
 | `createpage` | `user`, `temp` | Page `create`; creating a board (namespace 310) or a scope (namespace 312); forking a mirrored page, with `edit` | [0016](../decisions/0016-permissions-and-access-control.md) §2; [0049](../decisions/0049-boards.md) §13; [0060](../decisions/0060-scopes.md) §9; [0054](../decisions/0054-forking-a-mirrored-page.md) §8 |
 | `item-term`, `property-term` | `user` | Labels, descriptions and aliases of items and properties | [0016](../decisions/0016-permissions-and-access-control.md) §2 |
 | `item-redirect`, `item-merge` | `user` | Local `redirect` between local items ([04](04-entities-and-identifiers.md)) | [0016](../decisions/0016-permissions-and-access-control.md) §2 |
-| `property-create` | `propertycreator`, `sysop` | Creating a local property; `equivalent-property` links, because they change predicates for every consumer | [0016](../decisions/0016-permissions-and-access-control.md) §2 |
+| `property-create` | `user`, `propertycreator`, `sysop` | Creating a local property. Held by every registered account by default, as in a stock Wikibase; a tenant that wants Wikidata's arrangement removes it from `user` in its configuration, leaving `propertycreator` and `sysop` | [0016](../decisions/0016-permissions-and-access-control.md) §2, A32 |
+| `ts-linkproperty` *(new)* | `propertycreator`, `sysop` | `equivalent-property` links and a local property's `redirect` across namespaces ([04](04-entities-and-identifiers.md) §4.10), because they change predicates for every consumer | [0016](../decisions/0016-permissions-and-access-control.md) A32 |
 | `ts-link` *(new)* | `autoconfirmed` | `same-as` and `different-from`; resolving held conflicts ([04](04-entities-and-identifiers.md)); in bulk, with `ts-runjob` | [0016](../decisions/0016-permissions-and-access-control.md) §2, §5 |
 | `move` | `autoconfirmed` | Page `move`. On threads: `rename`, `move`, `attach` and `detach` (with `edit` on the target), `pin` and `unpin` (with `edit` on the page) | [0016](../decisions/0016-permissions-and-access-control.md) §2; [0019](../decisions/0019-discussions.md) §12; [0049](../decisions/0049-boards.md) §13; [0069](../decisions/0069-synchronized-talk-pages.md) §11 |
 | `editcontentmodel` | `user` | `action=changecontentmodel`, including to or from `sanitized-css` | [0016](../decisions/0016-permissions-and-access-control.md) §2; [0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §8 |
@@ -167,7 +168,7 @@ An **instance right** is a permission that authorizes an instance act ([08](08-t
 | Action | Permission |
 |---|---|
 | Bulk `retain` or `convert`; the default retention policy | `ts-retain` or `ts-convert` with `ts-runjob`; the default is a `config` record, so `ts-config` |
-| `same-as`, `different-from`, bulk links, conflict resolution | `ts-link`; in bulk, with `ts-runjob`; `equivalent-property` needs `property-create` |
+| `same-as`, `different-from`, bulk links, conflict resolution | `ts-link`; in bulk, with `ts-runjob`; `equivalent-property` needs `ts-linkproperty` |
 | Rename, hide, vanish, remove a link | Own account: the holder. Others: `renameuser`, `hideuser`, `ts-unlink`. Nobody vanishes another's account |
 | Create, move, delete, protect pages | `createpage`, `move`, `delete`, `protect`, plus the user-page ownership rule |
 | Revert a job, see hidden usernames, erase, retain from the history page | `ts-revertjob`, membership in the deletion group, `ts-erase`, `ts-retain` |

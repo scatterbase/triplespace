@@ -600,6 +600,23 @@ async fn a_bot_logs_in_reads_and_edits() {
         .await;
     assert_eq!(s["search"][0]["id"], "Q7", "{s}");
     assert_eq!(s["search"][0]["label"], "Seven");
+    // A new property needs `property-create`, which every registered account holds by
+    // default, as in a stock Wikibase (0016 A32).
+    let property = c
+        .post(
+            "action=wbeditentity&format=json",
+            &format!(
+                "new=property&data={}&token={}",
+                enc(
+                    r#"{"labels":{"en":{"language":"en","value":"ISBN"}},"datatype":"external-id"}"#
+                ),
+                enc(&csrf)
+            ),
+        )
+        .await;
+    assert_eq!(property["success"], 1, "{property}");
+    assert_eq!(property["entity"]["type"], "property");
+    assert_eq!(property["entity"]["datatype"], "external-id");
 
     // 6. The same key as a bearer credential, stateless.
     let mut b = Client {
