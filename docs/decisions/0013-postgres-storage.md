@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-09 (A51)
+- **Updated:** 2026-10-09 (A63)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
@@ -52,7 +52,7 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 
 ### 2. The `log` schema
 
-*Changed by A2, A5, A27, A31.*
+*Changed by A2, A5, A27, A31, A53, A57.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §2.1, §2.2, §5.*
 
@@ -70,53 +70,55 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 
 ### 5. The `view` schema
 
-*Changed by A5, A9, A11, A46.*
+*Changed by A5, A9, A11, A46, A52, A53, A59.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.1, §7.*
 
 #### 5.1 Entities
 
-*Changed by A4, A28.*
+*Changed by A4, A28, A52, A53, A54, A55, A61.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.2, §5.*
 
 #### 5.2 Terms, sitelinks, identifiers and references
 
-*Changed by A9.*
+*Changed by A9, A52.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.3, §5.*
 
 #### 5.3 Statements, clusters and corrections
 
+*Changed by A52.*
+
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.4, §5.*
 
 #### 5.4 Keyed types, pages, actors
 
-*Changed by A9, A11, A15, A21, A27, A43, A48.*
+*Changed by A9, A11, A15, A21, A27, A43, A48, A53, A55, A56, A60.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.5, §5.*
 
 #### 5.5 Activity, jobs and configuration
 
-*Changed by A9, A18, A47, A49.*
+*Changed by A9, A18, A47, A49, A53, A61.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.6, §5.*
 
 #### 5.6 Tables added by later ADRs
 
-*Changed by A2, A3, A6, A7, A8, A9, A10, A11, A13, A14, A16, A17, A19, A21, A22, A23, A24, A25, A26, A30, A33, A34, A35, A36, A37, A38, A39, A41, A42, A43, A50.*
+*Changed by A2, A3, A6, A7, A8, A9, A10, A11, A13, A14, A16, A17, A19, A21, A22, A23, A24, A25, A26, A30, A33, A34, A35, A36, A37, A38, A39, A41, A42, A43, A50, A52, A53.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §5.*
 
 ### 6. Global revision, log and page IDs (amends 0012 §2.1)
 
-*Changed by A2, A5, A6, A12, A22, A29.*
+*Changed by A2, A5, A6, A12, A22, A29, A55, A58.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §2.3.*
 
 ### 7. Projections, synchrony and read-your-writes
 
-*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A16, A19, A27, A28, A33, A44.*
+*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A16, A19, A27, A28, A33, A44, A53, A63.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §5, §6.1, §6.2, §6.3.*
 
@@ -128,7 +130,7 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 
 ### 9. Bootstrap mode (extends 0002 §8.6; uses 0006 §5)
 
-*Changed by A31.*
+*Changed by A31, A53.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §3.8.*
 
@@ -140,6 +142,8 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 
 ### 11. Deployment profiles
 
+*Changed by A52, A62.*
+
 *Current text: [22](../architecture/22-crates-and-stack.md) §6.*
 
 ### 12. Changelog of the 2026-09-27 revision
@@ -149,10 +153,10 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 ## Consequences
 
 - **One durable system.** The log, its proofs, every projection and the private store share one backup, one replication stream and one recovery point. The storage-engine question open since 0000 is closed.
-- **Interactive writes are one transaction.** Append, ID allocation, base-offset check and the synchronous projections commit together. There is no window in which an editor's own edit is invisible to them.
-- **Storage at Wikidata scale is estimated, not measured.** A `latest` mirror of Wikidata is on the order of 1 TB of record bodies before compression; `entity_ref` and `term` are each on the order of 10^9 rows. The materialize-only-when-different rule (§5.1) keeps the resolved view from doubling the first figure. The bootstrap audit must measure all three before a full load is attempted.
+- ~~**Interactive writes are one transaction.** Append, ID allocation, base-offset check and the synchronous projections commit together. There is no window in which an editor's own edit is invisible to them.~~ *The appending transaction records and nothing composes inside it; the written entity is composed after commit, before the response, so the editor's next read still hits (A53).*
+- **Storage at Wikidata scale is estimated, not measured.** A `latest` mirror of Wikidata is on the order of 1 TB of record bodies before compression; `entity_ref` and `term` are each on the order of 10^9 rows. The materialize-only-when-different rule (§5.1) keeps the resolved view from doubling the first figure. The bootstrap audit must measure all three before a full load is attempted. `term` is bounded by the instance's term languages and `entity_ref` may be omitted on the Wikidata profile (A52).
 - **Erasure has an operational tail.** An `UPDATE` erases the live tuple; `VACUUM` and WAL retention decide when the bytes are gone. The runbook, not the schema, guarantees the deadline.
-- **Postgres is on the append path.** Local appends are serialized per partition by a row lock, which caps single-partition write throughput at what one transaction stream can do. That is well above what human editing produces, and bulk ingest does not use that path.
+- ~~**Postgres is on the append path.** Local appends are serialized per partition by a row lock, which caps single-partition write throughput at what one transaction stream can do. That is well above what human editing produces, and bulk ingest does not use that path.~~ *The lock covers the append alone, so the ceiling is the append rate, not the projection rate; bulk append into a live partition takes it once per block, and only bootstrap of an empty partition bypasses it (A53).*
 - **Scatterbase gains a Postgres backend without asking for one.** `scatter-log-postgres` is a substrate crate; its claim partition can live in Postgres or in files with no change above the trait.
 - **The quad store is demoted.** Anything that assumed the metadata graph would be queried by the application has to read `view` instead. Nothing in 0010–0012 did.
 - **Privacy is enforceable in two places.** The route-level test of 0012 §8 and the grant-level separation of §4 have to agree; a table that moves between schemas changes what a role can read.
@@ -166,7 +170,7 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 - **Q3.** ~~**Whether `revid` and `logid` enter the header.** Left to the global-ID ADR, which this ADR otherwise answers.~~ *Settled by [0015](0015-record-format-and-partition-registry.md) §2: they do, with `page_id`, as header fields 7–9 inside the Merkle tree.*
 - **Q4. Statement rows for the local graph.** Whether `statement_assertion` should also index property and rank for every local statement, so that per-property views of large local entities can be paged in SQL instead of from the blob.
 - **Q5. Vacuum policy.** How soon after an `erase` the affected child table is vacuumed, and whether `VACUUM FULL` is the default for reason class `legal`.
-- **Q6.** ~~**Which projections are synchronous.** §7 puts 1–5 in the write transaction. `entity_ref` for an entity with tens of thousands of referrers may be too slow; the threshold at which a projection goes asynchronous for one write is to be set from measurement.~~ *Settled by A11: a write's own rows are always synchronous; fan-out to other entities is inline up to `projections.sync_budget` / `projections.sync_time`, then queued with lag reported. The default values are tuning.*
+- **Q6.** ~~**Which projections are synchronous.** §7 puts 1–5 in the write transaction. `entity_ref` for an entity with tens of thousands of referrers may be too slow; the threshold at which a projection goes asynchronous for one write is to be set from measurement.~~ *Settled by A11: a write's own rows are always synchronous; fan-out to other entities is inline up to `projections.sync_budget` / `projections.sync_time`, then queued with lag reported. The default values are tuning.* *Extended by A53: no projection runs inside the appending transaction; the written key is composed in the after-commit slot the two budgets bound, and every fan-out is the composition worker's, reported as lag from `ops.projection_work`.*
 - **Q7.** ~~**`page_id` for entities on rebuild.** §6 assigns it from the entity's first record in append order. If two partitions first mention an entity in records that interleave differently on rebuild, the ID could differ; the rule may need to be "first record in the local partition, else first mirror record by partition number".~~ *Settled by [0015](0015-record-format-and-partition-registry.md) §2: the ID is in the header and carried forward, never derived.*
 - **Q8. Partition count at farm scale** and whether small tenants share physical child tables ([0018](0018-tenants.md) Q1). [0028](0028-tenancy-policy.md) §2 adds three instance partitions per farm, which does not change the shape of the question.
 - **Q9. The addressing projection's role.** §7 runs it under the notifier's role because it writes to `private`; whether `ops.projection_state` should record its position like the others, or `private.inbox` should carry its own high-water mark, is an implementation choice to settle with [0021](0021-notifications.md).
@@ -637,3 +641,287 @@ Replaced text (§5.5):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§11
 - **Summary:** The Decision's current text now lives in the architecture chapters [01](../architecture/01-log-and-records.md), [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [05](../architecture/05-providers-and-ingest.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A52. Source form, the shared view under a policy record, and `term` and `entity_ref` at scale
+
+- **Date:** 2026-10-09
+- **Source:** [0082](0082-source-form-and-the-shared-view.md) §1, §5, §5.1, §6
+- **Change:** amends §5, §5.1, §5.2, §5.3, §5.6, §11
+- **Summary:** The stored graph is in source form: every `view` table keeps the entity IDs its source wrote, the canonical ID is an attribute of `view.cluster` and never applied to data, `materialized` means two or more contributing graphs or local deltas and nothing else, every member of a cluster keeps its row with the fused body stored once on the canonical member's row, and a cluster change recomposes the cluster's members only. The shared row (`tenant = ''`) of every `view` table is computed under the instance's `reconcile` policy record, which `view.entity.policy` names; a tenant narrows and never reorders, and a tenant-scope write that tries is refused with `ts-instance-policy`. `cluster`, `cluster_member`, `link`, `different_from` and `entity_source` gain the `tenant` column with the `''`-then-tenant lookup, `cluster_member`'s unique key is `(tenant, entity_id)`, and a read over shared rows by any key other than the entity (identifier by value, sitelink by URL, `entity_ref` by target, term by prefix) excludes shared rows of entities the viewer's tenant has overlaid; the overlay projection sets `tenant_overlaid` on the shared search document. `view.term` holds rows for local entities, overlaid entities and mirrored entities in the instance's term languages only, the rest served from the record through the L1 label cache; `term_prefix` is a partial index over tenant rows, never created or read on the large profile; `view.entity_ref` is keyed `(tenant, target_page_id, source_page_id, roles)` with a role bitmask and no `statement_id`, exists for "Links here" and the backlink count, and the Wikidata profile may omit it. The chapter also gives the quad store one shared resolved graph plus per-tenant overlay graphs, and the deployment profile table says the large profile leaves `term_prefix` in the schema unbuilt. (REVIEW G1, G2, G3, G7)
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.1, as it stood):
+
+> **Tenants.** Under [0018](../decisions/0018-tenants.md) §6, `view.entity` and the tables that hang off it (`term`, `sitelink`, `identifier`, `entity_ref`, `statement_assertion`, `correction`, `constraint_violation`, `value_key`) gain a `tenant text NOT NULL DEFAULT ''` column that leads every primary key: the **empty string is the instance**, and the row with `tenant = ''` is the shared row computed from the shared source graphs; a tenant that has local assertions, a cluster link or a correction touching the entity has its own `(tenant, id)` row; a tenant with none reads the shared one. A read is therefore one primary-key lookup with the viewer's tenant, falling back to one with `''`.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.2, as it stood):
+
+> ```sql
+>   id                text PRIMARY KEY,          -- local, foreign or keyed ID in the form of 0017 §1
+>   canonical_id      text NOT NULL,             -- itself unless a non-canonical member (0004 §4)
+> ```
+>
+> **The resolved view is materialized only where it differs from its source.** Reconciliation across graphs ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §3), statement fusion ([0004](../decisions/0004-identity-clusters-and-equivalence.md) §8) and canonical-ID rewriting ([0004](../decisions/0004-identity-clusters-and-equivalence.md) §4) are too costly to do per request, so the projection computes the resolved canonical JSON whenever any contributing record changes. But for most entities in a full mirror, exactly one graph contributes and no value refers to a clustered entity. For those, the resolved JSON *is* the mirror record's payload, which the adapter already wrote in prefixed-ID form ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.4). Storing it twice would double the largest table in the database. So:
+>
+> - The projection computes the resolved JSON and compares its content hash with the single source's.
+> - If they match, `resolved_kind = 'source'` and `resolved` is `NULL`. A reader takes the body at `entity_source.offset`.
+> - Otherwise `resolved_kind = 'materialized'` and `resolved` holds the JSON.
+>
+> **Only canonical members have a full row.** A non-canonical cluster member keeps its row for resolution (`canonical_id` points at the canonical entity), its `entity_source` rows and its terms in the per-graph views, but its resolved JSON is the canonical entity's.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.3, as it stood):
+
+> ```sql
+>   PRIMARY KEY (entity_id, kind, lang, ordinal)
+> -- Optional, small profile only (0014 §8): prefix search without OpenSearch.
+> CREATE INDEX term_prefix ON view.term (lang, kind, lower(text) text_pattern_ops);
+>   url_key text PRIMARY KEY,                     -- the normalized URL; one item per URL
+>   UNIQUE (entity_id, host)                      -- one link per host per item
+>   PRIMARY KEY (property, value_key, entity_id, graph)
+>   PRIMARY KEY (property, value_key)
+> CREATE TABLE view.entity_ref (                  -- the reverse index (0004 Consequences, 0008 §10)
+>   target_id text NOT NULL, source_id text NOT NULL,
+>   statement_id text NOT NULL, role smallint NOT NULL,     -- 1 main, 2 qualifier, 3 reference
+>   PRIMARY KEY (target_id, source_id, statement_id, role)
+> ```
+>
+> - **`term` serves label lookups**, which every entity page does in bulk for the entities it links to. It is the equivalent of Wikibase's term store. Prefix search on it is a fallback; the search index (§11) is the primary path.
+> - **`entity_ref` is the largest table after `record`** at Wikidata scale, on the order of 10^9 rows. It is required: a change of cluster membership must find every referrer, and "Links here" must list them. Its `target_id` is the ID as asserted; the projection resolves through `canonical_id` when it reads.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.4, as it stood):
+
+> ```sql
+> CREATE TABLE view.cluster (cluster_id bigserial PRIMARY KEY, canonical_id text NOT NULL);
+> CREATE TABLE view.cluster_member (
+>   cluster_id bigint NOT NULL, namespace text NOT NULL, entity_id text NOT NULL UNIQUE,
+>   PRIMARY KEY (cluster_id, namespace)           -- one member per namespace (0004 §2)
+> );
+> CREATE TABLE view.link (                        -- every link, applied or held (0004 §3, §10)
+>   a text NOT NULL, b text NOT NULL, tier smallint NOT NULL,
+>   PRIMARY KEY (a, b, tier, source)
+> );
+> CREATE TABLE view.different_from (a text NOT NULL, b text NOT NULL, "offset" bigint NOT NULL, PRIMARY KEY (a, b));
+> ```
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §5, as it stood):
+
+> | `view` | `entity`, `entity_source` | The resolved view and the version cursor per graph | [0013](../decisions/0013-postgres-storage.md) §5.1 | 0013's own |
+> | `view` | `term`, `sitelink`, `identifier`, `match_key`, `entity_ref` | Terms, sitelinks, normalized identifiers, match keys, the reverse index | [0013](../decisions/0013-postgres-storage.md) §5.2 | 0013's own |
+> | `view` | `statement_assertion`, `correction`, `record_statement`, `cluster`, `cluster_member`, `link`, `different_from`, `property_link` | Statement provenance, corrections, value history, clusters and links | [0013](../decisions/0013-postgres-storage.md) §5.3 | 0013's own |
+> | `view`, `ops` | `term` rows of mirrored entities in `entities.term_languages` only; `ops.entity_fetch`; provider rows in `ops.repo_cursor` | Shallow mirroring: the fetch queue and the entity stream's cursor | [0070](../decisions/0070-shallow-entity-mirroring.md) §6, §10 | Yes |
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §7, as it stood):
+
+> Everything derived from shared source graphs alone is computed once, for the instance. Everything a tenant's own graph changes is an **overlay** keyed by tenant.
+>
+> - **Entities.** `view.entity` and its dependents gain a `tenant` column (§4.1). A row with the empty-string tenant is the shared row for a mirrored entity, computed from the shared graphs. A tenant that has local assertions about the entity, a cluster link touching it, or a correction on it gets its own `(tenant, id)` row; a tenant with none reads the shared one. This is §4.2's "materialize only where it differs", applied per tenant. `view.term`, `view.identifier`, `view.entity_ref`, `view.statement_assertion` and `view.correction` follow the same rule; `view.page`, `view.activity`, `view.job` and the actor tables are per tenant outright.
+> - **Clusters.** Tier-2 and tier-3 links come from shared graphs and are instance-wide; tier-1 links are the tenant's own, and its `different-from` blocks are too. A tenant's clusters are the shared clusters with its overlay applied, recomputed for the entities its links touch ([0004](../decisions/0004-identity-clusters-and-equivalence.md) §2). A conflict is a conflict for the tenant that holds the links that cause it.
+> - **Search.** One shared `entities` index per provider, holding that provider's canonical entities as the shared view has them, and one index per tenant holding the tenant's local entities and its overlay documents (§11.4). Duplicating a provider's index per tenant is not an option at Wikidata scale, so the overlay is the only shape that works.
+
+Replaced text ([22](../architecture/22-crates-and-stack.md) §6, as it stood):
+
+> | `term_prefix` index | Present; serves suggest and `wbsearchentities` | Absent; OpenSearch serves them ([0014](../decisions/0014-caches-and-search.md) §7) |
+> | `entity_ref` | Present | Present; the largest `view` table |
+
+### A53. The write path in three tiers
+
+- **Date:** 2026-10-09
+- **Source:** [0083](0083-write-path-in-three-tiers.md) §1, §2, §3, §4, §5, §6, §7
+- **Change:** amends §2, §5, §5.1, §5.4, §5.5, §5.6, §7, §9
+- **Summary:** Tier 1, the appending transaction, does only what is a function of the written record and the local graph (normalize, evaluate filters, check the base against the local graph, allocate IDs, append, write the written graph's state to `view.graph_state` and, for a local revision, `view.entity_revision`, write the activity row, commit); the partition lock covers exactly this and nothing composes inside it, so §7's "projections 1–5 for the affected keys before commit" is withdrawn, as is the synchronous budget's inline fan-out. Tier 2, composition, is a pure function of the contributing graph states, the policy record and the cluster map version, recorded as `composed_from`; it runs after commit for the written entity, in a coalescing worker for everything else, on miss on the read path, and set-based in bootstrap and bulk modes; a composed row is replaced only when its inputs are newer, `resolved_version` comes from an instance-wide sequence, and L1 is written by the composer after commit. Tier 3, the consumers of composition (constraints, scopes through `view.scope_trigger`, sprints and tasks, schema validation, entity usage, reports, the RDF delta behind `updates.enabled`, search documents, the ACL and visibility re-projections), each run on their own queue, never in a transaction, off during bootstrap and bulk modes; the statement and property ACL lookup is skipped while `view.tenant.live_statement_acls` is zero, and `view.activity` stores `read_enclosures` evaluated at serve time instead of `read_groups`. Every projection declares its class, log-replayed or view-derived; no projection has side effects during replay (blob destruction and adoption retirement are `ops` jobs); large projections rebuild into `view_next` and swap, and every rebuild bumps an instance-wide cache epoch carried in every L1 key; a tenant's partitions replay in `(appended_at, partition, offset)` order; decisions the write path makes from other partitions' state are written into the attestation part; `ops.projection_work` is the unit of truth for lag and `applied_offset` the contiguous prefix; `page_category`, `page_link` and `page_prop` carry `from_render` with one writer per row class. `rdf_delta.seq` is assigned by the one delta consumer, a rebuild truncates `rdf_delta`, and `ops.tenant_epoch` holds a per-tenant epoch with a rendering version. Bulk append into a live partition takes the lock once per block with the `put` skip evaluated in bulk, `stream` jobs are one transaction per block, and a new provider on a live instance is bootstrapped and then caught up against the live `view`. (REVIEW G8, G9, G10, G11, G12, G13, G14)
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §2.1, as it stood):
+
+> **Offsets are allocated in the appending transaction.** The transaction locks the partition's row in `log.partition`, takes `next_offset`, inserts, and advances it. A rollback releases the offsets, so the sequence stays gapless as [0006](../decisions/0006-log-integrity-and-erasure.md) §3 requires. Appends to one partition are serialized by that lock. This is the correct behaviour for the local partition, where edits must be ordered, and irrelevant for bulk ingest, which uses bootstrap mode ([0013](../decisions/0013-postgres-storage.md) §9).
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.2, as it stood):
+
+> ```sql
+>   resolved_version  bigint NOT NULL,           -- monotonic; bumped on every re-resolution (0014 §3)
+> ```
+>
+> - The single source has to be a whole-state record for the reader to take it: a `put`, a `create` or an `adopt` that is the key's only local record. A local entity that has been edited with `add` or `remove` is materialized even when it is the only graph, since no record holds its state. `resolved` is compressed by the column's TOAST method (`lz4`, as §2.1 compresses bodies); the projection writes the plain canonical JSON.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.5, as it stood):
+
+> ```sql
+>   PRIMARY KEY (from_page, target_kind, target_id)
+> ```
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.6, as it stood):
+
+> ```sql
+>   tenant text PRIMARY KEY, visibility_epoch integer NOT NULL DEFAULT 0
+> ```
+>
+> `view.activity.patrolled boolean` with its partial index `WHERE NOT patrolled` serves the recent-changes filter, set by the patrol projection and the autopatrol rule of [0023](../decisions/0023-moderation.md) §6. `view.activity` gains `read_groups text[]`, so feed and log rows are filtered by principal ([0056](../decisions/0056-security-model.md) §5, §14).
+>
+> `view.tenant` is a projection of the tenant's `read` ACL records on a namespace, set or tenant target, each of which increments the epoch; a tenant's configuration stays in `view.registry`.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §5, as it stood):
+
+> | `ops` | `projection_state`, `projection_work` | Projection positions; queued fan-out work | [0013](../decisions/0013-postgres-storage.md) §7 | 0013's own |
+> | `ops` | The delta epoch | Incremented by a `view` rebuild, so that cursors from before it are refused | [0032](../decisions/0032-sparql-update-stream.md) §3 | Yes |
+>
+> **Two rules follow from the table.** Every `view` table is a projection under §6 and is rebuilt from the log, with two exceptions that are not pure functions of it.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6.1, as it stood):
+
+> Every table in `view` belongs to a named projection. `ops.projection_state (projection, partition, applied_offset)` records how far each has replayed; lag is the distance to the partition's head, and it is what job pages report ([0010](../decisions/0010-site-ui.md) §9). A rebuild truncates the projection's tables and replays from offset 0.
+>
+> Projections run in dependency order:
+>
+> 1. `registry`, `keyed_surrogate`, `actor`, and `group`, `membership`, `acl`, `block` ([0016](../decisions/0016-permissions-and-access-control.md) §9, [0023](../decisions/0023-moderation.md) §10), and `filter` ([0030](../decisions/0030-edit-filters.md) §11), since the write path reads all of these;
+> 2. `entity_source`, `keyed_map` ([0009](../decisions/0009-keyed-entity-types-and-domain.md) §9), `page`, `job`, `upstream_revision` ([0015](../decisions/0015-record-format-and-partition-registry.md) §4), `page_category` and `category` ([0038](../decisions/0038-page-metadata-and-categories.md) §10), and the file projection ([0039](../decisions/0039-files-and-media.md) §20);
+> 3. `cluster` and `link`;
+> 4. `entity` (resolution), `term`, `sitelink` with the denied-host filter ([0026](../decisions/0026-sitelinks.md) §6), `identifier`, `value_key`, `entity_ref`, `statement_assertion`, `correction`, then `constraint_violation` and `constraint_count` ([0031](../decisions/0031-property-constraints.md) §2), which read them, and page-statement resolution ([0038](../decisions/0038-page-metadata-and-categories.md) §10);
+> 5. `activity` with `patrolled` ([0023](../decisions/0023-moderation.md) §6), `filter_hit` ([0030](../decisions/0030-edit-filters.md) §11), `page_link`, `record_statement`, and `thread`, `post`, `talk_page` ([0019](../decisions/0019-discussions.md) §11), then `report` and `site_stats`, after `activity` and `page_link` ([0047](../decisions/0047-special-pages.md) §4.3, §13);
+> 6. the addressing projection that fills inboxes ([0021](../decisions/0021-notifications.md) §1), which reads `activity` and writes to `private`; it is the one projection whose target is not `view`, and it runs asynchronously under the notifier's role;
+> 7. the RDF and search projections ([0013](../decisions/0013-postgres-storage.md) §8, in [02](../architecture/02-graphs-rdf-and-query.md); §11.3). The **delta projection** of [0032](../decisions/0032-sparql-update-stream.md) §2 is not a separate step: it runs inside steps 2, 4 and 7, wherever a projection has both the old and the new state of an entity in hand, and writes `view.rdf_delta` in the same transaction. The scope, task and validation projections ([0060](../decisions/0060-scopes.md) §5, [0061](../decisions/0061-sprints-and-tasks.md) §6, [0064](../decisions/0064-entityschema-and-validation.md) §5) run at the end of this step, in that order, within the fan-out budget.
+>
+> Later ADRs place their projections in this order where their Storage sections say so: the ACL projection runs in step 1 with the permission tables, since resolution, terms, search and activity all read it, and it is synchronous for interactive writes, so a deletion is invisible the moment it commits ([0023](../decisions/0023-moderation.md) §10); `redirect` is written in step 2 with `page` ([0051](../decisions/0051-page-redirects.md) §5); the `derivation` projection runs in step 2 beside `entity_source`, and resolution of the subjects it names in step 4 ([0071](../decisions/0071-derived-statements-from-mirrored-pages.md) §12); the file projection runs in step 2 with pages, after the ACL projection ([0039](../decisions/0039-files-and-media.md) §20); lexeme terms are written by the term projection in step 4 ([0066](../decisions/0066-lexemes.md) §5); the constraint projection runs in step 4 after `entity` and its dependents ([0031](../decisions/0031-property-constraints.md) §5); the thread tables are projections applied synchronously for interactive writes ([0019](../decisions/0019-discussions.md) §11).
+>
+> **One projection may own several tables.** The list above names tables; `term` and `identifier` are written by the `entity` projection from the same resolution pass, since each is a function of the resolved state and splitting them would resolve every subject three times. `ops.projection_state` has one row per projection, so their position is `entity`'s. A rebuild orders partitions by dependency: the `config` partition, then the instance `log` (surrogates, instance jobs), then mirrors, then tenant partitions; the resolution projection fails loudly on a keyed subject whose surrogate it cannot find ([0009](../decisions/0009-keyed-entity-types-and-domain.md) §7).
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6.2, as it stood):
+
+> **Edit filters run before the append** ([0030](../decisions/0030-edit-filters.md) §1, §11), in the same transaction, after the permission and ACL checks and the rate-limit check ([0024](../decisions/0024-subsidiary-accounts.md) §5); a refusal appends only the hit record. The write path in full is therefore: authenticate the credential and resolve the actor and its effective permissions, including a key's or token's grants ([0024](../decisions/0024-subsidiary-accounts.md) §4, [0025](../decisions/0025-oauth-server.md) §3); rate limit; ACLs on the target and its enclosures; edit filters; the base-offset check ([0006](../decisions/0006-log-integrity-and-erasure.md) §8); the append with ID allocation; projections 1–5 for the affected keys; commit.
+>
+> **Interactive writes update the synchronous set in the same transaction as the append.** An editor who saves and reloads must see their edit, as they do on MediaWiki. So a write through the edit API appends the record and, before commit, applies projections 1–5 for the affected keys. Bulk jobs apply projections in batches behind the append, and report lag.
+>
+> **The synchronous budget.** A write's own rows are always synchronous: the written entity's or page's resolution, terms, identifiers, sitelinks, its own `entity_ref` rows, its own constraint checks ([0031](../decisions/0031-property-constraints.md) §2), its activity row and its delta ([0032](../decisions/0032-sparql-update-stream.md) §2). **Fan-out** to other entities, meaning referrers re-resolved by a cluster change ([0004](../decisions/0004-identity-clusters-and-equivalence.md), Consequences), `type`, `inverse` and `symmetric` constraint re-checks of statements that point at the changed entity ([0031](../decisions/0031-property-constraints.md) §2), and the deltas those produce, is applied inline until a budget is spent and then handed to the projection worker: `projections.sync_budget` (`site` configuration, default 1,000 rows) or `projections.sync_time` (default 250 ms), whichever comes first. The remainder is queued in `ops.projection_work` as work for the affected keys (one row per projection, tenant, record and key; `ops.projection_state` holds only positions), applied in append order by the worker that serves bulk jobs, and reported as lag on the entity page's identity line ("N referrers updating") and in `siprop=triplespace`. Read-your-writes therefore holds for the thing edited and for small fan-outs; a link to a heavily cited author shows its effect on referrers within lag. The append lock of §2.1 is released at commit, before the queued remainder runs, so a large fan-out never blocks the next editor. Report entries are fan-out under this budget; the refresh job of [0042](../decisions/0042-template-expansion-and-parsoid.md) §10 applies them for the tables it writes ([0047](../decisions/0047-special-pages.md) §13).
+>
+> **Tenant overlays.** Under §7 the shared rows are computed once from the shared partitions, and a tenant's rows only where its own partitions change the result. A record in a tenant partition therefore re-runs steps 3–5 for that tenant's overlay of the affected keys; a record in a shared partition re-runs them for the shared row and for every tenant that holds an overlay row for the key.
+
+Replaced text ([05](../architecture/05-providers-and-ingest.md) §3.8, as it stood):
+
+> 4. Indexes are built, then projections run in the order of [0013](../decisions/0013-postgres-storage.md) §7, each in one pass over the partition.
+
+### A54. `lastrevid` is the newest local revision
+
+- **Date:** 2026-10-09
+- **Source:** [0084](0084-wikibase-writes-against-the-resolved-view.md) §5
+- **Change:** amends §5.1
+- **Summary:** `view.entity.local_revid`, the `lastrevid` of the Action API, is the revision ID of the key's newest local record when it has one, and otherwise the provider-ranged ID of its newest mirror record; the base check of a write is per source graph, against the local partition's newest record for the key, and a mirror advancing is never a conflict. The 0084 table named §6 for this row; the chapter text that holds the rule is [03](../architecture/03-storage-caches-and-search.md) §4.2, which §5.1 points to, so the entry lands here. (REVIEW G17)
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.2, as it stood):
+
+> ```sql
+>   local_revid       bigint,                    -- lastrevid for the Action API
+> ```
+
+### A55. A mirrored entity's page ID is provider-ranged
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §5.1, §5.4, §6
+- **Summary:** A mirrored entity's page ID is provider-ranged, `provider_number << 40 | upstream page ID` where the provider publishes one and `provider_number << 40 | mirror offset` otherwise, computed by the writer with no allocation and no read of `view`; `log."instance.page_id"` is not used for entities; the sub-2^40 range of the page ID space is the tenant's own sequence, so one `pageid` space covers local pages, local entities and mirrored entities on a tenant without collision; and `view.entity`'s unique key on the page ID is `(tenant, page_id)`, since a shared row and a tenant's overlay row for one entity carry the same page ID. Chapter 10 §3.1 says "per tenant". (REVIEW G18)
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §2.3, as it stood):
+
+> - `log.page_id` is taken the first time a key is written in any partition, and every later record for that key repeats it in header field 9 ([0015](../decisions/0015-record-format-and-partition-registry.md) §2). It is never derived from replay order. Talk pages take theirs from the same sequence through the thread record that first attaches to them ([0019](../decisions/0019-discussions.md) §2).
+> - Mirror records take a **provider-ranged** revision ID, `provider_number << 40 | n` ([0015](../decisions/0015-record-format-and-partition-registry.md) §2), computed by the writer with no allocation. A page served by a page repository takes a provider-ranged **page ID** the same way, `provider_number << 40 | upstream page ID`, derived and never minted; `log.page_id` therefore stays below 2^40 ([0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6).
+>
+> A mirrored entity's page ID is taken from `log."instance.page_id"` the first time its key is written, since it belongs to no tenant; only a page served by a page repository has a provider-ranged page ID ([0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6).
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.2, as it stood):
+
+> ```sql
+>   page_id           bigint NOT NULL UNIQUE,    -- §2.3
+> ```
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.5, as it stood):
+
+> Entity pages get their `page_id` from the same sequence as document pages (§2.3), so `view.entity.page_id` and `view.page.page_id` never collide and one `pageid` space covers both kinds of page.
+
+### A56. The actor key is in the attestation part, never the header
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** corrects §5.4
+- **Summary:** The actor key lives in the attestation part of a record and never in its header, except as the key of an actor record itself; the actor tables and `view.activity.actor_key` are projected from the attestation, which is why an attestation cut leaves the row with no actor; `view.activity`'s issuer index, and the `actor_local_name` index, filter on the tenant's derived issuer code ([0079](0079-derived-issuer-codes.md) §1), which `local` names. Chapter 07 §1.1's "what log headers carry" is struck. (REVIEW G19)
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.5, as it stood):
+
+> ```sql
+> CREATE UNIQUE INDEX actor_local_name ON view.actor (lower(name)) WHERE issuer = 'local' AND name IS NOT NULL;
+> ```
+
+### A57. No genesis records, manifests keyed per segment, `logid` for every tenant record, and concurrent appends
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §2
+- **Summary:** Non-`config` partitions have no genesis record: a partition's name, hash function, `k` and policies are its `graph:` record in `config`, which the bundle carries, and `log.partition.hash` is denormalized from it. `log.segment_manifest` is keyed `(partition, segment)` with no `replaces` column and no `sealed_at` in the key; a manifest is signed once and never re-signed. A `hashed` partition has segment manifests only: its job-end "checkpoint" is the manifest of the last sealed segment plus an unsigned head offset, records in the open segment are uncommitted until sealed, and `log.checkpoint` rows exist for `logged` partitions only. Every record in `local`, `pages`, the tenant `log` and the tenant `actors` partitions takes a `logid` at append whether or not the catalogue projects it. Several processes append: the tree's right edge is read under the append lock and only complete subtrees are persisted, and checkpoints are signed by the projection worker under an advisory lock per partition, the only process holding the instance key. (REVIEW G24, G25)
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §2.1, as it stood):
+
+> ```sql
+>   hash          text NOT NULL,                 -- named in the genesis record (0006 §2, 0015 §3)
+> ```
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §2.2, as it stood):
+
+> ```sql
+> CREATE TABLE log.checkpoint (
+>   replaces    bigint[] NOT NULL DEFAULT '{}',  -- manifests this one supersedes after compaction
+>   PRIMARY KEY (partition, segment, sealed_at)
+> ```
+>
+> `GET /record/{partition}/{offset}/checkpoint` ([0012](../decisions/0012-api-requirements.md) §5) is `SELECT min(tree_size) WHERE tree_size > offset`.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §2.3, as it stood):
+
+> - `log.log_id` is taken for every record that projects as a log event ([0011](../decisions/0011-logs.md) §6.1), which includes the records of the tenant's `actors` partition, and for every record in the tenant's log partition, written to header field 8 and `log.record.logid`.
+
+### A58. Surrogates are allocated under an advisory lock
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** extends §6
+- **Summary:** Surrogates are allocated in the appending transaction under an advisory lock on `(keyed_type, key)`, with the mapping record that binds the surrogate to its key appended in the same transaction as the first record that uses it; bulk jobs reserve surrogate blocks as they reserve entity ID blocks; a mapping is erased only when no live record in any partition is keyed to the surrogate. The ledger's verb is amends; §6's chapter text ([03](../architecture/03-storage-caches-and-search.md) §2.3) named the `log."instance.{type}_surrogate"` sequences and said nothing the rule contradicts, so this entry extends. (REVIEW G29)
+
+### A59. Derivations naming a foreign subject are an overlay trigger
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** extends §5
+- **Summary:** A derivation that names a foreign subject is an overlay trigger, found by composition through `view.derivation_subject`: a tenant whose derivation names `WDQ123` gets its own `(tenant, id)` row for it, beside local assertions, cluster links and corrections as the things that make an overlay. The derived statement ID hashes the match key, never the resolved subject, so a later `same-as` changes no statement ID and orphans no correction. (REVIEW G34)
+
+### A60. `view.actor` gains `editcount` and `created_at`; `pending` is OAuth-only
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** extends §5.4
+- **Summary:** `view.actor` gains `editcount` and `created_at`, maintained by the activity projection from the account's local `edit` rows, erased rows included and job rows excluded, and the implicit `autoconfirmed` group is computed from them; the status value `pending` is one that an OAuth-created subsidiary alone takes. The ledger's verb is corrects; §5.4's chapter text ([03](../architecture/03-storage-caches-and-search.md) §4.5) listed `pending` among the status values without saying who sets it and had no `editcount`, so nothing is contradicted and this entry extends. (REVIEW G40)
+
+### A61. `view.entity_history` backs a mirrored entity's history
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** extends §5.1; amends §5.5
+- **Summary:** `view.entity_history (tenant, canonical_id, time, partition, offset, kind, member)` is the one backing of a mirrored entity's history, written by composition with one row per mirror record and per relevant upstream log event of every member of the cluster, so a history page is one keyset query bounded by the entity's own record count; upstream log events are rows of it and never of `view.activity`, which grows with local activity and jobs only; a watched mirrored entity's sync rows are read from it. The default mirrored provider log is `delete/*` and `protect/*`, the backfill covers held entities only, and `create/create` is derived from the first upstream revision. (REVIEW G42)
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.6, as it stood):
+
+> It grows with local activity and the number of jobs, never with the mirrors: a sync of a million entities is one `job` row and one activity row, and per-entity mirror history is served from `entity_source` and the record itself.
+>
+> Sync rows for a watched mirrored entity are read per target from its mirror records, as a history reads them.
+
+### A62. Dumps from a replica, and the embedded backend's ceiling
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §11
+- **Summary:** Dumps are taken from a replica under `pg_export_snapshot()` with parallel workers sharing the snapshot; the embedded query backend is the small profile's and is refused above a configured triple count (`query.embedded_max_triples`); the Wikidata profile requires `query.backend = remote`; `term_prefix` is kept as schema and never created or read by the large profile. (REVIEW G49)
+
+Replaced text ([22](../architecture/22-crates-and-stack.md) §6, as it stood):
+
+> | Postgres | One server | Primary plus replicas; mirror child tables on their own tablespace |
+> | Quad store | Optional | Optional; QLever from dumps |
+
+### A63. The projection order is a partial order over registered projections
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** extends §7
+- **Summary:** The projection order of §7 is a partial order over the projections a build registers, with `ops.projection_state` rows for those only; chapter 22 §3.1 names the milestone's crate and projection set, and the build order puts `scatter-log-postgres` before the file backend and its conformance suite. (REVIEW G52)

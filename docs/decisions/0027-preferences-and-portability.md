@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-09 (A6)
+- **Updated:** 2026-10-09 (A7)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0003](0003-statement-ui.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0018](0018-tenants.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md)
 - **Uses:** [0016](0016-permissions-and-access-control.md), [0024](0024-subsidiary-accounts.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -19,6 +19,8 @@ This ADR does three things: it names every kind of private state and puts prefer
 ## Decision
 
 ### 1. One preference store, one key registry
+
+*Changed by A7.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §8.1.*
 
@@ -162,3 +164,10 @@ Replaced text: none; §2 gains two sentences.
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§9
 - **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [07](../architecture/07-actors-and-accounts.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A7. The preference registry is copied on create and synced
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** extends §1
+- **Summary:** `docs/registry/preferences.toml` is a registry file like the others, and the rule of the review's copy-on-create decision applies to it: an instance's `config` starts as a copy of the registry, `triplespace-cli registry sync` appends records for registry entries newer than the instance's under the instance attestation, `instance check` warns when the instance is behind the registry its binary carries, every config record's content carries its kind's `schema` integer, and `view.registry` stores an entry opaquely with its schema number, so an unknown kind or schema is projected opaquely and never fails replay. A preference key a later release registers therefore reaches an existing instance through `registry sync`, and an instance's own defaults (`preferences.defaults`) and added keys are records beside the copied ones. The ledger named §2 (private state and portability); the registry is §1's, which the finding (F-07-6, at [07](../architecture/07-actors-and-accounts.md) §8.1) names, and no sentence of §1's chapter text is contradicted; the rule itself is stated in [23](../architecture/23-configuration-and-registry.md) §1.1 and §4.1. (REVIEW G36)

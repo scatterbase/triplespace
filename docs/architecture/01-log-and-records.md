@@ -31,7 +31,9 @@ The log is split into partitions by source graph ([0002](../decisions/0002-sourc
 
 - a **history policy** (`full` or `latest`, [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §2): keep every record, or compact to the latest record for each key;
 - an **integrity policy:** `logged`, a Merkle log over the whole partition with signed checkpoints, or `hashed`, commitments for each segment only;
-- a **segment size** 2^k and the **hash function**, fixed at creation. The hash function is named in the partition's genesis record; changing it means starting a new partition.
+- a **segment size** 2^k and the **hash function**, fixed at creation. Changing the hash function means starting a new partition.
+
+**A partition has no genesis record.** Its name, hash function, `k`, history policy, integrity policy and export policy are its `graph:` record in the `config` partition ([0015](../decisions/0015-record-format-and-partition-registry.md) §3; [23](23-configuration-and-registry.md)), which the export bundle carries (§8); the partition's first record is an ordinary record at offset 0. In `config` itself that record is the founding record, the `key:` record that registers the instance key or, for a tenant, copies it in (§2.4, §4.3).
 
 Scatterbase's claim partition keeps everything and is `logged`. Triplespace's mirror partitions compact. `scatter-log` supports both from its first release. Adding either one later would change the on-disk format.
 
@@ -40,11 +42,11 @@ The two integrity policies are fixed when the partition is created:
 | Policy | What is committed | Compaction | Used for |
 |---|---|---|---|
 | **`logged`** | Every header, in one Merkle tree for the whole partition, with signed checkpoints (§4) | Never | Triplespace's local and configuration partitions; Scatterbase's claim, meta and server partitions |
-| **`hashed`** | Every header, in one Merkle tree for each sealed segment, with a signed manifest for each segment | Allowed | Triplespace's mirror partitions; Scatterbase's foreign partition |
+| **`hashed`** | Every header, in one Merkle tree for each sealed segment, with a signed manifest for each sealed segment and nothing else | Allowed | Triplespace's mirror partitions; Scatterbase's foreign partition |
 
-**`logged` partitions prove that history is complete and in order.** A verifier can show that no record was added, removed, altered or reordered between any two checkpoints.
+**`logged` partitions prove that history is complete and in order.** A verifier can show that no record was added, removed, altered or reordered between any two checkpoints. `log.checkpoint` rows exist for `logged` partitions only ([03](03-storage-caches-and-search.md) §2.2).
 
-**`hashed` partitions prove less.** A verifier can show that each record in a live segment is unaltered since the segment was sealed. A compacted offset keeps its leaf, so a segment's tree and its manifest are unchanged by compaction, and the holes are visible. A verifier cannot show that compaction kept the right records. That limit is deliberate: a mirror's source of truth is upstream, and [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §2 lets a mirror forget.
+**`hashed` partitions prove less.** A verifier can show that each record in a sealed segment is unaltered since the segment was sealed. A `hashed` partition has segment manifests and no checkpoints: the "checkpoint" a job writes at its end (§4.2) is the manifest of the last sealed segment plus an unsigned head offset, and the records in the open segment are **uncommitted until the segment is sealed**. A compacted offset keeps its leaf, so a segment's tree and its manifest are unchanged by compaction, and the holes are visible. A verifier cannot show that compaction kept the right records. That limit is deliberate: a mirror's source of truth is upstream, and [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §2 lets a mirror forget.
 
 **Retained mirror entities stay in `hashed` partitions.** They are exempt from compaction ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §5), but they get no extra commitment. Their durable copy is the record that materializes them into the local graph when the tombstone arrives, and that record is in a `logged` partition.
 
@@ -54,9 +56,9 @@ A mirror with the `full` history policy is still `hashed`. It simply never compa
 
 ### 1.3 The `LogStore` trait
 
-*Sources: [0005](../decisions/0005-crate-organization.md) §4.2.*
+*Sources: [0005](../decisions/0005-crate-organization.md) §4.2; [0083](../decisions/0083-write-path-in-three-tiers.md) §1.*
 
-**`LogStore` is asynchronous and transaction-shaped.** Its methods (`create_partition`, `partitions`, `head`, `append`, `read`, `scan`, `erase_parts`, `compact`) return `Send` futures, because an interactive write in Postgres appends and applies its projections in one transaction on the async driver ([0013](../decisions/0013-postgres-storage.md) §7): the Postgres backend implements the trait on a handle that borrows the caller's transaction, so the append composes with everything else in it, and the conformance suite ([0005](../decisions/0005-crate-organization.md) rule 8) exercises the same append the write path uses. The trait needs no runtime (rule 2). The store fills in only the header fields it alone can know, the partition, the offset and the commitment; the caller's `Draft` carries the time, the payload type, the key and the global IDs, which the write path allocates from its own per-tenant sequences in the same transaction ([0013](../decisions/0013-postgres-storage.md) §6, [0015](../decisions/0015-record-format-and-partition-registry.md) §2).
+**`LogStore` is asynchronous and transaction-shaped.** Its methods (`create_partition`, `partitions`, `head`, `append`, `read`, `scan`, `erase_parts`, `compact`) return `Send` futures, because an interactive write in Postgres appends and does the rest of the appending transaction, the base check, ID allocation, the written graph's state and the activity row, in one transaction on the async driver ([0083](../decisions/0083-write-path-in-three-tiers.md) §1; [03](03-storage-caches-and-search.md) §6): the Postgres backend implements the trait on a handle that borrows the caller's transaction, so the append composes with everything else in it, and the conformance suite ([0005](../decisions/0005-crate-organization.md) rule 8) exercises the same append the write path uses. The trait needs no runtime (rule 2). The store fills in only the header fields it alone can know, the partition, the offset and the commitment; the caller's `Draft` carries the time, the payload type, the key and the global IDs, which the write path allocates from its own per-tenant sequences in the same transaction ([0013](../decisions/0013-postgres-storage.md) §6, [0015](../decisions/0015-record-format-and-partition-registry.md) §2).
 
 ### 1.4 Instance records live in instance partitions
 
@@ -105,7 +107,7 @@ The header is a CBOR array, in this order:
 | 2 | Offset | uint | Position in the partition, starting at 0, with no gaps |
 | 3 | Appended at | uint | Microseconds since the Unix epoch, UTC |
 | 4 | Payload type | text | For example, `scatter:v0/changeset` |
-| 5 | Key | text or null | The entity or subject ID used for compaction and indexing. It must be an identifier, never content |
+| 5 | Key | text or null | The entity or subject ID used for compaction and indexing. It must be an identifier, never content. It is an actor key only in the `actors` partitions, where the actor is the record's subject; the actor responsible for a record is in the attestation part (§2.3), never in the header |
 | 6 | Body commitment | bstr (32) | `H(0x02 ‖ leaf_0 ‖ … ‖ leaf_{n−1})`, the root over the body's parts |
 | 7 | Revision ID | uint or null | The global revision ID of [0012](../decisions/0012-api-requirements.md) §2.1 (§2.5) |
 | 8 | Log ID | uint or null | The global log ID of [0012](../decisions/0012-api-requirements.md) §2.1 (§2.5) |
@@ -123,7 +125,9 @@ Fields 7–9 are assigned in the appending transaction, before the leaf hash is 
 |---|---|---|---|
 | 0 | **Content** | The payload: a change set, a page operation and its text, an actor record, a log event, an upstream revision (§2.6), a configuration record ([0015](../decisions/0015-record-format-and-partition-registry.md) §3); a claim for Scatterbase | text |
 | 1 | **Comment** | The edit summary or comment, as one string. Its parsed form ([0001](../decisions/0001-revision-metadata-rdf.md) §6) is a projection | comment |
-| 2 | **Attestation** | Who is responsible, and how: the actor key, the job, the change tags ([0030](../decisions/0030-edit-filters.md) §5), an optional `evidence` field holding a signed remote activity ([0022](../decisions/0022-federation.md) §8), and an optional client `signature` (§2.4) | user |
+| 2 | **Attestation** | Who is responsible, and how: the actor key, the job, the change tags ([0030](../decisions/0030-edit-filters.md) §5), an optional `evidence` field holding a signed remote activity ([0022](../decisions/0022-federation.md) §8), an optional client `signature` (§2.4), and the values the server fills in (§2.4) | user |
+
+**The actor key lives here and nowhere else in the record.** The header never carries it: field 5 is an actor key only for records of the `actors` partitions, whose subject is the actor. `view.activity`'s issuer index therefore filters on the tenant's issuer code read from this part ([03](03-storage-caches-and-search.md) §4.5). The spelling of actor keys is [0079](../decisions/0079-derived-issuer-codes.md) ([07](07-actors-and-accounts.md) §1.1).
 
 The content is also, by payload type, a membership, a block, an ACL ([0023](../decisions/0023-moderation.md) §3), a filter or a filter hit ([0030](../decisions/0030-edit-filters.md) §5). The comment is not in the change-set payload. A payload type with no comment, such as an actor record, carries a null in that part; the slot still exists, so every record has the same shape.
 
@@ -151,52 +155,57 @@ Tag `0x02` is the body commitment; `0x04` never appears in the header tree (§3.
 
 ### 2.4 The attestation
 
-*Sources: [0005](../decisions/0005-crate-organization.md) §4.3; [0006](../decisions/0006-log-integrity-and-erasure.md) §3; [0015](../decisions/0015-record-format-and-partition-registry.md) §1.*
+*Sources: [0005](../decisions/0005-crate-organization.md) §4.3; [0006](../decisions/0006-log-integrity-and-erasure.md) §3; [0015](../decisions/0015-record-format-and-partition-registry.md) §1; [0079](../decisions/0079-derived-issuer-codes.md) §4; [0083](../decisions/0083-write-path-in-three-tiers.md) §6.*
 
 **The attestation is in the body because it can identify people.** In Triplespace it is a CBOR map holding the actor and the job ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.3), the change tags ([0030](../decisions/0030-edit-filters.md) §5), a client `signature`, and, for a post that arrived from the fediverse, the signed remote activity as `evidence` ([0022](../decisions/0022-federation.md) §8); the instance key is the only signer of checkpoints and manifests, and an actor may additionally sign its own record. In Scatterbase it holds the attribution and the client and server signatures, and it can later hold prior-use acknowledgments. Nothing below the claim level reads it.
 
+**Server-filled values never enter a client-signed part.** A value the server mints into a record while appending it, such as a thread's talk-page ID and suffixed title ([0019](../decisions/0019-discussions.md) §2; [14](14-discussions.md)) or a sync job's `n` ([0053](../decisions/0053-mirrored-pages.md) §5; [13](13-mirrored-pages.md)), is carried in the attestation map, so that the content and comment parts stay the bytes the client submitted and a client signature over them verifies. The same holds for a decision the write path makes from the state of another partition at append time, autopatrol from the actor's memberships ([09](09-security-and-moderation.md) §6.4) or the operator of a transfer ([07](07-actors-and-accounts.md) §4.4): the decision is written into the attestation map, and the projection reads it there rather than reconstructing "as of" across partitions, which a vanish could make unreconstructible ([0083](../decisions/0083-write-path-in-three-tiers.md) §6).
+
 **Client signatures.** The attestation map may carry a **`signature`** field: `{key: <key ID>, alg: "ed25519", sig: <64 bytes>}`, a signature by the *actor's own key* over `H(0x05 ‖ H(0x03 ‖ content) ‖ H(0x03 ‖ comment))`, where `0x03` is the content hash and `0x05` is a domain tag that never appears in the header tree (§3.3). The preimage is the canonical bytes of the two parts before the server salts them, so a client that produces canonical CBOR can sign what it submits and a verifier holding the record can check it; erasing either part makes the signature unverifiable. **Keys are actor records:** a `scatter:v0/key` record in the tenant `actors` partition, keyed by the actor, whose content holds the key ID (the Base32z hash of the public key), algorithm, public key and validity; a later record rotates or revokes it. The server verifies a submitted signature against the actor's current key before appending and refuses a mismatch with `ts-bad-signature`; `verify` (§8, level 2) checks every present signature against the key records in the bundle. Which actors may hold keys, and how they sign, is [0024](../decisions/0024-subsidiary-accounts.md) §4: subsidiaries. The instance key (§4.3) still signs every checkpoint; a client signature is in addition, never instead. Scatterbase's client and server signatures are the same field shape in its own part layout.
 
-**The instance attestation.** The attestation part has a second form, the **instance attestation**, for records the instance writes into a tenant on its own authority: `actor` (`instance:{farm slug}`), `authority` (an instance record's partition, offset and leaf hash), `job`, `binding`, and a `signature` by the instance key. Only the server writes it; a submitted record carrying one is refused with `ts-prerogative`. Its signature preimage is tag `0x06` (§3.3); the authority records are in [08](08-tenants-and-instances.md).
+**The instance attestation.** The attestation part has a second form, the **instance attestation**, for records the instance writes into a tenant on its own authority: `actor` (`instance:{farm code}`), `authority` (an instance record's partition, offset and leaf hash), `job`, `binding`, and a `signature` by the instance key. Only the server writes it; a submitted record carrying one is refused with `ts-prerogative`. Its signature preimage is tag `0x06` (§3.3); the authority records are in [08](08-tenants-and-instances.md).
+
+**The founding attestation.** The attestation part has a third form, carried by exactly one record per `config` partition: the record at offset 0, the `key:` record that opens the partition's key chain (§4.3). It names **no actor**; its `signature` is by the key the record itself registers, so the record is self-certifying; and for a tenant's `config` it carries the `authority` `(instance config, 0)`, the instance's own founding record. The tenant's issuer code, or the instance's farm code, is derived from the record's leaf afterwards ([08](08-tenants-and-instances.md) §1.2), so nothing that depends on the code can exist before it. Offsets 1 and 2 of the instance `config`, the primary tenant's `tenant:` record and the first `primary` record, are attested by `instance:{farm code}` with the founding record as authority ([08](08-tenants-and-instances.md) §7.2). A single-tenant instance therefore needs no authority record of its own and no `ts-prerogative` path to exist before its first entity is written.
 
 **Right to vanish** ([0007](../decisions/0007-actor-identity.md) §4) and **unlinking** ([0007](../decisions/0007-actor-identity.md) §7) erase whole records. A demand to cut the tie between a record and an account erases the attestation part only.
 
 ### 2.5 Global IDs live in the header
 
-*Sources: [0012](../decisions/0012-api-requirements.md) §2.1; [0015](../decisions/0015-record-format-and-partition-registry.md) §2.*
+*Sources: [0012](../decisions/0012-api-requirements.md) §2.1; [0015](../decisions/0015-record-format-and-partition-registry.md) §2; [0083](../decisions/0083-write-path-in-three-tiers.md) §4; [0084](../decisions/0084-wikibase-writes-against-the-resolved-view.md) §5.*
 
 MediaWiki clients depend on numeric IDs from one sequence per wiki. These include `revid`, `parentid`, `oldid`, `baserevid`, `lastrevid`, `logid`, and `fromrev` and `torev` in `action=compare`. Diff URLs, `prop=revisions`, `list=recentchanges`, `list=logevents`, edit conflicts and the core REST history routes depend on them.
 
 The IDs are Postgres sequences, one set per tenant, taken in the appending transaction and written into the record's hashed header, fields 7–9 ([0013](../decisions/0013-postgres-storage.md) §6, [0018](../decisions/0018-tenants.md) §2). They meet these requirements:
 
-- **One sequence for revisions and one for log events, per tenant,** since MediaWiki clients expect one sequence per wiki. Each spans every partition that holds the tenant's revisions or events: `local`, `pages`, `log`, and the actor records that project as log events. A revision ID is assigned to every record in `local` and `pages`; a log ID to every record in the local log and every record that projects as a log event ([0011](../decisions/0011-logs.md) §6.1), including local actor records.
+- **One sequence for revisions and one for log events, per tenant,** since MediaWiki clients expect one sequence per wiki. Each spans every partition that holds the tenant's revisions or events: `local`, `pages`, `log` and `actors`. A revision ID is assigned to every record in `local` and `pages`; a log ID to **every** record in `local`, `pages`, the tenant `log` and the tenant `actors` partitions at append, whether or not the log-event catalogue ([0011](../decisions/0011-logs.md) §6.1; [16](16-logs-feeds-and-notifications.md)) projects that record as an event, so that the rule is a function of the partition and never of what a later projection chooses to show.
+- **Every ID a client sees is below 2^53,** so that it survives a JavaScript `Number` and every JSON parser; the provider ranges below are sized to keep it so.
 - **IDs are assigned when a record is appended, and stored in its header.** An ID that came from replay order would change whenever projections were rebuilt in a different interleaving. In the header, an inclusion proof covers the ID, and an export bundle needs no sidecar.
 - **The sequence increases with append order.** Gaps are acceptable.
 - **Mirror records get a provider-ranged revision ID,** computed by the writer with no allocation, so that `lastrevid`, `baserevid` and `schema:version` are defined for an entity with no local revision. They are still not revisions of this wiki: `prop=revisions` and `list=recentchanges` list local revisions only ([0012](../decisions/0012-api-requirements.md) §4).
 - **Erasure does not free an ID.** An erased record keeps its ID, as its header survives (§5.3).
 
-**Provider-ranged revision IDs.** `lastrevid`, `baserevid` and `schema:version` are integers in the contracts (`baserevid` in the Action API; `schema:version "26"^^xsd:integer` in [wikibase-compat.md §5.2](../api/wikibase-compat.md)), so the provider cannot be a letter prefix as it is in entity IDs. It is a number prefix instead. The revision-ID space is 63 bits, partitioned by **provider number**:
+**Provider-ranged revision IDs.** `lastrevid`, `baserevid` and `schema:version` are integers in the contracts (`baserevid` in the Action API; `schema:version "26"^^xsd:integer` in [wikibase-compat.md §5.2](../api/wikibase-compat.md)), so the provider cannot be a letter prefix as it is in entity IDs. It is a number prefix instead. The revision-ID space is partitioned by **provider number**:
 
 ```
 revid = provider_number << 40  |  n
 ```
 
-Provider number 0 is the instance itself, so local revision IDs are the plain sequence. Each provider has a number in the registry ([0015](../decisions/0015-record-format-and-partition-registry.md) §5). Numbers from 2^22 to 2^23 − 1 are never allocated in the registry: each tenant assigns them to its entity sources, and they are unique on their tenant only, which suffices because revision and page IDs are per tenant and no other tenant reads a source's records ([0078](../decisions/0078-entity-sources.md) §4). For a provider that publishes revision IDs, *n* is the upstream revision ID; for one that does not, such as OpenAlex, *n* is the record's offset in the mirror partition. Forty bits hold a thousand billion upstream revisions, and the split is the same on every instance, so the ID is computed by the writer, needs no allocation, and never changes on rebuild. It works across tenants without a new rule: Librarybase's revision 900 is `900` at home and `LB_number << 40 | 900` when another tenant reads it ([0018](../decisions/0018-tenants.md) §2, §5). A `put` therefore carries its revision ID in field 7 like any other record.
+Provider number 0 is the instance itself, so local revision IDs are the plain sequence. Each registry provider has a number **below 2^12** in the registry ([0015](../decisions/0015-record-format-and-partition-registry.md) §5). Numbers from **2^12 to 2^13 − 1** are never allocated in the registry: each tenant assigns them to its entity sources, and they are unique on their tenant only, which suffices because revision and page IDs are per tenant and no other tenant reads a source's records ([0078](../decisions/0078-entity-sources.md) §4). With the number below 2^13 and *n* below 2^40, every ranged ID is below 2^53. For a provider that publishes revision IDs, *n* is the upstream revision ID; for one that does not, such as OpenAlex, *n* is the record's offset in the mirror partition. Forty bits hold a thousand billion upstream revisions, and the split is the same on every instance, so the ID is computed by the writer, needs no allocation, and never changes on rebuild. It works across tenants without a new rule: Librarybase's revision 900 is `900` at home and `LB_number << 40 | 900` when another tenant reads it ([0018](../decisions/0018-tenants.md) §2, §5). A `put` therefore carries its revision ID in field 7 like any other record.
 
 What this gives the compatibility surfaces:
 
-- **`lastrevid`** of an entity is the revision ID of its newest record in any source partition, chosen by append time. For a purely mirrored entity that is its latest `put`; a local assertion about it takes over as the newest record.
-- **`baserevid`** on a write to a foreign entity is decoded to (partition, offset), and the base-offset check of §7 runs against the newest record for the key across the source partitions, not only the local one. A base that names a state compaction has since replaced is an `editconflict`.
-- **`schema:version`** on the document node emits the same integer. **`oldid=N`** and `Special:Diff/N` with a mirror revision ID resolve to that observed state and its sync diff ([0012](../decisions/0012-api-requirements.md) §7). `prop=revisions` and `list=recentchanges` still list local revisions only, as [0012](../decisions/0012-api-requirements.md) §4 requires.
+- **`lastrevid`** of an entity is the revision ID of its newest **local** record when the key has one, and otherwise the ranged ID of its newest mirror record. It is the `local_revid` column of `view.entity` ([03](03-storage-caches-and-search.md) §4.2), monotonic per entity within the local sequence, and jumps to a ranged value only for an entity with no local history. `prop=revisions` and the history view still show mirror records in their place; `lastrevid` is what a client bases a write on, and a client bases a write on local state ([0084](../decisions/0084-wikibase-writes-against-the-resolved-view.md) §5).
+- **`baserevid`** is decoded to a partition and offset, and the base check of §7 is per source graph: a base in the local partition is checked against the local partition's newest record for the key; a base in a mirror partition asserts only that the key still has no local record. A base that names a state compaction has since replaced is an `editconflict`.
+- **`schema:version`** on the document node emits the same integer. **`oldid=N`** and `Special:Diff/N` with a mirror revision ID resolve to that observed state and its sync diff ([0012](../decisions/0012-api-requirements.md) §7); with a local revision ID they read that revision's state from `view.entity_revision`, one row per local revision, never a replay of the key's records ([0083](../decisions/0083-write-path-in-three-tiers.md) §4; [03](03-storage-caches-and-search.md)). `prop=revisions` and `list=recentchanges` still list local revisions only, as [0012](../decisions/0012-api-requirements.md) §4 requires.
 - The UI and the REST `revid` field show the decoded form as well: "Wikidata revision 2148573921".
 
 **Log IDs.** Upstream log events keep their upstream log ID in their content and get no local one, since `list=logevents` selects a provider explicitly ([0012](../decisions/0012-api-requirements.md) §4, `leprovider`).
 
-**Page IDs are carried forward.** A page ID is taken from one sequence the first time a key is written in any partition — or supplied by an adoption job, which carries the source wiki's page ID and has set the sequence past it ([0035](../decisions/0035-adopting-a-wikibase.md) §4) — and every later record for that key, in every partition, repeats it in field 9. It is never derived from replay order, and an entity's first record is not relied on to recover it, since compaction may have removed that record. Bootstrap writers ([0013](../decisions/0013-postgres-storage.md) §9) take page IDs in blocks from the coordinator, as they take offsets.
+**Page IDs are carried forward.** A local page ID is taken from the tenant's own sequence the first time a key is written in a tenant partition — or supplied by an adoption job, which carries the source wiki's page ID and has set the sequence past it ([0035](../decisions/0035-adopting-a-wikibase.md) §4) — and every later record for that key, in every partition, repeats it in field 9. It is never derived from replay order, and an entity's first record is not relied on to recover it, since compaction may have removed that record. Bootstrap writers ([0013](../decisions/0013-postgres-storage.md) §9) of a tenant partition take page IDs in blocks from the coordinator, as they take offsets.
 
-**A page a page repository serves has a provider-ranged page ID,** `provider_number << 40 | upstream page ID`, derived and never minted, so that a foreign page has a stable `pageid` on every tenant without any write; in `mirror` mode the `pages/{repo}` records carry it in field 9 and the ranged upstream revision ID in field 7 ([0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6, [0053](../decisions/0053-mirrored-pages.md) §5). Local page IDs stay below 2^40.
+**Mirrored entities and repository pages have provider-ranged page IDs.** A mirrored entity's page ID is `provider_number << 40 | upstream page ID` where the provider publishes one, and `provider_number << 40 | mirror offset` otherwise, computed by the writer with no allocation; `log."instance.page_id"` is not used for entities, and a local assertion about a mirrored entity repeats the ranged ID in its own field 9. A page a page repository serves has `provider_number << 40 | upstream page ID` the same way, derived and never minted, so that a foreign page has a stable `pageid` on every tenant without any write; in `mirror` mode the `pages/{repo}` records carry it in field 9 and the ranged upstream revision ID in field 7 ([0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6, [0053](../decisions/0053-mirrored-pages.md) §5). The range below 2^40 is the tenant's own sequence, so a ranged ID never collides with a local one, and `view.entity`'s unique key on the page ID is `(tenant, page_id)` ([03](03-storage-caches-and-search.md) §4.2).
 
-**Why in the header.** An inclusion proof is about the leaf: with the ID inside it, a permalink or `Special:Diff/N` is something a third party can verify. In Postgres, `revid`, `logid` and `page_id` are denormalized from `header`, like the other header columns, and the segment file format has no sidecar; the page-ID sequence is `log.page_id` ([03](03-storage-caches-and-search.md)). An erased record keeps all three IDs, as its header survives.
+**Why in the header.** An inclusion proof is about the leaf: with the ID inside it, a permalink or `Special:Diff/N` is something a third party can verify. In Postgres, `revid`, `logid` and `page_id` are denormalized from `header`, like the other header columns, and the segment file format has no sidecar; the tenant's page-ID sequence is `log.page_id` ([03](03-storage-caches-and-search.md) §2.3). An erased record keeps all three IDs, as its header survives.
 
 ### 2.6 Upstream revision records
 
@@ -286,7 +295,7 @@ The NDJSON wire format of [0002](../decisions/0002-source-graphs-and-mass-ingest
 
 ### 3.3 Hashing and domain tags
 
-*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §2.*
+*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §2; [0081](../decisions/0081-recovery-keys-and-continuations.md) §2.*
 
 Every hash is **SHA-256**. This matches Scatterbase's claim IDs and content-addressed blobs, and it makes the Merkle tree exactly the RFC 6962 tree, so existing transparency-log tooling can check it. Each use prefixes its input with a one-byte domain tag, so no hash can be mistaken for another kind:
 
@@ -299,10 +308,11 @@ Every hash is **SHA-256**. This matches Scatterbase's claim IDs and content-addr
 | `0x04` | Leaf of one body part (§2.3) |
 | `0x05` | Preimage of a client signature over the content and comment parts (§2.4) |
 | `0x06` | Preimage of an instance attestation's signature: `H(0x06 ‖ H(0x03 ‖ content) ‖ H(0x03 ‖ comment) ‖ authority)`, signed by the instance key ([0040](../decisions/0040-instance-prerogatives.md) §3) |
+| `0x07` | Preimage of a recovery signature: `H(0x07 ‖ code ‖ entry)`, the tenant's issuer code and the canonical CBOR of a `recovery-key`, `continuation` or `continuation-cancel` entry without its `signatures` field, signed by a recovery key ([0081](../decisions/0081-recovery-keys-and-continuations.md) §2; [08](08-tenants-and-instances.md) §6.8) |
 
-Tags `0x00` and `0x01` are the leaf and node prefixes of RFC 6962, so the Merkle tree (§4.1) is the RFC 6962 tree unchanged. Tags `0x02` to `0x06` are Triplespace's own and never appear inside the tree.
+Tags `0x00` and `0x01` are the leaf and node prefixes of RFC 6962, so the Merkle tree (§4.1) is the RFC 6962 tree unchanged. Tags `0x02` to `0x07` are Triplespace's own and never appear inside the tree.
 
-The hash function is fixed for a partition when the partition is created, and is named in its genesis record. Changing it means starting a new partition.
+The hash function is fixed for a partition when the partition is created, and is named in its `graph:` record in `config` (§1.2). Changing it means starting a new partition.
 
 **Text forms.** Checkpoints carry hashes in base64, as C2SP requires (§4.2). IRIs and identifiers carry them in Base32z, matching Scatterbase.
 
@@ -315,45 +325,49 @@ The hash function is fixed for a partition when the partition is created, and is
 *Sources: [0005](../decisions/0005-crate-organization.md) §4.2; [0006](../decisions/0006-log-integrity-and-erasure.md) §5.*
 
 - **The tree is the RFC 6962 Merkle tree** (as updated by [RFC 9162](https://www.rfc-editor.org/rfc/rfc9162) §2.1), with SHA-256 as the hash. Leaves are `H(0x00 ‖ header)`. Inclusion proofs and consistency proofs follow the RFC.
-- **Segments hold 2^k records,** except the last one. The exponent k is fixed for each partition when it is created. A full segment is then a complete subtree of the partition's tree. In Postgres a segment is the offset range `[n·2^k, (n+1)·2^k)`, sealed when every offset in it has been appended and its manifest written; the file backend writes one file per segment ([0013](../decisions/0013-postgres-storage.md) §1).
+- **Segments hold 2^k records,** except the last one. The exponent k is fixed for each partition when it is created, in its `graph:` record (§1.2). A full segment is then a complete subtree of the partition's tree. In Postgres a segment is the offset range `[n·2^k, (n+1)·2^k)`, sealed when every offset in it has been appended and its manifest written; the file backend writes one file per segment ([0013](../decisions/0013-postgres-storage.md) §1).
 - **Bulk ingest hashes in parallel.** In bootstrap mode ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.6), each segment's leaves and subtree root are computed independently. The partition root is then folded from the segment roots. The only sequential step runs once per segment.
-- **Appends in steady state** keep the tree's right edge in memory, which is O(log n) hashes. Each append costs one leaf hash plus O(log n) node hashes in the worst case.
-- **In a `hashed` partition,** each segment's tree stands alone. Its root is what the segment manifest signs.
+- **Several processes append.** An appending transaction reads the tree's right edge under the partition's append lock ([03](03-storage-caches-and-search.md) §2.1) and persists only the complete subtrees its append closes, so two API replicas and a bulk job writing one partition never disagree about a node; the right edge itself is recomputed from the persisted nodes by whoever appends next. Each append costs one leaf hash plus O(log n) node hashes in the worst case.
+- **In a `hashed` partition,** each segment's tree stands alone. Its root is what the segment manifest signs; the partition has no checkpoint (§1.2).
 - **A compacted offset keeps its leaf.** Compaction (§6) removes the record but leaves its 32-byte leaf hash in its place, so the tree over every offset still folds, offsets are never reused, and a reader can tell a hole from a gap. In Postgres the leaf is already in `log.merkle_node`; the file backend stores it as the slot ([payloads.md](../api/payloads.md) §10).
 
 ### 4.2 Checkpoints
 
-*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §6.*
+*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §6; [0081](../decisions/0081-recovery-keys-and-continuations.md) §5, §6.*
 
 **Format.** Checkpoints use the [C2SP tlog-checkpoint](https://c2sp.org/tlog-checkpoint) format, signed as a [C2SP signed note](https://c2sp.org/signed-note):
 
-- **Origin line,** without a scheme: `{tenant host}/log/{partition name}` for a tenant's partition ([0018](../decisions/0018-tenants.md) §2), and `{farm host}/instance/log/{partition name}` for an instance partition, so that the two cannot collide when the farm base is a tenant's base ([0046](../decisions/0046-primary-tenant.md) §7). For segment manifests in a `hashed` partition, the origin followed by `/segment/{n}`.
+- **Origin line,** without a scheme: `{tenant host}/log/{partition name}` for a tenant's partition ([0018](../decisions/0018-tenants.md) §2), where the host is the tenant's host when the partition was created or when the tenant arrived on this instance by a move or a continuation, and an `alias` does not change it, so that a witness sees one log per origin ([0081](../decisions/0081-recovery-keys-and-continuations.md) §5), and `{farm host}/instance/log/{partition name}` for an instance partition, so that the two cannot collide when the farm base is a tenant's base ([0046](../decisions/0046-primary-tenant.md) §7). For segment manifests in a `hashed` partition, the origin followed by `/segment/{n}`.
 - **Tree size**, in decimal.
 - **Root hash**, in base64.
 - **No extension lines.** C2SP recommends against them because monitors cannot audit them.
 - **Signature:** the instance's Ed25519 key.
 
-**When checkpoints are written:**
+**When checkpoints are written**, for a `logged` partition:
 
 - at the end of every job ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.3);
 - after every `atomic` batch;
 - in steady state, at least every N records or T seconds, whichever comes first. N and T are instance configuration.
 
-Records appended after the latest checkpoint are durable but not yet signed.
+Records appended after the latest checkpoint are durable but not yet signed. A `hashed` partition has no checkpoints: a job that ends there records the manifest of the last sealed segment and an unsigned head offset, and the records of the open segment are uncommitted until the segment is sealed and its manifest signed (§1.2).
 
-Checkpoints are stored beside their partition. They are not log records, since a checkpoint cannot be a leaf of the tree it signs. Every checkpoint is kept, so consistency between any two of them can be proved.
+**Who signs.** Checkpoints and segment manifests are signed by the projection worker, under an advisory lock per partition, and it is the only process that holds the instance key; an API replica or a bulk job appends and never signs. The signing worker reads the persisted tree (§4.1), so a checkpoint covers only complete subtrees that every appender has closed.
 
-**Checkpoints are served** at `{base}/.well-known/tlog/{partition}/checkpoint`, with historical checkpoints and manifests beside it and the key chain at `/.well-known/tlog/keys` ([0022](../decisions/0022-federation.md) §1).
+Checkpoints are stored beside their partition. They are not log records, since a checkpoint cannot be a leaf of the tree it signs. Every checkpoint is kept, so consistency between any two of them can be proved. A segment manifest is keyed `(partition, segment)`, one per sealed segment and never re-signed: it carries no list of manifests it replaces and no sealing time in its key, since compaction leaves a sealed segment's tree unchanged (§6).
+
+**Checkpoints are served** at `{base}/.well-known/tlog/{partition}/checkpoint`, with any witness cosignatures as additional signature lines (§4.3), with historical checkpoints and manifests beside it and the key chain at `/.well-known/tlog/keys` ([0022](../decisions/0022-federation.md) §1).
 
 ### 4.3 Keys and witnesses
 
-*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §6.*
+*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §6; [0081](../decisions/0081-recovery-keys-and-continuations.md) §1, §3, §6.*
 
-- The instance's first public key is registered in the first record of the configuration partition, the `config` partition of [0015](../decisions/0015-record-format-and-partition-registry.md) §3. This is the same shape as Scatterbase's server-key registration claim. Each tenant's `config` partition carries its own copy of the key chain ([0018](../decisions/0018-tenants.md) §2).
-- **Rotation** is a configuration record naming the new key, signed by the old key inside its attestation. Checkpoints identify their key by the signed-note key ID. Moving a tenant to another instance is one such rotation: the record names the new instance's key and the tenant's final checkpoint ([0018](../decisions/0018-tenants.md) §10).
-- Recovering from a compromised key is out of scope. It belongs to the identity work that Scatterbase and Triplespace share.
+- The instance's first public key is registered in the first record of the configuration partition, the `config` partition of [0015](../decisions/0015-record-format-and-partition-registry.md) §3, under the founding attestation (§2.4): no actor, signed by the key it registers. This is the same shape as Scatterbase's server-key registration claim. Each tenant's `config` partition carries its own copy of the key chain ([0018](../decisions/0018-tenants.md) §2), opened by a founding record of the same form whose authority is the instance's.
+- **Rotation** is a configuration record naming the new key, signed by the old key inside its attestation. Checkpoints identify their key by the signed-note key ID. Moving a tenant to another instance is one such rotation: the record names the new instance's key and the tenant's final checkpoint ([0018](../decisions/0018-tenants.md) §10). A move the old instance does not sign is a **continuation** instead, authorized by the tenant's **recovery keys**, keys its community holds and no host sees ([08](08-tenants-and-instances.md) §6.8; [0081](../decisions/0081-recovery-keys-and-continuations.md) §1, §3).
+- Recovering from a compromised instance key is out of scope. It belongs to the identity work that Scatterbase and Triplespace share. A tenant with recovery keys can, however, continue to a new key on the same instance ([0081](../decisions/0081-recovery-keys-and-continuations.md) §3).
 
-**Witnesses are optional.** An instance may publish its checkpoints to external witnesses that implement [C2SP tlog-witness](https://c2sp.org/tlog-witness). Because the tree is RFC 6962 with SHA-256, a witness can verify consistency proofs between checkpoints and cosign them with no changes.
+**Witnesses are optional, and the key chain is what they are for** ([0081](../decisions/0081-recovery-keys-and-continuations.md) §6). The tenant `site` setting `integrity.witnesses` lists witnesses that implement [C2SP tlog-witness](https://c2sp.org/tlog-witness), each with its endpoint and verifier key. The instance submits every checkpoint of the tenant's `config` partition to each, with the consistency proof from the witness's last-seen size, stores each cosignature beside the checkpoint and serves it as an additional signature line. Other partitions are submitted only if `integrity.witness_partitions` lists them; the default is `config` alone, which holds the founding record, the key chain, the recovery-key records and every continuation. Because the tree is RFC 6962 with SHA-256, any such witness works unchanged. A witness refuses a checkpoint inconsistent with one it has cosigned, so a host cannot show two key chains for one origin, and a continuation's delay runs on witnessed time.
+
+**An instance can be a witness.** With the instance setting `witness.enabled`, `triplespace-server` serves the tlog-witness API at the farm base for the origins and keys its operator lists, keeping its last cosigned size and root per origin in durable state that is never rolled back. Federation partners may witness each other's key chains ([0022](../decisions/0022-federation.md) §1).
 
 ## 5. Erasure
 
@@ -441,41 +455,41 @@ DELETE FROM log.record_mirror_wikidata r
 
 Offsets are never reused, so a compacted partition has holes. That is the model [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §2 borrowed from Kafka. A compacted offset keeps its leaf (§4.1); the header is dropped with the record. A tombstoned entity that is not retained loses every record for its key, including the tombstone once its retention policy has been applied. In a `packed` partition the deleted rows' fragment references become candidates for the next candidate sweep, and fragments they shared with other rows wait for a full sweep ([03](03-storage-caches-and-search.md)).
 
-Because a compacted offset keeps its leaf, a sealed segment's tree and its manifest are unchanged by compaction; no manifest is re-signed and none lists a manifest it replaces.
+Because a compacted offset keeps its leaf, a sealed segment's tree and its manifest are unchanged by compaction; no manifest is re-signed, and a manifest is one row per `(partition, segment)` with nothing to supersede (§4.2).
 
 Retained mirror entities are exempt from compaction (§1.2).
 
 ## 7. Edit conflicts per entity
 
-*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §8; [0015](../decisions/0015-record-format-and-partition-registry.md) §2.*
+*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §8; [0015](../decisions/0015-record-format-and-partition-registry.md) §2; [0083](../decisions/0083-write-path-in-three-tiers.md) §1; [0084](../decisions/0084-wikibase-writes-against-the-resolved-view.md) §5.*
 
-A change set in the local graph may carry a **base**: the offset of the latest record for that key that the client saw.
+A change set in the local graph may carry a **base**: the offset of the latest record for that key that the client saw, which `baserevid` decodes to (§2.5). The check is a step of the appending transaction, made against the local graph alone ([0083](../decisions/0083-write-path-in-three-tiers.md) §1).
 
-- The log rejects the change set if a newer record for the key exists in the partition. The Action API reports this as `editconflict`, and the REST API as HTTP 409.
+- **The check is per source graph.** A base in the local partition is checked against the local partition's newest record for the key. A base in a mirror partition asserts only that the key still has **no local record**; a mirror advancing is never a conflict, because nothing a local assertion depends on changed. The one operation whose meaning depends on mirrored state, an `override` naming a mirrored statement, is checked by whether that statement still exists in the graph's current state, not by a revision number.
+- **A stale local base is patched where it can be.** When a newer local record exists but the change set touches no statement UUID, term, alias or sitelink that a later local record touched, the write is accepted and the response carries the warning `wikibase-conflict-patched`, as Wikibase does; otherwise the Action API reports `editconflict`, naming the current `lastrevid`, and the REST API HTTP 409. Statement modules on disjoint GUIDs therefore never conflict. A base that names a state compaction has since replaced is an `editconflict`.
 - A base is **required** for replacing a local entity wholesale ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.2).
 - A base is **optional** for everything else, as `baserevid` is in Wikibase. Bulk jobs that merge by default do not send one.
-- For a write to a foreign entity, `baserevid` is decoded to a partition and offset, and the check runs against the newest record for the key across the source partitions, not only the local one. A base that names a state compaction has since replaced is an `editconflict`.
 
-The check needs an index from each key to its latest offset. For the local partition, this is the version cursor.
+The check needs an index from each key to its latest local offset, which is the version cursor, and the local graph's current state, which is `view.graph_state` ([0083](../decisions/0083-write-path-in-three-tiers.md) §4; [03](03-storage-caches-and-search.md)). The diff of a `wb*` write against the resolved view, and what each module becomes, are in [18](18-api.md).
 
 Scatterbase's prior-use acknowledgments are the same check applied to each term instead of each entity. They are not implemented here. They can be carried in the attestation and checked by Scatterbase's own acceptance code.
 
 ## 8. Verification and export
 
-*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §9; [0015](../decisions/0015-record-format-and-partition-registry.md) §1; [0058](../decisions/0058-packed-record-storage.md) §1.*
+*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §9; [0015](../decisions/0015-record-format-and-partition-registry.md) §1; [0058](../decisions/0058-packed-record-storage.md) §1; [0081](../decisions/0081-recovery-keys-and-continuations.md) §8.*
 
 **An export bundle** holds, for each exported partition:
 
 - its segments, with headers and bodies;
 - every checkpoint and segment manifest;
-- the configuration records that register and rotate keys;
+- the configuration records that register and rotate keys, and the `graph:` record that names the partition, its hash function, `k` and its policies (§1.2);
 - for each exported partition that holds client-signed records, the `scatter:v0/key` records of the `actors` partition for every actor whose signatures appear (§2.4).
 
 It needs nothing else to verify. Bundles are written in the logical form (§2.7), whichever backend is live. Default exports follow each graph's export policy ([0005](../decisions/0005-crate-organization.md) §4.1). Bundles also take `--blobs include|list|omit` ([0039](../decisions/0039-files-and-media.md) §14). A bundle that moves a tenant carries its extracts as well ([0018](../decisions/0018-tenants.md) §10).
 
 **`verify` checks three levels:**
 
-1. **Structure.** Strict CBOR decoding, leaf hashes, the root at every checkpoint, checkpoint signatures, consistency proofs between successive checkpoints, and gapless offsets.
+1. **Structure.** Strict CBOR decoding, leaf hashes, the root at every checkpoint, checkpoint signatures, consistency proofs between successive checkpoints, and gapless offsets. For a tenant, level 1 also reports its **chain of custody** ([08](08-tenants-and-instances.md) §6.8): the tenant's origins in order, each with its key and the record linking it to the next (a signed rotation, a `recovered` continuation with whether its delay has passed and whether it was cancelled, or an `unauthorized` one); each partition's tail ranges attested only by the host that appended them; the witness cosignatures on each `config` checkpoint; and any fork. A `recovery-key` record without valid recovery signatures is reported and ignored.
 2. **Bodies.** Every present part against its leaf and the commitment: a present part hashes to a leaf that reproduces the commitment; a missing part carries its leaf and is named by an `erase` record, and the verifier reports it as erased, naming the erasing offset; a missing part with no `erase` record, or anything else, is a failure. Every blob a present upload record names, at depth `presence` or `full`; a missing object with no `erase` accounting for it is a failure ([0039](../decisions/0039-files-and-media.md) §14). Every present client signature against the key records in the bundle (§2.4). Every instance attestation's signature against the key chain, with the key current when the record was appended ([0040](../decisions/0040-instance-prerogatives.md) §8).
 3. **Projections** (optional and expensive). Rebuild projections from the log and compare them with the stored ones.
 

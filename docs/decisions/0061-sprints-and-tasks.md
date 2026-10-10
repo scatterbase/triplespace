@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-04
-- **Updated:** 2026-10-09 (A5)
+- **Updated:** 2026-10-09 (A6)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md), [0021](0021-notifications.md), [0041](0041-content-models.md), [0047](0047-special-pages.md)
 - **Uses:** [0003](0003-statement-ui.md), [0007](0007-actor-identity.md), [0013](0013-postgres-storage.md), [0016](0016-permissions-and-access-control.md), [0020](0020-change-feeds.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0030](0030-edit-filters.md), [0031](0031-property-constraints.md), [0038](0038-page-metadata-and-categories.md), [0042](0042-template-expansion-and-parsoid.md), [0049](0049-boards.md), [0059](0059-query-service.md), [0060](0060-scopes.md)
@@ -49,6 +49,8 @@ James's direction, from the design discussion of 2026-10-04:
 
 ### 6. The task projection (extends 0013 §5.6 and §7)
 
+*Changed by A6.*
+
 *Current text: [15](../architecture/15-structured-pages.md) §3.5.*
 
 ### 7. Credit, and the window
@@ -71,7 +73,7 @@ James's direction, from the design discussion of 2026-10-04:
 
 ### 11. Storage, caches and search
 
-*Changed by A3.*
+*Changed by A3, A6.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.15, §5, §11.1, §12.1.*
 
@@ -93,7 +95,7 @@ James's direction, from the design discussion of 2026-10-04:
 - **Women in Red's month works out of the box:** a scope (women writers without an article), one `missing-page` rule, a window, a board, and a leaderboard nobody maintains.
 - **Credit is honest and sometimes blunt.** A revert removes it; a job earns none; the window frames it. Q1 holds the known rough edge.
 - **The claim is the one new record type,** small and enclosed by the sprint page's ACLs, so protection and deletion of a sprint behave as for any page.
-- **Test plan.** Rules: each of the three against fixtures with the condition true and false, and against page subjects where allowed. Projection: a statement write resolves a task within the same write; a revert reopens it and clears the credit; a scope change opens and drops tasks; a claim, an expired claim and a `force` release. Window: resolutions before, inside and after count as specified. Load: a 100,000-member scope with 20 rules computes as a job and the page reports progress.
+- ~~**Test plan.** Rules: each of the three against fixtures with the condition true and false, and against page subjects where allowed. Projection: a statement write resolves a task within the same write; a revert reopens it and clears the credit; a scope change opens and drops tasks; a claim, an expired claim and a `force` release. Window: resolutions before, inside and after count as specified. Load: a 100,000-member scope with 20 rules computes as a job and the page reports progress.~~ *A statement write resolves a task within the consumer's lag, not within the same write; the rest of the plan stands, and a rebuild from `view` reproducing the live resolutions is added to it (A6).*
 
 ## Open questions
 
@@ -168,3 +170,16 @@ Replaced text (§4):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§12
 - **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [10](../architecture/10-pages-and-content-models.md), [15](../architecture/15-structured-pages.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A6. The task projection is a view-derived, tier-3 consumer
+
+- **Date:** 2026-10-09
+- **Source:** [0083](0083-write-path-in-three-tiers.md) §3, §6
+- **Change:** amends §6; extends §11
+- **Summary:** The task projection is a tier-3 consumer that follows the scope projection: it consumes the same composition events, after the scope consumer has applied them, in its own queue and outside every transaction, and is off during bootstrap and bulk modes; "inside the fan-out budget of 0013 §7" is withdrawn, and the small work after the initial job is per event, not per write. The projection is view-derived: populated by a scan of `view.scope_member`, `view.statement_assertion`, `view.constraint_violation`, `view.schema_report`, `view.page_category` and the claim records' rows, and by `view.activity` for credit, never by a log replay; "rebuild tasks for tenant T from `view`" recomputes every sprint's tasks and re-derives each task's resolution history from its subject's activity rows, so a rebuild reproduces the same `resolved_by`, `resolved_at`, `resolved_record` and `reopened`. (REVIEW G10)
+
+Replaced text ([15](../architecture/15-structured-pages.md) §3.5, as it stood):
+
+> **When it runs.** The task projection runs after the scope projection in step 7 of [0013](0013-postgres-storage.md) §7 ([03](../architecture/03-storage-caches-and-search.md) §6.1) and reads three kinds of change:
+
+> All of this is inside the fan-out budget of 0013 §7: a scope of a hundred thousand members with twenty rules is two million rows to compute when the sprint is saved, which is a job, and small per-write work after that. The sprint page shows "Tasks are being computed" until the job is done.

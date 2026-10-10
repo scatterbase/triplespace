@@ -167,18 +167,20 @@ Page views, API `titles=` parameters, redirects and wiki links (§5.2) all go th
 
 *Sources: [0051](../decisions/0051-page-redirects.md) §3; [0008](../decisions/0008-namespaces-and-document-pages.md) §4.*
 
-**A move is one record on the moved page.** Moving a page appends a `move` record with its new title, and nothing else about that page changes. **A move leaves a redirect at the old title by default,** as MediaWiki's does. `action=move` and the Move form append, in one transaction with one base check:
+**A move is one record on the moved page.** Moving a page appends a `move` record with its new title, and nothing else about that page changes. **A move leaves a redirect at the old title by default, where the old title may hold one,** as MediaWiki's does. `action=move` and the Move form append, in one transaction with one base check:
 
 1. the page's `move` record with the new title (§3.2);
 2. a `create` record for a **new page** at the old title, model `wikitext`, text `#REDIRECT [[New title]]`, attributed to the mover with the move's summary.
 
 The redirect is a second page, with its own ID and its own history, as it is in MediaWiki; nothing about the moved page is rewritten. The log event is one `move/move` ([0011](../decisions/0011-logs.md) §6.1; [16](16-logs-feeds-and-notifications.md)) whose parameters carry the old and new titles and, as MediaWiki's do, whether a redirect was left and its page ID. With `noredirect`, which needs `suppressredirect` ([0051](../decisions/0051-page-redirects.md) §8; [09](09-security-and-moderation.md)), only the `move` record is written and the event is `move/move` with `noredirect: true` in its parameters; `move/move_redir` keeps MediaWiki's meaning, a move onto an existing redirect (below).
 
+**A redirect is left only where the old title may hold `wikitext`.** Only a `wikitext` page can be a redirect (§2.3), so step 2 runs only when the namespace catalogue (§1.4) allows `wikitext` at the old title: in namespace 0, User, Project, File, Template and Category, and at the `/doc` titles of Module, Table, Query and Scope. Where the old title cannot hold `wikitext` — a Table page moved to another Table title, a Scope, a Query, a Module's code page, a sprint subpage — the move behaves as `noredirect` without needing `suppressredirect`, and the `move/move` event says so with `noredirect: true`. **Entity, keyed-type, Thread and Board namespaces disallow `move` altogether:** an entity's or a keyed entity's title is its ID (§2.6), a thread's title is minted from its subject (§2.2) and changed only by the thread's own `rename` record ([14](14-discussions.md) §1.2), and a board's title names the board, so `action=move` into, out of or within these namespaces is refused, as it is in a `virtual` or `resolver` namespace.
+
 **Exceptions:**
 
 - **User renames leave no redirect** (§3.4): the batch of `move` records a rename or a vanishing writes carries no `create`, because names are erasable and a redirect would keep the old one visible. A user moving one of their own subpages by hand is an ordinary move and leaves one.
 - **Talk pages do not move,** because they are composite and attached by identifier ([0019](../decisions/0019-discussions.md) §2): the threads of a moved page's talk page are already its new title's threads. `movetalk` is accepted and does nothing, and no talk redirect is created, since a talk title always resolves through its subject.
-- **Thread renames leave none** ([0019](../decisions/0019-discussions.md) §3), for the reason user renames do.
+- **Thread renames are not moves.** A thread's title follows its subject through the thread's own `rename` record ([0019](../decisions/0019-discussions.md) §3; [14](14-discussions.md) §1.4), and the old title stops resolving, for the reason user renames leave no redirect; the Thread namespace itself disallows `move` (above).
 
 **Subpages.** `movesubpages` moves every subpage under the old title in the same batch, each leaving its own redirect, in namespaces that allow subpages. It needs `move-subpages`.
 
@@ -202,7 +204,7 @@ The redirect is a second page, with its own ID and its own history, as it is in 
 
 *Sources: [0008](../decisions/0008-namespaces-and-document-pages.md) §4.*
 
-**A page is identified by a page ID, not by its title.** Page IDs are minted by the instance in sequence, start at 1 and are never reused. The title is an attribute of the page, in the same way a username is an attribute of an actor ([0007](../decisions/0007-actor-identity.md) §4; [07](07-actors-and-accounts.md)). This has three effects:
+**A page is identified by a page ID, not by its title.** Page IDs are **per tenant**: a tenant's own pages take IDs from the tenant's own sequence, which starts at 1, stays below 2^40 and never reuses a number, and `view.entity`'s unique key on a page ID is `(tenant, page_id)` ([0013](../decisions/0013-postgres-storage.md) §6; [03](03-storage-caches-and-search.md) §2.3). A **mirrored entity's page ID is provider-ranged**, `provider_number << 40 | upstream page ID` where the provider publishes one and `provider_number << 40 | mirror offset` otherwise, computed by the writer with no allocation, so the tenant sequence is never used for entities ([0015](../decisions/0015-record-format-and-partition-registry.md) §2); a page served by a page repository takes a provider-ranged page ID the same way ([0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6; [13](13-mirrored-pages.md)). The title is an attribute of the page, in the same way a username is an attribute of an actor ([0007](../decisions/0007-actor-identity.md) §4; [07](07-actors-and-accounts.md)). This has three effects:
 
 - **The log key is the page ID.** A log header key must be an identifier, never content ([0006](../decisions/0006-log-integrity-and-erasure.md) §3). A title is content, and a user page title contains a username.
 - **A move is one record on the moved page** (§2.5). By default a second page is created at the old title, a redirect to the new one.
@@ -210,7 +212,7 @@ The redirect is a second page, with its own ID and its own history, as it is in 
 
 ### 3.2 The `pages` partition and page records
 
-*Sources: [0008](../decisions/0008-namespaces-and-document-pages.md) §4.*
+*Sources: [0008](../decisions/0008-namespaces-and-document-pages.md) §4; [0083](../decisions/0083-write-path-in-three-tiers.md) §4.*
 
 **Pages live in their own partition.** A `pages` source partition is in the registry ([0005](../decisions/0005-crate-organization.md) §4.1; [01](01-log-and-records.md), [02](02-graphs-rdf-and-query.md)):
 
@@ -233,7 +235,7 @@ The partition holds page records, not quads. Its RDF output is revision metadata
 
 **A page's statements are change sets** (`scatter:v0/changeset`), keyed by its page ID in the same partition and restricted to statements ([0038](../decisions/0038-page-metadata-and-categories.md) §1; [06](06-statements-and-properties.md)). They take revision IDs, so a page's history interleaves text and statement revisions.
 
-**Each revision stores the full text, not a diff.** Pages are small. Diffs are computed when they are read, as MediaWiki computes them. Because each record is self-contained, erasing one revision with an `erase` record ([0006](../decisions/0006-log-integrity-and-erasure.md) §7; [01](01-log-and-records.md)) does not break the text of later ones.
+**Each revision stores the full text, not a diff.** Pages are small. Diffs are computed when they are read, as MediaWiki computes them. Because each record is self-contained, erasing one revision with an `erase` record ([0006](../decisions/0006-log-integrity-and-erasure.md) §7; [01](01-log-and-records.md)) does not break the text of later ones. **The state after every revision is also stored once, per revision:** the appending transaction writes the page's state after each `pages` record — the text and the fold of its statement change sets — to `view.entity_revision (tenant, revid, state)`, beside the current state it writes to `view.graph_state`, so that `oldid=`, `action=compare`, `Special:PermanentLink` and export read one row rather than folding the page's history ([0083](../decisions/0083-write-path-in-three-tiers.md) §4; [03](03-storage-caches-and-search.md)).
 
 **Edit conflicts use the base offset** ([0006](../decisions/0006-log-integrity-and-erasure.md) §8). An `edit` carries the offset of the page's latest record that the client saw. A mismatch is reported as `editconflict`. A base is required for `edit` and `move`.
 
@@ -475,15 +477,15 @@ Triplespace renders a fixed subset of wikitext. It does not implement MediaWiki'
 
 ### 5.2 Links and the links projection
 
-*Sources: [0008](../decisions/0008-namespaces-and-document-pages.md) §8, §10.*
+*Sources: [0008](../decisions/0008-namespaces-and-document-pages.md) §8, §10; [0083](../decisions/0083-write-path-in-three-tiers.md) §6.*
 
 **Links are resolved by the title resolver** (§2.1). A link to an entity that exists renders with its label, as Wikibase does. A link to a redirect carries the class `mw-redirect` (§2.4); a link to a title whose primary is a repository's page is an ordinary link carrying `ts-inherited`, and a link into a namespace no repository serves here leaves the wiki as an interwiki link ([0052](../decisions/0052-page-repositories-and-title-inheritance.md) §4; [13](13-mirrored-pages.md)).
 
-**A links projection** records every link from a document page to a page or entity, after resolution ([03](03-storage-caches-and-search.md)). It serves "What links here" for both kinds of page. So `Item:Q5` lists the project pages that link to it, and `list=backlinks` works across namespaces. Links in thread posts are rows too, so it also lists the threads that discuss it ([0019](../decisions/0019-discussions.md) §5). On a tenant with expansion on, the projection reads the expanded text, so links that templates emit count, and its rows are written by the refresh job of [0042](../decisions/0042-template-expansion-and-parsoid.md) §10. A redirect's row points at its target, so "What links here" lists a page's redirects ([0051](../decisions/0051-page-redirects.md) §5); a link to a title whose primary is a repository's page is recorded by namespace and title, as a link to a missing page is, so a later fork inherits its backlinks ([0052](../decisions/0052-page-repositories-and-title-inheritance.md) §4).
+**A links projection** records every link from a document page to a page or entity, after resolution ([03](03-storage-caches-and-search.md)). It serves "What links here" for both kinds of page. So `Item:Q5` lists the project pages that link to it, and `list=backlinks` works across namespaces. Links in thread posts are rows too, so it also lists the threads that discuss it ([0019](../decisions/0019-discussions.md) §5). **Its rows have two classes and one writer each.** Every row of `view.page_link` carries `from_render`: the page projection writes the source-derived rows, the links the stored text makes, when it applies the record; on a tenant with expansion on, the refresh job of [0042](../decisions/0042-template-expansion-and-parsoid.md) §10 writes the expansion-derived rows, the links templates and modules emit, with `from_render = true`. Each writer owns its class exclusively and readers union the two, so "What links here" counts a link whichever text made it; the refresh job never deletes a row it did not write, and turning `wikitext.expansion` off truncates the render-owned rows and nothing else ([0083](../decisions/0083-write-path-in-three-tiers.md) §6). A redirect's row points at its target, so "What links here" lists a page's redirects ([0051](../decisions/0051-page-redirects.md) §5); a link to a title whose primary is a repository's page is recorded by namespace and title, as a link to a missing page is, so a later fork inherits its backlinks ([0052](../decisions/0052-page-repositories-and-title-inheritance.md) §4).
 
 ### 5.3 Legacy categories are defined only in wikitext
 
-*Sources: [0038](../decisions/0038-page-metadata-and-categories.md) §3; [0008](../decisions/0008-namespaces-and-document-pages.md) §8.*
+*Sources: [0038](../decisions/0038-page-metadata-and-categories.md) §3; [0008](../decisions/0008-namespaces-and-document-pages.md) §8; [0083](../decisions/0083-write-path-in-three-tiers.md) §6.*
 
 **Membership is read from the text.** A page is in a category when the **latest revision** of a page whose content model is `wikitext` contains a category link:
 
@@ -503,7 +505,7 @@ Names are normalized by the `Category` namespace's `first-letter` normalizer (§
 
 **A category needs no page.** A page can be in a category whose page does not exist, as on MediaWiki. The link renders red and the category still has members.
 
-**Templates are not parsed while expansion is off.** For a tenant with `wikitext.expansion` off, categories that templates emit reach the text only through the flattening revision of §6 step 3, whose `action=expandtemplates` runs on the source wiki and writes the category links and `__HIDDENCAT__` into the flattened text. A template call added after an import renders as a placeholder (§5.1) and emits nothing, and categories MediaWiki's parser adds on its own, such as tracking categories for broken file links, are in no text. With expansion on ([0042](../decisions/0042-template-expansion-and-parsoid.md) §9; [11](11-rendering-templates-and-modules.md)), membership is read from the **expanded** text: categories that templates emit count, `<includeonly>` categories reach transcluding pages, and expansion adds MediaWiki's tracking categories for its own conditions.
+**Templates are not parsed while expansion is off.** For a tenant with `wikitext.expansion` off, categories that templates emit reach the text only through the flattening revision of §6 step 3, whose `action=expandtemplates` runs on the source wiki and writes the category links and `__HIDDENCAT__` into the flattened text. A template call added after an import renders as a placeholder (§5.1) and emits nothing, and categories MediaWiki's parser adds on its own, such as tracking categories for broken file links, are in no text. With expansion on ([0042](../decisions/0042-template-expansion-and-parsoid.md) §9; [11](11-rendering-templates-and-modules.md)), membership is read from the **expanded** text as well: categories that templates emit count, `<includeonly>` categories reach transcluding pages, and expansion adds MediaWiki's tracking categories for its own conditions. The two readings are two row classes of `view.page_category` with one writer each, as the links projection has (§5.2): the page projection writes the memberships the stored text declares, with `from_render = false`, and the refresh job writes those the expanded text adds, with `from_render = true`; a category page lists the union, the refresh job never deletes a row it did not write, and turning expansion off truncates the render-owned rows alone, leaving every membership the text itself declares ([0083](../decisions/0083-write-path-in-three-tiers.md) §6).
 
 **Rendering.** The foot of a page lists its categories as links to their pages in the `Category` namespace. Hidden categories are listed separately, collapsed. The source text is still never rewritten.
 
@@ -549,7 +551,7 @@ value    = { entity = "Q812" }
 
 ### 5.5 Page properties
 
-*Sources: [0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §6.*
+*Sources: [0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §6; [0083](../decisions/0083-write-path-in-three-tiers.md) §6.*
 
 **Page properties are stored,** in the table MediaWiki has ([03](03-storage-caches-and-search.md)):
 
@@ -559,10 +561,13 @@ CREATE TABLE view.page_prop (                   -- MediaWiki's page_props (§6)
   name text NOT NULL,
   value bytea NOT NULL,                           -- text, or compact JSON for templatedata; compressed over 1 KB
   sortkey double precision,                       -- for numeric properties, as MediaWiki's pp_sortkey
-  PRIMARY KEY (page_id, name)
+  from_render boolean NOT NULL DEFAULT false,     -- false: written by the page projection from the stored text; true: by the refresh job from a render (0083 §6)
+  PRIMARY KEY (page_id, name, from_render)
 );
 CREATE INDEX page_prop_name ON view.page_prop (name, sortkey, page_id);
 ```
+
+**Two row classes, one writer each.** As with `view.page_link` and `view.page_category` (§5.2, §5.3), `from_render` names the writer: the page projection writes the rows the stored text sets, synchronously when it applies the record, and the refresh job writes the rows a render sets. Each owns its class exclusively, readers union the two (a property with a row in both classes reads as the render's value), the refresh job never deletes a row it did not write, and turning `wikitext.expansion` off truncates the render-owned rows and nothing else.
 
 **Who writes which property:**
 
@@ -577,7 +582,7 @@ CREATE INDEX page_prop_name ON view.page_prop (name, sortkey, page_id);
 | `noindex`, `index`, `notoc`, `forcetoc`, `noeditsection`, `newsectionlink`, `nonewsectionlink`, `nogallery`, `staticredirect`, `expectunusedcategory`, `hiddencat` | The behaviour switches, as MediaWiki stores each as a property | The refresh job (`hiddencat` also in step 2, as §5.3 reads it) |
 | `wikibase_item` | The page's paired item ([0038](../decisions/0038-page-metadata-and-categories.md) §6; [06](06-statements-and-properties.md)), as Wikibase Client sets it, so tools that read `prop=pageprops&ppprop=wikibase_item` find it | The sitelink projection |
 
-Properties the refresh job writes are written in the same transaction as the links, categories and transclusions of a render ([0042](../decisions/0042-template-expansion-and-parsoid.md) §10), and are therefore among the `view` tables that render re-creates rather than replays. A property the latest render did not set is deleted.
+Properties the refresh job writes are written in the same transaction as the links, categories and transclusions of a render ([0042](../decisions/0042-template-expansion-and-parsoid.md) §10), and are therefore among the render-owned rows that a render re-creates rather than a replay rebuilds. A render-owned property the latest render did not set is deleted by that render; a source-owned row is never touched by it.
 
 **What reads them.**
 

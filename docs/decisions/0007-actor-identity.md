@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-10-09 (A20)
+- **Updated:** 2026-10-09 (A23)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md)
@@ -37,7 +37,7 @@ Four constraints follow from how MediaWiki treats accounts:
 
 ### 1. An actor is an issuer and a subject
 
-*Changed by A2, A3, A11, A13, A14.*
+*Changed by A2, A3, A11, A13, A14, A21, A22.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §1.1.*
 
@@ -49,13 +49,13 @@ Four constraints follow from how MediaWiki treats accounts:
 
 ### 3. Local users and delegated authentication
 
-*Changed by A2, A3, A8, A11, A12, A16, A19.*
+*Changed by A2, A3, A8, A11, A12, A16, A19, A21.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.1, §2.2, §2.3, §5.1, §8.3.*
 
 ### 4. Names are attributes, kept in actor records
 
-*Changed by A1, A6, A7, A8, A9, A10, A11.*
+*Changed by A1, A6, A7, A8, A9, A10, A11, A23.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §1.3, §3.2.*
 
@@ -286,3 +286,40 @@ Replaced text (§6):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§10
 - **Summary:** The Decision's current text now lives in the architecture chapters [02](../architecture/02-graphs-rdf-and-query.md), [07](../architecture/07-actors-and-accounts.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A21. Tenant and farm issuer codes are derived
+
+- **Date:** 2026-10-09
+- **Source:** [0079](0079-derived-issuer-codes.md) §1, §2, §6
+- **Change:** amends §1, §3
+- **Summary:** A tenant's issuer code is derived from its founding record, and the farm's is the farm code ([0079](0079-derived-issuer-codes.md) §1–2, §4): 26 characters of base32 that no registry allocates. A registered issuer code is at most 25 characters, so it can never equal a derived one (§1). The operator's key is `instance:{farm code}` (§1). Adopted accounts are written under the tenant's issuer code (§3).
+
+Replaced text (§1, in [07](../architecture/07-actors-and-accounts.md) §1.1):
+
+> | Each tenant | Its slug, such as `librarybase`; `local` names the current tenant's ([0018](0018-tenants.md) §4) | Numeric | The tenant's users (§2) |
+> …
+> | The farm, where the tenancy policy gives it identity | The farm slug | Numeric | Farm accounts, which edit nothing ([0028](0028-tenancy-policy.md) §2) |
+>
+> **The `instance` issuer** has one actor, the operator: actor key `instance:{farm slug}`, …
+
+Replaced text (§3, in [07](../architecture/07-actors-and-accounts.md) §2.1):
+
+> …the source's accounts are written as `{slug}:{id}` actor records under their own numbers, …
+
+### A22. The actor key lives in the attestation part, never in the header
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** corrects §1
+- **Summary:** An actor key is what the attestation part of a record carries; a record's header never names the actor responsible for it, and carries an actor key only as the key of an actor record, whose subject the actor is. "It is what log headers carry" is struck. `view.activity`'s issuer index filters on the tenant's issuer code. The spelling of issuer codes is settled by [0079](0079-derived-issuer-codes.md). (REVIEW G19)
+
+Replaced text ([07](../architecture/07-actors-and-accounts.md) §1.1, as it stood):
+
+> **An actor key** is the compact form `{issuer}:{id}`, such as `wikidatawiki:12345` or `local:42`. It is what log headers carry ([01](../architecture/01-log-and-records.md)). [0006](../decisions/0006-log-integrity-and-erasure.md) §3 requires a header key to be an identifier, never content. An actor key is an identifier and never contains a name.
+
+### A23. `editcount` and `created_at` on `view.actor`; `autoconfirmed` is implicit
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** extends §4
+- **Summary:** `view.actor` gains two columns that are not from actor records: `created_at`, the time of the actor's first record, and `editcount`, maintained by the activity projection from the actor's local `edit` rows, erased ones included and job rows excluded; `autoconfirmed` is an implicit group computed from them. The ledger names [0024](0024-subsidiary-accounts.md) §2, [0016](0016-permissions-and-access-control.md) §3, [0075](0075-mcp-server.md) §4 and [0013](0013-postgres-storage.md) §5; the chapter states the columns at [07](../architecture/07-actors-and-accounts.md) §1.3, whose provenance is §4 here, and the ledger row was extended. (REVIEW G40)

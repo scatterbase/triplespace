@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-29
-- **Updated:** 2026-10-09 (A14)
+- **Updated:** 2026-10-09 (A15)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0003](0003-statement-ui.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0026](0026-sitelinks.md), [0029](0029-resolver-namespaces.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md), [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0030](0030-edit-filters.md), [0031](0031-property-constraints.md), [0032](0032-sparql-update-stream.md), [0035](0035-adopting-a-wikibase.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0049](0049-boards.md)
@@ -40,7 +40,7 @@ James's direction, from the design discussion of 2026-09-29:
 
 ### 3. Legacy categories are defined only in wikitext (amends 0008 §8; settles 0008 Q5)
 
-*Changed by A4.*
+*Changed by A4, A15.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §5.3.*
 
@@ -296,3 +296,14 @@ Replaced text (§7):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§15
 - **Summary:** The Decision's current text now lives in the architecture chapters [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [06](../architecture/06-statements-and-properties.md), [09](../architecture/09-security-and-moderation.md), [10](../architecture/10-pages-and-content-models.md), [14](../architecture/14-discussions.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A15. Two row classes of `view.page_category`, one writer each
+
+- **Date:** 2026-10-09
+- **Source:** [0083](0083-write-path-in-three-tiers.md) §6
+- **Change:** amends §3
+- **Summary:** With expansion on, membership is read from the expanded text *as well as* the stored text, and the two readings are two row classes of `view.page_category` with one writer each, as the links projection has: every row carries `from_render`; the page projection writes the memberships the stored text declares, with `from_render = false`, when it applies the record; the refresh job of [0042](0042-template-expansion-and-parsoid.md) §10 writes those the expanded text adds, with `from_render = true`. Each writer owns its class exclusively, a category page lists the union, the refresh job never deletes a row it did not write, and turning `wikitext.expansion` off truncates the render-owned rows alone, leaving every membership the text itself declares. 0083's table names §2 (asserted and projected statements); the chapter section that changed, [10](../architecture/10-pages-and-content-models.md) §5.3, holds §3, so the row is corrected. (REVIEW G13)
+
+Replaced text ([10](../architecture/10-pages-and-content-models.md) §5.3, as it stood):
+
+> With expansion on ([0042](../decisions/0042-template-expansion-and-parsoid.md) §9; [11](../architecture/11-rendering-templates-and-modules.md)), membership is read from the **expanded** text: categories that templates emit count, `<includeonly>` categories reach transcluding pages, and expansion adds MediaWiki's tracking categories for its own conditions.

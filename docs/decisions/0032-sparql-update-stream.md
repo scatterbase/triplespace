@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-09 (A7)
+- **Updated:** 2026-10-09 (A11)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0020](0020-change-feeds.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [Wikibase contract](../api/wikibase-compat.md)
@@ -22,39 +22,43 @@ Three choices James made in review shape the rest: the stream is **selectable pe
 
 ### 1. The stream is the dump, kept current (extends 0001 §2 and 0013 §8)
 
-*Changed by A2.*
+*Changed by A2, A8, A11.*
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §6.1.*
 
 ### 2. The delta is computed when the view changes (extends 0002 §2–3 and 0013 §7)
 
-*Changed by A5.*
+*Changed by A5, A8, A9.*
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §6.2.*
 
 ### 3. Storage: `view.rdf_delta` (extends 0013 §5.6)
 
-*Changed by A2.*
+*Changed by A2, A8, A9.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.11, §5.*
 
 ### 4. Tenants: shared deltas and overlay deltas (uses 0018 §6)
 
+*Changed by A8.*
+
 *Current text: [08](../architecture/08-tenants-and-instances.md) §10.5.*
 
 ### 5. Erasure and hiding reach the consumer, and the store (extends 0006 §7 and 0014 §5)
+
+*Changed by A9.*
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §6.3.*
 
 ### 6. Delivery: pull, with a sync client (extends 0012 §5)
 
-*Changed by A2, A4, A7.*
+*Changed by A2, A4, A7, A9.*
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §6.4, §6.5.*
 
 ### 7. Blank nodes are skolemized (extends 0013 §8)
 
-*Changed by A2.*
+*Changed by A2, A10.*
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §4.3.*
 
@@ -73,7 +77,7 @@ Three choices James made in review shape the rest: the stream is **selectable pe
 - **A triplestore can stay current** with any Triplespace tenant by loading one dump and following one stream, using only standard SPARQL 1.1 Update. QLever is the first target; nothing is specific to it.
 - **The dump and the stream are one contract.** At every cursor the stream reproduces the dump. A test loads a dump into Oxigraph, applies the stream to a later cursor, and compares the result with the dump taken at that cursor, for every `graphs=` form; erasure and hiding cases are in the fixture set.
 - **Deltas are stored, not recomputed.** `view.rdf_delta` grows with the instance's rate of change times the retention window, not with the size of the mirrors: a Wikidata sync of a million changed entities is a million rows, for thirty days. At Wikidata's edit rate that is on the order of 10^8 rows and tens of gigabytes in the window; the bootstrap audit of 0013 should measure it beside `entity_ref`.
-- **Cluster changes fan out twice.** Once into the resolved view, as 0004 accepts, and now into the stream, where a consumer receives one event per referrer. Linking a heavily cited author is a burst of events; the consumer applies them in order and is done.
+- ~~**Cluster changes fan out twice.** Once into the resolved view, as 0004 accepts, and now into the stream, where a consumer receives one event per referrer. Linking a heavily cited author is a burst of events; the consumer applies them in order and is done.~~ *The stored graph is in source form, so a cluster change recomposes the cluster's members only and there is one delta per member and none per referrer (A8).*
 - **Erasure has a sixth layer to walk** and a window that bounds it, as with every other derived copy.
 - **Rebuilds invalidate cursors.** A `view` rebuild is a new epoch and every consumer reloads. Rebuilds are rare and announced; the epoch makes the failure loud rather than silent.
 - **Skolem IRIs are a documented departure**, confined to somevalue snaks, offered as a second dump form and never in the plain one. A Wikidata tool that counts blank nodes sees the plain dump; a store that follows the stream sees IRIs.
@@ -183,3 +187,63 @@ Replaced text (§2):
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** extends §6
 - **Summary:** Beside committing its cursor to its state file, `sparql-sync` writes a marker triple `<{base}/.well-known/query> scatter:cursor "{epoch}:{seq}"` in the store's default graph after each batch, which the query service reads to check the endpoint's position ([0059](0059-query-service.md) §2). The two were compatible but §6 did not say so. (PENDING T1)
+
+### A8. Source form: one delta per member, the fused body under every member
+
+- **Date:** 2026-10-09
+- **Source:** [0082](0082-source-form-and-the-shared-view.md) §1, §3, §4, §5
+- **Change:** amends §2; extends §1, §3, §4
+- **Summary:** The internal graph is in source form: the dump and the stream carry the IDs each source wrote, and the response-time rewriting of entity IDs to a consumer's preferred form never applies to either (§1); `rdf_delta.entity_id` is in source form (§3). A cluster change recomposes the cluster's members and nothing else: a referrer's triples do not change when an identity changes, so there is one delta per member and none per referrer (§2). In RDF the fused body is emitted under every member's concept IRI with `owl:sameAs` between the members, in the dump and in the stream alike. The shared deltas of §4 are computed under the instance's policy record, and the shared query store holds the same shape: one shared resolved graph and an overlay graph per tenant. 0082's table names §2 and §4; the chapters also cite 0082 §3 for §1's text and 0082 §1 for §3's column comment, which are extensions. (REVIEW G1, G3, G5, G6)
+
+Replaced text ([02](../architecture/02-graphs-rdf-and-query.md) §6.2, as it stood):
+
+> A **cluster change** ([0004](../decisions/0004-identity-clusters-and-equivalence.md) §4) re-resolves every referrer and produces one delta per referrer.
+
+### A9. The delta is a tier-3 consumer; one sequencer; per-tenant epochs
+
+- **Date:** 2026-10-09
+- **Source:** [0083](0083-write-path-in-three-tiers.md) §3, §7
+- **Change:** amends §2, §3, §5; extends §6
+- **Summary:** The delta is computed by a tier-3 consumer of composition events behind the `site` setting `updates.enabled` (default off), with its own queue, rate and lag, in no write's transaction and off during bootstrap and bulk modes; it reads the old state from `view.graph_state` (delta graphs) and the previous composed row, and the new state from the composed row, and it is not computed in any write or any composition (§2). `rdf_delta.seq` is assigned by that single sequencer, so insert order is commit order and a consumer reading `seq > cursor` never skips a late-committing row; the stream can be served from a replica. The table is stored, not recomputed: a rebuild **truncates** `rdf_delta` and bumps the epoch, and consumers reload from the post-rebuild dump; one transaction is one event, an edit or one block of a bulk job, and there is no fan-out within a synchronous budget (§3). Each tenant has its own epoch, `ops.tenant_epoch`, bumped by a rebuild, a provider-list change, an isolation change and a base alias, and the epoch carries a rendering version that a change to `scatter-wikibase-rdf`, `triplespace-rdf` or a normalizer increments, with the lexical forms pinned as a fixture in `wikibase-compat.md` (§6). `rdf_delta` is indexed by `(partition, "offset")` so the erasure purge reaches metadata-only rows (§5). 0083's table gives a row for §4 (by §7); the chapter section that holds §4, [08](../architecture/08-tenants-and-instances.md) §10.5, cites 0082 §5 and not 0083, so the row is corrected to §6, whose chapter text ([02](../architecture/02-graphs-rdf-and-query.md) §6.4) cites 0083 §7. (REVIEW G10, G14)
+
+Replaced text ([02](../architecture/02-graphs-rdf-and-query.md) §6.2, as it stood):
+
+> A **delta** is a pair of triple sets, deleted and inserted, for one graph, caused by one event. It is computed by the projections that already produce the new state, at the moment they have both the old state and the new:
+
+> | `resolved` | The resolution projection writes an entity ([0013](../decisions/0013-postgres-storage.md) §5.1, step 4 of §7) | The entity's previous resolved JSON, read before it is overwritten | The new resolved JSON |
+> | `local`, `mirror/{provider}` | A change set is applied to the entity's state in that graph ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.2) | The graph's previous state for the entity, which the ingester reads to compute `changes` ([0012](../decisions/0012-api-requirements.md) §2.2) | The new state |
+
+> **Why at projection time.** Under the `latest` history policy a mirror's earlier state is compacted away ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §2), and [0012](../decisions/0012-api-requirements.md) §7 concedes that the resolved view at a past time cannot be rebuilt in general. The only moment both states exist is when the new one replaces the old. The delta is therefore stored ([0032](../decisions/0032-sparql-update-stream.md) §3), not recomputed on request.
+
+> **Bootstrap mode** ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.6, [0013](../decisions/0013-postgres-storage.md) §9) produces no deltas: there is no previous state, and a consumer of a bootstrapped partition loads the dump taken at the end of the bootstrap.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.11, as it stood):
+
+> - **`seq` is the cursor.** It is one sequence for the instance, so every tenant's stream is a filter over one total order, and it is monotonic in the order deltas were produced, which is the order projections applied them. Consumers apply events in `seq` order and never see two events for one entity out of order.
+> - **A transaction is one event.** Every row carries the `txn` of the appending transaction that produced it (`txn bigint NOT NULL`, indexed with `seq`); the deltas of one transaction, an edit with its fan-out within the synchronous budget (§6.2) or one batch of a sync job, are delivered as one event whose cursor is the transaction's last `seq`, so a consumer applies an edit atomically and never sees half of it. The queued remainder of a large fan-out is its own transactions and its own events.
+
+> - **The table is a projection**, rebuilt from the log with every other `view` table (§6). A rebuild reproduces the same *final* state, but not the same sequence of intermediate states under compaction, and its rows take new `seq` values. Every cursor therefore carries an **epoch**, a number in `ops` that a rebuild increments; a cursor from an earlier epoch is refused with the reload response, as an expired one is.
+
+Replaced text ([02](../architecture/02-graphs-rdf-and-query.md) §6.3, as it stood):
+
+> The erasure path of [0014](../decisions/0014-caches-and-search.md) §5 gains a **sixth step**: delete or rewrite every `rdf_delta` row for the entity that contains an erased triple, found through `rdf_delta_entity`.
+
+### A10. The skolem hash is over the statement UUID
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §7
+- **Summary:** The skolem IRI's hash is over the **statement UUID**, never the entity part of the statement ID, so the node is the same under every member ID the fused body is emitted under and whatever form a consumer asked for; the snak role (main snak, qualifier, reference); the property; and an index defined as the snak's position within its role on the statement. A reference snak hashes the reference hash in place of the index, so identical references share a node as they share a `ref:` IRI. The hash function and the byte layout of the preimage are fixed in `wikibase-compat.md`. The federation parts of the same row (bootstrap from the export bundle, record bodies on the stream for `source = local`, `verified_at_size` in `entity_source` only, a `delete/statement` event) are logged in [0022](0022-federation.md). (REVIEW G48)
+
+Replaced text ([02](../architecture/02-graphs-rdf-and-query.md) §4.3, as it stood):
+
+> https://scatter.red/genid/{H(statement id ‖ snak role ‖ property ‖ index)}
+
+> The statement ID in the hash is upstream's for a mirrored statement and the tenant's for a local one, so the inputs never collide.
+
+### A11. Dumps from a replica under one snapshot
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** extends §1
+- **Summary:** A dump is taken from a replica under `pg_export_snapshot()`, with parallel workers sharing the one snapshot, so that every file of a dump describes one instant and the primary is not read; the stream a consumer follows from that dump is served from a replica too, since its single sequencer (A9) makes insert order commit order. The rest of the row — the embedded query backend is the small profile's and is refused above a configured triple count, the Wikidata profile requires `query.backend = remote`, `term_prefix` is kept as schema and not read by the large profile — is logged in [0059](0059-query-service.md), [0013](0013-postgres-storage.md) and [0033](0033-backend-stack.md). Nothing of §1's chapter text is contradicted; the dump rule is stated in [02](../architecture/02-graphs-rdf-and-query.md) §4.1. (REVIEW G49)

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-09 (A63)
+- **Updated:** 2026-10-09 (A72)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0005](0005-crate-organization.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -32,11 +32,13 @@ This ADR sets the rules for filling both gaps, and lists what the UI needs from 
 
 ### 2. Prerequisites
 
+*Changed by A66, A68.*
+
 *Current text: [18](../architecture/18-api.md) §1.3, §5.1.*
 
 #### 2.1 Global revision and log IDs
 
-*Changed by A2, A4, A7.*
+*Changed by A2, A4, A7, A65, A66, A67, A68, A69.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §2.5, §5.3.*
 
@@ -47,6 +49,8 @@ This ADR sets the rules for filling both gaps, and lists what the UI needs from 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §2.6, §8.2.*
 
 #### 2.3 Ordering and paging
+
+*Changed by A65.*
 
 *Current text: [18](../architecture/18-api.md) §1.3.*
 
@@ -62,13 +66,13 @@ This ADR sets the rules for filling both gaps, and lists what the UI needs from 
 
 ### 4. Action API changes
 
-*Changed by A3, A4, A5, A7, A8, A9, A10, A12, A13, A14, A15, A16, A17, A18, A19, A21, A23, A24, A25, A26, A27, A30, A31, A32, A33, A34, A35, A36, A37, A38, A55.*
+*Changed by A3, A4, A5, A7, A8, A9, A10, A12, A13, A14, A15, A16, A17, A18, A19, A21, A23, A24, A25, A26, A27, A30, A31, A32, A33, A34, A35, A36, A37, A38, A55, A64, A65, A66, A72.*
 
 *Current text: [18](../architecture/18-api.md) §1.5, §2.1, §2.2, §2.3, §2.4, §3.4, §5.1.*
 
 ### 5. REST routes under `rest.php/triplespace/v0`
 
-*Changed by A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A28, A30, A31, A32, A33, A37, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A50, A51, A52, A53, A54, A55, A56, A59, A60, A61, A62.*
+*Changed by A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A28, A30, A31, A32, A33, A37, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A50, A51, A52, A53, A54, A55, A56, A59, A60, A61, A62, A64, A70, A71, A72.*
 
 *Current text: [18](../architecture/18-api.md) §1.2, §3.1, §3.2, §3.3, §4.*
 
@@ -79,6 +83,8 @@ This ADR sets the rules for filling both gaps, and lists what the UI needs from 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §2.7.*
 
 ### 7. Structured diffs
+
+*Changed by A65.*
 
 *Current text: [18](../architecture/18-api.md) §5.1.*
 
@@ -108,8 +114,8 @@ This ADR sets the rules for filling both gaps, and lists what the UI needs from 
 
 - **Q1.** ~~**The global ID mechanism** (§2.1): a central allocator, IDs reserved in blocks for each partition, or another scheme.~~ *Settled by [0013](0013-postgres-storage.md) §6 (Postgres sequences per tenant, taken in the appending transaction; blocks from the bootstrap coordinator) and [0015](0015-record-format-and-partition-registry.md) §2 (in the header; provider-ranged for mirror records).*
 - **Q2. The default for `sync_deltas`,** once ingest cost and storage have been measured.
-- **Q3.** ~~**Contributions of foreign actors:** whether `/actor/{key}/contributions` covers upstream edits that were backfilled or fetched live.~~ *Settled by [0018](0018-tenants.md) §8: backfilled and observed records the instance holds; never fetched live.*
-- **Q4. The effect of a diff:** whether it should be "as of the change" wherever that can be computed, as it can for the local graph alone.
+- **Q3.** ~~**Contributions of foreign actors:** whether `/actor/{key}/contributions` covers upstream edits that were backfilled or fetched live.~~ *Settled by [0018](0018-tenants.md) §8: backfilled and observed records the instance holds; never fetched live.* *Extended by [0010](0010-site-ui.md) A40: upstream revision records are not indexed by actor, so the view lists what reached `view.activity` for the actor and says so (REVIEW G50).*
+- **Q4.** ~~**The effect of a diff:** whether it should be "as of the change" wherever that can be computed, as it can for the local graph alone.~~ *Settled by [0083](0083-write-path-in-three-tiers.md) §4: as of the change for the local graph, each side one row of `view.entity_revision`, and for a mirror where the history policy kept the previous `put`; current otherwise, since mirror states are not reconstructable under `latest` (A65).*
 - **Q5.** ~~**A watchlist API,** which waits on the watchlist decision in [0010](0010-site-ui.md).~~ *Settled by [0020](0020-change-feeds.md) §5: MediaWiki's watchlist modules and the `/watchlist` routes.*
 - **Q6.** ~~**A change feed for downstream consumers.** Whether Triplespace offers an EventStreams-like stream, and whether it follows the same redaction and log model ([mediawiki-compat.md](../api/mediawiki-compat.md) §7).~~ *Settled by [0020](0020-change-feeds.md) §4: the everything feed as server-sent events, with the same redaction; [0022](0022-federation.md) §1 publishes it for verified sync.*
 - **Q7.** ~~**Rate limit values and cache lifetimes** for upstream fetches.~~ *Settled by [0024](0024-subsidiary-accounts.md) §5, in part: rate limits are site policy by action class, with `upstream` as one class; its default is a starting value. Cache lifetimes are Q9.*
@@ -681,3 +687,114 @@ Replaced text (§5):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§9
 - **Summary:** The Decision's current text now lives in the architecture chapters [01](../architecture/01-log-and-records.md), [05](../architecture/05-providers-and-ingest.md), [09](../architecture/09-security-and-moderation.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A64. Any cluster member is accepted; responses are rewritten to the request's form
+
+- **Date:** 2026-10-09
+- **Source:** [0082](0082-source-form-and-the-shared-view.md) §2, §3
+- **Change:** amends §4; extends §5
+- **Summary:** Every entry point normalizes the entity IDs it is given to the internal form before anything executes: any member of an identity cluster, as well as a tenant-relative ID, is accepted wherever an entity ID is accepted (API parameters, change sets, titles, `wbsearchentities`, `/resolve`, SPARQL constants), a lookup by a clustered ID runs over the member set, and search results collapse to one per cluster. A layer on the way out rewrites entity IDs, the entity part of statement GUIDs included, to the form the consumer prefers, using exact matches only (tier 1, tier 2, `equivalent-property`), after the cache and never inside literals; `prefer` is a per-request namespace order accepted on every Action API module and every `triplespace/v0` route that returns entity IDs, defaulting to the form of the IDs in the request, and an ID with no exact match is left as stored. `wbgetentities` answers under the requested ID with a `canonical` field, and the Wikibase redirect shape is reserved for true redirects, so a Wikidata-keyed client never meets `IsRedirectPageError` on a clustered item. The chapter carries this at [18](../architecture/18-api.md) §1.4, §1.6, §2.3 and §3.1. (REVIEW G4, G5)
+
+Replaced text ([18](../architecture/18-api.md) §2.3, as it stood):
+
+> | `wbgetentities` | `sitefilter` accepts alias IDs and hosts; `sites` and `titles` (lookup by sitelink) accept both forms, and find a page's paired item; a `urls` parameter looks up by URL. A `resolver` and `key` pair of parameters, mirroring `sites`+`titles`, returns the entity when the lookup is unique and `missing` with a `candidates` list otherwise. `missing` for a deleted local entity. On `WDM`, `E` and `L` IDs as §2.1. `ids=mhc:Q1`: a source entity from the tenant's view; one not yet held is `missing`, and is enqueued when the source's mirror setting is `on-demand` or above | [0026](../decisions/0026-sitelinks.md) §7; [0029](../decisions/0029-resolver-namespaces.md) §6; [0023](../decisions/0023-moderation.md) §8; [0038](../decisions/0038-page-metadata-and-categories.md) §13; [0064](../decisions/0064-entityschema-and-validation.md) §7; [0065](../decisions/0065-mediainfo-captions-and-commons.md) §4; [0066](../decisions/0066-lexemes.md) §8; [0078](../decisions/0078-entity-sources.md) §10 |
+
+### A65. Revision states are rows; the stream's resume token is per partition
+
+- **Date:** 2026-10-09
+- **Source:** [0083](0083-write-path-in-three-tiers.md) §4, §7
+- **Change:** amends §7; extends §2.1, §2.3, §4
+- **Summary:** `view.entity_revision (tenant, revid, state)` holds the local-graph state after every revision of the `local` and `pages` partitions, written in tier 1 beside `view.graph_state`, so `oldid=`, `action=compare`, `prop=revisions` with `rvprop=content`, `GET /entity/{id}/compare`, `?as_of=` and export read one row and replay nothing; a structured diff's "before" and "after" for the local graph are the rows of the previous and this revision, and for a mirror the previous and the new `put` where the history policy kept them. Rendering as of a revision is exact for local pages and for an entity's local-graph state, while its mirrored contributions are current, since mirror states are not reconstructable under `latest`; "from the tenant's view as of that offset where the log holds it, and current otherwise" is withdrawn. The activity stream's `Last-Event-ID` is a vector of per-partition high-water marks, never a sort key; `(time, partition, offset)` stays the display order of paged lists. 0083's table said `amends` for §4; the chapter rows under §4 ([18](../architecture/18-api.md) §2.3, `action=compare` and `prop=revisions`) were extended and nothing in them contradicted, so §4 is extended here and the table was corrected. (REVIEW G11, G14)
+
+Replaced text ([18](../architecture/18-api.md) §5.2, as it stood):
+
+> - Local pages are exact, since every revision is in the log.
+> - Entities come from the tenant's view as of that offset where the log holds it, and current otherwise.
+
+### A66. Wikibase writes against the resolved view; `lastrevid`, the base check, patching and `maxlag`
+
+- **Date:** 2026-10-09
+- **Source:** [0084](0084-wikibase-writes-against-the-resolved-view.md) §1, §2, §3, §4, §5
+- **Change:** amends §2.1, §4; extends §2
+- **Summary:** A `wb*` write, and a REST write that maps to one, is normalized and diffed against the tenant's resolved view in source form before a change set is built; echoed mirrored content is dropped, an echoed entity with no changes is a no-op returning the current entity and `lastrevid`, and what remains maps to `add`, `remove` and `override` by whether what it touches is local-owned or mirror-owned, as the table of [18](../architecture/18-api.md) §2.5 lays out module by module; a value change on a mirror-owned statement is refused with `ts-foreign-statement`; `clear=true` removes local assertions only; `wbmergeitems` between a local and a mirrored item is a `same-as`; the response is the entity recomposed after commit, rewritten to the request's form. `lastrevid` is the revision ID of the entity's newest local record when the key has one, else the ranged ID of its newest mirror record (`local_revid`); the base check is per source graph, a base in a mirror partition asserting only that the key still has no local record, a mirror advancing never a conflict; a stale local base is accepted with `wikibase-conflict-patched` when the change set touches nothing a later local record touched, else `editconflict` naming the current `lastrevid`, and a compacted base is `editconflict`; the API honours inbound `maxlag` as the larger of replica lag and the tenant's local-partition composition lag. "The check runs against the newest record for the key across the source partitions" is withdrawn from §2.1 ([01](../architecture/01-log-and-records.md) §2.5). (REVIEW G16, G17)
+
+Replaced text ([01](../architecture/01-log-and-records.md) §2.5, as it stood):
+
+> - **`lastrevid`** of an entity is the revision ID of its newest record in any source partition, chosen by append time. For a purely mirrored entity that is its latest `put`; a local assertion about it takes over as the newest record.
+> - **`baserevid`** on a write to a foreign entity is decoded to (partition, offset), and the base-offset check of §7 runs against the newest record for the key across the source partitions, not only the local one. A base that names a state compaction has since replaced is an `editconflict`.
+
+Replaced text ([18](../architecture/18-api.md) §1.5, as it stood):
+
+> `action=edit`, `wbeditentity` and the other write modules map `baserevid` to base offsets ([0006](../decisions/0006-log-integrity-and-erasure.md) §8), and an `editconflict` error includes the current revision's ID, so the client can merge a document page three ways.
+
+Replaced text ([18](../architecture/18-api.md) §2.3, as it stood):
+
+> | `wbeditentity` | `sitelinks` entries may carry `url` in place of `site`+`title`. `new=lexeme`, or on `L` IDs. Terms on `M` | [0026](../decisions/0026-sitelinks.md) §7; [0066](../decisions/0066-lexemes.md) §8; [0065](../decisions/0065-mediainfo-captions-and-commons.md) §4 |
+
+> | The statement modules | On lexeme and part IDs, and on `M` IDs | [0066](../decisions/0066-lexemes.md) §8; [0041](../decisions/0041-content-models.md) §8 |
+
+### A67. Page IDs are per tenant; a mirrored entity's is provider-ranged
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §2.1
+- **Summary:** A local page ID is taken from the tenant's own sequence the first time a key is written in a tenant partition, stays below 2^40, and is repeated in field 9 by every later record for the key; a mirrored entity's page ID is `provider_number << 40 | upstream page ID` where the provider publishes one and `provider_number << 40 | mirror offset` otherwise, computed by the writer with no allocation, so `log."instance.page_id"` is not used for entities, and `view.entity`'s unique key on the page ID is `(tenant, page_id)`; bootstrap writers of a tenant partition take page IDs in blocks. The ledger names [0013](0013-postgres-storage.md) §6, [0015](0015-record-format-and-partition-registry.md) §2, [0052](0052-page-repositories-and-title-inheritance.md) §6 and [0008](0008-namespaces-and-document-pages.md) §4; the sentence stood at [01](../architecture/01-log-and-records.md) §2.5, whose provenance is §2.1 here, and the ledger row was extended. (REVIEW G18)
+
+Replaced text ([01](../architecture/01-log-and-records.md) §2.5, as it stood):
+
+> **Page IDs are carried forward.** A page ID is taken from one sequence the first time a key is written in any partition — or supplied by an adoption job, which carries the source wiki's page ID and has set the sequence past it ([0035](../decisions/0035-adopting-a-wikibase.md) §4) — and every later record for that key, in every partition, repeats it in field 9. It is never derived from replay order, and an entity's first record is not relied on to recover it, since compaction may have removed that record. Bootstrap writers ([0013](../decisions/0013-postgres-storage.md) §9) take page IDs in blocks from the coordinator, as they take offsets.
+
+> **A page a page repository serves has a provider-ranged page ID,** `provider_number << 40 | upstream page ID`, derived and never minted, so that a foreign page has a stable `pageid` on every tenant without any write; in `mirror` mode the `pages/{repo}` records carry it in field 9 and the ranged upstream revision ID in field 7 ([0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6, [0053](../decisions/0053-mirrored-pages.md) §5). Local page IDs stay below 2^40.
+
+### A68. Every ID a client sees is below 2^53
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §2.1; extends §2
+- **Summary:** Registry provider numbers are below 2^12, and a tenant assigns its entity-source numbers from 2^12 to 2^13 − 1, so `number << 40 | n` stays under 2^53 for every `n` below 2^40 and a ranged `revid` or `pageid` survives a JavaScript `Number` and every JSON parser, which `formatversion=2` has no string form to protect; the range 2^22 to 2^23 − 1 is withdrawn. The ledger names [0078](0078-entity-sources.md) §4, [0015](0015-record-format-and-partition-registry.md) §2 and §5 and [0080](0080-tenants-as-entity-sources.md) §1; the range stood at [01](../architecture/01-log-and-records.md) §2.5 (§2.1 here) and the rule is restated at [18](../architecture/18-api.md) §1.3 (§2), and the ledger row was extended. (REVIEW G20)
+
+Replaced text ([01](../architecture/01-log-and-records.md) §2.5, as it stood):
+
+> Provider number 0 is the instance itself, so local revision IDs are the plain sequence. Each provider has a number in the registry ([0015](../decisions/0015-record-format-and-partition-registry.md) §5). Numbers from 2^22 to 2^23 − 1 are never allocated in the registry: each tenant assigns them to its entity sources, and they are unique on their tenant only, which suffices because revision and page IDs are per tenant and no other tenant reads a source's records ([0078](../decisions/0078-entity-sources.md) §4). For a provider that publishes revision IDs, *n* is the upstream revision ID; for one that does not, such as OpenAlex, *n* is the record's offset in the mirror partition. Forty bits hold a thousand billion upstream revisions, and the split is the same on every instance, so the ID is computed by the writer, needs no allocation, and never changes on rebuild. It works across tenants without a new rule: Librarybase's revision 900 is `900` at home and `LB_number << 40 | 900` when another tenant reads it ([0018](../decisions/0018-tenants.md) §2, §5). A `put` therefore carries its revision ID in field 7 like any other record.
+
+### A69. Every tenant-partition record takes a `logid` at append
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §2.1
+- **Summary:** A log ID is assigned to every record in `local`, `pages`, the tenant `log` and the tenant `actors` partitions at append, whether or not the log-event catalogue projects that record as an event, so that the rule is a function of the partition and never of what a later projection chooses to show. The ledger named [0011](0011-logs.md) §2; the rule stands at [01](../architecture/01-log-and-records.md) §2.5, whose provenance is §2.1 here and [0015](0015-record-format-and-partition-registry.md) §2, and the ledger row was corrected. (REVIEW G24)
+
+Replaced text ([01](../architecture/01-log-and-records.md) §2.5, as it stood):
+
+> - **One sequence for revisions and one for log events, per tenant,** since MediaWiki clients expect one sequence per wiki. Each spans every partition that holds the tenant's revisions or events: `local`, `pages`, `log`, and the actor records that project as log events. A revision ID is assigned to every record in `local` and `pages`; a log ID to every record in the local log and every record that projects as a log event ([0011](../decisions/0011-logs.md) §6.1), including local actor records.
+
+### A70. The page bundle, bulk labels and bounded counts
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** extends §5
+- **Summary:** An entity page reaches first byte within a budget of four API calls, met by two routes: `GET /labels?ids=&language=`, bulk labels for up to 1,000 entity and property IDs in the given language chain and nothing else, each ID resolved through its cluster, public form only and cacheable by language; and `GET /entity/{id}/page`, the page bundle of the entity JSON, the provenance response and the identity-line facts in one response, cached by `resolved_version`. The provenance response's backlink count is read from the `ref_count` counter column of `view.entity`, updated in batches and reported as a bounded count (`10000+`) above a threshold. The in-process transport resolves the session once per page and is exempt from rate counting ([0057](0057-web-tier.md) §2); the About panel has its own response and `max-age` ([0010](0010-site-ui.md) §4). (REVIEW G41)
+
+### A71. `GET /entity/{id}/history` reads `view.entity_history`
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §5
+- **Summary:** `GET /entity/{id}/history` returns the entity's history as activity rows read from `view.entity_history`, the one backing of a mirrored entity's history: every record in any source partition and every upstream log event keyed to any member of its cluster, in one keyset query; nothing is merged from `view.activity`, which holds no upstream log event, and `list=logevents` with `leprovider` reads a provider's events from the same table. The ledger names [0013](0013-postgres-storage.md) §5, [0011](0011-logs.md) §4 and §9 and [0010](0010-site-ui.md) §5 and §13; the route is [18](../architecture/18-api.md) §3.2 (§5 here), and the ledger row was extended. (REVIEW G42)
+
+Replaced text ([18](../architecture/18-api.md) §3.2, as it stood):
+
+> | `GET /entity/{id}/history` | Activity rows across the whole cluster, including log events keyed to its members. Filters: `source`, `kind`, and a time range | [0012](../decisions/0012-api-requirements.md) §5 |
+
+### A72. `siteinfo` is a function of configuration; live counters move to their routes
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** corrects §4; extends §5
+- **Summary:** Every `siprop` is computed from the tenant's registry and settings and cached by (registry offset, tenant, visibility); no part of it counts rows or reads a queue. The live numbers move to where they belong: the instance-wide hash-mismatch count and projection lag to `GET /version`, a provider's set size, queue length and stream lag to `GET /provider/{code}/mirror`, and a page repository's index date, event lag and mirrored-page count to `GET /repo/{name}`, all maintained as counters and never by `COUNT(*)`; `hash_mismatches`, `index_as_of`, `event_lag` and `mirrored_pages` leave `siprop=triplespace`. `specialpagealiases` lists the served special pages, the intersection of the registry's `served` set with the handlers the binary compiled. `private.watch` gains `watch_target (target_kind, target_id) WHERE notify` and `private.upstream_grant` stores encrypted tokens, not hashes, under [0020](0020-change-feeds.md) §6 and [0022](0022-federation.md) §8. (REVIEW G47)
+
+Replaced text ([18](../architecture/18-api.md) §2.2, as it stood):
+
+> | `triplespace` *(new)* | Capabilities; `api_version`, which the web tier checks against the minimum it was built for ([0057](../decisions/0057-web-tier.md) §9); the REST base path; the tenant, with its slug and issuer code, and its opted-in providers; the search backend, `opensearch` or `postgres`; `theme`, the tenant's `ui.theme` token values, which the site serves as its stylesheet and which an outsider of a private tenant is not given, its landing page wearing Codex's own values; `hash_mismatches`, the instance-wide count of upstream hashes kept because the recomputation differed ([0006](../decisions/0006-log-integrity-and-erasure.md) A9); the rate-limit classes and the grant set; whether `subsidiaries.oauth_requires_approval` is on, so a tool can tell the person in advance that its account will await approval; `sitelinks: {schemes, mode, alias_count}` (no site table is reported, since there is none); the tenancy preset and switches; the farm slug, the farm code and the primary tenant's slug; `contentmodels`: each implemented model with its source, slot, format and direct-editing flag, so the UI finds out from the API which pages can change format, `Scribunto` among them, and `triplespace-table` with the limits `tables.max_rows` and `tables.max_columns`; the media base, separation and same-origin flag; `lua.ids` and `lua.client_site`; `page_repos`: each repository's name, kind, provider, served namespaces, mode, `shadowed`, `titles` and licence, as `meta=filerepoinfo` lists file repositories, with `index_as_of`, `event_lag` and, in `mirror` mode, `mirrored_pages`; `visibility`, `security.restrictions` and, in `development` mode, `insecure`; `entity_sources`, the list `GET /entity-sources` returns; the MCP endpoint when `mcp.enabled` is on; `build`: the version, commit and `modified` flag |
+
+> | `protocols`, `interwikimap`, `languagevariants`, `defaultoptions`, `specialpagealiases` | For Parsoid ([0042](../decisions/0042-template-expansion-and-parsoid.md) §8.1); `specialpagealiases` from the special-page registry ([0047](../decisions/0047-special-pages.md) §2) |

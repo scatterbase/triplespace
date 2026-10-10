@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-09 (A11)
+- **Updated:** 2026-10-09 (A13)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0006](0006-log-integrity-and-erasure.md), [0009](0009-keyed-entity-types-and-domain.md), [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -53,7 +53,7 @@ Patrolling is the odd one out, since it restricts nothing: it is a mark that a t
 
 ### 4. What deletion does (amends 0008 §4 and 0019 §1; amends 0004 §4)
 
-*Changed by A7.*
+*Changed by A7, A13.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §6.2.*
 
@@ -63,7 +63,7 @@ Patrolling is the odd one out, since it restricts nothing: it is a mark that a t
 
 ### 6. Patrolling
 
-*Changed by A3, A4.*
+*Changed by A3, A4, A12.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §6.4.*
 
@@ -113,7 +113,7 @@ Patrolling is the odd one out, since it restricts nothing: it is a mark that a t
 - **Local entities can be deleted**, which closes a gap Wikibase clients would have hit at once, and the cluster rule of 0004 gets one more membership change to handle.
 - **Suppression stays out of public dumps** because moderation records live in the internal `log` partition, at the cost of splitting ACL records across two partitions by target kind.
 - **Reads consult ACLs.** Every response path already redacts per viewer; it now also asks whether the target is behind a `read` ACL. The denormalized flags keep the cost out of list queries, and the common case is one cached miss.
-- **Patrolling is MediaWiki-shaped without MediaWiki's volume.** Autopatrol as a projection rule spares the log a record per bot edit, and `list=logevents&letype=patrol` differs from MediaWiki's only by omitting `autopatrol` entries.
+- ~~**Patrolling is MediaWiki-shaped without MediaWiki's volume.** Autopatrol as a projection rule spares the log a record per bot edit, and `list=logevents&letype=patrol` differs from MediaWiki's only by omitting `autopatrol` entries.~~ *Autopatrol is decided by the write path and written into the record's attestation part, not derived by the projection; the log still gets no record per bot edit and the patrol log still omits `autopatrol` entries (A12).*
 - **Four open questions close:** patrolling in 0010, 0011, 0016 and 0020; page protection in 0008; the entity-deletion gap of the 2026-09-27 review.
 
 ## Open questions
@@ -299,3 +299,21 @@ Replaced text (§10):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§13
 - **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A12. Autopatrol is decided by the write path and written into the attestation part
+
+- **Date:** 2026-10-09
+- **Source:** [0083](0083-write-path-in-three-tiers.md) §6
+- **Change:** amends §6
+- **Summary:** Autopatrol is a decision the write path makes from the state of another partition, so it is written down: the appending transaction evaluates the actor's effective permissions, which it has already resolved for the write itself, and writes the decision as an `autopatrol` field of the record's attestation map; the activity projection reads the field and sets `patrolled` from it, and never reconstructs the memberships in `actors` as of the record's `appended_at`, since a rebuild replays partitions in an order that need not interleave them as they were written and a vanish may have erased the memberships it would need. No record is written per bot edit, and an edit filter's `unpatrol` action withholds the field as a write lands. (REVIEW G13)
+
+Replaced text ([09](../architecture/09-security-and-moderation.md) §6.4, as it stood):
+
+> **Autopatrol is a projection rule, not a record.** A change made by an actor who held `autopatrol` when the record was appended is patrolled from the start. The projection decides this from the membership records in `actors` as of the record's `appended_at`, so a rebuild reaches the same answer, and no record is written per bot edit.
+
+### A13. Visibility epochs, set generations and stored enclosures
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** extends §4
+- **Summary:** Public cache entries for tenant keys carry `-{epoch}` and shared keys carry no epoch; only `namespace` and `tenant` `read` ACLs bump the tenant's visibility epoch, and a `set` change bumps the generation of the members it touched; a stored `read_groups` becomes `read_enclosures`, a reference to the enclosures evaluated at serve time from L0, so a restriction written or retired after a row was stored takes effect without rewriting it; the privacy test "an entry cached under the empty set before a namespace restriction is not served after it" is required. The ledger's verb is amends; §4's chapter text ([09](../architecture/09-security-and-moderation.md) §6.2) is unchanged, since what deletion does is unchanged and the cache and index mechanics it relies on are [0014](0014-caches-and-search.md) §4, §5 and §7's and [0056](0056-security-model.md) §14's, logged there (0014 A26). (REVIEW G38)

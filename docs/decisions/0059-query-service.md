@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-04
-- **Updated:** 2026-10-09 (A6)
+- **Updated:** 2026-10-09 (A10)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0024](0024-subsidiary-accounts.md), [0028](0028-tenancy-policy.md), [0032](0032-sparql-update-stream.md), [0033](0033-backend-stack.md), [0047](0047-special-pages.md), [0056](0056-security-model.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0045](0045-table-content-model.md), [0049](0049-boards.md), [0060](0060-scopes.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -34,19 +34,19 @@ James's direction, from the design discussion of 2026-10-04:
 
 ### 2. Two backends (amends 0033 §1 and §11)
 
-*Changed by A2, A3, A4.*
+*Changed by A2, A3, A4, A7, A9.*
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §7.2.*
 
 ### 3. What the store holds, and how fresh it is
 
-*Changed by A2.*
+*Changed by A2, A7, A10.*
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §7.3.*
 
 ### 4. Tenant isolation: by dataset, or by store (extends 0028 §12; extends 0056 §3 and §10)
 
-*Changed by A3.*
+*Changed by A3, A7, A8.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §9.1.*
 
@@ -82,14 +82,14 @@ James's direction, from the design discussion of 2026-10-04:
 
 - **The instance can answer graph questions about its own data,** at the cost of a second copy of the public graphs and the lag of a consumer. Tables and boards gain query scopes through [0060](0060-scopes.md); later ADRs can compile other things.
 - **One store serves a farm.** Dataset isolation makes the shared store the common case; `store` isolation is there for the tenant that needs it, without a second QLever.
-- **The public form is the only thing queryable.** Nothing restricted is ever in a store, so no query result needs filtering; the price is that privileged readers find less than they could read.
+- ~~**The public form is the only thing queryable.** Nothing restricted is ever in a store, so no query result needs filtering; the price is that privileged readers find less than they could read.~~ *A private tenant under `store` isolation has a store fed in the form its `tenant` ACL's group may read, answered only to principals that satisfy the ACL (A8).*
 - **Lag is visible everywhere a query result is shown**, as a cursor and an age, and the service refuses to pretend to be current past `query.max_lag`.
 - **Test plan.** The round-trip test of [0032](0032-sparql-update-stream.md) (dump, apply stream, compare with a later dump) gains a `full`-form run against both backends and a dataset-isolation test: two tenants, one query each, no solution from the other's graphs under any of `GRAPH ?g`, `FROM` (refused) or a bare pattern. `full` on QLever is benchmarked here, which 0033 §11 asked for.
 - **`instance check` gains two lines** (0056 §10) and the embedded store's directory is inside the deployment boundary.
 
 ## Open questions
 
-- **Q1. Private tenants.** Whether a tenant with a `read` restriction may run the query service under `store` isolation, with an embedded store fed from its deltas in the tenant-visible rather than the public form and read only through the server, which applies the tenant ACL before answering. This needs [0032](0032-sparql-update-stream.md) to compute deltas for a tenant it does not stream.
+- **Q1.** ~~**Private tenants.** Whether a tenant with a `read` restriction may run the query service under `store` isolation, with an embedded store fed from its deltas in the tenant-visible rather than the public form and read only through the server, which applies the tenant ACL before answering. This needs [0032](0032-sparql-update-stream.md) to compute deltas for a tenant it does not stream.~~ *Settled by A8: yes; the store is fed from the tenant's deltas in the form its `tenant` ACL's group may read, and answers only principals that satisfy the ACL.*
 - **Q2. `SERVICE`.** Federated queries to Wikidata's endpoint and others are what makes many Wikidata queries useful. Refused in version 1 because the store makes the outbound request; an allow-list of endpoints (`query.services`) is the likely answer.
 - **Q3. Query results as tables.** Whether `Special:Query` should save a result as a `triplespace-table` whose rows are the query, which [0060](0060-scopes.md) §6 nearly gives already.
 - **Q4. Cursor-stamped reads.** Whether `/sparql` should accept `cursor=` and refuse to answer from a store behind it, so that a client that just wrote can know when its write is queryable.
@@ -174,3 +174,41 @@ Replaced text (§8):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§8
 - **Summary:** The Decision's current text now lives in the architecture chapters [02](../architecture/02-graphs-rdf-and-query.md), [08](../architecture/08-tenants-and-instances.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A7. The rewriting layer, and one shared resolved graph
+
+- **Date:** 2026-10-09
+- **Source:** [0082](0082-source-form-and-the-shared-view.md) §2, §5
+- **Change:** extends §2, §3, §4
+- **Summary:** Both backends sit behind one rewriting layer: where a query constant names an entity that is a member of a cluster, the planner expands the constant to the member set (`lb:Q9` becomes `VALUES ?v { lb:Q9 wd:Q5 … }`), one indexed lookup against `view.cluster_member` per constant with L0 in front of it, before the query reaches the store; property paths are not expanded, neither backend does `owl:sameAs` reasoning, and a query that needs the closure writes it; result bindings are rewritten to the request's preferred form through the concept-IRI template on the way out. The `full` form holds one shared resolved graph, the instance's, computed under the instance policy record `reconcile:default` from the shared rows of `view`, plus a small overlay graph per tenant holding the entities it has overlaid; a tenant's dataset is the shared graph with its overlay shadowing it as the default graph, so forty tenants mirroring Wikidata share one copy of its resolved triples and a query written for Wikidata runs unchanged on a tenant with no overlay. (REVIEW G1, G4)
+
+### A8. A private tenant keeps its query service under `store` isolation
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §4
+- **Summary:** A private tenant has no graphs in the shared store and, under `dataset`, no query service; under `store` it has one: its own embedded store is fed from its own deltas, computed in the form the `tenant` ACL's group may read (nothing under any finer restriction) in place of a public form that would be empty, and the service answers only principals that satisfy that ACL, through `/sparql`, `Special:Query`, the MCP tools and compiled queries. What a private tenant lacks is the public endpoint, the stream and the dump, and nothing else. A hosting instance needs no `tenant` restriction ([0056](0056-security-model.md) A15). Settles Q1. (REVIEW G39)
+
+Replaced text ([08](../architecture/08-tenants-and-instances.md) §9.1, as it stood):
+
+> **A private tenant** (§4.3) has no graphs in any store, as it has no stream and no public form. It has no query service in version 1.
+
+> **Not yet.** Whether a `store` tenant behind the evaluator could have a query service while private is open ([0059](0059-query-service.md) Q1).
+
+### A9. The embedded backend is the small profile's
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §2
+- **Summary:** The embedded store is the small profile's backend ([0013](0013-postgres-storage.md) §11): the service refuses to start it above a configured triple count, and the Wikidata-scale profile requires `query.backend = remote`. The rest of the row is other ADRs': dumps are taken from a replica under `pg_export_snapshot()` with parallel workers sharing the snapshot ([0013](0013-postgres-storage.md) §8, in [02](../architecture/02-graphs-rdf-and-query.md) §4.1), and `term_prefix` is kept as schema and not read by the large profile ([0013](0013-postgres-storage.md) §11). The ledger names §7, whose text ([22](../architecture/22-crates-and-stack.md) §4.7) did not change. (REVIEW G49)
+
+Replaced text ([02](../architecture/02-graphs-rdf-and-query.md) §7.2, as it stood):
+
+> **Embedded is the default** so that turning the service on changes nothing about the deployment: the `triplespace` binary and Postgres. The embedded store is a second copy of the public graphs on the server's disk, grown by `rdf_delta`, and is sized like the `full` dump. A larger instance moves to `remote` when the embedded store's query times or disk no longer suit it; nothing above the trait notices.
+
+### A10. A rebuild truncates `rdf_delta`; epochs are per tenant
+
+- **Date:** 2026-10-09
+- **Source:** [0083](0083-write-path-in-three-tiers.md) §7
+- **Change:** extends §3
+- **Summary:** A `view` rebuild truncates `rdf_delta` and increments the epoch before the embedded store is emptied and reloaded from a fresh `full` dump; the delta is stored, not recomputed. Because epochs are per tenant (`ops.tenant_epoch`), a tenant's provider change reloads that tenant's graphs and no other's. (REVIEW G14)

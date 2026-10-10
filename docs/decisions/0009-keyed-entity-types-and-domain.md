@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-09 (A11)
+- **Updated:** 2026-10-09 (A12)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md)
 - **Uses:** [0000](0000-init.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -56,7 +56,7 @@ Domains are also a bulk-ingest target. Citation data carries URLs, and every URL
 
 ### 7. Log keys are surrogates
 
-*Changed by A8.*
+*Changed by A8, A12.*
 
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §3.4.*
 
@@ -258,3 +258,19 @@ Replaced text (§6):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§12
 - **Summary:** The Decision's current text now lives in the architecture chapters [04](../architecture/04-entities-and-identifiers.md), [05](../architecture/05-providers-and-ingest.md), [10](../architecture/10-pages-and-content-models.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A12. Surrogates are allocated under a lock in the appending transaction
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §7
+- **Summary:** A surrogate is allocated in the appending transaction under an advisory lock on `(keyed_type, key)`, so two writers meeting a new key cannot mint two surrogates for it; the mapping record is appended in the same transaction as the first record that uses the surrogate, rather than "before" it; a bulk job reserves a block of surrogates up front, as it reserves ID blocks, so a key-mapped bootstrap of millions of keys is not millions of serialized appends; and the mapping is erased only when no live record in any partition of the instance is keyed to the surrogate, so one tenant's erasure never strips the key from another tenant's assertions. (REVIEW G29)
+
+Replaced text ([04](../architecture/04-entities-and-identifiers.md) §3.4, as it stood):
+
+> - The instance mints the surrogates in sequence, one per keyed type, the first time a key is written to.
+> - The mapping from surrogate to key is itself a log record, whose body can be erased.
+
+> This is the same pattern as the actor surrogates in [0007](../decisions/0007-actor-identity.md) §5 ([07](../architecture/07-actors-and-accounts.md)). Erasing a Domain by key erases the mapping record along with everything else keyed to the surrogate, and only an opaque number remains. The log never sees the key, only the surrogate; this holds for every keyed type, with one sequence per type.
+
+> **The forms.** The header key of a keyed entity's records is `{type}#{n}`, `domain#17`: the `#` keeps it from being any entity ID, since no ID form contains one. The mapping record is a `scatter:v0/keyed-surrogate` record in the **instance `log`**, keyed by the same surrogate, with content `{keyed_type, surrogate, key}` ([payloads.md §3.4](../api/payloads.md)); surrogates are instance-wide, so the mapping does not belong to any tenant, and the record is appended before the first record under the surrogate. `view.keyed_surrogate` is projected from it at the instance tenant (`''`); a projection that folds a keyed entity's records looks the surrogate up there, and fails rather than guess when it is missing, which makes a rebuild that orders the instance `log` after a tenant partition fail loudly instead of silently dropping the tenant's assertions. The table is in [03](../architecture/03-storage-caches-and-search.md).

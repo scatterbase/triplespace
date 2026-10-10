@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-09 (A6)
+- **Updated:** 2026-10-09 (A7)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0009](0009-keyed-entity-types-and-domain.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0018](0018-tenants.md)
 - **Uses:** [0016](0016-permissions-and-access-control.md), [0022](0022-federation.md), [Wikibase contract](../api/wikibase-compat.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -28,7 +28,7 @@ Two constraints shape the rest. The **host of a URL is a Domain** ([0009](0009-k
 
 ### 2. The host is the site ID; one link per host; one item per URL
 
-*Changed by A2, A3.*
+*Changed by A2, A3, A7.*
 
 *Current text: [06](../architecture/06-statements-and-properties.md) §4.2, §4.3, §4.6.*
 
@@ -37,6 +37,8 @@ Two constraints shape the rest. The **host of a URL is a Domain** ([0009](0009-k
 *Current text: [06](../architecture/06-statements-and-properties.md) §4.4.*
 
 ### 4. Reconciliation (amends 0002 §3)
+
+*Changed by A7.*
 
 *Current text: [06](../architecture/06-statements-and-properties.md) §4.5.*
 
@@ -177,3 +179,10 @@ Replaced text (§8):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§10
 - **Summary:** The Decision's current text now lives in the architecture chapters [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [04](../architecture/04-entities-and-identifiers.md), [06](../architecture/06-statements-and-properties.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A7. One URL across entities: local wins, and the projection never fails
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** extends §2, §4
+- **Summary:** Where two entities hold one normalized URL in different graphs, a local link on one and a mirrored link on the other, the local link wins: the mirrored link is dropped from the resolved view, `view.sitelink` keeps the one-item-per-URL invariant of §2, and the dropped link is listed for maintenance beside the corrections of [0002](0002-source-graphs-and-mass-ingest.md) §7 so an editor can see what upstream says; between two mirrored links the provider order decides. The sitelink projection never fails on such a conflict: a sync batch that brings a colliding link is applied and the collision is resolved by the rule, not reported as an error of the batch. A local write that would collide with a mirrored link on another item is refused at write naming that item, since the one-item-per-URL check reads the resolved view, so the rule only ever decides between what a sync brought and what a tenant already holds. The normalizer-change rule of the same row (a per-property rebuild job, the rendering version bumped, `value_key` rows carrying the normalizer version) is logged in [0004](0004-identity-clusters-and-equivalence.md) §7. The ledger named §5 (Sitelinks and Domains), whose chapter text did not change; the fold is in [06](../architecture/06-statements-and-properties.md) §4.2 and §4.5, which hold §2 and §4. Nothing is contradicted, so this is an extension. (REVIEW G33)

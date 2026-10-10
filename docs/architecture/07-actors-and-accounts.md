@@ -8,7 +8,7 @@ This chapter describes who acts in Triplespace: what an actor is and how it is n
 
 ### 1.1 An actor is an issuer and a subject
 
-*Sources: [0007](../decisions/0007-actor-identity.md) §1.*
+*Sources: [0007](../decisions/0007-actor-identity.md) §1; [0079](../decisions/0079-derived-issuer-codes.md) §1, §2, §4.*
 
 Actors are namespaced by **issuer**, as entities are namespaced by provider ([04](04-entities-and-identifiers.md)). The issuer is the authority that assigns the account. The subject is the ID it assigned.
 
@@ -16,12 +16,12 @@ Actors are namespaced by **issuer**, as entities are namespaced by provider ([04
 
 | Issuer | Code | Actor model | Actors come from |
 |---|---|---|---|
-| Each tenant | Its slug, such as `librarybase`; `local` names the current tenant's ([0018](../decisions/0018-tenants.md) §4) | Numeric | The tenant's users (§2) |
+| Each tenant | Its issuer code, derived from its founding record ([08](08-tenants-and-instances.md) §1.2) and written by its slug in examples, such as `librarybase`; `local` names the current tenant's ([0018](../decisions/0018-tenants.md) §4) | Numeric | The tenant's users (§2) |
 | Wikidata | `wikidatawiki` | Numeric | Wikidata revisions and logs, in the Wikidata mirror |
 | Wikimedia central accounts | `wikimedia-central` | Numeric, never published | Wikimedia OAuth only (§2) |
 | OpenAlex | `openalex` | Provider only | None. Changes are attributed to OpenAlex as a whole (§1.5). |
 | Password on this instance (§2.2) | `password` | Numeric, the tenant's own user IDs | None. A login provider only |
-| The farm, where the tenancy policy gives it identity | The farm slug | Numeric | Farm accounts, which edit nothing ([0028](../decisions/0028-tenancy-policy.md) §2) |
+| The farm, where the tenancy policy gives it identity | The farm code ([08](08-tenants-and-instances.md) §1.2) | Numeric | Farm accounts, which edit nothing ([0028](../decisions/0028-tenancy-policy.md) §2) |
 | The instance as operator | `instance` | Provider only | Instance acts written into a tenant ([0040](../decisions/0040-instance-prerogatives.md) §2) |
 
 Another Wikibase or Miraheze wiki gets an issuer of its own, keyed by its wiki ID.
@@ -35,11 +35,13 @@ Another Wikibase or Miraheze wiki gets an issuer of its own, keyed by its wiki I
 - which providers' adapters attribute actors to it;
 - whether it may serve as an identity provider for local login.
 
+**A registered issuer code is at most 25 characters.** Tenant issuer codes and the farm code are derived, always 26 characters of base32 ([08](08-tenants-and-instances.md) §1.2), so no registered code can equal one, and the registry refuses a longer code at build time.
+
 **For Wikibase issuers, the subject is the numeric user ID.** A name is used only where no ID exists (§1.4).
 
-**The `instance` issuer** has one actor, the operator: actor key `instance:{farm slug}`, IRI `{farm base}/instance/operator` ([0046](../decisions/0046-primary-tenant.md) §7). It is the actor of every instance act written into a tenant; the person who carried the act out is recorded only on the act's authority record ([0040](../decisions/0040-instance-prerogatives.md) §2).
+**The `instance` issuer** has one actor, the operator: actor key `instance:{farm code}`, IRI `{farm base}/instance/operator` ([0046](../decisions/0046-primary-tenant.md) §7). It is the actor of every instance act written into a tenant; the person who carried the act out is recorded only on the act's authority record ([0040](../decisions/0040-instance-prerogatives.md) §2).
 
-**An actor key** is the compact form `{issuer}:{id}`, such as `wikidatawiki:12345` or `local:42`. It is what log headers carry ([01](01-log-and-records.md)). [0006](../decisions/0006-log-integrity-and-erasure.md) §3 requires a header key to be an identifier, never content. An actor key is an identifier and never contains a name.
+**An actor key** is the compact form `{issuer}:{id}`, such as `wikidatawiki:12345` or `local:42`. It is what the attestation part of a record carries ([01](01-log-and-records.md) §2.3); a record's header never names the actor responsible for it, and carries an actor key only as the key of an actor record, whose subject the actor is. [0006](../decisions/0006-log-integrity-and-erasure.md) §3 requires a header key to be an identifier, never content, and an actor key is an identifier that never contains a name. `view.activity`'s issuer index filters on the tenant's issuer code ([03](03-storage-caches-and-search.md) §4.5).
 
 ### 1.2 Actor IRIs
 
@@ -83,7 +85,7 @@ This puts every name and IP address in one place per actor, so each can be erase
 
 **RDF carries only the current name.** In the metadata graph, an actor node gets `sioc:name` from its latest actor record, and no past names. The name is not emitted if the actor is hidden, as [0001](../decisions/0001-revision-metadata-rdf.md) §4 already requires.
 
-Actor records are projected to `view.actor`, whose columns, including `operator` and the status values, are in [03](03-storage-caches-and-search.md) §4.5.
+Actor records are projected to `view.actor`, whose columns, including `operator` and the status values, are in [03](03-storage-caches-and-search.md) §4.5. Two of its columns are not from actor records: `created_at`, the time of the actor's first record, and `editcount`, maintained by the activity projection from the actor's local `edit` rows, erased ones included and job rows excluded; the implicit `autoconfirmed` group is computed from them ([09](09-security-and-moderation.md) §3.1).
 
 ### 1.4 Actors with no stable numeric ID
 
@@ -137,9 +139,9 @@ The metadata graph ([0001](../decisions/0001-revision-metadata-rdf.md) §2) proj
 
 ### 2.1 User IDs and bindings
 
-*Sources: [0007](../decisions/0007-actor-identity.md) §3.*
+*Sources: [0007](../decisions/0007-actor-identity.md) §3; [0079](../decisions/0079-derived-issuer-codes.md) §6.*
 
-**The instance mints its own user IDs.** They are sequential, start at 1 and are never reused. A local user's identity is `local:{id}`, whatever the user logged in with. On a tenant that adopts an existing Wikibase, the sequence starts past the source's highest user ID, and the source's accounts are written as `{slug}:{id}` actor records under their own numbers, without bindings, reclaimable as [0018](../decisions/0018-tenants.md) §10 describes (§2.5).
+**The instance mints its own user IDs.** They are sequential, start at 1 and are never reused. A local user's identity is `local:{id}`, whatever the user logged in with. On a tenant that adopts an existing Wikibase, the sequence starts past the source's highest user ID, and the source's accounts are written as `{code}:{id}` actor records, `{code}` being the tenant's issuer code ([08](08-tenants-and-instances.md) §1.2), under their own numbers, without bindings, reclaimable as [0018](../decisions/0018-tenants.md) §10 describes (§2.5).
 
 **Logging in uses a binding.** A binding maps an identity-provider subject to a local user, for example `(wikimedia-central, 7654321) → local:42`. The rules are:
 
@@ -179,9 +181,9 @@ A person's edits are attributed by session, a program's by credential (§5.4). S
 
 ### 2.5 Adopted accounts
 
-*Sources: [0035](../decisions/0035-adopting-a-wikibase.md) §5.*
+*Sources: [0035](../decisions/0035-adopting-a-wikibase.md) §5; [0079](../decisions/0079-derived-issuer-codes.md) §6, §9.*
 
-**Source accounts become tenant accounts by number.** The tenant is the source's issuer ([0018](../decisions/0018-tenants.md) §4), so the source's user 42 is `{slug}:42`. Adoption writes an actor record (§1.3) for every account in the source's user list: kind `registered`, the current name, status `active`, and no binding. A source account that was vanished is written with status `vanished` and no name; for a source account whose name is hidden, adoption writes the `actor` ACL restricted to `suppress` that sets `hidden` for any local account (§1.3), and no name. Source group memberships become membership records ([0016](../decisions/0016-permissions-and-access-control.md) §3; [09](09-security-and-moderation.md)), with one exception: a source bot account has no structural operator (§4.1), so it is adopted as an ordinary account without the `bot` group, keeps its history, and its operator, once reclaimed, creates a subsidiary in its place.
+**Source accounts become tenant accounts by number.** The tenant is the source's issuer ([0018](../decisions/0018-tenants.md) §4), so the source's user 42 is `{code}:42`, under the tenant's issuer code. Where the registry already knows the source wiki as an issuer (`librarybase` in `issuers.toml`), its entry gains `tenant`, the adopting tenant's issuer code, and `{registered code}:{n}` becomes an input form of `{tenant code}:{n}`: canonicalized wherever an actor key is accepted, never stored or output. A reader that meets `librarybase:42` in a mirror of the source wiki and the tenant's own key reads one account ([0079](../decisions/0079-derived-issuer-codes.md) §9). Adoption writes an actor record (§1.3) for every account in the source's user list: kind `registered`, the current name, status `active`, and no binding. A source account that was vanished is written with status `vanished` and no name; for a source account whose name is hidden, adoption writes the `actor` ACL restricted to `suppress` that sets `hidden` for any local account (§1.3), and no name. Source group memberships become membership records ([0016](../decisions/0016-permissions-and-access-control.md) §3; [09](09-security-and-moderation.md)), with one exception: a source bot account has no structural operator (§4.1), so it is adopted as an ordinary account without the `bot` group, keeps its history, and its operator, once reclaimed, creates a subsidiary in its place.
 
 **Adopted accounts cannot log in until reclaimed.** The source has no binding digest, so reclaiming is the manual path of [0018](../decisions/0018-tenants.md) §10: a bureaucrat records a `reclaim/reclaim` log event, or, while the source wiki is still up, the source vouches by acting as an identity provider for a grace period. An account never reclaimed keeps its name and its history, exactly as after a move.
 
@@ -276,7 +278,7 @@ A **subsidiary account** is a local account of kind `bot` (§1.3) whose actor re
 
 **The operator relation is public.** A subsidiary's user page identity line reads "Bot operated by Example" ([0010](../decisions/0010-site-ui.md) §2), its contributions header names the operator, and the operator's own contributions page lists their subsidiaries. This is what Wikimedia's bot policy asks operators to write on a user page by hand.
 
-**Bot accounts are subsidiaries, and only subsidiaries.** A local account of kind `bot` always has an operator. The instance's own sync and ingest jobs run as subsidiaries of accounts on the tenant that is primary when the job is submitted ([0018](../decisions/0018-tenants.md) §4, [0046](../decisions/0046-primary-tenant.md) §5; [08](08-tenants-and-instances.md)), created by `triplespace-cli` beside `local:1` ([0016](../decisions/0016-permissions-and-access-control.md) §3); `ts-runjob` is an instance right for such jobs ([0046](../decisions/0046-primary-tenant.md) §8). When the role is transferred, `triplespace-cli primary accept` creates sync subsidiaries on the new primary, and jobs already running finish under theirs. Jobs run under subsidiaries only: `ts-runjob` defaults to `bot` everywhere, and an administrator runs a job through a subsidiary they operate, by creating or approving one.
+**Bot accounts are subsidiaries, and only subsidiaries.** A local account of kind `bot` always has an operator. The instance's own sync and ingest jobs run as subsidiaries of accounts on the tenant that is primary when the job is submitted ([0018](../decisions/0018-tenants.md) §4, [0046](../decisions/0046-primary-tenant.md) §5; [08](08-tenants-and-instances.md)), created by `triplespace-cli instance create` beside `local:1` and put in the `bot` group at creation, so that the instance's own syncs run flagged from the first ([0016](../decisions/0016-permissions-and-access-control.md) §3); `ts-runjob` is an instance right for such jobs ([0046](../decisions/0046-primary-tenant.md) §8). When the role is transferred, `triplespace-cli primary accept` creates sync subsidiaries on the new primary the same way, and jobs already running finish under theirs. Jobs run under subsidiaries only: `ts-runjob` defaults to `bot` everywhere, and an administrator runs a job through a subsidiary they operate, by creating or approving one.
 
 A subsidiary belongs to the tenant its operator belongs to; there is no cross-tenant bot ([0024](../decisions/0024-subsidiary-accounts.md) §7; [08](08-tenants-and-instances.md)).
 
@@ -284,9 +286,9 @@ A subsidiary belongs to the tenant its operator belongs to; there is no cross-te
 
 *Sources: [0024](../decisions/0024-subsidiary-accounts.md) §2; [0025](../decisions/0025-oauth-server.md) §3.*
 
-A primary account holding `createaccount` (default `universe`; it governs self-registration and creating an account for another, as in MediaWiki, and a private tenant removes it from `universe`; [09](09-security-and-moderation.md)) creates a subsidiary from `Special:Account` ([19](19-site-ui.md)) or `POST /account/subsidiaries` ([18](18-api.md)). The request names the subsidiary; the instance appends its first actor record with kind `bot` and the creator as operator, mints its user ID, and projects `newusers/create2`, MediaWiki's existing action for an account created by another user, with the operator as performer and the subsidiary as target. The name follows the same rules as any account name ([0010](../decisions/0010-site-ui.md) §10); the form suggests `{Operator}Bot`, and an instance may require a pattern in `site` configuration (`subsidiaries.name_pattern`, default none) and cap the number per operator (`subsidiaries.max_per_account`, default 10). Temporary accounts cannot create subsidiaries; nor can subsidiaries. A subsidiary a new user creates is pending until approved (§4.3).
+A primary account holding `createaccount` (default `universe`; it governs self-registration and creating an account for another, as in MediaWiki, and a private tenant removes it from `universe`; [09](09-security-and-moderation.md)) creates a subsidiary from `Special:Account` ([19](19-site-ui.md)) or `POST /account/subsidiaries` ([18](18-api.md)). The request names the subsidiary; the instance appends its first actor record with kind `bot` and the creator as operator, mints its user ID, and projects `newusers/create2`, MediaWiki's existing action for an account created by another user, with the operator as performer and the subsidiary as target. The name follows the same rules as any account name ([0010](../decisions/0010-site-ui.md) §10); the form suggests `{Operator}Bot`, and an instance may require a pattern in `site` configuration (`subsidiaries.name_pattern`, default none) and cap the number per operator (`subsidiaries.max_per_account`, default 10). Temporary accounts cannot create subsidiaries; nor can subsidiaries. A subsidiary created this way is never pending: it is a member of `user` from its first record, whoever its operator is and however new their account (§4.3).
 
-A subsidiary may also be created on the OAuth consent page (§7.4), under the same name rules, settings and permission, with status `pending` (§4.3).
+A subsidiary may also be created on the OAuth consent page (§7.4), under the same name rules, settings and permission, with status `pending` (§4.3). `pending` is an OAuth-only status.
 
 ### 4.3 Approval, and the pending status
 
@@ -294,7 +296,7 @@ A subsidiary may also be created on the OAuth consent page (§7.4), under the sa
 
 **Approval for bot activity is membership in `bot`.** A new subsidiary created by hand is a member of `user` like any registered account and nothing more. It edits under the operator's supervision at a non-bot rate (§6), its edits are not flagged, and they are patrolled like anyone's ([0023](../decisions/0023-moderation.md) §6). When the community has reviewed it, a bureaucrat adds it to the `bot` group with `userrights`, which is already a `membership` record ([0016](../decisions/0016-permissions-and-access-control.md) §3) projected as `rights/rights`. That is the bot flag: the `bot` right, `ts-runjob`, `autopatrol`, and the bot rate limits. Nothing in the software decides what "reviewed" means; a `Project:Bot requests` page or a thread is the community's, as on Wikimedia projects. An instance that wants every subsidiary flagged at creation puts `bot` in the default groups of new subsidiaries in `site` configuration.
 
-**`pending` is an actor status** (§1.3). A subsidiary created in an OAuth authorization is `pending` instead until approved. A pending subsidiary exists, owns its user page, shows "Bot operated by Example (pending approval)" on it, and can read as `*` reads, but its **implicit membership in `user` is withheld**: its effective permissions are those of `*` and nothing more, whether the request comes with a token or with a key its operator issued. **Approval is `userrights`**: the first explicit `membership` record ends the pending status. The natural groups are `user`, meaning approved to act at a non-bot rate and patrolled like anyone, and `bot`, meaning approved and flagged, which is the approval above in one step. A subsidiary is **approved** when it holds an explicit membership in any group; `user` may be granted explicitly for this purpose, and only for this purpose. A subsidiary created by hand is a member of `user` implicitly and is not pending; it becomes eligible for the consent page's picker (§7.4) when a bureaucrat has approved it in the same way, so the approval requirement cannot be sidestepped by creating the account first and binding the tool to it second.
+**`pending` is an actor status** (§1.3), and only an OAuth authorization ever sets it: a subsidiary created in one is `pending` until approved, and a hand-made subsidiary never is. A pending subsidiary exists, owns its user page, shows "Bot operated by Example (pending approval)" on it, and can read as `*` reads, but its **implicit membership in `user` is withheld**: its effective permissions are those of `*` and nothing more, whether the request comes with a token or with a key its operator issued. **Approval is `userrights`**: the first explicit `membership` record ends the pending status. The natural groups are `user`, meaning approved to act at a non-bot rate and patrolled like anyone, and `bot`, meaning approved and flagged, which is the approval above in one step. A subsidiary is **approved** when it holds an explicit membership in any group; `user` may be granted explicitly for this purpose, and only for this purpose. A subsidiary created by hand is a member of `user` implicitly and is not pending; it becomes eligible for the consent page's picker (§7.4) when a bureaucrat has approved it in the same way, so the approval requirement cannot be sidestepped by creating the account first and binding the tool to it second.
 
 **While pending**, a write made with the subsidiary's token or key is refused with `oauth-pending` (Action API) or HTTP 403 with that code, and the response names `Special:PendingSubsidiaries`. Reads work. The consumer receives its tokens at authorization regardless, so a tool can complete its login and show the person that approval is awaited, rather than failing in the middle of the flow. `Special:PendingSubsidiaries` lists pending subsidiaries with operator, consumer and date for holders of `userrights`. A bureaucrat who declines **retires** the subsidiary (§4.4), which also revokes its tokens (§7.6); the operator may retire it too. Pending subsidiaries unapproved after `subsidiaries.pending_ttl` (default 90 days) are retired by `triplespace-accounts` on a schedule, with the retirement record's comment saying so.
 
@@ -400,7 +402,7 @@ A request made with an OAuth token is limited as the **subsidiary** is limited: 
 
 ### 6.2 The class catalogue
 
-*Sources: [0024](../decisions/0024-subsidiary-accounts.md) §5; [0025](../decisions/0025-oauth-server.md) §6; [0027](../decisions/0027-preferences-and-portability.md) §3; [0039](../decisions/0039-files-and-media.md) §15; [0042](../decisions/0042-template-expansion-and-parsoid.md) §16; [0053](../decisions/0053-mirrored-pages.md) §11; [0054](../decisions/0054-forking-a-mirrored-page.md) §8; [0075](../decisions/0075-mcp-server.md) §5.*
+*Sources: [0024](../decisions/0024-subsidiary-accounts.md) §5; [0025](../decisions/0025-oauth-server.md) §6; [0027](../decisions/0027-preferences-and-portability.md) §3; [0039](../decisions/0039-files-and-media.md) §15; [0042](../decisions/0042-template-expansion-and-parsoid.md) §16; [0053](../decisions/0053-mirrored-pages.md) §11; [0054](../decisions/0054-forking-a-mirrored-page.md) §8; [0075](../decisions/0075-mcp-server.md) §5; [0083](../decisions/0083-write-path-in-three-tiers.md) §1.*
 
 | Class | Counts | Default (`user` / `bot`) |
 |---|---|---|
@@ -409,7 +411,7 @@ A request made with an OAuth token is limited as the **subsidiary** is limited: 
 | `move` | Page and thread renames and moves | 8 / 100 per minute |
 | `link` | `same-as`, `different-from`, `equivalent-property` | 30 / 1,000 per minute |
 | `job` | Bulk-job submissions ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.1); an administrator starts a Nuke or a job revert through a subsidiary they operate (§4.1) | 0 / 10 per hour |
-| `read` | API requests of any kind, by key or session; token refreshes, against the subsidiary ([0025](../decisions/0025-oauth-server.md) §6); every MCP tool call ([0075](../decisions/0075-mcp-server.md) §5) | 5,000 / 50,000 per minute |
+| `read` | API requests of any kind, by key or session; token refreshes, against the subsidiary ([0025](../decisions/0025-oauth-server.md) §6); every MCP tool call ([0075](../decisions/0075-mcp-server.md) §5). Counted for authenticated principals only once a per-process count passes a fraction of the limit, and never for a response served from L0 or L1 (§6.3) | 5,000 / 50,000 per minute |
 | `stream`, `atom` | Open streams and Atom fetches ([0020](../decisions/0020-change-feeds.md) §4) | 5 / 20 concurrent; 60 / 600 per hour |
 | `upstream` | Live upstream fetches ([0012](../decisions/0012-api-requirements.md) §6); live history fetches of a mirrored page ([0053](../decisions/0053-mirrored-pages.md) §11) | 30 / 30 per minute |
 | `notify` | Outbound notification requests initiated by the actor: verification messages, handle registrations ([0021](../decisions/0021-notifications.md) §5) | 5 / 5 per hour |
@@ -424,9 +426,9 @@ Fetches of a mirrored page are server-initiated and are bounded per repository (
 
 ### 6.3 Counters and refusals
 
-*Sources: [0024](../decisions/0024-subsidiary-accounts.md) §5.*
+*Sources: [0024](../decisions/0024-subsidiary-accounts.md) §5; [0083](../decisions/0083-write-path-in-three-tiers.md) §1; [0084](../decisions/0084-wikibase-writes-against-the-resolved-view.md) §5.*
 
-**Counters** are the `rl:{class}:{key}` keys of [0014](../decisions/0014-caches-and-search.md) §4 in Valkey ([03](03-storage-caches-and-search.md) §12.3), the key being the actor key or, for anonymous requests, the IP, with the window as TTL. An instance without a shared cache counts in process, approximately, which is what the small profile of [0013](../decisions/0013-postgres-storage.md) §11 accepts. A request over its limit is refused before anything is appended: HTTP 429 with `Retry-After`, and the Action API's `ratelimited` error. `maxlag` ([mediawiki-compat.md](../api/mediawiki-compat.md) §2.8) is unchanged and orthogonal: it answers for replication lag, not for the actor's rate.
+**Counters** are the `rl:{class}:{key}` keys of [0014](../decisions/0014-caches-and-search.md) §4 in Valkey ([03](03-storage-caches-and-search.md) §12.3), the key being the actor key or, for anonymous requests, the IP, with the window as TTL. An instance without a shared cache counts in process, approximately, which is what the small profile of [0013](../decisions/0013-postgres-storage.md) §11 accepts. A request over its limit is refused before anything is appended: HTTP 429 with `Retry-After`, and the Action API's `ratelimited` error. **`read` is counted lazily.** A read by an authenticated principal touches the shared counter only once a per-process count of its reads has passed a fraction of the limit, and a response served from L0 or L1 is never counted at all, so the cost of the `read` class on a cached page is nothing; anonymous reads are counted by IP as before. `maxlag` ([mediawiki-compat.md](../api/mediawiki-compat.md) §2.8) is orthogonal: it answers for lag, the larger of replica lag and the tenant's local-partition composition lag ([0084](../decisions/0084-wikibase-writes-against-the-resolved-view.md) §5; [18](18-api.md)), not for the actor's rate.
 
 **Bulk jobs are limited at submission, not per record.** A job's throughput is the ingester's ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.6; [05](05-providers-and-ingest.md)); what a subsidiary is limited in is how many jobs it may start, so a runaway script cannot queue a thousand.
 

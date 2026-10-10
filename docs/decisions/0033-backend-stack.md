@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-09 (A17)
+- **Updated:** 2026-10-09 (A19)
 - **Author:** James Hare / Claude
 - **Changes:** [0005](0005-crate-organization.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0034](0034-frontend-stack.md)
@@ -25,7 +25,7 @@ This ADR records the rest. The frontend is in 0034.
 
 ### 1. Principles
 
-*Changed by A1, A3, A4, A10, A11, A16.*
+*Changed by A1, A3, A4, A10, A11, A16, A18.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §3.3, §4.1, §6.*
 
@@ -36,6 +36,8 @@ This ADR records the rest. The frontend is in 0034.
 *Current text: [22](../architecture/22-crates-and-stack.md) §4.2.*
 
 ### 3. Async runtime and HTTP server
+
+*Changed by A19.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §4.3.*
 
@@ -60,6 +62,8 @@ This ADR records the rest. The frontend is in 0034.
 *Current text: [22](../architecture/22-crates-and-stack.md) §4.5.*
 
 ### 8. RDF
+
+*Changed by A18.*
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §4.1, §6.5.*
 
@@ -338,3 +342,32 @@ Replaced text (§17):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§17
 - **Summary:** The Decision's current text now lives in the architecture chapters [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [04](../architecture/04-entities-and-identifiers.md), [09](../architecture/09-security-and-moderation.md), [11](../architecture/11-rendering-templates-and-modules.md), [13](../architecture/13-mirrored-pages.md), [14](../architecture/14-discussions.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A18. The profiles at Wikidata scale: terms, `entity_ref`, the query backend and dumps
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §1; extends §8
+- **Summary:** The deployment-profile table of §1 changes in four rows, from [0082](0082-source-form-and-the-shared-view.md) §6 and the review's query-service row. `view.term` holds rows for local entities, for entities in any tenant overlay, and for mirrored entities in the instance's term languages only, in both profiles; its size at Wikidata scale is mirrored entities × the instance's term languages × term kinds, the budget `entities.term_languages` sets. `term_prefix` is a partial index over local entities on the small profile and is kept as schema and never created or read on an instance holding a full mirror, where OpenSearch serves suggest and `wbsearchentities`: the one index the large profile does without is left in the schema unbuilt. `entity_ref` is keyed on integer page IDs with a role bitmask and, with `view.term`, is the largest `view` table; the Wikidata-scale profile may omit it and serve "Links here" and the backlink count from the query service. The embedded query backend is the small profile's: the service refuses to start it above a configured triple count, and the Wikidata-scale profile requires `query.backend = remote` (QLever from dumps), so principle 1's "moving to QLever only when an instance chooses" becomes "when an instance chooses and necessarily at Wikidata scale". A dump is taken from a replica under `pg_export_snapshot()`, with parallel workers sharing the one snapshot (§8, in [02](../architecture/02-graphs-rdf-and-query.md) §4.1; an extension). The ledger's G49 row named 0032 §1 and 0013 §11 for the profile and dump parts; the chapter sections that hold them, [22](../architecture/22-crates-and-stack.md) §6 and §4.1 and [02](../architecture/02-graphs-rdf-and-query.md) §4.1, cite §1 and §8 of this ADR, and 0082's table does not name this ADR, so both are logged here as a direct decision. (REVIEW G7, G49)
+
+Replaced text ([22](../architecture/22-crates-and-stack.md) §6, as it stood):
+
+> | `term_prefix` index | Present; serves suggest and `wbsearchentities` | Absent; OpenSearch serves them ([0014](../decisions/0014-caches-and-search.md) §7) |
+> | `entity_ref` | Present | Present; the largest `view` table |
+
+> | Quad store | Optional | Optional; QLever from dumps |
+
+Replaced text ([22](../architecture/22-crates-and-stack.md) §4.1, as it stood):
+
+> and the query service of [0059](../decisions/0059-query-service.md) §2 runs embedded in the binary by default, moving to QLever only when an instance chooses;
+
+### A19. The write path as tower layers is tier 1; `LogStore`'s unit of work
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §3
+- **Summary:** The tower layers of §3 build the appending transaction, tier 1 of the write path of [0083](0083-write-path-in-three-tiers.md) §1, in its order: auth → grants → rate limit → ACLs → filters → normalize and diff → base check → ID allocation → append → graph state → activity row → commit. Composition of the written entity follows commit as a step of the handler, and nothing else of tiers 2 and 3 runs in a request; "projections" is no longer a layer of the request. `LogStore`'s methods are written as `impl Future + Send` in the trait (return-position `impl Trait`), `scatter-log` depends on `std::future` alone, its file backend does synchronous I/O inside those futures and a runtime caller wraps a file-backend call in `spawn_blocking`; `LogStore` carries an associated unit-of-work type, the transaction or handle within which an append and the rows written beside it commit together, which `Backend::apply_in` in `scatter-projection` and `IngestStore` in `scatter-ingest` take rather than naming a database, so the write path appends and projects in one Postgres transaction while the in-memory and file backends stay runtime-free. The crate-side parts of the same row (`scatter-extract` at layer 2, payload-type homes, `scatter-titles`, the wasm budget, the `FilterHook`) are logged in [0005](0005-crate-organization.md). The tier-1 rewrite is 0083 §1's, which the chapter section cites and 0083's table does not name, so it is logged here as a direct decision. (REVIEW G8, G51)
+
+Replaced text ([22](../architecture/22-crates-and-stack.md) §4.3, as it stood):
+
+> The write path of [0013](../decisions/0013-postgres-storage.md) §7 (auth → grants → rate limit → ACLs → filters → base offset → append → projections) is built as tower layers in that order, so the order is visible in one place and testable on its own ([03](../architecture/03-storage-caches-and-search.md)).

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-10-09 (A12)
+- **Updated:** 2026-10-09 (A15)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0021](0021-notifications.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md), [0033](0033-backend-stack.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0051](0051-page-redirects.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md), [0045](0045-table-content-model.md), [0046](0046-primary-tenant.md), [0047](0047-special-pages.md), [0049](0049-boards.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -41,6 +41,8 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 1. The invariant
 
+*Changed by A15.*
+
 *Current text: [09](../architecture/09-security-and-moderation.md) §1.2, §1.3, §1.4, §3.4.*
 
 ### 2. Visibility: the `read` restrictions that enclose a target
@@ -67,7 +69,7 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 7. Caches are keyed by visibility (amends 0014 §1, §4)
 
-*Changed by A6, A7, A9.*
+*Changed by A6, A7, A9, A14.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §9.1, §9.4, §9.6, §10.1, §12.1, §12.2.*
 
@@ -101,13 +103,13 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 14. Storage (extends 0013 §5.6)
 
-*Changed by A5, A6.*
+*Changed by A5, A6, A13, A14.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.5, §4.6, §4.14, §5, §12.2.*
 
 ### 15. The privacy test (extends 0012 §8)
 
-*Changed by A2.*
+*Changed by A2, A14.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §5.8.*
 
@@ -133,7 +135,7 @@ James's direction, from the design discussion of 2026-10-01:
 
 - **The rule is one sentence**, §1, and every route, cache, index, stream and export has the same thing to prove. The privacy test says how (§15).
 - **A public wiki changes nothing.** Empty visibility sets, `-` in every cache key, an empty `read_groups`, and no `tenant` ACL: the cost of this ADR to the open scenario is a few bytes per key.
-- **Hosting works with the existing presets.** `isolated` plus a `tenant` ACL per customer gives tenants that cannot see each other, cannot search each other, cannot transclude each other and cannot learn each other's titles, while all of them read Wikidata and Wikipedia. No operator superuser exists in the UI.
+- ~~**Hosting works with the existing presets.** `isolated` plus a `tenant` ACL per customer gives tenants that cannot see each other, cannot search each other, cannot transclude each other and cannot learn each other's titles, while all of them read Wikidata and Wikipedia. No operator superuser exists in the UI.~~ *A hosting instance needs no `tenant` ACL: the tenancy policy alone keeps tenants apart, and a `tenant` restriction is for a tenant private to the world (A15).*
 - **Pages and groupings can be confidential with one mechanism.** A `read` restriction set by `protect` on a page, a set, a namespace or a tenant, evaluated conjunctively over enclosure, as every other restriction is.
 - **A private wiki is a usable wiki.** Its members search it (§8), cache it (§7), watch it and are notified from it (§6). The earlier model would have given them none of those.
 - **Search and Valkey join the boundary.** They now hold restricted data; a deployment that exposes either exposes the wiki, and `instance check` says so.
@@ -146,7 +148,7 @@ James's direction, from the design discussion of 2026-10-01:
 
 ## Open questions
 
-- **Q1. A members-only query endpoint.** A private tenant has no SPARQL endpoint, because every endpoint is fed from the ∅ form (§3, §10 line 7). An organisation may want QLever over its private data for its own members; that would be an endpoint behind the evaluator, or a per-tenant instance loaded from the operator's full bundle inside the boundary. Not designed here.
+- **Q1.** ~~**A members-only query endpoint.** A private tenant has no SPARQL endpoint, because every endpoint is fed from the ∅ form (§3, §10 line 7). An organisation may want QLever over its private data for its own members; that would be an endpoint behind the evaluator, or a per-tenant instance loaded from the operator's full bundle inside the boundary. Not designed here.~~ *Settled by A15: a private tenant with `query.isolation = store` has `/sparql` for the principals that satisfy its `tenant` ACL, from a store holding its graphs alone, and lacks only the anonymous endpoint, the stream and the dumps ([0059](0059-query-service.md) A8).*
 - **Q2. Row-level security as a second line.** Whether to add Postgres RLS on `view` with the principal's groups in a session variable, so that a bug in the server's evaluator fails closed at the database. It would duplicate enclosure in SQL; the question is whether the duplication is worth it for the containment axis alone.
 - **Q3. Share links.** A capability URL that lets a named outsider read one restricted page without an account, as document systems offer. It is a principal that is a secret, which this ADR has no place for; if wanted, it is a subsidiary with one grant and an expiry ([0024](0024-subsidiary-accounts.md)), and the question is whether that is enough.
 - **Q4. Auditing restrictions one cannot read.** `Special:ProtectedPages` shows a restriction only to those who may read its target (§5), so a bureaucrat outside every group cannot count the tenant's confidential pages. Whether `protect` holders should see a count, or the names of sets without their members, trades audit against the existence leak.
@@ -302,3 +304,54 @@ Replaced text (§10):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§16
 - **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [08](../architecture/08-tenants-and-instances.md), [09](../architecture/09-security-and-moderation.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [20](../architecture/20-web-tier.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A13. Re-projection is a tier-3 consumer; composition skips the statement-ACL lookup at zero
+
+- **Date:** 2026-10-09
+- **Source:** [0083](0083-write-path-in-three-tiers.md) §3
+- **Change:** amends §14
+- **Summary:** The ACL and visibility re-projection of the rows a restriction touches (the `deleted` and `hidden` flags, the search documents) consumes "entity X composed to version N" events as a tier-3 consumer, in its own queue and in no write's transaction. `view.tenant` gains `live_statement_acls integer`, the count of live `statement` and `property` `read` ACLs, so that composition skips the per-statement ACL lookup while it is zero, which on every tenant but a private one it is; shared-row composition never looks. (REVIEW G10)
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.6, as it stood):
+
+>   tenant text PRIMARY KEY, visibility_epoch integer NOT NULL DEFAULT 0
+
+> `view.tenant` is a projection of the tenant's `read` ACL records on a namespace, set or tenant target, each of which increments the epoch; a tenant's configuration stays in `view.registry`.
+
+### A14. Public entries carry the tenant epoch; stored rows reference enclosures, never groups
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §7, §14; extends §15
+- **Summary:** The `{vis}` segment of a public entry (empty visibility set) is `-{epoch}` on a tenant key, so that an entry cached before a namespace restriction lapses with it, and plain `-` on a shared key, which carries no tenant epoch because a shared row is under no tenant's namespace. Only a `namespace` or `tenant` `read` ACL bumps the tenant's visibility epoch; a `set` change bumps the generation of the members it touched and nothing else, so adding one page to a confidential set does not cold the tenant's cache. A stored row never holds a group list: `view.activity.read_groups` becomes `read_enclosures text[]`, a reference to the row's enclosures (namespace, sets, tenant) evaluated at serve time from the L0 ACL cache, so a restriction that changes or expires changes what a stored row means without rewriting every row under it. The privacy test gains a required line: an entry cached under the empty set before a `namespace` restriction is not served after it, asked through every cache layer and the web tier. The ledger names §16; the crate table does not change, and the text it amends is §7's and §14's, with §15 extended. (REVIEW G38)
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §9.4, as it stood):
+
+> **Visibility.** Every key whose value depends on what the viewer may read also carries a **`{vis}`** segment, written after `{gen}`: a short hash of the sorted group names of the visibility set together with the tenant's visibility epoch, `-` for the empty set.
+
+> A `read` ACL on a namespace, set or tenant bumps the epoch and every entry under it lapses at once (§9.6).
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §9.6, as it stood):
+
+> On a namespace, set or tenant, it bumps the tenant's **visibility epoch**, a counter in `view.tenant` that is part of every `{vis}` hash for that tenant, so that every entry under the enclosing target lapses at once. The trade is coarse purges for correctness, and these ACLs change rarely.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.14, as it stood):
+
+> | `view` | `read_groups text[]` on `activity`, and `visibility_epoch integer` on `tenant` | Feed and log rows filtered by principal ([0056](0056-security-model.md) §5); the purge epoch of §9.6 |
+
+> Feed rows and search documents store the set at projection time and are re-projected on change (§9.6, §11.5).
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.6, as it stood):
+
+> `view.activity` gains `read_groups text[]`, so feed and log rows are filtered by principal ([0056](0056-security-model.md) §5, §14).
+
+### A15. A hosting instance needs no `tenant` restriction
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §1
+- **Summary:** A hosting instance needs no `tenant` restriction to keep tenants apart: tenants never see each other's data except through what the tenancy policy lets cross (mirrored entities, page repositories and shared files, public at their source), and identity, sessions and partitions are per tenant whatever the policy. A `tenant` restriction is for a tenant that is private to the world. A private tenant with `query.isolation = store` has a query service for the principals that satisfy its `tenant` ACL, from a store holding its graphs alone, and lacks only the anonymous endpoint, the update stream and the dumps ([0059](0059-query-service.md) A8; this settles Q1). The ledger names §4, which says who may restrict what and is unchanged; the advice struck is §1's. (REVIEW G39)
+
+Replaced text ([09](../architecture/09-security-and-moderation.md) §1.2, as it stood):
+
+> An instance of public tenants has no restrictions; a hosting instance gives each tenant a restriction on the tenant itself (§4.7), and from then on the tenants cannot see each other, except through the global data the tenancy policy already lets cross ([08](../architecture/08-tenants-and-instances.md)): mirrored entities, page repositories and shared files, which are public at their source and cross as public form only (§5.4).

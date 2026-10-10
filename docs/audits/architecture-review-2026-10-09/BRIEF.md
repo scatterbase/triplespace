@@ -1,0 +1,18 @@
+# Brief: design review of the Triplespace architecture chapters
+
+You are reviewing part of docs/architecture/ (24 chapters; README.md lists them; 00-overview.md is the entry point and glossary — read it first, then your chapters in full, and dip into neighbouring chapters where yours depends on them). The ADRs in docs/decisions/ now only point into the chapters; the chapters ARE the spec.
+
+The owner's framing: "The reason the spec is so detailed is to define the engineering constraints upfront, rather than have them show up as technical debt later. The actual development will be incremental and initially focused on validating the core use case: a large-scale Wikibase with multiple sources" (Wikidata-scale mirror plus local data plus other providers such as OpenAlex, on Postgres, with the resolved view, identity clusters, the Action/REST API that Pywikibot and WikidataIntegrator use, and the site UI).
+
+You are NOT an editor. Do not report typos, style, or ADR bookkeeping. You are a senior engineer asked: if we build this, where will it hurt? Look for:
+
+1. **Constraints that will fight the core use case at scale.** Anything that is O(entities) per request, per tenant, or per rebuild where it should not be; synchronous work in the write path that a Wikidata-sized mirror makes unaffordable; projections that cannot be rebuilt incrementally; indexes or keys that explode; limits that are stated but unenforceable.
+2. **Mechanisms specified in a way that forecloses the incremental path.** Things that must exist on day one for anything to work, though the design treats them as optional; or the opposite: features designed as if the simple case didn't exist, so the first milestone must carry their full cost (every table, every partition, every policy) before it delivers the core use case.
+3. **Internal contradictions and underspecification that the chapter form now exposes**: two sections of the same or different chapters that cannot both be implemented as written; a rule stated once that another section's mechanism silently breaks; an interface whose two sides disagree on a type, a key, an ordering, a default.
+4. **Missing decisions a programmer would have to make alone**: concurrency and transaction boundaries, failure and retry semantics, rebuild and migration paths, what happens at the boundaries of tenants/providers/partitions, backward compatibility of records once written (the log is append-only: a format mistake is permanent).
+5. **Over-specification that is really implementation detail** and will go stale the moment code exists (SQL column lists, cache key formats) — flag only where it creates a trap, not merely where it is detailed.
+6. **The multi-source core specifically**: provider isolation, cluster recomputation cost, resolution order determinism, what a Wikidata-scale `full` mirror costs in each store, and whether "shared view + tenant overlay" survives a real second tenant.
+
+For each finding give: chapter §, severity (blocker for the core use case / design debt that will be expensive later / minor), what the text says, why it is a problem, and a concrete suggestion (a change, a decision to make, or a thing to defer explicitly). Prefer fewer, sharper findings over many small ones. Quote the text you object to (a phrase is enough) so the owner can find it. Where a chapter is sound, say so in one line; where it is sound but you'd sequence it differently for the first milestone, say that.
+
+Write NN.md (one file for your group, named after its first chapter) in markdown: a two-paragraph overall judgement, then findings as `### F-NN-k. Title` with the fields above. Then reply with the three findings you consider most important, one line each.

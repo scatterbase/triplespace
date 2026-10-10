@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-09 (A33)
+- **Updated:** 2026-10-09 (A36)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -43,7 +43,7 @@ The goal is not to reimplement MediaWiki's page features. Templates, parser func
 
 ### 4. Document pages
 
-*Changed by A4, A9, A21, A23, A30.*
+*Changed by A4, A9, A21, A23, A30, A34, A35, A36.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §2.5, §3.1, §3.2.*
 
@@ -75,7 +75,7 @@ The goal is not to reimplement MediaWiki's page features. Templates, parser func
 
 ### 10. Links and metadata
 
-*Changed by A3, A9, A12, A21, A22.*
+*Changed by A3, A9, A12, A21, A22, A34.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §5.2, §5.6.*
 
@@ -102,7 +102,7 @@ The goal is not to reimplement MediaWiki's page features. Templates, parser func
 ## Open questions
 
 - **Q1.** ~~**Global revision IDs.** Log offsets are numbered per partition, but MediaWiki revision IDs are global. Either a global allocator issues revision IDs across partitions, or the API maps (partition, offset) pairs onto one sequence. This was already latent in [0001](0001-revision-metadata-rdf.md) and [0002](0002-source-graphs-and-mass-ingest.md).~~ *Settled by [0013](0013-postgres-storage.md) §6 and [0015](0015-record-format-and-partition-registry.md) §2: one sequence per tenant for revisions and one for log events, taken in the appending transaction and written into the header; mirror records take provider-ranged IDs.*
-- **Q2.** ~~**Page IDs for entity views.** `wbgetentities` with `props=info` returns a `pageid`, and a composed view has none. The options are minting one the first time an entity is written to, or returning none and accepting that some clients break.~~ *Settled by [0013](0013-postgres-storage.md) §6 and [0015](0015-record-format-and-partition-registry.md) §2: a page ID is taken from the one sequence the first time a key is written in any partition and carried forward in header field 9, so entity views and document pages share one `pageid` space.*
+- **Q2.** ~~**Page IDs for entity views.** `wbgetentities` with `props=info` returns a `pageid`, and a composed view has none. The options are minting one the first time an entity is written to, or returning none and accepting that some clients break.~~ *Settled by [0013](0013-postgres-storage.md) §6 and [0015](0015-record-format-and-partition-registry.md) §2: a page ID is taken from the one sequence the first time a key is written in any partition and carried forward in header field 9, so entity views and document pages share one `pageid` space.* *Extended by A35: the sequence is the tenant's own and serves local pages and local entities below 2^40; a mirrored entity's page ID is provider-ranged and computed by the writer, so the two still share one `pageid` space per tenant without an allocation.*
 - **Q3.** ~~**The main namespace.** Whether namespace 0 stays empty, becomes a document namespace, or hosts items as it does on Wikidata.~~ *Settled by A6: reserved and empty, like every namespace MediaWiki or Wikibase uses; its talk namespace is not enabled.* *Changed by [0038](0038-page-metadata-and-categories.md) §8 (A9): a `pages` namespace for articles, with Talk (1) enabled.*
 - **Q4.** ~~**Discussions.** Talk namespaces are reserved (§2). How discussions work is its own ADR.~~ *Settled by [0019](0019-discussions.md): talk namespaces are composite views over threads, and a thread is a page in the `Thread` namespace.*
 - **Q5.** ~~**Categories.** Whether category links should ever become data, for example as statements or as a list projection.~~ *Settled by [0038](0038-page-metadata-and-categories.md) §3 and §5: categories are defined only in wikitext and projected as a list; configured mappings turn membership into page statements.*
@@ -512,3 +512,38 @@ Replaced text (§2):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1, §2, §3, §4, §5, §6, §7, §8, §9, §10, §12
 - **Summary:** The Decision's current text now lives in the architecture chapters [10](../architecture/10-pages-and-content-models.md), [18](../architecture/18-api.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A34. Revision states per page record; one writer per row class of the links projection
+
+- **Date:** 2026-10-09
+- **Source:** [0083](0083-write-path-in-three-tiers.md) §4, §6
+- **Change:** extends §4; amends §10
+- **Summary:** The state after every revision of a page is stored once, per revision: the appending transaction writes the page's state after each `pages` record, the text and the fold of its statement change sets, to `view.entity_revision (tenant, revid, state)`, beside the current state in `view.graph_state`, so that `oldid=`, `action=compare`, `Special:PermanentLink` and export read one row rather than folding the page's history (§4). The rows of the links projection (§10) have two classes and one writer each: every row of `view.page_link` carries `from_render`; the page projection writes the source-derived rows when it applies the record, and the refresh job writes the expansion-derived rows with `from_render = true`; each writer owns its class, readers union the two, the refresh job never deletes a row it did not write, and turning `wikitext.expansion` off truncates the render-owned rows and nothing else. The same holds for `view.page_category` and `view.page_prop` ([0038](0038-page-metadata-and-categories.md) §2, [0055](0055-templatestyles-templatedata-and-page-properties.md) §6). 0083's table did not list this ADR; the chapter cites 0083 §4 at [10](../architecture/10-pages-and-content-models.md) §3.2 and §6 at §5.2, and the table was extended. (REVIEW G11, G13)
+
+Replaced text ([10](../architecture/10-pages-and-content-models.md) §5.2, as it stood):
+
+> On a tenant with expansion on, the projection reads the expanded text, so links that templates emit count, and its rows are written by the refresh job of [0042](../decisions/0042-template-expansion-and-parsoid.md) §10.
+
+### A35. Page IDs are per tenant; a mirrored entity's page ID is provider-ranged
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §4
+- **Summary:** Page IDs are per tenant: a tenant's own pages take IDs from the tenant's own sequence, which starts at 1, stays below 2^40 and never reuses a number, and `view.entity`'s unique key on a page ID is `(tenant, page_id)`. A mirrored entity's page ID is provider-ranged, `provider_number << 40 | upstream page ID` where the provider publishes one and `provider_number << 40 | mirror offset` otherwise, computed by the writer with no allocation; `log."instance.page_id"` is not used for entities. A page served by a page repository takes a provider-ranged page ID the same way. "Minted by the instance in sequence" is withdrawn. The ledger named §3 (titles); the chapter states page identity at [10](../architecture/10-pages-and-content-models.md) §3.1, whose provenance is §4, and the ledger row was corrected. (REVIEW G18)
+
+Replaced text ([10](../architecture/10-pages-and-content-models.md) §3.1, as it stood):
+
+> **A page is identified by a page ID, not by its title.** Page IDs are minted by the instance in sequence, start at 1 and are never reused. The title is an attribute of the page, in the same way a username is an attribute of an actor ([0007](../decisions/0007-actor-identity.md) §4; [07](../architecture/07-actors-and-accounts.md)). This has three effects:
+
+### A36. A move leaves a redirect only where the old title may hold `wikitext`
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** corrects §4
+- **Summary:** A move leaves a redirect at the old title only where the old title may hold `wikitext`, since only a `wikitext` page can be a redirect: in namespace 0, User, Project, File, Template and Category, and at the `/doc` titles of Module, Table, Query and Scope. Where the old title cannot hold `wikitext`, the move behaves as `noredirect` without needing `suppressredirect`, and the `move/move` event says so with `noredirect: true`. Entity, keyed-type, Thread and Board namespaces disallow `move` altogether; a thread's title follows its subject through the thread's own `rename` record, which is not a move. The ledger named §3; the fold is at [10](../architecture/10-pages-and-content-models.md) §2.5, whose provenance is §4 here beside [0051](0051-page-redirects.md) §3, and the ledger row was corrected. (REVIEW G43)
+
+Replaced text ([10](../architecture/10-pages-and-content-models.md) §2.5, as it stood):
+
+> **A move is one record on the moved page.** Moving a page appends a `move` record with its new title, and nothing else about that page changes. **A move leaves a redirect at the old title by default,** as MediaWiki's does. `action=move` and the Move form append, in one transaction with one base check:
+
+> - **Thread renames leave none** ([0019](../decisions/0019-discussions.md) §3), for the reason user renames do.

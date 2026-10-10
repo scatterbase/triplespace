@@ -29,8 +29,8 @@ This directory is the registry of record for the names and codes that Triplespac
 ## Rules
 
 - **A change here is a commit.** Allocating a provider code, slug or number, a graph name, a namespace number or a group is done by editing the file. Nothing is allocated at runtime.
-- **Codes and numbers are never reused.** A retired entry stays in the file with `retired = true`.
-- **These are defaults, not state.** An instance's `config` partition (0015 §3) starts from these files and may diverge: it may add providers, rename groups or change permissions. What it may not do is reuse a provider code or number for something else, because IDs and revision IDs computed from them are shared between instances.
+- **Codes and numbers are never reused, and a provider's slug and per-type IRI templates are never changed.** The slug is in every partition name and checkpoint origin line, and the IRI template is the matching key for entity-source promotion and cross-tenant rewriting (0078 §9), so changing either would unbind what matched it. A retired entry stays in the file with `retired = true`.
+- **These are defaults, not state.** An instance's `config` partition (0015 §3) starts from these files and may diverge: it may declare entity sources (0078), which take numbers from the tenant range and never a registry code, rename groups or change permissions. What it may not do is reuse a provider code or number for something else, because IDs and revision IDs computed from them are shared between instances.
 - **The crates embed the files** (`include_str!`) and parse them at build time, so a malformed file fails the build, and the defaults an instance starts from are the defaults the code was tested with.
 - **Provider number 0 is the current tenant.** It is reserved in `providers.toml` and never assigned to a provider.
 - **Numbers 2^22 to 2^23 − 1 are the tenants'.** Each tenant assigns them at runtime to its entity sources, the one runtime allocation of a provider number; they are unique on their tenant only and never appear here ([0078](../decisions/0078-entity-sources.md) §4).

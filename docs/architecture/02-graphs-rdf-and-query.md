@@ -126,7 +126,7 @@ Instance data IRIs belong to each instance's own base URI; only ontology terms l
 
 ### 2.1 Document nodes and revision nodes
 
-*Sources: [0001](../decisions/0001-revision-metadata-rdf.md) §1; [0015](../decisions/0015-record-format-and-partition-registry.md) §6.*
+*Sources: [0001](../decisions/0001-revision-metadata-rdf.md) §1; [0015](../decisions/0015-record-format-and-partition-registry.md) §6; [0082](../decisions/0082-source-form-and-the-shared-view.md) §4.*
 
 Revision metadata attaches to the entity's **document node** (`data:Q8`) and to **revision nodes** hanging off it. It never attaches to the concept (`wd:Q8`). A revision describes a version of the wiki record. It says nothing about the person, work or place the record describes.
 
@@ -148,7 +148,7 @@ data:WDQ42 pav:importedFrom <https://www.wikidata.org/wiki/Special:EntityData/Q4
 
 `pav:importedFrom` is the term §3.2 reserves for this. Upstream revisions specialize the upstream document node ([0015](../decisions/0015-record-format-and-partition-registry.md) §4); the instance's document node reaches them through `pav:hasCurrentVersion` and the job.
 
-**The document node is the stable handle.** In the resolved view, every member of a cluster keeps its own document node, and each carries `schema:about` pointing at the cluster's **current canonical** concept IRI ([0004](../decisions/0004-identity-clusters-and-equivalence.md) §4), beside the redirect-form `owl:sameAs` between concept IRIs. A document node never moves, so `{base}/wiki/Special:EntityData/{id}` for any member ID is what external consumers are told to cite; the SPARQL Update stream (§6) rewrites the `schema:about` triple when the canonical member changes.
+**The document node is the stable handle.** In the resolved view, every member of a cluster keeps its own document node, and each carries `schema:about` pointing at the cluster's **current canonical** concept IRI ([0004](../decisions/0004-identity-clusters-and-equivalence.md) §4). The concept IRIs themselves are all live: the cluster's fused statements are emitted under **every member's** concept IRI, with `owl:sameAs` between the members and the redirect-form `owl:sameAs` from each non-canonical member to the canonical one, so a query that reaches `wd:Q5` through a value and asks for its label or statements succeeds without any rewriting, and the duplication is bounded by the cluster's size, never by what references it ([0082](../decisions/0082-source-form-and-the-shared-view.md) §4). A document node never moves, so `{base}/wiki/Special:EntityData/{id}` for any member ID is what external consumers are told to cite; the SPARQL Update stream (§6) rewrites the `schema:about` triple when the canonical member changes.
 
 **A post's revision node is its record's IRI,** `{base}/record/{partition}/{offset}`, and carries the Activity Streams properties of [0019](../decisions/0019-discussions.md) §7.
 
@@ -230,10 +230,10 @@ The list is illustrative: later sections of this chapter use further terms (`sca
 
 ### 4.1 RDF is an output, not the read path; the three dumps
 
-*Sources: [0013](../decisions/0013-postgres-storage.md) §8; [0033](../decisions/0033-backend-stack.md) §8.*
+*Sources: [0013](../decisions/0013-postgres-storage.md) §8; [0033](../decisions/0033-backend-stack.md) §8; [0082](../decisions/0082-source-form-and-the-shared-view.md) §3.*
 
 - **The API and UI read only `view`.** No request path queries a triplestore.
-- **The RDF projection streams.** The resolved view (the main graph of §1.5, computed as [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §3 describes), the source graphs and the metadata graph are produced as N-Quads from `view` and `log` by `triplespace-rdf` ([0005](../decisions/0005-crate-organization.md) §2). No intermediate quad store is needed to produce them. Three dump products are offered:
+- **The RDF projection streams.** The resolved view (the main graph of §1.5, computed as [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §3 describes), the source graphs and the metadata graph are produced as N-Quads from `view` and `log` by `triplespace-rdf` ([0005](../decisions/0005-crate-organization.md) §2). No intermediate quad store is needed to produce them. **A dump is taken from a replica under `pg_export_snapshot()`**, with parallel workers sharing the one snapshot, so that every file of a dump describes one instant and the primary is not read. **Every dump is in source form**: entity IDs are the IDs their source wrote, `WDQ5` where Wikidata wrote `Q5`, and the response-time rewriting of [04](04-entities-and-identifiers.md) never touches a dump; a rewritten dump profile, if ever wanted, is a serialization-time pass over a dump and not a stored form ([0082](../decisions/0082-source-form-and-the-shared-view.md) §3). Three dump products are offered:
   - **A Wikibase-compatible dump** holds the resolved view only. It is what QLever and any Wikibase or Wikidata tool load, and it never contains the metadata graph. Source graphs may be added to it for consumers who want to compare what a provider asserts with what the instance asserts ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §3).
   - **A full dump** holds the resolved view, every source graph whose export policy allows it (§1.1), and the metadata graph. It is the RDF form of the instance's own history: for the instance's own SPARQL endpoint, for backups, and for another instance that wants the whole record.
   - **A local-graph source dump** holds the `local` partition's current state as N-Quads and as canonical JSON, one file per snapshot, with the record coordinates of each entity's newest record. It is what another instance reads for verified sync ([0022](../decisions/0022-federation.md) §1).
@@ -260,10 +260,10 @@ No vocabulary is added to the main graph or to `Special:EntityData`-equivalent o
 Wikibase's RDF gives an *unknown value* snak a blank node object. `DELETE DATA` cannot name a blank node, and a diff between two renderings of one entity cannot match blank nodes at all. In the stream, and in every dump the stream continues from, a blank node is replaced by a **skolem IRI**:
 
 ```
-https://scatter.red/genid/{H(statement id ‖ snak role ‖ property ‖ index)}
+https://scatter.red/genid/{H(statement UUID ‖ snak role ‖ property ‖ index)}
 ```
 
-The IRI is derived from what the blank node stands in for and from nothing about the instance, so it is the same on every re-resolution, every rebuild and **every instance**: two tenants' streams about one Wikidata item agree on the node, and a store fed by both holds one. It lives under `scatter.red` for the reason Domain IRIs do (§3.1): an identifier derived only from content is not instance data. The statement ID in the hash is upstream's for a mirrored statement and the tenant's for a local one, so the inputs never collide. A store that does not care sees an IRI and treats it as opaque.
+The **statement UUID** is the UUID part of the statement ID and never its entity part, so the node is the same under every member ID the fused body is emitted under (§2.1) and whatever form a consumer asked for; the **snak role** is main snak, qualifier or reference; the **index** is the snak's position within its role on the statement; a reference snak hashes the **reference hash** in place of the index, so that identical references share a node as they share a `ref:` IRI. The hash function and the byte layout of the preimage are fixed in [wikibase-compat.md](../api/wikibase-compat.md). The IRI is derived from what the blank node stands in for and from nothing about the instance, so it is the same on every re-resolution, every rebuild and **every instance**: two tenants' streams about one Wikidata item agree on the node, and a store fed by both holds one. It lives under `scatter.red` for the reason Domain IRIs do (§3.1): an identifier derived only from content is not instance data. The UUID is upstream's for a mirrored statement and the tenant's for a local one, so the inputs never collide. A store that does not care sees an IRI and treats it as opaque.
 
 **The plain dump keeps its blank nodes.** The Wikibase-compatible dump of §4.1 is unchanged and identical in shape to Wikibase's (§4.2). Each dump is also offered with `?bnodes=skolem`, and it is that form the stream continues from; `manifest.json` says which form a file is. The batch files and every event use skolem IRIs always. A consumer that loaded the blank-node form and subscribes is told so at its first event (`412`), because its deletes would never match.
 
@@ -283,9 +283,9 @@ Hiding is set by a `record` ACL on the parts it hides ([0023](../decisions/0023-
 
 ## 5. What each kind of thing emits
 
-*Sources: [0001](../decisions/0001-revision-metadata-rdf.md) §1, §6; [0040](../decisions/0040-instance-prerogatives.md) §7; [0011](../decisions/0011-logs.md) §8; [0049](../decisions/0049-boards.md) §9; [0038](../decisions/0038-page-metadata-and-categories.md) §11; [0026](../decisions/0026-sitelinks.md) §8; [0048](../decisions/0048-notation.md) §5; [0066](../decisions/0066-lexemes.md) §6; [0064](../decisions/0064-entityschema-and-validation.md) §8; [0065](../decisions/0065-mediainfo-captions-and-commons.md) §4.*
+*Sources: [0001](../decisions/0001-revision-metadata-rdf.md) §1, §6; [0040](../decisions/0040-instance-prerogatives.md) §7; [0011](../decisions/0011-logs.md) §8; [0049](../decisions/0049-boards.md) §9; [0038](../decisions/0038-page-metadata-and-categories.md) §11; [0026](../decisions/0026-sitelinks.md) §8; [0048](../decisions/0048-notation.md) §5; [0066](../decisions/0066-lexemes.md) §6; [0064](../decisions/0064-entityschema-and-validation.md) §8; [0065](../decisions/0065-mediainfo-captions-and-commons.md) §4; [0082](../decisions/0082-source-form-and-the-shared-view.md) §1, §4.*
 
-Entities emit the Wikibase RDF of [wikibase-compat.md](../api/wikibase-compat.md) in the main graph (§4.2). This section gathers what the other kinds of thing emit, and in which graph.
+Entities emit the Wikibase RDF of [wikibase-compat.md](../api/wikibase-compat.md) in the main graph (§4.2), in source form: the subject and every entity value carry the ID the source wrote, and a cluster's fused body is emitted under each member's concept IRI with `owl:sameAs` between them (§2.1), in the dump and in the stream alike ([0082](../decisions/0082-source-form-and-the-shared-view.md) §1, §4). This section gathers what the other kinds of thing emit, and in which graph.
 
 ### 5.1 Revisions
 
@@ -461,9 +461,9 @@ For every graph an instance publishes, it also publishes the changes to that gra
 
 ### 6.1 The stream is the dump, kept current
 
-*Sources: [0032](../decisions/0032-sparql-update-stream.md) §1.*
+*Sources: [0032](../decisions/0032-sparql-update-stream.md) §1; [0082](../decisions/0082-source-form-and-the-shared-view.md) §3.*
 
-For every graph an instance publishes in RDF, it also publishes the **sequence of changes** to that graph as SPARQL 1.1 Update requests. A consumer loads a dump, notes the **cursor** the dump was taken at, and applies every event after that cursor in order. The result is, at every cursor, the same set of triples the dump would contain if it were taken then. This is the contract.
+For every graph an instance publishes in RDF, it also publishes the **sequence of changes** to that graph as SPARQL 1.1 Update requests. A consumer loads a dump, notes the **cursor** the dump was taken at, and applies every event after that cursor in order. The result is, at every cursor, the same set of triples the dump would contain if it were taken then. This is the contract. It is why the stream, like the dump, is **source form** (§4.1): the dump is the internal graph, and the response-time rewriting of entity IDs to a consumer's preferred form ([04](04-entities-and-identifiers.md); [0082](../decisions/0082-source-form-and-the-shared-view.md) §3) never applies to either.
 
 The stream carries the **public form** only, exactly as a dump does: nothing behind a read ACL ([0023](../decisions/0023-moderation.md)), nothing erased ([0006](../decisions/0006-log-integrity-and-erasure.md) §7), nothing from an `internal` or `private` partition (§1.1). The graphs a subscription may name are those of §4.1:
 
@@ -475,37 +475,39 @@ The stream carries the **public form** only, exactly as a dump does: nothing beh
 
 When exactly one graph is subscribed, its triples are emitted without a `GRAPH` clause, as the Wikibase-compatible dump is a single-graph dump; with more than one, every triple is inside `GRAPH <{base}/graph/{name}> { … }`, with the IRIs of §1.3. A consumer that loads the single-graph dump into its default graph and subscribes to `resolved` never sees a graph name.
 
-### 6.2 The delta is computed when the view changes
+### 6.2 The delta is computed by a consumer of composition
 
-*Sources: [0032](../decisions/0032-sparql-update-stream.md) §2.*
+*Sources: [0032](../decisions/0032-sparql-update-stream.md) §2; [0082](../decisions/0082-source-form-and-the-shared-view.md) §1; [0083](../decisions/0083-write-path-in-three-tiers.md) §3, §7.*
 
-A **delta** is a pair of triple sets, deleted and inserted, for one graph, caused by one event. It is computed by the projections that already produce the new state, at the moment they have both the old state and the new:
+A **delta** is a pair of triple sets, deleted and inserted, for one graph, caused by one event. It is computed by the **delta consumer**, a tier-3 consumer of composition events ([0083](../decisions/0083-write-path-in-three-tiers.md) §3; [03](03-storage-caches-and-search.md) §6) that exists only while the `site` setting **`updates.enabled`** is on (default off), with its own queue, rate and lag; it runs in no write's transaction and is off during bootstrap and bulk modes. It has the old state and the new because the write path stores them:
 
 | Graph | Event | Old state | New state |
 |---|---|---|---|
-| `resolved` | The resolution projection writes an entity ([0013](../decisions/0013-postgres-storage.md) §5.1, step 4 of §7) | The entity's previous resolved JSON, read before it is overwritten | The new resolved JSON |
-| `local`, `mirror/{provider}` | A change set is applied to the entity's state in that graph ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.2) | The graph's previous state for the entity, which the ingester reads to compute `changes` ([0012](../decisions/0012-api-requirements.md) §2.2) | The new state |
+| `resolved` | The composer writes an entity's composed row ([0083](../decisions/0083-write-path-in-three-tiers.md) §2) | The previous composed row, kept until the delta consumer has read it | The new composed row |
+| `local`, `mirror/{provider}` | A change set is applied to the entity's state in that graph ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.2) | The graph's previous state, from `view.graph_state` for a delta graph and the previous `put` for a mirror graph ([0083](../decisions/0083-write-path-in-three-tiers.md) §4) | The new state |
 | `metadata` | A record is appended, hidden or erased | The revision, actor, event and provenance nodes the record projected before | The nodes it projects now |
 
-Each side is rendered to triples, the `resolved`, `local` and `mirror/{provider}` sides by `scatter-wikibase-rdf` ([wikibase-compat.md](../api/wikibase-compat.md) §4–5) and the `metadata` sides by `triplespace-rdf` (§4.1), and the delta is the set difference, so a change that touches one statement of a large entity is a few triples, not the entity. A **cluster change** ([0004](../decisions/0004-identity-clusters-and-equivalence.md) §4) re-resolves every referrer and produces one delta per referrer. A **read ACL** or an **erasure** produces a delta whose deleted side is what left the public form and whose inserted side is empty, or the tombstone form where one exists.
+Each side is rendered to triples, the `resolved`, `local` and `mirror/{provider}` sides by `scatter-wikibase-rdf` ([wikibase-compat.md](../api/wikibase-compat.md) §4–5) and the `metadata` sides by `triplespace-rdf` (§4.1), and the delta is the set difference, so a change that touches one statement of a large entity is a few triples, not the entity. A **cluster change** ([0004](../decisions/0004-identity-clusters-and-equivalence.md) §4) recomposes the cluster's members and nothing else: the stored graph is in source form, a referrer's triples do not change when an identity changes, and there is one delta per member and none per referrer ([0082](../decisions/0082-source-form-and-the-shared-view.md) §1). A **read ACL** or an **erasure** produces a delta whose deleted side is what left the public form and whose inserted side is empty, or the tombstone form where one exists.
 
-**Why at projection time.** Under the `latest` history policy a mirror's earlier state is compacted away ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §2), and [0012](../decisions/0012-api-requirements.md) §7 concedes that the resolved view at a past time cannot be rebuilt in general. The only moment both states exist is when the new one replaces the old. The delta is therefore stored ([0032](../decisions/0032-sparql-update-stream.md) §3), not recomputed on request.
+**Why from stored state.** Under the `latest` history policy a mirror's earlier state is compacted away ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §2), and [0012](../decisions/0012-api-requirements.md) §7 concedes that the resolved view at a past time cannot be rebuilt in general. The delta is therefore computed from the state the write path kept and **stored** ([0032](../decisions/0032-sparql-update-stream.md) §3), not recomputed on request; a rebuild truncates `rdf_delta` and bumps the epoch (§6.4), and consumers reload from the post-rebuild dump.
 
-**Bootstrap mode** ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.6, [0013](../decisions/0013-postgres-storage.md) §9) produces no deltas: there is no previous state, and a consumer of a bootstrapped partition loads the dump taken at the end of the bootstrap. A `snapshot` job's tombstone sweep ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.4) produces one delta per removed entity, as any tombstone does.
+**One sequencer.** `rdf_delta.seq` is assigned by the delta consumer alone, so insert order is commit order and a consumer reading `seq > cursor` never skips a row that committed late ([0083](../decisions/0083-write-path-in-three-tiers.md) §7). Because the consumer is single, the stream can be served from a replica.
+
+**Bootstrap and bulk modes** ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.6, [0013](../decisions/0013-postgres-storage.md) §9) produce no deltas: tier 3 is off, and a consumer of a bootstrapped partition loads the dump taken at the end of the load. A `snapshot` job's tombstone sweep ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.4) produces one delta per removed entity, as any tombstone does.
 
 ### 6.3 Erasure and hiding reach the consumer, and the store
 
-*Sources: [0032](../decisions/0032-sparql-update-stream.md) §5.*
+*Sources: [0032](../decisions/0032-sparql-update-stream.md) §5; [0083](../decisions/0083-write-path-in-three-tiers.md) §7.*
 
 **The consumer.** An `erase` record or a read ACL produces a delta whose deleted side names every triple that left the public form ([0015](../decisions/0015-record-format-and-partition-registry.md) §1, [0023](../decisions/0023-moderation.md) §5): the statement, its qualifiers, references and values, the truthy triple, the revision node's hidden fields in the metadata graph. A consumer that applies the stream is therefore as compliant as this instance is, which is the property [0020](../decisions/0020-change-feeds.md) §4 gives the activity stream and [0006](../decisions/0006-log-integrity-and-erasure.md) §7 asks of copies elsewhere. It cannot be enforced beyond that.
 
-**The store.** Delta rows hold triples, and an erased literal may sit in the `inserted` side of an earlier row within the retention window. The erasure path of [0014](../decisions/0014-caches-and-search.md) §5 gains a **sixth step**: delete or rewrite every `rdf_delta` row for the entity that contains an erased triple, found through `rdf_delta_entity`. A consumer that fetches that range afterwards receives the rows as rewritten; one that fetched them before is in the position [0006](../decisions/0006-log-integrity-and-erasure.md) §7 describes, and the deleting delta reaches it next. The retention window bounds how long an erased triple can persist in the table, as the TTL ceilings of 0014 bound the caches.
+**The store.** Delta rows hold triples, and an erased literal may sit in the `inserted` side of an earlier row within the retention window. The erasure path of [0014](../decisions/0014-caches-and-search.md) §5 gains a **sixth step**: delete or rewrite every `rdf_delta` row that contains an erased triple, found through `rdf_delta_entity` for an entity's rows and through the index on `(partition, "offset")` for the rows an erased record produced on its own, a metadata-only row with no entity among them ([0083](../decisions/0083-write-path-in-three-tiers.md) §7). A consumer that fetches that range afterwards receives the rows as rewritten; one that fetched them before is in the position [0006](../decisions/0006-log-integrity-and-erasure.md) §7 describes, and the deleting delta reaches it next. The retention window bounds how long an erased triple can persist in the table, as the TTL ceilings of 0014 bound the caches.
 
 **Hidden and suppressed content never enters a delta**, because the delta is computed from the public form.
 
 ### 6.4 Delivery: pull, with a sync client
 
-*Sources: [0032](../decisions/0032-sparql-update-stream.md) §6.*
+*Sources: [0032](../decisions/0032-sparql-update-stream.md) §6; [0083](../decisions/0083-write-path-in-three-tiers.md) §7.*
 
 The instance **serves**; it never pushes, and it holds no consumer's credentials.
 
@@ -517,6 +519,8 @@ The instance **serves**; it never pushes, and it holds no consumer's credentials
 | `GET /updates/cursor` | The current epoch and head `seq`, and the retention horizon |
 
 **Every dump is stamped** with the cursor it was taken at, in its manifest and in a comment on its first line, so a consumer knows where to start. A `from` older than the horizon, or from another epoch, is answered with **`410 Gone`** and the URL of the newest dump that continues into the window; the client reloads.
+
+**The epoch is per tenant** (`ops.tenant_epoch`, [03](03-storage-caches-and-search.md)), and a cursor is meaningful only against the tenant whose stream issued it. A tenant's epoch is bumped by a rebuild of its deltas (§6.2), by a change to its provider list, its query isolation or a base alias, so that a tenant that opts in to a provider tells only its own consumers to reload; the farm base's provider streams have their own. **The epoch carries a rendering version**, incremented by a change to `scatter-wikibase-rdf`, `triplespace-rdf` or a value normalizer, because `DELETE DATA` matches only byte-identical triples and a renderer that writes a literal differently would leave the old form behind; the lexical forms of every value type are pinned as a fixture in [wikibase-compat.md](../api/wikibase-compat.md) so that the version changes when they do and not otherwise.
 
 **Idempotency.** `DELETE DATA` and `INSERT DATA` are set operations, so applying an event twice is harmless and a consumer may commit its cursor after each event or after a batch. Applying events out of order is not harmless; the stream is ordered and the client applies it in order.
 
@@ -579,14 +583,16 @@ The service is **optional**: `query.enabled` (`site` configuration, default `fal
 
 ### 7.2 Two backends
 
-*Sources: [0059](../decisions/0059-query-service.md) §2; [0033](../decisions/0033-backend-stack.md) §11.*
+*Sources: [0059](../decisions/0059-query-service.md) §2; [0033](../decisions/0033-backend-stack.md) §11; [0082](../decisions/0082-source-form-and-the-shared-view.md) §2.*
 
 | `query.backend` | Store | Fed by | Isolation ([0059](../decisions/0059-query-service.md) §4) |
 |---|---|---|---|
 | `embedded` (default) | Oxigraph, in process, behind `scatter-quadstore`'s existing feature ([0005](../decisions/0005-crate-organization.md) §4.4), on a RocksDB directory under `query.path` | `scatter-quadstore::apply(deleted, inserted)` from `view.rdf_delta`, in the projection worker, after each delta batch commits | `dataset` or `store` |
 | `remote` | Any SPARQL 1.1 Protocol endpoint; QLever first | `triplespace-cli sparql-sync` (§6.4) run by the operator against the instance's own `full` stream, or QLever's own `update` tooling (§6.5) | `dataset` only |
 
-**Embedded is the default** so that turning the service on changes nothing about the deployment: the `triplespace` binary and Postgres. The embedded store is a second copy of the public graphs on the server's disk, grown by `rdf_delta`, and is sized like the `full` dump. A larger instance moves to `remote` when the embedded store's query times or disk no longer suit it; nothing above the trait notices.
+**Embedded is the default** so that turning the service on changes nothing about the deployment: the `triplespace` binary and Postgres. The embedded store is a second copy of the public graphs on the server's disk, grown by `rdf_delta`, and is sized like the `full` dump. **It is the small profile's backend** ([0013](../decisions/0013-postgres-storage.md) §11; [03](03-storage-caches-and-search.md)): the service refuses to start it above a configured triple count, and the Wikidata-scale profile requires `query.backend = remote`. A larger instance moves to `remote` when the embedded store's query times or disk no longer suit it; nothing above the trait notices.
+
+**Both backends sit behind one rewriting layer.** Where a query constant names an entity that is a member of a cluster, the planner expands the constant to the member set, `lb:Q9` becoming `VALUES ?v { lb:Q9 wd:Q5 … }`, one indexed lookup against `view.cluster_member` per constant with L0 in front of it, before the query reaches the store; any member of a cluster is therefore accepted wherever a query names an entity ([04](04-entities-and-identifiers.md); [0082](../decisions/0082-source-form-and-the-shared-view.md) §2). **Property paths are not expanded.** `wdt:P279*` follows stored triples, neither backend does `owl:sameAs` reasoning, and a query that needs `owl:sameAs` closure writes it; the fused body under every member (§2.1) makes the common cases work without it. Result bindings are rewritten to the request's preferred form through the concept-IRI template on the way out ([18](18-api.md)).
 
 **The remote backend is one store.** It is loaded once from the `full` dump and followed from the `full` stream, so that it holds every tenant's graphs under their names ([0059](../decisions/0059-query-service.md) §4). It is never loaded from `view` or `log` directly, which [0056](../decisions/0056-security-model.md) §10 line 7 forbids. The endpoint is `query.endpoint`; its credential, if any, is read as every secret is ([0033](../decisions/0033-backend-stack.md) §12). The service checks the endpoint's cursor by reading a marker triple the stream's consumer writes, `<{base}/.well-known/query> scatter:cursor "{epoch}:{seq}"`, in the store's default graph; `sparql-sync` writes it after each batch.
 
@@ -594,13 +600,13 @@ The `full` subscription is the only form a shared store loads, with `metadata=lo
 
 ### 7.3 What the store holds, and how fresh it is
 
-*Sources: [0059](../decisions/0059-query-service.md) §3.*
+*Sources: [0059](../decisions/0059-query-service.md) §3; [0082](../decisions/0082-source-form-and-the-shared-view.md) §5; [0083](../decisions/0083-write-path-in-three-tiers.md) §7.*
 
-**The `full` form** (§6.1): every public source graph, every tenant's resolved graph and metadata graph, each in its own named graph. A shared provider's source graph (Wikidata's, OpenAlex's) is stored once, since its deltas are stored once ([0032](../decisions/0032-sparql-update-stream.md) §4), and is part of the dataset of every tenant that opted in to the provider ([0018](../decisions/0018-tenants.md) §5). This is why one store scales where one per tenant would not: forty tenants mirroring Wikidata share one copy of Wikidata.
+**The `full` form** (§6.1): every public source graph, **one shared resolved graph**, a small overlay graph per tenant, and every tenant's metadata graph, each in its own named graph. The shared resolved graph is the instance's, computed under the instance's policy record (`reconcile:default`, [08](08-tenants-and-instances.md) §2.5) from the shared rows of `view` ([03](03-storage-caches-and-search.md) §7); a tenant's overlay graph holds only the entities that tenant has overlaid, and a tenant's dataset is the shared graph with its overlay shadowing it ([0082](../decisions/0082-source-form-and-the-shared-view.md) §5; the deltas that feed both are in [08](08-tenants-and-instances.md) §10.5). A shared provider's source graph (Wikidata's, OpenAlex's) is likewise stored once, since its deltas are stored once ([0032](../decisions/0032-sparql-update-stream.md) §4), and is part of the dataset of every tenant that opted in to the provider ([0018](../decisions/0018-tenants.md) §5). This is why one store scales where one per tenant would not: forty tenants mirroring Wikidata share one copy of Wikidata's source triples and one copy of its resolved triples, and a query written for Wikidata runs unchanged on a tenant with no overlay.
 
 **Public form only.** The store holds what the stream carries: read ACLs applied, erased content purged (§6.3), export policy respected. A query therefore never leaks, whoever asks, and a viewer who may read more than the public sees fewer results than `view` could show them. Accepted: the store is for finding things, and what is found is then read through `view` with the viewer's rights.
 
-**Freshness is a cursor.** `cursor()` is the last `rdf_delta` row applied, in the stream's `{epoch}:{seq}` form. `siprop=triplespace` reports `query: {available, backend, cursor, lag_seconds}`, where lag is the age of the newest delta row not yet applied. Every result the service returns carries the cursor it was computed at, and every stored result (a scope's members, [0060](../decisions/0060-scopes.md) §5) records it, so that a page can say "as of {time}; {n} changes since". A `view` rebuild increments the epoch ([0032](../decisions/0032-sparql-update-stream.md) §3) and empties the embedded store, which is then reloaded from a fresh `full` dump by the worker before it resumes applying deltas; a remote store is reloaded by the operator, as any stream consumer is, and the service reports `available: false` while its epoch is behind.
+**Freshness is a cursor.** `cursor()` is the last `rdf_delta` row applied, in the stream's `{epoch}:{seq}` form. `siprop=triplespace` reports `query: {available, backend, cursor, lag_seconds}`, where lag is the age of the newest delta row not yet applied. Every result the service returns carries the cursor it was computed at, and every stored result (a scope's members, [0060](../decisions/0060-scopes.md) §5) records it, so that a page can say "as of {time}; {n} changes since". A `view` rebuild truncates `rdf_delta` and increments the epoch (§6.2, §6.4; [0083](../decisions/0083-write-path-in-three-tiers.md) §7) and empties the embedded store, which is then reloaded from a fresh `full` dump by the worker before it resumes applying deltas; a remote store is reloaded by the operator, as any stream consumer is, and the service reports `available: false` while its epoch is behind. Because epochs are per tenant, a tenant's provider change reloads that tenant's graphs and no other's.
 
 **When the service is unavailable** (off, reloading, the endpoint down, or lag above `query.max_lag`, default 1 h), a compiled query (§7.4) returns `QueryError::Unavailable` and its caller keeps the last materialized result with its cursor; raw SPARQL ([0059](../decisions/0059-query-service.md) §6) answers `503` with `Retry-After`.
 

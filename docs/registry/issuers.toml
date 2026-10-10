@@ -23,7 +23,7 @@ iri = "{tenant base}/user/{id}"
 login = false                 # tenant accounts are the target of login; a farm may register itself as a provider
 
 # The farm as an issuer (0028 §2): present when the tenancy policy's identity.farm_issuer is not
-# "none". Its code is the farm slug (0046 §6); its accounts are public actors that edit nothing and are
+# "none". Its code is the farm code, derived from the instance's founding record (0079 §4); its accounts are public actors that edit nothing and are
 # what global groups, global blocks and shared names key on. Declared by the instance's
 # `tenancy` records, not here; this entry is the template.
 [[issuer]]
@@ -57,7 +57,7 @@ builtin = true
 code = "instance"
 name = "The instance operator"
 actor_model = "provider-only"
-iri = "{farm base}/instance/operator"     # actor key instance:{farm slug}; 0046 §6-7
+iri = "{farm base}/instance/operator"     # actor key instance:{farm code}; 0046 §6-7, 0079 §4
 login = false
 providers = []
 builtin = true
@@ -87,7 +87,8 @@ iri = "https://librarybase.org/wiki/Special:Redirect/user/{id}"
 users_api = "https://librarybase.org/w/api.php"
 login = false
 providers = ["librarybase"]
-# When Librarybase is a tenant of this instance, this entry is its tenant issuer (0018 §4–5).
+# When Librarybase is adopted as a tenant, `tenant = "{its issuer code}"` is added here and
+# librarybase:{n} becomes an input form of the tenant's keys (0079 §9).
 
 [[issuer]]
 code = "openalex"

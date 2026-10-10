@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-09 (A19)
+- **Updated:** 2026-10-09 (A28)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0003](0003-statement-ui.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md), [0017](0017-entity-id-grammar.md), [0022](0022-federation.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md)
@@ -26,59 +26,67 @@ This ADR adds tenants, makes each tenant its own issuer of identity, lets a tena
 
 ### 1. Instances and tenants
 
-*Changed by A5, A8, A16.*
+*Changed by A5, A8, A16, A20.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §1.1, §1.2, §1.3, §7.1.*
 
 ### 2. Partitions (amends 0005 §4.1–4.2, 0006 §3, 0013 §2 and 0015 §3, §5)
 
-*Changed by A6, A8, A14, A15.*
+*Changed by A6, A8, A14, A15, A20, A22, A25.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §2.1, §2.2, §2.3, §2.4.*
 
 ### 3. Configuration (amends 0015 §3)
 
-*Changed by A2, A5, A8, A13.*
+*Changed by A2, A5, A8, A13, A23, A27.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §2.4, §2.5.*
 
 ### 4. Identity is per tenant (amends 0007 §1 and §8)
 
-*Changed by A4, A7.*
+*Changed by A4, A7, A20.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §3.1, §3.2, §3.3, §3.4, §8.1.*
 
 ### 5. A tenant can be a provider (amends 0002 §4)
 
-*Changed by A4, A5, A11, A12.*
+*Changed by A4, A5, A11, A12, A21, A23, A26.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §4.1, §4.2, §4.3, §6.6.*
 
 ### 6. Shared views and tenant overlays (amends 0013 §5, 0014 §7)
 
+*Changed by A23.*
+
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.1, §7, §9.4, §11.4, §12.1, §12.5.*
 
 ### 7. Statement IDs follow the canonical ID (settles 0002 and 0004)
+
+*Changed by A23.*
 
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §4.9.*
 
 ### 8. Contributions (settles 0010 and 0012; amends 0010 §8)
 
+*Changed by A28.*
+
 *Current text: [19](../architecture/19-site-ui.md) §2.5.*
 
 ### 9. Aliases
+
+*Changed by A20, A24.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §6.1.*
 
 ### 10. Moving a tenant (extends 0006 §6 and §9)
 
-*Changed by A3, A7, A8, A12, A17.*
+*Changed by A3, A7, A8, A12, A17, A20, A21, A22.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §6.2, §6.3, §6.4, §6.7, §7.6; [16](../architecture/16-logs-feeds-and-notifications.md) §2.3.*
 
 ### 11. API and UI (amends 0012 §4–5)
 
-*Changed by A9, A18.*
+*Changed by A9, A18, A20.*
 
 *Current text: [18](../architecture/18-api.md) §1.2, §2.2; [19](../architecture/19-site-ui.md) §1.3, §3.10, §6.11.*
 
@@ -334,3 +342,148 @@ Replaced text (§2):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§12
 - **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [04](../architecture/04-entities-and-identifiers.md), [08](../architecture/08-tenants-and-instances.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A20. Issuer codes derived from the founding record
+
+- **Date:** 2026-10-09
+- **Source:** [0079](0079-derived-issuer-codes.md) §1, §3, §5, §7
+- **Change:** amends §1, §4, §9, §10; extends §2, §11
+- **Summary:** A tenant's issuer code, the code its actor keys carry, is no longer its slug: it is the first 26 characters of the lower-case base32 encoding of the Merkle leaf hash of the tenant's **founding record**, the `key:` record at offset 0 of its `config` partition (§2). It is fixed at creation, survives moves and erasure, and is allocated by no one. The slug becomes a name on the instance: unique there, held only in instance-scope records, in no actor key, and chosen afresh on arrival if taken (§1, §10). A change of base changes no actor key (§9). `verify` recomputes the code from the bundle (§10). The tenant list in `GET /tenancy` gives each tenant's code as `issuer` (§11). Examples keep writing `librarybase:42` for the derived key.
+
+Replaced text (§1, in [08](../architecture/08-tenants-and-instances.md) §1.2):
+
+> The slug names the tenant everywhere: in partition names, in actor keys (§3.1), and, if the tenant becomes a provider, in `providers.toml` (§4). Slugs, provider slugs and issuer codes are one namespace, allocated in the registry ([0015](0015-record-format-and-partition-registry.md) §5). No slug can be empty ([03](../architecture/03-storage-caches-and-search.md) §4.1).
+
+Replaced text (§4, in [08](../architecture/08-tenants-and-instances.md) §3.1):
+
+> Its issuer code is its slug, its actor model is numeric, and its actor IRI template is `{tenant base}/user/{id}`.
+
+Replaced text (§9, in [08](../architecture/08-tenants-and-instances.md) §6.1):
+
+> So `domains.wikibase.cloud` becoming `internetdomains.wiki` is one record and one triple, and every `internetdomains:…` actor key and every entity IRI ever emitted stays resolvable.
+
+Replaced text (§10, in [08](../architecture/08-tenants-and-instances.md) §6.3):
+
+> …and maps the tenant's `providers` list onto its own mirrors, which is trivial because slugs come from the same registry.
+
+### A21. Provider tenants are entity sources
+
+- **Date:** 2026-10-09
+- **Source:** [0080](0080-tenants-as-entity-sources.md) §2, §3
+- **Change:** amends §5, §10
+- **Summary:** A tenant is read by another tenant as an entity source that names it by issuer code, not by taking a registry code: any public tenant can be read, on the same instance directly with its IDs rewritten to the reader's source name (`lb:Q6`) and ranged by the reader's number, elsewhere by `scatter-adapter-triplespace` into the reader's `source/{name}` (§5). A registry code is promotion for a widely read tenant, and its entry's `issuer` is the tenant's issuer code (§5). A move switches readers between direct reading and the adapter (§10).
+
+Replaced text (§5, in [08](../architecture/08-tenants-and-instances.md) §4.1):
+
+> A tenant becomes a provider by taking a code, a slug and a provider number in `providers.toml` ([0015](0015-record-format-and-partition-registry.md) §5), as Librarybase has `LB`, `librarybase` and 2. Nothing else is needed on the instance that hosts it: there is no sync job and no mirror partition, because the tenant's `local` partition is the source.
+>
+> …
+>
+> - **Opt-in.** A tenant reads a provider's graph only if the provider is in its `providers` list (§2.5). A tenant that has not opted into Librarybase never sees `LBQ6`. …
+> - **A tenant without a code cannot be referenced.** Its IDs have no absolute form.
+> - **Leaving the instance changes nothing for referrers.** When a provider tenant moves away (§6), the instance registers a real sync job against its new home (§4.4), and `LBQ6` means what it always meant; … The same code serves off-instance readers on other instances from the start, since the registry is global.
+
+Replaced text (§5, in [08](../architecture/08-tenants-and-instances.md) §4.3):
+
+> …cannot take a code:
+
+Replaced text (§10, in [08](../architecture/08-tenants-and-instances.md) §6.3):
+
+> If the tenant is a provider, the old instance replaces its direct read with a sync job against the new home (§4.4).
+
+### A22. Continuations and fixed origin lines
+
+- **Date:** 2026-10-09
+- **Source:** [0081](0081-recovery-keys-and-continuations.md) §3, §5
+- **Change:** amends §2, §10
+- **Summary:** A tenant partition's checkpoint origin line uses the tenant's host as it was when the partition was created or the tenant arrived on the instance, and an alias does not change it (§2). A non-cooperative move appends a `continuation`, `recovered` when the tenant's recovery keys sign it and `unauthorized` otherwise, instead of a rotation with no signature (§10).
+
+Replaced text (§2, in [08](../architecture/08-tenants-and-instances.md) §2.1):
+
+> Checkpoint origin lines ([0006](0006-log-integrity-and-erasure.md) §6) use the tenant's host, so Librarybase's local log signs as `librarybase.org/log/local`;
+
+Replaced text (§10, in [08](../architecture/08-tenants-and-instances.md) §6.3):
+
+> **Non-cooperatively**, the bundle comes from backups, the rotation record carries no signature from the old key, verifiers are told the chain has an unsigned link, and reclaiming is manual.
+
+### A23. Shared views under the instance policy, and IDs rewritten on the way out
+
+- **Date:** 2026-10-09
+- **Source:** [0082](0082-source-form-and-the-shared-view.md) §1, §3, §5, §5.1, §5.2, §6
+- **Change:** amends §3, §5, §6, §7
+- **Summary:** The shared row (`tenant = ''`) of every `view` table is computed under one policy record, the instance's `reconcile:default`, which holds for shared rows the provider order among registry providers, the tier-2 link properties, the normalizer overrides, the role bindings (the `role` kind gains an instance-scope record) and the languages that populate shared `view.term`; a tenant's `reconcile` narrows (hides a provider, restricts its display languages, orders its own entity sources, switches inference off for itself) and never reorders shared providers, rebinds a shared role or changes a shared normalizer, a tenant-scope write that tries being refused with `ts-instance-policy`; every shared row names the policy it was computed under, so resolution profiles can be added later. The read-side rewrite of §5, which turns a provider tenant's `Q6` into `LBQ6` or `lb:Q6` for a reader, is the same layer that rewrites a response to the consumer's preferred form with the cluster map as one more table, exact matches only. The cluster tables and `entity_source` carry the tenant column with the `''`-then-tenant lookup, a tenant's tier-1 links sit beside the shared cluster, a derivation naming a foreign subject makes an overlay, a read over shared rows by any key other than the entity excludes shared rows of overlaid entities, a tenant document replaces the shared one in search through `tenant_overlaid`, and the quad store holds one shared resolved graph with a small overlay graph per tenant. Statement IDs follow the entity ID the consumer sees: the stored GUID keeps the entity part its source wrote and the response rewrite, not the resolved view, rewrites it. (REVIEW G1, G2, G5, G7)
+
+Replaced text ([08](../architecture/08-tenants-and-instances.md) §2.5, as it stood):
+
+> `reconcile` is tenant configuration, with one exception: the identifier properties that drive tier-3 inference ([04](../architecture/04-entities-and-identifiers.md) §4.3) are **instance** configuration, held in the instance `reconcile` record, so that tier-3 links stay instance-wide; a tenant's `reconcile` may switch inference off for itself and set provider order and link properties, but not add inference properties.
+
+Replaced text ([08](../architecture/08-tenants-and-instances.md) §4.1, as it stood):
+
+> Librarybase's `same-as` and `convert` records are tier-1 links for Librarybase and tier-2 links for everyone else ([04](../architecture/04-entities-and-identifiers.md) §4.3), ranked where the reading tenant's provider order puts `LB`.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §7, as it stood):
+
+> Everything derived from shared source graphs alone is computed once, for the instance. Everything a tenant's own graph changes is an **overlay** keyed by tenant.
+>
+> - **Entities.** `view.entity` and its dependents gain a `tenant` column (§4.1). A row with the empty-string tenant is the shared row for a mirrored entity, computed from the shared graphs. A tenant that has local assertions about the entity, a cluster link touching it, or a correction on it gets its own `(tenant, id)` row; a tenant with none reads the shared one.
+> - **Clusters.** Tier-2 and tier-3 links come from shared graphs and are instance-wide; tier-1 links are the tenant's own, and its `different-from` blocks are too. A tenant's clusters are the shared clusters with its overlay applied, recomputed for the entities its links touch ([0004](../decisions/0004-identity-clusters-and-equivalence.md) §2).
+> - **Search.** One shared `entities` index per provider, holding that provider's canonical entities as the shared view has them, and one index per tenant holding the tenant's local entities and its overlay documents (§11.4).
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §11.4, as it stood):
+
+> `/suggest` and `wbsearchentities` run one `msearch` across the tenant's own index and the indexes of its opted-in providers; where a tenant document and a shared document share an ID, the tenant's wins.
+
+Replaced text ([04](../architecture/04-entities-and-identifiers.md) §4.9, as it stood):
+
+> ### 4.9 Statement IDs follow the canonical ID
+>
+> **Statement IDs in the log never change.** What clients see is derived: **the resolved view rewrites the entity-ID part of a statement GUID to the entity's canonical ID and keeps the UUID.** This is the same rewrite §4.4 applies to subjects and entity values.
+>
+> - An unconverted cluster {`WDQ42`, `OAW123`} shows the OpenAlex statements as `WDQ42$oa-uuid`.
+>
+> Every GUID a client sees has its entity's ID as its prefix, which is Wikibase's invariant.
+
+### A24. `unit`, `globe` and `calendarmodel` are expanded through the current IRI template
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** extends §9
+- **Summary:** The `unit` of a quantity, the `globe` of a coordinate and the `calendarmodel` of a time are stored as prefixed entity IDs (`"unit": "WDQ11573"`, `"unit": "Q7"`, `"unit": "1"` unchanged) and expanded through the current IRI template on output, as §9 already has projections emit every IRI from the current template after an `alias` record; the adapter rewrites them on ingest as it rewrites every other ID, the content hash is over the stored form, and they participate in `entity_ref` and in rewriting. The ledger's verb is amends; the contradicted text is [0003](0003-statement-ui.md) §7's and [0004](0004-identity-clusters-and-equivalence.md) §7's (chapter 04 §4.7), and §9's chapter text ([08](../architecture/08-tenants-and-instances.md) §6.1) is unchanged, so this entry extends. (REVIEW G21)
+
+### A25. The founding attestation
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §2
+- **Summary:** The record at offset 0 of a tenant's `config`, the first copy of the instance key, carries the founding attestation of [0015](0015-record-format-and-partition-registry.md) A52: no actor, a signature by the key it registers, and the authority `(instance config, 0)`, the instance's own founding record, which itself has no authority at all; the tenant's issuer code, or the farm code, is derived from the leaf afterwards, so nothing that needs the code has to exist before it. Every later copy, at each rotation, is a written instance act under the ordinary instance attestation. Offsets 1 and 2 of the instance `config`, the primary tenant's `tenant:` record and the first `primary` record, are attested by `instance:{farm code}` with the founding record as authority, so a single-tenant instance needs no authority record and no `ts-prerogative` path before its first entity. The ledger's verb is extends; the chapter sentence below said the founding copy carried the instance attestation, which the decision contradicts, so this entry amends. (REVIEW G22)
+
+Replaced text ([08](../architecture/08-tenants-and-instances.md) §2.4, as it stood):
+
+> These copies are written instance acts, carrying the instance attestation with the instance `config` record as authority (§8.6). The first of them, at offset 0, is the tenant's **founding record**: its leaf names the tenant, since the tenant's issuer code is derived from it (§1.2).
+
+### A26. A provider whose issuer is a tenant of this instance is never synced
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** extends §5
+- **Summary:** The binding of a registry code to a tenant is enforced on the instance that hosts the tenant: an instance refuses a sync job for a provider whose registry `issuer` is a tenant of this instance, since the tenant's `local` partition is the provider's graph and a mirror of it would be a stale copy; and it refuses to adopt or import a tenant under a code for which it holds a live mirror partition until that partition has been frozen, its `entity_source` rows dropped and composition switched to reading the tenant's `local`. (REVIEW G31)
+
+### A27. Every tenant setting has a bound
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** extends §3
+- **Summary:** The settings catalogue gains a bound column, `tenant`, `tenant ≤ instance ceiling` (the ceiling a tenancy switch of the setting's own name) or `instance`, which refines §3's split of configuration by scope: pool sizes and intervals are deployment configuration, budgets and limits are ceiling-bounded, `query.isolation` and `query.max_concurrent` are instance-only, and a tenant-scope record of an instance-only setting is refused with `ts-instance-policy`. The ledger's verb is amends; §3's chapter text ([08](../architecture/08-tenants-and-instances.md) §2.4–§2.5) is unchanged by it and the catalogue that changed is [0015](0015-record-format-and-partition-registry.md) §3's (chapter 23 §3.1–§3.4, logged as 0015 A57), so this entry extends. (REVIEW G35)
+
+### A28. A foreign actor's contributions are what `view.activity` holds
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §8
+- **Summary:** `Special:Contributions/{issuer}:{id}` for a foreign actor lists what this tenant's `view.activity` holds for the actor, page revisions imported with that attribution and the rows of the tenant's log that name the actor; upstream revision records in `log/{provider}` are not indexed by actor, so they are not listed, and the page says so. For an actor of another tenant on the same instance the view is complete, since that tenant's `view.activity` indexes every record. The ledger names [0047](0047-special-pages.md) §2 and §4; the chapter text that changed is §8's ([19](../architecture/19-site-ui.md) §2.5), so the entry is logged here as well. (REVIEW G50)
+
+Replaced text ([19](../architecture/19-site-ui.md) §2.5, as it stood):
+
+> | `Special:Contributions/{issuer}:{id}` for a foreign actor | **What the instance holds:** upstream revision records keyed to that actor in `log/{provider}` ([0015](../decisions/0015-record-format-and-partition-registry.md) §4), and page revisions imported with that attribution. The page says whose user this is, links to their page on the issuer's site, and does not fetch upstream, because per-actor fetching is unbounded. |
+>
+> For an actor of another tenant on the same instance the third view is complete, since the instance holds every record. For a Wikidata account it is the sparse subset the instance has observed or backfilled, and says so.

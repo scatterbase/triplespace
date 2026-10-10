@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-10-09 (A13)
+- **Updated:** 2026-10-09 (A16)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [MediaWiki API contract](../api/mediawiki-compat.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 - **Chapters:** [06](../architecture/06-statements-and-properties.md), [19](../architecture/19-site-ui.md)
@@ -37,7 +37,7 @@ Triplespace does not come with MediaWiki's editing UI ([0000](0000-init.md), Con
 
 ### 2. The UI reads canonical Wikibase JSON
 
-*Changed by A7.*
+*Changed by A7, A15.*
 
 *Current text: [19](../architecture/19-site-ui.md) §1.4, §4.2.*
 
@@ -63,11 +63,13 @@ Triplespace does not come with MediaWiki's editing UI ([0000](0000-init.md), Con
 
 ### 7. Semantic roles
 
-*Changed by A1, A3, A4, A5, A6, A7, A8, A10.*
+*Changed by A1, A3, A4, A5, A6, A7, A8, A10, A14.*
 
 *Current text: [06](../architecture/06-statements-and-properties.md) §1.1, §1.2.*
 
 ### 8. Editing
+
+*Changed by A16.*
 
 *Current text: [19](../architecture/19-site-ui.md) §4.7.*
 
@@ -210,3 +212,38 @@ Replaced text (§10):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§10
 - **Summary:** The Decision's current text now lives in the architecture chapters [06](../architecture/06-statements-and-properties.md), [19](../architecture/19-site-ui.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A14. The `role` kind has an instance-scope record
+
+- **Date:** 2026-10-09
+- **Source:** [0082](0082-source-form-and-the-shared-view.md) §5.2
+- **Change:** amends §7
+- **Summary:** A role binding is no longer only tenant configuration: the `role` config kind has an instance-scope record beside the tenant records. The instance record binds the roles that shared rows are computed under; the constraint checker computes shared-row violations under it, and the adapters read it and never a tenant's, so a provider's key map or role list means one property on every tenant, bound to registry-provider properties or to the provider's own property type. A tenant's record binds roles for its own statement UI, resolvers and constraints on its own data and may add a local property beside a mirrored one for a role; it may not rebind a role the instance record binds, and a tenant-scope write that tries is refused with `ts-instance-policy`. The chapter folds this at [06](../architecture/06-statements-and-properties.md) §1 and §1.2, whose provenance is §7 here; 0082's table did not list this ADR, and was extended. The ledger's G21 (prefixed `unit`, `globe` and `calendarmodel`) is folded under [0004](0004-identity-clusters-and-equivalence.md) §7, not here. (REVIEW G1, G26)
+
+Replaced text ([06](../architecture/06-statements-and-properties.md) §1, as it stood):
+
+> Property IDs differ between Wikibases, so shape detection and the rank rules refer to **roles**. Each instance maps its own properties onto those roles. A role binding is tenant configuration, a `config` record of kind `role` ([23](../architecture/23-configuration-and-registry.md) §2.2).
+
+Replaced text ([06](../architecture/06-statements-and-properties.md) §1.2, as it stood):
+
+> - adapters name their local targets by role ([0004](../decisions/0004-identity-clusters-and-equivalence.md) §6);
+
+### A15. The UI asks for the local form and fetches labels by cluster
+
+- **Date:** 2026-10-09
+- **Source:** [0082](0082-source-form-and-the-shared-view.md) §3, §6
+- **Change:** extends §2
+- **Summary:** Every request the UI makes carries `prefer=local`, so a value whose cluster has an exact local match is shown and linked as `Q9` rather than `WDQ5`, and an ID with no local match is shown as stored; the stored graph is never rewritten, and a reader who follows a link in either form reaches the same entity. Labels are fetched by cluster through the bulk-labels route in one call per page: a value shown under one member takes its label from whichever member's rows have one, in the order of the instance's policy. The chapter folds this at [19](../architecture/19-site-ui.md) §4.2, whose provenance is §2 here; 0082's table was extended. (REVIEW G5, G7)
+
+### A16. Replacing a mirrored value is suppress-and-add; conflicts are against the local graph
+
+- **Date:** 2026-10-09
+- **Source:** [0084](0084-wikibase-writes-against-the-resolved-view.md) §3, §5
+- **Change:** amends §8
+- **Summary:** Correcting a mirrored value's rank or a mirrored term writes a local-graph `override`; replacing a mirrored value is refused by the API with `ts-foreign-statement`, and the editor never shows the refusal: editing the value of a statement whose source chip is a mirror's opens as **Replace here**, one action that suppresses the mirrored statement and adds the local one in one change set, with the new statement's GUID, the row keeping its place with a "Corrected here" chip, and **Propose upstream** beside it. Each save's `baserevid` is the entity's newest local revision; a mirror advancing since the edit began is never a conflict, and if the local graph has changed the pending rows are applied to the current data as the API patches around a stale base (`wikibase-conflict-patched`), with only the clashing cells marked. The chapter folds this at [19](../architecture/19-site-ui.md) §4.7, whose provenance is §8 here; 0084's table was extended. (REVIEW G16, G17)
+
+Replaced text ([19](../architecture/19-site-ui.md) §4.7, as it stood):
+
+> | Correct a mirrored value | Writes a local-graph override or addition; the mirrored statement is untouched | Triplespace `override` or `add` ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.2; [05](../architecture/05-providers-and-ingest.md)) |
+
+> - **Conflicts.** Each save carries `baserevid`. If the group has changed since the edit began, the pending rows are applied to the current data, and only the cells that clash are marked. The rest of the save goes through.

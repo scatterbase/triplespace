@@ -38,7 +38,7 @@ This chapter describes the pages in the `Special` namespace: the registry that l
 
 **Statuses:**
 
-- **`served`:** the instance serves the page. "Served" records a decision, not an implementation. Implementation is tracked in the milestones.
+- **`served`:** the decision that the instance serves the page. "Served" records a decision, not an implementation; implementation is tracked in the milestones, and a served page exists in a build only once it registers a handler. At startup `triplespace-titles` intersects the registry's `served` set with the handlers the binary compiled, and that intersection is what the instance reports as its special pages (§1.2) and lists on `Special:SpecialPages`; a served page without a handler is reported, with the difference, on `server.admin_listen`, and a request for it gets MediaWiki's "no such special page" response rather than a 404 or an empty page, so a client never learns of a page the build cannot serve.
 - **`deferred`:** undecided, with the open question it waits on.
 - **`declined`:** decided against, with the reason. Requests get MediaWiki's "no such special page" response.
 - **`reserved`:** the name belongs to an entity type Triplespace has reserved but not implemented. Lexeme and EntitySchema were the cases until [0064](../decisions/0064-entityschema-and-validation.md) and [0066](../decisions/0066-lexemes.md) implemented them; no name is reserved today. The name will not be used for anything else.
@@ -73,7 +73,7 @@ This chapter describes the pages in the `Special` namespace: the registry that l
 | `NotificationsMarkRead` | `Notifications` |
 | `Listadmins`, `Listbots` | `ListUsers/sysop`, `ListUsers/bot` |
 
-**`siprop=specialpagealiases`** reports one entry per served page. Its `realname` is `mediawiki_name`, or `name` where there is no `mediawiki_name`. Its aliases are `name` followed by `aliases`. Each section alias is reported as an entry of its own, so a client asking for `Preferences` finds it. The Action API side is in [18](18-api.md).
+**`siprop=specialpagealiases`** reports one entry per page the build serves: the registry's `served` set intersected with the compiled handlers (§1.1). Its `realname` is `mediawiki_name`, or `name` where there is no `mediawiki_name`. Its aliases are `name` followed by `aliases`. Each section alias is reported as an entry of its own, so a client asking for `Preferences` finds it. The Action API side is in [18](18-api.md).
 
 **Localized aliases** are messages in `i18n/` ([0034](../decisions/0034-frontend-stack.md) §9), in the shape of MediaWiki's `*.alias.php` files. The first alias in the tenant's content language is the name the UI links to. Every alias in every language resolves. The registry holds the English names, which are the ones a tool can rely on.
 
@@ -120,12 +120,12 @@ Feeds ([0020](../decisions/0020-change-feeds.md)), logs, forms and pages about a
 
 ### 2.2 Local graphs by default
 
-*Sources: [0047](../decisions/0047-special-pages.md) §4.2.*
+*Sources: [0047](../decisions/0047-special-pages.md) §4.2; [0083](../decisions/0083-write-path-in-three-tiers.md) §3.*
 
 **A report reads the tenant's own partitions** (`local`, `pages`, `log`, `actors`, `config` and its file versions) and nothing else by default. It does not read `mirror/*`, `log/{provider}`, `files/{repo}` or any other tenant's partitions. This is the general rule for report pages.
 
 - **Page and file reports are unaffected.** Pages and uploads are always the tenant's own.
-- **Entity reports list local subjects.** The rows are local entities, and local assertions where a report is about statements. Conditions are evaluated on the **resolved view**, as a reader sees it. For example:
+- **Entity reports list local subjects.** The rows are local entities, and local assertions where a report is about statements. Conditions are evaluated on the **resolved view**, as a reader sees it, which means on composed rows: an entity report consumes composition events ([03](03-storage-caches-and-search.md) §6) and re-evaluates an entry only when the canonical's composed row changes **and** the cluster has a local member, found by an index on `cluster_id` restricted to local IDs, so a mirror's term changes never fan through the report projection for clusters with no local member. For example:
   - `EntitiesWithoutLabel` lists local entities that have no label in the language. A local item fused with a labelled Wikidata item ([0004](../decisions/0004-identity-clusters-and-equivalence.md) §4) has a label, so it is not listed.
   - `ListProperties` lists local properties.
   - `ItemsWithoutSitelinks` lists local items.
@@ -138,14 +138,14 @@ Feeds ([0020](../decisions/0020-change-feeds.md)), logs, forms and pages about a
 
 ### 2.3 Live projections by default; batch by configuration
 
-*Sources: [0047](../decisions/0047-special-pages.md) §4.3.*
+*Sources: [0047](../decisions/0047-special-pages.md) §4.3; [0083](../decisions/0083-write-path-in-three-tiers.md) §3, §6.*
 
 Every report has one of three backings:
 
 | Backing | What serves it | Freshness |
 |---|---|---|
 | `index` | A keyset-paged query over a `view` table and one of its indexes. The report has no rows of its own. | Live, at the lag of the table it reads |
-| `projection` | Rows in `view.report_entry` ([03](03-storage-caches-and-search.md) §4.10), maintained incrementally by the `report` projection as the tables it reads change | Live, at that projection's lag |
+| `projection` | Rows in `view.report_entry` ([03](03-storage-caches-and-search.md) §4.10), maintained incrementally by the `report` projection as the tables it reads change | Live, at that projection's lag; for an entity report, bounded by composition lag |
 | `batch` | Rows in `view.report_entry`, recomputed by a scheduled `ops` job | As of the last run |
 
 **No report is batch by default.** The registry gives each report `index` or `projection`, and §2.4 lists them.
@@ -163,19 +163,19 @@ Every report has one of three backings:
 
 The settings are written with `ts-config` at the farm base, which is an instance right ([0040](../decisions/0040-instance-prerogatives.md) §9). A tenant's administrators cannot change them. They see each report's mode on the report page and in `GET /reports` ([18](18-api.md)). On a single-tenant instance the operators and the wiki's owners are usually the same people, so nothing changes for them.
 
-Changing a mode writes nothing into any tenant's partitions, so it is not an instance act ([0040](../decisions/0040-instance-prerogatives.md) §1). When a report moves from live to batch, its next run fills its rows. When it moves from batch to live, the `report` projection rebuilds its rows for that tenant.
+Changing a mode writes nothing into any tenant's partitions, so it is not an instance act ([0040](../decisions/0040-instance-prerogatives.md) §1). When a report moves from live to batch, its next run fills its rows. When it moves from batch to live, the `report` projection rebuilds its rows for that tenant by the named operation "rebuild projection P for tenant T from `view`" ([03](03-storage-caches-and-search.md) §6), which a view-derived projection has and a log-replayed one does not.
 
-A batch report's page says when it was computed, as MediaWiki's cached reports do. `list=querypage` returns `cached`, `cachedtimestamp` and `maxresults` for it.
+A batch report's page says when it was computed, as MediaWiki's cached reports do, and a live entity report says beside its "computed at" how far composition is behind, since its freshness is bounded by composition lag. `list=querypage` returns `cached`, `cachedtimestamp` and `maxresults` for a batch report.
 
 **How the projection keeps up.**
 
-- The `report` projection runs after the tables it reads, in step 5 of [0013](../decisions/0013-postgres-storage.md) §7 ([03](03-storage-caches-and-search.md) §6.1). Each change to an input key recomputes only the entries that key affects. For example, a new `page_link` row to a missing title adds one to that title's `WantedPages` count.
-- Report entries are **fan-out**, not part of a write's own rows. They are applied by the projection worker under 0013 §7's synchronous budget, and their lag is reported with the other projections'.
-- Some inputs are written by the refresh job rather than by replay ([0042](../decisions/0042-template-expansion-and-parsoid.md) §10): `transclusion`, `entity_usage`, and links and categories under expansion. For those, the refresh job applies the report deltas in the same transaction as the rows it writes.
+- The `report` projection is a **view-derived** projection and a **tier-3 consumer** ([03](03-storage-caches-and-search.md) §6): it is populated by a scan of the `view` tables it reads, never by a log replay, and it consumes events — "entity X composed to version N" for entity reports, the page projection's and the refresh job's row changes for page reports — in its own queue, at its own rate, in no write's transaction, and it is off during bootstrap and bulk modes until the operator turns it on. Each event recomputes only the entries its key affects. For example, a new `page_link` row to a missing title adds one to that title's `WantedPages` count, and a composition event for a canonical with no local member touches nothing (§2.2).
+- Report entries are never part of a write's own rows. Their lag is reported with the other consumers', on the report page and in `GET /reports`.
+- Some inputs are written by the refresh job rather than by the page projection ([0042](../decisions/0042-template-expansion-and-parsoid.md) §10): `transclusion`, `entity_usage`, and the render-owned rows of links and categories under expansion. The refresh job's rows are events to the report projection like any other.
 
 **Rebuilds.**
 
-- `projection` entries are a function of the `view` tables they read, and are rebuilt with them.
+- `projection` entries are a function of the `view` tables they read, and are rebuilt from those tables, per tenant where asked, never from the log.
 - `batch` entries are a dated snapshot. A rebuild empties them, and the next run fills them.
 
 As with 0042 §10's tables, this is stated rather than left to be assumed.
@@ -318,7 +318,7 @@ Foreign entities are never deleted (0023 §1). The target's local assertions abo
 - Alternatively a **change tag**. An `oauth:{slug}` tag ([0025](../decisions/0025-oauth-server.md) §4) cleans up after a tool that misbehaved.
 - IP addresses are private state ([0016](../decisions/0016-permissions-and-access-control.md) §3) and are not a target.
 
-**When.** The window defaults to the recent-changes window, `rc.max_age` (0010 §7). MediaWiki's Nuke can see no further back than that, because it reads `recentchanges`. Here the log is complete, so the window can be extended to the target's whole history. `pattern` (a title pattern) and `namespace` narrow it further.
+**When.** The window defaults to the recent-changes window, `rc.max_age` (0010 §7). MediaWiki's Nuke can see no further back than that, because it reads `recentchanges`. Here the log is complete, so the window can be extended to the target's whole history: for an account, `view.activity` by actor over the window; for a change-tag target, `view.activity` through the GIN index on its `tags` column ([03](03-storage-caches-and-search.md) §4.6), so a tag's whole history is one index scan. `pattern` (a title pattern) and `namespace` narrow it further.
 
 **How it runs.**
 
@@ -366,7 +366,7 @@ The REST routes `GET /nuke/preview` and `POST /nuke`, and the revert `POST /jobs
   - A part hidden from the viewer is written as MediaWiki writes revision-deleted content (`<text deleted="deleted"/>`, and likewise `comment` and `contributor`). An erased part is written the same way.
   - Full history is governed by `export.history` (default on) and `export.max_history` (revisions per page, default 1,000), MediaWiki's `$wgExportAllowHistory` and `$wgExportMaxHistory`.
 - **Templates and modules.** With `templates`, the pages that `view.transclusion` lists for the selection ([0042](../decisions/0042-template-expansion-and-parsoid.md) §10) are added.
-- **Local entities** are exported as Wikibase exports entity pages. The model is `wikibase-item` or `wikibase-property`. Each revision is one local change set, and its text is the canonical JSON of the entity's **local-graph** state at that revision ([wikibase-compat.md](../api/wikibase-compat.md)). A MediaWiki Wikibase with free IDs can import them, which is the reverse of adoption ([0035](../decisions/0035-adopting-a-wikibase.md); [05](05-providers-and-ingest.md)).
+- **Local entities** are exported as Wikibase exports entity pages. The model is `wikibase-item` or `wikibase-property`. Each revision is one local change set, and its text is the canonical JSON of the entity's **local-graph** state at that revision ([wikibase-compat.md](../api/wikibase-compat.md)), read by the export job as one row of `view.entity_revision` per revision ([18](18-api.md) §1.3) and folded into the XML there, never on the request path. The revisions exported per entity are capped by a separate limit, lower than `export.max_history` for pages, since each entity revision is a whole state rather than a text. A MediaWiki Wikibase with free IDs can import them, which is the reverse of adoption ([0035](../decisions/0035-adopting-a-wikibase.md); [05](05-providers-and-ingest.md)).
 - **Foreign entities are not exported.** Their content is upstream's. `Special:EntityData` serves their resolved view.
 - **Files.** With `files`, file versions are added as `<upload>` elements with their contents, which 0039 §14's import accepts ([12](12-files-and-media.md)). The total is capped by `export.max_bytes`. Over the cap, URLs are written in place of contents.
 - **Not in the XML:**
@@ -505,7 +505,7 @@ Holders of `ts-config` at the farm base always see `full`. Whatever the setting,
 
 *Sources: [0077](../decisions/0077-special-version.md) §5.*
 
-**The URLs a client needs, as MediaWiki's "Entry point URLs" lists them:** the article path, script path, `api.php` and `rest.php`, then Triplespace's: the `triplespace/v0` REST base, `/entity/` and `Special:EntityData`, the update stream ([0032](../decisions/0032-sparql-update-stream.md)), the SPARQL endpoint while `query.enabled` is on ([0059](../decisions/0059-query-service.md) §6), the MCP endpoint while `mcp.enabled` is on ([0075](../decisions/0075-mcp-server.md) §1), and the OAuth endpoints ([0025](../decisions/0025-oauth-server.md)). Each is shown only where it is served, and at the base that serves it.
+**The URLs a client needs, as MediaWiki's "Entry point URLs" lists them:** the article path, script path, `api.php` and `rest.php`, then Triplespace's: the `triplespace/v0` REST base, `/entity/` and `Special:EntityData`, the update stream ([0032](../decisions/0032-sparql-update-stream.md)), the SPARQL endpoint while `query.enabled` is on ([0059](../decisions/0059-query-service.md) §6), the MCP endpoint while `mcp.enabled` is on ([0075](../decisions/0075-mcp-server.md) §1), and the OAuth endpoints ([0025](../decisions/0025-oauth-server.md)). Each is shown only where it is served, and at the base that serves it; a private tenant's SPARQL endpoint is served to its own principals and shown to them, and its stream and dumps are not served at all ([18](18-api.md) §6).
 
 ### 5.6 Crates and third-party components
 
@@ -576,7 +576,7 @@ These are served with MediaWiki's or Wikibase's meaning and parameters. The note
 | `EditWatchlist` | The watch set, with `/raw` and `/clear` ([0020](../decisions/0020-change-feeds.md) §3) |
 | `ChangeContentModel` | [0041](../decisions/0041-content-models.md)'s `action=changecontentmodel` |
 | `Fork` | Forks a title whose primary is a page repository's page, without an edit: shows the stack, the licence and the fork options, and appends the fork's `create` ([0054](../decisions/0054-forking-a-mirrored-page.md) §2; [13](13-mirrored-pages.md)). Origin `triplespace`; restricted to `createpage` |
-| `Query` | A SPARQL editor and result table over `/sparql`, with the tenant's prefix set, labels resolved, a shareable `?query=` URL and a "Try with scope" button ([0059](../decisions/0059-query-service.md) §6; [02](02-graphs-rdf-and-query.md)). Origin `triplespace`; listed while `query.enabled` is on; group `wikibaserepo` |
+| `Query` | A SPARQL editor and result table over `/sparql`, with the tenant's prefix set, labels resolved, a shareable `?query=` URL and a "Try with scope" button ([0059](../decisions/0059-query-service.md) §6; [02](02-graphs-rdf-and-query.md)). Origin `triplespace`; listed while `query.enabled` is on; group `wikibaserepo`. On a private tenant it is served to the principals that satisfy the tenant's ACL, from the tenant's own store, since a private tenant keeps its query service and lacks only the anonymous endpoint, the update stream and the dumps ([18](18-api.md) §6) |
 | `CreateSprint` | The form that writes a `triplespace-sprint` subpage under a project page, with its scope, rules, window and an optional board (§6.2). Origin `triplespace`; restricted to `createpage`; group `pagetools` |
 | `CreateWorkspace` | The wizard that gives a project page a scope and a kit's pages: name, scope through the builder, kit with a preview, then the creates in dependency order as one job (§6.3). Origin `triplespace`; restricted to `createpage`; group `pagetools` |
 | `NewEntitySchema`, `EntitySchemaText`, `SetEntitySchemaLabelDescriptionAliases` | EntitySchema's pages, with its parameters: create a schema, serve its ShExC as `text/shex`, set its terms (§6.4). Origin `EntitySchema` |

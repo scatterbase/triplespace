@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-09 (A6)
+- **Updated:** 2026-10-09 (A7)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0028](0028-tenancy-policy.md), [0040](0040-instance-prerogatives.md)
 - **Uses:** [0010](0010-site-ui.md), [0039](0039-files-and-media.md), [0047](0047-special-pages.md)
@@ -54,9 +54,13 @@ James's direction, from the design discussion of 2026-09-30: the role is **trans
 
 ### 5. Transferring the role
 
+*Changed by A7.*
+
 *Current text: [08](../architecture/08-tenants-and-instances.md) §7.5, §7.6.*
 
 ### 6. The farm slug (settles 0028 §2's reference)
+
+*Changed by A7.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §1.2.*
 
@@ -74,7 +78,7 @@ James's direction, from the design discussion of 2026-09-30: the role is **trans
 
 ### 9. API and UI
 
-*Changed by A5.*
+*Changed by A5, A7.*
 
 *Current text: [18](../architecture/18-api.md) §1.2, §2.2; [19](../architecture/19-site-ui.md) §6.11.*
 
@@ -182,3 +186,18 @@ Replaced text (§10):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§10
 - **Summary:** The Decision's current text now lives in the architecture chapters [01](../architecture/01-log-and-records.md), [02](../architecture/02-graphs-rdf-and-query.md), [08](../architecture/08-tenants-and-instances.md), [09](../architecture/09-security-and-moderation.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A7. The farm code
+
+- **Date:** 2026-10-09
+- **Source:** [0079](0079-derived-issuer-codes.md) §4, §7
+- **Change:** amends §5, §6; extends §9
+- **Summary:** The farm slug stays the instance's readable name, chosen at `instance create --farm-slug` and never changed, but it is in no key. The **farm code**, derived from the instance's founding record (its first `key:` record, at offset 0 of the instance `config` partition) as a tenant's issuer code is, is what the operator's actor key `instance:{farm code}`, the farm issuer's code and the farm partition names carry, so that an instance act stays attributed to the instance that made it whatever other instance shares its slug (§6). A primary transfer leaves the operator's key unchanged (§5). `siprop=triplespace` and `GET /tenancy` at the farm base report the farm code beside the farm slug (§9).
+
+Replaced text (§6, in [08](../architecture/08-tenants-and-instances.md) §1.2):
+
+> **The farm slug is the instance's own slug.** It is chosen at `instance create` (`--farm-slug`, required, with no default derived from a tenant), registered in the same shared namespace of slugs, provider slugs and issuer codes, and **never changes**, since it is part of the operator's actor key `instance:{farm slug}` (§8.2), the farm issuer's code (§3.5) and the farm partition names `actors/{farm}`, `accounts/{farm}` and `log/{farm}` (§2.1). It differs from every tenant slug, the primary tenant's included. A single-tenant instance has one too, because the operator actor needs it whether or not a farm issuer exists. `instance` itself is reserved in the shared namespace, so no tenant or provider can take it.
+
+Replaced text (§5, in [08](../architecture/08-tenants-and-instances.md) §7.5):
+
+> - The operator actor keeps its key `instance:{farm slug}` and its IRI.

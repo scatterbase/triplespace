@@ -223,7 +223,7 @@ POST /transform/wikitext/to/html
 
 ### 4.1 Links, categories and other metadata come from expanded output
 
-*Sources: [0042](../decisions/0042-template-expansion-and-parsoid.md) §9.*
+*Sources: [0042](../decisions/0042-template-expansion-and-parsoid.md) §9; [0083](../decisions/0083-write-path-in-three-tiers.md) §1, §6.*
 
 **While expansion is on**, everything a page links to or belongs to is read from its **expanded** text, as in MediaWiki:
 
@@ -240,7 +240,7 @@ A template's `<includeonly>` categories reach the pages that transclude it; its 
 
 **While expansion is off,** [0038](../decisions/0038-page-metadata-and-categories.md) §3 applies unchanged ([10](10-pages-and-content-models.md)).
 
-**These rows are written by the refresh job (§4.3), not by the page projection.** Computing them may read other pages and run Lua, which does not belong inside the appending transaction ([0013](../decisions/0013-postgres-storage.md) §7). A page's links follow its edit after the refresh queue, as MediaWiki's deferred links update does.
+**The expansion-derived rows are written by the refresh job (§4.3), not by the page projection.** Computing them may read other pages and run Lua, which does not belong inside the appending transaction ([0013](../decisions/0013-postgres-storage.md) §7; [0083](../decisions/0083-write-path-in-three-tiers.md) §1). `view.page_link`, `view.page_category` and `view.page_prop` therefore carry two row classes, told apart by `from_render`, with **one writer each**: the page projection writes the source-derived rows, what the stored text itself links to, belongs to and sets, when it applies the record; the refresh job writes the expansion-derived rows, with `from_render = true`, from the render. Each writer owns its class exclusively and readers union them, so a page's source links are indexed as soon as its edit is projected and the links its templates emit follow after the refresh queue, as MediaWiki's deferred links update does. The refresh job never deletes a row it did not write, and turning `wikitext.expansion` off truncates the render-owned rows and nothing else ([0083](../decisions/0083-write-path-in-three-tiers.md) §6; the tables are [10](10-pages-and-content-models.md) §5.2, §5.3 and §5.5's).
 
 ### 4.2 The manifest
 
@@ -259,7 +259,7 @@ A template's `<includeonly>` categories reach the pages that transclude it; its 
 
 ### 4.3 Tables and the refresh queue
 
-*Sources: [0042](../decisions/0042-template-expansion-and-parsoid.md) §10.*
+*Sources: [0042](../decisions/0042-template-expansion-and-parsoid.md) §10; [0083](../decisions/0083-write-path-in-three-tiers.md) §6.*
 
 **Tables** (`view`, written by the refresh job):
 
@@ -271,17 +271,17 @@ A template's `<includeonly>` categories reach the pages that transclude it; its 
 
 `unheld_misses` is the count of §7.10. The queue is `ops.render_refresh`: page IDs with a reason, deduplicated.
 
-**These are the first `view` tables that are not a pure function of the log.** They are rebuilt by re-rendering every `wikitext` page, and where a render read a foreign repository or the clock, the rebuild may differ from the original. This is the exception to [0013](../decisions/0013-postgres-storage.md) §5.6's rule that every `view` table is rebuilt from the log, for these three tables and for the links and categories they drive (§4.1); the catalogue is [03](03-storage-caches-and-search.md)'s.
+**These tables are not log-replayed.** Every projection declares its class, log-replayed or view-derived ([0083](../decisions/0083-write-path-in-three-tiers.md) §6), and the render tables are neither a pure function of the log nor a scan of other `view` tables: `transclusion`, `render_state` and the render-owned row classes of §4.1 are **render-derived**, rebuilt by re-rendering every `wikitext` page, and where a render read a foreign repository or the clock, the rebuild may differ from the original. A rebuild truncates the render-owned rows and enqueues every `wikitext` page on `ops.render_refresh`; it re-runs no job of its own and never touches the source-derived rows, which the page projection replays. `entity_usage` is written by the refresh job from the manifest in the same way, and is read by the tier-3 consumer of §7.9. The catalogue is [03](03-storage-caches-and-search.md)'s.
 
 **Reports and statistics.** The refresh job applies report deltas (`view.report_entry`) in the same transaction as the `transclusion`, link, category and `entity_usage` rows it writes ([0047](../decisions/0047-special-pages.md) §4.3). Site statistics, a volatile input here, are read from `view.site_stats` ([0047](../decisions/0047-special-pages.md) §13).
 
 ### 4.4 What triggers a refresh
 
-*Sources: [0042](../decisions/0042-template-expansion-and-parsoid.md) §10; [0043](../decisions/0043-lua-modules.md) §10.*
+*Sources: [0042](../decisions/0042-template-expansion-and-parsoid.md) §10; [0043](../decisions/0043-lua-modules.md) §10; [0083](../decisions/0083-write-path-in-three-tiers.md) §3.*
 
 1. A page's own new revision.
 2. A change to a page another page depends on: a new revision, creation, deletion, undeletion, move, or a `read` ACL. Every page whose `transclusion` row names it, by page ID or by title, gets an epoch bump and a refresh, in batches, as MediaWiki's `HTMLCacheUpdate` and `refreshLinks` jobs do.
-3. A change to an entity's `resolved_version`, for usage rows whose aspects the change touches (§7.9).
+3. A composition event for an entity, "entity X composed to version N", consumed by the entity-usage consumer of §7.9 in its own queue, never inside the composing or appending transaction, for usage rows whose aspects the change touches. The consumer first checks `view.entity_usage` by index for the entity and every member of its cluster and stops there when no page uses any of them; it is off while no tenant on the instance has `wikitext.expansion` on, and off during bootstrap and bulk modes until the operator turns it on ([0083](../decisions/0083-write-path-in-three-tiers.md) §3).
 4. `expires_at` passing, for volatile and foreign inputs. This is lazy: the next read finds the entry expired and renders again.
 5. A change to any `wikitext.*` setting ([23](23-configuration-and-registry.md)).
 6. `action=purge` (§4.6).
@@ -296,9 +296,11 @@ A rendered page's version gains the page's **render epoch**:
 p:{pageid}:{gen}:{offset}:{epoch}:{renderer}:{lang}
 ```
 
-Its lifetime is the lower of [0014](../decisions/0014-caches-and-search.md) §4's ceiling and `expires_at`. A miss renders synchronously under single flight ([0014](../decisions/0014-caches-and-search.md) §4); there is no stale serving after an epoch bump, as MediaWiki renders afresh after `page_touched` moves. The `p:` key, like the `css:` (§6.2) and `ld:` (§7.6) keys, also carries the `{vis}` segment after `{gen}` that [03](03-storage-caches-and-search.md) describes, because its value depends on what the viewer may read.
+Its lifetime is the lower of [0014](../decisions/0014-caches-and-search.md) §4's ceiling and `expires_at`. A miss renders synchronously under single flight ([0014](../decisions/0014-caches-and-search.md) §4). The `p:` key, like the `css:` (§6.2) and `ld:` (§7.6) keys, also carries the `{vis}` segment after `{gen}` that [03](03-storage-caches-and-search.md) describes, because its value depends on what the viewer may read.
 
-**Erasure, deletion and hiding reach transcluding pages.** Every rendered response carries a `Cache-Tag` for each page and entity in its manifest. Erasing, deleting or hiding a dependency bumps the epoch of every page that depends on it, deletes their `p:` keys, and purges their tags, because the public form of those pages has changed ([0014](../decisions/0014-caches-and-search.md) §5, in [03](03-storage-caches-and-search.md)).
+**Which bumps serve stale.** An epoch bump that a **dependency** induces (§4.4 items 2, 3 and 5: a template or module edited, an entity recomposed, a `wikitext.*` setting changed) does not make the next reader wait: the old `p:` entry is served **stale-while-revalidate** and the refresh queue re-renders the page in its own time, so a template edit on a mirror of Wikipedia re-renders ten thousand pages behind the readers rather than in front of them. **The page's own edit keeps "no stale"**: a new revision of the page itself (item 1), and `action=purge` (§4.6), delete its `p:` keys and the next read renders afresh, as MediaWiki renders after `page_touched` moves, so read-your-writes holds for the editor. **Synchronous renders are bounded per tenant** by a render pool, deployment configuration beside the Parsoid concurrency of §1.1; a miss that finds the pool full is served stale where a stale entry exists and enqueued, and waits only where there is none.
+
+**Erasure, deletion and hiding reach transcluding pages, and never serve stale.** Every rendered response carries a `Cache-Tag` for each page and entity in its manifest. Erasing, deleting or hiding a dependency bumps the epoch of every page that depends on it, deletes their `p:` keys, and purges their tags, because the public form of those pages has changed ([0014](../decisions/0014-caches-and-search.md) §5, in [03](03-storage-caches-and-search.md)); the stale entry is unreachable, whatever the pool's state.
 
 ### 4.6 Purging
 
@@ -551,7 +553,7 @@ The limits are deployment configuration, as the expander's are; a tenant may low
 
 ### 7.9 Usage tracking and invalidation
 
-*Sources: [0043](../decisions/0043-lua-modules.md) §10.*
+*Sources: [0043](../decisions/0043-lua-modules.md) §10; [0083](../decisions/0083-write-path-in-three-tiers.md) §3.*
 
 **Every entity read records Wikibase's usage aspects** in the render manifest (§4.2), with Wikibase Client's codes:
 
@@ -567,7 +569,7 @@ The limits are deployment configuration, as the expander's are; a tenant may low
 
 **They are stored in `view.entity_usage`** `(page_id, entity_id, aspect, modifier)`, with canonical IDs, written by the refresh job (§4.3), and the counterpart of Wikibase's `wbc_entity_usage`.
 
-**When an entity's `resolved_version` changes**, the change is classified from its structured diff ([0012](../decisions/0012-api-requirements.md) §7, in [18](18-api.md)): which languages' labels and descriptions, which properties' statements, which sitelinks, and whether it was a redirect or a change of cluster. Only pages whose aspects match get an epoch bump and a refresh. A label edit in German does not re-render pages that read only English labels.
+**Invalidation is a tier-3 consumer of composition** ([0083](../decisions/0083-write-path-in-three-tiers.md) §3). The composer emits "entity X, tenant T, composed to version N" after each composed row commits, and the entity-usage consumer reads those events in its own queue, with its own rate and lag, never inside the appending or composing transaction. For each event it **first checks `view.entity_usage` for existence**, by index, for the canonical ID and every member of its cluster, and does nothing further when no page uses any of them, which is the common case on a mirror of millions of entities; only then does it classify the change from the structured diff of the previous and new composed rows ([0012](../decisions/0012-api-requirements.md) §7, in [18](18-api.md)): which languages' labels and descriptions, which properties' statements, which sitelinks, and whether it was a redirect or a change of cluster. Only pages whose aspects match get an epoch bump and a refresh, served stale-while-revalidate meanwhile (§4.5). A label edit in German does not re-render pages that read only English labels. The consumer is **off while no tenant on the instance has `wikitext.expansion` on**, since no manifest can then record an entity, and off during bootstrap and bulk modes until the operator turns it on; its lag is reported on its own page, and a page's render may be behind an entity by that lag.
 
 ### 7.10 Entities the tenant does not hold
 

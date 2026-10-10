@@ -72,7 +72,7 @@ Upstream titles are mapped to keys when the adapter reads them.
 
 *Sources: [0011](../decisions/0011-logs.md) §4.*
 
-The provider registry lists the log types each provider mirrors. It is configuration, recorded in the log ([23](23-configuration-and-registry.md)). The default for Wikidata:
+The provider registry lists the log types each provider mirrors. It is configuration, recorded in the log ([23](23-configuration-and-registry.md)). The default for every provider is `delete/*` and `protect/*`; for Wikidata:
 
 | Log | Mirrored | Why |
 |---|---|---|
@@ -80,12 +80,13 @@ The provider registry lists the log types each provider mirrors. It is configura
 | `delete/revision` | Yes | Triggers redaction of held revisions (§1.5) |
 | `delete/event` | Yes | Triggers redaction of held log events (§1.5) |
 | `protect/*` | Yes | Protection history |
-| `import/*`, `create/create`, `contentmodel/*` | Yes | Page provenance |
+| `create/create` | Derived | Not mirrored as events: the creation of a mirrored entity is derived from its first upstream revision record where history is backfilled ([01](01-log-and-records.md) §2.6), so the provider log never holds one event per entity ever created |
+| `import/*`, `contentmodel/*` | No by default | Page provenance; a provider's registry entry may add them |
 | `renameuser/*` | Consumed (§1.6) | Updates foreign actor records. Stored without names. |
 | `move/*`, `merge/merge` | No | Entity pages cannot be moved. They become relevant only if non-entity pages are mirrored. |
 | `block/*`, `rights/*`, `newusers/*`, `patrol/*`, `tag/*`, `managetags/*`, and extension logs such as thanks and AbuseFilter | No | They describe people and moderation, not the data. Mirroring them would raise the privacy stakes without adding to any entity's history. |
 
-**The backfill covers events whose target lies in a mirrored entity namespace, whether or not the instance holds the entity.** The deletion log of an item that was deleted before the mirror began still answers "what happened to Q123?". An instance may narrow the backfill to entities it holds.
+**The backfill covers events whose target the instance holds**, and nothing else. An event about an entity the instance has never held, such as the deletion of an item that was deleted before the mirror began, is not mirrored; a provider log therefore grows with the instance's mirror, never with the provider's whole history. The deletion of an entity the instance does hold is mirrored, which is what §3.2's deleted-entity page reads.
 
 **Sources:**
 
@@ -139,13 +140,13 @@ An upstream `renameuser` event does two things.
 
 ### 2.1 Projected, not written twice
 
-*Sources: [0011](../decisions/0011-logs.md) §6, §6.1; [0040](../decisions/0040-instance-prerogatives.md) §7.*
+*Sources: [0011](../decisions/0011-logs.md) §6, §6.1; [0040](../decisions/0040-instance-prerogatives.md) §7; [0079](../decisions/0079-derived-issuer-codes.md) §4.*
 
 Most local actions already have a record elsewhere: an erase record in its target's partition, a page record, an actor record, a change set. Writing a second log record for the same action would mean two writes that cannot be made atomic across partitions, and two places to erase.
 
 **A log event for such an action is a projection of its record.** The log graph holds only actions that have no other record. The catalogue in §2.3 says, for each type and action, which record it is projected from.
 
-**Instance acts keep their own types.** An event projected from an instance act ([08](08-tenants-and-instances.md) §8) keeps its type (`erase/erase`, `block/block`, `rights/rights`, `renameuser/renameuser`), names the operator actor `instance:{farm slug}` as performer and carries `instance: true` in its parameters. `list=logevents` reports the performer as the operator actor's display name, and `leprop=details` includes the authority link. Contributions of `instance:{farm slug}` at a tenant list the instance acts on that tenant; at the farm base, for `ts-viewoperator`, every instance act on every tenant with the operator who carried it out. The rest of [0040](../decisions/0040-instance-prerogatives.md) §7, the display of an instance act in history and its RDF, is in [19](19-site-ui.md) and [02](02-graphs-rdf-and-query.md) §5.1.
+**Instance acts keep their own types.** An event projected from an instance act ([08](08-tenants-and-instances.md) §8) keeps its type (`erase/erase`, `block/block`, `rights/rights`, `renameuser/renameuser`), names the operator actor `instance:{farm code}` as performer and carries `instance: true` in its parameters. `list=logevents` reports the performer as the operator actor's display name, and `leprop=details` includes the authority link. Contributions of `instance:{farm code}` at a tenant list the instance acts on that tenant; at the farm base, for `ts-viewoperator`, every instance act on every tenant with the operator who carried it out. The rest of [0040](../decisions/0040-instance-prerogatives.md) §7, the display of an instance act in history and its RDF, is in [19](19-site-ui.md) and [02](02-graphs-rdf-and-query.md) §5.1.
 
 **Erasure propagates automatically, because events are projections.**
 
@@ -178,6 +179,7 @@ This is the one table of every log type and action the ADRs name: the table of [
 | `create/create` | The first record of a local entity, document page or thread (a thread `create`), unless it was adopted (`import/*` below) | — | Everyone | 0011 §6.1; 0019 §7 |
 | `delete/delete`, `delete/restore` | A `read` ACL on a page, thread, file page or local entity, and its retirement ([09](09-security-and-moderation.md) §4.3, §6.2) | `delete/restore`: the number of revisions restored; whether the talk page went with it; on restore, the record ACLs that stay | Everyone | 0011 §6.1, §7; 0019 §7; 0023 §3; 0039 §16 |
 | `delete/revision`, `delete/event` | A `record` ACL on a record's parts ([09](09-security-and-moderation.md) §6.3); `delete/revision` with `type=oldimage` from a `record` ACL on an `upload` record | The affected revision or log IDs; the fields hidden and the fields revealed | Everyone | 0011 §6.1, §7; 0023 §3; 0039 §16 |
+| `delete/statement` | A `read` ACL on a `statement` or `property` target, and its retirement ([09](09-security-and-moderation.md) §4.2): the statement is hidden for privacy or legal reasons, which is moderation, not an `override`. On a provider's activity stream it tells a reading instance to drop the statement it holds, as an `upstream` erasure ([17](17-federation-and-publication.md) §1.2) | The statement ID, or the property; whether hidden or revealed | Everyone, as `delete/revision`; the statement itself only the group | 0023 §2; 0022 §2 |
 | `suppress/*`: `suppress/delete`, `suppress/revision`, `suppress/event`, `suppress/hide-user` | The same ACLs naming the suppression group ([09](09-security-and-moderation.md) §6.5); `suppress/hide-user` (MediaWiki writes this as `suppress/block` with `hideuser`) hides a username | As the `delete/*` row; `suppress/hide-user`: the actor key | The suppression group | 0011 §6.1; 0023 §3 |
 | `patrol/patrol`, `patrol/unpatrol` | A patrol or unpatrol record in the local log ([09](09-security-and-moderation.md) §6.4) | — | Everyone | 0011 §6.1 |
 | `abusefilter/create`, `abusefilter/modify` | A filter record in the local log ([09](09-security-and-moderation.md) §7.5) | — | Everyone, or the filter's viewers if it is private | 0011 §6.1; 0030 §5 |
@@ -201,6 +203,7 @@ This is the one table of every log type and action the ADRs name: the table of [
 | `link/link` | A `link-account` record ([07](07-actors-and-accounts.md) §3.1) | — | Everyone, while the link exists | 0011 §6.1 |
 | `reclaim/reclaim` | The reclaiming binding record in the tenant `log`, written when a bureaucrat records a manual reclaim of an account after a tenant move or an adoption ([08](08-tenants-and-instances.md) §6.4) | — | Everyone | 0018 §10; 0035 §5 |
 | `retention/set` | A `retain` operation | The old and new policies | Everyone | 0011 §6.1, §7 |
+| `retention/apply` | The record the entity projection writes in a tenant's partition, under the instance attestation with an authority record, when it applies that tenant's retention policy to an entity an upstream tombstone removed ([05](05-providers-and-ingest.md) §2.1); a tier-3 job, one event per tenant and entity | The policy applied (`retain`, `cascade` or `orphan`) and the provider's tombstone | Everyone | 0002 §5 |
 | `convert/convert` | A `convert` operation | The local ID that was minted | Everyone | 0011 §6.1, §7 |
 | `erase/erase` | An `erase` record in any partition, the erasures of file deletion and takedown included | The reason class and the authority reference ([01](01-log-and-records.md) §5.1) | Everyone; the reason class and authority reference are visible to holders of `ts-viewerasures` ([09](09-security-and-moderation.md) §6.6) | 0011 §6.1, §7; 0039 §16; 0040 §7 |
 | `job/start`, `job/finish`, `job/fail`, `job/revert` | Job records in the local log, or the instance `log` for an instance job (§2.2) | The job's source, version, mode and outcome counts | Everyone | 0011 §6.1, §7; 0035 §2 |
@@ -253,11 +256,11 @@ An adopted entity's first record is an `edit` row with `new` set, the `bot` flag
 
 *Sources: [0011](../decisions/0011-logs.md) §9.*
 
-- **The activity projection** (`view.activity`, [03](03-storage-caches-and-search.md) §4.6) indexes events from both log graphs and the projected local events.
-  - An entity's history shows upstream log events keyed to any member of its cluster, and local events keyed to the entity.
+- **The activity projection** (`view.activity`, [03](03-storage-caches-and-search.md) §4.6) indexes the local log graph's events and the projected local events. It never holds an upstream log event, so it grows with local activity and the number of jobs, not with the mirrors.
+- **Upstream log events are rows of `view.entity_history`**, not of `view.activity`. `view.entity_history (tenant, canonical_id, time, partition, offset, kind, member)` is written by composition ([03](03-storage-caches-and-search.md)) and is the one backing of a mirrored entity's history: one row per record keyed to any member of the entity's cluster, in any source partition, and one per provider-log event keyed to a member, each naming its kind and the member it is keyed to. An entity's history page ([19](19-site-ui.md) §3.3) and `GET /entity/{id}/history` read it, so the upstream deletion, protection and redaction events of an entity appear beside its mirror records and local edits in one keyset query.
   - Recent changes shows local events only. Upstream log events stay out of it, as mirror syncs do.
-- **`list=logevents`** serves the same events. MediaWiki's type and action strings are kept, and the new types in §2.3 are added. A provider filter defaults to local events. The API details are in [18](18-api.md).
-- **A deleted entity's page** can still say what happened, for example "Deleted on Wikidata on {date} by {admin}: {reason}". The event is in the provider log, which `cascade` does not touch.
+- **`list=logevents`** serves local events from `view.activity` and, with `leprovider`, a provider's events from `view.entity_history`. MediaWiki's type and action strings are kept, and the new types in §2.3 are added. The provider filter defaults to local events. The API details are in [18](18-api.md).
+- **A deleted entity's page** can still say what happened, for example "Deleted on Wikidata on {date} by {admin}: {reason}". The event is in the provider log, which `cascade` does not touch, and its row in `view.entity_history` is keyed to the entity.
 
 ## 4. Change feeds
 
@@ -273,7 +276,7 @@ A **feed** is defined by three things:
 - **filters**: the row kinds of [0010](../decisions/0010-site-ui.md) §7 (edits, page edits, jobs, log actions, mirror syncs), namespace, actor, the bot, minor and new flags, the `patrolled` flag ([09](09-security-and-moderation.md) §6.4), a period, and for target-scoped feeds a **syncs** switch (§4.2);
 - a **delivery** (§4.4): a page, an Atom document or a live stream.
 
-Its rows are the activity rows of §3.1, redacted for the viewer as [0012](../decisions/0012-api-requirements.md) §8 requires ([09](09-security-and-moderation.md) §5.7), ordered by (time, partition, offset) with the continuation tokens of [0012](../decisions/0012-api-requirements.md) §2.3. Contributions are the actor filter over the everything set, so they are a feed too.
+Its rows are the activity rows of §3.1, redacted for the viewer as [0012](../decisions/0012-api-requirements.md) §8 requires ([09](09-security-and-moderation.md) §5.7), ordered by (time, partition, offset) with the continuation tokens of [0012](../decisions/0012-api-requirements.md) §2.3 when paged, and in commit order when streamed (§4.4). Contributions are the actor filter over the everything set, so they are a feed too.
 
 **Every list of changes the UI or the API shows is one of these.** No feature builds its own list. That is the rule that keeps a history, a watchlist and the downstream stream from drifting apart.
 
@@ -302,7 +305,7 @@ Its rows are the activity rows of §3.1, redacted for the viewer as [0012](../de
 
 **Followed talk pages** ([0069](../decisions/0069-synchronized-talk-pages.md) §8; [13](13-mirrored-pages.md)). The one-target set of a talk page that follows a repository's talk page includes that page's `put` records in `pages/{repo}`, each a row "{n} upstream revisions to Talk:…" naming the foreign threads it changed (the `put`'s content part lists them); a foreign thread is its own target, the `put` rows that changed it. They are sync rows for the `syncs` filter below.
 
-**Mirror syncs in target-scoped feeds.** Recent changes has no per-entity sync rows, because a sync of a million entities is one job row ([0010](../decisions/0010-site-ui.md) §7). A history does show them, because it is scoped to one target and draws its sync rows from that target's mirror records. A watchlist is scoped to the watch set, so its cost is bounded the same way, and it shows them too. The `syncs` filter therefore defaults **on** for a watchlist and a history, **off** for recent changes and related changes: a watch on a mirrored entity covers its syncs, because the person chose that entity, and "Wikidata changed it" is the thing they most want to know. They can turn it off.
+**Mirror syncs in target-scoped feeds.** Recent changes has no per-entity sync rows, because a sync of a million entities is one job row ([0010](../decisions/0010-site-ui.md) §7). A history does show them, because it is scoped to one target and draws its sync rows from that target's rows in `view.entity_history` (§3.2). A watchlist is scoped to the watch set, so its cost is bounded the same way, and it shows them too. The `syncs` filter therefore defaults **on** for a watchlist and a history, **off** for recent changes and related changes: a watch on a mirrored entity covers its syncs, because the person chose that entity, and "Wikidata changed it" is the thing they most want to know. They can turn it off.
 
 **A move's redirect** ([0051](../decisions/0051-page-redirects.md) §9): the redirect `create` a move writes is one more row in recent changes, tagged `move-redirect`, grouped with the move in the UI as [0010](../decisions/0010-site-ui.md) §1 groups a job's rows. The filter side of that section is [09](09-security-and-moderation.md) §8.7.
 
@@ -321,8 +324,11 @@ CREATE TABLE private.watch (
   PRIMARY KEY (actor_key, target_kind, target_id)
 );
 CREATE INDEX watch_expiry ON private.watch (expires) WHERE expires IS NOT NULL;
+CREATE INDEX watch_target ON private.watch (target_kind, target_id) WHERE notify;   -- the addressing projection's lookup (§5.2)
 CREATE TABLE private.watch_token (actor_key text PRIMARY KEY, token text NOT NULL, issued timestamptz NOT NULL);
 ```
+
+`watch_target` exists for one reader: the addressing projection (§5.1), which for every activity row must find every account that watches the row's target, its cluster members or its paired talk page with `notify` set, without scanning across accounts. The watchlist itself is read by account through the primary key.
 
 - **Target kinds** are `entity`, `page`, `thread`, `actor`, `scope` and `rows`. A `scope` watch expands at query time to the Scope set of §4.2, one row however many members the scope has, and it follows the members as they change; a `rows` watch on a table expands the table's `rows` the same way, as a scope would, whatever its kind ([0060](../decisions/0060-scopes.md) §7). An entity watch stores the entity ID and is expanded through its cluster when the feed is read, so a merge or a redirect never loses it. A `page` watch is a document page, so watching a table watches its definition, as watching any page does ([0045](../decisions/0045-table-content-model.md) §8); a `thread` watch is a thread; an `actor` watch is the actor's user page and user talk page. Watching a talk page is watching its subject, and watching a subject watches its talk page (§4.2): the UI's watch star on either page toggles the same row.
 - **Expiry** is optional, with MediaWiki's choices (a week, a month, three months, six months, permanent). A daily sweep deletes expired rows.
@@ -339,7 +345,7 @@ CREATE TABLE private.watch_token (actor_key text PRIMARY KEY, token text NOT NUL
 
 ### 4.4 Delivery: page, Atom, stream
 
-*Sources: [0020](../decisions/0020-change-feeds.md) §4.*
+*Sources: [0020](../decisions/0020-change-feeds.md) §4; [0083](../decisions/0083-write-path-in-three-tiers.md) §7.*
 
 Every feed can be delivered three ways.
 
@@ -347,9 +353,11 @@ Every feed can be delivered three ways.
 |---|---|---|---|---|
 | **Page** | `Special:RecentChanges` | the History tab | `Special:RecentChangesLinked/{title}`, with a *changes to pages linking here* switch | `Special:Watchlist`, labelled **Private** ([0010](../decisions/0010-site-ui.md) §1, principle 6) |
 | **Atom** | `?feed=atom` on each, as MediaWiki offers | | | with a per-account token (`private.watch_token`), shown and resettable in `Special:Account` |
-| **Stream** | `GET /activity/stream` for any feed specification, as server-sent events, with `Last-Event-ID` carrying the continuation token | | | authenticated, never by token |
+| **Stream** | `GET /activity/stream` for any feed specification, as server-sent events, with `Last-Event-ID` carrying the resume token | | | authenticated, never by token |
 
-**The stream is the downstream change feed.** It is the everything feed delivered live, its events are activity rows redacted exactly as any response is, and it carries `erased` rows and visibility changes so that a consumer can follow an erasure as §1.5 has this instance follow upstream. It is the same mechanism as `GET /jobs/{id}/events` ([0012](../decisions/0012-api-requirements.md) §5), and a consumer that missed events resumes from its last token. A consumer tenant on another instance syncs from a provider tenant this way: a sync job follows the stream filtered to `source = local`, verified against the provider's checkpoints ([08](08-tenants-and-instances.md) §4.4, [17](17-federation-and-publication.md)); on the same instance, reading is direct ([08](08-tenants-and-instances.md) §4.1).
+**A page and a stream carry the same rows in different orders.** A paged list, its Atom form included, is ordered by (time, partition, offset), the display order of §4.1, where the time is the event's time at its source; a consumer that resumed from such a key would never see a row whose source time sorts before it and which committed after it, which imported revisions, adopted history, seeded fork history and upstream events all do. The stream is therefore ordered by commit, and its **resume token is a vector of per-partition high-water marks**, `{partition: offset, …}`: within a partition, offsets are commit-ordered under the append lock ([01](01-log-and-records.md)), so a consumer holding the vector has seen exactly the rows at or below each mark and resumes from it without loss or repetition. `Last-Event-ID` carries that vector, opaquely encoded; the continuation token of a page carries the sort key of §4.1, and the two are never interchanged. MediaWiki's `rccontinue` has the same edge, and paged lists keep it.
+
+**The stream is the downstream change feed.** It is the everything feed delivered live, its events are activity rows redacted exactly as any response is, and it carries `erased` rows and visibility changes so that a consumer can follow an erasure as §1.5 has this instance follow upstream. It is the same mechanism as `GET /jobs/{id}/events` ([0012](../decisions/0012-api-requirements.md) §5), and a consumer that missed events resumes from its last token. A consumer tenant on another instance syncs from a provider tenant this way: a sync job follows the stream filtered to `source = local`, which may then carry each row's record body, resuming from the per-partition token and verifying against the provider's checkpoints ([08](08-tenants-and-instances.md) §4.4, [17](17-federation-and-publication.md) §1.2); on the same instance, reading is direct ([08](08-tenants-and-instances.md) §4.1).
 
 **The activity stream is for consumers of change sets and events.** A triplestore that wants to follow the resolved view as triples uses the SPARQL Update stream, `GET /updates/stream`, which shares this route's transport and `Last-Event-ID` discipline and carries `DELETE DATA`/`INSERT DATA` bodies instead of activity rows ([02](02-graphs-rdf-and-query.md) §6.4).
 
