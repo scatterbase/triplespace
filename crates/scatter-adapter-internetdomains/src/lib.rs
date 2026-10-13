@@ -12,6 +12,11 @@
 //! pointing at `Q9` can only become `domain:example.org` once `Q9` is known to map there.
 //! So the adapter works in two passes: [`Index::observe`] over every entity, then
 //! [`InternetDomainsAdapter::sync_item`] over every entity again.
+//!
+//! An upstream merge arrives as a redirect page. One into a mapped item makes the merged
+//! item an alias of the key ([`Outcome::State`]'s `upstream_aliases`, 0009 A13); one
+//! between unmapped items is an ordinary mirror redirect,
+//! [`InternetDomainsAdapter::sync_redirect`].
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -87,6 +92,8 @@ pub struct Index {
     by_upstream: BTreeMap<String, String>,
     by_key: BTreeMap<String, Vec<String>>,
     conflicts: BTreeSet<String>,
+    redirects: BTreeMap<String, String>,
+    aliases: BTreeMap<String, Vec<String>>,
     finished: bool,
 }
 
@@ -115,7 +122,13 @@ impl Index {
         Ok(Some(key))
     }
 
-    /// Settles the index: a key claimed by two items maps neither (0009 §9).
+    /// Observes an upstream redirect (`Q18817` → `Q738`), IDs in the provider's form.
+    pub fn observe_redirect(&mut self, from: &str, to: &str) {
+        self.redirects.insert(from.to_string(), to.to_string());
+    }
+
+    /// Settles the index: a key claimed by two items maps neither (0009 §9), and an item
+    /// merged into a mapped item becomes an alias of its key.
     pub fn finish(&mut self) {
         for (key, items) in &self.by_key {
             if items.len() > 1 {
@@ -125,7 +138,28 @@ impl Index {
                 }
             }
         }
+        self.aliases.clear();
+        for (from, to) in &self.redirects {
+            if self.by_upstream.contains_key(to) {
+                self.aliases
+                    .entry(to.clone())
+                    .or_default()
+                    .push(from.clone());
+            }
+        }
         self.finished = true;
+    }
+
+    /// The items upstream merged into a mapped item, in ID order.
+    #[must_use]
+    pub fn aliases_of(&self, upstream_id: &str) -> &[String] {
+        self.aliases.get(upstream_id).map_or(&[], Vec::as_slice)
+    }
+
+    /// How many redirects were observed.
+    #[must_use]
+    pub fn redirects(&self) -> usize {
+        self.redirects.len()
     }
 
     /// The key an upstream item ID (`Q9`) maps to.
@@ -159,6 +193,8 @@ pub enum Outcome {
         upstream: Upstream,
         /// The upstream item ID, for a mapped Domain.
         upstream_id: Option<String>,
+        /// The items upstream merged into it, for a mapped Domain.
+        upstream_aliases: Vec<String>,
     },
     /// The item is written as an ordinary foreign item, and this is reported.
     Rejected {
@@ -278,9 +314,33 @@ impl InternetDomainsAdapter {
             None => Outcome::State {
                 entity: Box::new(entity),
                 upstream,
+                upstream_aliases: if mapped {
+                    self.index.aliases_of(&upstream_id).to_vec()
+                } else {
+                    Vec::new()
+                },
                 upstream_id: mapped.then_some(upstream_id),
             },
         })
+    }
+
+    /// An upstream redirect (`from` → `to`, in the provider's form) as the mirror records
+    /// it: `None` when the target is mapped, since the merged item is then an alias on
+    /// the target's state; otherwise a redirect between the two foreign items.
+    pub fn sync_redirect(
+        &self,
+        from: &str,
+        to: &str,
+        upstream: Upstream,
+    ) -> Result<Option<(EntityId, EntityId, Upstream)>, AdapterError> {
+        if self.index.key_of(to).is_some() {
+            return Ok(None);
+        }
+        Ok(Some((
+            self.inner.rewrite_id(from)?,
+            self.rewrite_id(to)?,
+            upstream,
+        )))
     }
 }
 
@@ -427,6 +487,7 @@ mod tests {
             entity,
             upstream,
             upstream_id,
+            ..
         } = &out[0]
         else {
             panic!("Q9 maps")
@@ -503,5 +564,51 @@ mod tests {
         };
         assert_eq!(entity.id.as_str(), "XDQ30");
         assert!(reason.contains("Q30, Q31"), "{reason}");
+    }
+
+    #[test]
+    fn a_merge_into_a_mapped_item_is_an_alias_and_others_are_redirects() {
+        let provider = Registry::default_registry().by_slug(SLUG).unwrap();
+        let key_map = DomainKeyMap::from_provider(provider).unwrap();
+        let mut index = Index::default();
+        for v in dump() {
+            let _ = index.observe(&parsed(&v).entity, &key_map);
+        }
+        index.observe_redirect("Q40", "Q9"); // into example.org
+        index.observe_redirect("Q41", "Q20"); // into the registrar, which is not mapped
+        index.observe_redirect("Q42", "Q30"); // into one side of a duplicate
+        index.finish();
+        assert_eq!(index.redirects(), 3);
+        assert_eq!(index.aliases_of("Q9"), ["Q40".to_string()]);
+        assert!(
+            index.aliases_of("Q30").is_empty(),
+            "a duplicate is not mapped"
+        );
+
+        let adapter = InternetDomainsAdapter::new(index).unwrap();
+        let q9 = dump().into_iter().next().unwrap();
+        let Outcome::State {
+            upstream_id,
+            upstream_aliases,
+            ..
+        } = adapter.sync_item(parsed(&q9)).unwrap()
+        else {
+            panic!("Q9 maps")
+        };
+        assert_eq!(upstream_id.as_deref(), Some("Q9"));
+        assert_eq!(upstream_aliases, ["Q40"]);
+
+        let up = Upstream::revision(70, Some("2026-10-01T00:00:00Z"));
+        assert_eq!(
+            adapter.sync_redirect("Q40", "Q9", up.clone()).unwrap(),
+            None
+        );
+        let (from, to, _) = adapter
+            .sync_redirect("Q41", "Q20", up.clone())
+            .unwrap()
+            .unwrap();
+        assert_eq!((from.as_str(), to.as_str()), ("XDQ41", "XDQ20"));
+        let (from, to, _) = adapter.sync_redirect("Q42", "Q30", up).unwrap().unwrap();
+        assert_eq!((from.as_str(), to.as_str()), ("XDQ42", "XDQ30"));
     }
 }

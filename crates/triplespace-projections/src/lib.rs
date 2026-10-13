@@ -49,7 +49,7 @@ pub fn milestone_pipeline<B: Backend<Cx = PgCx>>(
         .with(actors::BlockProjection)?
         .with(actors::AclProjection)?
         .with(EntitySourceProjection)?
-        .with(KeyedMapProjection::default())?
+        .with(KeyedMapProjection)?
         .with(JobProjection)?
         .with(EntityProjection::default())?
         .with(ActivityProjection)

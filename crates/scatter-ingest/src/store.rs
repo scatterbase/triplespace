@@ -6,6 +6,7 @@
 //! The Postgres implementation lives with the surfaces; [`crate::memory::MemoryIngest`]
 //! is the in-memory one the tests use.
 
+use std::collections::BTreeMap;
 use std::future::Future;
 
 use scatter_log::header::Header;
@@ -129,6 +130,15 @@ pub trait IngestStore: Backend {
         tenant: &str,
         graph: &str,
     ) -> impl Future<Output = Result<Vec<EntityId>, IngestError>> + Send;
+
+    /// The keyed entity each upstream item of a key-mapped provider owns
+    /// (`view.keyed_map`, merge aliases excluded), as the mirror graph `graph` last
+    /// recorded it: upstream item ID → keyed ID (0009 §9).
+    fn keyed_owners(
+        &self,
+        cx: &mut Self::Cx,
+        graph: &str,
+    ) -> impl Future<Output = Result<BTreeMap<String, EntityId>, IngestError>> + Send;
 
     /// The entity a match key finds (`view.identifier` for an identifier key; the entity
     /// itself, if present, for a foreign ID).

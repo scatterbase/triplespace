@@ -2,19 +2,24 @@
 //! provider's adapter. Only `internetdomains` has one so far (0009 §9): two passes over the
 //! dump, the key index and then the entities. The first pass also collects the dump's
 //! property types, so that the snaks of an XML dump, whose stored JSON has no `datatype`,
-//! are typed before the adapter sees them (as `adopt` does, 0035 §3).
+//! are typed before the adapter sees them (as `adopt` does, 0035 §3), and its redirects,
+//! so that a merge into a mapped item becomes an alias of the key (0009 A13).
+//!
+//! Every reject is printed to stderr (`reject Q48: …`) and, with `--rejects`, written to a
+//! tab-separated file: the job record keeps only the first 100 (0010 §9).
 
+use std::io::Write;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result, bail};
 use clap::Args;
 use scatter_actors::key::ActorKey;
 use scatter_adapter_internetdomains::{DomainKeyMap, Index, InternetDomainsAdapter, Outcome};
-use scatter_adapter_wikidata::{DumpPropertyTypes, Entities};
+use scatter_adapter_wikidata::{DumpEntry, DumpPropertyTypes, Entities};
 use scatter_ingest::sync::{SyncItem, run_sync};
 use scatter_ingest::write::Attestation;
 use scatter_providers::Registry;
-use scatter_wikibase_changeset::{JobHeader, Mode};
+use scatter_wikibase_changeset::{JobHeader, Mode, Upstream};
 
 use crate::common::{connect, farm_of, now, store};
 
@@ -42,6 +47,9 @@ pub struct Sync {
     /// Entities per unit of work.
     #[arg(long, default_value_t = 200)]
     pub batch: usize,
+    /// Writes every reject to this file, one `upstream ID<TAB>reason` line each.
+    #[arg(long)]
+    pub rejects: Option<PathBuf>,
     /// The farm slug and base, for the pipeline and the acting instance key.
     #[arg(long)]
     pub farm_slug: Option<String>,
@@ -70,14 +78,15 @@ pub fn prepare_internetdomains(dump: &std::path::Path) -> Result<Prepared> {
     let mut unreadable = 0u64;
     let mut seen = 0u64;
     eprintln!("indexing {}", dump.display());
-    for parsed in Entities::open(dump).context("open dump")? {
-        match parsed {
-            Ok(p) => {
+    for entry in Entities::open(dump).context("open dump")?.entries() {
+        match entry {
+            Ok(DumpEntry::Entity(p)) => {
                 seen += 1;
                 // A reject here is reported on the second pass.
                 let _ = index.observe(&p.entity, &key_map);
                 types.observe(&p.entity);
             }
+            Ok(DumpEntry::Redirect(r)) => index.observe_redirect(r.from.as_str(), r.to.as_str()),
             Err(e) => {
                 unreadable += 1;
                 eprintln!("dump error: {e}");
@@ -86,16 +95,32 @@ pub fn prepare_internetdomains(dump: &std::path::Path) -> Result<Prepared> {
     }
     index.finish();
     eprintln!(
-        "  {seen} entities, {} mapped to domains, {} keys in conflict, {} property types",
+        "  {seen} entities, {} mapped to domains, {} keys in conflict, {} redirects, {} property types",
         index.mapped(),
         index.conflicts().count(),
+        index.redirects(),
         types.len()
     );
     let adapter = InternetDomainsAdapter::new(index)?;
     let mut items = Vec::new();
-    for parsed in Entities::open(dump).context("open dump")? {
-        let Ok(mut parsed) = parsed else {
-            continue;
+    for entry in Entities::open(dump).context("open dump")?.entries() {
+        let mut parsed = match entry {
+            Ok(DumpEntry::Entity(p)) => *p,
+            Ok(DumpEntry::Redirect(r)) => {
+                let upstream = Upstream::revision(r.revid, Some(&r.timestamp));
+                match adapter.sync_redirect(r.from.as_str(), r.to.as_str(), upstream) {
+                    Ok(Some((from, to, upstream))) => {
+                        items.push(SyncItem::Redirected { from, to, upstream });
+                    }
+                    Ok(None) => {}
+                    Err(e) => {
+                        unreadable += 1;
+                        eprintln!("adapter error: {} → {}: {e}", r.from, r.to);
+                    }
+                }
+                continue;
+            }
+            Err(_) => continue,
         };
         types.apply(&mut parsed.entity);
         match adapter.sync_item(parsed) {
@@ -103,10 +128,12 @@ pub fn prepare_internetdomains(dump: &std::path::Path) -> Result<Prepared> {
                 entity,
                 upstream,
                 upstream_id,
+                upstream_aliases,
             }) => items.push(SyncItem::State {
                 entity,
                 upstream,
                 upstream_id,
+                upstream_aliases,
             }),
             Ok(Outcome::Rejected {
                 entity,
@@ -122,6 +149,7 @@ pub fn prepare_internetdomains(dump: &std::path::Path) -> Result<Prepared> {
                     entity,
                     upstream,
                     upstream_id: None,
+                    upstream_aliases: Vec::new(),
                 });
             }
             Err(e) => {
@@ -136,6 +164,35 @@ pub fn prepare_internetdomains(dump: &std::path::Path) -> Result<Prepared> {
     Ok(Prepared { items, unreadable })
 }
 
+/// Prints every reject to stderr and, with a path, writes them as `upstream ID<TAB>reason`
+/// lines: the job record keeps only the first 100.
+pub fn report_rejects(items: &[SyncItem], path: Option<&std::path::Path>) -> Result<()> {
+    let mut file = path
+        .map(|p| {
+            std::fs::File::create(p)
+                .map(std::io::BufWriter::new)
+                .with_context(|| format!("create {}", p.display()))
+        })
+        .transpose()?;
+    for item in items {
+        if let SyncItem::Rejected {
+            upstream_id,
+            reason,
+        } = item
+        {
+            eprintln!("reject {upstream_id}: {reason}");
+            if let Some(f) = file.as_mut() {
+                let reason = reason.replace(['\t', '\n'], " ");
+                writeln!(f, "{upstream_id}\t{reason}")?;
+            }
+        }
+    }
+    if let Some(mut f) = file {
+        f.flush()?;
+    }
+    Ok(())
+}
+
 /// Runs the sync.
 pub async fn run(args: Sync) -> Result<()> {
     if args.provider != scatter_adapter_internetdomains::SLUG {
@@ -145,6 +202,7 @@ pub async fn run(args: Sync) -> Result<()> {
         );
     }
     let prepared = prepare_internetdomains(&args.dump)?;
+    report_rejects(&prepared.items, args.rejects.as_deref())?;
     let client = connect(&args.database).await?;
     let farm = farm_of(
         &client,
@@ -188,6 +246,12 @@ pub async fn run(args: Sync) -> Result<()> {
     println!("  unchanged  {}", outcome.counts.unchanged);
     println!("  rejected   {}", outcome.counts.rejected);
     println!("  tombstoned {}", outcome.counts.tombstoned);
+    if outcome.counts.cleared > 0 {
+        println!("  cleared    {}", outcome.counts.cleared);
+    }
+    if outcome.counts.other > 0 {
+        println!("  redirected {}", outcome.counts.other);
+    }
     if outcome.swept > 0 {
         println!("  swept      {}", outcome.swept);
     }
@@ -265,5 +329,73 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// The XML fixture with three more pages: an unmapped registrar (Q20), Q12 merged into
+    /// wikipedia.org (Q11) and Q21 merged into the registrar, and an item whose identity
+    /// value is not a domain (Q22).
+    fn merged_dump() -> std::path::PathBuf {
+        let base = std::fs::read_to_string(fixture("internetdomains.xml")).unwrap();
+        let page = |id: u64, title: &str, model: &str, text: &str| {
+            format!(
+                "  <page>\n    <title>{title}</title>\n    <ns>120</ns>\n    <id>{id}</id>\n    <revision>\n      <id>{}</id>\n      <timestamp>2026-10-02T00:00:00Z</timestamp>\n      <contributor><username>Fixture</username><id>1</id></contributor>\n      <model>{model}</model>\n      <format>application/json</format>\n      <text xml:space=\"preserve\">{text}</text>\n    </revision>\n  </page>\n",
+                100 + id
+            )
+        };
+        let extra = [
+            page(20, "Item:Q20", "wikibase-item", r#"{"type":"item","id":"Q20","labels":{"en":{"language":"en","value":"Registrar"}},"descriptions":[],"aliases":[],"claims":[],"sitelinks":[]}"#),
+            page(12, "Item:Q12", "wikibase-item", r#"{"entity":"Q12","redirect":"Q11"}"#),
+            page(21, "Item:Q21", "wikibase-item", r#"{"entity":"Q21","redirect":"Q20"}"#),
+            page(22, "Item:Q22", "wikibase-item", r#"{"type":"item","id":"Q22","labels":[],"descriptions":[],"aliases":[],"claims":{"P1":[{"mainsnak":{"snaktype":"value","property":"P1","datavalue":{"value":"news.example/us","type":"string"}},"type":"statement","rank":"normal","id":"Q22$00000000-0000-0000-0000-0000000000C1"}]},"sitelinks":[]}"#),
+        ]
+        .concat();
+        let xml = base.replace("</mediawiki>", &format!("{extra}</mediawiki>"));
+        let path = std::env::temp_dir().join(format!("ts-merged-{}.xml", std::process::id()));
+        std::fs::write(&path, xml).unwrap();
+        path
+    }
+
+    #[test]
+    fn redirects_become_aliases_or_mirror_redirects_and_rejects_are_all_reported() {
+        let dump = merged_dump();
+        let prepared = prepare_internetdomains(&dump).unwrap();
+        std::fs::remove_file(&dump).unwrap();
+        let wikipedia = prepared
+            .items
+            .iter()
+            .find_map(|i| match i {
+                SyncItem::State {
+                    upstream_id: Some(q),
+                    upstream_aliases,
+                    ..
+                } if q == "Q11" => Some(upstream_aliases),
+                _ => None,
+            })
+            .unwrap();
+        assert_eq!(
+            wikipedia,
+            &["Q12".to_string()],
+            "a merge into a mapped item"
+        );
+        let redirects: Vec<(String, String)> = prepared
+            .items
+            .iter()
+            .filter_map(|i| match i {
+                SyncItem::Redirected { from, to, .. } => Some((from.to_string(), to.to_string())),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(redirects, [("XDQ21".to_string(), "XDQ20".to_string())]);
+
+        let file = std::env::temp_dir().join(format!("ts-rejects-{}.tsv", std::process::id()));
+        report_rejects(&prepared.items, Some(&file)).unwrap();
+        let tsv = std::fs::read_to_string(&file).unwrap();
+        std::fs::remove_file(&file).unwrap();
+        let lines: Vec<&str> = tsv.lines().collect();
+        assert_eq!(lines.len(), 1);
+        assert!(
+            lines[0].starts_with("Q22\t`news.example/us` is not a valid domain key"),
+            "{tsv}"
+        );
     }
 }

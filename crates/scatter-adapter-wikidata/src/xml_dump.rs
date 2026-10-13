@@ -419,7 +419,7 @@ pub(crate) mod tests {
       <contributor><username>Alice</username><id>7</id></contributor>
       <model>wikibase-item</model>
       <format>application/json</format>
-      <text xml:space="preserve">{"entity":"Q6","redirect":"Q7"}</text>
+      <text xml:space="preserve">{"entity":"Q7","redirect":"Q6"}</text>
     </revision>
   </page>
 </mediawiki>

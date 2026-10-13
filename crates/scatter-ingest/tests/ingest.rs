@@ -517,6 +517,7 @@ fn xd_state(id: &str, label: &str, revid: u64) -> SyncItem {
         ))),
         upstream: Upstream::revision(revid, Some("2026-10-01T00:00:00Z")),
         upstream_id: None,
+        upstream_aliases: Vec::new(),
     }
 }
 
@@ -543,6 +544,7 @@ fn a_sync_keeps_the_cursor_and_sweeps_in_snapshot_mode() {
                 entity: Box::new(domain.clone()),
                 upstream: Upstream::revision(30, None),
                 upstream_id: Some("Q9".into()),
+                upstream_aliases: Vec::new(),
             },
             SyncItem::Deleted {
                 id: EntityId::parse("XDQ99").unwrap(),
@@ -644,6 +646,7 @@ fn a_sync_keeps_the_cursor_and_sweeps_in_snapshot_mode() {
                 entity: Box::new(two_new),
                 upstream: Upstream::revision(25, None),
                 upstream_id: None,
+                upstream_aliases: Vec::new(),
             },
             xd_state("XDQ1", "Older", 5),
         ];
@@ -702,15 +705,38 @@ fn a_sync_keeps_the_cursor_and_sweeps_in_snapshot_mode() {
         .await
         .unwrap();
         assert_eq!(out.swept, 2, "XDQ2 and the domain");
-        assert_eq!(out.counts.tombstoned, 2);
+        assert_eq!(out.counts.tombstoned, 1, "XDQ2");
+        assert_eq!(
+            out.counts.cleared, 1,
+            "a Domain is cleared, never tombstoned"
+        );
         let ops = store.operations(MIRROR_XD);
-        assert!(matches!(ops[ops.len() - 1], Operation::Tombstone { .. }));
+        assert!(matches!(ops[ops.len() - 2], Operation::Tombstone { .. }));
+        match &ops[ops.len() - 1] {
+            Operation::Put {
+                id,
+                entity,
+                upstream_id,
+                prev_upstream,
+                ..
+            } => {
+                assert_eq!(id.as_str(), "domain:example.org");
+                assert!(entity.labels.is_empty() && entity.statements.is_empty());
+                assert_eq!(*upstream_id, None);
+                assert_eq!(prev_upstream.as_ref().unwrap().revid, Some(30));
+            }
+            other => panic!("{other:?}"),
+        }
         let mut cx = store.begin().await.unwrap();
         let remaining = store
             .entities_of_graph(&mut cx, "", "mirror/internetdomains")
             .await
             .unwrap();
-        assert_eq!(remaining.len(), 1);
+        assert_eq!(
+            remaining.len(),
+            2,
+            "XDQ1, and the cleared Domain, which still exists"
+        );
         store.rollback(cx).await.unwrap();
         let finish = params_of(store.records(INSTANCE_LOG).last().unwrap());
         assert_eq!(finish["sweep"]["count"], 2);
@@ -743,6 +769,196 @@ fn a_sync_keeps_the_cursor_and_sweeps_in_snapshot_mode() {
         assert_eq!(store.records(MIRROR_XD).len(), before);
         let last = events(&store, INSTANCE_LOG).pop().unwrap();
         assert_eq!(last.0, "fail");
+    });
+}
+
+fn domain_state(key: &str, owner: &str, aliases: &[&str], label: &str, revid: u64) -> SyncItem {
+    let mut domain = entity(json!({"type": "domain", "id": format!("domain:{key}"),
+        "labels": {"en": {"language": "en", "value": label}}}));
+    domain.id = EntityId::parse(&format!("domain:{key}")).unwrap();
+    SyncItem::State {
+        entity: Box::new(domain),
+        upstream: Upstream::revision(revid, Some("2026-10-01T00:00:00Z")),
+        upstream_id: Some(owner.into()),
+        upstream_aliases: aliases.iter().map(|a| (*a).to_string()).collect(),
+    }
+}
+
+fn owners(store: &MemoryIngest) -> Vec<(String, String)> {
+    pollster::block_on(async {
+        let mut cx = store.begin().await.unwrap();
+        let o = store
+            .keyed_owners(&mut cx, "mirror/internetdomains")
+            .await
+            .unwrap();
+        store.rollback(cx).await.unwrap();
+        o.into_iter().map(|(u, k)| (u, k.to_string())).collect()
+    })
+}
+
+fn last_put_of<'a>(ops: &'a [Operation], id: &str) -> &'a Operation {
+    ops.iter()
+        .rev()
+        .find(|op| matches!(op, Operation::Put { id: i, .. } if i.as_str() == id))
+        .unwrap_or_else(|| panic!("no put of {id}"))
+}
+
+/// 0009 §9 and architecture 05 §4.2, over four upsert jobs: an identity value that moves
+/// clears the old key; an item that becomes mapped retires its foreign form; a merge into
+/// a mapped item is an alias; a repeated redirect is written once; an item that stops
+/// being mapped clears its key; a deleted Domain is cleared, and only once.
+#[test]
+#[allow(clippy::too_many_lines)]
+fn a_key_mapped_sync_follows_keys_as_they_move() {
+    pollster::block_on(async {
+        let (store, pipeline) = setup();
+        let actor = Attestation::by("instance:scatter");
+        let xd = |id: &str| EntityId::parse(id).unwrap();
+        let redirect = |from: &str, to: &str| SyncItem::Redirected {
+            from: xd(from),
+            to: xd(to),
+            upstream: Upstream::revision(40, Some("2026-10-01T00:00:00Z")),
+        };
+        let sync = |items: Vec<SyncItem>, at: u64| {
+            run_sync(
+                &store,
+                &pipeline,
+                sync_header(Mode::Upsert),
+                actor.clone(),
+                items,
+                100,
+                registry(),
+                at,
+                3,
+            )
+        };
+
+        // 1. Q9 owns a.example; Q5 and Q7 are foreign items; Q8 was merged into Q7.
+        let out = sync(
+            vec![
+                domain_state("a.example", "Q9", &[], "A", 10),
+                xd_state("XDQ5", "Five", 11),
+                xd_state("XDQ7", "Seven", 12),
+                redirect("XDQ8", "XDQ7"),
+            ],
+            NOW,
+        )
+        .await
+        .unwrap();
+        assert_eq!((out.counts.created, out.counts.other), (3, 1));
+        assert_eq!(owners(&store), [("Q9".into(), "domain:a.example".into())]);
+
+        // 2. Q9's identity value moves to b.example; Q5 becomes mapped to c.example, with
+        // Q6 merged into it; the Q8 redirect is seen again.
+        let out = sync(
+            vec![
+                domain_state("b.example", "Q9", &[], "B", 20),
+                domain_state("c.example", "Q5", &["Q6"], "C", 21),
+                xd_state("XDQ7", "Seven", 12),
+                redirect("XDQ8", "XDQ7"),
+            ],
+            NOW + 10,
+        )
+        .await
+        .unwrap();
+        assert_eq!(out.counts.created, 2, "b.example and c.example");
+        assert_eq!(out.counts.cleared, 1, "a.example, which Q9 no longer owns");
+        assert_eq!(out.counts.tombstoned, 1, "XDQ5, now mapped");
+        assert_eq!(out.counts.other, 0, "the redirect is already recorded");
+        assert_eq!(out.counts.unchanged, 2, "XDQ7 and the redirect");
+        assert_eq!(
+            owners(&store),
+            [
+                ("Q5".into(), "domain:c.example".into()),
+                ("Q9".into(), "domain:b.example".into())
+            ]
+        );
+        let ops = store.operations(MIRROR_XD);
+        match last_put_of(&ops, "domain:a.example") {
+            Operation::Put {
+                entity,
+                upstream_id,
+                ..
+            } => {
+                assert!(entity.labels.is_empty());
+                assert_eq!(*upstream_id, None);
+            }
+            _ => unreachable!(),
+        }
+        match last_put_of(&ops, "domain:c.example") {
+            Operation::Put {
+                upstream_aliases, ..
+            } => assert_eq!(upstream_aliases, &["Q6".to_string()]),
+            _ => unreachable!(),
+        }
+        assert!(
+            ops.iter()
+                .any(|op| matches!(op, Operation::Tombstone { id, .. } if id.as_str() == "XDQ5"))
+        );
+
+        // 3. The same input again: nothing is written, nothing cleared twice.
+        let before = store.records(MIRROR_XD).len();
+        let out = sync(
+            vec![
+                domain_state("b.example", "Q9", &[], "B", 20),
+                domain_state("c.example", "Q5", &["Q6"], "C", 21),
+                xd_state("XDQ7", "Seven", 12),
+                redirect("XDQ8", "XDQ7"),
+            ],
+            NOW + 20,
+        )
+        .await
+        .unwrap();
+        assert_eq!(out.counts.unchanged, 4);
+        assert_eq!(store.records(MIRROR_XD).len(), before);
+
+        // 3b. Another item is merged into Q5 while Q5 itself is not edited: the state is
+        // written again at revision 21, which an earlier record already claimed, so it
+        // carries the revision in its version instead.
+        let out = sync(
+            vec![domain_state("c.example", "Q5", &["Q6", "Q16"], "C", 21)],
+            NOW + 25,
+        )
+        .await
+        .unwrap();
+        assert_eq!(out.counts.merged, 1);
+        match last_put_of(&store.operations(MIRROR_XD), "domain:c.example") {
+            Operation::Put {
+                upstream,
+                upstream_aliases,
+                ..
+            } => {
+                assert_eq!(upstream.revid, None);
+                assert_eq!(upstream.version.as_deref(), Some("21+2026-10-01"));
+                assert_eq!(upstream_aliases, &["Q16".to_string(), "Q6".to_string()]);
+            }
+            _ => unreachable!(),
+        }
+        let out = sync(
+            vec![domain_state("c.example", "Q5", &["Q6", "Q16"], "C", 21)],
+            NOW + 26,
+        )
+        .await
+        .unwrap();
+        assert_eq!(out.counts.unchanged, 1, "and is not written again");
+
+        // 4. Q9 stops being mapped (it is a foreign item again), and upstream deletes the
+        // item behind c.example, twice.
+        let deleted = || SyncItem::Deleted {
+            id: xd("domain:c.example"),
+            upstream: Upstream::revision(50, None),
+        };
+        let out = sync(
+            vec![xd_state("XDQ9", "Nine", 30), deleted(), deleted()],
+            NOW + 30,
+        )
+        .await
+        .unwrap();
+        assert_eq!(out.counts.created, 1, "XDQ9");
+        assert_eq!(out.counts.cleared, 2, "c.example once, and b.example");
+        assert_eq!(out.counts.unchanged, 1, "the second deletion");
+        assert_eq!(out.counts.tombstoned, 0, "a Domain is never tombstoned");
+        assert!(owners(&store).is_empty());
     });
 }
 

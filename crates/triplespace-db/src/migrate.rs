@@ -206,7 +206,7 @@ mod tests {
             .collect();
         assert_eq!(names[0], "scatter-log-postgres/0001_log");
         assert_eq!(names[1], "triplespace-db/0001_ops");
-        assert!(names.last().unwrap().ends_with("0008_view_lookup_indexes"));
+        assert!(names.last().unwrap().ends_with("0009_keyed_map_aliases"));
         assert_eq!(checksum("").len(), 64);
         assert_ne!(checksum("a"), checksum("b"));
     }

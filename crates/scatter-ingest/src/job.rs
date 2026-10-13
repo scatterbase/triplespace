@@ -52,6 +52,10 @@ pub struct Counts {
     /// Entities tombstoned, by a `tombstone` or the `snapshot` sweep.
     #[serde(default, skip_serializing_if = "is_zero")]
     pub tombstoned: u64,
+    /// Mirror contributions cleared with a `put` of the empty state: a keyed entity whose
+    /// upstream item went away, or an entity of a `deletion = clear` provider (0009 §9).
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub cleared: u64,
     /// Other records written: redirects, retains, overrides, links.
     #[serde(default, skip_serializing_if = "is_zero")]
     pub other: u64,

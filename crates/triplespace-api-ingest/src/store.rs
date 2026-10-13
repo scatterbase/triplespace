@@ -1,5 +1,7 @@
 //! [`PgIngest`]: the ingest store over Postgres.
 
+use std::collections::BTreeMap;
+
 use scatter_ingest::{Cursor, IngestError, IngestStore, Sequence};
 use scatter_log::header::Header;
 use scatter_log::record::Record;
@@ -326,6 +328,27 @@ impl IngestStore for PgIngest {
             .map_err(store)?;
         rows.iter()
             .map(|r| EntityId::parse(r.get(0)).map_err(store))
+            .collect()
+    }
+
+    async fn keyed_owners(
+        &self,
+        cx: &mut PgCx,
+        graph: &str,
+    ) -> Result<BTreeMap<String, EntityId>, IngestError> {
+        let Some(provider) = graph.strip_prefix("mirror/") else {
+            return Ok(BTreeMap::new());
+        };
+        let rows = cx
+            .query(
+                "SELECT upstream_id, keyed_type || ':' || key FROM view.keyed_map
+                 WHERE tenant = '' AND provider = $1 AND NOT alias",
+                &[&provider],
+            )
+            .await
+            .map_err(store)?;
+        rows.iter()
+            .map(|r| Ok((r.get(0), EntityId::parse(r.get(1)).map_err(store)?)))
             .collect()
     }
 

@@ -176,9 +176,18 @@ Every operation has `op` and a subject, `id` (an entity) or `page` (a page ID):
 - A keyed entity's mirror contribution is cleared with a `put` whose `entity` is the empty
   state, never a `tombstone` (0002 §5).
 - A `put` whose `id` is a keyed ID the upstream item was mapped onto (0009 §9) carries
-  `upstream_id`, the provider's own item ID (`"upstream_id": "Q9"`); it is what the
-  `keyed_map` index records. An upstream `tombstone` or `redirect` of that item, under its
-  prefixed foreign ID, removes the mapping.
+  `upstream_id`, the provider's own item ID (`"upstream_id": "Q9"`), and, when upstream
+  merged other items into it, `upstream_aliases`, their IDs in ID order
+  (`"upstream_aliases": ["Q6"]`; absent when empty, 0009 A13). Together they are what the
+  `keyed_map` index records: the newest `put` under a key decides all of the key's rows,
+  the owner and its aliases, and moves any of those items' rows held under other keys. A
+  clearing `put` (the empty state, no `upstream_id`) removes the key's rows.
+- An upstream revision belongs to one page, so a mirror `put` claims its `revid` (and the
+  record's revision ID, 0013 §6) only the first time that revision is recorded. A state
+  re-written at a revision already recorded, because the mapping moved rather than the
+  item (an alias added, a key gained or lost, a value pointing at an item that moved),
+  carries no `revid`; its `version` is `{revid}+{job version}` (`"56+20261004"`), which
+  later syncs read as that revision (0009 A13).
 
 ### 3.2 Local writes
 
@@ -343,7 +352,7 @@ actor key, a job ID) or `null`.
 | `target` | `{kind, …}`: `entity {id}`, `page {id}`, `actor {key}`, `job {id}`, `record {partition, offset, revid?}`, or `null` when hidden or unresolvable (0011 §3) |
 | `upstream_logid` | Provider logs only |
 | `params` of a `job/start` | `source`, `version` (or `snapshot`), `mode`, `graph`, `adapter` and `args`, the job line's fields (§3) plus the adapter version; `view.job` is projected from them |
-| `params` of a `job/finish` | `counts` by outcome (`created`, `merged`, `unchanged`, `rejected`, and where non-zero `adopted`, `tombstoned`, `other`), `hash_mismatches` by value type (0011 §6.3), `checkpoint` (the signed note, whose second line is the tree size), `sweep` (`count`, `threshold`) for a `snapshot` job, `rejects`: the first 100 rejected lines, each `{line, match?, reason}`, for the job page (0010 §9), the full rejects file being the job's own — a mirror sync has no batch lines, so its rejects are numbered in arrival order and `reason` opens with the upstream ID (`Q21: … is not a valid domain key`, 0009 §9); an adoption adds `floors` (0035 §4) and `accounts`, the actor records it wrote |
+| `params` of a `job/finish` | `counts` by outcome (`created`, `merged`, `unchanged`, `rejected`, and where non-zero `adopted`, `tombstoned`, `cleared` — keyed entities and `deletion = clear` entities cleared with an empty `put` — and `other`), `hash_mismatches` by value type (0011 §6.3), `checkpoint` (the signed note, whose second line is the tree size), `sweep` (`count`, `threshold`) for a `snapshot` job, `rejects`: the first 100 rejected lines, each `{line, match?, reason}`, for the job page (0010 §9), the full rejects file being the job's own (`triplespace sync` prints every reject and writes them with `--rejects`) — a mirror sync has no batch lines, so its rejects are numbered in arrival order and `reason` opens with the upstream ID (`Q21: … is not a valid domain key`, 0009 §9); an adoption adds `floors` (0035 §4) and `accounts`, the actor records it wrote |
 | `params` of a `job/fail` | `error`: the refusal code or message |
 
 The performer, local or upstream, is the attestation's `actor` and nowhere else, so that
