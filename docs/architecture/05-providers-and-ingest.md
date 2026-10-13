@@ -303,7 +303,7 @@ Every entity change in the run points to its job. A revision, for data that neve
 - **Version cursor.** An index, `view.entity_source`, records each entity's upstream version (Wikidata `lastrevid`, OpenAlex `updated_date`), content hash and `seen_job`, the last job that saw it. The ingester writes the cursor as its own state, not as a projection. A re-import appends only the entities that changed; a bulk job evaluates the skip for a whole block before the block is written (§3.10).
 - **Import modes:**
   - **`upsert`** adds and updates entities. It never deletes anything.
-  - **`snapshot`** declares that the input is complete for one provider and type. The job writes `seen_job` for every entity it saw, whether or not it appended a `put`, and the sweep afterwards tombstones the rows of that provider and type whose `seen_job` is older than the job, so unchanged and absent are told apart. The sweep runs only after the job completes successfully, is itself resumable, and aborts if the tombstone count exceeds a configured threshold, so a truncated dump cannot wipe out a mirror.
+  - **`snapshot`** declares that the input is complete for one provider and type. The job writes `seen_job` for every entity it saw, whether or not it appended a `put`, and the sweep afterwards tombstones the rows of that provider and type whose `seen_job` is older than the job, so unchanged and absent are told apart. A keyed entity, and every entity of a provider registered `deletion = clear`, is cleared with a `put` of the empty state instead (§2.1, §2.2), and one already cleared is left alone. The sweep runs only after the job completes successfully, is itself resumable, and aborts if the number of records it would write exceeds a configured threshold, so a truncated dump cannot wipe out a mirror.
 - **Upstream redirects and deletions** are explicit operations. They are never inferred.
 - **Subset imports** are supported alongside full imports. A subset can be:
   - a list of IDs;
@@ -426,9 +426,9 @@ internetdomains.wiki is mirrored like any other Wikibase, with one difference: i
 
 ### 4.2 Aliases, IRIs and upstream changes
 
-*Sources: [0009](../decisions/0009-keyed-entity-types-and-domain.md) §9.*
+*Sources: [0009](../decisions/0009-keyed-entity-types-and-domain.md) §9, A13.*
 
-**The upstream ID becomes an alias.** A mapping index records upstream ID ↔ key, together with the version cursor (§3.4). Sync jobs use it, because upstream reports redirects and deletions by item ID. The API and the title resolver use it too, so the prefixed upstream ID resolves to the Domain page.
+**The upstream ID becomes an alias.** A mapping index records upstream ID ↔ key, together with the version cursor (§3.4). Sync jobs use it, because upstream reports redirects and deletions by item ID. The API and the title resolver use it too, so the prefixed upstream ID resolves to the Domain page. Each key has one **owner**, the item mapped onto it, and may have further aliases, the items upstream **merged into** the owner. The `put` under the key carries both (`upstream_id`, `upstream_aliases`), and the newest `put` under a key decides its rows in the index ([payloads.md §3.1](../api/payloads.md); [03](03-storage-caches-and-search.md)).
 
 **The canonical IRI is the key's, not the provider's.** For a mapped item, the resolved view uses `https://scatter.red/domain/{key}` and emits `<upstream item IRI> owl:sameAs <https://scatter.red/domain/{key}>`. Nodes that come from upstream, such as statement nodes, keep their upstream IRIs as before.
 
@@ -437,9 +437,14 @@ internetdomains.wiki is mirrored like any other Wikibase, with one difference: i
 | Upstream event | Effect |
 |---|---|
 | An item's identity value changes, for example a typo is fixed | The mirror's state for the old key is cleared, and the item's state is written under the new key. Local assertions about the old key stay where they are, because the old name still exists |
+| An item stops being mapped: its identity value is removed or becomes invalid, or it becomes one side of a duplicate | The mirror's state for its old key is cleared, and the item is written as an ordinary foreign item |
+| An item becomes mapped | Its state is written under the key, and the foreign item it was (`XDQ9`) is tombstoned, since a mapped item's upstream ID never appears as a subject (§4.1) |
 | An item is deleted | The mirror's state for that key is cleared (§2.2) |
-| Two items are merged | The redirect updates the mapping index. If both carried the same key, the duplicate is resolved |
+| Two items are merged into a mapped item | The redirect updates the mapping index: the merged item becomes an alias of the target's key, and its foreign item, if it had one, is tombstoned. If both carried the same key, the duplicate is resolved |
+| Two unmapped items are merged | An ordinary mirror `redirect` between the two foreign items, written once |
 | Two items carry the same identity value | A conflict. Neither item's statements are attached to the key until the duplicate is resolved upstream. The conflict is listed with the others ([0004](../decisions/0004-identity-clusters-and-equivalence.md) §10) |
+
+A sync decides these from what it saw: a key is cleared for an item that **appeared in the job** and no longer owns it, so an `upsert` of part of a dump leaves alone the keys of items it did not read, and the sweep of a `snapshot` handles the rest.
 
 Retention for keyed entities is §2.2: the mirror's contribution is cleared with a `put` of an empty state, `cascade` and `orphan` do not apply, and `retain` still does.
 

@@ -954,8 +954,13 @@ fn a_put_carries_its_summary() {
         changes: Some(changes),
         delta: None,
         upstream_id: None,
+        upstream_aliases: Vec::new(),
     };
     let text = serde_json::to_string(&put).unwrap();
+    assert!(
+        !text.contains("upstream_aliases"),
+        "absent when empty, so earlier records encode as they did"
+    );
     assert!(text.contains(r#""changes":{"labels":{"de":{"added":1,"removed":0,"changed":0}}}"#));
     assert!(text.contains(r#""upstream":{"revid":7,"time":"2026-09-30T12:00:00Z"}"#));
     assert!(!text.contains("delta"));

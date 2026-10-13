@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-09 (A12)
+- **Updated:** 2026-10-12 (A13)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md)
 - **Uses:** [0000](0000-init.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -68,7 +68,7 @@ Domains are also a bulk-ingest target. Citation data carries URLs, and every URL
 
 ### 9. Key-mapped providers (amends 0002 §4 and §5)
 
-*Changed by A2, A4, A6.*
+*Changed by A2, A4, A6, A13.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §2, §4.1, §4.2, §8.4, §8.6.*
 
@@ -274,3 +274,14 @@ Replaced text ([04](../architecture/04-entities-and-identifiers.md) §3.4, as it
 > This is the same pattern as the actor surrogates in [0007](../decisions/0007-actor-identity.md) §5 ([07](../architecture/07-actors-and-accounts.md)). Erasing a Domain by key erases the mapping record along with everything else keyed to the surrogate, and only an opaque number remains. The log never sees the key, only the surrogate; this holds for every keyed type, with one sequence per type.
 
 > **The forms.** The header key of a keyed entity's records is `{type}#{n}`, `domain#17`: the `#` keeps it from being any entity ID, since no ID form contains one. The mapping record is a `scatter:v0/keyed-surrogate` record in the **instance `log`**, keyed by the same surrogate, with content `{keyed_type, surrogate, key}` ([payloads.md §3.4](../api/payloads.md)); surrogates are instance-wide, so the mapping does not belong to any tenant, and the record is appended before the first record under the surrogate. `view.keyed_surrogate` is projected from it at the instance tenant (`''`); a projection that folds a keyed entity's records looks the surrogate up there, and fails rather than guess when it is missing, which makes a rebuild that orders the instance `log` after a tenant partition fail loudly instead of silently dropping the tenant's assertions. The table is in [03](../architecture/03-storage-caches-and-search.md).
+
+### A13. Merge aliases, and what a sync does when a key moves
+
+- **Date:** 2026-10-12
+- **Source:** Direct: James, choices of 2026-10-12 after the internetdomains.wiki sync test (stage 2 of the real-dump test plan)
+- **Change:** extends §9
+- **Summary:** The mapping index holds, beside each key's owner, the items upstream merged into the owner, as aliases of the key; the `put` under the key carries them as `upstream_aliases`, and the newest `put` under a key decides its rows. When an item becomes mapped, the foreign item it was is tombstoned; when an item merged into a mapped item had a foreign item, that is tombstoned too. A merge between two unmapped items is an ordinary mirror `redirect`, written once. A key whose owner a sync saw but which no item claims any longer is cleared with a `put` of the empty state, and the snapshot sweep clears keyed entities rather than tombstoning them, leaving one already cleared alone. A state re-written because the mapping moved, at an upstream revision already recorded, claims no revision ID; its version names the revision. The table and text are in [05](../architecture/05-providers-and-ingest.md) §3.4 and §4.2, the index in [03](../architecture/03-storage-caches-and-search.md), the record field in [payloads.md](../api/payloads.md) §3.1.
+
+Replaced text ([05](../architecture/05-providers-and-ingest.md) §4.2, as it stood):
+
+> | Two items are merged | The redirect updates the mapping index. If both carried the same key, the duplicate is resolved |

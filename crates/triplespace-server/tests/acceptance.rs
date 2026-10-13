@@ -215,6 +215,7 @@ async fn a_bot_logs_in_reads_and_edits() {
         snapshot: false,
         threshold: 1000,
         batch: 200,
+        rejects: None,
         farm_slug: None,
         farm_base: None,
     })

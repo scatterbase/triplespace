@@ -12,7 +12,7 @@ use scatter_log::record::Record;
 use scatter_log::store::{Appended, Draft};
 use scatter_projection::{Backend, ProjectionError, Work};
 use scatter_wikibase_changeset::{MatchKey, Operation};
-use scatter_wikibase_model::id::EntityId;
+use scatter_wikibase_model::id::{EntityId, IdForm};
 use scatter_wikibase_model::statement::SnakKind;
 use scatter_wikibase_model::value::{DataType, DataValue};
 
@@ -47,6 +47,8 @@ pub struct State {
     pub cursors: BTreeMap<(String, String, String), Cursor>,
     /// `(keyed type, key)` → surrogate.
     pub surrogates: BTreeMap<(String, String), u64>,
+    /// `(mirror graph, upstream item ID)` → the keyed entity it owns (0009 §9).
+    pub keyed_owners: BTreeMap<(String, String), EntityId>,
     /// `(tenant, property, value)` → entity, for identifier match keys.
     pub identifiers: BTreeMap<(String, String, String), EntityId>,
     /// `(tenant, property)` → data type.
@@ -136,6 +138,33 @@ fn store(e: impl std::fmt::Display) -> IngestError {
     IngestError::Store(e.to_string())
 }
 
+/// The key-mapped owners, as `view.keyed_map` keeps them: the newest `put` under a key
+/// decides who owns it (0009 A13).
+fn index_keyed_owner(state: &mut State, graph: &str, id: &EntityId, op: &Operation) {
+    let Operation::Put {
+        upstream_id,
+        upstream_aliases,
+        ..
+    } = op
+    else {
+        return;
+    };
+    if id.form() != IdForm::Keyed {
+        return;
+    }
+    state.keyed_owners.retain(|(g, u), owned| {
+        g != graph
+            || (owned != id
+                && upstream_id.as_deref() != Some(u.as_str())
+                && !upstream_aliases.contains(u))
+    });
+    if let Some(u) = upstream_id {
+        state
+            .keyed_owners
+            .insert((graph.to_string(), u.clone()), id.clone());
+    }
+}
+
 /// Keeps the indexes in step with an appended record.
 fn index(state: &mut State, partition: &Partition, record: &Record) -> Result<(), IngestError> {
     let h = record.header();
@@ -192,6 +221,7 @@ fn index(state: &mut State, partition: &Partition, record: &Record) -> Result<()
                     );
                 }
             }
+            index_keyed_owner(state, &partition.graph, &id, &op);
             // Identifier values, for match keys: every external-id statement the
             // operation carries.
             for s in op.statements() {
@@ -462,6 +492,20 @@ impl IngestStore for MemoryIngest {
             .filter(|(t, _, g)| t == tenant && g == graph)
             .map(|(_, id, _)| EntityId::parse(id).map_err(store))
             .collect()
+    }
+
+    async fn keyed_owners(
+        &self,
+        cx: &mut MemoryCx,
+        graph: &str,
+    ) -> Result<BTreeMap<String, EntityId>, IngestError> {
+        Ok(cx
+            .state
+            .keyed_owners
+            .iter()
+            .filter(|((g, _), _)| g == graph)
+            .map(|((_, u), id)| (u.clone(), id.clone()))
+            .collect())
     }
 
     async fn find_match(

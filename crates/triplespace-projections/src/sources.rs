@@ -7,7 +7,6 @@ use scatter_log::cbor::Value;
 use scatter_log::header::Header;
 use scatter_log::record::Record;
 use scatter_projection::{Applied, Backend, BoxFuture, Projection, Step};
-use scatter_providers::Registry;
 use scatter_wikibase_changeset::{Operation, Upstream};
 use scatter_wikibase_model::id::{EntityId, IdForm, Subject};
 
@@ -316,35 +315,13 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for EntitySourceProjection {
 
 // --- keyed maps --------------------------------------------------------------------------
 
-/// `view.keyed_map` from a mirror's `put` records whose subject is a keyed ID and which
-/// carry `upstream_id` (0009 §9): the provider's item that was mapped onto the key. An
-/// upstream `tombstone` or `redirect` of the item removes its row.
-#[derive(Debug, Clone)]
-pub struct KeyedMapProjection {
-    registry: &'static Registry,
-}
-
-impl Default for KeyedMapProjection {
-    fn default() -> Self {
-        Self::new(Registry::default_registry())
-    }
-}
-
-impl KeyedMapProjection {
-    /// Over a provider registry, for the upstream form of foreign IDs.
-    #[must_use]
-    pub fn new(registry: &'static Registry) -> Self {
-        Self { registry }
-    }
-
-    /// The provider's own form of a foreign ID, `XDQ99` → `Q99`.
-    fn upstream_form(&self, id: &EntityId) -> Option<String> {
-        self.registry
-            .parse_foreign_id(id.as_str())
-            .ok()
-            .map(|f| f.upstream_id())
-    }
-}
+/// `view.keyed_map` from a mirror's `put` records whose subject is a keyed ID (0009 §9,
+/// A13). The newest `put` under a key decides all of the key's rows: its `upstream_id` is
+/// the owner, its `upstream_aliases` are the items upstream merged into the owner, and
+/// rows those items held under other keys are dropped (an identity value that moved). A
+/// `put` of the empty state, with no `upstream_id`, clears the key's rows.
+#[derive(Debug, Clone, Default)]
+pub struct KeyedMapProjection;
 
 impl<B: Backend<Cx = PgCx>> Projection<B> for KeyedMapProjection {
     fn name(&self) -> &'static str {
@@ -372,39 +349,49 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for KeyedMapProjection {
             let Some(op) = operation(record)? else {
                 return Ok(Applied::default());
             };
-            let n = match &op {
-                Operation::Put {
-                    id,
-                    upstream_id: Some(upstream),
-                    ..
-                } if id.form() == IdForm::Keyed => {
-                    let (keyed_type, key) =
-                        id.keyed_parts().ok_or("a keyed ID has a type and a key")?;
-                    cx.execute(
-                            "INSERT INTO view.keyed_map (tenant, provider, upstream_id, keyed_type, key)
-                             VALUES ($1, $2, $3, $4, $5)
-                             ON CONFLICT (tenant, provider, upstream_id) DO UPDATE
-                             SET keyed_type = EXCLUDED.keyed_type, key = EXCLUDED.key",
-                            &[&info.tenant, &slug, &upstream, &keyed_type, &key],
-                        )
-                        .await
-                        .map_err(|e| sql(&e))?
-                }
-                Operation::Tombstone { id, .. } | Operation::Redirect { from: id, .. }
-                    if id.form() == IdForm::Foreign =>
-                {
-                    let Some(upstream) = self.upstream_form(id) else {
-                        return Ok(Applied::default());
-                    };
-                    cx.execute(
-                            "DELETE FROM view.keyed_map WHERE tenant = $1 AND provider = $2 AND upstream_id = $3",
-                            &[&info.tenant, &slug, &upstream],
-                        )
-                        .await
-                        .map_err(|e| sql(&e))?
-                }
-                _ => 0,
+            let Operation::Put {
+                id,
+                upstream_id,
+                upstream_aliases,
+                ..
+            } = &op
+            else {
+                return Ok(Applied::default());
             };
+            if id.form() != IdForm::Keyed {
+                return Ok(Applied::default());
+            }
+            let (keyed_type, key) = id.keyed_parts().ok_or("a keyed ID has a type and a key")?;
+            let mut n = cx
+                .execute(
+                    "DELETE FROM view.keyed_map
+                     WHERE tenant = $1 AND provider = $2 AND keyed_type = $3 AND key = $4",
+                    &[&info.tenant, &slug, &keyed_type, &key],
+                )
+                .await
+                .map_err(|e| sql(&e))?;
+            let named: Vec<(&str, bool)> = upstream_id
+                .iter()
+                .map(|u| (u.as_str(), false))
+                .chain(
+                    upstream_aliases
+                        .iter()
+                        .filter(|a| upstream_id.as_ref() != Some(*a))
+                        .map(|a| (a.as_str(), true)),
+                )
+                .collect();
+            for (upstream, alias) in named {
+                n += cx
+                    .execute(
+                        "INSERT INTO view.keyed_map (tenant, provider, upstream_id, keyed_type, key, alias)
+                         VALUES ($1, $2, $3, $4, $5, $6)
+                         ON CONFLICT (tenant, provider, upstream_id) DO UPDATE
+                         SET keyed_type = EXCLUDED.keyed_type, key = EXCLUDED.key, alias = EXCLUDED.alias",
+                        &[&info.tenant, &slug, &upstream, &keyed_type, &key, &alias],
+                    )
+                    .await
+                    .map_err(|e| sql(&e))?;
+            }
             Ok(rows(n))
         })
     }

@@ -587,8 +587,10 @@ CREATE TABLE view.keyed_surrogate (             -- 0009 §7; key is NULLed on er
 );
 CREATE TABLE view.keyed_map (                   -- 0009 §9: upstream item ↔ key
   provider text NOT NULL, upstream_id text NOT NULL, keyed_type text NOT NULL, key text NOT NULL,
-  PRIMARY KEY (provider, upstream_id), UNIQUE (keyed_type, key, provider)
+  alias boolean NOT NULL DEFAULT false,         -- an item upstream merged into the owner (0009 A13)
+  PRIMARY KEY (provider, upstream_id)
 );
+CREATE UNIQUE INDEX ON view.keyed_map (keyed_type, key, provider) WHERE NOT alias;  -- one owner per key
 
 CREATE TABLE view.page (                        -- 0008 §4; rows for threads and talk pages too (0019 §11)
   page_id bigint PRIMARY KEY, ns integer NOT NULL, title text NOT NULL,

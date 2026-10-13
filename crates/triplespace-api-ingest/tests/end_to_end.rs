@@ -467,11 +467,13 @@ async fn adoption_batch_sync_and_edit_end_to_end() {
                 entity: Box::new(domain),
                 upstream: Upstream::revision(55, None),
                 upstream_id: Some("Q9".into()),
+                upstream_aliases: Vec::new(),
             },
             SyncItem::State {
                 entity: Box::new(entity(item("XDQ10", "Registrar", &json!({})))),
                 upstream: Upstream::revision(56, None),
                 upstream_id: None,
+                upstream_aliases: Vec::new(),
             },
         ],
         100,
@@ -559,7 +561,87 @@ async fn adoption_batch_sync_and_edit_end_to_end() {
     store.rollback(cx).await.unwrap();
     assert!(matches!(err, IngestError::Conflict { .. }), "{err}");
 
+    // 5. Keys move (0009 §9, A13): Q20 owns b.example with Q21 merged into it, beside a
+    //    foreign XDQ22; then Q20's value moves to c.example and Q22 becomes d.example.
+    //    b.example is cleared, XDQ22 retired, and keyed_map follows the newest puts.
+    let domain_of = |key: &str, owner: &str, aliases: &[&str], revid: u64| {
+        let mut e = entity(json!({"type": "domain", "id": format!("domain:{key}"),
+            "labels": {"en": {"language": "en", "value": key}}}));
+        e.id = scatter_wikibase_model::id::EntityId::parse(&format!("domain:{key}")).unwrap();
+        SyncItem::State {
+            entity: Box::new(e),
+            upstream: Upstream::revision(revid, None),
+            upstream_id: Some(owner.into()),
+            upstream_aliases: aliases.iter().map(|a| (*a).to_string()).collect(),
+        }
+    };
+    let keyed_map = "SELECT upstream_id || '|' || key || '|' || alias::text FROM view.keyed_map WHERE provider = 'internetdomains' AND upstream_id <> 'Q9' ORDER BY upstream_id";
+    let out = run_sync(
+        &store,
+        &p,
+        JobHeader::mirror("internetdomains", "2026-10-02", Mode::Upsert),
+        Attestation::by("instance:scatter"),
+        vec![
+            domain_of("b.example", "Q20", &["Q21"], 60),
+            SyncItem::State {
+                entity: Box::new(entity(item("XDQ22", "Not yet a domain", &json!({})))),
+                upstream: Upstream::revision(61, None),
+                upstream_id: None,
+                upstream_aliases: Vec::new(),
+            },
+        ],
+        100,
+        registry,
+        NOW + 6,
+        10,
+    )
+    .await
+    .unwrap();
+    assert_eq!(out.counts.created, 2);
+    assert_eq!(
+        rows(&client, keyed_map).await,
+        vec!["Q20|b.example|false", "Q21|b.example|true"]
+    );
+    let out = run_sync(
+        &store,
+        &p,
+        JobHeader::mirror("internetdomains", "2026-10-03", Mode::Upsert),
+        Attestation::by("instance:scatter"),
+        vec![
+            domain_of("c.example", "Q20", &["Q21"], 62),
+            domain_of("d.example", "Q22", &[], 63),
+        ],
+        100,
+        registry,
+        NOW + 7,
+        10,
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        (
+            out.counts.created,
+            out.counts.cleared,
+            out.counts.tombstoned
+        ),
+        (2, 1, 1)
+    );
+    assert_eq!(
+        rows(&client, keyed_map).await,
+        vec![
+            "Q20|c.example|false",
+            "Q21|c.example|true",
+            "Q22|d.example|false"
+        ]
+    );
+    assert_eq!(
+        count(&client, "SELECT count(*) FROM view.entity_source WHERE graph = 'mirror/internetdomains' AND entity_id = 'XDQ22'").await,
+        0,
+        "the foreign form of a newly mapped item is retired"
+    );
+
     // Everything is consistent with a rebuild from the log.
+    let keyed_before = rows(&client, keyed_map).await;
     let before = rows(&client, "SELECT (tenant, id, type, page_id, surrogate, resolved_kind, convert_from(resolved, 'UTF8'))::text FROM view.entity").await;
     let log_store = PgLog::new(client);
     p.rebuild(
@@ -581,5 +663,6 @@ async fn adoption_batch_sync_and_edit_end_to_end() {
     let client = log_store.into_inner();
     let after = rows(&client, "SELECT (tenant, id, type, page_id, surrogate, resolved_kind, convert_from(resolved, 'UTF8'))::text FROM view.entity").await;
     assert_eq!(before, after);
+    assert_eq!(keyed_before, rows(&client, keyed_map).await);
     cleanup().await;
 }

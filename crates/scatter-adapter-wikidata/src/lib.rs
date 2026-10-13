@@ -28,7 +28,7 @@ pub mod typing;
 pub mod xml_dump;
 
 pub use adoption::{Account, AdoptedRevision, Survey, adopt_page};
-pub use entities::Entities;
+pub use entities::{DumpEntry, DumpRedirect, Entities, Entries};
 pub use json_dump::JsonDump;
 pub use typing::DumpPropertyTypes;
 pub use xml_dump::{DumpPage, Revision, XmlDump};

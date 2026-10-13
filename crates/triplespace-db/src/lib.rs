@@ -59,6 +59,10 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "0008_view_lookup_indexes",
         sql: include_str!("../migrations/0008_view_lookup_indexes.sql"),
     },
+    Migration {
+        name: "0009_keyed_map_aliases",
+        sql: include_str!("../migrations/0009_keyed_map_aliases.sql"),
+    },
 ];
 
 /// The crate name migrations are recorded under.
