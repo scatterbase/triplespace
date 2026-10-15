@@ -317,6 +317,13 @@ fn missing(cx: &Context, headers: &HeaderMap, title: &str) -> Response {
     })
 }
 
+/// A redirect the API followed, such as a key-mapped item's upstream ID (`Item:XDQ1` →
+/// `Domain:wikibase.cloud`, 0009 §9): the page lives at the target's title.
+fn followed(cx: &Context, json: &Value, title: &str) -> Option<Response> {
+    let target = json.get("title").and_then(Value::as_str)?;
+    (json.get("redirects").is_some() && target != title).then(|| pages::redirect_to(cx, target))
+}
+
 /// Serves an entity title: the page with a tab, or with `action=render` a region.
 pub async fn serve(
     site: &Site,
@@ -359,6 +366,9 @@ pub async fn serve(
             missing(&cx, headers, &title)
         };
     };
+    if !render && let Some(r) = followed(&cx, &json, &title) {
+        return r;
+    }
     let parsed = match Entity::from_value(json) {
         Ok(p) => p,
         Err(e) => {

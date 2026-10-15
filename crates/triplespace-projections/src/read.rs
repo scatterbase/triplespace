@@ -136,6 +136,26 @@ pub async fn current<C: Partitions>(
     }))
 }
 
+/// The keyed entity a key-mapped provider's upstream item stands for (0009 §9, A13):
+/// the key it owns, or the key of the item it was merged into. `None` for an item no key
+/// is mapped from. The mapping index is shared (`tenant = ''`), as the mirrors are.
+pub async fn keyed_target<C: Partitions>(
+    client: &C,
+    provider: &str,
+    upstream_id: &str,
+) -> Result<Option<EntityId>, String> {
+    let row = client
+        .query_opt(
+            "SELECT keyed_type || ':' || key FROM view.keyed_map
+             WHERE tenant = '' AND provider = $1 AND upstream_id = $2",
+            &[&provider, &upstream_id],
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+    row.map(|r| EntityId::parse(r.get::<_, &str>(0)).map_err(|e| e.to_string()))
+        .transpose()
+}
+
 /// One graph's cursor for an entity (0002 §8.4), as the provenance response shows it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GraphState {

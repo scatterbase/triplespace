@@ -228,6 +228,19 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
         StatusCode::FOUND,
         "the old main page redirects"
     );
+    // The upstream ID of a key-mapped item is not a page of its own: it redirects to the
+    // Domain its item is mapped onto (0009 §9), on both tiers.
+    for router in [&web, &embedded] {
+        let r = get(router, "/wiki/Item:XDQ11", None).await;
+        assert_eq!(r.status, StatusCode::FOUND, "{}", r.body);
+        assert_eq!(r.headers[header::LOCATION], "/wiki/Domain:wikipedia.org");
+        let r = get(router, "/wiki/Item:XDQ999", None).await;
+        assert_eq!(
+            r.status,
+            StatusCode::NOT_FOUND,
+            "an unmapped ID is still missing"
+        );
+    }
 
     // A session cookie the API does not know: the site asks who the viewer is, and the
     // API answers with the anonymous, public form, so the page is the anonymous page.

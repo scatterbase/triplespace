@@ -2,10 +2,18 @@
 //! ID, with `props` and `languages`; `missing` for an absent local or foreign ID, an
 //! empty entity for a valid keyed ID no graph holds, `invalid-entity-id` for anything
 //! that is not an ID. `titles` with `sites` is not served (no sitelinks in the milestone).
+//!
+//! The prefixed upstream ID of a key-mapped item (`XDQ1`) is never a subject; it
+//! resolves through the mapping index to its key (0009 §9: "the API and the title
+//! resolver use it too"), and is answered as Wikibase answers a redirect: under the ID
+//! asked for, with the target's `id` and `"redirects": {"from", "to"}`. `redirects=no`
+//! answers `missing` instead.
 
 use scatter_normalize::keyed::KeyedRegistry;
 use scatter_wikibase_model::id::{EntityId, IdForm};
 use serde_json::{Value, json};
+
+use triplespace_projections::read;
 
 use crate::api::Ctx;
 use crate::edit;
@@ -74,6 +82,49 @@ pub async fn entity_json(ctx: &Ctx, id: &EntityId, as_given: &str) -> Result<Val
     }
 }
 
+/// The keyed entity a foreign ID redirects to: the key its upstream item is mapped onto,
+/// for a key-mapped provider (0009 §9). `None` for any other ID.
+pub async fn keyed_redirect(ctx: &Ctx, id: &EntityId) -> Result<Option<EntityId>, ApiError> {
+    if id.form() != IdForm::Foreign {
+        return Ok(None);
+    }
+    let Ok(foreign) = ctx.app.registry().parse_foreign_id(id.as_str()) else {
+        return Ok(None);
+    };
+    read::keyed_target(
+        &ctx.client,
+        &foreign.provider().slug,
+        &foreign.upstream_id(),
+    )
+    .await
+    .map_err(ApiError::internal)
+}
+
+/// [`entity_json`], following a foreign ID that no graph holds to the keyed entity its
+/// upstream item is mapped onto, as a redirect: the target's JSON with
+/// `"redirects": {"from": id, "to": target}`. Returns the ID the JSON is for.
+pub async fn entity_json_following(
+    ctx: &Ctx,
+    id: &EntityId,
+    as_given: &str,
+) -> Result<(EntityId, Value), ApiError> {
+    let v = entity_json(ctx, id, as_given).await?;
+    if v.get("missing").is_none() {
+        return Ok((id.clone(), v));
+    }
+    let Some(target) = keyed_redirect(ctx, id).await? else {
+        return Ok((id.clone(), v));
+    };
+    let mut t = entity_json(ctx, &target, target.as_str()).await?;
+    if let Some(o) = t.as_object_mut() {
+        o.insert(
+            "redirects".into(),
+            json!({"from": id.as_str(), "to": target.as_str()}),
+        );
+    }
+    Ok((target, t))
+}
+
 /// Runs `wbgetentities`.
 pub async fn wbgetentities(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     let ids = ctx.params.list("ids");
@@ -99,14 +150,27 @@ pub async fn wbgetentities(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     }
     let props = ctx.params.list("props");
     let languages = ctx.params.list("languages");
+    let follow = ctx.params.get("redirects").is_none_or(|r| r != "no");
     ctx.caller.require("read")?;
     let mut entries = Vec::new();
     for given in ids {
         let id = parse_id(&given)?;
-        let mut v = entity_json(ctx, &id, &given).await?;
+        let mut v = if follow {
+            let (target, v) = entity_json_following(ctx, &id, &given).await?;
+            if target != id {
+                ctx.cache_tags.push(format!("entity:{}", target.as_str()));
+            }
+            v
+        } else {
+            entity_json(ctx, &id, &given).await?
+        };
         ctx.cache_tags.push(format!("entity:{}", id.as_str()));
         if v.get("missing").is_none() {
+            let redirects = v.get("redirects").cloned();
             entity_json::filter(&mut v, &props, &languages);
+            if let (Some(r), Some(o)) = (redirects, v.as_object_mut()) {
+                o.insert("redirects".into(), r);
+            }
         }
         // Keyed by the canonical ID, as Wikibase keys by the normalized one.
         let key = if v.get("missing").is_some() {

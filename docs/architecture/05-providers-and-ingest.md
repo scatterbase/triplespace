@@ -426,9 +426,9 @@ internetdomains.wiki is mirrored like any other Wikibase, with one difference: i
 
 ### 4.2 Aliases, IRIs and upstream changes
 
-*Sources: [0009](../decisions/0009-keyed-entity-types-and-domain.md) §9, A13.*
+*Sources: [0009](../decisions/0009-keyed-entity-types-and-domain.md) §9, A13, A14.*
 
-**The upstream ID becomes an alias.** A mapping index records upstream ID ↔ key, together with the version cursor (§3.4). Sync jobs use it, because upstream reports redirects and deletions by item ID. The API and the title resolver use it too, so the prefixed upstream ID resolves to the Domain page. Each key has one **owner**, the item mapped onto it, and may have further aliases, the items upstream **merged into** the owner. The `put` under the key carries both (`upstream_id`, `upstream_aliases`), and the newest `put` under a key decides its rows in the index ([payloads.md §3.1](../api/payloads.md); [03](03-storage-caches-and-search.md)).
+**The upstream ID becomes an alias.** A mapping index records upstream ID ↔ key, together with the version cursor (§3.4). Sync jobs use it, because upstream reports redirects and deletions by item ID. The API and the title resolver use it too, so the prefixed upstream ID resolves to the Domain page: `wbgetentities` answers it in Wikibase's redirect shape, `Special:EntityData` with a `303`, and the site with a redirect to the page ([18](18-api.md) §2.3). Each key has one **owner**, the item mapped onto it, and may have further aliases, the items upstream **merged into** the owner. The `put` under the key carries both (`upstream_id`, `upstream_aliases`), and the newest `put` under a key decides its rows in the index ([payloads.md §3.1](../api/payloads.md); [03](03-storage-caches-and-search.md)).
 
 **The canonical IRI is the key's, not the provider's.** For a mapped item, the resolved view uses `https://scatter.red/domain/{key}` and emits `<upstream item IRI> owl:sameAs <https://scatter.red/domain/{key}>`. Nodes that come from upstream, such as statement nodes, keep their upstream IRIs as before.
 

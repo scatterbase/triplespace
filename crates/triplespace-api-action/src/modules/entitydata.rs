@@ -11,7 +11,7 @@ use crate::app::App;
 use crate::auth::Caller;
 use crate::forwarded::Origin;
 use crate::http_cache::{self, Class};
-use crate::modules::entities::{entity_json, parse_id};
+use crate::modules::entities::{entity_json, keyed_redirect, parse_id};
 use crate::params::Params;
 use crate::response::ApiError;
 use crate::tenant;
@@ -81,10 +81,25 @@ pub async fn special_entity_data(
         Err(e) => return plain(StatusCode::BAD_REQUEST, format!("{}\n", e.info)),
     };
     match entity_json(&ctx, &id, id_text).await {
-        Ok(v) if v.get("missing").is_some() => plain(
-            StatusCode::NOT_FOUND,
-            format!("no entity {}\n", id.as_str()),
-        ),
+        Ok(v) if v.get("missing").is_some() => match keyed_redirect(&ctx, &id).await {
+            // The upstream ID of a key-mapped item: to its key's document (0009 §9).
+            Ok(Some(target)) => (
+                StatusCode::SEE_OTHER,
+                [(
+                    header::LOCATION,
+                    format!("/wiki/Special:EntityData/{}.json", target.as_str()),
+                )],
+            )
+                .into_response(),
+            Ok(None) => plain(
+                StatusCode::NOT_FOUND,
+                format!("no entity {}\n", id.as_str()),
+            ),
+            Err(ApiError { code, info, .. }) => plain(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("{code}: {info}\n"),
+            ),
+        },
         Ok(v) => {
             let body = json!({"entities": {id.as_str(): v}}).to_string();
             let credentialed = ctx.caller.has_session() || crate::auth::bearer(&headers).is_some();

@@ -2,11 +2,11 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-12 (A13)
+- **Updated:** 2026-10-14 (A14)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md)
 - **Uses:** [0000](0000-init.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
-- **Chapters:** [04](../architecture/04-entities-and-identifiers.md), [05](../architecture/05-providers-and-ingest.md), [10](../architecture/10-pages-and-content-models.md), [22](../architecture/22-crates-and-stack.md)
+- **Chapters:** [04](../architecture/04-entities-and-identifiers.md), [05](../architecture/05-providers-and-ingest.md), [10](../architecture/10-pages-and-content-models.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -68,7 +68,7 @@ Domains are also a bulk-ingest target. Citation data carries URLs, and every URL
 
 ### 9. Key-mapped providers (amends 0002 §4 and §5)
 
-*Changed by A2, A4, A6, A13.*
+*Changed by A2, A4, A6, A13, A14.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §2, §4.1, §4.2, §8.4, §8.6.*
 
@@ -285,3 +285,10 @@ Replaced text ([04](../architecture/04-entities-and-identifiers.md) §3.4, as it
 Replaced text ([05](../architecture/05-providers-and-ingest.md) §4.2, as it stood):
 
 > | Two items are merged | The redirect updates the mapping index. If both carried the same key, the duplicate is resolved |
+
+### A14. A mapped item's upstream ID answers as a redirect
+
+- **Date:** 2026-10-14
+- **Source:** Direct: James, 2026-10-14 ("it should at least redirect since it's the upstream identifier"), after `Item:XDQ1` answered 404 while `Domain:wikibase.cloud` served
+- **Change:** extends §9
+- **Summary:** The prefixed upstream ID of a key-mapped item, or of an item upstream merged into one, is never a subject, so it is answered as a redirect to its key: `wbgetentities` in Wikibase's redirect shape (the target's body under the requested ID, with `redirects: {from, to}`; `redirects=no` answers it `missing`), `Special:EntityData` with a `303` to the key's document, and the site with a redirect to the key's page. The shape is the one [18](../architecture/18-api.md) §2.3 reserves for true redirects; a clustered item still answers under its own ID with `canonical`. The same section's description of Wikibase's shape is corrected: Wikibase keys a redirected entity by the requested ID, not by its target (`ResultBuilder::addEntityRevision`). The text is in [05](../architecture/05-providers-and-ingest.md) §4.2 and [18](../architecture/18-api.md) §2.3.

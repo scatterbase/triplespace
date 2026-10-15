@@ -394,6 +394,21 @@ async fn a_bot_logs_in_reads_and_edits() {
     );
     let missing = c.get("action=wbgetentities&ids=Q999&format=json").await;
     assert_eq!(missing["entities"]["Q999"]["missing"], "");
+    // The upstream ID of a key-mapped item answers as a Wikibase redirect to its key,
+    // under the ID asked for (0009 §9); `redirects=no` does not follow it.
+    let r = c
+        .get("action=wbgetentities&ids=XDQ11|Item:XDQ9&props=info|labels&format=json")
+        .await;
+    let x = &r["entities"]["XDQ11"];
+    assert_eq!(x["id"], "domain:wikipedia.org", "{r}");
+    assert_eq!(x["title"], "Domain:wikipedia.org");
+    assert_eq!(x["redirects"]["from"], "XDQ11");
+    assert_eq!(x["redirects"]["to"], "domain:wikipedia.org");
+    assert_eq!(r["entities"]["XDQ9"]["id"], "domain:example.org", "{r}");
+    let r = c
+        .get("action=wbgetentities&ids=XDQ11&redirects=no&format=json")
+        .await;
+    assert_eq!(r["entities"]["XDQ11"]["missing"], "");
 
     // An anonymous write is refused.
     let (_, denied) = c
@@ -665,6 +680,21 @@ async fn a_bot_logs_in_reads_and_edits() {
     assert_eq!(
         resp.headers()[header::LOCATION],
         "/wiki/Special:EntityData/Q6.json"
+    );
+    let req = Request::builder()
+        .uri("/wiki/Special:EntityData/XDQ11.json")
+        .header(header::HOST, HOST)
+        .body(Body::empty())
+        .unwrap();
+    let resp = c.router.clone().oneshot(req).await.unwrap();
+    assert_eq!(
+        resp.status(),
+        StatusCode::SEE_OTHER,
+        "a mapped item's upstream ID"
+    );
+    assert_eq!(
+        resp.headers()[header::LOCATION],
+        "/wiki/Special:EntityData/domain:wikipedia.org.json"
     );
 
     // 8. Logout ends the session.
