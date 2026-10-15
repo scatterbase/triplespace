@@ -46,6 +46,7 @@ npm-debug.log*
 /secrets/
 *.pem
 *.key
+*.pw
 .env
 .env.*
 # Personal overrides of config/dev.toml
