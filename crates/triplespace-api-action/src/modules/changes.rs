@@ -1,0 +1,417 @@
+//! `list=recentchanges`, `list=usercontribs` and `list=logevents` (compat §3.3;
+//! 0012 §4; 0020 §5): three target sets over one feed query
+//! ([`triplespace_projections::feed`]), in MediaWiki's shapes.
+//!
+//! - **`recentchanges`**: the everything set. One row per local revision and local log
+//!   event; mirror syncs never appear, each mirror job run appearing as its `job` events
+//!   (16 §4.2). `rcstart`, `rcend`, `rcdir`, `rcnamespace`, `rcuser`, `rcexcludeuser`,
+//!   `rctag`, `rcprop`, `rcshow` (`minor`, `bot`, `new`, `patrolled`, `autopatrolled`,
+//!   `unpatrolled` and their negations), `rctype` (`edit`, `new`, `log`), `rclimit`,
+//!   `rccontinue`; and Triplespace's `rcjob`, `rckind` (adds `sync`) and the `rcprop`
+//!   values `source`, `job`, `operator`.
+//! - **`usercontribs`**: the actor set. `ucuser` (names or actor keys, several), or
+//!   `ucuserids`; `ucstart`, `ucend`, `ucdir`, `ucnamespace`, `uctag`, `ucprop`,
+//!   `ucshow`, `uclimit`, `uccontinue`, `ucjob`.
+//! - **`logevents`**: the log rows. `letype`, `leaction` (`type/action`), `lestart`,
+//!   `leend`, `ledir`, `leuser`, `letitle` is not yet served, `leprop`, `lelimit`,
+//!   `lecontinue`. `leprovider` (a provider's events from `view.entity_history`) waits
+//!   for that table.
+//!
+//! Continuation tokens are the feed's cursors (compat §2.6): a client returns the
+//! `continue` object unchanged.
+
+use serde_json::{Map, Value, json};
+use triplespace_projections::feed::{
+    self, Cursor, Direction, Feed, Filters, Flag, TargetSet, parse_timestamp,
+};
+
+use crate::activity::{actor_key_of, continuation, mw_row, viewer};
+use crate::api::Ctx;
+use crate::response::{ApiError, ApiResponse};
+
+/// The default and the most rows per request.
+const DEFAULT_LIMIT: usize = 10;
+const MAX_LIMIT: usize = 500;
+
+/// Which module.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Module {
+    RecentChanges,
+    UserContribs,
+    LogEvents,
+}
+
+impl Module {
+    fn name(self) -> &'static str {
+        match self {
+            Self::RecentChanges => "recentchanges",
+            Self::UserContribs => "usercontribs",
+            Self::LogEvents => "logevents",
+        }
+    }
+
+    fn prefix(self) -> &'static str {
+        match self {
+            Self::RecentChanges => "rc",
+            Self::UserContribs => "uc",
+            Self::LogEvents => "le",
+        }
+    }
+
+    fn default_props(self) -> &'static [&'static str] {
+        match self {
+            Self::RecentChanges => &["title", "timestamp", "ids"],
+            Self::UserContribs => &["ids", "title", "timestamp", "comment", "size", "flags"],
+            Self::LogEvents => &[
+                "ids",
+                "title",
+                "type",
+                "user",
+                "timestamp",
+                "comment",
+                "details",
+            ],
+        }
+    }
+}
+
+/// The entity types a namespace list selects (namespaces.toml).
+fn entity_types_of(namespaces: &[String]) -> Result<Vec<String>, ApiError> {
+    let mut types = Vec::new();
+    for ns in namespaces {
+        if ns == "*" {
+            return Ok(Vec::new());
+        }
+        let t = match ns.as_str() {
+            "120" => "item",
+            "122" => "property",
+            "146" => "lexeme",
+            "210" => "domain",
+            "212" => "keyword",
+            "216" => "notation",
+            other => {
+                other
+                    .parse::<i64>()
+                    .map_err(|_| ApiError::bad_value("namespace", other))?;
+                // A pages namespace: no entity type; such rows are page targets, which
+                // the feed's page join serves once the pages stack writes them.
+                continue;
+            }
+        };
+        types.push(t.to_string());
+    }
+    Ok(types)
+}
+
+/// A limit parameter: `max` is the most.
+fn limit_of(ctx: &Ctx, name: &str) -> Result<usize, ApiError> {
+    match ctx.params.get(name) {
+        None => Ok(DEFAULT_LIMIT),
+        Some("max") => Ok(MAX_LIMIT),
+        Some(v) => {
+            let n: usize = v.parse().map_err(|_| {
+                ApiError::new(
+                    "badinteger",
+                    format!("Invalid value \"{v}\" for integer parameter \"{name}\"."),
+                )
+            })?;
+            Ok(n.clamp(1, MAX_LIMIT))
+        }
+    }
+}
+
+/// A timestamp parameter.
+fn time_of(ctx: &Ctx, name: &str) -> Result<Option<u64>, ApiError> {
+    match ctx.params.get(name) {
+        None => Ok(None),
+        Some(v) => parse_timestamp(v)
+            .map(Some)
+            .ok_or_else(|| ApiError::bad_value(name, v)),
+    }
+}
+
+/// The parts of a request every module shares: the direction, the window, the limit,
+/// the cursor and the flags.
+async fn common(ctx: &Ctx, module: Module, feed: &mut Feed) -> Result<Vec<String>, ApiError> {
+    let p = module.prefix();
+    let get = |n: &str| ctx.params.get(&format!("{p}{n}"));
+    feed.direction = match get("dir").unwrap_or("older") {
+        "older" => Direction::Older,
+        "newer" => Direction::Newer,
+        other => return Err(ApiError::bad_value(&format!("{p}dir"), other)),
+    };
+    let start = time_of(ctx, &format!("{p}start"))?;
+    let end = time_of(ctx, &format!("{p}end"))?;
+    // `start` is where enumeration starts, so which bound it is depends on the direction.
+    match feed.direction {
+        Direction::Older => {
+            feed.filters.until = start;
+            feed.filters.since = end;
+        }
+        Direction::Newer => {
+            feed.filters.since = start;
+            feed.filters.until = end;
+        }
+    }
+    if let (Some(s), Some(u)) = (feed.filters.since, feed.filters.until)
+        && s > u
+    {
+        return Err(ApiError::new(
+            "badvalue",
+            format!(
+                "{p}start has to be {} {p}end.",
+                match feed.direction {
+                    Direction::Older => "later than",
+                    Direction::Newer => "before",
+                }
+            ),
+        ));
+    }
+    feed.limit = limit_of(ctx, &format!("{p}limit"))?;
+    if let Some(c) = get("continue") {
+        feed.cursor =
+            Some(Cursor::parse(c).ok_or_else(|| ApiError::bad_value(&format!("{p}continue"), c))?);
+    }
+    let show = ctx.params.list(&format!("{p}show"));
+    for name in [
+        "minor",
+        "bot",
+        "new",
+        "patrolled",
+        "unpatrolled",
+        "anon",
+        "redirect",
+    ] {
+        let yes = show.iter().any(|s| s == name);
+        let no = show.iter().any(|s| s.strip_prefix('!') == Some(name));
+        if yes && no {
+            return Err(ApiError::new(
+                "show",
+                "Incorrect parameter - mutually exclusive values may not be supplied.",
+            ));
+        }
+    }
+    feed.filters.minor = Flag::from_show(&show, "minor");
+    feed.filters.bot = Flag::from_show(&show, "bot");
+    feed.filters.new = Flag::from_show(&show, "new");
+    feed.filters.patrolled = Flag::from_show(&show, "patrolled");
+    if show.iter().any(|s| s == "unpatrolled") {
+        feed.filters.patrolled = Flag::Not;
+    }
+    if let Some(t) = get("tag") {
+        feed.filters.tag = Some(t.to_string());
+    }
+    if let Some(j) = get("job") {
+        feed.filters.job = Some(
+            j.parse()
+                .map_err(|_| ApiError::bad_value(&format!("{p}job"), j))?,
+        );
+    }
+    feed.filters.entity_types = entity_types_of(&ctx.params.list(&format!("{p}namespace")))?;
+    if let Some(u) = get("excludeuser") {
+        feed.filters.exclude_actor =
+            Some(actor_key_of(ctx, u).await?.unwrap_or_else(|| u.to_string()));
+    }
+    let mut props = ctx.params.list(&format!("{p}prop"));
+    if props.is_empty() {
+        props = module
+            .default_props()
+            .iter()
+            .map(|s| (*s).to_string())
+            .collect();
+    }
+    Ok(props)
+}
+
+/// Runs one module, adding its rows to `query` and its continuation to `body`.
+#[allow(clippy::too_many_lines)]
+async fn run(
+    ctx: &Ctx,
+    module: Module,
+    query: &mut Map<String, Value>,
+    body: &mut Map<String, Value>,
+    response: &mut ApiResponse,
+) -> Result<(), ApiError> {
+    ctx.caller.require("read")?;
+    let p = module.prefix();
+    let mut feed = Feed::everything(DEFAULT_LIMIT);
+    feed.languages = vec!["en".into()];
+    match module {
+        Module::RecentChanges => {
+            let types = ctx.params.list("rctype");
+            let kinds = ctx.params.list("rckind");
+            if !kinds.is_empty() {
+                feed.filters.kinds = kinds;
+            } else if types.is_empty() {
+                feed.filters.kinds = vec!["edit".into(), "log".into(), "job".into()];
+            } else {
+                let mut kinds = Vec::new();
+                for t in &types {
+                    match t.as_str() {
+                        "edit" => kinds.push("edit".to_string()),
+                        "new" => {
+                            kinds.push("edit".to_string());
+                            feed.filters.new = Flag::Only;
+                        }
+                        "log" => {
+                            kinds.push("log".to_string());
+                            kinds.push("job".to_string());
+                        }
+                        "categorize" | "external" => {}
+                        other => return Err(ApiError::bad_value("rctype", other)),
+                    }
+                }
+                kinds.sort();
+                kinds.dedup();
+                feed.filters.kinds = kinds;
+            }
+            if let Some(u) = ctx.params.get("rcuser") {
+                feed.filters.actor =
+                    Some(actor_key_of(ctx, u).await?.unwrap_or_else(|| u.to_string()));
+            }
+        }
+        Module::UserContribs => {
+            let users = ctx.params.list("ucuser");
+            let ids = ctx.params.list("ucuserids");
+            if users.is_empty() && ids.is_empty() {
+                return Err(ApiError::new(
+                    "missingparam",
+                    "One of the parameters \"ucuser\", \"ucuserids\" and \"ucuserprefix\" is required.",
+                ));
+            }
+            let mut keys = Vec::new();
+            for u in &users {
+                if let Some(k) = actor_key_of(ctx, u).await? {
+                    keys.push(k);
+                }
+            }
+            for id in &ids {
+                let n: u64 = id
+                    .parse()
+                    .map_err(|_| ApiError::bad_value("ucuserids", id))?;
+                let row = ctx
+                    .db()
+                    .query_opt(
+                        "SELECT actor_key FROM view.actor
+                         WHERE tenant IN ($1, '') AND actor_key LIKE '%:' || $2
+                         ORDER BY (tenant = $1) DESC LIMIT 1",
+                        &[&ctx.tenant.slug, &n.to_string()],
+                    )
+                    .await?;
+                if let Some(r) = row {
+                    keys.push(r.get(0));
+                }
+            }
+            if keys.is_empty() {
+                // An unknown user has no contributions: an empty list, as MediaWiki answers.
+                query.insert("usercontribs".into(), json!([]));
+                return Ok(());
+            }
+            // One actor per call for now; several are served in turn, as MediaWiki orders
+            // them by user then time.
+            feed.set = TargetSet::Actor(keys[0].clone());
+            if keys.len() > 1 {
+                response.warn(
+                    "usercontribs",
+                    "Only the first user is served per request; ask for the others separately.",
+                );
+            }
+            feed.filters.kinds = vec!["edit".into()];
+        }
+        Module::LogEvents => {
+            feed.filters.kinds = vec!["log".into(), "job".into()];
+            if let Some(t) = ctx.params.get("letype") {
+                feed.filters.log_type = Some(t.to_string());
+            }
+            if let Some(a) = ctx.params.get("leaction") {
+                let (t, a) = a
+                    .split_once('/')
+                    .ok_or_else(|| ApiError::bad_value("leaction", a))?;
+                feed.filters.log_type = Some(t.to_string());
+                feed.filters.log_action = Some(a.to_string());
+            }
+            if let Some(u) = ctx.params.get("leuser") {
+                feed.filters.actor =
+                    Some(actor_key_of(ctx, u).await?.unwrap_or_else(|| u.to_string()));
+            }
+        }
+    }
+    let props = common(ctx, module, &mut feed).await?;
+    let page = feed::query(ctx.db(), &ctx.tenant.slug, &feed, &viewer(&ctx.caller))
+        .await
+        .map_err(ApiError::internal)?;
+    let rows: Vec<Value> = page
+        .rows
+        .iter()
+        .map(|r| mw_row(ctx, r, &props, module.name()))
+        .collect();
+    query.insert(module.name().into(), Value::Array(rows));
+    continuation(body, p, page.next);
+    Ok(())
+}
+
+/// `list=recentchanges`.
+pub async fn recentchanges(
+    ctx: &Ctx,
+    query: &mut Map<String, Value>,
+    body: &mut Map<String, Value>,
+    response: &mut ApiResponse,
+) -> Result<(), ApiError> {
+    run(ctx, Module::RecentChanges, query, body, response).await
+}
+
+/// `list=usercontribs`.
+pub async fn usercontribs(
+    ctx: &Ctx,
+    query: &mut Map<String, Value>,
+    body: &mut Map<String, Value>,
+    response: &mut ApiResponse,
+) -> Result<(), ApiError> {
+    run(ctx, Module::UserContribs, query, body, response).await
+}
+
+/// `list=logevents`.
+pub async fn logevents(
+    ctx: &Ctx,
+    query: &mut Map<String, Value>,
+    body: &mut Map<String, Value>,
+    response: &mut ApiResponse,
+) -> Result<(), ApiError> {
+    run(ctx, Module::LogEvents, query, body, response).await
+}
+
+/// The filters a request's parameters would give: for tests, without a database.
+#[must_use]
+pub fn filters_for_test(show: &[String]) -> Filters {
+    Filters {
+        minor: Flag::from_show(show, "minor"),
+        bot: Flag::from_show(show, "bot"),
+        new: Flag::from_show(show, "new"),
+        patrolled: Flag::from_show(show, "patrolled"),
+        ..Filters::default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn namespaces_name_entity_types() {
+        assert_eq!(
+            entity_types_of(&["120".into(), "210".into()]).unwrap(),
+            vec!["item", "domain"]
+        );
+        assert!(entity_types_of(&["*".into()]).unwrap().is_empty());
+        assert!(entity_types_of(&["4".into()]).unwrap().is_empty());
+        assert!(entity_types_of(&["x".into()]).is_err());
+    }
+
+    #[test]
+    fn show_lists_become_flags() {
+        let f = filters_for_test(&["!bot".into(), "new".into()]);
+        assert_eq!(f.bot, Flag::Not);
+        assert_eq!(f.new, Flag::Only);
+        assert_eq!(f.minor, Flag::Any);
+    }
+}

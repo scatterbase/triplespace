@@ -34,7 +34,11 @@ const pages = [
 	{ path: '/wiki/Special:NewItem', heading: 'Create a new item' },
 	{ path: '/wiki/Special:Version', heading: 'Version' },
 	{ path: '/wiki/Special:Version/Credits', heading: 'Credits' },
-	{ path: '/wiki/Special:Version/License', heading: 'GNU General Public License' }
+	{ path: '/wiki/Special:Version/License', heading: 'GNU General Public License' },
+	{ path: '/wiki/Special:RecentChanges', heading: 'Recent changes' },
+	{ path: '/w/index.php?title=Special:RecentChanges&filtered=1&kind=edit&kind=sync&days=90', heading: 'Recent changes' },
+	{ path: '/wiki/Special:Contributions', heading: 'User contributions' },
+	{ path: '/wiki/Special:Contributions/Alice', heading: 'Contributions of Alice' }
 ];
 
 for ( const p of pages ) {
@@ -92,7 +96,8 @@ test( 'the main page is Project:Home, and unbuilt features are not linked', asyn
 	await page.goto( '/wiki/Main_Page' );
 	await expect( page ).toHaveURL( /\/wiki\/Project:Home$/ );
 	await expect( page.locator( 'a[href="/wiki/Special:NewItem"]' ) ).toHaveCount( 1 );
-	for ( const absent of [ 'Special:RecentChanges', 'Special:Jobs', 'action=history' ] ) {
+	await expect( page.locator( 'a[href="/wiki/Special:RecentChanges"]' ) ).toHaveCount( 1 );
+	for ( const absent of [ 'Special:Jobs', 'action=history' ] ) {
 		await expect( page.locator( `a[href*="${ absent }"]` ) ).toHaveCount( 0 );
 	}
 	await page.goto( '/wiki/Item:Q6' );
@@ -171,4 +176,26 @@ test( 'an anonymous page is public; a signed-in page is private', async ( { play
 		expect( await mine.text() ).toContain( 'Account menu for Alice' );
 	}
 	await alice.dispose();
+} );
+
+test( 'recent changes list the adoption, filter without JavaScript, and reach contributions', async ( { page } ) => {
+	await page.goto( '/wiki/Special:RecentChanges' );
+	await expect( page.getByRole( 'heading', { level: 1 } ) ).toHaveText( 'Recent changes' );
+	// The adopted entities' first records are edits made here; mirror syncs are off.
+	await expect( page.locator( '.ts-change--edit' ).first() ).toBeVisible();
+	await expect( page.locator( '.ts-change--sync' ) ).toHaveCount( 0 );
+	await expect( page.getByText( 'Mirror syncs are not shown.' ) ).toBeVisible();
+	// The strip's link turns them on.
+	await page.getByRole( 'link', { name: 'Show them' } ).click();
+	await expect( page.locator( '.ts-change--sync' ).first() ).toBeVisible();
+	await expect( page.getByLabel( 'Mirror syncs' ) ).toBeChecked();
+	// The form narrows to properties.
+	await page.getByLabel( 'Namespace' ).selectOption( '122' );
+	await page.getByRole( 'button', { name: 'Show changes' } ).click();
+	await expect( page.locator( '.ts-change__target' ).first() ).toHaveAttribute( 'href', /Property:/ );
+	// An actor's name leads to their contributions.
+	await page.getByRole( 'link', { name: 'Alice', exact: true } ).first().click();
+	await expect( page.getByRole( 'heading', { level: 1 } ) ).toHaveText( 'Contributions of Alice' );
+	await expect( page.locator( '.ts-change' ).first() ).toBeVisible();
+	expect( await overflow( page ) ).toBe( 0 );
 } );

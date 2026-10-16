@@ -7,7 +7,7 @@
 //! - Step 2, the source graphs: `entity_source` and `keyed_map` ([`sources`]), `job`
 //!   ([`jobs`]).
 //! - Step 4, resolution: `entity` with its `term` and `identifier` tables ([`entities`]).
-//! - Step 5: `activity` ([`activity`]).
+//! - Step 5: `activity` ([`activity`]); the feeds that read it ([`feed`], 0020 §1).
 //!
 //! Clusters (step 3), pages, sitelinks, references, corrections, constraints, patrol,
 //! filters, notifications and RDF follow as the crates that produce their records are
@@ -18,6 +18,7 @@ pub mod actors;
 pub mod backend;
 pub mod common;
 pub mod entities;
+pub mod feed;
 pub mod jobs;
 pub mod read;
 pub mod registry;

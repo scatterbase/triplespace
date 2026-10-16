@@ -1,0 +1,152 @@
+/*
+ * Special:RecentChanges and Special:Contributions (ADR 0010 §7, 0020 §4; chapter 19
+ * §3.9): the filter form, the sync strip, the rows grouped by day, and the pager.
+ * Logical properties throughout.
+ */
+
+.ts-changes {
+	display: flex;
+	flex-direction: column;
+	gap: var( --spacing-100, 1rem );
+	max-width: 64rem;
+}
+
+.ts-changes-form {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	gap: var( --spacing-75, 0.75rem ) var( --spacing-150, 1.5rem );
+	padding: var( --spacing-75, 0.75rem ) var( --spacing-100, 1rem );
+	border: 1px solid var( --border-color-muted, #dadde3 );
+	border-radius: var( --border-radius-base, 2px );
+	background-color: var( --background-color-neutral-subtle, #f8f9fa );
+}
+
+.ts-changes-form__kinds {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var( --spacing-50, 0.5rem ) var( --spacing-100, 1rem );
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+.ts-changes-form__kinds legend {
+	padding: 0;
+	font-weight: bold;
+}
+
+.ts-changes-form__field {
+	display: inline-flex;
+	flex-direction: column;
+	gap: var( --spacing-25, 0.25rem );
+}
+
+.ts-changes-form__field > span {
+	font-weight: bold;
+}
+
+.ts-changes__strip {
+	margin: 0;
+	color: var( --color-subtle, #54595d );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+.ts-changes__day {
+	margin: var( --spacing-100, 1rem ) 0 var( --spacing-50, 0.5rem );
+	font-family: inherit;
+	font-size: var( --font-size-medium, 1rem );
+	font-weight: bold;
+}
+
+.ts-changes__list {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.ts-change {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0 var( --spacing-50, 0.5rem );
+	padding: var( --spacing-25, 0.25rem ) 0;
+	border-top: 1px solid var( --border-color-muted, #dadde3 );
+	line-height: var( --line-height-medium, 1.5 );
+	overflow-wrap: anywhere;
+}
+
+/* A row is a line of text with links in it, so the links are underlined to be told
+ * apart from the text around them (WCAG 1.4.1; axe's link-in-text-block), as is the
+ * strip's link. */
+.ts-changes__strip a,
+.ts-change a {
+	text-decoration: underline;
+}
+
+.ts-change__time {
+	font-family: var( --font-family-monospace, monospace );
+	font-size: var( --font-size-small, 0.875rem );
+	color: var( --color-subtle, #54595d );
+}
+
+.ts-change__id {
+	font-size: var( --font-size-small, 0.875rem );
+	color: var( --color-subtle, #54595d );
+}
+
+.ts-change__flag {
+	font-weight: bold;
+	text-decoration: none;
+}
+
+.ts-change__flag--new {
+	color: var( --color-success, #177860 );
+}
+
+.ts-change__flag--bot {
+	color: var( --color-subtle, #54595d );
+}
+
+.ts-change__delta {
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+.ts-change__delta--pos {
+	color: var( --color-success, #177860 );
+}
+
+.ts-change__delta--neg {
+	color: var( --color-destructive, #bf3c2c );
+}
+
+.ts-change__summary {
+	color: var( --color-subtle, #54595d );
+}
+
+.ts-change__auto {
+	font-style: italic;
+}
+
+.ts-change__comment {
+	color: var( --color-base, #202122 );
+}
+
+.ts-change__hidden {
+	color: var( --color-subtle, #54595d );
+	font-style: italic;
+}
+
+.ts-change__tags {
+	display: inline-flex;
+	flex-wrap: wrap;
+	gap: var( --spacing-25, 0.25rem );
+}
+
+.ts-change__tag {
+	padding: 0 var( --spacing-25, 0.25rem );
+	border: 1px solid var( --border-color-muted, #dadde3 );
+	border-radius: var( --border-radius-pill, 9999px );
+	font-size: var( --font-size-x-small, 0.75rem );
+	color: var( --color-subtle, #54595d );
+}

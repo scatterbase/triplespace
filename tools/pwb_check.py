@@ -272,6 +272,33 @@ def main():
         return f"{new.getID()}" + (f" (floor {a.item_floor})" if a.item_floor else "")
     step("write: new item above the counter floor", new_item, skip=skip_w)
 
+    # --- feeds (0020 section 5): the edits above are recent changes and contributions ----
+    def recent_changes():
+        # Pywikibot validates every parameter against paraminfo before sending it.
+        rows = list(repo.recentchanges(total=20, changetype="edit"))
+        if not rows:
+            raise RuntimeError("no recent changes")
+        titles = {r.get("title") for r in rows}
+        if a.item not in titles and f"Item:{a.item}" not in titles:
+            raise RuntimeError(f"{a.item} is not in recent changes: {sorted(titles)[:5]}")
+        return f"{len(rows)} rows, newest {rows[0]['timestamp']}"
+    step("read: list=recentchanges", recent_changes, skip=skip_w)
+
+    def contributions():
+        user = pywikibot.User(repo, repo.username())
+        rows = list(repo.usercontribs(user=user.username, total=20))
+        if not rows:
+            raise RuntimeError("no contributions")
+        if any(r.get("user") != user.username for r in rows):
+            raise RuntimeError("a row by someone else")
+        return f"{len(rows)} rows"
+    step("read: list=usercontribs", contributions, skip=skip_w)
+
+    def log_events():
+        rows = list(repo.logevents(logtype="job", total=5))
+        return f"{len(rows)} job events"
+    step("read: list=logevents", log_events)
+
     failures = sum(1 for _, ok in results if ok is False)
     passed = sum(1 for _, ok in results if ok is True)
     skipped = sum(1 for _, ok in results if ok is None)

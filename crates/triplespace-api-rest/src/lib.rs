@@ -10,6 +10,8 @@
 //!   who minted the ID, retention and the canonical ID (0003 §6; 0012 §5).
 //! - `GET /version` and `GET /version/licenses/{id}` ([`version`]): everything
 //!   `Special:Version` shows, and one component's licence texts (0077 §10).
+//! - `GET /activity` ([`activity`]): a change feed in the row shape of 16 §3.1 — recent
+//!   changes, a history or contributions by its target set (0020 §4–5).
 //!
 //! Every route runs behind the Action API's request layers ([`triplespace_api_action`]):
 //! the tenant the host names (421 otherwise), the caller, the redaction of 0012 §8, and
@@ -18,6 +20,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod activity;
 pub mod provenance;
 pub mod version;
 
@@ -33,6 +36,7 @@ pub const PATHS: &[&str] = &[
     "/entity/{id}/provenance",
     "/version",
     "/version/licenses/{id}",
+    "/activity",
 ];
 
 /// The REST routes, to be merged into the server's router.
@@ -42,7 +46,8 @@ pub fn routes() -> Router<App> {
         r = r
             .route(&format!("{base}{}", PATHS[0]), get(provenance::handle))
             .route(&format!("{base}{}", PATHS[1]), get(version::handle))
-            .route(&format!("{base}{}", PATHS[2]), get(version::license));
+            .route(&format!("{base}{}", PATHS[2]), get(version::license))
+            .route(&format!("{base}{}", PATHS[3]), get(activity::handle));
     }
     r
 }

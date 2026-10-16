@@ -255,6 +255,249 @@
           }
         }
       }
+    },
+    "/activity": {
+      "get": {
+        "operationId": "getActivity",
+        "summary": "A change feed: recent changes, a history or contributions",
+        "description": "Activity rows filtered by a target set (ADR 0020 §1–2; chapter 16 §4): without `target` or `actor`, the everything set, which is recent changes; with `target`, the one-target set, which is that entity's, page's, actor's or job's history; with `actor` alone, that actor's contributions. Rows are ordered by (time, partition, offset), newest first unless `dir=newer`, and paged with `next`, an opaque token the next request sends as `continue`. Every row is redacted for the viewer (ADR 0012 §8): a hidden part is named in `visibility` and absent from the row, and a row under a `read` restriction the viewer's groups do not satisfy is not returned. Mirror syncs (`kind: sync`) are left out of the everything set by default and kept in a target's history (chapter 16 §4.2); `syncs` overrides that. The related and watched sets and the stream are not served yet.",
+        "parameters": [
+          {
+            "name": "target",
+            "in": "query",
+            "required": false,
+            "description": "The one-target set: `{kind}:{id}` with kind `entity`, `page`, `actor`, `job` or `record`, such as `entity:Q6`, `page:12`, `actor:local:7`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "actor",
+            "in": "query",
+            "required": false,
+            "description": "Rows by one actor, by user name or actor key: the contributions set when no `target` is given, an actor filter on the target's history otherwise.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "description": "Row kinds, `|`-separated: `edit`, `sync`, `log`, `job`, `erased`. Default: every kind but `sync` for the everything set, every kind for a target.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "syncs",
+            "in": "query",
+            "required": false,
+            "description": "`on` or `off`: whether mirror syncs are included; a shorthand on `kind`.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "on",
+                "off"
+              ]
+            }
+          },
+          {
+            "name": "namespace",
+            "in": "query",
+            "required": false,
+            "description": "Entity namespaces, `|`-separated (`120`, `122`, `210`, …), or `*`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "required": false,
+            "description": "Only rows carrying this change tag.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "job",
+            "in": "query",
+            "required": false,
+            "description": "Only rows written by this job.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "exclude_actor",
+            "in": "query",
+            "required": false,
+            "description": "No rows by this actor (name or key).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "log_type",
+            "in": "query",
+            "required": false,
+            "description": "Only log events of this type.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "log_action",
+            "in": "query",
+            "required": false,
+            "description": "… and this action.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "show",
+            "in": "query",
+            "required": false,
+            "description": "Flag filters, `|`-separated: `bot`, `!bot`, `minor`, `!minor`, `new`, `!new`, `patrolled`, `!patrolled`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "description": "Rows at or after this time: ISO 8601 or MediaWiki's `YYYYMMDDHHMMSS`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "until",
+            "in": "query",
+            "required": false,
+            "description": "Rows at or before this time.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dir",
+            "in": "query",
+            "required": false,
+            "description": "`older` (newest first, the default) or `newer`.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "older",
+                "newer"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Rows per page: 50 by default, 500 at most.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          },
+          {
+            "name": "continue",
+            "in": "query",
+            "required": false,
+            "description": "The `next` token of the previous page.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "required": false,
+            "description": "The language of the targets' labels; `mul` and `en` are fallbacks.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of the feed.",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Tag": {
+                "description": "Public responses only: `entity:{id}` for an entity's history, `activity` otherwise.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityPage"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not modified."
+          },
+          "400": {
+            "description": "A parameter the route does not take a value of (`bad-parameter`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller may not read (`permissiondenied`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The host is not a tenant of this instance (`misdirected`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1017,6 +1260,307 @@
             "description": "Whether the tenant or the instance sets it; otherwise `value` is the default"
           },
           "value": {}
+        }
+      },
+      "ActivityPage": {
+        "type": "object",
+        "required": [
+          "rows",
+          "set",
+          "kinds"
+        ],
+        "properties": {
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ActivityRow"
+            }
+          },
+          "set": {
+            "description": "The target set served: `everything`, `{kind, id}` for one target, or `{actor}` for contributions.",
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "everything"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "actor": {
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          },
+          "kinds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The row kinds the page covers."
+          },
+          "next": {
+            "type": "string",
+            "description": "The token of the next page; absent on the last."
+          }
+        }
+      },
+      "ActivityRow": {
+        "type": "object",
+        "description": "One activity row (chapter 16 §3.1).",
+        "required": [
+          "kind",
+          "time",
+          "source",
+          "record",
+          "actor",
+          "tags",
+          "flags",
+          "patrolled",
+          "visibility",
+          "links"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "edit",
+              "sync",
+              "log",
+              "job",
+              "erased"
+            ]
+          },
+          "time": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the event happened at its source."
+          },
+          "source": {
+            "type": "string",
+            "description": "The graph: `local`, `pages`, `mirror/wikidata`, `log`, …"
+          },
+          "record": {
+            "type": "object",
+            "required": [
+              "partition",
+              "offset"
+            ],
+            "properties": {
+              "partition": {
+                "type": "integer"
+              },
+              "offset": {
+                "type": "integer"
+              }
+            }
+          },
+          "revid": {
+            "type": "integer",
+            "description": "The global revision ID of a change set."
+          },
+          "logid": {
+            "type": "integer",
+            "description": "The global log ID of an event."
+          },
+          "target": {
+            "type": "object",
+            "description": "Absent for a record with no target.",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "entity",
+                  "page",
+                  "actor",
+                  "job",
+                  "record"
+                ]
+              },
+              "id": {
+                "type": "string"
+              },
+              "member": {
+                "type": "string",
+                "description": "The cluster member the record is keyed to, or the revision a record target names."
+              },
+              "entity_type": {
+                "type": "string"
+              },
+              "page_id": {
+                "type": "integer"
+              },
+              "ns": {
+                "type": "integer"
+              },
+              "title": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string",
+                "format": "uri"
+              },
+              "label": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "type": "string"
+                  },
+                  "language": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "actor": {
+            "type": "object",
+            "description": "`{hidden: true}` when the actor is hidden from the viewer.",
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "iri": {
+                "type": "string",
+                "format": "uri"
+              },
+              "hidden": {
+                "type": "boolean"
+              }
+            }
+          },
+          "operator": {
+            "type": "string",
+            "description": "A subsidiary's operator."
+          },
+          "requested_by": {
+            "type": "string"
+          },
+          "job": {
+            "type": "integer"
+          },
+          "summary": {
+            "type": "object",
+            "description": "The parsed summary (ADR 0001 §6), or `{hidden: true}`.",
+            "properties": {
+              "op": {
+                "type": "string"
+              },
+              "args": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string",
+                "description": "MediaWiki's comment form: `/* op:args */ comment`."
+              },
+              "hidden": {
+                "type": "boolean"
+              }
+            }
+          },
+          "comment": {
+            "type": "string",
+            "description": "The user's own comment."
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "flags": {
+            "type": "object",
+            "required": [
+              "minor",
+              "bot",
+              "new"
+            ],
+            "properties": {
+              "minor": {
+                "type": "boolean"
+              },
+              "bot": {
+                "type": "boolean"
+              },
+              "new": {
+                "type": "boolean"
+              }
+            }
+          },
+          "patrolled": {
+            "type": "boolean"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "delta": {
+            "type": "integer"
+          },
+          "changes": {
+            "description": "A sync's change summary (ADR 0012 §2.2)."
+          },
+          "log": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "action": {
+                "type": "string"
+              },
+              "params": {}
+            }
+          },
+          "visibility": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "content",
+                "comment",
+                "user",
+                "suppressed"
+              ]
+            },
+            "description": "The parts hidden from the viewer."
+          },
+          "links": {
+            "type": "object",
+            "properties": {
+              "diff": {
+                "type": "string",
+                "format": "uri"
+              },
+              "history": {
+                "type": "string",
+                "format": "uri"
+              },
+              "job": {
+                "type": "string",
+                "format": "uri"
+              }
+            }
+          }
         }
       }
     }

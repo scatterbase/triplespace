@@ -191,6 +191,9 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
         "/wiki/Item:Q404",
         "/w/index.php?title=Item:Q6&action=history",
         "/w/index.php?title=Special:Search&search=six&fulltext=1",
+        "/wiki/Special:RecentChanges",
+        "/w/index.php?title=Special:RecentChanges&filtered=1&kind=edit&kind=sync&days=90",
+        "/wiki/Special:Contributions/Alice",
         "/nothing/here",
     ] {
         let a = get(&web, path, None).await;
@@ -214,6 +217,26 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
             "{path}: an anonymous page is public"
         );
     }
+    // Recent changes (0020 §4): the adoption's rows, made here, and with the switch on
+    // the mirror's syncs too.
+    let rc = get(&web, "/wiki/Special:RecentChanges", None).await;
+    assert_eq!(rc.status, StatusCode::OK);
+    assert!(
+        rc.body
+            .contains("<title>Recent changes – librarybase</title>")
+    );
+    assert!(rc.body.contains("ts-change--edit"), "{}", rc.body);
+    assert!(rc.body.contains("href=\"/wiki/Item:Q6\""), "{}", rc.body);
+    assert!(!rc.body.contains("ts-change--sync"));
+    assert!(rc.body.contains("Mirror syncs are not shown."));
+    let with = get(
+        &web,
+        "/w/index.php?title=Special:RecentChanges&filtered=1&kind=edit&kind=sync&days=90",
+        None,
+    )
+    .await;
+    assert!(with.body.contains("ts-change--sync"), "{}", with.body);
+    assert!(with.body.contains("Domain:wikipedia.org"));
     let page = get(&web, "/wiki/Project:Home", None).await;
     assert!(
         page.body

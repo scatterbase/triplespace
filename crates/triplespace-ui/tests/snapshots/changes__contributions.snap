@@ -1,0 +1,102 @@
+---
+source: crates/triplespace-ui/tests/changes.rs
+expression: main
+---
+<main class="ts-page" id="content">
+	<h1 class="ts-page__title">Contributions of Alice bot</h1>
+	<div class="ts-page__body">
+		<div class="ts-changes">
+<form class="ts-changes-form" action="/w/index.php" method="get" aria-label="Filter the changes">
+<input type="hidden" name="title" value="Special:Contributions/Alice bot">
+<input type="hidden" name="filtered" value="1">
+<label class="ts-changes-form__field">
+<span>User</span> <input class="cdx-text-input__input" type="text" name="target" value="Alice bot">
+</label>
+<fieldset class="ts-changes-form__kinds">
+<legend>Show</legend>
+<label class="cdx-checkbox cdx-checkbox--inline">
+<input class="cdx-checkbox__input" type="checkbox" name="kind" value="edit" checked>
+<span class="cdx-checkbox__icon">
+</span>
+<span class="cdx-checkbox__label">Edits</span>
+</label>
+<label class="cdx-checkbox cdx-checkbox--inline">
+<input class="cdx-checkbox__input" type="checkbox" name="kind" value="job" checked>
+<span class="cdx-checkbox__icon">
+</span>
+<span class="cdx-checkbox__label">Jobs</span>
+</label>
+<label class="cdx-checkbox cdx-checkbox--inline">
+<input class="cdx-checkbox__input" type="checkbox" name="kind" value="log" checked>
+<span class="cdx-checkbox__icon">
+</span>
+<span class="cdx-checkbox__label">Log actions</span>
+</label>
+<label class="cdx-checkbox cdx-checkbox--inline">
+<input class="cdx-checkbox__input" type="checkbox" name="kind" value="sync">
+<span class="cdx-checkbox__icon">
+</span>
+<span class="cdx-checkbox__label">Mirror syncs</span>
+</label>
+<label class="cdx-checkbox cdx-checkbox--inline">
+<input class="cdx-checkbox__input" type="checkbox" name="hidebots" value="1">
+<span class="cdx-checkbox__icon">
+</span>
+<span class="cdx-checkbox__label">Hide bot edits</span>
+</label>
+</fieldset>
+<label class="ts-changes-form__field">
+<span>Namespace</span> <select class="cdx-select" name="namespace">
+<option value="" selected>All</option>
+<option value="120">Items</option>
+<option value="122">Properties</option>
+<option value="210">Domains</option>
+</select>
+</label>
+<label class="ts-changes-form__field">
+<span>Period</span> <select class="cdx-select" name="days">
+<option value="1">1 day</option>
+<option value="3">3 days</option>
+<option value="7">7 days</option>
+<option value="14">14 days</option>
+<option value="30" selected>30 days</option>
+<option value="90">90 days</option>
+</select>
+</label>
+<label class="ts-changes-form__field">
+<span>Rows</span> <select class="cdx-select" name="limit">
+<option value="50" selected>50</option>
+<option value="100">100</option>
+<option value="250">250</option>
+<option value="500">500</option>
+</select>
+</label> <button class="cdx-button cdx-button--action-progressive cdx-button--weight-primary" type="submit">Show changes</button>
+</form>
+<h3 class="ts-changes__day">2 October 2026</h3>
+<ul class="ts-changes__list">
+<li class="ts-change ts-change--edit">
+<time class="ts-change__time" datetime="2026-10-02T14:05:11Z">14:05</time>
+<span class="ts-change__part">
+<span class="ts-chip ts-chip--local">Local</span>
+</span>
+<span class="ts-change__part">
+<a href="/wiki/Item:Q6" class="ts-change__target">
+<span>Six &amp; more</span>
+</a>
+</span>
+<span class="ts-change__part ts-change__id ts-mono">Q6</span>
+<span class="ts-change__delta ts-change__delta--pos" dir="ltr">+20</span>
+<span class="ts-change__part">
+<a href="/wiki/Special:Contributions/Alice_bot" class="ts-change__actor">Alice bot</a>
+</span>
+<span class="ts-change__summary">
+<span class="ts-change__auto">add: aliases:en</span>
+</span>
+</li>
+</ul>
+<nav class="ts-pager" aria-label="More results">
+<a href="/w/index.php?title=Special:Contributions/Alice%5Fbot&amp;filtered=1&amp;kind=edit&amp;kind=job&amp;kind=log&amp;days=30&amp;limit=50&amp;continue=1700000000000000%7C4098%7C2" rel="next">Older</a>
+</nav>
+</div>
+	</div>
+</main>

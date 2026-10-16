@@ -20,7 +20,7 @@ pub enum Feature {
     Create,
     /// Entity and page histories.
     History,
-    /// `Special:RecentChanges`.
+    /// `Special:RecentChanges` and `Special:Contributions`.
     RecentChanges,
     /// `Special:Jobs` and job pages.
     Jobs,
@@ -56,6 +56,7 @@ pub const BUILT: &[Feature] = &[
     Feature::Login,
     Feature::Edit,
     Feature::Create,
+    Feature::RecentChanges,
     Feature::Version,
 ];
 

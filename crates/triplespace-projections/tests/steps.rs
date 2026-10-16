@@ -594,6 +594,9 @@ async fn steps_two_to_five_project_and_rebuild() {
         Some("claims:P4 labels:fr")
     );
 
+    // The feeds over those rows (0020 §1–2): recent changes, contributions, a history.
+    feeds(&client).await;
+
     // A tombstone retracts the mirror's contribution and the rows that hung off it.
     let mut store = PgLog::new(client);
     store
@@ -665,6 +668,209 @@ async fn steps_two_to_five_project_and_rebuild() {
 
 /// Every derived row, as text. `resolved_version` and `first_seen` may legitimately differ
 /// after a rebuild that interleaves partitions differently; everything else must not.
+/// Recent changes, contributions and a history are one query with three target sets.
+#[allow(clippy::too_many_lines)]
+async fn feeds(client: &Client) {
+    use triplespace_projections::feed::{
+        self, Cursor, Direction, Feed, Filters, Flag, TargetSet, Viewer, target_kind,
+    };
+    let viewer = Viewer::default();
+    let brief = |p: &feed::Page| -> Vec<String> {
+        p.rows
+            .iter()
+            .map(|r| {
+                format!(
+                    "{}|{}|{}",
+                    r.kind,
+                    r.summary_op
+                        .clone()
+                        .or_else(|| r.log_action.clone())
+                        .unwrap_or_default(),
+                    r.target.id.clone().unwrap_or_default()
+                )
+            })
+            .collect()
+    };
+
+    // Recent changes: everything but syncs, newest first; the mirror job's own rows
+    // from the instance log are in it.
+    let mut rc = Feed::everything(50);
+    rc.filters.kinds = vec!["edit".into(), "log".into(), "job".into()];
+    let page = feed::query(client, TENANT, &rc, &viewer).await.unwrap();
+    assert_eq!(page.rows.len(), 9, "{:?}", brief(&page));
+    assert!(page.next.is_none());
+    assert!(page.rows.iter().all(|r| r.kind != "sync"));
+    assert!(
+        page.rows
+            .windows(2)
+            .all(|w| w[0].cursor().time >= w[1].cursor().time),
+        "newest first"
+    );
+    let adopt = page
+        .rows
+        .iter()
+        .find(|r| r.summary_op.as_deref() == Some("adopt"))
+        .unwrap();
+    assert!(
+        adopt.new,
+        "an adopted entity's first record is new (16 §3.1)"
+    );
+    assert_eq!(adopt.target.entity_type.as_deref(), Some("item"));
+    assert_eq!(
+        adopt.target.label,
+        Some(("Six".to_string(), "en".to_string()))
+    );
+    assert_eq!(adopt.actor.key.as_deref(), Some("local:1"));
+
+    // Paging: two at a time, then from the cursor, covers the set once in order.
+    rc.limit = 2;
+    let first = feed::query(client, TENANT, &rc, &viewer).await.unwrap();
+    assert_eq!(first.rows.len(), 2);
+    let mut all = brief(&first);
+    let mut next = first.next;
+    while let Some(c) = next {
+        rc.cursor = Some(c);
+        let p = feed::query(client, TENANT, &rc, &viewer).await.unwrap();
+        all.extend(brief(&p));
+        next = p.next;
+    }
+    assert_eq!(
+        all,
+        brief(&page),
+        "paging walks the same rows in the same order"
+    );
+    rc.cursor = None;
+    rc.limit = 50;
+
+    // Oldest first, and a window.
+    rc.direction = Direction::Newer;
+    let asc = feed::query(client, TENANT, &rc, &viewer).await.unwrap();
+    let mut expected = brief(&page);
+    expected.reverse();
+    assert_eq!(brief(&asc), expected);
+    let since = asc.rows[2].time;
+    rc.filters.since = Some(since);
+    let windowed = feed::query(client, TENANT, &rc, &viewer).await.unwrap();
+    assert_eq!(
+        windowed.rows.len(),
+        asc.rows.iter().filter(|r| r.time >= since).count()
+    );
+    assert!(windowed.rows.iter().all(|r| r.time >= since));
+    rc.filters.since = None;
+    rc.filters.until = Some(since);
+    let windowed = feed::query(client, TENANT, &rc, &viewer).await.unwrap();
+    assert!(windowed.rows.iter().all(|r| r.time <= since));
+    rc.filters.until = None;
+
+    // Flags and tags narrow the set.
+    rc.filters.new = Flag::Only;
+    let new = feed::query(client, TENANT, &rc, &viewer).await.unwrap();
+    assert_eq!(brief(&new), vec!["edit|adopt|Q6"]);
+    rc.filters.new = Flag::Not;
+    rc.filters.tag = Some("bot".into());
+    let bot = feed::query(client, TENANT, &rc, &viewer).await.unwrap();
+    assert!(bot.rows.is_empty());
+    rc.filters = Filters::default();
+    rc.filters.entity_types = vec!["domain".into()];
+    let domains = feed::query(client, TENANT, &rc, &viewer).await.unwrap();
+    assert!(
+        domains
+            .rows
+            .iter()
+            .all(|r| r.target.id.as_deref() == Some(DOMAIN))
+    );
+    assert_eq!(domains.rows.len(), 4, "{:?}", brief(&domains));
+    rc.filters = Filters::default();
+    rc.filters.log_type = Some("job".into());
+    rc.filters.log_action = Some("fail".into());
+    let failed = feed::query(client, TENANT, &rc, &viewer).await.unwrap();
+    assert_eq!(brief(&failed), vec!["job|fail|8"]);
+
+    // Contributions: the actor set.
+    let contribs = Feed {
+        set: TargetSet::Actor("local:1".into()),
+        filters: Filters {
+            kinds: vec!["edit".into()],
+            ..Filters::default()
+        },
+        direction: Direction::Older,
+        cursor: None,
+        limit: 50,
+        languages: vec!["en".into()],
+    };
+    let page = feed::query(client, TENANT, &contribs, &viewer)
+        .await
+        .unwrap();
+    assert_eq!(page.rows.len(), 5);
+    assert!(
+        page.rows
+            .iter()
+            .all(|r| r.actor.key.as_deref() == Some("local:1"))
+    );
+
+    // A history: the one-target set keeps syncs, and reaches the shared mirror partition.
+    let history = Feed {
+        set: TargetSet::Target {
+            kind: target_kind::ENTITY,
+            id: DOMAIN.into(),
+        },
+        filters: Filters::default(),
+        direction: Direction::Newer,
+        cursor: None,
+        limit: 50,
+        languages: vec!["en".into()],
+    };
+    let page = feed::query(client, TENANT, &history, &viewer)
+        .await
+        .unwrap();
+    assert_eq!(
+        brief(&page),
+        vec![
+            "edit|add|domain:example.org",
+            "edit|override|domain:example.org",
+            "edit|retain|domain:example.org",
+            "sync|put|domain:example.org",
+        ],
+        "in time order, the mirror's sync after the local edits that preceded it"
+    );
+    let sync = &page.rows[3];
+    assert_eq!(sync.source, "mirror/internetdomains");
+    assert_eq!(sync.size, Some(400));
+    assert_eq!(sync.delta, Some(20));
+    assert!(sync.changes.is_some());
+    assert_eq!(sync.tags, vec!["bulk"]);
+
+    // A restricted row is for its groups.
+    client
+        .execute(
+            "UPDATE view.activity SET read_groups = '{sysop}' WHERE summary_op = 'retain'",
+            &[],
+        )
+        .await
+        .unwrap();
+    let page = feed::query(client, TENANT, &history, &viewer)
+        .await
+        .unwrap();
+    assert_eq!(page.rows.len(), 3, "not for the public");
+    let sysop = Viewer {
+        groups: vec!["sysop".into()],
+    };
+    let page = feed::query(client, TENANT, &history, &sysop).await.unwrap();
+    assert_eq!(page.rows.len(), 4, "for a member of the group");
+    client
+        .execute("UPDATE view.activity SET read_groups = NULL", &[])
+        .await
+        .unwrap();
+
+    // A cursor is a token a client hands back.
+    let c = Cursor {
+        time: 1,
+        partition: 2,
+        offset: 3,
+    };
+    assert_eq!(Cursor::parse(&c.token()), Some(c));
+}
+
 async fn snapshot(client: &Client) -> Vec<String> {
     let mut all = Vec::new();
     all.extend(
