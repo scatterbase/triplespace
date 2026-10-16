@@ -7,7 +7,8 @@
 //!   `action=clientlogin` (primary accounts, 0007 §3), `action=logout`, `wbgetentities`,
 //!   `wbsearchentities`, and the write modules `wbeditentity`, `wbcreateclaim`,
 //!   `wbsetclaim`, `wbremoveclaims`, `wbsetlabel`, `wbsetdescription`, `wbsetaliases`,
-//!   `wbsetqualifier`, `wbremovequalifiers`, `wbsetreference`, `wbremovereferences`.
+//!   `wbsetqualifier`, `wbremovequalifiers`, `wbsetreference`, `wbremovereferences`;
+//!   `list=recentchanges`, `list=usercontribs`, `list=logevents` ([`modules::changes`]).
 //! - `GET /wiki/Special:EntityData/{id}.json` and `GET /entity/{id}` (0001 §1; 0002 §4).
 //!
 //! Every request is served for the tenant its `Host` names (0056 §10): an unregistered
@@ -19,6 +20,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod activity;
 pub mod api;
 pub mod app;
 pub mod auth;
@@ -42,10 +44,54 @@ pub use app::{App, Config, Mode};
 ///   `Cache-Tag` and `304` on public responses; `GET /entity/{id}/provenance` in REST v0.
 /// - 2: `GET /version` and `GET /version/licenses/{id}` in REST v0; `siprop=libraries`;
 ///   `general.dbversion`; `build` in `siprop=triplespace` (0077 §10).
-pub const API_VERSION: u32 = 2;
+/// - 3: `list=recentchanges`, `list=usercontribs` and `list=logevents`; `GET /activity`
+///   in REST v0; the `recentchanges` and `activity` capabilities (0020 §5).
+pub const API_VERSION: u32 = 3;
 pub use response::ApiError;
 
 use axum::Router;
+use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};
+
+/// The characters a `/wiki/{title}` segment keeps, as MediaWiki's `wfUrlencode` does.
+pub const TITLE_SEGMENT: &AsciiSet = &NON_ALPHANUMERIC
+    .remove(b'_')
+    .remove(b'-')
+    .remove(b'.')
+    .remove(b':')
+    .remove(b'/')
+    .remove(b'(')
+    .remove(b')')
+    .remove(b'~')
+    .remove(b'!')
+    .remove(b'*')
+    .remove(b';')
+    .remove(b'@')
+    .remove(b'$')
+    .remove(b',');
+
+/// The characters a query value keeps.
+pub const QUERY: &AsciiSet = &NON_ALPHANUMERIC
+    .remove(b'_')
+    .remove(b'-')
+    .remove(b'.')
+    .remove(b'~');
+
+/// HTML-escapes text, for `parsedcomment`.
+#[must_use]
+pub fn html_escape(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for c in text.chars() {
+        match c {
+            '&' => out.push_str("&amp;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '"' => out.push_str("&quot;"),
+            '\'' => out.push_str("&#39;"),
+            c => out.push(c),
+        }
+    }
+    out
+}
 use axum::routing::get;
 
 /// The router: `api.php` at both MediaWiki paths, the entity routes, and a health check.

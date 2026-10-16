@@ -41,6 +41,18 @@ pub const PAGES: &[(&str, &str, &str, Feature)] = &[
         Feature::Create,
     ),
     (
+        "Special:RecentChanges",
+        "ts-recentchanges-title",
+        "ts-specialpages-recentchanges",
+        Feature::RecentChanges,
+    ),
+    (
+        "Special:Contributions",
+        "ts-contributions-title-none",
+        "ts-specialpages-contributions",
+        Feature::RecentChanges,
+    ),
+    (
         "Special:Version",
         "ts-version-title",
         "ts-specialpages-version",

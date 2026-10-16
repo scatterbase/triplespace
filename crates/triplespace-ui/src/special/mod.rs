@@ -1,5 +1,7 @@
 //! Special pages (0047): those the site serves so far, by name.
 //!
+//! - [`changes`]: `Special:RecentChanges` and `Special:Contributions`, two feeds
+//!   (0020 §4; 19 §3.9).
 //! - [`index`]: `Special:SpecialPages`, the list of the others.
 //! - [`login`]: `Special:UserLogin` and `Special:UserLogout`.
 //! - [`new_entity`]: `Special:NewItem` and `Special:NewProperty`, the forms that create
@@ -11,6 +13,7 @@
 //! A special page the site does not serve is a `404`, as MediaWiki answers for a special
 //! page it does not have.
 
+pub mod changes;
 pub mod index;
 pub mod login;
 pub mod new_entity;
@@ -51,6 +54,8 @@ pub async fn serve(
     }
     match name.as_str() {
         "Search" => Some(search::serve(site, headers, peer, query).await),
+        "RecentChanges" => Some(changes::recent_changes(site, headers, peer, params).await),
+        "Contributions" => Some(changes::contributions(site, headers, peer, title, params).await),
         "SpecialPages" => Some(index::serve(site, headers, peer, query).await),
         "UserLogin" => Some(login::login(site, headers, peer, query).await),
         "UserLogout" => Some(login::logout(site, headers, peer, query).await),

@@ -1,6 +1,8 @@
 //! `action=query` (mediawiki-compat §5.4): `meta=siteinfo`, `meta=tokens`,
-//! `meta=userinfo`. Other `meta`, `prop` and `list` values are warned about and ignored,
-//! as MediaWiki does with an unknown parameter value in a module it does serve.
+//! `meta=userinfo`, `meta=wikibase`; `list=recentchanges`, `list=usercontribs` and
+//! `list=logevents` ([`super::changes`]). Other `meta`, `prop` and `list` values are
+//! warned about and ignored, as MediaWiki does with an unknown parameter value in a
+//! module it does serve.
 
 use scatter_providers::Registry;
 use scatter_wikibase_model::value::DataType;
@@ -16,6 +18,7 @@ use crate::response::{ApiError, ApiResponse};
 /// Runs `action=query`.
 pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     let mut query = Map::new();
+    let mut body = Map::new();
     let mut response = ApiResponse::default();
     for meta in ctx.params.list("meta") {
         match meta.as_str() {
@@ -44,12 +47,22 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         );
     }
     for l in ctx.params.list("list") {
-        response.warn(
-            "query",
-            &format!("Unrecognized value for parameter \"list\": {l}."),
-        );
+        match l.as_str() {
+            "recentchanges" => {
+                super::changes::recentchanges(ctx, &mut query, &mut body, &mut response).await?;
+            }
+            "usercontribs" => {
+                super::changes::usercontribs(ctx, &mut query, &mut body, &mut response).await?;
+            }
+            "logevents" => {
+                super::changes::logevents(ctx, &mut query, &mut body, &mut response).await?;
+            }
+            other => response.warn(
+                "query",
+                &format!("Unrecognized value for parameter \"list\": {other}."),
+            ),
+        }
     }
-    let mut body = Map::new();
     if ctx.formatversion == 2 {
         body.insert("batchcomplete".into(), json!(true));
     } else {
@@ -701,7 +714,7 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                     "tenant": sitename,
                     "farm": ctx.app.config().farm.slug,
                     "search": "postgres",
-                    "capabilities": ["wbgetentities", "wbsearchentities", "wbeditentity", "statements", "terms", "login", "clientlogin", "bearer", "version"],
+                    "capabilities": ["wbgetentities", "wbsearchentities", "wbeditentity", "statements", "terms", "login", "clientlogin", "bearer", "version", "recentchanges", "activity"],
                     "providers": Registry::default_registry().providers().iter().map(|p| p.slug.clone()).collect::<Vec<_>>(),
                     "rate_limits": [],
                     "grants": scatter_actors::grant::GrantRegistry::default_registry().grants().iter().map(|g| g.name.clone()).collect::<Vec<_>>(),
@@ -760,7 +773,7 @@ const ACTION_MODULES: &[(&str, bool)] = &[
 const QUERY_MODULES: &[(&str, &[&str])] = &[
     ("meta", &["siteinfo", "tokens", "userinfo", "wikibase"]),
     ("prop", &[]),
-    ("list", &[]),
+    ("list", &["recentchanges", "usercontribs", "logevents"]),
 ];
 
 fn paraminfo_module(name: &str, path: &str, prefix: &str, parameters: &[Value]) -> Value {
@@ -819,9 +832,195 @@ fn multi(mut p: Map<String, Value>, limit: u32) -> Map<String, Value> {
     p
 }
 
+/// A `limit`-type parameter's bounds (compat §2.3): `min`, `max` and `highmax`, which
+/// Pywikibot reads to size its batches.
+fn limit_parameter(mut p: Map<String, Value>, max: u32, highmax: u32) -> Map<String, Value> {
+    p.insert("min".into(), json!(1));
+    p.insert("max".into(), json!(max));
+    p.insert("highmax".into(), json!(highmax));
+    p
+}
+
 fn with_default(mut p: Map<String, Value>, default: Value) -> Map<String, Value> {
     p.insert("default".into(), default);
     p
+}
+
+/// The log types `list=logevents` enumerates (16 §2.3): MediaWiki's, and Triplespace's
+/// own `erase`, `link`, `retention`, `convert` and `job`.
+const LOG_TYPES: &[&str] = &[
+    "block",
+    "protect",
+    "rights",
+    "delete",
+    "upload",
+    "move",
+    "import",
+    "patrol",
+    "merge",
+    "suppress",
+    "tag",
+    "managetags",
+    "contentmodel",
+    "renameuser",
+    "newusers",
+    "create",
+    "erase",
+    "link",
+    "retention",
+    "convert",
+    "job",
+];
+
+/// The parameters of the three feed modules (`super::changes`), named without their
+/// prefix, as paraminfo names them; the module carries the prefix.
+#[allow(clippy::too_many_lines)]
+fn feed_parameters(name: &str) -> Vec<Value> {
+    // The `show` values MediaWiki's modules list, which Pywikibot validates its own
+    // option sets against; the ones no projection serves yet (`anon`, `redirect`, `top`,
+    // `autopatrolled`) are accepted and ignored.
+    let rc_show = [
+        "minor",
+        "!minor",
+        "bot",
+        "!bot",
+        "anon",
+        "!anon",
+        "redirect",
+        "!redirect",
+        "patrolled",
+        "!patrolled",
+        "unpatrolled",
+        "autopatrolled",
+        "!autopatrolled",
+    ];
+    let uc_show = [
+        "minor",
+        "!minor",
+        "patrolled",
+        "!patrolled",
+        "autopatrolled",
+        "!autopatrolled",
+        "top",
+        "!top",
+        "new",
+        "!new",
+    ];
+    let show: &[&str] = match name {
+        "recentchanges" => &rc_show,
+        "usercontribs" => &uc_show,
+        _ => &[],
+    };
+    let (props, defaults): (Vec<&str>, &str) = match name {
+        "recentchanges" => (
+            vec![
+                "comment",
+                "flags",
+                "ids",
+                "loginfo",
+                "parsedcomment",
+                "patrolled",
+                "sizes",
+                "tags",
+                "timestamp",
+                "title",
+                "user",
+                "userid",
+                "source",
+                "job",
+                "operator",
+            ],
+            "title|timestamp|ids",
+        ),
+        "usercontribs" => (
+            vec![
+                "ids",
+                "title",
+                "timestamp",
+                "comment",
+                "parsedcomment",
+                "size",
+                "sizediff",
+                "flags",
+                "patrolled",
+                "tags",
+                "source",
+                "job",
+                "operator",
+            ],
+            "ids|title|timestamp|comment|size|flags",
+        ),
+        _ => (
+            vec![
+                "ids",
+                "title",
+                "type",
+                "user",
+                "userid",
+                "timestamp",
+                "comment",
+                "parsedcomment",
+                "details",
+                "tags",
+            ],
+            "ids|title|type|user|timestamp|comment|details",
+        ),
+    };
+    let mut out = vec![
+        Value::Object(parameter(0, "start", json!("timestamp"))),
+        Value::Object(parameter(1, "end", json!("timestamp"))),
+        Value::Object(with_default(
+            parameter(2, "dir", json!(["newer", "older"])),
+            json!("older"),
+        )),
+        Value::Object(multi(parameter(3, "namespace", json!("namespace")), 50)),
+        Value::Object(with_default(
+            multi(parameter(4, "prop", json!(props)), 50),
+            json!(defaults),
+        )),
+        Value::Object(multi(parameter(5, "show", json!(show)), 50)),
+        Value::Object(with_default(
+            limit_parameter(parameter(6, "limit", json!("limit")), 500, 5000),
+            json!(10),
+        )),
+        Value::Object(parameter(7, "continue", json!("string"))),
+        Value::Object(parameter(8, "tag", json!("string"))),
+        Value::Object(parameter(9, "job", json!("integer"))),
+    ];
+    match name {
+        "recentchanges" => {
+            out.push(Value::Object(parameter(10, "user", json!("user"))));
+            out.push(Value::Object(parameter(11, "excludeuser", json!("user"))));
+            out.push(Value::Object(multi(
+                parameter(
+                    12,
+                    "type",
+                    json!(["edit", "new", "log", "categorize", "external"]),
+                ),
+                50,
+            )));
+            out.push(Value::Object(multi(
+                parameter(13, "kind", json!(["edit", "sync", "log", "job", "erased"])),
+                50,
+            )));
+        }
+        "usercontribs" => {
+            out.push(Value::Object(multi(
+                parameter(10, "user", json!("user")),
+                50,
+            )));
+            out.push(Value::Object(multi(
+                parameter(11, "userids", json!("integer")),
+                50,
+            )));
+        }
+        _ => {
+            out.push(Value::Object(parameter(10, "type", json!(LOG_TYPES))));
+            out.push(Value::Object(parameter(11, "action", json!("string"))));
+            out.push(Value::Object(parameter(12, "user", json!("user"))));
+        }
+    }
+    out
 }
 
 /// The parameters of the modules a client validates against before calling them:
@@ -893,6 +1092,7 @@ fn module_parameters(name: &str) -> Vec<Value> {
                 json!(0),
             )),
         ],
+        "recentchanges" | "usercontribs" | "logevents" => feed_parameters(name),
         "wbgetentities" => vec![
             Value::Object(multi(parameter(0, "ids", json!("string")), 50)),
             Value::Object(with_default(
@@ -996,6 +1196,9 @@ pub fn paraminfo_modules(requested: &[String]) -> Vec<Value> {
                             "siteinfo" => "si",
                             "userinfo" => "ui",
                             "wikibase" => "wb",
+                            "recentchanges" => "rc",
+                            "usercontribs" => "uc",
+                            "logevents" => "le",
                             _ => "",
                         },
                     ),

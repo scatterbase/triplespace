@@ -2824,6 +2824,7 @@ version = "0.0.1"
 dependencies = [
  "axum",
  "deadpool-postgres",
+ "percent-encoding",
  "scatter-actors",
  "scatter-ingest",
  "scatter-normalize",

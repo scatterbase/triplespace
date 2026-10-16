@@ -667,6 +667,167 @@ async fn a_bot_logs_in_reads_and_edits() {
         "/wiki/Special:EntityData/Q6.json"
     );
 
+    // 7b. The feeds (0020 §1–2, §5): the bot's edits are recent changes and its
+    // contributions, the adoption and the mirror sync are jobs, and the REST feed
+    // carries the same rows in the shape of 16 §3.1.
+    let rc = c
+        .get("action=query&list=recentchanges&rcprop=title|ids|user|comment|flags|tags|timestamp|sizes&rclimit=50&format=json&formatversion=2")
+        .await;
+    let rows = rc["query"]["recentchanges"].as_array().unwrap();
+    assert!(rows.len() >= 6, "{rc}");
+    let alias_edit = rows
+        .iter()
+        .find(|r| {
+            r["comment"]
+                .as_str()
+                .is_some_and(|c| c.contains("aliases:en"))
+        })
+        .unwrap_or_else(|| panic!("the alias edit is in recent changes: {rc}"));
+    assert_eq!(alias_edit["title"], "Item:Q6");
+    assert_eq!(alias_edit["ns"], 120);
+    assert_eq!(alias_edit["user"], "Alice bot");
+    assert_eq!(alias_edit["type"], "edit");
+    assert_eq!(alias_edit["bot"], false, "no bot=1 was sent");
+    assert!(alias_edit["revid"].as_u64().unwrap() > 0);
+    assert!(alias_edit["timestamp"].as_str().unwrap().ends_with('Z'));
+    assert!(
+        rows.iter().all(|r| r["type"] != "sync"),
+        "mirror syncs are not recent changes"
+    );
+    let jobs: Vec<&Value> = rows.iter().filter(|r| r["type"] == "log").collect();
+    assert!(!jobs.is_empty(), "each job run is a log row: {rc}");
+    let newest = rows[0]["timestamp"].as_str().unwrap();
+    let oldest = rows[rows.len() - 1]["timestamp"].as_str().unwrap();
+    assert!(newest >= oldest, "newest first");
+
+    // Paging through `continue`, in MediaWiki's protocol.
+    let page = c
+        .get("action=query&list=recentchanges&rclimit=2&format=json&formatversion=2")
+        .await;
+    assert_eq!(page["query"]["recentchanges"].as_array().unwrap().len(), 2);
+    let token = page["continue"]["rccontinue"].as_str().unwrap().to_string();
+    assert_eq!(page["continue"]["continue"], "-||");
+    let page2 = c
+        .get(&format!(
+            "action=query&list=recentchanges&rclimit=2&rccontinue={}&format=json&formatversion=2",
+            enc(&token)
+        ))
+        .await;
+    assert_ne!(
+        page2["query"]["recentchanges"][0]["rcid"],
+        page["query"]["recentchanges"][0]["rcid"]
+    );
+
+    // Filters: only new rows (the adopted entities), and a window that excludes everything.
+    let new = c
+        .get("action=query&list=recentchanges&rcshow=new&rcprop=title|flags&rclimit=50&format=json&formatversion=2")
+        .await;
+    assert!(
+        new["query"]["recentchanges"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|r| r["new"] == true),
+        "{new}"
+    );
+    let none = c
+        .get("action=query&list=recentchanges&rcend=2000-01-01T00:00:00Z&rcstart=2000-01-02T00:00:00Z&format=json&formatversion=2")
+        .await;
+    assert_eq!(none["query"]["recentchanges"], json!([]));
+    let (status, err) = c
+        .call(
+            "GET",
+            "action=query&list=recentchanges&rcshow=bot|!bot&format=json",
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(err["error"]["code"], "show", "{err}");
+
+    // Contributions.
+    let uc = c
+        .get(&format!(
+            "action=query&list=usercontribs&ucuser={}&uclimit=50&format=json&formatversion=2",
+            enc("Alice bot")
+        ))
+        .await;
+    let contribs = uc["query"]["usercontribs"].as_array().unwrap();
+    assert!(contribs.len() >= 5, "{uc}");
+    assert!(
+        contribs
+            .iter()
+            .all(|r| r["user"] == "Alice bot" && r["userid"] == 10)
+    );
+    assert!(contribs.iter().any(|r| r["title"] == "Item:Q6"));
+    let nobody = c
+        .get("action=query&list=usercontribs&ucuser=Nobody&format=json&formatversion=2")
+        .await;
+    assert_eq!(nobody["query"]["usercontribs"], json!([]));
+
+    // The log.
+    let le = c
+        .get("action=query&list=logevents&letype=job&lelimit=50&format=json&formatversion=2")
+        .await;
+    let events = le["query"]["logevents"].as_array().unwrap();
+    assert!(events.iter().any(|e| e["action"] == "finish"), "{le}");
+    assert!(events.iter().all(|e| e["type"] == "job"));
+
+    // The REST feed: the same rows, Triplespace's shape, and a target's history.
+    let (status, h, feed) = send(
+        &c.router,
+        "/w/rest.php/triplespace/v0/activity?limit=100",
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{feed}");
+    assert!(h["cache-control"].to_str().unwrap().starts_with("public"));
+    assert_eq!(h["cache-tag"], "activity");
+    let feed_rows = feed["rows"].as_array().unwrap();
+    assert_eq!(feed_rows.len(), rows.len(), "{feed}");
+    let r = feed_rows
+        .iter()
+        .find(|r| {
+            r["summary"]["args"]
+                .as_str()
+                .is_some_and(|a| a.contains("aliases:en"))
+        })
+        .unwrap();
+    assert_eq!(r["kind"], "edit");
+    assert_eq!(r["source"], "local");
+    assert_eq!(r["target"]["title"], "Item:Q6");
+    assert_eq!(
+        r["target"]["label"]["value"], "Six & more",
+        "the current label"
+    );
+    assert_eq!(r["actor"]["name"], "Alice bot");
+    assert_eq!(r["actor"]["kind"], "bot");
+    assert_eq!(r["visibility"], json!([]));
+    assert!(r["links"]["diff"].as_str().unwrap().contains("diff="));
+    let (status, _, history) = send(
+        &c.router,
+        "/w/rest.php/triplespace/v0/activity?target=entity:domain:wikipedia.org&dir=newer",
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{history}");
+    let hist = history["rows"].as_array().unwrap();
+    assert!(
+        hist.iter().any(|r| r["kind"] == "sync") && hist.iter().any(|r| r["kind"] == "edit"),
+        "a mirrored entity's history has its sync and the local edit: {history}"
+    );
+    assert!(
+        hist.iter()
+            .all(|r| r["target"]["id"] == "domain:wikipedia.org")
+    );
+    let (status, _, bad) = send(
+        &c.router,
+        "/w/rest.php/triplespace/v0/activity?target=nope",
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(bad["code"], "bad-parameter");
+
     // 8. Logout ends the session.
     let out = c
         .post(
