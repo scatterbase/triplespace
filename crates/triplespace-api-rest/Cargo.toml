@@ -12,6 +12,9 @@ publish = false
 [dependencies]
 triplespace-api-action.workspace = true
 triplespace-projections.workspace = true
+scatter-log.workspace = true
+scatter-log-postgres.workspace = true
+scatter-wikibase-changeset.workspace = true
 scatter-wikibase-model.workspace = true
 scatter-wikibase-resolve.workspace = true
 scatter-providers.workspace = true

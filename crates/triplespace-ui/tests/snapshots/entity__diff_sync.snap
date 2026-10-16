@@ -1,0 +1,89 @@
+---
+source: crates/triplespace-ui/tests/entity.rs
+expression: main
+---
+<main class="ts-page" id="content">
+	<p class="ts-page__identity">
+<span class="ts-chip ts-chip--namespace">Domain</span> <span class="ts-mono" dir="ltr">wikipedia.org</span> <span>Named by its key, minted by no one</span>
+</p>
+	<h1 class="ts-page__title">Wikipedia</h1>
+	<div class="ts-terms" data-region="terms">
+<p class="ts-terms__description">the free encyclopedia</p>
+</div>
+	<nav class="ts-tabs" aria-label="Page">
+		<a class="ts-tabs__link" href="/wiki/Domain:wikipedia.org">Statements</a>
+		<a class="ts-tabs__link" href="/wiki/Domain:wikipedia.org?tab=identifiers">Identifiers</a>
+		<a class="ts-tabs__link" href="/wiki/Domain:wikipedia.org?tab=labels">Labels in other languages</a>
+		<a class="ts-tabs__link" href="/wiki/Domain:wikipedia.org?action=history" aria-current="page">History</a>
+	</nav>
+	<div class="ts-page__body">
+		<div class="ts-diff">
+<p class="ts-diff__head">
+<a href="/wiki/Domain:wikipedia.org?oldid=1099511627817">Revision 1099511627817</a> <time datetime="2026-10-02T12:00:00Z">2026-10-02 12:00:00</time>
+</p>
+<div class="ts-diff__body">
+<p class="ts-diff__sync">Synced from upstream revision 56 to 57.</p>
+<section class="ts-diff__section">
+<h3 class="ts-diff__heading">What the sync changed</h3>
+<table class="ts-diff__table">
+<thead>
+<tr>
+<th>Key</th>
+<th>Added</th>
+<th>Removed</th>
+<th>Changed</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th scope="row" class="ts-diff__key">Labels: de</th>
+<td dir="ltr">1</td>
+<td dir="ltr">0</td>
+<td dir="ltr">0</td>
+</tr>
+<tr>
+<th scope="row" class="ts-diff__key">
+<a href="/wiki/Property:P12">
+<span class="ts-mono">P12</span>
+</a>
+</th>
+<td dir="ltr">0</td>
+<td dir="ltr">0</td>
+<td dir="ltr">1</td>
+</tr>
+</tbody>
+</table>
+</section>
+<aside class="ts-diff__about">
+<h3>About this edit</h3>
+<dl>
+<div>
+<dt>Graph</dt>
+<dd>Internet Domains Wikibase</dd>
+</div>
+<div>
+<dt>Revision</dt>
+<dd>1099511627817</dd>
+</div>
+<div>
+<dt>Operation</dt>
+<dd>put</dd>
+</div>
+<div>
+<dt>Size</dt>
+<dd>
+<span dir="ltr">400 (+20)</span>
+</dd>
+</div>
+<div>
+<dt>Record</dt>
+<dd>
+<span class="ts-mono" dir="ltr">8194:41</span>
+</dd>
+</div>
+</dl>
+</aside>
+</div>
+</div>
+	</div>
+</main>

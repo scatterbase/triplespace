@@ -2,6 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-09
+- **Updated:** 2026-10-16 (A1)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0020](0020-change-feeds.md), [0022](0022-federation.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0030](0030-edit-filters.md), [0031](0031-property-constraints.md), [0032](0032-sparql-update-stream.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0047](0047-special-pages.md), [0055](0055-templatestyles-templatedata-and-page-properties.md), [0056](0056-security-model.md), [0059](0059-query-service.md), [0060](0060-scopes.md), [0061](0061-sprints-and-tasks.md), [0064](0064-entityschema-and-validation.md), [0067](0067-proposals.md), [0070](0070-shallow-entity-mirroring.md), [0071](0071-derived-statements-from-mirrored-pages.md)
 - **Uses:** [0082](0082-source-form-and-the-shared-view.md), [0084](0084-wikibase-writes-against-the-resolved-view.md)
@@ -60,9 +61,11 @@ James's direction, from the design review of 2026-10-09:
 
 ### 4. Graph state and revision state (extends 0002 §7, 0008 §4, 0012 §2.1 and §4, 0013 §5 and 0015 §2; amends 0012 §7)
 
+*Changed by A1.*
+
 **`view.graph_state (tenant, entity_id, graph, state bytea, "offset", version)`** holds the current state of every graph whose records are deltas — `local`, `derived/*`, `source/*` — written in tier 1 by the appending transaction (one row per written key), and is the "old state" that composition and the delta read. A mirror graph's state is its latest `put`, which `view.entity_source` already names.
 
-**`view.entity_revision (tenant, revid, state bytea)`** holds the local-graph state after every revision of the `local` and `pages` partitions, written in tier 1 beside `graph_state`, so that `oldid=`, `action=compare`, `GET /entity/{id}/compare`, `?as_of=`, `Special:PermanentLink` and export read one row ([0012](0012-api-requirements.md) §4, §7). It is MediaWiki's `text` table at local scale: local edits are the small part of a mirror-dominated instance, and the rows pack well. Mirror states are not reconstructable under `latest`, as [0012](0012-api-requirements.md) §7 already said for the resolved view.
+**`view.entity_revision (tenant, revid, state bytea)`** holds the local-graph state after every revision of the `local` and `pages` partitions, written in tier 1 beside `graph_state`, so that `oldid=`, `action=compare`, `GET /entity/{id}/compare`, `?as_of=`, `Special:PermanentLink` and export read one row ([0012](0012-api-requirements.md) §4, §7). It is MediaWiki's `text` table at local scale: local edits are the small part of a mirror-dominated instance, and the rows pack well. Mirror states are not reconstructable under `latest`, as [0012](0012-api-requirements.md) §7 already said for the resolved view. **Until this table exists, the past-state readers fold the subject's local records** (`triplespace_projections::revisions`, A1): the same fold the latest state already uses, bounded by the subject's own local record count, behind the signatures this section gives them — a revision in, a state out — so that landing the table changes their backing and nothing they serve.
 
 ### 5. Bulk append into a live partition, and catch-up (amends 0013 §2 and §9; extends 0002 §8 and 0070 §7)
 
@@ -192,3 +195,12 @@ James's direction, from the design review of 2026-10-09:
 - [docs/audits/architecture-review-2026-10-09.md](../audits/architecture-review-2026-10-09.md): findings F-01-2, F-01-5 to F-01-9, F-02-2, F-02-3, F-02-5, F-02-8, F-02-9, F-04-2, F-06-1, F-07-3, F-07-7 to F-07-10, F-10-2 to F-10-5, F-13-4, F-13-5, F-13-7, F-13-8, F-16-3, F-16-4, F-19-2; decisions G8–G15
 - `adoption-results-and-wikidata-projection.md` (project notes, 2026-10-06): the measured per-entity path and the four things a Wikidata-in-a-night load needs
 - MediaWiki's `text` table and parser cache: the precedents for `view.entity_revision` and compose-on-miss
+
+## Amendment log
+
+### A1. The fold as the stepping stone to `view.entity_revision`
+
+- **Date:** 2026-10-16
+- **Source:** Direct: James, review of the activity-feeds pull requests, 2026-10-15
+- **Change:** extends §4
+- **Summary:** `oldid=`, `prop=revisions` with content, `GET /entity/{id}/changes/{partition}/{offset}` and `GET /entity/{id}/compare` are served before the tier-1 state of §4 is written. Until `view.entity_revision` exists, they read a past local state by folding the subject's local change-set records up to the revision (`triplespace_projections::revisions`): the fold `read::current` already performs for the latest state, bounded by the subject's own local record count, which on a mirror-dominated instance is small. The readers hold the signatures §4 gives them — a revision in, a `LocalState` out — so that the table, when it lands with the rest of the tier-1 state, replaces their backing and changes nothing they serve. §4's rule stands as the design: a past state is one row, never a replay; this entry records the stepping stone and when it ends.

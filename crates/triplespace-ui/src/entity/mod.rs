@@ -22,6 +22,8 @@
 //! refers to, for their labels and data types.
 
 mod chart;
+pub mod diff;
+pub mod history;
 mod shapes;
 mod values;
 mod view;
@@ -257,10 +259,16 @@ enum TabName {
     Identifiers,
     Sitelinks,
     Labels,
+    History,
 }
 
 impl TabName {
+    /// `?tab=` picks a tab; `?action=history` is the History tab, MediaWiki's address for
+    /// a history.
     fn of(query: &BTreeMap<String, String>) -> Self {
+        if query.get("action").is_some_and(|a| a == "history") {
+            return Self::History;
+        }
         match query.get("tab").map(String::as_str) {
             Some("identifiers") => Self::Identifiers,
             Some("sitelinks") => Self::Sitelinks,
@@ -270,7 +278,7 @@ impl TabName {
     }
 }
 
-fn tabs(m: &Messages, title: &str, current: TabName, items: bool) -> Vec<Tab> {
+fn tabs(m: &Messages, title: &str, current: TabName, items: bool, history: bool) -> Vec<Tab> {
     let base = format!("/wiki/{}", title_url(title));
     let tab = |name: TabName, key: &str, href: String| Tab {
         label: m.get(key),
@@ -299,6 +307,13 @@ fn tabs(m: &Messages, title: &str, current: TabName, items: bool) -> Vec<Tab> {
         format!("{base}?tab=labels"),
     ));
     // History joins when the API serves it and the site has built it (Feature::History).
+    if history {
+        v.push(tab(
+            TabName::History,
+            "ts-tab-history",
+            format!("{base}?action=history"),
+        ));
+    }
     v
 }
 
@@ -318,6 +333,7 @@ fn missing(cx: &Context, headers: &HeaderMap, title: &str) -> Response {
 }
 
 /// Serves an entity title: the page with a tab, or with `action=render` a region.
+#[allow(clippy::too_many_lines)]
 pub async fn serve(
     site: &Site,
     headers: &HeaderMap,
@@ -381,6 +397,24 @@ pub async fn serve(
             None
         }
     };
+    // A diff, a comparison or an old revision (19 §3.7–3.8): MediaWiki's `diff=` and
+    // `oldid=` on the entity's title.
+    if !render
+        && cx.features.has(Feature::History)
+        && let Some(ask) = diff::Ask::of(query)
+    {
+        return diff::serve(
+            site,
+            cx,
+            &incoming,
+            headers,
+            &entity,
+            provenance.as_ref(),
+            &ask,
+            query,
+        )
+        .await;
+    }
     let chain = cx.m.term_chain();
     let ids = referenced(&entity, &cx.site);
     let mut lookup = if ids.is_empty() {
@@ -402,6 +436,23 @@ pub async fn serve(
         }
     };
     lookup.add_self(&entity, &chain);
+    let history_tab =
+        !render && TabName::of(query) == TabName::History && cx.features.has(Feature::History);
+    let history = if history_tab {
+        let ask = history::Ask::of(query);
+        match client
+            .history(&incoming, entity.id.as_str(), &ask.query(cx.m.lang()))
+            .await
+        {
+            Ok(f) => {
+                cx.inputs.push(f.cache);
+                f.value.map(|page| (ask, page))
+            }
+            Err(e) => return pages::api_failed(&cx, headers, &e),
+        }
+    } else {
+        None
+    };
     let roles = site_roles(&cx.site);
     let editable =
         cx.user.is_some() && cx.features.has(Feature::Edit) && entity.id.form() == IdForm::Local;
@@ -417,7 +468,7 @@ pub async fn serve(
     if render {
         region(&r, &cx, headers, query)
     } else {
-        page(&r, &cx, headers, query)
+        page(&r, &cx, headers, query, history.as_ref())
     }
 }
 
@@ -474,15 +525,27 @@ fn page(
     cx: &Context,
     headers: &HeaderMap,
     query: &BTreeMap<String, String>,
+    history: Option<&(history::Ask, triplespace_client::ActivityPage)>,
 ) -> Response {
     let entity = r.entity;
     let canonical_title = page_title(entity.id.as_str(), entity.entity_type.name());
-    let tab = TabName::of(query);
+    let has_history = cx.features.has(Feature::History);
+    let tab = match TabName::of(query) {
+        // The address of a feature the site does not offer shows the statements.
+        TabName::History if !has_history => TabName::Statements,
+        t => t,
+    };
     let mut body = match tab {
         TabName::Statements => r.statements_tab(),
         TabName::Identifiers => r.identifiers(),
         TabName::Sitelinks => r.sitelinks(),
         TabName::Labels => r.labels(),
+        TabName::History => match history {
+            Some((ask, page)) => {
+                history::body(&cx.m, &cx.site, &canonical_title, ask, r.provenance, page)
+            }
+            None => pages::message(MessageKind::Warning, &cx.m.get("ts-history-none")),
+        },
     };
     if r.editable {
         body.push_str(&edit_data(r, cx, &canonical_title));
@@ -496,6 +559,7 @@ fn page(
         &canonical_title,
         tab,
         entity.entity_type.name() == "item",
+        has_history,
     );
     let (display, identity, terms, doc_title) = (
         r.display_title(),

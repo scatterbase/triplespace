@@ -290,6 +290,15 @@
             }
           },
           {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "description": "Only rows from these graphs, `|`-separated: `local`, `pages`, `mirror/wikidata`, …; a history's source switch (chapter 19 §3.5).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "syncs",
             "in": "query",
             "required": false,
@@ -478,6 +487,424 @@
           },
           "403": {
             "description": "The caller may not read (`permissiondenied`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The host is not a tenant of this instance (`misdirected`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/entity/{id}/history": {
+      "get": {
+        "operationId": "getEntityHistory",
+        "summary": "An entity's history",
+        "description": "The entity's history as activity rows (ADR 0012 §5, A71; chapter 19 §3.3): every record keyed to it in any partition the tenant reads — local edits, mirror syncs and log events — newest first unless `dir=newer`, paged with `next`/`continue` as `GET /activity` is. Mirror syncs are included (`syncs` is on for a history, chapter 16 §4.2); `source` narrows the list to one graph, the source switch of chapter 19 §3.5. Until composition writes `view.entity_history`, the rows are the entity's own: cluster members' records and upstream log events are not yet merged in. An entity that does not exist, or that the viewer may not see, answers 404 alike (ADR 0056 §5).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "An entity ID in any form the Action API accepts: `Q6`, `XDQ12`, `domain:wikipedia.org`, `Item:Q6`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "description": "Row kinds, `|`-separated: `edit`, `sync`, `log`, `job`, `erased`. Default: every kind but `sync` for the everything set, every kind for a target.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "description": "Only rows from these graphs, `|`-separated: `local`, `pages`, `mirror/wikidata`, …; a history's source switch (chapter 19 §3.5).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "description": "Rows at or after this time: ISO 8601 or MediaWiki's `YYYYMMDDHHMMSS`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "until",
+            "in": "query",
+            "required": false,
+            "description": "Rows at or before this time.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dir",
+            "in": "query",
+            "required": false,
+            "description": "`older` (newest first, the default) or `newer`.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "older",
+                "newer"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Rows per page: 50 by default, 500 at most.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          },
+          {
+            "name": "continue",
+            "in": "query",
+            "required": false,
+            "description": "The `next` token of the previous page.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "required": false,
+            "description": "The language of the targets' labels; `mul` and `en` are fallbacks.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of the entity's history.",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Tag": {
+                "description": "Public responses only: `entity:{id}`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityPage"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not modified."
+          },
+          "400": {
+            "description": "The ID does not parse (`invalid-entity-id`), or a parameter the route does not take a value of (`bad-parameter`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller may not read (`permissiondenied`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such entity, or none the viewer may see (`entity-not-found`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The host is not a tenant of this instance (`misdirected`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/entity/{id}/changes/{partition}/{offset}": {
+      "get": {
+        "operationId": "getEntityChange",
+        "summary": "The structured diff of one change set",
+        "description": "One record of the entity's history (ADR 0012 §5, §7; chapter 18 §5.1). For a local record: the change set's operation as stored, the diff between the local graph's state before and after it (terms and sitelinks as keyed lists; each property the change touched as a group with its unchanged statements for context), the corrections and retention that changed, the revision's facts and the previous local revision. For a mirror record (a `put`): the upstream versions on either side, the `changes` summary the sync stored and the state after; the previous state is not held under the `latest` policy. Past local states are read by folding the subject's local records until `view.entity_revision` exists (ADR 0083 §4). The effect block of chapter 18 §5.1 and the checkpoint are not served yet (`effect: null`, `integrity.checkpoint: null`).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "An entity ID in any form the Action API accepts.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "partition",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The change.",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Tag": {
+                "description": "Public responses only: `entity:{id}`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityChange"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not modified."
+          },
+          "400": {
+            "description": "The ID does not parse (`invalid-entity-id`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller may not read (`permissiondenied`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such entity (`entity-not-found`), or no such record of it, or one the viewer may not see (`change-not-found`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The host is not a tenant of this instance (`misdirected`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/entity/{id}/compare": {
+      "get": {
+        "operationId": "compareEntityRevisions",
+        "summary": "Two states of one source, compared",
+        "description": "The diff between two local revisions of the entity (ADR 0012 §5; chapter 19 §3.7): the same shape as one change's diff, between the states after `from` and after `to`. Only `source=local` can be compared yet; a mirror's earlier states are not held under the `latest` policy, and `full` mirrors wait for their write path (`ts-compare-source`).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "An entity ID in any form the Action API accepts.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "description": "The graph: `local` (the default and, for now, the only one).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "description": "A local revision ID.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "description": "A local revision ID.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The comparison.",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Tag": {
+                "description": "Public responses only: `entity:{id}`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityComparison"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not modified."
+          },
+          "400": {
+            "description": "The ID does not parse (`invalid-entity-id`); `from` or `to` is missing or not a number (`missing-parameter`, `bad-parameter`); a source that cannot be compared (`ts-compare-source`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller may not read (`permissiondenied`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such entity (`entity-not-found`), or a revision that is not a local revision of it (`revision-not-found`).",
             "content": {
               "application/json": {
                 "schema": {
@@ -1316,6 +1743,13 @@
           "next": {
             "type": "string",
             "description": "The token of the next page; absent on the last."
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The graphs the page is narrowed to; empty for all."
           }
         }
       },
@@ -1560,6 +1994,318 @@
                 "format": "uri"
               }
             }
+          }
+        }
+      },
+      "RevisionFacts": {
+        "type": "object",
+        "description": "A local revision's own facts.",
+        "properties": {
+          "partition": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "revid": {
+            "type": "integer"
+          },
+          "time": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "comment": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "op": {
+            "type": "string",
+            "description": "The operation's name: `create`, `adopt`, `add`, `remove`, `override`, …"
+          },
+          "upstream": {
+            "description": "A mirror record's upstream version."
+          },
+          "prev_upstream": {
+            "description": "The upstream version it replaced."
+          }
+        }
+      },
+      "EntityDiff": {
+        "type": "object",
+        "description": "The differences between two states of one source (chapter 18 §5.1).",
+        "properties": {
+          "labels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TermChange"
+            }
+          },
+          "descriptions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TermChange"
+            }
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "language": {
+                  "type": "string"
+                },
+                "added": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "removed": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "kept": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "sitelinks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "site": {
+                  "type": "string"
+                },
+                "before": {},
+                "after": {}
+              }
+            }
+          },
+          "claims": {
+            "type": "array",
+            "description": "Each property with a changed statement: its whole group, in the order of the state after, removed statements last.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "property": {
+                  "type": "string"
+                },
+                "statements": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "change": {
+                        "type": "string",
+                        "enum": [
+                          "added",
+                          "removed",
+                          "changed",
+                          "unchanged"
+                        ]
+                      },
+                      "before": {
+                        "description": "The statement before, in the storage form."
+                      },
+                      "after": {
+                        "description": "The statement after."
+                      },
+                      "statement": {
+                        "description": "An unchanged statement, for context."
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "TermChange": {
+        "type": "object",
+        "properties": {
+          "language": {
+            "type": "string"
+          },
+          "before": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "after": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "StateChange": {
+        "type": "object",
+        "description": "What changed in the local graph's state beside the entity: corrections (rank overrides and suppressions), retention, a redirect.",
+        "properties": {
+          "corrections": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "statement": {
+                  "type": "string"
+                },
+                "before": {},
+                "after": {}
+              }
+            }
+          },
+          "retention": {
+            "type": "object",
+            "properties": {
+              "before": {},
+              "after": {}
+            }
+          },
+          "redirect": {
+            "type": "object",
+            "properties": {
+              "before": {},
+              "after": {}
+            }
+          }
+        }
+      },
+      "EntityChange": {
+        "type": "object",
+        "required": [
+          "entity",
+          "source",
+          "kind",
+          "record",
+          "revision"
+        ],
+        "properties": {
+          "entity": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "record": {
+            "type": "object",
+            "properties": {
+              "partition": {
+                "type": "integer"
+              },
+              "offset": {
+                "type": "integer"
+              }
+            }
+          },
+          "revision": {
+            "$ref": "#/components/schemas/RevisionFacts"
+          },
+          "previous": {
+            "description": "The previous local revision, `{revid, offset}`, or null."
+          },
+          "operation": {
+            "description": "The change set's operation as stored (local records)."
+          },
+          "diff": {
+            "description": "The structured diff (local records), or null.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/EntityDiff"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "state": {
+            "$ref": "#/components/schemas/StateChange"
+          },
+          "changes": {
+            "description": "A sync's stored summary (mirror records), or null."
+          },
+          "after": {
+            "description": "A mirror record's state after, in the storage form."
+          },
+          "size": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "delta": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "effect": {
+            "description": "Not served yet: null."
+          },
+          "integrity": {
+            "type": "object",
+            "properties": {
+              "partition": {
+                "type": "integer"
+              },
+              "offset": {
+                "type": "integer"
+              },
+              "checkpoint": {
+                "description": "Not served yet: null."
+              }
+            }
+          }
+        }
+      },
+      "EntityComparison": {
+        "type": "object",
+        "required": [
+          "entity",
+          "source",
+          "from",
+          "to",
+          "diff"
+        ],
+        "properties": {
+          "entity": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "from": {
+            "$ref": "#/components/schemas/RevisionFacts"
+          },
+          "to": {
+            "$ref": "#/components/schemas/RevisionFacts"
+          },
+          "diff": {
+            "$ref": "#/components/schemas/EntityDiff"
+          },
+          "state": {
+            "$ref": "#/components/schemas/StateChange"
           }
         }
       }

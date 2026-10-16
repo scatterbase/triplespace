@@ -8,6 +8,8 @@
 //! - `actor={key or name}` — rows by one actor: contributions.
 //! - `kind=edit|sync|log|job|erased` — row kinds, several with `|`. The default is every
 //!   kind but `sync` for the everything set (16 §4.2), every kind for a target.
+//! - `source=local|mirror/wikidata|…` — graphs, several with `|`: a history's source
+//!   switch (19 §3.5).
 //! - `syncs=on|off` — the sync switch of 16 §4.2, a shorthand on `kind`.
 //! - `namespace={n}` — entity namespaces, several with `|`.
 //! - `tag`, `job`, `exclude_actor`, `log_type`, `log_action`.
@@ -92,9 +94,10 @@ fn entity_types_of(namespaces: &str) -> Result<Vec<String>, String> {
 
 /// The feed a query asks for.
 #[allow(clippy::too_many_lines)]
-async fn feed_of(
+pub(crate) async fn feed_of(
     ctx: &triplespace_api_action::api::Ctx,
     q: &BTreeMap<String, String>,
+    preset: Option<TargetSet>,
 ) -> Result<Feed, Response> {
     let bad = |name: &str, v: &str| {
         error(
@@ -108,9 +111,19 @@ async fn feed_of(
     };
     let mut feed = Feed::everything(DEFAULT_LIMIT);
     let mut targeted = false;
-    if let Some(t) = q.get("target") {
+    if let Some(t) = preset {
+        feed.set = t;
+        targeted = true;
+    } else if let Some(t) = q.get("target") {
         feed.set = target_of(t).ok_or_else(|| bad("target", t))?;
         targeted = true;
+    }
+    if let Some(sources) = q.get("source") {
+        feed.filters.sources = sources
+            .split('|')
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+            .collect();
     }
     if let Some(a) = q.get("actor") {
         let key = actor_key_of(ctx, a)
@@ -210,6 +223,19 @@ pub async fn handle(
     headers: HeaderMap,
     Query(q): Query<BTreeMap<String, String>>,
 ) -> Response {
+    serve(app, origin, &method, &headers, &q, None).await
+}
+
+/// Serves a feed: the one the query names, or the `preset` target set, which
+/// `GET /entity/{id}/history` passes ([`crate::history`]).
+pub(crate) async fn serve(
+    app: App,
+    origin: Origin,
+    method: &Method,
+    headers: &HeaderMap,
+    q: &BTreeMap<String, String>,
+    preset: Option<TargetSet>,
+) -> Response {
     let internal = |e: &dyn std::fmt::Display| {
         error(StatusCode::INTERNAL_SERVER_ERROR, "internal", e.to_string())
     };
@@ -217,7 +243,7 @@ pub async fn handle(
         Ok(c) => c,
         Err(e) => return internal(&e),
     };
-    let tenant = match tenant::resolve(&app, &**client, &origin, &headers).await {
+    let tenant = match tenant::resolve(&app, &**client, &origin, headers).await {
         Ok(Some(t)) => t,
         Ok(None) => {
             return error(
@@ -228,7 +254,7 @@ pub async fn handle(
         }
         Err(e) => return internal(&e),
     };
-    let caller = match Caller::resolve(&**client, &tenant.slug, &headers).await {
+    let caller = match Caller::resolve(&**client, &tenant.slug, headers).await {
         Ok(c) => c,
         Err(e) => return internal(&e.info),
     };
@@ -239,7 +265,7 @@ pub async fn handle(
             "reading needs the \"read\" right",
         );
     }
-    let credentialed = caller.has_session() || bearer(&headers).is_some();
+    let credentialed = caller.has_session() || bearer(headers).is_some();
     let ctx = triplespace_api_action::api::Ctx {
         app: app.clone(),
         client,
@@ -253,7 +279,7 @@ pub async fn handle(
         cache_class: Class::Public,
         cache_tags: Vec::new(),
     };
-    let feed = match feed_of(&ctx, &q).await {
+    let feed = match feed_of(&ctx, q, preset).await {
         Ok(f) => f,
         Err(r) => return r,
     };
@@ -264,7 +290,7 @@ pub async fn handle(
     let body = body(&ctx.tenant, &feed, &page).to_string();
     // A feed changes with every write, so the public form caches only briefly at L2
     // (18 §3.1); an actor's or target's feed tags that target.
-    let class = Class::Public.permitted(&method, credentialed, false, false);
+    let class = Class::Public.permitted(method, credentialed, false, false);
     let tags: Vec<String> = match &feed.set {
         TargetSet::Target { id, kind } if *kind == target_kind::ENTITY => {
             vec![format!("entity:{id}")]
@@ -272,7 +298,7 @@ pub async fn handle(
         _ => vec!["activity".into()],
     };
     http_cache::respond(
-        &headers,
+        headers,
         StatusCode::OK,
         "application/json; charset=utf-8",
         body,
@@ -298,6 +324,7 @@ fn body(tenant: &Tenant, feed: &Feed, page: &feed::Page) -> Value {
             TargetSet::Actor(key) => json!({"actor": key}),
         },
         "kinds": feed.filters.kinds,
+        "sources": feed.filters.sources,
     });
     if let Some(n) = page.next {
         v["next"] = json!(n.token());

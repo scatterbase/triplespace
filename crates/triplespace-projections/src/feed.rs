@@ -94,6 +94,11 @@ pub struct Filters {
     /// Row kinds ([`KINDS`]); every kind when empty. Recent changes leaves `sync` out by
     /// default (16 §4.2), a history keeps it.
     pub kinds: Vec<String>,
+    /// Only rows from these graphs (`local`, `mirror/wikidata`, …): a history's source
+    /// switch (19 §3.5). Every graph when empty.
+    pub sources: Vec<String>,
+    /// Only the row with this revision ID.
+    pub revid: Option<u64>,
     /// Only rows by this actor key.
     pub actor: Option<String>,
     /// No rows by this actor key.
@@ -386,6 +391,16 @@ fn build(tenant: &str, feed: &Feed, viewer: &Viewer) -> Built {
     let f = &feed.filters;
     if !f.kinds.is_empty() {
         push(&mut sql, "a.kind = ANY($n)", Box::new(f.kinds.clone()));
+    }
+    if !f.sources.is_empty() {
+        push(&mut sql, "a.source = ANY($n)", Box::new(f.sources.clone()));
+    }
+    if let Some(r) = f.revid {
+        push(
+            &mut sql,
+            "a.revid = $n",
+            Box::new(i64::try_from(r).unwrap_or(i64::MAX)),
+        );
     }
     if let Some(a) = &f.actor {
         push(&mut sql, "a.actor_key = $n", Box::new(a.clone()));

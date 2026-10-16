@@ -2872,7 +2872,10 @@ name = "triplespace-api-rest"
 version = "0.0.1"
 dependencies = [
  "axum",
+ "scatter-log",
+ "scatter-log-postgres",
  "scatter-providers",
+ "scatter-wikibase-changeset",
  "scatter-wikibase-model",
  "scatter-wikibase-resolve",
  "serde_json",

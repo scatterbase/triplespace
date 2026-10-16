@@ -1,0 +1,334 @@
+{
+  "entity": "Q6",
+  "source": "local",
+  "kind": "edit",
+  "record": {
+    "partition": 4098,
+    "offset": 9
+  },
+  "revision": {
+    "partition": 4098,
+    "offset": 9,
+    "revid": 907,
+    "time": "2026-10-02T14:05:11Z",
+    "actor": "librarybase:10",
+    "comment": "rank and a value",
+    "tags": [
+      "bot"
+    ],
+    "op": "add"
+  },
+  "previous": {
+    "revid": 906,
+    "offset": 8
+  },
+  "operation": {
+    "op": "add",
+    "id": "Q6",
+    "aliases": {
+      "en": [
+        "VI"
+      ]
+    },
+    "claims": {
+      "P2": [
+        {
+          "id": "Q6$00000002-0000-0000-0000-000000000000",
+          "mainsnak": {
+            "datatype": "wikibase-item",
+            "datavalue": {
+              "type": "wikibase-entityid",
+              "value": {
+                "entity-type": "item",
+                "id": "Q2",
+                "numeric-id": 2
+              }
+            },
+            "hash": "6511c2931be27bcac018d16006b07c7c2e704c57",
+            "property": "P2",
+            "snaktype": "value"
+          },
+          "rank": "preferred",
+          "type": "statement"
+        }
+      ]
+    }
+  },
+  "diff": {
+    "labels": [
+      {
+        "language": "fr",
+        "before": null,
+        "after": "Six"
+      }
+    ],
+    "descriptions": [
+      {
+        "language": "de",
+        "before": "eine Zahl",
+        "after": "eine gerade Zahl"
+      }
+    ],
+    "aliases": [
+      {
+        "language": "en",
+        "added": [
+          "VI"
+        ],
+        "removed": [],
+        "kept": [
+          "6",
+          "half dozen"
+        ]
+      }
+    ],
+    "sitelinks": [
+      {
+        "site": "enwiki",
+        "before": null,
+        "after": {
+          "site": "enwiki",
+          "title": "Six",
+          "badges": []
+        }
+      }
+    ],
+    "claims": [
+      {
+        "property": "P2",
+        "statements": [
+          {
+            "change": "changed",
+            "before": {
+              "id": "Q6$00000002-0000-0000-0000-000000000000",
+              "mainsnak": {
+                "datatype": "wikibase-item",
+                "datavalue": {
+                  "type": "wikibase-entityid",
+                  "value": {
+                    "entity-type": "item",
+                    "id": "Q2",
+                    "numeric-id": 2
+                  }
+                },
+                "hash": "6511c2931be27bcac018d16006b07c7c2e704c57",
+                "property": "P2",
+                "snaktype": "value"
+              },
+              "rank": "normal",
+              "type": "statement"
+            },
+            "after": {
+              "id": "Q6$00000002-0000-0000-0000-000000000000",
+              "mainsnak": {
+                "datatype": "wikibase-item",
+                "datavalue": {
+                  "type": "wikibase-entityid",
+                  "value": {
+                    "entity-type": "item",
+                    "id": "Q2",
+                    "numeric-id": 2
+                  }
+                },
+                "hash": "6511c2931be27bcac018d16006b07c7c2e704c57",
+                "property": "P2",
+                "snaktype": "value"
+              },
+              "rank": "preferred",
+              "type": "statement"
+            }
+          }
+        ]
+      },
+      {
+        "property": "P3",
+        "statements": [
+          {
+            "change": "unchanged",
+            "statement": {
+              "id": "Q6$00000005-0000-0000-0000-000000000000",
+              "mainsnak": {
+                "datatype": "quantity",
+                "datavalue": {
+                  "type": "quantity",
+                  "value": {
+                    "amount": "+3898747",
+                    "lowerBound": "+3898737",
+                    "unit": "https://librarybase.org/entity/Q5",
+                    "upperBound": "+3898757"
+                  }
+                },
+                "hash": "2cf5a7709cd1adbe563ec061a04520a8162c1b96",
+                "property": "P3",
+                "snaktype": "value"
+              },
+              "qualifiers": {
+                "P9": [
+                  {
+                    "datatype": "time",
+                    "datavalue": {
+                      "type": "time",
+                      "value": {
+                        "after": 0,
+                        "before": 0,
+                        "calendarmodel": "http://www.wikidata.org/entity/Q1985727",
+                        "precision": 9,
+                        "time": "+2020-00-00T00:00:00Z",
+                        "timezone": 0
+                      }
+                    },
+                    "hash": "ad563a9c0b002470ff3d93c8388e47244b2a4b7e",
+                    "property": "P9",
+                    "snaktype": "value"
+                  }
+                ]
+              },
+              "qualifiers-order": [
+                "P9"
+              ],
+              "rank": "normal",
+              "references": [
+                {
+                  "hash": "0a9c940ef1c4c23a06c3ee30fefb14e9cf2490ff",
+                  "snaks": {
+                    "P10": [
+                      {
+                        "datatype": "wikibase-item",
+                        "datavalue": {
+                          "type": "wikibase-entityid",
+                          "value": {
+                            "entity-type": "item",
+                            "id": "Q3",
+                            "numeric-id": 3
+                          }
+                        },
+                        "hash": "bc7b9df55271eddd0681f6ffd1cf6f0a5e1c3821",
+                        "property": "P10",
+                        "snaktype": "value"
+                      }
+                    ],
+                    "P11": [
+                      {
+                        "datatype": "url",
+                        "datavalue": {
+                          "type": "string",
+                          "value": "https://example.org/census"
+                        },
+                        "hash": "7a7255b805e78ec292ce54fbb1883f15020551a1",
+                        "property": "P11",
+                        "snaktype": "value"
+                      }
+                    ]
+                  },
+                  "snaks-order": [
+                    "P10",
+                    "P11"
+                  ]
+                }
+              ],
+              "type": "statement"
+            }
+          },
+          {
+            "change": "added",
+            "after": {
+              "id": "Q6$00000099-0000-0000-0000-000000000000",
+              "mainsnak": {
+                "datatype": "quantity",
+                "datavalue": {
+                  "type": "quantity",
+                  "value": {
+                    "amount": "+3898747",
+                    "lowerBound": "+3898737",
+                    "unit": "https://librarybase.org/entity/Q5",
+                    "upperBound": "+3898757"
+                  }
+                },
+                "hash": "2cf5a7709cd1adbe563ec061a04520a8162c1b96",
+                "property": "P3",
+                "snaktype": "value"
+              },
+              "qualifiers": {
+                "P9": [
+                  {
+                    "datatype": "time",
+                    "datavalue": {
+                      "type": "time",
+                      "value": {
+                        "after": 0,
+                        "before": 0,
+                        "calendarmodel": "http://www.wikidata.org/entity/Q1985727",
+                        "precision": 9,
+                        "time": "+2020-00-00T00:00:00Z",
+                        "timezone": 0
+                      }
+                    },
+                    "hash": "ad563a9c0b002470ff3d93c8388e47244b2a4b7e",
+                    "property": "P9",
+                    "snaktype": "value"
+                  }
+                ]
+              },
+              "qualifiers-order": [
+                "P9"
+              ],
+              "rank": "normal",
+              "references": [
+                {
+                  "hash": "0a9c940ef1c4c23a06c3ee30fefb14e9cf2490ff",
+                  "snaks": {
+                    "P10": [
+                      {
+                        "datatype": "wikibase-item",
+                        "datavalue": {
+                          "type": "wikibase-entityid",
+                          "value": {
+                            "entity-type": "item",
+                            "id": "Q3",
+                            "numeric-id": 3
+                          }
+                        },
+                        "hash": "bc7b9df55271eddd0681f6ffd1cf6f0a5e1c3821",
+                        "property": "P10",
+                        "snaktype": "value"
+                      }
+                    ],
+                    "P11": [
+                      {
+                        "datatype": "url",
+                        "datavalue": {
+                          "type": "string",
+                          "value": "https://example.org/census"
+                        },
+                        "hash": "7a7255b805e78ec292ce54fbb1883f15020551a1",
+                        "property": "P11",
+                        "snaktype": "value"
+                      }
+                    ]
+                  },
+                  "snaks-order": [
+                    "P10",
+                    "P11"
+                  ]
+                }
+              ],
+              "type": "statement"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "state": {
+    "corrections": []
+  },
+  "changes": null,
+  "size": 412,
+  "delta": 20,
+  "effect": null,
+  "integrity": {
+    "partition": 4098,
+    "offset": 9,
+    "checkpoint": null
+  }
+}

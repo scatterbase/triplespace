@@ -56,6 +56,7 @@ pub const BUILT: &[Feature] = &[
     Feature::Login,
     Feature::Edit,
     Feature::Create,
+    Feature::History,
     Feature::RecentChanges,
     Feature::Version,
 ];
@@ -105,10 +106,10 @@ mod tests {
 
     #[test]
     fn a_feature_needs_both_halves() {
-        let f = Features::from_capabilities(&["wbsearchentities".into(), "history".into()]);
+        let f = Features::from_capabilities(&["wbsearchentities".into(), "jobs".into()]);
         assert!(f.has(Feature::Search));
         assert!(
-            !f.has(Feature::History),
+            !f.has(Feature::Jobs),
             "the API serves it; the site has not built it"
         );
         assert!(!Features::from_capabilities(&[]).has(Feature::Search));

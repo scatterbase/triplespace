@@ -15,7 +15,7 @@ use crate::codex::{Accordion, Align, Cell, Chip, ChipKind, Column, Table};
 use crate::frame::title_url;
 use crate::html::{esc, lang_attrs, link};
 
-fn chip(kind: ChipKind, text: &str) -> String {
+pub(super) fn chip(kind: ChipKind, text: &str) -> String {
     Chip::new(kind, text).render().unwrap_or_default()
 }
 

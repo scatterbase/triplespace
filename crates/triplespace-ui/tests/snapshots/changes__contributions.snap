@@ -75,7 +75,11 @@ expression: main
 <h3 class="ts-changes__day">2 October 2026</h3>
 <ul class="ts-changes__list">
 <li class="ts-change ts-change--edit">
+<span class="ts-change__part">
+<a href="/wiki/Item:Q6?diff=907" class="ts-change__diff">
 <time class="ts-change__time" datetime="2026-10-02T14:05:11Z">14:05</time>
+</a>
+</span>
 <span class="ts-change__part">
 <span class="ts-chip ts-chip--local">Local</span>
 </span>

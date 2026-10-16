@@ -22,6 +22,7 @@ pub mod feed;
 pub mod jobs;
 pub mod read;
 pub mod registry;
+pub mod revisions;
 pub mod sources;
 
 pub use activity::ActivityProjection;

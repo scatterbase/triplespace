@@ -74,7 +74,11 @@ expression: main
 <h3 class="ts-changes__day">2 October 2026</h3>
 <ul class="ts-changes__list">
 <li class="ts-change ts-change--edit">
+<span class="ts-change__part">
+<a href="/wiki/Item:Q6?diff=907" class="ts-change__diff">
 <time class="ts-change__time" datetime="2026-10-02T14:05:11Z">14:05</time>
+</a>
+</span>
 <span class="ts-change__part">
 <span class="ts-chip ts-chip--local">Local</span>
 </span>
@@ -93,7 +97,11 @@ expression: main
 </span>
 </li>
 <li class="ts-change ts-change--edit">
+<span class="ts-change__part">
+<a href="/wiki/Property:P2?diff=906" class="ts-change__diff">
 <time class="ts-change__time" datetime="2026-10-02T14:04:02Z">14:04</time>
+</a>
+</span>
 <span class="ts-change__part">
 <span class="ts-chip ts-chip--local">Local</span>
 </span>
@@ -113,14 +121,18 @@ expression: main
 </span>
 </li>
 <li class="ts-change ts-change--erased">
+<span class="ts-change__part">
 <time class="ts-change__time" datetime="2026-10-02T13:59:40Z">13:59</time>
+</span>
 <span class="ts-change__part">
 <span class="ts-chip ts-chip--local">Local</span>
 </span>
 <span class="ts-change__hidden">An edit was erased.</span>
 </li>
 <li class="ts-change ts-change--job">
+<span class="ts-change__part">
 <time class="ts-change__time" datetime="2026-10-02T12:00:00Z">12:00</time>
+</span>
 <span class="ts-change__part">
 <span class="ts-chip ts-chip--job">Job</span>
 </span>
@@ -138,7 +150,11 @@ expression: main
 <h3 class="ts-changes__day">1 October 2026</h3>
 <ul class="ts-changes__list">
 <li class="ts-change ts-change--edit">
+<span class="ts-change__part">
+<a href="/wiki/Item:Q6?diff=900" class="ts-change__diff">
 <time class="ts-change__time" datetime="2026-10-01T09:30:00Z">09:30</time>
+</a>
+</span>
 <span class="ts-change__part">
 <span class="ts-chip ts-chip--local">Local</span>
 </span>

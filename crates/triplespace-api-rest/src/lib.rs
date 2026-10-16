@@ -12,6 +12,11 @@
 //!   `Special:Version` shows, and one component's licence texts (0077 §10).
 //! - `GET /activity` ([`activity`]): a change feed in the row shape of 16 §3.1 — recent
 //!   changes, a history or contributions by its target set (0020 §4–5).
+//! - `GET /entity/{id}/history` ([`history`]): the one-target feed of an entity, its
+//!   local edits, mirror syncs and log events in one list (0012 A71; 19 §3.3).
+//! - `GET /entity/{id}/changes/{partition}/{offset}` and `GET /entity/{id}/compare`
+//!   ([`diff`]): the structured diff of one change set, and of two local revisions
+//!   (0012 §7; 18 §5.1).
 //!
 //! Every route runs behind the Action API's request layers ([`triplespace_api_action`]):
 //! the tenant the host names (421 otherwise), the caller, the redaction of 0012 §8, and
@@ -21,6 +26,9 @@
 #![forbid(unsafe_code)]
 
 pub mod activity;
+pub mod diff;
+mod entity_route;
+pub mod history;
 pub mod provenance;
 pub mod version;
 
@@ -37,6 +45,9 @@ pub const PATHS: &[&str] = &[
     "/version",
     "/version/licenses/{id}",
     "/activity",
+    "/entity/{id}/history",
+    "/entity/{id}/changes/{partition}/{offset}",
+    "/entity/{id}/compare",
 ];
 
 /// The REST routes, to be merged into the server's router.
@@ -47,7 +58,10 @@ pub fn routes() -> Router<App> {
             .route(&format!("{base}{}", PATHS[0]), get(provenance::handle))
             .route(&format!("{base}{}", PATHS[1]), get(version::handle))
             .route(&format!("{base}{}", PATHS[2]), get(version::license))
-            .route(&format!("{base}{}", PATHS[3]), get(activity::handle));
+            .route(&format!("{base}{}", PATHS[3]), get(activity::handle))
+            .route(&format!("{base}{}", PATHS[4]), get(history::handle))
+            .route(&format!("{base}{}", PATHS[5]), get(diff::change))
+            .route(&format!("{base}{}", PATHS[6]), get(diff::compare));
     }
     r
 }

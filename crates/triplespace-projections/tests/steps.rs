@@ -840,6 +840,20 @@ async fn feeds(client: &Client) {
     assert!(sync.changes.is_some());
     assert_eq!(sync.tags, vec!["bulk"]);
 
+    // The source switch narrows a history to one graph.
+    let mut made_here = history.clone();
+    made_here.filters.sources = vec!["local".into()];
+    let page = feed::query(client, TENANT, &made_here, &viewer)
+        .await
+        .unwrap();
+    assert_eq!(page.rows.len(), 3);
+    assert!(page.rows.iter().all(|r| r.source == "local"));
+    made_here.filters.sources = vec!["mirror/internetdomains".into()];
+    let page = feed::query(client, TENANT, &made_here, &viewer)
+        .await
+        .unwrap();
+    assert_eq!(brief(&page), vec!["sync|put|domain:example.org"]);
+
     // A restricted row is for its groups.
     client
         .execute(

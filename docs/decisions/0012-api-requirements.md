@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-09 (A72)
+- **Updated:** 2026-10-16 (A74)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0005](0005-crate-organization.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -66,7 +66,7 @@ This ADR sets the rules for filling both gaps, and lists what the UI needs from 
 
 ### 4. Action API changes
 
-*Changed by A3, A4, A5, A7, A8, A9, A10, A12, A13, A14, A15, A16, A17, A18, A19, A21, A23, A24, A25, A26, A27, A30, A31, A32, A33, A34, A35, A36, A37, A38, A55, A64, A65, A66, A72.*
+*Changed by A3, A4, A5, A7, A8, A9, A10, A12, A13, A14, A15, A16, A17, A18, A19, A21, A23, A24, A25, A26, A27, A30, A31, A32, A33, A34, A35, A36, A37, A38, A55, A64, A65, A66, A72, A73, A74.*
 
 *Current text: [18](../architecture/18-api.md) §1.5, §2.1, §2.2, §2.3, §2.4, §3.4, §5.1.*
 
@@ -798,3 +798,23 @@ Replaced text ([18](../architecture/18-api.md) §2.2, as it stood):
 > | `triplespace` *(new)* | Capabilities; `api_version`, which the web tier checks against the minimum it was built for ([0057](../decisions/0057-web-tier.md) §9); the REST base path; the tenant, with its slug and issuer code, and its opted-in providers; the search backend, `opensearch` or `postgres`; `theme`, the tenant's `ui.theme` token values, which the site serves as its stylesheet and which an outsider of a private tenant is not given, its landing page wearing Codex's own values; `hash_mismatches`, the instance-wide count of upstream hashes kept because the recomputation differed ([0006](../decisions/0006-log-integrity-and-erasure.md) A9); the rate-limit classes and the grant set; whether `subsidiaries.oauth_requires_approval` is on, so a tool can tell the person in advance that its account will await approval; `sitelinks: {schemes, mode, alias_count}` (no site table is reported, since there is none); the tenancy preset and switches; the farm slug, the farm code and the primary tenant's slug; `contentmodels`: each implemented model with its source, slot, format and direct-editing flag, so the UI finds out from the API which pages can change format, `Scribunto` among them, and `triplespace-table` with the limits `tables.max_rows` and `tables.max_columns`; the media base, separation and same-origin flag; `lua.ids` and `lua.client_site`; `page_repos`: each repository's name, kind, provider, served namespaces, mode, `shadowed`, `titles` and licence, as `meta=filerepoinfo` lists file repositories, with `index_as_of`, `event_lag` and, in `mirror` mode, `mirrored_pages`; `visibility`, `security.restrictions` and, in `development` mode, `insecure`; `entity_sources`, the list `GET /entity-sources` returns; the MCP endpoint when `mcp.enabled` is on; `build`: the version, commit and `modified` flag |
 
 > | `protocols`, `interwikimap`, `languagevariants`, `defaultoptions`, `specialpagealiases` | For Parsoid ([0042](../decisions/0042-template-expansion-and-parsoid.md) §8.1); `specialpagealiases` from the special-page registry ([0047](../decisions/0047-special-pages.md) §2) |
+
+### A73. `rckind`, and `source`, `job` and `operator` on the feed modules
+
+- **Date:** 2026-10-15
+- **Source:** Direct: James, review of the first activity-feeds pull request, 2026-10-15
+- **Change:** extends §4
+- **Summary:** `list=recentchanges`, `list=usercontribs` and `list=logevents` are three target sets over the one feed query of [0020](0020-change-feeds.md) §1, and their rows carry what the query already holds: `rcprop`, `ucprop` and `leprop` gain `source` (the graph), `job` and `operator`, the values §4 had given `prop=revisions` alone, so a bot that reads recent changes learns a row's graph and job without a second call; and `rckind=edit|sync|log|job|erased` selects the row kinds of `view.activity` directly, which is how a client asks for the mirror syncs that `rctype` leaves out, since `rctype=external` keeps its Wikibase-client meaning. The chapter rows are [18](../architecture/18-api.md) §2.3.
+
+Replaced text ([18](../architecture/18-api.md) §2.3, as it stood):
+
+> | `list=recentchanges` | One row per local revision, as in MediaWiki. Job changes carry the `bot` flag and a `job:{id}` tag. `rcjob` filters by job. Mirror records never appear; each mirror job run appears as a `job` log event. `rctype=external` is not used, because Wikibase clients already give it a meaning. `rcshow=patrolled\|!patrolled\|autopatrolled` and `rcprop=patrolled`. `rcscope` serves a scope's related changes ([0060](0060-scopes.md) §7) | [0012](0012-api-requirements.md) §4; [0023](0023-moderation.md) §8; [0060](0060-scopes.md) §8 |
+
+> | `list=usercontribs` | By local account. Job changes appear with their tags. `ucjob` filters by job | [0012](0012-api-requirements.md) §4 |
+
+### A74. `rvprop=record` names a revision's record
+
+- **Date:** 2026-10-16
+- **Source:** Direct: James, review of the activity-feeds pull requests, 2026-10-15
+- **Change:** extends §4
+- **Summary:** `prop=revisions` gains `rvprop=record`, which returns the revision's `{partition, offset}`. A diff is a record ([0083](0083-write-path-in-three-tiers.md) §4; [18](../architecture/18-api.md) §5.1), and the site addresses a diff by revision ID as MediaWiki does (`?diff={revid}`), so the site resolves the ID to the record through this field with one `prop=revisions` call rather than a route of its own. MediaWiki clients never ask for it. The chapter row is [18](../architecture/18-api.md) §2.3.

@@ -194,6 +194,7 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
         "/wiki/Special:RecentChanges",
         "/w/index.php?title=Special:RecentChanges&filtered=1&kind=edit&kind=sync&days=90",
         "/wiki/Special:Contributions/Alice",
+        "/wiki/Domain:wikipedia.org?action=history&source=local",
         "/nothing/here",
     ] {
         let a = get(&web, path, None).await;
@@ -237,6 +238,65 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
     .await;
     assert!(with.body.contains("ts-change--sync"), "{}", with.body);
     assert!(with.body.contains("Domain:wikipedia.org"));
+    // The History tab (0012 A71; 19 §3.3): a mirrored domain's syncs and local edits,
+    // the source switch, and the note that the mirror keeps only its latest state.
+    let hist = get(
+        &web,
+        "/w/index.php?title=Domain:wikipedia.org&action=history",
+        None,
+    )
+    .await;
+    assert_eq!(hist.status, StatusCode::OK);
+    assert!(
+        hist.body.contains("aria-current=\"page\">History</a>"),
+        "{}",
+        hist.body
+    );
+    assert!(hist.body.contains("ts-change--sync"), "{}", hist.body);
+    assert!(
+        !hist.body.contains("ts-history__switch"),
+        "the mirror alone contributes here: no switch"
+    );
+    assert!(hist.body.contains("Only the latest state from"));
+    let local = get(
+        &web,
+        "/wiki/Domain:wikipedia.org?action=history&source=local",
+        None,
+    )
+    .await;
+    assert!(local.body.contains("No history is held for this entity."));
+    let q6 = get(&web, "/wiki/Item:Q6?action=history", None).await;
+    assert!(
+        !q6.body.contains("ts-history__switch"),
+        "one source: no switch"
+    );
+    assert!(
+        q6.body.contains("ts-change--edit") && q6.body.contains(">adopt<"),
+        "{}",
+        q6.body
+    );
+
+    // The diff page and an old revision (19 §3.8), from the history's own links; both
+    // tiers draw them alike.
+    let diff_href = q6
+        .body
+        .split("href=\"")
+        .filter_map(|s| s.split('"').next())
+        .find(|h| h.contains("?diff="))
+        .expect("a history row links to its diff")
+        .replace("&amp;", "&");
+    for path in [diff_href.clone(), diff_href.replace("?diff=", "?oldid=")] {
+        let a = get(&web, &path, None).await;
+        let b = get(&embedded, &path, None).await;
+        assert_eq!(a.status, StatusCode::OK, "{path}: {}", a.body);
+        assert_eq!(a.body, b.body, "{path}: the HTML differs");
+    }
+    let diff = get(&web, &diff_href, None).await;
+    assert!(diff.body.contains("About this edit"), "{}", diff.body);
+    assert!(diff.body.contains("ts-diff__table"), "{}", diff.body);
+    let old = get(&web, &diff_href.replace("?diff=", "?oldid="), None).await;
+    assert!(old.body.contains("This is revision "), "{}", old.body);
+    assert!(old.body.contains("Current version"));
     let page = get(&web, "/wiki/Project:Home", None).await;
     assert!(
         page.body
