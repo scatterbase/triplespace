@@ -265,6 +265,40 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
     )
     .await;
     assert!(local.body.contains("No history is held for this entity."));
+    // A key-mapped provider's own item ID is an alias of the Domain it was written under
+    // (05 §4.1): the site sends it to the Domain page, with the query kept, and the API
+    // answers with the Domain entity and Wikibase's `redirects`.
+    let alias = get(&web, "/wiki/Item:XDQ11?tab=sitelinks", None).await;
+    assert_eq!(alias.status, StatusCode::FOUND, "{}", alias.body);
+    assert_eq!(
+        alias.headers.get(header::LOCATION).unwrap(),
+        "/wiki/Domain:wikipedia.org?tab=sitelinks"
+    );
+    let unmapped = get(&web, "/wiki/Item:XDQ999", None).await;
+    assert_eq!(unmapped.status, StatusCode::NOT_FOUND);
+    let api = get(
+        &embedded,
+        "/w/api.php?action=wbgetentities&ids=XDQ11&props=info&format=json",
+        None,
+    )
+    .await;
+    let v: serde_json::Value = serde_json::from_str(&api.body).unwrap();
+    assert_eq!(
+        v["entities"]["domain:wikipedia.org"]["redirects"],
+        serde_json::json!({"from": "XDQ11", "to": "domain:wikipedia.org"}),
+        "{}",
+        api.body
+    );
+    let data = get(&embedded, "/wiki/Special:EntityData/XDQ11.json", None).await;
+    assert_eq!(data.status, StatusCode::OK, "{}", data.body);
+    assert!(data.body.contains("\"entities\":{\"domain:wikipedia.org\""));
+    let prov = get(
+        &embedded,
+        "/rest.php/triplespace/v0/entity/XDQ11/provenance",
+        None,
+    )
+    .await;
+    assert_eq!(prov.status, StatusCode::OK, "{}", prov.body);
     let q6 = get(&web, "/wiki/Item:Q6?action=history", None).await;
     assert!(
         !q6.body.contains("ts-history__switch"),

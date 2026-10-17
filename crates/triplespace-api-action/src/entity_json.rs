@@ -131,7 +131,7 @@ pub fn filter(value: &mut Value, props: &[String], languages: &[String]) {
     let Value::Object(m) = value else { return };
     if !props.is_empty() {
         let keep = |k: &str| match k {
-            "type" | "id" => true,
+            "type" | "id" | "redirects" => true,
             "pageid" | "ns" | "title" | "lastrevid" | "modified" | "missing" => {
                 props.iter().any(|p| p == "info")
             }

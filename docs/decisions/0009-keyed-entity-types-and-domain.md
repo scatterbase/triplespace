@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-12 (A13)
+- **Updated:** 2026-10-16 (A14)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md)
 - **Uses:** [0000](0000-init.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -285,3 +285,10 @@ Replaced text ([04](../architecture/04-entities-and-identifiers.md) §3.4, as it
 Replaced text ([05](../architecture/05-providers-and-ingest.md) §4.2, as it stood):
 
 > | Two items are merged | The redirect updates the mapping index. If both carried the same key, the duplicate is resolved |
+
+### A14. How an upstream alias answers
+
+- **Date:** 2026-10-16
+- **Source:** Direct: James, reading `Item:XDQ1` on his instance, 2026-10-16
+- **Change:** extends §9
+- **Summary:** §9 and [05](../architecture/05-providers-and-ingest.md) §4.1 have the prefixed upstream ID of a mapped item resolve to the Domain through the mapping index; this fixes the shape. An entity read by such an ID (`wbgetentities`, `Special:EntityData`, the REST entity routes) that `view.entity` does not hold is looked up in `view.keyed_map` by provider slug and upstream ID (the tenant's row first, then the instance's), and when the map holds it the answer is the keyed entity under its own ID with Wikibase's `redirects: {from, to}` beside it, as an upstream merge would answer — the alias is the ID of an item that no longer exists as a subject (§9, A13). The site sends `Item:XDQ9` to the Domain page with a `302`, keeping the query. An ID the map does not hold stays an ordinary foreign item, or `missing`. `triplespace_projections::read::mapped_alias` is the one lookup.

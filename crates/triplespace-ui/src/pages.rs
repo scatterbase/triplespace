@@ -435,9 +435,27 @@ pub fn is_mainpage(title: &str, site: &SiteInfo) -> bool {
 
 /// A `302` to a page, cached as its inputs allow.
 pub fn redirect_to(cx: &Context, title: &str) -> Response {
+    redirect_to_with(cx, title, &BTreeMap::new())
+}
+
+/// A `302` to a title's page, keeping the request's query (`?tab=…`, `?diff=…`).
+pub fn redirect_to_with(cx: &Context, title: &str, query: &BTreeMap<String, String>) -> Response {
     let mut r = Response::new(Body::empty());
     *r.status_mut() = StatusCode::FOUND;
-    if let Ok(v) = HeaderValue::from_str(&format!("/wiki/{}", title_url(title))) {
+    let mut location = format!("/wiki/{}", title_url(title));
+    for (i, (k, v)) in query.iter().enumerate() {
+        location.push(if i == 0 { '?' } else { '&' });
+        location.push_str(
+            &percent_encoding::utf8_percent_encode(k, percent_encoding::NON_ALPHANUMERIC)
+                .to_string(),
+        );
+        location.push('=');
+        location.push_str(
+            &percent_encoding::utf8_percent_encode(v, percent_encoding::NON_ALPHANUMERIC)
+                .to_string(),
+        );
+    }
+    if let Ok(v) = HeaderValue::from_str(&location) {
         r.headers_mut().insert(header::LOCATION, v);
     }
     caching(r.headers_mut(), None, &cx.inputs);

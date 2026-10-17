@@ -239,6 +239,12 @@ pub async fn handle(
             format!("\"{}\" names no registered provider", id.as_str()),
         );
     }
+    // A key-mapped provider's own item ID resolves to the keyed entity (05 §4.1).
+    let id = match read::mapped_alias(&client, app.registry(), &tenant.slug, &id).await {
+        Ok(Some(target)) => target,
+        Ok(None) => id,
+        Err(e) => return internal(&e),
+    };
     let current = match read::current(&client, app.order(), &tenant.slug, &id).await {
         Ok(c) => c,
         Err(e) => return internal(&e),

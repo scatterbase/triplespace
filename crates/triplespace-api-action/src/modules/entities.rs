@@ -11,6 +11,7 @@ use crate::api::Ctx;
 use crate::edit;
 use crate::entity_json;
 use crate::response::{ApiError, ApiResponse};
+use triplespace_projections::read;
 
 /// Parses and normalizes an ID as a client wrote it: `q6` → `Q6`, `QQQ6` → `Q6`
 /// (0044 §1), `Item:Q6` → `Q6`, `domain:Example.ORG` → `domain:example.org`.
@@ -64,13 +65,27 @@ fn check_form(id: &EntityId, ctx: &Ctx) -> Result<(), ApiError> {
     Ok(())
 }
 
-/// The served JSON of one entity, or `missing`.
+/// The served JSON of one entity, or `missing`. A key-mapped provider's own item ID
+/// (`XDQ9`) is an alias of the keyed entity it was written under (05 §4.1): the answer is
+/// that entity, under its own ID, with Wikibase's `redirects: {from, to}` beside it.
 pub async fn entity_json(ctx: &Ctx, id: &EntityId, as_given: &str) -> Result<Value, ApiError> {
     check_form(id, ctx)?;
     match edit::current(ctx, id).await? {
         Some(current) => Ok(entity_json::present(&current, ctx.app.registry())),
         None if id.form() == IdForm::Keyed => Ok(entity_json::empty_keyed(id)),
-        None => Ok(json!({"id": as_given, "missing": ""})),
+        None => {
+            let alias = read::mapped_alias(&ctx.client, ctx.app.registry(), &ctx.tenant.slug, id)
+                .await
+                .map_err(ApiError::internal)?;
+            if let Some(target) = alias
+                && let Some(current) = edit::current(ctx, &target).await?
+            {
+                let mut v = entity_json::present(&current, ctx.app.registry());
+                v["redirects"] = json!({"from": as_given, "to": target.as_str()});
+                return Ok(v);
+            }
+            Ok(json!({"id": as_given, "missing": ""}))
+        }
     }
 }
 
@@ -108,11 +123,14 @@ pub async fn wbgetentities(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         if v.get("missing").is_none() {
             entity_json::filter(&mut v, &props, &languages);
         }
-        // Keyed by the canonical ID, as Wikibase keys by the normalized one.
+        // Keyed by the canonical ID, as Wikibase keys by the normalized one; a redirect
+        // by its target's, as Wikibase keys a redirected entity.
         let key = if v.get("missing").is_some() {
             given
         } else {
-            id.as_str().to_string()
+            v.get("id")
+                .and_then(Value::as_str)
+                .map_or_else(|| id.as_str().to_string(), str::to_string)
         };
         entries.push((key, v));
     }

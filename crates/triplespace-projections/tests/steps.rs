@@ -421,6 +421,35 @@ async fn steps_two_to_five_project_and_rebuild() {
         sorted(&client, "SELECT provider || '|' || upstream_id || '|' || keyed_type || '|' || key FROM view.keyed_map WHERE tenant = ''").await,
         vec!["internetdomains|Q9|domain|example.org"]
     );
+    // The upstream ID is an alias of the key (05 §4.1): `XDQ9` resolves to the Domain,
+    // an unmapped or unknown one to nothing.
+    let registry = scatter_providers::Registry::default_registry();
+    let alias = triplespace_projections::read::mapped_alias(
+        &client,
+        registry,
+        TENANT,
+        &"XDQ9".parse().unwrap(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        alias.map(|a| a.as_str().to_string()),
+        Some(DOMAIN.to_string())
+    );
+    for id in ["XDQ999", "WDQ9", "Q9", DOMAIN] {
+        assert!(
+            triplespace_projections::read::mapped_alias(
+                &client,
+                registry,
+                TENANT,
+                &id.parse().unwrap()
+            )
+            .await
+            .unwrap()
+            .is_none(),
+            "{id}"
+        );
+    }
     let job7 = client
         .query_one("SELECT status, source, source_version, mode, graph, adapter_version, counts::text, checkpoint_size, start_offset, finish_offset, actor_key, params::text FROM view.job WHERE tenant = '' AND job_id = 7", &[])
         .await

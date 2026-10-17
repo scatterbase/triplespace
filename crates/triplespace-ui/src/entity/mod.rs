@@ -368,13 +368,17 @@ pub async fn serve(
         Err(e) => return pages::api_failed(&cx, headers, &e),
     };
     cx.inputs.push(fetched.cache.clone());
-    let Some((_, json)) = fetched.value.found.into_iter().next() else {
+    let Some((_, mut json)) = fetched.value.found.into_iter().next() else {
         return if render {
             pages::fragment(&cx, headers, StatusCode::NOT_FOUND, String::new)
         } else {
             missing(&cx, headers, &title)
         };
     };
+    let redirected = json
+        .as_object_mut()
+        .and_then(|m| m.remove("redirects"))
+        .is_some();
     let parsed = match Entity::from_value(json) {
         Ok(p) => p,
         Err(e) => {
@@ -386,6 +390,12 @@ pub async fn serve(
         }
     };
     let entity = parsed.entity;
+    // The API answers an alias (`Item:XDQ9`, a key-mapped provider's own ID) with the
+    // entity it stands for; the page lives at that entity's own title (05 §4.1).
+    let own = page_title(entity.id.as_str(), entity.entity_type.name());
+    if redirected && own != title {
+        return pages::redirect_to_with(&cx, &own, query);
+    }
     let provenance = match provenance {
         Ok(p) => {
             cx.inputs.push(p.cache);
