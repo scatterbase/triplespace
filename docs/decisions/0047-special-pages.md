@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-09 (A21)
+- **Updated:** 2026-10-17 (A22)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0029](0029-resolver-namespaces.md), [0031](0031-property-constraints.md), [0042](0042-template-expansion-and-parsoid.md), [0046](0046-primary-tenant.md)
 - **Uses:** [0019](0019-discussions.md), [0021](0021-notifications.md), [0028](0028-tenancy-policy.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md)
@@ -44,17 +44,19 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 1. One registry of special pages (extends 0015 §5)
 
-*Changed by A9, A15, A19.*
+*Changed by A9, A15, A19, A22.*
 
 *Current text: [21](../architecture/21-special-pages.md) §1.1, §8.*
 
 ### 2. Names, aliases and section aliases
 
-*Changed by A19.*
+*Changed by A19, A22.*
 
 *Current text: [21](../architecture/21-special-pages.md) §1.2.*
 
 ### 3. Where a page is served (extends 0018 §11 and 0046 §7)
+
+*Changed by A22.*
 
 *Current text: [21](../architecture/21-special-pages.md) §1.3.*
 
@@ -441,3 +443,38 @@ Replaced text ([21](../architecture/21-special-pages.md) §4.2, as it stood):
 Replaced text ([21](../architecture/21-special-pages.md) §3.2, as it stood):
 
 > It needs `ts-link` and counts in the `link` rate class ([0024](../decisions/0024-subsidiary-accounts.md) §5).
+
+### A22. Special:Preferences, Special:WikiSettings and Special:InstanceSettings
+
+- **Date:** 2026-10-17
+- **Source:** [0085](0085-settings-and-preferences.md) §4, §5
+- **Change:** extends §1; amends §2; amends §3
+- **Summary:** The registry gains three served pages: `Preferences` (MediaWiki's name, scope `tenant`, restricted to `editmyoptions`, with `DisplayNotificationsConfiguration` as its section alias for the notifications tab), `WikiSettings` (scope `tenant`) and `InstanceSettings` (scope `farm`). `Preferences` stops being a section alias of `Account`, whose `ResetTokens` alias now leads to the watchlist token and whose email aliases lead to the new Contacts section. `Tenancy` keeps its name, unlisted, as a redirect to the Tenancy tabs of the two settings pages. The chapter text is [21](../architecture/21-special-pages.md) §1.2, §1.3 and §8.
+
+Replaced text ([21](../architecture/21-special-pages.md) §1.2, as it stood):
+
+> | `Preferences`, `ResetTokens`, `DisplayNotificationsConfiguration` | `Account#preferences`, `Account#preferences`, `Account#notifications` |
+
+Replaced text ([21](../architecture/21-special-pages.md) §1.2, as it stood):
+
+> | `ChangeEmail`, `Confirmemail`, `Invalidateemail` | `Account#notifications`, where the email address and its verification live ([0021](0021-notifications.md) §4, §6) |
+
+Replaced text ([21](../architecture/21-special-pages.md) §1.3, as it stood):
+
+>   - `Tenancy`: the policy at the farm base, and a tenant's own view of it with 0046 §9's **Accept**.
+
+Replaced text ([21](../architecture/21-special-pages.md) §8, as it stood):
+
+> | `Account` |  | section aliases: `Preferences`→`#preferences`, `ResetTokens`→`#preferences`, `DisplayNotificationsConfiguration`→`#notifications`, `ChangeCredentials`→`#sign-in-methods`, `RemoveCredentials`→`#sign-in-methods`, `ChangePassword`→`#sign-in-methods`, `LinkAccounts`→`#sign-in-methods`, `UnlinkAccounts`→`#sign-in-methods`, `ChangeEmail`→`#notifications`, `Confirmemail`→`#notifications`, `Invalidateemail`→`#notifications`, `BotPasswords`→`#subsidiaries`, `OAuthManageMyGrants`→`#connected-applications` | `triplespace` | served | `tenant` | `users` |  |  | 0010 §11 | §1.2 |
+
+Replaced text ([21](../architecture/21-special-pages.md) §8, as it stood):
+
+> | `Tenancy` |  |  | `triplespace` | served | `both` | `instance` |  |  | 0028 §11, 0046 §9 | §1.3 |
+
+Replaced text ([21](../architecture/21-special-pages.md) §8, as it stood):
+
+> (189 pages: 169 served, 7 deferred, 13 declined, none reserved)
+
+Replaced text ([21](../architecture/21-special-pages.md) §8, as it stood):
+
+> Twenty-five served pages in the registry are specified by other ADRs and are not described in those sections or in this chapter; the catalogue marks them "—" and names their ADR: `Block`, `BlockList`, `DeletedContributions`, `ListGroupRights`, `Undelete` and `UserRights` ([09](09-security-and-moderation

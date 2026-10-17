@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-09 (A28)
+- **Updated:** 2026-10-17 (A29)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0003](0003-statement-ui.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md), [0017](0017-entity-id-grammar.md), [0022](0022-federation.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md)
@@ -80,7 +80,7 @@ This ADR adds tenants, makes each tenant its own issuer of identity, lets a tena
 
 ### 10. Moving a tenant (extends 0006 §6 and §9)
 
-*Changed by A3, A7, A8, A12, A17, A20, A21, A22.*
+*Changed by A3, A7, A8, A12, A17, A20, A21, A22, A29.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §6.2, §6.3, §6.4, §6.7, §7.6; [16](../architecture/16-logs-feeds-and-notifications.md) §2.3.*
 
@@ -487,3 +487,10 @@ Replaced text ([19](../architecture/19-site-ui.md) §2.5, as it stood):
 > | `Special:Contributions/{issuer}:{id}` for a foreign actor | **What the instance holds:** upstream revision records keyed to that actor in `log/{provider}` ([0015](../decisions/0015-record-format-and-partition-registry.md) §4), and page revisions imported with that attribution. The page says whose user this is, links to their page on the issuer's site, and does not fetch upstream, because per-actor fetching is unbounded. |
 >
 > For an actor of another tenant on the same instance the third view is complete, since the instance holds every record. For a Wikidata account it is the sparse subset the instance has observed or backfilled, and says so.
+
+### A29. Inherited settings do not travel
+
+- **Date:** 2026-10-17
+- **Source:** [0085](0085-settings-and-preferences.md) §2.3
+- **Change:** extends §10
+- **Summary:** A tenant's bundle carries the records it wrote. A setting it inherited from its instance's defaults, which [0085](0085-settings-and-preferences.md) §2.1 makes evaluated rather than copied, travels as no record: after a move it takes the new instance's default, and only the values the tenant set itself move with it. The chapter text is [08](../architecture/08-tenants-and-instances.md) §6.2.

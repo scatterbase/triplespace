@@ -1,0 +1,1748 @@
+# Settings.  ADR 0085 §1.
+#
+# Every `site` setting: a tenant's (architecture chapter 23 §3.2) and the instance's (§3.3). This file is the
+# catalogue of record; the two tables in chapter 23 are generated from it by `docs/architecture/settings.py`
+# (`--write` rewrites them, no flag checks them, and CI runs the check). Tenancy switches are registered in
+# tenancy.toml, preference keys in preferences.toml, fields of other config records and deployment
+# configuration in chapter 23 §3.5–3.6; none of those is a `site` setting.
+#
+# Embedded by triplespace-accounts, which validates every `site` record against it (type, choices, bound,
+# lock, right) for the API, the settings pages and triplespace-cli alike, and resolves a setting's value
+# (0085 §2). An instance may register settings of its own as config records beside the copied ones, as it
+# may preference keys (0027 A7).
+#
+# key           The setting name. Never reused for another meaning; a retired setting keeps its entry
+#               with `retired = true`.
+# scope         "tenant": a record in a tenant's `config`. "instance": a record in the instance `config`,
+#               written at the farm base.
+# bound         Who has the last word (23 §3.1): "tenant"; "ceiling", the tenant's value up to the
+#               instance's ceiling, a tenancy switch named `ceiling` or, absent that, a switch of the
+#               setting's own name; "instance".
+# tenant_may_narrow
+#               For an instance setting: a tenant `site` record of the same name may narrow the value
+#               but not widen it.
+# group         The tab of Special:WikiSettings or Special:InstanceSettings ([[group]] below).
+# type          boolean | integer | duration (ISO 8601) | size | text | string | url | language |
+#               language-list | choice | string-list | integer-list | map | json, or a reference kind:
+#               page | page-list | file | group | actor | repository | repository-list | property-list |
+#               namespace-list | site | licence | collation | pattern | schedule; or site-asset, a pinned
+#               version of a local file the setting uses for a site function, public while named (0085 §8).
+# media         For type "site-asset": the media types it accepts.
+# choices       For type "choice": the permitted values.
+# values        The catalogue's "Values" text, where it says more than the type does.
+# default       The registry default, as a value of the type.
+# no_default    true when there is none: the default is computed, or the setting is unset by default;
+#               `default_text` says which. Every entry has `default` or `no_default`.
+# default_text  The catalogue's "Default" text, where it says more than `default` does.
+# by_rule       true: the defining ADR names the setting without saying which `config` holds it, and
+#               23 §3.1's rule makes it a tenant `site` setting.
+# scope_note    The catalogue's "Scope" text, where it is neither `site` nor the by-rule form.
+# right         The permission needed to write it, or `owner` where only members of `owner` may. Default
+#               `ts-config` (at the farm base for instance settings, an instance right).
+# reported      true: `meta=siteinfo` reports it (23 §6), so a client never needs GET /settings for it.
+# meaning, source
+#               The catalogue's text, in Markdown with links relative to docs/architecture/.
+#
+# Labels are interface messages, never stored here: `ts-setting-{key}` and `ts-setting-{key}-help`, with the
+# dots of the key turned into hyphens; a group's label is `ts-settings-group-{id}`.
+
+version = 1
+
+[[group]]
+id = "site"          # name, language, logo, licence, appearance
+
+[[group]]
+id = "pages"         # pages, wikitext, templates, Lua, tables, blocks, categories
+
+[[group]]
+id = "entities"      # mirroring, terms, constraints, sitelinks, schemas, retention, reports
+
+[[group]]
+id = "discussion"    # threads, talk pages, proposals
+
+[[group]]
+id = "files"
+
+[[group]]
+id = "query"         # the query service, scopes, sprints, MCP
+
+[[group]]
+id = "mirrors"       # page repositories and forks
+
+[[group]]
+id = "accounts"      # logins, subsidiaries, OAuth, signing, preference defaults
+
+[[group]]
+id = "moderation"
+
+[[group]]
+id = "exchange"      # export, dumps, federation, updates, ingest, integrity, feeds, notifications
+
+[[group]]
+id = "instance"      # instance-only settings
+
+[[setting]]
+key = "blocks.max_per_page"
+scope = "tenant"
+bound = "tenant"
+group = "pages"
+type = "integer"
+default = 20
+by_rule = true
+meaning = "Bounds blocks per render"
+source = "[0062](../decisions/0062-workspaces.md) §3"
+
+[[setting]]
+key = "blocks.max_rows"
+scope = "tenant"
+bound = "tenant"
+group = "pages"
+type = "integer"
+default = 200
+meaning = "Bounds every list a block renders"
+source = "[0062](../decisions/0062-workspaces.md) §3"
+
+[[setting]]
+key = "blocks.refresh_debounce"
+scope = "tenant"
+bound = "tenant"
+group = "pages"
+type = "duration"
+default = "PT60S"
+default_text = "60 s"
+by_rule = true
+meaning = "Coalesces the refresh of pages whose block dependencies changed"
+source = "[0062](../decisions/0062-workspaces.md) §3"
+
+[[setting]]
+key = "category.collation"
+scope = "tenant"
+bound = "tenant"
+group = "pages"
+type = "collation"
+values = "a collation"
+default = "uppercase"
+default_text = "MediaWiki's `uppercase`"
+meaning = "Sort order of a category's members"
+source = "[0038](../decisions/0038-page-metadata-and-categories.md) §4"
+
+[[setting]]
+key = "constraints.scope"
+scope = "tenant"
+bound = "tenant"
+group = "entities"
+type = "choice"
+choices = ["local", "overlay", "all"]
+default = "local"
+meaning = "Which entities the constraint consumer checks on composition: `local`, the local-graph statements and the entities in the tenant's overlay; `overlay`; or `all`, which is a batch job with progress and never a per-event step ([06](06-statements-and-properties.md))"
+source = "[0083](../decisions/0083-write-path-in-three-tiers.md) §3"
+
+[[setting]]
+key = "content.licence"
+scope = "tenant"
+bound = "tenant"
+group = "site"
+type = "licence"
+values = "a licence"
+no_default = true
+default_text = "unset; a tenant with no licence set is warned, not refused"
+meaning = "The tenant's content licence, checked against a repository's when it is added to `pages.repos` and on a push"
+source = "[0053](../decisions/0053-mirrored-pages.md) §9; [0068](../decisions/0068-merging-with-upstream.md) §3; [0076](../decisions/0076-dataset-publication.md) §4"
+
+[[setting]]
+key = "discussion.share"
+scope = "tenant"
+bound = "tenant"
+group = "discussion"
+type = "boolean"
+no_default = true
+default_text = "on under `discussion.cross_tenant = read-only`"
+meaning = "Whether a provider tenant's threads are shown read-only on reading tenants"
+source = "[0028](../decisions/0028-tenancy-policy.md) §6"
+
+[[setting]]
+key = "dumps.keep"
+scope = "tenant"
+bound = "tenant"
+group = "exchange"
+type = "integer"
+default = 7
+by_rule = true
+meaning = "Previous dumps of each format kept per scope"
+source = "[0076](../decisions/0076-dataset-publication.md) §1"
+
+[[setting]]
+key = "entities.closure"
+scope = "tenant"
+bound = "tenant"
+group = "entities"
+type = "property-list"
+values = "a property list"
+no_default = true
+default_text = "0070 §2.3's list for Wikidata; empty for an entity source"
+scope_note = "`site`, per provider"
+meaning = "Properties whose values are fetched transitively from every mirrored entity"
+source = "[0070](../decisions/0070-shallow-entity-mirroring.md) §2.3; [0078](../decisions/0078-entity-sources.md) §4"
+
+[[setting]]
+key = "entities.closure_depth"
+scope = "tenant"
+bound = "tenant"
+group = "entities"
+type = "integer"
+default = 6
+meaning = "Depth of the closure"
+source = "[0070](../decisions/0070-shallow-entity-mirroring.md) §2.3"
+
+[[setting]]
+key = "entities.label_ttl"
+scope = "tenant"
+bound = "tenant"
+group = "entities"
+type = "duration"
+default = "P7D"
+default_text = "7 days"
+meaning = "Lifetime of the label cache"
+source = "[0070](../decisions/0070-shallow-entity-mirroring.md) §4"
+
+[[setting]]
+key = "entities.mirror"
+scope = "tenant"
+bound = "tenant"
+group = "entities"
+type = "choice"
+choices = ["off", "on-demand", "linked", "all"]
+no_default = true
+default_text = "`linked`; for an entity source, `linked` with an `api` and `off` without"
+scope_note = "`site`, per provider and entity type"
+meaning = "What of a provider's entities is mirrored; properties are always at least `on-demand`"
+source = "[0070](../decisions/0070-shallow-entity-mirroring.md) §2.1; [0078](../decisions/0078-entity-sources.md) §4"
+
+[[setting]]
+key = "entities.term_languages"
+scope = "tenant"
+bound = "ceiling"
+group = "entities"
+type = "language-list"
+no_default = true
+default_text = "instance: the instance's content languages, `mul` and `en`; tenant: the instance's list"
+scope_note = "`site`; the instance record is the policy's"
+meaning = "The instance record sets the languages in which a mirrored entity's terms populate the shared rows of `view.term` (§2.3); a tenant's record only narrows the languages its own pages and API display, and never adds a language to the shared rows"
+source = "[0070](../decisions/0070-shallow-entity-mirroring.md) §6; [0082](../decisions/0082-source-form-and-the-shared-view.md) §6"
+
+[[setting]]
+key = "export.from_namespaces"
+scope = "tenant"
+bound = "tenant"
+group = "exchange"
+type = "boolean"
+no_default = true
+default_text = "— (MediaWiki's `$wgExportFromNamespaces`)"
+meaning = "Allows `addns` on `Special:Export`"
+source = "[0047](../decisions/0047-special-pages.md) §8"
+
+[[setting]]
+key = "export.history"
+scope = "tenant"
+bound = "tenant"
+group = "exchange"
+type = "boolean"
+default = true
+by_rule = true
+meaning = "Full history on export (`$wgExportAllowHistory`)"
+source = "[0047](../decisions/0047-special-pages.md) §8"
+
+[[setting]]
+key = "export.max_bytes"
+scope = "tenant"
+bound = "tenant"
+group = "exchange"
+type = "size"
+no_default = true
+default_text = "—"
+by_rule = true
+meaning = "Cap on file contents in an export; over it, URLs are written"
+source = "[0047](../decisions/0047-special-pages.md) §8"
+
+[[setting]]
+key = "export.max_entity_history"
+scope = "tenant"
+bound = "ceiling"
+group = "exchange"
+type = "integer"
+default = 100
+by_rule = true
+meaning = "Revisions per entity exported: the per-entity cap, lower than `export.max_history`, under which the export job folds per-revision entity export"
+source = "[0047](../decisions/0047-special-pages.md) §4, §8"
+
+[[setting]]
+key = "export.max_history"
+scope = "tenant"
+bound = "tenant"
+group = "exchange"
+type = "integer"
+default = 1000
+by_rule = true
+meaning = "Revisions per page exported (`$wgExportMaxHistory`)"
+source = "[0047](../decisions/0047-special-pages.md) §8"
+
+[[setting]]
+key = "export.sync_revisions"
+scope = "tenant"
+bound = "tenant"
+group = "exchange"
+type = "integer"
+default = 5000
+default_text = "5,000 revisions"
+by_rule = true
+meaning = "An export up to this size streams"
+source = "[0047](../decisions/0047-special-pages.md) §8"
+
+[[setting]]
+key = "federation.accept_fep8b32"
+scope = "tenant"
+bound = "tenant"
+group = "exchange"
+type = "boolean"
+default = false
+meaning = "Accept FEP-8b32 object integrity proofs inbound"
+source = "[0022](../decisions/0022-federation.md) §8"
+
+[[setting]]
+key = "federation.accept_rfc9421"
+scope = "tenant"
+bound = "tenant"
+group = "exchange"
+type = "boolean"
+default = false
+meaning = "Accept RFC 9421 HTTP message signatures inbound"
+source = "[0022](../decisions/0022-federation.md) §8"
+
+[[setting]]
+key = "federation.clock_skew"
+scope = "tenant"
+bound = "tenant"
+group = "exchange"
+type = "duration"
+default = "PT12H"
+default_text = "twelve hours"
+by_rule = true
+meaning = "A request whose `Date` lies outside ± this is rejected"
+source = "[0022](../decisions/0022-federation.md) §8"
+
+[[setting]]
+key = "federation.replay_window"
+scope = "tenant"
+bound = "tenant"
+group = "exchange"
+type = "duration"
+default = "P7D"
+default_text = "seven days"
+by_rule = true
+meaning = "How long an accepted activity's `id` is kept in `ops.ap_inbox_seen`"
+source = "[0022](../decisions/0022-federation.md) §8"
+
+[[setting]]
+key = "federation.talk_pages"
+scope = "tenant"
+bound = "tenant"
+group = "exchange"
+type = "namespace-list"
+values = "namespaces"
+no_default = true
+default_text = "—"
+scope_note = "`site`, per namespace"
+meaning = "Which talk pages (and boards) are `as:Group` actors"
+source = "[0022](../decisions/0022-federation.md) §6; [0049](../decisions/0049-boards.md) §10"
+
+[[setting]]
+key = "feeds.related_limit"
+scope = "tenant"
+bound = "tenant"
+group = "exchange"
+type = "integer"
+default = 5000
+meaning = "Members past which a related-changes relation is truncated"
+source = "[0020](../decisions/0020-change-feeds.md) §2"
+
+[[setting]]
+key = "files.commons_repo"
+scope = "tenant"
+bound = "tenant"
+group = "files"
+type = "repository"
+values = "a repository name"
+no_default = true
+default_text = "the one named `commons` if configured"
+scope_note = "tenant `site`"
+meaning = "The repository that resolves `commonsMedia` values"
+source = "[0039](../decisions/0039-files-and-media.md) §12"
+
+[[setting]]
+key = "files.max_size"
+scope = "tenant"
+bound = "tenant"
+group = "files"
+type = "size"
+no_default = true
+default_text = "—"
+by_rule = true
+meaning = "Upload size limit (`file-too-large`)"
+source = "[0039](../decisions/0039-files-and-media.md) §5"
+
+[[setting]]
+key = "files.orphan_grace"
+scope = "tenant"
+bound = "tenant"
+group = "files"
+type = "duration"
+default = "PT24H"
+default_text = "24 hours"
+by_rule = true
+meaning = "Grace before the orphan sweep deletes an unreferenced object"
+source = "[0039](../decisions/0039-files-and-media.md) §3"
+
+[[setting]]
+key = "files.repos"
+scope = "tenant"
+bound = "tenant"
+group = "files"
+type = "repository-list"
+values = "repository names"
+no_default = true
+default_text = "—"
+scope_note = "tenant `site`"
+meaning = "The file repositories a tenant uses, in lookup order"
+source = "[0039](../decisions/0039-files-and-media.md) §11"
+
+[[setting]]
+key = "files.share"
+scope = "tenant"
+bound = "tenant"
+group = "files"
+type = "boolean"
+no_default = true
+default_text = "—"
+meaning = "Whether this tenant's files may serve other tenants as a `tenant` repository; under `providers.between_tenants = operator` only the operator can set it"
+source = "[0039](../decisions/0039-files-and-media.md) §11"
+
+[[setting]]
+key = "files.stash_ttl"
+scope = "tenant"
+bound = "tenant"
+group = "files"
+type = "duration"
+default = "PT48H"
+default_text = "48 hours"
+by_rule = true
+meaning = "Expiry of a stash entry"
+source = "[0039](../decisions/0039-files-and-media.md) §5"
+
+[[setting]]
+key = "files.thumb_widths"
+scope = "tenant"
+bound = "tenant"
+group = "files"
+type = "integer-list"
+values = "widths"
+no_default = true
+default_text = "—"
+by_rule = true
+meaning = "Requested widths are rounded up to the next entry"
+source = "[0039](../decisions/0039-files-and-media.md) §6"
+
+[[setting]]
+key = "fork.allow"
+scope = "tenant"
+bound = "tenant"
+group = "mirrors"
+type = "boolean"
+no_default = true
+default_text = "`on` where `pages.repos` is set"
+meaning = "Whether pages may be forked"
+source = "[0054](../decisions/0054-forking-a-mirrored-page.md) §8"
+
+[[setting]]
+key = "fork.content_revisions"
+scope = "tenant"
+bound = "ceiling"
+group = "mirrors"
+type = "integer"
+default = 100
+meaning = "Revisions, counted from the newest, seeded with their text; the rest of the seeded history is metadata only, and dependencies and archives are never seeded with text"
+source = "[0054](../decisions/0054-forking-a-mirrored-page.md) §3"
+
+[[setting]]
+key = "fork.dependencies"
+scope = "tenant"
+bound = "tenant"
+group = "mirrors"
+type = "choice"
+choices = ["copy", "inherit"]
+default = "copy"
+meaning = "Whether a fork copies its templates or leaves them to the repository"
+source = "[0054](../decisions/0054-forking-a-mirrored-page.md) §4"
+
+[[setting]]
+key = "fork.history_source"
+scope = "tenant"
+bound = "tenant"
+group = "mirrors"
+type = "string"
+values = "`chest:{path}`, `api`"
+default = "api"
+meaning = "Where a fork's history is seeded from"
+source = "[0054](../decisions/0054-forking-a-mirrored-page.md) §3"
+
+[[setting]]
+key = "fork.max_dependencies"
+scope = "tenant"
+bound = "tenant"
+group = "mirrors"
+type = "integer"
+default = 2000
+by_rule = true
+meaning = "Stops a fork job that would copy more pages"
+source = "[0054](../decisions/0054-forking-a-mirrored-page.md) §4"
+
+[[setting]]
+key = "fork.max_revisions"
+scope = "tenant"
+bound = "tenant"
+group = "mirrors"
+type = "integer"
+default = 20000
+meaning = "The per-job budget: revisions, with or without text, a seeding job reads before it stops"
+source = "[0054](../decisions/0054-forking-a-mirrored-page.md) §3"
+
+[[setting]]
+key = "fork.refollow"
+scope = "tenant"
+bound = "tenant"
+group = "mirrors"
+type = "choice"
+choices = ["ask", "auto", "never"]
+default = "ask"
+meaning = "Whether a fork that no longer differs from upstream is offered or automatically re-followed"
+source = "[0068](../decisions/0068-merging-with-upstream.md) §5"
+
+[[setting]]
+key = "fork.refollow_after"
+scope = "tenant"
+bound = "tenant"
+group = "mirrors"
+type = "duration"
+default = "P30D"
+default_text = "30 days"
+by_rule = true
+meaning = "Under `auto`, how long a fork must equal upstream before a job deletes it"
+source = "[0068](../decisions/0068-merging-with-upstream.md) §5"
+
+[[setting]]
+key = "fork.talk"
+scope = "tenant"
+bound = "tenant"
+group = "mirrors"
+type = "choice"
+choices = ["follow", "fork"]
+default = "follow"
+meaning = "Default choice for a fork's talk page"
+source = "[0069](../decisions/0069-synchronized-talk-pages.md) §7, §11"
+
+[[setting]]
+key = "ingest.hash_mismatch"
+scope = "tenant"
+bound = "tenant"
+group = "exchange"
+type = "choice"
+choices = ["keep", "fail"]
+default = "keep"
+meaning = "Whether a snak or reference hash that differs from upstream's is kept or aborts the job"
+source = "[0006](../decisions/0006-log-integrity-and-erasure.md) §2"
+
+[[setting]]
+key = "integrity.witness_partitions"
+scope = "tenant"
+bound = "tenant"
+group = "exchange"
+type = "string-list"
+values = "partition names"
+default = ["config"]
+default_text = "`[\"config\"]`"
+meaning = "Which partitions' checkpoints are submitted to the witnesses"
+source = "[0081](../decisions/0081-recovery-keys-and-continuations.md) §6"
+
+[[setting]]
+key = "integrity.witnesses"
+scope = "tenant"
+bound = "tenant"
+group = "exchange"
+type = "json"
+values = "list of witnesses, each an endpoint URL and a signed-note verifier key"
+default = []
+default_text = "empty"
+meaning = "C2SP tlog-witness endpoints that cosign the tenant's checkpoints ([01](01-log-and-records.md) §4.3)"
+source = "[0081](../decisions/0081-recovery-keys-and-continuations.md) §6"
+
+[[setting]]
+key = "login.password"
+scope = "tenant"
+bound = "tenant"
+group = "accounts"
+type = "boolean"
+no_default = true
+default_text = "on, set by `instance create`"
+meaning = "Whether the built-in `password` issuer accepts logins"
+source = "[0007](../decisions/0007-actor-identity.md) §3"
+
+[[setting]]
+key = "lua.client_site"
+scope = "tenant"
+bound = "tenant"
+group = "pages"
+type = "site"
+values = "a site ID with a site alias"
+no_default = true
+default_text = "the tenant's own alias"
+reported = true
+meaning = "Which site Lua's Wikibase client is, and so which item a page is connected to"
+source = "[0043](../decisions/0043-lua-modules.md) §9"
+
+[[setting]]
+key = "lua.ids"
+scope = "tenant"
+bound = "tenant"
+group = "pages"
+type = "map"
+values = "map from type letter to `local` or a provider code"
+default = {}
+default_text = "empty: every letter means `local`"
+reported = true
+meaning = "What a bare one-letter ID means in Lua"
+source = "[0043](../decisions/0043-lua-modules.md) §8"
+
+[[setting]]
+key = "lua.unheld_ttl"
+scope = "tenant"
+bound = "tenant"
+group = "pages"
+type = "duration"
+default = "PT10M"
+default_text = "10 minutes"
+by_rule = true
+meaning = "Expiry of a recorded miss on an unheld entity"
+source = "[0043](../decisions/0043-lua-modules.md) §11"
+
+[[setting]]
+key = "mcp.enabled"
+scope = "tenant"
+bound = "tenant"
+group = "query"
+type = "boolean"
+default = false
+reported = true
+meaning = "Serve MCP at `{base}/mcp`"
+source = "[0075](../decisions/0075-mcp-server.md) §1, §6"
+
+[[setting]]
+key = "mcp.facets"
+scope = "tenant"
+bound = "tenant"
+group = "query"
+type = "map"
+values = "properties with descriptions"
+no_default = true
+default_text = "—"
+meaning = "The properties offered as filters and facets"
+source = "[0075](../decisions/0075-mcp-server.md) §3, §6"
+
+[[setting]]
+key = "mcp.instructions"
+scope = "tenant"
+bound = "tenant"
+group = "query"
+type = "text"
+no_default = true
+default_text = "—"
+meaning = "The server's instructions at initialization"
+source = "[0075](../decisions/0075-mcp-server.md) §3, §6"
+
+[[setting]]
+key = "mcp.max_results"
+scope = "tenant"
+bound = "tenant"
+group = "query"
+type = "integer"
+default = 200
+meaning = "Results per call"
+source = "[0075](../decisions/0075-mcp-server.md) §5, §6"
+
+[[setting]]
+key = "mcp.scope"
+scope = "tenant"
+bound = "tenant"
+group = "query"
+type = "page"
+values = "a scope title"
+no_default = true
+default_text = "none: the tools range over the resolved view"
+meaning = "The scope the tools search within by default"
+source = "[0075](../decisions/0075-mcp-server.md) §1, §6"
+
+[[setting]]
+key = "mcp.scopes"
+scope = "tenant"
+bound = "tenant"
+group = "query"
+type = "page-list"
+values = "scope titles"
+no_default = true
+default_text = "—"
+meaning = "Other scopes a client may select per session"
+source = "[0075](../decisions/0075-mcp-server.md) §1, §6"
+
+[[setting]]
+key = "media.base_url"
+scope = "tenant"
+bound = "tenant"
+group = "files"
+type = "url"
+no_default = true
+default_text = "`{tenant base}/media`"
+scope_note = "tenant `site`"
+meaning = "The origin files are served from"
+source = "[0039](../decisions/0039-files-and-media.md) §7"
+
+[[setting]]
+key = "mediainfo.mirror"
+scope = "tenant"
+bound = "tenant"
+group = "entities"
+type = "choice"
+choices = ["off", "on-demand", "linked", "all"]
+default = "on-demand"
+meaning = "`entities.mirror` for Wikidata's type `M`, under its own name for compatibility"
+source = "[0065](../decisions/0065-mediainfo-captions-and-commons.md) §2; [0070](../decisions/0070-shallow-entity-mirroring.md) §2.1"
+
+[[setting]]
+key = "moderation.delete_group"
+scope = "tenant"
+bound = "tenant"
+group = "moderation"
+type = "group"
+values = "a group"
+default = "sysop"
+default_text = "`sysop`"
+meaning = "The default deletion group"
+source = "[0023](../decisions/0023-moderation.md) §1"
+
+[[setting]]
+key = "moderation.suppress_group"
+scope = "tenant"
+bound = "tenant"
+group = "moderation"
+type = "group"
+values = "a group"
+default = "suppress"
+default_text = "`suppress`"
+meaning = "The default suppression group"
+source = "[0023](../decisions/0023-moderation.md) §1"
+
+[[setting]]
+key = "notifications.fediverse_domains"
+scope = "tenant"
+bound = "tenant"
+group = "exchange"
+type = "json"
+values = "allow and deny lists"
+no_default = true
+default_text = "—"
+meaning = "Domains fediverse notifications may go to"
+source = "[0021](../decisions/0021-notifications.md) §8"
+
+[[setting]]
+key = "notifications.retention"
+scope = "tenant"
+bound = "tenant"
+group = "exchange"
+type = "duration"
+default = "P90D"
+default_text = "90 days; read rows sooner"
+meaning = "When inbox rows are deleted"
+source = "[0021](../decisions/0021-notifications.md) §3"
+
+[[setting]]
+key = "nuke.confirm_threshold"
+scope = "tenant"
+bound = "tenant"
+group = "moderation"
+type = "integer"
+default = 500
+meaning = "Items above which `Special:Nuke` asks for the target's name"
+source = "[0047](../decisions/0047-special-pages.md) §7"
+
+[[setting]]
+key = "oauth.access_ttl"
+scope = "tenant"
+bound = "tenant"
+group = "accounts"
+type = "duration"
+default = "PT4H"
+default_text = "four hours"
+meaning = "Access token lifetime"
+source = "[0025](../decisions/0025-oauth-server.md) §1"
+
+[[setting]]
+key = "oauth.refresh_ttl"
+scope = "tenant"
+bound = "tenant"
+group = "accounts"
+type = "duration"
+default = "P1Y"
+default_text = "a year unused"
+meaning = "Refresh token lifetime"
+source = "[0025](../decisions/0025-oauth-server.md) §1"
+
+[[setting]]
+key = "pages.repos"
+scope = "tenant"
+bound = "tenant"
+group = "pages"
+type = "repository-list"
+values = "repository names"
+default = []
+default_text = "empty"
+meaning = "Page repositories, in inheritance order; replaces `wikitext.template_repos`"
+source = "[0042](../decisions/0042-template-expansion-and-parsoid.md) §2; [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §1"
+
+[[setting]]
+key = "pages.share"
+scope = "tenant"
+bound = "tenant"
+group = "pages"
+type = "boolean"
+values = "`off`, `on`"
+default = false
+default_text = "`off`"
+meaning = "Whether this tenant's pages may serve other tenants as a `tenant` repository; replaces `wikitext.share`"
+source = "[0042](../decisions/0042-template-expansion-and-parsoid.md) §2; [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §1"
+
+[[setting]]
+key = "preferences.defaults"
+scope = "tenant"
+bound = "tenant"
+group = "accounts"
+type = "map"
+values = "map"
+default = {}
+default_text = "the registry's defaults"
+meaning = "Defaults for registered preference keys on this wiki, merged key by key over the instance's default for this setting"
+source = "[0027](../decisions/0027-preferences-and-portability.md) §1; [0085](../decisions/0085-settings-and-preferences.md) §2.2"
+
+[[setting]]
+key = "projections.sync_budget"
+scope = "tenant"
+bound = "ceiling"
+group = "exchange"
+type = "integer"
+values = "rows"
+default = 1000
+default_text = "1,000 rows"
+meaning = "Rows of composition fan-out the write path applies after commit before the rest is queued to the composition worker ([03](03-storage-caches-and-search.md))"
+source = "[0013](../decisions/0013-postgres-storage.md) §7"
+
+[[setting]]
+key = "projections.sync_time"
+scope = "tenant"
+bound = "ceiling"
+group = "exchange"
+type = "duration"
+default = "PT0.25S"
+default_text = "250 ms"
+by_rule = true
+meaning = "Time the write path spends on that fan-out, whichever comes first"
+source = "[0013](../decisions/0013-postgres-storage.md) §7"
+
+[[setting]]
+key = "proposals.adoption_grace"
+scope = "tenant"
+bound = "tenant"
+group = "discussion"
+type = "duration"
+default = "P7D"
+default_text = "7 days"
+by_rule = true
+meaning = "After which a partly carried proposal is `partly adopted`"
+source = "[0067](../decisions/0067-proposals.md) §5"
+
+[[setting]]
+key = "proposals.direct_edit_lines"
+scope = "tenant"
+bound = "tenant"
+group = "discussion"
+type = "integer"
+default = 50
+by_rule = true
+meaning = "Lines a clean merge may change and still push to the article itself"
+source = "[0068](../decisions/0068-merging-with-upstream.md) §3"
+
+[[setting]]
+key = "proposals.max_items"
+scope = "tenant"
+bound = "tenant"
+group = "discussion"
+type = "integer"
+default = 500
+by_rule = true
+meaning = "Bounds a proposal payload"
+source = "[0067](../decisions/0067-proposals.md) §8"
+
+[[setting]]
+key = "proposals.push"
+scope = "tenant"
+bound = "tenant"
+group = "discussion"
+type = "boolean"
+default = false
+default_text = "`off`; refused until the instance implements pushing"
+meaning = "Whether proposals may be pushed upstream"
+source = "[0067](../decisions/0067-proposals.md) §6"
+
+[[setting]]
+key = "queries.max_params"
+scope = "tenant"
+bound = "tenant"
+group = "query"
+type = "integer"
+default = 10
+by_rule = true
+meaning = "Parameters of a query page"
+source = "[0063](../decisions/0063-query-namespace.md) §4"
+
+[[setting]]
+key = "queries.max_scope_values"
+scope = "tenant"
+bound = "tenant"
+group = "query"
+type = "integer"
+default = 5000
+by_rule = true
+meaning = "Members a scope may bind as `VALUES`"
+source = "[0063](../decisions/0063-query-namespace.md) §4"
+
+[[setting]]
+key = "query.cache_ttl"
+scope = "tenant"
+bound = "tenant"
+group = "query"
+type = "duration"
+default = "PT60S"
+default_text = "60 s"
+by_rule = true
+meaning = "L2 lifetime of a `GET /sparql` response and of a query page's results"
+source = "[0059](../decisions/0059-query-service.md) §6; [0063](../decisions/0063-query-namespace.md) §5"
+
+[[setting]]
+key = "query.enabled"
+scope = "tenant"
+bound = "tenant"
+group = "query"
+type = "boolean"
+values = "`false`, `true`"
+default = false
+default_text = "`false`"
+meaning = "Turns the query service on"
+source = "[0059](../decisions/0059-query-service.md) §1"
+
+[[setting]]
+key = "query.max_lag"
+scope = "tenant"
+bound = "tenant"
+group = "query"
+type = "duration"
+default = "PT1H"
+default_text = "1 h"
+by_rule = true
+meaning = "Lag above which the service is unavailable"
+source = "[0059](../decisions/0059-query-service.md) §3"
+
+[[setting]]
+key = "query.max_results"
+scope = "tenant"
+bound = "ceiling"
+group = "query"
+type = "integer"
+default = 100000
+default_text = "100,000 solutions"
+by_rule = true
+meaning = "Bounds every query"
+source = "[0059](../decisions/0059-query-service.md) §6"
+
+[[setting]]
+key = "query.timeout"
+scope = "tenant"
+bound = "ceiling"
+group = "query"
+type = "duration"
+default = "PT30S"
+default_text = "30 s"
+by_rule = true
+meaning = "Bounds every query, raw or compiled"
+source = "[0059](../decisions/0059-query-service.md) §5, §6"
+
+[[setting]]
+key = "rc.max_age"
+scope = "tenant"
+bound = "tenant"
+group = "moderation"
+type = "duration"
+default = "P90D"
+default_text = "90 days (`$wgRCMaxAge`)"
+meaning = "The recent-changes window"
+source = "[0010](../decisions/0010-site-ui.md) §7; [0023](../decisions/0023-moderation.md) §6"
+
+[[setting]]
+key = "repo.debounce"
+scope = "tenant"
+bound = "tenant"
+group = "mirrors"
+type = "duration"
+default = "PT30S"
+default_text = "30 seconds"
+by_rule = true
+meaning = "Per-page debounce of repository events"
+source = "[0053](../decisions/0053-mirrored-pages.md) §6"
+
+[[setting]]
+key = "repo.mirror_grace"
+scope = "tenant"
+bound = "tenant"
+group = "mirrors"
+type = "duration"
+default = "P30D"
+default_text = "30 days"
+by_rule = true
+meaning = "A mirrored file unused this long is tombstoned"
+source = "[0039](../decisions/0039-files-and-media.md) §11"
+
+[[setting]]
+key = "reports.term_languages"
+scope = "tenant"
+bound = "tenant"
+group = "entities"
+type = "language-list"
+values = "languages"
+no_default = true
+default_text = "the content language"
+by_rule = true
+meaning = "Languages the missing-label and missing-description reports cover"
+source = "[0047](../decisions/0047-special-pages.md) §4.4"
+
+[[setting]]
+key = "retention.api_max_entities"
+scope = "tenant"
+bound = "tenant"
+group = "entities"
+type = "integer"
+default = 10000
+meaning = "A bulk `retain` over this is refused for `api` unless forced"
+source = "[0015](../decisions/0015-record-format-and-partition-registry.md) §4"
+
+[[setting]]
+key = "retention.auto_properties"
+scope = "tenant"
+bound = "tenant"
+group = "entities"
+type = "boolean"
+default = true
+meaning = "Automatic `retain` of mirrored properties a tenant uses"
+source = "[0002](../decisions/0002-source-graphs-and-mass-ingest.md) §6"
+
+[[setting]]
+key = "retention.default"
+scope = "tenant"
+bound = "tenant"
+group = "entities"
+type = "choice"
+choices = ["orphan", "retain"]
+default = "orphan"
+meaning = "The retention the tenant's policy applies to a mirrored entity an upstream tombstone removes, where no `retain` row names it; `cascade` is never a default and is only ever set per entity"
+source = "[0002](../decisions/0002-source-graphs-and-mass-ingest.md) §5"
+
+[[setting]]
+key = "schemas.max_bound"
+scope = "tenant"
+bound = "ceiling"
+group = "entities"
+type = "integer"
+no_default = true
+default_text = "—"
+meaning = "Bound-schema × scope size above which binding a schema to a scope is refused at scope save, unless an operator raises the ceiling"
+source = "[0083](../decisions/0083-write-path-in-three-tiers.md) §3"
+
+[[setting]]
+key = "schemas.max_depth"
+scope = "tenant"
+bound = "tenant"
+group = "entities"
+type = "integer"
+default = 2
+by_rule = true
+meaning = "Shape references followed in validation"
+source = "[0064](../decisions/0064-entityschema-and-validation.md) §4"
+
+[[setting]]
+key = "schemas.max_subjects"
+scope = "tenant"
+bound = "tenant"
+group = "entities"
+type = "integer"
+no_default = true
+default_text = "`scopes.max_members`"
+by_rule = true
+meaning = "Bounds a schema's materialized report"
+source = "[0064](../decisions/0064-entityschema-and-validation.md) §5"
+
+[[setting]]
+key = "schemas.max_triples"
+scope = "tenant"
+bound = "tenant"
+group = "entities"
+type = "integer"
+default = 10000
+by_rule = true
+meaning = "Triple budget per validation"
+source = "[0064](../decisions/0064-entityschema-and-validation.md) §4"
+
+[[setting]]
+key = "schemas.recheck"
+scope = "tenant"
+bound = "tenant"
+group = "entities"
+type = "schedule"
+values = "schedule"
+default = "daily"
+default_text = "daily"
+by_rule = true
+meaning = "Periodic re-validation job"
+source = "[0064](../decisions/0064-entityschema-and-validation.md) §5"
+
+[[setting]]
+key = "schemas.source"
+scope = "tenant"
+bound = "tenant"
+group = "entities"
+type = "choice"
+choices = ["query"]
+no_default = true
+default_text = "the resolved JSON in `view`"
+scope_note = "tenant"
+meaning = "Validate against the query store instead"
+source = "[0064](../decisions/0064-entityschema-and-validation.md) §4"
+
+[[setting]]
+key = "scopes.facet_limit"
+scope = "tenant"
+bound = "tenant"
+group = "query"
+type = "integer"
+default = 1000000
+by_rule = true
+meaning = "Members below which the builder shows facets"
+source = "[0062](../decisions/0062-workspaces.md) §5"
+
+[[setting]]
+key = "scopes.max_depth"
+scope = "tenant"
+bound = "tenant"
+group = "query"
+type = "integer"
+default = 8
+by_rule = true
+meaning = "Nesting of scope operands"
+source = "[0060](../decisions/0060-scopes.md) §4"
+
+[[setting]]
+key = "scopes.max_ids"
+scope = "tenant"
+bound = "tenant"
+group = "query"
+type = "integer"
+default = 5000
+by_rule = true
+meaning = "`ids`, `include` and `exclude` together"
+source = "[0060](../decisions/0060-scopes.md) §4"
+
+[[setting]]
+key = "scopes.max_members"
+scope = "tenant"
+bound = "ceiling"
+group = "query"
+type = "integer"
+default = 100000
+meaning = "Bound on a scope's materialized members"
+source = "[0060](../decisions/0060-scopes.md) §4"
+
+[[setting]]
+key = "scopes.refresh"
+scope = "tenant"
+bound = "tenant"
+group = "query"
+type = "duration"
+default = "PT15M"
+default_text = "15 min"
+by_rule = true
+meaning = "Refresh interval of `query` scopes"
+source = "[0060](../decisions/0060-scopes.md) §5"
+
+[[setting]]
+key = "search.inherited"
+scope = "tenant"
+bound = "tenant"
+group = "site"
+type = "boolean"
+no_default = true
+default_text = "`on` where a mirrored repository is listed"
+meaning = "Whether `pages-{repo}` indexes are searched beside the tenant's"
+source = "[0053](../decisions/0053-mirrored-pages.md) §7"
+
+[[setting]]
+key = "signing.require_for_bot"
+scope = "tenant"
+bound = "tenant"
+group = "accounts"
+type = "boolean"
+default = false
+default_text = "off: a signature is never required by default"
+meaning = "Require a client signature for the `bot` group"
+source = "[0024](../decisions/0024-subsidiary-accounts.md) §4"
+
+[[setting]]
+key = "site.landing_text"
+scope = "tenant"
+bound = "tenant"
+group = "site"
+type = "text"
+no_default = true
+default_text = "—"
+by_rule = true
+meaning = "Text on a private tenant's landing page"
+source = "[0056](../decisions/0056-security-model.md) §13"
+
+[[setting]]
+key = "site.language"
+scope = "tenant"
+bound = "tenant"
+group = "site"
+type = "language"
+default = "en"
+reported = true
+meaning = "The content language (`$wgLanguageCode`): `general.lang` in `siteinfo`, the default interface language, the language of `Project` page titles and the fallback for labels and reports"
+source = "[0085](../decisions/0085-settings-and-preferences.md) §7"
+
+[[setting]]
+key = "site.icon"
+scope = "tenant"
+bound = "tenant"
+group = "site"
+type = "site-asset"
+media = ["image/png", "image/vnd.microsoft.icon", "image/svg+xml"]
+values = "a site asset: PNG, ICO or SVG"
+no_default = true
+default_text = "none: the browser's default icon"
+reported = true
+meaning = "The favicon and touch icon, served to anyone as a site asset, and `general.favicon` in `siteinfo`"
+source = "[0085](../decisions/0085-settings-and-preferences.md) §7, §8"
+
+[[setting]]
+key = "site.logo"
+scope = "tenant"
+bound = "tenant"
+group = "site"
+type = "site-asset"
+media = ["image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml"]
+values = "a site asset: PNG, JPEG, GIF, WebP or SVG"
+no_default = true
+default_text = "none: the site name is shown as text"
+reported = true
+meaning = "The logo in the global header and on a private tenant's landing page, and `general.logo` in `siteinfo`; served to anyone as a site asset"
+source = "[0085](../decisions/0085-settings-and-preferences.md) §7, §8"
+
+[[setting]]
+key = "site.name"
+scope = "tenant"
+bound = "tenant"
+group = "site"
+type = "text"
+no_default = true
+default_text = "the tenant's slug"
+reported = true
+meaning = "The wiki's name: `general.sitename` in `siteinfo`, the global header, the Project namespace's name, the tenant list's `name`, and the operator's display name when the tenant is primary"
+source = "[0085](../decisions/0085-settings-and-preferences.md) §7"
+
+[[setting]]
+key = "sitelinks.schemes"
+scope = "tenant"
+bound = "tenant"
+group = "entities"
+type = "string-list"
+values = "schemes"
+default = ["https", "http"]
+default_text = "`https` and `http`"
+meaning = "Allowed sitelink URL schemes"
+source = "[0026](../decisions/0026-sitelinks.md) §1"
+
+[[setting]]
+key = "sprints.cache_ttl"
+scope = "tenant"
+bound = "tenant"
+group = "query"
+type = "duration"
+default = "PT30S"
+default_text = "30 s"
+by_rule = true
+meaning = "L1 lifetime of the `sp:` key"
+source = "[0061](../decisions/0061-sprints-and-tasks.md) §11"
+
+[[setting]]
+key = "sprints.claim_ttl"
+scope = "tenant"
+bound = "tenant"
+group = "query"
+type = "duration"
+default = "P7D"
+default_text = "7 days"
+by_rule = true
+meaning = "A claim expires after this without a `release`"
+source = "[0061](../decisions/0061-sprints-and-tasks.md) §5"
+
+[[setting]]
+key = "sprints.max_claims"
+scope = "tenant"
+bound = "tenant"
+group = "query"
+type = "integer"
+default = 10
+by_rule = true
+meaning = "Live claims an actor may hold on a sprint"
+source = "[0061](../decisions/0061-sprints-and-tasks.md) §5"
+
+[[setting]]
+key = "sprints.max_rules"
+scope = "tenant"
+bound = "tenant"
+group = "query"
+type = "integer"
+default = 20
+by_rule = true
+meaning = "Rules per sprint"
+source = "[0061](../decisions/0061-sprints-and-tasks.md) §4"
+
+[[setting]]
+key = "sprints.max_tasks"
+scope = "tenant"
+bound = "ceiling"
+group = "query"
+type = "integer"
+default = 100000
+meaning = "Tasks materialized per sprint"
+source = "[0061](../decisions/0061-sprints-and-tasks.md) §4"
+
+[[setting]]
+key = "subsidiaries.max_per_account"
+scope = "tenant"
+bound = "tenant"
+group = "accounts"
+type = "integer"
+default = 10
+meaning = "Subsidiaries per operator"
+source = "[0024](../decisions/0024-subsidiary-accounts.md) §2"
+
+[[setting]]
+key = "subsidiaries.name_pattern"
+scope = "tenant"
+bound = "tenant"
+group = "accounts"
+type = "pattern"
+values = "pattern"
+no_default = true
+default_text = "none"
+meaning = "Required pattern for subsidiary names"
+source = "[0024](../decisions/0024-subsidiary-accounts.md) §2"
+
+[[setting]]
+key = "subsidiaries.oauth_requires_approval"
+scope = "tenant"
+bound = "tenant"
+group = "accounts"
+type = "boolean"
+values = "`true`, `false`"
+default = true
+default_text = "`true`"
+reported = true
+meaning = "Whether an OAuth-created subsidiary is pending"
+source = "[0025](../decisions/0025-oauth-server.md) §3"
+
+[[setting]]
+key = "subsidiaries.pending_ttl"
+scope = "tenant"
+bound = "tenant"
+group = "accounts"
+type = "duration"
+default = "P90D"
+default_text = "90 days"
+by_rule = true
+meaning = "A subsidiary still unapproved after this is retired"
+source = "[0025](../decisions/0025-oauth-server.md) §3"
+
+[[setting]]
+key = "subsidiaries.request_page"
+scope = "tenant"
+bound = "tenant"
+group = "accounts"
+type = "page"
+values = "a page"
+no_default = true
+default_text = "—"
+meaning = "Where \"Request bot approval\" links"
+source = "[0024](../decisions/0024-subsidiary-accounts.md) §9"
+
+[[setting]]
+key = "tables.max_columns"
+scope = "tenant"
+bound = "tenant"
+group = "pages"
+type = "integer"
+default = 50
+by_rule = true
+reported = true
+meaning = "Columns of a table"
+source = "[0045](../decisions/0045-table-content-model.md) §4"
+
+[[setting]]
+key = "tables.max_rows"
+scope = "tenant"
+bound = "tenant"
+group = "pages"
+type = "integer"
+default = 5000
+default_text = "5,000, as `feeds.related_limit`"
+reported = true
+meaning = "Rows of a table"
+source = "[0045](../decisions/0045-table-content-model.md) §4"
+
+[[setting]]
+key = "talk.new_thread_default"
+scope = "tenant"
+bound = "tenant"
+group = "discussion"
+type = "choice"
+choices = ["here", "upstream"]
+values = "`here`, upstream"
+default = "here"
+default_text = "`here`"
+meaning = "Which destination the new-thread form selects"
+source = "[0069](../decisions/0069-synchronized-talk-pages.md) §6, §11"
+
+[[setting]]
+key = "talk.upstream_audit_days"
+scope = "tenant"
+bound = "tenant"
+group = "discussion"
+type = "integer"
+values = "days"
+default = 90
+meaning = "How long a failed upstream send's text is kept"
+source = "[0069](../decisions/0069-synchronized-talk-pages.md) §5, §11"
+
+[[setting]]
+key = "talk.upstream_post"
+scope = "tenant"
+bound = "tenant"
+group = "discussion"
+type = "boolean"
+no_default = true
+default_text = "`on` where any repository has `talk = sync`"
+meaning = "Whether replies and new sections may be sent upstream at all"
+source = "[0069](../decisions/0069-synchronized-talk-pages.md) §11"
+
+[[setting]]
+key = "templatestyles.max_bytes"
+scope = "tenant"
+bound = "tenant"
+group = "pages"
+type = "size"
+default = 102400
+default_text = "100 KB (`$wgTemplateStylesMaxStylesheetSize`)"
+meaning = "Largest TemplateStyles sheet"
+source = "[0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §2"
+
+[[setting]]
+key = "thread.max_attachments"
+scope = "tenant"
+bound = "tenant"
+group = "discussion"
+type = "integer"
+default = 5
+meaning = "Home and listings of a thread together"
+source = "[0049](../decisions/0049-boards.md) §5"
+
+[[setting]]
+key = "thread.max_pinned"
+scope = "tenant"
+bound = "tenant"
+group = "discussion"
+type = "integer"
+default = 3
+meaning = "Pinned threads per page"
+source = "[0049](../decisions/0049-boards.md) §6; [0069](../decisions/0069-synchronized-talk-pages.md) §4, §11"
+
+[[setting]]
+key = "ui.count_threshold"
+scope = "tenant"
+bound = "tenant"
+group = "site"
+type = "integer"
+default = 10000
+meaning = "Counts above it (`ref_count`, revision counts) render as \"10,000+\" rather than exactly"
+source = "[0010](../decisions/0010-site-ui.md) §2"
+
+[[setting]]
+key = "ui.theme"
+scope = "tenant"
+bound = "tenant"
+group = "site"
+type = "json"
+values = "Codex token values"
+no_default = true
+default_text = "Codex's own values"
+scope_note = "`site`; the instance or a tenant"
+reported = true
+meaning = "The theme a site is served with; refused when its colours fail WCAG 2.1 AA contrast"
+source = "[0034](../decisions/0034-frontend-stack.md) §1"
+
+[[setting]]
+key = "updates.enabled"
+scope = "tenant"
+bound = "tenant"
+group = "exchange"
+type = "boolean"
+default = false
+meaning = "Whether the RDF delta consumer runs for this tenant, writing `view.rdf_delta` from composition events; off, no delta is computed and the update stream is unavailable ([02](02-graphs-rdf-and-query.md))"
+source = "[0083](../decisions/0083-write-path-in-three-tiers.md) §3"
+
+[[setting]]
+key = "updates.retention"
+scope = "tenant"
+bound = "tenant"
+group = "exchange"
+type = "duration"
+default = "P30D"
+default_text = "30 days"
+meaning = "Window of `view.rdf_delta` rows"
+source = "[0032](../decisions/0032-sparql-update-stream.md) §3"
+
+[[setting]]
+key = "upstream.retire_adopted"
+scope = "tenant"
+bound = "tenant"
+group = "entities"
+type = "boolean"
+values = "`true`, `false`"
+default = true
+default_text = "`true`"
+meaning = "Retire a local assertion when upstream adopts it"
+source = "[0002](../decisions/0002-source-graphs-and-mass-ingest.md) §7; [0067](../decisions/0067-proposals.md) §5"
+
+[[setting]]
+key = "wikitext.expansion"
+scope = "tenant"
+bound = "ceiling"
+ceiling = "wikitext.ceiling"
+group = "pages"
+type = "boolean"
+values = "`off`, `on`"
+default = false
+default_text = "`off`"
+reported = true
+meaning = "Expand templates and parser functions; enables Template and Template talk"
+source = "[0042](../decisions/0042-template-expansion-and-parsoid.md) §2"
+
+[[setting]]
+key = "wikitext.lua"
+scope = "tenant"
+bound = "ceiling"
+ceiling = "wikitext.ceiling"
+group = "pages"
+type = "boolean"
+values = "`off`, `on`"
+default = false
+default_text = "`off`"
+reported = true
+meaning = "Lua modules. Requires `wikitext.expansion = on`; capped by `wikitext.ceiling`"
+source = "[0042](../decisions/0042-template-expansion-and-parsoid.md) §2; [0043](../decisions/0043-lua-modules.md) §1"
+
+[[setting]]
+key = "wikitext.renderer"
+scope = "tenant"
+bound = "tenant"
+group = "pages"
+type = "choice"
+choices = ["builtin", "parsoid"]
+default = "builtin"
+reported = true
+meaning = "Which stage-2 renderer serves HTML. `parsoid` requires expansion on and a Parsoid service on the instance"
+source = "[0042](../decisions/0042-template-expansion-and-parsoid.md) §2"
+
+[[setting]]
+key = "wikitext.site_styles"
+scope = "tenant"
+bound = "tenant"
+group = "pages"
+type = "page"
+values = "a Project-namespace title"
+no_default = true
+default_text = "— (`Project:Site styles.css` by convention)"
+meaning = "The tenant's `sanitized-css` site styles page"
+source = "[0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §4"
+
+[[setting]]
+key = "files.reclaim_after"
+scope = "instance"
+bound = "instance"
+tenant_may_narrow = true
+group = "files"
+type = "duration"
+values = "duration, or `never`"
+default = "P365D"
+default_text = "365 days"
+meaning = "After how long unreadable to `universe` a file version is erased; a tenant may set a shorter period, never a longer one"
+source = "[0039](../decisions/0039-files-and-media.md) §9"
+
+[[setting]]
+key = "files.separation"
+scope = "instance"
+bound = "instance"
+group = "files"
+type = "choice"
+choices = ["tenant", "instance"]
+default = "tenant"
+right = "owner"
+meaning = "Whether each tenant's bytes are stored apart or identical bytes once; changing it is `triplespace-cli files rescope`, needing `owner`"
+source = "[0039](../decisions/0039-files-and-media.md) §4"
+
+[[setting]]
+key = "files.types"
+scope = "instance"
+bound = "instance"
+tenant_may_narrow = true
+group = "files"
+type = "string-list"
+values = "file types"
+no_default = true
+default_text = "the registry's `default = true` entries"
+meaning = "The types the instance allows; a tenant `site` setting may narrow the list but not widen it"
+source = "[0039](../decisions/0039-files-and-media.md) §5"
+
+[[setting]]
+key = "instance.owner_of_record"
+scope = "instance"
+bound = "instance"
+group = "instance"
+type = "actor"
+values = "—"
+no_default = true
+default_text = "unset"
+meaning = "The instance's owner of record, shown on `Special:Version` where set"
+source = "[0077](../decisions/0077-special-version.md) §1"
+
+[[setting]]
+key = "instance.source_url"
+scope = "instance"
+bound = "instance"
+group = "instance"
+type = "url"
+values = "A URL for the corresponding source of this build"
+no_default = true
+default_text = "Unset: `{developer.source}/tree/{commit}` for an unmodified build"
+meaning = "Where a modified build's source is published; a modified build without it shows \"modified build; source location not configured\", and `instance check` warns"
+source = "[0077](../decisions/0077-special-version.md) §3, §13"
+
+[[setting]]
+key = "query.embedded_max_triples"
+scope = "instance"
+bound = "instance"
+group = "query"
+type = "integer"
+default = 1000000000
+default_text = "10^9"
+meaning = "The triple count above which `query.backend = embedded` is refused: the embedded backend is the small profile's, and the Wikidata profile requires `remote` ([02](02-graphs-rdf-and-query.md))"
+source = "[0059](../decisions/0059-query-service.md) §2"
+
+[[setting]]
+key = "query.max_concurrent"
+scope = "instance"
+bound = "instance"
+group = "query"
+type = "integer"
+default = 8
+meaning = "Concurrent queries across the instance, beyond which a query waits up to its own timeout; a tenant cannot set it"
+source = "[0059](../decisions/0059-query-service.md) §6"
+
+[[setting]]
+key = "storage.dedup_scope"
+scope = "instance"
+bound = "instance"
+group = "instance"
+type = "choice"
+choices = ["tenant", "instance"]
+values = "per tenant, `\"instance\"`"
+default = "tenant"
+default_text = "each tenant is its own domain"
+meaning = "Whether fragments are deduplicated per tenant or once for the instance"
+source = "[0058](../decisions/0058-packed-record-storage.md) §8"
+
+[[setting]]
+key = "talk.archive_window"
+scope = "instance"
+bound = "instance"
+group = "discussion"
+type = "duration"
+default = "PT10M"
+default_text = "10 minutes"
+meaning = "Window within which a removed thread found on an archive subpage counts as archived"
+source = "[0069](../decisions/0069-synchronized-talk-pages.md) §2, §11"
+
+[[setting]]
+key = "thread.max_depth"
+scope = "instance"
+bound = "instance"
+group = "discussion"
+type = "integer"
+no_default = true
+default_text = "—"
+meaning = "Depth to which a thread page indents its posts"
+source = "[0019](../decisions/0019-discussions.md) §8"
+
+[[setting]]
+key = "version.services"
+scope = "instance"
+bound = "instance"
+group = "instance"
+type = "choice"
+choices = ["full", "names", "off"]
+default = "full"
+meaning = "How much `Special:Version` discloses of the instance's services: everything, as MediaWiki shows its database version to everyone; names, roles and states without versions; or the build row only. Holders of `ts-config` at the farm base always see `full`"
+source = "[0077](../decisions/0077-special-version.md) §4, §13"
+
+[[setting]]
+key = "witness.enabled"
+scope = "instance"
+bound = "instance"
+group = "instance"
+type = "json"
+values = "off, on, with the witnessed origins and their keys"
+no_default = true
+default_text = "off"
+meaning = "Whether `triplespace-server` serves the C2SP tlog-witness API at the farm base for the listed origins ([01](01-log-and-records.md) §4.3)"
+source = "[0081](../decisions/0081-recovery-keys-and-continuations.md) §6"

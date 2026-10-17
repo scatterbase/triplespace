@@ -191,5 +191,7 @@ jobs:
           # Every line the checker lists under a file is a problem: broken links, header
           # asymmetry, § and A/Q citations that do not exist, and a stale INDEX.md.
           ! grep -q "^   - " adr-report.txt
+      - name: Settings catalogue (0085 §1)
+        run: python3 docs/architecture/settings.py docs
       - name: Log test vectors (payloads.md §1–2)
         run: python3 docs/api/vectors/check.py

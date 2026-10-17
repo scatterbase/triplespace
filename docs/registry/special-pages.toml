@@ -1646,8 +1646,34 @@ origin = "triplespace"
 status = "served"
 scope = "tenant"
 group = "users"
-section_aliases = { Preferences = "#preferences", ResetTokens = "#preferences", DisplayNotificationsConfiguration = "#notifications", ChangeCredentials = "#sign-in-methods", RemoveCredentials = "#sign-in-methods", ChangePassword = "#sign-in-methods", LinkAccounts = "#sign-in-methods", UnlinkAccounts = "#sign-in-methods", ChangeEmail = "#notifications", Confirmemail = "#notifications", Invalidateemail = "#notifications", BotPasswords = "#subsidiaries", OAuthManageMyGrants = "#connected-applications" }
-adr = "0010 §11"
+section_aliases = { ResetTokens = "#watchlist-token", ChangeCredentials = "#sign-in-methods", RemoveCredentials = "#sign-in-methods", ChangePassword = "#sign-in-methods", LinkAccounts = "#sign-in-methods", UnlinkAccounts = "#sign-in-methods", ChangeEmail = "#contacts", Confirmemail = "#contacts", Invalidateemail = "#contacts", BotPasswords = "#subsidiaries", OAuthManageMyGrants = "#connected-applications" }
+adr = "0010 §11, 0085 §5"
+
+[[page]]
+name = "Preferences"
+origin = "mediawiki"
+status = "served"
+scope = "tenant"
+group = "users"
+restricted = "editmyoptions"
+section_aliases = { DisplayNotificationsConfiguration = "#notifications" }
+adr = "0085 §5"
+
+[[page]]
+name = "WikiSettings"
+origin = "triplespace"
+status = "served"
+scope = "tenant"
+group = "wiki"
+adr = "0085 §4"
+
+[[page]]
+name = "InstanceSettings"
+origin = "triplespace"
+status = "served"
+scope = "farm"
+group = "instance"
+adr = "0085 §4"
 
 [[page]]
 name = "Jobs"
@@ -1692,12 +1718,13 @@ group = "instance"
 adr = "0018 §11, 0046 §9"
 
 [[page]]
-name = "Tenancy"
+name = "Tenancy"                    # redirects to WikiSettings#tenancy, or InstanceSettings#tenancy at the farm base
 origin = "triplespace"
 status = "served"
 scope = "both"
-group = "instance"
-adr = "0028 §11, 0046 §9"
+group = "redirects"
+listed = false
+adr = "0028 §11, 0046 §9, 0085 §4"
 
 [[page]]
 name = "InstanceAction"

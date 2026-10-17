@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-09 (A32)
+- **Updated:** 2026-10-17 (A33)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -30,7 +30,7 @@ The two agree on the shape: users, groups, memberships, named permissions, and r
 
 ### 2. Permissions
 
-*Changed by A2, A3, A4, A5, A6, A7, A8, A10, A13, A14, A15, A16, A19, A20, A21, A24, A25, A27, A32.*
+*Changed by A2, A3, A4, A5, A6, A7, A8, A10, A13, A14, A15, A16, A19, A20, A21, A24, A25, A27, A32, A33.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §2.1, §2.2, §2.3.*
 
@@ -437,3 +437,10 @@ Replaced text ([09](../architecture/09-security-and-moderation.md) §2.2, as it 
 Replaced text ([09](../architecture/09-security-and-moderation.md) §2.4, as it stood):
 
 > | `same-as`, `different-from`, bulk links, conflict resolution | `ts-link`; in bulk, with `ts-runjob`; `equivalent-property` needs `property-create` |
+
+### A33. `ts-config` covers the settings routes and pages
+
+- **Date:** 2026-10-17
+- **Source:** [0085](0085-settings-and-preferences.md) §3
+- **Change:** extends §2
+- **Summary:** `ts-config` is the right that writes `site` settings, instance defaults and locks through `PATCH /settings` and the settings pages, as it is for every config record, unless a setting's registry entry names a stronger right; reading settings needs only what reading the tenant needs. The chapter row is [09](../architecture/09-security-and-moderation.md) §2.2.

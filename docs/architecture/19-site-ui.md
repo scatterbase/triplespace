@@ -30,7 +30,7 @@ These extend the principles of the statement UI (§4.1), which still apply to th
 
 ### 1.2 The global header
 
-*Sources: [0010](../decisions/0010-site-ui.md) §2; [0021](../decisions/0021-notifications.md) §6; [0034](../decisions/0034-frontend-stack.md) §2.*
+*Sources: [0010](../decisions/0010-site-ui.md) §2; [0021](../decisions/0021-notifications.md) §6; [0034](../decisions/0034-frontend-stack.md) §2; [0085](../decisions/0085-settings-and-preferences.md) §6.*
 
 The global header holds:
 
@@ -39,6 +39,7 @@ The global header holds:
 - links to Recent changes, Jobs and Special pages;
 - a **New** menu for creating items, properties and pages;
 - the account menu, or **Log in**;
+- the **Appearance** button, for every viewer (§2.7);
 - the notifications **bell**, with the unseen count, opening the inbox as a panel (§6.2).
 
 **Special pages** links to `Special:SpecialPages`, the index of every page `docs/registry/special-pages.toml` marks served, grouped, and filtered by the viewer's rights. The **New** menu opens `Special:NewItem` and `Special:NewProperty` for entities, and the edit form for pages ([0047](../decisions/0047-special-pages.md) §5, §9). The frame (global header, identity line, title, tabs) is one template shared by every page kind ([0034](../decisions/0034-frontend-stack.md) §2; §5.2).
@@ -171,7 +172,7 @@ A farm signup page states the linking consent of [0028](../decisions/0028-tenanc
 
 ### 2.4 Account settings
 
-*Sources: [0010](../decisions/0010-site-ui.md) §11; [0027](../decisions/0027-preferences-and-portability.md) §7; [0021](../decisions/0021-notifications.md) §6; [0024](../decisions/0024-subsidiary-accounts.md) §9; [0022](../decisions/0022-federation.md) §11; [0028](../decisions/0028-tenancy-policy.md) §11.*
+*Sources: [0010](../decisions/0010-site-ui.md) §11; [0027](../decisions/0027-preferences-and-portability.md) §7; [0021](../decisions/0021-notifications.md) §6; [0024](../decisions/0024-subsidiary-accounts.md) §9; [0022](../decisions/0022-federation.md) §11; [0028](../decisions/0028-tenancy-policy.md) §11; [0085](../decisions/0085-settings-and-preferences.md) §5.*
 
 `Special:Account` is visible only to its holder. It has these sections:
 
@@ -180,16 +181,15 @@ A farm signup page states the linking consent of [0028](../decisions/0028-tenanc
 | Name | Public | The current name and **Rename…**. The page warns that user pages move and that links using the old name stop working ([0008](../decisions/0008-namespaces-and-document-pages.md) §6). |
 | Sign-in methods | Private | Each binding, with when it was added and last used. **Remove** is disabled for the last binding, and says why. **Add** lists the issuers allowed as identity providers. |
 | Linked accounts | Public | Each link, with its date and **Unlink…**. **Link another account** requires logging in to the provider again. The page warns that unlinking erases the link from history, and that copies taken earlier may keep it ([0007](../decisions/0007-actor-identity.md) §7). On a farm, the farm account and every linked tenant account are shown here, labelled Public ([0028](../decisions/0028-tenancy-policy.md) §11). |
-| Preferences | — | Every preference key, grouped as MediaWiki groups them ([0027](../decisions/0027-preferences-and-portability.md) §7; the keys are in [07](07-actors-and-accounts.md)), including interface and label language, and the defaults for the upstream-edits fold (§3.6) and the mirror-sync filter (§3.9) |
-| Notifications | Private | The preference matrix of reasons by channel, read and written in place as the `notifications.*` keys; the email address with its verification state; the fediverse handle with its verification state, a *follow the notifier* hint with the notifier's handle, and *Remove* ([0021](../decisions/0021-notifications.md) §6) |
+| Contacts | Private | The email address with its verification state; the fediverse handle with its verification state, a *follow the notifier* hint with the notifier's handle, and *Remove* ([0021](../decisions/0021-notifications.md) §6; [0085](../decisions/0085-settings-and-preferences.md) §5) |
 | Watchlist token | Private | The Atom watchlist token, shown and resettable ([0020](../decisions/0020-change-feeds.md) §4) |
 | Subsidiaries | Public | The list of one's subsidiaries is Public, since the operator relation is; each subsidiary's **keys** are Private: label, grants, IP ranges, expiry, last used, Revoke, and Issue key, which shows the secret once with a warning. Retire and Rename sit with each subsidiary; Create subsidiary suggests `{Name}Bot` ([0024](../decisions/0024-subsidiary-accounts.md) §9) |
-| Connected applications | Private | Each OAuth authorization one's subsidiaries hold, with **Revoke** ([0025](../decisions/0025-oauth-server.md) §5) |
+| Connected applications | Private | Each OAuth authorization one's subsidiaries hold, with **Revoke** ([0025](../decisions/0025-oauth-server.md) §5); and each upstream grant the instance holds for the account at a destination wiki, with **Revoke** ([0067](../decisions/0067-proposals.md) §6; [0085](../decisions/0085-settings-and-preferences.md) §5) |
 | Fediverse | Public where it concerns actors, Private where it concerns keys | Make this account followable, the follower count, `rel="me"` links ([0022](../decisions/0022-federation.md) §11) |
 | Your data | Private | **Download my data** and **Import data…**, with a plain account of what a bundle does and does not hold ([0027](../decisions/0027-preferences-and-portability.md) §7; [07](07-actors-and-accounts.md)) |
 | Leave | — | **Vanish this account…**, with a plain account of what vanishing does ([0007](../decisions/0007-actor-identity.md) §4), including that copies of posts delivered to other servers may persist ([0022](../decisions/0022-federation.md) §6), and a pointer to Your data, suggesting a download first |
 
-`Special:Preferences` redirects to the Preferences section.
+Preferences have a page of their own, `Special:Preferences` (§2.6), which the account page links to; the notification matrix is a tab of it ([0085](../decisions/0085-settings-and-preferences.md) §5).
 
 ### 2.5 Contributions
 
@@ -210,6 +210,44 @@ For an actor of another tenant on the same instance the third view is complete, 
 - **A bot account** names its operator: a subsidiary's header names and links its operator, and a primary account's header lists its subsidiaries ([0024](../decisions/0024-subsidiary-accounts.md) §9).
 - **Pages are addressed by current name.** Old names do not resolve ([0008](../decisions/0008-namespaces-and-document-pages.md) §6).
 - **Contributions of `instance:{farm code}`** at a tenant list the instance acts on that tenant; at the farm base, for `ts-viewoperator`, every instance act on every tenant with the operator who carried it out ([0040](../decisions/0040-instance-prerogatives.md) §7; [08](08-tenants-and-instances.md)).
+
+### 2.6 Preferences
+
+*Sources: [0085](../decisions/0085-settings-and-preferences.md) §5; [0027](../decisions/0027-preferences-and-portability.md) §7; [0021](../decisions/0021-notifications.md) §6.*
+
+`Special:Preferences` is the page of an account's preferences, served at each tenant base. It needs `editmyoptions`; a reader who is not logged in is offered **Log in** and pointed to the Appearance menu (§2.7).
+
+- **Tabs** are the groups of `preferences.toml` ([07](07-actors-and-accounts.md) §8.1): Interface, Appearance, History, Watching, Notifications, Discussion and Statements. Interface holds the interface and label languages, the time zone and the date format; History holds the defaults for the upstream-edits fold (§3.6) and the mirror-sync filter (§3.9).
+- **Each key** is drawn from its type, with its label and help, the messages `ts-pref-{key}` and `ts-pref-{key}-help`, and **Reset**. **Restore all defaults** resets every key, as `action=options&reset=1` does. A key that follows the farm account says that it applies on every wiki of the farm.
+- **The Notifications tab** is the matrix of reasons by channel, read and written in place as the `notifications.*` keys, and the email digest ([0021](../decisions/0021-notifications.md) §6). The email address and fediverse handle stay on the account page, under Contacts (§2.4).
+- **Saving** is `PATCH /account/preferences`. Without JavaScript the form posts to the web tier, which saves and answers 303, or re-renders the form with the API's errors ([20](20-web-tier.md) §3.1).
+
+### 2.7 The Appearance menu
+
+*Sources: [0085](../decisions/0085-settings-and-preferences.md) §6.*
+
+Every page's global header has an **Appearance** button beside the account menu (§1.2), for every viewer. It opens a panel of the preference keys of the `appearance` group, as a disclosure that opens without JavaScript. The keys and what they change belong to theming.
+
+- **Signed in**, the values are the account's preferences, and a change writes them through `action=options`. With JavaScript the change applies at once; without it the panel is a form posted to the web tier, which writes the preference and redirects back ([20](20-web-tier.md) §3.1).
+- **Not logged in**, the panel offers the keys marked `browser`, and a change is kept in the browser's `localStorage` under one entry for the tenant's host. A small same-origin script, loaded blocking in `<head>` under an immutable hashed name, applies the stored values before the first paint, which `script-src 'self'` permits ([0034](../decisions/0034-frontend-stack.md) §11). **No cookie is set**, so an anonymous page stays `public` and its cache key does not vary ([20](20-web-tier.md)). Storage that is absent or refused leaves the defaults.
+- **Not logged in and without JavaScript**, nothing can be kept, and the panel says that the page follows the device's settings.
+- **At login**, when the account holds none of the keys the browser holds, the browser's values are written to the account, so a choice made before signing up survives it; otherwise the account's values win and overwrite the browser's copy. **At logout** the browser keeps the last values, so the page does not change under the reader.
+- **While signed in**, the page mirrors the account's values into the browser's storage, and the head script applies stored values only where the server rendered none, so the account's values win while signed in and remain after logout.
+- **On a farm**, browser storage is per host, so a reader's choices on one tenant do not reach another; a signed-in reader's keys that follow the farm account do ([07](07-actors-and-accounts.md) §8.1). Of the keys theming defines, colour mode, contrast and text size follow the farm account; palette and type set stay with the tenant account.
+
+### 2.8 Wiki and instance settings
+
+*Sources: [0085](../decisions/0085-settings-and-preferences.md) §4; [0028](../decisions/0028-tenancy-policy.md) §11; [0046](../decisions/0046-primary-tenant.md) §9; [0056](../decisions/0056-security-model.md) §13.*
+
+**`Special:WikiSettings`**, at a tenant base, shows the tenant's settings, and **`Special:InstanceSettings`**, at the farm base, the instance's. Both are built from the registry and `GET /settings` ([23](23-configuration-and-registry.md) §3.1; [18](18-api.md) §3.2), with no code per setting:
+
+- **Tabs** are the registry's groups. Each row shows the label and help (`ts-setting-{key}`), the value with a control drawn from its type, an origin chip (*Default*, *Instance default*, *Set on this wiki*, *Locked by the instance*, *Capped at N*), **Reset** to inherit again, and a link to the setting's history in the log.
+- **Anyone who may read the tenant may read them.** A viewer without `ts-config`, or the entry's stronger right, sees the values without controls.
+- **Saving** sends one `PATCH /settings` per tab with a summary field. Without JavaScript the tab is a form posted to the web tier, which answers 303 or re-renders the form with the API's errors ([20](20-web-tier.md) §3.1).
+
+`Special:WikiSettings` also has a **Visibility** tab (§6.3), which writes the tenant's `read` ACL through the ACL routes rather than `PATCH /settings` and which the instance may lock under `config.template = locks` ([09](09-security-and-moderation.md) §4.7), a **Public files** list of every site asset the wiki exposes, with the setting that names each ([12](12-files-and-media.md) §4.5), and a read-only **Tenancy** tab: the instance's policy as it applies to this wiki, meaning the preset, the switches, the locked keys and the ceilings, with **Accept** for an `owner` of a tenant offered the primary role ([0046](../decisions/0046-primary-tenant.md) §9). `Special:InstanceSettings` also has a **Tenancy** tab with the tenancy switches, and **Defaults for wikis**: every tenant setting with its registry default, the instance's default and, under `config.template = locks`, a lock; changing a default says how many tenants inherit it and so will change. That tab is absent under `config.template = none`.
+
+`Special:Tenancy` redirects to the Tenancy tab of `Special:WikiSettings` at a tenant base and of `Special:InstanceSettings` at the farm base. On a single-tenant instance, whose farm base is the primary tenant's base ([08](08-tenants-and-instances.md) §1.1), both pages are served on the same host.
 
 ## 3. Document pages, history, diffs, activity and jobs
 
@@ -664,12 +702,12 @@ Not yet: `tree-sitter-wikitext` through `web-tree-sitter` is an optional later e
 
 ### 5.6 Internationalisation
 
-*Sources: [0034](../decisions/0034-frontend-stack.md) §9.*
+*Sources: [0034](../decisions/0034-frontend-stack.md) §9; [0085](../decisions/0085-settings-and-preferences.md) §2.2.*
 
 - Interface messages are **banana JSON** files in `i18n/` (`en.json`, `qqq.json` for documentation, one file per language), so the project can be registered with translatewiki.net like any MediaWiki extension.
 - The server renders messages with the `banana-i18n` Rust crate; components use the `banana-i18n` JavaScript library. Both read the same files. The Rust crate is at 0.1.0; if it proves incomplete, a small in-house implementation of `PLURAL`, `GENDER`, `GRAMMAR` and `$n` with ICU4X plural rules replaces it.
 - `banana-checker` runs in CI.
-- Interface language comes from the `language` preference ([07](07-actors-and-accounts.md)) with `uselang` as an override; fallback chains follow MediaWiki's. Direction comes from the language and is set on `<html dir>`; Codex handles RTL.
+- Interface language comes from `uselang`, then the reader's `language` preference, then the request's `Accept-Language` matched against the languages the interface has messages for, then the tenant's default and the farm's ([07](07-actors-and-accounts.md) §8.1; [0085](../decisions/0085-settings-and-preferences.md) §2.2); a reader who is not logged in is served in their language without choosing one. Fallback chains follow MediaWiki's. Direction comes from the language and is set on `<html dir>`; Codex handles RTL.
 
 ### 5.7 Accessibility and browser support
 
@@ -740,7 +778,7 @@ The data model of threads, posts and boards is [14](14-discussions.md).
 
 ### 6.3 Protection, deletion, hiding, patrolling and Nuke
 
-*Sources: [0023](../decisions/0023-moderation.md) §9; [0056](../decisions/0056-security-model.md) §13.*
+*Sources: [0023](../decisions/0023-moderation.md) §9; [0056](../decisions/0056-security-model.md) §13; [0085](../decisions/0085-settings-and-preferences.md) §4.*
 
 What each action does is [09](09-security-and-moderation.md).
 
@@ -750,7 +788,7 @@ What each action does is [09](09-security-and-moderation.md).
 - **Sets** are managed from `Special:ProtectedPages`, which gains a Sets tab: create, rename, add and remove members, restrict. It also gains a **Read** column and lists a confidential restriction only to viewers who may read its target ([0056](../decisions/0056-security-model.md) §5, §13). The **Restricted** pill in the identity line is §1.3.
 - **Special pages.** `Special:Log/protect`, `/delete`, `/patrol` and, for the group, `/suppress`; `Special:ProtectedPages`, `Special:ProtectedTitles`, `Special:Undelete`, `Special:DeletedContributions`, and `Special:BlockList` gains the hidden-name column, all where MediaWiki users expect them ([21](21-special-pages.md)).
 - **Nuke.** `Special:Nuke` applies these actions in bulk to one account's, or one tag's, contributions: one job that deletes what it created, reverts or rolls back what it changed and hides its posts, patrolled as one row and undone by **Revert this job…** (§3.10).
-- **Visibility.** The tenant settings page (`Special:Tenancy` on a farm, the site settings otherwise) has **Visibility**: *Anyone*, *Accounts on this wiki* (`user`), *A group…*, with the account-creation switch beside it and a note on what a private wiki gives up ([0056](../decisions/0056-security-model.md) §3; [08](08-tenants-and-instances.md)). A visitor to a private tenant who may not read it sees a **landing page**: the site name and logo, `site.landing_text`, and Log in; nothing else of the tenant is served, special pages included, except `Special:UserLogin`, the OAuth routes and `/.well-known/`.
+- **Visibility.** `Special:WikiSettings` (§2.8) has **Visibility**: *Anyone*, *Accounts on this wiki* (`user`), *A group…*, with the account-creation switch beside it and a note on what a private wiki gives up ([0056](../decisions/0056-security-model.md) §3; [08](08-tenants-and-instances.md)). A visitor to a private tenant who may not read it sees a **landing page**: the site name and logo, `site.landing_text`, and Log in; nothing else of the tenant is served, special pages included, except `Special:UserLogin`, the OAuth routes, `/.well-known/` and site assets at `{media base}/asset/`, the logo among them ([12](12-files-and-media.md) §4.5).
 - **`instance check`** is also `GET /instance/check` at the farm base, for `owner` ([18](18-api.md)). No special page is added; the CLI and the route are the operator's tools.
 
 ### 6.4 Sitelinks, resolvers and constraints
@@ -823,14 +861,14 @@ Proposals are [14](14-discussions.md) and [17](17-federation-and-publication.md)
 
 ### 6.11 Tenants, the farm and federation
 
-*Sources: [0018](../decisions/0018-tenants.md) §11; [0028](../decisions/0028-tenancy-policy.md) §11; [0046](../decisions/0046-primary-tenant.md) §9; [0022](../decisions/0022-federation.md) §11; [0040](../decisions/0040-instance-prerogatives.md) §7; [0056](../decisions/0056-security-model.md) §13; [0079](../decisions/0079-derived-issuer-codes.md) §4.*
+*Sources: [0018](../decisions/0018-tenants.md) §11; [0028](../decisions/0028-tenancy-policy.md) §11; [0046](../decisions/0046-primary-tenant.md) §9; [0022](../decisions/0022-federation.md) §11; [0040](../decisions/0040-instance-prerogatives.md) §7; [0056](../decisions/0056-security-model.md) §13; [0079](../decisions/0079-derived-issuer-codes.md) §4; [0085](../decisions/0085-settings-and-preferences.md) §4.*
 
 Tenants, the tenancy policy and the primary tenant are [08](08-tenants-and-instances.md); the API halves of these sections are [18](18-api.md).
 
 - **The host selects the tenant.** Every route is served per tenant base. Every special page has a scope in `docs/registry/special-pages.toml`: `farm` pages are served at the farm base, `tenant` pages at each tenant's base, and `both` pages at either ([0047](../decisions/0047-special-pages.md) §3; [21](21-special-pages.md)).
-- **`Special:GlobalContributions`** (§2.5) and, for administrators, **`Special:Tenants`** at the farm base. `Special:Tenants` is the page of the tenant list, the `tenants` array of `GET /tenancy` (slug, host, name, status); it marks the primary tenant, lists open offers, and offers **Offer the primary role…** to holders of `ts-primary`. An `owner` of the offered tenant sees **Accept** there and on their own tenant's `Special:Tenancy` ([0046](../decisions/0046-primary-tenant.md) §9).
+- **`Special:GlobalContributions`** (§2.5) and, for administrators, **`Special:Tenants`** at the farm base. `Special:Tenants` is the page of the tenant list, the `tenants` array of `GET /tenancy` (slug, host, name, status); it marks the primary tenant, lists open offers, and offers **Offer the primary role…** to holders of `ts-primary`. An `owner` of the offered tenant sees **Accept** there and on the Tenancy tab of their own tenant's `Special:WikiSettings` (§2.8; [0046](../decisions/0046-primary-tenant.md) §9).
 
-- **Farm pages.** `Special:Tenancy` for the policy (owner and `ts-config`); `Special:GlobalUsers`, `Special:GlobalGroupMembership`, `Special:GlobalBlock`, `Special:GlobalBlockList`, `Special:GlobalRecentChanges` at the farm base; the account page shows the farm account and every linked tenant account under **Linked accounts** (§2.4), labelled Public; a farm signup page states the linking consent of [0028](../decisions/0028-tenancy-policy.md) §2; the identity line of a mirrored provider-tenant entity is unchanged from §1.3 ([0028](../decisions/0028-tenancy-policy.md) §11). `Special:Tenancy` also carries the **Visibility** control of §6.3.
+- **Farm pages.** `Special:InstanceSettings` for the instance's settings and the tenancy policy (§2.8); `Special:GlobalUsers`, `Special:GlobalGroupMembership`, `Special:GlobalBlock`, `Special:GlobalBlockList`, `Special:GlobalRecentChanges` at the farm base; the account page shows the farm account and every linked tenant account under **Linked accounts** (§2.4), labelled Public; a farm signup page states the linking consent of [0028](../decisions/0028-tenancy-policy.md) §2; the identity line of a mirrored provider-tenant entity is unchanged from §1.3 ([0028](../decisions/0028-tenancy-policy.md) §11). `Special:Tenancy` redirects to the Tenancy tabs of the settings pages (§2.8), and `Special:WikiSettings` carries the **Visibility** control of §6.3.
 - **Jobs.** Mirror sync jobs are listed at the farm base; local bulk jobs at the tenant's (§3.10).
 - **Provider pages.** `Special:Providers` lists each provider with its trust mode, last verified checkpoint and lag, and each page repository with the date of its title index, its event lag and, in `mirror` mode, its sync lag ([0053](../decisions/0053-mirrored-pages.md) §3, §5; [13](13-mirrored-pages.md)); a `verified` chip sits on the identity line of mirrored entities ([0022](../decisions/0022-federation.md) §11). What an instance publishes and verifies is [17](17-federation-and-publication.md).
 - **Elsewhere in this chapter:** the account page's **Fediverse** section (§2.4), the talk page header's `Group` handle (§1.3), `Special:InstanceAction/{partition}/{offset}` (§3.4) and the contributions of `instance:{farm code}` (§2.5; [0040](../decisions/0040-instance-prerogatives.md) §7), and a private tenant's landing page (§6.3; [0056](../decisions/0056-security-model.md) §13).

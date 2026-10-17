@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-05
-- **Updated:** 2026-10-09 (A8)
+- **Updated:** 2026-10-17 (A9)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0019](0019-discussions.md), [0021](0021-notifications.md), [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0038](0038-page-metadata-and-categories.md), [0047](0047-special-pages.md)
 - **Uses:** [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0020](0020-change-feeds.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0040](0040-instance-prerogatives.md), [0049](0049-boards.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [0060](0060-scopes.md), [0061](0061-sprints-and-tasks.md)
@@ -54,7 +54,7 @@ James's direction, from the design discussions of 2026-10-04 and 2026-10-05:
 
 ### 6. Push as the person: the later phase (extends 0025; extends 0027 §2)
 
-*Changed by A2, A5, A8.*
+*Changed by A2, A5, A8, A9.*
 
 *Current text: [17](../architecture/17-federation-and-publication.md) §3.2.*
 
@@ -193,3 +193,14 @@ Replaced text ([14](../architecture/14-discussions.md) §5.4, as it stood):
 Replaced text ([17](../architecture/17-federation-and-publication.md) §3.2, as it stood):
 
 > The grant is stored in **`private.upstream_grant (actor_key, wiki, scopes text[], access_hash, refresh_hash, issued, expires)`**
+
+### A9. Upstream grants are revoked from Special:Account
+
+- **Date:** 2026-10-17
+- **Source:** [0085](0085-settings-and-preferences.md) §5
+- **Change:** amends §6
+- **Summary:** `Special:Preferences` is now a page of preference keys, so an upstream grant, a credential the instance holds for the person at a destination wiki, is listed and revoked in the Connected applications section of `Special:Account`. The chapter text is [17](../architecture/17-federation-and-publication.md) §3.2 and [19](../architecture/19-site-ui.md) §2.4.
+
+Replaced text ([17](../architecture/17-federation-and-publication.md) §3.2, as it stood):
+
+> revocable from `Special:Preferences` and from the destination wiki's own settings

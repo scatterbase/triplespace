@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-09 (A10)
+- **Updated:** 2026-10-17 (A11)
 - **Author:** James Hare / Claude
 - **Changes:** [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0003](0003-statement-ui.md), [0012](0012-api-requirements.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0029](0029-resolver-namespaces.md), [0033](0033-backend-stack.md)
@@ -65,6 +65,8 @@ The backend stack is in 0033.
 *Current text: [22](../architecture/22-crates-and-stack.md) §5.1.*
 
 ### 9. Internationalisation
+
+*Changed by A11.*
 
 *Current text: [19](../architecture/19-site-ui.md) §5.6.*
 
@@ -255,3 +257,14 @@ Replaced text (§6):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§13
 - **Summary:** The Decision's current text now lives in the architecture chapters [09](../architecture/09-security-and-moderation.md), [19](../architecture/19-site-ui.md), [20](../architecture/20-web-tier.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A11. The interface language is negotiated
+
+- **Date:** 2026-10-17
+- **Source:** [0085](0085-settings-and-preferences.md) §2.2
+- **Change:** amends §9
+- **Summary:** A reader is served in their language without having to choose one: the interface language comes from `uselang`, then the reader's `language` preference, then the request's `Accept-Language` matched against the languages the interface has messages for, then the tenant's default (`site.language` unless `preferences.defaults` names another) and the farm's. Readers who are not logged in are served the same way. The chapter text is [19](../architecture/19-site-ui.md) §5.6.
+
+Replaced text ([19](../architecture/19-site-ui.md) §5.6, as it stood):
+
+> - Interface language comes from the `language` preference ([07](../architecture/07-actors-and-accounts.md)) with `uselang` as an override; fallback chains follow MediaWiki's.

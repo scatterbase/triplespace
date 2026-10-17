@@ -73,7 +73,7 @@ Every graph's kind, integrity policy and export policy are those `graphs.toml` r
 
 ### 1.4 The registry of record
 
-*Sources: [0015](../decisions/0015-record-format-and-partition-registry.md) §5.*
+*Sources: [0015](../decisions/0015-record-format-and-partition-registry.md) §5; [0085](../decisions/0085-settings-and-preferences.md) §1.*
 
 **The repository is the authority for names and codes.** The files under `docs/registry/` in the Triplespace repository are the registry of record; [23](23-configuration-and-registry.md) describes how an instance's configuration starts from them.
 
@@ -88,7 +88,8 @@ Every graph's kind, integrity policy and export policy are those `graphs.toml` r
 | `grants.toml` | The API-key grants and the permissions each covers | [0024](../decisions/0024-subsidiary-accounts.md) §4 |
 | `sites.toml` | Site aliases: MediaWiki site IDs, hosts, article paths and languages, for sitelink compatibility | [0026](../decisions/0026-sitelinks.md) §2 |
 | `thread-statuses.toml` | The default thread statuses, with category and order | [0019](../decisions/0019-discussions.md) §6 |
-| `preferences.toml` | The registered preference keys, types and defaults | [0027](../decisions/0027-preferences-and-portability.md) §1 |
+| `preferences.toml` | The registered preference keys, types, groups and defaults, and which follow the farm account or may be held in the browser | [0027](../decisions/0027-preferences-and-portability.md) §1; [0085](../decisions/0085-settings-and-preferences.md) §1 |
+| `settings.toml` | Every `site` setting, a tenant's and the instance's: scope, bound, group, type, choices and default; the catalogue of [23](23-configuration-and-registry.md) §3.2–3.3 is generated from it | [0085](../decisions/0085-settings-and-preferences.md) §1 |
 | `tenancy.toml` | The tenancy switches, the three presets and their global groups | [0028](../decisions/0028-tenancy-policy.md) §1 |
 | `resolvers.toml` | The default resolvers (`doi`, `url`) and drafted candidates | [0029](../decisions/0029-resolver-namespaces.md) §8 |
 | `file-types.toml` | The permitted file types: extensions, MIME and media types, magic signatures, inline or attachment, thumbnailer | [0039](../decisions/0039-files-and-media.md) §5 |

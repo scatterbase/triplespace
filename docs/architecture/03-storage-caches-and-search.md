@@ -1379,14 +1379,14 @@ A notice after a redirect ("Your edit was saved") travels as a short-lived cooki
 
 ### 10.3 A page's own cacheability
 
-*Sources: [0057](../decisions/0057-web-tier.md) §6; [0014](../decisions/0014-caches-and-search.md) §6.*
+*Sources: [0057](../decisions/0057-web-tier.md) §6; [0014](../decisions/0014-caches-and-search.md) §6; [0085](../decisions/0085-settings-and-preferences.md) §2.2.*
 
 A page or fragment is composed from several API responses, and its HTTP caching follows from theirs:
 
 - **It is public only if every response it used was public;** otherwise `private, no-cache`. This is [0056](../decisions/0056-security-model.md) §6 rule 1 applied to HTTP.
 - **Its `ETag`** hashes the web tier's build ID, the interface language and the `ETag`s of the responses it used.
 - **Its `Cache-Tag`s are exact and bounded.** A composed page carries a tag for each of its subjects (the entity or page it is about) and for each page in its render manifest, and nothing else: label dependencies are not tagged, since a large item draws labels from thousands of entities and a tag per label source would exceed every proxy's header limit and let a mirror sync purge the whole site. Label staleness is accepted up to `s-maxage`, as MediaWiki accepts it in its label cache; the purges of §9.6 reach the page through its subject and manifest tags.
-- **It varies on `Cookie` and `Accept-Language`.**
+- **It varies on `Cookie` and `Accept-Language`**, and the web tier's public cache keys it by the negotiated interface language rather than the raw header, so content negotiation does not split the cache by every browser's `Accept-Language` ([0085](../decisions/0085-settings-and-preferences.md) §2.2).
 - **A token never appears in public HTML.** Anonymous pages fetch `meta=tokens` from their components when they need one; a logged-in page is `private` and may carry its tokens in its data blocks.
 
 A region fetched with `action=render` is cached the same way, with its page's tags. The About panel of an entity page has a response of its own, with its own short `max-age`, since its counters (§4.2) change without the entity's version changing; a page's budget of API calls to first byte and the bulk-labels route that meets it are in [18](18-api.md) and [20](20-web-tier.md).

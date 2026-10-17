@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-09 (A7)
+- **Updated:** 2026-10-17 (A8)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0003](0003-statement-ui.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0018](0018-tenants.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md)
 - **Uses:** [0016](0016-permissions-and-access-control.md), [0024](0024-subsidiary-accounts.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -20,7 +20,7 @@ This ADR does three things: it names every kind of private state and puts prefer
 
 ### 1. One preference store, one key registry
 
-*Changed by A7.*
+*Changed by A7, A8.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §8.1.*
 
@@ -48,6 +48,8 @@ This ADR does three things: it names every kind of private state and puts prefer
 
 ### 7. UI (extends 0010 §11)
 
+*Changed by A8.*
+
 *Current text: [19](../architecture/19-site-ui.md) §2.4.*
 
 ### 8. Storage (extends 0013 §4 and §5.6)
@@ -74,7 +76,7 @@ This ADR does three things: it names every kind of private state and puts prefer
 - **Q1. The encryption scheme for the private extract**: age-style sealing to an X25519 key supplied for the move is the obvious choice, and the receiving instance's Ed25519 signing key must not be reused for it.
 - **Q2. Inbox in the self-service bundle by default**, or only on request, given its size and its references to records the new instance may not hold.
 - **Q3. Per-device preferences** (a phone and a desktop), which MediaWiki also lacks.
-- **Q4. Anonymous preferences**, held in a cookie for readers who are not logged in, as MediaWiki's client-side preferences are.
+- **Q4.** ~~**Anonymous preferences**, held in a cookie for readers who are not logged in, as MediaWiki's client-side preferences are.~~ *Settled by [0085](0085-settings-and-preferences.md) §6: held in the browser's storage, never a cookie, and only for keys marked `browser`.*
 - **Q5. Retention of an unreclaimed account's extract**: the grace period of [0018](0018-tenants.md) §10 is not yet a number.
 - **Q6. Third-party import**: whether to read a MediaWiki `list=watchlistraw` dump or an Echo preference export directly, for people arriving from a Wikibase.
 
@@ -171,3 +173,22 @@ Replaced text: none; §2 gains two sentences.
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §1
 - **Summary:** `docs/registry/preferences.toml` is a registry file like the others, and the rule of the review's copy-on-create decision applies to it: an instance's `config` starts as a copy of the registry, `triplespace-cli registry sync` appends records for registry entries newer than the instance's under the instance attestation, `instance check` warns when the instance is behind the registry its binary carries, every config record's content carries its kind's `schema` integer, and `view.registry` stores an entry opaquely with its schema number, so an unknown kind or schema is projected opaquely and never fails replay. A preference key a later release registers therefore reaches an existing instance through `registry sync`, and an instance's own defaults (`preferences.defaults`) and added keys are records beside the copied ones. The ledger named §2 (private state and portability); the registry is §1's, which the finding (F-07-6, at [07](../architecture/07-actors-and-accounts.md) §8.1) names, and no sentence of §1's chapter text is contradicted; the rule itself is stated in [23](../architecture/23-configuration-and-registry.md) §1.1 and §4.1. (REVIEW G36)
+
+### A8. Preference resolution, `follows` and `browser`, and Special:Preferences
+
+- **Date:** 2026-10-17
+- **Source:** [0085](0085-settings-and-preferences.md) §1, §2.2, §5
+- **Change:** amends §1; amends §7
+- **Summary:** A preference resolves to the account's own value, then `preferences.defaults` (the tenant's map merged key by key over the instance's default for it), then the registry default. `preferences.toml` gains `group` (the key's tab), the `choice` type with `choices`, `follows` (`account`, or `farm`: under farm identity the value belongs to the farm account and every linked tenant account reads it; a reader's own interface language, label languages, time zone and date format follow the farm account), `negotiated` (the interface and label languages come from the request's `Accept-Language` where the reader has not chosen) and `browser` (whether a reader who is not logged in may hold the key in the browser). `Special:Preferences` becomes a page of its own with a tab per group, the notification matrix among them, instead of a section of `Special:Account`. Q4 is settled by [0085](0085-settings-and-preferences.md) §6. The chapter text is [07](../architecture/07-actors-and-accounts.md) §8.1 and [19](../architecture/19-site-ui.md) §2.4 and §2.6.
+
+Replaced text ([07](../architecture/07-actors-and-accounts.md) §8.1, as it stood):
+
+> each with a type, a default and a description; an instance may set its own defaults in `site` configuration (`preferences.defaults`) and add keys for features it adds.
+
+Replaced text ([19](../architecture/19-site-ui.md) §2.4, as it stood):
+
+> | Preferences | — | Every preference key, grouped as MediaWiki groups them ([0027](0027-preferences-and-portability.md) §7; the keys are in [07](../architecture/07-actors-and-accounts.md)), including interface and label language, and the defaults for the upstream-edits fold (§3.6) and the mirror-sync filter (§3.9) |
+
+Replaced text ([23](../architecture/23-configuration-and-registry.md) §3.2, as it stood):
+
+> | `preferences.defaults` | `site` | tenant | map | the registry's defaults | An instance's own defaults for registered preference keys | [0027](0027-preferences-and-portability.md) §1 |

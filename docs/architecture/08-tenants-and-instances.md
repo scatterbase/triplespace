@@ -234,11 +234,11 @@ The identity switches are §3.5–3.7, the provider switches §4.2, `config.temp
 
 ### 5.3 Shared machinery: templates and locks
 
-*Sources: [0028](../decisions/0028-tenancy-policy.md) §8; [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §9.*
+*Sources: [0028](../decisions/0028-tenancy-policy.md) §8; [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §9; [0085](../decisions/0085-settings-and-preferences.md) §2.1.*
 
-With `config.template = defaults`, the instance `config` may hold records of kind `template`, keyed `template:{kind}:{code}`, each holding a tenant-config record (namespaces, groups, `sitelink-policy`, `thread-status`, `site` settings, `view-pin`, and any other tenant kind of [0015](../decisions/0015-record-format-and-partition-registry.md) §3) that `tenant create` writes into a new tenant's `config`. A tenant may then change them. With `locks`, the instance also holds `tenancy:locked`, a list of `{kind}:{code}` keys; a tenant `config` record for a locked key is refused with `ts-locked`, and changing a locked template re-writes it into every tenant. The instance sitelink deny list ([0026](../decisions/0026-sitelinks.md) §3) is the one such rule every preset has; templates and locks generalise it to any setting an enterprise wants uniform.
+With `config.template = defaults`, the instance `config` may hold records of kind `template`, keyed `template:{kind}:{code}`, each holding a tenant-config record (namespaces, groups, `sitelink-policy`, `thread-status`, `site` settings, `view-pin`, and any other tenant kind of [0015](../decisions/0015-record-format-and-partition-registry.md) §3) that `tenant create` writes into a new tenant's `config`, except a `site` template, which is not written: it is the instance's **default** for that setting, read whenever a tenant without a record of its own resolves the setting, so changing it reaches every such tenant at once ([0085](../decisions/0085-settings-and-preferences.md) §2.1; [23](23-configuration-and-registry.md) §3.1). A tenant may then change them. With `locks`, the instance also holds `tenancy:locked`, a list of `{kind}:{code}` keys; a tenant `config` record for a locked key is refused with `ts-locked`, and changing a locked template re-writes it into every tenant. The instance sitelink deny list ([0026](../decisions/0026-sitelinks.md) §3) is the one such rule every preset has; templates and locks generalise it to any setting an enterprise wants uniform.
 
-**Template records are instance acts** (§8.1, §8.6): under `defaults` they are **provisions**, which the tenant may replace; under `locks` they are **prerogatives**, and `ts-locked` is a case of `ts-prerogative`.
+**Template records are instance acts** (§8.1, §8.6): under `defaults` they are **provisions**, which the tenant may replace, except `site` templates, which are evaluated defaults and write nothing into the tenant; under `locks` they are **prerogatives**, and `ts-locked` is a case of `ts-prerogative`.
 
 An instance-scope `page-repo` ([0052](../decisions/0052-page-repositories-and-title-inheritance.md), in [13](13-mirrored-pages.md)) is shared machinery under `config.template`: provisioned under `defaults`, locked under `locks`, as file repositories are. The rest of [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §9, the permissions, is in [09](09-security-and-moderation.md).
 
@@ -266,7 +266,7 @@ So `domains.wikibase.cloud` becoming `internetdomains.wiki` is one record and on
 
 ### 6.2 Moving a tenant: what moves
 
-*Sources: [0018](../decisions/0018-tenants.md) §10; [0040](../decisions/0040-instance-prerogatives.md) §8; [0024](../decisions/0024-subsidiary-accounts.md) §7.*
+*Sources: [0018](../decisions/0018-tenants.md) §10; [0040](../decisions/0040-instance-prerogatives.md) §8; [0024](../decisions/0024-subsidiary-accounts.md) §7; [0085](../decisions/0085-settings-and-preferences.md) §2.3.*
 
 The tenant's six partitions (§2.1), and the mirror partition of each of its entity sources, `source/{name}` ([0078](../decisions/0078-entity-sources.md) §4), as an export bundle ([01](01-log-and-records.md) §8), except `accounts`, which is private and never exported ([0007](../decisions/0007-actor-identity.md) §8). The bundle carries the tenant's IDs (in headers), its surrogates ([0009](../decisions/0009-keyed-entity-types-and-domain.md) §7), its actors, memberships and blocks, its configuration and its key chain. Three extracts and a digest go with it:
 
@@ -275,7 +275,7 @@ The tenant's six partitions (§2.1), and the mirror partition of each of its ent
 - on a cooperative move, the **private extract**, every account's user data bundle sealed to a key the receiving instance supplies and applied only when the account is reclaimed ([0027](../decisions/0027-preferences-and-portability.md) §4, in [07](07-actors-and-accounts.md));
 - and the **authority extract**, every authority record the bundle's instance attestations cite, with an inclusion proof against a signed checkpoint of the authority's partition. Each is carried with its attestation part withheld (`[null, leaf]`, as an erased part is stored under [0015](../decisions/0015-record-format-and-partition-registry.md) §1), so that the operator's identity does not leave the instance while the record still verifies; content and comment are withheld too where the act's kind makes them confidential (a `confidential` takedown, an expunge's hash, [0039](../decisions/0039-files-and-media.md) §10). This is the same arrangement as the retention extract: what the tenant's history depends on travels with it.
 
-Prerogatives of the old instance stop binding once the tenant is registered elsewhere; they stay in history, verifiable through the old key (§8.7). Subsidiary API keys do not travel, since nothing private does; the operator relation travels in the actor records, and the operator reissues keys after reclaiming their own account (§10.3). Views, indexes and caches are rebuilt on arrival.
+A setting the tenant inherited from its old instance's defaults travels as no record: it takes the new instance's default, and only values the tenant set itself move ([0085](../decisions/0085-settings-and-preferences.md) §2.3; [23](23-configuration-and-registry.md) §3.1). Prerogatives of the old instance stop binding once the tenant is registered elsewhere; they stay in history, verifiable through the old key (§8.7). Subsidiary API keys do not travel, since nothing private does; the operator relation travels in the actor records, and the operator reissues keys after reclaiming their own account (§10.3). Views, indexes and caches are rebuilt on arrival.
 
 ### 6.3 Procedure
 
@@ -485,12 +485,12 @@ A provision binds nothing: the guest's next record on the same key replaces it i
 
 ### 8.6 The written acts
 
-*Sources: [0040](../decisions/0040-instance-prerogatives.md) §6; [0028](../decisions/0028-tenancy-policy.md) §2, §8.*
+*Sources: [0040](../decisions/0040-instance-prerogatives.md) §6; [0028](../decisions/0028-tenancy-policy.md) §2, §8; [0085](../decisions/0085-settings-and-preferences.md) §2.1.*
 
 | Act | Written into the guest | Binding | Notes |
 |---|---|---|---|
 | **Instance key** registration and rotation (§2.4) | `key:` records in `config` | Yes | The copies carry the instance attestation with the instance `config` record as authority |
-| **Tenant creation** and template **provisions** (§5.3, `defaults`) | `config` records | No | |
+| **Tenant creation** and template **provisions** (§5.3, `defaults`), of every kind but `site`, whose templates are evaluated defaults ([0085](../decisions/0085-settings-and-preferences.md) §2.1) | `config` records | No | |
 | **Locked templates** (§5.3, `locks`) | `config` records, re-written on every change | Yes | `ts-locked` is a case of `ts-prerogative`; the code `ts-locked` is kept for compatibility |
 | **Farm account rename and vanish** (§3.7) | Actor records in `actors` | Yes | A guest bureaucrat cannot rename a linked account away from its farm name while shared names are on |
 | **Tenant deletion** (§6.6) | `erase` records over every partition, after the grace period | Yes | The job record in the instance `log` is the authority |

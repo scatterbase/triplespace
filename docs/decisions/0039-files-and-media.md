@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-09 (A12)
+- **Updated:** 2026-10-17 (A13)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [0033](0033-backend-stack.md), [0035](0035-adopting-a-wikibase.md), [0038](0038-page-metadata-and-categories.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0007](0007-actor-identity.md), [0019](0019-discussions.md), [0040](0040-instance-prerogatives.md), [0041](0041-content-models.md)
@@ -54,6 +54,8 @@ James's direction, from the design discussion of 2026-09-30:
 *Current text: [12](../architecture/12-files-and-media.md) §3.4.*
 
 ### 7. Serving: every byte behind an access check (extends 0014 §6)
+
+*Changed by A13.*
 
 *Current text: [12](../architecture/12-files-and-media.md) §4.1, §4.2, §4.3, §4.4.*
 
@@ -343,3 +345,14 @@ Replaced text ([12](../architecture/12-files-and-media.md) §7.1, as it stood):
 Replaced text ([12](../architecture/12-files-and-media.md) §7.3, as it stood):
 
 > It serves `prop=images`, `list=imageusage`, `Special:WhatLinksHere` and the file page's usage section, and it is what `mirror` mode (§6.4) counts as use. A file's usage also includes the entities whose statements name it, listed apart from the pages that embed it.
+
+### A13. Site assets are the one exception to the access check
+
+- **Date:** 2026-10-17
+- **Source:** [0085](0085-settings-and-preferences.md) §8
+- **Change:** amends §7
+- **Summary:** A **site asset**, a file version a setting uses for a basic site function (the logo, the favicon, a theme's typeface), is served to anyone, a private tenant's outsiders included, at `{media base}/asset/{h}/{name}`, because and only while a setting of type `site-asset` names it. The setting pins the version by SHA-1 and is written with `ts-config` by someone who can read it; a hidden, suppressed or taken-down version is never served; the file page and `Special:WikiSettings` show what is exposed. SVG is accepted from trusted `ts-config` holders, and needs a sanitizer before untrusted tenants are hosted ([0085](0085-settings-and-preferences.md) Q5). Every other byte stays behind the access check. The chapter text is [12](../architecture/12-files-and-media.md) §4.1, §4.2 and §4.5.
+
+Replaced text ([12](../architecture/12-files-and-media.md) §4.1, as it stood):
+
+> **Access to every Triplespace resource goes through an access check**;
