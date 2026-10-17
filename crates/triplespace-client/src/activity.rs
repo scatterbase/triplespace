@@ -11,7 +11,7 @@ use axum::http::StatusCode;
 
 use crate::Client;
 use crate::api::{CacheInfo, Fetched};
-use crate::entity::QUERY;
+use crate::entity::{QUERY, SEGMENT};
 use crate::forward::Incoming;
 use crate::transport::ClientError;
 
@@ -199,6 +199,8 @@ pub struct ActivityQuery {
     pub actor: Option<String>,
     /// Row kinds; the API's default when empty.
     pub kinds: Vec<String>,
+    /// Graphs (`local`, `mirror/wikidata`); every graph when empty.
+    pub sources: Vec<String>,
     /// Entity namespaces.
     pub namespaces: Vec<String>,
     /// `show` values: `bot`, `!bot`, …
@@ -218,12 +220,36 @@ pub struct ActivityQuery {
 }
 
 impl ActivityQuery {
-    /// The path and query.
+    /// The path and query of `GET /activity`.
     #[must_use]
     pub fn path(&self) -> String {
-        let mut q = String::from("/w/rest.php/triplespace/v0/activity?");
+        format!(
+            "/w/rest.php/triplespace/v0/activity?{}",
+            self.query_string()
+        )
+    }
+
+    /// The path and query of `GET /entity/{id}/history`; `target` and `actor` are not
+    /// sent, since the path names the target.
+    #[must_use]
+    pub fn history_path(&self, id: &str) -> String {
+        let q = Self {
+            target: None,
+            actor: None,
+            ..self.clone()
+        };
+        format!(
+            "/w/rest.php/triplespace/v0/entity/{}/history?{}",
+            utf8_percent_encode(id, SEGMENT),
+            q.query_string()
+        )
+    }
+
+    /// The query string, without its `?`.
+    fn query_string(&self) -> String {
+        let mut q = String::new();
         let mut push = |k: &str, v: &str| {
-            if !q.ends_with('?') {
+            if !q.is_empty() {
                 q.push('&');
             }
             let _ = write!(q, "{k}={}", utf8_percent_encode(v, QUERY));
@@ -236,6 +262,9 @@ impl ActivityQuery {
         }
         if !self.kinds.is_empty() {
             push("kind", &self.kinds.join("|"));
+        }
+        if !self.sources.is_empty() {
+            push("source", &self.sources.join("|"));
         }
         if !self.namespaces.is_empty() {
             push("namespace", &self.namespaces.join("|"));
@@ -272,8 +301,44 @@ impl Client {
         incoming: &Incoming,
         query: &ActivityQuery,
     ) -> Result<Fetched<ActivityPage>, ClientError> {
-        let r = self.get(incoming, &query.path()).await?;
-        let cache = CacheInfo::of(&r);
+        self.feed(incoming, &query.path()).await
+    }
+
+    /// `GET /entity/{id}/history`; `None` when the entity does not exist (or is not the
+    /// viewer's to see, which the API answers alike).
+    pub async fn history(
+        &self,
+        incoming: &Incoming,
+        id: &str,
+        query: &ActivityQuery,
+    ) -> Result<Fetched<Option<ActivityPage>>, ClientError> {
+        let r = self.get(incoming, &query.history_path(id)).await?;
+        if r.status == StatusCode::NOT_FOUND {
+            return Ok(Fetched {
+                value: None,
+                cache: CacheInfo::of(&r),
+            });
+        }
+        let page = page_of(&r)?;
+        Ok(Fetched {
+            value: Some(page.value),
+            cache: page.cache,
+        })
+    }
+
+    async fn feed(
+        &self,
+        incoming: &Incoming,
+        path: &str,
+    ) -> Result<Fetched<ActivityPage>, ClientError> {
+        let r = self.get(incoming, path).await?;
+        page_of(&r)
+    }
+}
+
+fn page_of(r: &crate::transport::ApiResponse) -> Result<Fetched<ActivityPage>, ClientError> {
+    {
+        let cache = CacheInfo::of(r);
         if r.status != StatusCode::OK {
             let v: Map<String, Value> = serde_json::from_slice(&r.body).unwrap_or_default();
             return Err(ClientError::Api {
@@ -316,6 +381,17 @@ mod tests {
         assert_eq!(
             ActivityQuery::default().path(),
             "/w/rest.php/triplespace/v0/activity?"
+        );
+        let h = ActivityQuery {
+            target: Some("entity:Q6".into()),
+            sources: vec!["local".into()],
+            limit: 20,
+            ..ActivityQuery::default()
+        };
+        assert_eq!(
+            h.history_path("domain:wikipedia.org"),
+            "/w/rest.php/triplespace/v0/entity/domain:wikipedia.org/history?source=local&limit=20",
+            "the target is the path, not a parameter"
         );
     }
 

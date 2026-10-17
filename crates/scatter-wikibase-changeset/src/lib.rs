@@ -27,6 +27,7 @@
 pub mod adapter;
 pub mod apply;
 pub mod changes;
+pub mod diff;
 pub mod job;
 pub mod op;
 pub mod rank;

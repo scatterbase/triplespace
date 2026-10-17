@@ -14,6 +14,7 @@ expression: main_of(&html)
 		<a class="ts-tabs__link" href="/wiki/Domain:wikipedia.org" aria-current="page">Statements</a>
 		<a class="ts-tabs__link" href="/wiki/Domain:wikipedia.org?tab=identifiers">Identifiers</a>
 		<a class="ts-tabs__link" href="/wiki/Domain:wikipedia.org?tab=labels">Labels in other languages</a>
+		<a class="ts-tabs__link" href="/wiki/Domain:wikipedia.org?action=history">History</a>
 	</nav>
 	<div class="ts-page__body">
 		<div class="ts-entity">

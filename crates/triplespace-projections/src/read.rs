@@ -56,6 +56,44 @@ impl Current {
     }
 }
 
+/// The keyed entity a key-mapped provider's own item ID is an alias of (05 §4.1): `XDQ9`
+/// → `domain:example.org` when `view.keyed_map` says the provider wrote `Q9` under that
+/// key, for the tenant or the instance. `None` for anything else: a local or keyed ID, a
+/// foreign ID of an unregistered provider, or one the map does not hold, which is then
+/// an ordinary foreign item or missing.
+pub async fn mapped_alias<C: Partitions>(
+    client: &C,
+    registry: &scatter_providers::Registry,
+    tenant: &str,
+    id: &EntityId,
+) -> Result<Option<EntityId>, String> {
+    if id.form() != scatter_wikibase_model::id::IdForm::Foreign {
+        return Ok(None);
+    }
+    let Ok(foreign) = registry.parse_foreign_id(id.as_str()) else {
+        return Ok(None);
+    };
+    let row = client
+        .query_opt(
+            "SELECT keyed_type, key FROM view.keyed_map
+             WHERE provider = $1 AND upstream_id = $2 AND (tenant = $3 OR tenant = '')
+             ORDER BY tenant DESC LIMIT 1",
+            &[
+                &foreign.provider().slug.as_str(),
+                &foreign.upstream_id().as_str(),
+                &tenant,
+            ],
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+    row.map(|r| {
+        let keyed_type: String = r.get(0);
+        let key: String = r.get(1);
+        EntityId::parse(&format!("{keyed_type}:{key}")).map_err(|e| e.to_string())
+    })
+    .transpose()
+}
+
 /// Reads an entity's current state on a tenant: `None` when no graph holds it.
 pub async fn current<C: Partitions>(
     client: &C,

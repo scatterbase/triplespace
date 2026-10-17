@@ -8,7 +8,8 @@
 //!   `wbsearchentities`, and the write modules `wbeditentity`, `wbcreateclaim`,
 //!   `wbsetclaim`, `wbremoveclaims`, `wbsetlabel`, `wbsetdescription`, `wbsetaliases`,
 //!   `wbsetqualifier`, `wbremovequalifiers`, `wbsetreference`, `wbremovereferences`;
-//!   `list=recentchanges`, `list=usercontribs`, `list=logevents` ([`modules::changes`]).
+//!   `list=recentchanges`, `list=usercontribs`, `list=logevents` ([`modules::changes`]);
+//!   `prop=revisions` ([`modules::revisions`]).
 //! - `GET /wiki/Special:EntityData/{id}.json` and `GET /entity/{id}` (0001 §1; 0002 §4).
 //!
 //! Every request is served for the tenant its `Host` names (0056 §10): an unregistered
@@ -46,7 +47,12 @@ pub use app::{App, Config, Mode};
 ///   `general.dbversion`; `build` in `siprop=triplespace` (0077 §10).
 /// - 3: `list=recentchanges`, `list=usercontribs` and `list=logevents`; `GET /activity`
 ///   in REST v0; the `recentchanges` and `activity` capabilities (0020 §5).
-pub const API_VERSION: u32 = 3;
+/// - 4: `GET /entity/{id}/history` in REST v0, `source` on `GET /activity`, and the
+///   `history` capability (0012 A71).
+/// - 5: `prop=revisions` with `rvprop=content|record`; `GET /entity/{id}/changes/{partition}/{offset}`
+///   and `GET /entity/{id}/compare` in REST v0; the `revisions` and `diff` capabilities
+///   (0012 §4, §7; 0083 A1).
+pub const API_VERSION: u32 = 5;
 pub use response::ApiError;
 
 use axum::Router;

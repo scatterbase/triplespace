@@ -1,0 +1,86 @@
+---
+source: crates/triplespace-ui/tests/entity.rs
+expression: main
+---
+<main class="ts-page" id="content">
+	<p class="ts-page__identity">
+<span class="ts-chip ts-chip--local">Q6</span> <span>Item</span> <span aria-hidden="true">·</span> <span>Adopted from https://librarybase.org/</span> <span aria-hidden="true">·</span> <a href="https://librarybase.org/entity/Q6" class="external" rel="noopener" dir="ltr">librarybase.org/entity/Q6 ↗</a>
+</p>
+	<h1 class="ts-page__title">Six &#38; more</h1>
+	<div class="ts-terms" data-region="terms">
+<p class="ts-terms__description">a number</p>
+<p class="ts-terms__aliases">Also known as <span>6 · half dozen</span>
+</p>
+</div>
+	<nav class="ts-tabs" aria-label="Page">
+		<a class="ts-tabs__link" href="/wiki/Item:Q6">Statements</a>
+		<a class="ts-tabs__link" href="/wiki/Item:Q6?tab=identifiers">Identifiers</a>
+		<a class="ts-tabs__link" href="/wiki/Item:Q6?tab=sitelinks">Sitelinks</a>
+		<a class="ts-tabs__link" href="/wiki/Item:Q6?tab=labels">Labels in other languages</a>
+		<a class="ts-tabs__link" href="/wiki/Item:Q6?action=history" aria-current="page">History</a>
+	</nav>
+	<div class="ts-page__body">
+		<div class="ts-history">
+<h3 class="ts-changes__day">2 October 2026</h3>
+<ul class="ts-changes__list">
+<li class="ts-change ts-change--edit">
+<span class="ts-change__part">
+<a href="/wiki/Item:Q6?diff=907" class="ts-change__diff">
+<time class="ts-change__time" datetime="2026-10-02T14:05:11Z">14:05</time>
+</a>
+</span>
+<span class="ts-change__part">
+<span class="ts-chip ts-chip--local">Local</span>
+</span>
+<span class="ts-change__part">
+<a href="/wiki/Item:Q6" class="ts-change__target">
+<span>Six &amp; more</span>
+</a>
+</span>
+<span class="ts-change__part ts-change__id ts-mono">Q6</span>
+<span class="ts-change__delta ts-change__delta--pos" dir="ltr">+20</span>
+<span class="ts-change__part">
+<a href="/wiki/Special:Contributions/Alice_bot" class="ts-change__actor">Alice bot</a>
+</span>
+<span class="ts-change__summary">
+<span class="ts-change__auto">add: aliases:en</span>
+</span>
+</li>
+</ul>
+<h3 class="ts-changes__day">1 October 2026</h3>
+<ul class="ts-changes__list">
+<li class="ts-change ts-change--edit">
+<span class="ts-change__part">
+<a href="/wiki/Item:Q6?diff=900" class="ts-change__diff">
+<time class="ts-change__time" datetime="2026-10-01T09:30:00Z">09:30</time>
+</a>
+</span>
+<span class="ts-change__part">
+<span class="ts-chip ts-chip--local">Local</span>
+</span>
+<span class="ts-change__flags">
+<abbr class="ts-change__flag ts-change__flag--new" title="This edit created the page">N</abbr>
+<abbr class="ts-change__flag ts-change__flag--bot" title="This edit was made by a bot">b</abbr>
+</span>
+<span class="ts-change__part">
+<a href="/wiki/Item:Q6" class="ts-change__target">
+<span>Six &amp; more</span>
+</a>
+</span>
+<span class="ts-change__part ts-change__id ts-mono">Q6</span>
+<span class="ts-change__delta" dir="ltr">(392)</span>
+<span class="ts-change__part">
+<a href="/wiki/Special:Contributions/Alice" class="ts-change__actor">Alice</a>
+</span>
+<span class="ts-change__summary">
+<span class="ts-change__auto">adopt</span>
+</span>
+<span class="ts-change__tags">
+<span class="ts-change__tag">job:8</span>
+<span class="ts-change__tag">adopt</span>
+</span>
+</li>
+</ul>
+</div>
+	</div>
+</main>

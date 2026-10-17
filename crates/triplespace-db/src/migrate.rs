@@ -167,6 +167,21 @@ impl Migrator {
         Ok(report)
     }
 
+    /// The `(crate, name)` of every migration the database has not applied, in order:
+    /// what `triplespace migrate` would apply, and what a server refuses to start over.
+    pub async fn pending<C: GenericClient>(
+        &self,
+        client: &C,
+    ) -> Result<Vec<(String, String)>, MigrateError> {
+        Ok(self
+            .status(client)
+            .await?
+            .into_iter()
+            .filter(|s| s.applied_at.is_none())
+            .map(|s| (s.crate_name, s.name))
+            .collect())
+    }
+
     /// The status of every migration against the database.
     pub async fn status<C: GenericClient>(&self, client: &C) -> Result<Vec<Status>, MigrateError> {
         self.prepare(client).await?;
@@ -206,7 +221,7 @@ mod tests {
             .collect();
         assert_eq!(names[0], "scatter-log-postgres/0001_log");
         assert_eq!(names[1], "triplespace-db/0001_ops");
-        assert!(names.last().unwrap().ends_with("0009_keyed_map_aliases"));
+        assert!(names.last().unwrap().ends_with("0010_revision_state"));
         assert_eq!(checksum("").len(), 64);
         assert_ne!(checksum("a"), checksum("b"));
     }

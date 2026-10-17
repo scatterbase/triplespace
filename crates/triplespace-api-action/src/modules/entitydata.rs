@@ -4,7 +4,7 @@
 use axum::extract::{Extension, Path, State};
 use axum::http::{HeaderMap, Method, StatusCode, header};
 use axum::response::{IntoResponse, Response};
-use serde_json::json;
+use serde_json::{Value, json};
 
 use crate::api::Ctx;
 use crate::app::App;
@@ -86,7 +86,12 @@ pub async fn special_entity_data(
             format!("no entity {}\n", id.as_str()),
         ),
         Ok(v) => {
-            let body = json!({"entities": {id.as_str(): v}}).to_string();
+            // Keyed by the entity's own ID: an alias (`XDQ9`) answers as its target.
+            let key = v
+                .get("id")
+                .and_then(Value::as_str)
+                .map_or_else(|| id.as_str().to_string(), str::to_string);
+            let body = json!({"entities": {key: v}}).to_string();
             let credentialed = ctx.caller.has_session() || crate::auth::bearer(&headers).is_some();
             let class = Class::Public.permitted(&Method::GET, credentialed, false, false);
             http_cache::respond(

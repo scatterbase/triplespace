@@ -25,7 +25,7 @@ pub(crate) const QUERY: &AsciiSet = &NON_ALPHANUMERIC
     .remove(b':');
 
 /// What a path segment keeps unencoded.
-const SEGMENT: &AsciiSet = &NON_ALPHANUMERIC
+pub(crate) const SEGMENT: &AsciiSet = &NON_ALPHANUMERIC
     .remove(b'-')
     .remove(b'.')
     .remove(b'_')

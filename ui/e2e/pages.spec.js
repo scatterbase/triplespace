@@ -38,7 +38,9 @@ const pages = [
 	{ path: '/wiki/Special:RecentChanges', heading: 'Recent changes' },
 	{ path: '/w/index.php?title=Special:RecentChanges&filtered=1&kind=edit&kind=sync&days=90', heading: 'Recent changes' },
 	{ path: '/wiki/Special:Contributions', heading: 'User contributions' },
-	{ path: '/wiki/Special:Contributions/Alice', heading: 'Contributions of Alice' }
+	{ path: '/wiki/Special:Contributions/Alice', heading: 'Contributions of Alice' },
+	{ path: '/wiki/Item:Q6?action=history', heading: 'Six & more' },
+	{ path: '/wiki/Domain:wikipedia.org?action=history', heading: 'Wikipedia' }
 ];
 
 for ( const p of pages ) {
@@ -97,11 +99,43 @@ test( 'the main page is Project:Home, and unbuilt features are not linked', asyn
 	await expect( page ).toHaveURL( /\/wiki\/Project:Home$/ );
 	await expect( page.locator( 'a[href="/wiki/Special:NewItem"]' ) ).toHaveCount( 1 );
 	await expect( page.locator( 'a[href="/wiki/Special:RecentChanges"]' ) ).toHaveCount( 1 );
-	for ( const absent of [ 'Special:Jobs', 'action=history' ] ) {
+	for ( const absent of [ 'Special:Jobs' ] ) {
 		await expect( page.locator( `a[href*="${ absent }"]` ) ).toHaveCount( 0 );
 	}
 	await page.goto( '/wiki/Item:Q6' );
-	await expect( page.locator( 'a[href*="action=history"]' ) ).toHaveCount( 0 );
+	await expect( page.locator( 'a[href*="action=history"]' ) ).toHaveCount( 1 );
+} );
+
+test( 'the history tab lists a mirrored domain\'s syncs and a local item\'s edits', async ( { page } ) => {
+	await page.goto( '/wiki/Domain:wikipedia.org' );
+	await page.getByRole( 'link', { name: 'History' } ).click();
+	await expect( page ).toHaveURL( /action=history$/ );
+	await expect( page.locator( '.ts-change--sync' ).first() ).toBeVisible();
+	await expect( page.getByText( 'Only the latest state from' ) ).toBeVisible();
+	// One source contributes, so there is no switch (chapter 19 §3.5).
+	await expect( page.locator( '.ts-history__switch' ) ).toHaveCount( 0 );
+	await page.goto( '/wiki/Item:Q6?action=history' );
+	await expect( page.locator( '.ts-change--edit' ).first() ).toBeVisible();
+	await expect( page.locator( '.ts-change--sync' ) ).toHaveCount( 0 );
+	expect( await overflow( page ) ).toBe( 0 );
+} );
+
+test( 'a history row opens its diff, which reaches the old revision', async ( { page } ) => {
+	await page.goto( '/wiki/Item:Q6?action=history' );
+	await page.locator( '.ts-change__diff' ).first().click();
+	await expect( page ).toHaveURL( /\?diff=\d+$/ );
+	await expect( page.getByRole( 'heading', { level: 3, name: 'About this edit' } ) ).toBeVisible();
+	expect( await overflow( page ) ).toBe( 0 );
+	// The change-set view, and back.
+	await page.getByRole( 'link', { name: 'Change set' } ).click();
+	await expect( page.locator( '.ts-diff__changeset' ) ).toBeVisible();
+	await page.locator( '.ts-diff__views' ).getByRole( 'link', { name: 'Statements' } ).click();
+	// The revision's own page as it then was.
+	await page.getByRole( 'link', { name: /^Revision \d+$/ } ).first().click();
+	await expect( page ).toHaveURL( /\?oldid=\d+$/ );
+	await expect( page.getByText( /^This is revision \d+ of this entity/ ) ).toBeVisible();
+	await page.getByRole( 'link', { name: 'Current version' } ).click();
+	await expect( page ).toHaveURL( /\/wiki\/Item:Q6$/ );
 } );
 
 test( 'logging in and out works without JavaScript, through either replica', async ( { page } ) => {

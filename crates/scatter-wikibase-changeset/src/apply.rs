@@ -13,14 +13,19 @@ use scatter_wikibase_model::StatementId;
 use scatter_wikibase_model::entity::{Entity, EntityType, Sitelink};
 use scatter_wikibase_model::hash::Hasher;
 use scatter_wikibase_model::id::{EntityId, Subject};
+use scatter_wikibase_model::json::Form;
 use scatter_wikibase_model::key::{Identity, statement_key};
 use scatter_wikibase_model::statement::{Rank, Statement};
+use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
 
 use crate::op::{Operation, Retention};
 
 /// A local correction of a statement another graph asserts (0002 §7): a rank, or a
 /// suppression. A later override on the same statement replaces the earlier one.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// Serialized as `{"rank": "preferred"}` or `"suppress"` in the stored state (0083 §4).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Correction {
     /// Show it with this rank.
     Rank(Rank),
@@ -253,6 +258,48 @@ impl LocalState {
         }
     }
 
+    /// The state in its stored form (0083 §4): the entity's storage JSON and the rest of
+    /// the state beside it, as `view.graph_state.state` and `view.entity_revision.state`
+    /// hold it. Not hashed and not a record: a serving table's cell, replaceable by a
+    /// rebuild.
+    #[must_use]
+    pub fn to_storage_json(&self) -> Value {
+        json!({
+            "entity": self.entity.as_ref().map(|e| e.to_value(Form::Storage)),
+            "corrections": self.corrections,
+            "retention": self.retention,
+            "redirect_to": self.redirect_to,
+            "converted": self.converted,
+            "offsets": self.offsets,
+        })
+    }
+
+    /// The state from its stored form.
+    pub fn from_storage_json(v: &Value) -> Result<Self, String> {
+        let entity = match v.get("entity") {
+            None | Some(Value::Null) => None,
+            Some(e) => Some(
+                Entity::from_value(e.clone())
+                    .map_err(|e| format!("stored entity: {e}"))?
+                    .entity,
+            ),
+        };
+        let field = |name: &str| v.get(name).cloned().unwrap_or(Value::Null);
+        Ok(Self {
+            entity,
+            corrections: serde_json::from_value(field("corrections"))
+                .map_err(|e| format!("stored corrections: {e}"))?,
+            retention: serde_json::from_value(field("retention"))
+                .map_err(|e| format!("stored retention: {e}"))?,
+            redirect_to: serde_json::from_value(field("redirect_to"))
+                .map_err(|e| format!("stored redirect: {e}"))?,
+            converted: serde_json::from_value(field("converted"))
+                .map_err(|e| format!("stored converted: {e}"))?,
+            offsets: serde_json::from_value(field("offsets"))
+                .map_err(|e| format!("stored offsets: {e}"))?,
+        })
+    }
+
     /// Folds a sequence of operations.
     pub fn fold<'a>(ops: impl IntoIterator<Item = (&'a Operation, Option<u64>)>) -> Self {
         let mut state = Self::new();
@@ -365,6 +412,20 @@ mod tests {
         assert_eq!(state.corrections.len(), 1);
         assert_eq!(state.offsets, vec![0, 1, 2, 3, 4]);
         assert!(!state.is_empty());
+
+        // The stored form round-trips (0083 §4).
+        let stored = state.to_storage_json();
+        assert_eq!(
+            stored["corrections"]["WDQ1$00000000-0000-0000-0000-000000000009"],
+            json!({"rank": "deprecated"})
+        );
+        assert_eq!(stored["retention"], "retain");
+        let back = LocalState::from_storage_json(&stored).unwrap();
+        assert_eq!(back, state);
+        assert_eq!(
+            LocalState::from_storage_json(&LocalState::new().to_storage_json()).unwrap(),
+            LocalState::new()
+        );
     }
 
     #[test]

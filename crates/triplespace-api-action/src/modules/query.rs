@@ -41,10 +41,15 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         ctx.cache_class = crate::http_cache::Class::Stable;
     }
     for p in ctx.params.list("prop") {
-        response.warn(
-            "query",
-            &format!("Unrecognized value for parameter \"prop\": {p}."),
-        );
+        match p.as_str() {
+            "revisions" => {
+                super::revisions::run(ctx, &mut query, &mut body, &mut response).await?;
+            }
+            other => response.warn(
+                "query",
+                &format!("Unrecognized value for parameter \"prop\": {other}."),
+            ),
+        }
     }
     for l in ctx.params.list("list") {
         match l.as_str() {
@@ -714,7 +719,7 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                     "tenant": sitename,
                     "farm": ctx.app.config().farm.slug,
                     "search": "postgres",
-                    "capabilities": ["wbgetentities", "wbsearchentities", "wbeditentity", "statements", "terms", "login", "clientlogin", "bearer", "version", "recentchanges", "activity"],
+                    "capabilities": ["wbgetentities", "wbsearchentities", "wbeditentity", "statements", "terms", "login", "clientlogin", "bearer", "version", "recentchanges", "activity", "history", "revisions", "diff"],
                     "providers": Registry::default_registry().providers().iter().map(|p| p.slug.clone()).collect::<Vec<_>>(),
                     "rate_limits": [],
                     "grants": scatter_actors::grant::GrantRegistry::default_registry().grants().iter().map(|g| g.name.clone()).collect::<Vec<_>>(),
@@ -772,7 +777,7 @@ const ACTION_MODULES: &[(&str, bool)] = &[
 /// `action=query`'s submodules by kind: `(kind, names)`.
 const QUERY_MODULES: &[(&str, &[&str])] = &[
     ("meta", &["siteinfo", "tokens", "userinfo", "wikibase"]),
-    ("prop", &[]),
+    ("prop", &["revisions"]),
     ("list", &["recentchanges", "usercontribs", "logevents"]),
 ];
 
@@ -1027,6 +1032,7 @@ fn feed_parameters(name: &str) -> Vec<Value> {
 /// Pywikibot reads `query+tokens.type` for the token types and
 /// `wbsearchentities.language` for the languages it may search in, and sends only
 /// parameters a module lists. Modules not described here answer with no parameters.
+#[allow(clippy::too_many_lines)]
 fn module_parameters(name: &str) -> Vec<Value> {
     let entity_types = json!(["item", "property", "domain"]);
     match name {
@@ -1093,6 +1099,51 @@ fn module_parameters(name: &str) -> Vec<Value> {
             )),
         ],
         "recentchanges" | "usercontribs" | "logevents" => feed_parameters(name),
+        "revisions" => vec![
+            Value::Object(with_default(
+                multi(
+                    parameter(
+                        0,
+                        "prop",
+                        json!([
+                            "ids",
+                            "flags",
+                            "timestamp",
+                            "user",
+                            "userid",
+                            "size",
+                            "comment",
+                            "parsedcomment",
+                            "tags",
+                            "content",
+                            "contentmodel",
+                            "source",
+                            "job",
+                            "operator",
+                            "record"
+                        ]),
+                    ),
+                    50,
+                ),
+                json!("ids|timestamp|flags|comment|user"),
+            )),
+            Value::Object(multi(parameter(1, "slots", json!(["main", "*"])), 50)),
+            Value::Object(with_default(
+                limit_parameter(parameter(2, "limit", json!("limit")), 500, 5000),
+                json!(10),
+            )),
+            Value::Object(parameter(3, "startid", json!("integer"))),
+            Value::Object(parameter(4, "endid", json!("integer"))),
+            Value::Object(parameter(5, "start", json!("timestamp"))),
+            Value::Object(parameter(6, "end", json!("timestamp"))),
+            Value::Object(with_default(
+                parameter(7, "dir", json!(["newer", "older"])),
+                json!("older"),
+            )),
+            Value::Object(parameter(8, "user", json!("user"))),
+            Value::Object(parameter(9, "excludeuser", json!("user"))),
+            Value::Object(parameter(10, "continue", json!("string"))),
+        ],
         "wbgetentities" => vec![
             Value::Object(multi(parameter(0, "ids", json!("string")), 50)),
             Value::Object(with_default(
@@ -1199,6 +1250,7 @@ pub fn paraminfo_modules(requested: &[String]) -> Vec<Value> {
                             "recentchanges" => "rc",
                             "usercontribs" => "uc",
                             "logevents" => "le",
+                            "revisions" => "rv",
                             _ => "",
                         },
                     ),

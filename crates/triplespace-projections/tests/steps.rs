@@ -421,6 +421,35 @@ async fn steps_two_to_five_project_and_rebuild() {
         sorted(&client, "SELECT provider || '|' || upstream_id || '|' || keyed_type || '|' || key FROM view.keyed_map WHERE tenant = ''").await,
         vec!["internetdomains|Q9|domain|example.org"]
     );
+    // The upstream ID is an alias of the key (05 §4.1): `XDQ9` resolves to the Domain,
+    // an unmapped or unknown one to nothing.
+    let registry = scatter_providers::Registry::default_registry();
+    let alias = triplespace_projections::read::mapped_alias(
+        &client,
+        registry,
+        TENANT,
+        &"XDQ9".parse().unwrap(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        alias.map(|a| a.as_str().to_string()),
+        Some(DOMAIN.to_string())
+    );
+    for id in ["XDQ999", "WDQ9", "Q9", DOMAIN] {
+        assert!(
+            triplespace_projections::read::mapped_alias(
+                &client,
+                registry,
+                TENANT,
+                &id.parse().unwrap()
+            )
+            .await
+            .unwrap()
+            .is_none(),
+            "{id}"
+        );
+    }
     let job7 = client
         .query_one("SELECT status, source, source_version, mode, graph, adapter_version, counts::text, checkpoint_size, start_offset, finish_offset, actor_key, params::text FROM view.job WHERE tenant = '' AND job_id = 7", &[])
         .await
@@ -597,6 +626,9 @@ async fn steps_two_to_five_project_and_rebuild() {
     // The feeds over those rows (0020 §1–2): recent changes, contributions, a history.
     feeds(&client).await;
 
+    // The tier-1 state tables (0083 §4): one row per local revision, one per key.
+    Box::pin(revision_state(&client)).await;
+
     // A tombstone retracts the mirror's contribution and the rows that hung off it.
     let mut store = PgLog::new(client);
     store
@@ -663,7 +695,193 @@ async fn steps_two_to_five_project_and_rebuild() {
             );
         }
     }
+    // Without the state rows, the readers fold (0083 A1).
+    revision_state_fallback(store.client()).await;
+
+    // A key with no graph_state row is seeded from its earlier records on its next edit,
+    // so the state is whole without a rebuild (0083 A1).
+    let mut store = store;
+    let mut edit = draft(
+        PAYLOAD_CHANGESET,
+        "Q6",
+        &json!({"op": "add", "id": "Q6", "labels": {"de": "Sechs"}}),
+        None,
+        Some(6),
+    );
+    edit.revid = Some(902);
+    store.append(LOCAL, edit).await.unwrap();
+    p.catch_up(&backend, &store, LOCAL, 10).await.unwrap();
+    let (state, offset, version) =
+        triplespace_projections::revision_state::graph_state(store.client(), TENANT, "Q6", "local")
+            .await
+            .unwrap()
+            .unwrap();
+    assert_eq!((offset, version), (5, 1), "a fresh row at the new edit");
+    assert_eq!(
+        state.offsets,
+        vec![0, 1, 5],
+        "seeded from the records before it"
+    );
+    assert_eq!(state.entity.as_ref().unwrap().labels.len(), 3, "en, fr, de");
+    let (state, revid) =
+        triplespace_projections::revision_state::state_at_record(store.client(), LOCAL, 5)
+            .await
+            .unwrap()
+            .unwrap();
+    assert_eq!(revid, 902);
+    assert_eq!(state.entity.as_ref().unwrap().labels.len(), 3);
     cleanup().await;
+}
+
+/// `view.graph_state` and `view.entity_revision` (0083 §4) after the catch-up, and the
+/// readers over them: a past state is one row; where the row is missing (a database
+/// migrated but not rebuilt, 0083 A1) the fold answers the same; a key whose row is
+/// missing is seeded whole on its next edit.
+#[allow(clippy::too_many_lines)]
+async fn revision_state(client: &Client) {
+    use scatter_wikibase_model::id::EntityId;
+    use triplespace_projections::revision_state::{graph_state, revision_state, state_at_record};
+    use triplespace_projections::revisions::{
+        LocalRevision, change_at, fold_to, local_change_at, local_revisions, local_state_at,
+    };
+    let q6: EntityId = "Q6".parse().unwrap();
+    let domain: EntityId = DOMAIN.parse().unwrap();
+
+    // One graph_state row per locally edited key, at the key's latest local offset; one
+    // entity_revision row per local revision that has a revision ID (the Domain's
+    // records are surrogate-keyed assertions without one, 01 §2.5).
+    assert_eq!(
+        sorted(
+            client,
+            "SELECT tenant || '|' || entity_id || '|' || graph || '|' || \"offset\" || '|' || version FROM view.graph_state"
+        )
+        .await,
+        vec![
+            "librarybase|Q6|local|1|2",
+            "librarybase|domain:example.org|local|4|3",
+        ]
+    );
+    assert_eq!(
+        sorted(
+            client,
+            "SELECT tenant || '|' || revid || '|' || entity_id || '|' || \"offset\" FROM view.entity_revision"
+        )
+        .await,
+        vec!["librarybase|900|Q6|0", "librarybase|901|Q6|1"]
+    );
+
+    // The stored states are the fold's.
+    let revs = local_revisions(client, TENANT, &q6).await.unwrap();
+    assert_eq!(revs.len(), 2);
+    let (state, offset, version) = graph_state(client, TENANT, "Q6", "local")
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!((offset, version), (1, 2));
+    assert_eq!(state, fold_to(&revs, 1).unwrap().1);
+    let (state, partition, offset) = revision_state(client, TENANT, 900).await.unwrap().unwrap();
+    assert_eq!((partition, offset), (LOCAL, 0));
+    assert_eq!(state, fold_to(&revs, 0).unwrap().1);
+    assert_eq!(state.entity.as_ref().unwrap().labels.len(), 1, "en only");
+    let (state, revid) = state_at_record(client, LOCAL, 1).await.unwrap().unwrap();
+    assert_eq!(revid, 901);
+    assert_eq!(state.entity.as_ref().unwrap().labels.len(), 2, "en and fr");
+    assert!(revision_state(client, TENANT, 902).await.unwrap().is_none());
+    let domain_revs = local_revisions(client, TENANT, &domain).await.unwrap();
+    assert_eq!(domain_revs.len(), 3);
+    let (state, offset, _) = graph_state(client, TENANT, DOMAIN, "local")
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(offset, 4);
+    assert_eq!(state, fold_to(&domain_revs, 4).unwrap().1);
+    assert_eq!(
+        state.retention,
+        Some(scatter_wikibase_changeset::Retention::Retain)
+    );
+
+    // The readers: via the table and via the fold, the same answer.
+    let via_table = local_state_at(client, TENANT, &q6, 0)
+        .await
+        .unwrap()
+        .unwrap();
+    let via_fold = fold_to(&revs, 0).unwrap();
+    assert_eq!(via_table.0.revid(), via_fold.0.revid());
+    assert_eq!(via_table.1, via_fold.1);
+    let change = local_change_at(client, TENANT, &q6, 1)
+        .await
+        .unwrap()
+        .unwrap();
+    let folded = change_at(&revs, 1).unwrap();
+    assert_eq!(change.before, folded.before);
+    assert_eq!(change.after, folded.after);
+    assert_eq!(change.previous.as_ref().map(LocalRevision::offset), Some(0));
+    assert_eq!(change.revision.revid(), Some(901));
+    let first = local_change_at(client, TENANT, &q6, 0)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(first.before.entity.is_none());
+    assert!(first.previous.is_none());
+    assert!(
+        local_state_at(client, TENANT, &q6, 3)
+            .await
+            .unwrap()
+            .is_none(),
+        "the Domain's record, not Q6's"
+    );
+    assert!(
+        local_state_at(client, TENANT, &q6, 9)
+            .await
+            .unwrap()
+            .is_none()
+    );
+}
+
+/// A database migrated to the tables but not yet rebuilt (0083 A1) has no rows for its
+/// earlier revisions: the fold answers the same, and the latest state folds too.
+async fn revision_state_fallback(client: &Client) {
+    use scatter_wikibase_model::id::EntityId;
+    use triplespace_projections::revisions::{
+        LocalRevision, change_at, fold_to, local_change_at, local_revisions, local_state_at,
+    };
+    let q6: EntityId = "Q6".parse().unwrap();
+    let revs = local_revisions(client, TENANT, &q6).await.unwrap();
+    let folded = change_at(&revs, 1).unwrap();
+    client
+        .execute("DELETE FROM view.entity_revision WHERE revid = 901", &[])
+        .await
+        .unwrap();
+    let fallback = local_state_at(client, TENANT, &q6, 1)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(fallback.1, fold_to(&revs, 1).unwrap().1);
+    let fallback = local_change_at(client, TENANT, &q6, 1)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(fallback.before, folded.before);
+    assert_eq!(fallback.after, folded.after);
+    assert_eq!(
+        fallback.previous.as_ref().map(LocalRevision::offset),
+        Some(0)
+    );
+    client
+        .execute("DELETE FROM view.graph_state WHERE entity_id = 'Q6'", &[])
+        .await
+        .unwrap();
+    let order = triplespace_projections::EntityProjection::default();
+    let current = triplespace_projections::read::current(client, &order, TENANT, &q6)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        current.local().unwrap().labels.len(),
+        2,
+        "the latest state folds without a graph_state row"
+    );
+    assert_eq!(current.local_revid, Some(901));
 }
 
 /// Every derived row, as text. `resolved_version` and `first_seen` may legitimately differ
@@ -840,6 +1058,20 @@ async fn feeds(client: &Client) {
     assert!(sync.changes.is_some());
     assert_eq!(sync.tags, vec!["bulk"]);
 
+    // The source switch narrows a history to one graph.
+    let mut made_here = history.clone();
+    made_here.filters.sources = vec!["local".into()];
+    let page = feed::query(client, TENANT, &made_here, &viewer)
+        .await
+        .unwrap();
+    assert_eq!(page.rows.len(), 3);
+    assert!(page.rows.iter().all(|r| r.source == "local"));
+    made_here.filters.sources = vec!["mirror/internetdomains".into()];
+    let page = feed::query(client, TENANT, &made_here, &viewer)
+        .await
+        .unwrap();
+    assert_eq!(brief(&page), vec!["sync|put|domain:example.org"]);
+
     // A restricted row is for its groups.
     client
         .execute(
@@ -889,6 +1121,8 @@ async fn snapshot(client: &Client) -> Vec<String> {
         "view.job",
         "view.job_reject",
         "view.activity",
+        "view.graph_state",
+        "view.entity_revision",
     ] {
         all.extend(sorted(client, &format!("SELECT t::text FROM {table} t")).await);
     }

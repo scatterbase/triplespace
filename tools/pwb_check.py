@@ -294,6 +294,23 @@ def main():
         return f"{len(rows)} rows"
     step("read: list=usercontribs", contributions, skip=skip_w)
 
+    def revisions():
+        # Pywikibot's page history reads prop=revisions; the content at an old
+        # revision is the entity as it then was.
+        item = pywikibot.ItemPage(repo, a.item)
+        revs = list(item.revisions(total=5, content=False))
+        if not revs:
+            raise RuntimeError("no revisions")
+        newest = revs[0]
+        if newest.revid != item.latest_revision_id:
+            raise RuntimeError(f"newest {newest.revid} != latest {item.latest_revision_id}")
+        oldest = revs[-1]
+        text = item.getOldVersion(oldest.revid)
+        if not text or a.item not in text:
+            raise RuntimeError("getOldVersion returned no content")
+        return f"{len(revs)} revisions, oldest {oldest.revid} by {oldest.user}"
+    step("read: prop=revisions and getOldVersion", revisions)
+
     def log_events():
         rows = list(repo.logevents(logtype="job", total=5))
         return f"{len(rows)} job events"

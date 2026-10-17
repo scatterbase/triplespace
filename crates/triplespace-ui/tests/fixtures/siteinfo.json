@@ -455,7 +455,8 @@
                 "terms",
                 "login",
                 "clientlogin",
-                "bearer"
+                "bearer",
+                "history"
             ],
             "farm": "librarybase",
             "grants": [

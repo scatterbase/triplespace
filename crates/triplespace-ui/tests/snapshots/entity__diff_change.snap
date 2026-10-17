@@ -1,0 +1,376 @@
+---
+source: crates/triplespace-ui/tests/entity.rs
+expression: main
+---
+<main class="ts-page" id="content">
+	<p class="ts-page__identity">
+<span class="ts-chip ts-chip--local">Q6</span> <span>Item</span> <span aria-hidden="true">·</span> <span>Adopted from https://librarybase.org/</span> <span aria-hidden="true">·</span> <a href="https://librarybase.org/entity/Q6" class="external" rel="noopener" dir="ltr">librarybase.org/entity/Q6 ↗</a>
+</p>
+	<h1 class="ts-page__title">Six &#38; more</h1>
+	<div class="ts-terms" data-region="terms">
+<p class="ts-terms__description">a number</p>
+<p class="ts-terms__aliases">Also known as <span>6 · half dozen</span>
+</p>
+</div>
+	<nav class="ts-tabs" aria-label="Page">
+		<a class="ts-tabs__link" href="/wiki/Item:Q6">Statements</a>
+		<a class="ts-tabs__link" href="/wiki/Item:Q6?tab=identifiers">Identifiers</a>
+		<a class="ts-tabs__link" href="/wiki/Item:Q6?tab=sitelinks">Sitelinks</a>
+		<a class="ts-tabs__link" href="/wiki/Item:Q6?tab=labels">Labels in other languages</a>
+		<a class="ts-tabs__link" href="/wiki/Item:Q6?action=history" aria-current="page">History</a>
+	</nav>
+	<div class="ts-page__body">
+		<div class="ts-diff">
+<p class="ts-diff__head">
+<a href="/wiki/Item:Q6?oldid=907">Revision 907</a> <time datetime="2026-10-02T14:05:11Z">2026-10-02 14:05:11</time> · <a href="/wiki/Special:Contributions/librarybase:10">librarybase:10</a> · <span class="ts-change__comment">rank and a value</span>
+</p>
+<p class="ts-diff__nav">
+<a href="/wiki/Item:Q6?diff=906" rel="prev">← Previous revision</a> · <a href="/wiki/Item:Q6?oldid=906&amp;diff=907">Compare with the previous revision</a>
+</p>
+<nav class="ts-search-filter ts-diff__views" aria-label="Views of this change">
+<ul>
+<li>
+<a href="/wiki/Item:Q6?diff=907&amp;view=statements" aria-current="page">Statements</a>
+</li>
+<li>
+<a href="/wiki/Item:Q6?diff=907&amp;view=changeset">Change set</a>
+</li>
+</ul>
+</nav>
+<div class="ts-diff__body">
+<div class="ts-diff__main">
+<section class="ts-diff__section">
+<h3 class="ts-diff__heading">Labels</h3>
+<table class="ts-diff__table">
+<thead>
+<tr>
+<th>Key</th>
+<th>Before</th>
+<th>After</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th scope="row" class="ts-diff__key">fr</th>
+<td class="ts-diff__cell ts-diff__cell--empty">
+</td>
+<td class="ts-diff__cell ts-diff__cell--added">
+<span lang="fr" dir="auto">Six</span>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section class="ts-diff__section">
+<h3 class="ts-diff__heading">Descriptions</h3>
+<table class="ts-diff__table">
+<thead>
+<tr>
+<th>Key</th>
+<th>Before</th>
+<th>After</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th scope="row" class="ts-diff__key">de</th>
+<td class="ts-diff__cell ts-diff__cell--changed">
+<span lang="de" dir="auto">eine Zahl</span>
+</td>
+<td class="ts-diff__cell ts-diff__cell--changed">
+<span lang="de" dir="auto">eine gerade Zahl</span>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section class="ts-diff__section">
+<h3 class="ts-diff__heading">Aliases</h3>
+<table class="ts-diff__table">
+<thead>
+<tr>
+<th>Key</th>
+<th>Before</th>
+<th>After</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th scope="row" class="ts-diff__key">en</th>
+<td class="ts-diff__cell ts-diff__cell--changed">
+<span>6 | half dozen</span>
+</td>
+<td class="ts-diff__cell ts-diff__cell--changed">
+<span>6 | half dozen | VI</span>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section class="ts-diff__section">
+<h3 class="ts-diff__heading">Sitelinks</h3>
+<table class="ts-diff__table">
+<thead>
+<tr>
+<th>Key</th>
+<th>Before</th>
+<th>After</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th scope="row" class="ts-diff__key">enwiki</th>
+<td class="ts-diff__cell ts-diff__cell--empty">
+</td>
+<td class="ts-diff__cell ts-diff__cell--added">
+<span>Six</span>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section class="ts-diff__section">
+<h3 class="ts-diff__heading">
+<a href="/wiki/Property:P2" title="P2">instance of</a>
+</h3>
+<table class="ts-diff__table ts-diff__table--statements">
+<thead>
+<tr>
+<th>Change</th>
+<th>Before</th>
+<th>After</th>
+</tr>
+</thead>
+<tbody>
+<tr class="ts-diff__row ts-diff__row--changed">
+<th scope="row" class="ts-diff__mark">Changed</th>
+<td class="ts-diff__cell ts-diff__cell--changed">
+<div class="ts-diff__statement">
+<div class="ts-statement__main">
+<a href="/wiki/Item:Q2" title="Q2">number</a>
+</div>
+</div>
+</td>
+<td class="ts-diff__cell ts-diff__cell--changed">
+<div class="ts-diff__statement">
+<div class="ts-statement__main">
+<a href="/wiki/Item:Q2" title="Q2">number</a> <span class="ts-chip ts-chip--rank">Preferred rank</span>
+</div>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section class="ts-diff__section">
+<h3 class="ts-diff__heading">
+<a href="/wiki/Property:P3" title="P3">population</a>
+</h3>
+<table class="ts-diff__table ts-diff__table--statements">
+<thead>
+<tr>
+<th>Change</th>
+<th>Before</th>
+<th>After</th>
+</tr>
+</thead>
+<tbody>
+<tr class="ts-diff__row ts-diff__row--unchanged">
+<th scope="row" class="ts-diff__mark">Unchanged</th>
+<td class="ts-diff__cell ts-diff__cell--same">
+<div class="ts-diff__statement">
+<div class="ts-statement__main">
+<span class="ts-number">3,898,747</span>±10 <span class="ts-unit">
+<a href="/wiki/Item:Q5" title="Q5">inhabitant</a>
+</span>
+</div>
+<dl class="ts-qualifiers">
+<div class="ts-qualifiers__row">
+<dt>
+<a href="/wiki/Property:P9" title="P9">point in time</a>
+</dt>
+<dd>
+<span class="ts-time">2020</span>
+</dd>
+</div>
+</dl>
+<details class="cdx-accordion">
+	<summary>
+<span class="cdx-accordion__header">
+<span class="cdx-accordion__header__title">1 reference</span>
+</span>
+</summary>
+	<div class="cdx-accordion__content">
+<ol class="ts-references">
+<li>
+<dl class="ts-snaks">
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:P10" title="P10">stated in</a>
+</dt>
+<dd>
+<a href="/wiki/Item:Q3" title="Q3">Example Gazette</a>
+</dd>
+</div>
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:P11" title="P11">reference URL</a>
+</dt>
+<dd>
+<a href="https://example.org/census" class="external" rel="nofollow ugc noopener" dir="ltr">https://example.org/census</a>
+</dd>
+</div>
+</dl>
+</li>
+</ol>
+</div>
+</details>
+</div>
+</td>
+<td class="ts-diff__cell ts-diff__cell--same">
+<div class="ts-diff__statement">
+<div class="ts-statement__main">
+<span class="ts-number">3,898,747</span>±10 <span class="ts-unit">
+<a href="/wiki/Item:Q5" title="Q5">inhabitant</a>
+</span>
+</div>
+<dl class="ts-qualifiers">
+<div class="ts-qualifiers__row">
+<dt>
+<a href="/wiki/Property:P9" title="P9">point in time</a>
+</dt>
+<dd>
+<span class="ts-time">2020</span>
+</dd>
+</div>
+</dl>
+<details class="cdx-accordion">
+	<summary>
+<span class="cdx-accordion__header">
+<span class="cdx-accordion__header__title">1 reference</span>
+</span>
+</summary>
+	<div class="cdx-accordion__content">
+<ol class="ts-references">
+<li>
+<dl class="ts-snaks">
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:P10" title="P10">stated in</a>
+</dt>
+<dd>
+<a href="/wiki/Item:Q3" title="Q3">Example Gazette</a>
+</dd>
+</div>
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:P11" title="P11">reference URL</a>
+</dt>
+<dd>
+<a href="https://example.org/census" class="external" rel="nofollow ugc noopener" dir="ltr">https://example.org/census</a>
+</dd>
+</div>
+</dl>
+</li>
+</ol>
+</div>
+</details>
+</div>
+</td>
+</tr>
+<tr class="ts-diff__row ts-diff__row--added">
+<th scope="row" class="ts-diff__mark">Added</th>
+<td class="ts-diff__cell ts-diff__cell--empty">
+</td>
+<td class="ts-diff__cell ts-diff__cell--added">
+<div class="ts-diff__statement">
+<div class="ts-statement__main">
+<span class="ts-number">3,898,747</span>±10 <span class="ts-unit">
+<a href="/wiki/Item:Q5" title="Q5">inhabitant</a>
+</span>
+</div>
+<dl class="ts-qualifiers">
+<div class="ts-qualifiers__row">
+<dt>
+<a href="/wiki/Property:P9" title="P9">point in time</a>
+</dt>
+<dd>
+<span class="ts-time">2020</span>
+</dd>
+</div>
+</dl>
+<details class="cdx-accordion">
+	<summary>
+<span class="cdx-accordion__header">
+<span class="cdx-accordion__header__title">1 reference</span>
+</span>
+</summary>
+	<div class="cdx-accordion__content">
+<ol class="ts-references">
+<li>
+<dl class="ts-snaks">
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:P10" title="P10">stated in</a>
+</dt>
+<dd>
+<a href="/wiki/Item:Q3" title="Q3">Example Gazette</a>
+</dd>
+</div>
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:P11" title="P11">reference URL</a>
+</dt>
+<dd>
+<a href="https://example.org/census" class="external" rel="nofollow ugc noopener" dir="ltr">https://example.org/census</a>
+</dd>
+</div>
+</dl>
+</li>
+</ol>
+</div>
+</details>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+</div>
+<aside class="ts-diff__about">
+<h3>About this edit</h3>
+<dl>
+<div>
+<dt>Graph</dt>
+<dd>Made here</dd>
+</div>
+<div>
+<dt>Revision</dt>
+<dd>907</dd>
+</div>
+<div>
+<dt>Operation</dt>
+<dd>add</dd>
+</div>
+<div>
+<dt>Size</dt>
+<dd>
+<span dir="ltr">412 (+20)</span>
+</dd>
+</div>
+<div>
+<dt>Record</dt>
+<dd>
+<span class="ts-mono" dir="ltr">4098:9</span>
+</dd>
+</div>
+<div>
+<dt>Tags</dt>
+<dd>bot</dd>
+</div>
+</dl>
+</aside>
+</div>
+</div>
+	</div>
+</main>

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-09 (A19)
+- **Updated:** 2026-10-16 (A20)
 - **Author:** James Hare / Claude
 - **Changes:** [0005](0005-crate-organization.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0034](0034-frontend-stack.md)
@@ -43,7 +43,7 @@ This ADR records the rest. The frontend is in 0034.
 
 ### 4. Postgres
 
-*Changed by A9.*
+*Changed by A9, A20.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §1.4, §5.*
 
@@ -371,3 +371,10 @@ Replaced text ([22](../architecture/22-crates-and-stack.md) §4.1, as it stood):
 Replaced text ([22](../architecture/22-crates-and-stack.md) §4.3, as it stood):
 
 > The write path of [0013](../decisions/0013-postgres-storage.md) §7 (auth → grants → rate limit → ACLs → filters → base offset → append → projections) is built as tower layers in that order, so the order is visible in one place and testable on its own ([03](../architecture/03-storage-caches-and-search.md)).
+
+### A20. `triplespace migrate`, and a server that refuses a database behind its migrations
+
+- **Date:** 2026-10-16
+- **Source:** Direct: James, running the `entity-history` branch against an existing instance, 2026-10-16
+- **Change:** extends §4
+- **Summary:** Until now only `instance create` ran the migration runner, so a database an older binary created kept its schema while a newer binary read tables it did not have, and every such read answered an internal error. `triplespace migrate` applies the migrations the binary carries that `ops.migration` does not record, in build order, and prints each; `triplespace status` lists any that are pending; and `triplespace-server` checks `ops.migration` on startup and refuses to start, naming the pending migrations and the command, rather than serve errors. The runner gains `pending()` for both. A migration that adds a derived table the writes fill from then on (`0010_revision_state`) is followed by `triplespace rebuild` where the earlier rows are wanted ([0083](0083-write-path-in-three-tiers.md) A2); the runner does not rebuild on its own.

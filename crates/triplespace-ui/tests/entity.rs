@@ -131,10 +131,104 @@ impl FixtureApi {
         api
     }
 
+    #[allow(clippy::too_many_lines)]
     fn answer(&self, path_and_query: &str, signed_in: bool) -> (StatusCode, Value, Vec<String>) {
         let (path, query) = path_and_query
             .split_once('?')
             .unwrap_or((path_and_query, ""));
+        if let Some(rest) = path.strip_prefix("/w/rest.php/triplespace/v0/entity/")
+            && let Some(id) = rest.strip_suffix("/history")
+        {
+            // The entity's rows of the recorded feed (tests/fixtures/activity.json).
+            let id = id_of(&decode(id));
+            if !self.entities.contains_key(&id) {
+                return (
+                    StatusCode::NOT_FOUND,
+                    json!({"code": "entity-not-found", "message": "no entity"}),
+                    vec![],
+                );
+            }
+            let source = param(query, "source");
+            let rows: Vec<Value> = fixture("activity.json").unwrap()["rows"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|r| r["target"]["id"] == id)
+                .filter(|r| source.as_deref().is_none_or(|s| r["source"] == s))
+                .cloned()
+                .collect();
+            return (
+                StatusCode::OK,
+                json!({"rows": rows, "set": {"kind": "entity", "id": id}, "kinds": [], "sources": []}),
+                vec![format!("entity:{id}")],
+            );
+        }
+        if let Some(rest) = path.strip_prefix("/w/rest.php/triplespace/v0/entity/")
+            && let Some((id, record)) = rest.split_once("/changes/")
+        {
+            // One change's diff, recorded (tests/fixtures/change-*.json).
+            let id = id_of(&decode(id));
+            let name = format!(
+                "change-{}-{}.json",
+                id.replace(':', "-"),
+                record.replace('/', "-")
+            );
+            return match fixture(&name) {
+                Some(v) if self.entities.contains_key(&id) => {
+                    (StatusCode::OK, v, vec![format!("entity:{id}")])
+                }
+                _ => (
+                    StatusCode::NOT_FOUND,
+                    json!({"code": "change-not-found", "message": "no such record"}),
+                    vec![],
+                ),
+            };
+        }
+        if let Some(rest) = path.strip_prefix("/w/rest.php/triplespace/v0/entity/")
+            && let Some(id) = rest.strip_suffix("/compare")
+        {
+            // A comparison: the recorded change's diff under two revisions.
+            let id = id_of(&decode(id));
+            let (from, to) = (param(query, "from"), param(query, "to"));
+            if from.as_deref() != Some("900") || to.as_deref() != Some("907") {
+                return (
+                    StatusCode::NOT_FOUND,
+                    json!({"code": "revision-not-found", "message": "no such revision"}),
+                    vec![],
+                );
+            }
+            let change = fixture("change-Q6-4098-9.json").unwrap();
+            return (
+                StatusCode::OK,
+                json!({"entity": id, "source": "local",
+                       "from": {"partition": 4098, "offset": 1, "revid": 900, "time": "2026-10-01T09:30:00Z", "actor": "librarybase:7", "op": "adopt"},
+                       "to": change["revision"], "diff": change["diff"], "state": {"corrections": []}}),
+                vec![format!("entity:{id}")],
+            );
+        }
+        if query.contains("prop=revisions") {
+            // `revids=907` is Q6's recorded change; its content is Q6 as it is now.
+            let Some(revid) = param(query, "revids") else {
+                return (StatusCode::OK, json!({"query": {"pages": []}}), vec![]);
+            };
+            if revid != "907" {
+                return (
+                    StatusCode::OK,
+                    json!({"query": {"pages": [{"revid": revid, "missing": true}]}}),
+                    vec![],
+                );
+            }
+            let content = self.entities["Q6"].to_string();
+            return (
+                StatusCode::OK,
+                json!({"query": {"pages": [{"pageid": 1, "ns": 120, "title": "Item:Q6", "revisions": [{
+                    "revid": 907, "timestamp": "2026-10-02T14:05:11Z", "user": "Alice bot", "comment": "rank and a value",
+                    "record": {"partition": 4098, "offset": 9},
+                    "slots": {"main": {"contentmodel": "wikibase-item", "contentformat": "application/json", "content": content}}
+                }]}]}}),
+                vec!["entity:Q6".into()],
+            );
+        }
         if let Some(rest) = path.strip_prefix("/w/rest.php/triplespace/v0/entity/") {
             let id = id_of(&decode(rest.trim_end_matches("/provenance")));
             return match fixture(&format!("provenance-{}.json", id.replace(':', "-"))) {
@@ -785,4 +879,138 @@ async fn a_signed_in_viewer_gets_the_edit_buttons_and_data_on_a_local_entity() {
         !anon.contains("ts-edit"),
         "nor by an anonymous reader, whose page is public"
     );
+}
+
+#[tokio::test]
+async fn the_history_tab_lists_the_entitys_rows() {
+    // A local item: one source, so no switch; the adoption and the bot's edit.
+    let (status, h, html) = get("/wiki/Item:Q6?action=history").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(html.contains("<title>Six &#38; more (Q6) – librarybase</title>"));
+    assert!(h["cache-tag"].to_str().unwrap().contains("entity:Q6"));
+    let main = main_of(&html);
+    assert!(main.contains("aria-current=\"page\">History</a>"), "{main}");
+    assert!(main.contains("ts-change--edit"));
+    assert!(
+        !main.contains("ts-history__switch"),
+        "one source: no switch"
+    );
+    assert!(!main.contains("ts-history__note"));
+    assert!(main.contains(">adopt<"), "the adoption's row");
+    assert!(main.contains("href=\"/wiki/Special:Contributions/Alice_bot\""));
+    insta::assert_snapshot!("history_item", main);
+
+    // A mirrored domain: the provider's sync with its chip, the latest-only note; the
+    // switch needs two sources, which this fixture's provenance does not have.
+    let (status, _, html) = get("/wiki/Domain:wikipedia.org?action=history").await;
+    assert_eq!(status, StatusCode::OK);
+    let main = main_of(&html);
+    assert!(main.contains("ts-change--sync"), "{main}");
+    assert!(main.contains("ts-chip--p-xd"), "the provider's chip");
+    assert!(
+        main.contains("Only the latest state from Internet Domains Wikibase is kept here"),
+        "{main}"
+    );
+    insta::assert_snapshot!("history_domain", main);
+
+    // The source switch narrows the feed; the fake API honours `source`.
+    let (_, _, html) = get("/wiki/Domain:wikipedia.org?action=history&source=local").await;
+    assert!(main_of(&html).contains("No history is held for this entity."));
+
+    // An unknown entity's history is the entity's own 404.
+    let (status, _, _) = get("/wiki/Item:Q404?action=history").await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn the_diff_page_draws_a_change_as_statements() {
+    // `diff={revid}` resolves the revision to its record, then draws the change.
+    let (status, h, html) = get("/wiki/Item:Q6?diff=907").await;
+    assert_eq!(status, StatusCode::OK, "{html}");
+    assert!(h["cache-tag"].to_str().unwrap().contains("entity:Q6"));
+    let main = main_of(&html);
+    assert!(main.contains("aria-current=\"page\">History</a>"));
+    assert!(main.contains("Revision 907"));
+    assert!(main.contains("rank and a value"));
+    // Terms as keyed lists, with the marks.
+    assert!(
+        main.contains("ts-diff__cell--added\">\n<span lang=\"fr\" dir=\"auto\">Six</span>"),
+        "{main}"
+    );
+    assert!(main.contains("eine gerade Zahl"));
+    assert!(main.contains("6 | half dozen | VI"));
+    assert!(main.contains(">enwiki<"));
+    // Statements: the changed rank shows both sides, the unchanged one is context, the
+    // added one has a label from the lookup.
+    assert!(main.contains("ts-diff__row--changed"));
+    assert!(main.contains("ts-diff__row--unchanged"));
+    assert!(main.contains("ts-diff__row--added"));
+    assert!(main.contains("Preferred rank"), "the rank after: {main}");
+    assert!(
+        main.contains("href=\"/wiki/Item:Q2\""),
+        "the value's entity is linked: {main}"
+    );
+    // "About this edit" and the links around the change.
+    assert!(main.contains("About this edit"));
+    assert!(main.contains("4098:9"));
+    assert!(main.contains("href=\"/wiki/Item:Q6?diff=906\""));
+    assert!(main.contains("href=\"/wiki/Item:Q6?oldid=906&amp;diff=907\""));
+    insta::assert_snapshot!("diff_change", main);
+
+    // The change-set view shows the operation as stored.
+    let (_, _, html) = get("/wiki/Item:Q6?diff=907&view=changeset").await;
+    let main = main_of(&html);
+    assert!(main.contains("ts-diff__changeset"));
+    assert!(main.contains("&quot;op&quot;: &quot;add&quot;"), "{main}");
+
+    // A comparison between two revisions.
+    let (status, _, html) = get("/wiki/Item:Q6?oldid=900&diff=907").await;
+    assert_eq!(status, StatusCode::OK);
+    let main = main_of(&html);
+    assert!(main.contains("Revision 900") && main.contains("Revision 907"));
+    assert!(main.contains("ts-diff__row--changed"));
+    assert!(
+        !main.contains("About this edit"),
+        "a comparison is not one edit"
+    );
+
+    // A sync: the upstream versions and the stored summary, no statement diff.
+    let (status, _, html) = get("/wiki/Domain:wikipedia.org?diff=8194:41").await;
+    assert_eq!(status, StatusCode::OK, "{html}");
+    let main = main_of(&html);
+    assert!(
+        main.contains("Synced from upstream revision 56 to 57."),
+        "{main}"
+    );
+    assert!(main.contains("What the sync changed"));
+    assert!(main.contains("href=\"/wiki/Property:P12\""));
+    insta::assert_snapshot!("diff_sync", main);
+
+    // Unknown revisions.
+    let (status, _, html) = get("/wiki/Item:Q6?diff=1").await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert!(html.contains("There is no such revision of this entity."));
+    let (status, _, _) = get("/wiki/Item:Q6?oldid=1&diff=907").await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn an_old_revision_is_the_page_as_it_then_was() {
+    let (status, _, html) = get("/wiki/Item:Q6?oldid=907").await;
+    assert_eq!(status, StatusCode::OK, "{html}");
+    let main = main_of(&html);
+    assert!(
+        main.contains(
+            "This is revision 907 of this entity, as Alice bot saved it on 2026-10-02 14:05:11."
+        ),
+        "{main}"
+    );
+    assert!(main.contains("href=\"/wiki/Item:Q6\">Current version</a>"));
+    assert!(
+        main.contains("data-region=\"statements\"") || main.contains("ts-group"),
+        "the statements tab: {main}"
+    );
+    let (status, _, html) = get("/wiki/Item:Q6?oldid=1").await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert!(html.contains("Revision 1 is not a local revision of this entity."));
 }

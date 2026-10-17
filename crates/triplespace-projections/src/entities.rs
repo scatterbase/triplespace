@@ -142,6 +142,21 @@ impl EntityProjection {
                 "`{id}` has local records but no surrogate in view.keyed_surrogate; project the instance log first"
             ));
         };
+        // The tier-1 state (0083 §4): one row, and the one record it names, where the
+        // table has the key; the fold of every record otherwise (0083 A1).
+        if let Some((state, offset, _)) =
+            crate::revision_state::graph_state(client, tenant, id.as_str(), "local").await?
+            && let Ok(scatter_log::store::Slot::Record(record)) =
+                log::read(client, partition, offset).await
+            && let Some(op) = operation(&record)?
+        {
+            let whole = matches!(op, Operation::Create { .. } | Operation::Adopt { .. });
+            return Ok(Local {
+                single_whole: state.offsets.len() == 1 && whole,
+                latest: Some(record.header().clone()),
+                state,
+            });
+        }
         let records = log::read_by_key(client, partition, &key)
             .await
             .map_err(|e| e.to_string())?;

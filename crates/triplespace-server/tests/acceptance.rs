@@ -819,6 +819,239 @@ async fn a_bot_logs_in_reads_and_edits() {
         hist.iter()
             .all(|r| r["target"]["id"] == "domain:wikipedia.org")
     );
+    // The history route: the same rows under the entity's own path, the source switch,
+    // and the answers for an ID that is not there.
+    let (status, h, history) = send(
+        &c.router,
+        "/w/rest.php/triplespace/v0/entity/domain:wikipedia.org/history?dir=newer",
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{history}");
+    assert_eq!(h["cache-tag"], "entity:domain:wikipedia.org");
+    assert_eq!(
+        history["set"],
+        json!({"kind": "entity", "id": "domain:wikipedia.org"})
+    );
+    assert_eq!(history["rows"], json!(hist));
+    let (_, _, local_only) = send(
+        &c.router,
+        "/w/rest.php/triplespace/v0/entity/Domain:wikipedia.org/history?source=local",
+        &[],
+    )
+    .await;
+    let rows = local_only["rows"].as_array().unwrap();
+    assert!(
+        !rows.is_empty() && rows.iter().all(|r| r["source"] == "local"),
+        "{local_only}"
+    );
+    assert_eq!(local_only["sources"], json!(["local"]));
+    let (_, _, q6) = send(
+        &c.router,
+        "/w/rest.php/triplespace/v0/entity/Q6/history",
+        &[],
+    )
+    .await;
+    assert!(
+        q6["rows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|r| r["target"]["id"] == "Q6"),
+        "{q6}"
+    );
+    assert!(
+        q6["rows"].as_array().unwrap().len() >= 5,
+        "the bot's edits and the adoption"
+    );
+    let (status, _, none) = send(
+        &c.router,
+        "/w/rest.php/triplespace/v0/entity/Q404/history",
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert_eq!(none["code"], "entity-not-found");
+    let (status, _, bad_id) = send(
+        &c.router,
+        "/w/rest.php/triplespace/v0/entity/nope!/history",
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(bad_id["code"], "invalid-entity-id");
+    // `prop=revisions` (18 §2.3): Q6's local revisions, newest first, and the content at
+    // an old one is the state as it then was (the fold of 0083 §4's stepping stone).
+    let rv = c
+        .get("action=query&prop=revisions&titles=Item:Q6&rvprop=ids|timestamp|user|comment|size|tags&rvlimit=50&format=json&formatversion=2")
+        .await;
+    let page = &rv["query"]["pages"][0];
+    assert_eq!(page["title"], "Item:Q6", "{rv}");
+    let revs = page["revisions"].as_array().unwrap();
+    assert!(revs.len() >= 5, "{rv}");
+    assert!(
+        revs.windows(2)
+            .all(|w| w[0]["revid"].as_u64() > w[1]["revid"].as_u64()),
+        "newest first"
+    );
+    assert!(revs.iter().any(|r| r["user"] == "Alice bot"));
+    let oldest = revs.last().unwrap();
+    assert_eq!(oldest["comment"], "/* adopt */", "{oldest}");
+    let old = c
+        .get(&format!(
+            "action=query&prop=revisions&revids={}&rvprop=ids|content&rvslots=main&format=json&formatversion=2",
+            oldest["revid"]
+        ))
+        .await;
+    let slot = &old["query"]["pages"][0]["revisions"][0]["slots"]["main"];
+    assert_eq!(slot["contentmodel"], "wikibase-item", "{old}");
+    let then: Value = serde_json::from_str(slot["content"].as_str().unwrap()).unwrap();
+    assert_eq!(then["id"], "Q6");
+    assert!(
+        then["labels"].get("fr").is_none(),
+        "the French label came later: {then}"
+    );
+    assert_eq!(then["lastrevid"], oldest["revid"]);
+    let now = c
+        .get("action=query&prop=revisions&titles=Item:Q6&rvprop=ids|content&rvslots=main&rvlimit=1&format=json&formatversion=2")
+        .await;
+    let latest: Value = serde_json::from_str(
+        now["query"]["pages"][0]["revisions"][0]["slots"]["main"]["content"]
+            .as_str()
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(latest["labels"]["fr"]["value"], "Six", "{latest}");
+    assert_eq!(latest["aliases"]["en"][0]["value"], "VI");
+    let rv_page_a = c
+        .get("action=query&prop=revisions&titles=Item:Q6&rvlimit=2&format=json&formatversion=2")
+        .await;
+    assert_eq!(
+        rv_page_a["query"]["pages"][0]["revisions"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+    let token = rv_page_a["continue"]["rvcontinue"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let rv_page_b = c
+        .get(&format!("action=query&prop=revisions&titles=Item:Q6&rvlimit=2&rvcontinue={}&format=json&formatversion=2", enc(&token)))
+        .await;
+    assert_ne!(
+        rv_page_b["query"]["pages"][0]["revisions"][0]["revid"],
+        rv_page_a["query"]["pages"][0]["revisions"][0]["revid"]
+    );
+    let gone = c
+        .get("action=query&prop=revisions&titles=Item:Q404&format=json&formatversion=2")
+        .await;
+    assert_eq!(gone["query"]["pages"][0]["missing"], true, "{gone}");
+
+    // One change's structured diff (18 §5.1): the alias edit added `VI` in English, and
+    // nothing else; a comparison across the bot's edits; the mirror's `put`.
+    let alias_rev = q6["rows"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| {
+            r["summary"]["args"]
+                .as_str()
+                .is_some_and(|a| a.contains("aliases:en"))
+        })
+        .unwrap();
+    let (p, o) = (
+        alias_rev["record"]["partition"].as_u64().unwrap(),
+        alias_rev["record"]["offset"].as_u64().unwrap(),
+    );
+    let (status, h, change) = send(
+        &c.router,
+        &format!("/w/rest.php/triplespace/v0/entity/Q6/changes/{p}/{o}"),
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{change}");
+    assert_eq!(h["cache-tag"], "entity:Q6");
+    assert_eq!(change["source"], "local");
+    assert_eq!(change["revision"]["revid"], alias_rev["revid"]);
+    assert_eq!(change["revision"]["actor"], "librarybase:10");
+    assert_eq!(change["operation"]["op"], "add");
+    assert_eq!(change["diff"]["aliases"][0]["language"], "en");
+    assert_eq!(change["diff"]["aliases"][0]["added"], json!(["VI"]));
+    assert_eq!(change["diff"]["labels"], json!([]));
+    assert_eq!(change["diff"]["claims"], json!([]));
+    assert!(change["previous"]["revid"].as_u64().unwrap() < alias_rev["revid"].as_u64().unwrap());
+    assert!(change["effect"].is_null());
+    let first_rev = q6["rows"].as_array().unwrap().last().unwrap()["revid"]
+        .as_u64()
+        .unwrap();
+    let (status, _, cmp) = send(
+        &c.router,
+        &format!(
+            "/w/rest.php/triplespace/v0/entity/Q6/compare?from={first_rev}&to={}",
+            alias_rev["revid"]
+        ),
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{cmp}");
+    assert_eq!(cmp["from"]["op"], "adopt");
+    assert!(
+        cmp["diff"]["labels"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|l| l["language"] == "fr"),
+        "the French label the bot set: {cmp}"
+    );
+    assert!(
+        cmp["diff"]["claims"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|g| g["property"] == "P12"),
+        "the claim it changed: {cmp}"
+    );
+    let (status, _, err) = send(
+        &c.router,
+        "/w/rest.php/triplespace/v0/entity/Q6/compare?source=mirror/internetdomains&from=1&to=2",
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(err["code"], "ts-compare-source");
+    let (status, _, err) = send(
+        &c.router,
+        "/w/rest.php/triplespace/v0/entity/Q6/compare?from=1&to=999999",
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert_eq!(err["code"], "revision-not-found");
+    let sync = hist.iter().find(|r| r["kind"] == "sync").unwrap();
+    let (status, _, put) = send(
+        &c.router,
+        &format!(
+            "/w/rest.php/triplespace/v0/entity/domain:wikipedia.org/changes/{}/{}",
+            sync["record"]["partition"], sync["record"]["offset"]
+        ),
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{put}");
+    assert_eq!(put["source"], "mirror/internetdomains");
+    assert_eq!(put["revision"]["op"], "put");
+    assert!(put["diff"].is_null());
+    assert_eq!(put["after"]["id"], "domain:wikipedia.org");
+    let (status, _, err) = send(
+        &c.router,
+        &format!("/w/rest.php/triplespace/v0/entity/Q7/changes/{p}/{o}"),
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "another entity's record");
+    assert_eq!(err["code"], "change-not-found");
     let (status, _, bad) = send(
         &c.router,
         "/w/rest.php/triplespace/v0/activity?target=nope",

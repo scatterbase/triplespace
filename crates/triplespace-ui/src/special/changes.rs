@@ -360,12 +360,31 @@ fn size_html(row: &ActivityRow) -> String {
 }
 
 /// One row.
+/// The diff page of a row (19 §3.8): `?diff={revid}` for a local edit, `?diff={partition}:{offset}`
+/// for a mirror sync, which has no local revision ID; nothing for the other kinds.
+fn diff_href(row: &ActivityRow) -> Option<String> {
+    let title = row.target.as_ref()?.title.as_deref()?;
+    let arg = match row.kind.as_str() {
+        "edit" if row.source == "local" => row.revid?.to_string(),
+        "sync" => format!("{}:{}", row.record.partition, row.record.offset),
+        _ => return None,
+    };
+    Some(format!("/wiki/{}?diff={arg}", title_url(title)))
+}
+
 fn row_html(m: &Messages, site: &SiteInfo, row: &ActivityRow) -> String {
-    let mut s = format!(
-        "<li class=\"ts-change ts-change--{}\"><time class=\"ts-change__time\" datetime=\"{}\">{}</time><span class=\"ts-change__part\">{}</span>",
-        esc(&row.kind),
+    let time = format!(
+        "<time class=\"ts-change__time\" datetime=\"{}\">{}</time>",
         esc(&row.time),
-        esc(clock(&row.time)),
+        esc(clock(&row.time))
+    );
+    let time = match diff_href(row) {
+        Some(href) => link(&href, &time, " class=\"ts-change__diff\""),
+        None => time,
+    };
+    let mut s = format!(
+        "<li class=\"ts-change ts-change--{}\"><span class=\"ts-change__part\">{time}</span><span class=\"ts-change__part\">{}</span>",
+        esc(&row.kind),
         origin_chip(m, site, row)
     );
     if row.kind == "erased" {
@@ -433,7 +452,7 @@ fn row_html(m: &Messages, site: &SiteInfo, row: &ActivityRow) -> String {
 }
 
 /// The rows, grouped by day.
-fn list_html(m: &Messages, site: &SiteInfo, rows: &[ActivityRow]) -> String {
+pub(crate) fn list_html(m: &Messages, site: &SiteInfo, rows: &[ActivityRow]) -> String {
     let mut s = String::new();
     let mut day: Option<&str> = None;
     for row in rows {
