@@ -68,7 +68,7 @@ Domains are also a bulk-ingest target. Citation data carries URLs, and every URL
 
 ### 9. Key-mapped providers (amends 0002 §4 and §5)
 
-*Changed by A2, A4, A6, A13.*
+*Changed by A2, A4, A6, A13, A14.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §2, §4.1, §4.2, §8.4, §8.6.*
 

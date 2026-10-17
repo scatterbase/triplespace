@@ -43,7 +43,7 @@ This ADR records the rest. The frontend is in 0034.
 
 ### 4. Postgres
 
-*Changed by A9.*
+*Changed by A9, A20.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §1.4, §5.*
 
