@@ -63,6 +63,10 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "0009_keyed_map_aliases",
         sql: include_str!("../migrations/0009_keyed_map_aliases.sql"),
     },
+    Migration {
+        name: "0010_revision_state",
+        sql: include_str!("../migrations/0010_revision_state.sql"),
+    },
 ];
 
 /// The crate name migrations are recorded under.

@@ -35,8 +35,10 @@ enum Command {
         #[command(subcommand)]
         command: accounts::Subsidiary,
     },
-    /// Partitions, heads and projection lags.
+    /// Partitions, heads and projection lags, and any migration not yet applied.
     Status(status::Target),
+    /// Apply the migrations this binary carries that the database has not applied.
+    Migrate(status::Database),
     /// Replay every projection from the log.
     Rebuild(status::Target),
 }
@@ -74,6 +76,7 @@ async fn main() -> Result<()> {
         } => accounts::run_password_set(args).await,
         Command::Subsidiary { command } => accounts::run_subsidiary(command).await,
         Command::Status(args) => status::status(args).await,
+        Command::Migrate(args) => status::migrate(args).await,
         Command::Rebuild(args) => status::rebuild(args).await,
     }
 }

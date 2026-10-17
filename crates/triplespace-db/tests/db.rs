@@ -90,9 +90,19 @@ async fn migrations_apply_once_and_notice_edits() {
     }
     let mut client = fresh().await;
     let m = migrator();
+    // Before anything is applied, everything is pending; a database an older binary
+    // made is the same from the newer binary's side, which is what `triplespace migrate`
+    // and the server's startup check read.
+    let pending = m.pending(&client).await.unwrap();
+    assert_eq!(pending.len(), m.migrations().count());
+    assert_eq!(
+        pending[0],
+        ("scatter-log-postgres".into(), "0001_log".into())
+    );
     let first = m.apply(&mut client).await.unwrap();
     assert_eq!(first.applied.len(), m.migrations().count());
     assert!(first.skipped.is_empty());
+    assert!(m.pending(&client).await.unwrap().is_empty());
     let second = m.apply(&mut client).await.unwrap();
     assert!(second.applied.is_empty());
     assert_eq!(second.skipped.len(), first.applied.len());

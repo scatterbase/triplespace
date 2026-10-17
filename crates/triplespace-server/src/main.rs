@@ -72,6 +72,22 @@ async fn main() -> Result<()> {
     let key = triplespace_cli::common::signing_key(&args.key_file)?;
     let secret = triplespace_accounts_secret(&key);
     let client = triplespace_cli::common::connect(&args.database).await?;
+    // A database behind this binary's migrations would answer every read that touches a
+    // missing table with an internal error; refuse up front and name the fix.
+    let pending = triplespace_db::migrator()
+        .pending(&client)
+        .await
+        .context("migrations")?;
+    if !pending.is_empty() {
+        bail!(
+            "the database has not applied {}; run `triplespace migrate` first",
+            pending
+                .iter()
+                .map(|(c, n)| format!("{c}/{n}"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+    }
     let farm = triplespace_cli::common::farm_of(
         &client,
         args.farm_slug.as_deref(),

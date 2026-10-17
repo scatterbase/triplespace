@@ -22,6 +22,7 @@ expression: main
 <a href="/wiki/Domain:wikipedia.org?oldid=1099511627817">Revision 1099511627817</a> <time datetime="2026-10-02T12:00:00Z">2026-10-02 12:00:00</time>
 </p>
 <div class="ts-diff__body">
+<div class="ts-diff__main">
 <p class="ts-diff__sync">Synced from upstream revision 56 to 57.</p>
 <section class="ts-diff__section">
 <h3 class="ts-diff__heading">What the sync changed</h3>
@@ -54,6 +55,7 @@ expression: main
 </tbody>
 </table>
 </section>
+</div>
 <aside class="ts-diff__about">
 <h3>About this edit</h3>
 <dl>

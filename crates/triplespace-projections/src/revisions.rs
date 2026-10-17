@@ -2,13 +2,13 @@
 //! `prop=revisions` with content, `GET /entity/{id}/changes/{partition}/{offset}` and
 //! `GET /entity/{id}/compare` read.
 //!
-//! **This is the fold, not the table.** 0083 §4 has every local revision's state in
-//! `view.entity_revision`, written by the appending transaction, so that a past state is
-//! one row and never a replay. That table does not exist yet; until the tier-1 state of
-//! 0083 lands, [`local_state_at`] folds the subject's local records up to the revision,
-//! the same fold [`crate::read::current`] already does for the latest state, bounded by
-//! the subject's own local record count. Callers hold the same signatures either way:
-//! a revision in, a [`LocalState`] out. 0083's log notes this stepping stone.
+//! **One row, not a replay.** 0083 §4 has every local revision's state in
+//! `view.entity_revision`, written by the appending transaction
+//! ([`crate::revision_state`]); [`local_state_at`] and [`local_change_at`] read that row
+//! and the record it belongs to. For a row the table does not have — a database migrated
+//! to the table but not yet rebuilt — they fall back to the fold of the subject's local
+//! records (0083 A1), the same fold [`crate::read::current`] performs for the latest
+//! state, so an instance answers either way and a rebuild makes the fallback moot.
 //!
 //! Mirror states are not reconstructable here: under the `latest` policy only the
 //! current `put` exists, and under `full` each observed state is its own record, which
@@ -21,9 +21,12 @@ use scatter_wikibase_changeset::Operation;
 use scatter_wikibase_changeset::apply::LocalState;
 use scatter_wikibase_model::id::EntityId;
 
+use scatter_log::store::Slot;
+
 use crate::common::{
     PAYLOAD_CHANGESET, Partitions, attested, comment, header_key_for, operation, partition_of,
 };
+use crate::revision_state;
 use crate::sources::entity_subject;
 
 /// One local revision of a subject: the record and what it did.
@@ -99,26 +102,91 @@ pub async fn local_revisions<C: Partitions>(
     Ok(out)
 }
 
-/// The local graph's state after the revision at `offset`: the fold of every local
-/// record up to and including it. `None` when no local record of the subject is at that
-/// offset.
+/// The local revision at an offset of the tenant's local partition: the record, read
+/// alone. `None` when there is no change-set record about `id` there.
+async fn revision_at<C: Partitions>(
+    client: &C,
+    partition: u64,
+    id: &EntityId,
+    offset: u64,
+) -> Result<Option<LocalRevision>, String> {
+    let slot = match log::read(client, partition, offset).await {
+        Ok(s) => s,
+        Err(scatter_log::store::StoreError::NoOffset { .. }) => return Ok(None),
+        Err(e) => return Err(e.to_string()),
+    };
+    let Slot::Record(record) = slot else {
+        return Ok(None);
+    };
+    let Some(op) = revision_of(&record)? else {
+        return Ok(None);
+    };
+    if entity_subject(&op).as_ref() != Some(id) {
+        return Ok(None);
+    }
+    let a = attested(&record);
+    Ok(Some(LocalRevision {
+        header: record.header().clone(),
+        operation: op,
+        actor: a.actor,
+        comment: comment(&record),
+        tags: a.tags,
+    }))
+}
+
+/// The local graph's state after the revision at `offset`: the `view.entity_revision`
+/// row (0083 §4), or the fold of every local record up to and including it where the
+/// table has no row. `None` when no local record of the subject is at that offset.
 pub async fn local_state_at<C: Partitions>(
     client: &C,
     tenant: &str,
     id: &EntityId,
     offset: u64,
 ) -> Result<Option<(LocalRevision, LocalState)>, String> {
+    if let Some(partition) = partition_of(client, tenant, "local").await?
+        && let Some((state, _)) = revision_state::state_at_record(client, partition, offset).await?
+        && let Some(revision) = revision_at(client, partition, id, offset).await?
+    {
+        return Ok(Some((revision, state)));
+    }
     let revisions = local_revisions(client, tenant, id).await?;
     Ok(fold_to(&revisions, offset))
 }
 
-/// The state just before and just after one revision, with the revision itself.
+/// The state just before and just after one revision, with the revision itself: two
+/// `view.entity_revision` rows and two records, or the fold where either row is missing.
+///
+/// The row before is the one at the previous offset the stored state lists in its
+/// `offsets`, not the table's nearest earlier row: on a database migrated but not rebuilt
+/// the nearest row may be older than the previous revision, or absent, and the fold is
+/// then the right answer.
 pub async fn local_change_at<C: Partitions>(
     client: &C,
     tenant: &str,
     id: &EntityId,
     offset: u64,
 ) -> Result<Option<Change>, String> {
+    if let Some(partition) = partition_of(client, tenant, "local").await?
+        && let Some((after, _)) = revision_state::state_at_record(client, partition, offset).await?
+        && let Some(revision) = revision_at(client, partition, id, offset).await?
+    {
+        let prev_offset = after.offsets.iter().rev().nth(1).copied();
+        let before = match prev_offset {
+            None => Some((LocalState::new(), None)),
+            Some(po) => match revision_state::state_at_record(client, partition, po).await? {
+                Some((state, _)) => Some((state, revision_at(client, partition, id, po).await?)),
+                None => None,
+            },
+        };
+        if let Some((before, previous)) = before {
+            return Ok(Some(Change {
+                revision,
+                before,
+                after,
+                previous,
+            }));
+        }
+    }
     let revisions = local_revisions(client, tenant, id).await?;
     Ok(change_at(&revisions, offset))
 }

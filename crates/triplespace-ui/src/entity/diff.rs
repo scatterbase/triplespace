@@ -800,8 +800,11 @@ pub async fn serve(
         }
         (None, None, _) => String::new(),
     };
-    body.push_str("<div class=\"ts-diff__body\">");
+    // One grid cell for the sections, one for the panel: the sections are several
+    // elements, and placed in the grid directly they would take a column each.
+    body.push_str("<div class=\"ts-diff__body\"><div class=\"ts-diff__main\">");
     body.push_str(&main);
+    body.push_str("</div>");
     if let Some(c) = &change {
         body.push_str(&about_html(m, &cx.site, c));
     }

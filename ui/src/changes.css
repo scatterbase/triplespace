@@ -209,6 +209,10 @@
 	}
 }
 
+.ts-diff__main {
+	min-width: 0;
+}
+
 .ts-diff__section {
 	margin: 0;
 }

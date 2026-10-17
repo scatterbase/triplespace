@@ -38,6 +38,7 @@ expression: main
 </ul>
 </nav>
 <div class="ts-diff__body">
+<div class="ts-diff__main">
 <section class="ts-diff__section">
 <h3 class="ts-diff__heading">Labels</h3>
 <table class="ts-diff__table">
@@ -335,6 +336,7 @@ expression: main
 </tbody>
 </table>
 </section>
+</div>
 <aside class="ts-diff__about">
 <h3>About this edit</h3>
 <dl>
