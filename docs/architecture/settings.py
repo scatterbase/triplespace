@@ -24,10 +24,10 @@ CHAPTER = os.path.join(ROOT, "architecture", "23-configuration-and-registry.md")
 TYPES = {"boolean", "integer", "duration", "size", "text", "string", "url", "language", "language-list", "choice",
          "string-list", "integer-list", "map", "json", "page", "page-list", "file", "group", "actor", "repository",
          "repository-list", "property-list", "namespace-list", "site", "licence", "collation", "pattern", "schedule",
-         "site-asset"}
+         "site-asset", "palette", "typeset"}
 FIELDS = {"key", "scope", "bound", "ceiling", "tenant_may_narrow", "group", "type", "choices", "values", "default",
           "default_text", "no_default", "media", "by_rule", "scope_note", "right", "reported", "meaning", "source", "retired"}
-CANON_VALUES = {"boolean": "off, on", "integer": "integer", "duration": "duration", "size": "size", "text": "text",
+CANON_VALUES = {"palette": "a palette", "typeset": "a type set", "boolean": "off, on", "integer": "integer", "duration": "duration", "size": "size", "text": "text",
                 "url": "URL", "language": "a language", "language-list": "language list", "file": "a `File:` title"}
 
 LISTS = {"language-list", "string-list", "integer-list", "page-list", "repository-list", "property-list", "namespace-list"}

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-17 (A59)
+- **Updated:** 2026-10-17 (A60)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md)
 - **Uses:** [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md)
@@ -36,7 +36,7 @@ Two smaller gaps are closed with them: the document node of a foreign entity on 
 
 ### 3. The `config` partition (amends 0005 §4.1; extends 0006 §4 and §6)
 
-*Changed by A3, A4, A5, A6, A8, A9, A10, A11, A12, A13, A16, A19, A20, A21, A23, A24, A26, A27, A28, A30, A31, A32, A33, A34, A35, A36, A37, A39, A40, A41, A42, A44, A47, A52, A54, A57, A58, A59.*
+*Changed by A3, A4, A5, A6, A8, A9, A10, A11, A12, A13, A16, A19, A20, A21, A23, A24, A26, A27, A28, A30, A31, A32, A33, A34, A35, A36, A37, A39, A40, A41, A42, A44, A47, A52, A54, A57, A58, A59, A60.*
 
 *Current text: [23](../architecture/23-configuration-and-registry.md) §1.1, §1.2, §1.3, §1.4, §2.1, §2.2, §2.3, §2.4, §3.1, §3.2, §3.7, §5.2.*
 
@@ -686,3 +686,10 @@ Replaced text ([23](../architecture/23-configuration-and-registry.md) §3.7, as 
 Replaced text ([02](../architecture/02-graphs-rdf-and-query.md) §1.4, as it stood):
 
 > | `preferences.toml` | The registered preference keys, types and defaults | [0027](0027-preferences-and-portability.md) §1 |
+
+### A60. The `palette` and `typeset` kinds
+
+- **Date:** 2026-10-17
+- **Source:** [0086](0086-theming.md) §1
+- **Change:** extends §3
+- **Summary:** Two config kinds at instance or tenant scope, written with `ts-config`: `palette`, keyed `palette:{name}`, holding a palette's label, shape tokens, colour variants, the palette it extends and its accessibility mark, and `typeset`, keyed `typeset:{name}`, holding a type set's label, typeface roles, per-language stacks, typefaces and accessibility mark. `docs/registry/themes.toml` holds the shipped ones in the same shape. The chapter rows are [23](../architecture/23-configuration-and-registry.md) §2.2.

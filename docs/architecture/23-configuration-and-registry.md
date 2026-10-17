@@ -62,7 +62,7 @@ Five kinds are defined by `scatter-log`: two because the log cannot start withou
 
 ### 2.2 The catalogue of Triplespace's kinds
 
-*Sources: [0015](../decisions/0015-record-format-and-partition-registry.md) §3; [0029](../decisions/0029-resolver-namespaces.md) §8; [0069](../decisions/0069-synchronized-talk-pages.md) §11; [0082](../decisions/0082-source-form-and-the-shared-view.md) §5, §5.2; [0085](../decisions/0085-settings-and-preferences.md) §1, §7.*
+*Sources: [0015](../decisions/0015-record-format-and-partition-registry.md) §3; [0029](../decisions/0029-resolver-namespaces.md) §8; [0069](../decisions/0069-synchronized-talk-pages.md) §11; [0082](../decisions/0082-source-form-and-the-shared-view.md) §5, §5.2; [0085](../decisions/0085-settings-and-preferences.md) §1, §7; [0086](../decisions/0086-theming.md) §1.*
 
 The remaining kinds are Triplespace's, and each product declares its own. The scope column is [0015](../decisions/0015-record-format-and-partition-registry.md) §3's: where its table says nothing, the scope is the one its scope paragraph implies (§1.3).
 
@@ -86,6 +86,8 @@ The remaining kinds are Triplespace's, and each product declares its own. The sc
 | `view-pin` | `{property}` or `{entity}:{property}` | Tenant | A tenant-wide shape pin | [0027](../decisions/0027-preferences-and-portability.md) §5 |
 | `tenancy` | A switch name | Instance | The tenancy policy ([08](08-tenants-and-instances.md)) | [0028](../decisions/0028-tenancy-policy.md) §1 |
 | `template` | `{kind}:{code}` | Instance | A tenant-config record new tenants start from; `tenancy:locked` lists the locked keys | [0028](../decisions/0028-tenancy-policy.md) §8 |
+| `palette` | The palette's name | Tenant or instance | A palette: label, shape tokens, the palette it extends, whether it is for accessibility, and its `light`, `dark`, `light-more` and `dark-more` colour variants, each contrast-checked | [0086](../decisions/0086-theming.md) §1 |
+| `typeset` | The type set's name | Tenant or instance | A type set: label, the three `font-family-*` roles, per-language stacks, its typefaces (shipped, or font files named as site assets with their licences), and whether it is for accessibility | [0086](../decisions/0086-theming.md) §1, §3 |
 | `provider-readers` | `mode` or `list` | Tenant | Which tenants may read this provider tenant | [0028](../decisions/0028-tenancy-policy.md) §5 |
 | `resolver` | The resolver name | Tenant | A resolver namespace: binding, grammar, normalizer with case rule, external IRI. Adding a resolver is a `config` record with `ts-config`; binding its role is the ordinary `role` record | [0029](../decisions/0029-resolver-namespaces.md) §1, §8 |
 | `federation-policy` | `deny` (instance), `mode` or `list` (tenant) | Both | Fediverse domain allow and deny lists | [0022](../decisions/0022-federation.md) §8 |
@@ -278,10 +280,12 @@ The table is generated from `settings.toml` (§3.1). Each row cites the ADR sect
 | `talk.upstream_audit_days` | `site` | tenant | days | 90 | How long a failed upstream send's text is kept | [0069](../decisions/0069-synchronized-talk-pages.md) §5, §11 |
 | `talk.upstream_post` | `site` | tenant | off, on | `on` where any repository has `talk = sync` | Whether replies and new sections may be sent upstream at all | [0069](../decisions/0069-synchronized-talk-pages.md) §11 |
 | `templatestyles.max_bytes` | `site` | tenant | size | 100 KB (`$wgTemplateStylesMaxStylesheetSize`) | Largest TemplateStyles sheet | [0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §2 |
+| `theme.choice` | `site` | tenant | `any`, `accessibility` | `any` | What readers may choose: `any` palette and type set the wiki offers, or only the accessibility choices (mode, contrast, text size, accessibility palettes and type sets), which are never withheld | [0086](../decisions/0086-theming.md) §4 |
+| `theme.palette` | `site` | tenant | a palette the tenant offers | `parchment` | The wiki's palette: the colours of every page, for readers who have not chosen another | [0086](../decisions/0086-theming.md) §4 |
+| `theme.typeset` | `site` | tenant | a type set the tenant offers | `default26` | The wiki's type set: the typefaces of every page, for readers who have not chosen another | [0086](../decisions/0086-theming.md) §4 |
 | `thread.max_attachments` | `site` | tenant | integer | 5 | Home and listings of a thread together | [0049](../decisions/0049-boards.md) §5 |
 | `thread.max_pinned` | `site` | tenant | integer | 3 | Pinned threads per page | [0049](../decisions/0049-boards.md) §6; [0069](../decisions/0069-synchronized-talk-pages.md) §4, §11 |
 | `ui.count_threshold` | `site` | tenant | integer | 10,000 | Counts above it (`ref_count`, revision counts) render as "10,000+" rather than exactly | [0010](../decisions/0010-site-ui.md) §2 |
-| `ui.theme` | `site`; the instance or a tenant | tenant | Codex token values | Codex's own values | The theme a site is served with; refused when its colours fail WCAG 2.1 AA contrast | [0034](../decisions/0034-frontend-stack.md) §1 |
 | `updates.enabled` | `site` | tenant | off, on | off | Whether the RDF delta consumer runs for this tenant, writing `view.rdf_delta` from composition events; off, no delta is computed and the update stream is unavailable ([02](02-graphs-rdf-and-query.md)) | [0083](../decisions/0083-write-path-in-three-tiers.md) §3 |
 | `updates.retention` | `site` | tenant | duration | 30 days | Window of `view.rdf_delta` rows | [0032](../decisions/0032-sparql-update-stream.md) §3 |
 | `upstream.retire_adopted` | `site` | tenant | `true`, `false` | `true` | Retire a local assertion when upstream adopts it | [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §7; [0067](../decisions/0067-proposals.md) §5 |

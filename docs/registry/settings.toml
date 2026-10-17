@@ -25,7 +25,7 @@
 # type          boolean | integer | duration (ISO 8601) | size | text | string | url | language |
 #               language-list | choice | string-list | integer-list | map | json, or a reference kind:
 #               page | page-list | file | group | actor | repository | repository-list | property-list |
-#               namespace-list | site | licence | collation | pattern | schedule; or site-asset, a pinned
+#               namespace-list | site | licence | collation | pattern | schedule | palette | typeset; or site-asset, a pinned
 #               version of a local file the setting uses for a site function, public while named (0085 §8).
 # media         For type "site-asset": the media types it accepts.
 # choices       For type "choice": the permitted values.
@@ -1478,6 +1478,42 @@ meaning = "Largest TemplateStyles sheet"
 source = "[0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §2"
 
 [[setting]]
+key = "theme.choice"
+scope = "tenant"
+bound = "tenant"
+group = "site"
+type = "choice"
+choices = ["any", "accessibility"]
+default = "any"
+reported = true
+meaning = "What readers may choose: `any` palette and type set the wiki offers, or only the accessibility choices (mode, contrast, text size, accessibility palettes and type sets), which are never withheld"
+source = "[0086](../decisions/0086-theming.md) §4"
+
+[[setting]]
+key = "theme.palette"
+scope = "tenant"
+bound = "tenant"
+group = "site"
+type = "palette"
+values = "a palette the tenant offers"
+default = "parchment"
+reported = true
+meaning = "The wiki's palette: the colours of every page, for readers who have not chosen another"
+source = "[0086](../decisions/0086-theming.md) §4"
+
+[[setting]]
+key = "theme.typeset"
+scope = "tenant"
+bound = "tenant"
+group = "site"
+type = "typeset"
+values = "a type set the tenant offers"
+default = "default26"
+reported = true
+meaning = "The wiki's type set: the typefaces of every page, for readers who have not chosen another"
+source = "[0086](../decisions/0086-theming.md) §4"
+
+[[setting]]
 key = "thread.max_attachments"
 scope = "tenant"
 bound = "tenant"
@@ -1519,7 +1555,8 @@ default_text = "Codex's own values"
 scope_note = "`site`; the instance or a tenant"
 reported = true
 meaning = "The theme a site is served with; refused when its colours fail WCAG 2.1 AA contrast"
-source = "[0034](../decisions/0034-frontend-stack.md) §1"
+retired = true
+source = "[0034](../decisions/0034-frontend-stack.md) §1; retired by [0086](../decisions/0086-theming.md) §1"
 
 [[setting]]
 key = "updates.enabled"

@@ -2,7 +2,8 @@
 #
 # extensions  File-name extensions, matched without regard to case; the first is canonical.
 # mime        The MIME type the bytes must be detected as (0039 §5 check 2).
-# media_type  MediaWiki's media type: BITMAP, DRAWING, AUDIO, VIDEO, MULTIMEDIA, OFFICE, TEXT, ARCHIVE, 3D.
+# media_type  MediaWiki's media type: BITMAP, DRAWING, AUDIO, VIDEO, MULTIMEDIA, OFFICE, TEXT, ARCHIVE, 3D,
+#             UNKNOWN.
 # magic       How the type is detected: a named signature implemented in `scatter-files`.
 # serve       "inline" or "attachment" on the media base (0039 §7). SVG originals are served
 #             inline only under the sandboxing CSP and a separate media origin.
@@ -169,3 +170,32 @@ magic = "stl"
 serve = "attachment"
 thumbnailer = "none"
 default = false
+
+# Favicons and touch icons for `site.icon` (0085 §7).
+[[type]]
+extensions = ["ico"]
+mime = "image/vnd.microsoft.icon"
+media_type = "BITMAP"
+magic = "ico"
+serve = "inline"
+thumbnailer = "none"
+default = true
+
+# Font files for type sets, served as site assets (0086 §3). Never rendered inline as documents.
+[[type]]
+extensions = ["woff2"]
+mime = "font/woff2"
+media_type = "UNKNOWN"
+magic = "woff2"
+serve = "attachment"
+thumbnailer = "none"
+default = true
+
+[[type]]
+extensions = ["woff"]
+mime = "font/woff"
+media_type = "UNKNOWN"
+magic = "woff"
+serve = "attachment"
+thumbnailer = "none"
+default = true

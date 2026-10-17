@@ -1,101 +1,453 @@
-# Themes: values for Codex design tokens.  ADR 0034 §1.
+# Themes: palettes and type sets, values for Codex design tokens.  ADR 0034 §1; ADR 0086.
 #
-# A theme sets Codex's design tokens (colours, typefaces, radii, spacing), never a component's
-# markup or behaviour. The site serves a theme as a stylesheet of CSS custom properties named by a
-# hash of its values (0034 §1). An instance or a tenant sets its own with the `ui.theme` site
-# setting (0015 §3), whose `value` holds tokens in the form below and overrides these one by one.
+# A palette sets Codex's colour tokens, per variant, and the shape tokens (radii); a type set sets the
+# typeface tokens and lists the typefaces it serves. Neither sets a component's markup or behaviour. An
+# instance or a tenant adds its own as `palette` and `typeset` config records of the same shape (0086 §1);
+# this file is the registry an instance's `config` starts from and is synced against (23 §4.1).
 #
-# [theme.default] is what Triplespace ships: the palette and type of the site and statement UI
-# canvases (0010, 0003), as decided on 2026-10-03 (0034 A8). Tokens it does not name keep Codex's
-# values. Keys are Codex token names without the leading `--`, as @wikimedia/codex-design-tokens
-# names them in theme-wikimedia-ui.css; a key Codex does not define is an error when the site
-# builds its stylesheet.
+# Keys are Codex token names without the leading `--`, as @wikimedia/codex-design-tokens names them; a key
+# Codex does not define is an error when the site builds its stylesheet. Tokens a variant does not name keep
+# Codex's values for that mode: `light` overlays theme-wikimedia-ui.css, `dark` overlays
+# theme-wikimedia-ui-mode-dark.css, and `light-more` and `dark-more` overlay this palette's own `light` and
+# `dark`. A palette without `dark` takes the default palette's (0086 §2).
 #
-# Contrast. Every text colour here meets WCAG 2.1 AA (4.5:1) on background-color-base and on
-# background-color-neutral-subtle, white text meets it on background-color-progressive,
-# color-warning meets it on background-color-warning-subtle (the Local chip, 0010 §2), and the
-# boundaries of interactive controls (border-color-base, border-color-interactive) and the focus
-# outline meet 3:1 (WCAG 1.4.11). border-color-subtle and border-color-muted are decorative. A
-# theme set through `ui.theme` is refused when it breaks one of these pairs (0034 §1).
+# Contrast (0086 §2). Each variant is checked as served, merged over Codex's values for its mode. In `light`
+# and `dark` every text pair meets WCAG 2.1 AA (4.5:1) and the boundaries of controls and the focus outline
+# 3:1 (WCAG 1.4.11); in `light-more` and `dark-more` text meets 7:1 (AAA, 1.4.6) and those boundaries 4.5:1.
+# The pairs are crates/triplespace-ui/src/theme.rs's TEXT_PAIRS and UI_PAIRS, plus button labels
+# (`color-inverted-fixed`, white in every mode, on `background-color-progressive` and its hover and active
+# states, and on `background-color-destructive`) and the error, destructive and success colours on the page
+# and on their subtle backgrounds.
 #
-# Fonts. The typefaces are served by the site from its own origin, as CSP requires (0034 §11):
-# Newsreader for headings, IBM Plex Sans for text, IBM Plex Mono for IDs and code. All three are
-# under the SIL Open Font License 1.1, which permits bundling them with GPL software.
+# A palette may extend another (`extends`): each of its variants overlays the same variant of the palette it
+# extends, so an accessibility palette states only the colours it changes. `accessibility = true` marks a
+# palette or type set a reader may always choose (0086 §2–4).
+#
+# Typefaces are served by the site from its own origin, as CSP requires (0034 §11); a tenant's own are site
+# assets (0085 §8). Each carries an allow-listed licence (OFL-1.1, Apache-2.0, UFL-1.0), which permits bundling
+# with GPL software.
 
-version = 1
+version = 2
 
+# The version-1 theme `default` is the palette `parchment` with the type set `default26`; its name is kept,
+# retired, so it is never given another meaning.
 [theme.default]
-label = "Triplespace"
+retired = true
+replaced_by = ["palette.parchment", "typeset.default26"]
 
-# Text
+# --- Palettes -----------------------------------------------------------------------------------------
+
+# The palette of the site and statement UI canvases (0010, 0003), shipped on 2026-10-03 (0034 A8) and named
+# `parchment` on 2026-10-17; its dark variant is walnut brown (0086).
+[palette.parchment]
+label = "Parchment"
+# Shape tokens (radii and spacing) apply to every variant; parchment sets the radius and keeps Codex's spacing.
+border-radius-base = "6px"
+
+[palette.parchment.light]
 color-base = "#1D1C1A"
 color-emphasized = "#0F0E0D"
 color-neutral = "#3F3C36"
-color-warning = "#7A3F05"
-color-subtle = "#5E5A52"
 color-placeholder = "#6B665D"
-
-# Links and progressive actions
 color-progressive = "#2B559E"
-"color-progressive--hover" = "#1C3D78"
 "color-progressive--active" = "#142C59"
 "color-progressive--focus" = "#2B559E"
+"color-progressive--hover" = "#1C3D78"
+color-subtle = "#5E5A52"
 color-visited = "#5A4D91"
-"color-visited--hover" = "#463A78"
 "color-visited--active" = "#2E2652"
-
-# Surfaces: components on a warm ground
+"color-visited--hover" = "#463A78"
+color-warning = "#7A3F05"
 background-color-base = "#FCFBF8"
-background-color-neutral-subtle = "#F4F2EC"
-background-color-neutral = "#EDEAE2"
-background-color-warning-subtle = "#FBEFD9"
 background-color-interactive = "#EDEAE2"
-"background-color-interactive--hover" = "#E4E0D6"
 "background-color-interactive--active" = "#D9D4C8"
+"background-color-interactive--hover" = "#E4E0D6"
+background-color-neutral = "#EDEAE2"
+background-color-neutral-subtle = "#F4F2EC"
 background-color-progressive = "#2B559E"
-"background-color-progressive--hover" = "#1C3D78"
 "background-color-progressive--active" = "#142C59"
 "background-color-progressive--focus" = "#2B559E"
+"background-color-progressive--hover" = "#1C3D78"
 background-color-progressive-subtle = "#EEF2F8"
-"background-color-progressive-subtle--hover" = "#E1E8F3"
 "background-color-progressive-subtle--active" = "#CCD8EC"
-
-# Borders
+"background-color-progressive-subtle--hover" = "#E1E8F3"
+background-color-warning-subtle = "#FBEFD9"
 border-color-base = "#8C867A"
-border-color-subtle = "#D9D4C8"
-border-color-muted = "#E4E0D6"
 border-color-divider = "#D9D4C8"
 border-color-emphasized = "#1D1C1A"
 border-color-interactive = "#7A7468"
-"border-color-interactive--hover" = "#3F3C36"
 "border-color-interactive--active" = "#1D1C1A"
+"border-color-interactive--hover" = "#3F3C36"
+border-color-muted = "#E4E0D6"
 border-color-progressive = "#2B559E"
-"border-color-progressive--hover" = "#1C3D78"
 "border-color-progressive--active" = "#142C59"
 "border-color-progressive--focus" = "#2B559E"
-"outline-color-progressive--focus" = "#2B559E"
+"border-color-progressive--hover" = "#1C3D78"
+border-color-subtle = "#D9D4C8"
 "box-shadow-color-progressive--focus" = "#2B559E"
+"outline-color-progressive--focus" = "#2B559E"
 
-# Type
+[palette.parchment.dark]
+color-base = "#EDE4D6"
+color-emphasized = "#FBF6EE"
+color-inverted = "#1E1813"
+color-neutral = "#D9CEBE"
+color-placeholder = "#A89A85"
+color-progressive = "#9DB6EA"
+"color-progressive--active" = "#CDDAF6"
+"color-progressive--focus" = "#9DB6EA"
+"color-progressive--hover" = "#B8CBF1"
+color-subtle = "#BBAD99"
+color-visited = "#C5B3EC"
+"color-visited--active" = "#E2D9F7"
+"color-visited--hover" = "#D5C8F2"
+color-warning = "#F2B66A"
+background-color-base = "#1E1813"
+background-color-interactive = "#31281F"
+"background-color-interactive--active" = "#473B2F"
+"background-color-interactive--hover" = "#3B3127"
+background-color-neutral = "#31281F"
+background-color-neutral-subtle = "#271F19"
+background-color-progressive = "#4C73C2"
+"background-color-progressive--active" = "#4061A5"
+"background-color-progressive--focus" = "#4C73C2"
+"background-color-progressive--hover" = "#476BB5"
+background-color-progressive-subtle = "#262C38"
+"background-color-progressive-subtle--active" = "#384257"
+"background-color-progressive-subtle--hover" = "#2E3646"
+background-color-warning-subtle = "#3B2914"
+border-color-base = "#8E7E6A"
+border-color-divider = "#4A3E33"
+border-color-emphasized = "#EDE4D6"
+border-color-interactive = "#9C8B76"
+"border-color-interactive--active" = "#EDE4D6"
+"border-color-interactive--hover" = "#CABBA6"
+border-color-muted = "#3B3127"
+border-color-progressive = "#9DB6EA"
+"border-color-progressive--active" = "#CDDAF6"
+"border-color-progressive--focus" = "#9DB6EA"
+"border-color-progressive--hover" = "#B8CBF1"
+border-color-subtle = "#4A3E33"
+"box-shadow-color-progressive--focus" = "#9DB6EA"
+"outline-color-progressive--focus" = "#9DB6EA"
+
+# Overlays `light`: text at 7:1, control boundaries at 4.5:1.
+[palette.parchment.light-more]
+color-base = "#141311"
+color-emphasized = "#000000"
+color-neutral = "#2B2925"
+color-placeholder = "#4D4942"
+color-progressive = "#1C3D78"
+"color-progressive--active" = "#0E1F40"
+"color-progressive--focus" = "#1C3D78"
+"color-progressive--hover" = "#142C59"
+color-subtle = "#45413A"
+color-visited = "#463A78"
+"color-visited--active" = "#221C3D"
+"color-visited--hover" = "#2E2652"
+color-warning = "#5C2F03"
+background-color-base = "#FFFFFF"
+background-color-neutral-subtle = "#F7F5F0"
+background-color-progressive = "#1C3D78"
+"background-color-progressive--active" = "#0E1F40"
+"background-color-progressive--focus" = "#1C3D78"
+"background-color-progressive--hover" = "#142C59"
+border-color-base = "#5E5A52"
+border-color-divider = "#8C867A"
+border-color-interactive = "#4F4B44"
+border-color-muted = "#B5AFA3"
+border-color-progressive = "#1C3D78"
+"border-color-progressive--focus" = "#1C3D78"
+border-color-subtle = "#8C867A"
+"box-shadow-color-progressive--focus" = "#1C3D78"
+"outline-color-progressive--focus" = "#1C3D78"
+
+# Overlays `dark`: text at 7:1, control boundaries at 4.5:1.
+color-error = "#8D2C21"
+color-destructive = "#8D2C21"
+color-success = "#115847"
+background-color-destructive = "#9F3225"
+"background-color-destructive--hover" = "#8D2C21"
+"background-color-destructive--active" = "#7D271D"
+
+[palette.parchment.dark-more]
+color-base = "#F7F1E8"
+color-emphasized = "#FFFFFF"
+color-inverted = "#17120E"
+color-neutral = "#E8DFD2"
+color-placeholder = "#C9BCA9"
+color-progressive = "#B8CBF1"
+"color-progressive--active" = "#E0E8FA"
+"color-progressive--focus" = "#B8CBF1"
+"color-progressive--hover" = "#CDDAF6"
+color-subtle = "#D6CBBB"
+color-visited = "#D5C8F2"
+"color-visited--active" = "#EEE8FB"
+"color-visited--hover" = "#E2D9F7"
+color-warning = "#F8CC8E"
+background-color-base = "#17120E"
+background-color-neutral-subtle = "#1F1913"
+background-color-progressive = "#385694"
+"background-color-progressive--active" = "#2D498A"
+"background-color-progressive--focus" = "#385694"
+"background-color-progressive--hover" = "#335090"
+background-color-progressive-subtle = "#1E2430"
+background-color-warning-subtle = "#2E200F"
+border-color-base = "#B3A38D"
+border-color-divider = "#6B5D4E"
+border-color-interactive = "#C0B09A"
+border-color-muted = "#4A3E33"
+border-color-progressive = "#B8CBF1"
+"border-color-progressive--focus" = "#B8CBF1"
+border-color-subtle = "#6B5D4E"
+"box-shadow-color-progressive--focus" = "#B8CBF1"
+"outline-color-progressive--focus" = "#B8CBF1"
+color-error = "#FD9282"
+color-destructive = "#FD9282"
+color-success = "#30C59F"
+background-color-destructive = "#9F3225"
+"background-color-destructive--hover" = "#8D2C21"
+"background-color-destructive--active" = "#7D271D"
+
+# --- Accessibility palettes (0086 §2): readers may always choose them --------------------------------
+
+# For red–green colour-vision deficiencies (deuteranopia, protanopia): error and removed text in vermillion
+# orange, success and added text in cerulean, kept apart from link blue; warnings in umber. Named after the
+# orange and blue it uses (James, 2026-10-17).
+[palette.parchment-ob]
+label = "Parchment, orange and blue"
+extends = "parchment"
+accessibility = true
+
+[palette.parchment-ob.light]
+color-error = "#A84300"
+color-destructive = "#A84300"
+color-success = "#087691"
+color-warning = "#634021"
+color-visited = "#6A3D7A"
+"color-visited--hover" = "#6A3D7A"
+"color-visited--active" = "#6A3D7A"
+background-color-error-subtle = "#FBE7D6"
+background-color-destructive-subtle = "#FBE7D6"
+background-color-success-subtle = "#E6F3F6"
+background-color-warning-subtle = "#F3ECE4"
+background-color-destructive = "#A84300"
+"background-color-destructive--hover" = "#A84300"
+"background-color-destructive--active" = "#A84300"
+border-color-error = "#A84300"
+border-color-destructive = "#A84300"
+border-color-success = "#087691"
+border-color-warning = "#634021"
+
+[palette.parchment-ob.dark]
+color-error = "#F26100"
+color-destructive = "#F26100"
+color-success = "#0BA0C4"
+color-warning = "#C18045"
+color-visited = "#A977BB"
+"color-visited--hover" = "#AA79BC"
+"color-visited--active" = "#B082C0"
+background-color-error-subtle = "#342214"
+background-color-destructive-subtle = "#342214"
+background-color-success-subtle = "#142E34"
+background-color-warning-subtle = "#2D241B"
+background-color-destructive = "#A84300"
+"background-color-destructive--hover" = "#A84300"
+"background-color-destructive--active" = "#A84300"
+border-color-error = "#F26100"
+border-color-destructive = "#F26100"
+border-color-success = "#0BA0C4"
+border-color-warning = "#C18045"
+
+[palette.parchment-ob.light-more]
+color-error = "#823400"
+color-destructive = "#823400"
+color-success = "#06576B"
+color-warning = "#634021"
+color-visited = "#6A3D7A"
+"color-visited--hover" = "#6A3D7A"
+"color-visited--active" = "#6A3D7A"
+background-color-error-subtle = "#FBE7D6"
+background-color-destructive-subtle = "#FBE7D6"
+background-color-success-subtle = "#E6F3F6"
+background-color-warning-subtle = "#F3ECE4"
+background-color-destructive = "#953B00"
+"background-color-destructive--hover" = "#8D3800"
+"background-color-destructive--active" = "#853500"
+border-color-error = "#823400"
+border-color-destructive = "#823400"
+border-color-success = "#06576B"
+border-color-warning = "#634021"
+
+[palette.parchment-ob.dark-more]
+color-error = "#FF8B3E"
+color-destructive = "#FF8B3E"
+color-success = "#0DBCE7"
+color-warning = "#D1A075"
+color-visited = "#BF99CC"
+"color-visited--hover" = "#BF99CC"
+"color-visited--active" = "#C3A0CF"
+background-color-error-subtle = "#291B0F"
+background-color-destructive-subtle = "#291B0F"
+background-color-success-subtle = "#0F2429"
+background-color-warning-subtle = "#231D15"
+background-color-destructive = "#953B00"
+"background-color-destructive--hover" = "#8D3800"
+"background-color-destructive--active" = "#853500"
+border-color-error = "#FF8B3E"
+border-color-destructive = "#FF8B3E"
+border-color-success = "#0DBCE7"
+border-color-warning = "#D1A075"
+
+
+# For blue–yellow colour-vision deficiency (tritanopia): error in crimson, success in olive, which tritanopes
+# do not confuse with link blue, and warnings in a neutral umber, which they do not confuse with error.
+[palette.parchment-co]
+label = "Parchment, crimson and olive"
+extends = "parchment"
+accessibility = true
+
+[palette.parchment-co.light]
+color-error = "#B3263E"
+color-destructive = "#B3263E"
+color-success = "#587114"
+color-warning = "#5C4A3D"
+color-visited = "#8A2C6E"
+"color-visited--hover" = "#8A2C6E"
+"color-visited--active" = "#8A2C6E"
+background-color-error-subtle = "#FBE4E8"
+background-color-destructive-subtle = "#FBE4E8"
+background-color-success-subtle = "#EEF2DC"
+background-color-warning-subtle = "#EFE9E3"
+background-color-destructive = "#B3263E"
+"background-color-destructive--hover" = "#B3263E"
+"background-color-destructive--active" = "#B3263E"
+border-color-error = "#B3263E"
+border-color-destructive = "#B3263E"
+border-color-success = "#587114"
+border-color-warning = "#5C4A3D"
+
+[palette.parchment-co.dark]
+color-error = "#DD6176"
+color-destructive = "#DD6176"
+color-success = "#83A81E"
+color-warning = "#A48976"
+color-visited = "#CE64AE"
+"color-visited--hover" = "#CF66AF"
+"color-visited--active" = "#D271B5"
+background-color-error-subtle = "#341419"
+background-color-destructive-subtle = "#341419"
+background-color-success-subtle = "#2E3414"
+background-color-warning-subtle = "#2D241B"
+background-color-destructive = "#B3263E"
+"background-color-destructive--hover" = "#B3263E"
+"background-color-destructive--active" = "#B3263E"
+border-color-error = "#DD6176"
+border-color-destructive = "#DD6176"
+border-color-success = "#83A81E"
+border-color-warning = "#A48976"
+
+[palette.parchment-co.light-more]
+color-error = "#901E32"
+color-destructive = "#901E32"
+color-success = "#42550F"
+color-warning = "#5A483B"
+color-visited = "#8A2C6E"
+"color-visited--hover" = "#8A2C6E"
+"color-visited--active" = "#862B6B"
+background-color-error-subtle = "#FBE4E8"
+background-color-destructive-subtle = "#FBE4E8"
+background-color-success-subtle = "#EEF2DC"
+background-color-warning-subtle = "#EFE9E3"
+background-color-destructive = "#A6233A"
+"background-color-destructive--hover" = "#9D2137"
+"background-color-destructive--active" = "#941F34"
+border-color-error = "#901E32"
+border-color-destructive = "#901E32"
+border-color-success = "#42550F"
+border-color-warning = "#5A483B"
+
+[palette.parchment-co.dark-more]
+color-error = "#E78C9C"
+color-destructive = "#E78C9C"
+color-success = "#97C222"
+color-warning = "#BAA697"
+color-visited = "#DB8EC4"
+"color-visited--hover" = "#DB8EC4"
+"color-visited--active" = "#DD95C8"
+background-color-error-subtle = "#290F14"
+background-color-destructive-subtle = "#290F14"
+background-color-success-subtle = "#24290F"
+background-color-warning-subtle = "#231C15"
+background-color-destructive = "#A6233A"
+"background-color-destructive--hover" = "#9D2137"
+"background-color-destructive--active" = "#941F34"
+border-color-error = "#E78C9C"
+border-color-destructive = "#E78C9C"
+border-color-success = "#97C222"
+border-color-warning = "#BAA697"
+
+
+# --- Type sets ----------------------------------------------------------------------------------------
+
+# Newsreader for headings over IBM Plex Sans and IBM Plex Mono (0034 A8), named `default26` on 2026-10-17.
+[typeset.default26]
+label = "Default 26"
 font-family-base = "'IBM Plex Sans', system-ui, sans-serif"
 font-family-heading-main = "'Newsreader', Georgia, 'Times New Roman', serif"
 font-family-monospace = "'IBM Plex Mono', Menlo, Consolas, monospace"
 
-# Shape
-border-radius-base = "6px"
-
-# The typefaces the site serves for this theme, with their licence.
-[[theme.default.font]]
+[[typeset.default26.font]]
 family = "Newsreader"
 weights = [400, 500]
 licence = "OFL-1.1"
 
-[[theme.default.font]]
+[[typeset.default26.font]]
 family = "IBM Plex Sans"
 weights = [400, 500, 600]
 licence = "OFL-1.1"
 
-[[theme.default.font]]
+[[typeset.default26.font]]
 family = "IBM Plex Mono"
 weights = [400, 500]
+licence = "OFL-1.1"
+
+# An accessibility type set (0086 §3): a reader may always choose it, whatever a tenant restricts.
+# Atkinson Hyperlegible, by the Braille Institute, as released on Google Fonts under the OFL; the licence of
+# the files bundled is checked when they are added to the build.
+[typeset.hyperlegible]
+label = "Hyperlegible"
+accessibility = true
+font-family-base = "'Atkinson Hyperlegible', system-ui, sans-serif"
+font-family-heading-main = "'Atkinson Hyperlegible', system-ui, sans-serif"
+font-family-monospace = "'IBM Plex Mono', Menlo, Consolas, monospace"
+
+[[typeset.hyperlegible.font]]
+family = "Atkinson Hyperlegible"
+weights = [400, 700]
+licence = "OFL-1.1"
+
+[[typeset.hyperlegible.font]]
+family = "IBM Plex Mono"
+weights = [400, 500]
+licence = "OFL-1.1"
+
+# A type set for readers with dyslexia (0086 §3), shipped first of several options (James, 2026-10-17).
+# OpenDyslexic, by Abbie Gonzalez, under the SIL OFL 1.1. Studies have not shown it to speed reading; readers
+# who prefer it ask for it by name.
+[typeset.opendyslexic]
+label = "OpenDyslexic"
+accessibility = true
+font-family-base = "'OpenDyslexic', system-ui, sans-serif"
+font-family-heading-main = "'OpenDyslexic', system-ui, sans-serif"
+font-family-monospace = "'OpenDyslexic Mono', 'IBM Plex Mono', Menlo, Consolas, monospace"
+
+[[typeset.opendyslexic.font]]
+family = "OpenDyslexic"
+weights = [400, 700]
+licence = "OFL-1.1"
+
+[[typeset.opendyslexic.font]]
+family = "OpenDyslexic Mono"
+weights = [400]
 licence = "OFL-1.1"

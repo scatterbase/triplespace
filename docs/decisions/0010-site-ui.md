@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-17 (A41)
+- **Updated:** 2026-10-17 (A42)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md)
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -43,7 +43,7 @@ The design exploration is on the [site UI canvas](https://claude.ai/artifact/XNb
 
 ### 2. The frame
 
-*Changed by A5, A9, A11, A12, A13, A16, A20, A22, A23, A27, A29, A30, A33, A41.*
+*Changed by A5, A9, A11, A12, A13, A16, A20, A22, A23, A27, A29, A30, A33, A41, A42.*
 
 *Current text: [19](../architecture/19-site-ui.md) §1.2, §1.3, §1.4, §1.5.*
 
@@ -572,3 +572,14 @@ Replaced text ([19](../architecture/19-site-ui.md) §2.4, as it stood):
 Replaced text ([19](../architecture/19-site-ui.md) §2.4, as it stood):
 
 > | Connected applications | Private | Each OAuth authorization one's subsidiaries hold, with **Revoke** ([0025](0025-oauth-server.md) §5) |
+
+### A42. Provider chips in the dark variants
+
+- **Date:** 2026-10-17
+- **Source:** [0086](0086-theming.md) §2
+- **Change:** amends §2
+- **Summary:** A provider chip's colours come from the provider registry for the light variants; in the dark variants the two colours swap, which keeps their contrast exactly, unless the registry gives `chip_color_dark` and `chip_background_dark`. The chapter row is [19](../architecture/19-site-ui.md) §1.5.
+
+Replaced text ([19](../architecture/19-site-ui.md) §1.5, as it stood):
+
+> | Provider code | Monospace, one colour per provider, taken from the provider registry | The entity or row comes from that provider's graph |

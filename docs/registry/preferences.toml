@@ -17,7 +17,9 @@
 #          `appearance` group are also the controls of the Appearance menu (0085 §6).
 # follows  "account" (the default): the value belongs to the tenant account. "farm": under farm identity
 #          (identity.farm_issuer, 0028 §2) it belongs to the farm account and follows it to every linked
-#          tenant; without farm identity it is the account's, as "account" is.
+#          tenant. "choice": the tenant account's, unless the reader marks it "Use on every wiki", which keeps
+#          it on the farm account; the tenant account's own value is read first. Without farm identity every
+#          key is the account's.
 # browser  true: a reader who is not logged in may hold this key in the browser's storage, and the
 #          Appearance menu offers it to them (0085 §6). Default false.
 # negotiated  "accept-language": where the reader has not chosen a value, it comes from the request's
@@ -35,7 +37,7 @@ version = 1
 id = "interface"       # language, time zone, date format
 
 [[group]]
-id = "appearance"      # colour mode, contrast, text size, palette, type set: keys added by the theming ADR
+id = "appearance"      # colour mode, contrast, text size, palette, type set (0086 §4)
 
 [[group]]
 id = "history"         # history, recent changes and feeds
@@ -87,6 +89,53 @@ default = "default"
 group = "interface"
 follows = "farm"
 from = "MediaWiki"
+
+# --- Appearance (0086 §4): the Appearance menu's keys, never locked except palette and type set ---------
+[[preference]]
+key = "ui.mode"
+type = "choice"
+choices = ["auto", "light", "dark"]
+default = "auto"                     # auto: the device's prefers-color-scheme
+group = "appearance"
+follows = "farm"
+browser = true
+from = "0086 §4"
+
+[[preference]]
+key = "ui.contrast"
+type = "choice"
+choices = ["auto", "more"]
+default = "auto"                     # auto: the device's prefers-contrast
+group = "appearance"
+follows = "farm"
+browser = true
+from = "0086 §4"
+
+[[preference]]
+key = "ui.text-size"
+type = "choice"
+choices = ["small", "medium", "large", "x-large"]
+default = "medium"                   # Codex's text-size modes
+group = "appearance"
+follows = "farm"
+browser = true
+from = "0086 §4"
+
+[[preference]]
+key = "ui.palette"
+type = "string"                      # a palette the tenant offers; no default: the setting theme.palette
+group = "appearance"
+follows = "choice"
+browser = true
+from = "0086 §4"
+
+[[preference]]
+key = "ui.typeset"
+type = "string"                      # a type set the tenant offers; no default: the setting theme.typeset
+group = "appearance"
+follows = "choice"
+browser = true
+from = "0086 §4"
 
 # --- History and feeds ----------------------------------------------------------------------
 [[preference]]

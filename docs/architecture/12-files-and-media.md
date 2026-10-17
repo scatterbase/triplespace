@@ -136,7 +136,7 @@ The upload rights and their defaults are in [09](09-security-and-moderation.md) 
 | `/file/{h}/{name}` | Original bytes. `{name}` is the title without its prefix, used for `Content-Disposition` |
 | `/thumb/{h}/{transform}-{name}` | A thumbnail, in MediaWiki's `320px-Example.jpg` shape |
 | `/repo/{repo}/file/{sha1}/{name}`, `/repo/{repo}/thumb/{sha1}/{transform}-{name}` | A proxied foreign file (§6.3) |
-| `/asset/{h}/{name}` | A site asset (§4.5): a version a resolved `site-asset` setting of the tenant names, to anyone, a private tenant's outsiders included |
+| `/asset/{h}/{name}` | A site asset (§4.5): a version the tenant's configuration names (a `site-asset` setting, or a type set's font file), to anyone, a private tenant's outsiders included |
 
 `Special:FilePath/{name}` and `Special:Redirect/file/{name}` on the wiki redirect to the current version's URL, and `[[Media:…]]` links point at them, so a stable link never names a hash.
 
@@ -157,12 +157,12 @@ A request for a version that `universe` may read needs no identity: the check is
 
 ### 4.5 Site assets
 
-*Sources: [0085](../decisions/0085-settings-and-preferences.md) §8.*
+*Sources: [0085](../decisions/0085-settings-and-preferences.md) §8; [0086](../decisions/0086-theming.md) §3.*
 
-**A site asset is a file version a setting uses for a basic site function**, such as the logo (`site.logo`), the favicon (`site.icon`) or a theme's typeface. It is public because, and only while, a setting names it; nothing on the file makes it public.
+**A site asset is a file version configuration uses for a basic site function**, such as the logo (`site.logo`), the favicon (`site.icon`) or a type set's typeface ([0086](../decisions/0086-theming.md) §3). It is public because, and only while, configuration names it, a `site-asset` setting or a type set's font file; nothing on the file makes it public.
 
 - **Naming.** A setting of type `site-asset` names a local `File:` and pins a version by SHA-1, among the media types its registry entry lists. Writing it needs the setting's right, `ts-config` at least, and the setter must be able to read the version. A later upload changes nothing until someone with that right names the new version.
-- **Serving.** `{media base}/asset/{h}/{name}` (§4.2) serves a version a resolved asset setting of the tenant names to anyone, a private tenant's outsiders included, with the headers of §4.4, and is the one route that skips the access check of §4.1. The hash in the URL makes it immutable. A version no setting names is answered as the other routes would answer it.
+- **Serving.** `{media base}/asset/{h}/{name}` (§4.2) serves a version the tenant's configuration names to anyone, a private tenant's outsiders included, with the headers of §4.4, and is the one route that skips the access check of §4.1. The hash in the URL makes it immutable. Fonts, which browsers fetch with CORS, are answered with `Access-Control-Allow-Origin: *`. A version no setting names is answered as the other routes would answer it.
 - **Moderation wins.** A hidden, suppressed or taken-down version is never served as an asset, cannot be named, and a setting whose version is hidden later resolves as unset.
 - **Visibility.** The file page of an asset says what it is public as, and `Special:WikiSettings` lists every asset under **Public files** ([19](19-site-ui.md) §2.8).
 - **SVG** is accepted where the setting lists it (`site.logo`, `site.icon`), because `ts-config` holders are trusted; it is drawn with `<img>` and served with `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'`. SVG sanitization must exist before an instance hosts tenants whose `ts-config` holders it does not vet ([0085](../decisions/0085-settings-and-preferences.md) Q5).

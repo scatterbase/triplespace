@@ -56,11 +56,11 @@ A principal is what a request acts as, after authentication:
 
 ### 1.4 Sessions, requests and the browser
 
-*Sources: [0056](../decisions/0056-security-model.md) §1; [0034](../decisions/0034-frontend-stack.md) §11.*
+*Sources: [0056](../decisions/0056-security-model.md) §1; [0034](../decisions/0034-frontend-stack.md) §11; [0086](../decisions/0086-theming.md) §5.*
 
 A session is per tenant host: a cookie for `librarybase.org` is nothing on `example.wiki`, and a farm issuer gives a person a login on each tenant, not a session across them. Session cookies are `Secure`, `HttpOnly` and `SameSite=Lax`; every write carries a CSRF token as MediaWiki's do; bearer credentials are never accepted in a URL. Where session state lives is in [03](03-storage-caches-and-search.md) and [07](07-actors-and-accounts.md).
 
-The site UI runs under a strict Content Security Policy: scripts only from the instance's own origin, no inline scripts, no `eval`. Initial data is passed in `application/json` blocks, which CSP does not execute. Components never insert HTML they built from user input. HTML they insert comes only from `action=render`, which is built from `askama`'s escaped templates and from HTML the API has sanitized ([11](11-rendering-templates-and-modules.md)).
+The site UI runs under a strict Content Security Policy: scripts only from the instance's own origin, no inline scripts, no `eval`. Fonts and images may also come from the origin of `media.base_url`, where site assets such as a tenant's typefaces and logo are served ([0086](../decisions/0086-theming.md) §5). Initial data is passed in `application/json` blocks, which CSP does not execute. Components never insert HTML they built from user input. HTML they insert comes only from `action=render`, which is built from `askama`'s escaped templates and from HTML the API has sanitized ([11](11-rendering-templates-and-modules.md)).
 
 ## 2. Permissions
 
