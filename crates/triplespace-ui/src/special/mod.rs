@@ -4,6 +4,8 @@
 //!   (0020 §4; 19 §3.9).
 //! - [`index`]: `Special:SpecialPages`, the list of the others.
 //! - [`login`]: `Special:UserLogin` and `Special:UserLogout`.
+//! - [`register`]: `Special:CreateAccount`, its alias `Special:RequestAccount`, and
+//!   `Special:ConfirmAccounts` (0087 §5, §6).
 //! - [`new_entity`]: `Special:NewItem` and `Special:NewProperty`, the forms that create
 //!   an entity (0047 §5).
 //! - [`search`]: `Special:Search`, the full results page, and its **Go to** rule
@@ -22,6 +24,7 @@ pub mod index;
 pub mod login;
 pub mod new_entity;
 pub mod preferences;
+pub mod register;
 pub mod search;
 pub mod settings;
 pub mod version;
@@ -65,6 +68,10 @@ pub async fn serve(
         "SpecialPages" => Some(index::serve(site, headers, peer, query).await),
         "UserLogin" => Some(login::login(site, headers, peer, query).await),
         "UserLogout" => Some(login::logout(site, headers, peer, query).await),
+        "CreateAccount" | "RequestAccount" => {
+            Some(register::serve(site, headers, peer, query).await)
+        }
+        "ConfirmAccounts" => Some(register::review(site, headers, peer, query).await),
         "Version" => Some(version::serve(site, headers, peer, title, query).await),
         "Preferences" => Some(preferences::serve(site, headers, peer, params).await),
         "WikiSettings" => {
@@ -95,6 +102,10 @@ pub async fn post(
     match name.as_str() {
         "UserLogin" => Some(login::post_login(site, headers, peer, query, form).await),
         "UserLogout" => Some(login::post_logout(site, headers, peer, query, form).await),
+        "CreateAccount" | "RequestAccount" => {
+            Some(register::post(site, headers, peer, query, form).await)
+        }
+        "ConfirmAccounts" => Some(register::post_review(site, headers, peer, query, form).await),
         "Preferences" => Some(preferences::post(site, headers, peer, query, params).await),
         "WikiSettings" => {
             Some(settings::post(site, headers, peer, settings::Scope::Wiki, query, params).await)

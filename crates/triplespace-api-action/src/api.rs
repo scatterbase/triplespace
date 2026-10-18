@@ -177,6 +177,7 @@ async fn dispatch(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         "query" => modules::query::run(ctx).await,
         "login" => modules::login::login(ctx).await,
         "clientlogin" => modules::login::clientlogin(ctx).await,
+        "createaccount" => modules::account::createaccount(ctx).await,
         "logout" => modules::login::logout(ctx).await,
         "options" => modules::options::run(ctx).await,
         "wbgetentities" => modules::entities::wbgetentities(ctx).await,
@@ -187,7 +188,7 @@ async fn dispatch(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         "paraminfo" => modules::query::paraminfo(ctx),
         "help" => Ok(ApiResponse::ok(serde_json::json!({"help": {
             "mime": "text/plain",
-            "help": "Triplespace Action API. Modules: query (meta=siteinfo|tokens|userinfo), login, clientlogin, logout, options, wbgetentities, wbsearchentities, wbeditentity, wbcreateclaim, wbsetclaim, wbremoveclaims, wbsetlabel, wbsetdescription, wbsetaliases, wbsetqualifier, wbremovequalifiers, wbsetreference, wbremovereferences."
+            "help": "Triplespace Action API. Modules: query (meta=siteinfo|tokens|userinfo|authmanagerinfo), login, clientlogin, createaccount, logout, options, wbgetentities, wbsearchentities, wbeditentity, wbcreateclaim, wbsetclaim, wbremoveclaims, wbsetlabel, wbsetdescription, wbsetaliases, wbsetqualifier, wbremovequalifiers, wbsetreference, wbremovereferences."
         }}))),
         other => Err(ApiError::new(
             "badvalue",

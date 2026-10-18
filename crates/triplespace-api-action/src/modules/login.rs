@@ -1,5 +1,8 @@
 //! `action=login` (bot passwords, 0024 §4, §8), `action=clientlogin` (primary accounts,
-//! 0007 §3; 0012 §4) and `action=logout`. The shapes are MediaWiki's:
+//! 0007 §3; 0012 §4) and `action=logout`. `clientlogin` asks for a challenge once the
+//! caller's address or the named account has failed too often (0087 §2), counts each
+//! failure, and tells the holder of a pending or rejected account request how it stands
+//! (0087 §6). The shapes are MediaWiki's:
 //! `{"login": {"result": "Success", "lguserid", "lgusername"}}`, `NeedToken` with a
 //! fresh token, `WrongToken`, and `Failed` with a `reason`; `ts-use-oauth` is reported
 //! as `Failed` with that `code`. `clientlogin` answers `{"clientlogin": {"status": "PASS",
@@ -7,7 +10,8 @@
 
 use serde_json::{Value, json};
 use triplespace_accounts::login::{LoginError, bot_login, password_login};
-use triplespace_accounts::session;
+use triplespace_accounts::requests::{self, Outcome};
+use triplespace_accounts::{challenge, session};
 
 use crate::api::Ctx;
 use crate::auth::{clear_cookie, set_cookie};
@@ -116,6 +120,9 @@ pub async fn clientlogin(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     }
     let username = ctx.params.required("username")?.to_string();
     let password = ctx.params.required("password")?.to_string();
+    if let Some(ui) = super::account::guard_login(ctx, &username).await? {
+        return Ok(ui);
+    }
     let previous = ctx.caller.identity.session.as_ref().map(|s| s.id.clone());
     match password_login(
         ctx.db(),
@@ -139,11 +146,29 @@ pub async fn clientlogin(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
             "messagecode": "ts-subsidiary-password",
         }}))),
         Err(LoginError::Failed | LoginError::UseOauth(_)) => {
-            Ok(ApiResponse::ok(json!({"clientlogin": {
-                "status": "FAIL",
-                "message": "Incorrect username or password entered. Please try again.",
-                "messagecode": "wrongpassword",
-            }})))
+            match requests::outcome(ctx.db(), &ctx.tenant.slug, &username, &password).await? {
+                Some(Outcome::Pending) => Ok(ApiResponse::ok(json!({"clientlogin": {
+                    "status": "FAIL",
+                    "message": "Your request for an account is waiting for review. Try again later.",
+                    "messagecode": "ts-account-pending",
+                }}))),
+                Some(Outcome::Rejected(reason)) => Ok(ApiResponse::ok(json!({"clientlogin": {
+                    "status": "FAIL",
+                    "message": format!("Your request for an account was not approved: {reason}"),
+                    "messagecode": "ts-account-rejected",
+                    "reason": reason,
+                }}))),
+                None => {
+                    let address = super::account::address(ctx);
+                    challenge::record_badlogin(ctx.db(), &ctx.tenant.slug, &address, &username)
+                        .await?;
+                    Ok(ApiResponse::ok(json!({"clientlogin": {
+                        "status": "FAIL",
+                        "message": "Incorrect username or password entered. Please try again.",
+                        "messagecode": "wrongpassword",
+                    }})))
+                }
+            }
         }
         Err(LoginError::Accounts(e)) => Err(ApiError::internal(e)),
         Err(e) => Err(ApiError::internal(e)),

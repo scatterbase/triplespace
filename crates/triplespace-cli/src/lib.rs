@@ -5,6 +5,7 @@
 
 pub mod accounts;
 pub mod adopt;
+pub mod challenge;
 pub mod common;
 pub mod forwarder;
 pub mod instance;

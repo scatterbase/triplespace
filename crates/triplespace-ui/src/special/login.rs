@@ -5,7 +5,9 @@
 //!   site posts the form to `clientlogin` with the browser's cookie, relays the API's
 //!   `Set-Cookie` verbatim, and answers `303` to the page the reader came from (post,
 //!   redirect, get). A refusal shows the form again, with the name kept; an expired
-//!   token gets a fresh one.
+//!   token gets a fresh one. After repeated failures from the viewer's address, the form
+//!   carries the `badlogin` challenge the browser solves (0087 §2, §5); the holder of an
+//!   account request is told how it stands (0087 §6).
 //! - **Log out** is a form too, as in MediaWiki: a `GET` only asks, and the `POST`
 //!   carries the CSRF token to `logout`.
 //!
@@ -18,7 +20,7 @@ use std::fmt::Write as _;
 use askama::Template as _;
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::Response;
-use triplespace_client::{CacheInfo, ClientError, Incoming, LoginResult};
+use triplespace_client::{CacheInfo, ChallengeInfo, ClientError, Incoming, LoginResult};
 
 use crate::Site;
 use crate::codex::{Action, Button, Field, MessageKind, Weight};
@@ -53,8 +55,14 @@ fn private(cx: &mut Context) {
     cx.inputs.push(CacheInfo::default());
 }
 
-/// The login form.
-fn login_form(m: &Messages, token: &str, back: &str, username: &str) -> String {
+/// The login form, with the challenge where one is asked for.
+fn login_form(
+    m: &Messages,
+    token: &str,
+    back: &str,
+    username: &str,
+    challenge: Option<&ChallengeInfo>,
+) -> String {
     let field = |id: &str, name: &str, kind: &str, value: &str, key: &str, auto: &str| {
         Field {
             id,
@@ -71,7 +79,10 @@ fn login_form(m: &Messages, token: &str, back: &str, username: &str) -> String {
         .unwrap_or_default()
     };
     format!(
-        "<form class=\"ts-form\" method=\"post\" action=\"/w/index.php?title=Special:UserLogin\"><input type=\"hidden\" name=\"logintoken\" value=\"{}\"><input type=\"hidden\" name=\"returnto\" value=\"{}\">{}{}<div class=\"ts-form__actions\">{}</div></form>",
+        "<form class=\"ts-form\" method=\"post\" action=\"/w/index.php?title=Special:UserLogin\"{}><input type=\"hidden\" name=\"logintoken\" value=\"{}\"><input type=\"hidden\" name=\"returnto\" value=\"{}\">{}{}{}<div class=\"ts-form__actions\">{}</div></form>",
+        challenge
+            .map(|c| format!(" data-ts-challenge=\"{}\"", c.bits))
+            .unwrap_or_default(),
         esc(token),
         esc(back),
         field(
@@ -90,6 +101,7 @@ fn login_form(m: &Messages, token: &str, back: &str, username: &str) -> String {
             "ts-login-password",
             "current-password"
         ),
+        crate::special::register::challenge_fields(m, challenge, "", "ts-challenge-nojs-login"),
         Button {
             label: &m.get("ts-login-submit"),
             kind: "submit",
@@ -101,7 +113,8 @@ fn login_form(m: &Messages, token: &str, back: &str, username: &str) -> String {
     )
 }
 
-/// The login page: a notice, if any, and the form.
+/// The login page: a notice, if any, the form, and where the wiki takes registrations,
+/// the way to create an account.
 fn login_page(
     cx: &Context,
     headers: &HeaderMap,
@@ -114,6 +127,17 @@ fn login_page(
         body.push_str(&pages::message(kind, &text));
     }
     body.push_str(form);
+    if cx.user.is_none() && cx.features.has(Feature::Register) {
+        let _ = write!(
+            body,
+            "<p class=\"ts-login__join\">{}</p>",
+            link(
+                &format!("/wiki/Special:CreateAccount?returnto={}", title_url(&back)),
+                &esc(&cx.m.get("ts-login-join")),
+                ""
+            )
+        );
+    }
     pages::respond(cx, headers, StatusCode::OK, |m| Page {
         title: m.get("ts-login-title"),
         returnto: Some(back),
@@ -130,11 +154,16 @@ async fn fresh_form(
     back: &str,
     username: &str,
 ) -> Result<(String, Vec<HeaderValue>), ClientError> {
-    let t = site.client().token(incoming, "login").await?;
-    cx.inputs.push(t.value.cache);
+    let f = site.client().login_form(incoming).await?;
     Ok((
-        login_form(&cx.m, &t.value.value, back, username),
-        t.set_cookies,
+        login_form(
+            &cx.m,
+            &f.value.token,
+            back,
+            username,
+            f.value.challenge.as_ref(),
+        ),
+        f.set_cookies,
     ))
 }
 
@@ -212,10 +241,27 @@ pub async fn post_login(
         cx.site.server.trim_end_matches('/'),
         title_url(&back)
     );
+    let posted = crate::special::register::posted_challenge(form);
     let result = site
         .client()
-        .client_login(&incoming, &username, field("password"), token, &return_url)
+        .client_login(
+            &incoming,
+            &username,
+            field("password"),
+            token,
+            &return_url,
+            posted.as_ref().map(|(i, s)| (i.as_str(), s.as_str())),
+        )
         .await;
+    let again = |cx: &Context, notice: (MessageKind, String), challenge: Option<&ChallengeInfo>| {
+        login_page(
+            cx,
+            headers,
+            Some(notice),
+            &login_form(&cx.m, token, &back, &username, challenge),
+            back.clone(),
+        )
+    };
     match result {
         Ok(r) => match r.value {
             LoginResult::Pass { .. } => onward(&back, &r.set_cookies),
@@ -225,14 +271,27 @@ pub async fn post_login(
                     "ts-subsidiary-password" => cx.m.with("ts-login-subsidiary", &[&username]),
                     _ => message,
                 };
-                let page = login_page(
-                    &cx,
-                    headers,
-                    Some((MessageKind::Error, text)),
-                    &login_form(&cx.m, token, &back, &username),
-                    back,
+                pages::with_cookies(again(&cx, (MessageKind::Error, text), None), &r.set_cookies)
+            }
+            LoginResult::Challenge(c) => {
+                let key = if posted.as_ref().is_none_or(|(_, s)| s.is_empty()) {
+                    "ts-challenge-nojs-login"
+                } else {
+                    "ts-challenge-retry"
+                };
+                let notice = (MessageKind::Error, cx.m.get(key));
+                pages::with_cookies(again(&cx, notice, Some(&c)), &r.set_cookies)
+            }
+            LoginResult::Pending => {
+                let notice = (MessageKind::Notice, cx.m.get("ts-login-pending"));
+                pages::with_cookies(again(&cx, notice, None), &r.set_cookies)
+            }
+            LoginResult::Rejected { reason } => {
+                let notice = (
+                    MessageKind::Error,
+                    cx.m.with("ts-login-rejected", &[&reason]),
                 );
-                pages::with_cookies(page, &r.set_cookies)
+                pages::with_cookies(again(&cx, notice, None), &r.set_cookies)
             }
             LoginResult::BadToken => {
                 match fresh_form(site, &mut cx, &incoming, &back, &username).await {

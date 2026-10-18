@@ -21,6 +21,7 @@ members = [
     "crates/triplespace-server",
     "crates/triplespace-cli",
     "crates/scatter-actors",
+    "crates/scatter-challenge",
     "crates/scatter-log",
     "crates/scatter-integrity",
     "crates/scatter-log-postgres",
@@ -63,6 +64,7 @@ triplespace-cli = { path = "crates/triplespace-cli" }
 scatter-adapter-wikidata = { path = "crates/scatter-adapter-wikidata" }
 scatter-adapter-internetdomains = { path = "crates/scatter-adapter-internetdomains" }
 scatter-actors = { path = "crates/scatter-actors" }
+scatter-challenge = { path = "crates/scatter-challenge" }
 scatter-log = { path = "crates/scatter-log" }
 scatter-integrity = { path = "crates/scatter-integrity" }
 scatter-log-postgres = { path = "crates/scatter-log-postgres" }

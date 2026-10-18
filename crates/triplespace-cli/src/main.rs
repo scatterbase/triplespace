@@ -4,7 +4,7 @@
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use triplespace_cli::{accounts, adopt, forwarder, instance, settings, status, sync};
+use triplespace_cli::{accounts, adopt, challenge, forwarder, instance, settings, status, sync};
 
 /// Triplespace: a Wikibase as an append-only log.
 #[derive(Debug, Parser)]
@@ -35,6 +35,11 @@ enum Command {
         #[command(subcommand)]
         command: accounts::Subsidiary,
     },
+    /// Registration and login challenges (0087 §9).
+    Challenge {
+        #[command(subcommand)]
+        command: ChallengeCommand,
+    },
     /// Settings: a tenant's, the instance's, its defaults and locks (0085 §3).
     Settings {
         #[command(subcommand)]
@@ -52,6 +57,12 @@ enum Command {
 enum PasswordCommand {
     /// Set or replace an account's password from a file or `TRIPLESPACE_PASSWORD`.
     Set(accounts::PasswordSet),
+}
+
+#[derive(Debug, Subcommand)]
+enum ChallengeCommand {
+    /// Print a solution of a challenge.
+    Solve(challenge::Solve),
 }
 
 #[derive(Debug, Subcommand)]
@@ -80,6 +91,9 @@ async fn main() -> Result<()> {
             command: PasswordCommand::Set(args),
         } => accounts::run_password_set(args).await,
         Command::Subsidiary { command } => accounts::run_subsidiary(command).await,
+        Command::Challenge {
+            command: ChallengeCommand::Solve(args),
+        } => challenge::run(&args),
         Command::Settings { command } => settings::run(command).await,
         Command::Status(args) => status::status(args).await,
         Command::Migrate(args) => status::migrate(args).await,

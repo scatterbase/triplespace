@@ -59,6 +59,26 @@ pub async fn set<C: GenericClient>(
     Ok(())
 }
 
+/// Sets the account's password from a hash made earlier, as an approved request's
+/// (0087 §6), which kept only the hash.
+pub async fn set_hash<C: GenericClient>(
+    client: &C,
+    actor_key: &str,
+    phc: &str,
+) -> Result<(), AccountsError> {
+    if PasswordHash::new(phc).is_err() {
+        return Err(AccountsError::Hash("not a PHC string".into()));
+    }
+    client
+        .execute(
+            "INSERT INTO private.password (actor_key, hash, updated) VALUES ($1, $2, now())
+             ON CONFLICT (actor_key) DO UPDATE SET hash = EXCLUDED.hash, updated = now()",
+            &[&actor_key, &phc],
+        )
+        .await?;
+    Ok(())
+}
+
 /// Whether the account has this password. `false` for an account without one.
 pub async fn check<C: GenericClient>(
     client: &C,

@@ -93,6 +93,8 @@ pub struct Chrome<'a> {
     /// A signed-in viewer's resolved preferences, which the Appearance menu and
     /// `<html>` draw on (0085 §6); `None` for anyone else.
     pub prefs: Option<&'a serde_json::Map<String, serde_json::Value>>,
+    /// The open account requests, where the viewer reviews them (0087 §6).
+    pub account_requests: Option<u64>,
 }
 
 /// The frame.
@@ -112,6 +114,7 @@ pub struct Frame<'a> {
     account: Option<Account>,
     mainpage_href: String,
     login: bool,
+    register: bool,
     nav: Vec<(String, String)>,
     new_menu: Vec<(String, String)>,
     returnto: String,
@@ -174,6 +177,12 @@ pub fn render(
             items.push((
                 m.get("ts-preferences"),
                 "/wiki/Special:Preferences".to_string(),
+            ));
+        }
+        if let (true, Some(n)) = (f.has(Feature::Register), chrome.account_requests) {
+            items.push((
+                m.with("ts-account-requests", &[&n.to_string()]),
+                "/wiki/Special:ConfirmAccounts".to_string(),
             ));
         }
         if f.has(Feature::Login) {
@@ -246,6 +255,7 @@ pub fn render(
         account,
         mainpage_href: format!("/wiki/{}", title_url(chrome.mainpage)),
         login: f.has(Feature::Login),
+        register: f.has(Feature::Register),
         nav,
         new_menu,
         returnto,
@@ -287,6 +297,7 @@ mod tests {
             mainpage: "Project:Home",
             features,
             prefs: None,
+            account_requests: None,
         }
     }
 

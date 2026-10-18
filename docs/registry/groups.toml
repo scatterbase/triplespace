@@ -50,6 +50,7 @@ triplespace = [
   "ts-takedown", "ts-expunge", "ts-viewtakedown",   # 0039 §21: operator removal of files; evaluated on the primary tenant only
   "ts-viewoperator",                             # 0040 §9: see which operator carried out an instance act; an instance right
   "ts-primary",                                  # 0046 §8: offer the primary role to another tenant; an instance right, owner only
+  "ts-viewip",                                   # 0007 §3: see an address in the abuse-handling store; an account request's (0087 §6)
 ]
 
 # ---------------------------------------------------------------------------
@@ -119,6 +120,7 @@ permissions = [
   "nuke",                                        # 0047 §12: Special:Nuke
   "suppressredirect",                            # 0051 §8: move without leaving a redirect
   "skipcaptcha",                                 # 0087 §7: ConfirmEdit's default
+  "ts-viewip",                                   # 0007 §3: addresses in the abuse-handling store
 ]
 
 [[group]]

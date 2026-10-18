@@ -102,6 +102,8 @@ pub struct SiteInfo {
     /// Whether the request came to the farm base, which serves the instance's pages
     /// (0085 §4).
     pub at_farm: bool,
+    /// Whether the wiki reviews new accounts (`account.approval`, 0087 §6).
+    pub account_approval: bool,
 }
 
 /// A provider as `siprop=providers` reports it.
@@ -156,6 +158,8 @@ pub struct UserInfo {
     /// The viewer's preferences, resolved (`uiprop=options`, 0085 §2.2): what the frame
     /// draws the Appearance menu and the `<html>` attributes from.
     pub options: Map<String, Value>,
+    /// The open account requests, for a holder of `confirmaccount` (0087 §6).
+    pub account_requests: Option<u64>,
 }
 
 /// What happens when the API refuses the request outright.
@@ -230,6 +234,7 @@ impl Client {
                 .unwrap_or("Main Page")
                 .to_string(),
             at_farm: ts["at_farm"].as_bool().unwrap_or(false),
+            account_approval: ts["account"]["approval"].as_bool().unwrap_or(false),
         };
         Ok(Fetched { value, cache })
     }
@@ -239,7 +244,7 @@ impl Client {
         let r = self
             .get(
                 incoming,
-                "/w/api.php?action=query&meta=userinfo&uiprop=options&format=json&formatversion=2",
+                "/w/api.php?action=query&meta=userinfo&uiprop=options|accountrequests&format=json&formatversion=2",
             )
             .await?;
         let v = check(&r)?;
@@ -254,6 +259,7 @@ impl Client {
             id: u["id"].as_u64().unwrap_or(0),
             anon,
             options: u["options"].as_object().cloned().unwrap_or_default(),
+            account_requests: u["accountrequests"].as_u64(),
         };
         Ok(Fetched {
             value,

@@ -127,8 +127,9 @@ h3 {
 
 .ts-header__end {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: center;
-	gap: var( --size-75, 0.75rem );
+	gap: var( --size-25, 0.25rem ) var( --size-75, 0.75rem );
 	margin-inline-start: auto;
 }
 

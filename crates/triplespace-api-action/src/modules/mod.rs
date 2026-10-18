@@ -1,5 +1,6 @@
 //! The modules, by `action`.
 
+pub mod account;
 pub mod changes;
 pub mod entities;
 pub mod entitydata;

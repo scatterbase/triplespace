@@ -37,6 +37,15 @@ pub enum LoginResult {
     /// The login token did not match the session: it expired, or the browser lost its
     /// cookie.
     BadToken,
+    /// The `badlogin` challenge's solution is wanted (0087 §2): a fresh challenge.
+    Challenge(crate::register::ChallengeInfo),
+    /// The name and password are a request's, still waiting for review (0087 §6).
+    Pending,
+    /// The name and password are a rejected request's, with the reviewer's reason.
+    Rejected {
+        /// The reason.
+        reason: String,
+    },
 }
 
 fn cookies(r: &ApiResponse) -> Vec<HeaderValue> {
@@ -105,7 +114,8 @@ impl Client {
         })
     }
 
-    /// `action=clientlogin` with a name, a password and the login token.
+    /// `action=clientlogin` with a name, a password and the login token, and the
+    /// `badlogin` challenge's answer where one was asked for.
     pub async fn client_login(
         &self,
         incoming: &Incoming,
@@ -113,22 +123,22 @@ impl Client {
         password: &str,
         token: &str,
         return_url: &str,
+        challenge: Option<(&str, &str)>,
     ) -> Result<WithCookies<LoginResult>, ClientError> {
-        let r = self
-            .post_form(
-                incoming,
-                "/w/api.php",
-                &[
-                    ("action", "clientlogin"),
-                    ("format", "json"),
-                    ("formatversion", "2"),
-                    ("username", username),
-                    ("password", password),
-                    ("logintoken", token),
-                    ("loginreturnurl", return_url),
-                ],
-            )
-            .await?;
+        let mut form = vec![
+            ("action", "clientlogin"),
+            ("format", "json"),
+            ("formatversion", "2"),
+            ("username", username),
+            ("password", password),
+            ("logintoken", token),
+            ("loginreturnurl", return_url),
+        ];
+        if let Some((id, solution)) = challenge {
+            form.push(("tschallengeid", id));
+            form.push(("tschallengesolution", solution));
+        }
+        let r = self.post_form(incoming, "/w/api.php", &form).await?;
         let set_cookies = cookies(&r);
         let value = match check(&r) {
             Ok(v) => login_result(&v),
@@ -167,13 +177,20 @@ impl Client {
 /// A `clientlogin` answer.
 fn login_result(v: &Value) -> LoginResult {
     let c = &v["clientlogin"];
-    match c["status"].as_str() {
-        Some("PASS") => LoginResult::Pass {
+    match (c["status"].as_str(), c["messagecode"].as_str()) {
+        (Some("PASS"), _) => LoginResult::Pass {
             username: c["username"].as_str().unwrap_or_default().to_string(),
         },
-        _ => LoginResult::Fail {
-            message: c["message"].as_str().unwrap_or_default().to_string(),
-            code: c["messagecode"].as_str().unwrap_or_default().to_string(),
+        (_, Some("ts-account-pending")) => LoginResult::Pending,
+        (_, Some("ts-account-rejected")) => LoginResult::Rejected {
+            reason: c["reason"].as_str().unwrap_or_default().to_string(),
+        },
+        (status, _) => match crate::register::login_challenge(c) {
+            Some(ch) if status == Some("UI") => LoginResult::Challenge(ch),
+            _ => LoginResult::Fail {
+                message: c["message"].as_str().unwrap_or_default().to_string(),
+                code: c["messagecode"].as_str().unwrap_or_default().to_string(),
+            },
         },
     }
 }

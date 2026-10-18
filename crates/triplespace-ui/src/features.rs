@@ -14,6 +14,8 @@ pub enum Feature {
     Search,
     /// Logging in and out (`clientlogin`).
     Login,
+    /// `Special:CreateAccount` and `Special:ConfirmAccounts` (`createaccount`, 0087).
+    Register,
     /// Editing entities (`wbeditentity`).
     Edit,
     /// Creating entities: **New item**, **New property**.
@@ -44,6 +46,7 @@ impl Feature {
         match self {
             Self::Search => "wbsearchentities",
             Self::Login => "clientlogin",
+            Self::Register => "createaccount",
             Self::Edit | Self::Create => "wbeditentity",
             Self::History => "history",
             Self::RecentChanges => "recentchanges",
@@ -61,6 +64,7 @@ impl Feature {
 pub const BUILT: &[Feature] = &[
     Feature::Search,
     Feature::Login,
+    Feature::Register,
     Feature::Edit,
     Feature::Create,
     Feature::History,

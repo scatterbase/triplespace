@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-10-17 (A97)
+- **Updated:** 2026-10-18 (A98)
 - **Author:** James Hare / Claude Opus; revision by James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -42,7 +42,7 @@ Since this ADR was first written, twenty-six further ADRs have added crates, cha
 
 ### 2. Crate map
 
-*Changed by A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A27, A28, A29, A30, A31, A32, A33, A34, A35, A36, A37, A38, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A51, A52, A53, A54, A55, A57, A58, A59, A60, A61, A62, A63, A64, A65, A66, A67, A68, A69, A70, A71, A72, A73, A74, A75, A76, A77, A78, A79, A80, A84, A86, A87, A88, A89, A90, A91, A92, A93, A95, A96, A97.*
+*Changed by A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A27, A28, A29, A30, A31, A32, A33, A34, A35, A36, A37, A38, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A51, A52, A53, A54, A55, A57, A58, A59, A60, A61, A62, A63, A64, A65, A66, A67, A68, A69, A70, A71, A72, A73, A74, A75, A76, A77, A78, A79, A80, A84, A86, A87, A88, A89, A90, A91, A92, A93, A95, A96, A97, A98.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
@@ -955,3 +955,18 @@ Replaced text ([01](../architecture/01-log-and-records.md) §4.1, as it stood):
 - **Source:** [0087](0087-account-registration-and-challenges.md) §10
 - **Change:** extends §2
 - **Summary:** A new pure crate, `scatter-challenge`, layer 1, building for `wasm32`, holds the proof-of-work challenge: the challenge string, its MAC given a key and a binding, the SHA-256 work function, the solver and the test vectors, shared with Scatterbase. `scatter-wasm` gains a third lazily loaded module for the solver; `triplespace-accounts` issues and checks challenges and holds account requests; `triplespace-api-action`, `triplespace-ui`, `triplespace-client`, `triplespace-cli`, `triplespace-db` and `triplespace-cache` gain their parts. The chapter text is [22](../architecture/22-crates-and-stack.md) §2.1 and §2.2.
+
+### A98. The challenge solver is not a WebAssembly module
+
+- **Date:** 2026-10-18
+- **Source:** [0087](0087-account-registration-and-challenges.md) A1
+- **Change:** amends §2
+- **Summary:** The browser solves a registration challenge with JavaScript in `triplespace-ui`, held to `scatter-challenge`'s test vectors, so `scatter-wasm` gains no module for it and no longer depends on `scatter-challenge`; `scatter-challenge` keeps the native solver. Compiling the crate for the browser is 0087 Q5. `triplespace-db` and `triplespace-accounts` gain `private.rate_event` (0013 A65). The chapter text is [22](../architecture/22-crates-and-stack.md) §2.1 and §2.2.
+
+Replaced text ([22](../architecture/22-crates-and-stack.md) §2.2, the `scatter-wasm` row, as it stood):
+
+> a third lazily loaded module, the `scatter-challenge` solver, for the Web Worker of the registration, login and edit forms ([0087](../decisions/0087-account-registration-and-challenges.md) §5, §10)
+
+Replaced text ([22](../architecture/22-crates-and-stack.md) §2.2, the end of the `scatter-wasm` row's dependencies, as it stood):
+
+> `scatter-css`, `wasm-bindgen`, `scatter-challenge` |

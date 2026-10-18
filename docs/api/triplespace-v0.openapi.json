@@ -1393,6 +1393,292 @@
           }
         }
       }
+    },
+    "/account/requests": {
+      "get": {
+        "operationId": "listAccountRequests",
+        "summary": "Open account requests",
+        "description": "The open requests for an account on the tenant, oldest first, for a holder of `confirmaccount` (0087 §6). `no-store`.",
+        "responses": {
+          "200": {
+            "description": "The requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "count",
+                    "requests"
+                  ],
+                  "properties": {
+                    "count": {
+                      "type": "integer"
+                    },
+                    "requests": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AccountRequest"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`notloggedin`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/account/requests/{id}/approve": {
+      "post": {
+        "operationId": "approveAccountRequest",
+        "summary": "Approve an account request",
+        "description": "Creates the account with the request's password and its binding as one change set attested by the reviewer (`newusers/create2`), and deletes the request. Needs `confirmaccount`; a request made with a session cookie carries its CSRF token as `token` in the body.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "description": "The CSRF token, where the request carries a session cookie."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The account created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "approved": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "actor": {
+                          "type": "string",
+                          "description": "The new account's actor key."
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`notloggedin`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied` or `badtoken`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-no-request`: no open request has that ID.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`userexists`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/account/requests/{id}/reject": {
+      "post": {
+        "operationId": "rejectAccountRequest",
+        "summary": "Reject an account request",
+        "description": "Rejects the request with a reason, which its requester is shown at login for 7 days, after which the request is deleted. Needs `confirmaccount`.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "reason"
+                ],
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Rejected.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "rejected": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`ts-reason-required`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`notloggedin`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied` or `badtoken`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-no-request`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3240,6 +3526,48 @@
           },
           "token": {
             "type": "string"
+          }
+        }
+      },
+      "AccountRequest": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "filed",
+          "expires"
+        ],
+        "description": "An open request for an account (0087 §6).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The request's ID, random."
+          },
+          "name": {
+            "type": "string",
+            "description": "The name asked for, normalized."
+          },
+          "statement": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What the requester wrote about themselves."
+          },
+          "filed": {
+            "type": "integer",
+            "description": "When it was filed, in seconds since the epoch."
+          },
+          "expires": {
+            "type": "integer",
+            "description": "When it is deleted unreviewed (`account.request_expiry`)."
+          },
+          "address": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The address key it was filed from: an IPv4 address or an IPv6 /64. Present only for holders of `ts-viewip`."
           }
         }
       }

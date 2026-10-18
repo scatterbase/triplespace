@@ -1,0 +1,65 @@
+/* Registration, challenges and the review of account requests (ADR 0087 §5, §6). */
+
+/* The honeypot: off-screen for sighted readers, out of the tab order by its tabindex and out
+   of the accessibility tree by aria-hidden, so only a form-filler fills it. */
+.ts-honeypot {
+	position: absolute;
+	left: -10000px;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+}
+
+/* The challenge's progress, said politely while the person types. */
+.ts-challenge__status {
+	color: var( --color-subtle, #54595d );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+.ts-challenge__status:empty {
+	display: none;
+}
+
+.ts-login__join {
+	margin-top: var( --spacing-150, 1.5rem );
+}
+
+.ts-confirmaccounts {
+	max-width: 42rem;
+}
+
+.ts-request {
+	margin-bottom: var( --spacing-150, 1.5rem );
+	padding: var( --spacing-100, 1rem );
+	border: 1px solid var( --border-color-subtle, #c8ccd1 );
+	border-radius: var( --border-radius-base, 2px );
+	background-color: var( --background-color-base, #fff );
+}
+
+.ts-request h2 {
+	margin-top: 0;
+}
+
+.ts-request__meta,
+.ts-request__statement--none {
+	color: var( --color-subtle, #54595d );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+.ts-request__statement {
+	margin: var( --spacing-75, 0.75rem ) 0;
+	padding-inline-start: var( --spacing-75, 0.75rem );
+	border-inline-start: 4px solid var( --border-color-subtle, #c8ccd1 );
+	white-space: pre-wrap;
+}
+
+.ts-request__approve {
+	margin-bottom: var( --spacing-100, 1rem );
+}
+
+.ts-request__reject {
+	display: flex;
+	flex-direction: column;
+	gap: var( --spacing-50, 0.5rem );
+	align-items: flex-start;
+}

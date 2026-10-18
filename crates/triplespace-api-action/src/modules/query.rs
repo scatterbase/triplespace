@@ -37,6 +37,7 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
                 }
             }
             "wikibase" => wikibase(ctx, &mut query),
+            "authmanagerinfo" => super::account::authmanagerinfo(ctx, &mut query).await?,
             other => response.warn(
                 "query",
                 &format!("Unrecognized value for parameter \"meta\": {other}."),
@@ -196,6 +197,13 @@ async fn userinfo(ctx: &Ctx, query: &mut Map<String, Value>) -> Result<(), ApiEr
     }
     if let Some(op) = &id.operator {
         u.insert("operator".into(), json!(op));
+    }
+    if want("accountrequests") && ctx.caller.effective.holds("confirmaccount") {
+        // Triplespace's: the open account requests a reviewer has waiting (0087 §6).
+        u.insert(
+            "accountrequests".into(),
+            json!(triplespace_accounts::requests::open_count(ctx.db(), &ctx.tenant.slug).await?),
+        );
     }
     if let Some(k) = &id.credential {
         u.insert("grants".into(), json!(k.grants));
@@ -743,7 +751,7 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                     "tenant": slug,
                     "farm": ctx.app.config().farm.slug,
                     "search": "postgres",
-                    "capabilities": ["wbgetentities", "wbsearchentities", "wbeditentity", "statements", "terms", "login", "clientlogin", "bearer", "version", "recentchanges", "activity", "history", "revisions", "diff", "options", "preferences", "settings"],
+                    "capabilities": ["wbgetentities", "wbsearchentities", "wbeditentity", "statements", "terms", "login", "clientlogin", "createaccount", "bearer", "version", "recentchanges", "activity", "history", "revisions", "diff", "options", "preferences", "settings"],
                     "providers": Registry::default_registry().providers().iter().map(|p| p.slug.clone()).collect::<Vec<_>>(),
                     "rate_limits": [],
                     "grants": scatter_actors::grant::GrantRegistry::default_registry().grants().iter().map(|g| g.name.clone()).collect::<Vec<_>>(),
@@ -770,6 +778,10 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                 if ctx.app.config().mode == Mode::Development {
                     t["insecure"] = json!(true);
                 }
+                // Registration (0087 §9): what is asked of a client before it asks.
+                let (challenge, account) = super::account::Policy::load(ctx).await?.report();
+                t["challenge"] = challenge;
+                t["account"] = account;
                 // The farm base serves the instance's pages (0085 §4).
                 t["at_farm"] = json!(crate::tenant::at_farm(&ctx.app, &ctx.tenant));
                 query.insert("triplespace".into(), t);
@@ -794,6 +806,7 @@ const ACTION_MODULES: &[(&str, bool)] = &[
     ("help", false),
     ("login", true),
     ("clientlogin", true),
+    ("createaccount", true),
     ("logout", true),
     ("options", true),
     ("wbgetentities", false),
@@ -813,7 +826,16 @@ const ACTION_MODULES: &[(&str, bool)] = &[
 
 /// `action=query`'s submodules by kind: `(kind, names)`.
 const QUERY_MODULES: &[(&str, &[&str])] = &[
-    ("meta", &["siteinfo", "tokens", "userinfo", "wikibase"]),
+    (
+        "meta",
+        &[
+            "siteinfo",
+            "tokens",
+            "userinfo",
+            "wikibase",
+            "authmanagerinfo",
+        ],
+    ),
     ("prop", &["revisions"]),
     ("list", &["recentchanges", "usercontribs", "logevents"]),
 ];
@@ -1110,11 +1132,28 @@ fn module_parameters(name: &str) -> Vec<Value> {
                     "rights",
                     "ratelimits",
                     "operator",
-                    "grants"
+                    "grants",
+                    "options",
+                    "accountrequests"
                 ]),
             ),
             50,
         ))],
+        "authmanagerinfo" => vec![
+            Value::Object(parameter(0, "requestsfor", json!(["login", "create"]))),
+            Value::Object(parameter(1, "mergerequestfields", json!("boolean"))),
+        ],
+        "createaccount" => vec![
+            Value::Object(parameter(0, "username", json!("string"))),
+            Value::Object(parameter(1, "password", json!("password"))),
+            Value::Object(parameter(2, "retype", json!("password"))),
+            Value::Object(parameter(3, "createtoken", json!("string"))),
+            Value::Object(parameter(4, "createreturnurl", json!("string"))),
+            Value::Object(parameter(5, "createcontinue", json!("boolean"))),
+            Value::Object(parameter(6, "tschallengeid", json!("string"))),
+            Value::Object(parameter(7, "tschallengesolution", json!("string"))),
+            Value::Object(parameter(8, "tsstatement", json!("text"))),
+        ],
         "wikibase" => vec![Value::Object(with_default(
             multi(parameter(0, "prop", json!(["url", "siteid"])), 50),
             json!("url|siteid"),
@@ -1285,6 +1324,7 @@ pub fn paraminfo_modules(requested: &[String]) -> Vec<Value> {
                             "siteinfo" => "si",
                             "userinfo" => "ui",
                             "wikibase" => "wb",
+                            "authmanagerinfo" => "ami",
                             "recentchanges" => "rc",
                             "usercontribs" => "uc",
                             "logevents" => "le",

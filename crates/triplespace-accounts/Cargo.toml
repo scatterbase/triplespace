@@ -13,6 +13,7 @@ publish = false
 triplespace-db.workspace = true
 scatter-actors.workspace = true
 scatter-log.workspace = true
+scatter-challenge.workspace = true
 tokio-postgres.workspace = true
 argon2.workspace = true
 hmac.workspace = true

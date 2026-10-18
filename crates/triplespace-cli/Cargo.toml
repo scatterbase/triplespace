@@ -14,6 +14,7 @@ name = "triplespace"
 path = "src/main.rs"
 
 [dependencies]
+scatter-challenge.workspace = true
 scatter-log.workspace = true
 scatter-log-postgres.workspace = true
 scatter-projection.workspace = true
