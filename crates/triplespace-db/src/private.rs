@@ -45,6 +45,9 @@ pub const PRIVATE_TABLES: &[(&str, Portability)] = &[
     ("session", Portability::NeverLeaves),
     ("forwarder_key", Portability::NeverLeaves),
     ("preference", Portability::Portable),
+    ("challenge_spent", Portability::NeverLeaves),
+    ("rate_event", Portability::NeverLeaves),
+    ("account_request", Portability::NeverLeaves),
 ];
 
 /// Why the live schema disagrees with [`PRIVATE_TABLES`].

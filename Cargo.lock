@@ -2095,6 +2095,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "scatter-challenge"
+version = "0.0.1"
+dependencies = [
+ "base64 0.22.1",
+ "hmac 0.12.1",
+ "serde_json",
+ "sha2 0.10.9",
+]
+
+[[package]]
 name = "scatter-ingest"
 version = "0.0.1"
 dependencies = [
@@ -2808,6 +2818,7 @@ dependencies = [
  "getrandom 0.3.4",
  "hmac 0.12.1",
  "scatter-actors",
+ "scatter-challenge",
  "scatter-log",
  "serde",
  "serde_json",
@@ -2827,6 +2838,7 @@ dependencies = [
  "deadpool-postgres",
  "percent-encoding",
  "scatter-actors",
+ "scatter-challenge",
  "scatter-ingest",
  "scatter-normalize",
  "scatter-projection",
@@ -2878,6 +2890,7 @@ dependencies = [
  "scatter-actors",
  "scatter-log",
  "scatter-log-postgres",
+ "scatter-projection",
  "scatter-providers",
  "scatter-wikibase-changeset",
  "scatter-wikibase-model",
@@ -2903,6 +2916,7 @@ dependencies = [
  "scatter-actors",
  "scatter-adapter-internetdomains",
  "scatter-adapter-wikidata",
+ "scatter-challenge",
  "scatter-ingest",
  "scatter-log",
  "scatter-log-postgres",
@@ -2981,6 +2995,7 @@ dependencies = [
  "clap",
  "ed25519-dalek",
  "http-body-util",
+ "scatter-challenge",
  "scatter-ingest",
  "scatter-log",
  "scatter-projection",

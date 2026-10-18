@@ -2,6 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-17
+- **Updated:** 2026-10-18 (A1)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0024](0024-subsidiary-accounts.md), [0028](0028-tenancy-policy.md), [0047](0047-special-pages.md), [0057](0057-web-tier.md)
 - **Uses:** [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0030](0030-edit-filters.md), [0034](0034-frontend-stack.md), [0035](0035-adopting-a-wikibase.md), [0056](0056-security-model.md), [0085](0085-settings-and-preferences.md)
@@ -54,15 +55,19 @@ James's direction, from the design discussion of 2026-10-17:
 
 ### 3. The proof of work (extends 0013 §4; extends 0014 §4)
 
+*Changed by A1.*
+
 **The work is to find a nonce.** A challenge is a string, `1.{tenant code}.{trigger}.{bits}.{expires}.{salt}.{mac}`: the format version; the tenant's issuer code ([08](../architecture/08-tenants-and-instances.md) §1.2); the trigger; the difficulty in bits; the expiry, in seconds since the epoch, 10 minutes after issue; 16 random bytes; and a MAC. A **solution** is a decimal number `n` of at most 20 digits such that SHA-256 of the challenge, a colon and `n` (`{challenge}:{n}`, in UTF-8) begins with at least `bits` zero bits. Finding one takes `2^bits` hashes on average; checking one takes one. Anyone can write a solver in a few lines from this paragraph, and the test vectors that ship with the crate (§10) fix the details.
 
 **The MAC binds the challenge to its session.** It is the first 16 bytes of HMAC-SHA256, base64url without padding, over the rest of the string, a zero byte and the session ID, under a key derived from the instance signing seed as the CSRF tokens' key is, with its own domain separator. The session ID is not in the string, so a challenge passed to another session fails as a CSRF token would.
 
 **Checking a solution** is, in order: the MAC, the expiry, the tenant and trigger against the act, the hash, and that the challenge has not been spent. A challenge that passes is recorded as **spent** until its expiry, in Valkey as `ch:{tenant}:{mac}` when a shared cache is configured ([03](../architecture/03-storage-caches-and-search.md) §12.3), and otherwise in `private.challenge_spent` (`mac`, `tenant`, `expires`), swept as sessions are, so that every replica of an API pool refuses a replay. A failure answers as §9 says and spends nothing.
 
-**SHA-256, not a memory-hard function.** A browser computes it with the same Rust code the server verifies with, compiled to WebAssembly (§5), and a server checks it in microseconds. Argon2id would narrow the advantage of a GPU, but in WebAssembly on a low-end phone it is slow and asks for tens of megabytes, which would make registration hardest for the readers with the least.
+**SHA-256, not a memory-hard function.** A browser computes it in a few lines of JavaScript (§5), and a server checks it in microseconds. Argon2id would narrow the advantage of a GPU, but in a browser on a low-end phone it is slow and asks for tens of megabytes, which would make registration hardest for the readers with the least.
 
-### 4. Difficulty, the throttle and addresses (extends 0024 §5; corrects 0024 §5)
+### 4. Difficulty, the throttle and addresses (extends 0024 §5; corrects 0024 §5; amends 0024 §5; extends 0013 §4)
+
+*Changed by A1.*
 
 **The difficulty is a setting, and it rises with repetition.** A challenge's `bits` is `challenge.bits` (default 20, about a million hashes) plus one for each account created from the caller's address key in the last 24 hours, up to `challenge.max_bits` (default 24, sixteen times the work). The count is the `createaccount` counter below, so it costs no state of its own. Setting `challenge.max_bits` to `challenge.bits` turns the rise off. The defaults are a starting point, to be fixed by measurement before the ADR is accepted (Q1): the target is a second or two on a mid-range phone.
 
@@ -70,9 +75,13 @@ James's direction, from the design discussion of 2026-10-17:
 
 **An address key is an IPv4 address or an IPv6 /64.** This corrects [0024](0024-subsidiary-accounts.md) §5 for every rate-limit class, not only this one: the counters that key an anonymous request on "the IP" key it instead on the address for IPv4 and on its /64 prefix for IPv6, since a host commonly holds a whole /64 and can rotate through it at no cost. The `badlogin` counters and the difficulty's count use the same key. Addresses and their prefixes stay where [0007](0007-actor-identity.md) §3 keeps them, in the cache and in `private`, never in the log.
 
+**Where these counts are kept** (A1). The `createaccount` counter, which the difficulty also reads, and the two `badlogin` counters, by address key and by account, are kept in Valkey when a shared cache is configured, as every class is ([07](../architecture/07-actors-and-accounts.md) §6.3), and otherwise in Postgres, in `private.rate_event`: one row per counted act, `(tenant, class, key, at)`, read as the number of rows inside the window and swept once older than the longest window, as sessions are. Counting them in process, as an instance without a shared cache counts the other classes, would let a script that spreads its attempts over the replicas of an API pool, or waits for a restart, start again from nothing, and these windows are a day and ten minutes long, not a minute. The key is an address key, or for the per-account `badlogin` counter the account's case-folded name, so the table holds what the cache would hold and is in no export ([0027](0027-preferences-and-portability.md) §2).
+
 ### 5. In the site, and without JavaScript (amends 0057 §7; extends 0010 §10)
 
-**The browser does the work while the person types.** `Special:CreateAccount`, `Special:UserLogin` when `badlogin` applies, and the editor when the save would create a temporary account start solving as soon as the page loads, in a Web Worker running the `scatter-challenge` solver from `scatter-wasm` as a third lazily loaded module. The form shows the work as a progress note in a polite live region, and its submit button waits only if the person is faster than the solver. Nothing about the person leaves the instance, and there is nothing to see or hear, so the challenge asks nothing of a reader using a screen reader, switch access or a magnifier beyond the wait.
+*Changed by A1.*
+
+**The browser does the work while the person types.** `Special:CreateAccount`, `Special:UserLogin` when `badlogin` applies, and the editor when the save would create a temporary account start solving as soon as the page loads, in a Web Worker running a **solver written in JavaScript**, a SHA-256 of its own over a reused buffer, since the Web Crypto API answers each hash asynchronously and would make a million of them slow (A1). A unit test holds it to the test vectors of `scatter-challenge`, so it and the server agree on every detail of the work. Solving with the crate itself, compiled to WebAssembly, would be about two or three times as fast, but needs `'wasm-unsafe-eval'` in the security policy's `script-src` ([0034](0034-frontend-stack.md) §11) and a WebAssembly build in front of the frontend's (Q5). The form shows the work as a progress note in a polite live region, and its submit button waits only if the person is faster than the solver. Nothing about the person leaves the instance, and there is nothing to see or hear, so the challenge asks nothing of a reader using a screen reader, switch access or a magnifier beyond the wait.
 
 **Without JavaScript, an act that a challenge guards is refused, with an explanation.** This amends [0057](0057-web-tier.md) §7's promise that creating an account works without JavaScript: it does where no challenge applies. Where one does, the page says, in a `<noscript>` block and again as the form's error if it is submitted, what the instance asks and why: that the wiki asks the browser for a short computation to slow automated sign-ups, that nothing is sent anywhere else, and what the person can do instead, which is to turn JavaScript on for the site, to ask an administrator to create the account for them (§7), or, for a failed login, to wait out the window. The message is `ts-challenge-nojs`, with `ts-challenge-nojs-tempaccount` for an anonymous save, which also says that logging in avoids it. A refused request files nothing and spends nothing.
 
@@ -129,18 +138,19 @@ An instance that wants a challenge on every wiki it hosts locks `challenge.trigg
 
 **Clients.** `triplespace-client` solves a challenge natively, and `triplespace-cli challenge solve {challenge}` prints a solution, so a script registering a single account through the API, or a test, can. A client that cannot run the work, such as Pywikibot, which has no account creation, is unaffected.
 
-### 10. Crates (extends 0005 §2)
+### 10. Crates (extends 0005 §2; amends 0005 §2)
+
+*Changed by A1.*
 
 | Crate | Change |
 |---|---|
-| `scatter-challenge` *(new)* | Layer 1, pure, builds for `wasm32`: the challenge string, its MAC given a key and a binding, the work function, the solver, and the test vectors. Shared with Scatterbase, which has the same problem at its own registration |
-| `scatter-wasm` | A third lazily loaded module, the solver, for the Web Worker |
-| `triplespace-accounts` | Issuing and checking challenges; the spent set, in Valkey or `private.challenge_spent`; the `badlogin` counters; `private.account_request`, approval and rejection, and the pending and rejected login answers |
+| `scatter-challenge` *(new)* | Layer 1, pure, builds for `wasm32`: the challenge string, its MAC given a key and a binding, the work function, the native solver, and the test vectors. Shared with Scatterbase, which has the same problem at its own registration |
+| `triplespace-accounts` | Issuing and checking challenges; the spent set, in Valkey or `private.challenge_spent`; the `createaccount` and `badlogin` counters, in Valkey or `private.rate_event`; `private.account_request`, approval and rejection, and the pending and rejected login answers |
 | `triplespace-api-action` | The AuthManager request and fields; `action=createaccount`, with challenge, throttle and approval; the `tempaccount` refusal and parameters on write modules; `siprop=triplespace` |
 | `triplespace-api-rest` | `/account/requests` |
-| `triplespace-ui` | The worker and progress note; the `<noscript>` explanations; the honeypot field; the request form and `Special:ConfirmAccounts`; the open-request count |
+| `triplespace-ui` | The JavaScript solver, its worker and progress note, and its test against the crate's vectors; the `<noscript>` explanations; the honeypot field; the request form and `Special:ConfirmAccounts`; the open-request count |
 | `triplespace-client`, `triplespace-cli` | The native solver; `challenge solve` |
-| `triplespace-db` | `private.account_request` and `private.challenge_spent` |
+| `triplespace-db` | `private.account_request`, `private.challenge_spent` and `private.rate_event` |
 | `triplespace-cache` | The `createaccount` class and the address key of §4 for every class |
 
 ## Alternatives considered
@@ -159,6 +169,7 @@ An instance that wants a challenge on every wiki it hosts locks `challenge.trigg
 - **The cost is a speed bump, not a wall.** An operator who writes a solver pays about a CPU-second per account, which the throttle and the rising difficulty multiply. A wiki that is targeted turns approval on.
 - **Shared addresses pay more.** A school or a carrier-grade NAT behind one IPv4 address meets the throttle and the higher difficulty sooner; an event organizer holds `noratelimit` and `skipcaptcha`, as on Wikimedia wikis.
 - **IPv6 callers are counted by /64 in every rate-limit class**, which makes the anonymous limits mean what they say; two hosts sharing one /64 share a limit.
+- **The throttle and the `badlogin` window hold across replicas and restarts** without a shared cache, at the cost of a row per counted act in `private.rate_event` (A1).
 - **Rejected requests leave no trace in the log or in any export**, and approved ones enter it as an ordinary account created by its reviewer.
 
 ## Open questions
@@ -167,22 +178,26 @@ An instance that wants a challenge on every wiki it hosts locks `challenge.trigg
 - **Q2. A difficulty that rises with the instance's total rate of registration**, not only an address's, for a flood spread over many addresses.
 - **Q3. A secret store for a question challenge**, and whether a tenant may add one as a fourth kind beside the proof of work, for registration without JavaScript.
 - **Q4. Challenging registrations through an external issuer** whose own signups a tenant does not trust, as a field of the issuer's entry.
+- **Q5. Solving in WebAssembly**, with `scatter-challenge` itself compiled for the browser as a lazily loaded module of `scatter-wasm`, which would make the work about two or three times faster for the person and so allow a higher difficulty for the same wait. It needs `'wasm-unsafe-eval'` in `script-src` ([0034](0034-frontend-stack.md) §11), which lets any script on the page compile WebAssembly, and a WebAssembly build before the frontend's. The measurement of Q1 is of the JavaScript solver until this is decided.
 
 ## Changes to other ADRs
 
 | Target | By | Change | Target's log |
 |---|---|---|---|
 | [0005](0005-crate-organization.md) §2 | §10 | extends | 0005 A97 |
+| [0005](0005-crate-organization.md) §2 | §10 (A1) | amends | 0005 A98 |
 | [0007](0007-actor-identity.md) §3 | §1, §2 | extends | 0007 A24 |
 | [0010](0010-site-ui.md) §10 | §5, §6 | extends | 0010 A43 |
 | [0011](0011-logs.md) §6.1 | §6 | extends | 0011 A33 |
 | [0012](0012-api-requirements.md) §4 | §2, §9 | amends | 0012 A77 |
 | [0012](0012-api-requirements.md) §5 | §6, §9 | extends | 0012 A77 |
 | [0013](0013-postgres-storage.md) §4 | §3, §6 | extends | 0013 A64 |
+| [0013](0013-postgres-storage.md) §4 | §4 (A1) | extends | 0013 A65 |
 | [0014](0014-caches-and-search.md) §4 | §3, §4 | extends | 0014 A28 |
 | [0016](0016-permissions-and-access-control.md) §2 | §6, §7 | extends | 0016 A34 |
 | [0024](0024-subsidiary-accounts.md) §5 | §4 | extends | 0024 A19 |
 | [0024](0024-subsidiary-accounts.md) §5 | §4 | corrects | 0024 A19 |
+| [0024](0024-subsidiary-accounts.md) §5 | §4 (A1) | amends | 0024 A20 |
 | [0028](0028-tenancy-policy.md) §2 | §6 | extends | 0028 A22 |
 | [0047](0047-special-pages.md) §1 | §6 | extends | 0047 A23 |
 | [0057](0057-web-tier.md) §7 | §5 | amends | 0057 A6 |
@@ -194,3 +209,28 @@ An instance that wants a challenge on every wiki it hosts locks `challenge.trigg
 - [Extension:ConfirmAccount](https://www.mediawiki.org/wiki/Extension:ConfirmAccount): `Special:RequestAccount`, `Special:ConfirmAccounts`, `confirmaccount`, `requestips` and `lookupcredentials` for `bureaucrat`, `$wgRejectedAccountMaxAge` (one week), `$wgConfirmAccountRejectAge` (one month), and `$wgConfirmAccountCaptchas`.
 - [Manual:$wgAccountCreationThrottle](https://www.mediawiki.org/wiki/Manual:$wgAccountCreationThrottle): accounts per IP address per day, 6 on Wikimedia wikis, with `noratelimit` exempt.
 - Hashcash (Adam Back, 2002), and the browser proofs of work that follow it, such as ALTCHA and Anubis.
+
+## Amendment log
+
+### A1. A JavaScript solver, and the counts in Postgres
+
+- **Date:** 2026-10-18
+- **Source:** Direct: James, design discussion of 2026-10-18
+- **Change:** amends §3, §5, §10; extends §4
+- **Summary:** Two decisions taken before building, with Q5 opened for the rest. **The browser's solver is JavaScript**, in a Web Worker, with a SHA-256 of its own, held to `scatter-challenge`'s test vectors by a unit test; solving with the crate compiled to WebAssembly was the plan, but the security policy's `script-src 'self'` forbids compiling WebAssembly, and `scatter-wasm` does not exist yet (Q5). **The `createaccount` and `badlogin` counts are kept in Postgres** where there is no shared cache, in `private.rate_event`, rather than in process, so that they hold across the replicas of an API pool and across restarts over windows of a day and ten minutes. James's direction: "Start with the JavaScript solver now. Add the per-address counts to Postgres per your recommendation." Claude proposed the table's shape, the per-account key of `badlogin`, and Q5. The chapter text is [07](../architecture/07-actors-and-accounts.md) §2.6 and §6.3, [03](../architecture/03-storage-caches-and-search.md) §5, [19](../architecture/19-site-ui.md) §2.3 and [22](../architecture/22-crates-and-stack.md) §2.1 and §2.2; [0005](0005-crate-organization.md) A98, [0013](0013-postgres-storage.md) A65 and [0024](0024-subsidiary-accounts.md) A20 record the changes to their sections.
+
+Replaced text (§3):
+
+> **SHA-256, not a memory-hard function.** A browser computes it with the same Rust code the server verifies with, compiled to WebAssembly (§5), and a server checks it in microseconds. Argon2id would narrow the advantage of a GPU, but in WebAssembly on a low-end phone it is slow and asks for tens of megabytes, which would make registration hardest for the readers with the least.
+
+Replaced text (§5):
+
+> in a Web Worker running the `scatter-challenge` solver from `scatter-wasm` as a third lazily loaded module.
+
+Replaced text (§10):
+
+> | `scatter-challenge` *(new)* | Layer 1, pure, builds for `wasm32`: the challenge string, its MAC given a key and a binding, the work function, the solver, and the test vectors. Shared with Scatterbase, which has the same problem at its own registration |
+> | `scatter-wasm` | A third lazily loaded module, the solver, for the Web Worker |
+> | `triplespace-accounts` | Issuing and checking challenges; the spent set, in Valkey or `private.challenge_spent`; the `badlogin` counters; `private.account_request`, approval and rejection, and the pending and rejected login answers |
+> | `triplespace-ui` | The worker and progress note; the `<noscript>` explanations; the honeypot field; the request form and `Special:ConfirmAccounts`; the open-request count |
+> | `triplespace-db` | `private.account_request` and `private.challenge_spent` |

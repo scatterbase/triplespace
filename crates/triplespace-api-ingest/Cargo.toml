@@ -17,6 +17,7 @@ scatter-log-postgres.workspace = true
 triplespace-db.workspace = true
 triplespace-projections.workspace = true
 triplespace-accounts.workspace = true
+scatter-actors.workspace = true
 thiserror.workspace = true
 scatter-wikibase-changeset.workspace = true
 scatter-wikibase-model.workspace = true

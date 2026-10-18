@@ -261,7 +261,7 @@ fn read<T: serde::de::DeserializeOwned>(r: &ApiResponse, what: &str) -> Result<T
 
 /// A save's answer: the value, or the refusals; a status the API never answers a save
 /// with is an error.
-fn saved<T: serde::de::DeserializeOwned>(
+pub(crate) fn saved<T: serde::de::DeserializeOwned>(
     r: &ApiResponse,
     what: &str,
 ) -> Result<Saved<T>, ClientError> {

@@ -15,6 +15,11 @@
 //!   bearer request, from the key) with the instance secret.
 //! - [`identity`]: who a request is, from its cookie or bearer header, and the
 //!   [`scatter_actors::evaluate::Effective`] permissions that follow.
+//! - [`challenge`]: issuing and redeeming the proof-of-work challenges of registration
+//!   and login, the address key, and the `createaccount` and `badlogin` counts
+//!   (0087 §2–4).
+//! - [`requests`]: `private.account_request`, the requests for an account that wait for
+//!   review where a tenant reviews registrations (0087 §6).
 //! - [`forwarder`]: forwarder keys in `private.forwarder_key`, which let a proxy vouch
 //!   for the client address it forwards (0057 §10).
 //! - [`settings`]: the settings registry, the resolver of a setting's value and the one
@@ -32,12 +37,14 @@
 
 #![forbid(unsafe_code)]
 
+pub mod challenge;
 pub mod forwarder;
 pub mod identity;
 pub mod keys;
 pub mod login;
 pub mod password;
 pub mod preferences;
+pub mod requests;
 pub mod session;
 pub mod settings;
 pub mod theme;

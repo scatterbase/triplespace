@@ -11,10 +11,13 @@
 //! unit of work, so a job's append and its projections commit together (0013 §7).
 //!
 //! [`settings`] is the one writer of settings records (0085 §3), shared by
-//! `PATCH /settings` and `triplespace-cli settings`.
+//! `PATCH /settings` and `triplespace-cli settings`; [`accounts`] the one writer of a
+//! registered account (0087 §1, §6), shared by `action=createaccount` and the approval of
+//! a request.
 
 #![forbid(unsafe_code)]
 
+pub mod accounts;
 pub mod settings;
 pub mod store;
 

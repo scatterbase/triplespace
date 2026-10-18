@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-17 (A19)
+- **Updated:** 2026-10-18 (A20)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -47,7 +47,7 @@ James's direction is to make the relation structural: a bot is a **subsidiary ac
 
 ### 5. Rate limits (settles 0012, 0016, 0020 and 0021)
 
-*Changed by A4, A5, A7, A9, A11, A12, A14, A16, A19.*
+*Changed by A4, A5, A7, A9, A11, A12, A14, A16, A19, A20.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §6.1, §6.2, §6.3.*
 
@@ -346,3 +346,14 @@ Replaced text ([07](../architecture/07-actors-and-accounts.md) §6.3, as it stoo
 Replaced text ([07](../architecture/07-actors-and-accounts.md) §6.3, as it stood):
 
 > anonymous reads are counted by IP as before.
+
+### A20. Long-window counters without a shared cache are kept in Postgres
+
+- **Date:** 2026-10-18
+- **Source:** [0087](0087-account-registration-and-challenges.md) A1
+- **Change:** amends §5
+- **Summary:** An instance without a shared cache still counts most classes in process, approximately, but the `createaccount` counter and 0087's two `badlogin` counters, whose windows are a day and ten minutes, are kept in Postgres in `private.rate_event`, so that spreading attempts over the replicas of a pool or waiting for a restart does not reset them. The chapter text is [07](../architecture/07-actors-and-accounts.md) §6.3.
+
+Replaced text ([07](../architecture/07-actors-and-accounts.md) §6.3, as it stood):
+
+> An instance without a shared cache counts in process, approximately, which is what the small profile of [0013](../decisions/0013-postgres-storage.md) §11 accepts.

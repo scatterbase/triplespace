@@ -39,6 +39,17 @@ impl Secret {
         Self(bytes)
     }
 
+    /// A key for another purpose, derived from this secret under a domain separator, so
+    /// that no two purposes share a key (0087 §3).
+    #[must_use]
+    pub fn subkey(&self, domain: &str) -> [u8; 32] {
+        use sha2::Digest as _;
+        let mut h = Sha256::new();
+        h.update(domain.as_bytes());
+        h.update(self.0);
+        h.finalize().into()
+    }
+
     fn mac(&self, purpose: &str, binding: &str) -> String {
         let mut mac = Hmac::<Sha256>::new_from_slice(&self.0).expect("any key length");
         mac.update(purpose.as_bytes());

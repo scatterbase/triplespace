@@ -98,6 +98,8 @@ pub struct Context {
     pub features: Features,
     /// The signed-in viewer's resolved preferences (`uiprop=options`), for the frame.
     pub prefs: Option<serde_json::Map<String, serde_json::Value>>,
+    /// The open account requests, where the viewer reviews them (0087 §6).
+    pub account_requests: Option<u64>,
 }
 
 impl Context {
@@ -109,6 +111,7 @@ impl Context {
             mainpage: &self.site.mainpage,
             features: &self.features,
             prefs: self.prefs.as_ref(),
+            account_requests: self.account_requests,
         }
     }
 }
@@ -150,6 +153,7 @@ pub async fn context(
     }
     let mut inputs = vec![si.cache.clone()];
     let mut prefs = None;
+    let mut account_requests = None;
     let user = match ui {
         Some(ui) => {
             let ui = ui.map_err(|e| unavailable(incoming, &e, "ts-api-unavailable"))?;
@@ -159,6 +163,7 @@ pub async fn context(
                 // inputs say: it may hold their name, their tokens or their controls.
                 inputs.push(CacheInfo::default());
                 prefs = Some(ui.value.options.clone());
+                account_requests = ui.value.account_requests;
             }
             (!ui.value.anon).then_some(ui.value.name)
         }
@@ -188,6 +193,7 @@ pub async fn context(
         theme,
         features,
         prefs,
+        account_requests,
     })
 }
 
@@ -208,6 +214,7 @@ fn unavailable(incoming: &Incoming, error: &ClientError, key: &str) -> Response 
         mainpage: DEFAULT_MAINPAGE,
         features: &none,
         prefs: None,
+        account_requests: None,
     };
     let html = match frame::render(&m, &chrome, &Theme::shipped(), None, &page) {
         Ok(h) => h,

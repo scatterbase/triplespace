@@ -1,0 +1,21 @@
+[package]
+name = "scatter-challenge"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "The proof-of-work challenge of account registration: the challenge string, its MAC, the work function, a native solver and the test vectors"
+publish = false
+
+[dependencies]
+sha2.workspace = true
+hmac.workspace = true
+base64.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true
