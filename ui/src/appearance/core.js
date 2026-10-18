@@ -13,6 +13,13 @@ export const CHOICES = {
 /** The browser storage entry, one per host. */
 export const STORAGE_KEY = 'ts-appearance';
 
+/**
+ * Where the stored choices came from: `browser`, made here while not logged in, or
+ * `account`, a signed-in reader's account mirrored here. Only choices made in the
+ * browser are carried to an account at login (ADR 0085 §6).
+ */
+export const SOURCE_KEY = 'ts-appearance-source';
+
 const CLASSES = [ 'skin-theme-clientpref-os', 'skin-theme-clientpref-day', 'skin-theme-clientpref-night' ];
 
 /**
@@ -82,15 +89,32 @@ export function read( storage ) {
 }
 
 /**
- * Keeps the choices; storage that is absent or refused keeps nothing.
+ * Keeps the choices, and where they came from; storage that is absent or refused keeps
+ * nothing.
  *
  * @param {Storage|undefined} storage
  * @param {Object<string, string>} values
+ * @param {string} [from] `browser` (the default) or `account`
  */
-export function write( storage, values ) {
+export function write( storage, values, from ) {
 	try {
 		storage.setItem( STORAGE_KEY, JSON.stringify( clean( values ) ) );
+		storage.setItem( SOURCE_KEY, from === 'account' ? 'account' : 'browser' );
 	} catch ( e ) {
 		// Nothing can be kept; the page follows the device.
+	}
+}
+
+/**
+ * Where the stored choices came from; `browser` for an entry older than the marker.
+ *
+ * @param {Storage|undefined} storage
+ * @return {string|null} `browser`, `account`, or null where storage is unreadable
+ */
+export function source( storage ) {
+	try {
+		return storage.getItem( SOURCE_KEY ) === 'account' ? 'account' : 'browser';
+	} catch ( e ) {
+		return null;
 	}
 }

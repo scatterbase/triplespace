@@ -4,11 +4,11 @@
 // applies the choices this browser keeps before the first paint. It sets no cookie, so a
 // public page stays public. It exposes the shared functions to the site's script, which
 // loads later as a module and must not pull them into a chunk of its own.
-import { apply, read, write, clean, CHOICES, STORAGE_KEY } from './appearance/core.js';
+import { apply, read, write, source, clean, CHOICES, STORAGE_KEY } from './appearance/core.js';
 
 const root = document.documentElement;
 root.classList.replace( 'client-nojs', 'client-js' );
-window.tsAppearance = { apply, read, write, clean, CHOICES, STORAGE_KEY };
+window.tsAppearance = { apply, read, write, source, clean, CHOICES, STORAGE_KEY };
 if ( !root.hasAttribute( 'data-appearance' ) ) {
 	let storage;
 	try {

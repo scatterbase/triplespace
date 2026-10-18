@@ -1,11 +1,10 @@
 // The Appearance menu with JavaScript (ADR 0085 §6; 19 §2.7). A change applies at once.
 // Not logged in, it is kept in this browser; signed in, it is written to the account
-// through action=options and mirrored into the browser, so it stays after logout. At the
-// first page after a login, choices the browser holds are written to an account that
-// holds none of its own, so a choice made before signing up survives it; otherwise the
-// account's win.
-
-const MERGED = 'ts-appearance-merged';
+// through action=options and mirrored into the browser, marked as the account's, so it
+// stays after logout. At a signed-in page, choices the reader made in this browser while
+// not logged in are written to an account that holds none of its own, so a choice made
+// before signing up survives it; otherwise the account's win. A key the reader changes
+// while that check is under way keeps the reader's value.
 
 /**
  * @param {string} url
@@ -68,10 +67,9 @@ export function initAppearance( doc, win ) {
 	} catch ( e ) {
 		return;
 	}
-	let storage, session;
+	let storage;
 	try {
 		storage = win.localStorage;
-		session = win.sessionStorage;
 	} catch ( e ) {
 		storage = undefined;
 	}
@@ -86,34 +84,33 @@ export function initAppearance( doc, win ) {
 	};
 	const kept = data.signedIn ? {} : app.read( storage ) || {};
 	let current = Object.assign( {}, data.values || {}, kept );
+	/** Keys the reader has changed on this page. */
+	const touched = new Set();
+	const mirror = () => app.write( storage, current, 'account' );
 	show( current );
 
 	if ( data.signedIn ) {
 		const stored = app.read( storage ) || {};
-		let merged = false;
-		try {
-			merged = session && session.getItem( MERGED ) === '1';
-		} catch ( e ) {
-			merged = true;
-		}
-		if ( !merged && Object.keys( stored ).length ) {
+		if ( app.source( storage ) === 'browser' && Object.keys( stored ).length ) {
 			accountHolds( data.keys ).then( ( holds ) => {
+				const carried = {};
 				if ( !holds ) {
-					current = Object.assign( {}, current, stored );
-					app.apply( root, current );
-					show( current );
-					return save( stored );
+					for ( const [ k, v ] of Object.entries( stored ) ) {
+						if ( !touched.has( k ) && current[ k ] !== v ) {
+							carried[ k ] = v;
+						}
+					}
 				}
-				app.write( storage, current );
-			} ).catch( () => {} ).finally( () => {
-				try {
-					session.setItem( MERGED, '1' );
-				} catch ( e ) {
-					// The check runs again next page; it changes nothing twice.
-				}
+				current = Object.assign( {}, current, carried );
+				app.apply( root, current );
+				show( current );
+				mirror();
+				return Object.keys( carried ).length ? save( carried ) : undefined;
+			} ).catch( () => {
+				// Left marked as the browser's, so the next page checks again.
 			} );
 		} else {
-			app.write( storage, current );
+			mirror();
 		}
 	}
 
@@ -123,14 +120,17 @@ export function initAppearance( doc, win ) {
 		if ( !key ) {
 			return;
 		}
+		touched.add( key );
 		current = Object.assign( {}, current, { [ key ]: target.value } );
 		app.apply( root, current );
-		app.write( storage, current );
 		if ( data.signedIn ) {
+			mirror();
 			save( { [ key ]: target.value } ).catch( () => {
 				// The form still works: Apply posts it to the web tier.
 				form.classList.add( 'ts-appearance__form--unsaved' );
 			} );
+		} else {
+			app.write( storage, current, 'browser' );
 		}
 	} );
 	form.addEventListener( 'submit', ( e ) => {
