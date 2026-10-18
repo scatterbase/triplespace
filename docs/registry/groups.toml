@@ -1,4 +1,4 @@
-# Default groups, permissions and graph ACLs.  ADR 0016 §2–4, 0019 §12, 0020 §7, 0021 §9, 0022 §12, 0023 §11, 0024 §11, 0025 §10, 0030 §12 and §5 (tags), 0039 §21, 0047 §12.
+# Default groups, permissions and graph ACLs.  ADR 0016 §2–4, 0019 §12, 0020 §7, 0021 §9, 0022 §12, 0023 §11, 0024 §11, 0025 §10, 0030 §12 and §5 (tags), 0039 §21, 0047 §12, 0087 §6–7.
 #
 # Permissions are MediaWiki right names where MediaWiki has one, Wikibase's for entities,
 # and ts-* for what only Triplespace does. Scatterbase's five (view, edit, delete,
@@ -28,7 +28,9 @@ mediawiki = [
   "viewmywatchlist", "editmywatchlist",          # 0020 §7
   "editmyoptions", "viewmyprivateinfo",          # 0021 §9
   "patrol", "autopatrol", "browsearchive",       # 0023 §11
-  "createaccount", "noratelimit",                # 0024 §11: createaccount creates a subsidiary account
+  "createaccount", "noratelimit",                # 0024 §11: createaccount creates a subsidiary account; 0024 A13: and governs self-registration
+  "skipcaptcha",                                 # 0087 §7: ConfirmEdit's exemption from every challenge trigger
+  "confirmaccount",                              # 0087 §6: ConfirmAccount's review of account requests
   "abusefilter-view", "abusefilter-log", "abusefilter-view-private", "abusefilter-log-private",   # 0030 §12
   "abusefilter-log-detail", "abusefilter-modify", "abusefilter-modify-restricted", "abusefilter-revert",
   "abusefilter-bypass",
@@ -57,7 +59,8 @@ triplespace = [
 name = "universe"
 mediawiki_name = "*"
 implicit = "everyone"
-permissions = ["read", "abusefilter-view", "abusefilter-log"]
+permissions = ["read", "abusefilter-view", "abusefilter-log",
+               "createaccount"]   # 0024 A13, 0056 A10: self-registration; a private tenant, or one closing registration, removes it
 
 [[group]]
 name = "temp"
@@ -82,7 +85,7 @@ permissions = [
 [[group]]
 name = "autoconfirmed"
 implicit = "threshold"              # age and edit count from site config; values are open (0016)
-permissions = ["move", "ts-link", "patrol", "createaccount", "mwoauthproposeconsumer", "mwoauthupdateownconsumer",   # 0025 §10
+permissions = ["move", "ts-link", "patrol", "mwoauthproposeconsumer", "mwoauthupdateownconsumer",   # 0025 §10
                "upload", "reupload", "reupload-own", "movefile"]                                                     # 0039 §21
 
 [[group]]
@@ -91,7 +94,7 @@ permissions = ["autopatrol"]
 
 [[group]]
 name = "bot"                        # the bot flag: granted by a bureaucrat to a subsidiary account after review (0024 §2).
-permissions = ["bot", "ts-runjob", "autopatrol", "suppressredirect"]   # its rate limits are the `bot` row of the site rate-limit table (0024 §5); suppressredirect per 0051 §8
+permissions = ["bot", "ts-runjob", "autopatrol", "suppressredirect", "skipcaptcha"]   # skipcaptcha: ConfirmEdit's default (0087 §7); its rate limits are the `bot` row of the site rate-limit table (0024 §5); suppressredirect per 0051 §8
 
 [[group]]
 name = "federated"                  # 0022 §8: surrogates for fediverse actors replying to federated talk pages.
@@ -115,11 +118,13 @@ permissions = [
   "reupload-shared",                             # 0039 §21: shadow a foreign repository's file
   "nuke",                                        # 0047 §12: Special:Nuke
   "suppressredirect",                            # 0051 §8: move without leaving a redirect
+  "skipcaptcha",                                 # 0087 §7: ConfirmEdit's default
 ]
 
 [[group]]
 name = "bureaucrat"
-permissions = ["userrights", "renameuser", "ts-config", "ts-transferaccount", "abusefilter-modify-restricted", "mwoauthmanageconsumer"]   # 0025 §10: consumer approval is instance-level
+permissions = ["userrights", "renameuser", "ts-config", "ts-transferaccount", "abusefilter-modify-restricted", "mwoauthmanageconsumer",   # 0025 §10: consumer approval is instance-level
+               "confirmaccount"]   # 0087 §6: ConfirmAccount's default
 
 [[group]]
 name = "suppress"

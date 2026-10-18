@@ -358,7 +358,8 @@ origin = "mediawiki"
 status = "served"
 scope = "tenant"
 group = "login"
-adr = "0010 §10"
+aliases = ["RequestAccount"]   # ConfirmAccount's request form: the same form, under account.approval (0087 §6)
+adr = "0010 §10, 0087 §6"
 
 [[page]]
 name = "AuthenticationPopupSuccess"
@@ -1512,6 +1513,15 @@ group = "wikibaseclient"
 aliases = ["WithoutConnection", "WithoutSitelinks"]
 report = { backing = "projection", reads = "view.page, view.sitelink (own host)", graphs = "local" }
 adr = "0038 §6, 0047 §4.4"
+
+[[page]]
+name = "ConfirmAccounts"
+origin = "ConfirmAccount"
+status = "served"
+scope = "tenant"
+group = "users"
+restricted = "confirmaccount"
+adr = "0087 §6"
 
 [[page]]
 name = "ConstraintReport"

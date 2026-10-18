@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-09 (A63)
+- **Updated:** 2026-10-17 (A64)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
@@ -64,7 +64,7 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 
 ### 4. Four schemas
 
-*Changed by A3, A7, A8, A9, A11, A27, A45.*
+*Changed by A3, A7, A8, A9, A11, A27, A45, A64.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §1.2, §4.16.*
 
@@ -925,3 +925,10 @@ Replaced text ([22](../architecture/22-crates-and-stack.md) §6, as it stood):
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §7
 - **Summary:** The projection order of §7 is a partial order over the projections a build registers, with `ops.projection_state` rows for those only; chapter 22 §3.1 names the milestone's crate and projection set, and the build order puts `scatter-log-postgres` before the file backend and its conformance suite. (REVIEW G52)
+
+### A64. `private.account_request` and `private.challenge_spent`
+
+- **Date:** 2026-10-17
+- **Source:** [0087](0087-account-registration-and-challenges.md) §3, §6
+- **Change:** extends §4
+- **Summary:** Two `private` tables: `account_request`, the account requests awaiting review, deleted 7 days after a rejection or on expiry and "never leaves" under 0027 §2; and `challenge_spent`, the spent challenges until their expiry, for an instance without a shared cache. The chapter rows are [03](../architecture/03-storage-caches-and-search.md) §5.

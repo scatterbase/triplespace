@@ -586,6 +586,7 @@ These are served with MediaWiki's or Wikibase's meaning and parameters. The note
 | `MergeUpstream` | The guided three-way merge of a fork with its repository's current text ([0068](../decisions/0068-merging-with-upstream.md) §6; [13](13-mirrored-pages.md)). Origin `triplespace`; restricted to `edit` on the page; group `pagetools` |
 | `ExpandTemplates` | [0042](../decisions/0042-template-expansion-and-parsoid.md)'s expander, in the `parse` rate class; listed while `wikitext.expansion` is on |
 | `ComparePages` | Any two pages or revisions, with 0010 §6's diff |
+| `ConfirmAccounts` |  |  | `ConfirmAccount` | served | `tenant` | `users` | restricted `confirmaccount` |  | 0087 §6 | — |
 | `Redirect` | `user/{id}`, `revision/{id}`, `page/{id}`, `file/{name}` and `logid/{id}`, resolved locally. `file` was already served by 0039 §7. |
 | `RenameUser` | Renaming another account ([0007](../decisions/0007-actor-identity.md) §4; `renameuser`) |
 | `UserLogout`, `PasswordReset` | Session end; a reset for the built-in `password` issuer (0007 §3), sent by the email channel of 0021 |
@@ -650,9 +651,9 @@ Four pages that were deferred are served: `ListRedirects`, `BrokenRedirects`, `D
 
 ## 8. The catalogue
 
-*Sources: [0047](../decisions/0047-special-pages.md) §1, §4.4, §9, §10; [0051](../decisions/0051-page-redirects.md) §6; [0061](../decisions/0061-sprints-and-tasks.md) §9; [0062](../decisions/0062-workspaces.md) §7; [0064](../decisions/0064-entityschema-and-validation.md) §7; [0066](../decisions/0066-lexemes.md) §7; [0077](../decisions/0077-special-version.md) §1; [0085](../decisions/0085-settings-and-preferences.md) §4, §5.*
+*Sources: [0047](../decisions/0047-special-pages.md) §1, §4.4, §9, §10; [0051](../decisions/0051-page-redirects.md) §6; [0061](../decisions/0061-sprints-and-tasks.md) §9; [0062](../decisions/0062-workspaces.md) §7; [0064](../decisions/0064-entityschema-and-validation.md) §7; [0066](../decisions/0066-lexemes.md) §7; [0077](../decisions/0077-special-version.md) §1; [0085](../decisions/0085-settings-and-preferences.md) §4, §5; [0087](../decisions/0087-account-registration-and-challenges.md) §6.*
 
-Every entry of `docs/registry/special-pages.toml` (192 pages: 172 served, 7 deferred, 13 declined, none reserved), in alphabetical order. The columns are the registry's fields (§1.1); **Section** is where this chapter describes the page. The ADR column is the registry's `adr` field as written.
+Every entry of `docs/registry/special-pages.toml` (193 pages: 173 served, 7 deferred, 13 declined, none reserved), in alphabetical order. The columns are the registry's fields (§1.1); **Section** is where this chapter describes the page. The ADR column is the registry's `adr` field as written.
 
 Every `Special:` name that [0047](../decisions/0047-special-pages.md) §1–§10, [0051](../decisions/0051-page-redirects.md) §6, [0061](../decisions/0061-sprints-and-tasks.md) §9, [0062](../decisions/0062-workspaces.md) §7, [0064](../decisions/0064-entityschema-and-validation.md) §7, [0066](../decisions/0066-lexemes.md) §7 and [0077](../decisions/0077-special-version.md) §1 use is in the registry as a name, alias or section alias; none is missing. Twenty-six served pages in the registry are specified by other ADRs and are not described in those sections or in this chapter; the catalogue marks them "—" and names their ADR: `Block`, `BlockList`, `DeletedContributions`, `ListGroupRights`, `Undelete` and `UserRights` ([09](09-security-and-moderation.md)); `UserLogin`, `CreateAccount`, `ListGrants`, `OAuth`, `PendingSubsidiaries` and `TransferAccount` ([07](07-actors-and-accounts.md)); `RecentChanges`, `RecentChangesLinked`, `Watchlist` and `Tags` ([16](16-logs-feeds-and-notifications.md), [09](09-security-and-moderation.md)); `FilePath` and `Upload` ([12](12-files-and-media.md)); `WhatLinksHere`, `Diff` and `PermanentLink` ([19](19-site-ui.md)); `EntityData`, `EntityPage`, `ItemByTitle` and `GoToLinkedPage` ([10](10-pages-and-content-models.md), [06](06-statements-and-properties.md)).
 
@@ -682,7 +683,7 @@ Every `Special:` name that [0047](../decisions/0047-special-pages.md) §1–§10
 | `Contribute` |  |  | `mediawiki` | declined: a skin feature | `tenant` | `unlisted` |  |  | — | §7 |
 | `Contributions` |  | `Contribs` | `mediawiki` | served | `both` | `users` |  |  | 0010 §8, 0018 §8, 0040 §7 | §1.3 |
 | `Corrections` |  |  | `triplespace` | served | `tenant` | `identity` |  | `index`: view.correction (state); graphs local | 0002 §7, 0047 §6 | §2.4 |
-| `CreateAccount` |  |  | `mediawiki` | served | `tenant` | `login` |  |  | 0010 §10 | — |
+| `CreateAccount` |  | `RequestAccount` | `mediawiki` | served | `tenant` | `login` |  |  | 0010 §10, 0087 §6 | — |
 | `CreateSprint` |  |  | `triplespace` | served | `tenant` | `pagetools` | restricted `createpage` |  | 0061 §9 | §6.2 |
 | `CreateWorkspace` |  |  | `triplespace` | served | `tenant` | `pagetools` | restricted `createpage` |  | 0062 §7 | §6.3 |
 | `DeadendPages` | `Deadendpages` |  | `mediawiki` | served | `tenant` | `maintenance` |  | `projection`: view.page_link; graphs local | 0047 §4.4 | §2.4 |

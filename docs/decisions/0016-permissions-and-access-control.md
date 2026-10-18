@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-17 (A33)
+- **Updated:** 2026-10-17 (A34)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -30,7 +30,7 @@ The two agree on the shape: users, groups, memberships, named permissions, and r
 
 ### 2. Permissions
 
-*Changed by A2, A3, A4, A5, A6, A7, A8, A10, A13, A14, A15, A16, A19, A20, A21, A24, A25, A27, A32, A33.*
+*Changed by A2, A3, A4, A5, A6, A7, A8, A10, A13, A14, A15, A16, A19, A20, A21, A24, A25, A27, A32, A33, A34.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §2.1, §2.2, §2.3.*
 
@@ -444,3 +444,14 @@ Replaced text ([09](../architecture/09-security-and-moderation.md) §2.4, as it 
 - **Source:** [0085](0085-settings-and-preferences.md) §3
 - **Change:** extends §2
 - **Summary:** `ts-config` is the right that writes `site` settings, instance defaults and locks through `PATCH /settings` and the settings pages, as it is for every config record, unless a setting's registry entry names a stronger right; reading settings needs only what reading the tenant needs. The chapter row is [09](../architecture/09-security-and-moderation.md) §2.2.
+
+### A34. `confirmaccount` and `skipcaptcha`; closing registration
+
+- **Date:** 2026-10-17
+- **Source:** [0087](0087-account-registration-and-challenges.md) §1, §6, §7
+- **Change:** extends §2
+- **Summary:** Two permissions under their MediaWiki extensions' names and defaults: `confirmaccount` (ConfirmAccount; `bureaucrat`), reviewing account requests and, under `account.approval`, creating an account for another at once; and `skipcaptcha` (ConfirmEdit; `bot`, `sysop`), exemption from every challenge trigger. ConfirmAccount's `requestips` is `ts-viewip`, and its `lookupcredentials` has no counterpart. A tenant closes registration by taking `createaccount` from `universe`, as a private tenant does; `groups.toml` moves `createaccount` from `autoconfirmed` to `universe`, as [0024](0024-subsidiary-accounts.md) A13 decided. The chapter rows are [09](../architecture/09-security-and-moderation.md) §2.2.
+
+Replaced text ([09](../architecture/09-security-and-moderation.md) §2.2, as it stood):
+
+> | `createaccount` | `universe` | Self-registration, and creating an account for another, as in MediaWiki: creating a subsidiary, and creating one in the OAuth consent page. A subsidiary a new user creates is pending until approved. A private tenant removes it from `universe` (§4.7) | [0024](0024-subsidiary-accounts.md) §11; [0025](0025-oauth-server.md) §10; [0056](0056-security-model.md) §3 |

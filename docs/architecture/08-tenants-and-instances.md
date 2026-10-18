@@ -134,11 +134,13 @@ What this preserves: `librarybase:42` is still the actor of every edit made on L
 
 ### 3.6 Shared names and automatic linking
 
-*Sources: [0028](../decisions/0028-tenancy-policy.md) §2.*
+*Sources: [0028](../decisions/0028-tenancy-policy.md) §2; [0087](../decisions/0087-account-registration-and-challenges.md) §6.*
 
 With `identity.shared_names = on`, the farm keeps one **name registry**: a name held by any farm account or any tenant account is reserved farm-wide, and a tenant account can be created only under the name of the farm account creating it. A person who signs up to the farm chooses a name once. On first visit to a tenant that admits them, the tenant creates `{tenant}:{n}` under that name, binds it to the farm subject in the tenant's `accounts` partition, and, with `identity.auto_link = on`, appends the public `link-account` record of [0007](../decisions/0007-actor-identity.md) §7 between the tenant account and the farm account. The consent [0007](../decisions/0007-actor-identity.md) §7 requires is given once, at farm signup, where the form says in plain words that accounts created on the farm's wikis will be publicly linked to the farm account. A person who declines has no farm account and, under the `community` preset, no account at all.
 
 **Turning shared names on later** is refused while any two tenants hold the same name for accounts that are not linked to one farm account, or any tenant name collides with a farm name. `triplespace-cli tenancy check` lists the collisions; each is resolved by renaming or linking. This is why the identity switches need `owner` (§5.1): the check is the cost of a farm that grew before it decided to be one.
+
+**Under approval.** A tenant with `account.approval` on does not create the tenant account on a farm account's first visit: it files an account request whose credential is the farm subject, and creates, binds and links the account as above when a holder of `confirmaccount` approves it ([0087](../decisions/0087-account-registration-and-challenges.md) §6; [07](07-actors-and-accounts.md) §2.6). Signing up to the farm itself is not challenged, since the farm has no passwords and its accounts edit nothing.
 
 ### 3.7 Renames and vanishing cascade
 
