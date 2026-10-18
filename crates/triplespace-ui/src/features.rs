@@ -30,6 +30,11 @@ pub enum Feature {
     Pages,
     /// `Special:Version` (`GET /version`).
     Version,
+    /// `Special:Preferences` and the signed-in Appearance menu (`GET /account/preferences`).
+    Preferences,
+    /// `Special:WikiSettings`, `Special:InstanceSettings` and `Special:Tenancy`
+    /// (`GET /settings`).
+    Settings,
 }
 
 impl Feature {
@@ -46,6 +51,8 @@ impl Feature {
             Self::Account => "account",
             Self::Pages => "pages",
             Self::Version => "version",
+            Self::Preferences => "preferences",
+            Self::Settings => "settings",
         }
     }
 }
@@ -59,6 +66,8 @@ pub const BUILT: &[Feature] = &[
     Feature::History,
     Feature::RecentChanges,
     Feature::Version,
+    Feature::Preferences,
+    Feature::Settings,
 ];
 
 /// What the site offers on one request.

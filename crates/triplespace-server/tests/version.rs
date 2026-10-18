@@ -114,6 +114,7 @@ async fn special_version_and_its_api() {
         key_file: dir.join("triplespace.key"),
         tenant: TENANT.into(),
         base: format!("https://{HOST}"),
+        name: None,
         farm_slug: None,
         farm_base: None,
         providers: vec!["internetdomains".into()],

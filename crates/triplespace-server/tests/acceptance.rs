@@ -179,6 +179,7 @@ async fn a_bot_logs_in_reads_and_edits() {
         key_file: key_file.clone(),
         tenant: TENANT.into(),
         base: format!("https://{HOST}"),
+        name: None,
         farm_slug: None,
         farm_base: None,
         providers: vec!["internetdomains".into()],

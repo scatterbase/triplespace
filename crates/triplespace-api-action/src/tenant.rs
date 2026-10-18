@@ -52,6 +52,15 @@ fn host_of(base: &str) -> Option<String> {
     })
 }
 
+/// Whether a request came to the farm base: the farm's registered base is the tenant's,
+/// or the request's host is the farm base's (0046; 0085 §3).
+#[must_use]
+pub fn at_farm(app: &App, tenant: &Tenant) -> bool {
+    let farm = &app.config().farm.base;
+    farm.trim_end_matches('/') == tenant.base.trim_end_matches('/')
+        || host_of(farm).is_some_and(|h| h.eq_ignore_ascii_case(&tenant.host))
+}
+
 /// Every registered tenant: slug and base.
 pub async fn registered<C: GenericClient>(
     client: &C,

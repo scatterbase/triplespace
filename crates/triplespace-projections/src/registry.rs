@@ -8,7 +8,7 @@ use scatter_log::registry::PAYLOAD_CONFIG;
 use scatter_projection::{Applied, Backend, BoxFuture, Projection, Step};
 
 use crate::backend::PgCx;
-use crate::common::{content, offset_db, split_key, tenant_of, to_jsonb};
+use crate::common::{attestation, attested, content, offset_db, split_key, tenant_of, to_jsonb};
 use scatter_log_postgres::PgClient;
 
 /// The registry projection.
@@ -41,6 +41,11 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for RegistryProjection {
             let key = h.key.as_deref().ok_or("a config record has a key")?;
             let (kind, code) = split_key(key).ok_or("a config key is kind:code")?;
             let tenant = tenant_of(cx, h.partition).await?;
+            // Who wrote it, and whether it is an instance act (08 §8.3): an attestation
+            // naming an authority record is one, and a tenant's `site` record that is
+            // one is not the tenant's own value (0085 §2.1).
+            let actor = attested(record).actor;
+            let instance_act = attestation(record).is_some_and(|a| a.get("authority").is_some());
             let rows = match content(record)? {
                 None => cx
                     .execute(
@@ -51,11 +56,20 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for RegistryProjection {
                     .map_err(|e| e.to_string())?,
                 Some(v) => cx
                     .execute(
-                        "INSERT INTO view.registry (tenant, kind, code, config, \"offset\")
-                         VALUES ($1, $2, $3, $4, $5)
+                        "INSERT INTO view.registry (tenant, kind, code, config, \"offset\", actor, instance_act)
+                         VALUES ($1, $2, $3, $4, $5, $6, $7)
                          ON CONFLICT (tenant, kind, code) DO UPDATE
-                         SET config = EXCLUDED.config, \"offset\" = EXCLUDED.\"offset\"",
-                        &[&tenant, &kind, &code, &to_jsonb(&v), &offset_db(record)?],
+                         SET config = EXCLUDED.config, \"offset\" = EXCLUDED.\"offset\",
+                             actor = EXCLUDED.actor, instance_act = EXCLUDED.instance_act",
+                        &[
+                            &tenant,
+                            &kind,
+                            &code,
+                            &to_jsonb(&v),
+                            &offset_db(record)?,
+                            &actor,
+                            &instance_act,
+                        ],
                     )
                     .await
                     .map_err(|e| e.to_string())?,

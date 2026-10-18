@@ -41,6 +41,8 @@ pub struct Ctx {
     pub cache_class: Class,
     /// The `Cache-Tag`s of the entities the response drew on (0014 §5).
     pub cache_tags: Vec<String>,
+    /// The request's `Accept-Language`, for the preferences negotiated from it (0085 §2.2).
+    pub accept_language: Option<String>,
 }
 
 impl Ctx {
@@ -119,6 +121,10 @@ pub async fn handle(
         warnings: Vec::new(),
         cache_class: Class::Public,
         cache_tags: Vec::new(),
+        accept_language: headers
+            .get(axum::http::header::ACCEPT_LANGUAGE)
+            .and_then(|v| v.to_str().ok())
+            .map(str::to_owned),
     };
     let mut response = match dispatch(&mut ctx).await {
         Ok(r) => r,
@@ -172,6 +178,7 @@ async fn dispatch(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         "login" => modules::login::login(ctx).await,
         "clientlogin" => modules::login::clientlogin(ctx).await,
         "logout" => modules::login::logout(ctx).await,
+        "options" => modules::options::run(ctx).await,
         "wbgetentities" => modules::entities::wbgetentities(ctx).await,
         "wbsearchentities" => modules::search::wbsearchentities(ctx).await,
         "wbeditentity" | "wbcreateclaim" | "wbsetclaim" | "wbremoveclaims" | "wbsetlabel"
@@ -180,7 +187,7 @@ async fn dispatch(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         "paraminfo" => modules::query::paraminfo(ctx),
         "help" => Ok(ApiResponse::ok(serde_json::json!({"help": {
             "mime": "text/plain",
-            "help": "Triplespace Action API. Modules: query (meta=siteinfo|tokens|userinfo), login, clientlogin, logout, wbgetentities, wbsearchentities, wbeditentity, wbcreateclaim, wbsetclaim, wbremoveclaims, wbsetlabel, wbsetdescription, wbsetaliases, wbsetqualifier, wbremovequalifiers, wbsetreference, wbremovereferences."
+            "help": "Triplespace Action API. Modules: query (meta=siteinfo|tokens|userinfo), login, clientlogin, logout, options, wbgetentities, wbsearchentities, wbeditentity, wbcreateclaim, wbsetclaim, wbremoveclaims, wbsetlabel, wbsetdescription, wbsetaliases, wbsetqualifier, wbremovequalifiers, wbsetreference, wbremovereferences."
         }}))),
         other => Err(ApiError::new(
             "badvalue",

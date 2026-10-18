@@ -526,14 +526,14 @@ pub async fn handle(
     };
     let mut keys: Vec<&str> = feature_keys();
     keys.extend(["instance.source_url", "instance.owner_of_record"]);
+    let snap = match triplespace_accounts::settings::load(&**client, Some(&tenant.slug)).await {
+        Ok((s, _)) => s,
+        Err(e) => return internal(&e),
+    };
     let mut settings = BTreeMap::new();
     for key in keys {
-        match v::setting(&client, &tenant.slug, key).await {
-            Ok(Some(val)) => {
-                settings.insert(key.to_string(), val);
-            }
-            Ok(None) => {}
-            Err(e) => return internal(&e),
+        if let Some(val) = v::set_value(&snap, key) {
+            settings.insert(key.to_string(), val);
         }
     }
     let disclosure = if caller.require("ts-config").is_ok() {

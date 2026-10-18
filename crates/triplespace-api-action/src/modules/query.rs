@@ -24,7 +24,18 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         match meta.as_str() {
             "siteinfo" => siteinfo(ctx, &mut query).await?,
             "tokens" => tokens(ctx, &mut query, &mut response).await?,
-            "userinfo" => userinfo(ctx, &mut query),
+            "userinfo" => {
+                userinfo(ctx, &mut query).await?;
+                // The options depend on the reader and on `Accept-Language`.
+                if ctx
+                    .params
+                    .list("uiprop")
+                    .iter()
+                    .any(|p| p == "options" || p == "*")
+                {
+                    ctx.cache_class = crate::http_cache::Class::Private;
+                }
+            }
             "wikibase" => wikibase(ctx, &mut query),
             other => response.warn(
                 "query",
@@ -130,9 +141,11 @@ async fn tokens(
     Ok(())
 }
 
-/// `meta=userinfo` (0016 §7; 0024 §8): `id`, `name`, `anon`, and by `uiprop` `groups`,
-/// `rights`, `blockinfo`, `ratelimits`, plus `operator` and `grants` for a subsidiary.
-fn userinfo(ctx: &Ctx, query: &mut Map<String, Value>) {
+/// `meta=userinfo` (0016 §7; 0024 §8; 0027 §6): `id`, `name`, `anon`, and by `uiprop`
+/// `groups`, `rights`, `blockinfo`, `ratelimits` and `options` (every registered
+/// preference's effective value, defaults filled in, as MediaWiki reports them), plus
+/// `operator` and `grants` for a subsidiary.
+async fn userinfo(ctx: &Ctx, query: &mut Map<String, Value>) -> Result<(), ApiError> {
     let id = &ctx.caller.identity;
     let mut u = Map::new();
     let numeric = id
@@ -187,7 +200,25 @@ fn userinfo(ctx: &Ctx, query: &mut Map<String, Value>) {
     if let Some(k) = &id.credential {
         u.insert("grants".into(), json!(k.grants));
     }
+    if want("options") {
+        let accept = ctx.accept_language.as_deref();
+        let resolved = crate::prefs::resolve(
+            ctx.db(),
+            &ctx.tenant.slug,
+            id.actor_key.as_deref(),
+            ctx.params.get("uselang"),
+            accept,
+        )
+        .await?;
+        let options: Map<String, Value> = resolved
+            .values
+            .into_iter()
+            .filter_map(|(k, r)| r.value.map(|v| (k, v)))
+            .collect();
+        u.insert("options".into(), Value::Object(options));
+    }
     query.insert("userinfo".into(), Value::Object(u));
+    Ok(())
 }
 
 #[derive(Deserialize)]
@@ -604,7 +635,19 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
         props.push("general".into());
     }
     let base = ctx.tenant.public_base.trim_end_matches('/').to_string();
-    let sitename = ctx.tenant.slug.clone();
+    // The wiki's name and content language are settings (0085 §7), resolved through the
+    // instance's defaults; the wiki ID stays the slug.
+    let (settings, _) =
+        triplespace_accounts::settings::load(ctx.db(), Some(&ctx.tenant.slug)).await?;
+    let slug = ctx.tenant.slug.clone();
+    let sitename = settings
+        .value("site.name")
+        .and_then(|v| v.as_str().map(str::to_owned))
+        .unwrap_or_else(|| slug.clone());
+    let lang = settings
+        .value("site.language")
+        .and_then(|v| v.as_str().map(str::to_owned))
+        .unwrap_or_else(|| "en".into());
     let host = ctx.tenant.host.clone();
     for p in props {
         match p.as_str() {
@@ -616,7 +659,7 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                     "generator": ctx.app.config().generator,
                     "phpversion": "0",
                     "dbtype": "postgres",
-                    "lang": "en",
+                    "lang": lang,
                     "fallback": [],
                     "case": "first-letter",
                     "legaltitlechars": " %!\"$&'()*,\\-.\\/0-9:;=?@A-Z\\\\^_`a-z~\\x80-\\xFF+",
@@ -631,7 +674,7 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                     "variantarticlepath": false,
                     "server": base,
                     "servername": host.split(':').next().unwrap_or(&host),
-                    "wikiid": sitename.replace('-', "_"),
+                    "wikiid": slug.replace('-', "_"),
                     "time": crate::entity_json::iso8601(crate::edit::now_micros()),
                     "uploadsenabled": false,
                     // Pywikibot's Siteinfo converts these three unconditionally, so they
@@ -716,10 +759,10 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
             }
             "triplespace" => {
                 let mut t = json!({
-                    "tenant": sitename,
+                    "tenant": slug,
                     "farm": ctx.app.config().farm.slug,
                     "search": "postgres",
-                    "capabilities": ["wbgetentities", "wbsearchentities", "wbeditentity", "statements", "terms", "login", "clientlogin", "bearer", "version", "recentchanges", "activity", "history", "revisions", "diff"],
+                    "capabilities": ["wbgetentities", "wbsearchentities", "wbeditentity", "statements", "terms", "login", "clientlogin", "bearer", "version", "recentchanges", "activity", "history", "revisions", "diff", "options", "preferences", "settings"],
                     "providers": Registry::default_registry().providers().iter().map(|p| p.slug.clone()).collect::<Vec<_>>(),
                     "rate_limits": [],
                     "grants": scatter_actors::grant::GrantRegistry::default_registry().grants().iter().map(|g| g.name.clone()).collect::<Vec<_>>(),
@@ -736,6 +779,8 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                 if ctx.app.config().mode == Mode::Development {
                     t["insecure"] = json!(true);
                 }
+                // The farm base serves the instance's pages (0085 §4).
+                t["at_farm"] = json!(crate::tenant::at_farm(&ctx.app, &ctx.tenant));
                 query.insert("triplespace".into(), t);
             }
             other => ctx.warn(
@@ -759,6 +804,7 @@ const ACTION_MODULES: &[(&str, bool)] = &[
     ("login", true),
     ("clientlogin", true),
     ("logout", true),
+    ("options", true),
     ("wbgetentities", false),
     ("wbsearchentities", false),
     ("wbeditentity", true),
@@ -852,7 +898,7 @@ fn with_default(mut p: Map<String, Value>, default: Value) -> Map<String, Value>
 }
 
 /// The log types `list=logevents` enumerates (16 §2.3): MediaWiki's, and Triplespace's
-/// own `erase`, `link`, `retention`, `convert` and `job`.
+/// own `erase`, `link`, `retention`, `convert`, `job` and `settings` (0085 §3).
 const LOG_TYPES: &[&str] = &[
     "block",
     "protect",
@@ -875,6 +921,7 @@ const LOG_TYPES: &[&str] = &[
     "retention",
     "convert",
     "job",
+    "settings",
 ];
 
 /// The parameters of the three feed modules (`super::changes`), named without their

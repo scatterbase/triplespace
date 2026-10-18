@@ -4,7 +4,7 @@
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use triplespace_cli::{accounts, adopt, forwarder, instance, status, sync};
+use triplespace_cli::{accounts, adopt, forwarder, instance, settings, status, sync};
 
 /// Triplespace: a Wikibase as an append-only log.
 #[derive(Debug, Parser)]
@@ -34,6 +34,11 @@ enum Command {
     Subsidiary {
         #[command(subcommand)]
         command: accounts::Subsidiary,
+    },
+    /// Settings: a tenant's, the instance's, its defaults and locks (0085 §3).
+    Settings {
+        #[command(subcommand)]
+        command: settings::Settings,
     },
     /// Partitions, heads and projection lags, and any migration not yet applied.
     Status(status::Target),
@@ -75,6 +80,7 @@ async fn main() -> Result<()> {
             command: PasswordCommand::Set(args),
         } => accounts::run_password_set(args).await,
         Command::Subsidiary { command } => accounts::run_subsidiary(command).await,
+        Command::Settings { command } => settings::run(command).await,
         Command::Status(args) => status::status(args).await,
         Command::Migrate(args) => status::migrate(args).await,
         Command::Rebuild(args) => status::rebuild(args).await,

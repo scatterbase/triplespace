@@ -572,7 +572,11 @@ async fn missing_and_invalid_entities_are_404() {
 #[tokio::test]
 async fn uselang_sets_language_direction_and_labels() {
     let (_, _, html) = get("/wiki/Item:Q6?uselang=ar").await;
-    assert!(html.contains("<html class=\"client-nojs\" lang=\"ar\" dir=\"rtl\">"));
+    assert!(
+        html.contains(
+            "<html class=\"client-nojs skin-theme-clientpref-os\" lang=\"ar\" dir=\"rtl\">"
+        )
+    );
     assert!(html.contains(">ستة</h1>"), "the Arabic label");
     let (_, _, de) = get("/wiki/Item:Q6?uselang=de").await;
     assert!(de.contains(">Sechs</h1>"));

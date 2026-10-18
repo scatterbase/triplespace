@@ -89,6 +89,7 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
         key_file: dir.join("triplespace.key"),
         tenant: "librarybase".into(),
         base: format!("https://{HOST}"),
+        name: None,
         farm_slug: None,
         farm_base: None,
         providers: vec!["internetdomains".into()],

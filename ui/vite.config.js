@@ -53,8 +53,30 @@ function bundledPackages() {
 	};
 }
 
+/**
+ * Wraps the head script in a function, so that a classic <script> leaves nothing in the
+ * page's global scope but the `tsAppearance` it sets on purpose. In `renderChunk`, so the
+ * file's hash is of what is served.
+ *
+ * @return {Object} The plugin.
+ */
+function classicHeadScript() {
+	return {
+		name: 'triplespace-classic-head-script',
+		renderChunk( code, chunk ) {
+			if ( chunk.name !== 'head' ) {
+				return null;
+			}
+			if ( /^\s*(import|export)\b/m.test( code ) ) {
+				this.error( 'the head script must not import or export at run time' );
+			}
+			return { code: `(()=>{${ code }\n})();\n`, map: null };
+		}
+	};
+}
+
 export default defineConfig( {
-	plugins: [ vue(), bundledPackages() ],
+	plugins: [ vue(), bundledPackages(), classicHeadScript() ],
 	base: '/ui/assets/',
 	build: {
 		outDir: 'dist',
@@ -66,7 +88,10 @@ export default defineConfig( {
 			input: {
 				site: 'src/site.css',
 				'site-rtl': 'src/site-rtl.css',
-				main: 'src/main.js'
+				main: 'src/main.js',
+				// The blocking head script (ADR 0085 §6): no imports of its own at run
+				// time, so it is one file a classic <script> can load.
+				head: 'src/head.js'
 			}
 		}
 	},

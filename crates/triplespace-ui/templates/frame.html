@@ -1,9 +1,12 @@
 <!DOCTYPE html>
-<html class="client-nojs" lang="{{ m.lang() }}" dir="{{ m.dir() }}">
+<html class="client-nojs {{ html_class }}" lang="{{ m.lang() }}" dir="{{ m.dir() }}"{{ html_attrs|safe }}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{ doc_title }} – {{ sitename }}</title>
+{%- if let Some(head_js) = head_js %}
+<script src="{{ head_js }}"></script>
+{%- endif %}
 {%- if let Some(css) = css %}
 <link rel="stylesheet" href="{{ css }}">
 {%- endif %}
@@ -39,6 +42,13 @@
 				</ul>
 			</details>
 			{%- endif %}
+			<details class="ts-menu ts-appearance">
+				<summary class="cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--weight-quiet">{{ m.get("ts-appearance") }}</summary>
+				<div class="ts-menu__items ts-appearance__panel">
+					{{ appearance|safe }}
+				</div>
+			</details>
+			<script type="application/json" id="ts-appearance-data">{{ appearance_data|safe }}</script>
 			{%- if let Some(account) = account %}
 			{%- if account.items.is_empty() %}
 			<span class="ts-header__user">{{ account.name }}</span>

@@ -90,6 +90,9 @@ pub struct Chrome<'a> {
     pub mainpage: &'a str,
     /// What the site offers.
     pub features: &'a Features,
+    /// A signed-in viewer's resolved preferences, which the Appearance menu and
+    /// `<html>` draw on (0085 §6); `None` for anyone else.
+    pub prefs: Option<&'a serde_json::Map<String, serde_json::Value>>,
 }
 
 /// The frame.
@@ -114,10 +117,16 @@ pub struct Frame<'a> {
     returnto: String,
     css: Option<&'a str>,
     js: Option<&'a str>,
+    head_js: Option<&'a str>,
     theme_href: String,
+    html_class: String,
+    html_attrs: String,
+    appearance: String,
+    appearance_data: String,
 }
 
 /// Renders a page in the frame.
+#[allow(clippy::too_many_lines)]
 ///
 /// # Errors
 ///
@@ -159,6 +168,12 @@ pub fn render(
         if f.has(Feature::Account) {
             items.push((m.get("ts-account"), "/wiki/Special:Account".to_string()));
         }
+        if f.has(Feature::Preferences) {
+            items.push((
+                m.get("ts-preferences"),
+                "/wiki/Special:Preferences".to_string(),
+            ));
+        }
         if f.has(Feature::Login) {
             items.push((
                 m.get("ts-logout"),
@@ -196,6 +211,9 @@ pub fn render(
     if f.has(Feature::Pages) {
         new_menu.push((m.get("ts-new-page"), "/w/index.php?action=edit".to_string()));
     }
+    let (html_class, html_attrs) = crate::appearance::html_attributes(chrome.prefs);
+    let appearance = crate::appearance::panel(m, chrome.prefs, &returnto.replace('_', " "));
+    let appearance_data = crate::appearance::data(chrome.prefs, None);
     let entries = assets::entries();
     let css = if m.dir() == "rtl" {
         entries.css_rtl.as_deref()
@@ -221,7 +239,12 @@ pub fn render(
         returnto,
         css,
         js: entries.js.as_deref(),
+        head_js: entries.head_js.as_deref(),
         theme_href: theme.href(),
+        html_class,
+        html_attrs,
+        appearance,
+        appearance_data,
     }
     .render()
 }
@@ -249,6 +272,7 @@ mod tests {
             sitename: "Librarybase",
             mainpage: "Project:Home",
             features,
+            prefs: None,
         }
     }
 
@@ -261,11 +285,11 @@ mod tests {
         let m = Messages::for_language("en");
         let f = all();
         let html = render(&m, &chrome(&f), Theme::shipped(), None, &page()).unwrap();
-        assert!(
-            html.starts_with(
-                "<!DOCTYPE html>\n<html class=\"client-nojs\" lang=\"en\" dir=\"ltr\">"
-            )
-        );
+        assert!(html.starts_with(
+            "<!DOCTYPE html>\n<html class=\"client-nojs skin-theme-clientpref-os\" lang=\"en\" dir=\"ltr\">"
+        ));
+        assert!(html.contains("class=\"ts-appearance__nojs\""));
+        assert!(!html.contains("data-appearance"));
         assert!(html.contains("<title>Main Page – Librarybase</title>"));
         assert!(html.contains(">Librarybase</a>"));
         assert!(html.contains("name=\"search\""));

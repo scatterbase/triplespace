@@ -98,6 +98,9 @@ pub struct SiteInfo {
     pub capabilities: Vec<String>,
     /// `general.mainpage`: the main page's title.
     pub mainpage: String,
+    /// Whether the request came to the farm base, which serves the instance's pages
+    /// (0085 §4).
+    pub at_farm: bool,
 }
 
 /// A provider as `siprop=providers` reports it.
@@ -149,6 +152,9 @@ pub struct UserInfo {
     pub id: u64,
     /// Whether the viewer is anonymous.
     pub anon: bool,
+    /// The viewer's preferences, resolved (`uiprop=options`, 0085 §2.2): what the frame
+    /// draws the Appearance menu and the `<html>` attributes from.
+    pub options: Map<String, Value>,
 }
 
 /// What happens when the API refuses the request outright.
@@ -219,16 +225,17 @@ impl Client {
                 .as_str()
                 .unwrap_or("Main Page")
                 .to_string(),
+            at_farm: ts["at_farm"].as_bool().unwrap_or(false),
         };
         Ok(Fetched { value, cache })
     }
 
-    /// `meta=userinfo`: who the viewer is.
+    /// `meta=userinfo&uiprop=options`: who the viewer is, and their preferences.
     pub async fn userinfo(&self, incoming: &Incoming) -> Result<Fetched<UserInfo>, ClientError> {
         let r = self
             .get(
                 incoming,
-                "/w/api.php?action=query&meta=userinfo&format=json&formatversion=2",
+                "/w/api.php?action=query&meta=userinfo&uiprop=options&format=json&formatversion=2",
             )
             .await?;
         let v = check(&r)?;
@@ -242,6 +249,7 @@ impl Client {
             name: u["name"].as_str().unwrap_or_default().to_string(),
             id: u["id"].as_u64().unwrap_or(0),
             anon,
+            options: u["options"].as_object().cloned().unwrap_or_default(),
         };
         Ok(Fetched {
             value,

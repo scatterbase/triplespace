@@ -8,5 +8,6 @@ pub mod adopt;
 pub mod common;
 pub mod forwarder;
 pub mod instance;
+pub mod settings;
 pub mod status;
 pub mod sync;
