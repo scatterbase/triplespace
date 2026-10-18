@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-17
-- **Updated:** 2026-10-18 (A1)
+- **Updated:** 2026-10-18 (A2)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0024](0024-subsidiary-accounts.md), [0028](0028-tenancy-policy.md), [0047](0047-special-pages.md), [0057](0057-web-tier.md)
 - **Uses:** [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0030](0030-edit-filters.md), [0034](0034-frontend-stack.md), [0035](0035-adopting-a-wikibase.md), [0056](0056-security-model.md), [0085](0085-settings-and-preferences.md)
@@ -26,6 +26,8 @@ James's direction, from the design discussion of 2026-10-17:
 ## Decision
 
 ### 1. Who may register (extends 0007 §3)
+
+*Changed by A2.*
 
 **`createaccount` decides whether an account may be made at all.** It stays as [0024](0024-subsidiary-accounts.md) A13 left it: `universe` by default, taken from `universe` by a private tenant ([0056](0056-security-model.md) A10), and taken from `universe` by any tenant that closes registration; that is the whole of "registration closed", and no setting repeats it. `groups.toml` moves `createaccount` from `autoconfirmed` to `universe`, as A13 decided.
 
@@ -234,3 +236,10 @@ Replaced text (§10):
 > | `triplespace-accounts` | Issuing and checking challenges; the spent set, in Valkey or `private.challenge_spent`; the `badlogin` counters; `private.account_request`, approval and rejection, and the pending and rejected login answers |
 > | `triplespace-ui` | The worker and progress note; the `<noscript>` explanations; the honeypot field; the request form and `Special:ConfirmAccounts`; the open-request count |
 > | `triplespace-db` | `private.account_request` and `private.challenge_spent` |
+
+### A2. Registering through an external issuer
+
+- **Date:** 2026-10-18
+- **Source:** [0088](0088-external-identity-providers.md) §6
+- **Change:** extends §1
+- **Summary:** A first login through an external issuer keeps the identity as the session's pending identity; `createaccount` with `createpreservestate` and a name creates the account bound to it, with no password and no challenge, or under `account.approval` files a request whose credential is the issuer and subject. The chapter text is [07](../architecture/07-actors-and-accounts.md) §2.7.

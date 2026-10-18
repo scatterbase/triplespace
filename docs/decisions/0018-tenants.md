@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-18 (A30)
+- **Updated:** 2026-10-18 (A31)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0003](0003-statement-ui.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md), [0017](0017-entity-id-grammar.md), [0022](0022-federation.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md)
@@ -80,7 +80,7 @@ This ADR adds tenants, makes each tenant its own issuer of identity, lets a tena
 
 ### 10. Moving a tenant (extends 0006 §6 and §9)
 
-*Changed by A3, A7, A8, A12, A17, A20, A21, A22, A29, A30.*
+*Changed by A3, A7, A8, A12, A17, A20, A21, A22, A29, A30, A31.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §6.2, §6.3, §6.4, §6.7, §7.6; [16](../architecture/16-logs-feeds-and-notifications.md) §2.3.*
 
@@ -116,7 +116,8 @@ This ADR adds tenants, makes each tenant its own issuer of identity, lets a tena
 - **Q5. Overlay index cost** for a tenant that annotates a large share of a provider's entities.
 - **Q6.** ~~**Reclaim log event** name and parameters, and whether reclaiming should be reversible.~~ *Settled by A17 in part: `reclaim/reclaim`, projected from the reclaiming binding record in the tenant `log` and visible to everyone.*
 - **Q7. The retention extract's integrity.** Records lifted from `hashed` partitions carry headers but not whole segments; the receiving instance re-appends them under its own key, which is the guarantee mirrors already have.
-- **Q8.** (Rest of Q6.) The `reclaim/reclaim` event's parameters, and whether reclaiming should be reversible.
+- **Q8.** ~~(Rest of Q6.) The `reclaim/reclaim` event's parameters, and whether reclaiming should be reversible.~~ *Settled by [0088](0088-external-identity-providers.md) §8: one parameter, `method`, `manual` or `vouched`, on a `scatter:v0/reclaim` record.*
+- **Q9.** (Rest of Q8.) Whether reclaiming should be reversible.
 
 ## Changes to other ADRs
 
@@ -501,3 +502,10 @@ Replaced text ([19](../architecture/19-site-ui.md) §2.5, as it stood):
 - **Source:** [0086](0086-theming.md) A1
 - **Change:** extends §10
 - **Summary:** When a tenant arrives on an instance, a palette or type set of its own whose name the registry or the instance uses is renamed `{name}~{slug}` with its slug there, with every reference to it, as a provision whose authority is a job record in the instance `log` listing the renames; preferences that arrive later with a reclaimed account are mapped through them. The move is never refused for a name. The chapter text is [08](../architecture/08-tenants-and-instances.md) §6.3.
+
+### A31. Vouching for an adopted wiki's users
+
+- **Date:** 2026-10-18
+- **Source:** [0088](0088-external-identity-providers.md) §8
+- **Change:** extends §10
+- **Summary:** An adopted MediaWiki wiki vouches through an issuer that reaches its users while the tenant's `reclaim.vouching` names it: a login the source confirms as user `n` reclaims `{code}:{n}`. Every reclaim writes a public `scatter:v0/reclaim` record with `method` `manual` or `vouched`, from which `reclaim/reclaim` projects (A17), which settles Q8's parameters. The chapter text is [08](../architecture/08-tenants-and-instances.md) §6.4.

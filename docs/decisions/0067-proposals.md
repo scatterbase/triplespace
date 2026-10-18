@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-05
-- **Updated:** 2026-10-17 (A9)
+- **Updated:** 2026-10-18 (A10)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0019](0019-discussions.md), [0021](0021-notifications.md), [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0038](0038-page-metadata-and-categories.md), [0047](0047-special-pages.md)
 - **Uses:** [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0020](0020-change-feeds.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0040](0040-instance-prerogatives.md), [0049](0049-boards.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [0060](0060-scopes.md), [0061](0061-sprints-and-tasks.md)
@@ -54,7 +54,7 @@ James's direction, from the design discussions of 2026-10-04 and 2026-10-05:
 
 ### 6. Push as the person: the later phase (extends 0025; extends 0027 §2)
 
-*Changed by A2, A5, A8, A9.*
+*Changed by A2, A5, A8, A9, A10.*
 
 *Current text: [17](../architecture/17-federation-and-publication.md) §3.2.*
 
@@ -204,3 +204,10 @@ Replaced text ([17](../architecture/17-federation-and-publication.md) §3.2, as 
 Replaced text ([17](../architecture/17-federation-and-publication.md) §3.2, as it stood):
 
 > revocable from `Special:Preferences` and from the destination wiki's own settings
+
+### A10. Upstream grants sealed under the instance sealing key
+
+- **Date:** 2026-10-18
+- **Source:** [0088](0088-external-identity-providers.md) §3
+- **Change:** extends §6
+- **Summary:** The encryption at rest of `private.upstream_grant` (A8) is XChaCha20-Poly1305 under the instance sealing key, a subkey of the signing seed (`ts-seal-v1`), with the table and owner as associated data. The login client of [0088](0088-external-identity-providers.md) is the instance's other OAuth client; the two never share a consumer. The chapter text is [07](../architecture/07-actors-and-accounts.md) §2.7 and §7.7.

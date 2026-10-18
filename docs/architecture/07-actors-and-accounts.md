@@ -8,7 +8,7 @@ This chapter describes who acts in Triplespace: what an actor is and how it is n
 
 ### 1.1 An actor is an issuer and a subject
 
-*Sources: [0007](../decisions/0007-actor-identity.md) §1; [0079](../decisions/0079-derived-issuer-codes.md) §1, §2, §4.*
+*Sources: [0007](../decisions/0007-actor-identity.md) §1; [0079](../decisions/0079-derived-issuer-codes.md) §1, §2, §4; [0088](../decisions/0088-external-identity-providers.md) §1.*
 
 Actors are namespaced by **issuer**, as entities are namespaced by provider ([04](04-entities-and-identifiers.md)). The issuer is the authority that assigns the account. The subject is the ID it assigned.
 
@@ -19,6 +19,7 @@ Actors are namespaced by **issuer**, as entities are namespaced by provider ([04
 | Each tenant | Its issuer code, derived from its founding record ([08](08-tenants-and-instances.md) §1.2) and written by its slug in examples, such as `librarybase`; `local` names the current tenant's ([0018](../decisions/0018-tenants.md) §4) | Numeric | The tenant's users (§2) |
 | Wikidata | `wikidatawiki` | Numeric | Wikidata revisions and logs, in the Wikidata mirror |
 | Wikimedia central accounts | `wikimedia-central` | Numeric, never published | Wikimedia OAuth only (§2) |
+| Miraheze central accounts | `miraheze-central` | Numeric, never published | Miraheze OAuth only (§2.7) |
 | OpenAlex | `openalex` | Provider only | None. Changes are attributed to OpenAlex as a whole (§1.5). |
 | Password on this instance (§2.2) | `password` | Numeric, the tenant's own user IDs | None. A login provider only |
 | The farm, where the tenancy policy gives it identity | The farm code ([08](08-tenants-and-instances.md) §1.2) | Numeric | Farm accounts, which edit nothing ([0028](../decisions/0028-tenancy-policy.md) §2) |
@@ -33,7 +34,8 @@ Another Wikibase or Miraheze wiki gets an issuer of its own, keyed by its wiki I
 - the actor IRI template (§1.2);
 - the API used to resolve names and central IDs, where there is one;
 - which providers' adapters attribute actors to it;
-- whether it may serve as an identity provider for local login.
+- whether it may serve as an identity provider for local login;
+- for an issuer that serves login through OAuth, its `oauth` table: the authorization, token and profile endpoints, whether its subjects are CentralAuth or local user IDs, and where a consumer is registered (§2.7).
 
 **A registered issuer code is at most 25 characters.** Tenant issuer codes and the farm code are derived, always 26 characters of base32 ([08](08-tenants-and-instances.md) §1.2), so no registered code can equal one, and the registry refuses a longer code at build time.
 
@@ -135,7 +137,7 @@ The metadata graph ([0001](../decisions/0001-revision-metadata-rdf.md) §2) proj
 
 ## 2. Local users and delegated authentication
 
-*Sources: [0007](../decisions/0007-actor-identity.md) §3; [0035](../decisions/0035-adopting-a-wikibase.md) §5; [0024](../decisions/0024-subsidiary-accounts.md) §4; [0025](../decisions/0025-oauth-server.md) §5; [0057](../decisions/0057-web-tier.md) §13; [0087](../decisions/0087-account-registration-and-challenges.md) §1–§7.*
+*Sources: [0007](../decisions/0007-actor-identity.md) §3; [0035](../decisions/0035-adopting-a-wikibase.md) §5; [0024](../decisions/0024-subsidiary-accounts.md) §4; [0025](../decisions/0025-oauth-server.md) §5; [0057](../decisions/0057-web-tier.md) §13; [0087](../decisions/0087-account-registration-and-challenges.md) §1–§7; [0088](../decisions/0088-external-identity-providers.md) §1, §2, §3, §4, §5, §6, §7, §8, §9.*
 
 ### 2.1 User IDs and bindings
 
@@ -181,11 +183,13 @@ A person's edits are attributed by session, a program's by credential (§5.4). S
 
 ### 2.5 Adopted accounts
 
-*Sources: [0035](../decisions/0035-adopting-a-wikibase.md) §5; [0079](../decisions/0079-derived-issuer-codes.md) §6, §9.*
+*Sources: [0035](../decisions/0035-adopting-a-wikibase.md) §5; [0079](../decisions/0079-derived-issuer-codes.md) §6, §9; [0088](../decisions/0088-external-identity-providers.md) §8.*
 
 **Source accounts become tenant accounts by number.** The tenant is the source's issuer ([0018](../decisions/0018-tenants.md) §4), so the source's user 42 is `{code}:42`, under the tenant's issuer code. Where the registry already knows the source wiki as an issuer (`librarybase` in `issuers.toml`), its entry gains `tenant`, the adopting tenant's issuer code, and `{registered code}:{n}` becomes an input form of `{tenant code}:{n}`: canonicalized wherever an actor key is accepted, never stored or output. A reader that meets `librarybase:42` in a mirror of the source wiki and the tenant's own key reads one account ([0079](../decisions/0079-derived-issuer-codes.md) §9). Adoption writes an actor record (§1.3) for every account in the source's user list: kind `registered`, the current name, status `active`, and no binding. A source account that was vanished is written with status `vanished` and no name; for a source account whose name is hidden, adoption writes the `actor` ACL restricted to `suppress` that sets `hidden` for any local account (§1.3), and no name. Source group memberships become membership records ([0016](../decisions/0016-permissions-and-access-control.md) §3; [09](09-security-and-moderation.md)), with one exception: a source bot account has no structural operator (§4.1), so it is adopted as an ordinary account without the `bot` group, keeps its history, and its operator, once reclaimed, creates a subsidiary in its place.
 
 **Adopted accounts cannot log in until reclaimed.** The source has no binding digest, so reclaiming is the manual path of [0018](../decisions/0018-tenants.md) §10: a bureaucrat records a `reclaim/reclaim` log event, or, while the source wiki is still up, the source vouches by acting as an identity provider for a grace period. An account never reclaimed keeps its name and its history, exactly as after a move.
+
+**Vouching** ([0088](../decisions/0088-external-identity-providers.md) §8). With the tenant setting `reclaim.vouching` naming an issuer that serves login (§2.7), a login through it whose identity is not bound asks the source who the person is: the subject itself where the issuer's `subject` is `local`, or, where it is `central`, the `userid` that `list=users&usprop=centralids` on the source's users API (the `users_api` of the registry entry whose `tenant` is this tenant) returns for the provider's username, when that user's `CentralAuth` ID is the subject. If `{code}:{n}` is an adopted account with no binding and no password, one change set appends the binding and a public `scatter:v0/reclaim` record with `method: vouched` in the tenant's `log` partition, projected as `reclaim/reclaim` ([16](16-logs-feeds-and-notifications.md) §2.3), and the person is logged in with `ts-reclaimed`. An account already held answers `ts-reclaim-taken`; a source that cannot be reached, `ts-reclaim-unavailable`, and nothing is created; a source that names no user leaves the login unbound. The grace period is the time the setting is on.
 
 **The owner.** `triplespace-cli instance create` creates `local:1` as the sole member of `owner` ([0016](../decisions/0016-permissions-and-access-control.md) §3). On an adopting tenant, `instance create --adopt {source base} --owner {user_id}` creates the owner under the source's user ID instead, with the same password binding, sets the user-ID floor from the source, and writes `adopted_from` ([0035](../decisions/0035-adopting-a-wikibase.md) §1; [05](05-providers-and-ingest.md)); the adoption job then finds the owner's actor record already present and leaves it. "`local:1`" in 0016 §3 reads as "the owner account" on such a tenant.
 
@@ -210,6 +214,24 @@ A registration through an external issuer is not challenged, since the issuer ha
 **Exemptions.** `skipcaptcha` (`bot`, `sysop`) exempts its holder from every trigger, so an administrator can create an account for someone who cannot run the challenge. The instance's own acts are not challenged: `instance create`, adoption (§2.5), farm auto-creation ([08](08-tenants-and-instances.md) §3.6), and approving a request.
 
 **Approval.** With `account.approval` on, registering files a **request** instead, on ConfirmAccount's model and with its names. The request is a row of `private.account_request`, never a record: the chosen name and its case-folded key, the credential the account will be created with (a password hash, or an issuer and subject), an optional statement of up to 1,000 characters (`account.request_statement`), the caller's address key, and, once decided, the decision, reviewer, time and reason. An account that is never approved never enters the log, and a pending request holds its name against the name-taken check. A holder of `confirmaccount` (`bureaucrat`) reviews at `Special:ConfirmAccounts`, seeing the address key only with `ts-viewip`; **approving** creates the account and its binding as one change set, logged as `newusers/create2` with the reviewer as performer ([16](16-logs-feeds-and-notifications.md) §2.3); **rejecting** records a reason in `private`. A login with the credential of a pending request answers `ts-account-pending`, and of a rejected one `ts-account-rejected` with the reason for 7 days, after which the row is deleted; an open request is deleted after `account.request_expiry` (30 days). No email is sent, since the address would be unverified. In approval mode an account created for another person is made at once only by a holder of `confirmaccount`; anyone else's is filed as a request.
+
+### 2.7 External identity providers
+
+*Sources: [0007](../decisions/0007-actor-identity.md) §3; [0088](../decisions/0088-external-identity-providers.md) §1, §2, §3, §4, §5, §6, §7, §9.*
+
+**An external issuer serves login through OAuth 2.0.** Its registry entry carries an `oauth` table: the authorization, token and profile endpoints, `subject` (`central` for a CentralAuth ID, `local` for the wiki's own user ID) and where a consumer is registered (§1.1). The registry ships two, `wikimedia-central` and `miraheze-central`. The instance is a confidential client using the authorization code grant with PKCE (`S256`), registered with the provider for identity only. It exchanges the code, calls the profile endpoint once, takes `sub`, normalized from `mw:CentralAuth:{id}` or `mw:local:{id}` to the bare number, and `username`, and discards both tokens: no provider's token is ever stored, and every other field of the profile is ignored. Requests leave through the instance's egress with a 10-second timeout.
+
+**Client credentials** are rows of `private.oauth_client`, one per tenant and issuer, `tenant = ''` being the instance default ([03](03-storage-caches-and-search.md) §4.16). A tenant uses its own row, or else the default when the default's registered callback is the tenant's own callback or a prefix of it, since a provider returns only to the URL its consumer was registered with. The secret is sealed with XChaCha20-Poly1305 under the **instance sealing key**, a subkey of the signing seed (`ts-seal-v1`), with the table, tenant and issuer as associated data; `private.publication_credential` and `private.upstream_grant` are sealed the same way. `triplespace-cli oauth-client set`, `list`, `callback` and `remove` write and show them; no API route does, and none returns a secret. Rotating the signing seed means setting them again.
+
+**A tenant offers an issuer** when it has `login = true` and an `oauth` table, a credential resolves, and `login.issuers` (default `*`) lists it. A save that would leave no way to log in, `login.password` off and no issuer offered, is refused with `ts-no-login-method`. An issuer no longer offered unbinds no one; the account page shows its bindings as unavailable.
+
+**A flow** is a ten-minute handle, in Valkey as `oauthc:{state hash}` or in `private.oauth_flow`: the tenant, the session it began in, the issuer, its purpose (`login`, `create` or `link`), the PKCE verifier, the name chosen for `create`, `returnto`, the door it came through, and the outcome. The `state` is 32 random bytes, of which only the hash is kept. The provider returns to one URL per tenant, the API's `/auth/{issuer}/callback` ([18](18-api.md) §3.2), which is the URL the operator registers; it refuses a flow whose issuer, tenant or expiry does not match, and exchanges the code. The **site's door** is `POST /auth/{issuer}/start` with the session's login token (or CSRF token for `link`), reached without JavaScript; the callback applies the outcome to the session the flow began in, refuses any other, and redirects. The **Action API's door** is AuthManager: an issuer request `TriplespaceIssuerAuthenticationRequest:{issuer}` with a button field `tsissuer-{issuer}`, a `REDIRECT` to the provider, and a `*continue` call with the `state` the callback appended to the client's return URL, which must be on the tenant's origin ([18](18-api.md) §2.3). The provider's code never leaves the API.
+
+**Logging in.** A bound identity opens a session, as a password does, and updates the binding's `last_used`; neither challenge trigger applies. An unbound one is answered, in order: by an account request that holds it, `ts-account-pending` or `ts-account-rejected` (§2.6); by vouching (§2.5), where `reclaim.vouching` names the issuer; and otherwise by keeping it as the session's **pending identity** until the flow expires, answered `RESTART` (`authmanager-authn-no-local-user-link`) by the API and continued to `Special:CreateAccount` by the site. `action=createaccount&createpreservestate=1` with a name creates the account bound to that identity, with no password and no challenge. From `Special:CreateAccount` the person may also type a name first and press the issuer's button: the name is checked before the trip to the provider, and the account is created on `createcontinue`. Under `account.approval` either files a request whose credential is the issuer and subject. A subject already bound on the tenant is refused with `ts-oauth-bound`, which says to log in instead.
+
+**Sign-in methods.** `private.binding (tenant, issuer, subject, actor_key, partition, offset, added, last_used)`, unique on `(tenant, issuer, subject)`, indexes external bindings, written in the transaction that appends the binding record and pointing at it so that it can be erased; a password binding's index is `private.password`. **Adding** one is the flow with purpose `link`, from `Special:Account` or `action=linkaccount`; a subject bound to another account is `ts-oauth-bound-elsewhere`, and one already bound to this account changes nothing. **Removing** one, `action=unlinkaccount` or **Remove**, erases the binding record with reason class `privacy` ([01](01-log-and-records.md)) and deletes the row; removing the last way to log in, counting a password, is `ts-last-binding`. Neither appears in any log, feed or export.
+
+**Errors** are `ts-oauth-denied` (the person declined at the provider), `ts-oauth-state` (an unknown, expired or mismatched flow, or another session), `ts-oauth-failed` (the provider could not be reached or answered wrongly), `ts-oauth-returnurl`, `ts-oauth-bound`, `ts-oauth-bound-elsewhere`, `ts-last-binding` and `ts-no-login-method`, and for vouching `ts-reclaimed`, `ts-reclaim-taken` and `ts-reclaim-unavailable`.
 
 ## 3. Linking accounts and the right to vanish
 
@@ -560,9 +582,9 @@ The tag is written by the request path, not by the client: a client cannot omit 
 
 ### 7.7 The instance as an OAuth client
 
-*Sources: [0025](../decisions/0025-oauth-server.md) §1; [0067](../decisions/0067-proposals.md) §8.*
+*Sources: [0025](../decisions/0025-oauth-server.md) §1; [0067](../decisions/0067-proposals.md) §8; [0088](../decisions/0088-external-identity-providers.md) §2.*
 
-**The instance is also an OAuth client of other wikis, for one purpose.** [0067](../decisions/0067-proposals.md) §6 ([14](14-discussions.md), [17](17-federation-and-publication.md)) has it obtain, as a separate authorization from login, an edit-scoped grant on the wiki a proposal is destined for, stored in `private.upstream_grant` and used only to push that person's proposals as that person; pushing needs a grant of one's own. The server role here and the client role there never share a credential, and the rule that a tool's edits are a subsidiary's holds on this side: a subsidiary may hold a grant of its own under its operator.
+**The instance is also an OAuth client of other wikis, for two purposes.** The first is login: a consumer registered for identity only, whose tokens are discarded once the person is known (§2.7; [0088](../decisions/0088-external-identity-providers.md) §2). The second: [0067](../decisions/0067-proposals.md) §6 ([14](14-discussions.md), [17](17-federation-and-publication.md)) has it obtain, as a separate authorization from login, an edit-scoped grant on the wiki a proposal is destined for, stored in `private.upstream_grant` and used only to push that person's proposals as that person; pushing needs a grant of one's own. The server role here and the client role there never share a credential, and the rule that a tool's edits are a subsidiary's holds on this side: a subsidiary may hold a grant of its own under its operator.
 
 ## 8. Preferences, private state and portability
 

@@ -7,6 +7,10 @@
 # users_api    API used to resolve names and central IDs, where there is one.
 # login        true if the issuer may serve as an identity provider for local login (0010 §10).
 # providers    Provider slugs whose adapters attribute actors to this issuer.
+# [issuer.oauth] For an issuer that serves login through OAuth 2.0 (0088 §1): `authorize`, `token` and
+#              `profile` endpoints; `subject`, "central" (CentralAuth IDs) or "local" (the wiki's own
+#              user IDs); `register`, where an operator registers a consumer. Written as comments until
+#              scatter-actors accepts the table (README, Pending allocations).
 
 version = 1
 
@@ -78,6 +82,27 @@ actor_model = "numeric"
 # No IRI: central IDs are never published (0007 §2, §3).
 login = true                  # Wikimedia OAuth; the sub claim is the central ID
 providers = []
+# [issuer.oauth]                                                        (0088 §1; pending allocation)
+# authorize = "https://meta.wikimedia.org/w/rest.php/oauth2/authorize"
+# token = "https://meta.wikimedia.org/w/rest.php/oauth2/access_token"
+# profile = "https://meta.wikimedia.org/w/rest.php/oauth2/resource/profile"
+# subject = "central"
+# register = "https://meta.wikimedia.org/wiki/Special:OAuthConsumerRegistration/propose/oauth2"
+
+[[issuer]]
+code = "miraheze-central"
+name = "Miraheze central accounts (CentralAuth)"
+actor_model = "numeric"
+# No IRI: central IDs are never published (0007 §2, §3). A Miraheze wiki that is a source keeps an
+# issuer of its own, keyed by its wiki ID, for the actors its revisions name (0007 §1).
+login = true                  # Miraheze OAuth on Meta; the sub claim is the central ID (0088 §1)
+providers = []
+# [issuer.oauth]                                                        (0088 §1; pending allocation)
+# authorize = "https://meta.miraheze.org/w/rest.php/oauth2/authorize"
+# token = "https://meta.miraheze.org/w/rest.php/oauth2/access_token"
+# profile = "https://meta.miraheze.org/w/rest.php/oauth2/resource/profile"
+# subject = "central"
+# register = "https://meta.miraheze.org/wiki/Special:OAuthConsumerRegistration/propose/oauth2"
 
 [[issuer]]
 code = "librarybase"

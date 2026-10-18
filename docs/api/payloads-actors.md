@@ -11,6 +11,7 @@ Optional fields are left out when absent, never written as `null`.
 |---|---|---|---|
 | `scatter:v0/actor` | `actors`, `actors/{provider}` | The actor key | [`ActorRecord`](#actor) |
 | `scatter:v0/link-account` | `actors` | The local actor key | [`AccountLink`](#link-account) |
+| `scatter:v0/reclaim` | `log` | The reclaimed account's actor key | [`Reclaim`](#reclaim) |
 | `scatter:v0/membership` | `actors`, `actors/{farm}` | The actor key | [`Membership`](#membership) |
 | `scatter:v0/block` | `actors`, `actors/{farm}` | The actor key | [`Block`](#block) |
 | `scatter:v0/key` | `actors` | The actor key | [`KeyRecord`](#key) |
@@ -116,3 +117,14 @@ A record whose content is `null` retires the ACL. Where the record goes (0023 §
 and `tenant` targets to the tenant `config`, `blob` to the instance `log`, everything else
 to the tenant `log`. A confidential restriction cannot be put on a `graph`, `record`,
 `actor` or `blob` target, and may name only a group its setter belongs to (0056 §4).
+
+## Reclaim
+
+`scatter:v0/reclaim`, in the tenant's `log` partition, keyed by the reclaimed account ([0088](../decisions/0088-external-identity-providers.md) §8; [0018](../decisions/0018-tenants.md) A17). Public: it projects as `reclaim/reclaim`. It is written in the change set that appends the account's binding in `accounts`, and names neither the issuer nor the subject, which stay private.
+
+```json
+{"method": "vouched"}
+{"method": "manual"}
+```
+
+The performer is the attestation's actor: the reclaimed account for `vouched`, the bureaucrat for `manual`.
