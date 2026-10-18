@@ -1,4 +1,6 @@
-// The Appearance menu with JavaScript (ADR 0085 §6; 19 §2.7). A change applies at once.
+// The Appearance menu with JavaScript (ADR 0085 §6; 0086 §5; 19 §2.7). A change applies at
+// once: a colour mode, contrast or text size on <html>, a palette or type set by pointing
+// the page's stylesheet link at it.
 // Not logged in, it is kept in this browser; signed in, it is written to the account
 // through action=options and mirrored into the browser, marked as the account's, so it
 // stays after logout. At a signed-in page, choices the reader made in this browser while
@@ -31,7 +33,8 @@ export async function save( values ) {
 		action: 'options',
 		format: 'json',
 		formatversion: '2',
-		change: Object.entries( values ).map( ( [ k, v ] ) => `${ k }=${ v }` ).join( '|' ),
+		// A key without a value resets it: an empty palette or type set is the wiki's own.
+		change: Object.entries( values ).map( ( [ k, v ] ) => ( v === '' ? k : `${ k }=${ v }` ) ).join( '|' ),
 		token: t.query.tokens.csrftoken
 	} );
 	await json( '/w/api.php', { method: 'POST', body } );
@@ -74,23 +77,29 @@ export function initAppearance( doc, win ) {
 		storage = undefined;
 	}
 	const root = doc.documentElement;
+	const theme = app.readTheme( doc );
+	/** The palettes and type sets a reader may choose here, besides the wiki's own. */
+	const sheets = data.choices || app.sheetChoices( theme );
 	const selects = Array.from( form.querySelectorAll( 'select[data-key]' ) );
 	const show = ( values ) => {
 		for ( const s of selects ) {
-			if ( values[ s.dataset.key ] ) {
-				s.value = values[ s.dataset.key ];
+			const v = values[ s.dataset.key ];
+			if ( typeof v === 'string' ) {
+				s.value = v;
+			} else if ( s.dataset.key in sheets ) {
+				s.value = '';
 			}
 		}
 	};
-	const kept = data.signedIn ? {} : app.read( storage ) || {};
+	const kept = data.signedIn ? {} : app.read( storage, sheets ) || {};
 	let current = Object.assign( {}, data.values || {}, kept );
 	/** Keys the reader has changed on this page. */
 	const touched = new Set();
-	const mirror = () => app.write( storage, current, 'account' );
+	const mirror = () => app.write( storage, current, 'account', sheets );
 	show( current );
 
 	if ( data.signedIn ) {
-		const stored = app.read( storage ) || {};
+		const stored = app.read( storage, sheets ) || {};
 		if ( app.source( storage ) === 'browser' && Object.keys( stored ).length ) {
 			accountHolds( data.keys ).then( ( holds ) => {
 				const carried = {};
@@ -103,6 +112,7 @@ export function initAppearance( doc, win ) {
 				}
 				current = Object.assign( {}, current, carried );
 				app.apply( root, current );
+				app.applySheets( doc, current, theme );
 				show( current );
 				mirror();
 				return Object.keys( carried ).length ? save( carried ) : undefined;
@@ -123,6 +133,9 @@ export function initAppearance( doc, win ) {
 		touched.add( key );
 		current = Object.assign( {}, current, { [ key ]: target.value } );
 		app.apply( root, current );
+		if ( key in sheets ) {
+			app.applySheets( doc, current, theme );
+		}
 		if ( data.signedIn ) {
 			mirror();
 			save( { [ key ]: target.value } ).catch( () => {
@@ -130,7 +143,7 @@ export function initAppearance( doc, win ) {
 				form.classList.add( 'ts-appearance__form--unsaved' );
 			} );
 		} else {
-			app.write( storage, current, 'browser' );
+			app.write( storage, current, 'browser', sheets );
 		}
 	} );
 	form.addEventListener( 'submit', ( e ) => {

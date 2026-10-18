@@ -269,8 +269,19 @@ async fn root_search_and_theme() {
         !html.contains("ts-tabs__link"),
         "a special page has no tabs"
     );
+    // The fake API reports no theme, so the site serves the shipped one: a stylesheet
+    // per palette and per type set, named by their hashes (0086 §5).
     let theme = triplespace_ui::theme::Theme::shipped();
-    let (status, h, css) = get(&fake, &theme.href(), &[]).await;
+    let href = theme
+        .href(triplespace_ui::theme::Sheet::Palette, "parchment")
+        .unwrap();
+    let (status, _, html) = get(&fake, "/wiki/Special:Search", &[]).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(html.contains(&format!(
+        "<link rel=\"stylesheet\" id=\"ts-palette\" href=\"{href}\">"
+    )));
+    assert!(html.contains("<script type=\"application/json\" id=\"ts-theme\">"));
+    let (status, h, css) = get(&fake, &href, &[]).await;
     assert_eq!(status, StatusCode::OK);
     assert!(
         h[header::CACHE_CONTROL]
@@ -279,6 +290,16 @@ async fn root_search_and_theme() {
             .contains("immutable")
     );
     assert!(css.contains("--color-progressive: #2B559E;"));
+    let typeset = theme
+        .href(triplespace_ui::theme::Sheet::Typeset, "opendyslexic")
+        .unwrap();
+    let (status, _, css) = get(&fake, &typeset, &[]).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(css.contains("--font-family-base: 'OpenDyslexic'"));
+    let (status, _, _) = get(&fake, "/ui/theme/p-nope-0000000000000000.css", &[]).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (_, h, _) = get(&fake, "/ui/theme/p-parchment-0000000000000000.css", &[]).await;
+    assert_eq!(h[header::CACHE_CONTROL], "public, max-age=60");
     let (_, h, _) = get(&fake, "/ui/theme/0000000000000000.css", &[]).await;
     assert_eq!(h[header::CACHE_CONTROL], "public, max-age=60");
 }

@@ -29,6 +29,7 @@ pub mod forward;
 pub mod revisions;
 pub mod search;
 pub mod settings;
+pub mod theme;
 pub mod transport;
 pub mod version;
 
@@ -40,6 +41,7 @@ pub use entity::{Entities, Provenance};
 pub use forward::Incoming;
 pub use revisions::{Change, Comparison, EntityDiff, Revision};
 pub use search::{Hit, Hits};
+pub use theme::ThemeInfo;
 pub use transport::{
     ApiRequest, ApiResponse, ClientError, HttpTransport, ServiceTransport, Transport,
 };

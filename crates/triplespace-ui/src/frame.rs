@@ -12,7 +12,7 @@ use crate::assets;
 use crate::codex::SearchInput;
 use crate::features::{Feature, Features};
 use crate::i18n::Messages;
-use crate::theme::Theme;
+use crate::theme::{Sheet, Theme};
 
 /// The characters a title keeps unencoded in a path or a query value, as MediaWiki's
 /// `wfUrlencode` leaves them.
@@ -118,7 +118,9 @@ pub struct Frame<'a> {
     css: Option<&'a str>,
     js: Option<&'a str>,
     head_js: Option<&'a str>,
-    theme_href: String,
+    palette_href: Option<String>,
+    typeset_href: Option<String>,
+    theme_data: String,
     html_class: String,
     html_attrs: String,
     appearance: String,
@@ -212,8 +214,18 @@ pub fn render(
         new_menu.push((m.get("ts-new-page"), "/w/index.php?action=edit".to_string()));
     }
     let (html_class, html_attrs) = crate::appearance::html_attributes(chrome.prefs);
-    let appearance = crate::appearance::panel(m, chrome.prefs, &returnto.replace('_', " "));
-    let appearance_data = crate::appearance::data(chrome.prefs, None);
+    let appearance = crate::appearance::panel(m, theme, chrome.prefs, &returnto.replace('_', " "));
+    let appearance_data = crate::appearance::data(theme, chrome.prefs, None);
+    // A signed-in reader's palette and type set are the server's to choose; anyone
+    // else is served the wiki's, which the head script swaps for their own (0086 §5).
+    let pref = |key: &str| {
+        chrome
+            .prefs
+            .and_then(|p| p.get(key))
+            .and_then(serde_json::Value::as_str)
+    };
+    let palette = theme.chosen(Sheet::Palette, pref("ui.palette"));
+    let typeset = theme.chosen(Sheet::Typeset, pref("ui.typeset"));
     let entries = assets::entries();
     let css = if m.dir() == "rtl" {
         entries.css_rtl.as_deref()
@@ -240,7 +252,9 @@ pub fn render(
         css,
         js: entries.js.as_deref(),
         head_js: entries.head_js.as_deref(),
-        theme_href: theme.href(),
+        palette_href: theme.href(Sheet::Palette, &palette),
+        typeset_href: theme.href(Sheet::Typeset, &typeset),
+        theme_data: theme.data(),
         html_class,
         html_attrs,
         appearance,
@@ -284,7 +298,7 @@ mod tests {
     fn anonymous_frame() {
         let m = Messages::for_language("en");
         let f = all();
-        let html = render(&m, &chrome(&f), Theme::shipped(), None, &page()).unwrap();
+        let html = render(&m, &chrome(&f), &Theme::shipped(), None, &page()).unwrap();
         assert!(html.starts_with(
             "<!DOCTYPE html>\n<html class=\"client-nojs skin-theme-clientpref-os\" lang=\"en\" dir=\"ltr\">"
         ));
@@ -295,7 +309,7 @@ mod tests {
         assert!(html.contains("name=\"search\""));
         assert!(html.contains("href=\"/wiki/Project:Home\">Librarybase</a>"));
         assert!(html.contains("aria-current=\"page\">Read</a>"));
-        assert!(html.contains(&Theme::shipped().href()));
+        assert!(html.contains(&Theme::shipped().href(Sheet::Palette, "parchment").unwrap()));
         assert!(html.contains("<p>x</p>"));
     }
 
@@ -303,7 +317,7 @@ mod tests {
     fn account_menu_escapes_the_name() {
         let m = Messages::for_language("en");
         let f = all();
-        let html = render(&m, &chrome(&f), Theme::shipped(), Some("A <b> C"), &page()).unwrap();
+        let html = render(&m, &chrome(&f), &Theme::shipped(), Some("A <b> C"), &page()).unwrap();
         assert!(html.contains("A &#60;b&#62; C"));
         assert!(!html.contains("Special:UserLogin"));
     }
@@ -312,7 +326,7 @@ mod tests {
     fn features_not_offered_are_not_shown() {
         let m = Messages::for_language("en");
         let none = Features::default();
-        let html = render(&m, &chrome(&none), Theme::shipped(), None, &page()).unwrap();
+        let html = render(&m, &chrome(&none), &Theme::shipped(), None, &page()).unwrap();
         assert!(
             !html.contains("name=\"search\""),
             "no search box without search"
@@ -327,8 +341,14 @@ mod tests {
             assert!(!html.contains(absent), "{absent}");
         }
         assert!(html.contains("Special:SpecialPages"));
-        let signed_in =
-            render(&m, &chrome(&none), Theme::shipped(), Some("Alice"), &page()).unwrap();
+        let signed_in = render(
+            &m,
+            &chrome(&none),
+            &Theme::shipped(),
+            Some("Alice"),
+            &page(),
+        )
+        .unwrap();
         assert!(signed_in.contains("Alice"));
         assert!(!signed_in.contains("Special:Account"));
         assert!(!signed_in.contains("User:Alice"));

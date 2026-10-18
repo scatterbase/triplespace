@@ -813,6 +813,8 @@
 	"ts-appearance": "Appearance",
 	"ts-appearance-nojs": "This page follows your device's settings. Log in, or turn on JavaScript, to keep your own choices.",
 	"ts-appearance-apply": "Apply",
+	"ts-appearance-wiki-default": "Wiki default ($1)",
+	"ts-appearance-accessibility-choice": "$1 (accessibility)",
 	"ts-preferences": "Preferences",
 	"ts-preferences-title": "Preferences",
 	"ts-preferences-save": "Save",

@@ -195,6 +195,20 @@ fn may_configure(schema: &Schema, settings: &Settings) -> bool {
         .any(|d| settings.settings.get(&d.key).is_some_and(|r| r.can_change))
 }
 
+/// The settings that name a palette or type set (0086 §4) offered as a select of the
+/// wiki's palettes and type sets.
+fn offer_themes(defs: &mut [SettingDef], theme: &crate::theme::Theme) {
+    for d in defs {
+        let sheet = match d.ty.as_str() {
+            "palette" => crate::theme::Sheet::Palette,
+            "typeset" => crate::theme::Sheet::Typeset,
+            _ => continue,
+        };
+        d.ty = "choice".into();
+        d.choices = theme.offered(sheet);
+    }
+}
+
 async fn load(
     site: &Site,
     cx: &mut Context,
@@ -217,8 +231,10 @@ async fn load(
         token = Some(t.value.value);
         cookies = t.set_cookies;
     }
+    let mut schema = schema.value;
+    offer_themes(&mut schema.settings, &cx.theme);
     Ok(Loaded {
-        schema: schema.value,
+        schema,
         settings: settings.value,
         token,
         cookies,
@@ -886,7 +902,9 @@ async fn tenant_defs(
     }
     let s = site.client().settings_schema(incoming, false).await?;
     cx.inputs.push(s.cache);
-    Ok(s.value.settings)
+    let mut defs = s.value.settings;
+    offer_themes(&mut defs, &cx.theme);
+    Ok(defs)
 }
 
 /// The context, or the response that ends the request.

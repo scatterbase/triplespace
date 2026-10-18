@@ -18,8 +18,8 @@
 //!   nothing links to a feature that is not offered.
 //! - [`appearance`]: the Appearance menu and the reader's choices on `<html>` (0085 §6).
 //! - [`frame`]: the page frame of 0010 §2, with the [`codex`] builder's components.
-//! - [`theme`]: the shipped default theme and a tenant's overrides, as a stylesheet of
-//!   Codex token values (0034 §1).
+//! - [`theme`]: a stylesheet per palette, with its light, dark and high-contrast
+//!   variants, and one per type set, with its typefaces and text sizes (0086 §5).
 //! - [`assets`]: the built frontend (`ui/dist`), embedded, and its manifest.
 //! - [`i18n`]: interface messages from `i18n/` (0034 §9).
 //! - [`html`]: escaping, for the pieces too small for a template.

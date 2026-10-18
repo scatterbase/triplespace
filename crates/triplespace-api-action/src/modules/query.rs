@@ -333,25 +333,6 @@ fn providers() -> Value {
         .collect()
 }
 
-/// The tenant's theme (0034 §1, 0012 A38): the `site:ui.theme` setting's `value`, the
-/// tenant's own or else the instance's; `None` when neither is set, and the site then
-/// wears its shipped default. Not yet withheld from outsiders of a private tenant,
-/// since there are none until 0056 §3 is built.
-async fn theme(ctx: &Ctx) -> Result<Option<Value>, ApiError> {
-    let row = ctx
-        .db()
-        .query_opt(
-            "SELECT config->'value' FROM view.registry
-             WHERE kind = 'site' AND code = 'ui.theme' AND tenant IN ($1, '')
-             ORDER BY tenant DESC LIMIT 1",
-            &[&ctx.tenant.slug],
-        )
-        .await?;
-    Ok(row
-        .and_then(|r| r.get::<_, Option<Value>>(0))
-        .filter(Value::is_object))
-}
-
 /// `meta=wikibase` (Wikibase Client's module): where this site's repository is. The
 /// site is its own repository, so the URL is the tenant's own; Pywikibot asks this to
 /// decide whether a site has a data repository at all, and builds its `DataSite` from
@@ -773,9 +754,19 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                         "modified": ctx.app.build().build()["modified"],
                     },
                 });
-                if let Some(theme) = theme(ctx).await? {
-                    t["theme"] = theme;
-                }
+                // The theme (0086 §5): the palettes and type sets offered and the
+                // settings that choose from them, public as the logo is.
+                let setting = |k: &str| {
+                    settings
+                        .value(k)
+                        .and_then(|v| v.as_str().map(str::to_owned))
+                };
+                t["theme"] = json!(triplespace_accounts::theme::Theme::new(
+                    triplespace_accounts::theme::Catalogue::shipped(),
+                    setting("theme.palette").as_deref(),
+                    setting("theme.typeset").as_deref(),
+                    setting("theme.choice").as_deref(),
+                ));
                 if ctx.app.config().mode == Mode::Development {
                     t["insecure"] = json!(true);
                 }

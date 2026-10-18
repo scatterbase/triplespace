@@ -1,7 +1,7 @@
-/* The site's stylesheet, left to right: Codex's CSS-only components, the typefaces, the frame, the
-   chips, the entity pages, search, Special:Version, and the settings pages and Appearance menu. */
+/* The site's stylesheet, left to right: Codex's CSS-only components, the frame, the chips, the
+   entity pages, search, Special:Version, and the settings pages and Appearance menu. The colours,
+   shapes and typefaces are the palette's and type set's stylesheets (ADR 0086 §5). */
 @import '@wikimedia/codex/dist/codex.style.css';
-@import './fonts.css';
 @import './frame.css';
 @import './chips.css';
 @import './entity.css';
