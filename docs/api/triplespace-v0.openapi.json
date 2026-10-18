@@ -925,6 +925,474 @@
           }
         }
       }
+    },
+    "/settings/schema": {
+      "get": {
+        "operationId": "getSettingsSchema",
+        "summary": "The registered settings",
+        "description": "Every registered setting of the scope, from `settings.toml` with the instance's own `setting` records over it: key, scope, bound, group, type, choices, default (or `no_default`), media, right, whether `siteinfo` reports it, the catalogue's text, and the label and help message keys; and the groups, which are the tabs of Special:WikiSettings and Special:InstanceSettings. With `scope=instance`, also the tenancy switches with their allowed and current values, the `config.template` mode, and every tenant setting with its registry default, the instance's default and whether it is locked. Readable by anyone who may read the tenant (ADR 0085 §3).",
+        "parameters": [
+          {
+            "name": "scope",
+            "in": "query",
+            "required": false,
+            "description": "`tenant` (the default) or `instance`; `instance` is served only at the farm base (ADR 0085 §3).",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "tenant",
+                "instance"
+              ]
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The registered settings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsSchema"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not modified."
+          },
+          "400": {
+            "description": "`scope=instance` away from the farm base, or an unknown scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller may not read the tenant.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings": {
+      "get": {
+        "operationId": "getSettings",
+        "summary": "Resolved settings with their origins",
+        "description": "Each setting's resolved value with its origin: `registry`, `instance` (the instance's default for a tenant setting, or its own record for an instance setting), `tenant` or `locked`, with `capped` naming the ceiling where one applied; the `{partition, offset}` of the record that set it; the instance's default; whether the viewer may change it; and `base`, the `config` partition's next offset as read, which a later `PATCH` sends back to detect conflicts (ADR 0085 §2.1, §3). Readable by anyone who may read the tenant.",
+        "parameters": [
+          {
+            "name": "scope",
+            "in": "query",
+            "required": false,
+            "description": "`tenant` (the default) or `instance`; `instance` is served only at the farm base (ADR 0085 §3).",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "tenant",
+                "instance"
+              ]
+            }
+          },
+          {
+            "name": "keys",
+            "in": "query",
+            "required": false,
+            "description": "Only these settings, separated by `|`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "group",
+            "in": "query",
+            "required": false,
+            "description": "Only the settings of this group.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The resolved settings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Settings"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not modified."
+          },
+          "400": {
+            "description": "`ts-unknown-setting` for a key in `keys`; or a bad scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller may not read the tenant.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "patchSettings",
+        "summary": "Save settings",
+        "description": "One save, all or nothing: every record is appended in one transaction, each carrying `summary` in its comment part, and projects as one `settings/change` log event. `unset` tombstones the tenant's record, so the setting inherits again. With `scope=instance` at the farm base, `set` and `unset` act on the instance's own settings, `defaults` gives (or with `null` removes) the instance's default for a tenant setting, `locks` locks or unlocks one, and `tenancy` sets tenancy switches. A request made with a session cookie carries its CSRF token as `token`. Refusals: `ts-unknown-setting`, `ts-invalid-setting`, `ts-above-ceiling`, `ts-locked`, `ts-instance-policy`, `permissiondenied`, and `editconflict` for a key with a record at or after `base`; every reason found is listed in `errors` (ADR 0085 §3).",
+        "parameters": [
+          {
+            "name": "scope",
+            "in": "query",
+            "required": false,
+            "description": "`tenant` (the default) or `instance`; `instance` is served only at the farm base (ADR 0085 §3).",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "tenant",
+                "instance"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "What changed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsSaved"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A refusal other than the two below; `errors` lists them all.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied`, or `badtoken`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`editconflict`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/account/preferences": {
+      "get": {
+        "operationId": "getPreferences",
+        "summary": "The holder's preferences",
+        "description": "Every registered preference resolved for this request, with its origin (`account`, `request`, `tenant`, `instance` or `registry`), whether the account set it, and what Special:Preferences needs to draw it: type, choices, group, default, `follows` and `browser` (ADR 0027 §6; 0085 §2.2, §5). Holder only.",
+        "parameters": [
+          {
+            "name": "uselang",
+            "in": "query",
+            "required": false,
+            "description": "A language code that overrides the negotiated `language` and `label-languages` for this request (ADR 0085 §2.2).",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The preferences.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Preferences"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`notloggedin`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "patchPreferences",
+        "summary": "Change preferences",
+        "description": "`set` values, `reset` keys to their defaults, or `reset_all` first, all or nothing; needs `editmyoptions`, and a request made with a session cookie carries its CSRF token as `token`. A key that is not registered is refused with `ts-unknown-preference`, a value that does not fit with `ts-invalid-preference`. Answers with the preferences as `GET` does.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreferencesPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The preferences after the change.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Preferences"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`ts-unknown-preference`, `ts-invalid-preference` or `badbody`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`notloggedin`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied` or `badtoken`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/account/preferences/{key}": {
+      "delete": {
+        "operationId": "resetPreference",
+        "summary": "Reset one preference",
+        "description": "Removes the account's own value, so the key resolves to its default. Needs `editmyoptions`; a request made with a session cookie carries its CSRF token as the `token` query parameter. Answers with the preferences as `GET` does.",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The preferences after the reset.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Preferences"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`ts-unknown-preference`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`notloggedin`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied` or `badtoken`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2306,6 +2774,459 @@
           },
           "state": {
             "$ref": "#/components/schemas/StateChange"
+          }
+        }
+      },
+      "SettingDefinition": {
+        "type": "object",
+        "required": [
+          "key",
+          "scope",
+          "bound",
+          "group",
+          "type",
+          "label",
+          "help"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "tenant",
+              "instance"
+            ]
+          },
+          "bound": {
+            "type": "string",
+            "enum": [
+              "tenant",
+              "ceiling",
+              "instance"
+            ]
+          },
+          "ceiling": {
+            "type": "string",
+            "description": "The capping switch, where not of the setting's own name."
+          },
+          "tenant_may_narrow": {
+            "type": "boolean"
+          },
+          "group": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "choices": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "default": {
+            "description": "A JSON value of the setting's type."
+          },
+          "no_default": {
+            "type": "boolean"
+          },
+          "media": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "right": {
+            "type": "string"
+          },
+          "reported": {
+            "type": "boolean"
+          },
+          "retired": {
+            "type": "boolean"
+          },
+          "values": {
+            "type": "string"
+          },
+          "default_text": {
+            "type": "string"
+          },
+          "meaning": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "scope_note": {
+            "type": "string"
+          },
+          "by_rule": {
+            "type": "boolean"
+          },
+          "label": {
+            "type": "string",
+            "description": "The message key of the label, `ts-setting-{key}`."
+          },
+          "help": {
+            "type": "string",
+            "description": "The message key of the help text."
+          }
+        }
+      },
+      "SettingsSchema": {
+        "type": "object",
+        "required": [
+          "scope",
+          "groups",
+          "settings"
+        ],
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "tenant",
+              "instance"
+            ]
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "settings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SettingDefinition"
+            }
+          },
+          "tenancy": {
+            "type": "object",
+            "description": "With `scope=instance`: each switch's allowed values and current value.",
+            "additionalProperties": {
+              "type": "object"
+            }
+          },
+          "template": {
+            "type": "string",
+            "enum": [
+              "none",
+              "defaults",
+              "locks"
+            ]
+          },
+          "tenant_settings": {
+            "type": "object",
+            "description": "With `scope=instance`: each tenant setting's registry default, instance default and lock.",
+            "additionalProperties": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      "ResolvedSetting": {
+        "type": "object",
+        "required": [
+          "value",
+          "origin",
+          "can_change"
+        ],
+        "properties": {
+          "value": {
+            "description": "A JSON value of the setting's type."
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "registry",
+              "instance",
+              "tenant",
+              "locked"
+            ]
+          },
+          "capped": {
+            "description": "The ceiling that capped the value."
+          },
+          "record": {
+            "type": "object",
+            "properties": {
+              "partition": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "offset": {
+                "type": "integer"
+              }
+            }
+          },
+          "instance_default": {
+            "description": "A JSON value of the setting's type."
+          },
+          "unresolved_default": {
+            "type": "boolean",
+            "description": "The instance's default names nothing this tenant has."
+          },
+          "locked": {
+            "type": "boolean"
+          },
+          "can_change": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Settings": {
+        "type": "object",
+        "required": [
+          "scope",
+          "base",
+          "settings"
+        ],
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "tenant",
+              "instance"
+            ]
+          },
+          "base": {
+            "type": "integer",
+            "description": "The `config` partition's next offset as read."
+          },
+          "settings": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ResolvedSetting"
+            }
+          }
+        }
+      },
+      "SettingsPatch": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "set": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "unset": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "summary": {
+            "type": "string"
+          },
+          "base": {
+            "type": "integer"
+          },
+          "defaults": {
+            "type": "object",
+            "description": "`scope=instance` only.",
+            "additionalProperties": true
+          },
+          "locks": {
+            "type": "object",
+            "description": "`scope=instance` only.",
+            "additionalProperties": {
+              "type": "boolean"
+            }
+          },
+          "tenancy": {
+            "type": "object",
+            "description": "`scope=instance` only.",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "token": {
+            "type": "string"
+          }
+        }
+      },
+      "SettingChange": {
+        "type": "object",
+        "required": [
+          "scope",
+          "key",
+          "old",
+          "new"
+        ],
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "tenant",
+              "instance",
+              "defaults",
+              "locks",
+              "tenancy"
+            ]
+          },
+          "key": {
+            "type": "string"
+          },
+          "old": {
+            "description": "A JSON value of the setting's type."
+          },
+          "new": {
+            "description": "A JSON value of the setting's type."
+          }
+        }
+      },
+      "SettingsSaved": {
+        "type": "object",
+        "required": [
+          "changes",
+          "records",
+          "base"
+        ],
+        "properties": {
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SettingChange"
+            }
+          },
+          "records": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "partition": {
+                  "type": "string"
+                },
+                "offset": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "base": {
+            "type": "integer"
+          }
+        }
+      },
+      "ResolvedPreference": {
+        "type": "object",
+        "required": [
+          "value",
+          "origin",
+          "own",
+          "type",
+          "group",
+          "follows",
+          "label"
+        ],
+        "properties": {
+          "value": {
+            "description": "A JSON value of the setting's type."
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "account",
+              "request",
+              "tenant",
+              "instance",
+              "registry"
+            ]
+          },
+          "own": {
+            "type": "boolean"
+          },
+          "type": {
+            "type": "string"
+          },
+          "group": {
+            "type": "string"
+          },
+          "follows": {
+            "type": "string",
+            "enum": [
+              "account",
+              "farm",
+              "choice"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "choices": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "default": {
+            "description": "A JSON value of the setting's type."
+          },
+          "browser": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Preferences": {
+        "type": "object",
+        "required": [
+          "groups",
+          "preferences"
+        ],
+        "properties": {
+          "groups": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "preferences": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ResolvedPreference"
+            }
+          }
+        }
+      },
+      "PreferencesPatch": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "set": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "reset": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reset_all": {
+            "type": "boolean"
+          },
+          "token": {
+            "type": "string"
           }
         }
       }

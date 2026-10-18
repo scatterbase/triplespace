@@ -17,6 +17,11 @@
 //!   [`scatter_actors::evaluate::Effective`] permissions that follow.
 //! - [`forwarder`]: forwarder keys in `private.forwarder_key`, which let a proxy vouch
 //!   for the client address it forwards (0057 §10).
+//! - [`settings`]: the settings registry, the resolver of a setting's value and the one
+//!   validator every writer of a `site` record calls (0085 §1–3).
+//! - [`preferences`]: the preference registry, `private.preference`, and a preference's
+//!   resolution through negotiation and the tenant's and instance's defaults (0027 §1;
+//!   0085 §2.2).
 //!
 //! This is one of the three crates that read `private` (0013 §4). Everything here takes a
 //! connection and runs inside whatever transaction the caller holds; nothing opens one.
@@ -30,7 +35,9 @@ pub mod identity;
 pub mod keys;
 pub mod login;
 pub mod password;
+pub mod preferences;
 pub mod session;
+pub mod settings;
 pub mod token;
 
 pub use identity::{Auth, Identity, Resolved};

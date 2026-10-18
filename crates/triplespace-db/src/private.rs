@@ -44,6 +44,7 @@ pub const PRIVATE_TABLES: &[(&str, Portability)] = &[
     ("api_key", Portability::ReEstablished),
     ("session", Portability::NeverLeaves),
     ("forwarder_key", Portability::NeverLeaves),
+    ("preference", Portability::Portable),
 ];
 
 /// Why the live schema disagrees with [`PRIVATE_TABLES`].
@@ -129,9 +130,6 @@ mod tests {
             assert_eq!(Portability::parse(c.as_str()), Some(c));
         }
         assert_eq!(Portability::parse("secret"), None);
-        assert!(
-            portable_tables().is_empty(),
-            "nothing portable is in the schema yet"
-        );
+        assert_eq!(portable_tables(), vec!["preference"]);
     }
 }

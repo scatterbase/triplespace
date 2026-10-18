@@ -44,6 +44,9 @@ pub struct Create {
     /// The tenant's base URI, `https://librarybase.org`.
     #[arg(long)]
     pub base: String,
+    /// The wiki's name, the `site.name` setting (0085 §7); the slug by default.
+    #[arg(long)]
+    pub name: Option<String>,
     /// The farm slug; the tenant's by default.
     #[arg(long)]
     pub farm_slug: Option<String>,
@@ -135,6 +138,10 @@ pub async fn run(args: Create) -> Result<()> {
         .clone()
         .unwrap_or_else(|| args.tenant.clone());
     let farm_base = args.farm_base.clone().unwrap_or_else(|| args.base.clone());
+    if let Some(name) = &args.name {
+        triplespace_accounts::settings::plan::check_site_name(name)
+            .map_err(|e| anyhow::anyhow!("--name: {e}"))?;
+    }
     let farm = Farm {
         slug: farm_slug.clone(),
         base: farm_base.clone(),
@@ -214,6 +221,23 @@ pub async fn run(args: Create) -> Result<()> {
         )
         .await?;
     }
+    // The settings registry, copied into the instance `config` as `setting:` records
+    // (0085 §1), so an instance's own registrations sit beside the shipped ones.
+    for def in triplespace_accounts::settings::SettingsRegistry::embedded().iter() {
+        log::append(
+            &client,
+            CONFIG_PARTITION,
+            draft(
+                PAYLOAD_CONFIG,
+                &format!("setting:{}", def.key),
+                &def.to_json(),
+                &instance_actor,
+                None,
+                t,
+            )?,
+        )
+        .await?;
+    }
     let keyed_types: Vec<&str> = vec!["domain", "keyword", "notation"];
     sequences::create_instance(&client, &keyed_types).await?;
 
@@ -274,6 +298,26 @@ pub async fn run(args: Create) -> Result<()> {
         .await?;
     }
     sequences::create(&client, &args.tenant, &["item", "property", "lexeme"]).await?;
+    // The wiki's name (0085 §7), the tenant's own value: written at creation with no
+    // authority, so resolution takes it as the tenant's rather than passing over it.
+    if let Some(name) = &args.name {
+        log::append(
+            &client,
+            tenant_config,
+            draft(
+                PAYLOAD_CONFIG,
+                "site:site.name",
+                &triplespace_accounts::settings::plan::site_record(
+                    "site.name",
+                    &serde_json::Value::String(name.clone()),
+                ),
+                &instance_actor,
+                Some("instance create"),
+                t,
+            )?,
+        )
+        .await?;
+    }
 
     // The owner (0016 §3; 0035 §5): the `owner` group, the account, the membership.
     log::append(
@@ -364,6 +408,9 @@ pub async fn run(args: Create) -> Result<()> {
     println!("  key file      {}", args.key_file.display());
     println!("  farm          {farm_slug} ({farm_base})");
     println!("  tenant        {} ({})", args.tenant, args.base);
+    if let Some(name) = &args.name {
+        println!("  name          {name}");
+    }
     println!("  owner         {owner} \"{}\"", args.owner_name);
     for (name, p) in &partitions {
         println!("  partition     {name:<9} {p:#018x}");

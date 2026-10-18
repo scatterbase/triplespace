@@ -56,6 +56,7 @@ async fn context(app: App, origin: Origin, headers: &HeaderMap) -> Result<Ctx, R
         warnings: Vec::new(),
         cache_class: crate::http_cache::Class::Public,
         cache_tags: Vec::new(),
+        accept_language: None,
     })
 }
 

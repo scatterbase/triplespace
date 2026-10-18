@@ -278,6 +278,7 @@ pub(crate) async fn serve(
         warnings: Vec::new(),
         cache_class: Class::Public,
         cache_tags: Vec::new(),
+        accept_language: None,
     };
     let feed = match feed_of(&ctx, q, preset).await {
         Ok(f) => f,

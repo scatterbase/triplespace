@@ -175,36 +175,33 @@ impl Disclosure {
     }
 }
 
-/// A `site` setting's value, the tenant's own or else the instance's (`tenant = ''`).
+/// A setting's value where something set it, resolved (0085 §2.1): the tenant's own
+/// record, the instance's default for it, or the instance's own record for an instance
+/// setting; `None` where only the registry default applies.
 pub async fn setting(
     db: &tokio_postgres::Client,
     tenant: &str,
     key: &str,
 ) -> Result<Option<Value>, tokio_postgres::Error> {
-    Ok(db
-        .query_opt(
-            "SELECT config->'value' FROM view.registry
-             WHERE kind = 'site' AND code = $2 AND tenant IN ($1, '')
-             ORDER BY tenant DESC LIMIT 1",
-            &[&tenant, &key],
-        )
-        .await?
-        .and_then(|r| r.get::<_, Option<Value>>(0)))
+    let (snap, _) = triplespace_accounts::settings::load(db, Some(tenant)).await?;
+    Ok(set_value(&snap, key))
 }
 
-/// An instance `site` setting's value (`tenant = ''`).
+/// A setting's value from a snapshot where something set it (see [`setting`]).
+#[must_use]
+pub fn set_value(snap: &triplespace_accounts::settings::Snapshot, key: &str) -> Option<Value> {
+    snap.resolve(key)
+        .filter(|r| r.origin != triplespace_accounts::settings::Origin::Registry)
+        .and_then(|r| r.value)
+}
+
+/// An instance setting's value where the instance set it.
 pub async fn instance_setting(
     db: &tokio_postgres::Client,
     key: &str,
 ) -> Result<Option<Value>, tokio_postgres::Error> {
-    Ok(db
-        .query_opt(
-            "SELECT config->'value' FROM view.registry
-             WHERE kind = 'site' AND code = $1 AND tenant = ''",
-            &[&key],
-        )
-        .await?
-        .and_then(|r| r.get::<_, Option<Value>>(0)))
+    let (snap, _) = triplespace_accounts::settings::load(db, None).await?;
+    Ok(set_value(&snap, key))
 }
 
 /// The instance's `version.services`.

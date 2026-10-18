@@ -2815,6 +2815,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-postgres",
+ "toml",
  "triplespace-db",
 ]
 
@@ -2861,8 +2862,10 @@ dependencies = [
  "scatter-wikibase-changeset",
  "scatter-wikibase-model",
  "serde_json",
+ "thiserror",
  "tokio",
  "tokio-postgres",
+ "triplespace-accounts",
  "triplespace-db",
  "triplespace-projections",
 ]
@@ -2872,16 +2875,20 @@ name = "triplespace-api-rest"
 version = "0.0.1"
 dependencies = [
  "axum",
+ "scatter-actors",
  "scatter-log",
  "scatter-log-postgres",
  "scatter-providers",
  "scatter-wikibase-changeset",
  "scatter-wikibase-model",
  "scatter-wikibase-resolve",
+ "serde",
  "serde_json",
  "tokio-postgres",
  "toml",
+ "triplespace-accounts",
  "triplespace-api-action",
+ "triplespace-api-ingest",
  "triplespace-projections",
 ]
 

@@ -11,6 +11,10 @@ publish = false
 
 [dependencies]
 triplespace-api-action.workspace = true
+triplespace-api-ingest.workspace = true
+triplespace-accounts.workspace = true
+scatter-actors.workspace = true
+serde.workspace = true
 triplespace-projections.workspace = true
 scatter-log.workspace = true
 scatter-log-postgres.workspace = true

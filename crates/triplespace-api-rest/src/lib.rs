@@ -18,6 +18,12 @@
 //!   ([`diff`]): the structured diff of one change set, and of two local revisions
 //!   (0012 §7; 18 §5.1).
 //!
+//! - `GET /settings/schema`, `GET /settings` and `PATCH /settings` ([`settings`]): the
+//!   registered settings, their resolved values with origins, and saving them through the
+//!   one validator (0085 §3).
+//! - `GET` and `PATCH /account/preferences`, `DELETE /account/preferences/{key}`
+//!   ([`account`]): the holder's preferences (0027 §6; 0085 §5).
+//!
 //! Every route runs behind the Action API's request layers ([`triplespace_api_action`]):
 //! the tenant the host names (421 otherwise), the caller, the redaction of 0012 §8, and
 //! the HTTP caching of 0014 §6 ([`triplespace_api_action::http_cache`]). Errors are JSON
@@ -25,15 +31,17 @@
 
 #![forbid(unsafe_code)]
 
+pub mod account;
 pub mod activity;
 pub mod diff;
 mod entity_route;
 pub mod history;
 pub mod provenance;
+pub mod settings;
 pub mod version;
 
 use axum::Router;
-use axum::routing::get;
+use axum::routing::{delete, get};
 use triplespace_api_action::App;
 
 /// The base paths the REST API answers at.
@@ -48,6 +56,10 @@ pub const PATHS: &[&str] = &[
     "/entity/{id}/history",
     "/entity/{id}/changes/{partition}/{offset}",
     "/entity/{id}/compare",
+    "/settings/schema",
+    "/settings",
+    "/account/preferences",
+    "/account/preferences/{key}",
 ];
 
 /// The REST routes, to be merged into the server's router.
@@ -61,7 +73,17 @@ pub fn routes() -> Router<App> {
             .route(&format!("{base}{}", PATHS[3]), get(activity::handle))
             .route(&format!("{base}{}", PATHS[4]), get(history::handle))
             .route(&format!("{base}{}", PATHS[5]), get(diff::change))
-            .route(&format!("{base}{}", PATHS[6]), get(diff::compare));
+            .route(&format!("{base}{}", PATHS[6]), get(diff::compare))
+            .route(&format!("{base}{}", PATHS[7]), get(settings::schema))
+            .route(
+                &format!("{base}{}", PATHS[8]),
+                get(settings::get).patch(settings::patch),
+            )
+            .route(
+                &format!("{base}{}", PATHS[9]),
+                get(account::get).patch(account::patch),
+            )
+            .route(&format!("{base}{}", PATHS[10]), delete(account::delete));
     }
     r
 }

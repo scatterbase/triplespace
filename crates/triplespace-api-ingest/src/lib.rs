@@ -9,9 +9,13 @@
 //! sequences of 0013 §6 (A29), and the `view` tables for cursors, match keys, surrogates,
 //! property types and the adoption preconditions. Everything runs inside the backend's
 //! unit of work, so a job's append and its projections commit together (0013 §7).
+//!
+//! [`settings`] is the one writer of settings records (0085 §3), shared by
+//! `PATCH /settings` and `triplespace-cli settings`.
 
 #![forbid(unsafe_code)]
 
+pub mod settings;
 pub mod store;
 
 pub use store::PgIngest;
