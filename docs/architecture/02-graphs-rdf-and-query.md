@@ -73,7 +73,7 @@ Every graph's kind, integrity policy and export policy are those `graphs.toml` r
 
 ### 1.4 The registry of record
 
-*Sources: [0015](../decisions/0015-record-format-and-partition-registry.md) §5.*
+*Sources: [0015](../decisions/0015-record-format-and-partition-registry.md) §5; [0085](../decisions/0085-settings-and-preferences.md) §1; [0086](../decisions/0086-theming.md) §1.*
 
 **The repository is the authority for names and codes.** The files under `docs/registry/` in the Triplespace repository are the registry of record; [23](23-configuration-and-registry.md) describes how an instance's configuration starts from them.
 
@@ -88,7 +88,8 @@ Every graph's kind, integrity policy and export policy are those `graphs.toml` r
 | `grants.toml` | The API-key grants and the permissions each covers | [0024](../decisions/0024-subsidiary-accounts.md) §4 |
 | `sites.toml` | Site aliases: MediaWiki site IDs, hosts, article paths and languages, for sitelink compatibility | [0026](../decisions/0026-sitelinks.md) §2 |
 | `thread-statuses.toml` | The default thread statuses, with category and order | [0019](../decisions/0019-discussions.md) §6 |
-| `preferences.toml` | The registered preference keys, types and defaults | [0027](../decisions/0027-preferences-and-portability.md) §1 |
+| `preferences.toml` | The registered preference keys, types, groups and defaults, and which follow the farm account or may be held in the browser | [0027](../decisions/0027-preferences-and-portability.md) §1; [0085](../decisions/0085-settings-and-preferences.md) §1 |
+| `settings.toml` | Every `site` setting, a tenant's and the instance's: scope, bound, group, type, choices and default; the catalogue of [23](23-configuration-and-registry.md) §3.2–3.3 is generated from it | [0085](../decisions/0085-settings-and-preferences.md) §1 |
 | `tenancy.toml` | The tenancy switches, the three presets and their global groups | [0028](../decisions/0028-tenancy-policy.md) §1 |
 | `resolvers.toml` | The default resolvers (`doi`, `url`) and drafted candidates | [0029](../decisions/0029-resolver-namespaces.md) §8 |
 | `file-types.toml` | The permitted file types: extensions, MIME and media types, magic signatures, inline or attachment, thumbnailer | [0039](../decisions/0039-files-and-media.md) §5 |
@@ -98,7 +99,7 @@ Every graph's kind, integrity policy and export policy are those `graphs.toml` r
 | `version.toml` | What `Special:Version` credits and lists that nothing else records: developer, contributors, funders, AI agents, services, feature switches, and the extensions an `origin` names | [0077](../decisions/0077-special-version.md) §14 |
 | `content-models.toml` | Content models: ID, origin, source, slot, entity type, serialization format and direct editing; the reserved MediaWiki and Wikibase model IDs | [0041](../decisions/0041-content-models.md) §3 |
 | `notation-schemes.toml` | Notation schemes: name, label, normalizer and grammar, documentation template | [0048](../decisions/0048-notation.md) §2, §6 |
-| `themes.toml` | Themes as values for Codex design tokens, and the typefaces each serves | [0034](../decisions/0034-frontend-stack.md) §1 |
+| `themes.toml` | Palettes, each with its `light`, `dark`, `light-more` and `dark-more` colour variants and shape tokens, and type sets with the typefaces each serves: the palettes `parchment`, `parchment-ob` and `parchment-co` and the type sets `default26`, `hyperlegible` and `opendyslexic` | [0034](../decisions/0034-frontend-stack.md) §1; [0086](../decisions/0086-theming.md) §1 |
 | `fragments.toml` | Fragment paths for packed record storage: per payload type, the CBOR path patterns stored once per dedup domain, the history condition and size bounds | [0058](../decisions/0058-packed-record-storage.md) §3 |
 
 `scatter-log`, `scatter-providers`, `scatter-actors`, for special pages `triplespace-titles`, and for `version.toml` `triplespace-api-rest` embed these files and ship them as defaults; an instance's `config` partition ([0015](../decisions/0015-record-format-and-partition-registry.md) §3) starts from them and may diverge. Allocating a new provider code, slug, number or graph name is a change to the file, in a commit; a code is never reused. This is the same rule [0005](../decisions/0005-crate-organization.md) §5 applies to the `scatter:` vocabulary through `scatter-vocab`. The code for internetdomains.wiki is allocated there when its adapter is written; the slug `internetdomains` is reserved now. MusicBrainz (`MB`, number 4) and the other providers registered since are allocated the same way ([0017](../decisions/0017-entity-id-grammar.md) §6).

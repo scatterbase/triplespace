@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-03
-- **Updated:** 2026-10-09 (A4)
+- **Updated:** 2026-10-17 (A5)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0025](0025-oauth-server.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0042](0042-template-expansion-and-parsoid.md), [0056](0056-security-model.md)
 - **Uses:** [0003](0003-statement-ui.md), [0039](0039-files-and-media.md), [0045](0045-table-content-model.md), [0047](0047-special-pages.md), [0053](0053-mirrored-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -62,7 +62,7 @@ James's direction, from the design discussion of 2026-10-03:
 
 ### 6. A page's own cacheability (extends 0014 §6)
 
-*Changed by A4.*
+*Changed by A4, A5.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §10.3, §12.4.*
 
@@ -207,3 +207,10 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §10.3, as 
 Replaced text ([03](../architecture/03-storage-caches-and-search.md) §12.4, as it stood):
 
 > a page the web tier composes carries the union of its components' tags (§10.3).
+
+### A5. The response cache keys by the negotiated language
+
+- **Date:** 2026-10-17
+- **Source:** [0085](0085-settings-and-preferences.md) §2.2
+- **Change:** extends §6
+- **Summary:** With the interface language negotiated from `Accept-Language`, the web tier's public cache keys a composed page by the negotiated interface language, not by the raw header, so negotiation does not split the cache by every browser's header; `Vary: Accept-Language` stays for downstream proxies. The chapter text is [03](../architecture/03-storage-caches-and-search.md) §10.3.

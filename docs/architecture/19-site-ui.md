@@ -30,7 +30,7 @@ These extend the principles of the statement UI (§4.1), which still apply to th
 
 ### 1.2 The global header
 
-*Sources: [0010](../decisions/0010-site-ui.md) §2; [0021](../decisions/0021-notifications.md) §6; [0034](../decisions/0034-frontend-stack.md) §2.*
+*Sources: [0010](../decisions/0010-site-ui.md) §2; [0021](../decisions/0021-notifications.md) §6; [0034](../decisions/0034-frontend-stack.md) §2; [0085](../decisions/0085-settings-and-preferences.md) §6.*
 
 The global header holds:
 
@@ -39,6 +39,7 @@ The global header holds:
 - links to Recent changes, Jobs and Special pages;
 - a **New** menu for creating items, properties and pages;
 - the account menu, or **Log in**;
+- the **Appearance** button, for every viewer (§2.7);
 - the notifications **bell**, with the unseen count, opening the inbox as a panel (§6.2).
 
 **Special pages** links to `Special:SpecialPages`, the index of every page `docs/registry/special-pages.toml` marks served, grouped, and filtered by the viewer's rights. The **New** menu opens `Special:NewItem` and `Special:NewProperty` for entities, and the edit form for pages ([0047](../decisions/0047-special-pages.md) §5, §9). The frame (global header, identity line, title, tabs) is one template shared by every page kind ([0034](../decisions/0034-frontend-stack.md) §2; §5.2).
@@ -90,13 +91,13 @@ This is the one tabs table; [0038](../decisions/0038-page-metadata-and-categorie
 
 ### 1.5 Chips
 
-*Sources: [0010](../decisions/0010-site-ui.md) §2; [0024](../decisions/0024-subsidiary-accounts.md) §9; [0022](../decisions/0022-federation.md) §11; [0056](../decisions/0056-security-model.md) §13; [0030](../decisions/0030-edit-filters.md) §10.*
+*Sources: [0010](../decisions/0010-site-ui.md) §2; [0024](../decisions/0024-subsidiary-accounts.md) §9; [0022](../decisions/0022-federation.md) §11; [0056](../decisions/0056-security-model.md) §13; [0030](../decisions/0030-edit-filters.md) §10; [0086](../decisions/0086-theming.md) §2.*
 
 Chips are the shared marks for kinds of thing. The set is kept small.
 
 | Chip | Form | Meaning |
 |---|---|---|
-| Provider code | Monospace, one colour per provider, taken from the provider registry | The entity or row comes from that provider's graph |
+| Provider code | Monospace, one colour per provider, taken from the provider registry; in a dark variant the two colours swap, unless the registry gives dark ones ([0086](../decisions/0086-theming.md) §2) | The entity or row comes from that provider's graph |
 | Local | Pill | Made on this instance |
 | Namespace | Neutral tag | `Project`, `User`, `Special`, and so on |
 | Job | Dark tag | A row or page that stands for an import job |
@@ -171,7 +172,7 @@ A farm signup page states the linking consent of [0028](../decisions/0028-tenanc
 
 ### 2.4 Account settings
 
-*Sources: [0010](../decisions/0010-site-ui.md) §11; [0027](../decisions/0027-preferences-and-portability.md) §7; [0021](../decisions/0021-notifications.md) §6; [0024](../decisions/0024-subsidiary-accounts.md) §9; [0022](../decisions/0022-federation.md) §11; [0028](../decisions/0028-tenancy-policy.md) §11.*
+*Sources: [0010](../decisions/0010-site-ui.md) §11; [0027](../decisions/0027-preferences-and-portability.md) §7; [0021](../decisions/0021-notifications.md) §6; [0024](../decisions/0024-subsidiary-accounts.md) §9; [0022](../decisions/0022-federation.md) §11; [0028](../decisions/0028-tenancy-policy.md) §11; [0085](../decisions/0085-settings-and-preferences.md) §5.*
 
 `Special:Account` is visible only to its holder. It has these sections:
 
@@ -180,16 +181,15 @@ A farm signup page states the linking consent of [0028](../decisions/0028-tenanc
 | Name | Public | The current name and **Rename…**. The page warns that user pages move and that links using the old name stop working ([0008](../decisions/0008-namespaces-and-document-pages.md) §6). |
 | Sign-in methods | Private | Each binding, with when it was added and last used. **Remove** is disabled for the last binding, and says why. **Add** lists the issuers allowed as identity providers. |
 | Linked accounts | Public | Each link, with its date and **Unlink…**. **Link another account** requires logging in to the provider again. The page warns that unlinking erases the link from history, and that copies taken earlier may keep it ([0007](../decisions/0007-actor-identity.md) §7). On a farm, the farm account and every linked tenant account are shown here, labelled Public ([0028](../decisions/0028-tenancy-policy.md) §11). |
-| Preferences | — | Every preference key, grouped as MediaWiki groups them ([0027](../decisions/0027-preferences-and-portability.md) §7; the keys are in [07](07-actors-and-accounts.md)), including interface and label language, and the defaults for the upstream-edits fold (§3.6) and the mirror-sync filter (§3.9) |
-| Notifications | Private | The preference matrix of reasons by channel, read and written in place as the `notifications.*` keys; the email address with its verification state; the fediverse handle with its verification state, a *follow the notifier* hint with the notifier's handle, and *Remove* ([0021](../decisions/0021-notifications.md) §6) |
+| Contacts | Private | The email address with its verification state; the fediverse handle with its verification state, a *follow the notifier* hint with the notifier's handle, and *Remove* ([0021](../decisions/0021-notifications.md) §6; [0085](../decisions/0085-settings-and-preferences.md) §5) |
 | Watchlist token | Private | The Atom watchlist token, shown and resettable ([0020](../decisions/0020-change-feeds.md) §4) |
 | Subsidiaries | Public | The list of one's subsidiaries is Public, since the operator relation is; each subsidiary's **keys** are Private: label, grants, IP ranges, expiry, last used, Revoke, and Issue key, which shows the secret once with a warning. Retire and Rename sit with each subsidiary; Create subsidiary suggests `{Name}Bot` ([0024](../decisions/0024-subsidiary-accounts.md) §9) |
-| Connected applications | Private | Each OAuth authorization one's subsidiaries hold, with **Revoke** ([0025](../decisions/0025-oauth-server.md) §5) |
+| Connected applications | Private | Each OAuth authorization one's subsidiaries hold, with **Revoke** ([0025](../decisions/0025-oauth-server.md) §5); and each upstream grant the instance holds for the account at a destination wiki, with **Revoke** ([0067](../decisions/0067-proposals.md) §6; [0085](../decisions/0085-settings-and-preferences.md) §5) |
 | Fediverse | Public where it concerns actors, Private where it concerns keys | Make this account followable, the follower count, `rel="me"` links ([0022](../decisions/0022-federation.md) §11) |
 | Your data | Private | **Download my data** and **Import data…**, with a plain account of what a bundle does and does not hold ([0027](../decisions/0027-preferences-and-portability.md) §7; [07](07-actors-and-accounts.md)) |
 | Leave | — | **Vanish this account…**, with a plain account of what vanishing does ([0007](../decisions/0007-actor-identity.md) §4), including that copies of posts delivered to other servers may persist ([0022](../decisions/0022-federation.md) §6), and a pointer to Your data, suggesting a download first |
 
-`Special:Preferences` redirects to the Preferences section.
+Preferences have a page of their own, `Special:Preferences` (§2.6), which the account page links to; the notification matrix is a tab of it ([0085](../decisions/0085-settings-and-preferences.md) §5).
 
 ### 2.5 Contributions
 
@@ -210,6 +210,44 @@ For an actor of another tenant on the same instance the third view is complete, 
 - **A bot account** names its operator: a subsidiary's header names and links its operator, and a primary account's header lists its subsidiaries ([0024](../decisions/0024-subsidiary-accounts.md) §9).
 - **Pages are addressed by current name.** Old names do not resolve ([0008](../decisions/0008-namespaces-and-document-pages.md) §6).
 - **Contributions of `instance:{farm code}`** at a tenant list the instance acts on that tenant; at the farm base, for `ts-viewoperator`, every instance act on every tenant with the operator who carried it out ([0040](../decisions/0040-instance-prerogatives.md) §7; [08](08-tenants-and-instances.md)).
+
+### 2.6 Preferences
+
+*Sources: [0085](../decisions/0085-settings-and-preferences.md) §5; [0027](../decisions/0027-preferences-and-portability.md) §7; [0021](../decisions/0021-notifications.md) §6.*
+
+`Special:Preferences` is the page of an account's preferences, served at each tenant base. It needs `editmyoptions`; a reader who is not logged in is offered **Log in** and pointed to the Appearance menu (§2.7).
+
+- **Tabs** are the groups of `preferences.toml` ([07](07-actors-and-accounts.md) §8.1): Interface, Appearance, History, Watching, Notifications, Discussion and Statements. Interface holds the interface and label languages, the time zone and the date format; History holds the defaults for the upstream-edits fold (§3.6) and the mirror-sync filter (§3.9).
+- **Each key** is drawn from its type, with its label and help, the messages `ts-pref-{key}` and `ts-pref-{key}-help`, and **Reset**. **Restore all defaults** resets every key, as `action=options&reset=1` does. A key that follows the farm account says that it applies on every wiki of the farm.
+- **The Notifications tab** is the matrix of reasons by channel, read and written in place as the `notifications.*` keys, and the email digest ([0021](../decisions/0021-notifications.md) §6). The email address and fediverse handle stay on the account page, under Contacts (§2.4).
+- **Saving** is `PATCH /account/preferences`. Without JavaScript the form posts to the web tier, which saves and answers 303, or re-renders the form with the API's errors ([20](20-web-tier.md) §3.1).
+
+### 2.7 The Appearance menu
+
+*Sources: [0085](../decisions/0085-settings-and-preferences.md) §6; [0086](../decisions/0086-theming.md) §4.*
+
+Every page's global header has an **Appearance** button beside the account menu (§1.2), for every viewer. It opens a panel of the preference keys of the `appearance` group, as a disclosure that opens without JavaScript. The keys are colour mode, contrast, text size, palette and type set, and what they change is §5.9.
+
+- **Signed in**, the values are the account's preferences, and a change writes them through `action=options`. With JavaScript the change applies at once; without it the panel is a form posted to the web tier, which writes the preference and redirects back ([20](20-web-tier.md) §3.1).
+- **Not logged in**, the panel offers the keys marked `browser`, and a change is kept in the browser's `localStorage` under one entry for the tenant's host. A small same-origin script, loaded blocking in `<head>` under an immutable hashed name, applies the stored values before the first paint, which `script-src 'self'` permits ([0034](../decisions/0034-frontend-stack.md) §11). **No cookie is set**, so an anonymous page stays `public` and its cache key does not vary ([20](20-web-tier.md)). Storage that is absent or refused leaves the defaults.
+- **Not logged in and without JavaScript**, nothing can be kept, and the panel says that the page follows the device's settings.
+- **At login**, when the account holds none of the keys the browser holds, the browser's values are written to the account, so a choice made before signing up survives it; otherwise the account's values win and overwrite the browser's copy. **At logout** the browser keeps the last values, so the page does not change under the reader.
+- **While signed in**, the page mirrors the account's values into the browser's storage, and the head script applies stored values only where the server rendered none, so the account's values win while signed in and remain after logout.
+- **On a farm**, browser storage is per host, so a reader's choices on one tenant do not reach another; a signed-in reader's keys that follow the farm account do ([07](07-actors-and-accounts.md) §8.1). Colour mode, contrast and text size follow the farm account; palette and type set are per wiki unless the reader marks them **Use on every wiki** (§5.9).
+
+### 2.8 Wiki and instance settings
+
+*Sources: [0085](../decisions/0085-settings-and-preferences.md) §4; [0028](../decisions/0028-tenancy-policy.md) §11; [0046](../decisions/0046-primary-tenant.md) §9; [0056](../decisions/0056-security-model.md) §13.*
+
+**`Special:WikiSettings`**, at a tenant base, shows the tenant's settings, and **`Special:InstanceSettings`**, at the farm base, the instance's. Both are built from the registry and `GET /settings` ([23](23-configuration-and-registry.md) §3.1; [18](18-api.md) §3.2), with no code per setting:
+
+- **Tabs** are the registry's groups. Each row shows the label and help (`ts-setting-{key}`), the value with a control drawn from its type, an origin chip (*Default*, *Instance default*, *Set on this wiki*, *Locked by the instance*, *Capped at N*), **Reset** to inherit again, and a link to the setting's history in the log.
+- **Anyone who may read the tenant may read them.** A viewer without `ts-config`, or the entry's stronger right, sees the values without controls.
+- **Saving** sends one `PATCH /settings` per tab with a summary field. Without JavaScript the tab is a form posted to the web tier, which answers 303 or re-renders the form with the API's errors ([20](20-web-tier.md) §3.1).
+
+`Special:WikiSettings` also has a **Visibility** tab (§6.3), which writes the tenant's `read` ACL through the ACL routes rather than `PATCH /settings` and which the instance may lock under `config.template = locks` ([09](09-security-and-moderation.md) §4.7), a **Public files** list of every site asset the wiki exposes, with the setting that names each ([12](12-files-and-media.md) §4.5), and a read-only **Tenancy** tab: the instance's policy as it applies to this wiki, meaning the preset, the switches, the locked keys and the ceilings, with **Accept** for an `owner` of a tenant offered the primary role ([0046](../decisions/0046-primary-tenant.md) §9). `Special:InstanceSettings` also has a **Tenancy** tab with the tenancy switches, and **Defaults for wikis**: every tenant setting with its registry default, the instance's default and, under `config.template = locks`, a lock; changing a default says how many tenants inherit it and so will change. That tab is absent under `config.template = none`.
+
+`Special:Tenancy` redirects to the Tenancy tab of `Special:WikiSettings` at a tenant base and of `Special:InstanceSettings` at the farm base. On a single-tenant instance, whose farm base is the primary tenant's base ([08](08-tenants-and-instances.md) §1.1), both pages are served on the same host.
 
 ## 3. Document pages, history, diffs, activity and jobs
 
@@ -599,22 +637,22 @@ The constraint marker sits in the value cell and follows the rule that nothing i
 
 ### 5.1 Principles
 
-*Sources: [0034](../decisions/0034-frontend-stack.md) §1.*
+*Sources: [0034](../decisions/0034-frontend-stack.md) §1; [0086](../decisions/0086-theming.md) §1.*
 
 1. **The server renders every page.** Reading never needs JavaScript. Rendered pages are cacheable at the L2 layer ([0014](../decisions/0014-caches-and-search.md) §3; [03](03-storage-caches-and-search.md)).
 2. **JavaScript enhances regions, never whole pages.** An interactive component takes over one region of a server-rendered page. There is no client-side router.
 3. **One renderer per thing.** Anything the server draws is drawn only by the server. A component that changes it fetches the server's rendering afterwards ([0034](../decisions/0034-frontend-stack.md) §5; [20](20-web-tier.md)) rather than drawing its own copy.
-4. **Codex components, themed by tokens.** Codex's components, icons and markup are used without overrides. Their look comes from Codex's design tokens, and the instance or a tenant may give those tokens values of its own as a **theme** (`ui.theme`, [0015](../decisions/0015-record-format-and-partition-registry.md) §3; [23](23-configuration-and-registry.md)): colours, typefaces, radii and spacing, never a component's markup or behaviour. A theme is served as a stylesheet of CSS custom properties, so it needs no inline style under the security policy of [0034](../decisions/0034-frontend-stack.md) §11 ([09](09-security-and-moderation.md)), and it is refused when its colours fail WCAG 2.1 AA contrast for the token pairs Codex uses for text, borders and focus. The theme's values are reported in `meta=siteinfo&siprop=triplespace` ([0012](../decisions/0012-api-requirements.md) §4; [18](18-api.md)), from which the site reads them as it reads any setting, and the site serves them as a stylesheet named by a hash of its values, so a changed theme is a new URL and each one caches as immutable. Without one, the site wears the **shipped default theme**, `default` in `docs/registry/themes.toml`: the palette and type of the site and statement UI canvases, Newsreader for headings over IBM Plex Sans and IBM Plex Mono, on a warm ground; tokens it does not name keep Codex's values. Where a design needs something Codex lacks, it is built from Codex tokens and proposed upstream. Codex is used for its accessible components, its right-to-left and language support, and CSS-only components that need no JavaScript, more than for its look.
+4. **Codex components, themed by tokens.** Codex's components, icons and markup are used without overrides. Their look comes from Codex's design tokens, to which the instance or a tenant gives values of its own through a **palette**, the colours in four variants and the radii, and a **type set**, the typefaces, both config records and both chosen by setting and by the reader (§5.9; [0086](../decisions/0086-theming.md)). Never a component's markup or behaviour. Where a design needs something Codex lacks, it is built from Codex tokens and proposed upstream. Codex is used for its accessible components, its right-to-left and language support, and CSS-only components that need no JavaScript, more than for its look.
 5. **The public API only** ([0012](../decisions/0012-api-requirements.md) §1). The browser calls public routes, and so does the server-side renderer: it calls the public HTTP API with the viewer's own credentials, over the network from `triplespace-web` or through an in-process call into the API's router from `triplespace-server`, and never links an API crate's handlers or reads `view` ([0057](../decisions/0057-web-tier.md) §1; [20](20-web-tier.md)). Every page therefore carries exactly the API's per-viewer redaction. **A page reaches first byte within four API calls.** The budget is met by the page bundle `GET /entity/{id}/page` (entity, provenance and identity-line facts in one response), the bulk-labels route (up to 1,000 IDs, cacheable by language), the About panel's own response (§3.1) and the viewer's session facts (`meta=userinfo` with the inbox count), the four routes of [18](18-api.md) §3.2; inside `triplespace-server` the in-process transport resolves the session once per page and passes the principal to every sub-request, exempt from rate counting ([20](20-web-tier.md) §2.2), so a reading room behind one address is never rate-limited by a budget written for API clients.
 
 ### 5.2 Server rendering, in `triplespace-ui`
 
-*Sources: [0034](../decisions/0034-frontend-stack.md) §2; [0010](../decisions/0010-site-ui.md) §13.*
+*Sources: [0034](../decisions/0034-frontend-stack.md) §2; [0010](../decisions/0010-site-ui.md) §13; [0086](../decisions/0086-theming.md) §3.*
 
 - **Templates:** `askama`, compiled and type-checked with the Rust code.
 - **Codex markup:** a Rust builder module that emits Codex CSS-only component markup (buttons, fields, tables, cards, tabs, messages, chips, progress bars), following the approach of WMF's Codex PHP. Templates call the builder instead of writing Codex class names by hand, so a Codex markup change is one edit.
 - **Frame:** the page frame of §1 (global header, identity line, title, tabs) is one template shared by every page kind.
-- **Assets:** Codex CSS, design tokens and icons come from the pinned `@wikimedia/codex`, `@wikimedia/codex-design-tokens` and `@wikimedia/codex-icons` packages at build time ([0034](../decisions/0034-frontend-stack.md) §8; [22](22-crates-and-stack.md)), with hashed file names, served with long-lived cache headers by whichever binary serves the site: `triplespace-web`, or `triplespace-server` with `server.ui = embedded` ([0057](../decisions/0057-web-tier.md) §2). The default theme's typefaces (Newsreader, IBM Plex Sans, IBM Plex Mono, all under the SIL Open Font License) are served the same way, from the site's own origin, as the policy of [0034](../decisions/0034-frontend-stack.md) §11 requires.
+- **Assets:** Codex CSS, design tokens and icons come from the pinned `@wikimedia/codex`, `@wikimedia/codex-design-tokens` and `@wikimedia/codex-icons` packages at build time ([0034](../decisions/0034-frontend-stack.md) §8; [22](22-crates-and-stack.md)), with hashed file names, served with long-lived cache headers by whichever binary serves the site: `triplespace-web`, or `triplespace-server` with `server.ui = embedded` ([0057](../decisions/0057-web-tier.md) §2). The shipped type sets' typefaces (Newsreader, IBM Plex Sans and IBM Plex Mono for `default26`; Atkinson Hyperlegible for `hyperlegible`; all under the SIL Open Font License) are served the same way, from the site's own origin, as the policy of [0034](../decisions/0034-frontend-stack.md) §11 requires; a tenant's own typefaces are site assets, served from the media origin ([0086](../decisions/0086-theming.md) §3, §5).
 - **Mobile:** one responsive site built on Codex's breakpoints. No separate mobile domain or skin.
 
 `triplespace-ui` renders pages on the server, runs in the server or in the stateless web tier, and reaches the instance only through the public API ([0057](../decisions/0057-web-tier.md) §1–2; [20](20-web-tier.md)). Statement diffs reuse `scatter-wikibase-shape`, and the page editor's preview reuses `scatter-wikitext` and the markdown renderer of `scatter-pages`, all built for `wasm32-unknown-unknown` ([0005](../decisions/0005-crate-organization.md) §2; [22](22-crates-and-stack.md)). Recent changes, contributions and page histories are served by the activity projection, `view.activity` in `triplespace-projections`, which grows with local activity and the number of jobs, not with the size of the mirrors; an entity's history is served by `view.entity_history` (§3.3) ([0010](../decisions/0010-site-ui.md) §13; its inputs and tables are [03](03-storage-caches-and-search.md) and [16](16-logs-feeds-and-notifications.md)).
@@ -664,12 +702,12 @@ Not yet: `tree-sitter-wikitext` through `web-tree-sitter` is an optional later e
 
 ### 5.6 Internationalisation
 
-*Sources: [0034](../decisions/0034-frontend-stack.md) §9.*
+*Sources: [0034](../decisions/0034-frontend-stack.md) §9; [0085](../decisions/0085-settings-and-preferences.md) §2.2.*
 
 - Interface messages are **banana JSON** files in `i18n/` (`en.json`, `qqq.json` for documentation, one file per language), so the project can be registered with translatewiki.net like any MediaWiki extension.
 - The server renders messages with the `banana-i18n` Rust crate; components use the `banana-i18n` JavaScript library. Both read the same files. The Rust crate is at 0.1.0; if it proves incomplete, a small in-house implementation of `PLURAL`, `GENDER`, `GRAMMAR` and `$n` with ICU4X plural rules replaces it.
 - `banana-checker` runs in CI.
-- Interface language comes from the `language` preference ([07](07-actors-and-accounts.md)) with `uselang` as an override; fallback chains follow MediaWiki's. Direction comes from the language and is set on `<html dir>`; Codex handles RTL.
+- Interface language comes from `uselang`, then the reader's `language` preference, then the request's `Accept-Language` matched against the languages the interface has messages for, then the tenant's default and the farm's ([07](07-actors-and-accounts.md) §8.1; [0085](../decisions/0085-settings-and-preferences.md) §2.2); a reader who is not logged in is served in their language without choosing one. Fallback chains follow MediaWiki's. Direction comes from the language and is set on `<html dir>`; Codex handles RTL.
 
 ### 5.7 Accessibility and browser support
 
@@ -707,6 +745,20 @@ Steps:
 
 The classifier is its own crate (§4.9), so its test fixtures are shared by the server and `scatter-wasm`. Nothing in the UI changes when the source becomes a Triplespace instance, because it only speaks the public API. In development, `triplespace-web` with `web.upstream_host = fixed` is pointed at Wikidata or the reference install directly ([0057](../decisions/0057-web-tier.md) §4; [20](20-web-tier.md)).
 
+### 5.9 Themes: palettes, type sets and modes
+
+*Sources: [0086](../decisions/0086-theming.md) §1, §2, §3, §4, §5.*
+
+**A theme is two choices**, a **palette** and a **type set**, both config records of kinds `palette` and `typeset` at instance or tenant scope, written with `ts-config` and validated when written ([23](23-configuration-and-registry.md) §2.2). `docs/registry/themes.toml` ships the palette `parchment`, the canvases' warm colours with a walnut-brown dark variant; the accessibility palettes `parchment-ob` (orange and blue, for red–green colour-vision deficiencies) and `parchment-co` (crimson and olive, for blue–yellow); and the type sets `default26` (Newsreader over IBM Plex Sans and IBM Plex Mono) and, for accessibility, `hyperlegible` (Atkinson Hyperlegible) and `opendyslexic` (OpenDyslexic). A tenant offers the registry's, the instance's and its own, its own winning a shared name; the shipped ones are written only by `registry sync`, so `parchment`, the default palette, always has all four variants. Palettes and type sets are public, as the logo is: anyone may read them and their stylesheets, a private wiki's outsiders included. They are written through `PUT /palette/{name}` and `/typeset/{name}` ([18](18-api.md) §3.2) and the settings pages' **Palettes and type sets** tab (§2.8).
+
+**Variants.** A palette sets Codex's colour tokens in up to four variants: `light`, required, and `dark`, each overlaying Codex's values for that mode and held to 4.5:1 for text and 3:1 for control boundaries and focus; and `light-more` and `dark-more`, overlaying the palette's own `light` and `dark` and held to 7:1 and 4.5:1. Each is checked as served, merged over Codex's values, with button labels (`color-inverted-fixed` on `background-color-progressive` and `background-color-destructive`) and the error, destructive and success colours among the pairs. A palette without `dark`, `light-more` or `dark-more` takes the default palette's. A palette may `extend` a shipped palette or one at its own scope, laying each variant over that palette's rather than Codex's, so it states only what it changes. A palette marked `accessibility` can always be chosen; `parchment-ob` and `parchment-co` extend `parchment` and change only the colours that carry meaning (error, destructive, success, warning, visited, and their subtle backgrounds), chosen by simulating the deficiency each serves. Colour is never the only cue (WCAG 1.4.1): states are told apart by text, icon or mark as well. Everything the site draws takes its colours from tokens, so every variant reaches diffs, charts, the sync strip and chips; provider chips swap their two colours in the dark variants (§1.5).
+
+**Type sets** give `font-family-base`, `font-family-heading-main` and `font-family-monospace`, may map language tags to stacks applied with `:lang()`, and list their typefaces: shipped ones as build assets, a tenant's as font files it names as site assets, WOFF2 or WOFF under `OFL-1.1`, `Apache-2.0` or `UFL-1.0` ([12](12-files-and-media.md) §4.5). A type set marked `accessibility` can always be chosen; `hyperlegible` and `opendyslexic` ship as such.
+
+**Who chooses.** The settings `theme.palette` (default `parchment`), `theme.typeset` (default `default26`) and `theme.choice` (`any`, or `accessibility` to withhold the brand choices and offer only the accessibility palettes and type sets) set the wiki's defaults, with instance defaults and locks ([23](23-configuration-and-registry.md) §3.1). The reader's preferences, all offered in the Appearance menu (§2.7), are `ui.mode` (`auto`, `light`, `dark`), `ui.contrast` (`auto`, `more`) and `ui.text-size` (Codex's `small` to `x-large`), which follow the farm account and are never withheld, and `ui.palette` and `ui.typeset`, which are per wiki unless the reader marks them **Use on every wiki** ([07](07-actors-and-accounts.md) §8.1).
+
+**Serving.** One stylesheet per palette and one per type set, named under `/ui/theme/` by the record's offset and hash, immutable and rebuildable from the log for earlier offsets. A palette's holds `light` on `:root`, `dark` under `:root[data-mode=dark]` and, within `@media (prefers-color-scheme: dark)`, `:root:not([data-mode=light])`, and each high-contrast variant only in its own mode under `data-contrast=more` or `prefers-contrast: more`; a type set's holds the roles, per-language stacks set as `font-family` on `:lang()` elements, the `@font-face` rules and the text-size modes under `data-text-size`. The security policy's `font-src` and `img-src` admit the media origin ([09](09-security-and-moderation.md) §1.4). The reader's choices are attributes on `<html>`, written by the server for a signed-in reader and by the head script for one who is not logged in, with MediaWiki's `skin-theme-clientpref-night`, `-os` and `-day` classes beside them; a public page carries `skin-theme-clientpref-os` and no `data-mode`, and the head script swaps the stylesheets for the reader's palette and type set before the first paint, from a JSON block on the page. Without JavaScript the media queries follow the device. In the dark variants the frame honours Wikipedia's content classes: `notheme` keeps an element's light colours, and `skin-invert` and `skin-invert-image` invert it ([11](11-rendering-templates-and-modules.md) §6.2 for night-mode TemplateStyles).
+
 ## 6. What each feature adds to the UI
 
 *Sources: [0019](../decisions/0019-discussions.md) §8; [0049](../decisions/0049-boards.md) §8; [0021](../decisions/0021-notifications.md) §6; [0023](../decisions/0023-moderation.md) §9; [0056](../decisions/0056-security-model.md) §13; [0026](../decisions/0026-sitelinks.md) §9; [0029](../decisions/0029-resolver-namespaces.md) §7; [0031](../decisions/0031-property-constraints.md) §7; [0030](../decisions/0030-edit-filters.md) §10; [0039](../decisions/0039-files-and-media.md) §18; [0045](../decisions/0045-table-content-model.md) §11; [0066](../decisions/0066-lexemes.md) §7; [0060](../decisions/0060-scopes.md) §8; [0059](../decisions/0059-query-service.md) §6; [0067](../decisions/0067-proposals.md) §7; [0068](../decisions/0068-merging-with-upstream.md) §6; [0018](../decisions/0018-tenants.md) §11; [0028](../decisions/0028-tenancy-policy.md) §11; [0046](../decisions/0046-primary-tenant.md) §9; [0022](../decisions/0022-federation.md) §11; [0040](../decisions/0040-instance-prerogatives.md) §7.*
@@ -740,7 +792,7 @@ The data model of threads, posts and boards is [14](14-discussions.md).
 
 ### 6.3 Protection, deletion, hiding, patrolling and Nuke
 
-*Sources: [0023](../decisions/0023-moderation.md) §9; [0056](../decisions/0056-security-model.md) §13.*
+*Sources: [0023](../decisions/0023-moderation.md) §9; [0056](../decisions/0056-security-model.md) §13; [0085](../decisions/0085-settings-and-preferences.md) §4.*
 
 What each action does is [09](09-security-and-moderation.md).
 
@@ -750,7 +802,7 @@ What each action does is [09](09-security-and-moderation.md).
 - **Sets** are managed from `Special:ProtectedPages`, which gains a Sets tab: create, rename, add and remove members, restrict. It also gains a **Read** column and lists a confidential restriction only to viewers who may read its target ([0056](../decisions/0056-security-model.md) §5, §13). The **Restricted** pill in the identity line is §1.3.
 - **Special pages.** `Special:Log/protect`, `/delete`, `/patrol` and, for the group, `/suppress`; `Special:ProtectedPages`, `Special:ProtectedTitles`, `Special:Undelete`, `Special:DeletedContributions`, and `Special:BlockList` gains the hidden-name column, all where MediaWiki users expect them ([21](21-special-pages.md)).
 - **Nuke.** `Special:Nuke` applies these actions in bulk to one account's, or one tag's, contributions: one job that deletes what it created, reverts or rolls back what it changed and hides its posts, patrolled as one row and undone by **Revert this job…** (§3.10).
-- **Visibility.** The tenant settings page (`Special:Tenancy` on a farm, the site settings otherwise) has **Visibility**: *Anyone*, *Accounts on this wiki* (`user`), *A group…*, with the account-creation switch beside it and a note on what a private wiki gives up ([0056](../decisions/0056-security-model.md) §3; [08](08-tenants-and-instances.md)). A visitor to a private tenant who may not read it sees a **landing page**: the site name and logo, `site.landing_text`, and Log in; nothing else of the tenant is served, special pages included, except `Special:UserLogin`, the OAuth routes and `/.well-known/`.
+- **Visibility.** `Special:WikiSettings` (§2.8) has **Visibility**: *Anyone*, *Accounts on this wiki* (`user`), *A group…*, with the account-creation switch beside it and a note on what a private wiki gives up ([0056](../decisions/0056-security-model.md) §3; [08](08-tenants-and-instances.md)). A visitor to a private tenant who may not read it sees a **landing page**: the site name and logo, `site.landing_text`, and Log in; nothing else of the tenant is served, special pages included, except `Special:UserLogin`, the OAuth routes, `/.well-known/` and site assets at `{media base}/asset/`, the logo among them ([12](12-files-and-media.md) §4.5).
 - **`instance check`** is also `GET /instance/check` at the farm base, for `owner` ([18](18-api.md)). No special page is added; the CLI and the route are the operator's tools.
 
 ### 6.4 Sitelinks, resolvers and constraints
@@ -823,14 +875,14 @@ Proposals are [14](14-discussions.md) and [17](17-federation-and-publication.md)
 
 ### 6.11 Tenants, the farm and federation
 
-*Sources: [0018](../decisions/0018-tenants.md) §11; [0028](../decisions/0028-tenancy-policy.md) §11; [0046](../decisions/0046-primary-tenant.md) §9; [0022](../decisions/0022-federation.md) §11; [0040](../decisions/0040-instance-prerogatives.md) §7; [0056](../decisions/0056-security-model.md) §13; [0079](../decisions/0079-derived-issuer-codes.md) §4.*
+*Sources: [0018](../decisions/0018-tenants.md) §11; [0028](../decisions/0028-tenancy-policy.md) §11; [0046](../decisions/0046-primary-tenant.md) §9; [0022](../decisions/0022-federation.md) §11; [0040](../decisions/0040-instance-prerogatives.md) §7; [0056](../decisions/0056-security-model.md) §13; [0079](../decisions/0079-derived-issuer-codes.md) §4; [0085](../decisions/0085-settings-and-preferences.md) §4.*
 
 Tenants, the tenancy policy and the primary tenant are [08](08-tenants-and-instances.md); the API halves of these sections are [18](18-api.md).
 
 - **The host selects the tenant.** Every route is served per tenant base. Every special page has a scope in `docs/registry/special-pages.toml`: `farm` pages are served at the farm base, `tenant` pages at each tenant's base, and `both` pages at either ([0047](../decisions/0047-special-pages.md) §3; [21](21-special-pages.md)).
-- **`Special:GlobalContributions`** (§2.5) and, for administrators, **`Special:Tenants`** at the farm base. `Special:Tenants` is the page of the tenant list, the `tenants` array of `GET /tenancy` (slug, host, name, status); it marks the primary tenant, lists open offers, and offers **Offer the primary role…** to holders of `ts-primary`. An `owner` of the offered tenant sees **Accept** there and on their own tenant's `Special:Tenancy` ([0046](../decisions/0046-primary-tenant.md) §9).
+- **`Special:GlobalContributions`** (§2.5) and, for administrators, **`Special:Tenants`** at the farm base. `Special:Tenants` is the page of the tenant list, the `tenants` array of `GET /tenancy` (slug, host, name, status); it marks the primary tenant, lists open offers, and offers **Offer the primary role…** to holders of `ts-primary`. An `owner` of the offered tenant sees **Accept** there and on the Tenancy tab of their own tenant's `Special:WikiSettings` (§2.8; [0046](../decisions/0046-primary-tenant.md) §9).
 
-- **Farm pages.** `Special:Tenancy` for the policy (owner and `ts-config`); `Special:GlobalUsers`, `Special:GlobalGroupMembership`, `Special:GlobalBlock`, `Special:GlobalBlockList`, `Special:GlobalRecentChanges` at the farm base; the account page shows the farm account and every linked tenant account under **Linked accounts** (§2.4), labelled Public; a farm signup page states the linking consent of [0028](../decisions/0028-tenancy-policy.md) §2; the identity line of a mirrored provider-tenant entity is unchanged from §1.3 ([0028](../decisions/0028-tenancy-policy.md) §11). `Special:Tenancy` also carries the **Visibility** control of §6.3.
+- **Farm pages.** `Special:InstanceSettings` for the instance's settings and the tenancy policy (§2.8); `Special:GlobalUsers`, `Special:GlobalGroupMembership`, `Special:GlobalBlock`, `Special:GlobalBlockList`, `Special:GlobalRecentChanges` at the farm base; the account page shows the farm account and every linked tenant account under **Linked accounts** (§2.4), labelled Public; a farm signup page states the linking consent of [0028](../decisions/0028-tenancy-policy.md) §2; the identity line of a mirrored provider-tenant entity is unchanged from §1.3 ([0028](../decisions/0028-tenancy-policy.md) §11). `Special:Tenancy` redirects to the Tenancy tabs of the settings pages (§2.8), and `Special:WikiSettings` carries the **Visibility** control of §6.3.
 - **Jobs.** Mirror sync jobs are listed at the farm base; local bulk jobs at the tenant's (§3.10).
 - **Provider pages.** `Special:Providers` lists each provider with its trust mode, last verified checkpoint and lag, and each page repository with the date of its title index, its event lag and, in `mirror` mode, its sync lag ([0053](../decisions/0053-mirrored-pages.md) §3, §5; [13](13-mirrored-pages.md)); a `verified` chip sits on the identity line of mirrored entities ([0022](../decisions/0022-federation.md) §11). What an instance publishes and verifies is [17](17-federation-and-publication.md).
 - **Elsewhere in this chapter:** the account page's **Fediverse** section (§2.4), the talk page header's `Group` handle (§1.3), `Special:InstanceAction/{partition}/{offset}` (§3.4) and the contributions of `instance:{farm code}` (§2.5; [0040](../decisions/0040-instance-prerogatives.md) §7), and a private tenant's landing page (§6.3; [0056](../decisions/0056-security-model.md) §13).

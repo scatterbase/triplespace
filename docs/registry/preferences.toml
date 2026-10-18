@@ -1,70 +1,176 @@
-# Registered preference keys.  ADR 0027 §1.
+# Registered preference keys.  ADR 0027 §1; ADR 0085 §1.
 #
 # A preference is a key–value pair owned by a primary account, stored in private.preference.
 # Only keys listed here (or added by an instance's own registry entries) may be set; a value
-# must fit its type. Defaults may be overridden per instance in `site` config
-# (`preferences.defaults`). Keys named as MediaWiki names them are honoured by action=options
-# with MediaWiki's meaning.
+# must fit its type. Keys named as MediaWiki names them are honoured by action=options with
+# MediaWiki's meaning.
 #
-# type   "boolean" | "string" | "integer" | "duration" | "language" | "language-list" | "json"
-# from   The ADR that defined the setting.
+# A preference's value resolves, first match wins (0085 §2): the account's own value; the tenant's
+# `preferences.defaults`; the instance's default for `preferences.defaults`; `default` here. A key with
+# `follows = "farm"` is held on the farm account under farm identity, so every linked tenant account
+# reads the same value.
+#
+# type     "boolean" | "string" | "integer" | "duration" | "language" | "language-list" | "choice" | "json"
+# choices  For type "choice": the permitted values.
+# default  The registry default. Absent: no value, and the behaviour the key's comment names applies.
+# group    The tab of Special:Preferences ([[group]] below) on which the key is shown. Keys of the
+#          `appearance` group are also the controls of the Appearance menu (0085 §6).
+# follows  "account" (the default): the value belongs to the tenant account. "farm": under farm identity
+#          (identity.farm_issuer, 0028 §2) it belongs to the farm account and follows it to every linked
+#          tenant. "choice": the tenant account's, unless the reader marks it "Use on every wiki", which keeps
+#          it on the farm account; the tenant account's own value is read first. Without farm identity every
+#          key is the account's.
+# browser  true: a reader who is not logged in may hold this key in the browser's storage, and the
+#          Appearance menu offers it to them (0085 §6). Default false.
+# negotiated  "accept-language": where the reader has not chosen a value, it comes from the request's
+#          `Accept-Language`, before any default applies; `uselang` overrides it for one request (0085 §2.2).
+# pattern  true: `*` in the key stands for any segment (the notification matrix).
+# from     The ADR that defined the key.
+#
+# Labels are interface messages, never stored here: `ts-pref-{key}` and `ts-pref-{key}-help`, with dots
+# turned into hyphens; a group's label is `ts-prefs-group-{id}`. The notification matrix is drawn from
+# 0021's reason and channel messages instead.
 
 version = 1
+
+[[group]]
+id = "interface"       # language, time zone, date format
+
+[[group]]
+id = "appearance"      # colour mode, contrast, text size, palette, type set (0086 §4)
+
+[[group]]
+id = "history"         # history, recent changes and feeds
+
+[[group]]
+id = "watching"
+
+[[group]]
+id = "notifications"   # the reason × channel matrix and the digest
+
+[[group]]
+id = "discussion"
+
+[[group]]
+id = "statements"
 
 # --- Interface ------------------------------------------------------------------------------
 [[preference]]
 key = "language"
 type = "language"
-default = "en"
+default = "en"                       # the tenant's default is site.language unless preferences.defaults names another
+group = "interface"
+follows = "farm"
+negotiated = "accept-language"
 from = "0010 §11"
 
 [[preference]]
 key = "label-languages"
 type = "language-list"
 default = []                         # falls back to `language` and the site's fallback chain
+group = "interface"
+follows = "farm"
+negotiated = "accept-language"
 from = "0010 §11"
 
 [[preference]]
 key = "timezone"
 type = "string"
 default = "UTC"
+group = "interface"
+follows = "farm"
 from = "MediaWiki"
 
 [[preference]]
 key = "date-format"
-type = "string"
+type = "choice"
+choices = ["default", "mdy", "dmy", "ymd", "ISO 8601"]
 default = "default"
+group = "interface"
+follows = "farm"
 from = "MediaWiki"
+
+# --- Appearance (0086 §4): the Appearance menu's keys, never locked except palette and type set ---------
+[[preference]]
+key = "ui.mode"
+type = "choice"
+choices = ["auto", "light", "dark"]
+default = "auto"                     # auto: the device's prefers-color-scheme
+group = "appearance"
+follows = "farm"
+browser = true
+from = "0086 §4"
+
+[[preference]]
+key = "ui.contrast"
+type = "choice"
+choices = ["auto", "more"]
+default = "auto"                     # auto: the device's prefers-contrast
+group = "appearance"
+follows = "farm"
+browser = true
+from = "0086 §4"
+
+[[preference]]
+key = "ui.text-size"
+type = "choice"
+choices = ["small", "medium", "large", "x-large"]
+default = "medium"                   # Codex's text-size modes
+group = "appearance"
+follows = "farm"
+browser = true
+from = "0086 §4"
+
+[[preference]]
+key = "ui.palette"
+type = "string"                      # a palette the tenant offers; no default: the setting theme.palette
+group = "appearance"
+follows = "choice"
+browser = true
+from = "0086 §4"
+
+[[preference]]
+key = "ui.typeset"
+type = "string"                      # a type set the tenant offers; no default: the setting theme.typeset
+group = "appearance"
+follows = "choice"
+browser = true
+from = "0086 §4"
 
 # --- History and feeds ----------------------------------------------------------------------
 [[preference]]
 key = "ts-upstream-fold"
 type = "boolean"
 default = false                      # show upstream edits inside each sync (0010 §5.5)
+group = "history"
 from = "0010 §11, 0012 §4"
 
 [[preference]]
 key = "ts-rc-syncs"
 type = "boolean"
 default = false                      # show mirror syncs in recent changes (0010 §7)
+group = "history"
 from = "0010 §11, 0012 §4"
 
 [[preference]]
 key = "feeds.period"
 type = "duration"
 default = "P7D"
+group = "history"
 from = "0020 §1"
 
 [[preference]]
 key = "feeds.syncs"
 type = "boolean"
 default = true                       # syncs on in watchlist and history (0020 §2)
+group = "history"
 from = "0020 §2"
 
 [[preference]]
 key = "rc.limit"
 type = "integer"
 default = 50
+group = "history"
 from = "MediaWiki"
 
 # --- Watching -------------------------------------------------------------------------------
@@ -72,30 +178,35 @@ from = "MediaWiki"
 key = "autowatch.edit"
 type = "boolean"
 default = false
+group = "watching"
 from = "0020 §3"
 
 [[preference]]
 key = "autowatch.create"
 type = "boolean"
 default = true
+group = "watching"
 from = "0020 §3"
 
 [[preference]]
 key = "autowatch.post"
 type = "boolean"
 default = true
+group = "watching"
 from = "0020 §3"
 
 [[preference]]
 key = "autowatch.thread"
 type = "boolean"
 default = true
+group = "watching"
 from = "0020 §3"
 
 [[preference]]
 key = "autowatch.notify"
 type = "boolean"
 default = false                      # auto-watches also set notify (0021 §2)
+group = "watching"
 from = "0021 §2"
 
 # --- Threads --------------------------------------------------------------------------------
@@ -103,12 +214,14 @@ from = "0021 §2"
 key = "threads.visibility"
 type = "json"                        # map: status category and age → visible | collapsed | hidden
 default = { closed = "collapsed", quiet-days = 90, quiet = "collapsed" }
+group = "discussion"
 from = "0019 §6"
 
 [[preference]]
 key = "threads.destination"
-type = "string"                      # "here" | "upstream": where the new-thread form posts on a talk page that follows upstream
-default = ""                         # empty: the site setting talk.new_thread_default decides
+type = "choice"                      # where the new-thread form posts on a talk page that follows upstream
+choices = ["here", "upstream"]       # no default: the site setting talk.new_thread_default decides
+group = "discussion"
 from = "0069 §6"
 
 # --- Notifications (0021 §3): one boolean per reason × channel -------------------------------
@@ -119,6 +232,7 @@ key = "notifications.*.web"
 type = "boolean"
 default = true
 pattern = true
+group = "notifications"
 from = "0021 §3"
 
 [[preference]]
@@ -126,12 +240,14 @@ key = "notifications.*.email"
 type = "boolean"
 default = false
 pattern = true
+group = "notifications"
 from = "0021 §3"
 
 [[preference]]
 key = "notifications.talk.email"
 type = "boolean"
 default = true
+group = "notifications"
 from = "0021 §3"
 
 [[preference]]
@@ -139,12 +255,15 @@ key = "notifications.*.fediverse"
 type = "boolean"
 default = false
 pattern = true
+group = "notifications"
 from = "0021 §3"
 
 [[preference]]
 key = "notifications.email-digest"
-type = "string"                      # immediate | daily | weekly
+type = "choice"
+choices = ["immediate", "daily", "weekly"]
 default = "immediate"
+group = "notifications"
 from = "0021 §4"
 
 # --- Statement UI ---------------------------------------------------------------------------
@@ -152,4 +271,5 @@ from = "0021 §4"
 key = "shapes.pins"
 type = "json"                        # map: property ID, or "{entity}:{property}", → shape (0003 §3)
 default = {}
+group = "statements"
 from = "0003 §3, 0027 §5"

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-09 (A7)
+- **Updated:** 2026-10-17 (A8)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0028](0028-tenancy-policy.md), [0040](0040-instance-prerogatives.md)
 - **Uses:** [0010](0010-site-ui.md), [0039](0039-files-and-media.md), [0047](0047-special-pages.md)
@@ -78,7 +78,7 @@ James's direction, from the design discussion of 2026-09-30: the role is **trans
 
 ### 9. API and UI
 
-*Changed by A5, A7.*
+*Changed by A5, A7, A8.*
 
 *Current text: [18](../architecture/18-api.md) §1.2, §2.2; [19](../architecture/19-site-ui.md) §6.11.*
 
@@ -201,3 +201,14 @@ Replaced text (§6, in [08](../architecture/08-tenants-and-instances.md) §1.2):
 Replaced text (§5, in [08](../architecture/08-tenants-and-instances.md) §7.5):
 
 > - The operator actor keeps its key `instance:{farm slug}` and its IRI.
+
+### A8. Accept moves to Special:WikiSettings
+
+- **Date:** 2026-10-17
+- **Source:** [0085](0085-settings-and-preferences.md) §4
+- **Change:** amends §9
+- **Summary:** `Special:Tenancy` is merged into the settings pages, so an `owner` of a tenant offered the primary role sees **Accept** on `Special:Tenants` and on the Tenancy tab of their own tenant's `Special:WikiSettings`. The chapter text is [19](../architecture/19-site-ui.md) §2.8 and §6.11.
+
+Replaced text ([19](../architecture/19-site-ui.md) §6.11, as it stood):
+
+> An `owner` of the offered tenant sees **Accept** there and on their own tenant's `Special:Tenancy` ([0046](0046-primary-tenant.md) §9).

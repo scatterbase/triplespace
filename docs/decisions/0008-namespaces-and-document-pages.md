@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-09 (A36)
+- **Updated:** 2026-10-17 (A37)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -58,6 +58,8 @@ The goal is not to reimplement MediaWiki's page features. Templates, parser func
 *Current text: [10](../architecture/10-pages-and-content-models.md) §3.4.*
 
 ### 7. The Project namespace
+
+*Changed by A37.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §3.5.*
 
@@ -547,3 +549,14 @@ Replaced text ([10](../architecture/10-pages-and-content-models.md) §2.5, as it
 > **A move is one record on the moved page.** Moving a page appends a `move` record with its new title, and nothing else about that page changes. **A move leaves a redirect at the old title by default,** as MediaWiki's does. `action=move` and the Move form append, in one transaction with one base check:
 
 > - **Thread renames leave none** ([0019](../decisions/0019-discussions.md) §3), for the reason user renames do.
+
+### A37. The Project namespace's local name follows the site's name, and keeps the old one
+
+- **Date:** 2026-10-17
+- **Source:** [0085](0085-settings-and-preferences.md) §7
+- **Change:** amends §7
+- **Summary:** The local name of the Project namespace is `site.name` unless the tenant's `namespace` record fixes it. When the site is renamed and the local name followed it, the old name becomes an alias of the namespace in the same change set, so links through it still resolve; a fixed local name, `Project` included, is untouched and gains no alias, as James decided: an old project name is kept only if it was the namespace's name. The chapter text is [10](../architecture/10-pages-and-content-models.md) §3.5.
+
+Replaced text ([10](../architecture/10-pages-and-content-models.md) §3.5, as it stood):
+
+> - **The canonical name is `Project`, and the local name is the site name,** as in MediaWiki. On the reference install that is `Triplespace Ref` ([siteinfo snapshot](../api/snapshots/mw-1.43.9-wb-REL1_43.siteinfo.json)). Both resolve.

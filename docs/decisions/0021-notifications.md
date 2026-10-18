@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-09 (A15)
+- **Updated:** 2026-10-17 (A16)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0011](0011-logs.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0028](0028-tenancy-policy.md)
@@ -45,6 +45,8 @@ Echo is the precedent. It has notification *types* (mention, edit-user-talk, rev
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.5.*
 
 ### 6. UI (extends 0010 §2 and §11)
+
+*Changed by A16.*
 
 *Current text: [19](../architecture/19-site-ui.md) §1.2, §2.4, §6.2.*
 
@@ -262,3 +264,14 @@ Replaced text (§2):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§10
 - **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A16. The notification matrix moves to Special:Preferences
+
+- **Date:** 2026-10-17
+- **Source:** [0085](0085-settings-and-preferences.md) §5
+- **Change:** amends §6
+- **Summary:** The account page's Notifications section is split. The matrix of reasons by channel and the digest are the Notifications tab of `Special:Preferences`; the email address and fediverse handle with their verification state, the *follow the notifier* hint and *Remove* are the **Contacts** section of `Special:Account`, where `ChangeEmail`, `Confirmemail` and `Invalidateemail` lead. The chapter text is [19](../architecture/19-site-ui.md) §2.4 and §2.6.
+
+Replaced text ([19](../architecture/19-site-ui.md) §2.4, as it stood):
+
+> | Notifications | Private | The preference matrix of reasons by channel, read and written in place as the `notifications.*` keys; the email address with its verification state; the fediverse handle with its verification state, a *follow the notifier* hint with the notifier's handle, and *Remove* ([0021](0021-notifications.md) §6) |

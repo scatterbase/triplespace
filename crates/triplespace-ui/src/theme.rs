@@ -2,8 +2,10 @@
 //! properties on `:root`, named by a hash of its text so that each theme caches as
 //! immutable and a changed theme is a new URL.
 //!
-//! The shipped default is `default` in `docs/registry/themes.toml` (0034 A8). A tenant's
-//! or instance's `ui.theme`, which the API reports in `siprop=triplespace`, overrides it
+//! The shipped default is the `light` variant of the `parchment` palette with the `default26`
+//! type set, from `docs/registry/themes.toml` (0034 A8; 0086). Until the palettes, type
+//! sets and variants of 0086 are served, a tenant's or instance's `ui.theme` (retired by
+//! 0086 §1), which the API reports in `siprop=triplespace`, still overrides it
 //! token by token. An override is taken only if its name is a token name and its value a
 //! plain CSS value; a merged theme whose colours fail the contrast pairs of
 //! [`Theme::contrast_problems`] is not served, and the default is served in its place.
@@ -20,8 +22,13 @@ const REGISTRY: &str = include_str!("../../../docs/registry/themes.toml");
 
 #[derive(Debug, Deserialize)]
 struct File {
-    theme: BTreeMap<String, toml::Table>,
+    palette: BTreeMap<String, toml::Table>,
+    typeset: BTreeMap<String, toml::Table>,
 }
+
+/// The shipped default palette and type set (0086).
+const DEFAULT_PALETTE: &str = "parchment";
+const DEFAULT_TYPESET: &str = "default26";
 
 /// A typeface a theme serves.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -45,29 +52,37 @@ pub struct Theme {
 
 static DEFAULT: LazyLock<Theme> = LazyLock::new(|| {
     let file: File = toml::from_str(REGISTRY).expect("docs/registry/themes.toml parses");
-    let table = file
-        .theme
-        .get("default")
-        .expect("themes.toml has [theme.default]");
+    let palette = file
+        .palette
+        .get(DEFAULT_PALETTE)
+        .expect("themes.toml has the default palette");
+    let typeset = file
+        .typeset
+        .get(DEFAULT_TYPESET)
+        .expect("themes.toml has the default type set");
+    let light = palette
+        .get("light")
+        .and_then(toml::Value::as_table)
+        .expect("the default palette has a `light` variant");
     let mut tokens = BTreeMap::new();
     let mut fonts = Vec::new();
-    for (k, v) in table {
-        match (k.as_str(), v) {
-            ("label", _) => {}
-            ("font", toml::Value::Array(list)) => {
-                for f in list {
-                    fonts.push(
-                        f.clone()
-                            .try_into()
-                            .expect("a [[theme.default.font]] entry"),
-                    );
+    // Shape tokens on the palette, its `light` colours, then the type set's typefaces. The
+    // other variants are served by the theming work of 0086; this reads the light default.
+    for table in [palette, light, typeset] {
+        for (k, v) in table {
+            match (k.as_str(), v) {
+                ("label" | "accessibility", _) | (_, toml::Value::Table(_)) => {}
+                ("font", toml::Value::Array(list)) => {
+                    for f in list {
+                        fonts.push(f.clone().try_into().expect("a typeface entry"));
+                    }
                 }
+                (name, toml::Value::String(s)) => {
+                    assert!(token_name(name) && plain_value(s), "themes.toml: `{name}`");
+                    tokens.insert(name.to_string(), s.clone());
+                }
+                (name, _) => panic!("themes.toml: `{name}` is not a string"),
             }
-            (name, toml::Value::String(s)) => {
-                assert!(token_name(name) && plain_value(s), "themes.toml: `{name}`");
-                tokens.insert(name.to_string(), s.clone());
-            }
-            (name, _) => panic!("themes.toml: `{name}` is not a string"),
         }
     }
     Theme {

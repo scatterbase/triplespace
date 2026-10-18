@@ -45,7 +45,7 @@ This chapter describes the pages in the `Special` namespace: the registry that l
 
 ### 1.2 Names, aliases and section aliases
 
-*Sources: [0047](../decisions/0047-special-pages.md) §2.*
+*Sources: [0047](../decisions/0047-special-pages.md) §2; [0085](../decisions/0085-settings-and-preferences.md) §5.*
 
 **An alias resolves to its page.**
 
@@ -65,9 +65,10 @@ This chapter describes the pages in the `Special` namespace: the registry that l
 
 | MediaWiki page | Goes to |
 |---|---|
-| `Preferences`, `ResetTokens`, `DisplayNotificationsConfiguration` | `Account#preferences`, `Account#preferences`, `Account#notifications` |
+| `ResetTokens` | `Account#watchlist-token` |
+| `DisplayNotificationsConfiguration` | `Preferences#notifications`; `Preferences` is a page of its own ([0085](../decisions/0085-settings-and-preferences.md) §5) |
 | `ChangeCredentials`, `RemoveCredentials`, `ChangePassword`, `LinkAccounts`, `UnlinkAccounts` | `Account#sign-in-methods`. MediaWiki's "linked accounts" are external sign-in providers, which are bindings here ([0007](../decisions/0007-actor-identity.md) §3). Triplespace's own **Linked accounts** section is a different thing (0007 §7). |
-| `ChangeEmail`, `Confirmemail`, `Invalidateemail` | `Account#notifications`, where the email address and its verification live ([0021](../decisions/0021-notifications.md) §4, §6) |
+| `ChangeEmail`, `Confirmemail`, `Invalidateemail` | `Account#contacts`, where the email address and its verification live ([0021](../decisions/0021-notifications.md) §4, §6; [0085](../decisions/0085-settings-and-preferences.md) §5) |
 | `BotPasswords` | `Account#subsidiaries` ([0024](../decisions/0024-subsidiary-accounts.md) §4) |
 | `OAuthManageMyGrants` | `Account#connected-applications` ([0025](../decisions/0025-oauth-server.md) §5) |
 | `NotificationsMarkRead` | `Notifications` |
@@ -79,20 +80,20 @@ This chapter describes the pages in the `Special` namespace: the registry that l
 
 ### 1.3 Where a page is served
 
-*Sources: [0047](../decisions/0047-special-pages.md) §3.*
+*Sources: [0047](../decisions/0047-special-pages.md) §3; [0085](../decisions/0085-settings-and-preferences.md) §4.*
 
 **A page is served where its subject lives.**
 
 - **`farm`:** pages about instance-scope things. These are tenants and the tenancy policy, farm accounts, global groups and global blocks, instance acts and takedowns:
   - `Tenants`, `GlobalUsers`, `GlobalGroupMembership`, `GlobalBlock`, `GlobalBlockList`, `RemoveGlobalBlock`, `GlobalRecentChanges`;
-  - `InstanceAction`, `Takedowns`, `Takedown`;
+  - `InstanceAction`, `InstanceSettings`, `Takedowns`, `Takedown`;
   - `OAuthConsumers`, whose approval is an instance right ([0046](../decisions/0046-primary-tenant.md) §8).
 - **`both`:** pages with a tenant form and an instance form.
   - `Log`: a tenant's log, or the public records of the instance `log` (0046 §4).
   - `Jobs`: tenant bulk jobs, or instance jobs such as mirror syncs (0046 §4).
   - `Contributions`: at the farm base, the operator's acts for `ts-viewoperator` ([0040](../decisions/0040-instance-prerogatives.md) §7).
   - `Providers`: every provider at the farm base; at a tenant, the providers it has opted into, with its own lag.
-  - `Tenancy`: the policy at the farm base, and a tenant's own view of it with 0046 §9's **Accept**.
+  - `Tenancy`: a redirect to the Tenancy tab of `InstanceSettings` at the farm base and of `WikiSettings` at a tenant base, where 0046 §9's **Accept** now is ([0085](../decisions/0085-settings-and-preferences.md) §4).
   - `Version` and `SpecialPages`.
 - **`tenant`:** everything else, including `GlobalContributions`, which [0018](../decisions/0018-tenants.md) §8 serves on a tenant for the accounts linked to it.
 
@@ -649,15 +650,15 @@ Four pages that were deferred are served: `ListRedirects`, `BrokenRedirects`, `D
 
 ## 8. The catalogue
 
-*Sources: [0047](../decisions/0047-special-pages.md) §1, §4.4, §9, §10; [0051](../decisions/0051-page-redirects.md) §6; [0061](../decisions/0061-sprints-and-tasks.md) §9; [0062](../decisions/0062-workspaces.md) §7; [0064](../decisions/0064-entityschema-and-validation.md) §7; [0066](../decisions/0066-lexemes.md) §7; [0077](../decisions/0077-special-version.md) §1.*
+*Sources: [0047](../decisions/0047-special-pages.md) §1, §4.4, §9, §10; [0051](../decisions/0051-page-redirects.md) §6; [0061](../decisions/0061-sprints-and-tasks.md) §9; [0062](../decisions/0062-workspaces.md) §7; [0064](../decisions/0064-entityschema-and-validation.md) §7; [0066](../decisions/0066-lexemes.md) §7; [0077](../decisions/0077-special-version.md) §1; [0085](../decisions/0085-settings-and-preferences.md) §4, §5.*
 
-Every entry of `docs/registry/special-pages.toml` (189 pages: 169 served, 7 deferred, 13 declined, none reserved), in alphabetical order. The columns are the registry's fields (§1.1); **Section** is where this chapter describes the page. The ADR column is the registry's `adr` field as written.
+Every entry of `docs/registry/special-pages.toml` (192 pages: 172 served, 7 deferred, 13 declined, none reserved), in alphabetical order. The columns are the registry's fields (§1.1); **Section** is where this chapter describes the page. The ADR column is the registry's `adr` field as written.
 
-Every `Special:` name that [0047](../decisions/0047-special-pages.md) §1–§10, [0051](../decisions/0051-page-redirects.md) §6, [0061](../decisions/0061-sprints-and-tasks.md) §9, [0062](../decisions/0062-workspaces.md) §7, [0064](../decisions/0064-entityschema-and-validation.md) §7, [0066](../decisions/0066-lexemes.md) §7 and [0077](../decisions/0077-special-version.md) §1 use is in the registry as a name, alias or section alias; none is missing. Twenty-five served pages in the registry are specified by other ADRs and are not described in those sections or in this chapter; the catalogue marks them "—" and names their ADR: `Block`, `BlockList`, `DeletedContributions`, `ListGroupRights`, `Undelete` and `UserRights` ([09](09-security-and-moderation.md)); `UserLogin`, `CreateAccount`, `ListGrants`, `OAuth`, `PendingSubsidiaries` and `TransferAccount` ([07](07-actors-and-accounts.md)); `RecentChanges`, `RecentChangesLinked`, `Watchlist` and `Tags` ([16](16-logs-feeds-and-notifications.md), [09](09-security-and-moderation.md)); `FilePath` and `Upload` ([12](12-files-and-media.md)); `WhatLinksHere`, `Diff` and `PermanentLink` ([19](19-site-ui.md)); `EntityData`, `EntityPage`, `ItemByTitle` and `GoToLinkedPage` ([10](10-pages-and-content-models.md), [06](06-statements-and-properties.md)).
+Every `Special:` name that [0047](../decisions/0047-special-pages.md) §1–§10, [0051](../decisions/0051-page-redirects.md) §6, [0061](../decisions/0061-sprints-and-tasks.md) §9, [0062](../decisions/0062-workspaces.md) §7, [0064](../decisions/0064-entityschema-and-validation.md) §7, [0066](../decisions/0066-lexemes.md) §7 and [0077](../decisions/0077-special-version.md) §1 use is in the registry as a name, alias or section alias; none is missing. Twenty-six served pages in the registry are specified by other ADRs and are not described in those sections or in this chapter; the catalogue marks them "—" and names their ADR: `Block`, `BlockList`, `DeletedContributions`, `ListGroupRights`, `Undelete` and `UserRights` ([09](09-security-and-moderation.md)); `UserLogin`, `CreateAccount`, `ListGrants`, `OAuth`, `PendingSubsidiaries` and `TransferAccount` ([07](07-actors-and-accounts.md)); `RecentChanges`, `RecentChangesLinked`, `Watchlist` and `Tags` ([16](16-logs-feeds-and-notifications.md), [09](09-security-and-moderation.md)); `FilePath` and `Upload` ([12](12-files-and-media.md)); `WhatLinksHere`, `Diff` and `PermanentLink` ([19](19-site-ui.md)); `EntityData`, `EntityPage`, `ItemByTitle` and `GoToLinkedPage` ([10](10-pages-and-content-models.md), [06](06-statements-and-properties.md)).
 
 | Name | MediaWiki name | Aliases | Origin | Status | Scope | Group | Restricted, requires, listed | Report | ADR | Section |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `Account` |  | section aliases: `Preferences`→`#preferences`, `ResetTokens`→`#preferences`, `DisplayNotificationsConfiguration`→`#notifications`, `ChangeCredentials`→`#sign-in-methods`, `RemoveCredentials`→`#sign-in-methods`, `ChangePassword`→`#sign-in-methods`, `LinkAccounts`→`#sign-in-methods`, `UnlinkAccounts`→`#sign-in-methods`, `ChangeEmail`→`#notifications`, `Confirmemail`→`#notifications`, `Invalidateemail`→`#notifications`, `BotPasswords`→`#subsidiaries`, `OAuthManageMyGrants`→`#connected-applications` | `triplespace` | served | `tenant` | `users` |  |  | 0010 §11 | §1.2 |
+| `Account` |  | section aliases: `ResetTokens`→`#watchlist-token`, `ChangeCredentials`→`#sign-in-methods`, `RemoveCredentials`→`#sign-in-methods`, `ChangePassword`→`#sign-in-methods`, `LinkAccounts`→`#sign-in-methods`, `UnlinkAccounts`→`#sign-in-methods`, `ChangeEmail`→`#contacts`, `Confirmemail`→`#contacts`, `Invalidateemail`→`#contacts`, `BotPasswords`→`#subsidiaries`, `OAuthManageMyGrants`→`#connected-applications` | `triplespace` | served | `tenant` | `users` |  |  | 0010 §11, 0085 §5 | §1.2 |
 | `ActiveUsers` | `Activeusers` |  | `mediawiki` | served | `tenant` | `users` |  | `index`: view.actor (last_active); graphs local | 0047 §4.4 | §2.4 |
 | `AllMessages` | `Allmessages` |  | `mediawiki` | served | `tenant` | `wiki` |  |  | 0047 §9 | §6.1 |
 | `AllMyUploads` |  | `AllMyFiles` | `mediawiki` | served | `tenant` | `unlisted` | unlisted |  | 0047 §9 | §6.1 |
@@ -720,6 +721,7 @@ Every `Special:` name that [0047](../decisions/0047-special-pages.md) §1–§10
 | `IdentityConflicts` |  |  | `triplespace` | served | `tenant` | `identity` |  | `index`: view.link (status held); graphs local (widened live by graphs=all; 0047 §6) | 0004 §10, 0047 §6 | §2.4 |
 | `Import` |  |  | `mediawiki` | served | `tenant` | `pagetools` | restricted `import` |  | 0047 §8 | §4.2 |
 | `InstanceAction` |  |  | `triplespace` | served | `farm` | `instance` | unlisted |  | 0040 §7 | §1.3 |
+| `InstanceSettings` |  |  | `triplespace` | served | `farm` | `instance` |  |  | 0085 §4 | §1.3 |
 | `ItemByTitle` |  |  | `Wikibase` | served | `tenant` | `wikibaserepo` |  |  | 0026 §7, 0029 §5 | — |
 | `ItemDisambiguation` |  |  | `Wikibase` | served | `tenant` | `wikibaserepo` |  |  | 0029 §3, 0047 §9 | §6.1 |
 | `ItemsWithoutSitelinks` |  |  | `Wikibase` | served | `tenant` | `wikibaserepo` |  | `projection`: view.entity, view.sitelink; graphs local | 0047 §4.4 | §2.4 |
@@ -783,6 +785,7 @@ Every `Special:` name that [0047](../decisions/0047-special-pages.md) §1–§10
 | `PasswordReset` |  |  | `mediawiki` | served | `tenant` | `users` |  |  | 0047 §9 | §6.1 |
 | `PendingSubsidiaries` |  |  | `triplespace` | served | `tenant` | `users` | restricted `userrights` |  | 0025 §5 | — |
 | `PermanentLink` |  | `PermaLink` | `mediawiki` | served | `tenant` | `redirects` | unlisted |  | 0019 §8, 0021 §4 | — |
+| `Preferences` |  | section aliases: `DisplayNotificationsConfiguration`→`#notifications` | `mediawiki` | served | `tenant` | `users` | restricted `editmyoptions` |  | 0085 §5 | §1.2 |
 | `PrefixIndex` | `Prefixindex` |  | `mediawiki` | served | `tenant` | `pages` |  | `index`: view.page (ns, title); graphs local | 0047 §4.4 | §2.4 |
 | `Proposals` |  |  | `triplespace` | served | `tenant` | `identity` |  |  | 0067 §7 | §3.2 |
 | `ProtectedPages` | `Protectedpages` |  | `mediawiki` | served | `tenant` | `maintenance` |  | `index`: view.acl; graphs local | 0016 §7, 0023 §9 | §2.4 |
@@ -817,7 +820,7 @@ Every `Special:` name that [0047](../decisions/0047-special-pages.md) §1–§10
 | `Takedown` |  |  | `triplespace` | served | `farm` | `instance` | unlisted |  | 0039 §18 | §1.3 |
 | `Takedowns` |  |  | `triplespace` | served | `farm` | `instance` | restricted `ts-takedown` |  | 0039 §18 | §1.3 |
 | `TalkPage` |  |  | `mediawiki` | served | `tenant` | `unlisted` | unlisted |  | 0047 §9 | §6.1 |
-| `Tenancy` |  |  | `triplespace` | served | `both` | `instance` |  |  | 0028 §11, 0046 §9 | §1.3 |
+| `Tenancy` |  |  | `triplespace` | served | `both` | `redirects` | unlisted |  | 0028 §11, 0046 §9, 0085 §4 | §1.3 |
 | `Tenants` |  |  | `triplespace` | served | `farm` | `instance` |  |  | 0018 §11, 0046 §9 | §1.3 |
 | `TrackingCategories` |  |  | `mediawiki` | served | `tenant` | `pages` |  | `index`: view.category; 0042 §9 tracking categories; graphs local | 0047 §4.4 | §2.4 |
 | `TransferAccount` |  |  | `triplespace` | served | `tenant` | `users` | restricted `ts-transferaccount` |  | 0024 §9 | — |
@@ -845,4 +848,5 @@ Every `Special:` name that [0047](../decisions/0047-special-pages.md) §1–§10
 | `WantedTemplates` | `Wantedtemplates` |  | `mediawiki` | served | `tenant` | `maintenance` | requires `wikitext.expansion` | `projection`: view.transclusion, view.page; graphs local | 0047 §4.4 | §2.4 |
 | `Watchlist` |  |  | `mediawiki` | served | `tenant` | `changes` | restricted `viewmywatchlist` |  | 0020 §4 | — |
 | `WhatLinksHere` | `Whatlinkshere` |  | `mediawiki` | served | `tenant` | `pagetools` |  |  | 0010 §12 | — |
+| `WikiSettings` |  |  | `triplespace` | served | `tenant` | `wiki` |  |  | 0085 §4 | — |
 | `WithoutInterwiki` | `Withoutinterwiki` |  | `mediawiki` | declined: interlanguage links are sitelinks (0026) | `tenant` | `maintenance` |  |  | — | §7 |

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-09 (A40)
+- **Updated:** 2026-10-17 (A42)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md)
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -43,7 +43,7 @@ The design exploration is on the [site UI canvas](https://claude.ai/artifact/XNb
 
 ### 2. The frame
 
-*Changed by A5, A9, A11, A12, A13, A16, A20, A22, A23, A27, A29, A30, A33.*
+*Changed by A5, A9, A11, A12, A13, A16, A20, A22, A23, A27, A29, A30, A33, A41, A42.*
 
 *Current text: [19](../architecture/19-site-ui.md) §1.2, §1.3, §1.4, §1.5.*
 
@@ -127,7 +127,7 @@ The design exploration is on the [site UI canvas](https://claude.ai/artifact/XNb
 
 ### 11. Account settings
 
-*Changed by A10, A11, A12, A14, A15, A17.*
+*Changed by A10, A11, A12, A14, A15, A17, A41.*
 
 *Current text: [19](../architecture/19-site-ui.md) §2.4.*
 
@@ -552,3 +552,34 @@ Replaced text ([19](../architecture/19-site-ui.md) §2.5, as it stood):
 > | `Special:Contributions/{issuer}:{id}` for a foreign actor | **What the instance holds:** upstream revision records keyed to that actor in `log/{provider}` ([0015](../decisions/0015-record-format-and-partition-registry.md) §4), and page revisions imported with that attribution. The page says whose user this is, links to their page on the issuer's site, and does not fetch upstream, because per-actor fetching is unbounded. |
 
 > For an actor of another tenant on the same instance the third view is complete, since the instance holds every record. For a Wikidata account it is the sparse subset the instance has observed or backfilled, and says so. `/actor/{key}/contributions` serves the same three cases ([18](../architecture/18-api.md)).
+
+### A41. The Appearance button, and the account page without preferences
+
+- **Date:** 2026-10-17
+- **Source:** [0085](0085-settings-and-preferences.md) §5, §6
+- **Change:** extends §2; amends §11
+- **Summary:** The global header gains an **Appearance** button for every viewer, which writes the account's appearance preferences when signed in and keeps them in the browser otherwise ([19](../architecture/19-site-ui.md) §1.2, §2.7). Preferences leave `Special:Account` for a page of their own, `Special:Preferences` ([19](../architecture/19-site-ui.md) §2.6); the account page keeps the account itself, its Notifications section becomes **Contacts** (the email address and fediverse handle), and the settings of a wiki and of the instance get pages of their own, `Special:WikiSettings` and `Special:InstanceSettings` ([19](../architecture/19-site-ui.md) §2.8).
+
+Replaced text ([19](../architecture/19-site-ui.md) §2.4, as it stood):
+
+> | Preferences | — | Every preference key, grouped as MediaWiki groups them ([0027](0027-preferences-and-portability.md) §7; the keys are in [07](../architecture/07-actors-and-accounts.md)), including interface and label language, and the defaults for the upstream-edits fold (§3.6) and the mirror-sync filter (§3.9) |
+> | Notifications | Private | The preference matrix of reasons by channel, read and written in place as the `notifications.*` keys; the email address with its verification state; the fediverse handle with its verification state, a *follow the notifier* hint with the notifier's handle, and *Remove* ([0021](0021-notifications.md) §6) |
+
+Replaced text ([19](../architecture/19-site-ui.md) §2.4, as it stood):
+
+> `Special:Preferences` redirects to the Preferences section.
+
+Replaced text ([19](../architecture/19-site-ui.md) §2.4, as it stood):
+
+> | Connected applications | Private | Each OAuth authorization one's subsidiaries hold, with **Revoke** ([0025](0025-oauth-server.md) §5) |
+
+### A42. Provider chips in the dark variants
+
+- **Date:** 2026-10-17
+- **Source:** [0086](0086-theming.md) §2
+- **Change:** amends §2
+- **Summary:** A provider chip's colours come from the provider registry for the light variants; in the dark variants the two colours swap, which keeps their contrast exactly, unless the registry gives `chip_color_dark` and `chip_background_dark`. The chapter row is [19](../architecture/19-site-ui.md) §1.5.
+
+Replaced text ([19](../architecture/19-site-ui.md) §1.5, as it stood):
+
+> | Provider code | Monospace, one colour per provider, taken from the provider registry | The entity or row comes from that provider's graph |

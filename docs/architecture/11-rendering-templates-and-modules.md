@@ -374,7 +374,7 @@ It is a text model under [0041](../decisions/0041-content-models.md) §5, stored
 
 ### 6.2 The sanitizer: `scatter-css`
 
-*Sources: [0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §2.*
+*Sources: [0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §2; [0086](../decisions/0086-theming.md) §6.*
 
 **A pure crate, `scatter-css`, parses and sanitizes CSS** ([22](22-crates-and-stack.md)). It builds for `wasm32-unknown-unknown` so the editor can lint a sheet as it is typed ([0034](../decisions/0034-frontend-stack.md) §6). It is written from the CSS Syntax Level 3 specification and from TemplateStyles' documented rules and test cases, not translated from its PHP, so that it is original code under the shared crates' licence ([0005](../decisions/0005-crate-organization.md) §6).
 
@@ -386,7 +386,7 @@ It is a text model under [0041](../decisions/0041-content-models.md) §5, stored
 | **Properties** | The allow-list TemplateStyles' css-sanitizer publishes: CSS 2.1 and the Level 3 and 4 modules it names (backgrounds, borders, box alignment, flexbox, grid, fonts, text, transforms, transitions, animations, multi-column, writing modes, and so on), kept in `docs/registry/css-properties.toml` with the module each came from | Unknown and vendor-specific properties, `behavior`, `-moz-binding`, `expression()`, `position: fixed` |
 | **Values** | Standard syntax per property, with `!important` | Anything the property's grammar rejects |
 | **`url()`** | A local file's URL, resolved through the tenant's file lookup ([0039](../decisions/0039-files-and-media.md) §11) and written as the media base URL, so a sheet may use an uploaded or inherited image; `data:` URIs for images under a size cap | Every other URL. Nothing a sheet references can leave the instance |
-| **Selectors** | Any selector, **prefixed with `.mw-parser-output`** so that it matches only rendered content and never the frame, as TemplateStyles prefixes them; a `wrapper` attribute on the tag (§6.3) prefixes further | Selectors that escape the prefix (`html`, `body`, `:root`), which are rewritten to match nothing |
+| **Selectors** | Any selector, **prefixed with `.mw-parser-output`** so that it matches only rendered content and never the frame, as TemplateStyles prefixes them; a `wrapper` attribute on the tag (§6.3) prefixes further. A first compound of `html` with only the classes `skin-theme-clientpref-night`, `skin-theme-clientpref-os` or `skin-theme-clientpref-day` is kept before the prefix, so content written for Wikipedia's night mode works under the site's dark variants ([0086](../decisions/0086-theming.md) §6) | Other selectors that escape the prefix (`html`, `body`, `:root`), which are rewritten to match nothing |
 | **Size** | Up to `templatestyles.max_bytes` (`site`, default 100 KB, TemplateStyles' `$wgTemplateStylesMaxStylesheetSize`) | Larger sheets are refused |
 
 **Two modes.** `validate` reports every error and is what saving uses. `sanitize` drops what it cannot accept and reports what it dropped; it is what mirrored HTML ([0053](../decisions/0053-mirrored-pages.md) §2, in [13](13-mirrored-pages.md)) and the site-styles page (§6.4) use at render, so that a sheet written for another wiki's allow-list still renders its acceptable rules here.

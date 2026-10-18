@@ -28,6 +28,9 @@
 #              (0010 §2). The text must meet 4.5:1 on the background; the site checks it and shows a
 #              neutral chip where it does not. Each provider's pair differs from the others in hue, and
 #              from the Local and Best value chips the site draws itself.
+# chip_color_dark, chip_background_dark
+#              Optional. The chip's colours in a dark variant (0086 §2), where swapping chip_color and
+#              chip_background, the default, does not suit; the same 4.5:1 check applies.
 #
 # Each [[provider.type]] gives one entity type the provider mints:
 #   code             One-letter type code; the entity ID prefix is provider.code + type.code.

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-10-09 (A94)
+- **Updated:** 2026-10-17 (A96)
 - **Author:** James Hare / Claude Opus; revision by James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -42,7 +42,7 @@ Since this ADR was first written, twenty-six further ADRs have added crates, cha
 
 ### 2. Crate map
 
-*Changed by A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A27, A28, A29, A30, A31, A32, A33, A34, A35, A36, A37, A38, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A51, A52, A53, A54, A55, A57, A58, A59, A60, A61, A62, A63, A64, A65, A66, A67, A68, A69, A70, A71, A72, A73, A74, A75, A76, A77, A78, A79, A80, A84, A86, A87, A88, A89, A90, A91, A92, A93.*
+*Changed by A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A27, A28, A29, A30, A31, A32, A33, A34, A35, A36, A37, A38, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A51, A52, A53, A54, A55, A57, A58, A59, A60, A61, A62, A63, A64, A65, A66, A67, A68, A69, A70, A71, A72, A73, A74, A75, A76, A77, A78, A79, A80, A84, A86, A87, A88, A89, A90, A91, A92, A93, A95, A96.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
@@ -934,3 +934,17 @@ Replaced text ([01](../architecture/01-log-and-records.md) §1.2, as it stood):
 Replaced text ([01](../architecture/01-log-and-records.md) §4.1, as it stood):
 
 > - **Appends in steady state** keep the tree's right edge in memory, which is O(log n) hashes. Each append costs one leaf hash plus O(log n) node hashes in the worst case.
+
+### A95. Crates for settings and preferences
+
+- **Date:** 2026-10-17
+- **Source:** [0085](0085-settings-and-preferences.md) §9
+- **Change:** extends §2
+- **Summary:** `triplespace-accounts` embeds `docs/registry/settings.toml` and holds the `setting` config kind, the setting resolver and the one validator every writer of a `site` record calls, and resolves preferences through `preferences.defaults` and the farm account; `triplespace-api-rest` serves `/settings/schema` and `/settings`; `triplespace-files` serves site assets at `{media base}/asset/`; `triplespace-api-action` reports the `site.*` settings in `siteinfo`; `triplespace-projections` projects `settings/change`; `triplespace-ui` draws `Special:Preferences`, `Special:WikiSettings`, `Special:InstanceSettings` and the Appearance menu; `triplespace-cli` gains `settings`. The chapter rows are [22](../architecture/22-crates-and-stack.md) §2.1.
+
+### A96. Crates for theming
+
+- **Date:** 2026-10-17
+- **Source:** [0086](0086-theming.md) §7
+- **Change:** extends §2
+- **Summary:** `triplespace-accounts` holds the `palette` and `typeset` config kinds, their validation, `extends` and contrast floors, and `follows = choice`; `triplespace-ui` builds a stylesheet per palette, with its variants, and per type set, with its `@font-face` rules and text-size modes, writes the reader's choices onto `<html>`, and honours the content classes of night mode; `scatter-css` keeps `html.skin-theme-clientpref-*` compounds before its prefix; `triplespace-api-action` reports palettes, type sets and the theme settings. The chapter rows are [22](../architecture/22-crates-and-stack.md) §2.1.

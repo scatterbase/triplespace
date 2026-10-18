@@ -121,21 +121,22 @@ The upload rights and their defaults are in [09](09-security-and-moderation.md) 
 
 ### 4.1 The access check and the media base
 
-*Sources: [0039](../decisions/0039-files-and-media.md) §7.*
+*Sources: [0039](../decisions/0039-files-and-media.md) §7; [0085](../decisions/0085-settings-and-preferences.md) §8.*
 
-**Access to every Triplespace resource goes through an access check**; a public bucket behind a CDN that never asks who is reading is not used. The binary serves every original and every thumbnail, local or proxied, after evaluating the viewer's `read` on the version under [0016](../decisions/0016-permissions-and-access-control.md) §4 and [0023](../decisions/0023-moderation.md) §1, including the instance ACLs of §5.4. A version that fails the check is answered with 404, never 403, so the answer does not confirm that the bytes exist.
+**Access to every Triplespace resource goes through an access check**, with one exception, a **site asset**: a file version a setting uses for a basic site function, public while a setting names it (§4.5; [0085](../decisions/0085-settings-and-preferences.md) §8); a public bucket behind a CDN that never asks who is reading is not used. The binary serves every original and every thumbnail, local or proxied, after evaluating the viewer's `read` on the version under [0016](../decisions/0016-permissions-and-access-control.md) §4 and [0023](../decisions/0023-moderation.md) §1, including the instance ACLs of §5.4. A version that fails the check is answered with 404, never 403, so the answer does not confirm that the bytes exist.
 
 **The media base.** Files are served from the tenant `site` setting `media.base_url`, by default `{tenant base}/media`. A **separate origin** is strongly recommended (`https://upload.example.org/{slug}` for a farm), since a file served from the wiki's own origin runs with the wiki's cookies if a check in §3.2 misses something. `meta=siteinfo&siprop=triplespace` reports whether the media base is same-origin, and the site UI warns administrators while it is.
 
 ### 4.2 Routes
 
-*Sources: [0039](../decisions/0039-files-and-media.md) §7.*
+*Sources: [0039](../decisions/0039-files-and-media.md) §7; [0085](../decisions/0085-settings-and-preferences.md) §8.*
 
 | Route under the media base | Serves |
 |---|---|
 | `/file/{h}/{name}` | Original bytes. `{name}` is the title without its prefix, used for `Content-Disposition` |
 | `/thumb/{h}/{transform}-{name}` | A thumbnail, in MediaWiki's `320px-Example.jpg` shape |
 | `/repo/{repo}/file/{sha1}/{name}`, `/repo/{repo}/thumb/{sha1}/{transform}-{name}` | A proxied foreign file (§6.3) |
+| `/asset/{h}/{name}` | A site asset (§4.5): a version the tenant's configuration names (a `site-asset` setting, or a type set's font file), to anyone, a private tenant's outsiders included |
 
 `Special:FilePath/{name}` and `Special:Redirect/file/{name}` on the wiki redirect to the current version's URL, and `[[Media:…]]` links point at them, so a stable link never names a hash.
 
@@ -152,6 +153,19 @@ A request for a version that `universe` may read needs no identity: the check is
 **Headers.** Every response carries `X-Content-Type-Options: nosniff`, `Cross-Origin-Resource-Policy: cross-origin` (other sites may embed public files, as Commons allows; an instance may set `same-site`), and `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox`. A type the registry marks `inline` (raster images, audio, video, PDF) is served inline; every other type with `Content-Disposition: attachment`. SVG originals are served under the sandboxing CSP, and on a same-origin media base always as attachments; SVG thumbnails are rasterized and always inline. `Range` requests are honoured, for seeking in audio and video. `ETag` is the hash plus transform.
 
 **Caching** follows [0014](../decisions/0014-caches-and-search.md) §6 ([03](03-storage-caches-and-search.md) §10). A public version is served with `Cache-Control: public, max-age=86400, s-maxage=2592000` and `Cache-Tag` values `blob:{scope}:{h}` and `file:{tenant}:{page id}`; any change that makes it unreadable (§5) purges both tags at L2, so the long `s-maxage` costs nothing in correctness. A signed URL is served `Cache-Control: private, no-store`. Bytes go from the store to the client as a stream; the binary never holds a whole file in memory.
+
+
+### 4.5 Site assets
+
+*Sources: [0085](../decisions/0085-settings-and-preferences.md) §8; [0086](../decisions/0086-theming.md) §3.*
+
+**A site asset is a file version configuration uses for a basic site function**, such as the logo (`site.logo`), the favicon (`site.icon`) or a type set's typeface ([0086](../decisions/0086-theming.md) §3). It is public because, and only while, configuration names it, a `site-asset` setting or a type set's font file; nothing on the file makes it public.
+
+- **Naming.** A setting of type `site-asset` names a local `File:` and pins a version by SHA-1, among the media types its registry entry lists. Writing it needs the setting's right, `ts-config` at least, and the setter must be able to read the version. A later upload changes nothing until someone with that right names the new version.
+- **Serving.** `{media base}/asset/{h}/{name}` (§4.2) serves a version the tenant's configuration names to anyone, a private tenant's outsiders included, with the headers of §4.4, and is the one route that skips the access check of §4.1. The hash in the URL makes it immutable. Fonts, which browsers fetch with CORS, are answered with `Access-Control-Allow-Origin: *`. A version no setting names is answered as the other routes would answer it.
+- **Moderation wins.** A hidden, suppressed or taken-down version is never served as an asset, cannot be named, and a setting whose version is hidden later resolves as unset.
+- **Visibility.** The file page of an asset says what it is public as, and `Special:WikiSettings` lists every asset under **Public files** ([19](19-site-ui.md) §2.8).
+- **SVG** is accepted where the setting lists it (`site.logo`, `site.icon`), because `ts-config` holders are trusted; it is drawn with `<img>` and served with `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'`. SVG sanitization must exist before an instance hosts tenants whose `ts-config` holders it does not vet ([0085](../decisions/0085-settings-and-preferences.md) Q5).
 
 ## 5. Removing files
 

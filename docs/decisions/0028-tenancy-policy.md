@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-09 (A20)
+- **Updated:** 2026-10-17 (A21)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md), [0023](0023-moderation.md)
 - **Uses:** [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0027](0027-preferences-and-portability.md)
@@ -60,7 +60,7 @@ MediaWiki's answer to the second is CentralAuth: one global account, local accou
 
 ### 8. Shared machinery: templates and locks
 
-*Changed by A4, A5.*
+*Changed by A4, A5, A21.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §5.3, §5.4, §8.6.*
 
@@ -76,7 +76,7 @@ MediaWiki's answer to the second is CentralAuth: one global account, local accou
 
 ### 11. API and UI (extends 0012 and 0010)
 
-*Changed by A14, A16.*
+*Changed by A14, A16, A21.*
 
 *Current text: [18](../architecture/18-api.md) §1.2, §2.2, §2.3, §3.2; [19](../architecture/19-site-ui.md) §1.3, §2.4, §6.11.*
 
@@ -355,3 +355,28 @@ Replaced text (§5, in [08](../architecture/08-tenants-and-instances.md) §4.4):
 Replaced text ([03](../architecture/03-storage-caches-and-search.md) §13, as it stood):
 
 > A private tenant has no graphs in any store ([0028](../decisions/0028-tenancy-policy.md) §12).
+
+### A21. Instance defaults for `site` settings are evaluated
+
+- **Date:** 2026-10-17
+- **Source:** [0085](0085-settings-and-preferences.md) §2.1, §4
+- **Change:** amends §8; amends §11
+- **Summary:** A `site` template is no longer written into a new tenant. It is the instance's default for the setting, read whenever a tenant without a record of its own resolves it, so a change to it reaches every such tenant at once; templates of every other kind are still provisions written at creation, and locked templates are still written into every tenant as prerogatives. The tenancy policy's page, `Special:Tenancy`, is merged into the settings pages: the switches are a tab of `Special:InstanceSettings`, the policy as it applies to a tenant a read-only tab of `Special:WikiSettings`, and `Special:Tenancy` redirects to them. The chapter text is [08](../architecture/08-tenants-and-instances.md) §5.3 and §8.6, [23](../architecture/23-configuration-and-registry.md) §1.4 and §3.1, and [19](../architecture/19-site-ui.md) §2.8 and §6.11.
+
+Replaced text ([08](../architecture/08-tenants-and-instances.md) §5.3, as it stood):
+
+> that `tenant create` writes into a new tenant's `config`. A tenant may then change them.
+
+Replaced text ([08](../architecture/08-tenants-and-instances.md) §5.3, as it stood):
+
+> under `defaults` they are **provisions**, which the tenant may replace;
+
+Replaced text ([19](../architecture/19-site-ui.md) §6.11, as it stood):
+
+> `Special:Tenancy` for the policy (owner and `ts-config`);
+
+> `Special:Tenancy` also carries the **Visibility** control of §6.3.
+
+Replaced text ([18](../architecture/18-api.md) §1.2, as it stood):
+
+> The UI halves of these sections, `Special:Tenants`, `Special:Tenancy` and the farm special pages,

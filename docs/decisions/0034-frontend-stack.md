@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-09 (A10)
+- **Updated:** 2026-10-17 (A12)
 - **Author:** James Hare / Claude
 - **Changes:** [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0003](0003-statement-ui.md), [0012](0012-api-requirements.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0029](0029-resolver-namespaces.md), [0033](0033-backend-stack.md)
@@ -20,7 +20,7 @@ The backend stack is in 0033.
 
 ### 1. Principles
 
-*Changed by A6, A7, A8.*
+*Changed by A6, A7, A8, A12.*
 
 *Current text: [19](../architecture/19-site-ui.md) §1, §5.1.*
 
@@ -66,6 +66,8 @@ The backend stack is in 0033.
 
 ### 9. Internationalisation
 
+*Changed by A11.*
+
 *Current text: [19](../architecture/19-site-ui.md) §5.6.*
 
 ### 10. Accessibility and browser support
@@ -76,7 +78,7 @@ The backend stack is in 0033.
 
 ### 11. Security
 
-*Changed by A6.*
+*Changed by A6, A12.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §1.4.*
 
@@ -108,7 +110,7 @@ The backend stack is in 0033.
 ## Open questions
 
 - **Q1.** ~~Codex upgrade cadence, and whether to track the version bundled with a MediaWiki release.~~ *Settled by A8: the latest release, bumped deliberately in its own commit; MediaWiki's bundled version is not tracked.*
-- **Q2.** Night mode: adopt Codex's dark-mode tokens when they are stable.
+- **Q2.** ~~Night mode: adopt Codex's dark-mode tokens when they are stable.~~ *Settled by [0086](0086-theming.md) §2: Codex's dark tokens are the base a palette's `dark` variant overlays, and `parchment` ships a walnut-brown dark variant.*
 - **Q3.** Whether the Rust Codex builder becomes a published crate other projects can use.
 - **Q4.** An interactive charting library for exploring a property's full view (0003), beyond the static SVGs.
 - **Q5.** Visual regression testing.
@@ -255,3 +257,37 @@ Replaced text (§6):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§13
 - **Summary:** The Decision's current text now lives in the architecture chapters [09](../architecture/09-security-and-moderation.md), [19](../architecture/19-site-ui.md), [20](../architecture/20-web-tier.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A11. The interface language is negotiated
+
+- **Date:** 2026-10-17
+- **Source:** [0085](0085-settings-and-preferences.md) §2.2
+- **Change:** amends §9
+- **Summary:** A reader is served in their language without having to choose one: the interface language comes from `uselang`, then the reader's `language` preference, then the request's `Accept-Language` matched against the languages the interface has messages for, then the tenant's default (`site.language` unless `preferences.defaults` names another) and the farm's. Readers who are not logged in are served the same way. The chapter text is [19](../architecture/19-site-ui.md) §5.6.
+
+Replaced text ([19](../architecture/19-site-ui.md) §5.6, as it stood):
+
+> - Interface language comes from the `language` preference ([07](../architecture/07-actors-and-accounts.md)) with `uselang` as an override; fallback chains follow MediaWiki's.
+
+### A12. Palettes and type sets replace the flat theme
+
+- **Date:** 2026-10-17
+- **Source:** [0086](0086-theming.md) §1, §2, §5
+- **Change:** amends §1; extends §11
+- **Summary:** The flat theme of A7, one map of Codex token values in `ui.theme`, becomes two choices held as config records: a palette, with `light`, `dark`, `light-more` and `dark-more` colour variants and the shape tokens, each variant held to its contrast floor, and a type set, with the three typeface roles and the typefaces it serves. The shipped default of A8 is the palette `parchment` (the same light values, now with a walnut-brown dark variant and high-contrast variants) with the type set `default26`; for accessibility, the palettes `parchment-ob` and `parchment-co`, for colour-vision deficiencies, and the type sets `hyperlegible` and `opendyslexic` ship, and a reader may always choose them. A reader chooses mode, contrast, text size, palette and type set, the last two within what the wiki offers. One stylesheet per palette and one per type set hold their variants and modes under `data-*` attributes and media queries. `font-src` and `img-src` admit the media origin, where a tenant's typefaces and logo are served as site assets. Q2 is settled: Codex's dark tokens are the base every palette's `dark` overlays. `ui.theme` is retired. The chapter text is [19](../architecture/19-site-ui.md) §5.1, §5.2 and §5.9, [09](../architecture/09-security-and-moderation.md) §1.4, [02](../architecture/02-graphs-rdf-and-query.md) §1.4 and [23](../architecture/23-configuration-and-registry.md) §3.2.
+
+Replaced text ([19](../architecture/19-site-ui.md) §5.1, as it stood):
+
+> 4. **Codex components, themed by tokens.** Codex's components, icons and markup are used without overrides. Their look comes from Codex's design tokens, and the instance or a tenant may give those tokens values of its own as a **theme** (`ui.theme`, [0015](0015-record-format-and-partition-registry.md) §3; [23](../architecture/23-configuration-and-registry.md)): colours, typefaces, radii and spacing, never a component's markup or behaviour. A theme is served as a stylesheet of CSS custom properties, so it needs no inline style under the security policy of [0034](0034-frontend-stack.md) §11 ([09](../architecture/09-security-and-moderation.md)), and it is refused when its colours fail WCAG 2.1 AA contrast for the token pairs Codex uses for text, borders and focus. The theme's values are reported in `meta=siteinfo&siprop=triplespace` ([0012](0012-api-requirements.md) §4; [18](../architecture/18-api.md)), from which the site reads them as it reads any setting, and the site serves them as a stylesheet named by a hash of its values, so a changed theme is a new URL and each one caches as immutable. Without one, the site wears the **shipped default theme**, `default` in `docs/registry/themes.toml`: the palette and type of the site and statement UI canvases, Newsreader for headings over IBM Plex Sans and IBM Plex Mono, on a warm ground; tokens it does not name keep Codex's values. Where a design needs something Codex lacks, it is built from Codex tokens and proposed upstream. Codex is used for its accessible components, its right-to-left and language support, and CSS-only components that need no JavaScript, more than for its look.
+
+Replaced text ([19](../architecture/19-site-ui.md) §5.2, as it stood):
+
+> The default theme's typefaces (Newsreader, IBM Plex Sans, IBM Plex Mono, all under the SIL Open Font License) are served the same way, from the site's own origin, as the policy of [0034](0034-frontend-stack.md) §11 requires.
+
+Replaced text ([02](../architecture/02-graphs-rdf-and-query.md) §1.4, as it stood):
+
+> | `themes.toml` | Themes as values for Codex design tokens, and the typefaces each serves | [0034](0034-frontend-stack.md) §1 |
+
+Replaced text ([23](../architecture/23-configuration-and-registry.md) §3.2, as it stood):
+
+> | `ui.theme` | `site`; the instance or a tenant | tenant | Codex token values | Codex's own values | The theme a site is served with; refused when its colours fail WCAG 2.1 AA contrast | [0034](0034-frontend-stack.md) §1 |

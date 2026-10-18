@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-10-09 (A3)
+- **Updated:** 2026-10-17 (A4)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0047](0047-special-pages.md)
 - **Uses:** [0016](0016-permissions-and-access-control.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md), [0033](0033-backend-stack.md), [0039](0039-files-and-media.md), [0043](0043-lua-modules.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -31,6 +31,8 @@ James's direction, from the design discussion of 2026-10-01, was that the ADR se
 *Current text: [10](../architecture/10-pages-and-content-models.md) §1.4; [11](../architecture/11-rendering-templates-and-modules.md) §6.1.*
 
 ### 2. The sanitizer: `scatter-css` (extends 0005 §3; uses 0033 §9.1)
+
+*Changed by A4.*
 
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §6.2, §8.*
 
@@ -149,3 +151,14 @@ Replaced text ([10](../architecture/10-pages-and-content-models.md) §5.5, as it
 >   PRIMARY KEY (page_id, name)
 
 > Properties the refresh job writes are written in the same transaction as the links, categories and transclusions of a render ([0042](0042-template-expansion-and-parsoid.md) §10), and are therefore among the `view` tables that render re-creates rather than replays. A property the latest render did not set is deleted.
+
+### A4. Night-mode selectors are kept
+
+- **Date:** 2026-10-17
+- **Source:** [0086](0086-theming.md) §6
+- **Change:** amends §2
+- **Summary:** A selector whose first compound is `html` with only the classes `skin-theme-clientpref-night`, `skin-theme-clientpref-os` or `skin-theme-clientpref-day` keeps that compound before the `.mw-parser-output` prefix, as TemplateStyles does, so content written for Wikipedia's night mode works under the dark variants of [0086](0086-theming.md); every other selector escaping the prefix still matches nothing. The chapter row is [11](../architecture/11-rendering-templates-and-modules.md) §6.2.
+
+Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §6.2, as it stood):
+
+> | **Selectors** | Any selector, **prefixed with `.mw-parser-output`** so that it matches only rendered content and never the frame, as TemplateStyles prefixes them; a `wrapper` attribute on the tag (§6.3) prefixes further | Selectors that escape the prefix (`html`, `body`, `:root`), which are rewritten to match nothing |

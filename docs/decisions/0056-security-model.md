@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-10-09 (A15)
+- **Updated:** 2026-10-17 (A16)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0021](0021-notifications.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md), [0033](0033-backend-stack.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0051](0051-page-redirects.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md), [0045](0045-table-content-model.md), [0046](0046-primary-tenant.md), [0047](0047-special-pages.md), [0049](0049-boards.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -51,11 +51,13 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 3. Two targets: the tenant and the set (extends 0016 §4; extends 0023 §2)
 
-*Changed by A3, A4, A10.*
+*Changed by A3, A4, A10, A16.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §4.2, §4.4, §4.7.*
 
 ### 4. Who may restrict what (amends 0016 §2 and §4; amends 0023 §1)
+
+*Changed by A16.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §4.5.*
 
@@ -98,6 +100,8 @@ James's direction, from the design discussion of 2026-10-01:
 *Current text: [09](../architecture/09-security-and-moderation.md) §5.6.*
 
 ### 13. API and UI (extends 0012 §4; extends 0016 §7; extends 0023 §8 and §9)
+
+*Changed by A16.*
 
 *Current text: [18](../architecture/18-api.md) §2.2, §2.3, §3.1, §3.2; [19](../architecture/19-site-ui.md) §1.3, §1.5, §6.3, §6.11.*
 
@@ -355,3 +359,26 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.6, as i
 Replaced text ([09](../architecture/09-security-and-moderation.md) §1.2, as it stood):
 
 > An instance of public tenants has no restrictions; a hosting instance gives each tenant a restriction on the tenant itself (§4.7), and from then on the tenants cannot see each other, except through the global data the tenancy policy already lets cross ([08](../architecture/08-tenants-and-instances.md)): mirrored entities, page repositories and shared files, which are public at their source and cross as public form only (§5.4).
+
+### A16. The Visibility control is on Special:WikiSettings
+
+- **Date:** 2026-10-17
+- **Source:** [0085](0085-settings-and-preferences.md) §4
+- **Change:** amends §3; amends §4; amends §13
+- **Summary:** A tenant's **Visibility** control, with the account-creation switch and the warning before a public tenant goes private, is a tab of `Special:WikiSettings` on every instance, single-tenant or farm, rather than of `Special:Tenancy` or an undefined site settings page. The chapter text is [19](../architecture/19-site-ui.md) §2.8 and §6.3.
+
+Replaced text ([19](../architecture/19-site-ui.md) §6.3, as it stood):
+
+> - **Visibility.** The tenant settings page (`Special:Tenancy` on a farm, the site settings otherwise) has **Visibility**:
+
+Replaced text ([09](../architecture/09-security-and-moderation.md) §4.5, as it stood):
+
+> the settings page says so before it saves
+
+Replaced text ([09](../architecture/09-security-and-moderation.md) §4.7, as it stood):
+
+> the tenant settings page offers both switches together
+
+Replaced text ([19](../architecture/19-site-ui.md) §6.3, as it stood):
+
+> nothing else of the tenant is served, special pages included, except `Special:UserLogin`, the OAuth routes and `/.well-known/`.
