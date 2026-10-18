@@ -82,6 +82,40 @@ id = "exchange"      # export, dumps, federation, updates, ingest, integrity, fe
 id = "instance"      # instance-only settings
 
 [[setting]]
+key = "account.approval"
+scope = "tenant"
+bound = "tenant"
+group = "accounts"
+type = "boolean"
+default = false
+default_text = "off"
+meaning = "Whether registering files a request that a holder of `confirmaccount` approves, instead of creating the account at once ([07](07-actors-and-accounts.md) §2.6)"
+source = "[0087](../decisions/0087-account-registration-and-challenges.md) §6"
+reported = true
+
+[[setting]]
+key = "account.request_expiry"
+scope = "tenant"
+bound = "tenant"
+group = "accounts"
+type = "duration"
+default = "P30D"
+default_text = "30 days"
+meaning = "How long an account request stays open before it is deleted"
+source = "[0087](../decisions/0087-account-registration-and-challenges.md) §6"
+
+[[setting]]
+key = "account.request_statement"
+scope = "tenant"
+bound = "tenant"
+group = "accounts"
+type = "choice"
+choices = ["off", "optional", "required"]
+default = "optional"
+meaning = "Whether an account request asks for a statement of up to 1,000 characters"
+source = "[0087](../decisions/0087-account-registration-and-challenges.md) §6"
+
+[[setting]]
 key = "blocks.max_per_page"
 scope = "tenant"
 bound = "tenant"
@@ -125,6 +159,42 @@ default = "uppercase"
 default_text = "MediaWiki's `uppercase`"
 meaning = "Sort order of a category's members"
 source = "[0038](../decisions/0038-page-metadata-and-categories.md) §4"
+
+[[setting]]
+key = "challenge.bits"
+scope = "tenant"
+bound = "tenant"
+group = "accounts"
+type = "integer"
+values = "8 to 32"
+default = 20
+meaning = "The base difficulty of a challenge, in leading zero bits of SHA-256: about 2^bits hashes"
+source = "[0087](../decisions/0087-account-registration-and-challenges.md) §3, §4"
+reported = true
+
+[[setting]]
+key = "challenge.max_bits"
+scope = "tenant"
+bound = "tenant"
+group = "accounts"
+type = "integer"
+values = "`challenge.bits` to 32"
+default = 24
+meaning = "The highest difficulty: one bit is added for each account created from the caller's address key in the last 24 hours, up to this"
+source = "[0087](../decisions/0087-account-registration-and-challenges.md) §4"
+
+[[setting]]
+key = "challenge.triggers"
+scope = "tenant"
+bound = "tenant"
+group = "accounts"
+type = "string-list"
+values = "`createaccount`, `tempaccount`, `badlogin`"
+default = ["createaccount", "tempaccount", "badlogin"]
+default_text = "all three"
+meaning = "The acts a challenge guards ([07](07-actors-and-accounts.md) §2.6); the empty list turns challenges off"
+source = "[0087](../decisions/0087-account-registration-and-challenges.md) §2"
+reported = true
 
 [[setting]]
 key = "constraints.scope"

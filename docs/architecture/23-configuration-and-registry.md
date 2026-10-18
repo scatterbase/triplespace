@@ -152,17 +152,23 @@ Preference keys, which an account owns, are listed apart in §3.7 because they s
 
 ### 3.2 Tenant `site` settings
 
-*Sources: [0015](../decisions/0015-record-format-and-partition-registry.md) §3; [0042](../decisions/0042-template-expansion-and-parsoid.md) §2; [0069](../decisions/0069-synchronized-talk-pages.md) §11; [0075](../decisions/0075-mcp-server.md) §6; [0081](../decisions/0081-recovery-keys-and-continuations.md) §9; [0082](../decisions/0082-source-form-and-the-shared-view.md) §6; [0083](../decisions/0083-write-path-in-three-tiers.md) §3; [0085](../decisions/0085-settings-and-preferences.md) §1, §7.*
+*Sources: [0015](../decisions/0015-record-format-and-partition-registry.md) §3; [0042](../decisions/0042-template-expansion-and-parsoid.md) §2; [0069](../decisions/0069-synchronized-talk-pages.md) §11; [0075](../decisions/0075-mcp-server.md) §6; [0081](../decisions/0081-recovery-keys-and-continuations.md) §9; [0082](../decisions/0082-source-form-and-the-shared-view.md) §6; [0083](../decisions/0083-write-path-in-three-tiers.md) §3; [0085](../decisions/0085-settings-and-preferences.md) §1, §7; [0087](../decisions/0087-account-registration-and-challenges.md) §8.*
 
 The table is generated from `settings.toml` (§3.1). Each row cites the ADR section that defines the setting. "Scope" repeats what that section says; "`site` (by rule, §3.1)" means the section names the setting without saying which `config` holds it, and the rule of §3.1 makes it a tenant `site` setting. "Bound" is §3.1's: `tenant`, `tenant ≤ instance ceiling`, or `instance`. A default of "—" means the section gives none.
 
 <!-- settings.py: tenant -->
 | Setting | Scope | Bound | Values | Default | Meaning | Source |
 |---|---|---|---|---|---|---|
+| `account.approval` | `site` | tenant | off, on | off | Whether registering files a request that a holder of `confirmaccount` approves, instead of creating the account at once ([07](07-actors-and-accounts.md) §2.6) | [0087](../decisions/0087-account-registration-and-challenges.md) §6 |
+| `account.request_expiry` | `site` | tenant | duration | 30 days | How long an account request stays open before it is deleted | [0087](../decisions/0087-account-registration-and-challenges.md) §6 |
+| `account.request_statement` | `site` | tenant | `off`, `optional`, `required` | `optional` | Whether an account request asks for a statement of up to 1,000 characters | [0087](../decisions/0087-account-registration-and-challenges.md) §6 |
 | `blocks.max_per_page` | `site` (by rule, §3.1) | tenant | integer | 20 | Bounds blocks per render | [0062](../decisions/0062-workspaces.md) §3 |
 | `blocks.max_rows` | `site` | tenant | integer | 200 | Bounds every list a block renders | [0062](../decisions/0062-workspaces.md) §3 |
 | `blocks.refresh_debounce` | `site` (by rule, §3.1) | tenant | duration | 60 s | Coalesces the refresh of pages whose block dependencies changed | [0062](../decisions/0062-workspaces.md) §3 |
 | `category.collation` | `site` | tenant | a collation | MediaWiki's `uppercase` | Sort order of a category's members | [0038](../decisions/0038-page-metadata-and-categories.md) §4 |
+| `challenge.bits` | `site` | tenant | 8 to 32 | 20 | The base difficulty of a challenge, in leading zero bits of SHA-256: about 2^bits hashes | [0087](../decisions/0087-account-registration-and-challenges.md) §3, §4 |
+| `challenge.max_bits` | `site` | tenant | `challenge.bits` to 32 | 24 | The highest difficulty: one bit is added for each account created from the caller's address key in the last 24 hours, up to this | [0087](../decisions/0087-account-registration-and-challenges.md) §4 |
+| `challenge.triggers` | `site` | tenant | `createaccount`, `tempaccount`, `badlogin` | all three | The acts a challenge guards ([07](07-actors-and-accounts.md) §2.6); the empty list turns challenges off | [0087](../decisions/0087-account-registration-and-challenges.md) §2 |
 | `constraints.scope` | `site` | tenant | `local`, `overlay`, `all` | `local` | Which entities the constraint consumer checks on composition: `local`, the local-graph statements and the entities in the tenant's overlay; `overlay`; or `all`, which is a batch job with progress and never a per-event step ([06](06-statements-and-properties.md)) | [0083](../decisions/0083-write-path-in-three-tiers.md) §3 |
 | `content.licence` | `site` | tenant | a licence | unset; a tenant with no licence set is warned, not refused | The tenant's content licence, checked against a repository's when it is added to `pages.repos` and on a push | [0053](../decisions/0053-mirrored-pages.md) §9; [0068](../decisions/0068-merging-with-upstream.md) §3; [0076](../decisions/0076-dataset-publication.md) §4 |
 | `discussion.share` | `site` | tenant | off, on | on under `discussion.cross_tenant = read-only` | Whether a provider tenant's threads are shown read-only on reading tenants | [0028](../decisions/0028-tenancy-policy.md) §6 |

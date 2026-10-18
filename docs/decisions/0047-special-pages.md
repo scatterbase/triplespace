@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-17 (A22)
+- **Updated:** 2026-10-17 (A23)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0029](0029-resolver-namespaces.md), [0031](0031-property-constraints.md), [0042](0042-template-expansion-and-parsoid.md), [0046](0046-primary-tenant.md)
 - **Uses:** [0019](0019-discussions.md), [0021](0021-notifications.md), [0028](0028-tenancy-policy.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md)
@@ -44,7 +44,7 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 1. One registry of special pages (extends 0015 §5)
 
-*Changed by A9, A15, A19, A22.*
+*Changed by A9, A15, A19, A22, A23.*
 
 *Current text: [21](../architecture/21-special-pages.md) §1.1, §8.*
 
@@ -478,3 +478,18 @@ Replaced text ([21](../architecture/21-special-pages.md) §8, as it stood):
 Replaced text ([21](../architecture/21-special-pages.md) §8, as it stood):
 
 > Twenty-five served pages in the registry are specified by other ADRs and are not described in those sections or in this chapter; the catalogue marks them "—" and names their ADR: `Block`, `BlockList`, `DeletedContributions`, `ListGroupRights`, `Undelete` and `UserRights` ([09](09-security-and-moderation
+
+### A23. Special:ConfirmAccounts, and RequestAccount as an alias
+
+- **Date:** 2026-10-17
+- **Source:** [0087](0087-account-registration-and-challenges.md) §6
+- **Change:** extends §1
+- **Summary:** The registry gains `ConfirmAccounts`, origin `ConfirmAccount`, served at tenant scope in the `users` group and restricted to `confirmaccount`; and `CreateAccount` gains the alias `RequestAccount`, ConfirmAccount's request form, which under `account.approval` is the same form. `version.toml` gains the `ConfirmAccount` extension, and `ConfirmEdit` with what Triplespace took from it. The chapter text is [21](../architecture/21-special-pages.md) §8.
+
+Replaced text ([21](../architecture/21-special-pages.md) §8, as it stood):
+
+> | `CreateAccount` |  |  | `mediawiki` | served | `tenant` | `login` |  |  | 0010 §10 | — |
+
+Replaced text ([21](../architecture/21-special-pages.md) §8, as it stood):
+
+> Every entry of `docs/registry/special-pages.toml` (192 pages: 172 served, 7 deferred, 13 declined, none reserved), in alphabetical order.

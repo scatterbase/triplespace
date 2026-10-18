@@ -77,9 +77,9 @@ The web tier is the default route, so an unknown path gets a 404 page in the sit
 
 ### 3.1 Forms without JavaScript
 
-*Sources: [0057](../decisions/0057-web-tier.md) §7.*
+*Sources: [0057](../decisions/0057-web-tier.md) §7; [0087](../decisions/0087-account-registration-and-challenges.md) §5.*
 
-Reading, logging in and out, creating an account, the account pages, page source editing and search work without JavaScript ([0034](../decisions/0034-frontend-stack.md) §4).
+Reading, logging in and out, creating an account, the account pages, page source editing and search work without JavaScript ([0034](../decisions/0034-frontend-stack.md) §4), except an act that a challenge guards ([07](07-actors-and-accounts.md) §2.6; [0087](../decisions/0087-account-registration-and-challenges.md) §5): creating an account or filing a request with the `password` issuer, an anonymous save that would create a temporary account, and a login after repeated failures. Such an act is refused with an explanation, never queued: the page says what the wiki asks of the browser and why, and what the person can do instead ([19](19-site-ui.md) §2.3).
 
 - **A form** carries the token the web tier fetched with the viewer's cookie (`logintoken`, `csrftoken`).
 - **Its submission** goes to the web tier, which calls the matching API module and answers `303` to the result, or renders the form again with the API's error.

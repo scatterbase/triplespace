@@ -246,6 +246,15 @@ url = "https://www.mediawiki.org/wiki/Extension:CodeMirror"
 inspired_by = [{ what = "The source editor, CodeMirror 6 with wikitext and Lua modes", adr = "0034 §4" }]
 
 [[extension]]
+name = "ConfirmAccount"
+url = "https://www.mediawiki.org/wiki/Extension:ConfirmAccount"
+
+[[extension]]
+name = "ConfirmEdit"
+url = "https://www.mediawiki.org/wiki/Extension:ConfirmEdit"
+inspired_by = [{ what = "Challenge triggers for account creation and failed logins, and the skipcaptcha right", adr = "0087" }]
+
+[[extension]]
 name = "Disambiguator"
 url = "https://www.mediawiki.org/wiki/Extension:Disambiguator"
 

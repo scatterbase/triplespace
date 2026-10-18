@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-17 (A21)
+- **Updated:** 2026-10-17 (A22)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md), [0023](0023-moderation.md)
 - **Uses:** [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0027](0027-preferences-and-portability.md)
@@ -32,7 +32,7 @@ MediaWiki's answer to the second is CentralAuth: one global account, local accou
 
 ### 2. Farm identity (extends 0007 §1, §3 and §7; amends 0018 §4)
 
-*Changed by A5, A7, A12, A16.*
+*Changed by A5, A7, A12, A16, A22.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §2.1, §3.4, §3.5, §3.6, §3.7, §8.6.*
 
@@ -380,3 +380,10 @@ Replaced text ([19](../architecture/19-site-ui.md) §6.11, as it stood):
 Replaced text ([18](../architecture/18-api.md) §1.2, as it stood):
 
 > The UI halves of these sections, `Special:Tenants`, `Special:Tenancy` and the farm special pages,
+
+### A22. Approval on a farm account's first visit
+
+- **Date:** 2026-10-17
+- **Source:** [0087](0087-account-registration-and-challenges.md) §6
+- **Change:** extends §2
+- **Summary:** A tenant with `account.approval` on does not create a tenant account on a farm account's first visit: it files an account request whose credential is the farm subject, and creates, binds and links the account when a holder of `confirmaccount` approves it. Farm signup itself is not challenged, since the farm has no passwords. The chapter text is [08](../architecture/08-tenants-and-instances.md) §3.6.

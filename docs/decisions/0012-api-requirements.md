@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-17 (A76)
+- **Updated:** 2026-10-17 (A77)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0005](0005-crate-organization.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -66,13 +66,13 @@ This ADR sets the rules for filling both gaps, and lists what the UI needs from 
 
 ### 4. Action API changes
 
-*Changed by A3, A4, A5, A7, A8, A9, A10, A12, A13, A14, A15, A16, A17, A18, A19, A21, A23, A24, A25, A26, A27, A30, A31, A32, A33, A34, A35, A36, A37, A38, A55, A64, A65, A66, A72, A73, A74, A75, A76.*
+*Changed by A3, A4, A5, A7, A8, A9, A10, A12, A13, A14, A15, A16, A17, A18, A19, A21, A23, A24, A25, A26, A27, A30, A31, A32, A33, A34, A35, A36, A37, A38, A55, A64, A65, A66, A72, A73, A74, A75, A76, A77.*
 
 *Current text: [18](../architecture/18-api.md) §1.5, §2.1, §2.2, §2.3, §2.4, §3.4, §5.1.*
 
 ### 5. REST routes under `rest.php/triplespace/v0`
 
-*Changed by A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A28, A30, A31, A32, A33, A37, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A50, A51, A52, A53, A54, A55, A56, A59, A60, A61, A62, A64, A70, A71, A72, A75, A76.*
+*Changed by A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A28, A30, A31, A32, A33, A37, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A50, A51, A52, A53, A54, A55, A56, A59, A60, A61, A62, A64, A70, A71, A72, A75, A76, A77.*
 
 *Current text: [18](../architecture/18-api.md) §1.2, §3.1, §3.2, §3.3, §4.*
 
@@ -848,3 +848,14 @@ Replaced text ([18](../architecture/18-api.md) §2.2, as it stood):
 Replaced text ([18](../architecture/18-api.md) §2.2, as it stood):
 
 > On a private tenant it answers an outsider with the `general` section's name, language and the fact that the wiki is private, and nothing else.
+
+### A77. Challenges in AuthManager and write modules; account requests
+
+- **Date:** 2026-10-17
+- **Source:** [0087](0087-account-registration-and-challenges.md) §2, §6, §9
+- **Change:** amends §4; extends §5
+- **Summary:** Where a challenge trigger applies, `meta=authmanagerinfo` lists a required `TriplespaceChallengeAuthenticationRequest` with the fields `tschallengeid`, `tschallengeinfo` and `tschallengesolution`, and `createaccount` or `clientlogin` answers `status: UI` with `ts-challenge-required` and a fresh challenge until it is solved; a write that would create a temporary account returns `ts-challenge-required` and is resent with `tschallengeid` and `tschallengesolution`. `createaccount` is throttled (`acct_creation_throttle_hit`), and with `account.approval` on answers `FAIL` with `ts-account-requested`; logins with a pending or rejected request's credential answer `ts-account-pending` or `ts-account-rejected`. `siprop=triplespace` reports the triggers, the algorithm, `challenge.bits` and `account.approval`. REST gains `GET /account/requests` and the approve and reject routes, with `confirmaccount`. The chapter text is [18](../architecture/18-api.md) §1.5, §2.2, §2.3 and §3.2.
+
+Replaced text ([18](../architecture/18-api.md) §2.3, as it stood):
+
+> | `action=clientlogin`, `action=createaccount`, `meta=authmanagerinfo` | Offer a redirect-based OAuth flow for each issuer allowed for login, and MediaWiki's own `username`/`password` fields where the built-in `password` issuer is on. These are not offered to subsidiaries. `returnto` is honoured only on the request's own origin, here and on the `/auth` routes, and ignored otherwise ([0057](0057-web-tier.md) §7). Unchanged by the OAuth server | [0012](0012-api-requirements.md) §4; [0025](0025-oauth-server.md) §9 |

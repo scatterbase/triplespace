@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-09 (A27)
+- **Updated:** 2026-10-17 (A28)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md)
 - **Uses:** [0000](0000-init.md), [0003](0003-statement-ui.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -46,7 +46,7 @@ MediaWiki's search is CirrusSearch, which Wikimedia now runs on OpenSearch after
 
 ### 4. What L1 holds
 
-*Changed by A7, A11, A12, A13, A22, A24, A25, A26.*
+*Changed by A7, A11, A12, A13, A22, A24, A25, A26, A28.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §9.4, §9.7, §12.1, §12.3.*
 
@@ -461,3 +461,18 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §10.3, as 
 Replaced text ([03](../architecture/03-storage-caches-and-search.md) §12.4, as it stood):
 
 > Every anonymous response carries `Cache-Tag: entity:{id}, page:{page id}` for each entity and page it drew on (§9.6); every rendered page carries a tag for each page and entity in its manifest ([0042](../decisions/0042-template-expansion-and-parsoid.md) §10); every media response carries `blob:{scope}:{h}` and `file:{tenant}:{page id}` ([0039](../decisions/0039-files-and-media.md) §20); a page the web tier composes carries the union of its components' tags (§10.3).
+
+### A28. Address keys, the `createaccount` class and challenge keys
+
+- **Date:** 2026-10-17
+- **Source:** [0087](0087-account-registration-and-challenges.md) §3, §4
+- **Change:** extends §4
+- **Summary:** Rate-limit counters key an anonymous request on its address key, the IPv4 address or the IPv6 /64 ([0024](0024-subsidiary-accounts.md) A19); the `createaccount` class joins the counters; `ch:{tenant}:{mac}` marks a challenge spent until it expires, and `ch:{tenant}:bad:{key}` and `ch:{tenant}:badu:{actor}` count failed `password` logins for the `badlogin` trigger. The chapter text is [03](../architecture/03-storage-caches-and-search.md) §12.1 and §12.3.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §12.1, as it stood):
+
+> | `rl:{class}:{key}` | Rate-limit counters, the key being the actor key or, for anonymous requests, the IP ([07](../architecture/07-actors-and-accounts.md) §6) | The limit window | 0014 §4 | Yes |
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §12.3, as it stood):
+
+> The rate-limit counters `rl:{scope}:{key}` have the classes and windows of the site policy of [0024](0024-subsidiary-accounts.md) §5 (`edit`, `create`, `move`, `link`, `job`, `read`, `stream`, `atom`, `upstream`, `notify`, `account`), keyed by actor key or, for anonymous requests, by IP; counters are Valkey keys, never rows ([0024](0024-subsidiary-accounts.md) §10).

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-10-09 (A23)
+- **Updated:** 2026-10-17 (A24)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md)
@@ -49,9 +49,9 @@ Four constraints follow from how MediaWiki treats accounts:
 
 ### 3. Local users and delegated authentication
 
-*Changed by A2, A3, A8, A11, A12, A16, A19, A21.*
+*Changed by A2, A3, A8, A11, A12, A16, A19, A21, A24.*
 
-*Current text: [07](../architecture/07-actors-and-accounts.md) §2.1, §2.2, §2.3, §5.1, §8.3.*
+*Current text: [07](../architecture/07-actors-and-accounts.md) §2.1, §2.2, §2.3, §2.6, §5.1, §8.3.*
 
 ### 4. Names are attributes, kept in actor records
 
@@ -323,3 +323,10 @@ Replaced text ([07](../architecture/07-actors-and-accounts.md) §1.1, as it stoo
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §4
 - **Summary:** `view.actor` gains two columns that are not from actor records: `created_at`, the time of the actor's first record, and `editcount`, maintained by the activity projection from the actor's local `edit` rows, erased ones included and job rows excluded; `autoconfirmed` is an implicit group computed from them. The ledger names [0024](0024-subsidiary-accounts.md) §2, [0016](0016-permissions-and-access-control.md) §3, [0075](0075-mcp-server.md) §4 and [0013](0013-postgres-storage.md) §5; the chapter states the columns at [07](../architecture/07-actors-and-accounts.md) §1.3, whose provenance is §4 here, and the ledger row was extended. (REVIEW G40)
+
+### A24. Registration, challenges and approval
+
+- **Date:** 2026-10-17
+- **Source:** [0087](0087-account-registration-and-challenges.md) §1, §2, §3, §6, §7
+- **Change:** extends §3
+- **Summary:** `createaccount` alone decides whether an account may be made; a person registers with the `password` issuer or by a first login through an external issuer. A challenge, a SHA-256 proof of work bound to one trigger, tenant and session, guards three acts, listed in `challenge.triggers`: creating an account or filing a request with the `password` issuer (`createaccount`), the save that would create a temporary account (`tempaccount`), and a `password` login after repeated failures (`badlogin`). Registrations through an external issuer and bot-password logins are not challenged; `skipcaptcha` exempts its holder. With `account.approval` on, registering files a request in `private.account_request`, reviewed by holders of `confirmaccount` on ConfirmAccount's model; an account never approved never enters the log. The chapter text is [07](../architecture/07-actors-and-accounts.md) §2.3 and the new §2.6.

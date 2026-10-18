@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-17 (A42)
+- **Updated:** 2026-10-17 (A43)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md)
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -121,7 +121,7 @@ The design exploration is on the [site UI canvas](https://claude.ai/artifact/XNb
 
 ### 10. Logging in
 
-*Changed by A6.*
+*Changed by A6, A43.*
 
 *Current text: [19](../architecture/19-site-ui.md) §2.3.*
 
@@ -583,3 +583,10 @@ Replaced text ([19](../architecture/19-site-ui.md) §2.4, as it stood):
 Replaced text ([19](../architecture/19-site-ui.md) §1.5, as it stood):
 
 > | Provider code | Monospace, one colour per provider, taken from the provider registry | The entity or row comes from that provider's graph |
+
+### A43. The registration form's challenge, honeypot and requests
+
+- **Date:** 2026-10-17
+- **Source:** [0087](0087-account-registration-and-challenges.md) §5, §6
+- **Change:** extends §10
+- **Summary:** `Special:CreateAccount` solves a challenge in a Web Worker while the person types, where the tenant lists the `createaccount` trigger, and explains without JavaScript what the wiki asks and what to do instead; it carries a honeypot field in every configuration, checked by the web tier; and under `account.approval` it files a request, with `Special:RequestAccount` as its alias. `Special:ConfirmAccounts` is where holders of `confirmaccount` review requests. The chapter text is [19](../architecture/19-site-ui.md) §2.3.

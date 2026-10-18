@@ -135,7 +135,7 @@ The metadata graph ([0001](../decisions/0001-revision-metadata-rdf.md) §2) proj
 
 ## 2. Local users and delegated authentication
 
-*Sources: [0007](../decisions/0007-actor-identity.md) §3; [0035](../decisions/0035-adopting-a-wikibase.md) §5; [0024](../decisions/0024-subsidiary-accounts.md) §4; [0025](../decisions/0025-oauth-server.md) §5; [0057](../decisions/0057-web-tier.md) §13.*
+*Sources: [0007](../decisions/0007-actor-identity.md) §3; [0035](../decisions/0035-adopting-a-wikibase.md) §5; [0024](../decisions/0024-subsidiary-accounts.md) §4; [0025](../decisions/0025-oauth-server.md) §5; [0057](../decisions/0057-web-tier.md) §13; [0087](../decisions/0087-account-registration-and-challenges.md) §1–§7.*
 
 ### 2.1 User IDs and bindings
 
@@ -169,9 +169,9 @@ One issuer is operated by the instance itself, `password`, registered in `issuer
 
 ### 2.3 Temporary accounts
 
-*Sources: [0007](../decisions/0007-actor-identity.md) §3.*
+*Sources: [0007](../decisions/0007-actor-identity.md) §3; [0087](../decisions/0087-account-registration-and-challenges.md) §2.*
 
-**Anonymous local editing uses temporary accounts.** If an instance allows editing without logging in, each such editor gets a local temporary account with a numeric ID. Local change sets never carry an IP address as their actor. IP addresses collected for abuse handling stay in an operational store and are never written to the log; seeing one there requires `ts-viewip` *(new)*, default `sysop` ([09](09-security-and-moderation.md)).
+**Anonymous local editing uses temporary accounts.** If an instance allows editing without logging in, each such editor gets a local temporary account with a numeric ID. Local change sets never carry an IP address as their actor. IP addresses collected for abuse handling stay in an operational store and are never written to the log; seeing one there requires `ts-viewip` *(new)*, default `sysop` ([09](09-security-and-moderation.md)). Where a tenant lists the `tempaccount` trigger, the save that would create a temporary account needs a solved challenge (§2.6); the temporary account then holds the session, so the editor is asked once.
 
 ### 2.4 Sessions
 
@@ -188,6 +188,28 @@ A person's edits are attributed by session, a program's by credential (§5.4). S
 **Adopted accounts cannot log in until reclaimed.** The source has no binding digest, so reclaiming is the manual path of [0018](../decisions/0018-tenants.md) §10: a bureaucrat records a `reclaim/reclaim` log event, or, while the source wiki is still up, the source vouches by acting as an identity provider for a grace period. An account never reclaimed keeps its name and its history, exactly as after a move.
 
 **The owner.** `triplespace-cli instance create` creates `local:1` as the sole member of `owner` ([0016](../decisions/0016-permissions-and-access-control.md) §3). On an adopting tenant, `instance create --adopt {source base} --owner {user_id}` creates the owner under the source's user ID instead, with the same password binding, sets the user-ID floor from the source, and writes `adopted_from` ([0035](../decisions/0035-adopting-a-wikibase.md) §1; [05](05-providers-and-ingest.md)); the adoption job then finds the owner's actor record already present and leaves it. "`local:1`" in 0016 §3 reads as "the owner account" on such a tenant.
+
+### 2.6 Registration, challenges and approval
+
+*Sources: [0007](../decisions/0007-actor-identity.md) §3; [0087](../decisions/0087-account-registration-and-challenges.md) §1, §2, §3, §5, §6, §7.*
+
+**`createaccount` decides whether an account may be made at all** ([09](09-security-and-moderation.md) §2.2): `universe` by default, and a private tenant, or any tenant that closes registration, takes it from `universe`; no setting repeats it. A person registers with the built-in `password` issuer (§2.2), choosing a name and a password in one form, or by a first login through an external issuer, which continues to `Special:CreateAccount` to choose a name ([19](19-site-ui.md) §2.3). `action=createaccount` serves both ([18](18-api.md) §2.3). How an account then comes to exist is three choices: whether a challenge stands in front of the form and whether the account is made at once or requested, each a setting that resolves through the instance's defaults and locks ([23](23-configuration-and-registry.md) §3.2), and which issuers may register, which is the issuer registry and `login.password` (§2.2).
+
+**A challenge is a proof of work** the instance asks of a client before an act that creates an identity or guesses at one. It does not test that the client is a person; it makes each account cost a few seconds of computation, which is nothing to a person and a great deal to a script that wants thousands. The acts are the triggers listed in `challenge.triggers`, named as ConfirmEdit names its own:
+
+| Trigger | The act it guards |
+|---|---|
+| `createaccount` | Creating an account, or filing a request for one, with the `password` issuer |
+| `tempaccount` | The save that would create a temporary account (§2.3) |
+| `badlogin` | A `password` login, once the caller's address key (§6.3) has failed 3 times within 5 minutes or the named account 20 times within 10 minutes |
+
+A registration through an external issuer is not challenged, since the issuer has decided who may hold an account there, and neither is a subsidiary's bot-password login, whose secret cannot be guessed. A challenge is issued for one trigger, one tenant and one session, and a solution is accepted once.
+
+**The work.** A challenge is the string `1.{tenant code}.{trigger}.{bits}.{expires}.{salt}.{mac}`: the format version, the tenant's issuer code, the trigger, the difficulty, the expiry 10 minutes after issue in seconds since the epoch, 16 random bytes, and the first 16 bytes of HMAC-SHA256, base64url, over the rest, a zero byte and the session ID, under a key derived from the instance signing seed as the CSRF tokens' key is, with its own domain separator. A solution is a decimal `n` of at most 20 digits such that SHA-256 of `{challenge}:{n}` begins with at least `bits` zero bits. Checking is the MAC, the expiry, the tenant and trigger, the hash, and that the challenge is unspent; a challenge that passes is spent until it expires, as a Valkey key or a row of `private.challenge_spent` ([03](03-storage-caches-and-search.md) §5, §12.3). `bits` is `challenge.bits` (default 20) plus one for each account created from the caller's address key in the last 24 hours, read from the `createaccount` counter (§6.2), up to `challenge.max_bits` (default 24). The browser solves it in a Web Worker while the person fills in the form; without JavaScript the guarded act is refused with an explanation ([20](20-web-tier.md) §3.1).
+
+**Exemptions.** `skipcaptcha` (`bot`, `sysop`) exempts its holder from every trigger, so an administrator can create an account for someone who cannot run the challenge. The instance's own acts are not challenged: `instance create`, adoption (§2.5), farm auto-creation ([08](08-tenants-and-instances.md) §3.6), and approving a request.
+
+**Approval.** With `account.approval` on, registering files a **request** instead, on ConfirmAccount's model and with its names. The request is a row of `private.account_request`, never a record: the chosen name and its case-folded key, the credential the account will be created with (a password hash, or an issuer and subject), an optional statement of up to 1,000 characters (`account.request_statement`), the caller's address key, and, once decided, the decision, reviewer, time and reason. An account that is never approved never enters the log, and a pending request holds its name against the name-taken check. A holder of `confirmaccount` (`bureaucrat`) reviews at `Special:ConfirmAccounts`, seeing the address key only with `ts-viewip`; **approving** creates the account and its binding as one change set, logged as `newusers/create2` with the reviewer as performer ([16](16-logs-feeds-and-notifications.md) §2.3); **rejecting** records a reason in `private`. A login with the credential of a pending request answers `ts-account-pending`, and of a rejected one `ts-account-rejected` with the reason for 7 days, after which the row is deleted; an open request is deleted after `account.request_expiry` (30 days). No email is sent, since the address would be unverified. In approval mode an account created for another person is made at once only by a holder of `confirmaccount`; anyone else's is filed as a request.
 
 ## 3. Linking accounts and the right to vanish
 
@@ -390,7 +412,7 @@ Beside its API keys, a subsidiary may hold one or more **signing keys**: Ed25519
 
 ## 6. Rate limits
 
-*Sources: [0024](../decisions/0024-subsidiary-accounts.md) §5; [0025](../decisions/0025-oauth-server.md) §6; [0039](../decisions/0039-files-and-media.md) §15; [0042](../decisions/0042-template-expansion-and-parsoid.md) §16; [0053](../decisions/0053-mirrored-pages.md) §11; [0054](../decisions/0054-forking-a-mirrored-page.md) §8; [0067](../decisions/0067-proposals.md) §8; [0075](../decisions/0075-mcp-server.md) §5.*
+*Sources: [0024](../decisions/0024-subsidiary-accounts.md) §5; [0025](../decisions/0025-oauth-server.md) §6; [0039](../decisions/0039-files-and-media.md) §15; [0042](../decisions/0042-template-expansion-and-parsoid.md) §16; [0053](../decisions/0053-mirrored-pages.md) §11; [0054](../decisions/0054-forking-a-mirrored-page.md) §8; [0067](../decisions/0067-proposals.md) §8; [0075](../decisions/0075-mcp-server.md) §5; [0087](../decisions/0087-account-registration-and-challenges.md) §4.*
 
 ### 6.1 Site policy, by action class and group
 
@@ -402,7 +424,7 @@ A request made with an OAuth token is limited as the **subsidiary** is limited: 
 
 ### 6.2 The class catalogue
 
-*Sources: [0024](../decisions/0024-subsidiary-accounts.md) §5; [0025](../decisions/0025-oauth-server.md) §6; [0027](../decisions/0027-preferences-and-portability.md) §3; [0039](../decisions/0039-files-and-media.md) §15; [0042](../decisions/0042-template-expansion-and-parsoid.md) §16; [0053](../decisions/0053-mirrored-pages.md) §11; [0054](../decisions/0054-forking-a-mirrored-page.md) §8; [0075](../decisions/0075-mcp-server.md) §5; [0083](../decisions/0083-write-path-in-three-tiers.md) §1.*
+*Sources: [0024](../decisions/0024-subsidiary-accounts.md) §5; [0025](../decisions/0025-oauth-server.md) §6; [0027](../decisions/0027-preferences-and-portability.md) §3; [0039](../decisions/0039-files-and-media.md) §15; [0042](../decisions/0042-template-expansion-and-parsoid.md) §16; [0053](../decisions/0053-mirrored-pages.md) §11; [0054](../decisions/0054-forking-a-mirrored-page.md) §8; [0075](../decisions/0075-mcp-server.md) §5; [0083](../decisions/0083-write-path-in-three-tiers.md) §1; [0087](../decisions/0087-account-registration-and-challenges.md) §4.*
 
 | Class | Counts | Default (`user` / `bot`) |
 |---|---|---|
@@ -416,6 +438,7 @@ A request made with an OAuth token is limited as the **subsidiary** is limited: 
 | `upstream` | Live upstream fetches ([0012](../decisions/0012-api-requirements.md) §6); live history fetches of a mirrored page ([0053](../decisions/0053-mirrored-pages.md) §11) | 30 / 30 per minute |
 | `notify` | Outbound notification requests initiated by the actor: verification messages, handle registrations ([0021](../decisions/0021-notifications.md) §5) | 5 / 5 per hour |
 | `account` | Creating subsidiaries, issuing keys, login attempts; OAuth authorization attempts, consent and device-code entry, against the primary account ([0025](../decisions/0025-oauth-server.md) §6); the user data export ([0027](../decisions/0027-preferences-and-portability.md) §3) | 10 / — per hour |
+| `createaccount` | Accounts created and account requests filed (§2.6), counted by the caller's address key whoever the caller is, as MediaWiki's `$wgAccountCreationThrottle` counts; over the limit, `action=createaccount` answers `FAIL` with `acct_creation_throttle_hit` ([0087](../decisions/0087-account-registration-and-challenges.md) §4) | 6 per day, for every group |
 | `upload`, `renderfile`, `renderfile-nonstandard` | MediaWiki's three classes for files: uploads, per actor and per IP; thumbnails rendered on a miss, per IP; renders whose transform is not in `files.thumb_widths` (a `page=` or time offset) ([0039](../decisions/0039-files-and-media.md) §15). Serving bytes already stored is not rate-limited | per 0039 §15 |
 | `parse` | Expansions a client asks for directly: `action=parse` with `text`, `action=expandtemplates`, server preview, and the Lua console if it is ever added ([0042](../decisions/0042-template-expansion-and-parsoid.md) §16); a reader who forces a foreign-page fetch with `action=purge` ([0053](../decisions/0053-mirrored-pages.md) §11). Page views are not counted; they are cached renders | 60 / 600 per minute |
 | `export` | Exports ([0047](../decisions/0047-special-pages.md) §8) | 30 / 300 per hour |
@@ -426,9 +449,9 @@ Fetches of a mirrored page are server-initiated and are bounded per repository (
 
 ### 6.3 Counters and refusals
 
-*Sources: [0024](../decisions/0024-subsidiary-accounts.md) §5; [0083](../decisions/0083-write-path-in-three-tiers.md) §1; [0084](../decisions/0084-wikibase-writes-against-the-resolved-view.md) §5.*
+*Sources: [0024](../decisions/0024-subsidiary-accounts.md) §5; [0083](../decisions/0083-write-path-in-three-tiers.md) §1; [0084](../decisions/0084-wikibase-writes-against-the-resolved-view.md) §5; [0087](../decisions/0087-account-registration-and-challenges.md) §4.*
 
-**Counters** are the `rl:{class}:{key}` keys of [0014](../decisions/0014-caches-and-search.md) §4 in Valkey ([03](03-storage-caches-and-search.md) §12.3), the key being the actor key or, for anonymous requests, the IP, with the window as TTL. An instance without a shared cache counts in process, approximately, which is what the small profile of [0013](../decisions/0013-postgres-storage.md) §11 accepts. A request over its limit is refused before anything is appended: HTTP 429 with `Retry-After`, and the Action API's `ratelimited` error. **`read` is counted lazily.** A read by an authenticated principal touches the shared counter only once a per-process count of its reads has passed a fraction of the limit, and a response served from L0 or L1 is never counted at all, so the cost of the `read` class on a cached page is nothing; anonymous reads are counted by IP as before. `maxlag` ([mediawiki-compat.md](../api/mediawiki-compat.md) §2.8) is orthogonal: it answers for lag, the larger of replica lag and the tenant's local-partition composition lag ([0084](../decisions/0084-wikibase-writes-against-the-resolved-view.md) §5; [18](18-api.md)), not for the actor's rate.
+**Counters** are the `rl:{class}:{key}` keys of [0014](../decisions/0014-caches-and-search.md) §4 in Valkey ([03](03-storage-caches-and-search.md) §12.3), the key being the actor key or, for anonymous requests, the **address key**: the IPv4 address, or the /64 prefix of an IPv6 address, since a host commonly holds a whole /64 and can rotate through it at no cost ([0087](../decisions/0087-account-registration-and-challenges.md) §4, correcting [0024](../decisions/0024-subsidiary-accounts.md) §5); the window is the TTL. An instance without a shared cache counts in process, approximately, which is what the small profile of [0013](../decisions/0013-postgres-storage.md) §11 accepts. A request over its limit is refused before anything is appended: HTTP 429 with `Retry-After`, and the Action API's `ratelimited` error. **`read` is counted lazily.** A read by an authenticated principal touches the shared counter only once a per-process count of its reads has passed a fraction of the limit, and a response served from L0 or L1 is never counted at all, so the cost of the `read` class on a cached page is nothing; anonymous reads are counted by address key as before. `maxlag` ([mediawiki-compat.md](../api/mediawiki-compat.md) §2.8) is orthogonal: it answers for lag, the larger of replica lag and the tenant's local-partition composition lag ([0084](../decisions/0084-wikibase-writes-against-the-resolved-view.md) §5; [18](18-api.md)), not for the actor's rate.
 
 **Bulk jobs are limited at submission, not per record.** A job's throughput is the ingester's ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.6; [05](05-providers-and-ingest.md)); what a subsidiary is limited in is how many jobs it may start, so a runaway script cannot queue a thousand.
 

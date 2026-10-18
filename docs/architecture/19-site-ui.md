@@ -153,7 +153,7 @@ The pages later ADRs added are named in §6 with the feature that added them, an
 
 ### 2.3 Logging in
 
-*Sources: [0010](../decisions/0010-site-ui.md) §10.*
+*Sources: [0010](../decisions/0010-site-ui.md) §10; [0087](../decisions/0087-account-registration-and-challenges.md) §5, §6.*
 
 **`Special:UserLogin`**
 
@@ -169,6 +169,15 @@ The pages later ADRs added are named in §6 with the feature that added them, an
 - **An optional, unchecked box** offers to link the user's account on the identity provider's wiki, for example Wikidata. It says the link is public. If it is checked, the link is created by the flow in [0007](../decisions/0007-actor-identity.md) §7. The authentication that just took place serves as the fresh proof of control, because it happened in the same request flow.
 
 A farm signup page states the linking consent of [0028](../decisions/0028-tenancy-policy.md) §2 (§6.11).
+
+**`Special:CreateAccount` when the wiki guards or reviews registration** ([0087](../decisions/0087-account-registration-and-challenges.md) §5, §6; [07](07-actors-and-accounts.md) §2.6):
+
+- **A challenge**, where the tenant lists the `createaccount` trigger, is solved in a Web Worker from the moment the page loads, by the `scatter-challenge` module of `scatter-wasm`, with its progress in a polite live region; the submit button waits only if the person is faster than the solver. `Special:UserLogin` does the same once `badlogin` applies to the caller, and the page editor before a save that would create a temporary account. There is nothing to see or hear, so it asks nothing of a reader using a screen reader, switch access or a magnifier beyond the wait.
+- **Without JavaScript**, a `<noscript>` block, and the form's error if it is submitted, say what the wiki asks and why, that nothing is sent anywhere else, and what the person can do instead: turn JavaScript on for the site, ask an administrator to create the account, or, after failed logins, wait out the window (`ts-challenge-nojs`, and `ts-challenge-nojs-tempaccount` for an anonymous save, which adds that logging in avoids it; [20](20-web-tier.md) §3.1).
+- **A honeypot field** is on the form in every configuration: an off-screen text input labelled "Leave this field empty", with `tabindex="-1"` and `autocomplete="off"`, outside the accessibility tree. The web tier drops a submission that fills it, answering as it answers a refused creation, without calling the API.
+- **Under `account.approval`**, the page says that the wiki reviews new accounts and asks for a statement as `account.request_statement` says; `Special:RequestAccount`, ConfirmAccount's name for the form, is an alias of it. Submitting files a request, and the page says that the outcome is learned by logging in.
+
+**`Special:ConfirmAccounts`**, restricted to `confirmaccount`, lists open requests oldest first with their names, statements and ages, and the address key to holders of `ts-viewip`; each is approved, or rejected with a reason the requester is shown. Holders of `confirmaccount` see the number of open requests in the account menu.
 
 ### 2.4 Account settings
 

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-03
-- **Updated:** 2026-10-17 (A5)
+- **Updated:** 2026-10-17 (A6)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0025](0025-oauth-server.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0042](0042-template-expansion-and-parsoid.md), [0056](0056-security-model.md)
 - **Uses:** [0003](0003-statement-ui.md), [0039](0039-files-and-media.md), [0045](0045-table-content-model.md), [0047](0047-special-pages.md), [0053](0053-mirrored-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -67,6 +67,8 @@ James's direction, from the design discussion of 2026-10-03:
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §10.3, §12.4.*
 
 ### 7. Forms without JavaScript (extends 0012 §4)
+
+*Changed by A6.*
 
 *Current text: [20](../architecture/20-web-tier.md) §3.1.*
 
@@ -214,3 +216,14 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §12.4, as 
 - **Source:** [0085](0085-settings-and-preferences.md) §2.2
 - **Change:** extends §6
 - **Summary:** With the interface language negotiated from `Accept-Language`, the web tier's public cache keys a composed page by the negotiated interface language, not by the raw header, so negotiation does not split the cache by every browser's header; `Vary: Accept-Language` stays for downstream proxies. The chapter text is [03](../architecture/03-storage-caches-and-search.md) §10.3.
+
+### A6. An act a challenge guards needs JavaScript
+
+- **Date:** 2026-10-17
+- **Source:** [0087](0087-account-registration-and-challenges.md) §5
+- **Change:** amends §7
+- **Summary:** Creating an account, filing an account request, an anonymous save that would create a temporary account, and a login after repeated failures work without JavaScript only where no challenge applies. Where one does, the act is refused with an explanation, never queued, as James directed: the page says what the wiki asks of the browser and why, and that the person may turn JavaScript on, ask an administrator to create the account, or wait out a failed-login window. The chapter text is [20](../architecture/20-web-tier.md) §3.1.
+
+Replaced text ([20](../architecture/20-web-tier.md) §3.1, as it stood):
+
+> Reading, logging in and out, creating an account, the account pages, page source editing and search work without JavaScript ([0034](0034-frontend-stack.md) §4).
