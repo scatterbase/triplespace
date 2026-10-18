@@ -25,6 +25,9 @@ pub struct Entries {
     pub css_rtl: Option<String>,
     /// The script.
     pub js: Option<String>,
+    /// The blocking script in `<head>` that applies a reader's stored appearance before
+    /// the first paint (0085 §6).
+    pub head_js: Option<String>,
 }
 
 fn entry(manifest: &serde_json::Value, src: &str) -> Option<String> {
@@ -45,6 +48,7 @@ static MANIFEST: LazyLock<(Entries, String)> = LazyLock::new(|| {
         css: entry(&manifest, "src/site.css"),
         css_rtl: entry(&manifest, "src/site-rtl.css"),
         js: entry(&manifest, "src/main.js"),
+        head_js: entry(&manifest, "src/head.js"),
     };
     // The build ID: the crate's version and the manifest's hash, so that a new frontend is
     // a new build even when the Rust is unchanged (0057 §8).

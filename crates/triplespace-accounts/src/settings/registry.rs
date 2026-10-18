@@ -573,7 +573,7 @@ mod tests {
         assert!(r.iter().count() > 100);
         let name = r.get("site.name").unwrap();
         assert_eq!(name.scope, Scope::Tenant);
-        assert_eq!(name.ty, SettingType::Text);
+        assert_eq!(name.ty, SettingType::String);
         assert_eq!(name.default, None);
         assert_eq!(name.label_message(), "ts-setting-site-name");
         let lua = r.get("wikitext.lua").unwrap();

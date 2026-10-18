@@ -930,7 +930,7 @@
       "get": {
         "operationId": "getSettingsSchema",
         "summary": "The registered settings",
-        "description": "Every registered setting of the scope, from `settings.toml` with the instance's own `setting` records over it: key, scope, bound, group, type, choices, default (or `no_default`), media, right, whether `siteinfo` reports it, the catalogue's text, and the label and help message keys; and the groups, which are the tabs of Special:WikiSettings and Special:InstanceSettings. With `scope=instance`, also the tenancy switches with their allowed and current values, the `config.template` mode, and every tenant setting with its registry default, the instance's default and whether it is locked. Readable by anyone who may read the tenant (ADR 0085 §3).",
+        "description": "Every registered setting of the scope, from `settings.toml` with the instance's own `setting` records over it: key, scope, bound, group, type, choices, default (or `no_default`), media, right, whether `siteinfo` reports it, the catalogue's text, and the label and help message keys; and the groups, which are the tabs of Special:WikiSettings and Special:InstanceSettings. At either scope, the tenancy policy as it applies: the switches with their allowed and current values, the `config.template` mode, the locked keys and the ceilings. With `scope=instance`, also every tenant setting with its registry default, the instance's default, whether it is locked, and how many tenants inherit the default. Readable by anyone who may read the tenant (ADR 0085 §3).",
         "parameters": [
           {
             "name": "scope",
@@ -2912,7 +2912,7 @@
           },
           "tenancy": {
             "type": "object",
-            "description": "With `scope=instance`: each switch's allowed values and current value.",
+            "description": "Each tenancy switch's allowed and current values: the instance's policy as it applies, which Special:WikiSettings shows read-only and Special:InstanceSettings edits.",
             "additionalProperties": {
               "type": "object"
             }
@@ -2923,14 +2923,27 @@
               "none",
               "defaults",
               "locks"
-            ]
+            ],
+            "description": "The `config.template` mode."
           },
           "tenant_settings": {
             "type": "object",
-            "description": "With `scope=instance`: each tenant setting's registry default, instance default and lock.",
+            "description": "With `scope=instance`: each tenant setting's registry default, instance default, lock, and `inheriting`, how many tenants have no record of their own and so follow the instance's default.",
             "additionalProperties": {
               "type": "object"
             }
+          },
+          "locked": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The keys the instance has locked, `site:{key}`; they bind only under `config.template = locks`."
+          },
+          "ceilings": {
+            "type": "object",
+            "description": "The instance's ceiling on each tenant setting bound by one, where the instance sets it.",
+            "additionalProperties": true
           }
         }
       },

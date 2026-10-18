@@ -105,7 +105,10 @@ async fn an_anonymous_page_is_public_and_revalidates() {
     assert!(html.contains(
         "This page is generated because the page Project:Home has not been written yet."
     ));
-    assert!(!html.contains("Log in"), "logging in is not built yet");
+    assert!(
+        !html.contains("Special:UserLogin"),
+        "logging in is not offered by this API"
+    );
     assert!(
         h[header::CACHE_CONTROL]
             .to_str()

@@ -1,0 +1,126 @@
+/*
+ * Special:WikiSettings, Special:InstanceSettings and Special:Preferences (ADR 0085 §4–5),
+ * and the Appearance menu (§6). A page is one section per group; a row is a setting's
+ * label, origin chip and key, its help, and its value or control.
+ */
+
+.ts-settings__section {
+	margin-block: var( --spacing-200, 2rem );
+	scroll-margin-top: var( --spacing-100, 1rem );
+}
+
+.ts-settings__section > h2 {
+	margin-block: 0 var( --spacing-75, 0.75rem );
+	border-bottom: 1px solid var( --border-color-subtle, #c8ccd1 );
+}
+
+.ts-setting {
+	max-width: 48rem;
+	padding-block: var( --spacing-75, 0.75rem );
+	border-bottom: 1px solid var( --border-color-muted, #dadde3 );
+}
+
+.ts-setting__head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: var( --spacing-50, 0.5rem );
+}
+
+.ts-setting__label {
+	font-weight: var( --font-weight-bold, 700 );
+}
+
+.ts-setting__key {
+	color: var( --color-subtle, #54595d );
+	font-family: var( --font-family-monospace, monospace );
+	font-size: var( --font-size-x-small, 0.75rem );
+}
+
+.ts-setting__help,
+.ts-setting__note {
+	margin-block: var( --spacing-25, 0.25rem );
+	color: var( --color-subtle, #54595d );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+.ts-setting__value {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var( --spacing-50, 0.5rem );
+	margin-top: var( --spacing-50, 0.5rem );
+}
+
+.ts-setting__value .cdx-text-input,
+.ts-setting__value .cdx-text-area {
+	flex: 1 1 20rem;
+}
+
+.ts-setting__origin {
+	border: 1px solid var( --border-color-subtle, #c8ccd1 );
+	color: var( --color-subtle, #54595d );
+}
+
+.ts-setting__origin--own {
+	border-color: var( --border-color-progressive, #36c );
+	color: var( --color-progressive, #36c );
+}
+
+.ts-setting__origin--locked,
+.ts-setting__origin--capped {
+	border-color: var( --border-color-warning, #ab7f2a );
+	color: var( --color-warning, #886425 );
+}
+
+.ts-settings__switches {
+	margin: 0;
+}
+
+.ts-settings__switches dd {
+	margin: var( --spacing-50, 0.5rem ) 0 0;
+}
+
+.ts-settings__save {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	gap: var( --spacing-75, 0.75rem );
+	max-width: 48rem;
+	margin-top: var( --spacing-100, 1rem );
+}
+
+.ts-settings__save .cdx-field {
+	flex: 1 1 20rem;
+	margin: 0;
+}
+
+/* The Appearance menu (§6): a panel of selects. Without JavaScript, a reader who is not
+   logged in is told the page follows the device; with it, a change applies and is kept at
+   once, so the signed-in form's Apply button is only for pages without JavaScript. */
+
+.ts-appearance__panel {
+	min-width: 16rem;
+	padding: var( --spacing-75, 0.75rem );
+}
+
+.ts-appearance__controls {
+	display: flex;
+	flex-direction: column;
+	gap: var( --spacing-75, 0.75rem );
+}
+
+.ts-appearance__controls .cdx-field {
+	margin: 0;
+}
+
+.ts-appearance__nojs {
+	margin: 0;
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+.client-js .ts-appearance__nojs,
+.client-nojs .ts-appearance__form--browser .ts-appearance__controls,
+.client-js .ts-appearance__form--account:not( .ts-appearance__form--unsaved ) .ts-appearance__apply {
+	display: none;
+}

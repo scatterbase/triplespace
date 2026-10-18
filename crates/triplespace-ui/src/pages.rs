@@ -96,6 +96,8 @@ pub struct Context {
     pub theme: Theme,
     /// What the site offers.
     pub features: Features,
+    /// The signed-in viewer's resolved preferences (`uiprop=options`), for the frame.
+    pub prefs: Option<serde_json::Map<String, serde_json::Value>>,
 }
 
 impl Context {
@@ -106,6 +108,7 @@ impl Context {
             sitename: &self.site.sitename,
             mainpage: &self.site.mainpage,
             features: &self.features,
+            prefs: self.prefs.as_ref(),
         }
     }
 }
@@ -146,6 +149,7 @@ pub async fn context(
         ));
     }
     let mut inputs = vec![si.cache.clone()];
+    let mut prefs = None;
     let user = match ui {
         Some(ui) => {
             let ui = ui.map_err(|e| unavailable(incoming, &e, "ts-api-unavailable"))?;
@@ -154,14 +158,24 @@ pub async fn context(
                 // A page drawn for a signed-in viewer is theirs alone, whatever its
                 // inputs say: it may hold their name, their tokens or their controls.
                 inputs.push(CacheInfo::default());
+                prefs = Some(ui.value.options.clone());
             }
             (!ui.value.anon).then_some(ui.value.name)
         }
         None => None,
     };
+    // `uselang`, then a signed-in reader's own interface language (0085 §2.2), then the
+    // site's.
     let lang = query
         .get("uselang")
         .and_then(|l| i18n::valid_code(l))
+        .or_else(|| {
+            prefs
+                .as_ref()
+                .and_then(|p: &serde_json::Map<String, serde_json::Value>| p.get("language"))
+                .and_then(serde_json::Value::as_str)
+                .and_then(i18n::valid_code)
+        })
         .unwrap_or_else(|| si.value.lang.clone());
     let m = Messages::for_language(&lang);
     let theme = Theme::with_overrides(si.value.theme.as_ref()).with_chips(&si.value.providers);
@@ -173,6 +187,7 @@ pub async fn context(
         m,
         theme,
         features,
+        prefs,
     })
 }
 
@@ -192,6 +207,7 @@ fn unavailable(incoming: &Incoming, error: &ClientError, key: &str) -> Response 
         sitename: &sitename,
         mainpage: DEFAULT_MAINPAGE,
         features: &none,
+        prefs: None,
     };
     let html = match frame::render(&m, &chrome, Theme::shipped(), None, &page) {
         Ok(h) => h,

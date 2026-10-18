@@ -40,7 +40,9 @@ const pages = [
 	{ path: '/wiki/Special:Contributions', heading: 'User contributions' },
 	{ path: '/wiki/Special:Contributions/Alice', heading: 'Contributions of Alice' },
 	{ path: '/wiki/Item:Q6?action=history', heading: 'Six & more' },
-	{ path: '/wiki/Domain:wikipedia.org?action=history', heading: 'Wikipedia' }
+	{ path: '/wiki/Domain:wikipedia.org?action=history', heading: 'Wikipedia' },
+	{ path: '/wiki/Special:WikiSettings', heading: 'Wiki settings' },
+	{ path: '/wiki/Special:Preferences', heading: 'Preferences' }
 ];
 
 for ( const p of pages ) {

@@ -9,15 +9,21 @@
 //! - [`search`]: `Special:Search`, the full results page, and its **Go to** rule
 //!   (0010 §3; 0047 §9).
 //! - [`version`]: `Special:Version` and its `Credits` and `License` subpages (0077).
+//! - [`preferences`]: `Special:Preferences` and the Appearance menu's form (0085 §5–6).
+//! - [`settings`]: `Special:WikiSettings`, `Special:InstanceSettings` and
+//!   `Special:Tenancy` (0085 §4), with [`controls`], the form controls drawn from a type.
 //!
 //! A special page the site does not serve is a `404`, as MediaWiki answers for a special
 //! page it does not have.
 
 pub mod changes;
+pub mod controls;
 pub mod index;
 pub mod login;
 pub mod new_entity;
+pub mod preferences;
 pub mod search;
+pub mod settings;
 pub mod version;
 
 use std::collections::BTreeMap;
@@ -60,6 +66,14 @@ pub async fn serve(
         "UserLogin" => Some(login::login(site, headers, peer, query).await),
         "UserLogout" => Some(login::logout(site, headers, peer, query).await),
         "Version" => Some(version::serve(site, headers, peer, title, query).await),
+        "Preferences" => Some(preferences::serve(site, headers, peer, params).await),
+        "WikiSettings" => {
+            Some(settings::serve(site, headers, peer, settings::Scope::Wiki, params).await)
+        }
+        "InstanceSettings" => {
+            Some(settings::serve(site, headers, peer, settings::Scope::Instance, params).await)
+        }
+        "Tenancy" => Some(settings::tenancy(site, headers, peer, query).await),
         _ => None,
     }
 }
@@ -81,6 +95,21 @@ pub async fn post(
     match name.as_str() {
         "UserLogin" => Some(login::post_login(site, headers, peer, query, form).await),
         "UserLogout" => Some(login::post_logout(site, headers, peer, query, form).await),
+        "Preferences" => Some(preferences::post(site, headers, peer, query, params).await),
+        "WikiSettings" => {
+            Some(settings::post(site, headers, peer, settings::Scope::Wiki, query, params).await)
+        }
+        "InstanceSettings" => Some(
+            settings::post(
+                site,
+                headers,
+                peer,
+                settings::Scope::Instance,
+                query,
+                params,
+            )
+            .await,
+        ),
         _ => None,
     }
 }

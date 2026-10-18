@@ -759,10 +759,10 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
             }
             "triplespace" => {
                 let mut t = json!({
-                    "tenant": sitename,
+                    "tenant": slug,
                     "farm": ctx.app.config().farm.slug,
                     "search": "postgres",
-                    "capabilities": ["wbgetentities", "wbsearchentities", "wbeditentity", "statements", "terms", "login", "clientlogin", "bearer", "version", "recentchanges", "activity", "history", "revisions", "diff"],
+                    "capabilities": ["wbgetentities", "wbsearchentities", "wbeditentity", "statements", "terms", "login", "clientlogin", "bearer", "version", "recentchanges", "activity", "history", "revisions", "diff", "options", "preferences", "settings"],
                     "providers": Registry::default_registry().providers().iter().map(|p| p.slug.clone()).collect::<Vec<_>>(),
                     "rate_limits": [],
                     "grants": scatter_actors::grant::GrantRegistry::default_registry().grants().iter().map(|g| g.name.clone()).collect::<Vec<_>>(),
@@ -779,6 +779,8 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                 if ctx.app.config().mode == Mode::Development {
                     t["insecure"] = json!(true);
                 }
+                // The farm base serves the instance's pages (0085 §4).
+                t["at_farm"] = json!(crate::tenant::at_farm(&ctx.app, &ctx.tenant));
                 query.insert("triplespace".into(), t);
             }
             other => ctx.warn(

@@ -24,23 +24,10 @@ use triplespace_api_action::App;
 use triplespace_api_action::auth::{Caller, bearer};
 use triplespace_api_action::forwarded::Origin;
 use triplespace_api_action::http_cache::{self, Class};
-use triplespace_api_action::tenant::{self, Tenant};
+use triplespace_api_action::tenant::{self, Tenant, at_farm};
 use triplespace_api_ingest::settings::{SaveError, save};
 
 use crate::entity_route::{error, internal};
-
-/// The host of a base URL, with its port.
-fn host_of(base: &str) -> &str {
-    let rest = base.split_once("://").map_or(base, |(_, r)| r);
-    rest.split('/').next().unwrap_or(rest)
-}
-
-/// Whether the request came to the farm base.
-fn at_farm(app: &App, tenant: &Tenant) -> bool {
-    let farm = &app.config().farm.base;
-    farm.trim_end_matches('/') == tenant.base.trim_end_matches('/')
-        || host_of(farm).eq_ignore_ascii_case(&tenant.host)
-}
 
 /// The scope a request asks for: `scope=instance` at the farm base, or the tenant.
 #[allow(clippy::result_large_err)] // a ready response, as the async routes return
@@ -143,13 +130,63 @@ pub async fn schema(
         Ok(x) => x,
         Err(e) => return internal(&e),
     };
-    let body = schema_body(&snap, scope);
+    let own = if scope == Scope::Instance {
+        match own_counts(&client).await {
+            Ok(c) => Some(c),
+            Err(e) => return internal(&e),
+        }
+    } else {
+        None
+    };
+    let body = schema_body(&snap, scope, own.as_ref());
     respond_json(&headers, &method, &caller, &body)
 }
 
-/// The body of `GET /settings/schema`.
+/// How many tenants there are, and how many set each tenant setting themselves: the rest
+/// inherit the instance's default (0085 §4).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct OwnCounts {
+    /// The registered tenants.
+    pub tenants: u64,
+    /// By key, the tenants with a record of their own.
+    pub own: BTreeMap<String, u64>,
+}
+
+async fn own_counts(client: &tokio_postgres::Client) -> Result<OwnCounts, tokio_postgres::Error> {
+    let tenants: i64 = client
+        .query_one(
+            "SELECT count(*) FROM view.registry WHERE tenant = '' AND kind = 'tenant'",
+            &[],
+        )
+        .await?
+        .get(0);
+    let rows = client
+        .query(
+            "SELECT code, count(*) FROM view.registry
+             WHERE kind = 'site' AND tenant <> '' AND NOT instance_act GROUP BY code",
+            &[],
+        )
+        .await?;
+    Ok(OwnCounts {
+        tenants: u64::try_from(tenants).unwrap_or(0),
+        own: rows
+            .iter()
+            .map(|r| {
+                (
+                    r.get::<_, String>(0),
+                    u64::try_from(r.get::<_, i64>(1)).unwrap_or(0),
+                )
+            })
+            .collect(),
+    })
+}
+
+/// The body of `GET /settings/schema`. At either scope it reports the tenancy policy as
+/// it applies (the switches, the `config.template` mode, the locked keys and the
+/// ceilings), which Special:WikiSettings shows read-only; at instance scope it adds every
+/// tenant setting with its defaults, its lock and how many tenants inherit it.
 #[must_use]
-pub fn schema_body(snap: &Snapshot, scope: Scope) -> Value {
+pub fn schema_body(snap: &Snapshot, scope: Scope, own: Option<&OwnCounts>) -> Value {
     let registry = snap.registry();
     let groups: Vec<Value> = registry
         .groups()
@@ -176,7 +213,7 @@ pub fn schema_body(snap: &Snapshot, scope: Scope) -> Value {
         .map(entry)
         .collect();
     let mut body = json!({"scope": scope.as_str(), "groups": groups, "settings": settings});
-    if scope == Scope::Instance {
+    {
         let registry_switches = scatter_actors::tenancy::TenancyRegistry::default_registry();
         let switches: Map<String, Value> = registry_switches
             .switches()
@@ -193,22 +230,32 @@ pub fn schema_body(snap: &Snapshot, scope: Scope) -> Value {
                 (name.clone(), json!({"allowed": a, "value": value}))
             })
             .collect();
+        let ceilings: Map<String, Value> = registry
+            .of_scope(Scope::Tenant)
+            .filter_map(|d| Some((d.key.clone(), snap.ceiling(d)?.clone())))
+            .collect();
+        body["tenancy"] = Value::Object(switches);
+        body["template"] = Value::String(snap.template_mode().to_string());
+        body["locked"] = json!(snap.locked_keys());
+        body["ceilings"] = Value::Object(ceilings);
+    }
+    if scope == Scope::Instance {
         let tenant_settings: Map<String, Value> = registry
             .of_scope(Scope::Tenant)
             .filter(|d| !d.retired)
             .map(|d| {
-                (
-                    d.key.clone(),
-                    json!({
-                        "registry_default": d.default,
-                        "instance_default": snap.defaults.get(&d.key).map(|r| r.value.clone()),
-                        "locked": snap.is_locked(&d.key),
-                    }),
-                )
+                let mut row = json!({
+                    "registry_default": d.default,
+                    "instance_default": snap.defaults.get(&d.key).map(|r| r.value.clone()),
+                    "locked": snap.is_locked(&d.key),
+                });
+                if let Some(o) = own {
+                    let set = o.own.get(&d.key).copied().unwrap_or(0);
+                    row["inheriting"] = json!(o.tenants.saturating_sub(set));
+                }
+                (d.key.clone(), row)
             })
             .collect();
-        body["tenancy"] = Value::Object(switches);
-        body["template"] = Value::String(snap.template_mode().to_string());
         body["tenant_settings"] = Value::Object(tenant_settings);
     }
     body

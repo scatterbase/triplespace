@@ -169,6 +169,12 @@ impl Messages {
             .find_map(|l| catalogue(l).and_then(|c| c.get(key).map(|m| (m.clone(), l.clone()))))
     }
 
+    /// Whether a message exists in the language's chain.
+    #[must_use]
+    pub fn has(&self, key: &str) -> bool {
+        self.raw(key).is_some()
+    }
+
     /// Every message whose key starts with `prefix`, unexpanded (`$1` kept), from the
     /// first language in the chain that has it: what a component needs in the browser.
     #[must_use]

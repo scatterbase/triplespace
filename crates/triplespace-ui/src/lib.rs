@@ -16,6 +16,7 @@
 //! - [`home`]: the main page, `Project:Home`, generated until a page of that title exists.
 //! - [`features`]: what the site offers, from what it has built and what the API serves;
 //!   nothing links to a feature that is not offered.
+//! - [`appearance`]: the Appearance menu and the reader's choices on `<html>` (0085 §6).
 //! - [`frame`]: the page frame of 0010 §2, with the [`codex`] builder's components.
 //! - [`theme`]: the shipped default theme and a tenant's overrides, as a stylesheet of
 //!   Codex token values (0034 §1).
@@ -25,6 +26,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod appearance;
 pub mod assets;
 pub mod codex;
 pub mod entity;

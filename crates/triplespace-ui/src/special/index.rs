@@ -58,6 +58,24 @@ pub const PAGES: &[(&str, &str, &str, Feature)] = &[
         "ts-specialpages-version",
         Feature::Version,
     ),
+    (
+        "Special:Preferences",
+        "ts-preferences-title",
+        "ts-specialpages-preferences",
+        Feature::Preferences,
+    ),
+    (
+        "Special:WikiSettings",
+        "ts-wikisettings-title",
+        "ts-specialpages-wikisettings",
+        Feature::Settings,
+    ),
+    (
+        "Special:InstanceSettings",
+        "ts-instancesettings-title",
+        "ts-specialpages-instancesettings",
+        Feature::Settings,
+    ),
 ];
 
 /// `Special:SpecialPages`.
@@ -75,7 +93,9 @@ pub async fn serve(
     let m = &cx.m;
     let mut list = String::new();
     for (title, label, description, feature) in PAGES {
-        if cx.features.has(*feature) {
+        // The instance's settings are served at the farm base only (0085 §4).
+        let elsewhere = *title == "Special:InstanceSettings" && !cx.site.at_farm;
+        if cx.features.has(*feature) && !elsewhere {
             let _ = write!(
                 list,
                 "<li><p class=\"ts-specialpages__name\">{}</p><p class=\"ts-specialpages__description\">{}</p></li>",
