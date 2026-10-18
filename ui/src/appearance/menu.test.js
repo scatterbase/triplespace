@@ -18,10 +18,19 @@ function page( signedIn ) {
 	if ( signedIn ) {
 		root.setAttribute( 'data-appearance', 'account' );
 	}
-	const selects = Object.entries( core.CHOICES ).map( ( [ k, cs ] ) => `<select data-key="${ k }">${ cs.map( ( c ) => `<option value="${ c }">${ c }</option>` ).join( '' ) }</select>` ).join( '' );
+	const choices = Object.assign( {}, core.CHOICES, { 'ui.palette': [ '', 'parchment-ob' ] } );
+	const selects = Object.entries( choices ).map( ( [ k, cs ] ) => `<select data-key="${ k }">${ cs.map( ( c ) => `<option value="${ c }">${ c }</option>` ).join( '' ) }</select>` ).join( '' );
+	document.head.innerHTML = `<script type="application/json" id="ts-theme">${ JSON.stringify( {
+		palette: 'parchment', typeset: 'default26',
+		palettes: { parchment: '/p-parchment.css', 'parchment-ob': '/p-ob.css' },
+		typesets: { default26: '/t-default26.css' }
+	} ) }</script><link id="ts-palette" href="/p-parchment.css"><link id="ts-typeset" href="/t-default26.css">`;
 	document.body.innerHTML = `<form class="ts-appearance__form">${ selects }</form>` +
 		`<script type="application/json" id="ts-appearance-data">${ JSON.stringify( {
-			signedIn, keys: Object.keys( core.CHOICES ), values: signedIn ? DEFAULTS : null
+			signedIn,
+			keys: Object.keys( choices ),
+			choices: { 'ui.palette': [ 'parchment-ob' ], 'ui.typeset': [] },
+			values: signedIn ? Object.assign( { 'ui.palette': '' }, DEFAULTS ) : null
 		} ) }</script>`;
 	window.tsAppearance = core;
 }
@@ -149,5 +158,32 @@ describe( 'the Appearance menu', () => {
 		expect( core.read( localStorage ) ).toEqual( { 'ui.mode': 'light' } );
 		expect( core.source( localStorage ) ).toBe( 'browser' );
 		expect( a.fetch ).not.toHaveBeenCalled();
+	} );
+
+	it( 'swaps the palette\'s stylesheet at once, and keeps the choice in the browser', () => {
+		const a = api( false );
+		vi.stubGlobal( 'fetch', a.fetch );
+		page( false );
+		initAppearance( document, window );
+		choose( 'ui.palette', 'parchment-ob' );
+		expect( document.getElementById( 'ts-palette' ).getAttribute( 'href' ) ).toBe( '/p-ob.css' );
+		expect( core.read( localStorage, { 'ui.palette': [ 'parchment-ob' ] } ) ).toEqual( { 'ui.palette': 'parchment-ob' } );
+		choose( 'ui.palette', '' );
+		expect( document.getElementById( 'ts-palette' ).getAttribute( 'href' ) ).toBe( '/p-parchment.css' );
+		expect( core.read( localStorage, { 'ui.palette': [ 'parchment-ob' ] } ) ).toEqual( {} );
+	} );
+
+	it( 'resets the account\'s palette when the reader goes back to the wiki\'s', async () => {
+		core.write( localStorage, DEFAULTS, 'account' );
+		const a = api( true );
+		vi.stubGlobal( 'fetch', a.fetch );
+		page( true );
+		initAppearance( document, window );
+		choose( 'ui.palette', 'parchment-ob' );
+		await flush();
+		choose( 'ui.palette', '' );
+		await flush();
+		await flush();
+		expect( a.saved ).toEqual( [ 'ui.palette=parchment-ob', 'ui.palette' ] );
 	} );
 } );

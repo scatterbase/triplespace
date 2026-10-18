@@ -86,8 +86,9 @@ pub struct SiteInfo {
     pub lang: String,
     /// `triplespace.api_version`; 0 against a stock Wikibase, which has no such field.
     pub api_version: u32,
-    /// `triplespace.theme`: the tenant's or instance's token overrides, if any.
-    pub theme: Option<Map<String, Value>>,
+    /// `triplespace.theme`: the palettes and type sets offered and the theme settings
+    /// (0086 §5); `None` from an API that reports none, such as a stock Wikibase.
+    pub theme: Option<crate::theme::ThemeInfo>,
     /// Whether the API reports itself in development mode (`triplespace.insecure`).
     pub insecure: bool,
     /// `general.wikibase-conceptbaseuri`: the base of local entities' concept IRIs.
@@ -213,7 +214,10 @@ impl Client {
                 .as_u64()
                 .and_then(|n| u32::try_from(n).ok())
                 .unwrap_or(0),
-            theme: ts["theme"].as_object().cloned(),
+            theme: ts
+                .get("theme")
+                .filter(|t| t.is_object())
+                .and_then(|t| serde_json::from_value(t.clone()).ok()),
             insecure: ts["insecure"].as_bool().unwrap_or(false),
             concept_base: general["wikibase-conceptbaseuri"]
                 .as_str()

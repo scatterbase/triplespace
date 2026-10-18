@@ -1,4 +1,4 @@
-// The site's assets (ADR 0034 §8): Codex's CSS-only components, the default theme's
+// The site's assets (ADR 0034 §8): Codex's CSS-only components, the type sets'
 // typefaces, the site's own styles and the editing components (Vue, loaded lazily),
 // built into hashed files with a manifest that triplespace-ui reads to name them in each
 // page. The release build embeds ui/dist into
@@ -91,7 +91,12 @@ export default defineConfig( {
 				main: 'src/main.js',
 				// The blocking head script (ADR 0085 §6): no imports of its own at run
 				// time, so it is one file a classic <script> can load.
-				head: 'src/head.js'
+				head: 'src/head.js',
+				// The typefaces of each shipped type set (ADR 0086 §3), whose
+				// @font-face rules triplespace-ui writes into the type set's stylesheet.
+				'typeset-default26': 'src/typesets/default26.css',
+				'typeset-hyperlegible': 'src/typesets/hyperlegible.css',
+				'typeset-opendyslexic': 'src/typesets/opendyslexic.css'
 			}
 		}
 	},

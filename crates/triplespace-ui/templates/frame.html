@@ -4,13 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{ doc_title }} – {{ sitename }}</title>
-{%- if let Some(head_js) = head_js %}
-<script src="{{ head_js }}"></script>
-{%- endif %}
 {%- if let Some(css) = css %}
 <link rel="stylesheet" href="{{ css }}">
 {%- endif %}
-<link rel="stylesheet" href="{{ theme_href }}">
+<script type="application/json" id="ts-theme">{{ theme_data|safe }}</script>
+{%- if let Some(href) = palette_href %}
+<link rel="stylesheet" id="ts-palette" href="{{ href }}">
+{%- endif %}
+{%- if let Some(href) = typeset_href %}
+<link rel="stylesheet" id="ts-typeset" href="{{ href }}">
+{%- endif %}
+{%- if let Some(head_js) = head_js %}
+<script src="{{ head_js }}"></script>
+{%- endif %}
 {%- if let Some(js) = js %}
 <script type="module" src="{{ js }}"></script>
 {%- endif %}

@@ -1142,7 +1142,7 @@ async fn send(
 
 #[allow(clippy::too_many_lines)]
 async fn what_the_site_reads(router: &Router, database: &str) {
-    // siteinfo: the API level, and no theme until one is set.
+    // siteinfo: the API level, and the shipped theme until one is set (0086 §5).
     let siteinfo = "/w/api.php?action=query&meta=siteinfo&siprop=triplespace&format=json";
     let (status, h, body) = send(router, siteinfo, &[]).await;
     assert_eq!(status, StatusCode::OK);
@@ -1150,7 +1150,17 @@ async fn what_the_site_reads(router: &Router, database: &str) {
         body["query"]["triplespace"]["api_version"],
         json!(triplespace_api_action::API_VERSION)
     );
-    assert!(body["query"]["triplespace"].get("theme").is_none());
+    let theme = &body["query"]["triplespace"]["theme"];
+    assert_eq!(theme["palette"], "parchment");
+    assert_eq!(theme["typeset"], "default26");
+    assert_eq!(theme["choice"], "any");
+    assert_eq!(theme["palettes"][0]["name"], "parchment");
+    assert_eq!(
+        theme["palettes"][0]["light"]["color-progressive"],
+        "#2B559E"
+    );
+    assert_eq!(theme["palettes"][1]["extends"], "parchment");
+    assert_eq!(theme["typesets"][1]["accessibility"], true);
     assert!(
         h["cache-control"]
             .to_str()
@@ -1159,7 +1169,7 @@ async fn what_the_site_reads(router: &Router, database: &str) {
         "siteinfo alone is stable: {h:?}"
     );
 
-    // A tenant theme set in its config is what siteinfo reports.
+    // The wiki's palette, set in its config, is what siteinfo reports.
     let farm = Farm {
         slug: TENANT.into(),
         base: format!("https://{HOST}"),
@@ -1170,12 +1180,10 @@ async fn what_the_site_reads(router: &Router, database: &str) {
         .await
         .unwrap()
         .expect("the tenant has a config partition");
-    let theme =
-        json!({"color-progressive": "#2b559e", "font-family-heading-main": "Newsreader, serif"});
     let d = triplespace_cli::common::draft(
         scatter_log::registry::PAYLOAD_CONFIG,
-        "site:ui.theme",
-        &json!({"kind": "site", "name": "ui.theme", "value": theme}),
+        "site:theme.palette",
+        &json!({"kind": "site", "name": "theme.palette", "value": "parchment-ob"}),
         "librarybase:7",
         None,
         triplespace_cli::common::now(),
@@ -1195,7 +1203,10 @@ async fn what_the_site_reads(router: &Router, database: &str) {
         .await
         .unwrap();
     let (_, _, body) = send(router, siteinfo, &[]).await;
-    assert_eq!(body["query"]["triplespace"]["theme"], theme);
+    assert_eq!(
+        body["query"]["triplespace"]["theme"]["palette"],
+        "parchment-ob"
+    );
 
     // An anonymous entity read is public, tagged and revalidates to 304.
     let get = "/w/api.php?action=wbgetentities&ids=Q6|domain:wikipedia.org&format=json";

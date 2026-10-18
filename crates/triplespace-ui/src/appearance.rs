@@ -8,8 +8,9 @@
 //! script applies what the reader keeps in `localStorage` before the first paint, and
 //! without JavaScript the panel says the page follows the device.
 //!
-//! Palette and type set join the panel when their stylesheets are served (0086 §5); until
-//! then the panel offers colour mode, contrast and text size.
+//! The panel offers colour mode, contrast and text size, which are never withheld, and
+//! the palettes and type sets the wiki lets readers choose (0086 §4), the wiki's own
+//! first, as "Wiki default".
 
 use std::fmt::Write as _;
 
@@ -17,6 +18,40 @@ use serde_json::{Map, Value, json};
 
 use crate::html::esc;
 use crate::i18n::Messages;
+use crate::theme::{Sheet, Theme};
+
+/// The keys that choose a stylesheet, whose choices are the wiki's.
+pub const SHEET_KEYS: [(&str, Sheet); 2] = [
+    ("ui.palette", Sheet::Palette),
+    ("ui.typeset", Sheet::Typeset),
+];
+
+/// A reader's palette or type set where the wiki lets them choose it; empty for the
+/// wiki's own.
+fn sheet_value(
+    theme: &Theme,
+    options: Option<&Map<String, Value>>,
+    key: &str,
+    sheet: Sheet,
+) -> String {
+    let own = options
+        .and_then(|o| o.get(key))
+        .and_then(Value::as_str)
+        .filter(|v| !v.is_empty());
+    let chosen = theme.chosen(sheet, own);
+    if own == Some(chosen.as_str()) && chosen != default_of(theme, sheet) {
+        chosen
+    } else {
+        String::new()
+    }
+}
+
+fn default_of(theme: &Theme, sheet: Sheet) -> &str {
+    match sheet {
+        Sheet::Palette => theme.default_palette(),
+        Sheet::Typeset => theme.default_typeset(),
+    }
+}
 
 /// The keys the panel offers, with their choices and defaults, as `preferences.toml`
 /// registers them (a test holds the two together).
@@ -78,17 +113,32 @@ pub fn html_attributes(options: Option<&Map<String, Value>>) -> (String, String)
 }
 
 /// The data block the site's script reads: whether the reader is signed in, the
-/// account's values, and which keys the account holds itself.
+/// account's values, which keys the account holds itself, and the palettes and type sets
+/// a reader may choose.
 #[must_use]
-pub fn data(options: Option<&Map<String, Value>>, own: Option<&[String]>) -> String {
-    let values: Map<String, Value> = KEYS
+pub fn data(theme: &Theme, options: Option<&Map<String, Value>>, own: Option<&[String]>) -> String {
+    let mut values: Map<String, Value> = KEYS
         .iter()
         .map(|(k, _, _)| ((*k).to_string(), json!(value_of(options, k))))
         .collect();
+    let mut choices = Map::new();
+    for (key, sheet) in SHEET_KEYS {
+        values.insert(key.into(), json!(sheet_value(theme, options, key, sheet)));
+        let names: Vec<String> = theme
+            .choices(sheet)
+            .into_iter()
+            .map(|o| o.name)
+            .filter(|n| n != default_of(theme, sheet))
+            .collect();
+        choices.insert(key.into(), json!(names));
+    }
+    let mut keys: Vec<&str> = KEYS.iter().map(|(k, _, _)| *k).collect();
+    keys.extend(SHEET_KEYS.iter().map(|(k, _)| *k));
     let v = json!({
         "signedIn": options.is_some(),
         "storageKey": STORAGE_KEY,
-        "keys": KEYS.iter().map(|(k, _, _)| *k).collect::<Vec<_>>(),
+        "keys": keys,
+        "choices": choices,
         "values": if options.is_some() { Value::Object(values) } else { Value::Null },
         "own": own,
     });
@@ -96,10 +146,63 @@ pub fn data(options: Option<&Map<String, Value>>, own: Option<&[String]>) -> Str
     v.to_string().replace("</", "<\\/")
 }
 
+/// One select of the panel.
+fn select(s: &mut String, m: &Messages, key: &str, options: &[(String, String)], current: &str) {
+    let id = format!("ts-appearance-{}", key.replace('.', "-"));
+    let label_key = format!("ts-pref-{}", key.replace('.', "-"));
+    let _ = write!(
+        s,
+        "<div class=\"cdx-field\"><div class=\"cdx-label\"><label class=\"cdx-label__label\" for=\"{id}\"><span class=\"cdx-label__label__text\">{}</span></label></div><div class=\"cdx-field__control\"><select class=\"cdx-select\" id=\"{id}\" name=\"{}\" data-key=\"{}\">",
+        esc(&m.get(&label_key)),
+        esc(key),
+        esc(key)
+    );
+    for (value, label) in options {
+        let _ = write!(
+            s,
+            "<option value=\"{}\"{}>{}</option>",
+            esc(value),
+            if current == value { " selected" } else { "" },
+            esc(label)
+        );
+    }
+    s.push_str("</select></div></div>");
+}
+
+/// The options of a palette or type-set select: the wiki's own as "Wiki default", then
+/// the others the reader may choose, the accessibility ones marked.
+#[must_use]
+pub fn sheet_options(m: &Messages, theme: &Theme, sheet: Sheet) -> Vec<(String, String)> {
+    let all = theme.choices(sheet);
+    let default = default_of(theme, sheet);
+    let default_label = all
+        .iter()
+        .find(|o| o.name == default)
+        .map_or_else(|| default.to_string(), |o| o.label.clone());
+    let mut out = vec![(
+        String::new(),
+        m.with("ts-appearance-wiki-default", &[&default_label]),
+    )];
+    for o in all.into_iter().filter(|o| o.name != default) {
+        let label = if o.accessibility {
+            m.with("ts-appearance-accessibility-choice", &[&o.label])
+        } else {
+            o.label
+        };
+        out.push((o.name, label));
+    }
+    out
+}
+
 /// The panel: a form of selects, which posts to the web tier for a signed-in reader and
 /// is worked by the site's script for one who is not.
 #[must_use]
-pub fn panel(m: &Messages, options: Option<&Map<String, Value>>, returnto: &str) -> String {
+pub fn panel(
+    m: &Messages,
+    theme: &Theme,
+    options: Option<&Map<String, Value>>,
+    returnto: &str,
+) -> String {
     let signed_in = options.is_some();
     let mut s = format!(
         "<form class=\"ts-appearance__form ts-appearance__form--{}\" method=\"post\" action=\"/w/index.php?title=Special:Preferences&amp;appearance=1\"><input type=\"hidden\" name=\"returnto\" value=\"{}\">",
@@ -115,25 +218,24 @@ pub fn panel(m: &Messages, options: Option<&Map<String, Value>>, returnto: &str)
     }
     s.push_str("<div class=\"ts-appearance__controls\">");
     for (key, choices, _) in KEYS {
-        let id = format!("ts-appearance-{}", key.replace('.', "-"));
         let label_key = format!("ts-pref-{}", key.replace('.', "-"));
-        let current = value_of(options, key);
-        let _ = write!(
-            s,
-            "<div class=\"cdx-field\"><div class=\"cdx-label\"><label class=\"cdx-label__label\" for=\"{id}\"><span class=\"cdx-label__label__text\">{}</span></label></div><div class=\"cdx-field__control\"><select class=\"cdx-select\" id=\"{id}\" name=\"{}\" data-key=\"{}\">",
-            esc(&m.get(&label_key)),
-            esc(key),
-            esc(key)
-        );
-        for c in *choices {
-            let _ = write!(
-                s,
-                "<option value=\"{c}\"{}>{}</option>",
-                if current == *c { " selected" } else { "" },
-                esc(&m.get(&format!("{label_key}-{c}")))
+        let opts: Vec<(String, String)> = choices
+            .iter()
+            .map(|c| ((*c).to_string(), m.get(&format!("{label_key}-{c}"))))
+            .collect();
+        select(&mut s, m, key, &opts, value_of(options, key));
+    }
+    for (key, sheet) in SHEET_KEYS {
+        let opts = sheet_options(m, theme, sheet);
+        if opts.len() > 1 {
+            select(
+                &mut s,
+                m,
+                key,
+                &opts,
+                &sheet_value(theme, options, key, sheet),
             );
         }
-        s.push_str("</select></div></div>");
     }
     if signed_in {
         let _ = write!(
@@ -201,8 +303,31 @@ mod tests {
     #[test]
     fn the_data_block_cannot_close_its_element() {
         let o: Map<String, Value> = Map::new();
-        let d = data(Some(&o), Some(&["</script>".to_string()]));
+        let t = Theme::shipped();
+        let d = data(&t, Some(&o), Some(&["</script>".to_string()]));
         assert!(!d.contains("</"));
-        assert!(data(None, None).contains("\"signedIn\":false"));
+        assert!(data(&t, None, None).contains("\"signedIn\":false"));
+        let v: Value = serde_json::from_str(&data(&t, Some(&o), None)).unwrap();
+        assert_eq!(
+            v["choices"]["ui.palette"],
+            json!(["parchment-co", "parchment-ob"])
+        );
+        assert_eq!(v["values"]["ui.palette"], "");
+    }
+
+    #[test]
+    fn the_panel_offers_what_the_wiki_lets_readers_choose() {
+        let m = Messages::for_language("en");
+        let o: Map<String, Value> =
+            serde_json::from_value(json!({"ui.palette": "parchment-ob", "ui.typeset": "nope"}))
+                .unwrap();
+        let html = panel(&m, &Theme::shipped(), Some(&o), "Main Page");
+        assert!(html.contains("<select class=\"cdx-select\" id=\"ts-appearance-ui-palette\" name=\"ui.palette\" data-key=\"ui.palette\"><option value=\"\">"));
+        assert!(html.contains("<option value=\"parchment-ob\" selected>"));
+        assert!(
+            html.contains("<option value=\"\" selected>"),
+            "an unknown type set is the wiki's"
+        );
+        assert!(html.contains("<option value=\"opendyslexic\">"));
     }
 }

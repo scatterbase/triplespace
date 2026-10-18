@@ -30,12 +30,34 @@ use crate::html::{esc, link};
 use crate::i18n::Messages;
 use crate::pages::{self, Context, Params, Peer};
 use crate::special::controls::{self, Control, Kind};
+use crate::theme::Theme;
 
 const TITLE: &str = "Special:Preferences";
 
-/// Keys not drawn yet: a palette and a type set are chosen from what the tenant offers,
-/// which the site lists when it serves them (0086 §5).
-const HIDDEN: &[&str] = &["ui.palette", "ui.typeset"];
+/// The palette and type set are chosen from what the wiki lets readers choose (0086 §4),
+/// as the Appearance menu offers them: a select whose empty choice is the wiki's own.
+fn sheet_pref(
+    m: &Messages,
+    theme: &Theme,
+    key: &str,
+    p: &Pref,
+) -> Option<(Pref, Vec<(String, String)>)> {
+    let (_, sheet) = crate::appearance::SHEET_KEYS
+        .iter()
+        .find(|(k, _)| *k == key)?;
+    let options = crate::appearance::sheet_options(m, theme, *sheet);
+    let mut p = p.clone();
+    p.ty = "choice".into();
+    p.choices = options.iter().skip(1).map(|(v, _)| v.clone()).collect();
+    if p.value
+        .as_ref()
+        .and_then(Value::as_str)
+        .is_some_and(|v| !p.choices.iter().any(|c| c == v))
+    {
+        p.value = None;
+    }
+    Some((p, options))
+}
 
 /// How a preference type is edited.
 fn kind_of(ty: &str) -> Kind {
@@ -81,7 +103,9 @@ fn hidden(name: &str, value: &str) -> String {
     )
 }
 
-fn row(m: &Messages, key: &str, p: &Pref, back: &Returned<'_>) -> String {
+fn row(m: &Messages, theme: &Theme, key: &str, p: &Pref, back: &Returned<'_>) -> String {
+    let sheet = sheet_pref(m, theme, key, p);
+    let p = sheet.as_ref().map_or(p, |(p, _)| p);
     let kind = kind_of(&p.ty);
     let id = format!("ts-p-{key}");
     let help_key = format!("{}-help", p.label);
@@ -122,16 +146,25 @@ fn row(m: &Messages, key: &str, p: &Pref, back: &Returned<'_>) -> String {
         _ => p.value.as_ref(),
     };
     let choice_label = |c: &str| {
+        if let Some((_, options)) = &sheet {
+            return options
+                .iter()
+                .find(|(v, _)| v == c)
+                .map_or_else(|| c.to_string(), |(_, l)| l.clone());
+        }
         let k = format!("{}-{}", p.label, c.replace(' ', "-").to_lowercase());
         if m.has(&k) { m.get(&k) } else { c.to_string() }
     };
+    let empty = sheet.as_ref().map(|(_, options)| options[0].1.clone());
     s.push_str(&controls::render(&Control {
         id: &id,
         name: &name,
         kind,
         choices: &p.choices,
         value,
-        empty_choice: p.value.is_none().then_some("—"),
+        empty_choice: empty
+            .as_deref()
+            .or_else(|| p.value.is_none().then_some("—")),
         described_by: has_help.then_some(help_id.as_str()),
         choice_label: Some(&choice_label),
     }));
@@ -150,6 +183,7 @@ fn row(m: &Messages, key: &str, p: &Pref, back: &Returned<'_>) -> String {
 
 fn body(
     m: &Messages,
+    theme: &Theme,
     prefs: &Preferences,
     token: &str,
     back: &Returned<'_>,
@@ -161,7 +195,7 @@ fn body(
         let keys: Vec<(&String, &Pref)> = prefs
             .preferences
             .iter()
-            .filter(|(k, p)| p.group == g.id && !HIDDEN.contains(&k.as_str()))
+            .filter(|(_, p)| p.group == g.id)
             .collect();
         if keys.is_empty() {
             continue;
@@ -208,7 +242,7 @@ fn body(
             hidden("keys", &names.join(" "))
         );
         for (k, p) in keys {
-            out.push_str(&row(m, k, p, back));
+            out.push_str(&row(m, theme, k, p, back));
         }
         let _ = write!(
             out,
@@ -306,7 +340,14 @@ async fn render(
         }
         (Err(e), _) | (_, Err(e)) => return pages::api_failed(cx, headers, &e),
     };
-    let (html, tabs) = body(&cx.m, &prefs.value, &token.value.value, back, saved);
+    let (html, tabs) = body(
+        &cx.m,
+        &cx.theme,
+        &prefs.value,
+        &token.value.value,
+        back,
+        saved,
+    );
     let page = pages::respond(cx, headers, status, |m| Page {
         title: m.get("ts-preferences-title"),
         returnto: Some(TITLE.to_string()),
@@ -362,10 +403,20 @@ fn patch_of(
         .get("keys")
         .map_or_else(BTreeSet::new, |k| k.split_whitespace().collect());
     let mut set = Map::new();
+    let mut reset = Vec::new();
     for key in keys {
         let Some(p) = prefs.preferences.get(key) else {
             continue;
         };
+        // The palette's and type set's empty choice is the wiki's own: it resets.
+        if crate::appearance::SHEET_KEYS.iter().any(|(k, _)| *k == key)
+            && f.get(&format!("v.{key}")).is_some_and(String::is_empty)
+        {
+            if p.own {
+                reset.push(key.to_string());
+            }
+            continue;
+        }
         let kind = kind_of(&p.ty);
         match controls::parse(kind, f.get(&format!("v.{key}")).map(String::as_str)) {
             Err(e) => errors.entry(key.to_string()).or_default().push(e),
@@ -379,6 +430,9 @@ fn patch_of(
     }
     if !set.is_empty() {
         body.insert("set".into(), Value::Object(set));
+    }
+    if !reset.is_empty() {
+        body.insert("reset".into(), json!(reset));
     }
     (body, errors)
 }
@@ -435,6 +489,7 @@ async fn post_appearance(
     }
     let current = cx.prefs.clone().unwrap_or_default();
     let mut set = Map::new();
+    let mut reset = Vec::new();
     for (key, choices, _) in crate::appearance::KEYS {
         if let Some(v) = form.map.get(*key)
             && choices.contains(&v.as_str())
@@ -443,14 +498,25 @@ async fn post_appearance(
             set.insert((*key).to_string(), json!(v));
         }
     }
-    if set.is_empty() {
+    for (key, sheet) in crate::appearance::SHEET_KEYS {
+        let Some(v) = form.map.get(key) else { continue };
+        let now = current.get(key).and_then(Value::as_str).unwrap_or_default();
+        if v.is_empty() {
+            if !now.is_empty() {
+                reset.push(key);
+            }
+        } else if v != now && cx.theme.choices(sheet).iter().any(|o| o.name == *v) {
+            set.insert(key.to_string(), json!(v));
+        }
+    }
+    if set.is_empty() && reset.is_empty() {
         return pages::see_other(&back, &[]);
     }
     let token = match site.client().token(incoming, "csrf").await {
         Ok(t) => t,
         Err(e) => return pages::api_failed(cx, headers, &e),
     };
-    let body = json!({"set": set, "token": token.value.value});
+    let body = json!({"set": set, "reset": reset, "token": token.value.value});
     match site.client().save_preferences(incoming, &body).await {
         Ok(Saved::Ok(_)) => pages::see_other(&back, &token.set_cookies),
         Ok(Saved::Refused(r)) => {

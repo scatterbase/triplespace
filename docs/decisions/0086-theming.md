@@ -2,8 +2,9 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-17
+- **Updated:** 2026-10-18 (A1)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md), [0034](0034-frontend-stack.md), [0039](0039-files-and-media.md), [0055](0055-templatestyles-templatedata-and-page-properties.md)
+- **Changes:** [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md), [0018](0018-tenants.md), [0034](0034-frontend-stack.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md), [0055](0055-templatestyles-templatedata-and-page-properties.md)
 - **Uses:** [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [0077](0077-special-version.md), [0085](0085-settings-and-preferences.md)
 
 ## Context
@@ -31,11 +32,21 @@ James's direction, from the design discussion of 2026-10-16 and 2026-10-17:
 
 ## Decision
 
-### 1. Palettes and type sets are configuration (amends 0034 §1; extends 0015 §3, 0012 §5 and 0011 §6.1)
+### 1. Palettes and type sets are configuration (amends 0034 §1; extends 0015 §3, 0012 §5, 0011 §6.1, 0018 §10 and 0040 §6)
+
+*Changed by A1.*
 
 **A theme becomes two choices**: a **palette**, which sets Codex's colour tokens per variant (§2) and the shape tokens (radii and spacing), and a **type set**, which sets the typeface tokens and serves the typefaces (§3). Neither sets a component's markup or behaviour.
 
-**Both are config records.** The kinds are `palette`, keyed `palette:{name}`, and `typeset`, keyed `typeset:{name}`, at instance or tenant scope, written with `ts-config`. `docs/registry/themes.toml` holds the shipped ones in the same shape and is copied into an instance's `config` and synced like every registry file ([23](../architecture/23-configuration-and-registry.md) §4.1). A tenant offers the registry's, the instance's and its own. **A name means one thing on an instance**, as James decided: a tenant may not write a palette or type set under a name the registry or the instance uses, and the instance may not write one under a name the registry or any of its tenants uses, so a reader's choice never names two different records (Q8 for names that collide when the registry gains one or a tenant joins). **The shipped palettes and type sets are fixed**: neither a reader nor an operator changes them, as James decided; only `registry sync` writes their records, so `parchment`, the **default palette**, always has all four variants, and the accessibility palettes and type sets cannot be withdrawn. A palette or type set that `theme.palette` or `theme.typeset` names cannot be deleted. A record is validated when it is written: every key a token Codex defines and of the right family (colour tokens in a palette's variants, radius and spacing tokens on the palette, `font-family-*` tokens on a type set), every value a plain CSS value, the name free (above), `extends` naming a palette it may extend (§2), and every variant meeting its contrast floor (§2); a record that fails is refused with `ts-invalid-setting`.
+**Both are config records.** The kinds are `palette`, keyed `palette:{name}`, and `typeset`, keyed `typeset:{name}`, at instance or tenant scope, written with `ts-config`. `docs/registry/themes.toml` holds the shipped ones in the same shape and is copied into an instance's `config` and synced like every registry file ([23](../architecture/23-configuration-and-registry.md) §4.1). A tenant offers the registry's, the instance's and its own. **A name means one thing on an instance**, as James decided: a tenant may not write a palette or type set under a name the registry or the instance uses, and the instance may not write one under a name the registry or any of its tenants uses, so a reader's choice never names two different records. **The shipped palettes and type sets are fixed**: neither a reader nor an operator changes them, as James decided; only `registry sync` writes their records, so `parchment`, the **default palette**, always has all four variants, and the accessibility palettes and type sets cannot be withdrawn. A palette or type set that `theme.palette` or `theme.typeset` names cannot be deleted. A record is validated when it is written: every key a token Codex defines and of the right family (colour tokens in a palette's variants, radius and spacing tokens on the palette, `font-family-*` tokens on a type set), every value a plain CSS value, the name free (above), `extends` naming a palette it may extend (§2), and every variant meeting its contrast floor (§2); a record that fails is refused with `ts-invalid-setting`.
+
+**A name taken later is keyed**, as James decided (A1). A tenant's palette or type set whose name the instance or the registry comes to use is renamed `{name}~{slug}`, keyed with the tenant's slug ([08](../architecture/08-tenants-and-instances.md) §1.2), as `foo` becomes `foo~librarybase`; the instance's own, which only the registry can take from it, is keyed with the farm slug. The bare name goes to the instance or the registry. A name is taken later in three ways:
+
+- **A tenant joins** an instance that uses one of its names, or whose registry does: the join keys the tenant's ([08](../architecture/08-tenants-and-instances.md) §6.3).
+- **The instance writes** a palette or type set under a name a tenant uses: the write is refused with `ts-invalid-setting`, naming the tenants, until the operator either keys theirs, by repeating the write with `key=tenants` (`--key-tenants` in the CLI, a confirmation on the settings page), which keys them and writes the instance's in one act, or chooses another name.
+- **A release's `themes.toml` adds** a name the instance or a tenant uses: `registry sync` keys theirs and is never refused for it, since a shipped name is fixed and every wiki must offer the accessibility palettes and type sets.
+
+**Keying renames every reference in the same act**, so no setting or choice changes what it shows: the record is written under its keyed name and the old one deleted, and with it the `theme.palette` and `theme.typeset` values that name it (the tenant's own, and the instance's defaults and locks), the `extends` of the palettes that extend it, and the `ui.palette` and `ui.typeset` preferences of tenant and farm accounts. In a tenant, keying is a written provision ([08](../architecture/08-tenants-and-instances.md) §8.6): its records carry the instance attestation, its authority is a job record in the instance `log` that lists the renames, and the tenant may later rename the record to any name that is free. **`~` is reserved for keying**: no one writes a new name containing it, and a keyed record is updated and deleted under its keyed name. Once written, a keyed name is a name like any other: it stays when the tenant leaves, and is keyed again, its key replaced by the tenant's slug there, only if it is taken where the tenant arrives.
 
 **Writing them** goes through `PUT` and `DELETE /palette/{name}` and `/typeset/{name}` on REST v0, read with `GET /palettes` and `GET /typesets` by anyone, a private tenant's outsiders included (§5), with `scope=instance` at the farm base as for settings ([0085](0085-settings-and-preferences.md) §3), and through a **Palettes and type sets** tab of the settings pages, which previews each variant. A write is one change set that projects as a `settings/change` event naming the record.
 
@@ -156,6 +167,7 @@ The registry part of §1 is in place: `themes.toml` holds `parchment` with its f
 - **Content written for Wikipedia's night mode renders as its authors intended**, through the classes MediaWiki uses.
 - **Every colour the site draws is a token**, which a test enforces; a design that needs a new colour needs a token for it in every variant.
 - **`ui.theme` records written before this ADR stop applying**, without migration, as James decided; `instance check` names them.
+- **A palette or type set can be renamed under a wiki by its instance**, to `{name}~{slug}`, when the instance or a release takes its name; every setting and reader's choice that named it is rewritten with it, and the wiki's history shows the instance's act (A1).
 - **Pages written without night mode in mind read poorly in the dark variants** where they colour backgrounds inline: light backgrounds under the dark variant's light text. Wikipedia has the same problem; `notheme` and night-mode TemplateStyles are the remedies its editors use.
 
 ## Open questions
@@ -167,7 +179,7 @@ The registry part of §1 is in place: `themes.toml` holds `parchment` with its f
 - **Q5. Personal palettes**, written by a reader for themselves, deferred by James.
 - **Q6. Verifying a font's licence** against the licence fields inside the font file, rather than trusting the record's declaration.
 - **Q7. Further type sets for readers with dyslexia**, such as Lexend, and whether a type set may set letter, word and line spacing, which the British Dyslexia Association's style guide stresses more than the typeface.
-- **Q8. A name taken by another level later**: a release whose `themes.toml` adds a name an instance or tenant already uses, or a tenant joining an instance that uses one of its names. Proposed: `registry sync` and the join are refused with the colliding records named, so the operator renames them first, since renaming a record silently would change what `theme.palette` and readers' preferences mean.
+- **Q8.** ~~**A name taken by another level later**: a release whose `themes.toml` adds a name an instance or tenant already uses, or a tenant joining an instance that uses one of its names. Proposed: `registry sync` and the join are refused with the colliding records named, so the operator renames them first, since renaming a record silently would change what `theme.palette` and readers' preferences mean.~~ *Settled by A1: the colliding tenant's record is keyed `{name}~{slug}`, or the instance's with the farm slug when the registry takes its name, with every reference rewritten in the same act; an instance write of a name a tenant uses is refused until it keys the tenant's or chooses another name.*
 
 ## Changes to other ADRs
 
@@ -179,9 +191,11 @@ The registry part of §1 is in place: `themes.toml` holds `parchment` with its f
 | [0012](0012-api-requirements.md) §4 | §5 | amends | 0012 A76 |
 | [0012](0012-api-requirements.md) §5 | §1 | extends | 0012 A76 |
 | [0015](0015-record-format-and-partition-registry.md) §3 | §1 | extends | 0015 A60 |
+| [0018](0018-tenants.md) §10 | §1 (A1) | extends | 0018 A30 |
 | [0034](0034-frontend-stack.md) §1 | §1, §5 | amends | 0034 A12 |
 | [0034](0034-frontend-stack.md) §11 | §5 | extends | 0034 A12 |
 | [0039](0039-files-and-media.md) §5 | §3 | extends | 0039 A14 |
+| [0040](0040-instance-prerogatives.md) §6 | §1 (A1) | extends | 0040 A8 |
 | [0034](0034-frontend-stack.md) Q2 | §2 | settles | 0034 Q2 |
 | [0055](0055-templatestyles-templatedata-and-page-properties.md) §2 | §6 | amends | 0055 A4 |
 
@@ -191,3 +205,16 @@ The registry part of §1 is in place: `themes.toml` holds `parchment` with its f
 - MediaWiki's night mode and its client preferences: the `skin-theme-clientpref-*` classes, and the `notheme`, `skin-invert` and `skin-invert-image` classes for content.
 - WCAG 2.1: 1.4.3 (contrast, minimum), 1.4.6 (contrast, enhanced), 1.4.11 (non-text contrast).
 - Atkinson Hyperlegible, Braille Institute of America.
+
+## Amendment log
+
+### A1. A name taken later is keyed
+
+- **Date:** 2026-10-18
+- **Source:** Direct: James, design discussion of 2026-10-18
+- **Change:** amends §1
+- **Summary:** Where a palette's or type set's name comes to collide across levels, the colliding record is renamed rather than the change refused, which settles Q8. James's direction: "if an instance has a pre-existing palette or type set "foo", and a tenant with their own "foo" wants to be imported, the conflict would resolve by keying the name to the tenant e.g. "foo~tenantname". If an instance wants to introduce a new palette or type set with a name in use by a tenant, it is blocked until the instance renames it with the key or gives it a new name altogether." James then chose, on 2026-10-18: the key is the tenant's slug, and a keyed name stays with the tenant when it leaves; when the instance takes a name a tenant uses, it is the tenant's record that is keyed and the instance takes the bare name; `registry sync` keys a colliding instance or tenant record, the instance's with the farm slug, rather than being refused; and keying in a tenant is a written provision that rewrites every reference to the record in the same act (`theme.palette` and `theme.typeset`, `extends`, and readers' `ui.palette` and `ui.typeset`). Claude proposed reserving `~` for keying, `key=tenants` as the way an instance write keys the tenants' records, and a job record listing the renames as the authority, which also maps the preferences of accounts reclaimed after a join. The join is in [08](../architecture/08-tenants-and-instances.md) §6.3 ([0018](0018-tenants.md) A30) and the written act in [08](../architecture/08-tenants-and-instances.md) §8.6 ([0040](0040-instance-prerogatives.md) A8).
+
+Replaced text (§1):
+
+> **A name means one thing on an instance**, as James decided: a tenant may not write a palette or type set under a name the registry or the instance uses, and the instance may not write one under a name the registry or any of its tenants uses, so a reader's choice never names two different records (Q8 for names that collide when the registry gains one or a tenant joins).

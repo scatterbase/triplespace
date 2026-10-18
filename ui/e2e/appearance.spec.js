@@ -2,8 +2,10 @@
 // a choice applies at once and is kept in the browser, and the head script applies it
 // before the first paint of the next page, on either web replica, with no cookie; without
 // JavaScript the menu says the page follows the device. Signed in, the choices are the
-// account's and the server writes them on <html>. Then the settings and preferences
-// pages, signed in, with axe.
+// account's and the server writes them on <html>. The palette's and type set's
+// stylesheets (ADR 0086 §5) follow the device without JavaScript, and the reader's own
+// choice of palette and type set with it. Then the settings and preferences pages, signed
+// in, with axe, and a page in each of the palette's variants, with axe.
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
@@ -28,6 +30,41 @@ test( 'without JavaScript the menu says the page follows the device', async ( { 
 	await expect( page.locator( 'html' ) ).not.toHaveAttribute( 'data-mode', /.+/ );
 } );
 
+/**
+ * A custom property's value on <html>, as the page computes it.
+ *
+ * @param {Object} page A Playwright page
+ * @param {string} name The token, without `--`
+ * @return {Promise<string>}
+ */
+function token( page, name ) {
+	return page.evaluate( ( n ) => getComputedStyle( document.documentElement ).getPropertyValue( `--${ n }` ).trim(), name );
+}
+
+/**
+ * The page's background, as the page computes it.
+ *
+ * @param {Object} page A Playwright page
+ * @return {Promise<string>}
+ */
+function background( page ) {
+	return page.evaluate( () => getComputedStyle( document.body ).backgroundColor );
+}
+
+test( 'without JavaScript the palette follows the device\'s dark mode and contrast', async ( { page } ) => {
+	await page.goto( '/wiki/Special:RecentChanges' );
+	// parchment's subtle panels: light, then walnut brown.
+	expect( await background( page ) ).toBe( 'rgb(244, 242, 236)' );
+	await page.emulateMedia( { colorScheme: 'dark' } );
+	expect( await background( page ) ).toBe( 'rgb(39, 31, 25)' );
+	const dark = await token( page, 'color-base' );
+	await page.emulateMedia( { colorScheme: 'dark', contrast: 'more' } );
+	expect( await token( page, 'color-base' ) ).not.toBe( dark );
+	await page.emulateMedia( { colorScheme: 'light', contrast: 'no-preference' } );
+	expect( await token( page, 'color-base' ) ).toBe( '#1D1C1A' );
+	expect( await token( page, 'font-family-base' ) ).toContain( 'IBM Plex Sans' );
+} );
+
 test.describe( 'with JavaScript', () => {
 	test.use( { javaScriptEnabled: true } );
 
@@ -50,6 +87,51 @@ test.describe( 'with JavaScript', () => {
 		await expect( page.locator( 'select[data-key="ui.mode"]' ) ).toHaveValue( 'dark' );
 		expect( ( await context.cookies() ).filter( ( c ) => c.name !== 'triplespace_session' ) ).toEqual( [] );
 	} );
+
+	test( 'a reader\'s palette, type set and text size change what the page wears', async ( { page } ) => {
+		await page.goto( '/wiki/Special:RecentChanges' );
+		await page.locator( '.ts-appearance > summary' ).click();
+		const palette = page.locator( 'select[data-key="ui.palette"]' );
+		await expect( palette ).toHaveValue( '' );
+		await palette.selectOption( 'parchment-ob' );
+		await expect( page.locator( '#ts-palette' ) ).toHaveAttribute( 'href', /\/ui\/theme\/p-parchment-ob-/ );
+		await expect.poll( () => token( page, 'color-destructive' ) ).toBe( '#A84300' );
+		await page.locator( 'select[data-key="ui.typeset"]' ).selectOption( 'opendyslexic' );
+		await expect.poll( () => token( page, 'font-family-base' ) ).toContain( 'OpenDyslexic' );
+		await page.locator( 'select[data-key="ui.text-size"]' ).selectOption( 'large' );
+		expect( await token( page, 'font-size-medium' ) ).toBe( '1.125rem' );
+		// The next page is the same public page; the head script points it at the
+		// reader's stylesheets before the first paint.
+		const response = await page.goto( '/wiki/Item:Q6' );
+		expect( response.headers()[ 'cache-control' ] ).toMatch( /^public/ );
+		await expect( page.locator( '#ts-palette' ) ).toHaveAttribute( 'href', /p-parchment-ob-/ );
+		await expect( page.locator( '#ts-typeset' ) ).toHaveAttribute( 'href', /t-opendyslexic-/ );
+		await expect.poll( () => token( page, 'color-destructive' ) ).toBe( '#A84300' );
+		await expect( page.locator( 'select[data-key="ui.palette"]' ) ).toHaveValue( 'parchment-ob' );
+		// Back to the wiki's own.
+		await page.locator( '.ts-appearance > summary' ).click();
+		await page.locator( 'select[data-key="ui.palette"]' ).selectOption( '' );
+		await expect( page.locator( '#ts-palette' ) ).toHaveAttribute( 'href', /p-parchment-[0-9a-f]{16}\.css/ );
+	} );
+
+	for ( const [ mode, contrast ] of [ [ 'light', 'auto' ], [ 'dark', 'auto' ], [ 'light', 'more' ], [ 'dark', 'more' ] ] ) {
+		test( `a page in ${ mode } mode with ${ contrast } contrast passes axe`, async ( { page } ) => {
+			await page.goto( '/wiki/Item:Q6' );
+			await page.locator( '.ts-appearance > summary' ).click();
+			await page.locator( 'select[data-key="ui.mode"]' ).selectOption( mode );
+			await page.locator( 'select[data-key="ui.contrast"]' ).selectOption( contrast );
+			await page.locator( '.ts-appearance > summary' ).click();
+			await page.reload();
+			await expect( page.locator( 'html' ) ).toHaveAttribute( 'data-mode', mode );
+			const results = await new AxeBuilder( { page } )
+				.withTags( [ 'wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa' ] )
+				.analyze();
+			const found = results.violations.map(
+				( v ) => `${ v.id }: ${ v.nodes.map( ( n ) => n.target ).join( ', ' ) }`
+			);
+			expect( found ).toEqual( [] );
+		} );
+	}
 
 	test( 'signed in, a choice is the account\'s and the server writes it', async ( { page } ) => {
 		await logIn( page, 'Special:Preferences' );

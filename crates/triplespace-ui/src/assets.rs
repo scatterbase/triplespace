@@ -65,6 +65,31 @@ pub fn entries() -> &'static Entries {
     &MANIFEST.0
 }
 
+/// The `@font-face` rules of a shipped type set's typefaces (0086 §3), built from
+/// `ui/src/typesets/{name}.css`, whose `url()`s name the hashed font files under
+/// `/ui/assets/`; `None` for a type set the build has none for.
+#[must_use]
+pub fn typeset_fonts(name: &str) -> Option<String> {
+    static FONTS: LazyLock<std::collections::BTreeMap<String, String>> = LazyLock::new(|| {
+        let manifest: serde_json::Value = Dist::get("manifest.json")
+            .and_then(|f| serde_json::from_slice(&f.data).ok())
+            .unwrap_or(serde_json::Value::Null);
+        let Some(entries) = manifest.as_object() else {
+            return std::collections::BTreeMap::new();
+        };
+        entries
+            .iter()
+            .filter_map(|(src, e)| {
+                let name = src.strip_prefix("src/typesets/")?.strip_suffix(".css")?;
+                let file = e.get("file")?.as_str()?;
+                let css = String::from_utf8(Dist::get(file)?.data.into_owned()).ok()?;
+                Some((name.to_string(), css))
+            })
+            .collect()
+    });
+    FONTS.get(name).cloned()
+}
+
 /// The build ID, which a page's `ETag` and the components' build check carry.
 #[must_use]
 pub fn build_id() -> &'static str {

@@ -178,7 +178,7 @@ pub async fn context(
         })
         .unwrap_or_else(|| si.value.lang.clone());
     let m = Messages::for_language(&lang);
-    let theme = Theme::with_overrides(si.value.theme.as_ref()).with_chips(&si.value.providers);
+    let theme = Theme::from_info(si.value.theme.as_ref()).with_chips(&si.value.providers);
     let features = Features::of(&si.value);
     Ok(Context {
         site: si.value,
@@ -209,7 +209,7 @@ fn unavailable(incoming: &Incoming, error: &ClientError, key: &str) -> Response 
         features: &none,
         prefs: None,
     };
-    let html = match frame::render(&m, &chrome, Theme::shipped(), None, &page) {
+    let html = match frame::render(&m, &chrome, &Theme::shipped(), None, &page) {
         Ok(h) => h,
         Err(e) => return render_failed(&e),
     };
@@ -716,9 +716,10 @@ pub async fn asset(Path(path): Path<String>) -> Response {
     }
 }
 
-/// `/ui/theme/{hash}.css`: the tenant's theme. Kept for a year when the name is the hash
-/// of the theme it serves; a stale name gets the current theme for a minute, so that a
-/// page cached across a theme change still looks right.
+/// `/ui/theme/{p|t}-{name}-{hash}.css`: a palette's or a type set's stylesheet (0086 §5).
+/// Kept for a year when the name is the hash of the text served; a stale name gets the
+/// current text for a minute, so that a page cached across a change still looks right.
+/// A name from before palettes gets the wiki's palette, briefly.
 pub async fn theme_css(
     State(site): State<Site>,
     Path(file): Path<String>,
@@ -727,13 +728,16 @@ pub async fn theme_css(
 ) -> Response {
     let incoming = incoming(&headers, peer);
     let theme = match site.client().siteinfo(&incoming).await {
-        Ok(si) => Theme::with_overrides(si.value.theme.as_ref()).with_chips(&si.value.providers),
+        Ok(si) => Theme::from_info(si.value.theme.as_ref()).with_chips(&si.value.providers),
         Err(e) => {
             eprintln!("triplespace-ui: the API is unavailable: {e}");
-            Theme::shipped().clone()
+            Theme::shipped()
         }
     };
-    let cache = if file == format!("{}.css", theme.hash()) {
+    let Some((css, current)) = theme.file(&file) else {
+        return (StatusCode::NOT_FOUND, "Not found\n").into_response();
+    };
+    let cache = if current {
         "public, max-age=31536000, immutable"
     } else {
         "public, max-age=60"
@@ -743,7 +747,7 @@ pub async fn theme_css(
             (header::CONTENT_TYPE, "text/css; charset=utf-8"),
             (header::CACHE_CONTROL, cache),
         ],
-        theme.css(),
+        css,
     )
         .into_response()
 }

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-17 (A7)
+- **Updated:** 2026-10-18 (A8)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [0039](0039-files-and-media.md)
 - **Uses:** [0023](0023-moderation.md), [0025](0025-oauth-server.md), [0026](0026-sitelinks.md), [0046](0046-primary-tenant.md)
@@ -57,7 +57,7 @@ James's direction, from the design discussion of 2026-09-30: an instance preroga
 
 ### 6. The written acts (amends 0028 §2, §5 and §8; amends 0030 §8; amends 0039 §9 and §10)
 
-*Changed by A7.*
+*Changed by A7, A8.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §8.6.*
 
@@ -225,3 +225,10 @@ Replaced text (§7, in [16](../architecture/16-logs-feeds-and-notifications.md) 
 Replaced text ([08](../architecture/08-tenants-and-instances.md) §8.6, as it stood):
 
 > | **Tenant creation** and template **provisions** (§5.3, `defaults`) | `config` records | No | |
+
+### A8. Keying a palette or type set
+
+- **Date:** 2026-10-18
+- **Source:** [0086](0086-theming.md) A1
+- **Change:** extends §6
+- **Summary:** A new written act: the instance renames a tenant's palette or type set to `{name}~{slug}` when the tenant joins, when the instance takes the name with `key=tenants`, or when `registry sync` adds it, rewriting the tenant's references in the same act. It is a provision, so the tenant may rename the record again; its authority is a job record in the instance `log` that lists the renames. The chapter row is [08](../architecture/08-tenants-and-instances.md) §8.6.

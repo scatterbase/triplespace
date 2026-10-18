@@ -350,6 +350,47 @@ async fn settings_pages_and_the_appearance_menu() {
             .contains("<a class=\"ts-header__site\" href=\"/wiki/Project:Home\">Library Base</a>")
     );
 
+    // The wiki's palette is chosen from the palettes it offers (0086 §4), and every
+    // page links its stylesheet.
+    assert!(
+        r.body
+            .contains("<option value=\"parchment-co\">parchment-co</option>")
+    );
+    let palette = form(&[
+        ("section", "site"),
+        ("base", &r.hidden("base")),
+        ("token", &r.hidden("token")),
+        ("keys", "theme.palette"),
+        ("v.theme.palette", "parchment-co"),
+        ("summary", "palette"),
+    ]);
+    let p = send(
+        &site,
+        "POST",
+        "/w/index.php?title=Special:WikiSettings",
+        c,
+        Some(palette),
+        &[],
+    )
+    .await;
+    assert_eq!(p.status, StatusCode::SEE_OTHER, "{}", p.body);
+    let anon = send(&site, "GET", "/wiki/Special:SpecialPages", None, None, &[]).await;
+    assert!(
+        anon.body
+            .contains("id=\"ts-palette\" href=\"/ui/theme/p-parchment-co-"),
+        "{}",
+        &anon.body[..900]
+    );
+    let r = send(
+        &site,
+        "GET",
+        "/wiki/Special:WikiSettings?saved=site",
+        c,
+        None,
+        &[],
+    )
+    .await;
+
     // A refused save: the page again, with the reason and what the reader typed.
     let token = r.hidden("token");
     let base = r.hidden("base");
@@ -483,17 +524,31 @@ async fn settings_pages_and_the_appearance_menu() {
     let page = send(&site, "GET", "/wiki/Special:Preferences", c, None, &[]).await;
     assert_eq!(page.status, StatusCode::OK);
     assert!(page.body.contains("id=\"appearance\""));
+    // A palette and a type set are chosen from what the wiki offers (0086 §4), the
+    // wiki's own as the empty choice.
     assert!(
-        !page.body.contains("ui.palette"),
-        "palettes wait for 0086's stylesheets"
+        page.body
+            .contains("<select class=\"cdx-select\" id=\"ts-p-ui.palette\" name=\"v.ui.palette\"")
+    );
+    assert!(page.body.contains(
+        "<option value=\"\" selected>Wiki default (Parchment, crimson and olive)</option>"
+    ));
+    assert!(
+        page.body
+            .contains("<option value=\"opendyslexic\">OpenDyslexic (accessibility)</option>")
     );
     let prefs = form(&[
         ("section", "appearance"),
         ("token", &page.hidden("token")),
-        ("keys", "ui.mode ui.contrast ui.text-size"),
+        (
+            "keys",
+            "ui.mode ui.contrast ui.text-size ui.palette ui.typeset",
+        ),
         ("v.ui.mode", "dark"),
         ("v.ui.contrast", "auto"),
         ("v.ui.text-size", "medium"),
+        ("v.ui.palette", "parchment-ob"),
+        ("v.ui.typeset", ""),
     ]);
     let r = send(
         &site,
@@ -519,12 +574,24 @@ async fn settings_pages_and_the_appearance_menu() {
         r.body
             .contains("data-appearance=\"account\" data-mode=\"dark\" data-text-size=\"medium\"")
     );
+    // The server links a signed-in reader's own palette, and the wiki's type set.
+    assert!(
+        r.body.contains(
+            "<link rel=\"stylesheet\" id=\"ts-palette\" href=\"/ui/theme/p-parchment-ob-"
+        )
+    );
+    assert!(
+        r.body
+            .contains("<link rel=\"stylesheet\" id=\"ts-typeset\" href=\"/ui/theme/t-default26-")
+    );
 
     // The Appearance menu without JavaScript: only from the site's own pages.
     let menu = form(&[
         ("returnto", "Special:RecentChanges"),
         ("ui.text-size", "large"),
         ("ui.mode", "dark"),
+        ("ui.palette", ""),
+        ("ui.typeset", "hyperlegible"),
     ]);
     let r = send(
         &site,
@@ -563,6 +630,24 @@ async fn settings_pages_and_the_appearance_menu() {
     assert_eq!(r.location(), "/wiki/Special:RecentChanges");
     let r = send(&site, "GET", "/wiki/Special:RecentChanges", c, None, &[]).await;
     assert!(r.body.contains("data-text-size=\"large\""));
+    assert!(
+        r.body
+            .contains("id=\"ts-palette\" href=\"/ui/theme/p-parchment-co-"),
+        "the empty choice resets to the wiki's"
+    );
+    assert!(
+        r.body
+            .contains("id=\"ts-typeset\" href=\"/ui/theme/t-hyperlegible-")
+    );
+    // The sheet the page names is served, cached as immutable.
+    let at = r.body.find("/ui/theme/t-hyperlegible-").unwrap();
+    let href = &r.body[at..at + r.body[at..].find('"').unwrap()];
+    let css = send(&site, "GET", href, None, None, &[]).await;
+    assert_eq!(css.status, StatusCode::OK);
+    assert!(
+        css.body
+            .contains("--font-family-base: 'Atkinson Hyperlegible'")
+    );
 
     // Restore all defaults.
     let page = send(&site, "GET", "/wiki/Special:Preferences", c, None, &[]).await;
