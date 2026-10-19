@@ -39,6 +39,8 @@ This directory is the registry of record for the names and codes that Triplespac
 
 ## Pending allocations
 
+- **Pages served at the auth base** ([0089](../decisions/0089-the-auth-host-and-instance-logins.md) §7): the field `auth = true` on `UserLogin`, `CreateAccount`, `Account` and `UserLogout` in `special-pages.toml`. Written as a comment beside each until `triplespace-titles` accepts it, since the parser rejects unknown fields.
+
 - **Commons as the source of Wikidata's `M` type** ([0065](../decisions/0065-mediainfo-captions-and-commons.md) §2, §5): the per-type fields `api`, `entity_data` and `dumps` on `[[provider.type]]`, pointing at `commons.wikimedia.org`. They are written as comments beside the `M` type in `providers.toml` until `scatter-providers` accepts them; the registry parser rejects unknown fields.
 
 - **English Wikipedia as a page provider** ([0052](../decisions/0052-page-repositories-and-title-inheritance.md) §1): slug `enwiki`, provider number 9, issuer `enwiki` (in `issuers.toml`), `pages = true`, no code and no types. The number is reserved here; the `[[provider]]` row is written once `scatter-providers` accepts an entry without a code.

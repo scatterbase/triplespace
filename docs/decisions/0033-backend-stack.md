@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-16 (A20)
+- **Updated:** 2026-10-18 (A21)
 - **Author:** James Hare / Claude
 - **Changes:** [0005](0005-crate-organization.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0034](0034-frontend-stack.md)
@@ -103,7 +103,7 @@ This ADR records the rest. The frontend is in 0034.
 
 ### 12. Configuration and CLI
 
-*Changed by A8, A10.*
+*Changed by A8, A10, A21.*
 
 *Current text: [23](../architecture/23-configuration-and-registry.md) §3.1, §3.6, §5.1.*
 
@@ -378,3 +378,10 @@ Replaced text ([22](../architecture/22-crates-and-stack.md) §4.3, as it stood):
 - **Source:** Direct: James, running the `entity-history` branch against an existing instance, 2026-10-16
 - **Change:** extends §4
 - **Summary:** Until now only `instance create` ran the migration runner, so a database an older binary created kept its schema while a newer binary read tables it did not have, and every such read answered an internal error. `triplespace migrate` applies the migrations the binary carries that `ops.migration` does not record, in build order, and prints each; `triplespace status` lists any that are pending; and `triplespace-server` checks `ops.migration` on startup and refuses to start, naming the pending migrations and the command, rather than serve errors. The runner gains `pending()` for both. A migration that adds a derived table the writes fill from then on (`0010_revision_state`) is followed by `triplespace rebuild` where the earlier rows are wanted ([0083](0083-write-path-in-three-tiers.md) A2); the runner does not rebuild on its own.
+
+### A21. `server.auth_base`
+
+- **Date:** 2026-10-18
+- **Source:** [0089](0089-the-auth-host-and-instance-logins.md) §1, §12
+- **Change:** extends §12
+- **Summary:** The deployment setting `server.auth_base` names the auth host, where a person authenticates to the instance. It is required once there is a second tenant, and is never a tenant base or the farm base; unset, the single tenant's base serves as the auth base. The chapter text is [23](../architecture/23-configuration-and-registry.md) §3.6.

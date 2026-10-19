@@ -36,6 +36,8 @@ pub enum Sequence {
     Job,
     /// Local user IDs (0007 §3), per tenant.
     User,
+    /// The tenant's surrogates, `actor:{n}` (0007 §5, A27).
+    ActorSurrogate,
 }
 
 /// A graph's current record for an entity: the version cursor of 0002 §8.4.
@@ -172,6 +174,16 @@ pub trait IngestStore: Backend {
         cx: &mut Self::Cx,
         partition: u64,
     ) -> impl Future<Output = Result<bool, IngestError>> + Send;
+
+    /// The surrogate actor key, `actor:{n}`, a tenant already minted for a raw value of a
+    /// surrogate kind (`anonymous`, `imported`), from its actor records (0007 §5, A27).
+    fn surrogate_actor(
+        &self,
+        cx: &mut Self::Cx,
+        tenant: &str,
+        kind: &str,
+        raw: &str,
+    ) -> impl Future<Output = Result<Option<String>, IngestError>> + Send;
 
     /// The sources of the tenant's earlier adoption jobs (`view.job` with mode `adopt`).
     fn adoption_sources(

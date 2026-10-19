@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-10-18 (A99)
+- **Updated:** 2026-10-18 (A100)
 - **Author:** James Hare / Claude Opus; revision by James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -42,7 +42,7 @@ Since this ADR was first written, twenty-six further ADRs have added crates, cha
 
 ### 2. Crate map
 
-*Changed by A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A27, A28, A29, A30, A31, A32, A33, A34, A35, A36, A37, A38, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A51, A52, A53, A54, A55, A57, A58, A59, A60, A61, A62, A63, A64, A65, A66, A67, A68, A69, A70, A71, A72, A73, A74, A75, A76, A77, A78, A79, A80, A84, A86, A87, A88, A89, A90, A91, A92, A93, A95, A96, A97, A98, A99.*
+*Changed by A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A27, A28, A29, A30, A31, A32, A33, A34, A35, A36, A37, A38, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A51, A52, A53, A54, A55, A57, A58, A59, A60, A61, A62, A63, A64, A65, A66, A67, A68, A69, A70, A71, A72, A73, A74, A75, A76, A77, A78, A79, A80, A84, A86, A87, A88, A89, A90, A91, A92, A93, A95, A96, A97, A98, A99, A100.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
@@ -977,3 +977,10 @@ Replaced text ([22](../architecture/22-crates-and-stack.md) §2.2, the end of th
 - **Source:** [0088](0088-external-identity-providers.md) §10
 - **Change:** extends §2
 - **Summary:** `triplespace-accounts` gains the OAuth client for login through external issuers: flows, PKCE and `state`, the exchange and profile call, subject normalization, `private.oauth_client` sealed under the instance sealing key, `private.binding`, and vouching with the `reclaim` record. `triplespace-api-action`, `triplespace-api-rest`, `triplespace-ui` and `triplespace-cli` (`oauth-client`) gain their parts; `scatter-actors` reads an issuer's `oauth` table. XChaCha20-Poly1305 (`chacha20poly1305`) joins the cryptography table. The chapter text is [22](../architecture/22-crates-and-stack.md) §2.1 and §4.4.
+
+### A100. The auth host and instance logins
+
+- **Date:** 2026-10-18
+- **Source:** [0089](0089-the-auth-host-and-instance-logins.md) §17
+- **Change:** extends §2
+- **Summary:** `triplespace-accounts` gains instance logins: their records and names, passwords and external bindings keyed by login, tenant and farm accounts' bindings to logins, the authorization route's handles and login codes, central sessions and logging out everywhere, and the migration. `triplespace-server` gains `server.auth_base` and the auth base's routes, and `triplespace-cli` `logins migrate`; `triplespace-api-action`, `triplespace-api-rest`, `triplespace-ui`, `triplespace-db` and `scatter-actors` gain their parts. The chapter text is [22](../architecture/22-crates-and-stack.md) §2.1.

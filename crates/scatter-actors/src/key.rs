@@ -9,7 +9,7 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
-use crate::issuer::{ActorModel, INSTANCE, IssuerRegistry, LOCAL};
+use crate::issuer::{ACTOR, ActorModel, INSTANCE, IssuerRegistry, LOCAL};
 
 /// An actor key.
 #[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -89,6 +89,18 @@ impl ActorKey {
         Self::numeric(LOCAL, id)
     }
 
+    /// `actor:{n}`: a surrogate the current tenant minted (0007 §5, A27).
+    #[must_use]
+    pub fn surrogate(n: u64) -> Self {
+        Self::numeric(ACTOR, n)
+    }
+
+    /// Whether the key is a surrogate, `actor:…`.
+    #[must_use]
+    pub fn is_surrogate(&self) -> bool {
+        self.issuer == ACTOR
+    }
+
     /// `instance:{farm slug}`: the instance as operator (0040 §2).
     #[must_use]
     pub fn instance(farm_slug: &str) -> Self {
@@ -98,14 +110,17 @@ impl ActorKey {
         }
     }
 
-    /// Checks the issuer is registered, or is `local`, or is one of `tenant_slugs`, and
-    /// that a numeric issuer's subject is a number.
+    /// Checks the issuer is registered, or is `local` or `actor`, or is one of
+    /// `tenant_slugs`, and that a numeric issuer's subject is a number.
     pub fn validate(
         &self,
         registry: &IssuerRegistry,
         tenant_slugs: &[&str],
     ) -> Result<(), ActorKeyError> {
-        let model = if self.issuer == LOCAL || tenant_slugs.contains(&self.issuer.as_str()) {
+        let model = if self.issuer == LOCAL
+            || self.issuer == ACTOR
+            || tenant_slugs.contains(&self.issuer.as_str())
+        {
             ActorModel::Numeric
         } else {
             registry

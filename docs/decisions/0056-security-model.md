@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-10-17 (A16)
+- **Updated:** 2026-10-18 (A17)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0021](0021-notifications.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md), [0033](0033-backend-stack.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0051](0051-page-redirects.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md), [0045](0045-table-content-model.md), [0046](0046-primary-tenant.md), [0047](0047-special-pages.md), [0049](0049-boards.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -41,7 +41,7 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 1. The invariant
 
-*Changed by A15.*
+*Changed by A15, A17.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §1.2, §1.3, §1.4, §3.4.*
 
@@ -87,7 +87,7 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 10. The deployment boundary (extends 0033 §12)
 
-*Changed by A1, A2, A3, A11.*
+*Changed by A1, A2, A3, A11, A17.*
 
 *Current text: [20](../architecture/20-web-tier.md) §5.1, §5.3, §5.4, §5.5.*
 
@@ -382,3 +382,22 @@ Replaced text ([09](../architecture/09-security-and-moderation.md) §4.7, as it 
 Replaced text ([19](../architecture/19-site-ui.md) §6.3, as it stood):
 
 > nothing else of the tenant is served, special pages included, except `Special:UserLogin`, the OAuth routes and `/.well-known/`.
+
+### A17. The auth host and the central session
+
+- **Date:** 2026-10-18
+- **Source:** [0089](0089-the-auth-host-and-instance-logins.md) §1, §5, §9, §12
+- **Change:** amends §1, §10
+- **Summary:** Sessions stay per host, and the auth host is a host with a session of its own, the central session, which holds an instance login. A tenant opens its own session from it only when the person presses **Log in** there, through a redirect and a one-time login code; nothing probes the auth host on a page view. Logging out everywhere, on the auth host, ends the central session and every tenant session it opened. The deployment boundary's registered hosts are the tenant bases, the farm base and the auth base, and `instance check` fails when the auth base is a tenant base or the farm base, or when two tenants have none. The chapter text is [09](../architecture/09-security-and-moderation.md) §1.4 and [20](../architecture/20-web-tier.md) §5.3.
+
+Replaced text ([20](../architecture/20-web-tier.md) §5.3, as it stood):
+
+> | 5 | The server rejects a request whose `Host` is not a registered tenant base or the farm base, with 421,
+
+Replaced text ([20](../architecture/20-web-tier.md) §5.3, as it stood):
+
+> | `pass`/`fail` by sending a request with an unregistered host, and one with a forged `X-Forwarded-For` from an untrusted address;
+
+Replaced text ([09](../architecture/09-security-and-moderation.md) §1.4, as it stood):
+
+> A session is per tenant host: a cookie for `librarybase.org` is nothing on `example.wiki`, and a farm issuer gives a person a login on each tenant, not a session across them.

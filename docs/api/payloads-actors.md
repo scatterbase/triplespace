@@ -12,13 +12,15 @@ Optional fields are left out when absent, never written as `null`.
 | `scatter:v0/actor` | `actors`, `actors/{provider}` | The actor key | [`ActorRecord`](#actor) |
 | `scatter:v0/link-account` | `actors` | The local actor key | [`AccountLink`](#link-account) |
 | `scatter:v0/reclaim` | `log` | The reclaimed account's actor key | [`Reclaim`](#reclaim) |
+| `scatter:v0/login` | instance `logins` | `login:{n}` | [`Login`](#login) |
 | `scatter:v0/membership` | `actors`, `actors/{farm}` | The actor key | [`Membership`](#membership) |
 | `scatter:v0/block` | `actors`, `actors/{farm}` | The actor key | [`Block`](#block) |
 | `scatter:v0/key` | `actors` | The actor key | [`KeyRecord`](#key) |
 | `scatter:v0/acl` | `config`, `log`, instance `log` | The target key `acl:{kind}:{id}` | [`Acl`](#acl), or `null` to retire |
 
 An actor key is `{issuer}:{subject}`: `local:42`, `librarybase:42` outside the tenant,
-`wikidatawiki:12345`, `instance:scatter`. It never contains a name (0007 §1).
+`wikidatawiki:12345`, `instance:scatter`, and `actor:7` for a surrogate the tenant minted
+(0007 §5). It never contains a name (0007 §1).
 
 ## actor
 
@@ -128,3 +130,11 @@ to the tenant `log`. A confidential restriction cannot be put on a `graph`, `rec
 ```
 
 The performer is the attestation's actor: the reclaimed account for `vouched`, the bureaucrat for `manual`.
+
+## Login
+
+`scatter:v0/login`, in the instance's private `logins` partition, keyed `login:{n}` ([0089](../decisions/0089-the-auth-host-and-instance-logins.md) §2). A later record replaces the name; an `erase` removes the login. A login is not an actor, and `login:{n}` is not an actor key: it is the subject of the built-in `login` issuer, which tenant and farm accounts bind to.
+
+```json
+{"name": "Jameshare"}
+```

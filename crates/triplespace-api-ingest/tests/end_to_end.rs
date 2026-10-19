@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 use ed25519_dalek::SigningKey;
 use scatter_actors::issuer::IssuerRegistry;
-use scatter_ingest::adopt::{Adopted, Adoption, Floors, run_adoption};
+use scatter_ingest::adopt::{Adopted, Adoption, Author, Floors, run_adoption};
 use scatter_ingest::{
     Attestation, IngestError, Request, SyncItem, run_batch, run_sync, write_operation,
 };
@@ -263,6 +263,8 @@ async fn adoption_batch_sync_and_edit_end_to_end() {
         version: "librarybase-20260928.json.gz".into(),
         adapter_version: Some("scatter-adapter-wikidata 0.0.1".into()),
         frozen: true,
+        history: false,
+        current_state_dump: false,
         floors: Floors {
             entity: BTreeMap::from([("item".to_string(), 1000), ("property".to_string(), 50)]),
             page: 2000,
@@ -274,31 +276,31 @@ async fn adoption_batch_sync_and_edit_end_to_end() {
         property_types: BTreeMap::new(),
     };
     let items = vec![
-        Adopted {
-            entity: entity(item(
+        Adopted::current(
+            entity(item(
                 "Q6",
                 "Six",
                 &json!({"P356": [string_statement("P356", "10.1/known", "external-id", "Q6$00000000-0000-0000-0000-000000000001")]}),
             )),
-            source_revid: 41_877,
-            source_time: "2026-09-20T14:02:11Z".into(),
-            source_pageid: 12,
-        },
-        Adopted {
-            entity: entity(item("Q8", "Eight", &json!({}))),
-            source_revid: 42_000,
-            source_time: "2026-09-21T00:00:00Z".into(),
-            source_pageid: 13,
-        },
-        Adopted {
-            entity: entity(
+            41_877,
+            "2026-09-20T14:02:11Z",
+            12,
+        ),
+        Adopted::current(
+            entity(item("Q8", "Eight", &json!({}))),
+            42_000,
+            "2026-09-21T00:00:00Z",
+            13,
+        ),
+        Adopted::current(
+            entity(
                 json!({"type": "property", "id": "P356", "datatype": "external-id",
                 "labels": {"en": {"language": "en", "value": "DOI"}}, "claims": {}}),
             ),
-            source_revid: 903,
-            source_time: "2024-01-03T09:15:40Z".into(),
-            source_pageid: 40,
-        },
+            903,
+            "2024-01-03T09:15:40Z",
+            40,
+        ),
     ];
     let out = run_adoption(
         &store,
@@ -351,16 +353,18 @@ async fn adoption_batch_sync_and_edit_end_to_end() {
             version: "librarybase-20260928.json.gz".into(),
             adapter_version: None,
             frozen: true,
+            history: false,
+            current_state_dump: false,
             floors: Floors::default(),
             accounts: vec![],
             property_types: BTreeMap::new(),
         },
-        vec![Adopted {
-            entity: entity(item("Q8", "Eight", &json!({}))),
-            source_revid: 42_000,
-            source_time: "2026-09-21T00:00:00Z".into(),
-            source_pageid: 13,
-        }],
+        vec![Adopted::current(
+            entity(item("Q8", "Eight", &json!({}))),
+            42_000,
+            "2026-09-21T00:00:00Z",
+            13,
+        )],
         registry,
         NOW + 1,
         2,
@@ -664,5 +668,160 @@ async fn adoption_batch_sync_and_edit_end_to_end() {
     let after = rows(&client, "SELECT (tenant, id, type, page_id, surrogate, resolved_kind, convert_from(resolved, 'UTF8'))::text FROM view.entity").await;
     assert_eq!(before, after);
     assert_eq!(keyed_before, rows(&client, keyed_map).await);
+    cleanup().await;
+}
+
+/// One revision of a history adoption (0035 A12).
+fn revision(id: &str, revid: u64, parent: Option<u64>, time: &str, author: Author) -> Adopted {
+    Adopted {
+        id: EntityId::parse(id).unwrap(),
+        entity: Some(entity(item(id, &format!("{id} at {revid}"), &json!({})))),
+        redirect: None,
+        source_revid: revid,
+        source_parentid: parent,
+        source_time: time.into(),
+        source_pageid: if id == "Q6" { 12 } else { 13 },
+        minor: false,
+        withheld: Vec::new(),
+        comment: Some(format!("edit {revid}")),
+        author,
+    }
+}
+
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn a_history_adoption_over_postgres() {
+    if skipped() {
+        return;
+    }
+    let (client, backend) = fresh().await;
+    let client = seed(client).await;
+    let store = PgIngest::new(backend);
+    let p = pipeline();
+    let registry = Registry::default_registry();
+    let log_store = PgLog::new(client);
+    p.catch_up(&store, &log_store, CONFIG_PARTITION, 10)
+        .await
+        .unwrap();
+    let client = log_store.into_inner();
+
+    let ip = || Author::Surrogate {
+        kind: "anonymous".into(),
+        raw: "192.0.2.1".into(),
+    };
+    let mut hidden = revision("Q6", 41_500, Some(41_000), "2026-09-10T00:00:00Z", ip());
+    hidden.comment = None;
+    hidden.withheld = vec!["comment".into()];
+    hidden.minor = true;
+    let mut merged = revision(
+        "Q7",
+        44_000,
+        Some(43_000),
+        "2026-09-21T00:00:00Z",
+        Author::Hidden,
+    );
+    merged.entity = None;
+    merged.redirect = Some(EntityId::parse("Q6").unwrap());
+    merged.withheld = vec!["attestation".into()];
+    let history = vec![
+        revision(
+            "Q6",
+            41_000,
+            None,
+            "2026-09-01T00:00:00Z",
+            Author::Actor("librarybase:7".into()),
+        ),
+        hidden,
+        revision("Q6", 41_877, Some(41_500), "2026-09-20T14:02:11Z", ip()),
+        revision(
+            "Q7",
+            43_000,
+            None,
+            "2026-09-02T00:00:00Z",
+            Author::Actor("librarybase:7".into()),
+        ),
+        merged,
+    ];
+    let adoption = Adoption {
+        source: "https://librarybase.org/".into(),
+        version: "librarybase-20261019-history.xml.gz".into(),
+        adapter_version: None,
+        frozen: true,
+        history: true,
+        current_state_dump: false,
+        floors: Floors {
+            entity: BTreeMap::from([("item".to_string(), 1000)]),
+            page: 2000,
+            revision: 50_000,
+            log: 700,
+            user: 40,
+        },
+        accounts: vec![account("librarybase:7", "Editor")],
+        property_types: BTreeMap::new(),
+    };
+    let out = run_adoption(
+        &store,
+        &p,
+        TENANT,
+        Attestation::by("librarybase:2"),
+        adoption.clone(),
+        history.clone(),
+        registry,
+        NOW,
+        2,
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        (out.counts.adopted, out.counts.rejected),
+        (5, 0),
+        "{:?}",
+        out.rejects
+    );
+    // The current state is the source's newest revision, under its own ID; the merged
+    // item has no state of its own.
+    assert_eq!(
+        rows(&client, "SELECT id || '|' || page_id::text || '|' || local_revid::text FROM view.entity WHERE tenant = 'librarybase'").await,
+        vec!["Q6|12|41877"]
+    );
+    // Each revision is an activity row at its source time, under its author.
+    assert_eq!(
+        rows(&client, "SELECT revid::text || '|' || to_char(time AT TIME ZONE 'UTC', 'YYYY-MM-DD') || '|' || coalesce(actor_key, '-') || '|' || coalesce(comment, '-') || '|' || new::text || '|' || minor::text || '|' || bot::text || '|' || visibility::text FROM view.activity WHERE tenant = 'librarybase' AND kind = 'edit' ORDER BY revid").await,
+        vec![
+            "41000|2026-09-01|librarybase:7|edit 41000|true|false|true|0",
+            "41500|2026-09-10|actor:1|-|false|true|true|10",
+            "41877|2026-09-20|actor:1|edit 41877|false|false|true|0",
+            "43000|2026-09-02|librarybase:7|edit 43000|true|false|true|0",
+            "44000|2026-09-21|-|edit 44000|false|false|true|12",
+        ]
+    );
+    // The IP is one surrogate, `actor:1`, with its IRI under the tenant's base.
+    assert_eq!(
+        rows(&client, "SELECT actor_key || '|' || kind || '|' || raw || '|' || iri FROM view.actor WHERE tenant = 'librarybase' AND issuer = 'actor'").await,
+        vec!["actor:1|anonymous|192.0.2.1|https://librarybase.org/actor/1"]
+    );
+    // A re-run changes nothing.
+    let again = run_adoption(
+        &store,
+        &p,
+        TENANT,
+        Attestation::by("librarybase:2"),
+        adoption,
+        history,
+        registry,
+        NOW + 1,
+        10,
+    )
+    .await
+    .unwrap();
+    assert_eq!((again.counts.adopted, again.counts.unchanged), (0, 5));
+    assert_eq!(
+        count(
+            &client,
+            "SELECT count(*) FROM log.record WHERE partition = 12289"
+        )
+        .await,
+        5
+    );
     cleanup().await;
 }

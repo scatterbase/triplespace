@@ -18,14 +18,15 @@ version = 1
 # Every tenant is an issuer (0018 §4): its code is its slug, its actor model is numeric and its IRI
 # template is {tenant base}/user/{id}. Tenant issuers are declared by `tenant` records in the
 # instance config, not here; this entry is the template they follow. `local` in the ADRs means
-# the current tenant's issuer.
+# the current tenant's issuer, and `actor` its surrogates, `actor:{n}` with the IRI
+# {tenant base}/actor/{n} (0007 §5); neither is ever a registered code.
 [[issuer]]
 code = "{tenant}"
 template = true
 name = "A tenant of this instance"
 actor_model = "numeric"
 iri = "{tenant base}/user/{id}"
-login = false                 # tenant accounts are the target of login; a farm may register itself as a provider
+login = false                 # tenant accounts are the target of login: each binds to an instance login (0089 §4)
 
 # The farm as an issuer (0028 §2): present when the tenancy policy's identity.farm_issuer is not
 # "none". Its code is the farm code, derived from the instance's founding record (0079 §4); its accounts are public actors that edit nothing and are
@@ -37,19 +38,33 @@ template = true
 name = "This farm"
 actor_model = "numeric"
 iri = "{farm base}/instance/user/{id}"   # 0046 §7
-login = true                  # a farm account binds to identity providers like any account (0007 §3)
+login = true                  # tenant accounts bind to the farm subject under shared names; a farm account binds to an instance login (0089 §13)
 
-# The built-in password issuer (0007 §3, as amended 2026-09-27): the one issuer the instance
-# itself operates. Its subjects are the tenant's own user IDs, so the binding for local:42 is
-# (password, 42); the hash lives in private.password (0013 §4). Present on every instance; whether
-# it accepts logins is the site setting `login.password` (off by default on instances that
-# register an external provider; `instance create` turns it on for the first administrator).
+# The built-in password issuer (0007 §3; 0089 §3): a sign-in method of an instance login. Its
+# subjects are login IDs, so a login's password is the binding (password, 17) -> login:17; the
+# hash lives in private.password, keyed by login (0013 §4). Present on every instance; whether
+# the auth host offers it is the instance default of the site setting `login.password`, and
+# whether a tenant admits a login authenticated by it is the tenant's value.
 # It is never an issuer of actors: nothing is ever attributed to it.
 [[issuer]]
 code = "password"
 name = "Password on this instance"
 actor_model = "numeric"
-# No IRI: a password subject is the tenant account itself, whose IRI is the tenant's.
+# No IRI: a password subject is a login, which is never published.
+login = true
+providers = []
+builtin = true
+
+# Instance logins (0089 §2): how a person authenticates to the instance, on the auth host. Its
+# subjects are login IDs; a tenant account's binding to its login is (login, 17), and a farm
+# account's the same. A login is authenticated by its own bindings: a password and external
+# identities. Never an issuer of actors, never published; the code is reserved in the shared
+# namespace of slugs and issuer codes.
+[[issuer]]
+code = "login"
+name = "Login on this instance"
+actor_model = "numeric"
+# No IRI: login IDs are never published.
 login = true
 providers = []
 builtin = true

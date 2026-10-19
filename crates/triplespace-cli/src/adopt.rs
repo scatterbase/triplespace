@@ -1,6 +1,7 @@
-//! `triplespace adopt` (0035): a frozen Wikibase's MediaWiki XML dump becomes the tenant's
-//! `local` graph. Two passes over the dump: a survey for the floors and the accounts, then
-//! the adoption job itself.
+//! `triplespace adopt` (0035): a frozen Wikibase's full-history MediaWiki XML dump becomes
+//! the tenant's `local` graph, revision by revision (A12), or, with `--current-only`, as
+//! each entity's newest revision. Two passes over the dump: a survey for the floors, the
+//! accounts and whether the dump carries history, then the adoption job itself.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -9,9 +10,11 @@ use anyhow::{Context, Result, bail};
 use clap::Args;
 use scatter_actors::actor::ActorRecord;
 use scatter_actors::key::ActorKey;
-use scatter_adapter_wikidata::adoption::{Survey, adopt_page};
+use scatter_adapter_wikidata::adoption::{
+    AdoptedRevision, Contributor, Survey, adopt_history, adopt_page,
+};
 use scatter_adapter_wikidata::xml_dump::XmlDump;
-use scatter_ingest::adopt::{Adopted, Adoption, Floors, run_adoption};
+use scatter_ingest::adopt::{Adopted, Adoption, Author, Floors, run_adoption};
 use scatter_ingest::write::Attestation;
 use scatter_providers::Registry;
 use scatter_wikibase_model::id::EntityId;
@@ -29,9 +32,14 @@ pub struct Adopt {
     /// The tenant slug.
     #[arg(long)]
     pub tenant: String,
-    /// The MediaWiki XML dump of the frozen source (`.xml`, `.xml.gz`, `.xml.bz2`).
+    /// The MediaWiki XML dump of the frozen source (`.xml`, `.xml.gz`, `.xml.bz2`): a
+    /// full-history export (`dumpBackup.php --full`) unless `--current-only`.
     #[arg(long)]
     pub dump: PathBuf,
+    /// Adopt each entity's newest revision only, under a fresh revision ID, leaving the
+    /// history to a later backfill (0035 §7, A12).
+    #[arg(long)]
+    pub current_only: bool,
     /// The source's base URL, `https://librarybase.org/`.
     #[arg(long)]
     pub source: String,
@@ -54,7 +62,7 @@ pub struct Adopt {
     /// The subsidiary running the job, `librarybase:2`; the owner's own key by default.
     #[arg(long)]
     pub subsidiary: Option<String>,
-    /// Entities per unit of work.
+    /// Revisions per unit of work.
     #[arg(long, default_value_t = 200)]
     pub batch: usize,
     /// Skip the source's accounts.
@@ -116,6 +124,15 @@ pub async fn run(args: Adopt) -> Result<()> {
         survey.max_page_id,
         survey.max_revid
     );
+    eprintln!(
+        "  {} revisions, {} pages with more than one, {} with revisions deleted on the source; {} other pages",
+        survey.revisions, survey.pages_with_history, survey.history_gaps, survey.other_pages
+    );
+    if !args.current_only && survey.current_state_dump() {
+        bail!(
+            "the dump is a current-state export: every page has one revision while revisions name parents. Take a full-history dump (dumpBackup.php --full), or pass --current-only (0035 §2, §7)"
+        );
+    }
     let mut floors = Floors {
         entity: survey.max_entity.clone(),
         page: survey.max_page_id,
@@ -198,6 +215,8 @@ pub async fn run(args: Adopt) -> Result<()> {
             env!("CARGO_PKG_VERSION")
         )),
         frozen: true,
+        history: !args.current_only,
+        current_state_dump: survey.current_state_dump(),
         floors,
         accounts,
         property_types: survey.property_types.clone(),
@@ -211,38 +230,63 @@ pub async fn run(args: Adopt) -> Result<()> {
     // Pass 2: the job.
     let (store, pipeline) = store(&args.database, &farm)?;
     let mut read_errors = 0u64;
+    let mut unreadable_revisions = 0u64;
     let mut seen = 0u64;
     let mut untyped: BTreeMap<EntityId, u64> = BTreeMap::new();
-    let entities = XmlDump::open(&args.dump)
+    let tenant = args.tenant.clone();
+    let current_only = args.current_only;
+    let revisions = XmlDump::open(&args.dump)
         .context("open dump")?
-        .filter_map(|page| match page {
-            Ok(page) => match adopt_page(&page, &sources, registry, &survey.property_types) {
-                Ok(Some(a)) => {
-                    seen += 1;
-                    for (p, n) in &a.untyped_snaks {
-                        *untyped.entry(p.clone()).or_default() += n;
-                    }
-                    if seen.is_multiple_of(10_000) {
-                        eprintln!("  {seen} entities adopted");
-                    }
-                    Some(Adopted {
-                        entity: a.entity,
-                        source_revid: a.source_revid,
-                        source_time: a.source_time,
-                        source_pageid: a.source_pageid,
-                    })
+        .flat_map(|page| {
+            let page = match page {
+                Ok(page) => page,
+                Err(e) => {
+                    read_errors += 1;
+                    eprintln!("dump error: {e}");
+                    return Vec::new();
                 }
-                Ok(None) => None,
+            };
+            let read = if current_only {
+                adopt_page(&page, &sources, registry, &survey.property_types)
+                    .map(|a| a.into_iter().collect::<Vec<_>>())
+            } else {
+                adopt_history(&page, &sources, registry, &survey.property_types).map(|a| {
+                    a.map(|a| {
+                        for (revid, why) in &a.unreadable {
+                            unreadable_revisions += 1;
+                            eprintln!(
+                                "skipping revision {revid} of page {} (`{}`): {why}",
+                                page.id, page.title
+                            );
+                        }
+                        a.revisions
+                    })
+                    .unwrap_or_default()
+                })
+            };
+            match read {
+                Ok(revisions) => {
+                    if !revisions.is_empty() {
+                        seen += 1;
+                        if seen.is_multiple_of(10_000) {
+                            eprintln!("  {seen} entities read");
+                        }
+                    }
+                    revisions
+                        .into_iter()
+                        .map(|a| {
+                            for (p, n) in &a.untyped_snaks {
+                                *untyped.entry(p.clone()).or_default() += n;
+                            }
+                            adopted(a, &tenant, current_only)
+                        })
+                        .collect()
+                }
                 Err(e) => {
                     read_errors += 1;
                     eprintln!("skipping page {} (`{}`): {e}", page.id, page.title);
-                    None
+                    Vec::new()
                 }
-            },
-            Err(e) => {
-                read_errors += 1;
-                eprintln!("dump error: {e}");
-                None
             }
         });
     let outcome = run_adoption(
@@ -251,20 +295,40 @@ pub async fn run(args: Adopt) -> Result<()> {
         &args.tenant,
         Attestation::by(&actor),
         adoption,
-        entities,
+        revisions,
         registry,
         t,
         args.batch.max(1),
     )
     .await
     .context("adoption")?;
-    println!("adoption job {} finished", outcome.job_id);
-    println!("  adopted    {}", outcome.counts.adopted);
+    println!(
+        "adoption job {} finished ({})",
+        outcome.job_id,
+        if args.current_only {
+            "current state only"
+        } else {
+            "full history"
+        }
+    );
+    println!(
+        "  adopted    {} revisions of {seen} entities",
+        outcome.counts.adopted
+    );
     println!("  unchanged  {}", outcome.counts.unchanged);
     println!("  rejected   {}", outcome.counts.rejected);
     println!("  accounts   {}", outcome.accounts);
     if read_errors > 0 {
-        println!("  unreadable {read_errors} (see stderr)");
+        println!("  unreadable {read_errors} pages (see stderr)");
+    }
+    if unreadable_revisions > 0 {
+        println!("  unreadable {unreadable_revisions} revisions (see stderr)");
+    }
+    if survey.other_pages > 0 {
+        println!(
+            "  deferred   {} pages outside the entity namespaces, for the page import (0035 A13)",
+            survey.other_pages
+        );
     }
     if !untyped.is_empty() {
         let total: u64 = untyped.values().sum();
@@ -279,4 +343,37 @@ pub async fn run(args: Adopt) -> Result<()> {
         println!("  reject #{}: {}", r.line, r.reason);
     }
     Ok(())
+}
+
+/// The job's form of an adapted revision: under `--current-only` the job's own revision
+/// (0035 §3), otherwise the source's, attributed to its author (A12).
+fn adopted(a: AdoptedRevision, tenant: &str, current_only: bool) -> Adopted {
+    if current_only && let Some(entity) = a.entity {
+        return Adopted::current(entity, a.source_revid, &a.source_time, a.source_pageid);
+    }
+    let author = match a.contributor {
+        Contributor::Account(id) => Author::Actor(ActorKey::numeric(tenant, id).to_string()),
+        Contributor::Ip(ip) => Author::Surrogate {
+            kind: "anonymous".into(),
+            raw: ip,
+        },
+        Contributor::Imported(name) => Author::Surrogate {
+            kind: "imported".into(),
+            raw: name,
+        },
+        Contributor::Hidden => Author::Hidden,
+    };
+    Adopted {
+        id: a.id,
+        entity: a.entity,
+        redirect: a.redirect,
+        source_revid: a.source_revid,
+        source_parentid: a.source_parentid,
+        source_time: a.source_time,
+        source_pageid: a.source_pageid,
+        minor: a.minor,
+        withheld: a.withheld,
+        comment: a.comment,
+        author,
+    }
 }

@@ -80,7 +80,7 @@ This chapter describes the pages in the `Special` namespace: the registry that l
 
 ### 1.3 Where a page is served
 
-*Sources: [0047](../decisions/0047-special-pages.md) §3; [0085](../decisions/0085-settings-and-preferences.md) §4.*
+*Sources: [0047](../decisions/0047-special-pages.md) §3; [0085](../decisions/0085-settings-and-preferences.md) §4; [0089](../decisions/0089-the-auth-host-and-instance-logins.md) §7.*
 
 **A page is served where its subject lives.**
 
@@ -102,6 +102,8 @@ A `farm` page requested at a tenant base is redirected to the farm base. `Specia
 **Where the farm base is also a tenant's base**, the two sets of pages share a host. That is always so on a single-tenant instance, and it may be so on a farm ([0046](../decisions/0046-primary-tenant.md) §7). Names are unique in the registry, so nothing collides.
 
 A `both` page at such a host shows both forms together, with a `scope=tenant|instance` filter that defaults to both. 0046 §7 says special pages "keep their paths". This is how two pages keep one path.
+
+**The auth base** ([0089](../decisions/0089-the-auth-host-and-instance-logins.md) §1, §7; [07](07-actors-and-accounts.md) §2.8) serves only the pages the registry marks `auth = true`: `UserLogin`, `CreateAccount`, `Account` and `UserLogout`, each in its auth form, acting on the instance login; every other page is a 404 there. Each is also a `tenant` page, in its tenant form, and on a single-tenant instance without an auth host the tenant's base is the auth base and serves both forms as one.
 
 ## 2. Reports
 

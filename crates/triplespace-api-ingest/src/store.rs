@@ -36,6 +36,7 @@ fn sequence(s: &Sequence) -> sequences::Sequence {
         Sequence::Surrogate(t) => sequences::Sequence::Surrogate(t.clone()),
         Sequence::Job => sequences::Sequence::Job,
         Sequence::User => sequences::Sequence::User,
+        Sequence::ActorSurrogate => sequences::Sequence::ActorSurrogate,
     }
 }
 
@@ -258,6 +259,10 @@ impl IngestStore for PgIngest {
         tenant: &str,
         seq: &Sequence,
     ) -> Result<u64, IngestError> {
+        if *seq == Sequence::ActorSurrogate {
+            // Added after tenants existed (0007 A27): made on first use.
+            sequences::ensure(cx, tenant, &sequence(seq)).await?;
+        }
         Ok(sequences::next(cx, tenant, &sequence(seq)).await?)
     }
 
@@ -430,6 +435,25 @@ impl IngestStore for PgIngest {
             .await
             .map_err(store)?;
         Ok(row.get(0))
+    }
+
+    async fn surrogate_actor(
+        &self,
+        cx: &mut PgCx,
+        tenant: &str,
+        kind: &str,
+        raw: &str,
+    ) -> Result<Option<String>, IngestError> {
+        let row = cx
+            .query_opt(
+                "SELECT actor_key FROM view.actor
+                 WHERE tenant = $1 AND issuer = 'actor' AND kind = $2 AND raw = $3
+                 ORDER BY \"offset\" LIMIT 1",
+                &[&tenant, &kind, &raw],
+            )
+            .await
+            .map_err(store)?;
+        Ok(row.map(|r| r.get(0)))
     }
 
     async fn adoption_sources(

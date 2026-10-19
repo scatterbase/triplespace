@@ -663,8 +663,8 @@ type = "string-list"
 values = "issuer codes with `login = true` and an `oauth` table, or `*` for every one"
 default = ["*"]
 default_text = "`*`, every such issuer with a client credential"
-meaning = "The external issuers the tenant offers for login, of those with a client credential ([07](07-actors-and-accounts.md) §2.7); a save leaving no way to log in is refused"
-source = "[0088](../decisions/0088-external-identity-providers.md) §4"
+meaning = "The external issuers whose logins the tenant admits, of those with a client credential; the instance default is what the auth host offers ([07](07-actors-and-accounts.md) §2.7, §2.8). A save leaving a tenant admitting nothing the auth host offers is refused"
+source = "[0088](../decisions/0088-external-identity-providers.md) §4; [0089](../decisions/0089-the-auth-host-and-instance-logins.md) §10, §16"
 reported = true
 
 [[setting]]
@@ -675,8 +675,8 @@ group = "accounts"
 type = "boolean"
 no_default = true
 default_text = "on, set by `instance create`"
-meaning = "Whether the built-in `password` issuer accepts logins"
-source = "[0007](../decisions/0007-actor-identity.md) §3"
+meaning = "Whether the tenant admits a login authenticated by its password; the instance default is whether the auth host offers passwords ([07](07-actors-and-accounts.md) §2.2)"
+source = "[0007](../decisions/0007-actor-identity.md) §3; [0089](../decisions/0089-the-auth-host-and-instance-logins.md) §16"
 
 [[setting]]
 key = "lua.client_site"

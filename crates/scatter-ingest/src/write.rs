@@ -30,12 +30,15 @@ pub const PAYLOAD_KEYED_SURROGATE: &str = "scatter:v0/keyed-surrogate";
 /// Who is responsible for a record (payloads.md §2.3).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Attestation {
-    /// The actor key, `local:42`.
+    /// The actor key, `local:42`; ignored when `hidden`.
     pub actor: String,
     /// The job whose run writes the record.
     pub job: Option<u64>,
     /// Change tags.
     pub tags: Vec<String>,
+    /// The actor is unknown because the source hid it: the part names no actor and
+    /// carries the `hidden` marker instead (0007 §5; 0035 A14).
+    pub hidden: bool,
 }
 
 impl Attestation {
@@ -46,6 +49,17 @@ impl Attestation {
             actor: actor.to_string(),
             job: None,
             tags: Vec::new(),
+            hidden: false,
+        }
+    }
+
+    /// The same attestation with another actor, or none and the `hidden` marker.
+    #[must_use]
+    pub fn as_actor(&self, actor: Option<&str>) -> Self {
+        Self {
+            actor: actor.unwrap_or_default().to_string(),
+            hidden: actor.is_none(),
+            ..self.clone()
         }
     }
 
@@ -61,7 +75,11 @@ impl Attestation {
     /// The attestation part's value.
     #[must_use]
     pub fn to_value(&self) -> Value {
-        let mut pairs = vec![(Value::text("actor"), Value::text(&self.actor))];
+        let mut pairs = if self.hidden {
+            vec![(Value::text("hidden"), Value::Bool(true))]
+        } else {
+            vec![(Value::text("actor"), Value::text(&self.actor))]
+        };
         if let Some(j) = self.job {
             pairs.push((Value::text("job"), Value::Int(i128::from(j))));
         }
@@ -90,6 +108,9 @@ pub struct Request {
     pub now: u64,
     /// The inline fan-out budget.
     pub budget: Budget,
+    /// A revision ID the caller supplies in place of the tenant's sequence: an adopted
+    /// revision's own, below the floor (0035 §3, A12).
+    pub revid: Option<u64>,
 }
 
 impl Request {
@@ -103,6 +124,7 @@ impl Request {
             base_offset: None,
             now,
             budget: Budget::default(),
+            revid: None,
         }
     }
 }
@@ -319,7 +341,10 @@ pub async fn write_to<S: IngestStore>(
                 None => None,
             }
         }
-        Graph::Local | Graph::Pages => Some(store.next_id(cx, owner, &Sequence::Revision).await?),
+        Graph::Local | Graph::Pages => match request.revid {
+            Some(n) => Some(n),
+            None => Some(store.next_id(cx, owner, &Sequence::Revision).await?),
+        },
     };
     // Local statements without a GUID get one here, as Wikibase assigns them on save;
     // deterministic, so the same statement re-added gets the same ID (0002 §8.4).
@@ -363,7 +388,11 @@ pub fn with_statement_ids(op: &Operation, subject: &Subject) -> Operation {
         }
     };
     match &mut op {
-        Operation::Create { entity, .. } | Operation::Adopt { entity, .. } => {
+        Operation::Create { entity, .. }
+        | Operation::Adopt {
+            entity: Some(entity),
+            ..
+        } => {
             for group in entity.statements.values_mut() {
                 fill(group, subject);
             }

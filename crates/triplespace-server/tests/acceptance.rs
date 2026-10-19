@@ -197,6 +197,7 @@ async fn a_bot_logs_in_reads_and_edits() {
         source: format!("https://{HOST}/"),
         version: Some("test".into()),
         frozen: true,
+        current_only: false,
         counters: Some("item=6,property=12".into()),
         log_floor: 0,
         entity_sources: vec![],
@@ -363,7 +364,10 @@ async fn a_bot_logs_in_reads_and_edits() {
     assert_eq!(q6["title"], "Item:Q6");
     assert_eq!(q6["pageid"], 12);
     let first_revid = q6["lastrevid"].as_u64().unwrap();
-    assert!(first_revid > 41_877, "fresh IDs above the floor (0035 §3)");
+    assert_eq!(
+        first_revid, 41_877,
+        "the source's own revision ID (0035 A12)"
+    );
     let wp = &r["entities"]["domain:wikipedia.org"];
     assert_eq!(wp["type"], "domain");
     assert_eq!(wp["title"], "Domain:wikipedia.org");

@@ -1,5 +1,6 @@
 //! The ID sequences of 0013 §6: per tenant, `revision_id`, `log_id`, `page_id`, `user_id`
-//! (0007 §3) and one per minted entity type (`item_id`, `property_id`, …); for the
+//! (0007 §3), `actor_surrogate` (0007 A27) and one per minted entity type (`item_id`,
+//! `property_id`, …); for the
 //! instance, under the reserved tenant name `instance`, `job_id` (0011 §6.3), `log_id`
 //! and `page_id` for the instance partitions, and one surrogate counter per keyed type
 //! (`domain_surrogate`, 0009 §7). Each is a Postgres sequence named
@@ -26,6 +27,8 @@ pub enum Sequence {
     Entity(String),
     /// Local user IDs (0007 §3).
     User,
+    /// The tenant's surrogates, `actor:{n}` (0007 §5, A27).
+    ActorSurrogate,
     /// Job IDs (0011 §6.3); instance only.
     Job,
     /// A keyed type's surrogate counter (0009 §7); instance only.
@@ -43,6 +46,7 @@ impl Sequence {
             Self::Page => "page_id".into(),
             Self::Entity(t) => format!("{t}_id"),
             Self::User => "user_id".into(),
+            Self::ActorSurrogate => "actor_surrogate".into(),
             Self::Job => "job_id".into(),
             Self::Surrogate(t) => format!("{t}_surrogate"),
         }
@@ -84,6 +88,7 @@ pub async fn create<C: PgClient>(
         Sequence::Log,
         Sequence::Page,
         Sequence::User,
+        Sequence::ActorSurrogate,
     ];
     seqs.extend(
         entity_types
@@ -126,6 +131,16 @@ async fn create_all<C: PgClient>(
         .batch_execute(&sql)
         .await
         .map_err(|e| storage_error(&e))
+}
+
+/// Creates one sequence of a tenant if it does not exist: for a sequence added after the
+/// tenant was created, such as `actor_surrogate` (0007 A27).
+pub async fn ensure<C: PgClient>(
+    client: &C,
+    tenant: &str,
+    seq: &Sequence,
+) -> Result<(), StoreError> {
+    create_all(client, tenant, std::slice::from_ref(seq)).await
 }
 
 /// The next value of a sequence.

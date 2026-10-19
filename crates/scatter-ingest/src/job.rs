@@ -46,7 +46,7 @@ pub struct Counts {
     pub unchanged: u64,
     /// Operations rejected.
     pub rejected: u64,
-    /// Entities adopted (0035).
+    /// Revisions adopted (0035 A12): one per entity under `--current-only`.
     #[serde(default, skip_serializing_if = "is_zero")]
     pub adopted: u64,
     /// Entities tombstoned, by a `tombstone` or the `snapshot` sweep.

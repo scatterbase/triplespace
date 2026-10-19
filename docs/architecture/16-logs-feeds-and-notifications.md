@@ -168,6 +168,8 @@ Most local actions already have a record elsewhere: an erase record in its targe
 
 An adoption job's record ([0035](../decisions/0035-adopting-a-wikibase.md) §2) projects as `job/start` and `job/finish` like any job; the provenance an adopted entity's first record carries is in §2.3 and in [05](05-providers-and-ingest.md).
 
+**An adopted revision is an activity row at its source time,** not at the time of the job: an `edit` attributed to its author, with its own summary and minor flag, the `bot` flag, and the `job:{id}` and `adopt` tags; `new` is set on a page's first revision only ([05](05-providers-and-ingest.md) §7.3). Sorted by source time, the rows stand in the past, so recent changes shows an adoption as its job row and, within `rc.max_age`, the source's own last edits, and no addressing rule (§5.2) delivers an adopted row. A row whose parts the source hid carries the visibility bits of [09](09-security-and-moderation.md) §6.3.
+
 ### 2.3 The log-event catalogue
 
 *Sources: [0011](../decisions/0011-logs.md) §6.1, §7; [0019](../decisions/0019-discussions.md) §7; [0023](../decisions/0023-moderation.md) §3; [0025](../decisions/0025-oauth-server.md) §5; [0030](../decisions/0030-edit-filters.md) §5; [0035](../decisions/0035-adopting-a-wikibase.md) §6; [0039](../decisions/0039-files-and-media.md) §16; [0040](../decisions/0040-instance-prerogatives.md) §7; [0049](../decisions/0049-boards.md) §9; [0051](../decisions/0051-page-redirects.md) §5; [0054](../decisions/0054-forking-a-mirrored-page.md) §1; [0061](../decisions/0061-sprints-and-tasks.md) §5; [0067](../decisions/0067-proposals.md) §3; [0069](../decisions/0069-synchronized-talk-pages.md) §4; [0018](../decisions/0018-tenants.md) §10; [0085](../decisions/0085-settings-and-preferences.md) §3; [0086](../decisions/0086-theming.md) §1; [0087](../decisions/0087-account-registration-and-challenges.md) §6.*
@@ -191,7 +193,7 @@ This is the one table of every log type and action the ADRs name: the table of [
 | `task/claim`, `task/release` | A `scatter:v0/task` `claim` or `release` record on a sprint | — | Everyone | 0011 §6.1; 0061 §5 |
 | `proposal/propose`, `proposal/submit`, `proposal/withdraw` | A thread `propose`, `submit` or `withdraw` record | — | Everyone | 0011 §6.1; 0067 §3 |
 | `contentmodel/change` | A page `edit` that changes the model | The old and new models | Everyone | 0011 §6.1, §7 |
-| `import/interwiki`, `import/upload` | A page import job ([10](10-pages-and-content-models.md)); the `create` of a fork, as `import/interwiki` with the page repository as the interwiki and the upstream page and revision in its parameters; the first record of an adopted entity, as `import/upload` from a dump or `import/interwiki` from the live API, never as `create/create`; an `upload` record with action `import`, as `import/upload` | The interwiki prefix or the upload, and the number of revisions | Everyone | 0011 §6.1, §7; 0035 §6; 0039 §16; 0054 §1 |
+| `import/interwiki`, `import/upload` | A page import job ([10](10-pages-and-content-models.md)); the `create` of a fork, as `import/interwiki` with the page repository as the interwiki and the upstream page and revision in its parameters; the first record of an adopted entity or page, as `import/upload` from a dump or `import/interwiki` from the live API, never as `create/create`; an `upload` record with action `import`, as `import/upload` | The interwiki prefix or the upload, and the number of revisions | Everyone | 0011 §6.1, §7; 0035 §6; 0039 §16; 0054 §1 |
 | `upload/upload`, `upload/overwrite`, `upload/revert` | An `upload` record with that action ([12](12-files-and-media.md)) | — | Everyone | 0011 §6.1; 0039 §16 |
 | `takedown/takedown`, `takedown/reinstate` | The `blob` ACL in the instance `log` and its retirement, projected into the log of each tenant with an affected version, on the affected file pages | — | Everyone; without reason or notice when `confidential` | 0011 §6.1; 0039 §16 |
 | `takedown/expunge` | An `expunge` record, in the instance's own log only | — | `ts-viewtakedown` | 0039 §16 |
@@ -251,7 +253,7 @@ History, recent changes, contributions and the log all use one row shape in the 
 | `visibility` | Which fields are hidden. For `erased` rows, the reason class, if the viewer holds `ts-viewerasures` ([09](09-security-and-moderation.md) §6.6). |
 | `links` | Diff, history, job, and upstream URLs |
 
-An adopted entity's first record is an `edit` row with `new` set, the `bot` flag, the `job:{id}` tag and an `adopt` tag ([0035](../decisions/0035-adopting-a-wikibase.md) §6); a fork's `create` is an `edit` with `new` set ([0054](../decisions/0054-forking-a-mirrored-page.md) §1). The routes that serve the row are in [18](18-api.md).
+An adopted revision is an `edit` row at its source time, with the `bot` flag, the `job:{id}` tag and an `adopt` tag, and `new` set on its page's first revision ([0035](../decisions/0035-adopting-a-wikibase.md) §6; §2.2); a fork's `create` is an `edit` with `new` set ([0054](../decisions/0054-forking-a-mirrored-page.md) §1). The routes that serve the row are in [18](18-api.md).
 
 ### 3.2 What reads log events
 

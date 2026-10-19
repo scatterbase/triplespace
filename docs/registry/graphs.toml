@@ -136,6 +136,16 @@ payload_types = ["scatter:v0/actor", "scatter:v0/link-account", "scatter:v0/memb
 defined_in = "0028 §2"
 
 [[graph]]
+name = "logins"
+kind = "source"
+scope = "instance"
+history = "full"
+integrity = "logged"
+export = "private"
+payload_types = ["scatter:v0/login", "scatter:v0/binding", "scatter:v0/erase"]   # instance logins and their external bindings
+defined_in = "0089 §2"
+
+[[graph]]
 name = "accounts/{farm}"
 kind = "source"
 scope = "instance"

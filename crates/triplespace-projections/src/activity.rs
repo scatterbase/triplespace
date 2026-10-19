@@ -6,7 +6,9 @@
 //! `job` for a job event, `log` for any other event, and `erased` when the content part
 //! is gone. The performer is the attestation's `actor` and nowhere else, so an erased
 //! attestation leaves `actor_key` null. Patrol, visibility and read groups (0023 §5–6;
-//! 0056 §14) are left at their defaults until those projections exist.
+//! 0056 §14) are left at their defaults until those projections exist, except the bits
+//! for the parts an adopted revision's source withheld (0035 A14). An adopted revision
+//! that kept the source's revision ID shows at its source time (0035 A12).
 
 use scatter_log::cbor::Value;
 use scatter_log::header::{CONFIG_PARTITION, Header};
@@ -52,6 +54,41 @@ struct Columns {
     log_type: Option<String>,
     log_action: Option<String>,
     params: Option<serde_json::Value>,
+    /// The time the row shows, when it is not the record's: an adopted revision's
+    /// source time (0035 A12).
+    time: Option<u64>,
+    minor: Option<bool>,
+    bot: Option<bool>,
+    /// Visibility bits a record carries itself: the parts an adopted revision's source
+    /// withheld (0035 A14), until the `record` ACL projection sets them.
+    visibility: i16,
+}
+
+/// The visibility bits of 0023 §5, as the Action API reads them.
+mod visibility {
+    pub const CONTENT: i16 = 1;
+    pub const COMMENT: i16 = 2;
+    pub const USER: i16 = 4;
+    pub const SUPPRESSED: i16 = 8;
+}
+
+/// The bits for the parts an adopted revision's source withheld, each restricted to
+/// `suppress` (0035 A14).
+fn withheld_bits(withheld: &[String]) -> i16 {
+    let mut bits = 0;
+    for w in withheld {
+        bits |= match w.as_str() {
+            "content" => visibility::CONTENT,
+            "comment" => visibility::COMMENT,
+            "attestation" => visibility::USER,
+            _ => 0,
+        };
+    }
+    if bits == 0 {
+        0
+    } else {
+        bits | visibility::SUPPRESSED
+    }
 }
 
 fn i32_of(n: u64) -> i32 {
@@ -202,18 +239,45 @@ fn changeset_columns(record: &Record, mirror: bool) -> Result<Columns, String> {
         }
         _ => (content_len, None, None),
     };
+    // An adopted revision that kept the source's revision ID is history: it shows at its
+    // source time, `new` only on the first revision adopted, with its minor flag and the
+    // bot flag (0035 A12). A `--current-only` record is the job's own revision.
+    let (new, time, minor, bot, visibility) = match &op {
+        Operation::Adopt {
+            source_revid,
+            source_parentid,
+            source_time,
+            minor,
+            withheld,
+            ..
+        } => {
+            let history = record.header().revid == Some(*source_revid);
+            (
+                Some(!history || source_parentid.is_none()),
+                history
+                    .then(|| crate::feed::parse_timestamp(source_time))
+                    .flatten(),
+                Some(*minor),
+                Some(true),
+                withheld_bits(withheld),
+            )
+        }
+        Operation::Create { .. } => (Some(true), None, None, None, 0),
+        _ => (Some(false), None, None, None, 0),
+    };
     Ok(Columns {
         kind: if mirror { "sync" } else { "edit" },
         target,
         summary_op: Some(op.name().to_string()),
         summary_args: summarize(&op),
-        new: Some(matches!(
-            op,
-            Operation::Create { .. } | Operation::Adopt { .. }
-        )),
+        new,
         size,
         delta,
         changes,
+        time,
+        minor,
+        bot,
+        visibility,
         ..Columns::default()
     })
 }
@@ -359,18 +423,19 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for ActivityProjection {
                     "INSERT INTO view.activity
                        (tenant, time, partition, \"offset\", kind, source, revid, logid, target_kind, target_id, target_member,
                         actor_key, job_id, summary_op, summary_args, comment, tags, new, size, delta,
-                        log_type, log_action, params, changes)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
+                        log_type, log_action, params, changes, minor, bot, visibility)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
                      ON CONFLICT (tenant, partition, \"offset\") DO UPDATE SET
                        kind = EXCLUDED.kind, target_kind = EXCLUDED.target_kind, target_id = EXCLUDED.target_id,
                        target_member = EXCLUDED.target_member, actor_key = EXCLUDED.actor_key, job_id = EXCLUDED.job_id,
                        summary_op = EXCLUDED.summary_op, summary_args = EXCLUDED.summary_args, comment = EXCLUDED.comment,
                        tags = EXCLUDED.tags, new = EXCLUDED.new, size = EXCLUDED.size, delta = EXCLUDED.delta,
                        log_type = EXCLUDED.log_type, log_action = EXCLUDED.log_action, params = EXCLUDED.params,
-                       changes = EXCLUDED.changes",
+                       changes = EXCLUDED.changes, minor = EXCLUDED.minor, bot = EXCLUDED.bot,
+                       visibility = view.activity.visibility | EXCLUDED.visibility",
                     &[
                         &info.tenant,
-                        &time_of(h.appended_at),
+                        &time_of(columns.time.unwrap_or(h.appended_at)),
                         &scatter_log_postgres::ids::partition_to_db(h.partition),
                         &as_i64(Some(h.offset))?,
                         &columns.kind,
@@ -393,6 +458,9 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for ActivityProjection {
                         &columns.log_action,
                         &columns.params,
                         &columns.changes,
+                        &columns.minor,
+                        &columns.bot,
+                        &columns.visibility,
                     ],
                 )
                 .await

@@ -245,19 +245,34 @@ pub enum Operation {
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         overwrite: bool,
     },
-    /// Writes an entity's whole state as its first local record under the source's ID
-    /// (0035 §3).
+    /// Writes one revision of a source wiki's entity as a local record under the source's
+    /// ID (0035 §3, A12): its whole state, or the redirect it became, or, when the source
+    /// hid the text, neither (A14).
     Adopt {
         /// The ID, in local form.
         id: EntityId,
-        /// The state.
-        entity: Entity,
-        /// The source's revision ID of this state.
+        /// The state; absent for a redirect or a withheld text.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        entity: Option<Entity>,
+        /// The target, for a revision that made the page a redirect (a merge).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        redirect: Option<EntityId>,
+        /// The source's revision ID of this revision.
         source_revid: u64,
+        /// The revision it followed on the source; absent for the first one adopted.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        source_parentid: Option<u64>,
         /// The source's timestamp, as its own string.
         source_time: String,
         /// The page ID of the entity's page on the source.
         source_pageid: u64,
+        /// The source's minor-edit flag.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        minor: bool,
+        /// The record parts the source hid and the record therefore lacks: `content`,
+        /// `comment`, `attestation` (0035 A14).
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        withheld: Vec<String>,
     },
     /// Merges terms, statements, sitelinks, references or qualifiers onto a subject.
     Add {
@@ -490,9 +505,8 @@ impl Operation {
         match self {
             Self::Put { entity, .. }
             | Self::Create { entity, .. }
-            | Self::CreateOrAdd { entity, .. }
-            | Self::Adopt { entity, .. } => Some(entity),
-            Self::Add { entity, .. } => entity.as_ref(),
+            | Self::CreateOrAdd { entity, .. } => Some(entity),
+            Self::Add { entity, .. } | Self::Adopt { entity, .. } => entity.as_ref(),
             _ => None,
         }
     }
@@ -645,9 +659,10 @@ impl Operation {
     #[must_use]
     pub fn created_type(&self) -> Option<&EntityType> {
         match self {
-            Self::Create { entity, .. }
-            | Self::CreateOrAdd { entity, .. }
-            | Self::Adopt { entity, .. } => Some(&entity.entity_type),
+            Self::Create { entity, .. } | Self::CreateOrAdd { entity, .. } => {
+                Some(&entity.entity_type)
+            }
+            Self::Adopt { entity, .. } => entity.as_ref().map(|e| &e.entity_type),
             _ => None,
         }
     }

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-17
-- **Updated:** 2026-10-18 (A2)
+- **Updated:** 2026-10-18 (A3)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0024](0024-subsidiary-accounts.md), [0028](0028-tenancy-policy.md), [0047](0047-special-pages.md), [0057](0057-web-tier.md)
 - **Uses:** [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0030](0030-edit-filters.md), [0034](0034-frontend-stack.md), [0035](0035-adopting-a-wikibase.md), [0056](0056-security-model.md), [0085](0085-settings-and-preferences.md)
@@ -41,19 +41,21 @@ James's direction, from the design discussion of 2026-10-17:
 
 ### 2. Challenges and their triggers (extends 0007 §3; amends 0012 §4)
 
+*Changed by A3.*
+
 **A challenge is a piece of work the instance asks of a client before an act that creates an identity or guesses at one.** It is not a test that the client is a person. It makes every account cost a few seconds of computation, which is nothing to a person and a great deal to a script that wants thousands, and it is something a generic spambot written for MediaWiki's forms does not know how to do. What a determined operator can still do, the throttle (§4), approval (§6) and the edit filters of [0030](0030-edit-filters.md) answer.
 
 **Three triggers**, named as ConfirmEdit names its own where it has the same one, listed in the setting `challenge.triggers` (§8):
 
 | Trigger | The act it guards | Counterpart |
 |---|---|---|
-| `createaccount` | Creating an account, or filing a request for one (§6), with the built-in `password` issuer, through `action=createaccount` or `Special:CreateAccount` | ConfirmEdit's `createaccount` |
+| `createaccount` | Creating an instance login with a password, through `action=createaccount` or `Special:CreateAccount` at the auth base ([0089](0089-the-auth-host-and-instance-logins.md) §8) | ConfirmEdit's `createaccount` |
 | `tempaccount` | The write that would create a temporary account ([0007](0007-actor-identity.md) §3): an anonymous request's first save | None in ConfirmEdit; its `edit` trigger, narrowed to the save that creates an identity |
-| `badlogin` | `action=clientlogin` with the `password` issuer, once the caller's address has failed 3 times within 5 minutes or the named account has failed 20 times within 10 minutes | ConfirmEdit's `badlogin` and `badloginperuser`, with their defaults |
+| `badlogin` | A login with the `password` issuer, at the auth base or through `action=clientlogin` on a tenant, once the caller's address has failed 3 times within 5 minutes or the named login has failed 20 times within 10 minutes, wherever it failed | ConfirmEdit's `badlogin` and `badloginperuser`, with their defaults |
 
-**What triggers do not cover.** A registration through an external issuer is not challenged: the issuer has already decided who may hold an account there, and a tenant that does not trust an issuer's signups does not allow it for login. A subsidiary's bot-password login (`action=login`) is not challenged, since its secret is 32 random bytes and cannot be guessed at any rate. ConfirmEdit's `addurl` and `create` have no counterpart: links added by new accounts are edit filters' work ([0030](0030-edit-filters.md)), and a trigger on every edit would put a computation in front of every anonymous save rather than the first.
+**What triggers do not cover.** A login created through an external issuer is not challenged: the issuer has already decided who may hold an account there, and a tenant that does not trust an issuer's signups does not admit it. Creating a tenant account from a login is not challenged either, since the login was challenged or vouched for when it was made ([0089](0089-the-auth-host-and-instance-logins.md) §8); the throttle (§4) still counts it. **On the auth host**, which is no tenant, the triggers, the difficulty and the throttle resolve as the instance defaults of their settings. A subsidiary's bot-password login (`action=login`) is not challenged, since its secret is 32 random bytes and cannot be guessed at any rate. ConfirmEdit's `addurl` and `create` have no counterpart: links added by new accounts are edit filters' work ([0030](0030-edit-filters.md)), and a trigger on every edit would put a computation in front of every anonymous save rather than the first.
 
-**One solution serves one act.** A challenge is issued for one trigger, one tenant and one session, and a solution is accepted once. A `tempaccount` solution makes the temporary account, which then holds the session, so the anonymous editor is asked once; a `badlogin` solution admits one login attempt.
+**One solution serves one act.** A challenge is issued for one trigger, one tenant (on the auth host, the instance, whose farm code stands in the string for a tenant's) and one session, and a solution is accepted once. A `tempaccount` solution makes the temporary account, which then holds the session, so the anonymous editor is asked once; a `badlogin` solution admits one login attempt.
 
 ### 3. The proof of work (extends 0013 §4; extends 0014 §4)
 
@@ -69,7 +71,7 @@ James's direction, from the design discussion of 2026-10-17:
 
 ### 4. Difficulty, the throttle and addresses (extends 0024 §5; corrects 0024 §5; amends 0024 §5; extends 0013 §4)
 
-*Changed by A1.*
+*Changed by A1, A3.*
 
 **The difficulty is a setting, and it rises with repetition.** A challenge's `bits` is `challenge.bits` (default 20, about a million hashes) plus one for each account created from the caller's address key in the last 24 hours, up to `challenge.max_bits` (default 24, sixteen times the work). The count is the `createaccount` counter below, so it costs no state of its own. Setting `challenge.max_bits` to `challenge.bits` turns the rise off. The defaults are a starting point, to be fixed by measurement before the ADR is accepted (Q1): the target is a second or two on a mid-range phone.
 
@@ -77,7 +79,7 @@ James's direction, from the design discussion of 2026-10-17:
 
 **An address key is an IPv4 address or an IPv6 /64.** This corrects [0024](0024-subsidiary-accounts.md) §5 for every rate-limit class, not only this one: the counters that key an anonymous request on "the IP" key it instead on the address for IPv4 and on its /64 prefix for IPv6, since a host commonly holds a whole /64 and can rotate through it at no cost. The `badlogin` counters and the difficulty's count use the same key. Addresses and their prefixes stay where [0007](0007-actor-identity.md) §3 keeps them, in the cache and in `private`, never in the log.
 
-**Where these counts are kept** (A1). The `createaccount` counter, which the difficulty also reads, and the two `badlogin` counters, by address key and by account, are kept in Valkey when a shared cache is configured, as every class is ([07](../architecture/07-actors-and-accounts.md) §6.3), and otherwise in Postgres, in `private.rate_event`: one row per counted act, `(tenant, class, key, at)`, read as the number of rows inside the window and swept once older than the longest window, as sessions are. Counting them in process, as an instance without a shared cache counts the other classes, would let a script that spreads its attempts over the replicas of an API pool, or waits for a restart, start again from nothing, and these windows are a day and ten minutes long, not a minute. The key is an address key, or for the per-account `badlogin` counter the account's case-folded name, so the table holds what the cache would hold and is in no export ([0027](0027-preferences-and-portability.md) §2).
+**Where these counts are kept** (A1). The `createaccount` counter, which the difficulty also reads, and the two `badlogin` counters, by address key and by login, are kept in Valkey when a shared cache is configured, as every class is ([07](../architecture/07-actors-and-accounts.md) §6.3), and otherwise in Postgres, in `private.rate_event`: one row per counted act, `(tenant, class, key, at)`, read as the number of rows inside the window and swept once older than the longest window, as sessions are. Counting them in process, as an instance without a shared cache counts the other classes, would let a script that spreads its attempts over the replicas of an API pool, or waits for a restart, start again from nothing, and these windows are a day and ten minutes long, not a minute. The key is an address key, or for the per-login `badlogin` counter the login's ID, counted under the empty tenant so that failures on every tenant and on the auth host add up, so the table holds what the cache would hold and is in no export ([0027](0027-preferences-and-portability.md) §2).
 
 ### 5. In the site, and without JavaScript (amends 0057 §7; extends 0010 §10)
 
@@ -91,9 +93,11 @@ James's direction, from the design discussion of 2026-10-17:
 
 ### 6. Account requests and approval (extends 0010 §10; extends 0011 §6.1; extends 0012 §5; extends 0013 §4; extends 0016 §2; extends 0028 §2; extends 0047 §1)
 
+*Changed by A3.*
+
 **With `account.approval` on, registering files a request** instead of creating an account, as ConfirmAccount's request form does. The model is ConfirmAccount's, with the permission names it uses, so a Wikimedia or Miraheze administrator recognizes them; it differs where the log does.
 
-**The request lives in `private`, not the log.** `private.account_request` holds the request's ID and tenant, the chosen name and its case-folded key, the credential the account will be created with (a password hash, or an issuer and subject), the person's statement, the caller's address key, the time it was filed, and, once decided, the decision, its reviewer, time and reason; its portability class is "never leaves" ([0027](0027-preferences-and-portability.md) §2). **An account that is never approved never enters the log**: a spam name, often abusive, never has to be erased, because it was never written. A pending request holds its name, so the name-taken check of [19](../architecture/19-site-ui.md) §2.3 refuses it to anyone else.
+**The request lives in `private`, not the log.** `private.account_request` holds the request's ID and tenant, the chosen name and its case-folded key, the credential the account will be bound to (a login, or under farm identity the farm subject; [0089](0089-the-auth-host-and-instance-logins.md) §6), the person's statement, the caller's address key, the time it was filed, and, once decided, the decision, its reviewer, time and reason; its portability class is "never leaves" ([0027](0027-preferences-and-portability.md) §2). **An account that is never approved never enters the log**: a spam name, often abusive, never has to be erased, because it was never written. A pending request holds its name, so the name-taken check of [19](../architecture/19-site-ui.md) §2.3 refuses it to anyone else.
 
 **The form** is `Special:CreateAccount` itself, which says that the wiki reviews new accounts; `Special:RequestAccount` is an alias of it. It asks for the name and credential as before, and a statement of up to 1,000 characters about who the person is and what they want to do, as ConfirmAccount's biography asks; `account.request_statement` makes it `off`, `optional` (the default) or `required`. The challenge (§2) and the throttle (§4) apply to filing a request as to creating an account, as ConfirmAccount applies ConfirmEdit's CAPTCHA to its requests.
 
@@ -243,3 +247,38 @@ Replaced text (§10):
 - **Source:** [0088](0088-external-identity-providers.md) §6
 - **Change:** extends §1
 - **Summary:** A first login through an external issuer keeps the identity as the session's pending identity; `createaccount` with `createpreservestate` and a name creates the account bound to it, with no password and no challenge, or under `account.approval` files a request whose credential is the issuer and subject. The chapter text is [07](../architecture/07-actors-and-accounts.md) §2.7.
+
+### A3. Challenges at the auth host
+
+- **Date:** 2026-10-18
+- **Source:** [0089](0089-the-auth-host-and-instance-logins.md) §6, §8
+- **Change:** amends §2, §4, §6
+- **Summary:** Passwords belong to instance logins, created and used on the auth host. The `createaccount` trigger guards creating a login with a password; `badlogin` guards a password login at the auth base and through `clientlogin` on a tenant, and its per-name counter counts by login, under the empty tenant, so failures everywhere add up. Creating a tenant account from a login is not challenged, since the login was challenged or vouched for when it was made, but the throttle counts it. On the auth host the triggers, the difficulty and the throttle resolve as the instance defaults of their settings, and the farm code stands in a challenge for the tenant's. An account request's credential is the login, or under farm identity the farm subject. The chapter text is [07](../architecture/07-actors-and-accounts.md) §2.6.
+
+Replaced text (§2):
+
+> | `createaccount` | Creating an account, or filing a request for one (§6), with the built-in `password` issuer, through `action=createaccount` or `Special:CreateAccount` | ConfirmEdit's `createaccount` |
+
+Replaced text (§2):
+
+> | `badlogin` | `action=clientlogin` with the `password` issuer, once the caller's address has failed 3 times within 5 minutes or the named account has failed 20 times within 10 minutes | ConfirmEdit's `badlogin` and `badloginperuser`, with their defaults |
+
+Replaced text (§2):
+
+> **What triggers do not cover.** A registration through an external issuer is not challenged: the issuer has already decided who may hold an account there, and a tenant that does not trust an issuer's signups does not allow it for login.
+
+Replaced text (§2):
+
+> **One solution serves one act.** A challenge is issued for one trigger, one tenant and one session,
+
+Replaced text (§4):
+
+> The key is an address key, or for the per-account `badlogin` counter the account's case-folded name, so the table holds what the cache would hold
+
+Replaced text (§4):
+
+> and the two `badlogin` counters, by address key and by account,
+
+Replaced text (§6):
+
+> the credential the account will be created with (a password hash, or an issuer and subject)
