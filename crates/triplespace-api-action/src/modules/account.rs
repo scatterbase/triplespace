@@ -583,10 +583,8 @@ pub async fn authmanagerinfo(
             }
             reqs.extend(issuer_requests);
         }
-        "link" => {
-            if ctx.caller.identity.is_authenticated() {
-                reqs.extend(issuer_requests);
-            }
+        "link" if ctx.caller.identity.is_authenticated() => {
+            reqs.extend(issuer_requests);
         }
         "remove" => {
             reqs.extend(super::issuers::remove_requests(ctx).await?);
