@@ -30,7 +30,7 @@ Triplespace and Scatterbase register different sets:
 | Provenance about records | `metadata` (projection) | `meta` (asserted) |
 | Log events | `log` (source, `logged`, internal) and `log/{provider}` (source, `hashed`, internal) ([0011](../decisions/0011-logs.md) §2) | part of `meta` |
 | Document pages | `pages` (source, `logged`, public) ([0008](../decisions/0008-namespaces-and-document-pages.md) §4) | none |
-| Destructible data | `accounts` (source, `logged`, private); `actors` (source, `logged`, internal); `actors/{provider}` (source, `hashed`, internal) ([0007](../decisions/0007-actor-identity.md) §8); and, where a farm has identity, `accounts/{farm}`, `actors/{farm}` and `log/{farm}` at the instance ([0028](../decisions/0028-tenancy-policy.md) §2) | `mutable` |
+| Destructible data | `accounts` (source, `logged`, private); `actors` (source, `logged`, internal); `actors/{provider}` (source, `hashed`, internal) ([0007](../decisions/0007-actor-identity.md) §8); `logins` (source, `logged`, private) at the instance ([0089](../decisions/0089-the-auth-host-and-instance-logins.md) §2); and, where a farm has identity, `accounts/{farm}`, `actors/{farm}` and `log/{farm}` at the instance ([0028](../decisions/0028-tenancy-policy.md) §2) | `mutable` |
 | Instance configuration | `config` (source, `logged`, public) ([0015](../decisions/0015-record-format-and-partition-registry.md) §3) | `server` |
 | Reconciled view | `resolved` (projection) | none; current state is a policy projection over claims |
 
@@ -38,9 +38,9 @@ The table shows a correspondence, not an identity. Triplespace's `metadata` grap
 
 ### 1.2 The graph catalogue
 
-*Sources: [0015](../decisions/0015-record-format-and-partition-registry.md) §5; [0005](../decisions/0005-crate-organization.md) §4.1; [0001](../decisions/0001-revision-metadata-rdf.md) §2.*
+*Sources: [0015](../decisions/0015-record-format-and-partition-registry.md) §5; [0005](../decisions/0005-crate-organization.md) §4.1; [0001](../decisions/0001-revision-metadata-rdf.md) §2; [0089](../decisions/0089-the-auth-host-and-instance-logins.md) §2.*
 
-**Graph names are fixed by convention.** They are the partition names of [0013](../decisions/0013-postgres-storage.md) §2, and the registry ([0015](../decisions/0015-record-format-and-partition-registry.md) §3, kind `graph`), keyed by (tenant, name), stores both name and IRI. Each tenant has its own `config`, `local`, `pages`, `log`, `actors` and `accounts`; the instance holds its `config` and `log`, every provider's partitions and, with farm identity, `actors/{farm}`, `accounts/{farm}` and `log/{farm}` under the per-issuer names ([0018](../decisions/0018-tenants.md) §2, [0028](../decisions/0028-tenancy-policy.md) §2, [0039](../decisions/0039-files-and-media.md) §10):
+**Graph names are fixed by convention.** They are the partition names of [0013](../decisions/0013-postgres-storage.md) §2, and the registry ([0015](../decisions/0015-record-format-and-partition-registry.md) §3, kind `graph`), keyed by (tenant, name), stores both name and IRI. Each tenant has its own `config`, `local`, `pages`, `log`, `actors` and `accounts`; the instance holds its `config`, `log` and `logins` ([0089](../decisions/0089-the-auth-host-and-instance-logins.md) §2), every provider's partitions and, with farm identity, `actors/{farm}`, `accounts/{farm}` and `log/{farm}` under the per-issuer names ([0018](../decisions/0018-tenants.md) §2, [0028](../decisions/0028-tenancy-policy.md) §2, [0039](../decisions/0039-files-and-media.md) §10):
 
 | Name | Kind | Defined in |
 |---|---|---|
@@ -49,6 +49,7 @@ The table shows a correspondence, not an identity. Triplespace's `metadata` grap
 | `pages` | Source | [0008](../decisions/0008-namespaces-and-document-pages.md) §4 |
 | `log` | Source | [0011](../decisions/0011-logs.md) §2 |
 | `actors`, `accounts` | Source | [0007](../decisions/0007-actor-identity.md) §8 |
+| `logins` (instance) | Source | [0089](../decisions/0089-the-auth-host-and-instance-logins.md) §2 |
 | `mirror/{provider}`, `actors/{provider}`, `log/{provider}` | Source, one set per provider | 0002 §2, 0007 §8, 0011 §2 |
 | `log` (instance) | Source: the instance's own log, for operator records | [0039](../decisions/0039-files-and-media.md) §10 |
 | `files/{repo}` | Source, one per mirrored file repository | [0039](../decisions/0039-files-and-media.md) §11 |

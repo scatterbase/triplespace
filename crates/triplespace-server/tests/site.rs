@@ -110,6 +110,7 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
         source: format!("https://{HOST}/"),
         version: Some("test".into()),
         frozen: true,
+        current_only: false,
         counters: Some("item=6,property=12".into()),
         log_floor: 0,
         entity_sources: vec![],

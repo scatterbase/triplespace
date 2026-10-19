@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-17 (A22)
+- **Updated:** 2026-10-18 (A23)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md), [0023](0023-moderation.md)
 - **Uses:** [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0027](0027-preferences-and-portability.md)
@@ -32,7 +32,7 @@ MediaWiki's answer to the second is CentralAuth: one global account, local accou
 
 ### 2. Farm identity (extends 0007 §1, §3 and §7; amends 0018 §4)
 
-*Changed by A5, A7, A12, A16, A22.*
+*Changed by A5, A7, A12, A16, A22, A23.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §2.1, §3.4, §3.5, §3.6, §3.7, §8.6.*
 
@@ -387,3 +387,22 @@ Replaced text ([18](../architecture/18-api.md) §1.2, as it stood):
 - **Source:** [0087](0087-account-registration-and-challenges.md) §6
 - **Change:** extends §2
 - **Summary:** A tenant with `account.approval` on does not create a tenant account on a farm account's first visit: it files an account request whose credential is the farm subject, and creates, binds and links the account when a holder of `confirmaccount` approves it. Farm signup itself is not challenged, since the farm has no passwords. The chapter text is [08](../architecture/08-tenants-and-instances.md) §3.6.
+
+### A23. Farm accounts bind to logins
+
+- **Date:** 2026-10-18
+- **Source:** [0089](0089-the-auth-host-and-instance-logins.md) §4, §13
+- **Change:** amends §2
+- **Summary:** Farm identity is identity, not authentication. A farm account binds to an instance login, `(login, n)` in `accounts/{farm}`, as a tenant account does, and a login has at most one farm account; tenant accounts under shared names still bind to the farm subject, which the tenant reaches from the login through the farm account. The farm, like every tenant, holds no credential: logins do. Farm signup is on the auth host, and is not challenged because creating the login was. The chapter text is [08](../architecture/08-tenants-and-instances.md) §3.5 and §3.6.
+
+Replaced text ([08](../architecture/08-tenants-and-instances.md) §3.5, as it stood):
+
+> A farm account authenticates through bindings to identity providers exactly as a tenant account does ([0007](0007-actor-identity.md) §3); the farm has no passwords of its own.
+
+Replaced text ([08](../architecture/08-tenants-and-instances.md) §3.6, as it stood):
+
+> A person who signs up to the farm chooses a name once.
+
+Replaced text ([08](../architecture/08-tenants-and-instances.md) §3.6, as it stood):
+
+> Signing up to the farm itself is not challenged, since the farm has no passwords and its accounts edit nothing.

@@ -14,7 +14,7 @@
 
 use oxrdf::NamedNode;
 
-use crate::issuer::{ActorModel, INSTANCE, IssuerRegistry, LOCAL};
+use crate::issuer::{ACTOR, ActorModel, INSTANCE, IssuerRegistry, LOCAL};
 use crate::key::ActorKey;
 
 /// The bases IRIs are minted under.
@@ -60,6 +60,8 @@ pub fn actor_iri(
 ) -> Result<NamedNode, IriError> {
     let iri = if key.issuer() == LOCAL || key.issuer() == ctx.tenant_slug {
         format!("{}/user/{}", base(ctx.tenant_base), key.subject())
+    } else if key.issuer() == ACTOR {
+        format!("{}/actor/{}", base(ctx.tenant_base), key.subject())
     } else if key.issuer() == INSTANCE {
         format!("{}/instance/operator", base(ctx.farm_base))
     } else if key.issuer() == ctx.farm_slug {
@@ -131,6 +133,7 @@ mod tests {
         assert!(matches!(iri("password:1"), Err(IriError::NotPublished(..))));
         assert!(matches!(iri("openalex:x"), Err(IriError::ProviderOnly(_))));
         assert!(matches!(iri("nobody:1"), Err(IriError::UnknownIssuer(_))));
+        assert_eq!(iri("actor:7").unwrap(), "https://librarybase.org/actor/7");
         assert_eq!(
             surrogate_iri("https://librarybase.org", 7).as_str(),
             "https://librarybase.org/actor/7"

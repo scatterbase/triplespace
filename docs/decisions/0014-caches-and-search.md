@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-17 (A28)
+- **Updated:** 2026-10-18 (A29)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md)
 - **Uses:** [0000](0000-init.md), [0003](0003-statement-ui.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -46,7 +46,7 @@ MediaWiki's search is CirrusSearch, which Wikimedia now runs on OpenSearch after
 
 ### 4. What L1 holds
 
-*Changed by A7, A11, A12, A13, A22, A24, A25, A26, A28.*
+*Changed by A7, A11, A12, A13, A22, A24, A25, A26, A28, A29.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §9.4, §9.7, §12.1, §12.3.*
 
@@ -476,3 +476,14 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §12.1, as 
 Replaced text ([03](../architecture/03-storage-caches-and-search.md) §12.3, as it stood):
 
 > The rate-limit counters `rl:{scope}:{key}` have the classes and windows of the site policy of [0024](0024-subsidiary-accounts.md) §5 (`edit`, `create`, `move`, `link`, `job`, `read`, `stream`, `atom`, `upstream`, `notify`, `account`), keyed by actor key or, for anonymous requests, by IP; counters are Valkey keys, never rows ([0024](0024-subsidiary-accounts.md) §10).
+
+### A29. Central sessions and login codes in L1
+
+- **Date:** 2026-10-18
+- **Source:** [0089](0089-the-auth-host-and-instance-logins.md) §5, §9
+- **Change:** amends §4
+- **Summary:** `s:{session}` also records the login a session holds and, for a tenant session, the central session it came from. `sc:{central session}` lists the tenant sessions a central session opened, so that logging out everywhere ends them; `authr:{handle hash}` holds a tenant's request at the auth host for ten minutes, and `authc:{code hash}` a login code for 60 seconds. The chapter text is [03](../architecture/03-storage-caches-and-search.md) §12.1.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §12.1, as it stood):
+
+> | `s:{session}` | Session state; records the API key ID or OAuth token ID that opened it, so revoking either can end it

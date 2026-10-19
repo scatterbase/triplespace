@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-18 (A44)
+- **Updated:** 2026-10-18 (A45)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md)
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -121,13 +121,13 @@ The design exploration is on the [site UI canvas](https://claude.ai/artifact/XNb
 
 ### 10. Logging in
 
-*Changed by A6, A43, A44.*
+*Changed by A6, A43, A44, A45.*
 
 *Current text: [19](../architecture/19-site-ui.md) §2.3.*
 
 ### 11. Account settings
 
-*Changed by A10, A11, A12, A14, A15, A17, A41.*
+*Changed by A10, A11, A12, A14, A15, A17, A41, A45.*
 
 *Current text: [19](../architecture/19-site-ui.md) §2.4.*
 
@@ -597,3 +597,34 @@ Replaced text ([19](../architecture/19-site-ui.md) §1.5, as it stood):
 - **Source:** [0088](0088-external-identity-providers.md) §6
 - **Change:** extends §10
 - **Summary:** `Special:UserLogin`'s issuer buttons are forms posting to `/auth/{issuer}/start`, so they work without JavaScript; the first login's `Special:CreateAccount` names the provider, asks for no password and shows no challenge; a person may also type a name there and press an issuer's button. The box offering a public link is not shown until the linking flow is built. The chapter text is [19](../architecture/19-site-ui.md) §2.3 and §2.4.
+
+### A45. Logging in through the auth host
+
+- **Date:** 2026-10-18
+- **Source:** [0089](0089-the-auth-host-and-instance-logins.md) §6, §7, §8, §13
+- **Change:** amends §10, §11
+- **Summary:** A tenant's `Special:UserLogin` offers one **Log in** button, which goes to the auth host and back. The auth host's `Special:UserLogin` takes a login name and password and offers the external issuers; reached from a tenant, it names the tenant, offers what the tenant admits and accepts that tenant's account name. The first visit to a tenant continues to its `Special:CreateAccount` to choose the account's public name, with the login name and the provider's username offered as buttons; the auth host's `Special:CreateAccount` creates a login, under the `createaccount` challenge. Sign-in methods leave the tenant's `Special:Account` for the auth host's, the login's own page, with its name, methods, the tenant accounts bound to it and **Log out everywhere**. Farm signup is on the auth host. The chapter text is [19](../architecture/19-site-ui.md) §2.3 and §2.4.
+
+Replaced text ([19](../architecture/19-site-ui.md) §2.3, as it stood):
+
+> - Offers one button for each issuer that the tenant offers for login ([07](../architecture/07-actors-and-accounts.md) §2.7), such as "Log in with Wikimedia", each a form posting to `/auth/{issuer}/start`, so it works without JavaScript. It says what the instance learns: which account the user holds, and nothing else. An error the callback returns (`tserror`) is shown above the buttons.
+
+Replaced text ([19](../architecture/19-site-ui.md) §2.3, as it stood):
+
+> **The first login** continues to `Special:CreateAccount`, where the user chooses a public name. The page says which provider the person signed in with, asks for no password and shows no challenge, and creates the account with `createpreservestate`. Arriving at `Special:CreateAccount` directly, a person may type a name and press an issuer's button instead of choosing a password; the name is checked first.
+
+Replaced text ([19](../architecture/19-site-ui.md) §2.3, as it stood):
+
+> - **The name field starts empty.** The identity provider's username may be offered as a button, labelled with where it came from.
+
+Replaced text ([19](../architecture/19-site-ui.md) §2.3, as it stood):
+
+> A farm signup page states the linking consent of [0028](0028-tenancy-policy.md) §2 (§6.11).
+
+Replaced text ([19](../architecture/19-site-ui.md) §2.3, as it stood):
+
+> - **A challenge**, where the tenant lists the `createaccount` trigger, is solved in a Web Worker
+
+Replaced text ([19](../architecture/19-site-ui.md) §2.4, as it stood):
+
+> | Sign-in methods | Private | Each binding, with when it was added and last used, and an issuer the tenant no longer offers marked unavailable. **Remove** is disabled for the last way to log in, a password included, and says why; removing erases the binding from history. **Add** lists the issuers the tenant offers, each a form to `/auth/{issuer}/start` with `purpose=link` ([07](../architecture/07-actors-and-accounts.md) §2.7). |

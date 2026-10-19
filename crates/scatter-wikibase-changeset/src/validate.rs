@@ -600,11 +600,33 @@ fn shape_create(op: &Operation, out: &mut Vec<Problem>) {
             }
             check_entity(&entity.id, entity, out);
         }
-        Operation::Adopt { id, entity, .. } => {
+        Operation::Adopt {
+            id,
+            entity,
+            redirect,
+            withheld,
+            ..
+        } => {
             if id.form() != IdForm::Local {
                 out.push(Problem::NotLocal(id.clone()));
             }
-            check_entity(id, entity, out);
+            // One of a state and a redirect, or neither when the text was withheld
+            // (0035 A12, A14).
+            let text_withheld = withheld.iter().any(|w| w == "content");
+            let carried = usize::from(entity.is_some()) + usize::from(redirect.is_some());
+            if carried != usize::from(!text_withheld)
+                || withheld
+                    .iter()
+                    .any(|w| !matches!(w.as_str(), "content" | "comment" | "attestation"))
+            {
+                out.push(Problem::WireShape);
+            }
+            if let Some(entity) = entity {
+                check_entity(id, entity, out);
+            }
+            if redirect.as_ref() == Some(id) {
+                out.push(Problem::WireShape);
+            }
         }
         _ => {}
     }

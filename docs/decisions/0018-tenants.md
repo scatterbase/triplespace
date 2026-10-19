@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-18 (A31)
+- **Updated:** 2026-10-18 (A32)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0003](0003-statement-ui.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md), [0017](0017-entity-id-grammar.md), [0022](0022-federation.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md)
@@ -44,7 +44,7 @@ This ADR adds tenants, makes each tenant its own issuer of identity, lets a tena
 
 ### 4. Identity is per tenant (amends 0007 §1 and §8)
 
-*Changed by A4, A7, A20.*
+*Changed by A4, A7, A20, A32.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §3.1, §3.2, §3.3, §3.4, §8.1.*
 
@@ -80,7 +80,7 @@ This ADR adds tenants, makes each tenant its own issuer of identity, lets a tena
 
 ### 10. Moving a tenant (extends 0006 §6 and §9)
 
-*Changed by A3, A7, A8, A12, A17, A20, A21, A22, A29, A30, A31.*
+*Changed by A3, A7, A8, A12, A17, A20, A21, A22, A29, A30, A31, A32.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §6.2, §6.3, §6.4, §6.7, §7.6; [16](../architecture/16-logs-feeds-and-notifications.md) §2.3.*
 
@@ -509,3 +509,22 @@ Replaced text ([19](../architecture/19-site-ui.md) §2.5, as it stood):
 - **Source:** [0088](0088-external-identity-providers.md) §8
 - **Change:** extends §10
 - **Summary:** An adopted MediaWiki wiki vouches through an issuer that reaches its users while the tenant's `reclaim.vouching` names it: a login the source confirms as user `n` reclaims `{code}:{n}`. Every reclaim writes a public `scatter:v0/reclaim` record with `method` `manual` or `vouched`, from which `reclaim/reclaim` projects (A17), which settles Q8's parameters. The chapter text is [08](../architecture/08-tenants-and-instances.md) §6.4.
+
+### A32. The instance is its own single sign-on
+
+- **Date:** 2026-10-18
+- **Source:** [0089](0089-the-auth-host-and-instance-logins.md) §2, §4, §14
+- **Change:** amends §4, §10
+- **Summary:** "A farm that wants single sign-on registers itself as an identity provider" is made the instance's only way to log in: a person authenticates to the instance as an instance login, on the auth host, and a tenant account binds to the login, `(login, n)`, in its tenant's `accounts` partition. Identity stays per tenant, and how a person logs in no longer depends on whether identity is per tenant or farm-wide. Because a `(login, n)` binding means nothing on another instance, the binding digest of a move is computed over the external identities of each account's login, listed under the account, and a person reclaims a moved account by logging in on the new instance with a login that holds one of them. The chapter text is [08](../architecture/08-tenants-and-instances.md) §3.2, §6.2 and §6.4.
+
+Replaced text ([08](../architecture/08-tenants-and-instances.md) §3.2, as it stood):
+
+> Authentication is uncoupled from identity, as OAuth is. Bindings ([0007](0007-actor-identity.md) §3) map an identity provider's subject to a tenant account and live in the tenant's `accounts` partition. One Wikimedia account may be bound to `librarybase:42` and to `example:17`; that makes them the same person's accounts, not the same actor, and they are linked only by the opt-in act of [0007](0007-actor-identity.md) §7. A farm that wants single sign-on registers itself as an identity provider (an issuer with `login = true`), which gives one login per tenant account and merges nothing.
+
+Replaced text ([08](../architecture/08-tenants-and-instances.md) §6.2, as it stood):
+
+> - the **binding digest**, an HMAC of each (issuer, subject) in the tenant's `accounts`, keyed with a secret passed operator to operator, so the receiving instance learns nothing until a subject logs in;
+
+Replaced text ([08](../architecture/08-tenants-and-instances.md) §6.4, as it stood):
+
+> by logging in with the same identity provider, which the new instance checks against the binding digest;

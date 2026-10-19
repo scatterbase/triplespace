@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use scatter_ingest::adopt::{Adopted, Adoption, Floors, run_adoption};
+use scatter_ingest::adopt::{Adopted, Adoption, Author, Floors, run_adoption};
 use scatter_ingest::memory::{MemoryCx, MemoryIngest};
 use scatter_ingest::{
     Attestation, IngestError, IngestStore, Request, Sequence, SyncItem, run_batch, run_sync,
@@ -987,6 +987,8 @@ fn adoption(frozen: bool) -> Adoption {
         version: "librarybase-20260928.json.gz".into(),
         adapter_version: Some("scatter-adapter-wikidata 0.0.1".into()),
         frozen,
+        history: false,
+        current_state_dump: false,
         floors: Floors {
             entity: BTreeMap::from([("item".to_string(), 1000), ("property".to_string(), 50)]),
             page: 2000,
@@ -1003,12 +1005,12 @@ fn adoption(frozen: bool) -> Adoption {
 }
 
 fn adopted(id: &str, label: &str, revid: u64, pageid: u64) -> Adopted {
-    Adopted {
-        entity: entity(item(id, label, &json!({}))),
-        source_revid: revid,
-        source_time: "2026-09-20T14:02:11Z".into(),
-        source_pageid: pageid,
-    }
+    Adopted::current(
+        entity(item(id, label, &json!({}))),
+        revid,
+        "2026-09-20T14:02:11Z",
+        pageid,
+    )
 }
 
 #[test]
@@ -1046,9 +1048,10 @@ fn adoption_checks_floors_resumes_and_rejects_conflicts() {
             adopted("Q8", "Eight", 42_000, 13),
         ];
         let mut items = items;
-        items[1].entity = entity(
+        items[1].id = EntityId::parse("P12").unwrap();
+        items[1].entity = Some(entity(
             json!({"type": "property", "id": "P12", "datatype": "string", "labels": {"en": {"language": "en", "value": "prop"}}, "claims": {}}),
-        );
+        ));
         let out = run_adoption(
             &store,
             &pipeline,
@@ -1118,7 +1121,7 @@ fn adoption_checks_floors_resumes_and_rejects_conflicts() {
 
         // Re-running skips what is present and rejects a changed entity.
         let mut again = items.clone();
-        again[2].entity = entity(item("Q8", "Eight, changed", &json!({})));
+        again[2].entity = Some(entity(item("Q8", "Eight, changed", &json!({}))));
         again.push(adopted("Q9", "Nine", 42_100, 14));
         let out = run_adoption(
             &store,
@@ -1143,6 +1146,24 @@ fn adoption_checks_floors_resumes_and_rejects_conflicts() {
         );
         assert!(out.rejects[0].reason.contains("ts-adopt-conflict"));
         assert_eq!(store.records(LOCAL).len(), 4);
+
+        // History cannot go in front of a `--current-only` record (0035 §7).
+        let mut full = adoption(true);
+        full.history = true;
+        let err = run_adoption(
+            &store,
+            &pipeline,
+            TENANT,
+            actor.clone(),
+            full,
+            vec![revision("Q6", 41_000, None, 12, Author::Job)],
+            registry(),
+            NOW,
+            10,
+        )
+        .await
+        .unwrap_err();
+        assert!(err.to_string().contains("--current-only"), "{err}");
 
         // Another source is refused; so is a partition with an ordinary edit.
         let mut other = adoption(true);
@@ -1188,5 +1209,224 @@ fn adoption_checks_floors_resumes_and_rejects_conflicts() {
         .await
         .unwrap_err();
         assert!(err.to_string().contains("not adoptions"), "{err}");
+    });
+}
+
+/// One revision of a history adoption (0035 A12).
+fn revision(id: &str, revid: u64, parent: Option<u64>, pageid: u64, author: Author) -> Adopted {
+    Adopted {
+        id: EntityId::parse(id).unwrap(),
+        entity: Some(entity(item(id, &format!("{id} at {revid}"), &json!({})))),
+        redirect: None,
+        source_revid: revid,
+        source_parentid: parent,
+        source_time: "2026-09-20T14:02:11Z".into(),
+        source_pageid: pageid,
+        minor: false,
+        withheld: Vec::new(),
+        comment: Some(format!("edit {revid}")),
+        author,
+    }
+}
+
+fn attestation_of(record: &Record) -> serde_json::Value {
+    record
+        .body()
+        .attestation()
+        .value()
+        .unwrap()
+        .unwrap()
+        .to_json()
+        .unwrap()
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn a_history_adoption_keeps_every_revision_and_its_author() {
+    pollster::block_on(async {
+        let (store, pipeline) = setup();
+        let actor = Attestation::by("librarybase:2");
+        let ip = || Author::Surrogate {
+            kind: "anonymous".into(),
+            raw: "192.0.2.1".into(),
+        };
+        let mut hidden = revision("Q6", 41_500, Some(41_000), 12, ip());
+        hidden.entity = None;
+        hidden.comment = None;
+        hidden.withheld = vec!["content".into(), "comment".into()];
+        let mut minor = revision("Q6", 41_877, Some(41_500), 12, ip());
+        minor.minor = true;
+        let mut merged = revision(
+            "Q7",
+            44_000,
+            Some(43_000),
+            13,
+            Author::Actor("librarybase:7".into()),
+        );
+        merged.entity = None;
+        merged.redirect = Some(EntityId::parse("Q6").unwrap());
+        let history = vec![
+            revision(
+                "Q6",
+                41_000,
+                None,
+                12,
+                Author::Actor("librarybase:7".into()),
+            ),
+            hidden,
+            minor,
+            revision("Q7", 43_000, None, 13, Author::Hidden),
+            merged,
+        ];
+        let mut full = adoption(true);
+        full.history = true;
+
+        // A current-state export is refused.
+        let mut current = full.clone();
+        current.current_state_dump = true;
+        let err = run_adoption(
+            &store,
+            &pipeline,
+            TENANT,
+            actor.clone(),
+            current,
+            Vec::<Adopted>::new(),
+            registry(),
+            NOW,
+            10,
+        )
+        .await
+        .unwrap_err();
+        assert!(err.to_string().contains("current-state export"), "{err}");
+
+        // A partial run, then the whole dump: the second run skips what the first wrote.
+        let out = run_adoption(
+            &store,
+            &pipeline,
+            TENANT,
+            actor.clone(),
+            full.clone(),
+            history[..2].to_vec(),
+            registry(),
+            NOW,
+            1,
+        )
+        .await
+        .unwrap();
+        assert_eq!(out.counts.adopted, 2);
+        let out = run_adoption(
+            &store,
+            &pipeline,
+            TENANT,
+            actor.clone(),
+            full.clone(),
+            history.clone(),
+            registry(),
+            NOW,
+            2,
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            (
+                out.counts.adopted,
+                out.counts.unchanged,
+                out.counts.rejected
+            ),
+            (3, 2, 0),
+            "{:?}",
+            out.rejects
+        );
+
+        let local = store.records(LOCAL);
+        let revids: Vec<Option<u64>> = local.iter().map(|r| r.header().revid).collect();
+        assert_eq!(
+            revids,
+            [
+                Some(41_000),
+                Some(41_500),
+                Some(41_877),
+                Some(43_000),
+                Some(44_000)
+            ],
+            "every revision keeps the source's ID, below the floor"
+        );
+        assert_eq!(local[0].header().page_id, Some(12));
+        assert_eq!(attestation_of(&local[0])["actor"], "librarybase:7");
+        assert!(attestation_of(&local[0])["job"].is_u64());
+        assert_eq!(
+            local[0]
+                .body()
+                .comment()
+                .value()
+                .unwrap()
+                .unwrap()
+                .to_json()
+                .unwrap(),
+            "edit 41000",
+            "the edit summary is the comment part"
+        );
+        // The IP got one surrogate for both its revisions, with its actor record.
+        assert_eq!(attestation_of(&local[1])["actor"], "actor:1");
+        assert_eq!(attestation_of(&local[2])["actor"], "actor:1");
+        let surrogates: Vec<Record> = store
+            .records(ACTORS)
+            .into_iter()
+            .filter(|r| r.header().key.as_deref() == Some("actor:1"))
+            .collect();
+        assert_eq!(surrogates.len(), 1);
+        assert_eq!(
+            surrogates[0]
+                .body()
+                .content()
+                .value()
+                .unwrap()
+                .unwrap()
+                .to_json()
+                .unwrap(),
+            json!({"kind": "anonymous", "status": "active", "raw": "192.0.2.1"})
+        );
+        // A hidden comment leaves the comment part empty; a hidden user, no actor.
+        assert!(
+            local[1]
+                .body()
+                .comment()
+                .value()
+                .unwrap()
+                .is_none_or(|v| v == Value::Null)
+        );
+        assert!(matches!(
+            operation_of(&local[1]),
+            Operation::Adopt { entity: None, redirect: None, ref withheld, .. } if withheld.len() == 2
+        ));
+        let hidden = attestation_of(&local[3]);
+        assert_eq!(hidden.get("actor"), None);
+        assert_eq!(hidden["hidden"], true);
+        assert!(matches!(
+            operation_of(&local[4]),
+            Operation::Adopt { redirect: Some(ref to), entity: None, .. } if to.as_str() == "Q6"
+        ));
+        let finish = params_of(store.records(TENANT_LOG).last().unwrap());
+        assert_eq!(finish["history"], "full");
+
+        // A revision present under its ID with other content is a conflict.
+        let mut changed = history.clone();
+        changed[2].minor = false;
+        let out = run_adoption(
+            &store,
+            &pipeline,
+            TENANT,
+            actor,
+            full,
+            changed,
+            registry(),
+            NOW,
+            10,
+        )
+        .await
+        .unwrap();
+        assert_eq!((out.counts.adopted, out.counts.rejected), (0, 1));
+        assert!(out.rejects[0].reason.contains("ts-adopt-conflict"));
+        assert_eq!(store.records(LOCAL).len(), 5);
     });
 }

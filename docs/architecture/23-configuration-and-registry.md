@@ -209,8 +209,8 @@ The table is generated from `settings.toml` (§3.1). Each row cites the ADR sect
 | `ingest.hash_mismatch` | `site` | tenant | `keep`, `fail` | `keep` | Whether a snak or reference hash that differs from upstream's is kept or aborts the job | [0006](../decisions/0006-log-integrity-and-erasure.md) §2 |
 | `integrity.witness_partitions` | `site` | tenant | partition names | `["config"]` | Which partitions' checkpoints are submitted to the witnesses | [0081](../decisions/0081-recovery-keys-and-continuations.md) §6 |
 | `integrity.witnesses` | `site` | tenant | list of witnesses, each an endpoint URL and a signed-note verifier key | empty | C2SP tlog-witness endpoints that cosign the tenant's checkpoints ([01](01-log-and-records.md) §4.3) | [0081](../decisions/0081-recovery-keys-and-continuations.md) §6 |
-| `login.issuers` | `site` | tenant | issuer codes with `login = true` and an `oauth` table, or `*` for every one | `*`, every such issuer with a client credential | The external issuers the tenant offers for login, of those with a client credential ([07](07-actors-and-accounts.md) §2.7); a save leaving no way to log in is refused | [0088](../decisions/0088-external-identity-providers.md) §4 |
-| `login.password` | `site` | tenant | off, on | on, set by `instance create` | Whether the built-in `password` issuer accepts logins | [0007](../decisions/0007-actor-identity.md) §3 |
+| `login.issuers` | `site` | tenant | issuer codes with `login = true` and an `oauth` table, or `*` for every one | `*`, every such issuer with a client credential | The external issuers whose logins the tenant admits, of those with a client credential; the instance default is what the auth host offers ([07](07-actors-and-accounts.md) §2.7, §2.8). A save leaving a tenant admitting nothing the auth host offers is refused | [0088](../decisions/0088-external-identity-providers.md) §4; [0089](../decisions/0089-the-auth-host-and-instance-logins.md) §10, §16 |
+| `login.password` | `site` | tenant | off, on | on, set by `instance create` | Whether the tenant admits a login authenticated by its password; the instance default is whether the auth host offers passwords ([07](07-actors-and-accounts.md) §2.2) | [0007](../decisions/0007-actor-identity.md) §3; [0089](../decisions/0089-the-auth-host-and-instance-logins.md) §16 |
 | `lua.client_site` | `site` | tenant | a site ID with a site alias | the tenant's own alias | Which site Lua's Wikibase client is, and so which item a page is connected to | [0043](../decisions/0043-lua-modules.md) §9 |
 | `lua.ids` | `site` | tenant | map from type letter to `local` or a provider code | empty: every letter means `local` | What a bare one-letter ID means in Lua | [0043](../decisions/0043-lua-modules.md) §8 |
 | `lua.unheld_ttl` | `site` (by rule, §3.1) | tenant | duration | 10 minutes | Expiry of a recorded miss on an unheld entity | [0043](../decisions/0043-lua-modules.md) §11 |
@@ -373,7 +373,7 @@ These share the dotted form but are fields of the record named, not `site` setti
 
 ### 3.6 Deployment configuration
 
-*Sources: [0033](../decisions/0033-backend-stack.md) §12; [0042](../decisions/0042-template-expansion-and-parsoid.md) §2.*
+*Sources: [0033](../decisions/0033-backend-stack.md) §12; [0042](../decisions/0042-template-expansion-and-parsoid.md) §2; [0089](../decisions/0089-the-auth-host-and-instance-logins.md) §1.*
 
 Deployment configuration is read by `figment` (§5.1), never from a log record, as the Postgres and OpenSearch addresses are; the credentials of an `enterprise` page-repository source are deployment configuration too ([0053](../decisions/0053-mirrored-pages.md) §1).
 
@@ -382,6 +382,7 @@ Deployment configuration is read by `figment` (§5.1), never from a log record, 
 | `server.mode` | `production`, `development` | `instance create` writes `production` | In `production` the server refuses to start while a deployment requirement it can test fails; `development` starts anyway and marks `siprop=triplespace` with `insecure: true` | [0033](../decisions/0033-backend-stack.md) §12; [0056](../decisions/0056-security-model.md) §10 |
 | `server.trusted_proxies` | addresses and CIDR ranges | — | Hops whose `X-Forwarded-*` are believed, by address | [0033](../decisions/0033-backend-stack.md) §12; [0057](../decisions/0057-web-tier.md) §10 |
 | `server.admin_listen` | a listener | — | Where `/metrics`, health and debug routes are served, never the public one | [0033](../decisions/0033-backend-stack.md) §12; [0056](../decisions/0056-security-model.md) §10 |
+| `server.auth_base` | URL | unset: the single tenant's base serves as the auth base | The auth host, where a person authenticates to the instance; required once there is a second tenant, and never a tenant base or the farm base ([07](07-actors-and-accounts.md) §2.8) | [0089](../decisions/0089-the-auth-host-and-instance-logins.md) §1, §12 |
 | `server.ui` | `embedded`, `off` | `embedded` | Whether the server serves the site | [0033](../decisions/0033-backend-stack.md) §12; [0057](../decisions/0057-web-tier.md) §2 |
 | `parsoid.url` | URL | unset: no tenant can choose `parsoid` | The Parsoid service | [0042](../decisions/0042-template-expansion-and-parsoid.md) §2 |
 | `parsoid.timeout` | duration | 30 s | Per render; also the validity of a render's API token | [0042](../decisions/0042-template-expansion-and-parsoid.md) §2 |

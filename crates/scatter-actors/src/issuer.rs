@@ -184,9 +184,12 @@ pub const PASSWORD: &str = "password";
 pub const INSTANCE: &str = "instance";
 /// Reads as the current tenant's issuer (0018 §4); never a registered code.
 pub const LOCAL: &str = "local";
+/// Reads as the current tenant's surrogates, `actor:{n}` (0007 §5, A27); never a
+/// registered code.
+pub const ACTOR: &str = "actor";
 
-/// Codes no tenant, provider or issuer may take (0018 §1, 0040 §2).
-pub const RESERVED_CODES: [&str; 3] = [INSTANCE, PASSWORD, LOCAL];
+/// Codes no tenant, provider or issuer may take (0018 §1, 0040 §2, 0007 A27).
+pub const RESERVED_CODES: [&str; 4] = [INSTANCE, PASSWORD, LOCAL, ACTOR];
 
 /// The issuer registry.
 #[derive(Debug, Clone, PartialEq, Eq)]

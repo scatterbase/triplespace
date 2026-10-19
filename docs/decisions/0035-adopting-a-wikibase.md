@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-28
-- **Updated:** 2026-10-09 (A11)
+- **Updated:** 2026-10-19 (A14)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md)
 - **Uses:** [0024](0024-subsidiary-accounts.md), [Wikibase contract](../api/wikibase-compat.md)
@@ -34,17 +34,19 @@ One alternative needs no new operation and was rejected: load the old wiki into 
 
 ### 2. Preconditions and the job
 
-*Changed by A2, A11.*
+*Changed by A2, A11, A12, A13.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §7.2.*
 
 ### 3. The `adopt` operation (amends 0002 §8.2 and §8.5)
 
-*Changed by A4, A6, A7.*
+*Changed by A4, A6, A7, A12, A14.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §3.2, §3.9, §7.3.*
 
 ### 4. Sequence floors (extends 0013 §6; amends 0015 §2 and 0007 §3)
+
+*Changed by A12.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §7.4.*
 
@@ -56,9 +58,13 @@ One alternative needs no new operation and was rejected: load the old wiki into 
 
 ### 6. Provenance and log events (amends 0011 §6.1; extends 0012 §5)
 
+*Changed by A12, A13.*
+
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §2.2, §2.3.*
 
-### 7. History: shape fixed, content deferred
+### 7. History
+
+*Changed by A12.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §7.5, §8.3.*
 
@@ -75,12 +81,14 @@ One alternative needs no new operation and was rejected: load the old wiki into 
 - **Floors leave gaps.** The first entity created after adoption takes a number above the source's counter, not above its highest surviving ID. That is the same rule Wikibase itself follows.
 - **Adopted accounts exist without holders.** Every source user has a tenant account and a contributions page from the day of adoption, and none can log in until reclaimed. This is the same state a moved tenant's accounts are in under [0018](0018-tenants.md) §10.
 - **Current-state adoption forecloses in-order history** (§7). A tenant that wants its history in `local`, revision by revision, must adopt with the history dump in hand.
+- **The history comes with the wiki** (A12). Every revision the source kept arrives in the one job under its own number, time, author and summary, so histories, contributions, diffs and `oldid=` links read as they did on the source from the first day. An adoption writes one record per revision rather than one per entity, and takes longer by that ratio.
+- **What the source hid stays hidden, and what it deleted stays out** (A14). A revision-deleted part is absent from the record and shown as suppressed; a deleted page is not adopted, and its numbers are still never reused.
 - ~~**The log-granularity residue of 0005 narrows.** `adopt` is the whole-entity write to the local graph; whether an ordinary edit may replace an entity against a base revision remains open there.~~ *`create-or-add` with `overwrite` and a base revision replaces an entity; `adopt` is the one whole-entity write that needs no base revision (A6).*
 
 ## Open questions
 
-- **Q1. History for tenants that have not yet adopted** (§7): whether (a) or (b) is the default, or whether both are offered as modes of one job.
-- **Q2. Pages in the same job.** Whether an adoption should carry the source's document pages ([0008](0008-namespaces-and-document-pages.md) §9) in the same run, sharing the page-ID floor, or leave them to a second job.
+- **Q1.** ~~**History for tenants that have not yet adopted** (§7): whether (a) or (b) is the default, or whether both are offered as modes of one job.~~ *Settled by A12: (a), history first and in order, is the default; `--current-only` keeps the current-state adoption, with (b) as its later path.*
+- **Q2.** ~~**Pages in the same job.** Whether an adoption should carry the source's document pages ([0008](0008-namespaces-and-document-pages.md) §9) in the same run, sharing the page-ID floor, or leave them to a second job.~~ *Settled by A13: the same job, every page of the dump, keeping its page and revision IDs.*
 - **Q3.** ~~**Vouching.** Whether a still-running source wiki can act as an identity provider for reclaiming, which needs an OAuth issuer on the source, or whether the manual `reclaim/reclaim` path is the only one a MediaWiki source offers.~~ *Settled by [0088](0088-external-identity-providers.md) §8: it can, through an issuer that reaches its users, `local` on the source itself or `central` checked with `usprop=centralids`, while `reclaim.vouching` names it.*
 - **Q4. Sitelinks.** A source's `wb_items_per_site` rows are site IDs and titles; they become URLs through the site aliases of [0026](0026-sitelinks.md) §2, and a site ID the registry does not know is a reject. Whether adoption should register unknown site IDs as aliases on the fly is open.
 
@@ -92,10 +100,13 @@ One alternative needs no new operation and was rejected: load the old wiki into 
 | [0005](0005-crate-organization.md) §2, §7 | §8 | extends | 0005 A34 |
 | [0007](0007-actor-identity.md) §3 | §4–5 | extends | 0007 A12 |
 | [0008](0008-namespaces-and-document-pages.md) §9 | §4 | extends | 0008 A7 |
+| [0008](0008-namespaces-and-document-pages.md) §9 | A13 | amends | 0008 A38 |
 | [0011](0011-logs.md) §6.1 | §6 | extends | 0011 A12 |
 | [0012](0012-api-requirements.md) §5 | §6 | extends | 0012 A22 |
 | [0013](0013-postgres-storage.md) §6 | §4 | extends | 0013 A12 |
+| [0013](0013-postgres-storage.md) §6 | A12 | amends | 0013 A68 |
 | [0015](0015-record-format-and-partition-registry.md) §2 | §4 | amends | 0015 A15 |
+| [0015](0015-record-format-and-partition-registry.md) §2 | A12 | amends | 0015 A62 |
 | [0016](0016-permissions-and-access-control.md) §3 | §5 | amends | 0016 A12 |
 | [0018](0018-tenants.md) §1, §3, §5 | §1 | extends | 0018 A5 |
 
@@ -210,3 +221,68 @@ Replaced text (§5, in [07](../architecture/07-actors-and-accounts.md) §2.5):
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §1, §2
 - **Summary:** An instance refuses a sync job, shallow or full, for a provider whose registry `issuer` is a tenant of this instance: that tenant's `local` partition is the provider's graph, read directly, and a mirror of it would be a stale copy. The adoption job gains a fifth precondition: no live mirror partition exists for the tenant's code. Where the instance had been mirroring the source as a registry provider (`mirror/librarybase` for `LB`), that partition is frozen first, its `entity_source` rows dropped and composition switched to reading the tenant's `local` partition, so that readers see one graph for the code and not a mirror beside the tenant; adoption under a code with a live mirror partition is refused until then. Whether `LB` is a remote wiki to sync or a tenant here is therefore instance configuration, read from the registry's `issuer`. The ledger row names [0018](0018-tenants.md) §5, [0080](0080-tenants-as-entity-sources.md) §3 and [0070](0070-shallow-entity-mirroring.md) §7; the precondition is this ADR's, folded in [05](../architecture/05-providers-and-ingest.md) §7.2 and §8.3, and nothing is contradicted. (REVIEW G31)
+
+### A12. Adoption carries the source's history
+
+- **Date:** 2026-10-19
+- **Source:** Direct: James, design discussion of 2026-10-19
+- **Change:** amends §2, §3, §4, §6, §7; retitles §7
+- **Summary:** An adoption brings the source's full revision history by default, as shape (a) of §7. Its input is a full-history XML export, and every revision of every entity page becomes one `adopt` record in `local`, in source-revision order within the page. The record's revision ID, header field 7, is the source's own, below the revision floor, so none is taken from the tenant's sequence. Its content adds `source_parentid` and `minor` to `source_revid`, `source_time` and `source_pageid`; its comment part is the revision's edit summary; its attestation names the revision's author with the job beside it: the adopted account `{code}:{n}`, a surrogate `actor:{n}` ([0007](0007-actor-identity.md) A27) for an IP or `imported>Name` author, or no actor and the `hidden` marker for a user the source hid. A revision that made the page a redirect carries `redirect` in place of `entity`, so a merged entity redirects as it did on the source, and a later revision that restores it carries `entity` again. The newest revision is the current state, with no adoption revision after it, so `lastrevid` is the source's and every `oldid=` the source issued resolves here. An `adopt` follows only an `adopt` of the same entity with a lower source revision ID; a re-run skips a revision present with the same content and rejects one present with other content. Each adopted revision is an activity row at its source time, so it stands in the past, and no addressing rule delivers one. A dump without history (every page one revision while revisions name parents) is refused unless the operator passes `--current-only`, which keeps the current-state adoption: one `adopt` per entity under a fresh revision ID, attributed to the job's subsidiary, with (b) as the later path to history. The job record carries `history` (`full` or `current`). Librarybase adopts with its history. The chapter text is [05](../architecture/05-providers-and-ingest.md) §3.2, §3.9, §7.2–§7.5 and §8.3, and [16](../architecture/16-logs-feeds-and-notifications.md) §2.2, §2.3 and §3.1; the change to revision-ID assignment is logged as [0015](0015-record-format-and-partition-registry.md) A62 and [0013](0013-postgres-storage.md) A68.
+
+Replaced text ([05](../architecture/05-providers-and-ingest.md) §7.3, as it stood):
+
+> - **`source_revid`, `source_time`, `source_pageid`** are the source's revision ID and timestamp for the adopted state and the page ID of the entity's page on the source. They are content, kept in the content part, and they give the record its provenance ([0035](../decisions/0035-adopting-a-wikibase.md) §6; [07](../architecture/07-actors-and-accounts.md)) and its page ID (§7.4).
+
+> The record is an ordinary local revision: it takes the next revision ID from the tenant's sequence ([0015](../decisions/0015-record-format-and-partition-registry.md) §2), its comment part is empty, and its attestation names the job's subsidiary and the job ([0015](../decisions/0015-record-format-and-partition-registry.md) §1). The entity's `lastrevid` after adoption is that new local revision ID; `source_revid` is shown beside it as "adopted from revision N".
+
+> **Re-running** an adoption job against the same dump skips every entity already present and is therefore how a partial adoption is completed. A newer dump is not a second adoption: once adopted, the wiki changes through edits.
+
+Replaced text ([05](../architecture/05-providers-and-ingest.md) §3.2, as it stood):
+
+> | `adopt` | Local | Writes an entity's whole state as its first local record, under the ID the source minted. Accepted only from an adoption job (§7.2). An entity already present is skipped when the content hash matches and rejected otherwise; `adopt` never updates. |
+
+> `adopt` is accepted only from an adoption job on a tenant that is that wiki continuing on Triplespace, on a `local` partition that holds no other entity records; it never updates, and re-running it skips an entity whose content hash matches and rejects one that differs.
+
+Replaced text ([05](../architecture/05-providers-and-ingest.md) §7.4, as it stood):
+
+> | **Revision IDs** (`log.revision_id`). Adopted records take fresh IDs above the floor | The source's highest revision ID | No local revision ever shares a number with a source revision, so `oldid={source revid}` resolves to the source revision once history is imported (§7.5) and to nothing before, never to an unrelated local revision |
+
+Replaced text ([05](../architecture/05-providers-and-ingest.md) §7.5, "History: shape fixed, content deferred", as it stood):
+
+> Adoption brings **current state only**. What fixes the shape of a later history import is a constraint, not a preference: a later job must not displace the current state.
+
+> - **(a) History first, in order.** Each source revision is an `adopt` record with an explicit revision ID (the source's, below the floor), its original timestamp and its original actor, as [0008](../decisions/0008-namespaces-and-document-pages.md) §9 steps 1–2 do for pages, and the last revision *is* the current state. It needs the XML history dump at adoption time, and it makes adoption one job.
+
+> Adopting current state only forecloses (a) for that tenant. Librarybase accepts that: its first milestone is API-only and current-state, and (b) is then its path.
+>
+> Not yet: the choice between the two shapes for tenants that have not yet adopted is open in [0035](../decisions/0035-adopting-a-wikibase.md).
+
+Replaced text ([05](../architecture/05-providers-and-ingest.md) §8.3, as it stood):
+
+> its first milestone is API-only and current-state, with history as a later backfill (§7.5).
+
+Replaced text ([16](../architecture/16-logs-feeds-and-notifications.md) §3.1, as it stood):
+
+> An adopted entity's first record is an `edit` row with `new` set, the `bot` flag, the `job:{id}` tag and an `adopt` tag ([0035](../decisions/0035-adopting-a-wikibase.md) §6);
+
+### A13. Every page comes in the same job
+
+- **Date:** 2026-10-19
+- **Source:** Direct: James, design discussion of 2026-10-19
+- **Change:** amends §2; extends §6
+- **Summary:** The adoption job carries every page of the dump, not only entity pages. A page outside the entity namespaces is imported by the page-import procedure of [0008](0008-namespaces-and-document-pages.md) §9 within the job, into `pages`, keeping its source page ID and, revision by revision, its source revision IDs, attributed as entity revisions are (A12); one revision sequence then serves both, as it did on the source. Precondition 3 applies to each partition the job writes, `local` for entities and `pages` for pages, so a job that adopted the entities can be resumed to carry the pages while no page has been edited. A page the job cannot import is counted as `deferred`. The `import/*` event is written for the first record of an adopted page as for an adopted entity. The chapter text is [05](../architecture/05-providers-and-ingest.md) §7.2 and [16](../architecture/16-logs-feeds-and-notifications.md) §2.3; the page-import side is logged as [0008](0008-namespaces-and-document-pages.md) A38.
+
+Replaced text ([05](../architecture/05-providers-and-ingest.md) §7.2, as it stood):
+
+> 3. **the tenant's `local` partition holds no entity records** other than those written by earlier adoption jobs for the same source. This is what makes a failed adoption resumable (§7.3) and everything else an ordinary edit;
+
+Replaced text ([16](../architecture/16-logs-feeds-and-notifications.md) §2.3, as it stood):
+
+> the first record of an adopted entity, as `import/upload` from a dump or `import/interwiki` from the live API, never as `create/create`;
+
+### A14. Parts the source hid
+
+- **Date:** 2026-10-19
+- **Source:** Direct: James, design discussion of 2026-10-19
+- **Change:** extends §3
+- **Summary:** A revision the source revision-deleted reaches a history export with its text, comment or contributor replaced by `deleted="deleted"`, and the export does not say whether it was deleted or suppressed. The adopted record carries nothing for a withheld part, and the `adopt`'s `withheld` names the parts it lacks, as a `record` ACL names parts: `content`, so the `adopt` has neither `entity` nor `redirect` and the revision has no state for `oldid` to show to anyone; `comment`, so the comment part is empty; `attestation`, so it names no actor. Beside each such record the job writes a `record` ACL with those parts restricted to `suppress`, and the history views show them as suppressed. The current revision's text is never hidden on MediaWiki, so the current state is never withheld. Pages the source deleted are not in the export and are not adopted; the floors still cover their IDs. Adoption reads the export only, not the source's `archive` table or revision-deleted content. The chapter text is [05](../architecture/05-providers-and-ingest.md) §7.3.

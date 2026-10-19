@@ -14,6 +14,8 @@
 #                  "declined"  decided against; `reason` says why. Answered as "no such special page".
 #                  "reserved"  belongs to an entity type reserved but not implemented; never reused
 # scope            "tenant" | "farm" | "both" (0047 §3). Default "tenant".
+# auth             PENDING (0089 §7): true for a page also served at the auth base, acting on the instance
+#                  login. Written as a comment beside the page until triplespace-titles accepts it.
 # group            The Special:SpecialPages heading: MediaWiki's group keys (maintenance, pages, login,
 #                  users, changes, media, wiki, redirects, highuse, pagetools, other) plus wikibaserepo,
 #                  wikibaseclient, identity and instance. "unlisted" pages are never listed.
@@ -340,7 +342,7 @@ status = "served"
 scope = "tenant"
 group = "login"
 aliases = ["Login"]
-adr = "0010 §10"
+adr = "0010 §10, 0089 §7"  # auth = true (0089 §7)
 
 [[page]]
 name = "UserLogout"
@@ -350,7 +352,7 @@ status = "served"
 scope = "tenant"
 group = "login"
 aliases = ["Logout"]
-adr = "0047 §9"
+adr = "0047 §9, 0089 §7"  # auth = true (0089 §7)
 
 [[page]]
 name = "CreateAccount"
@@ -359,7 +361,7 @@ status = "served"
 scope = "tenant"
 group = "login"
 aliases = ["RequestAccount"]   # ConfirmAccount's request form: the same form, under account.approval (0087 §6)
-adr = "0010 §10, 0087 §6"
+adr = "0010 §10, 0087 §6, 0089 §7"  # auth = true (0089 §7)
 
 [[page]]
 name = "AuthenticationPopupSuccess"
@@ -1657,7 +1659,7 @@ status = "served"
 scope = "tenant"
 group = "users"
 section_aliases = { ResetTokens = "#watchlist-token", ChangeCredentials = "#sign-in-methods", RemoveCredentials = "#sign-in-methods", ChangePassword = "#sign-in-methods", LinkAccounts = "#sign-in-methods", UnlinkAccounts = "#sign-in-methods", ChangeEmail = "#contacts", Confirmemail = "#contacts", Invalidateemail = "#contacts", BotPasswords = "#subsidiaries", OAuthManageMyGrants = "#connected-applications" }
-adr = "0010 §11, 0085 §5"
+adr = "0010 §11, 0085 §5, 0089 §7"  # auth = true (0089 §7)
 
 [[page]]
 name = "Preferences"

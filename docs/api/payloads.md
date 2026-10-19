@@ -139,7 +139,7 @@ Every operation has `op` and a subject, `id` (an entity) or `page` (a page ID):
 | `tombstone` | mirror | `id` | `upstream` |
 | `redirect` | mirror, local | `from` (the key) | `to` |
 | `create` | local | `id` (allocated) | `entity`; `match`, `via` when it came from a `create-or-add` |
-| `adopt` | local | `id` | `entity`, `source_revid`, `source_time`, `source_pageid` |
+| `adopt` | local | `id` | `entity` or `redirect` (neither when `withheld` has `content`), `source_revid`, `source_parentid`, `source_time`, `source_pageid`, `minor`, `withheld` |
 | `add` | local, pages | `id` or `page` | `labels`, `descriptions`, `aliases`, `claims`, `sitelinks`, `references`, `qualifiers`; `match`, `via`, `overwrite` when it came from a `create-or-add` |
 | `remove` | local, pages | `id` or `page` | `statements`, `labels`, `descriptions`, `aliases`, `sitelinks`, `references`, `qualifiers`, `link` |
 | `override` | local | `id` | `statement`, `rank`, `suppress` |
@@ -196,7 +196,9 @@ Every operation has `op` and a subject, `id` (an entity) or `page` (a page ID):
 {"op": "create", "id": "Q900002", "entity": {…}, "match": {"P356": "10.1234/x"}, "via": "create-or-add"}
 {"op": "add", "id": "Q5", "claims": {…}, "match": {"P356": "10.1234/y"}, "via": "create-or-add"}
 {"op": "add", "id": "Q5", "entity": {…}, "match": {"P356": "10.1234/y"}, "via": "create-or-add", "overwrite": true}
-{"op": "adopt", "id": "Q6", "entity": {…}, "source_revid": 41877, "source_time": "2026-09-20T14:02:11Z", "source_pageid": 12}
+{"op": "adopt", "id": "Q6", "entity": {…}, "source_revid": 41877, "source_parentid": 41002, "source_time": "2026-09-20T14:02:11Z", "source_pageid": 12, "minor": true}
+{"op": "adopt", "id": "Q9", "redirect": "Q6", "source_revid": 41880, "source_parentid": 41100, "source_time": "2026-09-20T14:05:30Z", "source_pageid": 15}
+{"op": "adopt", "id": "Q11", "withheld": ["content", "attestation"], "source_revid": 41901, "source_parentid": 41890, "source_time": "2026-09-21T08:00:00Z", "source_pageid": 18}
 {"op": "add", "id": "Q5", "claims": {"P50": [{…statement…}]}, "labels": {"fr": "Exemple"}, "aliases": {"en": ["Ex"]}}
 {"op": "add", "id": "WDQ42", "references": {"WDQ42$C13E7A23-…": [{"snaks": {…}, "snaks-order": ["P248"]}]}}
 {"op": "add", "page": 1234, "claims": {"P40": [{…}]}}
@@ -407,15 +409,17 @@ observed as a `put`. A fourth part, `text`, holds a page revision's wikitext for
 
 ## 8. `scatter:v0/binding`
 
-In `accounts` (private, never exported), keyed by the local actor (0007 §3).
+In a tenant's `accounts` (private, never exported), keyed by the local actor, it binds the
+account to an instance login; in the instance's `logins`, keyed `login:{n}`, it binds an external
+identity to the login (0007 §3; 0089 §2–§4).
 
 ```json
+{"issuer": "login", "subject": "17"}
 {"issuer": "wikimedia-central", "subject": "7654321"}
-{"issuer": "password", "subject": "42"}
 ```
 
 `subject` is normalized (`mw:CentralAuth:7654321` → `7654321`). Secrets are never here:
-a password hash is `private.password`, a key is `private.api_key`. An external binding is
+a password hash is `private.password`, keyed by login, a key is `private.api_key`. A binding is
 indexed in `private.binding`, which points at the record so that removing the sign-in method
 can erase it (0088 §7).
 

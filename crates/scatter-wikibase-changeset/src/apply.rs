@@ -88,8 +88,22 @@ impl LocalState {
             self.offsets.push(o);
         }
         match op {
-            Operation::Create { entity, .. } | Operation::Adopt { entity, .. } => {
+            Operation::Create { entity, .. } => self.entity = Some(entity.clone()),
+            // An adopted revision is the whole state it had on the source: an entity, or
+            // a redirect in its place; a withheld text leaves the state as it was
+            // (0035 A12, A14).
+            Operation::Adopt {
+                entity: Some(entity),
+                ..
+            } => {
                 self.entity = Some(entity.clone());
+                self.redirect_to = None;
+            }
+            Operation::Adopt {
+                redirect: Some(to), ..
+            } => {
+                self.entity = None;
+                self.redirect_to = Some(to.clone());
             }
             Operation::Add { id: Some(id), .. } => self.add(id, op),
             Operation::Remove { id: Some(_), .. } => self.remove(op),
@@ -119,6 +133,7 @@ impl LocalState {
             | Operation::Put { .. }
             | Operation::Tombstone { .. }
             | Operation::Redirect { .. }
+            | Operation::Adopt { .. }
             | Operation::CreateOrAdd { .. }
             | Operation::Add { .. }
             | Operation::Remove { .. } => {}

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-18 (A66)
+- **Updated:** 2026-10-19 (A68)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
@@ -64,7 +64,7 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 
 ### 4. Four schemas
 
-*Changed by A3, A7, A8, A9, A11, A27, A45, A64, A65, A66.*
+*Changed by A3, A7, A8, A9, A11, A27, A45, A64, A65, A66, A67.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §1.2, §4.16.*
 
@@ -112,7 +112,7 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 
 ### 6. Global revision, log and page IDs (amends 0012 §2.1)
 
-*Changed by A2, A5, A6, A12, A22, A29, A55, A58.*
+*Changed by A2, A5, A6, A12, A22, A29, A55, A58, A68.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §2.3.*
 
@@ -946,3 +946,41 @@ Replaced text ([22](../architecture/22-crates-and-stack.md) §6, as it stood):
 - **Source:** [0088](0088-external-identity-providers.md) §3, §5, §7
 - **Change:** extends §4
 - **Summary:** Three `private` tables: client credentials per tenant and issuer, `tenant = ''` the instance default, the secret sealed; login flow handles where there is no shared cache; and the index of external bindings, pointing at each binding record, with `added` and `last_used`. The chapter text is [03](../architecture/03-storage-caches-and-search.md) §4.16 and §5.
+
+### A67. Instance logins in `private`
+
+- **Date:** 2026-10-18
+- **Source:** [0089](0089-the-auth-host-and-instance-logins.md) §2, §3, §5, §10
+- **Change:** amends §4
+- **Summary:** `private.login` indexes the instance's `logins` partition. `private.password` is keyed by login, not by account. `private.binding` indexes a login's external identities, under the empty tenant, and each tenant or farm account's binding to its login. `private.oauth_client` has one row per issuer, without `tenant`. Where there is no shared cache, `private.auth_request` holds a tenant's request at the auth host and `private.auth_code` a login code. `private.session` gains `login` and `central`. The chapter text is [03](../architecture/03-storage-caches-and-search.md) §4.16.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.16, as it stood):
+
+> `private.oauth_client (tenant, issuer, client_id, secret, callback, created, updated)`, primary key `(tenant, issuer)`, `tenant = ''` the instance default, the secret sealed under the instance sealing key,
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.16, as it stood):
+
+> `private.binding (tenant, issuer, subject, actor_key, partition, offset, added, last_used)`, unique on `(tenant, issuer, subject)`: the index of external bindings, whose truth is the binding records of the `accounts` partition; a password binding's index is `private.password`. All three are read and written by `triplespace-accounts` only.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.16, as it stood):
+
+> | `private` | `password` | `(actor_key, hash, updated)` for the built-in `password` issuer; a portable-class-"re-established" table under 0027 §2 | [0007](0007-actor-identity.md) A3 | Yes |
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.16, as it stood):
+
+> | `private` | `oauth_client`, `oauth_flow`, `binding` | Login through external issuers: client credentials per tenant and issuer with the instance default, the secret sealed;
+
+### A68. Adopted revision IDs; the surrogate sequence
+
+- **Date:** 2026-10-19
+- **Source:** [0035](0035-adopting-a-wikibase.md) A12; [0007](0007-actor-identity.md) A27
+- **Change:** amends §6
+- **Summary:** `log.revision_id` is not taken for an adopted revision, which carries the source wiki's own revision ID below the floor, as an adopted record carries its page ID ([0035](0035-adopting-a-wikibase.md) A12). Each tenant has one more sequence, `log."{tenant}.actor_surrogate"`, from which it mints the surrogates `actor:{n}` ([0007](0007-actor-identity.md) A27). The chapter text is [03](../architecture/03-storage-caches-and-search.md) §2.3.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §2.3, as it stood):
+
+> - `log.revision_id` is taken for every record appended to a partition whose records are this tenant's revisions: `local` and `pages`. It is written to header field 7 and to `log.record.revid` in the appending transaction.
+
+> An adoption sets every sequence here, entity, page, revision, log and user IDs, past what the source wiki consumed, records the floors in its job record, and supplies `page_id` for adopted records rather than taking one ([0035](../decisions/0035-adopting-a-wikibase.md) §4).
+
+> Per-tenant sequences also include `log."{tenant}.user_id"` ([0007](../decisions/0007-actor-identity.md) §3).

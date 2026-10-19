@@ -2,9 +2,9 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-10-18 (A25)
+- **Updated:** 2026-10-19 (A27)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md)
+- **Changes:** [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0013](0013-postgres-storage.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md)
 - **Chapters:** [02](../architecture/02-graphs-rdf-and-query.md), [07](../architecture/07-actors-and-accounts.md), [22](../architecture/22-crates-and-stack.md)
 
@@ -37,7 +37,7 @@ Four constraints follow from how MediaWiki treats accounts:
 
 ### 1. An actor is an issuer and a subject
 
-*Changed by A2, A3, A11, A13, A14, A21, A22, A25.*
+*Changed by A2, A3, A11, A13, A14, A21, A22, A25, A27.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §1.1.*
 
@@ -49,7 +49,7 @@ Four constraints follow from how MediaWiki treats accounts:
 
 ### 3. Local users and delegated authentication
 
-*Changed by A2, A3, A8, A11, A12, A16, A19, A21, A24, A25.*
+*Changed by A2, A3, A8, A11, A12, A16, A19, A21, A24, A25, A26.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.1, §2.2, §2.3, §2.6, §2.7, §5.1, §8.3.*
 
@@ -61,7 +61,7 @@ Four constraints follow from how MediaWiki treats accounts:
 
 ### 5. Actors with no stable numeric ID
 
-*Changed by A6.*
+*Changed by A6, A27.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §1.4.*
 
@@ -122,6 +122,7 @@ Four constraints follow from how MediaWiki treats accounts:
 | [0001](0001-revision-metadata-rdf.md) Q3 | §2, §5. | settles | 0001 Q3 |
 | [0002](0002-source-graphs-and-mass-ingest.md) Q10 | §2 | settles | 0002 Q10 |
 | [0005](0005-crate-organization.md) §2, §4.1 | §8, §10 | extends | 0005 A2 |
+| [0013](0013-postgres-storage.md) §6 | A27 | amends | 0013 A68 |
 
 ## References
 
@@ -337,3 +338,69 @@ Replaced text ([07](../architecture/07-actors-and-accounts.md) §1.1, as it stoo
 - **Source:** [0088](0088-external-identity-providers.md) §1, §2, §4, §6
 - **Change:** extends §1, §3
 - **Summary:** An issuer that serves login through OAuth carries an `oauth` table (endpoints, `subject` as `central` or `local`, where to register a consumer), first on `wikimedia-central`; Miraheze is deferred. The instance is a confidential OAuth 2.0 client with PKCE, registered for identity only, which keeps no provider token. A tenant offers an issuer when a client credential resolves for it and `login.issuers` lists it; a first login keeps the identity as the session's pending identity until an account is created for it. The chapter text is [07](../architecture/07-actors-and-accounts.md) §1.1 and the new §2.7.
+
+### A26. Instance logins
+
+- **Date:** 2026-10-18
+- **Source:** [0089](0089-the-auth-host-and-instance-logins.md) §2, §3, §4
+- **Change:** amends §3
+- **Summary:** A person authenticates to the instance as an **instance login**, not as a tenant account. The login holds the sign-in methods: a password, whose binding is now `(password, n) → login:n` with the hash in `private.password` keyed by login, and external identities, whose bindings are records in the instance's private `logins` partition. A tenant account holds one binding, `(login, n)`, in its tenant's `accounts` partition, and a login reaches at most one account per tenant, so one password serves every tenant while actors stay per tenant. `login` is a built-in issuer. Logins are created and used on the auth host, and a person chooses a tenant account's public name on the first visit. The chapter text is [07](../architecture/07-actors-and-accounts.md) §2.1, §2.2, §2.6 and the new §2.8.
+
+Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.1, as it stood):
+
+> **Logging in uses a binding.** A binding maps an identity-provider subject to a local user, for example `(wikimedia-central, 7654321) → local:42`. The rules are:
+>
+> - A local user may hold several bindings, and may add or remove them.
+> - A provider subject is bound to at most one local user.
+> - Tokens and other secrets are never written to the log. They live in an operational store.
+> - The `sub` claim is normalized. The legacy form `7654321` and the newer form `mw:CentralAuth:7654321` are the same subject.
+> - A binding belongs to a tenant account and lives in that tenant's `accounts` partition. One identity-provider account may be bound on several tenants; that makes them one person's accounts, not one actor ([0018](0018-tenants.md) §4).
+
+Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.1, as it stood):
+
+> **API keys are credentials of subsidiary accounts only** (§5.1). A primary account authenticates through a binding and never holds a key.
+
+Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.1, as it stood):
+
+> **Bindings are private.** They go to the `accounts` graph (§1.6), which is never projected, exported or placed on a feed.
+
+Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.2, as it stood):
+
+> One issuer is operated by the instance itself, `password`, registered in `issuers.toml` with `builtin = true`. Its subject for a local user is that user's own ID, so a password login is the binding `(password, 42) → local:42`, and the hash lives in `private.password` ([0013](0013-postgres-storage.md) §4), never in the log. It is an identity provider and nothing else: no actor is ever attributed to it, and it appears on `Special:UserLogin` ([0010](0010-site-ui.md) §10; [19](../architecture/19-site-ui.md)) as one button among the issuers. Whether it accepts logins is the `site` setting `login.password`; `triplespace-cli instance create` turns it on and sets the first administrator's password ([0016](0016-permissions-and-access-control.md) §3), and an instance that registers an external provider may turn it off or leave it as a fallback.
+
+Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.6, as it stood):
+
+> A person registers with the built-in `password` issuer (§2.2), choosing a name and a password in one form, or by a first login through an external issuer, which continues to `Special:CreateAccount` to choose a name ([19](../architecture/19-site-ui.md) §2.3). `action=createaccount` serves both ([18](../architecture/18-api.md) §2.3).
+
+Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.6, as it stood):
+
+> and which issuers may register, which is the issuer registry and `login.password` (§2.2).
+
+Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.6, as it stood):
+
+> | `createaccount` | Creating an account, or filing a request for one, with the `password` issuer |
+
+Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.6, as it stood):
+
+> | `badlogin` | A `password` login, once the caller's address key (§6.3) has failed 3 times within 5 minutes or the named account 20 times within 10 minutes |
+
+Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.6, as it stood):
+
+> A registration through an external issuer is not challenged, since the issuer has decided who may hold an account there, and neither is a subsidiary's bot-password login, whose secret cannot be guessed. A challenge is issued for one trigger, one tenant and one session, and a solution is accepted once.
+
+Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.6, as it stood):
+
+> the credential the account will be created with (a password hash, or an issuer and subject)
+
+### A27. A surrogate's actor key is `actor:{n}`
+
+- **Date:** 2026-10-19
+- **Source:** Direct: James, design discussion of 2026-10-19
+- **Change:** amends §5; extends §1
+- **Summary:** A surrogate is minted by its tenant, in sequence, from the tenant's `actor_surrogate` sequence, and its actor key is `actor:{n}`. Like `local`, the code `actor` is never registered, reads as the current tenant's, and is reserved in the shared namespace of slugs and issuer codes; the key's IRI is `{base}/actor/{n}`, and outside the tenant a surrogate is named by that IRI. Its actor record, of kind `anonymous`, `imported` or `federated` with the `raw` value, is in the tenant's `actors` partition, keyed by the key. Before this, a surrogate had an IRI and no key, and tenant issuers accept only numeric subjects. The chapter text is [07](../architecture/07-actors-and-accounts.md) §1.1 and §1.4; the sequence is logged as [0013](0013-postgres-storage.md) A68.
+
+Replaced text ([07](../architecture/07-actors-and-accounts.md) §1.4, as it stood):
+
+> | **Upstream IP edits,** made before temporary accounts | The IP gets a surrogate, `{base}/actor/{n}`, of kind `anonymous`.
+
+> **Surrogates are minted by the instance, in sequence.** They carry no information about what they stand for.

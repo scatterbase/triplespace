@@ -12,6 +12,7 @@ use crate::DumpError;
 
 /// One revision of a page.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[allow(clippy::struct_excessive_bools)] // one per flag the export writes: `<minor/>` and three `deleted`
 pub struct Revision {
     /// The revision ID.
     pub id: u64,
@@ -25,6 +26,10 @@ pub struct Revision {
     pub ip: Option<String>,
     /// Whether the dump hid the contributor (`<contributor deleted="deleted"/>`).
     pub user_hidden: bool,
+    /// Whether the dump hid the edit summary (`<comment deleted="deleted"/>`).
+    pub comment_hidden: bool,
+    /// Whether the dump hid the text (`<text deleted="deleted"/>`).
+    pub text_hidden: bool,
     /// A minor edit.
     pub minor: bool,
     /// The edit summary.
@@ -186,10 +191,20 @@ impl<R: BufRead> XmlDump<R> {
                         }
                         self.read_contributor(&mut rev)?;
                     }
-                    b"comment" => rev.comment = Some(self.text_of(b"comment")?),
+                    b"comment" => {
+                        if e.try_get_attribute("deleted").map_err(xml)?.is_some() {
+                            rev.comment_hidden = true;
+                        }
+                        rev.comment = Some(self.text_of(b"comment")?);
+                    }
                     b"model" => rev.model = Some(self.text_of(b"model")?.trim().to_string()),
                     b"format" => rev.format = Some(self.text_of(b"format")?.trim().to_string()),
-                    b"text" => rev.text = self.text_of(b"text")?,
+                    b"text" => {
+                        if e.try_get_attribute("deleted").map_err(xml)?.is_some() {
+                            rev.text_hidden = true;
+                        }
+                        rev.text = self.text_of(b"text")?;
+                    }
                     b"sha1" => rev.sha1 = Some(self.text_of(b"sha1")?.trim().to_string()),
                     other => {
                         let other = other.to_vec();
@@ -200,6 +215,12 @@ impl<R: BufRead> XmlDump<R> {
                     b"minor" => rev.minor = true,
                     b"contributor" if e.try_get_attribute("deleted").map_err(xml)?.is_some() => {
                         rev.user_hidden = true;
+                    }
+                    b"comment" if e.try_get_attribute("deleted").map_err(xml)?.is_some() => {
+                        rev.comment_hidden = true;
+                    }
+                    b"text" if e.try_get_attribute("deleted").map_err(xml)?.is_some() => {
+                        rev.text_hidden = true;
                     }
                     _ => {}
                 },

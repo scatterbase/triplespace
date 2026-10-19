@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-17 (A37)
+- **Updated:** 2026-10-19 (A38)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -71,7 +71,7 @@ The goal is not to reimplement MediaWiki's page features. Templates, parser func
 
 ### 9. Importing pages from another wiki
 
-*Changed by A7, A10, A12, A16, A23.*
+*Changed by A7, A10, A12, A16, A23, A38.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §6.*
 
@@ -560,3 +560,14 @@ Replaced text ([10](../architecture/10-pages-and-content-models.md) §2.5, as it
 Replaced text ([10](../architecture/10-pages-and-content-models.md) §3.5, as it stood):
 
 > - **The canonical name is `Project`, and the local name is the site name,** as in MediaWiki. On the reference install that is `Triplespace Ref` ([siteinfo snapshot](../api/snapshots/mw-1.43.9-wb-REL1_43.siteinfo.json)). Both resolve.
+
+### A38. An adopted wiki's pages come in its adoption job
+
+- **Date:** 2026-10-19
+- **Source:** [0035](0035-adopting-a-wikibase.md) A13
+- **Change:** amends §9
+- **Summary:** When the source is the wiki the tenant adopted, its pages are imported within the adoption job, not by a job of their own. They keep their source page IDs in field 9 and, revision by revision, their source revision IDs in field 7, so that an `oldid` link into the source's pages resolves as one into its entities does, and a revision the source hid is imported as an adopted entity revision is. The chapter text is [10](../architecture/10-pages-and-content-models.md) §6.
+
+Replaced text ([10](../architecture/10-pages-and-content-models.md) §6, as it stood):
+
+> **Page IDs on an adopted wiki.** When the source is the wiki the tenant adopted, imported pages keep their source page IDs, supplied in header field 9 as adopted entities' are, and the page-ID floor set at adoption already covers them ([0035](../decisions/0035-adopting-a-wikibase.md) §4; [08](../architecture/08-tenants-and-instances.md)).

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-17 (A60)
+- **Updated:** 2026-10-19 (A62)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md)
 - **Uses:** [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md)
@@ -30,7 +30,7 @@ Two smaller gaps are closed with them: the document node of a foreign entity on 
 
 ### 2. Global IDs live in the header (amends 0006 §3 and 0013 §6)
 
-*Changed by A3, A15, A23, A37, A48, A49, A50, A51.*
+*Changed by A3, A15, A23, A37, A48, A49, A50, A51, A62.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §2.2, §2.5, §5.3, §7.*
 
@@ -48,7 +48,7 @@ Two smaller gaps are closed with them: the document node of a foreign entity on 
 
 ### 5. Graph names and IRIs (settles 0001 Q2, 0002 Q1 and 0005 Q6)
 
-*Changed by A2, A3, A4, A5, A7, A9, A10, A11, A12, A16, A17, A19, A20, A21, A23, A24, A26, A31, A36, A37, A38, A43, A51, A55, A56, A58, A59.*
+*Changed by A2, A3, A4, A5, A7, A9, A10, A11, A12, A16, A17, A19, A20, A21, A23, A24, A26, A31, A36, A37, A38, A43, A51, A55, A56, A58, A59, A61.*
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §1.2, §1.3, §1.4.*
 
@@ -693,3 +693,21 @@ Replaced text ([02](../architecture/02-graphs-rdf-and-query.md) §1.4, as it sto
 - **Source:** [0086](0086-theming.md) §1
 - **Change:** extends §3
 - **Summary:** Two config kinds at instance or tenant scope, written with `ts-config`: `palette`, keyed `palette:{name}`, holding a palette's label, shape tokens, colour variants, the palette it extends and its accessibility mark, and `typeset`, keyed `typeset:{name}`, holding a type set's label, typeface roles, per-language stacks, typefaces and accessibility mark. `docs/registry/themes.toml` holds the shipped ones in the same shape. The chapter rows are [23](../architecture/23-configuration-and-registry.md) §2.2.
+
+### A61. The `logins` partition
+
+- **Date:** 2026-10-18
+- **Source:** [0089](0089-the-auth-host-and-instance-logins.md) §2
+- **Change:** extends §5
+- **Summary:** The instance gains a private source partition, `logins` (`full`, `logged`, never exported or projected), whose graph IRI is `{farm base}/instance/graph/logins`: one `scatter:v0/login` record per instance login, keyed `login:{n}`, and the `scatter:v0/binding` records of each login's external identities. `login` is a built-in issuer code in `issuers.toml`, and so reserved in the shared namespace of slugs and issuer codes. The chapter text is [02](../architecture/02-graphs-rdf-and-query.md) §1.2.
+
+### A62. Adopted revisions keep the source's revision IDs
+
+- **Date:** 2026-10-19
+- **Source:** [0035](0035-adopting-a-wikibase.md) A12
+- **Change:** amends §2
+- **Summary:** An adopted revision carries the source wiki's own revision ID in field 7, below the floor the adoption job set, in place of a number from the tenant's sequence, as an adopted record's page ID is supplied in field 9 (A15). The records come in the source's order within each page, so the revision ID no longer increases with append order across an adoption's history. The chapter text is [01](../architecture/01-log-and-records.md) §2.5.
+
+Replaced text ([01](../architecture/01-log-and-records.md) §2.5, as it stood):
+
+> - **The sequence increases with append order.** Gaps are acceptable.

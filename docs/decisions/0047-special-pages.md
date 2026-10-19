@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-17 (A23)
+- **Updated:** 2026-10-18 (A24)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0029](0029-resolver-namespaces.md), [0031](0031-property-constraints.md), [0042](0042-template-expansion-and-parsoid.md), [0046](0046-primary-tenant.md)
 - **Uses:** [0019](0019-discussions.md), [0021](0021-notifications.md), [0028](0028-tenancy-policy.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md)
@@ -56,7 +56,7 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 3. Where a page is served (extends 0018 §11 and 0046 §7)
 
-*Changed by A22.*
+*Changed by A22, A24.*
 
 *Current text: [21](../architecture/21-special-pages.md) §1.3.*
 
@@ -493,3 +493,10 @@ Replaced text ([21](../architecture/21-special-pages.md) §8, as it stood):
 Replaced text ([21](../architecture/21-special-pages.md) §8, as it stood):
 
 > Every entry of `docs/registry/special-pages.toml` (192 pages: 172 served, 7 deferred, 13 declined, none reserved), in alphabetical order.
+
+### A24. Pages at the auth base
+
+- **Date:** 2026-10-18
+- **Source:** [0089](0089-the-auth-host-and-instance-logins.md) §7
+- **Change:** extends §3
+- **Summary:** The auth base serves only the pages the registry marks `auth = true`, `UserLogin`, `CreateAccount`, `Account` and `UserLogout`, each in an auth form that acts on the instance login; every other page is a 404 there. Each is also a `tenant` page in its tenant form, and on a single-tenant instance without an auth host the tenant's base serves both forms as one. The field is pending until `triplespace-titles` accepts it. The chapter text is [21](../architecture/21-special-pages.md) §1.3.

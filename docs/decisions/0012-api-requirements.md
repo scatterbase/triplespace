@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-18 (A78)
+- **Updated:** 2026-10-18 (A79)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0005](0005-crate-organization.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -66,13 +66,13 @@ This ADR sets the rules for filling both gaps, and lists what the UI needs from 
 
 ### 4. Action API changes
 
-*Changed by A3, A4, A5, A7, A8, A9, A10, A12, A13, A14, A15, A16, A17, A18, A19, A21, A23, A24, A25, A26, A27, A30, A31, A32, A33, A34, A35, A36, A37, A38, A55, A64, A65, A66, A72, A73, A74, A75, A76, A77, A78.*
+*Changed by A3, A4, A5, A7, A8, A9, A10, A12, A13, A14, A15, A16, A17, A18, A19, A21, A23, A24, A25, A26, A27, A30, A31, A32, A33, A34, A35, A36, A37, A38, A55, A64, A65, A66, A72, A73, A74, A75, A76, A77, A78, A79.*
 
 *Current text: [18](../architecture/18-api.md) §1.5, §2.1, §2.2, §2.3, §2.4, §3.4, §5.1.*
 
 ### 5. REST routes under `rest.php/triplespace/v0`
 
-*Changed by A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A28, A30, A31, A32, A33, A37, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A50, A51, A52, A53, A54, A55, A56, A59, A60, A61, A62, A64, A70, A71, A72, A75, A76, A77, A78.*
+*Changed by A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A28, A30, A31, A32, A33, A37, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A50, A51, A52, A53, A54, A55, A56, A59, A60, A61, A62, A64, A70, A71, A72, A75, A76, A77, A78, A79.*
 
 *Current text: [18](../architecture/18-api.md) §1.2, §3.1, §3.2, §3.3, §4.*
 
@@ -872,3 +872,42 @@ Replaced text ([18](../architecture/18-api.md) §3.2, as it stood):
 > | `GET /auth/{issuer}/start`, `GET /auth/{issuer}/callback` | The login redirect flow; `returnto` honoured only on the request's own origin | [0012](../decisions/0012-api-requirements.md) §5 |
 > | `GET /auth/pending` | At first login: the pending identity's username, so the page can offer it as a suggestion. Only that session can read it | [0012](../decisions/0012-api-requirements.md) §5 |
 > | `POST /auth/pending/create` | Creates the account with the chosen name. It may also create a link, using the login that just took place as proof | [0012](../decisions/0012-api-requirements.md) §5 |
+
+### A79. The auth host's API
+
+- **Date:** 2026-10-18
+- **Source:** [0089](0089-the-auth-host-and-instance-logins.md) §5, §7, §9, §10, §11, §16
+- **Change:** amends §4; extends §5
+- **Summary:** At the auth base the Action API offers only its authentication modules, acting on instance logins: `query` with `meta=tokens|authmanagerinfo|userinfo|siteinfo`, `clientlogin`, `createaccount` (which creates a login), `linkaccount`, `unlinkaccount`, `changeauthenticationdata`, `removeauthenticationdata` and `logout`, whose `everywhere=1` ends every session of the login. On a tenant with an auth host, `clientlogin` keeps `username` and `password`, the password being the account's login's, and opens a tenant session only; `authmanagerinfo` lists the built-in issuer `login`, redirecting to the auth host; and `createaccount` with a password and the credential-management modules answer `ts-auth-host`. The REST API gains `GET /auth/authorize` at the auth base, and a tenant's `/auth/login/start` and `/auth/login/callback`, which redeems a login code in process; external issuers' `/auth/{issuer}` routes are served at the auth base. `siprop=triplespace` reports `auth` and `auth_origin`. The chapter text is [18](../architecture/18-api.md) §2.2, §2.3 and §3.2.
+
+Replaced text ([18](../architecture/18-api.md) §2.2, as it stood):
+
+> `login`: the external issuers the tenant offers, each with its code, name, button label and authorization origin ([0088](0088-external-identity-providers.md) §9) |
+
+Replaced text ([18](../architecture/18-api.md) §2.3, as it stood):
+
+> **External issuers** ([07](../architecture/07-actors-and-accounts.md) §2.7): for each the tenant offers, `authmanagerinfo` lists `TriplespaceIssuerAuthenticationRequest:{issuer}`, one `button` field `tsissuer-{issuer}` labelled with the issuer's name, for `login`, `create` and `link`; with that field and a `loginreturnurl` or `createreturnurl` on the tenant's origin (else `ts-oauth-returnurl`),
+
+Replaced text ([18](../architecture/18-api.md) §2.3, as it stood):
+
+> An identity with no account answers `RESTART` (`authmanager-authn-no-local-user-link`) and stays the session's pending identity; `createaccount` with `createpreservestate=1` and `username` creates the account bound to it, with no password and no challenge.
+
+Replaced text ([18](../architecture/18-api.md) §2.3, as it stood):
+
+> | `action=linkaccount`, `action=unlinkaccount`, `action=removeauthenticationdata` | Manage **bindings**, the private sign-in methods of [0007](0007-actor-identity.md) §3, because that is what these modules mean in MediaWiki.
+
+Replaced text ([18](../architecture/18-api.md) §2.3, as it stood):
+
+> a subject bound to another account is `ts-oauth-bound-elsewhere`. `unlinkaccount`
+
+Replaced text ([18](../architecture/18-api.md) §3.2, as it stood):
+
+> | `POST /auth/{issuer}/start` | The site's door to a login (`purpose=login`, with the session's `logintoken`) or to adding a sign-in method (`purpose=link`, with its `csrftoken`); `returnto` honoured only on the request's own origin. Creates the flow and answers `303` to the provider ([07](../architecture/07-actors-and-accounts.md) §2.7) |
+
+Replaced text ([18](../architecture/18-api.md) §3.2, as it stood):
+
+> | `GET /auth/{issuer}/callback` | The URL registered with the provider. Exchanges the code;
+
+Replaced text ([18](../architecture/18-api.md) §3.2, as it stood):
+
+> | `GET /auth/pending` | At first login: the issuer's name and the provider's username for the session's pending identity,

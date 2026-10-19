@@ -153,26 +153,28 @@ The pages later ADRs added are named in §6 with the feature that added them, an
 
 ### 2.3 Logging in
 
-*Sources: [0010](../decisions/0010-site-ui.md) §10; [0087](../decisions/0087-account-registration-and-challenges.md) §5, §6; [0088](../decisions/0088-external-identity-providers.md) §5, §6.*
+*Sources: [0010](../decisions/0010-site-ui.md) §10; [0087](../decisions/0087-account-registration-and-challenges.md) §5, §6; [0088](../decisions/0088-external-identity-providers.md) §5, §6; [0089](../decisions/0089-the-auth-host-and-instance-logins.md) §5, §6, §7, §8, §13.*
 
 **`Special:UserLogin`**
 
-- Offers one button for each issuer that the tenant offers for login ([07](07-actors-and-accounts.md) §2.7), such as "Log in with Wikimedia", each a form posting to `/auth/{issuer}/start`, so it works without JavaScript. It says what the instance learns: which account the user holds, and nothing else. An error the callback returns (`tserror`) is shown above the buttons.
+- **On a tenant**, offers one **Log in** button, a form posting to `/auth/login/start`, so it works without JavaScript. It takes the person to the auth host and back ([07](07-actors-and-accounts.md) §2.8), with no prompt when the auth host's session already holds a login the tenant admits.
+- **On the auth host**, takes the login name and password, and offers a button for each issuer the auth host offers ([07](07-actors-and-accounts.md) §2.7), such as "Log in with Wikimedia", each a form posting to `/auth/{issuer}/start`. Reached from a tenant, it names the tenant ("Log in to Librarybase"), offers only the methods the tenant admits, and accepts that tenant's account name in place of the login name. It says what the instance learns from a provider: which account the user holds, and nothing else.
+- An error the callback returns (`tserror`) is shown above the buttons.
 - Explains temporary accounts, and says that IP addresses are never shown or published ([0007](../decisions/0007-actor-identity.md) §3).
 - States that nobody else can see which service a user logs in with.
 
-**The first login** continues to `Special:CreateAccount`, where the user chooses a public name. The page says which provider the person signed in with, asks for no password and shows no challenge, and creates the account with `createpreservestate`. Arriving at `Special:CreateAccount` directly, a person may type a name and press an issuer's button instead of choosing a password; the name is checked first.
+**The first visit** to a tenant continues to its `Special:CreateAccount`, where the user chooses the account's public name. The page asks for no password and shows no challenge, and creates the account with `createpreservestate`; a person who arrives there directly goes to the auth host first. **On the auth host**, `Special:CreateAccount` creates a login: a login name and a password, under the `createaccount` challenge below, or a login name for an identity an issuer has just authenticated. The login name is private, and the page says so.
 
 **Name rules.** A local account name follows MediaWiki's username grammar exactly, so that imported attributions, CentralAuth names and Pywikibot round-trip: Unicode letters, digits and spaces; none of `@ # : / < > [ ] | { }`, control characters or leading, trailing or doubled spaces; at most 255 bytes; normalized to NFC with underscores read as spaces and the first letter uppercased. **Uniqueness is case-insensitive**, as the `actor_local_name` index of [0013](../decisions/0013-postgres-storage.md) §5.4 has it. **A name is never reused.** Every name a local account has ever held, whether renamed away or vanished from, stays reserved as a *name tombstone*, so that `[[User:OldName]]` in old page text or a post can never come to name a different person; the only way to have a name is to have always had it. Because a vanished account's names are erased from the log ([0007](../decisions/0007-actor-identity.md) §4), the tombstone is not a projection: it is a keyed hash of the lower-cased name in `private.name_tombstone` ([0013](../decisions/0013-postgres-storage.md) §5.6), written when a name is released, holding no actor key and no plaintext, and revealing nothing but that a candidate name is reserved, which the "name taken" check reveals anyway. `Special:CreateAccount` and `renameuser` refuse a tombstoned name with `ts-name-reserved`. The subsidiary conventions of [0024](../decisions/0024-subsidiary-accounts.md) §2 and [0025](../decisions/0025-oauth-server.md) §3 apply on top of this grammar, and the farm name registry of [0028](../decisions/0028-tenancy-policy.md) §2 is this rule applied across tenants, tombstones included ([08](08-tenants-and-instances.md)).
 
-- **The name field starts empty.** The identity provider's username may be offered as a button, labelled with where it came from. Next to it, the page says that using the same name makes the two accounts easy to connect.
+- **The name field starts empty.** The login name, and the identity provider's username where one authenticated the login, may be offered as buttons, each labelled with where it came from. Next to it, the page says that using the same name makes the two accounts easy to connect.
 - **An optional, unchecked box** offers to link the user's account on the identity provider's wiki, for example Wikidata, once the linking flow of [0007](../decisions/0007-actor-identity.md) §7 is built; until then it is not shown ([0088](../decisions/0088-external-identity-providers.md) §6). It says the link is public. If it is checked, the link is created by the flow in [0007](../decisions/0007-actor-identity.md) §7. The authentication that just took place serves as the fresh proof of control, because it happened in the same request flow.
 
-A farm signup page states the linking consent of [0028](../decisions/0028-tenancy-policy.md) §2 (§6.11).
+A farm signup page, on the auth host, states the linking consent of [0028](../decisions/0028-tenancy-policy.md) §2 (§6.11).
 
 **`Special:CreateAccount` when the wiki guards or reviews registration** ([0087](../decisions/0087-account-registration-and-challenges.md) §5, §6; [07](07-actors-and-accounts.md) §2.6):
 
-- **A challenge**, where the tenant lists the `createaccount` trigger, is solved in a Web Worker from the moment the page loads, by a solver written in JavaScript and held to `scatter-challenge`'s test vectors, with its progress in a polite live region; the submit button waits only if the person is faster than the solver. `Special:UserLogin` does the same once `badlogin` applies to the caller, and the page editor before a save that would create a temporary account. There is nothing to see or hear, so it asks nothing of a reader using a screen reader, switch access or a magnifier beyond the wait.
+- **A challenge**, on the auth host's `Special:CreateAccount` where the instance default of `challenge.triggers` lists `createaccount`, is solved in a Web Worker from the moment the page loads, by a solver written in JavaScript and held to `scatter-challenge`'s test vectors, with its progress in a polite live region; the submit button waits only if the person is faster than the solver. `Special:UserLogin` does the same once `badlogin` applies to the caller, and the page editor before a save that would create a temporary account. There is nothing to see or hear, so it asks nothing of a reader using a screen reader, switch access or a magnifier beyond the wait.
 - **Without JavaScript**, a `<noscript>` block, and the form's error if it is submitted, say what the wiki asks and why, that nothing is sent anywhere else, and what the person can do instead: turn JavaScript on for the site, ask an administrator to create the account, or, after failed logins, wait out the window (`ts-challenge-nojs`, and `ts-challenge-nojs-tempaccount` for an anonymous save, which adds that logging in avoids it; [20](20-web-tier.md) §3.1).
 - **A honeypot field** is on the form in every configuration: an off-screen text input labelled "Leave this field empty", with `tabindex="-1"` and `autocomplete="off"`, outside the accessibility tree. The web tier drops a submission that fills it, answering as it answers a refused creation, without calling the API.
 - **Under `account.approval`**, the page says that the wiki reviews new accounts and asks for a statement as `account.request_statement` says; `Special:RequestAccount`, ConfirmAccount's name for the form, is an alias of it. Submitting files a request, and the page says that the outcome is learned by logging in.
@@ -181,14 +183,14 @@ A farm signup page states the linking consent of [0028](../decisions/0028-tenanc
 
 ### 2.4 Account settings
 
-*Sources: [0010](../decisions/0010-site-ui.md) §11; [0027](../decisions/0027-preferences-and-portability.md) §7; [0021](../decisions/0021-notifications.md) §6; [0024](../decisions/0024-subsidiary-accounts.md) §9; [0022](../decisions/0022-federation.md) §11; [0028](../decisions/0028-tenancy-policy.md) §11; [0085](../decisions/0085-settings-and-preferences.md) §5.*
+*Sources: [0010](../decisions/0010-site-ui.md) §11; [0089](../decisions/0089-the-auth-host-and-instance-logins.md) §7; [0027](../decisions/0027-preferences-and-portability.md) §7; [0021](../decisions/0021-notifications.md) §6; [0024](../decisions/0024-subsidiary-accounts.md) §9; [0022](../decisions/0022-federation.md) §11; [0028](../decisions/0028-tenancy-policy.md) §11; [0085](../decisions/0085-settings-and-preferences.md) §5.*
 
 `Special:Account` is visible only to its holder. It has these sections:
 
 | Section | Label | Contents |
 |---|---|---|
 | Name | Public | The current name and **Rename…**. The page warns that user pages move and that links using the old name stop working ([0008](../decisions/0008-namespaces-and-document-pages.md) §6). |
-| Sign-in methods | Private | Each binding, with when it was added and last used, and an issuer the tenant no longer offers marked unavailable. **Remove** is disabled for the last way to log in, a password included, and says why; removing erases the binding from history. **Add** lists the issuers the tenant offers, each a form to `/auth/{issuer}/start` with `purpose=link` ([07](07-actors-and-accounts.md) §2.7). |
+| Sign-in methods | Private | A link to the auth host's `Special:Account`, where the login's sign-in methods are managed (below) |
 | Linked accounts | Public | Each link, with its date and **Unlink…**. **Link another account** requires logging in to the provider again. The page warns that unlinking erases the link from history, and that copies taken earlier may keep it ([0007](../decisions/0007-actor-identity.md) §7). On a farm, the farm account and every linked tenant account are shown here, labelled Public ([0028](../decisions/0028-tenancy-policy.md) §11). |
 | Contacts | Private | The email address with its verification state; the fediverse handle with its verification state, a *follow the notifier* hint with the notifier's handle, and *Remove* ([0021](../decisions/0021-notifications.md) §6; [0085](../decisions/0085-settings-and-preferences.md) §5) |
 | Watchlist token | Private | The Atom watchlist token, shown and resettable ([0020](../decisions/0020-change-feeds.md) §4) |
@@ -197,6 +199,15 @@ A farm signup page states the linking consent of [0028](../decisions/0028-tenanc
 | Fediverse | Public where it concerns actors, Private where it concerns keys | Make this account followable, the follower count, `rel="me"` links ([0022](../decisions/0022-federation.md) §11) |
 | Your data | Private | **Download my data** and **Import data…**, with a plain account of what a bundle does and does not hold ([0027](../decisions/0027-preferences-and-portability.md) §7; [07](07-actors-and-accounts.md)) |
 | Leave | — | **Vanish this account…**, with a plain account of what vanishing does ([0007](../decisions/0007-actor-identity.md) §4), including that copies of posts delivered to other servers may persist ([0022](../decisions/0022-federation.md) §6), and a pointer to Your data, suggesting a download first |
+
+**The auth host's `Special:Account`** ([0089](../decisions/0089-the-auth-host-and-instance-logins.md) §7; [07](07-actors-and-accounts.md) §2.8) is the login's own page, visible only to its holder:
+
+| Section | Contents |
+|---|---|
+| Login name | The private login name and **Rename…** |
+| Sign-in methods | The password, with **Change** and **Remove**, and each external binding, with when it was added and last used and an issuer the auth host no longer offers marked unavailable. **Remove** is disabled for the last way to log in, and says why; removing erases the binding from history. **Add** lists the issuers the auth host offers, each a form to `/auth/{issuer}/start` with `purpose=link` ([07](07-actors-and-accounts.md) §2.7). Changing or removing a method logs out the login's other sessions |
+| Accounts | Each tenant account bound to the login, with its tenant and a link to it; seen by the holder alone |
+| Sessions | **Log out everywhere**, which ends every session of the login, on the auth host and on every tenant |
 
 Preferences have a page of their own, `Special:Preferences` (§2.6), which the account page links to; the notification matrix is a tab of it ([0085](../decisions/0085-settings-and-preferences.md) §5).
 

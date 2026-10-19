@@ -558,6 +558,40 @@ impl IngestStore for MemoryIngest {
             .cloned())
     }
 
+    async fn surrogate_actor(
+        &self,
+        cx: &mut MemoryCx,
+        tenant: &str,
+        kind: &str,
+        raw: &str,
+    ) -> Result<Option<String>, IngestError> {
+        let Some((_, p)) = cx
+            .state
+            .partitions
+            .iter()
+            .find(|(_, p)| p.tenant == tenant && p.graph == "actors")
+        else {
+            return Ok(None);
+        };
+        for r in &p.records {
+            let Some(key) = r.header().key.as_deref() else {
+                continue;
+            };
+            if !key.starts_with("actor:") {
+                continue;
+            }
+            let Some(v) = r.body().content().value().map_err(store)? else {
+                continue;
+            };
+            if v.get("kind").is_some_and(|k| k.text_eq(kind))
+                && v.get("raw").is_some_and(|k| k.text_eq(raw))
+            {
+                return Ok(Some(key.to_string()));
+            }
+        }
+        Ok(None)
+    }
+
     async fn only_adoptions(&self, cx: &mut MemoryCx, partition: u64) -> Result<bool, IngestError> {
         let p = cx
             .state
