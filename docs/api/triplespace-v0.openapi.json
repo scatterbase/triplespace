@@ -1679,6 +1679,313 @@
           }
         }
       }
+    },
+    "/auth/{issuer}/start": {
+      "post": {
+        "operationId": "startExternalLogin",
+        "summary": "Begin a login through an external issuer",
+        "description": "The site's door to logging in, or adding a sign-in method, through an external issuer (0088 §5). The browser posts the issuer's button here; the answer is a `303` to the provider's authorization URL, or to `Special:UserLogin` (`Special:Account` for `link`) with `tserror` when the issuer is not offered or the token does not check out. `no-store`.",
+        "parameters": [
+          {
+            "name": "issuer",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "An issuer that serves login through OAuth, such as `wikimedia-central` (0088 §1)."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "purpose": {
+                    "type": "string",
+                    "enum": [
+                      "login",
+                      "link"
+                    ],
+                    "default": "login"
+                  },
+                  "logintoken": {
+                    "type": "string",
+                    "description": "The session's login token, for `login`."
+                  },
+                  "token": {
+                    "type": "string",
+                    "description": "The session's CSRF token, for `link`."
+                  },
+                  "returnto": {
+                    "type": "string",
+                    "description": "A title of this wiki to return to."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "303": {
+            "description": "To the provider, or back with `tserror`.",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Where to go next."
+              }
+            }
+          },
+          "421": {
+            "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/{issuer}/callback": {
+      "get": {
+        "operationId": "externalLoginCallback",
+        "summary": "Where the provider sends the person back",
+        "description": "The URL an operator registers with the provider (0088 §5). Exchanges the code with PKCE and the client secret, asks the profile endpoint who the person is, and drops the tokens. For a flow the site began, applies the outcome to the session it began in: `303` to `returnto` logged in, to `Special:CreateAccount` for an identity with no account, or with `tserror` (`ts-oauth-denied`, `ts-oauth-state`, `ts-oauth-failed`, `ts-oauth-bound-elsewhere`, `ts-account-pending`, `ts-account-rejected`, `ts-reclaim-taken`, `ts-reclaim-unavailable`). For a flow the Action API began, `303` to its return URL with `state` appended, for `logincontinue`, `createcontinue` or `linkcontinue`. `no-store`.",
+        "parameters": [
+          {
+            "name": "issuer",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "An issuer that serves login through OAuth, such as `wikimedia-central` (0088 §1)."
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "code",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "error",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "303": {
+            "description": "On, or back with `tserror`.",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Where to go next."
+              }
+            }
+          },
+          "421": {
+            "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/pending": {
+      "get": {
+        "operationId": "getPendingIdentity",
+        "summary": "The session's pending identity",
+        "description": "At first login: the issuer and the provider's username of an identity that has no account here, so the page can offer the username as a suggestion (0088 §6). Only the session holding it can read it. The account is created with `action=createaccount` and `createpreservestate`. `no-store`.",
+        "responses": {
+          "200": {
+            "description": "The pending identity.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "issuer",
+                    "issuer_name",
+                    "username"
+                  ],
+                  "properties": {
+                    "issuer": {
+                      "type": "string"
+                    },
+                    "issuer_name": {
+                      "type": "string"
+                    },
+                    "username": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-no-pending`: the session holds none.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/account": {
+      "get": {
+        "operationId": "getAccount",
+        "summary": "The holder's account",
+        "description": "Holder only: the name and the sign-in methods, each external binding with when it was added and last used and whether the tenant still offers its issuer, whether a password is set, and the issuers that can be added (0088 §7). `no-store`.",
+        "responses": {
+          "200": {
+            "description": "The account.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "actor",
+                    "name",
+                    "password",
+                    "bindings",
+                    "can_add",
+                    "ways"
+                  ],
+                  "properties": {
+                    "actor": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "password": {
+                      "type": "boolean"
+                    },
+                    "bindings": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "issuer",
+                          "label",
+                          "added",
+                          "available"
+                        ],
+                        "properties": {
+                          "issuer": {
+                            "type": "string"
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "added": {
+                            "type": "integer",
+                            "description": "Seconds since the epoch."
+                          },
+                          "last_used": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "available": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    },
+                    "can_add": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "issuer",
+                          "label"
+                        ],
+                        "properties": {
+                          "issuer": {
+                            "type": "string"
+                          },
+                          "label": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "ways": {
+                      "type": "integer",
+                      "description": "How many ways to log in the account has; the last cannot be removed."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`notloggedin`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {

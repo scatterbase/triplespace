@@ -13,7 +13,7 @@ use axum::extract::{Extension, Path, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Response;
 use serde_json::{Map, Value, json};
-use triplespace_accounts::requests;
+use triplespace_accounts::requests::{self, RequestCredential};
 use triplespace_api_action::App;
 use triplespace_api_action::auth::Caller;
 use triplespace_api_action::forwarded::Origin;
@@ -162,7 +162,7 @@ pub async fn approve(
         Err(e) => return internal(&e),
     };
     let result: Result<Option<(String, String)>, Response> = async {
-        let Some((request, hash)) = requests::take(cx.conn(), &tenant.slug, &id)
+        let Some((request, credential)) = requests::take(cx.conn(), &tenant.slug, &id)
             .await
             .map_err(|e| internal(&e))?
         else {
@@ -177,7 +177,12 @@ pub async fn approve(
             &mut cx,
             &tenant.slug,
             &request.name,
-            Credential::Hash(&hash),
+            match &credential {
+                RequestCredential::Hash(hash) => Credential::Hash(hash),
+                RequestCredential::External { issuer, subject } => {
+                    Credential::External { issuer, subject }
+                }
+            },
             Some(&actor),
             "account request approved",
             triplespace_api_action::edit::now_micros(),
@@ -188,6 +193,11 @@ pub async fn approve(
                 StatusCode::CONFLICT,
                 "userexists",
                 "an account holds the name already",
+            ),
+            CreateError::Bound => error(
+                StatusCode::CONFLICT,
+                "ts-oauth-bound",
+                "the request's identity logs in to an account already",
             ),
             other => internal(&other),
         })?;

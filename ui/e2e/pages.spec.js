@@ -146,10 +146,10 @@ test( 'logging in and out works without JavaScript, through either replica', asy
 	await expect( page.getByRole( 'heading', { level: 1 } ) ).toHaveText( 'Log in' );
 	await page.getByLabel( 'Username' ).fill( 'Alice' );
 	await page.getByLabel( 'Password' ).fill( 'not her password' );
-	await page.getByRole( 'button', { name: 'Log in' } ).click();
+	await page.getByRole( 'button', { name: 'Log in', exact: true } ).click();
 	await expect( page.getByText( 'Incorrect username or password.' ) ).toBeVisible();
 	await page.getByLabel( 'Password' ).fill( process.env.E2E_OWNER_PASSWORD );
-	await page.getByRole( 'button', { name: 'Log in' } ).click();
+	await page.getByRole( 'button', { name: 'Log in', exact: true } ).click();
 	await expect( page ).toHaveURL( /\/wiki\/Item:Q6$/ );
 	await expect( page.locator( 'summary[aria-label="Account menu for Alice"]' ) ).toBeVisible();
 	await page.locator( 'summary[aria-label="Account menu for Alice"]' ).click();

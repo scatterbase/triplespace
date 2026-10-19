@@ -27,6 +27,7 @@ pub mod app;
 pub mod auth;
 pub mod edit;
 pub mod entity_json;
+pub mod external;
 pub mod forwarded;
 pub mod http_cache;
 pub mod modules;
@@ -53,7 +54,11 @@ pub use app::{App, Config, Mode};
 /// - 5: `prop=revisions` with `rvprop=content|record`; `GET /entity/{id}/changes/{partition}/{offset}`
 ///   and `GET /entity/{id}/compare` in REST v0; the `revisions` and `diff` capabilities
 ///   (0012 §4, §7; 0083 A1).
-pub const API_VERSION: u32 = 5;
+/// - 6: login through external issuers: `POST /auth/{issuer}/start`,
+///   `GET /auth/{issuer}/callback`, `GET /auth/pending` and `GET /account` in REST v0;
+///   `login` in `siprop=triplespace`; `action=linkaccount` and `action=unlinkaccount`;
+///   `createpreservestate` (0088).
+pub const API_VERSION: u32 = 6;
 pub use response::ApiError;
 
 use axum::Router;

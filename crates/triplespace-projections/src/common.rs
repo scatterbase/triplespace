@@ -15,6 +15,8 @@ use scatter_wikibase_model::id::{EntityId, IdForm};
 pub const PAYLOAD_CHANGESET: &str = "scatter:v0/changeset";
 /// The log-event payload type.
 pub const PAYLOAD_LOGEVENT: &str = "scatter:v0/logevent";
+/// A reclaimed account (0088 §8; 0018 A17), projected as `reclaim/reclaim`.
+pub const PAYLOAD_RECLAIM: &str = "scatter:v0/reclaim";
 /// The keyed-surrogate mapping payload type (0009 §7).
 pub const PAYLOAD_KEYED_SURROGATE: &str = "scatter:v0/keyed-surrogate";
 

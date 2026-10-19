@@ -782,6 +782,24 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                 let (challenge, account) = super::account::Policy::load(ctx).await?.report();
                 t["challenge"] = challenge;
                 t["account"] = account;
+                // External issuers the tenant offers (0088 §9).
+                let offered = crate::external::offered(crate::external::Scope {
+                    app: &ctx.app,
+                    db: ctx.db(),
+                    tenant: &ctx.tenant,
+                })
+                .await?;
+                t["login"] = json!(
+                    offered
+                        .iter()
+                        .map(|i| json!({
+                            "code": i.code,
+                            "name": i.name,
+                            "label": crate::external::label(i),
+                            "origin": crate::external::authorize_origin(i),
+                        }))
+                        .collect::<Vec<_>>()
+                );
                 // The farm base serves the instance's pages (0085 §4).
                 t["at_farm"] = json!(crate::tenant::at_farm(&ctx.app, &ctx.tenant));
                 query.insert("triplespace".into(), t);
@@ -935,6 +953,7 @@ const LOG_TYPES: &[&str] = &[
     "convert",
     "job",
     "settings",
+    "reclaim",
 ];
 
 /// The parameters of the three feed modules (`super::changes`), named without their

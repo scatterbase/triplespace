@@ -25,6 +25,9 @@
 //!   ([`account`]): the holder's preferences (0027 §6; 0085 §5).
 //! - `GET /account/requests`, `POST /account/requests/{id}/approve` and `…/reject`
 //!   ([`account_requests`]): the review of account requests (0087 §6).
+//! - `POST /auth/{issuer}/start`, `GET /auth/{issuer}/callback`, `GET /auth/pending` and
+//!   `GET /account` ([`auth`]): login through external issuers, the site's door, and the
+//!   holder's sign-in methods (0088 §5–§7).
 //!
 //! Every route runs behind the Action API's request layers ([`triplespace_api_action`]):
 //! the tenant the host names (421 otherwise), the caller, the redaction of 0012 §8, and
@@ -36,6 +39,7 @@
 pub mod account;
 pub mod account_requests;
 pub mod activity;
+pub mod auth;
 pub mod diff;
 mod entity_route;
 pub mod history;
@@ -66,6 +70,10 @@ pub const PATHS: &[&str] = &[
     "/account/requests",
     "/account/requests/{id}/approve",
     "/account/requests/{id}/reject",
+    "/auth/{issuer}/start",
+    "/auth/{issuer}/callback",
+    "/auth/pending",
+    "/account",
 ];
 
 /// The REST routes, to be merged into the server's router.
@@ -98,7 +106,11 @@ pub fn routes() -> Router<App> {
             .route(
                 &format!("{base}{}", PATHS[13]),
                 post(account_requests::reject),
-            );
+            )
+            .route(&format!("{base}{}", PATHS[14]), post(auth::start))
+            .route(&format!("{base}{}", PATHS[15]), get(auth::callback))
+            .route(&format!("{base}{}", PATHS[16]), get(auth::pending))
+            .route(&format!("{base}{}", PATHS[17]), get(auth::account));
     }
     r
 }

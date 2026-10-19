@@ -157,7 +157,7 @@ The pages later ADRs added are named in §6 with the feature that added them, an
 
 **`Special:UserLogin`**
 
-- Offers one button for each issuer that the tenant offers for login ([07](07-actors-and-accounts.md) §2.7), "Log in with Wikimedia", "Log in with Miraheze", each a form posting to `/auth/{issuer}/start`, so it works without JavaScript. It says what the instance learns: which account the user holds, and nothing else. An error the callback returns (`tserror`) is shown above the buttons.
+- Offers one button for each issuer that the tenant offers for login ([07](07-actors-and-accounts.md) §2.7), such as "Log in with Wikimedia", each a form posting to `/auth/{issuer}/start`, so it works without JavaScript. It says what the instance learns: which account the user holds, and nothing else. An error the callback returns (`tserror`) is shown above the buttons.
 - Explains temporary accounts, and says that IP addresses are never shown or published ([0007](../decisions/0007-actor-identity.md) §3).
 - States that nobody else can see which service a user logs in with.
 

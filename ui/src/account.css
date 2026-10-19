@@ -63,3 +63,69 @@
 	gap: var( --spacing-50, 0.5rem );
 	align-items: flex-start;
 }
+
+/* Logging in through external issuers, and the sign-in methods of Special:Account
+   (ADR 0088 §5–§7). */
+.ts-login__issuers {
+	margin-top: var( --spacing-150, 1.5rem );
+	padding-top: var( --spacing-100, 1rem );
+	border-top: 1px solid var( --border-color-subtle, #c8ccd1 );
+}
+
+.ts-login__issuers-heading {
+	margin: 0 0 var( --spacing-75, 0.75rem );
+	font-size: var( --font-size-medium, 1rem );
+}
+
+.ts-login__issuer {
+	margin-bottom: var( --spacing-50, 0.5rem );
+}
+
+.ts-login__issuers-note,
+.ts-createaccount__suggest-note,
+.ts-signin__private,
+.ts-signin__dates,
+.ts-signin__note,
+.ts-signin__last {
+	color: var( --color-subtle, #54595d );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+.ts-createaccount__suggest {
+	margin: var( --spacing-50, 0.5rem ) 0 var( --spacing-100, 1rem );
+}
+
+.ts-account {
+	max-width: 42rem;
+}
+
+.ts-signin__private {
+	font-weight: normal;
+}
+
+.ts-signin__list {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.ts-signin__item {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var( --spacing-50, 0.5rem ) var( --spacing-100, 1rem );
+	align-items: center;
+	padding: var( --spacing-75, 0.75rem ) 0;
+	border-bottom: 1px solid var( --border-color-subtle, #c8ccd1 );
+}
+
+.ts-signin__name {
+	font-weight: bold;
+}
+
+.ts-signin__unavailable {
+	font-style: italic;
+}
+
+.ts-signin__remove {
+	margin-inline-start: auto;
+}

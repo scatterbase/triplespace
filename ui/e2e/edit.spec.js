@@ -13,7 +13,7 @@ async function logIn( page ) {
 	await page.goto( '/wiki/Special:UserLogin?returnto=Item:Q2' );
 	await page.getByLabel( 'Username' ).fill( 'Alice' );
 	await page.getByLabel( 'Password' ).fill( process.env.E2E_OWNER_PASSWORD );
-	await page.getByRole( 'button', { name: 'Log in' } ).click();
+	await page.getByRole( 'button', { name: 'Log in', exact: true } ).click();
 	await expect( page ).toHaveURL( /\/wiki\/Item:Q2$/ );
 }
 

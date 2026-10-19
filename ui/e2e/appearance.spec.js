@@ -19,7 +19,7 @@ async function logIn( page, back ) {
 	await page.goto( `/wiki/Special:UserLogin?returnto=${ back }` );
 	await page.getByLabel( 'Username' ).fill( 'Alice' );
 	await page.getByLabel( 'Password' ).fill( process.env.E2E_OWNER_PASSWORD );
-	await page.getByRole( 'button', { name: 'Log in' } ).click();
+	await page.getByRole( 'button', { name: 'Log in', exact: true } ).click();
 }
 
 test( 'without JavaScript the menu says the page follows the device', async ( { page } ) => {

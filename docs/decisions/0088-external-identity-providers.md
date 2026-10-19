@@ -4,7 +4,7 @@
 - **Date:** 2026-10-18
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0018](0018-tenants.md), [0027](0027-preferences-and-portability.md), [0035](0035-adopting-a-wikibase.md), [0057](0057-web-tier.md), [0067](0067-proposals.md), [0074](0074-publishing-a-scope-to-an-external-wiki.md), [0087](0087-account-registration-and-challenges.md)
-- **Uses:** [0006](0006-log-integrity-and-erasure.md), [0016](0016-permissions-and-access-control.md), [0025](0025-oauth-server.md), [0079](0079-derived-issuer-codes.md), [0085](0085-settings-and-preferences.md)
+- **Uses:** [0006](0006-log-integrity-and-erasure.md), [0016](0016-permissions-and-access-control.md), [0025](0025-oauth-server.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0079](0079-derived-issuer-codes.md), [0085](0085-settings-and-preferences.md)
 
 ## Context
 
@@ -12,7 +12,7 @@
 
 None of it is built. Only the built-in `password` issuer works. Four things were never decided:
 
-- **Where the instance's own client credentials live.** Wikimedia and Miraheze issue a client ID and secret to whoever registers a consumer, for a callback URL fixed at registration. The registry is public configuration and a `site` setting is public ([23](../architecture/23-configuration-and-registry.md) §1.1), so neither can hold a secret. [0067](0067-proposals.md) A8 and [0074](0074-publishing-a-scope-to-an-external-wiki.md) §8 store other credentials "encrypted at rest" without saying with which key.
+- **Where the instance's own client credentials live.** Wikimedia issues a client ID and secret to whoever registers a consumer, for a callback URL fixed at registration. The registry is public configuration and a `site` setting is public ([23](../architecture/23-configuration-and-registry.md) §1.1), so neither can hold a secret. [0067](0067-proposals.md) A8 and [0074](0074-publishing-a-scope-to-an-external-wiki.md) §8 store other credentials "encrypted at rest" without saying with which key.
 - **The endpoints.** An issuer's entry names a users API, not an authorization server.
 - **Miraheze.** Its wikis share one CentralAuth, with OAuth on Meta, as Wikimedia's do; the registry has no issuer for it.
 - **How adopted accounts are reclaimed while the source still runs.** [0018](0018-tenants.md) §10 lets the old wiki vouch by acting as an identity provider for a grace period, and [0035](0035-adopting-a-wikibase.md) Q3 asks whether a MediaWiki source can.
@@ -23,6 +23,7 @@ James's direction, from the design discussion of 2026-10-18:
 
 - **"Now that basic account creation is supported, I would like to support adding external identity providers via OAuth. In particular, I would for my instance to be able to support logging in with Wikimedia OAuth and Miraheze OAuth. I can take care of requesting OAuth grants from the Wikimedia and Miraheze sides."**
 - On the questions put to him, he chose: client credentials in a `private` table set through the CLI, the secret encrypted; one set per instance with a per-tenant override; OAuth 2.0 with PKCE; and for the first implementation, login with first-login registration, adding and removing sign-in methods, and reclaiming adopted accounts by vouching. Upstream edit grants ([0067](0067-proposals.md) §6) stay out.
+- On the draft: **"I would defer on implementing login with Miraheze until we figure out for sure how OAuth works there. My plan with Librarybase is for it to be deployed on Triplespace, so Librarybase would not be a source of external identity. Everything else is confirmed."**
 
 ## Decision
 
@@ -37,16 +38,17 @@ James's direction, from the design discussion of 2026-10-18:
 | `profile` | The endpoint that answers who the token's holder is |
 | `subject` | `central`, the subject is a CentralAuth ID; or `local`, it is the wiki's own user ID |
 | `register` | Where an operator registers a consumer, which the CLI names (§3) |
+| `label` | What a login button names, "Log in with Wikimedia"; the issuer's name where absent |
 
 **`subject` normalizes the `sub` claim.** MediaWiki's OAuth extension answers `sub` as a bare number in its profile and as `mw:{provider}:{id}` in its tokens, the provider being `CentralAuth` on a wiki farm and `local` on a single wiki. Both forms are accepted, and the stored subject is the bare number; a `sub` naming the other provider is refused (`ts-oauth-failed`), since it would name a different numbering.
 
-**`miraheze-central`** *(new)* is Miraheze's central accounts: actor model numeric, no IRI, central IDs never published, `login = true`, no providers, its OAuth on `meta.miraheze.org`. It is to Miraheze's wikis what `wikimedia-central` is to Wikimedia's. A Miraheze wiki that is a source keeps its own issuer, keyed by its wiki ID, for the actors its revisions name (0007 §1).
+**Miraheze is deferred** (Q4). Its wikis share one CentralAuth, with OAuth on Meta, as Wikimedia's do, so it would be an issuer `miraheze-central` of the same shape as `wikimedia-central`; it is registered once how Miraheze's OAuth answers has been confirmed.
 
 **`wikimedia-central`** gains its `oauth` table, on `meta.wikimedia.org`. A wiki that runs the OAuth extension without CentralAuth may be given a table of its own with `subject = "local"`; its login subjects are then its user IDs, which is what vouching for a single wiki needs (§8).
 
 ### 2. The client (extends 0007 §3; uses 0025)
 
-**The instance is an OAuth 2.0 confidential client** using the authorization code grant with PKCE (`S256`, [RFC 7636](https://www.rfc-editor.org/rfc/rfc7636)), the flow [0025](0025-oauth-server.md) offers on the other side. The consumer it is registered as asks for identity only: on Wikimedia and Miraheze, "User identity verification only", without access to the real name or email address. The authorization request carries no `scope` beyond what the consumer was approved for.
+**The instance is an OAuth 2.0 confidential client** using the authorization code grant with PKCE (`S256`, [RFC 7636](https://www.rfc-editor.org/rfc/rfc7636)), the flow [0025](0025-oauth-server.md) offers on the other side. The consumer it is registered as asks for identity only: on Wikimedia, "User identity verification only", without access to the real name or email address. The authorization request carries no `scope` beyond what the consumer was approved for.
 
 **A flow learns one thing and keeps nothing.** The callback (§5) exchanges the code at `token`, presenting the client ID, the secret and the PKCE verifier, calls `profile` once with the access token, takes `sub` and `username`, and discards both tokens. Nothing the provider issued is stored: a login needs no continuing access, and a token that is never kept cannot leak. Every other field of the profile is ignored, `blocked` and `groups` included; a tenant that wants to act on them is Q2.
 
@@ -62,7 +64,7 @@ James's direction, from the design discussion of 2026-10-18:
 
 **The CLI** writes the table; no API route does, and no route returns a secret:
 
-- `triplespace-cli oauth-client set {issuer} [--tenant {slug}] --client-id {id} --secret-file {path}` (or `--secret-stdin`) seals and stores the row, after checking that the issuer has an `oauth` table;
+- `triplespace-cli oauth-client set {issuer} [--tenant {slug}] --client-id {id} --secret-file {path}` (or the environment variable `TRIPLESPACE_OAUTH_CLIENT_SECRET`, never the command line, [0033](0033-backend-stack.md) §12) seals and stores the row, after checking that the issuer has an `oauth` table;
 - `triplespace-cli oauth-client list [--tenant {slug}]` lists issuers, client IDs, callbacks and which rows each tenant resolves to;
 - `triplespace-cli oauth-client callback {issuer} [--tenant {slug}]` prints the callback URL to give the provider and the issuer's `register` URL;
 - `triplespace-cli oauth-client remove {issuer} [--tenant {slug}]`.
@@ -81,7 +83,7 @@ An issuer that stops being offered does not unbind anyone: its bindings stay, an
 
 **The site's door** is the REST routes of [0012](0012-api-requirements.md) §5, which the browser reaches directly, so it needs no JavaScript:
 
-- **`POST /auth/{issuer}/start`**, with the session's `logintoken` for `login` or its `csrftoken` for `link` (`purpose`, `returnto`), creates the flow and answers `303` to the provider. It was `GET`; a `POST` with a token keeps another site from starting a flow in a reader's session.
+- **`POST /auth/{issuer}/start`**, with the session's `logintoken` for `login` or its `csrftoken` for `link` (`purpose`, `returnto`), creates the flow and answers `303` to the provider. It was `GET`; a `POST` with a token keeps another site from starting a flow in a reader's session. A browser applies the security policy's `form-action` to a form's redirects, so a page carrying an issuer's button widens `form-action 'self'` ([0034](0034-frontend-stack.md) §8) to the origin of that issuer's authorization endpoint, which `siprop=triplespace` reports with the issuer (§9).
 - **`GET /auth/{issuer}/callback`** applies the result to the session the flow began in, and refuses a request whose session is not that one (`ts-oauth-state`). It answers `303` to `returnto` on success; to `Special:CreateAccount?returnto=…` when a login found no account (§6); and on an error, to `Special:UserLogin`, or to `Special:Account#sign-in-methods` for `link`, with `tserror={code}`.
 - **`GET /auth/pending`** returns the issuer's name and the provider's username for a pending identity (§6), to its own session only.
 - **`POST /auth/pending/create` is withdrawn.** An account is created from a pending identity by `action=createaccount` with `createpreservestate` (§6), so that the name rules, the throttle and approval have one writer.
@@ -98,7 +100,7 @@ An issuer that stops being offered does not unbind anyone: its bindings stay, an
 2. If the tenant vouches through this issuer, §8 decides.
 3. Otherwise the identity becomes **pending**: the flow is kept, bound to the session, until it expires. The Action API answers `status: RESTART` with `authmanager-authn-no-local-user-link`, MediaWiki's answer when a provider authenticated someone who has no account; the site's door continues to `Special:CreateAccount`.
 
-**Creating the account.** `action=createaccount` with `createpreservestate=1` and a `username`, in the session holding a pending identity, creates the account with a binding to that identity instead of a password; it asks for no password and no challenge. Starting from `Special:CreateAccount` instead, the person types a name and presses the issuer's button: `createaccount` with the button checks the name first, so a name already taken costs no trip to the provider, and the flow then creates the account on `createcontinue`. Under `account.approval`, either files a request whose credential is the issuer and subject. A subject already bound on the tenant is refused with `ts-oauth-bound`, which says to log in instead.
+**Creating the account.** `action=createaccount` with `createpreservestate=1` and a `username`, in the session holding a pending identity, creates the account with a binding to that identity instead of a password; it asks for no password and no challenge, and the `createaccount` throttle counts it as it counts every registration ([0087](0087-account-registration-and-challenges.md) §4). Starting from `Special:CreateAccount` instead, the person types a name and presses the issuer's button: `createaccount` with the button checks the name first, so a name already taken costs no trip to the provider, and the flow then creates the account on `createcontinue`. Under `account.approval`, either files a request whose credential is the issuer and subject. A subject already bound on the tenant is refused with `ts-oauth-bound`, which says to log in instead.
 
 **The name.** The field starts empty, and the provider's username is offered as a button labelled with where it came from, with the warning that the same name makes the two accounts easy to connect, as [0010](0010-site-ui.md) §10 has it. The box that would also link the provider's account publicly ([0007](0007-actor-identity.md) §7) is not offered until the linking flow is built.
 
@@ -134,7 +136,7 @@ Each is a `tenant` setting in the `accounts` group, resolved through the instanc
 | `login.issuers` | A list of issuer codes with `login = true` and an `oauth` table, or `*` | `*`, every such issuer |
 | `reclaim.vouching` | `off`, or one such issuer code | `off` |
 
-`siprop=triplespace` reports the issuers the tenant offers, by code and name, under `login`, so a client knows before it asks.
+`siprop=triplespace` reports the issuers the tenant offers under `login`, each with its code, name, button label and the origin of its authorization endpoint, so a client knows before it asks.
 
 ### 10. Crates (extends 0005 §2)
 
@@ -146,7 +148,7 @@ Each is a `tenant` setting in the `accounts` group, resolved through the instanc
 | `triplespace-ui` | The issuer buttons on `Special:UserLogin` and `Special:CreateAccount`, the pending-identity form, and the sign-in methods section of `Special:Account` |
 | `triplespace-cli` | `oauth-client set`, `list`, `callback`, `remove` |
 | `triplespace-db` | `private.oauth_client`, `private.oauth_flow` and `private.binding` |
-| `scatter-actors` | The `oauth` table of an issuer entry, and `miraheze-central` |
+| `scatter-actors` | The `oauth` table of an issuer entry |
 
 ## Alternatives considered
 
@@ -159,11 +161,11 @@ Each is a `tenant` setting in the `accounts` group, resolved through the instanc
 
 ## Consequences
 
-- **An instance offers Wikimedia and Miraheze login with two CLI commands** once the operator holds the consumers, and a tenant on its own host registers its own.
+- **An instance offers Wikimedia login with one CLI command** once the operator holds the consumer, and a tenant on its own host registers its own.
 - **Registering without JavaScript works through an external issuer**, which no challenge guards, so a tenant that keeps the `createaccount` challenge still has a door for readers without JavaScript.
 - **No provider token is ever stored**, and no secret is ever returned by an API. A leaked database holds sealed client secrets, which the signing seed opens.
 - **Sign-in methods leave no history.** Removing one erases its record, as unlinking erases a public link.
-- **Adopted Librarybase accounts can be reclaimed by their holders** while Librarybase runs, without a bureaucrat, through whichever issuer reaches Librarybase's users.
+- **Vouching serves a wiki adopted while its MediaWiki keeps running.** Librarybase is not one: it moves onto Triplespace, so its accounts are reclaimed by a bureaucrat, and no issuer vouches for it.
 - **A third-party client of the Action API can use the redirect flow only with a return URL on the tenant's origin**, which in practice means a client that drives a browser on the site.
 
 ## Open questions
@@ -171,6 +173,7 @@ Each is a `tenant` setting in the `accounts` group, resolved through the instanc
 - **Q1. Other providers.** ORCID, GitHub or a generic OpenID Connect provider would need an `oauth` table of another shape (an ID token instead of a profile call) and a subject rule of their own; [0007](0007-actor-identity.md) Q3 is the linking half.
 - **Q2. Acting on the profile.** Whether a tenant may refuse a login whose provider account is blocked, or require a minimum edit count, from the fields §2 ignores.
 - **Q3. Re-authentication.** Whether adding a sign-in method or the linking flow of [0007](0007-actor-identity.md) §7 should ask the provider to re-prompt (`prompt=login`), which MediaWiki's OAuth does not support today.
+- **Q4. Miraheze.** Logging in with Miraheze's central accounts, as `miraheze-central`, once it is confirmed how Miraheze's OAuth 2.0 endpoints, consumer registration and `sub` claim behave.
 
 ## Changes to other ADRs
 

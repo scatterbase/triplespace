@@ -29,6 +29,7 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "
 
 [dev-dependencies]
 scatter-challenge.workspace = true
+scatter-actors.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "io-util"] }
 triplespace-projections.workspace = true
 scatter-projection.workspace = true

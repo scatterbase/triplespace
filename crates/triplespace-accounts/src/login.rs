@@ -119,3 +119,35 @@ pub async fn password_login<C: GenericClient>(
     session::sweep(client).await?;
     Ok(session::create(client, tenant, Some(&actor_key), None).await?)
 }
+
+/// Opens a session for a primary account whose identity an external issuer vouched for
+/// (0088 §6): refused, as a password login would be, for a subsidiary or an account that
+/// is not active. The anonymous session the flow began in is ended.
+pub async fn open_for<C: GenericClient>(
+    client: &C,
+    tenant: &str,
+    actor_key: &str,
+    previous_session: Option<&str>,
+) -> Result<Session, LoginError> {
+    let row = client
+        .query_opt(
+            "SELECT kind, status FROM view.actor WHERE tenant = $1 AND actor_key = $2",
+            &[&tenant, &actor_key],
+        )
+        .await
+        .map_err(AccountsError::from)?;
+    let Some(r) = row else {
+        return Err(LoginError::Failed);
+    };
+    let kind: Option<ActorKind> = serde_json::from_value(serde_json::Value::String(r.get(0))).ok();
+    let status: Option<ActorStatus> =
+        serde_json::from_value(serde_json::Value::String(r.get(1))).ok();
+    if kind == Some(ActorKind::Bot) || status.unwrap_or_default() != ActorStatus::Active {
+        return Err(LoginError::Failed);
+    }
+    if let Some(prev) = previous_session {
+        session::delete(client, prev).await?;
+    }
+    session::sweep(client).await?;
+    Ok(session::create(client, tenant, Some(actor_key), None).await?)
+}

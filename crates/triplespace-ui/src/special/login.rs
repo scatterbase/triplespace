@@ -113,6 +113,21 @@ fn login_form(
     )
 }
 
+/// The login form with the external issuers' buttons after it (0088 §5), which post the
+/// same login token to the API.
+fn with_issuers(cx: &Context, form: String, token: &str, back: &str) -> String {
+    form + &crate::special::external::buttons(
+        &cx.m,
+        &cx.site.login_issuers,
+        "logintoken",
+        token,
+        "login",
+        back,
+        "ts-login-external-heading",
+        "ts-login-external-button",
+    )
+}
+
 /// The login page: a notice, if any, the form, and where the wiki takes registrations,
 /// the way to create an account.
 fn login_page(
@@ -138,12 +153,15 @@ fn login_page(
             )
         );
     }
-    pages::respond(cx, headers, StatusCode::OK, |m| Page {
-        title: m.get("ts-login-title"),
-        returnto: Some(back),
-        body: format!("<div class=\"ts-account-form\">{body}</div>"),
-        ..Page::default()
-    })
+    crate::special::external::allow_issuer_forms(
+        cx,
+        pages::respond(cx, headers, StatusCode::OK, |m| Page {
+            title: m.get("ts-login-title"),
+            returnto: Some(back),
+            body: format!("<div class=\"ts-account-form\">{body}</div>"),
+            ..Page::default()
+        }),
+    )
 }
 
 /// A fresh login token and the form around it, with the cookies its session needs.
@@ -155,16 +173,14 @@ async fn fresh_form(
     username: &str,
 ) -> Result<(String, Vec<HeaderValue>), ClientError> {
     let f = site.client().login_form(incoming).await?;
-    Ok((
-        login_form(
-            &cx.m,
-            &f.value.token,
-            back,
-            username,
-            f.value.challenge.as_ref(),
-        ),
-        f.set_cookies,
-    ))
+    let form = login_form(
+        &cx.m,
+        &f.value.token,
+        back,
+        username,
+        f.value.challenge.as_ref(),
+    );
+    Ok((with_issuers(cx, form, &f.value.token, back), f.set_cookies))
 }
 
 /// The context, or the response that ends the request: the API away, or logging in not
@@ -197,13 +213,18 @@ pub async fn login(
         Err(r) => return r,
     };
     let back = returnto(&cx, query.get("returnto"));
+    let answer = crate::special::external::answer(&cx.m, query);
     if let Some(name) = cx.user.clone() {
+        let (kind, text) = match answer {
+            Some((kind, text)) => (
+                kind,
+                format!("{text} {}", cx.m.with("ts-login-already", &[&name])),
+            ),
+            None => (MessageKind::Notice, cx.m.with("ts-login-already", &[&name])),
+        };
         let body = format!(
             "{}<p>{}</p>",
-            pages::message(
-                MessageKind::Notice,
-                &cx.m.with("ts-login-already", &[&name])
-            ),
+            pages::message(kind, &text),
             link(
                 &format!("/wiki/{}", title_url(&back)),
                 &esc(&cx.m.with("ts-login-continue", &[&back])),
@@ -214,7 +235,7 @@ pub async fn login(
     }
     match fresh_form(site, &mut cx, &incoming, &back, "").await {
         Ok((form, cookies)) => {
-            pages::with_cookies(login_page(&cx, headers, None, &form, back), &cookies)
+            pages::with_cookies(login_page(&cx, headers, answer, &form, back), &cookies)
         }
         Err(e) => pages::api_failed(&cx, headers, &e),
     }
@@ -258,7 +279,12 @@ pub async fn post_login(
             cx,
             headers,
             Some(notice),
-            &login_form(&cx.m, token, &back, &username, challenge),
+            &with_issuers(
+                cx,
+                login_form(&cx.m, token, &back, &username, challenge),
+                token,
+                &back,
+            ),
             back.clone(),
         )
     };

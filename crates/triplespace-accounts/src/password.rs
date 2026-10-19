@@ -6,8 +6,6 @@
 use argon2::Argon2;
 use argon2::password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString};
 use scatter_actors::issuer::PASSWORD;
-use scatter_log::body::Body;
-use scatter_log::cbor::Value;
 use scatter_log::store::Draft;
 use tokio_postgres::GenericClient;
 
@@ -114,24 +112,7 @@ pub fn binding_draft(
     attested_by: &str,
     now: u64,
 ) -> Result<Draft, AccountsError> {
-    let content = Value::map(vec![
-        (Value::text("issuer"), Value::text(PASSWORD)),
-        (Value::text("subject"), Value::text(&user_id.to_string())),
-    ]);
-    Ok(Draft {
-        appended_at: now,
-        payload_type: PAYLOAD_BINDING.into(),
-        key: Some(actor_key.to_string()),
-        revid: None,
-        logid: None,
-        page_id: None,
-        body: Body::core(
-            &content,
-            &Value::Null,
-            &Value::map(vec![(Value::text("actor"), Value::text(attested_by))]),
-        )
-        .map_err(|e| AccountsError::Invalid(format!("binding body: {e}")))?,
-    })
+    crate::bindings::draft(actor_key, PASSWORD, &user_id.to_string(), attested_by, now)
 }
 
 #[cfg(test)]

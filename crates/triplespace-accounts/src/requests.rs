@@ -46,6 +46,20 @@ pub enum Outcome {
     Rejected(String),
 }
 
+/// The credential an approved request's account is created with.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RequestCredential {
+    /// A password's PHC hash.
+    Hash(String),
+    /// A subject of an external issuer (0088 §6).
+    External {
+        /// The issuer.
+        issuer: String,
+        /// The subject, normalized.
+        subject: String,
+    },
+}
+
 /// The lower-cased form a name is compared in.
 #[must_use]
 pub fn name_key(name: &str) -> String {
@@ -117,6 +131,59 @@ pub async fn file<C: GenericClient>(
             "a password has at least 8 characters".into(),
         ));
     }
+    let credential =
+        json!({"issuer": scatter_actors::issuer::PASSWORD, "hash": password::hash(password_text)?});
+    insert(
+        client,
+        tenant,
+        name,
+        &credential,
+        statement,
+        address_key,
+        expiry_secs,
+    )
+    .await
+}
+
+/// Files a request whose credential is a subject of an external issuer (0088 §6).
+/// Returns the request's ID.
+///
+/// # Errors
+///
+/// As [`file`].
+#[allow(clippy::too_many_arguments)]
+pub async fn file_external<C: GenericClient>(
+    client: &C,
+    tenant: &str,
+    name: &str,
+    issuer: &str,
+    subject: &str,
+    statement: Option<&str>,
+    address_key: &str,
+    expiry_secs: i64,
+) -> Result<String, AccountsError> {
+    let credential = json!({"issuer": issuer, "subject": subject});
+    insert(
+        client,
+        tenant,
+        name,
+        &credential,
+        statement,
+        address_key,
+        expiry_secs,
+    )
+    .await
+}
+
+async fn insert<C: GenericClient>(
+    client: &C,
+    tenant: &str,
+    name: &str,
+    credential: &Value,
+    statement: Option<&str>,
+    address_key: &str,
+    expiry_secs: i64,
+) -> Result<String, AccountsError> {
     let statement = statement.map(str::trim).filter(|s| !s.is_empty());
     if statement.is_some_and(|s| s.chars().count() > STATEMENT_MAX) {
         return Err(AccountsError::Invalid(format!(
@@ -125,8 +192,6 @@ pub async fn file<C: GenericClient>(
     }
     let id = crate::random_token(12)?;
     let name = normalize_name(name);
-    let credential =
-        json!({"issuer": scatter_actors::issuer::PASSWORD, "hash": password::hash(password_text)?});
     client
         .execute(
             "INSERT INTO private.account_request
@@ -199,8 +264,8 @@ pub async fn open_count<C: GenericClient>(client: &C, tenant: &str) -> Result<i6
     Ok(row.get(0))
 }
 
-/// An open request and the hash of its password, locked for the caller's transaction,
-/// so two reviewers cannot both approve it.
+/// An open request and its credential, locked for the caller's transaction, so two
+/// reviewers cannot both approve it.
 ///
 /// # Errors
 ///
@@ -209,7 +274,7 @@ pub async fn take<C: GenericClient>(
     client: &C,
     tenant: &str,
     id: &str,
-) -> Result<Option<(Request, String)>, AccountsError> {
+) -> Result<Option<(Request, RequestCredential)>, AccountsError> {
     let row = client
         .query_opt(
             &format!(
@@ -221,9 +286,20 @@ pub async fn take<C: GenericClient>(
         )
         .await?;
     Ok(row.and_then(|r| {
-        let credential: Value = r.get("credential");
-        let hash = credential["hash"].as_str()?.to_string();
-        Some((request_of(&r), hash))
+        let c: Value = r.get("credential");
+        let credential = match (
+            c["hash"].as_str(),
+            c["issuer"].as_str(),
+            c["subject"].as_str(),
+        ) {
+            (Some(h), _, _) => RequestCredential::Hash(h.to_string()),
+            (None, Some(issuer), Some(subject)) => RequestCredential::External {
+                issuer: issuer.to_string(),
+                subject: subject.to_string(),
+            },
+            _ => return None,
+        };
+        Some((request_of(&r), credential))
     }))
 }
 
@@ -305,6 +381,53 @@ pub async fn outcome<C: GenericClient>(
     } else {
         Outcome::Pending
     }))
+}
+
+/// What a login through an external issuer learns from a request whose credential is
+/// that subject (0088 §6).
+///
+/// # Errors
+///
+/// If the store fails.
+pub async fn outcome_external<C: GenericClient>(
+    client: &C,
+    tenant: &str,
+    issuer: &str,
+    subject: &str,
+) -> Result<Option<Outcome>, AccountsError> {
+    sweep(client).await?;
+    let row = client
+        .query_opt(
+            "SELECT decision, reason FROM private.account_request
+             WHERE tenant = $1 AND credential->>'issuer' = $2 AND credential->>'subject' = $3
+             ORDER BY filed DESC LIMIT 1",
+            &[&tenant, &issuer, &subject],
+        )
+        .await?;
+    Ok(row.map(|r| {
+        if r.get::<_, Option<String>>(0).as_deref() == Some("rejected") {
+            Outcome::Rejected(r.get::<_, Option<String>>(1).unwrap_or_default())
+        } else {
+            Outcome::Pending
+        }
+    }))
+}
+
+/// Whether a subject of an issuer is held by an open request on a tenant.
+///
+/// # Errors
+///
+/// If the store fails.
+pub async fn subject_requested<C: GenericClient>(
+    client: &C,
+    tenant: &str,
+    issuer: &str,
+    subject: &str,
+) -> Result<bool, AccountsError> {
+    Ok(matches!(
+        outcome_external(client, tenant, issuer, subject).await?,
+        Some(Outcome::Pending)
+    ))
 }
 
 #[cfg(test)]

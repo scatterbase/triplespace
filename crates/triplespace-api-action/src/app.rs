@@ -7,6 +7,7 @@ use deadpool_postgres::Pool;
 use scatter_projection::Pipeline;
 use scatter_providers::Registry;
 use triplespace_accounts::Secret;
+use triplespace_accounts::oauth::{HttpUpstream, Upstream};
 use triplespace_api_ingest::PgIngest;
 use triplespace_projections::{EntityProjection, Farm, PgBackend, milestone_pipeline};
 
@@ -70,12 +71,31 @@ struct Inner {
     forwarder_keys: KeyCache,
     build: crate::version::BuildInfo,
     probes: crate::version::Probes,
+    upstream: Arc<dyn Upstream>,
 }
 
 impl App {
     /// Builds the state over a pool. An entry of `trusted_proxies` that is not an
     /// address or a CIDR range is an error.
     pub fn new(pool: Pool, secret: Secret, config: Config) -> Result<Self, String> {
+        let agent = format!(
+            "Triplespace/{} (+{})",
+            env!("CARGO_PKG_VERSION"),
+            config.farm.base.trim_end_matches('/')
+        );
+        let upstream = HttpUpstream::new(&agent).map_err(|e| e.to_string())?;
+        Self::with_upstream(pool, secret, config, Arc::new(upstream))
+    }
+
+    /// Builds the state with what flows ask of the world outside (0088 §2, §8): the
+    /// providers and source wikis. [`Self::new`] reaches them over HTTP; tests put a
+    /// fake here.
+    pub fn with_upstream(
+        pool: Pool,
+        secret: Secret,
+        config: Config,
+        upstream: Arc<dyn Upstream>,
+    ) -> Result<Self, String> {
         let trust = TrustList::parse(&config.trusted_proxies)
             .map_err(|e| format!("trusted proxies: {e}"))?;
         let store = PgIngest::new(PgBackend::new(pool.clone()));
@@ -106,6 +126,7 @@ impl App {
                 forwarder_keys: KeyCache::default(),
                 build,
                 probes: crate::version::Probes::default(),
+                upstream,
             }),
         })
     }
@@ -168,6 +189,12 @@ impl App {
     #[must_use]
     pub fn build(&self) -> &crate::version::BuildInfo {
         &self.inner.build
+    }
+
+    /// What login flows ask of providers and source wikis (0088 §2, §8).
+    #[must_use]
+    pub fn upstream(&self) -> &dyn Upstream {
+        self.inner.upstream.as_ref()
     }
 
     /// The services' last known states (0077 §4).
