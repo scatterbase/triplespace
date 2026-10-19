@@ -26,6 +26,7 @@ pub mod registry;
 pub mod revision_state;
 pub mod revisions;
 pub mod sources;
+pub mod tenants;
 
 pub use activity::ActivityProjection;
 pub use actors::Farm;

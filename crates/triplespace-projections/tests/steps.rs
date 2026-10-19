@@ -116,6 +116,7 @@ fn pipeline() -> Pipeline<PgBackend> {
         IssuerRegistry::default_registry().clone(),
         Farm {
             slug: "scatter".into(),
+            code: "scatter".into(),
             base: "https://scatter.example".into(),
         },
     )
@@ -171,6 +172,7 @@ async fn seed(client: Client) -> Client {
         key: KeyEntry::ed25519(key.verifying_key().to_bytes()),
         segment_exponent: 16,
         appended_at: 1,
+        founding: Value::map(Vec::new()),
         attestation: Value::map(vec![(
             Value::text("actor"),
             Value::text("instance:scatter"),
@@ -186,7 +188,7 @@ async fn seed(client: Client) -> Client {
             draft(
                 PAYLOAD_CONFIG,
                 &format!("tenant:{TENANT}"),
-                &json!({"kind": "tenant", "slug": TENANT, "base": "https://librarybase.org"}),
+                &json!({"kind": "tenant", "slug": TENANT, "base": "https://librarybase.org", "issuer": TENANT}),
                 None,
                 None,
             ),

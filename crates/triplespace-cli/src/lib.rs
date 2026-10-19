@@ -13,3 +13,4 @@ pub mod oauth_client;
 pub mod settings;
 pub mod status;
 pub mod sync;
+pub mod tenant;

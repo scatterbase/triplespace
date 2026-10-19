@@ -17,11 +17,10 @@ use tower::ServiceExt as _;
 use triplespace_accounts::Secret;
 use triplespace_api_action::{App, Config as ServerConfig, Mode, router_with};
 use triplespace_cli::{instance, settings};
-use triplespace_projections::Farm;
 
 const DB: &str = "tssettings_test";
 const HOST: &str = "librarybase.org";
-const TENANT: &str = "librarybase";
+const TENANT: &str = "lbwiki";
 const REST: &str = "/w/rest.php/triplespace/v0";
 
 fn admin_config() -> Option<Config> {
@@ -176,7 +175,8 @@ async fn settings_and_preferences() {
         tenant: TENANT.into(),
         base: format!("https://{HOST}"),
         name: Some("Library Base".into()),
-        farm_slug: None,
+        farm_slug: "testfarm".into(),
+        tenancy: "isolated".into(),
         farm_base: None,
         providers: vec![],
         adopt: None,
@@ -193,10 +193,8 @@ async fn settings_and_preferences() {
             mode: Mode::Production,
             trusted_proxies: vec![],
             dev_tenant: None,
-            farm: Farm {
-                slug: TENANT.into(),
-                base: format!("https://{HOST}"),
-            },
+            farm: triplespace_cli::common::farm_at(&database).await.unwrap(),
+            auth_base: None,
             generator: "Triplespace test".into(),
             version: None,
         },
@@ -213,7 +211,7 @@ async fn settings_and_preferences() {
         .api("action=query&meta=siteinfo&siprop=general|namespaces")
         .await;
     assert_eq!(si["query"]["general"]["sitename"], "Library Base");
-    assert_eq!(si["query"]["general"]["wikiid"], "librarybase");
+    assert_eq!(si["query"]["general"]["wikiid"], "lbwiki");
     assert_eq!(si["query"]["general"]["lang"], "en");
     assert_eq!(
         si["query"]["namespaces"]["4"]["name"], "Library Base",

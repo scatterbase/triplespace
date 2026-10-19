@@ -51,7 +51,7 @@ step "database $db"
 psql "$admin" -q -c "DROP DATABASE IF EXISTS $db WITH (FORCE)" -c "CREATE DATABASE $db" >/dev/null
 export TRIPLESPACE_DATABASE_URL="$url"
 echo 'compat-owner-secret-1234' >"$work/owner.pw"
-"$bin/triplespace" instance create --tenant $tenant --base https://librarybase.org \
+"$bin/triplespace" instance create --farm-slug scatter --tenant $tenant --base https://librarybase.org \
 	--key-file "$work/k.key" --provider internetdomains --adopt https://librarybase.org/ \
 	--owner 7 --owner-name Alice --owner-password-file "$work/owner.pw" >/dev/null
 

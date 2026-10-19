@@ -21,6 +21,8 @@ triplespace-cli.workspace = true
 triplespace-db.workspace = true
 triplespace-client.workspace = true
 triplespace-ui.workspace = true
+triplespace-projections.workspace = true
+tokio-postgres.workspace = true
 ed25519-dalek.workspace = true
 axum.workspace = true
 clap.workspace = true
@@ -31,14 +33,14 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "
 scatter-challenge.workspace = true
 scatter-actors.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "io-util"] }
-triplespace-projections.workspace = true
 scatter-projection.workspace = true
 scatter-ingest.workspace = true
 scatter-log.workspace = true
+scatter-log-postgres.workspace = true
+scatter-integrity.workspace = true
 tower.workspace = true
 http-body-util.workspace = true
 serde_json.workspace = true
-tokio-postgres.workspace = true
 url.workspace = true
 
 [build-dependencies]

@@ -19,7 +19,6 @@ use triplespace_accounts::Secret;
 use triplespace_api_action::{App, Config as ServerConfig, Mode, router_with};
 use triplespace_cli::instance;
 use triplespace_client::{Client, ServiceTransport};
-use triplespace_projections::Farm;
 
 const DB: &str = "tssettingspages_test";
 const HOST: &str = "librarybase.org";
@@ -221,10 +220,11 @@ async fn settings_pages_and_the_appearance_menu() {
     instance::run(instance::Create {
         database: database.clone(),
         key_file: dir.join("triplespace.key"),
-        tenant: "librarybase".into(),
+        tenant: "lbwiki".into(),
         base: format!("https://{HOST}"),
         name: Some("Librarybase".into()),
-        farm_slug: None,
+        farm_slug: "testfarm".into(),
+        tenancy: "isolated".into(),
         farm_base: None,
         providers: vec![],
         adopt: None,
@@ -241,10 +241,8 @@ async fn settings_pages_and_the_appearance_menu() {
             mode: Mode::Production,
             trusted_proxies: vec![],
             dev_tenant: None,
-            farm: Farm {
-                slug: "librarybase".into(),
-                base: format!("https://{HOST}"),
-            },
+            farm: triplespace_cli::common::farm_at(&database).await.unwrap(),
+            auth_base: None,
             generator: "Triplespace test".into(),
             version: None,
         },
@@ -460,7 +458,7 @@ async fn settings_pages_and_the_appearance_menu() {
     )
     .await;
     assert_eq!(r.status, StatusCode::SEE_OTHER);
-    assert_eq!(sitename(&api).await, "librarybase");
+    assert_eq!(sitename(&api).await, "lbwiki");
 
     // The instance's page: switch to locks, then give and lock a default.
     let page = send(&site, "GET", "/wiki/Special:InstanceSettings", c, None, &[]).await;

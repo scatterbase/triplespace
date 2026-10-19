@@ -18,10 +18,9 @@ use scatter_ingest::adopt::{Adopted, Adoption, Author, Floors, run_adoption};
 use scatter_ingest::write::Attestation;
 use scatter_providers::Registry;
 use scatter_wikibase_model::id::EntityId;
-use triplespace_projections::Farm;
 use triplespace_projections::actors::payload;
 
-use crate::common::{connect, draft, now, store};
+use crate::common::{connect, draft, farm_of, issuer_of, now, store};
 
 /// `adopt`.
 #[derive(Debug, Args)]
@@ -68,12 +67,6 @@ pub struct Adopt {
     /// Skip the source's accounts.
     #[arg(long)]
     pub no_accounts: bool,
-    /// The farm slug (the tenant's by default) and base, for the pipeline.
-    #[arg(long)]
-    pub farm_slug: Option<String>,
-    /// The farm base.
-    #[arg(long)]
-    pub farm_base: Option<String>,
 }
 
 fn parse_pairs(text: &str) -> Result<BTreeMap<String, String>> {
@@ -152,23 +145,15 @@ pub async fn run(args: Adopt) -> Result<()> {
         ),
     }
 
-    // The tenant's base, for the pipeline's IRIs.
+    // The tenant's issuer code, which its accounts carry (0079 §6), and the farm.
     let client = connect(&args.database).await?;
-    let base: String = client
-        .query_opt(
-            "SELECT config->>'base' FROM view.registry WHERE tenant = '' AND kind = 'tenant' AND code = $1",
-            &[&args.tenant],
+    let issuer = issuer_of(&client, &args.tenant).await.with_context(|| {
+        format!(
+            "run `instance create` or `tenant create` for `{}` first",
+            args.tenant
         )
-        .await?
-        .and_then(|r| r.get::<_, Option<String>>(0))
-        .with_context(|| format!("tenant `{}` is not registered; run `instance create` first", args.tenant))?;
-    let farm = Farm {
-        slug: args
-            .farm_slug
-            .clone()
-            .unwrap_or_else(|| args.tenant.clone()),
-        base: args.farm_base.clone().unwrap_or(base),
-    };
+    })?;
+    let farm = farm_of(&client).await?;
     let owner: Option<String> = client
         .query_opt(
             "SELECT m.actor_key FROM view.membership m WHERE m.tenant = $1 AND m.\"group\" = 'owner' ORDER BY m.actor_key LIMIT 1",
@@ -193,7 +178,7 @@ pub async fn run(args: Adopt) -> Result<()> {
             .map(|a| {
                 draft(
                     payload::ACTOR,
-                    &ActorKey::numeric(&args.tenant, a.id).to_string(),
+                    &ActorKey::numeric(&issuer, a.id).to_string(),
                     &serde_json::to_value(ActorRecord::registered(&a.name))?,
                     &actor,
                     Some("adopted account"),
@@ -203,6 +188,7 @@ pub async fn run(args: Adopt) -> Result<()> {
             .collect::<Result<Vec<_>>>()?
     };
     let adoption = Adoption {
+        issuer: issuer.clone(),
         source: args.source.clone(),
         version: args.version.clone().unwrap_or_else(|| {
             args.dump
@@ -233,7 +219,7 @@ pub async fn run(args: Adopt) -> Result<()> {
     let mut unreadable_revisions = 0u64;
     let mut seen = 0u64;
     let mut untyped: BTreeMap<EntityId, u64> = BTreeMap::new();
-    let tenant = args.tenant.clone();
+    let tenant = issuer.clone();
     let current_only = args.current_only;
     let revisions = XmlDump::open(&args.dump)
         .context("open dump")?
@@ -347,12 +333,12 @@ pub async fn run(args: Adopt) -> Result<()> {
 
 /// The job's form of an adapted revision: under `--current-only` the job's own revision
 /// (0035 §3), otherwise the source's, attributed to its author (A12).
-fn adopted(a: AdoptedRevision, tenant: &str, current_only: bool) -> Adopted {
+fn adopted(a: AdoptedRevision, issuer: &str, current_only: bool) -> Adopted {
     if current_only && let Some(entity) = a.entity {
         return Adopted::current(entity, a.source_revid, &a.source_time, a.source_pageid);
     }
     let author = match a.contributor {
-        Contributor::Account(id) => Author::Actor(ActorKey::numeric(tenant, id).to_string()),
+        Contributor::Account(id) => Author::Actor(ActorKey::numeric(issuer, id).to_string()),
         Contributor::Ip(ip) => Author::Surrogate {
             kind: "anonymous".into(),
             raw: ip,

@@ -5,7 +5,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use triplespace_cli::{
-    accounts, adopt, challenge, forwarder, instance, oauth_client, settings, status, sync,
+    accounts, adopt, challenge, forwarder, instance, oauth_client, settings, status, sync, tenant,
 };
 
 /// Triplespace: a Wikibase as an append-only log.
@@ -22,6 +22,11 @@ enum Command {
     Instance {
         #[command(subcommand)]
         command: InstanceCommand,
+    },
+    /// Tenants: create one on an existing instance, list them (0018; 0079).
+    Tenant {
+        #[command(subcommand)]
+        command: tenant::TenantCommand,
     },
     /// Adopt a frozen Wikibase from its XML dump into a tenant (0035).
     Adopt(adopt::Adopt),
@@ -73,8 +78,9 @@ enum ChallengeCommand {
 }
 
 #[derive(Debug, Subcommand)]
+#[allow(clippy::large_enum_variant)] // parsed once from the command line
 enum InstanceCommand {
-    /// Create the instance and its first tenant.
+    /// Create the instance and its primary tenant.
     Create(instance::Create),
     /// Forwarder keys, which let a proxy vouch for the client address (0057 §10).
     Forwarder {
@@ -92,6 +98,7 @@ async fn main() -> Result<()> {
         Command::Instance {
             command: InstanceCommand::Forwarder { command },
         } => forwarder::run(command).await,
+        Command::Tenant { command } => tenant::run(command).await,
         Command::Adopt(args) => adopt::run(args).await,
         Command::Sync(args) => sync::run(args).await,
         Command::Password {

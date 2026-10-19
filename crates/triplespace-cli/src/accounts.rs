@@ -43,7 +43,10 @@ async fn actor_key<C: GenericClient>(
 ) -> Result<(String, Option<String>)> {
     match (name, id) {
         (_, Some(id)) => {
-            let key = ActorKey::numeric(tenant, id).to_string();
+            let issuer = triplespace_projections::tenants::issuer_of(client, tenant)
+                .await?
+                .with_context(|| format!("tenant `{tenant}` is not registered"))?;
+            let key = ActorKey::numeric(&issuer, id).to_string();
             let row = client
                 .query_opt(
                     "SELECT name FROM view.actor WHERE tenant = $1 AND actor_key = $2",
@@ -86,12 +89,6 @@ pub struct PasswordSet {
     /// A file holding the password (else `TRIPLESPACE_PASSWORD`).
     #[arg(long)]
     pub password_file: Option<PathBuf>,
-    /// The farm slug and base, for the pipeline.
-    #[arg(long)]
-    pub farm_slug: Option<String>,
-    /// The farm base.
-    #[arg(long)]
-    pub farm_base: Option<String>,
 }
 
 /// Sets an account's password: the hash in `private.password`, and the binding record in
@@ -130,12 +127,7 @@ pub async fn run_password_set(args: PasswordSet) -> Result<()> {
         .map_err(|e| anyhow::anyhow!("{e}"))?
         .numeric_subject()
         .context("the account has no numeric ID")?;
-    let farm = farm_of(
-        &client,
-        args.farm_slug.as_deref(),
-        args.farm_base.as_deref(),
-    )
-    .await?;
+    let farm = farm_of(&client).await?;
     let (store, pipeline) = store(&args.database, &farm)?;
     let mut cx = store.begin().await?;
     let fresh = set_password(
@@ -146,7 +138,7 @@ pub async fn run_password_set(args: PasswordSet) -> Result<()> {
         &key,
         user_id,
         &text,
-        &ActorKey::instance(&farm.slug).to_string(),
+        &farm.operator().to_string(),
         now(),
     )
     .await?;
@@ -201,12 +193,6 @@ pub struct SubsidiaryCreate {
     /// Groups to add the new account to (`bot`).
     #[arg(long = "group")]
     pub groups: Vec<String>,
-    /// The farm slug and base, for the pipeline.
-    #[arg(long)]
-    pub farm_slug: Option<String>,
-    /// The farm base.
-    #[arg(long)]
-    pub farm_base: Option<String>,
 }
 
 /// `subsidiary key`.
@@ -267,8 +253,11 @@ pub async fn create_subsidiary(
     if taken.is_some() {
         bail!("`{name}` is already an account on `{tenant}`");
     }
+    let issuer = triplespace_projections::tenants::issuer_of(cx.conn(), tenant)
+        .await?
+        .with_context(|| format!("tenant `{tenant}` is not registered"))?;
     let id = store.next_id(cx, tenant, &Sequence::User).await?;
-    let key = ActorKey::numeric(tenant, id);
+    let key = ActorKey::numeric(&issuer, id);
     record
         .validate(&key)
         .map_err(|e| anyhow::anyhow!("subsidiary record: {e}"))?;
@@ -313,12 +302,7 @@ pub async fn run_subsidiary(cmd: Subsidiary) -> Result<()> {
                 args.operator_id,
             )
             .await?;
-            let farm = farm_of(
-                &client,
-                args.farm_slug.as_deref(),
-                args.farm_base.as_deref(),
-            )
-            .await?;
+            let farm = farm_of(&client).await?;
             let (store, pipeline) = store(&args.target.database, &farm)?;
             let mut cx = store.begin().await?;
             let key = create_subsidiary(

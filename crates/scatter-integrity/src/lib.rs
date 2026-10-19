@@ -19,7 +19,9 @@ pub mod note;
 pub mod proof;
 pub mod verify;
 
-pub use attest::{AttestError, Attestation};
+pub use attest::{
+    AttestError, Attestation, Authority, BuildError, founding_attestation, instance_attestation,
+};
 pub use bundle::{Bundle, BundleError, BundlePartition};
 pub use checkpoint::{Checkpoint, CheckpointError, SignedCheckpoint};
 pub use checkpoints::{CheckpointStore, CheckpointStoreError, FileCheckpoints, MemoryCheckpoints};

@@ -1986,6 +1986,80 @@
           }
         }
       }
+    },
+    "/tenancy": {
+      "get": {
+        "operationId": "getTenancy",
+        "summary": "The farm, the primary tenant, the tenancy policy and the tenant list",
+        "description": "Served at the farm base only: the farm's slug, code (derived from the instance's founding record) and base; the primary tenant's slug; the tenancy policy, its switches and the preset whose values they all are, if any; and the tenant list that Special:Tenants shows, each tenant with its slug, issuer code (`issuer`, the code its actor keys carry), host, base, name (its `site.name`) and status. At a tenant base the request is refused with `ts-instance-policy` (ADR 0028 §11, 0046 §9, 0079 §7).",
+        "parameters": [
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The tenancy of the instance.",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Tenancy"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not modified."
+          },
+          "400": {
+            "description": "`ts-instance-policy`: not the farm base.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied`: the caller may not read the farm base's tenant.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3875,6 +3949,113 @@
               "null"
             ],
             "description": "The address key it was filed from: an IPv4 address or an IPv6 /64. Present only for holders of `ts-viewip`."
+          }
+        }
+      },
+      "Tenancy": {
+        "type": "object",
+        "required": [
+          "farm",
+          "primary",
+          "policy",
+          "tenants"
+        ],
+        "properties": {
+          "farm": {
+            "type": "object",
+            "required": [
+              "slug",
+              "code",
+              "base"
+            ],
+            "properties": {
+              "slug": {
+                "type": "string",
+                "description": "The farm slug, the instance's readable name (ADR 0046 §6)."
+              },
+              "code": {
+                "type": "string",
+                "description": "The farm code, derived from the instance's founding record; the operator's actor key is `instance:{code}` (ADR 0079 §4)."
+              },
+              "base": {
+                "type": "string",
+                "format": "uri"
+              }
+            }
+          },
+          "primary": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The slug of the primary tenant (ADR 0046 §2)."
+          },
+          "policy": {
+            "type": "object",
+            "required": [
+              "preset",
+              "switches"
+            ],
+            "properties": {
+              "preset": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "The preset whose values every switch has, if any."
+              },
+              "switches": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "Each `tenancy:{switch}` record's value (ADR 0028 §1)."
+              }
+            }
+          },
+          "tenants": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "slug",
+                "issuer",
+                "host",
+                "base",
+                "name",
+                "status"
+              ],
+              "properties": {
+                "slug": {
+                  "type": "string"
+                },
+                "issuer": {
+                  "type": "string",
+                  "description": "The tenant's issuer code, derived from its founding record (ADR 0079 §1)."
+                },
+                "host": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "base": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "The tenant's `site.name`."
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "active"
+                  ],
+                  "description": "Freezing and deleting tenants come later; every listed tenant is active."
+                }
+              }
+            }
           }
         }
       }

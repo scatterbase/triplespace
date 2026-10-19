@@ -563,6 +563,7 @@ mod tests {
     fn tenant() -> Tenant {
         Tenant {
             slug: "librarybase".into(),
+            issuer: "librarybase".into(),
             base: "https://librarybase.org".into(),
             public_base: "https://librarybase.org".into(),
             host: "librarybase.org".into(),

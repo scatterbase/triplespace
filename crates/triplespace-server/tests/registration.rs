@@ -18,11 +18,10 @@ use tower::ServiceExt as _;
 use triplespace_accounts::Secret;
 use triplespace_api_action::{App, Config as ServerConfig, Mode, router_with};
 use triplespace_cli::instance;
-use triplespace_projections::Farm;
 
 const DB: &str = "tsregistration_test";
 const HOST: &str = "librarybase.org";
-const TENANT: &str = "librarybase";
+const TENANT: &str = "lbwiki";
 const REST: &str = "/w/rest.php/triplespace/v0";
 
 fn admin_config() -> Option<Config> {
@@ -234,7 +233,8 @@ async fn registration_and_challenges() {
         tenant: TENANT.into(),
         base: format!("https://{HOST}"),
         name: Some("Library Base".into()),
-        farm_slug: None,
+        farm_slug: "testfarm".into(),
+        tenancy: "isolated".into(),
         farm_base: None,
         providers: vec![],
         adopt: None,
@@ -251,10 +251,8 @@ async fn registration_and_challenges() {
             mode: Mode::Production,
             trusted_proxies: vec![],
             dev_tenant: None,
-            farm: Farm {
-                slug: TENANT.into(),
-                base: format!("https://{HOST}"),
-            },
+            farm: triplespace_cli::common::farm_at(&database).await.unwrap(),
+            auth_base: None,
             generator: "Triplespace test".into(),
             version: None,
         },

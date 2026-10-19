@@ -27,7 +27,7 @@ psql "$admin" -q -c "DROP DATABASE IF EXISTS $db WITH (FORCE)" -c "CREATE DATABA
 fixtures="$root/crates/triplespace-server/tests/fixtures"
 echo 'e2e-owner-secret-1234' > "$work/owner.pw"
 export TRIPLESPACE_DATABASE_URL="$url"
-"$bin/triplespace" instance create --tenant librarybase --base https://librarybase.org \
+"$bin/triplespace" instance create --farm-slug scatter --tenant librarybase --base https://librarybase.org \
 	--key-file "$work/k.key" --provider internetdomains --adopt https://librarybase.org/ \
 	--owner 7 --owner-name Alice --owner-password-file "$work/owner.pw" >/dev/null
 # A client credential for Wikimedia (ADR 0088 §3), so the login page offers it; its

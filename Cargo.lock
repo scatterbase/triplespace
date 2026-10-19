@@ -2981,6 +2981,7 @@ dependencies = [
  "scatter-adapter-wikidata",
  "scatter-challenge",
  "scatter-ingest",
+ "scatter-integrity",
  "scatter-log",
  "scatter-log-postgres",
  "scatter-projection",
@@ -2994,6 +2995,7 @@ dependencies = [
  "triplespace-api-ingest",
  "triplespace-db",
  "triplespace-projections",
+ "url",
 ]
 
 [[package]]
@@ -3061,7 +3063,9 @@ dependencies = [
  "scatter-actors",
  "scatter-challenge",
  "scatter-ingest",
+ "scatter-integrity",
  "scatter-log",
+ "scatter-log-postgres",
  "scatter-projection",
  "serde_json",
  "tokio",

@@ -100,6 +100,21 @@ impl KeyChain {
         if entry.alg != ALG_ED25519 || !entry.id_matches() || entry.public_key.len() != 32 {
             return Err(ChainError::Key(h.offset, entry.key_id));
         }
+        if self.keys.is_empty() {
+            // The founding record (0015 A52) is self-certifying: where it is signed, the
+            // signature is by the key it registers.
+            let attestation =
+                Attestation::of(record).map_err(|e| ChainError::Signature(h.offset, e))?;
+            if let Some(signer) = attestation.signature() {
+                let public: Option<[u8; 32]> = entry.public_key.as_slice().try_into().ok();
+                if signer.key != entry.key_id {
+                    return Err(ChainError::Rotation(h.offset, entry.key_id.clone()));
+                }
+                attestation
+                    .verify(record, |_| public)
+                    .map_err(|e| ChainError::Signature(h.offset, e))?;
+            }
+        }
         if let Some(previous) = self.keys.last() {
             let attestation =
                 Attestation::of(record).map_err(|e| ChainError::Signature(h.offset, e))?;

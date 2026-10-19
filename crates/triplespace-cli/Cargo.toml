@@ -16,6 +16,7 @@ path = "src/main.rs"
 [dependencies]
 scatter-challenge.workspace = true
 scatter-log.workspace = true
+scatter-integrity.workspace = true
 scatter-log-postgres.workspace = true
 scatter-projection.workspace = true
 scatter-ingest.workspace = true
@@ -36,6 +37,7 @@ tokio-postgres.workspace = true
 ed25519-dalek.workspace = true
 serde_json.workspace = true
 getrandom.workspace = true
+url.workspace = true
 
 [lints]
 workspace = true

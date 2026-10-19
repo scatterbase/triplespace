@@ -39,7 +39,9 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for RegistryProjection {
         Box::pin(async move {
             let h = record.header();
             let key = h.key.as_deref().ok_or("a config record has a key")?;
-            let (kind, code) = split_key(key).ok_or("a config key is kind:code")?;
+            // A singleton kind (`primary`, `farm`) is keyed by its kind name alone and
+            // reads as `kind:kind` (0046 §2).
+            let (kind, code) = split_key(key).unwrap_or((key, key));
             let tenant = tenant_of(cx, h.partition).await?;
             // Who wrote it, and whether it is an instance act (08 §8.3): an attestation
             // naming an authority record is one, and a tenant's `site` record that is

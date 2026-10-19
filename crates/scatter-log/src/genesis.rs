@@ -2,6 +2,13 @@
 //! 0 and `graph:config` at offset 1, before anything else. The instance's is partition
 //! 0; a tenant's gets a random ID and begins with a copy of the current `key:` record
 //! (0018 §2).
+//!
+//! The `key:` record is the partition's **founding record** and carries the founding
+//! attestation (0015 A52): no actor, a signature by the key it registers, and for a
+//! tenant an `authority` citing the instance's founding record. Signing needs the key,
+//! which this crate does not hold: [`Genesis::founding_parts`] gives the parts to sign
+//! and `scatter-integrity` builds the attestation. The issuer code or farm code is
+//! derived from the founding record's leaf afterwards (0079).
 
 use crate::body::{Body, BodyError};
 use crate::cbor::Value;
@@ -23,13 +30,28 @@ pub struct Genesis {
     pub segment_exponent: u8,
     /// Header field 3 of both records.
     pub appended_at: u64,
-    /// The attestation part of both records: who started the partition.
+    /// The attestation part of the founding record at offset 0 (0015 A52).
+    pub founding: Value,
+    /// The attestation part of `graph:config` at offset 1: who started the partition.
     pub attestation: Value,
     /// The comment part of both records.
     pub comment: Option<String>,
 }
 
 impl Genesis {
+    /// The content and comment parts of the founding record, the ones its attestation
+    /// signs.
+    #[must_use]
+    pub fn founding_parts(&self) -> (Value, Value) {
+        (self.key.to_value(), self.comment_value())
+    }
+
+    fn comment_value(&self) -> Value {
+        self.comment
+            .as_ref()
+            .map_or(Value::Null, |c| Value::Text(c.clone()))
+    }
+
     /// The two records, in order: `key:{id}`, then `graph:config`.
     pub fn drafts(&self, registry: &GraphRegistry) -> Result<[Draft; 2], GenesisError> {
         let (config, _) = registry
@@ -42,28 +64,27 @@ impl Genesis {
             self.segment_exponent,
         );
         entry.scope = self.scope;
-        let comment = self
-            .comment
-            .as_ref()
-            .map_or(Value::Null, |c| Value::Text(c.clone()));
-        let draft = |key: String, content: Value| -> Result<Draft, GenesisError> {
-            Ok(Draft {
-                appended_at: self.appended_at,
-                payload_type: PAYLOAD_CONFIG.into(),
-                key: Some(key),
-                revid: None,
-                logid: None,
-                page_id: None,
-                body: Body::core(&content, &comment, &self.attestation)?,
-            })
-        };
+        let comment = self.comment_value();
+        let draft =
+            |key: String, content: Value, attestation: &Value| -> Result<Draft, GenesisError> {
+                Ok(Draft {
+                    appended_at: self.appended_at,
+                    payload_type: PAYLOAD_CONFIG.into(),
+                    key: Some(key),
+                    revid: None,
+                    logid: None,
+                    page_id: None,
+                    body: Body::core(&content, &comment, attestation)?,
+                })
+            };
         Ok([
-            draft(self.key.key(), self.key.to_value())?,
+            draft(self.key.key(), self.key.to_value(), &self.founding)?,
             draft(
                 entry.key(),
                 entry
                     .to_value()
                     .map_err(|e| GenesisError::Entry(e.to_string()))?,
+                &self.attestation,
             )?,
         ])
     }
@@ -140,6 +161,8 @@ mod tests {
             },
             segment_exponent: 16,
             appended_at: 1_790_000_000_000_000,
+            founding: Value::map(Vec::new()),
+
             attestation: Value::map(vec![(
                 Value::text("actor"),
                 Value::text("instance:scatter"),

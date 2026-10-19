@@ -16,7 +16,6 @@ use triplespace_accounts::Secret;
 use triplespace_api_action::{App, Config as ServerConfig, Mode, router_with};
 use triplespace_cli::{adopt, instance, sync};
 use triplespace_client::{Client, HttpTransport, ServiceTransport};
-use triplespace_projections::Farm;
 
 const DB: &str = "tssite_test";
 const HOST: &str = "librarybase.org";
@@ -90,7 +89,8 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
         tenant: "librarybase".into(),
         base: format!("https://{HOST}"),
         name: None,
-        farm_slug: None,
+        farm_slug: "testfarm".into(),
+        tenancy: "isolated".into(),
         farm_base: None,
         providers: vec!["internetdomains".into()],
         adopt: Some(format!("https://{HOST}/")),
@@ -117,8 +117,6 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
         subsidiary: None,
         batch: 200,
         no_accounts: false,
-        farm_slug: None,
-        farm_base: None,
     })
     .await
     .expect("adopt");
@@ -131,8 +129,6 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
         threshold: 1000,
         batch: 200,
         rejects: None,
-        farm_slug: None,
-        farm_base: None,
     })
     .await
     .expect("sync");
@@ -145,10 +141,8 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
             mode: Mode::Production,
             trusted_proxies: vec!["127.0.0.1".into()],
             dev_tenant: None,
-            farm: Farm {
-                slug: "librarybase".into(),
-                base: format!("https://{HOST}"),
-            },
+            farm: triplespace_cli::common::farm_at(&database).await.unwrap(),
+            auth_base: None,
             generator: "Triplespace test".into(),
             version: None,
         },

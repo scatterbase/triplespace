@@ -4,7 +4,7 @@
 //! entity is namespaced by its provider. The registry of record is
 //! `docs/registry/issuers.toml`; this crate embeds it as [`crate::ISSUERS_TOML`]. Two
 //! entries are **templates**: `{tenant}`, which every tenant of the instance follows
-//! under its own slug (0018 §4), and `{farm}`, which the farm follows where the tenancy
+//! under its own issuer code, derived from its founding record ([`derived_code`], 0079), and `{farm}`, which the farm follows where the tenancy
 //! policy gives it identity (0028 §2). [`IssuerRegistry::for_tenant`] and
 //! [`IssuerRegistry::for_farm`] instantiate them.
 
@@ -129,6 +129,10 @@ pub enum IssuerRegistryError {
     /// A builtin the crate relies on is missing or has the wrong shape.
     #[error("issuers.toml: builtin issuer `{0}` {1}")]
     Builtin(&'static str, &'static str),
+    /// A registered code is longer than [`MAX_REGISTERED_CODE`] characters, so it could
+    /// equal a derived one (0079 §2).
+    #[error("issuer code `{0}` is longer than 25 characters, the length kept for derived codes")]
+    TooLong(String),
 }
 
 #[derive(Deserialize)]
@@ -198,6 +202,45 @@ pub struct IssuerRegistry {
     issuers: Vec<Issuer>,
 }
 
+/// The longest registered issuer code (0079 §2): one character shorter than a derived
+/// code, so the two can never meet.
+pub const MAX_REGISTERED_CODE: usize = 25;
+
+/// The length of a derived issuer code (0079 §2): 26 base32 characters, 130 bits.
+pub const DERIVED_CODE_LEN: usize = 26;
+
+/// A tenant's issuer code, or the farm code, from its founding record's Merkle leaf
+/// (0079 §1, §2, §4): the first 26 characters of the lower-case RFC 4648 base32
+/// encoding, without padding, of the leaf hash `H(0x00 ‖ header)`.
+#[must_use]
+pub fn derived_code(leaf: &[u8; 32]) -> String {
+    const ALPHABET: &[u8; 32] = b"abcdefghijklmnopqrstuvwxyz234567";
+    let mut out = String::with_capacity(DERIVED_CODE_LEN);
+    let mut buffer: u32 = 0;
+    let mut bits = 0u32;
+    for &byte in leaf {
+        buffer = (buffer << 8) | u32::from(byte);
+        bits += 8;
+        while bits >= 5 {
+            bits -= 5;
+            out.push(char::from(ALPHABET[((buffer >> bits) & 31) as usize]));
+            if out.len() == DERIVED_CODE_LEN {
+                return out;
+            }
+        }
+        buffer &= (1 << bits) - 1;
+    }
+    out
+}
+
+/// Whether `s` has the shape of a derived code: 26 characters of `a`–`z` and `2`–`7`.
+#[must_use]
+pub fn is_derived_code(s: &str) -> bool {
+    s.len() == DERIVED_CODE_LEN
+        && s.bytes()
+            .all(|b| b.is_ascii_lowercase() || (b'2'..=b'7').contains(&b))
+}
+
 fn is_code(s: &str) -> bool {
     !s.is_empty()
         && s.bytes()
@@ -227,6 +270,8 @@ impl IssuerRegistry {
                 }
             } else if !is_code(&r.code) {
                 return Err(IssuerRegistryError::BadCode(r.code));
+            } else if r.code.len() > MAX_REGISTERED_CODE {
+                return Err(IssuerRegistryError::TooLong(r.code));
             }
             if issuers.iter().any(|i: &Issuer| i.code == r.code) {
                 return Err(IssuerRegistryError::Duplicate(r.code));
@@ -370,26 +415,26 @@ impl IssuerRegistry {
         RESERVED_CODES.contains(&code)
     }
 
-    /// The issuer of a tenant: the `{tenant}` template under the tenant's slug, with the
-    /// IRI template's `{tenant base}` filled in.
+    /// The issuer of a tenant: the `{tenant}` template under the tenant's issuer code
+    /// (0079 §1), with the IRI template's `{tenant base}` filled in.
     ///
     /// # Panics
     ///
     /// Never: the constructor checked the template exists.
     #[must_use]
-    pub fn for_tenant(&self, slug: &str, tenant_base: &str) -> Issuer {
-        self.instantiate(TENANT_TEMPLATE, slug, "{tenant base}", tenant_base)
+    pub fn for_tenant(&self, code: &str, tenant_base: &str) -> Issuer {
+        self.instantiate(TENANT_TEMPLATE, code, "{tenant base}", tenant_base)
     }
 
-    /// The farm as an issuer: the `{farm}` template under the farm slug, with `{farm base}`
-    /// filled in (0028 §2, 0046 §6–7).
+    /// The farm as an issuer: the `{farm}` template under the farm code (0079 §4), with
+    /// `{farm base}` filled in (0028 §2, 0046 §6–7).
     ///
     /// # Panics
     ///
     /// Never: the constructor checked the template exists.
     #[must_use]
-    pub fn for_farm(&self, farm_slug: &str, farm_base: &str) -> Issuer {
-        self.instantiate(FARM_TEMPLATE, farm_slug, "{farm base}", farm_base)
+    pub fn for_farm(&self, farm_code: &str, farm_base: &str) -> Issuer {
+        self.instantiate(FARM_TEMPLATE, farm_code, "{farm base}", farm_base)
     }
 
     fn instantiate(&self, template: &str, code: &str, placeholder: &str, base: &str) -> Issuer {
@@ -435,6 +480,40 @@ impl IssuerRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn derived_codes_are_rfc4648_base32() {
+        let leaf: [u8; 32] = core::array::from_fn(|i| u8::try_from(i).unwrap());
+        assert_eq!(derived_code(&leaf), "aaaqeayeaudaocajbifqydiob4");
+        assert_eq!(derived_code(&[0xff; 32]), "7".repeat(26));
+        assert!(is_derived_code(&derived_code(&leaf)));
+        assert!(!is_derived_code("librarybase"));
+        assert!(!is_derived_code(&"a".repeat(25)));
+        assert!(
+            !is_derived_code(&"1".repeat(26)),
+            "1 is not in the alphabet"
+        );
+    }
+
+    #[test]
+    fn registered_codes_are_shorter_than_derived_ones() {
+        let long = "a".repeat(26);
+        let toml = format!(
+            "{}\n[[issuer]]\ncode = \"{long}\"\nname = \"x\"\nactor_model = \"numeric\"\n",
+            crate::ISSUERS_TOML
+        );
+        assert!(matches!(
+            IssuerRegistry::parse(&toml),
+            Err(IssuerRegistryError::TooLong(code)) if code == long
+        ));
+        for i in IssuerRegistry::default_registry().issuers() {
+            assert!(
+                i.template || i.code.len() <= MAX_REGISTERED_CODE,
+                "{}",
+                i.code
+            );
+        }
+    }
 
     #[test]
     fn embedded_registry_parses() {

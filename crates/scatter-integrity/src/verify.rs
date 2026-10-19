@@ -157,6 +157,11 @@ pub enum Problem {
         /// The key ID used.
         key: String,
     },
+    /// A founding attestation (0015 A52) on a record other than offset 0.
+    MisplacedFounding {
+        /// The offset.
+        offset: u64,
+    },
     /// The checkpoint store failed.
     Checkpoints(String),
 }
@@ -473,6 +478,16 @@ fn check_signature(record: &Record, what: &Verify<'_>, report: &mut Report) {
                 }
             }
         }
+        Attestation::Founding { .. } => {
+            if offset != 0 {
+                report.problems.push(Problem::MisplacedFounding { offset });
+            }
+            match attestation.verify(record, |id| what.chain.lookup(id)) {
+                Ok(true) => report.signatures += 1,
+                Ok(false) => {}
+                Err(error) => report.problems.push(Problem::Signature { offset, error }),
+            }
+        }
         Attestation::Instance { signature, .. } => {
             let current = what.chain.current_at(record.header().appended_at);
             if current.is_none_or(|k| k.entry.key_id != signature.key) {
@@ -606,6 +621,8 @@ mod tests {
             key: entry,
             segment_exponent: 16,
             appended_at: 1,
+            founding: Value::map(Vec::new()),
+
             attestation: Value::map(vec![(
                 Value::text("actor"),
                 Value::text("instance:scatter"),

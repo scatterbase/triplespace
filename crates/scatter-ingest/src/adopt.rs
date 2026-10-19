@@ -58,7 +58,7 @@ pub struct Floors {
 pub enum Author {
     /// The job's subsidiary: a `--current-only` adoption's own revision.
     Job,
-    /// An actor key: an adopted account, `{tenant}:{n}`.
+    /// An actor key: an adopted account, `{issuer}:{n}`.
     Actor(String),
     /// An author with no stable ID, by surrogate kind (`anonymous` for an IP, `imported`
     /// for `imported>Name`) and raw value; the job mints `actor:{n}` for it, once per raw
@@ -132,6 +132,9 @@ impl Adopted {
 pub struct Adoption {
     /// The source's base URL.
     pub source: String,
+    /// The issuer code of the adopting tenant, which its accounts carry (0079 §6): the
+    /// source's user 42 is `{issuer}:42`.
+    pub issuer: String,
     /// The dump's identity, the source version.
     pub version: String,
     /// The adapter version.
@@ -184,15 +187,16 @@ async fn preconditions<S: IngestStore>(
             "the dump is a current-state export and carries no history; take a full-history dump (dumpBackup.php --full) or adopt with --current-only".into(),
         ));
     }
-    let prefix = format!("{tenant}:");
+    let prefix = format!("{}:", adoption.issuer);
     if let Some(a) = adoption
         .accounts
         .iter()
         .find(|d| !d.key.as_deref().is_some_and(|k| k.starts_with(&prefix)))
     {
         return Err(IngestError::AdoptionRefused(format!(
-            "account `{}` is not under the tenant's issuer `{tenant}`",
-            a.key.as_deref().unwrap_or("?")
+            "account `{}` is not under the tenant's issuer `{}` (`{tenant}`)",
+            a.key.as_deref().unwrap_or("?"),
+            adoption.issuer
         )));
     }
     if !store.only_adoptions(cx, local).await? {

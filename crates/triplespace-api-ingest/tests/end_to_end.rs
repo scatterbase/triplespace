@@ -116,6 +116,7 @@ fn pipeline() -> Pipeline<PgIngest> {
         IssuerRegistry::default_registry().clone(),
         Farm {
             slug: "scatter".into(),
+            code: "scatter".into(),
             base: "https://scatter.example".into(),
         },
     )
@@ -132,6 +133,7 @@ async fn seed(client: Client) -> Client {
         key: KeyEntry::ed25519(key.verifying_key().to_bytes()),
         segment_exponent: 16,
         appended_at: 1,
+        founding: Value::map(Vec::new()),
         attestation: Value::map(vec![(
             Value::text("actor"),
             Value::text("instance:scatter"),
@@ -152,7 +154,7 @@ async fn seed(client: Client) -> Client {
                 logid: None,
                 page_id: None,
                 body: Body::core(
-                    &Value::from_json(&json!({"kind": "tenant", "slug": TENANT, "base": "https://librarybase.org"})),
+                    &Value::from_json(&json!({"kind": "tenant", "slug": TENANT, "base": "https://librarybase.org", "issuer": TENANT})),
                     &Value::Null,
                     &Value::map(vec![(Value::text("actor"), Value::text("instance:scatter"))]),
                 )
@@ -259,6 +261,7 @@ async fn adoption_batch_sync_and_edit_end_to_end() {
 
     // 1. Adoption: two items and a property, with an account and the floors.
     let adoption = Adoption {
+        issuer: TENANT.into(),
         source: "https://librarybase.org/".into(),
         version: "librarybase-20260928.json.gz".into(),
         adapter_version: Some("scatter-adapter-wikidata 0.0.1".into()),
@@ -349,6 +352,7 @@ async fn adoption_batch_sync_and_edit_end_to_end() {
         TENANT,
         Attestation::by("librarybase:2"),
         Adoption {
+            issuer: TENANT.into(),
             source: "https://librarybase.org/".into(),
             version: "librarybase-20260928.json.gz".into(),
             adapter_version: None,
@@ -743,6 +747,7 @@ async fn a_history_adoption_over_postgres() {
         merged,
     ];
     let adoption = Adoption {
+        issuer: TENANT.into(),
         source: "https://librarybase.org/".into(),
         version: "librarybase-20261019-history.xml.gz".into(),
         adapter_version: None,

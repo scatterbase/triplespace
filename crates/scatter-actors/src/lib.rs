@@ -71,7 +71,10 @@ pub use group::{
     GraphAclDefault, GraphWriters, Group, GroupRegistry, GroupRegistryError, Implicit, Scope,
 };
 pub use iri::{IriContext, IriError, actor_iri, surrogate_iri};
-pub use issuer::{ACTOR, ActorModel, Issuer, IssuerRegistry, IssuerRegistryError, RESERVED_CODES};
+pub use issuer::{
+    ACTOR, ActorModel, DERIVED_CODE_LEN, Issuer, IssuerRegistry, IssuerRegistryError,
+    MAX_REGISTERED_CODE, RESERVED_CODES, derived_code, is_derived_code,
+};
 pub use key::{ActorKey, ActorKeyError, normalize_sub};
 pub use link::{AccountLink, LinkError, LinkRequest, check_link};
 pub use membership::{

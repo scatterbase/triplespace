@@ -801,7 +801,18 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                         .collect::<Vec<_>>()
                 );
                 // The farm base serves the instance's pages (0085 §4).
-                t["at_farm"] = json!(crate::tenant::at_farm(&ctx.app, &ctx.tenant));
+                let at_farm = crate::tenant::at_farm(&ctx.app, &ctx.tenant);
+                t["at_farm"] = json!(at_farm);
+                // The tenant's issuer code, which its actor keys carry, and the farm code,
+                // which the operator's does (0079 §7); at the farm base, the primary tenant
+                // (0046 §9). The tenancy policy (0028 §1).
+                t["issuer"] = json!(ctx.tenant.issuer);
+                t["farm_code"] = json!(ctx.app.config().farm.code);
+                if at_farm {
+                    t["primary"] =
+                        json!(triplespace_projections::tenants::primary(ctx.db()).await?);
+                }
+                t["tenancy"] = crate::tenant::tenancy_report(ctx.db()).await?;
                 query.insert("triplespace".into(), t);
             }
             other => ctx.warn(
