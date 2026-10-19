@@ -150,7 +150,7 @@ pub async fn file<C: GenericClient>(
 ///
 /// # Errors
 ///
-/// As [`file`].
+/// As [`file()`].
 #[allow(clippy::too_many_arguments)]
 pub async fn file_external<C: GenericClient>(
     client: &C,
