@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-03
-- **Updated:** 2026-10-17 (A6)
+- **Updated:** 2026-10-18 (A7)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0025](0025-oauth-server.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0042](0042-template-expansion-and-parsoid.md), [0056](0056-security-model.md)
 - **Uses:** [0003](0003-statement-ui.md), [0039](0039-files-and-media.md), [0045](0045-table-content-model.md), [0047](0047-special-pages.md), [0053](0053-mirrored-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -68,7 +68,7 @@ James's direction, from the design discussion of 2026-10-03:
 
 ### 7. Forms without JavaScript (extends 0012 §4)
 
-*Changed by A6.*
+*Changed by A6, A7.*
 
 *Current text: [20](../architecture/20-web-tier.md) §3.1.*
 
@@ -227,3 +227,10 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §12.4, as 
 Replaced text ([20](../architecture/20-web-tier.md) §3.1, as it stood):
 
 > Reading, logging in and out, creating an account, the account pages, page source editing and search work without JavaScript ([0034](0034-frontend-stack.md) §4).
+
+### A7. The issuer flow stays on the API
+
+- **Date:** 2026-10-18
+- **Source:** [0088](0088-external-identity-providers.md) §5
+- **Change:** extends §7
+- **Summary:** The browser posts an issuer's button straight to the API's `POST /auth/{issuer}/start`, the provider returns to the API's callback, and the API redirects to the `returnto` the web tier passed, so the provider's code never reaches the web tier. The chapter text is [20](../architecture/20-web-tier.md) §3.1.

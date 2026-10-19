@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-17 (A77)
+- **Updated:** 2026-10-18 (A78)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0005](0005-crate-organization.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -66,13 +66,13 @@ This ADR sets the rules for filling both gaps, and lists what the UI needs from 
 
 ### 4. Action API changes
 
-*Changed by A3, A4, A5, A7, A8, A9, A10, A12, A13, A14, A15, A16, A17, A18, A19, A21, A23, A24, A25, A26, A27, A30, A31, A32, A33, A34, A35, A36, A37, A38, A55, A64, A65, A66, A72, A73, A74, A75, A76, A77.*
+*Changed by A3, A4, A5, A7, A8, A9, A10, A12, A13, A14, A15, A16, A17, A18, A19, A21, A23, A24, A25, A26, A27, A30, A31, A32, A33, A34, A35, A36, A37, A38, A55, A64, A65, A66, A72, A73, A74, A75, A76, A77, A78.*
 
 *Current text: [18](../architecture/18-api.md) §1.5, §2.1, §2.2, §2.3, §2.4, §3.4, §5.1.*
 
 ### 5. REST routes under `rest.php/triplespace/v0`
 
-*Changed by A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A28, A30, A31, A32, A33, A37, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A50, A51, A52, A53, A54, A55, A56, A59, A60, A61, A62, A64, A70, A71, A72, A75, A76, A77.*
+*Changed by A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A28, A30, A31, A32, A33, A37, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A50, A51, A52, A53, A54, A55, A56, A59, A60, A61, A62, A64, A70, A71, A72, A75, A76, A77, A78.*
 
 *Current text: [18](../architecture/18-api.md) §1.2, §3.1, §3.2, §3.3, §4.*
 
@@ -859,3 +859,16 @@ Replaced text ([18](../architecture/18-api.md) §2.2, as it stood):
 Replaced text ([18](../architecture/18-api.md) §2.3, as it stood):
 
 > | `action=clientlogin`, `action=createaccount`, `meta=authmanagerinfo` | Offer a redirect-based OAuth flow for each issuer allowed for login, and MediaWiki's own `username`/`password` fields where the built-in `password` issuer is on. These are not offered to subsidiaries. `returnto` is honoured only on the request's own origin, here and on the `/auth` routes, and ignored otherwise ([0057](0057-web-tier.md) §7). Unchanged by the OAuth server | [0012](0012-api-requirements.md) §4; [0025](0025-oauth-server.md) §9 |
+
+### A78. External issuers in AuthManager and the `/auth` routes
+
+- **Date:** 2026-10-18
+- **Source:** [0088](0088-external-identity-providers.md) §5, §7
+- **Change:** extends §4; amends §5
+- **Summary:** For each issuer a tenant offers, `meta=authmanagerinfo` lists `TriplespaceIssuerAuthenticationRequest:{issuer}` with a button field, and `clientlogin`, `createaccount` and `linkaccount` answer `REDIRECT` and continue with `state`; an identity with no account answers `RESTART` and `createaccount&createpreservestate=1` creates it; `unlinkaccount` erases the binding, refusing the last way to log in. `/auth/{issuer}/start` becomes `POST` with the session's token; the callback is the URL registered with the provider; `/auth/pending` also returns the issuer's name; `POST /auth/pending/create` is withdrawn in favour of `createaccount`. `siprop=triplespace` reports `login`. The chapter text is [18](../architecture/18-api.md) §2.2, §2.3 and §3.2.
+
+Replaced text ([18](../architecture/18-api.md) §3.2, as it stood):
+
+> | `GET /auth/{issuer}/start`, `GET /auth/{issuer}/callback` | The login redirect flow; `returnto` honoured only on the request's own origin | [0012](../decisions/0012-api-requirements.md) §5 |
+> | `GET /auth/pending` | At first login: the pending identity's username, so the page can offer it as a suggestion. Only that session can read it | [0012](../decisions/0012-api-requirements.md) §5 |
+> | `POST /auth/pending/create` | Creates the account with the chosen name. It may also create a link, using the login that just took place as proof | [0012](../decisions/0012-api-requirements.md) §5 |

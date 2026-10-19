@@ -1056,6 +1056,8 @@ Beside the `private` tables of [0021](../decisions/0021-notifications.md) §3: `
 
 **Edit-filter hits.** The abuse-handling store gains a row per hit `(hit partition, hit offset, ip, expires)`, in `private`, under the store's retention ([0030](../decisions/0030-edit-filters.md) §11).
 
+**External identity** ([0088](../decisions/0088-external-identity-providers.md) §3, §5, §7; [07](07-actors-and-accounts.md) §2.7). `private.oauth_client (tenant, issuer, client_id, secret, callback, created, updated)`, primary key `(tenant, issuer)`, `tenant = ''` the instance default, the secret sealed under the instance sealing key, "never leaves" under [0027](../decisions/0027-preferences-and-portability.md) §2. `private.oauth_flow (state_hash, tenant, session, issuer, purpose, verifier, name, returnto, door, outcome jsonb, expires)`, a login flow's ten-minute handle where there is no shared cache (`oauthc:{state hash}` in Valkey otherwise), swept as sessions are. `private.binding (tenant, issuer, subject, actor_key, partition, offset, added, last_used)`, unique on `(tenant, issuer, subject)`: the index of external bindings, whose truth is the binding records of the `accounts` partition; a password binding's index is `private.password`. All three are read and written by `triplespace-accounts` only.
+
 **Rate-limit configuration** is the `site` config records of [0024](../decisions/0024-subsidiary-accounts.md) §5, projected into `view.registry` like every setting; counters are Valkey keys, never rows ([0024](../decisions/0024-subsidiary-accounts.md) §10).
 
 ## 5. The table catalogue
@@ -1129,6 +1131,7 @@ Each table is specified where it is listed; this table is the index, so that the
 | `ops` | `dump` | Scope dumps and their manifests | [0076](../decisions/0076-dataset-publication.md) §6 | Yes |
 | `view` | `page_text` | A `tsvector` column with a GIN index, for `list=search` without OpenSearch | [0014](../decisions/0014-caches-and-search.md) §8 | **No** |
 | `private` | `account_request`, `challenge_spent`, `rate_event` | Account requests awaiting review: the chosen name and its case-folded key, the credential, the statement, the address key and, once decided, the decision, reviewer, time and reason, deleted 7 days after a rejection or when the request expires, "never leaves" class under 0027 §2; spent challenges `(mac, tenant, expires)` until they expire, and the `createaccount` and `badlogin` counts `(tenant, class, key, at)` until they leave their window, where there is no shared cache ([07](07-actors-and-accounts.md) §2.6, §6.3) | [0087](../decisions/0087-account-registration-and-challenges.md) §3, §4, §6 | **No** |
+| `private` | `oauth_client`, `oauth_flow`, `binding` | Login through external issuers: client credentials per tenant and issuer with the instance default, the secret sealed; flow handles where there is no shared cache; the index of external bindings with when each was added and last used ([07](07-actors-and-accounts.md) §2.7) | [0088](../decisions/0088-external-identity-providers.md) §3, §5, §7 | **No** |
 
 The rows marked **No** are the tables and columns that 0013 §5.6's map of the schema does not yet list.
 

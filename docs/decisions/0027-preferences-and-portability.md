@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-17 (A8)
+- **Updated:** 2026-10-18 (A9)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0003](0003-statement-ui.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0018](0018-tenants.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md)
 - **Uses:** [0016](0016-permissions-and-access-control.md), [0024](0024-subsidiary-accounts.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -26,7 +26,7 @@ This ADR does three things: it names every kind of private state and puts prefer
 
 ### 2. What private state is, and which of it is portable
 
-*Changed by A3, A4, A5.*
+*Changed by A3, A4, A5, A9.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §8.3.*
 
@@ -192,3 +192,10 @@ Replaced text ([19](../architecture/19-site-ui.md) §2.4, as it stood):
 Replaced text ([23](../architecture/23-configuration-and-registry.md) §3.2, as it stood):
 
 > | `preferences.defaults` | `site` | tenant | map | the registry's defaults | An instance's own defaults for registered preference keys | [0027](0027-preferences-and-portability.md) §1 |
+
+### A9. Client credentials never leave
+
+- **Date:** 2026-10-18
+- **Source:** [0088](0088-external-identity-providers.md) §3
+- **Change:** extends §2
+- **Summary:** `private.oauth_client` is "never leaves": a consumer belongs to the host it was registered for. `private.binding` follows the bindings, which do not travel; `private.oauth_flow` is ephemeral. The chapter text is [03](../architecture/03-storage-caches-and-search.md) §4.16.

@@ -81,7 +81,7 @@ One alternative needs no new operation and was rejected: load the old wiki into 
 
 - **Q1. History for tenants that have not yet adopted** (§7): whether (a) or (b) is the default, or whether both are offered as modes of one job.
 - **Q2. Pages in the same job.** Whether an adoption should carry the source's document pages ([0008](0008-namespaces-and-document-pages.md) §9) in the same run, sharing the page-ID floor, or leave them to a second job.
-- **Q3. Vouching.** Whether a still-running source wiki can act as an identity provider for reclaiming, which needs an OAuth issuer on the source, or whether the manual `reclaim/reclaim` path is the only one a MediaWiki source offers.
+- **Q3.** ~~**Vouching.** Whether a still-running source wiki can act as an identity provider for reclaiming, which needs an OAuth issuer on the source, or whether the manual `reclaim/reclaim` path is the only one a MediaWiki source offers.~~ *Settled by [0088](0088-external-identity-providers.md) §8: it can, through an issuer that reaches its users, `local` on the source itself or `central` checked with `usprop=centralids`, while `reclaim.vouching` names it.*
 - **Q4. Sitelinks.** A source's `wb_items_per_site` rows are site IDs and titles; they become URLs through the site aliases of [0026](0026-sitelinks.md) §2, and a site ID the registry does not know is a reject. Whether adoption should register unknown site IDs as aliases on the fly is open.
 
 ## Changes to other ADRs

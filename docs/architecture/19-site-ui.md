@@ -153,20 +153,20 @@ The pages later ADRs added are named in §6 with the feature that added them, an
 
 ### 2.3 Logging in
 
-*Sources: [0010](../decisions/0010-site-ui.md) §10; [0087](../decisions/0087-account-registration-and-challenges.md) §5, §6.*
+*Sources: [0010](../decisions/0010-site-ui.md) §10; [0087](../decisions/0087-account-registration-and-challenges.md) §5, §6; [0088](../decisions/0088-external-identity-providers.md) §5, §6.*
 
 **`Special:UserLogin`**
 
-- Offers one button for each issuer that the issuer registry allows as an identity provider ([0007](../decisions/0007-actor-identity.md) §1; [07](07-actors-and-accounts.md)). It says what the instance learns: which account the user holds, and nothing else.
+- Offers one button for each issuer that the tenant offers for login ([07](07-actors-and-accounts.md) §2.7), "Log in with Wikimedia", "Log in with Miraheze", each a form posting to `/auth/{issuer}/start`, so it works without JavaScript. It says what the instance learns: which account the user holds, and nothing else. An error the callback returns (`tserror`) is shown above the buttons.
 - Explains temporary accounts, and says that IP addresses are never shown or published ([0007](../decisions/0007-actor-identity.md) §3).
 - States that nobody else can see which service a user logs in with.
 
-**The first login** continues to `Special:CreateAccount`, where the user chooses a public name.
+**The first login** continues to `Special:CreateAccount`, where the user chooses a public name. The page says which provider the person signed in with, asks for no password and shows no challenge, and creates the account with `createpreservestate`. Arriving at `Special:CreateAccount` directly, a person may type a name and press an issuer's button instead of choosing a password; the name is checked first.
 
 **Name rules.** A local account name follows MediaWiki's username grammar exactly, so that imported attributions, CentralAuth names and Pywikibot round-trip: Unicode letters, digits and spaces; none of `@ # : / < > [ ] | { }`, control characters or leading, trailing or doubled spaces; at most 255 bytes; normalized to NFC with underscores read as spaces and the first letter uppercased. **Uniqueness is case-insensitive**, as the `actor_local_name` index of [0013](../decisions/0013-postgres-storage.md) §5.4 has it. **A name is never reused.** Every name a local account has ever held, whether renamed away or vanished from, stays reserved as a *name tombstone*, so that `[[User:OldName]]` in old page text or a post can never come to name a different person; the only way to have a name is to have always had it. Because a vanished account's names are erased from the log ([0007](../decisions/0007-actor-identity.md) §4), the tombstone is not a projection: it is a keyed hash of the lower-cased name in `private.name_tombstone` ([0013](../decisions/0013-postgres-storage.md) §5.6), written when a name is released, holding no actor key and no plaintext, and revealing nothing but that a candidate name is reserved, which the "name taken" check reveals anyway. `Special:CreateAccount` and `renameuser` refuse a tombstoned name with `ts-name-reserved`. The subsidiary conventions of [0024](../decisions/0024-subsidiary-accounts.md) §2 and [0025](../decisions/0025-oauth-server.md) §3 apply on top of this grammar, and the farm name registry of [0028](../decisions/0028-tenancy-policy.md) §2 is this rule applied across tenants, tombstones included ([08](08-tenants-and-instances.md)).
 
 - **The name field starts empty.** The identity provider's username may be offered as a button, labelled with where it came from. Next to it, the page says that using the same name makes the two accounts easy to connect.
-- **An optional, unchecked box** offers to link the user's account on the identity provider's wiki, for example Wikidata. It says the link is public. If it is checked, the link is created by the flow in [0007](../decisions/0007-actor-identity.md) §7. The authentication that just took place serves as the fresh proof of control, because it happened in the same request flow.
+- **An optional, unchecked box** offers to link the user's account on the identity provider's wiki, for example Wikidata, once the linking flow of [0007](../decisions/0007-actor-identity.md) §7 is built; until then it is not shown ([0088](../decisions/0088-external-identity-providers.md) §6). It says the link is public. If it is checked, the link is created by the flow in [0007](../decisions/0007-actor-identity.md) §7. The authentication that just took place serves as the fresh proof of control, because it happened in the same request flow.
 
 A farm signup page states the linking consent of [0028](../decisions/0028-tenancy-policy.md) §2 (§6.11).
 
@@ -188,7 +188,7 @@ A farm signup page states the linking consent of [0028](../decisions/0028-tenanc
 | Section | Label | Contents |
 |---|---|---|
 | Name | Public | The current name and **Rename…**. The page warns that user pages move and that links using the old name stop working ([0008](../decisions/0008-namespaces-and-document-pages.md) §6). |
-| Sign-in methods | Private | Each binding, with when it was added and last used. **Remove** is disabled for the last binding, and says why. **Add** lists the issuers allowed as identity providers. |
+| Sign-in methods | Private | Each binding, with when it was added and last used, and an issuer the tenant no longer offers marked unavailable. **Remove** is disabled for the last way to log in, a password included, and says why; removing erases the binding from history. **Add** lists the issuers the tenant offers, each a form to `/auth/{issuer}/start` with `purpose=link` ([07](07-actors-and-accounts.md) §2.7). |
 | Linked accounts | Public | Each link, with its date and **Unlink…**. **Link another account** requires logging in to the provider again. The page warns that unlinking erases the link from history, and that copies taken earlier may keep it ([0007](../decisions/0007-actor-identity.md) §7). On a farm, the farm account and every linked tenant account are shown here, labelled Public ([0028](../decisions/0028-tenancy-policy.md) §11). |
 | Contacts | Private | The email address with its verification state; the fediverse handle with its verification state, a *follow the notifier* hint with the notifier's handle, and *Remove* ([0021](../decisions/0021-notifications.md) §6; [0085](../decisions/0085-settings-and-preferences.md) §5) |
 | Watchlist token | Private | The Atom watchlist token, shown and resettable ([0020](../decisions/0020-change-feeds.md) §4) |

@@ -291,9 +291,11 @@ A setting the tenant inherited from its old instance's defaults travels as no re
 
 ### 6.4 Account reclaiming
 
-*Sources: [0018](../decisions/0018-tenants.md) §10.*
+*Sources: [0018](../decisions/0018-tenants.md) §10; [0088](../decisions/0088-external-identity-providers.md) §8.*
 
 Bindings do not travel, so a user proves on the new instance that they are `librarybase:42` in one of three ways: by logging in with the same identity provider, which the new instance checks against the binding digest; by the old instance vouching, acting as an identity provider for a grace period; or by a bureaucrat recording a manual reclaim as a `reclaim/reclaim` log event, which is MediaWiki's practice of confirming identity on the home wiki. An account never reclaimed keeps its name and its history and cannot log in.
+
+**An adopted MediaWiki wiki vouches through an issuer** that reaches its users, while the tenant's `reclaim.vouching` names it: a login the source confirms as its user `n` reclaims `{code}:{n}` ([07](07-actors-and-accounts.md) §2.5). Every reclaim, vouched or manual, writes a public `scatter:v0/reclaim` record in the tenant's `log` beside the private binding, with `method` `vouched` or `manual`; that record, not the binding, is what `reclaim/reclaim` projects from.
 
 ### 6.5 Leaving and joining a farm
 

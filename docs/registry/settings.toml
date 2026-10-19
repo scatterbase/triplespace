@@ -655,6 +655,19 @@ meaning = "C2SP tlog-witness endpoints that cosign the tenant's checkpoints ([01
 source = "[0081](../decisions/0081-recovery-keys-and-continuations.md) §6"
 
 [[setting]]
+key = "login.issuers"
+scope = "tenant"
+bound = "tenant"
+group = "accounts"
+type = "string-list"
+values = "issuer codes with `login = true` and an `oauth` table, or `*` for every one"
+default = ["*"]
+default_text = "`*`, every such issuer with a client credential"
+meaning = "The external issuers the tenant offers for login, of those with a client credential ([07](07-actors-and-accounts.md) §2.7); a save leaving no way to log in is refused"
+source = "[0088](../decisions/0088-external-identity-providers.md) §4"
+reported = true
+
+[[setting]]
 key = "login.password"
 scope = "tenant"
 bound = "tenant"
@@ -1070,6 +1083,17 @@ default = "P90D"
 default_text = "90 days (`$wgRCMaxAge`)"
 meaning = "The recent-changes window"
 source = "[0010](../decisions/0010-site-ui.md) §7; [0023](../decisions/0023-moderation.md) §6"
+
+[[setting]]
+key = "reclaim.vouching"
+scope = "tenant"
+bound = "tenant"
+group = "accounts"
+type = "string"
+values = "`off`, or the code of an issuer that serves login"
+default = "off"
+meaning = "Whether the wiki this tenant adopted vouches for its old users through that issuer, reclaiming their accounts at login ([07](07-actors-and-accounts.md) §2.5); the grace period is the time it is on"
+source = "[0088](../decisions/0088-external-identity-providers.md) §8"
 
 [[setting]]
 key = "repo.debounce"

@@ -415,7 +415,9 @@ In `accounts` (private, never exported), keyed by the local actor (0007 §3).
 ```
 
 `subject` is normalized (`mw:CentralAuth:7654321` → `7654321`). Secrets are never here:
-a password hash is `private.password`, a key is `private.api_key`.
+a password hash is `private.password`, a key is `private.api_key`. An external binding is
+indexed in `private.binding`, which points at the record so that removing the sign-in method
+can erase it (0088 §7).
 
 ## 9. Defined with their crates
 
