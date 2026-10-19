@@ -43,8 +43,6 @@ This directory is the registry of record for the names and codes that Triplespac
 
 - **English Wikipedia as a page provider** ([0052](../decisions/0052-page-repositories-and-title-inheritance.md) §1): slug `enwiki`, provider number 9, issuer `enwiki` (in `issuers.toml`), `pages = true`, no code and no types. The number is reserved here; the `[[provider]]` row is written once `scatter-providers` accepts an entry without a code.
 
-- **OAuth endpoints of login issuers** ([0088](../decisions/0088-external-identity-providers.md) §1): the `[issuer.oauth]` table (`authorize`, `token`, `profile`, `subject`, `register`) on `wikimedia-central` and `miraheze-central`. Written as comments in `issuers.toml` until `scatter-actors` accepts the table, since the parser rejects unknown fields.
-
 - **Derived graphs** ([0071](../decisions/0071-derived-statements-from-mirrored-pages.md) §1, §3): `derived/{source}`, one per extraction source of a tenant, with the four-part `scatter:v0/derivation`. Written as a comment at the end of `graphs.toml` until `scatter-log`'s registry accepts `per_source`, since the parser rejects unknown fields.
 
 - **Entity-source graphs** ([0078](../decisions/0078-entity-sources.md) §4): `source/{name}`, one per entity source of a tenant, with the policies of `mirror/{provider}`. Written as a comment at the end of `graphs.toml` until `scatter-log`'s registry accepts a per-source placeholder.

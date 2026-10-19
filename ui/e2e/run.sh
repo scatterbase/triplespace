@@ -30,6 +30,12 @@ export TRIPLESPACE_DATABASE_URL="$url"
 "$bin/triplespace" instance create --tenant librarybase --base https://librarybase.org \
 	--key-file "$work/k.key" --provider internetdomains --adopt https://librarybase.org/ \
 	--owner 7 --owner-name Alice --owner-password-file "$work/owner.pw" >/dev/null
+# A client credential for Wikimedia (ADR 0088 §3), so the login page offers it; its
+# callback is registered as a prefix of the edge's, which the API sees as its base.
+echo 'e2e-oauth-secret' > "$work/oauth.secret"
+"$bin/triplespace" oauth-client set wikimedia-central --client-id e2e-client \
+	--secret-file "$work/oauth.secret" --key-file "$work/k.key" \
+	--callback http://127.0.0.1: >/dev/null
 "$bin/triplespace" adopt --tenant librarybase --dump "$fixtures/site-entities.xml" \
 	--source https://librarybase.org/ --version test --frozen --counters item=6,property=12 >/dev/null
 "$bin/triplespace" sync --provider internetdomains --dump "$fixtures/internetdomains.json" \

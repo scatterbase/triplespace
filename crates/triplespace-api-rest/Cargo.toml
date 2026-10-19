@@ -27,6 +27,8 @@ axum.workspace = true
 serde_json.workspace = true
 tokio-postgres.workspace = true
 toml.workspace = true
+url.workspace = true
+percent-encoding.workspace = true
 
 [lints]
 workspace = true

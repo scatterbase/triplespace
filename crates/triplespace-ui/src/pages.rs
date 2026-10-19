@@ -52,10 +52,13 @@ pub const CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self'; 
 pub async fn security_headers(request: Request, next: Next) -> Response {
     let mut r = next.run(request).await;
     let h = r.headers_mut();
-    h.insert(
-        header::CONTENT_SECURITY_POLICY,
-        HeaderValue::from_static(CSP),
-    );
+    // A page that widened `form-action` for its issuers' buttons keeps its own policy.
+    if !h.contains_key(header::CONTENT_SECURITY_POLICY) {
+        h.insert(
+            header::CONTENT_SECURITY_POLICY,
+            HeaderValue::from_static(CSP),
+        );
+    }
     h.insert(
         header::REFERRER_POLICY,
         HeaderValue::from_static("strict-origin-when-cross-origin"),

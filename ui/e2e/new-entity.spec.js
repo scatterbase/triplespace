@@ -14,7 +14,7 @@ async function logIn( page, title ) {
 	await page.goto( `/wiki/Special:UserLogin?returnto=${ title }` );
 	await page.getByLabel( 'Username' ).fill( 'Alice' );
 	await page.getByLabel( 'Password' ).fill( process.env.E2E_OWNER_PASSWORD );
-	await page.getByRole( 'button', { name: 'Log in' } ).click();
+	await page.getByRole( 'button', { name: 'Log in', exact: true } ).click();
 	await page.waitForURL( `**/wiki/${ title }` );
 }
 

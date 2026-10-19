@@ -26,6 +26,7 @@ pub mod api;
 pub mod create;
 pub mod entity;
 pub mod forward;
+pub mod issuers;
 pub mod register;
 pub mod revisions;
 pub mod search;
@@ -40,6 +41,7 @@ pub use api::{CacheInfo, ChipColours, Fetched, ProviderInfo, ProviderType, SiteI
 pub use create::Created;
 pub use entity::{Entities, Provenance};
 pub use forward::Incoming;
+pub use issuers::{AccountInfo, LoginIssuer, Pending};
 pub use register::{
     AccountRequest, ChallengeInfo, CreateFields, CreateForm, CreateResult, LoginForm,
 };

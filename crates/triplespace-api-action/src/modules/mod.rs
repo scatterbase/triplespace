@@ -4,6 +4,7 @@ pub mod account;
 pub mod changes;
 pub mod entities;
 pub mod entitydata;
+pub mod issuers;
 pub mod login;
 pub mod options;
 pub mod query;

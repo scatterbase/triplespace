@@ -20,6 +20,7 @@
 use scatter_challenge::{ALGORITHM, Challenge, Trigger};
 use serde_json::{Map, Value, json};
 use triplespace_accounts::challenge::{self, Unsolved};
+use triplespace_accounts::oauth::Purpose;
 use triplespace_accounts::{requests, session};
 use triplespace_api_ingest::accounts::{CreateError, Credential, create};
 
@@ -64,8 +65,16 @@ impl Policy {
     ///
     /// If the store fails.
     pub async fn load(ctx: &Ctx) -> Result<Self, ApiError> {
-        let (settings, _) =
-            triplespace_accounts::settings::load(ctx.db(), Some(&ctx.tenant.slug)).await?;
+        Self::load_for(ctx.db(), &ctx.tenant.slug).await
+    }
+
+    /// A tenant's settings, by its slug.
+    ///
+    /// # Errors
+    ///
+    /// If the store fails.
+    pub async fn load_for(db: &tokio_postgres::Client, tenant: &str) -> Result<Self, ApiError> {
+        let (settings, _) = triplespace_accounts::settings::load(db, Some(tenant)).await?;
         let d = Self::defaults();
         let bits = |key: &str, default: u8| {
             settings
@@ -290,6 +299,57 @@ pub async fn createaccount(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         ));
     }
     ctx.caller.require("createaccount")?;
+    // An external issuer (0088 §5, §6): the continue of a flow, an account for the
+    // session's pending identity, or a button pressed after choosing a name.
+    if ctx.params.flag("createcontinue") && ctx.params.get("state").is_some() {
+        return super::issuers::resume(ctx, "createaccount", Purpose::Create).await;
+    }
+    let chosen = ctx
+        .params
+        .get("username")
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    if ctx.params.flag("createpreservestate") && !chosen.is_empty() {
+        let statement = ctx.params.get("tsstatement").map(str::to_owned);
+        if let Some(r) =
+            super::issuers::create_preserved(ctx, &chosen, statement.as_deref()).await?
+        {
+            return Ok(r);
+        }
+    }
+    if let Some(issuer) = super::issuers::pressed(ctx) {
+        if chosen.is_empty() {
+            return Ok(fail("noname", "You have not specified a valid username."));
+        }
+        let tenant = ctx.tenant.slug.clone();
+        let mut cx = scatter_projection::Backend::begin(ctx.app.store()).await?;
+        let checked =
+            triplespace_api_ingest::accounts::check_available(&mut cx, &tenant, &chosen).await;
+        scatter_projection::Backend::rollback(ctx.app.store(), cx).await?;
+        let name = match checked {
+            Ok(n) => n,
+            Err(CreateError::InvalidName(_)) => {
+                return Ok(fail("noname", "You have not specified a valid username."));
+            }
+            Err(CreateError::Taken) => {
+                return Ok(fail(
+                    "userexists",
+                    "Username entered already in use. Please choose a different name.",
+                ));
+            }
+            Err(e) => return Err(ApiError::internal(e)),
+        };
+        return super::issuers::redirect(
+            ctx,
+            "createaccount",
+            &issuer,
+            Purpose::Create,
+            "createreturnurl",
+            Some(&name),
+        )
+        .await;
+    }
     let policy = Policy::load(ctx).await?;
     let address = address(ctx);
     let tenant = ctx.tenant.slug.clone();
@@ -448,6 +508,10 @@ pub async fn createaccount(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
                     "Username entered already in use. Please choose a different name.",
                 )),
                 CreateError::BadPassword(m) => Ok(fail("passwordtooshort", &m)),
+                CreateError::Bound => Ok(fail(
+                    "ts-oauth-bound",
+                    crate::external::message("ts-oauth-bound"),
+                )),
                 CreateError::Store(m) => Err(ApiError::internal(m)),
             };
         }
@@ -466,6 +530,7 @@ fn field(kind: &str, label: &str, help: &str) -> Value {
 /// `meta=authmanagerinfo` (0087 §9): `amirequestsfor=create` or `login`, with
 /// `amimergerequestfields`. The challenge's request is listed where the act is guarded
 /// for the caller; for `login`, where the caller's address has failed too often.
+#[allow(clippy::too_many_lines)]
 pub async fn authmanagerinfo(
     ctx: &mut Ctx,
     query: &mut Map<String, Value>,
@@ -477,7 +542,8 @@ pub async fn authmanagerinfo(
         "cancreateaccounts".into(),
         json!(ctx.caller.effective.holds("createaccount")),
     );
-    info.insert("canlinkaccounts".into(), json!(false));
+    let issuer_requests = super::issuers::requests(ctx).await?;
+    info.insert("canlinkaccounts".into(), json!(!issuer_requests.is_empty()));
     info.insert("preservedusername".into(), json!(""));
     let mut reqs = Vec::new();
     let username = json!({
@@ -515,6 +581,13 @@ pub async fn authmanagerinfo(
                 let c = fresh(ctx, &policy, Trigger::CreateAccount).await?;
                 reqs.push(challenge_request(&c));
             }
+            reqs.extend(issuer_requests);
+        }
+        "link" if ctx.caller.identity.is_authenticated() => {
+            reqs.extend(issuer_requests);
+        }
+        "remove" => {
+            reqs.extend(super::issuers::remove_requests(ctx).await?);
         }
         "login" => {
             reqs.push(json!({
@@ -541,6 +614,7 @@ pub async fn authmanagerinfo(
                     reqs.push(challenge_request(&c));
                 }
             }
+            reqs.extend(issuer_requests);
         }
         _ => {}
     }

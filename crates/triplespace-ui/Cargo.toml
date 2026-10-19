@@ -24,13 +24,13 @@ icu_locale_core.workspace = true
 scatter-wikibase-model.workspace = true
 scatter-wikibase-shape.workspace = true
 tokio = { workspace = true, features = ["macros"] }
+url.workspace = true
 
 [dev-dependencies]
 insta.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 tower.workspace = true
 http-body-util.workspace = true
-url.workspace = true
 
 [lints]
 workspace = true

@@ -20,6 +20,63 @@ pub enum ActorModel {
     ProviderOnly,
 }
 
+/// What an issuer's login subjects number (0088 §1).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum SubjectKind {
+    /// CentralAuth IDs: one account across a wiki farm's wikis.
+    Central,
+    /// The wiki's own user IDs.
+    Local,
+}
+
+impl SubjectKind {
+    /// The provider name MediaWiki's OAuth writes in `mw:{provider}:{id}`.
+    #[must_use]
+    pub fn provider(self) -> &'static str {
+        match self {
+            Self::Central => "CentralAuth",
+            Self::Local => "local",
+        }
+    }
+
+    /// Normalizes a `sub` claim to the bare number (0007 §3; 0088 §1): `7654321` and
+    /// `mw:CentralAuth:7654321` are one subject; a `sub` naming the other numbering, or
+    /// that is not a number, is `None`.
+    #[must_use]
+    pub fn normalize(self, sub: &str) -> Option<String> {
+        let sub = sub.trim();
+        let bare = match sub.strip_prefix("mw:") {
+            Some(rest) => {
+                let (provider, id) = rest.split_once(':')?;
+                if !provider.eq_ignore_ascii_case(self.provider()) {
+                    return None;
+                }
+                id
+            }
+            None => sub,
+        };
+        let n: u64 = bare.parse().ok()?;
+        (n > 0).then(|| n.to_string())
+    }
+}
+
+/// How an issuer serves login through OAuth 2.0 (0088 §1).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OAuthEndpoints {
+    /// The authorization endpoint.
+    pub authorize: String,
+    /// The token endpoint.
+    pub token: String,
+    /// The endpoint that answers who a token's holder is.
+    pub profile: String,
+    /// What the subjects number.
+    pub subject: SubjectKind,
+    /// Where an operator registers a consumer.
+    pub register: Option<String>,
+    /// What a login button names: "Log in with {label}".
+    pub label: String,
+}
+
 /// One issuer.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Issuer {
@@ -42,6 +99,8 @@ pub struct Issuer {
     pub builtin: bool,
     /// A template entry, instantiated per tenant or farm; never an issuer by itself.
     pub template: bool,
+    /// For an issuer that serves login through OAuth, its endpoints (0088 §1).
+    pub oauth: Option<OAuthEndpoints>,
 }
 
 /// Why `issuers.toml` could not be read.
@@ -98,6 +157,21 @@ struct RawIssuer {
     builtin: bool,
     #[serde(default)]
     template: bool,
+    #[serde(default)]
+    oauth: Option<RawOAuth>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawOAuth {
+    authorize: String,
+    token: String,
+    profile: String,
+    subject: String,
+    #[serde(default)]
+    register: Option<String>,
+    #[serde(default)]
+    label: Option<String>,
 }
 
 /// The template code every tenant issuer is instantiated from.
@@ -131,6 +205,7 @@ fn is_code(s: &str) -> bool {
 
 impl IssuerRegistry {
     /// Parses an `issuers.toml`.
+    #[allow(clippy::too_many_lines)]
     pub fn parse(text: &str) -> Result<Self, IssuerRegistryError> {
         let raw: RawRegistry =
             toml::from_str(text).map_err(|e| IssuerRegistryError::Toml(e.to_string()))?;
@@ -169,6 +244,43 @@ impl IssuerRegistry {
             {
                 return Err(IssuerRegistryError::BadIriTemplate(r.code));
             }
+            let oauth = match r.oauth {
+                None => None,
+                Some(o) => {
+                    let subject = match o.subject.as_str() {
+                        "central" => SubjectKind::Central,
+                        "local" => SubjectKind::Local,
+                        other => {
+                            return Err(IssuerRegistryError::Toml(format!(
+                                "issuer `{}`: oauth.subject must be \"central\" or \"local\", not \"{other}\"",
+                                r.code
+                            )));
+                        }
+                    };
+                    for u in [&o.authorize, &o.token, &o.profile] {
+                        if !u.starts_with("https://") {
+                            return Err(IssuerRegistryError::Toml(format!(
+                                "issuer `{}`: OAuth endpoint `{u}` is not https",
+                                r.code
+                            )));
+                        }
+                    }
+                    if !r.login || template {
+                        return Err(IssuerRegistryError::Toml(format!(
+                            "issuer `{}`: an oauth table needs `login = true`",
+                            r.code
+                        )));
+                    }
+                    Some(OAuthEndpoints {
+                        authorize: o.authorize,
+                        token: o.token,
+                        profile: o.profile,
+                        subject,
+                        register: o.register,
+                        label: o.label.unwrap_or_else(|| r.name.clone()),
+                    })
+                }
+            };
             issuers.push(Issuer {
                 code: r.code,
                 name: r.name,
@@ -179,6 +291,7 @@ impl IssuerRegistry {
                 providers: r.providers,
                 builtin: r.builtin,
                 template,
+                oauth,
             });
         }
         let reg = Self {
@@ -291,7 +404,15 @@ impl IssuerRegistry {
             providers: Vec::new(),
             builtin: false,
             template: false,
+            oauth: None,
         }
+    }
+
+    /// The issuers that serve login through OAuth, in registry order (0088 §1).
+    pub fn oauth_providers(&self) -> impl Iterator<Item = &Issuer> {
+        self.issuers
+            .iter()
+            .filter(|i| i.login && !i.template && i.oauth.is_some())
     }
 
     /// The issuers that may serve as identity providers for login, in registry order.
@@ -330,6 +451,54 @@ mod tests {
         let logins: Vec<&str> = r.login_providers().map(|i| i.code.as_str()).collect();
         assert!(logins.contains(&"password") && logins.contains(&"wikimedia-central"));
         assert!(!logins.contains(&"instance"));
+    }
+
+    #[test]
+    fn wikimedia_serves_login_through_oauth() {
+        let r = IssuerRegistry::default_registry();
+        let wm = r.by_code("wikimedia-central").unwrap();
+        let o = wm.oauth.as_ref().expect("an oauth table");
+        assert_eq!(o.subject, SubjectKind::Central);
+        assert_eq!(o.label, "Wikimedia");
+        assert!(o.authorize.starts_with("https://meta.wikimedia.org/"));
+        let codes: Vec<&str> = r.oauth_providers().map(|i| i.code.as_str()).collect();
+        assert_eq!(codes, ["wikimedia-central"]);
+    }
+
+    #[test]
+    fn subjects_normalize() {
+        let c = SubjectKind::Central;
+        assert_eq!(c.normalize("7654321").as_deref(), Some("7654321"));
+        assert_eq!(
+            c.normalize("mw:CentralAuth:7654321").as_deref(),
+            Some("7654321")
+        );
+        assert_eq!(c.normalize("mw:local:7654321"), None, "another numbering");
+        assert_eq!(c.normalize("mw:CentralAuth:x"), None);
+        assert_eq!(c.normalize("0"), None);
+        assert_eq!(
+            SubjectKind::Local.normalize("mw:local:42").as_deref(),
+            Some("42")
+        );
+    }
+
+    #[test]
+    fn an_oauth_table_is_checked() {
+        let base = crate::ISSUERS_TOML;
+        let bad_subject = format!(
+            "{base}\n[[issuer]]\ncode = \"x\"\nname = \"X\"\nactor_model = \"numeric\"\nlogin = true\n[issuer.oauth]\nauthorize = \"https://a\"\ntoken = \"https://b\"\nprofile = \"https://c\"\nsubject = \"global\"\n"
+        );
+        assert!(IssuerRegistry::parse(&bad_subject).is_err());
+        let no_login = bad_subject
+            .replace("login = true", "login = false")
+            .replace("\"global\"", "\"local\"");
+        assert!(IssuerRegistry::parse(&no_login).is_err());
+        let plain_http = bad_subject
+            .replace("\"global\"", "\"local\"")
+            .replace("https://a", "http://a");
+        assert!(IssuerRegistry::parse(&plain_http).is_err());
+        let ok = bad_subject.replace("\"global\"", "\"local\"");
+        assert!(IssuerRegistry::parse(&ok).is_ok());
     }
 
     #[test]

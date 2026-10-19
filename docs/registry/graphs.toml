@@ -61,7 +61,7 @@ scope = "both"                 # tenant log; since 0039 §10 also the instance's
 history = "full"
 integrity = "logged"
 export = "internal"
-payload_types = ["scatter:v0/logevent", "scatter:v0/acl", "scatter:v0/filter", "scatter:v0/filter-hit", "scatter:v0/expunge", "scatter:v0/erase"]   # acl: page, entity, record and actor targets (0023 §3), and instance-scope blob targets (0039 §10); patrol marks are logevents (0023 §6); filters and hits (0030 §5; global filters in the instance log, 0040 §6); expunge: instance log only (0039 §10); job records of jobs that write instance acts, instance log (0040 §4)
+payload_types = ["scatter:v0/logevent", "scatter:v0/acl", "scatter:v0/filter", "scatter:v0/filter-hit", "scatter:v0/expunge", "scatter:v0/erase", "scatter:v0/reclaim"]   # reclaim: a reclaimed account (0088 §8); acl: page, entity, record and actor targets (0023 §3), and instance-scope blob targets (0039 §10); patrol marks are logevents (0023 §6); filters and hits (0030 §5; global filters in the instance log, 0040 §6); expunge: instance log only (0039 §10); job records of jobs that write instance acts, instance log (0040 §4)
 defined_in = "0011 §2, §6.3, 0023 §3, §6, 0030 §5, 0039 §10, 0040 §4"
 scatterbase = "meta"
 

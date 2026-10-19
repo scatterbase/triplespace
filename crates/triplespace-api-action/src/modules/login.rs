@@ -10,6 +10,7 @@
 
 use serde_json::{Value, json};
 use triplespace_accounts::login::{LoginError, bot_login, password_login};
+use triplespace_accounts::oauth::Purpose;
 use triplespace_accounts::requests::{self, Outcome};
 use triplespace_accounts::{challenge, session};
 
@@ -102,7 +103,8 @@ pub async fn login(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
 }
 
 /// `action=clientlogin`: `username`, `password`, `logintoken` (and `loginreturnurl`,
-/// accepted and ignored).
+/// accepted and ignored); or an external issuer's button with `loginreturnurl`, and
+/// `logincontinue` with `state` (0088 §5).
 pub async fn clientlogin(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     if !ctx.params.posted {
         return Err(ApiError::new(
@@ -117,6 +119,21 @@ pub async fn clientlogin(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
             return Err(ApiError::missing_param("logintoken"));
         }
         return Err(ApiError::new("badtoken", "Invalid login token."));
+    }
+    // An external issuer's redirect flow (0088 §5).
+    if ctx.params.flag("logincontinue") && ctx.params.get("state").is_some() {
+        return super::issuers::resume(ctx, "clientlogin", Purpose::Login).await;
+    }
+    if let Some(issuer) = super::issuers::pressed(ctx) {
+        return super::issuers::redirect(
+            ctx,
+            "clientlogin",
+            &issuer,
+            Purpose::Login,
+            "loginreturnurl",
+            None,
+        )
+        .await;
     }
     let username = ctx.params.required("username")?.to_string();
     let password = ctx.params.required("password")?.to_string();

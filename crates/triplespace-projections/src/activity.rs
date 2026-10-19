@@ -17,8 +17,8 @@ use scatter_wikibase_model::id::Subject;
 
 use crate::backend::PgCx;
 use crate::common::{
-    PAYLOAD_CHANGESET, PAYLOAD_LOGEVENT, attested, comment, content, operation, partition_info,
-    target_kind, time_of, to_jsonb,
+    PAYLOAD_CHANGESET, PAYLOAD_LOGEVENT, PAYLOAD_RECLAIM, attested, comment, content, operation,
+    partition_info, target_kind, time_of, to_jsonb,
 };
 use scatter_log_postgres::PgClient;
 
@@ -290,6 +290,34 @@ fn logevent_columns(record: &Record) -> Result<Columns, String> {
     })
 }
 
+/// A `scatter:v0/reclaim` record as `reclaim/reclaim` on the reclaimed account, with its
+/// `method` (0088 §8).
+fn reclaim_columns(record: &Record) -> Result<Columns, String> {
+    let Some(content) = content(record)? else {
+        return Ok(Columns {
+            kind: "erased",
+            ..Columns::default()
+        });
+    };
+    let method = content
+        .get("method")
+        .and_then(Value::as_text)
+        .unwrap_or("manual")
+        .to_string();
+    Ok(Columns {
+        kind: "log",
+        target: Target {
+            kind: Some(target_kind::ACTOR),
+            id: record.header().key.clone(),
+            member: None,
+        },
+        log_type: Some("reclaim".into()),
+        log_action: Some("reclaim".into()),
+        params: Some(serde_json::json!({"method": method})),
+        ..Columns::default()
+    })
+}
+
 impl<B: Backend<Cx = PgCx>> Projection<B> for ActivityProjection {
     fn name(&self) -> &'static str {
         "activity"
@@ -301,7 +329,9 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for ActivityProjection {
 
     fn accepts(&self, header: &Header) -> bool {
         header.partition != CONFIG_PARTITION
-            && (header.payload_type == PAYLOAD_CHANGESET || header.payload_type == PAYLOAD_LOGEVENT)
+            && (header.payload_type == PAYLOAD_CHANGESET
+                || header.payload_type == PAYLOAD_LOGEVENT
+                || header.payload_type == PAYLOAD_RECLAIM)
     }
 
     fn apply<'a>(
@@ -314,6 +344,8 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for ActivityProjection {
             let info = partition_info(cx, h.partition).await?;
             let columns = if h.payload_type == PAYLOAD_CHANGESET {
                 changeset_columns(record, info.is_mirror())?
+            } else if h.payload_type == PAYLOAD_RECLAIM {
+                reclaim_columns(record)?
             } else {
                 logevent_columns(record)?
             };

@@ -48,7 +48,7 @@ pub enum LoginResult {
     },
 }
 
-fn cookies(r: &ApiResponse) -> Vec<HeaderValue> {
+pub(crate) fn cookies(r: &ApiResponse) -> Vec<HeaderValue> {
     r.headers
         .get_all(header::SET_COOKIE)
         .iter()

@@ -20,6 +20,13 @@
 //!   statement, its age, and its address for holders of `ts-viewip`, and a form to
 //!   approve it or to reject it with a reason.
 //!
+//! - **External issuers** (0088 §6): the form offers each issuer the wiki offers, a
+//!   button posting the login token to the API, which sends the person to the provider
+//!   and back. A login whose identity has no account comes back here with a **pending
+//!   identity**: the page names the provider, asks only for a name (offering the
+//!   provider's username as a button labelled with where it came from), and creates the
+//!   account with `createpreservestate`, with no password and no challenge.
+//!
 //! Every page holding a token is the viewer's alone.
 
 use std::collections::BTreeMap;
@@ -30,7 +37,7 @@ use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::Response;
 use triplespace_client::settings::Saved;
 use triplespace_client::{
-    CacheInfo, ChallengeInfo, CreateFields, CreateResult, Incoming, LoginResult,
+    CacheInfo, ChallengeInfo, CreateFields, CreateResult, Incoming, LoginResult, Pending,
 };
 
 use crate::Site;
@@ -243,12 +250,15 @@ fn page(
     }
     html.push_str(body);
     let back = back.to_string();
-    pages::respond(cx, headers, status, |m| Page {
-        title: m.get("ts-createaccount-title"),
-        returnto: Some(back),
-        body: format!("<div class=\"ts-account-form\">{html}</div>"),
-        ..Page::default()
-    })
+    crate::special::external::allow_issuer_forms(
+        cx,
+        pages::respond(cx, headers, status, |m| Page {
+            title: m.get("ts-createaccount-title"),
+            returnto: Some(back),
+            body: format!("<div class=\"ts-account-form\">{html}</div>"),
+            ..Page::default()
+        }),
+    )
 }
 
 /// The page to return to: `returnto` where it is a title, else the main page.
@@ -328,8 +338,229 @@ async fn fresh(
         approval,
         for_another: cx.user.is_some(),
     };
-    let body = create_form(&cx.m, &state);
+    let mut body = create_form(&cx.m, &state);
+    // The issuers' buttons carry the login token of the session the form's token is
+    // bound to: a second session would replace the first in the browser.
+    if cx.user.is_none() && !cx.site.login_issuers.is_empty() && !f.login_token.is_empty() {
+        body.push_str(&crate::special::external::buttons(
+            &cx.m,
+            &cx.site.login_issuers,
+            "logintoken",
+            &f.login_token,
+            "login",
+            back,
+            "ts-createaccount-external-heading",
+            "ts-createaccount-external-button",
+        ));
+    }
     pages::with_cookies(page(cx, headers, status, notice, &body, back), &cookies)
+}
+
+/// What a button names the issuer of a pending identity.
+fn issuer_label(cx: &Context, p: &Pending) -> String {
+    cx.site
+        .login_issuers
+        .iter()
+        .find(|i| i.issuer == p.issuer)
+        .map_or_else(|| p.issuer_name.clone(), |i| i.label.clone())
+}
+
+/// The form for a pending identity (0088 §6): a name, the provider's username offered
+/// as a button, and where the wiki reviews accounts a statement.
+fn pending_form(
+    m: &Messages,
+    label: &str,
+    p: &Pending,
+    token: &str,
+    back: &str,
+    username: &str,
+    statement: Option<(&str, &str)>,
+) -> String {
+    let mut out = format!(
+        "<p>{}</p><form class=\"ts-form ts-createaccount\" method=\"post\" action=\"/w/index.php?title={}\"><input type=\"hidden\" name=\"createtoken\" value=\"{}\"><input type=\"hidden\" name=\"returnto\" value=\"{}\"><input type=\"hidden\" name=\"tspending\" value=\"1\">",
+        esc(&m.with("ts-createaccount-pending-intro", &[label, &p.username])),
+        title_url(TITLE),
+        esc(token),
+        esc(back)
+    );
+    out.push_str(&text_field(
+        m,
+        "wpName2",
+        "username",
+        "text",
+        username,
+        "ts-createaccount-username",
+        "username",
+    ));
+    if !p.username.is_empty() {
+        let _ = write!(
+            out,
+            "<div class=\"ts-createaccount__suggest\"><button class=\"cdx-button\" type=\"submit\" name=\"tssuggested\" value=\"{}\" formnovalidate aria-describedby=\"ts-suggest-note\">{}</button><p class=\"ts-createaccount__suggest-note\" id=\"ts-suggest-note\">{}</p></div>",
+            esc(&p.username),
+            esc(&m.with("ts-createaccount-pending-suggest", &[label, &p.username])),
+            esc(&m.get("ts-createaccount-pending-suggest-note"))
+        );
+    }
+    if let Some((mode, value)) = statement {
+        let required = mode == "required";
+        let _ = write!(
+            out,
+            "<div class=\"cdx-field\"><div class=\"cdx-label\"><label class=\"cdx-label__label\" for=\"wpStatement\"><span class=\"cdx-label__label__text\">{}</span></label><span class=\"cdx-label__description\" id=\"wpStatement-description\">{}</span></div><div class=\"cdx-field__control\"><div class=\"cdx-text-area\"><textarea class=\"cdx-text-area__textarea\" id=\"wpStatement\" name=\"tsstatement\" rows=\"4\" maxlength=\"1000\" aria-describedby=\"wpStatement-description\"{}>{}</textarea></div></div></div>",
+            esc(&m.get("ts-createaccount-statement")),
+            esc(&m.get("ts-createaccount-statement-help")),
+            if required { " required" } else { "" },
+            esc(value)
+        );
+    }
+    let _ = write!(
+        out,
+        "<div class=\"ts-form__actions\">{}</div></form>",
+        Button {
+            label: &m.get("ts-createaccount-pending-submit"),
+            kind: "submit",
+            action: Action::Progressive,
+            weight: Weight::Primary,
+        }
+        .render()
+        .unwrap_or_default()
+    );
+    out
+}
+
+/// The page for a pending identity, with a fresh token.
+#[allow(clippy::too_many_arguments)]
+async fn pending_page(
+    site: &Site,
+    cx: &mut Context,
+    headers: &HeaderMap,
+    incoming: &Incoming,
+    back: &str,
+    p: &Pending,
+    username: &str,
+    statement: &str,
+    notice: Option<(MessageKind, String)>,
+    mut cookies: Vec<HeaderValue>,
+) -> Response {
+    let f = match site.client().create_form(incoming).await {
+        Ok(f) => f,
+        Err(e) => return pages::api_failed(cx, headers, &e),
+    };
+    cookies.extend(f.set_cookies);
+    let label = issuer_label(cx, p);
+    let body = pending_form(
+        &cx.m,
+        &label,
+        p,
+        &f.value.token,
+        back,
+        username,
+        f.value.statement.as_deref().map(|mode| (mode, statement)),
+    );
+    pages::with_cookies(
+        page(cx, headers, StatusCode::OK, notice, &body, back),
+        &cookies,
+    )
+}
+
+/// `POST Special:CreateAccount` for a pending identity.
+async fn post_pending(
+    site: &Site,
+    cx: &mut Context,
+    headers: &HeaderMap,
+    incoming: &Incoming,
+    back: &str,
+    form: &BTreeMap<String, String>,
+) -> Response {
+    let field = |k: &str| form.get(k).map_or("", String::as_str);
+    let Some(p) = (match site.client().pending_identity(incoming).await {
+        Ok(p) => p,
+        Err(e) => return pages::api_failed(cx, headers, &e),
+    }) else {
+        // The pending identity expired: start again from the login page.
+        return pages::see_other(
+            &format!(
+                "/wiki/Special:UserLogin?tserror=ts-oauth-state&returnto={}",
+                title_url(back)
+            ),
+            &[],
+        );
+    };
+    let suggested = field("tssuggested").trim();
+    let name = if suggested.is_empty() {
+        field("username").trim().to_string()
+    } else {
+        suggested.to_string()
+    };
+    let statement = field("tsstatement").to_string();
+    let return_url = format!(
+        "{}/wiki/{}",
+        cx.site.server.trim_end_matches('/'),
+        title_url(back)
+    );
+    let r = match site
+        .client()
+        .create_preserved(
+            incoming,
+            &name,
+            field("createtoken"),
+            &return_url,
+            form.get("tsstatement").map(String::as_str),
+        )
+        .await
+    {
+        Ok(r) => r,
+        Err(e) => return pages::api_failed(cx, headers, &e),
+    };
+    match r.value {
+        CreateResult::Pass { .. } => {
+            pages::see_other(&format!("/wiki/{}", title_url(back)), &r.set_cookies)
+        }
+        CreateResult::Requested => {
+            let body = format!(
+                "<p>{}</p>",
+                esc(&cx.m.get("ts-createaccount-requested-next-external"))
+            );
+            let notice = Some((MessageKind::Success, cx.m.get("ts-createaccount-requested")));
+            pages::with_cookies(
+                page(cx, headers, StatusCode::OK, notice, &body, back),
+                &r.set_cookies,
+            )
+        }
+        CreateResult::Fail { code, message } => {
+            let text = match code.as_str() {
+                "ts-oauth-bound" => cx.m.get("ts-oauth-bound"),
+                _ => refusal(&cx.m, &code, &message),
+            };
+            pending_page(
+                site,
+                cx,
+                headers,
+                incoming,
+                back,
+                &p,
+                &name,
+                &statement,
+                Some((MessageKind::Error, text)),
+                r.set_cookies,
+            )
+            .await
+        }
+        CreateResult::BadToken | CreateResult::Challenge(_) => {
+            pending_page(
+                site,
+                cx,
+                headers,
+                incoming,
+                back,
+                &p,
+                &name,
+                &statement,
+                Some((MessageKind::Warning, cx.m.get("ts-login-expired"))),
+                r.set_cookies,
+            )
+            .await
+        }
+    }
 }
 
 /// Whether the viewer holds `confirmaccount`, which the site reads from the open-request
@@ -351,12 +582,37 @@ pub async fn serve(
         Err(r) => return r,
     };
     let back = returnto(&cx, query.get("returnto"));
-    let notice = cx.user.clone().map(|name| {
-        (
-            MessageKind::Notice,
-            cx.m.with("ts-createaccount-as-other", &[&name]),
-        )
-    });
+    if cx.user.is_none() && !cx.site.login_issuers.is_empty() {
+        match site.client().pending_identity(&incoming).await {
+            Ok(Some(p)) => {
+                return pending_page(
+                    site,
+                    &mut cx,
+                    headers,
+                    &incoming,
+                    &back,
+                    &p,
+                    "",
+                    "",
+                    None,
+                    Vec::new(),
+                )
+                .await;
+            }
+            Ok(None) => {}
+            Err(e) => return pages::api_failed(&cx, headers, &e),
+        }
+    }
+    let notice = cx
+        .user
+        .clone()
+        .map(|name| {
+            (
+                MessageKind::Notice,
+                cx.m.with("ts-createaccount-as-other", &[&name]),
+            )
+        })
+        .or_else(|| crate::special::external::answer(&cx.m, query));
     fresh(
         site,
         &mut cx,
@@ -402,6 +658,9 @@ pub async fn post(
         Err(r) => return r,
     };
     let back = returnto(&cx, form.get("returnto"));
+    if form.contains_key("tspending") && cx.user.is_none() {
+        return post_pending(site, &mut cx, headers, &incoming, &back, form).await;
+    }
     let field = |k: &str| form.get(k).map_or("", String::as_str);
     let username = field("username").trim().to_string();
     let statement = field("tsstatement").to_string();

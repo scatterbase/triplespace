@@ -40,7 +40,7 @@ test( 'the group editor creates, sets, qualifies, sources and removes values', a
 	await page.goto( '/wiki/Special:UserLogin?returnto=Item:Q1' );
 	await page.getByLabel( 'Username' ).fill( 'Alice' );
 	await page.getByLabel( 'Password' ).fill( process.env.E2E_OWNER_PASSWORD );
-	await page.getByRole( 'button', { name: 'Log in' } ).click();
+	await page.getByRole( 'button', { name: 'Log in', exact: true } ).click();
 	await expect( page ).toHaveURL( /\/wiki\/Item:Q1$/ );
 
 	// Create: Add statement, instance of = number.

@@ -20,6 +20,11 @@
 //!   (0087 §2–4).
 //! - [`requests`]: `private.account_request`, the requests for an account that wait for
 //!   review where a tenant reviews registrations (0087 §6).
+//! - [`oauth`]: login through external issuers (0088): client credentials in
+//!   `private.oauth_client`, flows in `private.oauth_flow`, PKCE, the exchange and the
+//!   profile call, and the source lookup vouching needs.
+//! - [`bindings`]: `private.binding`, the index of external bindings (0088 §7).
+//! - [`seal`]: secrets sealed at rest under the instance sealing key (0088 §3).
 //! - [`forwarder`]: forwarder keys in `private.forwarder_key`, which let a proxy vouch
 //!   for the client address it forwards (0057 §10).
 //! - [`settings`]: the settings registry, the resolver of a setting's value and the one
@@ -37,14 +42,17 @@
 
 #![forbid(unsafe_code)]
 
+pub mod bindings;
 pub mod challenge;
 pub mod forwarder;
 pub mod identity;
 pub mod keys;
 pub mod login;
+pub mod oauth;
 pub mod password;
 pub mod preferences;
 pub mod requests;
+pub mod seal;
 pub mod session;
 pub mod settings;
 pub mod theme;
@@ -78,6 +86,10 @@ pub enum AccountsError {
     /// The random source failed.
     #[error("random: {0}")]
     Random(String),
+    /// A sealed value does not open: the signing seed was rotated, or the row was
+    /// altered (0088 §3).
+    #[error("a sealed value does not open; set it again")]
+    Sealed,
 }
 
 /// `n` random bytes, URL-safe base64 without padding.

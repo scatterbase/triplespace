@@ -4,7 +4,9 @@
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use triplespace_cli::{accounts, adopt, challenge, forwarder, instance, settings, status, sync};
+use triplespace_cli::{
+    accounts, adopt, challenge, forwarder, instance, oauth_client, settings, status, sync,
+};
 
 /// Triplespace: a Wikibase as an append-only log.
 #[derive(Debug, Parser)]
@@ -39,6 +41,11 @@ enum Command {
     Challenge {
         #[command(subcommand)]
         command: ChallengeCommand,
+    },
+    /// Client credentials for logging in through external issuers (0088 §3).
+    OauthClient {
+        #[command(subcommand)]
+        command: oauth_client::OAuthClient,
     },
     /// Settings: a tenant's, the instance's, its defaults and locks (0085 §3).
     Settings {
@@ -94,6 +101,7 @@ async fn main() -> Result<()> {
         Command::Challenge {
             command: ChallengeCommand::Solve(args),
         } => challenge::run(&args),
+        Command::OauthClient { command } => oauth_client::run(command).await,
         Command::Settings { command } => settings::run(command).await,
         Command::Status(args) => status::status(args).await,
         Command::Migrate(args) => status::migrate(args).await,

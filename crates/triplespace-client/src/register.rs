@@ -55,6 +55,8 @@ impl ChallengeInfo {
 pub struct CreateForm {
     /// The `createaccount` token.
     pub token: String,
+    /// The login token of the same session, for the external issuers' buttons (0088 §5).
+    pub login_token: String,
     /// Whether the viewer may create an account (`createaccount`).
     pub can_create: bool,
     /// The challenge, where the act is guarded for the viewer.
@@ -152,7 +154,7 @@ impl Client {
         let r = self
             .get(
                 incoming,
-                "/w/api.php?action=query&meta=tokens|authmanagerinfo&type=createaccount&amirequestsfor=create&amimergerequestfields=1&format=json&formatversion=2",
+                "/w/api.php?action=query&meta=tokens|authmanagerinfo&type=createaccount%7Clogin&amirequestsfor=create&amimergerequestfields=1&format=json&formatversion=2",
             )
             .await?;
         let v = check(&r)?;
@@ -170,6 +172,10 @@ impl Client {
             set_cookies: cookies(&r),
             value: CreateForm {
                 token,
+                login_token: v["query"]["tokens"]["logintoken"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_string(),
                 can_create: info["cancreateaccounts"].as_bool().unwrap_or(false),
                 challenge: ChallengeInfo::from_fields(&info["fields"]),
                 statement,
@@ -282,7 +288,7 @@ impl Client {
 }
 
 /// A `createaccount` answer.
-fn create_result(v: &Value) -> CreateResult {
+pub(crate) fn create_result(v: &Value) -> CreateResult {
     let c = &v["createaccount"];
     let code = c["messagecode"].as_str().unwrap_or_default().to_string();
     match c["status"].as_str() {

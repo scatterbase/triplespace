@@ -104,6 +104,8 @@ pub struct SiteInfo {
     pub at_farm: bool,
     /// Whether the wiki reviews new accounts (`account.approval`, 0087 §6).
     pub account_approval: bool,
+    /// The external issuers the wiki offers for login (`triplespace.login`, 0088 §9).
+    pub login_issuers: Vec<crate::issuers::LoginIssuer>,
 }
 
 /// A provider as `siprop=providers` reports it.
@@ -235,6 +237,7 @@ impl Client {
                 .to_string(),
             at_farm: ts["at_farm"].as_bool().unwrap_or(false),
             account_approval: ts["account"]["approval"].as_bool().unwrap_or(false),
+            login_issuers: crate::issuers::login_issuers(ts),
         };
         Ok(Fetched { value, cache })
     }

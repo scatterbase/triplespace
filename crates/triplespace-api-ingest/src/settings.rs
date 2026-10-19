@@ -149,6 +149,17 @@ async fn save_in<R: Rights + Sync + ?Sized>(
         records.push((config, record.header().offset));
         base = record.header().offset + 1;
     }
+    if target == Target::Tenant
+        && let Some(slug) = tenant
+        && (patch.set.contains_key("login.password")
+            || patch.set.contains_key("login.issuers")
+            || patch
+                .unset
+                .iter()
+                .any(|k| k == "login.password" || k == "login.issuers"))
+    {
+        no_login_method(cx.conn(), slug).await?;
+    }
     if let Some(event) = planned.event(target) {
         let (log, seq_tenant) = match target {
             Target::Tenant => (parts.tenant_log, tenant.unwrap_or("")),
@@ -180,4 +191,55 @@ async fn save_in<R: Rights + Sync + ?Sized>(
         records,
         base,
     })
+}
+
+/// Refuses a save that would leave a tenant with no way to log in: `login.password` off
+/// and no external issuer offered (0088 §4, `ts-no-login-method`). Runs after the writes,
+/// in their unit of work, so it sees what the save would leave.
+async fn no_login_method(client: &tokio_postgres::Client, tenant: &str) -> Result<(), SaveError> {
+    let (settings, _) = triplespace_accounts::settings::load(client, Some(tenant))
+        .await
+        .map_err(store_error)?;
+    if settings
+        .value("login.password")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true)
+    {
+        return Ok(());
+    }
+    let issuers: Vec<String> = settings
+        .value("login.issuers")
+        .and_then(|v| {
+            v.as_array().map(|a| {
+                a.iter()
+                    .filter_map(|s| s.as_str().map(str::to_owned))
+                    .collect()
+            })
+        })
+        .unwrap_or_else(|| vec!["*".into()]);
+    let base: Option<String> = client
+        .query_opt(
+            "SELECT config->>'base' FROM view.registry WHERE tenant = '' AND kind = 'tenant' AND code = $1",
+            &[&tenant],
+        )
+        .await
+        .map_err(store_error)?
+        .and_then(|r| r.get(0));
+    let offered = triplespace_accounts::oauth::offered(
+        client,
+        scatter_actors::issuer::IssuerRegistry::default_registry(),
+        tenant,
+        base.as_deref().unwrap_or_default(),
+        &issuers,
+    )
+    .await
+    .map_err(store_error)?;
+    if offered.is_empty() {
+        return Err(SaveError::Refused(vec![Refusal {
+            code: "ts-no-login-method",
+            key: Some("login.password".into()),
+            message: "That would leave this wiki with no way to log in: keep passwords on, or offer an external issuer that has a client credential.".into(),
+        }]));
+    }
+    Ok(())
 }
