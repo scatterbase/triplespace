@@ -44,12 +44,10 @@ struct Args {
     /// Connections in the pool.
     #[arg(long, default_value_t = 16)]
     pool: usize,
-    /// The farm slug and base; the first tenant's by default.
-    #[arg(long)]
-    farm_slug: Option<String>,
-    /// The farm base.
-    #[arg(long)]
-    farm_base: Option<String>,
+    /// The auth host, `server.auth_base` (0089 §1): where a person authenticates to the
+    /// instance; required once the instance has a second tenant.
+    #[arg(long, env = "TRIPLESPACE_AUTH_BASE")]
+    auth_base: Option<String>,
     /// `embedded` to serve the site from this process, over the API's own router;
     /// `off` when a separate web tier serves it (`server.ui`, 0057 §1.4).
     #[arg(long, env = "TRIPLESPACE_UI", default_value = "embedded")]
@@ -88,12 +86,8 @@ async fn main() -> Result<()> {
                 .join(", ")
         );
     }
-    let farm = triplespace_cli::common::farm_of(
-        &client,
-        args.farm_slug.as_deref(),
-        args.farm_base.as_deref(),
-    )
-    .await?;
+    let farm = triplespace_cli::common::farm_of(&client).await?;
+    let auth_base = auth_base(&client, &farm, args.auth_base.as_deref()).await?;
     drop(client);
     let pool = triplespace_db::pool::pool(&args.database, args.pool).context("pool")?;
     let app = App::new(
@@ -104,6 +98,7 @@ async fn main() -> Result<()> {
             trusted_proxies: args.trusted_proxies.clone(),
             dev_tenant: args.dev_tenant.clone(),
             farm,
+            auth_base,
             // Clients parse a MediaWiki version out of this (Pywikibot refuses anything
             // under 1.31); the reference install this API is measured against is 1.43.9
             // (mediawiki-compat.md), so that is the version claimed.
@@ -182,4 +177,34 @@ const VERSION_JSON: &str = include_str!(concat!(env!("OUT_DIR"), "/version.json"
 
 fn triplespace_accounts_secret(key: &ed25519_dalek::SigningKey) -> triplespace_accounts::Secret {
     triplespace_accounts::Secret::derive(&key.to_bytes())
+}
+
+/// The auth base (0089 §1): required once there is a second tenant, and neither a tenant
+/// base nor the farm base.
+async fn auth_base(
+    client: &tokio_postgres::Client,
+    farm: &triplespace_projections::Farm,
+    given: Option<&str>,
+) -> Result<Option<String>> {
+    let tenants = triplespace_api_action::tenant::registered(client).await?;
+    let auth_base = given.filter(|a| !a.is_empty()).map(str::to_owned);
+    match &auth_base {
+        None if tenants.len() > 1 => bail!(
+            "ts-auth-base-required: this instance has {} tenants and needs an auth host; set --auth-base (server.auth_base, 0089 §1)",
+            tenants.len()
+        ),
+        Some(a) => {
+            let host = triplespace_api_action::tenant::host_of(a)
+                .with_context(|| format!("--auth-base `{a}` is not a URL"))?;
+            let clash = |base: &str| {
+                triplespace_api_action::tenant::host_of(base)
+                    .is_some_and(|h| h.eq_ignore_ascii_case(&host))
+            };
+            if clash(&farm.base) || tenants.iter().any(|t| clash(&t.base)) {
+                bail!("--auth-base `{a}` is the farm base or a tenant's base (0089 §1)");
+            }
+        }
+        None => {}
+    }
+    Ok(auth_base)
 }

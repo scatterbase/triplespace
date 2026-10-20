@@ -1,0 +1,10 @@
+==Welcome to Librarybase!==
+Welcome to Librarybase, the collaborative card catalog of everything. I am really happy you are here.
+
+Here is some documentation about Librarybase you may find interesting:
+* [[Project:Principles]] – what Librarybase is (not) setting out to do
+* [[Project:Scope]] – subjects and entities in scope for the project
+* [[Project:Provenance]] – data should come from a known place
+* [[Project:Consensus]] – the default mode of decision making
+
+Feel free to just get started editing – don't worry about making a mess or getting something wrong. If you have any questions, feel free to reach out on [[User talk:Harej|my talk page]]. [[User:Harej|Harej]] ([[User talk:Harej|talk]]) 15:57, 31 August 2025 (UTC)

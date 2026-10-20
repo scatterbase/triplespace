@@ -1,0 +1,38 @@
+<div class="mw-parser-output"><div id="toc" class="toc" role="navigation" aria-labelledby="mw-toc-heading"><input type="checkbox" role="button" id="toctogglecheckbox" class="toctogglecheckbox" style="display:none" /><div class="toctitle" lang="en" dir="ltr"><h2 id="mw-toc-heading">Contents</h2><span class="toctogglespan"><label class="toctogglelabel" for="toctogglecheckbox"></label></span></div>
+<ul>
+<li class="toclevel-1 tocsection-1"><a href="#Introduction"><span class="tocnumber">1</span> <span class="toctext">Introduction</span></a></li>
+<li class="toclevel-1 tocsection-2"><a href="#Generations"><span class="tocnumber">2</span> <span class="toctext">Generations</span></a></li>
+<li class="toclevel-1 tocsection-3"><a href="#Interesting_findings"><span class="tocnumber">3</span> <span class="toctext">Interesting findings</span></a></li>
+<li class="toclevel-1 tocsection-4"><a href="#Longer_term_challenges"><span class="tocnumber">4</span> <span class="toctext">Longer term challenges</span></a></li>
+</ul>
+</div>
+
+<h2><span class="mw-headline" id="Introduction">Introduction</span></h2>
+<p><b>Wikipedia Citations Database</b> is an effort supported by Internet Archive to build a comprehensive, historical database of each citation to appear on Wikipedia.
+</p><p>While methodologies of similar projects have focused on extracting standardized identifiers or easy-to-extract references, this project instead seeks to build a <i>complete</i> database, based on analyzing the structure.
+</p>
+<h2><span class="mw-headline" id="Generations">Generations</span></h2>
+<ul><li>WCD Generation 1: Wikibase instance on Wikibase Cloud. Importing data was painfully slow, and it was decided Wikibase was not a good format for the data we were trying to store. The dataset produced is lost and was not very interesting or useful.</li>
+<li>WCD Generation 2: <a rel="nofollow" class="external text" href="https://github.com/internetarchive/iari">IARI</a>; Postgres-based, but was extremely difficult to work with. Parts of it are used to support the Internet Archive Reference Explorer.</li>
+<li>WCD Generation 3: The latest attempt, using <a rel="nofollow" class="external text" href="https://github.com/internetarchive/wiki-references-extractor">wiki-references-extractor</a> and <a rel="nofollow" class="external text" href="https://github.com/internetarchive/wiki-references-db">wiki-references-db</a> (WRDB). WRDB is a core component of the broader WCD project. Version 2 adds <a rel="nofollow" class="external text" href="https://github.com/internetarchive/RevisionChest">RevisionChest</a> as a pre-processing step.
+<ul><li>Version 1: <s>https://wikipediacitations.scatter.red</s>
+<ul><li>Partial build of English Wikipedia</li>
+<li>Has issues dealing with broken wikitext</li></ul></li>
+<li>Version 2: <b><a rel="nofollow" class="external free" href="https://citations.scatteranalytics.com">https://citations.scatteranalytics.com</a></b></li></ul></li>
+<li>WCD Generation 4 (pending): To be built off of a combination of Generation 3 and <a rel="nofollow" class="external text" href="https://github.com/scatter-llc/UVAWikipediaCitationsDatabase">UVAWikipediaCitationsDatabase</a> which adds mapping between extracted citations and underlying sources</li></ul>
+<h2><span class="mw-headline" id="Interesting_findings">Interesting findings</span></h2>
+<p>All are English Wikipedia articles
+</p>
+<ul><li><a rel="nofollow" class="external text" href="https://citations.scatteranalytics.com/explorer/citation/51c35f5a082e88d867dfb0872e4ab6ac7311a9e9/other-articles?page_id=12292404">Non-templated citation used on three different articles</a></li>
+<li><a rel="nofollow" class="external text" href="https://citations.scatteranalytics.com/explorer/template/6385/report?parameter_key=isbn&amp;parameter_value=978-0-226-77142-7">Same ISBN in "Cite book" template used across 22 articles with varying citations</a></li>
+<li><a rel="nofollow" class="external text" href="https://citations.scatteranalytics.com/explorer/citation/bdbb085b4fb9a609b67d8732f076eab3d8d6a536/other-articles?page_id=3410">Two citations to the same book, but without ISBN</a></li>
+<li><a rel="nofollow" class="external text" href="https://citations.scatteranalytics.com/explorer/template/6385/report?parameter_key=isbn&amp;parameter_value=%201-873410-89-1%0A%20">The same book cited on five articles with different citations</a></li></ul>
+<p>Potential bugs:
+</p>
+<ul><li>Discrepancy between same-citation report and matching template parameter (if two citations are an exact match then they should appear in the same template parameter use report)
+<ul><li><a rel="nofollow" class="external text" href="https://citations.scatteranalytics.com/explorer/citation/1ab8b8026639f6959f94736a4ec83e777e63ef14/other-articles?page_id=3410">other articles</a> and <a rel="nofollow" class="external text" href="https://citations.scatteranalytics.com/explorer/template/1374/report?parameter_key=doi&amp;parameter_value=10.1016/0006-3207%2891%2990031-4%20">doi parameter value</a></li>
+<li><a rel="nofollow" class="external text" href="https://citations.scatteranalytics.com/explorer/citation/da6f699ca0a7f4d229011919ae1bd0b3c2b6f5e9/other-articles?page_id=1553396">other articles</a> and <a rel="nofollow" class="external text" href="https://citations.scatteranalytics.com/explorer/template/6385/report?parameter_key=isbn&amp;parameter_value=978-0-19-958740-7">isbn parameter value</a></li></ul></li></ul>
+<h2><span class="mw-headline" id="Longer_term_challenges">Longer term challenges</span></h2>
+<ul><li>Sometimes, Wikipedia includes statements from Wikidata, and those statements from Wikidata have citations, but they would not show up in revision text.
+<ul><li>Would this require cross-referencing with rendered HTML output?</li>
+<li>Or a "citations database plus" that includes the Wikidata item? (Wikipedia editors would probably like this for quickly comparing citations between Wikipedia article and Wikidata item.)</li></ul></li></ul></div>

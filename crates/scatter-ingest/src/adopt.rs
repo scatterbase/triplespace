@@ -11,6 +11,12 @@
 //! With [`Adoption::history`] off (`--current-only`), it writes one `adopt` per entity,
 //! of its newest revision, under a fresh revision ID and attributed to the job's
 //! subsidiary, as before A12.
+//!
+//! **Pages** come in the same job (0035 A13): each revision of a document page the
+//! tenant's namespaces accept is an [`AdoptedPage`], whose record the caller encodes
+//! (`scatter:v0/page`, in a crate this one does not depend on). It is written to the
+//! tenant's `pages` partition under the source's page ID and revision ID, with the same
+//! attribution as an entity revision, and skipped on a re-run when present.
 
 use std::collections::BTreeMap;
 
@@ -58,7 +64,7 @@ pub struct Floors {
 pub enum Author {
     /// The job's subsidiary: a `--current-only` adoption's own revision.
     Job,
-    /// An actor key: an adopted account, `{tenant}:{n}`.
+    /// An actor key: an adopted account, `{issuer}:{n}`.
     Actor(String),
     /// An author with no stable ID, by surrogate kind (`anonymous` for an IP, `imported`
     /// for `imported>Name`) and raw value; the job mints `actor:{n}` for it, once per raw
@@ -127,11 +133,58 @@ impl Adopted {
     }
 }
 
+/// One source revision of a document page to adopt (0035 A13). The adapter encodes the
+/// record's content and text parts.
+#[derive(Debug, Clone, PartialEq)]
+pub struct AdoptedPage {
+    /// The page's ID on the source, which the page keeps: the record's key and header
+    /// field 9.
+    pub page_id: u64,
+    /// The payload type.
+    pub payload_type: String,
+    /// The content part.
+    pub content: serde_json::Value,
+    /// The parts after the three standard ones (the text), in order.
+    pub extra: Vec<scatter_log::cbor::Value>,
+    /// The source's revision ID.
+    pub source_revid: u64,
+    /// The edit summary.
+    pub comment: Option<String>,
+    /// The author.
+    pub author: Author,
+}
+
+/// One revision an adoption writes: an entity's or a document page's.
+// Items stream through one at a time, so the variants' size difference costs nothing.
+#[allow(clippy::large_enum_variant)]
+#[derive(Debug, Clone, PartialEq)]
+pub enum AdoptedItem {
+    /// An entity revision, to `local`.
+    Entity(Adopted),
+    /// A document page revision, to `pages`.
+    Page(AdoptedPage),
+}
+
+impl From<Adopted> for AdoptedItem {
+    fn from(a: Adopted) -> Self {
+        AdoptedItem::Entity(a)
+    }
+}
+
+impl From<AdoptedPage> for AdoptedItem {
+    fn from(p: AdoptedPage) -> Self {
+        AdoptedItem::Page(p)
+    }
+}
+
 /// An adoption.
 #[derive(Debug, Clone)]
 pub struct Adoption {
     /// The source's base URL.
     pub source: String,
+    /// The issuer code of the adopting tenant, which its accounts carry (0079 §6): the
+    /// source's user 42 is `{issuer}:42`.
+    pub issuer: String,
     /// The dump's identity, the source version.
     pub version: String,
     /// The adapter version.
@@ -184,15 +237,16 @@ async fn preconditions<S: IngestStore>(
             "the dump is a current-state export and carries no history; take a full-history dump (dumpBackup.php --full) or adopt with --current-only".into(),
         ));
     }
-    let prefix = format!("{tenant}:");
+    let prefix = format!("{}:", adoption.issuer);
     if let Some(a) = adoption
         .accounts
         .iter()
         .find(|d| !d.key.as_deref().is_some_and(|k| k.starts_with(&prefix)))
     {
         return Err(IngestError::AdoptionRefused(format!(
-            "account `{}` is not under the tenant's issuer `{tenant}`",
-            a.key.as_deref().unwrap_or("?")
+            "account `{}` is not under the tenant's issuer `{}` (`{tenant}`)",
+            a.key.as_deref().unwrap_or("?"),
+            adoption.issuer
         )));
     }
     if !store.only_adoptions(cx, local).await? {
@@ -248,7 +302,7 @@ pub async fn run_adoption<S: IngestStore>(
     tenant: &str,
     attestation: Attestation,
     adoption: Adoption,
-    entities_in: impl IntoIterator<Item = Adopted>,
+    items: impl IntoIterator<Item = impl Into<AdoptedItem>>,
     registry: &Registry,
     now: u64,
     batch: usize,
@@ -319,7 +373,8 @@ pub async fn run_adoption<S: IngestStore>(
     let mut resume = Resume::default();
     let mut surrogates: BTreeMap<(String, String), String> = BTreeMap::new();
     let mut entities = 0u64;
-    for (i, adopted) in entities_in.into_iter().enumerate() {
+    let mut pages = PageResume::default();
+    for (i, item) in items.into_iter().enumerate() {
         if in_unit >= batch.max(1) {
             store.commit(cx).await?;
             cx = store.begin().await?;
@@ -327,6 +382,42 @@ pub async fn run_adoption<S: IngestStore>(
         }
         in_unit += 1;
         let line = i + 1;
+        let adopted = match item.into() {
+            AdoptedItem::Entity(a) => a,
+            AdoptedItem::Page(page) => {
+                let unit = AdoptionUnit {
+                    tenant,
+                    adoption: &adoption,
+                    job_attestation: &job_attestation,
+                    now,
+                };
+                match adopt_page(
+                    store,
+                    pipeline,
+                    &mut cx,
+                    &unit,
+                    page,
+                    &mut pages,
+                    &mut surrogates,
+                )
+                .await?
+                {
+                    PageOutcome::Written => counts.adopted += 1,
+                    PageOutcome::Present => counts.unchanged += 1,
+                    PageOutcome::Conflict(reason) => {
+                        counts.rejected += 1;
+                        let r = Reject {
+                            line,
+                            match_key: None,
+                            reason,
+                        };
+                        job.reject(r.clone());
+                        rejects.push(r);
+                    }
+                }
+                continue;
+            }
+        };
         let id: EntityId = adopted.id.clone();
         let op = Operation::Adopt {
             id: id.clone(),
@@ -449,6 +540,9 @@ pub async fn run_adoption<S: IngestStore>(
     extra.insert("accounts".into(), accounts.into());
     extra.insert("history".into(), history_name(adoption.history).into());
     extra.insert("entities".into(), entities.into());
+    if pages.count > 0 {
+        extra.insert("pages".into(), pages.count.into());
+    }
     extra.insert("surrogates".into(), (surrogates.len() as u64).into());
     job.finish(store, pipeline, &mut cx, &counts, extra, now)
         .await?;
@@ -459,6 +553,155 @@ pub async fn run_adoption<S: IngestStore>(
         accounts,
         rejects,
     })
+}
+
+/// What an adopted page revision came to.
+enum PageOutcome {
+    Written,
+    Present,
+    Conflict(String),
+}
+
+/// The job-wide inputs a page revision's write needs.
+struct AdoptionUnit<'a> {
+    tenant: &'a str,
+    adoption: &'a Adoption,
+    job_attestation: &'a Attestation,
+    now: u64,
+}
+
+/// The newest record present for the page the job is on, for the resume check; pages
+/// come grouped as entities do.
+#[derive(Debug, Default)]
+struct PageResume {
+    page: Option<u64>,
+    newest: Option<Present>,
+    partition: Option<u64>,
+    /// Pages written to for the first time by this run.
+    count: u64,
+}
+
+/// Writes one adopted page revision, or finds it present (0035 §3, A13).
+#[allow(clippy::too_many_lines)]
+async fn adopt_page<S: IngestStore>(
+    store: &S,
+    pipeline: &Pipeline<S>,
+    cx: &mut S::Cx,
+    unit: &AdoptionUnit<'_>,
+    page: AdoptedPage,
+    resume: &mut PageResume,
+    surrogates: &mut BTreeMap<(String, String), String>,
+) -> Result<PageOutcome, IngestError> {
+    let tenant = unit.tenant;
+    let partition = if let Some(p) = resume.partition {
+        p
+    } else {
+        let p = store.partition(cx, tenant, "pages").await?.ok_or_else(|| {
+            IngestError::NoPartition {
+                tenant: tenant.to_string(),
+                graph: "pages".into(),
+            }
+        })?;
+        resume.partition = Some(p);
+        p
+    };
+    let key = page.page_id.to_string();
+    if resume.page != Some(page.page_id) {
+        resume.page = Some(page.page_id);
+        resume.newest =
+            if let Some((offset, header)) = store.latest_for_key(cx, partition, &key).await? {
+                let record = store.read(cx, partition, offset).await?.ok_or_else(|| {
+                    IngestError::Store(format!(
+                        "page {}'s newest record is compacted",
+                        page.page_id
+                    ))
+                })?;
+                record
+                    .body()
+                    .content()
+                    .content_hash()
+                    .map(|content_hash| Present {
+                        revid: header.revid.unwrap_or(0),
+                        content_hash,
+                    })
+            } else {
+                resume.count += 1;
+                None
+            };
+    }
+    if let Some(present) = resume.newest {
+        if unit.adoption.history && page.source_revid < present.revid {
+            return Ok(PageOutcome::Present);
+        }
+        if !unit.adoption.history || page.source_revid == present.revid {
+            let hash =
+                scatter_log::body::Part::of(&scatter_log::cbor::Value::from_json(&page.content))
+                    .map_err(|e| e.to_string())?
+                    .content_hash()
+                    .ok_or_else(|| IngestError::Store("content present".into()))?;
+            return Ok(if hash == present.content_hash {
+                PageOutcome::Present
+            } else {
+                PageOutcome::Conflict(format!(
+                    "page {} revision {} is present with other content (ts-adopt-conflict)",
+                    page.page_id, page.source_revid
+                ))
+            });
+        }
+    }
+    let actor = match &page.author {
+        Author::Job => Some(unit.job_attestation.actor.clone()),
+        Author::Actor(key) => Some(key.clone()),
+        Author::Hidden => None,
+        Author::Surrogate { kind, raw } => Some(
+            surrogate(
+                store,
+                pipeline,
+                cx,
+                tenant,
+                (kind, raw),
+                surrogates,
+                unit.job_attestation,
+                unit.now,
+            )
+            .await?,
+        ),
+    };
+    let mut request = Request::new(
+        tenant,
+        unit.job_attestation.as_actor(actor.as_deref()),
+        unit.now,
+    );
+    request.budget = Budget::NONE;
+    if unit.adoption.history {
+        request.revid = Some(page.source_revid);
+        request.comment = page.comment.filter(|c| !c.is_empty());
+    }
+    let written = crate::write::write_raw(
+        store,
+        pipeline,
+        cx,
+        &request,
+        crate::write::RawRecord {
+            graph: "pages".into(),
+            payload_type: page.payload_type,
+            key: Some(key),
+            page_id: Some(page.page_id),
+            content: scatter_log::cbor::Value::from_json(&page.content),
+            extra: page.extra,
+        },
+    )
+    .await?;
+    resume.newest = written
+        .record
+        .body()
+        .content()
+        .content_hash()
+        .map(|content_hash| Present {
+            revid: page.source_revid,
+            content_hash,
+        });
+    Ok(PageOutcome::Written)
 }
 
 fn history_name(history: bool) -> &'static str {

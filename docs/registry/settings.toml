@@ -1687,20 +1687,6 @@ meaning = "Retire a local assertion when upstream adopts it"
 source = "[0002](../decisions/0002-source-graphs-and-mass-ingest.md) §7; [0067](../decisions/0067-proposals.md) §5"
 
 [[setting]]
-key = "wikitext.expansion"
-scope = "tenant"
-bound = "ceiling"
-ceiling = "wikitext.ceiling"
-group = "pages"
-type = "boolean"
-values = "`off`, `on`"
-default = false
-default_text = "`off`"
-reported = true
-meaning = "Expand templates and parser functions; enables Template and Template talk"
-source = "[0042](../decisions/0042-template-expansion-and-parsoid.md) §2"
-
-[[setting]]
 key = "wikitext.lua"
 scope = "tenant"
 bound = "ceiling"
@@ -1711,7 +1697,7 @@ values = "`off`, `on`"
 default = false
 default_text = "`off`"
 reported = true
-meaning = "Lua modules. Requires `wikitext.expansion = on`; capped by `wikitext.ceiling`"
+meaning = "Lua modules; capped by `wikitext.ceiling`"
 source = "[0042](../decisions/0042-template-expansion-and-parsoid.md) §2; [0043](../decisions/0043-lua-modules.md) §1"
 
 [[setting]]
@@ -1723,7 +1709,7 @@ type = "choice"
 choices = ["builtin", "parsoid"]
 default = "builtin"
 reported = true
-meaning = "Which stage-2 renderer serves HTML. `parsoid` requires expansion on and a Parsoid service on the instance"
+meaning = "Which stage-2 renderer serves HTML. `parsoid` requires a Parsoid service on the instance"
 source = "[0042](../decisions/0042-template-expansion-and-parsoid.md) §2"
 
 [[setting]]

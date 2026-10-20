@@ -15,12 +15,6 @@ pub struct Target {
     /// The Postgres URL.
     #[arg(long, env = "TRIPLESPACE_DATABASE_URL")]
     pub database: String,
-    /// The farm slug and base, for the pipeline; the primary tenant's by default.
-    #[arg(long)]
-    pub farm_slug: Option<String>,
-    /// The farm base.
-    #[arg(long)]
-    pub farm_base: Option<String>,
 }
 
 /// A partition as `log.partition` describes it.
@@ -121,12 +115,7 @@ pub async fn status(args: Target) -> Result<()> {
                 .join(", ")
         );
     }
-    let farm = farm_of(
-        &client,
-        args.farm_slug.as_deref(),
-        args.farm_base.as_deref(),
-    )
-    .await?;
+    let farm = farm_of(&client).await?;
     let (store, pipeline) = store(&args.database, &farm)?;
     let parts = partitions(&client).await?;
     let log_store = PgLog::new(client);
@@ -160,12 +149,7 @@ pub async fn status(args: Target) -> Result<()> {
 /// Replays every projection from offset 0, in dependency order.
 pub async fn rebuild(args: Target) -> Result<()> {
     let client = connect(&args.database).await?;
-    let farm = farm_of(
-        &client,
-        args.farm_slug.as_deref(),
-        args.farm_base.as_deref(),
-    )
-    .await?;
+    let farm = farm_of(&client).await?;
     let (store, pipeline) = store(&args.database, &farm)?;
     let parts = partitions(&client).await?;
     let order = ordered(&parts);

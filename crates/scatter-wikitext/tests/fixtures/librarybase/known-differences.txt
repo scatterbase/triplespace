@@ -1,0 +1,5 @@
+# Revisions whose render here differs from Librarybase's, with the reason. The golden test
+# fails if one of these starts matching, so remove a line when its cause is fixed.
+#
+# revid  reason
+247579   Template:Welcome uses {{REVISIONUSER}} inside a link target; core variables are a later expansion slice (11 §1.4)

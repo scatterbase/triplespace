@@ -1,0 +1,23 @@
+Welcome to '''Librarybase, the collaborative card catalog of everything'''.
+
+Librarybase is a project to organize, refine, and distribute metadata, as a complement to other projects like [[Item:Q2|Wikidata]] or [[Item:Q253|OpenAlex]]. The motivations behind the project are further described at [[Project:Principles]].
+
+==Current projects==
+
+=== Historic patents ===
+An effort to build a unified database of historical patents. Data coming eventually.
+
+=== Odia Bibhaba ===
+Books written in the Odia language. Data pending import; [[Item:Q458|demonstration item]]
+
+=== Copyright expiry ===
+Metadata items were created on works that may or may not be in the public domain, facilitating identification of these works. [[Item:Q509|Example item]]
+
+===Classes and roles===
+Items are organized by class using [[Property:P19]], with [[Item:Q410]] as the root class item. See [https://query.librarybase.org/#prefix%20lb%3A%20%3Chttps%3A%2F%2Flibrarybase.org%2Fentity%2F%3E%0Aprefix%20lbt%3A%20%3Chttps%3A%2F%2Flibrarybase.org%2Fprop%2Fdirect%2F%3E%0Aselect%20%3Fitem%20%3FitemLabel%20where%20%7B%20%3Fitem%20lbt%3AP19%20lb%3AQ410%20.%20SERVICE%20wikibase%3Alabel%20%7B%20bd%3AserviceParam%20wikibase%3Alanguage%20%22%5BAUTO_LANGUAGE%5D%2Cen%22.%20%7D%20%7D current list of class items on Librarybase Query Service]. This is meant to bring Librarybase closer in alignment with databases like Fatcat and OpenAlex.
+
+This differs from Wikidata's "instance of" and "subclass of" properties in that items are assigned classes according to a controlled vocabulary. This can be used instead of or in conjunction with those properties. One major departure from Wikidata is the concept of the [[Item:Q413|single-edition work]], used to avoid creating separate work and edition items when there is no real reason to.
+
+One subclass is "[[Item:Q422|role]]," which a member of a class can have. See [https://query.librarybase.org/#select%20%3Fitem%20%3FitemLabel%20where%20%7B%20%3Fitem%20lbt%3AP19%20lb%3AQ422%20.%20SERVICE%20wikibase%3Alabel%20%7B%20bd%3AserviceParam%20wikibase%3Alanguage%20%22%5BAUTO_LANGUAGE%5D%2Cen%22.%20%7D%20%7D current list of role-type items on Librarybase Query Service].
+
+{{cwbn}}

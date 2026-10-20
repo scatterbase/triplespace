@@ -79,6 +79,10 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "0013_external_identity",
         sql: include_str!("../migrations/0013_external_identity.sql"),
     },
+    Migration {
+        name: "0014_pages",
+        sql: include_str!("../migrations/0014_pages.sql"),
+    },
 ];
 
 /// The crate name migrations are recorded under.

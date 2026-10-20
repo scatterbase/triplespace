@@ -1,0 +1,25 @@
+Librarybase will gradually launch for the public in three phases. We are currently on '''Phase 1'''.
+
+==Phase 1==
+* Operated as a project of Scatter LLC
+* Single server with potential second server to test replication. These "servers" are [[User:Harej|Harej]]'s home workstations.
+* New user accounts are created only by invitation.
+* Policies and new data import projects are approved by Harej.
+* Harej is the sole steward.
+
+At this phase, the priority is establishing a baseline for technical requirements, with a hand-selected user base and set of pilot projects. These pilot projects will stress test the setup and set further technical direction of the project.
+
+==Phase 2==
+* Hosted on rented servers with 1Gbps uplink, allowing for more traffic and usage of Librarybase in general.
+* Registration is open to the public.
+* Policies and new projects are approved by the community through an agreed-upon process.
+* One or more additional stewards will be appointed to increase community participation in governance.
+
+Following the limited tests of Phase 1, the transition to Phase 2 will see Librarybase launch as a public-facing service.
+
+==Phase 3==
+Once Librarybase achieves a sufficient degree of community buy-in and support, Librarybase will spin off from Scatter and become its own free-standing project. This will be achieved through a service like [https://opencollective.com OpenCollective] or by pursuing fiscal sponsorship at an established nonprofit by some other means.
+
+Accordingly, the role of steward will expand to include project fiduciary. Stewards will be responsible for determining how resources are allocated toward the project. Given the significance of this expanded role, a process for the appointment and removal of stewards shall be clearly established beforehand.
+
+Once the project reaches Phase 3, there will be no further phases unless the project itself is restructured in some deeply fundamental manner.

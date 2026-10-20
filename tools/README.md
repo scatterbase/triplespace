@@ -7,10 +7,11 @@ they say otherwise; every script prints its own usage with `--help`.
 |---|---|
 | `wikidata-sample.py` | Draws a uniformly random sample of Wikidata items from a JSON dump, in the dump's shape, for the classifier audit (0003 §10). |
 | `dump_slice.py` | Cuts a smaller, valid MediaWiki XML dump out of a Wikibase dump: the first N entities (`--limit`), or a reproducible random sample of items (`--sample N --seed S`), with `--all-properties` to carry every property page so each snak keeps its datatype, `--include Q1,P5` to force entities in, and `--defined-only` to drop items that use a property the slice lacks. Streams the input; `.gz` or plain `.xml` either side. The Librarybase sample fixture (below) is made with it. |
+| `librarybase_parse.py` | Downloads a wiki's own `action=parse` renders of its wikitext pages (default Librarybase), pinned by `oldid`, as golden fixtures for the built-in renderer: per revision the source (`.wiki`), the HTML (`.html`) and the rest of the parse (`.json`), plus a `manifest.json`. `--history` parses every revision; reruns fetch only what is missing. |
 | `api_check.py` | Checks adopted entities through the Action API after `adopt` (test plan §1.3–1.4): `Special:EntityData`, `wbgetentities`, `wbsearchentities`, `view.identifier`, snak datatypes, and with `--compare` the source wiki's output. With `--wbi-login` it runs the WikibaseIntegrator section: bot login, label edit, statement add/remove, a stale `baserevid` refused, a new item (and property) above the counter floor. |
-| `pwb_check.py` | The same story through Pywikibot: generates a family file and config in a temporary directory, then site info, paraminfo, data repository, login, read, property, search, `editLabels`, `addClaim`, `removeClaims`, stale `baserevid`, new item. Needs `pywikibot`. |
+| `pwb_check.py` | The same story through Pywikibot: generates a family file and config in a temporary directory, then site info, paraminfo, data repository, login, read, property, search, `editLabels`, `addClaim`, `removeClaims`, stale `baserevid`, new item; then a Project page through `Page.save`, created, edited, a stale save refused, and rendered by `action=parse`. Needs `pywikibot`. |
 | `wdi_check.py` | The same through WikidataIntegrator, with its SPARQL backoff bounded and its endpoint pointed at the server: login, read, search, property, `set_label` + `write()`, `WDString` append, stale and current `delete_statement`, new item. Needs `wikidataintegrator` and `setuptools<80`. |
-| `client_compat.sh` | Runs all three against a server it sets up itself (database, `instance create`, `adopt` of the sample fixture, `sync`, a bot key, `triplespace-server --ui off`), each as a hard pass/fail; CI's *Client compatibility* job. Needs the binaries built, `psql`, and a Python with `requirements-compat.txt` installed (`PYTHON=` to name it). Everything it writes is in a temporary directory removed on exit. `CHECKS="wbi pwb wdi"` selects, `KEEP_DB=1` keeps the database, `ITEM=Q5` names the item to edit (default: the lowest-numbered item), `FIXTURE=` another dump. |
+| `client_compat.sh` | Runs all three against a server it sets up itself (database, `instance create`, `adopt` of the sample fixture, `sync`, a bot key with `editentity`, `createeditmovepage` and `highvolume`, `triplespace-server --ui off`), each as a hard pass/fail; CI's *Client compatibility* job. Needs the binaries built, `psql`, and a Python with `requirements-compat.txt` installed (`PYTHON=` to name it). Everything it writes is in a temporary directory removed on exit. `CHECKS="wbi pwb wdi"` selects, `KEEP_DB=1` keeps the database, `ITEM=Q5` names the item to edit (default: the lowest-numbered item), `FIXTURE=` another dump. |
 | `requirements-compat.txt` | The pinned client versions `client_compat.sh` is run against. A bump is deliberate: run the script, then record the versions and verdict in the test plan's results log and `docs/clients.md`. |
 
 The three checks take `--api` (default `http://127.0.0.1:8080`), the bot login as `--login
@@ -34,3 +35,18 @@ is in; made from a prefix slice it drops the items whose properties the slice do
 define. The same seed on the same dump gives the same fixture (the gzip header's timestamp
 differs; the XML does not). `adopt` is run on it without `--counters`, so the floors come from
 the sample's highest IDs; the checks only require new entities to land above them.
+
+## The Librarybase wikitext fixtures
+
+`crates/scatter-wikitext/tests/fixtures/librarybase/` holds every revision of Librarybase's
+wikitext pages with Librarybase's own `action=parse` render of each, made with:
+
+```sh
+tools/librarybase_parse.py crates/scatter-wikitext/tests/fixtures/librarybase --history
+```
+
+The golden test (`crates/scatter-wikitext/tests/golden.rs`) renders each revision and compares
+it with Librarybase's after both are parsed as HTML5 and normalized. Revisions that are known
+to differ are listed with their reason in `known-differences.txt` there; the test fails when
+one of them starts matching, so the list stays true. The MediaWiki-namespace pages are
+fetched but not compared: Triplespace keeps that namespace reserved (11 §2.3).

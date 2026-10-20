@@ -9,6 +9,10 @@
 //! 0056 §14) are left at their defaults until those projections exist, except the bits
 //! for the parts an adopted revision's source withheld (0035 A14). An adopted revision
 //! that kept the source's revision ID shows at its source time (0035 A12).
+//!
+//! A document page's record (`scatter:v0/page`) is an `edit` row on the page, with the
+//! text's length as its size and the difference from the page's previous row as its delta
+//! (19 §3.3: a page's history is its activity rows).
 
 use scatter_log::cbor::Value;
 use scatter_log::header::{CONFIG_PARTITION, Header};
@@ -78,7 +82,7 @@ fn withheld_bits(withheld: &[String]) -> i16 {
     let mut bits = 0;
     for w in withheld {
         bits |= match w.as_str() {
-            "content" => visibility::CONTENT,
+            "content" | "text" => visibility::CONTENT,
             "comment" => visibility::COMMENT,
             "attestation" => visibility::USER,
             _ => 0,
@@ -282,6 +286,37 @@ fn changeset_columns(record: &Record, mirror: bool) -> Result<Columns, String> {
     })
 }
 
+fn page_columns(record: &Record) -> Result<Columns, String> {
+    let page = crate::pages::PageRecord::read(record)?;
+    let Some(op) = page.op else {
+        return Ok(Columns {
+            kind: "erased",
+            ..Columns::default()
+        });
+    };
+    let h = record.header();
+    // A page's first record is its `create`, adopted or not.
+    let new = matches!(op, scatter_pages::PageOp::Create { .. });
+    Ok(Columns {
+        kind: "edit",
+        target: Target {
+            kind: Some(target_kind::PAGE),
+            id: h.page_id.map(|p| p.to_string()),
+            member: None,
+        },
+        // A page revision's comment is the editor's own, as MediaWiki stores it (an adopted
+        // one round-trips); only a move carries an automatic summary.
+        summary_op: matches!(op, scatter_pages::PageOp::Move { .. }).then(|| op.name().to_string()),
+        new: Some(new),
+        size: page.text.as_ref().map(|t| i32_of(t.len() as u64)),
+        time: Some(crate::pages::shown_time(h, &op)),
+        minor: Some(op.minor()),
+        bot: op.source().map(|_| true),
+        visibility: op.source().map_or(0, |s| withheld_bits(&s.withheld)),
+        ..Columns::default()
+    })
+}
+
 fn logevent_columns(record: &Record) -> Result<Columns, String> {
     let Some(event) = content(record)? else {
         return Ok(Columns {
@@ -382,6 +417,30 @@ fn reclaim_columns(record: &Record) -> Result<Columns, String> {
     })
 }
 
+/// The size of a page's row before a revision, 0 for its first.
+async fn previous_size(
+    cx: &PgCx,
+    tenant: &str,
+    page: Option<&String>,
+    revid: u64,
+) -> Result<i32, String> {
+    let row = cx
+        .query_opt(
+            "SELECT size FROM view.activity WHERE tenant = $1 AND target_kind = $2 AND target_id = $3
+               AND revid < $4 AND size IS NOT NULL
+             ORDER BY revid DESC LIMIT 1",
+            &[
+                &tenant,
+                &target_kind::PAGE,
+                &page,
+                &i64::try_from(revid).unwrap_or(i64::MAX),
+            ],
+        )
+        .await
+        .map_err(|e| sql(&e))?;
+    Ok(row.and_then(|r| r.get::<_, Option<i32>>(0)).unwrap_or(0))
+}
+
 impl<B: Backend<Cx = PgCx>> Projection<B> for ActivityProjection {
     fn name(&self) -> &'static str {
         "activity"
@@ -395,7 +454,8 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for ActivityProjection {
         header.partition != CONFIG_PARTITION
             && (header.payload_type == PAYLOAD_CHANGESET
                 || header.payload_type == PAYLOAD_LOGEVENT
-                || header.payload_type == PAYLOAD_RECLAIM)
+                || header.payload_type == PAYLOAD_RECLAIM
+                || header.payload_type == scatter_pages::PAYLOAD_PAGE)
     }
 
     fn apply<'a>(
@@ -406,13 +466,23 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for ActivityProjection {
         Box::pin(async move {
             let h = record.header();
             let info = partition_info(cx, h.partition).await?;
-            let columns = if h.payload_type == PAYLOAD_CHANGESET {
+            let mut columns = if h.payload_type == PAYLOAD_CHANGESET {
                 changeset_columns(record, info.is_mirror())?
+            } else if h.payload_type == scatter_pages::PAYLOAD_PAGE {
+                page_columns(record)?
             } else if h.payload_type == PAYLOAD_RECLAIM {
                 reclaim_columns(record)?
             } else {
                 logevent_columns(record)?
             };
+            if h.payload_type == scatter_pages::PAYLOAD_PAGE
+                && let (Some(size), Some(revid)) = (columns.size, h.revid)
+            {
+                columns.delta = Some(
+                    size - previous_size(cx, &info.tenant, columns.target.id.as_ref(), revid)
+                        .await?,
+                );
+            }
             let attested = attested(record);
             let as_i64 = |n: Option<u64>| {
                 n.map(i64::try_from)

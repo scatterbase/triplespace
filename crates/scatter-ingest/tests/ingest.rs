@@ -983,6 +983,7 @@ fn account(key: &str, name: &str) -> Draft {
 
 fn adoption(frozen: bool) -> Adoption {
     Adoption {
+        issuer: TENANT.into(),
         source: "https://librarybase.org/".into(),
         version: "librarybase-20260928.json.gz".into(),
         adapter_version: Some("scatter-adapter-wikidata 0.0.1".into()),

@@ -1,0 +1,226 @@
+{
+ "categories": [],
+ "displaytitle": "<span class=\"mw-page-title-namespace\">Project</span><span class=\"mw-page-title-separator\">:</span><span class=\"mw-page-title-main\">Analytics/IABot</span>",
+ "externallinks": [],
+ "images": [],
+ "iwlinks": [],
+ "langlinks": [],
+ "links": [
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q246911"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q246912"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q246913"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q246914"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q246915"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q246916"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q246917"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q246918"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q246919"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q246920"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q246921"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q246922"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q246923"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q246924"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q246925"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q246926"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q246927"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q246928"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q246929"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q246930"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q246931"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q246932"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q246933"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q246934"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q246935"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q246936"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q246937"
+  },
+  {
+   "exists": true,
+   "ns": 122,
+   "title": "Property:P29"
+  },
+  {
+   "exists": true,
+   "ns": 122,
+   "title": "Property:P34"
+  },
+  {
+   "exists": true,
+   "ns": 122,
+   "title": "Property:P35"
+  },
+  {
+   "exists": true,
+   "ns": 122,
+   "title": "Property:P36"
+  },
+  {
+   "exists": true,
+   "ns": 122,
+   "title": "Property:P37"
+  },
+  {
+   "exists": true,
+   "ns": 122,
+   "title": "Property:P38"
+  },
+  {
+   "exists": true,
+   "ns": 122,
+   "title": "Property:P39"
+  },
+  {
+   "exists": true,
+   "ns": 122,
+   "title": "Property:P40"
+  }
+ ],
+ "pageid": 246988,
+ "parsewarnings": [],
+ "properties": {
+  "unexpectedUnconnectedPage": -4
+ },
+ "revid": 247680,
+ "sections": [
+  {
+   "anchor": "Versions",
+   "byteoffset": 198,
+   "fromtitle": "Project:Analytics/IABot",
+   "index": "1",
+   "level": "2",
+   "line": "Versions",
+   "number": "1",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Tracking_deployments",
+   "byteoffset": 564,
+   "fromtitle": "Project:Analytics/IABot",
+   "index": "2",
+   "level": "2",
+   "line": "Tracking deployments",
+   "number": "2",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Deployments",
+   "byteoffset": 2458,
+   "fromtitle": "Project:Analytics/IABot",
+   "index": "3",
+   "level": "2",
+   "line": "Deployments",
+   "number": "3",
+   "toclevel": 1
+  }
+ ],
+ "showtoc": false,
+ "templates": [],
+ "title": "Project:Analytics/IABot"
+}

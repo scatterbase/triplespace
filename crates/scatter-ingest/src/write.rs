@@ -374,6 +374,99 @@ pub async fn write_to<S: IngestStore>(
     })
 }
 
+/// A record whose payload the caller encodes: one this crate does not model, such as a
+/// document page's (`scatter:v0/page`, 10 §3.2), whose crate the write side does not
+/// depend on (22 §2.1).
+#[derive(Debug, Clone)]
+pub struct RawRecord {
+    /// The tenant graph it goes to: `pages`.
+    pub graph: String,
+    /// The payload type.
+    pub payload_type: String,
+    /// The header key. `None` mints a page ID and keys the record by it, as a page's
+    /// `create` does (10 §3.1).
+    pub key: Option<String>,
+    /// The page ID a key gets when it has none yet: an adopted page's source page ID
+    /// (0035 A13). `None` takes the tenant's next.
+    pub page_id: Option<u64>,
+    /// The content part.
+    pub content: Value,
+    /// The parts after the three standard ones, in order.
+    pub extra: Vec<Value>,
+}
+
+/// Writes a caller-encoded record to a tenant graph with the base-offset check, the
+/// page ID and the revision ID of [`write_to`], then runs the synchronous projections.
+pub async fn write_raw<S: IngestStore>(
+    store: &S,
+    pipeline: &Pipeline<S>,
+    cx: &mut S::Cx,
+    request: &Request,
+    raw: RawRecord,
+) -> Result<Written, IngestError> {
+    let owner = request.tenant.as_str();
+    let partition = store
+        .partition(cx, owner, &raw.graph)
+        .await?
+        .ok_or_else(|| IngestError::NoPartition {
+            tenant: owner.to_string(),
+            graph: raw.graph.clone(),
+        })?;
+    let (key, page_id) = if let Some(key) = raw.key {
+        let latest = store.latest_for_key(cx, partition, &key).await?;
+        if let (Some(base), Some((latest_offset, _))) = (request.base_offset, &latest)
+            && *latest_offset > base
+        {
+            return Err(IngestError::Conflict {
+                key,
+                base,
+                latest: *latest_offset,
+            });
+        }
+        let page_id = match store.page_id_of(cx, owner, &key).await? {
+            Some(p) => p,
+            None => match raw.page_id {
+                Some(p) => p,
+                None => store.next_id(cx, owner, &Sequence::Page).await?,
+            },
+        };
+        (key, page_id)
+    } else {
+        let page_id = match raw.page_id {
+            Some(p) => p,
+            None => store.next_id(cx, owner, &Sequence::Page).await?,
+        };
+        (page_id.to_string(), page_id)
+    };
+    let revid = match request.revid {
+        Some(n) => n,
+        None => store.next_id(cx, owner, &Sequence::Revision).await?,
+    };
+    let comment = request.comment.as_deref().map_or(Value::Null, Value::text);
+    let mut body = Body::core(&raw.content, &comment, &request.attestation.to_value())
+        .map_err(|e| e.to_string())?;
+    for part in &raw.extra {
+        body.push(scatter_log::body::Part::of(part).map_err(|e| e.to_string())?)
+            .map_err(|e| e.to_string())?;
+    }
+    let draft = Draft {
+        appended_at: request.now,
+        payload_type: raw.payload_type,
+        key: Some(key),
+        revid: Some(revid),
+        logid: None,
+        page_id: Some(page_id),
+        body,
+    };
+    let (record, inline) =
+        append_projected(store, pipeline, cx, partition, draft, request.budget).await?;
+    Ok(Written {
+        partition,
+        record,
+        inline,
+    })
+}
+
 /// The operation with every statement it carries given an ID under `subject`, where it
 /// had none. Mirror operations are returned as they are: their adapter owns the IDs.
 #[must_use]

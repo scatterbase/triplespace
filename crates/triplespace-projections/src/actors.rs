@@ -36,27 +36,33 @@ pub mod payload {
 /// The farm the instance is: what instance and farm IRIs are minted under (0046 §6–7).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Farm {
-    /// The farm slug, the instance's own.
+    /// The farm slug, the instance's readable name, in no key (0046 §6).
     pub slug: String,
+    /// The farm code, derived from the instance's founding record: the operator is
+    /// `instance:{code}` and farm accounts are `{code}:{id}` (0079 §4).
+    pub code: String,
     /// The farm base, `https://scatter.example`.
     pub base: String,
+}
+
+impl Farm {
+    /// The operator actor's key, `instance:{farm code}` (0040 §2; 0079 §4).
+    #[must_use]
+    pub fn operator(&self) -> ActorKey {
+        ActorKey::instance(&self.code)
+    }
 }
 
 fn sql(e: &tokio_postgres::Error) -> String {
     e.to_string()
 }
 
-/// The base of a tenant, from its `tenant:` registry entry.
-async fn tenant_base(cx: &PgCx, slug: &str) -> Result<String, String> {
-    let entry = crate::registry::entry(cx, "", "tenant", slug)
+/// A tenant's registry entry: its base and issuer code.
+async fn tenant_entry(cx: &PgCx, slug: &str) -> Result<crate::tenants::TenantEntry, String> {
+    crate::tenants::tenant(cx.conn(), slug)
         .await
         .map_err(|e| sql(&e))?
-        .ok_or_else(|| format!("tenant `{slug}` has no registry entry"))?;
-    entry
-        .get("base")
-        .and_then(serde_json::Value::as_str)
-        .map(str::to_owned)
-        .ok_or_else(|| format!("tenant `{slug}` has no base"))
+        .ok_or_else(|| format!("tenant `{slug}` has no registry entry with a base and issuer"))
 }
 
 // --- actors and account links --------------------------------------------------------
@@ -76,15 +82,16 @@ impl ActorProjection {
     }
 
     async fn iri(&self, cx: &PgCx, key: &ActorKey, tenant: &str) -> Result<String, String> {
-        let tenant_base = if tenant.is_empty() {
-            self.farm.base.clone()
+        let (tenant_code, tenant_base) = if tenant.is_empty() {
+            (self.farm.code.clone(), self.farm.base.clone())
         } else {
-            tenant_base(cx, tenant).await?
+            let t = tenant_entry(cx, tenant).await?;
+            (t.issuer, t.base)
         };
         let ctx = IriContext {
-            tenant_slug: tenant,
+            tenant_code: &tenant_code,
             tenant_base: &tenant_base,
-            farm_slug: &self.farm.slug,
+            farm_code: &self.farm.code,
             farm_base: &self.farm.base,
         };
         actor_iri(key, &self.issuers, ctx)
@@ -381,11 +388,13 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for MembershipProjection {
             // The actor row lives with its tenant; an instance-layer membership of a
             // tenant actor is keyed by the actor's own tenant, which the actor key names.
             let actor_tenant = actor_key_of(h)?;
-            let actor_tenant = if actor_tenant.is_local() || actor_tenant.issuer() == tenant {
-                tenant.clone()
-            } else {
-                String::new()
-            };
+            let own = actor_tenant.is_local()
+                || (!tenant.is_empty()
+                    && crate::tenants::issuer_of(cx.conn(), &tenant)
+                        .await
+                        .map_err(|e| sql(&e))?
+                        .is_some_and(|code| code == actor_tenant.issuer()));
+            let actor_tenant = if own { tenant.clone() } else { String::new() };
             refresh_groups(cx, &actor_tenant, &key).await?;
             Ok(Applied::rows(usize::try_from(rows).unwrap_or(0)))
         })

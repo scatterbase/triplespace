@@ -78,26 +78,37 @@ two take the database as `--database` or `TRIPLESPACE_DATABASE_URL`.
 createdb triplespace
 export TRIPLESPACE_DATABASE_URL=postgres://triplespace@localhost/triplespace
 
-# The instance and its first tenant: the schema, the instance signing key (written to
+# The instance and its primary tenant: the schema, the instance signing key (written to
 # triplespace.key, mode 0600), the instance and tenant partitions, the owner account.
 echo 'a long passphrase' > owner.pw
 triplespace instance create \
-    --tenant librarybase --base https://librarybase.org \
+    --farm-slug scatter \
+    --tenant example --base https://example.wiki \
     --provider internetdomains \
     --owner 1 --owner-name Alice --owner-password-file owner.pw
 ```
 
-`instance create` is where the shape of the instance is fixed (0015 §3, 0018): the tenant slug
-and base URL, the providers that get mirror partitions, and the owner, who holds every
-permission (0016 §3). It refuses to run against a database that already holds an instance.
+`instance create` is where the shape of the instance is fixed (0015 §3, 0018, 0046): the farm
+slug, the instance's own name, which differs from every tenant slug and never changes; the farm
+base (`--farm-base`, the primary tenant's base by default); the primary tenant's slug and base
+URL; the providers that get mirror partitions; and the owner, who holds every permission (0016
+§3). It refuses to run against a database that already holds an instance. A slug may not be a
+name the registry has (`wikidatawiki`, `internetdomains`), except for a wiki the registry
+already knows, adopted under its own name (`--tenant librarybase --adopt
+https://librarybase.org/`; see below).
+
+Each tenant's actors are written `{issuer code}:{n}`, where the issuer code is derived from the
+tenant's founding record and printed by `instance create` (0079): a slug is a name on this
+instance, and the code is what travels with the tenant's history. `--tenancy` takes the tenancy
+preset (0028 §1); `isolated`, the default, is the only one this version honours.
 Everything it writes is a log record, so `triplespace status` shows the partitions it made and
 `triplespace rebuild` reproduces the serving tables from them at any time.
 
 Bots and tools log in as **subsidiary accounts** of a person (0024), never as the person:
 
 ```sh
-triplespace subsidiary create --tenant librarybase --name "Alice bot" --operator Alice --group bot
-triplespace subsidiary key --tenant librarybase --name "Alice bot" --label laptop \
+triplespace subsidiary create --tenant example --name "Alice bot" --operator Alice --group bot
+triplespace subsidiary key --tenant example --name "Alice bot" --label laptop \
     --grant editentity --grant highvolume
 ```
 
@@ -116,9 +127,10 @@ Then serve it:
 triplespace-server --listen 0.0.0.0:8080 --key-file triplespace.key
 ```
 
-The server answers for the hosts of its registered tenant bases and the farm base (0056 §10);
-anything else is 421, so it expects to sit behind a proxy that terminates TLS for those hosts
-and forwards `Host`. For a laptop, `--mode development --dev-tenant librarybase` serves any host as that
+The server answers for the hosts of its registered tenant bases, the farm base, which serves the
+primary tenant, and the auth base if there is one (0056 §10; 0089 §1); anything else is 421, so
+it expects to sit behind a proxy that terminates TLS for those hosts and forwards `Host`. For a
+laptop, `--mode development --dev-tenant example` serves any host as that
 tenant over plain HTTP and marks the API as insecure in `meta=siteinfo&siprop=triplespace`.
 `/healthz` answers on the public listener and on `--admin-listen` if given.
 
@@ -169,6 +181,28 @@ edit modules from `wbeditentity` to `wbremovereferences`; `/wiki/Special:EntityD
 not yet served answers with a MediaWiki-shaped error rather than silence, so a client's failure
 names the gap.
 
+## More tenants
+
+An instance hosts any number of wikis (0018). Each has its own base URL, partitions, numbering,
+accounts and configuration; an account on one is nothing on another. A second tenant needs the
+instance's **auth host** (0089 §1), a host of its own that is neither a tenant's nor the farm's:
+the server and `tenant create` read it as `--auth-base` or `TRIPLESPACE_AUTH_BASE`.
+
+```sh
+export TRIPLESPACE_AUTH_BASE=https://auth.example.org
+triplespace tenant create --tenant other --base https://other.example \
+    --name "Other wiki" --owner-name Bob --owner-password-file bob.pw
+triplespace tenant list
+triplespace-server --listen 0.0.0.0:8080 --key-file triplespace.key   # with the same variable
+```
+
+`tenant create` needs the instance key and is done by an `owner` of the primary tenant
+(`--operator`, the lowest-numbered owner by default), who attests the new tenant's registry
+record (0046 §4). At the farm base, `GET /w/rest.php/triplespace/v0/tenancy` lists the
+tenants with their issuer codes, the primary tenant and the tenancy policy. The auth host's
+login pages are not built yet: until they are, the auth base answers 404, and each tenant's
+accounts log in on its own host with a password of their own.
+
 ## Loading a Wikibase
 
 There are two ways a Wikibase's entities enter an instance, and they are not interchangeable.
@@ -186,7 +220,8 @@ php maintenance/dumpBackup.php --current --include-files=no | gzip > librarybase
 mysql -e 'SELECT * FROM wb_id_counters'          # the counters, not the highest IDs in the dump
 
 # Here. --adopt tells the tenant where it came from; --owner is the owner's user ID *on the source*.
-triplespace instance create --tenant librarybase --base https://librarybase.org \
+triplespace instance create --farm-slug scatter \
+    --tenant librarybase --base https://librarybase.org \
     --provider internetdomains --adopt https://librarybase.org/ \
     --owner 7 --owner-name Alice --owner-password-file owner.pw
 

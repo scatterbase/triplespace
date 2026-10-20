@@ -1,0 +1,13 @@
+Founder of Librarybase
+
+Links:
+* [https://meta.wikimedia.org/wiki/User:Harej Wikimedia user page]
+* [https://scatter.red Scatter]
+* [https://wikis.world/@hare @hare @wikis.world]
+* [https://harej.co Personal website]
+
+== Project ideas ==
+
+* Fork of WikiApiary, creating an item for each MediaWiki deployment and extension and service used by that deployment
+* An item for each Wikipedia article in each language, as part of Pageset
+* Something with [https://obsoletemedia.org Museum of Obsolete Media]

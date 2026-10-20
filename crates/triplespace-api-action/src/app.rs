@@ -47,6 +47,9 @@ pub struct Config {
     pub dev_tenant: Option<String>,
     /// The farm.
     pub farm: Farm,
+    /// The auth host, `server.auth_base` (0089 §1): required once there is a second
+    /// tenant, and never a tenant base or the farm base.
+    pub auth_base: Option<String>,
     /// `MediaWiki`-compatible `generator` string.
     pub generator: String,
     /// The binary's `version.json` (0077 §15), which its build script writes; `None` in

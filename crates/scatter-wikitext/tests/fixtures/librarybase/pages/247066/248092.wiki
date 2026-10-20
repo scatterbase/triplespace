@@ -1,0 +1,23 @@
+The "Cool Wikibase Network" includes Wikibases that James Hare created. Wikibases that were created by other people may be admitted into the network in the future.
+
+These wikis are:
+
+* <s>Open Miscellaneous Wikibase</s> (January 2023–January 2026)
+* [https://librarybase.org Librarybase] (May 2023–present)
+* [https://internetdomains.wiki Internet Domains Wikibase] (May 2023–present)
+* [https://wikibase.world Wikibase World] (June 2023–present)
+* [https://communities.miraheze.org Miraheze Communities] (September 2025–present)
+Membership in the Cool Wikibase Network mainly means being included in the [[Template:Cwbn]] footer featured on the member wikis, a callback to the days of web rings. It otherwise confers no material advantage or special privilege.
+
+==2026-01-16 Migration away from Wikibase.Cloud==
+Wikibase Cloud is proposing new hosting requirements that would subject tenants to evaluation against arbitrary, shifting standards. To reduce operational uncertainty, I am moving critical systems off Wikibase.Cloud in favor of self-hosting.
+* 2026-01-16: I migrated the majority of Open Miscellaneous Wikibase to Librarybase and then deleted the old wiki.
+** InternetArchiveBot-related template tracking ([[Item:Q246948|example item]])
+** [[Item:Q246951|MIT License modeling experiment]]
+* 2026-01-18:
+** Deleted the "credbot-daily" job on "vaccinesafety" Toolforge project in anticipation of migration.
+** Posted [https://domains.wikibase.cloud/wiki/MediaWiki:Sitenotice Sitenotice on Internet Domains]
+** Registered internetdomains.wiki
+** [https://phabricator.wikimedia.org/T414893 Requested dump] of Internet Domains
+
+[[User:Harej|Harej]] ([[User talk:Harej|talk]]) 20:04, 18 January 2026 (UTC)

@@ -51,7 +51,7 @@ step "database $db"
 psql "$admin" -q -c "DROP DATABASE IF EXISTS $db WITH (FORCE)" -c "CREATE DATABASE $db" >/dev/null
 export TRIPLESPACE_DATABASE_URL="$url"
 echo 'compat-owner-secret-1234' >"$work/owner.pw"
-"$bin/triplespace" instance create --tenant $tenant --base https://librarybase.org \
+"$bin/triplespace" instance create --farm-slug scatter --tenant $tenant --base https://librarybase.org \
 	--key-file "$work/k.key" --provider internetdomains --adopt https://librarybase.org/ \
 	--owner 7 --owner-name Alice --owner-password-file "$work/owner.pw" >/dev/null
 
@@ -65,7 +65,7 @@ step "adopt $(basename "$fixture")"
 step "bot account"
 "$bin/triplespace" subsidiary create --tenant $tenant --name CompatBot --operator Alice --group bot >/dev/null
 "$bin/triplespace" subsidiary key --tenant $tenant --name CompatBot --label ci \
-	--grant editentity --grant highvolume --json >"$work/key.json"
+	--grant editentity --grant createeditmovepage --grant highvolume --json >"$work/key.json"
 login="$($python -c 'import json,sys; print(json.load(open(sys.argv[1]))["login"])' "$work/key.json")"
 TRIPLESPACE_WBI_SECRET="$($python -c 'import json,sys; print(json.load(open(sys.argv[1]))["secret"])' "$work/key.json")"
 export TRIPLESPACE_WBI_SECRET

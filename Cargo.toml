@@ -28,6 +28,10 @@ members = [
     "crates/triplespace-db",
     "crates/scatter-projection",
     "crates/triplespace-projections",
+    "crates/scatter-pages",
+    "crates/scatter-titles",
+    "crates/scatter-wikitext",
+    "crates/scatter-wikitext-expand",
     "xtask",
 ]
 
@@ -71,6 +75,10 @@ scatter-log-postgres = { path = "crates/scatter-log-postgres" }
 triplespace-db = { path = "crates/triplespace-db" }
 triplespace-projections = { path = "crates/triplespace-projections" }
 scatter-projection = { path = "crates/scatter-projection" }
+scatter-pages = { path = "crates/scatter-pages" }
+scatter-titles = { path = "crates/scatter-titles" }
+scatter-wikitext = { path = "crates/scatter-wikitext" }
+scatter-wikitext-expand = { path = "crates/scatter-wikitext-expand" }
 
 # RDF terms: the oxrdf family only (0005 §3, rule 5)
 oxrdf = "0.3"
@@ -110,6 +118,14 @@ base64 = "0.22"
 # Registry files and configuration (0033 §12)
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
+
+# HTML: the sanitizer the wikitext and markdown renderers share (0033 §9.1–9.2), and the
+# HTML5 parser the golden tests normalize through. markup5ever_rcdom's newest release
+# needs html5ever 0.39 while ammonia 4.2 uses 0.40; the second copy is a dev-dependency
+# only. ammonia 4.2.4 or later: earlier releases have open advisories.
+ammonia = "4.2.4"
+html5ever = "0.39"
+markup5ever_rcdom = "0.39"
 toml = "1"
 
 # Errors (0033 §14)
@@ -141,7 +157,10 @@ reqwest = { version = "0.13", default-features = false, features = ["rustls", "h
 # Sealing secrets at rest (0088 §3): XChaCha20-Poly1305
 chacha20poly1305 = "0.11"
 # Server-rendered pages (0034 §2): compiled templates; the built frontend embedded (0034 §8)
-askama = "0.16"
+# Without `config`, which reads an askama.toml (there is none) through the unmaintained
+# basic-toml (RUSTSEC-2026-0374); `path = ` templates come with the derive regardless.
+similar = { version = "2.7", default-features = false, features = ["text"] }
+askama = { version = "0.16", default-features = false, features = ["derive", "std", "urlencode"] }
 rust-embed = { version = "8", features = ["include-exclude"] }
 
 [workspace.lints.rust]

@@ -9,6 +9,7 @@ use scatter_wikibase_model::value::DataType;
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
 use triplespace_accounts::session;
+use triplespace_projections::pages::TenantNames;
 
 use crate::api::Ctx;
 use crate::app::Mode;
@@ -52,11 +53,16 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     {
         ctx.cache_class = crate::http_cache::Class::Stable;
     }
-    for p in ctx.params.list("prop") {
+    // `prop=revisions` lists its pages first, so `prop=info` adds its fields to them.
+    let mut props = ctx.params.list("prop");
+    props.sort_by_key(|p| p != "revisions");
+    for p in props {
         match p.as_str() {
             "revisions" => {
                 super::revisions::run(ctx, &mut query, &mut body, &mut response).await?;
             }
+            "info" => super::info::info(ctx, &mut query).await?,
+            "templates" => super::info::templates(ctx, &mut query).await?,
             other => response.warn(
                 "query",
                 &format!("Unrecognized value for parameter \"prop\": {other}."),
@@ -73,6 +79,9 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
             }
             "logevents" => {
                 super::changes::logevents(ctx, &mut query, &mut body, &mut response).await?;
+            }
+            "allpages" => {
+                super::info::allpages(ctx, &mut query, &mut body, &mut response).await?;
             }
             other => response.warn(
                 "query",
@@ -250,8 +259,14 @@ struct NamespaceFile {
 }
 
 /// The namespaces `meta=siteinfo` lists (0008 §2–3; 0041 §8): the `pages` and `virtual`
-/// namespaces of `namespaces.toml` that no tenant setting gates.
-fn namespaces(sitename: &str) -> Value {
+/// namespaces of `namespaces.toml` that no tenant setting gates, under the tenant's names.
+fn namespaces(names: &TenantNames) -> Value {
+    let local: std::collections::HashMap<i32, String> = names
+        .source()
+        .namespaces
+        .into_iter()
+        .map(|n| (n.id, n.name))
+        .collect();
     let file: NamespaceFile = toml::from_str(include_str!(
         "../../../../docs/registry/namespaces.toml"
     ))
@@ -260,14 +275,15 @@ fn namespaces(sitename: &str) -> Value {
     });
     let mut out = Map::new();
     for ns in file.namespace {
-        if ns.enabled_by.is_some() || !(ns.kind == "pages" || ns.kind == "virtual") {
+        // Only Lua's namespaces are gated (`wikitext.lua`), and Lua is not built.
+        let enabled = ns.enabled_by.is_none();
+        if !enabled || !(ns.kind == "pages" || ns.kind == "virtual") {
             continue;
         }
-        let name = match ns.canonical.as_str() {
-            "Project" => sitename.to_string(),
-            "Project talk" => format!("{sitename} talk"),
-            other => other.to_string(),
-        };
+        let name = local
+            .get(&i32::try_from(ns.id).unwrap_or(i32::MIN))
+            .cloned()
+            .unwrap_or_else(|| ns.canonical.clone());
         let mut row = Map::new();
         row.insert("id".into(), json!(ns.id));
         row.insert(
@@ -691,11 +707,28 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                     g.insert("dbversion".into(), json!(v));
                 }
             }
-            "namespaces" => {
-                query.insert("namespaces".into(), namespaces(&sitename));
-            }
-            "namespacealiases" => {
-                query.insert("namespacealiases".into(), json!([]));
+            "namespaces" | "namespacealiases" => {
+                let mut names = TenantNames::load(ctx.db(), &ctx.tenant.slug)
+                    .await
+                    .map_err(ApiError::internal)?;
+                names.site_name = Some(sitename.clone());
+                if p == "namespaces" {
+                    query.insert("namespaces".into(), namespaces(&names));
+                } else {
+                    let v2 = ctx.formatversion == 2;
+                    let list: Vec<Value> = names
+                        .aliases()
+                        .into_iter()
+                        .map(|(id, alias)| {
+                            if v2 {
+                                json!({"id": id, "alias": alias})
+                            } else {
+                                json!({"id": id, "*": alias})
+                            }
+                        })
+                        .collect();
+                    query.insert("namespacealiases".into(), Value::Array(list));
+                }
             }
             "extensions" => {
                 // Only extensions whose API modules are served, since clients choose the
@@ -751,7 +784,7 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                     "tenant": slug,
                     "farm": ctx.app.config().farm.slug,
                     "search": "postgres",
-                    "capabilities": ["wbgetentities", "wbsearchentities", "wbeditentity", "statements", "terms", "login", "clientlogin", "createaccount", "bearer", "version", "recentchanges", "activity", "history", "revisions", "diff", "options", "preferences", "settings"],
+                    "capabilities": ["wbgetentities", "wbsearchentities", "wbeditentity", "statements", "terms", "login", "clientlogin", "createaccount", "bearer", "version", "recentchanges", "activity", "history", "revisions", "diff", "options", "preferences", "settings", "pages", "parse", "edit"],
                     "providers": Registry::default_registry().providers().iter().map(|p| p.slug.clone()).collect::<Vec<_>>(),
                     "rate_limits": [],
                     "grants": scatter_actors::grant::GrantRegistry::default_registry().grants().iter().map(|g| g.name.clone()).collect::<Vec<_>>(),
@@ -801,7 +834,18 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                         .collect::<Vec<_>>()
                 );
                 // The farm base serves the instance's pages (0085 §4).
-                t["at_farm"] = json!(crate::tenant::at_farm(&ctx.app, &ctx.tenant));
+                let at_farm = crate::tenant::at_farm(&ctx.app, &ctx.tenant);
+                t["at_farm"] = json!(at_farm);
+                // The tenant's issuer code, which its actor keys carry, and the farm code,
+                // which the operator's does (0079 §7); at the farm base, the primary tenant
+                // (0046 §9). The tenancy policy (0028 §1).
+                t["issuer"] = json!(ctx.tenant.issuer);
+                t["farm_code"] = json!(ctx.app.config().farm.code);
+                if at_farm {
+                    t["primary"] =
+                        json!(triplespace_projections::tenants::primary(ctx.db()).await?);
+                }
+                t["tenancy"] = crate::tenant::tenancy_report(ctx.db()).await?;
                 query.insert("triplespace".into(), t);
             }
             other => ctx.warn(
@@ -827,6 +871,9 @@ const ACTION_MODULES: &[(&str, bool)] = &[
     ("createaccount", true),
     ("logout", true),
     ("options", true),
+    ("parse", false),
+    ("compare", false),
+    ("edit", true),
     ("wbgetentities", false),
     ("wbsearchentities", false),
     ("wbeditentity", true),
@@ -854,8 +901,11 @@ const QUERY_MODULES: &[(&str, &[&str])] = &[
             "authmanagerinfo",
         ],
     ),
-    ("prop", &["revisions"]),
-    ("list", &["recentchanges", "usercontribs", "logevents"]),
+    ("prop", &["revisions", "info", "templates"]),
+    (
+        "list",
+        &["recentchanges", "usercontribs", "logevents", "allpages"],
+    ),
 ];
 
 fn paraminfo_module(name: &str, path: &str, prefix: &str, parameters: &[Value]) -> Value {
@@ -1240,6 +1290,173 @@ fn module_parameters(name: &str) -> Vec<Value> {
             Value::Object(parameter(9, "excludeuser", json!("user"))),
             Value::Object(parameter(10, "continue", json!("string"))),
         ],
+        "info" => vec![Value::Object(multi(
+            parameter(0, "prop", json!(["protection", "url", "displaytitle"])),
+            50,
+        ))],
+        "templates" => vec![
+            Value::Object(multi(parameter(0, "namespace", json!("namespace")), 50)),
+            Value::Object(with_default(
+                limit_parameter(parameter(1, "limit", json!("limit")), 500, 5000),
+                json!(10),
+            )),
+            Value::Object(parameter(2, "continue", json!("string"))),
+            Value::Object(multi(parameter(3, "templates", json!("string")), 50)),
+            Value::Object(with_default(
+                parameter(4, "dir", json!(["ascending", "descending"])),
+                json!("ascending"),
+            )),
+        ],
+        "allpages" => vec![
+            Value::Object(parameter(0, "from", json!("string"))),
+            Value::Object(parameter(1, "continue", json!("string"))),
+            Value::Object(parameter(2, "to", json!("string"))),
+            Value::Object(parameter(3, "prefix", json!("string"))),
+            Value::Object(with_default(
+                parameter(4, "namespace", json!("namespace")),
+                json!(0),
+            )),
+            Value::Object(with_default(
+                parameter(
+                    5,
+                    "filterredir",
+                    json!(["all", "redirects", "nonredirects"]),
+                ),
+                json!("all"),
+            )),
+            Value::Object(parameter(6, "minsize", json!("integer"))),
+            Value::Object(parameter(7, "maxsize", json!("integer"))),
+            Value::Object(with_default(
+                limit_parameter(parameter(8, "limit", json!("limit")), 500, 5000),
+                json!(10),
+            )),
+            Value::Object(with_default(
+                parameter(9, "dir", json!(["ascending", "descending"])),
+                json!("ascending"),
+            )),
+        ],
+        "parse" => [
+            ("title", json!("string")),
+            ("text", json!("text")),
+            ("summary", json!("string")),
+            ("page", json!("string")),
+            ("pageid", json!("integer")),
+            ("redirects", json!("boolean")),
+            ("oldid", json!("integer")),
+            (
+                "prop",
+                json!([
+                    "text",
+                    "langlinks",
+                    "categories",
+                    "links",
+                    "templates",
+                    "images",
+                    "externallinks",
+                    "sections",
+                    "revid",
+                    "displaytitle",
+                    "iwlinks",
+                    "properties",
+                    "parsewarnings",
+                    "wikitext"
+                ]),
+            ),
+            ("pst", json!("boolean")),
+            ("onlypst", json!("boolean")),
+            ("section", json!("string")),
+            ("disablelimitreport", json!("boolean")),
+            ("disableeditsection", json!("boolean")),
+            ("preview", json!("boolean")),
+            ("contentformat", json!(["text/x-wiki"])),
+            ("contentmodel", json!(["wikitext"])),
+        ]
+        .into_iter()
+        .enumerate()
+        .map(|(i, (n, t))| {
+            let p = parameter(i, n, t);
+            Value::Object(if n == "prop" { multi(p, 50) } else { p })
+        })
+        .collect(),
+        "compare" => [
+            ("fromtitle", json!("string")),
+            ("fromid", json!("integer")),
+            ("fromrev", json!("integer")),
+            ("totitle", json!("string")),
+            ("toid", json!("integer")),
+            ("torev", json!("integer")),
+            ("torelative", json!(["cur", "next", "prev"])),
+            (
+                "prop",
+                json!([
+                    "comment",
+                    "diff",
+                    "diffsize",
+                    "ids",
+                    "parsedcomment",
+                    "rel",
+                    "size",
+                    "timestamp",
+                    "title",
+                    "user"
+                ]),
+            ),
+            ("difftype", json!(["table"])),
+        ]
+        .into_iter()
+        .enumerate()
+        .map(|(i, (n, t))| {
+            let p = parameter(i, n, t);
+            Value::Object(match n {
+                "prop" => with_default(multi(p, 50), json!("diff|ids|title")),
+                "difftype" => with_default(p, json!("table")),
+                _ => p,
+            })
+        })
+        .collect(),
+        "edit" => [
+            ("title", json!("string")),
+            ("pageid", json!("integer")),
+            ("section", json!("string")),
+            ("text", json!("text")),
+            ("summary", json!("string")),
+            ("tags", json!("tags")),
+            ("minor", json!("boolean")),
+            ("notminor", json!("boolean")),
+            ("bot", json!("boolean")),
+            ("baserevid", json!("integer")),
+            ("basetimestamp", json!("timestamp")),
+            ("starttimestamp", json!("timestamp")),
+            ("recreate", json!("boolean")),
+            ("createonly", json!("boolean")),
+            ("nocreate", json!("boolean")),
+            (
+                "watchlist",
+                json!(["watch", "unwatch", "preferences", "nochange"]),
+            ),
+            ("md5", json!("string")),
+            ("prependtext", json!("text")),
+            ("appendtext", json!("text")),
+            (
+                "contentformat",
+                json!([
+                    "text/x-wiki",
+                    "text/plain",
+                    "application/json",
+                    "text/markdown",
+                    "application/yaml"
+                ]),
+            ),
+            (
+                "contentmodel",
+                json!(["wikitext", "markdown", "json", "yaml", "text"]),
+            ),
+            ("token", json!("string")),
+        ]
+        .into_iter()
+        .enumerate()
+        .map(|(i, (n, t))| Value::Object(parameter(i, n, t)))
+        .collect(),
         "wbgetentities" => vec![
             Value::Object(multi(parameter(0, "ids", json!("string")), 50)),
             Value::Object(with_default(
@@ -1348,6 +1565,9 @@ pub fn paraminfo_modules(requested: &[String]) -> Vec<Value> {
                             "usercontribs" => "uc",
                             "logevents" => "le",
                             "revisions" => "rv",
+                            "info" => "in",
+                            "templates" => "tl",
+                            "allpages" => "ap",
                             _ => "",
                         },
                     ),

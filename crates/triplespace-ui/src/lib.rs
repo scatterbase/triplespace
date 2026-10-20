@@ -13,6 +13,7 @@
 //!   used (0057 §6).
 //! - [`entity`]: entity pages and their `action=render` regions (0010 §2; 0057 §8).
 //! - [`special`]: the special pages served so far (0047), starting with `Special:Search`.
+//! - [`document`]: document pages, read, edited and their histories (0008; 19 §3).
 //! - [`home`]: the main page, `Project:Home`, generated until a page of that title exists.
 //! - [`features`]: what the site offers, from what it has built and what the API serves;
 //!   nothing links to a feature that is not offered.
@@ -29,6 +30,7 @@
 pub mod appearance;
 pub mod assets;
 pub mod codex;
+pub mod document;
 pub mod entity;
 pub mod features;
 pub mod frame;

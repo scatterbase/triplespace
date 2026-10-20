@@ -13,7 +13,6 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result, bail};
 use clap::Args;
-use scatter_actors::key::ActorKey;
 use scatter_adapter_internetdomains::{DomainKeyMap, Index, InternetDomainsAdapter, Outcome};
 use scatter_adapter_wikidata::{DumpEntry, DumpPropertyTypes, Entities};
 use scatter_ingest::sync::{SyncItem, run_sync};
@@ -50,12 +49,6 @@ pub struct Sync {
     /// Writes every reject to this file, one `upstream ID<TAB>reason` line each.
     #[arg(long)]
     pub rejects: Option<PathBuf>,
-    /// The farm slug and base, for the pipeline and the acting instance key.
-    #[arg(long)]
-    pub farm_slug: Option<String>,
-    /// The farm base.
-    #[arg(long)]
-    pub farm_base: Option<String>,
 }
 
 /// What a dump yields for the sync.
@@ -204,12 +197,7 @@ pub async fn run(args: Sync) -> Result<()> {
     let prepared = prepare_internetdomains(&args.dump)?;
     report_rejects(&prepared.items, args.rejects.as_deref())?;
     let client = connect(&args.database).await?;
-    let farm = farm_of(
-        &client,
-        args.farm_slug.as_deref(),
-        args.farm_base.as_deref(),
-    )
-    .await?;
+    let farm = farm_of(&client).await?;
     let (store, pipeline) = store(&args.database, &farm)?;
     let version = args.version.clone().unwrap_or_else(|| {
         args.dump
@@ -231,7 +219,7 @@ pub async fn run(args: Sync) -> Result<()> {
         &store,
         &pipeline,
         header,
-        Attestation::by(&ActorKey::instance(&farm.slug).to_string()),
+        Attestation::by(&farm.operator().to_string()),
         prepared.items,
         args.threshold,
         Registry::default_registry(),

@@ -278,16 +278,14 @@ pub fn as_written(kind: &str, name: &str) -> String {
     }
 }
 
-/// The wikitext of §7, with whether each entry is active given the tenant's settings.
-/// Every entry needs template expansion; without it, the list is empty.
+/// The wikitext of §7, with whether each entry is active given the tenant's settings:
+/// expansion is part of wikitext (0042 A19), so an entry is inactive only where it needs
+/// a setting that is off (`wikitext.lua`).
 fn wikitext(settings: &BTreeMap<String, Value>) -> Vec<Value> {
     let on = |key: &str| {
         matches!(settings.get(key), Some(Value::String(x)) if x == "on")
             || settings.get(key) == Some(&Value::Bool(true))
     };
-    if !on("wikitext.expansion") {
-        return Vec::new();
-    }
     let mut out = Vec::new();
     for kind in ["tag", "function", "variable", "switch"] {
         let Some(entries) = registries()
@@ -712,10 +710,8 @@ mod tests {
     }
 
     #[test]
-    fn wikitext_needs_expansion() {
-        let mut settings = BTreeMap::new();
-        assert!(wikitext(&settings).is_empty());
-        settings.insert("wikitext.expansion".into(), json!("on"));
+    fn wikitext_is_listed_without_a_setting() {
+        let settings = BTreeMap::new();
         let w = wikitext(&settings);
         assert!(w.iter().any(|e| e["name"] == "#if" && e["active"] == true));
         assert!(
@@ -734,11 +730,12 @@ mod tests {
             (q["value"].clone(), q["set"].clone()),
             (json!(true), json!(true))
         );
-        let e = f.iter().find(|r| r["key"] == "wikitext.expansion").unwrap();
+        let e = f.iter().find(|r| r["key"] == "wikitext.lua").unwrap();
         assert_eq!(
             (e["value"].clone(), e["set"].clone()),
             (json!("off"), json!(false))
         );
+        assert!(!f.iter().any(|r| r["key"] == "wikitext.expansion"));
         let l = f.iter().find(|r| r["key"] == "content.licence").unwrap();
         assert!(l.get("value").is_none(), "no default: not set");
         assert!(

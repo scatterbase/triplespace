@@ -316,6 +316,68 @@ def main():
         return f"{len(rows)} job events"
     step("read: list=logevents", log_events)
 
+    # --- document pages (0008; 10 section 3): Pywikibot's Page, as a bot edits a wiki ----
+    def page_save():
+        page = pywikibot.Page(site, f"Project:Pwb check {stamp}")
+        if page.exists():
+            raise RuntimeError(f"{page.title()} exists already")
+        page.text = "Created by '''tools/pwb_check.py''' at " + stamp + ". [[Project:Home]]"
+        page.save(summary="pwb_check: new page", minor=False)
+        state["page"] = page.title()
+        # A second second, so that the edit's base by time is unambiguous.
+        time.sleep(1.1)
+        again = pywikibot.Page(site, page.title())
+        text = again.get(force=True)
+        if "tools/pwb_check.py" not in text:
+            raise RuntimeError(f"the saved text did not come back: {text!r}")
+        again.text = text + "\n\nEdited."
+        again.save(summary="pwb_check: edit")
+        revs = list(again.revisions(total=5))
+        if len(revs) != 2:
+            raise RuntimeError(f"{len(revs)} revisions, not 2")
+        return f"{page.title()}: revisions {[r.revid for r in revs]}"
+    # Pywikibot checks every save for {{nobots}} with prop=templates&tlnamespace=10, so the
+    # Template namespace must be listed, as it always is (0042 A19).
+    step("write: Page.save creates and edits a Project page", page_save, skip=skip_w)
+
+    def page_compare():
+        page = pywikibot.Page(site, state["page"])
+        revs = list(page.revisions(total=5))
+        newest, older = revs[0], revs[1]
+        if newest.parentid != older.revid:
+            raise RuntimeError(f"parentid {newest.parentid}, not {older.revid}")
+        if older.parentid != 0:
+            raise RuntimeError(f"the first revision's parentid is {older.parentid}")
+        html = site.compare(older.revid, newest.revid)
+        if "diff-addedline" not in html or "Edited." not in html:
+            raise RuntimeError(f"unexpected diff: {html[:200]!r}")
+        return f"{older.revid} -> {newest.revid}: {html.count('<tr>')} rows"
+    step("read: action=compare and parentid", page_compare, skip=skip_w or "page" not in state)
+
+    def page_conflict():
+        title = state["page"]
+        time.sleep(1.1)
+        first = pywikibot.Page(site, title)
+        second = pywikibot.Page(site, title)
+        first.get()
+        second.get()
+        first.text += "\nOne."
+        first.save(summary="pwb_check: one")
+        second.text += "\nTwo."
+        try:
+            second.save(summary="pwb_check: must conflict")
+        except pywikibot.exceptions.EditConflictError:
+            return "refused with editconflict"
+        raise RuntimeError("a save from a stale base was accepted")
+    step("write: a stale Page.save conflicts", page_conflict, skip=skip_w or "page" not in state)
+
+    def page_parse():
+        html = pywikibot.Page(site, state["page"]).get_parsed_page(force=True)
+        if "Edited." not in html or "<b>tools/pwb_check.py</b>" not in html:
+            raise RuntimeError(f"unexpected HTML: {html[:200]!r}")
+        return f"{len(html)} bytes of HTML"
+    step("read: action=parse of the page", page_parse, skip=skip_w or "page" not in state)
+
     failures = sum(1 for _, ok in results if ok is False)
     passed = sum(1 for _, ok in results if ok is True)
     skipped = sum(1 for _, ok in results if ok is None)

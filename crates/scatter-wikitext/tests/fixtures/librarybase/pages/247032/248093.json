@@ -1,0 +1,103 @@
+{
+ "categories": [],
+ "displaytitle": "<span class=\"mw-page-title-namespace\">Project</span><span class=\"mw-page-title-separator\">:</span><span class=\"mw-page-title-main\">Analytics/PubPeer</span>",
+ "externallinks": [
+  "https://dashboards.pubpeer.com/docs/api#/operations/partner",
+  "https://en.wikipedia.org/w/index.php?title=Wikipedia:PubPeer/By_article/Z&diff=prev&oldid=1333802277"
+ ],
+ "images": [],
+ "iwlinks": [],
+ "langlinks": [],
+ "links": [],
+ "pageid": 247032,
+ "parsewarnings": [],
+ "properties": {
+  "unexpectedUnconnectedPage": -4
+ },
+ "revid": 248093,
+ "sections": [
+  {
+   "anchor": "API",
+   "byteoffset": 0,
+   "fromtitle": "Project:Analytics/PubPeer",
+   "index": "1",
+   "level": "2",
+   "line": "API",
+   "number": "1",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Resources",
+   "byteoffset": 389,
+   "fromtitle": "Project:Analytics/PubPeer",
+   "index": "2",
+   "level": "2",
+   "line": "Resources",
+   "number": "2",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Process",
+   "byteoffset": 662,
+   "fromtitle": "Project:Analytics/PubPeer",
+   "index": "3",
+   "level": "2",
+   "line": "Process",
+   "number": "3",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Data_collection_and_indexing",
+   "byteoffset": 674,
+   "fromtitle": "Project:Analytics/PubPeer",
+   "index": "4",
+   "level": "3",
+   "line": "Data collection and indexing",
+   "number": "3.1",
+   "toclevel": 2
+  },
+  {
+   "anchor": "Reporting_and_wiki_updates",
+   "byteoffset": 2094,
+   "fromtitle": "Project:Analytics/PubPeer",
+   "index": "5",
+   "level": "3",
+   "line": "Reporting and wiki updates",
+   "number": "3.2",
+   "toclevel": 2
+  },
+  {
+   "anchor": "Database_Schema_(schema.sql)",
+   "byteoffset": 3102,
+   "fromtitle": "Project:Analytics/PubPeer",
+   "index": "6",
+   "level": "3",
+   "line": "Database Schema (schema.sql)",
+   "number": "3.3",
+   "toclevel": 2
+  },
+  {
+   "anchor": "Post-Implementation_Status",
+   "byteoffset": 3674,
+   "fromtitle": "Project:Analytics/PubPeer",
+   "index": "7",
+   "level": "3",
+   "line": "Post-Implementation Status",
+   "number": "3.4",
+   "toclevel": 2
+  },
+  {
+   "anchor": "2026-01-19_Observation",
+   "byteoffset": 4184,
+   "fromtitle": "Project:Analytics/PubPeer",
+   "index": "8",
+   "level": "2",
+   "line": "2026-01-19 Observation",
+   "number": "4",
+   "toclevel": 1
+  }
+ ],
+ "showtoc": true,
+ "templates": [],
+ "title": "Project:Analytics/PubPeer"
+}

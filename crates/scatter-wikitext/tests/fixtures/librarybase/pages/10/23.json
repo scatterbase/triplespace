@@ -1,0 +1,90 @@
+{
+ "categories": [],
+ "displaytitle": "<span class=\"mw-page-title-namespace\">Project</span><span class=\"mw-page-title-separator\">:</span><span class=\"mw-page-title-main\">Scope</span>",
+ "externallinks": [],
+ "images": [],
+ "iwlinks": [],
+ "langlinks": [],
+ "links": [],
+ "pageid": 10,
+ "parsewarnings": [],
+ "properties": {
+  "unexpectedUnconnectedPage": -4
+ },
+ "revid": 23,
+ "sections": [
+  {
+   "anchor": "Wikidata",
+   "byteoffset": 102,
+   "fromtitle": "Project:Scope",
+   "index": "1",
+   "level": "2",
+   "line": "Wikidata",
+   "number": "1",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Namespaces",
+   "byteoffset": 546,
+   "fromtitle": "Project:Scope",
+   "index": "2",
+   "level": "2",
+   "line": "Namespaces",
+   "number": "2",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Properties",
+   "byteoffset": 561,
+   "fromtitle": "Project:Scope",
+   "index": "3",
+   "level": "3",
+   "line": "Properties",
+   "number": "2.1",
+   "toclevel": 2
+  },
+  {
+   "anchor": "Items",
+   "byteoffset": 783,
+   "fromtitle": "Project:Scope",
+   "index": "4",
+   "level": "3",
+   "line": "Items",
+   "number": "2.2",
+   "toclevel": 2
+  },
+  {
+   "anchor": "Articles",
+   "byteoffset": 1205,
+   "fromtitle": "Project:Scope",
+   "index": "5",
+   "level": "3",
+   "line": "Articles",
+   "number": "2.3",
+   "toclevel": 2
+  },
+  {
+   "anchor": "Files",
+   "byteoffset": 1581,
+   "fromtitle": "Project:Scope",
+   "index": "6",
+   "level": "3",
+   "line": "Files",
+   "number": "2.4",
+   "toclevel": 2
+  },
+  {
+   "anchor": "Usefulness_caveats",
+   "byteoffset": 1920,
+   "fromtitle": "Project:Scope",
+   "index": "7",
+   "level": "2",
+   "line": "Usefulness caveats",
+   "number": "3",
+   "toclevel": 1
+  }
+ ],
+ "showtoc": true,
+ "templates": [],
+ "title": "Project:Scope"
+}

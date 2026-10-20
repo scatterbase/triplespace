@@ -1,0 +1,45 @@
+{
+ "categories": [],
+ "displaytitle": "<span class=\"mw-page-title-namespace\">Project</span><span class=\"mw-page-title-separator\">:</span><span class=\"mw-page-title-main\">Home</span>",
+ "externallinks": [
+  "https://wikibase.world",
+  "https://internetdomains.wiki",
+  "https://communities.miraheze.org"
+ ],
+ "images": [],
+ "iwlinks": [],
+ "langlinks": [],
+ "links": [
+  {
+   "exists": true,
+   "ns": 4,
+   "title": "Project:Principles"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q2"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q253"
+  }
+ ],
+ "pageid": 489,
+ "parsewarnings": [],
+ "properties": {
+  "unexpectedUnconnectedPage": -4
+ },
+ "revid": 248105,
+ "sections": [],
+ "showtoc": false,
+ "templates": [
+  {
+   "exists": true,
+   "ns": 10,
+   "title": "Template:Cwbn"
+  }
+ ],
+ "title": "Project:Home"
+}

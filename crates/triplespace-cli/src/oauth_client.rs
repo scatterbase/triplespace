@@ -88,7 +88,7 @@ pub async fn run(cmd: OAuthClient) -> Result<()> {
 /// A tenant's base, or for the default the farm's.
 async fn base_of(client: &Client, tenant: Option<&str>) -> Result<String> {
     match tenant {
-        None => Ok(farm_of(client, None, None).await?.base),
+        None => Ok(farm_of(client).await?.base),
         Some(slug) => client
             .query_opt(
                 "SELECT config->>'base' FROM view.registry WHERE tenant = '' AND kind = 'tenant' AND code = $1",

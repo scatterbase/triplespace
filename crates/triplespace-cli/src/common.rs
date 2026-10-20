@@ -12,31 +12,29 @@ use tokio_postgres::{Client, Config, NoTls};
 use triplespace_api_ingest::PgIngest;
 use triplespace_projections::{Farm, PgBackend, milestone_pipeline};
 
-/// The farm a database serves, for the pipeline and the instance actor: the overrides,
-/// else the first registered tenant's slug and base (0046: the primary tenant stands in
-/// for the farm until one is named).
-pub async fn farm_of(
-    client: &Client,
-    farm_slug: Option<&str>,
-    farm_base: Option<&str>,
-) -> Result<Farm> {
-    let row = client
-        .query_opt(
-            "SELECT code, config->>'base' FROM view.registry WHERE tenant = '' AND kind = 'tenant' ORDER BY code LIMIT 1",
-            &[],
-        )
-        .await?;
-    let (slug, base): (String, Option<String>) = match row {
-        Some(r) => (r.get(0), r.get(1)),
-        None => (String::from("scatter"), None),
-    };
-    Ok(Farm {
-        slug: farm_slug.map_or(slug, str::to_owned),
-        base: farm_base
-            .map(str::to_owned)
-            .or(base)
-            .unwrap_or_else(|| "https://scatter.example".into()),
-    })
+/// The farm a database serves (0046 §6; 0079 §4): the instance `config`'s `farm` record,
+/// which `instance create` writes and nothing changes.
+pub async fn farm_of(client: &Client) -> Result<Farm> {
+    triplespace_projections::tenants::farm(client)
+        .await?
+        .context("this database holds no instance (no `farm` record); run `instance create` first")
+}
+
+/// The farm of the database at `database`, over a connection of its own.
+pub async fn farm_at(database: &str) -> Result<Farm> {
+    farm_of(&connect(database).await?).await
+}
+
+/// A tenant's issuer code, by slug, over a connection of its own.
+pub async fn issuer_at(database: &str, slug: &str) -> Result<String> {
+    issuer_of(&connect(database).await?, slug).await
+}
+
+/// A tenant's issuer code, the code its actor keys carry (0079 §1), by slug.
+pub async fn issuer_of(client: &Client, slug: &str) -> Result<String> {
+    triplespace_projections::tenants::issuer_of(client, slug)
+        .await?
+        .with_context(|| format!("tenant `{slug}` is not registered"))
 }
 
 /// Microseconds since the epoch, now.
@@ -75,6 +73,31 @@ pub fn store(database: &str, farm: &Farm) -> Result<(PgIngest, Pipeline<PgIngest
     let pipeline = milestone_pipeline(IssuerRegistry::default_registry().clone(), farm.clone())
         .context("pipeline")?;
     Ok((store, pipeline))
+}
+
+/// A draft with a JSON content, an optional comment and the attestation `attest` makes
+/// from the content and comment values, for attestations that sign them (0040 §3).
+pub fn draft_attested(
+    payload_type: &str,
+    key: &str,
+    content: &serde_json::Value,
+    comment: Option<&str>,
+    now: u64,
+    attest: impl FnOnce(&Value, &Value) -> Result<Value>,
+) -> Result<Draft> {
+    let content = Value::from_json(content);
+    let comment = comment.map_or(Value::Null, Value::text);
+    let attestation = attest(&content, &comment)?;
+    Ok(Draft {
+        appended_at: now,
+        payload_type: payload_type.into(),
+        key: Some(key.into()),
+        revid: None,
+        logid: None,
+        page_id: None,
+        body: Body::core(&content, &comment, &attestation)
+            .map_err(|e| anyhow::anyhow!("body: {e}"))?,
+    })
 }
 
 /// A draft with a JSON content, an optional comment and an actor's attestation.

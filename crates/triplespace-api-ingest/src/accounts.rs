@@ -136,11 +136,16 @@ pub async fn create(
             "a password has at least 8 characters".into(),
         ));
     }
+    // The tenant's issuer code, which its actor keys carry (0079 §1).
+    let issuer = triplespace_projections::tenants::issuer_of(cx.conn(), tenant)
+        .await
+        .map_err(|e| CreateError::Store(e.to_string()))?
+        .ok_or_else(|| CreateError::Store(format!("tenant `{tenant}` is not registered")))?;
     let id = store
         .next_id(cx, tenant, &Sequence::User)
         .await
         .map_err(store_error)?;
-    let key = ActorKey::numeric(tenant, id);
+    let key = ActorKey::numeric(&issuer, id);
     let record = ActorRecord::registered(&name);
     record
         .validate(&key)

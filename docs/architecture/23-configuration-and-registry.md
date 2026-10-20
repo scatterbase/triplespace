@@ -40,7 +40,7 @@ The kinds split by scope ([0018](../decisions/0018-tenants.md) §3, in [08](08-t
 
 *Sources: [0015](../decisions/0015-record-format-and-partition-registry.md) §3; [0042](../decisions/0042-template-expansion-and-parsoid.md) §2; [0085](../decisions/0085-settings-and-preferences.md) §2.1.*
 
-Under `config.template = defaults` or `locks` ([0028](../decisions/0028-tenancy-policy.md) §8, in [08](08-tenants-and-instances.md)), the instance `config` may hold records of kind `template`, keyed `template:{kind}:{code}`, each a tenant-config record new tenants start from; `tenancy:locked` lists the locked keys. Any `site` setting can be given an instance default or be locked this way, the `wikitext.*` settings among them. A `site` template is not written into a new tenant: it is the instance's **default** for the setting, read whenever a tenant without a record of its own resolves it (§3.1; [0085](../decisions/0085-settings-and-preferences.md) §2.1). Templates of every other kind are written at creation. A tenancy switch of instance scope may also cap what tenants may turn on: `wikitext.ceiling` (`subset`, `expansion` or `lua`; `lua` in every preset) bounds `wikitext.expansion` and `wikitext.lua`, and the operator lowers it to bound CPU on a crowded farm.
+Under `config.template = defaults` or `locks` ([0028](../decisions/0028-tenancy-policy.md) §8, in [08](08-tenants-and-instances.md)), the instance `config` may hold records of kind `template`, keyed `template:{kind}:{code}`, each a tenant-config record new tenants start from; `tenancy:locked` lists the locked keys. Any `site` setting can be given an instance default or be locked this way, the `wikitext.*` settings among them. A `site` template is not written into a new tenant: it is the instance's **default** for the setting, read whenever a tenant without a record of its own resolves it (§3.1; [0085](../decisions/0085-settings-and-preferences.md) §2.1). Templates of every other kind are written at creation. A tenancy switch of instance scope may also cap what tenants may turn on: `wikitext.ceiling` (`expansion` or `lua`; `lua` in every preset) bounds `wikitext.lua`, and the operator lowers it to bound CPU on a crowded farm. Expansion itself is part of wikitext and is not capped ([0042](../decisions/0042-template-expansion-and-parsoid.md) A19); a `subset` ceiling written before then caps Lua as `expansion` does.
 
 ## 2. The config kinds
 
@@ -297,13 +297,12 @@ The table is generated from `settings.toml` (§3.1). Each row cites the ADR sect
 | `updates.enabled` | `site` | tenant | off, on | off | Whether the RDF delta consumer runs for this tenant, writing `view.rdf_delta` from composition events; off, no delta is computed and the update stream is unavailable ([02](02-graphs-rdf-and-query.md)) | [0083](../decisions/0083-write-path-in-three-tiers.md) §3 |
 | `updates.retention` | `site` | tenant | duration | 30 days | Window of `view.rdf_delta` rows | [0032](../decisions/0032-sparql-update-stream.md) §3 |
 | `upstream.retire_adopted` | `site` | tenant | `true`, `false` | `true` | Retire a local assertion when upstream adopts it | [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §7; [0067](../decisions/0067-proposals.md) §5 |
-| `wikitext.expansion` | `site` | tenant ≤ instance ceiling (`wikitext.ceiling`) | `off`, `on` | `off` | Expand templates and parser functions; enables Template and Template talk | [0042](../decisions/0042-template-expansion-and-parsoid.md) §2 |
-| `wikitext.lua` | `site` | tenant ≤ instance ceiling (`wikitext.ceiling`) | `off`, `on` | `off` | Lua modules. Requires `wikitext.expansion = on`; capped by `wikitext.ceiling` | [0042](../decisions/0042-template-expansion-and-parsoid.md) §2; [0043](../decisions/0043-lua-modules.md) §1 |
-| `wikitext.renderer` | `site` | tenant | `builtin`, `parsoid` | `builtin` | Which stage-2 renderer serves HTML. `parsoid` requires expansion on and a Parsoid service on the instance | [0042](../decisions/0042-template-expansion-and-parsoid.md) §2 |
+| `wikitext.lua` | `site` | tenant ≤ instance ceiling (`wikitext.ceiling`) | `off`, `on` | `off` | Lua modules; capped by `wikitext.ceiling` | [0042](../decisions/0042-template-expansion-and-parsoid.md) §2; [0043](../decisions/0043-lua-modules.md) §1 |
+| `wikitext.renderer` | `site` | tenant | `builtin`, `parsoid` | `builtin` | Which stage-2 renderer serves HTML. `parsoid` requires a Parsoid service on the instance | [0042](../decisions/0042-template-expansion-and-parsoid.md) §2 |
 | `wikitext.site_styles` | `site` | tenant | a Project-namespace title | — (`Project:Site styles.css` by convention) | The tenant's `sanitized-css` site styles page | [0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §4 |
 <!-- /settings.py -->
 
-Turning `wikitext.expansion` off also turns `wikitext.lua` off and `wikitext.renderer` back to `builtin`; changing any `wikitext.*` setting bumps the render epoch of every `wikitext` page in the tenant and queues them for refresh ([11](11-rendering-templates-and-modules.md)).
+Changing any `wikitext.*` setting bumps the render epoch of every `wikitext` page in the tenant and queues them for refresh ([11](11-rendering-templates-and-modules.md)).
 
 `repo.cache_ttl` is not a `site` setting but a per-repository field: of the `file-repo` record, and for a page repository of the tenant's `pages.repos` entry, with a default per kind: 7 days for files, one hour for template source and page bundles (§3.5).
 
@@ -340,7 +339,7 @@ A tenancy switch is a `config` record of kind `tenancy` in the instance `config`
 
 | Switch | Values | `isolated` | `community` | `enterprise` |
 |---|---|---|---|---|
-| `wikitext.ceiling` | `subset`, `expansion`, `lua` | `lua` | `lua` | `lua` |
+| `wikitext.ceiling` | `expansion`, `lua`: whether tenants may run Lua; expansion itself is part of wikitext (0042 A19) | `lua` | `lua` | `lua` |
 | `query.isolation` | `dataset`, `store` ([0059](../decisions/0059-query-service.md) §4): one shared store with the dataset fixed per tenant, or an embedded store per tenant. Instance-only: no tenant record overrides it. `store` with `query.backend = remote` is refused only on a farm, since on a single-tenant instance the remote store holds one tenant's graphs and satisfies `store` | `store` | `dataset` | `dataset` |
 
 ### 3.5 Keys that are fields of a config record
@@ -477,7 +476,7 @@ The files are `serde` + `toml`, embedded at build time (`include_str!`) by the c
 
 *Sources: [0077](../decisions/0077-special-version.md) §14.*
 
-`docs/registry/version.toml` lists the developer, contributors, funders, AI agents and their attribution, services, feature switches and extensions, as [0077](../decisions/0077-special-version.md) §2, §4, §8, §9 and §11 describe. It is embedded by `triplespace-api-rest`, like the other registries ([0015](../decisions/0015-record-format-and-partition-registry.md) §5), and is CC0 like the rest of `docs/`. Its `[[feature]]` entries carry a scope: the tenant features are `content.licence`, `wikitext.expansion`, `wikitext.lua`, `wikitext.renderer`, `pages.repos`, `search.inherited`, `query.enabled`, `mcp.enabled` and `proposals.push`, and the instance features `search.farm_wide` and `files.separation` ([0077](../decisions/0077-special-version.md) §11; the page is in [21](21-special-pages.md)).
+`docs/registry/version.toml` lists the developer, contributors, funders, AI agents and their attribution, services, feature switches and extensions, as [0077](../decisions/0077-special-version.md) §2, §4, §8, §9 and §11 describe. It is embedded by `triplespace-api-rest`, like the other registries ([0015](../decisions/0015-record-format-and-partition-registry.md) §5), and is CC0 like the rest of `docs/`. Its `[[feature]]` entries carry a scope: the tenant features are `content.licence`, `wikitext.lua`, `wikitext.renderer`, `pages.repos`, `search.inherited`, `query.enabled`, `mcp.enabled` and `proposals.push`, and the instance features `search.farm_wide` and `files.separation` ([0077](../decisions/0077-special-version.md) §11; the page is in [21](21-special-pages.md)).
 
 ## 5. Configuration and the CLI
 

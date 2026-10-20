@@ -16,7 +16,6 @@ use triplespace_accounts::Secret;
 use triplespace_api_action::{App, Config as ServerConfig, Mode, router_with};
 use triplespace_cli::{adopt, instance, sync};
 use triplespace_client::{Client, HttpTransport, ServiceTransport};
-use triplespace_projections::Farm;
 
 const DB: &str = "tssite_test";
 const HOST: &str = "librarybase.org";
@@ -90,7 +89,8 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
         tenant: "librarybase".into(),
         base: format!("https://{HOST}"),
         name: None,
-        farm_slug: None,
+        farm_slug: "testfarm".into(),
+        tenancy: "isolated".into(),
         farm_base: None,
         providers: vec!["internetdomains".into()],
         adopt: Some(format!("https://{HOST}/")),
@@ -103,10 +103,30 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
     // The entities of the site's fixtures: every data type, ranks, qualifiers and a
     // reference, terms in three languages, and a Domain from the mirror.
     let fixtures = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
+    // The fixture's revisions are dated a day ago, so that they stay inside recent
+    // changes' 30-day window however long after the fixture was written the test runs.
+    let dated = std::env::temp_dir().join(format!("site-entities-{}.xml", std::process::id()));
+    let yesterday = triplespace_api_action::entity_json::iso8601(
+        u64::try_from(
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_micros(),
+        )
+        .unwrap()
+            - 86_400_000_000,
+    );
+    std::fs::write(
+        &dated,
+        std::fs::read_to_string(fixtures.join("site-entities.xml"))
+            .unwrap()
+            .replace("2026-09-20T14:02:11Z", &yesterday),
+    )
+    .unwrap();
     adopt::run(adopt::Adopt {
         database: database.clone(),
         tenant: "librarybase".into(),
-        dump: fixtures.join("site-entities.xml"),
+        dump: dated.clone(),
         source: format!("https://{HOST}/"),
         version: Some("test".into()),
         frozen: true,
@@ -117,11 +137,10 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
         subsidiary: None,
         batch: 200,
         no_accounts: false,
-        farm_slug: None,
-        farm_base: None,
     })
     .await
     .expect("adopt");
+    let _ = std::fs::remove_file(&dated);
     sync::run(sync::Sync {
         database: database.clone(),
         provider: "internetdomains".into(),
@@ -131,8 +150,6 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
         threshold: 1000,
         batch: 200,
         rejects: None,
-        farm_slug: None,
-        farm_base: None,
     })
     .await
     .expect("sync");
@@ -145,10 +162,8 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
             mode: Mode::Production,
             trusted_proxies: vec!["127.0.0.1".into()],
             dev_tenant: None,
-            farm: Farm {
-                slug: "librarybase".into(),
-                base: format!("https://{HOST}"),
-            },
+            farm: triplespace_cli::common::farm_at(&database).await.unwrap(),
+            auth_base: None,
             generator: "Triplespace test".into(),
             version: None,
         },

@@ -1,9 +1,12 @@
 //! Which tenant a request is for (0056 §10 #5; 0018 §3): the one whose registered base
-//! has the request's `Host`, or the `X-Forwarded-Host` of a trusted proxy (0057 §10). The farm base serves the primary tenant. An unregistered
-//! host is 421, unless development mode names a fallback.
+//! has the request's `Host`, or the `X-Forwarded-Host` of a trusted proxy (0057 §10).
+//! The farm base serves the primary tenant, the one the `primary` record names (0046 §2).
+//! The auth base (0089 §1) is a registered host but no tenant's. Any other host is 421,
+//! unless development mode names a fallback.
 
 use axum::http::HeaderMap;
 use tokio_postgres::GenericClient;
+use triplespace_projections::tenants::TenantEntry;
 
 use crate::app::{App, Mode};
 use crate::forwarded::Origin;
@@ -11,8 +14,10 @@ use crate::forwarded::Origin;
 /// A tenant as the request sees it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Tenant {
-    /// The slug.
+    /// The slug, which keys the tenant's rows on this instance.
     pub slug: String,
+    /// The issuer code its actor keys carry, derived from its founding record (0079 §1).
+    pub issuer: String,
     /// The registered base, `https://librarybase.org`.
     pub base: String,
     /// The base the request should see itself under: the registered base, or in
@@ -43,7 +48,7 @@ fn request_scheme(app: &App, origin: &Origin) -> &'static str {
 }
 
 /// The host part of a base URL.
-fn host_of(base: &str) -> Option<String> {
+pub fn host_of(base: &str) -> Option<String> {
     url::Url::parse(base).ok().and_then(|u| {
         u.host_str().map(|h| match u.port() {
             Some(p) => format!("{h}:{p}"),
@@ -61,20 +66,33 @@ pub fn at_farm(app: &App, tenant: &Tenant) -> bool {
         || host_of(farm).is_some_and(|h| h.eq_ignore_ascii_case(&tenant.host))
 }
 
-/// Every registered tenant: slug and base.
+/// Whether a request came to the auth base (0089 §1), which is no tenant's.
+#[must_use]
+pub fn at_auth(app: &App, origin: &Origin, headers: &HeaderMap) -> bool {
+    let Some(auth) = &app.config().auth_base else {
+        return false;
+    };
+    let Some(host) = request_host(origin, headers) else {
+        return false;
+    };
+    host_of(auth).is_some_and(|h| h.eq_ignore_ascii_case(&host))
+}
+
+/// Every registered tenant.
 pub async fn registered<C: GenericClient>(
     client: &C,
-) -> Result<Vec<(String, String)>, tokio_postgres::Error> {
-    let rows = client
-        .query(
-            "SELECT code, config->>'base' FROM view.registry WHERE tenant = '' AND kind = 'tenant' ORDER BY code",
-            &[],
-        )
-        .await?;
-    Ok(rows
-        .iter()
-        .filter_map(|r| Some((r.get::<_, String>(0), r.get::<_, Option<String>>(1)?)))
-        .collect())
+) -> Result<Vec<TenantEntry>, tokio_postgres::Error> {
+    triplespace_projections::tenants::tenants(client).await
+}
+
+fn served(t: &TenantEntry, public_base: String, host: String) -> Tenant {
+    Tenant {
+        slug: t.slug.clone(),
+        issuer: t.issuer.clone(),
+        base: t.base.clone(),
+        public_base,
+        host,
+    }
 }
 
 /// Resolves the request's tenant, or `None` for an unregistered host.
@@ -89,41 +107,47 @@ pub async fn resolve<C: GenericClient>(
     };
     let tenants = registered(client).await?;
     let host_lc = host.to_ascii_lowercase();
-    for (slug, base) in &tenants {
-        if host_of(base).is_some_and(|h| h.eq_ignore_ascii_case(&host_lc)) {
-            return Ok(Some(Tenant {
-                slug: slug.clone(),
-                public_base: base.clone(),
-                base: base.clone(),
-                host,
-            }));
-        }
-    }
-    // The farm base serves the primary tenant (0046): the first registered one until a
-    // `primary` entry says otherwise.
-    if host_of(&app.config().farm.base).is_some_and(|h| h.eq_ignore_ascii_case(&host_lc))
-        && let Some((slug, base)) = tenants.first()
+    if let Some(t) = tenants
+        .iter()
+        .find(|t| host_of(&t.base).is_some_and(|h| h.eq_ignore_ascii_case(&host_lc)))
     {
-        return Ok(Some(Tenant {
-            slug: slug.clone(),
-            public_base: base.clone(),
-            base: base.clone(),
-            host,
-        }));
+        return Ok(Some(served(t, t.base.clone(), host)));
+    }
+    // The farm base serves the primary tenant (0046 §2).
+    if host_of(&app.config().farm.base).is_some_and(|h| h.eq_ignore_ascii_case(&host_lc)) {
+        let primary = triplespace_projections::tenants::primary(client).await?;
+        if let Some(t) = tenants.iter().find(|t| Some(&t.slug) == primary.as_ref()) {
+            return Ok(Some(served(t, t.base.clone(), host)));
+        }
     }
     if app.config().mode == Mode::Development
         && let Some(dev) = &app.config().dev_tenant
-        && let Some((slug, base)) = tenants.iter().find(|(s, _)| s == dev)
+        && let Some(t) = tenants.iter().find(|t| &t.slug == dev)
     {
         let scheme = request_scheme(app, origin);
-        return Ok(Some(Tenant {
-            slug: slug.clone(),
-            base: base.clone(),
-            public_base: format!("{scheme}://{host}"),
-            host,
-        }));
+        return Ok(Some(served(t, format!("{scheme}://{host}"), host)));
     }
     Ok(None)
+}
+
+/// The tenancy policy as `siprop=triplespace` and `GET /tenancy` report it (0028 §1,
+/// §11): the switches, and the preset whose values they all are, if any.
+pub async fn tenancy_report<C: GenericClient>(
+    client: &C,
+) -> Result<serde_json::Value, tokio_postgres::Error> {
+    let switches = triplespace_projections::tenants::tenancy(client).await?;
+    let registry = scatter_actors::tenancy::TenancyRegistry::default_registry();
+    let preset = registry
+        .presets()
+        .iter()
+        .find(|p| {
+            p.switches
+                .iter()
+                .filter(|(_, v)| v.as_str() != "set-at-creation")
+                .all(|(k, v)| switches.get(k) == Some(v))
+        })
+        .map(|p| p.name.clone());
+    Ok(serde_json::json!({"preset": preset, "switches": switches}))
 }
 
 #[cfg(test)]

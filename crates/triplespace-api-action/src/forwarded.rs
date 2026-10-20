@@ -26,6 +26,7 @@ use std::time::{Duration, Instant};
 use axum::extract::{ConnectInfo, Request, State};
 use axum::http::HeaderMap;
 use axum::middleware::Next;
+use axum::response::IntoResponse as _;
 use axum::response::Response;
 
 use crate::app::App;
@@ -352,6 +353,20 @@ pub async fn layer(State(app): State<App>, mut req: Request, next: Next) -> Resp
         .get::<ConnectInfo<SocketAddr>>()
         .map(|c| c.0.ip());
     let o = origin(&app, peer, req.headers()).await;
+    // The auth base is a registered host that holds no wiki (0089 §1). Its pages and
+    // routes come with the auth host itself; until then everything there but health is
+    // the plain 404 its routing table gives "anything else".
+    if crate::tenant::at_auth(&app, &o, req.headers()) && req.uri().path() != "/healthz" {
+        return (
+            axum::http::StatusCode::NOT_FOUND,
+            [(
+                axum::http::header::CONTENT_TYPE,
+                "text/plain; charset=utf-8",
+            )],
+            "Not found: this is the instance's auth host, which serves no wiki.\n",
+        )
+            .into_response();
+    }
     req.extensions_mut().insert(o);
     next.run(req).await
 }

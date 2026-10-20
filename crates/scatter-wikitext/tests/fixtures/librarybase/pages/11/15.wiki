@@ -1,0 +1,14 @@
+The '''bulk import''' of data will be helpful in seeding Librarybase's content. A bulk import should not be its own end; it does not serve us well to have a large amount of unused data, especially data that is very similar to other pre-existing datasets. Rather, bulk imports should be pursued to make certain projects or additions to the graph possible.
+
+==Seeder bot==
+Rather than have everyone build their own bots to import data from common sources, we should have one bot that users can submit requests to. The seeder bot will serve this purpose for the following import sources:
+* OpenAlex
+* Fatcat
+* Internet Archive
+* arXiv
+
+==Proposed projects==
+* Swepub: editable version of database of Swedish academic literature
+* Historical patents
+* Works with expired copyright
+* Domains of sources cited on Wikipedia, then mapped to Wikidata items

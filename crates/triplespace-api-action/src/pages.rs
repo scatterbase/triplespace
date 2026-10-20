@@ -1,0 +1,537 @@
+//! Document pages for the Action API (0008 §4; 18 §2.3–2.4): the tenant's wikitext
+//! settings, title resolution into the page namespaces, `view.page` lookups, and the
+//! render pipeline that `action=parse` and the site's page views use.
+//!
+//! **Rendering** is the two stages of 11 §1.1: the text is expanded first by
+//! `scatter-wikitext-expand`, whose host reads Template pages' latest text, since
+//! expansion is part of wikitext wherever a tenant has wikitext pages (0042 A19); then
+//! `scatter-wikitext` renders it. Both are pure, so the database is read
+//! around them: expansion runs in rounds, the host recording the pages it did not have
+//! and the next round having them, and before rendering the links the text makes are
+//! extracted and their targets' existence, redirect flags and entity labels read in
+//! three queries.
+
+use std::cell::RefCell;
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
+
+use scatter_titles::Namespaces;
+use scatter_wikitext::html::url_encode_title;
+use scatter_wikitext::{Config, PageInfo, Rendered, Resolver, Title, parse_target};
+use scatter_wikitext_expand::{ExpandHost, Transcluded};
+use tokio_postgres::Client;
+
+use crate::api::Ctx;
+use crate::response::ApiError;
+
+/// How many rounds of expansion fetch the pages the previous round lacked.
+const EXPANSION_ROUNDS: usize = 8;
+
+/// A tenant's site settings that pages depend on.
+#[derive(Clone)]
+pub struct Site {
+    /// The wikitext configuration, with the site's name as Project's local name.
+    pub config: Arc<Config>,
+    /// `site.name`.
+    pub name: String,
+    /// `site.language`.
+    pub lang: String,
+}
+
+impl Site {
+    /// Loads the tenant's settings.
+    pub async fn load(ctx: &Ctx) -> Result<Self, ApiError> {
+        let (settings, _) =
+            triplespace_accounts::settings::load(ctx.db(), Some(&ctx.tenant.slug)).await?;
+        let name = settings
+            .value("site.name")
+            .and_then(|v| v.as_str().map(str::to_owned))
+            .unwrap_or_else(|| ctx.tenant.slug.clone());
+        let lang = settings
+            .value("site.language")
+            .and_then(|v| v.as_str().map(str::to_owned))
+            .unwrap_or_else(|| "en".into());
+        let mut names =
+            triplespace_projections::pages::TenantNames::load(ctx.db(), &ctx.tenant.slug)
+                .await
+                .map_err(ApiError::internal)?;
+        names.site_name = Some(name.clone());
+        Ok(Self {
+            config: names.config(),
+            name,
+            lang,
+        })
+    }
+
+    /// Whether a namespace holds pages on this tenant. Module and Module talk wait for
+    /// Lua (`wikitext.lua`, 0043), which is not built, so they hold none yet.
+    #[must_use]
+    pub fn holds_pages(&self, ns: i32) -> bool {
+        Namespaces::embedded()
+            .get(ns)
+            .is_some_and(|n| n.holds_pages(|_| false))
+    }
+
+    /// A title as `Project:Scope`, with the site's local names.
+    #[must_use]
+    pub fn prefixed(&self, ns: i32, title: &str) -> String {
+        Title::new(ns, title).prefixed(&self.config)
+    }
+}
+
+/// The wikitext configuration for a site name alone, without the tenant's namespace
+/// records: for tests.
+#[cfg(test)]
+fn config_for(site: &str) -> Arc<Config> {
+    triplespace_projections::pages::TenantNames {
+        site_name: Some(site.to_string()),
+        ..Default::default()
+    }
+    .config()
+}
+
+/// A document page's row.
+#[derive(Debug, Clone)]
+pub struct Page {
+    /// Its page ID.
+    pub page_id: u64,
+    /// Its namespace.
+    pub ns: i32,
+    /// Its title within the namespace.
+    pub title: String,
+    /// Its content model.
+    pub model: String,
+    /// The latest revision.
+    pub latest_revid: Option<u64>,
+    /// The latest record's offset, the base of an edit.
+    pub latest_offset: Option<u64>,
+    /// Bytes of the latest text.
+    pub len: i32,
+    /// When it last changed, µs since the epoch.
+    pub latest_at: Option<u64>,
+    /// Whether the latest text is a redirect.
+    pub is_redirect: bool,
+    /// How many revisions it has.
+    pub revisions: i32,
+}
+
+const PAGE_COLUMNS: &str = "page_id, ns, title, content_model, latest_revid, latest_offset,
+    COALESCE(len, 0), (EXTRACT(EPOCH FROM latest_at) * 1000000)::bigint, is_redirect, revisions";
+
+fn page_of(r: &tokio_postgres::Row) -> Page {
+    let u = |i: usize| {
+        r.get::<_, Option<i64>>(i)
+            .and_then(|v| u64::try_from(v).ok())
+    };
+    Page {
+        page_id: u64::try_from(r.get::<_, i64>(0)).unwrap_or(0),
+        ns: r.get(1),
+        title: r.get(2),
+        model: r.get(3),
+        latest_revid: u(4),
+        latest_offset: u(5),
+        len: r.get(6),
+        latest_at: u(7),
+        is_redirect: r.get(8),
+        revisions: r.get(9),
+    }
+}
+
+/// The page with a title, if one exists and is not deleted.
+pub async fn by_title(
+    db: &Client,
+    tenant: &str,
+    ns: i32,
+    title: &str,
+) -> Result<Option<Page>, ApiError> {
+    let row = db
+        .query_opt(
+            &format!(
+                "SELECT {PAGE_COLUMNS} FROM view.page
+                 WHERE tenant = $1 AND ns = $2 AND title = $3 AND NOT deleted AND latest_offset IS NOT NULL"
+            ),
+            &[&tenant, &ns, &title],
+        )
+        .await?;
+    Ok(row.as_ref().map(page_of))
+}
+
+/// The page with an ID.
+pub async fn by_id(db: &Client, tenant: &str, page_id: u64) -> Result<Option<Page>, ApiError> {
+    let row = db
+        .query_opt(
+            &format!(
+                "SELECT {PAGE_COLUMNS} FROM view.page
+                 WHERE tenant = $1 AND page_id = $2 AND NOT deleted AND latest_offset IS NOT NULL"
+            ),
+            &[&tenant, &i64::try_from(page_id).unwrap_or(i64::MAX)],
+        )
+        .await?;
+    Ok(row.as_ref().map(page_of))
+}
+
+/// The page a revision belongs to, and whether it is one of the page's revisions.
+pub async fn by_revid(db: &Client, tenant: &str, revid: u64) -> Result<Option<Page>, ApiError> {
+    let row = db
+        .query_opt(
+            "SELECT target_id FROM view.activity
+             WHERE tenant = $1 AND revid = $2 AND target_kind = 2",
+            &[&tenant, &i64::try_from(revid).unwrap_or(i64::MAX)],
+        )
+        .await?;
+    match row.and_then(|r| r.get::<_, Option<String>>(0)?.parse::<u64>().ok()) {
+        Some(id) => by_id(db, tenant, id).await,
+        None => Ok(None),
+    }
+}
+
+/// The text of a page after a revision; `None` when the revision's text is not stored
+/// (withheld or erased) or the revision is not the page's.
+pub async fn text_at(
+    db: &Client,
+    tenant: &str,
+    page_id: u64,
+    revid: u64,
+) -> Result<Option<String>, ApiError> {
+    let found = triplespace_projections::pages::text_at(db, tenant, revid)
+        .await
+        .map_err(ApiError::internal)?;
+    Ok(found
+        .filter(|(key, _)| *key == page_id.to_string())
+        .map(|(_, text)| text))
+}
+
+/// A page's latest text.
+pub async fn latest_text(
+    db: &Client,
+    tenant: &str,
+    page: &Page,
+) -> Result<Option<String>, ApiError> {
+    match page.latest_revid {
+        Some(r) => text_at(db, tenant, page.page_id, r).await,
+        None => Ok(None),
+    }
+}
+
+/// A title as the API names one, resolved for the page namespaces: `None` when it is not a
+/// valid title or names an entity namespace.
+#[must_use]
+pub fn resolve_title(site: &Site, title: &str) -> Option<Title> {
+    let t = parse_target(title, &site.config, &Title::new(0, ""))?.title;
+    if t.interwiki.is_some() || t.text.is_empty() {
+        return None;
+    }
+    let ns = Namespaces::embedded().get(t.namespace)?;
+    if ns.is_entity_namespace() {
+        return None;
+    }
+    Some(t.without_fragment())
+}
+
+/// Whether a title names an entity page rather than a document page: an entity ID, bare
+/// or prefixed with an entity namespace, and not a title in a page namespace with a
+/// prefix (`Project:Home` parses as a foreign ID too, but names the Project page).
+#[must_use]
+pub fn names_entity(site: &Site, title: &str) -> bool {
+    if resolve_title(site, title).is_some_and(|t| t.namespace != 0) {
+        return false;
+    }
+    crate::modules::entities::parse_id(title).is_ok()
+}
+
+// ---- rendering -----------------------------------------------------------------------
+
+/// The expansion host: Template pages' latest text, from what the previous rounds read.
+struct Host<'a> {
+    site: &'a Site,
+    known: HashMap<String, Option<String>>,
+    misses: RefCell<Vec<(i32, String)>>,
+}
+
+impl ExpandHost for Host<'_> {
+    fn transclude(&self, name: &str) -> Option<Transcluded> {
+        let page = Title::new(scatter_titles::TEMPLATE, "");
+        let t = if name.starts_with(':') {
+            parse_target(name, &self.site.config, &page)?
+        } else {
+            let t = parse_target(name, &self.site.config, &page)?;
+            if t.title.namespace == 0 {
+                parse_target(&format!("Template:{name}"), &self.site.config, &page)?
+            } else {
+                t
+            }
+        };
+        let title = t.title;
+        if title.interwiki.is_some() {
+            return None;
+        }
+        let key = title.prefixed(&self.site.config);
+        match self.known.get(&key) {
+            Some(Some(text)) => Some(Transcluded::Found(text.clone())),
+            Some(None) => Some(Transcluded::Missing(key)),
+            None => {
+                self.misses
+                    .borrow_mut()
+                    .push((title.namespace, title.text.clone()));
+                Some(Transcluded::Missing(key))
+            }
+        }
+    }
+}
+
+/// A page an expansion transcluded, or tried to.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Transclusion {
+    /// Its namespace.
+    pub ns: i32,
+    /// Its title within it.
+    pub title: String,
+    /// Whether it exists.
+    pub exists: bool,
+}
+
+/// Expands text for viewing the page that holds it, reading the pages it transcludes, and
+/// says which pages those were.
+pub async fn expand(
+    db: &Client,
+    tenant: &str,
+    site: &Site,
+    text: &str,
+) -> Result<(String, Vec<Transclusion>), ApiError> {
+    let mut host = Host {
+        site,
+        known: HashMap::new(),
+        misses: RefCell::new(Vec::new()),
+    };
+    let mut expanded = scatter_wikitext_expand::expand_for_view(text, &host);
+    let mut used: Vec<Transclusion> = Vec::new();
+    for _ in 0..EXPANSION_ROUNDS {
+        let misses: Vec<(i32, String)> = std::mem::take(&mut *host.misses.borrow_mut());
+        if misses.is_empty() {
+            break;
+        }
+        for (ns, title) in misses {
+            let key = site.prefixed(ns, &title);
+            if host.known.contains_key(&key) {
+                continue;
+            }
+            // A page of a namespace that holds no pages here transcludes as missing.
+            let text = if site.holds_pages(ns) || ns == scatter_titles::TEMPLATE {
+                match by_title(db, tenant, ns, &title).await? {
+                    Some(p) => latest_text(db, tenant, &p).await?,
+                    None => None,
+                }
+            } else {
+                None
+            };
+            used.push(Transclusion {
+                ns,
+                title,
+                exists: text.is_some(),
+            });
+            host.known.insert(key, text);
+        }
+        expanded = scatter_wikitext_expand::expand_for_view(text, &host);
+    }
+    Ok((expanded, used))
+}
+
+/// The resolver over what was read for one render.
+pub struct Links {
+    config: Arc<Config>,
+    base: String,
+    pages: HashMap<(i32, String), bool>,
+    entities: HashSet<String>,
+    labels: HashMap<String, String>,
+}
+
+impl Resolver for Links {
+    fn info(&self, t: &Title) -> PageInfo {
+        if t.namespace == -1 {
+            return PageInfo {
+                exists: true,
+                ..PageInfo::default()
+            };
+        }
+        let entity = Namespaces::embedded()
+            .get(t.namespace)
+            .is_some_and(scatter_titles::Namespace::is_entity_namespace);
+        if entity {
+            return PageInfo {
+                exists: self.entities.contains(&t.text),
+                redirect: false,
+                label: self.labels.get(&t.text).cloned(),
+            };
+        }
+        match self.pages.get(&(t.namespace, t.text.clone())) {
+            Some(redirect) => PageInfo {
+                exists: true,
+                redirect: *redirect,
+                label: None,
+            },
+            None => PageInfo::default(),
+        }
+    }
+    fn url(&self, t: &Title) -> String {
+        format!("{}/wiki/{}", self.base, url_encode_title(&self.prefixed(t)))
+    }
+    fn missing_url(&self, t: &Title) -> String {
+        format!(
+            "{}/w/index.php?title={}&action=edit&redlink=1",
+            self.base,
+            url_encode_title(&self.prefixed(t))
+        )
+    }
+}
+
+impl Links {
+    fn prefixed(&self, t: &Title) -> String {
+        t.prefixed(&self.config)
+    }
+
+    /// Reads what the links of a text need: their targets' existence, redirects and labels.
+    pub async fn read(
+        db: &Client,
+        tenant: &str,
+        site: &Site,
+        text: &str,
+        page: &Title,
+    ) -> Result<Self, ApiError> {
+        let ex = scatter_wikitext::extract(text, &site.config, page);
+        let namespaces = Namespaces::embedded();
+        let mut nss: Vec<i32> = Vec::new();
+        let mut titles: Vec<String> = Vec::new();
+        let mut ids: Vec<String> = Vec::new();
+        for t in ex
+            .links
+            .iter()
+            .map(|l| &l.target)
+            .chain(ex.redirect.as_ref())
+        {
+            if t.interwiki.is_some() {
+                continue;
+            }
+            if namespaces
+                .get(t.namespace)
+                .is_some_and(scatter_titles::Namespace::is_entity_namespace)
+            {
+                ids.push(t.text.clone());
+            } else {
+                nss.push(t.namespace);
+                titles.push(t.text.clone());
+            }
+        }
+        let mut pages = HashMap::new();
+        if !titles.is_empty() {
+            for r in db
+                .query(
+                    "SELECT p.ns, p.title, p.is_redirect FROM view.page p
+                     JOIN unnest($2::int[], $3::text[]) AS w(ns, title) ON p.ns = w.ns AND p.title = w.title
+                     WHERE p.tenant = $1 AND NOT p.deleted AND p.latest_offset IS NOT NULL",
+                    &[&tenant, &nss, &titles],
+                )
+                .await?
+            {
+                pages.insert((r.get::<_, i32>(0), r.get::<_, String>(1)), r.get::<_, bool>(2));
+            }
+        }
+        let mut entities = HashSet::new();
+        let mut labels = HashMap::new();
+        if !ids.is_empty() {
+            for r in db
+                .query(
+                    "SELECT id FROM view.entity WHERE tenant IN ($1, '') AND id = ANY($2) AND NOT deleted",
+                    &[&tenant, &ids],
+                )
+                .await?
+            {
+                entities.insert(r.get::<_, String>(0));
+            }
+            for r in db
+                .query(
+                    "SELECT entity_id, text FROM view.term
+                     WHERE tenant IN ($1, '') AND entity_id = ANY($2) AND kind = 1 AND lang = $3
+                     ORDER BY (tenant = $1)",
+                    &[&tenant, &ids, &site.lang],
+                )
+                .await?
+            {
+                let id: String = r.get(0);
+                let label: String = r.get(1);
+                // Wikibase writes an entity link without its own text as `label (ID)`.
+                labels.insert(id.clone(), format!("{label} ({id})"));
+            }
+        }
+        Ok(Self {
+            config: site.config.clone(),
+            base: String::new(),
+            pages,
+            entities,
+            labels,
+        })
+    }
+}
+
+/// A render, with what was read to make it.
+pub struct Render {
+    /// The rendered page.
+    pub rendered: Rendered,
+    /// The pages expansion transcluded.
+    pub transcluded: Vec<Transclusion>,
+    /// The resolver the links were rendered with.
+    pub links: Links,
+}
+
+/// Expands and renders a page's text.
+pub async fn render(
+    db: &Client,
+    tenant: &str,
+    site: &Site,
+    text: &str,
+    page: &Title,
+) -> Result<Render, ApiError> {
+    let (text, transcluded) = expand(db, tenant, site, text).await?;
+    let links = Links::read(db, tenant, site, &text, page).await?;
+    let rendered = scatter_wikitext::render(&text, &site.config, &links, page);
+    Ok(Render {
+        rendered,
+        transcluded,
+        links,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn site() -> Site {
+        Site {
+            config: config_for("Librarybase"),
+            name: "Librarybase".into(),
+            lang: "en".into(),
+        }
+    }
+
+    #[test]
+    fn titles_resolve_into_page_namespaces() {
+        let s = site();
+        assert_eq!(
+            resolve_title(&s, "project:scope"),
+            Some(Title::new(4, "Scope"))
+        );
+        assert_eq!(
+            resolve_title(&s, "Librarybase:Scope"),
+            Some(Title::new(4, "Scope"))
+        );
+        assert_eq!(
+            resolve_title(&s, "User_talk:Harej#x"),
+            Some(Title::new(3, "Harej"))
+        );
+        assert_eq!(resolve_title(&s, "Item:Q5"), None);
+        assert_eq!(resolve_title(&s, "a|b"), None);
+        assert_eq!(s.prefixed(4, "Scope"), "Librarybase:Scope");
+        assert!(s.holds_pages(10), "Template holds pages");
+        assert!(s.holds_pages(4));
+        assert!(!s.holds_pages(828), "Module waits for Lua");
+    }
+}

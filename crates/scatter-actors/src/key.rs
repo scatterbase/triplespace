@@ -3,7 +3,8 @@
 //! An actor key is an identifier and never a name (0006 §3): `wikidatawiki:12345`,
 //! `local:42`, `instance:scatter`. It is what log headers, attestations and memberships
 //! carry. `local` reads as the current tenant's issuer (0018 §4); a key is written with the
-//! tenant's slug wherever it leaves the tenant.
+//! tenant's issuer code, derived from its founding record (0079 §1), wherever it leaves the
+//! tenant.
 
 use std::fmt;
 
@@ -101,25 +102,25 @@ impl ActorKey {
         self.issuer == ACTOR
     }
 
-    /// `instance:{farm slug}`: the instance as operator (0040 §2).
+    /// `instance:{farm code}`: the instance as operator (0040 §2; 0079 §4).
     #[must_use]
-    pub fn instance(farm_slug: &str) -> Self {
+    pub fn instance(farm_code: &str) -> Self {
         Self {
             issuer: INSTANCE.to_string(),
-            subject: farm_slug.to_string(),
+            subject: farm_code.to_string(),
         }
     }
 
     /// Checks the issuer is registered, or is `local` or `actor`, or is one of
-    /// `tenant_slugs`, and that a numeric issuer's subject is a number.
+    /// `tenant_codes`, and that a numeric issuer's subject is a number.
     pub fn validate(
         &self,
         registry: &IssuerRegistry,
-        tenant_slugs: &[&str],
+        tenant_codes: &[&str],
     ) -> Result<(), ActorKeyError> {
         let model = if self.issuer == LOCAL
             || self.issuer == ACTOR
-            || tenant_slugs.contains(&self.issuer.as_str())
+            || tenant_codes.contains(&self.issuer.as_str())
         {
             ActorModel::Numeric
         } else {
@@ -167,13 +168,13 @@ impl ActorKey {
         self.issuer == INSTANCE
     }
 
-    /// The key as it is written outside the tenant: `local` replaced by the tenant's slug
-    /// (0018 §4). Any other key is returned as is.
+    /// The key as it is written outside the tenant: `local` replaced by the tenant's
+    /// issuer code (0018 §4; 0079 §1). Any other key is returned as is.
     #[must_use]
-    pub fn qualified(&self, tenant_slug: &str) -> Self {
+    pub fn qualified(&self, tenant_code: &str) -> Self {
         if self.is_local() {
             Self {
-                issuer: tenant_slug.to_string(),
+                issuer: tenant_code.to_string(),
                 subject: self.subject.clone(),
             }
         } else {
@@ -181,10 +182,10 @@ impl ActorKey {
         }
     }
 
-    /// The key as the tenant reads it: its own slug replaced by `local`.
+    /// The key as the tenant reads it: its own issuer code replaced by `local`.
     #[must_use]
-    pub fn relative_to(&self, tenant_slug: &str) -> Self {
-        if self.issuer == tenant_slug {
+    pub fn relative_to(&self, tenant_code: &str) -> Self {
+        if self.issuer == tenant_code {
             Self {
                 issuer: LOCAL.to_string(),
                 subject: self.subject.clone(),

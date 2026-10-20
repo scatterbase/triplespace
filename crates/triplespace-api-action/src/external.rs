@@ -512,7 +512,7 @@ async fn vouch(
         return Ok(Vouched::NoUser);
     };
     let tenant = scope.tenant.slug.as_str();
-    let actor_key = format!("{tenant}:{n}");
+    let actor_key = format!("{}:{n}", scope.tenant.issuer);
     let exists = scope
         .db
         .query_opt(

@@ -1,0 +1,63 @@
+<div class="mw-parser-output"><h2><span class="mw-headline" id="API">API</span></h2>
+<p><a rel="nofollow" class="external free" href="https://dashboards.pubpeer.com/docs/api#/operations/partner">https://dashboards.pubpeer.com/docs/api#/operations/partner</a>
+</p><p>Relevant parameters:
+</p>
+<ul><li><code>page</code>: start with <code>1</code> then iterate based on whether there are more results</li>
+<li><code>per_page</code>: set at maximum value <code>300</code></li>
+<li><code>sort</code>:</li>
+<li><s><code>published_at</code></s>: concerns when the document was <i>published</i>; I only care about <i>comments</i></li></ul>
+<h2><span class="mw-headline" id="Resources">Resources</span></h2>
+<ul><li>Wikimedia Cloud Services
+<ul><li>Toolforge: project "pubpeer"</li>
+<li>Cloud VPS: project "wikicite", VM wikicite-refsdb-proc-1, Trove DB instance</li></ul></li></ul>
+<h2><span class="mw-headline" id="Process">Process</span></h2>
+<ul><li>Initial seed:
+<ul><li>Build pageset
+<ul><li>Pull usages of identifiers from Wikimedia Cloud DB Replicas</li>
+<li>Create database table (wikipedia):
+<ul><li>id (incrementing key)</li>
+<li>language_code</li>
+<li>mw_page_id</li>
+<li>mw_page_title (probably should have a process to refresh this before the full process runs)</li></ul></li></ul></li>
+<li>API query: <code>2006-01-01..2025-12-31</code>
+<ul><li>To prevent overloading the script, I'll probably end up going one month at a time, 2006-01-01..2006-01-31</li></ul></li>
+<li>Iterate through as many pages as needed to get to the end</li>
+<li>Build internal database (pubpeer_articles table):
+<ul><li>id_pubpeer (key)</li>
+<li>id_doi (update on conflict)</li>
+<li>id_pubmed (update on conflict)</li>
+<li>id_arxiv (update on conflict)</li></ul></li>
+<li>Build minimal citations database (citations table):
+<ul><li>id_pubpeer (key to pubpeer_articles table)</li>
+<li>id_wiki_page (key to wikipedia table)</li>
+<li>cited_id_type (integer)
+<ul><li>0 = unknown/other</li>
+<li>1 = doi</li>
+<li>2 = pubmed</li>
+<li>3 = arxiv</li>
+<li>Why not use enum? It's easier to add a new value Python-side than it is to carry out a database schema migration</li></ul></li>
+<li>cited_id_value (string)</li>
+<li>time_last_updated_table (<code>null</code> when created)</li>
+<li>time_last_talk_page_post (<code>null</code> when created)</li>
+<li>time_most_recent_comment (on conflict, update if submitted &gt; stored)</li></ul></li>
+<li>Post initial report to wiki as a table</li>
+<li>Post initial notification that the report is posted</li></ul></li>
+<li>Subsequent builds:
+<ul><li>Get most recent <code>time_most_recent_comment</code> from database</li>
+<li>API query: <code>that date...present day</code></li>
+<li>Iterate through as many result pages as needed (probably only one page)</li>
+<li>Submit into database, which should transparently handle conflicts</li>
+<li>Build new wiki table based on citations database table
+<ul><li>Check database for
+<ul><li>null time_last_updated_table</li>
+<li>time_most_recent_comment &gt; time_last_updated_table</li></ul></li></ul></li>
+<li>Come up with alerts describing changes to table.
+<ul><li>Retire old notifications to a subpage</li></ul></li></ul></li>
+<li>If/when talk page notifications are approved:
+<ul><li>Check database for
+<ul><li>null time_last_talk_page_post</li>
+<li>time_most_recent_comment &gt; time_last_talk_page_post</li></ul></li>
+<li>Queue up talk pages to notify</li>
+<li>Check presence for message already on talk page.
+<ul><li>No message comment: add post to talk page</li>
+<li>Presence of message comment: skip over talk page</li></ul></li></ul></li></ul></div>

@@ -1,0 +1,58 @@
+<div style="padding:20px; border-radius:16px; text-align: center; background: linear-gradient(145deg, #e02828, #f47730, #97728b, #df266f); color: white">
+<div style="font-size:250%;">Scatter '''Analytics'''</div>
+<span style="font-size:125%;">A collection of projects and services to improve the resiliency of the information ecosystem.</span>
+</div>
+
+==Goals==
+* Analytics = Metrics + Direction
+* Metrics ''with constructive feedback'' for improving wikis and online information
+* Know what is cited in Wikipedia and where
+* Build a chain of provenance from Wikipedia to Wikipedia's sources to the sources' sources
+* Understand the relative, contextual reliability of sources
+
+==Adding projects to this list==
+Your project does not need to be developed by Scatter LLC to be on this list if it is open source and furthers the above stated goals. The goals of this project require extensive collaboration.
+
+==Visualization and lookup==
+* Pending
+** [[Project:Analytics/World News|WikiProject World News]]
+** [[Project:Analytics/IABot|InternetArchiveBot3 Frontend]]
+** [[Project:Analytics/Graph Completeness|Graph Completeness Report]]
+** [[Project:Analytics/Wikidata Microcontributions|Replacement for Wikidata Game and Mix n Match]]
+** [[Project:Analytics/Source Recommendation|Source Recommendation Tool]]
+* Active Development
+** [[Project:Analytics/Citation Watchlist|Citation Watchlist]]
+** [[Project:Analytics/Orb|Orb Open Graph (Blazegraph endpoint)]]
+** [[Project:Analytics/IARE|Internet Archive Reference Explorer]]
+* Inactive
+** [[Project:Analytics/Workspaces|Workspaces]]
+*** [[Project:Analytics/NIOSH|WikiProject Occupational Safety and Health / NIOSH]]
+*** [[Project:Analytics/VSAFE|Vaccine Safety]]
+** [[Project:Analytics/Orb|Orb Open Graph queued queries]]
+
+==Data processes==
+* Pending
+** [[Project:Analytics/WikiApiary|WikiApiary Reboot]]
+* Active Development
+** [[Project:Analytics/WCD|Wikipedia Citations Database]]
+** [[Project:Analytics/IABot|InternetArchiveBot]]
+** [[Project:Analytics/PubPeer|PubPeer Alerts]]
+* Inactive
+** [[Project:Analytics/Pageset|Pageset]]
+** [[Project:Analytics/NIOSH|niosh-analytics]]
+** [[Project:Analytics/VSAFE|vsafe-data]]
+** [[Project:Analytics/Wikibase Patcher|Wikibase Patcher]]
+** [[Project:Analytics/Reports bot|Reports bot]]
+
+==Data curation==
+* Platform: [[Project:PopupStack|PopupStack]]
+* [[Project:Analytics/Wikibases|Cool Wikibase Network]]
+
+==Teams==
+* [https://wikidata.org/wiki/WD:CRAP WikiProject Source Reliability]
+* Internet Archive's Turn All References Blue
+* Wikimedia CH
+* Hacks/Hackers
+
+==Adjacent Initiatives==
+* [https://meta.wikimedia.org/wiki/WikiCite WikiCite]

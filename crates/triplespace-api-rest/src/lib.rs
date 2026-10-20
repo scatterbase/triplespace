@@ -29,6 +29,9 @@
 //!   `GET /account` ([`auth`]): login through external issuers, the site's door, and the
 //!   holder's sign-in methods (0088 §5–§7).
 //!
+//! - `GET /tenancy` ([`tenancy`]): at the farm base, the farm, the primary tenant, the
+//!   tenancy policy and the tenant list (0028 §11; 0046 §9; 0079 §7).
+//!
 //! Every route runs behind the Action API's request layers ([`triplespace_api_action`]):
 //! the tenant the host names (421 otherwise), the caller, the redaction of 0012 §8, and
 //! the HTTP caching of 0014 §6 ([`triplespace_api_action::http_cache`]). Errors are JSON
@@ -45,6 +48,7 @@ mod entity_route;
 pub mod history;
 pub mod provenance;
 pub mod settings;
+pub mod tenancy;
 pub mod version;
 
 use axum::Router;
@@ -74,6 +78,7 @@ pub const PATHS: &[&str] = &[
     "/auth/{issuer}/callback",
     "/auth/pending",
     "/account",
+    "/tenancy",
 ];
 
 /// The REST routes, to be merged into the server's router.
@@ -110,7 +115,8 @@ pub fn routes() -> Router<App> {
             .route(&format!("{base}{}", PATHS[14]), post(auth::start))
             .route(&format!("{base}{}", PATHS[15]), get(auth::callback))
             .route(&format!("{base}{}", PATHS[16]), get(auth::pending))
-            .route(&format!("{base}{}", PATHS[17]), get(auth::account));
+            .route(&format!("{base}{}", PATHS[17]), get(auth::account))
+            .route(&format!("{base}{}", PATHS[18]), get(tenancy::handle));
     }
     r
 }

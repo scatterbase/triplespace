@@ -56,8 +56,10 @@ fn app(database: &str, trusted: &[&str]) -> Result<App, String> {
             dev_tenant: None,
             farm: Farm {
                 slug: "farm".into(),
+                code: "aaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
                 base: "https://farm.example".into(),
             },
+            auth_base: None,
             generator: "Triplespace test".into(),
             version: None,
         },

@@ -102,6 +102,7 @@ fn skipped() -> bool {
 fn farm() -> Farm {
     Farm {
         slug: "scatter".into(),
+        code: "scatter".into(),
         base: "https://scatter.example".into(),
     }
 }
@@ -146,6 +147,7 @@ async fn seed(client: Client) -> Client {
         key: KeyEntry::ed25519(key.verifying_key().to_bytes()),
         segment_exponent: 16,
         appended_at: 1,
+        founding: Value::map(Vec::new()),
         attestation: Value::map(vec![(
             Value::text("actor"),
             Value::text("instance:scatter"),
@@ -165,6 +167,7 @@ async fn seed(client: Client) -> Client {
                     (Value::text("kind"), Value::text("tenant")),
                     (Value::text("slug"), Value::text(TENANT)),
                     (Value::text("base"), Value::text("https://librarybase.org")),
+                    (Value::text("issuer"), Value::text(TENANT)),
                 ]),
             ),
         )

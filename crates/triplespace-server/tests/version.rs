@@ -16,11 +16,10 @@ use triplespace_accounts::Secret;
 use triplespace_api_action::{App, Config as ServerConfig, Mode, router_with};
 use triplespace_cli::instance;
 use triplespace_client::{Client, ServiceTransport};
-use triplespace_projections::Farm;
 
 const DB: &str = "tsversion_test";
 const HOST: &str = "librarybase.org";
-const TENANT: &str = "librarybase";
+const TENANT: &str = "lbwiki";
 
 fn admin_config() -> Option<Config> {
     let url = std::env::var("TRIPLESPACE_TEST_DATABASE_URL").ok()?;
@@ -65,10 +64,7 @@ async fn get(router: &Router, path: &str) -> (StatusCode, axum::http::HeaderMap,
 
 /// Sets a tenant `site` setting, as `ts-config` writes one.
 async fn set(database: &str, key: &str, value: Value) {
-    let farm = Farm {
-        slug: TENANT.into(),
-        base: format!("https://{HOST}"),
-    };
+    let farm = triplespace_cli::common::farm_at(database).await.unwrap();
     let (store, pipeline) = triplespace_cli::common::store(database, &farm).unwrap();
     let mut cx = scatter_projection::Backend::begin(&store).await.unwrap();
     let config = scatter_ingest::store::IngestStore::partition(&store, &mut cx, TENANT, "config")
@@ -79,7 +75,12 @@ async fn set(database: &str, key: &str, value: Value) {
         scatter_log::registry::PAYLOAD_CONFIG,
         &format!("site:{key}"),
         &json!({"kind": "site", "name": key, "value": value}),
-        "librarybase:7",
+        &format!(
+            "{}:7",
+            triplespace_cli::common::issuer_at(database, TENANT)
+                .await
+                .unwrap()
+        ),
         None,
         triplespace_cli::common::now(),
     )
@@ -115,7 +116,8 @@ async fn special_version_and_its_api() {
         tenant: TENANT.into(),
         base: format!("https://{HOST}"),
         name: None,
-        farm_slug: None,
+        farm_slug: "testfarm".into(),
+        tenancy: "isolated".into(),
         farm_base: None,
         providers: vec!["internetdomains".into()],
         adopt: None,
@@ -133,10 +135,8 @@ async fn special_version_and_its_api() {
             mode: Mode::Production,
             trusted_proxies: vec![],
             dev_tenant: None,
-            farm: Farm {
-                slug: TENANT.into(),
-                base: format!("https://{HOST}"),
-            },
+            farm: triplespace_cli::common::farm_at(&database).await.unwrap(),
+            auth_base: None,
             generator: "Triplespace test".into(),
             version: Some(include_str!(concat!(env!("OUT_DIR"), "/version.json"))),
         },
@@ -176,9 +176,14 @@ async fn special_version_and_its_api() {
         v["features"]["tenant"].is_array() && v["features"]["instance"].is_array(),
         "one host for both forms"
     );
+    // Expansion is part of wikitext (0042 A19): the list needs no setting.
     assert!(
-        v["wikitext"].as_array().unwrap().is_empty(),
-        "expansion is off"
+        v["wikitext"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|w| w["name"] == "#if" && w["active"] == true),
+        "{body}"
     );
     assert_eq!(v["inspired_by"][0]["name"], "MediaWiki");
     assert!(
@@ -190,15 +195,15 @@ async fn special_version_and_its_api() {
     );
     assert!(!body.contains("\"adr\""), "the page names no ADRs");
 
-    // A tenant setting shows, and turns the wikitext list on.
-    set(&database, "wikitext.expansion", json!("on")).await;
+    // A tenant setting shows, and turns its wikitext entries on.
+    set(&database, "wikitext.lua", json!("on")).await;
     let (_, _, body) = get(&api, "/w/rest.php/triplespace/v0/version").await;
     let v: Value = serde_json::from_str(&body).unwrap();
     let exp = v["features"]["tenant"]
         .as_array()
         .unwrap()
         .iter()
-        .find(|f| f["key"] == "wikitext.expansion")
+        .find(|f| f["key"] == "wikitext.lua")
         .unwrap()
         .clone();
     assert_eq!(

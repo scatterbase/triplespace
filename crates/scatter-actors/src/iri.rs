@@ -2,7 +2,7 @@
 //!
 //! | Actor | IRI |
 //! |---|---|
-//! | Tenant account (`local:{id}`, or the tenant's slug) | `{tenant base}/user/{id}` |
+//! | Tenant account (`local:{id}`, or the tenant's issuer code) | `{tenant base}/user/{id}` |
 //! | Farm account | `{farm base}/instance/user/{id}` |
 //! | The instance as operator | `{farm base}/instance/operator` |
 //! | User of a registered issuer with a template | The template with `{id}` filled in |
@@ -20,12 +20,12 @@ use crate::key::ActorKey;
 /// The bases IRIs are minted under.
 #[derive(Debug, Clone, Copy)]
 pub struct IriContext<'a> {
-    /// The tenant's slug, which is its issuer code.
-    pub tenant_slug: &'a str,
+    /// The tenant's issuer code, derived from its founding record (0079 §1).
+    pub tenant_code: &'a str,
     /// The tenant's base, `https://librarybase.org`.
     pub tenant_base: &'a str,
-    /// The farm's slug, the instance's own.
-    pub farm_slug: &'a str,
+    /// The farm code, the farm issuer's (0079 §4).
+    pub farm_code: &'a str,
     /// The farm base (0046 §6), which may equal a tenant's base.
     pub farm_base: &'a str,
 }
@@ -58,13 +58,13 @@ pub fn actor_iri(
     registry: &IssuerRegistry,
     ctx: IriContext<'_>,
 ) -> Result<NamedNode, IriError> {
-    let iri = if key.issuer() == LOCAL || key.issuer() == ctx.tenant_slug {
+    let iri = if key.issuer() == LOCAL || key.issuer() == ctx.tenant_code {
         format!("{}/user/{}", base(ctx.tenant_base), key.subject())
     } else if key.issuer() == ACTOR {
         format!("{}/actor/{}", base(ctx.tenant_base), key.subject())
     } else if key.issuer() == INSTANCE {
         format!("{}/instance/operator", base(ctx.farm_base))
-    } else if key.issuer() == ctx.farm_slug {
+    } else if key.issuer() == ctx.farm_code {
         format!("{}/instance/user/{}", base(ctx.farm_base), key.subject())
     } else {
         let issuer = registry
@@ -97,9 +97,9 @@ mod tests {
     use super::*;
 
     const CTX: IriContext<'static> = IriContext {
-        tenant_slug: "librarybase",
+        tenant_code: "librarybase",
         tenant_base: "https://librarybase.org/",
-        farm_slug: "scatter",
+        farm_code: "scatter",
         farm_base: "https://scatter.red",
     };
 

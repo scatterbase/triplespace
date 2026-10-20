@@ -1,0 +1,131 @@
+{
+ "categories": [],
+ "displaytitle": "<span class=\"mw-page-title-namespace\">Project</span><span class=\"mw-page-title-separator\">:</span><span class=\"mw-page-title-main\">Principles</span>",
+ "externallinks": [],
+ "images": [],
+ "iwlinks": [],
+ "langlinks": [],
+ "links": [
+  {
+   "exists": true,
+   "ns": 2,
+   "title": "User:Harej"
+  },
+  {
+   "exists": true,
+   "ns": 4,
+   "title": "Project:Consensus"
+  },
+  {
+   "exists": true,
+   "ns": 4,
+   "title": "Project:Operator"
+  },
+  {
+   "exists": true,
+   "ns": 4,
+   "title": "Project:Scope"
+  }
+ ],
+ "pageid": 4,
+ "parsewarnings": [],
+ "properties": {
+  "unexpectedUnconnectedPage": -4
+ },
+ "revid": 1021,
+ "sections": [
+  {
+   "anchor": "Librarybase_is_a_staging_ground",
+   "byteoffset": 449,
+   "fromtitle": "Project:Principles",
+   "index": "1",
+   "level": "2",
+   "line": "Librarybase is a staging ground",
+   "number": "1",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Librarybase_improves_on_existing_data",
+   "byteoffset": 713,
+   "fromtitle": "Project:Principles",
+   "index": "2",
+   "level": "2",
+   "line": "Librarybase improves on existing data",
+   "number": "2",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Librarybase_connects_databases_together",
+   "byteoffset": 1146,
+   "fromtitle": "Project:Principles",
+   "index": "3",
+   "level": "2",
+   "line": "Librarybase connects databases together",
+   "number": "3",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Librarybase_allows_expressive_metadata_for_non-conventional_publications",
+   "byteoffset": 1462,
+   "fromtitle": "Project:Principles",
+   "index": "4",
+   "level": "2",
+   "line": "Librarybase allows expressive metadata for non-conventional publications",
+   "number": "4",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Librarybase_does_not_replace_Wikidata",
+   "byteoffset": 1871,
+   "fromtitle": "Project:Principles",
+   "index": "5",
+   "level": "2",
+   "line": "Librarybase does not replace Wikidata",
+   "number": "5",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Librarybase_has_a_scope_that_should_be_interpreted_broadly",
+   "byteoffset": 2600,
+   "fromtitle": "Project:Principles",
+   "index": "6",
+   "level": "2",
+   "line": "Librarybase has a scope that should be interpreted broadly",
+   "number": "6",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Librarybase_is_built_by_and_for_the_community",
+   "byteoffset": 3453,
+   "fromtitle": "Project:Principles",
+   "index": "7",
+   "level": "2",
+   "line": "Librarybase is built by and for the community",
+   "number": "7",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Librarybase_should_be_governed_by_clear_processes_accessible_to_all_users",
+   "byteoffset": 3970,
+   "fromtitle": "Project:Principles",
+   "index": "8",
+   "level": "2",
+   "line": "Librarybase should be governed by clear processes accessible to all users",
+   "number": "8",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Librarybase_should_use_effort_efficiently",
+   "byteoffset": 4523,
+   "fromtitle": "Project:Principles",
+   "index": "9",
+   "level": "2",
+   "line": "Librarybase should use effort efficiently",
+   "number": "9",
+   "toclevel": 1
+  }
+ ],
+ "showtoc": true,
+ "templates": [],
+ "title": "Project:Principles"
+}

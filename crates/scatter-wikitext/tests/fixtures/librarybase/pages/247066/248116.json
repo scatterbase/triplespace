@@ -1,0 +1,52 @@
+{
+ "categories": [],
+ "displaytitle": "<span class=\"mw-page-title-namespace\">Project</span><span class=\"mw-page-title-separator\">:</span><span class=\"mw-page-title-main\">Analytics/Wikibases</span>",
+ "externallinks": [
+  "https://internetdomains.wiki",
+  "https://wikibase.world",
+  "https://communities.miraheze.org",
+  "https://domains.wikibase.cloud/wiki/MediaWiki:Sitenotice",
+  "https://phabricator.wikimedia.org/T414893"
+ ],
+ "images": [],
+ "iwlinks": [],
+ "langlinks": [],
+ "links": [
+  {
+   "exists": true,
+   "ns": 10,
+   "title": "Template:Cwbn"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q246948"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q246951"
+  }
+ ],
+ "pageid": 247066,
+ "parsewarnings": [],
+ "properties": {
+  "unexpectedUnconnectedPage": -4
+ },
+ "revid": 248116,
+ "sections": [
+  {
+   "anchor": "2026-01-16_Migration_away_from_Wikibase.Cloud",
+   "byteoffset": 763,
+   "fromtitle": "Project:Analytics/Wikibases",
+   "index": "1",
+   "level": "2",
+   "line": "2026-01-16 Migration away from Wikibase.Cloud",
+   "number": "1",
+   "toclevel": 1
+  }
+ ],
+ "showtoc": false,
+ "templates": [],
+ "title": "Project:Analytics/Wikibases"
+}

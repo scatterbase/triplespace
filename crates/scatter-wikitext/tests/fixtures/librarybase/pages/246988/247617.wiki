@@ -1,0 +1,62 @@
+'''InternetArchiveBot''' has been operated by the Internet Archive since 2015, based on the earlier Cyberpower II. James Hare has been supporting the InternetArchiveBot effort since February 2020.
+
+== Generations ==
+
+* InternetArchiveBot 1: ?
+* InternetArchiveBot 2: The current version, flexibly supports many different kinds of wikis
+** Cycles through each wiki in alphabetical order
+** Supports all manner of wiki templates (or lack thereof)
+* InternetArchiveBot 3: The future
+** Event-centric workflow: link found dead, usage throughout wikis searched, replaced
+
+== Tracking deployments ==
+Goal: move out of Airtable. Track deployment information in Librarybase.
+
+Needed data fields:
+
+* Wiki database code
+* Wiki full name
+* Status
+** Defined in Management Interface
+** Deployment Candidate
+** Pending Approval Request
+** Seeking Bot Approval
+** Stalled Request
+** Issues
+** Stalled Test
+** Test Operation
+** Ongoing Operation
+** Shelved
+* Wiki host (like Wikibase World has)
+** Wikimedia
+** Miraheze
+** Weird Gloop
+** independent wiki
+* Wiki family
+** Wikipedia
+** Wiktionary
+** Wikisource
+** Wikinews
+** Wikiquote
+** Wikiversity
+** Wikivoyage
+** Wikibooks
+* URL
+* InternetArchiveBot approval status
+** Local approval for fixing links
+** Local approval for linking to books
+** Global approval for fixing links
+* InternetArchiveBot approval request link
+* Some way to document whether a wiki allows global bots or not
+
+== Deployments ==
+
+* Wikimedia
+** Ongoing
+* Miraheze
+** On a handful of wikis, broken on a few wikis due to those wikis changing domain names
+** OAuth grants are broken as well
+** '''Idea:''' account creator script that uses a limited-scope bot password to log in as InternetArchiveBot and force local account creation for a specified wiki
+* Weird Gloop
+** Only four wikis
+** The reason we're not deployed there is because they want to be able to have dry runs that show the edits without actually making them

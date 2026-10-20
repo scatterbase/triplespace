@@ -8,7 +8,6 @@
 
 use anyhow::{Context, Result};
 use clap::{Args, Subcommand};
-use scatter_actors::key::ActorKey;
 use scatter_ingest::write::append_projected;
 use scatter_log::header::CONFIG_PARTITION;
 use scatter_log::registry::{PAYLOAD_CONFIG, config_key};
@@ -34,12 +33,6 @@ pub struct Target {
     /// The Postgres URL.
     #[arg(long, env = "TRIPLESPACE_DATABASE_URL")]
     pub database: String,
-    /// The farm slug, for the instance actor; the first tenant's by default.
-    #[arg(long)]
-    pub farm_slug: Option<String>,
-    /// The farm base.
-    #[arg(long)]
-    pub farm_base: Option<String>,
 }
 
 /// `forwarder create`.
@@ -82,13 +75,8 @@ async fn open(
     String,
 )> {
     let client = connect(&target.database).await?;
-    let farm = farm_of(
-        &client,
-        target.farm_slug.as_deref(),
-        target.farm_base.as_deref(),
-    )
-    .await?;
-    let actor = ActorKey::instance(&farm.slug).to_string();
+    let farm = farm_of(&client).await?;
+    let actor = farm.operator().to_string();
     let (store, pipeline) = store(&target.database, &farm)?;
     Ok((store, pipeline, actor))
 }

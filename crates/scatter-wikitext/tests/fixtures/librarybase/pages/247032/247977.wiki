@@ -1,0 +1,65 @@
+==API==
+https://dashboards.pubpeer.com/docs/api#/operations/partner
+
+Relevant parameters:
+* <code>page</code>: start with <code>1</code> then iterate based on whether there are more results
+* <code>per_page</code>: set at maximum value <code>300</code>
+* <code>sort</code>: 
+* <s><code>published_at</code></s>: concerns when the document was ''published''; I only care about ''comments''
+
+==Resources==
+* Wikimedia Cloud Services
+** Toolforge: project "pubpeer"
+** Cloud VPS: project "wikicite", Trove DB instance
+
+==Process==
+* Initial seed:
+** Build pageset
+*** Pull usages of identifiers from Wikimedia Cloud DB Replicas
+*** Create database table (wikipedia):
+**** id (incrementing key)
+**** language_code
+**** mw_page_id
+**** mw_page_title (probably should have a process to refresh this before the full process runs)
+** API query: <code>2006-01-01..2025-12-31</code>
+*** To prevent overloading the script, I'll probably end up going one month at a time, 2006-01-01..2006-01-31
+** Iterate through as many pages as needed to get to the end
+** Build internal database (pubpeer_articles table):
+*** id_pubpeer (key)
+*** id_doi (update on conflict)
+*** id_pubmed (update on conflict)
+*** id_arxiv (update on conflict)
+**Build minimal citations database (citations table):
+***id_pubpeer (key to pubpeer_articles table)
+***id_wiki_page (key to wikipedia table)
+***cited_id_type (integer)
+****0 = unknown/other
+****1 = doi
+****2 = pubmed
+****3 = arxiv
+****Why not use enum? It's easier to add a new value Python-side than it is to carry out a database schema migration
+***cited_id_value (string)
+***time_last_updated_table (<code>null</code> when created)
+***time_last_talk_page_post (<code>null</code> when created)
+*** time_most_recent_comment (on conflict, update if submitted > stored)
+**Post initial report to wiki as a table
+**Post initial notification that the report is posted
+* Subsequent builds:
+** Get most recent <code>time_most_recent_comment</code> from database
+** API query: <code>that date...present day</code>
+** Iterate through as many result pages as needed (probably only one page)
+** Submit into database, which should transparently handle conflicts
+** Build new wiki table based on citations database table
+*** Check database for
+****null time_last_updated_table
+****time_most_recent_comment > time_last_updated_table
+** Come up with alerts describing changes to table.
+*** Retire old notifications to a subpage
+*If/when talk page notifications are approved:
+**Check database for
+***null time_last_talk_page_post
+***time_most_recent_comment > time_last_talk_page_post
+**Queue up talk pages to notify
+**Check presence for message already on talk page.
+***No message comment: add post to talk page
+***Presence of message comment: skip over talk page

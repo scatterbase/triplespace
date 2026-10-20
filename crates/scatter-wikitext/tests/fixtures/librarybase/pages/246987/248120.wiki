@@ -1,0 +1,27 @@
+== Introduction ==
+'''Wikipedia Citations Database''' is an effort supported by Internet Archive to build a comprehensive, historical database of each citation to appear on Wikipedia.
+
+While methodologies of similar projects have focused on extracting standardized identifiers or easy-to-extract references, this project instead seeks to build a ''complete'' database, based on analyzing the structure.
+
+== Generations ==
+
+* WCD Generation 1: Wikibase instance on Wikibase Cloud. Importing data was painfully slow, and it was decided Wikibase was not a good format for the data we were trying to store. The dataset produced is lost and was not very interesting or useful.
+* WCD Generation 2: [https://github.com/internetarchive/iari IARI]; Postgres-based, but was extremely difficult to work with. Parts of it are used to support the Internet Archive Reference Explorer.
+* WCD Generation 3: The latest attempt, using [https://github.com/internetarchive/wiki-references-extractor wiki-references-extractor] and [https://github.com/internetarchive/wiki-references-db wiki-references-db] (WRDB). WRDB is a core component of the broader WCD project.
+** Version 1: https://wikipediacitations.scatter.red
+*** Partial build of English Wikipedia
+*** Has issues dealing with broken wikitext
+** Version 2: 
+*** Rather than build an entire database upfront, have it be possible to analyze a '''page URL''' at a '''point in time'''. This will allow us to prove the extraction mechanisms are working without resorting to building an entire database first
+**** Available as [https://wikipediacitations-now.scatter.red Wikipedia Citations Now]
+*** Be able to tell what part of the article a reference is from (in-line vs. endnote, etc.)
+*** JSON representation of template parameters so you don't have to parse them out of the template
+*** Use LLM to parse the article in general. Maybe have an option to select between classical parsing and LLM-based extraction.
+**** Use basic mwparserfromhell extraction as first step. If a user comes across an entry and it looks broken, offer option to re-generate report with AI. User can then accept alternative.
+*** In data model, associate references with revision id; then, associate revision IDs with timestamps in another table
+
+== Longer term challenges ==
+
+* Sometimes, Wikipedia includes statements from Wikidata, and those statements from Wikidata have citations, but they would not show up in revision text.
+** Would this require cross-referencing with rendered HTML output?
+** Or a "citations database plus" that includes the Wikidata item? (Wikipedia editors would probably like this for quickly comparing citations between Wikipedia article and Wikidata item.)

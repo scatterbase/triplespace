@@ -1,0 +1,82 @@
+{
+ "categories": [],
+ "displaytitle": "<span class=\"mw-page-title-namespace\">Project</span><span class=\"mw-page-title-separator\">:</span><span class=\"mw-page-title-main\">Home</span>",
+ "externallinks": [
+  "https://query.librarybase.org/#select%20?item%20?itemLabel%20where%20%7B%20?item%20wdt:P19%20wd:Q410%20.%20SERVICE%20wikibase:label%20%7B%20bd:serviceParam%20wikibase:language%20%22%5BAUTO_LANGUAGE%5D,en%22.%20%7D%20%7D",
+  "https://wikibase.world",
+  "https://internetdomains.wiki",
+  "https://communities.miraheze.org"
+ ],
+ "images": [],
+ "iwlinks": [],
+ "langlinks": [],
+ "links": [
+  {
+   "exists": true,
+   "ns": 4,
+   "title": "Project:Principles"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q2"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q253"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q410"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q413"
+  },
+  {
+   "exists": true,
+   "ns": 122,
+   "title": "Property:P19"
+  }
+ ],
+ "pageid": 489,
+ "parsewarnings": [],
+ "properties": {
+  "unexpectedUnconnectedPage": -4
+ },
+ "revid": 1066,
+ "sections": [
+  {
+   "anchor": "Current_projects",
+   "byteoffset": 320,
+   "fromtitle": "Project:Home",
+   "index": "1",
+   "level": "2",
+   "line": "Current projects",
+   "number": "1",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Classes_and_roles",
+   "byteoffset": 341,
+   "fromtitle": "Project:Home",
+   "index": "2",
+   "level": "3",
+   "line": "Classes and roles",
+   "number": "1.1",
+   "toclevel": 2
+  }
+ ],
+ "showtoc": false,
+ "templates": [
+  {
+   "exists": true,
+   "ns": 10,
+   "title": "Template:Cwbn"
+  }
+ ],
+ "title": "Project:Home"
+}

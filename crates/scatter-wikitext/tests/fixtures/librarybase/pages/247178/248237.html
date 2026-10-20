@@ -1,0 +1,24 @@
+<div class="mw-parser-output"><p>Scatterbase is a from-scratch reimplementation of Wikibase. It was first conceived in 2019 and the development of a reference implementation in the Rust programming language began in 2025.
+</p><p>Rather than fight data ingest limits or build a system parallel to MediaWiki, the new goal is to develop Scatterbase as a replacement backend for Librarybase.
+</p>
+<h2><span class="mw-headline" id="Foreign_entity_space">Foreign entity space</span></h2>
+<p>Librarybase-native items and properties are prefixed Q and P as before.
+</p><p>A new class of entities with three-letter prefixes will allow foreign entities to be natively incorporated into the Librarybase graph. The first two letters are a provider and the third is a namespace. These should be assigned sparingly, when the alternative would be the reification of millions of alias entities. Rather than reflect a particular database, they reflect a <i>directly incorporated</i> source. For example, because OpenAlex already includes what is in PubMed, there is no need for a separate PubMed namespace.
+</p>
+<ul><li>WD: Wikidata
+<ul><li>WDQ: Wikidata items</li>
+<li>WDP: Wikidata properties</li></ul></li>
+<li>OA: OpenAlex
+<ul><li>OAW: OpenAlex Work</li>
+<li>OAA: OpenAlex Author</li>
+<li>OAS: OpenAlex Source</li>
+<li>OAI: OpenAlex Institution</li>
+<li>OAT: OpenAlex Topic</li>
+<li>OAK: OpenAlex Keyword</li>
+<li>OAP: OpenAlex Publisher</li>
+<li>OAF: OpenAlex Funder</li>
+<li>OAG: OpenAlex Award/Grant</li></ul></li></ul>
+<h3><span class="mw-headline" id="Identity_collapse">Identity collapse</span></h3>
+<p>There will be cases where a record exists in more than one place, such as a journal article being in both Wikidata and OpenAlex. The same way Q numbers can redirect to other Q numbers on Wikidata, a foreign entity identifier can redirect to something else.
+</p><p>If two or more entities are found to be <i>exact matches</i> of each other, the canonical identifier is chosen deterministically based on a precedence order: Librarybase-native identifier, then Wikidata, then OpenAlex. The other identifiers automatically redirect to the first preferred one.
+</p></div>

@@ -4,7 +4,11 @@
 //! `H(0x06 ‖ H(0x03 ‖ content) ‖ H(0x03 ‖ comment) ‖ authority)`.
 //!
 //! Both have the shape `{"key": <key ID>, "alg": "ed25519", "sig": <64 bytes>}`; the
-//! `authority` field tells them apart. Erasing the content, the comment or the
+//! `authority` field tells them apart. The third form, the **founding attestation** of
+//! the record at offset 0 of a `config` partition (0015 §1, A52; 0079 §2), names no actor:
+//! its signature is by the key the record itself registers, over the client preimage, or
+//! over the instance preimage when it carries an `authority` (a tenant's, citing the
+//! instance's founding record). Erasing the content, the comment or the
 //! attestation makes a signature unverifiable, which 0006 §7 accepts: that is reported
 //! as [`Attestation::Unverifiable`], not as a failure.
 
@@ -30,6 +34,111 @@ pub enum Attestation {
         /// The canonical CBOR of the `authority` map.
         authority: Vec<u8>,
     },
+    /// A founding attestation (0015 A52): no actor, a signature by the key the record
+    /// registers, and, for a tenant's founding record, an `authority`.
+    Founding {
+        /// The signature.
+        signature: SignatureField,
+        /// The canonical CBOR of the `authority` map, where there is one.
+        authority: Option<Vec<u8>>,
+    },
+}
+
+/// The `authority` of an instance or founding attestation (0040 §3): an instance record
+/// by its partition, offset and leaf hash.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Authority {
+    /// The partition of the authority record.
+    pub partition: u64,
+    /// Its offset.
+    pub offset: u64,
+    /// Its Merkle leaf hash.
+    pub leaf: Hash,
+}
+
+impl Authority {
+    /// The `authority` map: `{"partition", "offset", "leaf"}`.
+    #[must_use]
+    pub fn to_value(&self) -> Value {
+        Value::map(vec![
+            (
+                Value::text("partition"),
+                Value::Int(i128::from(self.partition)),
+            ),
+            (Value::text("offset"), Value::Int(i128::from(self.offset))),
+            (Value::text("leaf"), Value::Bytes(self.leaf.to_vec())),
+        ])
+    }
+}
+
+/// Why an attestation could not be built.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[error("attestation: a part does not encode as canonical CBOR")]
+pub struct BuildError;
+
+fn encoded(v: &Value) -> Result<Vec<u8>, BuildError> {
+    cbor::encode(v).map_err(|_| BuildError)
+}
+
+/// The founding attestation of a `config` partition's `key:` record (0015 A52; 0079 §2),
+/// signed by `key`, the key the record registers: the instance's own carries no
+/// authority, a tenant's cites the instance's founding record.
+pub fn founding_attestation(
+    key: &ed25519_dalek::SigningKey,
+    content: &Value,
+    comment: &Value,
+    authority: Option<&Authority>,
+) -> Result<Value, BuildError> {
+    let key_id = scatter_log::registry::key_id(&key.verifying_key().to_bytes());
+    let (content, comment) = (encoded(content)?, encoded(comment)?);
+    Ok(match authority {
+        None => Value::map(vec![(
+            Value::text("signature"),
+            client_signature(key, &key_id, &content, &comment),
+        )]),
+        Some(a) => {
+            let authority = a.to_value();
+            let signature =
+                instance_signature(key, &key_id, &content, &comment, &encoded(&authority)?);
+            Value::map(vec![
+                (Value::text("authority"), authority),
+                (Value::text("signature"), signature),
+            ])
+        }
+    })
+}
+
+/// An instance attestation (0040 §3) for a record the instance writes on its own
+/// authority: `actor` (`instance:{farm code}`), `authority`, `job`, `binding`, and a
+/// signature by the instance key over the instance preimage.
+pub fn instance_attestation(
+    key: &ed25519_dalek::SigningKey,
+    actor: &str,
+    authority: &Authority,
+    job: Option<u64>,
+    binding: bool,
+    content: &Value,
+    comment: &Value,
+) -> Result<Value, BuildError> {
+    let key_id = scatter_log::registry::key_id(&key.verifying_key().to_bytes());
+    let authority_value = authority.to_value();
+    let signature = instance_signature(
+        key,
+        &key_id,
+        &encoded(content)?,
+        &encoded(comment)?,
+        &encoded(&authority_value)?,
+    );
+    let mut pairs = vec![
+        (Value::text("actor"), Value::text(actor)),
+        (Value::text("authority"), authority_value),
+        (Value::text("binding"), Value::Bool(binding)),
+        (Value::text("signature"), signature),
+    ];
+    if let Some(job) = job {
+        pairs.push((Value::text("job"), Value::Int(i128::from(job))));
+    }
+    Ok(Value::map(pairs))
 }
 
 /// A `signature` field.
@@ -104,13 +213,20 @@ impl Attestation {
         if body.content().is_erased() || body.comment().is_erased() {
             return Ok(Self::Unverifiable);
         }
-        Ok(match v.get("authority") {
-            Some(authority) => Self::Instance {
+        let authority = v
+            .get("authority")
+            .map(|a| cbor::encode(a).map_err(|_| AttestError::Shape("authority does not encode")))
+            .transpose()?;
+        Ok(match (v.get("actor"), authority) {
+            (None, authority) => Self::Founding {
                 signature: field,
-                authority: cbor::encode(authority)
-                    .map_err(|_| AttestError::Shape("authority does not encode"))?,
+                authority,
             },
-            None => Self::Client(field),
+            (Some(_), Some(authority)) => Self::Instance {
+                signature: field,
+                authority,
+            },
+            (Some(_), None) => Self::Client(field),
         })
     }
 
@@ -118,7 +234,9 @@ impl Attestation {
     #[must_use]
     pub fn signature(&self) -> Option<&SignatureField> {
         match self {
-            Self::Client(s) | Self::Instance { signature: s, .. } => Some(s),
+            Self::Client(s)
+            | Self::Instance { signature: s, .. }
+            | Self::Founding { signature: s, .. } => Some(s),
             Self::Unsigned | Self::Unverifiable => None,
         }
     }
@@ -130,10 +248,15 @@ impl Attestation {
         let content = body.content().bytes()?;
         let comment = body.comment().bytes()?;
         match self {
-            Self::Client(_) => Some(hash::signature_preimage(content, comment)),
-            Self::Instance { authority, .. } => {
-                Some(hash::instance_preimage(content, comment, authority))
-            }
+            Self::Client(_)
+            | Self::Founding {
+                authority: None, ..
+            } => Some(hash::signature_preimage(content, comment)),
+            Self::Instance { authority, .. }
+            | Self::Founding {
+                authority: Some(authority),
+                ..
+            } => Some(hash::instance_preimage(content, comment, authority)),
             Self::Unsigned | Self::Unverifiable => None,
         }
     }
@@ -238,6 +361,70 @@ mod tests {
         ])
         .unwrap();
         Record::seal(header(), body)
+    }
+
+    fn parts() -> (Value, Value) {
+        (
+            Value::map(vec![(Value::text("op"), Value::text("put"))]),
+            Value::text("hi"),
+        )
+    }
+
+    #[test]
+    fn founding_and_instance_attestations_verify() {
+        let sk = SigningKey::from_bytes(&[5; 32]);
+        let pk = sk.verifying_key().to_bytes();
+        let id = key_id(&pk);
+        let lookup = |k: &str| (k == id).then_some(pk);
+        let (content, comment) = parts();
+
+        // The instance's founding record: no actor, no authority.
+        let r = record(&founding_attestation(&sk, &content, &comment, None).unwrap());
+        let a = Attestation::of(&r).unwrap();
+        assert!(matches!(
+            a,
+            Attestation::Founding {
+                authority: None,
+                ..
+            }
+        ));
+        assert_eq!(a.verify(&r, lookup), Ok(true));
+
+        // A tenant's: the authority is bound into the signature.
+        let authority = Authority {
+            partition: 0,
+            offset: 0,
+            leaf: [9; 32],
+        };
+        let att = founding_attestation(&sk, &content, &comment, Some(&authority)).unwrap();
+        assert!(att.get("actor").is_none());
+        let r = record(&att);
+        let a = Attestation::of(&r).unwrap();
+        assert!(matches!(
+            a,
+            Attestation::Founding {
+                authority: Some(_),
+                ..
+            }
+        ));
+        assert_eq!(a.verify(&r, lookup), Ok(true));
+
+        // An instance act.
+        let att = instance_attestation(
+            &sk,
+            "instance:x",
+            &authority,
+            Some(3),
+            false,
+            &content,
+            &comment,
+        )
+        .unwrap();
+        assert_eq!(att.get("binding"), Some(&Value::Bool(false)));
+        let r = record(&att);
+        let a = Attestation::of(&r).unwrap();
+        assert!(matches!(a, Attestation::Instance { .. }));
+        assert_eq!(a.verify(&r, lookup), Ok(true));
     }
 
     #[test]

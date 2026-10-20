@@ -26,7 +26,6 @@ use triplespace_accounts::oauth::{
 };
 use triplespace_api_action::{App, Config as ServerConfig, Mode, router_with};
 use triplespace_cli::instance;
-use triplespace_projections::Farm;
 
 const DB: &str = "tsexternal_test";
 const HOST: &str = "librarybase.org";
@@ -316,7 +315,8 @@ async fn external_identity_providers() {
         tenant: TENANT.into(),
         base: format!("https://{HOST}"),
         name: Some("Library Base".into()),
-        farm_slug: None,
+        farm_slug: "testfarm".into(),
+        tenancy: "isolated".into(),
         farm_base: None,
         providers: vec![],
         adopt: Some(format!("https://{HOST}/")),
@@ -364,10 +364,8 @@ async fn external_identity_providers() {
             mode: Mode::Production,
             trusted_proxies: vec![],
             dev_tenant: None,
-            farm: Farm {
-                slug: TENANT.into(),
-                base: format!("https://{HOST}"),
-            },
+            farm: triplespace_cli::common::farm_at(&database).await.unwrap(),
+            auth_base: None,
             generator: "Triplespace test".into(),
             version: None,
         },
@@ -761,10 +759,16 @@ async fn external_identity_providers() {
             .unwrap()
             .unwrap();
         let record = scatter_actors::actor::ActorRecord::registered("Dana");
+        let dana = format!(
+            "{}:42",
+            triplespace_cli::common::issuer_at(&database, TENANT)
+                .await
+                .unwrap()
+        );
         let d = scatter_log::store::Draft {
             appended_at: 1,
             payload_type: "scatter:v0/actor".into(),
-            key: Some(format!("{TENANT}:42")),
+            key: Some(dana.clone()),
             revid: None,
             logid: None,
             page_id: None,
@@ -773,7 +777,7 @@ async fn external_identity_providers() {
                 &scatter_log::cbor::Value::Null,
                 &scatter_log::cbor::Value::map(vec![(
                     scatter_log::cbor::Value::text("actor"),
-                    scatter_log::cbor::Value::text(&format!("{TENANT}:42")),
+                    scatter_log::cbor::Value::text(&dana),
                 )]),
             )
             .unwrap(),

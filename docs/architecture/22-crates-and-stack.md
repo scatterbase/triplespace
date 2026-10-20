@@ -226,12 +226,12 @@ Shared crates carry the `scatter-` prefix. Crates that only Triplespace uses car
 
 ### 3.3 Licensing
 
-*Sources: [0005](../decisions/0005-crate-organization.md) §6; [0033](../decisions/0033-backend-stack.md) §1, §16; [0043](../decisions/0043-lua-modules.md) §14.*
+*Sources: [0005](../decisions/0005-crate-organization.md) §6; [0033](../decisions/0033-backend-stack.md) §1, §16, A22; [0043](../decisions/0043-lua-modules.md) §14.*
 
 - **Triplespace is GPL-3.0-or-later.** That covers every crate in this workspace and the `ui/` package. Workspace crates and `ui/package.json` declare `GPL-3.0-or-later`, set once in `[workspace.package]` ([0033](../decisions/0033-backend-stack.md) §16).
 - **The shared `scatter-*` crates are dual-licensed.** Like the Scatterbase kernel, they are also available under a commercial license from the copyright holder. Dual licensing requires Scatter to hold copyright in every shared crate, so outside contributions need a contributor license agreement.
 - **Third-party dependencies must be compatible with GPLv3.**
-  - **Accepted.** Every third-party crate linked into `triplespace` carries one of these licences: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, Zlib, Unicode-3.0, MPL-2.0, BlueOak-1.0.0 (`minicbor`), CDLA-Permissive-2.0 (root-certificate data in `webpki-roots`), LGPL, GPL-2.0-or-later or GPL-3.0.
+  - **Accepted.** Every third-party crate linked into `triplespace` carries one of these licences: MIT, MIT-0 (the vendored `parse-wiki-text-2`), Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, Zlib, Unicode-3.0, MPL-2.0, BlueOak-1.0.0 (`minicbor`), CDLA-Permissive-2.0 (root-certificate data in `webpki-roots`), LGPL, GPL-2.0-or-later or GPL-3.0.
   - **Denied.** Licences that cannot be combined with GPLv3: the pre-3.0 OpenSSL/SSLeay licence, GPL-2.0-only and non-commercial terms. AGPL is also denied, as a policy choice, so that its network clause never reaches the combined work.
   - **Enforcement.** `cargo-deny` enforces both lists in CI (§3.4).
 - **Lua.** Lua 5.1 is linked through `mlua` (MIT) in `triplespace-scribunto`, which vendors Scribunto's and WikibaseClient's Lua ([0043](../decisions/0043-lua-modules.md) §4). The vendored Lua is GPL code: Scribunto is "GPL-2.0-or-later AND MIT", WikibaseClient GPL-2.0-or-later. Both are on the accepted list, so the binary may include them. They cannot go into a `scatter-*` crate, because the shared crates are dual-licensed and Scatter holds copyright in every line of them. So the Lua runtime is a Triplespace crate, `triplespace-scribunto`, under GPL-3.0-or-later only and never dual-licensed. Scatterbase can use it on GPL terms, not on commercial ones ([0043](../decisions/0043-lua-modules.md) §14).
@@ -246,7 +246,7 @@ Shared crates carry the `scatter-` prefix. Crates that only Triplespace uses car
 Every crate lives in one Cargo workspace in the Triplespace repository, under `crates/`. Scatterbase takes Git dependencies pinned to a commit. The `scatter-*` crates move to their own repository when Scatterbase first depends on them.
 
 - `cargo-deny` checks licences (the allowlist of §3.3), bans (no duplicate crypto providers, no `openssl-sys`), advisories and sources.
-- `parse-wiki-text-2`'s non-standard licence text is recorded as a clarify entry.
+- `parse-wiki-text-2`'s manifest names only a licence file; a clarify entry records it as MIT-0 ([0033](../decisions/0033-backend-stack.md) A22).
 - `aws-lc-sys` is required at 0.39 or later. Earlier versions included code under the OpenSSL licence, which is incompatible with GPLv3. For the same reason, if `ring` replaces it (§4.4), `ring` must be 0.17.9 or later.
 - The repository root carries the GPLv3 text in `LICENSE`; `docs/LICENSE` carries CC0-1.0.
 - `cargo xtask manifest` writes the component manifest of §7.1: the build, the crates linked into each binary, the frontend packages that reach the browser and vendored code, each with its licence, copyright and notice files. It uses the allowlist above, `triplespace-server` and `triplespace-web` embed it, and release builds fail without it.
@@ -322,7 +322,7 @@ What the parser must do: parse any wikitext without failing, because imported hi
 
 The renderer is written in `scatter-wikitext`. It shares with the markdown path (`scatter-pages`, `markdown` feature) the `ammonia` sanitizer, wiki-link resolution (entity links rendered with labels, red links) and `page_link` extraction, so both content models render and link-index the same way. The rendered subset, what renders as a visible chip showing its source, and the behaviour switches and magic links that are off are in [11](11-rendering-templates-and-modules.md); files in wikitext follow [12](12-files-and-media.md).
 
-With a tenant's expansion on, the parser renders and extracts from **expanded** text, produced by `scatter-wikitext-expand`; a tenant may instead render through a Parsoid service that calls back into Triplespace for expansion ([0042](../decisions/0042-template-expansion-and-parsoid.md) §1, §8). Parsoid stays rejected as an in-process parser.
+The parser renders and extracts from **expanded** text, produced by `scatter-wikitext-expand`; a tenant may instead render through a Parsoid service that calls back into Triplespace for expansion ([0042](../decisions/0042-template-expansion-and-parsoid.md) §1, §8). Parsoid stays rejected as an in-process parser.
 
 Conformance has two test sources: a subset of MediaWiki's `tests/parser/parserTests.txt` covering only the rendered subset, run in CI as a fixture (the file is GPL-2.0-or-later, which is compatible with Triplespace's licence; it is test data and is not compiled into the binary), and a differential test against Parsoid on the MediaWiki 1.43 reference install ([0000](../decisions/0000-init.md)), with sampled pages rendered by both and DOMs normalized and compared for the supported constructs (§4.9).
 

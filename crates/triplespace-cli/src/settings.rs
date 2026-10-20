@@ -18,7 +18,6 @@ use std::collections::BTreeMap;
 
 use anyhow::{Context, Result, bail};
 use clap::{Args, Subcommand};
-use scatter_actors::key::ActorKey;
 use serde_json::Value;
 use triplespace_accounts::settings::plan::Target;
 use triplespace_accounts::settings::{Patch, Scope, load};
@@ -175,10 +174,10 @@ pub async fn run(command: Settings) -> Result<()> {
 
 async fn write(at: &Where, instance: bool, patch: &Patch) -> Result<()> {
     let client = connect(&at.database).await?;
-    let farm = farm_of(&client, None, None).await?;
+    let farm = farm_of(&client).await?;
     let slug = tenant_slug(&client, at.tenant.as_deref()).await?;
     let (store, pipeline) = store(&at.database, &farm)?;
-    let actor = ActorKey::instance(&farm.slug).to_string();
+    let actor = farm.operator().to_string();
     let target = if instance {
         Target::Instance
     } else {

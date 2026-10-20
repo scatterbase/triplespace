@@ -19,7 +19,6 @@ use triplespace_accounts::Secret;
 use triplespace_api_action::{App, Config as ServerConfig, Mode, router_with};
 use triplespace_cli::instance;
 use triplespace_client::{Client, ServiceTransport};
-use triplespace_projections::Farm;
 
 const DB: &str = "tsregpages_test";
 const HOST: &str = "librarybase.org";
@@ -207,10 +206,11 @@ async fn registration_through_the_site() {
     instance::run(instance::Create {
         database: database.clone(),
         key_file: dir.join("triplespace.key"),
-        tenant: "librarybase".into(),
+        tenant: "lbwiki".into(),
         base: format!("https://{HOST}"),
         name: Some("Librarybase".into()),
-        farm_slug: None,
+        farm_slug: "testfarm".into(),
+        tenancy: "isolated".into(),
         farm_base: None,
         providers: vec![],
         adopt: None,
@@ -227,10 +227,8 @@ async fn registration_through_the_site() {
             mode: Mode::Production,
             trusted_proxies: vec![],
             dev_tenant: None,
-            farm: Farm {
-                slug: "librarybase".into(),
-                base: format!("https://{HOST}"),
-            },
+            farm: triplespace_cli::common::farm_at(&database).await.unwrap(),
+            auth_base: None,
             generator: "Triplespace test".into(),
             version: None,
         },

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-17 (A12)
+- **Updated:** 2026-10-20 (A13)
 - **Author:** James Hare / Claude
 - **Changes:** [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0003](0003-statement-ui.md), [0012](0012-api-requirements.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0029](0029-resolver-namespaces.md), [0033](0033-backend-stack.md)
@@ -78,7 +78,7 @@ The backend stack is in 0033.
 
 ### 11. Security
 
-*Changed by A6, A12.*
+*Changed by A6, A12, A13.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §1.4.*
 
@@ -291,3 +291,14 @@ Replaced text ([02](../architecture/02-graphs-rdf-and-query.md) §1.4, as it sto
 Replaced text ([23](../architecture/23-configuration-and-registry.md) §3.2, as it stood):
 
 > | `ui.theme` | `site`; the instance or a tenant | tenant | Codex token values | Codex's own values | The theme a site is served with; refused when its colours fail WCAG 2.1 AA contrast | [0034](0034-frontend-stack.md) §1 |
+
+### A13. `style` attributes are allowed
+
+- **Date:** 2026-10-20
+- **Source:** Direct: James, review of 2026-10-20
+- **Change:** amends §11
+- **Summary:** The site's Content Security Policy adds `style-src-attr 'unsafe-inline'`: `style` attributes apply, while stylesheets still come only from the instance's origin and `<style>` elements stay refused. Wikitext writes `style` attributes and MediaWiki's Sanitizer, which the renderer follows ([0008](0008-namespaces-and-document-pages.md) A39), checks each value, so blocking them took the styling off content the API had already accepted: infoboxes, navboxes, coloured table cells and hidden elements, above all on mirrored Wikipedia pages. A style attribute cannot run script; what it can still do is lay content over the page, as on MediaWiki, where moderation answers it. `style-src-attr` is in every current browser engine. The policy does not yet admit the `<style>` elements `<templatestyles>` emits and mirrored Wikipedia HTML carries ([11](../architecture/11-rendering-templates-and-modules.md) §6.3); whether they come in as a hash per element in each page's own policy or as stylesheets served from the origin is not decided here. The chapter text is [09](../architecture/09-security-and-moderation.md) §1.4.
+
+Replaced text ([09](../architecture/09-security-and-moderation.md) §1.4, its first sentence, as it stood):
+
+> The site UI runs under a strict Content Security Policy: scripts only from the instance's own origin, no inline scripts, no `eval`.

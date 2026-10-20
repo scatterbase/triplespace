@@ -231,7 +231,7 @@ The four redirect reports list, in turn: every redirect with its target (`view.r
 
 `reports.term_languages` is a tenant `site` setting, by the rule for a dotted key named without a scope; it is not one of the keys of the instance `reports` kind in §2.3.
 
-Reports about templates are listed only while `wikitext.expansion` is on (0042 §3). Before that the Template namespace is reserved.
+Reports about templates are listed on every tenant, since the Template namespace always holds pages (0042 §3, A19).
 
 ### 2.5 Who sees what
 
@@ -553,7 +553,7 @@ Entries that are `deferred`, `declined` or `reserved` are not shown. An extensio
 
 *Sources: [0077](../decisions/0077-special-version.md) §11.*
 
-**The tenant form shows the tenant's feature switches:** the value of each `[[feature]]` setting of scope `tenant` in `version.toml` (`content.licence`, `wikitext.expansion`, `wikitext.lua`, `wikitext.renderer`, `pages.repos`, `search.inherited`, `query.enabled`, `mcp.enabled` and `proposals.push`). It also shows the providers the tenant has opted into, linked to `Special:Providers`, its tenancy preset ([0028](../decisions/0028-tenancy-policy.md) §1), and whether it is a private tenant ([0056](../decisions/0056-security-model.md) §3).
+**The tenant form shows the tenant's feature switches:** the value of each `[[feature]]` setting of scope `tenant` in `version.toml` (`content.licence`, `wikitext.lua`, `wikitext.renderer`, `pages.repos`, `search.inherited`, `query.enabled`, `mcp.enabled` and `proposals.push`). It also shows the providers the tenant has opted into, linked to `Special:Providers`, its tenancy preset ([0028](../decisions/0028-tenancy-policy.md) §1), and whether it is a private tenant ([0056](../decisions/0056-security-model.md) §3).
 
 **The farm form shows the instance's:** the settings of scope `instance` (`search.farm_wide` and `files.separation`), the tenancy policy's preset and the number of tenants.
 
@@ -586,7 +586,7 @@ These are served with MediaWiki's or Wikibase's meaning and parameters. The note
 | `CheckEntitySchema` | A schema and a subject; shows the result-shape map (§6.4). Origin `triplespace`; rate class `query` |
 | `NewLexeme`, `MergeLexemes` | WikibaseLexeme's pages: create a lexeme from lemma, language and category; merge two lexemes as `same-as` plus conversion (§6.5). Origin `WikibaseLexeme` |
 | `MergeUpstream` | The guided three-way merge of a fork with its repository's current text ([0068](../decisions/0068-merging-with-upstream.md) §6; [13](13-mirrored-pages.md)). Origin `triplespace`; restricted to `edit` on the page; group `pagetools` |
-| `ExpandTemplates` | [0042](../decisions/0042-template-expansion-and-parsoid.md)'s expander, in the `parse` rate class; listed while `wikitext.expansion` is on |
+| `ExpandTemplates` | [0042](../decisions/0042-template-expansion-and-parsoid.md)'s expander, in the `parse` rate class |
 | `ComparePages` | Any two pages or revisions, with 0010 §6's diff |
 | `ConfirmAccounts` |  |  | `ConfirmAccount` | served | `tenant` | `users` | restricted `confirmaccount` |  | 0087 §6 | — |
 | `Redirect` | `user/{id}`, `revision/{id}`, `page/{id}`, `file/{name}` and `logid/{id}`, resolved locally. `file` was already served by 0039 §7. |
@@ -707,7 +707,7 @@ Every `Special:` name that [0047](../decisions/0047-special-pages.md) §1–§10
 | `EntityPage` |  |  | `Wikibase` | served | `tenant` | `wikibaserepo` |  |  | 0008 §3 | — |
 | `EntitySchemaText` |  |  | `EntitySchema` | served | `tenant` | `wikibaserepo` |  |  | 0064 §7 | §6.4 |
 | `EntityUsage` |  | `EntityUsageData` | `WikibaseClient` | served | `tenant` | `wikibaseclient` |  | `index`: view.entity_usage; graphs local | 0043 §10, 0047 §4.4 | §2.4 |
-| `ExpandTemplates` |  |  | `mediawiki` | served | `tenant` | `pagetools` | requires `wikitext.expansion` |  | 0047 §9 | §6.1 |
+| `ExpandTemplates` |  |  | `mediawiki` | served | `tenant` | `pagetools` |  |  | 0047 §9 | §6.1 |
 | `Export` |  |  | `mediawiki` | served | `tenant` | `pagetools` |  |  | 0047 §8 | §4.2 |
 | `FewestRevisions` | `Fewestrevisions` |  | `mediawiki` | served | `tenant` | `maintenance` |  | `index`: view.page (ns, revisions); graphs local | 0047 §4.4 | §2.4 |
 | `FileDuplicateSearch` |  |  | `mediawiki` | served | `tenant` | `media` |  | `index`: view.file_version (sha1); graphs local | 0039 §18 | §2.4 |
@@ -756,7 +756,7 @@ Every `Special:` name that [0047](../decisions/0047-special-pages.md) §1–§10
 | `MostLinkedFiles` | `Mostimages` | `MostFiles`, `MostImages` | `mediawiki` | served | `tenant` | `highuse` |  | `projection`: view.file_link; graphs local | 0047 §4.4 | §2.4 |
 | `MostLinkedPages` | `Mostlinked` | `MostLinked` | `mediawiki` | served | `tenant` | `highuse` |  | `projection`: view.page_link; graphs local | 0047 §4.4 | §2.4 |
 | `MostRevisions` | `Mostrevisions` |  | `mediawiki` | served | `tenant` | `highuse` |  | `index`: view.page (revisions); graphs local | 0047 §4.4 | §2.4 |
-| `MostTranscludedPages` | `Mostlinkedtemplates` | `MostLinkedTemplates`, `MostUsedTemplates` | `mediawiki` | served | `tenant` | `highuse` | requires `wikitext.expansion` | `projection`: view.transclusion; graphs local | 0047 §4.4 | §2.4 |
+| `MostTranscludedPages` | `Mostlinkedtemplates` | `MostLinkedTemplates`, `MostUsedTemplates` | `mediawiki` | served | `tenant` | `highuse` |  | `projection`: view.transclusion; graphs local | 0047 §4.4 | §2.4 |
 | `MovePage` | `Movepage` |  | `mediawiki` | served | `tenant` | `pagetools` | restricted `move` |  | 0047 §9 | §6.1 |
 | `Mute` |  |  | `mediawiki` | deferred: undecided (0047 open questions) | `tenant` | `users` |  |  | — | §7 |
 | `MyContributions` | `Mycontributions` | `MyContribs` | `mediawiki` | served | `tenant` | `unlisted` | unlisted |  | 0047 §9 | §6.1 |
@@ -831,13 +831,13 @@ Every `Special:` name that [0047](../decisions/0047-special-pages.md) §1–§10
 | `UncategorizedCategories` | `Uncategorizedcategories` |  | `mediawiki` | served | `tenant` | `maintenance` |  | `projection`: view.page_category; graphs local | 0047 §4.4 | §2.4 |
 | `UncategorizedFiles` | `Uncategorizedimages` | `UncategorizedImages` | `mediawiki` | served | `tenant` | `maintenance` |  | `projection`: view.page_category, view.file; graphs local | 0039 §18 | §2.4 |
 | `UncategorizedPages` | `Uncategorizedpages` |  | `mediawiki` | served | `tenant` | `maintenance` |  | `projection`: view.page_category; graphs local | 0047 §4.4 | §2.4 |
-| `UncategorizedTemplates` | `Uncategorizedtemplates` |  | `mediawiki` | served | `tenant` | `maintenance` | requires `wikitext.expansion` | `projection`: view.page_category; graphs local | 0047 §4.4 | §2.4 |
+| `UncategorizedTemplates` | `Uncategorizedtemplates` |  | `mediawiki` | served | `tenant` | `maintenance` |  | `projection`: view.page_category; graphs local | 0047 §4.4 | §2.4 |
 | `UnconnectedPages` |  | `WithoutConnection`, `WithoutSitelinks` | `WikibaseClient` | served | `tenant` | `wikibaseclient` |  | `projection`: view.page, view.sitelink (own host); graphs local | 0038 §6, 0047 §4.4 | §2.4 |
 | `Undelete` |  |  | `mediawiki` | served | `tenant` | `pagetools` | restricted `browsearchive` |  | 0023 §9 | — |
 | `UnlockDB` | `Unlockdb` |  | `mediawiki` | declined: read-only is a tenant freeze (0018 §10) or an instance act (0040) | `tenant` | `wiki` |  |  | — | §7 |
 | `UnusedCategories` | `Unusedcategories` |  | `mediawiki` | served | `tenant` | `maintenance` |  | `projection`: view.category, view.page_category; graphs local | 0047 §4.4 | §2.4 |
 | `UnusedFiles` | `Unusedimages` | `UnusedImages` | `mediawiki` | served | `tenant` | `maintenance` |  | `projection`: view.file, view.file_link; graphs local | 0039 §18 | §2.4 |
-| `UnusedTemplates` | `Unusedtemplates` |  | `mediawiki` | served | `tenant` | `maintenance` | requires `wikitext.expansion` | `projection`: view.transclusion; graphs local | 0047 §4.4 | §2.4 |
+| `UnusedTemplates` | `Unusedtemplates` |  | `mediawiki` | served | `tenant` | `maintenance` |  | `projection`: view.transclusion; graphs local | 0047 §4.4 | §2.4 |
 | `UnwatchedPages` | `Unwatchedpages` |  | `mediawiki` | declined: the watch set is private state (0020 §3); an aggregate over it would make the report projection a reader of private | `tenant` | `maintenance` |  |  | — | §7 |
 | `Upload` |  |  | `mediawiki` | served | `tenant` | `media` | restricted `upload` |  | 0039 §18 | — |
 | `UploadStash` |  |  | `mediawiki` | served | `tenant` | `media` | restricted `upload` |  | 0047 §9 | §6.1 |
@@ -848,7 +848,7 @@ Every `Special:` name that [0047](../decisions/0047-special-pages.md) §1–§10
 | `WantedCategories` | `Wantedcategories` |  | `mediawiki` | served | `tenant` | `maintenance` |  | `projection`: view.page_category, view.page; graphs local | 0047 §4.4 | §2.4 |
 | `WantedFiles` | `Wantedfiles` |  | `mediawiki` | served | `tenant` | `maintenance` |  | `projection`: view.file_link, view.file; graphs local | 0047 §4.4 | §2.4 |
 | `WantedPages` | `Wantedpages` | `BrokenLinks` | `mediawiki` | served | `tenant` | `maintenance` |  | `projection`: view.page_link, view.page; graphs local | 0047 §4.4 | §2.4 |
-| `WantedTemplates` | `Wantedtemplates` |  | `mediawiki` | served | `tenant` | `maintenance` | requires `wikitext.expansion` | `projection`: view.transclusion, view.page; graphs local | 0047 §4.4 | §2.4 |
+| `WantedTemplates` | `Wantedtemplates` |  | `mediawiki` | served | `tenant` | `maintenance` |  | `projection`: view.transclusion, view.page; graphs local | 0047 §4.4 | §2.4 |
 | `Watchlist` |  |  | `mediawiki` | served | `tenant` | `changes` | restricted `viewmywatchlist` |  | 0020 §4 | — |
 | `WhatLinksHere` | `Whatlinkshere` |  | `mediawiki` | served | `tenant` | `pagetools` |  |  | 0010 §12 | — |
 | `WikiSettings` |  |  | `triplespace` | served | `tenant` | `wiki` |  |  | 0085 §4 | — |

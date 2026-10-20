@@ -1,0 +1,3 @@
+Librarybase is operated by [https://scatter.red Scatter LLC] in Portland, Oregon, as a public service. As the wiki '''operator''', Scatter is responsible for keeping the service online and stable. Your use of Librarybase is subject to Scatter’s policies including the Terms of Use and Privacy Policy.
+
+'''Stewards''' are appointed by Scatter to serve as chief administrators. [[User:Harej|James Hare]], the founder of Librarybase, is currently the sole steward.

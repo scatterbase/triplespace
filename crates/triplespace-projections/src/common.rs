@@ -32,6 +32,10 @@ pub mod target_kind {
     pub const JOB: i16 = 4;
     /// A record, as `{partition}:{offset}`.
     pub const RECORD: i16 = 5;
+    /// A title, as `{ns}:{title}` with the namespace by number: a `view.page_link` row's
+    /// target page, existing or not, so that a link follows the title as MediaWiki's
+    /// `pagelinks` does.
+    pub const TITLE: i16 = 6;
 }
 
 /// A partition's tenant and graph name.

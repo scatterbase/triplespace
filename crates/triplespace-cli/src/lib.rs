@@ -5,6 +5,7 @@
 
 pub mod accounts;
 pub mod adopt;
+pub mod adopt_pages;
 pub mod challenge;
 pub mod common;
 pub mod forwarder;
@@ -13,3 +14,4 @@ pub mod oauth_client;
 pub mod settings;
 pub mod status;
 pub mod sync;
+pub mod tenant;

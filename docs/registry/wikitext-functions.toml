@@ -12,7 +12,7 @@
 #   synonyms   other spellings MediaWiki accepts for the same word
 #   expensive  counts against the expensive-function limit (0042 §16)
 #   volatile   the output changes with time or site statistics; recorded in the render manifest (0042 §10)
-#   requires   a `site` setting that must be on, beyond wikitext.expansion
+#   requires   a `site` setting that must be on (`wikitext.lua`); expansion itself needs none (0042 A19)
 #   scoped     a workspace block: output depends on a scope, table, sprint or board; a scoped-block manifest entry (0062 §3)
 #
 # Variables in the page-name, namespace and revision families also take an argument as functions

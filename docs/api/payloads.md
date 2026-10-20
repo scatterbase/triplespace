@@ -317,7 +317,8 @@ Every other kind's entry is **the registry row as JSON**, with the TOML field na
 is defined with the crate that embeds that registry: `provider` (`providers.toml`,
 `scatter-providers`), `issuer` (`issuers.toml`), `group` (`groups.toml`, with `scope`
 for a global group), `tenancy` (one switch: `{"kind": "tenancy", "value": "any"}`),
-`keyed-type`, `resolver`, `notation-scheme`, `namespace`, `site-alias`, `thread-status`,
+`keyed-type`, `resolver`, `notation-scheme`, `namespace` (for a registered number, `name`
+and `aliases` give the tenant's local name and its other names; 0008 A37), `site-alias`, `thread-status`,
 `content-model`, `special-page`; `site` is `{"kind": "site", "value": …}` with the
 setting's own scalar or object; `role`, `reconcile`, `providers`, `sitelink-policy`,
 `view-pin`, `template`, `provider-readers`, `federation-policy`, `consumer`,
@@ -427,15 +428,58 @@ can erase it (0088 §7).
 
 | Payload type | Partition | Defined with | ADR |
 |---|---|---|---|
-| `scatter:v0/page` | `pages` | `scatter-pages` | 0008 §4 |
+| `scatter:v0/page` (four parts: + `text`; §9.1) | `pages` | `scatter-pages` | 0008 §4 |
 | `scatter:v0/thread` (four parts: + `text`) | `pages` | `scatter-threads` | 0019 §4 |
 | `scatter:v0/upload` | `pages`, `files/{repo}` | `scatter-files` | 0039 §2 |
 | `scatter:v0/filter`, `scatter:v0/filter-hit` | `log` | `scatter-filter` | 0030 §5 |
 | `scatter:v0/expunge` | instance `log` | `scatter-files` | 0039 §10 |
 | `scatter:v0/mirrored-page` (five parts: + `wikitext`, `html`) | `pages/{repo}` | `scatter-adapter-mediawiki` | 0053 §5 |
 
-None is on the first milestone's path. Each follows §1–2 and adds its parts after the
-three standard ones.
+Each follows §1–2 and adds its parts after the three standard ones. Only
+`scatter:v0/page` is written so far; none of the others is on the first milestone's path.
+
+### 9.1 `scatter:v0/page`
+
+One record per page operation, in the tenant's `pages` partition, keyed by the page ID in
+decimal (0008 §4, A35). Header field 9 carries the page ID, which a `create` mints from the
+tenant's sequence or, on an adopted wiki, takes from the source (0008 A38); field 7 the
+revision ID. The body has four parts:
+
+| # | Part | Holds |
+|---|---|---|
+| 0 | `content` | The operation, below |
+| 1 | `comment` | The summary |
+| 2 | `attestation` | As §2.3 |
+| 3 | `text` | The page's complete text after the operation, one text string; absent from `move`, and from an adopted revision whose source withheld it |
+
+The text is a part of its own, not a field of the operation, so that hiding or erasing an
+old revision's text touches nothing else, as `scatter:v0/upstream-revision` keeps its text
+apart (§7). The content stores **no size or hash**; both derive from the text.
+
+| `op` | Fields |
+|---|---|
+| `create` | `ns`, `title`, `model`; `minor` when set; an adopted revision's source fields |
+| `edit` | `model` only when the content model changes; `minor` when set; an adopted revision's source fields |
+| `move` | `ns`, `title` |
+
+- **`ns` and `title`** name the page by namespace number and the title within it, in
+  canonical form (spaces, not underscores, and no leading, trailing or doubled ones; the
+  title resolver has already applied the namespace's case rule), never by a prefixed
+  title, since a namespace's local name can change (0008 A37).
+- **An adopted revision's source fields** are those of an adopted entity revision
+  (0035 A12–A14; §3 `adopt`): `source_revid`, `source_parentid` (absent for the first
+  revision adopted), `source_time` (the source's timestamp string) and `withheld`, the
+  parts the source hid and the record therefore lacks: `text`, `comment`, `attestation`
+  (absent when empty).
+
+```json
+{"op":"create","ns":4,"title":"Scope","model":"wikitext"}
+{"op":"edit","minor":true}
+{"op":"edit","source_revid":1204,"source_parentid":1187,"source_time":"2019-03-02T18:44:10Z"}
+{"op":"move","ns":4,"title":"Notability policy"}
+```
+
+`follow` (0069 §7) and `forked_from` on `create` (0054 §1) come with their features.
 
 ## 10. The `segments` file format
 

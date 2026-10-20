@@ -1,0 +1,90 @@
+{
+ "categories": [],
+ "displaytitle": "<span class=\"mw-page-title-namespace\">Project</span><span class=\"mw-page-title-separator\">:</span><span class=\"mw-page-title-main\">PopupStack</span>",
+ "externallinks": [],
+ "images": [],
+ "iwlinks": [],
+ "langlinks": [],
+ "links": [],
+ "pageid": 246985,
+ "parsewarnings": [],
+ "properties": {
+  "unexpectedUnconnectedPage": -4
+ },
+ "revid": 247607,
+ "sections": [
+  {
+   "anchor": "To_install",
+   "byteoffset": 539,
+   "fromtitle": "Project:PopupStack",
+   "index": "1",
+   "level": "2",
+   "line": "To install",
+   "number": "1",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Services",
+   "byteoffset": 554,
+   "fromtitle": "Project:PopupStack",
+   "index": "2",
+   "level": "3",
+   "line": "Services",
+   "number": "1.1",
+   "toclevel": 2
+  },
+  {
+   "anchor": "Base_deployment",
+   "byteoffset": 633,
+   "fromtitle": "Project:PopupStack",
+   "index": "3",
+   "level": "3",
+   "line": "Base deployment",
+   "number": "1.2",
+   "toclevel": 2
+  },
+  {
+   "anchor": "Knowledge_graph_with_WikibaseTypedTables",
+   "byteoffset": 954,
+   "fromtitle": "Project:PopupStack",
+   "index": "4",
+   "level": "3",
+   "line": "Knowledge graph with WikibaseTypedTables",
+   "number": "1.3",
+   "toclevel": 2
+  },
+  {
+   "anchor": "Soft_Wikipedia_forking",
+   "byteoffset": 1056,
+   "fromtitle": "Project:PopupStack",
+   "index": "5",
+   "level": "3",
+   "line": "Soft Wikipedia forking",
+   "number": "1.4",
+   "toclevel": 2
+  },
+  {
+   "anchor": "Public_wiki",
+   "byteoffset": 1097,
+   "fromtitle": "Project:PopupStack",
+   "index": "6",
+   "level": "3",
+   "line": "Public wiki",
+   "number": "1.5",
+   "toclevel": 2
+  },
+  {
+   "anchor": "To_develop",
+   "byteoffset": 1184,
+   "fromtitle": "Project:PopupStack",
+   "index": "7",
+   "level": "2",
+   "line": "To develop",
+   "number": "2",
+   "toclevel": 1
+  }
+ ],
+ "showtoc": true,
+ "templates": [],
+ "title": "Project:PopupStack"
+}

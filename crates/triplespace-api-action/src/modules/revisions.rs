@@ -21,23 +21,21 @@
 //! as MediaWiki applies it only to a single page, and continuation names the page.
 
 use scatter_wikibase_model::entity::PageInfo;
-use scatter_wikibase_model::id::EntityId;
 use serde_json::{Map, Value, json};
 use triplespace_projections::feed::{self, Cursor, Direction, Feed, Flag, TargetSet, target_kind};
-use triplespace_projections::read;
 use triplespace_projections::revisions;
 
 use crate::activity::{comment_text, mw_row, viewer, visibility};
 use crate::api::Ctx;
-use crate::entity_json::{add_derived_terms, hasher_for, iso8601, title_of};
-use crate::modules::entities::parse_id;
+use crate::entity_json::{add_derived_terms, hasher_for, iso8601};
+use crate::modules::pageset::{self, PageAsk};
 use crate::response::{ApiError, ApiResponse};
 
 const DEFAULT_LIMIT: usize = 10;
 const MAX_LIMIT: usize = 500;
 
 /// The content model of an entity page, by its namespace (namespaces.toml).
-fn content_model(ns: i64) -> &'static str {
+pub(crate) fn content_model(ns: i64) -> &'static str {
     match ns {
         122 => "wikibase-property",
         146 => "wikibase-lexeme",
@@ -48,106 +46,21 @@ fn content_model(ns: i64) -> &'static str {
     }
 }
 
-/// One page of the request: the entity, its page ID, and the revision the request
-/// named for it (`revids=`), if one.
-struct PageAsk {
-    id: EntityId,
-    page_id: u64,
-    ns: i64,
-    title: String,
-    only_revid: Option<u64>,
-}
-
-/// Resolves `titles=`, `pageids=` or `revids=` to entity pages; missing ones are reported
-/// as MediaWiki reports them.
-async fn page_set(ctx: &Ctx, query: &mut Map<String, Value>) -> Result<Vec<PageAsk>, ApiError> {
-    let mut pages = Vec::new();
-    let mut missing = Vec::new();
-    let titles = ctx.params.list("titles");
-    let pageids = ctx.params.list("pageids");
-    let revids = ctx.params.list("revids");
-    if titles.is_empty() && pageids.is_empty() && revids.is_empty() {
-        return Err(ApiError::new(
-            "missingparam",
-            "One of the parameters \"titles\", \"pageids\" and \"revids\" is required.",
-        ));
-    }
-    let mut wanted: Vec<(EntityId, Option<u64>, Option<String>)> = Vec::new();
-    for t in &titles {
-        match parse_id(t) {
-            Ok(id) => wanted.push((id, None, Some(t.clone()))),
-            Err(_) => missing.push(json!({"title": t, "invalid": true})),
-        }
-    }
-    for p in &pageids {
-        let n: i64 = p.parse().map_err(|_| ApiError::bad_value("pageids", p))?;
-        let row = ctx
-            .db()
-            .query_opt(
-                "SELECT id FROM view.entity WHERE tenant IN ($1, '') AND page_id = $2 AND NOT deleted
-                 ORDER BY (tenant = $1) DESC LIMIT 1",
-                &[&ctx.tenant.slug, &n],
-            )
-            .await?;
-        match row.and_then(|r| EntityId::parse(&r.get::<_, String>(0)).ok()) {
-            Some(id) => wanted.push((id, None, None)),
-            None => missing.push(json!({"pageid": n, "missing": true})),
-        }
-    }
-    for r in &revids {
-        let n: u64 = r.parse().map_err(|_| ApiError::bad_value("revids", r))?;
-        let row = ctx
-            .db()
-            .query_opt(
-                "SELECT target_id FROM view.activity
-                 WHERE tenant = $1 AND revid = $2 AND source = 'local' AND target_kind = 1",
-                &[&ctx.tenant.slug, &i64::try_from(n).unwrap_or(i64::MAX)],
-            )
-            .await?;
-        match row.and_then(|r| EntityId::parse(&r.get::<_, String>(0)).ok()) {
-            Some(id) => wanted.push((id, Some(n), None)),
-            None => missing.push(json!({"revid": n, "missing": true})),
-        }
-    }
-    for (id, only_revid, title) in wanted {
-        let standing = read::standing(ctx.db(), &ctx.tenant.slug, &id)
-            .await
-            .map_err(ApiError::internal)?;
-        let current = read::current(ctx.db(), ctx.app.order(), &ctx.tenant.slug, &id)
-            .await
-            .map_err(ApiError::internal)?;
-        match current {
-            Some(c) if !standing.deleted => {
-                let (ns, t) = title_of(&id, &c.resolved.entity.entity_type);
-                pages.push(PageAsk {
-                    id,
-                    page_id: c.page_id,
-                    ns,
-                    title: t,
-                    only_revid,
-                });
-            }
-            _ => {
-                let t = title.unwrap_or_else(|| id.as_str().to_string());
-                missing.push(json!({"title": t, "missing": true}));
-            }
-        }
-    }
-    if !missing.is_empty() {
-        query.insert("pages".into(), Value::Array(missing));
-    }
-    Ok(pages)
-}
-
 /// The feed of one page's local revisions, from the request's `rv*` parameters.
 fn feed_for(ctx: &Ctx, page: &PageAsk) -> Result<Feed, ApiError> {
     let mut f = Feed::everything(DEFAULT_LIMIT);
-    f.set = TargetSet::Target {
-        kind: target_kind::ENTITY,
-        id: page.id.as_str().to_string(),
+    f.set = match &page.id {
+        Some(id) => TargetSet::Target {
+            kind: target_kind::ENTITY,
+            id: id.as_str().to_string(),
+        },
+        None => TargetSet::Target {
+            kind: target_kind::PAGE,
+            id: page.page_id.to_string(),
+        },
     };
     f.filters.kinds = vec!["edit".into(), "erased".into()];
-    f.filters.sources = vec!["local".into()];
+    f.filters.sources = vec![if page.doc.is_some() { "pages" } else { "local" }.into()];
     f.direction = match ctx.params.get("rvdir").unwrap_or("older") {
         "older" => Direction::Older,
         "newer" => Direction::Newer,
@@ -192,12 +105,61 @@ fn feed_for(ctx: &Ctx, page: &PageAsk) -> Result<Feed, ApiError> {
     Ok(f)
 }
 
-/// The content of a revision: the entity's local state after it, in Wikibase's JSON.
-async fn content_at(ctx: &Ctx, page: &PageAsk, offset: u64) -> Result<Option<String>, ApiError> {
-    let Some((rev, state)) =
-        revisions::local_state_at(ctx.db(), &ctx.tenant.slug, &page.id, offset)
-            .await
-            .map_err(ApiError::internal)?
+/// The revision before `row` among the page's revisions, whoever made it and whenever:
+/// MediaWiki's `parentid`, 0 for the first.
+async fn parent_of(ctx: &Ctx, page: &PageAsk, row: &feed::Row) -> Result<u64, ApiError> {
+    let mut f = Feed::everything(1);
+    f.set = feed_for(ctx, page)?.set;
+    f.filters.kinds = vec!["edit".into(), "erased".into()];
+    f.filters.sources = vec![if page.doc.is_some() { "pages" } else { "local" }.into()];
+    f.direction = Direction::Older;
+    f.cursor = Some(row.cursor());
+    let p = feed::query(ctx.db(), &ctx.tenant.slug, &f, &viewer(&ctx.caller))
+        .await
+        .map_err(ApiError::internal)?;
+    Ok(p.rows.first().and_then(|r| r.revid).unwrap_or(0))
+}
+
+/// The parent of each row, in order: the next older row of the list where it has one,
+/// one query at the list's older end otherwise.
+async fn parents(
+    ctx: &Ctx,
+    page: &PageAsk,
+    rows: &[feed::Row],
+    direction: Direction,
+) -> Result<Vec<u64>, ApiError> {
+    let mut out = vec![0; rows.len()];
+    let n = rows.len();
+    for i in 0..n {
+        let older = match direction {
+            Direction::Older => rows.get(i + 1),
+            Direction::Newer => i.checked_sub(1).and_then(|j| rows.get(j)),
+        };
+        out[i] = match older {
+            Some(r) => r.revid.unwrap_or(0),
+            None => parent_of(ctx, page, &rows[i]).await?,
+        };
+    }
+    Ok(out)
+}
+
+/// The content of a revision: a document page's text after it, or the entity's local
+/// state after it in Wikibase's JSON.
+async fn content_at(
+    ctx: &Ctx,
+    page: &PageAsk,
+    offset: u64,
+    revid: Option<u64>,
+) -> Result<Option<String>, ApiError> {
+    let Some(id) = &page.id else {
+        return match revid {
+            Some(r) => crate::pages::text_at(ctx.db(), &ctx.tenant.slug, page.page_id, r).await,
+            None => Ok(None),
+        };
+    };
+    let Some((rev, state)) = revisions::local_state_at(ctx.db(), &ctx.tenant.slug, id, offset)
+        .await
+        .map_err(ApiError::internal)?
     else {
         return Ok(None);
     };
@@ -213,7 +175,7 @@ async fn content_at(ctx: &Ctx, page: &PageAsk, offset: u64) -> Result<Option<Str
         modified: Some(iso8601(rev.header.appended_at)),
     };
     Ok(Some(entity.to_wikibase_json(
-        &hasher_for(&page.id, ctx.app.registry()),
+        &hasher_for(id, ctx.app.registry()),
         Some(&info),
     )))
 }
@@ -227,7 +189,10 @@ pub async fn run(
     response: &mut ApiResponse,
 ) -> Result<(), ApiError> {
     ctx.caller.require("read")?;
-    let pages = page_set(ctx, query).await?;
+    let site = crate::pages::Site::load(ctx).await?;
+    let mut set = pageset::resolve(ctx, &site).await?;
+    set.report(query);
+    let pages = std::mem::take(&mut set.pages);
     let mut props = ctx.params.list("rvprop");
     if props.is_empty() {
         props = ["ids", "timestamp", "flags", "comment", "user"]
@@ -264,8 +229,16 @@ pub async fn run(
             .await
             .map_err(ApiError::internal)?;
         let mut revs = Vec::with_capacity(p.rows.len());
-        for row in &p.rows {
-            let r = revision_row(ctx, page, row, &props, in_slots, v2);
+        let parent_ids = if want("ids") {
+            parents(ctx, page, &p.rows, feed.direction).await?
+        } else {
+            vec![0; p.rows.len()]
+        };
+        for (row, parent) in p.rows.iter().zip(parent_ids) {
+            let mut r = revision_row(ctx, page, row, &props, in_slots, v2);
+            if want("ids") {
+                r["parentid"] = json!(parent);
+            }
             revs.push(with_content(ctx, page, r, &props, in_slots, v2).await?);
         }
         let mut pg = page_json(page);
@@ -301,6 +274,14 @@ fn pages_value(pages: Vec<Value>, v2: bool) -> Value {
         m.insert(key, p);
     }
     Value::Object(m)
+}
+
+/// The `contentformat` of a model, from the content-model registry.
+pub(crate) fn format_of(model: &str) -> String {
+    scatter_pages::ContentModels::embedded()
+        .get(model)
+        .and_then(|m| m.format.clone())
+        .unwrap_or_else(|| "application/json".into())
 }
 
 fn page_json(page: &PageAsk) -> Value {
@@ -379,8 +360,9 @@ fn revision_row(
         m.insert("tags".into(), json!(row.tags));
     }
     if want("contentmodel") && !in_slots {
-        m.insert("contentmodel".into(), json!(content_model(page.ns)));
-        m.insert("contentformat".into(), json!("application/json"));
+        let model = page.content_model();
+        m.insert("contentformat".into(), json!(format_of(&model)));
+        m.insert("contentmodel".into(), json!(model));
     }
     if row.kind == "erased" {
         flag(&mut m, "texthidden", true);
@@ -400,6 +382,7 @@ fn revision_row(
         }
     }
     m.insert("_offset".into(), json!(row.offset));
+    m.insert("_revid".into(), json!(row.revid));
     Value::Object(m)
 }
 
@@ -413,20 +396,30 @@ async fn with_content(
     v2: bool,
 ) -> Result<Value, ApiError> {
     let offset = row["_offset"].as_u64().unwrap_or(0);
+    let revid = row["_revid"].as_u64();
     let m = row.as_object_mut().expect("an object");
     m.remove("_offset");
+    m.remove("_revid");
     let want = |p: &str| props.iter().any(|x| x == p);
     if !want("content") || m.contains_key("texthidden") {
         return Ok(row);
     }
-    let Some(text) = content_at(ctx, page, offset).await? else {
+    let Some(text) = content_at(ctx, page, offset, revid).await? else {
+        if page.doc.is_some() {
+            let v2 = ctx.formatversion == 2;
+            m.insert(
+                "texthidden".into(),
+                if v2 { json!(true) } else { json!("") },
+            );
+        }
         return Ok(row);
     };
-    let model = content_model(page.ns);
+    let model = page.content_model();
+    let format = format_of(&model);
     if in_slots {
         let mut slot = Map::new();
         slot.insert("contentmodel".into(), json!(model));
-        slot.insert("contentformat".into(), json!("application/json"));
+        slot.insert("contentformat".into(), json!(format));
         if v2 {
             slot.insert("content".into(), json!(text));
         } else {
@@ -435,7 +428,7 @@ async fn with_content(
         m.insert("slots".into(), json!({"main": Value::Object(slot)}));
     } else {
         m.insert("contentmodel".into(), json!(model));
-        m.insert("contentformat".into(), json!("application/json"));
+        m.insert("contentformat".into(), json!(format));
         if v2 {
             m.insert("content".into(), json!(text));
         } else {

@@ -395,6 +395,7 @@ mod tests {
         let props = schema["properties"].as_object().unwrap();
         let tenant = Tenant {
             slug: "t".into(),
+            issuer: "t".into(),
             base: "https://t.example".into(),
             public_base: "https://t.example".into(),
             host: "t.example".into(),

@@ -1,0 +1,5 @@
+This project is (or at least will be, as soon as I set this up) in federation with the following Wikibases:
+* [https://wikidata.org Wikidata]
+* [https://domains.wikibase.cloud Internet Domains Wikibase]
+
+This is achieved by storing these graphs alongside the Librarybase one.

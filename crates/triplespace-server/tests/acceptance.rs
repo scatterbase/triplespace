@@ -17,7 +17,6 @@ use triplespace_accounts::{Secret, keys};
 use triplespace_api_action::{App, Config as ServerConfig, Mode, router_with};
 use triplespace_cli::forwarder::{Create, Forwarder, Revoke, Target};
 use triplespace_cli::{accounts, adopt, instance, sync};
-use triplespace_projections::Farm;
 
 const DB: &str = "tsaccept_test";
 const TENANT: &str = "librarybase";
@@ -180,7 +179,8 @@ async fn a_bot_logs_in_reads_and_edits() {
         tenant: TENANT.into(),
         base: format!("https://{HOST}"),
         name: None,
-        farm_slug: None,
+        farm_slug: "testfarm".into(),
+        tenancy: "isolated".into(),
         farm_base: None,
         providers: vec!["internetdomains".into()],
         adopt: Some(format!("https://{HOST}/")),
@@ -204,8 +204,6 @@ async fn a_bot_logs_in_reads_and_edits() {
         subsidiary: None,
         batch: 200,
         no_accounts: false,
-        farm_slug: None,
-        farm_base: None,
     })
     .await
     .expect("adopt");
@@ -218,17 +216,19 @@ async fn a_bot_logs_in_reads_and_edits() {
         threshold: 1000,
         batch: 200,
         rejects: None,
-        farm_slug: None,
-        farm_base: None,
     })
     .await
     .expect("sync");
 
     // 2. A subsidiary with a key.
-    let farm = Farm {
-        slug: TENANT.into(),
-        base: format!("https://{HOST}"),
-    };
+    let farm = triplespace_cli::common::farm_at(&database).await.unwrap();
+    // The tenant's issuer code, derived from its founding record (0079), which its actor
+    // keys carry.
+    let lb = triplespace_cli::common::issuer_at(&database, TENANT)
+        .await
+        .unwrap();
+    assert!(scatter_actors::issuer::is_derived_code(&lb), "{lb}");
+    let alice = format!("{lb}:7");
     let (store, pipeline) = triplespace_cli::common::store(&database, &farm).unwrap();
     let mut cx = scatter_projection::Backend::begin(&store).await.unwrap();
     let bot_key = accounts::create_subsidiary(
@@ -237,9 +237,9 @@ async fn a_bot_logs_in_reads_and_edits() {
         &mut cx,
         TENANT,
         "Alice bot",
-        "librarybase:7",
+        &alice,
         &["bot".into()],
-        "librarybase:7",
+        &alice,
         triplespace_cli::common::now(),
     )
     .await
@@ -247,7 +247,11 @@ async fn a_bot_logs_in_reads_and_edits() {
     scatter_projection::Backend::commit(&store, cx)
         .await
         .unwrap();
-    assert_eq!(bot_key, "librarybase:10", "after the adopted users 7 and 9");
+    assert_eq!(
+        bot_key,
+        format!("{lb}:10"),
+        "after the adopted users 7 and 9"
+    );
     let conn = triplespace_cli::common::connect(&database).await.unwrap();
     let issued = keys::issue(
         &conn,
@@ -264,8 +268,6 @@ async fn a_bot_logs_in_reads_and_edits() {
     // and its revocation a null record that retires the registry row.
     let target = || Target {
         database: database.clone(),
-        farm_slug: None,
-        farm_base: None,
     };
     triplespace_cli::forwarder::run(Forwarder::Create(Create {
         target: target(),
@@ -317,6 +319,7 @@ async fn a_bot_logs_in_reads_and_edits() {
             trusted_proxies: vec![],
             dev_tenant: None,
             farm,
+            auth_base: None,
             generator: "Triplespace test".into(),
             version: None,
         },
@@ -466,7 +469,7 @@ async fn a_bot_logs_in_reads_and_edits() {
             .unwrap()
             .contains(&json!("edit"))
     );
-    assert_eq!(ui["query"]["userinfo"]["operator"], "librarybase:7");
+    assert_eq!(ui["query"]["userinfo"]["operator"], alice.as_str());
     let csrf = c.get("action=query&meta=tokens&format=json").await["query"]["tokens"]["csrftoken"]
         .as_str()
         .unwrap()
@@ -980,7 +983,7 @@ async fn a_bot_logs_in_reads_and_edits() {
     assert_eq!(h["cache-tag"], "entity:Q6");
     assert_eq!(change["source"], "local");
     assert_eq!(change["revision"]["revid"], alias_rev["revid"]);
-    assert_eq!(change["revision"]["actor"], "librarybase:10");
+    assert_eq!(change["revision"]["actor"], format!("{lb}:10"));
     assert_eq!(change["operation"]["op"], "add");
     assert_eq!(change["diff"]["aliases"][0]["language"], "en");
     assert_eq!(change["diff"]["aliases"][0]["added"], json!(["VI"]));
@@ -1104,8 +1107,6 @@ async fn a_bot_logs_in_reads_and_edits() {
     // 10. Everything the API wrote replays from the log.
     let status = triplespace_cli::status::Target {
         database: database.clone(),
-        farm_slug: None,
-        farm_base: None,
     };
     triplespace_cli::status::rebuild(status)
         .await
@@ -1174,10 +1175,7 @@ async fn what_the_site_reads(router: &Router, database: &str) {
     );
 
     // The wiki's palette, set in its config, is what siteinfo reports.
-    let farm = Farm {
-        slug: TENANT.into(),
-        base: format!("https://{HOST}"),
-    };
+    let farm = triplespace_cli::common::farm_at(database).await.unwrap();
     let (store, pipeline) = triplespace_cli::common::store(database, &farm).unwrap();
     let mut cx = scatter_projection::Backend::begin(&store).await.unwrap();
     let config = scatter_ingest::store::IngestStore::partition(&store, &mut cx, TENANT, "config")
@@ -1188,7 +1186,12 @@ async fn what_the_site_reads(router: &Router, database: &str) {
         scatter_log::registry::PAYLOAD_CONFIG,
         "site:theme.palette",
         &json!({"kind": "site", "name": "theme.palette", "value": "parchment-ob"}),
-        "librarybase:7",
+        &format!(
+            "{}:7",
+            triplespace_cli::common::issuer_at(database, TENANT)
+                .await
+                .unwrap()
+        ),
         None,
         triplespace_cli::common::now(),
     )

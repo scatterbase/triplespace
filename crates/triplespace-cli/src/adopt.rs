@@ -1,6 +1,7 @@
 //! `triplespace adopt` (0035): a frozen Wikibase's full-history MediaWiki XML dump becomes
 //! the tenant's `local` graph, revision by revision (A12), or, with `--current-only`, as
-//! each entity's newest revision. Two passes over the dump: a survey for the floors, the
+//! each entity's newest revision. Its document pages come in the same job, into `pages`
+//! ([`crate::adopt_pages`], A13). Two passes over the dump: a survey for the floors, the
 //! accounts and whether the dump carries history, then the adoption job itself.
 
 use std::collections::BTreeMap;
@@ -11,17 +12,16 @@ use clap::Args;
 use scatter_actors::actor::ActorRecord;
 use scatter_actors::key::ActorKey;
 use scatter_adapter_wikidata::adoption::{
-    AdoptedRevision, Contributor, Survey, adopt_history, adopt_page,
+    AdoptedRevision, ENTITY_MODELS, Survey, adopt_history, adopt_page,
 };
 use scatter_adapter_wikidata::xml_dump::XmlDump;
-use scatter_ingest::adopt::{Adopted, Adoption, Author, Floors, run_adoption};
+use scatter_ingest::adopt::{Adopted, AdoptedItem, Adoption, Floors, run_adoption};
 use scatter_ingest::write::Attestation;
 use scatter_providers::Registry;
 use scatter_wikibase_model::id::EntityId;
-use triplespace_projections::Farm;
 use triplespace_projections::actors::payload;
 
-use crate::common::{connect, draft, now, store};
+use crate::common::{connect, draft, farm_of, issuer_of, now, store};
 
 /// `adopt`.
 #[derive(Debug, Args)]
@@ -68,12 +68,6 @@ pub struct Adopt {
     /// Skip the source's accounts.
     #[arg(long)]
     pub no_accounts: bool,
-    /// The farm slug (the tenant's by default) and base, for the pipeline.
-    #[arg(long)]
-    pub farm_slug: Option<String>,
-    /// The farm base.
-    #[arg(long)]
-    pub farm_base: Option<String>,
 }
 
 fn parse_pairs(text: &str) -> Result<BTreeMap<String, String>> {
@@ -152,23 +146,15 @@ pub async fn run(args: Adopt) -> Result<()> {
         ),
     }
 
-    // The tenant's base, for the pipeline's IRIs.
+    // The tenant's issuer code, which its accounts carry (0079 §6), and the farm.
     let client = connect(&args.database).await?;
-    let base: String = client
-        .query_opt(
-            "SELECT config->>'base' FROM view.registry WHERE tenant = '' AND kind = 'tenant' AND code = $1",
-            &[&args.tenant],
+    let issuer = issuer_of(&client, &args.tenant).await.with_context(|| {
+        format!(
+            "run `instance create` or `tenant create` for `{}` first",
+            args.tenant
         )
-        .await?
-        .and_then(|r| r.get::<_, Option<String>>(0))
-        .with_context(|| format!("tenant `{}` is not registered; run `instance create` first", args.tenant))?;
-    let farm = Farm {
-        slug: args
-            .farm_slug
-            .clone()
-            .unwrap_or_else(|| args.tenant.clone()),
-        base: args.farm_base.clone().unwrap_or(base),
-    };
+    })?;
+    let farm = farm_of(&client).await?;
     let owner: Option<String> = client
         .query_opt(
             "SELECT m.actor_key FROM view.membership m WHERE m.tenant = $1 AND m.\"group\" = 'owner' ORDER BY m.actor_key LIMIT 1",
@@ -193,7 +179,7 @@ pub async fn run(args: Adopt) -> Result<()> {
             .map(|a| {
                 draft(
                     payload::ACTOR,
-                    &ActorKey::numeric(&args.tenant, a.id).to_string(),
+                    &ActorKey::numeric(&issuer, a.id).to_string(),
                     &serde_json::to_value(ActorRecord::registered(&a.name))?,
                     &actor,
                     Some("adopted account"),
@@ -203,6 +189,7 @@ pub async fn run(args: Adopt) -> Result<()> {
             .collect::<Result<Vec<_>>>()?
     };
     let adoption = Adoption {
+        issuer: issuer.clone(),
         source: args.source.clone(),
         version: args.version.clone().unwrap_or_else(|| {
             args.dump
@@ -233,7 +220,9 @@ pub async fn run(args: Adopt) -> Result<()> {
     let mut unreadable_revisions = 0u64;
     let mut seen = 0u64;
     let mut untyped: BTreeMap<EntityId, u64> = BTreeMap::new();
-    let tenant = args.tenant.clone();
+    let mut pages_read = 0u64;
+    let mut deferred: BTreeMap<String, u64> = BTreeMap::new();
+    let tenant = issuer.clone();
     let current_only = args.current_only;
     let revisions = XmlDump::open(&args.dump)
         .context("open dump")?
@@ -246,6 +235,24 @@ pub async fn run(args: Adopt) -> Result<()> {
                     return Vec::new();
                 }
             };
+            let entity_page = page
+                .revisions
+                .last()
+                .and_then(|r| r.model.as_deref())
+                .is_some_and(|m| ENTITY_MODELS.contains(&m));
+            if !entity_page {
+                return match crate::adopt_pages::read_page(&page, &tenant, current_only) {
+                    crate::adopt_pages::PageRead::Adopt(revs) => {
+                        pages_read += 1;
+                        revs.into_iter().map(AdoptedItem::Page).collect()
+                    }
+                    crate::adopt_pages::PageRead::Deferred(why) => {
+                        eprintln!("deferring page {} (`{}`): {why}", page.id, page.title);
+                        *deferred.entry(why).or_default() += 1;
+                        Vec::new()
+                    }
+                };
+            }
             let read = if current_only {
                 adopt_page(&page, &sources, registry, &survey.property_types)
                     .map(|a| a.into_iter().collect::<Vec<_>>())
@@ -278,7 +285,7 @@ pub async fn run(args: Adopt) -> Result<()> {
                             for (p, n) in &a.untyped_snaks {
                                 *untyped.entry(p.clone()).or_default() += n;
                             }
-                            adopted(a, &tenant, current_only)
+                            AdoptedItem::Entity(adopted(a, &tenant, current_only))
                         })
                         .collect()
                 }
@@ -324,11 +331,13 @@ pub async fn run(args: Adopt) -> Result<()> {
     if unreadable_revisions > 0 {
         println!("  unreadable {unreadable_revisions} revisions (see stderr)");
     }
-    if survey.other_pages > 0 {
-        println!(
-            "  deferred   {} pages outside the entity namespaces, for the page import (0035 A13)",
-            survey.other_pages
-        );
+    println!("  pages      {pages_read} document pages");
+    let deferred_total: u64 = deferred.values().sum();
+    if deferred_total > 0 {
+        println!("  deferred   {deferred_total} pages (0035 A13):");
+        for (why, n) in &deferred {
+            println!("    {n} × {why}");
+        }
     }
     if !untyped.is_empty() {
         let total: u64 = untyped.values().sum();
@@ -347,22 +356,11 @@ pub async fn run(args: Adopt) -> Result<()> {
 
 /// The job's form of an adapted revision: under `--current-only` the job's own revision
 /// (0035 §3), otherwise the source's, attributed to its author (A12).
-fn adopted(a: AdoptedRevision, tenant: &str, current_only: bool) -> Adopted {
+fn adopted(a: AdoptedRevision, issuer: &str, current_only: bool) -> Adopted {
     if current_only && let Some(entity) = a.entity {
         return Adopted::current(entity, a.source_revid, &a.source_time, a.source_pageid);
     }
-    let author = match a.contributor {
-        Contributor::Account(id) => Author::Actor(ActorKey::numeric(tenant, id).to_string()),
-        Contributor::Ip(ip) => Author::Surrogate {
-            kind: "anonymous".into(),
-            raw: ip,
-        },
-        Contributor::Imported(name) => Author::Surrogate {
-            kind: "imported".into(),
-            raw: name,
-        },
-        Contributor::Hidden => Author::Hidden,
-    };
+    let author = crate::adopt_pages::author(a.contributor, issuer);
     Adopted {
         id: a.id,
         entity: a.entity,

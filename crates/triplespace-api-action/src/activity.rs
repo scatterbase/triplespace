@@ -92,8 +92,14 @@ pub fn title_of(row: &Row) -> Option<(i64, String)> {
             })
         }
         target_kind::PAGE => {
+            // `view.page` keeps the title without its namespace; a row's title has it,
+            // canonically written.
             let (ns, title) = t.page.clone()?;
-            Some((i64::from(ns), title))
+            let prefixed = match scatter_titles::Namespaces::embedded().get(ns) {
+                Some(n) if ns != 0 => format!("{}:{title}", n.canonical),
+                _ => title,
+            };
+            Some((i64::from(ns), prefixed))
         }
         target_kind::ACTOR => t.id.as_ref().map(|k| (2, format!("User:{k}"))),
         target_kind::JOB => t.id.as_ref().map(|j| (-1, format!("Special:Jobs/{j}"))),
@@ -563,6 +569,7 @@ mod tests {
     fn tenant() -> Tenant {
         Tenant {
             slug: "librarybase".into(),
+            issuer: "librarybase".into(),
             base: "https://librarybase.org".into(),
             public_base: "https://librarybase.org".into(),
             host: "librarybase.org".into(),
@@ -579,7 +586,7 @@ mod tests {
         r.target.id = Some("domain:wikipedia.org".into());
         assert_eq!(title_of(&r), Some((210, "Domain:wikipedia.org".into())));
         r.target.kind = Some(target_kind::PAGE);
-        r.target.page = Some((4, "Project:Home".into()));
+        r.target.page = Some((4, "Home".into()));
         assert_eq!(title_of(&r), Some((4, "Project:Home".into())));
     }
 
