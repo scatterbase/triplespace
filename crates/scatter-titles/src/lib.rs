@@ -148,8 +148,13 @@ mod tests {
         assert!(project.allows_model("wikitext"));
         assert!(project.holds_pages(|_| false));
         let template = r.get(TEMPLATE).expect("Template");
-        assert!(!template.holds_pages(|_| false));
-        assert!(template.holds_pages(|s| s == "wikitext.expansion"));
+        assert!(
+            template.holds_pages(|_| false),
+            "templates are part of wikitext"
+        );
+        let module = r.get(828).expect("Module");
+        assert!(!module.holds_pages(|_| false));
+        assert!(module.holds_pages(|s| s == "wikitext.lua"));
         assert!(!r.get(3).expect("User talk").allows_model("wikitext"));
         assert!(r.get(120).expect("Item").is_entity_namespace());
         assert_eq!(r.by_name("user_talk").map(|n| n.id), Some(3));

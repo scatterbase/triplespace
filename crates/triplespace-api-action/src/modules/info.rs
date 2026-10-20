@@ -1,9 +1,8 @@
 //! `prop=info`, `prop=templates` and `list=allpages` (compat `#mod-query+info`,
 //! `#mod-query+templates`, `#mod-query+allpages`; 18 §2.3).
 //!
-//! `prop=templates` lists the pages a document page transcludes, as its latest text
-//! expands with the tenant's `wikitext.expansion` (11 §1.1): none while expansion is off,
-//! and none for an entity page. They are found by expanding the text when asked, since no
+//! `prop=templates` lists the pages a document page's latest text transcludes when it is
+//! expanded (11 §1.1); an entity page and a page of another model transclude none. They are found by expanding the text when asked, since no
 //! projection keeps them yet; `tlnamespace` and `tltemplates` filter them. Pywikibot asks
 //! for them before every save, to honour `{{nobots}}`.
 //!
@@ -178,7 +177,7 @@ pub async fn templates(ctx: &Ctx, query: &mut Map<String, Value>) -> Result<(), 
         m.insert("ns".into(), json!(p.ns));
         m.insert("title".into(), json!(p.title));
         let used = match &p.doc {
-            Some(doc) if site.expansion && doc.model == "wikitext" => {
+            Some(doc) if doc.model == "wikitext" => {
                 match crate::pages::latest_text(ctx.db(), tenant, doc).await? {
                     Some(text) => {
                         crate::pages::expand(ctx.db(), tenant, &site, &text)

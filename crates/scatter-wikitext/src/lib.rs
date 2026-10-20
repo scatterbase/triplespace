@@ -8,12 +8,12 @@
 //! walk, so extraction and rendering cannot disagree.
 //!
 //! The crate is pure and builds for `wasm32-unknown-unknown`, so the editor's preview
-//! runs the same code as the server (0034). It renders what it is given: with
-//! `wikitext.expansion` on that is the expanded text from `scatter-wikitext-expand`;
-//! with it off, the stored text, where template calls render as chips.
+//! runs the same code as the server (0034). It renders what it is given: on the server,
+//! the expanded text from `scatter-wikitext-expand`; in a preview that cannot expand,
+//! the stored text, where template calls render as chips.
 //!
-//! **Spans** are byte ranges in the text [`render`] was given: the stored text with
-//! expansion off, the expanded text with it on. Mapping expanded positions back to the
+//! **Spans** are byte ranges in the text [`render`] was given: the expanded text, or the
+//! stored text where it was not expanded. Mapping expanded positions back to the
 //! source is the expander's, in a later slice (11 §1.4); positions for the editor come
 //! from parsing the source as source, as 11 §1.1 says.
 

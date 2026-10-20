@@ -36,7 +36,10 @@ echo 'e2e-oauth-secret' > "$work/oauth.secret"
 "$bin/triplespace" oauth-client set wikimedia-central --client-id e2e-client \
 	--secret-file "$work/oauth.secret" --key-file "$work/k.key" \
 	--callback http://127.0.0.1: >/dev/null
-"$bin/triplespace" adopt --tenant librarybase --dump "$fixtures/site-entities.xml" \
+# The fixture's revisions are dated a day ago, to stay inside recent changes' 30-day window.
+yesterday="$(date -u -d '1 day ago' +%Y-%m-%dT%H:%M:%SZ)"
+sed "s/2026-09-20T14:02:11Z/$yesterday/g" "$fixtures/site-entities.xml" > "$work/site-entities.xml"
+"$bin/triplespace" adopt --tenant librarybase --dump "$work/site-entities.xml" \
 	--source https://librarybase.org/ --version test --frozen --counters item=6,property=12 >/dev/null
 "$bin/triplespace" sync --provider internetdomains --dump "$fixtures/internetdomains.json" \
 	--version 20261001 >/dev/null

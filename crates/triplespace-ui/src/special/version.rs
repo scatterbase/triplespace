@@ -942,7 +942,7 @@ mod tests {
             "crates": [{"id": "url@2.5.4", "name": "url", "version": "2.5.4", "license": "MIT OR Apache-2.0", "repository": "https://github.com/servo/rust-url"}],
             "packages": [{"id": "@wikimedia/codex@2.7.0", "name": "@wikimedia/codex", "version": "2.7.0", "license": "GPL-2.0+"}],
             "vendored": [],
-            "features": {"tenant": [{"key": "wikitext.expansion", "set": false, "value": "off"}, {"key": "content.licence", "set": false}], "providers": ["wikidata"]},
+            "features": {"tenant": [{"key": "wikitext.lua", "set": false, "value": "off"}, {"key": "content.licence", "set": false}], "providers": ["wikidata"]},
             "entry_points": [{"name": "api.php", "url": "https://x.example/w/api.php"}],
             "wikitext": [],
             "inspired_by": [{"name": "MediaWiki", "url": "https://www.mediawiki.org/wiki/MediaWiki", "special_pages": ["Search", "Version"], "content_models": [], "wikitext": {"implemented": [], "recognized": []}, "inspired_by": []}],

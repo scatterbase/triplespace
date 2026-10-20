@@ -44,9 +44,12 @@ const S_MAXAGE: u32 = 60;
 /// How long a client waits before trying again after a `503`.
 const RETRY_AFTER: &str = "30";
 
-/// The Content Security Policy of every response the site makes (0034 §8; 0057 §7): the
-/// site's own origin only, no inline script or style.
+/// The Content Security Policy of every response the site makes (0034 §11, A13; 0057 §7):
+/// the site's own origin only and no inline script; stylesheets from the origin and no
+/// `<style>` element, but `style` attributes, which wikitext writes and the API's
+/// Sanitizer has checked.
 pub const CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self'; \
+    style-src-attr 'unsafe-inline'; \
     img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'self'; \
     frame-ancestors 'self'; form-action 'self'";
 
@@ -840,6 +843,14 @@ mod tests {
         req.insert(header::IF_NONE_MATCH, format!("W/{a}").parse().unwrap());
         assert!(not_modified(&req, &a));
         assert!(!not_modified(&req, &b));
+    }
+
+    #[test]
+    fn the_policy_allows_style_attributes_only() {
+        assert!(CSP.contains("style-src 'self';"));
+        assert!(CSP.contains("style-src-attr 'unsafe-inline';"));
+        assert!(!CSP.contains("script-src 'self' 'unsafe-inline'"));
+        assert!(!CSP.contains("style-src-elem"));
     }
 
     #[test]

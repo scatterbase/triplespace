@@ -9,6 +9,7 @@ use scatter_wikibase_model::value::DataType;
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
 use triplespace_accounts::session;
+use triplespace_projections::pages::TenantNames;
 
 use crate::api::Ctx;
 use crate::app::Mode;
@@ -258,8 +259,14 @@ struct NamespaceFile {
 }
 
 /// The namespaces `meta=siteinfo` lists (0008 §2–3; 0041 §8): the `pages` and `virtual`
-/// namespaces of `namespaces.toml` that no tenant setting gates.
-fn namespaces(sitename: &str, expansion: bool) -> Value {
+/// namespaces of `namespaces.toml` that no tenant setting gates, under the tenant's names.
+fn namespaces(names: &TenantNames) -> Value {
+    let local: std::collections::HashMap<i32, String> = names
+        .source()
+        .namespaces
+        .into_iter()
+        .map(|n| (n.id, n.name))
+        .collect();
     let file: NamespaceFile = toml::from_str(include_str!(
         "../../../../docs/registry/namespaces.toml"
     ))
@@ -268,19 +275,15 @@ fn namespaces(sitename: &str, expansion: bool) -> Value {
     });
     let mut out = Map::new();
     for ns in file.namespace {
-        let enabled = match ns.enabled_by.as_deref() {
-            None => true,
-            Some("wikitext.expansion") => expansion,
-            Some(_) => false,
-        };
+        // Only Lua's namespaces are gated (`wikitext.lua`), and Lua is not built.
+        let enabled = ns.enabled_by.is_none();
         if !enabled || !(ns.kind == "pages" || ns.kind == "virtual") {
             continue;
         }
-        let name = match ns.canonical.as_str() {
-            "Project" => sitename.to_string(),
-            "Project talk" => format!("{sitename} talk"),
-            other => other.to_string(),
-        };
+        let name = local
+            .get(&i32::try_from(ns.id).unwrap_or(i32::MIN))
+            .cloned()
+            .unwrap_or_else(|| ns.canonical.clone());
         let mut row = Map::new();
         row.insert("id".into(), json!(ns.id));
         row.insert(
@@ -704,15 +707,28 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                     g.insert("dbversion".into(), json!(v));
                 }
             }
-            "namespaces" => {
-                let expansion = settings
-                    .value("wikitext.expansion")
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(false);
-                query.insert("namespaces".into(), namespaces(&sitename, expansion));
-            }
-            "namespacealiases" => {
-                query.insert("namespacealiases".into(), json!([]));
+            "namespaces" | "namespacealiases" => {
+                let mut names = TenantNames::load(ctx.db(), &ctx.tenant.slug)
+                    .await
+                    .map_err(ApiError::internal)?;
+                names.site_name = Some(sitename.clone());
+                if p == "namespaces" {
+                    query.insert("namespaces".into(), namespaces(&names));
+                } else {
+                    let v2 = ctx.formatversion == 2;
+                    let list: Vec<Value> = names
+                        .aliases()
+                        .into_iter()
+                        .map(|(id, alias)| {
+                            if v2 {
+                                json!({"id": id, "alias": alias})
+                            } else {
+                                json!({"id": id, "*": alias})
+                            }
+                        })
+                        .collect();
+                    query.insert("namespacealiases".into(), Value::Array(list));
+                }
             }
             "extensions" => {
                 // Only extensions whose API modules are served, since clients choose the

@@ -12,9 +12,9 @@
 # normalizer  "first-letter" | "file-name" | "entity-id" | a keyed type's or resolver's name (0008 §3)
 # case        What meta=siteinfo reports: "first-letter" | "case-sensitive"
 # talk        The paired talk namespace, whose pages are composites of attached threads (0008 §2, 0019 §2)
-# enabled_by  A tenant `site` setting that turns the namespace on (0042 §3, 0043 §2). While the setting is
-#             off, a core number is treated as "reserved" and a Scribunto number is not listed; pages that
-#             already exist stay readable and writes are refused with ts-namespace-disabled.
+# enabled_by  A tenant `site` setting that turns the namespace on (0043 §2; Template's was withdrawn by
+#             0042 A19). While the setting is off the namespace is not listed; pages that already exist
+#             stay readable and writes are refused with ts-namespace-disabled.
 # default_model_rules  Title-suffix overrides of default_model, applied in order (0043 §2)
 #
 # Numbering policy (0008 §2, amended 2026-09-27):
@@ -132,8 +132,7 @@ kind = "reserved"           # core; interface messages are not pages here
 [[namespace]]
 id = 10
 canonical = "Template"
-kind = "pages"              # while wikitext.expansion is on; reserved otherwise (0042 §3)
-enabled_by = "wikitext.expansion"
+kind = "pages"              # templates are part of wikitext (0042 §3, A19)
 normalizer = "first-letter"
 case = "first-letter"
 subpages = true
@@ -146,7 +145,6 @@ talk = 11
 id = 11
 canonical = "Template talk"
 kind = "pages"
-enabled_by = "wikitext.expansion"
 content_models = ["triplespace-talk"]
 default_model = "triplespace-talk"
 

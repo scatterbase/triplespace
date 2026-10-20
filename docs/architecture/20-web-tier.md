@@ -54,6 +54,7 @@ The edge proxy routes by path prefix, longest prefix first. The authoritative li
 | `/w/rest.php/`, `/rest.php/` | API |
 | `/wiki/Special:EntityData/`, `/entity/` | API |
 | `/.well-known/`, `/oauth/`, `/dumps/` | API |
+| `/w/styles/`: the site styles and TemplateStyles sheets ([11](11-rendering-templates-and-modules.md) §6.3–6.4), from when the first is served | API |
 | The media routes of [0039](../decisions/0039-files-and-media.md) §7, where the media base shares the host | API |
 | Everything else: `/`, `/wiki/`, `/w/index.php`, `/index.php`, `/ui/assets/` | Web tier |
 

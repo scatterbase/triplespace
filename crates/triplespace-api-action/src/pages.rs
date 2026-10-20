@@ -2,9 +2,10 @@
 //! settings, title resolution into the page namespaces, `view.page` lookups, and the
 //! render pipeline that `action=parse` and the site's page views use.
 //!
-//! **Rendering** is the two stages of 11 §1.1: with `wikitext.expansion` on, the text is
-//! expanded first by `scatter-wikitext-expand`, whose host reads Template pages' latest
-//! text; then `scatter-wikitext` renders it. Both are pure, so the database is read
+//! **Rendering** is the two stages of 11 §1.1: the text is expanded first by
+//! `scatter-wikitext-expand`, whose host reads Template pages' latest text, since
+//! expansion is part of wikitext wherever a tenant has wikitext pages (0042 A19); then
+//! `scatter-wikitext` renders it. Both are pure, so the database is read
 //! around them: expansion runs in rounds, the host recording the pages it did not have
 //! and the next round having them, and before rendering the links the text makes are
 //! extracted and their targets' existence, redirect flags and entity labels read in
@@ -12,7 +13,7 @@
 
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::Arc;
 
 use scatter_titles::Namespaces;
 use scatter_wikitext::html::url_encode_title;
@@ -35,8 +36,6 @@ pub struct Site {
     pub name: String,
     /// `site.language`.
     pub lang: String,
-    /// `wikitext.expansion`.
-    pub expansion: bool,
 }
 
 impl Site {
@@ -52,24 +51,25 @@ impl Site {
             .value("site.language")
             .and_then(|v| v.as_str().map(str::to_owned))
             .unwrap_or_else(|| "en".into());
-        let expansion = settings
-            .value("wikitext.expansion")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
+        let mut names =
+            triplespace_projections::pages::TenantNames::load(ctx.db(), &ctx.tenant.slug)
+                .await
+                .map_err(ApiError::internal)?;
+        names.site_name = Some(name.clone());
         Ok(Self {
-            config: config_for(&name),
+            config: names.config(),
             name,
             lang,
-            expansion,
         })
     }
 
-    /// Whether a namespace holds pages on this tenant (Template only with expansion on).
+    /// Whether a namespace holds pages on this tenant. Module and Module talk wait for
+    /// Lua (`wikitext.lua`, 0043), which is not built, so they hold none yet.
     #[must_use]
     pub fn holds_pages(&self, ns: i32) -> bool {
         Namespaces::embedded()
             .get(ns)
-            .is_some_and(|n| n.holds_pages(|s| s == "wikitext.expansion" && self.expansion))
+            .is_some_and(|n| n.holds_pages(|_| false))
     }
 
     /// A title as `Project:Scope`, with the site's local names.
@@ -79,20 +79,15 @@ impl Site {
     }
 }
 
-/// The wikitext configuration for a site name, built once per name.
+/// The wikitext configuration for a site name alone, without the tenant's namespace
+/// records: for tests.
+#[cfg(test)]
 fn config_for(site: &str) -> Arc<Config> {
-    static CACHE: OnceLock<Mutex<HashMap<String, Arc<Config>>>> = OnceLock::new();
-    let cache = CACHE.get_or_init(|| Mutex::new(HashMap::new()));
-    let mut map = cache
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    map.entry(site.to_string())
-        .or_insert_with(|| {
-            Arc::new(Config::new(triplespace_projections::pages::config_source(
-                Some(site),
-            )))
-        })
-        .clone()
+    triplespace_projections::pages::TenantNames {
+        site_name: Some(site.to_string()),
+        ..Default::default()
+    }
+    .config()
 }
 
 /// A document page's row.
@@ -487,7 +482,7 @@ pub struct Render {
     pub links: Links,
 }
 
-/// Expands (with expansion on) and renders a page's text.
+/// Expands and renders a page's text.
 pub async fn render(
     db: &Client,
     tenant: &str,
@@ -495,11 +490,7 @@ pub async fn render(
     text: &str,
     page: &Title,
 ) -> Result<Render, ApiError> {
-    let (text, transcluded) = if site.expansion {
-        expand(db, tenant, site, text).await?
-    } else {
-        (text.to_string(), Vec::new())
-    };
+    let (text, transcluded) = expand(db, tenant, site, text).await?;
     let links = Links::read(db, tenant, site, &text, page).await?;
     let rendered = scatter_wikitext::render(&text, &site.config, &links, page);
     Ok(Render {
@@ -513,18 +504,17 @@ pub async fn render(
 mod tests {
     use super::*;
 
-    fn site(expansion: bool) -> Site {
+    fn site() -> Site {
         Site {
             config: config_for("Librarybase"),
             name: "Librarybase".into(),
             lang: "en".into(),
-            expansion,
         }
     }
 
     #[test]
     fn titles_resolve_into_page_namespaces() {
-        let s = site(false);
+        let s = site();
         assert_eq!(
             resolve_title(&s, "project:scope"),
             Some(Title::new(4, "Scope"))
@@ -540,8 +530,8 @@ mod tests {
         assert_eq!(resolve_title(&s, "Item:Q5"), None);
         assert_eq!(resolve_title(&s, "a|b"), None);
         assert_eq!(s.prefixed(4, "Scope"), "Librarybase:Scope");
-        assert!(!s.holds_pages(10));
-        assert!(site(true).holds_pages(10));
+        assert!(s.holds_pages(10), "Template holds pages");
         assert!(s.holds_pages(4));
+        assert!(!s.holds_pages(828), "Module waits for Lua");
     }
 }

@@ -3,9 +3,8 @@
 //! tenant's `pages` partition under its source page ID and revision IDs.
 //!
 //! A page is accepted when its namespace holds pages and allows its content model, with
-//! the registry's own namespaces: Project, User and the main namespace, and Template,
-//! which holds pages while `wikitext.expansion` is on and keeps them readable while it is
-//! off (11 §1.3). Talk pages, whose model is `triplespace-talk`, become threads by a later
+//! the registry's own namespaces: Project, User, Template and the main namespace (0008
+//! A41; 0042 A19). Talk pages, whose model is `triplespace-talk`, become threads by a later
 //! conversion; they and pages in reserved namespaces (MediaWiki) are counted `deferred`.
 //!
 //! The first revision is a `create` with the page's current title (an export lists a

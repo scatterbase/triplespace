@@ -17,11 +17,11 @@ This chapter describes how a `wikitext` page becomes HTML and page metadata: exp
 
 **Expansion is always native.** It is implemented in Rust (§1.4) and runs in the binary. When Parsoid renders, it asks Triplespace to expand (§3.1); it never expands on its own and never reaches another wiki's preprocessor.
 
-**With expansion off, stage 1 is the identity.** Template calls and parser functions render as chips, and categories are read from the source ([0038](../decisions/0038-page-metadata-and-categories.md) §3, in [10](10-pages-and-content-models.md)).
+**Expansion is part of wikitext.** Every tenant that has `wikitext` pages expands them; no setting turns it off, since a wiki with pages and no templates is not one MediaWiki's clients expect ([0042](../decisions/0042-template-expansion-and-parsoid.md) A19). A tenant with only entities has nothing to expand. Where stage 1 cannot run, as in the editor's in-browser preview ([19](19-site-ui.md) §3.2), it is the identity: template calls and parser functions render as chips.
 
 **The source is still parsed as source.** Positions for conflict marking and link autocomplete ([0010](../decisions/0010-site-ui.md) §4) come from the source, as now. Rendering and page metadata (§4.1) come from the expanded text.
 
-Whether a tenant expands, runs Lua and which renderer serves its HTML are the `site` settings `wikitext.expansion`, `wikitext.lua` and `wikitext.renderer`, capped by the instance's `wikitext.ceiling`; the Parsoid service's address, timeout and concurrency are deployment configuration. The settings, their defaults and the rule that turning `wikitext.expansion` off also turns `wikitext.lua` off and `wikitext.renderer` back to `builtin` are in [23](23-configuration-and-registry.md) ([0042](../decisions/0042-template-expansion-and-parsoid.md) §2).
+Whether a tenant runs Lua and which renderer serves its HTML are the `site` settings `wikitext.lua` and `wikitext.renderer`, Lua capped by the instance's `wikitext.ceiling`; the Parsoid service's address, timeout and concurrency are deployment configuration. The settings and their defaults are in [23](23-configuration-and-registry.md) ([0042](../decisions/0042-template-expansion-and-parsoid.md) §2, A19).
 
 ### 1.2 The source parser and the built-in renderer
 
@@ -43,7 +43,7 @@ Whether a tenant expands, runs Lua and which renderer serves its HTML are the `s
 | References | `<ref>`, `<ref name>`, `<references />` |
 | Pre-save transform | `~~~`, `~~~~`, `~~~~~` on wikitext pages (not posts, [0019](../decisions/0019-discussions.md) §5) |
 
-Tags and behaviour switches the registry marks `implemented` (§2.2) are rendered by the built-in renderer whether or not expansion is on; what the registry marks `ignored` has no effect. Everything else renders as a **visible chip** showing its source: templates, parser functions, magic words and variables, and the extension tags whose registry status is `chip`. Files in wikitext (`File:` and `Image:` links) follow [0039](../decisions/0039-files-and-media.md) §13, in [12](12-files-and-media.md). Categories are listed as plain text ([0010](../decisions/0010-site-ui.md)). Magic links (`ISBN`, `RFC`, `PMID`) are off. The subset itself is [0008](../decisions/0008-namespaces-and-document-pages.md) §8's, in [10](10-pages-and-content-models.md).
+Tags and behaviour switches the registry marks `implemented` (§2.2) are rendered by the built-in renderer, after expansion or without it (§1.1); what the registry marks `ignored` has no effect. Everything else renders as a **visible chip** showing its source: templates, parser functions, magic words and variables, and the extension tags whose registry status is `chip`. Files in wikitext (`File:` and `Image:` links) follow [0039](../decisions/0039-files-and-media.md) §13, in [12](12-files-and-media.md). Categories are listed as plain text ([0010](../decisions/0010-site-ui.md)). Magic links (`ISBN`, `RFC`, `PMID`) are off. The subset itself is [0008](../decisions/0008-namespaces-and-document-pages.md) §8's, in [10](10-pages-and-content-models.md).
 
 **The built-in renderer after expansion** renders the expanded text, produced by `scatter-wikitext-expand` (§1.4), with the subset above, and extracts from it. After expansion:
 
@@ -51,22 +51,22 @@ Tags and behaviour switches the registry marks `implemented` (§2.2) are rendere
 - **Chips are for what is still outside the subset:** extension tags with status `chip` (§2), and HTML or table attributes the sanitizer drops are dropped as now. `<templatestyles>` renders as a deduplicated `<style>` element holding the sheet's sanitized form (§6.3).
 - **Expansion errors** render as MediaWiki's error spans (`<strong class="error">…</strong>`) and add their tracking category (§4.1).
 
-With expansion off, the "Template not rendered" chip of [0010](../decisions/0010-site-ui.md) §4 is unchanged. `tree-sitter-wikitext` (Wikimedia, MIT) is not the core parser; it remains available for editor highlighting in the browser ([0034](../decisions/0034-frontend-stack.md) §7).
+Where a text is rendered unexpanded (§1.1), the "Template not rendered" chip of [0010](../decisions/0010-site-ui.md) §4 shows each call. `tree-sitter-wikitext` (Wikimedia, MIT) is not the core parser; it remains available for editor highlighting in the browser ([0034](../decisions/0034-frontend-stack.md) §7).
 
 ### 1.3 The Template namespace and what can be transcluded
 
 *Sources: [0042](../decisions/0042-template-expansion-and-parsoid.md) §3.*
 
-**While `wikitext.expansion` is on**, Template (10) is a `pages` namespace and Template talk (11) is enabled:
+**Template (10) is a `pages` namespace and Template talk (11) is enabled** on every tenant, since templates are part of wikitext ([0042](../decisions/0042-template-expansion-and-parsoid.md) A19):
 
 | Namespace | Kind | Models | Normalizer | Subpages | Talk |
 |---|---|---|---|---|---|
 | 10 Template | `pages` | `wikitext`; `sanitized-css` by the `.css` suffix rule (§6.1) | `first-letter` | Yes, as in MediaWiki | 11 |
 | 11 Template talk | `pages` | `triplespace-talk` | — | — | — |
 
-**While it is off**, 10 is `reserved` and 11 is registered but disabled, both entered in `namespaces.toml` with `enabled_by = "wikitext.expansion"`, as §7.2 says for 828 and 829. This is a rule of [0008](../decisions/0008-namespaces-and-document-pages.md) §2: **a reserved number can be implemented conditionally**, by a setting named in its `namespaces.toml` entry. The namespace table is [10](10-pages-and-content-models.md)'s.
+Module (828) and Module talk (829) are the namespaces that wait on a setting, `wikitext.lua`, entered in `namespaces.toml` with `enabled_by` (§7.2). This is a rule of [0008](../decisions/0008-namespaces-and-document-pages.md) §2: **a reserved number can be implemented conditionally**, by a setting named in its `namespaces.toml` entry. The namespace table is [10](10-pages-and-content-models.md)'s.
 
-**Turning expansion off never removes pages.** Template pages that exist keep their records and history. The namespace refuses `create`, `edit` and `move` into it with `ts-namespace-disabled`, and its existing pages stay readable at their titles and can be deleted. Nothing transcludes them. Turning expansion on again restores everything. `meta=siteinfo` lists a disabled namespace while it still holds pages, so clients can read them.
+**Turning a namespace's setting off never removes pages.** Pages that exist keep their records and history. The namespace refuses `create`, `edit` and `move` into it with `ts-namespace-disabled`, and its existing pages stay readable at their titles and can be deleted. Turning the setting on again restores everything. `meta=siteinfo` lists a disabled namespace while it still holds pages, so clients can read them.
 
 **Any `wikitext` page can be transcluded**, as in MediaWiki, provided the include does not widen: a page *A* includes a page *B* only if every group a `read` restriction on *B* names is also named by one on *A*, and otherwise `{{:B}}` renders as a link to a missing page for every viewer, so that one rendering per visibility serves every reader of *A* ([0056](../decisions/0056-security-model.md) §6, in [09](09-security-and-moderation.md)). The forms are MediaWiki's: `{{Foo}}` is `Template:Foo`; `{{:Foo}}` is the main-namespace page; `{{User:Example/box}}` and `{{Project:Notice}}` name their namespace. A page of another text model transcludes its text, as MediaWiki's `TextContent` does. An entity, thread or talk page has no wikitext form and transcludes as a link to itself, `[[:Item:Q42]]`, which is what MediaWiki produces for content it cannot transclude.
 
@@ -102,7 +102,7 @@ Given the same host answers, it produces the same output. The same code serves p
 
 *Sources: [0042](../decisions/0042-template-expansion-and-parsoid.md) §6; [0033](../decisions/0033-backend-stack.md) §9.1.*
 
-The pre-save transform expands `~~~`, `~~~~` and `~~~~~` on wikitext pages, not posts ([0008](../decisions/0008-namespaces-and-document-pages.md) §8; [0019](../decisions/0019-discussions.md) §5). **With expansion on, `subst:` and `safesubst:` expand when a page is saved,** as MediaWiki's pre-save transform does, alongside `~~~~`. The saved text is the substituted text. `{{subst:#invoke:…}}` works when Lua is on. With expansion off, `subst:` stays in the text and renders as a chip.
+The pre-save transform expands `~~~`, `~~~~` and `~~~~~` on wikitext pages, not posts ([0008](../decisions/0008-namespaces-and-document-pages.md) §8; [0019](../decisions/0019-discussions.md) §5). **`subst:` and `safesubst:` expand when a page is saved,** as MediaWiki's pre-save transform does, alongside `~~~~`. The saved text is the substituted text. `{{subst:#invoke:…}}` works when Lua is on.
 
 ## 2. The parser-function registry
 
@@ -132,7 +132,7 @@ The pre-save transform expands `~~~`, `~~~~` and `~~~~~` on wikitext pages, not 
 | **Core parser functions:** `ns`, `nse`, `lc`, `uc`, `lcfirst`, `ucfirst`, `urlencode`, `anchorencode`, `localurl`, `fullurl`, `canonicalurl` (and `E` forms), `filepath`, `formatnum`, `plural`, `grammar`, `gender`, `padleft`, `padright`, `int`, `#language`, `#special`, `#speciale`, `#tag`, `#formatdate`, `#bcp47`, `#dir`, `#interwikilink`, `#interlanguagelink`, `DEFAULTSORT`, `DISPLAYTITLE`, `PAGESINCATEGORY`, `PAGESIZE`, `PROTECTIONLEVEL`, `PROTECTIONEXPIRY`, `NUMBERINGROUP` | `implemented`. `CASCADINGSOURCES` is implemented and always empty, since there is no cascading protection ([0016](../decisions/0016-permissions-and-access-control.md) §4) |
 | **ParserFunctions:** `#expr`, `#if`, `#ifeq`, `#iferror`, `#ifexpr`, `#ifexist`, `#rel2abs`, `#switch`, `#time`, `#timel`, `#timef`, `#timefl`, `#titleparts` | `implemented`. The string functions (`#len`, `#pos` and the rest) are not registered, since ParserFunctions leaves them off by default; a call renders as literal text, as on MediaWiki |
 | **Scribunto:** `#invoke` | `implemented` when `wikitext.lua` is on (§7.1); otherwise `chip` |
-| **Wikibase Client:** `#property`, `#statements` | `implemented` when expansion is on (§7.7) |
+| **Wikibase Client:** `#property`, `#statements` | `implemented` (§7.7) |
 | **Wikibase Client:** `SHORTDESC` | `implemented`, as the page property `wikibase-shortdesc` ([0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §6); `__EXPECTED_UNCONNECTED_PAGE__` is `ignored` |
 | **Core:** `#REDIRECT` | `implemented` ([0051](../decisions/0051-page-redirects.md) §1, in [10](10-pages-and-content-models.md)) |
 | **Triplespace:** `#workspace`, `#table`, `#scope-count`, `#scope-members`, `#completeness`, `#tasks`, `#sprint-progress`, `#board`, `#scope-changes` | `implemented`, `expensive`, and `scoped`: their output depends on a scope's, table's, sprint's or board's state, recorded in the manifest (§4.2) ([0062](../decisions/0062-workspaces.md) §2–3, in [15](15-structured-pages.md)) |
@@ -225,7 +225,7 @@ POST /transform/wikitext/to/html
 
 *Sources: [0042](../decisions/0042-template-expansion-and-parsoid.md) §9; [0083](../decisions/0083-write-path-in-three-tiers.md) §1, §6.*
 
-**While expansion is on**, everything a page links to or belongs to is read from its **expanded** text, as in MediaWiki:
+Everything a page links to or belongs to is read from its **expanded** text, as in MediaWiki:
 
 - page and entity links ([0008](../decisions/0008-namespaces-and-document-pages.md) §10);
 - category membership, sort keys, `DEFAULTSORT` and `__HIDDENCAT__` ([0038](../decisions/0038-page-metadata-and-categories.md) §3);
@@ -238,9 +238,7 @@ A template's `<includeonly>` categories reach the pages that transclude it; its 
 
 **[0038](../decisions/0038-page-metadata-and-categories.md)'s rule that a category is defined in one place still holds.** The place is the expanded text: the page's own text and the templates it uses. Categories remain a projection, never records.
 
-**While expansion is off,** [0038](../decisions/0038-page-metadata-and-categories.md) §3 applies unchanged ([10](10-pages-and-content-models.md)).
-
-**The expansion-derived rows are written by the refresh job (§4.3), not by the page projection.** Computing them may read other pages and run Lua, which does not belong inside the appending transaction ([0013](../decisions/0013-postgres-storage.md) §7; [0083](../decisions/0083-write-path-in-three-tiers.md) §1). `view.page_link`, `view.page_category` and `view.page_prop` therefore carry two row classes, told apart by `from_render`, with **one writer each**: the page projection writes the source-derived rows, what the stored text itself links to, belongs to and sets, when it applies the record; the refresh job writes the expansion-derived rows, with `from_render = true`, from the render. Each writer owns its class exclusively and readers union them, so a page's source links are indexed as soon as its edit is projected and the links its templates emit follow after the refresh queue, as MediaWiki's deferred links update does. The refresh job never deletes a row it did not write, and turning `wikitext.expansion` off truncates the render-owned rows and nothing else ([0083](../decisions/0083-write-path-in-three-tiers.md) §6; the tables are [10](10-pages-and-content-models.md) §5.2, §5.3 and §5.5's).
+**The expansion-derived rows are written by the refresh job (§4.3), not by the page projection.** Computing them may read other pages and run Lua, which does not belong inside the appending transaction ([0013](../decisions/0013-postgres-storage.md) §7; [0083](../decisions/0083-write-path-in-three-tiers.md) §1). `view.page_link`, `view.page_category` and `view.page_prop` therefore carry two row classes, told apart by `from_render`, with **one writer each**: the page projection writes the source-derived rows, what the stored text itself links to, belongs to and sets, when it applies the record; the refresh job writes the expansion-derived rows, with `from_render = true`, from the render. Each writer owns its class exclusively and readers union them, so a page's source links are indexed as soon as its edit is projected and the links its templates emit follow after the refresh queue, as MediaWiki's deferred links update does. The refresh job never deletes a row it did not write ([0083](../decisions/0083-write-path-in-three-tiers.md) §6; the tables are [10](10-pages-and-content-models.md) §5.2, §5.3 and §5.5's).
 
 ### 4.2 The manifest
 
@@ -281,7 +279,7 @@ A template's `<includeonly>` categories reach the pages that transclude it; its 
 
 1. A page's own new revision.
 2. A change to a page another page depends on: a new revision, creation, deletion, undeletion, move, or a `read` ACL. Every page whose `transclusion` row names it, by page ID or by title, gets an epoch bump and a refresh, in batches, as MediaWiki's `HTMLCacheUpdate` and `refreshLinks` jobs do.
-3. A composition event for an entity, "entity X composed to version N", consumed by the entity-usage consumer of §7.9 in its own queue, never inside the composing or appending transaction, for usage rows whose aspects the change touches. The consumer first checks `view.entity_usage` by index for the entity and every member of its cluster and stops there when no page uses any of them; it is off while no tenant on the instance has `wikitext.expansion` on, and off during bootstrap and bulk modes until the operator turns it on ([0083](../decisions/0083-write-path-in-three-tiers.md) §3).
+3. A composition event for an entity, "entity X composed to version N", consumed by the entity-usage consumer of §7.9 in its own queue, never inside the composing or appending transaction, for usage rows whose aspects the change touches. The consumer first checks `view.entity_usage` by index for the entity and every member of its cluster and stops there when no page uses any of them; it is off while no page on the instance uses an entity, and off during bootstrap and bulk modes until the operator turns it on ([0083](../decisions/0083-write-path-in-three-tiers.md) §3).
 4. `expires_at` passing, for volatile and foreign inputs. This is lazy: the next read finds the entry expired and renders again.
 5. A change to any `wikitext.*` setting ([23](23-configuration-and-registry.md)).
 6. `action=purge` (§4.6).
@@ -395,15 +393,25 @@ It is a text model under [0041](../decisions/0041-content-models.md) §5, stored
 
 ### 6.3 `<templatestyles>`
 
-*Sources: [0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §3; [0042](../decisions/0042-template-expansion-and-parsoid.md) §7.*
+*Sources: [0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §3, A5; [0042](../decisions/0042-template-expansion-and-parsoid.md) §7.*
 
-**The tag is `implemented`** in `docs/registry/wikitext-functions.toml` (§2.2). In the expansion stage `<templatestyles src="Infobox/styles.css" />` resolves `src` as a title, `Template:` by default and any namespace with a prefix, **through the stack** ([0052](../decisions/0052-page-repositories-and-title-inheritance.md) §3), so a fork that left its sheets to the repository still finds them, and a local sheet shadows a foreign one. The tag emits, in place, a `<style data-mw-deduplicate="TemplateStyles:r{hash}">` element holding the sheet's sanitized form, with `wrapper="…"` prefixing every selector further, as TemplateStyles does. **One `<style>` per distinct sheet per page:** the renderer keeps the first and drops repeats by their key, which is what MediaWiki and Parsoid do, so a page with two hundred citations loads the citation sheet once.
+**The tag is `implemented`** in `docs/registry/wikitext-functions.toml` (§2.2). In the expansion stage `<templatestyles src="Infobox/styles.css" />` resolves `src` as a title, `Template:` by default and any namespace with a prefix, **through the stack** ([0052](../decisions/0052-page-repositories-and-title-inheritance.md) §3), so a fork that left its sheets to the repository still finds them, and a local sheet shadows a foreign one. The tag emits, in place, a `<style data-mw-deduplicate="TemplateStyles:r{revid}">` element holding the sheet's sanitized form, as TemplateStyles does: the key names the sheet's revision, a foreign sheet's as `TemplateStyles:{repository}:r{revid}`, and `/{wrapper}` follows where `wrapper="…"` prefixes every selector further. **One sheet per distinct key per page:** the renderer keeps the first and drops repeats, which is what MediaWiki and Parsoid do, so a page with two hundred citations loads the citation sheet once.
+
+**The site serves each sheet as a stylesheet, not inline** ([0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) A5). The HTML of a page the site shows, and of its `action=render` regions, carries in place of each element a `<link rel="stylesheet" data-mw-deduplicate="…" href="…">` with the same key, which HTML allows in the body, so order and deduplication are unchanged. The sheet is pure CSS already, sanitized and scoped to `.mw-parser-output` (§6.2), so nothing is lost by moving it, and the site's Content Security Policy admits it as any same-origin stylesheet while still refusing `<style>` elements ([09](09-security-and-moderation.md) §1.4). The address follows from the key, and the revision it names never changes:
+
+| Sheet | Address |
+|---|---|
+| A local revision | `/w/styles/templatestyles/r{revid}.css` |
+| A repository's revision ([0052](../decisions/0052-page-repositories-and-title-inheritance.md); [13](13-mirrored-pages.md)) | `/w/styles/templatestyles/{repository}/r{revid}.css` |
+| Either, with a wrapper | the same, with `?wrapper={selector}` |
+
+The API serves them under `/w/styles/`, which joins its paths ([20](20-web-tier.md) §2.1): the revision's text, sanitized and wrapped, from the `css:` cache, as `text/css` with `immutable` and a year's lifetime; a repository's revision through the repository's cache. A sheet is served with its page's own visibility, so a public sheet is public; a revision that is hidden, erased or deleted is a `404`, so an erasure reaches the sheet as it reaches the page. **`action=parse` keeps MediaWiki's inline element** for API clients, which embed its `text` elsewhere and expect it; the site asks for links with `tsstyles=link` ([18](18-api.md)).
 
 **Errors** are TemplateStyles': a `src` that does not resolve, or that resolves to a page whose model is not `sanitized-css`, renders an error span (§1.2) and adds the tracking category `templatestyles-stylesheet-error-category` (§4.1). A page of the right model never errors at render, since it was validated at save.
 
 **The manifest records the sheet** (§4.2) as a transcluded page, local with its page ID and offset or foreign with its repository, revision and expiry, so an edit to a sheet refreshes every page that uses it, and `view.transclusion` lists them. `prop=templates` and "Templates used" ([0042](../decisions/0042-template-expansion-and-parsoid.md) §15, in [19](19-site-ui.md)) include sheets, as MediaWiki's do.
 
-**Both renderers.** The built-in renderer renders the element as above. Parsoid asks the render-scoped `action=parse` for tags it does not implement natively (§3.1), and gets the same element with `modules` empty. **Mirrored HTML** carries Wikipedia's `<style>` elements already; [0053](../decisions/0053-mirrored-pages.md) §2 passes them through `sanitize` and keeps their keys, so a mirrored page and a fork of it deduplicate the same way.
+**Both renderers.** The built-in renderer renders the element as above. Parsoid asks the render-scoped `action=parse` for tags it does not implement natively (§3.1), and gets the same element with `modules` empty; the site's links replace it as they replace the built-in renderer's. **Mirrored HTML** carries Wikipedia's `<style>` elements already, keyed `TemplateStyles:r{revid}` by the upstream revision; [0053](../decisions/0053-mirrored-pages.md) §2 passes them through `sanitize`, keeps their keys under the repository's name, and the site links them at the repository's address, so a mirrored page and a fork of it deduplicate the same way and neither carries a `<style>` element.
 
 ### 6.4 Site styles: one designated page
 
@@ -411,7 +419,7 @@ It is a text model under [0041](../decisions/0041-content-models.md) §5, stored
 
 **A tenant may designate one `sanitized-css` page as its site styles,** with the `site` setting **`wikitext.site_styles`** naming a title in the Project namespace, `Project:Site styles.css` by convention. The MediaWiki namespace (8) stays reserved ([0008](../decisions/0008-namespaces-and-document-pages.md) §2); the page is an ordinary Project page with the model of §6.1, protected as the tenant sees fit with an ACL ([0023](../decisions/0023-moderation.md) §1; the permissions are in [09](09-security-and-moderation.md)), and its history is a page history.
 
-**It is applied to every rendered page** of the tenant, local and mirrored, as a `<link rel="stylesheet">` in the frame to `{base}/w/styles/site.css?v={offset}`, served from the sanitized form in the `css:` cache with a long lifetime, versioned by the page's latest offset. Nothing about a page's render depends on it, so editing the site styles bumps no render epoch and refreshes no page; the next request simply links the new version. The sanitizer's scoping is what makes this allowable where [0008](../decisions/0008-namespaces-and-document-pages.md) §5 refused `css`: the sheet reaches only `.mw-parser-output`, and the frame, the editor and every special page are out of its reach by construction.
+**It is applied to every rendered page** of the tenant, local and mirrored, as a `<link rel="stylesheet">` in the frame to `{base}/w/styles/site.css?v={offset}`, under the API's `/w/styles/` paths (§6.3), served from the sanitized form in the `css:` cache with a long lifetime, versioned by the page's latest offset. Nothing about a page's render depends on it, so editing the site styles bumps no render epoch and refreshes no page; the next request simply links the new version. The sanitizer's scoping is what makes this allowable where [0008](../decisions/0008-namespaces-and-document-pages.md) §5 refused `css`: the sheet reaches only `.mw-parser-output`, and the frame, the editor and every special page are out of its reach by construction.
 
 **What it is for.** The classes Wikipedia's templates leave to `MediaWiki:Common.css`, `.infobox`, `.hatnote`, `.navbox`, `.mw-collapsible`, `.reflist`, which a tenant that mirrors or forks Wikipedia copies by hand from upstream's sheet, under its licence, into this page; and a tenant's own look for its content. A sheet copied from a MediaWiki `Common.css` loses, at save, whatever the sanitizer refuses, and the save reports each line.
 
@@ -421,7 +429,7 @@ It is a text model under [0041](../decisions/0041-content-models.md) §5, stored
 
 *Sources: [0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §5.*
 
-**The tag is `implemented`.** `<templatedata>` holds a JSON object in TemplateData's schema: `description`, `params` with each parameter's `label`, `description`, `type`, `required`, `suggested`, `default`, `example`, `aliases`, `deprecated` and `autovalue`, `paramOrder`, `format`, `sets` and `maps`, with localized strings as language maps. **It is validated at save** against the schema shipped as data from the extension's `TemplateDataValidator`: a page whose `<templatedata>` is invalid is refused with the extension's own error messages (`templatedata-invalid-param`, `templatedata-invalid-type` and the rest), as TemplateData refuses it. A page may carry one `<templatedata>` block; a second is an error. With expansion off the tag is still implemented, since it needs no other page.
+**The tag is `implemented`.** `<templatedata>` holds a JSON object in TemplateData's schema: `description`, `params` with each parameter's `label`, `description`, `type`, `required`, `suggested`, `default`, `example`, `aliases`, `deprecated` and `autovalue`, `paramOrder`, `format`, `sets` and `maps`, with localized strings as language maps. **It is validated at save** against the schema shipped as data from the extension's `TemplateDataValidator`: a page whose `<templatedata>` is invalid is refused with the extension's own error messages (`templatedata-invalid-param`, `templatedata-invalid-type` and the rest), as TemplateData refuses it. A page may carry one `<templatedata>` block; a second is an error. The tag needs no other page, so it is implemented in the in-browser preview too.
 
 **It renders as the parameter table** TemplateData renders: description, then one row per parameter with label, description, type, status and default, in `paramOrder`, localized to the interface language where the JSON carries that language. On a `/doc` subpage that is what readers see; on the template itself, the same.
 
@@ -435,11 +443,11 @@ It is a text model under [0041](../decisions/0041-content-models.md) §5, stored
 
 *Sources: [0043](../decisions/0043-lua-modules.md) §1–§7, §9–§13.*
 
-### 7.1 Lua is a tenant setting on top of expansion
+### 7.1 Lua is a tenant setting
 
 *Sources: [0043](../decisions/0043-lua-modules.md) §1.*
 
-**`wikitext.lua = on`** ([23](23-configuration-and-registry.md)) enables Lua for a tenant. It requires `wikitext.expansion = on` and is capped by the instance's `wikitext.ceiling`. While it is off, `{{#invoke:}}` renders as a chip.
+**`wikitext.lua = on`** ([23](23-configuration-and-registry.md)) enables Lua for a tenant, capped by the instance's `wikitext.ceiling`. While it is off, `{{#invoke:}}` renders as a chip.
 
 ### 7.2 The Module namespace
 
@@ -569,7 +577,7 @@ The limits are deployment configuration, as the expander's are; a tenant may low
 
 **They are stored in `view.entity_usage`** `(page_id, entity_id, aspect, modifier)`, with canonical IDs, written by the refresh job (§4.3), and the counterpart of Wikibase's `wbc_entity_usage`.
 
-**Invalidation is a tier-3 consumer of composition** ([0083](../decisions/0083-write-path-in-three-tiers.md) §3). The composer emits "entity X, tenant T, composed to version N" after each composed row commits, and the entity-usage consumer reads those events in its own queue, with its own rate and lag, never inside the appending or composing transaction. For each event it **first checks `view.entity_usage` for existence**, by index, for the canonical ID and every member of its cluster, and does nothing further when no page uses any of them, which is the common case on a mirror of millions of entities; only then does it classify the change from the structured diff of the previous and new composed rows ([0012](../decisions/0012-api-requirements.md) §7, in [18](18-api.md)): which languages' labels and descriptions, which properties' statements, which sitelinks, and whether it was a redirect or a change of cluster. Only pages whose aspects match get an epoch bump and a refresh, served stale-while-revalidate meanwhile (§4.5). A label edit in German does not re-render pages that read only English labels. The consumer is **off while no tenant on the instance has `wikitext.expansion` on**, since no manifest can then record an entity, and off during bootstrap and bulk modes until the operator turns it on; its lag is reported on its own page, and a page's render may be behind an entity by that lag.
+**Invalidation is a tier-3 consumer of composition** ([0083](../decisions/0083-write-path-in-three-tiers.md) §3). The composer emits "entity X, tenant T, composed to version N" after each composed row commits, and the entity-usage consumer reads those events in its own queue, with its own rate and lag, never inside the appending or composing transaction. For each event it **first checks `view.entity_usage` for existence**, by index, for the canonical ID and every member of its cluster, and does nothing further when no page uses any of them, which is the common case on a mirror of millions of entities; only then does it classify the change from the structured diff of the previous and new composed rows ([0012](../decisions/0012-api-requirements.md) §7, in [18](18-api.md)): which languages' labels and descriptions, which properties' statements, which sitelinks, and whether it was a redirect or a change of cluster. Only pages whose aspects match get an epoch bump and a refresh, served stale-while-revalidate meanwhile (§4.5). A label edit in German does not re-render pages that read only English labels. The consumer is **off while no page on the instance uses an entity**, since no manifest then records one, and off during bootstrap and bulk modes until the operator turns it on; its lag is reported on its own page, and a page's render may be behind an entity by that lag.
 
 ### 7.10 Entities the tenant does not hold
 

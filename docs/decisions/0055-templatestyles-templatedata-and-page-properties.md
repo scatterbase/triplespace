@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-10-17 (A4)
+- **Updated:** 2026-10-20 (A5)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0047](0047-special-pages.md)
 - **Uses:** [0016](0016-permissions-and-access-control.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md), [0033](0033-backend-stack.md), [0039](0039-files-and-media.md), [0043](0043-lua-modules.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -38,9 +38,13 @@ James's direction, from the design discussion of 2026-10-01, was that the ADR se
 
 ### 3. `<templatestyles>` (amends 0042 §5; extends 0042 §7, §9 and §10)
 
+*Changed by A5.*
+
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §2.2, §4.2, §6.3.*
 
 ### 4. Site styles: one designated page (settles 0042 Q3)
+
+*Changed by A5.*
 
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §6.4.*
 
@@ -162,3 +166,16 @@ Replaced text ([10](../architecture/10-pages-and-content-models.md) §5.5, as it
 Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §6.2, as it stood):
 
 > | **Selectors** | Any selector, **prefixed with `.mw-parser-output`** so that it matches only rendered content and never the frame, as TemplateStyles prefixes them; a `wrapper` attribute on the tag (§6.3) prefixes further | Selectors that escape the prefix (`html`, `body`, `:root`), which are rewritten to match nothing |
+
+### A5. Sheets are served as stylesheets
+
+- **Date:** 2026-10-20
+- **Source:** Direct: James, review of 2026-10-20
+- **Change:** amends §3, §4
+- **Summary:** The site serves each TemplateStyles sheet as a same-origin stylesheet instead of an inline `<style>` element: the sheet is pure CSS, already sanitized and scoped, and the site's Content Security Policy refuses `<style>` elements ([0034](0034-frontend-stack.md) A13), which left both this ADR's elements and those of mirrored Wikipedia HTML unstyled. The HTML the site shows carries, where the element stood, a `<link rel="stylesheet">` with the same `data-mw-deduplicate` key, so order and deduplication are as before. The key is MediaWiki's, `TemplateStyles:r{revid}`, with `/{wrapper}` where a wrapper is given and the repository's name before a foreign sheet's revision; §3's `r{hash}` had left what it hashed unsaid. The address follows from the key: `/w/styles/templatestyles/r{revid}.css`, `/w/styles/templatestyles/{repository}/r{revid}.css`, with `?wrapper=`. Addressing by revision rather than by a hash of the content needs no table of sheets, can be rebuilt from the log at any time, and lets an erasure or a deletion of the sheet's revision end its serving, which a copy kept by content would outlive. The API serves `/w/styles/`, the site styles of §4 included, whose address had not been among the API's paths; a sheet is served immutable, with its page's visibility. `action=parse` keeps the inline element for API clients, and the site asks for links with `tsstyles=link`. The chapter text is [11](../architecture/11-rendering-templates-and-modules.md) §6.3–6.4, with [09](../architecture/09-security-and-moderation.md) §1.4, [13](../architecture/13-mirrored-pages.md) §2.2, [18](../architecture/18-api.md) §2.3 and [20](../architecture/20-web-tier.md) §2.1.
+
+Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §6.3, as it stood):
+
+> The tag emits, in place, a `<style data-mw-deduplicate="TemplateStyles:r{hash}">` element holding the sheet's sanitized form, with `wrapper="…"` prefixing every selector further, as TemplateStyles does. **One `<style>` per distinct sheet per page:** the renderer keeps the first and drops repeats by their key, which is what MediaWiki and Parsoid do, so a page with two hundred citations loads the citation sheet once.
+
+> **Both renderers.** The built-in renderer renders the element as above. Parsoid asks the render-scoped `action=parse` for tags it does not implement natively (§3.1), and gets the same element with `modules` empty. **Mirrored HTML** carries Wikipedia's `<style>` elements already; [0053](../decisions/0053-mirrored-pages.md) §2 passes them through `sanitize` and keeps their keys, so a mirrored page and a fork of it deduplicate the same way.

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-09
-- **Updated:** 2026-10-16 (A2)
+- **Updated:** 2026-10-20 (A3)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0020](0020-change-feeds.md), [0022](0022-federation.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0030](0030-edit-filters.md), [0031](0031-property-constraints.md), [0032](0032-sparql-update-stream.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0047](0047-special-pages.md), [0055](0055-templatestyles-templatedata-and-page-properties.md), [0056](0056-security-model.md), [0059](0059-query-service.md), [0060](0060-scopes.md), [0061](0061-sprints-and-tasks.md), [0064](0064-entityschema-and-validation.md), [0067](0067-proposals.md), [0070](0070-shallow-entity-mirroring.md), [0071](0071-derived-statements-from-mirrored-pages.md)
 - **Uses:** [0082](0082-source-form-and-the-shared-view.md), [0084](0084-wikibase-writes-against-the-resolved-view.md)
@@ -47,13 +47,15 @@ James's direction, from the design review of 2026-10-09:
 
 ### 3. Tier 3: consumers of composition (amends 0013 §7, 0014 §7, 0031 §2, 0032 §2, 0042 §10, 0043 §10, 0047 §4.2 and §4.3, 0056 §14, 0060 §5 and §10, 0061 §6 and 0064 §5; extends 0014 §5, 0060 §4 and 0061 §11)
 
+*Changed by A3.*
+
 **Everything that is a function of a composed entity consumes composition events.** The composer emits "entity X, tenant T, composed to version N" after each composed row commits; each consumer has its own queue, rate and lag, reports lag on its own pages, runs in no one's transaction, and is **off during bootstrap and bulk modes** until the operator turns it on. The consumers, each with the rule the review asked for:
 
 - **Constraints** ([0031](0031-property-constraints.md) §2). `constraints.scope` is a `site` setting: `local` (the default: local-graph statements and entities in the tenant's overlay), `overlay`, or `all`, and `all` is a batch job with progress, never a step. A constraint-statement change on a mirrored property enqueues a batch rather than a scan. `type` and `value type` are checked with the L0 class cache, and the chapter states that a `P279` change does not invalidate stored results until the next composition of the subject.
 - **Scopes** ([0060](0060-scopes.md) §5). A scope definition compiles at save to rows of **`view.scope_trigger (tenant, trigger_kind, key, scope_page_id)`** — `property:P31`, `category:{page}`, `table-row:{page}`, `sitelink` — held in L0, so a composition event that matches no trigger is one hash probe. A truncated scope is "the first N found, refilled by a job when it falls below N"; an `intersection` or `difference` whose non-probeable operand is truncated is refused at save; a scope's initial computation is always a job.
 - **Sprints and tasks** ([0061](0061-sprints-and-tasks.md) §6) follow the scope projection as before, from events.
 - **Schema validation** ([0064](0064-entityschema-and-validation.md) §5) never runs inline or in a fan-out budget; only the ad hoc check does. Binding a schema to a scope is refused at scope save when bound-schema × scope size exceeds a per-tenant cap, unless an operator raises it.
-- **Entity usage** ([0043](0043-lua-modules.md) §10) checks `view.entity_usage` for the canonical ID and every member of its cluster by index **before** computing an aspect diff, and does nothing while no tenant on the instance has `wikitext.expansion` on.
+- **Entity usage** ([0043](0043-lua-modules.md) §10) checks `view.entity_usage` for the canonical ID and every member of its cluster by index **before** computing an aspect diff, and does nothing while no page on the instance uses an entity.
 - **Reports** ([0047](0047-special-pages.md) §4.3) consume events; an entity report triggers only when a canonical's row changes and the cluster has a local member, and its freshness is bounded by composition lag, shown beside "computed at".
 - **The RDF delta** ([0032](0032-sparql-update-stream.md) §2) is a consumer behind **`updates.enabled`** (default off), reading old state from `view.graph_state` and the previous composed row; it is not computed in any write (§7).
 - **Search documents** ([0014](0014-caches-and-search.md) §5) are built from composed rows by a consumer, with external versioning as before.
@@ -75,6 +77,8 @@ James's direction, from the design review of 2026-10-09:
 
 ### 6. Projections: classes, replay and rebuild (amends 0008 §10, 0013 §7, 0023 §6, 0038 §3, 0039 §9, 0042 §9 and §10, 0047 §4.3, 0055 §6, 0060 §5, 0061 §6, 0064 §5 and 0067 §5; extends 0006 §3, 0014 §4 and §10 and 0039 §20)
 
+*Changed by A3.*
+
 **Every projection declares its class.** *Log-replayed* projections replay from offset 0 as [0013](0013-postgres-storage.md) §7 described. *View-derived* projections (reports, constraints, `site_stats`, scopes, tasks, schema reports, entity usage) are populated by a scan of the named `view` tables they read and never by a log replay; "rebuild projection P for tenant T from `view`" is a named operation. A projection added after a mirror exists is view-derived or it does not exist.
 
 **No projection has side effects during replay.** `view.blob` ([0039](0039-files-and-media.md) §20) is a pure count; byte destruction is an `ops` job that takes a hash whose count reached zero, re-checks the count at the live head under a lock, and deletes. Proposal adoption ([0067](0067-proposals.md) §5) writes `view.proposal.state` and enqueues the retirement; a job appends the `remove` with the proposal thread and upstream revision as an idempotency key in its content part after checking the current composed state. A rebuild re-derives the tables and re-runs no job; the `ops` queues are not projection targets and are not truncated.
@@ -87,7 +91,7 @@ James's direction, from the design review of 2026-10-09:
 
 **Lag is `ops.projection_work`.** `ops.projection_work` is the unit of truth for lag; `ops.projection_state.applied_offset` records the contiguous prefix, with inline-recorded records entered as done.
 
-**One writer per row class.** `view.page_category`, `view.page_link` and `view.page_prop` ([0038](0038-page-metadata-and-categories.md) §2, [0055](0055-templatestyles-templatedata-and-page-properties.md) §6, [0042](0042-template-expansion-and-parsoid.md) §10) carry `from_render boolean`: the page projection writes source-derived rows (what the stored text says) and the refresh job writes expansion-derived rows, each owning its class exclusively; readers union them; turning `wikitext.expansion` off truncates the render-owned rows and nothing else; the refresh job never deletes a row it did not write.
+**One writer per row class.** `view.page_category`, `view.page_link` and `view.page_prop` ([0038](0038-page-metadata-and-categories.md) §2, [0055](0055-templatestyles-templatedata-and-page-properties.md) §6, [0042](0042-template-expansion-and-parsoid.md) §10) carry `from_render boolean`: the page projection writes source-derived rows (what the stored text says) and the refresh job writes expansion-derived rows, each owning its class exclusively; readers union them; the refresh job never deletes a row it did not write.
 
 ### 7. Stream mechanics (amends 0020 §4 and 0032 §2, §3 and §5; extends 0012 §2.3, 0020 §1, 0022 §2, 0032 §6 and 0059 §3)
 
@@ -215,3 +219,18 @@ James's direction, from the design review of 2026-10-09:
 Replaced text (§4, as it stood):
 
 > **`view.entity_revision (tenant, revid, state bytea)`** holds the local-graph state after every revision of the `local` and `pages` partitions, written in tier 1 beside `graph_state`, so that `oldid=`, `action=compare`, `GET /entity/{id}/compare`, `?as_of=`, `Special:PermanentLink` and export read one row ([0012](0012-api-requirements.md) §4, §7). It is MediaWiki's `text` table at local scale: local edits are the small part of a mirror-dominated instance, and the rows pack well. Mirror states are not reconstructable under `latest`, as [0012](0012-api-requirements.md) §7 already said for the resolved view. **Until this table exists, the past-state readers fold the subject's local records** (`triplespace_projections::revisions`, A1): the same fold the latest state already uses, bounded by the subject's own local record count, behind the signatures this section gives them — a revision in, a state out — so that landing the table changes their backing and nothing they serve.
+
+### A3. Expansion has no setting
+
+- **Date:** 2026-10-20
+- **Source:** [0042](0042-template-expansion-and-parsoid.md) A19
+- **Change:** amends §3, §6
+- **Summary:** `wikitext.expansion` is withdrawn, so entity usage is idle while no page uses an entity rather than while no tenant has expansion on, and the one-writer-per-row-class rule loses its clause about turning expansion off. The row classes and their writers are unchanged.
+
+Replaced text (§3, as it stood):
+
+> - **Entity usage** ([0043](0043-lua-modules.md) §10) checks `view.entity_usage` for the canonical ID and every member of its cluster by index **before** computing an aspect diff, and does nothing while no tenant on the instance has `wikitext.expansion` on.
+
+Replaced text (§6, as it stood):
+
+> **One writer per row class.** `view.page_category`, `view.page_link` and `view.page_prop` ([0038](0038-page-metadata-and-categories.md) §2, [0055](0055-templatestyles-templatedata-and-page-properties.md) §6, [0042](0042-template-expansion-and-parsoid.md) §10) carry `from_render boolean`: the page projection writes source-derived rows (what the stored text says) and the refresh job writes expansion-derived rows, each owning its class exclusively; readers union them; turning `wikitext.expansion` off truncates the render-owned rows and nothing else; the refresh job never deletes a row it did not write.

@@ -151,12 +151,6 @@ scope = "tenant"
 adr = "0053 §9"
 
 [[feature]]
-key = "wikitext.expansion"
-scope = "tenant"
-default = "off"
-adr = "0042 §2"
-
-[[feature]]
 key = "wikitext.lua"
 scope = "tenant"
 default = "off"

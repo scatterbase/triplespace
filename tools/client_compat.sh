@@ -61,9 +61,6 @@ step "adopt $(basename "$fixture")"
 "$bin/triplespace" sync --provider internetdomains \
 	--dump "$root/crates/triplespace-server/tests/fixtures/internetdomains.json" \
 	--version 20261001 >/dev/null
-# Template expansion on, as Librarybase has it (0008 A41): Pywikibot checks every save for
-# {{nobots}} with prop=templates&tlnamespace=10, and refuses a namespace siteinfo omits.
-"$bin/triplespace" settings set --tenant $tenant wikitext.expansion true >/dev/null
 
 step "bot account"
 "$bin/triplespace" subsidiary create --tenant $tenant --name CompatBot --operator Alice --group bot >/dev/null

@@ -103,10 +103,30 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
     // The entities of the site's fixtures: every data type, ranks, qualifiers and a
     // reference, terms in three languages, and a Domain from the mirror.
     let fixtures = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
+    // The fixture's revisions are dated a day ago, so that they stay inside recent
+    // changes' 30-day window however long after the fixture was written the test runs.
+    let dated = std::env::temp_dir().join(format!("site-entities-{}.xml", std::process::id()));
+    let yesterday = triplespace_api_action::entity_json::iso8601(
+        u64::try_from(
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_micros(),
+        )
+        .unwrap()
+            - 86_400_000_000,
+    );
+    std::fs::write(
+        &dated,
+        std::fs::read_to_string(fixtures.join("site-entities.xml"))
+            .unwrap()
+            .replace("2026-09-20T14:02:11Z", &yesterday),
+    )
+    .unwrap();
     adopt::run(adopt::Adopt {
         database: database.clone(),
         tenant: "librarybase".into(),
-        dump: fixtures.join("site-entities.xml"),
+        dump: dated.clone(),
         source: format!("https://{HOST}/"),
         version: Some("test".into()),
         frozen: true,
@@ -120,6 +140,7 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
     })
     .await
     .expect("adopt");
+    let _ = std::fs::remove_file(&dated);
     sync::run(sync::Sync {
         database: database.clone(),
         provider: "internetdomains".into(),

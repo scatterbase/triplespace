@@ -11,8 +11,8 @@
 //! pre-save transform runs on `wikitext` (`~~~~`). Saving the text the page already has
 //! is `nochange`, as in MediaWiki, and writes nothing. `createonly` and `nocreate` are
 //! MediaWiki's; `section` is not supported yet. A User page may be created only for a
-//! user who exists (namespaces.toml `creation_rule = "owner-exists"`); a Template page
-//! only while `wikitext.expansion` is on (`ts-namespace-disabled`, 11 §1.3).
+//! user who exists (namespaces.toml `creation_rule = "owner-exists"`); a Module page not
+//! until Lua is built (`ts-namespace-disabled`, 11 §1.3).
 
 use scatter_ingest::IngestError;
 use scatter_ingest::write::{Attestation, RawRecord, Request, write_raw};

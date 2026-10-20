@@ -26,7 +26,7 @@ version = 1
 "feeds.farm_wide"             = ["off", "global-groups", "everyone"]
 "search.farm_wide"            = ["off", "global-groups", "everyone"]
 "filters.global"              = ["none", "inherited"]          # 0030 §8
-"wikitext.ceiling"            = ["subset", "expansion", "lua"]   # 0042 §2
+"wikitext.ceiling"            = ["expansion", "lua"]   # 0042 §2, A19: expansion is part of wikitext; the ceiling caps Lua
 "security.restrictions"       = ["none", "tenant", "any"]       # 0056 §11: none = public tenants, read restricted by moderation only; tenant = a tenant may be private as a whole; any = also pages, entities, namespaces and sets
 
 # ---------------------------------------------------------------------------

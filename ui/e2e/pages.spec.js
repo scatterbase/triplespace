@@ -238,3 +238,27 @@ test( 'recent changes list the adoption, filter without JavaScript, and reach co
 	await expect( page.locator( '.ts-change' ).first() ).toBeVisible();
 	expect( await overflow( page ) ).toBe( 0 );
 } );
+
+// ADR 0034 A13: `style` attributes apply, which wikitext writes and the Sanitizer has
+// checked; `<style>` elements stay refused.
+test( 'style attributes apply under the security policy; style elements do not', async ( { browser } ) => {
+	const context = await browser.newContext( { javaScriptEnabled: true } );
+	const page = await context.newPage();
+	await page.goto( '/wiki/Special:SpecialPages' );
+	const colours = await page.evaluate( () => {
+		const attr = document.createElement( 'span' );
+		attr.setAttribute( 'style', 'color: rgb(1, 2, 3)' );
+		attr.textContent = 'x';
+		const sheet = document.createElement( 'style' );
+		sheet.textContent = '.ts-csp-probe { color: rgb(4, 5, 6) }';
+		const el = document.createElement( 'span' );
+		el.className = 'ts-csp-probe';
+		el.textContent = 'y';
+		document.head.append( sheet );
+		document.body.append( attr, el );
+		return [ getComputedStyle( attr ).color, getComputedStyle( el ).color ];
+	} );
+	expect( colours[ 0 ] ).toBe( 'rgb(1, 2, 3)' );
+	expect( colours[ 1 ] ).not.toBe( 'rgb(4, 5, 6)' );
+	await context.close();
+} );

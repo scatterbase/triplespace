@@ -14,7 +14,7 @@ use tokio_postgres::{Config, NoTls};
 use tower::ServiceExt as _;
 use triplespace_accounts::Secret;
 use triplespace_api_action::{App, Config as ServerConfig, Mode, router_with};
-use triplespace_cli::{adopt, instance, settings};
+use triplespace_cli::{adopt, instance};
 
 const DB: &str = "tspages_test";
 const TENANT: &str = "librarybase";
@@ -262,23 +262,6 @@ fn enc(s: &str) -> String {
 
 #[allow(clippy::too_many_lines)]
 async fn api(database: &str, key_file: &std::path::Path) {
-    // Librarybase's footer is a template: the tenant turns expansion on.
-    settings::run(settings::Settings::Set(settings::Set {
-        at: settings::Where {
-            database: database.to_string(),
-            tenant: Some(TENANT.into()),
-            instance: false,
-        },
-        key: "wikitext.expansion".into(),
-        value: "true".into(),
-        default: false,
-        lock: false,
-        tenancy: false,
-        summary: None,
-    }))
-    .await
-    .expect("settings set");
-
     let farm = triplespace_cli::common::farm_at(database).await.unwrap();
     let signing = triplespace_cli::common::signing_key(key_file).unwrap();
     let app = App::new(
@@ -306,7 +289,7 @@ async fn api(database: &str, key_file: &std::path::Path) {
         cookie: None,
     };
 
-    // The Template namespace is listed while expansion is on.
+    // The Template namespace is listed: templates are part of wikitext (0042 A19).
     let si = c.get("action=query&meta=siteinfo&siprop=namespaces").await;
     assert!(si["query"]["namespaces"]["10"].is_object(), "{si}");
     let project = si["query"]["namespaces"]["4"]["name"]
@@ -479,6 +462,57 @@ async fn api(database: &str, key_file: &std::path::Path) {
         )
         .await;
     assert_eq!(same["edit"]["nochange"], true, "{same}");
+    // A namespace alias the tenant gives (0008 A37; 10 §3.5): siteinfo lists it, and a
+    // link through it renders and is recorded as a Project link.
+    namespace_record(
+        database,
+        4,
+        &serde_json::json!({"kind": "namespace", "id": 4, "canonical": "Project", "aliases": ["LB"]}),
+    )
+    .await;
+    let aliases = c
+        .get("action=query&meta=siteinfo&siprop=namespacealiases")
+        .await;
+    assert!(
+        aliases["query"]["namespacealiases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|a| a["id"] == 4 && a["alias"] == "LB"),
+        "{aliases}"
+    );
+    let through = c
+        .post(
+            "action=edit",
+            &format!(
+                "title=Project:Aliased&text={}&createonly=1&token={}",
+                enc("[[LB:Home]] and [[Librarybase talk:Home]]"),
+                enc(&csrf)
+            ),
+        )
+        .await;
+    assert_eq!(through["edit"]["result"], "Success", "{through}");
+    let parsed = c.get("action=parse&page=Project:Aliased&prop=links").await;
+    let links = parsed["parse"]["links"].as_array().unwrap();
+    assert!(
+        links.iter().any(|l| l["ns"] == 4 && l["exists"] == true),
+        "{parsed}"
+    );
+    assert!(links.iter().any(|l| l["ns"] == 5), "{parsed}");
+    let (db, conn) = tokio_postgres::connect(database, NoTls).await.unwrap();
+    tokio::spawn(conn);
+    let rows = db
+        .query(
+            "SELECT l.target_id FROM view.page_link l JOIN view.page p
+               ON p.tenant = l.tenant AND p.page_id = l.from_page
+             WHERE l.tenant = $1 AND p.ns = 4 AND p.title = 'Aliased' ORDER BY 1",
+            &[&TENANT],
+        )
+        .await
+        .unwrap();
+    let targets: Vec<String> = rows.iter().map(|r| r.get(0)).collect();
+    assert_eq!(targets, ["4:Home", "5:Home"]);
+
     // A base by time: the latest revision's own timestamp, shown to the second, names it
     // and not the revision before it, however far into the second it was made. The
     // revision is made in a second of its own, after the earlier ones.
@@ -546,6 +580,44 @@ async fn api(database: &str, key_file: &std::path::Path) {
     assert_eq!(revisions[0]["user"], "Librarybase");
 
     pages_on_the_site(site, &project).await;
+}
+
+/// Writes a tenant `namespace` record, as the namespace settings will.
+async fn namespace_record(database: &str, id: i32, content: &Value) {
+    let farm = triplespace_cli::common::farm_at(database).await.unwrap();
+    let (store, pipeline) = triplespace_cli::common::store(database, &farm).unwrap();
+    let mut cx = scatter_projection::Backend::begin(&store).await.unwrap();
+    let config = scatter_ingest::store::IngestStore::partition(&store, &mut cx, TENANT, "config")
+        .await
+        .unwrap()
+        .expect("the tenant has a config partition");
+    let d = triplespace_cli::common::draft(
+        scatter_log::registry::PAYLOAD_CONFIG,
+        &format!("namespace:{id}"),
+        content,
+        &format!(
+            "{}:7",
+            triplespace_cli::common::issuer_at(database, TENANT)
+                .await
+                .unwrap()
+        ),
+        None,
+        triplespace_cli::common::now(),
+    )
+    .unwrap();
+    scatter_ingest::write::append_projected(
+        &store,
+        &pipeline,
+        &mut cx,
+        config,
+        d,
+        scatter_projection::Budget::NONE,
+    )
+    .await
+    .unwrap();
+    scatter_projection::Backend::commit(&store, cx)
+        .await
+        .unwrap();
 }
 
 /// What a browser got.

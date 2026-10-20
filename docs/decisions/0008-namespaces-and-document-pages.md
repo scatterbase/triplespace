@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-19 (A41)
+- **Updated:** 2026-10-20 (A42)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -77,7 +77,7 @@ The goal is not to reimplement MediaWiki's page features. Templates, parser func
 
 ### 10. Links and metadata
 
-*Changed by A3, A9, A12, A21, A22, A34.*
+*Changed by A3, A9, A12, A21, A22, A34, A42.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §5.2, §5.6.*
 
@@ -602,3 +602,18 @@ Replaced text ([10](../architecture/10-pages-and-content-models.md) §3.2, as it
 - **Summary:** Adoption brings the adopted wiki's Template pages as ordinary pages with their history, whatever the tenant's `wikitext.expansion`, rather than flattening templates into an extra revision: while expansion is off the pages stay readable and nothing transcludes them ([11](../architecture/11-rendering-templates-and-modules.md) §1.3), and a tenant that wants them rendered turns expansion on, as Librarybase does. Talk pages, which become threads, are not imported until that conversion exists; they and pages in reserved namespaces are counted `deferred` in the adoption's report. The chapter text is [10](../architecture/10-pages-and-content-models.md) §6.
 
 Replaced text: none; the two sentences are added to [10](../architecture/10-pages-and-content-models.md) §6's paragraph on an adopted wiki.
+
+### A42. Page links are recorded by title
+
+- **Date:** 2026-10-20
+- **Source:** Direct: James, review of 2026-10-20
+- **Change:** corrects §10
+- **Summary:** The links projection records a link to a page by the target's namespace number and title, never by page ID, whether or not a page has the title, as MediaWiki's `pagelinks` does: `view.page_link` rows of `target_kind` 6 (`TITLE`) with `target_id` `{ns}:{title}`. A link to an entity is recorded by its ID (`target_kind` 1). So creating a page needs no rewrite of the links to it, and a move leaves links on the old title, which its redirect serves. §10's "after resolution" and the backlink sentences read as if links to existing pages were held by page ID, and chapter 03 kept `page_link` targets current through title-index maintenance; neither was the design the projection implements. The chapter text is [10](../architecture/10-pages-and-content-models.md) §5.2, with the schema comment and the redirect paragraph of [03](../architecture/03-storage-caches-and-search.md) §4.5 and §4.7.
+
+Replaced text ([10](../architecture/10-pages-and-content-models.md) §5.2, the paragraph's first sentence, as it stood):
+
+> **A links projection** records every link from a document page to a page or entity, after resolution ([03](../architecture/03-storage-caches-and-search.md)).
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.7, as it stood):
+
+> `target_page_id` is refreshed when the target is created, deleted, undeleted or moved, by the same title-index maintenance that keeps `page_link` targets current.

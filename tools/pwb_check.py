@@ -336,15 +336,9 @@ def main():
         if len(revs) != 2:
             raise RuntimeError(f"{len(revs)} revisions, not 2")
         return f"{page.title()}: revisions {[r.revid for r in revs]}"
-    # Pywikibot checks every save for {{nobots}} with prop=templates&tlnamespace=10, and
-    # refuses a namespace siteinfo does not list, which Template is not while the tenant's
-    # wikitext.expansion is off (11 section 1.3).
-    no_templates = 10 not in site.namespaces
-    if no_templates:
-        print("INFO pages: Template (10) is not listed (wikitext.expansion off); "
-              "Pywikibot's nobots check cannot run, so its page saves are skipped")
-    step("write: Page.save creates and edits a Project page", page_save,
-         skip=skip_w or no_templates)
+    # Pywikibot checks every save for {{nobots}} with prop=templates&tlnamespace=10, so the
+    # Template namespace must be listed, as it always is (0042 A19).
+    step("write: Page.save creates and edits a Project page", page_save, skip=skip_w)
 
     def page_conflict():
         title = state["page"]

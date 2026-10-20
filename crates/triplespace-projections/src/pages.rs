@@ -43,37 +43,169 @@ pub const TARGET_TITLE: i16 = crate::common::target_kind::TITLE;
 /// The wikitext configuration the registry's namespaces give, with their canonical names.
 pub fn wikitext_config() -> &'static Config {
     static C: OnceLock<Config> = OnceLock::new();
-    C.get_or_init(|| Config::new(config_source(None)))
+    C.get_or_init(|| Config::new(TenantNames::default().source()))
 }
 
 /// The wikitext configuration source over the namespace registry, with a site name as
 /// the Project namespace's local name where it is given.
 #[must_use]
 pub fn config_source(site_name: Option<&str>) -> ConfigSource {
-    let namespaces = Namespaces::embedded()
-        .iter()
-        .map(|n| {
-            let mut ns = Namespace::new(n.id, &n.canonical);
-            ns.case_sensitive = n.case.as_deref() == Some("case-sensitive");
-            ns.subpages = n.subpages;
-            if n.id == 6 {
-                ns = ns.alias("Image");
+    TenantNames {
+        site_name: site_name.map(str::to_string),
+        ..TenantNames::default()
+    }
+    .source()
+}
+
+/// A tenant's names for its namespaces (0008 §7, A37; 10 §1.3 rule 4, §3.5): the
+/// registry's, Project under the site's name, and what the tenant's `namespace` records
+/// give a registered number, a fixed local name and aliases. Rendering and link
+/// extraction read titles through the same names, so a link the site renders as a
+/// Project link is recorded as one.
+///
+/// A `namespace` record is the registry row as JSON (payloads.md §4), keyed
+/// `namespace:{number}`; of its fields these are read: `id`, `name` (the local name, where
+/// it is not the canonical one or, for Project, the site's) and `aliases`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
+pub struct TenantNames {
+    /// `site.name`; the canonical `Project` where none is given.
+    pub site_name: Option<String>,
+    /// Per namespace number: the fixed local name, and the aliases.
+    pub overrides: std::collections::BTreeMap<i32, (Option<String>, Vec<String>)>,
+}
+
+/// The `view.registry` rows [`TenantNames`] reads, for a tenant (`$1`): its `site.name`,
+/// the instance's default for it, and its `namespace` records.
+pub const TENANT_NAMES_SQL: &str = "SELECT tenant, kind, code, config FROM view.registry
+    WHERE (tenant = $1 AND ((kind = 'site' AND code = 'site.name') OR kind = 'namespace'))
+       OR (tenant = '' AND kind = 'template' AND code = 'site:site.name')";
+
+impl TenantNames {
+    /// From [`TENANT_NAMES_SQL`]'s rows; a tenant without a `site.name` is named by its
+    /// slug, as the setting's default is.
+    #[must_use]
+    pub fn from_rows(slug: &str, rows: &[(String, String, String, serde_json::Value)]) -> Self {
+        let mut own = None;
+        let mut default = None;
+        let mut overrides = std::collections::BTreeMap::new();
+        for (tenant, kind, code, config) in rows {
+            match kind.as_str() {
+                "site" => own = config["value"].as_str().map(str::to_string),
+                "template" if tenant.is_empty() => {
+                    default = config["record"]["value"].as_str().map(str::to_string);
+                }
+                "namespace" => {
+                    let id = config["id"]
+                        .as_i64()
+                        .and_then(|n| i32::try_from(n).ok())
+                        .or_else(|| code.parse().ok());
+                    let Some(id) = id else { continue };
+                    let name = config["name"]
+                        .as_str()
+                        .filter(|n| !n.is_empty())
+                        .map(str::to_string);
+                    let aliases = config["aliases"]
+                        .as_array()
+                        .map(|a| {
+                            a.iter()
+                                .filter_map(serde_json::Value::as_str)
+                                .map(str::to_string)
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    overrides.insert(id, (name, aliases));
+                }
+                _ => {}
             }
-            if n.id == 7 {
-                ns = ns.alias("Image talk");
-            }
-            if n.id == scatter_titles::PROJECT
-                && let Some(site) = site_name.filter(|s| *s != n.canonical)
-            {
-                ns.name = site.to_string();
-                ns = ns.canonical(&n.canonical);
-            }
-            ns
-        })
-        .collect();
-    ConfigSource {
-        namespaces,
-        ..ConfigSource::default()
+        }
+        Self {
+            site_name: own.or(default).or_else(|| Some(slug.to_string())),
+            overrides,
+        }
+    }
+
+    /// Reads a tenant's names.
+    ///
+    /// # Errors
+    ///
+    /// The database's.
+    pub async fn load(db: &tokio_postgres::Client, tenant: &str) -> Result<Self, String> {
+        let rows = db
+            .query(TENANT_NAMES_SQL, &[&tenant])
+            .await
+            .map_err(|e| sql(&e))?;
+        let rows: Vec<_> = rows
+            .iter()
+            .map(|r| (r.get(0), r.get(1), r.get(2), r.get(3)))
+            .collect();
+        Ok(Self::from_rows(tenant, &rows))
+    }
+
+    /// The wikitext configuration source these names give.
+    #[must_use]
+    pub fn source(&self) -> ConfigSource {
+        let namespaces = Namespaces::embedded()
+            .iter()
+            .map(|n| {
+                let mut ns = Namespace::new(n.id, &n.canonical);
+                ns.case_sensitive = n.case.as_deref() == Some("case-sensitive");
+                ns.subpages = n.subpages;
+                if n.id == 6 {
+                    ns = ns.alias("Image");
+                }
+                if n.id == 7 {
+                    ns = ns.alias("Image talk");
+                }
+                let (fixed, aliases) = self.overrides.get(&n.id).cloned().unwrap_or_default();
+                // Project and Project talk take the site's name unless a record fixes theirs.
+                let local = fixed.or_else(|| {
+                    let site = self.site_name.as_deref()?;
+                    match n.id {
+                        scatter_titles::PROJECT => Some(site.to_string()),
+                        5 => Some(format!("{site} talk")),
+                        _ => None,
+                    }
+                });
+                if let Some(local) = local.filter(|l| *l != n.canonical) {
+                    ns.name = local;
+                    ns = ns.canonical(&n.canonical);
+                }
+                for a in &aliases {
+                    ns = ns.alias(a);
+                }
+                ns
+            })
+            .collect();
+        ConfigSource {
+            namespaces,
+            ..ConfigSource::default()
+        }
+    }
+
+    /// The configuration these names give, built once per set of names.
+    #[must_use]
+    pub fn config(&self) -> std::sync::Arc<Config> {
+        use std::collections::HashMap;
+        use std::sync::{Arc, Mutex};
+        static CACHE: OnceLock<Mutex<HashMap<TenantNames, Arc<Config>>>> = OnceLock::new();
+        let cache = CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+        let mut map = cache
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        map.entry(self.clone())
+            .or_insert_with(|| Arc::new(Config::new(self.source())))
+            .clone()
+    }
+
+    /// The aliases `meta=siteinfo&siprop=namespacealiases` lists: every name a namespace
+    /// answers to beside its local and canonical names, as `(id, alias)`.
+    #[must_use]
+    pub fn aliases(&self) -> Vec<(i32, String)> {
+        self.source()
+            .namespaces
+            .iter()
+            .flat_map(|n| n.aliases.iter().map(move |a| (n.id, a.clone())))
+            .collect()
     }
 }
 
@@ -343,9 +475,9 @@ async fn index_text(
     title: &str,
     text: &str,
 ) -> Result<u64, String> {
-    let config = wikitext_config();
+    let config = TenantNames::load(cx.conn(), tenant).await?.config();
     let page = Title::new(ns, title);
-    let ex = scatter_wikitext::extract(text, config, &page);
+    let ex = scatter_wikitext::extract(text, &config, &page);
     let namespaces = Namespaces::embedded();
     let mut rows = 0u64;
 
@@ -444,6 +576,83 @@ async fn index_text(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_tenant_names_its_namespaces() {
+        use serde_json::json;
+        let row = |tenant: &str, kind: &str, code: &str, config: serde_json::Value| {
+            (
+                tenant.to_string(),
+                kind.to_string(),
+                code.to_string(),
+                config,
+            )
+        };
+        // No record: the slug names Project and Project talk.
+        let names = TenantNames::from_rows("librarybase", &[]);
+        let c = names.config();
+        assert_eq!(
+            c.namespace_by_name("Librarybase talk").map(|n| n.id),
+            Some(5)
+        );
+        assert_eq!(c.namespace_by_name("project").map(|n| n.id), Some(4));
+        // The instance default, then the tenant's own name.
+        let names = TenantNames::from_rows(
+            "lb",
+            &[row(
+                "",
+                "template",
+                "site:site.name",
+                json!({"kind": "template", "record": {"value": "Default"}}),
+            )],
+        );
+        assert_eq!(names.site_name.as_deref(), Some("Default"));
+        let names = TenantNames::from_rows(
+            "lb",
+            &[
+                row(
+                    "",
+                    "template",
+                    "site:site.name",
+                    json!({"record": {"value": "Default"}}),
+                ),
+                row(
+                    "lb",
+                    "site",
+                    "site.name",
+                    json!({"kind": "site", "value": "Librarybase"}),
+                ),
+                row(
+                    "lb",
+                    "namespace",
+                    "4",
+                    json!({"kind": "namespace", "id": 4, "aliases": ["LB"]}),
+                ),
+                row(
+                    "lb",
+                    "namespace",
+                    "2",
+                    json!({"kind": "namespace", "id": 2, "name": "Person", "aliases": ["U"]}),
+                ),
+            ],
+        );
+        let c = names.config();
+        assert_eq!(c.namespace_by_name("LB").map(|n| n.id), Some(4));
+        assert_eq!(c.namespace_by_name("Librarybase").map(|n| n.id), Some(4));
+        assert_eq!(c.namespace_by_name("person").map(|n| n.id), Some(2));
+        assert_eq!(
+            c.namespace_by_name("User").map(|n| n.id),
+            Some(2),
+            "canonical kept"
+        );
+        assert_eq!(Title::new(2, "Harej").prefixed(&c), "Person:Harej");
+        let ex = scatter_wikitext::extract("[[LB:Scope]] [[U:Harej]]", &c, &Title::new(0, "X"));
+        assert_eq!(ex.links[0].target, Title::new(4, "Scope"));
+        assert_eq!(ex.links[1].target, Title::new(2, "Harej"));
+        let aliases = names.aliases();
+        assert!(aliases.contains(&(4, "LB".into())));
+        assert!(aliases.contains(&(6, "Image".into())));
+    }
 
     #[test]
     fn the_registry_configures_wikitext() {

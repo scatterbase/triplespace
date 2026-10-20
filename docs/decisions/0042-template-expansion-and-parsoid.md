@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-09 (A18)
+- **Updated:** 2026-10-20 (A19)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0024](0024-subsidiary-accounts.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md)
 - **Uses:** [0023](0023-moderation.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0043](0043-lua-modules.md), [0047](0047-special-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -39,17 +39,19 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 1. Expansion, then rendering (amends 0008 §8 and 0033 §9.1)
 
+*Changed by A19.*
+
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §1.1.*
 
 ### 2. Settings (extends 0015 §3; extends 0028 §1)
 
-*Changed by A2, A5.*
+*Changed by A2, A5, A19.*
 
 *Current text: [23](../architecture/23-configuration-and-registry.md) §1.4, §3.1, §3.2, §3.4, §3.6, §6.*
 
 ### 3. The Template namespace (amends 0008 §2)
 
-*Changed by A7, A13, A14.*
+*Changed by A7, A13, A14, A19.*
 
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §1.3.*
 
@@ -99,7 +101,7 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 9. Links, categories and other metadata come from expanded output (amends 0038 §3; amends 0008 §10)
 
-*Changed by A6, A17.*
+*Changed by A6, A17, A19.*
 
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §4.1.*
 
@@ -120,6 +122,8 @@ James's direction, from the design discussion of 2026-09-30:
 *Current text: [18](../architecture/18-api.md) §3.2, §3.4, §5.2.*
 
 ### 13. Import (amends 0008 §9)
+
+*Changed by A19.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §6.*
 
@@ -407,3 +411,32 @@ Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §4.4
 Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §4.5, as it stood):
 
 > Its lifetime is the lower of [0014](0014-caches-and-search.md) §4's ceiling and `expires_at`. A miss renders synchronously under single flight ([0014](0014-caches-and-search.md) §4); there is no stale serving after an epoch bump, as MediaWiki renders afresh after `page_touched` moves.
+
+### A19. Expansion is part of wikitext
+
+- **Date:** 2026-10-20
+- **Source:** Direct: James, review of 2026-10-20
+- **Change:** amends §1, §2, §3, §9, §13
+- **Summary:** `wikitext.expansion` is withdrawn. Template expansion is a feature of having `wikitext` pages, not a setting: a tenant with pages expands them, and a tenant with only entities has nothing to expand. The setting's off state described a wiki that has pages but no templates, which is not one MediaWiki's clients expect: Pywikibot checks every page save for `{{nobots}}` through `prop=templates&tlnamespace=10` and refuses a namespace siteinfo omits, so on such a tenant it could save no page at all. So Template (10) and Template talk (11) are `pages` namespaces on every tenant, without `enabled_by`; `subst:` always expands on save; links, categories and page properties are always read from the expanded text as well as the stored text; the template reports and `Special:ExpandTemplates` need no setting, and `ts-expansion-off` is withdrawn. The two row classes of `from_render` stay, since their reason is one writer per class, but "turning expansion off truncates the render-owned rows" goes with the setting. The import's flattening revision (§13) becomes the fallback for an export that lacks its templates, not a tenant's mode. `wikitext.lua` and `wikitext.renderer` are unchanged, and `wikitext.ceiling` keeps `expansion` and `lua` and now caps only Lua; a `subset` ceiling already written caps Lua as `expansion` does. A stored `wikitext.expansion` record is ignored, since the registry no longer resolves the key, so no tenant needs a migration. Chapters [11](../architecture/11-rendering-templates-and-modules.md) §1.1, §1.3, §2.3 and §4.1, [10](../architecture/10-pages-and-content-models.md) §1.4, §5.1, §5.3, §5.5 and §6, [23](../architecture/23-configuration-and-registry.md) §1.4, §3.2 and §3.4, and the sentences of [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), [13](../architecture/13-mirrored-pages.md) §3.3, [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md) §3.1–3.2, [21](../architecture/21-special-pages.md) and [22](../architecture/22-crates-and-stack.md) that named the setting were rewritten; the registries `settings.toml`, `namespaces.toml`, `special-pages.toml`, `tenancy.toml`, `version.toml` and `wikitext-functions.toml` follow.
+
+Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §1.1 and §1.3, as they stood):
+
+> **With expansion off, stage 1 is the identity.** Template calls and parser functions render as chips, and categories are read from the source ([0038](../decisions/0038-page-metadata-and-categories.md) §3, in [10](../architecture/10-pages-and-content-models.md)).
+
+> Whether a tenant expands, runs Lua and which renderer serves its HTML are the `site` settings `wikitext.expansion`, `wikitext.lua` and `wikitext.renderer`, capped by the instance's `wikitext.ceiling`; the Parsoid service's address, timeout and concurrency are deployment configuration. The settings, their defaults and the rule that turning `wikitext.expansion` off also turns `wikitext.lua` off and `wikitext.renderer` back to `builtin` are in [23](../architecture/23-configuration-and-registry.md) ([0042](../decisions/0042-template-expansion-and-parsoid.md) §2).
+
+> **While `wikitext.expansion` is on**, Template (10) is a `pages` namespace and Template talk (11) is enabled:
+
+> **While it is off**, 10 is `reserved` and 11 is registered but disabled, both entered in `namespaces.toml` with `enabled_by = "wikitext.expansion"`, as §7.2 says for 828 and 829. This is a rule of [0008](../decisions/0008-namespaces-and-document-pages.md) §2: **a reserved number can be implemented conditionally**, by a setting named in its `namespaces.toml` entry. The namespace table is [10](../architecture/10-pages-and-content-models.md)'s.
+
+> **Turning expansion off never removes pages.** Template pages that exist keep their records and history. The namespace refuses `create`, `edit` and `move` into it with `ts-namespace-disabled`, and its existing pages stay readable at their titles and can be deleted. Nothing transcludes them. Turning expansion on again restores everything. `meta=siteinfo` lists a disabled namespace while it still holds pages, so clients can read them.
+
+Replaced text ([10](../architecture/10-pages-and-content-models.md) §6 step 3, as it stood):
+
+> 3. **Flatten templates in one extra revision, where the tenant does not expand them.** Where the latest revision uses templates, a bot fetches the expanded text from the source wiki with `action=expandtemplates` and saves it as a new revision. History stays faithful to the source, and the current text needs no template engine. With `wikitext.expansion` on, this step is optional: the importer may bring the Template and Module pages with full history, as ordinary pages, instead of flattening. Flattening remains the procedure for a tenant with expansion off, or by choice.
+
+Replaced text ([23](../architecture/23-configuration-and-registry.md) §3.2, as it stood):
+
+> | `wikitext.expansion` | `site` | tenant ≤ instance ceiling (`wikitext.ceiling`) | `off`, `on` | `off` | Expand templates and parser functions; enables Template and Template talk | [0042](../decisions/0042-template-expansion-and-parsoid.md) §2 |
+
+> Turning `wikitext.expansion` off also turns `wikitext.lua` off and `wikitext.renderer` back to `builtin`; changing any `wikitext.*` setting bumps the render epoch of every `wikitext` page in the tenant and queues them for refresh ([11](../architecture/11-rendering-templates-and-modules.md)).

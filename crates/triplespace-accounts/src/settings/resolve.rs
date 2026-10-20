@@ -22,7 +22,7 @@ use super::value::magnitude;
 pub const CONFIG_TEMPLATE: &str = "config.template";
 /// The code of the `tenancy:locked` list.
 pub const LOCKED: &str = "locked";
-/// The switch that caps `wikitext.expansion` and `wikitext.lua` (0042 §2).
+/// The switch that caps `wikitext.lua` (0042 §2, A19).
 pub const WIKITEXT_CEILING: &str = "wikitext.ceiling";
 
 /// One configuration row: the value it holds and who wrote it.
@@ -361,16 +361,11 @@ impl Snapshot {
         let switch = def.ceiling_switch()?;
         let ceiling = self.tenancy.get(switch)?.value.clone();
         if switch == WIKITEXT_CEILING {
-            // 23 §3.4: subset < expansion < lua; `wikitext.expansion` needs at least
-            // `expansion`, `wikitext.lua` needs `lua` (the order 0085 Q4 notes is implicit).
-            let level = |s: &str| match s {
-                "subset" => 0,
-                "expansion" => 1,
-                _ => 2,
-            };
-            let need = if def.key == "wikitext.lua" { 2 } else { 1 };
-            let have = level(ceiling.as_str().unwrap_or("lua"));
-            return (v.as_bool() == Some(true) && have < need)
+            // 23 §3.4: `expansion` < `lua`; `wikitext.lua` needs `lua`. Expansion itself is
+            // part of wikitext and has no setting to cap (0042 A19); a `subset` ceiling
+            // written before then caps Lua as `expansion` does.
+            let lua_allowed = ceiling.as_str().unwrap_or("lua") == "lua";
+            return (v.as_bool() == Some(true) && !lua_allowed)
                 .then_some((Value::Bool(false), ceiling));
         }
         match def.ty {
@@ -549,11 +544,6 @@ mod tests {
             .unwrap()
             .site
             .insert("wikitext.lua".into(), Row::of(json!(true), 2));
-        s.tenant
-            .as_mut()
-            .unwrap()
-            .site
-            .insert("wikitext.expansion".into(), Row::of(json!(true), 3));
         assert_eq!(s.value("wikitext.lua"), Some(json!(true)));
         tenancy(&mut s, WIKITEXT_CEILING, json!("expansion"));
         let r = s.resolve("wikitext.lua").unwrap();
@@ -561,9 +551,13 @@ mod tests {
             (r.value, r.capped),
             (Some(json!(false)), Some(json!("expansion")))
         );
-        assert_eq!(s.value("wikitext.expansion"), Some(json!(true)));
         tenancy(&mut s, WIKITEXT_CEILING, json!("subset"));
-        assert_eq!(s.value("wikitext.expansion"), Some(json!(false)));
+        assert_eq!(
+            s.value("wikitext.lua"),
+            Some(json!(false)),
+            "an old ceiling"
+        );
+        assert_eq!(s.resolve("wikitext.expansion"), None, "withdrawn");
 
         s.tenant
             .as_mut()

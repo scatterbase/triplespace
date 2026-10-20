@@ -7,7 +7,7 @@
 //! `links`, `templates`, `categories`, `externallinks`, `sections`, `revid`,
 //! `displaytitle`, `wikitext`, `parsewarnings`, `properties`, and `langlinks`, `images`
 //! and `iwlinks`, which are empty here. The renderer is the built-in one (11 §1.2),
-//! after expansion where the tenant turned `wikitext.expansion` on. Entity pages are not
+//! after expansion, which is part of wikitext (0042 A19). Entity pages are not
 //! parsed: their HTML is the site's.
 
 use std::collections::BTreeSet;
@@ -435,7 +435,6 @@ mod tests {
             )),
             name: "Librarybase".into(),
             lang: "en".into(),
-            expansion: false,
         };
         assert_eq!(
             display_title(&site, &Title::new(4, "Scope")),
