@@ -321,11 +321,7 @@ impl Builder {
         match name {
             "li" => self.close_item(&["li"]),
             "dd" | "dt" => self.close_item(&["dd", "dt"]),
-            n if is_heading(n) => {
-                if is_heading(self.current()) {
-                    self.pop_one();
-                }
-            }
+            n if is_heading(n) && is_heading(self.current()) => self.pop_one(),
             "td" | "th" => {
                 if let Some(i) = self.find("td").or_else(|| self.find("th")) {
                     self.pop_to(i);
