@@ -27,7 +27,7 @@ mod models;
 mod title;
 
 pub use models::{ContentModel, ContentModels, ModelSource};
-pub use title::{TitleError, check_title};
+pub use title::{MAX_TITLE_BYTES, TitleError, check_title};
 
 use serde::{Deserialize, Serialize};
 
