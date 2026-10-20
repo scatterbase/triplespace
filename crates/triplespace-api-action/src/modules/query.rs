@@ -1401,7 +1401,7 @@ fn module_parameters(name: &str) -> Vec<Value> {
                     "user"
                 ]),
             ),
-            ("difftype", json!(["table"])),
+            ("difftype", json!(["inline", "table"])),
         ]
         .into_iter()
         .enumerate()

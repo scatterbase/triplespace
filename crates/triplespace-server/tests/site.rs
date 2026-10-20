@@ -327,6 +327,83 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
         q6.body
     );
 
+    // action=compare of an entity's revisions (18 §2.3): the local graph's assertions as
+    // sorted JSON, one value to a line, without the fields every revision changes.
+    let api = |q: &str| format!("/w/api.php?{q}&format=json&formatversion=2");
+    let revs: serde_json::Value = serde_json::from_str(
+        &get(
+            &embedded,
+            &api("action=query&prop=revisions&titles=Item:Q6&rvprop=ids&rvlimit=50"),
+            None,
+        )
+        .await
+        .body,
+    )
+    .unwrap();
+    let revs = revs["query"]["pages"][0]["revisions"]
+        .as_array()
+        .unwrap()
+        .clone();
+    assert!(!revs.is_empty(), "Q6 has local revisions");
+    let latest = revs[0]["revid"].as_u64().unwrap();
+    let cmp: serde_json::Value = serde_json::from_str(
+        &get(
+            &embedded,
+            &api("action=compare&fromtitle=Item:Q6&torelative=prev&prop=diff|ids|title"),
+            None,
+        )
+        .await
+        .body,
+    )
+    .unwrap();
+    let compared = &cmp["compare"];
+    assert_eq!(compared["totitle"], "Item:Q6", "{cmp}");
+    assert_eq!(compared["torevid"].as_u64(), Some(latest));
+    let body = compared["body"].as_str().unwrap_or_else(|| panic!("{cmp}"));
+    assert!(
+        body.contains("diff-addedline") || body.contains("diff-deletedline"),
+        "{body}"
+    );
+    assert!(
+        !body.contains("lastrevid") && !body.contains("modified"),
+        "{body}"
+    );
+    if revs.len() > 1 {
+        assert_eq!(compared["fromrevid"], revs[1]["revid"], "{cmp}");
+    } else {
+        assert!(
+            body.contains("&quot;claims&quot;"),
+            "a creation shows the whole entity: {body}"
+        );
+    }
+    // By revision ID, against itself: no difference; and an entity with no local
+    // revision says so.
+    let same: serde_json::Value = serde_json::from_str(
+        &get(
+            &embedded,
+            &api(&format!("action=compare&fromrev={latest}&torev={latest}")),
+            None,
+        )
+        .await
+        .body,
+    )
+    .unwrap();
+    assert_eq!(same["compare"]["body"], "", "{same}");
+    let mirrored: serde_json::Value = serde_json::from_str(
+        &get(
+            &embedded,
+            &api("action=compare&fromtitle=Domain:wikipedia.org&torelative=prev"),
+            None,
+        )
+        .await
+        .body,
+    )
+    .unwrap();
+    assert!(
+        mirrored["compare"].is_object() || mirrored["error"]["code"] == "ts-no-local-revision",
+        "{mirrored}"
+    );
+
     // The diff page and an old revision (19 §3.8), from the history's own links; both
     // tiers draw them alike.
     let diff_href = q6

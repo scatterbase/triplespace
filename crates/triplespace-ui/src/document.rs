@@ -880,6 +880,16 @@ fn diff_html(m: &Messages, d: &PageDiff, latest_revid: Option<u64>) -> String {
         s.push_str(&d.body);
     }
     s.push_str("</tbody></table>");
+    // The same diff in one column, which the stylesheet shows in place of the table's
+    // rows on a narrow screen (MediaWiki's inline layout).
+    if !d.inline.is_empty() {
+        let _ = write!(
+            s,
+            "<div class=\"ts-page-diff__inline mw-diff-inline\" role=\"region\" aria-label=\"{}\">{}</div>",
+            esc(&m.get("ts-pagediff-label")),
+            d.inline
+        );
+    }
     s
 }
 
@@ -1062,6 +1072,7 @@ mod tests {
             from: Some(side(7, Some("Harej"))),
             to: side(9, None),
             body: "<tr><td>row</td></tr>".into(),
+            inline: "<div class=\"mw-diff-inline-context\">row</div>".into(),
             prev: Some(5),
             next: None,
         };
@@ -1079,14 +1090,22 @@ mod tests {
         assert!(!html.contains("Newer edit"));
         assert!(html.contains(&m.get("ts-changes-hidden-user")));
         assert!(html.contains("<tr><td>row</td></tr>"));
+        assert!(
+            html.contains("<div class=\"ts-page-diff__inline mw-diff-inline\" role=\"region\"")
+        );
         let created = PageDiff {
             from: None,
             body: String::new(),
+            inline: String::new(),
             ..d
         };
         let html = diff_html(&m, &created, None);
         assert!(html.contains("(Page created)"));
         assert!(html.contains("(No difference)"));
+        assert!(
+            !html.contains("ts-page-diff__inline"),
+            "nothing to show in one column"
+        );
     }
 
     #[test]

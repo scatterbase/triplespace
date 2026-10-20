@@ -1,6 +1,7 @@
 //! Line diffs of a page's source (10 §4.3; 19 §3.8): what changed between two texts,
-//! line by line, with the words that changed marked inside a changed line, and the
-//! table rows MediaWiki's `action=compare` writes for them.
+//! line by line, with the words that changed marked inside a changed line, and the two
+//! layouts MediaWiki's `action=compare` writes for them: the table (`difftype=table`) and
+//! the inline one (`difftype=inline`), a single column for a narrow screen.
 //!
 //! The diff is MediaWiki's shape: hunks with two lines of context, joined where their
 //! context would meet, each opened by a `Line N:` row; a block of replaced lines is
@@ -26,6 +27,26 @@ pub struct Segment {
     pub changed: bool,
 }
 
+/// Which side a run of a changed line is on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Side {
+    /// Both: unchanged.
+    Both,
+    /// The old side only: removed.
+    Old,
+    /// The new side only: added.
+    New,
+}
+
+/// A run of a changed line, in order.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Part {
+    /// The text.
+    pub text: String,
+    /// Its side.
+    pub side: Side,
+}
+
 /// One row of a hunk.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Row {
@@ -35,8 +56,33 @@ pub enum Row {
     Added(String),
     /// A line only on the old side.
     Deleted(String),
-    /// A line changed: the old side's runs and the new side's.
-    Changed(Vec<Segment>, Vec<Segment>),
+    /// A line changed: its runs in order, unchanged, removed and added.
+    Changed(Vec<Part>),
+}
+
+/// A changed line's runs as each side reads them: the old side's, then the new side's,
+/// each run marked changed or not.
+#[must_use]
+pub fn sides(parts: &[Part]) -> (Vec<Segment>, Vec<Segment>) {
+    let (mut a, mut b): (Vec<Segment>, Vec<Segment>) = (Vec::new(), Vec::new());
+    let push = |side: &mut Vec<Segment>, text: &str, changed: bool| match side.last_mut() {
+        Some(last) if last.changed == changed => last.text.push_str(text),
+        _ => side.push(Segment {
+            text: text.to_string(),
+            changed,
+        }),
+    };
+    for p in parts {
+        match p.side {
+            Side::Both => {
+                push(&mut a, &p.text, false);
+                push(&mut b, &p.text, false);
+            }
+            Side::Old => push(&mut a, &p.text, true),
+            Side::New => push(&mut b, &p.text, true),
+        }
+    }
+    (a, b)
 }
 
 /// A hunk: where it starts on each side, 1-based, and its rows.
@@ -59,29 +105,25 @@ fn lines(text: &str) -> Vec<&str> {
     }
 }
 
-/// The changed words of a line pair.
-fn words(old: &str, new: &str) -> (Vec<Segment>, Vec<Segment>) {
+/// The runs of a changed line pair, in order, adjacent runs of one side joined.
+fn words(old: &str, new: &str) -> Vec<Part> {
     let diff = TextDiff::from_words(old, new);
-    let (mut a, mut b): (Vec<Segment>, Vec<Segment>) = (Vec::new(), Vec::new());
-    let push = |side: &mut Vec<Segment>, text: &str, changed: bool| match side.last_mut() {
-        Some(last) if last.changed == changed => last.text.push_str(text),
-        _ => side.push(Segment {
-            text: text.to_string(),
-            changed,
-        }),
-    };
+    let mut parts: Vec<Part> = Vec::new();
     for change in diff.iter_all_changes() {
-        let text = change.value();
-        match change.tag() {
-            ChangeTag::Equal => {
-                push(&mut a, text, false);
-                push(&mut b, text, false);
-            }
-            ChangeTag::Delete => push(&mut a, text, true),
-            ChangeTag::Insert => push(&mut b, text, true),
+        let side = match change.tag() {
+            ChangeTag::Equal => Side::Both,
+            ChangeTag::Delete => Side::Old,
+            ChangeTag::Insert => Side::New,
+        };
+        match parts.last_mut() {
+            Some(last) if last.side == side => last.text.push_str(change.value()),
+            _ => parts.push(Part {
+                text: change.value().to_string(),
+                side,
+            }),
         }
     }
-    (a, b)
+    parts
 }
 
 /// The hunks between two texts; none when they are equal.
@@ -127,8 +169,8 @@ pub fn diff(old: &str, new: &str) -> Vec<Hunk> {
                 } => {
                     let paired = old_len.min(new_len);
                     for i in 0..paired {
-                        let (x, y) = words(a[old_index + i], b[new_index + i]);
-                        hunk.rows.push(Row::Changed(x, y));
+                        hunk.rows
+                            .push(Row::Changed(words(a[old_index + i], b[new_index + i])));
                     }
                     for line in &a[old_index + paired..old_index + old_len] {
                         hunk.rows.push(Row::Deleted((*line).to_string()));
@@ -234,13 +276,87 @@ pub fn table_rows(hunks: &[Hunk], line: impl Fn(usize) -> String) -> String {
                         line_html(text)
                     );
                 }
-                Row::Changed(old, new) => {
+                Row::Changed(parts) => {
+                    let (old, new) = sides(parts);
                     let _ = writeln!(
                         s,
                         "<tr>{DELETED_MARKER}<td class=\"diff-deletedline diff-side-deleted\">{}</td>{ADDED_MARKER}<td class=\"diff-addedline diff-side-added\">{}</td></tr>",
-                        segments_html(old, "del"),
-                        segments_html(new, "ins")
+                        segments_html(&old, "del"),
+                        segments_html(&new, "ins")
                     );
+                }
+            }
+        }
+    }
+    s
+}
+
+/// The inline layout of `action=compare&difftype=inline`, MediaWiki's single column: each
+/// hunk opened by its header (`line` words it, given the new side's first line), context
+/// lines as they are, a removed line in `<del>` and an added one in `<ins>`, and a changed
+/// line once, its removed and added words marked in place. Each changed line carries its
+/// marker (`−`, `+` or `~`) in `data-marker`, so a reader need not tell them apart by
+/// colour.
+#[must_use]
+pub fn inline_rows(hunks: &[Hunk], line: impl Fn(usize) -> String) -> String {
+    let text = |t: &str| {
+        if t.is_empty() {
+            "<br>".to_string()
+        } else {
+            esc(t)
+        }
+    };
+    let mut s = String::new();
+    for h in hunks {
+        let _ = writeln!(
+            s,
+            "<div class=\"mw-diff-inline-header\">{}</div>",
+            esc(&line(h.new_line))
+        );
+        for row in &h.rows {
+            match row {
+                Row::Context(t) => {
+                    let _ = writeln!(s, "<div class=\"mw-diff-inline-context\">{}</div>", text(t));
+                }
+                Row::Deleted(t) => {
+                    let _ = writeln!(
+                        s,
+                        "<div class=\"mw-diff-inline-deleted\" data-marker=\"\u{2212}\"><del>{}</del></div>",
+                        text(t)
+                    );
+                }
+                Row::Added(t) => {
+                    let _ = writeln!(
+                        s,
+                        "<div class=\"mw-diff-inline-added\" data-marker=\"+\"><ins>{}</ins></div>",
+                        text(t)
+                    );
+                }
+                Row::Changed(parts) => {
+                    s.push_str("<div class=\"mw-diff-inline-changed\" data-marker=\"~\">");
+                    for p in parts {
+                        match p.side {
+                            Side::Both => s.push_str(&esc(&p.text)),
+                            Side::Old => {
+                                let _ = write!(
+                                    s,
+                                    "<del class=\"diffchange diffchange-inline\">{}</del>",
+                                    esc(&p.text)
+                                );
+                            }
+                            Side::New => {
+                                let _ = write!(
+                                    s,
+                                    "<ins class=\"diffchange diffchange-inline\">{}</ins>",
+                                    esc(&p.text)
+                                );
+                            }
+                        }
+                    }
+                    if parts.iter().all(|p| p.text.is_empty()) {
+                        s.push_str("<br>");
+                    }
+                    s.push_str("</div>\n");
                 }
             }
         }
@@ -276,9 +392,10 @@ mod tests {
             "two lines of context"
         );
         assert_eq!(h[0].rows.len(), 5);
-        let Row::Changed(old, new) = &h[0].rows[2] else {
+        let Row::Changed(parts) = &h[0].rows[2] else {
             panic!("{:?}", h[0].rows)
         };
+        let (old, new) = sides(parts);
         assert_eq!(
             old[0],
             Segment {
@@ -325,6 +442,25 @@ mod tests {
         // it, and the empty side keeps its height.
         assert!(html.contains("<ins class=\"diffchange diffchange-inline\">tail</ins>"));
         assert!(html.contains("<div><br></div>"));
+    }
+
+    #[test]
+    fn the_inline_layout_writes_a_changed_line_once() {
+        let h = diff("a\nthe old word\nc", "a\nthe new word\nc\nd <e>");
+        let html = inline_rows(&h, |n| format!("Line {n}:"));
+        assert!(
+            html.starts_with("<div class=\"mw-diff-inline-header\">Line 1:</div>"),
+            "{html}"
+        );
+        assert!(html.contains(
+            "<div class=\"mw-diff-inline-changed\" data-marker=\"~\">the <del class=\"diffchange diffchange-inline\">old</del><ins class=\"diffchange diffchange-inline\">new</ins> word</div>"
+        ), "{html}");
+        assert!(html.contains(
+            "<div class=\"mw-diff-inline-added\" data-marker=\"+\"><ins>d &lt;e&gt;</ins></div>"
+        ));
+        assert_eq!(html.matches("mw-diff-inline-context").count(), 2);
+        assert!(!html.contains("<table") && !html.contains("<tr"));
+        assert_eq!(inline_rows(&[], |n| n.to_string()), "");
     }
 
     #[test]

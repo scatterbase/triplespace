@@ -10,6 +10,7 @@ description = "The namespace registry, embedding docs/registry/namespaces.toml"
 publish = false
 
 [dependencies]
+scatter-pages.workspace = true
 serde.workspace = true
 toml.workspace = true
 

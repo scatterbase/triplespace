@@ -218,8 +218,19 @@ def main():
         if fresh.labels.get("de") != text:
             raise RuntimeError(f"de label is {fresh.labels.get('de')!r}")
         state["rev_after_label"] = fresh.latest_revision_id
+        state["rev_before_label"] = before
+        state["label"] = text
         return f"revision {before} -> {fresh.latest_revision_id}"
     step("write: editLabels (de)", edit_label, skip=skip_w)
+
+    def entity_compare():
+        # action=compare of two entity revisions: the local graph's JSON, line by line.
+        html = repo.compare(state["rev_before_label"], state["rev_after_label"])
+        if "diff-addedline" not in html or state["label"] not in html:
+            raise RuntimeError(f"unexpected diff: {html[:300]!r}")
+        return f"{html.count('<tr>')} rows"
+    step("read: action=compare of the item's revisions", entity_compare,
+         skip=skip_w or "rev_after_label" not in state)
 
     def add_claim():
         claim = pywikibot.Claim(repo, prop)
