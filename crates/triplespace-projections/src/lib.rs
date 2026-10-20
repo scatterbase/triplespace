@@ -10,7 +10,7 @@
 //! - Step 4, resolution: `entity` with its `term` and `identifier` tables ([`entities`]).
 //! - Step 5: `activity` ([`activity`]); the feeds that read it ([`feed`], 0020 §1).
 //!
-//! Clusters (step 3), pages, sitelinks, references, corrections, constraints, patrol,
+//! Document pages are step 2 ([`pages`]). Clusters (step 3), sitelinks, references, corrections, constraints, patrol,
 //! filters, notifications and RDF follow as the crates that produce their records are
 //! built. [`milestone_pipeline`] assembles the set built so far.
 
@@ -21,6 +21,7 @@ pub mod common;
 pub mod entities;
 pub mod feed;
 pub mod jobs;
+pub mod pages;
 pub mod read;
 pub mod registry;
 pub mod revision_state;
@@ -33,6 +34,7 @@ pub use actors::Farm;
 pub use backend::{PgBackend, PgCx};
 pub use entities::EntityProjection;
 pub use jobs::JobProjection;
+pub use pages::PageProjection;
 pub use registry::RegistryProjection;
 pub use revision_state::RevisionStateProjection;
 pub use sources::{EntitySourceProjection, KeyedMapProjection, KeyedSurrogateProjection};
@@ -58,6 +60,7 @@ pub fn milestone_pipeline<B: Backend<Cx = PgCx>>(
         .with(EntitySourceProjection)?
         .with(KeyedMapProjection)?
         .with(JobProjection)?
+        .with(PageProjection)?
         .with(EntityProjection::default())?
         .with(ActivityProjection)
 }

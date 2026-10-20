@@ -31,6 +31,7 @@ pub mod external;
 pub mod forwarded;
 pub mod http_cache;
 pub mod modules;
+pub mod pages;
 pub mod params;
 pub mod prefs;
 pub mod response;

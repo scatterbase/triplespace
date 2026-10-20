@@ -26,8 +26,10 @@
 
 #![forbid(unsafe_code)]
 
+mod pst;
 mod registry;
 
+pub use pst::{Signer, pre_save_transform, signature_time};
 pub use registry::Registry;
 
 /// What a transclusion found.

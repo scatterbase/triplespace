@@ -28,6 +28,8 @@ members = [
     "crates/triplespace-db",
     "crates/scatter-projection",
     "crates/triplespace-projections",
+    "crates/scatter-pages",
+    "crates/scatter-titles",
     "crates/scatter-wikitext",
     "crates/scatter-wikitext-expand",
     "xtask",
@@ -73,6 +75,8 @@ scatter-log-postgres = { path = "crates/scatter-log-postgres" }
 triplespace-db = { path = "crates/triplespace-db" }
 triplespace-projections = { path = "crates/triplespace-projections" }
 scatter-projection = { path = "crates/scatter-projection" }
+scatter-pages = { path = "crates/scatter-pages" }
+scatter-titles = { path = "crates/scatter-titles" }
 scatter-wikitext = { path = "crates/scatter-wikitext" }
 scatter-wikitext-expand = { path = "crates/scatter-wikitext-expand" }
 

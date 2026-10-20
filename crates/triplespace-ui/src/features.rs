@@ -69,6 +69,7 @@ pub const BUILT: &[Feature] = &[
     Feature::Create,
     Feature::History,
     Feature::RecentChanges,
+    Feature::Pages,
     Feature::Version,
     Feature::Preferences,
     Feature::Settings,

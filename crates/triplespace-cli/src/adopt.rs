@@ -1,6 +1,7 @@
 //! `triplespace adopt` (0035): a frozen Wikibase's full-history MediaWiki XML dump becomes
 //! the tenant's `local` graph, revision by revision (A12), or, with `--current-only`, as
-//! each entity's newest revision. Two passes over the dump: a survey for the floors, the
+//! each entity's newest revision. Its document pages come in the same job, into `pages`
+//! ([`crate::adopt_pages`], A13). Two passes over the dump: a survey for the floors, the
 //! accounts and whether the dump carries history, then the adoption job itself.
 
 use std::collections::BTreeMap;
@@ -11,10 +12,10 @@ use clap::Args;
 use scatter_actors::actor::ActorRecord;
 use scatter_actors::key::ActorKey;
 use scatter_adapter_wikidata::adoption::{
-    AdoptedRevision, Contributor, Survey, adopt_history, adopt_page,
+    AdoptedRevision, ENTITY_MODELS, Survey, adopt_history, adopt_page,
 };
 use scatter_adapter_wikidata::xml_dump::XmlDump;
-use scatter_ingest::adopt::{Adopted, Adoption, Author, Floors, run_adoption};
+use scatter_ingest::adopt::{Adopted, AdoptedItem, Adoption, Floors, run_adoption};
 use scatter_ingest::write::Attestation;
 use scatter_providers::Registry;
 use scatter_wikibase_model::id::EntityId;
@@ -219,6 +220,8 @@ pub async fn run(args: Adopt) -> Result<()> {
     let mut unreadable_revisions = 0u64;
     let mut seen = 0u64;
     let mut untyped: BTreeMap<EntityId, u64> = BTreeMap::new();
+    let mut pages_read = 0u64;
+    let mut deferred: BTreeMap<String, u64> = BTreeMap::new();
     let tenant = issuer.clone();
     let current_only = args.current_only;
     let revisions = XmlDump::open(&args.dump)
@@ -232,6 +235,24 @@ pub async fn run(args: Adopt) -> Result<()> {
                     return Vec::new();
                 }
             };
+            let entity_page = page
+                .revisions
+                .last()
+                .and_then(|r| r.model.as_deref())
+                .is_some_and(|m| ENTITY_MODELS.contains(&m));
+            if !entity_page {
+                return match crate::adopt_pages::read_page(&page, &tenant, current_only) {
+                    crate::adopt_pages::PageRead::Adopt(revs) => {
+                        pages_read += 1;
+                        revs.into_iter().map(AdoptedItem::Page).collect()
+                    }
+                    crate::adopt_pages::PageRead::Deferred(why) => {
+                        eprintln!("deferring page {} (`{}`): {why}", page.id, page.title);
+                        *deferred.entry(why).or_default() += 1;
+                        Vec::new()
+                    }
+                };
+            }
             let read = if current_only {
                 adopt_page(&page, &sources, registry, &survey.property_types)
                     .map(|a| a.into_iter().collect::<Vec<_>>())
@@ -264,7 +285,7 @@ pub async fn run(args: Adopt) -> Result<()> {
                             for (p, n) in &a.untyped_snaks {
                                 *untyped.entry(p.clone()).or_default() += n;
                             }
-                            adopted(a, &tenant, current_only)
+                            AdoptedItem::Entity(adopted(a, &tenant, current_only))
                         })
                         .collect()
                 }
@@ -310,11 +331,13 @@ pub async fn run(args: Adopt) -> Result<()> {
     if unreadable_revisions > 0 {
         println!("  unreadable {unreadable_revisions} revisions (see stderr)");
     }
-    if survey.other_pages > 0 {
-        println!(
-            "  deferred   {} pages outside the entity namespaces, for the page import (0035 A13)",
-            survey.other_pages
-        );
+    println!("  pages      {pages_read} document pages");
+    let deferred_total: u64 = deferred.values().sum();
+    if deferred_total > 0 {
+        println!("  deferred   {deferred_total} pages (0035 A13):");
+        for (why, n) in &deferred {
+            println!("    {n} × {why}");
+        }
     }
     if !untyped.is_empty() {
         let total: u64 = untyped.values().sum();
@@ -337,18 +360,7 @@ fn adopted(a: AdoptedRevision, issuer: &str, current_only: bool) -> Adopted {
     if current_only && let Some(entity) = a.entity {
         return Adopted::current(entity, a.source_revid, &a.source_time, a.source_pageid);
     }
-    let author = match a.contributor {
-        Contributor::Account(id) => Author::Actor(ActorKey::numeric(issuer, id).to_string()),
-        Contributor::Ip(ip) => Author::Surrogate {
-            kind: "anonymous".into(),
-            raw: ip,
-        },
-        Contributor::Imported(name) => Author::Surrogate {
-            kind: "imported".into(),
-            raw: name,
-        },
-        Contributor::Hidden => Author::Hidden,
-    };
+    let author = crate::adopt_pages::author(a.contributor, issuer);
     Adopted {
         id: a.id,
         entity: a.entity,

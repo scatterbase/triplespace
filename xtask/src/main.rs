@@ -31,6 +31,7 @@ const WASM_CRATES: &[&str] = &[
     "scatter-css",
     "scatter-scope",
     "scatter-tasks",
+    "scatter-titles",
     "scatter-wasm",
 ];
 
@@ -56,6 +57,7 @@ const PURE_CRATES: &[&str] = &[
     "scatter-merge",
     "scatter-files",
     "scatter-extract",
+    "scatter-titles",
     "scatter-wikibase-*",
 ];
 

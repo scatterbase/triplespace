@@ -9,8 +9,9 @@
 //! When the API cannot be reached, or is older than [`MIN_API_VERSION`], the site says so
 //! with a `503` and `Retry-After`, in the frame and the shipped theme, and keeps nothing.
 //!
-//! Entity titles are served by [`crate::entity`]; every other title shows the frame and a
-//! notice that it is not served yet.
+//! Entity titles are served by [`crate::entity`], special pages by [`crate::special`],
+//! and every other title, where the API serves pages, by [`crate::document`]; without
+//! pages, the main page is the generated one and every other title a `404`.
 
 use std::collections::BTreeMap;
 use std::net::SocketAddr;
@@ -25,13 +26,14 @@ use sha2::{Digest as _, Sha256};
 use triplespace_client::{CacheInfo, ClientError, Incoming, SiteInfo};
 
 use crate::codex::{Message, MessageKind};
+use crate::features::Feature;
 use crate::features::Features;
 use crate::frame::{self, Chrome, Page, title_url};
 use crate::i18n::{self, Messages};
 use crate::routes::{self, Target};
 use crate::theme::Theme;
 use crate::{MIN_API_VERSION, Site, assets};
-use crate::{entity, home, special};
+use crate::{document, entity, home, special};
 
 /// The connection address, when the server was started with `ConnectInfo`.
 pub type Peer = Option<Extension<ConnectInfo<SocketAddr>>>;
@@ -488,8 +490,8 @@ pub fn redirect_to_with(cx: &Context, title: &str, query: &BTreeMap<String, Stri
     r
 }
 
-/// The `404` for a title the site has no page for: a special page it does not serve, or
-/// any other title, since the site has no document pages yet (0008).
+/// The `404` for a title the site has no page for: a special page it does not serve, or,
+/// where the API serves no pages, any other title (0008).
 pub(crate) fn no_page(cx: &Context, headers: &HeaderMap, title: String) -> Response {
     let special = title.starts_with("Special:");
     if cx.site.mainpage != "Main Page" && title.eq_ignore_ascii_case("Main Page") {
@@ -559,6 +561,9 @@ async fn dispatch(
         Ok(cx) => cx,
         Err(r) => return r,
     };
+    if cx.features.has(Feature::Pages) {
+        return document::serve(site, headers, &incoming, cx, title, params).await;
+    }
     if title.is_empty() {
         return redirect_to(&cx, &cx.site.mainpage);
     }
@@ -609,7 +614,8 @@ pub fn see_other(href: &str, cookies: &[HeaderValue]) -> Response {
     with_cookies(r, cookies)
 }
 
-/// A form posted to a title: a special page that takes one, or `405`.
+/// A form posted to a title: a document page's edit form, a special page that takes one,
+/// or `405`.
 async fn dispatch_post(
     site: &Site,
     headers: &HeaderMap,
@@ -618,6 +624,22 @@ async fn dispatch_post(
     query: &BTreeMap<String, String>,
     form: &Params,
 ) -> Response {
+    let action = query.get("action").or_else(|| form.map.get("action"));
+    if !title.is_empty()
+        && special::name_of(title).is_none()
+        && !entity::is_entity_title(title)
+        && action.is_some_and(|a| a == "submit" || a == "edit")
+    {
+        let incoming = incoming(headers, peer);
+        let cx = match context(site, &incoming, query).await {
+            Ok(cx) => cx,
+            Err(r) => return r,
+        };
+        if cx.features.has(Feature::Pages) {
+            return document::post(site, headers, &incoming, cx, title, form).await;
+        }
+        return no_page(&cx, headers, title.to_string());
+    }
     if let Some(r) = special::post(site, headers, peer, title, query, form).await {
         return r;
     }

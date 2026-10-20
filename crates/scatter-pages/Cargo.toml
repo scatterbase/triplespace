@@ -1,0 +1,18 @@
+[package]
+name = "scatter-pages"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Document page records (scatter:v0/page): the operations, their content part, title checks and the content-model registry"
+publish = false
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+
+[lints]
+workspace = true

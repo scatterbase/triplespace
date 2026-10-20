@@ -212,7 +212,7 @@ The redirect is a second page, with its own ID and its own history, as it is in 
 
 ### 3.2 The `pages` partition and page records
 
-*Sources: [0008](../decisions/0008-namespaces-and-document-pages.md) §4; [0083](../decisions/0083-write-path-in-three-tiers.md) §4.*
+*Sources: [0008](../decisions/0008-namespaces-and-document-pages.md) §4, A40; [0083](../decisions/0083-write-path-in-three-tiers.md) §4.*
 
 **Pages live in their own partition.** A `pages` source partition is in the registry ([0005](../decisions/0005-crate-organization.md) §4.1; [01](01-log-and-records.md), [02](02-graphs-rdf-and-query.md)):
 
@@ -237,7 +237,7 @@ The partition holds page records, not quads. Its RDF output is revision metadata
 
 **Each revision stores the full text, not a diff.** Pages are small. Diffs are computed when they are read, as MediaWiki computes them. Because each record is self-contained, erasing one revision with an `erase` record ([0006](../decisions/0006-log-integrity-and-erasure.md) §7; [01](01-log-and-records.md)) does not break the text of later ones. **The state after every revision is also stored once, per revision:** the appending transaction writes the page's state after each `pages` record — the text and the fold of its statement change sets — to `view.entity_revision (tenant, revid, state)`, beside the current state it writes to `view.graph_state`, so that `oldid=`, `action=compare`, `Special:PermanentLink` and export read one row rather than folding the page's history ([0083](../decisions/0083-write-path-in-three-tiers.md) §4; [03](03-storage-caches-and-search.md)).
 
-**Edit conflicts use the base offset** ([0006](../decisions/0006-log-integrity-and-erasure.md) §8). An `edit` carries the offset of the page's latest record that the client saw. A mismatch is reported as `editconflict`. A base is required for `edit` and `move`.
+**Edit conflicts use the base offset** ([0006](../decisions/0006-log-integrity-and-erasure.md) §8). An `edit` carries the offset of the page's latest record that the client saw, which the API takes as MediaWiki takes the base: from `baserevid`, else from `basetimestamp` (the page's latest record at that time), else the page's latest record, so that a client sending neither edits whatever is current. A mismatch is reported as `editconflict`, and `createonly` on a page that exists as `articleexists` ([0008](../decisions/0008-namespaces-and-document-pages.md) A40; [18](18-api.md) §2.3). A base is required for `move`.
 
 ### 3.3 Namespace 0 holds articles
 
@@ -444,7 +444,7 @@ The five text models of [0008](../decisions/0008-namespaces-and-document-pages.m
 
 ### 5.1 The wikitext subset
 
-*Sources: [0008](../decisions/0008-namespaces-and-document-pages.md) §8.*
+*Sources: [0008](../decisions/0008-namespaces-and-document-pages.md) §8, A39.*
 
 Triplespace renders a fixed subset of wikitext. It does not implement MediaWiki's parser.
 
@@ -467,7 +467,7 @@ Triplespace renders a fixed subset of wikitext. It does not implement MediaWiki'
 | Signatures | `~~~~` and `~~~` are expanded when the page is saved, as in MediaWiki |
 | Horizontal rule | `----` |
 | Redirects | `#REDIRECT [[Target]]` as the first line makes the page a redirect (§2.3) |
-| Safe inline HTML | An allow-list of formatting tags, such as `<br>`, `<span>`, `<div>`, `<sup>` and `<sub>`, with attributes restricted to `class`, `id` and a sanitized `style` |
+| Safe inline HTML | MediaWiki Sanitizer's allow-list of tags and of the attributes each keeps, with `style` checked as MediaWiki checks it; `<a>`, `<script>`, `<style>` and other tags outside the list render as text ([11](11-rendering-templates-and-modules.md) §1.2) |
 
 **Everything else is kept and shown, not dropped.**
 
@@ -606,7 +606,7 @@ Properties the refresh job writes are written in the same transaction as the lin
 
 ## 6. Importing pages from another wiki
 
-*Sources: [0008](../decisions/0008-namespaces-and-document-pages.md) §9; [0042](../decisions/0042-template-expansion-and-parsoid.md) §13.*
+*Sources: [0008](../decisions/0008-namespaces-and-document-pages.md) §9, A38, A41; [0042](../decisions/0042-template-expansion-and-parsoid.md) §13.*
 
 Pages are imported from a MediaWiki XML export with full history. An import is a job ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.3; [05](05-providers-and-ingest.md)), and the procedure is:
 
@@ -616,7 +616,7 @@ Pages are imported from a MediaWiki XML export with full history. An import is a
 
 **A template census comes first.** Before an import, the pages are scanned for templates, parser functions and tags outside §5.1. The census decides whether step 3 is enough, or whether the subset should grow first. It also reports which templates and modules the pages use, and which of those the export contains, and which variables, functions and tags fall outside the registry ([0042](../decisions/0042-template-expansion-and-parsoid.md) §5; [11](11-rendering-templates-and-modules.md)).
 
-**On an adopted wiki.** When the source is the wiki the tenant adopted, its pages are imported within the adoption job, not by a job of their own ([0035](../decisions/0035-adopting-a-wikibase.md) §2; [05](05-providers-and-ingest.md) §7.2). They keep their source page IDs, supplied in header field 9 as adopted entities' are, and every revision keeps its source revision ID in field 7, so that an `oldid` link into the source's pages resolves as one into its entities does; the floors set at adoption already cover both ([0035](../decisions/0035-adopting-a-wikibase.md) §4; [08](08-tenants-and-instances.md)). A revision the source hid is imported as an adopted entity revision is ([05](05-providers-and-ingest.md) §7.3).
+**On an adopted wiki.** When the source is the wiki the tenant adopted, its pages are imported within the adoption job, not by a job of their own ([0035](../decisions/0035-adopting-a-wikibase.md) §2; [05](05-providers-and-ingest.md) §7.2). They keep their source page IDs, supplied in header field 9 as adopted entities' are, and every revision keeps its source revision ID in field 7, so that an `oldid` link into the source's pages resolves as one into its entities does; the floors set at adoption already cover both ([0035](../decisions/0035-adopting-a-wikibase.md) §4; [08](08-tenants-and-instances.md)). A revision the source hid is imported as an adopted entity revision is ([05](05-providers-and-ingest.md) §7.3). **The adopted wiki's Template pages come with it as ordinary pages**, with their history, whether or not the tenant expands templates; while `wikitext.expansion` is off they stay readable and nothing transcludes them ([11](11-rendering-templates-and-modules.md) §1.3), so step 3's flattening is not done at adoption. **Its talk pages wait** for their conversion to threads (below), and they and pages in reserved namespaces are counted `deferred` in the job's report ([0008](../decisions/0008-namespaces-and-document-pages.md) A41).
 
 **Files.** Exports with `<upload>` elements import file versions, and `triplespace-cli files import` imports a directory as `importImages.php` does ([0039](../decisions/0039-files-and-media.md) §14; [12](12-files-and-media.md)).
 

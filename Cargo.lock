@@ -2408,6 +2408,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "scatter-pages"
+version = "0.0.1"
+dependencies = [
+ "serde",
+ "serde_json",
+ "toml",
+]
+
+[[package]]
 name = "scatter-projection"
 version = "0.0.1"
 dependencies = [
@@ -2424,6 +2433,14 @@ dependencies = [
  "oxrdf",
  "serde",
  "thiserror",
+ "toml",
+]
+
+[[package]]
+name = "scatter-titles"
+version = "0.0.1"
+dependencies = [
+ "serde",
  "toml",
 ]
 
@@ -3153,12 +3170,17 @@ dependencies = [
  "scatter-actors",
  "scatter-challenge",
  "scatter-ingest",
+ "scatter-log",
  "scatter-normalize",
+ "scatter-pages",
  "scatter-projection",
  "scatter-providers",
+ "scatter-titles",
  "scatter-wikibase-changeset",
  "scatter-wikibase-model",
  "scatter-wikibase-resolve",
+ "scatter-wikitext",
+ "scatter-wikitext-expand",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -3236,8 +3258,10 @@ dependencies = [
  "scatter-integrity",
  "scatter-log",
  "scatter-log-postgres",
+ "scatter-pages",
  "scatter-projection",
  "scatter-providers",
+ "scatter-titles",
  "scatter-wikibase-changeset",
  "scatter-wikibase-model",
  "serde_json",
@@ -3290,11 +3314,14 @@ dependencies = [
  "scatter-actors",
  "scatter-log",
  "scatter-log-postgres",
+ "scatter-pages",
  "scatter-projection",
  "scatter-providers",
+ "scatter-titles",
  "scatter-wikibase-changeset",
  "scatter-wikibase-model",
  "scatter-wikibase-resolve",
+ "scatter-wikitext",
  "serde",
  "serde_json",
  "thiserror",

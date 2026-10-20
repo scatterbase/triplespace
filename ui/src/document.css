@@ -1,0 +1,179 @@
+/*
+ * Document pages (ADR 0008; chapter 19 §3.1–3.2): the rendered wikitext, its categories,
+ * and the edit form with its preview and conflict view. The rendered HTML keeps
+ * MediaWiki's class names (`mw-parser-output`, `wikitable`, `toc`, `new`), so these rules
+ * style what the API's renderer writes. Logical properties throughout.
+ */
+
+.ts-document {
+	max-width: 64rem;
+	line-height: 1.6;
+	overflow-wrap: break-word;
+}
+
+.ts-document__content h2 {
+	margin-block: 1.25em 0.4em;
+	padding-block-end: 0.2em;
+	border-block-end: 1px solid var( --border-color-muted, #dadde3 );
+	font-size: 1.5em;
+	font-weight: normal;
+}
+
+.ts-document__content h3 {
+	margin-block: 1em 0.3em;
+	font-size: 1.2em;
+}
+
+.ts-document__content h4,
+.ts-document__content h5,
+.ts-document__content h6 {
+	margin-block: 0.9em 0.3em;
+	font-size: 1em;
+}
+
+.ts-document__content p {
+	margin-block: 0.5em;
+}
+
+.ts-document__content ul,
+.ts-document__content ol {
+	margin-block: 0.3em;
+	padding-inline-start: 1.6em;
+}
+
+.ts-document__content dd {
+	margin-inline-start: 1.6em;
+}
+
+.ts-document__content pre {
+	padding: var( --spacing-75, 0.75rem );
+	border: 1px solid var( --border-color-muted, #dadde3 );
+	background-color: var( --background-color-neutral-subtle, #f8f9fa );
+	white-space: pre-wrap;
+	overflow-x: auto;
+}
+
+.ts-document__content blockquote {
+	margin-inline: 1.6em 0;
+	padding-inline-start: var( --spacing-75, 0.75rem );
+	border-inline-start: 4px solid var( --border-color-muted, #dadde3 );
+}
+
+/* A red link: a page that does not exist yet. */
+.ts-document__content a.new {
+	color: var( --color-destructive, #d73333 );
+}
+
+.ts-document__content table {
+	max-width: 100%;
+	overflow-x: auto;
+}
+
+.ts-document__content .wikitable {
+	margin-block: 1em;
+	border-collapse: collapse;
+	border: 1px solid var( --border-color-base, #a2a9b1 );
+	background-color: var( --background-color-neutral-subtle, #f8f9fa );
+}
+
+.ts-document__content .wikitable > tr > th,
+.ts-document__content .wikitable > tr > td,
+.ts-document__content .wikitable > * > tr > th,
+.ts-document__content .wikitable > * > tr > td {
+	padding: 0.2em 0.4em;
+	border: 1px solid var( --border-color-base, #a2a9b1 );
+}
+
+.ts-document__content .wikitable > tr > th,
+.ts-document__content .wikitable > * > tr > th {
+	background-color: var( --background-color-interactive-subtle, #eaecf0 );
+	text-align: center;
+}
+
+.ts-document__content .toc {
+	display: inline-block;
+	margin-block: 0.5em;
+	padding: var( --spacing-50, 0.5rem ) var( --spacing-75, 0.75rem );
+	border: 1px solid var( --border-color-muted, #dadde3 );
+	background-color: var( --background-color-neutral-subtle, #f8f9fa );
+}
+
+.ts-document__content .toc ul {
+	padding-inline-start: 1em;
+	list-style: none;
+}
+
+.ts-document__content .toctogglecheckbox,
+.ts-document__content .toctogglespan {
+	display: none;
+}
+
+.ts-document__content .tocnumber {
+	padding-inline-end: 0.4em;
+	color: var( --color-subtle, #54595d );
+}
+
+/* A redirect's own page (`?redirect=no`). */
+.ts-document__content .redirectMsg,
+.ts-document__content .redirectText {
+	margin-block: 0.5em;
+	padding: 0;
+	list-style: none;
+}
+
+.ts-document__redirected,
+.ts-document__old {
+	color: var( --color-subtle, #54595d );
+}
+
+.ts-catlinks {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var( --spacing-25, 0.25rem ) var( --spacing-50, 0.5rem );
+	margin-block-start: var( --spacing-150, 1.5rem );
+	padding: var( --spacing-50, 0.5rem ) var( --spacing-75, 0.75rem );
+	border: 1px solid var( --border-color-muted, #dadde3 );
+	background-color: var( --background-color-neutral-subtle, #f8f9fa );
+}
+
+.ts-catlinks__list {
+	display: contents;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.ts-catlinks__item:not( :last-child )::after {
+	content: ' |';
+	color: var( --color-subtle, #54595d );
+}
+
+.ts-edit-document {
+	display: flex;
+	flex-direction: column;
+	gap: var( --spacing-100, 1rem );
+	max-width: 64rem;
+}
+
+.ts-editform__text {
+	width: 100%;
+	min-block-size: 20em;
+	font-family: var( --font-family-monospace, monospace );
+	font-size: 0.875rem;
+	line-height: 1.5;
+}
+
+.ts-editform__preview {
+	padding: var( --spacing-100, 1rem );
+	border: 1px solid var( --border-color-muted, #dadde3 );
+}
+
+.ts-editform__preview > h2,
+.ts-editform__current > h2 {
+	margin-block: 0 var( --spacing-50, 0.5rem );
+	font-size: 1.2em;
+}
+
+.ts-editform__cancel {
+	align-self: center;
+}

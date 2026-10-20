@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-18 (A21)
+- **Updated:** 2026-10-19 (A22)
 - **Author:** James Hare / Claude
 - **Changes:** [0005](0005-crate-organization.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0034](0034-frontend-stack.md)
@@ -123,7 +123,7 @@ This ADR records the rest. The frontend is in 0034.
 
 ### 16. Licensing and supply chain
 
-*Changed by A1, A13.*
+*Changed by A1, A13, A22.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §3.3, §3.4, §7.1.*
 
@@ -385,3 +385,18 @@ Replaced text ([22](../architecture/22-crates-and-stack.md) §4.3, as it stood):
 - **Source:** [0089](0089-the-auth-host-and-instance-logins.md) §1, §12
 - **Change:** extends §12
 - **Summary:** The deployment setting `server.auth_base` names the auth host, where a person authenticates to the instance. It is required once there is a second tenant, and is never a tenant base or the farm base; unset, the single tenant's base serves as the auth base. The chapter text is [23](../architecture/23-configuration-and-registry.md) §3.6.
+
+### A22. MIT-0 is accepted, for the vendored `parse-wiki-text-2`
+
+- **Date:** 2026-10-19
+- **Source:** Direct: James, review of 2026-10-19
+- **Change:** amends §16
+- **Summary:** MIT-0 joins the accepted licences. It is the licence of `parse-wiki-text-2`, vendored into `scatter-wikitext` (§9.1, "MIT-style licence without a notice clause"): MIT's grant without its notice condition. It places no condition on redistribution, so the code can go into the GPL binary and also be passed on under the `scatter-*` crates' commercial licence, which Scatter's copyright alone could not grant for code it did not write. `cargo-deny` records the crate's licence file as MIT-0 with a clarify entry, since the manifest names only the file. The chapter text is [22](../architecture/22-crates-and-stack.md) §3.3, §3.4.
+
+Replaced text ([22](../architecture/22-crates-and-stack.md) §3.3, as it stood):
+
+> - **Accepted.** Every third-party crate linked into `triplespace` carries one of these licences: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, Zlib, Unicode-3.0, MPL-2.0, BlueOak-1.0.0 (`minicbor`), CDLA-Permissive-2.0 (root-certificate data in `webpki-roots`), LGPL, GPL-2.0-or-later or GPL-3.0.
+
+Replaced text ([22](../architecture/22-crates-and-stack.md) §3.4, as it stood):
+
+> - `parse-wiki-text-2`'s non-standard licence text is recorded as a clarify entry.

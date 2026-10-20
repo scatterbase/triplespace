@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-19 (A38)
+- **Updated:** 2026-10-19 (A41)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -43,7 +43,7 @@ The goal is not to reimplement MediaWiki's page features. Templates, parser func
 
 ### 4. Document pages
 
-*Changed by A4, A9, A21, A23, A30, A34, A35, A36.*
+*Changed by A4, A9, A21, A23, A30, A34, A35, A36, A40.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §2.5, §3.1, §3.2.*
 
@@ -65,13 +65,13 @@ The goal is not to reimplement MediaWiki's page features. Templates, parser func
 
 ### 8. The wikitext subset
 
-*Changed by A3, A9, A10, A12, A21, A22.*
+*Changed by A3, A9, A10, A12, A21, A22, A39.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §5.1, §5.2, §5.3.*
 
 ### 9. Importing pages from another wiki
 
-*Changed by A7, A10, A12, A16, A23, A38.*
+*Changed by A7, A10, A12, A16, A23, A38, A41.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §6.*
 
@@ -571,3 +571,34 @@ Replaced text ([10](../architecture/10-pages-and-content-models.md) §3.5, as it
 Replaced text ([10](../architecture/10-pages-and-content-models.md) §6, as it stood):
 
 > **Page IDs on an adopted wiki.** When the source is the wiki the tenant adopted, imported pages keep their source page IDs, supplied in header field 9 as adopted entities' are, and the page-ID floor set at adoption already covers them ([0035](../decisions/0035-adopting-a-wikibase.md) §4; [08](../architecture/08-tenants-and-instances.md)).
+
+### A39. Inline HTML follows MediaWiki's Sanitizer allow-list
+
+- **Date:** 2026-10-19
+- **Source:** Direct: James, review of 2026-10-19
+- **Change:** amends §8
+- **Summary:** MediaWiki's Sanitizer is the authority for the HTML wikitext may write: its allow-list of tags, the attributes each tag keeps (the common set of `id`, `class`, `style`, `lang`, `dir`, `title`, ARIA, RDFa and microdata attributes and `data-*`, plus each tag's own, such as `colspan` on cells and `start` on lists), and its check of `style`. The subset's row had listed only `class`, `id` and a sanitized `style`; [11](../architecture/11-rendering-templates-and-modules.md) §1.2 already named the Sanitizer, and the built-in renderer implements it. The chapter text is [10](../architecture/10-pages-and-content-models.md) §5.1.
+
+Replaced text ([10](../architecture/10-pages-and-content-models.md) §5.1, as it stood):
+
+> | Safe inline HTML | An allow-list of formatting tags, such as `<br>`, `<span>`, `<div>`, `<sup>` and `<sub>`, with attributes restricted to `class`, `id` and a sanitized `style` |
+
+### A40. The edit base is MediaWiki's
+
+- **Date:** 2026-10-19
+- **Source:** Direct: James, review of 2026-10-19
+- **Change:** amends §4
+- **Summary:** An `edit` of a document page takes its base as MediaWiki's `action=edit` does: from `baserevid`, else from `basetimestamp`, read as the page's latest record at that time, else the page's latest record, so a client that sends neither edits whatever is current instead of being refused. A stale base is `editconflict`; `createonly` on an existing page is `articleexists`, and `nocreate` on a missing one `missingtitle`. A base remains required for `move`. Clients written for MediaWiki (Pywikibot, mwclient, the site's own edit form) send `baserevid` or `basetimestamp`, so the change loses no conflict a client was asking to have detected. The chapter text is [10](../architecture/10-pages-and-content-models.md) §3.2.
+
+Replaced text ([10](../architecture/10-pages-and-content-models.md) §3.2, as it stood):
+
+> **Edit conflicts use the base offset** ([0006](../decisions/0006-log-integrity-and-erasure.md) §8). An `edit` carries the offset of the page's latest record that the client saw. A mismatch is reported as `editconflict`. A base is required for `edit` and `move`.
+
+### A41. An adopted wiki's templates come as pages; its talk pages wait for threads
+
+- **Date:** 2026-10-19
+- **Source:** Direct: James, review of 2026-10-19
+- **Change:** amends §9
+- **Summary:** Adoption brings the adopted wiki's Template pages as ordinary pages with their history, whatever the tenant's `wikitext.expansion`, rather than flattening templates into an extra revision: while expansion is off the pages stay readable and nothing transcludes them ([11](../architecture/11-rendering-templates-and-modules.md) §1.3), and a tenant that wants them rendered turns expansion on, as Librarybase does. Talk pages, which become threads, are not imported until that conversion exists; they and pages in reserved namespaces are counted `deferred` in the adoption's report. The chapter text is [10](../architecture/10-pages-and-content-models.md) §6.
+
+Replaced text: none; the two sentences are added to [10](../architecture/10-pages-and-content-models.md) §6's paragraph on an adopted wiki.

@@ -158,6 +158,37 @@ pub fn render(text: &str, config: &Config, resolver: &dyn Resolver, page: &Title
     finish(tree, extracted, warnings)
 }
 
+/// What [`render`] reads out of the text, without the HTML: for the page projection,
+/// which indexes a page's links, categories and redirect from its stored text (10 §5.2,
+/// §5.3). Existence and labels do not change what is extracted, so no resolver is asked.
+#[must_use]
+pub fn extract(text: &str, config: &Config, page: &Title) -> Extracted {
+    struct Nothing;
+    impl Resolver for Nothing {
+        fn info(&self, _: &Title) -> PageInfo {
+            PageInfo::default()
+        }
+        fn url(&self, _: &Title) -> String {
+            String::new()
+        }
+        fn missing_url(&self, _: &Title) -> String {
+            String::new()
+        }
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    let parsed = config.parser.parse_with_timeout(text, PARSE_TIMEOUT);
+    #[cfg(target_arch = "wasm32")]
+    let parsed = config.parser.parse_without_timeout(text);
+    let Ok(output) = parsed else {
+        return Extracted::default();
+    };
+    let mut l = lower::Lowerer::new(text, config, &Nothing, page);
+    l.blocks(&output.nodes, false);
+    let mut extracted = std::mem::take(&mut l.out);
+    number_sections(&mut extracted.sections);
+    extracted
+}
+
 fn finish(tree: Vec<Node>, extracted: Extracted, warnings: Vec<String>) -> Rendered {
     let mut inner = String::new();
     tree::to_html(&tree, &mut inner);
