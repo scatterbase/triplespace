@@ -1,0 +1,30 @@
+Entities are eligible for inclusion in Librarybase if they fall into the '''scope''' of the project.
+
+==Wikidata and other Wikibases==
+Any entity can be created locally on Librarybase that is an ''exact match'' of an equivalent entity on Wikidata or another Wikibase if it is needed locally to express a relationship. The local item should only have statements identifying the entity as having a foreign Wikibase equivalent, and any additional statements that can't be expressed on that Wikibase. There is no need to copy additional data from Wikidata, as it is already included in the query service. Additional query service datasets can be requested.
+
+=== Internet Domains Wikibase ===
+Do not create local versions of domain name items from [https://domains.wikibase.cloud Internet Domains Wikibase]. Instead, use the domain name as the value directly.
+
+==Namespaces==
+===Properties===
+A property can be created locally on Librarybase:
+# For unique persistent identifiers in other databases;
+# To express a relation that cannot be expressed with existing Wikidata or Librarybase properties
+
+===Items===
+An item can be created locally on Librarybase:
+# To describe a ''work'', defined broadly to include print text, digital resources, multimedia, datasets, and computer code;
+# To describe each individual ''edition'', ''translation'', etc. of that work, if there is more than a 1:1 relationship between a work and its edition(s);
+# To describe persons, organizations, and all other concepts related to those works and editions
+
+===Articles===
+A page in the main namespace can be created to go into further detail describing an existing Librarybase item. It should not just be a large language model-generated description of the work; if the goal is to do that, there are better ways of doing it than by pre-generating wiki pages in bulk. However, you can use AI tools to help you with what is otherwise your writing.
+
+===Files===
+Files can be uploaded to Librarybase, pending availability of that feature, to supplement existing Librarybase items. You shall only upload files that Librarybase has the permission to distribute, including files available under a Creative Commons license (including non-commercial or non-derivative) or in the public domain.
+
+==Usefulness caveats==
+When something is technically in scope, the next question to ask is if it would be ''useful'' to the project.
+# A mass import of data that is subsequently abandoned would not be useful;
+# A 1:1 recreation of a pre-existing, organized database would not be useful, unless this work is in furtherance of something that ''is'' useful, such as data annotation or making data available to an app

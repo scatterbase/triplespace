@@ -1,0 +1,1367 @@
+{
+ "api": "https://librarybase.org/w/api.php",
+ "sitename": "Librarybase",
+ "generator": "MediaWiki 1.39.1",
+ "fetched": "2026-10-19T22:41:31Z",
+ "parse_params": {
+  "action": "parse",
+  "prop": "text|wikitext|revid|displaytitle|sections|links|iwlinks|langlinks|templates|images|externallinks|categories|properties|parsewarnings",
+  "disableeditsection": "1",
+  "disablelimitreport": "1",
+  "formatversion": "2"
+ },
+ "history": true,
+ "namespaces": [
+  0,
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  10,
+  11,
+  12,
+  13,
+  14,
+  15,
+  121,
+  123,
+  640,
+  641,
+  828,
+  829
+ ],
+ "pages": [
+  {
+   "pageid": 5,
+   "ns": 2,
+   "title": "User:Librarybase",
+   "redirect": false,
+   "lastrevid": 5,
+   "revisions": [
+    {
+     "revid": 5,
+     "parentid": 0,
+     "timestamp": "2023-05-04T14:43:43Z",
+     "size": 267
+    }
+   ]
+  },
+  {
+   "pageid": 8,
+   "ns": 2,
+   "title": "User:Harej",
+   "redirect": false,
+   "lastrevid": 248235,
+   "revisions": [
+    {
+     "revid": 8,
+     "parentid": 0,
+     "timestamp": "2023-05-04T15:17:57Z",
+     "size": 216
+    },
+    {
+     "revid": 247565,
+     "parentid": 8,
+     "timestamp": "2025-08-06T02:14:43Z",
+     "size": 431
+    },
+    {
+     "revid": 247974,
+     "parentid": 247565,
+     "timestamp": "2025-12-23T21:49:30Z",
+     "size": 501
+    },
+    {
+     "revid": 248104,
+     "parentid": 247974,
+     "timestamp": "2026-04-08T03:27:19Z",
+     "size": 2345
+    },
+    {
+     "revid": 248106,
+     "parentid": 248104,
+     "timestamp": "2026-04-08T16:11:52Z",
+     "size": 2386
+    },
+    {
+     "revid": 248234,
+     "parentid": 248106,
+     "timestamp": "2026-09-15T00:52:47Z",
+     "size": 2958
+    },
+    {
+     "revid": 248235,
+     "parentid": 248234,
+     "timestamp": "2026-09-15T22:49:53Z",
+     "size": 2386
+    }
+   ]
+  },
+  {
+   "pageid": 500,
+   "ns": 2,
+   "title": "User:Database import",
+   "redirect": false,
+   "lastrevid": 1096,
+   "revisions": [
+    {
+     "revid": 1043,
+     "parentid": 0,
+     "timestamp": "2023-07-14T00:17:04Z",
+     "size": 146
+    },
+    {
+     "revid": 1096,
+     "parentid": 1043,
+     "timestamp": "2023-12-24T20:26:08Z",
+     "size": 73
+    }
+   ]
+  },
+  {
+   "pageid": 514,
+   "ns": 2,
+   "title": "User:Example",
+   "redirect": false,
+   "lastrevid": 1094,
+   "revisions": [
+    {
+     "revid": 1093,
+     "parentid": 0,
+     "timestamp": "2023-12-23T01:19:06Z",
+     "size": 98
+    },
+    {
+     "revid": 1094,
+     "parentid": 1093,
+     "timestamp": "2023-12-23T17:39:38Z",
+     "size": 98
+    }
+   ]
+  },
+  {
+   "pageid": 6,
+   "ns": 3,
+   "title": "User talk:Librarybase",
+   "redirect": true,
+   "lastrevid": 6,
+   "revisions": [
+    {
+     "revid": 6,
+     "parentid": 0,
+     "timestamp": "2023-05-04T14:43:53Z",
+     "size": 30
+    }
+   ]
+  },
+  {
+   "pageid": 498,
+   "ns": 3,
+   "title": "User talk:Database import",
+   "redirect": true,
+   "lastrevid": 1041,
+   "revisions": [
+    {
+     "revid": 1041,
+     "parentid": 0,
+     "timestamp": "2023-07-14T00:14:55Z",
+     "size": 29
+    }
+   ]
+  },
+  {
+   "pageid": 499,
+   "ns": 3,
+   "title": "User talk:Harej",
+   "redirect": false,
+   "lastrevid": 247580,
+   "revisions": [
+    {
+     "revid": 1042,
+     "parentid": 0,
+     "timestamp": "2023-07-14T00:15:14Z",
+     "size": 0
+    },
+    {
+     "revid": 247580,
+     "parentid": 1042,
+     "timestamp": "2025-08-31T15:56:39Z",
+     "size": 740
+    }
+   ]
+  },
+  {
+   "pageid": 246975,
+   "ns": 3,
+   "title": "User talk:HegelianGenius",
+   "redirect": false,
+   "lastrevid": 247581,
+   "revisions": [
+    {
+     "revid": 247581,
+     "parentid": 0,
+     "timestamp": "2025-08-31T15:57:11Z",
+     "size": 740
+    }
+   ]
+  },
+  {
+   "pageid": 246976,
+   "ns": 3,
+   "title": "User talk:Egon Willighagen",
+   "redirect": false,
+   "lastrevid": 247582,
+   "revisions": [
+    {
+     "revid": 247582,
+     "parentid": 0,
+     "timestamp": "2025-08-31T15:57:31Z",
+     "size": 740
+    }
+   ]
+  },
+  {
+   "pageid": 246977,
+   "ns": 3,
+   "title": "User talk:Peaceray",
+   "redirect": false,
+   "lastrevid": 247583,
+   "revisions": [
+    {
+     "revid": 247583,
+     "parentid": 0,
+     "timestamp": "2025-08-31T15:57:38Z",
+     "size": 740
+    }
+   ]
+  },
+  {
+   "pageid": 4,
+   "ns": 4,
+   "title": "Project:Principles",
+   "redirect": false,
+   "lastrevid": 1021,
+   "revisions": [
+    {
+     "revid": 4,
+     "parentid": 0,
+     "timestamp": "2023-05-04T05:58:41Z",
+     "size": 4101
+    },
+    {
+     "revid": 13,
+     "parentid": 4,
+     "timestamp": "2023-05-04T19:31:24Z",
+     "size": 4146
+    },
+    {
+     "revid": 16,
+     "parentid": 13,
+     "timestamp": "2023-05-08T02:22:46Z",
+     "size": 4164
+    },
+    {
+     "revid": 17,
+     "parentid": 16,
+     "timestamp": "2023-05-08T04:43:57Z",
+     "size": 4520
+    },
+    {
+     "revid": 18,
+     "parentid": 17,
+     "timestamp": "2023-05-08T04:48:44Z",
+     "size": 4531
+    },
+    {
+     "revid": 24,
+     "parentid": 18,
+     "timestamp": "2023-05-09T17:00:06Z",
+     "size": 4570
+    },
+    {
+     "revid": 31,
+     "parentid": 24,
+     "timestamp": "2023-06-07T00:56:21Z",
+     "size": 4580
+    },
+    {
+     "revid": 1019,
+     "parentid": 31,
+     "timestamp": "2023-07-11T01:46:38Z",
+     "size": 4580
+    },
+    {
+     "revid": 1021,
+     "parentid": 1019,
+     "timestamp": "2023-07-11T02:01:30Z",
+     "size": 4817
+    }
+   ]
+  },
+  {
+   "pageid": 7,
+   "ns": 4,
+   "title": "Project:Operator",
+   "redirect": false,
+   "lastrevid": 11,
+   "revisions": [
+    {
+     "revid": 7,
+     "parentid": 0,
+     "timestamp": "2023-05-04T15:16:47Z",
+     "size": 322
+    },
+    {
+     "revid": 10,
+     "parentid": 7,
+     "timestamp": "2023-05-04T16:22:21Z",
+     "size": 322
+    },
+    {
+     "revid": 11,
+     "parentid": 10,
+     "timestamp": "2023-05-04T16:23:27Z",
+     "size": 463
+    }
+   ]
+  },
+  {
+   "pageid": 9,
+   "ns": 4,
+   "title": "Project:Phases",
+   "redirect": false,
+   "lastrevid": 247571,
+   "revisions": [
+    {
+     "revid": 9,
+     "parentid": 0,
+     "timestamp": "2023-05-04T15:47:00Z",
+     "size": 1941
+    },
+    {
+     "revid": 25,
+     "parentid": 9,
+     "timestamp": "2023-05-09T17:40:32Z",
+     "size": 1986
+    },
+    {
+     "revid": 247571,
+     "parentid": 25,
+     "timestamp": "2025-08-20T05:37:17Z",
+     "size": 2009
+    }
+   ]
+  },
+  {
+   "pageid": 10,
+   "ns": 4,
+   "title": "Project:Scope",
+   "redirect": false,
+   "lastrevid": 248229,
+   "revisions": [
+    {
+     "revid": 12,
+     "parentid": 0,
+     "timestamp": "2023-05-04T19:14:23Z",
+     "size": 2283
+    },
+    {
+     "revid": 23,
+     "parentid": 12,
+     "timestamp": "2023-05-09T15:11:48Z",
+     "size": 2333
+    },
+    {
+     "revid": 1018,
+     "parentid": 23,
+     "timestamp": "2023-07-11T01:44:47Z",
+     "size": 2347
+    },
+    {
+     "revid": 1069,
+     "parentid": 1018,
+     "timestamp": "2023-09-07T16:26:30Z",
+     "size": 2362
+    },
+    {
+     "revid": 247573,
+     "parentid": 1069,
+     "timestamp": "2025-08-20T05:42:35Z",
+     "size": 2470
+    },
+    {
+     "revid": 247586,
+     "parentid": 247573,
+     "timestamp": "2025-09-03T00:51:10Z",
+     "size": 2672
+    },
+    {
+     "revid": 248229,
+     "parentid": 247586,
+     "timestamp": "2026-06-29T04:02:35Z",
+     "size": 2670
+    }
+   ]
+  },
+  {
+   "pageid": 11,
+   "ns": 4,
+   "title": "Project:Bulk imports",
+   "redirect": false,
+   "lastrevid": 247569,
+   "revisions": [
+    {
+     "revid": 14,
+     "parentid": 0,
+     "timestamp": "2023-05-05T00:58:42Z",
+     "size": 816
+    },
+    {
+     "revid": 15,
+     "parentid": 14,
+     "timestamp": "2023-05-05T01:02:59Z",
+     "size": 847
+    },
+    {
+     "revid": 19,
+     "parentid": 15,
+     "timestamp": "2023-05-08T04:51:45Z",
+     "size": 933
+    },
+    {
+     "revid": 247569,
+     "parentid": 19,
+     "timestamp": "2025-08-20T05:26:59Z",
+     "size": 631
+    }
+   ]
+  },
+  {
+   "pageid": 12,
+   "ns": 4,
+   "title": "Project:Copyright",
+   "redirect": false,
+   "lastrevid": 1070,
+   "revisions": [
+    {
+     "revid": 20,
+     "parentid": 0,
+     "timestamp": "2023-05-08T04:59:44Z",
+     "size": 861
+    },
+    {
+     "revid": 21,
+     "parentid": 20,
+     "timestamp": "2023-05-08T05:01:20Z",
+     "size": 897
+    },
+    {
+     "revid": 1070,
+     "parentid": 21,
+     "timestamp": "2023-09-07T17:06:55Z",
+     "size": 897
+    }
+   ]
+  },
+  {
+   "pageid": 13,
+   "ns": 4,
+   "title": "Project:Notability",
+   "redirect": true,
+   "lastrevid": 22,
+   "revisions": [
+    {
+     "revid": 22,
+     "parentid": 0,
+     "timestamp": "2023-05-09T15:10:48Z",
+     "size": 27
+    }
+   ]
+  },
+  {
+   "pageid": 14,
+   "ns": 4,
+   "title": "Project:Federation",
+   "redirect": false,
+   "lastrevid": 26,
+   "revisions": [
+    {
+     "revid": 26,
+     "parentid": 0,
+     "timestamp": "2023-05-13T02:32:18Z",
+     "size": 275
+    }
+   ]
+  },
+  {
+   "pageid": 489,
+   "ns": 4,
+   "title": "Project:Home",
+   "redirect": false,
+   "lastrevid": 248107,
+   "revisions": [
+    {
+     "revid": 1020,
+     "parentid": 0,
+     "timestamp": "2023-07-11T01:46:38Z",
+     "size": 32
+    },
+    {
+     "revid": 1027,
+     "parentid": 1020,
+     "timestamp": "2023-07-11T03:11:25Z",
+     "size": 1075
+    },
+    {
+     "revid": 1029,
+     "parentid": 1027,
+     "timestamp": "2023-07-11T03:13:26Z",
+     "size": 1171
+    },
+    {
+     "revid": 1030,
+     "parentid": 1029,
+     "timestamp": "2023-07-11T03:13:44Z",
+     "size": 1181
+    },
+    {
+     "revid": 1065,
+     "parentid": 1030,
+     "timestamp": "2023-09-04T19:02:35Z",
+     "size": 1181
+    },
+    {
+     "revid": 1066,
+     "parentid": 1065,
+     "timestamp": "2023-09-04T23:18:26Z",
+     "size": 1402
+    },
+    {
+     "revid": 1071,
+     "parentid": 1066,
+     "timestamp": "2023-10-02T04:10:50Z",
+     "size": 1629
+    },
+    {
+     "revid": 1077,
+     "parentid": 1071,
+     "timestamp": "2023-12-22T20:23:41Z",
+     "size": 1913
+    },
+    {
+     "revid": 1078,
+     "parentid": 1077,
+     "timestamp": "2023-12-22T20:34:36Z",
+     "size": 1913
+    },
+    {
+     "revid": 1079,
+     "parentid": 1078,
+     "timestamp": "2023-12-22T20:39:33Z",
+     "size": 1629
+    },
+    {
+     "revid": 1091,
+     "parentid": 1079,
+     "timestamp": "2023-12-22T22:45:35Z",
+     "size": 1643
+    },
+    {
+     "revid": 247566,
+     "parentid": 1091,
+     "timestamp": "2025-08-06T02:18:01Z",
+     "size": 1965
+    },
+    {
+     "revid": 247567,
+     "parentid": 247566,
+     "timestamp": "2025-08-06T02:19:23Z",
+     "size": 2013
+    },
+    {
+     "revid": 247568,
+     "parentid": 247567,
+     "timestamp": "2025-08-06T02:22:31Z",
+     "size": 2046
+    },
+    {
+     "revid": 247577,
+     "parentid": 247568,
+     "timestamp": "2025-08-31T07:47:47Z",
+     "size": 2188
+    },
+    {
+     "revid": 247585,
+     "parentid": 247577,
+     "timestamp": "2025-08-31T18:20:10Z",
+     "size": 2330
+    },
+    {
+     "revid": 248105,
+     "parentid": 247585,
+     "timestamp": "2026-04-08T03:27:27Z",
+     "size": 328
+    },
+    {
+     "revid": 248107,
+     "parentid": 248105,
+     "timestamp": "2026-04-08T16:20:54Z",
+     "size": 463
+    }
+   ]
+  },
+  {
+   "pageid": 490,
+   "ns": 4,
+   "title": "Project:Consensus",
+   "redirect": false,
+   "lastrevid": 247570,
+   "revisions": [
+    {
+     "revid": 1022,
+     "parentid": 0,
+     "timestamp": "2023-07-11T02:39:40Z",
+     "size": 2581
+    },
+    {
+     "revid": 1023,
+     "parentid": 1022,
+     "timestamp": "2023-07-11T02:43:00Z",
+     "size": 2641
+    },
+    {
+     "revid": 247570,
+     "parentid": 1023,
+     "timestamp": "2025-08-20T05:31:13Z",
+     "size": 2624
+    }
+   ]
+  },
+  {
+   "pageid": 491,
+   "ns": 4,
+   "title": "Project:Requests for comment",
+   "redirect": false,
+   "lastrevid": 1026,
+   "revisions": [
+    {
+     "revid": 1024,
+     "parentid": 0,
+     "timestamp": "2023-07-11T02:54:50Z",
+     "size": 705
+    },
+    {
+     "revid": 1025,
+     "parentid": 1024,
+     "timestamp": "2023-07-11T02:57:11Z",
+     "size": 694
+    },
+    {
+     "revid": 1026,
+     "parentid": 1025,
+     "timestamp": "2023-07-11T02:57:56Z",
+     "size": 689
+    }
+   ]
+  },
+  {
+   "pageid": 508,
+   "ns": 4,
+   "title": "Project:Librarybase Query Service",
+   "redirect": false,
+   "lastrevid": 1068,
+   "revisions": [
+    {
+     "revid": 1067,
+     "parentid": 0,
+     "timestamp": "2023-09-04T23:59:55Z",
+     "size": 266
+    },
+    {
+     "revid": 1068,
+     "parentid": 1067,
+     "timestamp": "2023-09-07T16:21:04Z",
+     "size": 266
+    }
+   ]
+  },
+  {
+   "pageid": 509,
+   "ns": 4,
+   "title": "Project:Provenance",
+   "redirect": false,
+   "lastrevid": 247572,
+   "revisions": [
+    {
+     "revid": 1072,
+     "parentid": 0,
+     "timestamp": "2023-10-12T20:02:59Z",
+     "size": 802
+    },
+    {
+     "revid": 247572,
+     "parentid": 1072,
+     "timestamp": "2025-08-20T05:38:10Z",
+     "size": 809
+    }
+   ]
+  },
+  {
+   "pageid": 246978,
+   "ns": 4,
+   "title": "Project:Analytics",
+   "redirect": false,
+   "lastrevid": 247618,
+   "revisions": [
+    {
+     "revid": 247588,
+     "parentid": 0,
+     "timestamp": "2025-09-18T23:11:09Z",
+     "size": 1787
+    },
+    {
+     "revid": 247589,
+     "parentid": 247588,
+     "timestamp": "2025-09-18T23:27:53Z",
+     "size": 2637
+    },
+    {
+     "revid": 247618,
+     "parentid": 247589,
+     "timestamp": "2025-10-22T01:32:24Z",
+     "size": 2658
+    }
+   ]
+  },
+  {
+   "pageid": 246985,
+   "ns": 4,
+   "title": "Project:PopupStack",
+   "redirect": false,
+   "lastrevid": 247608,
+   "revisions": [
+    {
+     "revid": 247607,
+     "parentid": 0,
+     "timestamp": "2025-09-21T23:00:23Z",
+     "size": 1253
+    },
+    {
+     "revid": 247608,
+     "parentid": 247607,
+     "timestamp": "2025-09-29T00:49:26Z",
+     "size": 1348
+    }
+   ]
+  },
+  {
+   "pageid": 246986,
+   "ns": 4,
+   "title": "Project:Librarybase Tech",
+   "redirect": false,
+   "lastrevid": 247968,
+   "revisions": [
+    {
+     "revid": 247609,
+     "parentid": 0,
+     "timestamp": "2025-10-14T02:42:36Z",
+     "size": 1674
+    },
+    {
+     "revid": 247612,
+     "parentid": 247609,
+     "timestamp": "2025-10-16T04:14:45Z",
+     "size": 1943
+    },
+    {
+     "revid": 247613,
+     "parentid": 247612,
+     "timestamp": "2025-10-16T05:42:51Z",
+     "size": 1878
+    },
+    {
+     "revid": 247958,
+     "parentid": 247613,
+     "timestamp": "2025-10-25T01:06:47Z",
+     "size": 1878
+    },
+    {
+     "revid": 247964,
+     "parentid": 247958,
+     "timestamp": "2025-11-03T00:18:04Z",
+     "size": 2136
+    },
+    {
+     "revid": 247968,
+     "parentid": 247964,
+     "timestamp": "2025-11-26T04:24:34Z",
+     "size": 2136
+    }
+   ]
+  },
+  {
+   "pageid": 246987,
+   "ns": 4,
+   "title": "Project:Analytics/WCD",
+   "redirect": false,
+   "lastrevid": 248233,
+   "revisions": [
+    {
+     "revid": 247615,
+     "parentid": 0,
+     "timestamp": "2025-10-17T03:40:42Z",
+     "size": 4513
+    },
+    {
+     "revid": 247616,
+     "parentid": 247615,
+     "timestamp": "2025-10-17T03:43:05Z",
+     "size": 4716
+    },
+    {
+     "revid": 247959,
+     "parentid": 247616,
+     "timestamp": "2025-10-25T18:18:55Z",
+     "size": 4953
+    },
+    {
+     "revid": 247961,
+     "parentid": 247959,
+     "timestamp": "2025-10-28T03:47:23Z",
+     "size": 5052
+    },
+    {
+     "revid": 247963,
+     "parentid": 247961,
+     "timestamp": "2025-11-03T00:16:46Z",
+     "size": 5298
+    },
+    {
+     "revid": 248094,
+     "parentid": 247963,
+     "timestamp": "2026-01-22T03:27:23Z",
+     "size": 5385
+    },
+    {
+     "revid": 248095,
+     "parentid": 248094,
+     "timestamp": "2026-01-22T03:50:11Z",
+     "size": 5826
+    },
+    {
+     "revid": 248120,
+     "parentid": 248095,
+     "timestamp": "2026-05-20T19:42:16Z",
+     "size": 2698
+    },
+    {
+     "revid": 248225,
+     "parentid": 248120,
+     "timestamp": "2026-06-26T21:31:13Z",
+     "size": 3602
+    },
+    {
+     "revid": 248226,
+     "parentid": 248225,
+     "timestamp": "2026-06-27T19:52:25Z",
+     "size": 3795
+    },
+    {
+     "revid": 248227,
+     "parentid": 248226,
+     "timestamp": "2026-06-27T23:49:18Z",
+     "size": 4590
+    },
+    {
+     "revid": 248232,
+     "parentid": 248227,
+     "timestamp": "2026-08-14T03:03:04Z",
+     "size": 4781
+    },
+    {
+     "revid": 248233,
+     "parentid": 248232,
+     "timestamp": "2026-08-21T16:50:27Z",
+     "size": 4813
+    }
+   ]
+  },
+  {
+   "pageid": 246988,
+   "ns": 4,
+   "title": "Project:Analytics/IABot",
+   "redirect": false,
+   "lastrevid": 247957,
+   "revisions": [
+    {
+     "revid": 247617,
+     "parentid": 0,
+     "timestamp": "2025-10-17T23:28:05Z",
+     "size": 1932
+    },
+    {
+     "revid": 247680,
+     "parentid": 247617,
+     "timestamp": "2025-10-22T03:18:54Z",
+     "size": 2967
+    },
+    {
+     "revid": 247938,
+     "parentid": 247680,
+     "timestamp": "2025-10-22T21:46:33Z",
+     "size": 2980
+    },
+    {
+     "revid": 247957,
+     "parentid": 247938,
+     "timestamp": "2025-10-23T03:35:40Z",
+     "size": 3229
+    }
+   ]
+  },
+  {
+   "pageid": 246989,
+   "ns": 4,
+   "title": "Project:Analytics/EveryMediaWiki",
+   "redirect": false,
+   "lastrevid": 247619,
+   "revisions": [
+    {
+     "revid": 247619,
+     "parentid": 0,
+     "timestamp": "2025-10-22T01:45:08Z",
+     "size": 602
+    }
+   ]
+  },
+  {
+   "pageid": 247026,
+   "ns": 4,
+   "title": "Project:Analytics/Orb",
+   "redirect": false,
+   "lastrevid": 248119,
+   "revisions": [
+    {
+     "revid": 247960,
+     "parentid": 0,
+     "timestamp": "2025-10-25T18:25:07Z",
+     "size": 476
+    },
+    {
+     "revid": 247962,
+     "parentid": 247960,
+     "timestamp": "2025-10-28T03:49:19Z",
+     "size": 570
+    },
+    {
+     "revid": 247965,
+     "parentid": 247962,
+     "timestamp": "2025-11-08T23:08:52Z",
+     "size": 750
+    },
+    {
+     "revid": 247970,
+     "parentid": 247965,
+     "timestamp": "2025-12-06T15:50:00Z",
+     "size": 838
+    },
+    {
+     "revid": 247971,
+     "parentid": 247970,
+     "timestamp": "2025-12-07T02:00:03Z",
+     "size": 1049
+    },
+    {
+     "revid": 247972,
+     "parentid": 247971,
+     "timestamp": "2025-12-07T02:01:01Z",
+     "size": 1050
+    },
+    {
+     "revid": 248096,
+     "parentid": 247972,
+     "timestamp": "2026-01-22T22:33:09Z",
+     "size": 1319
+    },
+    {
+     "revid": 248097,
+     "parentid": 248096,
+     "timestamp": "2026-01-24T23:25:51Z",
+     "size": 1465
+    },
+    {
+     "revid": 248101,
+     "parentid": 248097,
+     "timestamp": "2026-04-03T01:49:08Z",
+     "size": 1902
+    },
+    {
+     "revid": 248102,
+     "parentid": 248101,
+     "timestamp": "2026-04-03T15:25:21Z",
+     "size": 1936
+    },
+    {
+     "revid": 248103,
+     "parentid": 248102,
+     "timestamp": "2026-04-04T15:23:08Z",
+     "size": 2001
+    },
+    {
+     "revid": 248108,
+     "parentid": 248103,
+     "timestamp": "2026-04-09T22:46:06Z",
+     "size": 2060
+    },
+    {
+     "revid": 248109,
+     "parentid": 248108,
+     "timestamp": "2026-04-26T06:58:39Z",
+     "size": 2263
+    },
+    {
+     "revid": 248117,
+     "parentid": 248109,
+     "timestamp": "2026-05-16T17:57:08Z",
+     "size": 2481
+    },
+    {
+     "revid": 248118,
+     "parentid": 248117,
+     "timestamp": "2026-05-17T20:04:47Z",
+     "size": 2602
+    },
+    {
+     "revid": 248119,
+     "parentid": 248118,
+     "timestamp": "2026-05-20T17:25:21Z",
+     "size": 2668
+    }
+   ]
+  },
+  {
+   "pageid": 247029,
+   "ns": 4,
+   "title": "Project:Tech",
+   "redirect": true,
+   "lastrevid": 247969,
+   "revisions": [
+    {
+     "revid": 247969,
+     "parentid": 0,
+     "timestamp": "2025-11-26T04:24:34Z",
+     "size": 38
+    }
+   ]
+  },
+  {
+   "pageid": 247032,
+   "ns": 4,
+   "title": "Project:Analytics/PubPeer",
+   "redirect": false,
+   "lastrevid": 248093,
+   "revisions": [
+    {
+     "revid": 247975,
+     "parentid": 0,
+     "timestamp": "2026-01-07T23:58:51Z",
+     "size": 1242
+    },
+    {
+     "revid": 247976,
+     "parentid": 247975,
+     "timestamp": "2026-01-08T00:52:07Z",
+     "size": 2424
+    },
+    {
+     "revid": 247977,
+     "parentid": 247976,
+     "timestamp": "2026-01-08T03:52:46Z",
+     "size": 2767
+    },
+    {
+     "revid": 247978,
+     "parentid": 247977,
+     "timestamp": "2026-01-08T20:15:15Z",
+     "size": 2794
+    },
+    {
+     "revid": 247979,
+     "parentid": 247978,
+     "timestamp": "2026-01-09T02:00:43Z",
+     "size": 2914
+    },
+    {
+     "revid": 247980,
+     "parentid": 247979,
+     "timestamp": "2026-01-13T23:37:23Z",
+     "size": 4182
+    },
+    {
+     "revid": 248093,
+     "parentid": 247980,
+     "timestamp": "2026-01-19T21:09:42Z",
+     "size": 4533
+    }
+   ]
+  },
+  {
+   "pageid": 247066,
+   "ns": 4,
+   "title": "Project:Analytics/Wikibases",
+   "redirect": false,
+   "lastrevid": 248116,
+   "revisions": [
+    {
+     "revid": 248090,
+     "parentid": 0,
+     "timestamp": "2026-01-18T20:04:03Z",
+     "size": 945
+    },
+    {
+     "revid": 248091,
+     "parentid": 248090,
+     "timestamp": "2026-01-18T20:12:45Z",
+     "size": 1490
+    },
+    {
+     "revid": 248092,
+     "parentid": 248091,
+     "timestamp": "2026-01-18T23:24:09Z",
+     "size": 1722
+    },
+    {
+     "revid": 248113,
+     "parentid": 248092,
+     "timestamp": "2026-04-29T05:36:24Z",
+     "size": 2224
+    },
+    {
+     "revid": 248116,
+     "parentid": 248113,
+     "timestamp": "2026-05-11T17:53:17Z",
+     "size": 2272
+    }
+   ]
+  },
+  {
+   "pageid": 247067,
+   "ns": 4,
+   "title": "Project:About",
+   "redirect": true,
+   "lastrevid": 248098,
+   "revisions": [
+    {
+     "revid": 248098,
+     "parentid": 0,
+     "timestamp": "2026-03-09T21:30:14Z",
+     "size": 26
+    }
+   ]
+  },
+  {
+   "pageid": 247068,
+   "ns": 4,
+   "title": "Project:Reviews",
+   "redirect": false,
+   "lastrevid": 248099,
+   "revisions": [
+    {
+     "revid": 248099,
+     "parentid": 0,
+     "timestamp": "2026-03-12T23:16:27Z",
+     "size": 365
+    }
+   ]
+  },
+  {
+   "pageid": 247069,
+   "ns": 4,
+   "title": "Project:Reviews/Wikipedia citation extraction",
+   "redirect": false,
+   "lastrevid": 248100,
+   "revisions": [
+    {
+     "revid": 248100,
+     "parentid": 0,
+     "timestamp": "2026-03-13T00:38:49Z",
+     "size": 7309
+    }
+   ]
+  },
+  {
+   "pageid": 247178,
+   "ns": 4,
+   "title": "Project:Scatterbase",
+   "redirect": false,
+   "lastrevid": 248237,
+   "revisions": [
+    {
+     "revid": 248236,
+     "parentid": 0,
+     "timestamp": "2026-09-15T22:58:08Z",
+     "size": 1279
+    },
+    {
+     "revid": 248237,
+     "parentid": 248236,
+     "timestamp": "2026-09-16T18:47:29Z",
+     "size": 1853
+    }
+   ]
+  },
+  {
+   "pageid": 3,
+   "ns": 8,
+   "title": "MediaWiki:Mainpage",
+   "redirect": false,
+   "lastrevid": 3,
+   "revisions": [
+    {
+     "revid": 3,
+     "parentid": 0,
+     "timestamp": "2023-05-04T05:10:31Z",
+     "size": 12
+    }
+   ]
+  },
+  {
+   "pageid": 16,
+   "ns": 8,
+   "title": "MediaWiki:Sitenotice",
+   "redirect": false,
+   "lastrevid": 247611,
+   "revisions": [
+    {
+     "revid": 28,
+     "parentid": 0,
+     "timestamp": "2023-05-18T20:02:16Z",
+     "size": 161
+    },
+    {
+     "revid": 29,
+     "parentid": 28,
+     "timestamp": "2023-05-18T20:03:04Z",
+     "size": 196
+    },
+    {
+     "revid": 1076,
+     "parentid": 29,
+     "timestamp": "2023-12-22T19:30:13Z",
+     "size": 0
+    },
+    {
+     "revid": 247576,
+     "parentid": 1076,
+     "timestamp": "2025-08-31T05:34:47Z",
+     "size": 112
+    },
+    {
+     "revid": 247578,
+     "parentid": 247576,
+     "timestamp": "2025-08-31T07:48:05Z",
+     "size": 0
+    },
+    {
+     "revid": 247610,
+     "parentid": 247578,
+     "timestamp": "2025-10-16T01:11:25Z",
+     "size": 70
+    },
+    {
+     "revid": 247611,
+     "parentid": 247610,
+     "timestamp": "2025-10-16T04:06:03Z",
+     "size": 0
+    }
+   ]
+  },
+  {
+   "pageid": 20,
+   "ns": 8,
+   "title": "MediaWiki:Sidebar",
+   "redirect": false,
+   "lastrevid": 1088,
+   "revisions": [
+    {
+     "revid": 42,
+     "parentid": 0,
+     "timestamp": "2023-07-07T23:31:30Z",
+     "size": 232
+    },
+    {
+     "revid": 1087,
+     "parentid": 42,
+     "timestamp": "2023-12-22T22:39:00Z",
+     "size": 273
+    },
+    {
+     "revid": 1088,
+     "parentid": 1087,
+     "timestamp": "2023-12-22T22:41:44Z",
+     "size": 217
+    }
+   ]
+  },
+  {
+   "pageid": 17,
+   "ns": 10,
+   "title": "Template:Cwbn",
+   "redirect": false,
+   "lastrevid": 248115,
+   "revisions": [
+    {
+     "revid": 30,
+     "parentid": 0,
+     "timestamp": "2023-06-07T00:56:05Z",
+     "size": 435
+    },
+    {
+     "revid": 32,
+     "parentid": 30,
+     "timestamp": "2023-06-07T14:30:30Z",
+     "size": 482
+    },
+    {
+     "revid": 247587,
+     "parentid": 32,
+     "timestamp": "2025-09-16T01:44:47Z",
+     "size": 576
+    },
+    {
+     "revid": 248089,
+     "parentid": 247587,
+     "timestamp": "2026-01-16T16:24:38Z",
+     "size": 488
+    },
+    {
+     "revid": 248115,
+     "parentid": 248089,
+     "timestamp": "2026-05-11T00:30:41Z",
+     "size": 486
+    }
+   ]
+  },
+  {
+   "pageid": 246974,
+   "ns": 10,
+   "title": "Template:Welcome",
+   "redirect": false,
+   "lastrevid": 247579,
+   "revisions": [
+    {
+     "revid": 247579,
+     "parentid": 0,
+     "timestamp": "2025-08-31T15:56:21Z",
+     "size": 765
+    }
+   ]
+  }
+ ],
+ "errors": []
+}

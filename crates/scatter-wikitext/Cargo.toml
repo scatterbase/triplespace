@@ -1,0 +1,23 @@
+[package]
+name = "scatter-wikitext"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Parsing and rendering the wikitext subset: a vendored parse-wiki-text-2, a render tree with source spans, and the built-in HTML renderer"
+publish = false
+
+[dependencies]
+parse-wiki-text-2 = { path = "vendor/parse-wiki-text-2" }
+ammonia.workspace = true
+
+[dev-dependencies]
+scatter-wikitext-expand.workspace = true
+html5ever.workspace = true
+markup5ever_rcdom.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

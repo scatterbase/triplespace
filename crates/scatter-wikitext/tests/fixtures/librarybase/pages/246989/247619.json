@@ -1,0 +1,40 @@
+{
+ "categories": [],
+ "displaytitle": "<span class=\"mw-page-title-namespace\">Project</span><span class=\"mw-page-title-separator\">:</span><span class=\"mw-page-title-main\">Analytics/EveryMediaWiki</span>",
+ "externallinks": [],
+ "images": [],
+ "iwlinks": [],
+ "langlinks": [],
+ "links": [],
+ "pageid": 246989,
+ "parsewarnings": [],
+ "properties": {
+  "unexpectedUnconnectedPage": -4
+ },
+ "revid": 247619,
+ "sections": [
+  {
+   "anchor": "Purposes",
+   "byteoffset": 77,
+   "fromtitle": "Project:Analytics/EveryMediaWiki",
+   "index": "1",
+   "level": "2",
+   "line": "Purposes",
+   "number": "1",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Goals",
+   "byteoffset": 361,
+   "fromtitle": "Project:Analytics/EveryMediaWiki",
+   "index": "2",
+   "level": "2",
+   "line": "Goals",
+   "number": "2",
+   "toclevel": 1
+  }
+ ],
+ "showtoc": false,
+ "templates": [],
+ "title": "Project:Analytics/EveryMediaWiki"
+}

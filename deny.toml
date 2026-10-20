@@ -37,6 +37,10 @@ allow = [
     "GPL-3.0",
     "GPL-3.0-or-later",
     "CC0-1.0",
+    # MIT without the notice condition: the licence of the vendored parse-wiki-text-2
+    # (0033 §9.1, "MIT-style licence without a notice clause"). Not in 0033 §1's list yet:
+    # to be confirmed and recorded there.
+    "MIT-0",
     # The default theme's typefaces (IBM Plex, Newsreader; 0034 §1), served to browsers as
     # separate files and listed with their licence on Special:Version (0077 §6). Not in
     # 0033 §1's list yet: to be confirmed and recorded there.
@@ -50,7 +54,12 @@ unused-allowed-license = "allow"
 # so these need no list of their own.
 
 # `[[licenses.clarify]]` entries are added here for crates whose licence text cargo-deny
-# cannot classify, such as the vendored `parse-wiki-text-2` (0033 §16).
+# cannot classify, such as the vendored `parse-wiki-text-2` (0033 §16). Its manifest names
+# only a licence file, which is MIT-0's text with the 2019 and 2023 copyright lines.
+[[licenses.clarify]]
+crate = "parse-wiki-text-2"
+expression = "MIT-0"
+license-files = [{ path = "LICENSE", hash = 0x80667642 }]
 
 [bans]
 multiple-versions = "warn"

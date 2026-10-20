@@ -1,0 +1,23 @@
+<div class="mw-parser-output"><h2><span class="mw-headline" id="Introduction">Introduction</span></h2>
+<p><b>Wikipedia Citations Database</b> is an effort supported by Internet Archive to build a comprehensive, historical database of each citation to appear on Wikipedia.
+</p><p>While methodologies of similar projects have focused on extracting standardized identifiers or easy-to-extract references, this project instead seeks to build a <i>complete</i> database, based on analyzing the structure.
+</p>
+<h2><span class="mw-headline" id="Generations">Generations</span></h2>
+<ul><li>WCD Generation 1: Wikibase instance on Wikibase Cloud. Importing data was painfully slow, and it was decided Wikibase was not a good format for the data we were trying to store. The dataset produced is lost and was not very interesting or useful.</li>
+<li>WCD Generation 2: <a rel="nofollow" class="external text" href="https://github.com/internetarchive/iari">IARI</a>; Postgres-based, but was extremely difficult to work with. Parts of it are used to support the Internet Archive Reference Explorer.</li>
+<li>WCD Generation 3: The latest attempt, using <a rel="nofollow" class="external text" href="https://github.com/internetarchive/wiki-references-extractor">wiki-references-extractor</a> and <a rel="nofollow" class="external text" href="https://github.com/internetarchive/wiki-references-db">wiki-references-db</a> (WRDB). WRDB is a core component of the broader WCD project.
+<ul><li>Version 1: <a rel="nofollow" class="external free" href="https://wikipediacitations.scatter.red">https://wikipediacitations.scatter.red</a>
+<ul><li>Partial build of English Wikipedia</li>
+<li>Has issues dealing with broken wikitext</li></ul></li>
+<li>Version 2:
+<ul><li>Rather than build an entire database upfront, have it be possible to analyze a <b>page URL</b> at a <b>point in time</b>. This will allow us to prove the extraction mechanisms are working without resorting to building an entire database first
+<ul><li>Available as <a rel="nofollow" class="external text" href="https://wikipediacitations-now.scatter.red">Wikipedia Citations Now</a></li></ul></li>
+<li>Be able to tell what part of the article a reference is from (in-line vs. endnote, etc.)</li>
+<li>JSON representation of template parameters so you don't have to parse them out of the template</li>
+<li>Use LLM to parse the article in general. Maybe have an option to select between classical parsing and LLM-based extraction.
+<ul><li>Use basic mwparserfromhell extraction as first step. If a user comes across an entry and it looks broken, offer option to re-generate report with AI. User can then accept alternative.</li></ul></li>
+<li>In data model, associate references with revision id; then, associate revision IDs with timestamps in another table</li></ul></li></ul></li></ul>
+<h2><span class="mw-headline" id="Longer_term_challenges">Longer term challenges</span></h2>
+<ul><li>Sometimes, Wikipedia includes statements from Wikidata, and those statements from Wikidata have citations, but they would not show up in revision text.
+<ul><li>Would this require cross-referencing with rendered HTML output?</li>
+<li>Or a "citations database plus" that includes the Wikidata item? (Wikipedia editors would probably like this for quickly comparing citations between Wikipedia article and Wikidata item.)</li></ul></li></ul></div>

@@ -134,6 +134,17 @@ struct Package {
     id: String,
     name: String,
     dependencies: Vec<Dependency>,
+    manifest_path: PathBuf,
+}
+
+impl Package {
+    /// Vendored code (a tree with a `vendor.toml`, 0077 §15) is a path dependency and so a
+    /// workspace member, but it is not a crate of the 0005 §2 table.
+    fn is_vendored(&self) -> bool {
+        self.manifest_path
+            .parent()
+            .is_some_and(|d| d.join("vendor.toml").is_file())
+    }
 }
 
 #[derive(Deserialize)]
@@ -276,7 +287,7 @@ fn deps(root: &Path) -> Result<()> {
     let members: BTreeSet<&str> = meta
         .packages
         .iter()
-        .filter(|p| meta.workspace_members.contains(&p.id))
+        .filter(|p| meta.workspace_members.contains(&p.id) && !p.is_vendored())
         .map(|p| p.name.as_str())
         .collect();
 

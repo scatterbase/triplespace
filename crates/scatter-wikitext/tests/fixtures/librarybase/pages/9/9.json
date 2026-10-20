@@ -1,0 +1,58 @@
+{
+ "categories": [],
+ "displaytitle": "<span class=\"mw-page-title-namespace\">Project</span><span class=\"mw-page-title-separator\">:</span><span class=\"mw-page-title-main\">Phases</span>",
+ "externallinks": [
+  "https://opencollective.com"
+ ],
+ "images": [],
+ "iwlinks": [],
+ "langlinks": [],
+ "links": [
+  {
+   "exists": true,
+   "ns": 2,
+   "title": "User:Harej"
+  }
+ ],
+ "pageid": 9,
+ "parsewarnings": [],
+ "properties": {
+  "unexpectedUnconnectedPage": -4
+ },
+ "revid": 9,
+ "sections": [
+  {
+   "anchor": "Phase_1",
+   "byteoffset": 102,
+   "fromtitle": "Project:Phases",
+   "index": "1",
+   "level": "2",
+   "line": "Phase 1",
+   "number": "1",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Phase_2",
+   "byteoffset": 668,
+   "fromtitle": "Project:Phases",
+   "index": "2",
+   "level": "2",
+   "line": "Phase 2",
+   "number": "2",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Phase_3",
+   "byteoffset": 1144,
+   "fromtitle": "Project:Phases",
+   "index": "3",
+   "level": "2",
+   "line": "Phase 3",
+   "number": "3",
+   "toclevel": 1
+  }
+ ],
+ "showtoc": false,
+ "templates": [],
+ "title": "Project:Phases"
+}

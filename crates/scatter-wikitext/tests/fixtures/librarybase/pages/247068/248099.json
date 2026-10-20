@@ -1,0 +1,36 @@
+{
+ "categories": [],
+ "displaytitle": "<span class=\"mw-page-title-namespace\">Project</span><span class=\"mw-page-title-separator\">:</span><span class=\"mw-page-title-main\">Reviews</span>",
+ "externallinks": [],
+ "images": [],
+ "iwlinks": [],
+ "langlinks": [],
+ "links": [
+  {
+   "exists": true,
+   "ns": 4,
+   "title": "Project:Reviews/Wikipedia citation extraction"
+  }
+ ],
+ "pageid": 247068,
+ "parsewarnings": [],
+ "properties": {
+  "unexpectedUnconnectedPage": -4
+ },
+ "revid": 248099,
+ "sections": [
+  {
+   "anchor": "Ongoing_reviews",
+   "byteoffset": 291,
+   "fromtitle": "Project:Reviews",
+   "index": "1",
+   "level": "2",
+   "line": "Ongoing reviews",
+   "number": "1",
+   "toclevel": 1
+  }
+ ],
+ "showtoc": false,
+ "templates": [],
+ "title": "Project:Reviews"
+}

@@ -1,0 +1,31 @@
+==API==
+https://dashboards.pubpeer.com/docs/api#/operations/partner
+
+Relevant parameters:
+* <code>page</code>: start with <code>1</code> then iterate based on whether there are more results
+* <code>per_page</code>: set at maximum value <code>300</code>
+* <code>sort</code>: 
+* <s><code>published_at</code></s>: concerns when the document was ''published''; I only care about ''comments''
+
+==Resources==
+* Wikimedia Cloud Services
+** Toolforge: project "pubpeer"
+** Cloud VPS: project "wikicite", Trove DB instance
+
+==Process==
+* Initial seed:
+** Build pageset
+** Start from <code>2006-01-01...2025-12-31</code>
+** Iterate through as many pages as needed to get to the end
+** Build internal database:
+*** id_pubpeer (key)
+*** id_doi (update on conflict)
+*** id_pubmed (update on conflict)
+*** id_arxiv (update on conflict)
+*** time_last_notified_wiki (<code>null</code> when created)
+*** time_most_recent_comment (on conflict, update if submitted > stored)
+* Subsequent builds:
+** Get most recent <code>time_most_recent_comment</code> from database
+** Start from <code>that date...present day</code>
+** Iterate through as many result pages as needed (probably only one page)
+** Submit into database, which should transparently handle conflicts

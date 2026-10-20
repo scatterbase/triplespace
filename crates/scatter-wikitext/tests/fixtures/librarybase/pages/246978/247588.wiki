@@ -1,0 +1,54 @@
+<div style="padding:20px; border-radius:16px; text-align: center; background: linear-gradient(145deg, #e02828, #f47730, #97728b, #df266f); color: white">
+<div style="font-size:250%;">Scatter '''Analytics'''</div>
+<span style="font-size:125%;">A collection of projects and services to improve the resiliency of the information ecosystem.</span>
+</div>
+
+==Goals==
+* Metrics ''in service of improving wikis and online information''
+* Understand what is cited in Wikipedia and where
+* Build a chain of provenance from Wikipedia to Wikipedia's sources to the sources' sources
+
+==Adding projects to this list==
+Your project does not need to be developed by Scatter LLC to be on this list if it is open source and furthers the above stated goals. The goals of this project require extensive collaboration.
+
+==Visualization and lookup==
+* Pending
+** WikiProject World News
+** InternetArchiveBot3 Frontend
+** Graph Completeness Report
+** Replacement for Wikidata Game and Mix n Match
+** Source Recommendation Tool
+* Active Development
+** Citation Watchlist
+** Orb Open Graph (Blazegraph endpoint)
+** Internet Archive Reference Explorer
+* Inactive
+** Workspaces
+*** WikiProject Occupational Safety and Health / NIOSH
+*** Vaccine Safety
+** Orb Open Graph queued queries
+
+==Data processes==
+* Pending
+** WikiApiary Reboot
+* Active Development
+** Wikipedia Citations Database
+** InternetArchiveBot
+** PubPeer Alerts
+* Inactive
+** Pageset
+** niosh-analytics
+** vsafe-data
+** Wikibase Patcher
+** Reports bot
+
+==Data curation==
+* Platform: [[Project:PopupStack|PopupStack]]
+* Cool Wikibase Network
+
+==Teams==
+* [https://wikidata.org/wiki/WD:CRAP WikiProject Source Reliability]
+* Internet Archive's Turn All References Blue
+
+==Adjacent Initiatives==
+* [https://meta.wikimedia.org/wiki/WikiCite WikiCite]

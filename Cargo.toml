@@ -28,6 +28,8 @@ members = [
     "crates/triplespace-db",
     "crates/scatter-projection",
     "crates/triplespace-projections",
+    "crates/scatter-wikitext",
+    "crates/scatter-wikitext-expand",
     "xtask",
 ]
 
@@ -71,6 +73,8 @@ scatter-log-postgres = { path = "crates/scatter-log-postgres" }
 triplespace-db = { path = "crates/triplespace-db" }
 triplespace-projections = { path = "crates/triplespace-projections" }
 scatter-projection = { path = "crates/scatter-projection" }
+scatter-wikitext = { path = "crates/scatter-wikitext" }
+scatter-wikitext-expand = { path = "crates/scatter-wikitext-expand" }
 
 # RDF terms: the oxrdf family only (0005 §3, rule 5)
 oxrdf = "0.3"
@@ -110,6 +114,14 @@ base64 = "0.22"
 # Registry files and configuration (0033 §12)
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
+
+# HTML: the sanitizer the wikitext and markdown renderers share (0033 §9.1–9.2), and the
+# HTML5 parser the golden tests normalize through. markup5ever_rcdom's newest release
+# needs html5ever 0.39 while ammonia 4.2 uses 0.40; the second copy is a dev-dependency
+# only. ammonia 4.2.4 or later: earlier releases have open advisories.
+ammonia = "4.2.4"
+html5ever = "0.39"
+markup5ever_rcdom = "0.39"
 toml = "1"
 
 # Errors (0033 §14)

@@ -1,0 +1,65 @@
+'''InternetArchiveBot''' has been operated by the Internet Archive since 2015, based on the earlier Cyberpower II. James Hare has been supporting the InternetArchiveBot effort since February 2020.
+
+== Versions ==
+
+* InternetArchiveBot 1: ?
+* InternetArchiveBot 2: The current version, flexibly supports many different kinds of wikis
+** Cycles through each wiki in alphabetical order
+** Supports all manner of wiki templates (or lack thereof)
+* InternetArchiveBot 3: The future
+** Event-centric workflow: link found dead, usage throughout wikis searched, replaced
+
+== Tracking deployments ==
+Goal: move out of Airtable. Track deployment information in Librarybase.
+
+Needed data fields:
+
+* Wiki database code ([[Property:P34|P34]])
+* Wiki full name ([[Property:P35|P35 title]])
+* Status ([[Property:P36|P36]])
+** Item type: [[Item:Q246911|bot deployment status (Q246911)]] 
+*** [[Item:Q246913|Defined in Management Interface (Q246913)]]
+*** [[Item:Q246914|Deployment Candidate (Q246914)]]
+*** [[Item:Q246912|Pending Approval Request (Q246912)]]
+*** [[Item:Q246915|Seeking Bot Approval (Q246915)]]
+*** [[Item:Q246916|Stalled Request (Q246916)]]
+*** [[Item:Q246917|Issues (Q246917)]]
+*** [[Item:Q246918|Stalled Test (Q246918)]]
+*** [[Item:Q246919|Test Operation (Q246919)]]
+*** [[Item:Q246920|Ongoing Operation (Q246920)]]
+*** [[Item:Q246921|Shelved (Q246921)]]
+* Host ([[Property:P37|P37]])
+** [[Item:Q246922|Wikimedia (Q246922)]]
+** [[Item:Q246923|Miraheze (Q246923)]]
+** [[Item:Q246924|Weird Gloop (Q246924)]]
+** [[Item:Q246925|independent wiki (Q246925)]]
+* Wiki family ([[Property:P38|P38]])
+** [[Item:Q246926|Wikipedia (Q246926)]]
+** [[Item:Q246927|Wiktionary (Q246927)]]
+** [[Item:Q246928|Wikisource (Q246928)]]
+** [[Item:Q246929|Wikinews (Q246929)]]
+** [[Item:Q246930|Wikiquote (Q246930)]]
+** [[Item:Q246931|Wikiversity (Q246931)]]
+** [[Item:Q246932|Wikivoyage (Q246932)]]
+** [[Item:Q246933|Wikibooks (Q246933)]]
+* official website ([[Property:P41|P41]])
+* InternetArchiveBot approval status ([[Property:P39|P39]])
+** Item type: [[Item:Q246934|bot approval status (Q246934)]]
+*** [[Item:Q246935|Local approval for fixing links (Q246935)]]
+*** [[Item:Q246936|Local approval for linking to books (Q246936)]]
+*** [[Item:Q246937|Global approval for fixing links (Q246937)]]
+* InternetArchiveBot approval request link ([[Property:P40|P40]])
+* Some way to document whether a wiki allows global bots or not
+** I think that is implied with having a P39 of "global approval"
+
+== Deployments ==
+
+* Wikimedia
+** Ongoing
+* Miraheze
+** On a handful of wikis, broken on a few wikis due to those wikis changing domain names
+** OAuth grants are broken as well
+** '''Idea:''' account creator script that uses a limited-scope bot password to log in as InternetArchiveBot and force local account creation for a specified wiki
+* Weird Gloop
+** Only four wikis
+** The reason we're not deployed there is because they want to be able to have dry runs that show the edits without actually making them

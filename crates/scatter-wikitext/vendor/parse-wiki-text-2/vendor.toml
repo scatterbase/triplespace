@@ -1,0 +1,5 @@
+# Vendored code, read by `cargo xtask manifest` (0077 §15; chapter 22 §3.4).
+name = "parse-wiki-text-2"
+upstream = "https://github.com/soerenmeier/parse-wiki-text-2"
+revision = "b13cfc0fddfd7432f196dbd16e2cdc29b7e37072"
+license = "MIT-0"

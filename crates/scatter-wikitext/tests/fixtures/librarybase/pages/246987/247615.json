@@ -1,0 +1,55 @@
+{
+ "categories": [],
+ "displaytitle": "<span class=\"mw-page-title-namespace\">Project</span><span class=\"mw-page-title-separator\">:</span><span class=\"mw-page-title-main\">Analytics/WCD</span>",
+ "externallinks": [
+  "https://github.com/internetarchive/iari",
+  "https://github.com/internetarchive/wiki-references-extractor",
+  "https://github.com/internetarchive/wiki-references-db",
+  "https://wikipediacitations.scatter.red"
+ ],
+ "images": [],
+ "iwlinks": [],
+ "langlinks": [],
+ "links": [],
+ "pageid": 246987,
+ "parsewarnings": [],
+ "properties": {
+  "unexpectedUnconnectedPage": -4
+ },
+ "revid": 247615,
+ "sections": [
+  {
+   "anchor": "Introduction",
+   "byteoffset": 0,
+   "fromtitle": "Project:Analytics/WCD",
+   "index": "1",
+   "level": "2",
+   "line": "Introduction",
+   "number": "1",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Generations",
+   "byteoffset": 404,
+   "fromtitle": "Project:Analytics/WCD",
+   "index": "2",
+   "level": "2",
+   "line": "Generations",
+   "number": "2",
+   "toclevel": 1
+  },
+  {
+   "anchor": "2025-10-16_WRDB_migration",
+   "byteoffset": 2172,
+   "fromtitle": "Project:Analytics/WCD",
+   "index": "3",
+   "level": "2",
+   "line": "2025-10-16 WRDB migration",
+   "number": "3",
+   "toclevel": 1
+  }
+ ],
+ "showtoc": false,
+ "templates": [],
+ "title": "Project:Analytics/WCD"
+}

@@ -1,0 +1,50 @@
+{
+ "categories": [],
+ "displaytitle": "<span class=\"mw-page-title-namespace\">Project</span><span class=\"mw-page-title-separator\">:</span><span class=\"mw-page-title-main\">Copyright</span>",
+ "externallinks": [],
+ "images": [],
+ "iwlinks": [],
+ "langlinks": [],
+ "links": [],
+ "pageid": 12,
+ "parsewarnings": [],
+ "properties": {
+  "unexpectedUnconnectedPage": -4
+ },
+ "revid": 20,
+ "sections": [
+  {
+   "anchor": "Structured_data",
+   "byteoffset": 0,
+   "fromtitle": "Project:Copyright",
+   "index": "1",
+   "level": "2",
+   "line": "Structured data",
+   "number": "1",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Articles",
+   "byteoffset": 241,
+   "fromtitle": "Project:Copyright",
+   "index": "2",
+   "level": "2",
+   "line": "Articles",
+   "number": "2",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Files",
+   "byteoffset": 393,
+   "fromtitle": "Project:Copyright",
+   "index": "3",
+   "level": "2",
+   "line": "Files",
+   "number": "3",
+   "toclevel": 1
+  }
+ ],
+ "showtoc": false,
+ "templates": [],
+ "title": "Project:Copyright"
+}

@@ -1,0 +1,37 @@
+== Introduction ==
+'''Wikipedia Citations Database''' is an effort supported by Internet Archive to build a comprehensive, historical database of each citation to appear on Wikipedia.
+
+While methodologies of similar projects have focused on extracting standardized identifiers or easy-to-extract references, this project instead seeks to build a ''complete'' database, based on analyzing the structure.
+
+== Generations ==
+
+* WCD Generation 1: Wikibase instance on Wikibase Cloud. Importing data was painfully slow, and it was decided Wikibase was not a good format for the data we were trying to store. The dataset produced is lost and was not very interesting or useful.
+* WCD Generation 2: [https://github.com/internetarchive/iari IARI]; Postgres-based, but was extremely difficult to work with. Parts of it are used to support the Internet Archive Reference Explorer.
+* WCD Generation 3: The latest attempt, using [https://github.com/internetarchive/wiki-references-extractor wiki-references-extractor] and [https://github.com/internetarchive/wiki-references-db wiki-references-db] (WRDB). WRDB is a core component of the broader WCD project. Version 2 adds [https://github.com/internetarchive/RevisionChest RevisionChest] as a pre-processing step.
+** Version 1: <s><nowiki>https://wikipediacitations.scatter.red</nowiki></s>
+*** Partial build of English Wikipedia
+*** Has issues dealing with broken wikitext
+** Version 2: '''https://citations.scatteranalytics.com'''
+*WCD Generation 4 (pending): To be built off of a combination of Generation 3 and [https://github.com/scatter-llc/UVAWikipediaCitationsDatabase UVAWikipediaCitationsDatabase] which adds mapping between extracted citations and underlying sources
+
+== Interesting findings ==
+All are English Wikipedia articles
+
+* [https://citations.scatteranalytics.com/explorer/citation/51c35f5a082e88d867dfb0872e4ab6ac7311a9e9/other-articles?page_id=12292404 Non-templated citation used on three different articles]
+* [https://citations.scatteranalytics.com/explorer/template/6385/report?parameter_key=isbn&parameter_value=978-0-226-77142-7 Same ISBN in "Cite book" template used across 22 articles with varying citations]
+* [https://citations.scatteranalytics.com/explorer/citation/bdbb085b4fb9a609b67d8732f076eab3d8d6a536/other-articles?page_id=3410 Two citations to the same book, but without ISBN]
+* [https://citations.scatteranalytics.com/explorer/template/6385/report?parameter_key=isbn&parameter_value=%201-873410-89-1%0A%20 The same book cited on five articles with different citations]
+
+Potential bugs:
+
+* Discrepancy between same-citation report and matching template parameter (if two citations are an exact match then they should appear in the same template parameter use report)
+** [https://citations.scatteranalytics.com/explorer/citation/1ab8b8026639f6959f94736a4ec83e777e63ef14/other-articles?page_id=3410 other articles] and [https://citations.scatteranalytics.com/explorer/template/1374/report?parameter_key=doi&parameter_value=10.1016/0006-3207%2891%2990031-4%20 doi parameter value]
+** [https://citations.scatteranalytics.com/explorer/citation/da6f699ca0a7f4d229011919ae1bd0b3c2b6f5e9/other-articles?page_id=1553396 other articles] and [https://citations.scatteranalytics.com/explorer/template/6385/report?parameter_key=isbn&parameter_value=978-0-19-958740-7 isbn parameter value]
+*Only one page shows up on report when two should
+**[https://citations.scatteranalytics.com/explorer/citation/2ca3ae9d1d69ef6ba9336ce4df1581057a34ddd9/other-articles?page_id=30495845 This citation] appears on ''[https://citations.scatteranalytics.com/explorer/article?url=https%3A%2F%2Fen.wikipedia.org%2Fwiki%2FBoops_boops&follow_redirects=1 Boops boops]'' and ''[https://citations.scatteranalytics.com/explorer/article?url=https%3A//en.wikipedia.org/w/index.php%3Fcurid%3D60478829 Microcotyle isyebi].'' [https://citations.scatteranalytics.com/explorer/template/1374/report?parameter_key=doi&parameter_value=10.1007/s00436-019-06293-y Template parameter report] only shows one article even though the link on both resolve to the same URL (so not the issue of spaces at the parameter boundary)
+
+== Longer term challenges ==
+
+* Sometimes, Wikipedia includes statements from Wikidata, and those statements from Wikidata have citations, but they would not show up in revision text.
+** Would this require cross-referencing with rendered HTML output?
+** Or a "citations database plus" that includes the Wikidata item? (Wikipedia editors would probably like this for quickly comparing citations between Wikipedia article and Wikidata item.)
