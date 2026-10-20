@@ -22,6 +22,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod diff;
 mod models;
 mod title;
 

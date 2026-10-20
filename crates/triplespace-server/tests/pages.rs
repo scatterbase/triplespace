@@ -578,6 +578,103 @@ async fn api(database: &str, key_file: &std::path::Path) {
     assert_eq!(revisions.len(), 5, "{history}");
     assert_eq!(revisions[4]["comment"], "hello");
     assert_eq!(revisions[0]["user"], "Librarybase");
+    // parentid chains the revisions, the first's being 0, also at the end of a short page.
+    let ids: Vec<u64> = revisions
+        .iter()
+        .map(|r| r["revid"].as_u64().unwrap())
+        .collect();
+    for (i, r) in revisions.iter().enumerate() {
+        let parent = ids.get(i + 1).copied().unwrap_or(0);
+        assert_eq!(r["parentid"].as_u64(), Some(parent), "{history}");
+    }
+    let first_page = c
+        .get("action=query&prop=revisions&titles=Project:Sandbox&rvprop=ids&rvlimit=2")
+        .await;
+    assert_eq!(
+        first_page["query"]["pages"][0]["revisions"][1]["parentid"].as_u64(),
+        Some(ids[2]),
+        "{first_page}"
+    );
+
+    // action=compare: two revisions, MediaWiki's table rows.
+    let (oldest, newest) = (ids[4], ids[0]);
+    let cmp = c
+        .get(&format!(
+            "action=compare&fromrev={oldest}&torev={}&prop=diff|ids|title|user|comment|size|rel",
+            ids[3]
+        ))
+        .await;
+    let body = cmp["compare"]["body"]
+        .as_str()
+        .unwrap_or_else(|| panic!("{cmp}"));
+    assert!(body.contains("class=\"diff-lineno\">Line 1:"), "{body}");
+    assert!(
+        body.contains("diff-deletedline") && body.contains("diff-addedline"),
+        "{body}"
+    );
+    assert_eq!(cmp["compare"]["fromrevid"].as_u64(), Some(oldest));
+    assert_eq!(cmp["compare"]["fromtitle"], format!("{project}:Sandbox"));
+    assert_eq!(cmp["compare"]["fromcomment"], "hello");
+    assert_eq!(cmp["compare"]["touser"], "Librarybase");
+    assert_eq!(cmp["compare"]["next"].as_u64(), Some(ids[2]));
+    assert!(cmp["compare"].get("prev").is_none(), "the first has none");
+    // torelative=prev diffs the previous revision against `from`; the first is a creation.
+    let prev = c
+        .get(&format!(
+            "action=compare&fromrev={}&torelative=prev",
+            ids[3]
+        ))
+        .await;
+    assert_eq!(
+        prev["compare"]["fromrevid"].as_u64(),
+        Some(oldest),
+        "{prev}"
+    );
+    assert_eq!(prev["compare"]["torevid"].as_u64(), Some(ids[3]));
+    let created = c
+        .get(&format!("action=compare&fromrev={oldest}&torelative=prev"))
+        .await;
+    assert!(created["compare"].get("fromrevid").is_none(), "{created}");
+    assert!(
+        created["compare"]["body"]
+            .as_str()
+            .unwrap()
+            .contains("diff-addedline")
+    );
+    assert!(
+        !created["compare"]["body"]
+            .as_str()
+            .unwrap()
+            .contains("diff-deletedline")
+    );
+    assert!(
+        created["warnings"]
+            .to_string()
+            .contains("no previous revision"),
+        "{created}"
+    );
+    // A title names its latest revision; next of the latest is itself.
+    let latest = c
+        .get("action=compare&fromtitle=Project:Sandbox&torelative=next")
+        .await;
+    assert_eq!(
+        latest["compare"]["fromrevid"].as_u64(),
+        Some(newest),
+        "{latest}"
+    );
+    assert_eq!(latest["compare"]["body"], "");
+    assert!(latest["warnings"].to_string().contains("no next revision"));
+    // Errors.
+    let none = c
+        .get("action=compare&fromrev=99999999&torelative=prev")
+        .await;
+    assert_eq!(none["error"]["code"], "nosuchrevid", "{none}");
+    let item = c
+        .get("action=compare&fromtitle=Item:Q1&torelative=prev")
+        .await;
+    assert_eq!(item["error"]["code"], "ts-entity-compare", "{item}");
+    let half = c.get(&format!("action=compare&fromrev={oldest}")).await;
+    assert_eq!(half["error"]["code"], "missingparam", "{half}");
 
     pages_on_the_site(site, &project).await;
 }
@@ -777,6 +874,56 @@ async fn pages_on_the_site(site: Router, project: &str) {
         history.body
     );
     assert!(history.body.contains("aria-current=\"page\">History</a>"));
+
+    // Each history row links to its diff (19 §3.8); the diff walks along the history.
+    let marker = "href=\"/wiki/Project:Home?diff=";
+    let diff_links: Vec<String> = history
+        .body
+        .match_indices(marker)
+        .map(|(i, _)| {
+            let rest = &history.body[i + "href=\"".len()..];
+            rest[..rest.find('"').unwrap()].to_string()
+        })
+        .collect();
+    assert_eq!(diff_links.len(), 18, "{}", history.body);
+    let newest = reader.get(&diff_links[0]).await;
+    assert_eq!(newest.status, StatusCode::OK, "{}", newest.body);
+    assert!(newest.body.contains("ts-page-diff__table"));
+    assert!(
+        newest.body.contains("Latest revision as of"),
+        "{}",
+        newest.body
+    );
+    assert!(newest.body.contains("← Older edit"));
+    assert!(!newest.body.contains("Newer edit →"));
+    assert!(
+        newest.body.contains("diff-addedline") || newest.body.contains("diff-deletedline"),
+        "{}",
+        newest.body
+    );
+    assert!(
+        newest.body.contains("ts-document__content"),
+        "the revision below"
+    );
+    assert!(
+        newest.cache_control.starts_with("public"),
+        "{}",
+        newest.cache_control
+    );
+    let first = reader.get(&diff_links[17]).await;
+    assert!(first.body.contains("(Page created)"), "{}", first.body);
+    assert!(first.body.contains("Newer edit →"));
+    assert!(!first.body.contains("diff-deletedline"));
+    let only = reader.get(&format!("{}&diffonly=1", diff_links[0])).await;
+    assert!(!only.body.contains("ts-document__content"));
+    let bad = reader
+        .get(&format!("/wiki/{project}:Home?diff=nonsense"))
+        .await;
+    assert_eq!(bad.status, StatusCode::BAD_REQUEST);
+    let gone = reader
+        .get(&format!("/wiki/{project}:Home?diff=99999999"))
+        .await;
+    assert_eq!(gone.status, StatusCode::NOT_FOUND, "{}", gone.body);
 
     // A title with no page: the notice, and Create for a signed-in reader only.
     let none = reader.get("/wiki/Project:Nothing_here").await;

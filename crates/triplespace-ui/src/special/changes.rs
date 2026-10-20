@@ -209,7 +209,7 @@ fn now_micros() -> u64 {
 }
 
 /// A date from an ISO 8601 timestamp, as the reader's language writes it.
-fn date(m: &Messages, iso: &str) -> String {
+pub(crate) fn date(m: &Messages, iso: &str) -> String {
     let d = iso.split('T').next().unwrap_or(iso);
     let mut it = d.split('-');
     match (
@@ -226,7 +226,7 @@ fn date(m: &Messages, iso: &str) -> String {
 }
 
 /// `HH:MM` from an ISO 8601 timestamp.
-fn clock(iso: &str) -> &str {
+pub(crate) fn clock(iso: &str) -> &str {
     iso.split('T').nth(1).and_then(|t| t.get(..5)).unwrap_or("")
 }
 
@@ -365,7 +365,7 @@ fn size_html(row: &ActivityRow) -> String {
 fn diff_href(row: &ActivityRow) -> Option<String> {
     let title = row.target.as_ref()?.title.as_deref()?;
     let arg = match row.kind.as_str() {
-        "edit" if row.source == "local" => row.revid?.to_string(),
+        "edit" if row.source == "local" || row.source == "pages" => row.revid?.to_string(),
         "sync" => format!("{}:{}", row.record.partition, row.record.offset),
         _ => return None,
     };

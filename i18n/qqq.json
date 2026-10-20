@@ -995,5 +995,15 @@
 	"ts-newpage-title": "Heading of the form that asks for the title of a page to create.\n{{Identical|New page}}",
 	"ts-newpage-intro": "Introduction of the New page form.",
 	"ts-newpage-label": "Label of the New page form's title field.\n{{Identical|Title}}",
-	"ts-newpage-go": "Button of the New page form, which opens the edit form for the title.\n{{Identical|Create}}"
+	"ts-newpage-go": "Button of the New page form, which opens the edit form for the title.\n{{Identical|Create}}",
+	"ts-pagediff-title": "Browser title of a page diff.\n\nParameters:\n* $1 - the page's title",
+	"ts-pagediff-label": "Accessible name of a page diff's table.",
+	"ts-pagediff-revision-as-of": "A diff side's header, and the heading of the rendered revision below a diff.\n\nParameters:\n* $1 - the time and date",
+	"ts-pagediff-latest-as-of": "As {{msg-mw|ts-pagediff-revision-as-of}}, for the page's latest revision.\n\nParameters:\n* $1 - the time and date",
+	"ts-pagediff-older": "Link from a diff to the diff of the revision before it.",
+	"ts-pagediff-newer": "Link from a diff to the diff of the revision after it.",
+	"ts-pagediff-creation": "The old side of a diff whose new side created the page.",
+	"ts-pagediff-none": "Shown in a diff whose two revisions have the same text.",
+	"ts-pagediff-missing": "Error of a diff naming a revision that does not exist or is hidden.",
+	"ts-pagediff-bad": "Error of a diff address whose diff= or oldid= names nothing."
 }

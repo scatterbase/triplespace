@@ -105,6 +105,44 @@ fn feed_for(ctx: &Ctx, page: &PageAsk) -> Result<Feed, ApiError> {
     Ok(f)
 }
 
+/// The revision before `row` among the page's revisions, whoever made it and whenever:
+/// MediaWiki's `parentid`, 0 for the first.
+async fn parent_of(ctx: &Ctx, page: &PageAsk, row: &feed::Row) -> Result<u64, ApiError> {
+    let mut f = Feed::everything(1);
+    f.set = feed_for(ctx, page)?.set;
+    f.filters.kinds = vec!["edit".into(), "erased".into()];
+    f.filters.sources = vec![if page.doc.is_some() { "pages" } else { "local" }.into()];
+    f.direction = Direction::Older;
+    f.cursor = Some(row.cursor());
+    let p = feed::query(ctx.db(), &ctx.tenant.slug, &f, &viewer(&ctx.caller))
+        .await
+        .map_err(ApiError::internal)?;
+    Ok(p.rows.first().and_then(|r| r.revid).unwrap_or(0))
+}
+
+/// The parent of each row, in order: the next older row of the list where it has one,
+/// one query at the list's older end otherwise.
+async fn parents(
+    ctx: &Ctx,
+    page: &PageAsk,
+    rows: &[feed::Row],
+    direction: Direction,
+) -> Result<Vec<u64>, ApiError> {
+    let mut out = vec![0; rows.len()];
+    let n = rows.len();
+    for i in 0..n {
+        let older = match direction {
+            Direction::Older => rows.get(i + 1),
+            Direction::Newer => i.checked_sub(1).and_then(|j| rows.get(j)),
+        };
+        out[i] = match older {
+            Some(r) => r.revid.unwrap_or(0),
+            None => parent_of(ctx, page, &rows[i]).await?,
+        };
+    }
+    Ok(out)
+}
+
 /// The content of a revision: a document page's text after it, or the entity's local
 /// state after it in Wikibase's JSON.
 async fn content_at(
@@ -191,8 +229,16 @@ pub async fn run(
             .await
             .map_err(ApiError::internal)?;
         let mut revs = Vec::with_capacity(p.rows.len());
-        for row in &p.rows {
-            let r = revision_row(ctx, page, row, &props, in_slots, v2);
+        let parent_ids = if want("ids") {
+            parents(ctx, page, &p.rows, feed.direction).await?
+        } else {
+            vec![0; p.rows.len()]
+        };
+        for (row, parent) in p.rows.iter().zip(parent_ids) {
+            let mut r = revision_row(ctx, page, row, &props, in_slots, v2);
+            if want("ids") {
+                r["parentid"] = json!(parent);
+            }
             revs.push(with_content(ctx, page, r, &props, in_slots, v2).await?);
         }
         let mut pg = page_json(page);

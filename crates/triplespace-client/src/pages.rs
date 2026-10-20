@@ -117,6 +117,62 @@ pub struct PageInfo {
     pub redirect: bool,
 }
 
+/// One side of a page diff.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct DiffSide {
+    /// The revision.
+    pub revid: u64,
+    /// The page's title, prefixed.
+    pub title: String,
+    /// When, ISO 8601.
+    pub timestamp: String,
+    /// Who; `None` where hidden.
+    pub user: Option<String>,
+    /// The summary; `None` where hidden.
+    pub comment: Option<String>,
+    /// The size in bytes.
+    pub size: u64,
+}
+
+/// A diff between two revisions of a document page (`action=compare`).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct PageDiff {
+    /// The old side; `None` where the new side created the page.
+    pub from: Option<DiffSide>,
+    /// The new side.
+    pub to: DiffSide,
+    /// MediaWiki's table rows; empty where the two texts are equal.
+    pub body: String,
+    /// The revision before the old side.
+    pub prev: Option<u64>,
+    /// The revision after the new side.
+    pub next: Option<u64>,
+}
+
+/// Which two revisions to compare.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DiffAsk {
+    /// One revision against another: `fromrev`, `torev`.
+    Revisions(u64, u64),
+    /// A revision and its neighbour: `fromrev`, `torelative=prev|next|cur`.
+    Relative(u64, &'static str),
+    /// A page's latest revision against the one before it.
+    Latest(String),
+}
+
+fn diff_side(c: &Value, prefix: &str) -> Option<DiffSide> {
+    let key = |k: &str| format!("{prefix}{k}");
+    let revid = c[key("revid")].as_u64()?;
+    Some(DiffSide {
+        revid,
+        title: c[key("title")].as_str().unwrap_or_default().to_string(),
+        timestamp: c[key("timestamp")].as_str().unwrap_or_default().to_string(),
+        user: c[key("user")].as_str().map(str::to_string),
+        comment: c[key("comment")].as_str().map(str::to_string),
+        size: c[key("size")].as_u64().unwrap_or(0),
+    })
+}
+
 /// What a save did.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Saved {
@@ -322,6 +378,47 @@ impl Client {
         })?;
         Ok(Fetched {
             value,
+            cache: CacheInfo::of(&r),
+        })
+    }
+
+    /// `action=compare` of two revisions of a document page. A refusal is
+    /// [`ClientError::Api`] with the API's code (`nosuchrevid`, `missingtitle`,
+    /// `missingcontent`, `ts-entity-compare`, …).
+    ///
+    /// # Errors
+    ///
+    /// The API's refusal, or the API away or unreadable.
+    pub async fn page_diff(
+        &self,
+        incoming: &Incoming,
+        ask: &DiffAsk,
+    ) -> Result<Fetched<PageDiff>, ClientError> {
+        let which = match ask {
+            DiffAsk::Revisions(from, to) => format!("fromrev={from}&torev={to}"),
+            DiffAsk::Relative(from, rel) => format!("fromrev={from}&torelative={rel}"),
+            DiffAsk::Latest(title) => format!("fromtitle={}&torelative=prev", q(title)),
+        };
+        let r = self
+            .get(
+                incoming,
+                &format!(
+                    "/w/api.php?action=compare&{which}&prop=diff%7Cids%7Ctitle%7Cuser%7Ccomment%7Csize%7Ctimestamp%7Crel&format=json&formatversion=2"
+                ),
+            )
+            .await?;
+        let v = check(&r)?;
+        let c = &v["compare"];
+        let to = diff_side(c, "to")
+            .ok_or_else(|| ClientError::Unexpected(format!("compare answered {c}")))?;
+        Ok(Fetched {
+            value: PageDiff {
+                from: diff_side(c, "from"),
+                to,
+                body: c["body"].as_str().unwrap_or_default().to_string(),
+                prev: c["prev"].as_u64(),
+                next: c["next"].as_u64(),
+            },
             cache: CacheInfo::of(&r),
         })
     }

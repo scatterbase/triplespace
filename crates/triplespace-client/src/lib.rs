@@ -43,7 +43,9 @@ pub use create::Created;
 pub use entity::{Entities, Provenance};
 pub use forward::Incoming;
 pub use issuers::{AccountInfo, LoginIssuer, Pending};
-pub use pages::{EditForm, Lookup, PageCategory, PageInfo, Parsed, Saved, Source};
+pub use pages::{
+    DiffAsk, DiffSide, EditForm, Lookup, PageCategory, PageDiff, PageInfo, Parsed, Saved, Source,
+};
 pub use register::{
     AccountRequest, ChallengeInfo, CreateFields, CreateForm, CreateResult, LoginForm,
 };

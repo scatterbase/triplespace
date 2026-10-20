@@ -177,3 +177,112 @@
 .ts-editform__cancel {
 	align-self: center;
 }
+
+/*
+ * Page diffs (chapter 19 §3.8): MediaWiki's diff table, with its class names, as
+ * action=compare writes its rows. A changed line is told apart by its marker column
+ * (+ and −) and its border as well as its colour; changed words are bold.
+ */
+.ts-page-diff {
+	display: flex;
+	flex-direction: column;
+	gap: var( --spacing-100, 1rem );
+	max-width: 80rem;
+}
+
+.ts-page-diff__table {
+	width: 100%;
+	border-collapse: separate;
+	border-spacing: var( --spacing-25, 0.25rem ) 1px;
+	table-layout: fixed;
+}
+
+.ts-page-diff__table col.diff-marker {
+	width: 2ch;
+}
+
+.ts-page-diff__table col.diff-content {
+	width: 50%;
+}
+
+.ts-page-diff__table .diff-otitle,
+.ts-page-diff__table .diff-ntitle {
+	padding-block-end: var( --spacing-50, 0.5rem );
+	font-weight: normal;
+	text-align: center;
+	vertical-align: top;
+}
+
+.ts-page-diff__table .diff-lineno {
+	padding-block-start: var( --spacing-50, 0.5rem );
+	font-weight: bold;
+}
+
+.ts-page-diff__table .diff-marker {
+	text-align: end;
+	vertical-align: top;
+	font-weight: bold;
+}
+
+.ts-page-diff__table .diff-marker::before {
+	content: attr( data-marker );
+}
+
+.ts-page-diff__table .diff-context,
+.ts-page-diff__table .diff-addedline,
+.ts-page-diff__table .diff-deletedline {
+	padding: var( --spacing-25, 0.25rem ) var( --spacing-50, 0.5rem );
+	border: 1px solid var( --border-color-muted, #dadde3 );
+	border-inline-start-width: 4px;
+	border-radius: var( --border-radius-base, 2px );
+	vertical-align: top;
+	font-family: var( --font-family-monospace, monospace );
+	font-size: 0.875rem;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.ts-page-diff__table .diff-context {
+	background-color: var( --background-color-neutral-subtle, #f8f9fa );
+	color: var( --color-subtle, #54595d );
+}
+
+.ts-page-diff__table .diff-addedline {
+	border-color: var( --border-color-progressive--focus, #36c );
+}
+
+.ts-page-diff__table .diff-deletedline {
+	border-color: var( --border-color-warning, #ab7f2a );
+}
+
+.ts-page-diff__table .diffchange {
+	padding: 0 2px;
+	border-radius: var( --border-radius-base, 2px );
+	font-weight: bold;
+	text-decoration: none;
+}
+
+.ts-page-diff__table ins.diffchange {
+	background-color: var( --background-color-progressive-subtle, #eaf3ff );
+}
+
+.ts-page-diff__table del.diffchange {
+	background-color: var( --background-color-warning-subtle, #fdf2d5 );
+}
+
+.ts-page-diff__table .diff-notice {
+	padding: var( --spacing-100, 1rem );
+	text-align: center;
+}
+
+.ts-page-diff__revision,
+.ts-page-diff__user,
+.ts-page-diff__comment,
+.ts-page-diff__nav {
+	margin-block: var( --spacing-25, 0.25rem );
+}
+
+.ts-page-diff__heading {
+	margin-block: var( --spacing-150, 1.5rem ) var( --spacing-50, 0.5rem );
+	font-size: 1.25em;
+}

@@ -159,6 +159,7 @@ chacha20poly1305 = "0.11"
 # Server-rendered pages (0034 §2): compiled templates; the built frontend embedded (0034 §8)
 # Without `config`, which reads an askama.toml (there is none) through the unmaintained
 # basic-toml (RUSTSEC-2026-0374); `path = ` templates come with the derive regardless.
+similar = { version = "2.7", default-features = false, features = ["text"] }
 askama = { version = "0.16", default-features = false, features = ["derive", "std", "urlencode"] }
 rust-embed = { version = "8", features = ["include-exclude"] }
 

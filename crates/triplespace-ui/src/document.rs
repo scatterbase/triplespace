@@ -18,6 +18,11 @@
 //! - **History** is the page's rows of the activity feed (`target=page:{id}`), drawn as an
 //!   entity's history is ([`crate::entity::history`]).
 //!
+//! - **Diffs** are `?diff=` and `?oldid=` as MediaWiki reads them, from `action=compare`:
+//!   both revisions' headers with the way to the next diff along, the line diff, and the
+//!   newer revision rendered below it unless `diffonly=1`. History and recent-changes rows
+//!   link to them.
+//!
 //! Not yet (19 §3.1–3.2): the "About this page" panel, the Page data, Links here and Talk
 //! tabs, the side-by-side live preview in WebAssembly, CodeMirror, link autocomplete,
 //! **Insert template…**, line-marked conflicts and the Format selector.
@@ -28,7 +33,8 @@ use askama::Template as _;
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Response;
 use triplespace_client::{
-    CacheInfo, ClientError, EditForm, Incoming, Lookup, Parsed, Saved, Source,
+    CacheInfo, ClientError, DiffAsk, DiffSide, EditForm, Incoming, Lookup, PageDiff, Parsed, Saved,
+    Source,
 };
 
 use crate::Site;
@@ -47,10 +53,14 @@ enum Ask {
     Edit,
     History,
     Render,
+    Diff,
 }
 
 impl Ask {
     fn of(params: &Params) -> Self {
+        if params.map.contains_key("diff") && params.map.get("action").is_none_or(|a| a == "view") {
+            return Self::Diff;
+        }
         match params.map.get("action").map(String::as_str) {
             Some("edit" | "submit") => Self::Edit,
             Some("history") => Self::History,
@@ -733,6 +743,232 @@ async fn page_history(
     })
 }
 
+// ---- diffs -------------------------------------------------------------------------------
+
+/// What `?diff=` and `?oldid=` ask to compare, as MediaWiki reads them: `diff=X` alone is
+/// X against the revision before it; with `oldid=Y`, Y against X; `diff=prev|next|cur`
+/// names X from Y; `diff=cur` or `diff=prev` alone, the latest revision against the one
+/// before it. `None` for a value that names nothing.
+fn diff_ask(title: &str, params: &Params) -> Option<DiffAsk> {
+    let diff = params.map.get("diff").map_or("", String::as_str);
+    let oldid = params.map.get("oldid").and_then(|o| o.parse::<u64>().ok());
+    let rel = |d: &str| match d {
+        "prev" => Some("prev"),
+        "next" => Some("next"),
+        "cur" | "0" | "" => Some("cur"),
+        _ => None,
+    };
+    match (diff.parse::<u64>().ok().filter(|d| *d > 0), oldid) {
+        (Some(d), Some(o)) => Some(DiffAsk::Revisions(o, d)),
+        (Some(d), None) => Some(DiffAsk::Relative(d, "prev")),
+        (None, Some(o)) => rel(diff).map(|r| DiffAsk::Relative(o, r)),
+        (None, None) => rel(diff).map(|_| DiffAsk::Latest(title.to_string())),
+    }
+}
+
+/// When a revision was made, as `15:04, 20 October 2026`.
+fn when(m: &Messages, iso: &str) -> String {
+    format!(
+        "{}, {}",
+        special::changes::clock(iso),
+        special::changes::date(m, iso)
+    )
+}
+
+/// One side's header: the revision linked, who, the summary, and the way to the next
+/// diff along.
+fn side_html(m: &Messages, side: &DiffSide, latest: bool, nav: Option<(String, String)>) -> String {
+    let key = if latest {
+        "ts-pagediff-latest-as-of"
+    } else {
+        "ts-pagediff-revision-as-of"
+    };
+    let mut s = format!(
+        "<div class=\"ts-page-diff__revision\"><strong>{}</strong></div>",
+        link(
+            &format!("/wiki/{}?oldid={}", title_url(&side.title), side.revid),
+            &esc(&m.with(key, &[&when(m, &side.timestamp)])),
+            ""
+        )
+    );
+    match &side.user {
+        Some(u) => {
+            let _ = write!(
+                s,
+                "<div class=\"ts-page-diff__user\">{}</div>",
+                link(
+                    &format!("/wiki/Special:Contributions/{}", title_url(u)),
+                    &esc(u),
+                    ""
+                )
+            );
+        }
+        None => {
+            let _ = write!(
+                s,
+                "<div class=\"ts-page-diff__user ts-change__hidden\">{}</div>",
+                esc(&m.get("ts-changes-hidden-user"))
+            );
+        }
+    }
+    match &side.comment {
+        Some(c) if !c.is_empty() => {
+            let _ = write!(s, "<div class=\"ts-page-diff__comment\">({})</div>", esc(c));
+        }
+        Some(_) => {}
+        None => {
+            let _ = write!(
+                s,
+                "<div class=\"ts-page-diff__comment ts-change__hidden\">{}</div>",
+                esc(&m.get("ts-changes-hidden-comment"))
+            );
+        }
+    }
+    if let Some((href, label)) = nav {
+        let _ = write!(
+            s,
+            "<div class=\"ts-page-diff__nav\">{}</div>",
+            link(&href, &esc(&label), "")
+        );
+    }
+    s
+}
+
+/// The diff table: both sides' headers, and the API's rows.
+fn diff_html(m: &Messages, d: &PageDiff, latest_revid: Option<u64>) -> String {
+    let title = &d.to.title;
+    let old = match &d.from {
+        Some(f) => side_html(
+            m,
+            f,
+            false,
+            d.prev.map(|_| {
+                (
+                    format!("/wiki/{}?diff=prev&oldid={}", title_url(title), f.revid),
+                    m.get("ts-pagediff-older"),
+                )
+            }),
+        ),
+        None => format!(
+            "<div class=\"ts-page-diff__revision\">{}</div>",
+            esc(&m.get("ts-pagediff-creation"))
+        ),
+    };
+    let new = side_html(
+        m,
+        &d.to,
+        latest_revid == Some(d.to.revid),
+        d.next.map(|_| {
+            (
+                format!("/wiki/{}?diff=next&oldid={}", title_url(title), d.to.revid),
+                m.get("ts-pagediff-newer"),
+            )
+        }),
+    );
+    let mut s = format!(
+        "<table class=\"diff ts-page-diff__table\" aria-label=\"{}\"><colgroup><col class=\"diff-marker\"><col class=\"diff-content\"><col class=\"diff-marker\"><col class=\"diff-content\"></colgroup><thead><tr><th colspan=\"2\" scope=\"col\" class=\"diff-otitle\">{old}</th><th colspan=\"2\" scope=\"col\" class=\"diff-ntitle\">{new}</th></tr></thead><tbody>",
+        esc(&m.get("ts-pagediff-label"))
+    );
+    if d.body.is_empty() {
+        let _ = write!(
+            s,
+            "<tr><td colspan=\"4\" class=\"diff-notice\"><div class=\"mw-diff-empty\">{}</div></td></tr>",
+            esc(&m.get("ts-pagediff-none"))
+        );
+    } else {
+        // The API's rows: built by `scatter_pages::diff`, every text in them escaped.
+        s.push_str(&d.body);
+    }
+    s.push_str("</tbody></table>");
+    s
+}
+
+/// `?diff=`: two revisions compared, the newer rendered below unless `diffonly=1`.
+async fn page_diff(
+    site: &Site,
+    mut cx: Context,
+    headers: &HeaderMap,
+    incoming: &Incoming,
+    title: String,
+    params: &Params,
+) -> Response {
+    let Some(ask) = diff_ask(&title, params) else {
+        return pages::respond(&cx, headers, StatusCode::BAD_REQUEST, |m| Page {
+            body: pages::message(MessageKind::Error, &m.get("ts-pagediff-bad")),
+            returnto: Some(title.clone()),
+            title: title.clone(),
+            ..Page::default()
+        });
+    };
+    let diff = match site.client().page_diff(incoming, &ask).await {
+        Ok(d) => d,
+        Err(ClientError::Api { code, .. }) => {
+            return match code.as_str() {
+                "missingtitle" => missing(&cx, headers, title, false),
+                "nosuchrevid" | "missingcontent" | "permissiondenied" => {
+                    pages::respond(&cx, headers, StatusCode::NOT_FOUND, |m| Page {
+                        body: pages::message(MessageKind::Error, &m.get("ts-pagediff-missing")),
+                        returnto: Some(title.clone()),
+                        title: title.clone(),
+                        ..Page::default()
+                    })
+                }
+                _ => pages::no_page(&cx, headers, title),
+            };
+        }
+        Err(e) => return pages::api_failed(&cx, headers, &e),
+    };
+    cx.inputs.push(diff.cache);
+    let diff = diff.value;
+    let page_title = diff.to.title.clone();
+    // Whether the newer side is the page's latest revision, and its rendering.
+    let latest = diff.next.is_none().then_some(diff.to.revid);
+    let below = if params.map.get("diffonly").is_some_and(|v| v == "1") {
+        None
+    } else {
+        match site
+            .client()
+            .parse_page(incoming, &page_title, Some(diff.to.revid), false)
+            .await
+        {
+            Ok(p) => {
+                cx.inputs.push(p.cache);
+                Some(p.value)
+            }
+            Err(ClientError::Api { .. }) => None,
+            Err(e) => return pages::api_failed(&cx, headers, &e),
+        }
+    };
+    pages::respond(&cx, headers, StatusCode::OK, |m| {
+        let mut body = format!(
+            "<div class=\"ts-page-diff\">{}",
+            diff_html(m, &diff, latest)
+        );
+        if let Some(p) = &below {
+            let key = if latest.is_some() {
+                "ts-pagediff-latest-as-of"
+            } else {
+                "ts-pagediff-revision-as-of"
+            };
+            let _ = write!(
+                body,
+                "<h2 class=\"ts-page-diff__heading\">{}</h2><div class=\"ts-document\">{}</div>",
+                esc(&m.with(key, &[&when(m, &diff.to.timestamp)])),
+                content_html(m, p)
+            );
+        }
+        body.push_str("</div>");
+        Page {
+            doc_title: Some(m.with("ts-pagediff-title", &[&page_title])),
+            returnto: Some(page_title.clone()),
+            tabs: tabs(m, &page_title, true, TabName::History),
+            title: page_title.clone(),
+            body,
+            ..Page::default()
+        }
+    })
+}
+
 // ---- dispatch --------------------------------------------------------------------------
 
 /// Serves a title that is neither an entity's nor a special page's, where the API serves
@@ -761,6 +997,7 @@ pub async fn serve(
         Ask::Render => read(site, cx, headers, incoming, title, params, true).await,
         Ask::Edit => edit(site, cx, headers, incoming, title).await,
         Ask::History => page_history(site, cx, headers, incoming, title, params).await,
+        Ask::Diff => page_diff(site, cx, headers, incoming, title, params).await,
     }
 }
 
@@ -776,6 +1013,80 @@ mod tests {
                 .map(|(k, v)| ((*k).to_string(), (*v).to_string()))
                 .collect(),
         )
+    }
+
+    #[test]
+    fn diff_addresses_read_as_mediawiki_reads_them() {
+        let ask = |pairs: &[(&str, &str)]| diff_ask("Project:Home", &params(pairs));
+        assert_eq!(ask(&[("diff", "7")]), Some(DiffAsk::Relative(7, "prev")));
+        assert_eq!(
+            ask(&[("diff", "9"), ("oldid", "7")]),
+            Some(DiffAsk::Revisions(7, 9))
+        );
+        assert_eq!(
+            ask(&[("diff", "prev"), ("oldid", "7")]),
+            Some(DiffAsk::Relative(7, "prev"))
+        );
+        assert_eq!(
+            ask(&[("diff", "next"), ("oldid", "7")]),
+            Some(DiffAsk::Relative(7, "next"))
+        );
+        assert_eq!(
+            ask(&[("diff", "cur"), ("oldid", "7")]),
+            Some(DiffAsk::Relative(7, "cur"))
+        );
+        assert_eq!(
+            ask(&[("diff", "cur")]),
+            Some(DiffAsk::Latest("Project:Home".into()))
+        );
+        assert_eq!(ask(&[("diff", "x")]), None);
+        assert_eq!(Ask::of(&params(&[("diff", "7")])), Ask::Diff);
+        assert_eq!(
+            Ask::of(&params(&[("diff", "7"), ("action", "history")])),
+            Ask::History
+        );
+    }
+
+    #[test]
+    fn a_diff_shows_both_sides_and_the_way_along() {
+        let m = Messages::for_language("en");
+        let side = |revid, user: Option<&str>| DiffSide {
+            revid,
+            title: "Project:Home".into(),
+            timestamp: "2026-10-20T15:04:00Z".into(),
+            user: user.map(str::to_string),
+            comment: Some("<b>sum</b>".into()),
+            size: 3,
+        };
+        let d = PageDiff {
+            from: Some(side(7, Some("Harej"))),
+            to: side(9, None),
+            body: "<tr><td>row</td></tr>".into(),
+            prev: Some(5),
+            next: None,
+        };
+        let html = diff_html(&m, &d, Some(9));
+        assert!(
+            html.contains(
+                "href=\"/wiki/Project:Home?oldid=7\">Revision as of 15:04, 20 October 2026</a>"
+            ),
+            "{html}"
+        );
+        assert!(html.contains("Latest revision as of 15:04, 20 October 2026"));
+        assert!(html.contains("href=\"/wiki/Special:Contributions/Harej\""));
+        assert!(html.contains("(&lt;b&gt;sum&lt;/b&gt;)"));
+        assert!(html.contains("?diff=prev&amp;oldid=7\">← Older edit</a>"));
+        assert!(!html.contains("Newer edit"));
+        assert!(html.contains(&m.get("ts-changes-hidden-user")));
+        assert!(html.contains("<tr><td>row</td></tr>"));
+        let created = PageDiff {
+            from: None,
+            body: String::new(),
+            ..d
+        };
+        let html = diff_html(&m, &created, None);
+        assert!(html.contains("(Page created)"));
+        assert!(html.contains("(No difference)"));
     }
 
     #[test]

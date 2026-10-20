@@ -2,6 +2,7 @@
 
 pub mod account;
 pub mod changes;
+pub mod compare;
 pub mod editpage;
 pub mod entities;
 pub mod entitydata;

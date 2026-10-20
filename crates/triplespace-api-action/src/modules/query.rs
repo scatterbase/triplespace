@@ -872,6 +872,7 @@ const ACTION_MODULES: &[(&str, bool)] = &[
     ("logout", true),
     ("options", true),
     ("parse", false),
+    ("compare", false),
     ("edit", true),
     ("wbgetentities", false),
     ("wbsearchentities", false),
@@ -1375,6 +1376,42 @@ fn module_parameters(name: &str) -> Vec<Value> {
         .map(|(i, (n, t))| {
             let p = parameter(i, n, t);
             Value::Object(if n == "prop" { multi(p, 50) } else { p })
+        })
+        .collect(),
+        "compare" => [
+            ("fromtitle", json!("string")),
+            ("fromid", json!("integer")),
+            ("fromrev", json!("integer")),
+            ("totitle", json!("string")),
+            ("toid", json!("integer")),
+            ("torev", json!("integer")),
+            ("torelative", json!(["cur", "next", "prev"])),
+            (
+                "prop",
+                json!([
+                    "comment",
+                    "diff",
+                    "diffsize",
+                    "ids",
+                    "parsedcomment",
+                    "rel",
+                    "size",
+                    "timestamp",
+                    "title",
+                    "user"
+                ]),
+            ),
+            ("difftype", json!(["table"])),
+        ]
+        .into_iter()
+        .enumerate()
+        .map(|(i, (n, t))| {
+            let p = parameter(i, n, t);
+            Value::Object(match n {
+                "prop" => with_default(multi(p, 50), json!("diff|ids|title")),
+                "difftype" => with_default(p, json!("table")),
+                _ => p,
+            })
         })
         .collect(),
         "edit" => [

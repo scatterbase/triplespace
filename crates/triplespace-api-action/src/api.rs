@@ -188,11 +188,12 @@ async fn dispatch(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         | "wbsetdescription" | "wbsetaliases" | "wbsetqualifier" | "wbremovequalifiers"
         | "wbsetreference" | "wbremovereferences" => modules::write::run(ctx, &action).await,
         "parse" => modules::parse::run(ctx).await,
+        "compare" => modules::compare::run(ctx).await,
         "edit" => modules::editpage::run(ctx).await,
         "paraminfo" => modules::query::paraminfo(ctx),
         "help" => Ok(ApiResponse::ok(serde_json::json!({"help": {
             "mime": "text/plain",
-            "help": "Triplespace Action API. Modules: query (meta=siteinfo|tokens|userinfo|authmanagerinfo; prop=revisions|info; list=recentchanges|usercontribs|logevents|allpages), parse, edit, login, clientlogin, createaccount, linkaccount, unlinkaccount, logout, options, wbgetentities, wbsearchentities, wbeditentity, wbcreateclaim, wbsetclaim, wbremoveclaims, wbsetlabel, wbsetdescription, wbsetaliases, wbsetqualifier, wbremovequalifiers, wbsetreference, wbremovereferences."
+            "help": "Triplespace Action API. Modules: query (meta=siteinfo|tokens|userinfo|authmanagerinfo; prop=revisions|info|templates; list=recentchanges|usercontribs|logevents|allpages), parse, compare, edit, login, clientlogin, createaccount, linkaccount, unlinkaccount, logout, options, wbgetentities, wbsearchentities, wbeditentity, wbcreateclaim, wbsetclaim, wbremoveclaims, wbsetlabel, wbsetdescription, wbsetaliases, wbsetqualifier, wbremovequalifiers, wbsetreference, wbremovereferences."
         }}))),
         other => Err(ApiError::new(
             "badvalue",

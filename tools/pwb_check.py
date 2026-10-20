@@ -340,6 +340,20 @@ def main():
     # Template namespace must be listed, as it always is (0042 A19).
     step("write: Page.save creates and edits a Project page", page_save, skip=skip_w)
 
+    def page_compare():
+        page = pywikibot.Page(site, state["page"])
+        revs = list(page.revisions(total=5))
+        newest, older = revs[0], revs[1]
+        if newest.parentid != older.revid:
+            raise RuntimeError(f"parentid {newest.parentid}, not {older.revid}")
+        if older.parentid != 0:
+            raise RuntimeError(f"the first revision's parentid is {older.parentid}")
+        html = site.compare(older.revid, newest.revid)
+        if "diff-addedline" not in html or "Edited." not in html:
+            raise RuntimeError(f"unexpected diff: {html[:200]!r}")
+        return f"{older.revid} -> {newest.revid}: {html.count('<tr>')} rows"
+    step("read: action=compare and parentid", page_compare, skip=skip_w or "page" not in state)
+
     def page_conflict():
         title = state["page"]
         time.sleep(1.1)
