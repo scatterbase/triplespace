@@ -26,14 +26,22 @@ The design lives in three linked places. Know which one answers the question bef
 3. ADR trailers land in fixed chapters: Crates → 22, API → 18, UI → 19, Storage and Search → 03,
    Permissions → 09, RDF → 02, Log events → 16, Rate limits → 07, Tenants → 08, Scatterbase → 22.
 
-Chapters run from 190 to 1,600 lines, so read by section rather than whole:
+Chapters run from 190 to 1,600 lines, so read by section rather than whole. Use `tools/adr.py`,
+which prints links between docs as plain citations to keep output short:
 
 ```sh
-cd docs
-grep -n '^## \|^### ' architecture/05-providers-and-ingest.md      # outline
-grep -rn 'entity source' architecture/ | cut -c1-160                # find a subject
-sed -n '/^### 4.5 /,/^### 4.6 /p' architecture/03-storage-caches-and-search.md   # one section
+tools/adr.py where entity source           # chapter sections, ADRs, registry files; best first
+tools/adr.py outline 05                    # a chapter's (or ADR's) headings
+tools/adr.py show 03 §4.5                  # one chapter section
+tools/adr.py show 0013 §7                  # an ADR section, its pointer followed to the chapter text
+tools/adr.py show 0013 §7 --adr            # the ADR section as written
+tools/adr.py show 0013                     # an ADR's header and outline
+tools/adr.py log 0008 A6                   # one amendment, with the text it replaced
+tools/adr.py questions 0090                # open questions
 ```
+
+Add `--lines N` to `show` to cap a long section. `INDEX.md` and `MAP.md` have very wide lines; prefer
+`adr.py` to grepping them.
 
 ## Following the links
 

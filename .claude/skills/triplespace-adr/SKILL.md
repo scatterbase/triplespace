@@ -118,14 +118,14 @@ with its old text in the log entry.
 
 ## Validating
 
-From `docs/`:
-
 ```sh
-python3 decisions/check_adrs.py --index .   # also rewrites INDEX.md; any "   - " line is a failure
-python3 architecture/map.py .               # every section mapped and cited, MAP.md current
-python3 architecture/settings.py .          # if settings.toml changed
-python3 api/vectors/check.py                # if payloads changed
+docs/check.sh --write    # regenerate INDEX.md, MAP.md and chapter 23's settings tables, then check all
+docs/check.sh            # check only (what CI runs); exits non-zero on any failure
 ```
+
+It runs `check_adrs.py`, `map.py`, `settings.py` and the log test vectors, and names the ones that
+failed. Each checker also runs alone from `docs/`, e.g. `python3 decisions/check_adrs.py .`, which
+exits 1 when it lists any problem.
 
 `check_adrs.py` covers:
 - links and § citations
