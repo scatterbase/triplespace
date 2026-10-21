@@ -12,6 +12,7 @@ QuickStatements). James Hare (Scatter LLC) owns it; he decides, and agents draft
 | `docs/architecture/` | **What holds now**, by subject: 24 chapters (`00`–`23`). Start with `00`, then `22` (crates and stack). | A chapter describes; it decides nothing on its own. |
 | `docs/decisions/` | **Why and when**: ADRs, all in the 0050 format. Most Decision sections are now one-line pointers (*Current text: [03] §4.5.*) into a chapter. | Never read an ADR's Decision as the current text if it is a pointer; follow it. |
 | `docs/registry/` | Names and codes the crates embed (`include_str!`) and parse at build time: providers, graphs, namespaces, content models, special pages, settings, groups… | A change here is a commit. Codes and numbers are never reused. See its `README.md`, including *Pending allocations*. |
+| `docs/testing/` | How to test against real dumps (`real-dumps.md`, with its results log) and write-path performance: measurements, the `pg_stat_statements` recipe, Postgres settings, what a Wikidata-sized load needs (`performance.md`). | Add a results row for every real-dump run. |
 | `docs/api/` | Compatibility contracts with Wikibase and MediaWiki, golden snapshots, log test vectors, the OpenAPI file. | Contracts are tested where they are implemented. |
 | `crates/` | One workspace: `scatter-*` (shared with Scatterbase, knows nothing of Triplespace) and `triplespace-*` (the product). | See the crate rules below. |
 | `tools/` | Scripts outside the build: dump slicing, client-compatibility checks, talk-page prototypes. `tools/README.md`. | |

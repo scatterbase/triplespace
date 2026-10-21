@@ -93,7 +93,7 @@ with its old text in the log entry.
 
 - A chapter section opens with `*Sources: [NNNN](../decisions/…) §N; …*`. When your ADR's
   section contributes text to a chapter section, add its citation to that section's Sources line.
-- New ADRs (0086 to 0090 so far) keep their full Decision text, and their current text is also
+- New ADRs (0079 to 0090 so far) keep their full Decision text, and their current text is also
   folded into the chapters. Register the ADR in `docs/architecture/map.py`: a `HOME` chapter,
   plus `OVERRIDES` for sections that belong elsewhere or to several chapters ("13+14"). Then run
   `python3 architecture/map.py --write .` to regenerate `MAP.md`.
