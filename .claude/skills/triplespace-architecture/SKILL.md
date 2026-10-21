@@ -71,7 +71,10 @@ stable.
   for wasm. `cargo xtask deps` checks the real graph against it.
 - A registry file's `README.md` row names the crate that embeds it and the ADR sections that
   define it.
-- `rg` the crate for the ADR number: code comments cite sections (`0090 §5`).
+- `tools/coverage.py NNNN` shows which of an ADR's sections the code cites and from which crates;
+  `tools/adr.py code NNNN §N` lists the citing lines. Code comments cite sections (`0090 §5`), so a
+  section no code cites is very likely unbuilt. A cited one may still be partial: read the lines,
+  and watch for comments saying "not built yet", which the tool lists separately.
 - `docs/architecture/22` §4.9 and `tools/README.md` say how each contract is tested.
 
 ## Before proposing a design

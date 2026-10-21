@@ -2417,6 +2417,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "scatter-talk"
+version = "0.0.1"
+dependencies = [
+ "flate2",
+ "quick-xml",
+ "scatter-wikitext",
+ "serde",
+ "serde_json",
+ "similar",
+ "toml",
+]
+
+[[package]]
 name = "scatter-titles"
 version = "0.0.1"
 dependencies = [

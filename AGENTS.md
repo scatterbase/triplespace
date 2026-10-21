@@ -25,6 +25,14 @@ QuickStatements). James Hare (Scatter LLC) owns it; he decides, and agents draft
 - `log 0008 [A6]` prints an Amendment log, or one entry.
 - `questions NNNN` prints an ADR's open questions.
 - `outline NN|NNNN` prints a document's headings.
+- `code 0013 §7` lists the code that cites a section.
+
+**Is it built?** Every ADR is `Proposed` until it is implemented in full, so the status won't tell
+you. `tools/coverage.py` reads the `NNNN §N` citations in code comments: run it alone for one line
+per ADR, or with `NNNN` for each section and the crates citing it. A citation means the code is
+about a section, not that the section is complete, so read the cited lines before relying on one.
+Cite sections in comments as `0013 §7`, and a numbered item as `0013 §7 rule 2` (0050 §11).
+`coverage.py --stale` lists citations of sections that don't exist.
 
 **Generated files: never edit by hand.** `docs/decisions/INDEX.md` (`check_adrs.py --index`),
 `docs/architecture/MAP.md` (`map.py --write`), and the settings tables in chapter 23

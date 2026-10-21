@@ -9,6 +9,7 @@
   adr.py where entity source chapter sections, ADRs and registry files that mention a phrase
   adr.py log 0008            an ADR's Amendment log; `log 0008 A6` for one entry
   adr.py questions 0090      an ADR's open questions, settled ones marked
+  adr.py code 0013 §7        the code that cites a section (file:line), from tools/coverage.py
 
 Four digits name an ADR, one or two a chapter. "§" is optional: `show 0013 7.1` works.
 `where` ranks by mentions (case-insensitive), sections and ADRs whose heading or title matches
@@ -94,8 +95,12 @@ def decision_range(heads, n):
     """Line range of '## Decision' in an ADR, so the template's examples and the log's
     '### A1.' headings never match a section number."""
     start = next((i for i, lv, t in heads if lv == 2 and t == "Decision"), 0)
-    end = next((i for i, lv, _ in heads if lv == 2 and i > start), n)
+    # Some Decisions are split into "## Part A — …" headings, so end only at the parts that follow.
+    end = next((i for i, lv, t in heads if lv == 2 and i > start and t in AFTER_DECISION), n)
     return start, end
+
+
+AFTER_DECISION = ("Alternatives considered", "Consequences", "Open questions", "Changes to other ADRs", "References", "Amendment log")
 
 
 def find_section(kind, lines, num):
@@ -288,6 +293,14 @@ class Compact:
         self.stream.flush()
 
 
+def cmd_code(a):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("coverage", os.path.join(ROOT, "tools", "coverage.py"))
+    cov = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cov)
+    cov.main([a.doc] + ([a.section] if a.section else []))
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--raw", action="store_true", help="keep markdown links to other docs")
@@ -312,6 +325,10 @@ def main():
     qu = sub.add_parser("questions", help="an ADR's open questions")
     qu.add_argument("doc")
     qu.set_defaults(fn=cmd_questions)
+    co = sub.add_parser("code", help="code citing an ADR or chapter section (tools/coverage.py)")
+    co.add_argument("doc")
+    co.add_argument("section", nargs="?")
+    co.set_defaults(fn=cmd_code)
     # Accept "0013§7" and "0013 §7" alike.
     argv = []
     for arg in sys.argv[1:]:
