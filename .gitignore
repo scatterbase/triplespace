@@ -82,3 +82,6 @@ Thumbs.db
 # Dump slices made with tools/dump_slice.py for local rehearsals; the fixture lives in crates/triplespace-server/tests/fixtures/
 tools/*.xml.gz
 tools/*.xml
+
+# Claude Code: personal settings (shared skills in .claude/skills are committed)
+.claude/settings.local.json

@@ -226,29 +226,43 @@ pub async fn resolve(ctx: &Ctx, site: &Site) -> Result<PageSet, ApiError> {
     }
 
     for (id, only_revid, title) in entities {
-        let standing = read::standing(ctx.db(), &ctx.tenant.slug, &id)
-            .await
-            .map_err(ApiError::internal)?;
-        let current = read::current(ctx.db(), ctx.app.order(), &ctx.tenant.slug, &id)
-            .await
-            .map_err(ApiError::internal)?;
-        match current {
-            Some(c) if !standing.deleted => {
-                let (ns, t) = title_of(&id, &c.resolved.entity.entity_type);
-                set.pages.push(PageAsk {
-                    id: Some(id),
-                    doc: None,
-                    page_id: c.page_id,
-                    ns,
-                    title: t,
-                    only_revid,
-                });
-            }
-            _ => {
-                let t = title.unwrap_or_else(|| id.as_str().to_string());
-                set.missing.push(json!({"title": t, "missing": flag(ctx)}));
-            }
+        if let Some(mut ask) = entity_ask(ctx, &id).await? {
+            ask.only_revid = only_revid;
+            set.pages.push(ask);
+        } else {
+            let t = title.unwrap_or_else(|| id.as_str().to_string());
+            set.missing.push(json!({"title": t, "missing": flag(ctx)}));
         }
     }
     Ok(set)
+}
+
+/// An entity's page, or `None` where the entity does not exist or is deleted.
+pub async fn entity_ask(ctx: &Ctx, id: &EntityId) -> Result<Option<PageAsk>, ApiError> {
+    let standing = read::standing(ctx.db(), &ctx.tenant.slug, id)
+        .await
+        .map_err(ApiError::internal)?;
+    let current = read::current(ctx.db(), ctx.app.order(), &ctx.tenant.slug, id)
+        .await
+        .map_err(ApiError::internal)?;
+    Ok(match current {
+        Some(c) if !standing.deleted => {
+            let (ns, title) = title_of(id, &c.resolved.entity.entity_type);
+            Some(PageAsk {
+                id: Some(id.clone()),
+                doc: None,
+                page_id: c.page_id,
+                ns,
+                title,
+                only_revid: None,
+            })
+        }
+        _ => None,
+    })
+}
+
+/// A document page's page.
+#[must_use]
+pub fn document_ask(site: &Site, page: Page) -> PageAsk {
+    PageAsk::document(site, page, None)
 }

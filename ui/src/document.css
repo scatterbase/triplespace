@@ -286,3 +286,96 @@
 	margin-block: var( --spacing-150, 1.5rem ) var( --spacing-50, 0.5rem );
 	font-size: 1.25em;
 }
+
+/*
+ * The inline layout (MediaWiki's difftype=inline): one column, shown in place of the
+ * table's rows on a narrow screen. Removed and added text are struck through and
+ * underlined, and each changed line carries its marker, so colour is never the only cue.
+ */
+.ts-page-diff__inline {
+	display: none;
+	font-family: var( --font-family-monospace, monospace );
+	font-size: 0.875rem;
+}
+
+.ts-page-diff__inline .mw-diff-inline-header {
+	margin-block: var( --spacing-75, 0.75rem ) var( --spacing-25, 0.25rem );
+	font-family: var( --font-family-system-sans, sans-serif );
+	font-weight: bold;
+}
+
+.ts-page-diff__inline .mw-diff-inline-context,
+.ts-page-diff__inline .mw-diff-inline-added,
+.ts-page-diff__inline .mw-diff-inline-deleted,
+.ts-page-diff__inline .mw-diff-inline-changed {
+	position: relative;
+	padding: var( --spacing-25, 0.25rem ) var( --spacing-50, 0.5rem );
+	padding-inline-start: 2ch;
+	border-inline-start: 4px solid transparent;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.ts-page-diff__inline [ data-marker ]::before {
+	content: attr( data-marker );
+	position: absolute;
+	inset-inline-start: 0.5ch;
+	font-weight: bold;
+}
+
+.ts-page-diff__inline .mw-diff-inline-context {
+	color: var( --color-subtle, #54595d );
+}
+
+.ts-page-diff__inline .mw-diff-inline-added {
+	border-inline-start-color: var( --border-color-progressive--focus, #36c );
+	background-color: var( --background-color-progressive-subtle, #eaf3ff );
+}
+
+.ts-page-diff__inline .mw-diff-inline-deleted {
+	border-inline-start-color: var( --border-color-warning, #ab7f2a );
+	background-color: var( --background-color-warning-subtle, #fdf2d5 );
+}
+
+.ts-page-diff__inline .mw-diff-inline-changed {
+	border-inline-start-color: var( --border-color-base, #a2a9b1 );
+}
+
+.ts-page-diff__inline ins {
+	background-color: var( --background-color-progressive-subtle, #eaf3ff );
+	text-decoration: underline;
+}
+
+.ts-page-diff__inline del {
+	background-color: var( --background-color-warning-subtle, #fdf2d5 );
+	text-decoration: line-through;
+}
+
+.ts-page-diff__inline .diffchange {
+	font-weight: bold;
+}
+
+@media ( max-width: 40rem ) {
+	.ts-page-diff__table:has( + .ts-page-diff__inline ) tbody {
+		display: none;
+	}
+
+	.ts-page-diff__inline {
+		display: block;
+	}
+
+	/* The two revisions' headers, one above the other. */
+	.ts-page-diff__table,
+	.ts-page-diff__table thead,
+	.ts-page-diff__table thead tr,
+	.ts-page-diff__table .diff-otitle,
+	.ts-page-diff__table .diff-ntitle {
+		display: block;
+		width: 100%;
+	}
+
+	.ts-page-diff__table .diff-otitle,
+	.ts-page-diff__table .diff-ntitle {
+		text-align: start;
+	}
+}

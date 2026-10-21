@@ -145,7 +145,7 @@ async fn parents(
 
 /// The content of a revision: a document page's text after it, or the entity's local
 /// state after it in Wikibase's JSON.
-async fn content_at(
+pub(crate) async fn content_at(
     ctx: &Ctx,
     page: &PageAsk,
     offset: u64,

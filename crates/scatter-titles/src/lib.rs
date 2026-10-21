@@ -79,10 +79,31 @@ impl Namespace {
     }
 
     /// Whether its pages are entities (a `wikibase-*` or other entity model), whose links
-    /// name the entity rather than a page.
+    /// name the entity rather than a page: Item and Property by their ID, and the keyed
+    /// types' namespaces (Domain, Keyword, Notation) by their key.
     #[must_use]
     pub fn is_entity_namespace(&self) -> bool {
         self.normalizer.as_deref() == Some("entity-id")
+            || self
+                .default_model
+                .as_deref()
+                .and_then(|m| scatter_pages::ContentModels::embedded().get(m))
+                .is_some_and(|m| m.source == Some(scatter_pages::ModelSource::Entity))
+    }
+
+    /// The entity a title in this namespace names, by its ID: the title itself under the
+    /// `entity-id` normalizer (`Q5`), `{keyed type}:{key}` in a keyed type's namespace
+    /// (`domain:wikipedia.org`), whose normalizer is named for the type; `None` outside the
+    /// entity namespaces.
+    #[must_use]
+    pub fn entity_id(&self, text: &str) -> Option<String> {
+        if !self.is_entity_namespace() {
+            return None;
+        }
+        match self.normalizer.as_deref() {
+            Some("entity-id") | None => Some(text.to_string()),
+            Some(keyed) => Some(format!("{keyed}:{text}")),
+        }
     }
 }
 
@@ -157,6 +178,18 @@ mod tests {
         assert!(module.holds_pages(|s| s == "wikitext.lua"));
         assert!(!r.get(3).expect("User talk").allows_model("wikitext"));
         assert!(r.get(120).expect("Item").is_entity_namespace());
+        let domain = r.get(210).expect("Domain");
+        assert!(
+            domain.is_entity_namespace(),
+            "a keyed type's pages are entities"
+        );
+        assert_eq!(
+            domain.entity_id("wikipedia.org").as_deref(),
+            Some("domain:wikipedia.org")
+        );
+        assert_eq!(r.get(120).unwrap().entity_id("Q5").as_deref(), Some("Q5"));
+        assert_eq!(r.get(4).unwrap().entity_id("Home"), None);
+        assert!(!r.get(4).unwrap().is_entity_namespace());
         assert_eq!(r.by_name("user_talk").map(|n| n.id), Some(3));
         assert_eq!(r.get(8).map(|n| n.kind), Some(Kind::Reserved));
     }

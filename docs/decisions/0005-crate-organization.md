@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-10-18 (A100)
+- **Updated:** 2026-10-20 (A101)
 - **Author:** James Hare / Claude Opus; revision by James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -42,7 +42,7 @@ Since this ADR was first written, twenty-six further ADRs have added crates, cha
 
 ### 2. Crate map
 
-*Changed by A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A27, A28, A29, A30, A31, A32, A33, A34, A35, A36, A37, A38, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A51, A52, A53, A54, A55, A57, A58, A59, A60, A61, A62, A63, A64, A65, A66, A67, A68, A69, A70, A71, A72, A73, A74, A75, A76, A77, A78, A79, A80, A84, A86, A87, A88, A89, A90, A91, A92, A93, A95, A96, A97, A98, A99, A100.*
+*Changed by A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A27, A28, A29, A30, A31, A32, A33, A34, A35, A36, A37, A38, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A51, A52, A53, A54, A55, A57, A58, A59, A60, A61, A62, A63, A64, A65, A66, A67, A68, A69, A70, A71, A72, A73, A74, A75, A76, A77, A78, A79, A80, A84, A86, A87, A88, A89, A90, A91, A92, A93, A95, A96, A97, A98, A99, A100, A101.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
@@ -984,3 +984,34 @@ Replaced text ([22](../architecture/22-crates-and-stack.md) §2.2, the end of th
 - **Source:** [0089](0089-the-auth-host-and-instance-logins.md) §17
 - **Change:** extends §2
 - **Summary:** `triplespace-accounts` gains instance logins: their records and names, passwords and external bindings keyed by login, tenant and farm accounts' bindings to logins, the authorization route's handles and login codes, central sessions and logging out everywhere, and the migration. `triplespace-server` gains `server.auth_base` and the auth base's routes, and `triplespace-cli` `logins migrate`; `triplespace-api-action`, `triplespace-api-rest`, `triplespace-ui`, `triplespace-db` and `scatter-actors` gain their parts. The chapter text is [22](../architecture/22-crates-and-stack.md) §2.1.
+
+### A101. `scatter-talk`
+
+- **Date:** 2026-10-20
+- **Source:** [0090](0090-converting-talk-pages-comment-by-comment.md) §12
+- **Change:** amends §2
+- **Summary:** A new pure crate, `scatter-talk`, holds the wikitext talk-page splitter (moved from `scatter-adapter-mediawiki`), the line-level blame and attribution, and DiscussionTools names and IDs, and embeds `talk-markup.toml`; it depends on `scatter-wikitext`. `scatter-threads` gains heading posts, wrapper posts and `imported_from` on `post`; `scatter-ingest` converts an adopted wiki's talk pages; `triplespace-repos` calls the conversion and streams history for attribution; `triplespace-projections` fills `view.post`'s new columns; `triplespace-ui` renders the new posts, anchors and `Special:GoToComment`. Chapter text: [22](../architecture/22-crates-and-stack.md) §1.2, §2.1.
+
+Replaced text ([22](../architecture/22-crates-and-stack.md) §2.1, as it stood):
+
+> `scatter-threads`, `scatter-activitypub`,
+
+Replaced text ([22](../architecture/22-crates-and-stack.md) §2.1, as it stood):
+
+> the section name hash in `imported_from` ([0069](../decisions/0069-synchronized-talk-pages.md) §12) | `scatter-pages` |
+
+Replaced text ([22](../architecture/22-crates-and-stack.md) §2.1, as it stood):
+
+> the per-graph base check and the patch rule of a stale local base ([0084](../decisions/0084-wikibase-writes-against-the-resolved-view.md) §6) | `scatter-log`, `scatter-projection`, `scatter-wikibase-changeset`, `scatter-wikibase-model`, `scatter-providers` |
+
+Replaced text ([22](../architecture/22-crates-and-stack.md) §2.1, as it stood):
+
+> event following and cursors shared with entity providers ([0070](../decisions/0070-shallow-entity-mirroring.md) §5) | `scatter-adapter-mediawiki`,
+
+Replaced text ([22](../architecture/22-crates-and-stack.md) §2.1, as it stood):
+
+> the `settings/change` log event ([0085](../decisions/0085-settings-and-preferences.md) §9) | `triplespace-db`, `scatter-projection`,
+
+Replaced text ([22](../architecture/22-crates-and-stack.md) §2.1, as it stood):
+
+> `Special:ConfirmAccounts` and the open-request count ([0087](../decisions/0087-account-registration-and-challenges.md) §5, §10) | `triplespace-client`,

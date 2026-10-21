@@ -353,14 +353,14 @@ impl Resolver for Links {
                 ..PageInfo::default()
             };
         }
-        let entity = Namespaces::embedded()
+        if let Some(id) = Namespaces::embedded()
             .get(t.namespace)
-            .is_some_and(scatter_titles::Namespace::is_entity_namespace);
-        if entity {
+            .and_then(|n| n.entity_id(&t.text))
+        {
             return PageInfo {
-                exists: self.entities.contains(&t.text),
+                exists: self.entities.contains(&id),
                 redirect: false,
-                label: self.labels.get(&t.text).cloned(),
+                label: self.labels.get(&id).cloned(),
             };
         }
         match self.pages.get(&(t.namespace, t.text.clone())) {
@@ -411,11 +411,11 @@ impl Links {
             if t.interwiki.is_some() {
                 continue;
             }
-            if namespaces
+            if let Some(id) = namespaces
                 .get(t.namespace)
-                .is_some_and(scatter_titles::Namespace::is_entity_namespace)
+                .and_then(|n| n.entity_id(&t.text))
             {
-                ids.push(t.text.clone());
+                ids.push(id);
             } else {
                 nss.push(t.namespace);
                 titles.push(t.text.clone());

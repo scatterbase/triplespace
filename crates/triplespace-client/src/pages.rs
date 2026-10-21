@@ -143,6 +143,8 @@ pub struct PageDiff {
     pub to: DiffSide,
     /// MediaWiki's table rows; empty where the two texts are equal.
     pub body: String,
+    /// The same diff in MediaWiki's inline layout, one column, for a narrow screen.
+    pub inline: String,
     /// The revision before the old side.
     pub prev: Option<u64>,
     /// The revision after the new side.
@@ -382,9 +384,10 @@ impl Client {
         })
     }
 
-    /// `action=compare` of two revisions of a document page. A refusal is
+    /// `action=compare` of two revisions of a document page, in both of MediaWiki's
+    /// layouts, the table and the inline column, asked for together. A refusal is
     /// [`ClientError::Api`] with the API's code (`nosuchrevid`, `missingtitle`,
-    /// `missingcontent`, `ts-entity-compare`, …).
+    /// `missingcontent`, …).
     ///
     /// # Errors
     ///
@@ -399,15 +402,16 @@ impl Client {
             DiffAsk::Relative(from, rel) => format!("fromrev={from}&torelative={rel}"),
             DiffAsk::Latest(title) => format!("fromtitle={}&torelative=prev", q(title)),
         };
-        let r = self
-            .get(
-                incoming,
-                &format!(
-                    "/w/api.php?action=compare&{which}&prop=diff%7Cids%7Ctitle%7Cuser%7Ccomment%7Csize%7Ctimestamp%7Crel&format=json&formatversion=2"
-                ),
-            )
-            .await?;
+        let table = format!(
+            "/w/api.php?action=compare&{which}&prop=diff%7Cids%7Ctitle%7Cuser%7Ccomment%7Csize%7Ctimestamp%7Crel&format=json&formatversion=2"
+        );
+        let inline = format!(
+            "/w/api.php?action=compare&{which}&prop=diff&difftype=inline&format=json&formatversion=2"
+        );
+        let (r, ri) = tokio::join!(self.get(incoming, &table), self.get(incoming, &inline));
+        let (r, ri) = (r?, ri?);
         let v = check(&r)?;
+        let vi = check(&ri)?;
         let c = &v["compare"];
         let to = diff_side(c, "to")
             .ok_or_else(|| ClientError::Unexpected(format!("compare answered {c}")))?;
@@ -416,10 +420,14 @@ impl Client {
                 from: diff_side(c, "from"),
                 to,
                 body: c["body"].as_str().unwrap_or_default().to_string(),
+                inline: vi["compare"]["body"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_string(),
                 prev: c["prev"].as_u64(),
                 next: c["next"].as_u64(),
             },
-            cache: CacheInfo::of(&r),
+            cache: CacheInfo::combine(&[CacheInfo::of(&r), CacheInfo::of(&ri)]),
         })
     }
 

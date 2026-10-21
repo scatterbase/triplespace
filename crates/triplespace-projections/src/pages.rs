@@ -525,9 +525,9 @@ async fn index_text(
         }
         let entity = namespaces
             .get(t.namespace)
-            .is_some_and(scatter_titles::Namespace::is_entity_namespace);
-        if entity {
-            links.insert((crate::common::target_kind::ENTITY, t.text.clone()));
+            .and_then(|n| n.entity_id(&t.text));
+        if let Some(id) = entity {
+            links.insert((crate::common::target_kind::ENTITY, id));
         } else {
             links.insert((TARGET_TITLE, format!("{}:{}", t.namespace, t.text)));
         }

@@ -618,6 +618,25 @@ async fn api(database: &str, key_file: &std::path::Path) {
     assert_eq!(cmp["compare"]["touser"], "Librarybase");
     assert_eq!(cmp["compare"]["next"].as_u64(), Some(ids[2]));
     assert!(cmp["compare"].get("prev").is_none(), "the first has none");
+    // difftype=inline: the same diff in one column, no table rows.
+    let inline = c
+        .get(&format!(
+            "action=compare&fromrev={oldest}&torev={}&difftype=inline",
+            ids[3]
+        ))
+        .await;
+    let ib = inline["compare"]["body"]
+        .as_str()
+        .unwrap_or_else(|| panic!("{inline}"));
+    assert!(ib.contains("mw-diff-inline-"), "{ib}");
+    assert!(!ib.contains("<tr"), "{ib}");
+    let unified = c
+        .get(&format!(
+            "action=compare&fromrev={oldest}&torev={}&difftype=unified",
+            ids[3]
+        ))
+        .await;
+    assert_eq!(unified["error"]["code"], "badvalue", "{unified}");
     // torelative=prev diffs the previous revision against `from`; the first is a creation.
     let prev = c
         .get(&format!(
@@ -669,10 +688,6 @@ async fn api(database: &str, key_file: &std::path::Path) {
         .get("action=compare&fromrev=99999999&torelative=prev")
         .await;
     assert_eq!(none["error"]["code"], "nosuchrevid", "{none}");
-    let item = c
-        .get("action=compare&fromtitle=Item:Q1&torelative=prev")
-        .await;
-    assert_eq!(item["error"]["code"], "ts-entity-compare", "{item}");
     let half = c.get(&format!("action=compare&fromrev={oldest}")).await;
     assert_eq!(half["error"]["code"], "missingparam", "{half}");
 
@@ -889,6 +904,12 @@ async fn pages_on_the_site(site: Router, project: &str) {
     let newest = reader.get(&diff_links[0]).await;
     assert_eq!(newest.status, StatusCode::OK, "{}", newest.body);
     assert!(newest.body.contains("ts-page-diff__table"));
+    assert!(
+        newest
+            .body
+            .contains("class=\"ts-page-diff__inline mw-diff-inline\""),
+        "the one-column layout too"
+    );
     assert!(
         newest.body.contains("Latest revision as of"),
         "{}",
