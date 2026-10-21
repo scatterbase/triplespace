@@ -1,0 +1,133 @@
+# Conventions of wikitext talk pages.  ADR 0090 §5.
+#
+# What the talk-page conversion (0090 §1–§4; architecture 13 §5.12–§5.16) reads to find
+# signatures, depth and structure in a wikitext talk page. Embedded by scatter-talk.
+#
+# The registry is UNIVERSAL: every entry applies on every wiki where it matches, because the
+# same formats and templates recur across wikis. A wiki configures nothing. Everything
+# wiki-specific comes from meta=siteinfo or a dump's <siteinfo>:
+#   - the content language, which selects the [[months]] table;
+#   - the timezone, in which a timestamp without a zone is read (tz database rules);
+#   - the namespace names and aliases for User and User talk, and the special-page aliases for
+#     Contributions, which a signature's user link may use.
+#
+# A timestamp counts as a signature only next to a user link (0090 §2), so trying every
+# format on every wiki is safe.
+#
+# [[timestamp]]
+#   format    A MediaWiki date-format string (Language::sprintfDate): H hour, i minute, s second,
+#             j day, d zero-padded day, n month, m zero-padded month, F month name, M month
+#             abbreviation, Y year, \T a literal T.
+#   zone      "optional": a zone abbreviation in parentheses may follow, " (UTC)", " (CET)".
+#   note      Where the format comes from.
+#   Commas, and the space before the zone, are optional when matching, since hand-typed and
+#   refactored signatures drop them.
+#
+# [[months]]
+#   lang      A language code, matched against the wiki's content language.
+#   long      The names F matches, January first.
+#   short     The abbreviations M matches; a trailing full stop is accepted.
+#
+# [undated]
+#   marks     What may precede the user link of an undated signature (2001 to about 2005).
+#   alone     A user link alone on its line, after any indentation, is also an undated signature.
+#
+# [[template]]
+#   role      unsigned  signs the text before it for the user it names (first parameter) at the
+#                       time it gives (second parameter, optional)
+#             outdent   the next comment replies to the comment before it, whatever its depth
+#             wrapper   a pair, `open` and `close`, that collapses or closes a discussion (0090 §3)
+#             autosign  a marker a signing bot or a substituted unsigned template leaves; the
+#                       signature next to it was added by someone other than the signer (0090 §6)
+#   lang      The language of the wikis that use these names.
+#   names     Template names; first letter case-insensitive, underscores and spaces equal.
+#   markers   (autosign) literal strings found in the wikitext.
+
+version = 1
+
+[[timestamp]]
+format = "H:i, j F Y"
+zone = "optional"
+note = "The content-language default on English Wikimedia wikis; the dmy user preference before 2006"
+
+[[timestamp]]
+format = "H:i, F j, Y"
+zone = "optional"
+note = "The mdy user preference, used by signatures until about 2005"
+
+[[timestamp]]
+format = "H:i, Y F j"
+zone = "optional"
+note = "The ymd user preference"
+
+[[timestamp]]
+format = "H:i, j M Y"
+zone = "optional"
+note = "dmy with abbreviated months, MediaWiki's English default until 2005"
+
+[[timestamp]]
+format = "H:i, M j, Y"
+zone = "optional"
+note = "mdy with abbreviated months, until 2005"
+
+[[timestamp]]
+format = "H:i, Y M j"
+zone = "optional"
+note = "ymd with abbreviated months, until 2005"
+
+[[timestamp]]
+format = "Y-m-d\\TH:i:s"
+zone = "optional"
+note = "The ISO 8601 user preference"
+
+[[timestamp]]
+format = "Y-m-d H:i"
+zone = "optional"
+note = "ISO-style dates typed by hand and by early bots"
+
+[[timestamp]]
+format = "H:i, Y-m-d"
+zone = "optional"
+note = "The ISO 8601 preference with the time first"
+
+[[months]]
+lang = "en"
+long = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+short = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+[undated]
+marks = ["--", "—", "–", "-", "~"]
+alone = true
+
+[[template]]
+role = "unsigned"
+lang = "en"
+names = ["Unsigned", "Unsigned2", "Unsigned3", "UnsignedIP", "Unsigned IP", "Unsigned IP2", "Unsigned-ip", "Unsignedip", "Unsig"]
+
+[[template]]
+role = "outdent"
+lang = "en"
+names = ["Outdent", "Od", "Od2", "Out", "Unindent", "Outdent2"]
+
+[[template]]
+role = "wrapper"
+lang = "en"
+open = ["Archive top", "Atop", "Archivetop", "Discussion top", "Dtop", "Closed rfc top", "Rfc top"]
+close = ["Archive bottom", "Abot", "Archivebottom", "Discussion bottom", "Dbot", "Closed rfc bottom", "Rfc bottom"]
+
+[[template]]
+role = "wrapper"
+lang = "en"
+open = ["Hidden archive top", "Hat"]
+close = ["Hidden archive bottom", "Hab"]
+
+[[template]]
+role = "wrapper"
+lang = "en"
+open = ["Collapse top", "Cot", "Collapsetop"]
+close = ["Collapse bottom", "Cob", "Collapsebottom"]
+
+[[template]]
+role = "autosign"
+lang = "en"
+markers = ["<!--Autosigned by SineBot-->", "<!-- Template:Unsigned -->", "<!-- Template:Unsigned IP -->", "<!-- Template:Unsigned2 -->", "class=\"autosigned\""]

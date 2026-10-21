@@ -749,6 +749,15 @@ group = "redirects"
 report = { backing = "index", reads = "view.page (ns, random)", graphs = "local" }
 adr = "0047 §4.4"
 
+# DiscussionTools' redirect to a comment by name or ID; finds imported posts (0090 §9).
+[[page]]
+name = "GoToComment"
+origin = "DiscussionTools"
+status = "served"
+scope = "tenant"
+group = "redirects"
+adr = "0090 §9"
+
 [[page]]
 name = "GoToInterwiki"
 origin = "mediawiki"

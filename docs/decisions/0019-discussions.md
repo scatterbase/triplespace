@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-09 (A23)
+- **Updated:** 2026-10-20 (A24)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0018](0018-tenants.md), [0022](0022-federation.md)
@@ -42,13 +42,13 @@ Two goals from the earlier ADRs constrain the design. Every unit of contribution
 
 ### 4. The record: four parts (amends 0015 §1)
 
-*Changed by A10, A13, A15, A17, A18, A19, A23.*
+*Changed by A10, A13, A15, A17, A18, A19, A23, A24.*
 
 *Current text: [14](../architecture/14-discussions.md) §1.5, §3.6, §4.2.*
 
 ### 5. Text: markdown, mentions and links (extends 0008 §5, §8 and §10)
 
-*Changed by A8, A13.*
+*Changed by A8, A13, A24.*
 
 *Current text: [14](../architecture/14-discussions.md) §1.6.*
 
@@ -478,3 +478,20 @@ Replaced text ([14](../architecture/14-discussions.md) §3.6, as it stood):
 Replaced text ([14](../architecture/14-discussions.md) §4.2, as it stood):
 
 > Each carries `target` and `talk` in the content part, as `attach` does, and a summary in the comment part.
+
+### A24. Heading posts, wrapper posts and imported posts' provenance
+
+- **Date:** 2026-10-20
+- **Source:** [0090](0090-converting-talk-pages-comment-by-comment.md) §3, §8
+- **Change:** extends §4, §5
+- **Summary:** The thread payload gains `heading` and `wrap` on `post`, for the heading posts and wrapper posts a talk-page conversion writes; `imported_from` may appear on `post` as well as `create`, carrying each imported post's DiscussionTools name and ID, `signed_as`, `added_by`, original timestamp and fallback reason; `inReplyTo` may name a heading post. All are written only by imports, and refused on an editor's `post`. Heading posts render as headings and wrapper posts around the posts they enclose. Chapter text: [14](../architecture/14-discussions.md) §1.5, §1.6.
+
+Replaced text ([14](../architecture/14-discussions.md) §1.5, as it stood):
+
+> | `inReplyTo` | `post` | The parent post's revision ID, or null for a top-level post |
+>
+> | `imported_from` | `create` (optional) | The repository, talk page, revision and archive subpage an imported thread came from, and the hash of the section's DiscussionTools name where there is one ([0054](../decisions/0054-forking-a-mirrored-page.md) §5, [0069](../decisions/0069-synchronized-talk-pages.md) §7) |
+>
+> The fields of `propose`, `submit` and `withdraw` are in §5.3.
+
+Replaced text ([14](../architecture/14-discussions.md) §1.6): none; a paragraph on heading and wrapper posts is added before the one on `~~~~`.

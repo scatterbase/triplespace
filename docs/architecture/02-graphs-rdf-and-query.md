@@ -89,6 +89,7 @@ Every graph's kind, integrity policy and export policy are those `graphs.toml` r
 | `grants.toml` | The API-key grants and the permissions each covers | [0024](../decisions/0024-subsidiary-accounts.md) §4 |
 | `sites.toml` | Site aliases: MediaWiki site IDs, hosts, article paths and languages, for sitelink compatibility | [0026](../decisions/0026-sitelinks.md) §2 |
 | `thread-statuses.toml` | The default thread statuses, with category and order | [0019](../decisions/0019-discussions.md) §6 |
+| `talk-markup.toml` | The conventions of wikitext talk pages: timestamp formats, month names by language, undated-signature marks and template names by role, universal across wikis | [0090](../decisions/0090-converting-talk-pages-comment-by-comment.md) §5 |
 | `preferences.toml` | The registered preference keys, types, groups and defaults, and which follow the farm account or may be held in the browser | [0027](../decisions/0027-preferences-and-portability.md) §1; [0085](../decisions/0085-settings-and-preferences.md) §1 |
 | `settings.toml` | Every `site` setting, a tenant's and the instance's: scope, bound, group, type, choices and default; the catalogue of [23](23-configuration-and-registry.md) §3.2–3.3 is generated from it | [0085](../decisions/0085-settings-and-preferences.md) §1 |
 | `tenancy.toml` | The tenancy switches, the three presets and their global groups | [0028](../decisions/0028-tenancy-policy.md) §1 |

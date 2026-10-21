@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-19 (A68)
+- **Updated:** 2026-10-20 (A69)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
@@ -70,7 +70,7 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 
 ### 5. The `view` schema
 
-*Changed by A5, A9, A11, A46, A52, A53, A59.*
+*Changed by A5, A9, A11, A46, A52, A53, A59, A69.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.1, §7.*
 
@@ -984,3 +984,16 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §2.3, as i
 > An adoption sets every sequence here, entity, page, revision, log and user IDs, past what the source wiki consumed, records the floors in its job record, and supplies `page_id` for adopted records rather than taking one ([0035](../decisions/0035-adopting-a-wikibase.md) §4).
 
 > Per-tenant sequences also include `log."{tenant}.user_id"` ([0007](../decisions/0007-actor-identity.md) §3).
+
+### A69. DiscussionTools names and original times on `view.post`
+
+- **Date:** 2026-10-20
+- **Source:** [0090](0090-converting-talk-pages-comment-by-comment.md) §9
+- **Change:** extends §5
+- **Summary:** `view.post` gains `dt_name`, `dt_id` and `original`, filled from an imported post's `imported_from`, with partial indexes on `dt_name` and `dt_id` for `Special:GoToComment`. Chapter text: [03](../architecture/03-storage-caches-and-search.md) §4.8.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.8, as it stood):
+
+>   hidden smallint NOT NULL DEFAULT 0, erased boolean NOT NULL DEFAULT false
+> );
+> CREATE INDEX post_thread ON view.post (thread_id, published);

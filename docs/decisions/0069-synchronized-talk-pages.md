@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-06
-- **Updated:** 2026-10-09 (A4)
+- **Updated:** 2026-10-20 (A5)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0030](0030-edit-filters.md), [0049](0049-boards.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [0067](0067-proposals.md), [0068](0068-merging-with-upstream.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0027](0027-preferences-and-portability.md), [0038](0038-page-metadata-and-categories.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0047](0047-special-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -54,7 +54,7 @@ James's direction, from the design discussion of 2026-10-06:
 
 ### 7. Forks: following the talk page or forking it (amends 0054 §1, §5; extends 0008 §4; settles 0068 Q2)
 
-*Changed by A3.*
+*Changed by A3, A5.*
 
 *Current text: [13](../architecture/13-mirrored-pages.md) §3.1, §3.2, §4.4, §5.11, §5.12.*
 
@@ -183,3 +183,14 @@ Replaced text (§9):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§12
 - **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), [13](../architecture/13-mirrored-pages.md), [14](../architecture/14-discussions.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A5. Stopping splits comments too
+
+- **Date:** 2026-10-20
+- **Source:** [0090](0090-converting-talk-pages-comment-by-comment.md) §10
+- **Change:** amends §7
+- **Summary:** **Stop following** runs the conversion as it now stands, so each section's comments become posts, attributed to their authors, rather than one post per section. Chapter text: [13](../architecture/13-mirrored-pages.md) §5.11.
+
+Replaced text ([13](../architecture/13-mirrored-pages.md) §5.11, as it stood):
+
+> each section becomes a closed local thread homed on the fork's talk page, with `imported_from` now also carrying the section's name hash;

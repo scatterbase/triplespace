@@ -538,9 +538,10 @@ scope = "tenant"
 bound = "ceiling"
 group = "mirrors"
 type = "integer"
+values = "integer, or `all`"
 default = 100
-meaning = "Revisions, counted from the newest, seeded with their text; the rest of the seeded history is metadata only, and dependencies and archives are never seeded with text"
-source = "[0054](../decisions/0054-forking-a-mirrored-page.md) §3"
+meaning = "Revisions, counted from the newest, seeded with their text; the rest of the seeded history is metadata only, and dependencies and archives are never seeded with text. `all` seeds every revision's text, under a ceiling of `all`"
+source = "[0054](../decisions/0054-forking-a-mirrored-page.md) §3, [0090](../decisions/0090-converting-talk-pages-comment-by-comment.md) §11"
 
 [[setting]]
 key = "fork.dependencies"
@@ -581,9 +582,10 @@ scope = "tenant"
 bound = "tenant"
 group = "mirrors"
 type = "integer"
+values = "integer, or `all`"
 default = 20000
-meaning = "The per-job budget: revisions, with or without text, a seeding job reads before it stops"
-source = "[0054](../decisions/0054-forking-a-mirrored-page.md) §3"
+meaning = "The per-job budget: revisions, with or without text, a seeding job reads before it stops, including those a talk-page conversion reads for attribution; `all` reads every revision"
+source = "[0054](../decisions/0054-forking-a-mirrored-page.md) §3, [0090](../decisions/0090-converting-talk-pages-comment-by-comment.md) §7, §11"
 
 [[setting]]
 key = "fork.refollow"

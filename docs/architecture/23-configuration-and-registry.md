@@ -152,7 +152,7 @@ Preference keys, which an account owns, are listed apart in §3.7 because they s
 
 ### 3.2 Tenant `site` settings
 
-*Sources: [0015](../decisions/0015-record-format-and-partition-registry.md) §3; [0042](../decisions/0042-template-expansion-and-parsoid.md) §2; [0069](../decisions/0069-synchronized-talk-pages.md) §11; [0075](../decisions/0075-mcp-server.md) §6; [0081](../decisions/0081-recovery-keys-and-continuations.md) §9; [0082](../decisions/0082-source-form-and-the-shared-view.md) §6; [0083](../decisions/0083-write-path-in-three-tiers.md) §3; [0085](../decisions/0085-settings-and-preferences.md) §1, §7; [0087](../decisions/0087-account-registration-and-challenges.md) §8; [0088](../decisions/0088-external-identity-providers.md) §9.*
+*Sources: [0015](../decisions/0015-record-format-and-partition-registry.md) §3; [0042](../decisions/0042-template-expansion-and-parsoid.md) §2; [0069](../decisions/0069-synchronized-talk-pages.md) §11; [0075](../decisions/0075-mcp-server.md) §6; [0081](../decisions/0081-recovery-keys-and-continuations.md) §9; [0082](../decisions/0082-source-form-and-the-shared-view.md) §6; [0083](../decisions/0083-write-path-in-three-tiers.md) §3; [0085](../decisions/0085-settings-and-preferences.md) §1, §7; [0087](../decisions/0087-account-registration-and-challenges.md) §8; [0088](../decisions/0088-external-identity-providers.md) §9; [0090](../decisions/0090-converting-talk-pages-comment-by-comment.md) §11.*
 
 The table is generated from `settings.toml` (§3.1). Each row cites the ADR section that defines the setting. "Scope" repeats what that section says; "`site` (by rule, §3.1)" means the section names the setting without saying which `config` holds it, and the rule of §3.1 makes it a tenant `site` setting. "Bound" is §3.1's: `tenant`, `tenant ≤ instance ceiling`, or `instance`. A default of "—" means the section gives none.
 
@@ -198,11 +198,11 @@ The table is generated from `settings.toml` (§3.1). Each row cites the ADR sect
 | `files.stash_ttl` | `site` (by rule, §3.1) | tenant | duration | 48 hours | Expiry of a stash entry | [0039](../decisions/0039-files-and-media.md) §5 |
 | `files.thumb_widths` | `site` (by rule, §3.1) | tenant | widths | — | Requested widths are rounded up to the next entry | [0039](../decisions/0039-files-and-media.md) §6 |
 | `fork.allow` | `site` | tenant | off, on | `on` where `pages.repos` is set | Whether pages may be forked | [0054](../decisions/0054-forking-a-mirrored-page.md) §8 |
-| `fork.content_revisions` | `site` | tenant ≤ instance ceiling | integer | 100 | Revisions, counted from the newest, seeded with their text; the rest of the seeded history is metadata only, and dependencies and archives are never seeded with text | [0054](../decisions/0054-forking-a-mirrored-page.md) §3 |
+| `fork.content_revisions` | `site` | tenant ≤ instance ceiling | integer, or `all` | 100 | Revisions, counted from the newest, seeded with their text; the rest of the seeded history is metadata only, and dependencies and archives are never seeded with text. `all` seeds every revision's text, under a ceiling of `all` | [0054](../decisions/0054-forking-a-mirrored-page.md) §3, [0090](../decisions/0090-converting-talk-pages-comment-by-comment.md) §11 |
 | `fork.dependencies` | `site` | tenant | `copy`, `inherit` | `copy` | Whether a fork copies its templates or leaves them to the repository | [0054](../decisions/0054-forking-a-mirrored-page.md) §4 |
 | `fork.history_source` | `site` | tenant | `chest:{path}`, `api` | `api` | Where a fork's history is seeded from | [0054](../decisions/0054-forking-a-mirrored-page.md) §3 |
 | `fork.max_dependencies` | `site` (by rule, §3.1) | tenant | integer | 2,000 | Stops a fork job that would copy more pages | [0054](../decisions/0054-forking-a-mirrored-page.md) §4 |
-| `fork.max_revisions` | `site` | tenant | integer | 20,000 | The per-job budget: revisions, with or without text, a seeding job reads before it stops | [0054](../decisions/0054-forking-a-mirrored-page.md) §3 |
+| `fork.max_revisions` | `site` | tenant | integer, or `all` | 20,000 | The per-job budget: revisions, with or without text, a seeding job reads before it stops, including those a talk-page conversion reads for attribution; `all` reads every revision | [0054](../decisions/0054-forking-a-mirrored-page.md) §3, [0090](../decisions/0090-converting-talk-pages-comment-by-comment.md) §7, §11 |
 | `fork.refollow` | `site` | tenant | `ask`, `auto`, `never` | `ask` | Whether a fork that no longer differs from upstream is offered or automatically re-followed | [0068](../decisions/0068-merging-with-upstream.md) §5 |
 | `fork.refollow_after` | `site` (by rule, §3.1) | tenant | duration | 30 days | Under `auto`, how long a fork must equal upstream before a job deletes it | [0068](../decisions/0068-merging-with-upstream.md) §5 |
 | `fork.talk` | `site` | tenant | `follow`, `fork` | `follow` | Default choice for a fork's talk page | [0069](../decisions/0069-synchronized-talk-pages.md) §7, §11 |
@@ -425,6 +425,7 @@ The files under `docs/registry/` in the Triplespace repository are the registry 
 | `keyed-types.toml`, `notation-schemes.toml`, `resolvers.toml` | `scatter-normalize` |
 | `sites.toml` | `scatter-wikibase-model` |
 | `thread-statuses.toml` | `scatter-threads` |
+| `talk-markup.toml` | `scatter-talk` |
 | `preferences.toml`, `settings.toml` | `triplespace-accounts` |
 | `file-types.toml` | `scatter-files` |
 | `wikitext-functions.toml` | `scatter-wikitext-expand` |
@@ -478,6 +479,12 @@ The files are `serde` + `toml`, embedded at build time (`include_str!`) by the c
 
 `docs/registry/version.toml` lists the developer, contributors, funders, AI agents and their attribution, services, feature switches and extensions, as [0077](../decisions/0077-special-version.md) §2, §4, §8, §9 and §11 describe. It is embedded by `triplespace-api-rest`, like the other registries ([0015](../decisions/0015-record-format-and-partition-registry.md) §5), and is CC0 like the rest of `docs/`. Its `[[feature]]` entries carry a scope: the tenant features are `content.licence`, `wikitext.lua`, `wikitext.renderer`, `pages.repos`, `search.inherited`, `query.enabled`, `mcp.enabled` and `proposals.push`, and the instance features `search.farm_wide` and `files.separation` ([0077](../decisions/0077-special-version.md) §11; the page is in [21](21-special-pages.md)).
 
+
+### 4.7 `talk-markup.toml`
+
+*Sources: [0090](../decisions/0090-converting-talk-pages-comment-by-comment.md) §5.*
+
+`docs/registry/talk-markup.toml` lists the conventions of wikitext talk pages that the talk-page conversion reads ([13](13-mirrored-pages.md) §5.16): timestamp formats as MediaWiki date-format strings with an optional zone, month names and abbreviations per language, the marks that may precede an undated signature, and template names by role (`unsigned`, `outdent`, `wrapper`, `autosign`) and language. It is **universal**: an entry applies on every wiki where it matches, and a wiki configures nothing, since its content language, timezone and namespace and special-page names come from `meta=siteinfo`. It is embedded by `scatter-talk` and starts with English; other languages are added by commits.
 ## 5. Configuration and the CLI
 
 *Sources: [0033](../decisions/0033-backend-stack.md) §12; [0029](../decisions/0029-resolver-namespaces.md) §8; [0077](../decisions/0077-special-version.md) §13.*

@@ -75,7 +75,7 @@ The title says what the thread is about and when it began, it can be typed, and 
 
 ### 1.5 The record: four parts
 
-*Sources: [0019](../decisions/0019-discussions.md) §4; [0049](../decisions/0049-boards.md) §6; [0069](../decisions/0069-synchronized-talk-pages.md) §4; [0067](../decisions/0067-proposals.md) §3.*
+*Sources: [0019](../decisions/0019-discussions.md) §4; [0049](../decisions/0049-boards.md) §6; [0069](../decisions/0069-synchronized-talk-pages.md) §4; [0067](../decisions/0067-proposals.md) §3; [0090](../decisions/0090-converting-talk-pages-comment-by-comment.md) §3, §8.*
 
 The payload type `scatter:v0/thread` is in the `pages` partition's list ([registry](../registry/graphs.toml)). It declares **four** body parts. The first three keep the meaning and index that [0015](../decisions/0015-record-format-and-partition-registry.md) §1 gives every Triplespace payload type; the fourth is this type's own:
 
@@ -97,17 +97,19 @@ The payload type `scatter:v0/thread` is in the `pages` partition's list ([regist
 | `op` | all | The operation |
 | `name` | `create`, `rename` | The subject |
 | `target` | `create`, `move` | `{kind, id}` (§1.3) |
-| `inReplyTo` | `post` | The parent post's revision ID, or null for a top-level post |
+| `inReplyTo` | `post` | The parent post's revision ID, or null for a top-level post; in an imported thread it may name a heading post ([0090](../decisions/0090-converting-talk-pages-comment-by-comment.md) §3) |
 | `object` | `edit` | The revision ID of the post whose text this replaces |
 | `status` | `post`, `create` | A status value (§2.1), when the post sets one; on `create`, a thread that arrives already closed, as an import's does ([0054](../decisions/0054-forking-a-mirrored-page.md) §5) |
 | `mediaType` | `create`, `post`, `edit` (optional) | The text part's media type: `text/markdown` by default, `text/x-wiki` for a post an import writes ([0054](../decisions/0054-forking-a-mirrored-page.md) §5) |
-| `imported_from` | `create` (optional) | The repository, talk page, revision and archive subpage an imported thread came from, and the hash of the section's DiscussionTools name where there is one ([0054](../decisions/0054-forking-a-mirrored-page.md) §5, [0069](../decisions/0069-synchronized-talk-pages.md) §7) |
+| `imported_from` | `create`, `post` (optional) | On `create`, the repository, talk page, revision and archive subpage an imported thread came from, and the hash of the section's DiscussionTools name where there is one ([0054](../decisions/0054-forking-a-mirrored-page.md) §5, [0069](../decisions/0069-synchronized-talk-pages.md) §7). On every imported post, `create` included: its DiscussionTools `name` and `id`, `signed_as`, `added_by` (upstream revision ID and actor), its original `timestamp`, and `fallback` with its reason when the post holds a whole section or page ([0090](../decisions/0090-converting-talk-pages-comment-by-comment.md) §8; [13](13-mirrored-pages.md) §5.13, §5.15, §5.17) |
+| `heading` | `post` (optional) | 3 to 6: a heading post, whose text is a subsection's heading and whose subsection's comments reply to it ([13](13-mirrored-pages.md) §5.14) |
+| `wrap` | `post` (optional) | The closing call of a wrapper post, whose text is the opening call of the template pair that closed or collapsed its section or subsection ([13](13-mirrored-pages.md) §5.14) |
 | `also` | `create` (optional) | Further targets listed at creation, each a `target` (§3.6); their talk page IDs are in the attestation map |
 | `target` | `attach`, `detach`, `pin`, `unpin` | The target (a `page` target only, for `attach` and `detach`); for `pin` and `unpin`, the attachment pinned or unpinned, any attachment, `actor` included (§4) |
 | `pinned` | `create` (optional) | `true` pins the thread on its home from the start, as an import does for front matter (§4; [0069](../decisions/0069-synchronized-talk-pages.md) §7) |
 | `keep` | `move` (optional) | `true` keeps the old home as a listing, with its pin if it had one (§3.6) |
 
-The fields of `propose`, `submit` and `withdraw` are in §5.3.
+The fields of `propose`, `submit` and `withdraw` are in §5.3. `imported_from` on `post`, `heading` and `wrap` are written only by imports; a `post` from an editor that carries any of them is refused ([0090](../decisions/0090-converting-talk-pages-comment-by-comment.md) §8).
 
 **The attestation map carries what the server minted.** Beside the actor and the signature that [0015](../decisions/0015-record-format-and-partition-registry.md) §1 gives every attestation part ([01](01-log-and-records.md)), a thread record's attestation map holds the values the appending transaction filled in, which the client did not submit and did not sign over:
 
@@ -120,13 +122,15 @@ Mentions, links and the rendered HTML are never stored; they are derived from th
 
 ### 1.6 Text: markdown, mentions and links
 
-*Sources: [0019](../decisions/0019-discussions.md) §5; [0033](../decisions/0033-backend-stack.md) §9.2.*
+*Sources: [0019](../decisions/0019-discussions.md) §5; [0033](../decisions/0033-backend-stack.md) §9.2; [0090](../decisions/0090-converting-talk-pages-comment-by-comment.md) §3.*
 
 **Posts are markdown** by default, rendered by the `markdown` content model of 0008 §5 ([10](10-pages-and-content-models.md) §4.4), with two additions that apply to that model everywhere; a post whose `mediaType` is `text/x-wiki`, which only an import writes, is rendered by the wikitext pipeline instead, with expansion, so the banners and templates of an imported talk page render through the title stack ([0054](../decisions/0054-forking-a-mirrored-page.md) §5; [11](11-rendering-templates-and-modules.md)):
 
 - **Wiki links.** `[[Title]]`, `[[Title|text]]` and `[[Title#Section]]` are resolved by the title resolver of 0008 §3, as in the wikitext subset. An entity is mentioned with its namespace, `[[Item:Q42]]`, which renders with the entity's label, as Wikibase does; a bare `[[Q42]]` links to the main-namespace page of that title, in markdown as in wikitext ([0038](../decisions/0038-page-metadata-and-categories.md) §8). This is the mention syntax; it is what every editor already knows.
 
 - **Raw HTML is sanitized** to the allow-list of 0008 §8. CommonMark passes HTML through; the renderer does not.
+
+**Heading posts and wrapper posts**, which only an import writes, render as what they were: a heading post as a heading at its depth, and a wrapper post by expanding its opening call, a placeholder and its closing call once and putting the enclosed posts' HTML at the placeholder ([0090](../decisions/0090-converting-talk-pages-comment-by-comment.md) §3; [13](13-mirrored-pages.md) §5.14).
 
 `~~~~` is not expanded. A post is attributed by its attestation, and the signature has nothing to add.
 

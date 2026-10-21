@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-20 (A42)
+- **Updated:** 2026-10-20 (A43)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -71,7 +71,7 @@ The goal is not to reimplement MediaWiki's page features. Templates, parser func
 
 ### 9. Importing pages from another wiki
 
-*Changed by A7, A10, A12, A16, A23, A38, A41.*
+*Changed by A7, A10, A12, A16, A23, A38, A41, A43.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §6.*
 
@@ -617,3 +617,18 @@ Replaced text ([10](../architecture/10-pages-and-content-models.md) §5.2, the p
 Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.7, as it stood):
 
 > `target_page_id` is refreshed when the target is created, deleted, undeleted or moved, by the same title-index maintenance that keeps `page_link` targets current.
+
+### A43. An adopted wiki's talk pages are converted, comment by comment
+
+- **Date:** 2026-10-20
+- **Source:** [0090](0090-converting-talk-pages-comment-by-comment.md) §10
+- **Change:** amends §9
+- **Summary:** Adoption converts the adopted wiki's talk pages to threads within the job, with their history read from the dump to attribute each comment and their actors the adopted actors, so they are no longer counted `deferred`; talk pages in a content model other than wikitext still are. An imported talk namespace is converted with one post per comment, attributed from the export's own revisions where it carries full history and from signatures otherwise, with the section and page fallbacks. Chapter text: [10](../architecture/10-pages-and-content-models.md) §6.
+
+Replaced text ([10](../architecture/10-pages-and-content-models.md) §6, as it stood):
+
+> **Its talk pages wait** for their conversion to threads (below), and they and pages in reserved namespaces are counted `deferred` in the job's report ([0008](../decisions/0008-namespaces-and-document-pages.md) A41).
+
+Replaced text ([10](../architecture/10-pages-and-content-models.md) §6, as it stood):
+
+> **Talk namespaces are converted to threads.** A wikitext talk page in an export is imported as threads homed on its subject's talk page, split by level-two heading with the frontmatter first, each created closed with the `archived` status and holding its section's wikitext as the opening post ([0054](../decisions/0054-forking-a-mirrored-page.md) §5; [14](../architecture/14-discussions.md)); a project-wide discussion page lands on a board the importer names.

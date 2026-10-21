@@ -565,7 +565,7 @@ An ADR that adds a setting turning a feature on or off adds it to `[[feature]]`.
 
 ### 6.1 Pages served with MediaWiki's or Wikibase's meaning
 
-*Sources: [0047](../decisions/0047-special-pages.md) §9.*
+*Sources: [0047](../decisions/0047-special-pages.md) §9; [0090](../decisions/0090-converting-talk-pages-comment-by-comment.md) §9.*
 
 These are served with MediaWiki's or Wikibase's meaning and parameters. The notes say what they read or write.
 
@@ -574,6 +574,7 @@ These are served with MediaWiki's or Wikibase's meaning and parameters. The note
 | `SpecialPages` | The index the header links to (0010 §2), grouped by `group`. Restricted pages are listed only to holders of the right. At the farm base it also lists the `farm` pages. |
 | `Search` | The full results page of 0010 §3: `search`, `fulltext`, `ns{n}`, `profile`, `offset`, `limit`. `go` follows 0010 §3's **Go to** rule. |
 | `MovePage` | The overflow menu's **Move** (0010 §2); a `move` record ([0008](../decisions/0008-namespaces-and-document-pages.md) §4) |
+| `GoToComment` | DiscussionTools' page: finds an imported post by its DiscussionTools name or ID and redirects to it on its thread through `Special:PermanentLink/{revid}`, listing the posts where several share a name ([0090](../decisions/0090-converting-talk-pages-comment-by-comment.md) §9; [13](13-mirrored-pages.md) §5.17). Origin `DiscussionTools`; group `redirects` |
 | `RevisionDelete` | The history dialog of 0023 §9 as a page: `type`, `target`, `ids` |
 | `Unblock`, `RemoveGlobalBlock` | Retire a block, or a global block at the farm base ([0028](../decisions/0028-tenancy-policy.md)) |
 | `EditWatchlist` | The watch set, with `/raw` and `/clear` ([0020](../decisions/0020-change-feeds.md) §3) |
@@ -653,9 +654,9 @@ Four pages that were deferred are served: `ListRedirects`, `BrokenRedirects`, `D
 
 ## 8. The catalogue
 
-*Sources: [0047](../decisions/0047-special-pages.md) §1, §4.4, §9, §10; [0051](../decisions/0051-page-redirects.md) §6; [0061](../decisions/0061-sprints-and-tasks.md) §9; [0062](../decisions/0062-workspaces.md) §7; [0064](../decisions/0064-entityschema-and-validation.md) §7; [0066](../decisions/0066-lexemes.md) §7; [0077](../decisions/0077-special-version.md) §1; [0085](../decisions/0085-settings-and-preferences.md) §4, §5; [0087](../decisions/0087-account-registration-and-challenges.md) §6.*
+*Sources: [0047](../decisions/0047-special-pages.md) §1, §4.4, §9, §10; [0051](../decisions/0051-page-redirects.md) §6; [0061](../decisions/0061-sprints-and-tasks.md) §9; [0062](../decisions/0062-workspaces.md) §7; [0064](../decisions/0064-entityschema-and-validation.md) §7; [0066](../decisions/0066-lexemes.md) §7; [0077](../decisions/0077-special-version.md) §1; [0085](../decisions/0085-settings-and-preferences.md) §4, §5; [0087](../decisions/0087-account-registration-and-challenges.md) §6; [0090](../decisions/0090-converting-talk-pages-comment-by-comment.md) §9.*
 
-Every entry of `docs/registry/special-pages.toml` (193 pages: 173 served, 7 deferred, 13 declined, none reserved), in alphabetical order. The columns are the registry's fields (§1.1); **Section** is where this chapter describes the page. The ADR column is the registry's `adr` field as written.
+Every entry of `docs/registry/special-pages.toml` (194 pages: 174 served, 7 deferred, 13 declined, none reserved), in alphabetical order. The columns are the registry's fields (§1.1); **Section** is where this chapter describes the page. The ADR column is the registry's `adr` field as written.
 
 Every `Special:` name that [0047](../decisions/0047-special-pages.md) §1–§10, [0051](../decisions/0051-page-redirects.md) §6, [0061](../decisions/0061-sprints-and-tasks.md) §9, [0062](../decisions/0062-workspaces.md) §7, [0064](../decisions/0064-entityschema-and-validation.md) §7, [0066](../decisions/0066-lexemes.md) §7 and [0077](../decisions/0077-special-version.md) §1 use is in the registry as a name, alias or section alias; none is missing. Twenty-six served pages in the registry are specified by other ADRs and are not described in those sections or in this chapter; the catalogue marks them "—" and names their ADR: `Block`, `BlockList`, `DeletedContributions`, `ListGroupRights`, `Undelete` and `UserRights` ([09](09-security-and-moderation.md)); `UserLogin`, `CreateAccount`, `ListGrants`, `OAuth`, `PendingSubsidiaries` and `TransferAccount` ([07](07-actors-and-accounts.md)); `RecentChanges`, `RecentChangesLinked`, `Watchlist` and `Tags` ([16](16-logs-feeds-and-notifications.md), [09](09-security-and-moderation.md)); `FilePath` and `Upload` ([12](12-files-and-media.md)); `WhatLinksHere`, `Diff` and `PermanentLink` ([19](19-site-ui.md)); `EntityData`, `EntityPage`, `ItemByTitle` and `GoToLinkedPage` ([10](10-pages-and-content-models.md), [06](06-statements-and-properties.md)).
 
@@ -719,6 +720,7 @@ Every `Special:` name that [0047](../decisions/0047-special-pages.md) §1–§10
 | `GlobalGroupMembership` |  | `GlobalUserRights` | `CentralAuth` | served | `farm` | `instance` |  |  | 0028 §11 | §1.3 |
 | `GlobalRecentChanges` |  |  | `triplespace` | served | `farm` | `instance` |  |  | 0028 §9 | §1.3 |
 | `GlobalUsers` |  |  | `CentralAuth` | served | `farm` | `instance` |  |  | 0028 §11 | §1.3 |
+| `GoToComment` |  |  | `DiscussionTools` | served | `tenant` | `redirects` |  |  | 0090 §9 | §6.1 |
 | `GoToInterwiki` |  |  | `mediawiki` | declined: interwiki prefixes come from site aliases (0026 §2) and their links render as their targets | `tenant` | `redirects` |  |  | — | §7 |
 | `GoToLinkedPage` |  |  | `Wikibase` | served | `tenant` | `wikibaserepo` |  |  | 0029 §5 | — |
 | `IdentityConflicts` |  |  | `triplespace` | served | `tenant` | `identity` |  | `index`: view.link (status held); graphs local (widened live by graphs=all; 0047 §6) | 0004 §10, 0047 §6 | §2.4 |

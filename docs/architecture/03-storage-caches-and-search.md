@@ -784,7 +784,7 @@ CREATE INDEX redirect_target ON view.redirect (target_ns, target_title);
 
 ### 4.8 Threads, talk pages, boards and foreign threads
 
-*Sources: [0019](../decisions/0019-discussions.md) §11; [0049](../decisions/0049-boards.md) §12; [0069](../decisions/0069-synchronized-talk-pages.md) §10.*
+*Sources: [0019](../decisions/0019-discussions.md) §11; [0049](../decisions/0049-boards.md) §12; [0069](../decisions/0069-synchronized-talk-pages.md) §10; [0090](../decisions/0090-converting-talk-pages-comment-by-comment.md) §9.*
 
 Threads and talk pages get rows in `view.page` (namespace, title, content model `triplespace-thread` or `triplespace-talk` ([0041](../decisions/0041-content-models.md) §10), latest offset and revision ID, deleted, generation), so the title index and `page_link` cover them without change. Beside it:
 
@@ -810,16 +810,20 @@ CREATE TABLE view.post (
   revid bigint PRIMARY KEY, thread_id bigint NOT NULL REFERENCES view.thread,
   parent_revid bigint, actor text, published timestamptz NOT NULL, updated timestamptz,
   latest_offset bigint NOT NULL,           -- the record holding the current text
-  hidden smallint NOT NULL DEFAULT 0, erased boolean NOT NULL DEFAULT false
+  hidden smallint NOT NULL DEFAULT 0, erased boolean NOT NULL DEFAULT false,
+  dt_name text, dt_id text,                -- an imported post's DiscussionTools name and ID (0090 §9)
+  original timestamptz                     -- an imported post's original time (0090 §6)
 );
 CREATE INDEX post_thread ON view.post (thread_id, published);
+CREATE INDEX post_dt_name ON view.post (dt_name) WHERE dt_name IS NOT NULL;
+CREATE INDEX post_dt_id ON view.post (dt_id) WHERE dt_id IS NOT NULL;
 CREATE TABLE view.talk_page (
   page_id bigint PRIMARY KEY REFERENCES view.page,
   target_kind smallint NOT NULL, target_id text NOT NULL, UNIQUE (target_kind, target_id)
 );
 ```
 
-`view.thread_attachment` is the form of [0049](../decisions/0049-boards.md) §12 with the `pinned` column of [0069](../decisions/0069-synchronized-talk-pages.md) §10; [0019](../decisions/0019-discussions.md) §11 gives it with only `(thread_id, talk_page_id, attached)`. `view.thread.talk_page_id` stays, and is the home. The listing query reads `view.thread_attachment`, which replaces the `thread_talk` index. **A board has a `view.talk_page` row** from its creation, with `target_kind` `page` and `target_id` its own page ID, so every query that starts from a talk page works on boards. These are log-replayed projections in the sense of §6, written for the thread or talk page an interactive write touched in the after-commit slot of §6.2, so a posted thread is listed on the next request.
+`view.thread_attachment` is the form of [0049](../decisions/0049-boards.md) §12 with the `pinned` column of [0069](../decisions/0069-synchronized-talk-pages.md) §10; [0019](../decisions/0019-discussions.md) §11 gives it with only `(thread_id, talk_page_id, attached)`. `view.thread.talk_page_id` stays, and is the home. The listing query reads `view.thread_attachment`, which replaces the `thread_talk` index. **A board has a `view.talk_page` row** from its creation, with `target_kind` `page` and `target_id` its own page ID, so every query that starts from a talk page works on boards. These are log-replayed projections in the sense of §6, written for the thread or talk page an interactive write touched in the after-commit slot of §6.2, so a posted thread is listed on the next request. An imported post's `dt_name`, `dt_id` and `original` come from its `imported_from`; `Special:GoToComment` finds a post by either index ([0090](../decisions/0090-converting-talk-pages-comment-by-comment.md) §9; [13](13-mirrored-pages.md) §5.17).
 
 **Foreign threads** are the projection of the followed talk pages' puts ([0069](../decisions/0069-synchronized-talk-pages.md) §2):
 
