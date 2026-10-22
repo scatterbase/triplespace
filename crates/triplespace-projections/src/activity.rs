@@ -417,6 +417,112 @@ fn reclaim_columns(record: &Record) -> Result<Columns, String> {
     })
 }
 
+/// An ACL record as the log event of 09 §4.3: `protect/protect`, `protect/modify` or
+/// `protect/unprotect`; `delete/delete` or `delete/restore`; `delete/revision` for a
+/// `record` target; `suppress/…` when the restriction names the suppression group; and
+/// `suppress/hide-user` for an actor. The previous record under the key tells a change
+/// from a first restriction, and what a retirement undid.
+async fn acl_columns(cx: &PgCx, record: &Record) -> Result<Columns, String> {
+    use scatter_actors::acl::{Acl, ReadKind, Target as AclTarget};
+    let h = record.header();
+    let key = h
+        .key
+        .as_deref()
+        .ok_or("an acl record is keyed by its target")?;
+    let target = AclTarget::parse(key).map_err(|e| e.to_string())?;
+    let decode = |r: &Record| -> Result<Option<Acl>, String> {
+        match content(r)? {
+            Some(v) => serde_json::from_value(to_jsonb(&v))
+                .map(Some)
+                .map_err(|e| e.to_string()),
+            None => Ok(None),
+        }
+    };
+    let acl = decode(record)?;
+    let previous = scatter_log_postgres::log::read_by_key(cx, h.partition, key)
+        .await
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .rev()
+        .find(|(o, _)| *o < h.offset)
+        .map(|(_, r)| decode(&r))
+        .transpose()?
+        .flatten();
+    let moderation = |a: &Acl| {
+        a.restrictions.contains_key(scatter_actors::acl::READ)
+            && a.read_kind == Some(ReadKind::Moderation)
+    };
+    let suppressed = |a: &Acl| {
+        a.restrictions
+            .get(scatter_actors::acl::READ)
+            .is_some_and(|r| r.group.as_deref() == Some("suppress") || r.group.is_none())
+    };
+    // What the event is about: the ACL written, or for a retirement the one retired.
+    let about = acl.as_ref().or(previous.as_ref());
+    let (log_type, log_action) = match (&target, &acl, about) {
+        (AclTarget::Actor(_), _, _) => (
+            "suppress",
+            if acl.is_some() {
+                "hide-user"
+            } else {
+                "unhide-user"
+            },
+        ),
+        (AclTarget::Record { .. }, _, Some(a)) => (
+            if suppressed(a) { "suppress" } else { "delete" },
+            "revision",
+        ),
+        (_, Some(a), _) if moderation(a) => {
+            (if suppressed(a) { "suppress" } else { "delete" }, "delete")
+        }
+        (_, None, Some(a)) if moderation(a) => ("delete", "restore"),
+        (_, Some(_), _) if previous.is_some() => ("protect", "modify"),
+        (_, Some(_), _) => ("protect", "protect"),
+        (_, None, _) => ("protect", "unprotect"),
+    };
+    let target_columns = match &target {
+        AclTarget::Page(id) => Target {
+            kind: Some(target_kind::PAGE),
+            id: Some(id.to_string()),
+            member: None,
+        },
+        AclTarget::Entity(id) => Target {
+            kind: Some(target_kind::ENTITY),
+            id: Some(id.clone()),
+            member: None,
+        },
+        AclTarget::Actor(key) => Target {
+            kind: Some(target_kind::ACTOR),
+            id: Some(key.to_string()),
+            member: None,
+        },
+        AclTarget::Record { partition, offset } => Target {
+            kind: Some(target_kind::RECORD),
+            id: Some(format!("{partition}:{offset}")),
+            member: None,
+        },
+        other => Target {
+            kind: None,
+            id: Some(other.key()),
+            member: None,
+        },
+    };
+    let params = serde_json::json!({
+        "restrictions": acl.as_ref().map(|a| &a.restrictions),
+        "previous": previous.as_ref().map(|a| &a.restrictions),
+        "parts": about.map(|a| &a.parts),
+        "talk": about.is_some_and(|a| a.talk),
+    });
+    Ok(Columns {
+        kind: "log",
+        target: target_columns,
+        log_type: Some(log_type.into()),
+        log_action: Some(log_action.into()),
+        params: Some(params),
+        ..Columns::default()
+    })
+}
+
 /// The size of a page's row before a revision, 0 for its first.
 async fn previous_size(
     cx: &PgCx,
@@ -455,7 +561,8 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for ActivityProjection {
             && (header.payload_type == PAYLOAD_CHANGESET
                 || header.payload_type == PAYLOAD_LOGEVENT
                 || header.payload_type == PAYLOAD_RECLAIM
-                || header.payload_type == scatter_pages::PAYLOAD_PAGE)
+                || header.payload_type == scatter_pages::PAYLOAD_PAGE
+                || header.payload_type == crate::actors::payload::ACL)
     }
 
     fn apply<'a>(
@@ -472,6 +579,8 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for ActivityProjection {
                 page_columns(record)?
             } else if h.payload_type == PAYLOAD_RECLAIM {
                 reclaim_columns(record)?
+            } else if h.payload_type == crate::actors::payload::ACL {
+                acl_columns(cx, record).await?
             } else {
                 logevent_columns(record)?
             };

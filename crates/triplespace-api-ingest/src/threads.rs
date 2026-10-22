@@ -8,11 +8,16 @@
 //! with the base-offset check, projecting it in the same unit of work. The caller commits
 //! or rolls back.
 //!
+//! A thread that is deleted, or whose home talk page is, takes no record, and a deleted
+//! page cannot be a target (0023 §4; 14 §1.2). Whether the writer may read a confidential
+//! thread or target is the caller's check, which knows the writer's groups.
+//!
 //! Statuses are the registry's defaults; a tenant's own `thread-status` records are not read
 //! yet. Boards do not exist yet, so every page takes homes.
 
 use std::collections::{BTreeSet, HashMap};
 
+use scatter_actors::Timestamp;
 use scatter_ingest::store::Sequence;
 use scatter_ingest::{
     IngestError, IngestStore, MintedValue, RawRecord, Request, Written, write_raw,
@@ -25,6 +30,7 @@ use scatter_threads::{
     ThreadOp, Writer, mint_title, normalize_subject,
 };
 use triplespace_projections::PgCx;
+use triplespace_projections::acl_read::{page_chain, removed, thread_chain};
 use triplespace_projections::threads::{own_talk_page, read_record, target_columns};
 
 use crate::PgIngest;
@@ -71,6 +77,10 @@ pub enum ThreadError {
     /// No thread has that page ID.
     #[error("no thread has page ID {0}")]
     NoThread(u64),
+    /// The thread, or the talk page it lives on, is deleted: no operation is accepted on
+    /// it (14 §1.2).
+    #[error("thread {0} is deleted")]
+    Deleted(u64),
     /// The operation needs a base offset and the request has none (14 §1.2).
     #[error("`{0}` needs a base offset")]
     NeedsBase(&'static str),
@@ -142,20 +152,28 @@ async fn talk_of(cx: &PgCx, tenant: &str, target: &Target) -> Result<Option<u64>
     Ok(row.and_then(|r| u64::try_from(r.get::<_, i64>(0)).ok()))
 }
 
-async fn facts(cx: &PgCx, tenant: &str, op: &ThreadOp) -> Result<Facts, ThreadError> {
+async fn facts(cx: &PgCx, tenant: &str, op: &ThreadOp, now: u64) -> Result<Facts, ThreadError> {
     let mut f = Facts::default();
     for t in targets(op) {
         let exists = match t {
             Target::Page(id) if *id >= PROVIDER_RANGED => true,
-            Target::Page(id) => {
-                let id = i64::try_from(*id).map_err(store_err)?;
-                cx.query_opt(
-                    "SELECT 1 FROM view.page WHERE tenant = $1 AND page_id = $2 AND NOT deleted",
-                    &[&tenant, &id],
-                )
-                .await
-                .map_err(store_err)?
-                .is_some()
+            Target::Page(page) => {
+                let id = i64::try_from(*page).map_err(store_err)?;
+                let row = cx
+                    .query_opt(
+                        "SELECT 1 FROM view.page WHERE tenant = $1 AND page_id = $2 AND NOT deleted",
+                        &[&tenant, &id],
+                    )
+                    .await
+                    .map_err(store_err)?;
+                // A deleted page takes no threads (0023 §4).
+                row.is_some()
+                    && !removed(
+                        &page_chain(cx, tenant, *page)
+                            .await
+                            .map_err(ThreadError::Store)?,
+                        Timestamp(now),
+                    )
             }
             Target::Actor(key) => cx
                 .query_opt(
@@ -263,6 +281,36 @@ async fn talk_or_mint(
     Ok(store.next_id(cx, tenant, &Sequence::Page).await?)
 }
 
+/// The thread with this page ID, as its records leave it; a deleted thread is refused.
+async fn load(
+    cx: &PgCx,
+    partition: u64,
+    tenant: &str,
+    id: u64,
+    now: u64,
+) -> Result<Thread, ThreadError> {
+    let records = scatter_log_postgres::log::read_by_key(cx, partition, &id.to_string())
+        .await
+        .map_err(store_err)?;
+    let mut folded = Vec::with_capacity(records.len());
+    for (_, r) in &records {
+        if let Some(rec) = read_record(r).map_err(ThreadError::Store)? {
+            folded.push(rec);
+        }
+    }
+    if folded.is_empty() {
+        return Err(ThreadError::NoThread(id));
+    }
+    let chain = thread_chain(cx, tenant, id)
+        .await
+        .map_err(ThreadError::Store)?
+        .unwrap_or_default();
+    if removed(&chain, Timestamp(now)) {
+        return Err(ThreadError::Deleted(id));
+    }
+    Thread::replay(&folded).map_err(ThreadError::Invalid)
+}
+
 /// Mints what the record needs: the page ID and title of a new thread, a renamed thread's
 /// title, and the talk page of the target a record names.
 async fn mint(
@@ -338,25 +386,11 @@ pub async fn write(
     // The thread as its records leave it.
     let thread = match w.thread {
         None => None,
-        Some(id) => {
-            let records = scatter_log_postgres::log::read_by_key(&*cx, partition, &id.to_string())
-                .await
-                .map_err(store_err)?;
-            let mut folded = Vec::with_capacity(records.len());
-            for (_, r) in &records {
-                if let Some(rec) = read_record(r).map_err(ThreadError::Store)? {
-                    folded.push(rec);
-                }
-            }
-            if folded.is_empty() {
-                return Err(ThreadError::NoThread(id));
-            }
-            Some(Thread::replay(&folded).map_err(ThreadError::Invalid)?)
-        }
+        Some(id) => Some(load(cx, partition, tenant, id, request.now).await?),
     };
 
     // Check the record before minting anything.
-    let facts = facts(cx, tenant, &w.op).await?;
+    let facts = facts(cx, tenant, &w.op, request.now).await?;
     let check = Check {
         statuses: Statuses::embedded(),
         pages: &facts,

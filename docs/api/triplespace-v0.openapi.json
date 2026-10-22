@@ -2065,7 +2065,7 @@
       "post": {
         "operationId": "createThread",
         "summary": "Start a thread",
-        "description": "Writes `create`: mints the thread's page ID and title (`{date}/{subject}`, with ` (n)` when taken) and the target's talk page if it has none. `also` lists the thread on further pages from the start. Needs the `edit` right and an account; a request made with a session cookie carries its CSRF token as `token`. Refusals: `badbody`; `badtoken` for a session write without its CSRF token; `permissiondenied`; `ts-thread-not-found`; `ts-not-a-post`; `ts-bad-subject`; `ts-unknown-status`; `ts-bad-media-type`; `ts-import-only` for a field only an import writes; `ts-bad-collapse`; `ts-no-target`; `ts-bad-attachment`; `ts-bad-pin`; `ts-limit`; `ts-base-required`; and `editconflict` when the thread has a record after `base` (ADR 0019 §9, A26; architecture 14 §1.2, §2.4, §3.6, §4.2).",
+        "description": "Writes `create`: mints the thread's page ID and title (`{date}/{subject}`, with ` (n)` when taken) and the target's talk page if it has none. `also` lists the thread on further pages from the start. Needs the `edit` right and an account; a request made with a session cookie carries its CSRF token as `token`. Refusals: `badbody`; `badtoken` for a session write without its CSRF token; `permissiondenied`; `ts-thread-not-found`; `ts-not-a-post`; `ts-bad-subject`; `ts-unknown-status`; `ts-bad-media-type`; `ts-import-only` for a field only an import writes; `ts-bad-collapse`; `ts-no-target`; `ts-bad-attachment`; `ts-bad-pin`; `ts-limit`; `ts-base-required`; and `editconflict` when the thread has a record after `base` (ADR 0019 §9, A26; architecture 14 §1.2, §2.4, §3.6, §4.2). The writer must be able to read the thread and every page the record names; a page they may not read is `ts-no-target`, and no record is accepted on a deleted thread (`ts-thread-deleted`, 410).",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -2145,7 +2145,7 @@
       "get": {
         "operationId": "getThread",
         "summary": "A thread",
-        "description": "The thread: subject, title, status and its category, `home` and `listings` (each with its target, talk page ID and title, when attached and when pinned), and its posts as `as:Note` objects in tree order, each post followed by its replies, with `depth`, `collapsed` and, on a collapsing post, `collapse`. `base` is the offset a later write names. Local threads only (ADR 0019 §9; 0049 §11).",
+        "description": "The thread: subject, title, status and its category, `home` and `listings` (each with its target, talk page ID and title, when attached and when pinned), and its posts as `as:Note` objects in tree order, each post followed by its replies, with `depth`, `collapsed` and, on a collapsing post, `collapse`. `base` is the offset a later write names. Local threads only (ADR 0019 §9; 0049 §11). Reads follow the ACLs (ADR 0023 §4–§5; 0056 §5): a thread is enclosed by its home talk page, which a subject's deletion can take with it; a thread the viewer may not read answers as missing when the restriction is confidential, and 410 `ts-thread-deleted` when it was deleted, while its deletion group still reads it, marked `deleted`. A post whose text or author a `record` ACL hides carries `texthidden` or `userhidden`, with the part itself only for the group the ACL names; erased text is `texthidden` and `erased`.",
         "parameters": [
           {
             "name": "id",
@@ -2197,6 +2197,16 @@
                 }
               }
             }
+          },
+          "410": {
+            "description": "`ts-thread-deleted`: the thread, or the talk page it lives on, was deleted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }
@@ -2205,7 +2215,7 @@
       "post": {
         "operationId": "postToThread",
         "summary": "Post in a thread",
-        "description": "Writes `post`: top-level, or in reply to `inReplyTo`; `status` sets the thread's status; `collapse` collapses a range of the thread's posts beneath this one, and `uncollapse` undoes another post's collapse (architecture 14 §2.1, §2.4). Replies need no `base`. Needs the `edit` right and an account; a request made with a session cookie carries its CSRF token as `token`. Refusals: `badbody`; `badtoken` for a session write without its CSRF token; `permissiondenied`; `ts-thread-not-found`; `ts-not-a-post`; `ts-bad-subject`; `ts-unknown-status`; `ts-bad-media-type`; `ts-import-only` for a field only an import writes; `ts-bad-collapse`; `ts-no-target`; `ts-bad-attachment`; `ts-bad-pin`; `ts-limit`; `ts-base-required`; and `editconflict` when the thread has a record after `base` (ADR 0019 §9, A26; architecture 14 §1.2, §2.4, §3.6, §4.2).",
+        "description": "Writes `post`: top-level, or in reply to `inReplyTo`; `status` sets the thread's status; `collapse` collapses a range of the thread's posts beneath this one, and `uncollapse` undoes another post's collapse (architecture 14 §2.1, §2.4). Replies need no `base`. Needs the `edit` right and an account; a request made with a session cookie carries its CSRF token as `token`. Refusals: `badbody`; `badtoken` for a session write without its CSRF token; `permissiondenied`; `ts-thread-not-found`; `ts-not-a-post`; `ts-bad-subject`; `ts-unknown-status`; `ts-bad-media-type`; `ts-import-only` for a field only an import writes; `ts-bad-collapse`; `ts-no-target`; `ts-bad-attachment`; `ts-bad-pin`; `ts-limit`; `ts-base-required`; and `editconflict` when the thread has a record after `base` (ADR 0019 §9, A26; architecture 14 §1.2, §2.4, §3.6, §4.2). The writer must be able to read the thread and every page the record names; a page they may not read is `ts-no-target`, and no record is accepted on a deleted thread (`ts-thread-deleted`, 410).",
         "parameters": [
           {
             "name": "id",
@@ -2287,6 +2297,16 @@
                 }
               }
             }
+          },
+          "410": {
+            "description": "`ts-thread-deleted`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }
@@ -2295,7 +2315,7 @@
       "put": {
         "operationId": "editThreadPost",
         "summary": "Edit a post",
-        "description": "Writes `edit`: replaces the post's complete text, in its own media type. Only the post's author may edit it. Needs `base`. Needs the `edit` right and an account; a request made with a session cookie carries its CSRF token as `token`. Refusals: `badbody`; `badtoken` for a session write without its CSRF token; `permissiondenied`; `ts-thread-not-found`; `ts-not-a-post`; `ts-bad-subject`; `ts-unknown-status`; `ts-bad-media-type`; `ts-import-only` for a field only an import writes; `ts-bad-collapse`; `ts-no-target`; `ts-bad-attachment`; `ts-bad-pin`; `ts-limit`; `ts-base-required`; and `editconflict` when the thread has a record after `base` (ADR 0019 §9, A26; architecture 14 §1.2, §2.4, §3.6, §4.2).",
+        "description": "Writes `edit`: replaces the post's complete text, in its own media type. Only the post's author may edit it. Needs `base`. Needs the `edit` right and an account; a request made with a session cookie carries its CSRF token as `token`. Refusals: `badbody`; `badtoken` for a session write without its CSRF token; `permissiondenied`; `ts-thread-not-found`; `ts-not-a-post`; `ts-bad-subject`; `ts-unknown-status`; `ts-bad-media-type`; `ts-import-only` for a field only an import writes; `ts-bad-collapse`; `ts-no-target`; `ts-bad-attachment`; `ts-bad-pin`; `ts-limit`; `ts-base-required`; and `editconflict` when the thread has a record after `base` (ADR 0019 §9, A26; architecture 14 §1.2, §2.4, §3.6, §4.2). The writer must be able to read the thread and every page the record names; a page they may not read is `ts-no-target`, and no record is accepted on a deleted thread (`ts-thread-deleted`, 410).",
         "parameters": [
           {
             "name": "id",
@@ -2386,6 +2406,16 @@
                 }
               }
             }
+          },
+          "410": {
+            "description": "`ts-thread-deleted`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }
@@ -2394,7 +2424,7 @@
       "post": {
         "operationId": "renameThread",
         "summary": "Rename a thread",
-        "description": "Writes `rename`: a new subject, and so a new title on the thread's original date. Needs `base`. Needs the `move` right and an account; a request made with a session cookie carries its CSRF token as `token`. Refusals: `badbody`; `badtoken` for a session write without its CSRF token; `permissiondenied`; `ts-thread-not-found`; `ts-not-a-post`; `ts-bad-subject`; `ts-unknown-status`; `ts-bad-media-type`; `ts-import-only` for a field only an import writes; `ts-bad-collapse`; `ts-no-target`; `ts-bad-attachment`; `ts-bad-pin`; `ts-limit`; `ts-base-required`; and `editconflict` when the thread has a record after `base` (ADR 0019 §9, A26; architecture 14 §1.2, §2.4, §3.6, §4.2).",
+        "description": "Writes `rename`: a new subject, and so a new title on the thread's original date. Needs `base`. Needs the `move` right and an account; a request made with a session cookie carries its CSRF token as `token`. Refusals: `badbody`; `badtoken` for a session write without its CSRF token; `permissiondenied`; `ts-thread-not-found`; `ts-not-a-post`; `ts-bad-subject`; `ts-unknown-status`; `ts-bad-media-type`; `ts-import-only` for a field only an import writes; `ts-bad-collapse`; `ts-no-target`; `ts-bad-attachment`; `ts-bad-pin`; `ts-limit`; `ts-base-required`; and `editconflict` when the thread has a record after `base` (ADR 0019 §9, A26; architecture 14 §1.2, §2.4, §3.6, §4.2). The writer must be able to read the thread and every page the record names; a page they may not read is `ts-no-target`, and no record is accepted on a deleted thread (`ts-thread-deleted`, 410).",
         "parameters": [
           {
             "name": "id",
@@ -2476,6 +2506,16 @@
                 }
               }
             }
+          },
+          "410": {
+            "description": "`ts-thread-deleted`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }
@@ -2484,7 +2524,7 @@
       "post": {
         "operationId": "moveThread",
         "summary": "Move a thread",
-        "description": "Writes `move`: a new home; `keep` keeps the old home as a listing, with its pin. Moving to a listing promotes it. Needs `base`. Needs the `move` right and an account; a request made with a session cookie carries its CSRF token as `token`. Refusals: `badbody`; `badtoken` for a session write without its CSRF token; `permissiondenied`; `ts-thread-not-found`; `ts-not-a-post`; `ts-bad-subject`; `ts-unknown-status`; `ts-bad-media-type`; `ts-import-only` for a field only an import writes; `ts-bad-collapse`; `ts-no-target`; `ts-bad-attachment`; `ts-bad-pin`; `ts-limit`; `ts-base-required`; and `editconflict` when the thread has a record after `base` (ADR 0019 §9, A26; architecture 14 §1.2, §2.4, §3.6, §4.2).",
+        "description": "Writes `move`: a new home; `keep` keeps the old home as a listing, with its pin. Moving to a listing promotes it. Needs `base`. Needs the `move` right and an account; a request made with a session cookie carries its CSRF token as `token`. Refusals: `badbody`; `badtoken` for a session write without its CSRF token; `permissiondenied`; `ts-thread-not-found`; `ts-not-a-post`; `ts-bad-subject`; `ts-unknown-status`; `ts-bad-media-type`; `ts-import-only` for a field only an import writes; `ts-bad-collapse`; `ts-no-target`; `ts-bad-attachment`; `ts-bad-pin`; `ts-limit`; `ts-base-required`; and `editconflict` when the thread has a record after `base` (ADR 0019 §9, A26; architecture 14 §1.2, §2.4, §3.6, §4.2). The writer must be able to read the thread and every page the record names; a page they may not read is `ts-no-target`, and no record is accepted on a deleted thread (`ts-thread-deleted`, 410).",
         "parameters": [
           {
             "name": "id",
@@ -2566,6 +2606,16 @@
                 }
               }
             }
+          },
+          "410": {
+            "description": "`ts-thread-deleted`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }
@@ -2574,7 +2624,7 @@
       "post": {
         "operationId": "attachThread",
         "summary": "List a thread on a page",
-        "description": "Writes `attach`: lists the thread on a further talk page or board. Needs `base`. Needs the `move` right and an account; a request made with a session cookie carries its CSRF token as `token`. Refusals: `badbody`; `badtoken` for a session write without its CSRF token; `permissiondenied`; `ts-thread-not-found`; `ts-not-a-post`; `ts-bad-subject`; `ts-unknown-status`; `ts-bad-media-type`; `ts-import-only` for a field only an import writes; `ts-bad-collapse`; `ts-no-target`; `ts-bad-attachment`; `ts-bad-pin`; `ts-limit`; `ts-base-required`; and `editconflict` when the thread has a record after `base` (ADR 0019 §9, A26; architecture 14 §1.2, §2.4, §3.6, §4.2).",
+        "description": "Writes `attach`: lists the thread on a further talk page or board. Needs `base`. Needs the `move` right and an account; a request made with a session cookie carries its CSRF token as `token`. Refusals: `badbody`; `badtoken` for a session write without its CSRF token; `permissiondenied`; `ts-thread-not-found`; `ts-not-a-post`; `ts-bad-subject`; `ts-unknown-status`; `ts-bad-media-type`; `ts-import-only` for a field only an import writes; `ts-bad-collapse`; `ts-no-target`; `ts-bad-attachment`; `ts-bad-pin`; `ts-limit`; `ts-base-required`; and `editconflict` when the thread has a record after `base` (ADR 0019 §9, A26; architecture 14 §1.2, §2.4, §3.6, §4.2). The writer must be able to read the thread and every page the record names; a page they may not read is `ts-no-target`, and no record is accepted on a deleted thread (`ts-thread-deleted`, 410).",
         "parameters": [
           {
             "name": "id",
@@ -2649,6 +2699,16 @@
           },
           "421": {
             "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "`ts-thread-deleted`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2664,7 +2724,7 @@
       "post": {
         "operationId": "detachThread",
         "summary": "Unlist a thread",
-        "description": "Writes `detach`: removes a listing. The home is changed with `move`, never removed. Needs `base`. Needs the `move` right and an account; a request made with a session cookie carries its CSRF token as `token`. Refusals: `badbody`; `badtoken` for a session write without its CSRF token; `permissiondenied`; `ts-thread-not-found`; `ts-not-a-post`; `ts-bad-subject`; `ts-unknown-status`; `ts-bad-media-type`; `ts-import-only` for a field only an import writes; `ts-bad-collapse`; `ts-no-target`; `ts-bad-attachment`; `ts-bad-pin`; `ts-limit`; `ts-base-required`; and `editconflict` when the thread has a record after `base` (ADR 0019 §9, A26; architecture 14 §1.2, §2.4, §3.6, §4.2).",
+        "description": "Writes `detach`: removes a listing. The home is changed with `move`, never removed. Needs `base`. Needs the `move` right and an account; a request made with a session cookie carries its CSRF token as `token`. Refusals: `badbody`; `badtoken` for a session write without its CSRF token; `permissiondenied`; `ts-thread-not-found`; `ts-not-a-post`; `ts-bad-subject`; `ts-unknown-status`; `ts-bad-media-type`; `ts-import-only` for a field only an import writes; `ts-bad-collapse`; `ts-no-target`; `ts-bad-attachment`; `ts-bad-pin`; `ts-limit`; `ts-base-required`; and `editconflict` when the thread has a record after `base` (ADR 0019 §9, A26; architecture 14 §1.2, §2.4, §3.6, §4.2). The writer must be able to read the thread and every page the record names; a page they may not read is `ts-no-target`, and no record is accepted on a deleted thread (`ts-thread-deleted`, 410).",
         "parameters": [
           {
             "name": "id",
@@ -2739,6 +2799,16 @@
           },
           "421": {
             "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "`ts-thread-deleted`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2754,7 +2824,7 @@
       "post": {
         "operationId": "pinThread",
         "summary": "Pin a thread",
-        "description": "Writes `pin`: pins the thread on one of its attachments, within `thread.max_pinned`. Needs `base`. Needs the `move` right and an account; a request made with a session cookie carries its CSRF token as `token`. Refusals: `badbody`; `badtoken` for a session write without its CSRF token; `permissiondenied`; `ts-thread-not-found`; `ts-not-a-post`; `ts-bad-subject`; `ts-unknown-status`; `ts-bad-media-type`; `ts-import-only` for a field only an import writes; `ts-bad-collapse`; `ts-no-target`; `ts-bad-attachment`; `ts-bad-pin`; `ts-limit`; `ts-base-required`; and `editconflict` when the thread has a record after `base` (ADR 0019 §9, A26; architecture 14 §1.2, §2.4, §3.6, §4.2).",
+        "description": "Writes `pin`: pins the thread on one of its attachments, within `thread.max_pinned`. Needs `base`. Needs the `move` right and an account; a request made with a session cookie carries its CSRF token as `token`. Refusals: `badbody`; `badtoken` for a session write without its CSRF token; `permissiondenied`; `ts-thread-not-found`; `ts-not-a-post`; `ts-bad-subject`; `ts-unknown-status`; `ts-bad-media-type`; `ts-import-only` for a field only an import writes; `ts-bad-collapse`; `ts-no-target`; `ts-bad-attachment`; `ts-bad-pin`; `ts-limit`; `ts-base-required`; and `editconflict` when the thread has a record after `base` (ADR 0019 §9, A26; architecture 14 §1.2, §2.4, §3.6, §4.2). The writer must be able to read the thread and every page the record names; a page they may not read is `ts-no-target`, and no record is accepted on a deleted thread (`ts-thread-deleted`, 410).",
         "parameters": [
           {
             "name": "id",
@@ -2829,6 +2899,16 @@
           },
           "421": {
             "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "`ts-thread-deleted`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2844,7 +2924,7 @@
       "post": {
         "operationId": "unpinThread",
         "summary": "Unpin a thread",
-        "description": "Writes `unpin`. Needs `base`. Needs the `move` right and an account; a request made with a session cookie carries its CSRF token as `token`. Refusals: `badbody`; `badtoken` for a session write without its CSRF token; `permissiondenied`; `ts-thread-not-found`; `ts-not-a-post`; `ts-bad-subject`; `ts-unknown-status`; `ts-bad-media-type`; `ts-import-only` for a field only an import writes; `ts-bad-collapse`; `ts-no-target`; `ts-bad-attachment`; `ts-bad-pin`; `ts-limit`; `ts-base-required`; and `editconflict` when the thread has a record after `base` (ADR 0019 §9, A26; architecture 14 §1.2, §2.4, §3.6, §4.2).",
+        "description": "Writes `unpin`. Needs `base`. Needs the `move` right and an account; a request made with a session cookie carries its CSRF token as `token`. Refusals: `badbody`; `badtoken` for a session write without its CSRF token; `permissiondenied`; `ts-thread-not-found`; `ts-not-a-post`; `ts-bad-subject`; `ts-unknown-status`; `ts-bad-media-type`; `ts-import-only` for a field only an import writes; `ts-bad-collapse`; `ts-no-target`; `ts-bad-attachment`; `ts-bad-pin`; `ts-limit`; `ts-base-required`; and `editconflict` when the thread has a record after `base` (ADR 0019 §9, A26; architecture 14 §1.2, §2.4, §3.6, §4.2). The writer must be able to read the thread and every page the record names; a page they may not read is `ts-no-target`, and no record is accepted on a deleted thread (`ts-thread-deleted`, 410).",
         "parameters": [
           {
             "name": "id",
@@ -2926,6 +3006,16 @@
                 }
               }
             }
+          },
+          "410": {
+            "description": "`ts-thread-deleted`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }
@@ -2934,7 +3024,7 @@
       "get": {
         "operationId": "listThreads",
         "summary": "The threads on a talk page or board",
-        "description": "Every thread attached to the talk page or board, home or listing, without its posts: title, subject, status and its category, `home`, when it was pinned there, last activity and post count. Pinned threads come first, in the order they were pinned, then the rest by last activity. Local threads only; foreign threads and `origin=` are not served yet (ADR 0019 §9; 0049 §11; 0069 §9).",
+        "description": "Every thread attached to the talk page or board, home or listing, without its posts: title, subject, status and its category, `home`, when it was pinned there, last activity and post count. Pinned threads come first, in the order they were pinned, then the rest by last activity. Local threads only; foreign threads and `origin=` are not served yet (ADR 0019 §9; 0049 §11; 0069 §9). Threads the viewer may not read are left out; a deleted thread stays for its deletion group, marked `deleted`. A deleted talk page answers 410 `ts-page-deleted` outside the group that deleted it.",
         "parameters": [
           {
             "name": "id",
@@ -2979,6 +3069,16 @@
           },
           "421": {
             "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "`ts-page-deleted`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5281,7 +5381,11 @@
             ]
           },
           "attributedTo": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The author's actor key; null when hidden from this viewer."
           },
           "published": {
             "type": [
@@ -5302,7 +5406,8 @@
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "The post's text; null when a `record` ACL hides it from this viewer, or it was erased."
           },
           "depth": {
             "type": "integer"
@@ -5328,6 +5433,15 @@
             }
           },
           "imported": {
+            "type": "boolean"
+          },
+          "texthidden": {
+            "type": "boolean"
+          },
+          "userhidden": {
+            "type": "boolean"
+          },
+          "erased": {
             "type": "boolean"
           }
         }
@@ -5383,6 +5497,10 @@
           },
           "base": {
             "type": "integer"
+          },
+          "deleted": {
+            "type": "boolean",
+            "description": "The thread is deleted; only its deletion group sees it."
           }
         }
       },
@@ -5447,6 +5565,9 @@
                 },
                 "posts": {
                   "type": "integer"
+                },
+                "deleted": {
+                  "type": "boolean"
                 }
               }
             }

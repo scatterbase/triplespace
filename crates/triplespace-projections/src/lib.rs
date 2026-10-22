@@ -14,6 +14,7 @@
 //! filters, notifications and RDF follow as the crates that produce their records are
 //! built. [`milestone_pipeline`] assembles the set built so far.
 
+pub mod acl_read;
 pub mod activity;
 pub mod actors;
 pub mod backend;
@@ -21,6 +22,7 @@ pub mod common;
 pub mod entities;
 pub mod feed;
 pub mod jobs;
+pub mod moderation;
 pub mod pages;
 pub mod read;
 pub mod registry;
@@ -63,6 +65,7 @@ pub fn milestone_pipeline<B: Backend<Cx = PgCx>>(
         .with(JobProjection)?
         .with(PageProjection)?
         .with(threads::ThreadProjection)?
+        .with(moderation::ModerationProjection)?
         .with(EntityProjection::default())?
         .with(ActivityProjection)
 }

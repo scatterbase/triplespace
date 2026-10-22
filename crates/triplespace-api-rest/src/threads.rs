@@ -15,8 +15,17 @@
 //! - `GET /page/{id}/threads`: the threads attached to a talk page or board, pinned first.
 //!
 //! Creating, posting and editing need `edit`; the rest need `move` (09 §8.1). A write with
-//! a session cookie carries its CSRF token as `token`. Foreign threads, `upstream-reply`,
-//! ACL redaction of hidden posts and the per-target rights of 09 §8.1 are not served yet.
+//! a session cookie carries its CSRF token as `token`.
+//!
+//! **Reads follow the ACLs** (0023 §4–§5; 0056 §5). A thread is enclosed by its home talk
+//! page, which a subject's deletion can take with it. A thread the viewer may not read is
+//! answered as missing when the restriction is confidential, and 410 `ts-thread-deleted`
+//! when it was deleted; its deletion group still reads it, marked `deleted`. A post whose
+//! text or author a `record` ACL hides carries `texthidden` or `userhidden`, and the part
+//! itself only for the group the ACL names; erased text is `texthidden` and `erased`.
+//! Writes need what reads need, for the thread and every page they name, and no record
+//! is accepted on a deleted thread. Foreign threads, `upstream-reply` and the per-target
+//! rights of 09 §8.1 are not served yet.
 
 #![allow(
     clippy::result_large_err,
@@ -27,6 +36,8 @@ use axum::body::Bytes;
 use axum::extract::{Extension, Path, State};
 use axum::http::{HeaderMap, Method, StatusCode};
 use axum::response::Response;
+use scatter_actors::evaluate::Effective;
+use scatter_actors::{ReadDecision, Timestamp, read_decision};
 use scatter_ingest::{Attestation, Request};
 use scatter_log_postgres::log;
 use scatter_threads::{
@@ -39,6 +50,7 @@ use triplespace_api_action::forwarded::Origin;
 use triplespace_api_action::http_cache::{self, Class};
 use triplespace_api_action::tenant::Tenant;
 use triplespace_api_ingest::threads::{ThreadError, ThreadWrite, write};
+use triplespace_projections::acl_read::{page_chain, record_acls, removed, thread_chain};
 use triplespace_projections::common::partition_of;
 use triplespace_projections::feed::iso8601;
 use triplespace_projections::threads::{read_record, text};
@@ -58,6 +70,126 @@ fn not_found(id: u64) -> Response {
         "ts-thread-not-found",
         format!("no thread has page ID {id}"),
     )
+}
+
+fn gone(id: u64) -> Response {
+    error(
+        StatusCode::GONE,
+        "ts-thread-deleted",
+        format!("thread {id} has been deleted"),
+    )
+}
+
+/// The page IDs a record names as targets.
+fn page_targets(op: &ThreadOp) -> Vec<u64> {
+    let mut out = Vec::new();
+    let mut push = |t: &Target| {
+        if let Target::Page(id) = t {
+            out.push(*id);
+        }
+    };
+    match op {
+        ThreadOp::Create { target, also, .. } => {
+            push(target);
+            also.iter().for_each(&mut push);
+        }
+        ThreadOp::Move { target, .. }
+        | ThreadOp::Attach { target }
+        | ThreadOp::Detach { target }
+        | ThreadOp::Pin { target }
+        | ThreadOp::Unpin { target } => push(target),
+        ThreadOp::Post { .. } | ThreadOp::Edit { .. } | ThreadOp::Rename { .. } => {}
+    }
+    out
+}
+
+/// Whether the viewer may read the thread: absent and missing threads answer alike, and a
+/// deleted one answers 410 to those outside its deletion group (0056 §5; 0023 §4). The
+/// chain, for a reader who may.
+async fn thread_gate(
+    app: &App,
+    tenant: &str,
+    who: &Effective,
+    id: u64,
+    at: Timestamp,
+) -> Result<Vec<scatter_actors::Acl>, Response> {
+    let client = app.pool().get().await.map_err(|e| internal(&e))?;
+    let chain = thread_chain(&*client, tenant, id)
+        .await
+        .map_err(|e| internal(&e))?
+        .ok_or_else(|| not_found(id))?;
+    match read_decision(who, &chain, at) {
+        ReadDecision::Readable => Ok(chain),
+        ReadDecision::Removed { .. } => Err(gone(id)),
+        ReadDecision::Absent => Err(not_found(id)),
+    }
+}
+
+/// Whether the viewer may read a page a record names; a page they may not read is one
+/// that does not exist.
+async fn page_gate(
+    app: &App,
+    tenant: &str,
+    who: &Effective,
+    page: u64,
+    at: Timestamp,
+) -> Result<(), Response> {
+    let client = app.pool().get().await.map_err(|e| internal(&e))?;
+    let chain = page_chain(&*client, tenant, page)
+        .await
+        .map_err(|e| internal(&e))?;
+    match read_decision(who, &chain, at) {
+        ReadDecision::Readable if !removed(&chain, at) => Ok(()),
+        _ => Err(error(
+            StatusCode::NOT_FOUND,
+            "ts-no-target",
+            format!("page {page} does not exist"),
+        )),
+    }
+}
+
+/// One part of a post's record, as the viewer sees it (0023 §5).
+#[derive(Clone, Copy)]
+struct Part {
+    /// A `record` ACL hides it.
+    hidden: bool,
+    /// The viewer may still see it.
+    visible: bool,
+}
+
+impl Default for Part {
+    fn default() -> Self {
+        Part {
+            hidden: false,
+            visible: true,
+        }
+    }
+}
+
+/// What the viewer may see of one post: the text of the record holding its current text,
+/// and the actor of its own record.
+#[derive(Default, Clone, Copy)]
+struct Shown {
+    text: Part,
+    user: Part,
+    erased: bool,
+}
+
+/// Whether a record ACL hides a part, and whether this viewer may still see it.
+fn part(acl: Option<&scatter_actors::Acl>, name: &str, who: &Effective, at: Timestamp) -> Part {
+    let Some(a) = acl else {
+        return Part::default();
+    };
+    let Some(r) = a.restriction_at(scatter_actors::acl::READ, at) else {
+        return Part::default();
+    };
+    if !(a.parts.is_empty() || a.parts.iter().any(|p| p == name)) {
+        return Part::default();
+    }
+    Part {
+        hidden: true,
+        visible: r.group.as_ref().is_some_and(|g| who.in_group(g)),
+    }
 }
 
 /// The API code and status of a refused record.
@@ -98,6 +230,7 @@ fn refused(e: &ThreadError) -> Response {
             error(status, code, i.to_string())
         }
         ThreadError::NoThread(id) => not_found(*id),
+        ThreadError::Deleted(id) => gone(*id),
         ThreadError::NeedsBase(_) => {
             error(StatusCode::BAD_REQUEST, "ts-base-required", e.to_string())
         }
@@ -156,7 +289,7 @@ async fn begin_write(
     headers: &HeaderMap,
     body: &Bytes,
     right: &str,
-) -> Result<(Tenant, String, Body), Response> {
+) -> Result<(Tenant, String, Body, Effective), Response> {
     let client = app.pool().get().await.map_err(|e| internal(&e))?;
     let (tenant, caller) = prelude(app, &client, origin, headers).await?;
     if caller.require(right).is_err() {
@@ -179,7 +312,7 @@ async fn begin_write(
     };
     check_token(app, &caller, headers, &object)?;
     object.remove("token");
-    Ok((tenant, actor, object))
+    Ok((tenant, actor, object, caller.effective))
 }
 
 /// `thread.max_attachments` and `thread.max_pinned`, as the tenant resolves them.
@@ -205,10 +338,12 @@ async fn limits(app: &App, tenant: &str) -> Limits {
 }
 
 /// Writes one record and answers with the thread, the record and the next base.
+#[allow(clippy::too_many_arguments)]
 async fn save(
     app: &App,
     tenant: &Tenant,
     actor: &str,
+    who: &Effective,
     thread: Option<u64>,
     op: ThreadOp,
     text: Option<String>,
@@ -223,6 +358,19 @@ async fn save(
         Err(r) => return r,
     };
     let created = thread.is_none();
+    // The writer must be able to read the thread and every page the record names
+    // (0056 §5; 09 §5.5).
+    let at = Timestamp(triplespace_api_action::edit::now_micros());
+    if let Some(id) = thread
+        && let Err(r) = thread_gate(app, &tenant.slug, who, id, at).await
+    {
+        return r;
+    }
+    for page in page_targets(&op) {
+        if let Err(r) = page_gate(app, &tenant.slug, who, page, at).await {
+            return r;
+        }
+    }
     let mut request = Request::new(
         &tenant.slug,
         Attestation::by(actor),
@@ -295,7 +443,7 @@ pub async fn create(
     headers: HeaderMap,
     body: Bytes,
 ) -> Response {
-    let (tenant, actor, b) = match begin_write(&app, &origin, &headers, &body, "edit").await {
+    let (tenant, actor, b, who) = match begin_write(&app, &origin, &headers, &body, "edit").await {
         Ok(x) => x,
         Err(r) => return r,
     };
@@ -324,7 +472,7 @@ pub async fn create(
         Ok((op, text))
     })();
     match parsed {
-        Ok((op, text)) => save(&app, &tenant, &actor, None, op, Some(text), &b).await,
+        Ok((op, text)) => save(&app, &tenant, &actor, &who, None, op, Some(text), &b).await,
         Err(r) => r,
     }
 }
@@ -337,7 +485,7 @@ pub async fn post(
     Path(id): Path<u64>,
     body: Bytes,
 ) -> Response {
-    let (tenant, actor, b) = match begin_write(&app, &origin, &headers, &body, "edit").await {
+    let (tenant, actor, b, who) = match begin_write(&app, &origin, &headers, &body, "edit").await {
         Ok(x) => x,
         Err(r) => return r,
     };
@@ -362,7 +510,7 @@ pub async fn post(
         Ok((op, text))
     })();
     match parsed {
-        Ok((op, text)) => save(&app, &tenant, &actor, Some(id), op, Some(text), &b).await,
+        Ok((op, text)) => save(&app, &tenant, &actor, &who, Some(id), op, Some(text), &b).await,
         Err(r) => r,
     }
 }
@@ -375,7 +523,7 @@ pub async fn edit(
     Path((id, revid)): Path<(u64, u64)>,
     body: Bytes,
 ) -> Response {
-    let (tenant, actor, b) = match begin_write(&app, &origin, &headers, &body, "edit").await {
+    let (tenant, actor, b, who) = match begin_write(&app, &origin, &headers, &body, "edit").await {
         Ok(x) => x,
         Err(r) => return r,
     };
@@ -422,7 +570,7 @@ pub async fn edit(
         object: revid,
         media_type,
     };
-    save(&app, &tenant, &actor, Some(id), op, Some(text), &b).await
+    save(&app, &tenant, &actor, &who, Some(id), op, Some(text), &b).await
 }
 
 /// The operations that change a thread's subject or attachments.
@@ -444,7 +592,7 @@ async fn change(
     body: Bytes,
     what: Change,
 ) -> Response {
-    let (tenant, actor, b) = match begin_write(&app, &origin, &headers, &body, "move").await {
+    let (tenant, actor, b, who) = match begin_write(&app, &origin, &headers, &body, "move").await {
         Ok(x) => x,
         Err(r) => return r,
     };
@@ -472,7 +620,7 @@ async fn change(
         })
     })();
     match op {
-        Ok(op) => save(&app, &tenant, &actor, Some(id), op, None, &b).await,
+        Ok(op) => save(&app, &tenant, &actor, &who, Some(id), op, None, &b).await,
         Err(r) => r,
     }
 }
@@ -547,6 +695,11 @@ pub async fn get(
         Ok(x) => x,
         Err(r) => return r,
     };
+    let at = Timestamp(triplespace_api_action::edit::now_micros());
+    let chain = match thread_gate(&app, &tenant.slug, &caller.effective, id, at).await {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
     let partition = match partition_of(&*client, &tenant.slug, "pages").await {
         Ok(Some(p)) => p,
         Ok(None) => return not_found(id),
@@ -558,6 +711,8 @@ pub async fn get(
     };
     let mut folded = Vec::new();
     let mut texts = std::collections::HashMap::new();
+    let mut offsets = std::collections::HashMap::new();
+    let mut erased = std::collections::HashSet::new();
     let mut last_offset = 0;
     for (offset, r) in &records {
         if r.header().payload_type != scatter_threads::PAYLOAD_THREAD {
@@ -566,8 +721,15 @@ pub async fn get(
         last_offset = *offset;
         match read_record(r) {
             Ok(Some(rec)) => {
-                if let Some(t) = text(r) {
-                    texts.insert(rec.revid, t);
+                offsets.insert(rec.revid, *offset);
+                match text(r) {
+                    Some(t) => {
+                        texts.insert(rec.revid, t);
+                    }
+                    None if rec.op.has_text() => {
+                        erased.insert(rec.revid);
+                    }
+                    None => {}
                 }
                 folded.push((rec, r.header().appended_at));
             }
@@ -584,17 +746,23 @@ pub async fn get(
         Ok(t) => t,
         Err(e) => return internal(&e),
     };
+    let shown = match redactions(
+        &client,
+        &tenant.slug,
+        partition,
+        &thread,
+        &offsets,
+        &erased,
+        &caller.effective,
+        at,
+    )
+    .await
+    {
+        Ok(x) => x,
+        Err(e) => return internal(&e),
+    };
     let statuses = Statuses::embedded();
-    let mut attachments = Vec::new();
-    for a in thread.attachments() {
-        attachments.push(json!({
-            "target": target_json(&a.target),
-            "talk_page_id": a.talk,
-            "talk_page": talk_title(&client, &tenant.slug, a.talk).await,
-            "attached": appended.get(&a.since).map(|t| iso8601(*t)),
-            "pinned": a.pinned.and_then(|t| u64::try_from(t).ok()).map(iso8601),
-        }));
-    }
+    let mut attachments = attachments_json(&client, &tenant.slug, &thread, &appended).await;
     let home = attachments.remove(0);
     let body = json!({
         "id": id,
@@ -604,10 +772,62 @@ pub async fn get(
         "category": match thread.category(statuses) { Category::Open => "open", Category::Closed => "closed" },
         "home": home,
         "listings": attachments,
-        "posts": notes(&thread, &texts, &appended),
+        "posts": notes(&thread, &texts, &appended, &shown),
         "base": last_offset,
+        "deleted": removed(&chain, at),
     });
     respond(&headers, &method, &caller, &body)
+}
+
+/// The home and the listings, each with its talk page and times.
+async fn attachments_json(
+    client: &deadpool_postgres::Object,
+    tenant: &str,
+    thread: &Thread,
+    appended: &std::collections::HashMap<u64, u64>,
+) -> Vec<Value> {
+    let mut attachments = Vec::new();
+    for a in thread.attachments() {
+        attachments.push(json!({
+            "target": target_json(&a.target),
+            "talk_page_id": a.talk,
+            "talk_page": talk_title(client, tenant, a.talk).await,
+            "attached": appended.get(&a.since).map(|t| iso8601(*t)),
+            "pinned": a.pinned.and_then(|t| u64::try_from(t).ok()).map(iso8601),
+        }));
+    }
+    attachments
+}
+
+/// What the viewer may see of each post, from the `record` ACLs of the thread's records.
+#[allow(clippy::too_many_arguments)]
+async fn redactions(
+    client: &deadpool_postgres::Object,
+    tenant: &str,
+    partition: u64,
+    thread: &Thread,
+    offsets: &std::collections::HashMap<u64, u64>,
+    erased: &std::collections::HashSet<u64>,
+    who: &Effective,
+    at: Timestamp,
+) -> Result<std::collections::HashMap<u64, Shown>, String> {
+    let all: Vec<u64> = offsets.values().copied().collect();
+    let acls = record_acls(&**client, tenant, partition, &all).await?;
+    let acl_of = |revid: u64| offsets.get(&revid).and_then(|o| acls.get(o));
+    Ok(thread
+        .posts()
+        .iter()
+        .map(|p| {
+            (
+                p.revid,
+                Shown {
+                    text: part(acl_of(p.text), "text", who, at),
+                    user: part(acl_of(p.revid), "attestation", who, at),
+                    erased: erased.contains(&p.text),
+                },
+            )
+        })
+        .collect())
 }
 
 /// The posts as `as:Note` objects in tree order: each post, then its replies.
@@ -615,6 +835,7 @@ fn notes(
     thread: &Thread,
     texts: &std::collections::HashMap<u64, String>,
     appended: &std::collections::HashMap<u64, u64>,
+    shown: &std::collections::HashMap<u64, Shown>,
 ) -> Vec<Value> {
     let posts = thread.posts();
     let mut children: std::collections::HashMap<Option<u64>, Vec<usize>> =
@@ -642,6 +863,22 @@ fn notes(
             "depth": depth,
             "collapsed": thread.is_collapsed(p.revid),
         });
+        let sh = shown.get(&p.revid).copied().unwrap_or_default();
+        if sh.erased {
+            note["texthidden"] = json!(true);
+            note["erased"] = json!(true);
+        } else if sh.text.hidden {
+            note["texthidden"] = json!(true);
+        }
+        if sh.erased || !sh.text.visible {
+            note["content"] = Value::Null;
+        }
+        if sh.user.hidden {
+            note["userhidden"] = json!(true);
+            if !sh.user.visible {
+                note["attributedTo"] = Value::Null;
+            }
+        }
         if let Some(s) = &p.status {
             note["status"] = json!(s);
         }
@@ -660,6 +897,33 @@ fn notes(
         }
     }
     out
+}
+
+/// Whether the viewer may read a talk page or board: a deleted one answers 410, one they
+/// may not read answers as missing.
+async fn talk_gate(
+    client: &deadpool_postgres::Object,
+    tenant: &str,
+    who: &Effective,
+    id: u64,
+    at: Timestamp,
+) -> Result<(), Response> {
+    let page = page_chain(&**client, tenant, id)
+        .await
+        .map_err(|e| internal(&e))?;
+    match read_decision(who, &page, at) {
+        ReadDecision::Readable => Ok(()),
+        ReadDecision::Removed { .. } => Err(error(
+            StatusCode::GONE,
+            "ts-page-deleted",
+            format!("page {id} has been deleted"),
+        )),
+        ReadDecision::Absent => Err(error(
+            StatusCode::NOT_FOUND,
+            "ts-not-a-talk-page",
+            format!("page {id} is not a talk page or board with threads"),
+        )),
+    }
 }
 
 /// `GET /page/{id}/threads`: the threads attached to a talk page or board, pinned first in
@@ -682,6 +946,10 @@ pub async fn list(
     let Ok(talk) = i64::try_from(id) else {
         return not_found(id);
     };
+    let at = Timestamp(triplespace_api_action::edit::now_micros());
+    if let Err(r) = talk_gate(&client, &tenant.slug, &caller.effective, id, at).await {
+        return r;
+    }
     let target = client
         .query_opt(
             "SELECT target_kind, target_id FROM view.talk_page WHERE tenant = $1 AND page_id = $2",
@@ -721,27 +989,37 @@ pub async fn list(
         Err(e) => return internal(&e),
     };
     let statuses = Statuses::embedded();
-    let threads: Vec<Value> = rows
-        .iter()
-        .map(|r| {
-            let status: String = r.get(3);
-            let category = statuses.get(&status).map_or("open", |s| match s.category {
-                Category::Open => "open",
-                Category::Closed => "closed",
-            });
-            json!({
-                "id": r.get::<_, i64>(0),
-                "title": r.get::<_, String>(1),
-                "subject": r.get::<_, String>(2),
-                "status": status,
-                "category": category,
-                "home": r.get::<_, bool>(4),
-                "pinned": r.get::<_, Option<String>>(5),
-                "last_post": r.get::<_, Option<String>>(6),
-                "posts": r.get::<_, i32>(7),
-            })
-        })
-        .collect();
+    // A thread the viewer may not read leaves the listing; a deleted one stays for its
+    // deletion group, marked (0023 §4).
+    let mut threads: Vec<Value> = Vec::with_capacity(rows.len());
+    for r in &rows {
+        let thread = u64::try_from(r.get::<_, i64>(0)).unwrap_or_default();
+        let chain = match thread_chain(&*client, &tenant.slug, thread).await {
+            Ok(Some(c)) => c,
+            Ok(None) => continue,
+            Err(e) => return internal(&e),
+        };
+        if read_decision(&caller.effective, &chain, at) != ReadDecision::Readable {
+            continue;
+        }
+        let status: String = r.get(3);
+        let category = statuses.get(&status).map_or("open", |s| match s.category {
+            Category::Open => "open",
+            Category::Closed => "closed",
+        });
+        threads.push(json!({
+            "id": thread,
+            "title": r.get::<_, String>(1),
+            "subject": r.get::<_, String>(2),
+            "status": status,
+            "category": category,
+            "home": r.get::<_, bool>(4),
+            "pinned": r.get::<_, Option<String>>(5),
+            "last_post": r.get::<_, Option<String>>(6),
+            "posts": r.get::<_, i32>(7),
+            "deleted": removed(&chain, at),
+        }));
+    }
     let body = json!({
         "talk_page_id": id,
         "target": target.as_ref().map(target_json),

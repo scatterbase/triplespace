@@ -368,6 +368,14 @@ fn revision_row(
         flag(&mut m, "texthidden", true);
         flag(&mut m, "erased", true);
     }
+    // A `record` ACL that hides the text (0023 §5): the flag in place of the content, for
+    // everyone; members of the group read it through `prop=deletedrevisions`.
+    if row.visibility & visibility::CONTENT != 0 {
+        flag(&mut m, "texthidden", true);
+    }
+    if row.visibility & visibility::SUPPRESSED != 0 {
+        flag(&mut m, "suppressed", true);
+    }
     if want("record") {
         m.insert(
             "record".into(),

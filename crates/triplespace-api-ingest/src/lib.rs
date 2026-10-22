@@ -19,6 +19,7 @@
 #![forbid(unsafe_code)]
 
 pub mod accounts;
+pub mod acl;
 pub mod settings;
 pub mod store;
 pub mod threads;

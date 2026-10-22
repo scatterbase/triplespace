@@ -387,4 +387,159 @@ async fn threads_over_rest() {
         .await;
     assert_eq!(r.status, StatusCode::OK, "{}", r.body);
     assert!(r.body["title"].as_str().unwrap().ends_with("/P31 is fine"));
+
+    // ACLs, as the moderation modules will write them (0023 §3–§5); written to view.acl
+    // directly here, since those modules do not exist yet.
+    let (db, conn) = database
+        .parse::<Config>()
+        .unwrap()
+        .connect(NoTls)
+        .await
+        .unwrap();
+    tokio::spawn(async move {
+        let _ = conn.await;
+    });
+    let acl =
+        |target: String, group: &'static str, kind: &'static str, extra: Option<Value>| {
+            let db = &db;
+            async move {
+                db.execute(
+                "INSERT INTO view.acl (tenant, target, restrictions, read_kind, extra, \"offset\")
+                 VALUES ($1, $2, $3, $4, $5, 0)
+                 ON CONFLICT (tenant, target) DO UPDATE SET restrictions = EXCLUDED.restrictions,
+                   read_kind = EXCLUDED.read_kind, extra = EXCLUDED.extra",
+                &[&TENANT, &target, &json!({"read": {"group": group}}), &kind, &extra],
+            )
+            .await
+            .unwrap();
+            }
+        };
+    let pages: i64 = db
+        .query_one(
+            "SELECT partition FROM log.partition WHERE tenant = $1 AND name = 'pages'",
+            &[&TENANT],
+        )
+        .await
+        .unwrap()
+        .get(0);
+    // Partition IDs are stored as `bigint`, bit for bit.
+    let pages = pages.cast_unsigned();
+    let offset_of = |revid: u64| {
+        let db = &db;
+        async move {
+            let r = i64::try_from(revid).unwrap();
+            db.query_one(
+                "SELECT latest_offset FROM view.post WHERE tenant = $1 AND revid = $2",
+                &[&TENANT, &r],
+            )
+            .await
+            .unwrap()
+            .get::<_, i64>(0)
+        }
+    };
+    let mut anon = Client {
+        router: c.router.clone(),
+        cookie: None,
+    };
+
+    // A reply's text hidden from everyone but `owner`, which Alice is in; the answer's
+    // author hidden from a group nobody is in.
+    let reply_offset = offset_of(reply).await;
+    acl(
+        format!("acl:record:{pages}:{reply_offset}"),
+        "owner",
+        "moderation",
+        Some(json!({"parts": ["text"]})),
+    )
+    .await;
+    let answer_offset = offset_of(answer).await;
+    acl(
+        format!("acl:record:{pages}:{answer_offset}"),
+        "oversight",
+        "moderation",
+        Some(json!({"parts": ["attestation"]})),
+    )
+    .await;
+    let note = |body: &Value, id: u64| {
+        body["posts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["id"] == id)
+            .cloned()
+            .unwrap()
+    };
+    let seen = anon.rest("GET", &path, None).await.body;
+    assert_eq!(note(&seen, reply)["texthidden"], true, "{seen}");
+    assert_eq!(note(&seen, reply)["content"], Value::Null);
+    assert_eq!(note(&seen, answer)["userhidden"], true);
+    assert_eq!(note(&seen, answer)["attributedTo"], Value::Null);
+    assert_eq!(note(&seen, answer)["content"], "Yes.");
+    let seen = c.rest("GET", &path, None).await.body;
+    assert_eq!(note(&seen, reply)["texthidden"], true);
+    assert_eq!(
+        note(&seen, reply)["content"],
+        "Really?",
+        "the group sees the text"
+    );
+    assert_eq!(note(&seen, answer)["attributedTo"], Value::Null);
+
+    // A deleted thread: 410 outside its deletion group, readable and marked for it, off
+    // the listing for everyone else, and closed to every write.
+    acl(format!("acl:page:{thread}"), "owner", "moderation", None).await;
+    let r = anon.rest("GET", &path, None).await;
+    assert_eq!(r.status, StatusCode::GONE, "{}", r.body);
+    assert_eq!(r.body["code"], "ts-thread-deleted");
+    let r = c.rest("GET", &path, None).await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    assert_eq!(r.body["deleted"], true);
+    let listed = anon
+        .rest("GET", &format!("/page/{talk}/threads"), None)
+        .await
+        .body;
+    assert_eq!(listed["threads"].as_array().unwrap().len(), 1, "{listed}");
+    let listed = c
+        .rest("GET", &format!("/page/{talk}/threads"), None)
+        .await
+        .body;
+    assert_eq!(listed["threads"][0]["deleted"], true, "{listed}");
+    let r = c
+        .rest(
+            "POST",
+            &format!("{path}/post"),
+            Some(json!({"text": "Still here?", "token": token})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::GONE, "{}", r.body);
+    assert_eq!(r.body["code"], "ts-thread-deleted");
+
+    // A confidential thread is absent for those outside its group.
+    let other = listed["threads"][1]["id"].as_u64().unwrap();
+    acl(format!("acl:page:{other}"), "board", "confidential", None).await;
+    let r = c.rest("GET", &format!("/thread/{other}"), None).await;
+    assert_eq!(r.status, StatusCode::NOT_FOUND, "{}", r.body);
+    assert_eq!(r.body["code"], "ts-thread-not-found");
+    let listed = c
+        .rest("GET", &format!("/page/{talk}/threads"), None)
+        .await
+        .body;
+    assert_eq!(listed["threads"].as_array().unwrap().len(), 1, "{listed}");
+
+    // A deleted page takes no new threads, and its talk page answers 410 outside the
+    // group that deleted it.
+    acl(
+        format!("acl:page:{page}"),
+        "oversight",
+        "moderation",
+        Some(json!({"talk": true})),
+    )
+    .await;
+    let mut fresh = start.clone();
+    fresh["subject"] = json!("A third question");
+    fresh["token"] = json!(token);
+    let r = c.rest("POST", "/thread", Some(fresh)).await;
+    assert_eq!(r.status, StatusCode::NOT_FOUND, "{}", r.body);
+    assert_eq!(r.body["code"], "ts-no-target");
+    let r = c.rest("GET", &format!("/page/{talk}/threads"), None).await;
+    assert_eq!(r.status, StatusCode::GONE, "{}", r.body);
 }
