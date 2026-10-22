@@ -1,7 +1,6 @@
-//! Splitting one thread's body into posts: comments, unsigned text, heading posts and lifted
-//! wrappers, with the section fallback (0090 §1–§4).
+//! Splitting one thread's body into posts: comments, unsigned text, heading posts, and closing
+//! and collapsing posts for wrappers, with the section fallback (0090 §1–§4).
 
-use std::collections::BTreeSet;
 use std::ops::Range;
 
 use crate::registry::{Markup, normalize_template_name};
@@ -20,7 +19,7 @@ pub(crate) struct Constructs {
     template: usize,
     block: usize,
     comment: bool,
-    /// Registered wrappers opened and not yet closed, beyond the lifted ones.
+    /// Registered wrappers opened inside a comment's text and not yet closed.
     wrapper: usize,
 }
 
@@ -123,51 +122,111 @@ fn template_names(line: &str) -> Vec<String> {
     out
 }
 
-/// A lifted wrapper: its opening call's lines and its closing line.
-#[derive(Debug, Clone)]
-struct Lift {
-    open: Range<usize>,
-    close: usize,
-}
-
-/// The wrapper enclosing the whole scope, if its opening call starts the scope's first line and
-/// its closing call is alone on the last.
-fn lift_wrapper(lines: &[&str], scope: Range<usize>, markup: &Markup) -> Option<Lift> {
-    let scope = trim_lines(lines, scope);
-    if scope.len() < 2 {
-        return None;
-    }
-    let first = lines[scope.start].trim_start();
+/// A wrapper's opening call alone on its lines, from line `i`: the lines it covers (it may run
+/// over several, and must end a line).
+fn wrapper_open(lines: &[&str], i: usize, end: usize, markup: &Markup) -> Option<Range<usize>> {
+    let first = lines[i].trim_start();
     if !first.starts_with("{{") {
         return None;
     }
-    let w = markup.wrapper_opening(template_names(first).first()?)?;
-    // The opening call may run over several lines; it must end a line.
+    markup.wrapper_opening(template_names(first).first()?)?;
     let mut depth = 0usize;
-    let mut open_end = None;
-    for i in scope.clone() {
-        let l = lines[i];
+    for (k, l) in lines.iter().enumerate().take(end).skip(i) {
         depth += l.matches("{{").count();
         depth = depth.saturating_sub(l.matches("}}").count());
         if depth == 0 {
-            if !l.trim_end().ends_with("}}") {
-                return None;
-            }
-            open_end = Some(i + 1);
-            break;
+            return l.trim_end().ends_with("}}").then_some(i..k + 1);
         }
     }
-    let open_end = open_end?;
-    let last = scope.end - 1;
-    if last < open_end {
-        return None;
+    None
+}
+
+/// Whether a line is a wrapper's closing call and nothing else.
+fn wrapper_close(line: &str, markup: &Markup) -> bool {
+    let t = line.trim();
+    let calls = calls_in_line(t);
+    calls.len() == 1
+        && calls[0].start == 0
+        && calls[0].end == t.len()
+        && markup.is_wrapper_template(&calls[0].name)
+        && markup.wrapper_opening(&calls[0].name).is_none()
+}
+
+/// Splits a template call's inner text at its top-level pipes.
+fn top_level_parts(inner: &str) -> Vec<&str> {
+    let (mut parts, mut start, mut depth) = (Vec::new(), 0usize, 0usize);
+    let b = inner.as_bytes();
+    let mut k = 0;
+    while k < b.len() {
+        match (b[k], b.get(k + 1)) {
+            (b'{', Some(b'{')) | (b'[', Some(b'[')) => {
+                depth += 1;
+                k += 2;
+            }
+            (b'}', Some(b'}')) | (b']', Some(b']')) => {
+                depth = depth.saturating_sub(1);
+                k += 2;
+            }
+            (b'|', _) if depth == 0 => {
+                parts.push(&inner[start..k]);
+                start = k + 1;
+                k += 1;
+            }
+            _ => k += 1,
+        }
     }
-    let calls = calls_in_line(lines[last].trim());
-    let only = calls.len() == 1 && calls[0].start == 0 && calls[0].end == lines[last].trim().len();
-    (only && markup.wrappers[w].close.contains(&calls[0].name)).then_some(Lift {
-        open: scope.start..open_end,
-        close: last,
-    })
+    parts.push(&inner[start..]);
+    parts
+}
+
+/// A wrapper's statement (0090 §3): its `result`, `reason`, `text`, `1` or `title` parameter, or
+/// its first positional one; empty when it has none.
+pub(crate) fn wrapper_statement(call: &str) -> String {
+    let inner = call.trim().trim_start_matches("{{");
+    let inner = inner.strip_suffix("}}").unwrap_or(inner);
+    let mut named: Vec<(String, &str)> = Vec::new();
+    let mut positional: Vec<&str> = Vec::new();
+    for part in top_level_parts(inner).into_iter().skip(1) {
+        let depthless = part.split("{{").next().unwrap_or(part);
+        match depthless.find('=') {
+            Some(eq) => named.push((
+                part[..eq].trim().to_ascii_lowercase(),
+                part[eq + 1..].trim(),
+            )),
+            None => positional.push(part.trim()),
+        }
+    }
+    ["result", "reason", "text", "1", "title"]
+        .iter()
+        .find_map(|key| {
+            named
+                .iter()
+                .find(|(k, v)| k == key && !v.is_empty())
+                .map(|(_, v)| (*v).to_string())
+        })
+        .or_else(|| {
+            positional
+                .iter()
+                .find(|p| !p.is_empty())
+                .map(|p| (*p).to_string())
+        })
+        .unwrap_or_default()
+}
+
+/// A wrapper opened on its own lines and not yet closed (0090 §3).
+#[derive(Debug, Clone)]
+struct OpenWrapper {
+    open: Range<usize>,
+    /// The heading level whose scope it was opened in; 2 for the thread itself.
+    level: u8,
+    /// The heading post of that scope.
+    parent: Option<usize>,
+    /// The number of posts when it opened: the first one it encloses.
+    first_post: usize,
+    /// Whether it opened before anything else in the thread.
+    at_start: bool,
+    /// Whether unsigned text before it was made a post when it opened.
+    flushed: bool,
 }
 
 struct Walk<'a> {
@@ -184,6 +243,10 @@ struct Walk<'a> {
     /// the construct (0090 §4).
     extending: Option<usize>,
     fallback: Option<Fallback>,
+    /// Wrappers opened on their own lines and not yet closed, innermost last.
+    wrappers: Vec<OpenWrapper>,
+    /// A collapsing post that enclosed the thread from its start: a closure, if nothing follows.
+    closing: Option<usize>,
 }
 
 impl Walk<'_> {
@@ -229,6 +292,7 @@ impl Walk<'_> {
 
     fn heading_post(&mut self, i: usize, level: u8, text: &str) {
         self.flush_unsigned();
+        self.close_scopes(level);
         self.outdent_next = false;
         if let Some(kind) = self.cons.open_kind() {
             self.fallback.get_or_insert(construct_fallback(kind));
@@ -244,22 +308,71 @@ impl Walk<'_> {
         self.stack.push((level, self.posts.len() - 1));
     }
 
-    fn wrapper_post(&mut self, lift: &Lift) {
+    /// Opens a wrapper. Unsigned text before it becomes a post of its own, unless the wrapper
+    /// turns out to be inside one comment.
+    fn open_wrapper(&mut self, open: Range<usize>) {
+        let before = self.posts.len();
+        self.flush_unsigned();
+        let flushed = self.posts.len() > before;
+        self.wrappers.push(OpenWrapper {
+            level: self.stack.last().map_or(2, |(l, _)| *l),
+            parent: self.heading_parent(),
+            first_post: self.posts.len(),
+            at_start: self.posts.is_empty() && self.stack.is_empty(),
+            flushed,
+            open,
+        });
+    }
+
+    /// Closes the innermost wrapper, at line `close` or, when it was never closed, where its
+    /// scope ends. A wrapper that enclosed no complete post was inside one comment: its lines,
+    /// and the unsigned text before it, go back into that comment's text.
+    fn close_wrapper(&mut self, close: Option<usize>) {
+        let Some(w) = self.wrappers.pop() else { return };
+        if self.posts.len() == w.first_post {
+            if w.flushed
+                && let Some(before) = self.posts.pop()
+            {
+                self.pending.extend(before.lines);
+            }
+            self.pending.extend(w.open.clone().chain(close));
+            self.pending.sort_unstable();
+            return;
+        }
+        self.flush_unsigned();
+        let lines = self.lines;
+        let call = lines[w.open.clone()].join("\n");
+        let close_text = close
+            .map(|i| lines[i].trim().to_string())
+            .unwrap_or_default();
         let mut post = new_post(
-            PostKind::Wrapper {
-                close: self.lines[lift.close].trim().to_string(),
+            PostKind::Collapse {
+                first: w.first_post,
+                last: self.posts.len() - 1,
+                wrapper: [call.clone(), close_text],
             },
-            self.lines,
-            lift.open.clone(),
+            lines,
+            w.open.clone(),
             0,
         );
-        post.signature = lift
+        post.text = wrapper_statement(&call);
+        post.signature = w
             .open
             .clone()
-            .flat_map(|i| signatures(self.lines[i], self.markup, self.site))
+            .flat_map(|i| signatures(lines[i], self.markup, self.site))
             .find(|s| s.kind == SignatureKind::Dated);
-        post.parent = self.heading_parent();
+        post.parent = w.parent;
+        if w.at_start {
+            self.closing = Some(self.posts.len());
+        }
         self.posts.push(post);
+    }
+
+    /// Closes the wrappers of scopes a heading of this level ends.
+    fn close_scopes(&mut self, level: u8) {
+        while self.wrappers.last().is_some_and(|w| w.level >= level) {
+            self.close_wrapper(None);
+        }
     }
 
     fn feed(&mut self, line: &str) {
@@ -348,25 +461,6 @@ pub(crate) fn split_thread(
         .iter()
         .filter(|h| span.body.contains(&h.line) && matches!(h.role, Role::Sub(_)))
         .collect();
-    // Scopes a wrapper may enclose: the whole body, and each subsection.
-    let mut lifts = Vec::new();
-    if let Some(l) = lift_wrapper(lines, span.body.clone(), markup) {
-        lifts.push(l);
-    }
-    for (k, h) in subs.iter().enumerate() {
-        let Role::Sub(level) = h.role else { continue };
-        let end = subs[k + 1..]
-            .iter()
-            .find(|n| matches!(n.role, Role::Sub(l) if l <= level))
-            .map_or(span.body.end, |n| n.line);
-        if let Some(l) = lift_wrapper(lines, h.line + 1..end, markup) {
-            lifts.push(l);
-        }
-    }
-    let lifted: BTreeSet<usize> = lifts
-        .iter()
-        .flat_map(|l| l.open.clone().chain(std::iter::once(l.close)))
-        .collect();
     let mut walk = Walk {
         lines,
         markup,
@@ -378,27 +472,47 @@ pub(crate) fn split_thread(
         cons: Constructs::default(),
         extending: None,
         fallback: None,
+        wrappers: Vec::new(),
+        closing: None,
     };
-    for i in span.body.clone() {
-        if let Some(lift) = lifts.iter().find(|l| l.open.start == i) {
-            walk.flush_unsigned();
-            walk.wrapper_post(lift);
+    let mut i = span.body.start;
+    while i < span.body.end {
+        if let Some(h) = subs.iter().find(|h| h.line == i) {
+            let Role::Sub(level) = h.role else {
+                unreachable!()
+            };
+            walk.heading_post(i, level, &h.text);
+            i += 1;
             continue;
         }
-        if lifted.contains(&i) {
-            continue;
-        }
-        match subs.iter().find(|h| h.line == i) {
-            Some(h) => {
-                let Role::Sub(level) = h.role else {
-                    unreachable!()
-                };
-                walk.heading_post(i, level, &h.text);
+        if walk.extending.is_none() && !walk.cons.comment {
+            if let Some(open) = wrapper_open(lines, i, span.body.end, markup) {
+                i = open.end;
+                walk.open_wrapper(open);
+                continue;
             }
-            None => walk.line(i),
+            if !walk.wrappers.is_empty() && wrapper_close(lines[i], markup) {
+                walk.close_wrapper(Some(i));
+                i += 1;
+                continue;
+            }
         }
+        walk.line(i);
+        i += 1;
     }
     walk.flush_unsigned();
+    walk.close_scopes(0);
+    walk.flush_unsigned();
+    // A collapse that enclosed the whole thread, with nothing after it, is a closure (0090 §3).
+    if let Some(k) = walk.closing.filter(|k| *k + 1 == walk.posts.len()) {
+        let post = &mut walk.posts[k];
+        if let PostKind::Collapse { wrapper, .. } = &post.kind {
+            post.kind = PostKind::Closing {
+                wrapper: wrapper.clone(),
+            };
+        }
+        post.parent = None;
+    }
     if !walk.posts.iter().any(|p| p.kind == PostKind::Comment) {
         walk.fallback.get_or_insert(Fallback::NoSignature);
     }

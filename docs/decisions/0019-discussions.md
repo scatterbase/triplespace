@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-20 (A24)
+- **Updated:** 2026-10-22 (A26)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0018](0018-tenants.md), [0022](0022-federation.md)
@@ -36,27 +36,27 @@ Two goals from the earlier ADRs constrain the design. Every unit of contribution
 
 ### 3. The `Thread` namespace and thread titles (extends 0008 §1 and §3)
 
-*Changed by A9, A10, A13, A23.*
+*Changed by A9, A10, A13, A23, A26.*
 
 *Current text: [14](../architecture/14-discussions.md) §1.4.*
 
 ### 4. The record: four parts (amends 0015 §1)
 
-*Changed by A10, A13, A15, A17, A18, A19, A23, A24.*
+*Changed by A10, A13, A15, A17, A18, A19, A23, A24, A25, A26.*
 
 *Current text: [14](../architecture/14-discussions.md) §1.5, §3.6, §4.2.*
 
 ### 5. Text: markdown, mentions and links (extends 0008 §5, §8 and §10)
 
-*Changed by A8, A13, A24.*
+*Changed by A8, A13, A24, A25.*
 
 *Current text: [14](../architecture/14-discussions.md) §1.6.*
 
 ### 6. Status and visibility
 
-*Changed by A3, A5, A7, A8, A13, A20, A21.*
+*Changed by A3, A5, A7, A8, A13, A20, A21, A25, A26.*
 
-*Current text: [14](../architecture/14-discussions.md) §2.1, §2.2, §2.3.*
+*Current text: [14](../architecture/14-discussions.md) §2.1, §2.2, §2.3, §2.4.*
 
 ### 7. History, activity, logs and RDF (extends 0001 §1 and §6, 0011 §6.1 and §8)
 
@@ -495,3 +495,27 @@ Replaced text ([14](../architecture/14-discussions.md) §1.5, as it stood):
 > The fields of `propose`, `submit` and `withdraw` are in §5.3.
 
 Replaced text ([14](../architecture/14-discussions.md) §1.6): none; a paragraph on heading and wrapper posts is added before the one on `~~~~`.
+
+### A25. The `closed` status, and collapsing a range of posts
+
+- **Date:** 2026-10-21
+- **Source:** Direct: James, design discussion of 2026-10-21
+- **Change:** amends §4, §5; extends §6
+- **Summary:** A default thread status `closed` (category `closed`) is added to `thread-statuses.toml`, for a discussion someone formally closed with a statement; a talk-page conversion writes it for a closing template ([0090](0090-converting-talk-pages-comment-by-comment.md) A1). A post may carry `collapse: {first, last}`, the revision IDs of two posts of the same thread, and the range is shown collapsed beneath the post's text, its posts keeping their places and parents; a later post carrying `uncollapse` with the collapsing post's revision ID undoes it. Collapsing is native, a claim in public like a status: anyone who may post may collapse, and imports write collapsing posts for wrapper templates. The wrapper posts and `wrap` field of A24 are withdrawn. Chapter text: [14](../architecture/14-discussions.md) §1.5, §1.6, §2.1, §2.4.
+
+Replaced text ([14](../architecture/14-discussions.md) §1.5, as it stood):
+
+> | `wrap` | `post` (optional) | The closing call of a wrapper post, whose text is the opening call of the template pair that closed or collapsed its section or subsection ([13](../architecture/13-mirrored-pages.md) §5.14) |
+>
+> `imported_from` on `post`, `heading` and `wrap` are written only by imports; a `post` from an editor that carries any of them is refused ([0090](../decisions/0090-converting-talk-pages-comment-by-comment.md) §8).
+
+Replaced text ([14](../architecture/14-discussions.md) §1.6, as it stood):
+
+> **Heading posts and wrapper posts**, which only an import writes, render as what they were: a heading post as a heading at its depth, and a wrapper post by expanding its opening call, a placeholder and its closing call once and putting the enclosed posts' HTML at the placeholder ([0090](../decisions/0090-converting-talk-pages-comment-by-comment.md) §3; [13](../architecture/13-mirrored-pages.md) §5.14).
+
+### A26. Rules settled while building `scatter-threads`
+
+- **Date:** 2026-10-22
+- **Source:** Direct: James, design discussion of 2026-10-22
+- **Change:** extends §3, §4, §6
+- **Summary:** Calls the pure crate made where the text was silent, each confirmed by James. **Subjects** (§3): underscores and runs of whitespace become one space, the ends are trimmed and the first letter is upper-cased; control characters are refused beside MediaWiki's forbidden ones, and a subject must leave room for the date and a ` (n)` suffix within the 255-byte title limit. **`imported_from` keys** (§4): `repository`, `page`, `revision`, `archive` and `section_hash` for a thread's source; `name`, `id`, `signed_as`, `added_by` (`revision`, `actor`), `timestamp`, `fallback` and `wrapper` for an imported comment; any other key is refused (James: "reasonable"). **Import-only fields** (§4): `imported_from`, `heading` and the wikitext media type are refused on an original `create` or `post` and accepted on an imported one (James: "If a field is only applicable for an import it should not be allowed for an original post, but if it genuinely is an imported post it should be fine"). **Media type** (§4): an `edit` carries its post's own media type, so a post keeps its markup for good. **Pins** (§4): `pinned: true` on `create` counts against `thread.max_pinned` on the home, as a `pin` does. **Statuses** (§6): a retired status can no longer be set, threads that carry it keep it, and a status the registry no longer lists reads as open; `closed` (A25) is a current default, not a retired one (James: "it was a gap in the original model"). **Collapses** (§6): ranges may nest but not cross; a partly overlapping range is refused. Chapter text: [14](../architecture/14-discussions.md) §1.4, §1.5, §2.1, §2.4, §4.2.

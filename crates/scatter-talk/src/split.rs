@@ -37,7 +37,7 @@ pub enum Fallback {
     NoSignature,
     /// A comment boundary falls inside a construct that opens before it and closes after it.
     Construct(&'static str),
-    /// A registered wrapper encloses only part of the section.
+    /// A wrapper opened inside a comment that ends before the wrapper closes.
     PartialWrapper,
     /// The page is larger than [`Options::max_bytes`].
     TooLarge,
@@ -68,10 +68,22 @@ pub enum PostKind {
         /// 3 to 6.
         level: u8,
     },
-    /// A lifted wrapper (0090 §3): its text is the opening call.
-    Wrapper {
-        /// The closing call.
-        close: String,
+    /// A wrapper's statement closing the whole section: the post carries `status: closed`
+    /// (0090 §3). Its text is the statement.
+    Closing {
+        /// The opening and closing calls, verbatim (`imported_from.wrapper`).
+        wrapper: [String; 2],
+    },
+    /// A wrapper's statement collapsing a range of the thread's posts (0090 §3, 0019 §6): its
+    /// text is the statement; `first` and `last` index the thread's posts.
+    Collapse {
+        /// The first post collapsed.
+        first: usize,
+        /// The last post collapsed.
+        last: usize,
+        /// The opening and closing calls, verbatim; the closing call is empty when the wrapper
+        /// was never closed.
+        wrapper: [String; 2],
     },
     /// A whole section that would not split (0090 §4).
     Section(Fallback),
@@ -103,7 +115,8 @@ pub struct Post {
     pub depth: usize,
     /// The post it answers, as an index into the thread's posts.
     pub parent: Option<usize>,
-    /// Its signature: for a comment, the one that ended it; for a wrapper, its closer's.
+    /// Its signature: for a comment, the one that ended it; for a closing or collapsing post,
+    /// its statement's.
     pub signature: Option<Signature>,
     /// Later signatures on its signature line: notes inside it.
     pub notes: Vec<Signature>,

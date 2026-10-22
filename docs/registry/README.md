@@ -14,7 +14,7 @@ This directory is the registry of record for the names and codes that Triplespac
 | `groups.toml` | Default groups, their permissions, and the default graph ACLs | `scatter-actors` | 0016 §2–4, 0019 §12, 0020 §7, 0021 §9, 0022 §12, 0023 §11, 0024 §11, 0025 §10, 0030 §12, 0047 §12, 0051 §8 |
 | `grants.toml` | API-key grants and the permissions each covers; also the OAuth scopes a consumer may request | `scatter-actors` | 0024 §4, 0025 §2, 0047 §12 |
 | `sites.toml` | Site aliases: MediaWiki site IDs, hosts, article paths and languages, for sitelink compatibility (generated from the Wikimedia site matrix) | `scatter-wikibase-model` | 0026 §2 |
-| `thread-statuses.toml` | Default thread statuses, with category and order | `scatter-threads` | 0019 §6 (amended), 0054 §5 |
+| `thread-statuses.toml` | Default thread statuses, with category and order | `scatter-threads` | 0019 §6 (amended), 0054 §5, 0090 §3 |
 | `talk-markup.toml` | The conventions of wikitext talk pages, universal across wikis: timestamp formats as MediaWiki date-format strings, month names by language, the marks before an undated signature, and template names by role (`unsigned`, `outdent`, `wrapper`, `autosign`) | `scatter-talk` | 0090 §5 |
 | `preferences.toml` | Registered preference keys, types and defaults | `triplespace-accounts` | 0027 §1, 0069 §6 |
 | `tenancy.toml` | Tenancy policy switches and the `isolated`, `community` and `enterprise` presets, with their global groups | `scatter-actors` | 0028 §1, 0042 §2 |

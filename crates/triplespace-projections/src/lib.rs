@@ -28,6 +28,7 @@ pub mod revision_state;
 pub mod revisions;
 pub mod sources;
 pub mod tenants;
+pub mod threads;
 
 pub use activity::ActivityProjection;
 pub use actors::Farm;
@@ -61,6 +62,7 @@ pub fn milestone_pipeline<B: Backend<Cx = PgCx>>(
         .with(KeyedMapProjection)?
         .with(JobProjection)?
         .with(PageProjection)?
+        .with(threads::ThreadProjection)?
         .with(EntityProjection::default())?
         .with(ActivityProjection)
 }

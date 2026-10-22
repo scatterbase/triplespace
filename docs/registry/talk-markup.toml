@@ -7,7 +7,8 @@
 # same formats and templates recur across wikis. A wiki configures nothing. Everything
 # wiki-specific comes from meta=siteinfo or a dump's <siteinfo>:
 #   - the content language, which selects the [[months]] table;
-#   - the timezone, in which a timestamp without a zone is read (tz database rules);
+#   - the timezone: a timestamp that prints its zone is read at that zone's offset, one without
+#     at the wiki's offset; the caller derives both from siteinfo with the tz database;
 #   - the namespace names and aliases for User and User talk, and the special-page aliases for
 #     Contributions, which a signature's user link may use.
 #

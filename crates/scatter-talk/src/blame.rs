@@ -251,11 +251,14 @@ fn by_revision(added: Option<&Revision>, importer: &str) -> Attribution {
 /// the comment's signer, as unsigned posts of their own (0090 §6).
 fn split_by_history(t: &mut Thread, lines: &[&str], blame: &Blame) {
     let mut out: Vec<Post> = Vec::with_capacity(t.posts.len());
+    // Where each old post's outputs start, and where the post itself landed.
+    let mut starts = Vec::with_capacity(t.posts.len());
     let mut map = Vec::with_capacity(t.posts.len());
     for post in std::mem::take(&mut t.posts) {
         let r = post.lines.clone();
+        starts.push(out.len());
         let split_at = if post.kind == PostKind::Comment && r.len() > 1 {
-            let sig_line = r.end - 1;
+            let sig_line = signature_line(&post, lines, blame.markup, blame.site);
             blame.origin_of(sig_line, lines[sig_line]).map(|signer| {
                 let user = post.signature.as_ref().map_or("", |s| s.user.as_str());
                 (r.start..sig_line)
@@ -299,16 +302,23 @@ fn split_by_history(t: &mut Thread, lines: &[&str], blame: &Blame) {
     }
     for p in &mut out {
         p.parent = p.parent.map(|q| map[q]);
+        if let PostKind::Collapse { first, last, .. } = &mut p.kind {
+            *first = starts[*first];
+            *last = map[*last];
+        }
     }
-    // An inserted unsigned post's parent was copied before remapping; remap was applied to it
-    // too, which is what it needs.
     t.posts = out;
 }
 
 /// The line of a post that carries its signature.
 fn signature_line(post: &Post, lines: &[&str], markup: &Markup, site: &Site) -> usize {
     match post.kind {
-        PostKind::Comment => post.lines.end - 1,
+        PostKind::Comment => post
+            .lines
+            .clone()
+            .rev()
+            .find(|&i| !signatures(lines[i], markup, site).is_empty())
+            .unwrap_or(post.lines.end - 1),
         _ => post
             .lines
             .clone()
@@ -354,7 +364,7 @@ fn attribute_post(
     let post = &t.posts[k];
     let origin = |i: usize| blame.and_then(|b| b.origin_of(i, lines[i]));
     match &post.kind {
-        PostKind::Comment | PostKind::Wrapper { .. } => {
+        PostKind::Comment | PostKind::Closing { .. } | PostKind::Collapse { .. } => {
             let line = signature_line(post, lines, markup, site);
             match &post.signature {
                 Some(s) => by_signature(&s.user, s.when, origin(line), blame),

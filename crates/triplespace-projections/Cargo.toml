@@ -20,6 +20,7 @@ scatter-wikibase-resolve.workspace = true
 scatter-wikibase-model.workspace = true
 scatter-providers.workspace = true
 scatter-pages.workspace = true
+scatter-threads.workspace = true
 scatter-titles.workspace = true
 scatter-wikitext.workspace = true
 oxrdf.workspace = true

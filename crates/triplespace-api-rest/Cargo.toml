@@ -12,6 +12,9 @@ publish = false
 [dependencies]
 triplespace-api-action.workspace = true
 triplespace-api-ingest.workspace = true
+scatter-ingest.workspace = true
+scatter-threads.workspace = true
+deadpool-postgres.workspace = true
 scatter-projection.workspace = true
 triplespace-accounts.workspace = true
 scatter-actors.workspace = true

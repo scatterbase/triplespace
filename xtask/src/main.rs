@@ -47,6 +47,7 @@ const PURE_CRATES: &[&str] = &[
     "scatter-wikitext",
     "scatter-threads",
     "scatter-talk",
+    "scatter-talk-import",
     "scatter-activitypub",
     "scatter-filter",
     "scatter-mwlog",

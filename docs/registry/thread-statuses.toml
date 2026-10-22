@@ -37,6 +37,13 @@ label = "Resolved"
 category = "closed"
 order = 40
 
+# Formally closed with a statement; imports write it for a closing template (0090 §3, 0019 A25).
+[[status]]
+name = "closed"
+label = "Closed"
+category = "closed"
+order = 45
+
 [[status]]
 name = "wontfix"
 label = "Won't fix"

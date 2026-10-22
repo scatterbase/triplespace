@@ -1,7 +1,9 @@
-//! Golden tests against DiscussionTools (0090 §13), on the samples `tools/talk_dumps.py` writes.
+//! Golden tests against DiscussionTools (0090 §13).
 //!
-//! Set `TRIPLESPACE_TALK_SAMPLES` to that directory (`manifest.json`, `current.xml`,
-//! `history.xml.gz`, `discussiontools/*.json`). Without it the tests print "skipping" and pass.
+//! They read `tests/fixtures/`: the 2026-10-21 samples `tools/talk_dumps.py` fetched from English
+//! Wikipedia, compressed by `tools/talk_fixtures.py` (see the README there for the licence). Set
+//! `TRIPLESPACE_TALK_SAMPLES` to a directory `tools/talk_dumps.py` wrote to run them on other
+//! samples instead; each file is read as named, or with `.gz` or `.bz2` appended.
 //!
 //! The thresholds are the Python prototype's agreement on the 2026-10-21 samples
 //! (`tools/talk_compare.py`): the Rust splitter is held to it or better.
@@ -18,30 +20,41 @@ use scatter_talk::{
 };
 use serde_json::Value;
 
-fn samples() -> Option<PathBuf> {
-    if let Some(p) = std::env::var_os("TRIPLESPACE_TALK_SAMPLES") {
-        Some(PathBuf::from(p))
+fn samples() -> PathBuf {
+    std::env::var_os("TRIPLESPACE_TALK_SAMPLES").map_or_else(
+        || Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures"),
+        PathBuf::from,
+    )
+}
+
+/// A sample file's bytes: `name` as is, or compressed as `name.gz` or `name.bz2`.
+fn read_sample(dir: &Path, name: &str) -> Vec<u8> {
+    let mut raw = Vec::new();
+    let plain = dir.join(name);
+    let name = name.strip_suffix(".gz").unwrap_or(name);
+    if plain.exists() && plain.extension().is_none_or(|e| e != "gz") {
+        std::fs::File::open(&plain)
+            .and_then(|mut f| f.read_to_end(&mut raw))
+            .expect("sample reads");
+    } else if let Ok(f) = std::fs::File::open(dir.join(format!("{name}.gz"))) {
+        flate2::read::GzDecoder::new(f)
+            .read_to_end(&mut raw)
+            .expect("gzip");
     } else {
-        eprintln!("skipping: TRIPLESPACE_TALK_SAMPLES is not set");
-        None
+        let f = std::fs::File::open(dir.join(format!("{name}.bz2")))
+            .unwrap_or_else(|e| panic!("{name}: {e}"));
+        bzip2::read::BzDecoder::new(f)
+            .read_to_end(&mut raw)
+            .expect("bzip2");
     }
+    raw
 }
 
 /// One revision of a dump: (title, revision ID, actor, timestamp, text).
 type Rev = (String, u64, String, String, String);
 
-fn read_dump(path: &Path) -> Vec<Rev> {
-    let mut raw = Vec::new();
-    let file = std::fs::File::open(path).expect("dump opens");
-    if path.extension().is_some_and(|e| e == "gz") {
-        flate2::read::GzDecoder::new(file)
-            .read_to_end(&mut raw)
-            .expect("gzip");
-    } else {
-        std::io::BufReader::new(file)
-            .read_to_end(&mut raw)
-            .expect("read");
-    }
+fn read_dump(dir: &Path, name: &str) -> Vec<Rev> {
+    let raw = read_sample(dir, name);
     let mut reader = Reader::from_reader(raw.as_slice());
     let mut out = Vec::new();
     let (mut title, mut stack, mut buf, mut leaf) = (
@@ -132,9 +145,8 @@ fn walk(
 }
 
 /// DiscussionTools' comments, once each: key, parent key, ID.
-fn dt_comments(path: &Path) -> Vec<(Key, Option<Key>, String)> {
-    let v: Value =
-        serde_json::from_str(&std::fs::read_to_string(path).expect("json")).expect("json");
+fn dt_comments(dir: &Path, name: &str) -> Vec<(Key, Option<Key>, String)> {
+    let v: Value = serde_json::from_slice(&read_sample(dir, name)).expect("json");
     let mut out = Vec::new();
     let mut seen = std::collections::HashSet::new();
     for it in v["discussiontoolspageinfo"]["threaditemshtml"]
@@ -155,13 +167,16 @@ fn ours(threads: &[Thread]) -> Ours {
     for t in threads {
         let key = |k: usize| {
             let p = &t.posts[k];
-            matches!(p.kind, PostKind::Comment | PostKind::Wrapper { .. })
-                .then(|| {
-                    p.signature
-                        .as_ref()
-                        .and_then(|s| s.when.map(|w| (s.user.clone(), w)))
-                })
-                .flatten()
+            matches!(
+                p.kind,
+                PostKind::Comment | PostKind::Closing { .. } | PostKind::Collapse { .. }
+            )
+            .then(|| {
+                p.signature
+                    .as_ref()
+                    .and_then(|s| s.when.map(|w| (s.user.clone(), w)))
+            })
+            .flatten()
         };
         for k in 0..t.posts.len() {
             if let Some(me) = key(k) {
@@ -200,14 +215,12 @@ fn fallback_keys(
 
 #[test]
 fn agrees_with_discussiontools() {
-    let Some(dir) = samples() else { return };
-    let manifest: Value = serde_json::from_str(
-        &std::fs::read_to_string(dir.join("manifest.json")).expect("manifest"),
-    )
-    .expect("json");
+    let dir = samples();
+    let manifest: Value =
+        serde_json::from_slice(&read_sample(&dir, "manifest.json")).expect("json");
     let mut texts: BTreeMap<(String, u64), String> = BTreeMap::new();
-    for name in ["current.xml", "history.xml.gz"] {
-        for (title, id, _, _, text) in read_dump(&dir.join(name)) {
+    for dump in manifest["dumps"].as_object().expect("dumps").values() {
+        for (title, id, _, _, text) in read_dump(&dir, dump["file"].as_str().expect("file")) {
             texts.insert((title, id), text);
         }
     }
@@ -222,7 +235,7 @@ fn agrees_with_discussiontools() {
         let text = &texts[&(title.clone(), p["revid"].as_u64().expect("revid"))];
         let conv = convert(text, markup, &site, &opts);
         let mine = ours(&conv.threads);
-        let theirs = dt_comments(&dir.join(file));
+        let theirs = dt_comments(&dir, file);
         let in_fallback = fallback_keys(&conv.threads, text, markup, &site);
         let (mut b, mut po, mut pn, mut io, mut fb) = (0, 0, 0, 0, 0);
         for (key, parent, id) in &theirs {
@@ -248,6 +261,17 @@ fn agrees_with_discussiontools() {
                 }
             }
         }
+        let closings = conv
+            .posts()
+            .filter(|(_, p)| matches!(p.kind, PostKind::Closing { .. }))
+            .count();
+        let collapses = conv
+            .posts()
+            .filter(|(_, p)| matches!(p.kind, PostKind::Collapse { .. }))
+            .count();
+        if closings + collapses > 0 {
+            println!("  closing posts {closings}, collapsing posts {collapses}");
+        }
         if !why.is_empty() {
             println!("  fallbacks of {} threads: {why:?}", conv.threads.len());
         }
@@ -267,9 +291,9 @@ fn agrees_with_discussiontools() {
     );
     // The prototype, which had no fallbacks: 2,178 of 2,179 found, 97.5% of parents, 97.1% of
     // IDs. Sections that fall back (0090 §4) hold their comments whole, so they are counted apart;
-    // on the 2026-10-21 samples that is the five noticeboard threads a partial wrapper closes.
+    // since wrappers became closing and collapsing posts (0090 A1), none on the 2026-10-21 samples.
     assert!(
-        fallback_total * 100 <= (dt_total + fallback_total) * 10,
+        fallback_total * 100 <= dt_total + fallback_total,
         "fallback sections: {fallback_total}"
     );
     assert!(
@@ -285,8 +309,7 @@ fn agrees_with_discussiontools() {
 
 #[test]
 fn attribution_from_history() {
-    let Some(dir) = samples() else { return };
-    let revs = read_dump(&dir.join("history.xml.gz"));
+    let revs = read_dump(&samples(), "history.xml.gz");
     let (markup, site) = (Markup::embedded(), Site::english());
     let mut blame = Blame::new(markup, &site);
     let mut by_source: BTreeMap<String, usize> = BTreeMap::new();

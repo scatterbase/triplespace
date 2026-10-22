@@ -95,7 +95,10 @@ fn anchors(headings: &[HeadingInfo], opts: &Options) -> BTreeMap<usize, String> 
 /// A post that is a dated comment for DiscussionTools: (user, time).
 fn dated(t: &Thread, k: usize) -> Option<(&str, Stamp)> {
     let p = &t.posts[k];
-    if !matches!(p.kind, PostKind::Comment | PostKind::Wrapper { .. }) {
+    if !matches!(
+        p.kind,
+        PostKind::Comment | PostKind::Closing { .. } | PostKind::Collapse { .. }
+    ) {
         return None;
     }
     let s = p.signature.as_ref()?;

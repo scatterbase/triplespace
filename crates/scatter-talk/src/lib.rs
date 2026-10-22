@@ -1,12 +1,13 @@
 //! Converting wikitext talk pages into threads, comment by comment (ADR 0090).
 //!
 //! [`convert`] splits a talk page's wikitext: each level-two section becomes a [`Thread`], each
-//! signed comment a [`Post`] with the post it answers, headings below level two become heading
-//! posts and wrappers that close a whole section or subsection become wrapper posts; a section
-//! that will not split falls back to one post, and a page that will not divide to one post
-//! (0090 §1–§4). Signatures are found with the universal registry `talk-markup.toml` (§5) and
-//! what [`Site`] takes from siteinfo. Every dated comment and heading gets its DiscussionTools
-//! name and ID (§9).
+//! signed comment a [`Post`] with the post it answers, and headings below level two become
+//! heading posts. A wrapper template becomes data: around a whole section, a closing post that
+//! closes the thread; around anything less, a collapsing post over the posts it enclosed. A
+//! section that will not split falls back to one post, and a page that will not divide to one
+//! post (0090 §1–§4, A1). Signatures are found with the universal registry `talk-markup.toml`
+//! (§5) and what [`Site`] takes from siteinfo. Every dated comment and heading gets its
+//! DiscussionTools name and ID (§9).
 //!
 //! [`Blame`] replays a page's history line by line, and [`attribute`] resolves each post's
 //! author from its signature and the revision that added it (§6–§7).

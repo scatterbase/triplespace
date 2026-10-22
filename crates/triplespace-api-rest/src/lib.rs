@@ -32,6 +32,11 @@
 //! - `GET /tenancy` ([`tenancy`]): at the farm base, the farm, the primary tenant, the
 //!   tenancy policy and the tenant list (0028 §11; 0046 §9; 0079 §7).
 //!
+//! - `POST /thread`, `GET /thread/{id}`, `POST /thread/{id}/post`,
+//!   `PUT /thread/{id}/post/{revid}`, the thread's `rename`, `move`, `attach`, `detach`,
+//!   `pin` and `unpin`, and `GET /page/{id}/threads` ([`threads`]): local threads, read and
+//!   written through the one thread writer (0019 §9; 0049 §11; 0069 §9).
+//!
 //! Every route runs behind the Action API's request layers ([`triplespace_api_action`]):
 //! the tenant the host names (421 otherwise), the caller, the redaction of 0012 §8, and
 //! the HTTP caching of 0014 §6 ([`triplespace_api_action::http_cache`]). Errors are JSON
@@ -49,10 +54,11 @@ pub mod history;
 pub mod provenance;
 pub mod settings;
 pub mod tenancy;
+pub mod threads;
 pub mod version;
 
 use axum::Router;
-use axum::routing::{delete, get, post};
+use axum::routing::{delete, get, post, put};
 use triplespace_api_action::App;
 
 /// The base paths the REST API answers at.
@@ -79,6 +85,17 @@ pub const PATHS: &[&str] = &[
     "/auth/pending",
     "/account",
     "/tenancy",
+    "/thread",
+    "/thread/{id}",
+    "/thread/{id}/post",
+    "/thread/{id}/post/{revid}",
+    "/thread/{id}/rename",
+    "/thread/{id}/move",
+    "/thread/{id}/attach",
+    "/thread/{id}/detach",
+    "/thread/{id}/pin",
+    "/thread/{id}/unpin",
+    "/page/{id}/threads",
 ];
 
 /// The REST routes, to be merged into the server's router.
@@ -116,7 +133,18 @@ pub fn routes() -> Router<App> {
             .route(&format!("{base}{}", PATHS[15]), get(auth::callback))
             .route(&format!("{base}{}", PATHS[16]), get(auth::pending))
             .route(&format!("{base}{}", PATHS[17]), get(auth::account))
-            .route(&format!("{base}{}", PATHS[18]), get(tenancy::handle));
+            .route(&format!("{base}{}", PATHS[18]), get(tenancy::handle))
+            .route(&format!("{base}{}", PATHS[19]), post(threads::create))
+            .route(&format!("{base}{}", PATHS[20]), get(threads::get))
+            .route(&format!("{base}{}", PATHS[21]), post(threads::post))
+            .route(&format!("{base}{}", PATHS[22]), put(threads::edit))
+            .route(&format!("{base}{}", PATHS[23]), post(threads::rename))
+            .route(&format!("{base}{}", PATHS[24]), post(threads::move_to))
+            .route(&format!("{base}{}", PATHS[25]), post(threads::attach))
+            .route(&format!("{base}{}", PATHS[26]), post(threads::detach))
+            .route(&format!("{base}{}", PATHS[27]), post(threads::pin))
+            .route(&format!("{base}{}", PATHS[28]), post(threads::unpin))
+            .route(&format!("{base}{}", PATHS[29]), get(threads::list));
     }
     r
 }
