@@ -257,12 +257,10 @@ impl GroupRegistry {
         )?;
         check(
             OWNER,
-            |g| {
-                g.all_permissions
-                    && g.minimum_members >= 1
-                    && g.membership_changed_by.as_deref() == Some(OWNER)
-            },
-            "must hold every permission, keep a member, and be changed only by owner",
+            // `owner` may lose its last member once nothing needs it (0016 A37): the
+            // registry no longer insists on one.
+            |g| g.all_permissions && g.membership_changed_by.as_deref() == Some(OWNER),
+            "must hold every permission and be changed only by owner",
         )?;
         Ok(reg)
     }

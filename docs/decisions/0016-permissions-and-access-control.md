@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-22 (A36)
+- **Updated:** 2026-10-23 (A38)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -36,7 +36,7 @@ The two agree on the shape: users, groups, memberships, named permissions, and r
 
 ### 3. Groups, memberships and blocks
 
-*Changed by A5, A7, A8, A9, A11, A12, A15, A22, A30, A31, A35, A36.*
+*Changed by A5, A7, A8, A9, A11, A12, A15, A22, A30, A31, A35, A36, A37, A38.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §3.1, §3.2, §3.3, §3.4, §3.5, §3.6.*
 
@@ -469,3 +469,49 @@ Replaced text ([09](../architecture/09-security-and-moderation.md) §2.2, as it 
 - **Source:** Direct: James, design discussion of 2026-10-22
 - **Change:** extends §3
 - **Summary:** So that a department can run its own administrators and its own membership without anyone holding `userrights`, which reaches every group ([0056](0056-security-model.md) A18). (1) **Delegated membership,** after MediaWiki's `$wgAddGroups`, `$wgRemoveGroups`, `$wgGroupsAddToSelf` and `$wgGroupsRemoveFromSelf`: a `group` record may carry `adds` and `removes`, lists of groups its members may add others to and remove others from, and `adds_self` and `removes_self`, the groups they may join or leave themselves, empty unless set; adding and removing are listed apart. None of the four may name `owner` or a group holding `userrights` or `ts-config`. (2) **Scoped groups:** a `group` record may carry `within`, namespaces and sets; its permissions hold only on targets those enclose, so department administrators fail closed where restricting unscoped groups space by space fails open. A scoped group may hold only permissions that act on a page, entity or thread. Membership in it counts everywhere in ACL tests. A move needs the permission at both ends. `meta=userinfo` reports scoped permissions under `ts-scopedrights`, apart from `rights`. The scope lives on the group, not on the membership, so that a tenant's delegation reads in one place and pairs with the add lists (`hr-admins` scoped to the HR set, adding to `hr`); a scope per membership was considered and not taken. Changing any of these fields needs `userrights` as well as `ts-config`. Every membership written under them projects and notifies as one written under `userrights` does.
+
+### A37. `owner` reads everything and is a bootstrap role; `auditor`; inclusion is for reading
+
+- **Date:** 2026-10-23
+- **Source:** Direct: James, design discussion of 2026-10-23
+- **Change:** amends §3
+- **Summary:** `owner` holds every permission by definition and, James decided, reads everything by definition too, consistent with it being the all-powerful role. That makes it a **bootstrap role**: a mature deployment whose own groups cover every right it uses may have no owner at all, and `owner` is then restored only from the command line. In full: (1) `"*"` in `includes` means every group but `owner` and the tenant's suppression group, which a tenant may add by name. (2) Inclusion counts only when a `read` restriction is evaluated, never for other ACLs, the lock-out or permissions, so an including group reads what the included groups read and changes nothing more (narrowing A35). (3) `owner` ships with `includes = ["*"]`: its members read every confidential target but not what the suppression group alone may, and set, change or lift a confidential restriction only for a group they have joined. (4) A new default group, `auditor`, holds no permissions, includes `"*"`, and is empty until someone is added. (5) `owner` may lose its last member when every permission the tenant's groups use, `userrights` included, is held by another group with a current member, and on the primary tenant `ts-keys` and `ts-primary` are too or are left to the CLI; with no member, `owner` is restored only by `triplespace-cli`, an instance act. This reverses A11's "`owner` stays a group with at least one member"; `instance.owner_of_record` is unaffected.
+
+Replaced text ([09](../architecture/09-security-and-moderation.md) §3.1, as it stood):
+
+> The instance ships with `universe`, `temp`, `user`, `autoconfirmed`, `bot`, `propertycreator`, `sysop`, `bureaucrat`, `suppress`, `owner`, `autopatrolled` and `federated`.
+
+Replaced text ([09](../architecture/09-security-and-moderation.md) §3.2, as it stood):
+
+> **A group may include others.** Its record may carry `includes`, a list of group names, or `"*"` for every group but `owner`. Its members count as members of each included group in every ACL test, `read` included, but receive none of their permissions, which come from their own groups alone (§3.4). Inclusion is one level deep: a group named in `includes` passes on nothing of its own `includes`, so there are no chains and no cycles. Since `includes` changes who may read, changing it needs `userrights` as well as `ts-config`, and notifies the members of each newly included group that a confidential restriction names, as a join does (§4.5; [0016](../decisions/0016-permissions-and-access-control.md) A35).
+
+Replaced text ([09](../architecture/09-security-and-moderation.md) §3.4, as it stood):
+
+> Membership in a group, as an ACL tests it, also counts the groups the actor's groups include (§3.2); permissions do not.
+
+Replaced text ([09](../architecture/09-security-and-moderation.md) §3.6, as it stood):
+
+> Membership in `owner` is changed only by a member of `owner`, and the last member cannot be removed.
+
+### A38. `read-all`; the instance rights may be held by no group; joins notify only where a group says so
+
+- **Date:** 2026-10-23
+- **Source:** Direct: James, design discussion of 2026-10-23
+- **Change:** amends §3
+- **Summary:** (1) The group A37 named `auditor` is `read-all`, a more literal name. (2) The guard on retiring `owner` counts only rights some group but `owner` holds, as James confirmed. `ts-keys` and `ts-primary` may be granted to a group, likely a very exclusive one, or to none, and then are exercised from the command line alone, which is also how new owners are appointed and how the rights are granted again; a mature deployment may prefer that. (3) A join notifies only where the joined group's record sets `notify_joins = true`, as a channel announces who joined it; it is off unless set, every shipped group leaves it off, `read-all` among them, and inclusion passes no notification on. The public `rights/rights` log event is what makes a membership accountable.
+
+Replaced text ([09](../architecture/09-security-and-moderation.md) §3.1, as it stood):
+
+> `autopatrolled`, `federated` and `auditor`. `auditor` holds no permissions and `includes` every group but `owner` and the suppression group (§3.2), so its members read every confidential target and may do nothing more with it; it is empty until someone is added to it, as any group is ([0016](0016-permissions-and-access-control.md) A37).
+
+Replaced text ([09](../architecture/09-security-and-moderation.md) §3.2, as it stood):
+
+> Since `includes` changes who may read, changing it needs `userrights` as well as `ts-config`, and notifies the members of each newly included group that a confidential restriction names, as a join does (§4.5; [0016](0016-permissions-and-access-control.md) A35, A37).
+
+Replaced text ([09](../architecture/09-security-and-moderation.md) §3.3, as it stood):
+
+> Either way it projects as `rights/rights`, and for a group that a confidential restriction names it notifies the group's members (§4.5; [0016](0016-permissions-and-access-control.md) A36).
+
+Replaced text ([09](../architecture/09-security-and-moderation.md) §3.6, as it stood):
+
+> and on the primary tenant the instance rights `ts-keys` and `ts-primary` are too, or are left to the CLI. With no member, `owner` is restored only from the command line (`triplespace-cli`), which is an instance act and recorded as one (08) ([0016](0016-permissions-and-access-control.md) A37).

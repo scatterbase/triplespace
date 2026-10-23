@@ -40,7 +40,7 @@ This directory is the registry of record for the names and codes that Triplespac
 
 ## Pending allocations
 
-- **Groups that include others, delegate membership or are scoped** ([0016](../decisions/0016-permissions-and-access-control.md) A35, A36): the fields `includes`, `adds`, `removes`, `adds_self`, `removes_self` and `within` on `[[group]]` in `groups.toml`. No default group sets them; they are described in a comment at the top of the file until `scatter-actors` accepts them, since the parser rejects unknown fields.
+- **Groups that include others, delegate membership or are scoped** ([0016](../decisions/0016-permissions-and-access-control.md) A35, A36, A37): the fields `includes`, `adds`, `removes`, `adds_self`, `removes_self`, `within` and `notify_joins` (A38) on `[[group]]` in `groups.toml`. `owner` and `read-all` take `includes = ["*"]`, written as comments beside them; no other default group sets them; they are described in a comment at the top of the file until `scatter-actors` accepts them, since the parser rejects unknown fields.
 
 - **Pages served at the auth base** ([0089](../decisions/0089-the-auth-host-and-instance-logins.md) §7): the field `auth = true` on `UserLogin`, `CreateAccount`, `Account` and `UserLogout` in `special-pages.toml`. Written as a comment beside each until `triplespace-titles` accepts it, since the parser rejects unknown fields.
 
