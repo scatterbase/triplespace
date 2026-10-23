@@ -121,6 +121,17 @@ pub async fn write(
         acl.target = w.target.clone();
         acl.reserved = Some(r);
     }
+    // A new set takes its ID from the page-ID sequence, as a reservation does (09 §4.7).
+    if w.target == Target::Set(0) {
+        let id = store
+            .next_id(cx, tenant, &Sequence::Page)
+            .await
+            .map_err(store_err)?;
+        w.target = Target::Set(id);
+        if let Some(acl) = w.acl.as_mut() {
+            acl.target = w.target.clone();
+        }
+    }
     let existing = current(cx, tenant, &w.target)
         .await
         .map_err(AclWriteError::Store)?;

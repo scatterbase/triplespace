@@ -21,6 +21,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod acl_api;
 pub mod activity;
 pub mod api;
 pub mod app;

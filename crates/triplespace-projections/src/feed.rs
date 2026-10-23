@@ -531,6 +531,13 @@ fn build(tenant: &str, feed: &Feed, viewer: &Viewer) -> Built {
                 Box::new(ids),
             );
         }
+        if !h.acl_keys.is_empty() {
+            push(
+                &mut sql,
+                "NOT (a.target_kind IS NULL AND a.target_id = ANY($n))",
+                Box::new(h.acl_keys.iter().cloned().collect::<Vec<String>>()),
+            );
+        }
         if !h.namespaces.is_empty() {
             push(
                 &mut sql,

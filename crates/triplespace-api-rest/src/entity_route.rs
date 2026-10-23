@@ -96,6 +96,15 @@ pub(crate) async fn resolve(
         Some(target) => target,
         None => id,
     };
+    // A private tenant's entities are absent for those outside it (09 §4.7).
+    let private = triplespace_projections::acl_read::tenant_hidden(
+        client,
+        &tenant.slug,
+        &caller.effective,
+        scatter_actors::Timestamp(triplespace_api_action::edit::now_micros()),
+    )
+    .await
+    .map_err(|e| internal(&e))?;
     let standing = read::standing(client, &tenant.slug, &id)
         .await
         .map_err(|e| internal(&e))?;
@@ -103,7 +112,7 @@ pub(crate) async fn resolve(
         .await
         .map_err(|e| internal(&e))?
         .is_some();
-    if standing.deleted || (!held && id.form() != IdForm::Keyed) {
+    if private || standing.deleted || (!held && id.form() != IdForm::Keyed) {
         return Err(error(
             StatusCode::NOT_FOUND,
             "entity-not-found",

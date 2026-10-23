@@ -45,7 +45,7 @@ use crate::pages::{self, Page, Site};
 use crate::response::{ApiError, ApiResponse};
 
 /// The tenant's deletion and suppression groups.
-async fn groups(ctx: &Ctx) -> Result<(String, String), ApiError> {
+pub(crate) async fn groups(ctx: &Ctx) -> Result<(String, String), ApiError> {
     let (s, _) = triplespace_accounts::settings::load(ctx.db(), Some(&ctx.tenant.slug)).await?;
     let get = |k: &str, d: &str| {
         s.value(k)
@@ -126,7 +126,7 @@ pub(crate) fn enforce(
 }
 
 /// The target's current ACL.
-async fn current(ctx: &Ctx, target: &Target) -> Result<Option<Acl>, ApiError> {
+pub(crate) async fn current(ctx: &Ctx, target: &Target) -> Result<Option<Acl>, ApiError> {
     Ok(triplespace_projections::acl_read::current(
         ctx.db(),
         &ctx.tenant.slug,
@@ -139,7 +139,7 @@ async fn current(ctx: &Ctx, target: &Target) -> Result<Option<Acl>, ApiError> {
 
 /// Writes one ACL in its own unit of work and returns the record's log ID and its
 /// target, which for a reservation names the page ID reserved.
-async fn save(
+pub(crate) async fn save(
     ctx: &Ctx,
     target: Target,
     acl: Option<Acl>,
@@ -401,7 +401,7 @@ pub async fn undelete(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
 }
 
 /// An expiry: `infinite` and its synonyms are none.
-fn expiry(text: &str) -> Result<Option<Timestamp>, ApiError> {
+pub(crate) fn expiry(text: &str) -> Result<Option<Timestamp>, ApiError> {
     match text.trim() {
         "" | "infinite" | "indefinite" | "infinity" | "never" => Ok(None),
         t => triplespace_projections::feed::parse_timestamp(t)

@@ -46,6 +46,7 @@
 
 pub mod account;
 pub mod account_requests;
+pub mod acl;
 pub mod activity;
 pub mod auth;
 pub mod diff;
@@ -97,6 +98,11 @@ pub const PATHS: &[&str] = &[
     "/thread/{id}/unpin",
     "/page/{id}/threads",
     "/page/{id}/history",
+    "/acl/{kind}/{id}",
+    "/acl/tenant/{slug}",
+    "/acl/set",
+    "/acl/set/{id}/members",
+    "/acl/set/{id}/members/{kind}/{member}",
 ];
 
 /// The REST routes, to be merged into the server's router.
@@ -146,7 +152,20 @@ pub fn routes() -> Router<App> {
             .route(&format!("{base}{}", PATHS[27]), post(threads::pin))
             .route(&format!("{base}{}", PATHS[28]), post(threads::unpin))
             .route(&format!("{base}{}", PATHS[29]), get(threads::list))
-            .route(&format!("{base}{}", PATHS[30]), get(threads::history));
+            .route(&format!("{base}{}", PATHS[30]), get(threads::history))
+            .route(
+                &format!("{base}{}", PATHS[31]),
+                get(acl::get).put(acl::put).delete(acl::delete),
+            )
+            .route(
+                &format!("{base}{}", PATHS[32]),
+                get(acl::get_tenant)
+                    .put(acl::put_tenant)
+                    .delete(acl::delete_tenant),
+            )
+            .route(&format!("{base}{}", PATHS[33]), post(acl::create_set))
+            .route(&format!("{base}{}", PATHS[34]), post(acl::add_member))
+            .route(&format!("{base}{}", PATHS[35]), delete(acl::remove_member));
     }
     r
 }

@@ -107,8 +107,12 @@ pub struct Hidden {
     pub all_pages: bool,
     /// Namespaces whose pages are absent.
     pub namespaces: BTreeSet<i32>,
-    /// Pages and threads that are absent, by page ID.
+    /// Pages and threads that are absent, by page ID: those restricted themselves, the
+    /// members of a hidden set, the subpages of either, and the threads they are home to.
     pub pages: BTreeSet<u64>,
+    /// The keys of hidden `namespace` and `set` targets, whose own log events (a
+    /// `protect/*` naming `acl:namespace:4`) are absent with them (09 §5.3).
+    pub acl_keys: BTreeSet<String>,
 }
 
 impl Hidden {
@@ -119,12 +123,17 @@ impl Hidden {
         all_pages: false,
         namespaces: BTreeSet::new(),
         pages: BTreeSet::new(),
+        acl_keys: BTreeSet::new(),
     };
 
     /// Whether nothing is hidden, so a query may skip the filter.
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        !self.tenant && !self.all_pages && self.namespaces.is_empty() && self.pages.is_empty()
+        !self.tenant
+            && !self.all_pages
+            && self.namespaces.is_empty()
+            && self.pages.is_empty()
+            && self.acl_keys.is_empty()
     }
 
     /// Whether a page (or thread) in a namespace is absent.
@@ -187,7 +196,8 @@ pub async fn hidden<C: PgClient>(
         .map_err(|e| sql(&e))?;
     let mut h = Hidden::default();
     for r in &rows {
-        let (_, acl) = acl_of(r)?;
+        let (_, mut acl) = acl_of(r)?;
+        let members = std::mem::take(&mut acl.members);
         if !refuses(&acl, effective, at) {
             continue;
         }
@@ -195,6 +205,7 @@ pub async fn hidden<C: PgClient>(
             AclTarget::Tenant(t) if t == tenant => h.tenant = true,
             AclTarget::Graph(g) if g == "pages" => h.all_pages = true,
             AclTarget::Namespace(n) => {
+                h.acl_keys.insert(AclTarget::Namespace(n).key());
                 if let Ok(n) = i32::try_from(n) {
                     h.namespaces.insert(n);
                 }
@@ -202,11 +213,38 @@ pub async fn hidden<C: PgClient>(
             AclTarget::Page(p) => {
                 h.pages.insert(p);
             }
+            AclTarget::Set(id) => {
+                h.acl_keys.insert(AclTarget::Set(id).key());
+                for m in &members {
+                    if let scatter_actors::acl::SetMember::Page(p) = m {
+                        h.pages.insert(*p);
+                    }
+                }
+            }
             _ => {}
         }
     }
     if h.every_page() || (h.pages.is_empty() && h.namespaces.is_empty()) {
         return Ok(h);
+    }
+    // A page encloses its subpages, where its namespace has them (09 §4.4).
+    if !h.pages.is_empty() {
+        let roots = h.page_ids();
+        let subs = client
+            .query(
+                "SELECT p.page_id FROM view.page p
+                 JOIN view.page r ON r.tenant = p.tenant AND r.ns = p.ns
+                  AND left(p.title, length(r.title) + 1) = r.title || '/'
+                 WHERE p.tenant = $1 AND r.page_id = ANY($2) AND r.ns = ANY($3)",
+                &[&tenant, &roots, &subpage_namespaces()],
+            )
+            .await
+            .map_err(|e| sql(&e))?;
+        for r in subs {
+            if let Ok(p) = u64::try_from(r.get::<_, i64>(0)) {
+                h.pages.insert(p);
+            }
+        }
     }
     // A thread is enclosed by its home talk page or board (09 §4.4).
     let homes = h.page_ids();
@@ -226,6 +264,24 @@ pub async fn hidden<C: PgClient>(
         }
     }
     Ok(h)
+}
+
+/// Whether the tenant is private to the principal: a `tenant` ACL whose confidential
+/// `read` restriction it does not satisfy (09 §4.7). Everything of the tenant is then
+/// absent for it; this is the one lookup the entity routes need, where [`hidden`] serves
+/// page reads.
+pub async fn tenant_hidden<C: PgClient>(
+    client: &C,
+    tenant: &str,
+    effective: &Effective,
+    at: Timestamp,
+) -> Result<bool, String> {
+    Ok(
+        current(client, tenant, &[AclTarget::Tenant(tenant.to_string())])
+            .await?
+            .iter()
+            .any(|a| refuses(a, effective, at)),
+    )
 }
 
 /// Which of these actors' names the principal, a member of `groups`, may not see: those
@@ -265,6 +321,116 @@ pub async fn hidden_actors<C: PgClient>(
     Ok(out)
 }
 
+/// The namespaces where `/` makes subpages (namespaces.toml).
+fn subpage_namespaces() -> Vec<i32> {
+    scatter_titles::Namespaces::embedded()
+        .iter()
+        .filter(|n| n.subpages)
+        .map(|n| n.id)
+        .collect()
+}
+
+/// The titles of a subpage's ancestors, nearest first: `A/B/C` → `A/B`, `A`.
+fn ancestor_titles(title: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut t = title;
+    while let Some((head, _)) = t.rsplit_once('/') {
+        if head.is_empty() {
+            break;
+        }
+        out.push(head.to_string());
+        t = head;
+    }
+    out
+}
+
+/// The pages enclosing a title as subpages enclose (09 §4.4), where its namespace has them.
+async fn ancestors<C: PgClient>(
+    client: &C,
+    tenant: &str,
+    ns: i32,
+    title: &str,
+) -> Result<Vec<u64>, String> {
+    if !subpage_namespaces().contains(&ns) {
+        return Ok(Vec::new());
+    }
+    let titles = ancestor_titles(title);
+    if titles.is_empty() {
+        return Ok(Vec::new());
+    }
+    Ok(client
+        .query(
+            "SELECT page_id FROM view.page WHERE tenant = $1 AND ns = $2 AND title = ANY($3)",
+            &[&tenant, &ns, &titles],
+        )
+        .await
+        .map_err(|e| sql(&e))?
+        .iter()
+        .filter_map(|r| u64::try_from(r.get::<_, i64>(0)).ok())
+        .collect())
+}
+
+/// The sets any of these pages is a member of (0056 §3; `view.set_member`).
+async fn sets_of<C: PgClient>(client: &C, tenant: &str, pages: &[u64]) -> Result<Vec<u64>, String> {
+    if pages.is_empty() {
+        return Ok(Vec::new());
+    }
+    let ids: Vec<String> = pages.iter().map(u64::to_string).collect();
+    Ok(client
+        .query(
+            "SELECT DISTINCT set_id FROM view.set_member
+             WHERE tenant = $1 AND kind = 'page' AND id = ANY($2)",
+            &[&tenant, &ids],
+        )
+        .await
+        .map_err(|e| sql(&e))?
+        .iter()
+        .filter_map(|r| u64::try_from(r.get::<_, i64>(0)).ok())
+        .collect())
+}
+
+/// An ancestor page's ACL as it encloses a subpage: everything but a deletion, which is
+/// of the page alone, as in MediaWiki; a confidential restriction the deletion kept is
+/// still in force. `None` when nothing is left.
+fn as_enclosing(mut acl: Acl) -> Option<Acl> {
+    if acl.read_kind == Some(ReadKind::Moderation) {
+        acl.restrictions.remove(scatter_actors::acl::READ);
+        acl.read_kind = None;
+        if let Some(c) = acl.confidential.take() {
+            acl.restrictions
+                .insert(scatter_actors::acl::READ.to_string(), c);
+            acl.read_kind = Some(ReadKind::Confidential);
+        }
+    }
+    acl.talk = false;
+    (!acl.restrictions.is_empty()).then_some(acl)
+}
+
+/// What encloses a page or a title beyond its own ACL: its ancestors' ACLs as they
+/// enclose (see [`as_enclosing`]), and the ACLs of every set it or an ancestor is in.
+async fn enclosing<C: PgClient>(
+    client: &C,
+    tenant: &str,
+    page: Option<u64>,
+    ns: i32,
+    title: &str,
+) -> Result<Vec<Acl>, String> {
+    let parents = ancestors(client, tenant, ns, title).await?;
+    let mut members: Vec<u64> = page.into_iter().collect();
+    members.extend(&parents);
+    let sets = sets_of(client, tenant, &members).await?;
+    let mut targets: Vec<AclTarget> = parents.iter().copied().map(AclTarget::Page).collect();
+    targets.extend(sets.into_iter().map(AclTarget::Set));
+    let found = current(client, tenant, &targets).await?;
+    Ok(found
+        .into_iter()
+        .filter_map(|a| match a.target {
+            AclTarget::Page(_) => as_enclosing(a),
+            _ => Some(a),
+        })
+        .collect())
+}
+
 /// The chain of a page: the page, its namespace, the `pages` graph and the tenant; for a
 /// talk page, its subject's ACL too when that ACL took the talk page with it (`talk`).
 pub async fn page_chain<C: PgClient>(
@@ -273,21 +439,32 @@ pub async fn page_chain<C: PgClient>(
     page_id: u64,
 ) -> Result<Vec<Acl>, String> {
     let id = i64::try_from(page_id).map_err(|e| e.to_string())?;
-    let ns: Option<i32> = client
+    let row: Option<(i32, String)> = client
         .query_opt(
-            "SELECT ns FROM view.page WHERE tenant = $1 AND page_id = $2",
+            "SELECT ns, title FROM view.page WHERE tenant = $1 AND page_id = $2",
             &[&tenant, &id],
         )
         .await
         .map_err(|e| sql(&e))?
-        .map(|r| r.get(0));
+        .map(|r| (r.get(0), r.get(1)));
     let mut targets = vec![AclTarget::Page(page_id)];
-    if let Some(ns) = ns {
-        targets.push(AclTarget::Namespace(i64::from(ns)));
+    if let Some((ns, _)) = &row {
+        targets.push(AclTarget::Namespace(i64::from(*ns)));
     }
     targets.push(AclTarget::Graph("pages".into()));
     targets.push(AclTarget::Tenant(tenant.to_string()));
     let mut chain = current(client, tenant, &targets).await?;
+    // Its ancestors and its sets (09 §4.4).
+    if let Some((ns, title)) = &row {
+        chain.extend(enclosing(client, tenant, Some(page_id), *ns, title).await?);
+    } else {
+        let sets: Vec<AclTarget> = sets_of(client, tenant, &[page_id])
+            .await?
+            .into_iter()
+            .map(AclTarget::Set)
+            .collect();
+        chain.extend(current(client, tenant, &sets).await?);
+    }
     // A talk page goes with its subject when the subject's deletion said so.
     let subject = client
         .query_opt(
@@ -329,18 +506,23 @@ pub async fn reservation<C: PgClient>(
 }
 
 /// The chain of a title no page holds: the reservation's ACL when one holds the title,
-/// the namespace, the `pages` graph and the tenant.
+/// the namespace, the `pages` graph and the tenant, and the title's ancestors and their
+/// sets where the namespace has subpages.
 pub async fn title_chain<C: PgClient>(
     client: &C,
     tenant: &str,
     ns: i32,
+    title: &str,
     reserved: Option<u64>,
 ) -> Result<Vec<Acl>, String> {
     let mut targets: Vec<AclTarget> = reserved.into_iter().map(AclTarget::Page).collect();
     targets.push(AclTarget::Namespace(i64::from(ns)));
     targets.push(AclTarget::Graph("pages".into()));
     targets.push(AclTarget::Tenant(tenant.to_string()));
-    current(client, tenant, &targets).await
+    let mut chain = current(client, tenant, &targets).await?;
+    // A subpage is created inside its ancestors and their sets (09 §4.4).
+    chain.extend(enclosing(client, tenant, reserved, ns, title).await?);
+    Ok(chain)
 }
 
 /// The chain of the page a page target lists threads on: the target's talk page, which
@@ -395,12 +577,14 @@ pub async fn thread_chain<C: PgClient>(
         return Ok(None);
     };
     let home: Option<i64> = row.get(0);
-    let mut chain = current(
-        client,
-        tenant,
-        &[AclTarget::Page(thread), AclTarget::Namespace(NS_THREAD_I64)],
-    )
-    .await?;
+    let mut targets = vec![AclTarget::Page(thread), AclTarget::Namespace(NS_THREAD_I64)];
+    targets.extend(
+        sets_of(client, tenant, &[thread])
+            .await?
+            .into_iter()
+            .map(AclTarget::Set),
+    );
+    let mut chain = current(client, tenant, &targets).await?;
     match home
         .and_then(|h| u64::try_from(h).ok())
         .filter(|h| *h != thread)

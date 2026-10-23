@@ -583,6 +583,34 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for AclProjection {
                         .map_err(|e| sql(&e))?
                 }
             };
+            // A set's members, one row each, for the sets-of-a-target lookup (03 §4.14).
+            if let Ok(scatter_actors::acl::Target::Set(set)) =
+                scatter_actors::acl::Target::parse(target)
+            {
+                let set = i64::try_from(set).map_err(|e| e.to_string())?;
+                cx.execute(
+                    "DELETE FROM view.set_member WHERE tenant = $1 AND set_id = $2",
+                    &[&tenant, &set],
+                )
+                .await
+                .map_err(|e| sql(&e))?;
+                if let Some(v) = content(record)? {
+                    let acl: Acl = cbor::from_value(v).map_err(|e| e.to_string())?;
+                    for m in &acl.members {
+                        let (kind, id) = match m {
+                            scatter_actors::acl::SetMember::Page(p) => ("page", p.to_string()),
+                            scatter_actors::acl::SetMember::Entity(e) => ("entity", e.clone()),
+                        };
+                        cx.execute(
+                            "INSERT INTO view.set_member (tenant, set_id, kind, id)
+                             VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING",
+                            &[&tenant, &set, &kind, &id],
+                        )
+                        .await
+                        .map_err(|e| sql(&e))?;
+                    }
+                }
+            }
             Ok(Applied::rows(usize::try_from(rows).unwrap_or(0)))
         })
     }
@@ -591,6 +619,9 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for AclProjection {
         Box::pin(async move {
             let tenant = tenant_of(cx, partition).await?;
             cx.execute("DELETE FROM view.acl WHERE tenant = $1", &[&tenant])
+                .await
+                .map_err(|e| sql(&e))?;
+            cx.execute("DELETE FROM view.set_member WHERE tenant = $1", &[&tenant])
                 .await
                 .map_err(|e| sql(&e))?;
             Ok(())

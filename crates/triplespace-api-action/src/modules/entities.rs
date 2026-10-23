@@ -70,6 +70,10 @@ fn check_form(id: &EntityId, ctx: &Ctx) -> Result<(), ApiError> {
 /// that entity, under its own ID, with Wikibase's `redirects: {from, to}` beside it.
 pub async fn entity_json(ctx: &Ctx, id: &EntityId, as_given: &str) -> Result<Value, ApiError> {
     check_form(id, ctx)?;
+    // A private tenant's entities are absent for those outside it (09 §4.7).
+    if crate::pages::private_to(ctx).await? {
+        return Ok(json!({"id": as_given, "missing": ""}));
+    }
     match edit::current(ctx, id).await? {
         Some(current) => Ok(entity_json::present(&current, ctx.app.registry())),
         None if id.form() == IdForm::Keyed => Ok(entity_json::empty_keyed(id)),

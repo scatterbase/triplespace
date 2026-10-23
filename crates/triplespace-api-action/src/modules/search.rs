@@ -13,6 +13,16 @@ use crate::response::{ApiError, ApiResponse};
 pub async fn wbsearchentities(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     ctx.caller.require("read")?;
     let search = ctx.params.required("search")?.to_string();
+    if crate::pages::private_to(ctx).await? {
+        return Ok(nothing_found(&search));
+    }
+    find(ctx).await
+}
+
+/// The search itself, for a caller who may read the tenant.
+async fn find(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
+    ctx.caller.require("read")?;
+    let search = ctx.params.required("search")?.to_string();
     let language = ctx.params.required("language")?.to_string();
     let entity_type = ctx.params.get("type").unwrap_or("item").to_string();
     if !matches!(entity_type.as_str(), "item" | "property" | "domain") {
@@ -110,6 +120,16 @@ pub async fn wbsearchentities(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         body["search-continue"] = json!(offset + limit);
     }
     Ok(ApiResponse::ok(body))
+}
+
+/// A search that finds nothing, in the shape of one that does: what a private tenant
+/// answers those outside it (09 §4.7).
+fn nothing_found(search: &str) -> ApiResponse {
+    ApiResponse::ok(json!({
+        "searchinfo": {"search": search},
+        "search": [],
+        "success": 1,
+    }))
 }
 
 /// The label and description to display, in the first language that has one.

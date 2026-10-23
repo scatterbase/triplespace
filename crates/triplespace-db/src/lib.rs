@@ -91,6 +91,10 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "0016_access_controls",
         sql: include_str!("../migrations/0016_access_controls.sql"),
     },
+    Migration {
+        name: "0017_set_members",
+        sql: include_str!("../migrations/0017_set_members.sql"),
+    },
 ];
 
 /// The crate name migrations are recorded under.

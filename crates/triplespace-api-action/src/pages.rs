@@ -152,6 +152,19 @@ pub async fn hidden(ctx: &Ctx) -> Result<Hidden, ApiError> {
     .map_err(ApiError::internal)
 }
 
+/// Whether the tenant is private and the caller outside it (09 §4.7): every entity, page
+/// and row of it is then absent for the caller.
+pub async fn private_to(ctx: &Ctx) -> Result<bool, ApiError> {
+    triplespace_projections::acl_read::tenant_hidden(
+        ctx.db(),
+        &ctx.tenant.slug,
+        &ctx.caller.effective,
+        scatter_actors::Timestamp(crate::edit::now_micros()),
+    )
+    .await
+    .map_err(ApiError::internal)
+}
+
 /// A row, unless the caller may not read it.
 fn visible(row: Option<&tokio_postgres::Row>, hidden: &Hidden) -> Option<Page> {
     row.map(page_of).filter(|p| !hidden.page(p.ns, p.page_id))

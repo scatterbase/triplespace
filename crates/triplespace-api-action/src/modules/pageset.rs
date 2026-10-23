@@ -240,6 +240,10 @@ pub async fn resolve(ctx: &Ctx, site: &Site) -> Result<PageSet, ApiError> {
 
 /// An entity's page, or `None` where the entity does not exist or is deleted.
 pub async fn entity_ask(ctx: &Ctx, id: &EntityId) -> Result<Option<PageAsk>, ApiError> {
+    // A private tenant's entities are absent for those outside it (09 §4.7).
+    if crate::pages::private_to(ctx).await? {
+        return Ok(None);
+    }
     let standing = read::standing(ctx.db(), &ctx.tenant.slug, id)
         .await
         .map_err(ApiError::internal)?;

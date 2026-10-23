@@ -169,6 +169,13 @@ fn statement_value(ctx: &Ctx, entity: &Entity, guid: &StatementId) -> Value {
 pub async fn run(ctx: &mut Ctx, action: &str) -> Result<ApiResponse, ApiError> {
     ctx.caller.check_csrf(&ctx.app, &ctx.params)?;
     ctx.caller.require("edit")?;
+    // Nobody outside a private tenant writes to it (09 §4.7).
+    if crate::pages::private_to(ctx).await? {
+        return Err(ApiError::new(
+            "permissiondenied",
+            "This wiki is private; only its readers may edit it.",
+        ));
+    }
     let meta = EditMeta::from_params(ctx)?;
     match action {
         "wbeditentity" => wbeditentity(ctx, &meta).await,

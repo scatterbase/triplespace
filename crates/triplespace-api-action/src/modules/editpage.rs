@@ -284,7 +284,8 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     let chain = if let Some(p) = &existing {
         triplespace_projections::acl_read::page_chain(ctx.db(), &tenant, p.page_id).await
     } else {
-        triplespace_projections::acl_read::title_chain(ctx.db(), &tenant, ns, reserved).await
+        triplespace_projections::acl_read::title_chain(ctx.db(), &tenant, ns, &title, reserved)
+            .await
     }
     .map_err(ApiError::internal)?;
     let who = &ctx.caller.effective;

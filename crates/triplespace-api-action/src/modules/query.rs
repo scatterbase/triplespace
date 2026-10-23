@@ -854,7 +854,60 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
             ),
         }
     }
+    // A private tenant answers an outsider with its name, language and theme, that it is
+    // private, and what logging in needs, and nothing else (18 §2.2; 09 §4.7).
+    let private = crate::pages::private_to(ctx).await?;
+    if let Some(t) = query.get_mut("triplespace") {
+        t["visibility"] = json!(if private || tenant_is_private(ctx).await? {
+            "private"
+        } else {
+            "public"
+        });
+    }
+    if private {
+        query.retain(|k, _| k == "general" || k == "triplespace");
+        if let Some(Value::Object(g)) = query.get_mut("general") {
+            g.retain(|k, _| {
+                matches!(
+                    k.as_str(),
+                    "sitename" | "lang" | "logo" | "favicon" | "server" | "mainpage"
+                )
+            });
+            g.insert("private".into(), json!(true));
+        }
+        if let Some(Value::Object(t)) = query.get_mut("triplespace") {
+            t.retain(|k, _| {
+                matches!(
+                    k.as_str(),
+                    "tenant"
+                        | "api_version"
+                        | "theme"
+                        | "visibility"
+                        | "login"
+                        | "auth"
+                        | "auth_origin"
+                        | "account"
+                        | "challenge"
+                        | "at_farm"
+                )
+            });
+        }
+    }
     Ok(())
+}
+
+/// Whether the tenant has a `read` restriction in force at all, whoever asks (09 §4.7).
+async fn tenant_is_private(ctx: &Ctx) -> Result<bool, ApiError> {
+    let at = scatter_actors::Timestamp(crate::edit::now_micros());
+    Ok(triplespace_projections::acl_read::current(
+        ctx.db(),
+        &ctx.tenant.slug,
+        &[scatter_actors::acl::Target::Tenant(ctx.tenant.slug.clone())],
+    )
+    .await
+    .map_err(ApiError::internal)?
+    .iter()
+    .any(|a| a.restriction_at(scatter_actors::acl::READ, at).is_some()))
 }
 
 /// `action=paraminfo`: enough for a client to see which modules exist.
