@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-22 (A26)
+- **Updated:** 2026-10-22 (A27)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0018](0018-tenants.md), [0022](0022-federation.md)
@@ -60,7 +60,7 @@ Two goals from the earlier ADRs constrain the design. Every unit of contribution
 
 ### 7. History, activity, logs and RDF (extends 0001 §1 and §6, 0011 §6.1 and §8)
 
-*Changed by A4, A8, A10.*
+*Changed by A4, A8, A10, A27.*
 
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §2.3, §6.1, §6.3.*
 
@@ -519,3 +519,10 @@ Replaced text ([14](../architecture/14-discussions.md) §1.6, as it stood):
 - **Source:** Direct: James, design discussion of 2026-10-22
 - **Change:** extends §3, §4, §6
 - **Summary:** Calls the pure crate made where the text was silent, each confirmed by James. **Subjects** (§3): underscores and runs of whitespace become one space, the ends are trimmed and the first letter is upper-cased; control characters are refused beside MediaWiki's forbidden ones, and a subject must leave room for the date and a ` (n)` suffix within the 255-byte title limit. **`imported_from` keys** (§4): `repository`, `page`, `revision`, `archive` and `section_hash` for a thread's source; `name`, `id`, `signed_as`, `added_by` (`revision`, `actor`), `timestamp`, `fallback` and `wrapper` for an imported comment; any other key is refused (James: "reasonable"). **Import-only fields** (§4): `imported_from`, `heading` and the wikitext media type are refused on an original `create` or `post` and accepted on an imported one (James: "If a field is only applicable for an import it should not be allowed for an original post, but if it genuinely is an imported post it should be fine"). **Media type** (§4): an `edit` carries its post's own media type, so a post keeps its markup for good. **Pins** (§4): `pinned: true` on `create` counts against `thread.max_pinned` on the home, as a `pin` does. **Statuses** (§6): a retired status can no longer be set, threads that carry it keep it, and a status the registry no longer lists reads as open; `closed` (A25) is a current default, not a retired one (James: "it was a gap in the original model"). **Collapses** (§6): ranges may nest but not cross; a partly overlapping range is refused. Chapter text: [14](../architecture/14-discussions.md) §1.4, §1.5, §2.1, §2.4, §4.2.
+
+### A27. A thread record that is a log event carries a log ID
+
+- **Date:** 2026-10-22
+- **Source:** Direct: James, "proceed to what you feel the best next step is", 2026-10-22; implementation calls for his review
+- **Change:** extends §7
+- **Summary:** Made while projecting thread records as activity rows. A thread record that is also a log event (`create`, `rename`, `move`, `attach`, `detach`, `pin`, `unpin`) takes a log ID from the tenant's sequence beside its revision ID, as a MediaWiki page creation has both a revision and a log entry; `post` and `edit` take none. Its one activity row carries the log type, action and parameters beside the edit, and `list=logevents` reads those rows with the `log` rows; the parameters name the targets and the talk page IDs the record minted or found. Chapter text: [16](../architecture/16-logs-feeds-and-notifications.md) §6.1.

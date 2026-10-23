@@ -96,6 +96,7 @@ pub const PATHS: &[&str] = &[
     "/thread/{id}/pin",
     "/thread/{id}/unpin",
     "/page/{id}/threads",
+    "/page/{id}/history",
 ];
 
 /// The REST routes, to be merged into the server's router.
@@ -144,7 +145,8 @@ pub fn routes() -> Router<App> {
             .route(&format!("{base}{}", PATHS[26]), post(threads::detach))
             .route(&format!("{base}{}", PATHS[27]), post(threads::pin))
             .route(&format!("{base}{}", PATHS[28]), post(threads::unpin))
-            .route(&format!("{base}{}", PATHS[29]), get(threads::list));
+            .route(&format!("{base}{}", PATHS[29]), get(threads::list))
+            .route(&format!("{base}{}", PATHS[30]), get(threads::history));
     }
     r
 }

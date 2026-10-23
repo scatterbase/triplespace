@@ -13,6 +13,10 @@
 //! A document page's record (`scatter:v0/page`) is an `edit` row on the page, with the
 //! text's length as its size and the difference from the page's previous row as its delta
 //! (19 §3.3: a page's history is its activity rows).
+//!
+//! A thread record (`scatter:v0/thread`) is an `edit` row on the thread's page ID, and the
+//! operations that are also log events carry their log type and action and the record's
+//! log ID on the same row (16 §6.1), which `list=logevents` reads beside the `log` rows.
 
 use scatter_log::cbor::Value;
 use scatter_log::header::{CONFIG_PARTITION, Header};
@@ -92,6 +96,29 @@ fn withheld_bits(withheld: &[String]) -> i16 {
         0
     } else {
         bits | visibility::SUPPRESSED
+    }
+}
+
+/// The visibility bits a record carries itself, without any `record` ACL: the parts an
+/// adopted revision's source withheld (0035 A14). What retiring a `record` ACL leaves,
+/// and what a `record` ACL's bits are added to.
+pub(crate) async fn own_visibility(cx: &PgCx, partition: u64, offset: u64) -> Result<i16, String> {
+    let slot = match scatter_log_postgres::log::read(cx, partition, offset).await {
+        Ok(s) => s,
+        Err(scatter_log::store::StoreError::NoOffset { .. }) => return Ok(0),
+        Err(e) => return Err(e.to_string()),
+    };
+    let Some(record) = slot.record() else {
+        return Ok(0);
+    };
+    let h = record.header();
+    if h.payload_type == PAYLOAD_CHANGESET {
+        let mirror = partition_info(cx, h.partition).await?.is_mirror();
+        Ok(changeset_columns(record, mirror)?.visibility)
+    } else if h.payload_type == scatter_pages::PAYLOAD_PAGE {
+        Ok(page_columns(record)?.visibility)
+    } else {
+        Ok(0)
     }
 }
 
@@ -317,6 +344,87 @@ fn page_columns(record: &Record) -> Result<Columns, String> {
     })
 }
 
+/// A thread record as an activity row (16 §6.1): an `edit` on the thread's page ID with
+/// the operation as the parsed summary, and for the operations that are also log events
+/// their type and action (16 §2.3): `create/create`, `move/move` for a rename or a move,
+/// `thread/attach`, `thread/detach`, `thread/pin`, `thread/unpin`. The params name what
+/// the event touched, with the talk page IDs the record minted or found. A record whose
+/// content part is erased is an `erased` row.
+fn thread_columns(record: &Record) -> Result<Columns, String> {
+    use scatter_threads::{Target as ThreadTarget, ThreadOp};
+    let Some(rec) = crate::threads::read_record(record)? else {
+        return Ok(Columns {
+            kind: "erased",
+            ..Columns::default()
+        });
+    };
+    let h = record.header();
+    let minted = crate::threads::minted(record);
+    let target = |t: &ThreadTarget| match t {
+        ThreadTarget::Page(id) => serde_json::json!({"kind": "page", "id": id}),
+        ThreadTarget::Actor(key) => serde_json::json!({"kind": "actor", "id": key}),
+    };
+    let arg = |t: &ThreadTarget| match t {
+        ThreadTarget::Page(id) => format!("page:{id}"),
+        ThreadTarget::Actor(key) => format!("actor:{key}"),
+    };
+    let (args, log, params) = match &rec.op {
+        ThreadOp::Create {
+            name,
+            target: t,
+            also,
+            pinned,
+            ..
+        } => (
+            Some(name.clone()),
+            Some(("create", "create")),
+            Some(serde_json::json!({
+                "subject": name,
+                "target": target(t),
+                "talk": minted.talk,
+                "also": also.iter().map(target).collect::<Vec<_>>(),
+                "also_talk": minted.also,
+                "pinned": pinned,
+            })),
+        ),
+        ThreadOp::Rename { name } => (
+            Some(name.clone()),
+            Some(("move", "move")),
+            Some(serde_json::json!({"subject": name})),
+        ),
+        ThreadOp::Move { target: t, keep } => (
+            Some(arg(t)),
+            Some(("move", "move")),
+            Some(serde_json::json!({"target": target(t), "talk": minted.talk, "keep": keep})),
+        ),
+        ThreadOp::Attach { target: t }
+        | ThreadOp::Detach { target: t }
+        | ThreadOp::Pin { target: t }
+        | ThreadOp::Unpin { target: t } => (
+            Some(arg(t)),
+            Some(("thread", rec.op.name())),
+            Some(serde_json::json!({"target": target(t), "talk": minted.talk})),
+        ),
+        ThreadOp::Post { .. } | ThreadOp::Edit { .. } => (None, None, None),
+    };
+    Ok(Columns {
+        kind: "edit",
+        target: Target {
+            kind: Some(target_kind::PAGE),
+            id: h.page_id.map(|p| p.to_string()),
+            member: None,
+        },
+        summary_op: Some(rec.op.name().to_string()),
+        summary_args: args,
+        new: Some(matches!(rec.op, ThreadOp::Create { .. })),
+        size: crate::threads::text(record).map(|t| i32_of(t.len() as u64)),
+        log_type: log.map(|(t, _)| t.to_string()),
+        log_action: log.map(|(_, a)| a.to_string()),
+        params,
+        ..Columns::default()
+    })
+}
+
 fn logevent_columns(record: &Record) -> Result<Columns, String> {
     let Some(event) = content(record)? else {
         return Ok(Columns {
@@ -417,13 +525,57 @@ fn reclaim_columns(record: &Record) -> Result<Columns, String> {
     })
 }
 
+/// The log type and action of an ACL record: see [`acl_columns`]. `marked` is the
+/// writer's suppression mark.
+fn acl_event(
+    target: &scatter_actors::acl::Target,
+    acl: Option<&scatter_actors::acl::Acl>,
+    previous: Option<&scatter_actors::acl::Acl>,
+    marked: bool,
+) -> (&'static str, &'static str) {
+    use scatter_actors::acl::{Acl, ReadKind, Target as AclTarget};
+    let moderation = |a: &Acl| {
+        a.restrictions.contains_key(scatter_actors::acl::READ)
+            && a.read_kind == Some(ReadKind::Moderation)
+    };
+    let suppressed = |a: &Acl| {
+        marked
+            || a.restrictions
+                .get(scatter_actors::acl::READ)
+                .is_some_and(|r| r.group.is_none())
+    };
+    // What the event is about: the ACL written, or for a retirement the one retired.
+    let about = acl.or(previous);
+    match (target, acl, about) {
+        (AclTarget::Actor(_), _, _) => (
+            "suppress",
+            if acl.is_some() {
+                "hide-user"
+            } else {
+                "unhide-user"
+            },
+        ),
+        (AclTarget::Record { .. }, _, Some(a)) => (
+            if suppressed(a) { "suppress" } else { "delete" },
+            "revision",
+        ),
+        (_, Some(a), _) if moderation(a) => {
+            (if suppressed(a) { "suppress" } else { "delete" }, "delete")
+        }
+        (_, None, Some(a)) if moderation(a) => ("delete", "restore"),
+        (_, Some(_), _) if previous.is_some() => ("protect", "modify"),
+        (_, Some(_), _) => ("protect", "protect"),
+        (_, None, _) => ("protect", "unprotect"),
+    }
+}
+
 /// An ACL record as the log event of 09 §4.3: `protect/protect`, `protect/modify` or
 /// `protect/unprotect`; `delete/delete` or `delete/restore`; `delete/revision` for a
-/// `record` target; `suppress/…` when the restriction names the suppression group; and
+/// `record` target; `suppress/…` when the writer marked the record a suppression; and
 /// `suppress/hide-user` for an actor. The previous record under the key tells a change
 /// from a first restriction, and what a retirement undid.
 async fn acl_columns(cx: &PgCx, record: &Record) -> Result<Columns, String> {
-    use scatter_actors::acl::{Acl, ReadKind, Target as AclTarget};
+    use scatter_actors::acl::{Acl, Target as AclTarget};
     let h = record.header();
     let key = h
         .key
@@ -448,38 +600,13 @@ async fn acl_columns(cx: &PgCx, record: &Record) -> Result<Columns, String> {
         .map(|(_, r)| decode(&r))
         .transpose()?
         .flatten();
-    let moderation = |a: &Acl| {
-        a.restrictions.contains_key(scatter_actors::acl::READ)
-            && a.read_kind == Some(ReadKind::Moderation)
-    };
-    let suppressed = |a: &Acl| {
-        a.restrictions
-            .get(scatter_actors::acl::READ)
-            .is_some_and(|r| r.group.as_deref() == Some("suppress") || r.group.is_none())
-    };
-    // What the event is about: the ACL written, or for a retirement the one retired.
     let about = acl.as_ref().or(previous.as_ref());
-    let (log_type, log_action) = match (&target, &acl, about) {
-        (AclTarget::Actor(_), _, _) => (
-            "suppress",
-            if acl.is_some() {
-                "hide-user"
-            } else {
-                "unhide-user"
-            },
-        ),
-        (AclTarget::Record { .. }, _, Some(a)) => (
-            if suppressed(a) { "suppress" } else { "delete" },
-            "revision",
-        ),
-        (_, Some(a), _) if moderation(a) => {
-            (if suppressed(a) { "suppress" } else { "delete" }, "delete")
-        }
-        (_, None, Some(a)) if moderation(a) => ("delete", "restore"),
-        (_, Some(_), _) if previous.is_some() => ("protect", "modify"),
-        (_, Some(_), _) => ("protect", "protect"),
-        (_, None, _) => ("protect", "unprotect"),
-    };
+    let (log_type, log_action) = acl_event(
+        &target,
+        acl.as_ref(),
+        previous.as_ref(),
+        crate::moderation::marked_suppression(record),
+    );
     let target_columns = match &target {
         AclTarget::Page(id) => Target {
             kind: Some(target_kind::PAGE),
@@ -562,6 +689,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for ActivityProjection {
                 || header.payload_type == PAYLOAD_LOGEVENT
                 || header.payload_type == PAYLOAD_RECLAIM
                 || header.payload_type == scatter_pages::PAYLOAD_PAGE
+                || header.payload_type == scatter_threads::PAYLOAD_THREAD
                 || header.payload_type == crate::actors::payload::ACL)
     }
 
@@ -579,6 +707,8 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for ActivityProjection {
                 page_columns(record)?
             } else if h.payload_type == PAYLOAD_RECLAIM {
                 reclaim_columns(record)?
+            } else if h.payload_type == scatter_threads::PAYLOAD_THREAD {
+                thread_columns(record)?
             } else if h.payload_type == crate::actors::payload::ACL {
                 acl_columns(cx, record).await?
             } else {

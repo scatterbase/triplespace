@@ -13,6 +13,12 @@
 //! MediaWiki's; `section` is not supported yet. A User page may be created only for a
 //! user who exists (namespaces.toml `creation_rule = "owner-exists"`); a Module page not
 //! until Lua is built (`ts-namespace-disabled`, 11 §1.3).
+//!
+//! **ACLs** (09 §2, §4.8, §5.3): an edit is checked for `edit` against the page's chain;
+//! a create for `edit` and `createpage` against the title's, which includes the ACL of a
+//! reservation holding it, and takes the reserved page ID. A title held by a restriction
+//! the editor does not satisfy, a reservation or a confidential page alike, is
+//! `ts-restricted-title`; a protected page is `protectedpage`.
 
 use scatter_ingest::IngestError;
 use scatter_ingest::write::{Attestation, RawRecord, Request, write_raw};
@@ -25,6 +31,7 @@ use serde_json::{Value, json};
 use crate::api::Ctx;
 use crate::edit::now_micros;
 use crate::entity_json::iso8601;
+use crate::modules::moderation;
 use crate::modules::parse::pst;
 use crate::pages::{self, Page, Site};
 use crate::response::{ApiError, ApiResponse};
@@ -114,9 +121,11 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     // The title.
     let (ns, title, existing) = if let Some(id) = ctx.params.get("pageid") {
         let n: u64 = id.parse().map_err(|_| ApiError::bad_value("pageid", id))?;
-        let page = pages::by_id(ctx.db(), &tenant, n).await?.ok_or_else(|| {
-            ApiError::new("nosuchpageid", format!("There is no page with ID {n}."))
-        })?;
+        let page = pages::by_id(ctx.db(), &tenant, &pages::Hidden::NONE, n)
+            .await?
+            .ok_or_else(|| {
+                ApiError::new("nosuchpageid", format!("There is no page with ID {n}."))
+            })?;
         (page.ns, page.title.clone(), Some(page))
     } else {
         let name = ctx.params.required("title")?;
@@ -125,7 +134,14 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         }
         let t = pages::resolve_title(&site, name)
             .ok_or_else(|| ApiError::new("invalidtitle", format!("Bad title \"{name}\".")))?;
-        let page = pages::by_title(ctx.db(), &tenant, t.namespace, &t.text).await?;
+        let page = pages::by_title(
+            ctx.db(),
+            &tenant,
+            &pages::Hidden::NONE,
+            t.namespace,
+            &t.text,
+        )
+        .await?;
         (t.namespace, t.text, page)
     };
     let prefixed = site.prefixed(ns, &title);
@@ -257,6 +273,32 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     };
     validate(&op, Some(&text)).map_err(|e| ApiError::new("invalidtitle", e.to_string()))?;
 
+    // The ACLs along the page's chain, or the title's while no page holds it.
+    let at = scatter_actors::Timestamp(now_micros());
+    let reserved = match &existing {
+        Some(_) => None,
+        None => triplespace_projections::acl_read::reservation(ctx.db(), &tenant, ns, &title)
+            .await
+            .map_err(ApiError::internal)?,
+    };
+    let chain = if let Some(p) = &existing {
+        triplespace_projections::acl_read::page_chain(ctx.db(), &tenant, p.page_id).await
+    } else {
+        triplespace_projections::acl_read::title_chain(ctx.db(), &tenant, ns, reserved).await
+    }
+    .map_err(ApiError::internal)?;
+    let who = &ctx.caller.effective;
+    moderation::enforce("edit", who, &chain, at, &prefixed)?;
+    if existing.is_none() {
+        moderation::enforce("createpage", who, &chain, at, &prefixed).map_err(|e| {
+            if e.code == "permissiondenied" {
+                e
+            } else {
+                moderation::restricted_title(&prefixed)
+            }
+        })?;
+    }
+
     // The record.
     let actor = ctx
         .caller
@@ -284,7 +326,7 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         graph: "pages".into(),
         payload_type: PAYLOAD_PAGE.into(),
         key: existing.as_ref().map(|p| p.page_id.to_string()),
-        page_id: existing.as_ref().map(|p| p.page_id),
+        page_id: existing.as_ref().map(|p| p.page_id).or(reserved),
         content: Cbor::from_json(&op.to_json()),
         extra: vec![Cbor::text(&text)],
     };

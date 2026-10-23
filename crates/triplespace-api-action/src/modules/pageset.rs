@@ -115,6 +115,7 @@ pub async fn resolve(ctx: &Ctx, site: &Site) -> Result<PageSet, ApiError> {
         ));
     }
     let tenant = ctx.tenant.slug.as_str();
+    let hidden = pages::hidden(ctx).await?;
     let follow = ctx.params.flag("redirects");
     let mut set = PageSet::default();
     let mut entities: Vec<(EntityId, Option<u64>, Option<String>)> = Vec::new();
@@ -136,7 +137,7 @@ pub async fn resolve(ctx: &Ctx, site: &Site) -> Result<PageSet, ApiError> {
         if prefixed != *t {
             set.normalized.push(json!({"from": t, "to": prefixed}));
         }
-        match pages::by_title(ctx.db(), tenant, title.namespace, &title.text).await? {
+        match pages::by_title(ctx.db(), tenant, &hidden, title.namespace, &title.text).await? {
             Some(p) => docs.push((p, None)),
             None => set
                 .missing
@@ -157,7 +158,7 @@ pub async fn resolve(ctx: &Ctx, site: &Site) -> Result<PageSet, ApiError> {
             entities.push((id, None, None));
             continue;
         }
-        match pages::by_id(ctx.db(), tenant, u64::try_from(n).unwrap_or(0)).await? {
+        match pages::by_id(ctx.db(), tenant, &hidden, u64::try_from(n).unwrap_or(0)).await? {
             Some(page) => docs.push((page, None)),
             None => set.missing.push(json!({"pageid": n, "missing": flag(ctx)})),
         }
@@ -178,7 +179,7 @@ pub async fn resolve(ctx: &Ctx, site: &Site) -> Result<PageSet, ApiError> {
                 Err(_) => set.missing.push(json!({"revid": n, "missing": flag(ctx)})),
             },
             Some((Some(2), Some(id))) => {
-                match pages::by_id(ctx.db(), tenant, id.parse().unwrap_or(0)).await? {
+                match pages::by_id(ctx.db(), tenant, &hidden, id.parse().unwrap_or(0)).await? {
                     Some(page) => docs.push((page, Some(n))),
                     None => set.missing.push(json!({"revid": n, "missing": flag(ctx)})),
                 }
@@ -212,7 +213,7 @@ pub async fn resolve(ctx: &Ctx, site: &Site) -> Result<PageSet, ApiError> {
                         set.missing.push(json!({"ns": to_ns, "title": site.prefixed(to_ns.unwrap_or(0), &to_title), "missing": flag(ctx)}));
                         continue;
                     };
-                    match pages::by_id(ctx.db(), tenant, t).await? {
+                    match pages::by_id(ctx.db(), tenant, &hidden, t).await? {
                         Some(p) => p,
                         None => continue,
                     }

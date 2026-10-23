@@ -800,6 +800,57 @@ async fn a_history_adoption_over_postgres() {
             "44000|2026-09-21|-|edit 44000|false|false|true|12",
         ]
     );
+    // A `record` ACL's bits join the ones the source withheld, and retiring it leaves
+    // the source's (0023 §5; 0035 A14).
+    let row = client
+        .query_one(
+            "SELECT partition, \"offset\" FROM view.activity WHERE tenant = 'librarybase' AND revid = 41500",
+            &[],
+        )
+        .await
+        .unwrap();
+    let target = scatter_actors::Target::Record {
+        partition: scatter_log_postgres::ids::partition_from_db(row.get(0)),
+        offset: u64::try_from(row.get::<_, i64>(1)).unwrap(),
+    };
+    let who = scatter_actors::evaluate::evaluate(
+        &scatter_actors::evaluate::Principal::registered(["sysop".to_string()]),
+        scatter_actors::GroupRegistry::default_registry(),
+        scatter_actors::GrantRegistry::default_registry(),
+    );
+    let mut hide = scatter_actors::Acl::read(
+        target.clone(),
+        scatter_actors::ReadKind::Moderation,
+        "sysop",
+        None,
+    );
+    hide.parts = vec!["content".into()];
+    for (acl, want) in [(Some(hide), "11"), (None, "10")] {
+        let mut cx = store.begin().await.unwrap();
+        triplespace_api_ingest::acl::write(
+            &store,
+            &p,
+            &mut cx,
+            TENANT,
+            "librarybase:7",
+            &who,
+            triplespace_api_ingest::acl::AclWrite {
+                target: target.clone(),
+                acl,
+                reason: "test".into(),
+                suppress_group: "suppress".into(),
+                reserve: None,
+            },
+            NOW + 2,
+        )
+        .await
+        .unwrap();
+        store.commit(cx).await.unwrap();
+        assert_eq!(
+            rows(&client, "SELECT visibility::text FROM view.activity WHERE tenant = 'librarybase' AND revid = 41500").await,
+            vec![want]
+        );
+    }
     // The IP is one surrogate, `actor:1`, with its IRI under the tenant's base.
     assert_eq!(
         rows(&client, "SELECT actor_key || '|' || kind || '|' || raw || '|' || iri FROM view.actor WHERE tenant = 'librarybase' AND issuer = 'actor'").await,

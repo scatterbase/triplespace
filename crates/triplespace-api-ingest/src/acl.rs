@@ -12,7 +12,17 @@
 //! the ACL it replaces or retires, so that undoing a suppression needs what doing it
 //! needed. A confidential `read` restriction may name only a group the writer is in
 //! (0056 §4).
+//!
+//! **A suppression is marked** `suppress: true` in the record's attestation map: the ACL
+//! written, or for a retirement the one retired, restricts to the tenant's suppression
+//! group. The writer resolves that group from settings; the projections that draw the
+//! suppressed bit and the `suppress/…` log events read the mark instead.
+//!
+//! **A reserved title** (09 §4.8): [`AclWrite::reserve`] takes a page ID from the
+//! sequence for a title that has no page, and the ACL, keyed by that ID, carries the
+//! namespace and title, so a `create` there takes the ID.
 
+use scatter_actors::acl::ReservedTitle;
 use scatter_actors::evaluate::Effective;
 use scatter_actors::{Acl, AclPartition, Target, Timestamp};
 use scatter_ingest::store::{IngestStore as _, Sequence};
@@ -62,6 +72,9 @@ pub struct AclWrite {
     pub reason: String,
     /// The tenant's suppression group, `moderation.suppress_group`.
     pub suppress_group: String,
+    /// Reserve this title under a new page ID (create-protection): `target` and the
+    /// ACL's target are replaced by `acl:page:{new ID}`.
+    pub reserve: Option<ReservedTitle>,
 }
 
 /// The target's current ACL.
@@ -86,9 +99,23 @@ pub async fn write(
     tenant: &str,
     actor: &str,
     who: &Effective,
-    w: AclWrite,
+    mut w: AclWrite,
     now: u64,
 ) -> Result<Record, AclWriteError> {
+    if let Some(r) = w.reserve.take() {
+        let Some(acl) = w.acl.as_mut() else {
+            return Err(AclWriteError::Invalid(
+                "a reserved title needs an ACL".into(),
+            ));
+        };
+        let id = store
+            .next_id(cx, tenant, &Sequence::Page)
+            .await
+            .map_err(store_err)?;
+        w.target = Target::Page(id);
+        acl.target = w.target.clone();
+        acl.reserved = Some(r);
+    }
     let existing = current(cx, tenant, &w.target)
         .await
         .map_err(AclWriteError::Store)?;
@@ -129,6 +156,11 @@ pub async fn write(
         .await
         .map_err(store_err)?
         .ok_or_else(|| store_err(format!("no `{graph}` partition for `{owner}`")))?;
+    let suppressed = w
+        .acl
+        .as_ref()
+        .or(existing.as_ref())
+        .is_some_and(|a| a.required_right(&w.suppress_group) == "suppressrevision");
     let content = match &w.acl {
         Some(acl) => Value::from_json(&serde_json::to_value(acl).map_err(store_err)?),
         None => Value::Null,
@@ -147,7 +179,14 @@ pub async fn write(
         body: Body::core(
             &content,
             &Value::text(&w.reason),
-            &Value::map(vec![(Value::text("actor"), Value::text(actor))]),
+            &Value::map(if suppressed {
+                vec![
+                    (Value::text("actor"), Value::text(actor)),
+                    (Value::text("suppress"), Value::Bool(true)),
+                ]
+            } else {
+                vec![(Value::text("actor"), Value::text(actor))]
+            }),
         )
         .map_err(store_err)?,
     };

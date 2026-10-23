@@ -1,7 +1,8 @@
 //! The moderation modules end to end (0023 §8; 09 §6): `action=protect`, `action=delete`,
 //! `action=undelete` and `action=revisiondelete` on document pages and threads, what they
 //! do to the views (deleted pages leave the title index, hidden parts set the visibility
-//! bits) and the log events they project as. Needs `TRIPLESPACE_TEST_DATABASE_URL`;
+//! bits) and the log events they project as; protection enforced on `action=edit` and on
+//! thread writes; reserved titles (09 §4.8). Needs `TRIPLESPACE_TEST_DATABASE_URL`;
 //! vacuous without it.
 
 use std::net::SocketAddr;
@@ -294,19 +295,295 @@ async fn protect_delete_undelete_and_hide() {
         .await;
     assert_eq!(r["error"]["code"], "ts-title-taken", "{r}");
 
-    // Delete the new one, undelete the newest deleted, which is it.
+    // Delete the new one: two deleted pages had the title, so undelete needs `pageid`.
     c.api_post(&format!("action=delete&title=Project:Scope&token={t}"))
         .await;
+    let r = c
+        .api_post(&format!("action=undelete&title=Project:Scope&token={t}"))
+        .await;
+    assert_eq!(r["error"]["code"], "ts-ambiguous-undelete", "{r}");
+    assert_eq!(r["error"]["pageids"], json!([fresh, page]), "{r}");
     let u = c
         .api_post(&format!(
-            "action=undelete&title=Project:Scope&reason=Mistake&token={t}"
+            "action=undelete&title=Project:Scope&pageid={fresh}&reason=Mistake&token={t}"
         ))
         .await;
     assert_eq!(u["undelete"]["title"], "Library Base:Scope", "{u}");
+    assert_eq!(u["undelete"]["pageid"], fresh, "{u}");
     let q = anon
         .api("action=query&prop=info&titles=Project:Scope")
         .await;
     assert_eq!(q["query"]["pages"][0]["pageid"], fresh, "{q}");
+
+    // Protection is enforced: a group Alice is not in may edit, she may not.
+    let p = c
+        .api_post(&format!(
+            "action=protect&title=Project:Scope&protections=edit%3Dbot&token={t}"
+        ))
+        .await;
+    assert!(p.get("error").is_none(), "{p}");
+    let r = c
+        .api_post(&format!(
+            "action=edit&title=Project:Scope&text=Blocked.&token={t}"
+        ))
+        .await;
+    assert_eq!(r["error"]["code"], "protectedpage", "{r}");
+    c.api_post(&format!(
+        "action=protect&title=Project:Scope&protections=edit%3Dall&token={t}"
+    ))
+    .await;
+    let r = c
+        .api_post(&format!(
+            "action=edit&title=Project:Scope&text=Open.&token={t}"
+        ))
+        .await;
+    assert!(r.get("error").is_none(), "{r}");
+
+    // Create-protection reserves the title under a page ID; a create takes it once the
+    // creator is admitted (Alice is in `owner`, not `bot`).
+    let p = c
+        .api_post(&format!(
+            "action=protect&title=Project:Reserved&protections=create%3Dbot&token={t}"
+        ))
+        .await;
+    let reserved = p["protect"]["pageid"].as_u64().expect("a reserved ID");
+    let q = anon
+        .api("action=query&prop=info&titles=Project:Reserved")
+        .await;
+    assert_eq!(q["query"]["pages"][0]["missing"], true, "{q}");
+    let r = c
+        .api_post(&format!(
+            "action=edit&title=Project:Reserved&text=Mine.&token={t}"
+        ))
+        .await;
+    assert_eq!(r["error"]["code"], "ts-restricted-title", "{r}");
+    let r = c
+        .api_post(&format!(
+            "action=protect&title=Project:Reserved&protections=edit%3Dsysop&token={t}"
+        ))
+        .await;
+    assert_eq!(r["error"]["code"], "missingtitle-createonly", "{r}");
+    let p = c
+        .api_post(&format!(
+            "action=protect&title=Project:Reserved&protections=create%3Downer&token={t}"
+        ))
+        .await;
+    assert_eq!(p["protect"]["pageid"], reserved, "{p}");
+    let e = c
+        .api_post(&format!(
+            "action=edit&title=Project:Reserved&text=Mine.&token={t}"
+        ))
+        .await;
+    assert_eq!(e["edit"]["pageid"], reserved, "{e}");
+    let r = c
+        .api_post(&format!(
+            "action=protect&title=Project:Reserved&protections=create%3Downer&token={t}"
+        ))
+        .await;
+    assert_eq!(r["error"]["code"], "create-titleexists", "{r}");
+
+    // Read protection before a page exists: a confidential reservation, which may name
+    // only a group the protector is in.
+    let r = c
+        .api_post(&format!(
+            "action=protect&title=Project:Secret&protections=read%3Dbot&token={t}"
+        ))
+        .await;
+    assert_eq!(r["error"]["code"], "ts-locked-out", "{r}");
+    let p = c
+        .api_post(&format!(
+            "action=protect&title=Project:Secret&protections=read%3Downer&token={t}"
+        ))
+        .await;
+    let secret = p["protect"]["pageid"].as_u64().expect("a reserved ID");
+    let e = c
+        .api_post(&format!(
+            "action=edit&title=Project:Secret&text=Hush.&token={t}"
+        ))
+        .await;
+    assert_eq!(e["edit"]["pageid"], secret, "{e}");
+
+    // The confidential page is absent for a principal outside the group, on every read
+    // that looks it up, lists it, links to it or transcludes it (0056 §5; 09 §5.3), and
+    // readable for the group.
+    let i = anon
+        .api("action=query&prop=info&titles=Project:Secret")
+        .await;
+    assert_eq!(i["query"]["pages"][0]["missing"], true, "{i}");
+    let i = anon
+        .api(&format!(
+            "action=query&prop=revisions&pageids={secret}&rvprop=content"
+        ))
+        .await;
+    assert_eq!(i["query"]["pages"][0]["missing"], true, "{i}");
+    let i = c
+        .api(&format!(
+            "action=query&prop=revisions&pageids={secret}&rvprop=content"
+        ))
+        .await;
+    assert_eq!(i["query"]["pages"][0]["pageid"], secret, "{i}");
+    let p = anon.api("action=parse&page=Project:Secret").await;
+    assert_eq!(p["error"]["code"], "missingtitle", "{p}");
+    let p = c.api("action=parse&page=Project:Secret&prop=text").await;
+    assert!(
+        p["parse"]["text"].as_str().unwrap().contains("Hush."),
+        "{p}"
+    );
+    let titles = |r: &Value, list: &str| -> Vec<String> {
+        r["query"][list]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|e| e["title"].as_str().map(str::to_owned))
+            .collect()
+    };
+    let a = anon.api("action=query&list=allpages&apnamespace=4").await;
+    assert!(
+        !titles(&a, "allpages").iter().any(|t| t.ends_with("Secret")),
+        "{a}"
+    );
+    let a = c.api("action=query&list=allpages&apnamespace=4").await;
+    assert!(
+        titles(&a, "allpages").iter().any(|t| t.ends_with("Secret")),
+        "{a}"
+    );
+    let rc = anon
+        .api("action=query&list=recentchanges&rcprop=title%7Cids&rclimit=500")
+        .await;
+    assert!(
+        !titles(&rc, "recentchanges")
+            .iter()
+            .any(|t| t.ends_with("Secret")),
+        "{rc}"
+    );
+    let rc = c
+        .api("action=query&list=recentchanges&rcprop=title%7Cids&rclimit=500")
+        .await;
+    assert!(
+        titles(&rc, "recentchanges")
+            .iter()
+            .any(|t| t.ends_with("Secret")),
+        "{rc}"
+    );
+    let l = anon.api("action=query&list=logevents&lelimit=500").await;
+    assert!(
+        !titles(&l, "logevents")
+            .iter()
+            .any(|t| t.ends_with("Secret")),
+        "{l}"
+    );
+    let l = c.api("action=query&list=logevents&lelimit=500").await;
+    assert!(
+        titles(&l, "logevents")
+            .iter()
+            .any(|t| t.ends_with("Secret")),
+        "{l}"
+    );
+    let r = anon.rest("GET", "/activity?limit=500", None).await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    assert!(!r.body.to_string().contains("Secret"), "{}", r.body);
+    // A public page that links to it and transcludes it: a red link and nothing of its
+    // text for the outsider.
+    c.api_post(&format!(
+        "action=edit&title=Project:Index&text={}&token={t}",
+        enc("See [[Project:Secret]]. {{Project:Secret}}")
+    ))
+    .await;
+    let p = anon.api("action=parse&page=Project:Index&prop=text").await;
+    let html = p["parse"]["text"].as_str().unwrap();
+    assert!(!html.contains("Hush."), "{html}");
+    assert!(html.contains("redlink=1"), "{html}");
+    let p = c.api("action=parse&page=Project:Index&prop=text").await;
+    let html = p["parse"]["text"].as_str().unwrap();
+    assert!(html.contains("Hush."), "{html}");
+    assert!(!html.contains("redlink=1"), "{html}");
+
+    // A confidential `namespace` or `tenant` restriction hides every page under it, even
+    // from the owner when the owner is not in the group. Nothing writes those targets
+    // yet, so the rows go into view.acl directly.
+    let (db, conn) = database
+        .parse::<Config>()
+        .unwrap()
+        .connect(NoTls)
+        .await
+        .unwrap();
+    tokio::spawn(async move {
+        let _ = conn.await;
+    });
+    for target in [
+        "acl:namespace:4".to_string(),
+        format!("acl:tenant:{TENANT}"),
+    ] {
+        db.execute(
+            "INSERT INTO view.acl (tenant, target, restrictions, read_kind, extra, \"offset\")
+             VALUES ($1, $2, $3, 'confidential', NULL, 0)",
+            &[&TENANT, &target, &json!({"read": {"group": "board"}})],
+        )
+        .await
+        .unwrap();
+        for who in [&mut anon, &mut c] {
+            let i = who.api("action=query&prop=info&titles=Project:Index").await;
+            assert_eq!(i["query"]["pages"][0]["missing"], true, "{target}: {i}");
+            let a = who.api("action=query&list=allpages&apnamespace=4").await;
+            assert!(titles(&a, "allpages").is_empty(), "{target}: {a}");
+            let rc = who
+                .api("action=query&list=recentchanges&rcprop=title&rclimit=500")
+                .await;
+            assert!(
+                !titles(&rc, "recentchanges")
+                    .iter()
+                    .any(|t| t.ends_with("Index")),
+                "{target}: {rc}"
+            );
+        }
+        db.execute(
+            "DELETE FROM view.acl WHERE tenant = $1 AND target = $2",
+            &[&TENANT, &target],
+        )
+        .await
+        .unwrap();
+    }
+    let i = anon
+        .api("action=query&prop=info&titles=Project:Index")
+        .await;
+    assert!(i["query"]["pages"][0].get("missing").is_none(), "{i}");
+
+    // Lifting a reservation before anyone creates the page frees the title.
+    let p = c
+        .api_post(&format!(
+            "action=protect&title=Project:Free&protections=create%3Dbot&token={t}"
+        ))
+        .await;
+    let held = p["protect"]["pageid"].as_u64().unwrap();
+    c.api_post(&format!(
+        "action=protect&title=Project:Free&protections=create%3Dall&token={t}"
+    ))
+    .await;
+    let e = c
+        .api_post(&format!(
+            "action=edit&title=Project:Free&text=Open.&token={t}"
+        ))
+        .await;
+    assert_ne!(e["edit"]["pageid"], held, "{e}");
+
+    // A deleted page takes no read protection; its title can be reserved, and the
+    // reservation then keeps the page from being undeleted into it.
+    c.api_post(&format!(
+        "action=edit&title=Project:Gone&text=Bye.&token={t}"
+    ))
+    .await;
+    c.api_post(&format!("action=delete&title=Project:Gone&token={t}"))
+        .await;
+    let p = c
+        .api_post(&format!(
+            "action=protect&title=Project:Gone&protections=read%3Downer&token={t}"
+        ))
+        .await;
+    assert!(p["protect"]["pageid"].is_u64(), "{p}");
+    let r = c
+        .api_post(&format!("action=undelete&title=Project:Gone&token={t}"))
+        .await;
+    assert_eq!(r["error"]["code"], "ts-title-taken", "{r}");
 
     // The log events.
     let l = anon.api("action=query&list=logevents&lelimit=50").await;
@@ -381,6 +658,35 @@ async fn protect_delete_undelete_and_hide() {
         "{l}"
     );
 
+    // Suppressing: the writer marks the record, so the bit and the `suppress/revision`
+    // event follow the tenant's suppression group without the projections reading it.
+    let h = c
+        .api_post(&format!(
+            "action=revisiondelete&type=revision&ids={libel}&hide=user&suppress=yes&token={t}"
+        ))
+        .await;
+    assert!(h.get("error").is_none(), "{h}");
+    let r = c
+        .api(&format!(
+            "action=query&prop=revisions&revids={libel}&rvprop=user%7Cids"
+        ))
+        .await;
+    assert_eq!(
+        r["query"]["pages"][0]["revisions"][0]["suppressed"], true,
+        "{r}"
+    );
+    let l = c
+        .api("action=query&list=logevents&letype=suppress&lelimit=50")
+        .await;
+    assert!(
+        l["query"]["logevents"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|e| e["action"] == "revision"),
+        "{l}"
+    );
+
     // A thread deleted through action=delete answers 410 on the thread route.
     let r = c
         .rest("POST", "/thread", Some(json!({"subject": "Q", "target": {"kind": "page", "id": fresh}, "text": "Hi", "token": token})))
@@ -388,6 +694,41 @@ async fn protect_delete_undelete_and_hide() {
     assert_eq!(r.status, StatusCode::CREATED, "{}", r.body);
     let thread = r.body["thread"].as_u64().unwrap();
     let title = r.body["title"].as_str().unwrap().to_string();
+    let base = r.body["base"].as_u64().unwrap();
+    let read = c.rest("GET", &format!("/thread/{thread}"), None).await;
+    let first = read.body["posts"][0]["id"].as_u64().unwrap();
+
+    // Protecting the home talk page stops posting there.
+    let home = read.body["home"]["talk_page_id"]
+        .as_u64()
+        .unwrap_or_else(|| panic!("a home talk page in {}", read.body));
+    let p = c
+        .api_post(&format!(
+            "action=protect&pageid={home}&protections=edit%3Dbot&token={t}"
+        ))
+        .await;
+    assert!(p.get("error").is_none(), "{p}");
+    let r = c
+        .rest(
+            "POST",
+            &format!("/thread/{thread}/post"),
+            Some(json!({"inReplyTo": first, "text": "Me too", "base": base, "token": token})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::FORBIDDEN, "{}", r.body);
+    assert_eq!(r.body["code"], "protectedpage", "{}", r.body);
+    c.api_post(&format!(
+        "action=protect&pageid={home}&protections=edit%3Dall&token={t}"
+    ))
+    .await;
+    let r = c
+        .rest(
+            "POST",
+            &format!("/thread/{thread}/post"),
+            Some(json!({"inReplyTo": first, "text": "Me too", "base": base, "token": token})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
     let d = c
         .api_post(&format!(
             "action=delete&title={}&token={t}",

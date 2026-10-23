@@ -8,8 +8,17 @@
 //! - **A local entity** likewise sets `view.entity.deleted`.
 //! - **A record** with a `record` ACL gets the visibility bits of 0023 §5 on its
 //!   `view.activity` row: content (or a thread's or page's `text`), comment, attestation,
-//!   and suppressed when the restriction names the suppression group. Retiring the ACL
-//!   clears them.
+//!   and suppressed when the writer marked the record a suppression. The bits are the
+//!   ACL's together with those the record carries itself (an adopted revision's withheld
+//!   parts, 0035 A14), so retiring the ACL leaves the record's own.
+//! - **A reserved title** (create-protection, 09 §4.8): an ACL carrying `reserved` holds
+//!   the title with a `view.page` row that has no revision (`reserved`, `latest_offset`
+//!   NULL), so the title index refuses any other page there and a `create` takes the
+//!   reserved ID. Retiring the ACL before the page exists frees the title.
+//!
+//! **Suppression** is a restriction naming the tenant's `moderation.suppress_group`, a
+//! setting a projection does not resolve; the ACL writer resolves it and marks the record
+//! (`suppress: true` in the attestation map, [`marked_suppression`]).
 //!
 //! The log event each ACL record projects as is [`crate::activity`]'s. The cache purges and
 //! search re-sends of 09 §6.3 wait for those subsystems.
@@ -20,17 +29,25 @@ use scatter_log::record::Record;
 use scatter_log_postgres::PgClient;
 use scatter_projection::{Applied, Backend, BoxFuture, Projection, Step};
 
+use scatter_log::cbor::Value;
+
 use crate::actors::payload;
 use crate::backend::PgCx;
-use crate::common::{content, tenant_of, to_jsonb};
+use crate::common::{attestation, content, tenant_of, to_jsonb};
 
 fn sql(e: &tokio_postgres::Error) -> String {
     e.to_string()
 }
 
-/// The suppression group the bits name as suppressed (`moderation.suppress_group`'s
-/// default; a tenant that renames it is not read yet).
-const SUPPRESS: &str = "suppress";
+/// Whether the ACL writer marked the record a suppression: `suppress: true` in its
+/// attestation map. For a retirement, whether what it retired was one.
+#[must_use]
+pub fn marked_suppression(record: &Record) -> bool {
+    attestation(record)
+        .as_ref()
+        .and_then(|a| a.get("suppress"))
+        .is_some_and(|v| matches!(v, Value::Bool(true)))
+}
 
 /// The visibility bits, as MediaWiki numbers them.
 mod bits {
@@ -40,9 +57,9 @@ mod bits {
     pub const SUPPRESSED: i16 = 8;
 }
 
-/// The bits a `record` ACL sets.
+/// The bits a `record` ACL sets; `suppressed` is [`marked_suppression`] of its record.
 #[must_use]
-pub fn visibility_bits(acl: &Acl) -> i16 {
+pub fn visibility_bits(acl: &Acl, suppressed: bool) -> i16 {
     let Some(read) = acl.restrictions.get(scatter_actors::acl::READ) else {
         return 0;
     };
@@ -58,7 +75,7 @@ pub fn visibility_bits(acl: &Acl) -> i16 {
             _ => 0,
         };
     }
-    if read.group.as_deref() == Some(SUPPRESS) || read.group.is_none() {
+    if suppressed || read.group.is_none() {
         v |= bits::SUPPRESSED;
     }
     v
@@ -115,7 +132,9 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for ModerationProjection {
                     .map_err(|e| sql(&e))?
                 }
                 Target::Record { partition, offset } => {
-                    let v = acl.as_ref().map_or(0, visibility_bits);
+                    let own = crate::activity::own_visibility(cx, *partition, *offset).await?;
+                    let suppressed = marked_suppression(record);
+                    let v = own | acl.as_ref().map_or(0, |a| visibility_bits(a, suppressed));
                     let p = scatter_log_postgres::ids::partition_to_db(*partition);
                     let o = i64::try_from(*offset).map_err(|e| e.to_string())?;
                     cx.execute(
@@ -139,8 +158,9 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for ModerationProjection {
 
 async fn page(cx: &PgCx, tenant: &str, id: u64, acl: Option<&Acl>) -> Result<u64, String> {
     let page = i64::try_from(id).map_err(|e| e.to_string())?;
+    let mut rows = reserve(cx, tenant, page, acl).await?;
     let deleted = acl.is_some_and(deletes);
-    let mut rows = cx
+    rows += cx
         .execute(
             "UPDATE view.page SET deleted = $3 WHERE tenant = $1 AND page_id = $2",
             &[&tenant, &page, &deleted],
@@ -181,4 +201,31 @@ async fn page(cx: &PgCx, tenant: &str, id: u64, acl: Option<&Acl>) -> Result<u64
             .map_err(|e| sql(&e))?;
     }
     Ok(rows)
+}
+
+/// Holds or frees a reserved title (09 §4.8). A row that already exists, the page itself
+/// once created, is left alone; one that no revision has filled is freed when the ACL no
+/// longer reserves it.
+async fn reserve(cx: &PgCx, tenant: &str, page: i64, acl: Option<&Acl>) -> Result<u64, String> {
+    match acl.and_then(|a| a.reserved.as_ref()) {
+        Some(r) => {
+            let ns = i32::try_from(r.namespace).map_err(|e| e.to_string())?;
+            cx.execute(
+                "INSERT INTO view.page (tenant, page_id, ns, title, content_model, reserved)
+                 VALUES ($1, $2, $3, $4, '', true)
+                 ON CONFLICT DO NOTHING",
+                &[&tenant, &page, &ns, &r.title],
+            )
+            .await
+            .map_err(|e| sql(&e))
+        }
+        None => cx
+            .execute(
+                "DELETE FROM view.page
+                 WHERE tenant = $1 AND page_id = $2 AND reserved AND latest_offset IS NULL",
+                &[&tenant, &page],
+            )
+            .await
+            .map_err(|e| sql(&e)),
+    }
 }

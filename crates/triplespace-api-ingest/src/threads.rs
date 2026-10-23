@@ -12,6 +12,10 @@
 //! page cannot be a target (0023 §4; 14 §1.2). Whether the writer may read a confidential
 //! thread or target is the caller's check, which knows the writer's groups.
 //!
+//! A record that is also a log event (`create`, `rename`, `move`, `attach`, `detach`,
+//! `pin`, `unpin`; 16 §2.3, §6.1) takes a log ID beside its revision ID, as a MediaWiki
+//! page creation has both; `post` and `edit` are revisions only.
+//!
 //! Statuses are the registry's defaults; a tenant's own `thread-status` records are not read
 //! yet. Boards do not exist yet, so every page takes homes.
 
@@ -161,7 +165,8 @@ async fn facts(cx: &PgCx, tenant: &str, op: &ThreadOp, now: u64) -> Result<Facts
                 let id = i64::try_from(*page).map_err(store_err)?;
                 let row = cx
                     .query_opt(
-                        "SELECT 1 FROM view.page WHERE tenant = $1 AND page_id = $2 AND NOT deleted",
+                        "SELECT 1 FROM view.page
+                         WHERE tenant = $1 AND page_id = $2 AND NOT deleted AND latest_offset IS NOT NULL",
                         &[&tenant, &id],
                     )
                     .await
@@ -436,6 +441,9 @@ pub async fn write(
             .attestation
             .minted
             .push(("also".into(), MintedValue::Ids(m.also.clone())));
+    }
+    if !matches!(w.op, ThreadOp::Post { .. } | ThreadOp::Edit { .. }) {
+        request.logid = Some(store.next_id(cx, tenant, &Sequence::Log).await?);
     }
     let raw = RawRecord {
         graph: "pages".into(),

@@ -2099,7 +2099,7 @@
             }
           },
           "403": {
-            "description": "`permissiondenied` or `badtoken`.",
+            "description": "`permissiondenied` or `badtoken`; `protectedpage` or `protectednamespace` when an ACL restricts the write (09 §2).",
             "content": {
               "application/json": {
                 "schema": {
@@ -2259,7 +2259,7 @@
             }
           },
           "403": {
-            "description": "`permissiondenied` or `badtoken`.",
+            "description": "`permissiondenied` or `badtoken`; `protectedpage` or `protectednamespace` when an ACL restricts the write (09 §2).",
             "content": {
               "application/json": {
                 "schema": {
@@ -2315,7 +2315,7 @@
       "put": {
         "operationId": "editThreadPost",
         "summary": "Edit a post",
-        "description": "Writes `edit`: replaces the post's complete text, in its own media type. Only the post's author may edit it. Needs `base`. Needs the `edit` right and an account; a request made with a session cookie carries its CSRF token as `token`. Refusals: `badbody`; `badtoken` for a session write without its CSRF token; `permissiondenied`; `ts-thread-not-found`; `ts-not-a-post`; `ts-bad-subject`; `ts-unknown-status`; `ts-bad-media-type`; `ts-import-only` for a field only an import writes; `ts-bad-collapse`; `ts-no-target`; `ts-bad-attachment`; `ts-bad-pin`; `ts-limit`; `ts-base-required`; and `editconflict` when the thread has a record after `base` (ADR 0019 §9, A26; architecture 14 §1.2, §2.4, §3.6, §4.2). The writer must be able to read the thread and every page the record names; a page they may not read is `ts-no-target`, and no record is accepted on a deleted thread (`ts-thread-deleted`, 410).",
+        "description": "Writes `edit`: replaces the post's complete text, in its own media type. The post's author needs `edit`; anyone else needs `ts-editpost` as well (architecture 09 §8.1), and the post then names them in `editedBy`. Needs `base`. Needs the `edit` right and an account; a request made with a session cookie carries its CSRF token as `token`. Refusals: `badbody`; `badtoken` for a session write without its CSRF token; `permissiondenied`; `ts-thread-not-found`; `ts-not-a-post`; `ts-bad-subject`; `ts-unknown-status`; `ts-bad-media-type`; `ts-import-only` for a field only an import writes; `ts-bad-collapse`; `ts-no-target`; `ts-bad-attachment`; `ts-bad-pin`; `ts-limit`; `ts-base-required`; and `editconflict` when the thread has a record after `base` (ADR 0019 §9, A26; architecture 14 §1.2, §2.4, §3.6, §4.2). The writer must be able to read the thread and every page the record names; a page they may not read is `ts-no-target`, and no record is accepted on a deleted thread (`ts-thread-deleted`, 410).",
         "parameters": [
           {
             "name": "id",
@@ -2368,7 +2368,7 @@
             }
           },
           "403": {
-            "description": "`permissiondenied` or `badtoken`.",
+            "description": "`permissiondenied` or `badtoken`; `protectedpage` or `protectednamespace` when an ACL restricts the write (09 §2).",
             "content": {
               "application/json": {
                 "schema": {
@@ -2468,7 +2468,7 @@
             }
           },
           "403": {
-            "description": "`permissiondenied` or `badtoken`.",
+            "description": "`permissiondenied` or `badtoken`; `protectedpage` or `protectednamespace` when an ACL restricts the write (09 §2).",
             "content": {
               "application/json": {
                 "schema": {
@@ -2568,7 +2568,7 @@
             }
           },
           "403": {
-            "description": "`permissiondenied` or `badtoken`.",
+            "description": "`permissiondenied` or `badtoken`; `protectedpage` or `protectednamespace` when an ACL restricts the write (09 §2).",
             "content": {
               "application/json": {
                 "schema": {
@@ -2668,7 +2668,7 @@
             }
           },
           "403": {
-            "description": "`permissiondenied` or `badtoken`.",
+            "description": "`permissiondenied` or `badtoken`; `protectedpage` or `protectednamespace` when an ACL restricts the write (09 §2).",
             "content": {
               "application/json": {
                 "schema": {
@@ -2768,7 +2768,7 @@
             }
           },
           "403": {
-            "description": "`permissiondenied` or `badtoken`.",
+            "description": "`permissiondenied` or `badtoken`; `protectedpage` or `protectednamespace` when an ACL restricts the write (09 §2).",
             "content": {
               "application/json": {
                 "schema": {
@@ -2868,7 +2868,7 @@
             }
           },
           "403": {
-            "description": "`permissiondenied` or `badtoken`.",
+            "description": "`permissiondenied` or `badtoken`; `protectedpage` or `protectednamespace` when an ACL restricts the write (09 §2).",
             "content": {
               "application/json": {
                 "schema": {
@@ -2968,7 +2968,7 @@
             }
           },
           "403": {
-            "description": "`permissiondenied` or `badtoken`.",
+            "description": "`permissiondenied` or `badtoken`; `protectedpage` or `protectednamespace` when an ACL restricts the write (09 §2).",
             "content": {
               "application/json": {
                 "schema": {
@@ -3069,6 +3069,193 @@
           },
           "421": {
             "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "`ts-page-deleted`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/page/{id}/history": {
+      "get": {
+        "operationId": "getPageHistory",
+        "summary": "A page's history, with its threads for a talk page or board",
+        "description": "The page's history as activity rows (chapter 16 §6.1; chapter 19 §3.3), newest first unless `dir=newer`, paged with `next`/`continue` as `GET /activity` is. For a talk page or board the history is composite: its own rows and every row of each thread attached to it now, home or listing, so a thread that moved away or was detached takes its rows with it; a deleted thread's rows are left out. Thread records are `edit` rows on the thread's page ID; those that are also log events (`create`, a rename or move, `attach`, `detach`, `pin`, `unpin`) carry their log type, action and ID. A page that does not exist, or that the viewer may not read, answers 404 alike; a deleted one 410 `ts-page-deleted` (ADR 0056 §5).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The page ID: a document page, a thread, or a talk page or board.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "description": "Row kinds, `|`-separated: `edit`, `sync`, `log`, `job`, `erased`. Default: every kind but `sync` for the everything set, every kind for a target.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "description": "Only rows from these graphs, `|`-separated: `local`, `pages`, `mirror/wikidata`, …; a history's source switch (chapter 19 §3.5).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "description": "Rows at or after this time: ISO 8601 or MediaWiki's `YYYYMMDDHHMMSS`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "until",
+            "in": "query",
+            "required": false,
+            "description": "Rows at or before this time.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dir",
+            "in": "query",
+            "required": false,
+            "description": "`older` (newest first, the default) or `newer`.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "older",
+                "newer"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Rows per page: 50 by default, 500 at most.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          },
+          {
+            "name": "continue",
+            "in": "query",
+            "required": false,
+            "description": "The `next` token of the previous page.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "required": false,
+            "description": "The language of the targets' labels; `mul` and `en` are fallbacks.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of the entity's history.",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Tag": {
+                "description": "Public responses only: `entity:{id}`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityPage"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not modified."
+          },
+          "400": {
+            "description": "The ID does not parse (`invalid-entity-id`), or a parameter the route does not take a value of (`bad-parameter`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller may not read (`permissiondenied`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such entity, or none the viewer may see (`entity-not-found`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The host is not a tenant of this instance (`misdirected`).",
             "content": {
               "application/json": {
                 "schema": {
@@ -5443,6 +5630,16 @@
           },
           "erased": {
             "type": "boolean"
+          },
+          "editedBy": {
+            "type": "array",
+            "items": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "description": "Actors other than the author who edited the post, in the order of their first edit; `null` for one a `record` ACL hides from the viewer (architecture 19 §5). Absent when only the author edited it."
           }
         }
       },

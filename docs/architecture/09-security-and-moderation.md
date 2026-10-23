@@ -346,6 +346,8 @@ What a private tenant does not have, because each of these is a public form of i
 
 A title that does not exist has no page ID, and a key must never be content, so the protecting record takes a page ID from the sequence and carries the namespace and title in its content part. The title index maps the title to the reserved ID; a `create` by an actor the ACL admits takes that ID, and the page then exists. This is the pattern talk-page IDs use ([14](14-discussions.md)). A `create` at a create-protected title by an actor the ACL does not admit is refused with `ts-restricted-title`, the same refusal a confidential title gives (§5.3).
 
+**What a reservation takes.** A title with no page takes `createpage` (MediaWiki's `create`) and `read`; `edit` and `move` wait for the page, and `createpage` is refused on a page that exists. A `read` restriction on a title with no page is a **confidential reservation**: the page is confidential from its first revision, so nothing about it is ever public. A deleted page takes no new `read` restriction, as nothing that does not exist does; its title can be reserved instead, and a reservation, like a new page, keeps the deleted page from being undeleted into the title (§6.2). Lifting every restriction before the page exists retires the ACL and frees the title. The reserved ID is held in `view.page` as a row with no revision (`reserved`, `latest_offset` null), which the title index counts, so no other page can be created there; every reader that asks whether a page exists skips it.
+
 ## 5. Visibility, absence and flow
 
 *Sources: [0056](../decisions/0056-security-model.md) §2, §5, §6, §9, §12, §15; [0012](../decisions/0012-api-requirements.md) §8; [0023](../decisions/0023-moderation.md) §1.*
@@ -499,7 +501,9 @@ Every administrative action here except patrolling is an ACL record (§4.1). Und
 - `action=parse`, `prop=revisions` and the page itself answer as MediaWiki does: the page is reported missing, with the deletion log entry shown in its place, and members of the group see the content behind a banner;
 - a deleted thread leaves its talk page's listing and history; a deleted talk page or board takes with it the threads whose home it is, by enclosure. A thread only listed there is untouched: the listing goes dormant, hidden outside the deletion group, and returns on undelete.
 
-**Undeleting into a taken title.** If a new page has taken the title meanwhile, the two have different page IDs and there is nothing to merge. The undelete is refused with the error code `ts-title-taken`, unless the request supplies a new title, in which case a `move` record follows the retirement in the same request.
+**Undeleting into a taken title.** If a new page has taken the title meanwhile, the two have different page IDs and there is nothing to merge. The undelete is refused with the error code `ts-title-taken`, unless the request supplies a new title, in which case a `move` record follows the retirement in the same request. A reservation (§4.8) takes a title as a new page does.
+
+**Several deleted pages under one title.** Each deleted page keeps its own ID, so a title can have had several. An undelete names the one it restores by page ID (`pageid` on `action=undelete`); without it, a title that more than one deleted page had is refused with `ts-ambiguous-undelete`, which lists their IDs. Nothing is chosen for the caller.
 
 **A deleted local entity** is a local entity with a `read` ACL naming the deletion group. While it holds:
 
@@ -525,6 +529,8 @@ Only local entities can be deleted: the ID must be in the local form of [04](04-
 | `attestation` | The actor is shown as hidden; the row stays attributed to nobody, and the revision carries `scatter:attributionHidden` in RDF | `userhidden` |
 
 A suppressed part adds MediaWiki's `suppressed` flag for those who may see that much. This is the projection-level flag of the record format ([01](01-log-and-records.md) §2.3); the erasure of a part is its irreversible form and uses the same bits.
+
+**Suppression is marked in the record.** Whether a restriction names the suppression group depends on `moderation.suppress_group`, a setting that projections do not resolve, so the ACL writer decides it and writes `suppress: true` into the record's attestation map; for a retirement, when the ACL it retires was a suppression. The suppressed bit and the `suppress/…` log events are projected from the mark, as patrolled is from `autopatrol` (§6.4). A record's own bits stay under any ACL: an adopted revision's withheld parts ([05](05-providers-and-ingest.md) §7.3) are restricted by the source, and retiring a `record` ACL on that revision leaves them.
 
 **The same ACL on a `log` record** hides a log event's parts (`delete/event`): the comment part is the event's comment, the attestation its performer, the content its parameters and target.
 

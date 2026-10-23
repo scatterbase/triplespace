@@ -36,6 +36,7 @@ pub mod params;
 pub mod prefs;
 pub mod response;
 pub mod tenant;
+pub mod thread_view;
 pub mod version;
 
 pub use app::{App, Config, Mode};

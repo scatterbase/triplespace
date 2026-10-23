@@ -9,10 +9,15 @@
 //!   later write names.
 //! - `POST /thread/{id}/post`: `inReplyTo`, `text`, and optionally `status`, `collapse`
 //!   (`{first, last}`) or `uncollapse`.
-//! - `PUT /thread/{id}/post/{revid}`: `edit`, by the post's author: `text`, `base`.
+//! - `PUT /thread/{id}/post/{revid}`: `edit`: `text`, `base`. The post's author needs
+//!   `edit`; anyone else `ts-editpost` as well (09 §8.1), and the post then carries
+//!   `editedBy`, the other actors who edited it, since a post is speech (19 §5).
 //! - `POST /thread/{id}/rename`, `/move`, `/attach`, `/detach`, `/pin`, `/unpin`: each with
 //!   `base` and an optional `summary`; `subject`, or `target` (and `keep` on a move).
 //! - `GET /page/{id}/threads`: the threads attached to a talk page or board, pinned first.
+//! - `GET /page/{id}/history`: a page's history as activity rows; for a talk page or
+//!   board, composite: its own rows and those of every thread attached to it, home or
+//!   listing (16 §6.1). The parameters are `GET /activity`'s, less `target`.
 //!
 //! Creating, posting and editing need `edit`; the rest need `move` (09 §8.1). A write with
 //! a session cookie carries its CSRF token as `token`.
@@ -24,8 +29,14 @@
 //! text or author a `record` ACL hides carries `texthidden` or `userhidden`, and the part
 //! itself only for the group the ACL names; erased text is `texthidden` and `erased`.
 //! Writes need what reads need, for the thread and every page they name, and no record
-//! is accepted on a deleted thread. Foreign threads, `upstream-reply` and the per-target
-//! rights of 09 §8.1 are not served yet.
+//! is accepted on a deleted thread.
+//!
+//! **Writes follow the ACLs too** (09 §2; 0019 §12, A27): `edit` on the thread's chain for
+//! `create`, a post or an edit, `move` for the rest; and `edit` on the page each page
+//! target lists the thread on (its talk page, a board itself) for `create` (the home and
+//! every `also`), `move`, `attach`, `detach`, `pin` and `unpin`. A refusal is 403
+//! `protectedpage` (`protectednamespace` for a namespace). Foreign threads and
+//! `upstream-reply` are not served yet.
 
 #![allow(
     clippy::result_large_err,
@@ -36,24 +47,22 @@ use axum::body::Bytes;
 use axum::extract::{Extension, Path, State};
 use axum::http::{HeaderMap, Method, StatusCode};
 use axum::response::Response;
+use scatter_actors::acl::{Denied, Target as AclTarget, check};
 use scatter_actors::evaluate::Effective;
 use scatter_actors::{ReadDecision, Timestamp, read_decision};
 use scatter_ingest::{Attestation, Request};
-use scatter_log_postgres::log;
-use scatter_threads::{
-    Category, Invalid, Limits, Range, Statuses, Target, Thread, ThreadOp, Writer,
-};
+use scatter_threads::{Category, Invalid, Limits, Range, Statuses, Target, ThreadOp, Writer};
 use serde_json::{Map, Value, json};
 use triplespace_api_action::App;
 use triplespace_api_action::auth::{Caller, bearer};
 use triplespace_api_action::forwarded::Origin;
 use triplespace_api_action::http_cache::{self, Class};
 use triplespace_api_action::tenant::Tenant;
+use triplespace_api_action::thread_view::target_json;
 use triplespace_api_ingest::threads::{ThreadError, ThreadWrite, write};
-use triplespace_projections::acl_read::{page_chain, record_acls, removed, thread_chain};
-use triplespace_projections::common::partition_of;
-use triplespace_projections::feed::iso8601;
-use triplespace_projections::threads::{read_record, text};
+use triplespace_projections::acl_read::{
+    current, listing_chain, page_chain, removed, thread_chain,
+};
 
 use crate::entity_route::{error, internal};
 use crate::settings::{check_token, prelude};
@@ -148,48 +157,61 @@ async fn page_gate(
     }
 }
 
-/// One part of a post's record, as the viewer sees it (0023 §5).
-#[derive(Clone, Copy)]
-struct Part {
-    /// A `record` ACL hides it.
-    hidden: bool,
-    /// The viewer may still see it.
-    visible: bool,
-}
-
-impl Default for Part {
-    fn default() -> Self {
-        Part {
-            hidden: false,
-            visible: true,
+/// A write an ACL refuses: 403, with MediaWiki's code.
+fn protected(e: &Denied) -> Response {
+    let code = match e {
+        Denied::Permission(_) => "permissiondenied",
+        Denied::Restricted { target, .. } | Denied::Nobody { target, .. }
+            if target.starts_with("acl:namespace:") =>
+        {
+            "protectednamespace"
         }
-    }
+        _ => "protectedpage",
+    };
+    error(StatusCode::FORBIDDEN, code, e.to_string())
 }
 
-/// What the viewer may see of one post: the text of the record holding its current text,
-/// and the actor of its own record.
-#[derive(Default, Clone, Copy)]
-struct Shown {
-    text: Part,
-    user: Part,
-    erased: bool,
-}
-
-/// Whether a record ACL hides a part, and whether this viewer may still see it.
-fn part(acl: Option<&scatter_actors::Acl>, name: &str, who: &Effective, at: Timestamp) -> Part {
-    let Some(a) = acl else {
-        return Part::default();
+/// The ACL checks a record needs beyond reading (see the module documentation): its own
+/// permission on the thread's chain, which for a `create` is the `Thread` namespace, the
+/// `pages` graph and the tenant, and `edit` on the page each page target lists it on.
+async fn write_rights(
+    app: &App,
+    tenant: &str,
+    who: &Effective,
+    thread: Option<u64>,
+    op: &ThreadOp,
+    at: Timestamp,
+) -> Result<(), Response> {
+    let client = app.pool().get().await.map_err(|e| internal(&e))?;
+    let own = match op {
+        ThreadOp::Create { .. } | ThreadOp::Post { .. } | ThreadOp::Edit { .. } => "edit",
+        _ => "move",
     };
-    let Some(r) = a.restriction_at(scatter_actors::acl::READ, at) else {
-        return Part::default();
+    let chain = match thread {
+        Some(id) => thread_chain(&*client, tenant, id)
+            .await
+            .map_err(|e| internal(&e))?
+            .unwrap_or_default(),
+        None => current(
+            &*client,
+            tenant,
+            &[
+                AclTarget::Namespace(i64::from(scatter_threads::NS_THREAD)),
+                AclTarget::Graph("pages".into()),
+                AclTarget::Tenant(tenant.to_string()),
+            ],
+        )
+        .await
+        .map_err(|e| internal(&e))?,
     };
-    if !(a.parts.is_empty() || a.parts.iter().any(|p| p == name)) {
-        return Part::default();
+    check(own, who, &chain, at).map_err(|e| protected(&e))?;
+    for page in page_targets(op) {
+        let chain = listing_chain(&*client, tenant, page)
+            .await
+            .map_err(|e| internal(&e))?;
+        check("edit", who, &chain, at).map_err(|e| protected(&e))?;
     }
-    Part {
-        hidden: true,
-        visible: r.group.as_ref().is_some_and(|g| who.in_group(g)),
-    }
+    Ok(())
 }
 
 /// The API code and status of a refused record.
@@ -249,13 +271,6 @@ fn target_of(v: Option<&Value>) -> Result<Target, Response> {
             .ok_or_else(|| bad("a page target's `id` is a page ID")),
         (Some("actor"), Some(Value::String(key))) => Ok(Target::Actor(key.clone())),
         _ => Err(bad("`target` is `{kind: \"page\"|\"actor\", id}`")),
-    }
-}
-
-fn target_json(t: &Target) -> Value {
-    match t {
-        Target::Page(id) => json!({"kind": "page", "id": id}),
-        Target::Actor(key) => json!({"kind": "actor", "id": key}),
     }
 }
 
@@ -370,6 +385,9 @@ async fn save(
         if let Err(r) = page_gate(app, &tenant.slug, who, page, at).await {
             return r;
         }
+    }
+    if let Err(r) = write_rights(app, &tenant.slug, who, thread, &op, at).await {
+        return r;
     }
     let mut request = Request::new(
         &tenant.slug,
@@ -553,11 +571,12 @@ pub async fn edit(
                 format!("revision {revid} is not a post of thread {id}"),
             );
         }
-        Some(a) if a.as_deref() != Some(actor.as_str()) => {
+        // Another actor's post, or one whose author was erased, needs `ts-editpost`.
+        Some(a) if a.as_deref() != Some(actor.as_str()) && !who.holds("ts-editpost") => {
             return error(
                 StatusCode::FORBIDDEN,
                 "permissiondenied",
-                "only a post's author edits it",
+                "editing another actor's post needs the \"ts-editpost\" right",
             );
         }
         Some(_) => {}
@@ -661,24 +680,6 @@ fn respond(headers: &HeaderMap, method: &Method, caller: &Caller, body: &Value) 
 }
 
 /// Talk page IDs with their titles, `{ns}:{title}` as `view.page` holds them.
-async fn talk_title(client: &deadpool_postgres::Object, tenant: &str, talk: Option<u64>) -> Value {
-    let Some(id) = talk.and_then(|t| i64::try_from(t).ok()) else {
-        return Value::Null;
-    };
-    client
-        .query_opt(
-            "SELECT ns, title FROM view.page WHERE tenant = $1 AND page_id = $2",
-            &[&tenant, &id],
-        )
-        .await
-        .ok()
-        .flatten()
-        .map_or(
-            Value::Null,
-            |r| json!({"ns": r.get::<_, i32>(0), "title": r.get::<_, String>(1)}),
-        )
-}
-
 /// `GET /thread/{id}`.
 pub async fn get(
     State(app): State<App>,
@@ -700,203 +701,22 @@ pub async fn get(
         Ok(c) => c,
         Err(r) => return r,
     };
-    let partition = match partition_of(&*client, &tenant.slug, "pages").await {
-        Ok(Some(p)) => p,
-        Ok(None) => return not_found(id),
-        Err(e) => return internal(&e),
-    };
-    let records = match log::read_by_key(&*client, partition, &id.to_string()).await {
-        Ok(r) => r,
-        Err(e) => return internal(&e),
-    };
-    let mut folded = Vec::new();
-    let mut texts = std::collections::HashMap::new();
-    let mut offsets = std::collections::HashMap::new();
-    let mut erased = std::collections::HashSet::new();
-    let mut last_offset = 0;
-    for (offset, r) in &records {
-        if r.header().payload_type != scatter_threads::PAYLOAD_THREAD {
-            continue;
-        }
-        last_offset = *offset;
-        match read_record(r) {
-            Ok(Some(rec)) => {
-                offsets.insert(rec.revid, *offset);
-                match text(r) {
-                    Some(t) => {
-                        texts.insert(rec.revid, t);
-                    }
-                    None if rec.op.has_text() => {
-                        erased.insert(rec.revid);
-                    }
-                    None => {}
-                }
-                folded.push((rec, r.header().appended_at));
-            }
-            Ok(None) => {}
-            Err(e) => return internal(&e),
-        }
-    }
-    if folded.is_empty() {
-        return not_found(id);
-    }
-    let appended: std::collections::HashMap<u64, u64> =
-        folded.iter().map(|(r, at)| (r.revid, *at)).collect();
-    let thread = match Thread::replay(folded.iter().map(|(r, _)| r)) {
-        Ok(t) => t,
-        Err(e) => return internal(&e),
-    };
-    let shown = match redactions(
-        &client,
+    let mut body = match triplespace_api_action::thread_view::body(
+        &*client,
         &tenant.slug,
-        partition,
-        &thread,
-        &offsets,
-        &erased,
         &caller.effective,
+        id,
+        None,
         at,
     )
     .await
     {
-        Ok(x) => x,
+        Ok(Some(b)) => b,
+        Ok(None) => return not_found(id),
         Err(e) => return internal(&e),
     };
-    let statuses = Statuses::embedded();
-    let mut attachments = attachments_json(&client, &tenant.slug, &thread, &appended).await;
-    let home = attachments.remove(0);
-    let body = json!({
-        "id": id,
-        "title": thread.title,
-        "subject": thread.subject,
-        "status": thread.status(),
-        "category": match thread.category(statuses) { Category::Open => "open", Category::Closed => "closed" },
-        "home": home,
-        "listings": attachments,
-        "posts": notes(&thread, &texts, &appended, &shown),
-        "base": last_offset,
-        "deleted": removed(&chain, at),
-    });
+    body["deleted"] = json!(removed(&chain, at));
     respond(&headers, &method, &caller, &body)
-}
-
-/// The home and the listings, each with its talk page and times.
-async fn attachments_json(
-    client: &deadpool_postgres::Object,
-    tenant: &str,
-    thread: &Thread,
-    appended: &std::collections::HashMap<u64, u64>,
-) -> Vec<Value> {
-    let mut attachments = Vec::new();
-    for a in thread.attachments() {
-        attachments.push(json!({
-            "target": target_json(&a.target),
-            "talk_page_id": a.talk,
-            "talk_page": talk_title(client, tenant, a.talk).await,
-            "attached": appended.get(&a.since).map(|t| iso8601(*t)),
-            "pinned": a.pinned.and_then(|t| u64::try_from(t).ok()).map(iso8601),
-        }));
-    }
-    attachments
-}
-
-/// What the viewer may see of each post, from the `record` ACLs of the thread's records.
-#[allow(clippy::too_many_arguments)]
-async fn redactions(
-    client: &deadpool_postgres::Object,
-    tenant: &str,
-    partition: u64,
-    thread: &Thread,
-    offsets: &std::collections::HashMap<u64, u64>,
-    erased: &std::collections::HashSet<u64>,
-    who: &Effective,
-    at: Timestamp,
-) -> Result<std::collections::HashMap<u64, Shown>, String> {
-    let all: Vec<u64> = offsets.values().copied().collect();
-    let acls = record_acls(&**client, tenant, partition, &all).await?;
-    let acl_of = |revid: u64| offsets.get(&revid).and_then(|o| acls.get(o));
-    Ok(thread
-        .posts()
-        .iter()
-        .map(|p| {
-            (
-                p.revid,
-                Shown {
-                    text: part(acl_of(p.text), "text", who, at),
-                    user: part(acl_of(p.revid), "attestation", who, at),
-                    erased: erased.contains(&p.text),
-                },
-            )
-        })
-        .collect())
-}
-
-/// The posts as `as:Note` objects in tree order: each post, then its replies.
-fn notes(
-    thread: &Thread,
-    texts: &std::collections::HashMap<u64, String>,
-    appended: &std::collections::HashMap<u64, u64>,
-    shown: &std::collections::HashMap<u64, Shown>,
-) -> Vec<Value> {
-    let posts = thread.posts();
-    let mut children: std::collections::HashMap<Option<u64>, Vec<usize>> =
-        std::collections::HashMap::new();
-    for (k, p) in posts.iter().enumerate() {
-        let parent = p.parent.filter(|r| thread.post(*r).is_some());
-        children.entry(parent).or_default().push(k);
-    }
-    let mut out = Vec::with_capacity(posts.len());
-    let mut stack: Vec<(usize, usize)> = children
-        .get(&None)
-        .map(|v| v.iter().rev().map(|k| (*k, 0)).collect())
-        .unwrap_or_default();
-    while let Some((k, depth)) = stack.pop() {
-        let p = &posts[k];
-        let mut note = json!({
-            "type": "Note",
-            "id": p.revid,
-            "inReplyTo": p.parent,
-            "attributedTo": p.actor,
-            "published": appended.get(&p.revid).map(|t| iso8601(*t)),
-            "updated": p.edits.last().and_then(|r| appended.get(r)).map(|t| iso8601(*t)),
-            "mediaType": p.media_type,
-            "content": texts.get(&p.text),
-            "depth": depth,
-            "collapsed": thread.is_collapsed(p.revid),
-        });
-        let sh = shown.get(&p.revid).copied().unwrap_or_default();
-        if sh.erased {
-            note["texthidden"] = json!(true);
-            note["erased"] = json!(true);
-        } else if sh.text.hidden {
-            note["texthidden"] = json!(true);
-        }
-        if sh.erased || !sh.text.visible {
-            note["content"] = Value::Null;
-        }
-        if sh.user.hidden {
-            note["userhidden"] = json!(true);
-            if !sh.user.visible {
-                note["attributedTo"] = Value::Null;
-            }
-        }
-        if let Some(s) = &p.status {
-            note["status"] = json!(s);
-        }
-        if let Some(h) = p.heading {
-            note["heading"] = json!(h);
-        }
-        if let Some(r) = p.collapse {
-            note["collapse"] = json!({"first": r.first, "last": r.last});
-        }
-        if p.imported {
-            note["imported"] = json!(true);
-        }
-        out.push(note);
-        if let Some(kids) = children.get(&Some(p.revid)) {
-            stack.extend(kids.iter().rev().map(|c| (*c, depth + 1)));
-        }
-    }
-    out
 }
 
 /// Whether the viewer may read a talk page or board: a deleted one answers 410, one they
@@ -1026,4 +846,77 @@ pub async fn list(
         "threads": threads,
     });
     respond(&headers, &method, &caller, &body)
+}
+
+/// `GET /page/{id}/history`: the page's activity rows, with those of the threads attached
+/// to it, after the same read gate as the listing.
+pub async fn history(
+    State(app): State<App>,
+    Extension(origin): Extension<Origin>,
+    method: Method,
+    headers: HeaderMap,
+    Path(id): Path<u64>,
+    axum::extract::Query(q): axum::extract::Query<std::collections::BTreeMap<String, String>>,
+) -> Response {
+    {
+        let client = match app.pool().get().await {
+            Ok(c) => c,
+            Err(e) => return internal(&e),
+        };
+        let (tenant, caller) = match prelude(&app, &client, &origin, &headers).await {
+            Ok(x) => x,
+            Err(r) => return r,
+        };
+        let Ok(page) = i64::try_from(id) else {
+            return not_found(id);
+        };
+        let exists = client
+            .query_opt(
+                "SELECT 1 FROM view.page WHERE tenant = $1 AND page_id = $2 AND latest_offset IS NOT NULL",
+                &[&tenant.slug, &page],
+            )
+            .await;
+        match exists {
+            Ok(Some(_)) => {}
+            Ok(None) => {
+                return error(
+                    StatusCode::NOT_FOUND,
+                    "ts-no-such-page",
+                    format!("there is no page {id}"),
+                );
+            }
+            Err(e) => return internal(&e),
+        }
+        let at = Timestamp(triplespace_api_action::edit::now_micros());
+        let chain = match page_chain(&*client, &tenant.slug, id).await {
+            Ok(c) => c,
+            Err(e) => return internal(&e),
+        };
+        match read_decision(&caller.effective, &chain, at) {
+            ReadDecision::Readable => {}
+            ReadDecision::Removed { .. } => {
+                return error(
+                    StatusCode::GONE,
+                    "ts-page-deleted",
+                    format!("page {id} has been deleted"),
+                );
+            }
+            ReadDecision::Absent => {
+                return error(
+                    StatusCode::NOT_FOUND,
+                    "ts-no-such-page",
+                    format!("there is no page {id}"),
+                );
+            }
+        }
+    }
+    crate::activity::serve(
+        app,
+        origin,
+        &method,
+        &headers,
+        &q,
+        Some(triplespace_projections::feed::TargetSet::Talk(id)),
+    )
+    .await
 }

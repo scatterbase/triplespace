@@ -142,6 +142,9 @@ pub struct Request {
     /// A revision ID the caller supplies in place of the tenant's sequence: an adopted
     /// revision's own, below the floor (0035 §3, A12).
     pub revid: Option<u64>,
+    /// A log ID for a record that is also a log event, as a thread `create` or `move` is
+    /// (16 §6.1); [`write_raw`] writes it into the header beside the revision ID.
+    pub logid: Option<u64>,
 }
 
 impl Request {
@@ -156,6 +159,7 @@ impl Request {
             now,
             budget: Budget::default(),
             revid: None,
+            logid: None,
         }
     }
 }
@@ -485,7 +489,7 @@ pub async fn write_raw<S: IngestStore>(
         payload_type: raw.payload_type,
         key: Some(key),
         revid: Some(revid),
-        logid: None,
+        logid: request.logid,
         page_id: Some(page_id),
         body,
     };

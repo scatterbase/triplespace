@@ -155,6 +155,7 @@ pub async fn templates(ctx: &Ctx, query: &mut Map<String, Value>) -> Result<(), 
     ctx.caller.require("read")?;
     let site = Site::load(ctx).await?;
     let mut set = pageset::resolve(ctx, &site).await?;
+    let hidden = crate::pages::hidden(ctx).await?;
     let v2 = ctx.formatversion == 2;
     let namespaces: Vec<i32> = ctx
         .params
@@ -180,7 +181,7 @@ pub async fn templates(ctx: &Ctx, query: &mut Map<String, Value>) -> Result<(), 
             Some(doc) if doc.model == "wikitext" => {
                 match crate::pages::latest_text(ctx.db(), tenant, doc).await? {
                     Some(text) => {
-                        crate::pages::expand(ctx.db(), tenant, &site, &text)
+                        crate::pages::expand(ctx.db(), tenant, &site, &hidden, &text)
                             .await?
                             .1
                     }
@@ -292,6 +293,7 @@ pub async fn allpages(
            AND ($6::bool IS NULL OR is_redirect = $6)
            AND ($7::int IS NULL OR len >= $7)
            AND ($8::int IS NULL OR len <= $8)
+           AND NOT (page_id = ANY($10))
          ORDER BY title COLLATE \"C\" {order} LIMIT $9"
     );
     let like = format!(
@@ -301,23 +303,29 @@ pub async fn allpages(
             .replace('%', "\\%")
             .replace('_', "\\_")
     );
-    let rows = ctx
-        .db()
-        .query(
-            &sql,
-            &[
-                &ctx.tenant.slug,
-                &ns,
-                &from,
-                &to,
-                &like,
-                &redirects,
-                &min,
-                &max,
-                &(limit + 1),
-            ],
-        )
-        .await?;
+    // Pages a confidential restriction hides from the caller are not listed (09 §5.3).
+    let hidden = crate::pages::hidden(ctx).await?;
+    let rows = if hidden.every_page() || hidden.namespaces.contains(&ns) {
+        Vec::new()
+    } else {
+        ctx.db()
+            .query(
+                &sql,
+                &[
+                    &ctx.tenant.slug,
+                    &ns,
+                    &from,
+                    &to,
+                    &like,
+                    &redirects,
+                    &min,
+                    &max,
+                    &(limit + 1),
+                    &hidden.page_ids(),
+                ],
+            )
+            .await?
+    };
     if scatter_titles::Namespaces::embedded()
         .get(ns)
         .is_some_and(scatter_titles::Namespace::is_entity_namespace)

@@ -9,13 +9,18 @@
 //!
 //! - **`action=delete`**: `title` or `pageid`, `reason`, `deletetalk`. Document pages and
 //!   threads; an entity page is not deletable here yet (`ts-not-supported`).
-//! - **`action=undelete`**: `title`, `reason`. The whole page; `timestamps` and `revisions`
-//!   (partial undeletion) are not served yet. A title a new page has taken meanwhile is
+//! - **`action=undelete`**: `title`, `reason`, and `pageid` (ours) to choose among several
+//!   deleted pages that had the title, which is otherwise `ts-ambiguous-undelete`, listing
+//!   their IDs. The whole page; `timestamps` and `revisions` (partial undeletion) are not
+//!   served yet. A title a new page or a reservation has taken meanwhile is
 //!   `ts-title-taken`.
 //! - **`action=protect`**: `title` or `pageid`, `protections` (`edit=autoconfirmed|move=sysop`,
 //!   `read={group}` for a confidential restriction, `{action}=all` to lift one), `expiry`
-//!   (one, or one per protection), `reason`. `cascade` is `ts-no-cascade`. Create-protection
-//!   of a missing title is not served yet.
+//!   (one, or one per protection), `reason`. `cascade` is `ts-no-cascade`. A title with no
+//!   page takes `create={group}` and `read={group}` only, and reserves the title under a
+//!   new page ID (09 §4.8): a `create` there takes the ID, and is refused with
+//!   `ts-restricted-title` to anyone the ACL does not admit. `read` on a deleted page is
+//!   `ts-deleted`, and `create` on an existing one MediaWiki's `create-titleexists`.
 //! - **`action=revisiondelete`**: `type=revision` (`archive` too), `ids`, `hide` and `show`
 //!   (`content|comment|user`), `suppress` (`yes|no|nochange`), `reason`. For the revisions of
 //!   document pages and thread posts, whose text is the `text` part, and of entities, whose
@@ -23,9 +28,13 @@
 //!
 //! The deletion and suppression groups are the tenant's `moderation.delete_group` and
 //! `moderation.suppress_group`.
+//!
+//! [`enforce`] is how a write is checked against the ACLs along its target's chain
+//! ([`scatter_actors::acl::check`]), with the refusals MediaWiki gives.
 
 use scatter_actors::Timestamp;
-use scatter_actors::acl::{Acl, READ, ReadKind, Restriction, Target};
+use scatter_actors::acl::{Acl, Denied, READ, ReadKind, ReservedTitle, Restriction, Target};
+use scatter_actors::evaluate::Effective;
 use scatter_projection::Backend as _;
 use serde_json::{Value, json};
 use triplespace_api_ingest::acl::{AclWrite, AclWriteError, write};
@@ -64,6 +73,55 @@ fn refused(e: AclWriteError) -> ApiError {
     }
 }
 
+/// `ts-restricted-title`: a title held by a restriction the editor does not satisfy,
+/// whether a reservation or a confidential page, which the refusal does not tell apart
+/// (09 §4.8, §5.3).
+pub(crate) fn restricted_title(title: &str) -> ApiError {
+    ApiError::new(
+        "ts-restricted-title",
+        format!("The title \"{title}\" is restricted; you cannot create a page there."),
+    )
+}
+
+/// MediaWiki's refusal for an action an ACL restricts: `protectednamespace` for a
+/// namespace, `protectedpage` otherwise, `permissiondenied` for a right not held.
+pub(crate) fn denied(e: &Denied) -> ApiError {
+    match e {
+        Denied::Permission(p) => ApiError::permission_denied(p),
+        Denied::Restricted { target, .. } | Denied::Nobody { target, .. }
+            if target.starts_with("acl:namespace:") =>
+        {
+            ApiError::new(
+                "protectednamespace",
+                format!("You're not allowed to edit pages in this namespace ({e})."),
+            )
+        }
+        _ => ApiError::new(
+            "protectedpage",
+            format!("This page has been protected to prevent editing or other actions ({e})."),
+        ),
+    }
+}
+
+/// Checks `permission` against a chain at `at`: a chain whose `read` the actor does not
+/// satisfy refuses as a restricted title (an absent target is not named), then the
+/// permission's own restrictions refuse with [`denied`].
+pub(crate) fn enforce(
+    permission: &str,
+    who: &Effective,
+    chain: &[Acl],
+    at: Timestamp,
+    title: &str,
+) -> Result<(), ApiError> {
+    use scatter_actors::acl::{ReadDecision, check, read_decision};
+    match read_decision(who, chain, at) {
+        ReadDecision::Readable => {}
+        ReadDecision::Absent => return Err(restricted_title(title)),
+        ReadDecision::Removed { .. } => return Err(ApiError::permission_denied("read")),
+    }
+    check(permission, who, chain, at).map_err(|e| denied(&e))
+}
+
 /// The target's current ACL.
 async fn current(ctx: &Ctx, target: &Target) -> Result<Option<Acl>, ApiError> {
     Ok(triplespace_projections::acl_read::current(
@@ -76,14 +134,16 @@ async fn current(ctx: &Ctx, target: &Target) -> Result<Option<Acl>, ApiError> {
     .pop())
 }
 
-/// Writes one ACL in its own unit of work and returns the record's log ID.
+/// Writes one ACL in its own unit of work and returns the record's log ID and its
+/// target, which for a reservation names the page ID reserved.
 async fn save(
     ctx: &Ctx,
     target: Target,
     acl: Option<Acl>,
     reason: &str,
     suppress_group: &str,
-) -> Result<Option<u64>, ApiError> {
+    reserve: Option<ReservedTitle>,
+) -> Result<(Option<u64>, Target), ApiError> {
     let actor = ctx
         .caller
         .identity
@@ -104,6 +164,7 @@ async fn save(
             acl,
             reason: reason.to_string(),
             suppress_group: suppress_group.to_string(),
+            reserve,
         },
         now_micros(),
     )
@@ -111,7 +172,10 @@ async fn save(
     match out {
         Ok(record) => {
             store.commit(cx).await.map_err(ApiError::internal)?;
-            Ok(record.header().logid)
+            let h = record.header();
+            let target = Target::parse(h.key.as_deref().unwrap_or_default())
+                .map_err(|e| ApiError::internal(e.to_string()))?;
+            Ok((h.logid, target))
         }
         Err(e) => {
             let _ = store.rollback(cx).await;
@@ -125,9 +189,11 @@ async fn page_of(ctx: &Ctx, site: &Site) -> Result<Page, ApiError> {
     let tenant = ctx.tenant.slug.clone();
     if let Some(id) = ctx.params.get("pageid") {
         let n: u64 = id.parse().map_err(|_| ApiError::bad_value("pageid", id))?;
-        return pages::by_id(ctx.db(), &tenant, n).await?.ok_or_else(|| {
-            ApiError::new("nosuchpageid", format!("There is no page with ID {n}."))
-        });
+        return pages::by_id(ctx.db(), &tenant, &pages::Hidden::NONE, n)
+            .await?
+            .ok_or_else(|| {
+                ApiError::new("nosuchpageid", format!("There is no page with ID {n}."))
+            });
     }
     let name = ctx.params.required("title")?;
     if pages::names_entity(site, name) {
@@ -138,9 +204,15 @@ async fn page_of(ctx: &Ctx, site: &Site) -> Result<Page, ApiError> {
     }
     let t = pages::resolve_title(site, name)
         .ok_or_else(|| ApiError::new("invalidtitle", format!("Bad title \"{name}\".")))?;
-    pages::by_title(ctx.db(), &tenant, t.namespace, &t.text)
-        .await?
-        .ok_or_else(|| ApiError::new("missingtitle", "The page you specified doesn't exist."))
+    pages::by_title(
+        ctx.db(),
+        &tenant,
+        &pages::Hidden::NONE,
+        t.namespace,
+        &t.text,
+    )
+    .await?
+    .ok_or_else(|| ApiError::new("missingtitle", "The page you specified doesn't exist."))
 }
 
 /// `action=delete`.
@@ -159,7 +231,7 @@ pub async fn delete(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         .insert(READ.into(), Restriction::to_group(&delete_group, None));
     acl.read_kind = Some(ReadKind::Moderation);
     acl.talk = ctx.params.flag("deletetalk");
-    let logid = save(ctx, target, Some(acl), &reason, &suppress_group).await?;
+    let (logid, _) = save(ctx, target, Some(acl), &reason, &suppress_group, None).await?;
     Ok(ApiResponse::ok(json!({"delete": {
         "title": site.prefixed(page.ns, &page.title),
         "reason": reason,
@@ -182,28 +254,63 @@ pub async fn undelete(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     let t = pages::resolve_title(&site, &name)
         .ok_or_else(|| ApiError::new("invalidtitle", format!("Bad title \"{name}\".")))?;
     let tenant = ctx.tenant.slug.clone();
-    let row = ctx
+    let ids: Vec<u64> = ctx
         .db()
-        .query_opt(
+        .query(
             "SELECT page_id FROM view.page WHERE tenant = $1 AND ns = $2 AND title = $3 AND deleted
-             ORDER BY page_id DESC LIMIT 1",
+             ORDER BY page_id DESC",
             &[&tenant, &t.namespace, &t.text],
         )
         .await?
-        .ok_or_else(|| {
-            ApiError::new(
-                "cantundelete",
-                "There are no deleted revisions of this page.",
-            )
-        })?;
-    let page_id = u64::try_from(row.get::<_, i64>(0)).unwrap_or(0);
-    if pages::by_title(ctx.db(), &tenant, t.namespace, &t.text)
+        .iter()
+        .filter_map(|r| u64::try_from(r.get::<_, i64>(0)).ok())
+        .collect();
+    let none = || {
+        ApiError::new(
+            "cantundelete",
+            "There are no deleted revisions of this page.",
+        )
+    };
+    // Several deleted pages may have had the title; which one is the caller's to say.
+    let page_id = match ctx.params.get("pageid") {
+        Some(p) => {
+            let n: u64 = p.parse().map_err(|_| ApiError::bad_value("pageid", p))?;
+            if !ids.contains(&n) {
+                return Err(ApiError::new(
+                    "cantundelete",
+                    format!("Page {n} is not a deleted page with this title."),
+                ));
+            }
+            n
+        }
+        None => match ids.as_slice() {
+            [] => return Err(none()),
+            [one] => *one,
+            many => {
+                return Err(ApiError::new(
+                    "ts-ambiguous-undelete",
+                    format!(
+                        "{} deleted pages had this title; say which with `pageid`.",
+                        many.len()
+                    ),
+                )
+                .with("pageids", json!(many)));
+            }
+        },
+    };
+    // A page or a reservation that has taken the title since.
+    if ctx
+        .db()
+        .query_opt(
+            "SELECT 1 FROM view.page WHERE tenant = $1 AND ns = $2 AND title = $3 AND NOT deleted",
+            &[&tenant, &t.namespace, &t.text],
+        )
         .await?
         .is_some()
     {
         return Err(ApiError::new(
             "ts-title-taken",
-            "A new page has taken this title; undeleting into it is refused.",
+            "A new page or a reservation has taken this title; undeleting into it is refused.",
         ));
     }
     let (_, suppress_group) = groups(ctx).await?;
@@ -215,9 +322,10 @@ pub async fn undelete(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         a.talk = false;
         (!a.restrictions.is_empty()).then_some(a)
     });
-    save(ctx, target, acl, &reason, &suppress_group).await?;
+    save(ctx, target, acl, &reason, &suppress_group, None).await?;
     Ok(ApiResponse::ok(json!({"undelete": {
         "title": site.prefixed(t.namespace, &t.text),
+        "pageid": page_id,
         "revisions": 0,
         "fileversions": 0,
         "reason": reason,
@@ -234,7 +342,61 @@ fn expiry(text: &str) -> Result<Option<Timestamp>, ApiError> {
     }
 }
 
+/// What `action=protect` acts on: a page, or a title with no page, reserved or not yet.
+enum Protected {
+    Page(Page),
+    Title {
+        ns: i32,
+        title: String,
+        reserved: Option<u64>,
+    },
+}
+
+/// The page or free title a protection names.
+async fn protected_of(ctx: &Ctx, site: &Site) -> Result<Protected, ApiError> {
+    if ctx.params.get("pageid").is_some() {
+        return page_of(ctx, site).await.map(Protected::Page);
+    }
+    let name = ctx.params.required("title")?;
+    if pages::names_entity(site, name) {
+        return Err(ApiError::new(
+            "ts-not-supported",
+            "Deleting and protecting entity pages is not served here yet.",
+        ));
+    }
+    let t = pages::resolve_title(site, name)
+        .ok_or_else(|| ApiError::new("invalidtitle", format!("Bad title \"{name}\".")))?;
+    let tenant = ctx.tenant.slug.clone();
+    if let Some(p) = pages::by_title(
+        ctx.db(),
+        &tenant,
+        &pages::Hidden::NONE,
+        t.namespace,
+        &t.text,
+    )
+    .await?
+    {
+        return Ok(Protected::Page(p));
+    }
+    if !site.holds_pages(t.namespace) {
+        return Err(ApiError::new(
+            "ts-not-supported",
+            "Only a title for a document page can be reserved.",
+        ));
+    }
+    let reserved =
+        triplespace_projections::acl_read::reservation(ctx.db(), &tenant, t.namespace, &t.text)
+            .await
+            .map_err(ApiError::internal)?;
+    Ok(Protected::Title {
+        ns: t.namespace,
+        title: t.text,
+        reserved,
+    })
+}
+
 /// `action=protect`.
+#[allow(clippy::too_many_lines)]
 pub async fn protect(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     ctx.caller.check_csrf(&ctx.app, &ctx.params)?;
     ctx.caller.require("protect")?;
@@ -245,7 +407,7 @@ pub async fn protect(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         ));
     }
     let site = Site::load(ctx).await?;
-    let page = page_of(ctx, &site).await?;
+    let protected = protected_of(ctx, &site).await?;
     let (_, suppress_group) = groups(ctx).await?;
     let reason = ctx.params.get("reason").unwrap_or_default().to_string();
     let protections: Vec<(String, String)> = ctx
@@ -277,59 +439,110 @@ pub async fn protect(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
             ),
         ));
     }
-    let target = Target::Page(page.page_id);
-    let mut acl = current(ctx, &target)
-        .await?
+    let (target, title, reserve) = match &protected {
+        Protected::Page(p) => (Target::Page(p.page_id), site.prefixed(p.ns, &p.title), None),
+        Protected::Title {
+            ns,
+            title,
+            reserved: Some(id),
+        } => (Target::Page(*id), site.prefixed(*ns, title), None),
+        Protected::Title {
+            ns,
+            title,
+            reserved: None,
+        } => (
+            // The writer replaces the placeholder with the ID it reserves.
+            Target::Page(0),
+            site.prefixed(*ns, title),
+            Some(ReservedTitle {
+                namespace: i64::from(*ns),
+                title: title.clone(),
+            }),
+        ),
+    };
+    let existing = match &reserve {
+        Some(_) => None,
+        None => current(ctx, &target).await?,
+    };
+    let exists = matches!(protected, Protected::Page(_));
+    let mut acl = existing
+        .clone()
         .unwrap_or_else(|| Acl::protect(target.clone(), &[], "", None));
     let mut shown = Vec::new();
     for (k, (action, group)) in protections.iter().enumerate() {
-        if !matches!(action.as_str(), "edit" | "move" | "read") {
-            return Err(ApiError::new(
-                "protect-invalidaction",
-                format!("Invalid protection type \"{action}\"."),
-            ));
-        }
+        let lift = group == "all" || group.is_empty();
+        // A title with no page takes `create` and `read` only, as MediaWiki's
+        // create-protection takes `create` only; a page cannot be create-protected.
+        let permission = match (action.as_str(), exists) {
+            ("edit" | "move" | "read", true) | ("read", false) => action.as_str(),
+            ("create", false) => "createpage",
+            ("create", true) if lift => "createpage",
+            ("create", true) => {
+                return Err(ApiError::new(
+                    "create-titleexists",
+                    "Existing titles can't be protected with \"create\".",
+                ));
+            }
+            ("edit" | "move", false) => {
+                return Err(ApiError::new(
+                    "missingtitle-createonly",
+                    "Missing titles can only be protected with \"create\" or \"read\".",
+                ));
+            }
+            _ => {
+                return Err(ApiError::new(
+                    "protect-invalidaction",
+                    format!("Invalid protection type \"{action}\"."),
+                ));
+            }
+        };
         let ex_text = expiries
             .get(k)
             .or_else(|| expiries.first())
             .copied()
             .unwrap_or("infinite");
         let ex = expiry(ex_text)?;
-        if action == "read" && acl.read_kind == Some(ReadKind::Moderation) {
+        if permission == READ && acl.read_kind == Some(ReadKind::Moderation) {
             return Err(ApiError::new(
                 "ts-deleted",
                 "The page is deleted; undelete it before restricting who may read it.",
             ));
         }
-        if group == "all" || group.is_empty() {
-            acl.restrictions.remove(action);
-            if action == "read" {
+        if lift {
+            acl.restrictions.remove(permission);
+            if permission == READ {
                 acl.read_kind = None;
             }
         } else {
             acl.restrictions
-                .insert(action.clone(), Restriction::to_group(group, ex));
-            if action == "read" {
+                .insert(permission.to_string(), Restriction::to_group(group, ex));
+            if permission == READ {
                 acl.read_kind = Some(ReadKind::Confidential);
             }
         }
         shown.push(json!({action.as_str(): group, "expiry": if ex.is_none() { "infinite".to_string() } else { ex_text.to_string() }}));
     }
     let acl = (!acl.restrictions.is_empty()).then_some(acl);
-    if acl.is_none() && current(ctx, &target).await?.is_none() {
+    if acl.is_none() && existing.is_none() {
         // Nothing was protected and nothing is: there is nothing to write.
         return Ok(ApiResponse::ok(json!({"protect": {
-            "title": site.prefixed(page.ns, &page.title),
+            "title": title,
             "reason": reason,
             "protections": shown,
         }})));
     }
-    save(ctx, target, acl, &reason, &suppress_group).await?;
-    Ok(ApiResponse::ok(json!({"protect": {
-        "title": site.prefixed(page.ns, &page.title),
+    let (_, written) = save(ctx, target, acl, &reason, &suppress_group, reserve).await?;
+    let mut out = json!({"protect": {
+        "title": title,
         "reason": reason,
         "protections": shown,
-    }})))
+    }});
+    // A title with no page names the page ID its reservation holds, which a `create`
+    // there will take.
+    if let (Protected::Title { .. }, Target::Page(id)) = (&protected, written) {
+        out["protect"]["pageid"] = json!(id);
+    }
+    Ok(ApiResponse::ok(out))
 }
 
 /// The record a revision ID names: its partition and offset, and its graph.
@@ -444,7 +657,7 @@ pub async fn revisiondelete(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
             items.push(json!({"id": revid, "status": "Success"}));
             continue;
         }
-        save(ctx, target, acl, &reason, &suppress_group).await?;
+        save(ctx, target, acl, &reason, &suppress_group, None).await?;
         let mut item = json!({"id": revid, "status": "Success"});
         for (flag, p) in [
             ("texthidden", content_part),

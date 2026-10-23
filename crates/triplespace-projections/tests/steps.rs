@@ -1088,6 +1088,7 @@ async fn feeds(client: &Client) {
     assert_eq!(page.rows.len(), 3, "not for the public");
     let sysop = Viewer {
         groups: vec!["sysop".into()],
+        ..Viewer::default()
     };
     let page = feed::query(client, TENANT, &history, &sysop).await.unwrap();
     assert_eq!(page.rows.len(), 4, "for a member of the group");

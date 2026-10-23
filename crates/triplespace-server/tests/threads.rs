@@ -152,7 +152,7 @@ impl Client {
 }
 
 #[tokio::test]
-#[allow(clippy::too_many_lines)]
+#[allow(clippy::too_many_lines, clippy::many_single_char_names)]
 async fn threads_over_rest() {
     if admin_config().is_none() {
         eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
@@ -194,6 +194,7 @@ async fn threads_over_rest() {
         },
     )
     .unwrap();
+    let writer_app = app.clone();
     let mut c = Client {
         router: router_with(app, triplespace_api_rest::routes()),
         cookie: None,
@@ -387,6 +388,204 @@ async fn threads_over_rest() {
         .await;
     assert_eq!(r.status, StatusCode::OK, "{}", r.body);
     assert!(r.body["title"].as_str().unwrap().ends_with("/P31 is fine"));
+
+    // Every thread record is an activity row on the thread (16 §6.1). The talk page's
+    // history is composite: its threads' rows, oldest first here.
+    let r = c
+        .rest("GET", &format!("/page/{talk}/history?dir=newer"), None)
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    let rows = r.body["rows"].as_array().unwrap();
+    let ops: Vec<&str> = rows
+        .iter()
+        .map(|row| row["summary"]["op"].as_str().unwrap_or("?"))
+        .collect();
+    assert_eq!(
+        ops,
+        [
+            "create", "post", "post", "post", "edit", "pin", "create", "rename"
+        ],
+        "{}",
+        r.body
+    );
+    assert_eq!(rows[0]["target"]["id"], thread.to_string());
+    assert_eq!(rows[0]["flags"]["new"], true);
+    assert_eq!(rows[0]["log"]["type"], "create");
+    assert!(rows[0]["logid"].is_u64(), "{}", rows[0]);
+    assert!(rows[1].get("logid").is_none() && rows[1].get("log").is_none());
+    assert_eq!(rows[5]["log"]["action"], "pin");
+    assert_eq!(rows[7]["log"]["type"], "move");
+    // A thread's own history is its rows; the subject page's is its own.
+    let r = c
+        .rest("GET", &format!("/page/{thread}/history"), None)
+        .await;
+    assert_eq!(r.body["rows"].as_array().unwrap().len(), 7, "{}", r.body);
+    let r = c.rest("GET", &format!("/page/{page}/history"), None).await;
+    assert_eq!(r.body["rows"].as_array().unwrap().len(), 1, "{}", r.body);
+    assert_eq!(
+        c.rest("GET", "/page/999999/history", None).await.status,
+        StatusCode::NOT_FOUND
+    );
+    // The log events, in the log; posts are not log events.
+    let l = c
+        .api("action=query&list=logevents&leprop=type%7Ctitle%7Cids&lelimit=50")
+        .await;
+    let events: Vec<String> = l["query"]["logevents"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| {
+            format!(
+                "{}/{}",
+                e["type"].as_str().unwrap_or("?"),
+                e["action"].as_str().unwrap_or("?")
+            )
+        })
+        .collect();
+    for want in ["create/create", "thread/pin", "move/move"] {
+        assert!(events.iter().any(|e| e == want), "{want} in {events:?}");
+    }
+    assert!(!events.iter().any(|e| e.starts_with("thread/post")));
+    // Recent changes show posts as edits to the thread.
+    let rc = c
+        .api("action=query&list=recentchanges&rcprop=title%7Cids&rclimit=50")
+        .await;
+    assert!(
+        rc["query"]["recentchanges"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|e| e["revid"] == reply && e["ns"] == 214),
+        "{rc}"
+    );
+
+    // `prop=revisions` lists a thread's revisions, and each one's content is the thread as
+    // it stood after it (0041 §5): the `GET /thread` body.
+    let title = c.rest("GET", &path, None).await.body["title"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let r = c
+        .api(&format!(
+            "action=query&prop=revisions&titles={}&rvprop=ids%7Ccontent&rvslots=main&rvlimit=50&rvdir=newer",
+            enc(&format!("Thread:{title}"))
+        ))
+        .await;
+    let revs = r["query"]["pages"][0]["revisions"].as_array().unwrap();
+    assert_eq!(revs.len(), 7, "{r}");
+    let as_of = |k: usize| -> Value {
+        let slot = &revs[k]["slots"]["main"];
+        assert_eq!(slot["contentmodel"], "triplespace-thread", "{slot}");
+        serde_json::from_str(slot["content"].as_str().unwrap()).unwrap()
+    };
+    assert_eq!(as_of(0)["posts"].as_array().unwrap().len(), 1);
+    assert_eq!(as_of(0)["status"], "open");
+    assert_eq!(as_of(2)["status"], "resolved");
+    assert!(as_of(4)["home"]["pinned"].is_null());
+    assert!(as_of(5)["home"]["pinned"].is_string());
+    assert_eq!(as_of(6)["subject"], "P31 is fine");
+    let cmp = c
+        .api(&format!("action=compare&fromrev={opening}&torev={reply}"))
+        .await;
+    assert!(cmp["compare"]["body"].is_string(), "{cmp}");
+    let r = c
+        .send(
+            "GET",
+            &format!("/w/api.php?action=parse&pageid={thread}&format=json&formatversion=2"),
+            None,
+            None,
+            &[],
+        )
+        .await;
+    assert_eq!(r.body["error"]["code"], "ts-not-supported", "{}", r.body);
+
+    // A post's text can be revision-deleted now that it has an activity row.
+    let off_topic = c.rest("GET", &path, None).await.body["posts"][3]["id"]
+        .as_u64()
+        .unwrap();
+    let h = c
+        .api_post(&format!(
+            "action=revisiondelete&type=revision&ids={off_topic}&hide=content&reason=Spam&token={}",
+            enc(&token)
+        ))
+        .await;
+    assert_eq!(h["revisiondelete"]["items"][0]["texthidden"], true, "{h}");
+    let mut viewer = Client {
+        router: c.router.clone(),
+        cookie: None,
+    };
+    let r = viewer.rest("GET", &path, None).await;
+    let hidden = r.body["posts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["id"] == off_topic)
+        .unwrap();
+    assert_eq!(hidden["texthidden"], true, "{hidden}");
+    assert!(hidden["content"].is_null(), "{hidden}");
+
+    // Another actor's post, written through the one writer as Bob: Alice holds
+    // `ts-editpost` (as `owner`), so she may edit it, and the post then names her.
+    let bob = {
+        let store = writer_app.store();
+        let mut cx = scatter_projection::Backend::begin(store).await.unwrap();
+        let w = triplespace_api_ingest::threads::write(
+            store,
+            writer_app.pipeline(),
+            &mut cx,
+            &scatter_ingest::Request::new(
+                TENANT,
+                scatter_ingest::Attestation::by("lbwiki:8"),
+                triplespace_api_action::edit::now_micros(),
+            ),
+            triplespace_api_ingest::threads::ThreadWrite {
+                thread: Some(thread),
+                op: scatter_threads::ThreadOp::Post {
+                    in_reply_to: Some(opening),
+                    status: None,
+                    media_type: None,
+                    heading: None,
+                    collapse: None,
+                    uncollapse: None,
+                    imported_from: None,
+                },
+                text: Some("Bob here.".into()),
+                writer: scatter_threads::Writer::Editor,
+                limits: scatter_threads::Limits::default(),
+                date: None,
+            },
+        )
+        .await
+        .unwrap();
+        scatter_projection::Backend::commit(store, cx)
+            .await
+            .unwrap();
+        w.revid
+    };
+    let read = c.rest("GET", &path, None).await;
+    let alice = read.body["posts"][0]["attributedTo"].clone();
+    let base = read.body["base"].as_u64().unwrap();
+    let r = c
+        .rest(
+            "PUT",
+            &format!("{path}/post/{bob}"),
+            Some(json!({"text": "Bob here, typo fixed.", "base": base, "token": token})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    let read = c.rest("GET", &path, None).await;
+    let post = read.body["posts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["id"] == bob)
+        .unwrap()
+        .clone();
+    assert_eq!(post["attributedTo"], "lbwiki:8", "{post}");
+    assert_eq!(post["content"], "Bob here, typo fixed.");
+    assert_eq!(post["editedBy"], json!([alice]), "{post}");
+    // Her own edits name nobody.
+    assert!(read.body["posts"][0].get("editedBy").is_none());
 
     // ACLs, as the moderation modules will write them (0023 §3–§5); written to view.acl
     // directly here, since those modules do not exist yet.

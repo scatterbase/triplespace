@@ -31,6 +31,26 @@ use crate::entity_json::{add_derived_terms, hasher_for, iso8601};
 use crate::modules::pageset::{self, PageAsk};
 use crate::response::{ApiError, ApiResponse};
 
+/// Whether a content model is a thread's or a talk page's, which `action=parse` does not
+/// render.
+pub(crate) fn is_discussion(model: &str) -> bool {
+    matches!(model, "triplespace-thread" | "triplespace-talk")
+}
+
+/// The refusal for rendering a discussion page.
+pub(crate) fn discussion_content() -> ApiError {
+    ApiError::new(
+        "ts-not-supported",
+        "Threads and talk pages are not rendered by the Action API; read GET /thread/{id} or GET /page/{id}/threads.",
+    )
+}
+
+/// The content model whose revisions' content is not served yet: a talk page's, which is
+/// composite (content-models.toml `source = "composite"`).
+fn unserved(model: &str) -> bool {
+    model == "triplespace-talk"
+}
+
 const DEFAULT_LIMIT: usize = 10;
 const MAX_LIMIT: usize = 500;
 
@@ -114,7 +134,7 @@ async fn parent_of(ctx: &Ctx, page: &PageAsk, row: &feed::Row) -> Result<u64, Ap
     f.filters.sources = vec![if page.doc.is_some() { "pages" } else { "local" }.into()];
     f.direction = Direction::Older;
     f.cursor = Some(row.cursor());
-    let p = feed::query(ctx.db(), &ctx.tenant.slug, &f, &viewer(&ctx.caller))
+    let p = feed::query(ctx.db(), &ctx.tenant.slug, &f, &viewer(ctx).await?)
         .await
         .map_err(ApiError::internal)?;
     Ok(p.rows.first().and_then(|r| r.revid).unwrap_or(0))
@@ -143,14 +163,31 @@ async fn parents(
     Ok(out)
 }
 
-/// The content of a revision: a document page's text after it, or the entity's local
-/// state after it in Wikibase's JSON.
+/// The content of a revision: a document page's text after it, a thread as it stood
+/// after it (the `GET /thread/{id}` body as this viewer may see it, 0041 §5), or the
+/// entity's local state after it in Wikibase's JSON.
 pub(crate) async fn content_at(
     ctx: &Ctx,
     page: &PageAsk,
     offset: u64,
     revid: Option<u64>,
 ) -> Result<Option<String>, ApiError> {
+    if page.content_model() == "triplespace-thread" {
+        let Some(r) = revid else {
+            return Ok(None);
+        };
+        let body = crate::thread_view::body(
+            ctx.db(),
+            &ctx.tenant.slug,
+            &ctx.caller.effective,
+            page.page_id,
+            Some(r),
+            scatter_actors::Timestamp(crate::edit::now_micros()),
+        )
+        .await
+        .map_err(ApiError::internal)?;
+        return Ok(body.map(|b| serde_json::to_string_pretty(&b).unwrap_or_default()));
+    }
     let Some(id) = &page.id else {
         return match revid {
             Some(r) => crate::pages::text_at(ctx.db(), &ctx.tenant.slug, page.page_id, r).await,
@@ -209,12 +246,18 @@ pub async fn run(
             "Because \"rvslots\" was not specified, a legacy format has been used for the output. This format is deprecated, and in the future the new format will always be used.",
         );
     }
+    if want("content") && pages.iter().any(|p| unserved(&p.content_model())) {
+        response.warn(
+            "revisions",
+            "The content of a talk page's revisions is not served yet; read GET /page/{id}/history and GET /thread/{id}.",
+        );
+    }
     let v2 = ctx.formatversion == 2;
     let mut out: Vec<Value> = query
         .remove("pages")
         .and_then(|v| v.as_array().cloned())
         .unwrap_or_default();
-    let viewer = viewer(&ctx.caller);
+    let viewer = viewer(ctx).await?;
     for page in &pages {
         let mut feed = feed_for(ctx, page)?;
         if let Some(r) = page.only_revid {
@@ -409,7 +452,7 @@ async fn with_content(
     m.remove("_offset");
     m.remove("_revid");
     let want = |p: &str| props.iter().any(|x| x == p);
-    if !want("content") || m.contains_key("texthidden") {
+    if !want("content") || m.contains_key("texthidden") || unserved(&page.content_model()) {
         return Ok(row);
     }
     let Some(text) = content_at(ctx, page, offset, revid).await? else {

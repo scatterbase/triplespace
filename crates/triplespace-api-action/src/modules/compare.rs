@@ -73,7 +73,7 @@ async fn feed_row(
         f.cursor = Some(row.cursor());
         f.direction = direction;
     }
-    let p = feed::query(ctx.db(), &ctx.tenant.slug, &f, &viewer(&ctx.caller))
+    let p = feed::query(ctx.db(), &ctx.tenant.slug, &f, &viewer(ctx).await?)
         .await
         .map_err(ApiError::internal)?;
     Ok(p.rows.into_iter().next())
@@ -107,6 +107,7 @@ async fn entity(ctx: &Ctx, id: &EntityId) -> Result<PageAsk, ApiError> {
 /// A side as its parameters name it, or `None` when it names none.
 async fn side(ctx: &Ctx, site: &Site, prefix: &str) -> Result<Option<Rev>, ApiError> {
     let tenant = ctx.tenant.slug.as_str();
+    let hidden = pages::hidden(ctx).await?;
     let p = |name: &str| ctx.params.get(&format!("{prefix}{name}"));
     if p("text").is_some() || p("slots").is_some() {
         return Err(ApiError::new(
@@ -137,7 +138,7 @@ async fn side(ctx: &Ctx, site: &Site, prefix: &str) -> Result<Option<Rev>, ApiEr
                 entity(ctx, &id).await?
             }
             Some((Some(2), Some(id))) => {
-                let page = pages::by_id(ctx.db(), tenant, id.parse().unwrap_or(0))
+                let page = pages::by_id(ctx.db(), tenant, &hidden, id.parse().unwrap_or(0))
                     .await?
                     .ok_or_else(|| no_such_revid(r))?;
                 pageset::document_ask(site, page)
@@ -160,9 +161,11 @@ async fn side(ctx: &Ctx, site: &Site, prefix: &str) -> Result<Option<Rev>, ApiEr
             Some(id) => entity(ctx, &id).await?,
             None => pageset::document_ask(
                 site,
-                pages::by_id(ctx.db(), tenant, n).await?.ok_or_else(|| {
-                    ApiError::new("nosuchpageid", format!("There is no page with ID {n}."))
-                })?,
+                pages::by_id(ctx.db(), tenant, &hidden, n)
+                    .await?
+                    .ok_or_else(|| {
+                        ApiError::new("nosuchpageid", format!("There is no page with ID {n}."))
+                    })?,
             ),
         };
         (ask, None)
@@ -176,7 +179,7 @@ async fn side(ctx: &Ctx, site: &Site, prefix: &str) -> Result<Option<Rev>, ApiEr
                 .ok_or_else(|| ApiError::new("invalidtitle", format!("Bad title \"{t}\".")))?;
             pageset::document_ask(
                 site,
-                pages::by_title(ctx.db(), tenant, title.namespace, &title.text)
+                pages::by_title(ctx.db(), tenant, &hidden, title.namespace, &title.text)
                     .await?
                     .ok_or_else(missing_title)?,
             )
@@ -228,6 +231,9 @@ fn comparable_json(json: &str) -> String {
 /// The content after a revision, as compared, or `missingcontent`.
 async fn text_of(ctx: &Ctx, rev: &Rev) -> Result<String, ApiError> {
     let revid = rev.row.revid.unwrap_or(0);
+    if rev.ask.content_model() == "triplespace-talk" {
+        return Err(crate::modules::revisions::discussion_content());
+    }
     if rev.row.visibility & visibility::CONTENT != 0 {
         return Err(missing_content(revid));
     }

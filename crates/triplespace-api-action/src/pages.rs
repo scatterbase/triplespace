@@ -20,6 +20,7 @@ use scatter_wikitext::html::url_encode_title;
 use scatter_wikitext::{Config, PageInfo, Rendered, Resolver, Title, parse_target};
 use scatter_wikitext_expand::{ExpandHost, Transcluded};
 use tokio_postgres::Client;
+pub use triplespace_projections::acl_read::Hidden;
 
 use crate::api::Ctx;
 use crate::response::ApiError;
@@ -137,10 +138,30 @@ fn page_of(r: &tokio_postgres::Row) -> Page {
     }
 }
 
-/// The page with a title, if one exists and is not deleted.
+/// What the caller may not read on the tenant (0056 §5; 09 §5.3): pass it to the lookups
+/// below on every read, so a page a confidential restriction hides from the caller is
+/// missing, and [`Hidden::NONE`] on a write, which decides with the target's own chain.
+pub async fn hidden(ctx: &Ctx) -> Result<Hidden, ApiError> {
+    triplespace_projections::acl_read::hidden(
+        ctx.db(),
+        &ctx.tenant.slug,
+        &ctx.caller.effective,
+        scatter_actors::Timestamp(crate::edit::now_micros()),
+    )
+    .await
+    .map_err(ApiError::internal)
+}
+
+/// A row, unless the caller may not read it.
+fn visible(row: Option<&tokio_postgres::Row>, hidden: &Hidden) -> Option<Page> {
+    row.map(page_of).filter(|p| !hidden.page(p.ns, p.page_id))
+}
+
+/// The page with a title, if one exists, is not deleted and is not hidden.
 pub async fn by_title(
     db: &Client,
     tenant: &str,
+    hidden: &Hidden,
     ns: i32,
     title: &str,
 ) -> Result<Option<Page>, ApiError> {
@@ -153,11 +174,16 @@ pub async fn by_title(
             &[&tenant, &ns, &title],
         )
         .await?;
-    Ok(row.as_ref().map(page_of))
+    Ok(visible(row.as_ref(), hidden))
 }
 
-/// The page with an ID.
-pub async fn by_id(db: &Client, tenant: &str, page_id: u64) -> Result<Option<Page>, ApiError> {
+/// The page with an ID, if it is not deleted and not hidden.
+pub async fn by_id(
+    db: &Client,
+    tenant: &str,
+    hidden: &Hidden,
+    page_id: u64,
+) -> Result<Option<Page>, ApiError> {
     let row = db
         .query_opt(
             &format!(
@@ -167,11 +193,16 @@ pub async fn by_id(db: &Client, tenant: &str, page_id: u64) -> Result<Option<Pag
             &[&tenant, &i64::try_from(page_id).unwrap_or(i64::MAX)],
         )
         .await?;
-    Ok(row.as_ref().map(page_of))
+    Ok(visible(row.as_ref(), hidden))
 }
 
-/// The page a revision belongs to, and whether it is one of the page's revisions.
-pub async fn by_revid(db: &Client, tenant: &str, revid: u64) -> Result<Option<Page>, ApiError> {
+/// The page a revision belongs to, if the page is not deleted and not hidden.
+pub async fn by_revid(
+    db: &Client,
+    tenant: &str,
+    hidden: &Hidden,
+    revid: u64,
+) -> Result<Option<Page>, ApiError> {
     let row = db
         .query_opt(
             "SELECT target_id FROM view.activity
@@ -180,7 +211,7 @@ pub async fn by_revid(db: &Client, tenant: &str, revid: u64) -> Result<Option<Pa
         )
         .await?;
     match row.and_then(|r| r.get::<_, Option<String>>(0)?.parse::<u64>().ok()) {
-        Some(id) => by_id(db, tenant, id).await,
+        Some(id) => by_id(db, tenant, hidden, id).await,
         None => Ok(None),
     }
 }
@@ -291,11 +322,13 @@ pub struct Transclusion {
 }
 
 /// Expands text for viewing the page that holds it, reading the pages it transcludes, and
-/// says which pages those were.
+/// says which pages those were. A page hidden from the viewer transcludes as missing
+/// (09 §5.3).
 pub async fn expand(
     db: &Client,
     tenant: &str,
     site: &Site,
+    hidden: &Hidden,
     text: &str,
 ) -> Result<(String, Vec<Transclusion>), ApiError> {
     let mut host = Host {
@@ -317,7 +350,7 @@ pub async fn expand(
             }
             // A page of a namespace that holds no pages here transcludes as missing.
             let text = if site.holds_pages(ns) || ns == scatter_titles::TEMPLATE {
-                match by_title(db, tenant, ns, &title).await? {
+                match by_title(db, tenant, hidden, ns, &title).await? {
                     Some(p) => latest_text(db, tenant, &p).await?,
                     None => None,
                 }
@@ -390,10 +423,12 @@ impl Links {
     }
 
     /// Reads what the links of a text need: their targets' existence, redirects and labels.
+    /// A page hidden from the viewer is a red link, as a missing page is (09 §5.3).
     pub async fn read(
         db: &Client,
         tenant: &str,
         site: &Site,
+        hidden: &Hidden,
         text: &str,
         page: &Title,
     ) -> Result<Self, ApiError> {
@@ -425,14 +460,18 @@ impl Links {
         if !titles.is_empty() {
             for r in db
                 .query(
-                    "SELECT p.ns, p.title, p.is_redirect FROM view.page p
+                    "SELECT p.ns, p.title, p.is_redirect, p.page_id FROM view.page p
                      JOIN unnest($2::int[], $3::text[]) AS w(ns, title) ON p.ns = w.ns AND p.title = w.title
                      WHERE p.tenant = $1 AND NOT p.deleted AND p.latest_offset IS NOT NULL",
                     &[&tenant, &nss, &titles],
                 )
                 .await?
             {
-                pages.insert((r.get::<_, i32>(0), r.get::<_, String>(1)), r.get::<_, bool>(2));
+                let ns: i32 = r.get(0);
+                if hidden.page(ns, u64::try_from(r.get::<_, i64>(3)).unwrap_or(0)) {
+                    continue;
+                }
+                pages.insert((ns, r.get::<_, String>(1)), r.get::<_, bool>(2));
             }
         }
         let mut entities = HashSet::new();
@@ -487,11 +526,12 @@ pub async fn render(
     db: &Client,
     tenant: &str,
     site: &Site,
+    hidden: &Hidden,
     text: &str,
     page: &Title,
 ) -> Result<Render, ApiError> {
-    let (text, transcluded) = expand(db, tenant, site, text).await?;
-    let links = Links::read(db, tenant, site, &text, page).await?;
+    let (text, transcluded) = expand(db, tenant, site, hidden, text).await?;
+    let links = Links::read(db, tenant, site, hidden, &text, page).await?;
     let rendered = scatter_wikitext::render(&text, &site.config, &links, page);
     Ok(Render {
         rendered,
