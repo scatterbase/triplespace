@@ -55,7 +55,8 @@ pub mod time;
 
 pub use acl::{
     Acl, AclError, AclPartition, Denied, ReadDecision, ReadKind, Restriction, SetMember, Target,
-    TargetError, Visibility, current_acl, may_include, read_decision, visibility,
+    TargetError, Visibility, check_lock_out_change, current_acl, may_include, read_decision,
+    visibility,
 };
 pub use actor::{
     ActorKind, ActorRecord, ActorRecordError, ActorStatus, check_name, normalize_name,

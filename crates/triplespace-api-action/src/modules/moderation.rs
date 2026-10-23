@@ -63,9 +63,12 @@ fn refused(e: AclWriteError) -> ApiError {
         AclWriteError::Denied(right) => ApiError::permission_denied(right),
         AclWriteError::LockedOut(g) => ApiError::new(
             "ts-locked-out",
-            format!("A confidential restriction may name only a group you are in: {g}."),
+            format!(
+                "A confidential restriction may be set, changed or lifted only by a member of {g}."
+            ),
         ),
         AclWriteError::Invalid(m) => ApiError::new("badvalue", m),
+        AclWriteError::Policy(m) => ApiError::new("ts-policy", m),
         AclWriteError::NothingToRetire(t) => {
             ApiError::new("cantundelete", format!("{t} is not restricted."))
         }
@@ -184,6 +187,52 @@ async fn save(
     }
 }
 
+/// What a moderation module may do with a page: whether the caller may know it exists,
+/// and whether the module's own permission passes the ACLs on its chain.
+enum Admit {
+    /// The caller may act.
+    Yes,
+    /// A confidential restriction the caller does not satisfy makes the page absent for
+    /// it: the module answers as it would for a page that does not exist (09 §5.3).
+    Absent,
+}
+
+/// Admits `permission` on a page: absent when a confidential restriction on its chain
+/// refuses the caller; otherwise the permission is checked against the chain as an edit
+/// is (09 §4.4), and refused with [`denied`]. A deleted page is not absent: undeleting
+/// and protecting it are what its deletion group does (0056 A18).
+async fn admit(ctx: &Ctx, page_id: u64, permission: &str) -> Result<Admit, ApiError> {
+    use scatter_actors::acl::{ReadDecision, check, read_decision};
+    let chain = triplespace_projections::acl_read::page_chain(ctx.db(), &ctx.tenant.slug, page_id)
+        .await
+        .map_err(ApiError::internal)?;
+    let at = Timestamp(now_micros());
+    let who = &ctx.caller.effective;
+    if read_decision(who, &chain, at) == ReadDecision::Absent {
+        return Ok(Admit::Absent);
+    }
+    check(permission, who, &chain, at).map_err(|e| denied(&e))?;
+    Ok(Admit::Yes)
+}
+
+/// The page a request names by `title` or `pageid`, not deleted, admitted for
+/// `permission` ([`admit`]); a page absent for the caller is missing.
+async fn admitted_page(ctx: &Ctx, site: &Site, permission: &str) -> Result<Page, ApiError> {
+    let page = page_of(ctx, site).await?;
+    match admit(ctx, page.page_id, permission).await? {
+        Admit::Yes => Ok(page),
+        Admit::Absent => Err(missing_page(ctx)),
+    }
+}
+
+/// The refusal for a page that does not exist, as the request named it.
+fn missing_page(ctx: &Ctx) -> ApiError {
+    match ctx.params.get("pageid") {
+        Some(n) => ApiError::new("nosuchpageid", format!("There is no page with ID {n}.")),
+        None => ApiError::new("missingtitle", "The page you specified doesn't exist."),
+    }
+}
+
 /// The page a request names by `title` or `pageid`, not deleted.
 async fn page_of(ctx: &Ctx, site: &Site) -> Result<Page, ApiError> {
     let tenant = ctx.tenant.slug.clone();
@@ -220,13 +269,18 @@ pub async fn delete(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     ctx.caller.check_csrf(&ctx.app, &ctx.params)?;
     ctx.caller.require("delete")?;
     let site = Site::load(ctx).await?;
-    let page = page_of(ctx, &site).await?;
+    let page = admitted_page(ctx, &site, "delete").await?;
     let (delete_group, suppress_group) = groups(ctx).await?;
     let reason = ctx.params.get("reason").unwrap_or_default().to_string();
     let target = Target::Page(page.page_id);
     let mut acl = current(ctx, &target)
         .await?
         .unwrap_or_else(|| Acl::read(target.clone(), ReadKind::Moderation, &delete_group, None));
+    // A confidential page keeps its group beside the deletion group, so that the deleted
+    // page is seen by members of both and stays absent for everyone else (09 §5.2).
+    if acl.read_kind == Some(ReadKind::Confidential) {
+        acl.confidential = acl.restrictions.remove(READ);
+    }
     acl.restrictions
         .insert(READ.into(), Restriction::to_group(&delete_group, None));
     acl.read_kind = Some(ReadKind::Moderation);
@@ -265,6 +319,15 @@ pub async fn undelete(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         .iter()
         .filter_map(|r| u64::try_from(r.get::<_, i64>(0)).ok())
         .collect();
+    // A deleted page that is confidential to a group the caller is outside is not one of
+    // its deleted pages to undelete, list or count (09 §5.3).
+    let mut ids_seen = Vec::with_capacity(ids.len());
+    for id in ids {
+        if matches!(admit(ctx, id, "undelete").await?, Admit::Yes) {
+            ids_seen.push(id);
+        }
+    }
+    let ids = ids_seen;
     let none = || {
         ApiError::new(
             "cantundelete",
@@ -316,9 +379,14 @@ pub async fn undelete(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     let (_, suppress_group) = groups(ctx).await?;
     let reason = ctx.params.get("reason").unwrap_or_default().to_string();
     let target = Target::Page(page_id);
+    // Undeleting a confidential page restores its confidential restriction (09 §5.2).
     let acl = current(ctx, &target).await?.and_then(|mut a| {
         a.restrictions.remove(READ);
         a.read_kind = None;
+        if let Some(c) = a.confidential.take() {
+            a.restrictions.insert(READ.into(), c);
+            a.read_kind = Some(ReadKind::Confidential);
+        }
         a.talk = false;
         (!a.restrictions.is_empty()).then_some(a)
     });
@@ -355,7 +423,9 @@ enum Protected {
 /// The page or free title a protection names.
 async fn protected_of(ctx: &Ctx, site: &Site) -> Result<Protected, ApiError> {
     if ctx.params.get("pageid").is_some() {
-        return page_of(ctx, site).await.map(Protected::Page);
+        return admitted_page(ctx, site, "protect")
+            .await
+            .map(Protected::Page);
     }
     let name = ctx.params.required("title")?;
     if pages::names_entity(site, name) {
@@ -376,7 +446,12 @@ async fn protected_of(ctx: &Ctx, site: &Site) -> Result<Protected, ApiError> {
     )
     .await?
     {
-        return Ok(Protected::Page(p));
+        // A title held by a page the caller may not read is refused as a reserved title
+        // is, which tells the caller only that something holds it (09 §5.3, §4.8).
+        return match admit(ctx, p.page_id, "protect").await? {
+            Admit::Yes => Ok(Protected::Page(p)),
+            Admit::Absent => Err(restricted_title(&site.prefixed(p.ns, &p.title))),
+        };
     }
     if !site.holds_pages(t.namespace) {
         return Err(ApiError::new(
@@ -388,6 +463,11 @@ async fn protected_of(ctx: &Ctx, site: &Site) -> Result<Protected, ApiError> {
         triplespace_projections::acl_read::reservation(ctx.db(), &tenant, t.namespace, &t.text)
             .await
             .map_err(ApiError::internal)?;
+    if let Some(id) = reserved
+        && matches!(admit(ctx, id, "protect").await?, Admit::Absent)
+    {
+        return Err(restricted_title(&site.prefixed(t.namespace, &t.text)));
+    }
     Ok(Protected::Title {
         ns: t.namespace,
         title: t.text,
@@ -551,18 +631,28 @@ async fn record_of(ctx: &Ctx, revid: u64) -> Result<Option<(u64, u64, String)>, 
     let row = ctx
         .db()
         .query_opt(
-            "SELECT partition, \"offset\", source FROM view.activity
+            "SELECT partition, \"offset\", source, target_kind, target_id FROM view.activity
              WHERE tenant = $1 AND revid = $2 ORDER BY \"offset\" DESC LIMIT 1",
             &[&ctx.tenant.slug, &r],
         )
         .await?;
-    Ok(row.map(|r| {
-        (
-            r.get::<_, i64>(0).cast_unsigned(),
-            u64::try_from(r.get::<_, i64>(1)).unwrap_or(0),
-            r.get::<_, String>(2),
-        )
-    }))
+    let Some(row) = row else {
+        return Ok(None);
+    };
+    // A revision of a page the caller may not read does not exist for it (09 §5.3).
+    if row.get::<_, Option<i16>>(3) == Some(triplespace_projections::feed::target_kind::PAGE)
+        && let Some(page) = row
+            .get::<_, Option<String>>(4)
+            .and_then(|id| id.parse::<u64>().ok())
+        && matches!(admit(ctx, page, "deleterevision").await, Ok(Admit::Absent))
+    {
+        return Ok(None);
+    }
+    Ok(Some((
+        row.get::<_, i64>(0).cast_unsigned(),
+        u64::try_from(row.get::<_, i64>(1)).unwrap_or(0),
+        row.get::<_, String>(2),
+    )))
 }
 
 /// `action=revisiondelete`.

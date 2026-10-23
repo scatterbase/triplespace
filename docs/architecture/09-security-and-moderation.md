@@ -281,7 +281,7 @@ The current ACL per target is projected to `view.acl`, whose shape is `(target, 
 | | |
 |---|---|
 | Header key | The target key of §4.2, so the latest record per key is the current ACL, and erasing a target's history by key ([01](01-log-and-records.md) §5) takes its ACL history with it |
-| Content part | The target; for each restricted permission, the group and an optional expiry; `parts` for a `record` target; the reserved title for create-protection; for a whole-page or whole-entity deletion, the flag `talk: true` when the paired talk page is deleted by the same action. A content of `null` retires the ACL |
+| Content part | The target; for each restricted permission, the group and an optional expiry; `parts` for a `record` target; the reserved title for create-protection; for a whole-page or whole-entity deletion, the flag `talk: true` when the paired talk page is deleted by the same action; for the deletion of a confidential target, `confidential`, its confidential `read` restriction, kept beside the deletion group so that the deleted target is seen by members of both and stays absent for everyone else, and restored by undeleting (§5.2; [0023](../decisions/0023-moderation.md) A15). A content of `null` retires the ACL |
 | Comment part | The reason. This is MediaWiki's deletion, protection or suppression reason, and a `record` ACL on this record's `comment` part hides it if the reason is itself abusive |
 | Attestation | Who acted, as for every record |
 

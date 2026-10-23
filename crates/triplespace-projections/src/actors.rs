@@ -558,7 +558,14 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for AclProjection {
                         .and_then(serde_json::Value::as_str)
                         .map(str::to_owned);
                     let mut extra = serde_json::Map::new();
-                    for k in ["parts", "reserved", "talk", "name", "members"] {
+                    for k in [
+                        "parts",
+                        "reserved",
+                        "talk",
+                        "name",
+                        "members",
+                        "confidential",
+                    ] {
                         if let Some(x) = j.get(k) {
                             extra.insert(k.into(), x.clone());
                         }

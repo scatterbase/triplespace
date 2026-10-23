@@ -29,7 +29,8 @@ fn admin_config() -> Option<Config> {
     Some(url.parse().expect("TRIPLESPACE_TEST_DATABASE_URL parses"))
 }
 
-async fn fresh_database() -> String {
+async fn fresh_database(name: &str) -> String {
+    let db = format!("{DB}_{name}");
     let (client, connection) = admin_config()
         .unwrap()
         .connect(NoTls)
@@ -39,15 +40,15 @@ async fn fresh_database() -> String {
         let _ = connection.await;
     });
     let _ = client
-        .batch_execute(&format!("DROP DATABASE IF EXISTS {DB} WITH (FORCE)"))
+        .batch_execute(&format!("DROP DATABASE IF EXISTS {db} WITH (FORCE)"))
         .await;
     client
-        .batch_execute(&format!("CREATE DATABASE {DB}"))
+        .batch_execute(&format!("CREATE DATABASE {db}"))
         .await
         .expect("create database");
     let url = std::env::var("TRIPLESPACE_TEST_DATABASE_URL").unwrap();
     url.rsplit_once('/')
-        .map(|(head, _)| format!("{head}/{DB}"))
+        .map(|(head, _)| format!("{head}/{db}"))
         .unwrap()
 }
 
@@ -153,15 +154,10 @@ impl Client {
     }
 }
 
-#[tokio::test]
-#[allow(clippy::too_many_lines, clippy::many_single_char_names)]
-async fn protect_delete_undelete_and_hide() {
-    if admin_config().is_none() {
-        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
-        return;
-    }
-    let database = fresh_database().await;
-    let dir = std::env::temp_dir().join(format!("tsmoderation-{}", std::process::id()));
+/// A fresh instance (database `{DB}_{name}`) with Alice, its owner, logged in.
+async fn instance(name: &str) -> (String, App, Client) {
+    let database = fresh_database(name).await;
+    let dir = std::env::temp_dir().join(format!("tsmoderation-{}-{name}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let pw = dir.join("owner.pw");
     std::fs::write(&pw, "owner-secret-1234\n").unwrap();
@@ -197,7 +193,7 @@ async fn protect_delete_undelete_and_hide() {
     )
     .unwrap();
     let mut c = Client {
-        router: router_with(app, triplespace_api_rest::routes()),
+        router: router_with(app.clone(), triplespace_api_rest::routes()),
         cookie: None,
     };
 
@@ -213,6 +209,116 @@ async fn protect_delete_undelete_and_hide() {
         ))
         .await;
     assert_eq!(cl["clientlogin"]["status"], "PASS", "{cl}");
+    (database, app, c)
+}
+
+/// Registers an account, solving the challenge when one is offered, and logs it in.
+async fn account(router: &Router, name: &str, password: &str) -> Client {
+    let mut a = Client {
+        router: router.clone(),
+        cookie: None,
+    };
+    let v = a
+        .api("action=query&meta=authmanagerinfo&amirequestsfor=create&amimergerequestfields=1")
+        .await;
+    let challenge = v["query"]["authmanagerinfo"]["fields"]["tschallengeid"]["value"]
+        .as_str()
+        .map(|id| {
+            let bits = scatter_challenge::Challenge::parse(id).unwrap().bits;
+            format!(
+                "&tschallengeid={}&tschallengesolution={}",
+                enc(id),
+                scatter_challenge::solve(id, bits)
+            )
+        })
+        .unwrap_or_default();
+    let token = a.api("action=query&meta=tokens&type=createaccount").await["query"]["tokens"]
+        ["createaccounttoken"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let r = a
+        .api_post(&format!(
+            "action=createaccount&username={}&password={}&retype={}&createtoken={}&createreturnurl=https://{HOST}/{challenge}",
+            enc(name),
+            enc(password),
+            enc(password),
+            enc(&token)
+        ))
+        .await;
+    assert_eq!(r["createaccount"]["status"], "PASS", "{r}");
+    let token = a.api("action=query&meta=tokens&type=login").await["query"]["tokens"]["logintoken"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let cl = a
+        .api_post(&format!(
+            "action=clientlogin&username={}&password={}&logintoken={}&loginreturnurl=https://{HOST}/",
+            enc(name),
+            enc(password),
+            enc(&token)
+        ))
+        .await;
+    assert_eq!(cl["clientlogin"]["status"], "PASS", "{cl}");
+    a
+}
+
+/// Adds an account to a group with a membership record, as `userrights` will.
+async fn grant(app: &App, name: &str, group: &str) {
+    use scatter_ingest::store::{IngestStore as _, Sequence};
+    use scatter_projection::Backend as _;
+    let store = app.store();
+    let mut cx = store.begin().await.unwrap();
+    let key: String = cx
+        .conn()
+        .query_one(
+            "SELECT actor_key FROM view.actor WHERE tenant = $1 AND name = $2",
+            &[&TENANT, &name],
+        )
+        .await
+        .unwrap()
+        .get(0);
+    let actors = store
+        .partition(&mut cx, TENANT, "actors")
+        .await
+        .unwrap()
+        .unwrap();
+    let mut d = triplespace_cli::common::draft(
+        "scatter:v0/membership",
+        &key,
+        &serde_json::to_value(scatter_actors::membership::Membership::add(group, None)).unwrap(),
+        &key,
+        Some("test"),
+        triplespace_api_action::edit::now_micros(),
+    )
+    .unwrap();
+    d.logid = Some(
+        store
+            .next_id(&mut cx, TENANT, &Sequence::Log)
+            .await
+            .unwrap(),
+    );
+    scatter_ingest::write::append_projected(
+        store,
+        app.pipeline(),
+        &mut cx,
+        actors,
+        d,
+        scatter_projection::Budget::NONE,
+    )
+    .await
+    .unwrap();
+    store.commit(cx).await.unwrap();
+}
+
+#[tokio::test]
+#[allow(clippy::too_many_lines, clippy::many_single_char_names)]
+async fn protect_delete_undelete_and_hide() {
+    if admin_config().is_none() {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    }
+    let (database, _app, mut c) = instance("main").await;
     let token = c.csrf().await;
     let t = enc(&token);
     let mut anon = Client {
@@ -742,4 +848,169 @@ async fn protect_delete_undelete_and_hide() {
             .status,
         StatusCode::GONE
     );
+}
+
+/// Confidentiality holds against administrators outside the group (0056 A18; 09 §4.5,
+/// §5.2, §5.3): a sysop outside `board` can neither find, delete, unprotect nor
+/// revision-delete a board page; deleting it keeps `board` beside the deletion group, so
+/// the deletion is invisible outside `board` and undeleting restores the restriction; and
+/// `security.restrictions = none` refuses a new confidential restriction.
+#[tokio::test]
+#[allow(clippy::too_many_lines, clippy::many_single_char_names)]
+async fn confidentiality_holds_against_administrators_outside_the_group() {
+    if admin_config().is_none() {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    }
+    let (database, app, mut alice) = instance("outsiders").await;
+    let mut bob = account(&alice.router, "Bob", "bob-secret-1234").await;
+    let mut carol = account(&alice.router, "Carol", "carol-secret-1234").await;
+    let mut anon = Client {
+        router: alice.router.clone(),
+        cookie: None,
+    };
+    grant(&app, "Bob", "sysop").await;
+    grant(&app, "Alice", "board").await;
+    grant(&app, "Carol", "board").await;
+    let t = enc(&alice.csrf().await);
+    let bt = enc(&bob.csrf().await);
+
+    let e = alice
+        .api_post(&format!(
+            "action=edit&title=Project:Minutes&text=Secret+minutes.&token={t}"
+        ))
+        .await;
+    let page = e["edit"]["pageid"].as_u64().unwrap();
+    let revid = e["edit"]["newrevid"].as_u64().unwrap();
+    let p = alice
+        .api_post(&format!(
+            "action=protect&title=Project:Minutes&protections=read%3Dboard&token={t}"
+        ))
+        .await;
+    assert!(p.get("error").is_none(), "{p}");
+    let missing = |r: &Value| r["query"]["pages"][0]["missing"] == true;
+    assert!(missing(
+        &bob.api("action=query&prop=info&titles=Project:Minutes")
+            .await
+    ));
+    assert!(!missing(
+        &carol
+            .api("action=query&prop=info&titles=Project:Minutes")
+            .await
+    ));
+
+    // Bob holds delete, protect and deleterevision, and none of them reaches the page.
+    let r = bob
+        .api_post(&format!("action=delete&title=Project:Minutes&token={bt}"))
+        .await;
+    assert_eq!(r["error"]["code"], "missingtitle", "{r}");
+    let r = bob
+        .api_post(&format!("action=delete&pageid={page}&token={bt}"))
+        .await;
+    assert_eq!(r["error"]["code"], "nosuchpageid", "{r}");
+    let r = bob
+        .api_post(&format!(
+            "action=protect&title=Project:Minutes&protections=read%3Dall&token={bt}"
+        ))
+        .await;
+    assert_eq!(r["error"]["code"], "ts-restricted-title", "{r}");
+    let r = bob
+        .api_post(&format!(
+            "action=protect&pageid={page}&protections=read%3Dall&token={bt}"
+        ))
+        .await;
+    assert_eq!(r["error"]["code"], "nosuchpageid", "{r}");
+    let r = bob
+        .api_post(&format!(
+            "action=revisiondelete&type=revision&ids={revid}&hide=content&token={bt}"
+        ))
+        .await;
+    assert!(r.to_string().contains("nosuchrevid"), "{r}");
+    assert!(!missing(
+        &carol
+            .api("action=query&prop=info&titles=Project:Minutes")
+            .await
+    ));
+
+    // Alice deletes it. The deletion is not shown outside board, Bob cannot undelete
+    // what he cannot see, and undeleting brings the restriction back.
+    let d = alice
+        .api_post(&format!("action=delete&title=Project:Minutes&token={t}"))
+        .await;
+    assert!(d.get("error").is_none(), "{d}");
+    let logs = |r: &Value| r["query"]["logevents"].to_string();
+    for who in [&mut anon, &mut bob] {
+        let l = who.api("action=query&list=logevents&lelimit=500").await;
+        assert!(!logs(&l).contains("Minutes"), "{l}");
+    }
+    let l = carol.api("action=query&list=logevents&lelimit=500").await;
+    assert!(logs(&l).contains("Minutes"), "{l}");
+    let r = bob
+        .api_post(&format!("action=undelete&title=Project:Minutes&token={bt}"))
+        .await;
+    assert_eq!(r["error"]["code"], "cantundelete", "{r}");
+    let u = alice
+        .api_post(&format!("action=undelete&title=Project:Minutes&token={t}"))
+        .await;
+    assert!(u.get("error").is_none(), "{u}");
+    for who in [&mut anon, &mut bob] {
+        assert!(missing(
+            &who.api("action=query&prop=info&titles=Project:Minutes")
+                .await
+        ));
+    }
+    assert!(!missing(
+        &carol
+            .api("action=query&prop=info&titles=Project:Minutes")
+            .await
+    ));
+
+    // security.restrictions = none: no new confidential restriction, but protecting
+    // `edit` on a page that already has one keeps it and is allowed.
+    let (db, conn) = database
+        .parse::<Config>()
+        .unwrap()
+        .connect(NoTls)
+        .await
+        .unwrap();
+    tokio::spawn(async move {
+        let _ = conn.await;
+    });
+    let set = |v: &'static str| {
+        let db = &db;
+        async move {
+            db.execute(
+                "INSERT INTO view.registry (tenant, kind, code, config, \"offset\")
+                 VALUES ('', 'tenancy', 'security.restrictions', $1, 0)
+                 ON CONFLICT (tenant, kind, code) DO UPDATE SET config = EXCLUDED.config",
+                &[&json!({"kind": "tenancy", "value": v})],
+            )
+            .await
+            .unwrap();
+        }
+    };
+    set("none").await;
+    alice
+        .api_post(&format!(
+            "action=edit&title=Project:Agenda&text=Next+time.&token={t}"
+        ))
+        .await;
+    let r = alice
+        .api_post(&format!(
+            "action=protect&title=Project:Agenda&protections=read%3Dboard&token={t}"
+        ))
+        .await;
+    assert_eq!(r["error"]["code"], "ts-policy", "{r}");
+    let r = alice
+        .api_post(&format!(
+            "action=protect&title=Project:Minutes&protections=edit%3Dsysop&token={t}"
+        ))
+        .await;
+    assert!(r.get("error").is_none(), "{r}");
+    assert!(missing(
+        &anon
+            .api("action=query&prop=info&titles=Project:Minutes")
+            .await
+    ));
+    set("any").await;
 }

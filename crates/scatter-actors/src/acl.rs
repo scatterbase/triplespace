@@ -275,6 +275,13 @@ pub struct Acl {
     /// For a `set` target: its members.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub members: Vec<SetMember>,
+    /// The confidential `read` restriction a deletion keeps (09 §5.2): when a confidential
+    /// target is deleted, `restrictions.read` becomes the deletion group and the
+    /// confidential group moves here, so that the deleted target is seen by members of
+    /// both and stays absent for everyone else. Undeleting moves it back. Only with
+    /// `read_kind` moderation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub confidential: Option<Restriction>,
 }
 
 /// A title reserved by create-protection (0023 §2).
@@ -374,6 +381,7 @@ impl Acl {
             talk: false,
             name: None,
             members: Vec::new(),
+            confidential: None,
         }
     }
 
@@ -398,13 +406,23 @@ impl Acl {
         } else if self.restrictions.values().any(|r| r.group.is_none()) {
             return Err(AclError::Nobody);
         }
-        if self.read_kind == Some(ReadKind::Confidential)
+        if self.confidential.is_some() && self.read_kind != Some(ReadKind::Moderation) {
+            return Err(AclError::ReadKind);
+        }
+        if self.confidential_read().is_some()
             && matches!(
                 self.target,
                 Target::Graph(_) | Target::Record { .. } | Target::Actor(_) | Target::Blob(_)
             )
         {
             return Err(AclError::ConfidentialTarget(kind));
+        }
+        if self
+            .confidential
+            .as_ref()
+            .is_some_and(|r| r.group.is_none())
+        {
+            return Err(AclError::Nobody);
         }
         let field = |field: &'static str| AclError::Field { field, kind };
         if !self.parts.is_empty() && !matches!(self.target, Target::Record { .. }) {
@@ -438,6 +456,39 @@ impl Acl {
         self.restrictions
             .get(permission)
             .filter(|r| r.active_at(at))
+    }
+
+    /// The confidential `read` restriction, in force or not: `restrictions.read` when the
+    /// kind is confidential, or the one a deletion keeps in [`Acl::confidential`].
+    #[must_use]
+    pub fn confidential_read(&self) -> Option<&Restriction> {
+        match self.read_kind {
+            Some(ReadKind::Confidential) => self.restrictions.get(READ),
+            Some(ReadKind::Moderation) => self.confidential.as_ref(),
+            None => None,
+        }
+    }
+
+    /// Every `read` restriction in force at `at`, with its kind, the confidential one
+    /// first: one, or two on a deleted confidential target, which a reader must both
+    /// satisfy (09 §5.2).
+    pub fn read_restrictions_at(
+        &self,
+        at: Timestamp,
+    ) -> impl Iterator<Item = (ReadKind, &Restriction)> {
+        let kept = self
+            .confidential
+            .as_ref()
+            .filter(|_| self.read_kind == Some(ReadKind::Moderation));
+        let main = self
+            .restrictions
+            .get(READ)
+            .zip(self.read_kind)
+            .map(|(r, k)| (k, r));
+        kept.map(|r| (ReadKind::Confidential, r))
+            .into_iter()
+            .chain(main)
+            .filter(move |(_, r)| r.active_at(at))
     }
 
     /// The right that sets this ACL (0016 §4; 0023 §1; 0056 §4): `protect` for a
@@ -478,8 +529,7 @@ impl Acl {
     /// The lock-out check of 0056 §4: a confidential `read` restriction may name only a
     /// group its setter belongs to.
     pub fn check_lock_out(&self, setter: &Effective) -> Result<(), AclError> {
-        if self.read_kind == Some(ReadKind::Confidential)
-            && let Some(r) = self.restrictions.get(READ)
+        if let Some(r) = self.confidential_read()
             && let Some(g) = &r.group
             && !setter.in_group(g)
         {
@@ -487,6 +537,31 @@ impl Acl {
         }
         Ok(())
     }
+}
+
+/// The lock-out check of 09 §4.5 for a write that replaces `old` with `new` (`None`
+/// retires): the new ACL's confidential restriction must name a group the setter is in,
+/// and a confidential restriction the write changes or removes must name one too, so
+/// that nobody outside a group can lift or alter what hides a target from them, whatever
+/// rights they hold (0056 A18). A write that keeps the old confidential restriction as it
+/// was, such as protecting `edit` on a confidential page, needs nothing more.
+pub fn check_lock_out_change(
+    old: Option<&Acl>,
+    new: Option<&Acl>,
+    setter: &Effective,
+) -> Result<(), AclError> {
+    if let Some(new) = new {
+        new.check_lock_out(setter)?;
+    }
+    let kept = new.and_then(Acl::confidential_read);
+    if let Some(r) = old.and_then(Acl::confidential_read)
+        && kept != Some(r)
+        && let Some(g) = &r.group
+        && !setter.in_group(g)
+    {
+        return Err(AclError::LockedOut(g.clone()));
+    }
+    Ok(())
 }
 
 /// The current ACL of a target from its records in log order: the latest wins, and a
@@ -541,25 +616,27 @@ pub fn check<'a>(
     }
     let mut restricted = false;
     for acl in chain {
-        let Some(r) = acl.restriction_at(permission, at) else {
-            continue;
-        };
-        restricted = true;
-        match &r.group {
-            None => {
-                return Err(Denied::Nobody {
-                    permission: permission.to_string(),
-                    target: acl.target.key(),
-                });
+        let kept = (permission == READ)
+            .then(|| acl.confidential.as_ref().filter(|r| r.active_at(at)))
+            .flatten();
+        for r in acl.restriction_at(permission, at).into_iter().chain(kept) {
+            restricted = true;
+            match &r.group {
+                None => {
+                    return Err(Denied::Nobody {
+                        permission: permission.to_string(),
+                        target: acl.target.key(),
+                    });
+                }
+                Some(g) if !effective.in_group(g) => {
+                    return Err(Denied::Restricted {
+                        permission: permission.to_string(),
+                        target: acl.target.key(),
+                        group: g.clone(),
+                    });
+                }
+                Some(_) => {}
             }
-            Some(g) if !effective.in_group(g) => {
-                return Err(Denied::Restricted {
-                    permission: permission.to_string(),
-                    target: acl.target.key(),
-                    group: g.clone(),
-                });
-            }
-            Some(_) => {}
         }
     }
     if restricted && permission != READ && !effective.edit_protected {
@@ -621,7 +698,7 @@ impl Visibility {
 pub fn visibility<'a>(chain: impl IntoIterator<Item = &'a Acl>, at: Timestamp) -> Visibility {
     let mut v = Visibility::default();
     for acl in chain {
-        if let Some(r) = acl.restriction_at(READ, at) {
+        for (_, r) in acl.read_restrictions_at(at) {
             match &r.group {
                 None => v.nobody = true,
                 Some(g) => {
@@ -662,17 +739,16 @@ pub fn read_decision<'a>(
 ) -> ReadDecision {
     let mut removed: Option<String> = None;
     for acl in chain {
-        let Some(r) = acl.restriction_at(READ, at) else {
-            continue;
-        };
-        let satisfied = r.group.as_ref().is_some_and(|g| effective.in_group(g));
-        if satisfied {
-            continue;
+        for (kind, r) in acl.read_restrictions_at(at) {
+            let satisfied = r.group.as_ref().is_some_and(|g| effective.in_group(g));
+            if satisfied {
+                continue;
+            }
+            match kind {
+                ReadKind::Confidential => return ReadDecision::Absent,
+                ReadKind::Moderation => removed.get_or_insert_with(|| acl.target.key()),
+            };
         }
-        match acl.read_kind {
-            Some(ReadKind::Confidential) => return ReadDecision::Absent,
-            _ => removed.get_or_insert_with(|| acl.target.key()),
-        };
     }
     match removed {
         Some(target) => ReadDecision::Removed { target },
@@ -1063,5 +1139,92 @@ mod tests {
         assert!(current_acl(&records).is_none());
         let records = vec![None, Some(set.clone())];
         assert_eq!(current_acl(&records), Some(&set));
+    }
+
+    /// A confidential page that has been deleted: board's restriction kept beside sysop's.
+    fn deleted_confidential() -> Acl {
+        let mut a = Acl::read(Target::Page(7), ReadKind::Moderation, "sysop", None);
+        a.confidential = Some(Restriction::to_group("board", None));
+        a
+    }
+
+    #[test]
+    fn a_deleted_confidential_page_needs_both_groups_and_stays_absent() {
+        let a = deleted_confidential();
+        a.validate().unwrap();
+        let chain = [a];
+        assert_eq!(
+            read_decision(&eff(&["board", "sysop"]), &chain, NOW),
+            ReadDecision::Readable
+        );
+        // A board member outside sysop sees the deletion, as for any deleted page.
+        assert!(matches!(
+            read_decision(&eff(&["board"]), &chain, NOW),
+            ReadDecision::Removed { .. }
+        ));
+        // A sysop outside board, and everyone else, sees nothing at all.
+        assert_eq!(
+            read_decision(&eff(&["sysop"]), &chain, NOW),
+            ReadDecision::Absent
+        );
+        assert_eq!(read_decision(&eff(&[]), &chain, NOW), ReadDecision::Absent);
+        assert_eq!(
+            visibility(&chain, NOW).groups,
+            ["board", "sysop"].map(String::from).into()
+        );
+        assert!(check(READ, &eff(&["sysop"]), &chain, NOW).is_err());
+        assert_eq!(
+            chain[0]
+                .confidential_read()
+                .and_then(|r| r.group.as_deref()),
+            Some("board")
+        );
+    }
+
+    #[test]
+    fn only_a_deletion_keeps_a_confidential_restriction() {
+        let mut a = Acl::read(Target::Page(7), ReadKind::Confidential, "board", None);
+        a.confidential = Some(Restriction::to_group("staff", None));
+        assert_eq!(a.validate(), Err(AclError::ReadKind));
+        let mut r = Acl::read(
+            Target::Record {
+                partition: 3,
+                offset: 9,
+            },
+            ReadKind::Moderation,
+            "sysop",
+            None,
+        );
+        r.confidential = Some(Restriction::to_group("board", None));
+        assert_eq!(r.validate(), Err(AclError::ConfidentialTarget("record")));
+    }
+
+    #[test]
+    fn changing_or_lifting_a_confidential_restriction_needs_its_group() {
+        let old = Acl::read(Target::Page(7), ReadKind::Confidential, "board", None);
+        let outsider = eff(&["sysop"]);
+        let member = eff(&["board", "sysop"]);
+        // Lifting it.
+        assert_eq!(
+            check_lock_out_change(Some(&old), None, &outsider),
+            Err(AclError::LockedOut("board".into()))
+        );
+        check_lock_out_change(Some(&old), None, &member).unwrap();
+        // Replacing it with a deletion that drops it.
+        let dropped = Acl::read(Target::Page(7), ReadKind::Moderation, "sysop", None);
+        assert!(check_lock_out_change(Some(&old), Some(&dropped), &outsider).is_err());
+        // A deletion that keeps it changes nothing about who may read; an outsider is
+        // still refused, by the new ACL's own check.
+        let kept = deleted_confidential();
+        assert!(check_lock_out_change(Some(&old), Some(&kept), &outsider).is_err());
+        check_lock_out_change(Some(&old), Some(&kept), &member).unwrap();
+        // Adding `edit` beside it, keeping it as it was.
+        let mut edit = old.clone();
+        edit.restrictions
+            .insert("edit".into(), Restriction::to_group("sysop", None));
+        check_lock_out_change(Some(&old), Some(&edit), &member).unwrap();
+        // An ordinary protection is nobody's to lock out of.
+        let p = Acl::protect(Target::Page(7), &["edit"], "sysop", None);
+        check_lock_out_change(Some(&p), None, &outsider).unwrap();
     }
 }

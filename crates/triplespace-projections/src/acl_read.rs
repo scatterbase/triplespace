@@ -158,12 +158,12 @@ impl Hidden {
 
 /// Whether a confidential `read` restriction on this ACL is in force at `at` and the
 /// principal does not satisfy it: the test [`scatter_actors::read_decision`] makes for
-/// one ACL of a chain.
+/// one ACL of a chain. A deleted confidential target keeps its restriction in
+/// [`Acl::confidential`], and is hidden by it as before (09 §5.2).
 fn refuses(acl: &Acl, effective: &Effective, at: Timestamp) -> bool {
-    acl.read_kind == Some(ReadKind::Confidential)
-        && acl
-            .restriction_at(scatter_actors::acl::READ, at)
-            .is_some_and(|r| !r.group.as_ref().is_some_and(|g| effective.in_group(g)))
+    acl.read_restrictions_at(at).any(|(kind, r)| {
+        kind == ReadKind::Confidential && !r.group.as_ref().is_some_and(|g| effective.in_group(g))
+    })
 }
 
 /// What `effective` may not read on the tenant at `at` (see [`Hidden`]): one query for the
@@ -178,7 +178,7 @@ pub async fn hidden<C: PgClient>(
     let rows = client
         .query(
             "SELECT target, restrictions, read_kind, extra FROM view.acl
-             WHERE tenant = $1 AND read_kind = 'confidential'",
+             WHERE tenant = $1 AND (read_kind = 'confidential' OR extra ? 'confidential')",
             &[&tenant],
         )
         .await
