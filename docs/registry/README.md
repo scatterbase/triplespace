@@ -40,6 +40,8 @@ This directory is the registry of record for the names and codes that Triplespac
 
 ## Pending allocations
 
+- **Groups that include others, delegate membership or are scoped** ([0016](../decisions/0016-permissions-and-access-control.md) A35, A36): the fields `includes`, `adds`, `removes`, `adds_self`, `removes_self` and `within` on `[[group]]` in `groups.toml`. No default group sets them; they are described in a comment at the top of the file until `scatter-actors` accepts them, since the parser rejects unknown fields.
+
 - **Pages served at the auth base** ([0089](../decisions/0089-the-auth-host-and-instance-logins.md) §7): the field `auth = true` on `UserLogin`, `CreateAccount`, `Account` and `UserLogout` in `special-pages.toml`. Written as a comment beside each until `triplespace-titles` accepts it, since the parser rejects unknown fields.
 
 - **Commons as the source of Wikidata's `M` type** ([0065](../decisions/0065-mediainfo-captions-and-commons.md) §2, §5): the per-type fields `api`, `entity_data` and `dumps` on `[[provider.type]]`, pointing at `commons.wikimedia.org`. They are written as comments beside the `M` type in `providers.toml` until `scatter-providers` accepts them; the registry parser rejects unknown fields.
