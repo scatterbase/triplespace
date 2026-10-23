@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-10-22 (A19)
+- **Updated:** 2026-10-23 (A20)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0021](0021-notifications.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md), [0033](0033-backend-stack.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0051](0051-page-redirects.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md), [0045](0045-table-content-model.md), [0046](0046-primary-tenant.md), [0047](0047-special-pages.md), [0049](0049-boards.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -107,7 +107,7 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 14. Storage (extends 0013 §5.6)
 
-*Changed by A5, A6, A13, A14, A19.*
+*Changed by A5, A6, A13, A14, A19, A20.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.5, §4.6, §4.14, §5, §12.2.*
 
@@ -431,3 +431,14 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.14, as 
 Replaced text ([03](../architecture/03-storage-caches-and-search.md) §5, as it stood):
 
 > | `view` | `set_member`; `read_enclosures` on `activity`; `visibility_epoch` and `live_statement_acls` on `tenant`; the `tenant` and `set` target kinds and a `kind` (confidential or moderation) on `acl` | The sets a target is in; feed and log rows filtered by principal at serve time; the cache purge epoch; the statement-ACL counter; the two kinds of `read` restriction | [0056](../decisions/0056-security-model.md) §14; [0083](../decisions/0083-write-path-in-three-tiers.md) §3 | Yes |
+
+### A20. The confidential index covers deleted confidential targets
+
+- **Date:** 2026-10-23
+- **Source:** [0023](0023-moderation.md) A15
+- **Change:** amends §14
+- **Summary:** Since 0023 A15, deleting a confidential target keeps its confidential restriction in the ACL's `extra.confidential` while `read_kind` becomes `moderation`. The hidden set must still find it, so `acl_confidential` indexes both forms: `read_kind = 'confidential' OR extra ? 'confidential'`, which is also the hidden set's condition.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.5, as it stood):
+
+> CREATE INDEX acl_confidential ON view.acl (target) WHERE read_kind = 'confidential';   -- the hidden set (§4.14; 0056 A19)

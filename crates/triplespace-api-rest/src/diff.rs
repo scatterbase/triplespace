@@ -109,7 +109,6 @@ struct RowFacts {
     size: Option<i32>,
     delta: Option<i32>,
     changes: Option<Value>,
-    read_groups: Option<Vec<String>>,
 }
 
 async fn row_facts(
@@ -120,7 +119,7 @@ async fn row_facts(
 ) -> Result<Option<RowFacts>, tokio_postgres::Error> {
     let row = client
         .query_opt(
-            "SELECT source, kind, target_id, revid, size, delta, changes, read_groups
+            "SELECT source, kind, target_id, revid, size, delta, changes
              FROM view.activity WHERE tenant IN ($1, '') AND partition = $2 AND \"offset\" = $3
              ORDER BY (tenant = $1) DESC LIMIT 1",
             &[
@@ -138,7 +137,6 @@ async fn row_facts(
         size: r.get(4),
         delta: r.get(5),
         changes: r.get(6),
-        read_groups: r.get(7),
     }))
 }
 
@@ -190,11 +188,6 @@ pub async fn change(
         Err(e) => return internal(&e),
     };
     if facts.target_id.as_deref() != Some(r.id.as_str()) {
-        return not_found();
-    }
-    if let Some(groups) = &facts.read_groups
-        && !groups.iter().any(|g| r.caller.effective.groups.contains(g))
-    {
         return not_found();
     }
     let mut body = Map::new();

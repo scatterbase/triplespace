@@ -318,7 +318,7 @@ async fn protect_delete_undelete_and_hide() {
         eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
         return;
     }
-    let (database, _app, mut c) = instance("main").await;
+    let (database, app, mut c) = instance("main").await;
     let token = c.csrf().await;
     let t = enc(&token);
     let mut anon = Client {
@@ -781,6 +781,12 @@ async fn protect_delete_undelete_and_hide() {
         r["query"]["pages"][0]["revisions"][0]["suppressed"], true,
         "{r}"
     );
+    // The suppression log is the suppression group's (09 §6.5); the owner is not in it.
+    let l = c
+        .api("action=query&list=logevents&letype=suppress&lelimit=50")
+        .await;
+    assert_eq!(l["query"]["logevents"], json!([]), "{l}");
+    grant(&app, "Alice", "suppress").await;
     let l = c
         .api("action=query&list=logevents&letype=suppress&lelimit=50")
         .await;
@@ -1013,4 +1019,159 @@ async fn confidentiality_holds_against_administrators_outside_the_group() {
             .await
     ));
     set("any").await;
+}
+
+/// Moderation records stay with what they are about (09 §6.3, §6.5): a suppression's log
+/// event is for the suppression group alone; a revision-deletion event on a confidential
+/// page is absent with the page; and a hidden username is attributed to nobody outside the
+/// group, in every feed and in lookups by name.
+#[tokio::test]
+#[allow(clippy::too_many_lines, clippy::many_single_char_names)]
+async fn moderation_records_stay_with_their_targets() {
+    if admin_config().is_none() {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    }
+    let (database, app, mut alice) = instance("records").await;
+    let mut bob = account(&alice.router, "Bob", "bob-secret-1234").await;
+    let mut carol = account(&alice.router, "Carol", "carol-secret-1234").await;
+    let mut anon = Client {
+        router: alice.router.clone(),
+        cookie: None,
+    };
+    grant(&app, "Bob", "sysop").await;
+    grant(&app, "Alice", "board").await;
+    grant(&app, "Carol", "board").await;
+    let t = enc(&alice.csrf().await);
+    let events = |r: &Value| -> Vec<(String, u64)> {
+        r["query"]["logevents"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|e| {
+                (
+                    format!(
+                        "{}/{}",
+                        e["type"].as_str().unwrap_or("?"),
+                        e["action"].as_str().unwrap_or("?")
+                    ),
+                    e["logid"].as_u64().unwrap_or(0),
+                )
+            })
+            .collect()
+    };
+
+    // Suppressing a revision's comment: `suppress/revision`, for the suppression group.
+    let e = alice
+        .api_post(&format!(
+            "action=edit&title=Project:Open&text=Hello.&summary=Abuse&token={t}"
+        ))
+        .await;
+    let open = e["edit"]["newrevid"].as_u64().unwrap();
+    let h = alice
+        .api_post(&format!(
+            "action=revisiondelete&type=revision&ids={open}&hide=comment&suppress=yes&token={t}"
+        ))
+        .await;
+    assert!(h.get("error").is_none(), "{h}");
+    for who in [&mut anon, &mut bob, &mut alice] {
+        let l = who.api("action=query&list=logevents&lelimit=500").await;
+        assert!(
+            !events(&l).iter().any(|(k, _)| k.starts_with("suppress/")),
+            "{l}"
+        );
+    }
+    grant(&app, "Alice", "suppress").await;
+    let l = alice.api("action=query&list=logevents&lelimit=500").await;
+    assert!(
+        events(&l).iter().any(|(k, _)| k == "suppress/revision"),
+        "{l}"
+    );
+
+    // Hiding a revision of a confidential page: the event goes with the page.
+    let e = alice
+        .api_post(&format!(
+            "action=edit&title=Project:Minutes&text=Secret.&token={t}"
+        ))
+        .await;
+    let minutes = e["edit"]["newrevid"].as_u64().unwrap();
+    alice
+        .api_post(&format!(
+            "action=protect&title=Project:Minutes&protections=read%3Dboard&token={t}"
+        ))
+        .await;
+    let h = alice
+        .api_post(&format!(
+            "action=revisiondelete&type=revision&ids={minutes}&hide=comment&token={t}"
+        ))
+        .await;
+    assert!(h.get("error").is_none(), "{h}");
+    let l = carol.api("action=query&list=logevents&lelimit=500").await;
+    let revdel: Vec<u64> = events(&l)
+        .into_iter()
+        .filter(|(k, _)| k == "delete/revision")
+        .map(|(_, id)| id)
+        .collect();
+    assert_eq!(revdel.len(), 1, "{l}");
+    for who in [&mut anon, &mut bob] {
+        let l = who.api("action=query&list=logevents&lelimit=500").await;
+        assert!(!events(&l).iter().any(|(_, id)| *id == revdel[0]), "{l}");
+    }
+
+    // Hiding Carol's name, as `suppress/hide-user` will: nothing writes actor ACLs yet, so
+    // the row goes into view.acl directly.
+    let ct = enc(&carol.csrf().await);
+    carol
+        .api_post(&format!(
+            "action=edit&title=Project:Carol&text=Mine.&token={ct}"
+        ))
+        .await;
+    let (db, conn) = database
+        .parse::<Config>()
+        .unwrap()
+        .connect(NoTls)
+        .await
+        .unwrap();
+    tokio::spawn(async move {
+        let _ = conn.await;
+    });
+    let key: String = db
+        .query_one(
+            "SELECT actor_key FROM view.actor WHERE tenant = $1 AND name = 'Carol'",
+            &[&TENANT],
+        )
+        .await
+        .unwrap()
+        .get(0);
+    db.execute(
+        "INSERT INTO view.acl (tenant, target, restrictions, read_kind, extra, \"offset\")
+         VALUES ($1, $2, $3, 'moderation', NULL, 0)",
+        &[
+            &TENANT,
+            &format!("acl:actor:{key}"),
+            &json!({"read": {"group": "suppress"}}),
+        ],
+    )
+    .await
+    .unwrap();
+    let rc = "action=query&list=recentchanges&rcprop=title%7Cuser&rclimit=500";
+    for who in [&mut anon, &mut bob] {
+        let r = who.api(rc).await;
+        assert!(!r.to_string().contains("\"user\":\"Carol\""), "{r}");
+        assert!(r.to_string().contains("\"userhidden\":true"), "{r}");
+        let u = who
+            .api("action=query&list=usercontribs&ucuser=Carol&uclimit=50")
+            .await;
+        assert_eq!(u["query"]["usercontribs"], json!([]), "{u}");
+    }
+    // Alice is in `suppress` now: the name is hers to see.
+    let r = alice.api(rc).await;
+    assert!(r.to_string().contains("\"user\":\"Carol\""), "{r}");
+    let u = alice
+        .api("action=query&list=usercontribs&ucuser=Carol&uclimit=50")
+        .await;
+    assert!(
+        !u["query"]["usercontribs"].as_array().unwrap().is_empty(),
+        "{u}"
+    );
 }

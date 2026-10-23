@@ -52,13 +52,34 @@ pub async fn actor_key_of(ctx: &Ctx, name: &str) -> Result<Option<String>, tokio
     let row = ctx
         .db()
         .query_opt(
-            "SELECT actor_key FROM view.actor
+            "SELECT actor_key, actor_key = $2 FROM view.actor
              WHERE tenant IN ($1, '') AND (lower(name) = lower($2) OR actor_key = $2)
              ORDER BY (tenant = $1) DESC LIMIT 1",
             &[&ctx.tenant.slug, &name],
         )
         .await?;
-    Ok(row.map(|r| r.get(0)))
+    let Some(row) = row else {
+        return Ok(None);
+    };
+    let key: String = row.get(0);
+    let by_key: bool = row.get(1);
+    // A hidden name does not lead to its account for those outside the group (09 §6.3);
+    // a key, which never contains a name, still does. Failing to decide hides it.
+    if !by_key {
+        let groups: Vec<String> = ctx.caller.effective.groups.iter().cloned().collect();
+        let hidden = triplespace_projections::acl_read::hidden_actors(
+            ctx.db(),
+            &ctx.tenant.slug,
+            std::slice::from_ref(&key),
+            &groups,
+            scatter_actors::Timestamp(crate::edit::now_micros()),
+        )
+        .await;
+        if hidden.map_or(true, |h| h.contains(&key)) {
+            return Ok(None);
+        }
+    }
+    Ok(Some(key))
 }
 
 /// The numeric user ID MediaWiki clients expect: the number after the issuer in the

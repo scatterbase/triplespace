@@ -44,8 +44,6 @@ pub(crate) fn internal(e: &dyn std::fmt::Display) -> Response {
 pub(crate) struct Resolved {
     /// The tenant.
     pub tenant: Tenant,
-    /// The caller.
-    pub caller: Caller,
     /// The entity.
     pub id: EntityId,
     /// Whether the request carried a credential, for the cache class.
@@ -115,7 +113,6 @@ pub(crate) async fn resolve(
     let credentialed = caller.has_session() || bearer(headers).is_some();
     Ok(Resolved {
         tenant,
-        caller,
         id,
         credentialed,
     })

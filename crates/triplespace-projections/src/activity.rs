@@ -634,12 +634,30 @@ async fn acl_columns(cx: &PgCx, record: &Record) -> Result<Columns, String> {
             member: None,
         },
     };
-    let params = serde_json::json!({
+    let mut params = serde_json::json!({
         "restrictions": acl.as_ref().map(|a| &a.restrictions),
         "previous": previous.as_ref().map(|a| &a.restrictions),
         "parts": about.map(|a| &a.parts),
         "talk": about.is_some_and(|a| a.talk),
     });
+    // A revision-deletion event names its record; what the record was about goes in `of`,
+    // so that the event is restricted with that page or entity (09 §6.5, §5.3).
+    if let AclTarget::Record { partition, offset } = &target
+        && let Some(r) = cx
+            .query_opt(
+                "SELECT target_kind, target_id FROM view.activity
+                 WHERE partition = $1 AND \"offset\" = $2",
+                &[
+                    &scatter_log_postgres::ids::partition_to_db(*partition),
+                    &i64::try_from(*offset).unwrap_or(i64::MAX),
+                ],
+            )
+            .await
+            .map_err(|e| sql(&e))?
+        && let (Some(kind), Some(id)) = (r.get::<_, Option<i16>>(0), r.get::<_, Option<String>>(1))
+    {
+        params["of"] = serde_json::json!({"kind": kind, "id": id});
+    }
     Ok(Columns {
         kind: "log",
         target: target_columns,

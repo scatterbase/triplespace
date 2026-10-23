@@ -493,21 +493,29 @@ fn build(tenant: &str, feed: &Feed, viewer: &Viewer) -> Built {
     if let Some(u) = f.until {
         push(&mut sql, "a.time <= $n", Box::new(time_of(u)));
     }
-    // A row under a read restriction is for the groups named; NULL is public (0056 §14).
+    // A suppression's event is for the group it names, as MediaWiki's suppression log is
+    // for oversighters (09 §6.5); for a retirement, the group of the ACL it retired.
     push(
         &mut sql,
-        "(a.read_groups IS NULL OR a.read_groups && $n)",
+        "(a.log_type IS DISTINCT FROM 'suppress' OR coalesce(
+            a.params->'restrictions'->'read'->>'group',
+            a.params->'previous'->'read'->>'group') = ANY($n))",
         Box::new(viewer.groups.clone()),
     );
     // Rows on a target a confidential restriction hides are absent (0056 §5; 09 §5.3).
     let h = &viewer.hidden;
     let page = target_kind::PAGE;
+    let record = target_kind::RECORD;
     if h.tenant {
         sql.push_str(" AND false");
     } else if h.all_pages {
+        // A revision-deletion event names its record; `params.of` is the record's page.
         push(
             &mut sql,
-            "a.target_kind IS DISTINCT FROM $n",
+            &format!(
+                "a.target_kind IS DISTINCT FROM $n
+                 AND NOT (a.target_kind = {record} AND a.params->'of'->>'kind' = '{page}')"
+            ),
             Box::new(page),
         );
     } else {
@@ -515,14 +523,23 @@ fn build(tenant: &str, feed: &Feed, viewer: &Viewer) -> Built {
             let ids: Vec<String> = h.pages.iter().map(u64::to_string).collect();
             push(
                 &mut sql,
-                &format!("NOT (a.target_kind = {page} AND a.target_id = ANY($n))"),
+                &format!(
+                    "NOT ((a.target_kind = {page} AND a.target_id = ANY($n))
+                      OR (a.target_kind = {record} AND a.params->'of'->>'kind' = '{page}'
+                          AND a.params->'of'->>'id' = ANY($n)))"
+                ),
                 Box::new(ids),
             );
         }
         if !h.namespaces.is_empty() {
             push(
                 &mut sql,
-                &format!("NOT (a.target_kind = {page} AND p.ns = ANY($n))"),
+                &format!(
+                    "NOT ((a.target_kind = {page} AND p.ns = ANY($n))
+                      OR (a.target_kind = {record} AND a.params->'of'->>'kind' = '{page}'
+                          AND EXISTS (SELECT 1 FROM view.page op WHERE op.tenant = a.tenant
+                            AND op.page_id::text = a.params->'of'->>'id' AND op.ns = ANY($n))))"
+                ),
                 Box::new(h.namespace_list()),
             );
         }
@@ -647,6 +664,28 @@ pub async fn query<C: PgClient>(
     let mut out = Vec::with_capacity(rows.len().min(limit));
     for r in rows.iter().take(limit) {
         out.push(row_of(r)?);
+    }
+    // Hidden usernames (09 §6.3): attributed to nobody for those outside the group.
+    let keys: Vec<String> = out
+        .iter()
+        .filter(|r| !r.actor.hidden)
+        .filter_map(|r| r.actor.key.clone())
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    let hidden = crate::acl_read::hidden_actors(
+        client,
+        tenant,
+        &keys,
+        &viewer.groups,
+        scatter_actors::Timestamp(micros(SystemTime::now())),
+    )
+    .await?;
+    for r in &mut out {
+        if r.actor.key.as_ref().is_some_and(|k| hidden.contains(k)) {
+            r.actor.hidden = true;
+            r.actor.name = None;
+        }
     }
     let next = (rows.len() > limit)
         .then(|| out.last().map(Row::cursor))
@@ -830,12 +869,13 @@ mod tests {
         let b = build("librarybase", &feed, &viewer);
         assert!(
             b.sql
-                .contains("NOT (a.target_kind = 2 AND a.target_id = ANY($4))"),
+                .contains("NOT ((a.target_kind = 2 AND a.target_id = ANY($4))"),
             "{}",
             b.sql
         );
         assert!(
-            b.sql.contains("NOT (a.target_kind = 2 AND p.ns = ANY($5))"),
+            b.sql
+                .contains("NOT ((a.target_kind = 2 AND p.ns = ANY($5))"),
             "{}",
             b.sql
         );

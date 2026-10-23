@@ -18,6 +18,8 @@
 //! - [`hidden`]: what one principal may not read on a tenant because of confidential
 //!   restrictions it does not satisfy (0056 §5; 09 §5.3), for the reads that list, count,
 //!   link and look up pages by title, ID or revision.
+//! - [`hidden_actors`]: which of some actors' names a principal may not see, because a
+//!   username-hiding `actor` ACL it does not satisfy is in force (09 §6.3).
 
 use std::collections::{BTreeSet, HashMap};
 
@@ -224,6 +226,43 @@ pub async fn hidden<C: PgClient>(
         }
     }
     Ok(h)
+}
+
+/// Which of these actors' names the principal, a member of `groups`, may not see: those
+/// with an `actor` ACL whose `read` restriction is in force at `at` and names a group the
+/// principal is not in (09 §6.3). The decision is made per request from the ACL, so the
+/// suppression group keeps seeing the name and an expired hide lapses by itself. Asked
+/// for the actors of the rows being served, never the tenant's whole list.
+pub async fn hidden_actors<C: PgClient>(
+    client: &C,
+    tenant: &str,
+    keys: &[String],
+    groups: &[String],
+    at: Timestamp,
+) -> Result<std::collections::HashSet<String>, String> {
+    if keys.is_empty() {
+        return Ok(std::collections::HashSet::new());
+    }
+    let targets: Vec<String> = keys.iter().map(|k| format!("acl:actor:{k}")).collect();
+    let rows = client
+        .query(
+            "SELECT target, restrictions, read_kind, extra FROM view.acl
+             WHERE tenant IN ($1, '') AND target = ANY($2)",
+            &[&tenant, &targets],
+        )
+        .await
+        .map_err(|e| sql(&e))?;
+    let mut out = std::collections::HashSet::new();
+    for r in &rows {
+        let (key, acl) = acl_of(r)?;
+        let refused = acl
+            .read_restrictions_at(at)
+            .any(|(_, r)| !r.group.as_ref().is_some_and(|g| groups.contains(g)));
+        if refused && let Some(actor) = key.strip_prefix("acl:actor:") {
+            out.insert(actor.to_string());
+        }
+    }
+    Ok(out)
 }
 
 /// The chain of a page: the page, its namespace, the `pages` graph and the tenant; for a
