@@ -35,6 +35,8 @@ scatter-actors.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "io-util"] }
 scatter-projection.workspace = true
 scatter-ingest.workspace = true
+scatter-threads.workspace = true
+triplespace-api-ingest.workspace = true
 scatter-log.workspace = true
 scatter-log-postgres.workspace = true
 scatter-integrity.workspace = true

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-17 (A34)
+- **Updated:** 2026-10-22 (A36)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -36,7 +36,7 @@ The two agree on the shape: users, groups, memberships, named permissions, and r
 
 ### 3. Groups, memberships and blocks
 
-*Changed by A5, A7, A8, A9, A11, A12, A15, A22, A30, A31.*
+*Changed by A5, A7, A8, A9, A11, A12, A15, A22, A30, A31, A35, A36.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §3.1, §3.2, §3.3, §3.4, §3.5, §3.6.*
 
@@ -455,3 +455,17 @@ Replaced text ([09](../architecture/09-security-and-moderation.md) §2.4, as it 
 Replaced text ([09](../architecture/09-security-and-moderation.md) §2.2, as it stood):
 
 > | `createaccount` | `universe` | Self-registration, and creating an account for another, as in MediaWiki: creating a subsidiary, and creating one in the OAuth consent page. A subsidiary a new user creates is pending until approved. A private tenant removes it from `universe` (§4.7) | [0024](0024-subsidiary-accounts.md) §11; [0025](0025-oauth-server.md) §10; [0056](0056-security-model.md) §3 |
+
+### A35. A group may include others
+
+- **Date:** 2026-10-22
+- **Source:** Direct: James, design discussion of 2026-10-22
+- **Change:** extends §3
+- **Summary:** A `group` record may carry `includes`, a list of group names or `"*"` for every group but `owner`. Its members count as members of each included group in every ACL test, `read` included, and receive none of their permissions. Inclusion is one level deep, so there are no chains or cycles. Changing `includes` needs `userrights` as well as `ts-config`, because it changes who may read, and notifies the members of each newly included group that a confidential restriction names. This is how a tenant gives one class of accounts, such as auditors, access to every department's restricted pages without the software granting anyone a bypass ([0056](0056-security-model.md) A18).
+
+### A36. Delegated membership and scoped groups
+
+- **Date:** 2026-10-22
+- **Source:** Direct: James, design discussion of 2026-10-22
+- **Change:** extends §3
+- **Summary:** So that a department can run its own administrators and its own membership without anyone holding `userrights`, which reaches every group ([0056](0056-security-model.md) A18). (1) **Delegated membership,** after MediaWiki's `$wgAddGroups`, `$wgRemoveGroups`, `$wgGroupsAddToSelf` and `$wgGroupsRemoveFromSelf`: a `group` record may carry `adds` and `removes`, lists of groups its members may add others to and remove others from, and `adds_self` and `removes_self`, the groups they may join or leave themselves, empty unless set; adding and removing are listed apart. None of the four may name `owner` or a group holding `userrights` or `ts-config`. (2) **Scoped groups:** a `group` record may carry `within`, namespaces and sets; its permissions hold only on targets those enclose, so department administrators fail closed where restricting unscoped groups space by space fails open. A scoped group may hold only permissions that act on a page, entity or thread. Membership in it counts everywhere in ACL tests. A move needs the permission at both ends. `meta=userinfo` reports scoped permissions under `ts-scopedrights`, apart from `rights`. The scope lives on the group, not on the membership, so that a tenant's delegation reads in one place and pairs with the add lists (`hr-admins` scoped to the HR set, adding to `hr`); a scope per membership was considered and not taken. Changing any of these fields needs `userrights` as well as `ts-config`. Every membership written under them projects and notifies as one written under `userrights` does.

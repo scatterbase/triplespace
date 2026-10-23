@@ -185,13 +185,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: ADR checks (0050 §12)
-        run: |
-          python3 docs/decisions/check_adrs.py docs | tee adr-report.txt
-          # Every line the checker lists under a file is a problem: broken links, header
-          # asymmetry, § and A/Q citations that do not exist, and a stale INDEX.md.
-          ! grep -q "^   - " adr-report.txt
-      - name: Settings catalogue (0085 §1)
-        run: python3 docs/architecture/settings.py docs
-      - name: Log test vectors (payloads.md §1–2)
-        run: python3 docs/api/vectors/check.py
+      - name: Documentation checks (ADRs 0050 §12, chapter map 0050 §14, settings 0085 §1, log vectors)
+        run: docs/check.sh

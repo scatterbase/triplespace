@@ -32,6 +32,9 @@ members = [
     "crates/scatter-titles",
     "crates/scatter-wikitext",
     "crates/scatter-wikitext-expand",
+    "crates/scatter-talk",
+    "crates/scatter-talk-import",
+    "crates/scatter-threads",
     "xtask",
 ]
 
@@ -79,6 +82,9 @@ scatter-pages = { path = "crates/scatter-pages" }
 scatter-titles = { path = "crates/scatter-titles" }
 scatter-wikitext = { path = "crates/scatter-wikitext" }
 scatter-wikitext-expand = { path = "crates/scatter-wikitext-expand" }
+scatter-talk = { path = "crates/scatter-talk" }
+scatter-talk-import = { path = "crates/scatter-talk-import" }
+scatter-threads = { path = "crates/scatter-threads" }
 
 # RDF terms: the oxrdf family only (0005 §3, rule 5)
 oxrdf = "0.3"

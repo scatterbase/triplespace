@@ -13,12 +13,15 @@
 //! [`settings`] is the one writer of settings records (0085 §3), shared by
 //! `PATCH /settings` and `triplespace-cli settings`; [`accounts`] the one writer of a
 //! registered account (0087 §1, §6), shared by `action=createaccount` and the approval of
-//! a request.
+//! a request; [`threads`] the one writer of thread records (0019 §1–§4), shared by the
+//! thread API and the import jobs.
 
 #![forbid(unsafe_code)]
 
 pub mod accounts;
+pub mod acl;
 pub mod settings;
 pub mod store;
+pub mod threads;
 
 pub use store::PgIngest;

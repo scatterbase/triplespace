@@ -45,6 +45,11 @@ pub enum TargetSet {
     },
     /// Records attested by one actor: contributions.
     Actor(String),
+    /// A page with the threads attached to it, home or listing, when it is a talk page or
+    /// a board: its composite history (16 §6.1; 14 §3.7). A thread attached now brings
+    /// its whole history, and one that moved away or was detached takes its rows with it;
+    /// a deleted thread's rows are left out. For any other page, its own rows.
+    Talk(u64),
 }
 
 /// Which way the rows run.
@@ -112,6 +117,9 @@ pub struct Filters {
     /// Only entity targets of these types (`item`, `property`, `domain`, …), the API's
     /// namespace filter; `None` for the target's type means the row is not an entity's.
     pub entity_types: Vec<String>,
+    /// With `kinds`: also the `edit` rows that are log events too, carrying a log type
+    /// and a log ID, as a thread `create` or `pin` does (16 §6.1). The log sets it.
+    pub log_events: bool,
     /// Only log events of this type (`log` and `job` rows).
     pub log_type: Option<String>,
     /// … and this action.
@@ -311,11 +319,15 @@ pub struct Page {
     pub next: Option<Cursor>,
 }
 
-/// What a viewer may see: the groups they hold, for rows under a `read` restriction.
+/// What a viewer may see: the groups they hold, for rows under a `read` restriction, and
+/// the targets confidential restrictions hide from them (0056 §5; 09 §5.3), whose rows,
+/// log events included, are left out as if the target did not exist.
 #[derive(Debug, Clone, Default)]
 pub struct Viewer {
     /// The viewer's groups.
     pub groups: Vec<String>,
+    /// What is absent for the viewer ([`crate::acl_read::hidden`]).
+    pub hidden: crate::acl_read::Hidden,
 }
 
 type Param = Box<dyn ToSql + Sync + Send>;
@@ -387,9 +399,26 @@ fn build(tenant: &str, feed: &Feed, viewer: &Viewer) -> Built {
             push(&mut sql, "a.target_id = $n", Box::new(id.clone()));
         }
         TargetSet::Actor(key) => push(&mut sql, "a.actor_key = $n", Box::new(key.clone())),
+        TargetSet::Talk(id) => {
+            push(&mut sql, "a.target_kind = $n", Box::new(target_kind::PAGE));
+            push(
+                &mut sql,
+                "(a.target_id = $n OR a.target_id IN (
+                   SELECT ta.thread_id::text FROM view.thread_attachment ta
+                   JOIN view.page tp ON tp.tenant = ta.tenant AND tp.page_id = ta.thread_id
+                   WHERE ta.tenant = a.tenant AND ta.talk_page_id = $n::bigint AND NOT tp.deleted))",
+                Box::new(id.to_string()),
+            );
+        }
     }
     let f = &feed.filters;
-    if !f.kinds.is_empty() {
+    if !f.kinds.is_empty() && f.log_events {
+        push(
+            &mut sql,
+            "(a.kind = ANY($n) OR (a.log_type IS NOT NULL AND a.logid IS NOT NULL))",
+            Box::new(f.kinds.clone()),
+        );
+    } else if !f.kinds.is_empty() {
         push(&mut sql, "a.kind = ANY($n)", Box::new(f.kinds.clone()));
     }
     if !f.sources.is_empty() {
@@ -470,6 +499,34 @@ fn build(tenant: &str, feed: &Feed, viewer: &Viewer) -> Built {
         "(a.read_groups IS NULL OR a.read_groups && $n)",
         Box::new(viewer.groups.clone()),
     );
+    // Rows on a target a confidential restriction hides are absent (0056 §5; 09 §5.3).
+    let h = &viewer.hidden;
+    let page = target_kind::PAGE;
+    if h.tenant {
+        sql.push_str(" AND false");
+    } else if h.all_pages {
+        push(
+            &mut sql,
+            "a.target_kind IS DISTINCT FROM $n",
+            Box::new(page),
+        );
+    } else {
+        if !h.pages.is_empty() {
+            let ids: Vec<String> = h.pages.iter().map(u64::to_string).collect();
+            push(
+                &mut sql,
+                &format!("NOT (a.target_kind = {page} AND a.target_id = ANY($n))"),
+                Box::new(ids),
+            );
+        }
+        if !h.namespaces.is_empty() {
+            push(
+                &mut sql,
+                &format!("NOT (a.target_kind = {page} AND p.ns = ANY($n))"),
+                Box::new(h.namespace_list()),
+            );
+        }
+    }
     if let Some(c) = feed.cursor {
         let cmp = match feed.direction {
             Direction::Older => "<",
@@ -761,5 +818,31 @@ mod tests {
         let b = build("librarybase", &feed, &Viewer::default());
         assert!(b.sql.contains("> ($8, $9, $10)"));
         assert!(b.sql.contains("ORDER BY a.time ASC"));
+    }
+
+    #[test]
+    fn hidden_targets_are_left_out() {
+        let feed = Feed::everything(50);
+        let none = build("librarybase", &feed, &Viewer::default());
+        let mut viewer = Viewer::default();
+        viewer.hidden.pages.insert(7);
+        viewer.hidden.namespaces.insert(4);
+        let b = build("librarybase", &feed, &viewer);
+        assert!(
+            b.sql
+                .contains("NOT (a.target_kind = 2 AND a.target_id = ANY($4))"),
+            "{}",
+            b.sql
+        );
+        assert!(
+            b.sql.contains("NOT (a.target_kind = 2 AND p.ns = ANY($5))"),
+            "{}",
+            b.sql
+        );
+        assert_eq!(b.params.len(), none.params.len() + 2);
+        viewer.hidden.tenant = true;
+        let b = build("librarybase", &feed, &viewer);
+        assert!(b.sql.contains(" AND false"));
+        assert_eq!(b.params.len(), none.params.len());
     }
 }

@@ -2417,6 +2417,42 @@ dependencies = [
 ]
 
 [[package]]
+name = "scatter-talk"
+version = "0.0.1"
+dependencies = [
+ "bzip2",
+ "flate2",
+ "quick-xml",
+ "scatter-wikitext",
+ "serde",
+ "serde_json",
+ "similar",
+ "toml",
+]
+
+[[package]]
+name = "scatter-talk-import"
+version = "0.0.1"
+dependencies = [
+ "bzip2",
+ "quick-xml",
+ "scatter-talk",
+ "scatter-threads",
+ "serde_json",
+ "sha2 0.10.9",
+]
+
+[[package]]
+name = "scatter-threads"
+version = "0.0.1"
+dependencies = [
+ "scatter-pages",
+ "serde",
+ "serde_json",
+ "toml",
+]
+
+[[package]]
 name = "scatter-titles"
 version = "0.0.1"
 dependencies = [
@@ -3152,10 +3188,12 @@ dependencies = [
  "scatter-challenge",
  "scatter-ingest",
  "scatter-log",
+ "scatter-log-postgres",
  "scatter-normalize",
  "scatter-pages",
  "scatter-projection",
  "scatter-providers",
+ "scatter-threads",
  "scatter-titles",
  "scatter-wikibase-changeset",
  "scatter-wikibase-model",
@@ -3185,8 +3223,12 @@ dependencies = [
  "scatter-ingest",
  "scatter-log",
  "scatter-log-postgres",
+ "scatter-pages",
  "scatter-projection",
  "scatter-providers",
+ "scatter-talk",
+ "scatter-talk-import",
+ "scatter-threads",
  "scatter-wikibase-changeset",
  "scatter-wikibase-model",
  "serde_json",
@@ -3203,12 +3245,15 @@ name = "triplespace-api-rest"
 version = "0.0.1"
 dependencies = [
  "axum",
+ "deadpool-postgres",
  "percent-encoding",
  "scatter-actors",
+ "scatter-ingest",
  "scatter-log",
  "scatter-log-postgres",
  "scatter-projection",
  "scatter-providers",
+ "scatter-threads",
  "scatter-wikibase-changeset",
  "scatter-wikibase-model",
  "scatter-wikibase-resolve",
@@ -3298,6 +3343,7 @@ dependencies = [
  "scatter-pages",
  "scatter-projection",
  "scatter-providers",
+ "scatter-threads",
  "scatter-titles",
  "scatter-wikibase-changeset",
  "scatter-wikibase-model",
@@ -3327,12 +3373,14 @@ dependencies = [
  "scatter-log",
  "scatter-log-postgres",
  "scatter-projection",
+ "scatter-threads",
  "serde_json",
  "tokio",
  "tokio-postgres",
  "tower",
  "triplespace-accounts",
  "triplespace-api-action",
+ "triplespace-api-ingest",
  "triplespace-api-rest",
  "triplespace-cli",
  "triplespace-client",

@@ -320,6 +320,8 @@ async fn run(
         }
         Module::LogEvents => {
             feed.filters.kinds = vec!["log".into(), "job".into()];
+            // A thread record that is also a log event is an `edit` row with a log ID.
+            feed.filters.log_events = true;
             if let Some(t) = ctx.params.get("letype") {
                 feed.filters.log_type = Some(t.to_string());
             }
@@ -337,7 +339,7 @@ async fn run(
         }
     }
     let props = common(ctx, module, &mut feed).await?;
-    let page = feed::query(ctx.db(), &ctx.tenant.slug, &feed, &viewer(&ctx.caller))
+    let page = feed::query(ctx.db(), &ctx.tenant.slug, &feed, &viewer(ctx).await?)
         .await
         .map_err(ApiError::internal)?;
     let rows: Vec<Value> = page

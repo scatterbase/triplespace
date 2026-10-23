@@ -29,6 +29,10 @@ Checks:
     canonical special-page names case-sensitively (0050 §14, checks 12–15)
 
 Usage: check_adrs.py [--index] [DOCS_DIR]
+
+Exits 1 if any problem is listed (every "   - " line), 0 otherwise. The "crates named in ADRs
+but not in the table" list is informational and does not fail the run. docs/check.sh runs this
+with the other documentation checkers.
 """
 import os, re, sys, glob, collections
 
@@ -627,4 +631,7 @@ if index_problem:
     print("   -", index_problem)
 if WRITE_INDEX:
     print("\nwrote decisions/INDEX.md")
-print(f"\ndone: {len(texts)} ADRs, {len(new_format)} in the 0050 format")
+failures = sum(len(v) for v in problems.values()) + sum(len(v) for v in reg_problems.values()) + bool(index_problem)
+print(f"\ndone: {len(texts)} ADRs, {len(new_format)} in the 0050 format; "
+      + (f"{failures} problem{'s' * (failures != 1)}" if failures else "no problems"))
+sys.exit(1 if failures else 0)

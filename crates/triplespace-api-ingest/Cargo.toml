@@ -23,12 +23,16 @@ scatter-wikibase-changeset.workspace = true
 scatter-wikibase-model.workspace = true
 tokio-postgres.workspace = true
 serde_json.workspace = true
+scatter-threads.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 ed25519-dalek.workspace = true
 scatter-actors.workspace = true
 scatter-providers.workspace = true
+scatter-pages.workspace = true
+scatter-talk.workspace = true
+scatter-talk-import.workspace = true
 
 [lints]
 workspace = true

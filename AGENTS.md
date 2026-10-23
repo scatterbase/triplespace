@@ -19,6 +19,21 @@ QuickStatements). James Hare (Scatter LLC) owns it; he decides, and agents draft
 | `xtask/` | `cargo xtask deps` (dependency graph vs. chapter 22 §2.1), `wasm`, `manifest`. | |
 | `ui/`, `i18n/` | The site front end (Codex, Vite) and interface messages. | |
 
+**Looking things up:** `tools/adr.py` answers the common questions in one call:
+- `show 0013 §7` prints an ADR section, following its pointer to the chapter text.
+- `where <phrase>` lists the chapter sections, ADRs and registry files that cover a subject.
+- `log 0008 [A6]` prints an Amendment log, or one entry.
+- `questions NNNN` prints an ADR's open questions.
+- `outline NN|NNNN` prints a document's headings.
+- `code 0013 §7` lists the code that cites a section.
+
+**Is it built?** Every ADR is `Proposed` until it is implemented in full, so the status won't tell
+you. `tools/coverage.py` reads the `NNNN §N` citations in code comments: run it alone for one line
+per ADR, or with `NNNN` for each section and the crates citing it. A citation means the code is
+about a section, not that the section is complete, so read the cited lines before relying on one.
+Cite sections in comments as `0013 §7`, and a numbered item as `0013 §7 rule 2` (0050 §11).
+`coverage.py --stale` lists citations of sections that don't exist.
+
 **Generated files: never edit by hand.** `docs/decisions/INDEX.md` (`check_adrs.py --index`),
 `docs/architecture/MAP.md` (`map.py --write`), and the settings tables in chapter 23
 (`settings.py --write`, from `registry/settings.toml`).
@@ -56,15 +71,17 @@ cargo xtask wasm
 (cd ui && npm run e2e)                  # Playwright + axe; needs the three binaries and a test DB
 tools/client_compat.sh                  # WBI, Pywikibot, WDI against a fresh server
 
-# Docs: run from docs/
-python3 decisions/check_adrs.py --index .   # every "   - " line in its report is a failure
-python3 architecture/map.py .
-python3 architecture/settings.py .
-python3 api/vectors/check.py
+docs/check.sh                           # every doc checker; exits non-zero on any failure
+docs/check.sh --write                   # regenerate INDEX.md, MAP.md, chapter 23's tables, then check
 ```
 
-Say which checks you ran and which you could not run (no Postgres, no browser), rather than
-calling the work verified.
+In a fresh Linux sandbox, run `eval "$(tools/dev_env.sh)"` first. It starts Postgres, exports
+`TRIPLESPACE_TEST_DATABASE_URL` and the client-compatibility `PYTHON`, and warns if it had to
+fall back from the pinned Rust toolchain to stable.
+
+Say which checks you ran and which you could not run (no Postgres, no browser, a stable
+toolchain instead of the pinned one), rather than calling the work verified. Without
+`TRIPLESPACE_TEST_DATABASE_URL` the database tests print "skipping" and pass vacuously.
 
 ## Working rules
 

@@ -85,3 +85,6 @@ tools/*.xml
 
 # Claude Code: personal settings (shared skills in .claude/skills are committed)
 .claude/settings.local.json
+
+# Python virtualenv made by tools/dev_env.sh for the client-compatibility checks
+.venv/

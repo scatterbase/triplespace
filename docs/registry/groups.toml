@@ -13,6 +13,13 @@
 # revision-hiding, suppression and hiding a username are read ACLs whose group is the
 # deletion or suppression group named in site config (defaults sysop, suppress).
 # Only graph ACLs are listed here; the rest are moderation records in the tenant log.
+#
+# Pending (0016 A35, A36; docs/registry/README.md): a [[group]] may carry
+#   includes = [...]  group names or "*" (every group but owner) whose ACL tests its members pass
+#   adds, removes, adds_self, removes_self = [...]  groups its members may add to or remove from
+#   within = [...]  namespaces and sets outside which its permissions do not hold
+# No default group sets them; the fields are written here as a comment until scatter-actors
+# accepts them.
 
 version = 1
 

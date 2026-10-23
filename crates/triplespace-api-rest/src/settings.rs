@@ -49,7 +49,7 @@ fn scope_of(app: &App, tenant: &Tenant, q: &BTreeMap<String, String>) -> Result<
 }
 
 /// The tenant and the caller, refusing a caller who may not read the tenant.
-async fn prelude(
+pub(crate) async fn prelude(
     app: &App,
     client: &tokio_postgres::Client,
     origin: &Origin,

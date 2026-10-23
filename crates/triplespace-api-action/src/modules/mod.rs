@@ -9,6 +9,7 @@ pub mod entitydata;
 pub mod info;
 pub mod issuers;
 pub mod login;
+pub mod moderation;
 pub mod options;
 pub mod pageset;
 pub mod parse;

@@ -48,14 +48,14 @@ struct Source {
     redirected_from: Option<String>,
 }
 
-async fn source(ctx: &Ctx, site: &Site) -> Result<Source, ApiError> {
+async fn source(ctx: &Ctx, site: &Site, hidden: &pages::Hidden) -> Result<Source, ApiError> {
     let tenant = ctx.tenant.slug.as_str();
     if let Some(text) = ctx.params.get("text") {
         let name = ctx.params.get("title").unwrap_or("API");
         let title = pages::resolve_title(site, name)
             .ok_or_else(|| ApiError::new("invalidtitle", format!("Bad title \"{name}\".")))?;
         return Ok(Source {
-            page: pages::by_title(ctx.db(), tenant, title.namespace, &title.text).await?,
+            page: pages::by_title(ctx.db(), tenant, hidden, title.namespace, &title.text).await?,
             title,
             revid: None,
             text: text.to_string(),
@@ -66,15 +66,19 @@ async fn source(ctx: &Ctx, site: &Site) -> Result<Source, ApiError> {
         let r: u64 = oldid
             .parse()
             .map_err(|_| ApiError::bad_value("oldid", oldid))?;
-        let page = pages::by_revid(ctx.db(), tenant, r).await?.ok_or_else(|| {
-            ApiError::new("nosuchrevid", format!("There is no revision with ID {r}."))
-        })?;
+        let page = pages::by_revid(ctx.db(), tenant, hidden, r)
+            .await?
+            .ok_or_else(|| {
+                ApiError::new("nosuchrevid", format!("There is no revision with ID {r}."))
+            })?;
         (page, Some(r))
     } else if let Some(id) = ctx.params.get("pageid") {
         let n: u64 = id.parse().map_err(|_| ApiError::bad_value("pageid", id))?;
-        let page = pages::by_id(ctx.db(), tenant, n).await?.ok_or_else(|| {
-            ApiError::new("nosuchpageid", format!("There is no page with ID {n}."))
-        })?;
+        let page = pages::by_id(ctx.db(), tenant, hidden, n)
+            .await?
+            .ok_or_else(|| {
+                ApiError::new("nosuchpageid", format!("There is no page with ID {n}."))
+            })?;
         (page, None)
     } else if let Some(name) = ctx.params.get("page") {
         if pages::names_entity(site, name) {
@@ -85,7 +89,7 @@ async fn source(ctx: &Ctx, site: &Site) -> Result<Source, ApiError> {
         }
         let title = pages::resolve_title(site, name)
             .ok_or_else(|| ApiError::new("invalidtitle", format!("Bad title \"{name}\".")))?;
-        let page = pages::by_title(ctx.db(), tenant, title.namespace, &title.text)
+        let page = pages::by_title(ctx.db(), tenant, hidden, title.namespace, &title.text)
             .await?
             .ok_or_else(missing_title)?;
         (page, None)
@@ -107,11 +111,14 @@ async fn source(ctx: &Ctx, site: &Site) -> Result<Source, ApiError> {
             .and_then(|r| r.get::<_, Option<i64>>(0))
             .and_then(|t| u64::try_from(t).ok());
         if let Some(t) = target
-            && let Some(p) = pages::by_id(ctx.db(), tenant, t).await?
+            && let Some(p) = pages::by_id(ctx.db(), tenant, hidden, t).await?
         {
             redirected_from = Some(site.prefixed(page.ns, &page.title));
             page = p;
         }
+    }
+    if crate::modules::revisions::is_discussion(&page.model) {
+        return Err(crate::modules::revisions::discussion_content());
     }
     let revid = revid.or(page.latest_revid);
     let text = match revid {
@@ -185,7 +192,8 @@ fn display_title(site: &Site, title: &Title) -> String {
 pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     ctx.caller.require("read")?;
     let site = Site::load(ctx).await?;
-    let mut src = source(ctx, &site).await?;
+    let hidden = pages::hidden(ctx).await?;
+    let mut src = source(ctx, &site, &hidden).await?;
     let v2 = ctx.formatversion == 2;
     let flag = || if v2 { json!(true) } else { json!("") };
     if ctx.params.get("text").is_some() && (ctx.params.flag("pst") || ctx.params.flag("onlypst")) {
@@ -256,7 +264,7 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         return Ok(ApiResponse::ok(json!({"parse": Value::Object(out)})));
     }
 
-    let render = pages::render(ctx.db(), &tenant, &site, &src.text, &src.title).await?;
+    let render = pages::render(ctx.db(), &tenant, &site, &hidden, &src.text, &src.title).await?;
     let ex = &render.rendered.extracted;
     if want("text") {
         let html = render.rendered.html.clone();
@@ -334,7 +342,7 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
                 && !call.name.starts_with('#')
                 && !call.name.contains(':')
             {
-                let exists = pages::by_title(ctx.db(), &tenant, t.namespace, &t.text)
+                let exists = pages::by_title(ctx.db(), &tenant, &hidden, t.namespace, &t.text)
                     .await?
                     .is_some();
                 push(t.namespace, &t.text, exists);

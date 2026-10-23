@@ -2060,6 +2060,1222 @@
           }
         }
       }
+    },
+    "/thread": {
+      "post": {
+        "operationId": "createThread",
+        "summary": "Start a thread",
+        "description": "Writes `create`: mints the thread's page ID and title (`{date}/{subject}`, with ` (n)` when taken) and the target's talk page if it has none. `also` lists the thread on further pages from the start. Needs the `edit` right and an account; a request made with a session cookie carries its CSRF token as `token`. Refusals: `badbody`; `badtoken` for a session write without its CSRF token; `permissiondenied`; `ts-thread-not-found`; `ts-not-a-post`; `ts-bad-subject`; `ts-unknown-status`; `ts-bad-media-type`; `ts-import-only` for a field only an import writes; `ts-bad-collapse`; `ts-no-target`; `ts-bad-attachment`; `ts-bad-pin`; `ts-limit`; `ts-base-required`; and `editconflict` when the thread has a record after `base` (ADR 0019 §9, A26; architecture 14 §1.2, §2.4, §3.6, §4.2). The writer must be able to read the thread and every page the record names; a page they may not read is `ts-no-target`, and no record is accepted on a deleted thread (`ts-thread-deleted`, 410).",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ThreadCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The record written: the thread, its title, the record's revision ID and the next `base`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadWritten"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A refusal; `code` names it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied` or `badtoken`; `protectedpage` or `protectednamespace` when an ACL restricts the write (09 §2).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-thread-not-found`, `ts-not-a-post` or `ts-no-target`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`editconflict`: the thread changed after `base`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/thread/{id}": {
+      "get": {
+        "operationId": "getThread",
+        "summary": "A thread",
+        "description": "The thread: subject, title, status and its category, `home` and `listings` (each with its target, talk page ID and title, when attached and when pinned), and its posts as `as:Note` objects in tree order, each post followed by its replies, with `depth`, `collapsed` and, on a collapsing post, `collapse`. `base` is the offset a later write names. Local threads only (ADR 0019 §9; 0049 §11). Reads follow the ACLs (ADR 0023 §4–§5; 0056 §5): a thread is enclosed by its home talk page, which a subject's deletion can take with it; a thread the viewer may not read answers as missing when the restriction is confidential, and 410 `ts-thread-deleted` when it was deleted, while its deletion group still reads it, marked `deleted`. A post whose text or author a `record` ACL hides carries `texthidden` or `userhidden`, with the part itself only for the group the ACL names; erased text is `texthidden` and `erased`.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The thread's page ID.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The thread.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Thread"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller may not read the tenant.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-thread-not-found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "`ts-thread-deleted`: the thread, or the talk page it lives on, was deleted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/thread/{id}/post": {
+      "post": {
+        "operationId": "postToThread",
+        "summary": "Post in a thread",
+        "description": "Writes `post`: top-level, or in reply to `inReplyTo`; `status` sets the thread's status; `collapse` collapses a range of the thread's posts beneath this one, and `uncollapse` undoes another post's collapse (architecture 14 §2.1, §2.4). Replies need no `base`. Needs the `edit` right and an account; a request made with a session cookie carries its CSRF token as `token`. Refusals: `badbody`; `badtoken` for a session write without its CSRF token; `permissiondenied`; `ts-thread-not-found`; `ts-not-a-post`; `ts-bad-subject`; `ts-unknown-status`; `ts-bad-media-type`; `ts-import-only` for a field only an import writes; `ts-bad-collapse`; `ts-no-target`; `ts-bad-attachment`; `ts-bad-pin`; `ts-limit`; `ts-base-required`; and `editconflict` when the thread has a record after `base` (ADR 0019 §9, A26; architecture 14 §1.2, §2.4, §3.6, §4.2). The writer must be able to read the thread and every page the record names; a page they may not read is `ts-no-target`, and no record is accepted on a deleted thread (`ts-thread-deleted`, 410).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The thread's page ID.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ThreadPost"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The record written: the thread, its title, the record's revision ID and the next `base`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadWritten"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A refusal; `code` names it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied` or `badtoken`; `protectedpage` or `protectednamespace` when an ACL restricts the write (09 §2).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-thread-not-found`, `ts-not-a-post` or `ts-no-target`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`editconflict`: the thread changed after `base`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "`ts-thread-deleted`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/thread/{id}/post/{revid}": {
+      "put": {
+        "operationId": "editThreadPost",
+        "summary": "Edit a post",
+        "description": "Writes `edit`: replaces the post's complete text, in its own media type. The post's author needs `edit`; anyone else needs `ts-editpost` as well (architecture 09 §8.1), and the post then names them in `editedBy`. Needs `base`. Needs the `edit` right and an account; a request made with a session cookie carries its CSRF token as `token`. Refusals: `badbody`; `badtoken` for a session write without its CSRF token; `permissiondenied`; `ts-thread-not-found`; `ts-not-a-post`; `ts-bad-subject`; `ts-unknown-status`; `ts-bad-media-type`; `ts-import-only` for a field only an import writes; `ts-bad-collapse`; `ts-no-target`; `ts-bad-attachment`; `ts-bad-pin`; `ts-limit`; `ts-base-required`; and `editconflict` when the thread has a record after `base` (ADR 0019 §9, A26; architecture 14 §1.2, §2.4, §3.6, §4.2). The writer must be able to read the thread and every page the record names; a page they may not read is `ts-no-target`, and no record is accepted on a deleted thread (`ts-thread-deleted`, 410).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The thread's page ID.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "revid",
+            "in": "path",
+            "required": true,
+            "description": "The post's revision ID.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ThreadPostEdit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The record written: the thread, its title, the record's revision ID and the next `base`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadWritten"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A refusal; `code` names it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied` or `badtoken`; `protectedpage` or `protectednamespace` when an ACL restricts the write (09 §2).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-thread-not-found`, `ts-not-a-post` or `ts-no-target`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`editconflict`: the thread changed after `base`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "`ts-thread-deleted`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/thread/{id}/rename": {
+      "post": {
+        "operationId": "renameThread",
+        "summary": "Rename a thread",
+        "description": "Writes `rename`: a new subject, and so a new title on the thread's original date. Needs `base`. Needs the `move` right and an account; a request made with a session cookie carries its CSRF token as `token`. Refusals: `badbody`; `badtoken` for a session write without its CSRF token; `permissiondenied`; `ts-thread-not-found`; `ts-not-a-post`; `ts-bad-subject`; `ts-unknown-status`; `ts-bad-media-type`; `ts-import-only` for a field only an import writes; `ts-bad-collapse`; `ts-no-target`; `ts-bad-attachment`; `ts-bad-pin`; `ts-limit`; `ts-base-required`; and `editconflict` when the thread has a record after `base` (ADR 0019 §9, A26; architecture 14 §1.2, §2.4, §3.6, §4.2). The writer must be able to read the thread and every page the record names; a page they may not read is `ts-no-target`, and no record is accepted on a deleted thread (`ts-thread-deleted`, 410).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The thread's page ID.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ThreadRename"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The record written: the thread, its title, the record's revision ID and the next `base`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadWritten"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A refusal; `code` names it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied` or `badtoken`; `protectedpage` or `protectednamespace` when an ACL restricts the write (09 §2).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-thread-not-found`, `ts-not-a-post` or `ts-no-target`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`editconflict`: the thread changed after `base`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "`ts-thread-deleted`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/thread/{id}/move": {
+      "post": {
+        "operationId": "moveThread",
+        "summary": "Move a thread",
+        "description": "Writes `move`: a new home; `keep` keeps the old home as a listing, with its pin. Moving to a listing promotes it. Needs `base`. Needs the `move` right and an account; a request made with a session cookie carries its CSRF token as `token`. Refusals: `badbody`; `badtoken` for a session write without its CSRF token; `permissiondenied`; `ts-thread-not-found`; `ts-not-a-post`; `ts-bad-subject`; `ts-unknown-status`; `ts-bad-media-type`; `ts-import-only` for a field only an import writes; `ts-bad-collapse`; `ts-no-target`; `ts-bad-attachment`; `ts-bad-pin`; `ts-limit`; `ts-base-required`; and `editconflict` when the thread has a record after `base` (ADR 0019 §9, A26; architecture 14 §1.2, §2.4, §3.6, §4.2). The writer must be able to read the thread and every page the record names; a page they may not read is `ts-no-target`, and no record is accepted on a deleted thread (`ts-thread-deleted`, 410).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The thread's page ID.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ThreadMove"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The record written: the thread, its title, the record's revision ID and the next `base`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadWritten"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A refusal; `code` names it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied` or `badtoken`; `protectedpage` or `protectednamespace` when an ACL restricts the write (09 §2).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-thread-not-found`, `ts-not-a-post` or `ts-no-target`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`editconflict`: the thread changed after `base`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "`ts-thread-deleted`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/thread/{id}/attach": {
+      "post": {
+        "operationId": "attachThread",
+        "summary": "List a thread on a page",
+        "description": "Writes `attach`: lists the thread on a further talk page or board. Needs `base`. Needs the `move` right and an account; a request made with a session cookie carries its CSRF token as `token`. Refusals: `badbody`; `badtoken` for a session write without its CSRF token; `permissiondenied`; `ts-thread-not-found`; `ts-not-a-post`; `ts-bad-subject`; `ts-unknown-status`; `ts-bad-media-type`; `ts-import-only` for a field only an import writes; `ts-bad-collapse`; `ts-no-target`; `ts-bad-attachment`; `ts-bad-pin`; `ts-limit`; `ts-base-required`; and `editconflict` when the thread has a record after `base` (ADR 0019 §9, A26; architecture 14 §1.2, §2.4, §3.6, §4.2). The writer must be able to read the thread and every page the record names; a page they may not read is `ts-no-target`, and no record is accepted on a deleted thread (`ts-thread-deleted`, 410).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The thread's page ID.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ThreadTarget"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The record written: the thread, its title, the record's revision ID and the next `base`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadWritten"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A refusal; `code` names it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied` or `badtoken`; `protectedpage` or `protectednamespace` when an ACL restricts the write (09 §2).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-thread-not-found`, `ts-not-a-post` or `ts-no-target`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`editconflict`: the thread changed after `base`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "`ts-thread-deleted`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/thread/{id}/detach": {
+      "post": {
+        "operationId": "detachThread",
+        "summary": "Unlist a thread",
+        "description": "Writes `detach`: removes a listing. The home is changed with `move`, never removed. Needs `base`. Needs the `move` right and an account; a request made with a session cookie carries its CSRF token as `token`. Refusals: `badbody`; `badtoken` for a session write without its CSRF token; `permissiondenied`; `ts-thread-not-found`; `ts-not-a-post`; `ts-bad-subject`; `ts-unknown-status`; `ts-bad-media-type`; `ts-import-only` for a field only an import writes; `ts-bad-collapse`; `ts-no-target`; `ts-bad-attachment`; `ts-bad-pin`; `ts-limit`; `ts-base-required`; and `editconflict` when the thread has a record after `base` (ADR 0019 §9, A26; architecture 14 §1.2, §2.4, §3.6, §4.2). The writer must be able to read the thread and every page the record names; a page they may not read is `ts-no-target`, and no record is accepted on a deleted thread (`ts-thread-deleted`, 410).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The thread's page ID.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ThreadTarget"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The record written: the thread, its title, the record's revision ID and the next `base`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadWritten"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A refusal; `code` names it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied` or `badtoken`; `protectedpage` or `protectednamespace` when an ACL restricts the write (09 §2).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-thread-not-found`, `ts-not-a-post` or `ts-no-target`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`editconflict`: the thread changed after `base`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "`ts-thread-deleted`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/thread/{id}/pin": {
+      "post": {
+        "operationId": "pinThread",
+        "summary": "Pin a thread",
+        "description": "Writes `pin`: pins the thread on one of its attachments, within `thread.max_pinned`. Needs `base`. Needs the `move` right and an account; a request made with a session cookie carries its CSRF token as `token`. Refusals: `badbody`; `badtoken` for a session write without its CSRF token; `permissiondenied`; `ts-thread-not-found`; `ts-not-a-post`; `ts-bad-subject`; `ts-unknown-status`; `ts-bad-media-type`; `ts-import-only` for a field only an import writes; `ts-bad-collapse`; `ts-no-target`; `ts-bad-attachment`; `ts-bad-pin`; `ts-limit`; `ts-base-required`; and `editconflict` when the thread has a record after `base` (ADR 0019 §9, A26; architecture 14 §1.2, §2.4, §3.6, §4.2). The writer must be able to read the thread and every page the record names; a page they may not read is `ts-no-target`, and no record is accepted on a deleted thread (`ts-thread-deleted`, 410).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The thread's page ID.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ThreadTarget"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The record written: the thread, its title, the record's revision ID and the next `base`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadWritten"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A refusal; `code` names it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied` or `badtoken`; `protectedpage` or `protectednamespace` when an ACL restricts the write (09 §2).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-thread-not-found`, `ts-not-a-post` or `ts-no-target`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`editconflict`: the thread changed after `base`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "`ts-thread-deleted`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/thread/{id}/unpin": {
+      "post": {
+        "operationId": "unpinThread",
+        "summary": "Unpin a thread",
+        "description": "Writes `unpin`. Needs `base`. Needs the `move` right and an account; a request made with a session cookie carries its CSRF token as `token`. Refusals: `badbody`; `badtoken` for a session write without its CSRF token; `permissiondenied`; `ts-thread-not-found`; `ts-not-a-post`; `ts-bad-subject`; `ts-unknown-status`; `ts-bad-media-type`; `ts-import-only` for a field only an import writes; `ts-bad-collapse`; `ts-no-target`; `ts-bad-attachment`; `ts-bad-pin`; `ts-limit`; `ts-base-required`; and `editconflict` when the thread has a record after `base` (ADR 0019 §9, A26; architecture 14 §1.2, §2.4, §3.6, §4.2). The writer must be able to read the thread and every page the record names; a page they may not read is `ts-no-target`, and no record is accepted on a deleted thread (`ts-thread-deleted`, 410).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The thread's page ID.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ThreadTarget"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The record written: the thread, its title, the record's revision ID and the next `base`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadWritten"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A refusal; `code` names it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied` or `badtoken`; `protectedpage` or `protectednamespace` when an ACL restricts the write (09 §2).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-thread-not-found`, `ts-not-a-post` or `ts-no-target`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`editconflict`: the thread changed after `base`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "`ts-thread-deleted`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/page/{id}/threads": {
+      "get": {
+        "operationId": "listThreads",
+        "summary": "The threads on a talk page or board",
+        "description": "Every thread attached to the talk page or board, home or listing, without its posts: title, subject, status and its category, `home`, when it was pinned there, last activity and post count. Pinned threads come first, in the order they were pinned, then the rest by last activity. Local threads only; foreign threads and `origin=` are not served yet (ADR 0019 §9; 0049 §11; 0069 §9). Threads the viewer may not read are left out; a deleted thread stays for its deletion group, marked `deleted`. A deleted talk page answers 410 `ts-page-deleted` outside the group that deleted it.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The talk page's or board's page ID.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The listing.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadListing"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller may not read the tenant.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-not-a-talk-page`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "`ts-page-deleted`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/page/{id}/history": {
+      "get": {
+        "operationId": "getPageHistory",
+        "summary": "A page's history, with its threads for a talk page or board",
+        "description": "The page's history as activity rows (chapter 16 §6.1; chapter 19 §3.3), newest first unless `dir=newer`, paged with `next`/`continue` as `GET /activity` is. For a talk page or board the history is composite: its own rows and every row of each thread attached to it now, home or listing, so a thread that moved away or was detached takes its rows with it; a deleted thread's rows are left out. Thread records are `edit` rows on the thread's page ID; those that are also log events (`create`, a rename or move, `attach`, `detach`, `pin`, `unpin`) carry their log type, action and ID. A page that does not exist, or that the viewer may not read, answers 404 alike; a deleted one 410 `ts-page-deleted` (ADR 0056 §5).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The page ID: a document page, a thread, or a talk page or board.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "description": "Row kinds, `|`-separated: `edit`, `sync`, `log`, `job`, `erased`. Default: every kind but `sync` for the everything set, every kind for a target.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "description": "Only rows from these graphs, `|`-separated: `local`, `pages`, `mirror/wikidata`, …; a history's source switch (chapter 19 §3.5).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "description": "Rows at or after this time: ISO 8601 or MediaWiki's `YYYYMMDDHHMMSS`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "until",
+            "in": "query",
+            "required": false,
+            "description": "Rows at or before this time.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dir",
+            "in": "query",
+            "required": false,
+            "description": "`older` (newest first, the default) or `newer`.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "older",
+                "newer"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Rows per page: 50 by default, 500 at most.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          },
+          {
+            "name": "continue",
+            "in": "query",
+            "required": false,
+            "description": "The `next` token of the previous page.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "required": false,
+            "description": "The language of the targets' labels; `mul` and `en` are fallbacks.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of the entity's history.",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Tag": {
+                "description": "Public responses only: `entity:{id}`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityPage"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not modified."
+          },
+          "400": {
+            "description": "The ID does not parse (`invalid-entity-id`), or a parameter the route does not take a value of (`bad-parameter`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller may not read (`permissiondenied`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such entity, or none the viewer may see (`entity-not-found`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The host is not a tenant of this instance (`misdirected`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "`ts-page-deleted`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4053,6 +5269,502 @@
                     "active"
                   ],
                   "description": "Freezing and deleting tenants come later; every listed tenant is active."
+                }
+              }
+            }
+          }
+        }
+      },
+      "ThreadTargetRef": {
+        "type": "object",
+        "required": [
+          "kind",
+          "id"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "page",
+              "actor"
+            ]
+          },
+          "id": {
+            "description": "A page ID for `page`; an actor key for `actor` (a user talk page).",
+            "oneOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          }
+        }
+      },
+      "ThreadCreate": {
+        "type": "object",
+        "required": [
+          "subject",
+          "target",
+          "text"
+        ],
+        "properties": {
+          "subject": {
+            "type": "string"
+          },
+          "target": {
+            "$ref": "#/components/schemas/ThreadTargetRef"
+          },
+          "text": {
+            "type": "string",
+            "description": "The opening post, in markdown."
+          },
+          "also": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ThreadTargetRef"
+            }
+          },
+          "status": {
+            "type": "string"
+          },
+          "pinned": {
+            "type": "boolean"
+          },
+          "token": {
+            "type": "string",
+            "description": "The CSRF token, for a session write."
+          }
+        }
+      },
+      "ThreadPost": {
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "inReplyTo": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "collapse": {
+            "type": "object",
+            "required": [
+              "first",
+              "last"
+            ],
+            "properties": {
+              "first": {
+                "type": "integer"
+              },
+              "last": {
+                "type": "integer"
+              }
+            }
+          },
+          "uncollapse": {
+            "type": "integer"
+          },
+          "token": {
+            "type": "string",
+            "description": "The CSRF token, for a session write."
+          }
+        }
+      },
+      "ThreadPostEdit": {
+        "type": "object",
+        "required": [
+          "text",
+          "base"
+        ],
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "mediaType": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string",
+            "description": "The CSRF token, for a session write."
+          },
+          "summary": {
+            "type": "string",
+            "description": "The summary, for an operation that carries one."
+          },
+          "base": {
+            "type": "integer",
+            "description": "The thread's offset as last read; required by every operation but `create` and `post`."
+          }
+        }
+      },
+      "ThreadRename": {
+        "type": "object",
+        "required": [
+          "subject",
+          "base"
+        ],
+        "properties": {
+          "subject": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string",
+            "description": "The CSRF token, for a session write."
+          },
+          "summary": {
+            "type": "string",
+            "description": "The summary, for an operation that carries one."
+          },
+          "base": {
+            "type": "integer",
+            "description": "The thread's offset as last read; required by every operation but `create` and `post`."
+          }
+        }
+      },
+      "ThreadMove": {
+        "type": "object",
+        "required": [
+          "target",
+          "base"
+        ],
+        "properties": {
+          "target": {
+            "$ref": "#/components/schemas/ThreadTargetRef"
+          },
+          "keep": {
+            "type": "boolean"
+          },
+          "token": {
+            "type": "string",
+            "description": "The CSRF token, for a session write."
+          },
+          "summary": {
+            "type": "string",
+            "description": "The summary, for an operation that carries one."
+          },
+          "base": {
+            "type": "integer",
+            "description": "The thread's offset as last read; required by every operation but `create` and `post`."
+          }
+        }
+      },
+      "ThreadTarget": {
+        "type": "object",
+        "required": [
+          "target",
+          "base"
+        ],
+        "properties": {
+          "target": {
+            "$ref": "#/components/schemas/ThreadTargetRef"
+          },
+          "token": {
+            "type": "string",
+            "description": "The CSRF token, for a session write."
+          },
+          "summary": {
+            "type": "string",
+            "description": "The summary, for an operation that carries one."
+          },
+          "base": {
+            "type": "integer",
+            "description": "The thread's offset as last read; required by every operation but `create` and `post`."
+          }
+        }
+      },
+      "ThreadWritten": {
+        "type": "object",
+        "required": [
+          "thread",
+          "revid",
+          "base"
+        ],
+        "properties": {
+          "thread": {
+            "type": "integer"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "revid": {
+            "type": "integer"
+          },
+          "base": {
+            "type": "integer"
+          }
+        }
+      },
+      "ThreadAttachment": {
+        "type": "object",
+        "properties": {
+          "target": {
+            "$ref": "#/components/schemas/ThreadTargetRef"
+          },
+          "talk_page_id": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "talk_page": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "ns": {
+                "type": "integer"
+              },
+              "title": {
+                "type": "string"
+              }
+            }
+          },
+          "attached": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pinned": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ThreadNote": {
+        "type": "object",
+        "required": [
+          "type",
+          "id"
+        ],
+        "properties": {
+          "type": {
+            "const": "Note"
+          },
+          "id": {
+            "type": "integer",
+            "description": "The post's revision ID."
+          },
+          "inReplyTo": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "attributedTo": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The author's actor key; null when hidden from this viewer."
+          },
+          "published": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updated": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mediaType": {
+            "type": "string"
+          },
+          "content": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The post's text; null when a `record` ACL hides it from this viewer, or it was erased."
+          },
+          "depth": {
+            "type": "integer"
+          },
+          "collapsed": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "heading": {
+            "type": "integer"
+          },
+          "collapse": {
+            "type": "object",
+            "properties": {
+              "first": {
+                "type": "integer"
+              },
+              "last": {
+                "type": "integer"
+              }
+            }
+          },
+          "imported": {
+            "type": "boolean"
+          },
+          "texthidden": {
+            "type": "boolean"
+          },
+          "userhidden": {
+            "type": "boolean"
+          },
+          "erased": {
+            "type": "boolean"
+          },
+          "editedBy": {
+            "type": "array",
+            "items": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "description": "Actors other than the author who edited the post, in the order of their first edit; `null` for one a `record` ACL hides from the viewer (architecture 19 §5). Absent when only the author edited it."
+          }
+        }
+      },
+      "Thread": {
+        "type": "object",
+        "required": [
+          "id",
+          "subject",
+          "status",
+          "home",
+          "listings",
+          "posts",
+          "base"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "subject": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ]
+          },
+          "home": {
+            "$ref": "#/components/schemas/ThreadAttachment"
+          },
+          "listings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ThreadAttachment"
+            }
+          },
+          "posts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ThreadNote"
+            }
+          },
+          "base": {
+            "type": "integer"
+          },
+          "deleted": {
+            "type": "boolean",
+            "description": "The thread is deleted; only its deletion group sees it."
+          }
+        }
+      },
+      "ThreadListing": {
+        "type": "object",
+        "required": [
+          "talk_page_id",
+          "threads"
+        ],
+        "properties": {
+          "talk_page_id": {
+            "type": "integer"
+          },
+          "target": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ThreadTargetRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "threads": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "subject": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "category": {
+                  "type": "string",
+                  "enum": [
+                    "open",
+                    "closed"
+                  ]
+                },
+                "home": {
+                  "type": "boolean"
+                },
+                "pinned": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "last_post": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "posts": {
+                  "type": "integer"
+                },
+                "deleted": {
+                  "type": "boolean"
                 }
               }
             }

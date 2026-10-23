@@ -14,7 +14,7 @@ This directory is the registry of record for the names and codes that Triplespac
 | `groups.toml` | Default groups, their permissions, and the default graph ACLs | `scatter-actors` | 0016 §2–4, 0019 §12, 0020 §7, 0021 §9, 0022 §12, 0023 §11, 0024 §11, 0025 §10, 0030 §12, 0047 §12, 0051 §8 |
 | `grants.toml` | API-key grants and the permissions each covers; also the OAuth scopes a consumer may request | `scatter-actors` | 0024 §4, 0025 §2, 0047 §12 |
 | `sites.toml` | Site aliases: MediaWiki site IDs, hosts, article paths and languages, for sitelink compatibility (generated from the Wikimedia site matrix) | `scatter-wikibase-model` | 0026 §2 |
-| `thread-statuses.toml` | Default thread statuses, with category and order | `scatter-threads` | 0019 §6 (amended), 0054 §5 |
+| `thread-statuses.toml` | Default thread statuses, with category and order | `scatter-threads` | 0019 §6 (amended), 0054 §5, 0090 §3 |
 | `talk-markup.toml` | The conventions of wikitext talk pages, universal across wikis: timestamp formats as MediaWiki date-format strings, month names by language, the marks before an undated signature, and template names by role (`unsigned`, `outdent`, `wrapper`, `autosign`) | `scatter-talk` | 0090 §5 |
 | `preferences.toml` | Registered preference keys, types and defaults | `triplespace-accounts` | 0027 §1, 0069 §6 |
 | `tenancy.toml` | Tenancy policy switches and the `isolated`, `community` and `enterprise` presets, with their global groups | `scatter-actors` | 0028 §1, 0042 §2 |
@@ -39,6 +39,8 @@ This directory is the registry of record for the names and codes that Triplespac
 - **Slugs are one namespace.** A tenant's slug ([0018](../decisions/0018-tenants.md) §1), a provider's slug and an issuer's code are the same word for the same thing; a tenant that becomes a provider keeps its slug and takes a code and a number here. A provider's slug is also a colon prefix: `wikidata:Q42` is an input form of `WDQ42`, so slugs share the one namespace of keyed-type, resolver and notation scheme names, and a tenant's entity source may not take any of them ([0078](../decisions/0078-entity-sources.md) §3).
 
 ## Pending allocations
+
+- **Groups that include others, delegate membership or are scoped** ([0016](../decisions/0016-permissions-and-access-control.md) A35, A36): the fields `includes`, `adds`, `removes`, `adds_self`, `removes_self` and `within` on `[[group]]` in `groups.toml`. No default group sets them; they are described in a comment at the top of the file until `scatter-actors` accepts them, since the parser rejects unknown fields.
 
 - **Pages served at the auth base** ([0089](../decisions/0089-the-auth-host-and-instance-logins.md) §7): the field `auth = true` on `UserLogin`, `CreateAccount`, `Account` and `UserLogout` in `special-pages.toml`. Written as a comment beside each until `triplespace-titles` accepts it, since the parser rejects unknown fields.
 

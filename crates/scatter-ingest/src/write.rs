@@ -39,6 +39,33 @@ pub struct Attestation {
     /// The actor is unknown because the source hid it: the part names no actor and
     /// carries the `hidden` marker instead (0007 §5; 0035 A14).
     pub hidden: bool,
+    /// Values the appending transaction minted, which the client neither submitted nor
+    /// signed over: a thread's title and talk page IDs (14 §1.5). Emitted after the
+    /// common fields, in order.
+    pub minted: Vec<(String, MintedValue)>,
+}
+
+/// A value the appending transaction minted into an attestation map.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MintedValue {
+    /// A text, such as a title.
+    Text(String),
+    /// An ID, such as a page ID.
+    Id(u64),
+    /// A list of IDs, in order.
+    Ids(Vec<u64>),
+}
+
+impl MintedValue {
+    fn to_value(&self) -> Value {
+        match self {
+            MintedValue::Text(t) => Value::text(t),
+            MintedValue::Id(n) => Value::Int(i128::from(*n)),
+            MintedValue::Ids(ns) => {
+                Value::Array(ns.iter().map(|n| Value::Int(i128::from(*n))).collect())
+            }
+        }
+    }
 }
 
 impl Attestation {
@@ -50,6 +77,7 @@ impl Attestation {
             job: None,
             tags: Vec::new(),
             hidden: false,
+            minted: Vec::new(),
         }
     }
 
@@ -89,6 +117,9 @@ impl Attestation {
                 Value::Array(self.tags.iter().map(|t| Value::text(t)).collect()),
             ));
         }
+        for (k, v) in &self.minted {
+            pairs.push((Value::text(k), v.to_value()));
+        }
         Value::map(pairs)
     }
 }
@@ -111,6 +142,9 @@ pub struct Request {
     /// A revision ID the caller supplies in place of the tenant's sequence: an adopted
     /// revision's own, below the floor (0035 §3, A12).
     pub revid: Option<u64>,
+    /// A log ID for a record that is also a log event, as a thread `create` or `move` is
+    /// (16 §6.1); [`write_raw`] writes it into the header beside the revision ID.
+    pub logid: Option<u64>,
 }
 
 impl Request {
@@ -125,6 +159,7 @@ impl Request {
             now,
             budget: Budget::default(),
             revid: None,
+            logid: None,
         }
     }
 }
@@ -454,7 +489,7 @@ pub async fn write_raw<S: IngestStore>(
         payload_type: raw.payload_type,
         key: Some(key),
         revid: Some(revid),
-        logid: None,
+        logid: request.logid,
         page_id: Some(page_id),
         body,
     };

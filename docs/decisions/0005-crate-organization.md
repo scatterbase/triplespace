@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-10-20 (A101)
+- **Updated:** 2026-10-22 (A103)
 - **Author:** James Hare / Claude Opus; revision by James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -42,7 +42,7 @@ Since this ADR was first written, twenty-six further ADRs have added crates, cha
 
 ### 2. Crate map
 
-*Changed by A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A27, A28, A29, A30, A31, A32, A33, A34, A35, A36, A37, A38, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A51, A52, A53, A54, A55, A57, A58, A59, A60, A61, A62, A63, A64, A65, A66, A67, A68, A69, A70, A71, A72, A73, A74, A75, A76, A77, A78, A79, A80, A84, A86, A87, A88, A89, A90, A91, A92, A93, A95, A96, A97, A98, A99, A100, A101.*
+*Changed by A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A27, A28, A29, A30, A31, A32, A33, A34, A35, A36, A37, A38, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A51, A52, A53, A54, A55, A57, A58, A59, A60, A61, A62, A63, A64, A65, A66, A67, A68, A69, A70, A71, A72, A73, A74, A75, A76, A77, A78, A79, A80, A84, A86, A87, A88, A89, A90, A91, A92, A93, A95, A96, A97, A98, A99, A100, A101, A102, A103.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
@@ -1015,3 +1015,25 @@ Replaced text ([22](../architecture/22-crates-and-stack.md) §2.1, as it stood):
 Replaced text ([22](../architecture/22-crates-and-stack.md) §2.1, as it stood):
 
 > `Special:ConfirmAccounts` and the open-request count ([0087](../decisions/0087-account-registration-and-challenges.md) §5, §10) | `triplespace-client`,
+
+### A102. Closing and collapsing posts in the talk-page crates
+
+- **Date:** 2026-10-21
+- **Source:** [0090](0090-converting-talk-pages-comment-by-comment.md) A1
+- **Change:** amends §2
+- **Summary:** With wrapper templates converted into closing and collapsing posts rather than wrapper posts, `scatter-threads` gains `collapse` and `uncollapse` on any post and the `closed` status in place of wrapper posts; `scatter-talk` writes heading, closing and collapsing posts; `triplespace-ui` renders collapsed ranges. Chapter text: [22](../architecture/22-crates-and-stack.md) §2.1.
+
+Replaced text ([22](../architecture/22-crates-and-stack.md) §2.1, as it stood):
+
+> heading posts, wrapper posts and `imported_from` on `post`, and refusing them on an editor's `post` ([0090](../decisions/0090-converting-talk-pages-comment-by-comment.md) §3, §8)
+>
+> signatures, depth and parents, heading and wrapper posts, and the section and page fallbacks;
+>
+> heading and wrapper posts, post anchors, the imported post's byline and `Special:GoToComment` ([0090](../decisions/0090-converting-talk-pages-comment-by-comment.md) §3, §9)
+
+### A103. `scatter-talk-import`
+
+- **Date:** 2026-10-22
+- **Source:** [0090](0090-converting-talk-pages-comment-by-comment.md) A3
+- **Change:** extends §2
+- **Summary:** A new pure crate, `scatter-talk-import`, plans the thread records of a converted talk page for every import job, mapping `scatter-talk`'s conversion onto `scatter-threads`' operations; it depends on both, and on `sha2` for the section name hash. Chapter text: [22](../architecture/22-crates-and-stack.md) §2.1.

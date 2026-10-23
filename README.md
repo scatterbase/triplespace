@@ -63,9 +63,10 @@ off, issues a bot key, and runs `tools/{api,pwb,wdi}_check.py` against it; CI ru
 push.
 
 The tests that need a database read `TRIPLESPACE_TEST_DATABASE_URL` (a Postgres URL whose role
-may create databases) and are vacuous without it. `python3 docs/decisions/check_adrs.py --index
-docs` checks the ADRs and regenerates their index; `python3 docs/architecture/map.py docs` checks the
-chapters against them.
+may create databases) and are vacuous without it. `docs/check.sh` runs every documentation checker
+(`--write` regenerates the ADR index, the chapter map and the settings tables first), and
+`tools/adr.py` looks up ADR and chapter sections. In a fresh Linux sandbox, `eval
+"$(tools/dev_env.sh)"` starts Postgres and sets the test database URL.
 
 ## Setting up an instance
 

@@ -7,7 +7,7 @@
 //! - [`ts_row`]: the Triplespace shape of 16 §3.1, the one `GET /activity` and the
 //!   site's pages read: the record, the target with its title and label, the actor, the
 //!   summary, the flags, the sizes and the links.
-//! - [`viewer`]: what the caller may see, for the `read` restrictions of 0056 §14.
+//! - [`viewer`]: what the caller may see, for the `read` restrictions of 0056 §5 and §14.
 //! - [`actor_key_of`]: a user name to its actor key, for `rcuser`, `ucuser` and
 //!   `leuser`.
 //!
@@ -19,7 +19,7 @@ use serde_json::{Map, Value, json};
 use triplespace_projections::feed::{self, Row, Viewer, iso8601, mw_timestamp, target_kind};
 
 use crate::api::Ctx;
-use crate::auth::Caller;
+use crate::response::ApiError;
 use crate::tenant::Tenant;
 
 /// The visibility bits (0023 §5), as MediaWiki numbers them.
@@ -34,12 +34,13 @@ pub mod visibility {
     pub const SUPPRESSED: i16 = 8;
 }
 
-/// What the caller may see.
-#[must_use]
-pub fn viewer(caller: &Caller) -> Viewer {
-    Viewer {
-        groups: caller.effective.groups.iter().cloned().collect(),
-    }
+/// What the caller may see: its groups, and what confidential restrictions hide from it
+/// ([`crate::pages::hidden`]).
+pub async fn viewer(ctx: &Ctx) -> Result<Viewer, ApiError> {
+    Ok(Viewer {
+        groups: ctx.caller.effective.groups.iter().cloned().collect(),
+        hidden: crate::pages::hidden(ctx).await?,
+    })
 }
 
 /// The actor key of a user name on the tenant, or of a key given as one (`local:7`).
@@ -420,7 +421,11 @@ pub fn ts_row(tenant: &Tenant, row: &Row) -> Value {
         if let Some(args) = &row.summary_args {
             s.insert("args".into(), json!(args));
         }
-        if let (Some(t), Some(a)) = (&row.log_type, &row.log_action) {
+        // A log row's operation is its event; a revision that is also a log event (a
+        // thread `create`) keeps its own and carries the event under `log`.
+        if let (Some(t), Some(a)) = (&row.log_type, &row.log_action)
+            && (row.kind == "log" || row.kind == "job")
+        {
             s.insert("op".into(), json!(format!("{t}/{a}")));
         }
         s.insert("text".into(), json!(comment_text(row)));

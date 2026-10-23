@@ -284,7 +284,11 @@ pub(crate) async fn serve(
         Ok(f) => f,
         Err(r) => return r,
     };
-    let page = match feed::query(ctx.db(), &ctx.tenant.slug, &feed, &viewer(&ctx.caller)).await {
+    let viewer = match viewer(&ctx).await {
+        Ok(v) => v,
+        Err(e) => return internal(&e.info),
+    };
+    let page = match feed::query(ctx.db(), &ctx.tenant.slug, &feed, &viewer).await {
         Ok(p) => p,
         Err(e) => return internal(&e),
     };
@@ -323,6 +327,7 @@ fn body(tenant: &Tenant, feed: &Feed, page: &feed::Page) -> Value {
                 _ => "record",
             }, "id": id}),
             TargetSet::Actor(key) => json!({"actor": key}),
+            TargetSet::Talk(id) => json!({"kind": "page", "id": id.to_string(), "threads": true}),
         },
         "kinds": feed.filters.kinds,
         "sources": feed.filters.sources,
