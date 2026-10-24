@@ -55,8 +55,8 @@ pub mod time;
 
 pub use acl::{
     Acl, AclError, AclPartition, Denied, ReadDecision, ReadKind, Restriction, SetMember, Target,
-    TargetError, Visibility, check_lock_out_change, current_acl, may_include, read_decision,
-    visibility,
+    TargetError, Visibility, check_lock_out_change, check_on, current_acl, may_include,
+    read_decision, visibility,
 };
 pub use actor::{
     ActorKind, ActorRecord, ActorRecordError, ActorStatus, check_name, normalize_name,
@@ -64,12 +64,13 @@ pub use actor::{
 pub use autoconfirm::AutoconfirmThreshold;
 pub use enclosure::{Enclosure, chain};
 pub use evaluate::{
-    Credential, Effective, INSTANCE_RIGHTS, Principal, autopatrolled, evaluate, groups_of,
-    instance_rights,
+    Credential, Delegation, Effective, INSTANCE_RIGHTS, MembershipRefusal, Principal,
+    autopatrolled, evaluate, groups_of, instance_rights, may_change_membership, owner_may_leave,
 };
 pub use grant::{Grant, GrantRegistry, GrantRegistryError};
 pub use group::{
-    GraphAclDefault, GraphWriters, Group, GroupRegistry, GroupRegistryError, Implicit, Scope,
+    GraphAclDefault, GraphWriters, Group, GroupRegistry, GroupRegistryError, Implicit, Includes,
+    Scope,
 };
 pub use iri::{IriContext, IriError, actor_iri, surrogate_iri};
 pub use issuer::{

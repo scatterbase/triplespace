@@ -668,6 +668,43 @@ async fn acl_columns(cx: &PgCx, record: &Record) -> Result<Columns, String> {
     })
 }
 
+/// A membership record as `rights/rights` (09 §3.3): public, on the account, with the
+/// group, whether it was added or removed, and the expiry in `params`.
+fn membership_columns(record: &Record) -> Result<Columns, String> {
+    let h = record.header();
+    let key = h
+        .key
+        .as_deref()
+        .ok_or("a membership record is keyed by its actor")?;
+    let params = match content(record)? {
+        Some(v) => {
+            let m: scatter_actors::membership::Membership =
+                scatter_log::cbor::from_value(v).map_err(|e| e.to_string())?;
+            serde_json::json!({
+                "group": m.group,
+                "action": match m.action {
+                    scatter_actors::membership::MembershipAction::Add => "add",
+                    scatter_actors::membership::MembershipAction::Remove => "remove",
+                },
+                "expires": m.expires.map(|t| t.0),
+            })
+        }
+        None => serde_json::Value::Null,
+    };
+    Ok(Columns {
+        kind: "log",
+        target: Target {
+            kind: Some(target_kind::ACTOR),
+            id: Some(key.to_string()),
+            member: None,
+        },
+        log_type: Some("rights".into()),
+        log_action: Some("rights".into()),
+        params: Some(params),
+        ..Columns::default()
+    })
+}
+
 /// The size of a page's row before a revision, 0 for its first.
 async fn previous_size(
     cx: &PgCx,
@@ -708,7 +745,8 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for ActivityProjection {
                 || header.payload_type == PAYLOAD_RECLAIM
                 || header.payload_type == scatter_pages::PAYLOAD_PAGE
                 || header.payload_type == scatter_threads::PAYLOAD_THREAD
-                || header.payload_type == crate::actors::payload::ACL)
+                || header.payload_type == crate::actors::payload::ACL
+                || header.payload_type == crate::actors::payload::MEMBERSHIP)
     }
 
     fn apply<'a>(
@@ -729,6 +767,8 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for ActivityProjection {
                 thread_columns(record)?
             } else if h.payload_type == crate::actors::payload::ACL {
                 acl_columns(cx, record).await?
+            } else if h.payload_type == crate::actors::payload::MEMBERSHIP {
+                membership_columns(record)?
             } else {
                 logevent_columns(record)?
             };

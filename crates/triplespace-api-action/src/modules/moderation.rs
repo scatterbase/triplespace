@@ -76,6 +76,55 @@ fn refused(e: AclWriteError) -> ApiError {
     }
 }
 
+/// The namespaces and sets enclosing a target, for a caller whose rights some scoped group
+/// grants (09 §3.4); nothing for anyone else, whose rights hold everywhere or nowhere.
+/// A record's are its page's; a free title's, its namespace's and its ancestors' sets.
+pub(crate) async fn enclosing(
+    ctx: &Ctx,
+    target: &Target,
+    reserve: Option<&ReservedTitle>,
+) -> Result<Vec<Target>, ApiError> {
+    use triplespace_projections::acl_read::{page_scope, title_scope};
+    if ctx.caller.effective.scoped.is_empty() {
+        return Ok(Vec::new());
+    }
+    let tenant = &ctx.tenant.slug;
+    let out = match (target, reserve) {
+        (_, Some(r)) => {
+            title_scope(
+                ctx.db(),
+                tenant,
+                i32::try_from(r.namespace).unwrap_or_default(),
+                &r.title,
+                None,
+            )
+            .await
+        }
+        (Target::Page(id), None) => page_scope(ctx.db(), tenant, *id).await,
+        (Target::Namespace(_) | Target::Set(_), None) => Ok(vec![target.clone()]),
+        (Target::Record { partition, offset }, None) => {
+            let row = ctx
+                .db()
+                .query_opt(
+                    "SELECT target_id FROM view.activity
+                     WHERE partition = $1 AND \"offset\" = $2 AND target_kind = $3",
+                    &[
+                        &scatter_log_postgres::ids::partition_to_db(*partition),
+                        &i64::try_from(*offset).unwrap_or(i64::MAX),
+                        &triplespace_projections::common::target_kind::PAGE,
+                    ],
+                )
+                .await?;
+            match row.and_then(|r| r.get::<_, Option<String>>(0)?.parse::<u64>().ok()) {
+                Some(page) => page_scope(ctx.db(), tenant, page).await,
+                None => Ok(Vec::new()),
+            }
+        }
+        _ => Ok(Vec::new()),
+    };
+    out.map_err(ApiError::internal)
+}
+
 /// `ts-restricted-title`: a title held by a restriction the editor does not satisfy,
 /// whether a reservation or a confidential page, which the refusal does not tell apart
 /// (09 §4.8, §5.3).
@@ -112,17 +161,18 @@ pub(crate) fn denied(e: &Denied) -> ApiError {
 pub(crate) fn enforce(
     permission: &str,
     who: &Effective,
+    scope: &[Target],
     chain: &[Acl],
     at: Timestamp,
     title: &str,
 ) -> Result<(), ApiError> {
-    use scatter_actors::acl::{ReadDecision, check, read_decision};
+    use scatter_actors::acl::{ReadDecision, check_on, read_decision};
     match read_decision(who, chain, at) {
         ReadDecision::Readable => {}
         ReadDecision::Absent => return Err(restricted_title(title)),
         ReadDecision::Removed { .. } => return Err(ApiError::permission_denied("read")),
     }
-    check(permission, who, chain, at).map_err(|e| denied(&e))
+    check_on(permission, who, scope, chain, at).map_err(|e| denied(&e))
 }
 
 /// The target's current ACL.
@@ -153,6 +203,7 @@ pub(crate) async fn save(
         .actor_key
         .clone()
         .ok_or_else(|| ApiError::permission_denied("delete"))?;
+    let enclosing = enclosing(ctx, &target, reserve.as_ref()).await?;
     let store = ctx.app.store();
     let mut cx = store.begin().await.map_err(ApiError::internal)?;
     let out = write(
@@ -168,6 +219,7 @@ pub(crate) async fn save(
             reason: reason.to_string(),
             suppress_group: suppress_group.to_string(),
             reserve,
+            enclosing,
         },
         now_micros(),
     )
@@ -202,7 +254,7 @@ enum Admit {
 /// is (09 §4.4), and refused with [`denied`]. A deleted page is not absent: undeleting
 /// and protecting it are what its deletion group does (0056 A18).
 async fn admit(ctx: &Ctx, page_id: u64, permission: &str) -> Result<Admit, ApiError> {
-    use scatter_actors::acl::{ReadDecision, check, read_decision};
+    use scatter_actors::acl::{ReadDecision, check_on, read_decision};
     let chain = triplespace_projections::acl_read::page_chain(ctx.db(), &ctx.tenant.slug, page_id)
         .await
         .map_err(ApiError::internal)?;
@@ -211,7 +263,8 @@ async fn admit(ctx: &Ctx, page_id: u64, permission: &str) -> Result<Admit, ApiEr
     if read_decision(who, &chain, at) == ReadDecision::Absent {
         return Ok(Admit::Absent);
     }
-    check(permission, who, &chain, at).map_err(|e| denied(&e))?;
+    let scope = enclosing(ctx, &Target::Page(page_id), None).await?;
+    check_on(permission, who, &scope, &chain, at).map_err(|e| denied(&e))?;
     Ok(Admit::Yes)
 }
 
@@ -267,7 +320,7 @@ async fn page_of(ctx: &Ctx, site: &Site) -> Result<Page, ApiError> {
 /// `action=delete`.
 pub async fn delete(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     ctx.caller.check_csrf(&ctx.app, &ctx.params)?;
-    ctx.caller.require("delete")?;
+    ctx.caller.require_somewhere("delete")?;
     let site = Site::load(ctx).await?;
     let page = admitted_page(ctx, &site, "delete").await?;
     let (delete_group, suppress_group) = groups(ctx).await?;
@@ -296,7 +349,7 @@ pub async fn delete(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
 /// `action=undelete`.
 pub async fn undelete(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     ctx.caller.check_csrf(&ctx.app, &ctx.params)?;
-    ctx.caller.require("undelete")?;
+    ctx.caller.require_somewhere("undelete")?;
     if ctx.params.get("timestamps").is_some() || ctx.params.get("revisions").is_some() {
         return Err(ApiError::new(
             "ts-not-supported",
@@ -479,7 +532,7 @@ async fn protected_of(ctx: &Ctx, site: &Site) -> Result<Protected, ApiError> {
 #[allow(clippy::too_many_lines)]
 pub async fn protect(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     ctx.caller.check_csrf(&ctx.app, &ctx.params)?;
-    ctx.caller.require("protect")?;
+    ctx.caller.require_somewhere("protect")?;
     if ctx.params.flag("cascade") {
         return Err(ApiError::new(
             "ts-no-cascade",

@@ -611,9 +611,30 @@ pub fn check<'a>(
     chain: impl IntoIterator<Item = &'a Acl>,
     at: Timestamp,
 ) -> Result<(), Denied> {
-    if !effective.holds(permission) {
+    check_on(permission, effective, &[], chain, at)
+}
+
+/// [`check`] for a target that `enclosing` namespaces and sets enclose (the target
+/// itself among them when it is one), so that a permission a scoped group grants counts
+/// there (09 §3.4). A `read` restriction is passed by a member of the group or of a group
+/// that includes it; every other restriction by members alone (09 §3.2).
+pub fn check_on<'a>(
+    permission: &str,
+    effective: &Effective,
+    enclosing: &[Target],
+    chain: impl IntoIterator<Item = &'a Acl>,
+    at: Timestamp,
+) -> Result<(), Denied> {
+    if !effective.holds_on(permission, enclosing) {
         return Err(Denied::Permission(permission.to_string()));
     }
+    let passes = |g: &str| {
+        if permission == READ {
+            effective.reads_in(g)
+        } else {
+            effective.in_group(g)
+        }
+    };
     let mut restricted = false;
     for acl in chain {
         let kept = (permission == READ)
@@ -628,7 +649,7 @@ pub fn check<'a>(
                         target: acl.target.key(),
                     });
                 }
-                Some(g) if !effective.in_group(g) => {
+                Some(g) if !passes(g) => {
                     return Err(Denied::Restricted {
                         permission: permission.to_string(),
                         target: acl.target.key(),
@@ -666,7 +687,7 @@ impl Visibility {
     /// Whether a principal that holds `read` satisfies this visibility.
     #[must_use]
     pub fn satisfied_by(&self, effective: &Effective) -> bool {
-        !self.nobody && self.groups.iter().all(|g| effective.in_group(g))
+        !self.nobody && self.groups.iter().all(|g| effective.reads_in(g))
     }
 
     /// The `{vis}` cache-key segment of 0056 §7 before hashing: the sorted group names
@@ -740,7 +761,7 @@ pub fn read_decision<'a>(
     let mut removed: Option<String> = None;
     for acl in chain {
         for (kind, r) in acl.read_restrictions_at(at) {
-            let satisfied = r.group.as_ref().is_some_and(|g| effective.in_group(g));
+            let satisfied = r.group.as_ref().is_some_and(|g| effective.reads_in(g));
             if satisfied {
                 continue;
             }
@@ -921,9 +942,33 @@ mod tests {
         assert!(v.satisfied_by(&eff(&["board"])), "user is implicit");
         assert!(!v.satisfied_by(&eff(&[])));
         assert!(
-            !v.satisfied_by(&eff(&["owner"])),
-            "owner is in no group it has not joined"
+            v.satisfied_by(&eff(&["owner"])),
+            "owner reads everything by definition (0016 A37)"
         );
+        assert!(v.satisfied_by(&eff(&["read-all"])));
+        let suppressed = Acl::read(Target::Page(8), ReadKind::Moderation, "suppress", None);
+        for who in ["owner", "read-all"] {
+            assert!(
+                !visibility([&suppressed], NOW).satisfied_by(&eff(&[who])),
+                "\"*\" leaves out the suppression group"
+            );
+        }
+        // Inclusion is for reading only: no other restriction, no lock-out.
+        let protected = Acl::protect(Target::Page(7), &["edit"], "board", None);
+        assert!(matches!(
+            check(
+                "edit",
+                &eff(&["read-all", "autoconfirmed"]),
+                [&protected],
+                NOW
+            ),
+            Err(Denied::Permission(_) | Denied::Restricted { .. })
+        ));
+        assert!(matches!(
+            check("edit", &eff(&["owner"]), [&protected], NOW),
+            Err(Denied::Restricted { .. })
+        ));
+        assert!(set.check_lock_out(&eff(&["owner"])).is_err());
         // Decisions.
         assert_eq!(read_decision(&eff(&[]), [], NOW), ReadDecision::Readable);
         assert_eq!(

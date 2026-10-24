@@ -47,7 +47,7 @@ use axum::body::Bytes;
 use axum::extract::{Extension, Path, State};
 use axum::http::{HeaderMap, Method, StatusCode};
 use axum::response::Response;
-use scatter_actors::acl::{Denied, Target as AclTarget, check};
+use scatter_actors::acl::{Denied, Target as AclTarget, check_on};
 use scatter_actors::evaluate::Effective;
 use scatter_actors::{ReadDecision, Timestamp, read_decision};
 use scatter_ingest::{Attestation, Request};
@@ -61,7 +61,7 @@ use triplespace_api_action::tenant::Tenant;
 use triplespace_api_action::thread_view::target_json;
 use triplespace_api_ingest::threads::{ThreadError, ThreadWrite, write};
 use triplespace_projections::acl_read::{
-    current, listing_chain, page_chain, removed, thread_chain,
+    current, listing_chain, page_chain, page_scope, removed, thread_chain,
 };
 
 use crate::entity_route::{error, internal};
@@ -204,12 +204,36 @@ async fn write_rights(
         .await
         .map_err(|e| internal(&e))?,
     };
-    check(own, who, &chain, at).map_err(|e| protected(&e))?;
+    let scope = if who.scoped.is_empty() {
+        Vec::new()
+    } else if let Some(id) = thread {
+        page_scope(&*client, tenant, id)
+            .await
+            .map_err(|e| internal(&e))?
+    } else {
+        let mut s = vec![AclTarget::Namespace(i64::from(scatter_threads::NS_THREAD))];
+        for page in page_targets(op) {
+            s.extend(
+                page_scope(&*client, tenant, page)
+                    .await
+                    .map_err(|e| internal(&e))?,
+            );
+        }
+        s
+    };
+    check_on(own, who, &scope, &chain, at).map_err(|e| protected(&e))?;
     for page in page_targets(op) {
         let chain = listing_chain(&*client, tenant, page)
             .await
             .map_err(|e| internal(&e))?;
-        check("edit", who, &chain, at).map_err(|e| protected(&e))?;
+        let scope = if who.scoped.is_empty() {
+            Vec::new()
+        } else {
+            page_scope(&*client, tenant, page)
+                .await
+                .map_err(|e| internal(&e))?
+        };
+        check_on("edit", who, &scope, &chain, at).map_err(|e| protected(&e))?;
     }
     Ok(())
 }
@@ -307,7 +331,8 @@ async fn begin_write(
 ) -> Result<(Tenant, String, Body, Effective), Response> {
     let client = app.pool().get().await.map_err(|e| internal(&e))?;
     let (tenant, caller) = prelude(app, &client, origin, headers).await?;
-    if caller.require(right).is_err() {
+    // A scoped group's right is checked on the thread's chain (09 §3.4).
+    if caller.require_somewhere(right).is_err() {
         return Err(error(
             StatusCode::FORBIDDEN,
             "permissiondenied",
@@ -563,6 +588,17 @@ pub async fn edit(
             .map(|row| row.get::<_, Option<String>>(0))
     }
     .await;
+    // `ts-editpost` from a scoped group holds on the threads its scope encloses (09 §3.4).
+    let scope = if who.needs_scope("ts-editpost") {
+        match app.pool().get().await {
+            Ok(client) => page_scope(&*client, &tenant.slug, id)
+                .await
+                .unwrap_or_default(),
+            Err(e) => return internal(&e),
+        }
+    } else {
+        Vec::new()
+    };
     match author {
         None => {
             return error(
@@ -572,7 +608,7 @@ pub async fn edit(
             );
         }
         // Another actor's post, or one whose author was erased, needs `ts-editpost`.
-        Some(a) if a.as_deref() != Some(actor.as_str()) && !who.holds("ts-editpost") => {
+        Some(a) if a.as_deref() != Some(actor.as_str()) && !who.holds_on("ts-editpost", &scope) => {
             return error(
                 StatusCode::FORBIDDEN,
                 "permissiondenied",

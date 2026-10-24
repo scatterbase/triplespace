@@ -37,10 +37,10 @@ pub mod visibility {
 /// What the caller may see: its groups, and what confidential restrictions hide from it
 /// ([`crate::pages::hidden`]).
 pub async fn viewer(ctx: &Ctx) -> Result<Viewer, ApiError> {
-    Ok(Viewer {
-        groups: ctx.caller.effective.groups.iter().cloned().collect(),
-        hidden: crate::pages::hidden(ctx).await?,
-    })
+    Ok(Viewer::of(
+        &ctx.caller.effective,
+        crate::pages::hidden(ctx).await?,
+    ))
 }
 
 /// The actor key of a user name on the tenant, or of a key given as one (`local:7`).
@@ -66,12 +66,12 @@ pub async fn actor_key_of(ctx: &Ctx, name: &str) -> Result<Option<String>, tokio
     // A hidden name does not lead to its account for those outside the group (09 §6.3);
     // a key, which never contains a name, still does. Failing to decide hides it.
     if !by_key {
-        let groups: Vec<String> = ctx.caller.effective.groups.iter().cloned().collect();
+        let effective = &ctx.caller.effective;
         let hidden = triplespace_projections::acl_read::hidden_actors(
             ctx.db(),
             &ctx.tenant.slug,
             std::slice::from_ref(&key),
-            &groups,
+            |g| effective.reads_in(g),
             scatter_actors::Timestamp(crate::edit::now_micros()),
         )
         .await;

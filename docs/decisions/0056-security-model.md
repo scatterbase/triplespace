@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-10-23 (A22)
+- **Updated:** 2026-10-23 (A23)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0021](0021-notifications.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md), [0033](0033-backend-stack.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0051](0051-page-redirects.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md), [0045](0045-table-content-model.md), [0046](0046-primary-tenant.md), [0047](0047-special-pages.md), [0049](0049-boards.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -51,13 +51,13 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 3. Two targets: the tenant and the set (extends 0016 §4; extends 0023 §2)
 
-*Changed by A3, A4, A10, A16.*
+*Changed by A3, A4, A10, A16, A23.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §4.2, §4.4, §4.7.*
 
 ### 4. Who may restrict what (amends 0016 §2 and §4; amends 0023 §1)
 
-*Changed by A16, A18, A21, A22.*
+*Changed by A16, A18, A21, A22, A23.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §4.5.*
 
@@ -472,3 +472,10 @@ Replaced text ([09](../architecture/09-security-and-moderation.md) §4.5, as it 
 Replaced text ([09](../architecture/09-security-and-moderation.md) §4.5, as it stood):
 
 > The membership is a record like any other (§3.3): it projects as a public `rights/rights` log event, and the group's members are notified (`group-join`, [16](../architecture/16-logs-feeds-and-notifications.md) §5.2).
+
+### A23. Subpages, sets, a private tenant's answers, and which groups exist
+
+- **Date:** 2026-10-23
+- **Source:** Direct: James, design discussion of 2026-10-23
+- **Change:** extends §3, §4
+- **Summary:** Calls made building the namespace, set and tenant restrictions, confirmed by James. (1) A page encloses its subpages with its protections and its confidential restriction, but not with its deletion, which is of the page alone, as in MediaWiki; a confidential restriction a deletion kept still encloses. (2) A set encloses what its members enclose: a member's subpages and the threads it is home to. (3) An outsider's page edit on a private tenant is refused as at any title the editor may not read; an entity write is refused with `permissiondenied`, since a Wikibase client cannot usefully be told that a new item is missing. (4) An outsider's `meta=siteinfo` keeps `general`'s `sitename`, `lang`, `logo`, `favicon`, `server` and `mainpage`, adds `private: true`, keeps `triplespace`'s tenant, API version, theme, `visibility` and login, account and challenge fields, and drops every other `siprop`. (5) A restriction may name a registry default group, a group the tenant's `config` defines, or a group with a current member; a group only ACLs name needs no record.

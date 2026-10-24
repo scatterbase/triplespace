@@ -642,7 +642,8 @@ async fn threads_over_rest() {
     };
 
     // A reply's text hidden from everyone but `owner`, which Alice is in; the answer's
-    // author hidden from a group nobody is in.
+    // author hidden by the suppression group, which nobody is in and `owner` does not
+    // read as (0016 A37).
     let reply_offset = offset_of(reply).await;
     acl(
         format!("acl:record:{pages}:{reply_offset}"),
@@ -654,7 +655,7 @@ async fn threads_over_rest() {
     let answer_offset = offset_of(answer).await;
     acl(
         format!("acl:record:{pages}:{answer_offset}"),
-        "oversight",
+        "suppress",
         "moderation",
         Some(json!({"parts": ["attestation"]})),
     )
@@ -712,23 +713,26 @@ async fn threads_over_rest() {
     assert_eq!(r.status, StatusCode::GONE, "{}", r.body);
     assert_eq!(r.body["code"], "ts-thread-deleted");
 
-    // A confidential thread is absent for those outside its group.
+    // A confidential thread is absent for those outside its group; `owner` reads it by
+    // definition (0016 A37).
     let other = listed["threads"][1]["id"].as_u64().unwrap();
     acl(format!("acl:page:{other}"), "board", "confidential", None).await;
-    let r = c.rest("GET", &format!("/thread/{other}"), None).await;
+    let r = anon.rest("GET", &format!("/thread/{other}"), None).await;
     assert_eq!(r.status, StatusCode::NOT_FOUND, "{}", r.body);
     assert_eq!(r.body["code"], "ts-thread-not-found");
-    let listed = c
+    let listed = anon
         .rest("GET", &format!("/page/{talk}/threads"), None)
         .await
         .body;
-    assert_eq!(listed["threads"].as_array().unwrap().len(), 1, "{listed}");
+    assert_eq!(listed["threads"].as_array().unwrap().len(), 0, "{listed}");
+    let r = c.rest("GET", &format!("/thread/{other}"), None).await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
 
     // A deleted page takes no new threads, and its talk page answers 410 outside the
     // group that deleted it.
     acl(
         format!("acl:page:{page}"),
-        "oversight",
+        "suppress",
         "moderation",
         Some(json!({"talk": true})),
     )

@@ -155,7 +155,7 @@ fn part(acl: Option<&scatter_actors::Acl>, name: &str, who: &Effective, at: Time
     }
     Part {
         hidden: true,
-        visible: r.group.as_ref().is_some_and(|g| who.in_group(g)),
+        visible: r.group.as_ref().is_some_and(|g| who.reads_in(g)),
     }
 }
 

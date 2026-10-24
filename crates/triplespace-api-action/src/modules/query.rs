@@ -155,6 +155,26 @@ async fn tokens(
 /// `groups`, `rights`, `blockinfo`, `ratelimits` and `options` (every registered
 /// preference's effective value, defaults filled in, as MediaWiki reports them), plus
 /// `operator` and `grants` for a subsidiary.
+/// `ts-scopedrights`: each permission a scoped group grants, with where it holds.
+fn scoped_rights(e: &scatter_actors::Effective) -> Option<Value> {
+    let scoped: Map<String, Value> = e
+        .scoped
+        .iter()
+        .map(|(p, within)| {
+            (
+                p.clone(),
+                json!(
+                    within
+                        .iter()
+                        .map(|t| t.key().trim_start_matches("acl:").to_string())
+                        .collect::<Vec<_>>()
+                ),
+            )
+        })
+        .collect();
+    (!scoped.is_empty()).then_some(Value::Object(scoped))
+}
+
 async fn userinfo(ctx: &Ctx, query: &mut Map<String, Value>) -> Result<(), ApiError> {
     let id = &ctx.caller.identity;
     let mut u = Map::new();
@@ -194,6 +214,18 @@ async fn userinfo(ctx: &Ctx, query: &mut Map<String, Value>) -> Result<(), ApiEr
     }
     if want("rights") {
         u.insert("rights".into(), json!(ctx.caller.effective.permissions));
+        // A scoped group's permissions hold only where its `within` says, so they are
+        // not MediaWiki's `rights`, which clients read as holding everywhere (09 §3.4).
+        if let Some(scoped) = scoped_rights(&ctx.caller.effective) {
+            u.insert("ts-scopedrights".into(), scoped);
+        }
+    }
+    if want("changeablegroups") {
+        let registry = triplespace_accounts::groups::registry(ctx.db(), &ctx.tenant.slug).await?;
+        u.insert(
+            "changeablegroups".into(),
+            super::userrights::changeable(&ctx.caller.effective, &registry),
+        );
     }
     if want("blockinfo") {
         // No blocks in the milestone's write path; the field is present and empty-shaped.
@@ -750,17 +782,25 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                 query.insert("statistics".into(), json!({"pages": 0, "articles": 0, "edits": 0, "images": 0, "users": 0, "activeusers": 0, "admins": 1, "jobs": 0}));
             }
             "usergroups" => {
-                let groups = scatter_actors::group::GroupRegistry::default_registry();
+                let groups = triplespace_accounts::groups::registry(ctx.db(), &slug).await?;
                 query.insert(
                     "usergroups".into(),
                     json!(
                         groups
                             .groups()
                             .iter()
-                            .map(|g| json!({
-                                "name": g.mediawiki_name,
-                                "rights": g.permissions,
-                            }))
+                            .map(|g| {
+                                let mut v = json!({
+                                    "name": g.mediawiki_name,
+                                    "rights": g.permissions,
+                                });
+                                if let (Value::Object(m), Value::Object(d)) =
+                                    (&mut v, super::userrights::delegates(g))
+                                {
+                                    m.extend(d);
+                                }
+                                v
+                            })
                             .collect::<Vec<_>>()
                     ),
                 );

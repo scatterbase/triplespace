@@ -5,7 +5,8 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use triplespace_cli::{
-    accounts, adopt, challenge, forwarder, instance, oauth_client, settings, status, sync, tenant,
+    accounts, adopt, challenge, forwarder, instance, oauth_client, rights, settings, status, sync,
+    tenant,
 };
 
 /// Triplespace: a Wikibase as an append-only log.
@@ -56,6 +57,21 @@ enum Command {
     Settings {
         #[command(subcommand)]
         command: settings::Settings,
+    },
+    /// Memberships, as instance acts: appointing owners among them (09 §3.6).
+    Member {
+        #[command(subcommand)]
+        command: rights::Member,
+    },
+    /// Group definitions (09 §3.2).
+    Group {
+        #[command(subcommand)]
+        command: rights::GroupCommand,
+    },
+    /// ACLs on pages, namespaces, sets and the tenant (09 §4).
+    Acl {
+        #[command(subcommand)]
+        command: rights::AclCommand,
     },
     /// Partitions, heads and projection lags, and any migration not yet applied.
     Status(status::Target),
@@ -110,6 +126,9 @@ async fn main() -> Result<()> {
         } => challenge::run(&args),
         Command::OauthClient { command } => oauth_client::run(command).await,
         Command::Settings { command } => settings::run(command).await,
+        Command::Member { command } => rights::run_member(command).await,
+        Command::Group { command } => rights::run_group(command).await,
+        Command::Acl { command } => rights::run_acl(command).await,
         Command::Status(args) => status::status(args).await,
         Command::Migrate(args) => status::migrate(args).await,
         Command::Rebuild(args) => status::rebuild(args).await,

@@ -24,7 +24,7 @@
 use std::collections::BTreeMap;
 
 use scatter_actors::acl::{
-    Acl, ReadDecision, ReadKind, Restriction, Target, check, read_decision, visibility,
+    Acl, ReadDecision, ReadKind, Restriction, Target, read_decision, visibility,
 };
 use scatter_actors::{GroupRegistry, Timestamp};
 use serde_json::{Map, Value, json};
@@ -180,10 +180,10 @@ pub async fn read(ctx: &Ctx, target: &Target) -> Result<Value, ApiError> {
 }
 
 /// Whether each group is one the tenant has: a registry default, a configured group, or
-/// one with members. Nothing writes `group` records yet (a milestone-1 gap), so a group
-/// that memberships name is taken as existing; a misspelt name is still caught.
+/// one with members (a group only ACLs name needs no record; 09 §4.2). A misspelt name is
+/// caught.
 async fn known_groups(ctx: &Ctx, names: &[String]) -> Result<(), ApiError> {
-    let registry = GroupRegistry::default_registry();
+    let registry = triplespace_accounts::groups::registry(ctx.db(), &ctx.tenant.slug).await?;
     let configured: Vec<String> = ctx
         .db()
         .query(
@@ -237,9 +237,17 @@ fn restrictions_of(body: &Map<String, Value>) -> Result<BTreeMap<String, Restric
 
 /// The caller's own permission to change the target's ACL, checked on its chain as the
 /// moderation modules check theirs (09 §4.4); the writer checks the right and the lock-out.
-fn check_chain(ctx: &Ctx, target: &Target, chain: &[Acl]) -> Result<(), ApiError> {
+async fn check_chain(ctx: &Ctx, target: &Target, chain: &[Acl]) -> Result<(), ApiError> {
     let right = target.protecting_right();
-    check(right, &ctx.caller.effective, chain, Timestamp(now_micros())).map_err(|e| denied(&e))
+    let scope = crate::modules::moderation::enclosing(ctx, target, None).await?;
+    scatter_actors::acl::check_on(
+        right,
+        &ctx.caller.effective,
+        &scope,
+        chain,
+        Timestamp(now_micros()),
+    )
+    .map_err(|e| denied(&e))
 }
 
 /// `PUT`: replaces the target's restrictions.
@@ -255,7 +263,7 @@ pub async fn write(
 ) -> Result<Value, ApiError> {
     ctx.caller.require("read")?;
     let chain = known_chain(ctx, &target).await?;
-    check_chain(ctx, &target, &chain)?;
+    check_chain(ctx, &target, &chain).await?;
     let restrictions = restrictions_of(body)?;
     if restrictions.is_empty() {
         return Err(ApiError::new(
@@ -319,7 +327,7 @@ pub async fn write(
 pub async fn retire(ctx: &Ctx, target: Target, reason: &str) -> Result<Value, ApiError> {
     ctx.caller.require("read")?;
     let chain = known_chain(ctx, &target).await?;
-    check_chain(ctx, &target, &chain)?;
+    check_chain(ctx, &target, &chain).await?;
     let existing = current(ctx, &target).await?;
     match &existing {
         None => {
@@ -405,7 +413,7 @@ fn members_of(body: &Map<String, Value>) -> Result<Vec<scatter_actors::acl::SetM
 pub async fn create_set(ctx: &Ctx, body: &Map<String, Value>) -> Result<Value, ApiError> {
     ctx.caller.require("read")?;
     let tenant_chain = known_chain(ctx, &Target::Tenant(ctx.tenant.slug.clone())).await?;
-    check_chain(ctx, &Target::Set(0), &tenant_chain)?;
+    check_chain(ctx, &Target::Set(0), &tenant_chain).await?;
     let restrictions = restrictions_of(body)?;
     if restrictions.is_empty() {
         return Err(ApiError::new(
@@ -467,7 +475,7 @@ async fn change_member(
     ctx.caller.require("read")?;
     let target = Target::Set(set);
     let chain = known_chain(ctx, &target).await?;
-    check_chain(ctx, &target, &chain)?;
+    check_chain(ctx, &target, &chain).await?;
     check_member(ctx, &member).await?;
     let mut acl = current(ctx, &target)
         .await?

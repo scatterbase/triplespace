@@ -840,6 +840,7 @@ async fn a_history_adoption_over_postgres() {
                 reason: "test".into(),
                 suppress_group: "suppress".into(),
                 reserve: None,
+                enclosing: Vec::new(),
             },
             NOW + 2,
         )

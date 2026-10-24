@@ -11,7 +11,7 @@ This directory is the registry of record for the names and codes that Triplespac
 | `content-models.toml` | Content models: ID, origin, source, slot, entity type, serialization format and direct editing; the reserved MediaWiki and Wikibase model IDs | `scatter-pages` | 0008 §5, 0041 §2–3, 0043 §3, 0045 §3, 0055 §1, 0060 §3, 0061 §3, 0063 §3, 0064 §3, 0066 §3 |
 | `keyed-types.toml` | Keyed entity types and their ID prefixes | `scatter-normalize` | 0009 §1, 0017 §3, §5, 0048 §1 |
 | `notation-schemes.toml` | Notation schemes: name, label, normalizer and grammar, documentation template (`osm`; candidates drafted) | `scatter-normalize` | 0048 §2, §6 |
-| `groups.toml` | Default groups, their permissions, and the default graph ACLs | `scatter-actors` | 0016 §2–4, 0019 §12, 0020 §7, 0021 §9, 0022 §12, 0023 §11, 0024 §11, 0025 §10, 0030 §12, 0047 §12, 0051 §8 |
+| `groups.toml` | Default groups, their permissions (and which act on a target), inclusion, delegation and scope, and the default graph ACLs | `scatter-actors` | 0016 §2–4, A35–A38, 0019 §12, 0020 §7, 0021 §9, 0022 §12, 0023 §11, 0024 §11, 0025 §10, 0030 §12, 0047 §12, 0051 §8 |
 | `grants.toml` | API-key grants and the permissions each covers; also the OAuth scopes a consumer may request | `scatter-actors` | 0024 §4, 0025 §2, 0047 §12 |
 | `sites.toml` | Site aliases: MediaWiki site IDs, hosts, article paths and languages, for sitelink compatibility (generated from the Wikimedia site matrix) | `scatter-wikibase-model` | 0026 §2 |
 | `thread-statuses.toml` | Default thread statuses, with category and order | `scatter-threads` | 0019 §6 (amended), 0054 §5, 0090 §3 |
@@ -39,8 +39,6 @@ This directory is the registry of record for the names and codes that Triplespac
 - **Slugs are one namespace.** A tenant's slug ([0018](../decisions/0018-tenants.md) §1), a provider's slug and an issuer's code are the same word for the same thing; a tenant that becomes a provider keeps its slug and takes a code and a number here. A provider's slug is also a colon prefix: `wikidata:Q42` is an input form of `WDQ42`, so slugs share the one namespace of keyed-type, resolver and notation scheme names, and a tenant's entity source may not take any of them ([0078](../decisions/0078-entity-sources.md) §3).
 
 ## Pending allocations
-
-- **Groups that include others, delegate membership or are scoped** ([0016](../decisions/0016-permissions-and-access-control.md) A35, A36, A37): the fields `includes`, `adds`, `removes`, `adds_self`, `removes_self`, `within` and `notify_joins` (A38) on `[[group]]` in `groups.toml`. `owner` and `read-all` take `includes = ["*"]`, written as comments beside them; no other default group sets them; they are described in a comment at the top of the file until `scatter-actors` accepts them, since the parser rejects unknown fields.
 
 - **Pages served at the auth base** ([0089](../decisions/0089-the-auth-host-and-instance-logins.md) §7): the field `auth = true` on `UserLogin`, `CreateAccount`, `Account` and `UserLogout` in `special-pages.toml`. Written as a comment beside each until `triplespace-titles` accepts it, since the parser rejects unknown fields.
 

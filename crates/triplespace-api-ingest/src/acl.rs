@@ -80,6 +80,9 @@ pub struct AclWrite {
     /// Reserve this title under a new page ID (create-protection): `target` and the
     /// ACL's target are replaced by `acl:page:{new ID}`.
     pub reserve: Option<ReservedTitle>,
+    /// The namespaces and sets enclosing the target, against which a scoped group's
+    /// rights are tested (09 §3.4); empty counts unscoped rights only.
+    pub enclosing: Vec<Target>,
 }
 
 /// The target's current ACL.
@@ -155,7 +158,7 @@ pub async fn write(
         }
         None => {}
     }
-    if let Some(r) = rights.into_iter().find(|r| !who.holds(r)) {
+    if let Some(r) = rights.into_iter().find(|r| !who.holds_on(r, &w.enclosing)) {
         return Err(AclWriteError::Denied(r));
     }
 

@@ -25,23 +25,27 @@ use crate::entity_route::{error, internal};
 use crate::settings::{check_token, prelude};
 
 /// The status an [`ApiError`] answers with.
-fn status_of(e: &ApiError) -> StatusCode {
+pub(crate) fn status_of(e: &ApiError) -> StatusCode {
     match e.code.as_str() {
-        "ts-no-target" => StatusCode::NOT_FOUND,
+        "ts-no-target" | "ts-no-group" => StatusCode::NOT_FOUND,
         "permissiondenied" | "readapidenied" | "ts-locked-out" | "ts-policy" | "badtoken"
         | "protectedpage" | "protectednamespace" => StatusCode::FORBIDDEN,
-        "ts-deleted" | "ts-no-acl" => StatusCode::CONFLICT,
+        "ts-deleted" | "ts-no-acl" | "ts-no-group-record" => StatusCode::CONFLICT,
         "internal" => StatusCode::INTERNAL_SERVER_ERROR,
         _ => StatusCode::BAD_REQUEST,
     }
 }
 
-fn refused(e: &ApiError) -> Response {
+pub(crate) fn refused(e: &ApiError) -> Response {
     error(status_of(e), &e.code, e.info.clone())
 }
 
 /// The request's context, as the Action API's modules take it.
-async fn context(app: &App, origin: Origin, headers: &HeaderMap) -> Result<Ctx, Response> {
+pub(crate) async fn context(
+    app: &App,
+    origin: Origin,
+    headers: &HeaderMap,
+) -> Result<Ctx, Response> {
     let client = app.pool().get().await.map_err(|e| internal(&e))?;
     let (tenant, caller) = prelude(app, &client, &origin, headers).await?;
     Ok(Ctx {
@@ -61,7 +65,7 @@ async fn context(app: &App, origin: Origin, headers: &HeaderMap) -> Result<Ctx, 
 }
 
 /// A write's body, with its token checked and removed.
-fn write_body(
+pub(crate) fn write_body(
     app: &App,
     ctx: &Ctx,
     headers: &HeaderMap,
@@ -86,7 +90,7 @@ fn write_body(
     Ok(object)
 }
 
-fn ok(headers: &HeaderMap, body: &Value) -> Response {
+pub(crate) fn ok(headers: &HeaderMap, body: &Value) -> Response {
     http_cache::respond(
         headers,
         StatusCode::OK,

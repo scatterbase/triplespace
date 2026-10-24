@@ -324,10 +324,42 @@ pub struct Page {
 /// log events included, are left out as if the target did not exist.
 #[derive(Debug, Clone, Default)]
 pub struct Viewer {
-    /// The viewer's groups.
+    /// The groups whose `read` restrictions the viewer passes: its own and those they
+    /// include (09 §3.2).
     pub groups: Vec<String>,
+    /// Whether one of its groups includes `"*"`, every group but [`Self::excluded`].
+    pub every: bool,
+    /// What `"*"` leaves out.
+    pub excluded: Vec<String>,
     /// What is absent for the viewer ([`crate::acl_read::hidden`]).
     pub hidden: crate::acl_read::Hidden,
+}
+
+impl Viewer {
+    /// The viewer for an evaluated principal.
+    #[must_use]
+    pub fn of(effective: &scatter_actors::Effective, hidden: crate::acl_read::Hidden) -> Self {
+        Self {
+            groups: effective
+                .groups
+                .iter()
+                .chain(&effective.reads_as)
+                .cloned()
+                .collect::<std::collections::BTreeSet<_>>()
+                .into_iter()
+                .collect(),
+            every: effective.reads_every,
+            excluded: effective.reads_excluded.iter().cloned().collect(),
+            hidden,
+        }
+    }
+
+    /// Whether the viewer passes a `read` restriction naming `group`.
+    #[must_use]
+    pub fn reads_in(&self, group: &str) -> bool {
+        self.groups.iter().any(|g| g == group)
+            || (self.every && !self.excluded.iter().any(|g| g == group))
+    }
 }
 
 type Param = Box<dyn ToSql + Sync + Send>;
@@ -495,13 +527,27 @@ fn build(tenant: &str, feed: &Feed, viewer: &Viewer) -> Built {
     }
     // A suppression's event is for the group it names, as MediaWiki's suppression log is
     // for oversighters (09 §6.5); for a retirement, the group of the ACL it retired.
-    push(
-        &mut sql,
-        "(a.log_type IS DISTINCT FROM 'suppress' OR coalesce(
-            a.params->'restrictions'->'read'->>'group',
-            a.params->'previous'->'read'->>'group') = ANY($n))",
-        Box::new(viewer.groups.clone()),
-    );
+    let named = "coalesce(a.params->'restrictions'->'read'->>'group', a.params->'previous'->'read'->>'group')";
+    if viewer.every {
+        // Every group but the excluded ones not also named.
+        let excluded: Vec<String> = viewer
+            .excluded
+            .iter()
+            .filter(|g| !viewer.groups.contains(g))
+            .cloned()
+            .collect();
+        push(
+            &mut sql,
+            &format!("(a.log_type IS DISTINCT FROM 'suppress' OR {named} <> ALL($n))"),
+            Box::new(excluded),
+        );
+    } else {
+        push(
+            &mut sql,
+            &format!("(a.log_type IS DISTINCT FROM 'suppress' OR {named} = ANY($n))"),
+            Box::new(viewer.groups.clone()),
+        );
+    }
     // Rows on a target a confidential restriction hides are absent (0056 §5; 09 §5.3).
     let h = &viewer.hidden;
     let page = target_kind::PAGE;
@@ -684,7 +730,7 @@ pub async fn query<C: PgClient>(
         client,
         tenant,
         &keys,
-        &viewer.groups,
+        |g| viewer.reads_in(g),
         scatter_actors::Timestamp(micros(SystemTime::now())),
     )
     .await?;

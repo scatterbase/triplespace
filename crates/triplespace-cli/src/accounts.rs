@@ -35,7 +35,7 @@ pub fn secret_from(file: Option<&Path>, env_var: &str) -> Result<String> {
 }
 
 /// An account on a tenant, by name or by number.
-async fn actor_key<C: GenericClient>(
+pub(crate) async fn actor_key<C: GenericClient>(
     client: &C,
     tenant: &str,
     name: Option<&str>,

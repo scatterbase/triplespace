@@ -16,4 +16,5 @@ pub mod parse;
 pub mod query;
 pub mod revisions;
 pub mod search;
+pub mod userrights;
 pub mod write;

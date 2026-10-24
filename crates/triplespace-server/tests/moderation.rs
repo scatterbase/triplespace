@@ -605,8 +605,8 @@ async fn protect_delete_undelete_and_hide() {
     assert!(!html.contains("redlink=1"), "{html}");
 
     // A confidential `namespace` or `tenant` restriction hides every page under it, even
-    // from the owner when the owner is not in the group. Nothing writes those targets
-    // yet, so the rows go into view.acl directly.
+    // from the owner when the group is the suppression group, which `owner` does not
+    // read as (0016 A37). The rows go into view.acl directly.
     let (db, conn) = database
         .parse::<Config>()
         .unwrap()
@@ -623,7 +623,7 @@ async fn protect_delete_undelete_and_hide() {
         db.execute(
             "INSERT INTO view.acl (tenant, target, restrictions, read_kind, extra, \"offset\")
              VALUES ($1, $2, $3, 'confidential', NULL, 0)",
-            &[&TENANT, &target, &json!({"read": {"group": "board"}})],
+            &[&TENANT, &target, &json!({"read": {"group": "suppress"}})],
         )
         .await
         .unwrap();
@@ -1650,4 +1650,313 @@ async fn a_private_tenant_is_absent_for_outsiders() {
     )
     .await
     .unwrap();
+}
+
+/// Rebuilding one partition replays only the ACLs it holds: a tenant ACL (config) survives
+/// a rebuild of the tenant log, and a page ACL (log) survives one of the config partition.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_partition_rebuild_keeps_the_other_partitions_acls() {
+    use scatter_ingest::store::IngestStore as _;
+    use scatter_projection::Backend as _;
+    if admin_config().is_none() {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    }
+    let (database, app, mut alice) = instance("rebuild").await;
+    grant(&app, "Alice", "board").await;
+    let t = enc(&alice.csrf().await);
+    let at = alice.csrf().await;
+    alice
+        .api_post(&format!(
+            "action=edit&title=Project:Index&text=Hello.&token={t}"
+        ))
+        .await;
+    let r = alice
+        .api_post(&format!(
+            "action=protect&title=Project:Index&protections=edit%3Dsysop&token={t}"
+        ))
+        .await;
+    assert!(r.get("error").is_none(), "{r}");
+    let r = alice
+        .rest(
+            "PUT",
+            &format!("/acl/tenant/{TENANT}"),
+            Some(json!({"restrictions": {"read": {"group": "board"}}, "reason": "Private", "token": at})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+
+    let connect = || async {
+        let (c, conn) = database
+            .parse::<Config>()
+            .unwrap()
+            .connect(NoTls)
+            .await
+            .unwrap();
+        tokio::spawn(async move {
+            let _ = conn.await;
+        });
+        c
+    };
+    let db = connect().await;
+    let targets = || async {
+        let mut v: Vec<String> = db
+            .query("SELECT target FROM view.acl WHERE tenant = $1", &[&TENANT])
+            .await
+            .unwrap()
+            .iter()
+            .map(|r| r.get(0))
+            .collect();
+        v.sort();
+        v
+    };
+    let before = targets().await;
+    assert_eq!(before.len(), 2, "{before:?}");
+    let (log, config) = {
+        let store = app.store();
+        let mut cx = store.begin().await.unwrap();
+        let log = store
+            .partition(&mut cx, TENANT, "log")
+            .await
+            .unwrap()
+            .unwrap();
+        let config = store
+            .partition(&mut cx, TENANT, "config")
+            .await
+            .unwrap()
+            .unwrap();
+        store.rollback(cx).await.unwrap();
+        (log, config)
+    };
+    for partition in [log, config] {
+        let log_store = scatter_log_postgres::PgLog::new(connect().await);
+        app.pipeline()
+            .rebuild(app.store(), &log_store, &[partition], 500)
+            .await
+            .unwrap();
+        assert_eq!(targets().await, before, "after rebuilding {partition:#x}");
+    }
+}
+
+impl Client {
+    async fn userrights(&mut self, form: &str) -> Value {
+        let t = self
+            .api("action=query&meta=tokens&type=userrights")
+            .await["query"]["tokens"]["userrightstoken"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        self.api_post(&format!("action=userrights&{form}&token={}", enc(&t)))
+            .await
+    }
+}
+
+/// Delegated administration (09 §3.2–3.6; 0016 A35–A38): `action=userrights` under
+/// `userrights` and under a group's delegation lists, group definitions over `/group`,
+/// a scoped group's rights holding only within its scope, `read-all` and `owner` reading
+/// everything but the suppression group's, the last owner kept, and the CLI appointing one.
+#[tokio::test(flavor = "multi_thread")]
+#[allow(clippy::too_many_lines, clippy::many_single_char_names)]
+async fn delegated_administration() {
+    if admin_config().is_none() {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    }
+    let (database, app, mut alice) = instance("delegation").await;
+    let mut bob = account(&alice.router, "Bob", "bob-secret-1234").await;
+    let mut carol = account(&alice.router, "Carol", "carol-secret-1234").await;
+    let mut dave = account(&alice.router, "Dave", "dave-secret-1234").await;
+    let mut anon = Client {
+        router: alice.router.clone(),
+        cookie: None,
+    };
+
+    // The owner holds userrights: Bob becomes a bureaucrat, publicly.
+    let r = alice
+        .userrights("user=Bob&add=bureaucrat&reason=Trusted")
+        .await;
+    assert_eq!(r["userrights"]["added"], json!(["bureaucrat"]), "{r}");
+    assert_eq!(r["userrights"]["user"], "Bob");
+    let r = alice
+        .api_post("action=userrights&user=Bob&add=sysop&token=x")
+        .await;
+    assert_eq!(
+        r["error"]["code"], "badtoken",
+        "the userrights token, not csrf: {r}"
+    );
+    let r = carol.userrights("user=Dave&add=sysop").await;
+    assert_eq!(r["error"]["code"], "permissiondenied", "{r}");
+    let r = bob.userrights("user=Dave&add=owner").await;
+    assert_eq!(
+        r["error"]["code"], "permissiondenied",
+        "only owners make owners: {r}"
+    );
+    let r = bob.userrights("user=Dave&add=user").await;
+    assert_eq!(r["error"]["code"], "permissiondenied", "implicit: {r}");
+    let r = bob.userrights("user=Dave&add=nonesuch").await;
+    assert_eq!(r["error"]["code"], "badvalue", "{r}");
+    let l = anon.api("action=query&list=logevents&letype=rights").await;
+    assert!(
+        l["query"]["logevents"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|e| e["params"]["group"] == "bureaucrat"),
+        "{l}"
+    );
+
+    // Bob, a bureaucrat, defines a department: hr-admins run hr's membership, and may
+    // delete and protect in the Project namespace only.
+    let bt = bob.csrf().await;
+    let r = bob
+        .rest(
+            "PUT",
+            "/group/hr",
+            Some(json!({"permissions": [], "reason": "HR", "token": bt})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    assert_eq!(r.body["source"], "tenant");
+    let def = json!({"permissions": ["delete", "protect"], "within": ["namespace:4"], "adds": ["hr"], "removes": ["hr"], "token": bt});
+    let r = bob.rest("PUT", "/group/hr-admins", Some(def.clone())).await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    assert_eq!(r.body["group"]["within"], json!(["namespace:4"]));
+    for bad in [
+        json!({"permissions": ["block"], "within": ["namespace:4"], "token": bt}),
+        json!({"permissions": [], "adds": ["bureaucrat"], "token": bt}),
+    ] {
+        let r = bob.rest("PUT", "/group/badly", Some(bad)).await;
+        assert_eq!(r.status, StatusCode::BAD_REQUEST, "{}", r.body);
+        assert_eq!(r.body["code"], "ts-invalid-group");
+    }
+    let ct = carol.csrf().await;
+    let r = carol
+        .rest(
+            "PUT",
+            "/group/hr",
+            Some(json!({"permissions": ["delete"], "token": ct})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::FORBIDDEN, "{}", r.body);
+    let s = anon
+        .api("action=query&meta=siteinfo&siprop=usergroups")
+        .await;
+    let hra = s["query"]["usergroups"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|g| g["name"] == "hr-admins")
+        .cloned()
+        .unwrap();
+    assert_eq!(hra["add"], json!(["hr"]), "{hra}");
+
+    // Carol, an hr-admin, adds others to hr, and to nothing else, and not herself.
+    let r = bob.userrights("user=Carol&add=hr-admins").await;
+    assert_eq!(r["userrights"]["added"], json!(["hr-admins"]), "{r}");
+    let r = carol.userrights("user=Dave&add=hr").await;
+    assert_eq!(r["userrights"]["added"], json!(["hr"]), "{r}");
+    for form in ["user=Dave&add=sysop", "user=Carol&add=hr"] {
+        let r = carol.userrights(form).await;
+        assert_eq!(r["error"]["code"], "permissiondenied", "{form}: {r}");
+    }
+    let r = carol.userrights("user=Dave&remove=hr").await;
+    assert_eq!(r["userrights"]["removed"], json!(["hr"]), "{r}");
+    let u = carol
+        .api("action=query&meta=userinfo&uiprop=rights|changeablegroups")
+        .await;
+    let rights = &u["query"]["userinfo"]["rights"];
+    assert!(
+        !rights.as_array().unwrap().contains(&json!("delete")),
+        "{u}"
+    );
+    assert_eq!(
+        u["query"]["userinfo"]["ts-scopedrights"]["delete"],
+        json!(["namespace:4"]),
+        "{u}"
+    );
+    assert_eq!(
+        u["query"]["userinfo"]["changeablegroups"]["add"],
+        json!(["hr"]),
+        "{u}"
+    );
+
+    // Her rights hold in the Project namespace and nowhere else.
+    let at = enc(&alice.csrf().await);
+    for title in ["Project:Handbook", "User:Alice", "Project:Other"] {
+        let e = alice
+            .api_post(&format!("action=edit&title={title}&text=Text.&token={at}"))
+            .await;
+        assert_eq!(e["edit"]["result"], "Success", "{title}: {e}");
+    }
+    let ct = enc(&ct);
+    let r = carol
+        .api_post(&format!("action=delete&title=Project:Handbook&token={ct}"))
+        .await;
+    assert!(r.get("error").is_none(), "{r}");
+    let r = carol
+        .api_post(&format!("action=delete&title=User:Alice&token={ct}"))
+        .await;
+    assert_eq!(r["error"]["code"], "permissiondenied", "{r}");
+    let r = carol
+        .api_post(&format!(
+            "action=protect&title=Project:Other&protections=edit%3Dsysop&token={ct}"
+        ))
+        .await;
+    assert!(r.get("error").is_none(), "{r}");
+    let r = carol
+        .api_post(&format!(
+            "action=protect&title=User:Alice&protections=edit%3Dsysop&token={ct}"
+        ))
+        .await;
+    assert_eq!(r["error"]["code"], "permissiondenied", "{r}");
+
+    // read-all and owner read every confidential target but the suppression group's.
+    let r = bob.userrights("user=Dave&add=read-all").await;
+    assert_eq!(r["userrights"]["added"], json!(["read-all"]), "{r}");
+    grant(&app, "Alice", "board").await;
+    alice
+        .api_post(&format!(
+            "action=protect&title=Project:Other&protections=read%3Dboard&token={at}"
+        ))
+        .await;
+    let info = "action=query&prop=info&titles=Project:Other";
+    assert_eq!(anon.api(info).await["query"]["pages"][0]["missing"], true);
+    assert_eq!(carol.api(info).await["query"]["pages"][0]["missing"], true);
+    assert!(
+        dave.api(info).await["query"]["pages"][0]
+            .get("missing")
+            .is_none()
+    );
+    let dt = enc(&dave.csrf().await);
+    let r = dave
+        .api_post(&format!(
+            "action=edit&title=Project:Other&text=Mine.&token={dt}"
+        ))
+        .await;
+    assert_eq!(r["error"]["code"], "protectedpage", "reading only: {r}");
+
+    // The last owner may not leave while a right is held by no other group with a member.
+    let r = alice.userrights("user=Alice&remove=owner").await;
+    assert_eq!(r["error"]["code"], "ts-last-owner", "{r}");
+    // The command line appoints an owner, and the second may let the first go... while
+    // something still needs owner, neither may be the last to leave.
+    triplespace_cli::rights::run_member(triplespace_cli::rights::Member::Add(
+        triplespace_cli::rights::MemberArgs {
+            at: triplespace_cli::rights::Tenant {
+                database: database.clone(),
+                tenant: TENANT.into(),
+                reason: "Second owner".into(),
+            },
+            user: "Bob".into(),
+            group: "owner".into(),
+            expiry: None,
+        },
+    ))
+    .await
+    .unwrap();
+    let r = bob.userrights("user=Alice&remove=owner").await;
+    assert_eq!(r["userrights"]["removed"], json!(["owner"]), "{r}");
+    let r = bob.userrights("user=Bob&remove=owner").await;
+    assert_eq!(r["error"]["code"], "ts-last-owner", "{r}");
+    let _ = &mut dave;
 }

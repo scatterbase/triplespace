@@ -173,7 +173,7 @@ impl Hidden {
 /// [`Acl::confidential`], and is hidden by it as before (09 §5.2).
 fn refuses(acl: &Acl, effective: &Effective, at: Timestamp) -> bool {
     acl.read_restrictions_at(at).any(|(kind, r)| {
-        kind == ReadKind::Confidential && !r.group.as_ref().is_some_and(|g| effective.in_group(g))
+        kind == ReadKind::Confidential && !r.group.as_ref().is_some_and(|g| effective.reads_in(g))
     })
 }
 
@@ -284,16 +284,16 @@ pub async fn tenant_hidden<C: PgClient>(
     )
 }
 
-/// Which of these actors' names the principal, a member of `groups`, may not see: those
-/// with an `actor` ACL whose `read` restriction is in force at `at` and names a group the
-/// principal is not in (09 §6.3). The decision is made per request from the ACL, so the
+/// Which of these actors' names the principal may not see: those with an `actor` ACL
+/// whose `read` restriction is in force at `at` and names a group `reads` does not pass
+/// (09 §6.3). The decision is made per request from the ACL, so the
 /// suppression group keeps seeing the name and an expired hide lapses by itself. Asked
 /// for the actors of the rows being served, never the tenant's whole list.
 pub async fn hidden_actors<C: PgClient>(
     client: &C,
     tenant: &str,
     keys: &[String],
-    groups: &[String],
+    reads: impl Fn(&str) -> bool,
     at: Timestamp,
 ) -> Result<std::collections::HashSet<String>, String> {
     if keys.is_empty() {
@@ -313,7 +313,7 @@ pub async fn hidden_actors<C: PgClient>(
         let (key, acl) = acl_of(r)?;
         let refused = acl
             .read_restrictions_at(at)
-            .any(|(_, r)| !r.group.as_ref().is_some_and(|g| groups.contains(g)));
+            .any(|(_, r)| !r.group.as_deref().is_some_and(&reads));
         if refused && let Some(actor) = key.strip_prefix("acl:actor:") {
             out.insert(actor.to_string());
         }
@@ -485,6 +485,84 @@ pub async fn page_chain<C: PgClient>(
         );
     }
     Ok(chain)
+}
+
+/// The namespaces and sets that enclose a title along the containment axis, as a scoped
+/// group's `within` is tested against them (09 §3.2, §3.4): the namespace, and the sets
+/// the page (if any) or one of its ancestors is in.
+pub async fn title_scope<C: PgClient>(
+    client: &C,
+    tenant: &str,
+    ns: i32,
+    title: &str,
+    page: Option<u64>,
+) -> Result<Vec<AclTarget>, String> {
+    let mut members: Vec<u64> = page.into_iter().collect();
+    members.extend(ancestors(client, tenant, ns, title).await?);
+    let mut out = vec![AclTarget::Namespace(i64::from(ns))];
+    out.extend(
+        sets_of(client, tenant, &members)
+            .await?
+            .into_iter()
+            .map(AclTarget::Set),
+    );
+    Ok(out)
+}
+
+/// [`title_scope`] for a page by ID; for a thread, its home talk page's scope as well,
+/// and that talk page's subject page's, since a scope encloses the threads its pages are
+/// home to.
+pub async fn page_scope<C: PgClient>(
+    client: &C,
+    tenant: &str,
+    page_id: u64,
+) -> Result<Vec<AclTarget>, String> {
+    let id = i64::try_from(page_id).map_err(|e| e.to_string())?;
+    let row = client
+        .query_opt(
+            "SELECT p.ns, p.title, t.talk_page_id FROM view.page p
+             LEFT JOIN view.thread t ON t.tenant = p.tenant AND t.page_id = p.page_id
+             WHERE p.tenant = $1 AND p.page_id = $2",
+            &[&tenant, &id],
+        )
+        .await
+        .map_err(|e| sql(&e))?;
+    let Some(row) = row else {
+        return Ok(sets_of(client, tenant, &[page_id])
+            .await?
+            .into_iter()
+            .map(AclTarget::Set)
+            .collect());
+    };
+    let (ns, title): (i32, String) = (row.get(0), row.get(1));
+    let mut out = title_scope(client, tenant, ns, &title, Some(page_id)).await?;
+    if let Some(home) = row
+        .get::<_, Option<i64>>(2)
+        .and_then(|h| u64::try_from(h).ok())
+        .filter(|h| *h != page_id)
+    {
+        let subject = client
+            .query_opt(
+                "SELECT target_id FROM view.talk_page
+                 WHERE tenant = $1 AND page_id = $2 AND target_kind = $3",
+                &[
+                    &tenant,
+                    &i64::try_from(home).unwrap_or(i64::MAX),
+                    &TARGET_PAGE,
+                ],
+            )
+            .await
+            .map_err(|e| sql(&e))?
+            .and_then(|r| r.get::<_, String>(0).parse::<u64>().ok());
+        for p in std::iter::once(home).chain(subject) {
+            for t in Box::pin(page_scope(client, tenant, p)).await? {
+                if !out.contains(&t) {
+                    out.push(t);
+                }
+            }
+        }
+    }
+    Ok(out)
 }
 
 /// The page ID a reservation holds a title under, while no revision has filled it.

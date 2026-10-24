@@ -30,6 +30,7 @@ pub mod edit;
 pub mod entity_json;
 pub mod external;
 pub mod forwarded;
+pub mod group_api;
 pub mod http_cache;
 pub mod modules;
 pub mod pages;

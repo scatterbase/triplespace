@@ -3950,6 +3950,140 @@
           }
         }
       }
+    },
+    "/group/{name}": {
+      "parameters": [
+        {
+          "name": "name",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "description": "The group's name."
+        }
+      ],
+      "get": {
+        "operationId": "getGroup",
+        "summary": "Read a group",
+        "description": "A tenant's group (architecture 09 §3.2): its definition as its `group` record carries it, whether that record is the tenant's own or the registry default (`source`: `tenant`, `registry`, or `members` for a group only memberships and ACLs name), and its current member count.",
+        "responses": {
+          "200": {
+            "description": "The group's definition, where it comes from and its member count.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-no-group`: the tenant has no such group.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "putGroup",
+        "summary": "Define a group",
+        "description": "Writes the tenant's record for a group (architecture 09 §3.2; ADR 0016 A35–A38): the whole definition, replacing the registry default of the same name. `permissions` (`*` for every permission), `includes` (groups, or `*`, whose `read` restrictions members pass, for reading only), `adds`, `removes`, `adds_self`, `removes_self` (groups members may add others to, remove others from, join or leave; never `owner` or a group holding `userrights` or `ts-config`), `within` (`namespace:N` and `set:N`, outside which the permissions do not hold; a scoped group holds only permissions that act on a page, entity or thread) and `notify_joins`. Needs `ts-config`, and `userrights` as well when the write changes `includes`, a delegation list or `within`. A request made with a session cookie carries its CSRF token as `token`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupPut"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The group's definition, where it comes from and its member count.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`ts-invalid-group`: a name or definition that breaks a rule; `badvalue` for an unknown permission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied` without `ts-config` or, for what changes reading or membership, `userrights`; `badtoken`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteGroup",
+        "summary": "Retire a group's record",
+        "description": "Retires the tenant's record for a group; a default group falls back to the registry's definition. Rights as for `PUT`.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AclDelete"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The group's definition, where it comes from and its member count.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied`; `badtoken`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`ts-no-group-record`: the tenant has no record of its own for the group.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -6587,6 +6721,153 @@
                 }
               }
             }
+          },
+          "reason": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          }
+        }
+      },
+      "GroupDefinition": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "group"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "includes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "adds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "removes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "adds_self": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "removes_self": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "within": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "notify_joins": {
+            "type": "boolean"
+          },
+          "mediawiki_name": {
+            "type": "string"
+          },
+          "implicit": {
+            "type": "boolean"
+          }
+        }
+      },
+      "GroupView": {
+        "type": "object",
+        "required": [
+          "group",
+          "source"
+        ],
+        "properties": {
+          "group": {
+            "$ref": "#/components/schemas/GroupDefinition"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "tenant",
+              "registry",
+              "members"
+            ]
+          },
+          "members": {
+            "type": "integer"
+          }
+        }
+      },
+      "GroupPut": {
+        "type": "object",
+        "properties": {
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "includes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "adds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "removes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "adds_self": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "removes_self": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "within": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "notify_joins": {
+            "type": "boolean"
+          },
+          "mediawiki_name": {
+            "type": "string"
           },
           "reason": {
             "type": "string"
