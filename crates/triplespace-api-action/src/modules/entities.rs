@@ -65,18 +65,34 @@ fn check_form(id: &EntityId, ctx: &Ctx) -> Result<(), ApiError> {
     Ok(())
 }
 
+/// The graph whose record serves an entity: the first contribution's, `local` where the
+/// tenant holds it, else the highest-ranked mirror's.
+pub fn serving_graph(current: &read::Current) -> Option<&str> {
+    current.contributions.first().map(|c| c.graph.as_str())
+}
+
 /// The served JSON of one entity, or `missing`. A key-mapped provider's own item ID
 /// (`XDQ9`) is an alias of the keyed entity it was written under (05 §4.1): the answer is
 /// that entity, under its own ID, with Wikibase's `redirects: {from, to}` beside it.
 pub async fn entity_json(ctx: &Ctx, id: &EntityId, as_given: &str) -> Result<Value, ApiError> {
     check_form(id, ctx)?;
-    // A private tenant's entities are absent for those outside it (09 §4.7).
-    if crate::pages::private_to(ctx).await? {
-        return Ok(json!({"id": as_given, "missing": ""}));
-    }
+    let missing = || json!({"id": as_given, "missing": ""});
+    // An entity under a restriction the caller does not satisfy is absent, and a deleted
+    // one is missing to those outside its group (09 §5.3, §6.2); a private tenant's
+    // entities are absent for everyone outside it (09 §4.7).
     match edit::current(ctx, id).await? {
-        Some(current) => Ok(entity_json::present(&current, ctx.app.registry())),
-        None if id.form() == IdForm::Keyed => Ok(entity_json::empty_keyed(id)),
+        Some(current) => {
+            if !crate::pages::entity_readable(ctx, id.as_str(), serving_graph(&current)).await? {
+                return Ok(missing());
+            }
+            Ok(entity_json::present(&current, ctx.app.registry()))
+        }
+        None if id.form() == IdForm::Keyed => {
+            if !crate::pages::entity_readable(ctx, id.as_str(), None).await? {
+                return Ok(missing());
+            }
+            Ok(entity_json::empty_keyed(id))
+        }
         None => {
             let alias = read::mapped_alias(&ctx.client, ctx.app.registry(), &ctx.tenant.slug, id)
                 .await
@@ -84,11 +100,16 @@ pub async fn entity_json(ctx: &Ctx, id: &EntityId, as_given: &str) -> Result<Val
             if let Some(target) = alias
                 && let Some(current) = edit::current(ctx, &target).await?
             {
+                if !crate::pages::entity_readable(ctx, target.as_str(), serving_graph(&current))
+                    .await?
+                {
+                    return Ok(missing());
+                }
                 let mut v = entity_json::present(&current, ctx.app.registry());
                 v["redirects"] = json!({"from": as_given, "to": target.as_str()});
                 return Ok(v);
             }
-            Ok(json!({"id": as_given, "missing": ""}))
+            Ok(missing())
         }
     }
 }

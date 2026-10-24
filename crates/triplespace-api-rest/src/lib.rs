@@ -54,6 +54,7 @@ mod entity_route;
 pub mod groups;
 pub mod history;
 pub mod provenance;
+pub mod purges;
 pub mod settings;
 pub mod tenancy;
 pub mod threads;
@@ -105,6 +106,8 @@ pub const PATHS: &[&str] = &[
     "/acl/set/{id}/members",
     "/acl/set/{id}/members/{kind}/{member}",
     "/group/{name}",
+    "/acl/empty-groups",
+    "/purges",
 ];
 
 /// The REST routes, to be merged into the server's router.
@@ -171,7 +174,9 @@ pub fn routes() -> Router<App> {
             .route(
                 &format!("{base}{}", PATHS[36]),
                 get(groups::get).put(groups::put).delete(groups::delete),
-            );
+            )
+            .route(&format!("{base}{}", PATHS[37]), get(acl::empty_groups))
+            .route(&format!("{base}{}", PATHS[38]), get(purges::list));
     }
     r
 }

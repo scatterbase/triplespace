@@ -563,6 +563,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for AclProjection {
                         "parts",
                         "reserved",
                         "talk",
+                        "confidential_talk",
                         "name",
                         "members",
                         "confidential",

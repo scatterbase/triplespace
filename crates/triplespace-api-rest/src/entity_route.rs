@@ -96,23 +96,30 @@ pub(crate) async fn resolve(
         Some(target) => target,
         None => id,
     };
-    // A private tenant's entities are absent for those outside it (09 §4.7).
-    let private = triplespace_projections::acl_read::tenant_hidden(
+    let current = read::current(client, app.order(), &tenant.slug, &id)
+        .await
+        .map_err(|e| internal(&e))?;
+    let held = current.is_some();
+    // An entity under a restriction the caller does not satisfy is absent, and a deleted
+    // one is to those outside its group (09 §5.3, §6.2); a private tenant's are absent for
+    // everyone outside it (09 §4.7).
+    let graph = current
+        .as_ref()
+        .and_then(|c| c.contributions.first().map(|g| g.graph.clone()));
+    let chain = triplespace_projections::acl_read::entity_chain(
         client,
         &tenant.slug,
-        &caller.effective,
-        scatter_actors::Timestamp(triplespace_api_action::edit::now_micros()),
+        id.as_str(),
+        graph.as_deref(),
     )
     .await
     .map_err(|e| internal(&e))?;
-    let standing = read::standing(client, &tenant.slug, &id)
-        .await
-        .map_err(|e| internal(&e))?;
-    let held = read::current(client, app.order(), &tenant.slug, &id)
-        .await
-        .map_err(|e| internal(&e))?
-        .is_some();
-    if private || standing.deleted || (!held && id.form() != IdForm::Keyed) {
+    let readable = scatter_actors::read_decision(
+        &caller.effective,
+        &chain,
+        scatter_actors::Timestamp(triplespace_api_action::edit::now_micros()),
+    ) == scatter_actors::ReadDecision::Readable;
+    if !readable || (!held && id.form() != IdForm::Keyed) {
         return Err(error(
             StatusCode::NOT_FOUND,
             "entity-not-found",

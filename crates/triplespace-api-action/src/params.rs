@@ -38,6 +38,19 @@ impl Params {
         p
     }
 
+    /// The same parameters with every `{from}{rest}` also readable as `{to}{rest}`: how
+    /// `prop=deletedrevisions` (`drv*`) reuses `prop=revisions` (`rv*`).
+    #[must_use]
+    pub fn with_prefix_as(&self, from: &str, to: &str) -> Self {
+        let mut p = self.clone();
+        for (k, v) in &self.map {
+            if let Some(rest) = k.strip_prefix(from) {
+                p.map.insert(format!("{to}{rest}"), v.clone());
+            }
+        }
+        p
+    }
+
     /// A parameter's value.
     #[must_use]
     pub fn get(&self, name: &str) -> Option<&str> {

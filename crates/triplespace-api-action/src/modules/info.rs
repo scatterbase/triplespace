@@ -71,8 +71,11 @@ async fn info_of(ctx: &Ctx, site: &Site, page: &PageAsk) -> Result<Map<String, V
         (None, None) => {}
     }
     if want("protection") {
-        m.insert("protection".into(), json!([]));
-        m.insert("restrictiontypes".into(), json!(["edit", "move"]));
+        m.insert("protection".into(), protection_of(ctx, page).await?);
+        m.insert(
+            "restrictiontypes".into(),
+            json!(["edit", "move", "read", "create"]),
+        );
     }
     if want("url") {
         let base = ctx.tenant.public_base.trim_end_matches('/');
@@ -91,6 +94,58 @@ async fn info_of(ctx: &Ctx, site: &Site, page: &PageAsk) -> Result<Map<String, V
         m.insert("displaytitle".into(), json!(page.title));
     }
     Ok(m)
+}
+
+/// `inprop=protection`, as MediaWiki lists it: one entry per restricted action along the
+/// page's or entity's chain, `{type, level, expiry}` plus `source` for one an enclosing
+/// target set (a namespace, a set, the tenant), which MediaWiki uses for cascading
+/// protection. Only restrictions the caller already passed are listed, since the page was
+/// resolved for it: a confidential `read` names the group the caller is in. A deletion's
+/// `read` is not a protection and is left out.
+async fn protection_of(ctx: &Ctx, page: &PageAsk) -> Result<Value, ApiError> {
+    use scatter_actors::acl::{READ, ReadKind, Target};
+    let tenant = &ctx.tenant.slug;
+    let chain = match &page.id {
+        Some(id) => {
+            triplespace_projections::acl_read::entity_chain(ctx.db(), tenant, id.as_str(), None)
+                .await
+        }
+        None => triplespace_projections::acl_read::page_chain(ctx.db(), tenant, page.page_id).await,
+    }
+    .map_err(ApiError::internal)?;
+    let own = match &page.id {
+        Some(id) => Target::Entity(id.as_str().to_string()),
+        None => Target::Page(page.page_id),
+    };
+    let at = scatter_actors::Timestamp(crate::edit::now_micros());
+    let mut out = Vec::new();
+    for acl in &chain {
+        for (permission, r) in &acl.restrictions {
+            if !r.active_at(at) {
+                continue;
+            }
+            if permission == READ && acl.read_kind == Some(ReadKind::Moderation) {
+                continue;
+            }
+            let kind = match permission.as_str() {
+                "createpage" => "create",
+                p => p,
+            };
+            let mut e = json!({
+                "type": kind,
+                "level": r.group.clone().unwrap_or_default(),
+                "expiry": match r.expires {
+                    None => "infinity".to_string(),
+                    Some(t) => iso8601(t.0),
+                },
+            });
+            if acl.target != own {
+                e["source"] = json!(acl.target.key());
+            }
+            out.push(e);
+        }
+    }
+    Ok(Value::Array(out))
 }
 
 /// `prop=info`: its own page list, or its fields added to the pages `prop=revisions`

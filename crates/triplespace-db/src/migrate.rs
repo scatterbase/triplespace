@@ -221,7 +221,7 @@ mod tests {
             .collect();
         assert_eq!(names[0], "scatter-log-postgres/0001_log");
         assert_eq!(names[1], "triplespace-db/0001_ops");
-        assert!(names.last().unwrap().ends_with("0017_set_members"));
+        assert!(names.last().unwrap().ends_with("0019_purges"));
         assert_eq!(checksum("").len(), 64);
         assert_ne!(checksum("a"), checksum("b"));
     }

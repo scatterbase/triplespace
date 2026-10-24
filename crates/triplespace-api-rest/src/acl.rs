@@ -314,3 +314,19 @@ pub async fn remove_member(
     })
     .await
 }
+
+/// `GET /acl/empty-groups`: the empty-group report (09 §4.5).
+pub async fn empty_groups(
+    State(app): State<App>,
+    Extension(origin): Extension<Origin>,
+    headers: HeaderMap,
+) -> Response {
+    let ctx = match context(&app, origin, &headers).await {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
+    match acl_api::empty_groups(&ctx).await {
+        Ok(v) => ok(&headers, &v),
+        Err(e) => refused(&e),
+    }
+}

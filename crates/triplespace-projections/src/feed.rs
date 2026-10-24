@@ -596,6 +596,42 @@ fn build(tenant: &str, feed: &Feed, viewer: &Viewer) -> Built {
                 Box::new(h.namespace_list()),
             );
         }
+        // Entities: those hidden themselves or through a set, and those of a hidden
+        // entity namespace (by type); a revision-deletion names the entity in `of`.
+        let entity = target_kind::ENTITY;
+        if !h.entities.is_empty() {
+            push(
+                &mut sql,
+                &format!(
+                    "NOT ((a.target_kind = {entity} AND a.target_id = ANY($n))
+                      OR (a.target_kind = {record} AND a.params->'of'->>'kind' = '{entity}'
+                          AND a.params->'of'->>'id' = ANY($n)))"
+                ),
+                Box::new(h.entity_ids()),
+            );
+        }
+        let types = h.entity_types();
+        if !types.is_empty() {
+            push(
+                &mut sql,
+                &format!(
+                    "NOT ((a.target_kind = {entity} AND e.type = ANY($n))
+                      OR (a.target_kind = {record} AND a.params->'of'->>'kind' = '{entity}'
+                          AND EXISTS (SELECT 1 FROM view.entity oe WHERE oe.tenant IN (a.tenant, '')
+                            AND oe.id = a.params->'of'->>'id' AND oe.type = ANY($n))))"
+                ),
+                Box::new(types),
+            );
+        }
+        if !h.graphs.is_empty() {
+            // Rows of a restricted graph's partition (a mirror's records) are absent.
+            push(
+                &mut sql,
+                "NOT EXISTS (SELECT 1 FROM log.partition lp WHERE lp.partition = a.partition
+                             AND lp.name = ANY($n))",
+                Box::new(h.graphs.iter().cloned().collect::<Vec<String>>()),
+            );
+        }
     }
     if let Some(c) = feed.cursor {
         let cmp = match feed.direction {
@@ -718,14 +754,21 @@ pub async fn query<C: PgClient>(
     for r in rows.iter().take(limit) {
         out.push(row_of(r)?);
     }
-    // Hidden usernames (09 §6.3): attributed to nobody for those outside the group.
-    let keys: Vec<String> = out
+    // Hidden usernames (09 §6.3): attributed to nobody for those outside the group, as
+    // performers and as the accounts a rights or block event is about.
+    let mut keys: Vec<String> = out
         .iter()
         .filter(|r| !r.actor.hidden)
         .filter_map(|r| r.actor.key.clone())
-        .collect::<std::collections::BTreeSet<_>>()
-        .into_iter()
         .collect();
+    let about: Vec<String> = out
+        .iter()
+        .filter(|r| r.target.kind == Some(target_kind::ACTOR))
+        .filter_map(|r| r.target.id.clone())
+        .collect();
+    keys.extend(about.iter().cloned());
+    keys.sort();
+    keys.dedup();
     let hidden = crate::acl_read::hidden_actors(
         client,
         tenant,
@@ -734,10 +777,36 @@ pub async fn query<C: PgClient>(
         scatter_actors::Timestamp(micros(SystemTime::now())),
     )
     .await?;
+    // The names of the accounts the events are about, for `User:{name}` titles.
+    let names: std::collections::HashMap<String, String> = if about.is_empty() {
+        std::collections::HashMap::new()
+    } else {
+        client
+            .query(
+                "SELECT actor_key, name FROM view.actor
+                 WHERE tenant IN ($1, '') AND actor_key = ANY($2) AND name IS NOT NULL",
+                &[&tenant, &about],
+            )
+            .await
+            .map_err(|e| e.to_string())?
+            .iter()
+            .map(|r| (r.get::<_, String>(0), r.get::<_, String>(1)))
+            .collect()
+    };
     for r in &mut out {
         if r.actor.key.as_ref().is_some_and(|k| hidden.contains(k)) {
             r.actor.hidden = true;
             r.actor.name = None;
+        }
+        if r.target.kind == Some(target_kind::ACTOR)
+            && let Some(k) = &r.target.id
+        {
+            // A hidden account's events are titled by its key, which names nobody.
+            if !hidden.contains(k)
+                && let Some(n) = names.get(k)
+            {
+                r.target.label = Some((n.clone(), String::new()));
+            }
         }
     }
     let next = (rows.len() > limit)

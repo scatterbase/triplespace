@@ -58,12 +58,20 @@ pub fn target_of(kind: &str, id: &str) -> Result<Target, ApiError> {
             .parse()
             .map(Target::Set)
             .map_err(|_| ApiError::bad_value("id", id)),
-        "entity" | "statement" | "property" | "graph" | "record" | "actor" | "blob" => {
-            Err(ApiError::new(
-                "ts-not-supported",
-                format!("ACLs on `{kind}` targets are not served by this route yet."),
-            ))
+        "entity" => {
+            let parsed = crate::modules::entities::parse_id(id)?;
+            if parsed.form() == scatter_wikibase_model::id::IdForm::Foreign {
+                return Err(ApiError::new(
+                    "ts-not-supported",
+                    "A mirrored entity is restricted by its provider, not here.",
+                ));
+            }
+            Ok(Target::Entity(parsed.as_str().to_string()))
         }
+        "statement" | "property" | "graph" | "record" | "actor" | "blob" => Err(ApiError::new(
+            "ts-not-supported",
+            format!("ACLs on `{kind}` targets are not served by this route yet."),
+        )),
         other => Err(ApiError::bad_value("kind", other)),
     }
 }
@@ -90,6 +98,30 @@ async fn chain_of(ctx: &Ctx, target: &Target) -> Result<Option<Vec<Acl>>, ApiErr
                 triplespace_projections::acl_read::page_chain(ctx.db(), tenant, *id)
                     .await
                     .map_err(internal)?,
+            )
+        }
+        Target::Entity(id) => {
+            // Held by the tenant itself (a mirror's row is the provider's).
+            let exists = ctx
+                .db()
+                .query_opt(
+                    "SELECT 1 FROM view.entity WHERE tenant = $1 AND id = $2",
+                    &[&tenant, &id.as_str()],
+                )
+                .await?
+                .is_some();
+            if !exists {
+                return Ok(None);
+            }
+            Some(
+                triplespace_projections::acl_read::entity_chain(
+                    ctx.db(),
+                    tenant,
+                    id,
+                    Some("local"),
+                )
+                .await
+                .map_err(internal)?,
             )
         }
         Target::Namespace(n) => {
@@ -297,6 +329,17 @@ pub async fn write(
         .contains_key(scatter_actors::acl::READ)
         .then_some(ReadKind::Confidential);
     acl.restrictions = restrictions;
+    // `talk`: a page's confidential restriction takes its talk page and threads (09 §4.4).
+    match body.get("talk").and_then(Value::as_bool) {
+        Some(t) => {
+            if t && !matches!(target, Target::Page(_)) {
+                return Err(ApiError::new("badbody", "Only a page has a talk page."));
+            }
+            acl.talk = t && acl.read_kind == Some(ReadKind::Confidential);
+        }
+        None if acl.read_kind != Some(ReadKind::Confidential) => acl.talk = false,
+        None => {}
+    }
     acl.validate()
         .map_err(|e| ApiError::new("badbody", e.to_string()))?;
     let reason = body
@@ -364,10 +407,12 @@ fn member_of(kind: &str, id: &str) -> Result<scatter_actors::acl::SetMember, Api
             .parse()
             .map(scatter_actors::acl::SetMember::Page)
             .map_err(|_| ApiError::bad_value("id", id)),
-        "entity" => Err(ApiError::new(
-            "ts-not-supported",
-            "Entities cannot be set members until entity ACLs are enforced.",
-        )),
+        "entity" => {
+            let parsed = crate::modules::entities::parse_id(id)?;
+            Ok(scatter_actors::acl::SetMember::Entity(
+                parsed.as_str().to_string(),
+            ))
+        }
         other => Err(ApiError::bad_value("kind", other)),
     }
 }
@@ -375,8 +420,13 @@ fn member_of(kind: &str, id: &str) -> Result<scatter_actors::acl::SetMember, Api
 /// A member the caller may add or remove: a page that exists and that the caller may
 /// read; one it may not read answers as missing (09 §5.3).
 async fn check_member(ctx: &Ctx, m: &scatter_actors::acl::SetMember) -> Result<(), ApiError> {
-    if let scatter_actors::acl::SetMember::Page(p) = m {
-        known_chain(ctx, &Target::Page(*p)).await?;
+    match m {
+        scatter_actors::acl::SetMember::Page(p) => {
+            known_chain(ctx, &Target::Page(*p)).await?;
+        }
+        scatter_actors::acl::SetMember::Entity(e) => {
+            known_chain(ctx, &Target::Entity(e.clone())).await?;
+        }
     }
     Ok(())
 }
@@ -544,4 +594,45 @@ pub async fn remove_member(
 ) -> Result<Value, ApiError> {
     let member = member_of(kind, id)?;
     change_member(ctx, set, member, false, reason).await
+}
+
+/// The empty-group report (09 §4.5; 0056 A18): for a holder of `userrights`, each group
+/// that a confidential restriction in force names and that has no current member, with the
+/// number of restrictions naming it and no titles, so that an orphaned group is found
+/// before anyone needs it. Implicit groups (`user` and the like) always have members and
+/// are left out. `Special:ProtectedPages` shows it.
+///
+/// # Errors
+///
+/// `permissiondenied` without `userrights`.
+pub async fn empty_groups(ctx: &Ctx) -> Result<Value, ApiError> {
+    ctx.caller.require("userrights")?;
+    let now = i64::try_from(now_micros()).unwrap_or(i64::MAX);
+    let rows = ctx
+        .db()
+        .query(
+            "WITH named AS (
+               SELECT r->>'group' AS g FROM view.acl a,
+                 LATERAL (SELECT a.restrictions->'read' WHERE a.read_kind = 'confidential'
+                          UNION ALL SELECT a.extra->'confidential') AS x(r)
+               WHERE a.tenant = $1 AND r IS NOT NULL AND r->>'group' IS NOT NULL
+                 AND (r->'expires' IS NULL OR (r->>'expires')::bigint > $2)
+             )
+             SELECT g, count(*) FROM named
+             WHERE NOT EXISTS (
+               SELECT 1 FROM view.membership m
+               WHERE m.tenant = $1 AND m.\"group\" = named.g AND m.layer = 'tenant'
+                 AND (m.expires IS NULL OR m.expires > $2))
+             GROUP BY g ORDER BY g",
+            &[&ctx.tenant.slug, &now],
+        )
+        .await?;
+    let registry = triplespace_accounts::groups::registry(ctx.db(), &ctx.tenant.slug).await?;
+    let groups: Vec<Value> = rows
+        .iter()
+        .map(|r| (r.get::<_, String>(0), r.get::<_, i64>(1)))
+        .filter(|(g, _)| registry.by_name(g).is_none_or(|d| d.implicit.is_none()))
+        .map(|(g, n)| json!({"group": g, "restrictions": n}))
+        .collect();
+    Ok(json!({"groups": groups}))
 }

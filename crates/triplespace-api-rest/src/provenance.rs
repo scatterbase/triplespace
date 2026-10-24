@@ -20,12 +20,12 @@ use scatter_wikibase_model::statement::Rank;
 use scatter_wikibase_resolve::Correction;
 use serde_json::{Map, Value, json};
 use triplespace_api_action::App;
-use triplespace_api_action::auth::{Caller, bearer};
+
+use crate::entity_route;
 use triplespace_api_action::entity_json::iso8601;
 use triplespace_api_action::forwarded::Origin;
 use triplespace_api_action::http_cache::{self, Class};
-use triplespace_api_action::modules::entities::parse_id;
-use triplespace_api_action::tenant::{self, Tenant};
+use triplespace_api_action::tenant::Tenant;
 use triplespace_projections::read::{self, Current, Standing};
 
 /// A REST error: `{"code": …, "message": …}` with a status.
@@ -206,45 +206,14 @@ pub async fn handle(
         Ok(c) => c,
         Err(e) => return internal(&e),
     };
-    let tenant = match tenant::resolve(&app, &**client, &origin, &headers).await {
-        Ok(Some(t)) => t,
-        Ok(None) => {
-            return error(
-                StatusCode::MISDIRECTED_REQUEST,
-                "misdirected",
-                "not a tenant of this instance",
-            );
-        }
-        Err(e) => return internal(&e),
+    // Does the entity exist for this viewer? The one answer every entity route gives
+    // (`entity_route::resolve`): a restricted, deleted or private tenant's entity is not
+    // found (09 §5.3).
+    let r = match entity_route::resolve(&app, &client, &origin, &headers, &id_text).await {
+        Ok(r) => r,
+        Err(r) => return r,
     };
-    let caller = match Caller::resolve(&**client, &tenant.slug, &headers).await {
-        Ok(c) => c,
-        Err(e) => return internal(&e.info),
-    };
-    if caller.require("read").is_err() {
-        return error(
-            StatusCode::FORBIDDEN,
-            "permissiondenied",
-            "reading needs the \"read\" right",
-        );
-    }
-    let id = match parse_id(&id_text) {
-        Ok(id) => id,
-        Err(e) => return error(StatusCode::BAD_REQUEST, "invalid-entity-id", e.info),
-    };
-    if id.form() == IdForm::Foreign && app.registry().parse_foreign_id(id.as_str()).is_err() {
-        return error(
-            StatusCode::BAD_REQUEST,
-            "invalid-entity-id",
-            format!("\"{}\" names no registered provider", id.as_str()),
-        );
-    }
-    // A key-mapped provider's own item ID resolves to the keyed entity (05 §4.1).
-    let id = match read::mapped_alias(&client, app.registry(), &tenant.slug, &id).await {
-        Ok(Some(target)) => target,
-        Ok(None) => id,
-        Err(e) => return internal(&e),
-    };
+    let (tenant, id, credentialed) = (r.tenant, r.id, r.credentialed);
     let current = match read::current(&client, app.order(), &tenant.slug, &id).await {
         Ok(c) => c,
         Err(e) => return internal(&e),
@@ -253,21 +222,11 @@ pub async fn handle(
         Ok(s) => s,
         Err(e) => return internal(&e),
     };
-    // Absent, deleted or (later) confidential: one answer (0056 §5). A valid keyed ID no
-    // graph holds is an empty entity, as `wbgetentities` serves it (0009 §4).
-    if standing.deleted || (current.is_none() && id.form() != IdForm::Keyed) {
-        return error(
-            StatusCode::NOT_FOUND,
-            "entity-not-found",
-            format!("no entity {}", id.as_str()),
-        );
-    }
     let minted = match minted_by(&app, &client, &tenant, &id).await {
         Ok(v) => v,
         Err(e) => return internal(&e),
     };
     let body = body(&id, current.as_ref(), &standing, &minted).to_string();
-    let credentialed = caller.has_session() || bearer(&headers).is_some();
     let class = Class::Public.permitted(&method, credentialed, false, false);
     http_cache::respond(
         &headers,

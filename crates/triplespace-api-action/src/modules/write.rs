@@ -40,6 +40,17 @@ fn no_such_entity(id: &str) -> ApiError {
 /// Loads an existing subject; a valid keyed ID no graph holds starts empty (0009 §4).
 async fn existing(ctx: &Ctx, id: EntityId) -> Result<Subject, ApiError> {
     let before = edit::current(ctx, &id).await?;
+    // An entity the caller may not read does not exist for it (09 §5.3); one it may read
+    // is edited under the ACLs along its chain (09 §4.4, §5.5).
+    enforce(
+        ctx,
+        &id,
+        before
+            .as_ref()
+            .and_then(|c| c.contributions.first().map(|g| g.graph.as_str())),
+        "edit",
+    )
+    .await?;
     let base = match &before {
         Some(c) => c.resolved.entity.clone(),
         None if id.form() == IdForm::Keyed => {
@@ -49,6 +60,41 @@ async fn existing(ctx: &Ctx, id: EntityId) -> Result<Subject, ApiError> {
         None => return Err(no_such_entity(id.as_str())),
     };
     Ok(Subject { id, before, base })
+}
+
+/// Checks `permission` for a write to an entity against its chain (09 §4.4; see
+/// `moderation::enforce` for pages): an entity absent for the caller is `no-such-entity`,
+/// a deleted one likewise outside its group, and a restriction on the permission refuses
+/// as a protected page does. A scoped group's right counts within its scope (09 §3.4).
+async fn enforce(
+    ctx: &Ctx,
+    id: &EntityId,
+    graph: Option<&str>,
+    permission: &str,
+) -> Result<(), ApiError> {
+    use scatter_actors::acl::{ReadDecision, check_on, read_decision};
+    let chain = triplespace_projections::acl_read::entity_chain(
+        ctx.db(),
+        &ctx.tenant.slug,
+        id.as_str(),
+        graph,
+    )
+    .await
+    .map_err(ApiError::internal)?;
+    let at = scatter_actors::Timestamp(edit::now_micros());
+    let who = &ctx.caller.effective;
+    if read_decision(who, &chain, at) != ReadDecision::Readable {
+        return Err(no_such_entity(id.as_str()));
+    }
+    let scope = if who.scoped.is_empty() {
+        Vec::new()
+    } else {
+        triplespace_projections::acl_read::entity_scope(ctx.db(), &ctx.tenant.slug, id.as_str())
+            .await
+            .map_err(ApiError::internal)?
+    };
+    check_on(permission, who, &scope, &chain, at)
+        .map_err(|e| crate::modules::moderation::denied(&e))
 }
 
 /// The entity a statement GUID names.
@@ -225,6 +271,15 @@ async fn subject_from_id_or_new(ctx: &Ctx) -> Result<(Subject, bool), ApiError> 
         .await
         .map_err(ApiError::internal)?;
         scatter_projection::Backend::commit(ctx.app.store(), cx).await?;
+        // A new entity is created inside its namespace, the local graph and the tenant,
+        // whose ACLs may restrict it (09 §4.4): under `createpage` where the caller holds
+        // it, else under `edit`, as the right above was taken.
+        let right = if ctx.caller.effective.holds_somewhere("createpage") {
+            "createpage"
+        } else {
+            "edit"
+        };
+        enforce(ctx, &id, Some("local"), right).await?;
         let mut base = Entity::new(id.clone(), entity_type);
         if base.entity_type == EntityType::Property {
             base.datatype = Some(DataType::String);

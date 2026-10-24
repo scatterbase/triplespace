@@ -155,7 +155,13 @@ pub async fn resolve(ctx: &Ctx, site: &Site) -> Result<PageSet, ApiError> {
             )
             .await?;
         if let Some(id) = row.and_then(|r| EntityId::parse(&r.get::<_, String>(0)).ok()) {
-            entities.push((id, None, None));
+            // An entity the caller may not read is absent; its page ID names nothing
+            // (09 §5.3).
+            if crate::pages::entity_readable(ctx, id.as_str(), None).await? {
+                entities.push((id, None, None));
+                continue;
+            }
+            set.missing.push(json!({"pageid": n, "missing": flag(ctx)}));
             continue;
         }
         match pages::by_id(ctx.db(), tenant, &hidden, u64::try_from(n).unwrap_or(0)).await? {
@@ -240,18 +246,19 @@ pub async fn resolve(ctx: &Ctx, site: &Site) -> Result<PageSet, ApiError> {
 
 /// An entity's page, or `None` where the entity does not exist or is deleted.
 pub async fn entity_ask(ctx: &Ctx, id: &EntityId) -> Result<Option<PageAsk>, ApiError> {
-    // A private tenant's entities are absent for those outside it (09 §4.7).
-    if crate::pages::private_to(ctx).await? {
-        return Ok(None);
-    }
-    let standing = read::standing(ctx.db(), &ctx.tenant.slug, id)
-        .await
-        .map_err(ApiError::internal)?;
     let current = read::current(ctx.db(), ctx.app.order(), &ctx.tenant.slug, id)
         .await
         .map_err(ApiError::internal)?;
+    // Absent under a restriction the caller does not satisfy, and for a deleted one
+    // outside its group (09 §5.3, §6.2).
+    let graph = current
+        .as_ref()
+        .and_then(|c| c.contributions.first().map(|g| g.graph.clone()));
+    if !crate::pages::entity_readable(ctx, id.as_str(), graph.as_deref()).await? {
+        return Ok(None);
+    }
     Ok(match current {
-        Some(c) if !standing.deleted => {
+        Some(c) => {
             let (ns, title) = title_of(id, &c.resolved.entity.entity_type);
             Some(PageAsk {
                 id: Some(id.clone()),

@@ -705,6 +705,66 @@ fn membership_columns(record: &Record) -> Result<Columns, String> {
     })
 }
 
+/// A block record as `block/block`, `block/reblock` (a block where the previous record
+/// under the key is one too) or `block/unblock` (09 §3.3), on the account, with what it
+/// removes and its expiry in `params`. Public, as MediaWiki's block log is.
+async fn block_columns(cx: &PgCx, record: &Record) -> Result<Columns, String> {
+    use scatter_actors::membership::{Block, BlockScope};
+    let h = record.header();
+    let key = h
+        .key
+        .as_deref()
+        .ok_or("a block record is keyed by its actor")?;
+    let decode = |r: &Record| -> Result<Option<Block>, String> {
+        match content(r)? {
+            Some(v) => scatter_log::cbor::from_value(v)
+                .map(Some)
+                .map_err(|e| e.to_string()),
+            None => Ok(None),
+        }
+    };
+    let block = decode(record)?;
+    // The account's other actor records (its actor record, memberships) share the key.
+    let previous = scatter_log_postgres::log::read_by_key(cx, h.partition, key)
+        .await
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .rev()
+        .find(|(o, r)| *o < h.offset && r.header().payload_type == crate::actors::payload::BLOCK)
+        .map(|(_, r)| decode(&r))
+        .transpose()?
+        .flatten();
+    let (action, params) = match &block {
+        Some(Block::Block { removes, expires }) => (
+            if matches!(previous, Some(Block::Block { .. })) {
+                "reblock"
+            } else {
+                "block"
+            },
+            serde_json::json!({
+                "removes": match removes {
+                    BlockScope::AllButRead => serde_json::json!("all-but-read"),
+                    BlockScope::Permissions(p) => serde_json::json!(p),
+                },
+                "expires": expires.map(|t| t.0),
+            }),
+        ),
+        _ => ("unblock", serde_json::Value::Null),
+    };
+    Ok(Columns {
+        kind: "log",
+        target: Target {
+            kind: Some(target_kind::ACTOR),
+            id: Some(key.to_string()),
+            member: None,
+        },
+        log_type: Some("block".into()),
+        log_action: Some(action.into()),
+        params: Some(params),
+        ..Columns::default()
+    })
+}
+
 /// The size of a page's row before a revision, 0 for its first.
 async fn previous_size(
     cx: &PgCx,
@@ -746,7 +806,8 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for ActivityProjection {
                 || header.payload_type == scatter_pages::PAYLOAD_PAGE
                 || header.payload_type == scatter_threads::PAYLOAD_THREAD
                 || header.payload_type == crate::actors::payload::ACL
-                || header.payload_type == crate::actors::payload::MEMBERSHIP)
+                || header.payload_type == crate::actors::payload::MEMBERSHIP
+                || header.payload_type == crate::actors::payload::BLOCK)
     }
 
     fn apply<'a>(
@@ -769,6 +830,8 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for ActivityProjection {
                 acl_columns(cx, record).await?
             } else if h.payload_type == crate::actors::payload::MEMBERSHIP {
                 membership_columns(record)?
+            } else if h.payload_type == crate::actors::payload::BLOCK {
+                block_columns(cx, record).await?
             } else {
                 logevent_columns(record)?
             };

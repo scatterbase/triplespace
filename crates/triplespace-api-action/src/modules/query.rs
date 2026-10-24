@@ -39,6 +39,7 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
             }
             "wikibase" => wikibase(ctx, &mut query),
             "authmanagerinfo" => super::account::authmanagerinfo(ctx, &mut query).await?,
+            "notifications" => super::notifications::meta(ctx, &mut query).await?,
             other => response.warn(
                 "query",
                 &format!("Unrecognized value for parameter \"meta\": {other}."),
@@ -60,6 +61,9 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         match p.as_str() {
             "revisions" => {
                 super::revisions::run(ctx, &mut query, &mut body, &mut response).await?;
+            }
+            "deletedrevisions" => {
+                super::revisions::deleted(ctx, &mut query, &mut body, &mut response).await?;
             }
             "info" => super::info::info(ctx, &mut query).await?,
             "templates" => super::info::templates(ctx, &mut query).await?,
@@ -83,6 +87,9 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
             "allpages" => {
                 super::info::allpages(ctx, &mut query, &mut body, &mut response).await?;
             }
+            "protectedpages" => super::protected::pages(ctx, &mut query, &mut body).await?,
+            "protectedtitles" => super::protected::titles(ctx, &mut query, &mut body).await?,
+            "protectedsets" => super::protected::sets(ctx, &mut query).await?,
             other => response.warn(
                 "query",
                 &format!("Unrecognized value for parameter \"list\": {other}."),
@@ -770,6 +777,7 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                 let version = ctx.app.build().build()["version"].clone();
                 query.insert("extensions".into(), json!([
                     {"type": "wikibase", "name": "WikibaseRepository", "descriptionmsg": "wikibase-desc", "version": version, "url": "https://github.com/scatterbase/triplespace", "license-name": "GPL-3.0-or-later"},
+                    {"type": "other", "name": "Echo", "descriptionmsg": "echo-desc", "version": version, "url": "https://github.com/scatterbase/triplespace", "license-name": "GPL-3.0-or-later"},
                     {"type": "other", "name": "Triplespace", "version": version, "url": "https://github.com/scatterbase/triplespace", "license-name": "GPL-3.0-or-later"}
                 ]));
             }
@@ -967,6 +975,15 @@ const ACTION_MODULES: &[(&str, bool)] = &[
     ("parse", false),
     ("compare", false),
     ("edit", true),
+    ("delete", true),
+    ("undelete", true),
+    ("protect", true),
+    ("revisiondelete", true),
+    ("userrights", true),
+    ("block", true),
+    ("unblock", true),
+    ("echomarkread", true),
+    ("echomarkseen", true),
     ("wbgetentities", false),
     ("wbsearchentities", false),
     ("wbeditentity", true),
@@ -992,12 +1009,24 @@ const QUERY_MODULES: &[(&str, &[&str])] = &[
             "userinfo",
             "wikibase",
             "authmanagerinfo",
+            "notifications",
         ],
     ),
-    ("prop", &["revisions", "info", "templates"]),
+    (
+        "prop",
+        &["revisions", "deletedrevisions", "info", "templates"],
+    ),
     (
         "list",
-        &["recentchanges", "usercontribs", "logevents", "allpages"],
+        &[
+            "recentchanges",
+            "usercontribs",
+            "logevents",
+            "allpages",
+            "protectedpages",
+            "protectedtitles",
+            "protectedsets",
+        ],
     ),
 ];
 
@@ -1296,7 +1325,8 @@ fn module_parameters(name: &str) -> Vec<Value> {
                     "operator",
                     "grants",
                     "options",
-                    "accountrequests"
+                    "accountrequests",
+                    "changeablegroups"
                 ]),
             ),
             50,
@@ -1654,13 +1684,18 @@ pub fn paraminfo_modules(requested: &[String]) -> Vec<Value> {
                             "userinfo" => "ui",
                             "wikibase" => "wb",
                             "authmanagerinfo" => "ami",
+                            "notifications" => "not",
                             "recentchanges" => "rc",
                             "usercontribs" => "uc",
                             "logevents" => "le",
                             "revisions" => "rv",
+                            "deletedrevisions" => "drv",
                             "info" => "in",
                             "templates" => "tl",
                             "allpages" => "ap",
+                            "protectedpages" => "pr",
+                            "protectedtitles" => "pt",
+                            "protectedsets" => "ps",
                             _ => "",
                         },
                     ),

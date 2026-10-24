@@ -266,9 +266,15 @@ pub struct Acl {
     /// For create-protection: the namespace and title reserved under a page ID.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reserved: Option<ReservedTitle>,
-    /// For a whole-page or whole-entity deletion: the paired talk page went with it.
+    /// For a whole-page or whole-entity deletion: the paired talk page went with it; for a
+    /// confidential restriction on a page: its talk page and the threads homed there are
+    /// under it too (09 §4.4; 0056 A24).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub talk: bool,
+    /// While a confidential page is deleted: whether its confidential restriction took the
+    /// talk page (`talk` then says whether the deletion did), restored by undeleting.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub confidential_talk: bool,
     /// For a `set` target: its name, shown where the restriction is shown.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
@@ -379,6 +385,7 @@ impl Acl {
             parts: Vec::new(),
             reserved: None,
             talk: false,
+            confidential_talk: false,
             name: None,
             members: Vec::new(),
             confidential: None,

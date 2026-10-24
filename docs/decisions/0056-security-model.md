@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-10-23 (A23)
+- **Updated:** 2026-10-24 (A25)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0021](0021-notifications.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md), [0033](0033-backend-stack.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0051](0051-page-redirects.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md), [0045](0045-table-content-model.md), [0046](0046-primary-tenant.md), [0047](0047-special-pages.md), [0049](0049-boards.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -51,7 +51,7 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 3. Two targets: the tenant and the set (extends 0016 §4; extends 0023 §2)
 
-*Changed by A3, A4, A10, A16, A23.*
+*Changed by A3, A4, A10, A16, A23, A24.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §4.2, §4.4, §4.7.*
 
@@ -101,7 +101,7 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 13. API and UI (extends 0012 §4; extends 0016 §7; extends 0023 §8 and §9)
 
-*Changed by A16.*
+*Changed by A16, A25.*
 
 *Current text: [18](../architecture/18-api.md) §2.2, §2.3, §3.1, §3.2; [19](../architecture/19-site-ui.md) §1.3, §1.5, §6.3, §6.11.*
 
@@ -479,3 +479,17 @@ Replaced text ([09](../architecture/09-security-and-moderation.md) §4.5, as it 
 - **Source:** Direct: James, design discussion of 2026-10-23
 - **Change:** extends §3, §4
 - **Summary:** Calls made building the namespace, set and tenant restrictions, confirmed by James. (1) A page encloses its subpages with its protections and its confidential restriction, but not with its deletion, which is of the page alone, as in MediaWiki; a confidential restriction a deletion kept still encloses. (2) A set encloses what its members enclose: a member's subpages and the threads it is home to. (3) An outsider's page edit on a private tenant is refused as at any title the editor may not read; an entity write is refused with `permissiondenied`, since a Wikibase client cannot usefully be told that a new item is missing. (4) An outsider's `meta=siteinfo` keeps `general`'s `sitename`, `lang`, `logo`, `favicon`, `server` and `mainpage`, adds `private: true`, keeps `triplespace`'s tenant, API version, theme, `visibility` and login, account and challenge fields, and drops every other `siprop`. (5) A restriction may name a registry default group, a group the tenant's `config` defines, or a group with a current member; a group only ACLs name needs no record.
+
+### A24. A confidential restriction may take the talk page
+
+- **Date:** 2026-10-24
+- **Source:** Direct: James, design discussion of 2026-10-24
+- **Change:** extends §3
+- **Summary:** A subject page still does not enclose its talk page (09 §4.4), but people who make a page confidential will often want its discussion grouped with it, and the interface should make that simple. So a page's confidential `read` restriction may carry `talk: true`, as a deletion does, and the talk page and the threads homed there are then under the restriction. `action=protect` takes `tstalk`, `/acl/page/{id}` takes `talk`, and the Protect dialog offers it, on by default when `read` is set. While such a page is deleted the flag is kept as `confidential_talk` beside `confidential` and restored by undeleting. Chapter text: [09](../architecture/09-security-and-moderation.md) §4.3, §4.4.
+
+### A25. Lifting a block lifts the hide, and the attack battery is a check
+
+- **Date:** 2026-10-24
+- **Source:** Direct: the live attack battery of 2026-10-24 (`tools/acl_check.py`); a call of Claude's for James to confirm
+- **Change:** extends §13
+- **Summary:** The "should be able to but can't" pass found that no API route could lift a hidden username: `/acl` does not serve `actor` targets and `action=unblock` left the `actor` ACL in place, so only the CLI could unhide. As in MediaWiki, an unblock, or a `reblock` without `hidename`, by a caller holding `hideuser` now also retires the `actor` ACL (09 §6.3); an administrator without `hideuser`, who may lift the block by its ID, leaves the name hidden. The battery itself — every negative and positive probe of the live attack, over real HTTP against a server it sets up — is `tools/acl_check.sh`, a check CI runs beside the client-compatibility checks (22 §4.2).

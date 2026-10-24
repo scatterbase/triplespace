@@ -123,7 +123,13 @@ pub fn title_of(row: &Row) -> Option<(i64, String)> {
             };
             Some((i64::from(ns), prefixed))
         }
-        target_kind::ACTOR => t.id.as_ref().map(|k| (2, format!("User:{k}"))),
+        // The account's name where the viewer may see it, else its key (09 §6.3).
+        target_kind::ACTOR => t
+            .label
+            .as_ref()
+            .map(|(n, _)| n.as_str())
+            .or(t.id.as_deref())
+            .map(|k| (2, format!("User:{k}"))),
         target_kind::JOB => t.id.as_ref().map(|j| (-1, format!("Special:Jobs/{j}"))),
         _ => None,
     }

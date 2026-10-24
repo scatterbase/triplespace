@@ -7,8 +7,9 @@
 //! away and retires the ACL only when nothing is left, and protecting a deleted page keeps
 //! it deleted. Hiding merges the parts already hidden with those named.
 //!
-//! - **`action=delete`**: `title` or `pageid`, `reason`, `deletetalk`. Document pages and
-//!   threads; an entity page is not deletable here yet (`ts-not-supported`).
+//! - **`action=delete`**: `title` or `pageid`, `reason`, `deletetalk`. Document pages,
+//!   threads and local entities by title (`Q5`, `Property:P3`); a mirrored entity is its
+//!   provider's to moderate (`ts-not-supported`).
 //! - **`action=undelete`**: `title`, `reason`, and `pageid` (ours) to choose among several
 //!   deleted pages that had the title, which is otherwise `ts-ambiguous-undelete`, listing
 //!   their IDs. The whole page; `timestamps` and `revisions` (partial undeletion) are not
@@ -16,7 +17,8 @@
 //!   `ts-title-taken`.
 //! - **`action=protect`**: `title` or `pageid`, `protections` (`edit=autoconfirmed|move=sysop`,
 //!   `read={group}` for a confidential restriction, `{action}=all` to lift one), `expiry`
-//!   (one, or one per protection), `reason`. `cascade` is `ts-no-cascade`. A title with no
+//!   (one, or one per protection), `reason`, and `tstalk` (`1` or `0`), which takes the
+//!   subject's talk page and its threads under a confidential restriction (09 §4.4). `cascade` is `ts-no-cascade`. A title with no
 //!   page takes `create={group}` and `read={group}` only, and reserves the title under a
 //!   new page ID (09 §4.8): a `create` there takes the ID, and is refused with
 //!   `ts-restricted-title` to anyone the ACL does not admit. `read` on a deleted page is
@@ -268,6 +270,59 @@ async fn admit(ctx: &Ctx, page_id: u64, permission: &str) -> Result<Admit, ApiEr
     Ok(Admit::Yes)
 }
 
+/// [`admit`] for an entity: its chain (09 §4.4), with the graph serving it when it is
+/// held. `Absent` for an entity under a confidential restriction the caller does not
+/// satisfy, or a deleted one outside its group, so that a request names only what the
+/// caller could read (09 §5.3).
+async fn admit_entity(ctx: &Ctx, id: &str, permission: &str) -> Result<Admit, ApiError> {
+    use scatter_actors::acl::{ReadDecision, check_on};
+    let current = crate::edit::current(ctx, &crate::modules::entities::parse_id(id)?).await?;
+    // An entity no graph holds does not exist, as a title with no page.
+    let Some(current) = current else {
+        return Ok(Admit::Absent);
+    };
+    let graph = current.contributions.first().map(|g| g.graph.clone());
+    let chain = triplespace_projections::acl_read::entity_chain(
+        ctx.db(),
+        &ctx.tenant.slug,
+        id,
+        graph.as_deref(),
+    )
+    .await
+    .map_err(ApiError::internal)?;
+    let at = Timestamp(now_micros());
+    let who = &ctx.caller.effective;
+    if scatter_actors::read_decision(who, &chain, at) != ReadDecision::Readable {
+        return Ok(Admit::Absent);
+    }
+    let scope = if who.scoped.is_empty() {
+        Vec::new()
+    } else {
+        triplespace_projections::acl_read::entity_scope(ctx.db(), &ctx.tenant.slug, id)
+            .await
+            .map_err(ApiError::internal)?
+    };
+    check_on(permission, who, &scope, &chain, at).map_err(|e| denied(&e))?;
+    Ok(Admit::Yes)
+}
+
+/// The entity a `title` names, when it names one the tenant holds and the caller may
+/// read; `None` for a title that is not an entity's. A local entity only: a mirrored one
+/// is the provider's to moderate (09 §5.6), `ts-not-supported`.
+fn entity_of(site: &Site, title: &str) -> Result<Option<String>, ApiError> {
+    if !pages::names_entity(site, title) {
+        return Ok(None);
+    }
+    let id = crate::modules::entities::parse_id(title)?;
+    if id.form() == scatter_wikibase_model::id::IdForm::Foreign {
+        return Err(ApiError::new(
+            "ts-not-supported",
+            "A mirrored entity is moderated by its provider, not here.",
+        ));
+    }
+    Ok(Some(id.as_str().to_string()))
+}
+
 /// The page a request names by `title` or `pageid`, not deleted, admitted for
 /// `permission` ([`admit`]); a page absent for the caller is missing.
 async fn admitted_page(ctx: &Ctx, site: &Site, permission: &str) -> Result<Page, ApiError> {
@@ -322,10 +377,33 @@ pub async fn delete(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     ctx.caller.check_csrf(&ctx.app, &ctx.params)?;
     ctx.caller.require_somewhere("delete")?;
     let site = Site::load(ctx).await?;
-    let page = admitted_page(ctx, &site, "delete").await?;
+    let (target, title) = match ctx.params.get("title") {
+        Some(t) if entity_of(&site, t)?.is_some() => {
+            let id = entity_of(&site, t)?.unwrap_or_default();
+            match admit_entity(ctx, &id, "delete").await? {
+                Admit::Yes => {}
+                Admit::Absent => return Err(missing_page(ctx)),
+            }
+            // A deleted entity is missing already (09 §6.2); deleting it twice is as
+            // MediaWiki's deleting a missing page.
+            if current(ctx, &Target::Entity(id.clone()))
+                .await?
+                .is_some_and(|a| a.read_kind == Some(ReadKind::Moderation))
+            {
+                return Err(missing_page(ctx));
+            }
+            (Target::Entity(id), t.to_string())
+        }
+        _ => {
+            let page = admitted_page(ctx, &site, "delete").await?;
+            (
+                Target::Page(page.page_id),
+                site.prefixed(page.ns, &page.title),
+            )
+        }
+    };
     let (delete_group, suppress_group) = groups(ctx).await?;
     let reason = ctx.params.get("reason").unwrap_or_default().to_string();
-    let target = Target::Page(page.page_id);
     let mut acl = current(ctx, &target)
         .await?
         .unwrap_or_else(|| Acl::read(target.clone(), ReadKind::Moderation, &delete_group, None));
@@ -333,6 +411,7 @@ pub async fn delete(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     // page is seen by members of both and stays absent for everyone else (09 §5.2).
     if acl.read_kind == Some(ReadKind::Confidential) {
         acl.confidential = acl.restrictions.remove(READ);
+        acl.confidential_talk = acl.talk;
     }
     acl.restrictions
         .insert(READ.into(), Restriction::to_group(&delete_group, None));
@@ -340,7 +419,7 @@ pub async fn delete(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     acl.talk = ctx.params.flag("deletetalk");
     let (logid, _) = save(ctx, target, Some(acl), &reason, &suppress_group, None).await?;
     Ok(ApiResponse::ok(json!({"delete": {
-        "title": site.prefixed(page.ns, &page.title),
+        "title": title,
         "reason": reason,
         "logid": logid,
     }})))
@@ -358,6 +437,9 @@ pub async fn undelete(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     }
     let site = Site::load(ctx).await?;
     let name = ctx.params.required("title")?.to_string();
+    if let Some(id) = entity_of(&site, &name)? {
+        return undelete_entity(ctx, &id, &name).await;
+    }
     let t = pages::resolve_title(&site, &name)
         .ok_or_else(|| ApiError::new("invalidtitle", format!("Bad title \"{name}\".")))?;
     let tenant = ctx.tenant.slug.clone();
@@ -381,12 +463,7 @@ pub async fn undelete(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         }
     }
     let ids = ids_seen;
-    let none = || {
-        ApiError::new(
-            "cantundelete",
-            "There are no deleted revisions of this page.",
-        )
-    };
+    let none = no_deleted_revisions;
     // Several deleted pages may have had the title; which one is the caller's to say.
     let page_id = match ctx.params.get("pageid") {
         Some(p) => {
@@ -433,20 +510,102 @@ pub async fn undelete(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     let reason = ctx.params.get("reason").unwrap_or_default().to_string();
     let target = Target::Page(page_id);
     // Undeleting a confidential page restores its confidential restriction (09 §5.2).
+    // Undeleting a confidential page restores its confidential restriction (09 §5.2),
+    // with the talk page under it where the restriction took it (`talk`, kept in the
+    // ACL's `confidential_talk` while deleted).
     let acl = current(ctx, &target).await?.and_then(|mut a| {
         a.restrictions.remove(READ);
         a.read_kind = None;
+        a.talk = false;
         if let Some(c) = a.confidential.take() {
             a.restrictions.insert(READ.into(), c);
             a.read_kind = Some(ReadKind::Confidential);
+            a.talk = std::mem::take(&mut a.confidential_talk);
         }
-        a.talk = false;
         (!a.restrictions.is_empty()).then_some(a)
     });
     save(ctx, target, acl, &reason, &suppress_group, None).await?;
     Ok(ApiResponse::ok(json!({"undelete": {
         "title": site.prefixed(t.namespace, &t.text),
         "pageid": page_id,
+        "revisions": 0,
+        "fileversions": 0,
+        "reason": reason,
+    }})))
+}
+
+fn no_deleted_revisions() -> ApiError {
+    ApiError::new(
+        "cantundelete",
+        "There are no deleted revisions of this page.",
+    )
+}
+
+/// `action=undelete` on an entity: an entity has one page and one ID, so there is nothing
+/// to choose among and no title to have been taken. The deletion group's members undelete;
+/// anyone else finds nothing deleted (09 §5.3).
+async fn undelete_entity(ctx: &Ctx, id: &str, title: &str) -> Result<ApiResponse, ApiError> {
+    let target = Target::Entity(id.to_string());
+    let existing = current(ctx, &target).await?;
+    let deleted = existing
+        .as_ref()
+        .is_some_and(|a| a.read_kind == Some(ReadKind::Moderation));
+    // The read test admits the deletion group to its own deletion (`Removed` is not
+    // `Absent`); `admit_entity` would call a deleted entity absent, so the test is made
+    // here from the chain.
+    let chain =
+        triplespace_projections::acl_read::entity_chain(ctx.db(), &ctx.tenant.slug, id, None)
+            .await
+            .map_err(ApiError::internal)?;
+    let at = Timestamp(now_micros());
+    let who = &ctx.caller.effective;
+    let none = no_deleted_revisions;
+    match scatter_actors::read_decision(who, &chain, at) {
+        scatter_actors::ReadDecision::Absent => return Err(none()),
+        scatter_actors::ReadDecision::Removed { .. } | scatter_actors::ReadDecision::Readable => {}
+    }
+    if !deleted {
+        return Err(none());
+    }
+    let scope = if who.scoped.is_empty() {
+        Vec::new()
+    } else {
+        triplespace_projections::acl_read::entity_scope(ctx.db(), &ctx.tenant.slug, id)
+            .await
+            .map_err(ApiError::internal)?
+    };
+    // The deletion restricts `read` to its group, which the undeleter must be in; the
+    // chain test is against the rest of the chain.
+    if !existing
+        .as_ref()
+        .and_then(|a| a.restrictions.get(READ))
+        .and_then(|r| r.group.as_deref())
+        .is_some_and(|g| who.in_group(g))
+    {
+        return Err(none());
+    }
+    scatter_actors::acl::check_on(
+        "undelete",
+        who,
+        &scope,
+        chain.iter().filter(|a| a.target != target),
+        at,
+    )
+    .map_err(|e| denied(&e))?;
+    let (_, suppress_group) = groups(ctx).await?;
+    let reason = ctx.params.get("reason").unwrap_or_default().to_string();
+    let acl = existing.and_then(|mut a| {
+        a.restrictions.remove(READ);
+        a.read_kind = None;
+        if let Some(c) = a.confidential.take() {
+            a.restrictions.insert(READ.into(), c);
+            a.read_kind = Some(ReadKind::Confidential);
+        }
+        (!a.restrictions.is_empty()).then_some(a)
+    });
+    save(ctx, target, acl, &reason, &suppress_group, None).await?;
+    Ok(ApiResponse::ok(json!({"undelete": {
+        "title": title,
         "revisions": 0,
         "fileversions": 0,
         "reason": reason,
@@ -466,6 +625,7 @@ pub(crate) fn expiry(text: &str) -> Result<Option<Timestamp>, ApiError> {
 /// What `action=protect` acts on: a page, or a title with no page, reserved or not yet.
 enum Protected {
     Page(Page),
+    Entity(String),
     Title {
         ns: i32,
         title: String,
@@ -481,11 +641,11 @@ async fn protected_of(ctx: &Ctx, site: &Site) -> Result<Protected, ApiError> {
             .map(Protected::Page);
     }
     let name = ctx.params.required("title")?;
-    if pages::names_entity(site, name) {
-        return Err(ApiError::new(
-            "ts-not-supported",
-            "Deleting and protecting entity pages is not served here yet.",
-        ));
+    if let Some(id) = entity_of(site, name)? {
+        return match admit_entity(ctx, &id, "protect").await? {
+            Admit::Yes => Ok(Protected::Entity(id)),
+            Admit::Absent => Err(restricted_title(name)),
+        };
     }
     let t = pages::resolve_title(site, name)
         .ok_or_else(|| ApiError::new("invalidtitle", format!("Bad title \"{name}\".")))?;
@@ -574,6 +734,11 @@ pub async fn protect(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     }
     let (target, title, reserve) = match &protected {
         Protected::Page(p) => (Target::Page(p.page_id), site.prefixed(p.ns, &p.title), None),
+        Protected::Entity(id) => (
+            Target::Entity(id.clone()),
+            ctx.params.get("title").unwrap_or_default().to_string(),
+            None,
+        ),
         Protected::Title {
             ns,
             title,
@@ -597,7 +762,7 @@ pub async fn protect(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         Some(_) => None,
         None => current(ctx, &target).await?,
     };
-    let exists = matches!(protected, Protected::Page(_));
+    let exists = matches!(protected, Protected::Page(_) | Protected::Entity(_));
     let mut acl = existing
         .clone()
         .unwrap_or_else(|| Acl::protect(target.clone(), &[], "", None));
@@ -655,6 +820,13 @@ pub async fn protect(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         }
         shown.push(json!({action.as_str(): group, "expiry": if ex.is_none() { "infinite".to_string() } else { ex_text.to_string() }}));
     }
+    // `tstalk`: a confidential restriction takes the subject's talk page and its threads
+    // with it (09 §4.4; 0056 A24); it is the talk page's own only while `read` is set.
+    if ctx.params.get("tstalk").is_some() {
+        acl.talk = ctx.params.flag("tstalk") && acl.read_kind == Some(ReadKind::Confidential);
+    } else if acl.read_kind != Some(ReadKind::Confidential) {
+        acl.talk = false;
+    }
     let acl = (!acl.restrictions.is_empty()).then_some(acl);
     if acl.is_none() && existing.is_none() {
         // Nothing was protected and nothing is: there is nothing to write.
@@ -692,12 +864,22 @@ async fn record_of(ctx: &Ctx, revid: u64) -> Result<Option<(u64, u64, String)>, 
     let Some(row) = row else {
         return Ok(None);
     };
-    // A revision of a page the caller may not read does not exist for it (09 §5.3).
-    if row.get::<_, Option<i16>>(3) == Some(triplespace_projections::feed::target_kind::PAGE)
-        && let Some(page) = row
-            .get::<_, Option<String>>(4)
-            .and_then(|id| id.parse::<u64>().ok())
+    // A revision of a page or entity the caller may not read does not exist for it
+    // (09 §5.3).
+    let kind = row.get::<_, Option<i16>>(3);
+    let target: Option<String> = row.get(4);
+    if kind == Some(triplespace_projections::feed::target_kind::PAGE)
+        && let Some(page) = target.as_deref().and_then(|id| id.parse::<u64>().ok())
         && matches!(admit(ctx, page, "deleterevision").await, Ok(Admit::Absent))
+    {
+        return Ok(None);
+    }
+    if kind == Some(triplespace_projections::feed::target_kind::ENTITY)
+        && let Some(id) = target.as_deref()
+        && matches!(
+            admit_entity(ctx, id, "deleterevision").await,
+            Ok(Admit::Absent)
+        )
     {
         return Ok(None);
     }

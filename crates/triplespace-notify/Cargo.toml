@@ -1,0 +1,21 @@
+[package]
+name = "triplespace-notify"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Notifications: the addressing projection that fills inboxes from activity, and the inbox's storage and read state"
+publish = false
+
+[dependencies]
+triplespace-projections.workspace = true
+triplespace-accounts.workspace = true
+scatter-projection.workspace = true
+scatter-log.workspace = true
+tokio-postgres.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

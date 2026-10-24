@@ -1306,7 +1306,9 @@ async fn acl_routes_set_read_and_retire() {
         .await;
     assert_eq!(r.body["code"], "ts-locked-out", "{}", r.body);
     let r = alice.rest("GET", "/acl/entity/Q1", None).await;
-    assert_eq!(r.body["code"], "ts-not-supported", "{}", r.body);
+    assert_eq!(r.body["code"], "ts-no-target", "no Q1 here: {}", r.body);
+    let r = alice.rest("GET", "/acl/entity/WDQ42", None).await;
+    assert_eq!(r.body["code"], "ts-not-supported", "mirrored: {}", r.body);
     let r = alice
         .rest(
             "PUT",
@@ -1464,7 +1466,7 @@ async fn subpages_and_sets_enclose() {
             Some(json!({"kind": "entity", "id": "Q1", "token": at})),
         )
         .await;
-    assert_eq!(r.body["code"], "ts-not-supported", "{}", r.body);
+    assert_eq!(r.body["code"], "ts-no-target", "no Q1 here: {}", r.body);
     let bob_token = bob.csrf().await;
     let r = bob
         .rest(
@@ -1796,14 +1798,14 @@ async fn delegated_administration() {
     let r = bob.userrights("user=Dave&add=nonesuch").await;
     assert_eq!(r["error"]["code"], "badvalue", "{r}");
     let l = anon.api("action=query&list=logevents&letype=rights").await;
-    assert!(
-        l["query"]["logevents"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|e| e["params"]["group"] == "bureaucrat"),
-        "{l}"
-    );
+    let bobs = l["query"]["logevents"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["params"]["group"] == "bureaucrat")
+        .cloned()
+        .unwrap_or_default();
+    assert_eq!(bobs["title"], "User:Bob", "titled by name, not key: {l}");
 
     // Bob, a bureaucrat, defines a department: hr-admins run hr's membership, and may
     // delete and protect in the Project namespace only.
@@ -1959,4 +1961,720 @@ async fn delegated_administration() {
     let r = bob.userrights("user=Bob&remove=owner").await;
     assert_eq!(r["error"]["code"], "ts-last-owner", "{r}");
     let _ = &mut dave;
+}
+
+impl Client {
+    async fn notifications(&mut self, extra: &str) -> Value {
+        self.api(&format!("action=query&meta=notifications{extra}"))
+            .await
+    }
+}
+
+/// Accountability (09 §3.3, §4.5, §6.3; 16 §5.2; 0021 A17, A19): `rights` and
+/// `group-join` notifications through Echo's modules, `action=block` and `unblock` with
+/// their log events and `hidename`, and the empty-group report.
+#[tokio::test(flavor = "multi_thread")]
+#[allow(clippy::too_many_lines, clippy::many_single_char_names)]
+async fn accountability() {
+    if admin_config().is_none() {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    }
+    let (_database, _app, mut alice) = instance("accountability").await;
+    let mut bob = account(&alice.router, "Bob", "bob-secret-1234").await;
+    let mut carol = account(&alice.router, "Carol", "carol-secret-1234").await;
+    let mut dave = account(&alice.router, "Dave", "dave-secret-1234").await;
+    let mut anon = Client {
+        router: alice.router.clone(),
+        cookie: None,
+    };
+    let at = alice.csrf().await;
+
+    // A group that announces its joins; Carol is in it before Bob joins.
+    let r = alice
+        .rest(
+            "PUT",
+            "/group/board",
+            Some(json!({"permissions": [], "notify_joins": true, "token": at})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    for form in [
+        "user=Carol&add=board",
+        "user=Carol&add=sysop",
+        "user=Bob&add=board&reason=Welcome",
+        "user=Dave&add=sysop",
+    ] {
+        let r = alice.userrights(form).await;
+        assert!(r.get("error").is_none(), "{form}: {r}");
+    }
+
+    let n = bob.notifications("&notprop=list|count").await;
+    let list = n["query"]["notifications"]["list"]
+        .as_array()
+        .unwrap()
+        .clone();
+    assert_eq!(list.len(), 1, "{n}");
+    assert_eq!(list[0]["type"], "user-rights");
+    assert_eq!(list[0]["agent"]["name"], "Alice");
+    assert_eq!(list[0]["title"]["text"], "Bob");
+    assert_eq!(list[0]["ts-params"]["group"], "board");
+    assert_eq!(n["query"]["notifications"]["rawcount"], 1, "{n}");
+    let n = carol.notifications("").await;
+    let types: Vec<Value> = n["query"]["notifications"]["list"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|i| i["type"].clone())
+        .collect();
+    // Her own two rights changes, and Bob's join of a group that announces joins; nothing
+    // for Dave's join of sysop, which does not, though she is in it.
+    assert_eq!(
+        types,
+        vec![
+            json!("ts-group-join"),
+            json!("user-rights"),
+            json!("user-rights")
+        ],
+        "{n}"
+    );
+    // Nothing of her own acts: only the instance making her owner, which names the
+    // operator.
+    let n = alice.notifications("").await;
+    let list = n["query"]["notifications"]["list"]
+        .as_array()
+        .unwrap()
+        .clone();
+    assert_eq!(list.len(), 1, "{n}");
+    assert_eq!(list[0]["ts-params"]["group"], "owner");
+    assert_eq!(list[0]["agent"]["ts-instance"], true);
+    let r = anon.api("action=query&meta=notifications").await;
+    assert_eq!(r["error"]["code"], "login-required", "{r}");
+    let ct = enc(&carol.csrf().await);
+    let r = carol
+        .api_post(&format!("action=echomarkread&all=1&token={ct}"))
+        .await;
+    assert_eq!(r["echomarkread"]["rawcount"], 0, "{r}");
+    let n = carol.notifications("&notfilter=!read").await;
+    assert_eq!(n["query"]["notifications"]["list"], json!([]), "{n}");
+    let r = carol
+        .api_post(&format!("action=echomarkseen&type=all&token={ct}"))
+        .await;
+    assert_eq!(r["query"]["echomarkseen"]["result"], "success", "{r}");
+
+    // Blocks: logged, enforced, and notified.
+    let dt = enc(&dave.csrf().await);
+    dave.api_post(&format!(
+        "action=edit&title=Project:Dave&text=Mine.&token={dt}"
+    ))
+    .await;
+    let t = enc(&at);
+    let bt = enc(&bob.csrf().await);
+    let r = bob
+        .api_post(&format!("action=block&user=Dave&token={bt}"))
+        .await;
+    assert_eq!(r["error"]["code"], "permissiondenied", "{r}");
+    let r = alice
+        .api_post(&format!("action=block&user=Dave&reason=Spam&token={t}"))
+        .await;
+    assert_eq!(r["block"]["user"], "Dave", "{r}");
+    let r = dave
+        .api_post(&format!(
+            "action=edit&title=Project:Dave&text=More.&token={dt}"
+        ))
+        .await;
+    assert_eq!(r["error"]["code"], "permissiondenied", "blocked: {r}");
+    let r = alice
+        .api_post(&format!("action=block&user=Dave&token={t}"))
+        .await;
+    assert_eq!(r["error"]["code"], "alreadyblocked", "{r}");
+    let r = alice
+        .api_post(&format!(
+            "action=block&user=Dave&reblock=1&hidename=1&expiry=2099-01-01T00:00:00Z&token={t}"
+        ))
+        .await;
+    assert_eq!(r["error"]["code"], "ipb_expiry_temp", "{r}");
+    let r = alice
+        .api_post(&format!(
+            "action=block&user=Dave&reblock=1&hidename=1&token={t}"
+        ))
+        .await;
+    assert_eq!(r["block"]["hidename"], true, "{r}");
+    let block_id = r["block"]["id"].as_u64().unwrap();
+    let l = bob.api("action=query&list=logevents&letype=block").await;
+    let actions: Vec<Value> = l["query"]["logevents"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["action"].clone())
+        .collect();
+    assert_eq!(actions, vec![json!("reblock"), json!("block")], "{l}");
+    let u = anon
+        .api("action=query&list=usercontribs&ucuser=Dave&uclimit=50")
+        .await;
+    assert_eq!(
+        u["query"]["usercontribs"],
+        json!([]),
+        "the name is hidden: {u}"
+    );
+    let l = anon.api("action=query&list=logevents&letype=block").await;
+    assert!(
+        !l.to_string().contains("Dave"),
+        "the block log hides the name: {l}"
+    );
+    let l = anon.api("action=query&list=logevents&letype=rights").await;
+    assert!(
+        !l.to_string().contains("Dave"),
+        "the rights log hides the name: {l}"
+    );
+    // The name is hidden from Alice too, who is not in `suppress`: she unblocks by the
+    // block's ID.
+    let r = alice
+        .api_post(&format!("action=unblock&user=Dave&token={t}"))
+        .await;
+    assert_eq!(r["error"]["code"], "nosuchuser", "{r}");
+    let r = alice
+        .api_post(&format!(
+            "action=unblock&id={block_id}&reason=Appeal&token={t}"
+        ))
+        .await;
+    assert!(r["unblock"]["id"].is_u64(), "{r}");
+    assert!(
+        !r.to_string().contains("Dave"),
+        "the answer hides the name: {r}"
+    );
+    // Alice holds `hideuser`, so her unblock also lifted the hide: the name is back.
+    let u = anon
+        .api("action=query&list=usercontribs&ucuser=Dave&uclimit=50")
+        .await;
+    assert!(
+        u.to_string().contains("Project:Dave"),
+        "the name is back after the unblock: {u}"
+    );
+    let r = alice
+        .api_post(&format!("action=unblock&id={block_id}&token={t}"))
+        .await;
+    assert_eq!(r["error"]["code"], "cantunblock", "{r}");
+    let r = dave
+        .api_post(&format!(
+            "action=edit&title=Project:Dave&text=Again.&token={dt}"
+        ))
+        .await;
+    assert_eq!(r["edit"]["result"], "Success", "unblocked: {r}");
+    let n = dave.notifications("").await;
+    assert_eq!(
+        n["query"]["notifications"]["list"]
+            .as_array()
+            .unwrap()
+            .len(),
+        4,
+        "sysop, block, reblock, unblock: {n}"
+    );
+
+    // The empty-group report: a confidential restriction whose group has emptied.
+    let r = alice
+        .rest(
+            "PUT",
+            "/group/vault",
+            Some(json!({"permissions": [], "token": at})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    alice.userrights("user=Alice&add=vault").await;
+    alice
+        .api_post(&format!(
+            "action=edit&title=Project:Vault&text=Gold.&token={t}"
+        ))
+        .await;
+    let r = alice
+        .api_post(&format!(
+            "action=protect&title=Project:Vault&protections=read%3Dvault&token={t}"
+        ))
+        .await;
+    assert!(r.get("error").is_none(), "{r}");
+    let r = alice.rest("GET", "/acl/empty-groups", None).await;
+    assert_eq!(r.body["groups"], json!([]), "{}", r.body);
+    alice.userrights("user=Alice&remove=vault").await;
+    let r = alice.rest("GET", "/acl/empty-groups", None).await;
+    assert_eq!(
+        r.body["groups"],
+        json!([{"group": "vault", "restrictions": 1}]),
+        "{}",
+        r.body
+    );
+    let r = carol.rest("GET", "/acl/empty-groups", None).await;
+    assert_eq!(r.status, StatusCode::FORBIDDEN, "{}", r.body);
+}
+
+/// Entities under ACLs (09 §4.2, §5.3, §6.2; 0023 §4): a confidential item is absent on
+/// every entity route for outsiders and served to the group; a deleted item is missing
+/// outside the deletion group, undeletable by it; a set holds entities; `/acl/entity`;
+/// writes are refused as a protected page's are.
+#[tokio::test(flavor = "multi_thread")]
+#[allow(clippy::too_many_lines, clippy::many_single_char_names)]
+async fn entities_under_acls() {
+    if admin_config().is_none() {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    }
+    let (_database, app, mut alice) = instance("entities").await;
+    let mut bob = account(&alice.router, "Bob", "bob-secret-1234").await;
+    let mut carol = account(&alice.router, "Carol", "carol-secret-1234").await;
+    let mut anon = Client {
+        router: alice.router.clone(),
+        cookie: None,
+    };
+    grant(&app, "Bob", "sysop").await;
+    grant(&app, "Carol", "board").await;
+    grant(&app, "Alice", "board").await;
+    let at = alice.csrf().await;
+    let t = enc(&at);
+    let mut ids = Vec::new();
+    for label in ["Secretive", "Goner", "Membership"] {
+        let data = enc(&format!(
+            r#"{{"labels":{{"en":{{"language":"en","value":"{label}"}}}}}}"#
+        ));
+        let r = alice
+            .api_post(&format!(
+                "action=wbeditentity&new=item&data={data}&token={t}"
+            ))
+            .await;
+        ids.push(r["entity"]["id"].as_str().expect("an item").to_string());
+    }
+    let (secret, gone, member) = (ids[0].clone(), ids[1].clone(), ids[2].clone());
+
+    // Confidential to board, through the entity's own ACL.
+    let r = alice
+        .rest(
+            "PUT",
+            &format!("/acl/entity/{secret}"),
+            Some(json!({"restrictions": {"read": {"group": "board"}}, "token": at})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    let get = |id: &str| format!("action=wbgetentities&ids={id}");
+    let search = "action=wbsearchentities&search=Secret&language=en";
+    let bt = enc(&bob.csrf().await);
+    for who in [&mut anon, &mut bob] {
+        let e = who.api(&get(&secret)).await;
+        assert!(e["entities"][&secret].get("missing").is_some(), "{e}");
+        let s = who.api(search).await;
+        assert_eq!(s["search"], json!([]), "{s}");
+        let h = who
+            .rest("GET", &format!("/entity/{secret}/history"), None)
+            .await;
+        assert_eq!(h.status, StatusCode::NOT_FOUND, "{}", h.body);
+        let d = who
+            .rest("GET", &format!("/entity/{secret}/provenance"), None)
+            .await;
+        assert_eq!(d.status, StatusCode::NOT_FOUND, "{}", d.body);
+        let i = who
+            .api(&format!("action=query&prop=info&titles=Item:{secret}"))
+            .await;
+        assert_eq!(i["query"]["pages"][0]["missing"], true, "{i}");
+        let rc = who
+            .api("action=query&list=recentchanges&rcprop=title&rclimit=50")
+            .await;
+        assert!(!rc.to_string().contains(&secret), "{rc}");
+        let a = who
+            .rest("GET", &format!("/acl/entity/{secret}"), None)
+            .await;
+        assert_eq!(a.status, StatusCode::NOT_FOUND, "{}", a.body);
+    }
+    // An outsider's write is a write to a missing entity; a sysop's too.
+    let w = bob
+        .api_post(&format!(
+            "action=wbsetlabel&id={secret}&language=en&value=Pwned&token={bt}"
+        ))
+        .await;
+    assert_eq!(w["error"]["code"], "no-such-entity", "{w}");
+    let w = bob
+        .api_post(&format!("action=delete&title={secret}&token={bt}"))
+        .await;
+    assert_eq!(w["error"]["code"], "missingtitle", "{w}");
+    // The group reads and writes it.
+    let e = carol.api(&get(&secret)).await;
+    assert_eq!(
+        e["entities"][&secret]["labels"]["en"]["value"], "Secretive",
+        "{e}"
+    );
+    let s = carol.api(search).await;
+    assert_eq!(s["search"][0]["id"], secret.as_str(), "{s}");
+    let ct = enc(&carol.csrf().await);
+    let w = carol
+        .api_post(&format!(
+            "action=wbsetlabel&id={secret}&language=en&value=Still+secret&token={ct}"
+        ))
+        .await;
+    assert_eq!(w["success"], 1, "{w}");
+
+    // Protection on an entity: edit restricted to sysop refuses an ordinary user.
+    let r = alice
+        .api_post(&format!(
+            "action=protect&title={member}&protections=edit%3Dsysop&token={t}"
+        ))
+        .await;
+    assert!(r.get("error").is_none(), "{r}");
+    let w = carol
+        .api_post(&format!(
+            "action=wbsetlabel&id={member}&language=en&value=Nope&token={ct}"
+        ))
+        .await;
+    assert_eq!(w["error"]["code"], "protectedpage", "{w}");
+    let w = bob
+        .api_post(&format!(
+            "action=wbsetlabel&id={member}&language=en&value=Sysop+may&token={bt}"
+        ))
+        .await;
+    assert_eq!(w["success"], 1, "{w}");
+
+    // A set with an entity member hides it from outsiders.
+    let r = alice
+        .rest(
+            "POST",
+            "/acl/set",
+            Some(
+                json!({"name": "Vault", "restrictions": {"read": {"group": "board"}},
+                        "members": [{"kind": "entity", "id": member}], "token": at}),
+            ),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    let e = anon.api(&get(&member)).await;
+    assert!(e["entities"][&member].get("missing").is_some(), "{e}");
+    let e = carol.api(&get(&member)).await;
+    assert!(e["entities"][&member].get("missing").is_none(), "{e}");
+
+    // Deletion: missing outside sysop, seen as deleted within, undeleted by it.
+    let r = bob
+        .api_post(&format!(
+            "action=delete&title={gone}&reason=Spam&token={bt}"
+        ))
+        .await;
+    assert!(r["delete"]["logid"].is_u64(), "{r}");
+    let e = anon.api(&get(&gone)).await;
+    assert!(e["entities"][&gone].get("missing").is_some(), "{e}");
+    let s = anon
+        .api("action=wbsearchentities&search=Goner&language=en")
+        .await;
+    assert_eq!(s["search"], json!([]), "{s}");
+    let w = carol
+        .api_post(&format!(
+            "action=wbsetlabel&id={gone}&language=en&value=Back&token={ct}"
+        ))
+        .await;
+    assert_eq!(w["error"]["code"], "no-such-entity", "{w}");
+    let l = anon.api("action=query&list=logevents&letype=delete").await;
+    assert!(l.to_string().contains(&gone), "a deletion is public: {l}");
+    let r = carol
+        .api_post(&format!("action=undelete&title={gone}&token={ct}"))
+        .await;
+    assert_eq!(r["error"]["code"], "permissiondenied", "{r}");
+    let r = bob
+        .api_post(&format!("action=undelete&title={gone}&token={bt}"))
+        .await;
+    assert!(r.get("error").is_none(), "{r}");
+    let e = anon.api(&get(&gone)).await;
+    assert_eq!(
+        e["entities"][&gone]["labels"]["en"]["value"], "Goner",
+        "{e}"
+    );
+    let r = bob
+        .api_post(&format!("action=undelete&title={gone}&token={bt}"))
+        .await;
+    assert_eq!(r["error"]["code"], "cantundelete", "{r}");
+    // Found on a live instance: deleting an entity no graph holds wrote a deletion ACL.
+    let r = bob
+        .api_post(&format!("action=delete&title=Q999999&token={bt}"))
+        .await;
+    assert_eq!(r["error"]["code"], "missingtitle", "{r}");
+    let r = bob
+        .api_post(&format!(
+            "action=protect&title=Q999999&protections=edit%3Dsysop&token={bt}"
+        ))
+        .await;
+    assert_eq!(r["error"]["code"], "ts-restricted-title", "{r}");
+}
+
+/// A confidential restriction may take the talk page and its threads (09 §4.4; 0056
+/// A24): `tstalk` on `action=protect`, `talk` on `/acl`; kept through delete and undelete.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_confidential_restriction_may_take_the_talk_page() {
+    if admin_config().is_none() {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    }
+    let (_database, app, mut alice) = instance("talk").await;
+    let mut anon = Client {
+        router: alice.router.clone(),
+        cookie: None,
+    };
+    grant(&app, "Alice", "board").await;
+    let at = alice.csrf().await;
+    let t = enc(&at);
+    alice
+        .api_post(&format!(
+            "action=edit&title=Project:Secret&text=Hush.&token={t}"
+        ))
+        .await;
+    let page = alice
+        .api("action=query&prop=info&titles=Project:Secret")
+        .await["query"]["pages"][0]["pageid"]
+        .as_u64()
+        .unwrap();
+    let r = alice
+        .rest(
+            "POST",
+            "/thread",
+            Some(json!({"target": {"kind": "page", "id": page}, "subject": "Secret talk", "text": "4711", "token": at})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::CREATED, "{}", r.body);
+    let thread = r.body["thread"].as_u64().unwrap();
+    let talk = alice
+        .rest("GET", &format!("/thread/{thread}"), None)
+        .await
+        .body["home"]["talk_page_id"]
+        .as_u64()
+        .unwrap();
+
+    // Without the flag the talk page stays public, as 09 §4.4 has it.
+    alice
+        .api_post(&format!(
+            "action=protect&title=Project:Secret&protections=read%3Dboard&token={t}"
+        ))
+        .await;
+    let r = anon.rest("GET", &format!("/thread/{thread}"), None).await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    // With it, the talk page and the thread go under the restriction.
+    let r = alice
+        .api_post(&format!(
+            "action=protect&title=Project:Secret&protections=read%3Dboard&tstalk=1&token={t}"
+        ))
+        .await;
+    assert!(r.get("error").is_none(), "{r}");
+    let r = anon.rest("GET", &format!("/thread/{thread}"), None).await;
+    assert_eq!(r.status, StatusCode::NOT_FOUND, "{}", r.body);
+    let r = anon
+        .rest("GET", &format!("/page/{talk}/threads"), None)
+        .await;
+    assert_eq!(r.status, StatusCode::NOT_FOUND, "{}", r.body);
+    let i = anon
+        .api("action=query&prop=info&titles=Project_talk:Secret")
+        .await;
+    assert_eq!(i["query"]["pages"][0]["missing"], true, "{i}");
+    let rc = anon
+        .api("action=query&list=recentchanges&rcprop=title&rclimit=50")
+        .await;
+    assert!(!rc.to_string().contains("Secret"), "{rc}");
+    let r = alice.rest("GET", &format!("/thread/{thread}"), None).await;
+    assert_eq!(r.status, StatusCode::OK, "the group reads: {}", r.body);
+    // Through delete and undelete.
+    alice
+        .api_post(&format!("action=delete&title=Project:Secret&token={t}"))
+        .await;
+    let r = alice
+        .api_post(&format!("action=undelete&title=Project:Secret&token={t}"))
+        .await;
+    assert!(r.get("error").is_none(), "{r}");
+    let r = anon.rest("GET", &format!("/thread/{thread}"), None).await;
+    assert_eq!(r.status, StatusCode::NOT_FOUND, "kept: {}", r.body);
+    // Over REST, and off again.
+    let r = alice
+        .rest(
+            "PUT",
+            &format!("/acl/page/{page}"),
+            Some(json!({"restrictions": {"read": {"group": "board"}}, "talk": false, "token": at})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    assert_eq!(r.body["acl"]["talk"], Value::Null, "{}", r.body);
+    let r = anon.rest("GET", &format!("/thread/{thread}"), None).await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+}
+
+/// Moderation completeness (0023 §8; 18 §2.4): `inprop=protection` lists the restrictions
+/// along the chain; `prop=deletedrevisions` serves the deletion group; `list=protectedpages`,
+/// `protectedtitles` and `protectedsets` list what the caller may read; a hidden user's own
+/// pages are absent for those outside the suppression group (09 §6.3).
+#[tokio::test(flavor = "multi_thread")]
+#[allow(clippy::too_many_lines, clippy::many_single_char_names)]
+async fn moderation_completeness() {
+    if admin_config().is_none() {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    }
+    let (_database, app, mut alice) = instance("completeness").await;
+    let mut bob = account(&alice.router, "Bob", "bob-secret-1234").await;
+    let mut mallory = account(&alice.router, "Mallory", "mallory-secret-1234").await;
+    let mut anon = Client {
+        router: alice.router.clone(),
+        cookie: None,
+    };
+    grant(&app, "Alice", "board").await;
+    grant(&app, "Alice", "suppress").await;
+    grant(&app, "Bob", "sysop").await;
+    let at = alice.csrf().await;
+    let t = enc(&at);
+    for (title, text) in [("Project:Index", "Index."), ("Project:Gone", "Bye.")] {
+        alice
+            .api_post(&format!("action=edit&title={title}&text={text}&token={t}"))
+            .await;
+    }
+    let mt = enc(&mallory.csrf().await);
+    mallory
+        .api_post(&format!(
+            "action=edit&title=User:Mallory&text=Me.&token={mt}"
+        ))
+        .await;
+    mallory
+        .api_post(&format!(
+            "action=edit&title=User:Mallory/Notes&text=Notes.&token={mt}"
+        ))
+        .await;
+
+    // inprop=protection: the page's own, and an enclosing namespace's with its source.
+    alice
+        .api_post(&format!(
+            "action=protect&title=Project:Index&protections=edit%3Dsysop%7Cread%3Dboard&expiry=infinite%7C2099-01-01T00:00:00Z&token={t}"
+        ))
+        .await;
+    let r = alice
+        .rest(
+            "PUT",
+            "/acl/namespace/4",
+            Some(json!({"restrictions": {"move": {"group": "sysop"}}, "token": at})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    let i = alice
+        .api("action=query&prop=info&inprop=protection&titles=Project:Index")
+        .await;
+    let prot = i["query"]["pages"][0]["protection"]
+        .as_array()
+        .unwrap()
+        .clone();
+    let find = |kind: &str| {
+        prot.iter()
+            .find(|p| p["type"] == kind)
+            .cloned()
+            .unwrap_or_default()
+    };
+    assert_eq!(find("edit")["level"], "sysop", "{i}");
+    assert_eq!(find("edit")["expiry"], "infinity");
+    assert_eq!(find("read")["level"], "board");
+    assert!(
+        find("read")["expiry"].as_str().unwrap().starts_with("2099"),
+        "{i}"
+    );
+    assert_eq!(find("move")["source"], "acl:namespace:4", "{i}");
+    assert!(find("move").get("source").is_some());
+
+    // list=protectedpages: the confidential page is listed to the group, not to others.
+    let l = alice
+        .api("action=query&list=protectedpages&prlimit=50")
+        .await;
+    assert!(l.to_string().contains("Index"), "{l}");
+    let l = bob.api("action=query&list=protectedpages&prlimit=50").await;
+    assert!(!l.to_string().contains("Index"), "{l}");
+    let l = alice
+        .api("action=query&list=protectedpages&prtype=read&prlevel=board")
+        .await;
+    assert_eq!(
+        l["query"]["protectedpages"].as_array().unwrap().len(),
+        1,
+        "{l}"
+    );
+    // list=protectedtitles: a reservation.
+    alice
+        .api_post(&format!(
+            "action=protect&title=Project:Reserved&protections=create%3Dsysop&token={t}"
+        ))
+        .await;
+    let l = anon.api("action=query&list=protectedtitles").await;
+    assert_eq!(l["query"]["protectedtitles"][0]["level"], "sysop", "{l}");
+    assert!(l.to_string().contains("Reserved"), "{l}");
+    // list=protectedsets: a set and its readable members.
+    let gone_id = alice
+        .api("action=query&prop=info&titles=Project:Gone")
+        .await["query"]["pages"][0]["pageid"]
+        .clone();
+    let r = alice
+        .rest(
+            "POST",
+            "/acl/set",
+            Some(
+                json!({"name": "Board set", "restrictions": {"read": {"group": "board"}},
+                        "members": [{"kind": "page", "id": gone_id}], "token": at}),
+            ),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    let l = alice.api("action=query&list=protectedsets").await;
+    assert_eq!(l["query"]["protectedsets"][0]["name"], "Board set", "{l}");
+    assert!(l.to_string().contains("Gone"), "{l}");
+    let l = bob.api("action=query&list=protectedsets").await;
+    assert_eq!(l["query"]["protectedsets"], json!([]), "{l}");
+
+    // prop=deletedrevisions: the deletion group reads a deleted page's revisions.
+    let bt = enc(&bob.csrf().await);
+    alice
+        .rest(
+            "DELETE",
+            &format!(
+                "/acl/set/{}",
+                r.body["target"]
+                    .as_str()
+                    .unwrap()
+                    .trim_start_matches("acl:set:")
+            ),
+            Some(json!({"token": at})),
+        )
+        .await;
+    let r = bob
+        .api_post(&format!("action=delete&title=Project:Gone&token={bt}"))
+        .await;
+    assert!(r.get("error").is_none(), "{r}");
+    let d = bob
+        .api("action=query&prop=deletedrevisions&drvprop=content%7Cuser&titles=Project:Gone")
+        .await;
+    assert_eq!(
+        d["query"]["pages"][0]["deletedrevisions"][0]["content"], "Bye.",
+        "{d}"
+    );
+    let d = mallory
+        .api("action=query&prop=deletedrevisions&drvprop=content&titles=Project:Gone")
+        .await;
+    assert_eq!(d["error"]["code"], "permissiondenied", "{d}");
+    let d = anon
+        .api("action=query&prop=revisions&rvprop=content&titles=Project:Gone")
+        .await;
+    assert_eq!(d["query"]["pages"][0]["missing"], true, "{d}");
+
+    // A hidden user's own pages are absent for outsiders, read by the suppression group.
+    let r = alice
+        .api_post(&format!("action=block&user=Mallory&hidename=1&token={t}"))
+        .await;
+    assert_eq!(r["block"]["hidename"], true, "{r}");
+    for title in ["User:Mallory", "User:Mallory/Notes"] {
+        let i = anon
+            .api(&format!("action=query&prop=info&titles={title}"))
+            .await;
+        assert_eq!(i["query"]["pages"][0]["missing"], true, "{title}: {i}");
+        let i = bob
+            .api(&format!("action=query&prop=info&titles={title}"))
+            .await;
+        assert_eq!(i["query"]["pages"][0]["missing"], true, "{title}: {i}");
+        let i = alice
+            .api(&format!(
+                "action=query&prop=revisions&rvprop=content&titles={title}"
+            ))
+            .await;
+        assert!(
+            i["query"]["pages"][0].get("missing").is_none(),
+            "{title}: {i}"
+        );
+    }
+    let a = anon.api("action=query&list=allpages&apnamespace=2").await;
+    assert!(!a.to_string().contains("Mallory"), "{a}");
 }

@@ -4084,6 +4084,133 @@
           }
         }
       }
+    },
+    "/acl/empty-groups": {
+      "get": {
+        "operationId": "getEmptyGroups",
+        "summary": "Groups no one can read through",
+        "description": "The empty-group report (architecture 09 §4.5; ADR 0056 A18), for holders of `userrights`: each group that a confidential restriction in force names and that has no current member, with the number of restrictions naming it. No titles are given. Implicit groups are left out.",
+        "responses": {
+          "200": {
+            "description": "The groups.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "groups": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "group": {
+                            "type": "string"
+                          },
+                          "restrictions": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied` without `userrights`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/purges": {
+      "get": {
+        "operationId": "listPurges",
+        "summary": "Queued cache purges",
+        "description": "The cache purges queued by visibility changes, deletions and hidings (architecture 03 §9.6; ADR 0056 §7), for the web tier, a CDN hook or an operator's script: each names a `Cache-Tag` to drop (`page:17`, `entity:Q42`, `ns:4`, `set:12`, `tenant:slug`, `actor:{key}`, `record:{partition}:{offset}`) and the record that caused it. `visibility_epoch` is the tenant's, bumped by a read restriction on a namespace, graph or the tenant. Pass the last `id` seen as `since`. Needs `ts-config`.",
+        "parameters": [
+          {
+            "name": "since",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "maximum": 1000
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The purges after `since`, oldest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "purges",
+                    "last",
+                    "visibility_epoch"
+                  ],
+                  "properties": {
+                    "purges": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer"
+                          },
+                          "tag": {
+                            "type": "string"
+                          },
+                          "reason": {
+                            "type": "string"
+                          },
+                          "record": {
+                            "type": "object"
+                          },
+                          "at": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "last": {
+                      "type": "integer"
+                    },
+                    "visibility_epoch": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied` without `ts-config`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -6647,6 +6774,10 @@
           },
           "token": {
             "type": "string"
+          },
+          "talk": {
+            "type": "boolean",
+            "description": "For a page under a confidential `read` restriction: its talk page and the threads homed there are under the restriction too (architecture 09 §4.4)."
           }
         }
       },
