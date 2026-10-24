@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-17
-- **Updated:** 2026-10-18 (A3)
+- **Updated:** 2026-10-24 (A4)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0024](0024-subsidiary-accounts.md), [0028](0028-tenancy-policy.md), [0047](0047-special-pages.md), [0057](0057-web-tier.md)
 - **Uses:** [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0030](0030-edit-filters.md), [0034](0034-frontend-stack.md), [0035](0035-adopting-a-wikibase.md), [0056](0056-security-model.md), [0085](0085-settings-and-preferences.md)
@@ -71,7 +71,7 @@ James's direction, from the design discussion of 2026-10-17:
 
 ### 4. Difficulty, the throttle and addresses (extends 0024 §5; corrects 0024 §5; amends 0024 §5; extends 0013 §4)
 
-*Changed by A1, A3.*
+*Changed by A1, A3, A4.*
 
 **The difficulty is a setting, and it rises with repetition.** A challenge's `bits` is `challenge.bits` (default 20, about a million hashes) plus one for each account created from the caller's address key in the last 24 hours, up to `challenge.max_bits` (default 24, sixteen times the work). The count is the `createaccount` counter below, so it costs no state of its own. Setting `challenge.max_bits` to `challenge.bits` turns the rise off. The defaults are a starting point, to be fixed by measurement before the ADR is accepted (Q1): the target is a second or two on a mid-range phone.
 
@@ -282,3 +282,18 @@ Replaced text (§4):
 Replaced text (§6):
 
 > the credential the account will be created with (a password hash, or an issuer and subject)
+
+### A4. The account-creation limit is a setting
+
+- **Date:** 2026-10-24
+- **Source:** Direct: James, design discussion of 2026-10-24
+- **Change:** amends §4
+- **Summary:** Different wikis need different registration limits, so the `createaccount` class's limit is the tenant setting `account.creation_limit` (default 6, the Wikimedia figure; 1 to 10000), beside the difficulty settings `challenge.bits` and `challenge.max_bits` that §4 already has; the window stays a day and `noratelimit` stays exempt. A test tenant sets all three low enough to run quickly and high enough to show the rise and the limit working (`tools/acl_check.sh` uses 10, 14 and 20).
+
+Replaced text (§4):
+
+> **`createaccount` is a rate-limit class** (07 §6.2), counting accounts created and requests filed (§6) by the caller's address key, whoever the caller is: 6 per day for every group, as on Wikimedia wikis, with `noratelimit` exempt as there.
+
+New text:
+
+> **`createaccount` is a rate-limit class** (07 §6.2), counting accounts created and requests filed (§6) by the caller's address key, whoever the caller is: `account.creation_limit` per day for every group, 6 by default as on Wikimedia wikis, with `noratelimit` exempt as there.

@@ -37,6 +37,8 @@ pub struct Policy {
     pub bits: u8,
     /// `challenge.max_bits`.
     pub max_bits: u8,
+    /// `account.creation_limit`: accounts one address key may create in a day.
+    pub creation_limit: i64,
     /// `account.approval`.
     pub approval: bool,
     /// `account.request_statement`: `off`, `optional` or `required`.
@@ -53,6 +55,7 @@ impl Policy {
             triggers: Trigger::ALL.to_vec(),
             bits: 20,
             max_bits: 24,
+            creation_limit: challenge::CREATEACCOUNT_DEFAULT_LIMIT,
             approval: false,
             statement: "optional".into(),
             expiry_secs: 30 * 86_400,
@@ -100,6 +103,11 @@ impl Policy {
             triggers,
             bits: base,
             max_bits: bits("challenge.max_bits", d.max_bits).max(base),
+            creation_limit: settings
+                .value("account.creation_limit")
+                .and_then(|v| v.as_i64())
+                .filter(|n| *n >= 1)
+                .unwrap_or(d.creation_limit),
             approval: settings
                 .value("account.approval")
                 .and_then(|v| v.as_bool())
@@ -359,15 +367,15 @@ pub async fn createaccount(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
             &tenant,
             challenge::CREATEACCOUNT,
             &address,
-            challenge::CREATEACCOUNT_LIMIT.1,
+            challenge::CREATEACCOUNT_WINDOW,
         )
         .await?;
-        if made >= challenge::CREATEACCOUNT_LIMIT.0 {
+        if made >= policy.creation_limit {
             return Ok(fail(
                 "acct_creation_throttle_hit",
                 &format!(
                     "Visitors to this wiki using your IP address have created {} accounts in the last day, which is the maximum allowed in this time period. As a result, visitors using this IP address cannot create any more accounts at the moment.",
-                    challenge::CREATEACCOUNT_LIMIT.0
+                    policy.creation_limit
                 ),
             ));
         }

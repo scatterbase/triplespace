@@ -160,6 +160,7 @@ The table is generated from `settings.toml` (§3.1). Each row cites the ADR sect
 | Setting | Scope | Bound | Values | Default | Meaning | Source |
 |---|---|---|---|---|---|---|
 | `account.approval` | `site` | tenant | off, on | off | Whether registering files a request that a holder of `confirmaccount` approves, instead of creating the account at once ([07](07-actors-and-accounts.md) §2.6) | [0087](../decisions/0087-account-registration-and-challenges.md) §6 |
+| `account.creation_limit` | `site` | tenant | 1 to 10000 | 6 | How many accounts one address key may create (and requests it may file) in a day before `createaccount` answers `acct_creation_throttle_hit` ([07](07-actors-and-accounts.md) §6.2); `noratelimit` is exempt. MediaWiki's `$wgAccountCreationThrottle` | [0087](../decisions/0087-account-registration-and-challenges.md) §4 |
 | `account.request_expiry` | `site` | tenant | duration | 30 days | How long an account request stays open before it is deleted | [0087](../decisions/0087-account-registration-and-challenges.md) §6 |
 | `account.request_statement` | `site` | tenant | `off`, `optional`, `required` | `optional` | Whether an account request asks for a statement of up to 1,000 characters | [0087](../decisions/0087-account-registration-and-challenges.md) §6 |
 | `blocks.max_per_page` | `site` (by rule, §3.1) | tenant | integer | 20 | Bounds blocks per render | [0062](../decisions/0062-workspaces.md) §3 |

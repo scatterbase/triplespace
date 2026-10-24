@@ -51,11 +51,14 @@ echo 'acl-owner-secret-1234' >"$work/owner.pw"
 	--key-file "$work/k.key" --provider internetdomains --adopt https://librarybase.org/ \
 	--owner 7 --owner-name Alice --owner-password-file "$work/owner.pw" >/dev/null
 
-# The battery registers six accounts from one address; the registration challenge rises a
-# bit for each (0087 §4), so at the default 20 bits the last one takes minutes. Permissions
-# are under test, not proof-of-work: set the challenge to its floor.
-"$bin/triplespace" settings set --tenant $tenant challenge.bits 8 >/dev/null
-"$bin/triplespace" settings set --tenant $tenant challenge.max_bits 8 >/dev/null
+# The battery registers seven accounts from one address. The registration challenge rises
+# a bit for each (0087 §4), so at the default 20 bits the last ones take minutes, and the
+# default limit is six a day. Permissions are under test, not proof-of-work: a cheap
+# challenge that still rises (10 to 14 bits: thousands of hashes, milliseconds), and room
+# for the roster. Both are tenant settings an instance may set for itself.
+"$bin/triplespace" settings set --tenant $tenant challenge.bits 10 >/dev/null
+"$bin/triplespace" settings set --tenant $tenant challenge.max_bits 14 >/dev/null
+"$bin/triplespace" settings set --tenant $tenant account.creation_limit 20 >/dev/null
 
 step "adopt $(basename "$fixture")"
 "$bin/triplespace" adopt --tenant $tenant --dump "$fixture" \

@@ -23,8 +23,9 @@ which sets the server up, or by hand against a fresh instance whose owner is `Al
     tools/acl_check.py --api http://127.0.0.1:18290 --owner-password-file owner.pw \\
         --cli target/debug/triplespace --db postgres://…/tsacl
 
-The run registers users (Mallory, Bob, Carol, Dave, Erin, Grace), defines groups and
-writes pages and entities on the tenant, so point it at a throwaway database. Needs
+The run registers users (Mallory, Bob, Carol, Dave, Erin, Frank, Grace), defines groups and
+writes pages and entities on the tenant, so point it at a throwaway database whose tenant
+allows seven registrations a day from one address (`account.creation_limit`). Needs
 `requests`. `--sections` limits the run (`--sections leaks,positive`); `--list` names them.
 """
 
@@ -599,9 +600,7 @@ def positive(x):
     a, b, c, anon = x.alice, x.bob, x.carol, x.anon
     dave = C().register("Dave", "dave-secret-1234")
     erin = C().register("Erin", "erin-secret-1234")
-    # Registration is throttled at six accounts a day per address (0087 §4); Mallory, free
-    # again after `hidden-names`, stands in for a `read-all` member.
-    frank = x.mallory
+    frank = C().register("Frank", "frank-secret-1234")
     at = a.token()
 
     # Setup by the owner.
@@ -611,7 +610,7 @@ def positive(x):
         "within": ["namespace:4"], "adds": ["hr"], "removes": ["hr"], "adds_self": ["hr"],
         "removes_self": ["hr"], "token": at}))
     must("owner grants hr-admins", a.userrights(user="Dave", add="hr-admins"))
-    must("owner grants read-all", a.userrights(user="Mallory", add="read-all"))
+    must("owner grants read-all", a.userrights(user="Frank", add="read-all"))
     must("owner grants with expiry", a.userrights(user="Erin", add="autopatrolled", expiry="2099-01-01T00:00:00Z"))
     must("owner reads a group", a.rest("GET", "/group/hr-admins"), "namespace:4")
     must("owner reads usergroups", a.api(action="query", meta="siteinfo", siprop="usergroups"), "hr-admins")
