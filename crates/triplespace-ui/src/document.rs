@@ -76,9 +76,10 @@ enum TabName {
     Read,
     Edit,
     History,
+    Protect,
 }
 
-fn tabs(m: &Messages, title: &str, exists: bool, current: TabName) -> Vec<Tab> {
+fn tabs(m: &Messages, title: &str, exists: bool, current: TabName, protect: bool) -> Vec<Tab> {
     let base = format!("/wiki/{}", title_url(title));
     let tab = |name: TabName, key: &str, href: String| Tab {
         label: m.get(key),
@@ -102,6 +103,15 @@ fn tabs(m: &Messages, title: &str, exists: bool, current: TabName) -> Vec<Tab> {
             TabName::History,
             "ts-tab-history",
             format!("{base}?action=history"),
+        ));
+    }
+    // Protect joins for a holder of `protect` (09 §4.5), a free title included, which
+    // may be create-protected.
+    if protect {
+        v.push(tab(
+            TabName::Protect,
+            "ts-tab-protect",
+            format!("{base}?action=protect"),
         ));
     }
     v
@@ -214,7 +224,7 @@ async fn read(
         title: parsed.title.clone(),
         returnto: Some(parsed.title.clone()),
         subtitle_html: subtitle(m, &parsed, oldid),
-        tabs: tabs(m, &parsed.title, true, TabName::Read),
+        tabs: tabs(m, &parsed.title, true, TabName::Read, cx.may_protect()),
         body: format!(
             "<div class=\"ts-document\">{}</div>",
             content_html(m, &parsed)
@@ -253,7 +263,7 @@ fn missing(cx: &Context, headers: &HeaderMap, title: String, render: bool) -> Re
         }
         Page {
             returnto: Some(title.clone()),
-            tabs: tabs(m, &title, false, TabName::Read),
+            tabs: tabs(m, &title, false, TabName::Read, cx.may_protect()),
             title,
             body,
             ..Page::default()
@@ -463,7 +473,7 @@ fn edit_page(
             ),
             doc_title: None,
             returnto: Some(d.title.clone()),
-            tabs: tabs(m, &d.title, d.exists, TabName::Edit),
+            tabs: tabs(m, &d.title, d.exists, TabName::Edit, cx.may_protect()),
             body,
             ..Page::default()
         }
@@ -594,7 +604,7 @@ fn unsupported(cx: &Context, headers: &HeaderMap, s: &Source) -> Response {
     pages::respond(cx, headers, StatusCode::OK, |m| Page {
         title: s.title.clone(),
         returnto: Some(s.title.clone()),
-        tabs: tabs(m, &s.title, true, TabName::Edit),
+        tabs: tabs(m, &s.title, true, TabName::Edit, cx.may_protect()),
         body: pages::message(
             MessageKind::Notice,
             &m.with("ts-pageedit-unsupported", &[&s.model]),
@@ -737,7 +747,7 @@ async fn page_history(
     pages::respond(&cx, headers, StatusCode::OK, |m| Page {
         title: info.title.clone(),
         returnto: Some(info.title.clone()),
-        tabs: tabs(m, &info.title, true, TabName::History),
+        tabs: tabs(m, &info.title, true, TabName::History, cx.may_protect()),
         body: history::body(m, &cx.site, &info.title, &ask, None, &rows.value),
         ..Page::default()
     })
@@ -971,7 +981,7 @@ async fn page_diff(
         Page {
             doc_title: Some(m.with("ts-pagediff-title", &[&page_title])),
             returnto: Some(page_title.clone()),
-            tabs: tabs(m, &page_title, true, TabName::History),
+            tabs: tabs(m, &page_title, true, TabName::History, cx.may_protect()),
             title: page_title.clone(),
             body,
             ..Page::default()
@@ -1120,12 +1130,13 @@ mod tests {
     #[test]
     fn tabs_of_a_page_and_a_missing_one() {
         let m = Messages::for_language("en");
-        let t = tabs(&m, "Project:Home", true, TabName::History);
-        assert_eq!(t.len(), 3);
+        let t = tabs(&m, "Project:Home", true, TabName::History, true);
+        assert_eq!(t.len(), 4);
+        assert_eq!(t[3].href, "/wiki/Project:Home?action=protect");
         assert_eq!(t[1].href, "/wiki/Project:Home?action=edit");
         assert_eq!(t[1].label, m.get("ts-tab-edit"));
         assert!(t[2].current);
-        let t = tabs(&m, "Project:New one", false, TabName::Read);
+        let t = tabs(&m, "Project:New one", false, TabName::Read, false);
         assert_eq!(t.len(), 2);
         assert_eq!(t[1].label, m.get("ts-tab-create"));
         assert_eq!(t[1].href, "/wiki/Project:New_one?action=edit");

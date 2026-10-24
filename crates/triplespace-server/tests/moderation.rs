@@ -1797,6 +1797,52 @@ async fn delegated_administration() {
     assert_eq!(r["error"]["code"], "permissiondenied", "implicit: {r}");
     let r = bob.userrights("user=Dave&add=nonesuch").await;
     assert_eq!(r["error"]["code"], "badvalue", "{r}");
+    // A span from now is an expiry too (MediaWiki's forms take them), and `list=users`
+    // reports the memberships with their expiries: what `Special:UserRights` shows.
+    let r = bob
+        .userrights("user=Dave&add=sysop&expiry=1%20week&reason=Trial")
+        .await;
+    assert_eq!(r["userrights"]["added"], json!(["sysop"]), "{r}");
+    let u = anon
+        .api("action=query&list=users&ususers=Dave|Nobody&usprop=groups|groupmemberships|blockinfo")
+        .await;
+    let users = u["query"]["users"].as_array().unwrap();
+    assert_eq!(users[0]["name"], "Dave", "{u}");
+    assert!(
+        users[0]["groups"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("sysop")),
+        "{u}"
+    );
+    let m = &users[0]["groupmemberships"][0];
+    assert_eq!(m["group"], "sysop", "{u}");
+    assert!(
+        m["expiry"].as_str().unwrap().starts_with("20") && m["expiry"] != "infinity",
+        "a week from now: {u}"
+    );
+    assert!(users[0].get("blockexpiry").is_none(), "{u}");
+    assert_eq!(users[1]["missing"], true, "{u}");
+    let r = bob.userrights("user=Dave&add=board&expiry=soon").await;
+    assert_eq!(r["error"]["code"], "invalidexpiry", "{r}");
+    let r = bob.userrights("user=Dave&remove=sysop").await;
+    assert_eq!(r["userrights"]["removed"], json!(["sysop"]), "{r}");
+    let g = anon
+        .api("action=query&meta=siteinfo&siprop=usergroups")
+        .await;
+    let groups = g["query"]["usergroups"].as_array().unwrap();
+    assert!(
+        groups
+            .iter()
+            .any(|g| g["name"] == "user" && g.get("implicit").is_some()),
+        "implicit groups are marked: {g}"
+    );
+    assert!(
+        groups
+            .iter()
+            .any(|g| g["name"] == "sysop" && g.get("implicit").is_none()),
+        "{g}"
+    );
     let l = anon.api("action=query&list=logevents&letype=rights").await;
     let bobs = l["query"]["logevents"]
         .as_array()
@@ -2594,6 +2640,25 @@ async fn moderation_completeness() {
     let l = anon.api("action=query&list=protectedtitles").await;
     assert_eq!(l["query"]["protectedtitles"][0]["level"], "sysop", "{l}");
     assert!(l.to_string().contains("Reserved"), "{l}");
+    // inprop=protection on a title with no page: what it may be restricted on, and the
+    // reservation's restriction, for the Protect form.
+    let i = anon
+        .api("action=query&prop=info&inprop=protection&titles=Project:Reserved|Project:Free")
+        .await;
+    let pages = i["query"]["pages"].as_array().unwrap();
+    let reserved = pages
+        .iter()
+        .find(|p| p["title"].as_str().unwrap().ends_with("Reserved"))
+        .unwrap();
+    assert_eq!(reserved["missing"], true, "{i}");
+    assert_eq!(reserved["restrictiontypes"], json!(["create", "read"]), "{i}");
+    assert_eq!(reserved["protection"][0]["type"], "create", "{i}");
+    assert_eq!(reserved["protection"][0]["level"], "sysop", "{i}");
+    let free = pages
+        .iter()
+        .find(|p| p["title"].as_str().unwrap().ends_with("Free"))
+        .unwrap();
+    assert_eq!(free["protection"], json!([]), "{i}");
     // list=protectedsets: a set and its readable members.
     let gone_id = alice
         .api("action=query&prop=info&titles=Project:Gone")

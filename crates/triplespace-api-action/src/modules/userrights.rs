@@ -12,6 +12,12 @@
 //! writes the rest; a membership change is a public act, and half of one is a surprise.
 //! Removing the last member of `owner` while something still needs it is
 //! `ts-last-owner`, naming the permission nobody else would hold (09 §3.6).
+//!
+//! **`list=users`** (`ususers`, `usprop=groups|groupmemberships|blockinfo`) is what
+//! `Special:UserRights` and `Special:Block` read: each named account's `userid`, `name`,
+//! its groups (explicit memberships with `*` and `user`), `groupmemberships` with each
+//! expiry, and `blockinfo` for a block in force (`blockexpiry`, `ts-blockremoves`). A name
+//! hidden from the caller, or unknown, is `missing`, as MediaWiki answers.
 
 use std::collections::BTreeMap;
 
@@ -19,7 +25,7 @@ use scatter_actors::Timestamp;
 use scatter_actors::evaluate::Effective;
 use scatter_actors::group::GroupRegistry;
 use scatter_projection::Backend as _;
-use serde_json::{Value, json};
+use serde_json::{Map, Value, json};
 use triplespace_api_ingest::membership::{Change, MembershipError, Writer, change};
 
 use crate::api::Ctx;
@@ -195,4 +201,94 @@ pub fn delegates(g: &scatter_actors::group::Group) -> Value {
         }
     }
     Value::Object(m)
+}
+
+/// `list=users`.
+pub async fn users(ctx: &Ctx, query: &mut Map<String, Value>) -> Result<(), ApiError> {
+    ctx.caller.require("read")?;
+    let props = ctx.params.list("usprop");
+    let want = |p: &str| props.iter().any(|x| x == p);
+    let now = i64::try_from(now_micros()).unwrap_or(i64::MAX);
+    let mut out = Vec::new();
+    for name in ctx.params.list("ususers") {
+        let found = match crate::activity::actor_key_of(ctx, &name).await? {
+            Some(key) => ctx
+                .db()
+                .query_opt(
+                    "SELECT name FROM view.actor WHERE tenant = $1 AND actor_key = $2",
+                    &[&ctx.tenant.slug, &key],
+                )
+                .await?
+                .map(|r| (key, r.get::<_, Option<String>>(0))),
+            None => None,
+        };
+        let Some((key, shown)) = found else {
+            out.push(json!({"name": name, "missing": true}));
+            continue;
+        };
+        let mut u = Map::new();
+        u.insert("userid".into(), json!(crate::activity::user_id(Some(&key))));
+        u.insert("name".into(), json!(shown.unwrap_or(name)));
+        if want("groups") || want("groupmemberships") {
+            let rows = ctx
+                .db()
+                .query(
+                    "SELECT \"group\", expires FROM view.membership
+                     WHERE tenant IN ($1, '') AND actor_key = $2
+                       AND (expires IS NULL OR expires > $3)
+                     ORDER BY \"group\"",
+                    &[&ctx.tenant.slug, &key, &now],
+                )
+                .await?;
+            if want("groups") {
+                let mut groups = vec![json!("*"), json!("user")];
+                groups.extend(rows.iter().map(|r| json!(r.get::<_, String>(0))));
+                u.insert("groups".into(), Value::Array(groups));
+            }
+            if want("groupmemberships") {
+                let list: Vec<Value> = rows
+                    .iter()
+                    .map(|r| {
+                        json!({
+                            "group": r.get::<_, String>(0),
+                            "expiry": match r.get::<_, Option<i64>>(1) {
+                                None => "infinity".to_string(),
+                                Some(t) => crate::entity_json::iso8601(t.cast_unsigned()),
+                            },
+                        })
+                    })
+                    .collect();
+                u.insert("groupmemberships".into(), Value::Array(list));
+            }
+        }
+        if want("blockinfo")
+            && let Some(r) = ctx
+                .db()
+                .query_opt(
+                    "SELECT removes, expires FROM view.block
+                     WHERE tenant = $1 AND actor_key = $2 AND layer = 'tenant'
+                       AND (expires IS NULL OR expires > $3)",
+                    &[&ctx.tenant.slug, &key, &now],
+                )
+                .await?
+        {
+            u.insert(
+                "blockexpiry".into(),
+                match r.get::<_, Option<i64>>(1) {
+                    None => json!("infinite"),
+                    Some(t) => json!(crate::entity_json::iso8601(t.cast_unsigned())),
+                },
+            );
+            u.insert(
+                "ts-blockremoves".into(),
+                match r.get::<_, Option<Vec<String>>>(0) {
+                    None => json!("all-but-read"),
+                    Some(p) => json!(p),
+                },
+            );
+        }
+        out.push(Value::Object(u));
+    }
+    query.insert("users".into(), Value::Array(out));
+    Ok(())
 }

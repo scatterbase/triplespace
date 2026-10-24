@@ -45,6 +45,10 @@ const pages = [
 	{ path: '/wiki/Item:Q6?action=history', heading: 'Six & more' },
 	{ path: '/wiki/Domain:wikipedia.org?action=history', heading: 'Wikipedia' },
 	{ path: '/wiki/Special:WikiSettings', heading: 'Wiki settings' },
+	{ path: '/wiki/Special:UserRights', heading: 'User rights' },
+	{ path: '/wiki/Special:ProtectedPages', heading: 'Protected pages' },
+	{ path: '/wiki/Special:Block', heading: 'Block an account' },
+	{ path: '/w/index.php?title=Item:Q6&action=protect', heading: 'Protect Item:Q6' },
 	{ path: '/wiki/Special:Preferences', heading: 'Preferences' }
 ];
 

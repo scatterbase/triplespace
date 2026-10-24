@@ -612,14 +612,35 @@ async fn undelete_entity(ctx: &Ctx, id: &str, title: &str) -> Result<ApiResponse
     }})))
 }
 
-/// An expiry: `infinite` and its synonyms are none.
+/// An expiry: `infinite` and its synonyms are none; a time; or, as MediaWiki's forms
+/// take it, a span from now (`1 week`, `3 days`, `2 hours`, `6 months`, `1 year`).
 pub(crate) fn expiry(text: &str) -> Result<Option<Timestamp>, ApiError> {
     match text.trim() {
         "" | "infinite" | "indefinite" | "infinity" | "never" => Ok(None),
         t => triplespace_projections::feed::parse_timestamp(t)
+            .or_else(|| relative_expiry(t))
             .map(|us| Some(Timestamp(us)))
             .ok_or_else(|| ApiError::new("invalidexpiry", format!("Invalid expiry time \"{t}\"."))),
     }
+}
+
+/// `N unit[s]` from now, in microseconds; months are 30 days and years 365.
+fn relative_expiry(text: &str) -> Option<u64> {
+    let (n, unit) = text.split_once(char::is_whitespace)?;
+    let n: u64 = n.trim().parse().ok()?;
+    let unit = unit.trim().to_ascii_lowercase();
+    let unit = unit.strip_suffix('s').unwrap_or(&unit);
+    let seconds: u64 = match unit {
+        "second" | "sec" => 1,
+        "minute" | "min" => 60,
+        "hour" => 3_600,
+        "day" => 86_400,
+        "week" => 7 * 86_400,
+        "month" => 30 * 86_400,
+        "year" => 365 * 86_400,
+        _ => return None,
+    };
+    now_micros().checked_add(n.checked_mul(seconds)?.checked_mul(1_000_000)?)
 }
 
 /// What `action=protect` acts on: a page, or a title with no page, reserved or not yet.

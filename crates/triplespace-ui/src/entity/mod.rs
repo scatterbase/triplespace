@@ -260,6 +260,7 @@ enum TabName {
     Sitelinks,
     Labels,
     History,
+    Protect,
 }
 
 impl TabName {
@@ -278,7 +279,14 @@ impl TabName {
     }
 }
 
-fn tabs(m: &Messages, title: &str, current: TabName, items: bool, history: bool) -> Vec<Tab> {
+fn tabs(
+    m: &Messages,
+    title: &str,
+    current: TabName,
+    items: bool,
+    history: bool,
+    protect: bool,
+) -> Vec<Tab> {
     let base = format!("/wiki/{}", title_url(title));
     let tab = |name: TabName, key: &str, href: String| Tab {
         label: m.get(key),
@@ -312,6 +320,13 @@ fn tabs(m: &Messages, title: &str, current: TabName, items: bool, history: bool)
             TabName::History,
             "ts-tab-history",
             format!("{base}?action=history"),
+        ));
+    }
+    if protect {
+        v.push(tab(
+            TabName::Protect,
+            "ts-tab-protect",
+            format!("{base}?action=protect"),
         ));
     }
     v
@@ -546,7 +561,9 @@ fn page(
         t => t,
     };
     let mut body = match tab {
-        TabName::Statements => r.statements_tab(),
+        // The Protect form is its own page (`action=protect`, `moderation`); the entity
+        // page never shows it as current.
+        TabName::Statements | TabName::Protect => r.statements_tab(),
         TabName::Identifiers => r.identifiers(),
         TabName::Sitelinks => r.sitelinks(),
         TabName::Labels => r.labels(),
@@ -570,6 +587,7 @@ fn page(
         tab,
         entity.entity_type.name() == "item",
         has_history,
+        cx.may_protect(),
     );
     let (display, identity, terms, doc_title) = (
         r.display_title(),

@@ -16,10 +16,15 @@
 //! - [`preferences`]: `Special:Preferences` and the Appearance menu's form (0085 §5–6).
 //! - [`settings`]: `Special:WikiSettings`, `Special:InstanceSettings` and
 //!   `Special:Tenancy` (0085 §4), with [`controls`], the form controls drawn from a type.
+//! - [`userrights`]: `Special:UserRights`, an account's groups (09 §3.3).
+//! - [`block`]: `Special:Block` and `Special:Unblock` (09 §3.3).
+//! - [`protected`]: `Special:ProtectedPages`, the restrictions in force, the sets and the
+//!   empty-group report (09 §4.5).
 //!
 //! A special page the site does not serve is a `404`, as MediaWiki answers for a special
 //! page it does not have.
 
+pub mod block;
 pub mod changes;
 pub mod controls;
 pub mod external;
@@ -27,9 +32,11 @@ pub mod index;
 pub mod login;
 pub mod new_entity;
 pub mod preferences;
+pub mod protected;
 pub mod register;
 pub mod search;
 pub mod settings;
+pub mod userrights;
 pub mod version;
 
 use std::collections::BTreeMap;
@@ -85,6 +92,14 @@ pub async fn serve(
             Some(settings::serve(site, headers, peer, settings::Scope::Instance, params).await)
         }
         "Tenancy" => Some(settings::tenancy(site, headers, peer, query).await),
+        "UserRights" => Some(userrights::serve(site, headers, peer, title, params).await),
+        "ProtectedPages" => Some(protected::serve(site, headers, peer, params).await),
+        "Block" => {
+            Some(block::serve(site, headers, peer, block::Which::Block, title, params).await)
+        }
+        "Unblock" => {
+            Some(block::serve(site, headers, peer, block::Which::Unblock, title, params).await)
+        }
         _ => None,
     }
 }
@@ -126,6 +141,12 @@ pub async fn post(
             )
             .await,
         ),
+        "UserRights" => Some(userrights::post(site, headers, peer, title, query, params).await),
+        "ProtectedPages" => Some(protected::post(site, headers, peer, query, params).await),
+        "Block" => Some(block::post(site, headers, peer, block::Which::Block, query, params).await),
+        "Unblock" => {
+            Some(block::post(site, headers, peer, block::Which::Unblock, query, params).await)
+        }
         _ => None,
     }
 }
