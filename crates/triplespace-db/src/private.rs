@@ -51,6 +51,8 @@ pub const PRIVATE_TABLES: &[(&str, Portability)] = &[
     ("oauth_client", Portability::NeverLeaves),
     ("oauth_flow", Portability::NeverLeaves),
     ("binding", Portability::ReEstablished),
+    ("inbox", Portability::Portable),
+    ("inbox_state", Portability::Portable),
 ];
 
 /// Why the live schema disagrees with [`PRIVATE_TABLES`].
@@ -136,6 +138,9 @@ mod tests {
             assert_eq!(Portability::parse(c.as_str()), Some(c));
         }
         assert_eq!(Portability::parse("secret"), None);
-        assert_eq!(portable_tables(), vec!["preference"]);
+        assert_eq!(
+            portable_tables(),
+            vec!["preference", "inbox", "inbox_state"]
+        );
     }
 }

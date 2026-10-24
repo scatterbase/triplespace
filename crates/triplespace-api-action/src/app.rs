@@ -72,6 +72,7 @@ struct Inner {
     config: Config,
     trust: TrustList,
     forwarder_keys: KeyCache,
+    nothing_hidden: crate::pages::NothingHidden,
     build: crate::version::BuildInfo,
     probes: crate::version::Probes,
     upstream: Arc<dyn Upstream>,
@@ -107,6 +108,7 @@ impl App {
             scatter_actors::issuer::IssuerRegistry::default_registry().clone(),
             config.farm.clone(),
         )
+        .and_then(triplespace_notify::with_addressing)
         .map_err(|e| e.to_string())?;
         // Mirror order: every registered provider, registry order (the tenant's opt-in
         // order is a later refinement, 0018 §6).
@@ -127,6 +129,7 @@ impl App {
                 config,
                 trust,
                 forwarder_keys: KeyCache::default(),
+                nothing_hidden: crate::pages::NothingHidden::default(),
                 build,
                 probes: crate::version::Probes::default(),
                 upstream,
@@ -150,6 +153,73 @@ impl App {
     #[must_use]
     pub fn pipeline(&self) -> &Pipeline<PgIngest> {
         &self.inner.pipeline
+    }
+
+    /// Brings the asynchronous projection steps up to date (0013 §7: what the write path
+    /// does not apply inline), which today is addressing ([`triplespace_notify`]). Addressing
+    /// reads only membership and block records, which live in `actors` partitions, so only
+    /// those are replayed; every other partition's addressing position is moved to its head
+    /// in one statement. Cheap when nothing is behind: one query. Returns the records read.
+    ///
+    /// # Errors
+    ///
+    /// The store's or a projection's error.
+    pub async fn catch_up_async(&self) -> Result<u64, String> {
+        let mut client = self.pool().get().await.map_err(|e| e.to_string())?;
+        let behind: Vec<(i64, String)> = client
+            .query(
+                "SELECT p.partition, p.name FROM log.partition p
+                 LEFT JOIN ops.projection_state s
+                   ON s.projection = 'addressing' AND s.partition = p.partition
+                 WHERE p.next_offset > coalesce(s.applied_offset, 0)",
+                &[],
+            )
+            .await
+            .map_err(|e| e.to_string())?
+            .iter()
+            .map(|r| (r.get(0), r.get(1)))
+            .collect();
+        if behind.is_empty() {
+            return Ok(0);
+        }
+        let skipped: Vec<i64> = behind
+            .iter()
+            .filter(|(_, name)| name != "actors")
+            .map(|(p, _)| *p)
+            .collect();
+        if !skipped.is_empty() {
+            client
+                .execute(
+                    "INSERT INTO ops.projection_state (projection, partition, applied_offset)
+                     SELECT 'addressing', p.partition, p.next_offset FROM log.partition p
+                     WHERE p.partition = ANY($1)
+                     ON CONFLICT (projection, partition)
+                     DO UPDATE SET applied_offset = EXCLUDED.applied_offset, updated_at = now()",
+                    &[&skipped],
+                )
+                .await
+                .map_err(|e| e.to_string())?;
+        }
+        let tx = client.transaction().await.map_err(|e| e.to_string())?;
+        let log = scatter_log_postgres::PgLog::new(&*tx);
+        let mut read = 0;
+        for (p, name) in &behind {
+            if name == "actors" {
+                read += self
+                    .pipeline()
+                    .catch_up(
+                        self.store(),
+                        &log,
+                        scatter_log_postgres::ids::partition_from_db(*p),
+                        500,
+                    )
+                    .await
+                    .map_err(|e| e.to_string())?
+                    .records;
+            }
+        }
+        tx.rollback().await.map_err(|e| e.to_string())?;
+        Ok(read)
     }
 
     /// The mirror order for resolution.
@@ -186,6 +256,12 @@ impl App {
     #[must_use]
     pub fn forwarder_keys(&self) -> &KeyCache {
         &self.inner.forwarder_keys
+    }
+
+    /// The hidden-set L0 cache ([`crate::pages::hidden`]).
+    #[must_use]
+    pub fn nothing_hidden(&self) -> &crate::pages::NothingHidden {
+        &self.inner.nothing_hidden
     }
 
     /// This binary's build and components (0077 §15).

@@ -112,12 +112,14 @@ fn pipeline() -> Pipeline<PgBackend> {
 }
 
 fn draft(payload_type: &str, key: &str, content: &Value) -> Draft {
+    // Membership records project as `rights/rights` events, whose log IDs are unique.
+    static LOGID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
     Draft {
         appended_at: 1_790_000_000_000_000,
         payload_type: payload_type.into(),
         key: Some(key.into()),
         revid: None,
-        logid: Some(1),
+        logid: Some(LOGID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)),
         page_id: None,
         body: Body::core(
             content,

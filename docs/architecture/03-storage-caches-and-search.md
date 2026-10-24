@@ -652,7 +652,7 @@ CREATE TABLE view.acl (                         -- the current ACL per target; a
   target text NOT NULL, restrictions jsonb NOT NULL, read_kind text, extra jsonb, "offset" bigint NOT NULL,
   PRIMARY KEY (target)                           -- extra: parts, reserved, talk, name, members
 );
-CREATE INDEX acl_confidential ON view.acl (target) WHERE read_kind = 'confidential';   -- the hidden set (§4.14; 0056 A19)
+CREATE INDEX acl_confidential ON view.acl (target) WHERE read_kind = 'confidential' OR extra ? 'confidential';   -- the hidden set (§4.14; 0056 A19, A20)
 ```
 
 **`view.page` gains columns.** [0047](../decisions/0047-special-pages.md) §13 adds four, maintained by the page projection, each with an index with `ns`:

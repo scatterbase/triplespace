@@ -20,6 +20,9 @@
 
 pub mod accounts;
 pub mod acl;
+pub mod blocks;
+pub mod groups;
+pub mod membership;
 pub mod settings;
 pub mod store;
 pub mod threads;

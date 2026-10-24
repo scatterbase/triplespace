@@ -11,6 +11,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::Deserialize;
 
+use crate::acl::Target;
+
 /// How a group's membership is implied rather than recorded (0016 §3).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Implicit {
@@ -36,8 +38,26 @@ pub enum Scope {
     Global,
 }
 
+/// The groups a group includes for reading (09 §3.2; 0016 A35, A37): its members pass a
+/// `read` restriction naming any of them, and nothing more.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Includes {
+    /// `"*"`: every group but `owner` and the tenant's suppression group.
+    pub every: bool,
+    /// Groups named; naming the suppression group beside `"*"` includes it too.
+    pub names: BTreeSet<String>,
+}
+
+impl Includes {
+    /// Whether nothing is included.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        !self.every && self.names.is_empty()
+    }
+}
+
 /// A group.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Group {
     /// The name.
     pub name: String,
@@ -56,6 +76,177 @@ pub struct Group {
     pub membership_changed_by: Option<String>,
     /// Tenant or global.
     pub scope: Scope,
+    /// The groups its members read as (09 §3.2).
+    pub includes: Includes,
+    /// Groups its members may add others to (09 §3.2; 0016 A36).
+    pub adds: BTreeSet<String>,
+    /// Groups its members may remove others from.
+    pub removes: BTreeSet<String>,
+    /// Groups its members may join themselves.
+    pub adds_self: BTreeSet<String>,
+    /// Groups its members may leave themselves.
+    pub removes_self: BTreeSet<String>,
+    /// Where its permissions hold: namespaces and sets (`Target::Namespace`,
+    /// `Target::Set`); empty for everywhere (09 §3.2).
+    pub within: BTreeSet<Target>,
+    /// Whether each new member is announced to the group's members (09 §3.3; 0016 A38).
+    pub notify_joins: bool,
+}
+
+impl Group {
+    /// Whether the group's permissions hold only within `within`.
+    #[must_use]
+    pub fn is_scoped(&self) -> bool {
+        !self.within.is_empty()
+    }
+
+    /// The groups this group's members may change membership of, for others and for
+    /// themselves, every list together.
+    pub fn delegated(&self) -> impl Iterator<Item = &String> {
+        self.adds
+            .iter()
+            .chain(&self.removes)
+            .chain(&self.adds_self)
+            .chain(&self.removes_self)
+    }
+
+    /// A group from its `config` record (`{"kind": "group", "name", "permissions", …}`;
+    /// 09 §3.2). `"*"` among the permissions is every permission. `owner` keeps what
+    /// makes it `owner` whatever its record says: every permission, membership changed by
+    /// `owner` alone, and `includes = ["*"]` (09 §3.6).
+    pub fn from_config(
+        name: &str,
+        config: &serde_json::Value,
+        registry: &GroupRegistry,
+    ) -> Result<Self, GroupRegistryError> {
+        let bad = |m: String| GroupRegistryError::Toml(format!("group `{name}`: {m}"));
+        let list = |key: &str| -> Result<Vec<String>, GroupRegistryError> {
+            match config.get(key) {
+                None | Some(serde_json::Value::Null) => Ok(Vec::new()),
+                Some(serde_json::Value::Array(a)) => a
+                    .iter()
+                    .map(|v| {
+                        v.as_str()
+                            .map(str::to_string)
+                            .ok_or_else(|| bad(format!("`{key}` must list strings")))
+                    })
+                    .collect(),
+                Some(_) => Err(bad(format!("`{key}` must be a list"))),
+            }
+        };
+        let mut raw_permissions = list("permissions")?;
+        let all = raw_permissions.iter().any(|p| p == "*");
+        raw_permissions.retain(|p| p != "*");
+        let base = registry.by_name(name);
+        let mut g = Self {
+            name: name.to_string(),
+            mediawiki_name: config
+                .get("mediawiki_name")
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_string)
+                .or_else(|| base.map(|b| b.mediawiki_name.clone()))
+                .unwrap_or_else(|| name.to_string()),
+            implicit: base.and_then(|b| b.implicit),
+            permissions: raw_permissions.into_iter().collect(),
+            all_permissions: all,
+            minimum_members: base.map_or(0, |b| b.minimum_members),
+            membership_changed_by: base.and_then(|b| b.membership_changed_by.clone()),
+            scope: match config.get("scope").and_then(serde_json::Value::as_str) {
+                Some("global") => Scope::Global,
+                None | Some("tenant") => Scope::Tenant,
+                Some(other) => return Err(bad(format!("unknown scope `{other}`"))),
+            },
+            includes: includes_of(list("includes")?),
+            adds: list("adds")?.into_iter().collect(),
+            removes: list("removes")?.into_iter().collect(),
+            adds_self: list("adds_self")?.into_iter().collect(),
+            removes_self: list("removes_self")?.into_iter().collect(),
+            within: within_of(name, list("within")?)?,
+            notify_joins: config
+                .get("notify_joins")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false),
+        };
+        if name == OWNER {
+            g.all_permissions = true;
+            g.membership_changed_by = Some(OWNER.to_string());
+            g.includes.every = true;
+        }
+        Ok(g)
+    }
+
+    /// The group as its `config` record carries it (the inverse of [`Self::from_config`]).
+    #[must_use]
+    pub fn to_config(&self) -> serde_json::Value {
+        let mut m = serde_json::Map::new();
+        m.insert("kind".into(), "group".into());
+        m.insert("name".into(), self.name.clone().into());
+        let permissions: Vec<String> = if self.all_permissions {
+            vec!["*".into()]
+        } else {
+            self.permissions.iter().cloned().collect()
+        };
+        m.insert("permissions".into(), permissions.into());
+        if self.mediawiki_name != self.name {
+            m.insert("mediawiki_name".into(), self.mediawiki_name.clone().into());
+        }
+        if self.scope == Scope::Global {
+            m.insert("scope".into(), "global".into());
+        }
+        let mut includes: Vec<String> = self
+            .includes
+            .every
+            .then(|| "*".to_string())
+            .into_iter()
+            .collect();
+        includes.extend(self.includes.names.iter().cloned());
+        for (k, v) in [
+            ("includes", includes),
+            ("adds", self.adds.iter().cloned().collect()),
+            ("removes", self.removes.iter().cloned().collect()),
+            ("adds_self", self.adds_self.iter().cloned().collect()),
+            ("removes_self", self.removes_self.iter().cloned().collect()),
+            ("within", self.within.iter().map(within_key).collect()),
+        ] {
+            if !v.is_empty() {
+                m.insert(k.into(), v.into());
+            }
+        }
+        if self.notify_joins {
+            m.insert("notify_joins".into(), true.into());
+        }
+        serde_json::Value::Object(m)
+    }
+}
+
+fn includes_of(names: Vec<String>) -> Includes {
+    let mut i = Includes::default();
+    for n in names {
+        if n == "*" {
+            i.every = true;
+        } else {
+            i.names.insert(n);
+        }
+    }
+    i
+}
+
+/// `within` entries are written as `namespace:{number}` and `set:{id}`, the ACL target
+/// keys without `acl:`.
+fn within_of(group: &str, entries: Vec<String>) -> Result<BTreeSet<Target>, GroupRegistryError> {
+    entries
+        .into_iter()
+        .map(|e| match Target::parse(&format!("acl:{e}")) {
+            Ok(t @ (Target::Namespace(_) | Target::Set(_))) => Ok(t),
+            _ => Err(GroupRegistryError::Toml(format!(
+                "group `{group}`: `within` takes `namespace:N` and `set:N`, not `{e}`"
+            ))),
+        })
+        .collect()
+}
+
+fn within_key(t: &Target) -> String {
+    t.key().trim_start_matches("acl:").to_string()
 }
 
 /// Who may write a graph by default (0016 §4).
@@ -106,6 +297,25 @@ pub enum GroupRegistryError {
     /// An ACL target that is not `graph:…`, or names an unknown group.
     #[error("acl `{0}`: {1}")]
     Acl(String, String),
+    /// A delegation list names `owner` or a group that holds `userrights` or `ts-config`
+    /// (09 §3.2).
+    #[error("group `{group}` may not delegate membership of `{named}`, which {why}")]
+    Delegation {
+        /// The delegating group.
+        group: String,
+        /// The group named.
+        named: String,
+        /// Why it may not be named.
+        why: &'static str,
+    },
+    /// A scoped group holds a permission that acts on no page, entity or thread.
+    #[error("group `{group}` is scoped and so may not hold `{permission}`, which has no target")]
+    Untargeted {
+        /// The group.
+        group: String,
+        /// The permission.
+        permission: String,
+    },
 }
 
 #[derive(Deserialize)]
@@ -128,6 +338,10 @@ struct RawPermissions {
     wikibase: Vec<String>,
     #[serde(default)]
     triplespace: Vec<String>,
+    /// The permissions that act on a page, entity or thread, which alone a scoped group
+    /// may hold (09 §3.2).
+    #[serde(default)]
+    targeted: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -148,6 +362,20 @@ struct RawGroup {
     membership_changed_by: Option<String>,
     #[serde(default)]
     scope: Option<String>,
+    #[serde(default)]
+    includes: Vec<String>,
+    #[serde(default)]
+    adds: Vec<String>,
+    #[serde(default)]
+    removes: Vec<String>,
+    #[serde(default)]
+    adds_self: Vec<String>,
+    #[serde(default)]
+    removes_self: Vec<String>,
+    #[serde(default)]
+    within: Vec<String>,
+    #[serde(default)]
+    notify_joins: bool,
 }
 
 #[derive(Deserialize)]
@@ -171,14 +399,18 @@ pub const FEDERATED: &str = "federated";
 pub const BOT: &str = "bot";
 /// The group that holds everything.
 pub const OWNER: &str = "owner";
+/// The default suppression group, `moderation.suppress_group` unless a tenant sets another.
+pub const SUPPRESS: &str = "suppress";
 
 /// The group registry.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GroupRegistry {
     version: u32,
     permissions: BTreeSet<String>,
+    targeted: BTreeSet<String>,
     groups: Vec<Group>,
     graph_acls: Vec<GraphAclDefault>,
+    suppress_group: String,
 }
 
 impl GroupRegistry {
@@ -199,6 +431,18 @@ impl GroupRegistry {
         {
             if !permissions.insert(p.clone()) {
                 return Err(GroupRegistryError::Duplicate(p.clone()));
+            }
+        }
+        let mut targeted = BTreeSet::new();
+        for p in raw.permissions.targeted {
+            if !permissions.contains(&p) {
+                return Err(GroupRegistryError::UnknownPermission {
+                    group: "(targeted)".into(),
+                    permission: p,
+                });
+            }
+            if !targeted.insert(p.clone()) {
+                return Err(GroupRegistryError::Duplicate(p));
             }
         }
         let mut groups: Vec<Group> = Vec::with_capacity(raw.groups.len());
@@ -235,8 +479,10 @@ impl GroupRegistry {
         let reg = Self {
             version: raw.version,
             permissions,
+            targeted,
             groups,
             graph_acls,
+            suppress_group: SUPPRESS.to_string(),
         };
         let check = |name: &'static str, ok: fn(&Group) -> bool, why: &'static str| match reg
             .by_name(name)
@@ -257,13 +503,14 @@ impl GroupRegistry {
         )?;
         check(
             OWNER,
-            |g| {
-                g.all_permissions
-                    && g.minimum_members >= 1
-                    && g.membership_changed_by.as_deref() == Some(OWNER)
-            },
-            "must hold every permission, keep a member, and be changed only by owner",
+            // `owner` may lose its last member once nothing needs it (0016 A37): the
+            // registry no longer insists on one.
+            |g| g.all_permissions && g.membership_changed_by.as_deref() == Some(OWNER),
+            "must hold every permission and be changed only by owner",
         )?;
+        for g in &reg.groups {
+            reg.validate(g)?;
+        }
         Ok(reg)
     }
 
@@ -320,17 +567,94 @@ impl GroupRegistry {
         &self.graph_acls
     }
 
-    /// Adds or replaces a group, as a `config` record of kind `group` does on an instance.
-    /// A group with `all_permissions` takes every permission the registry knows.
-    pub fn set_group(&mut self, mut group: Group) -> Result<(), GroupRegistryError> {
+    /// The permissions that act on a page, entity or thread (09 §3.2).
+    #[must_use]
+    pub fn targeted(&self) -> &BTreeSet<String> {
+        &self.targeted
+    }
+
+    /// The tenant's suppression group (`moderation.suppress_group`), which `includes = ["*"]`
+    /// leaves out.
+    #[must_use]
+    pub fn suppress_group(&self) -> &str {
+        &self.suppress_group
+    }
+
+    /// Sets the suppression group.
+    pub fn set_suppress_group(&mut self, name: &str) {
+        self.suppress_group = name.to_string();
+    }
+
+    /// Why `group` may not be named in another group's `adds`, `removes`, `adds_self` or
+    /// `removes_self` (09 §3.2), if it may not: `owner`, and any group that holds
+    /// `userrights` or `ts-config`, so delegation never reaches the rights that reach
+    /// everything.
+    #[must_use]
+    pub fn undelegable(&self, group: &str) -> Option<&'static str> {
+        if group == OWNER {
+            return Some("is owner");
+        }
+        let g = self.by_name(group)?;
+        if g.all_permissions || g.permissions.contains("userrights") {
+            Some("holds userrights")
+        } else if g.permissions.contains("ts-config") {
+            Some("holds ts-config")
+        } else {
+            None
+        }
+    }
+
+    /// Checks a group against the rules of 09 §3.2: every permission registered; the
+    /// delegation lists name no group [`Self::undelegable`] refuses; a scoped group holds
+    /// only targeted permissions.
+    pub fn validate(&self, group: &Group) -> Result<(), GroupRegistryError> {
         for p in &group.permissions {
             if !self.permissions.contains(p) {
                 return Err(GroupRegistryError::UnknownPermission {
-                    group: group.name,
+                    group: group.name.clone(),
                     permission: p.clone(),
                 });
             }
         }
+        for named in group.delegated() {
+            let why = if *named == group.name && group_is_privileged(group) {
+                Some("holds userrights or ts-config")
+            } else {
+                self.undelegable(named)
+            };
+            if let Some(why) = why {
+                return Err(GroupRegistryError::Delegation {
+                    group: group.name.clone(),
+                    named: named.clone(),
+                    why,
+                });
+            }
+        }
+        if group.is_scoped() {
+            if group.all_permissions {
+                return Err(GroupRegistryError::Untargeted {
+                    group: group.name.clone(),
+                    permission: "*".into(),
+                });
+            }
+            if let Some(p) = group
+                .permissions
+                .iter()
+                .find(|p| !self.targeted.contains(*p))
+            {
+                return Err(GroupRegistryError::Untargeted {
+                    group: group.name.clone(),
+                    permission: p.clone(),
+                });
+            }
+        }
+        Ok(())
+    }
+
+    /// Adds or replaces a group, as a `config` record of kind `group` does on an instance.
+    /// A group with `all_permissions` takes every permission the registry knows.
+    pub fn set_group(&mut self, mut group: Group) -> Result<(), GroupRegistryError> {
+        self.validate(&group)?;
         if group.all_permissions {
             group.permissions.clone_from(&self.permissions);
         }
@@ -362,6 +686,10 @@ impl GroupRegistry {
             .map(|g| (g.name.as_str(), g.mediawiki_name.as_str()))
             .collect()
     }
+}
+
+fn group_is_privileged(g: &Group) -> bool {
+    g.all_permissions || g.permissions.contains("userrights") || g.permissions.contains("ts-config")
 }
 
 fn parse_group(g: RawGroup, permissions: &BTreeSet<String>) -> Result<Group, GroupRegistryError> {
@@ -399,6 +727,7 @@ fn parse_group(g: RawGroup, permissions: &BTreeSet<String>) -> Result<Group, Gro
     if g.all_permissions {
         perms.clone_from(permissions);
     }
+    let within = within_of(&g.name, g.within)?;
     Ok(Group {
         mediawiki_name: g.mediawiki_name.unwrap_or_else(|| g.name.clone()),
         name: g.name,
@@ -408,6 +737,13 @@ fn parse_group(g: RawGroup, permissions: &BTreeSet<String>) -> Result<Group, Gro
         minimum_members: g.minimum_members,
         membership_changed_by: g.membership_changed_by,
         scope,
+        includes: includes_of(g.includes),
+        adds: g.adds.into_iter().collect(),
+        removes: g.removes.into_iter().collect(),
+        adds_self: g.adds_self.into_iter().collect(),
+        removes_self: g.removes_self.into_iter().collect(),
+        within,
+        notify_joins: g.notify_joins,
     })
 }
 
@@ -495,6 +831,7 @@ mod tests {
             minimum_members: 0,
             membership_changed_by: None,
             scope: Scope::Tenant,
+            ..Group::default()
         };
         r.set_group(reviewers.clone()).unwrap();
         assert_eq!(r.by_name("reviewer").unwrap().permissions.len(), 1);
@@ -538,5 +875,48 @@ mod tests {
             GroupRegistry::parse("version = 1\n[permissions]\n"),
             Err(GroupRegistryError::Builtin("universe", _))
         ));
+    }
+
+    #[test]
+    fn delegation_and_scope_rules() {
+        let r = GroupRegistry::default_registry();
+        assert!(r.by_name("owner").unwrap().includes.every);
+        assert!(r.by_name("read-all").unwrap().includes.every);
+        assert!(r.by_name("read-all").unwrap().permissions.is_empty());
+        let g = |v: serde_json::Value| Group::from_config("x", &v, r).unwrap();
+        for named in ["owner", "bureaucrat"] {
+            assert!(matches!(
+                r.validate(&g(serde_json::json!({"permissions": [], "adds": [named]}))),
+                Err(GroupRegistryError::Delegation { .. })
+            ));
+        }
+        assert!(
+            r.validate(&g(
+                serde_json::json!({"permissions": [], "adds": ["sysop"], "removes_self": ["hr"]})
+            ))
+            .is_ok()
+        );
+        assert!(matches!(
+            r.validate(&g(
+                serde_json::json!({"permissions": ["block"], "within": ["namespace:4"]})
+            )),
+            Err(GroupRegistryError::Untargeted { .. })
+        ));
+        assert!(
+            r.validate(&g(
+                serde_json::json!({"permissions": ["delete"], "within": ["namespace:4", "set:2"]})
+            ))
+            .is_ok()
+        );
+        assert!(Group::from_config("x", &serde_json::json!({"within": ["page:4"]}), r).is_err());
+        // The record round-trips, and owner keeps what makes it owner.
+        let x = g(
+            serde_json::json!({"permissions": ["delete"], "within": ["set:2"], "includes": ["*", "suppress"], "notify_joins": true}),
+        );
+        assert_eq!(Group::from_config("x", &x.to_config(), r).unwrap(), x);
+        let owner =
+            Group::from_config("owner", &serde_json::json!({"permissions": ["*"]}), r).unwrap();
+        assert!(owner.all_permissions && owner.includes.every);
+        assert_eq!(owner.membership_changed_by.as_deref(), Some("owner"));
     }
 }

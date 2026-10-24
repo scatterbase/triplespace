@@ -383,11 +383,19 @@ async fn registration_and_challenges() {
     }
     let (_, bits) = anon.challenge("create").await.unwrap();
     assert_eq!(bits, 10, "the ceiling");
-    // Six a day from one address.
+    // Six a day from one address, unless the tenant sets `account.creation_limit`.
     let r = anon.create_solved("Seventh", "many-password-1", "").await;
     assert_eq!(
         r["createaccount"]["messagecode"], "acct_creation_throttle_hit",
         "{r}"
+    );
+    owner.set(json!({"account.creation_limit": 7})).await;
+    let r = anon.create_solved("Seventh", "many-password-1", "").await;
+    assert_eq!(r["createaccount"]["status"], "PASS", "a raised limit: {r}");
+    let r = anon.create_solved("Eighth", "many-password-1", "").await;
+    assert_eq!(
+        r["createaccount"]["messagecode"], "acct_creation_throttle_hit",
+        "the raised limit holds: {r}"
     );
     // An IPv6 caller is counted by its /64 (unit-tested in triplespace-accounts).
 

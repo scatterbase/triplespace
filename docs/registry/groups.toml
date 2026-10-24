@@ -6,7 +6,8 @@
 #
 # An actor's effective permissions are the union over its groups, minus what active blocks
 # remove. There is no group-level revocation. `universe` is reported to MediaWiki clients
-# as `*`. `owner` holds every permission, including any added later, and is never empty.
+# as `*`. `owner` holds every permission, including any added later, and reads everything but the
+# suppression group's; it is a bootstrap role, which a tenant may leave empty (0016 A37, A38).
 #
 # ACLs restrict a permission on a target to a group; evaluation is conjunctive over the
 # target and its enclosures (0016 §4). Since 0023, ACLs also restrict `read`: deletion,
@@ -14,12 +15,16 @@
 # deletion or suppression group named in site config (defaults sysop, suppress).
 # Only graph ACLs are listed here; the rest are moderation records in the tenant log.
 #
-# Pending (0016 A35, A36; docs/registry/README.md): a [[group]] may carry
-#   includes = [...]  group names or "*" (every group but owner) whose ACL tests its members pass
-#   adds, removes, adds_self, removes_self = [...]  groups its members may add to or remove from
-#   within = [...]  namespaces and sets outside which its permissions do not hold
-# No default group sets them; the fields are written here as a comment until scatter-actors
-# accepts them.
+# A [[group]] may also carry (09 §3.2; 0016 A35–A38):
+#   includes = [...]  group names, or "*" for every group but owner and the suppression group,
+#                     whose read restrictions its members pass; reading only, one level deep
+#   adds, removes, adds_self, removes_self = [...]  groups its members may add others to, remove
+#                     others from, join or leave themselves; never owner or a group holding
+#                     userrights or ts-config
+#   within = ["namespace:N", "set:N"]  where its permissions hold; a scoped group may hold only
+#                     the permissions listed as `targeted` below
+#   notify_joins = true  announce each new member to the group's members (off unless set)
+# A tenant's `group` config records take the same fields.
 
 version = 1
 
@@ -58,6 +63,17 @@ triplespace = [
   "ts-viewoperator",                             # 0040 §9: see which operator carried out an instance act; an instance right
   "ts-primary",                                  # 0046 §8: offer the primary role to another tenant; an instance right, owner only
   "ts-viewip",                                   # 0007 §3: see an address in the abuse-handling store; an account request's (0087 §6)
+]
+# The permissions that act on a page, entity or thread: all a scoped group may hold (09 §3.2;
+# 0016 A36). Every other permission acts on the tenant, an account or the instance.
+targeted = [
+  "read", "edit", "createpage", "move", "editcontentmodel",
+  "delete", "undelete", "deletedhistory", "deletedtext", "deleterevision", "deletelogentry",
+  "suppressrevision", "viewsuppressed", "protect", "patrol", "autopatrol",
+  "suppressredirect", "delete-redirect", "move-subpages", "move-rootuserpages", "move-categorypages",
+  "upload", "reupload", "reupload-own", "movefile",
+  "item-term", "property-term", "item-redirect", "item-merge", "property-create",
+  "ts-link", "ts-linkproperty", "ts-retain", "ts-convert", "ts-editpost",
 ]
 
 # ---------------------------------------------------------------------------
@@ -141,9 +157,15 @@ permissions = ["suppressrevision", "viewsuppressed", "hideuser", "ts-erase"]
 
 [[group]]
 name = "owner"
-all_permissions = true              # including ts-keys and ts-primary, which no other group holds; on the primary tenant, owner is the instance's owner (0046 §1)
-minimum_members = 1
+all_permissions = true              # including ts-keys and ts-primary; on the primary tenant, owner is the instance's owner (0046 §1)
+minimum_members = 0                 # 0016 A37: a bootstrap role; the last member may leave once nothing needs it, and the CLI restores it
 membership_changed_by = "owner"
+includes = ["*"]                    # 0016 A37: reads every confidential target but the suppression group's
+
+[[group]]
+name = "read-all"                   # 0016 A37, A38: reads everything but the suppression group's, may do nothing more; empty by default
+permissions = []
+includes = ["*"]
 
 # ---------------------------------------------------------------------------
 # Default graph ACLs (0016 §4). Written to config when an instance is created.

@@ -3276,6 +3276,941 @@
           }
         }
       }
+    },
+    "/acl/{kind}/{id}": {
+      "get": {
+        "operationId": "getAcl",
+        "summary": "The ACL of a page, a namespace or a set",
+        "description": "The ACL of a page or a namespace and `visibility`, the set of groups a reader must all be in along its chain (ADR 0016 §7, 0056 §13; architecture 18 §3.2). A page or namespace the caller may not read is `ts-no-target`, as a missing one is.",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "description": "`page`, `namespace` or `set`; other kinds are `ts-not-supported` here for now.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "page",
+                "namespace",
+                "set"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The page ID, the namespace number or the set ID.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The target's ACL and its resolved visibility.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AclView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`badbody`; `badvalue`; `ts-unknown-group`; `ts-not-supported` for a target kind this route does not serve yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-no-target`: no such target, or one the caller may not read, which answer alike (09 §5.3).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "putAcl",
+        "summary": "Set the ACL of a page or a namespace",
+        "description": "Replaces the restrictions of a page, a namespace or a set: for each permission, `group` and an optional `expiry` (`infinite` or a timestamp). A `read` restriction set here is confidential (09 §5.2); deleting and hiding are the moderation modules'. Needs the target's protecting right (`protect`; `ts-config` for the tenant) on its chain; setting, changing or lifting a confidential restriction needs membership in its group (09 §4.5). A request made with a session cookie carries its CSRF token as `token`. A set's `name` may be given beside them.",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "description": "`page`, `namespace` or `set`; other kinds are `ts-not-supported` here for now.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "page",
+                "namespace",
+                "set"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The page ID, the namespace number or the set ID.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AclPut"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The target's ACL and its resolved visibility.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AclView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`badbody`; `badvalue`; `ts-unknown-group`; `ts-not-supported` for a target kind this route does not serve yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied`; `badtoken` for a session write without its CSRF token; `ts-locked-out` when a confidential restriction would be set, changed or lifted by someone outside its group; `ts-policy` when `security.restrictions` does not allow it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-no-target`: no such target, or one the caller may not read, which answer alike (09 §5.3).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`ts-deleted`: the target is deleted, and its ACL changes only by undeleting it; `ts-no-acl` on a DELETE with nothing to retire.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteAcl",
+        "summary": "Retire the ACL of a page or a namespace",
+        "description": "Retires the ACL of a page or a namespace, with an optional `reason`. The same rights as PUT.",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "description": "`page`, `namespace` or `set`; other kinds are `ts-not-supported` here for now.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "page",
+                "namespace",
+                "set"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The page ID, the namespace number or the set ID.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AclDelete"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The target's ACL and its resolved visibility.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AclView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`badbody`; `badvalue`; `ts-unknown-group`; `ts-not-supported` for a target kind this route does not serve yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied`; `badtoken` for a session write without its CSRF token; `ts-locked-out` when a confidential restriction would be set, changed or lifted by someone outside its group; `ts-policy` when `security.restrictions` does not allow it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-no-target`: no such target, or one the caller may not read, which answer alike (09 §5.3).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`ts-deleted`: the target is deleted, and its ACL changes only by undeleting it; `ts-no-acl` on a DELETE with nothing to retire.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/acl/tenant/{slug}": {
+      "get": {
+        "operationId": "getAclTenant",
+        "summary": "The ACL of the tenant",
+        "description": "The ACL of the tenant and `visibility`, the set of groups a reader must all be in along its chain (ADR 0016 §7, 0056 §13; architecture 18 §3.2). A tenant's ACL is not secret: that a tenant is private is the first thing a visitor learns (09 §4.7), so anyone may read it. A `read` restriction on the tenant makes it private.",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "description": "The tenant's slug: the tenant the host selects.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The target's ACL and its resolved visibility.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AclView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`badbody`; `badvalue`; `ts-unknown-group`; `ts-not-supported` for a target kind this route does not serve yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-no-target`: no such target, or one the caller may not read, which answer alike (09 §5.3).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "putAclTenant",
+        "summary": "Set the ACL of the tenant",
+        "description": "Replaces the restrictions of the tenant: for each permission, `group` and an optional `expiry` (`infinite` or a timestamp). A `read` restriction set here is confidential (09 §5.2); deleting and hiding are the moderation modules'. Needs the target's protecting right (`protect`; `ts-config` for the tenant) on its chain; setting, changing or lifting a confidential restriction needs membership in its group (09 §4.5). A request made with a session cookie carries its CSRF token as `token`.",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "description": "The tenant's slug: the tenant the host selects.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AclPut"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The target's ACL and its resolved visibility.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AclView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`badbody`; `badvalue`; `ts-unknown-group`; `ts-not-supported` for a target kind this route does not serve yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied`; `badtoken` for a session write without its CSRF token; `ts-locked-out` when a confidential restriction would be set, changed or lifted by someone outside its group; `ts-policy` when `security.restrictions` does not allow it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-no-target`: no such target, or one the caller may not read, which answer alike (09 §5.3).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`ts-deleted`: the target is deleted, and its ACL changes only by undeleting it; `ts-no-acl` on a DELETE with nothing to retire.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteAclTenant",
+        "summary": "Retire the ACL of the tenant",
+        "description": "Retires the ACL of the tenant, with an optional `reason`. The same rights as PUT.",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "description": "The tenant's slug: the tenant the host selects.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AclDelete"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The target's ACL and its resolved visibility.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AclView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`badbody`; `badvalue`; `ts-unknown-group`; `ts-not-supported` for a target kind this route does not serve yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied`; `badtoken` for a session write without its CSRF token; `ts-locked-out` when a confidential restriction would be set, changed or lifted by someone outside its group; `ts-policy` when `security.restrictions` does not allow it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-no-target`: no such target, or one the caller may not read, which answer alike (09 §5.3).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`ts-deleted`: the target is deleted, and its ACL changes only by undeleting it; `ts-no-acl` on a DELETE with nothing to retire.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/acl/set": {
+      "post": {
+        "operationId": "createAclSet",
+        "summary": "Create a set",
+        "description": "Creates a set (ADR 0056 §3; architecture 09 §4.7): a grouping that only `protect` can change, with a `name`, `restrictions` on its members (`read`, `edit`, `move`) and `members`, each `{kind: \"page\", id}`; a page's subpages and the threads it is home to go with it. The set's ID is taken from the page-ID sequence and returned as `id`. Every member must be a page the caller may read. Needs `protect`; a confidential set may name only a group the caller is in. A request made with a session cookie carries its CSRF token as `token`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AclSetCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The set's ACL, its resolved visibility and the log ID of the record.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AclView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`badbody`; `badvalue`; `ts-unknown-group`; `ts-already-member`; `ts-not-supported` for an entity member, until entity ACLs are enforced.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied` without `protect`; `badtoken`; `ts-locked-out` for a confidential set whose group the caller is not in; `ts-policy`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-no-target`: no such set or member, or one the caller may not read.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/acl/set/{id}/members": {
+      "post": {
+        "operationId": "addAclSetMember",
+        "summary": "Add a member to a set",
+        "description": "Adds `{kind, id}` to the set: a new version of its record, projected as `protect/modify`. Needs `protect` and, for a confidential set, membership in its group; the member must be a page the caller may read.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The set ID.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AclSetMember"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The set's ACL, its resolved visibility and the log ID of the record.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AclView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`badbody`; `badvalue`; `ts-unknown-group`; `ts-already-member`; `ts-not-supported` for an entity member, until entity ACLs are enforced.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied` without `protect`; `badtoken`; `ts-locked-out` for a confidential set whose group the caller is not in; `ts-policy`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-no-target`: no such set or member, or one the caller may not read.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/acl/set/{id}/members/{kind}/{member}": {
+      "delete": {
+        "operationId": "removeAclSetMember",
+        "summary": "Remove a member from a set",
+        "description": "Removes a member: a new version of the set's record. The same rights as adding one.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The set ID.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "page",
+                "entity"
+              ]
+            }
+          },
+          {
+            "name": "member",
+            "in": "path",
+            "required": true,
+            "description": "The page ID or entity ID.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AclDelete"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The set's ACL, its resolved visibility and the log ID of the record.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AclView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`badbody`; `badvalue`; `ts-unknown-group`; `ts-already-member`; `ts-not-supported` for an entity member, until entity ACLs are enforced.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied` without `protect`; `badtoken`; `ts-locked-out` for a confidential set whose group the caller is not in; `ts-policy`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-no-target`: no such set or member, or one the caller may not read.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/group/{name}": {
+      "parameters": [
+        {
+          "name": "name",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "description": "The group's name."
+        }
+      ],
+      "get": {
+        "operationId": "getGroup",
+        "summary": "Read a group",
+        "description": "A tenant's group (architecture 09 §3.2): its definition as its `group` record carries it, whether that record is the tenant's own or the registry default (`source`: `tenant`, `registry`, or `members` for a group only memberships and ACLs name), and its current member count.",
+        "responses": {
+          "200": {
+            "description": "The group's definition, where it comes from and its member count.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-no-group`: the tenant has no such group.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "putGroup",
+        "summary": "Define a group",
+        "description": "Writes the tenant's record for a group (architecture 09 §3.2; ADR 0016 A35–A38): the whole definition, replacing the registry default of the same name. `permissions` (`*` for every permission), `includes` (groups, or `*`, whose `read` restrictions members pass, for reading only), `adds`, `removes`, `adds_self`, `removes_self` (groups members may add others to, remove others from, join or leave; never `owner` or a group holding `userrights` or `ts-config`), `within` (`namespace:N` and `set:N`, outside which the permissions do not hold; a scoped group holds only permissions that act on a page, entity or thread) and `notify_joins`. Needs `ts-config`, and `userrights` as well when the write changes `includes`, a delegation list or `within`. A request made with a session cookie carries its CSRF token as `token`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupPut"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The group's definition, where it comes from and its member count.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`ts-invalid-group`: a name or definition that breaks a rule; `badvalue` for an unknown permission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied` without `ts-config` or, for what changes reading or membership, `userrights`; `badtoken`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteGroup",
+        "summary": "Retire a group's record",
+        "description": "Retires the tenant's record for a group; a default group falls back to the registry's definition. Rights as for `PUT`.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AclDelete"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The group's definition, where it comes from and its member count.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied`; `badtoken`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`ts-no-group-record`: the tenant has no record of its own for the group.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/acl/empty-groups": {
+      "get": {
+        "operationId": "getEmptyGroups",
+        "summary": "Groups no one can read through",
+        "description": "The empty-group report (architecture 09 §4.5; ADR 0056 A18), for holders of `userrights`: each group that a confidential restriction in force names and that has no current member, with the number of restrictions naming it. No titles are given. Implicit groups are left out.",
+        "responses": {
+          "200": {
+            "description": "The groups.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "groups": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "group": {
+                            "type": "string"
+                          },
+                          "restrictions": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied` without `userrights`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/purges": {
+      "get": {
+        "operationId": "listPurges",
+        "summary": "Queued cache purges",
+        "description": "The cache purges queued by visibility changes, deletions and hidings (architecture 03 §9.6; ADR 0056 §7), for the web tier, a CDN hook or an operator's script: each names a `Cache-Tag` to drop (`page:17`, `entity:Q42`, `ns:4`, `set:12`, `tenant:slug`, `actor:{key}`, `record:{partition}:{offset}`) and the record that caused it. `visibility_epoch` is the tenant's, bumped by a read restriction on a namespace, graph or the tenant. Pass the last `id` seen as `since`. Needs `ts-config`.",
+        "parameters": [
+          {
+            "name": "since",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "maximum": 1000
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The purges after `since`, oldest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "purges",
+                    "last",
+                    "visibility_epoch"
+                  ],
+                  "properties": {
+                    "purges": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer"
+                          },
+                          "tag": {
+                            "type": "string"
+                          },
+                          "reason": {
+                            "type": "string"
+                          },
+                          "record": {
+                            "type": "object"
+                          },
+                          "at": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "last": {
+                      "type": "integer"
+                    },
+                    "visibility_epoch": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied` without `ts-config`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -5768,6 +6703,308 @@
                 }
               }
             }
+          }
+        }
+      },
+      "AclView": {
+        "type": "object",
+        "required": [
+          "target",
+          "acl",
+          "visibility"
+        ],
+        "properties": {
+          "target": {
+            "type": "string",
+            "description": "The target key, `acl:{kind}:{id}`."
+          },
+          "acl": {
+            "description": "The current ACL record's content (payloads-actors.md, `acl`), or null when there is none.",
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "visibility": {
+            "type": "object",
+            "properties": {
+              "public": {
+                "type": "boolean"
+              },
+              "groups": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "logid": {
+            "type": "integer",
+            "description": "On a write: the log ID of the ACL record."
+          }
+        }
+      },
+      "AclPut": {
+        "type": "object",
+        "required": [
+          "restrictions"
+        ],
+        "properties": {
+          "restrictions": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "required": [
+                "group"
+              ],
+              "properties": {
+                "group": {
+                  "type": "string"
+                },
+                "expiry": {
+                  "type": "string",
+                  "description": "`infinite` (the default) or a timestamp."
+                }
+              }
+            }
+          },
+          "reason": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          },
+          "talk": {
+            "type": "boolean",
+            "description": "For a page under a confidential `read` restriction: its talk page and the threads homed there are under the restriction too (architecture 09 §4.4)."
+          }
+        }
+      },
+      "AclDelete": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          }
+        }
+      },
+      "AclSetMember": {
+        "type": "object",
+        "required": [
+          "kind",
+          "id"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "page",
+              "entity"
+            ]
+          },
+          "id": {
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          }
+        }
+      },
+      "AclSetCreate": {
+        "type": "object",
+        "required": [
+          "restrictions"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "restrictions": {
+            "$ref": "#/components/schemas/AclPut/properties/restrictions"
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "kind",
+                "id"
+              ],
+              "properties": {
+                "kind": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": [
+                    "integer",
+                    "string"
+                  ]
+                }
+              }
+            }
+          },
+          "reason": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          }
+        }
+      },
+      "GroupDefinition": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "group"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "includes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "adds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "removes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "adds_self": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "removes_self": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "within": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "notify_joins": {
+            "type": "boolean"
+          },
+          "mediawiki_name": {
+            "type": "string"
+          },
+          "implicit": {
+            "type": "boolean"
+          }
+        }
+      },
+      "GroupView": {
+        "type": "object",
+        "required": [
+          "group",
+          "source"
+        ],
+        "properties": {
+          "group": {
+            "$ref": "#/components/schemas/GroupDefinition"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "tenant",
+              "registry",
+              "members"
+            ]
+          },
+          "members": {
+            "type": "integer"
+          }
+        }
+      },
+      "GroupPut": {
+        "type": "object",
+        "properties": {
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "includes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "adds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "removes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "adds_self": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "removes_self": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "within": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "notify_joins": {
+            "type": "boolean"
+          },
+          "mediawiki_name": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
           }
         }
       }

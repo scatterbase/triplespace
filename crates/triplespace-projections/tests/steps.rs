@@ -1074,29 +1074,6 @@ async fn feeds(client: &Client) {
         .unwrap();
     assert_eq!(brief(&page), vec!["sync|put|domain:example.org"]);
 
-    // A restricted row is for its groups.
-    client
-        .execute(
-            "UPDATE view.activity SET read_groups = '{sysop}' WHERE summary_op = 'retain'",
-            &[],
-        )
-        .await
-        .unwrap();
-    let page = feed::query(client, TENANT, &history, &viewer)
-        .await
-        .unwrap();
-    assert_eq!(page.rows.len(), 3, "not for the public");
-    let sysop = Viewer {
-        groups: vec!["sysop".into()],
-        ..Viewer::default()
-    };
-    let page = feed::query(client, TENANT, &history, &sysop).await.unwrap();
-    assert_eq!(page.rows.len(), 4, "for a member of the group");
-    client
-        .execute("UPDATE view.activity SET read_groups = NULL", &[])
-        .await
-        .unwrap();
-
     // A cursor is a token a client hands back.
     let c = Cursor {
         time: 1,

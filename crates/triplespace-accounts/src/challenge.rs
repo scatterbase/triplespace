@@ -22,8 +22,11 @@ pub const BADLOGIN_ADDRESS: &str = "badlogin-address";
 /// Failed `password` logins by account: a challenge after 20 within 10 minutes.
 pub const BADLOGIN_ACCOUNT: &str = "badlogin-account";
 
-/// The `createaccount` limit and window.
-pub const CREATEACCOUNT_LIMIT: (i64, u64) = (6, 86_400);
+/// The `createaccount` window, a day; the limit within it is the tenant's
+/// `account.creation_limit` (0087 §4; [`CREATEACCOUNT_DEFAULT_LIMIT`] without one).
+pub const CREATEACCOUNT_WINDOW: u64 = 86_400;
+/// The registry's default for `account.creation_limit`.
+pub const CREATEACCOUNT_DEFAULT_LIMIT: i64 = 6;
 /// The `badlogin` limit and window by address key, ConfirmEdit's defaults.
 pub const BADLOGIN_ADDRESS_LIMIT: (i64, u64) = (3, 300);
 /// The `badlogin` limit and window by account.
@@ -211,14 +214,7 @@ pub async fn difficulty<C: GenericClient>(
     bits: u8,
     max_bits: u8,
 ) -> Result<u8, AccountsError> {
-    let created = count(
-        client,
-        tenant,
-        CREATEACCOUNT,
-        address,
-        CREATEACCOUNT_LIMIT.1,
-    )
-    .await?;
+    let created = count(client, tenant, CREATEACCOUNT, address, CREATEACCOUNT_WINDOW).await?;
     let rise = u8::try_from(created.clamp(0, 32)).unwrap_or(32);
     Ok(bits
         .saturating_add(rise)

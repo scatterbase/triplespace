@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-22 (A17)
+- **Updated:** 2026-10-23 (A19)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0011](0011-logs.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0028](0028-tenancy-policy.md)
@@ -24,7 +24,7 @@ Echo is the precedent. It has notification *types* (mention, edit-user-talk, rev
 
 ### 2. Addressing rules (amends 0020 §3)
 
-*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A17.*
+*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A17, A18, A19.*
 
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.2.*
 
@@ -282,3 +282,25 @@ Replaced text ([19](../architecture/19-site-ui.md) §2.4, as it stood):
 - **Source:** Direct: James, design discussion of 2026-10-22
 - **Change:** extends §2
 - **Summary:** A new reason, `group-join`: a member of a group that a confidential `read` restriction in force names is notified when another account joins the group, by a membership record or because a group came to include it, a self-grant under `userrights` included. It is the notice that makes `userrights` the accountable way into a confidential group ([0056](0056-security-model.md) A18). The reason × channel preferences cover it through their `notifications.*` patterns.
+
+### A18. `group-join` covers joining an including group
+
+- **Date:** 2026-10-23
+- **Source:** [0016](0016-permissions-and-access-control.md) A37
+- **Change:** amends §2
+- **Summary:** Joining `auditor`, or `owner` with its default `includes`, gives the reading of every confidential group without a membership in any of them, so `group-join` also fires for the members of each group a confidential restriction names when an account joins a group that includes it.
+
+Replaced text ([16](../architecture/16-logs-feeds-and-notifications.md) §5.2, as it stood):
+
+> and another account joined the group, by a membership record or because a group came to include it; a self-grant under `userrights` included
+
+### A19. `group-join` is the group's choice
+
+- **Date:** 2026-10-23
+- **Source:** [0016](0016-permissions-and-access-control.md) A38
+- **Change:** amends §2
+- **Summary:** `group-join` no longer depends on a confidential restriction naming the group, nor reaches through `includes` (A18): it fires for the members of a group whose record sets `notify_joins = true` when anyone joins that group, by any route. It is off unless set, and every shipped group, `read-all` among them, leaves it off.
+
+Replaced text ([16](../architecture/16-logs-feeds-and-notifications.md) §5.2, as it stood):
+
+> | `group-join` | It is a member of a group that a confidential `read` restriction in force names, and another account joined the group, by a membership record, by joining a group that includes it (`auditor`, or `owner` with its default `includes`), or because a group came to include it; a self-grant under `userrights` included ([0021](0021-notifications.md) A18) ([09](../architecture/09-security-and-moderation.md) §4.5) | — |

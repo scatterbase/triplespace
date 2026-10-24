@@ -71,6 +71,7 @@ pub fn store(database: &str, farm: &Farm) -> Result<(PgIngest, Pipeline<PgIngest
     let pool = triplespace_db::pool::pool(database, 8).context("pool")?;
     let store = PgIngest::new(PgBackend::new(pool));
     let pipeline = milestone_pipeline(IssuerRegistry::default_registry().clone(), farm.clone())
+        .and_then(triplespace_notify::with_addressing)
         .context("pipeline")?;
     Ok((store, pipeline))
 }

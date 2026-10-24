@@ -32,6 +32,7 @@ triplespace-db.workspace = true
 triplespace-projections.workspace = true
 triplespace-api-ingest.workspace = true
 triplespace-accounts.workspace = true
+triplespace-notify.workspace = true
 clap.workspace = true
 anyhow.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

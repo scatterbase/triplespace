@@ -44,8 +44,6 @@ pub(crate) fn internal(e: &dyn std::fmt::Display) -> Response {
 pub(crate) struct Resolved {
     /// The tenant.
     pub tenant: Tenant,
-    /// The caller.
-    pub caller: Caller,
     /// The entity.
     pub id: EntityId,
     /// Whether the request carried a credential, for the cache class.
@@ -98,14 +96,30 @@ pub(crate) async fn resolve(
         Some(target) => target,
         None => id,
     };
-    let standing = read::standing(client, &tenant.slug, &id)
+    let current = read::current(client, app.order(), &tenant.slug, &id)
         .await
         .map_err(|e| internal(&e))?;
-    let held = read::current(client, app.order(), &tenant.slug, &id)
-        .await
-        .map_err(|e| internal(&e))?
-        .is_some();
-    if standing.deleted || (!held && id.form() != IdForm::Keyed) {
+    let held = current.is_some();
+    // An entity under a restriction the caller does not satisfy is absent, and a deleted
+    // one is to those outside its group (09 §5.3, §6.2); a private tenant's are absent for
+    // everyone outside it (09 §4.7).
+    let graph = current
+        .as_ref()
+        .and_then(|c| c.contributions.first().map(|g| g.graph.clone()));
+    let chain = triplespace_projections::acl_read::entity_chain(
+        client,
+        &tenant.slug,
+        id.as_str(),
+        graph.as_deref(),
+    )
+    .await
+    .map_err(|e| internal(&e))?;
+    let readable = scatter_actors::read_decision(
+        &caller.effective,
+        &chain,
+        scatter_actors::Timestamp(triplespace_api_action::edit::now_micros()),
+    ) == scatter_actors::ReadDecision::Readable;
+    if !readable || (!held && id.form() != IdForm::Keyed) {
         return Err(error(
             StatusCode::NOT_FOUND,
             "entity-not-found",
@@ -115,7 +129,6 @@ pub(crate) async fn resolve(
     let credentialed = caller.has_session() || bearer(headers).is_some();
     Ok(Resolved {
         tenant,
-        caller,
         id,
         credentialed,
     })

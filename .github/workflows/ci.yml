@@ -169,6 +169,10 @@ jobs:
       # three checks; any failing check fails the job, WikidataIntegrator included.
       - name: Checks
         run: tools/client_compat.sh
+      # The permission model's attack battery against a second fresh server (09 §4–§5): every
+      # leak, escalation or false denial is a finding, and any finding fails the job.
+      - name: Permission model
+        run: tools/acl_check.sh
 
   deny:
     name: Licences and advisories

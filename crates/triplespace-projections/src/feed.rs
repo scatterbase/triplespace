@@ -324,10 +324,42 @@ pub struct Page {
 /// log events included, are left out as if the target did not exist.
 #[derive(Debug, Clone, Default)]
 pub struct Viewer {
-    /// The viewer's groups.
+    /// The groups whose `read` restrictions the viewer passes: its own and those they
+    /// include (09 §3.2).
     pub groups: Vec<String>,
+    /// Whether one of its groups includes `"*"`, every group but [`Self::excluded`].
+    pub every: bool,
+    /// What `"*"` leaves out.
+    pub excluded: Vec<String>,
     /// What is absent for the viewer ([`crate::acl_read::hidden`]).
     pub hidden: crate::acl_read::Hidden,
+}
+
+impl Viewer {
+    /// The viewer for an evaluated principal.
+    #[must_use]
+    pub fn of(effective: &scatter_actors::Effective, hidden: crate::acl_read::Hidden) -> Self {
+        Self {
+            groups: effective
+                .groups
+                .iter()
+                .chain(&effective.reads_as)
+                .cloned()
+                .collect::<std::collections::BTreeSet<_>>()
+                .into_iter()
+                .collect(),
+            every: effective.reads_every,
+            excluded: effective.reads_excluded.iter().cloned().collect(),
+            hidden,
+        }
+    }
+
+    /// Whether the viewer passes a `read` restriction naming `group`.
+    #[must_use]
+    pub fn reads_in(&self, group: &str) -> bool {
+        self.groups.iter().any(|g| g == group)
+            || (self.every && !self.excluded.iter().any(|g| g == group))
+    }
 }
 
 type Param = Box<dyn ToSql + Sync + Send>;
@@ -493,21 +525,43 @@ fn build(tenant: &str, feed: &Feed, viewer: &Viewer) -> Built {
     if let Some(u) = f.until {
         push(&mut sql, "a.time <= $n", Box::new(time_of(u)));
     }
-    // A row under a read restriction is for the groups named; NULL is public (0056 §14).
-    push(
-        &mut sql,
-        "(a.read_groups IS NULL OR a.read_groups && $n)",
-        Box::new(viewer.groups.clone()),
-    );
+    // A suppression's event is for the group it names, as MediaWiki's suppression log is
+    // for oversighters (09 §6.5); for a retirement, the group of the ACL it retired.
+    let named = "coalesce(a.params->'restrictions'->'read'->>'group', a.params->'previous'->'read'->>'group')";
+    if viewer.every {
+        // Every group but the excluded ones not also named.
+        let excluded: Vec<String> = viewer
+            .excluded
+            .iter()
+            .filter(|g| !viewer.groups.contains(g))
+            .cloned()
+            .collect();
+        push(
+            &mut sql,
+            &format!("(a.log_type IS DISTINCT FROM 'suppress' OR {named} <> ALL($n))"),
+            Box::new(excluded),
+        );
+    } else {
+        push(
+            &mut sql,
+            &format!("(a.log_type IS DISTINCT FROM 'suppress' OR {named} = ANY($n))"),
+            Box::new(viewer.groups.clone()),
+        );
+    }
     // Rows on a target a confidential restriction hides are absent (0056 §5; 09 §5.3).
     let h = &viewer.hidden;
     let page = target_kind::PAGE;
+    let record = target_kind::RECORD;
     if h.tenant {
         sql.push_str(" AND false");
     } else if h.all_pages {
+        // A revision-deletion event names its record; `params.of` is the record's page.
         push(
             &mut sql,
-            "a.target_kind IS DISTINCT FROM $n",
+            &format!(
+                "a.target_kind IS DISTINCT FROM $n
+                 AND NOT (a.target_kind = {record} AND a.params->'of'->>'kind' = '{page}')"
+            ),
             Box::new(page),
         );
     } else {
@@ -515,15 +569,67 @@ fn build(tenant: &str, feed: &Feed, viewer: &Viewer) -> Built {
             let ids: Vec<String> = h.pages.iter().map(u64::to_string).collect();
             push(
                 &mut sql,
-                &format!("NOT (a.target_kind = {page} AND a.target_id = ANY($n))"),
+                &format!(
+                    "NOT ((a.target_kind = {page} AND a.target_id = ANY($n))
+                      OR (a.target_kind = {record} AND a.params->'of'->>'kind' = '{page}'
+                          AND a.params->'of'->>'id' = ANY($n)))"
+                ),
                 Box::new(ids),
+            );
+        }
+        if !h.acl_keys.is_empty() {
+            push(
+                &mut sql,
+                "NOT (a.target_kind IS NULL AND a.target_id = ANY($n))",
+                Box::new(h.acl_keys.iter().cloned().collect::<Vec<String>>()),
             );
         }
         if !h.namespaces.is_empty() {
             push(
                 &mut sql,
-                &format!("NOT (a.target_kind = {page} AND p.ns = ANY($n))"),
+                &format!(
+                    "NOT ((a.target_kind = {page} AND p.ns = ANY($n))
+                      OR (a.target_kind = {record} AND a.params->'of'->>'kind' = '{page}'
+                          AND EXISTS (SELECT 1 FROM view.page op WHERE op.tenant = a.tenant
+                            AND op.page_id::text = a.params->'of'->>'id' AND op.ns = ANY($n))))"
+                ),
                 Box::new(h.namespace_list()),
+            );
+        }
+        // Entities: those hidden themselves or through a set, and those of a hidden
+        // entity namespace (by type); a revision-deletion names the entity in `of`.
+        let entity = target_kind::ENTITY;
+        if !h.entities.is_empty() {
+            push(
+                &mut sql,
+                &format!(
+                    "NOT ((a.target_kind = {entity} AND a.target_id = ANY($n))
+                      OR (a.target_kind = {record} AND a.params->'of'->>'kind' = '{entity}'
+                          AND a.params->'of'->>'id' = ANY($n)))"
+                ),
+                Box::new(h.entity_ids()),
+            );
+        }
+        let types = h.entity_types();
+        if !types.is_empty() {
+            push(
+                &mut sql,
+                &format!(
+                    "NOT ((a.target_kind = {entity} AND e.type = ANY($n))
+                      OR (a.target_kind = {record} AND a.params->'of'->>'kind' = '{entity}'
+                          AND EXISTS (SELECT 1 FROM view.entity oe WHERE oe.tenant IN (a.tenant, '')
+                            AND oe.id = a.params->'of'->>'id' AND oe.type = ANY($n))))"
+                ),
+                Box::new(types),
+            );
+        }
+        if !h.graphs.is_empty() {
+            // Rows of a restricted graph's partition (a mirror's records) are absent.
+            push(
+                &mut sql,
+                "NOT EXISTS (SELECT 1 FROM log.partition lp WHERE lp.partition = a.partition
+                             AND lp.name = ANY($n))",
+                Box::new(h.graphs.iter().cloned().collect::<Vec<String>>()),
             );
         }
     }
@@ -647,6 +753,61 @@ pub async fn query<C: PgClient>(
     let mut out = Vec::with_capacity(rows.len().min(limit));
     for r in rows.iter().take(limit) {
         out.push(row_of(r)?);
+    }
+    // Hidden usernames (09 §6.3): attributed to nobody for those outside the group, as
+    // performers and as the accounts a rights or block event is about.
+    let mut keys: Vec<String> = out
+        .iter()
+        .filter(|r| !r.actor.hidden)
+        .filter_map(|r| r.actor.key.clone())
+        .collect();
+    let about: Vec<String> = out
+        .iter()
+        .filter(|r| r.target.kind == Some(target_kind::ACTOR))
+        .filter_map(|r| r.target.id.clone())
+        .collect();
+    keys.extend(about.iter().cloned());
+    keys.sort();
+    keys.dedup();
+    let hidden = crate::acl_read::hidden_actors(
+        client,
+        tenant,
+        &keys,
+        |g| viewer.reads_in(g),
+        scatter_actors::Timestamp(micros(SystemTime::now())),
+    )
+    .await?;
+    // The names of the accounts the events are about, for `User:{name}` titles.
+    let names: std::collections::HashMap<String, String> = if about.is_empty() {
+        std::collections::HashMap::new()
+    } else {
+        client
+            .query(
+                "SELECT actor_key, name FROM view.actor
+                 WHERE tenant IN ($1, '') AND actor_key = ANY($2) AND name IS NOT NULL",
+                &[&tenant, &about],
+            )
+            .await
+            .map_err(|e| e.to_string())?
+            .iter()
+            .map(|r| (r.get::<_, String>(0), r.get::<_, String>(1)))
+            .collect()
+    };
+    for r in &mut out {
+        if r.actor.key.as_ref().is_some_and(|k| hidden.contains(k)) {
+            r.actor.hidden = true;
+            r.actor.name = None;
+        }
+        if r.target.kind == Some(target_kind::ACTOR)
+            && let Some(k) = &r.target.id
+        {
+            // A hidden account's events are titled by its key, which names nobody.
+            if !hidden.contains(k)
+                && let Some(n) = names.get(k)
+            {
+                r.target.label = Some((n.clone(), String::new()));
+            }
+        }
     }
     let next = (rows.len() > limit)
         .then(|| out.last().map(Row::cursor))
@@ -830,12 +991,13 @@ mod tests {
         let b = build("librarybase", &feed, &viewer);
         assert!(
             b.sql
-                .contains("NOT (a.target_kind = 2 AND a.target_id = ANY($4))"),
+                .contains("NOT ((a.target_kind = 2 AND a.target_id = ANY($4))"),
             "{}",
             b.sql
         );
         assert!(
-            b.sql.contains("NOT (a.target_kind = 2 AND p.ns = ANY($5))"),
+            b.sql
+                .contains("NOT ((a.target_kind = 2 AND p.ns = ANY($5))"),
             "{}",
             b.sql
         );

@@ -13,6 +13,8 @@
 //!   accounts, with the refusals of 0024 §8.
 //! - [`token`]: CSRF and login tokens derived from the session (or, for a stateless
 //!   bearer request, from the key) with the instance secret.
+//! - [`groups`]: a tenant's groups, the registry defaults overlaid by its `group` records
+//!   (09 §3.2).
 //! - [`identity`]: who a request is, from its cookie or bearer header, and the
 //!   [`scatter_actors::evaluate::Effective`] permissions that follow.
 //! - [`challenge`]: issuing and redeeming the proof-of-work challenges of registration
@@ -45,6 +47,7 @@
 pub mod bindings;
 pub mod challenge;
 pub mod forwarder;
+pub mod groups;
 pub mod identity;
 pub mod keys;
 pub mod login;

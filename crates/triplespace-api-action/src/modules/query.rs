@@ -39,6 +39,7 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
             }
             "wikibase" => wikibase(ctx, &mut query),
             "authmanagerinfo" => super::account::authmanagerinfo(ctx, &mut query).await?,
+            "notifications" => super::notifications::meta(ctx, &mut query).await?,
             other => response.warn(
                 "query",
                 &format!("Unrecognized value for parameter \"meta\": {other}."),
@@ -60,6 +61,9 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         match p.as_str() {
             "revisions" => {
                 super::revisions::run(ctx, &mut query, &mut body, &mut response).await?;
+            }
+            "deletedrevisions" => {
+                super::revisions::deleted(ctx, &mut query, &mut body, &mut response).await?;
             }
             "info" => super::info::info(ctx, &mut query).await?,
             "templates" => super::info::templates(ctx, &mut query).await?,
@@ -83,6 +87,9 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
             "allpages" => {
                 super::info::allpages(ctx, &mut query, &mut body, &mut response).await?;
             }
+            "protectedpages" => super::protected::pages(ctx, &mut query, &mut body).await?,
+            "protectedtitles" => super::protected::titles(ctx, &mut query, &mut body).await?,
+            "protectedsets" => super::protected::sets(ctx, &mut query).await?,
             other => response.warn(
                 "query",
                 &format!("Unrecognized value for parameter \"list\": {other}."),
@@ -155,6 +162,26 @@ async fn tokens(
 /// `groups`, `rights`, `blockinfo`, `ratelimits` and `options` (every registered
 /// preference's effective value, defaults filled in, as MediaWiki reports them), plus
 /// `operator` and `grants` for a subsidiary.
+/// `ts-scopedrights`: each permission a scoped group grants, with where it holds.
+fn scoped_rights(e: &scatter_actors::Effective) -> Option<Value> {
+    let scoped: Map<String, Value> = e
+        .scoped
+        .iter()
+        .map(|(p, within)| {
+            (
+                p.clone(),
+                json!(
+                    within
+                        .iter()
+                        .map(|t| t.key().trim_start_matches("acl:").to_string())
+                        .collect::<Vec<_>>()
+                ),
+            )
+        })
+        .collect();
+    (!scoped.is_empty()).then_some(Value::Object(scoped))
+}
+
 async fn userinfo(ctx: &Ctx, query: &mut Map<String, Value>) -> Result<(), ApiError> {
     let id = &ctx.caller.identity;
     let mut u = Map::new();
@@ -194,6 +221,18 @@ async fn userinfo(ctx: &Ctx, query: &mut Map<String, Value>) -> Result<(), ApiEr
     }
     if want("rights") {
         u.insert("rights".into(), json!(ctx.caller.effective.permissions));
+        // A scoped group's permissions hold only where its `within` says, so they are
+        // not MediaWiki's `rights`, which clients read as holding everywhere (09 §3.4).
+        if let Some(scoped) = scoped_rights(&ctx.caller.effective) {
+            u.insert("ts-scopedrights".into(), scoped);
+        }
+    }
+    if want("changeablegroups") {
+        let registry = triplespace_accounts::groups::registry(ctx.db(), &ctx.tenant.slug).await?;
+        u.insert(
+            "changeablegroups".into(),
+            super::userrights::changeable(&ctx.caller.effective, &registry),
+        );
     }
     if want("blockinfo") {
         // No blocks in the milestone's write path; the field is present and empty-shaped.
@@ -738,6 +777,7 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                 let version = ctx.app.build().build()["version"].clone();
                 query.insert("extensions".into(), json!([
                     {"type": "wikibase", "name": "WikibaseRepository", "descriptionmsg": "wikibase-desc", "version": version, "url": "https://github.com/scatterbase/triplespace", "license-name": "GPL-3.0-or-later"},
+                    {"type": "other", "name": "Echo", "descriptionmsg": "echo-desc", "version": version, "url": "https://github.com/scatterbase/triplespace", "license-name": "GPL-3.0-or-later"},
                     {"type": "other", "name": "Triplespace", "version": version, "url": "https://github.com/scatterbase/triplespace", "license-name": "GPL-3.0-or-later"}
                 ]));
             }
@@ -750,17 +790,25 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                 query.insert("statistics".into(), json!({"pages": 0, "articles": 0, "edits": 0, "images": 0, "users": 0, "activeusers": 0, "admins": 1, "jobs": 0}));
             }
             "usergroups" => {
-                let groups = scatter_actors::group::GroupRegistry::default_registry();
+                let groups = triplespace_accounts::groups::registry(ctx.db(), &slug).await?;
                 query.insert(
                     "usergroups".into(),
                     json!(
                         groups
                             .groups()
                             .iter()
-                            .map(|g| json!({
-                                "name": g.mediawiki_name,
-                                "rights": g.permissions,
-                            }))
+                            .map(|g| {
+                                let mut v = json!({
+                                    "name": g.mediawiki_name,
+                                    "rights": g.permissions,
+                                });
+                                if let (Value::Object(m), Value::Object(d)) =
+                                    (&mut v, super::userrights::delegates(g))
+                                {
+                                    m.extend(d);
+                                }
+                                v
+                            })
                             .collect::<Vec<_>>()
                     ),
                 );
@@ -854,7 +902,60 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
             ),
         }
     }
+    // A private tenant answers an outsider with its name, language and theme, that it is
+    // private, and what logging in needs, and nothing else (18 §2.2; 09 §4.7).
+    let private = crate::pages::private_to(ctx).await?;
+    if let Some(t) = query.get_mut("triplespace") {
+        t["visibility"] = json!(if private || tenant_is_private(ctx).await? {
+            "private"
+        } else {
+            "public"
+        });
+    }
+    if private {
+        query.retain(|k, _| k == "general" || k == "triplespace");
+        if let Some(Value::Object(g)) = query.get_mut("general") {
+            g.retain(|k, _| {
+                matches!(
+                    k.as_str(),
+                    "sitename" | "lang" | "logo" | "favicon" | "server" | "mainpage"
+                )
+            });
+            g.insert("private".into(), json!(true));
+        }
+        if let Some(Value::Object(t)) = query.get_mut("triplespace") {
+            t.retain(|k, _| {
+                matches!(
+                    k.as_str(),
+                    "tenant"
+                        | "api_version"
+                        | "theme"
+                        | "visibility"
+                        | "login"
+                        | "auth"
+                        | "auth_origin"
+                        | "account"
+                        | "challenge"
+                        | "at_farm"
+                )
+            });
+        }
+    }
     Ok(())
+}
+
+/// Whether the tenant has a `read` restriction in force at all, whoever asks (09 §4.7).
+async fn tenant_is_private(ctx: &Ctx) -> Result<bool, ApiError> {
+    let at = scatter_actors::Timestamp(crate::edit::now_micros());
+    Ok(triplespace_projections::acl_read::current(
+        ctx.db(),
+        &ctx.tenant.slug,
+        &[scatter_actors::acl::Target::Tenant(ctx.tenant.slug.clone())],
+    )
+    .await
+    .map_err(ApiError::internal)?
+    .iter()
+    .any(|a| a.restriction_at(scatter_actors::acl::READ, at).is_some()))
 }
 
 /// `action=paraminfo`: enough for a client to see which modules exist.
@@ -874,6 +975,15 @@ const ACTION_MODULES: &[(&str, bool)] = &[
     ("parse", false),
     ("compare", false),
     ("edit", true),
+    ("delete", true),
+    ("undelete", true),
+    ("protect", true),
+    ("revisiondelete", true),
+    ("userrights", true),
+    ("block", true),
+    ("unblock", true),
+    ("echomarkread", true),
+    ("echomarkseen", true),
     ("wbgetentities", false),
     ("wbsearchentities", false),
     ("wbeditentity", true),
@@ -899,12 +1009,24 @@ const QUERY_MODULES: &[(&str, &[&str])] = &[
             "userinfo",
             "wikibase",
             "authmanagerinfo",
+            "notifications",
         ],
     ),
-    ("prop", &["revisions", "info", "templates"]),
+    (
+        "prop",
+        &["revisions", "deletedrevisions", "info", "templates"],
+    ),
     (
         "list",
-        &["recentchanges", "usercontribs", "logevents", "allpages"],
+        &[
+            "recentchanges",
+            "usercontribs",
+            "logevents",
+            "allpages",
+            "protectedpages",
+            "protectedtitles",
+            "protectedsets",
+        ],
     ),
 ];
 
@@ -1203,7 +1325,8 @@ fn module_parameters(name: &str) -> Vec<Value> {
                     "operator",
                     "grants",
                     "options",
-                    "accountrequests"
+                    "accountrequests",
+                    "changeablegroups"
                 ]),
             ),
             50,
@@ -1561,13 +1684,18 @@ pub fn paraminfo_modules(requested: &[String]) -> Vec<Value> {
                             "userinfo" => "ui",
                             "wikibase" => "wb",
                             "authmanagerinfo" => "ami",
+                            "notifications" => "not",
                             "recentchanges" => "rc",
                             "usercontribs" => "uc",
                             "logevents" => "le",
                             "revisions" => "rv",
+                            "deletedrevisions" => "drv",
                             "info" => "in",
                             "templates" => "tl",
                             "allpages" => "ap",
+                            "protectedpages" => "pr",
+                            "protectedtitles" => "pt",
+                            "protectedsets" => "ps",
                             _ => "",
                         },
                     ),

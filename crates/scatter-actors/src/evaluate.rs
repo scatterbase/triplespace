@@ -13,11 +13,12 @@
 //! records as of a time ([`crate::membership`]), so that the write path, the projection
 //! and a rebuild evaluate the same way.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
+use crate::acl::Target;
 use crate::actor::{ActorKind, ActorStatus};
 use crate::grant::{EDIT_PROTECTED, GrantRegistry};
-use crate::group::{GroupRegistry, Implicit};
+use crate::group::{GroupRegistry, Implicit, OWNER};
 
 /// A credential a request was made with (0024 §4; 0025 §3).
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -70,28 +71,92 @@ impl Principal {
 }
 
 /// The result of evaluation.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Effective {
     /// The groups, implicit and explicit, as `meta=userinfo&uiprop=groups` lists them.
     pub groups: BTreeSet<String>,
-    /// The permissions after blocks and grants.
+    /// The permissions after blocks and grants, from unscoped groups: held everywhere.
     pub permissions: BTreeSet<String>,
     /// Whether an edit a protection ACL admits may be made: always for a session, and for
     /// a credential only with the `editprotected` grant (0024 §4).
     pub edit_protected: bool,
+    /// The groups whose `read` restrictions are passed beyond [`Self::groups`]: those the
+    /// actor's groups include (09 §3.2).
+    pub reads_as: BTreeSet<String>,
+    /// Whether one of the actor's groups includes `"*"`; then every group but those in
+    /// [`Self::reads_excluded`] counts as well.
+    pub reads_every: bool,
+    /// What `"*"` leaves out: `owner` and the suppression group.
+    pub reads_excluded: BTreeSet<String>,
+    /// Permissions held only on targets the listed namespaces and sets enclose, from
+    /// scoped groups (09 §3.4), after blocks and grants.
+    pub scoped: BTreeMap<String, BTreeSet<Target>>,
+    /// Groups the actor may add others to, remove others from, join and leave, through
+    /// the delegation lists of its groups (09 §3.2).
+    pub delegation: Delegation,
+}
+
+/// What an actor's groups delegate (09 §3.2).
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Delegation {
+    /// `adds`.
+    pub adds: BTreeSet<String>,
+    /// `removes`.
+    pub removes: BTreeSet<String>,
+    /// `adds_self`.
+    pub adds_self: BTreeSet<String>,
+    /// `removes_self`.
+    pub removes_self: BTreeSet<String>,
 }
 
 impl Effective {
-    /// Whether the permission is held.
+    /// Whether the permission is held everywhere (MediaWiki's `rights`).
     #[must_use]
     pub fn holds(&self, permission: &str) -> bool {
         self.permissions.contains(permission)
     }
 
-    /// Whether the actor is in the group.
+    /// Whether the permission is held on a target, given the namespaces and sets that
+    /// enclose it along the containment axis (the target itself among them when it is a
+    /// namespace or set): everywhere, or through a scoped group whose `within` names one
+    /// of them (09 §3.4).
+    #[must_use]
+    pub fn holds_on(&self, permission: &str, enclosing: &[Target]) -> bool {
+        self.holds(permission)
+            || self
+                .scoped
+                .get(permission)
+                .is_some_and(|within| enclosing.iter().any(|t| within.contains(t)))
+    }
+
+    /// Whether the permission is held anywhere at all, scoped or not: whether a check on
+    /// a target is worth making.
+    #[must_use]
+    pub fn holds_somewhere(&self, permission: &str) -> bool {
+        self.holds(permission) || self.scoped.contains_key(permission)
+    }
+
+    /// Whether the permission is held only through scoped groups, so that a check needs
+    /// the target's enclosures.
+    #[must_use]
+    pub fn needs_scope(&self, permission: &str) -> bool {
+        !self.holds(permission) && self.scoped.contains_key(permission)
+    }
+
+    /// Whether the actor is in the group: what every ACL test but `read` asks, the
+    /// lock-out of 09 §4.5 among them.
     #[must_use]
     pub fn in_group(&self, group: &str) -> bool {
         self.groups.contains(group)
+    }
+
+    /// Whether the actor passes a `read` restriction naming the group: a member, or a
+    /// member of a group that includes it (09 §3.2, §3.4).
+    #[must_use]
+    pub fn reads_in(&self, group: &str) -> bool {
+        self.in_group(group)
+            || self.reads_as.contains(group)
+            || (self.reads_every && !self.reads_excluded.contains(group))
     }
 }
 
@@ -128,28 +193,148 @@ pub fn groups_of(p: &Principal, registry: &GroupRegistry) -> BTreeSet<String> {
 #[must_use]
 pub fn evaluate(p: &Principal, groups: &GroupRegistry, grants: &GrantRegistry) -> Effective {
     let my_groups = groups_of(p, groups);
-    let mut permissions: BTreeSet<String> = my_groups
-        .iter()
-        .filter_map(|g| groups.by_name(g))
-        .flat_map(|g| g.permissions.iter().cloned())
-        .collect();
+    let defined: Vec<_> = my_groups.iter().filter_map(|g| groups.by_name(g)).collect();
+    let mut permissions = BTreeSet::new();
+    let mut scoped: BTreeMap<String, BTreeSet<Target>> = BTreeMap::new();
+    let mut e = Effective::default();
+    for g in &defined {
+        if g.is_scoped() {
+            for perm in &g.permissions {
+                scoped
+                    .entry(perm.clone())
+                    .or_default()
+                    .extend(g.within.iter().cloned());
+            }
+        } else {
+            permissions.extend(g.permissions.iter().cloned());
+        }
+        // Inclusion is one level deep: what an included group includes passes on nothing.
+        e.reads_as.extend(g.includes.names.iter().cloned());
+        e.reads_every |= g.includes.every;
+        e.delegation.adds.extend(g.adds.iter().cloned());
+        e.delegation.removes.extend(g.removes.iter().cloned());
+        e.delegation.adds_self.extend(g.adds_self.iter().cloned());
+        e.delegation
+            .removes_self
+            .extend(g.removes_self.iter().cloned());
+    }
+    if e.reads_every {
+        e.reads_excluded = [OWNER.to_string(), groups.suppress_group().to_string()].into();
+    }
+    // A scoped permission also held everywhere needs no scope.
+    scoped.retain(|perm, _| !permissions.contains(perm));
+    // Delegation is a share of `userrights`: what takes `userrights` away, a block or a
+    // credential without it, takes delegation too.
+    let mut delegates = true;
     for removed in [&p.blocked, &p.operator_blocked, &p.farm_blocked] {
         for perm in removed {
             permissions.remove(perm);
+            scoped.remove(perm);
         }
+        delegates &= !removed.contains("userrights");
     }
-    let edit_protected = match &p.credential {
+    e.edit_protected = match &p.credential {
         None => true,
         Some(c) => {
             let covered = grants.coverage(c.grants.iter().map(String::as_str));
             permissions.retain(|perm| covered.contains(perm));
+            scoped.retain(|perm, _| covered.contains(perm));
+            delegates &= covered.contains("userrights");
             c.grants.contains(EDIT_PROTECTED)
         }
     };
-    Effective {
-        groups: my_groups,
-        permissions,
-        edit_protected,
+    if !delegates {
+        e.delegation = Delegation::default();
+    }
+    e.groups = my_groups;
+    e.permissions = permissions;
+    e.scoped = scoped;
+    e
+}
+
+/// Why a membership change is refused (09 §3.3).
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum MembershipRefusal {
+    /// Membership of an implicit group is not recorded (`universe`, `user`, …).
+    #[error("membership of `{0}` is implied, not granted")]
+    Implicit(String),
+    /// Only members of the named group change this one's membership (`owner`).
+    #[error("only a member of `{changed_by}` changes membership of `{group}`")]
+    ChangedBy {
+        /// The group.
+        group: String,
+        /// Whose members may change it.
+        changed_by: String,
+    },
+    /// Neither `userrights` nor a delegation list covers it.
+    #[error("changing membership of `{0}` needs userrights or a group that delegates it")]
+    NotDelegated(String),
+}
+
+/// Whether `who` may add an account to `group` (`adding`) or remove one from it, `own`
+/// when the account is their own (09 §3.3): `owner` only by its members; any other group
+/// with `userrights`; otherwise through a delegation list of one of `who`'s groups, which
+/// never reaches `owner` or a group holding `userrights` or `ts-config`.
+pub fn may_change_membership(
+    who: &Effective,
+    registry: &GroupRegistry,
+    group: &str,
+    adding: bool,
+    own: bool,
+) -> Result<(), MembershipRefusal> {
+    let def = registry.by_name(group);
+    if def.is_some_and(|g| g.implicit.is_some()) {
+        return Err(MembershipRefusal::Implicit(group.to_string()));
+    }
+    if let Some(by) = def.and_then(|g| g.membership_changed_by.as_deref()) {
+        return if who.in_group(by) {
+            Ok(())
+        } else {
+            Err(MembershipRefusal::ChangedBy {
+                group: group.to_string(),
+                changed_by: by.to_string(),
+            })
+        };
+    }
+    if who.holds("userrights") {
+        return Ok(());
+    }
+    let d = &who.delegation;
+    let list = match (adding, own) {
+        (true, false) => &d.adds,
+        (true, true) => &d.adds_self,
+        (false, false) => &d.removes,
+        (false, true) => &d.removes_self,
+    };
+    if list.contains(group) && registry.undelegable(group).is_none() {
+        Ok(())
+    } else {
+        Err(MembershipRefusal::NotDelegated(group.to_string()))
+    }
+}
+
+/// Whether the last member of `owner` may leave (09 §3.6; 0016 A37, A38): every
+/// permission a group other than `owner` holds, and `userrights` whether or not one does,
+/// must be held by a group other than `owner` that has a member. `populated` lists the
+/// groups with a current explicit member; implicit groups count as populated. Returns the
+/// first permission nobody would be left holding.
+pub fn owner_may_leave(
+    registry: &GroupRegistry,
+    populated: &BTreeSet<String>,
+) -> Result<(), String> {
+    let others = || registry.groups().iter().filter(|g| g.name != OWNER);
+    let held_by_someone = |perm: &str| {
+        others().any(|g| {
+            g.permissions.contains(perm) && (g.implicit.is_some() || populated.contains(&g.name))
+        })
+    };
+    let mut needed: BTreeSet<&str> = others()
+        .flat_map(|g| g.permissions.iter().map(String::as_str))
+        .collect();
+    needed.insert("userrights");
+    match needed.into_iter().find(|p| !held_by_someone(p)) {
+        Some(p) => Err(p.to_string()),
+        None => Ok(()),
     }
 }
 
@@ -301,6 +486,7 @@ mod tests {
                 minimum_members: 0,
                 membership_changed_by: None,
                 scope: crate::group::Scope::Global,
+                ..crate::group::Group::default()
             })
             .unwrap();
         let steward = Principal {
@@ -394,5 +580,162 @@ mod tests {
             g,
             gr
         ));
+    }
+
+    #[test]
+    fn scoped_groups_hold_only_within() {
+        let (g, gr) = regs();
+        let mut groups = g.clone();
+        let hr = crate::group::Group::from_config(
+            "hr-admins",
+            &serde_json::json!({
+                "kind": "group", "permissions": ["delete", "protect"],
+                "within": ["set:5", "namespace:4"], "adds": ["hr"], "removes": ["hr"]
+            }),
+            &groups,
+        )
+        .unwrap();
+        groups.set_group(hr).unwrap();
+        let e = evaluate(
+            &Principal::registered(["hr-admins".to_string()]),
+            &groups,
+            gr,
+        );
+        assert!(!e.holds("delete"), "not everywhere");
+        assert!(e.holds_somewhere("delete") && e.needs_scope("delete"));
+        assert!(e.holds_on("delete", &[Target::Set(5)]));
+        assert!(e.holds_on("protect", &[Target::Page(1), Target::Namespace(4)]));
+        assert!(!e.holds_on("delete", &[Target::Set(6), Target::Namespace(0)]));
+        assert!(!e.holds_on("block", &[Target::Set(5)]));
+        assert!(e.delegation.adds.contains("hr") && e.delegation.adds_self.is_empty());
+        // Also a sysop: held everywhere, no scope needed.
+        let both = evaluate(
+            &Principal::registered(["hr-admins".to_string(), "sysop".to_string()]),
+            &groups,
+            gr,
+        );
+        assert!(both.holds("delete") && !both.needs_scope("delete"));
+        // A block takes scoped permissions and delegation away.
+        let blocked = evaluate(
+            &Principal {
+                blocked: ["delete".to_string(), "userrights".to_string()].into(),
+                ..Principal::registered(["hr-admins".to_string()])
+            },
+            &groups,
+            gr,
+        );
+        assert!(!blocked.holds_on("delete", &[Target::Set(5)]));
+        assert!(blocked.delegation.adds.is_empty());
+    }
+
+    #[test]
+    fn inclusion_is_for_reading_only() {
+        let (g, gr) = regs();
+        let owner = evaluate(&Principal::registered(["owner".to_string()]), g, gr);
+        assert!(owner.reads_in("board") && owner.reads_in("sysop"));
+        assert!(!owner.reads_in("suppress") && !owner.in_group("board"));
+        let mut groups = g.clone();
+        groups.set_suppress_group("oversight");
+        let ra = evaluate(
+            &Principal::registered(["read-all".to_string()]),
+            &groups,
+            gr,
+        );
+        assert!(ra.reads_in("suppress") && !ra.reads_in("oversight") && !ra.reads_in("owner"));
+        assert_eq!(
+            ra.permissions,
+            evaluate(&Principal::registered([]), &groups, gr).permissions
+        );
+        let auditors = crate::group::Group::from_config(
+            "auditors",
+            &serde_json::json!({"kind": "group", "permissions": [], "includes": ["board"]}),
+            &groups,
+        )
+        .unwrap();
+        groups.set_group(auditors).unwrap();
+        let a = evaluate(
+            &Principal::registered(["auditors".to_string()]),
+            &groups,
+            gr,
+        );
+        assert!(a.reads_in("board") && !a.reads_in("sysop") && !a.in_group("board"));
+    }
+
+    #[test]
+    fn who_changes_which_membership() {
+        let (g, gr) = regs();
+        let mut groups = g.clone();
+        groups
+            .set_group(
+                crate::group::Group::from_config(
+                    "hr-admins",
+                    &serde_json::json!({"permissions": [], "adds": ["hr"], "removes_self": ["hr-admins"]}),
+                    &groups,
+                )
+                .unwrap(),
+            )
+            .unwrap();
+        let ev = |gs: &[&str]| {
+            evaluate(
+                &Principal::registered(gs.iter().map(|s| (*s).to_string())),
+                &groups,
+                gr,
+            )
+        };
+        let crat = ev(&["bureaucrat"]);
+        assert!(may_change_membership(&crat, &groups, "sysop", true, false).is_ok());
+        assert!(
+            may_change_membership(&crat, &groups, "read-all", true, true).is_ok(),
+            "self too"
+        );
+        assert!(matches!(
+            may_change_membership(&crat, &groups, "owner", true, false),
+            Err(MembershipRefusal::ChangedBy { .. })
+        ));
+        assert!(matches!(
+            may_change_membership(&crat, &groups, "user", true, false),
+            Err(MembershipRefusal::Implicit(_))
+        ));
+        let owner = ev(&["owner"]);
+        assert!(may_change_membership(&owner, &groups, "owner", true, false).is_ok());
+        let hr = ev(&["hr-admins"]);
+        assert!(may_change_membership(&hr, &groups, "hr", true, false).is_ok());
+        assert!(
+            may_change_membership(&hr, &groups, "hr", true, true).is_err(),
+            "not themselves"
+        );
+        assert!(
+            may_change_membership(&hr, &groups, "hr", false, false).is_err(),
+            "adds only"
+        );
+        assert!(may_change_membership(&hr, &groups, "hr-admins", false, true).is_ok());
+        assert!(may_change_membership(&hr, &groups, "sysop", true, false).is_err());
+    }
+
+    #[test]
+    fn the_last_owner_leaves_only_when_nothing_needs_owner() {
+        let (g, _) = regs();
+        let every: BTreeSet<String> = g
+            .groups()
+            .iter()
+            .filter(|x| x.name != "owner")
+            .map(|x| x.name.clone())
+            .collect();
+        assert!(owner_may_leave(g, &every).is_ok());
+        let mut fewer = every.clone();
+        fewer.remove("bureaucrat");
+        assert_eq!(
+            owner_may_leave(g, &fewer).unwrap_err(),
+            "abusefilter-modify-restricted"
+        );
+        let mut no_suppress = every;
+        no_suppress.remove("suppress");
+        assert!(owner_may_leave(g, &no_suppress).is_err());
+        // ts-keys and ts-primary are held by no group but owner, and do not count.
+        assert!(
+            !g.groups()
+                .iter()
+                .any(|x| x.name != "owner" && x.permissions.contains("ts-keys"))
+        );
     }
 }

@@ -94,6 +94,18 @@ source = "[0087](../decisions/0087-account-registration-and-challenges.md) §6"
 reported = true
 
 [[setting]]
+key = "account.creation_limit"
+scope = "tenant"
+bound = "tenant"
+group = "accounts"
+type = "integer"
+values = "1 to 10000"
+default = 6
+meaning = "How many accounts one address key may create (and requests it may file) in a day before `createaccount` answers `acct_creation_throttle_hit` ([07](07-actors-and-accounts.md) §6.2); `noratelimit` is exempt. MediaWiki's `$wgAccountCreationThrottle`"
+source = "[0087](../decisions/0087-account-registration-and-challenges.md) §4"
+reported = true
+
+[[setting]]
 key = "account.request_expiry"
 scope = "tenant"
 bound = "tenant"

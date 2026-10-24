@@ -496,6 +496,8 @@
 	"ts-settings-group-instance": "Heading of the \"instance\" section of Special:WikiSettings and Special:InstanceSettings, and its link at the top of the page (ADR 0085 §4).",
 	"ts-setting-account-approval": "Label of the setting `account.approval` on Special:WikiSettings or Special:InstanceSettings (ADR 0085 §1, §4). The key is shown beside it.",
 	"ts-setting-account-approval-help": "Help text of the setting `account.approval`, under its label on Special:WikiSettings or Special:InstanceSettings. From the settings catalogue (docs/registry/settings.toml).",
+	"ts-setting-account-creation_limit": "Label of the setting `account.creation_limit` on Special:WikiSettings or Special:InstanceSettings (ADR 0085 §1, §4). The key is shown beside it.",
+	"ts-setting-account-creation_limit-help": "Help text of the setting `account.creation_limit`, under its label on Special:WikiSettings or Special:InstanceSettings. From the settings catalogue (docs/registry/settings.toml).",
 	"ts-setting-account-request_expiry": "Label of the setting `account.request_expiry` on Special:WikiSettings or Special:InstanceSettings (ADR 0085 §1, §4). The key is shown beside it.",
 	"ts-setting-account-request_expiry-help": "Help text of the setting `account.request_expiry`, under its label on Special:WikiSettings or Special:InstanceSettings. From the settings catalogue (docs/registry/settings.toml).",
 	"ts-setting-account-request_statement": "Label of the setting `account.request_statement` on Special:WikiSettings or Special:InstanceSettings (ADR 0085 §1, §4). The key is shown beside it.",

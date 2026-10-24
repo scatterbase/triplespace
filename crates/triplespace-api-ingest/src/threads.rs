@@ -1,7 +1,7 @@
 //! The one writer of thread records (0019 §1–§4; 14 §1.2–§1.5, §3.6, §4.2), shared by the
 //! thread API and the import jobs.
 //!
-//! [`write`] replays the thread's records into its fold, checks the new record against it
+//! [`write()`] replays the thread's records into its fold, checks the new record against it
 //! with what only the store knows (whether a target exists, how many threads are pinned on
 //! a page), mints what the server mints (the thread's page ID, its title, and a talk page
 //! ID for each target that has none yet) into the attestation map, and appends the record

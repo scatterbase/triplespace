@@ -496,6 +496,8 @@
 	"ts-settings-group-instance": "Instance",
 	"ts-setting-account-approval": "Account approval",
 	"ts-setting-account-approval-help": "Whether registering files a request that a holder of confirmaccount approves, instead of creating the account at once (07 §2.6).",
+	"ts-setting-account-creation_limit": "Account creation limit",
+	"ts-setting-account-creation_limit-help": "How many accounts one address may create (and requests it may file) in a day before registration is refused; noratelimit is exempt (07 §6.2).",
 	"ts-setting-account-request_expiry": "Account request expiry",
 	"ts-setting-account-request_expiry-help": "How long an account request stays open before it is deleted.",
 	"ts-setting-account-request_statement": "Account request statement",
