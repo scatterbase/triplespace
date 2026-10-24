@@ -31,7 +31,7 @@
 //! The deletion and suppression groups are the tenant's `moderation.delete_group` and
 //! `moderation.suppress_group`.
 //!
-//! [`enforce`] is how a write is checked against the ACLs along its target's chain
+//! `enforce` is how a write is checked against the ACLs along its target's chain
 //! ([`scatter_actors::acl::check`]), with the refusals MediaWiki gives.
 
 use scatter_actors::Timestamp;

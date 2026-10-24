@@ -366,7 +366,7 @@ pub async fn write(
 ///
 /// # Errors
 ///
-/// As [`write`]; `ts-no-acl` when there is none.
+/// As [`write()`]; `ts-no-acl` when there is none.
 pub async fn retire(ctx: &Ctx, target: Target, reason: &str) -> Result<Value, ApiError> {
     ctx.caller.require("read")?;
     let chain = known_chain(ctx, &target).await?;
@@ -459,7 +459,7 @@ fn members_of(body: &Map<String, Value>) -> Result<Vec<scatter_actors::acl::SetM
 ///
 /// # Errors
 ///
-/// As [`write`], and `ts-no-target` for a member the caller may not read.
+/// As [`write()`], and `ts-no-target` for a member the caller may not read.
 pub async fn create_set(ctx: &Ctx, body: &Map<String, Value>) -> Result<Value, ApiError> {
     ctx.caller.require("read")?;
     let tenant_chain = known_chain(ctx, &Target::Tenant(ctx.tenant.slug.clone())).await?;
@@ -564,7 +564,7 @@ async fn change_member(
 ///
 /// # Errors
 ///
-/// As [`write`]; `ts-already-member`.
+/// As [`write()`]; `ts-already-member`.
 pub async fn add_member(ctx: &Ctx, set: u64, body: &Map<String, Value>) -> Result<Value, ApiError> {
     let kind = body.get("kind").and_then(Value::as_str).unwrap_or_default();
     let id = match body.get("id") {
@@ -584,7 +584,7 @@ pub async fn add_member(ctx: &Ctx, set: u64, body: &Map<String, Value>) -> Resul
 ///
 /// # Errors
 ///
-/// As [`write`]; `ts-no-target` for a member the set does not hold.
+/// As [`write()`]; `ts-no-target` for a member the set does not hold.
 pub async fn remove_member(
     ctx: &Ctx,
     set: u64,

@@ -2,7 +2,7 @@
 //! deletion, hiding and suppression, and their undoing, shared by the Action API's
 //! moderation modules, `/acl` and the CLI.
 //!
-//! [`write`] appends a `scatter:v0/acl` record keyed by the target key, with the reason in
+//! [`write()`] appends a `scatter:v0/acl` record keyed by the target key, with the reason in
 //! the comment part, to the partition the target belongs in (the tenant `log`, its
 //! `config` for graphs and the tenant, the instance `log` for blobs), with a log ID, since
 //! every ACL record projects as a log event, and runs the inline projections in the
