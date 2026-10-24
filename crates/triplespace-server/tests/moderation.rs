@@ -2651,7 +2651,11 @@ async fn moderation_completeness() {
         .find(|p| p["title"].as_str().unwrap().ends_with("Reserved"))
         .unwrap();
     assert_eq!(reserved["missing"], true, "{i}");
-    assert_eq!(reserved["restrictiontypes"], json!(["create", "read"]), "{i}");
+    assert_eq!(
+        reserved["restrictiontypes"],
+        json!(["create", "read"]),
+        "{i}"
+    );
     assert_eq!(reserved["protection"][0]["type"], "create", "{i}");
     assert_eq!(reserved["protection"][0]["level"], "sysop", "{i}");
     let free = pages
