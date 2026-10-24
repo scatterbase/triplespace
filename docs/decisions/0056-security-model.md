@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-10-22 (A19)
+- **Updated:** 2026-10-24 (A25)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0021](0021-notifications.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md), [0033](0033-backend-stack.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0051](0051-page-redirects.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md), [0045](0045-table-content-model.md), [0046](0046-primary-tenant.md), [0047](0047-special-pages.md), [0049](0049-boards.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -51,13 +51,13 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 3. Two targets: the tenant and the set (extends 0016 §4; extends 0023 §2)
 
-*Changed by A3, A4, A10, A16.*
+*Changed by A3, A4, A10, A16, A23, A24.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §4.2, §4.4, §4.7.*
 
 ### 4. Who may restrict what (amends 0016 §2 and §4; amends 0023 §1)
 
-*Changed by A16, A18.*
+*Changed by A16, A18, A21, A22, A23.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §4.5.*
 
@@ -101,13 +101,13 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 13. API and UI (extends 0012 §4; extends 0016 §7; extends 0023 §8 and §9)
 
-*Changed by A16.*
+*Changed by A16, A25.*
 
 *Current text: [18](../architecture/18-api.md) §2.2, §2.3, §3.1, §3.2; [19](../architecture/19-site-ui.md) §1.3, §1.5, §6.3, §6.11.*
 
 ### 14. Storage (extends 0013 §5.6)
 
-*Changed by A5, A6, A13, A14, A19.*
+*Changed by A5, A6, A13, A14, A19, A20.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.5, §4.6, §4.14, §5, §12.2.*
 
@@ -431,3 +431,65 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.14, as 
 Replaced text ([03](../architecture/03-storage-caches-and-search.md) §5, as it stood):
 
 > | `view` | `set_member`; `read_enclosures` on `activity`; `visibility_epoch` and `live_statement_acls` on `tenant`; the `tenant` and `set` target kinds and a `kind` (confidential or moderation) on `acl` | The sets a target is in; feed and log rows filtered by principal at serve time; the cache purge epoch; the statement-ACL counter; the two kinds of `read` restriction | [0056](../decisions/0056-security-model.md) §14; [0083](../decisions/0083-write-path-in-three-tiers.md) §3 | Yes |
+
+### A20. The confidential index covers deleted confidential targets
+
+- **Date:** 2026-10-23
+- **Source:** [0023](0023-moderation.md) A15
+- **Change:** amends §14
+- **Summary:** Since 0023 A15, deleting a confidential target keeps its confidential restriction in the ACL's `extra.confidential` while `read_kind` becomes `moderation`. The hidden set must still find it, so `acl_confidential` indexes both forms: `read_kind = 'confidential' OR extra ? 'confidential'`, which is also the hidden set's condition.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.5, as it stood):
+
+> CREATE INDEX acl_confidential ON view.acl (target) WHERE read_kind = 'confidential';   -- the hidden set (§4.14; 0056 A19)
+
+### A21. `owner` reads by inclusion, and changes only what it has joined
+
+- **Date:** 2026-10-23
+- **Source:** [0016](0016-permissions-and-access-control.md) A37
+- **Change:** amends §4
+- **Summary:** With `owner` reading every confidential target through its default `includes` and inclusion counting for reading alone (0016 A37), A18's rule stands as written: no permission reads past a confidential restriction, `owner`'s included; `owner` and `auditor` read through membership by inclusion, and a restriction naming the suppression group still hides the target from `owner` unless the tenant includes that group for it. Setting, changing or lifting a confidential restriction still needs direct membership in its group.
+
+Replaced text ([09](../architecture/09-security-and-moderation.md) §4.5, as it stood):
+
+> it also keeps `owner` honest: `owner` holds every permission but is a member of no group it has not joined, and a confidential restriction naming `suppress` hides the target from `owner` as a suppression does. A tenant that wants its owners to see everything puts them in the groups.
+
+Replaced text ([09](../architecture/09-security-and-moderation.md) §4.5, as it stood):
+
+> No permission reads past a confidential restriction: not `protect`, `delete` or the other moderation rights, not `ts-config`, not `owner`. A principal reads the target because it is a member of the group, directly or through a group that `includes` it (§3.2).
+
+### A22. A self-grant is accountable by its log event; `read-all`
+
+- **Date:** 2026-10-23
+- **Source:** [0016](0016-permissions-and-access-control.md) A38
+- **Change:** amends §4
+- **Summary:** A18 made a self-grant under `userrights` accountable by its public log event and by notifying the group's members. Since 0016 A38 a join notifies only where the group sets `notify_joins`, the log event is the accountability and the notification is the group's choice. The all-reading group is `read-all`.
+
+Replaced text ([09](../architecture/09-security-and-moderation.md) §4.5, as it stood):
+
+> `owner` and `auditor` read everything that way by default (§3.1, §3.6; [0056](0056-security-model.md) A21).
+
+Replaced text ([09](../architecture/09-security-and-moderation.md) §4.5, as it stood):
+
+> The membership is a record like any other (§3.3): it projects as a public `rights/rights` log event, and the group's members are notified (`group-join`, [16](../architecture/16-logs-feeds-and-notifications.md) §5.2).
+
+### A23. Subpages, sets, a private tenant's answers, and which groups exist
+
+- **Date:** 2026-10-23
+- **Source:** Direct: James, design discussion of 2026-10-23
+- **Change:** extends §3, §4
+- **Summary:** Calls made building the namespace, set and tenant restrictions, confirmed by James. (1) A page encloses its subpages with its protections and its confidential restriction, but not with its deletion, which is of the page alone, as in MediaWiki; a confidential restriction a deletion kept still encloses. (2) A set encloses what its members enclose: a member's subpages and the threads it is home to. (3) An outsider's page edit on a private tenant is refused as at any title the editor may not read; an entity write is refused with `permissiondenied`, since a Wikibase client cannot usefully be told that a new item is missing. (4) An outsider's `meta=siteinfo` keeps `general`'s `sitename`, `lang`, `logo`, `favicon`, `server` and `mainpage`, adds `private: true`, keeps `triplespace`'s tenant, API version, theme, `visibility` and login, account and challenge fields, and drops every other `siprop`. (5) A restriction may name a registry default group, a group the tenant's `config` defines, or a group with a current member; a group only ACLs name needs no record.
+
+### A24. A confidential restriction may take the talk page
+
+- **Date:** 2026-10-24
+- **Source:** Direct: James, design discussion of 2026-10-24
+- **Change:** extends §3
+- **Summary:** A subject page still does not enclose its talk page (09 §4.4), but people who make a page confidential will often want its discussion grouped with it, and the interface should make that simple. So a page's confidential `read` restriction may carry `talk: true`, as a deletion does, and the talk page and the threads homed there are then under the restriction. `action=protect` takes `tstalk`, `/acl/page/{id}` takes `talk`, and the Protect dialog offers it, on by default when `read` is set. While such a page is deleted the flag is kept as `confidential_talk` beside `confidential` and restored by undeleting. Chapter text: [09](../architecture/09-security-and-moderation.md) §4.3, §4.4.
+
+### A25. Lifting a block lifts the hide, and the attack battery is a check
+
+- **Date:** 2026-10-24
+- **Source:** Direct: the live attack battery of 2026-10-24 (`tools/acl_check.py`); a call of Claude's for James to confirm
+- **Change:** extends §13
+- **Summary:** The "should be able to but can't" pass found that no API route could lift a hidden username: `/acl` does not serve `actor` targets and `action=unblock` left the `actor` ACL in place, so only the CLI could unhide. As in MediaWiki, an unblock, or a `reblock` without `hidename`, by a caller holding `hideuser` now also retires the `actor` ACL (09 §6.3); an administrator without `hideuser`, who may lift the block by its ID, leaves the name hidden. The battery itself — every negative and positive probe of the live attack, over real HTTP against a server it sets up — is `tools/acl_check.sh`, a check CI runs beside the client-compatibility checks (22 §4.2).

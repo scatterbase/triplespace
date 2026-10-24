@@ -98,6 +98,7 @@ checkable. A submitted signature is over `H(0x05 ‖ H(0x03 ‖ content) ‖ H(0
 ```json
 {"target": "acl:page:7", "restrictions": {"edit": {"group": "sysop", "expires": 1790000000000000}, "move": {"group": "sysop", "expires": 1790000000000000}}}
 {"target": "acl:page:7", "restrictions": {"read": {"group": "sysop"}}, "read_kind": "moderation", "talk": true}
+{"target": "acl:page:9", "restrictions": {"read": {"group": "sysop"}}, "read_kind": "moderation", "confidential": {"group": "board"}}
 {"target": "acl:record:3:99", "restrictions": {"read": {"group": "suppress"}}, "read_kind": "moderation", "parts": ["comment"]}
 {"target": "acl:page:12", "restrictions": {"createpage": {"group": "sysop"}}, "reserved": {"namespace": 0, "title": "Example"}}
 {"target": "acl:set:8", "restrictions": {"read": {"group": "board"}}, "read_kind": "confidential", "name": "Board minutes", "members": [{"kind": "page", "id": 1}, {"kind": "entity", "id": "Q5"}]}
@@ -114,11 +115,12 @@ checkable. A submitted signature is over `H(0x05 ‖ H(0x03 ‖ content) ‖ H(0
 | `reserved` | Create-protection: the namespace and title reserved under the page ID |
 | `talk` | A whole-page or whole-entity deletion that took the talk page with it |
 | `name`, `members` | `set` targets: the set's name and members (`page` or `entity`, by ID) |
+| `confidential` | The deletion of a confidential target: its confidential `read` restriction (`group`, `expires`), kept beside the deletion group in `restrictions.read`; only with `read_kind` `moderation` ([0023](../decisions/0023-moderation.md) A15) |
 
 A record whose content is `null` retires the ACL. Where the record goes (0023 §3): `graph`
 and `tenant` targets to the tenant `config`, `blob` to the instance `log`, everything else
 to the tenant `log`. A confidential restriction cannot be put on a `graph`, `record`,
-`actor` or `blob` target, and may name only a group its setter belongs to (0056 §4).
+`actor` or `blob` target, and may be set, changed or lifted only by a member of its group (0056 §4, A18).
 
 ## Reclaim
 

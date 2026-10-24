@@ -3,6 +3,7 @@
 //! registry's `group:` entries, `view.membership` and `actor.groups` from `membership`
 //! records, `view.block` from `block` records, and `view.acl` from `acl` records.
 
+use crate::common::Partitions as _;
 use scatter_actors::acl::Acl;
 use scatter_actors::actor::ActorRecord;
 use scatter_actors::iri::{IriContext, actor_iri};
@@ -558,7 +559,15 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for AclProjection {
                         .and_then(serde_json::Value::as_str)
                         .map(str::to_owned);
                     let mut extra = serde_json::Map::new();
-                    for k in ["parts", "reserved", "talk", "name", "members"] {
+                    for k in [
+                        "parts",
+                        "reserved",
+                        "talk",
+                        "confidential_talk",
+                        "name",
+                        "members",
+                        "confidential",
+                    ] {
                         if let Some(x) = j.get(k) {
                             extra.insert(k.into(), x.clone());
                         }
@@ -576,16 +585,86 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for AclProjection {
                         .map_err(|e| sql(&e))?
                 }
             };
+            // A set's members, one row each, for the sets-of-a-target lookup (03 §4.14).
+            if let Ok(scatter_actors::acl::Target::Set(set)) =
+                scatter_actors::acl::Target::parse(target)
+            {
+                let set = i64::try_from(set).map_err(|e| e.to_string())?;
+                cx.execute(
+                    "DELETE FROM view.set_member WHERE tenant = $1 AND set_id = $2",
+                    &[&tenant, &set],
+                )
+                .await
+                .map_err(|e| sql(&e))?;
+                if let Some(v) = content(record)? {
+                    let acl: Acl = cbor::from_value(v).map_err(|e| e.to_string())?;
+                    for m in &acl.members {
+                        let (kind, id) = match m {
+                            scatter_actors::acl::SetMember::Page(p) => ("page", p.to_string()),
+                            scatter_actors::acl::SetMember::Entity(e) => ("entity", e.clone()),
+                        };
+                        cx.execute(
+                            "INSERT INTO view.set_member (tenant, set_id, kind, id)
+                             VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING",
+                            &[&tenant, &set, &kind, &id],
+                        )
+                        .await
+                        .map_err(|e| sql(&e))?;
+                    }
+                }
+            }
             Ok(Applied::rows(usize::try_from(rows).unwrap_or(0)))
         })
     }
 
     fn reset<'a>(&'a self, cx: &'a mut PgCx, partition: u64) -> BoxFuture<'a, Result<(), String>> {
         Box::pin(async move {
-            let tenant = tenant_of(cx, partition).await?;
-            cx.execute("DELETE FROM view.acl WHERE tenant = $1", &[&tenant])
+            // A tenant's ACLs come from two partitions (its `log` and its `config`; 03 §4.5),
+            // and the instance's from the instance `log`: drop only the rows this partition
+            // wrote, or resetting one would wipe the other's (a private tenant's restriction
+            // with its pages' ACLs, say).
+            let info = cx.partition_info(partition).await?;
+            let mine = |t: &scatter_actors::acl::Target| {
+                use scatter_actors::AclPartition as P;
+                match t.partition() {
+                    P::TenantLog => !info.tenant.is_empty() && info.name == "log",
+                    P::TenantConfig => info.name == "config",
+                    P::InstanceLog => info.tenant.is_empty() && info.name == "log",
+                }
+            };
+            let rows = cx
+                .query(
+                    "SELECT target FROM view.acl WHERE tenant = $1",
+                    &[&info.tenant],
+                )
                 .await
                 .map_err(|e| sql(&e))?;
+            let mut targets = Vec::new();
+            let mut sets = Vec::new();
+            for r in rows {
+                let key: String = r.get(0);
+                let Ok(t) = scatter_actors::acl::Target::parse(&key) else {
+                    continue;
+                };
+                if mine(&t) {
+                    if let scatter_actors::acl::Target::Set(s) = t {
+                        sets.push(i64::try_from(s).map_err(|e| e.to_string())?);
+                    }
+                    targets.push(key);
+                }
+            }
+            cx.execute(
+                "DELETE FROM view.acl WHERE tenant = $1 AND target = ANY($2)",
+                &[&info.tenant, &targets],
+            )
+            .await
+            .map_err(|e| sql(&e))?;
+            cx.execute(
+                "DELETE FROM view.set_member WHERE tenant = $1 AND set_id = ANY($2)",
+                &[&info.tenant, &sets],
+            )
+            .await
+            .map_err(|e| sql(&e))?;
             Ok(())
         })
     }

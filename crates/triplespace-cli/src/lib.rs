@@ -11,6 +11,7 @@ pub mod common;
 pub mod forwarder;
 pub mod instance;
 pub mod oauth_client;
+pub mod rights;
 pub mod settings;
 pub mod status;
 pub mod sync;

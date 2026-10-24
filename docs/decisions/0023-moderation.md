@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-22 (A14)
+- **Updated:** 2026-10-22 (A15)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0006](0006-log-integrity-and-erasure.md), [0009](0009-keyed-entity-types-and-domain.md), [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -47,7 +47,7 @@ Patrolling is the odd one out, since it restricts nothing: it is a mark that a t
 
 ### 3. Records (amends 0015 §3 and 0016 §4)
 
-*Changed by A3.*
+*Changed by A3, A15.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §4.1, §4.3; [16](../architecture/16-logs-feeds-and-notifications.md) §2.3.*
 
@@ -326,3 +326,14 @@ Replaced text ([09](../architecture/09-security-and-moderation.md) §6.4, as it 
 - **Source:** Direct: James, review of the moderation modules, 2026-10-22
 - **Change:** extends §2, §4, §5
 - **Summary:** Three decisions made while building `action=protect`, `action=undelete` and the ACL writer. (1) **Reservations** ([09](../architecture/09-security-and-moderation.md) §4.8): a title with no page takes `createpage` and `read`, not `edit` or `move`; a `read` restriction there reserves the title confidentially, so a page can be made confidential before it exists; a deleted page takes no new `read` restriction, but its title can be reserved, and the reservation then keeps the deleted page from being undeleted into it; lifting every restriction before the page exists frees the title; the reserved ID is a `view.page` row with no revision. (2) **Undelete never guesses** (09 §6.2): when more than one deleted page had the title, the request names one by page ID, and is otherwise refused with `ts-ambiguous-undelete` listing them. (3) **The suppression mark** (09 §6.3): the ACL writer, which resolves `moderation.suppress_group`, writes `suppress: true` into the attestation map of a record that suppresses or retires a suppression, and the projections draw the suppressed bit and the `suppress/…` log events from it rather than resolving the setting, as A12 does for autopatrol; retiring a `record` ACL leaves the bits the record carries itself.
+
+### A15. Deleting a confidential target keeps its group
+
+- **Date:** 2026-10-22
+- **Source:** Direct: James, design discussion of 2026-10-22
+- **Change:** amends §3
+- **Summary:** An ACL holds one `read` restriction per record, so deleting a confidential page replaced its confidential group with the deletion group, and undeleting removed `read` altogether: an administrator outside the group could make the page public by deleting and undeleting it. 09 §5.2 already says a deleted confidential target is seen by the intersection of the two groups. The record now carries `confidential`, the confidential restriction a deletion keeps beside the deletion group in `restrictions.read`; every reader must satisfy both, the confidential one deciding absence first, and undeleting moves it back to `restrictions.read`. Only a moderation `read` record carries it ([0056](0056-security-model.md) A18).
+
+Replaced text ([09](../architecture/09-security-and-moderation.md) §4.3, as it stood):
+
+> | Content part | The target; for each restricted permission, the group and an optional expiry; `parts` for a `record` target; the reserved title for create-protection; for a whole-page or whole-entity deletion, the flag `talk: true` when the paired talk page is deleted by the same action. A content of `null` retires the ACL |

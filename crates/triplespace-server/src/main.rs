@@ -54,6 +54,39 @@ struct Args {
     ui: String,
 }
 
+/// The background work of a running server: the services' states for Special:Version, and
+/// the asynchronous projection steps.
+async fn background(app: &triplespace_api_action::App) {
+    // The services' states and versions for Special:Version and siteinfo: read now and
+    // every minute, never while answering a request (0077 §4).
+    triplespace_api_action::version::refresh(app).await;
+    {
+        let app = app.clone();
+        tokio::spawn(async move {
+            let mut every = tokio::time::interval(PROBE_EVERY);
+            every.tick().await;
+            loop {
+                every.tick().await;
+                triplespace_api_action::version::refresh(&app).await;
+            }
+        });
+    }
+    // The asynchronous projection steps (addressing), behind every write by about this
+    // much (0013 §7).
+    {
+        let app = app.clone();
+        tokio::spawn(async move {
+            let mut every = tokio::time::interval(std::time::Duration::from_secs(1));
+            loop {
+                every.tick().await;
+                if let Err(e) = app.catch_up_async().await {
+                    eprintln!("asynchronous projections: {e}");
+                }
+            }
+        });
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
@@ -110,20 +143,7 @@ async fn main() -> Result<()> {
         },
     )
     .map_err(|e| anyhow::anyhow!(e))?;
-    // The services' states and versions for Special:Version and siteinfo: read now and
-    // every minute, never while answering a request (0077 §4).
-    triplespace_api_action::version::refresh(&app).await;
-    {
-        let app = app.clone();
-        tokio::spawn(async move {
-            let mut every = tokio::time::interval(PROBE_EVERY);
-            every.tick().await;
-            loop {
-                every.tick().await;
-                triplespace_api_action::version::refresh(&app).await;
-            }
-        });
-    }
+    background(&app).await;
     if let Some(admin) = &args.admin_listen {
         let admin_router =
             axum::Router::new().route("/healthz", axum::routing::get(|| async { "ok" }));

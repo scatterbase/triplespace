@@ -112,7 +112,7 @@ async fn owner_exists(ctx: &Ctx, title: &str) -> Result<bool, ApiError> {
 #[allow(clippy::too_many_lines)]
 pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     ctx.caller.check_csrf(&ctx.app, &ctx.params)?;
-    ctx.caller.require("edit")?;
+    ctx.caller.require_somewhere("edit")?;
     let site = Site::load(ctx).await?;
     let tenant = ctx.tenant.slug.clone();
     let v2 = ctx.formatversion == 2;
@@ -145,6 +145,29 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         (t.namespace, t.text, page)
     };
     let prefixed = site.prefixed(ns, &title);
+    // Where a scoped group's rights would hold (09 §3.4): computed only for a caller who
+    // has some.
+    let scope = if ctx.caller.effective.scoped.is_empty() {
+        Vec::new()
+    } else {
+        triplespace_projections::acl_read::title_scope(
+            ctx.db(),
+            &tenant,
+            ns,
+            &title,
+            existing.as_ref().map(|p| p.page_id),
+        )
+        .await
+        .map_err(ApiError::internal)?
+    };
+    let held = |permission: &str| {
+        if ctx.caller.effective.holds_on(permission, &scope) {
+            Ok(())
+        } else {
+            Err(ApiError::permission_denied(permission))
+        }
+    };
+    held("edit")?;
     let namespace = Namespaces::embedded()
         .get(ns)
         .ok_or_else(|| ApiError::new("invalidtitle", format!("Bad title \"{prefixed}\".")))?;
@@ -184,7 +207,7 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         return Err(no_direct_editing(&prefixed));
     }
     if current_model.as_deref().is_some_and(|m| m != model) {
-        ctx.caller.require("editcontentmodel")?;
+        held("editcontentmodel")?;
     }
 
     // The text.
@@ -252,7 +275,7 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
                 "The page you specified doesn't exist.",
             ));
         }
-        ctx.caller.require("createpage")?;
+        held("createpage")?;
         if ns == 2 && !owner_exists(ctx, &title).await? {
             return Err(ApiError::new(
                 "ts-no-such-user",
@@ -284,13 +307,14 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     let chain = if let Some(p) = &existing {
         triplespace_projections::acl_read::page_chain(ctx.db(), &tenant, p.page_id).await
     } else {
-        triplespace_projections::acl_read::title_chain(ctx.db(), &tenant, ns, reserved).await
+        triplespace_projections::acl_read::title_chain(ctx.db(), &tenant, ns, &title, reserved)
+            .await
     }
     .map_err(ApiError::internal)?;
     let who = &ctx.caller.effective;
-    moderation::enforce("edit", who, &chain, at, &prefixed)?;
+    moderation::enforce("edit", who, &scope, &chain, at, &prefixed)?;
     if existing.is_none() {
-        moderation::enforce("createpage", who, &chain, at, &prefixed).map_err(|e| {
+        moderation::enforce("createpage", who, &scope, &chain, at, &prefixed).map_err(|e| {
             if e.code == "permissiondenied" {
                 e
             } else {

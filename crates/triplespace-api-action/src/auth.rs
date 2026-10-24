@@ -86,6 +86,17 @@ impl Caller {
 
     /// Checks a write's CSRF token (compat §2.5; 0056 §1): required in the body of a POST.
     pub fn check_csrf(&self, app: &App, params: &Params) -> Result<(), ApiError> {
+        self.check_token(app, params, "csrf")
+    }
+
+    /// Checks a write's token of the given type (`csrf`, or `userrights` for
+    /// `action=userrights`, as MediaWiki has it): required in the body of a POST.
+    pub fn check_token(
+        &self,
+        app: &App,
+        params: &Params,
+        token_type: &str,
+    ) -> Result<(), ApiError> {
         if !params.posted {
             return Err(ApiError::new(
                 "mustbeposted",
@@ -102,7 +113,7 @@ impl Caller {
             ));
         }
         let ok = match self.identity.token_binding() {
-            Some(b) => app.secret().check("csrf", b, presented),
+            Some(b) => app.secret().check(token_type, b, presented),
             None => presented == token::ANONYMOUS,
         };
         if ok {
@@ -112,7 +123,18 @@ impl Caller {
         }
     }
 
-    /// `permissiondenied` unless the permission is held.
+    /// `permissiondenied` unless the permission is held anywhere, scoped or not (09
+    /// §3.4): for a module that then checks it on its target, with the target's
+    /// enclosures ([`scatter_actors::acl::check_on`]).
+    pub fn require_somewhere(&self, permission: &str) -> Result<(), ApiError> {
+        if self.effective.holds_somewhere(permission) {
+            Ok(())
+        } else {
+            Err(ApiError::permission_denied(permission))
+        }
+    }
+
+    /// `permissiondenied` unless the permission is held everywhere.
     pub fn require(&self, permission: &str) -> Result<(), ApiError> {
         if self.effective.holds(permission) {
             Ok(())

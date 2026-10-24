@@ -70,6 +70,7 @@ cargo xtask wasm
 (cd ui && npm run lint && npm test && npm run build)
 (cd ui && npm run e2e)                  # Playwright + axe; needs the three binaries and a test DB
 tools/client_compat.sh                  # WBI, Pywikibot, WDI against a fresh server
+tools/acl_check.sh                      # the permission model's attack battery, likewise
 
 docs/check.sh                           # every doc checker; exits non-zero on any failure
 docs/check.sh --write                   # regenerate INDEX.md, MAP.md, chapter 23's tables, then check

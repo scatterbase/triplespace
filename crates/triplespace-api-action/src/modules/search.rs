@@ -1,7 +1,10 @@
 //! `wbsearchentities` (compat §4.1; 0014 §8): the Postgres fallback — a prefix match on
 //! `view.term` in the requested language (labels first, then aliases), the tenant's rows
 //! and the shared rows together, in Wikibase's response shape. Its public form carries the
-//! `Cache-Tag` of each entity it lists.
+//! `Cache-Tag` of each entity it lists. Results filter by the caller's hidden set (09
+//! §5.3): a confidential entity, one in a hidden set or namespace, and a deleted one are
+//! not found. A graph restriction is not applied here (the fallback does not know which
+//! graph serves a row); the resolver's reads do.
 
 use serde_json::{Value, json};
 
@@ -11,6 +14,32 @@ use crate::response::{ApiError, ApiResponse};
 
 /// Runs `wbsearchentities`.
 pub async fn wbsearchentities(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
+    ctx.caller.require("read")?;
+    let search = ctx.params.required("search")?.to_string();
+    let hidden = crate::pages::hidden(ctx).await?;
+    if hidden.every_entity() {
+        return Ok(nothing_found(&search));
+    }
+    find(ctx, &hidden).await
+}
+
+/// The `LIKE` pattern of a prefix search, its wildcards escaped.
+fn prefix_pattern(search: &str) -> String {
+    format!(
+        "{}%",
+        search
+            .to_lowercase()
+            .replace('\\', "\\\\")
+            .replace('%', "\\%")
+            .replace('_', "\\_")
+    )
+}
+
+/// The search itself, for a caller who may read the tenant.
+async fn find(
+    ctx: &mut Ctx,
+    hidden: &triplespace_projections::acl_read::Hidden,
+) -> Result<ApiResponse, ApiError> {
     ctx.caller.require("read")?;
     let search = ctx.params.required("search")?.to_string();
     let language = ctx.params.required("language")?.to_string();
@@ -26,14 +55,7 @@ pub async fn wbsearchentities(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     } else {
         vec![language.clone(), "mul".into(), "en".into()]
     };
-    let pattern = format!(
-        "{}%",
-        search
-            .to_lowercase()
-            .replace('\\', "\\\\")
-            .replace('%', "\\%")
-            .replace('_', "\\_")
-    );
+    let pattern = prefix_pattern(&search);
     // One row per matching entity: the best (label over alias, requested language over
     // fallbacks) term that matched.
     let rows = ctx
@@ -44,6 +66,7 @@ pub async fn wbsearchentities(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
              JOIN view.entity e ON e.tenant = t.tenant AND e.id = t.entity_id
              WHERE t.tenant IN ($1, '') AND t.kind IN (1, 3) AND t.lang = ANY($2)
                AND lower(t.text) LIKE $3 AND e.type = $4 AND NOT e.deleted
+               AND NOT (e.id = ANY($7)) AND NOT (e.type = ANY($8))
              ORDER BY t.entity_id, t.kind, array_position($2, t.lang)
              LIMIT $5 OFFSET $6",
             &[
@@ -53,6 +76,8 @@ pub async fn wbsearchentities(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
                 &entity_type,
                 &i64::try_from(limit + 1).unwrap_or(51),
                 &i64::try_from(offset).unwrap_or(0),
+                &hidden.entity_ids(),
+                &hidden.entity_types(),
             ],
         )
         .await?;
@@ -110,6 +135,16 @@ pub async fn wbsearchentities(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         body["search-continue"] = json!(offset + limit);
     }
     Ok(ApiResponse::ok(body))
+}
+
+/// A search that finds nothing, in the shape of one that does: what a private tenant
+/// answers those outside it (09 §4.7).
+fn nothing_found(search: &str) -> ApiResponse {
+    ApiResponse::ok(json!({
+        "searchinfo": {"search": search},
+        "search": [],
+        "success": 1,
+    }))
 }
 
 /// The label and description to display, in the first language that has one.

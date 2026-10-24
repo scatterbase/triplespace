@@ -147,6 +147,17 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for ModerationProjection {
                 }
                 _ => 0,
             };
+            // What the ACL makes stale (03 §9.6; 0056 §7): every ACL record is a read
+            // restriction written, changed or retired, or a protection, which purges
+            // nothing. The hidden set is decided per request, so the purge is for the
+            // layers that hold public forms: a proxy's tags, and the tenant epoch.
+            let reads = acl.as_ref().is_some_and(|a| {
+                a.restrictions.contains_key(scatter_actors::acl::READ) || a.confidential.is_some()
+            });
+            let read_before = read_restricted_before(cx, h.partition, key, h.offset).await?;
+            if reads || read_before {
+                purge(cx, &tenant, &target, record).await?;
+            }
             Ok(Applied::rows(usize::try_from(rows).unwrap_or(0)))
         })
     }
@@ -154,6 +165,103 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for ModerationProjection {
     fn reset<'a>(&'a self, _: &'a mut PgCx, _: u64) -> BoxFuture<'a, Result<(), String>> {
         Box::pin(async { Ok(()) })
     }
+}
+
+/// Whether the previous ACL record under the key restricted `read`: a retirement or a
+/// change of one is a visibility change too.
+async fn read_restricted_before(
+    cx: &PgCx,
+    partition: u64,
+    key: &str,
+    offset: u64,
+) -> Result<bool, String> {
+    let previous = scatter_log_postgres::log::read_by_key(cx, partition, key)
+        .await
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .rev()
+        .find(|(o, _)| *o < offset)
+        .map(|(_, r)| r);
+    let Some(r) = previous else {
+        return Ok(false);
+    };
+    Ok(match content(&r)? {
+        Some(v) => {
+            let j = to_jsonb(&v);
+            j.get("restrictions").and_then(|r| r.get("read")).is_some()
+                || j.get("confidential").is_some()
+        }
+        None => false,
+    })
+}
+
+/// Queues the purge a read ACL on `target` calls for (03 §9.6): the target's own tag, and
+/// for a namespace or the tenant a bump of the tenant's visibility epoch beside a tag for
+/// the whole space; for a set, its members' tags.
+async fn purge(cx: &PgCx, tenant: &str, target: &Target, record: &Record) -> Result<(), String> {
+    let h = record.header();
+    let mut tags: Vec<String> = Vec::new();
+    match target {
+        Target::Page(p) => tags.push(format!("page:{p}")),
+        Target::Entity(e) => tags.push(format!("entity:{e}")),
+        Target::Actor(a) => tags.push(format!("actor:{a}")),
+        Target::Record { partition, offset } => tags.push(format!("record:{partition}:{offset}")),
+        Target::Namespace(n) => {
+            tags.push(format!("ns:{n}"));
+            bump_epoch(cx, tenant).await?;
+        }
+        Target::Tenant(t) => {
+            tags.push(format!("tenant:{t}"));
+            bump_epoch(cx, tenant).await?;
+        }
+        Target::Graph(g) => {
+            tags.push(format!("graph:{g}"));
+            bump_epoch(cx, tenant).await?;
+        }
+        Target::Set(id) => {
+            tags.push(format!("set:{id}"));
+            let members = cx
+                .query(
+                    "SELECT kind, id FROM view.set_member WHERE tenant = $1 AND set_id = $2",
+                    &[&tenant, &i64::try_from(*id).map_err(|e| e.to_string())?],
+                )
+                .await
+                .map_err(|e| sql(&e))?;
+            for m in members {
+                let (kind, id): (String, String) = (m.get(0), m.get(1));
+                tags.push(format!("{kind}:{id}"));
+            }
+        }
+        Target::Statement(_) | Target::Property(_) | Target::Blob(_) => {
+            tags.push(target.key().trim_start_matches("acl:").to_string());
+        }
+    }
+    for tag in tags {
+        cx.execute(
+            "INSERT INTO ops.purge (tenant, tag, reason, partition, \"offset\")
+             VALUES ($1, $2, 'acl', $3, $4)",
+            &[
+                &tenant,
+                &tag,
+                &scatter_log_postgres::ids::partition_to_db(h.partition),
+                &i64::try_from(h.offset).map_err(|e| e.to_string())?,
+            ],
+        )
+        .await
+        .map_err(|e| sql(&e))?;
+    }
+    Ok(())
+}
+
+async fn bump_epoch(cx: &PgCx, tenant: &str) -> Result<(), String> {
+    cx.execute(
+        "INSERT INTO ops.visibility_epoch (tenant, epoch) VALUES ($1, 1)
+         ON CONFLICT (tenant) DO UPDATE SET epoch = ops.visibility_epoch.epoch + 1",
+        &[&tenant],
+    )
+    .await
+    .map_err(|e| sql(&e))?;
+    Ok(())
 }
 
 async fn page(cx: &PgCx, tenant: &str, id: u64, acl: Option<&Acl>) -> Result<u64, String> {

@@ -46,9 +46,14 @@ pub enum AclWriteError {
     /// The ACL is malformed.
     #[error("{0}")]
     Invalid(String),
-    /// A confidential restriction names a group the writer is not in.
-    #[error("a confidential restriction may name only a group you are in: `{0}`")]
+    /// A confidential restriction names a group the writer is not in, or the write changes
+    /// or lifts one whose group the writer is not in (09 §4.5; 0056 A18).
+    #[error("a confidential restriction may be set, changed or lifted only by a member of `{0}`")]
     LockedOut(String),
+    /// The tenancy policy does not allow the confidential restriction
+    /// (`security.restrictions`, 0056 §11): `ts-policy`.
+    #[error("{0}")]
+    Policy(String),
     /// There is no ACL to retire.
     #[error("{0} has no ACL")]
     NothingToRetire(String),
@@ -75,6 +80,9 @@ pub struct AclWrite {
     /// Reserve this title under a new page ID (create-protection): `target` and the
     /// ACL's target are replaced by `acl:page:{new ID}`.
     pub reserve: Option<ReservedTitle>,
+    /// The namespaces and sets enclosing the target, against which a scoped group's
+    /// rights are tested (09 §3.4); empty counts unscoped rights only.
+    pub enclosing: Vec<Target>,
 }
 
 /// The target's current ACL.
@@ -116,6 +124,17 @@ pub async fn write(
         acl.target = w.target.clone();
         acl.reserved = Some(r);
     }
+    // A new set takes its ID from the page-ID sequence, as a reservation does (09 §4.7).
+    if w.target == Target::Set(0) {
+        let id = store
+            .next_id(cx, tenant, &Sequence::Page)
+            .await
+            .map_err(store_err)?;
+        w.target = Target::Set(id);
+        if let Some(acl) = w.acl.as_mut() {
+            acl.target = w.target.clone();
+        }
+    }
     let existing = current(cx, tenant, &w.target)
         .await
         .map_err(AclWriteError::Store)?;
@@ -129,12 +148,9 @@ pub async fn write(
         }
         acl.validate()
             .map_err(|e| AclWriteError::Invalid(e.to_string()))?;
-        acl.check_lock_out(who).map_err(|e| match e {
-            scatter_actors::AclError::LockedOut(g) => AclWriteError::LockedOut(g),
-            other => AclWriteError::Invalid(other.to_string()),
-        })?;
         rights.push(acl.required_right(&w.suppress_group));
     }
+    check_confidential(cx, existing.as_ref(), &w, who).await?;
     match &existing {
         Some(old) => rights.push(old.required_right(&w.suppress_group)),
         None if w.acl.is_none() => {
@@ -142,7 +158,7 @@ pub async fn write(
         }
         None => {}
     }
-    if let Some(r) = rights.into_iter().find(|r| !who.holds(r)) {
+    if let Some(r) = rights.into_iter().find(|r| !who.holds_on(r, &w.enclosing)) {
         return Err(AclWriteError::Denied(r));
     }
 
@@ -194,6 +210,35 @@ pub async fn write(
         .await
         .map_err(store_err)?;
     Ok(record)
+}
+
+/// The rules for a confidential restriction (09 §4.5; 0056 §11, A18): only its group's
+/// members may set, change or lift one, and one this write sets or changes must be one
+/// the instance's tenancy policy allows; one it keeps as it was is not re-examined.
+async fn check_confidential(
+    cx: &PgCx,
+    existing: Option<&Acl>,
+    w: &AclWrite,
+    who: &Effective,
+) -> Result<(), AclWriteError> {
+    scatter_actors::check_lock_out_change(existing, w.acl.as_ref(), who).map_err(|e| match e {
+        scatter_actors::AclError::LockedOut(g) => AclWriteError::LockedOut(g),
+        other => AclWriteError::Invalid(other.to_string()),
+    })?;
+    let new_confidential = w.acl.as_ref().and_then(Acl::confidential_read);
+    if new_confidential.is_some() && new_confidential != existing.and_then(Acl::confidential_read) {
+        let switches = triplespace_projections::tenants::tenancy(cx.conn())
+            .await
+            .map_err(store_err)?;
+        let policy = scatter_actors::TenancyPolicy {
+            preset: None,
+            switches,
+        };
+        policy
+            .check_restriction(&w.target)
+            .map_err(|e| AclWriteError::Policy(e.to_string()))?;
+    }
+    Ok(())
 }
 
 /// Whether a deletion (a moderation `read` restriction) is in force on the ACL at `now`.

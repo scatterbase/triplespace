@@ -230,6 +230,59 @@ pub async fn run(
     let mut set = pageset::resolve(ctx, &site).await?;
     set.report(query);
     let pages = std::mem::take(&mut set.pages);
+    revisions_of(ctx, query, body, response, &pages, "revisions").await
+}
+
+/// `prop=deletedrevisions` (0023 §8; 18 §2.4): the revisions of the deleted pages that
+/// had the titles named, for members of their deletion group, with `drv*` parameters as
+/// `prop=revisions` takes `rv*`. For anyone else the page is a title with no deleted
+/// revisions. By title only: a deleted page has no live page ID to ask by.
+pub async fn deleted(
+    ctx: &Ctx,
+    query: &mut Map<String, Value>,
+    body: &mut Map<String, Value>,
+    response: &mut ApiResponse,
+) -> Result<(), ApiError> {
+    ctx.caller.require("deletedhistory")?;
+    let site = crate::pages::Site::load(ctx).await?;
+    let mut pages = Vec::new();
+    for t in ctx.params.list("titles") {
+        if crate::pages::names_entity(&site, &t) {
+            continue;
+        }
+        let Some(title) = crate::pages::resolve_title(&site, &t) else {
+            continue;
+        };
+        for page in crate::pages::deleted_by_title(ctx, title.namespace, &title.text).await? {
+            pages.push(pageset::document_ask(&site, page));
+        }
+    }
+    let as_rv = ctx.params.with_prefix_as("drv", "rv");
+    let ctx = Ctx {
+        params: as_rv,
+        client: ctx.app.pool().get().await.map_err(ApiError::internal)?,
+        app: ctx.app.clone(),
+        tenant: ctx.tenant.clone(),
+        origin: ctx.origin.clone(),
+        caller: ctx.caller.clone(),
+        formatversion: ctx.formatversion,
+        set_cookie: None,
+        warnings: Vec::new(),
+        cache_class: crate::http_cache::Class::Private,
+        cache_tags: Vec::new(),
+        accept_language: ctx.accept_language.clone(),
+    };
+    revisions_of(&ctx, query, body, response, &pages, "deletedrevisions").await
+}
+
+async fn revisions_of(
+    ctx: &Ctx,
+    query: &mut Map<String, Value>,
+    body: &mut Map<String, Value>,
+    response: &mut ApiResponse,
+    pages: &[PageAsk],
+    field: &str,
+) -> Result<(), ApiError> {
     let mut props = ctx.params.list("rvprop");
     if props.is_empty() {
         props = ["ids", "timestamp", "flags", "comment", "user"]
@@ -258,7 +311,7 @@ pub async fn run(
         .and_then(|v| v.as_array().cloned())
         .unwrap_or_default();
     let viewer = viewer(ctx).await?;
-    for page in &pages {
+    for page in pages {
         let mut feed = feed_for(ctx, page)?;
         if let Some(r) = page.only_revid {
             // `revids=`: the one revision, whatever the window says.
@@ -285,7 +338,7 @@ pub async fn run(
             revs.push(with_content(ctx, page, r, &props, in_slots, v2).await?);
         }
         let mut pg = page_json(page);
-        pg["revisions"] = Value::Array(revs);
+        pg[field] = Value::Array(revs);
         out.push(pg);
         if let Some(next) = p.next {
             body.insert(

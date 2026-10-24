@@ -196,11 +196,11 @@ pub async fn resolve<C: GenericClient>(
             }
         }
     }
-    let groups_registry = GroupRegistry::default_registry();
     let grants_registry = GrantRegistry::default_registry();
     let Some(actor_key) = identity.actor_key.clone() else {
+        let groups_registry = crate::groups::registry(client, tenant).await?;
         return Ok(Resolved {
-            effective: evaluate(&Principal::anonymous(), groups_registry, grants_registry),
+            effective: evaluate(&Principal::anonymous(), &groups_registry, grants_registry),
             identity,
         });
     };
@@ -212,6 +212,7 @@ pub async fn resolve<C: GenericClient>(
     identity.status = row.status;
     identity.operator = row.operator;
     identity.groups = groups(client, tenant, &actor_key).await?;
+    let groups_registry = crate::groups::registry_for(client, tenant, &identity.groups).await?;
     let all = groups_registry.permissions();
     let mut principal = Principal {
         kind: Some(row.kind),
@@ -228,7 +229,7 @@ pub async fn resolve<C: GenericClient>(
         principal.operator_blocked = blocked(client, tenant, op, all).await?;
     }
     Ok(Resolved {
-        effective: evaluate(&principal, groups_registry, grants_registry),
+        effective: evaluate(&principal, &groups_registry, grants_registry),
         identity,
     })
 }

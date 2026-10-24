@@ -622,26 +622,26 @@ pub async fn create_bound(
     {
         return Ok(Conclusion::Refused(Refusal::of("ts-oauth-bound")));
     }
+    let approval = crate::modules::account::Policy::load_for(scope.db, tenant).await?;
     if !caller.noratelimit {
         let made = challenge::count(
             scope.db,
             tenant,
             challenge::CREATEACCOUNT,
             caller.address,
-            challenge::CREATEACCOUNT_LIMIT.1,
+            challenge::CREATEACCOUNT_WINDOW,
         )
         .await?;
-        if made >= challenge::CREATEACCOUNT_LIMIT.0 {
+        if made >= approval.creation_limit {
             return Ok(Conclusion::Refused(Refusal {
                 code: "acct_creation_throttle_hit",
                 message: format!(
                     "Visitors to this wiki using your IP address have created {} accounts in the last day, which is the maximum allowed in this time period.",
-                    challenge::CREATEACCOUNT_LIMIT.0
+                    approval.creation_limit
                 ),
             }));
         }
     }
-    let approval = crate::modules::account::Policy::load_for(scope.db, tenant).await?;
     let store = scope.app.store();
     {
         let mut cx = scatter_projection::Backend::begin(store).await?;

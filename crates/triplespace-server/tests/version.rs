@@ -267,8 +267,8 @@ async fn special_version_and_its_api() {
         .collect();
     assert_eq!(
         ext,
-        ["WikibaseRepository", "Triplespace"],
-        "inspired-by is not installed"
+        ["WikibaseRepository", "Echo", "Triplespace"],
+        "inspired-by is not installed; Echo's modules are served"
     );
 
     // The page, through the site.

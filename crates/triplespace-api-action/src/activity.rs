@@ -37,10 +37,10 @@ pub mod visibility {
 /// What the caller may see: its groups, and what confidential restrictions hide from it
 /// ([`crate::pages::hidden`]).
 pub async fn viewer(ctx: &Ctx) -> Result<Viewer, ApiError> {
-    Ok(Viewer {
-        groups: ctx.caller.effective.groups.iter().cloned().collect(),
-        hidden: crate::pages::hidden(ctx).await?,
-    })
+    Ok(Viewer::of(
+        &ctx.caller.effective,
+        crate::pages::hidden(ctx).await?,
+    ))
 }
 
 /// The actor key of a user name on the tenant, or of a key given as one (`local:7`).
@@ -52,13 +52,34 @@ pub async fn actor_key_of(ctx: &Ctx, name: &str) -> Result<Option<String>, tokio
     let row = ctx
         .db()
         .query_opt(
-            "SELECT actor_key FROM view.actor
+            "SELECT actor_key, actor_key = $2 FROM view.actor
              WHERE tenant IN ($1, '') AND (lower(name) = lower($2) OR actor_key = $2)
              ORDER BY (tenant = $1) DESC LIMIT 1",
             &[&ctx.tenant.slug, &name],
         )
         .await?;
-    Ok(row.map(|r| r.get(0)))
+    let Some(row) = row else {
+        return Ok(None);
+    };
+    let key: String = row.get(0);
+    let by_key: bool = row.get(1);
+    // A hidden name does not lead to its account for those outside the group (09 §6.3);
+    // a key, which never contains a name, still does. Failing to decide hides it.
+    if !by_key {
+        let effective = &ctx.caller.effective;
+        let hidden = triplespace_projections::acl_read::hidden_actors(
+            ctx.db(),
+            &ctx.tenant.slug,
+            std::slice::from_ref(&key),
+            |g| effective.reads_in(g),
+            scatter_actors::Timestamp(crate::edit::now_micros()),
+        )
+        .await;
+        if hidden.map_or(true, |h| h.contains(&key)) {
+            return Ok(None);
+        }
+    }
+    Ok(Some(key))
 }
 
 /// The numeric user ID MediaWiki clients expect: the number after the issuer in the
@@ -102,7 +123,13 @@ pub fn title_of(row: &Row) -> Option<(i64, String)> {
             };
             Some((i64::from(ns), prefixed))
         }
-        target_kind::ACTOR => t.id.as_ref().map(|k| (2, format!("User:{k}"))),
+        // The account's name where the viewer may see it, else its key (09 §6.3).
+        target_kind::ACTOR => t
+            .label
+            .as_ref()
+            .map(|(n, _)| n.as_str())
+            .or(t.id.as_deref())
+            .map(|k| (2, format!("User:{k}"))),
         target_kind::JOB => t.id.as_ref().map(|j| (-1, format!("Special:Jobs/{j}"))),
         _ => None,
     }

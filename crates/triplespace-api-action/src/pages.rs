@@ -142,7 +142,87 @@ fn page_of(r: &tokio_postgres::Row) -> Page {
 /// below on every read, so a page a confidential restriction hides from the caller is
 /// missing, and [`Hidden::NONE`] on a write, which decides with the target's own chain.
 pub async fn hidden(ctx: &Ctx) -> Result<Hidden, ApiError> {
-    triplespace_projections::acl_read::hidden(
+    // The L0 cache of 0056 §5 for the one answer that is safe to remember: "nothing is
+    // hidden for this principal", keyed by the tenant's ACL frontier. A non-empty set can
+    // change with a page or thread written under a hidden target, so it is not cached;
+    // an empty one becomes non-empty only through an ACL record, which moves the frontier.
+    // The frontier is the newest ACL's offset together with the row count, so that a
+    // retirement (a row gone) moves it as a write does.
+    let row = ctx
+        .db()
+        .query_one(
+            "SELECT coalesce(max(\"offset\"), 0), count(*) FROM view.acl WHERE tenant = $1",
+            &[&ctx.tenant.slug],
+        )
+        .await?;
+    let frontier = (row.get::<_, i64>(0) << 20) ^ row.get::<_, i64>(1);
+    let key = (
+        ctx.tenant.slug.clone(),
+        ctx.caller
+            .effective
+            .groups
+            .iter()
+            .cloned()
+            .collect::<Vec<_>>()
+            .join(","),
+        ctx.caller
+            .effective
+            .reads_as
+            .iter()
+            .cloned()
+            .collect::<Vec<_>>()
+            .join(","),
+        ctx.caller.effective.reads_every,
+    );
+    if ctx.app.nothing_hidden().is_fresh(&key, frontier) {
+        return Ok(Hidden::NONE);
+    }
+    let h = triplespace_projections::acl_read::hidden(
+        ctx.db(),
+        &ctx.tenant.slug,
+        &ctx.caller.effective,
+        scatter_actors::Timestamp(crate::edit::now_micros()),
+    )
+    .await
+    .map_err(ApiError::internal)?;
+    if h.is_empty() {
+        ctx.app.nothing_hidden().remember(key, frontier);
+    }
+    Ok(h)
+}
+
+/// The key of a principal's hidden-set answer: tenant, groups, inclusions.
+pub type HiddenKey = (String, String, String, bool);
+
+/// Principals for whom nothing is hidden, as of an ACL frontier (see [`hidden`]).
+#[derive(Debug, Default)]
+pub struct NothingHidden {
+    entries: std::sync::Mutex<std::collections::HashMap<HiddenKey, i64>>,
+}
+
+impl NothingHidden {
+    /// Whether the principal was found to have nothing hidden at this frontier.
+    pub fn is_fresh(&self, key: &HiddenKey, frontier: i64) -> bool {
+        self.entries
+            .lock()
+            .is_ok_and(|e| e.get(key) == Some(&frontier))
+    }
+
+    /// Remembers that nothing is hidden for the principal at this frontier.
+    pub fn remember(&self, key: HiddenKey, frontier: i64) {
+        if let Ok(mut e) = self.entries.lock() {
+            if e.len() > 4096 {
+                e.clear();
+            }
+            e.insert(key, frontier);
+        }
+    }
+}
+
+/// Whether the tenant is private and the caller outside it (09 §4.7): every entity, page
+/// and row of it is then absent for the caller.
+pub async fn private_to(ctx: &Ctx) -> Result<bool, ApiError> {
+    triplespace_projections::acl_read::tenant_hidden(
         ctx.db(),
         &ctx.tenant.slug,
         &ctx.caller.effective,
@@ -175,6 +255,52 @@ pub async fn by_title(
         )
         .await?;
     Ok(visible(row.as_ref(), hidden))
+}
+
+/// The deleted pages that had a title, newest first, for a member of their deletion
+/// group: those whose chain the caller passes as `Removed` with the deletion's group among
+/// its own (09 §6.2); an absent one is left out (09 §5.3). Threads and talk pages included.
+pub async fn deleted_by_title(ctx: &Ctx, ns: i32, title: &str) -> Result<Vec<Page>, ApiError> {
+    let tenant = &ctx.tenant.slug;
+    let rows = ctx
+        .db()
+        .query(
+            &format!(
+                "SELECT {PAGE_COLUMNS} FROM view.page
+                 WHERE tenant = $1 AND ns = $2 AND title = $3 AND deleted
+                 ORDER BY page_id DESC"
+            ),
+            &[tenant, &ns, &title],
+        )
+        .await?;
+    let mut out = Vec::new();
+    let at = scatter_actors::Timestamp(crate::edit::now_micros());
+    for r in &rows {
+        let page = page_of(r);
+        let chain = triplespace_projections::acl_read::page_chain(ctx.db(), tenant, page.page_id)
+            .await
+            .map_err(ApiError::internal)?;
+        let who = &ctx.caller.effective;
+        match scatter_actors::read_decision(who, &chain, at) {
+            scatter_actors::ReadDecision::Absent => {}
+            scatter_actors::ReadDecision::Readable => out.push(page),
+            scatter_actors::ReadDecision::Removed { .. } => {
+                // The deletion's own group admits its members; a talk page deleted with
+                // its subject is the subject's deletion.
+                let admitted = chain.iter().any(|a| {
+                    a.read_kind == Some(scatter_actors::ReadKind::Moderation)
+                        && a.restrictions
+                            .get(scatter_actors::acl::READ)
+                            .and_then(|r| r.group.as_deref())
+                            .is_some_and(|g| who.in_group(g))
+                });
+                if admitted {
+                    out.push(page);
+                }
+            }
+        }
+    }
+    Ok(out)
 }
 
 /// The page with an ID, if it is not deleted and not hidden.
@@ -538,6 +664,34 @@ pub async fn render(
         transcluded,
         links,
     })
+}
+
+/// What a read of an entity may show the caller (09 §5.3, §6.2; 0056 §5): its chain
+/// (the entity, its namespace, the graph serving it, its sets, the tenant) decided as a
+/// page's is. `Absent` answers as a missing entity; `Deleted` likewise for everyone
+/// outside the deletion group, while members see it, as `view.entity.deleted` tells
+/// lists to leave it out; `Readable` serves it. `graph` is the graph whose record serves
+/// the entity, when known.
+pub async fn entity_decision(
+    ctx: &Ctx,
+    id: &str,
+    graph: Option<&str>,
+) -> Result<scatter_actors::ReadDecision, ApiError> {
+    let chain =
+        triplespace_projections::acl_read::entity_chain(ctx.db(), &ctx.tenant.slug, id, graph)
+            .await
+            .map_err(ApiError::internal)?;
+    Ok(scatter_actors::read_decision(
+        &ctx.caller.effective,
+        &chain,
+        scatter_actors::Timestamp(crate::edit::now_micros()),
+    ))
+}
+
+/// Whether the caller may read the entity at all: readable, or deleted and the caller in
+/// the group (a member sees a deleted entity marked, as of a deleted page).
+pub async fn entity_readable(ctx: &Ctx, id: &str, graph: Option<&str>) -> Result<bool, ApiError> {
+    Ok(entity_decision(ctx, id, graph).await? == scatter_actors::ReadDecision::Readable)
 }
 
 #[cfg(test)]
