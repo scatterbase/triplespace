@@ -46,7 +46,7 @@ use crate::codex::MessageKind;
 use crate::features::Feature;
 use crate::frame::{Page, Tab, title_url};
 use crate::i18n::Messages;
-use crate::pages::{self, Context, Peer};
+use crate::pages::{self, Context, ModerationTabs, Peer};
 
 /// The namespaces whose pages are entities, by prefix (`namespaces.toml`: 120, 122,
 /// 210, 212, 216).
@@ -260,7 +260,6 @@ enum TabName {
     Sitelinks,
     Labels,
     History,
-    Protect,
 }
 
 impl TabName {
@@ -279,14 +278,7 @@ impl TabName {
     }
 }
 
-fn tabs(
-    m: &Messages,
-    title: &str,
-    current: TabName,
-    items: bool,
-    history: bool,
-    protect: bool,
-) -> Vec<Tab> {
+fn tabs(m: &Messages, title: &str, current: TabName, items: bool, history: bool) -> Vec<Tab> {
     let base = format!("/wiki/{}", title_url(title));
     let tab = |name: TabName, key: &str, href: String| Tab {
         label: m.get(key),
@@ -322,12 +314,18 @@ fn tabs(
             format!("{base}?action=history"),
         ));
     }
-    if protect {
-        v.push(tab(
-            TabName::Protect,
-            "ts-tab-protect",
-            format!("{base}?action=protect"),
-        ));
+    v
+}
+
+/// The overflow menu (19 §1.3): **Protect…** and **Delete…** for their holders.
+fn actions(m: &Messages, title: &str, offered: ModerationTabs) -> Vec<(String, String)> {
+    let base = format!("/wiki/{}", title_url(title));
+    let mut v = Vec::new();
+    if offered.protect {
+        v.push((m.get("ts-action-protect"), format!("{base}?action=protect")));
+    }
+    if offered.delete {
+        v.push((m.get("ts-action-delete"), format!("{base}?action=delete")));
     }
     v
 }
@@ -383,12 +381,18 @@ pub async fn serve(
         Err(e) => return pages::api_failed(&cx, headers, &e),
     };
     cx.inputs.push(fetched.cache.clone());
+    let visibility = fetched.value.visibility.values().next().cloned();
     let Some((_, mut json)) = fetched.value.found.into_iter().next() else {
-        return if render {
-            pages::fragment(&cx, headers, StatusCode::NOT_FOUND, String::new)
-        } else {
-            missing(&cx, headers, &title)
-        };
+        if render {
+            return pages::fragment(&cx, headers, StatusCode::NOT_FOUND, String::new);
+        }
+        // A deleted entity shows its deletion (19 §6.3) before it is a 404.
+        if let Some(r) =
+            crate::moderation::deleted(site, &mut cx, headers, &incoming, &title, None).await
+        {
+            return r;
+        }
+        return missing(&cx, headers, &title);
     };
     let redirected = json
         .as_object_mut()
@@ -493,7 +497,14 @@ pub async fn serve(
     if render {
         region(&r, &cx, headers, query)
     } else {
-        page(&r, &cx, headers, query, history.as_ref())
+        page(
+            &r,
+            &cx,
+            headers,
+            query,
+            history.as_ref(),
+            visibility.as_ref(),
+        )
     }
 }
 
@@ -551,6 +562,7 @@ fn page(
     headers: &HeaderMap,
     query: &BTreeMap<String, String>,
     history: Option<&(history::Ask, triplespace_client::ActivityPage)>,
+    visibility: Option<&triplespace_client::Visibility>,
 ) -> Response {
     let entity = r.entity;
     let canonical_title = page_title(entity.id.as_str(), entity.entity_type.name());
@@ -563,7 +575,7 @@ fn page(
     let mut body = match tab {
         // The Protect form is its own page (`action=protect`, `moderation`); the entity
         // page never shows it as current.
-        TabName::Statements | TabName::Protect => r.statements_tab(),
+        TabName::Statements => r.statements_tab(),
         TabName::Identifiers => r.identifiers(),
         TabName::Sitelinks => r.sitelinks(),
         TabName::Labels => r.labels(),
@@ -587,14 +599,17 @@ fn page(
         tab,
         entity.entity_type.name() == "item",
         has_history,
-        cx.may_protect(),
     );
-    let (display, identity, terms, doc_title) = (
+    let actions = actions(&cx.m, &canonical_title, cx.moderation_tabs());
+    let (display, mut identity, terms, doc_title) = (
         r.display_title(),
         r.identity(),
         r.terms(),
         r.document_title(),
     );
+    if let Some(v) = visibility {
+        identity.push_str(&crate::frame::restricted_pill(&cx.m, &v.groups, &v.sets));
+    }
     pages::respond(cx, headers, StatusCode::OK, move |_| Page {
         title: display,
         title_lang,
@@ -603,6 +618,7 @@ fn page(
         identity_html: Some(identity),
         subtitle_html: Some(terms),
         tabs,
+        actions,
         body,
         ..Page::default()
     })

@@ -42,6 +42,8 @@ pub struct Entities {
     pub found: BTreeMap<String, Value>,
     /// The IDs the API reported missing.
     pub missing: Vec<String>,
+    /// The visibility of each restricted entity served (`ts-visibility`; 19 §1.3).
+    pub visibility: BTreeMap<String, crate::pages::Visibility>,
 }
 
 fn entities_of(v: &Value) -> Entities {
@@ -52,6 +54,13 @@ fn entities_of(v: &Value) -> Entities {
                 out.missing.push(k.clone());
             } else {
                 out.found.insert(k.clone(), e.clone());
+            }
+        }
+    }
+    if let Some(map) = v["ts-visibility"].as_object() {
+        for (k, vis) in map {
+            if let Some(vis) = crate::pages::Visibility::of(vis) {
+                out.visibility.insert(k.clone(), vis);
             }
         }
     }
@@ -186,6 +195,7 @@ impl Client {
             let e = entities_of(&v);
             out.found.extend(e.found);
             out.missing.extend(e.missing);
+            out.visibility.extend(e.visibility);
             caches.push(CacheInfo::of(&r));
         }
         Ok(Fetched {

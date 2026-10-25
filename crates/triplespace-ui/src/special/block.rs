@@ -9,6 +9,10 @@
 //!   A block in force is replaced when **replace the current block** is on (`reblock`).
 //! - **Unblock**: the account and a reason. An administrator without `hideuser` is told
 //!   that unblocking a hidden user leaves the name hidden.
+//! - **`Special:BlockList`**: the blocks in force (`list=blocks`): who, by whom, when,
+//!   until when, why, what the block removes; a hidden name shows as such to those outside
+//!   the suppression group and carries a **Hidden** mark for those in it (19 §6.3); an
+//!   **Unblock** link for a holder of `block`.
 //!
 //! The API's refusal comes back on the form: `alreadyblocked`, `ipb_expiry_temp`,
 //! `ts-cantblock-self`, `cantunblock`, `nosuchuser`, `permissiondenied`, `badtoken`.
@@ -424,4 +428,104 @@ pub async fn post(
         }
         Err(e) => pages::api_failed(&cx, headers, &e),
     }
+}
+
+/// `GET Special:BlockList`.
+pub async fn list(site: &Site, headers: &HeaderMap, peer: Peer, params: &Params) -> Response {
+    let incoming = pages::incoming(headers, peer);
+    let mut cx = match start(site, headers, &incoming, &params.map, Which::Block).await {
+        Ok(cx) => cx,
+        Err(r) => return r,
+    };
+    let blocks = match site.client().blocks(&incoming).await {
+        Ok(b) => b,
+        Err(e) => return pages::api_failed(&cx, headers, &e),
+    };
+    cx.inputs.push(blocks.cache);
+    let m = &cx.m;
+    let may_unblock = cx.user.is_some() && cx.holds("block");
+    let mut body = String::new();
+    if blocks.value.is_empty() {
+        let _ = write!(
+            body,
+            "<p class=\"ts-empty\">{}</p>",
+            esc(&m.get("ts-blocklist-none"))
+        );
+    } else {
+        let _ = write!(
+            body,
+            "<table class=\"cdx-table__table ts-blocklist__table\"><thead><tr><th>{}</th><th>{}</th><th>{}</th><th>{}</th><th>{}</th><th>{}</th>{}</tr></thead><tbody>",
+            esc(&m.get("ts-blocklist-col-user")),
+            esc(&m.get("ts-blocklist-col-by")),
+            esc(&m.get("ts-blocklist-col-when")),
+            esc(&m.get("ts-blocklist-col-expiry")),
+            esc(&m.get("ts-blocklist-col-reason")),
+            esc(&m.get("ts-blocklist-col-removes")),
+            if may_unblock { "<th></th>" } else { "" },
+        );
+        for b in &blocks.value {
+            let user = match &b.user {
+                Some(u) => {
+                    let mut h = link(
+                        &format!("/wiki/Special:Contributions/{}", title_url(u)),
+                        &esc(u),
+                        "",
+                    );
+                    if b.hidden {
+                        let _ = write!(
+                            h,
+                            " <span class=\"ts-blocklist__hidden\">{}</span>",
+                            esc(&m.get("ts-blocklist-hidden"))
+                        );
+                    }
+                    h
+                }
+                None => format!(
+                    "<span class=\"ts-blocklist__hidden\">{}</span>",
+                    esc(&m.get("ts-changes-hidden-user"))
+                ),
+            };
+            let expiry = if b.expiry == "infinite" || b.expiry == "infinity" {
+                m.get("ts-protect-expiry-never")
+            } else {
+                b.expiry.clone()
+            };
+            let removes = if b.removes == "all-but-read" {
+                m.get("ts-blocklist-all-but-read")
+            } else {
+                b.removes.clone()
+            };
+            let _ = write!(
+                body,
+                "<tr><td>{user}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td>",
+                esc(b.by.as_deref().unwrap_or("")),
+                esc(&b.timestamp),
+                esc(&expiry),
+                esc(&b.reason),
+                esc(&removes),
+            );
+            if may_unblock {
+                let _ = write!(
+                    body,
+                    "<td>{}</td>",
+                    match &b.user {
+                        Some(u) => link(
+                            &format!("/wiki/Special:Unblock/{}", title_url(u)),
+                            &esc(&m.get("ts-unblock-submit")),
+                            ""
+                        ),
+                        None => String::new(),
+                    }
+                );
+            }
+            body.push_str("</tr>");
+        }
+        body.push_str("</tbody></table>");
+    }
+    pages::respond(&cx, headers, StatusCode::OK, |m| Page {
+        title: m.get("ts-blocklist-title"),
+        returnto: Some("Special:BlockList".to_string()),
+        body: format!("<div class=\"ts-protectedpages\">{body}</div>"),
+        ..Page::default()
+    })
 }

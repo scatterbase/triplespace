@@ -6,9 +6,8 @@
 //!   included, with a **Read** column), and the reserved titles (`list=protectedtitles`).
 //! - **Sets**: the sets the viewer may read (`list=protectedsets`), each with its
 //!   restrictions and members, and for a holder of `protect` the forms that manage them:
-//!   create a set, add a member by title, remove one, retire the set. A set's own
-//!   restrictions are changed where a page's are, through `/acl/set/{id}`; this page
-//!   offers the common cases.
+//!   create a set, rename it or change what it restricts, add a member by title, remove
+//!   one, retire the set.
 //! - **Empty groups**: for a holder of `userrights`, each group a confidential restriction
 //!   in force names that has no current member, with how many restrictions name it and no
 //!   titles (`GET /acl/empty-groups`), so an orphaned group is found before anyone needs
@@ -117,8 +116,28 @@ fn button(label: &str, action: Action, weight: Weight) -> String {
     .unwrap_or_default()
 }
 
+/// A group picker for a set's restriction on `action`.
+fn picker(m: &Messages, id: &str, action: &str, groups: &[String], current: &str) -> String {
+    let value = serde_json::Value::String(current.to_string());
+    let control = crate::special::controls::render(&crate::special::controls::Control {
+        id,
+        name: action,
+        kind: crate::special::controls::Kind::Choice,
+        choices: groups,
+        value: Some(&value),
+        empty_choice: Some(&m.get("ts-protect-level-all")),
+        described_by: None,
+        choice_label: None,
+    });
+    format!(
+        "<div class=\"cdx-field\"><div class=\"cdx-label\"><label class=\"cdx-label__label\" for=\"{id}\"><span class=\"cdx-label__label__text\">{}</span></label></div><div class=\"cdx-field__control\">{control}</div></div>",
+        esc(&kind_label(m, action)),
+    )
+}
+
 /// One set: its restrictions, members, and its forms for a holder of `protect`.
-fn set_html(m: &Messages, set: &SetInfo, token: Option<&str>) -> String {
+#[allow(clippy::too_many_lines)] // one section of markup, read top to bottom
+fn set_html(m: &Messages, set: &SetInfo, groups: &[String], token: Option<&str>) -> String {
     let id = set.id;
     let name = if set.name.is_empty() {
         m.with("ts-protectedpages-set-unnamed", &[&id.to_string()])
@@ -201,6 +220,54 @@ fn set_html(m: &Messages, set: &SetInfo, token: Option<&str>) -> String {
                 Weight::Normal
             ),
         );
+        let level = |action: &str| -> String {
+            set.protection
+                .iter()
+                .find(|(k, _, _)| k == action)
+                .map(|(_, g, _)| g.clone())
+                .unwrap_or_default()
+        };
+        let _ = write!(
+            s,
+            "<form class=\"ts-set__change\" method=\"post\" action=\"/wiki/{}\"><h4>{}</h4>{}{}{}{}{}{}{}</form>",
+            esc(&title_url(TITLE)),
+            esc(&m.get("ts-protectedpages-change-set")),
+            hidden("token", t),
+            hidden("do", "change"),
+            hidden("set", &id.to_string()),
+            Field {
+                id: &format!("ts-set-{id}-name"),
+                name: "name",
+                kind: "text",
+                value: &set.name,
+                label: &m.get("ts-protectedpages-set-name"),
+                description: None,
+                help: None,
+                required: false,
+                autocomplete: Some("off"),
+            }
+            .render()
+            .unwrap_or_default(),
+            picker(
+                m,
+                &format!("ts-set-{id}-read"),
+                "read",
+                groups,
+                &level("read")
+            ),
+            picker(
+                m,
+                &format!("ts-set-{id}-edit"),
+                "edit",
+                groups,
+                &level("edit")
+            ),
+            button(
+                &m.get("ts-protectedpages-change"),
+                Action::Progressive,
+                Weight::Normal
+            ),
+        );
         let _ = write!(
             s,
             "<form class=\"ts-set__retire\" method=\"post\" action=\"/wiki/{}\">{}{}{}{}</form>",
@@ -234,7 +301,7 @@ fn sets_html(m: &Messages, sets: &[SetInfo], groups: &[String], token: Option<&s
         );
     }
     for set in sets {
-        s.push_str(&set_html(m, set, token));
+        s.push_str(&set_html(m, set, groups, token));
     }
     if let Some(t) = token {
         let read = crate::special::controls::render(&crate::special::controls::Control {
@@ -441,6 +508,7 @@ pub async fn serve(site: &Site, headers: &HeaderMap, peer: Peer, params: &Params
             MessageKind::Success,
             cx.m.get(match d.as_str() {
                 "created" => "ts-protectedpages-done-created",
+                "changed" => "ts-protectedpages-done-changed",
                 "added" => "ts-protectedpages-done-added",
                 "removed" => "ts-protectedpages-done-removed",
                 "retired" => "ts-protectedpages-done-retired",
@@ -458,6 +526,7 @@ fn refusal_text(m: &Messages, code: &str, info: &str) -> String {
         "ts-unknown-group" => m.get("ts-protect-unknown-group"),
         "ts-no-target" | "missingtitle" => m.get("ts-protectedpages-no-page"),
         "ts-already-member" => m.get("ts-protectedpages-already-member"),
+        "badbody" => m.get("ts-protectedpages-set-needs-restriction"),
         "badtoken" => m.get("ts-login-expired"),
         "permissiondenied" => m.get("ts-protect-denied"),
         _ => {
@@ -471,6 +540,7 @@ fn refusal_text(m: &Messages, code: &str, info: &str) -> String {
 }
 
 /// `POST Special:ProtectedPages`: one of the Sets tab's forms.
+#[allow(clippy::too_many_lines)] // one match over the forms, read top to bottom
 pub async fn post(
     site: &Site,
     headers: &HeaderMap,
@@ -505,6 +575,26 @@ pub async fn post(
                 "created",
                 site.client()
                     .set_write(&incoming, Method::POST, "", &body)
+                    .await,
+            )
+        }
+        "change" => {
+            let mut restrictions = serde_json::Map::new();
+            for action in ["read", "edit"] {
+                let g = field(action).trim();
+                if !g.is_empty() {
+                    restrictions.insert(action.into(), json!({"group": g}));
+                }
+            }
+            let body = json!({
+                "name": field("name").trim(),
+                "restrictions": restrictions,
+                "token": token,
+            });
+            (
+                "changed",
+                site.client()
+                    .set_write(&incoming, Method::PUT, &format!("/{set}"), &body)
                     .await,
             )
         }
@@ -592,11 +682,14 @@ mod tests {
             protection: vec![("read".into(), "board".into(), "infinity".into())],
             members: vec![(9, 4, "Project:Minutes".into())],
         };
-        let reader = set_html(&m, &set, None);
+        let groups = vec!["board".to_string(), "sysop".to_string()];
+        let reader = set_html(&m, &set, &groups, None);
         assert!(reader.contains("Board docs"));
         assert!(reader.contains("/wiki/Project:Minutes"));
         assert!(!reader.contains("<form"));
-        let manager = set_html(&m, &set, Some("t"));
+        let manager = set_html(&m, &set, &groups, Some("t"));
+        assert!(manager.contains("name=\"do\" value=\"change\""));
+        assert!(manager.contains("<option value=\"board\" selected>"));
         assert!(manager.contains("name=\"do\" value=\"remove-member\""));
         assert!(manager.contains("name=\"page\" value=\"9\""));
         assert!(manager.contains("name=\"do\" value=\"retire\""));

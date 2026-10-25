@@ -40,7 +40,7 @@ fn siteinfo() -> Value {
     json!({"query": {
         "general": {"sitename": "librarybase", "server": "https://librarybase.org", "lang": "en", "mainpage": "Project:Home"},
         "triplespace": {"api_version": 1, "tenant": "librarybase",
-            "capabilities": ["wbgetentities", "clientlogin", "pages", "parse", "edit", "history", "protect", "userrights", "block", "settings"]},
+            "capabilities": ["wbgetentities", "clientlogin", "pages", "parse", "edit", "history", "recentchanges", "activity", "protect", "userrights", "block", "delete", "settings"]},
         "usergroups": [
             {"name": "*", "rights": ["read"], "implicit": ""},
             {"name": "user", "rights": ["read", "edit"], "implicit": ""},
@@ -55,11 +55,11 @@ fn siteinfo() -> Value {
 fn userinfo(s: Option<&str>) -> Value {
     match s {
         Some("alice") => json!({"query": {"userinfo": {"id": 7, "name": "Alice",
-            "rights": ["read", "edit", "protect", "userrights", "block", "hideuser", "ts-config"],
+            "rights": ["read", "edit", "protect", "delete", "undelete", "userrights", "block", "hideuser", "ts-config"],
             "groups": ["*", "user", "owner", "board"],
             "changeablegroups": {"add": ["sysop", "board", "suppress"], "remove": ["sysop", "board", "suppress"], "add-self": ["sysop", "board", "suppress"], "remove-self": ["board"]}}}}),
         Some("bob") => json!({"query": {"userinfo": {"id": 8, "name": "Bob",
-            "rights": ["read", "edit", "protect", "block"], "groups": ["*", "user", "sysop"],
+            "rights": ["read", "edit", "protect", "delete", "block"], "groups": ["*", "user", "sysop"],
             "changeablegroups": {"add": [], "remove": [], "add-self": [], "remove-self": []}}}}),
         _ => json!({"query": {"userinfo": {"id": 0, "name": "127.0.0.1", "anon": true}}}),
     }
@@ -109,10 +109,74 @@ impl FakeApi {
                     "protection": protection, "restrictiontypes": ["edit", "move", "read", "create"]}]}}),
             );
         }
+        if q.contains("list=logevents") {
+            // Project:Gone was deleted by Alice; Project:Open was not.
+            if q.contains("Project%3AGone") || q.contains("Project:Gone") {
+                return (
+                    StatusCode::OK,
+                    json!({"query": {"logevents": [{"logid": 9, "action": "delete", "type": "delete", "user": "Alice",
+                        "timestamp": "2026-10-24T20:00:00Z", "comment": "/* delete/delete */ spam", "ns": 4, "pageid": 8,
+                        "title": "Project:Gone", "params": {"talk": false}}]}}),
+                );
+            }
+            return (StatusCode::OK, json!({"query": {"logevents": []}}));
+        }
+        if q.contains("prop=deletedrevisions") {
+            return if s.as_deref() == Some("alice") {
+                (
+                    StatusCode::OK,
+                    json!({"query": {"pages": [{"pageid": 8, "ns": 4, "title": "Project:Gone", "deletedrevisions": [
+                        {"revid": 77, "user": "Alice", "timestamp": "2026-10-24T19:00:00Z", "comment": "", "slots": {"main": {"content": "the old text"}}}]}]}}),
+                )
+            } else {
+                (
+                    StatusCode::OK,
+                    json!({"error": {"code": "permissiondenied", "info": "no"}}),
+                )
+            };
+        }
+        if q.contains("list=blocks") {
+            let row = if s.as_deref() == Some("alice") {
+                json!({"id": 11, "user": "Mallory", "userid": 9, "ts-hidden": true, "by": "Alice", "timestamp": "2026-10-24T20:00:00Z", "expiry": "infinite", "reason": "spam", "ts-removes": ["edit", "createpage"]})
+            } else {
+                json!({"id": 11, "userhidden": true, "userid": 9, "by": "Alice", "timestamp": "2026-10-24T20:00:00Z", "expiry": "infinite", "reason": "spam", "ts-removes": "all-but-read"})
+            };
+            return (StatusCode::OK, json!({"query": {"blocks": [row]}}));
+        }
+        if q.contains("/activity") {
+            let row = json!({"kind": "log", "time": "2026-10-24T20:00:00Z", "source": "log",
+                "record": {"partition": 1, "offset": 4}, "logid": 9,
+                "target": {"kind": "page", "id": "8", "ns": 4, "title": "Project:Gone"},
+                "actor": {"name": "Alice", "key": "x:7", "kind": "registered"},
+                "summary": {"op": "delete/delete", "text": "spam"}, "comment": "spam", "tags": [],
+                "flags": {"bot": false, "minor": false, "new": false}, "patrolled": true,
+                "log": {"type": "delete", "action": "delete"}});
+            let rows = if q.contains("log_type=rights") {
+                json!([])
+            } else {
+                json!([row])
+            };
+            return (StatusCode::OK, json!({"rows": rows}));
+        }
         if q.contains("prop=info") {
             return (
                 StatusCode::OK,
                 json!({"query": {"pages": [{"pageid": 5, "ns": 4, "title": "Project:Open", "contentmodel": "wikitext"}]}}),
+            );
+        }
+        if q.contains("action=parse")
+            && [
+                "Project%3AGone",
+                "Project:Gone",
+                "Project%3ANever",
+                "Project:Never",
+            ]
+            .iter()
+            .any(|t| q.contains(t))
+        {
+            return (
+                StatusCode::OK,
+                json!({"error": {"code": "missingtitle", "info": "no"}}),
             );
         }
         if q.contains("action=parse") {
@@ -191,6 +255,12 @@ impl FakeApi {
         }
         if r.method == axum::http::Method::POST && q.ends_with("/w/api.php") {
             let f = form(&r.body);
+            if f.get("action").map(String::as_str) == Some("parse") {
+                return (
+                    StatusCode::OK,
+                    json!({"parse": {"title": "Project:Gone", "text": "<p>the old text</p>", "categories": [], "templates": []}}),
+                );
+            }
             self.writes.lock().unwrap().push((q.clone(), f.clone()));
             let action = f.get("action").cloned().unwrap_or_default();
             // Bob is outside board: a read restriction to it locks him out.
@@ -619,4 +689,123 @@ async fn the_visibility_section_sets_the_tenant_acl() {
     .await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert!(body.contains("Choose a group."), "{body}");
+}
+
+#[tokio::test]
+async fn a_deleted_page_shows_its_deletion_and_the_way_back() {
+    let api = FakeApi::default();
+    // Everyone sees the deletion; only the group reads the content and may undelete.
+    let (status, body) = get(&api, "/wiki/Project:Gone", None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert!(
+        body.contains("This page was deleted by Alice on 2026-10-24T20:00:00Z: spam"),
+        "{body}"
+    );
+    assert!(!body.contains("the old text"), "{body}");
+    assert!(!body.contains("class=\"ts-undelete\""), "{body}");
+    let (status, body) = get(&api, "/wiki/Project:Gone", Some("alice")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("the old text"), "{body}");
+    assert!(body.contains("action=undelete"), "{body}");
+    // A page with no deletion is the ordinary missing page.
+    let (status, body) = get(&api, "/wiki/Project:Never", None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert!(!body.contains("was deleted"), "{body}");
+    let (status, _, _) = post(
+        &api,
+        "/w/index.php?title=Project:Gone&action=undelete",
+        "alice",
+        &[("token", "csrf-alice+\\"), ("reason", "back")],
+    )
+    .await;
+    assert_eq!(status, StatusCode::SEE_OTHER);
+    let (_, f) = last_write(&api);
+    assert_eq!(f["action"], "undelete");
+    assert_eq!(f["title"], "Project:Gone");
+    assert_eq!(f["reason"], "back");
+}
+
+#[tokio::test]
+async fn the_delete_form_posts_with_the_talk_page() {
+    let api = FakeApi::default();
+    let (_, body) = get(&api, "/wiki/Project:Open", Some("alice")).await;
+    assert!(body.contains("action=delete"), "{body}");
+    let (_, body) = get(&api, "/wiki/Project:Open", Some("bob")).await;
+    assert!(
+        body.contains("action=delete"),
+        "a sysop holds delete: {body}"
+    );
+    let (status, body) = get(
+        &api,
+        "/w/index.php?title=Project:Open&action=delete",
+        Some("alice"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("Delete Project:Open"), "{body}");
+    assert!(body.contains("name=\"talk\" value=\"1\" checked"), "{body}");
+    let (status, headers, _) = post(
+        &api,
+        "/w/index.php?title=Project:Open&action=delete",
+        "alice",
+        &[("token", "csrf-alice+\\"), ("reason", "why"), ("talk", "1")],
+    )
+    .await;
+    assert_eq!(status, StatusCode::SEE_OTHER);
+    assert!(
+        headers[header::LOCATION]
+            .to_str()
+            .unwrap()
+            .ends_with("/wiki/Project:Open")
+    );
+    let (_, f) = last_write(&api);
+    assert_eq!(f["action"], "delete");
+    assert_eq!(f["deletetalk"], "1");
+    assert_eq!(f["reason"], "why");
+    let (status, body) = get(&api, "/w/index.php?title=Project:Open&action=delete", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("Log in to do this."), "{body}");
+}
+
+#[tokio::test]
+async fn blocklist_and_log_and_undelete_index() {
+    let api = FakeApi::default();
+    let (status, body) = get(&api, "/wiki/Special:BlockList", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("(username hidden)"), "{body}");
+    assert!(body.contains("everything but reading"), "{body}");
+    assert!(!body.contains("Special:Unblock"), "{body}");
+    let (_, body) = get(&api, "/wiki/Special:BlockList", Some("alice")).await;
+    assert!(body.contains("Mallory"), "{body}");
+    assert!(body.contains("(name hidden)"), "{body}");
+    assert!(body.contains("/wiki/Special:Unblock/Mallory"), "{body}");
+    let (status, body) = get(
+        &api,
+        "/w/index.php?title=Special:Log&type=delete&page=Project:Gone",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("<option value=\"delete\" selected"), "{body}");
+    assert!(body.contains("value=\"Project:Gone\""), "{body}");
+    assert!(body.contains("ts-change--log"), "{body}");
+    let (_, body) = get(&api, "/wiki/Special:Log/rights", None).await;
+    assert!(body.contains("<option value=\"rights\" selected"), "{body}");
+    assert!(body.contains("No changes match these filters."), "{body}");
+    let (_, body) = get(
+        &api,
+        "/w/index.php?title=Special:Log&page=Project:Never",
+        None,
+    )
+    .await;
+    assert!(body.contains("No changes match these filters."), "{body}");
+    let (status, body) = get(&api, "/wiki/Special:Undelete", Some("alice")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        body.contains("/wiki/Special:Undelete/Project:Gone"),
+        "{body}"
+    );
+    let (status, body) = get(&api, "/wiki/Special:Undelete/Project:Gone", Some("alice")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("the old text"), "{body}");
 }

@@ -43,7 +43,7 @@ use crate::entity::history;
 use crate::frame::{Page, Tab, title_url};
 use crate::html::{esc, link};
 use crate::i18n::Messages;
-use crate::pages::{self, Context, Params};
+use crate::pages::{self, Context, ModerationTabs, Params};
 use crate::{home, special};
 
 /// What the request asks of the title.
@@ -76,10 +76,9 @@ enum TabName {
     Read,
     Edit,
     History,
-    Protect,
 }
 
-fn tabs(m: &Messages, title: &str, exists: bool, current: TabName, protect: bool) -> Vec<Tab> {
+fn tabs(m: &Messages, title: &str, exists: bool, current: TabName) -> Vec<Tab> {
     let base = format!("/wiki/{}", title_url(title));
     let tab = |name: TabName, key: &str, href: String| Tab {
         label: m.get(key),
@@ -105,14 +104,25 @@ fn tabs(m: &Messages, title: &str, exists: bool, current: TabName, protect: bool
             format!("{base}?action=history"),
         ));
     }
-    // Protect joins for a holder of `protect` (09 §4.5), a free title included, which
-    // may be create-protected.
-    if protect {
-        v.push(tab(
-            TabName::Protect,
-            "ts-tab-protect",
-            format!("{base}?action=protect"),
-        ));
+    v
+}
+
+/// The overflow menu (19 §1.3): **Protect…** for a holder of `protect`, a free title
+/// included, which may be create-protected; **Delete…** for a holder of `delete`, on a page
+/// that exists.
+fn actions(
+    m: &Messages,
+    title: &str,
+    exists: bool,
+    offered: ModerationTabs,
+) -> Vec<(String, String)> {
+    let base = format!("/wiki/{}", title_url(title));
+    let mut v = Vec::new();
+    if offered.protect {
+        v.push((m.get("ts-action-protect"), format!("{base}?action=protect")));
+    }
+    if offered.delete && exists {
+        v.push((m.get("ts-action-delete"), format!("{base}?action=delete")));
     }
     v
 }
@@ -201,7 +211,18 @@ async fn read(
         Ok(p) => p,
         Err(ClientError::Api { code, .. }) => {
             return match code.as_str() {
-                "missingtitle" => missing(&cx, headers, title, render),
+                "missingtitle" => {
+                    // A deleted page shows its deletion (19 §6.3) before it is a 404.
+                    if !render
+                        && let Some(r) = crate::moderation::deleted(
+                            site, &mut cx, headers, incoming, &title, None,
+                        )
+                        .await
+                    {
+                        return r;
+                    }
+                    missing(&cx, headers, title, render)
+                }
                 "nosuchrevid" | "nosuchpageid" | "permissiondenied" if oldid.is_some() => {
                     no_revision(&cx, headers, title, oldid.unwrap_or(0))
                 }
@@ -223,8 +244,16 @@ async fn read(
     pages::respond(&cx, headers, StatusCode::OK, |m| Page {
         title: parsed.title.clone(),
         returnto: Some(parsed.title.clone()),
+        identity_html: parsed.visibility.as_ref().map(|v| {
+            format!(
+                "<span>{}</span>{}",
+                esc(&m.get("ts-kind-page")),
+                crate::frame::restricted_pill(m, &v.groups, &v.sets)
+            )
+        }),
         subtitle_html: subtitle(m, &parsed, oldid),
-        tabs: tabs(m, &parsed.title, true, TabName::Read, cx.may_protect()),
+        tabs: tabs(m, &parsed.title, true, TabName::Read),
+        actions: actions(m, &parsed.title, true, cx.moderation_tabs()),
         body: format!(
             "<div class=\"ts-document\">{}</div>",
             content_html(m, &parsed)
@@ -263,7 +292,8 @@ fn missing(cx: &Context, headers: &HeaderMap, title: String, render: bool) -> Re
         }
         Page {
             returnto: Some(title.clone()),
-            tabs: tabs(m, &title, false, TabName::Read, cx.may_protect()),
+            tabs: tabs(m, &title, false, TabName::Read),
+            actions: actions(m, &title, false, cx.moderation_tabs()),
             title,
             body,
             ..Page::default()
@@ -473,7 +503,8 @@ fn edit_page(
             ),
             doc_title: None,
             returnto: Some(d.title.clone()),
-            tabs: tabs(m, &d.title, d.exists, TabName::Edit, cx.may_protect()),
+            tabs: tabs(m, &d.title, d.exists, TabName::Edit),
+            actions: actions(m, &d.title, d.exists, cx.moderation_tabs()),
             body,
             ..Page::default()
         }
@@ -604,7 +635,8 @@ fn unsupported(cx: &Context, headers: &HeaderMap, s: &Source) -> Response {
     pages::respond(cx, headers, StatusCode::OK, |m| Page {
         title: s.title.clone(),
         returnto: Some(s.title.clone()),
-        tabs: tabs(m, &s.title, true, TabName::Edit, cx.may_protect()),
+        tabs: tabs(m, &s.title, true, TabName::Edit),
+        actions: actions(m, &s.title, true, cx.moderation_tabs()),
         body: pages::message(
             MessageKind::Notice,
             &m.with("ts-pageedit-unsupported", &[&s.model]),
@@ -747,7 +779,8 @@ async fn page_history(
     pages::respond(&cx, headers, StatusCode::OK, |m| Page {
         title: info.title.clone(),
         returnto: Some(info.title.clone()),
-        tabs: tabs(m, &info.title, true, TabName::History, cx.may_protect()),
+        tabs: tabs(m, &info.title, true, TabName::History),
+        actions: actions(m, &info.title, true, cx.moderation_tabs()),
         body: history::body(m, &cx.site, &info.title, &ask, None, &rows.value),
         ..Page::default()
     })
@@ -981,7 +1014,8 @@ async fn page_diff(
         Page {
             doc_title: Some(m.with("ts-pagediff-title", &[&page_title])),
             returnto: Some(page_title.clone()),
-            tabs: tabs(m, &page_title, true, TabName::History, cx.may_protect()),
+            tabs: tabs(m, &page_title, true, TabName::History),
+            actions: actions(m, &page_title, true, cx.moderation_tabs()),
             title: page_title.clone(),
             body,
             ..Page::default()
@@ -1130,13 +1164,27 @@ mod tests {
     #[test]
     fn tabs_of_a_page_and_a_missing_one() {
         let m = Messages::for_language("en");
-        let t = tabs(&m, "Project:Home", true, TabName::History, true);
-        assert_eq!(t.len(), 4);
-        assert_eq!(t[3].href, "/wiki/Project:Home?action=protect");
+        let t = tabs(&m, "Project:Home", true, TabName::History);
+        assert_eq!(t.len(), 3);
+        let a = actions(
+            &m,
+            "Project:Home",
+            true,
+            ModerationTabs {
+                protect: true,
+                delete: true,
+            },
+        );
+        assert_eq!(a[0].1, "/wiki/Project:Home?action=protect");
+        assert_eq!(a[1].1, "/wiki/Project:Home?action=delete");
+        assert_eq!(
+            actions(&m, "Project:Home", true, ModerationTabs::default()).len(),
+            0
+        );
         assert_eq!(t[1].href, "/wiki/Project:Home?action=edit");
         assert_eq!(t[1].label, m.get("ts-tab-edit"));
         assert!(t[2].current);
-        let t = tabs(&m, "Project:New one", false, TabName::Read, false);
+        let t = tabs(&m, "Project:New one", false, TabName::Read);
         assert_eq!(t.len(), 2);
         assert_eq!(t[1].label, m.get("ts-tab-create"));
         assert_eq!(t[1].href, "/wiki/Project:New_one?action=edit");

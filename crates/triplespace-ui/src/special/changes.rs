@@ -64,7 +64,22 @@ const DEFAULT_LIMIT: u32 = 50;
 enum Which {
     RecentChanges,
     Contributions,
+    /// `Special:Log` (19 §6.3): the log rows, by type, actor and page.
+    Log,
 }
+
+/// The log types `Special:Log` offers, each a message key; any other type typed into
+/// the address is passed through.
+const LOG_TYPES: [(&str, &str); 8] = [
+    ("delete", "ts-log-type-delete"),
+    ("suppress", "ts-log-type-suppress"),
+    ("protect", "ts-log-type-protect"),
+    ("rights", "ts-log-type-rights"),
+    ("block", "ts-log-type-block"),
+    ("create", "ts-log-type-create"),
+    ("thread", "ts-log-type-thread"),
+    ("reclaim", "ts-log-type-reclaim"),
+];
 
 /// What the query asks for.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -75,6 +90,10 @@ struct Ask {
     kinds: Vec<String>,
     hide_bots: bool,
     namespace: Option<String>,
+    /// The log type, for the log.
+    log_type: Option<String>,
+    /// A page's title, for the log.
+    page: Option<String>,
     days: u32,
     limit: u32,
     cursor: Option<String>,
@@ -103,18 +122,49 @@ impl Ask {
                 .filter(|n| choices.contains(n))
                 .unwrap_or(default)
         };
+        let clean = |u: &str| u.replace('_', " ").trim().to_string();
+        // `Special:Log/delete` names a type, `Special:Log/Alice` a user, as MediaWiki's.
+        let sub_is_type =
+            which == Which::Log && subpage.is_some_and(|t| LOG_TYPES.iter().any(|(k, _)| *k == t));
         let user = match which {
             Which::Contributions => subpage
                 .map(str::to_string)
                 .or_else(|| q.get("target").cloned())
-                .map(|u| u.replace('_', " ").trim().to_string())
+                .map(|u| clean(&u))
+                .filter(|u| !u.is_empty()),
+            Which::Log => subpage
+                .filter(|_| !sub_is_type)
+                .map(str::to_string)
+                .or_else(|| q.get("user").cloned())
+                .map(|u| clean(&u))
                 .filter(|u| !u.is_empty()),
             Which::RecentChanges => None,
+        };
+        let log_type = match which {
+            Which::Log => subpage
+                .filter(|_| sub_is_type)
+                .map(str::to_string)
+                .or_else(|| q.get("type").cloned())
+                .map(|t| t.trim().to_string())
+                .filter(|t| {
+                    !t.is_empty() && t.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+                }),
+            _ => None,
+        };
+        let page = match which {
+            Which::Log => q.get("page").map(|p| clean(p)).filter(|p| !p.is_empty()),
+            _ => None,
         };
         Self {
             which,
             user,
-            kinds,
+            kinds: if which == Which::Log {
+                vec!["log".into()]
+            } else {
+                kinds
+            },
+            log_type,
+            page,
             hide_bots: q.get("hidebots").is_some_and(|v| v != "0"),
             namespace: q
                 .get("namespace")
@@ -126,8 +176,8 @@ impl Ask {
         }
     }
 
-    /// The feed to fetch, from `now`.
-    fn query(&self, now: u64, lang: &str) -> ActivityQuery {
+    /// The feed to fetch, from `now`; `target` is the log's page, resolved.
+    fn query(&self, now: u64, lang: &str, target: Option<String>) -> ActivityQuery {
         let since = now.saturating_sub(u64::from(self.days) * 86_400 * 1_000_000);
         // An erased record was an edit: its gap row goes with the edits (19 §3.4).
         let mut kinds = self.kinds.clone();
@@ -135,7 +185,9 @@ impl Ask {
             kinds.push("erased".into());
         }
         ActivityQuery {
+            target,
             actor: self.user.clone(),
+            log_type: self.log_type.clone(),
             kinds,
             namespaces: self.namespace.iter().cloned().collect(),
             show: if self.hide_bots {
@@ -155,6 +207,7 @@ impl Ask {
     fn href(&self, cursor: Option<&str>) -> String {
         let mut s = match (self.which, &self.user) {
             (Which::RecentChanges, _) => "/w/index.php?title=Special:RecentChanges".to_string(),
+            (Which::Log, _) => "/w/index.php?title=Special:Log".to_string(),
             (Which::Contributions, Some(u)) => format!(
                 "/w/index.php?title=Special:Contributions/{}",
                 utf8_percent_encode(&u.replace(' ', "_"), NON_ALPHANUMERIC)
@@ -170,6 +223,17 @@ impl Ask {
         }
         if let Some(n) = &self.namespace {
             let _ = write!(s, "&namespace={n}");
+        }
+        if self.which == Which::Log {
+            if let Some(t) = &self.log_type {
+                let _ = write!(s, "&type={}", utf8_percent_encode(t, NON_ALPHANUMERIC));
+            }
+            if let Some(u) = &self.user {
+                let _ = write!(s, "&user={}", utf8_percent_encode(u, NON_ALPHANUMERIC));
+            }
+            if let Some(p) = &self.page {
+                let _ = write!(s, "&page={}", utf8_percent_encode(p, NON_ALPHANUMERIC));
+            }
         }
         let _ = write!(s, "&days={}&limit={}", self.days, self.limit);
         if let Some(c) = cursor {
@@ -481,6 +545,7 @@ pub(crate) fn list_html(m: &Messages, site: &SiteInfo, rows: &[ActivityRow]) -> 
 fn form_html(m: &Messages, ask: &Ask) -> String {
     let title = match (ask.which, &ask.user) {
         (Which::RecentChanges, _) => "Special:RecentChanges".to_string(),
+        (Which::Log, _) => "Special:Log".to_string(),
         (Which::Contributions, Some(u)) => format!("Special:Contributions/{u}"),
         (Which::Contributions, None) => "Special:Contributions".to_string(),
     };
@@ -496,6 +561,95 @@ fn form_html(m: &Messages, ask: &Ask) -> String {
             esc(&m.get("ts-contributions-user")),
             esc(ask.user.as_deref().unwrap_or(""))
         );
+    }
+    if ask.which == Which::Log {
+        let _ = write!(
+            s,
+            "<label class=\"ts-changes-form__field\"><span>{}</span> <select class=\"cdx-select\" name=\"type\"><option value=\"\"{}>{}</option>",
+            esc(&m.get("ts-log-type")),
+            if ask.log_type.is_none() {
+                " selected"
+            } else {
+                ""
+            },
+            esc(&m.get("ts-log-type-all")),
+        );
+        for (kind, msg) in LOG_TYPES {
+            let _ = write!(
+                s,
+                "<option value=\"{kind}\"{}>{}</option>",
+                if ask.log_type.as_deref() == Some(kind) {
+                    " selected"
+                } else {
+                    ""
+                },
+                esc(&m.get(msg))
+            );
+        }
+        let _ = write!(
+            s,
+            "</select></label><label class=\"ts-changes-form__field\"><span>{}</span> <input class=\"cdx-text-input__input\" type=\"text\" name=\"user\" value=\"{}\"></label><label class=\"ts-changes-form__field\"><span>{}</span> <input class=\"cdx-text-input__input\" type=\"text\" name=\"page\" value=\"{}\"></label>",
+            esc(&m.get("ts-log-user")),
+            esc(ask.user.as_deref().unwrap_or("")),
+            esc(&m.get("ts-log-page")),
+            esc(ask.page.as_deref().unwrap_or("")),
+        );
+    }
+    let select = |s: &mut String,
+                  name: &str,
+                  label: &str,
+                  options: &[(String, String)],
+                  current: &str| {
+        let _ = write!(
+            s,
+            "<label class=\"ts-changes-form__field\"><span>{}</span> <select class=\"cdx-select\" name=\"{name}\">",
+            esc(label)
+        );
+        for (value, text) in options {
+            let _ = write!(
+                s,
+                "<option value=\"{}\"{}>{}</option>",
+                esc(value),
+                if value == current { " selected" } else { "" },
+                esc(text)
+            );
+        }
+        s.push_str("</select></label>");
+    };
+    if ask.which == Which::Log {
+        let days: Vec<(String, String)> = DAYS
+            .iter()
+            .map(|d| {
+                (
+                    d.to_string(),
+                    m.with("ts-changes-days-n", &[&d.to_string()]),
+                )
+            })
+            .collect();
+        select(
+            &mut s,
+            "days",
+            &m.get("ts-changes-days"),
+            &days,
+            &ask.days.to_string(),
+        );
+        let limits: Vec<(String, String)> = LIMITS
+            .iter()
+            .map(|l| (l.to_string(), l.to_string()))
+            .collect();
+        select(
+            &mut s,
+            "limit",
+            &m.get("ts-changes-limit"),
+            &limits,
+            &ask.limit.to_string(),
+        );
+        let _ = write!(
+            s,
+            " <button class=\"cdx-button cdx-button--action-progressive cdx-button--weight-primary\" type=\"submit\">{}</button></form>",
+            esc(&m.get("ts-changes-apply"))
+        );
+        return s;
     }
     s.push_str("<fieldset class=\"ts-changes-form__kinds\"><legend>");
     s.push_str(&esc(&m.get("ts-changes-kinds")));
@@ -518,27 +672,6 @@ fn form_html(m: &Messages, ask: &Ask) -> String {
         if ask.hide_bots { " checked" } else { "" },
         esc(&m.get("ts-changes-hide-bots"))
     );
-    let select = |s: &mut String,
-                  name: &str,
-                  label: &str,
-                  options: &[(String, String)],
-                  current: &str| {
-        let _ = write!(
-            s,
-            "<label class=\"ts-changes-form__field\"><span>{}</span> <select class=\"cdx-select\" name=\"{name}\">",
-            esc(label)
-        );
-        for (value, text) in options {
-            let _ = write!(
-                s,
-                "<option value=\"{}\"{}>{}</option>",
-                esc(value),
-                if value == current { " selected" } else { "" },
-                esc(text)
-            );
-        }
-        s.push_str("</select></label>");
-    };
     let mut namespaces = vec![(String::new(), m.get("ts-changes-namespace-all"))];
     namespaces.extend(
         NAMESPACES
@@ -622,9 +755,27 @@ async fn fetch(
     ask: &Ask,
 ) -> Result<ActivityPage, ClientError> {
     let lang = cx.m.lang().to_string();
+    // The log's page, as a target: an entity by its ID, a page by the ID `prop=info`
+    // gives it; a title with no page the viewer may see has no rows.
+    let target = match &ask.page {
+        None => None,
+        Some(p) => {
+            let t = site.client().log_target(incoming, p).await?;
+            cx.inputs.push(t.cache);
+            match t.value {
+                Some(t) => Some(t),
+                None => {
+                    return Ok(ActivityPage {
+                        rows: Vec::new(),
+                        next: None,
+                    });
+                }
+            }
+        }
+    };
     let f = site
         .client()
-        .activity(incoming, &ask.query(now_micros(), &lang))
+        .activity(incoming, &ask.query(now_micros(), &lang, target))
         .await?;
     cx.inputs.push(f.cache);
     Ok(f.value)
@@ -661,6 +812,7 @@ async fn serve_page(
     let title_key = match which {
         Which::RecentChanges => "Special:RecentChanges",
         Which::Contributions => "Special:Contributions",
+        Which::Log => "Special:Log",
     };
     if !cx.features.has(Feature::RecentChanges) {
         return pages::no_page(&cx, headers, title_key.into());
@@ -668,7 +820,7 @@ async fn serve_page(
     let ask = Ask::of(which, params, subpage);
     let mut page = None;
     let mut error = None;
-    if which == Which::RecentChanges || ask.user.is_some() {
+    if which != Which::Contributions || ask.user.is_some() {
         match fetch(site, &mut cx, &incoming, &ask).await {
             Ok(p) => page = Some(p),
             Err(ClientError::Api { code, info }) if code == "bad-parameter" => {
@@ -708,6 +860,7 @@ async fn serve_page(
     }
     let title = match (which, &ask.user) {
         (Which::RecentChanges, _) => m.get("ts-recentchanges-title"),
+        (Which::Log, _) => m.get("ts-log-title"),
         (Which::Contributions, Some(u)) => m.with("ts-contributions-title", &[u]),
         (Which::Contributions, None) => m.get("ts-contributions-title-none"),
     };
@@ -722,6 +875,22 @@ async fn serve_page(
         body,
         ..Page::default()
     })
+}
+
+/// `Special:Log`, `Special:Log/{type}`, `Special:Log/{user}`.
+pub async fn log(
+    site: &Site,
+    headers: &HeaderMap,
+    peer: Peer,
+    title: &str,
+    params: &Params,
+) -> Response {
+    let subpage = title
+        .strip_prefix("Special:")
+        .and_then(|t| t.split_once('/'))
+        .map(|(_, rest)| rest)
+        .filter(|s| !s.is_empty());
+    serve_page(site, headers, peer, Which::Log, subpage, params).await
 }
 
 /// `Special:RecentChanges`.
@@ -770,7 +939,7 @@ mod tests {
         assert_eq!(ask.days, DEFAULT_DAYS);
         assert_eq!(ask.limit, DEFAULT_LIMIT);
         assert!(!ask.hide_bots);
-        let q = ask.query(90 * 86_400 * 1_000_000, "en");
+        let q = ask.query(90 * 86_400 * 1_000_000, "en", None);
         assert_eq!(q.since.as_deref(), Some("1970-03-02T00:00:00Z"));
         assert_eq!(q.kinds, vec!["edit", "job", "log", "erased"]);
     }
