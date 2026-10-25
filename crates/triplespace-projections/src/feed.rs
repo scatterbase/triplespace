@@ -47,8 +47,10 @@ pub enum TargetSet {
     Actor(String),
     /// A page with the threads attached to it, home or listing, when it is a talk page or
     /// a board: its composite history (16 §6.1; 14 §3.7). A thread attached now brings
-    /// its whole history, and one that moved away or was detached takes its rows with it;
-    /// a deleted thread's rows are left out. For any other page, its own rows.
+    /// its whole history, and one that moved away or was detached takes its rows with it,
+    /// all but the event of its leaving: a `thread/detach` naming the page, or a
+    /// `move/move` whose `from_talk` is it (14 §1.3). A deleted thread's rows are left out.
+    /// For any other page, its own rows.
     Talk(u64),
 }
 
@@ -440,7 +442,9 @@ fn build(tenant: &str, feed: &Feed, viewer: &Viewer) -> Built {
                 "(a.target_id = $n OR a.target_id IN (
                    SELECT ta.thread_id::text FROM view.thread_attachment ta
                    JOIN view.page tp ON tp.tenant = ta.tenant AND tp.page_id = ta.thread_id
-                   WHERE ta.tenant = a.tenant AND ta.talk_page_id = $n::bigint AND NOT tp.deleted))",
+                   WHERE ta.tenant = a.tenant AND ta.talk_page_id = $n::bigint AND NOT tp.deleted)
+                   OR (a.log_type = 'thread' AND a.log_action = 'detach' AND a.params->>'talk' = $n)
+                   OR (a.log_type = 'move' AND a.params->>'from_talk' = $n))",
                 Box::new(id.to_string()),
             );
         }

@@ -247,6 +247,21 @@ impl ActivityQuery {
         )
     }
 
+    /// The path and query of `GET /page/{id}/history`: a page's history, composite for a
+    /// talk page or board (16 §6.1).
+    #[must_use]
+    pub fn page_history_path(&self, page_id: u64) -> String {
+        let q = Self {
+            target: None,
+            actor: None,
+            ..self.clone()
+        };
+        format!(
+            "/w/rest.php/triplespace/v0/page/{page_id}/history?{}",
+            q.query_string()
+        )
+    }
+
     /// The query string, without its `?`.
     fn query_string(&self) -> String {
         let mut q = String::new();
@@ -307,6 +322,31 @@ impl Client {
         query: &ActivityQuery,
     ) -> Result<Fetched<ActivityPage>, ClientError> {
         self.feed(incoming, &query.path()).await
+    }
+
+    /// `GET /page/{id}/history`: a page's rows, and for a talk page or board those of
+    /// every thread attached to it (16 §6.1); `None` for a page that does not exist or is
+    /// not the viewer's to see.
+    pub async fn page_history(
+        &self,
+        incoming: &Incoming,
+        page_id: u64,
+        query: &ActivityQuery,
+    ) -> Result<Fetched<Option<ActivityPage>>, ClientError> {
+        let r = self
+            .get(incoming, &query.page_history_path(page_id))
+            .await?;
+        if r.status == StatusCode::NOT_FOUND || r.status == StatusCode::GONE {
+            return Ok(Fetched {
+                value: None,
+                cache: CacheInfo::of(&r),
+            });
+        }
+        let page = page_of(&r)?;
+        Ok(Fetched {
+            value: Some(page.value),
+            cache: page.cache,
+        })
     }
 
     /// `GET /entity/{id}/history`; `None` when the entity does not exist (or is not the

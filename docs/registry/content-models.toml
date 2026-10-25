@@ -159,6 +159,7 @@ origin = "triplespace"
 status = "implemented"
 source = "composite"
 slot = "main"
+format = "text/x-wiki"            # a read-only wikitext rendering of its threads as of a revision (0019 A29)
 direct_editing = false
 defined_in = "0019 §2, 0041 §3"
 

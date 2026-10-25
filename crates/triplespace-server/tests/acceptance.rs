@@ -1159,13 +1159,34 @@ async fn what_the_site_reads(router: &Router, database: &str) {
     assert_eq!(theme["palette"], "parchment");
     assert_eq!(theme["typeset"], "default26");
     assert_eq!(theme["choice"], "any");
-    assert_eq!(theme["palettes"][0]["name"], "parchment");
+    // The catalogue's order is the registry's (`encyclopedia` first since its palette
+    // arrived); find each palette by name.
+    let palette = |name: &str| {
+        theme["palettes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["name"] == name)
+            .unwrap_or_else(|| panic!("{name} is offered"))
+            .clone()
+    };
     assert_eq!(
-        theme["palettes"][0]["light"]["color-progressive"],
+        palette("parchment")["light"]["color-progressive"],
         "#2B559E"
     );
-    assert_eq!(theme["palettes"][1]["extends"], "parchment");
-    assert_eq!(theme["typesets"][1]["accessibility"], true);
+    assert_eq!(palette("parchment-co")["extends"], "parchment");
+    assert!(palette("encyclopedia")["light"].is_object());
+    let typeset = |name: &str| {
+        theme["typesets"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|t| t["name"] == name)
+            .unwrap_or_else(|| panic!("{name} is offered"))
+            .clone()
+    };
+    assert_eq!(typeset("hyperlegible")["accessibility"], true);
+    assert_ne!(typeset("basic")["accessibility"], true);
     assert!(
         h["cache-control"]
             .to_str()

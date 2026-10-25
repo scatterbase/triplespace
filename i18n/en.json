@@ -1256,5 +1256,18 @@
 	"ts-thread-status-wontfix": "Won't fix",
 	"ts-thread-status-declined": "Declined",
 	"ts-thread-status-stale": "Stale",
-	"ts-thread-status-archived": "Archived"
+	"ts-thread-status-archived": "Archived",
+	"ts-changes-thread-create": "started the thread",
+	"ts-changes-thread-post": "replied",
+	"ts-changes-thread-edit": "edited a post",
+	"ts-changes-thread-rename": "renamed the thread to “$1”",
+	"ts-changes-thread-move": "moved the thread",
+	"ts-changes-thread-move-here": "moved the thread here",
+	"ts-changes-thread-move-away": "moved the thread to another page",
+	"ts-changes-thread-attach": "listed the thread on another page",
+	"ts-changes-thread-attach-here": "listed the thread here",
+	"ts-changes-thread-detach": "removed the thread from a page",
+	"ts-changes-thread-detach-here": "removed the thread from this page",
+	"ts-changes-thread-pin": "pinned the thread",
+	"ts-changes-thread-unpin": "unpinned the thread"
 }

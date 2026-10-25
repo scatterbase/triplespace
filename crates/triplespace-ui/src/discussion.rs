@@ -19,8 +19,10 @@
 //!   markup the wiki's posts use (`thread.markup`); a trailing signature is removed by the
 //!   API without comment (14 §1.6).
 //!
-//! Not yet: the Page data tab, a talk page's composite history (History lists the page's
-//! own rows), Pin here, List on… and Move, starting a thread on a user talk page, boards,
+//! - **History** (`?action=history`) is the talk page's composite history, or the thread's
+//!   own, each row saying what it did ("replied", "listed the thread here").
+//!
+//! Not yet: the Page data tab, Pin here, List on… and Move, starting a thread on a user talk page, boards,
 //! foreign threads, and a talk title in a namespace whose local name is not `… talk`.
 
 use std::fmt::Write as _;
@@ -442,6 +444,10 @@ fn login_line(cx: &Context, title: &str, key: &str) -> String {
 }
 
 fn talk_tabs(m: &Messages, talk: &str, subject: &str) -> Vec<Tab> {
+    talk_tabs_at(m, talk, subject, false)
+}
+
+fn talk_tabs_at(m: &Messages, talk: &str, subject: &str, history: bool) -> Vec<Tab> {
     let base = format!("/wiki/{}", title_url(talk));
     vec![
         Tab {
@@ -452,30 +458,84 @@ fn talk_tabs(m: &Messages, talk: &str, subject: &str) -> Vec<Tab> {
         Tab {
             label: m.get("ts-tab-discussion"),
             href: base.clone(),
-            current: true,
+            current: !history,
         },
         Tab {
             label: m.get("ts-tab-history"),
             href: format!("{base}?action=history"),
-            current: false,
+            current: history,
         },
     ]
 }
 
 fn thread_tabs(m: &Messages, title: &str) -> Vec<Tab> {
+    thread_tabs_at(m, title, false)
+}
+
+fn thread_tabs_at(m: &Messages, title: &str, history: bool) -> Vec<Tab> {
     let base = thread_href(title);
     vec![
         Tab {
             label: m.get("ts-tab-thread"),
             href: base.clone(),
-            current: true,
+            current: !history,
         },
         Tab {
             label: m.get("ts-tab-history"),
             href: format!("{base}?action=history"),
-            current: false,
+            current: history,
         },
     ]
+}
+
+/// The History tab of a talk page or thread (16 §6.1): `GET /page/{id}/history`, which for
+/// a talk page is composite (the rows of every thread attached to it, and the events of
+/// threads leaving it), drawn as every history is, each row saying what it did to which
+/// thread. A talk page no thread was ever attached to has no history yet.
+async fn history(
+    site: &Site,
+    mut cx: Context,
+    headers: &HeaderMap,
+    incoming: &Incoming,
+    info: Lookup<PageInfo>,
+    kind: Kind,
+    params: &Params,
+) -> Response {
+    let (prefixed, id) = match info {
+        Lookup::Found(p) => (p.title, Some(p.page_id)),
+        Lookup::Missing { title, .. } => (title, None),
+        Lookup::Invalid => return pages::no_page(&cx, headers, String::new()),
+    };
+    if kind == Kind::Thread && id.is_none() {
+        return pages::no_page(&cx, headers, prefixed);
+    }
+    let ask = crate::entity::history::Ask::of(&params.map);
+    let query = ask.query(cx.m.lang());
+    let page = match id {
+        Some(id) => match site.client().page_history(incoming, id, &query).await {
+            Ok(f) => {
+                cx.inputs.push(f.cache);
+                f.value.unwrap_or_default()
+            }
+            Err(e) => return pages::api_failed(&cx, headers, &e),
+        },
+        None => triplespace_client::ActivityPage::default(),
+    };
+    let subject = subject_of(&prefixed).unwrap_or_else(|| prefixed.clone());
+    pages::respond(&cx, headers, StatusCode::OK, |m| Page {
+        title: prefixed.clone(),
+        returnto: Some(prefixed.clone()),
+        tabs: match kind {
+            Kind::Talk => talk_tabs_at(m, &prefixed, &subject, true),
+            Kind::Thread => thread_tabs_at(
+                m,
+                prefixed.strip_prefix("Thread:").unwrap_or(&prefixed),
+                true,
+            ),
+        },
+        body: crate::entity::history::body_here(m, &cx.site, &prefixed, &ask, id, &page),
+        ..Page::default()
+    })
 }
 
 /// What a form keeps when the API refuses it.
@@ -499,7 +559,7 @@ pub async fn serve(
     params: &Params,
 ) -> Result<Response, Context> {
     let action = params.map.get("action").map(String::as_str);
-    if !matches!(action, None | Some("view" | "addtopic"))
+    if !matches!(action, None | Some("view" | "addtopic" | "history"))
         || params.map.contains_key("diff")
         || params.map.contains_key("oldid")
         || !may_be_discussion(title)
@@ -521,6 +581,12 @@ pub async fn serve(
         ..Kept::default()
     };
     let reply_to = params.map.get("replyto").and_then(|r| r.parse().ok());
+    if action == Some("history") {
+        return match kind_of(ns) {
+            Some(k) => Ok(history(site, cx, headers, incoming, info.value, k, params).await),
+            None => Err(cx),
+        };
+    }
     match kind_of(ns) {
         Some(Kind::Talk) => Ok(talk(
             site,

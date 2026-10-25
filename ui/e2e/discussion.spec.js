@@ -93,3 +93,22 @@ test( 'the talk page and the thread page pass axe', async ( { browser } ) => {
 	expect( await violations( page ) ).toEqual( [] );
 	await context.close();
 } );
+
+test( 'the talk page\'s history lists its threads\' rows without JavaScript, and passes axe', async ( { browser, page } ) => {
+	await page.goto( '/wiki/Item_talk:Q5' );
+	await page.getByRole( 'link', { name: 'History' } ).click();
+	await expect( page ).toHaveURL( /\/wiki\/Item_talk:Q5\?action=history$/ );
+	await expect( page.getByRole( 'link', { name: 'History' } ) ).toHaveAttribute( 'aria-current', 'page' );
+	const rows = page.locator( '.ts-change' );
+	await expect( rows.filter( { hasText: 'started the thread' } ) ).toHaveCount( 1 );
+	await expect( rows.filter( { hasText: 'replied' } ).first() ).toContainText( 'Is five a city?' );
+	// A row's time goes to the post it wrote.
+	const href = await rows.filter( { hasText: 'started the thread' } ).locator( 'a.ts-change__diff' ).getAttribute( 'href' );
+	expect( href ).toMatch( /^\/wiki\/Thread:.*#post-\d+$/ );
+
+	const context = await browser.newContext( { javaScriptEnabled: true } );
+	const p = await context.newPage();
+	await p.goto( '/wiki/Item_talk:Q5?action=history' );
+	expect( await violations( p ) ).toEqual( [] );
+	await context.close();
+} );

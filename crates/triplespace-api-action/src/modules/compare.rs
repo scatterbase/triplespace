@@ -18,6 +18,11 @@
 //! local graph's, as `prop=revisions` lists them; a mirror's syncs are not, and their
 //! structured diff is the REST route's (`GET /entity/{id}/changes/…`).
 //!
+//! **A talk page** is compared by its wikitext as of each side ([`crate::talk_text`]): the
+//! threads attached to it now, each as it stood. Its revisions are its threads'; a revision
+//! named alone is its thread's, and named with `{from,to}title` (or `id`) of the talk page,
+//! the talk page's (16 §6.1; 0019 A29).
+//!
 //! The revisions are rows of the activity feed, so a revision the viewer may not see is
 //! not found, and one whose content is hidden or erased is `missingcontent`. Supplied text
 //! (`fromtext`, `fromslots`) is not supported yet.
@@ -49,6 +54,8 @@ fn revisions_feed(ask: &PageAsk) -> Feed {
             kind: target_kind::ENTITY,
             id: id.as_str().to_string(),
         },
+        // A talk page's revisions are its threads' (16 §6.1).
+        None if crate::modules::revisions::is_talk(ask) => TargetSet::Talk(ask.page_id),
         None => TargetSet::Target {
             kind: target_kind::PAGE,
             id: ask.page_id.to_string(),
@@ -105,6 +112,7 @@ async fn entity(ctx: &Ctx, id: &EntityId) -> Result<PageAsk, ApiError> {
 }
 
 /// A side as its parameters name it, or `None` when it names none.
+#[allow(clippy::too_many_lines)]
 async fn side(ctx: &Ctx, site: &Site, prefix: &str) -> Result<Option<Rev>, ApiError> {
     let tenant = ctx.tenant.slug.as_str();
     let hidden = pages::hidden(ctx).await?;
@@ -114,6 +122,17 @@ async fn side(ctx: &Ctx, site: &Site, prefix: &str) -> Result<Option<Rev>, ApiEr
             "ts-compare-text",
             "Comparing supplied text is not supported yet; name two revisions.",
         ));
+    }
+    // A talk page shares its revisions with its threads: `{prefix}title` (or `id`) naming a
+    // talk page together with `{prefix}rev` compares the talk page as of that revision, where
+    // the revision alone names its thread (16 §6.1; 0019 A29).
+    if let (Some(r), Some(talk)) = (p("rev"), talk_side(ctx, site, prefix).await?) {
+        let name = format!("{prefix}rev");
+        let r: u64 = r.parse().map_err(|_| ApiError::bad_value(&name, r))?;
+        let row = feed_row(ctx, &talk, Some(r), None)
+            .await?
+            .ok_or_else(|| no_such_revid(r))?;
+        return Ok(Some(Rev { ask: talk, row }));
     }
     let (ask, revid) = if let Some(r) = p("rev") {
         let name = format!("{prefix}rev");
@@ -201,6 +220,30 @@ async fn side(ctx: &Ctx, site: &Site, prefix: &str) -> Result<Option<Rev>, ApiEr
     Ok(Some(Rev { ask, row }))
 }
 
+/// The talk page `{prefix}title` or `{prefix}id` names, if it names one.
+async fn talk_side(ctx: &Ctx, site: &Site, prefix: &str) -> Result<Option<PageAsk>, ApiError> {
+    let tenant = ctx.tenant.slug.as_str();
+    let hidden = pages::hidden(ctx).await?;
+    let page = if let Some(t) = ctx.params.get(&format!("{prefix}title")) {
+        match pages::resolve_title(site, t) {
+            Some(title) => {
+                pages::by_title(ctx.db(), tenant, &hidden, title.namespace, &title.text).await?
+            }
+            None => None,
+        }
+    } else if let Some(id) = ctx.params.get(&format!("{prefix}id")) {
+        match id.parse::<u64>() {
+            Ok(n) => pages::by_id(ctx.db(), tenant, &hidden, n).await?,
+            Err(_) => None,
+        }
+    } else {
+        None
+    };
+    Ok(page
+        .map(|p| pageset::document_ask(site, p))
+        .filter(crate::modules::revisions::is_talk))
+}
+
 /// A JSON value with every object's keys sorted.
 fn sorted(v: Value) -> Value {
     match v {
@@ -231,9 +274,6 @@ fn comparable_json(json: &str) -> String {
 /// The content after a revision, as compared, or `missingcontent`.
 async fn text_of(ctx: &Ctx, rev: &Rev) -> Result<String, ApiError> {
     let revid = rev.row.revid.unwrap_or(0);
-    if rev.ask.content_model() == "triplespace-talk" {
-        return Err(crate::modules::revisions::discussion_content());
-    }
     if rev.row.visibility & visibility::CONTENT != 0 {
         return Err(missing_content(revid));
     }

@@ -71,7 +71,7 @@ pub async fn render_post(
 }
 
 /// The names actors show: the user name, a surrogate's raw value, or the key (0007 §4).
-async fn names(
+pub(crate) async fn names(
     db: &Client,
     tenant: &str,
     keys: &[String],

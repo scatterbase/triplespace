@@ -1011,3 +1011,261 @@ async fn signatures_and_markup() {
         "html only when asked"
     );
 }
+
+/// Creates a document page and answers its ID.
+async fn new_page(c: &mut Client, token: &str, title: &str) -> u64 {
+    let e = c
+        .api_post(&format!(
+            "action=edit&title={title}&text=x&createonly=1&token={}",
+            enc(token)
+        ))
+        .await;
+    e["edit"]["pageid"].as_u64().expect("created")
+}
+
+/// A thread's current base.
+async fn thread_base(c: &mut Client, thread: u64) -> u64 {
+    c.rest("GET", &format!("/thread/{thread}"), None).await.body["base"]
+        .as_u64()
+        .unwrap()
+}
+
+/// A page's history as `(log action or "edit", revid)` pairs, newest first.
+async fn history(c: &mut Client, talk: u64) -> Vec<(String, u64)> {
+    let r = c
+        .rest("GET", &format!("/page/{talk}/history?limit=50"), None)
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    r.body["rows"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|row| {
+            (
+                row["log"]["action"]
+                    .as_str()
+                    .map_or_else(|| "edit".to_string(), str::to_string),
+                row["revid"].as_u64().unwrap_or(0),
+            )
+        })
+        .collect()
+}
+
+#[tokio::test]
+#[allow(clippy::too_many_lines, clippy::many_single_char_names)]
+async fn a_talk_pages_history_is_composite() {
+    // 16 §6.1; 14 §1.3, §3.7.
+    if admin_config().is_none() {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    }
+    let (mut c, token, scope) = signed_in("history").await;
+    let maps = new_page(&mut c, &token, "Project:Maps").await;
+    let atlas = new_page(&mut c, &token, "Project:Atlas").await;
+
+    let r = c
+        .rest(
+            "POST",
+            "/thread",
+            Some(json!({"subject": "Coverage", "target": {"kind": "page", "id": scope}, "text": "Maps too?", "token": token})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::CREATED, "{}", r.body);
+    let thread = r.body["thread"].as_u64().unwrap();
+    let opening = r.body["revid"].as_u64().unwrap();
+    let r = c
+        .rest(
+            "POST",
+            &format!("/thread/{thread}/post"),
+            Some(json!({"inReplyTo": opening, "text": "Yes.", "token": token})),
+        )
+        .await;
+    let reply = r.body["revid"].as_u64().unwrap();
+    let b = thread_base(&mut c, thread).await;
+    let r = c
+        .rest(
+            "POST",
+            &format!("/thread/{thread}/attach"),
+            Some(json!({"target": {"kind": "page", "id": maps}, "base": b, "token": token})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    let t = c.rest("GET", &format!("/thread/{thread}"), None).await.body;
+    let scope_talk = t["home"]["talk_page_id"].as_u64().unwrap();
+    let maps_talk = t["listings"][0]["talk_page_id"].as_u64().unwrap();
+
+    // Listed, the thread brings its whole history to the listing page.
+    let h = history(&mut c, maps_talk).await;
+    assert_eq!(
+        h.iter().map(|(a, _)| a.as_str()).collect::<Vec<_>>(),
+        ["attach", "edit", "create"],
+        "{h:?}"
+    );
+    assert_eq!(h[1].1, reply);
+    assert_eq!(
+        h,
+        history(&mut c, scope_talk).await,
+        "the home shows the same rows"
+    );
+
+    // Detached, it takes its rows away; the detach stays on the page it left.
+    let b = thread_base(&mut c, thread).await;
+    let r = c
+        .rest(
+            "POST",
+            &format!("/thread/{thread}/detach"),
+            Some(json!({"target": {"kind": "page", "id": maps}, "base": b, "token": token})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    let h = history(&mut c, maps_talk).await;
+    assert_eq!(
+        h.iter().map(|(a, _)| a.as_str()).collect::<Vec<_>>(),
+        ["detach"],
+        "{h:?}"
+    );
+    assert_eq!(history(&mut c, scope_talk).await.len(), 4);
+
+    // Moved, it takes its rows to its new home; the move stays on the old one too.
+    let b = thread_base(&mut c, thread).await;
+    let r = c
+        .rest(
+            "POST",
+            &format!("/thread/{thread}/move"),
+            Some(json!({"target": {"kind": "page", "id": atlas}, "base": b, "token": token})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    let atlas_talk =
+        c.rest("GET", &format!("/thread/{thread}"), None).await.body["home"]["talk_page_id"]
+            .as_u64()
+            .unwrap();
+    let old = history(&mut c, scope_talk).await;
+    assert_eq!(
+        old.iter().map(|(a, _)| a.as_str()).collect::<Vec<_>>(),
+        ["move"],
+        "{old:?}"
+    );
+    let new = history(&mut c, atlas_talk).await;
+    assert_eq!(
+        new.iter().map(|(a, _)| a.as_str()).collect::<Vec<_>>(),
+        ["move", "detach", "attach", "edit", "create"],
+        "{new:?}"
+    );
+    // A thread's own history is all its rows, wherever it lives.
+    assert_eq!(history(&mut c, thread).await, new);
+}
+
+#[tokio::test]
+#[allow(clippy::too_many_lines, clippy::many_single_char_names)]
+async fn a_talk_pages_revisions_and_diffs_are_wikitext() {
+    // 16 §6.1; 0019 A29.
+    if admin_config().is_none() {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    }
+    let (mut c, token, scope) = signed_in("talktext").await;
+    let r = c
+        .rest(
+            "POST",
+            "/thread",
+            Some(json!({"subject": "Coverage", "target": {"kind": "page", "id": scope}, "text": "Maps too?", "token": token})),
+        )
+        .await;
+    let first = r.body["thread"].as_u64().unwrap();
+    let opening = r.body["revid"].as_u64().unwrap();
+    let talk = c.rest("GET", &format!("/thread/{first}"), None).await.body["home"]["talk_page_id"]
+        .as_u64()
+        .unwrap();
+    let r = c
+        .rest(
+            "POST",
+            &format!("/thread/{first}/post"),
+            Some(json!({"inReplyTo": opening, "text": "Yes, and atlases.", "token": token})),
+        )
+        .await;
+    let reply = r.body["revid"].as_u64().unwrap();
+    let r = c
+        .rest(
+            "POST",
+            "/thread",
+            Some(json!({"subject": "Scope of dates", "target": {"kind": "page", "id": scope}, "text": "Before 1900?", "token": token})),
+        )
+        .await;
+    let second = r.body["revid"].as_u64().unwrap();
+
+    // The talk page's revisions are its threads', newest first, with parents and content.
+    let v = c
+        .api(&format!(
+            "action=query&prop=revisions&pageids={talk}&rvprop=ids|content&rvslots=main&rvlimit=10"
+        ))
+        .await;
+    let page = &v["query"]["pages"][0];
+    let revs = page["revisions"].as_array().expect("revisions");
+    let ids: Vec<u64> = revs.iter().map(|r| r["revid"].as_u64().unwrap()).collect();
+    assert_eq!(ids, [second, reply, opening], "{v}");
+    assert_eq!(revs[0]["parentid"], reply);
+    assert_eq!(revs[2]["parentid"], 0);
+    let content = |r: &Value| r["slots"]["main"]["content"].as_str().unwrap().to_string();
+    assert_eq!(revs[0]["slots"]["main"]["contentmodel"], "triplespace-talk");
+    assert_eq!(revs[0]["slots"]["main"]["contentformat"], "text/x-wiki");
+    let latest = content(&revs[0]);
+    assert!(
+        latest.starts_with(
+            "== Coverage ==\nMaps too? [[User:Alice|Alice]] ([[User talk:Alice|talk]]) "
+        ),
+        "{latest}"
+    );
+    assert!(
+        latest.contains("\n:Yes, and atlases. [[User:Alice|Alice]]"),
+        "{latest}"
+    );
+    assert!(
+        latest.contains("\n\n== Scope of dates ==\nBefore 1900? "),
+        "{latest}"
+    );
+    let oldest = content(&revs[2]);
+    assert!(
+        !oldest.contains("atlases") && !oldest.contains("Scope of dates"),
+        "{oldest}"
+    );
+
+    // A diff between two of the talk page's revisions: the reply, as added lines.
+    let d = c
+        .api(&format!(
+            "action=compare&fromid={talk}&fromrev={opening}&toid={talk}&torev={reply}&prop=diff|ids"
+        ))
+        .await;
+    let diff = d["compare"]["body"].as_str().unwrap_or_default();
+    assert!(diff.contains("Yes, and atlases."), "{d}");
+    assert!(!diff.contains("Scope of dates"), "{d}");
+    assert_eq!(d["compare"]["torevid"], reply);
+    // From the talk page's latest revision to the one before it.
+    let d = c
+        .api(&format!(
+            "action=compare&fromid={talk}&torelative=prev&prop=diff|ids"
+        ))
+        .await;
+    assert_eq!(d["compare"]["fromrevid"], reply, "{d}");
+    assert_eq!(d["compare"]["torevid"], second, "{d}");
+    assert!(
+        d["compare"]["body"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("Scope of dates"),
+        "{d}"
+    );
+    // A revision named alone is its thread's, compared as the thread's JSON.
+    let d = c
+        .api(&format!(
+            "action=compare&fromrev={opening}&torev={reply}&prop=diff|title"
+        ))
+        .await;
+    assert!(
+        d["compare"]["totitle"]
+            .as_str()
+            .unwrap_or_default()
+            .starts_with("Thread:"),
+        "{d}"
+    );
+}

@@ -1256,5 +1256,18 @@
 	"ts-thread-status-wontfix": "Label of the thread status `wontfix` (docs/registry/thread-statuses.toml).",
 	"ts-thread-status-declined": "Label of the thread status `declined` (docs/registry/thread-statuses.toml).",
 	"ts-thread-status-stale": "Label of the thread status `stale` (docs/registry/thread-statuses.toml).",
-	"ts-thread-status-archived": "Label of the thread status `archived` (docs/registry/thread-statuses.toml)."
+	"ts-thread-status-archived": "Label of the thread status `archived` (docs/registry/thread-statuses.toml).",
+	"ts-changes-thread-create": "History row: the record that started a thread (16 §6.1).",
+	"ts-changes-thread-post": "History row: a post in a thread.",
+	"ts-changes-thread-edit": "History row: an edit of a post's text.",
+	"ts-changes-thread-rename": "History row: a thread's subject changed. $1: the new subject.",
+	"ts-changes-thread-move": "History row: a thread moved to another home, seen from neither page.",
+	"ts-changes-thread-move-here": "History row on a talk page: a thread moved to this page.",
+	"ts-changes-thread-move-away": "History row on a talk page: a thread moved away from this page; the thread's other rows went with it.",
+	"ts-changes-thread-attach": "History row: a thread listed on a further talk page or board.",
+	"ts-changes-thread-attach-here": "History row on a talk page: a thread listed on this page.",
+	"ts-changes-thread-detach": "History row: a thread's listing removed.",
+	"ts-changes-thread-detach-here": "History row on a talk page: the thread's listing here removed; the thread's other rows went with it.",
+	"ts-changes-thread-pin": "History row: a thread pinned on a page.",
+	"ts-changes-thread-unpin": "History row: a thread unpinned."
 }
