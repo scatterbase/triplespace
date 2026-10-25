@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-23 (A19)
+- **Updated:** 2026-10-25 (A20)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0011](0011-logs.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0028](0028-tenancy-policy.md)
@@ -24,7 +24,7 @@ Echo is the precedent. It has notification *types* (mention, edit-user-talk, rev
 
 ### 2. Addressing rules (amends 0020 §3)
 
-*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A17, A18, A19.*
+*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A17, A18, A19, A20.*
 
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.2.*
 
@@ -46,13 +46,13 @@ Echo is the precedent. It has notification *types* (mention, edit-user-talk, rev
 
 ### 6. UI (extends 0010 §2 and §11)
 
-*Changed by A16.*
+*Changed by A16, A20.*
 
 *Current text: [19](../architecture/19-site-ui.md) §1.2, §2.4, §6.2.*
 
 ### 7. API (extends 0012 §4 and §5)
 
-*Changed by A5.*
+*Changed by A5, A20.*
 
 *Current text: [18](../architecture/18-api.md) §2.3, §3.2.*
 
@@ -304,3 +304,24 @@ Replaced text ([16](../architecture/16-logs-feeds-and-notifications.md) §5.2, a
 Replaced text ([16](../architecture/16-logs-feeds-and-notifications.md) §5.2, as it stood):
 
 > | `group-join` | It is a member of a group that a confidential `read` restriction in force names, and another account joined the group, by a membership record, by joining a group that includes it (`auditor`, or `owner` with its default `includes`), or because a group came to include it; a self-grant under `userrights` included ([0021](0021-notifications.md) A18) ([09](../architecture/09-security-and-moderation.md) §4.5) | — |
+
+### A20. Thread notifications, the read check, and the bell
+
+- **Date:** 2026-10-25
+- **Source:** Direct: James, design discussion of 2026-10-25
+- **Change:** amends §2, §6; extends §7
+- **Summary:** The reasons `talk`, `reply`, `mention` and `thread-status` are built. James chose four things: `watch` waits for the watch set and its controls ("Defer with the watchlist"); what a reader may no longer see leaves the inbox both ways ("Read-time check + purge"): the addressing projection deletes the rows of a record a `record` ACL hides in any part and, on a `read` ACL on a thread, the rows of those who may no longer read it, and every inbox read leaves out an item about a thread the reader may not read now, whose talk page is hidden from them (a confidential page's or a hidden user's), or whose record is hidden or erased, its counts included; the site gets the bell, `Special:Notifications`, the orange bar and new topics on user talk pages; and an edit addresses only the mentions it adds while imported threads and posts address nobody. Settled in the building, for James to confirm: an account is addressed once per record, for the first of `talk`, `thread-status`, `reply`, `mention`; a mention is a link to a user page itself, not a subpage, a markdown post's `[[wiki links]]` and a wikitext post's links as written with templates unexpanded, at most 50 per post (Echo's `$wgEchoMaxMentionsCount`); `talk` is a new thread or post, not an edit; `thread-status` addresses the first post's author, on a move from an open category to a closed one; a reply to an imported post addresses nobody; a thread notification reaches a registered account or a bot's operator and no temporary account while Q3 is open; a subsidiary's action is its operator's own. `talk` is Echo's `message` section and every other reason `alert`; `meta=notifications` takes `notgroupbysection` and counts to 100 after the read check; `echomarkread` takes `sections`. The bell is a link to `Special:Notifications` with the unread count, marked while something unread is newer than `seen_at`; the panel waits for JavaScript; opening the inbox sets `seen_at`; reading one's own talk page marks its `talk` notifications read; the orange bar is not drawn on that page. Chapter text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.2; [19](../architecture/19-site-ui.md) §6.2; [18](../architecture/18-api.md) §2.3, §2.4.
+
+Replaced text ([16](../architecture/16-logs-feeds-and-notifications.md) §5.2, as it stood):
+
+> **Nobody is notified of their own action.** A subsidiary has no inbox of its own: its operator is notified of its jobs, of mentions of it, of its `rights` changes, and of `talk` messages on its user talk page, since that is who can answer them ([07](../architecture/07-actors-and-accounts.md) §4.6).
+
+> **Only local accounts have inboxes.** A mention of a foreign actor, such as a Wikidata editor's IRI, addresses nobody here.
+
+> **Hidden and erased content is not delivered**, and an already-delivered notification whose activity is later hidden or erased is removed from every inbox by the same purge that clears caches ([03](../architecture/03-storage-caches-and-search.md) §9.6).
+
+> and a delivered notification whose target becomes restricted is removed by the same purge ([09](../architecture/09-security-and-moderation.md) §5.3).
+
+Replaced text ([19](../architecture/19-site-ui.md) §6.2, as it stood):
+
+> **The bell** in the global header shows the unseen count and opens the inbox as a panel; opening it sets `seen_at`. Items link to their permalink, and each has mark-read.

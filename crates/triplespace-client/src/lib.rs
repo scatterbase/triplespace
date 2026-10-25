@@ -13,7 +13,7 @@
 //!   API's own router in process: the browser's request passed as it arrived, with its
 //!   connection address, so the API judges it exactly as if the browser had called it.
 //!
-//! [`api`], [`entity`], [`search`], [`account`], [`create`], [`version`], [`activity`], [`revisions`], [`pages`], [`settings`] and [`rights`] have the typed calls the site makes, each returning the value with the
+//! [`api`], [`entity`], [`search`], [`account`], [`create`], [`version`], [`activity`], [`revisions`], [`pages`], [`settings`], [`rights`] and [`notifications`] have the typed calls the site makes, each returning the value with the
 //! [`api::CacheInfo`] a page needs to compose its own caching (0057 §6).
 //!
 //! This crate reaches no store and depends on no API crate (0005 §3 rule 10).
@@ -27,6 +27,7 @@ pub mod create;
 pub mod entity;
 pub mod forward;
 pub mod issuers;
+pub mod notifications;
 pub mod pages;
 pub mod register;
 pub mod revisions;
@@ -45,6 +46,7 @@ pub use create::Created;
 pub use entity::{Entities, Provenance};
 pub use forward::Incoming;
 pub use issuers::{AccountInfo, LoginIssuer, Pending};
+pub use notifications::{Counts, Item as Notification, Listing as NotificationPage};
 pub use pages::{
     DiffAsk, DiffSide, EditForm, Lookup, PageCategory, PageDiff, PageInfo, Parsed, Saved, Source,
     Visibility,
@@ -59,7 +61,9 @@ pub use rights::{
 };
 pub use search::{Hit, Hits};
 pub use theme::ThemeInfo;
-pub use threads::{Attached, Listed, Listing, PostForm, PostView, ThreadView, Written};
+pub use threads::{
+    Attached, Listed, Listing, NewThreadOn, PostForm, PostView, ThreadView, Written,
+};
 pub use transport::{
     ApiRequest, ApiResponse, ClientError, HttpTransport, ServiceTransport, Transport,
 };

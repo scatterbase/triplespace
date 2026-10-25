@@ -795,6 +795,7 @@ The data model of threads, posts and boards is [14](14-discussions.md).
 - **Where a thread lives.** A thread's header shows its home first, marked as home, then its listings, as "Also on …" links. On a listing page, the summary in the listing says "Started on Item talk:Q42".
 - **Attaching.** The new-thread form has an "Also post to…" field that takes titles of talk pages and boards, up to the limit. A thread page has **List on…** and, beside each listing, **Remove from here**, for those who hold the rights ([0049](../decisions/0049-boards.md) §13). Moving a thread offers "Keep listed on the old page".
 - **The composer** is the same for a new thread and a reply: a text area with the markup the tenant's `thread.markup` names shown beneath it, linked to formatting help, and on a thread page a **Status** menu, since a status is set by posting ([14](14-discussions.md) §2.1). A signature an editor types at the end of a post is removed when it is saved, without comment ([14](14-discussions.md) §1.6; [0019](../decisions/0019-discussions.md) A28).
+- **A user talk page** takes a new topic as any talk page does, whether or not the user page exists; the thread's home is the user, named by the page's title ([0019](../decisions/0019-discussions.md) A30), and the user's notification is `talk` ([16](16-logs-feeds-and-notifications.md) §5.2).
 - **A board page** has the tabs Board, Definition (the source editor of §5.5, as for a table) and History. It shows the new-thread form when `homes` is true.
 - **A talk page that follows a repository's talk page** also lists that page's sections as foreign threads, by their first comment's time, each marked with its origin, with a filter by origin; its new-thread form offers to post here or upstream ([0069](../decisions/0069-synchronized-talk-pages.md) §3, §6; [13](13-mirrored-pages.md)).
 - **Subject pages** get the talk tab of §1.3, with the thread count.
@@ -803,13 +804,13 @@ The data model of threads, posts and boards is [14](14-discussions.md).
 
 ### 6.2 Notifications and watching
 
-*Sources: [0021](../decisions/0021-notifications.md) §6.*
+*Sources: [0021](../decisions/0021-notifications.md) §6, A20.*
 
-- **The bell** in the global header shows the unseen count and opens the inbox as a panel; opening it sets `seen_at`. Items link to their permalink, and each has mark-read.
+- **The bell** in the global header, for a signed-in reader, is a link to `Special:Notifications` with the unread count, to 99 and then `99+`, marked while something unread is newer than `seen_at`; opening the inbox sets `seen_at`, which clears the mark. A panel over the page needs JavaScript and waits for it; without it the bell is the link ([0021](../decisions/0021-notifications.md) A20). Items link to the post they are about (`#post-{revid}` on its thread) or to the user page, and each unread one has mark-read.
 - **`Special:Notifications`** is the inbox as a page, filterable by reason and read state, with mark-all-read.
 - **`Special:Account`** has the **Notifications** section of §2.4.
 - **Watch controls** gain a *notify me* toggle beside the star, which sets `notify` on the watch row; subscribing to a thread is watching it with `notify` ([16](16-logs-feeds-and-notifications.md)).
-- **The orange bar** is kept in spirit: an unread `talk` notification shows a persistent banner until read, as MediaWiki's "You have new messages" did, because a message on one's talk page is the one notification a wiki must not let pass.
+- **The orange bar** is kept in spirit: an unread `talk` notification shows a persistent banner until read, as MediaWiki's "You have new messages" did, because a message on one's talk page is the one notification a wiki must not let pass. It links to the reader's talk page and is not drawn there; reading one's own talk page marks its `talk` notifications read, as visiting it cleared MediaWiki's ([0021](../decisions/0021-notifications.md) A20).
 
 ### 6.3 Protection, deletion, hiding, patrolling and Nuke
 

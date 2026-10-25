@@ -23,7 +23,7 @@ use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use sha2::{Digest as _, Sha256};
-use triplespace_client::{CacheInfo, ClientError, Incoming, SiteInfo};
+use triplespace_client::{CacheInfo, ClientError, Counts, Incoming, SiteInfo};
 
 use crate::codex::{Message, MessageKind};
 use crate::features::Feature;
@@ -114,6 +114,9 @@ pub struct Context {
     /// A signed-in viewer's groups (`uiprop=groups`), for the lock-out note of the
     /// Protect form (09 §4.5).
     pub groups: Vec<String>,
+    /// A signed-in viewer's unread notifications, for the bell and the orange bar
+    /// (19 §6.2); `None` where the API serves none or did not answer.
+    pub notifications: Option<Counts>,
 }
 
 impl Context {
@@ -144,6 +147,10 @@ impl Context {
             features: &self.features,
             prefs: self.prefs.as_ref(),
             account_requests: self.account_requests,
+            notifications: self
+                .notifications
+                .as_ref()
+                .filter(|_| self.features.has(Feature::Notifications)),
         }
     }
 }
@@ -166,11 +173,17 @@ pub async fn context(
     query: &BTreeMap<String, String>,
 ) -> Result<Context, Response> {
     let client = site.client();
-    let (si, ui) = if incoming.credentialed() {
-        let (si, ui) = tokio::join!(client.siteinfo(incoming), client.userinfo(incoming));
-        (si, Some(ui))
+    // The bell's counts are asked for beside who the viewer is; an anonymous viewer's
+    // answer is a refusal, which is dropped.
+    let (si, ui, counts) = if incoming.credentialed() {
+        let (si, ui, counts) = tokio::join!(
+            client.siteinfo(incoming),
+            client.userinfo(incoming),
+            client.notification_counts(incoming)
+        );
+        (si, Some(ui), counts.ok())
     } else {
-        (client.siteinfo(incoming).await, None)
+        (client.siteinfo(incoming).await, None, None)
     };
     let si = si.map_err(|e| unavailable(incoming, &e, "ts-api-unavailable"))?;
     if si.value.api_version < MIN_API_VERSION {
@@ -205,6 +218,7 @@ pub async fn context(
         }
         None => None,
     };
+    let notifications = counts.filter(|_| user.is_some()).map(|c| c.value);
     // `uselang`, then a signed-in reader's own interface language (0085 §2.2), then the
     // site's.
     let lang = query
@@ -232,6 +246,7 @@ pub async fn context(
         account_requests,
         rights,
         groups,
+        notifications,
     })
 }
 
@@ -253,6 +268,7 @@ fn unavailable(incoming: &Incoming, error: &ClientError, key: &str) -> Response 
         features: &none,
         prefs: None,
         account_requests: None,
+        notifications: None,
     };
     let html = match frame::render(&m, &chrome, &Theme::shipped(), None, &page) {
         Ok(h) => h,

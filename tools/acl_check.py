@@ -12,6 +12,7 @@ Two halves, both run by default:
   hidden user's name, tokens, a private tenant, threads on a confidential page's talk page,
   talk pages and threads through every surface (listings, composite histories, rendering,
   departures, hidden posts, the site's pages and forms, a protected talk page),
+  notifications of mentions in a thread the account may not read or in a post since hidden,
   deletion fallout, a bot of a member, and the owner outside `suppress`.
 - **positive** — what legitimate actors should be able to do, but can't: the owner's setup,
   a group member's full rights on a confidential page, entity and set, delegated and scoped
@@ -498,11 +499,17 @@ def discussions(x):
     hidden = ["9931", "Board only"]
     # A post whose text and author are hidden afterwards.
     bt = x.bob.token()
-    st, r = x.bob.rest("POST", f"/thread/{pub}/post", {"text": "Draft 2468.", "token": bt})
+    st, r = x.bob.rest("POST", f"/thread/{pub}/post", {"text": "Draft 2468, [[User:Mallory]].", "token": bt})
     must("sysop replies in the public thread", (st, r))
+    hidden_reply = r.get("revid")
+    must("the reply's mention reaches Mallory",
+         x.mallory.api(action="query", meta="notifications", notprop="list"), f'"revid": {hidden_reply}')
     must("owner hides the reply's text and author",
          a.post(action="revisiondelete", type="revision", ids=str(r.get("revid")), hide="content|user",
                 token=a.token()), "Success")
+    must("board member mentions outsiders and the owner in the confidential thread",
+         c.rest("POST", f"/thread/{hid}/post",
+                {"text": "Ask [[User:Mallory]], [[User:Bob]] and [[User:Alice]]. Ballot 9931.", "token": c.token()}))
     posts_before = len(a.rest("GET", f"/thread/{hid}")[1].get("posts", []))
 
     for who in x.outsiders:
@@ -536,6 +543,17 @@ def discussions(x):
                 ("REST history", lambda c: c.rest("GET", f"/page/{open_talk}/history?limit=500")),
             ]:
                 absent(f"hidden post's text and author via {name} as {who.name}", probe(who), ["2468", "Bob"])
+        # Notifications (16 §5.2): a mention in a thread the account may not read addresses
+        # nobody, and a hidden post leaves the inbox it reached.
+        for name, probe in [
+            ("notifications", lambda c: c.api(action="query", meta="notifications", notprop="list|count",
+                                              notgroupbysection=1, notlimit=50)),
+            ("Special:Notifications", lambda c: c.raw("/wiki/Special:Notifications")),
+        ]:
+            absent(f"mention in the hidden thread via {name} as {who.name}", probe(who),
+                   hidden + [f"Thread:{hid_title}"])
+        absent(f"the hidden reply's mention as {who.name}",
+               who.api(action="query", meta="notifications", notprop="list"), [f'"revid": {hidden_reply}'])
         absent(f"site reply to the hidden thread as {who.name}",
                _site_form(who, f"Thread:{hid_title}", "reply", {"wpTextbox1": "Me too. ~~~~"}), ["9931"])
         tok = who.token() if who.name != "anon" else "+\\"
@@ -550,6 +568,8 @@ def discussions(x):
         ok("nothing was posted to the hidden thread through the site")
     else:
         finding("ALLOWED: a post reached the hidden thread through the site", f"{posts_before} → {after}")
+    must("the owner, in board, is notified of the mention",
+         a.api(action="query", meta="notifications", notprop="list", notlimit=50), "Board only")
     must("board member sees the listed thread", x.carol.rest("GET", f"/page/{open_talk}/threads"), "Board only")
     must("board member sees its rows in the composite history",
          x.carol.rest("GET", f"/page/{open_talk}/history?limit=500"), str(hid))
@@ -739,6 +759,13 @@ def hidden_names(x):
     """A hidden user's name reaches only `suppress`."""
     a, b, c, anon = x.alice, x.bob, x.carol, x.anon
     deny("sysop without hideuser hides a name", b.post(action="block", user="Mallory", hidename=1, token=b.token()))
+    # A topic on Mallory's own talk page that mentions Carol: once the name is hidden, the
+    # notification must not carry it, by agent or by talk page.
+    st, r = x.mallory.rest("POST", "/thread", {"target": {"kind": "actor", "name": "Mallory"}, "subject": "Note 6060",
+                                               "text": "See [[User:Carol]].", "token": x.mallory.token()})
+    must("Mallory mentions Carol on her own talk page", (st, r))
+    note, note_title = r.get("thread"), r.get("title")
+    must("Carol is notified", c.api(action="query", meta="notifications", notprop="list", notlimit=50), "Note 6060")
     must("owner joins suppress", a.userrights(user="Alice", add="suppress"))
     must("owner hides Mallory", a.post(action="block", user="Mallory", hidename=1, token=a.token()))
     # Routes whose request does not carry the name; a request echo is not a leak.
@@ -751,7 +778,11 @@ def hidden_names(x):
         ("REST activity", lambda c: c.rest("GET", "/activity?limit=500")),
         ("usergroups", lambda c: c.api(action="query", meta="siteinfo", siprop="usergroups")),
         ("allusers", lambda c: c.api(action="query", list="allusers", aulimit=500)),
-        ("notifications", lambda c: c.api(action="query", meta="notifications", notprop="list")),
+        ("notifications", lambda c: c.api(action="query", meta="notifications", notprop="list", notlimit=50)),
+        ("site notifications", lambda c: c.raw("/wiki/Special:Notifications")),
+        ("a thread on her talk page", lambda c: c.rest("GET", f"/thread/{note}")),
+        ("a thread on her talk page, rendered", lambda c: c.rest("GET", f"/thread/{note}?html=1")),
+        ("a thread on her talk page, on the site", lambda c: c.raw(f"/wiki/Thread:{note_title}")),
     ]:
         for who in (anon, c):
             absent(f"hidden name via {name} as {who.name}", probe(who), ["Mallory"])

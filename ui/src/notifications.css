@@ -1,0 +1,118 @@
+/*
+ * Notifications (ADR 0021 §6; chapter 19 §6.2): the bell in the header, the orange bar
+ * above a page's title, and Special:Notifications. Codex's tokens throughout, so every
+ * palette variant applies; the orange bar is Codex's warning message, kept in spirit.
+ */
+
+.ts-bell {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 32px;
+	min-height: 32px;
+	padding: 0 var( --spacing-25, 0.25rem );
+	border-radius: var( --border-radius-base, 2px );
+	color: var( --color-base, #202122 );
+}
+
+.ts-bell:hover {
+	background-color: var( --background-color-interactive-subtle--hover, #eaecf0 );
+	text-decoration: none;
+}
+
+.ts-bell__icon {
+	fill: currentcolor;
+}
+
+.ts-bell__count {
+	margin-inline-start: var( --spacing-12, 2px );
+	padding: 0 var( --spacing-25, 0.25rem );
+	border-radius: var( --border-radius-pill, 9999px );
+	background-color: var( --background-color-neutral, #eaecf0 );
+	color: var( --color-base, #202122 );
+	font-size: var( --font-size-x-small, 0.75rem );
+	font-weight: bold;
+	line-height: 1.5;
+}
+
+/* Something unread is newer than the viewer's last look. */
+.ts-bell--unseen .ts-bell__count {
+	background-color: var( --background-color-destructive, #d73333 );
+	color: var( --color-inverted-fixed, #fff );
+}
+
+.ts-orange-bar {
+	margin-block-end: var( --spacing-100, 1rem );
+}
+
+.ts-notifications {
+	max-width: 48rem;
+}
+
+.ts-notifications__bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var( --spacing-75, 0.75rem );
+	margin-block-end: var( --spacing-75, 0.75rem );
+}
+
+.ts-notifications__filters {
+	display: flex;
+	gap: var( --spacing-75, 0.75rem );
+}
+
+.ts-notifications__filter[ aria-current='page' ] {
+	color: var( --color-base, #202122 );
+	font-weight: bold;
+}
+
+.ts-notifications__list {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	border-block-start: 1px solid var( --border-color-subtle, #c8ccd1 );
+}
+
+.ts-notif {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0 var( --spacing-75, 0.75rem );
+	padding: var( --spacing-75, 0.75rem ) var( --spacing-50, 0.5rem );
+	border-block-end: 1px solid var( --border-color-subtle, #c8ccd1 );
+	border-inline-start: 3px solid transparent;
+}
+
+.ts-notif--unread {
+	border-inline-start-color: var( --border-color-progressive, #36c );
+	background-color: var( --background-color-progressive-subtle, #f1f4fd );
+}
+
+.ts-notif__text {
+	flex: 1 1 20rem;
+	margin: 0;
+}
+
+/* Links inside a sentence are told apart by more than colour. */
+.ts-notif__text a,
+.ts-notif__meta a {
+	text-decoration: underline;
+}
+
+.ts-notif__meta {
+	margin: 0;
+	color: var( --color-subtle, #54595d );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+.ts-notif__mark {
+	display: inline;
+	margin: 0;
+}
+
+.ts-notifications__more {
+	margin-block-start: var( --spacing-100, 1rem );
+}

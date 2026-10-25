@@ -3,7 +3,10 @@
 //! ([`triplespace_api_ingest::threads`]).
 //!
 //! - `POST /thread`: `create`. Body: `subject`, `target` (`{kind: "page"|"actor", id}`),
-//!   `text`, and optionally `also`, `status`, `pinned`.
+//!   `text`, and optionally `also`, `status`, `pinned`. An actor target may name the
+//!   account instead, `{kind: "actor", name}`, which is how a client that knows a user
+//!   talk page's title starts a thread there; a name no local account holds is
+//!   `ts-no-target`.
 //! - `GET /thread/{id}`: subject, title, status, home and listings, and the posts as
 //!   `as:Note` objects in tree order, with the collapses that stand; `base`, the offset a
 //!   later write names.
@@ -512,6 +515,46 @@ async fn title_of(app: &App, tenant: &str, thread: u64) -> Option<String> {
         .map(|r| r.get(0))
 }
 
+/// Replaces an actor target that names its account, `{kind: "actor", name}`, with the
+/// account's key: a registered account or a bot on the tenant.
+async fn actor_by_name(app: &App, tenant: &str, b: &mut Body) -> Result<(), Response> {
+    let Some(target) = b.get_mut("target").and_then(Value::as_object_mut) else {
+        return Ok(());
+    };
+    if target.get("kind").and_then(Value::as_str) != Some("actor") || target.contains_key("id") {
+        return Ok(());
+    }
+    let Some(name) = target
+        .get("name")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+    else {
+        return Ok(());
+    };
+    let client = app.pool().get().await.map_err(|e| internal(&e))?;
+    let key: Option<String> = client
+        .query_opt(
+            "SELECT actor_key FROM view.actor WHERE tenant = $1 AND name = $2
+               AND kind IN ('registered', 'bot')",
+            &[&tenant, &name],
+        )
+        .await
+        .map_err(|e| internal(&e))?
+        .map(|r| r.get(0));
+    match key {
+        Some(k) => {
+            target.remove("name");
+            target.insert("id".into(), Value::String(k));
+            Ok(())
+        }
+        None => Err(error(
+            StatusCode::NOT_FOUND,
+            "ts-no-target",
+            format!("no account here is named \"{name}\""),
+        )),
+    }
+}
+
 /// `POST /thread`.
 pub async fn create(
     State(app): State<App>,
@@ -524,6 +567,10 @@ pub async fn create(
             Ok(x) => x,
             Err(r) => return r,
         };
+    let mut b = b;
+    if let Err(r) = actor_by_name(&app, &tenant.slug, &mut b).await {
+        return r;
+    }
     let parsed = (|| {
         let name = required(&b, "subject")?;
         let text = required(&b, "text")?;

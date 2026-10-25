@@ -5,7 +5,9 @@
 //! - [`page_chain`]: a page, its namespace, the `pages` graph and the tenant; for a talk
 //!   page, also its subject when the subject's deletion took the talk page with it.
 //! - [`thread_chain`]: a thread, and its home talk page or board, which encloses it
-//!   (09 §4.4), with that talk page's own chain.
+//!   (09 §4.4), with that talk page's own chain, and for a user talk page the user's
+//!   `actor` ACL, which hides their name and so their talk page (09 §6.3); [`thread_readable`], whether a principal
+//!   may read a thread now, as a notification's recipient must (16 §5.2).
 //! - [`title_chain`]: a title no page holds yet, for a `create`: its reservation
 //!   ([`reservation`], 09 §4.8), the namespace, the `pages` graph and the tenant.
 //! - [`listing_chain`]: the page a thread is listed on through a page target, its talk
@@ -876,7 +878,7 @@ pub async fn thread_chain<C: PgClient>(
     let id = i64::try_from(thread).map_err(|e| e.to_string())?;
     let Some(row) = client
         .query_opt(
-            "SELECT talk_page_id FROM view.thread WHERE tenant = $1 AND page_id = $2",
+            "SELECT talk_page_id, target_kind, target_id FROM view.thread WHERE tenant = $1 AND page_id = $2",
             &[&tenant, &id],
         )
         .await
@@ -886,6 +888,13 @@ pub async fn thread_chain<C: PgClient>(
     };
     let home: Option<i64> = row.get(0);
     let mut targets = vec![AclTarget::Page(thread), AclTarget::Namespace(NS_THREAD_I64)];
+    // A thread on a user talk page is enclosed by the user: a hidden name hides the
+    // threads on their talk page, as it hides the page (09 §6.3).
+    if row.get::<_, i16>(1) == crate::threads::TARGET_ACTOR
+        && let Ok(key) = scatter_actors::ActorKey::parse(&row.get::<_, String>(2))
+    {
+        targets.push(AclTarget::Actor(key));
+    }
     targets.extend(
         sets_of(client, tenant, &[thread])
             .await?
@@ -911,6 +920,32 @@ pub async fn thread_chain<C: PgClient>(
         ),
     }
     Ok(Some(chain))
+}
+
+/// Whether a principal may read a thread now: it exists and its chain reads as
+/// `Readable` to them. A thread deleted, or under a confidential restriction they do not
+/// satisfy, does not (16 §5.2; 09 §5.3).
+///
+/// # Errors
+///
+/// A database failure.
+pub async fn thread_readable<C: PgClient>(
+    client: &C,
+    tenant: &str,
+    who: &Effective,
+    thread: u64,
+) -> Result<bool, String> {
+    let at = Timestamp(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| u64::try_from(d.as_micros()).unwrap_or(u64::MAX)),
+    );
+    Ok(match thread_chain(client, tenant, thread).await? {
+        Some(chain) => {
+            scatter_actors::read_decision(who, &chain, at) == scatter_actors::ReadDecision::Readable
+        }
+        None => false,
+    })
 }
 
 /// The `record` ACLs of these records of one partition, by offset.

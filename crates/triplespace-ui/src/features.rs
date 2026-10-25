@@ -48,6 +48,8 @@ pub enum Feature {
     Delete,
     /// `Special:MovePage` (`action=move`; 10 §2.5).
     Move,
+    /// The bell, the orange bar and `Special:Notifications` (`meta=notifications`; 19 §6.2).
+    Notifications,
 }
 
 impl Feature {
@@ -72,6 +74,7 @@ impl Feature {
             Self::Block => "block",
             Self::Delete => "delete",
             Self::Move => "move",
+            Self::Notifications => "notifications",
         }
     }
 }
@@ -94,6 +97,7 @@ pub const BUILT: &[Feature] = &[
     Feature::Block,
     Feature::Delete,
     Feature::Move,
+    Feature::Notifications,
 ];
 
 /// What the site offers on one request.

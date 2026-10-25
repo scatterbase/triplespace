@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-25 (A29)
+- **Updated:** 2026-10-25 (A30)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0018](0018-tenants.md), [0022](0022-federation.md)
@@ -66,13 +66,13 @@ Two goals from the earlier ADRs constrain the design. Every unit of contribution
 
 ### 8. Rendering and the UI (extends 0010)
 
-*Changed by A2, A10, A15, A28.*
+*Changed by A2, A10, A15, A28, A30.*
 
 *Current text: [19](../architecture/19-site-ui.md) §6.1.*
 
 ### 9. API (extends 0012 §4 and §5)
 
-*Changed by A4, A9, A10, A16.*
+*Changed by A4, A9, A10, A16, A30.*
 
 *Current text: [18](../architecture/18-api.md) §2.1, §2.3, §2.4, §3.2.*
 
@@ -558,3 +558,10 @@ Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §1.2
 - **Source:** Direct: James, design discussion of 2026-10-25
 - **Change:** extends §7
 - **Summary:** James chose, of three forms, a talk page's revision content as wikitext ("Talk page as wikitext"), and of two memberships, "attached now, as they stood". `rvprop=content` on a talk title gives the threads attached to it now, in the talk page's order, each as it stood after the revision (a thread not yet started is left out), written as a MediaWiki talk page: `== Subject ==` sections, posts indented with `:` by depth and ending in the signature `~~~~` would have written, posts in the markup they were written in, imported posts with their own signatures, heading posts as headings, `(comment removed)` and `(username removed)` for what the viewer may not see. Model `triplespace-talk`, format `text/x-wiki`, read-only. `action=compare` diffs it by lines; a revision named with the talk page (`fromtitle`/`fromid` and `fromrev`) is the talk page's as of that revision, and named alone, its thread's. A thread that leaves takes its revisions with it, consistent with the composite history. Chapter text: [16](../architecture/16-logs-feeds-and-notifications.md) §6.1; [10](../architecture/10-pages-and-content-models.md) §4.3, §4.4 (0041 A17); `docs/registry/content-models.toml`.
+
+### A30. A topic on a user talk page, by the user's name
+
+- **Date:** 2026-10-25
+- **Source:** Direct: James, design discussion of 2026-10-25
+- **Change:** extends §8, §9
+- **Summary:** James asked for new topics on user talk pages in the site, with thread notifications ([0021](0021-notifications.md) A20). `POST /thread` takes an actor target by its account's name, `{kind: "actor", name}`, besides its key, resolved to a registered account or a bot on the tenant; a name none holds is `ts-no-target`, a 404. A user talk page offers **Add topic** as any talk page does, whether or not the user page exists. Chapter text: [18](../architecture/18-api.md) §3.2; [19](../architecture/19-site-ui.md) §6.1.

@@ -45,11 +45,35 @@ fn micros(column: &str) -> String {
     MICROS.replace("{c}", column)
 }
 
+/// Which reasons to list or mark. An empty list is every reason.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Reasons<'a> {
+    /// Every reason.
+    #[default]
+    All,
+    /// Only these.
+    Only(&'a [&'a str]),
+    /// All but these.
+    Except(&'a [&'a str]),
+}
+
+/// A reason filter as SQL parameters: the names, and whether a row's reason must be among
+/// them (`true`) or not (`false`); no names is every reason.
+fn reason_list(reasons: Reasons<'_>) -> (Vec<String>, bool) {
+    let owned = |r: &[&str]| r.iter().map(|s| (*s).to_string()).collect();
+    match reasons {
+        Reasons::All => (Vec::new(), true),
+        Reasons::Only(r) => (owned(r), true),
+        Reasons::Except(r) => (owned(r), false),
+    }
+}
+
 /// Up to `limit` rows older than the row `before` (by ID), newest first.
 pub async fn list<C: GenericClient>(
     client: &C,
     actor_key: &str,
     filter: Filter,
+    reasons: Reasons<'_>,
     limit: i64,
     before: Option<i64>,
 ) -> Result<Vec<Item>, tokio_postgres::Error> {
@@ -58,16 +82,18 @@ pub async fn list<C: GenericClient>(
         Filter::Unread => " AND read_at IS NULL",
         Filter::Read => " AND read_at IS NOT NULL",
     };
+    let (names, only) = reason_list(reasons);
     let q = format!(
         "SELECT id, partition, \"offset\", reason, target_kind, target_id, {}, {}
          FROM private.inbox
          WHERE actor_key = $1 AND ($2::bigint IS NULL OR id < $2){cond}
+           AND (cardinality($4::text[]) = 0 OR (reason = ANY($4)) = $5)
          ORDER BY published DESC, id DESC LIMIT $3",
         micros("published"),
         micros("read_at"),
     );
     Ok(client
-        .query(&q, &[&actor_key, &before, &limit])
+        .query(&q, &[&actor_key, &before, &limit, &names, &only])
         .await?
         .iter()
         .map(|r| Item {
@@ -112,12 +138,13 @@ pub async fn seen_at<C: GenericClient>(
         .and_then(|r| r.get(0)))
 }
 
-/// Marks rows read (`read`) or unread: the listed IDs, or every row with `None`.
-/// Returns how many changed.
+/// Marks rows read (`read`) or unread: the listed IDs, or every row of these reasons with
+/// `None`. Returns how many changed.
 pub async fn mark<C: GenericClient>(
     client: &C,
     actor_key: &str,
     ids: Option<&[i64]>,
+    reasons: Reasons<'_>,
     read: bool,
 ) -> Result<u64, tokio_postgres::Error> {
     let set = if read { "now()" } else { "NULL" };
@@ -126,29 +153,27 @@ pub async fn mark<C: GenericClient>(
     } else {
         "read_at IS NOT NULL"
     };
-    match ids {
-        Some(ids) => {
-            client
-                .execute(
-                    &format!(
-                        "UPDATE private.inbox SET read_at = {set}
-                         WHERE actor_key = $1 AND id = ANY($2) AND {only}"
-                    ),
-                    &[&actor_key, &ids],
-                )
-                .await
-        }
-        None => {
-            client
-                .execute(
-                    &format!(
-                        "UPDATE private.inbox SET read_at = {set} WHERE actor_key = $1 AND {only}"
-                    ),
-                    &[&actor_key],
-                )
-                .await
-        }
+    if let Some(ids) = ids {
+        return client
+            .execute(
+                &format!(
+                    "UPDATE private.inbox SET read_at = {set}
+                     WHERE actor_key = $1 AND id = ANY($2) AND {only}"
+                ),
+                &[&actor_key, &ids],
+            )
+            .await;
     }
+    let (names, include) = reason_list(reasons);
+    client
+        .execute(
+            &format!(
+                "UPDATE private.inbox SET read_at = {set} WHERE actor_key = $1 AND {only}
+                   AND (cardinality($2::text[]) = 0 OR (reason = ANY($2)) = $3)"
+            ),
+            &[&actor_key, &names, &include],
+        )
+        .await
 }
 
 /// Sets the seen time to now and returns it, in microseconds.

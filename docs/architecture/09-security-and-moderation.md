@@ -534,7 +534,7 @@ Only local entities can be deleted: the ID must be in the local form of [04](04-
 
 ### 6.3 What hiding does
 
-*Sources: [0023](../decisions/0023-moderation.md) §5; [0056](../decisions/0056-security-model.md) A25.*
+*Sources: [0023](../decisions/0023-moderation.md) §5, A16; [0056](../decisions/0056-security-model.md) A25.*
 
 **Hiding one revision's parts.** A `record` ACL with `parts` sets the visibility bits that the API and `view.activity.visibility` carry:
 
@@ -550,7 +550,7 @@ A suppressed part adds MediaWiki's `suppressed` flag for those who may see that 
 
 **The same ACL on a `log` record** hides a log event's parts (`delete/event`): the comment part is the event's comment, the attestation its performer, the content its parameters and target.
 
-**Hiding a username.** An `actor` ACL restricted to `suppress` is what sets the `hidden` status of an actor ([07](07-actors-and-accounts.md)). While it holds, the name is omitted from every projection and response for everyone outside the group, `sioc:name` is not emitted, and every attribution to the actor reads as hidden. It is set by the `hideuser` right, and MediaWiki's practice of setting it on a block is kept as a checkbox on `Special:Block` that writes the ACL beside the `block` record (§3.3). It is lifted the same way: an unblock, or a reblock without the checkbox, by a holder of `hideuser` retires the ACL (§4.3), while an administrator without `hideuser` lifts the block alone and the name stays hidden ([0056](../decisions/0056-security-model.md) A25). Hiding a name is reversible; removing a past name from the actor's history is `erase`, as for vanishing.
+**Hiding a username.** An `actor` ACL restricted to `suppress` is what sets the `hidden` status of an actor ([07](07-actors-and-accounts.md)). While it holds, the name is omitted from every projection and response for everyone outside the group, `sioc:name` is not emitted, and every attribution to the actor reads as hidden. It is set by the `hideuser` right, and MediaWiki's practice of setting it on a block is kept as a checkbox on `Special:Block` that writes the ACL beside the `block` record (§3.3). It is lifted the same way: an unblock, or a reblock without the checkbox, by a holder of `hideuser` retires the ACL (§4.3), while an administrator without `hideuser` lifts the block alone and the name stays hidden ([0056](../decisions/0056-security-model.md) A25). Hiding a name is reversible; removing a past name from the actor's history is `erase`, as for vanishing. **The threads on a hidden user's talk page are hidden with it**: the user encloses a thread whose home is their talk page, so the `actor` ACL is in the thread's chain and the thread reads as removed outside the group, as the talk page is absent; and a post's author shows no name wherever the name is hidden ([0023](../decisions/0023-moderation.md) A16).
 
 **Redaction is per viewer** (§5.7), and hiding reaches every derived copy as erasure does: the projection that applies an ACL bumps the target's generation, purges its keys and tags, deletes or re-sends its search document, and removes delivered notifications whose content is now hidden ([03](03-storage-caches-and-search.md) §9.6). Shared caches hold only the public form, so a hidden field never has to be purged from a cache that a member of the group filled.
 

@@ -271,6 +271,15 @@ fn written(r: &ApiResponse) -> Result<Written, ClientError> {
     }
 }
 
+/// Where a new thread goes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NewThreadOn<'a> {
+    /// The talk page of the page with this ID.
+    Page(u64),
+    /// The user talk page of the account with this name.
+    User(&'a str),
+}
+
 impl Client {
     /// `GET /page/{id}/threads`: a talk page's or board's threads, pinned first. Threads
     /// marked deleted, which only the deletion group sees, are left out.
@@ -313,7 +322,7 @@ impl Client {
         })
     }
 
-    /// `POST /thread`: a new thread on a page's talk page.
+    /// `POST /thread`: a new thread on a page's talk page, or on a user's.
     ///
     /// # Errors
     ///
@@ -321,13 +330,17 @@ impl Client {
     pub async fn start_thread(
         &self,
         incoming: &Incoming,
-        subject_page: u64,
+        on: NewThreadOn<'_>,
         subject: &str,
         form: &PostForm<'_>,
     ) -> Result<Written, ClientError> {
+        let target = match on {
+            NewThreadOn::Page(id) => json!({"kind": "page", "id": id}),
+            NewThreadOn::User(name) => json!({"kind": "actor", "name": name}),
+        };
         let body = json!({
             "subject": subject,
-            "target": {"kind": "page", "id": subject_page},
+            "target": target,
             "text": form.text,
             "token": form.token,
         });

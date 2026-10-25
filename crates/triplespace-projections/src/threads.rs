@@ -30,6 +30,9 @@ fn sql(e: &tokio_postgres::Error) -> String {
     e.to_string()
 }
 
+/// The payload type of thread records.
+pub const PAYLOAD: &str = PAYLOAD_THREAD;
+
 /// The `target_kind` of a page target.
 pub const TARGET_PAGE: i16 = 1;
 /// The `target_kind` of an actor target.
@@ -510,4 +513,261 @@ async fn talk_page(
         .await
         .map_err(|e| sql(&e))?;
     Ok(n + m)
+}
+
+/// The most user pages a post's mentions address (16 §5.2): Echo's `$wgEchoMaxMentionsCount`.
+/// Links past it are not mentions.
+pub const MAX_MENTIONS: usize = 50;
+
+/// The User namespace.
+const USER_NS: i32 = 2;
+
+/// The users a post's text mentions (16 §5.2): the titles of its links in the User
+/// namespace, the page itself and not a subpage, in order, each once, at most
+/// [`MAX_MENTIONS`]. A markdown post's links are its `[[wiki links]]`, so a link in code is
+/// not one; a wikitext post's are the links it writes, templates unexpanded.
+#[must_use]
+pub fn mentions(
+    text: &str,
+    media_type: &str,
+    config: &scatter_wikitext::Config,
+    page: &scatter_wikitext::Title,
+) -> Vec<String> {
+    let titles: Vec<scatter_wikitext::Title> = if media_type == scatter_threads::WIKITEXT {
+        scatter_wikitext::extract(text, config, page)
+            .links
+            .into_iter()
+            .map(|l| l.target)
+            .collect()
+    } else {
+        scatter_pages::markdown::render(text, &|_| String::new(), &|h| h.to_string())
+            .links
+            .iter()
+            .filter_map(|t| scatter_wikitext::parse_target(t, config, page))
+            .map(|t| t.title)
+            .collect()
+    };
+    let mut out: Vec<String> = Vec::new();
+    for t in titles {
+        if t.interwiki.is_none()
+            && t.namespace == USER_NS
+            && !t.text.is_empty()
+            && !t.text.contains('/')
+            && !out.contains(&t.text)
+        {
+            out.push(t.text);
+        }
+        if out.len() == MAX_MENTIONS {
+            break;
+        }
+    }
+    out
+}
+
+/// What a thread record means for notifications (16 §5.2), from the record and its
+/// thread as it stood before it.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Addressed {
+    /// The thread's page ID.
+    pub thread: u64,
+    /// Whether the record is a `create` or a `post`: something new on the thread's home.
+    pub new_post: bool,
+    /// The home's actor key, when the home is a user talk page.
+    pub home_actor: Option<String>,
+    /// The author of the post this one answers, unless that post was imported.
+    pub replied_to: Option<String>,
+    /// Whoever started the thread, when this record moved it from an open status to a
+    /// closed one, unless the thread was imported.
+    pub closed_for: Option<String>,
+    /// The user names the record's text mentions that the post's text before it did not.
+    pub mentions: Vec<String>,
+}
+
+/// A thread as it stood before the record at `offset`, if it existed, and the text of every
+/// earlier record of it, by revision ID.
+async fn thread_before(
+    cx: &PgCx,
+    partition: u64,
+    thread: u64,
+    offset: u64,
+) -> Result<
+    (
+        Option<scatter_threads::Thread>,
+        std::collections::HashMap<u64, String>,
+    ),
+    String,
+> {
+    let records = scatter_log_postgres::log::read_by_key(cx, partition, &thread.to_string())
+        .await
+        .map_err(|e| e.to_string())?;
+    let mut before = Vec::new();
+    let mut texts = std::collections::HashMap::new();
+    for (o, r) in &records {
+        if *o >= offset {
+            break;
+        }
+        if r.header().payload_type != PAYLOAD_THREAD {
+            continue;
+        }
+        if let Some(prior) = read_record(r)? {
+            if let Some(t) = text(r) {
+                texts.insert(prior.revid, t);
+            }
+            before.push(prior);
+        }
+    }
+    let prior = if before.is_empty() {
+        None
+    } else {
+        Some(scatter_threads::Thread::replay(before.iter()).map_err(|e| e.to_string())?)
+    };
+    Ok((prior, texts))
+}
+
+/// What a thread record addresses (16 §5.2), or `None` when it addresses nobody: an
+/// operation without a post, an imported thread or post, an erased record.
+///
+/// # Errors
+///
+/// A database failure, or a thread whose records do not replay.
+pub async fn addressed(
+    cx: &PgCx,
+    tenant: &str,
+    record: &Record,
+) -> Result<Option<Addressed>, String> {
+    use scatter_threads::{Category, Statuses};
+    let h = record.header();
+    let Some(rec) = read_record(record)? else {
+        return Ok(None);
+    };
+    let imported = match &rec.op {
+        ThreadOp::Create { imported_from, .. } | ThreadOp::Post { imported_from, .. } => {
+            imported_from.is_some()
+        }
+        ThreadOp::Edit { .. } => false,
+        _ => return Ok(None),
+    };
+    if imported {
+        return Ok(None);
+    }
+    let Some(thread) = h.page_id else {
+        return Ok(None);
+    };
+    let (prior, texts) = thread_before(cx, h.partition, thread, h.offset).await?;
+    let mut out = Addressed {
+        thread,
+        ..Addressed::default()
+    };
+    let home = match (&rec.op, &prior) {
+        (ThreadOp::Create { target, .. }, _) => Some(target.clone()),
+        (_, Some(p)) => Some(p.home.target.clone()),
+        (_, None) => None,
+    };
+    if let Some(Target::Actor(key)) = home {
+        out.home_actor = Some(key);
+    }
+    let statuses = Statuses::embedded();
+    let mut media = rec
+        .op
+        .media_type()
+        .unwrap_or(scatter_threads::MARKDOWN)
+        .to_string();
+    let mut old_text: Option<&str> = None;
+    match &rec.op {
+        ThreadOp::Create { .. } => out.new_post = true,
+        ThreadOp::Post {
+            in_reply_to,
+            status,
+            ..
+        } => {
+            out.new_post = true;
+            let Some(p) = &prior else {
+                return Ok(None);
+            };
+            out.replied_to = in_reply_to
+                .and_then(|r| p.post(r))
+                .filter(|post| !post.imported && !post.actor.is_empty())
+                .map(|post| post.actor.clone());
+            let closes = status.as_deref().is_some_and(|s| {
+                statuses
+                    .get(s)
+                    .is_some_and(|s| s.category == Category::Closed)
+            });
+            if closes && p.category(statuses) == Category::Open {
+                out.closed_for = p
+                    .posts()
+                    .first()
+                    .filter(|post| !post.imported && !post.actor.is_empty())
+                    .map(|post| post.actor.clone());
+            }
+        }
+        ThreadOp::Edit { object, .. } => {
+            let Some(post) = prior.as_ref().and_then(|p| p.post(*object)) else {
+                return Ok(None);
+            };
+            media.clone_from(&post.media_type);
+            old_text = texts.get(&post.text).map(String::as_str);
+        }
+        _ => {}
+    }
+    if let Some(new_text) = text(record) {
+        let names = crate::pages::TenantNames::load(cx.conn(), tenant).await?;
+        let config = names.config();
+        let title = prior
+            .as_ref()
+            .and_then(|p| p.title.clone())
+            .or_else(|| rec.minted.title.clone())
+            .unwrap_or_default();
+        let page = scatter_wikitext::Title::new(NS_THREAD, &title);
+        let had = old_text
+            .map(|t| mentions(t, &media, &config, &page))
+            .unwrap_or_default();
+        out.mentions = mentions(&new_text, &media, &config, &page)
+            .into_iter()
+            .filter(|m| !had.contains(m))
+            .collect();
+    }
+    Ok(Some(out))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn names(text: &str, media: &str) -> Vec<String> {
+        let config = crate::pages::wikitext_config();
+        let page = scatter_wikitext::Title::new(NS_THREAD, "2026-10-25/Scope");
+        mentions(text, media, config, &page)
+    }
+
+    #[test]
+    fn a_mention_is_a_link_to_a_user_page() {
+        let md = scatter_threads::MARKDOWN;
+        assert_eq!(
+            names(
+                "Hi [[User:alice]] and [[user:Bob|Bob]]; again [[User:Alice]]. \
+                 Not [[User:Carol/Sandbox]], [[User talk:Dave]], [[w:User:Ed]] or `[[User:Fay]]`.",
+                md
+            ),
+            vec!["Alice", "Bob"]
+        );
+        assert_eq!(
+            names(
+                "Pinging [[User:Gil]] and [[Project:Scope]].",
+                scatter_threads::WIKITEXT
+            ),
+            vec!["Gil"]
+        );
+    }
+
+    #[test]
+    fn mentions_stop_at_the_cap() {
+        let text = (0..MAX_MENTIONS + 5)
+            .map(|i| format!("[[User:U{i}]]"))
+            .collect::<Vec<_>>()
+            .join(" ");
+        let got = names(&text, scatter_threads::MARKDOWN);
+        assert_eq!(got.len(), MAX_MENTIONS);
+        assert_eq!(got[0], "U0");
+    }
 }

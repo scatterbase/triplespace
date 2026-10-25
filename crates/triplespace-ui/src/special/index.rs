@@ -41,6 +41,12 @@ pub const PAGES: &[(&str, &str, &str, Feature)] = &[
         Feature::Register,
     ),
     (
+        "Special:Notifications",
+        "ts-notifications-title",
+        "ts-specialpages-notifications",
+        Feature::Notifications,
+    ),
+    (
         "Special:Log",
         "ts-log-title",
         "ts-specialpages-log",

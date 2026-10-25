@@ -147,7 +147,14 @@ async fn a_signed_in_page_is_private_and_names_the_viewer() {
     assert!(html.contains("<span class=\"ts-header__user\">Alice</span>"));
     assert!(!html.contains("Special:UserLogin"));
     assert_eq!(h[header::CACHE_CONTROL], "private, no-cache");
-    assert_eq!(fake.seen.lock().unwrap().len(), 2);
+    // Siteinfo, userinfo, and the bell's counts.
+    let seen = fake.seen.lock().unwrap();
+    assert_eq!(seen.len(), 3);
+    assert!(
+        seen.iter()
+            .any(|r| r.path_and_query.contains("meta=notifications")),
+        "the bell's counts are asked for"
+    );
 }
 
 #[tokio::test]

@@ -70,12 +70,15 @@ pub async fn render_post(
     )
 }
 
-/// The names actors show: the user name, a surrogate's raw value, or the key (0007 §4).
+/// The names actors show to a viewer: the user name, a surrogate's raw value, or the key
+/// (0007 §4); `None` for an actor whose name an `actor` ACL hides from them (09 §6.3). An
+/// actor no row names is not in the map.
 pub(crate) async fn names(
     db: &Client,
     tenant: &str,
+    who: &Effective,
     keys: &[String],
-) -> Result<HashMap<String, String>, ApiError> {
+) -> Result<HashMap<String, Option<String>>, ApiError> {
     let rows = db
         .query(
             "SELECT DISTINCT ON (actor_key) actor_key, coalesce(name, raw, actor_key)
@@ -84,7 +87,23 @@ pub(crate) async fn names(
             &[&keys, &tenant],
         )
         .await?;
-    Ok(rows.iter().map(|r| (r.get(0), r.get(1))).collect())
+    let hidden = triplespace_projections::acl_read::hidden_actors(
+        db,
+        tenant,
+        keys,
+        |g| who.reads_in(g),
+        Timestamp(crate::edit::now_micros()),
+    )
+    .await
+    .map_err(ApiError::internal)?;
+    Ok(rows
+        .iter()
+        .map(|r| {
+            let key: String = r.get(0);
+            let name = (!hidden.contains(&key)).then(|| r.get::<_, String>(1));
+            (key, name)
+        })
+        .collect())
 }
 
 /// Adds `html` and `author` to every post of a thread body, as far as the viewer may see
@@ -132,14 +151,18 @@ pub async fn add_html(
                 .collect()
         })
         .unwrap_or_default();
-    let names = names(db, tenant, &keys).await?;
+    let names = names(db, tenant, who, &keys).await?;
     let Some(posts) = body["posts"].as_array_mut() else {
         return Ok(());
     };
     for note in posts {
         if let Some(key) = note["attributedTo"].as_str() {
-            let name = names.get(key).cloned().unwrap_or_else(|| key.to_string());
-            note["author"] = json!(name);
+            // A hidden name is shown as no name; an actor no row names, by key.
+            match names.get(key) {
+                Some(Some(name)) => note["author"] = json!(name),
+                Some(None) => {}
+                None => note["author"] = json!(key),
+            }
         }
         let Some(text) = note["content"].as_str().map(str::to_string) else {
             continue;

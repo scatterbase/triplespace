@@ -6261,7 +6261,27 @@
             "type": "string"
           },
           "target": {
-            "$ref": "#/components/schemas/ThreadTargetRef"
+            "description": "The home. A user talk page's may name the account instead of its key, `{kind: \"actor\", name}`: a registered account or a bot on the tenant; a name none holds is `ts-no-target` (ADR 0019 A30).",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ThreadTargetRef"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "kind",
+                  "name"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "actor"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                }
+              }
+            ]
           },
           "text": {
             "type": "string",

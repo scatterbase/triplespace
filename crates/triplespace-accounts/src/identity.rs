@@ -207,29 +207,76 @@ pub async fn resolve<C: GenericClient>(
     let Some(row) = actor(client, tenant, &actor_key).await? else {
         return Err(AccountsError::NoAccount(actor_key));
     };
-    identity.name = row.name;
+    identity.name.clone_from(&row.name);
     identity.kind = Some(row.kind);
     identity.status = row.status;
-    identity.operator = row.operator;
+    identity.operator.clone_from(&row.operator);
     identity.groups = groups(client, tenant, &actor_key).await?;
-    let groups_registry = crate::groups::registry_for(client, tenant, &identity.groups).await?;
+    let credential = identity.credential.as_ref().map(|k| Credential {
+        grants: k.grants.clone(),
+    });
+    let effective = effective(
+        client,
+        tenant,
+        &actor_key,
+        &row,
+        &identity.groups,
+        credential,
+    )
+    .await?;
+    Ok(Resolved {
+        identity,
+        effective,
+    })
+}
+
+/// The permissions an actor's row, memberships and blocks give, narrowed by a credential.
+async fn effective<C: GenericClient>(
+    client: &C,
+    tenant: &str,
+    actor_key: &str,
+    row: &ActorRow,
+    groups: &BTreeSet<String>,
+    credential: Option<Credential>,
+) -> Result<Effective, AccountsError> {
+    let groups_registry = crate::groups::registry_for(client, tenant, groups).await?;
     let all = groups_registry.permissions();
     let mut principal = Principal {
         kind: Some(row.kind),
         status: row.status,
-        groups: identity.groups.clone(),
+        groups: groups.clone(),
         autoconfirmed: row.kind == ActorKind::Registered,
-        blocked: blocked(client, tenant, &actor_key, all).await?,
-        credential: identity.credential.as_ref().map(|k| Credential {
-            grants: k.grants.clone(),
-        }),
+        blocked: blocked(client, tenant, actor_key, all).await?,
+        credential,
         ..Principal::default()
     };
-    if let Some(op) = &identity.operator {
+    if let Some(op) = &row.operator {
         principal.operator_blocked = blocked(client, tenant, op, all).await?;
     }
-    Ok(Resolved {
-        effective: evaluate(&principal, &groups_registry, grants_registry),
-        identity,
-    })
+    Ok(evaluate(
+        &principal,
+        &groups_registry,
+        GrantRegistry::default_registry(),
+    ))
+}
+
+/// What an account may do now in its own right, with no credential narrowing it: what a
+/// notification's read check asks of its recipient (16 §5.2). `None` for an actor with no
+/// row on the tenant.
+///
+/// # Errors
+///
+/// A database failure.
+pub async fn effective_of<C: GenericClient>(
+    client: &C,
+    tenant: &str,
+    actor_key: &str,
+) -> Result<Option<Effective>, AccountsError> {
+    let Some(row) = actor(client, tenant, actor_key).await? else {
+        return Ok(None);
+    };
+    let groups = groups(client, tenant, actor_key).await?;
+    Ok(Some(
+        effective(client, tenant, actor_key, &row, &groups, None).await?,
+    ))
 }

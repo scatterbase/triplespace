@@ -202,6 +202,17 @@ impl ThreadOp {
         }
     }
 
+    /// The media type the operation gives its text part, when it names one.
+    #[must_use]
+    pub fn media_type(&self) -> Option<&str> {
+        match self {
+            ThreadOp::Create { media_type, .. }
+            | ThreadOp::Post { media_type, .. }
+            | ThreadOp::Edit { media_type, .. } => media_type.as_deref(),
+            _ => None,
+        }
+    }
+
     /// Whether the record carries a text part: `create`, `post` and `edit`.
     #[must_use]
     pub fn has_text(&self) -> bool {
