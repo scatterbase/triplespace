@@ -236,6 +236,15 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     if let Some(from) = &src.redirected_from {
         out.insert("redirects".into(), json!([{"from": from, "to": prefixed}]));
     }
+    // Triplespace's: what the site's Restricted pill shows (19 §1.3), for a page.
+    if let Some(p) = &src.page {
+        let chain = triplespace_projections::acl_read::page_chain(ctx.db(), &tenant, p.page_id)
+            .await
+            .map_err(ApiError::internal)?;
+        if let Some(v) = pages::visibility_of(&chain) {
+            out.insert("ts-visibility".into(), v);
+        }
+    }
     if want("revid") {
         out.insert("revid".into(), json!(src.revid.unwrap_or(0)));
     }

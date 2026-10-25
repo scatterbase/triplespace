@@ -159,8 +159,35 @@ pub async fn wbgetentities(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         };
         entries.push((key, v));
     }
-    Ok(ApiResponse::ok(json!({
+    // Triplespace's: the visibility of each restricted local entity served, for the
+    // site's Restricted pill (19 §1.3); absent where every entity is public.
+    let mut visibility = serde_json::Map::new();
+    for (key, v) in &entries {
+        if v.get("missing").is_some() || !v.get("id").is_some_and(|i| i == key) {
+            continue;
+        }
+        let Ok(id) = parse_id(key) else { continue };
+        if id.form() == IdForm::Foreign {
+            continue;
+        }
+        let chain = triplespace_projections::acl_read::entity_chain(
+            ctx.db(),
+            &ctx.tenant.slug,
+            id.as_str(),
+            None,
+        )
+        .await
+        .map_err(ApiError::internal)?;
+        if let Some(vis) = crate::pages::visibility_of(&chain) {
+            visibility.insert(key.clone(), vis);
+        }
+    }
+    let mut out = json!({
         "entities": entity_json::entities_object(entries),
         "success": 1,
-    })))
+    });
+    if !visibility.is_empty() {
+        out["ts-visibility"] = Value::Object(visibility);
+    }
+    Ok(ApiResponse::ok(out))
 }

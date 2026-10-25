@@ -75,6 +75,9 @@ pub struct Page {
     pub subtitle_html: Option<String>,
     /// The tabs.
     pub tabs: Vec<Tab>,
+    /// The overflow menu's actions, `(label, href)`: the less common ones, Protect… and
+    /// Delete… among them (19 §1.3).
+    pub actions: Vec<(String, String)>,
     /// The body, as HTML the page built from escaped parts.
     pub body: String,
     /// What the search box already holds.
@@ -109,6 +112,7 @@ pub struct Frame<'a> {
     identity: Option<&'a str>,
     subtitle: Option<&'a str>,
     tabs: &'a [Tab],
+    actions: &'a [(String, String)],
     body: &'a str,
     search: Option<String>,
     account: Option<Account>,
@@ -250,6 +254,7 @@ pub fn render(
         identity: page.identity_html.as_deref(),
         subtitle: page.subtitle_html.as_deref(),
         tabs: &page.tabs,
+        actions: &page.actions,
         body: &page.body,
         search,
         account,
@@ -271,6 +276,25 @@ pub fn render(
         appearance_data,
     }
     .render()
+}
+
+/// The **Restricted** pill of 19 §1.3: a lock, the groups a reader must be in (named
+/// in its tooltip), and the sets the target is in, for a page or entity whose visibility
+/// is not public (0056 §13).
+#[must_use]
+pub fn restricted_pill(m: &Messages, groups: &[String], sets: &[String]) -> String {
+    use crate::html::esc;
+    let mut tip = m.with("ts-restricted-groups", &[&groups.join(", ")]);
+    if !sets.is_empty() {
+        tip.push(' ');
+        tip.push_str(&m.with("ts-restricted-sets", &[&sets.join(", ")]));
+    }
+    format!(
+        " <span aria-hidden=\"true\">·</span> <span class=\"ts-chip ts-chip--restricted\" title=\"{}\"><span class=\"ts-chip__lock\" aria-hidden=\"true\">🔒</span> {}<span class=\"ts-visually-hidden\">: {}</span></span>",
+        esc(&tip),
+        esc(&m.get("ts-restricted")),
+        esc(&tip),
+    )
 }
 
 #[cfg(test)]

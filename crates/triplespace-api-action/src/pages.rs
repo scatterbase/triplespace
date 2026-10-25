@@ -694,6 +694,31 @@ pub async fn entity_readable(ctx: &Ctx, id: &str, graph: Option<&str>) -> Result
     Ok(entity_decision(ctx, id, graph).await? == scatter_actors::ReadDecision::Readable)
 }
 
+/// A target's visibility as the site's **Restricted** pill shows it (19 §1.3; 0056 §13):
+/// `None` where everyone may read, else the groups a `read` restriction along the chain
+/// names and the names of the sets the target is in that restrict it. Asked only for a
+/// target the caller already reads, so it tells them nothing new of what it hides.
+#[must_use]
+pub fn visibility_of(chain: &[scatter_actors::Acl]) -> Option<serde_json::Value> {
+    use scatter_actors::acl::Target;
+    let at = scatter_actors::Timestamp(crate::edit::now_micros());
+    let v = scatter_actors::acl::visibility(chain, at);
+    if v.is_public() {
+        return None;
+    }
+    let sets: Vec<String> = chain
+        .iter()
+        .filter(|a| {
+            matches!(a.target, Target::Set(_)) && a.read_restrictions_at(at).next().is_some()
+        })
+        .filter_map(|a| a.name.clone())
+        .collect();
+    Some(serde_json::json!({
+        "groups": v.groups.iter().collect::<Vec<_>>(),
+        "sets": sets,
+    }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

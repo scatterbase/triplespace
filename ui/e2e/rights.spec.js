@@ -33,8 +33,8 @@ async function violations( page ) {
 }
 
 test( 'a reader is asked to log in, and sees no Protect tab', async ( { page } ) => {
-	await page.goto( '/wiki/Project:Home' );
-	await expect( page.getByRole( 'link', { name: 'Protect' } ) ).toHaveCount( 0 );
+	await page.goto( '/wiki/Item:Q6' );
+	await expect( page.locator( '.ts-tabs__more' ) ).toHaveCount( 0 );
 	await page.goto( '/w/index.php?title=Project:Home&action=protect' );
 	await expect( page.getByText( 'Log in to protect pages.' ) ).toBeVisible();
 	await page.goto( '/wiki/Special:UserRights' );
@@ -60,7 +60,9 @@ test.describe( 'the owner', () => {
 
 		// An entity page carries the tab; the main page is the home page, with none.
 		await page.goto( '/wiki/Item:Q6' );
-		await page.getByRole( 'link', { name: 'Protect' } ).click();
+		// The less common actions sit in the overflow menu beside the tabs (19 §1.3).
+		await page.locator( '.ts-tabs__more > summary' ).click();
+		await page.getByRole( 'link', { name: 'Protect…' } ).click();
 		await expect( page.getByRole( 'heading', { level: 1 } ) ).toHaveText( 'Protect Item:Q6' );
 		await expect( page.getByLabel( 'Also restrict the talk page' ) ).toBeChecked();
 		await page.getByLabel( 'Edit', { exact: true } ).selectOption( 'sysop' );
@@ -69,6 +71,11 @@ test.describe( 'the owner', () => {
 		await page.getByRole( 'button', { name: 'Save' } ).click();
 		await expect( page.getByText( 'The protection was saved.' ) ).toBeVisible();
 		await expect( page.getByLabel( 'Read', { exact: true } ) ).toHaveValue( 'sysop' );
+		// The item now wears the Restricted pill, naming the group.
+		await page.goto( '/wiki/Item:Q6' );
+		const pill = page.locator( '.ts-chip--restricted' );
+		await expect( pill ).toBeVisible();
+		await expect( pill ).toHaveAttribute( 'title', /sysop/ );
 
 		await page.goto( '/wiki/Special:ProtectedPages' );
 		const row = page.locator( '.ts-protectedpages__table tr', { hasText: 'Read' } );
@@ -109,7 +116,8 @@ test.describe( 'the owner', () => {
 		await page.locator( 'button[name="wpSave"]' ).click();
 		// The project namespace is shown under the wiki's own name.
 		await expect( page.getByRole( 'heading', { level: 1 } ) ).toHaveText( 'librarybase:Doomed' );
-		await page.getByRole( 'link', { name: 'Delete' } ).click();
+		await page.locator( '.ts-tabs__more > summary' ).click();
+		await page.getByRole( 'link', { name: 'Delete…' } ).click();
 		await expect( page.getByRole( 'heading', { level: 1 } ) ).toHaveText( 'Delete librarybase:Doomed' );
 		await page.getByLabel( 'Reason' ).fill( 'e2e' );
 		await page.getByRole( 'button', { name: 'Delete', exact: true } ).click();
@@ -124,6 +132,23 @@ test.describe( 'the owner', () => {
 		await expect( page.getByRole( 'heading', { level: 1 } ) ).toHaveText( 'librarybase:Doomed' );
 		await expect( page.getByText( 'Soon gone.' ) ).toBeVisible();
 		await expect( page.getByText( 'This page was deleted' ) ).toHaveCount( 0 );
+	} );
+
+	test( 'a set is created, renamed and retired on Special:ProtectedPages', async ( { page } ) => {
+		await logIn( page, 'Special:ProtectedPages' );
+		await page.goto( '/wiki/Special:ProtectedPages' );
+		await page.getByLabel( 'Name' ).last().fill( 'E2E set' );
+		await page.locator( '#ts-set-new-edit' ).selectOption( 'sysop' );
+		await page.getByRole( 'button', { name: 'Create set' } ).click();
+		await expect( page.getByText( 'The set was created.' ) ).toBeVisible();
+		const set = page.locator( '.ts-set', { hasText: 'E2E set' } );
+		await set.getByLabel( 'Name' ).fill( 'E2E set renamed' );
+		await set.getByRole( 'button', { name: 'Save set' } ).click();
+		await expect( page.getByText( 'The set was changed.' ) ).toBeVisible();
+		const renamed = page.locator( '.ts-set', { hasText: 'E2E set renamed' } );
+		await expect( renamed ).toBeVisible();
+		await renamed.getByRole( 'button', { name: 'Retire this set' } ).click();
+		await expect( page.getByText( 'The set was retired.' ) ).toBeVisible();
 	} );
 
 	test( 'the block list shows a block and offers to lift it', async ( { page } ) => {

@@ -43,7 +43,7 @@ use crate::codex::{ChipKind, MessageKind};
 use crate::frame::{Page, Tab, title_url};
 use crate::html::{esc, lang_attrs, link};
 use crate::i18n::Messages;
-use crate::pages::{self, Context, ModerationTabs};
+use crate::pages::{self, Context};
 
 /// What the query asks for.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -495,8 +495,8 @@ fn view_switch(
 }
 
 /// The page's tabs: the entity's, with History current.
-fn tabs(m: &Messages, title: &str, items: bool, offered: ModerationTabs) -> Vec<Tab> {
-    super::tabs(m, title, super::TabName::History, items, true, offered)
+fn tabs(m: &Messages, title: &str, items: bool) -> Vec<Tab> {
+    super::tabs(m, title, super::TabName::History, items, true)
 }
 
 /// The label lookup for a diff's values.
@@ -621,14 +621,7 @@ pub async fn serve(
             r.terms(),
             r.document_title(),
         );
-        let tabs = super::tabs(
-            &cx.m,
-            &title,
-            super::TabName::Statements,
-            items,
-            true,
-            cx.moderation_tabs(),
-        );
+        let tabs = super::tabs(&cx.m, &title, super::TabName::Statements, items, true);
         return pages::respond(&cx, headers, StatusCode::OK, move |_| Page {
             title: display,
             doc_title: Some(doc_title),
@@ -822,7 +815,7 @@ pub async fn serve(
         r.terms(),
         r.document_title(),
     );
-    let tabs = tabs(m, &title, items, cx.moderation_tabs());
+    let tabs = tabs(m, &title, items);
     pages::respond(&cx, headers, StatusCode::OK, move |_| Page {
         title: display,
         doc_title: Some(doc_title),

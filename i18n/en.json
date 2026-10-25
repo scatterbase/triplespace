@@ -1181,5 +1181,16 @@
 	"ts-undelete-page": "Page",
 	"ts-undelete-go": "Show",
 	"ts-undelete-none": "Nothing has been deleted.",
-	"ts-undelete-nothing": "There is no deletion of $1 that you may see."
+	"ts-undelete-nothing": "There is no deletion of $1 that you may see.",
+	"ts-tabs-more": "More",
+	"ts-action-protect": "Protect…",
+	"ts-action-delete": "Delete…",
+	"ts-restricted": "Restricted",
+	"ts-restricted-groups": "Readable by members of: $1.",
+	"ts-restricted-sets": "In the sets: $1.",
+	"ts-kind-page": "Page",
+	"ts-protectedpages-change-set": "Rename or restrict",
+	"ts-protectedpages-change": "Save set",
+	"ts-protectedpages-done-changed": "The set was changed.",
+	"ts-protectedpages-set-needs-restriction": "A set restricts something: choose a group for Read or Edit."
 }

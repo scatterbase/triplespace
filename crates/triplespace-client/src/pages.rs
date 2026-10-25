@@ -22,6 +22,36 @@ pub struct PageCategory {
     pub hidden: bool,
 }
 
+/// A target's visibility, as `ts-visibility` reports it: the groups a reader must be in,
+/// and the sets it is restricted through (19 §1.3).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Visibility {
+    /// The groups.
+    pub groups: Vec<String>,
+    /// The sets' names.
+    pub sets: Vec<String>,
+}
+
+impl Visibility {
+    /// From the API's object; `None` where there is none (public).
+    #[must_use]
+    pub fn of(v: &Value) -> Option<Self> {
+        let list = |k: &str| -> Vec<String> {
+            v[k].as_array()
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|x| x.as_str().map(str::to_string))
+                        .collect()
+                })
+                .unwrap_or_default()
+        };
+        v.is_object().then(|| Self {
+            groups: list("groups"),
+            sets: list("sets"),
+        })
+    }
+}
+
 /// A page as `action=parse` renders it.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Parsed {
@@ -39,6 +69,8 @@ pub struct Parsed {
     pub redirected_from: Option<String>,
     /// The templates the page transcludes, prefixed.
     pub templates: Vec<String>,
+    /// The page's visibility, where not public (`ts-visibility`; 19 §1.3).
+    pub visibility: Option<Visibility>,
 }
 
 fn parsed(v: &Value) -> Parsed {
@@ -60,6 +92,7 @@ fn parsed(v: &Value) -> Parsed {
             })
             .collect(),
         redirected_from: p["redirects"][0]["from"].as_str().map(str::to_string),
+        visibility: Visibility::of(&p["ts-visibility"]),
         templates: list("templates")
             .iter()
             .filter_map(|t| t["title"].as_str().map(str::to_string))
