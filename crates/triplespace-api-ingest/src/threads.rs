@@ -30,8 +30,8 @@ use scatter_log::cbor::Value;
 use scatter_log_postgres::PgClient;
 use scatter_projection::Pipeline;
 use scatter_threads::{
-    Check, Invalid, Limits, Minted, NS_THREAD, PAYLOAD_THREAD, Pages, Statuses, Target, Thread,
-    ThreadOp, Writer, mint_title, normalize_subject,
+    Check, Invalid, Limits, MARKDOWN, Minted, NS_THREAD, PAYLOAD_THREAD, Pages, Statuses, Target,
+    Thread, ThreadOp, WIKITEXT, Writer, mint_title, normalize_subject, strip_trailing_signature,
 };
 use triplespace_projections::PgCx;
 use triplespace_projections::acl_read::{page_chain, removed, thread_chain};
@@ -59,6 +59,22 @@ pub struct ThreadWrite {
     /// A `create`'s title date, `YYYY-MM-DD`, when an import supplies it (0054 §5); the
     /// request's own UTC date otherwise.
     pub date: Option<String>,
+    /// Who signs a wikitext post's pre-save transform; without one, an editor's wikitext
+    /// post is saved without it (14 §1.6).
+    pub signer: Option<PostSigner>,
+}
+
+/// The names a wikitext post's pre-save transform signs with (11 §1.5; 14 §1.6).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PostSigner {
+    /// The writer's user name.
+    pub name: String,
+    /// The tenant's local name for the User namespace.
+    pub user_ns: String,
+    /// The tenant's local name for the User talk namespace.
+    pub user_talk_ns: String,
+    /// The word the talk link shows.
+    pub talk: String,
 }
 
 /// What was written.
@@ -94,6 +110,10 @@ pub enum ThreadError {
         /// The newest record's offset.
         latest: u64,
     },
+    /// An editor's post is empty once its trailing signature is removed, and sets no
+    /// status or collapse that would make it a post without words (14 §1.6).
+    #[error("the post has no text once its signature is removed")]
+    EmptyPost,
     /// The store refused.
     #[error("store: {0}")]
     Store(String),
@@ -163,10 +183,15 @@ async fn facts(cx: &PgCx, tenant: &str, op: &ThreadOp, now: u64) -> Result<Facts
             Target::Page(id) if *id >= PROVIDER_RANGED => true,
             Target::Page(page) => {
                 let id = i64::try_from(*page).map_err(store_err)?;
+                // A document page, or a local entity's page (14 §1.3).
                 let row = cx
                     .query_opt(
                         "SELECT 1 FROM view.page
-                         WHERE tenant = $1 AND page_id = $2 AND NOT deleted AND latest_offset IS NOT NULL",
+                         WHERE tenant = $1 AND page_id = $2 AND NOT deleted AND latest_offset IS NOT NULL
+                         UNION ALL
+                         SELECT 1 FROM view.entity
+                         WHERE tenant = $1 AND page_id = $2 AND NOT deleted
+                         LIMIT 1",
                         &[&tenant, &id],
                     )
                     .await
@@ -364,6 +389,62 @@ async fn mint(
     Ok((page_id, minted))
 }
 
+/// What saving does to an editor's `create`, `post` or `edit` before it is checked
+/// (14 §1.6; 0019 A28): an original post takes the tenant's `thread.markup` when it names no
+/// media type, and an edit its post's own; a trailing signature is removed; and a wikitext
+/// post then receives the pre-save transform. An imported post's signatures were expanded
+/// upstream, so there are no tildes for an edit to remove. A post left without text is refused unless it sets a status or a
+/// collapse.
+fn prepare(w: &mut ThreadWrite, thread: Option<&Thread>, now: u64) -> Result<(), ThreadError> {
+    let media = match &mut w.op {
+        ThreadOp::Create { media_type, .. } | ThreadOp::Post { media_type, .. } => {
+            if media_type.is_none() && w.limits.markup != MARKDOWN {
+                *media_type = Some(w.limits.markup.to_string());
+            }
+            media_type.clone()
+        }
+        ThreadOp::Edit { object, media_type } => {
+            if media_type.is_none()
+                && let Some(p) = thread.and_then(|t| t.post(*object))
+                && p.media_type != MARKDOWN
+            {
+                *media_type = Some(p.media_type.clone());
+            }
+            media_type.clone()
+        }
+        _ => return Ok(()),
+    };
+    let wordless = matches!(
+        &w.op,
+        ThreadOp::Post { status, collapse, uncollapse, .. }
+            if status.is_some() || collapse.is_some() || uncollapse.is_some()
+    );
+    let Some(text) = w.text.as_mut() else {
+        return Ok(());
+    };
+    let mut out = strip_trailing_signature(text).to_string();
+    if media.as_deref() == Some(WIKITEXT)
+        && let Some(s) = &w.signer
+        && !out.trim().is_empty()
+    {
+        out = scatter_wikitext_expand::pre_save_transform(
+            &out,
+            &scatter_wikitext_expand::Signer {
+                name: &s.name,
+                user_ns: &s.user_ns,
+                user_talk_ns: &s.user_talk_ns,
+                talk: &s.talk,
+                now: i64::try_from(now / 1_000_000).unwrap_or(0),
+            },
+        );
+    }
+    if out.trim().is_empty() && !wordless {
+        return Err(ThreadError::EmptyPost);
+    }
+    *text = out;
+    Ok(())
+}
+
 /// Writes one thread record (see the module documentation).
 ///
 /// # Errors
@@ -393,6 +474,12 @@ pub async fn write(
         None => None,
         Some(id) => Some(load(cx, partition, tenant, id, request.now).await?),
     };
+
+    // What saving does to an editor's text (14 §1.6; 0019 A28).
+    let mut w = w;
+    if w.writer == Writer::Editor {
+        prepare(&mut w, thread.as_ref(), request.now)?;
+    }
 
     // Check the record before minting anything.
     let facts = facts(cx, tenant, &w.op, request.now).await?;

@@ -38,6 +38,7 @@ pub mod params;
 pub mod prefs;
 pub mod response;
 pub mod tenant;
+pub mod thread_html;
 pub mod thread_view;
 pub mod version;
 

@@ -1643,6 +1643,18 @@ meaning = "Pinned threads per page"
 source = "[0049](../decisions/0049-boards.md) §6; [0069](../decisions/0069-synchronized-talk-pages.md) §4, §11"
 
 [[setting]]
+key = "thread.markup"
+scope = "tenant"
+bound = "tenant"
+group = "discussion"
+type = "choice"
+choices = ["markdown", "wikitext"]
+default = "markdown"
+reported = true
+meaning = "The markup of new posts: Markdown, or wikitext as on MediaWiki talk pages. Posts already written keep theirs"
+source = "[0019](../decisions/0019-discussions.md) §5, A28"
+
+[[setting]]
 key = "ui.count_threshold"
 scope = "tenant"
 bound = "tenant"

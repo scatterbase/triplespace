@@ -41,7 +41,7 @@ Whether a tenant runs Lua and which renderer serves its HTML are the `site` sett
 | Inline | bold and italic (MediaWiki's apostrophe algorithm), internal links through `namespaces.toml`, external links, bare URLs, `<nowiki>`, comments (dropped) |
 | HTML | MediaWiki Sanitizer's allowlisted tags and attributes |
 | References | `<ref>`, `<ref name>`, `<references />` |
-| Pre-save transform | `~~~`, `~~~~`, `~~~~~` on wikitext pages (not posts, [0019](../decisions/0019-discussions.md) §5) |
+| Pre-save transform | `~~~`, `~~~~`, `~~~~~` on wikitext pages and wikitext posts, less a post's trailing signature, which is removed ([0019](../decisions/0019-discussions.md) §5) |
 
 Tags and behaviour switches the registry marks `implemented` (§2.2) are rendered by the built-in renderer, after expansion or without it (§1.1); what the registry marks `ignored` has no effect. Everything else renders as a **visible chip** showing its source: templates, parser functions, magic words and variables, and the extension tags whose registry status is `chip`. Files in wikitext (`File:` and `Image:` links) follow [0039](../decisions/0039-files-and-media.md) §13, in [12](12-files-and-media.md). Categories are listed as plain text ([0010](../decisions/0010-site-ui.md)). Magic links (`ISBN`, `RFC`, `PMID`) are off. The subset itself is [0008](../decisions/0008-namespaces-and-document-pages.md) §8's, in [10](10-pages-and-content-models.md).
 
@@ -102,7 +102,7 @@ Given the same host answers, it produces the same output. The same code serves p
 
 *Sources: [0042](../decisions/0042-template-expansion-and-parsoid.md) §6; [0033](../decisions/0033-backend-stack.md) §9.1.*
 
-The pre-save transform expands `~~~`, `~~~~` and `~~~~~` on wikitext pages, not posts ([0008](../decisions/0008-namespaces-and-document-pages.md) §8; [0019](../decisions/0019-discussions.md) §5). **`subst:` and `safesubst:` expand when a page is saved,** as MediaWiki's pre-save transform does, alongside `~~~~`. The saved text is the substituted text. `{{subst:#invoke:…}}` works when Lua is on.
+The pre-save transform expands `~~~`, `~~~~` and `~~~~~` on wikitext pages, and on wikitext posts except a signature at the end of the post, which is removed instead ([0008](../decisions/0008-namespaces-and-document-pages.md) §8; [0019](../decisions/0019-discussions.md) §5, in [14](14-discussions.md) §1.6). **`subst:` and `safesubst:` expand when a page is saved,** as MediaWiki's pre-save transform does, alongside `~~~~`. The saved text is the substituted text. `{{subst:#invoke:…}}` works when Lua is on.
 
 ## 2. The parser-function registry
 

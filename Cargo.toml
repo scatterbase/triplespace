@@ -132,6 +132,8 @@ serde_json = { version = "1", features = ["float_roundtrip"] }
 # needs html5ever 0.39 while ammonia 4.2 uses 0.40; the second copy is a dev-dependency
 # only. ammonia 4.2.4 or later: earlier releases have open advisories.
 ammonia = "4.2.4"
+# CommonMark for markdown pages and posts (0033 §9.2), without its CLI and highlighting.
+comrak = { version = "0.43", default-features = false }
 html5ever = "0.39"
 markup5ever_rcdom = "0.39"
 toml = "1"

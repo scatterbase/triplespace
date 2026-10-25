@@ -9,7 +9,12 @@ authors.workspace = true
 description = "Document page records (scatter:v0/page): the operations, their content part, title checks and the content-model registry"
 publish = false
 
+[features]
+# Markdown rendering (22 §2.1; 14 §1.6).
+markdown = ["dep:comrak"]
+
 [dependencies]
+comrak = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
 similar.workspace = true

@@ -23,6 +23,8 @@
 #![forbid(unsafe_code)]
 
 pub mod diff;
+#[cfg(feature = "markdown")]
+pub mod markdown;
 mod models;
 mod title;
 

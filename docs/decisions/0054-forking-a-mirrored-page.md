@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-10-20 (A6)
+- **Updated:** 2026-10-25 (A7)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0024](0024-subsidiary-accounts.md), [0030](0030-edit-filters.md), [0033](0033-backend-stack.md), [0039](0039-files-and-media.md), [0047](0047-special-pages.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0023](0023-moderation.md), [0035](0035-adopting-a-wikibase.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0049](0049-boards.md), [0051](0051-page-redirects.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0055](0055-templatestyles-templatedata-and-page-properties.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -53,7 +53,7 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 5. The talk page: sections become closed threads (amends 0019 §3, §4, §5, §6; settles 0019 Q5; extends 0008 §9)
 
-*Changed by A2, A5, A6.*
+*Changed by A2, A5, A6, A7.*
 
 *Current text: [13](../architecture/13-mirrored-pages.md) §5.11, §5.12, §5.13.*
 
@@ -266,3 +266,14 @@ Replaced text ([13](../architecture/13-mirrored-pages.md) §5.12 and §5.13, as 
 Replaced text ([22](../architecture/22-crates-and-stack.md) §2.1, the `scatter-adapter-mediawiki` row, as it stood):
 
 > upstream revision records for pages from a store or `prop=revisions`, and the talk-page splitter ([0053](../decisions/0053-mirrored-pages.md) §12, [0054](../decisions/0054-forking-a-mirrored-page.md) §3, §5, §12); the `discussiontoolspageinfo` reader,
+
+### A7. Editors may write wikitext posts too
+
+- **Date:** 2026-10-25
+- **Source:** Direct: James, design discussion of 2026-10-24 (recorded as [0019](0019-discussions.md) A28)
+- **Change:** amends §5
+- **Summary:** A tenant's `thread.markup` setting may make editors' posts wikitext ([0019](0019-discussions.md) A28), so `text/x-wiki` is no longer written only by imports. An import still writes every post as wikitext, whatever the setting, and keeps its text as it was, signatures included: the removal of a trailing signature applies to original posts only. Chapter text: [13](../architecture/13-mirrored-pages.md) §5.13.
+
+Replaced text ([13](../architecture/13-mirrored-pages.md) §5.13, as it stood):
+
+> **The post is wikitext.** [0019](../decisions/0019-discussions.md) §5 made posts markdown. The thread payload's text part has a media type: the content part's **`mediaType`** is `text/markdown` by default and **`text/x-wiki`** for a post an import writes. A wikitext post renders through the tenant's wikitext pipeline, with expansion, so `{{WikiProject Medicine}}` and `{{Talk header}}` render through the stack (§1.3) without being forked, and `~~~~` signatures stay the text they were. No editor composes a wikitext post; only an import writes one, and editing such a post keeps its media type. The AS2 profile ([0019](../decisions/0019-discussions.md) §10, in [16](../architecture/16-logs-feeds-and-notifications.md)) emits it as `as:source`'s `mediaType`.

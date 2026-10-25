@@ -862,6 +862,10 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                     setting("theme.typeset").as_deref(),
                     setting("theme.choice").as_deref(),
                 ));
+                // The markup a client's new posts must have (14 §1.6; 0019 A28).
+                t["thread"] = json!({
+                    "markup": setting("thread.markup").unwrap_or_else(|| "markdown".into()),
+                });
                 if ctx.app.config().mode == Mode::Development {
                     t["insecure"] = json!(true);
                 }

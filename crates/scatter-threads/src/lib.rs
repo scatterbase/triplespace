@@ -17,7 +17,8 @@
 //! home and listings with their pins, status, and the ranges of posts that stand collapsed.
 //! [`Thread::apply`] checks each record against that state as it folds it in, with what only
 //! the store knows behind [`Pages`]. [`Statuses`] is the thread-status registry, and
-//! [`normalize_subject`] and [`mint_title`] make thread titles.
+//! [`normalize_subject`] and [`mint_title`] make thread titles, and
+//! [`strip_trailing_signature`] removes the signature an editor types by habit (14 §1.6).
 //!
 //! Pure; no I/O. The content part is encoded as JSON here, and the write path turns it into
 //! the record's canonical CBOR, as `scatter-pages` does. Proposals (14 §5) and boards' own
@@ -27,6 +28,7 @@
 
 mod fold;
 mod op;
+mod signature;
 mod status;
 mod title;
 
@@ -34,6 +36,7 @@ pub use fold::{
     AnyPages, Attachment, Check, Invalid, Limits, Minted, Pages, Post, Record, Thread, Writer,
 };
 pub use op::{AddedBy, ImportedFrom, MARKDOWN, Range, Target, ThreadOp, WIKITEXT};
+pub use signature::strip_trailing_signature;
 pub use status::{Category, OPEN, Status, Statuses, StatusesError, THREAD_STATUSES_TOML};
 pub use title::{SubjectError, mint_title, normalize_subject};
 

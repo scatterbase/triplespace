@@ -14,6 +14,7 @@
 //! - [`entity`]: entity pages and their `action=render` regions (0010 §2; 0057 §8).
 //! - [`special`]: the special pages served so far (0047), starting with `Special:Search`.
 //! - [`document`]: document pages, read, edited and their histories (0008; 19 §3).
+//! - [`discussion`]: talk pages and threads, read and posted to (0019 §8; 19 §6.1).
 //! - [`home`]: the main page, `Project:Home`, generated until a page of that title exists.
 //! - [`features`]: what the site offers, from what it has built and what the API serves;
 //!   nothing links to a feature that is not offered.
@@ -30,6 +31,7 @@
 pub mod appearance;
 pub mod assets;
 pub mod codex;
+pub mod discussion;
 pub mod document;
 pub mod entity;
 pub mod features;

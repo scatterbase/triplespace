@@ -1,8 +1,8 @@
 //! The thread fold and its validation, one rule per test (14 §1–§4).
 
 use scatter_threads::{
-    AnyPages, Category, Check, ImportedFrom, Invalid, Limits, Minted, Pages, Range, Record,
-    Statuses, SubjectError, Target, Thread, ThreadOp, WIKITEXT, Writer, mint_title,
+    AnyPages, Category, Check, ImportedFrom, Invalid, Limits, MARKDOWN, Minted, Pages, Range,
+    Record, Statuses, SubjectError, Target, Thread, ThreadOp, WIKITEXT, Writer, mint_title,
     normalize_subject,
 };
 use serde_json::json;
@@ -23,6 +23,17 @@ fn editor() -> Check<'static> {
         writer: Writer::Editor,
         limits: Limits::default(),
         ..Check::replay()
+    }
+}
+
+/// An editor on a tenant whose `thread.markup` is wikitext.
+fn wikitext_editor() -> Check<'static> {
+    Check {
+        limits: Limits {
+            markup: WIKITEXT,
+            ..Limits::default()
+        },
+        ..editor()
     }
 }
 
@@ -205,16 +216,40 @@ fn edits_replace_a_posts_text_in_its_own_media_type() {
 }
 
 #[test]
-fn only_imports_write_headings_wikitext_and_imported_from() {
+fn an_original_post_has_the_tenants_markup() {
+    // 14 §1.6; 0019 A28.
+    let mut t = thread(0);
+    let wikitext = with(post(None), |op| {
+        if let ThreadOp::Post { media_type, .. } = op {
+            *media_type = Some(WIKITEXT.into());
+        }
+    });
+    assert_eq!(
+        t.validate(&rec(2, wikitext.clone()), &editor()),
+        Err(Invalid::MediaType(WIKITEXT.into())),
+        "a markdown tenant refuses a wikitext post"
+    );
+    assert_eq!(
+        t.validate(&rec(2, post(None)), &wikitext_editor()),
+        Err(Invalid::MediaType(MARKDOWN.into())),
+        "a wikitext tenant refuses a markdown post"
+    );
+    t.apply(&rec(2, wikitext), &wikitext_editor()).unwrap();
+    assert_eq!(t.post(2).unwrap().media_type, WIKITEXT);
+    // An edit keeps its post's markup, whatever the setting is now.
+    let edit_wikitext = ThreadOp::Edit {
+        object: 2,
+        media_type: Some(WIKITEXT.into()),
+    };
+    t.validate(&rec(3, edit_wikitext), &editor()).unwrap();
+}
+
+#[test]
+fn only_imports_write_headings_and_imported_from() {
     let mut t = thread(0);
     let heading = with(post(None), |op| {
         if let ThreadOp::Post { heading, .. } = op {
             *heading = Some(3);
-        }
-    });
-    let wikitext = with(post(None), |op| {
-        if let ThreadOp::Post { media_type, .. } = op {
-            *media_type = Some(WIKITEXT.into());
         }
     });
     let imported = with(post(None), |op| {
@@ -225,11 +260,7 @@ fn only_imports_write_headings_wikitext_and_imported_from() {
             });
         }
     });
-    for (op, what) in [
-        (&heading, "heading"),
-        (&wikitext, "mediaType: text/x-wiki"),
-        (&imported, "imported_from"),
-    ] {
+    for (op, what) in [(&heading, "heading"), (&imported, "imported_from")] {
         assert_eq!(
             t.validate(&rec(2, op.clone()), &editor()),
             Err(Invalid::ImportOnly(what))
@@ -508,7 +539,7 @@ fn an_imported_thread_arrives_closed_pinned_and_listed() {
     };
     assert_eq!(
         Thread::create(&r, &editor()),
-        Err(Invalid::ImportOnly("mediaType: text/x-wiki"))
+        Err(Invalid::MediaType(WIKITEXT.into()))
     );
     let t = Thread::create(&r, &import()).unwrap();
     assert_eq!(t.status(), "archived");

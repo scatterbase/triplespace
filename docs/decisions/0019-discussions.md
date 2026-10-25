@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-22 (A27)
+- **Updated:** 2026-10-25 (A28)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0018](0018-tenants.md), [0022](0022-federation.md)
@@ -42,13 +42,13 @@ Two goals from the earlier ADRs constrain the design. Every unit of contribution
 
 ### 4. The record: four parts (amends 0015 §1)
 
-*Changed by A10, A13, A15, A17, A18, A19, A23, A24, A25, A26.*
+*Changed by A10, A13, A15, A17, A18, A19, A23, A24, A25, A26, A28.*
 
 *Current text: [14](../architecture/14-discussions.md) §1.5, §3.6, §4.2.*
 
 ### 5. Text: markdown, mentions and links (extends 0008 §5, §8 and §10)
 
-*Changed by A8, A13, A24, A25.*
+*Changed by A8, A13, A24, A25, A28.*
 
 *Current text: [14](../architecture/14-discussions.md) §1.6.*
 
@@ -66,7 +66,7 @@ Two goals from the earlier ADRs constrain the design. Every unit of contribution
 
 ### 8. Rendering and the UI (extends 0010)
 
-*Changed by A2, A10, A15.*
+*Changed by A2, A10, A15, A28.*
 
 *Current text: [19](../architecture/19-site-ui.md) §6.1.*
 
@@ -526,3 +526,28 @@ Replaced text ([14](../architecture/14-discussions.md) §1.6, as it stood):
 - **Source:** Direct: James, "proceed to what you feel the best next step is", 2026-10-22; implementation calls for his review
 - **Change:** extends §7
 - **Summary:** Made while projecting thread records as activity rows. A thread record that is also a log event (`create`, `rename`, `move`, `attach`, `detach`, `pin`, `unpin`) takes a log ID from the tenant's sequence beside its revision ID, as a MediaWiki page creation has both a revision and a log entry; `post` and `edit` take none. Its one activity row carries the log type, action and parameters beside the edit, and `list=logevents` reads those rows with the `log` rows; the parameters name the targets and the talk page IDs the record minted or found. Chapter text: [16](../architecture/16-logs-feeds-and-notifications.md) §6.1.
+
+### A28. Post markup is a tenant setting; a trailing signature is removed on save
+
+- **Date:** 2026-10-25
+- **Source:** Direct: James, design discussion of 2026-10-24
+- **Change:** amends §4, §5; extends §8
+- **Summary:** James: "I like the idea of quietly removing the tildes upon save. There isn't really a need to scold the user. Whether posts use markdown or wikitext can be an instance or tenant setting." With his choices of 2026-10-25 on the details: **Markup.** The tenant `site` setting `thread.markup` (`markdown` or `wikitext`, default `markdown`; a tenant sets it or inherits its instance's default, 0085 §2.1) names the media type of every original `create` and `post` written while it holds. A request that omits `mediaType` takes it; one that names the other is refused with `ts-bad-media-type` (James chose refusal over accepting either). `text/x-wiki` is therefore no longer import-only, which amends A26's list of import-only fields; `heading` and `imported_from` stay import-only. An `edit` keeps its post's media type (A26), so changing the setting rewrites nothing and a thread may hold both. **Signatures.** When an original `create`, `post` or `edit` is written, a signature at the very end of its text (`~~~`, `~~~~` or `~~~~~`, with any whitespace and one `--`, `—` or `–` before it) is removed silently; tildes elsewhere are kept (James chose the trailing signature only). A wikitext post then receives the rest of the pre-save transform as a wikitext page does: `subst:`, `safesubst:` and signatures elsewhere in the text expand (James chose this over no transform). A markdown post receives nothing else. An original `create` or `edit` whose text is empty once its signature is removed is refused with `ts-empty-post`, and so is a `post` unless it sets a status or collapses or uncollapses a range (an implementation call for James's review). Imports keep their text verbatim. **UI** (§8): the composer shows the markup in use beneath its text area and removes the signature without comment. Chapter text: [14](../architecture/14-discussions.md) §1.5, §1.6; [11](../architecture/11-rendering-templates-and-modules.md) §1.2, §1.5; [13](../architecture/13-mirrored-pages.md) §5.13 (0054 A7); [19](../architecture/19-site-ui.md) §6.1; [23](../architecture/23-configuration-and-registry.md) §3.2, §6 (`siprop=triplespace` reports it).
+
+Replaced text ([14](../architecture/14-discussions.md) §1.5, as it stood):
+
+> | `mediaType` | `create`, `post`, `edit` (optional) | The text part's media type: `text/markdown` by default, `text/x-wiki` for a post an import writes ([0054](../decisions/0054-forking-a-mirrored-page.md) §5). An `edit` carries its post's own media type, so a post keeps its markup for good ([0019](../decisions/0019-discussions.md) A26) |
+>
+> The rule is general: a field that applies only to an import, `imported_from`, `heading` or the `text/x-wiki` media type, is refused on an original `create` or `post` and accepted on an imported one ([0019](../decisions/0019-discussions.md) A26).
+
+Replaced text ([14](../architecture/14-discussions.md) §1.6, as it stood):
+
+> **Posts are markdown** by default, rendered by the `markdown` content model of 0008 §5 ([10](../architecture/10-pages-and-content-models.md) §4.4), with two additions that apply to that model everywhere; a post whose `mediaType` is `text/x-wiki`, which only an import writes, is rendered by the wikitext pipeline instead, with expansion, so the banners and templates of an imported talk page render through the title stack ([0054](../decisions/0054-forking-a-mirrored-page.md) §5; [11](../architecture/11-rendering-templates-and-modules.md)):
+>
+> `~~~~` is not expanded. A post is attributed by its attestation, and the signature has nothing to add.
+
+Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §1.2 and §1.5, as it stood):
+
+> | Pre-save transform | `~~~`, `~~~~`, `~~~~~` on wikitext pages (not posts, [0019](../decisions/0019-discussions.md) §5) |
+>
+> The pre-save transform expands `~~~`, `~~~~` and `~~~~~` on wikitext pages, not posts ([0008](../decisions/0008-namespaces-and-document-pages.md) §8; [0019](../decisions/0019-discussions.md) §5).
