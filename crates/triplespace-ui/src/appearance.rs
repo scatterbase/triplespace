@@ -310,7 +310,7 @@ mod tests {
         let v: Value = serde_json::from_str(&data(&t, Some(&o), None)).unwrap();
         assert_eq!(
             v["choices"]["ui.palette"],
-            json!(["parchment-co", "parchment-ob"])
+            json!(["encyclopedia", "parchment-co", "parchment-ob"])
         );
         assert_eq!(v["values"]["ui.palette"], "");
     }

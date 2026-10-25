@@ -208,7 +208,10 @@ mod tests {
     fn the_shipped_catalogue() {
         let c = Catalogue::shipped();
         let names: Vec<&str> = c.palettes.iter().map(|p| p.name.as_str()).collect();
-        assert_eq!(names, ["parchment", "parchment-co", "parchment-ob"]);
+        assert_eq!(
+            names,
+            ["encyclopedia", "parchment", "parchment-co", "parchment-ob"]
+        );
         let p = c.palette("parchment").unwrap();
         assert!(!p.accessibility && p.extends.is_none());
         assert_eq!(
@@ -224,6 +227,12 @@ mod tests {
         assert_eq!(t.fonts.len(), 3);
         assert_eq!(t.roles.len(), 3);
         assert!(c.typeset("opendyslexic").unwrap().accessibility);
+        let v = c.palette("encyclopedia").unwrap();
+        assert!(!v.accessibility && v.extends.is_none());
+        assert!(v.dark.is_some() && v.light_more.is_some() && v.dark_more.is_some());
+        let t = c.typeset("basic").unwrap();
+        assert!(!t.accessibility && t.fonts.is_empty());
+        assert_eq!(t.roles["font-family-base"], "sans-serif");
     }
 
     #[test]
@@ -239,8 +248,21 @@ mod tests {
         assert_eq!(t.choice, Choice::Accessibility);
         let j = serde_json::to_value(&t).unwrap();
         assert_eq!(j["choice"], "accessibility");
-        assert_eq!(j["palettes"][0]["light"]["color-base"], "#1D1C1A");
-        assert!(j["palettes"][0]["light-more"]["color-base"].is_string());
-        assert_eq!(j["typesets"][0]["font"][0]["family"], "Newsreader");
+        let named = |list: &str, name: &str| {
+            j[list]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|v| v["name"] == name)
+                .cloned()
+                .unwrap()
+        };
+        let parchment = named("palettes", "parchment");
+        assert_eq!(parchment["light"]["color-base"], "#1D1C1A");
+        assert!(parchment["light-more"]["color-base"].is_string());
+        assert_eq!(
+            named("typesets", "default26")["font"][0]["family"],
+            "Newsreader"
+        );
     }
 }
