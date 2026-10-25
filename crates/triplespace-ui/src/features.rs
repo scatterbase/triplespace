@@ -46,6 +46,8 @@ pub enum Feature {
     /// The Delete form, the deleted page's view and `Special:Undelete` (`action=delete`;
     /// 09 §6.2).
     Delete,
+    /// `Special:MovePage` (`action=move`; 10 §2.5).
+    Move,
 }
 
 impl Feature {
@@ -69,6 +71,7 @@ impl Feature {
             Self::UserRights => "userrights",
             Self::Block => "block",
             Self::Delete => "delete",
+            Self::Move => "move",
         }
     }
 }
@@ -90,6 +93,7 @@ pub const BUILT: &[Feature] = &[
     Feature::UserRights,
     Feature::Block,
     Feature::Delete,
+    Feature::Move,
 ];
 
 /// What the site offers on one request.

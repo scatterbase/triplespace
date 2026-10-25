@@ -2772,3 +2772,293 @@ async fn moderation_completeness() {
     let a = anon.api("action=query&list=allpages&apnamespace=2").await;
     assert!(!a.to_string().contains("Mallory"), "{a}");
 }
+
+/// `action=move` (10 §2.5): one `move` record and a redirect at the old title; the
+/// `move/move` event; moving over a one-revision redirect; subpages; `noredirect`; and
+/// the ACL checks at both ends.
+#[tokio::test]
+#[allow(clippy::too_many_lines, clippy::many_single_char_names)]
+async fn moves() {
+    if admin_config().is_none() {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    }
+    let (_database, app, mut alice) = instance("moves").await;
+    let mut bob = account(&alice.router, "Bob", "bob-secret-1234").await;
+    let mut mallory = account(&alice.router, "Mallory", "mallory-secret-1234").await;
+    let mut anon = Client {
+        router: alice.router.clone(),
+        cookie: None,
+    };
+    grant(&app, "Bob", "sysop").await;
+    grant(&app, "Alice", "board").await;
+    let at = alice.csrf().await;
+    let t = enc(&at);
+    let mt = enc(&mallory.csrf().await);
+    let bt = enc(&bob.csrf().await);
+    for (title, text) in [
+        ("Project:Old", "The page."),
+        ("Project:Old/Sub", "Its subpage."),
+        ("Project:Locked", "Locked."),
+        ("Project:Secret", "Hidden."),
+    ] {
+        alice
+            .api_post(&format!("action=edit&title={title}&text={text}&token={t}"))
+            .await;
+    }
+    mallory
+        .api_post(&format!(
+            "action=edit&title=User:Mallory/Draft&text=Draft.&token={mt}"
+        ))
+        .await;
+
+    // The move: a redirect is left, the page keeps its history, the event is titled by
+    // the old title and names the new one and the redirect.
+    let r = alice
+        .api_post(&format!(
+            "action=move&from=Project:Old&to=Project:New&reason=renamed&token={t}"
+        ))
+        .await;
+    assert_eq!(r["move"]["from"], "Library Base:Old", "{r}");
+    assert_eq!(r["move"]["to"], "Library Base:New", "{r}");
+    assert_eq!(r["move"]["redirectcreated"], true, "{r}");
+    let i = anon
+        .api("action=query&prop=info&titles=Project:New|Project:Old")
+        .await;
+    let pages = i["query"]["pages"].as_array().unwrap();
+    let find = |title: &str| {
+        pages
+            .iter()
+            .find(|p| p["title"] == title)
+            .cloned()
+            .unwrap_or_default()
+    };
+    assert!(find("Library Base:New").get("missing").is_none(), "{i}");
+    assert_eq!(find("Library Base:Old")["redirect"], true, "{i}");
+    let redirect_id = find("Library Base:Old")["pageid"].as_u64().unwrap();
+    let page_id = find("Library Base:New")["pageid"].as_u64().unwrap();
+    let h = anon
+        .api("action=query&prop=revisions&rvprop=ids|comment&rvlimit=10&titles=Project:New")
+        .await;
+    assert_eq!(
+        h["query"]["pages"][0]["revisions"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2,
+        "{h}"
+    );
+    let rd = anon
+        .api("action=query&prop=revisions&rvprop=content&rvslots=main&titles=Project:Old")
+        .await;
+    assert!(
+        rd.to_string().contains("#REDIRECT [[Library Base:New]]"),
+        "{rd}"
+    );
+    let l = anon.api("action=query&list=logevents&letype=move").await;
+    let e = &l["query"]["logevents"][0];
+    assert_eq!(e["action"], "move", "{l}");
+    assert_eq!(e["title"], "Project:Old", "{l}");
+    assert_eq!(e["pageid"], page_id, "{l}");
+    assert_eq!(e["params"]["target_title"], "Project:New", "{l}");
+    assert_eq!(e["params"]["ts-redirect"], redirect_id, "{l}");
+    assert!(e["comment"].as_str().unwrap().ends_with("renamed"), "{l}");
+    let l = anon
+        .api("action=query&list=logevents&letitle=Project:New")
+        .await;
+    assert_eq!(l["query"]["logevents"][0]["action"], "move", "{l}");
+
+    // Moving back over the one-revision redirect displaces it: the redirect is deleted
+    // with the move as its reason, and the title is the page's again.
+    let r = bob
+        .api_post(&format!(
+            "action=move&from=Project:New&to=Project:Old&token={bt}"
+        ))
+        .await;
+    assert_eq!(r["move"]["moveoverredirect"], true, "{r}");
+    assert_eq!(r["move"]["redirectcreated"], true, "{r}");
+    let i = anon
+        .api(&format!("action=query&prop=info&pageids={page_id}"))
+        .await;
+    assert_eq!(i["query"]["pages"][0]["title"], "Library Base:Old", "{i}");
+    let l = anon.api("action=query&list=logevents&letype=delete").await;
+    let e = &l["query"]["logevents"][0];
+    assert_eq!(e["pageid"], redirect_id, "{l}");
+    assert!(
+        e["comment"]
+            .as_str()
+            .unwrap()
+            .contains("Moved over redirect"),
+        "{l}"
+    );
+    // Project:New is now a redirect to Project:Old, with one revision: a further move
+    // onto it is allowed; onto a page with history it is not.
+    alice
+        .api_post(&format!(
+            "action=edit&title=Project:New&text=Not%20a%20redirect%20any%20more.&token={t}"
+        ))
+        .await;
+    let r = alice
+        .api_post(&format!(
+            "action=move&from=Project:Old&to=Project:New&token={t}"
+        ))
+        .await;
+    assert_eq!(r["error"]["code"], "articleexists", "{r}");
+
+    // Subpages follow with `movesubpages`; without it they stay.
+    let r = alice
+        .api_post(&format!(
+            "action=move&from=Project:Old&to=Project:Renamed&movesubpages=1&token={t}"
+        ))
+        .await;
+    assert_eq!(
+        r["move"]["subpages"][0]["from"], "Library Base:Old/Sub",
+        "{r}"
+    );
+    assert_eq!(
+        r["move"]["subpages"][0]["to"], "Library Base:Renamed/Sub",
+        "{r}"
+    );
+    let i = anon
+        .api("action=query&prop=info&titles=Project:Renamed/Sub|Project:Old/Sub")
+        .await;
+    assert_eq!(i["query"]["pages"].as_array().unwrap().len(), 2, "{i}");
+    assert!(
+        i["query"]["pages"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|p| p.get("missing").is_none()),
+        "{i}"
+    );
+
+    // `noredirect` needs `suppressredirect`: a plain user is refused, a sysop leaves none.
+    let r = mallory
+        .api_post(&format!(
+            "action=move&from=User:Mallory/Draft&to=User:Mallory/Draft2&noredirect=1&token={mt}"
+        ))
+        .await;
+    assert_eq!(r["error"]["code"], "permissiondenied", "{r}");
+    let r = mallory
+        .api_post(&format!(
+            "action=move&from=User:Mallory/Draft&to=User:Mallory/Draft2&token={mt}"
+        ))
+        .await;
+    assert_eq!(r["move"]["redirectcreated"], true, "{r}");
+    let r = bob
+        .api_post(&format!(
+            "action=move&from=User:Mallory/Draft2&to=User:Mallory/Draft3&noredirect=1&token={bt}"
+        ))
+        .await;
+    assert!(r["move"].get("redirectcreated").is_none(), "{r}");
+    let i = anon
+        .api("action=query&prop=info&titles=User:Mallory/Draft2")
+        .await;
+    assert_eq!(i["query"]["pages"][0]["missing"], true, "{i}");
+    let l = anon
+        .api("action=query&list=logevents&letype=move&lelimit=1")
+        .await;
+    assert_eq!(
+        l["query"]["logevents"][0]["params"]["suppressredirect"], true,
+        "{l}"
+    );
+
+    // Entities, talk pages and threads do not move; a page cannot move onto itself.
+    for from in ["Item:Q1", "Project talk:Old", "Property:P1"] {
+        let r = alice
+            .api_post(&format!("action=move&from={from}&to=Project:X&token={t}"))
+            .await;
+        assert!(
+            ["immobilenamespace", "missingtitle"]
+                .contains(&r["error"]["code"].as_str().unwrap_or("")),
+            "{from}: {r}"
+        );
+    }
+    let r = alice
+        .api_post(&format!(
+            "action=move&from=Project:Renamed&to=Item:Q99&token={t}"
+        ))
+        .await;
+    assert_eq!(r["error"]["code"], "immobilenamespace", "{r}");
+    let r = alice
+        .api_post(&format!(
+            "action=move&from=Project:Renamed&to=Project:Renamed&token={t}"
+        ))
+        .await;
+    assert_eq!(r["error"]["code"], "selfmove", "{r}");
+
+    // The ACLs at both ends: a `move` restriction on the source, a reservation at the
+    // destination, and a confidential page there, which is a title taken.
+    alice
+        .api_post(&format!(
+            "action=protect&title=Project:Locked&protections=move%3Dsysop&token={t}"
+        ))
+        .await;
+    let r = mallory
+        .api_post(&format!(
+            "action=move&from=Project:Locked&to=Project:Unlocked&token={mt}"
+        ))
+        .await;
+    assert_eq!(r["error"]["code"], "protectedpage", "{r}");
+    let r = bob
+        .api_post(&format!(
+            "action=move&from=Project:Locked&to=Project:Unlocked&token={bt}"
+        ))
+        .await;
+    assert_eq!(r["move"]["to"], "Library Base:Unlocked", "{r}");
+    alice
+        .api_post(&format!(
+            "action=protect&title=Project:Reserved&protections=create%3Dsysop&token={t}"
+        ))
+        .await;
+    let r = mallory
+        .api_post(&format!(
+            "action=move&from=User:Mallory/Draft3&to=Project:Reserved&token={mt}"
+        ))
+        .await;
+    assert_eq!(r["error"]["code"], "ts-restricted-title", "{r}");
+    let r = bob
+        .api_post(&format!(
+            "action=move&from=Project:Unlocked&to=Project:Reserved&token={bt}"
+        ))
+        .await;
+    assert_eq!(r["error"]["code"], "ts-restricted-title", "{r}");
+    alice
+        .api_post(&format!(
+            "action=protect&title=Project:Secret&protections=read%3Dboard&token={t}"
+        ))
+        .await;
+    let r = mallory
+        .api_post(&format!(
+            "action=move&from=User:Mallory/Draft3&to=Project:Secret&token={mt}"
+        ))
+        .await;
+    assert_eq!(r["error"]["code"], "articleexists", "{r}");
+    // A confidential source is missing for those outside its group, even sysops.
+    let r = bob
+        .api_post(&format!(
+            "action=move&from=Project:Secret&to=Project:Public&token={bt}"
+        ))
+        .await;
+    assert_eq!(r["error"]["code"], "missingtitle", "{r}");
+    // Its group moves it, and the redirect left behind is a public page naming the new
+    // title: the group is told so by the response, which a form may warn on.
+    let r = alice
+        .api_post(&format!(
+            "action=move&from=Project:Secret&to=Project:Secret2&noredirect=1&token={t}"
+        ))
+        .await;
+    assert_eq!(r["move"]["to"], "Library Base:Secret2", "{r}");
+    let i = bob
+        .api("action=query&prop=info&titles=Project:Secret2|Project:Secret")
+        .await;
+    assert!(
+        i["query"]["pages"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|p| p["missing"] == true),
+        "{i}"
+    );
+    let _ = &app;
+}

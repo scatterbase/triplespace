@@ -114,6 +114,21 @@ pub struct RightsForm<'a> {
     pub token: &'a str,
 }
 
+/// What `Special:MovePage` submits.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct MoveForm<'a> {
+    /// The page, by title.
+    pub from: &'a str,
+    /// The new title.
+    pub to: &'a str,
+    /// The reason.
+    pub reason: &'a str,
+    /// Leave no redirect (needs `suppressredirect`).
+    pub noredirect: bool,
+    /// Carry the subpages along (needs `move-subpages`).
+    pub subpages: bool,
+}
+
 /// What `Special:Block` submits.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[allow(clippy::struct_excessive_bools, reason = "the form's four checkboxes")]
@@ -740,6 +755,29 @@ impl Client {
         ];
         if talk {
             fields.push(("deletetalk", "1"));
+        }
+        self.action(incoming, &fields).await
+    }
+
+    /// `action=move` (10 §2.5).
+    pub async fn move_page(
+        &self,
+        incoming: &Incoming,
+        form: &MoveForm<'_>,
+        token: &str,
+    ) -> Result<Saved<Value>, ClientError> {
+        let mut fields: Vec<(&str, &str)> = vec![
+            ("action", "move"),
+            ("from", form.from),
+            ("to", form.to),
+            ("reason", form.reason),
+            ("token", token),
+        ];
+        if form.noredirect {
+            fields.push(("noredirect", "1"));
+        }
+        if form.subpages {
+            fields.push(("movesubpages", "1"));
         }
         self.action(incoming, &fields).await
     }

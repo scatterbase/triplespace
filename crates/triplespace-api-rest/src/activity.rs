@@ -175,6 +175,12 @@ pub(crate) async fn feed_of(
                 .unwrap_or_else(|| a.clone()),
         );
     }
+    // A `log` kind takes the records that are also log events: a thread's `create` or a
+    // page's `move`, which are `edit` rows with a log ID (16 §2.3), as `list=logevents`
+    // takes them.
+    if feed.filters.kinds.iter().any(|k| k == "log") {
+        feed.filters.log_events = true;
+    }
     if let Some(t) = q.get("log_type") {
         feed.filters.log_type = Some(t.clone());
     }

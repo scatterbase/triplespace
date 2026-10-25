@@ -190,6 +190,7 @@ async fn dispatch(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         "parse" => modules::parse::run(ctx).await,
         "compare" => modules::compare::run(ctx).await,
         "edit" => modules::editpage::run(ctx).await,
+        "move" => modules::movepage::run(ctx).await,
         "delete" => modules::moderation::delete(ctx).await,
         "undelete" => modules::moderation::undelete(ctx).await,
         "protect" => modules::moderation::protect(ctx).await,

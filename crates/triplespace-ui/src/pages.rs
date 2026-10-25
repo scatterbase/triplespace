@@ -125,6 +125,7 @@ impl Context {
         ModerationTabs {
             protect: self.holds("protect") && self.features.has(Feature::Protect),
             delete: self.holds("delete") && self.features.has(Feature::Delete),
+            r#move: self.holds("move") && self.features.has(Feature::Move),
         }
     }
 
@@ -580,6 +581,8 @@ pub struct ModerationTabs {
     pub protect: bool,
     /// **Delete**.
     pub delete: bool,
+    /// **Move**.
+    pub r#move: bool,
 }
 
 /// A title: an entity's page, a special page, the main page, or the `404`.

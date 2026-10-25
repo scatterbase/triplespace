@@ -474,6 +474,62 @@ def deletion(x):
            b.api(action="query", prop="revisions", rvprop="content", titles="Project:Secret"), ["Hush"])
 
 
+def moves(x):
+    """`action=move` is checked at both ends (10 §2.5; 09 §3.4)."""
+    a, b, m, anon = x.alice, x.bob, x.mallory, x.anon
+    a.edit("Project:Movable", "movable text")
+    a.edit("Project:Movable/Sub", "movable sub")
+    m.edit("User:Mallory/Mine", "mine")
+    must("owner reserves a title", a.protect("Project:Taken", "create=sysop"))
+    # The confidential page is a title taken, never a hint; the reservation is restricted.
+    for who in (m, b):
+        deny(f"{who.name} moves a page onto the confidential title",
+             who.post(action="move", **{"from": "Project:Movable"}, to="Project:Secret", token=who.token()))
+        r = who.post(action="move", **{"from": "Project:Movable"}, to="Project:Secret", token=who.token())
+        absent(f"{who.name}'s refusal names nothing confidential", r, ["board", "confidential", "Hush"])
+    deny("user moves onto a reserved title",
+         m.post(action="move", **{"from": "User:Mallory/Mine"}, to="Project:Taken", token=m.token()))
+    # The confidential page itself is missing to outsiders at the source end.
+    for who in (m, b):
+        r = who.post(action="move", **{"from": "Project:Secret"}, to="Project:Leaked", token=who.token())
+        deny(f"{who.name} moves the confidential page", r)
+        if r.get("error", {}).get("code") == "missingtitle":
+            ok(f"{who.name} is told the page is missing, not restricted")
+        else:
+            finding(f"ORACLE: {who.name}'s refusal tells the confidential page apart", json.dumps(r)[:300])
+    absent("no page appeared at the leaked title",
+           anon.api(action="query", prop="info", titles="Project:Leaked"), ["pageid"])
+    # A move restriction holds; a protected page's redirect does not carry its protection.
+    must("owner restricts move on the movable page", a.protect("Project:Movable", "move=sysop"))
+    deny("user moves a move-protected page",
+         m.post(action="move", **{"from": "Project:Movable"}, to="Project:Moved", token=m.token()))
+    deny("user suppresses the redirect",
+         m.post(action="move", **{"from": "User:Mallory/Mine"}, to="User:Mallory/Mine2", noredirect=1,
+                token=m.token()))
+    deny("anon moves anything",
+         anon.post(action="move", **{"from": "User:Mallory/Mine"}, to="User:Mallory/Mine3", token="+\\"))
+    deny("user moves an entity", m.post(action="move", **{"from": f"Item:{x.plain}"}, to="Project:Q", token=m.token()))
+    deny("user moves a page into the entity namespace",
+         m.post(action="move", **{"from": "User:Mallory/Mine"}, to="Item:Q9999", token=m.token()))
+    must("sysop moves the move-protected page with its subpages",
+         b.post(action="move", **{"from": "Project:Movable"}, to="Project:Moved", movesubpages=1, token=b.token()))
+    must("the old title is a redirect", anon.api(action="query", prop="info", titles="Project:Movable"), "redirect")
+    must("the subpage moved", anon.api(action="query", prop="info", titles="Project:Moved/Sub"), "pageid")
+    must("the move is logged under the old title",
+         anon.api(action="query", list="logevents", letype="move", lelimit=5), "Project:Movable")
+    # The group moves the confidential page; its old title stays absent for outsiders
+    # when no redirect is left, and the move event is theirs alone.
+    c = x.carol  # in board, and a sysop: the page's edit protection admits her
+    must("board sysop moves the confidential page without a redirect",
+         c.post(action="move", **{"from": "Project:Secret"}, to="Project:Secret2", noredirect=1, token=c.token()))
+    absent("the confidential move is absent from the public log",
+           anon.api(action="query", list="logevents", letype="move", lelimit=500), ["Secret2", "Project:Secret"])
+    absent("the new title is absent for outsiders",
+           b.api(action="query", prop="info", titles="Project:Secret2"), ["pageid"])
+    must("board sysop moves it back", c.post(action="move", **{"from": "Project:Secret2"}, to="Project:Secret",
+                                             noredirect=1, token=c.token()))
+
+
 def bearer(x):
     """A bot of a board member: credentials never widen beyond the subsidiary's own groups."""
     if not ARGS.cli:
@@ -783,7 +839,8 @@ def positive(x):
 
 SECTIONS = [
     ("leaks", leaks), ("oracles", oracles), ("escalation", escalation), ("delegation", delegation),
-    ("includes", includes), ("threads", threads), ("deletion", deletion), ("bearer", bearer),
+    ("includes", includes), ("threads", threads), ("deletion", deletion), ("moves", moves),
+    ("bearer", bearer),
     ("owner", owner), ("hidden-names", hidden_names), ("tokens", tokens), ("private", private),
     ("positive", positive),
 ]

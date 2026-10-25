@@ -11,6 +11,7 @@ pub mod info;
 pub mod issuers;
 pub mod login;
 pub mod moderation;
+pub mod movepage;
 pub mod notifications;
 pub mod options;
 pub mod pageset;

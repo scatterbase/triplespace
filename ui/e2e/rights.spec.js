@@ -1,6 +1,6 @@
-// The Protect form, Special:UserRights, Special:ProtectedPages, Special:Block and the
-// Visibility section (chapter 19 §6.3), with JavaScript off, as the owner and as a reader,
-// through the edge; axe on each form.
+// The Protect form, Special:UserRights, Special:ProtectedPages, Special:Block,
+// Special:MovePage and the Visibility section (chapter 19 §6.3), with JavaScript off, as
+// the owner and as a reader, through the edge; axe on each form.
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
@@ -134,6 +134,36 @@ test.describe( 'the owner', () => {
 		await expect( page.getByText( 'This page was deleted' ) ).toHaveCount( 0 );
 	} );
 
+	test( 'moves a page, leaving a redirect', async ( { page } ) => {
+		await logIn( page, 'Project:Home' );
+		await page.goto( '/w/index.php?title=Project:Movable&action=edit' );
+		await page.locator( '#wpTextbox1' ).fill( 'On the move.' );
+		await page.locator( 'button[name="wpSave"]' ).click();
+		await expect( page.getByRole( 'heading', { level: 1 } ) ).toHaveText( 'librarybase:Movable' );
+		await page.locator( '.ts-tabs__more > summary' ).click();
+		await page.getByRole( 'link', { name: 'Move…' } ).click();
+		await expect( page.getByRole( 'heading', { level: 1 } ) ).toHaveText( 'Move librarybase:Movable' );
+		// The owner may suppress the redirect; the box is on by default.
+		await expect( page.getByLabel( 'Leave a redirect behind' ) ).toBeChecked();
+		await page.getByLabel( 'New title' ).fill( 'Project:Moved' );
+		await page.getByLabel( 'Reason' ).fill( 'e2e' );
+		await page.getByRole( 'button', { name: 'Move page' } ).click();
+		await expect( page.getByRole( 'heading', { level: 1 } ) ).toHaveText( 'librarybase:Moved' );
+		await expect( page.getByText( 'On the move.' ) ).toBeVisible();
+		await page.goto( '/w/index.php?title=Project:Movable&action=edit' );
+		await expect( page.locator( '#wpTextbox1' ) ).toHaveValue( '#REDIRECT [[librarybase:Moved]]' );
+		await page.goto( '/wiki/Special:Log/move' );
+		await expect( page.locator( '.ts-change' ).first() ).toContainText( 'Project:Movable → Project:Moved' );
+		// A title that is taken is refused over the form.
+		await page.goto( '/w/index.php?title=Project:Taken&action=edit' );
+		await page.locator( '#wpTextbox1' ).fill( 'Taken.' );
+		await page.locator( 'button[name="wpSave"]' ).click();
+		await page.goto( '/wiki/Special:MovePage/Project:Moved' );
+		await page.getByLabel( 'New title' ).fill( 'Project:Taken' );
+		await page.getByRole( 'button', { name: 'Move page' } ).click();
+		await expect( page.getByText( 'A page with that title already exists.' ) ).toBeVisible();
+	} );
+
 	test( 'a set is created, renamed and retired on Special:ProtectedPages', async ( { page } ) => {
 		await logIn( page, 'Special:ProtectedPages' );
 		await page.goto( '/wiki/Special:ProtectedPages' );
@@ -167,14 +197,15 @@ test.describe( 'the owner', () => {
 		'/wiki/Special:BlockList',
 		'/wiki/Special:Log',
 		'/wiki/Special:Undelete',
-		'/w/index.php?title=Item:Q6&action=delete'
+		'/w/index.php?title=Item:Q6&action=delete',
+		'/wiki/Special:MovePage/Project:Home'
 	] ) {
 		test( `${ path } passes axe`, async ( { browser } ) => {
 			const context = await browser.newContext( { javaScriptEnabled: true } );
 			const page = await context.newPage();
 			await logIn( page, 'Project:Home' );
 			await page.goto( path );
-			await expect( page.locator( 'form.ts-protect, form.ts-userrights__groups, .ts-protectedpages, form.ts-block, .ts-changes, form.ts-delete' ).first() ).toBeVisible();
+			await expect( page.locator( 'form.ts-protect, form.ts-userrights__groups, .ts-protectedpages, form.ts-block, .ts-changes, form.ts-delete, form.ts-move' ).first() ).toBeVisible();
 			expect( await violations( page ) ).toEqual( [] );
 			await context.close();
 		} );

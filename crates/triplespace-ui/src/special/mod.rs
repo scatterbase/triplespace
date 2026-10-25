@@ -19,6 +19,7 @@
 //! - [`userrights`]: `Special:UserRights`, an account's groups (09 §3.3).
 //! - [`block`]: `Special:Block`, `Special:Unblock` and `Special:BlockList` (09 §3.3).
 //! - [`undelete`]: `Special:Undelete`, the deletions and the way back (09 §6.2).
+//! - [`movepage`]: `Special:MovePage`, the Move form (10 §2.5).
 //! - [`protected`]: `Special:ProtectedPages`, the restrictions in force, the sets and the
 //!   empty-group report (09 §4.5).
 //!
@@ -31,6 +32,7 @@ pub mod controls;
 pub mod external;
 pub mod index;
 pub mod login;
+pub mod movepage;
 pub mod new_entity;
 pub mod preferences;
 pub mod protected;
@@ -105,6 +107,7 @@ pub async fn serve(
         }
         "BlockList" => Some(block::list(site, headers, peer, params).await),
         "Undelete" => Some(undelete::serve(site, headers, peer, title, params).await),
+        "MovePage" => Some(movepage::serve(site, headers, peer, title, params).await),
         _ => None,
     }
 }
@@ -152,6 +155,7 @@ pub async fn post(
         "Unblock" => {
             Some(block::post(site, headers, peer, block::Which::Unblock, query, params).await)
         }
+        "MovePage" => Some(movepage::post(site, headers, peer, title, params).await),
         _ => None,
     }
 }

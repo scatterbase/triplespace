@@ -70,8 +70,9 @@ enum Which {
 
 /// The log types `Special:Log` offers, each a message key; any other type typed into
 /// the address is passed through.
-const LOG_TYPES: [(&str, &str); 8] = [
+const LOG_TYPES: [(&str, &str); 9] = [
     ("delete", "ts-log-type-delete"),
+    ("move", "ts-log-type-move"),
     ("suppress", "ts-log-type-suppress"),
     ("protect", "ts-log-type-protect"),
     ("rights", "ts-log-type-rights"),
@@ -392,6 +393,25 @@ fn summary_html(m: &Messages, row: &ActivityRow) -> String {
         );
     } else if let Some(a) = auto {
         let _ = write!(s, "<span class=\"ts-change__auto\">{}</span>", esc(&a));
+    }
+    // A move names where the page went (10 §2.5).
+    if let Some((from, to)) = row
+        .log
+        .as_ref()
+        .filter(|l| l.r#type == "move")
+        .and_then(|l| {
+            let p = l.params.as_ref()?;
+            Some((
+                p.get("ts-from-title")?.as_str()?,
+                p.get("target_title")?.as_str()?,
+            ))
+        })
+    {
+        let _ = write!(
+            s,
+            " <span class=\"ts-change__auto\">{}</span>",
+            esc(&m.with("ts-changes-moved-to", &[from, to]))
+        );
     }
     if let Some(c) = &row.comment
         && !c.is_empty()
