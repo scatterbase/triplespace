@@ -117,11 +117,15 @@ pub struct Context {
 }
 
 impl Context {
-    /// Whether the page's tabs offer **Protect**: the viewer holds `protect` and the
-    /// API serves the form (09 §4.5).
+    /// Which moderation tabs the page offers the viewer (09 §4.5, §6.2; 19 §6.3):
+    /// **Protect** to a holder of `protect`, **Delete** to a holder of `delete`, where
+    /// the API serves the forms.
     #[must_use]
-    pub fn may_protect(&self) -> bool {
-        self.holds("protect") && self.features.has(Feature::Protect)
+    pub fn moderation_tabs(&self) -> ModerationTabs {
+        ModerationTabs {
+            protect: self.holds("protect") && self.features.has(Feature::Protect),
+            delete: self.holds("delete") && self.features.has(Feature::Delete),
+        }
     }
 
     /// Whether the viewer holds a right tenant-wide.
@@ -569,6 +573,15 @@ impl Params {
     }
 }
 
+/// Which moderation tabs a page offers (see [`Context::moderation_tabs`]).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ModerationTabs {
+    /// **Protect**.
+    pub protect: bool,
+    /// **Delete**.
+    pub delete: bool,
+}
+
 /// A title: an entity's page, a special page, the main page, or the `404`.
 async fn dispatch(
     site: &Site,
@@ -578,7 +591,7 @@ async fn dispatch(
     params: &Params,
 ) -> Response {
     let query = &params.map;
-    if query.get("action").is_some_and(|a| a == "protect")
+    if let Some(form) = query.get("action").and_then(|a| moderation::Form::of(a))
         && !title.is_empty()
         && special::name_of(&title).is_none()
     {
@@ -587,7 +600,7 @@ async fn dispatch(
             Ok(cx) => cx,
             Err(r) => return r,
         };
-        return moderation::serve(site, headers, &incoming, cx, title, params).await;
+        return moderation::serve(site, headers, &incoming, cx, form, title, params).await;
     }
     if entity::is_entity_title(&title) {
         return entity::serve(site, headers, peer, title, query).await;
@@ -664,16 +677,17 @@ async fn dispatch_post(
     form: &Params,
 ) -> Response {
     let action = query.get("action").or_else(|| form.map.get("action"));
-    if !title.is_empty()
+    if let Some(which) = action.and_then(|a| moderation::Form::of(a))
+        && !title.is_empty()
         && special::name_of(title).is_none()
-        && action.is_some_and(|a| a == "protect")
     {
         let incoming = incoming(headers, peer);
         let cx = match context(site, &incoming, query).await {
             Ok(cx) => cx,
             Err(r) => return r,
         };
-        return moderation::post(site, headers, &incoming, cx, title.to_string(), form).await;
+        return moderation::post(site, headers, &incoming, cx, which, title.to_string(), form)
+            .await;
     }
     if !title.is_empty()
         && special::name_of(title).is_none()

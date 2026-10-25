@@ -1,7 +1,7 @@
 //! Special pages (0047): those the site serves so far, by name.
 //!
-//! - [`changes`]: `Special:RecentChanges` and `Special:Contributions`, two feeds
-//!   (0020 §4; 19 §3.9).
+//! - [`changes`]: `Special:RecentChanges`, `Special:Contributions` and `Special:Log`, three
+//!   feeds (0020 §4; 19 §3.9, §6.3).
 //! - [`index`]: `Special:SpecialPages`, the list of the others.
 //! - [`login`]: `Special:UserLogin` and `Special:UserLogout`.
 //! - [`external`]: logging in through external issuers, and `Special:Account`'s Sign-in
@@ -17,7 +17,8 @@
 //! - [`settings`]: `Special:WikiSettings`, `Special:InstanceSettings` and
 //!   `Special:Tenancy` (0085 §4), with [`controls`], the form controls drawn from a type.
 //! - [`userrights`]: `Special:UserRights`, an account's groups (09 §3.3).
-//! - [`block`]: `Special:Block` and `Special:Unblock` (09 §3.3).
+//! - [`block`]: `Special:Block`, `Special:Unblock` and `Special:BlockList` (09 §3.3).
+//! - [`undelete`]: `Special:Undelete`, the deletions and the way back (09 §6.2).
 //! - [`protected`]: `Special:ProtectedPages`, the restrictions in force, the sets and the
 //!   empty-group report (09 §4.5).
 //!
@@ -36,6 +37,7 @@ pub mod protected;
 pub mod register;
 pub mod search;
 pub mod settings;
+pub mod undelete;
 pub mod userrights;
 pub mod version;
 
@@ -75,6 +77,7 @@ pub async fn serve(
         "Search" => Some(search::serve(site, headers, peer, query).await),
         "RecentChanges" => Some(changes::recent_changes(site, headers, peer, params).await),
         "Contributions" => Some(changes::contributions(site, headers, peer, title, params).await),
+        "Log" => Some(changes::log(site, headers, peer, title, params).await),
         "SpecialPages" => Some(index::serve(site, headers, peer, query).await),
         "UserLogin" => Some(login::login(site, headers, peer, query).await),
         "UserLogout" => Some(login::logout(site, headers, peer, query).await),
@@ -100,6 +103,8 @@ pub async fn serve(
         "Unblock" => {
             Some(block::serve(site, headers, peer, block::Which::Unblock, title, params).await)
         }
+        "BlockList" => Some(block::list(site, headers, peer, params).await),
+        "Undelete" => Some(undelete::serve(site, headers, peer, title, params).await),
         _ => None,
     }
 }

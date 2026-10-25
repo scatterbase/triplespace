@@ -41,6 +41,12 @@ pub const PAGES: &[(&str, &str, &str, Feature)] = &[
         Feature::Register,
     ),
     (
+        "Special:Log",
+        "ts-log-title",
+        "ts-specialpages-log",
+        Feature::RecentChanges,
+    ),
+    (
         "Special:UserRights",
         "ts-userrights-title",
         "ts-specialpages-userrights",
@@ -57,6 +63,18 @@ pub const PAGES: &[(&str, &str, &str, Feature)] = &[
         "ts-block-title",
         "ts-specialpages-block",
         Feature::Block,
+    ),
+    (
+        "Special:BlockList",
+        "ts-blocklist-title",
+        "ts-specialpages-blocklist",
+        Feature::Block,
+    ),
+    (
+        "Special:Undelete",
+        "ts-undelete-index-title",
+        "ts-specialpages-undelete",
+        Feature::Delete,
     ),
     (
         "Special:NewItem",

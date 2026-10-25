@@ -46,7 +46,7 @@ use crate::codex::MessageKind;
 use crate::features::Feature;
 use crate::frame::{Page, Tab, title_url};
 use crate::i18n::Messages;
-use crate::pages::{self, Context, Peer};
+use crate::pages::{self, Context, ModerationTabs, Peer};
 
 /// The namespaces whose pages are entities, by prefix (`namespaces.toml`: 120, 122,
 /// 210, 212, 216).
@@ -261,6 +261,7 @@ enum TabName {
     Labels,
     History,
     Protect,
+    Delete,
 }
 
 impl TabName {
@@ -285,7 +286,7 @@ fn tabs(
     current: TabName,
     items: bool,
     history: bool,
-    protect: bool,
+    offered: ModerationTabs,
 ) -> Vec<Tab> {
     let base = format!("/wiki/{}", title_url(title));
     let tab = |name: TabName, key: &str, href: String| Tab {
@@ -322,11 +323,18 @@ fn tabs(
             format!("{base}?action=history"),
         ));
     }
-    if protect {
+    if offered.protect {
         v.push(tab(
             TabName::Protect,
             "ts-tab-protect",
             format!("{base}?action=protect"),
+        ));
+    }
+    if offered.delete {
+        v.push(tab(
+            TabName::Delete,
+            "ts-tab-delete",
+            format!("{base}?action=delete"),
         ));
     }
     v
@@ -384,11 +392,16 @@ pub async fn serve(
     };
     cx.inputs.push(fetched.cache.clone());
     let Some((_, mut json)) = fetched.value.found.into_iter().next() else {
-        return if render {
-            pages::fragment(&cx, headers, StatusCode::NOT_FOUND, String::new)
-        } else {
-            missing(&cx, headers, &title)
-        };
+        if render {
+            return pages::fragment(&cx, headers, StatusCode::NOT_FOUND, String::new);
+        }
+        // A deleted entity shows its deletion (19 §6.3) before it is a 404.
+        if let Some(r) =
+            crate::moderation::deleted(site, &mut cx, headers, &incoming, &title, None).await
+        {
+            return r;
+        }
+        return missing(&cx, headers, &title);
     };
     let redirected = json
         .as_object_mut()
@@ -563,7 +576,7 @@ fn page(
     let mut body = match tab {
         // The Protect form is its own page (`action=protect`, `moderation`); the entity
         // page never shows it as current.
-        TabName::Statements | TabName::Protect => r.statements_tab(),
+        TabName::Statements | TabName::Protect | TabName::Delete => r.statements_tab(),
         TabName::Identifiers => r.identifiers(),
         TabName::Sitelinks => r.sitelinks(),
         TabName::Labels => r.labels(),
@@ -587,7 +600,7 @@ fn page(
         tab,
         entity.entity_type.name() == "item",
         has_history,
-        cx.may_protect(),
+        cx.moderation_tabs(),
     );
     let (display, identity, terms, doc_title) = (
         r.display_title(),

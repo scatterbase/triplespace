@@ -52,8 +52,8 @@ pub use register::{
 };
 pub use revisions::{Change, Comparison, EntityDiff, Revision};
 pub use rights::{
-    BlockForm, EmptyGroup, GroupInfo, ProtectForm, ProtectedRow, Protection, Restriction,
-    RightsForm, SetInfo, TenantVisibility, UserGroups,
+    BlockForm, BlockRow, DeletedRevision, Deletion, EmptyGroup, GroupInfo, ProtectForm,
+    ProtectedRow, Protection, Restriction, RightsForm, SetInfo, TenantVisibility, UserGroups,
 };
 pub use search::{Hit, Hits};
 pub use theme::ThemeInfo;

@@ -101,20 +101,55 @@ test.describe( 'the owner', () => {
 		await expect( page.getByText( 'You cannot block yourself.' ) ).toBeVisible();
 	} );
 
+	test( 'deletes a page, sees its deletion, and undeletes it', async ( { page } ) => {
+		await logIn( page, 'Project:Home' );
+		// A page of our own, through the edit form.
+		await page.goto( '/w/index.php?title=Project:Doomed&action=edit' );
+		await page.locator( '#wpTextbox1' ).fill( 'Soon gone.' );
+		await page.locator( 'button[name="wpSave"]' ).click();
+		// The project namespace is shown under the wiki's own name.
+		await expect( page.getByRole( 'heading', { level: 1 } ) ).toHaveText( 'librarybase:Doomed' );
+		await page.getByRole( 'link', { name: 'Delete' } ).click();
+		await expect( page.getByRole( 'heading', { level: 1 } ) ).toHaveText( 'Delete librarybase:Doomed' );
+		await page.getByLabel( 'Reason' ).fill( 'e2e' );
+		await page.getByRole( 'button', { name: 'Delete', exact: true } ).click();
+		// The deleted page: the banner, the content for the group, the way back.
+		await expect( page.getByText( 'This page was deleted by Alice' ) ).toBeVisible();
+		await expect( page.getByText( 'Soon gone.' ) ).toBeVisible();
+		await page.goto( '/wiki/Special:Log/delete' );
+		await expect( page.locator( '.ts-change--log' ).first() ).toContainText( 'Doomed' );
+		await page.goto( '/wiki/Special:Undelete' );
+		await page.getByRole( 'link', { name: 'Project:Doomed' } ).click();
+		await page.getByRole( 'button', { name: 'Undelete' } ).click();
+		await expect( page.getByRole( 'heading', { level: 1 } ) ).toHaveText( 'librarybase:Doomed' );
+		await expect( page.getByText( 'Soon gone.' ) ).toBeVisible();
+		await expect( page.getByText( 'This page was deleted' ) ).toHaveCount( 0 );
+	} );
+
+	test( 'the block list shows a block and offers to lift it', async ( { page } ) => {
+		await logIn( page, 'Special:BlockList' );
+		await page.goto( '/wiki/Special:BlockList' );
+		await expect( page.getByText( 'No account is blocked.' ) ).toBeVisible();
+	} );
+
 	// axe runs as a script in the page, so these contexts allow scripts; the site's own
 	// script only marks the page as having them.
 	for ( const path of [
 		'/w/index.php?title=Item:Q6&action=protect',
 		'/wiki/Special:UserRights/Alice',
 		'/wiki/Special:ProtectedPages',
-		'/wiki/Special:Block'
+		'/wiki/Special:Block',
+		'/wiki/Special:BlockList',
+		'/wiki/Special:Log',
+		'/wiki/Special:Undelete',
+		'/w/index.php?title=Item:Q6&action=delete'
 	] ) {
 		test( `${ path } passes axe`, async ( { browser } ) => {
 			const context = await browser.newContext( { javaScriptEnabled: true } );
 			const page = await context.newPage();
 			await logIn( page, 'Project:Home' );
 			await page.goto( path );
-			await expect( page.locator( 'form.ts-protect, form.ts-userrights__groups, .ts-protectedpages, form.ts-block' ).first() ).toBeVisible();
+			await expect( page.locator( 'form.ts-protect, form.ts-userrights__groups, .ts-protectedpages, form.ts-block, .ts-changes, form.ts-delete' ).first() ).toBeVisible();
 			expect( await violations( page ) ).toEqual( [] );
 			await context.close();
 		} );

@@ -122,3 +122,51 @@
 	display: block;
 	margin: var( --spacing-25, 0.25rem ) 0;
 }
+
+/* The deleted page's view, the Delete and Undelete forms, and Special:BlockList. */
+.ts-deleted {
+	max-width: 42rem;
+}
+
+.ts-deleted__banner {
+	margin-bottom: var( --spacing-100, 1rem );
+}
+
+.ts-deleted__content {
+	margin: var( --spacing-100, 1rem ) 0;
+	padding: var( --spacing-75, 0.75rem ) var( --spacing-100, 1rem );
+	border: 1px dashed var( --border-color-subtle, #c8ccd1 );
+	border-radius: var( --border-radius-base, 2px );
+}
+
+.ts-deleted__source {
+	overflow-x: auto;
+	white-space: pre-wrap;
+}
+
+.ts-blocklist__table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.ts-blocklist__table th,
+.ts-blocklist__table td {
+	padding: var( --spacing-50, 0.5rem );
+	border-bottom: 1px solid var( --border-color-subtle, #c8ccd1 );
+	text-align: start;
+	vertical-align: top;
+}
+
+.ts-blocklist__hidden {
+	color: var( --color-subtle, #54595d );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+.ts-undelete__ask {
+	margin-bottom: var( --spacing-100, 1rem );
+}
+
+/* A link inside a line of text is told apart by its underline, not its colour alone. */
+.ts-undelete__list a {
+	text-decoration: underline;
+}

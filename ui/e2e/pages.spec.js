@@ -49,6 +49,11 @@ const pages = [
 	{ path: '/wiki/Special:ProtectedPages', heading: 'Protected pages' },
 	{ path: '/wiki/Special:Block', heading: 'Block an account' },
 	{ path: '/w/index.php?title=Item:Q6&action=protect', heading: 'Protect Item:Q6' },
+	{ path: '/w/index.php?title=Item:Q6&action=delete', heading: 'Delete Item:Q6' },
+	{ path: '/wiki/Special:Log', heading: 'Logs' },
+	{ path: '/wiki/Special:Log/delete', heading: 'Logs' },
+	{ path: '/wiki/Special:BlockList', heading: 'Blocked accounts' },
+	{ path: '/wiki/Special:Undelete', heading: 'Undelete' },
 	{ path: '/wiki/Special:Preferences', heading: 'Preferences' }
 ];
 

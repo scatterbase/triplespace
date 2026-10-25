@@ -207,6 +207,8 @@ pub struct ActivityQuery {
     pub show: Vec<String>,
     /// A tag.
     pub tag: Option<String>,
+    /// A log type (`delete`, `protect`, `rights`, `block`, …), for `Special:Log`.
+    pub log_type: Option<String>,
     /// From this time, ISO 8601.
     pub since: Option<String>,
     /// Newest first unless set.
@@ -274,6 +276,9 @@ impl ActivityQuery {
         }
         if let Some(t) = &self.tag {
             push("tag", t);
+        }
+        if let Some(t) = &self.log_type {
+            push("log_type", t);
         }
         if let Some(s) = &self.since {
             push("since", s);

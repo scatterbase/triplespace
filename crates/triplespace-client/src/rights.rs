@@ -173,6 +173,57 @@ pub struct EmptyGroup {
     pub restrictions: u64,
 }
 
+/// A deletion, as the delete log reports it for a title.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Deletion {
+    /// Who deleted it; `None` where the name is hidden.
+    pub by: Option<String>,
+    /// When, ISO 8601.
+    pub time: String,
+    /// The reason.
+    pub reason: String,
+    /// The log ID.
+    pub logid: u64,
+    /// Whether the talk page went with it.
+    pub talk: bool,
+}
+
+/// The latest deleted revision of a title, for a member of its deletion group.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct DeletedRevision {
+    /// The revision ID.
+    pub revid: u64,
+    /// Its author; `None` where hidden.
+    pub user: Option<String>,
+    /// When, ISO 8601.
+    pub time: String,
+    /// Its summary.
+    pub comment: String,
+    /// Its content, where the viewer may read it.
+    pub content: Option<String>,
+}
+
+/// A block in force, as `list=blocks` reports it.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct BlockRow {
+    /// The block's log ID.
+    pub id: Option<u64>,
+    /// The blocked account; `None` where its name is hidden from the viewer.
+    pub user: Option<String>,
+    /// Whether the name is hidden at all (shown to the suppression group).
+    pub hidden: bool,
+    /// Who blocked.
+    pub by: Option<String>,
+    /// When, ISO 8601.
+    pub timestamp: String,
+    /// `infinite` or a time.
+    pub expiry: String,
+    /// The reason.
+    pub reason: String,
+    /// What it removes: `all-but-read`, or the permissions joined.
+    pub removes: String,
+}
+
 /// The tenant's own ACL, as `GET /acl/tenant/{slug}` reports it: the `read` group, if
 /// restricted.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -668,5 +719,209 @@ impl Client {
             }
         };
         saved(&r, "the tenant's visibility")
+    }
+}
+
+impl Client {
+    /// `action=delete`, with `deletetalk` where asked.
+    pub async fn delete_page(
+        &self,
+        incoming: &Incoming,
+        title: &str,
+        reason: &str,
+        talk: bool,
+        token: &str,
+    ) -> Result<Saved<Value>, ClientError> {
+        let mut fields: Vec<(&str, &str)> = vec![
+            ("action", "delete"),
+            ("title", title),
+            ("reason", reason),
+            ("token", token),
+        ];
+        if talk {
+            fields.push(("deletetalk", "1"));
+        }
+        self.action(incoming, &fields).await
+    }
+
+    /// `action=undelete`.
+    pub async fn undelete_page(
+        &self,
+        incoming: &Incoming,
+        title: &str,
+        reason: &str,
+        token: &str,
+    ) -> Result<Saved<Value>, ClientError> {
+        self.action(
+            incoming,
+            &[
+                ("action", "undelete"),
+                ("title", title),
+                ("reason", reason),
+                ("token", token),
+            ],
+        )
+        .await
+    }
+
+    /// The newest `delete` log event of a title (`list=logevents&letype=delete&letitle=`),
+    /// if the viewer may see one: what a deleted page shows in place of its content.
+    pub async fn deletion_of(
+        &self,
+        incoming: &Incoming,
+        title: &str,
+    ) -> Result<Fetched<Option<Deletion>>, ClientError> {
+        let r = self
+            .get(
+                incoming,
+                &format!(
+                    "/w/api.php?action=query&list=logevents&letype=delete&letitle={}&lelimit=1&format=json&formatversion=2",
+                    q(title)
+                ),
+            )
+            .await?;
+        let v = check(&r)?;
+        let value = v["query"]["logevents"]
+            .as_array()
+            .and_then(|a| a.first())
+            .filter(|e| e["action"] == "delete")
+            .map(|e| Deletion {
+                by: e["user"].as_str().map(str::to_string),
+                time: e["timestamp"].as_str().unwrap_or_default().to_string(),
+                reason: e["comment"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .trim_start_matches("/* delete/delete */")
+                    .trim()
+                    .to_string(),
+                logid: e["logid"].as_u64().unwrap_or(0),
+                talk: e["params"]["talk"].as_bool().unwrap_or(false),
+            });
+        Ok(Fetched {
+            value,
+            cache: CacheInfo::of(&r),
+        })
+    }
+
+    /// The feed target a title's log events are under (`list=logevents&letitle=`): a page
+    /// by its ID, deleted or not, or an entity by its ID; `None` where the viewer may see
+    /// no event of it.
+    pub async fn log_target(
+        &self,
+        incoming: &Incoming,
+        title: &str,
+    ) -> Result<Fetched<Option<String>>, ClientError> {
+        let r = self
+            .get(
+                incoming,
+                &format!(
+                    "/w/api.php?action=query&list=logevents&letitle={}&lelimit=1&leprop=ids%7Ctitle&format=json&formatversion=2",
+                    q(title)
+                ),
+            )
+            .await?;
+        let v = check(&r)?;
+        let value = v["query"]["logevents"]
+            .as_array()
+            .and_then(|a| a.first())
+            .and_then(|e| {
+                let ns = e["ns"].as_i64().unwrap_or(0);
+                if matches!(ns, 120 | 122 | 146) {
+                    e["title"]
+                        .as_str()
+                        .map(|t| format!("entity:{}", t.rsplit(':').next().unwrap_or(t)))
+                } else {
+                    e["pageid"].as_u64().map(|id| format!("page:{id}"))
+                }
+            });
+        Ok(Fetched {
+            value,
+            cache: CacheInfo::of(&r),
+        })
+    }
+
+    /// `prop=deletedrevisions` of a title: its newest deleted revision, for a member of the
+    /// deletion group; `None` for anyone else.
+    pub async fn deleted_revision(
+        &self,
+        incoming: &Incoming,
+        title: &str,
+    ) -> Result<Fetched<Option<DeletedRevision>>, ClientError> {
+        let r = self
+            .get(
+                incoming,
+                &format!(
+                    "/w/api.php?action=query&prop=deletedrevisions&titles={}&drvprop=ids%7Cuser%7Ctimestamp%7Ccomment%7Ccontent&drvslots=main&drvlimit=1&format=json&formatversion=2",
+                    q(title)
+                ),
+            )
+            .await?;
+        // A viewer without `deletedhistory` is refused: nothing to show them.
+        let v = match check(&r) {
+            Ok(v) => v,
+            Err(ClientError::Api { code, .. }) if code == "permissiondenied" => {
+                return Ok(Fetched {
+                    value: None,
+                    cache: CacheInfo::of(&r),
+                });
+            }
+            Err(e) => return Err(e),
+        };
+        let value = v["query"]["pages"]
+            .as_array()
+            .and_then(|a| a.first())
+            .and_then(|p| p["deletedrevisions"].as_array())
+            .and_then(|a| a.first())
+            .map(|d| DeletedRevision {
+                revid: d["revid"].as_u64().unwrap_or(0),
+                user: d["user"].as_str().map(str::to_string),
+                time: d["timestamp"].as_str().unwrap_or_default().to_string(),
+                comment: d["comment"].as_str().unwrap_or_default().to_string(),
+                content: d["slots"]["main"]["content"].as_str().map(str::to_string),
+            });
+        Ok(Fetched {
+            value,
+            cache: CacheInfo::of(&r),
+        })
+    }
+
+    /// `list=blocks`: the blocks in force.
+    pub async fn blocks(&self, incoming: &Incoming) -> Result<Fetched<Vec<BlockRow>>, ClientError> {
+        let r = self
+            .get(
+                incoming,
+                "/w/api.php?action=query&list=blocks&bklimit=500&format=json&formatversion=2",
+            )
+            .await?;
+        let v = check(&r)?;
+        let value = v["query"]["blocks"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .map(|b| BlockRow {
+                        id: b["id"].as_u64(),
+                        user: b["user"].as_str().map(str::to_string),
+                        hidden: b["ts-hidden"].as_bool().unwrap_or(false)
+                            || b["userhidden"].as_bool().unwrap_or(false),
+                        by: b["by"].as_str().map(str::to_string),
+                        timestamp: b["timestamp"].as_str().unwrap_or_default().to_string(),
+                        expiry: b["expiry"].as_str().unwrap_or("infinite").to_string(),
+                        reason: b["reason"].as_str().unwrap_or_default().to_string(),
+                        removes: match &b["ts-removes"] {
+                            Value::Array(p) => p
+                                .iter()
+                                .filter_map(Value::as_str)
+                                .collect::<Vec<_>>()
+                                .join(", "),
+                            other => other.as_str().unwrap_or_default().to_string(),
+                        },
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        Ok(Fetched {
+            value,
+            cache: CacheInfo::of(&r),
+        })
     }
 }

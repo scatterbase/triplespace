@@ -13,7 +13,8 @@
 //!   `ucuserids`; `ucstart`, `ucend`, `ucdir`, `ucnamespace`, `uctag`, `ucprop`,
 //!   `ucshow`, `uclimit`, `uccontinue`, `ucjob`.
 //! - **`logevents`**: the log rows. `letype`, `leaction` (`type/action`), `lestart`,
-//!   `leend`, `ledir`, `leuser`, `letitle` is not yet served, `leprop`, `lelimit`,
+//!   `leend`, `ledir`, `leuser`, `letitle` (a page's, a deleted page's or an entity's
+//!   events; an unknown title has none), `leprop`, `lelimit`,
 //!   `lecontinue`. `leprovider` (a provider's events from `view.entity_history`) waits
 //!   for that table.
 //!
@@ -336,6 +337,13 @@ async fn run(
                 feed.filters.actor =
                     Some(actor_key_of(ctx, u).await?.unwrap_or_else(|| u.to_string()));
             }
+            if let Some(t) = ctx.params.get("letitle") {
+                let Some(set) = log_target(ctx, t).await? else {
+                    query.insert("logevents".into(), json!([]));
+                    return Ok(());
+                };
+                feed.set = set;
+            }
         }
     }
     let props = common(ctx, module, &mut feed).await?;
@@ -350,6 +358,46 @@ async fn run(
     query.insert(module.name().into(), Value::Array(rows));
     continuation(body, p, page.next);
     Ok(())
+}
+
+/// The target set `letitle` names: an entity, the page with the title, or the newest
+/// deleted page that had it (the group's to see; outsiders find nothing, 09 §5.3).
+async fn log_target(ctx: &Ctx, title: &str) -> Result<Option<TargetSet>, ApiError> {
+    use triplespace_projections::common::target_kind;
+    let site = crate::pages::Site::load(ctx).await?;
+    if crate::pages::names_entity(&site, title) {
+        let id = crate::modules::entities::parse_id(title)?;
+        return Ok(Some(TargetSet::Target {
+            kind: target_kind::ENTITY,
+            id: id.as_str().to_string(),
+        }));
+    }
+    let Some(t) = crate::pages::resolve_title(&site, title) else {
+        return Ok(None);
+    };
+    let hidden = crate::pages::hidden(ctx).await?;
+    let page_id =
+        match crate::pages::by_title(ctx.db(), &ctx.tenant.slug, &hidden, t.namespace, &t.text)
+            .await?
+        {
+            Some(p) => Some(p.page_id),
+            // The newest deleted page that had the title: its public deletion is everyone's
+            // to see; the feed's own visibility hides a confidential one's rows (09 §5.3).
+            None => ctx
+                .db()
+                .query_opt(
+                    "SELECT page_id FROM view.page
+                 WHERE tenant = $1 AND ns = $2 AND title = $3 AND deleted
+                 ORDER BY page_id DESC LIMIT 1",
+                    &[&ctx.tenant.slug, &t.namespace, &t.text],
+                )
+                .await?
+                .and_then(|r| u64::try_from(r.get::<_, i64>(0)).ok()),
+        };
+    Ok(page_id.map(|id| TargetSet::Target {
+        kind: target_kind::PAGE,
+        id: id.to_string(),
+    }))
 }
 
 /// `list=recentchanges`.

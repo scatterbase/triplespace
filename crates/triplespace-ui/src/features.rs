@@ -41,8 +41,11 @@ pub enum Feature {
     Protect,
     /// `Special:UserRights` (`action=userrights`; 09 §3.3).
     UserRights,
-    /// `Special:Block` and `Special:Unblock` (`action=block`; 09 §3.3).
+    /// `Special:Block`, `Special:Unblock` and `Special:BlockList` (`action=block`; 09 §3.3).
     Block,
+    /// The Delete form, the deleted page's view and `Special:Undelete` (`action=delete`;
+    /// 09 §6.2).
+    Delete,
 }
 
 impl Feature {
@@ -65,6 +68,7 @@ impl Feature {
             Self::Protect => "protect",
             Self::UserRights => "userrights",
             Self::Block => "block",
+            Self::Delete => "delete",
         }
     }
 }
@@ -85,6 +89,7 @@ pub const BUILT: &[Feature] = &[
     Feature::Protect,
     Feature::UserRights,
     Feature::Block,
+    Feature::Delete,
 ];
 
 /// What the site offers on one request.

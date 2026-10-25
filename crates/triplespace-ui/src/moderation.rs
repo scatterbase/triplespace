@@ -1,5 +1,8 @@
-//! The Protect form, `index.php?title={title}&action=protect` (09 §4.5; 0016 §7; 0056 §13;
-//! 19 §6.3), for pages and entities alike.
+//! The Protect, Delete and Undelete forms, `index.php?title={title}&action=protect|delete|
+//! undelete` (09 §4.5, §6.2; 0016 §7; 0023 §9; 0056 §13; 19 §6.3), for pages and entities
+//! alike, and the view of a deleted page.
+//!
+//! **Protect:**
 //!
 //! - **One row per action** the title may be restricted on (`restrictiontypes`): a group
 //!   picker whose first choice lifts the restriction. **Read** is among them: a
@@ -18,6 +21,17 @@
 //! `ts-unknown-group`, `protectedpage`, `badtoken`, …). A page the viewer may not read,
 //! or that does not exist, answers as the API does: the form is still offered for a free
 //! title, since a title may be create-protected before it exists.
+//!
+//! **Delete** asks for a reason and, for a page, whether the talk page goes too
+//! (`deletetalk`), as MediaWiki's form does; it lands on the page, which now shows its
+//! deletion. **Undelete** is a reason and a button, offered on the deleted page and at
+//! `action=undelete` to a holder of `undelete`.
+//!
+//! **A deleted page** ([`deleted`]) shows everyone the deletion log entry in place of its
+//! content (who, when, why, from the public `delete` log), and the deletion group the
+//! content of the newest deleted revision under that banner (`prop=deletedrevisions`,
+//! rendered as a preview), with the Undelete form. A title with no deletion the viewer may
+//! see is the ordinary missing page (09 §5.3).
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
@@ -344,7 +358,7 @@ async fn page(
 }
 
 /// `GET …&action=protect`.
-pub async fn serve(
+async fn serve_protect(
     site: &Site,
     headers: &HeaderMap,
     incoming: &Incoming,
@@ -376,7 +390,7 @@ pub async fn serve(
 }
 
 /// `POST …&action=protect`.
-pub async fn post(
+async fn post_protect(
     site: &Site,
     headers: &HeaderMap,
     incoming: &Incoming,
@@ -447,4 +461,419 @@ pub async fn post(
         }
         Err(e) => pages::api_failed(&cx, headers, &e),
     }
+}
+
+/// Which form an `action=` names.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Form {
+    /// `action=protect`.
+    Protect,
+    /// `action=delete`.
+    Delete,
+    /// `action=undelete`.
+    Undelete,
+}
+
+impl Form {
+    /// The form an `action=` names, if any.
+    #[must_use]
+    pub fn of(action: &str) -> Option<Self> {
+        match action {
+            "protect" => Some(Self::Protect),
+            "delete" => Some(Self::Delete),
+            "undelete" => Some(Self::Undelete),
+            _ => None,
+        }
+    }
+}
+
+/// `GET …&action=protect|delete|undelete`.
+pub async fn serve(
+    site: &Site,
+    headers: &HeaderMap,
+    incoming: &Incoming,
+    cx: Context,
+    form: Form,
+    title: String,
+    params: &Params,
+) -> Response {
+    match form {
+        Form::Protect => serve_protect(site, headers, incoming, cx, title, params).await,
+        Form::Delete => delete_page(site, cx, headers, incoming, &title, None, None).await,
+        Form::Undelete => undelete_page(site, cx, headers, incoming, &title, None).await,
+    }
+}
+
+/// `POST …&action=protect|delete|undelete`.
+pub async fn post(
+    site: &Site,
+    headers: &HeaderMap,
+    incoming: &Incoming,
+    cx: Context,
+    form: Form,
+    title: String,
+    fields: &Params,
+) -> Response {
+    match form {
+        Form::Protect => post_protect(site, headers, incoming, cx, title, fields).await,
+        Form::Delete => post_delete(site, cx, headers, incoming, &title, fields).await,
+        Form::Undelete => post_undelete(site, cx, headers, incoming, &title, fields).await,
+    }
+}
+
+/// A page that asks the viewer to log in, or says they lack a right.
+fn gate(
+    cx: &Context,
+    headers: &HeaderMap,
+    title: &str,
+    heading: &str,
+    right: &str,
+    action: &str,
+) -> Option<Response> {
+    let m = &cx.m;
+    if cx.user.is_none() {
+        let body = format!(
+            "{}<p>{}</p>",
+            pages::message(MessageKind::Notice, &m.get("ts-moderation-login")),
+            link(
+                &format!(
+                    "/wiki/Special:UserLogin?returnto={}&returntoquery=action%3D{action}",
+                    title_url(title)
+                ),
+                &esc(&m.get("ts-login")),
+                ""
+            )
+        );
+        return Some(pages::respond(cx, headers, StatusCode::OK, |_| Page {
+            title: heading.to_string(),
+            returnto: Some(title.to_string()),
+            body,
+            ..Page::default()
+        }));
+    }
+    if !cx.holds(right) {
+        let body = pages::message(
+            MessageKind::Error,
+            &m.with("ts-moderation-denied", &[right]),
+        );
+        return Some(pages::respond(cx, headers, StatusCode::FORBIDDEN, |_| {
+            Page {
+                title: heading.to_string(),
+                returnto: Some(title.to_string()),
+                body,
+                ..Page::default()
+            }
+        }));
+    }
+    None
+}
+
+fn reason_field(m: &Messages, id: &str, value: &str) -> String {
+    format!(
+        "<div class=\"cdx-field\"><div class=\"cdx-label\"><label class=\"cdx-label__label\" for=\"{id}\"><span class=\"cdx-label__label__text\">{}</span></label></div><div class=\"cdx-field__control\"><div class=\"cdx-text-input\"><input class=\"cdx-text-input__input\" type=\"text\" id=\"{id}\" name=\"reason\" value=\"{}\"></div></div></div>",
+        esc(&m.get("ts-moderation-reason")),
+        esc(value),
+    )
+}
+
+/// The Delete form.
+async fn delete_page(
+    site: &Site,
+    mut cx: Context,
+    headers: &HeaderMap,
+    incoming: &Incoming,
+    title: &str,
+    notice: Option<(MessageKind, String)>,
+    typed: Option<(&str, bool)>,
+) -> Response {
+    if !cx.features.has(Feature::Delete) {
+        return pages::no_page(&cx, headers, title.to_string());
+    }
+    let heading = cx.m.with("ts-delete-title", &[title]);
+    if let Some(r) = gate(&cx, headers, title, &heading, "delete", "delete") {
+        return r;
+    }
+    let token = match site.client().token(incoming, "csrf").await {
+        Ok(t) => t,
+        Err(e) => return pages::api_failed(&cx, headers, &e),
+    };
+    cx.inputs.push(token.value.cache);
+    let m = &cx.m;
+    let (reason, talk) = typed.unwrap_or(("", true));
+    let mut body = String::new();
+    if let Some((kind, text)) = notice {
+        body.push_str(&pages::message(kind, &text));
+    }
+    body.push_str(&pages::message(
+        MessageKind::Warning,
+        &m.get("ts-delete-warning"),
+    ));
+    let _ = write!(
+        body,
+        "<form class=\"ts-delete\" method=\"post\" action=\"/w/index.php?title={}&amp;action=delete\"><input type=\"hidden\" name=\"token\" value=\"{}\">{}<div class=\"ts-protect__talk\"><span class=\"cdx-checkbox cdx-checkbox--inline\"><input class=\"cdx-checkbox__input\" type=\"checkbox\" id=\"ts-delete-talk\" name=\"talk\" value=\"1\"{}><span class=\"cdx-checkbox__icon\"></span><label class=\"cdx-checkbox__label\" for=\"ts-delete-talk\">{}</label></span><div class=\"cdx-field__help-text\">{}</div></div><div class=\"ts-protect__actions\">{}{}</div></form>",
+        esc(&title_url(title)),
+        esc(&token.value.value),
+        reason_field(m, "ts-delete-reason", reason),
+        if talk { " checked" } else { "" },
+        esc(&m.get("ts-delete-talk")),
+        esc(&m.get("ts-delete-talk-help")),
+        Button {
+            label: &m.get("ts-delete-submit"),
+            kind: "submit",
+            action: Action::Destructive,
+            weight: Weight::Primary,
+        }
+        .render()
+        .unwrap_or_default(),
+        link(
+            &format!("/wiki/{}", title_url(title)),
+            &esc(&m.get("ts-protect-cancel")),
+            " class=\"ts-protect__cancel\""
+        ),
+    );
+    let r = pages::respond(&cx, headers, StatusCode::OK, |_| Page {
+        title: heading.clone(),
+        returnto: Some(title.to_string()),
+        body: format!("<div class=\"ts-protect-page\">{body}</div>"),
+        ..Page::default()
+    });
+    pages::with_cookies(r, &token.set_cookies)
+}
+
+fn deletion_refusal(m: &Messages, code: &str, info: &str) -> String {
+    match code {
+        "missingtitle" | "nosuchpageid" | "cantundelete" | "ts-restricted-title" => {
+            m.get("ts-protect-missing")
+        }
+        "permissiondenied" | "protectedpage" => m.with("ts-moderation-denied", &["delete"]),
+        "badtoken" => m.get("ts-login-expired"),
+        "ts-locked-out" => m.get("ts-protect-locked-out"),
+        _ => {
+            if info.is_empty() {
+                code.to_string()
+            } else {
+                info.to_string()
+            }
+        }
+    }
+}
+
+/// `POST …&action=delete`.
+async fn post_delete(
+    site: &Site,
+    cx: Context,
+    headers: &HeaderMap,
+    incoming: &Incoming,
+    title: &str,
+    fields: &Params,
+) -> Response {
+    if !cx.features.has(Feature::Delete) {
+        return pages::no_page(&cx, headers, title.to_string());
+    }
+    let field = |k: &str| fields.map.get(k).map_or("", String::as_str);
+    let reason = field("reason").trim();
+    let talk = fields.map.contains_key("talk");
+    match site
+        .client()
+        .delete_page(incoming, title, reason, talk, field("token"))
+        .await
+    {
+        Ok(Saved::Ok(_)) => pages::see_other(&format!("/wiki/{}", title_url(title)), &[]),
+        Ok(Saved::Refused(r)) => {
+            let first = r.first();
+            let text = deletion_refusal(
+                &cx.m,
+                first.map_or("", |x| x.code.as_str()),
+                first.map_or("", |x| x.message.as_str()),
+            );
+            delete_page(
+                site,
+                cx,
+                headers,
+                incoming,
+                title,
+                Some((MessageKind::Error, text)),
+                Some((reason, talk)),
+            )
+            .await
+        }
+        Err(e) => pages::api_failed(&cx, headers, &e),
+    }
+}
+
+/// The Undelete form on its own page (`action=undelete`): the deleted page's view, which
+/// carries it, or the missing page.
+async fn undelete_page(
+    site: &Site,
+    cx: Context,
+    headers: &HeaderMap,
+    incoming: &Incoming,
+    title: &str,
+    notice: Option<(MessageKind, String)>,
+) -> Response {
+    if !cx.features.has(Feature::Delete) {
+        return pages::no_page(&cx, headers, title.to_string());
+    }
+    let heading = cx.m.with("ts-undelete-title", &[title]);
+    if let Some(r) = gate(&cx, headers, title, &heading, "undelete", "undelete") {
+        return r;
+    }
+    let mut cx = cx;
+    match deleted(site, &mut cx, headers, incoming, title, notice).await {
+        Some(r) => r,
+        None => pages::no_page(&cx, headers, title.to_string()),
+    }
+}
+
+/// `POST …&action=undelete`.
+async fn post_undelete(
+    site: &Site,
+    cx: Context,
+    headers: &HeaderMap,
+    incoming: &Incoming,
+    title: &str,
+    fields: &Params,
+) -> Response {
+    if !cx.features.has(Feature::Delete) {
+        return pages::no_page(&cx, headers, title.to_string());
+    }
+    let field = |k: &str| fields.map.get(k).map_or("", String::as_str);
+    match site
+        .client()
+        .undelete_page(incoming, title, field("reason").trim(), field("token"))
+        .await
+    {
+        Ok(Saved::Ok(_)) => pages::see_other(&format!("/wiki/{}", title_url(title)), &[]),
+        Ok(Saved::Refused(r)) => {
+            let first = r.first();
+            let text = deletion_refusal(
+                &cx.m,
+                first.map_or("", |x| x.code.as_str()),
+                first.map_or("", |x| x.message.as_str()),
+            );
+            undelete_page(
+                site,
+                cx,
+                headers,
+                incoming,
+                title,
+                Some((MessageKind::Error, text)),
+            )
+            .await
+        }
+        Err(e) => pages::api_failed(&cx, headers, &e),
+    }
+}
+
+/// The view of a deleted title (19 §6.3), or `None` where the viewer may see no deletion
+/// of it: the banner naming who deleted it, when and why; for the deletion group the
+/// newest deleted revision's content under it; and the Undelete form for a holder of
+/// `undelete`. An entity's deleted content is not shown: `deletedrevisions` has none for it.
+pub async fn deleted(
+    site: &Site,
+    cx: &mut Context,
+    headers: &HeaderMap,
+    incoming: &Incoming,
+    title: &str,
+    notice: Option<(MessageKind, String)>,
+) -> Option<Response> {
+    if !cx.features.has(Feature::Delete) {
+        return None;
+    }
+    let deletion = match site.client().deletion_of(incoming, title).await {
+        Ok(d) => d,
+        Err(e) => return Some(pages::api_failed(cx, headers, &e)),
+    };
+    cx.inputs.push(deletion.cache);
+    let d = deletion.value?;
+    let m = &cx.m;
+    let mut body = String::new();
+    if let Some((kind, text)) = notice {
+        body.push_str(&pages::message(kind, &text));
+    }
+    let by =
+        d.by.clone()
+            .unwrap_or_else(|| m.get("ts-changes-hidden-user"));
+    let mut banner = esc(&m.with("ts-deleted-banner", &[&by, &d.time, &d.reason]));
+    if d.reason.is_empty() {
+        banner = esc(&m.with("ts-deleted-banner-no-reason", &[&by, &d.time]));
+    }
+    let _ = write!(
+        banner,
+        " {}",
+        link(
+            &format!("/wiki/Special:Log?type=delete&page={}", title_url(title)),
+            &esc(&m.get("ts-deleted-log-link")),
+            ""
+        )
+    );
+    let _ = write!(
+        body,
+        "<div class=\"cdx-message cdx-message--block cdx-message--warning ts-deleted__banner\" aria-live=\"polite\"><span class=\"cdx-message__icon\"></span><div class=\"cdx-message__content\">{banner}</div></div>"
+    );
+    // The deletion group reads the content; others see nothing more.
+    let revision = match site.client().deleted_revision(incoming, title).await {
+        Ok(r) => r,
+        Err(e) => return Some(pages::api_failed(cx, headers, &e)),
+    };
+    cx.inputs.push(revision.cache);
+    let member = revision.value.is_some();
+    if let Some(rev) = &revision.value
+        && let Some(text) = &rev.content
+    {
+        match site.client().preview(incoming, title, text).await {
+            Ok(parsed) => {
+                let _ = write!(
+                    body,
+                    "<div class=\"ts-document ts-deleted__content\"><div class=\"ts-document__content\">{}</div></div>",
+                    parsed.html
+                );
+            }
+            Err(_) => {
+                let _ = write!(
+                    body,
+                    "<pre class=\"ts-deleted__source\">{}</pre>",
+                    esc(text)
+                );
+            }
+        }
+    }
+    let mut cookies = Vec::new();
+    if member && cx.holds("undelete") {
+        let token = match site.client().token(incoming, "csrf").await {
+            Ok(t) => t,
+            Err(e) => return Some(pages::api_failed(cx, headers, &e)),
+        };
+        cx.inputs.push(token.value.cache);
+        cookies = token.set_cookies;
+        let _ = write!(
+            body,
+            "<form class=\"ts-undelete\" method=\"post\" action=\"/w/index.php?title={}&amp;action=undelete\"><input type=\"hidden\" name=\"token\" value=\"{}\">{}<div class=\"ts-protect__actions\">{}</div></form>",
+            esc(&title_url(title)),
+            esc(&token.value.value),
+            reason_field(m, "ts-undelete-reason", ""),
+            Button {
+                label: &m.get("ts-undelete-submit"),
+                kind: "submit",
+                action: Action::Progressive,
+                weight: Weight::Primary,
+            }
+            .render()
+            .unwrap_or_default(),
+        );
+    }
+    // The group has a page to read; everyone else a title with no page, as the API says.
+    let status = if member {
+        StatusCode::OK
+    } else {
+        StatusCode::NOT_FOUND
+    };
+    let heading = title.to_string();
+    let r = pages::respond(cx, headers, status, |_| Page {
+        title: heading.clone(),
+        returnto: Some(title.to_string()),
+        body: format!("<div class=\"ts-deleted\">{body}</div>"),
+        ..Page::default()
+    });
+    Some(pages::with_cookies(r, &cookies))
 }

@@ -2173,6 +2173,20 @@ async fn accountability() {
         !l.to_string().contains("Dave"),
         "the rights log hides the name: {l}"
     );
+    // `list=blocks` lists the block in force, with the name hidden from outsiders.
+    let b = anon.api("action=query&list=blocks").await;
+    let blocks = b["query"]["blocks"].as_array().unwrap();
+    assert_eq!(blocks.len(), 1, "{b}");
+    assert_eq!(blocks[0]["userhidden"], true, "{b}");
+    assert!(blocks[0].get("user").is_none(), "{b}");
+    assert_eq!(blocks[0]["expiry"], "infinite", "{b}");
+    assert_eq!(blocks[0]["by"], "Alice", "{b}");
+    let b = alice.api("action=query&list=blocks&bkusers=Dave").await;
+    assert_eq!(
+        b["query"]["blocks"],
+        json!([]),
+        "a hidden name finds nothing: {b}"
+    );
     // The name is hidden from Alice too, who is not in `suppress`: she unblocks by the
     // block's ID.
     let r = alice
@@ -2719,6 +2733,17 @@ async fn moderation_completeness() {
         .api("action=query&prop=revisions&rvprop=content&titles=Project:Gone")
         .await;
     assert_eq!(d["query"]["pages"][0]["missing"], true, "{d}");
+    // letitle: a deleted page's events are found by its title, by everyone for a public
+    // deletion; an unknown title has none.
+    let l = anon
+        .api("action=query&list=logevents&letitle=Project:Gone&letype=delete")
+        .await;
+    assert_eq!(l["query"]["logevents"][0]["action"], "delete", "{l}");
+    assert_eq!(l["query"]["logevents"][0]["pageid"], gone_id, "{l}");
+    let l = anon
+        .api("action=query&list=logevents&letitle=Project:Nonesuch")
+        .await;
+    assert_eq!(l["query"]["logevents"], json!([]), "{l}");
 
     // A hidden user's own pages are absent for outsiders, read by the suppression group.
     let r = alice
