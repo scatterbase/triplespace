@@ -387,6 +387,92 @@ border-color-destructive = "#E78C9C"
 border-color-success = "#97C222"
 border-color-warning = "#BAA697"
 
+# --- Other palettes ----------------------------------------------------------------------------------
+
+# Inspired by Vector 2022, the skin of Wikipedia since 2023, and named `encyclopedia` (James, 2026-10-25;
+# 0086 A2): Codex's own colours, which Vector 2022 wears, changed only where they miss the floors of 0086 §2,
+# with Codex's dark mode (Wikipedia's night mode) and high-contrast variants in the same greys and blues.
+# Square-cornered, as Vector's controls are.
+[palette.encyclopedia]
+label = "Encyclopedia"
+border-radius-base = "2px"
+
+# Codex's light values; only the base border darkens, from #A2A9B1 (2.37:1) to 3:1. Dividers keep #A2A9B1.
+[palette.encyclopedia.light]
+border-color-base = "#8C959F"
+
+# Codex's dark values (theme-wikimedia-ui-mode-dark), with the placeholder and the focus outline, which
+# Codex leaves at their light values, lightened to meet 4.5:1 and 3:1 on #101418.
+[palette.encyclopedia.dark]
+color-placeholder = "#797F85"
+"outline-color-progressive--focus" = "#6485D1"
+"box-shadow-color-progressive--focus" = "#6485D1"
+
+# Overlays `light`: text at 7:1, control boundaries at 4.5:1, in Codex's hues.
+[palette.encyclopedia.light-more]
+color-base = "#101418"
+color-subtle = "#45494D"
+color-placeholder = "#505458"
+color-progressive = "#264C98"
+"color-progressive--hover" = "#1D3A75"
+"color-progressive--active" = "#152A55"
+"color-progressive--focus" = "#264C98"
+color-visited = "#574D9C"
+"color-visited--hover" = "#463E7D"
+"color-visited--active" = "#352F5E"
+color-warning = "#5E4418"
+color-error = "#8F2D21"
+color-destructive = "#8F2D21"
+color-success = "#115947"
+background-color-progressive = "#264C98"
+"background-color-progressive--hover" = "#1D3A75"
+"background-color-progressive--active" = "#152A55"
+"background-color-progressive--focus" = "#264C98"
+background-color-destructive = "#8F2D21"
+"background-color-destructive--hover" = "#7D271D"
+"background-color-destructive--active" = "#6B2119"
+border-color-base = "#6E7783"
+border-color-interactive = "#5C6168"
+border-color-divider = "#72777D"
+border-color-subtle = "#A2A9B1"
+border-color-progressive = "#264C98"
+"border-color-progressive--focus" = "#264C98"
+"outline-color-progressive--focus" = "#264C98"
+"box-shadow-color-progressive--focus" = "#264C98"
+
+# Overlays `dark`: text at 7:1, control boundaries at 4.5:1.
+[palette.encyclopedia.dark-more]
+color-base = "#F8F9FA"
+color-emphasized = "#FFFFFF"
+color-subtle = "#B3B9C0"
+color-placeholder = "#A2A7AC"
+color-progressive = "#9DB3EC"
+"color-progressive--hover" = "#B6C7F2"
+"color-progressive--active" = "#CCD8F6"
+"color-progressive--focus" = "#9DB3EC"
+color-visited = "#B9AEDA"
+"color-visited--hover" = "#CBC2E3"
+"color-visited--active" = "#DAD4EB"
+color-warning = "#D9AE52"
+color-error = "#FD9585"
+color-destructive = "#FD9585"
+color-success = "#33C9A2"
+background-color-base = "#0B0E11"
+background-color-progressive = "#264C98"
+"background-color-progressive--hover" = "#1D3A75"
+"background-color-progressive--active" = "#152A55"
+"background-color-progressive--focus" = "#264C98"
+background-color-destructive = "#8F2D21"
+"background-color-destructive--hover" = "#7D271D"
+"background-color-destructive--active" = "#6B2119"
+border-color-base = "#80868C"
+border-color-interactive = "#80868C"
+border-color-divider = "#72777D"
+border-color-progressive = "#9DB3EC"
+"border-color-progressive--focus" = "#9DB3EC"
+"outline-color-progressive--focus" = "#9DB3EC"
+"box-shadow-color-progressive--focus" = "#9DB3EC"
+
 
 # --- Type sets ----------------------------------------------------------------------------------------
 
@@ -451,3 +537,13 @@ licence = "OFL-1.1"
 family = "OpenDyslexic Mono"
 weights = [400]
 licence = "OFL-1.1"
+
+# Vector 2022's default stacks on Wikimedia wikis, named `basic` (James, 2026-10-25; 0086 A2), as MediaWiki
+# core's mediawiki.skin.defaults.less and mediawiki.skinning/elements.less give them: the device's sans-serif
+# for text, Linux Libertine or the nearest installed serif for headings, and the device's monospace for code,
+# doubled as MediaWiki doubles it so browsers do not shrink it (T176636). It serves no typeface.
+[typeset.basic]
+label = "Basic"
+font-family-base = "sans-serif"
+font-family-heading-main = "'Linux Libertine', 'Georgia', 'Times', 'Source Serif Pro', serif"
+font-family-monospace = "monospace, monospace"

@@ -34,6 +34,7 @@ pub mod rights;
 pub mod search;
 pub mod settings;
 pub mod theme;
+pub mod threads;
 pub mod transport;
 pub mod version;
 
@@ -58,6 +59,7 @@ pub use rights::{
 };
 pub use search::{Hit, Hits};
 pub use theme::ThemeInfo;
+pub use threads::{Attached, Listed, Listing, PostForm, PostView, ThreadView, Written};
 pub use transport::{
     ApiRequest, ApiResponse, ClientError, HttpTransport, ServiceTransport, Transport,
 };

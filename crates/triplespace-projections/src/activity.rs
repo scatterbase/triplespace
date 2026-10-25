@@ -492,6 +492,49 @@ fn thread_columns(record: &Record) -> Result<Columns, String> {
     })
 }
 
+/// A thread's move names the talk page it left as well as the one it went to, so the
+/// event appears in both pages' histories (14 §1.3; 16 §6.1): `from_talk`, the home the
+/// thread's previous `create` or `move` row set. Those rows are earlier in the same
+/// partition, so a replay finds them as the first projection did.
+async fn moved_from(
+    cx: &PgCx,
+    tenant: &str,
+    partition: u64,
+    offset: u64,
+    c: &mut Columns,
+) -> Result<(), String> {
+    let is_move = c.log_type.as_deref() == Some("move")
+        && c.params.as_ref().is_some_and(|p| p.get("target").is_some());
+    if !is_move {
+        return Ok(());
+    }
+    let row = cx
+        .query_opt(
+            "SELECT params->'talk' FROM view.activity
+             WHERE tenant = $1 AND partition = $2 AND target_kind = $3 AND target_id = $4
+               AND \"offset\" < $5
+               AND ((log_type = 'create' AND log_action = 'create')
+                    OR (log_type = 'move' AND params ? 'target'))
+             ORDER BY \"offset\" DESC LIMIT 1",
+            &[
+                &tenant,
+                &scatter_log_postgres::ids::partition_to_db(partition),
+                &target_kind::PAGE,
+                &c.target.id,
+                &i64::try_from(offset).map_err(|e| e.to_string())?,
+            ],
+        )
+        .await
+        .map_err(|e| sql(&e))?;
+    if let (Some(r), Some(params)) = (row, c.params.as_mut()) {
+        let from: Option<serde_json::Value> = r.get(0);
+        if let Some(f) = from.filter(|f| !f.is_null()) {
+            params["from_talk"] = f;
+        }
+    }
+    Ok(())
+}
+
 fn logevent_columns(record: &Record) -> Result<Columns, String> {
     let Some(event) = content(record)? else {
         return Ok(Columns {
@@ -936,7 +979,9 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for ActivityProjection {
             } else if h.payload_type == PAYLOAD_RECLAIM {
                 reclaim_columns(record)?
             } else if h.payload_type == scatter_threads::PAYLOAD_THREAD {
-                thread_columns(record)?
+                let mut c = thread_columns(record)?;
+                moved_from(cx, &info.tenant, h.partition, h.offset, &mut c).await?;
+                c
             } else if h.payload_type == crate::actors::payload::ACL {
                 acl_columns(cx, record).await?
             } else if h.payload_type == crate::actors::payload::MEMBERSHIP {

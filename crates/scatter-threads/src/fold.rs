@@ -46,13 +46,16 @@ pub struct Record {
     pub has_text: bool,
 }
 
-/// The settings that bound attachments and pins (23 §3.2).
+/// The tenant's settings a record is checked against (23 §3.2).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Limits {
     /// `thread.max_attachments`: the home and the listings together.
     pub max_attachments: usize,
     /// `thread.max_pinned`: threads pinned on one page.
     pub max_pinned: usize,
+    /// `thread.markup`, as a media type: [`MARKDOWN`] or [`WIKITEXT`]. An original `create`
+    /// or `post` must have it (14 §1.6; 0019 A28).
+    pub markup: &'static str,
 }
 
 impl Default for Limits {
@@ -60,6 +63,7 @@ impl Default for Limits {
         Limits {
             max_attachments: 5,
             max_pinned: 3,
+            markup: MARKDOWN,
         }
     }
 }
@@ -117,6 +121,7 @@ impl Check<'static> {
             limits: Limits {
                 max_attachments: usize::MAX,
                 max_pinned: usize::MAX,
+                markup: MARKDOWN,
             },
             writer: Writer::Import,
         }
@@ -145,7 +150,7 @@ pub enum Invalid {
     Status(String),
     /// The media type is not markdown or wikitext, or an edit's is not its post's.
     MediaType(String),
-    /// A field only an import writes: `imported_from`, `heading` or a wikitext post.
+    /// A field only an import writes: `imported_from` or `heading`.
     ImportOnly(&'static str),
     /// A heading level outside 3 to 6.
     Heading(u8),
@@ -287,12 +292,13 @@ fn media_type(given: Option<&String>) -> &str {
     given.map_or(MARKDOWN, String::as_str)
 }
 
-fn check_media(given: Option<&String>, writer: Writer) -> Result<(), Invalid> {
-    match media_type(given) {
-        MARKDOWN => Ok(()),
-        WIKITEXT if writer == Writer::Import => Ok(()),
-        WIKITEXT => Err(Invalid::ImportOnly("mediaType: text/x-wiki")),
-        other => Err(Invalid::MediaType(other.to_string())),
+/// An import writes either markup; an editor's original post has the tenant's
+/// `thread.markup` (14 §1.6; 0019 A28).
+fn check_media(given: Option<&String>, check: &Check) -> Result<(), Invalid> {
+    match (media_type(given), check.writer) {
+        (MARKDOWN | WIKITEXT, Writer::Import) => Ok(()),
+        (m, Writer::Editor) if m == check.limits.markup => Ok(()),
+        (other, _) => Err(Invalid::MediaType(other.to_string())),
     }
 }
 
@@ -324,7 +330,7 @@ impl Thread {
             return Err(Invalid::Text);
         }
         let subject = normalize_subject(name).map_err(Invalid::Subject)?;
-        check_media(mt.as_ref(), check.writer)?;
+        check_media(mt.as_ref(), check)?;
         check_status(status.as_ref(), check)?;
         if imported_from.is_some() && check.writer != Writer::Import {
             return Err(Invalid::ImportOnly("imported_from"));
@@ -476,7 +482,7 @@ impl Thread {
         else {
             return Err(Invalid::Create);
         };
-        check_media(mt.as_ref(), check.writer)?;
+        check_media(mt.as_ref(), check)?;
         check_status(status.as_ref(), check)?;
         if check.writer != Writer::Import {
             if imported_from.is_some() {

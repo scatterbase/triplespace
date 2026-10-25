@@ -45,10 +45,10 @@ pub(crate) fn discussion_content() -> ApiError {
     )
 }
 
-/// The content model whose revisions' content is not served yet: a talk page's, which is
-/// composite (content-models.toml `source = "composite"`).
-fn unserved(model: &str) -> bool {
-    model == "triplespace-talk"
+/// Whether a page is a talk page, whose revisions are its threads' (composite,
+/// content-models.toml `source = "composite"`; 16 §6.1).
+pub(crate) fn is_talk(page: &PageAsk) -> bool {
+    page.content_model() == "triplespace-talk"
 }
 
 const DEFAULT_LIMIT: usize = 10;
@@ -74,6 +74,8 @@ fn feed_for(ctx: &Ctx, page: &PageAsk) -> Result<Feed, ApiError> {
             kind: target_kind::ENTITY,
             id: id.as_str().to_string(),
         },
+        // A talk page's revisions are those of the threads attached to it (16 §6.1).
+        None if is_talk(page) => TargetSet::Talk(page.page_id),
         None => TargetSet::Target {
             kind: target_kind::PAGE,
             id: page.page_id.to_string(),
@@ -164,7 +166,8 @@ async fn parents(
 }
 
 /// The content of a revision: a document page's text after it, a thread as it stood
-/// after it (the `GET /thread/{id}` body as this viewer may see it, 0041 §5), or the
+/// after it (the `GET /thread/{id}` body as this viewer may see it, 0041 §5), a talk page
+/// as wikitext with its threads as they stood after it ([`crate::talk_text`]), or the
 /// entity's local state after it in Wikibase's JSON.
 pub(crate) async fn content_at(
     ctx: &Ctx,
@@ -172,6 +175,20 @@ pub(crate) async fn content_at(
     offset: u64,
     revid: Option<u64>,
 ) -> Result<Option<String>, ApiError> {
+    if is_talk(page) {
+        let Some(r) = revid else {
+            return Ok(None);
+        };
+        return crate::talk_text::text_at(
+            ctx.db(),
+            &ctx.tenant.slug,
+            &ctx.caller.effective,
+            page.page_id,
+            Some(r),
+        )
+        .await
+        .map(Some);
+    }
     if page.content_model() == "triplespace-thread" {
         let Some(r) = revid else {
             return Ok(None);
@@ -297,12 +314,6 @@ async fn revisions_of(
         response.warn(
             "revisions",
             "Because \"rvslots\" was not specified, a legacy format has been used for the output. This format is deprecated, and in the future the new format will always be used.",
-        );
-    }
-    if want("content") && pages.iter().any(|p| unserved(&p.content_model())) {
-        response.warn(
-            "revisions",
-            "The content of a talk page's revisions is not served yet; read GET /page/{id}/history and GET /thread/{id}.",
         );
     }
     let v2 = ctx.formatversion == 2;
@@ -505,7 +516,7 @@ async fn with_content(
     m.remove("_offset");
     m.remove("_revid");
     let want = |p: &str| props.iter().any(|x| x == p);
-    if !want("content") || m.contains_key("texthidden") || unserved(&page.content_model()) {
+    if !want("content") || m.contains_key("texthidden") {
         return Ok(row);
     }
     let Some(text) = content_at(ctx, page, offset, revid).await? else {

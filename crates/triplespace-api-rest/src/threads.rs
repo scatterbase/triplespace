@@ -51,7 +51,9 @@ use scatter_actors::acl::{Denied, Target as AclTarget, check_on};
 use scatter_actors::evaluate::Effective;
 use scatter_actors::{ReadDecision, Timestamp, read_decision};
 use scatter_ingest::{Attestation, Request};
-use scatter_threads::{Category, Invalid, Limits, Range, Statuses, Target, ThreadOp, Writer};
+use scatter_threads::{
+    Category, Invalid, Limits, Range, Statuses, Target, ThreadOp, WIKITEXT, Writer,
+};
 use serde_json::{Map, Value, json};
 use triplespace_api_action::App;
 use triplespace_api_action::auth::{Caller, bearer};
@@ -59,7 +61,7 @@ use triplespace_api_action::forwarded::Origin;
 use triplespace_api_action::http_cache::{self, Class};
 use triplespace_api_action::tenant::Tenant;
 use triplespace_api_action::thread_view::target_json;
-use triplespace_api_ingest::threads::{ThreadError, ThreadWrite, write};
+use triplespace_api_ingest::threads::{PostSigner, ThreadError, ThreadWrite, write};
 use triplespace_projections::acl_read::{
     current, listing_chain, page_chain, page_scope, removed, thread_chain,
 };
@@ -281,6 +283,7 @@ fn refused(e: &ThreadError) -> Response {
             error(StatusCode::BAD_REQUEST, "ts-base-required", e.to_string())
         }
         ThreadError::Conflict { .. } => error(StatusCode::CONFLICT, "editconflict", e.to_string()),
+        ThreadError::EmptyPost => error(StatusCode::BAD_REQUEST, "ts-empty-post", e.to_string()),
         ThreadError::Store(_) => internal(e),
     }
 }
@@ -328,7 +331,7 @@ async fn begin_write(
     headers: &HeaderMap,
     body: &Bytes,
     right: &str,
-) -> Result<(Tenant, String, Body, Effective), Response> {
+) -> Result<(Tenant, String, Body, Effective, String), Response> {
     let client = app.pool().get().await.map_err(|e| internal(&e))?;
     let (tenant, caller) = prelude(app, &client, origin, headers).await?;
     // A scoped group's right is checked on the thread's chain (09 §3.4).
@@ -352,10 +355,17 @@ async fn begin_write(
     };
     check_token(app, &caller, headers, &object)?;
     object.remove("token");
-    Ok((tenant, actor, object, caller.effective))
+    // The name a wikitext post's signatures link to (14 §1.6).
+    let name = caller
+        .identity
+        .name
+        .clone()
+        .unwrap_or_else(|| actor.clone());
+    Ok((tenant, actor, object, caller.effective, name))
 }
 
-/// `thread.max_attachments` and `thread.max_pinned`, as the tenant resolves them.
+/// `thread.max_attachments`, `thread.max_pinned` and `thread.markup`, as the tenant
+/// resolves them (14 §1.6, §3.5, §4.2).
 async fn limits(app: &App, tenant: &str) -> Limits {
     let mut l = Limits::default();
     let Ok(client) = app.pool().get().await else {
@@ -373,8 +383,29 @@ async fn limits(app: &App, tenant: &str) -> Limits {
         if let Some(n) = n("thread.max_pinned") {
             l.max_pinned = n;
         }
+        if s.value("thread.markup")
+            .is_some_and(|v| v.as_str() == Some("wikitext"))
+        {
+            l.markup = WIKITEXT;
+        }
     }
     l
+}
+
+/// The names a wikitext post's pre-save transform signs with: the writer's, and the
+/// tenant's local User and User talk namespaces (11 §1.5; 14 §1.6).
+async fn signer(app: &App, tenant: &str, name: &str) -> Option<PostSigner> {
+    let client = app.pool().get().await.ok()?;
+    let site = triplespace_api_action::pages::Site::load_for(&client, tenant)
+        .await
+        .ok()?;
+    let ns = |n: i32| site.prefixed(n, "x").trim_end_matches(":x").to_string();
+    Some(PostSigner {
+        name: name.to_string(),
+        user_ns: ns(2),
+        user_talk_ns: ns(3),
+        talk: "talk".into(),
+    })
 }
 
 /// Writes one record and answers with the thread, the record and the next base.
@@ -383,6 +414,7 @@ async fn save(
     app: &App,
     tenant: &Tenant,
     actor: &str,
+    name: &str,
     who: &Effective,
     thread: Option<u64>,
     op: ThreadOp,
@@ -428,6 +460,7 @@ async fn save(
         writer: Writer::Editor,
         limits: limits(app, &tenant.slug).await,
         date: None,
+        signer: signer(app, &tenant.slug, name).await,
     };
     let store = app.store();
     let mut cx = match scatter_projection::Backend::begin(store).await {
@@ -486,10 +519,11 @@ pub async fn create(
     headers: HeaderMap,
     body: Bytes,
 ) -> Response {
-    let (tenant, actor, b, who) = match begin_write(&app, &origin, &headers, &body, "edit").await {
-        Ok(x) => x,
-        Err(r) => return r,
-    };
+    let (tenant, actor, b, who, name) =
+        match begin_write(&app, &origin, &headers, &body, "edit").await {
+            Ok(x) => x,
+            Err(r) => return r,
+        };
     let parsed = (|| {
         let name = required(&b, "subject")?;
         let text = required(&b, "text")?;
@@ -515,7 +549,7 @@ pub async fn create(
         Ok((op, text))
     })();
     match parsed {
-        Ok((op, text)) => save(&app, &tenant, &actor, &who, None, op, Some(text), &b).await,
+        Ok((op, text)) => save(&app, &tenant, &actor, &name, &who, None, op, Some(text), &b).await,
         Err(r) => r,
     }
 }
@@ -528,10 +562,11 @@ pub async fn post(
     Path(id): Path<u64>,
     body: Bytes,
 ) -> Response {
-    let (tenant, actor, b, who) = match begin_write(&app, &origin, &headers, &body, "edit").await {
-        Ok(x) => x,
-        Err(r) => return r,
-    };
+    let (tenant, actor, b, who, name) =
+        match begin_write(&app, &origin, &headers, &body, "edit").await {
+            Ok(x) => x,
+            Err(r) => return r,
+        };
     let parsed = (|| {
         let text = required(&b, "text")?;
         let collapse = match b.get("collapse") {
@@ -553,7 +588,20 @@ pub async fn post(
         Ok((op, text))
     })();
     match parsed {
-        Ok((op, text)) => save(&app, &tenant, &actor, &who, Some(id), op, Some(text), &b).await,
+        Ok((op, text)) => {
+            save(
+                &app,
+                &tenant,
+                &actor,
+                &name,
+                &who,
+                Some(id),
+                op,
+                Some(text),
+                &b,
+            )
+            .await
+        }
         Err(r) => r,
     }
 }
@@ -566,10 +614,11 @@ pub async fn edit(
     Path((id, revid)): Path<(u64, u64)>,
     body: Bytes,
 ) -> Response {
-    let (tenant, actor, b, who) = match begin_write(&app, &origin, &headers, &body, "edit").await {
-        Ok(x) => x,
-        Err(r) => return r,
-    };
+    let (tenant, actor, b, who, name) =
+        match begin_write(&app, &origin, &headers, &body, "edit").await {
+            Ok(x) => x,
+            Err(r) => return r,
+        };
     let text = match required(&b, "text") {
         Ok(t) => t,
         Err(r) => return r,
@@ -625,7 +674,18 @@ pub async fn edit(
         object: revid,
         media_type,
     };
-    save(&app, &tenant, &actor, &who, Some(id), op, Some(text), &b).await
+    save(
+        &app,
+        &tenant,
+        &actor,
+        &name,
+        &who,
+        Some(id),
+        op,
+        Some(text),
+        &b,
+    )
+    .await
 }
 
 /// The operations that change a thread's subject or attachments.
@@ -647,10 +707,11 @@ async fn change(
     body: Bytes,
     what: Change,
 ) -> Response {
-    let (tenant, actor, b, who) = match begin_write(&app, &origin, &headers, &body, "move").await {
-        Ok(x) => x,
-        Err(r) => return r,
-    };
+    let (tenant, actor, b, who, name) =
+        match begin_write(&app, &origin, &headers, &body, "move").await {
+            Ok(x) => x,
+            Err(r) => return r,
+        };
     let op = (|| {
         Ok(match what {
             Change::Rename => ThreadOp::Rename {
@@ -675,7 +736,7 @@ async fn change(
         })
     })();
     match op {
-        Ok(op) => save(&app, &tenant, &actor, &who, Some(id), op, None, &b).await,
+        Ok(op) => save(&app, &tenant, &actor, &name, &who, Some(id), op, None, &b).await,
         Err(r) => r,
     }
 }
@@ -716,13 +777,15 @@ fn respond(headers: &HeaderMap, method: &Method, caller: &Caller, body: &Value) 
 }
 
 /// Talk page IDs with their titles, `{ns}:{title}` as `view.page` holds them.
-/// `GET /thread/{id}`.
+/// `GET /thread/{id}`; with `html=1`, each post also carries `html`, its text rendered by
+/// its media type (14 §1.6).
 pub async fn get(
     State(app): State<App>,
     Extension(origin): Extension<Origin>,
     method: Method,
     headers: HeaderMap,
     Path(id): Path<u64>,
+    axum::extract::Query(q): axum::extract::Query<std::collections::BTreeMap<String, String>>,
 ) -> Response {
     let client = match app.pool().get().await {
         Ok(c) => c,
@@ -752,6 +815,17 @@ pub async fn get(
         Err(e) => return internal(&e),
     };
     body["deleted"] = json!(removed(&chain, at));
+    if q.get("html").is_some_and(|v| v == "1" || v == "true")
+        && let Err(e) = triplespace_api_action::thread_html::add_html(
+            &client,
+            &tenant.slug,
+            &caller.effective,
+            &mut body,
+        )
+        .await
+    {
+        return internal(&e);
+    }
     respond(&headers, &method, &caller, &body)
 }
 

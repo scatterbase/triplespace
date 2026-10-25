@@ -617,6 +617,12 @@ async fn dispatch(
         Err(r) => return r,
     };
     if cx.features.has(Feature::Pages) {
+        // A talk page or a thread (19 §6.1); every other title is a document page's.
+        let cx = match crate::discussion::serve(site, headers, &incoming, cx, &title, params).await
+        {
+            Ok(r) => return r,
+            Err(cx) => cx,
+        };
         return document::serve(site, headers, &incoming, cx, title, params).await;
     }
     if title.is_empty() {
@@ -706,6 +712,23 @@ async fn dispatch_post(
             return document::post(site, headers, &incoming, cx, title, form).await;
         }
         return no_page(&cx, headers, title.to_string());
+    }
+    if let Some(a) = action.filter(|a| *a == "addtopic" || *a == "reply")
+        && !title.is_empty()
+        && special::name_of(title).is_none()
+    {
+        let incoming = incoming(headers, peer);
+        let cx = match context(site, &incoming, query).await {
+            Ok(cx) => cx,
+            Err(r) => return r,
+        };
+        if cx.user.is_none() || !cx.features.has(Feature::Pages) {
+            return no_page(&cx, headers, title.to_string());
+        }
+        return match crate::discussion::post(site, headers, &incoming, cx, title, a, form).await {
+            Ok(r) => r,
+            Err(cx) => no_page(&cx, headers, title.to_string()),
+        };
     }
     if let Some(r) = special::post(site, headers, peer, title, query, form).await {
         return r;

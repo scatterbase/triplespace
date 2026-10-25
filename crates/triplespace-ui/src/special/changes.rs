@@ -318,8 +318,10 @@ fn origin_chip(m: &Messages, site: &SiteInfo, row: &ActivityRow) -> String {
     chip.unwrap_or_default()
 }
 
-/// The target: its title linked, with its label where one is known.
-fn target_html(m: &Messages, row: &ActivityRow) -> String {
+/// The target: its title linked, with its label where one is known. In a discussion's
+/// history (`subject_only`), a thread is named by its subject, the date and namespace being
+/// the same on every row.
+fn target_html(m: &Messages, row: &ActivityRow, subject_only: bool) -> String {
     let lang = m.lang();
     let Some(t) = &row.target else {
         return String::new();
@@ -328,8 +330,8 @@ fn target_html(m: &Messages, row: &ActivityRow) -> String {
         return format!("<span class=\"ts-mono\">{}</span>", esc(&t.id));
     };
     let href = format!("/wiki/{}", title_url(title));
-    match &t.label {
-        Some(label) => format!(
+    if let Some(label) = &t.label {
+        return format!(
             "<span class=\"ts-change__part\">{}</span><span class=\"ts-change__part ts-change__id ts-mono\">{}</span>",
             link(
                 &href,
@@ -341,12 +343,17 @@ fn target_html(m: &Messages, row: &ActivityRow) -> String {
                 " class=\"ts-change__target\""
             ),
             esc(&t.id)
-        ),
-        None => format!(
-            "<span class=\"ts-change__part\">{}</span>",
-            link(&href, &esc(title), " class=\"ts-change__target\"")
-        ),
+        );
     }
+    let shown = if subject_only && is_thread_row(row) {
+        title.split_once('/').map_or(title.as_str(), |(_, s)| s)
+    } else {
+        title.as_str()
+    };
+    format!(
+        "<span class=\"ts-change__part\">{}</span>",
+        link(&href, &esc(shown), " class=\"ts-change__target\"")
+    )
 }
 
 /// The actor: a link to their contributions, or the hidden marker.
@@ -370,8 +377,53 @@ fn actor_html(m: &Messages, row: &ActivityRow) -> String {
     )
 }
 
+/// Whether a row is a thread's: its target is a page in the `Thread` namespace.
+fn is_thread_row(row: &ActivityRow) -> bool {
+    row.target
+        .as_ref()
+        .and_then(|t| t.title.as_deref())
+        .is_some_and(|t| t.starts_with("Thread:"))
+}
+
+/// A thread record's automatic summary in words (16 §6.1): what the record did, and for a
+/// listing or a move, relative to the talk page whose history this is (`here`), so that a
+/// history reads "listed the thread here" or "moved the thread away".
+fn thread_summary(m: &Messages, row: &ActivityRow, here: Option<u64>) -> Option<String> {
+    let op = row.summary.op.as_deref()?;
+    let param = |k: &str| {
+        row.log
+            .as_ref()
+            .and_then(|l| l.params.as_ref())
+            .and_then(|p| p.get(k))
+            .and_then(serde_json::Value::as_u64)
+    };
+    let is_here = |k: &str| here.is_some() && param(k) == here;
+    let key = match op {
+        "create" => "ts-changes-thread-create",
+        "post" => "ts-changes-thread-post",
+        "edit" => "ts-changes-thread-edit",
+        "rename" => {
+            return Some(m.with(
+                "ts-changes-thread-rename",
+                &[row.summary.args.as_deref().unwrap_or_default()],
+            ));
+        }
+        "move" if is_here("from_talk") => "ts-changes-thread-move-away",
+        "move" if is_here("talk") => "ts-changes-thread-move-here",
+        "move" => "ts-changes-thread-move",
+        "attach" if is_here("talk") => "ts-changes-thread-attach-here",
+        "attach" => "ts-changes-thread-attach",
+        "detach" if is_here("talk") => "ts-changes-thread-detach-here",
+        "detach" => "ts-changes-thread-detach",
+        "pin" => "ts-changes-thread-pin",
+        "unpin" => "ts-changes-thread-unpin",
+        _ => return None,
+    };
+    Some(m.get(key))
+}
+
 /// The summary: the user's comment, and the automatic part muted.
-fn summary_html(m: &Messages, row: &ActivityRow) -> String {
+fn summary_html(m: &Messages, row: &ActivityRow, here: Option<u64>) -> String {
     if row.summary.hidden {
         return format!(
             "<span class=\"ts-change__hidden\">{}</span>",
@@ -391,6 +443,11 @@ fn summary_html(m: &Messages, row: &ActivityRow) -> String {
             "<span class=\"ts-change__auto\">{}</span>",
             esc(&m.with("ts-changes-synced", &[provider]))
         );
+    } else if let Some(t) = is_thread_row(row)
+        .then(|| thread_summary(m, row, here))
+        .flatten()
+    {
+        let _ = write!(s, "<span class=\"ts-change__auto\">{}</span>", esc(&t));
     } else if let Some(a) = auto {
         let _ = write!(s, "<span class=\"ts-change__auto\">{}</span>", esc(&a));
     }
@@ -398,7 +455,7 @@ fn summary_html(m: &Messages, row: &ActivityRow) -> String {
     if let Some((from, to)) = row
         .log
         .as_ref()
-        .filter(|l| l.r#type == "move")
+        .filter(|l| l.r#type == "move" && !is_thread_row(row))
         .and_then(|l| {
             let p = l.params.as_ref()?;
             Some((
@@ -448,6 +505,15 @@ fn size_html(row: &ActivityRow) -> String {
 /// for a mirror sync, which has no local revision ID; nothing for the other kinds.
 fn diff_href(row: &ActivityRow) -> Option<String> {
     let title = row.target.as_ref()?.title.as_deref()?;
+    // A thread's rows go to the post they wrote, or to the thread: a thread has no diffs
+    // yet (`compare` refuses its content).
+    if is_thread_row(row) {
+        let href = format!("/wiki/{}", title_url(title));
+        return Some(match (row.summary.op.as_deref(), row.revid) {
+            (Some("create" | "post"), Some(r)) => format!("{href}#post-{r}"),
+            _ => href,
+        });
+    }
     let arg = match row.kind.as_str() {
         "edit" if row.source == "local" || row.source == "pages" => row.revid?.to_string(),
         "sync" => format!("{}:{}", row.record.partition, row.record.offset),
@@ -456,7 +522,7 @@ fn diff_href(row: &ActivityRow) -> Option<String> {
     Some(format!("/wiki/{}?diff={arg}", title_url(title)))
 }
 
-fn row_html(m: &Messages, site: &SiteInfo, row: &ActivityRow) -> String {
+fn row_html(m: &Messages, site: &SiteInfo, row: &ActivityRow, here: Option<u64>) -> String {
     let time = format!(
         "<time class=\"ts-change__time\" datetime=\"{}\">{}</time>",
         esc(&row.time),
@@ -501,7 +567,7 @@ fn row_html(m: &Messages, site: &SiteInfo, row: &ActivityRow) -> String {
         }
         s.push_str("</span>");
     }
-    let target = target_html(m, row);
+    let target = target_html(m, row, here.is_some());
     if !target.is_empty() {
         s.push_str(&target);
     } else if let Some(j) = row.job {
@@ -519,7 +585,7 @@ fn row_html(m: &Messages, site: &SiteInfo, row: &ActivityRow) -> String {
     if !actor.is_empty() {
         s.push_str(&actor);
     }
-    let summary = summary_html(m, row);
+    let summary = summary_html(m, row, here);
     if !summary.is_empty() {
         let _ = write!(s, "<span class=\"ts-change__summary\">{summary}</span>");
     }
@@ -537,6 +603,17 @@ fn row_html(m: &Messages, site: &SiteInfo, row: &ActivityRow) -> String {
 
 /// The rows, grouped by day.
 pub(crate) fn list_html(m: &Messages, site: &SiteInfo, rows: &[ActivityRow]) -> String {
+    list_html_here(m, site, rows, None)
+}
+
+/// The rows, grouped by day, as the history of the talk page `here` reads them: a thread
+/// listed on it or moved to or from it says so (16 §6.1).
+pub(crate) fn list_html_here(
+    m: &Messages,
+    site: &SiteInfo,
+    rows: &[ActivityRow],
+    here: Option<u64>,
+) -> String {
     let mut s = String::new();
     let mut day: Option<&str> = None;
     for row in rows {
@@ -552,7 +629,7 @@ pub(crate) fn list_html(m: &Messages, site: &SiteInfo, rows: &[ActivityRow]) -> 
             );
             day = Some(d);
         }
-        s.push_str(&row_html(m, site, row));
+        s.push_str(&row_html(m, site, row, here));
     }
     if day.is_some() {
         s.push_str("</ul>");
@@ -1027,5 +1104,56 @@ mod tests {
         assert!(size_html(&r).contains("\u{2212}5"));
         r.delta = None;
         assert!(size_html(&r).contains("(400)"));
+    }
+
+    #[test]
+    fn a_threads_rows_read_from_the_talk_page_they_are_shown_on() {
+        // 16 §6.1: listings and moves relative to the page whose history this is.
+        let m = Messages::for_language("en");
+        let row = |op: &str, params: serde_json::Value| ActivityRow {
+            kind: "edit".into(),
+            time: "2026-10-25T20:27:00Z".into(),
+            source: "pages".into(),
+            revid: Some(930),
+            target: Some(triplespace_client::activity::ActivityTarget {
+                kind: "page".into(),
+                id: "29".into(),
+                title: Some("Thread:2026-10-25/Why is P31 wrong here?".into()),
+                ..Default::default()
+            }),
+            summary: triplespace_client::activity::Summary {
+                op: Some(op.into()),
+                ..Default::default()
+            },
+            log: Some(triplespace_client::activity::LogInfo {
+                r#type: "thread".into(),
+                action: op.into(),
+                params: Some(params),
+            }),
+            ..ActivityRow::default()
+        };
+        let say = |r: &ActivityRow, here| thread_summary(&m, r, here).unwrap();
+        let attach = row("attach", serde_json::json!({"talk": 7}));
+        assert_eq!(say(&attach, Some(7)), "listed the thread here");
+        assert_eq!(say(&attach, Some(8)), "listed the thread on another page");
+        let mv = row("move", serde_json::json!({"talk": 9, "from_talk": 7}));
+        assert_eq!(say(&mv, Some(7)), "moved the thread to another page");
+        assert_eq!(say(&mv, Some(9)), "moved the thread here");
+        assert_eq!(say(&row("post", serde_json::Value::Null), None), "replied");
+
+        // A post links to itself, on the thread page; the subject names the thread.
+        let post = row("post", serde_json::Value::Null);
+        assert_eq!(
+            diff_href(&post).as_deref(),
+            Some("/wiki/Thread:2026-10-25/Why_is_P31_wrong_here%3F#post-930")
+        );
+        assert!(
+            row_html(&m, &SiteInfo::default(), &post, Some(7))
+                .contains(">Why is P31 wrong here?</a>")
+        );
+        assert!(
+            row_html(&m, &SiteInfo::default(), &post, None)
+                .contains(">Thread:2026-10-25/Why is P31 wrong here?</a>")
+        );
     }
 }

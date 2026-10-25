@@ -363,9 +363,9 @@ A model's **source** says where its content comes from and how it is written:
 | Operation | text | entity | thread | composite | statements |
 |---|---|---|---|---|---|
 | Validate submitted content | §4.5 | — | — | — | — |
-| Serialize as of a revision (`rvprop=content`, export) | The text | Wikibase JSON ([wikibase-compat.md](../api/wikibase-compat.md)) | The `GET /thread/{page ID}` body ([0019](../decisions/0019-discussions.md) §9) as of that revision | — | MediaInfo JSON ([0041](../decisions/0041-content-models.md) §7) |
+| Serialize as of a revision (`rvprop=content`, export) | The text | Wikibase JSON ([wikibase-compat.md](../api/wikibase-compat.md)) | The `GET /thread/{page ID}` body ([0019](../decisions/0019-discussions.md) §9) as of that revision | Wikitext, read-only: the threads attached now, each as of that revision, as a MediaWiki talk page ([16](16-logs-feeds-and-notifications.md) §6.1; [0019](../decisions/0019-discussions.md) A29) | MediaInfo JSON ([0041](../decisions/0041-content-models.md) §7) |
 | Plain text for search | [0014](../decisions/0014-caches-and-search.md) §7 `text` | The `entities` index fields | Subject and posts ([0019](../decisions/0019-discussions.md) §11) | — | `statement_keywords` ([0038](../decisions/0038-page-metadata-and-categories.md) §12) |
-| Diff | Line diff | Wikibase's entity diff ([0012](../decisions/0012-api-requirements.md) §7) | Per post | — | Statement diff |
+| Diff | Line diff | Wikibase's entity diff ([0012](../decisions/0012-api-requirements.md) §7) | Per post | Line diff of that wikitext | Statement diff |
 
 Rendering stays where earlier ADRs put it: text models in `scatter-pages` and `scatter-wikitext` (§5.1, [0033](../decisions/0033-backend-stack.md)), entity pages in the frame of [0010](../decisions/0010-site-ui.md) §2, threads in [0019](../decisions/0019-discussions.md) §8. The trait is implemented by the crate that owns each source ([0041](../decisions/0041-content-models.md) §12; [22](22-crates-and-stack.md)); `scatter-pages` holds the trait and the registry, and depends on none of them.
 
@@ -388,7 +388,7 @@ Each registry entry records the ID, its origin, its **source** (§4.3), its **sl
 | `triplespace-keyword` | Triplespace | entity (`keyword`) | main | `application/json` | No | 212 | [0041](../decisions/0041-content-models.md) §3 |
 | `triplespace-notation` | Triplespace | entity (`notation`) | main | `application/json` | No | 216 | [0048](../decisions/0048-notation.md) §7 (was `triplespace-osm-tag`) |
 | `triplespace-thread` | Triplespace | thread | main | `application/json` | No | 214 | [0041](../decisions/0041-content-models.md) §3 |
-| `triplespace-talk` | Triplespace | composite | main | — | No | Every enabled talk namespace | [0041](../decisions/0041-content-models.md) §3 |
+| `triplespace-talk` | Triplespace | composite | main | `text/x-wiki` (read-only, [0019](../decisions/0019-discussions.md) A29) | No | Every enabled talk namespace | [0041](../decisions/0041-content-models.md) §3 |
 | `wikibase-mediainfo` | WikibaseMediaInfo | statements (`mediainfo`) | `mediainfo` | `application/json` | No | The second slot of every File page ([0041](../decisions/0041-content-models.md) §6; [12](12-files-and-media.md)) | [0041](../decisions/0041-content-models.md) §3 |
 | `Scribunto` | Scribunto | text | main | `text/plain` | Yes | 828, by Scribunto's title rules | [0043](../decisions/0043-lua-modules.md) §3; [11](11-rendering-templates-and-modules.md) |
 | `triplespace-table` | Triplespace | text | main | `application/json` | Yes | 218 | [0045](../decisions/0045-table-content-model.md) §3; [15](15-structured-pages.md) |

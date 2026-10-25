@@ -42,20 +42,23 @@ pub struct Site {
 impl Site {
     /// Loads the tenant's settings.
     pub async fn load(ctx: &Ctx) -> Result<Self, ApiError> {
-        let (settings, _) =
-            triplespace_accounts::settings::load(ctx.db(), Some(&ctx.tenant.slug)).await?;
+        Self::load_for(ctx.db(), &ctx.tenant.slug).await
+    }
+
+    /// Loads a tenant's settings outside an Action API request.
+    pub async fn load_for(db: &tokio_postgres::Client, tenant: &str) -> Result<Self, ApiError> {
+        let (settings, _) = triplespace_accounts::settings::load(db, Some(tenant)).await?;
         let name = settings
             .value("site.name")
             .and_then(|v| v.as_str().map(str::to_owned))
-            .unwrap_or_else(|| ctx.tenant.slug.clone());
+            .unwrap_or_else(|| tenant.to_string());
         let lang = settings
             .value("site.language")
             .and_then(|v| v.as_str().map(str::to_owned))
             .unwrap_or_else(|| "en".into());
-        let mut names =
-            triplespace_projections::pages::TenantNames::load(ctx.db(), &ctx.tenant.slug)
-                .await
-                .map_err(ApiError::internal)?;
+        let mut names = triplespace_projections::pages::TenantNames::load(db, tenant)
+            .await
+            .map_err(ApiError::internal)?;
         names.site_name = Some(name.clone());
         Ok(Self {
             config: names.config(),
@@ -77,6 +80,16 @@ impl Site {
     #[must_use]
     pub fn prefixed(&self, ns: i32, title: &str) -> String {
         Title::new(ns, title).prefixed(&self.config)
+    }
+}
+
+/// A site named Librarybase with no namespace records of its own: for tests.
+#[cfg(test)]
+pub(crate) fn tests_site() -> Site {
+    Site {
+        config: config_for("Librarybase"),
+        name: "Librarybase".into(),
+        lang: "en".into(),
     }
 }
 

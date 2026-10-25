@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-17
-- **Updated:** 2026-10-18 (A1)
+- **Updated:** 2026-10-25 (A2)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md), [0018](0018-tenants.md), [0034](0034-frontend-stack.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md), [0055](0055-templatestyles-templatedata-and-page-properties.md)
 - **Uses:** [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [0077](0077-special-version.md), [0085](0085-settings-and-preferences.md)
@@ -34,7 +34,7 @@ James's direction, from the design discussion of 2026-10-16 and 2026-10-17:
 
 ### 1. Palettes and type sets are configuration (amends 0034 §1; extends 0015 §3, 0012 §5, 0011 §6.1, 0018 §10 and 0040 §6)
 
-*Changed by A1.*
+*Changed by A1, A2.*
 
 **A theme becomes two choices**: a **palette**, which sets Codex's colour tokens per variant (§2) and the shape tokens (radii and spacing), and a **type set**, which sets the typeface tokens and serves the typefaces (§3). Neither sets a component's markup or behaviour.
 
@@ -50,7 +50,7 @@ James's direction, from the design discussion of 2026-10-16 and 2026-10-17:
 
 **Writing them** goes through `PUT` and `DELETE /palette/{name}` and `/typeset/{name}` on REST v0, read with `GET /palettes` and `GET /typesets` by anyone, a private tenant's outsiders included (§5), with `scope=instance` at the farm base as for settings ([0085](0085-settings-and-preferences.md) §3), and through a **Palettes and type sets** tab of the settings pages, which previews each variant. A write is one change set that projects as a `settings/change` event naming the record.
 
-**What ships:** the palette **`parchment`**, the canvases' colours named on 2026-10-17, with a walnut-brown dark variant and high-contrast variants of both; the accessibility palettes **`parchment-ob`** and **`parchment-co`**, for colour-vision deficiencies (§2); the type set **`default26`**, Newsreader, IBM Plex Sans and IBM Plex Mono; and the accessibility type sets **`hyperlegible`** and **`opendyslexic`** (§3).
+**What ships:** the palette **`parchment`**, the canvases' colours named on 2026-10-17, with a walnut-brown dark variant and high-contrast variants of both; the accessibility palettes **`parchment-ob`** and **`parchment-co`**, for colour-vision deficiencies (§2); the type set **`default26`**, Newsreader, IBM Plex Sans and IBM Plex Mono; and the accessibility type sets **`hyperlegible`** and **`opendyslexic`** (§3). Beside them, as options a wiki or a reader may choose and not as defaults, ship the palette **`encyclopedia`** and the type set **`basic`**, inspired by Vector 2022, the skin of Wikipedia, as James decided (A2): `encyclopedia` is Codex's own colours, which Vector 2022 wears, changed only where they miss the floors of §2, with high-contrast variants in Codex's hues, and `basic` is Vector 2022's default stacks on Wikimedia wikis, serving no typeface (§3).
 
 **`ui.theme` is retired.** Its flat token map is replaced by the records above and the settings of §4; the setting stays in `settings.toml` as retired, and `instance check` warns where a record of it remains.
 
@@ -84,12 +84,16 @@ A palette has up to four variants, each a set of colour tokens:
 
 ### 3. Type sets (extends 0039 §5)
 
+*Changed by A2.*
+
 A type set gives three roles, `font-family-base`, `font-family-heading-main` and `font-family-monospace`, each a stack that ends in generic families, and lists the typefaces it serves:
 
 - **A shipped typeface** is a build asset, served from the site's own origin as [0034](0034-frontend-stack.md) §11 requires, and listed with its licence in `Special:Version` ([0077](0077-special-version.md)).
 - **An instance's or tenant's typeface** is a set of font files, each named by the record as a **site asset** ([0085](0085-settings-and-preferences.md) §8): a `File:` pinned by SHA-1, WOFF2 or WOFF (both join the permitted file types, [0039](0039-files-and-media.md) §5), with its family, weight and style, and its licence, which must be `OFL-1.1`, `Apache-2.0` or `UFL-1.0`. A tenant's type set names the tenant's files; an instance's names the primary tenant's ([08](../architecture/08-tenants-and-instances.md) §7). Being named by a type set is what makes the file public, for as long as it is named. The licence is declared by whoever writes the record and shown with the file in the wiki's **Public files**; it is not verified against the font (Q6). Fonts are fetched across origins with CORS, so the site-asset route answers them with `Access-Control-Allow-Origin: *`; they are public already.
 - **Per-language stacks**: a type set may map language tags to stacks (`ar`, `hi`, `zh-Hans`), set as `font-family` directly on elements matching `:lang()`, so they follow the language of the text itself, interface or content, and a wiki whose typeface lacks a script names one that has it rather than leaving it to whatever the reader's device holds.
 - **`accessibility = true`** marks a type set chosen for legibility, as it marks a palette (§2). Such a type set can always be chosen by a reader (§4). `hyperlegible` ships as one: Atkinson Hyperlegible, by the Braille Institute, under the SIL OFL 1.1, for text and headings, with IBM Plex Mono. `opendyslexic` ships as another: OpenDyslexic, by Abbie Gonzalez, under the SIL OFL 1.1, with OpenDyslexic Mono for code, the first of the type sets for readers with dyslexia James intends (Q7). Studies have not shown that it speeds reading; it ships because readers who prefer it ask for it by name.
+
+**A type set may serve no typeface** and name only families a device may have, ending in generic ones, as `basic` does (A2): it gives MediaWiki core's stacks for Vector 2022, `sans-serif` for text, `'Linux Libertine', 'Georgia', 'Times', 'Source Serif Pro', serif` for headings and `monospace, monospace` for code, so it looks on each device as Wikipedia does there and costs no download.
 
 **Text size is not part of a type set.** It is the reader's choice of Codex's text-size modes (§4), so it applies whatever type set is worn.
 
@@ -140,6 +144,8 @@ A type set gives three roles, `font-family-base`, `font-family-heading-main` and
 
 ### 7. Crates (extends 0005 §2)
 
+*Changed by A2.*
+
 | Crate | Change |
 |---|---|
 | `triplespace-accounts` | The `palette` and `typeset` config kinds, their validation, `extends` and contrast floors; `follows = "choice"` |
@@ -148,7 +154,7 @@ A type set gives three roles, `font-family-base`, `font-family-heading-main` and
 | `triplespace-api-action`, `triplespace-api-rest` | `siprop=triplespace`'s palettes, type sets and theme settings; the palette and type-set routes |
 | `triplespace-files` | WOFF2 and WOFF uploads; `Access-Control-Allow-Origin` on font assets |
 
-The registry part of §1 is in place: `themes.toml` holds `parchment` with its four variants, the accessibility palettes `parchment-ob` and `parchment-co`, which extend it, and the type sets `default26`, `hyperlegible` and `opendyslexic`, and `triplespace-ui` reads the default pair from it. The other palettes and type sets are not yet served, and the Atkinson Hyperlegible and OpenDyslexic files are not yet in the build.
+The registry part of §1 is in place: `themes.toml` holds `parchment` with its four variants, the accessibility palettes `parchment-ob` and `parchment-co`, which extend it, the palette `encyclopedia` (A2), and the type sets `default26`, `hyperlegible`, `opendyslexic` and `basic` (A2), and `triplespace-ui` reads the default pair from it. The other palettes and type sets are not yet served, and the Atkinson Hyperlegible and OpenDyslexic files are not yet in the build.
 
 ## Alternatives considered
 
@@ -218,3 +224,10 @@ The registry part of §1 is in place: `themes.toml` holds `parchment` with its f
 Replaced text (§1):
 
 > **A name means one thing on an instance**, as James decided: a tenant may not write a palette or type set under a name the registry or the instance uses, and the instance may not write one under a name the registry or any of its tenants uses, so a reader's choice never names two different records (Q8 for names that collide when the registry gains one or a tenant joins).
+
+### A2. Encyclopedia and Basic, inspired by Vector 2022
+
+- **Date:** 2026-10-25
+- **Source:** Direct: James, design discussion of 2026-10-24 and 2026-10-25
+- **Change:** extends §1, §3, §7
+- **Summary:** A palette and a type set inspired by Vector 2022 ship as options beside the defaults, which stay `parchment` and `default26`. James asked on 2026-10-24 for "a theme and type set option (not the default) inspired by Vector 2022", and on 2026-10-25, having seen it on the site: "I would like for the palette to be called "encyclopedia" and the type set "basic". It should use the same default font stack that Vector 2022 uses on Wikimedia wikis." The palette **`encyclopedia`** is Codex's light and dark values, which Vector 2022 wears, with only the tokens that miss the floors of §2 changed: `border-color-base` in `light` from `#A2A9B1` (2.37:1) to `#8C959F`, and in `dark` the placeholder (`#797F85`) and the focus outline (`#6485D1`), which Codex leaves at their light values; its `light-more` and `dark-more` deepen or lighten Codex's hues to 7:1 for text and 4.5:1 for boundaries, and its radius is Codex's `2px`. The type set **`basic`** is MediaWiki core's defaults as Vector 2022 uses them (`mediawiki.skin.defaults.less`, `mediawiki.skinning/elements.less`): `sans-serif` for text, `'Linux Libertine', 'Georgia', 'Times', 'Source Serif Pro', serif` for headings and `monospace, monospace` for code; it serves no typeface, which §3 now allows. Claude first drafted both as `vector22`, with Libertinus Serif served for headings; James chose the names and the stacks. The values are in `themes.toml`.

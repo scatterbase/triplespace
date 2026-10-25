@@ -244,6 +244,7 @@ fn by_editor(thread: Option<u64>, op: ThreadOp, text: Option<&str>) -> ThreadWri
         writer: Writer::Editor,
         limits: Limits::default(),
         date: None,
+        signer: None,
     }
 }
 
@@ -706,6 +707,7 @@ async fn a_converted_talk_page_is_written_through_the_same_path() {
                 writer: Writer::Import,
                 limits: Limits::default(),
                 date: date.clone(),
+                signer: None,
             };
             let out = put(&store, &p, &request("librarybase:2", None), w)
                 .await

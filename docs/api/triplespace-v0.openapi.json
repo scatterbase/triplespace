@@ -2065,7 +2065,7 @@
       "post": {
         "operationId": "createThread",
         "summary": "Start a thread",
-        "description": "Writes `create`: mints the thread's page ID and title (`{date}/{subject}`, with ` (n)` when taken) and the target's talk page if it has none. `also` lists the thread on further pages from the start. Needs the `edit` right and an account; a request made with a session cookie carries its CSRF token as `token`. Refusals: `badbody`; `badtoken` for a session write without its CSRF token; `permissiondenied`; `ts-thread-not-found`; `ts-not-a-post`; `ts-bad-subject`; `ts-unknown-status`; `ts-bad-media-type`; `ts-import-only` for a field only an import writes; `ts-bad-collapse`; `ts-no-target`; `ts-bad-attachment`; `ts-bad-pin`; `ts-limit`; `ts-base-required`; and `editconflict` when the thread has a record after `base` (ADR 0019 §9, A26; architecture 14 §1.2, §2.4, §3.6, §4.2). The writer must be able to read the thread and every page the record names; a page they may not read is `ts-no-target`, and no record is accepted on a deleted thread (`ts-thread-deleted`, 410).",
+        "description": "Writes `create`: mints the thread's page ID and title (`{date}/{subject}`, with ` (n)` when taken) and the target's talk page if it has none. `also` lists the thread on further pages from the start. Needs the `edit` right and an account; a request made with a session cookie carries its CSRF token as `token`. Refusals: `badbody`; `badtoken` for a session write without its CSRF token; `permissiondenied`; `ts-thread-not-found`; `ts-not-a-post`; `ts-bad-subject`; `ts-unknown-status`; `ts-bad-media-type`; `ts-empty-post` for a post with no text once its signature is removed; `ts-import-only` for a field only an import writes; `ts-bad-collapse`; `ts-no-target`; `ts-bad-attachment`; `ts-bad-pin`; `ts-limit`; `ts-base-required`; and `editconflict` when the thread has a record after `base` (ADR 0019 §9, A26, A28; architecture 14 §1.2, §2.4, §3.6, §4.2). The writer must be able to read the thread and every page the record names; a page they may not read is `ts-no-target`, and no record is accepted on a deleted thread (`ts-thread-deleted`, 410).",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -2155,6 +2155,18 @@
             "schema": {
               "type": "integer"
             }
+          },
+          {
+            "name": "html",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            },
+            "description": "`1`: the body made ready for display (architecture 14 §1.6; ADR 0019 A28): each post gains `html`, its text rendered by its media type and sanitized, and `author`, the name its actor shows; each attachment's `talk_page` gains `prefixed`, its title with the namespace's local name."
           }
         ],
         "responses": {
@@ -2215,7 +2227,7 @@
       "post": {
         "operationId": "postToThread",
         "summary": "Post in a thread",
-        "description": "Writes `post`: top-level, or in reply to `inReplyTo`; `status` sets the thread's status; `collapse` collapses a range of the thread's posts beneath this one, and `uncollapse` undoes another post's collapse (architecture 14 §2.1, §2.4). Replies need no `base`. Needs the `edit` right and an account; a request made with a session cookie carries its CSRF token as `token`. Refusals: `badbody`; `badtoken` for a session write without its CSRF token; `permissiondenied`; `ts-thread-not-found`; `ts-not-a-post`; `ts-bad-subject`; `ts-unknown-status`; `ts-bad-media-type`; `ts-import-only` for a field only an import writes; `ts-bad-collapse`; `ts-no-target`; `ts-bad-attachment`; `ts-bad-pin`; `ts-limit`; `ts-base-required`; and `editconflict` when the thread has a record after `base` (ADR 0019 §9, A26; architecture 14 §1.2, §2.4, §3.6, §4.2). The writer must be able to read the thread and every page the record names; a page they may not read is `ts-no-target`, and no record is accepted on a deleted thread (`ts-thread-deleted`, 410).",
+        "description": "Writes `post`: top-level, or in reply to `inReplyTo`; `status` sets the thread's status; `collapse` collapses a range of the thread's posts beneath this one, and `uncollapse` undoes another post's collapse (architecture 14 §2.1, §2.4). Replies need no `base`. Needs the `edit` right and an account; a request made with a session cookie carries its CSRF token as `token`. Refusals: `badbody`; `badtoken` for a session write without its CSRF token; `permissiondenied`; `ts-thread-not-found`; `ts-not-a-post`; `ts-bad-subject`; `ts-unknown-status`; `ts-bad-media-type`; `ts-empty-post` for a post with no text once its signature is removed; `ts-import-only` for a field only an import writes; `ts-bad-collapse`; `ts-no-target`; `ts-bad-attachment`; `ts-bad-pin`; `ts-limit`; `ts-base-required`; and `editconflict` when the thread has a record after `base` (ADR 0019 §9, A26, A28; architecture 14 §1.2, §2.4, §3.6, §4.2). The writer must be able to read the thread and every page the record names; a page they may not read is `ts-no-target`, and no record is accepted on a deleted thread (`ts-thread-deleted`, 410).",
         "parameters": [
           {
             "name": "id",
@@ -2315,7 +2327,7 @@
       "put": {
         "operationId": "editThreadPost",
         "summary": "Edit a post",
-        "description": "Writes `edit`: replaces the post's complete text, in its own media type. The post's author needs `edit`; anyone else needs `ts-editpost` as well (architecture 09 §8.1), and the post then names them in `editedBy`. Needs `base`. Needs the `edit` right and an account; a request made with a session cookie carries its CSRF token as `token`. Refusals: `badbody`; `badtoken` for a session write without its CSRF token; `permissiondenied`; `ts-thread-not-found`; `ts-not-a-post`; `ts-bad-subject`; `ts-unknown-status`; `ts-bad-media-type`; `ts-import-only` for a field only an import writes; `ts-bad-collapse`; `ts-no-target`; `ts-bad-attachment`; `ts-bad-pin`; `ts-limit`; `ts-base-required`; and `editconflict` when the thread has a record after `base` (ADR 0019 §9, A26; architecture 14 §1.2, §2.4, §3.6, §4.2). The writer must be able to read the thread and every page the record names; a page they may not read is `ts-no-target`, and no record is accepted on a deleted thread (`ts-thread-deleted`, 410).",
+        "description": "Writes `edit`: replaces the post's complete text, in its own media type. The post's author needs `edit`; anyone else needs `ts-editpost` as well (architecture 09 §8.1), and the post then names them in `editedBy`. Needs `base`. Needs the `edit` right and an account; a request made with a session cookie carries its CSRF token as `token`. Refusals: `badbody`; `badtoken` for a session write without its CSRF token; `permissiondenied`; `ts-thread-not-found`; `ts-not-a-post`; `ts-bad-subject`; `ts-unknown-status`; `ts-bad-media-type`; `ts-empty-post` for a post with no text once its signature is removed; `ts-import-only` for a field only an import writes; `ts-bad-collapse`; `ts-no-target`; `ts-bad-attachment`; `ts-bad-pin`; `ts-limit`; `ts-base-required`; and `editconflict` when the thread has a record after `base` (ADR 0019 §9, A26, A28; architecture 14 §1.2, §2.4, §3.6, §4.2). The writer must be able to read the thread and every page the record names; a page they may not read is `ts-no-target`, and no record is accepted on a deleted thread (`ts-thread-deleted`, 410).",
         "parameters": [
           {
             "name": "id",
@@ -6253,7 +6265,7 @@
           },
           "text": {
             "type": "string",
-            "description": "The opening post, in markdown."
+            "description": "The opening post, in the tenant's `thread.markup`. A trailing signature (`~~~~` and its kin) is removed (architecture 14 §1.6)."
           },
           "also": {
             "type": "array",
@@ -6270,6 +6282,14 @@
           "token": {
             "type": "string",
             "description": "The CSRF token, for a session write."
+          },
+          "mediaType": {
+            "type": "string",
+            "enum": [
+              "text/markdown",
+              "text/x-wiki"
+            ],
+            "description": "The post's markup. Omitted, it is the tenant's `thread.markup` (`meta=siteinfo` reports it); naming the other is `ts-bad-media-type` (architecture 14 §1.6)."
           }
         }
       },
@@ -6280,7 +6300,8 @@
         ],
         "properties": {
           "text": {
-            "type": "string"
+            "type": "string",
+            "description": "The post. A trailing signature is removed; empty once it is, the post needs a `status`, `collapse` or `uncollapse` (architecture 14 §1.6)."
           },
           "inReplyTo": {
             "type": [
@@ -6312,6 +6333,14 @@
           "token": {
             "type": "string",
             "description": "The CSRF token, for a session write."
+          },
+          "mediaType": {
+            "type": "string",
+            "enum": [
+              "text/markdown",
+              "text/x-wiki"
+            ],
+            "description": "The post's markup. Omitted, it is the tenant's `thread.markup` (`meta=siteinfo` reports it); naming the other is `ts-bad-media-type` (architecture 14 §1.6)."
           }
         }
       },
@@ -6323,10 +6352,16 @@
         ],
         "properties": {
           "text": {
-            "type": "string"
+            "type": "string",
+            "description": "The complete new text. A trailing signature is removed (architecture 14 §1.6)."
           },
           "mediaType": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "text/markdown",
+              "text/x-wiki"
+            ],
+            "description": "The post's own media type, which an edit cannot change. Omitted, the post's own is taken (architecture 14 §1.5)."
           },
           "token": {
             "type": "string",

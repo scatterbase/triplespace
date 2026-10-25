@@ -205,6 +205,35 @@ fn pager_html(m: &Messages, title: &str, ask: &Ask, next: Option<&str>) -> Strin
     s
 }
 
+/// The History tab of a talk page or thread (16 §6.1): the rows as [`body`] draws them, read
+/// relative to the talk page `here`, with the pager; no source switch, since every row of a
+/// discussion is local.
+#[must_use]
+pub fn body_here(
+    m: &Messages,
+    site: &SiteInfo,
+    title: &str,
+    ask: &Ask,
+    here: Option<u64>,
+    page: &ActivityPage,
+) -> String {
+    let mut s = String::from("<div class=\"ts-history\">");
+    if page.rows.is_empty() {
+        let _ = write!(
+            s,
+            "<p class=\"ts-empty\">{}</p>",
+            esc(&m.get("ts-history-none"))
+        );
+    } else {
+        s.push_str(&crate::special::changes::list_html_here(
+            m, site, &page.rows, here,
+        ));
+        s.push_str(&pager_html(m, title, ask, page.next.as_deref()));
+    }
+    s.push_str("</div>");
+    s
+}
+
 /// The tab's content.
 #[must_use]
 pub fn body(

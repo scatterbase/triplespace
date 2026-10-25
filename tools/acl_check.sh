@@ -6,6 +6,7 @@
 #
 #   TRIPLESPACE_TEST_DATABASE_URL=postgres://… tools/acl_check.sh
 #
+# The server serves the site too (`--ui embedded`), so the battery's site probes read real pages.
 # Needs `cargo build -p triplespace-cli -p triplespace-server` (BIN overrides target/debug),
 # psql, and a Python with `requests` (PYTHON overrides python3; requirements-compat.txt has
 # it). Everything the run creates lives in a temporary directory removed on exit.
@@ -68,7 +69,7 @@ step "adopt $(basename "$fixture")"
 
 step "server on $api"
 "$bin/triplespace-server" --listen "127.0.0.1:$port" --key-file "$work/k.key" --mode development \
-	--dev-tenant $tenant --trusted-proxy 127.0.0.1 --ui off >"$work/api.log" 2>&1 &
+	--dev-tenant $tenant --trusted-proxy 127.0.0.1 --ui embedded >"$work/api.log" 2>&1 &
 pids+=($!)
 for _ in $(seq 100); do
 	if curl -sf -o /dev/null "$api/w/api.php?action=query&meta=siteinfo&format=json"; then break; fi

@@ -10,6 +10,8 @@ Two halves, both run by default:
   privilege escalation (self-grants, group definitions, ACL writes, lock-out bypass by a
   sysop, scoped-group escape, delegation ceilings, stale delegation, inclusion chains), a
   hidden user's name, tokens, a private tenant, threads on a confidential page's talk page,
+  talk pages and threads through every surface (listings, composite histories, rendering,
+  departures, hidden posts, the site's pages and forms, a protected talk page),
   deletion fallout, a bot of a member, and the owner outside `suppress`.
 - **positive** — what legitimate actors should be able to do, but can't: the owner's setup,
   a group member's full rights on a confidential page, entity and set, delegated and scoped
@@ -218,6 +220,9 @@ class Cast:
         self.carol = C().register("Carol", "carol-secret-1234")
         self.anon = C()
         a = self.alice
+        # The site probes read real pages only if the site is served (`--ui embedded`);
+        # against a bare 404 every `absent` would pass.
+        must("the site is served", (200, self.anon.raw("/wiki/Special:SpecialPages")), "ts-header")
         must("owner defines board", a.rest("PUT", "/group/board", {"permissions": [], "token": a.token()}))
         must("owner makes Bob a sysop", a.userrights(user="Bob", add="sysop"))
         must("owner makes Carol board, bureaucrat and sysop",
@@ -230,6 +235,7 @@ class Cast:
         self.secret = a.page_id("Project:Secret")
         self.gem = a.new_item("Hidden Gem", "secretdesc")
         self.plain = a.new_item("Plain Item")
+        self.plain_page = a.page_id(f"Item:{self.plain}")
         # A protect event before the page is confidential: it must vanish with the page.
         must("owner protects edit before restricting", a.protect("Project:Secret", "edit=sysop"))
         self.gem_rev = a.post(action="wbsetlabel", id=self.gem, language="de", value="Geheim",
@@ -458,6 +464,142 @@ def threads(x):
     must("board member reads the thread", x.carol.rest("GET", f"/thread/{thread}"), "4711")
 
 
+def _site_form(who, title, action, fields):
+    """Posts one of the site's discussion forms, with the viewer's token, as a browser would."""
+    data = {"wpEditToken": who.token() if who.name != "anon" else "+\\", **fields}
+    return who.s.post(f"{ARGS.api}/w/index.php", params={"title": title, "action": action},
+                      data=data, allow_redirects=False).text
+
+
+def discussions(x):
+    """Talk pages and threads beyond the one confidential thread (14 §1–§4; 16 §6.1; 19 §6.1):
+    a confidential thread listed on a public talk page, rendering, departures, hidden posts,
+    the site's own pages and forms, and a protected talk page."""
+    a = x.alice
+    at = a.token()
+    open_id = a.page_id("Project:Open")
+    base = a.rest("GET", "/settings")[1].get("base")
+    must("owner makes posts wikitext",
+         a.rest("PATCH", "/settings", {"set": {"thread.markup": "wikitext"}, "base": base, "token": at}))
+
+    # A public thread whose wikitext post transcludes and links the confidential page.
+    st, r = a.rest("POST", "/thread", {"target": {"kind": "page", "id": open_id}, "subject": "Open questions",
+                                       "text": "Quoting {{Project:Secret}} and [[Project:Secret]].", "token": at})
+    must("owner opens a public thread", (st, r))
+    pub, pub_title = r.get("thread"), r.get("title")
+    open_talk = a.rest("GET", f"/thread/{pub}")[1]["home"]["talk_page_id"]
+    # A confidential thread: homed on the confidential page's talk page, listed on the public one.
+    c = x.carol
+    st, r = c.rest("POST", "/thread", {"target": {"kind": "page", "id": x.secret}, "subject": "Board only",
+                                       "text": "Ballot 9931.", "also": [{"kind": "page", "id": open_id}],
+                                       "token": c.token()})
+    must("board member lists a confidential thread on the public talk page", (st, r))
+    hid, hid_title, hid_rev = r.get("thread"), r.get("title"), r.get("revid")
+    hidden = ["9931", "Board only"]
+    # A post whose text and author are hidden afterwards.
+    bt = x.bob.token()
+    st, r = x.bob.rest("POST", f"/thread/{pub}/post", {"text": "Draft 2468.", "token": bt})
+    must("sysop replies in the public thread", (st, r))
+    must("owner hides the reply's text and author",
+         a.post(action="revisiondelete", type="revision", ids=str(r.get("revid")), hide="content|user",
+                token=a.token()), "Success")
+    posts_before = len(a.rest("GET", f"/thread/{hid}")[1].get("posts", []))
+
+    for who in x.outsiders:
+        for name, probe, needles in [
+            ("listing", lambda c: c.rest("GET", f"/page/{open_talk}/threads"), hidden),
+            ("composite history", lambda c: c.rest("GET", f"/page/{open_talk}/history?limit=500"), hidden),
+            ("rendered public thread", lambda c: c.rest("GET", f"/thread/{pub}?html=1"), CONTENT),
+            ("rendered hidden thread", lambda c: c.rest("GET", f"/thread/{hid}?html=1"), hidden),
+            ("site talk page", lambda c: c.raw("/wiki/Project_talk:Open"), hidden + CONTENT),
+            ("site talk history", lambda c: c.raw("/wiki/Project_talk:Open?action=history"), hidden),
+            ("site public thread", lambda c: c.raw(f"/wiki/Thread:{pub_title}"), CONTENT),
+            # The request names the hidden thread's subject; judged on its content.
+            ("site hidden thread", lambda c: c.raw(f"/wiki/Thread:{hid_title}"), ["9931"]),
+            ("site hidden thread history", lambda c: c.raw(f"/wiki/Thread:{hid_title}?action=history"),
+             ["9931", "started the thread"]),
+            # The talk page's revisions and diffs are its threads' (0019 A29).
+            ("talk revisions", lambda c: c.api(action="query", prop="revisions", pageids=open_talk,
+                                                 rvprop="ids|content|comment", rvslots="main", rvlimit=50), hidden),
+            ("talk diff", lambda c: c.api(action="compare", fromid=open_talk, torelative="prev", prop="diff|title|comment"),
+             hidden),
+            ("talk diff at the hidden thread's revision",
+             lambda c: c.api(action="compare", fromid=open_talk, fromrev=hid_rev, torelative="prev", prop="diff"), hidden),
+            ("hidden thread's revision alone", lambda c: c.api(action="compare", fromrev=hid_rev, torelative="prev",
+                                                               prop="diff|title"), hidden),
+        ]:
+            absent(f"discussion via {name} as {who.name}", probe(who), needles)
+        if who is not x.bob:
+            for name, probe in [
+                ("rendered post", lambda c: c.rest("GET", f"/thread/{pub}?html=1")),
+                ("site thread", lambda c: c.raw(f"/wiki/Thread:{pub_title}")),
+                ("REST history", lambda c: c.rest("GET", f"/page/{open_talk}/history?limit=500")),
+            ]:
+                absent(f"hidden post's text and author via {name} as {who.name}", probe(who), ["2468", "Bob"])
+        absent(f"site reply to the hidden thread as {who.name}",
+               _site_form(who, f"Thread:{hid_title}", "reply", {"wpTextbox1": "Me too. ~~~~"}), ["9931"])
+        tok = who.token() if who.name != "anon" else "+\\"
+        deny(f"list the hidden thread elsewhere as {who.name}",
+             who.rest("POST", f"/thread/{hid}/attach", {"target": {"kind": "page", "id": x.plain_page}, "base": 0,
+                                                       "token": tok}))
+        deny(f"detach the hidden thread from the public page as {who.name}",
+             who.rest("POST", f"/thread/{hid}/detach", {"target": {"kind": "page", "id": open_id}, "base": 0,
+                                                       "token": tok}))
+    after = len(a.rest("GET", f"/thread/{hid}")[1].get("posts", []))
+    if after == posts_before:
+        ok("nothing was posted to the hidden thread through the site")
+    else:
+        finding("ALLOWED: a post reached the hidden thread through the site", f"{posts_before} → {after}")
+    must("board member sees the listed thread", x.carol.rest("GET", f"/page/{open_talk}/threads"), "Board only")
+    must("board member sees its rows in the composite history",
+         x.carol.rest("GET", f"/page/{open_talk}/history?limit=500"), str(hid))
+    must("board member reads it on the site", (200, x.carol.raw("/wiki/Project_talk:Open")), "9931")
+    must("board member reads it in the talk page's revisions",
+         x.carol.api(action="query", prop="revisions", pageids=open_talk, rvprop="content", rvslots="main"), "9931")
+
+    # Departures: the detach of a confidential thread, and a public thread that moves into
+    # the confidential talk page and is renamed there, leave rows on the public page.
+    b = a.rest("GET", f"/thread/{hid}")[1]["base"]
+    must("owner detaches the confidential thread from the public page",
+         a.rest("POST", f"/thread/{hid}/detach", {"target": {"kind": "page", "id": open_id}, "base": b, "token": at}))
+    st, r = a.rest("POST", "/thread", {"target": {"kind": "page", "id": open_id}, "subject": "Moving out",
+                                       "text": "Soon.", "token": at})
+    mover = r.get("thread")
+    b = a.rest("GET", f"/thread/{mover}")[1]["base"]
+    must("board member moves a public thread into the confidential talk page",
+         c.rest("POST", f"/thread/{mover}/move", {"target": {"kind": "page", "id": x.secret}, "base": b,
+                                                 "token": c.token()}))
+    b = c.rest("GET", f"/thread/{mover}")[1]["base"]
+    must("and renames it there",
+         c.rest("POST", f"/thread/{mover}/rename", {"subject": "Plans 5150", "base": b, "token": c.token()}))
+    for who in x.outsiders:
+        for name, probe in [
+            ("REST history", lambda c: c.rest("GET", f"/page/{open_talk}/history?limit=500")),
+            ("site history", lambda c: c.raw("/wiki/Project_talk:Open?action=history")),
+            ("recentchanges", lambda c: c.api(action="query", list="recentchanges", rcprop="title|comment", rclimit=500)),
+        ]:
+            absent(f"departures via {name} as {who.name}", probe(who), hidden + ["5150"])
+    must("board member sees the move on the public page's history",
+         x.carol.rest("GET", f"/page/{open_talk}/history?limit=500"), "from_talk")
+
+    # A protected talk page: its threads take the protection (a talk page encloses its threads).
+    must("owner protects the public talk page", a.protect("Project talk:Open", "edit=sysop"))
+    mt = x.mallory.token()
+    deny("a user starts a thread on the protected talk page",
+         x.mallory.rest("POST", "/thread", {"target": {"kind": "page", "id": open_id}, "subject": "Let me in",
+                                            "text": "x", "token": mt}))
+    deny("a user replies in a thread homed there",
+         x.mallory.rest("POST", f"/thread/{pub}/post", {"text": "x", "token": mt}))
+    # The refusal page keeps the user's own text in the form; the listing must not have it.
+    _site_form(x.mallory, "Project talk:Open", "addtopic", {"wpSummary": "Site 7777", "wpTextbox1": "x"})
+    absent("nor through the site", x.anon.rest("GET", f"/page/{open_talk}/threads"), ["Site 7777"])
+    must("a sysop replies there", x.bob.rest("POST", f"/thread/{pub}/post", {"text": "Sysop here.", "token": bt}))
+    must("owner lifts the protection", a.protect("Project talk:Open", "edit=all"))
+    base = a.rest("GET", "/settings")[1].get("base")
+    must("owner makes posts markdown again",
+         a.rest("PATCH", "/settings", {"set": {"thread.markup": "markdown"}, "base": base, "token": a.token()}))
+
+
 def deletion(x):
     a, b, anon = x.alice, x.bob, x.anon
     a.edit("Project:Open/Sub", "opensub")
@@ -653,7 +795,8 @@ def private(x):
         ("allpages", lambda c: c.api(action="query", list="allpages", aplimit=50)),
         ("recentchanges", lambda c: c.api(action="query", list="recentchanges", rclimit=50)),
         ("Special:EntityData", lambda c: c.raw(f"/wiki/Special:EntityData/{x.plain}.json")),
-        ("site page", lambda c: c.raw("/wiki/Project:Open")),
+        # The request names the page: answered as missing, which echoes the title.
+        ("site page", lambda c: c.raw("/wiki/Project:Open").replace("Project:Open", "")),
         ("site item", lambda c: c.raw(f"/wiki/Item:{x.plain}")),
         ("site recentchanges", lambda c: c.raw("/wiki/Special:RecentChanges")),
         ("site version", lambda c: c.raw("/wiki/Special:Version")),
@@ -862,7 +1005,8 @@ def positive(x):
 
 SECTIONS = [
     ("leaks", leaks), ("oracles", oracles), ("escalation", escalation), ("delegation", delegation),
-    ("includes", includes), ("threads", threads), ("deletion", deletion), ("moves", moves),
+    ("includes", includes), ("threads", threads), ("discussions", discussions), ("deletion", deletion),
+    ("moves", moves),
     ("bearer", bearer),
     ("owner", owner), ("hidden-names", hidden_names), ("tokens", tokens), ("private", private),
     ("positive", positive),
@@ -903,7 +1047,10 @@ def main():
         try:
             section(cast)
         except Exception as e:  # noqa: BLE001 — a section that crashes is a finding too
-            finding(f"CRASH: {name}", f"{type(e).__name__}: {e}")
+            line = e.__traceback__
+            while line.tb_next:
+                line = line.tb_next
+            finding(f"CRASH: {name}", f"{type(e).__name__}: {e} (line {line.tb_lineno})")
 
     print(f"\n== {CHECKS[0]} checks, {len(FINDINGS)} findings")
     for title, _ in FINDINGS:

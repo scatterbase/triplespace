@@ -108,6 +108,9 @@ pub struct SiteInfo {
     pub account_approval: bool,
     /// The external issuers the wiki offers for login (`triplespace.login`, 0088 §9).
     pub login_issuers: Vec<crate::issuers::LoginIssuer>,
+    /// The markup of new posts, `markdown` or `wikitext` (`triplespace.thread.markup`;
+    /// 14 §1.6).
+    pub thread_markup: String,
 }
 
 /// A provider as `siprop=providers` reports it.
@@ -264,6 +267,10 @@ impl Client {
             at_farm: ts["at_farm"].as_bool().unwrap_or(false),
             account_approval: ts["account"]["approval"].as_bool().unwrap_or(false),
             login_issuers: crate::issuers::login_issuers(ts),
+            thread_markup: ts["thread"]["markup"]
+                .as_str()
+                .unwrap_or("markdown")
+                .to_string(),
         };
         Ok(Fetched { value, cache })
     }

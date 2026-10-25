@@ -204,6 +204,13 @@ fn finish(tree: Vec<Node>, extracted: Extracted, warnings: Vec<String>) -> Rende
     }
 }
 
+/// Sanitizes HTML to the allow-list of 0008 §8, as the renderer's own output is: for HTML
+/// another renderer wrote, such as a markdown post's (14 §1.6).
+#[must_use]
+pub fn sanitize(html: &str) -> String {
+    sanitizer().clean(html).to_string()
+}
+
 /// The final sanitizer: everything the renderer may write, and nothing else.
 #[allow(clippy::too_many_lines)] // the allow-lists are data
 fn sanitizer() -> &'static ammonia::Builder<'static> {

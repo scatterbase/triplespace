@@ -27,7 +27,10 @@ fn admin_config() -> Option<Config> {
     Some(url.parse().expect("TRIPLESPACE_TEST_DATABASE_URL parses"))
 }
 
-async fn fresh_database() -> String {
+/// A fresh database for one test; each test in this file has its own, so they run in
+/// parallel.
+async fn fresh_database(name: &str) -> String {
+    let db = format!("{DB}_{name}");
     let (client, connection) = admin_config()
         .unwrap()
         .connect(NoTls)
@@ -37,15 +40,15 @@ async fn fresh_database() -> String {
         let _ = connection.await;
     });
     let _ = client
-        .batch_execute(&format!("DROP DATABASE IF EXISTS {DB} WITH (FORCE)"))
+        .batch_execute(&format!("DROP DATABASE IF EXISTS {db} WITH (FORCE)"))
         .await;
     client
-        .batch_execute(&format!("CREATE DATABASE {DB}"))
+        .batch_execute(&format!("CREATE DATABASE {db}"))
         .await
         .expect("create database");
     let url = std::env::var("TRIPLESPACE_TEST_DATABASE_URL").unwrap();
     url.rsplit_once('/')
-        .map(|(head, _)| format!("{head}/{DB}"))
+        .map(|(head, _)| format!("{head}/{db}"))
         .unwrap()
 }
 
@@ -158,7 +161,7 @@ async fn threads_over_rest() {
         eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
         return;
     }
-    let database = fresh_database().await;
+    let database = fresh_database("rest").await;
     let dir = std::env::temp_dir().join(format!("tsthreads-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let pw = dir.join("owner.pw");
@@ -553,6 +556,7 @@ async fn threads_over_rest() {
                 writer: scatter_threads::Writer::Editor,
                 limits: scatter_threads::Limits::default(),
                 date: None,
+                signer: None,
             },
         )
         .await
@@ -745,4 +749,523 @@ async fn threads_over_rest() {
     assert_eq!(r.body["code"], "ts-no-target");
     let r = c.rest("GET", &format!("/page/{talk}/threads"), None).await;
     assert_eq!(r.status, StatusCode::GONE, "{}", r.body);
+}
+
+/// A fresh instance with Alice signed in: her client, its CSRF token, and a page to talk
+/// about.
+async fn signed_in(tag: &str) -> (Client, String, u64) {
+    let database = fresh_database(tag).await;
+    let dir = std::env::temp_dir().join(format!("tsthreads-{tag}-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let pw = dir.join("owner.pw");
+    std::fs::write(&pw, "owner-secret-1234\n").unwrap();
+    instance::run(instance::Create {
+        database: database.clone(),
+        key_file: dir.join("triplespace.key"),
+        tenant: TENANT.into(),
+        base: format!("https://{HOST}"),
+        name: Some("Library Base".into()),
+        farm_slug: "testfarm".into(),
+        tenancy: "isolated".into(),
+        farm_base: None,
+        providers: vec![],
+        adopt: None,
+        owner: Some(7),
+        owner_name: "Alice".into(),
+        owner_password_file: Some(pw),
+    })
+    .await
+    .expect("instance create");
+    let app = App::new(
+        triplespace_db::pool::pool(&database, 4).unwrap(),
+        Secret::derive(&[7u8; 32]),
+        ServerConfig {
+            mode: Mode::Production,
+            trusted_proxies: vec![],
+            dev_tenant: None,
+            farm: triplespace_cli::common::farm_at(&database).await.unwrap(),
+            auth_base: None,
+            generator: "Triplespace test".into(),
+            version: None,
+        },
+    )
+    .unwrap();
+    let mut c = Client {
+        router: router_with(app, triplespace_api_rest::routes()),
+        cookie: None,
+    };
+    let t = c.api("action=query&meta=tokens&type=login").await;
+    let login = t["query"]["tokens"]["logintoken"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let cl = c
+        .api_post(&format!(
+            "action=clientlogin&username=Alice&password=owner-secret-1234&logintoken={}&loginreturnurl=https://{HOST}/",
+            enc(&login)
+        ))
+        .await;
+    assert_eq!(cl["clientlogin"]["status"], "PASS", "{cl}");
+    let token = c.csrf().await;
+    let e = c
+        .api_post(&format!(
+            "action=edit&title=Project:Scope&text=What%20we%20cover.&createonly=1&token={}",
+            enc(&token)
+        ))
+        .await;
+    let page = e["edit"]["pageid"].as_u64().expect("the page was created");
+    (c, token, page)
+}
+
+/// The text and media type of each post, in tree order.
+async fn posts(c: &mut Client, thread: u64) -> (Vec<(String, String)>, u64) {
+    let r = c.rest("GET", &format!("/thread/{thread}"), None).await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    let posts = r.body["posts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| {
+            (
+                p["content"].as_str().unwrap_or_default().to_string(),
+                p["mediaType"].as_str().unwrap_or_default().to_string(),
+            )
+        })
+        .collect();
+    (posts, r.body["base"].as_u64().unwrap())
+}
+
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn signatures_and_markup() {
+    // 14 §1.6; 0019 A28.
+    if admin_config().is_none() {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    }
+    let (mut c, token, page) = signed_in("markup").await;
+
+    // A trailing signature is removed without comment.
+    let r = c
+        .rest(
+            "POST",
+            "/thread",
+            Some(json!({"subject": "Scope", "target": {"kind": "page", "id": page}, "text": "Does this cover maps? --~~~~", "token": token})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::CREATED, "{}", r.body);
+    let thread = r.body["thread"].as_u64().unwrap();
+    let opening = r.body["revid"].as_u64().unwrap();
+    let path = format!("/thread/{thread}/post");
+    let r = c
+        .rest(
+            "POST",
+            &path,
+            Some(json!({"inReplyTo": opening, "text": "It does. ~~~~ and ~~~ stay mid-text in markdown. \u{2014} ~~~~~\n", "token": token})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+
+    // A post that is only a signature is empty, unless it sets a status.
+    let r = c
+        .rest("POST", &path, Some(json!({"text": "~~~~", "token": token})))
+        .await;
+    assert_eq!(r.status, StatusCode::BAD_REQUEST, "{}", r.body);
+    assert_eq!(r.body["code"], "ts-empty-post", "{}", r.body);
+    let r = c
+        .rest(
+            "POST",
+            &path,
+            Some(json!({"text": " ~~~~ ", "status": "resolved", "token": token})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+
+    // A markdown tenant refuses a wikitext post.
+    let r = c
+        .rest(
+            "POST",
+            &path,
+            Some(json!({"text": "'''Bold'''", "mediaType": "text/x-wiki", "token": token})),
+        )
+        .await;
+    assert_eq!(r.body["code"], "ts-bad-media-type", "{}", r.body);
+
+    let (p, _) = posts(&mut c, thread).await;
+    assert_eq!(
+        p[0],
+        ("Does this cover maps?".into(), "text/markdown".into())
+    );
+    assert_eq!(
+        p[1].0, "It does. ~~~~ and ~~~ stay mid-text in markdown.",
+        "only the trailing signature goes"
+    );
+    assert_eq!(p[2].0, "");
+
+    // The tenant switches to wikitext: new posts are wikitext and get the pre-save
+    // transform; the markdown posts keep their markup.
+    let base = c.rest("GET", "/settings", None).await.body["base"].clone();
+    let r = c
+        .rest(
+            "PATCH",
+            "/settings",
+            Some(json!({"set": {"thread.markup": "wikitext"}, "base": base, "token": token})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    let si = c.api("action=query&meta=siteinfo&siprop=triplespace").await;
+    assert_eq!(
+        si["query"]["triplespace"]["thread"]["markup"], "wikitext",
+        "{si}"
+    );
+    let r = c
+        .rest(
+            "POST",
+            &path,
+            Some(json!({"inReplyTo": opening, "text": "'''Yes.''' <small>Struck by ~~~</small> --~~~~", "token": token})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    let wikitext_post = r.body["revid"].as_u64().unwrap();
+    let r = c
+        .rest(
+            "POST",
+            &path,
+            Some(json!({"text": "plain", "mediaType": "text/markdown", "token": token})),
+        )
+        .await;
+    assert_eq!(r.body["code"], "ts-bad-media-type", "{}", r.body);
+
+    let (p, base) = posts(&mut c, thread).await;
+    let w = p
+        .iter()
+        .find(|(t, _)| t.starts_with("'''Yes.'''"))
+        .expect("the wikitext post");
+    assert_eq!(w.1, "text/x-wiki");
+    assert_eq!(
+        w.0, "'''Yes.''' <small>Struck by [[User:Alice|Alice]] ([[User talk:Alice|talk]])</small>",
+        "a mid-text signature expands; the trailing one is removed"
+    );
+    assert_eq!(
+        p[0].1, "text/markdown",
+        "posts keep the markup they were written in"
+    );
+
+    // An edit takes its post's markup without naming it, and loses a trailing signature.
+    let r = c
+        .rest(
+            "PUT",
+            &format!("/thread/{thread}/post/{wikitext_post}"),
+            Some(json!({"text": "'''Yes, really.''' ~~~~", "base": base, "token": token})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    let (p, base) = posts(&mut c, thread).await;
+    assert!(
+        p.iter()
+            .any(|(t, m)| t == "'''Yes, really.'''" && m == "text/x-wiki"),
+        "{p:?}"
+    );
+
+    // Back to markdown: editing the opening post keeps it markdown.
+    let r = c
+        .rest(
+            "PUT",
+            &format!("/thread/{thread}/post/{opening}"),
+            Some(
+                json!({"text": "Does this cover maps and atlases?", "base": base, "token": token}),
+            ),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    let (p, _) = posts(&mut c, thread).await;
+    assert_eq!(
+        p[0],
+        (
+            "Does this cover maps and atlases?".into(),
+            "text/markdown".into()
+        )
+    );
+
+    // Read for display: each post rendered by its own markup.
+    let r = c
+        .rest("GET", &format!("/thread/{thread}?html=1"), None)
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    let html: Vec<&str> = r.body["posts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| p["html"].as_str().unwrap_or_default())
+        .collect();
+    assert!(html[0].contains("ts-markdown"), "{}", html[0]);
+    assert!(
+        html.iter()
+            .any(|h| h.contains("<b>Yes, really.</b>") && h.contains("mw-parser-output")),
+        "{html:?}"
+    );
+    assert!(
+        c.rest("GET", &format!("/thread/{thread}"), None).await.body["posts"][0]
+            .get("html")
+            .is_none(),
+        "html only when asked"
+    );
+}
+
+/// Creates a document page and answers its ID.
+async fn new_page(c: &mut Client, token: &str, title: &str) -> u64 {
+    let e = c
+        .api_post(&format!(
+            "action=edit&title={title}&text=x&createonly=1&token={}",
+            enc(token)
+        ))
+        .await;
+    e["edit"]["pageid"].as_u64().expect("created")
+}
+
+/// A thread's current base.
+async fn thread_base(c: &mut Client, thread: u64) -> u64 {
+    c.rest("GET", &format!("/thread/{thread}"), None).await.body["base"]
+        .as_u64()
+        .unwrap()
+}
+
+/// A page's history as `(log action or "edit", revid)` pairs, newest first.
+async fn history(c: &mut Client, talk: u64) -> Vec<(String, u64)> {
+    let r = c
+        .rest("GET", &format!("/page/{talk}/history?limit=50"), None)
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    r.body["rows"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|row| {
+            (
+                row["log"]["action"]
+                    .as_str()
+                    .map_or_else(|| "edit".to_string(), str::to_string),
+                row["revid"].as_u64().unwrap_or(0),
+            )
+        })
+        .collect()
+}
+
+#[tokio::test]
+#[allow(clippy::too_many_lines, clippy::many_single_char_names)]
+async fn a_talk_pages_history_is_composite() {
+    // 16 §6.1; 14 §1.3, §3.7.
+    if admin_config().is_none() {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    }
+    let (mut c, token, scope) = signed_in("history").await;
+    let maps = new_page(&mut c, &token, "Project:Maps").await;
+    let atlas = new_page(&mut c, &token, "Project:Atlas").await;
+
+    let r = c
+        .rest(
+            "POST",
+            "/thread",
+            Some(json!({"subject": "Coverage", "target": {"kind": "page", "id": scope}, "text": "Maps too?", "token": token})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::CREATED, "{}", r.body);
+    let thread = r.body["thread"].as_u64().unwrap();
+    let opening = r.body["revid"].as_u64().unwrap();
+    let r = c
+        .rest(
+            "POST",
+            &format!("/thread/{thread}/post"),
+            Some(json!({"inReplyTo": opening, "text": "Yes.", "token": token})),
+        )
+        .await;
+    let reply = r.body["revid"].as_u64().unwrap();
+    let b = thread_base(&mut c, thread).await;
+    let r = c
+        .rest(
+            "POST",
+            &format!("/thread/{thread}/attach"),
+            Some(json!({"target": {"kind": "page", "id": maps}, "base": b, "token": token})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    let t = c.rest("GET", &format!("/thread/{thread}"), None).await.body;
+    let scope_talk = t["home"]["talk_page_id"].as_u64().unwrap();
+    let maps_talk = t["listings"][0]["talk_page_id"].as_u64().unwrap();
+
+    // Listed, the thread brings its whole history to the listing page.
+    let h = history(&mut c, maps_talk).await;
+    assert_eq!(
+        h.iter().map(|(a, _)| a.as_str()).collect::<Vec<_>>(),
+        ["attach", "edit", "create"],
+        "{h:?}"
+    );
+    assert_eq!(h[1].1, reply);
+    assert_eq!(
+        h,
+        history(&mut c, scope_talk).await,
+        "the home shows the same rows"
+    );
+
+    // Detached, it takes its rows away; the detach stays on the page it left.
+    let b = thread_base(&mut c, thread).await;
+    let r = c
+        .rest(
+            "POST",
+            &format!("/thread/{thread}/detach"),
+            Some(json!({"target": {"kind": "page", "id": maps}, "base": b, "token": token})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    let h = history(&mut c, maps_talk).await;
+    assert_eq!(
+        h.iter().map(|(a, _)| a.as_str()).collect::<Vec<_>>(),
+        ["detach"],
+        "{h:?}"
+    );
+    assert_eq!(history(&mut c, scope_talk).await.len(), 4);
+
+    // Moved, it takes its rows to its new home; the move stays on the old one too.
+    let b = thread_base(&mut c, thread).await;
+    let r = c
+        .rest(
+            "POST",
+            &format!("/thread/{thread}/move"),
+            Some(json!({"target": {"kind": "page", "id": atlas}, "base": b, "token": token})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    let atlas_talk =
+        c.rest("GET", &format!("/thread/{thread}"), None).await.body["home"]["talk_page_id"]
+            .as_u64()
+            .unwrap();
+    let old = history(&mut c, scope_talk).await;
+    assert_eq!(
+        old.iter().map(|(a, _)| a.as_str()).collect::<Vec<_>>(),
+        ["move"],
+        "{old:?}"
+    );
+    let new = history(&mut c, atlas_talk).await;
+    assert_eq!(
+        new.iter().map(|(a, _)| a.as_str()).collect::<Vec<_>>(),
+        ["move", "detach", "attach", "edit", "create"],
+        "{new:?}"
+    );
+    // A thread's own history is all its rows, wherever it lives.
+    assert_eq!(history(&mut c, thread).await, new);
+}
+
+#[tokio::test]
+#[allow(clippy::too_many_lines, clippy::many_single_char_names)]
+async fn a_talk_pages_revisions_and_diffs_are_wikitext() {
+    // 16 §6.1; 0019 A29.
+    if admin_config().is_none() {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    }
+    let (mut c, token, scope) = signed_in("talktext").await;
+    let r = c
+        .rest(
+            "POST",
+            "/thread",
+            Some(json!({"subject": "Coverage", "target": {"kind": "page", "id": scope}, "text": "Maps too?", "token": token})),
+        )
+        .await;
+    let first = r.body["thread"].as_u64().unwrap();
+    let opening = r.body["revid"].as_u64().unwrap();
+    let talk = c.rest("GET", &format!("/thread/{first}"), None).await.body["home"]["talk_page_id"]
+        .as_u64()
+        .unwrap();
+    let r = c
+        .rest(
+            "POST",
+            &format!("/thread/{first}/post"),
+            Some(json!({"inReplyTo": opening, "text": "Yes, and atlases.", "token": token})),
+        )
+        .await;
+    let reply = r.body["revid"].as_u64().unwrap();
+    let r = c
+        .rest(
+            "POST",
+            "/thread",
+            Some(json!({"subject": "Scope of dates", "target": {"kind": "page", "id": scope}, "text": "Before 1900?", "token": token})),
+        )
+        .await;
+    let second = r.body["revid"].as_u64().unwrap();
+
+    // The talk page's revisions are its threads', newest first, with parents and content.
+    let v = c
+        .api(&format!(
+            "action=query&prop=revisions&pageids={talk}&rvprop=ids|content&rvslots=main&rvlimit=10"
+        ))
+        .await;
+    let page = &v["query"]["pages"][0];
+    let revs = page["revisions"].as_array().expect("revisions");
+    let ids: Vec<u64> = revs.iter().map(|r| r["revid"].as_u64().unwrap()).collect();
+    assert_eq!(ids, [second, reply, opening], "{v}");
+    assert_eq!(revs[0]["parentid"], reply);
+    assert_eq!(revs[2]["parentid"], 0);
+    let content = |r: &Value| r["slots"]["main"]["content"].as_str().unwrap().to_string();
+    assert_eq!(revs[0]["slots"]["main"]["contentmodel"], "triplespace-talk");
+    assert_eq!(revs[0]["slots"]["main"]["contentformat"], "text/x-wiki");
+    let latest = content(&revs[0]);
+    assert!(
+        latest.starts_with(
+            "== Coverage ==\nMaps too? [[User:Alice|Alice]] ([[User talk:Alice|talk]]) "
+        ),
+        "{latest}"
+    );
+    assert!(
+        latest.contains("\n:Yes, and atlases. [[User:Alice|Alice]]"),
+        "{latest}"
+    );
+    assert!(
+        latest.contains("\n\n== Scope of dates ==\nBefore 1900? "),
+        "{latest}"
+    );
+    let oldest = content(&revs[2]);
+    assert!(
+        !oldest.contains("atlases") && !oldest.contains("Scope of dates"),
+        "{oldest}"
+    );
+
+    // A diff between two of the talk page's revisions: the reply, as added lines.
+    let d = c
+        .api(&format!(
+            "action=compare&fromid={talk}&fromrev={opening}&toid={talk}&torev={reply}&prop=diff|ids"
+        ))
+        .await;
+    let diff = d["compare"]["body"].as_str().unwrap_or_default();
+    assert!(diff.contains("Yes, and atlases."), "{d}");
+    assert!(!diff.contains("Scope of dates"), "{d}");
+    assert_eq!(d["compare"]["torevid"], reply);
+    // From the talk page's latest revision to the one before it.
+    let d = c
+        .api(&format!(
+            "action=compare&fromid={talk}&torelative=prev&prop=diff|ids"
+        ))
+        .await;
+    assert_eq!(d["compare"]["fromrevid"], reply, "{d}");
+    assert_eq!(d["compare"]["torevid"], second, "{d}");
+    assert!(
+        d["compare"]["body"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("Scope of dates"),
+        "{d}"
+    );
+    // A revision named alone is its thread's, compared as the thread's JSON.
+    let d = c
+        .api(&format!(
+            "action=compare&fromrev={opening}&torev={reply}&prop=diff|title"
+        ))
+        .await;
+    assert!(
+        d["compare"]["totitle"]
+            .as_str()
+            .unwrap_or_default()
+            .starts_with("Thread:"),
+        "{d}"
+    );
 }

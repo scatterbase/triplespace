@@ -448,20 +448,44 @@ async fn talk_page(
     let named: Option<(i32, String)> = match target {
         Target::Page(page) => {
             let page = i64_of(*page)?;
-            cx.query_opt(
-                "SELECT ns, title FROM view.page WHERE tenant = $1 AND page_id = $2",
-                &[&tenant, &page],
-            )
-            .await
-            .map_err(|e| sql(&e))?
-            .and_then(|r| {
-                let ns: i32 = r.get(0);
-                Namespaces::embedded()
-                    .get(ns)
-                    .and_then(|n| n.talk)
-                    .filter(|t| *t != ns)
-                    .map(|t| (t, r.get::<_, String>(1)))
-            })
+            let document = cx
+                .query_opt(
+                    "SELECT ns, title FROM view.page WHERE tenant = $1 AND page_id = $2",
+                    &[&tenant, &page],
+                )
+                .await
+                .map_err(|e| sql(&e))?
+                .and_then(|r| {
+                    let ns: i32 = r.get(0);
+                    Namespaces::embedded()
+                        .get(ns)
+                        .and_then(|n| n.talk)
+                        .filter(|t| *t != ns)
+                        .map(|t| (t, r.get::<_, String>(1)))
+                });
+            match document {
+                Some(d) => Some(d),
+                // An entity's talk page is its namespace's talk namespace and its ID
+                // (`Item talk:Q42`; 14 §1.3): the namespace whose pages have the entity
+                // type's model.
+                None => cx
+                    .query_opt(
+                        "SELECT type, id FROM view.entity
+                         WHERE tenant IN ($1, '') AND page_id = $2
+                         ORDER BY (tenant = $1) DESC LIMIT 1",
+                        &[&tenant, &page],
+                    )
+                    .await
+                    .map_err(|e| sql(&e))?
+                    .and_then(|r| {
+                        let model = format!("wikibase-{}", r.get::<_, String>(0));
+                        Namespaces::embedded()
+                            .iter()
+                            .find(|n| n.default_model.as_deref() == Some(model.as_str()))
+                            .and_then(|n| n.talk.filter(|t| *t != n.id))
+                            .map(|t| (t, r.get::<_, String>(1)))
+                    }),
+            }
         }
         Target::Actor(key) => cx
             .query_opt(

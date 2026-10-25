@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-09 (A16)
+- **Updated:** 2026-10-25 (A17)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0019](0019-discussions.md), [0029](0029-resolver-namespaces.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md)
 - **Uses:** [0035](0035-adopting-a-wikibase.md), [0043](0043-lua-modules.md), [0045](0045-table-content-model.md), [0048](0048-notation.md), [0049](0049-boards.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -48,7 +48,7 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 3. The content model registry (extends 0008 §5)
 
-*Changed by A2, A3, A4, A5, A7, A8, A9, A10, A11, A13, A15.*
+*Changed by A2, A3, A4, A5, A7, A8, A9, A10, A11, A13, A15, A17.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §1.4, §4.4.*
 
@@ -57,6 +57,8 @@ James's direction, from the design discussion of 2026-09-30:
 *Current text: [10](../architecture/10-pages-and-content-models.md) §1.1, §1.2.*
 
 ### 5. Sources, and what a model provides (extends 0008 §5)
+
+*Changed by A17.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §4.3.*
 
@@ -295,3 +297,18 @@ Replaced text (§3):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§12
 - **Summary:** The Decision's current text now lives in the architecture chapters [10](../architecture/10-pages-and-content-models.md), [12](../architecture/12-files-and-media.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A17. A talk page's revision content and diff
+
+- **Date:** 2026-10-25
+- **Source:** Direct: James, design discussion of 2026-10-25 (recorded as [0019](0019-discussions.md) A29)
+- **Change:** extends §3, §5
+- **Summary:** The composite source gains a serialization and a diff: a talk page's content as of a revision is a read-only wikitext rendering of the threads attached to it now, each as it stood after the revision, and its diff is the line diff of that text. `triplespace-talk` gains the format `text/x-wiki`. Chapter text: [10](../architecture/10-pages-and-content-models.md) §4.3, §4.4.
+
+Replaced text ([10](../architecture/10-pages-and-content-models.md) §4.3 and §4.4, as it stood):
+
+> | Serialize as of a revision (`rvprop=content`, export) | The text | Wikibase JSON ([wikibase-compat.md](../api/wikibase-compat.md)) | The `GET /thread/{page ID}` body ([0019](../decisions/0019-discussions.md) §9) as of that revision | — | MediaInfo JSON ([0041](../decisions/0041-content-models.md) §7) |
+>
+> | Diff | Line diff | Wikibase's entity diff ([0012](../decisions/0012-api-requirements.md) §7) | Per post | — | Statement diff |
+>
+> | `triplespace-talk` | Triplespace | composite | main | — | No | Every enabled talk namespace | [0041](../decisions/0041-content-models.md) §3 |

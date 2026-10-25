@@ -14,7 +14,7 @@ scatter-actors.workspace = true
 scatter-challenge.workspace = true
 scatter-ingest.workspace = true
 scatter-normalize.workspace = true
-scatter-pages.workspace = true
+scatter-pages = { workspace = true, features = ["markdown"] }
 scatter-log.workspace = true
 scatter-log-postgres.workspace = true
 scatter-titles.workspace = true
