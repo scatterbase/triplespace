@@ -469,6 +469,29 @@ def deletion(x):
     deny("sysop outside the group undeletes it", b.post(action="undelete", title="Project:Secret", token=b.token()))
     absent("deleted and confidential: absent from the sysop's delete log",
            b.api(action="query", list="logevents", letype="delete", lelimit=500), ["Project:Secret"])
+    # The deletion's own event cannot be reached by log ID from outside the group either.
+    ev = a.api(action="query", list="logevents", letype="delete", letitle="Project:Secret", lelimit=1)
+    logid = ev["query"]["logevents"][0]["logid"]
+    r = b.post(action="revisiondelete", type="logging", ids=str(logid), hide="comment", token=b.token())
+    item = (r.get("revisiondelete", {}).get("items") or [{}])[0]
+    if item.get("status") == "Fail" and item.get("errors", [{}])[0].get("code") == "nosuchlogid":
+        ok("sysop outside the group cannot hide the confidential deletion's event")
+    else:
+        finding("ALLOWED: sysop outside the group hides the confidential deletion's event", json.dumps(r)[:300])
+    absent("the refusal names nothing", r, ["Project:Secret", "board"])
+    # Partial undeletion keeps the unrestored revisions hidden from readers.
+    a.edit("Project:Partial", "first text")
+    a.edit("Project:Partial", "second text")
+    must("sysop deletes it", b.post(action="delete", title="Project:Partial", token=b.token()))
+    latest = a.api(action="query", prop="deletedrevisions", drvprop="ids", titles="Project:Partial")
+    revs = [rv["revid"] for p in latest["query"]["pages"] for rv in p.get("deletedrevisions", [])]
+    must("sysop restores the latest revision only",
+         b.post(action="undelete", title="Project:Partial", revisions=str(max(revs)), token=b.token()))
+    absent("the unrestored revision's text is hidden",
+           anon.api(action="query", prop="revisions", rvprop="content", rvlimit=10, titles="Project:Partial"),
+           ["first text"])
+    must("the restored one is read", anon.api(action="query", prop="revisions", rvprop="content",
+                                              titles="Project:Partial"), "second text")
     must("owner undeletes it", a.post(action="undelete", title="Project:Secret", token=a.token()))
     absent("still confidential after undelete",
            b.api(action="query", prop="revisions", rvprop="content", titles="Project:Secret"), ["Hush"])

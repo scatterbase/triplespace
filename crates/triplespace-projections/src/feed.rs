@@ -380,8 +380,9 @@ struct Built {
 }
 
 /// Builds the query. Every condition is a parameter, never interpolated text, so the
-/// statement cache (`PgClient::statement`) holds one entry per filter shape. A tenant's
-/// feed covers its own rows and the instance's (`tenant = ''`): the shared mirror
+/// statement cache (`PgClient::statement`) holds one entry per filter shape. A page's
+/// row is found by its key, `page_id = target_id::bigint` behind a digits guard (a
+/// `page_id::text` comparison would scan every page per row). A tenant's feed covers its own rows and the instance's (`tenant = ''`): the shared mirror
 /// partitions' syncs, which a history wants, and the instance log's job events, which
 /// is how a mirror sync appears in recent changes (16 §4.2).
 #[allow(clippy::too_many_lines)]
@@ -406,7 +407,8 @@ fn build(tenant: &str, feed: &Feed, viewer: &Viewer) -> Built {
            ORDER BY (x.tenant = a.tenant) DESC LIMIT 1) e ON true
          LEFT JOIN LATERAL (
            SELECT x.ns, x.title FROM view.page x
-           WHERE a.target_kind = 2 AND x.tenant = a.tenant AND x.page_id::text = a.target_id
+           WHERE a.target_kind = 2 AND x.tenant = a.tenant
+             AND x.page_id = CASE WHEN a.target_id ~ '^[0-9]+$' THEN a.target_id::bigint END
            LIMIT 1) p ON true
          LEFT JOIN LATERAL (
            SELECT x.lang, x.text FROM view.term x
@@ -591,7 +593,9 @@ fn build(tenant: &str, feed: &Feed, viewer: &Viewer) -> Built {
                     "NOT ((a.target_kind = {page} AND p.ns = ANY($n))
                       OR (a.target_kind = {record} AND a.params->'of'->>'kind' = '{page}'
                           AND EXISTS (SELECT 1 FROM view.page op WHERE op.tenant = a.tenant
-                            AND op.page_id::text = a.params->'of'->>'id' AND op.ns = ANY($n))))"
+                            AND op.page_id = CASE WHEN a.params->'of'->>'id' ~ '^[0-9]+$'
+                                                  THEN (a.params->'of'->>'id')::bigint END
+                            AND op.ns = ANY($n))))"
                 ),
                 Box::new(h.namespace_list()),
             );

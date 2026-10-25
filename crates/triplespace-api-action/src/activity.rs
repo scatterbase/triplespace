@@ -195,6 +195,9 @@ pub fn mw_row(ctx: &Ctx, row: &Row, props: &[String], module: &str) -> Value {
     };
     let mut m = Map::new();
     let is_log = row.kind == "log" || row.kind == "job";
+    // A log event whose content part is hidden (`delete/event`, 09 §4.3) shows neither
+    // its target nor its parameters: MediaWiki's `actionhidden`.
+    let action_hidden = row.log_type.is_some() && row.visibility & visibility::CONTENT != 0;
     if module == "recentchanges" {
         m.insert(
             "type".into(),
@@ -219,7 +222,11 @@ pub fn mw_row(ctx: &Ctx, row: &Row, props: &[String], module: &str) -> Value {
             .or_else(|| title_of(row)),
         _ => title_of(row),
     };
+    if action_hidden {
+        flag(&mut m, "actionhidden", true);
+    }
     if (wants(props, "title") || module == "usercontribs")
+        && !action_hidden
         && let Some((ns, title)) = &title
     {
         m.insert("ns".into(), json!(ns));
@@ -320,7 +327,7 @@ pub fn mw_row(ctx: &Ctx, row: &Row, props: &[String], module: &str) -> Value {
                 m.insert("action".into(), json!(row.log_action));
             }
         }
-        if wants(props, "details") || wants(props, "loginfo") {
+        if (wants(props, "details") || wants(props, "loginfo")) && !action_hidden {
             m.insert(
                 "logparams".into(),
                 row.params.clone().unwrap_or_else(|| json!({})),
