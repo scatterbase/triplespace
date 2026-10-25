@@ -239,7 +239,10 @@ async fn load(
     }
     let mut schema = schema.value;
     offer_themes(&mut schema.settings, &cx.theme);
-    let visibility = if scope == Scope::Wiki && cx.features.has(Feature::Protect) {
+    // Only for a viewer who may configure: the ACL route's answer is the viewer's alone,
+    // and a reader's page stays public (0057 §6).
+    let visibility = if scope == Scope::Wiki && token.is_some() && cx.features.has(Feature::Protect)
+    {
         let (v, g) = tokio::join!(
             client.tenant_visibility(incoming, &cx.site.tenant),
             client.groups(incoming)
