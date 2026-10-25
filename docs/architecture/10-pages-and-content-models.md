@@ -167,12 +167,12 @@ Page views, API `titles=` parameters, redirects and wiki links (§5.2) all go th
 
 *Sources: [0051](../decisions/0051-page-redirects.md) §3; [0008](../decisions/0008-namespaces-and-document-pages.md) §4.*
 
-**A move is one record on the moved page.** Moving a page appends a `move` record with its new title, and nothing else about that page changes. **A move leaves a redirect at the old title by default, where the old title may hold one,** as MediaWiki's does. `action=move` and the Move form append, in one transaction with one base check:
+**A move is one record on the moved page.** Moving a page appends a `move` record with its new title and, where a redirect is left, the page ID of that redirect; nothing else about that page changes. **A move leaves a redirect at the old title by default, where the old title may hold one,** as MediaWiki's does. `action=move` and the Move form append, in one transaction with one base check:
 
-1. the page's `move` record with the new title (§3.2);
-2. a `create` record for a **new page** at the old title, model `wikitext`, text `#REDIRECT [[New title]]`, attributed to the mover with the move's summary.
+1. the page's `move` record with the new title and the redirect's page ID, minted before the record is appended (§3.2);
+2. a `create` record for a **new page** at the old title, under that ID, model `wikitext`, text `#REDIRECT [[New title]]`, attributed to the mover with the move's summary.
 
-The redirect is a second page, with its own ID and its own history, as it is in MediaWiki; nothing about the moved page is rewritten. The log event is one `move/move` ([0011](../decisions/0011-logs.md) §6.1; [16](16-logs-feeds-and-notifications.md)) whose parameters carry the old and new titles and, as MediaWiki's do, whether a redirect was left and its page ID. With `noredirect`, which needs `suppressredirect` ([0051](../decisions/0051-page-redirects.md) §8; [09](09-security-and-moderation.md)), only the `move` record is written and the event is `move/move` with `noredirect: true` in its parameters; `move/move_redir` keeps MediaWiki's meaning, a move onto an existing redirect (below).
+The redirect is a second page, with its own ID and its own history, as it is in MediaWiki; nothing about the moved page is rewritten. **The move record names the redirect it left** ([0051](../decisions/0051-page-redirects.md) A7) so that the log is legible on its own: a reader of the `pages` partition, a dump, or the activity projection, which sees one record at a time, learns from the `move` whether a redirect was left and which page it is, without reconstructing the transaction from the `create` that follows. A `move` record without the field left no redirect. The log event is one `move/move` ([0011](../decisions/0011-logs.md) §6.1; [16](16-logs-feeds-and-notifications.md)) whose parameters carry the old and new titles and, as MediaWiki's do, whether a redirect was left and its page ID; the old title is read from the page's own history, the latest `create` or `move` before the record, since the move record names only where the page went. With `noredirect`, which needs `suppressredirect` ([0051](../decisions/0051-page-redirects.md) §8; [09](09-security-and-moderation.md)), only the `move` record is written and the event is `move/move` with `noredirect: true` in its parameters; `move/move_redir` keeps MediaWiki's meaning, a move onto an existing redirect (below).
 
 **A redirect is left only where the old title may hold `wikitext`.** Only a `wikitext` page can be a redirect (§2.3), so step 2 runs only when the namespace catalogue (§1.4) allows `wikitext` at the old title: in namespace 0, User, Project, File, Template and Category, and at the `/doc` titles of Module, Table, Query and Scope. Where the old title cannot hold `wikitext` — a Table page moved to another Table title, a Scope, a Query, a Module's code page, a sprint subpage — the move behaves as `noredirect` without needing `suppressredirect`, and the `move/move` event says so with `noredirect: true`. **Entity, keyed-type, Thread and Board namespaces disallow `move` altogether:** an entity's or a keyed entity's title is its ID (§2.6), a thread's title is minted from its subject (§2.2) and changed only by the thread's own `rename` record ([14](14-discussions.md) §1.2), and a board's title names the board, so `action=move` into, out of or within these namespaces is refused, as it is in a `virtual` or `resolver` namespace.
 
@@ -212,7 +212,7 @@ The redirect is a second page, with its own ID and its own history, as it is in 
 
 ### 3.2 The `pages` partition and page records
 
-*Sources: [0008](../decisions/0008-namespaces-and-document-pages.md) §4, A40; [0083](../decisions/0083-write-path-in-three-tiers.md) §4.*
+*Sources: [0008](../decisions/0008-namespaces-and-document-pages.md) §4, A40; [0083](../decisions/0083-write-path-in-three-tiers.md) §4; [0051](../decisions/0051-page-redirects.md) §3.*
 
 **Pages live in their own partition.** A `pages` source partition is in the registry ([0005](../decisions/0005-crate-organization.md) §4.1; [01](01-log-and-records.md), [02](02-graphs-rdf-and-query.md)):
 
@@ -228,7 +228,7 @@ The partition holds page records, not quads. Its RDF output is revision metadata
 |---|---|
 | `create` | Mints the page ID, sets the title and content model, and stores the first text; may carry `forked_from`, naming the repository, page and revision a fork was taken from ([0054](../decisions/0054-forking-a-mirrored-page.md) §1; [13](13-mirrored-pages.md)) |
 | `edit` | Stores the page's **complete new text**, optionally with a new content model |
-| `move` | Sets a new title |
+| `move` | Sets a new title; carries the page ID of the redirect the move left at the old title, when it left one ([0051](../decisions/0051-page-redirects.md) §3, A7) |
 | `follow` | On a fork, whether its talk page follows the repository's (`follow`) or has been forked (`fork`); no text, so it is a null revision in the page's history, as MediaWiki writes for protection ([0069](../decisions/0069-synchronized-talk-pages.md) §7) |
 
 **Deletion is an ACL, not a page operation** ([0023](../decisions/0023-moderation.md) §4; [09](09-security-and-moderation.md)). Deleting a page writes a `read` ACL on its page ID to the tenant `log` partition, and undeleting retires the ACL. The page and its history are hidden from everyone but administrators. This is hiding in the sense of [0006](../decisions/0006-log-integrity-and-erasure.md), not erasure.

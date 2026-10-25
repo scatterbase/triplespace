@@ -102,9 +102,9 @@ pub enum PageOp {
         /// The new title within it.
         title: String,
         /// The page ID of the redirect the move left at the old title, when it left one
-        /// (10 §2.5): minted before the move's record is appended, so that the move's log
-        /// event can name it. Absent on a move that left none, and on every record
-        /// written before the field existed.
+        /// (10 §2.5; 0051 §3, A7): minted before the move's record is appended, so that
+        /// the move's log event can name it. Absent on a move that left none, and on every
+        /// record written before the field existed.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         redirect: Option<u64>,
     },

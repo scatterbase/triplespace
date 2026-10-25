@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-10-09 (A6)
+- **Updated:** 2026-10-24 (A7)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0030](0030-edit-filters.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0047](0047-special-pages.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0011](0011-logs.md), [0023](0023-moderation.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -34,7 +34,7 @@ James's direction, from the design discussion of 2026-10-01, was for the mirrori
 
 ### 3. Moves leave a redirect (amends 0008 §4)
 
-*Changed by A3, A6.*
+*Changed by A3, A6, A7.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §2.5.*
 
@@ -173,3 +173,21 @@ Replaced text ([10](../architecture/10-pages-and-content-models.md) §2.5, as it
 > **A move leaves a redirect at the old title by default,** as MediaWiki's does.
 
 > - **Thread renames leave none** ([0019](0019-discussions.md) §3), for the reason user renames do.
+
+### A7. The move record names the redirect it left
+
+- **Date:** 2026-10-24
+- **Source:** Direct: James, design discussion of 2026-10-24
+- **Change:** amends §3
+- **Summary:** A `move` record carries, beside the new title, the page ID of the redirect the move left at the old title, when it left one; the ID is minted before the move record is appended, and the redirect's `create` that follows in the same transaction takes it. The move's `move/move` event is projected from the move record alone, so without the field it could not say whether a redirect was left or which page it is (16 §2.3 asks for both): the alternatives were a projection that patches the move's row when the redirect's `create` arrives next, or a per-row lookup at read time, and both make a fact of the log recoverable only by reconstructing the transaction, and lose it if the `create` is erased. A `move` record without the field, every one written before this entry included, left no redirect. The old title in the event is read from the page's own history, the latest `create` or `move` before the record, rather than stored. Folded into 10 §2.5 and the record table of 10 §3.2.
+
+Replaced text ([10](../architecture/10-pages-and-content-models.md) §2.5, as it stood):
+
+> **A move is one record on the moved page.** Moving a page appends a `move` record with its new title, and nothing else about that page changes.
+
+> 1. the page's `move` record with the new title (§3.2);
+> 2. a `create` record for a **new page** at the old title, model `wikitext`, text `#REDIRECT [[New title]]`, attributed to the mover with the move's summary.
+
+Replaced text ([10](../architecture/10-pages-and-content-models.md) §3.2, as it stood):
+
+> | `move` | Sets a new title |
