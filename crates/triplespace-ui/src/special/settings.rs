@@ -60,6 +60,8 @@ impl Scope {
 
 /// The section of the tenancy policy.
 pub const TENANCY: &str = "tenancy";
+/// The Visibility section's anchor (19 §6.3).
+pub const VISIBILITY: &str = "visibility";
 /// The section of the instance's defaults for wikis.
 pub const DEFAULTS: &str = "defaults";
 
@@ -183,6 +185,10 @@ struct Loaded {
     settings: Settings,
     token: Option<String>,
     cookies: Vec<HeaderValue>,
+    /// The wiki's visibility and the groups it may be restricted to, for the Visibility
+    /// section (09 §4.7; 19 §6.3); `None` at the instance's pages or where the API does
+    /// not serve `/acl`.
+    visibility: Option<(triplespace_client::TenantVisibility, Vec<String>)>,
 }
 
 /// Whether the viewer may write settings at all: they may change one that needs only
@@ -233,11 +239,39 @@ async fn load(
     }
     let mut schema = schema.value;
     offer_themes(&mut schema.settings, &cx.theme);
+    // Only for a viewer who may configure: the ACL route's answer is the viewer's alone,
+    // and a reader's page stays public (0057 §6).
+    let visibility = if scope == Scope::Wiki && token.is_some() && cx.features.has(Feature::Protect)
+    {
+        let (v, g) = tokio::join!(
+            client.tenant_visibility(incoming, &cx.site.tenant),
+            client.groups(incoming)
+        );
+        match (v, g) {
+            (Ok(v), Ok(g)) => {
+                cx.inputs.push(v.cache);
+                cx.inputs.push(g.cache);
+                Some((
+                    v.value,
+                    g.value
+                        .into_iter()
+                        .filter(|g| !g.implicit && g.name != "*")
+                        .map(|g| g.name)
+                        .collect(),
+                ))
+            }
+            // A reader of a private wiki, or an API without the route: no section.
+            _ => None,
+        }
+    } else {
+        None
+    };
     Ok(Loaded {
         schema,
         settings: settings.value,
         token,
         cookies,
+        visibility,
     })
 }
 
@@ -485,6 +519,107 @@ fn group_section(
         s.push_str(&form_close(m, group, summary));
         s.push_str("</section>");
     }
+    s
+}
+
+/// The Visibility section (09 §4.7; 0056 §3; 19 §6.3): who may read the wiki at all.
+/// *Anyone*; *Accounts on this wiki* (`user`); *A group*. The tenant ACL behind it needs
+/// `ts-config`, which the page's token stands for; without it the section only reports.
+fn visibility_section(
+    m: &Messages,
+    cx: &Context,
+    loaded: &Loaded,
+    back: &Returned<'_>,
+    saved: Option<&String>,
+) -> String {
+    let Some((vis, groups)) = &loaded.visibility else {
+        return String::new();
+    };
+    let mut s = format!(
+        "<section class=\"ts-settings__section\" id=\"{VISIBILITY}\" aria-labelledby=\"{VISIBILITY}-title\"><h2 id=\"{VISIBILITY}-title\">{}</h2>",
+        esc(&m.get("ts-settings-group-visibility")),
+    );
+    s.push_str(&saved_notice(m, saved, VISIBILITY));
+    if back.section == VISIBILITY {
+        s.push_str(&errors_html(back.errors.get("")));
+    }
+    let current = match vis.read_group.as_deref() {
+        None => "anyone".to_string(),
+        Some("user") => "user".to_string(),
+        Some(_) => "group".to_string(),
+    };
+    let chosen = back
+        .text(VISIBILITY, "visibility")
+        .unwrap_or(&current)
+        .to_string();
+    let group_now = back
+        .text(VISIBILITY, "group")
+        .map(str::to_string)
+        .or_else(|| vis.read_group.clone().filter(|g| g != "user"))
+        .unwrap_or_default();
+    let _ = write!(
+        s,
+        "<p>{}</p>",
+        esc(&m.with(
+            "ts-settings-visibility-now",
+            &[&match vis.read_group.as_deref() {
+                None => m.get("ts-settings-visibility-anyone"),
+                Some("user") => m.get("ts-settings-visibility-user"),
+                Some(g) => m.with("ts-settings-visibility-a-group", &[g]),
+            }]
+        ))
+    );
+    let Some(token) = loaded.token.as_deref() else {
+        s.push_str("</section>");
+        return s;
+    };
+    let _ = write!(
+        s,
+        "<form method=\"post\" action=\"/wiki/{}\">{}{}<fieldset class=\"ts-settings__visibility\"><legend>{}</legend>",
+        esc(&title_url(Scope::Wiki.title())),
+        hidden("token", token),
+        hidden("section", VISIBILITY),
+        esc(&m.get("ts-settings-visibility-who")),
+    );
+    for (value, key) in [
+        ("anyone", "ts-settings-visibility-anyone"),
+        ("user", "ts-settings-visibility-user"),
+        ("group", "ts-settings-visibility-group"),
+    ] {
+        let _ = write!(
+            s,
+            "<span class=\"cdx-radio\"><input class=\"cdx-radio__input\" type=\"radio\" id=\"ts-vis-{value}\" name=\"visibility\" value=\"{value}\"{}><span class=\"cdx-radio__icon\"></span><label class=\"cdx-radio__label\" for=\"ts-vis-{value}\">{}</label></span>",
+            if chosen == value { " checked" } else { "" },
+            esc(&m.get(key)),
+        );
+    }
+    let group_value = Value::String(group_now);
+    let picker = controls::render(&Control {
+        id: "ts-vis-group-name",
+        name: "group",
+        kind: Kind::Choice,
+        choices: groups,
+        value: Some(&group_value),
+        empty_choice: Some(""),
+        described_by: Some("ts-vis-group-help"),
+        choice_label: None,
+    });
+    let _ = write!(
+        s,
+        "<div class=\"cdx-field\"><div class=\"cdx-label\"><label class=\"cdx-label__label\" for=\"ts-vis-group-name\"><span class=\"cdx-label__label__text\">{}</span></label></div><div class=\"cdx-field__control\">{picker}</div><div class=\"cdx-field__help-text\" id=\"ts-vis-group-help\">{}</div></div></fieldset>{}<div class=\"cdx-field\"><div class=\"cdx-label\"><label class=\"cdx-label__label\" for=\"ts-vis-reason\"><span class=\"cdx-label__label__text\">{}</span></label></div><div class=\"cdx-field__control\"><div class=\"cdx-text-input\"><input class=\"cdx-text-input__input\" type=\"text\" id=\"ts-vis-reason\" name=\"reason\" value=\"{}\"></div></div></div>{}</form></section>",
+        esc(&m.get("ts-settings-visibility-which-group")),
+        esc(&m.with(
+            "ts-settings-visibility-group-help",
+            &[&cx.groups.join(", ")]
+        )),
+        pages::message(
+            MessageKind::Warning,
+            &m.get("ts-settings-visibility-warning")
+        ),
+        esc(&m.get("ts-settings-visibility-reason")),
+        esc(back.text(VISIBILITY, "reason").unwrap_or_default()),
+        submit(&m.get("ts-settings-save")),
+    );
     s
 }
 
@@ -842,13 +977,14 @@ fn defaults_section(
 
 /// The page's body and its section links.
 fn body(
-    m: &Messages,
+    cx: &Context,
     scope: Scope,
     loaded: &Loaded,
     tenant_defs: &[SettingDef],
     back: &Returned<'_>,
     saved: Option<&String>,
 ) -> (String, Vec<Tab>) {
+    let m = &cx.m;
     let mut tabs = Vec::new();
     let mut sections = String::new();
     for g in &loaded.schema.groups {
@@ -859,6 +995,14 @@ fn body(
             current: false,
         });
         sections.push_str(&group_section(m, scope, loaded, &g.id, &title, back, saved));
+    }
+    if loaded.visibility.is_some() {
+        tabs.push(Tab {
+            label: m.get("ts-settings-group-visibility"),
+            href: format!("#{VISIBILITY}"),
+            current: false,
+        });
+        sections.push_str(&visibility_section(m, cx, loaded, back, saved));
     }
     tabs.push(Tab {
         label: m.get("ts-settings-group-tenancy"),
@@ -942,7 +1086,7 @@ async fn render_page(
         Ok(d) => d,
         Err(e) => return pages::api_failed(cx, headers, &e),
     };
-    let (html, tabs) = body(&cx.m, scope, &loaded, &defs, back, saved);
+    let (html, tabs) = body(cx, scope, &loaded, &defs, back, saved);
     let page = pages::respond(cx, headers, status, |m| Page {
         title: m.get(match scope {
             Scope::Wiki => "ts-wikisettings-title",
@@ -1194,6 +1338,9 @@ pub async fn post(
         Ok(l) => l,
         Err(e) => return pages::api_failed(&cx, headers, &e),
     };
+    if section == VISIBILITY && scope == Scope::Wiki {
+        return post_visibility(site, &mut cx, headers, &incoming, loaded, form).await;
+    }
     let defs = match tenant_defs(site, &mut cx, &incoming, scope, &loaded).await {
         Ok(d) => d,
         Err(e) => return pages::api_failed(&cx, headers, &e),
@@ -1258,6 +1405,91 @@ pub async fn post(
             .await
         }
         Err(e) => pages::api_failed(&cx, headers, &e),
+    }
+}
+
+/// The Visibility form: `PUT` or `DELETE /acl/tenant/{slug}` (09 §4.7).
+async fn post_visibility(
+    site: &Site,
+    cx: &mut Context,
+    headers: &HeaderMap,
+    incoming: &Incoming,
+    loaded: Loaded,
+    form: &Params,
+) -> Response {
+    let field = |k: &str| form.map.get(k).map_or("", String::as_str);
+    let group = match field("visibility") {
+        "user" => Some("user"),
+        "group" => Some(field("group").trim()).filter(|g| !g.is_empty()),
+        _ => None,
+    };
+    if field("visibility") == "group" && group.is_none() {
+        let back = Returned {
+            section: VISIBILITY.into(),
+            form: Some(form),
+            errors: BTreeMap::from([(
+                String::new(),
+                vec![cx.m.get("ts-settings-visibility-no-group")],
+            )]),
+        };
+        return render_page(
+            site,
+            cx,
+            headers,
+            incoming,
+            Scope::Wiki,
+            &back,
+            None,
+            StatusCode::BAD_REQUEST,
+        )
+        .await;
+    }
+    let back_to = format!(
+        "/wiki/{}?saved={VISIBILITY}#{VISIBILITY}",
+        title_url(Scope::Wiki.title())
+    );
+    match site
+        .client()
+        .set_tenant_visibility(
+            incoming,
+            &cx.site.tenant,
+            group,
+            field("reason").trim(),
+            field("token"),
+        )
+        .await
+    {
+        Ok(Saved::Ok(_)) => pages::see_other(&back_to, &loaded.cookies),
+        Ok(Saved::Refused(refusals)) => {
+            let errors = refusals
+                .iter()
+                .map(|r| match r.code.as_str() {
+                    "ts-locked-out" => cx.m.get("ts-protect-locked-out"),
+                    "ts-policy" => cx.m.get("ts-protect-policy"),
+                    "ts-unknown-group" => cx.m.get("ts-protect-unknown-group"),
+                    "badtoken" => cx.m.get("ts-login-expired"),
+                    "permissiondenied" => cx.m.get("ts-settings-visibility-denied"),
+                    _ => r.message.clone(),
+                })
+                .collect();
+            let back = Returned {
+                section: VISIBILITY.into(),
+                form: Some(form),
+                errors: BTreeMap::from([(String::new(), errors)]),
+            };
+            render_page(
+                site,
+                cx,
+                headers,
+                incoming,
+                Scope::Wiki,
+                &back,
+                None,
+                StatusCode::BAD_REQUEST,
+            )
+            .await
+        }
+        Err(e) => pages::api_failed(cx, headers, &e),
     }
 }
 
@@ -1350,6 +1582,7 @@ mod tests {
             settings: Settings::default(),
             token: Some("t".into()),
             cookies: Vec::new(),
+            visibility: None,
         };
         let form = Params::new(vec![
             ("section".into(), TENANCY.into()),

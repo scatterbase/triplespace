@@ -37,6 +37,7 @@ pub mod frame;
 pub mod home;
 pub mod html;
 pub mod i18n;
+pub mod moderation;
 pub mod pages;
 pub mod routes;
 pub mod special;

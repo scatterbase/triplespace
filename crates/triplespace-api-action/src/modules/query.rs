@@ -90,6 +90,7 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
             "protectedpages" => super::protected::pages(ctx, &mut query, &mut body).await?,
             "protectedtitles" => super::protected::titles(ctx, &mut query, &mut body).await?,
             "protectedsets" => super::protected::sets(ctx, &mut query).await?,
+            "users" => super::userrights::users(ctx, &mut query).await?,
             other => response.warn(
                 "query",
                 &format!("Unrecognized value for parameter \"list\": {other}."),
@@ -802,6 +803,10 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                                     "name": g.mediawiki_name,
                                     "rights": g.permissions,
                                 });
+                                // MediaWiki marks the groups nobody is added to.
+                                if g.implicit.is_some() {
+                                    v["implicit"] = json!("");
+                                }
                                 if let (Value::Object(m), Value::Object(d)) =
                                     (&mut v, super::userrights::delegates(g))
                                 {
@@ -832,7 +837,7 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                     "tenant": slug,
                     "farm": ctx.app.config().farm.slug,
                     "search": "postgres",
-                    "capabilities": ["wbgetentities", "wbsearchentities", "wbeditentity", "statements", "terms", "login", "clientlogin", "createaccount", "bearer", "version", "recentchanges", "activity", "history", "revisions", "diff", "options", "preferences", "settings", "pages", "parse", "edit"],
+                    "capabilities": ["wbgetentities", "wbsearchentities", "wbeditentity", "statements", "terms", "login", "clientlogin", "createaccount", "bearer", "version", "recentchanges", "activity", "history", "revisions", "diff", "options", "preferences", "settings", "pages", "parse", "edit", "protect", "userrights", "block"],
                     "providers": Registry::default_registry().providers().iter().map(|p| p.slug.clone()).collect::<Vec<_>>(),
                     "rate_limits": [],
                     "grants": scatter_actors::grant::GrantRegistry::default_registry().grants().iter().map(|g| g.name.clone()).collect::<Vec<_>>(),
@@ -1026,6 +1031,7 @@ const QUERY_MODULES: &[(&str, &[&str])] = &[
             "protectedpages",
             "protectedtitles",
             "protectedsets",
+            "users",
         ],
     ),
 ];
@@ -1696,6 +1702,7 @@ pub fn paraminfo_modules(requested: &[String]) -> Vec<Value> {
                             "protectedpages" => "pr",
                             "protectedtitles" => "pt",
                             "protectedsets" => "ps",
+                            "users" => "us",
                             _ => "",
                         },
                     ),

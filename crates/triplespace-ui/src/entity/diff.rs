@@ -495,8 +495,8 @@ fn view_switch(
 }
 
 /// The page's tabs: the entity's, with History current.
-fn tabs(m: &Messages, title: &str, items: bool) -> Vec<Tab> {
-    super::tabs(m, title, super::TabName::History, items, true)
+fn tabs(m: &Messages, title: &str, items: bool, protect: bool) -> Vec<Tab> {
+    super::tabs(m, title, super::TabName::History, items, true, protect)
 }
 
 /// The label lookup for a diff's values.
@@ -621,7 +621,14 @@ pub async fn serve(
             r.terms(),
             r.document_title(),
         );
-        let tabs = super::tabs(&cx.m, &title, super::TabName::Statements, items, true);
+        let tabs = super::tabs(
+            &cx.m,
+            &title,
+            super::TabName::Statements,
+            items,
+            true,
+            cx.may_protect(),
+        );
         return pages::respond(&cx, headers, StatusCode::OK, move |_| Page {
             title: display,
             doc_title: Some(doc_title),
@@ -815,7 +822,7 @@ pub async fn serve(
         r.terms(),
         r.document_title(),
     );
-    let tabs = tabs(m, &title, items);
+    let tabs = tabs(m, &title, items, cx.may_protect());
     pages::respond(&cx, headers, StatusCode::OK, move |_| Page {
         title: display,
         doc_title: Some(doc_title),

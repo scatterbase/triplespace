@@ -1,0 +1,124 @@
+/* The Protect form, Special:UserRights, Special:ProtectedPages, Special:Block and the
+   Visibility section (ADR 0056 §13; chapter 19 §6.3). */
+
+.ts-protect-page,
+.ts-userrights,
+.ts-block-page,
+.ts-protectedpages {
+	max-width: 42rem;
+}
+
+.ts-protect__row,
+.ts-protect .cdx-field,
+.ts-userrights .cdx-field,
+.ts-block .cdx-field {
+	margin-bottom: var( --spacing-100, 1rem );
+}
+
+.ts-protect__talk {
+	margin-top: var( --spacing-50, 0.5rem );
+}
+
+.ts-protect__enclosing {
+	margin-bottom: var( --spacing-150, 1.5rem );
+	padding: var( --spacing-75, 0.75rem ) var( --spacing-100, 1rem );
+	border: 1px solid var( --border-color-subtle, #c8ccd1 );
+	border-radius: var( --border-radius-base, 2px );
+}
+
+.ts-protect__enclosing h2 {
+	margin-top: 0;
+	font-size: var( --font-size-medium, 1rem );
+}
+
+.ts-protect__actions,
+.ts-userrights__actions,
+.ts-block__actions {
+	display: flex;
+	align-items: center;
+	gap: var( --spacing-75, 0.75rem );
+	margin-top: var( --spacing-150, 1.5rem );
+}
+
+.ts-userrights__set {
+	margin-bottom: var( --spacing-150, 1.5rem );
+	padding: var( --spacing-75, 0.75rem ) var( --spacing-100, 1rem );
+	border: 1px solid var( --border-color-subtle, #c8ccd1 );
+	border-radius: var( --border-radius-base, 2px );
+}
+
+.ts-userrights__group {
+	margin: var( --spacing-25, 0.25rem ) 0;
+}
+
+.ts-userrights__expiry {
+	color: var( --color-subtle, #54595d );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+.ts-userrights__links,
+.ts-block__links {
+	margin-top: var( --spacing-150, 1.5rem );
+	color: var( --color-subtle, #54595d );
+}
+
+.ts-block__option {
+	margin: var( --spacing-75, 0.75rem ) 0;
+}
+
+.ts-protectedpages__table {
+	width: 100%;
+	margin-bottom: var( --spacing-150, 1.5rem );
+	border-collapse: collapse;
+}
+
+.ts-protectedpages__table th,
+.ts-protectedpages__table td {
+	padding: var( --spacing-50, 0.5rem );
+	border-bottom: 1px solid var( --border-color-subtle, #c8ccd1 );
+	text-align: start;
+}
+
+.ts-set {
+	margin-bottom: var( --spacing-150, 1.5rem );
+	padding: var( --spacing-75, 0.75rem ) var( --spacing-100, 1rem );
+	border: 1px solid var( --border-color-subtle, #c8ccd1 );
+	border-radius: var( --border-radius-base, 2px );
+}
+
+.ts-set h3 {
+	margin-top: 0;
+}
+
+.ts-set__restrictions {
+	color: var( --color-subtle, #54595d );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+.ts-set__members li {
+	display: flex;
+	align-items: center;
+	gap: var( --spacing-50, 0.5rem );
+}
+
+.ts-set__remove {
+	display: inline;
+}
+
+.ts-set__add,
+.ts-set__retire,
+.ts-set__new {
+	margin-top: var( --spacing-100, 1rem );
+}
+
+.ts-settings__visibility {
+	margin: var( --spacing-100, 1rem ) 0;
+	padding: var( --spacing-75, 0.75rem ) var( --spacing-100, 1rem );
+	border: 1px solid var( --border-color-subtle, #c8ccd1 );
+	border-radius: var( --border-radius-base, 2px );
+}
+
+.ts-settings__visibility .cdx-radio {
+	display: block;
+	margin: var( --spacing-25, 0.25rem ) 0;
+}

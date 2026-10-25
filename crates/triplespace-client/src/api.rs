@@ -99,6 +99,8 @@ pub struct SiteInfo {
     pub capabilities: Vec<String>,
     /// `general.mainpage`: the main page's title.
     pub mainpage: String,
+    /// `triplespace.tenant`: the tenant's slug, which the `/acl/tenant/{slug}` route takes.
+    pub tenant: String,
     /// Whether the request came to the farm base, which serves the instance's pages
     /// (0085 §4).
     pub at_farm: bool,
@@ -162,6 +164,29 @@ pub struct UserInfo {
     pub options: Map<String, Value>,
     /// The open account requests, for a holder of `confirmaccount` (0087 §6).
     pub account_requests: Option<u64>,
+    /// The viewer's tenant-wide rights (`uiprop=rights`), which decide what the site
+    /// offers: Protect, Block, `Special:UserRights`.
+    pub rights: Vec<String>,
+    /// The viewer's groups (`uiprop=groups`).
+    pub groups: Vec<String>,
+}
+
+impl UserInfo {
+    /// Whether the viewer holds a right tenant-wide.
+    #[must_use]
+    pub fn holds(&self, right: &str) -> bool {
+        self.rights.iter().any(|r| r == right)
+    }
+}
+
+fn strings(v: &Value) -> Vec<String> {
+    v.as_array()
+        .map(|a| {
+            a.iter()
+                .filter_map(|x| x.as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 /// What happens when the API refuses the request outright.
@@ -235,6 +260,7 @@ impl Client {
                 .as_str()
                 .unwrap_or("Main Page")
                 .to_string(),
+            tenant: ts["tenant"].as_str().unwrap_or_default().to_string(),
             at_farm: ts["at_farm"].as_bool().unwrap_or(false),
             account_approval: ts["account"]["approval"].as_bool().unwrap_or(false),
             login_issuers: crate::issuers::login_issuers(ts),
@@ -242,12 +268,13 @@ impl Client {
         Ok(Fetched { value, cache })
     }
 
-    /// `meta=userinfo&uiprop=options`: who the viewer is, and their preferences.
+    /// `meta=userinfo&uiprop=options|rights|groups`: who the viewer is, their preferences,
+    /// and what they may do.
     pub async fn userinfo(&self, incoming: &Incoming) -> Result<Fetched<UserInfo>, ClientError> {
         let r = self
             .get(
                 incoming,
-                "/w/api.php?action=query&meta=userinfo&uiprop=options|accountrequests&format=json&formatversion=2",
+                "/w/api.php?action=query&meta=userinfo&uiprop=options|accountrequests|rights|groups&format=json&formatversion=2",
             )
             .await?;
         let v = check(&r)?;
@@ -263,6 +290,8 @@ impl Client {
             anon,
             options: u["options"].as_object().cloned().unwrap_or_default(),
             account_requests: u["accountrequests"].as_u64(),
+            rights: strings(&u["rights"]),
+            groups: strings(&u["groups"]),
         };
         Ok(Fetched {
             value,

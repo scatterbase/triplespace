@@ -101,7 +101,8 @@ async fn info_of(ctx: &Ctx, site: &Site, page: &PageAsk) -> Result<Map<String, V
 /// target set (a namespace, a set, the tenant), which MediaWiki uses for cascading
 /// protection. Only restrictions the caller already passed are listed, since the page was
 /// resolved for it: a confidential `read` names the group the caller is in. A deletion's
-/// `read` is not a protection and is left out.
+/// `read` is not a protection and is left out; a confidential `read` that took the talk page
+/// carries `ts-talk` (0056 A24).
 async fn protection_of(ctx: &Ctx, page: &PageAsk) -> Result<Value, ApiError> {
     use scatter_actors::acl::{READ, ReadKind, Target};
     let tenant = &ctx.tenant.slug;
@@ -141,6 +142,9 @@ async fn protection_of(ctx: &Ctx, page: &PageAsk) -> Result<Value, ApiError> {
             });
             if acl.target != own {
                 e["source"] = json!(acl.target.key());
+            } else if permission == READ && acl.talk {
+                // The restriction took the talk page with it (0056 A24).
+                e["ts-talk"] = json!(true);
             }
             out.push(e);
         }
@@ -158,6 +162,46 @@ pub async fn info(ctx: &Ctx, query: &mut Map<String, Value>) -> Result<(), ApiEr
     let mut infos = Vec::new();
     for p in &set.pages {
         infos.push(info_of(ctx, &site, p).await?);
+    }
+    // A title with no page may still be restricted (`create`, `read`: 09 §4.8), and a
+    // reserved one already is: `inprop=protection` says so, as the Protect form needs.
+    if ctx.params.list("inprop").iter().any(|p| p == "protection") {
+        for m in &mut set.missing {
+            let Value::Object(entry) = m else { continue };
+            if !entry.contains_key("missing") || !entry.contains_key("title") {
+                continue;
+            }
+            entry.insert("restrictiontypes".into(), json!(["create", "read"]));
+            let ns = entry["ns"].as_i64().unwrap_or(0);
+            let prefixed = entry["title"].as_str().unwrap_or_default();
+            let text = crate::pages::resolve_title(&site, prefixed).map(|t| t.text);
+            let reserved = match (i32::try_from(ns), text) {
+                (Ok(ns), Some(text)) => triplespace_projections::acl_read::reservation(
+                    ctx.db(),
+                    &ctx.tenant.slug,
+                    ns,
+                    &text,
+                )
+                .await
+                .map_err(ApiError::internal)?,
+                _ => None,
+            };
+            let protection = match reserved {
+                Some(id) => {
+                    let ask = PageAsk {
+                        id: None,
+                        doc: None,
+                        page_id: id,
+                        ns,
+                        title: prefixed.to_string(),
+                        only_revid: None,
+                    };
+                    protection_of(ctx, &ask).await?
+                }
+                None => json!([]),
+            };
+            entry.insert("protection".into(), protection);
+        }
     }
     merge_pages(query, &mut set, infos, v2);
     Ok(())

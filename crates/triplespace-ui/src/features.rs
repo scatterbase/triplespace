@@ -37,6 +37,12 @@ pub enum Feature {
     /// `Special:WikiSettings`, `Special:InstanceSettings` and `Special:Tenancy`
     /// (`GET /settings`).
     Settings,
+    /// The Protect form and `Special:ProtectedPages` (`action=protect`; 09 §4.5).
+    Protect,
+    /// `Special:UserRights` (`action=userrights`; 09 §3.3).
+    UserRights,
+    /// `Special:Block` and `Special:Unblock` (`action=block`; 09 §3.3).
+    Block,
 }
 
 impl Feature {
@@ -56,6 +62,9 @@ impl Feature {
             Self::Version => "version",
             Self::Preferences => "preferences",
             Self::Settings => "settings",
+            Self::Protect => "protect",
+            Self::UserRights => "userrights",
+            Self::Block => "block",
         }
     }
 }
@@ -73,6 +82,9 @@ pub const BUILT: &[Feature] = &[
     Feature::Version,
     Feature::Preferences,
     Feature::Settings,
+    Feature::Protect,
+    Feature::UserRights,
+    Feature::Block,
 ];
 
 /// What the site offers on one request.

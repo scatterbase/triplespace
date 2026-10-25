@@ -33,7 +33,7 @@ use crate::i18n::{self, Messages};
 use crate::routes::{self, Target};
 use crate::theme::Theme;
 use crate::{MIN_API_VERSION, Site, assets};
-use crate::{document, entity, home, special};
+use crate::{document, entity, home, moderation, special};
 
 /// The connection address, when the server was started with `ConnectInfo`.
 pub type Peer = Option<Extension<ConnectInfo<SocketAddr>>>;
@@ -108,9 +108,28 @@ pub struct Context {
     pub prefs: Option<serde_json::Map<String, serde_json::Value>>,
     /// The open account requests, where the viewer reviews them (0087 §6).
     pub account_requests: Option<u64>,
+    /// A signed-in viewer's tenant-wide rights (`uiprop=rights`): what decides whether
+    /// Protect, Block or `Special:UserRights` are offered. Empty for a reader.
+    pub rights: Vec<String>,
+    /// A signed-in viewer's groups (`uiprop=groups`), for the lock-out note of the
+    /// Protect form (09 §4.5).
+    pub groups: Vec<String>,
 }
 
 impl Context {
+    /// Whether the page's tabs offer **Protect**: the viewer holds `protect` and the
+    /// API serves the form (09 §4.5).
+    #[must_use]
+    pub fn may_protect(&self) -> bool {
+        self.holds("protect") && self.features.has(Feature::Protect)
+    }
+
+    /// Whether the viewer holds a right tenant-wide.
+    #[must_use]
+    pub fn holds(&self, right: &str) -> bool {
+        self.rights.iter().any(|r| r == right)
+    }
+
     /// What the frame needs of the site.
     #[must_use]
     pub fn chrome(&self) -> Chrome<'_> {
@@ -162,6 +181,8 @@ pub async fn context(
     let mut inputs = vec![si.cache.clone()];
     let mut prefs = None;
     let mut account_requests = None;
+    let mut rights = Vec::new();
+    let mut groups = Vec::new();
     let user = match ui {
         Some(ui) => {
             let ui = ui.map_err(|e| unavailable(incoming, &e, "ts-api-unavailable"))?;
@@ -172,6 +193,8 @@ pub async fn context(
                 inputs.push(CacheInfo::default());
                 prefs = Some(ui.value.options.clone());
                 account_requests = ui.value.account_requests;
+                rights.clone_from(&ui.value.rights);
+                groups.clone_from(&ui.value.groups);
             }
             (!ui.value.anon).then_some(ui.value.name)
         }
@@ -202,6 +225,8 @@ pub async fn context(
         features,
         prefs,
         account_requests,
+        rights,
+        groups,
     })
 }
 
@@ -553,6 +578,17 @@ async fn dispatch(
     params: &Params,
 ) -> Response {
     let query = &params.map;
+    if query.get("action").is_some_and(|a| a == "protect")
+        && !title.is_empty()
+        && special::name_of(&title).is_none()
+    {
+        let incoming = incoming(headers, peer);
+        let cx = match context(site, &incoming, query).await {
+            Ok(cx) => cx,
+            Err(r) => return r,
+        };
+        return moderation::serve(site, headers, &incoming, cx, title, params).await;
+    }
     if entity::is_entity_title(&title) {
         return entity::serve(site, headers, peer, title, query).await;
     }
@@ -628,6 +664,17 @@ async fn dispatch_post(
     form: &Params,
 ) -> Response {
     let action = query.get("action").or_else(|| form.map.get("action"));
+    if !title.is_empty()
+        && special::name_of(title).is_none()
+        && action.is_some_and(|a| a == "protect")
+    {
+        let incoming = incoming(headers, peer);
+        let cx = match context(site, &incoming, query).await {
+            Ok(cx) => cx,
+            Err(r) => return r,
+        };
+        return moderation::post(site, headers, &incoming, cx, title.to_string(), form).await;
+    }
     if !title.is_empty()
         && special::name_of(title).is_none()
         && !entity::is_entity_title(title)

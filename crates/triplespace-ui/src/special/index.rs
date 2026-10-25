@@ -41,6 +41,24 @@ pub const PAGES: &[(&str, &str, &str, Feature)] = &[
         Feature::Register,
     ),
     (
+        "Special:UserRights",
+        "ts-userrights-title",
+        "ts-specialpages-userrights",
+        Feature::UserRights,
+    ),
+    (
+        "Special:ProtectedPages",
+        "ts-protectedpages-title",
+        "ts-specialpages-protectedpages",
+        Feature::Protect,
+    ),
+    (
+        "Special:Block",
+        "ts-block-title",
+        "ts-specialpages-block",
+        Feature::Block,
+    ),
+    (
         "Special:NewItem",
         "ts-newitem-title",
         "ts-specialpages-newitem",
