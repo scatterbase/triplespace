@@ -10,7 +10,9 @@
 # psql, and a Python with `requests` (PYTHON overrides python3; requirements-compat.txt has
 # it). Everything the run creates lives in a temporary directory removed on exit.
 # SECTIONS limits the run (`SECTIONS=leaks,positive`; `acl_check.py --list` names them);
-# KEEP_DB=1 leaves the database.
+# KEEP_DB=1 leaves the database. BENCH=1 runs tools/hidden_set_bench.py on the same setup
+# instead of the battery (BENCH_ARGS passes its options; build with --release and set
+# BIN=target/release for figures worth recording).
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -77,8 +79,15 @@ curl -sf -o /dev/null "$api/w/api.php?action=query&meta=siteinfo&format=json" ||
 	exit 1
 }
 
-step "attack battery"
 export HOME="$work/home"
 mkdir -p "$HOME"
+if [ -n "${BENCH:-}" ]; then
+	step "hidden-set benchmark"
+	# shellcheck disable=SC2086
+	"$python" "$here/hidden_set_bench.py" --api "$api" --owner-password-file "$work/owner.pw" \
+		--db "$url" ${BENCH_ARGS:-}
+	exit 0
+fi
+step "attack battery"
 "$python" "$here/acl_check.py" --api "$api" --tenant $tenant --owner-password-file "$work/owner.pw" \
 	--cli "$bin/triplespace" --db "$url" ${SECTIONS:+--sections "$SECTIONS"}

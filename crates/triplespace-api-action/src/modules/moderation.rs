@@ -12,9 +12,11 @@
 //!   provider's to moderate (`ts-not-supported`).
 //! - **`action=undelete`**: `title`, `reason`, and `pageid` (ours) to choose among several
 //!   deleted pages that had the title, which is otherwise `ts-ambiguous-undelete`, listing
-//!   their IDs. The whole page; `timestamps` and `revisions` (partial undeletion) are not
-//!   served yet. A title a new page or a reservation has taken meanwhile is
-//!   `ts-title-taken`.
+//!   their IDs. `timestamps` or `revisions` name the revisions to restore (partial
+//!   undeletion, 09 §4.3): the others stay hidden under `record` ACLs to the deletion
+//!   group, written in the same transaction before the page ACL is retired, and the
+//!   `delete/restore` event lists them as `kept`. A title a new page or a reservation has
+//!   taken meanwhile is `ts-title-taken`.
 //! - **`action=protect`**: `title` or `pageid`, `protections` (`edit=autoconfirmed|move=sysop`,
 //!   `read={group}` for a confidential restriction, `{action}=all` to lift one), `expiry`
 //!   (one, or one per protection), `reason`, and `tstalk` (`1` or `0`), which takes the
@@ -23,10 +25,12 @@
 //!   new page ID (09 §4.8): a `create` there takes the ID, and is refused with
 //!   `ts-restricted-title` to anyone the ACL does not admit. `read` on a deleted page is
 //!   `ts-deleted`, and `create` on an existing one MediaWiki's `create-titleexists`.
-//! - **`action=revisiondelete`**: `type=revision` (`archive` too), `ids`, `hide` and `show`
-//!   (`content|comment|user`), `suppress` (`yes|no|nochange`), `reason`. For the revisions of
-//!   document pages and thread posts, whose text is the `text` part, and of entities, whose
-//!   change set is the `content` part.
+//! - **`action=revisiondelete`**: `type=revision` (`archive` too) with revision `ids`, or
+//!   `type=logging` with log IDs (`deletelogentry`; the event is `delete/event`, and a hidden
+//!   content part is MediaWiki's `actionhidden`); `hide` and `show` (`content|comment|user`),
+//!   `suppress` (`yes|no|nochange`), `reason`. For the revisions of document pages and
+//!   thread posts, whose text is the `text` part, and of entities, whose change set is the
+//!   `content` part. `oldimage` and `filearchive` wait on files.
 //!
 //! The deletion and suppression groups are the tenant's `moderation.delete_group` and
 //! `moderation.suppress_group`.
@@ -426,15 +430,10 @@ pub async fn delete(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
 }
 
 /// `action=undelete`.
+#[allow(clippy::too_many_lines)]
 pub async fn undelete(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     ctx.caller.check_csrf(&ctx.app, &ctx.params)?;
     ctx.caller.require_somewhere("undelete")?;
-    if ctx.params.get("timestamps").is_some() || ctx.params.get("revisions").is_some() {
-        return Err(ApiError::new(
-            "ts-not-supported",
-            "Undeleting some revisions and not others is not served yet.",
-        ));
-    }
     let site = Site::load(ctx).await?;
     let name = ctx.params.required("title")?.to_string();
     if let Some(id) = entity_of(&site, &name)? {
@@ -506,10 +505,9 @@ pub async fn undelete(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
             "A new page or a reservation has taken this title; undeleting into it is refused.",
         ));
     }
-    let (_, suppress_group) = groups(ctx).await?;
+    let (delete_group, suppress_group) = groups(ctx).await?;
     let reason = ctx.params.get("reason").unwrap_or_default().to_string();
     let target = Target::Page(page_id);
-    // Undeleting a confidential page restores its confidential restriction (09 §5.2).
     // Undeleting a confidential page restores its confidential restriction (09 §5.2),
     // with the talk page under it where the restriction took it (`talk`, kept in the
     // ACL's `confidential_talk` while deleted).
@@ -524,14 +522,194 @@ pub async fn undelete(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         }
         (!a.restrictions.is_empty()).then_some(a)
     });
-    save(ctx, target, acl, &reason, &suppress_group, None).await?;
+    // Partial undeletion (09 §4.3): the revisions named by `timestamps` or `revisions`
+    // come back; every other revision of the page stays hidden under a `record` ACL to
+    // the deletion group, written before the page ACL is retired so that the restore
+    // event can list what stays. With neither, every revision comes back.
+    let revisions = page_revisions(ctx, page_id).await?;
+    let kept: Vec<&PageRevision> = match partial_undelete(ctx, &revisions)? {
+        Some(restore) => revisions
+            .iter()
+            .filter(|r| !restore.contains(&r.revid))
+            .collect(),
+        None => Vec::new(),
+    };
+    let restored = revisions.len() - kept.len();
+    if restored == 0 {
+        return Err(ApiError::new(
+            "cantundelete",
+            "None of the named revisions is a deleted revision of this page.",
+        ));
+    }
+    let records: Vec<(Target, &str)> = kept
+        .iter()
+        .map(|r| {
+            (
+                Target::Record {
+                    partition: r.partition,
+                    offset: r.offset,
+                },
+                if r.source == "pages" {
+                    "text"
+                } else {
+                    "content"
+                },
+            )
+        })
+        .collect();
+    restore(
+        ctx,
+        target,
+        acl,
+        &records,
+        &reason,
+        (&delete_group, &suppress_group),
+    )
+    .await?;
+    ctx.cache_tags.push(format!("p:{page_id}"));
     Ok(ApiResponse::ok(json!({"undelete": {
         "title": site.prefixed(t.namespace, &t.text),
         "pageid": page_id,
-        "revisions": 0,
+        "revisions": restored,
         "fileversions": 0,
         "reason": reason,
+        "ts-kept": kept.iter().map(|r| r.revid).collect::<Vec<_>>(),
     }})))
+}
+
+/// Writes an undeletion in one transaction: a `record` ACL to the deletion group on each
+/// of `kept` (the revision's content part named beside it), then the page ACL `acl`
+/// (its remaining restrictions, or `None` to retire it).
+async fn restore(
+    ctx: &Ctx,
+    target: Target,
+    acl: Option<Acl>,
+    kept: &[(Target, &str)],
+    reason: &str,
+    (delete_group, suppress_group): (&str, &str),
+) -> Result<(), ApiError> {
+    let actor = ctx
+        .caller
+        .identity
+        .actor_key
+        .clone()
+        .ok_or_else(|| ApiError::permission_denied("undelete"))?;
+    let enclosing = enclosing(ctx, &target, None).await?;
+    let store = ctx.app.store();
+    let pipeline = ctx.app.pipeline();
+    let mut cx = store.begin().await.map_err(ApiError::internal)?;
+    let mut writes: Vec<AclWrite> = kept
+        .iter()
+        .map(|(record, content_part)| {
+            let mut a = Acl::read(record.clone(), ReadKind::Moderation, delete_group, None);
+            a.parts = vec![
+                (*content_part).to_string(),
+                "comment".into(),
+                "attestation".into(),
+            ];
+            AclWrite {
+                target: record.clone(),
+                acl: Some(a),
+                reason: reason.to_string(),
+                suppress_group: suppress_group.to_string(),
+                reserve: None,
+                enclosing: enclosing.clone(),
+            }
+        })
+        .collect();
+    writes.push(AclWrite {
+        target,
+        acl,
+        reason: reason.to_string(),
+        suppress_group: suppress_group.to_string(),
+        reserve: None,
+        enclosing,
+    });
+    for w in writes {
+        if let Err(e) = write(
+            store,
+            pipeline,
+            &mut cx,
+            &ctx.tenant.slug,
+            &actor,
+            &ctx.caller.effective,
+            w,
+            now_micros(),
+        )
+        .await
+        {
+            let _ = store.rollback(cx).await;
+            return Err(refused(e));
+        }
+    }
+    store.commit(cx).await.map_err(ApiError::internal)
+}
+
+/// A revision of a page, as a partial undeletion addresses it.
+struct PageRevision {
+    revid: u64,
+    partition: u64,
+    offset: u64,
+    source: String,
+    time: u64,
+}
+
+/// A page's revisions, oldest first: every record of the page with a revision ID.
+async fn page_revisions(ctx: &Ctx, page_id: u64) -> Result<Vec<PageRevision>, ApiError> {
+    let rows = ctx
+        .db()
+        .query(
+            "SELECT revid, partition, \"offset\", source,
+                    (EXTRACT(EPOCH FROM time) * 1000000)::bigint
+             FROM view.activity
+             WHERE tenant = $1 AND target_kind = $2 AND target_id = $3 AND revid IS NOT NULL
+             ORDER BY \"offset\"",
+            &[
+                &ctx.tenant.slug,
+                &triplespace_projections::common::target_kind::PAGE,
+                &page_id.to_string(),
+            ],
+        )
+        .await?;
+    Ok(rows
+        .iter()
+        .map(|r| PageRevision {
+            revid: u64::try_from(r.get::<_, i64>(0)).unwrap_or(0),
+            partition: r.get::<_, i64>(1).cast_unsigned(),
+            offset: u64::try_from(r.get::<_, i64>(2)).unwrap_or(0),
+            source: r.get(3),
+            time: u64::try_from(r.get::<_, i64>(4)).unwrap_or(0),
+        })
+        .collect())
+}
+
+/// The revisions `timestamps` or `revisions` name among a page's, or `None` when neither
+/// is given and the whole page comes back. A timestamp names every revision in its
+/// second, as `basetimestamp` does (`editpage`).
+fn partial_undelete(ctx: &Ctx, revisions: &[PageRevision]) -> Result<Option<Vec<u64>>, ApiError> {
+    let mut named: Vec<u64> = Vec::new();
+    let mut any = false;
+    if let Some(r) = ctx.params.get("revisions") {
+        any = true;
+        for s in r.split('|').filter(|s| !s.is_empty()) {
+            named.push(s.parse().map_err(|_| ApiError::bad_value("revisions", s))?);
+        }
+    }
+    if let Some(ts) = ctx.params.get("timestamps") {
+        any = true;
+        for s in ts.split('|').filter(|s| !s.is_empty()) {
+            let at = triplespace_projections::feed::parse_timestamp(s)
+                .ok_or_else(|| ApiError::bad_value("timestamps", s))?;
+            let second = at / 1_000_000;
+            named.extend(
+                revisions
+                    .iter()
+                    .filter(|r| r.time / 1_000_000 == second)
+                    .map(|r| r.revid),
+            );
+        }
+    }
+    Ok(any.then_some(named))
 }
 
 fn no_deleted_revisions() -> ApiError {
@@ -911,16 +1089,68 @@ async fn record_of(ctx: &Ctx, revid: u64) -> Result<Option<(u64, u64, String)>, 
     )))
 }
 
+/// The record a log ID names, for `type=logging`: a log event in any partition, which a
+/// revision-deletion hides as `delete/event` (09 §4.3). An event about a page or entity
+/// the caller may not read does not exist for it (09 §5.3), and so does one restricted to
+/// a group the caller is outside (a `suppress/*` event).
+async fn record_of_event(ctx: &Ctx, logid: u64) -> Result<Option<(u64, u64, String)>, ApiError> {
+    let l = i64::try_from(logid).unwrap_or(i64::MAX);
+    let row = ctx
+        .db()
+        .query_opt(
+            "SELECT partition, \"offset\", source, target_kind, target_id, log_type
+             FROM view.activity
+             WHERE tenant = $1 AND logid = $2 ORDER BY \"offset\" DESC LIMIT 1",
+            &[&ctx.tenant.slug, &l],
+        )
+        .await?;
+    let Some(row) = row else {
+        return Ok(None);
+    };
+    let kind = row.get::<_, Option<i16>>(3);
+    let target: Option<String> = row.get(4);
+    if kind == Some(triplespace_projections::feed::target_kind::PAGE)
+        && let Some(page) = target.as_deref().and_then(|id| id.parse::<u64>().ok())
+        && matches!(admit(ctx, page, "deletelogentry").await, Ok(Admit::Absent))
+    {
+        return Ok(None);
+    }
+    if kind == Some(triplespace_projections::feed::target_kind::ENTITY)
+        && let Some(id) = target.as_deref()
+        && matches!(
+            admit_entity(ctx, id, "deletelogentry").await,
+            Ok(Admit::Absent)
+        )
+    {
+        return Ok(None);
+    }
+    if row.get::<_, Option<String>>(5).as_deref() == Some("suppress")
+        && !ctx.caller.effective.holds("suppressrevision")
+    {
+        return Ok(None);
+    }
+    Ok(Some((
+        row.get::<_, i64>(0).cast_unsigned(),
+        u64::try_from(row.get::<_, i64>(1)).unwrap_or(0),
+        row.get::<_, String>(2),
+    )))
+}
+
 /// `action=revisiondelete`.
 #[allow(clippy::too_many_lines)]
 pub async fn revisiondelete(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     ctx.caller.check_csrf(&ctx.app, &ctx.params)?;
     let kind = ctx.params.required("type")?.to_string();
-    if !matches!(kind.as_str(), "revision" | "archive") {
+    if !matches!(kind.as_str(), "revision" | "archive" | "logging") {
+        // `oldimage` and `filearchive` wait on files (0039).
         return Err(ApiError::new(
             "ts-not-supported",
             format!("type={kind} is not served yet."),
         ));
+    }
+    let logging = kind == "logging";
+    if logging {
+        ctx.caller.require_somewhere("deletelogentry")?;
     }
     let names = |p: Option<&str>| -> Result<Vec<String>, ApiError> {
         p.unwrap_or_default()
@@ -957,8 +1187,18 @@ pub async fn revisiondelete(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         .collect::<Result<_, _>>()?;
     let mut items = Vec::new();
     for revid in ids {
-        let Some((partition, offset, source)) = record_of(ctx, revid).await? else {
-            items.push(json!({"id": revid, "status": "Fail", "errors": [{"code": "nosuchrevid"}]}));
+        let found = if logging {
+            record_of_event(ctx, revid).await?
+        } else {
+            record_of(ctx, revid).await?
+        };
+        let Some((partition, offset, source)) = found else {
+            let code = if logging {
+                "nosuchlogid"
+            } else {
+                "nosuchrevid"
+            };
+            items.push(json!({"id": revid, "status": "Fail", "errors": [{"code": code}]}));
             continue;
         };
         // The part a page's or a post's text is, or an entity change set's content.

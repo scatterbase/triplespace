@@ -320,15 +320,19 @@ pub async fn hidden<C: PgClient>(
     if h.every_page() || (h.pages.is_empty() && h.namespaces.is_empty()) {
         return Ok(h);
     }
-    // A page encloses its subpages, where its namespace has them (09 §4.4).
+    // A page encloses its subpages, where its namespace has them (09 §4.4). The subpages
+    // of each root are a range of the byte-order title index (migration 0020): `Root/` up
+    // to the character after `/`, one index scan per root, rather than a prefix test
+    // against every page.
     if !h.pages.is_empty() {
         let roots = h.page_ids();
         let subs = client
             .query(
-                "SELECT p.page_id FROM view.page p
-                 JOIN view.page r ON r.tenant = p.tenant AND r.ns = p.ns
-                  AND left(p.title, length(r.title) + 1) = r.title || '/'
-                 WHERE p.tenant = $1 AND r.page_id = ANY($2) AND r.ns = ANY($3)",
+                "SELECT p.page_id FROM view.page r
+                 JOIN view.page p ON p.tenant = r.tenant AND p.ns = r.ns
+                  AND p.title COLLATE \"C\" > (r.title || '/') COLLATE \"C\"
+                  AND p.title COLLATE \"C\" < (r.title || '0') COLLATE \"C\"
+                 WHERE r.tenant = $1 AND r.page_id = ANY($2) AND r.ns = ANY($3)",
                 &[&tenant, &roots, &subpage_namespaces()],
             )
             .await

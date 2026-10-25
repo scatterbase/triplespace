@@ -163,3 +163,49 @@ all five plus not materializing mirror terms is about overnight):
 **Next, in order:** profile the client on the 10k slice; overlap parsing and writing; decide the
 mirror-term question as an amendment to 0013/0014; then `write_many`, deferred indexes and set-based
 projections as the stage 3 work, measured against the 1M slice of [`real-dumps.md`](real-dumps.md) §3.2.
+
+## 7. The hidden set (read side)
+
+Every read on a tenant with confidential targets starts by computing what the caller may not see
+(09 §5.3; 0056 A19): one query over the tenant's confidential ACLs, then the subpages and threads
+they enclose. `tools/hidden_set_bench.py` measures it: an outsider (a non-empty set, recomputed
+every request) and a member of the group (an empty set, remembered by `pages::NothingHidden`
+until the ACL frontier moves), at 0, 200 and 1,000 confidential pages, p50/p90 of 20 requests
+after a warm-up, on a release build in the cloud sandbox (2026-10-24, `BENCH=1 BIN=target/release
+tools/acl_check.sh`).
+
+| Confidential pages | Probe | Outsider ms | Member ms |
+|---|---|---|---|
+| 0 | `prop=info`, one public page | 5.9 / 7.9 | 9.4 / 11.1 |
+| 0 | `list=recentchanges`, 50 | 6.9 / 9.7 | 13.8 / 18.2 |
+| 0 | `list=allpages`, 50 | 5.9 / 6.7 | 10.7 / 12.1 |
+| 200 | `prop=info` | 10.1 / 13.1 | 12.3 / 16.1 |
+| 200 | `list=recentchanges` | 11.8 / 13.7 | 15.3 / 17.2 |
+| 200 | `list=allpages` | 10.7 / 12.3 | 11.4 / 14.8 |
+| 1,000 | `prop=info` | 13.8 / 17.1 | 13.2 / 17.4 |
+| 1,000 | `list=recentchanges` | 19.6 / 21.4 | 22.6 / 28.5 |
+| 1,000 | `list=allpages` | 15.7 / 21.3 | 12.6 / 18.4 |
+
+The member's baseline is higher because a logged-in request evaluates the tenant's groups; the
+outsider here is anonymous. The set itself costs about 7 ms at 1,000 pages (1,000 ACL rows
+decoded, then two indexed queries), linear in the number of confidential targets.
+
+**Two fixes the measurement found**, both in the first run (1,000 pages: 160–220 ms per
+outsider request, 90–170 ms per member `recentchanges`):
+
+1. **The subpage query scanned every page per hidden root.** `left(p.title, length(r.title) + 1)
+   = r.title || '/'` cannot use an index, so 1,000 roots × 1,000 pages was 150 ms. It is now a
+   range of the title index, `Root/` up to the character after `/`, which is a prefix only in
+   byte order: migration `0020_page_title_bytes` adds `view.page (tenant, ns, title COLLATE "C")`
+   and the query compares under `COLLATE "C"`. 3 ms at 1,000 roots.
+2. **The feed's page lateral cast the key** (`x.page_id::text = a.target_id`), which scanned
+   `view.page` for every activity row the feed considered; the comparison now casts the row's
+   target instead, behind a digits guard, and uses the primary key. This was not an ACL cost at
+   all: every `recentchanges` paid it in proportion to the page count.
+
+The debug-build figures in the implementation backlog (12→34 ms, 20→58 ms at 200 pages) predate
+both fixes. **Still open:** a non-empty set is recomputed on every request; caching it needs a
+key that also moves with page and thread writes under hidden targets (the pages frontier beside
+the ACL frontier), which is the next step if a tenant with thousands of confidential pages
+appears. The feed also computes its lateral joins before sorting and limiting when the planner
+scans `view.activity` sequentially (a small table); on a large one it walks the time index.

@@ -3062,3 +3062,135 @@ async fn moves() {
     );
     let _ = &app;
 }
+
+/// Partial undeletion (09 §4.3) and hiding log events (`type=logging`).
+#[tokio::test]
+#[allow(clippy::too_many_lines, clippy::many_single_char_names)]
+async fn partial_undelete_and_hidden_events() {
+    if admin_config().is_none() {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    }
+    let (_database, app, mut alice) = instance("partial").await;
+    let mut bob = account(&alice.router, "Bob", "bob-secret-1234").await;
+    let mut mallory = account(&alice.router, "Mallory", "mallory-secret-1234").await;
+    let mut anon = Client {
+        router: alice.router.clone(),
+        cookie: None,
+    };
+    grant(&app, "Bob", "sysop").await;
+    let at = alice.csrf().await;
+    let t = enc(&at);
+    let bt = enc(&bob.csrf().await);
+    let mt = enc(&mallory.csrf().await);
+    let mut revids = Vec::new();
+    for text in ["one", "two", "three"] {
+        let r = alice
+            .api_post(&format!(
+                "action=edit&title=Project:Partial&text={text}&token={t}"
+            ))
+            .await;
+        revids.push(r["edit"]["newrevid"].as_u64().unwrap());
+    }
+    let page_id = alice
+        .api("action=query&prop=info&titles=Project:Partial")
+        .await["query"]["pages"][0]["pageid"]
+        .as_u64()
+        .unwrap();
+    alice
+        .api_post(&format!("action=delete&title=Project:Partial&token={t}"))
+        .await;
+
+    // Restore the latest revision only: the page is back, the two older revisions stay
+    // hidden, and the restore event lists them.
+    let r = alice
+        .api_post(&format!(
+            "action=undelete&title=Project:Partial&revisions={}&token={t}",
+            revids[2]
+        ))
+        .await;
+    assert_eq!(r["undelete"]["revisions"], 1, "{r}");
+    assert_eq!(
+        r["undelete"]["ts-kept"],
+        json!([revids[0], revids[1]]),
+        "{r}"
+    );
+    let i = anon
+        .api("action=query&prop=revisions&rvprop=ids|content&rvslots=main&rvlimit=10&titles=Project:Partial")
+        .await;
+    let revs = i["query"]["pages"][0]["revisions"].as_array().unwrap();
+    assert_eq!(revs.len(), 3, "{i}");
+    let find = |id: u64| revs.iter().find(|r| r["revid"] == id).cloned().unwrap();
+    assert_eq!(find(revids[0])["texthidden"], true, "{i}");
+    assert_eq!(find(revids[1])["texthidden"], true, "{i}");
+    assert!(find(revids[2]).get("texthidden").is_none(), "{i}");
+    assert!(i.to_string().contains("three"), "{i}");
+    assert!(!i.to_string().contains("\"one\""), "{i}");
+    let l = anon
+        .api("action=query&list=logevents&letype=delete&lelimit=5")
+        .await;
+    let e = &l["query"]["logevents"][0];
+    assert_eq!(e["action"], "restore", "{l}");
+    assert_eq!(e["pageid"], page_id, "{l}");
+    assert_eq!(e["params"]["kept"], json!([revids[0], revids[1]]), "{l}");
+    // The two revision-deletion events sit behind it.
+    assert_eq!(l["query"]["logevents"][1]["action"], "revision", "{l}");
+    // Naming nothing that is deleted is refused; naming a second of history works.
+    let r = alice
+        .api_post(&format!(
+            "action=undelete&title=Project:Partial&revisions=999999&token={t}"
+        ))
+        .await;
+    assert_eq!(r["error"]["code"], "cantundelete", "{r}");
+
+    // A log event is hidden by its log ID: the block's comment and action go.
+    let b = bob
+        .api_post(&format!(
+            "action=block&user=Mallory&reason=naughty&token={bt}"
+        ))
+        .await;
+    let logid = b["block"]["id"].as_u64().unwrap();
+    let r = mallory
+        .api_post(&format!(
+            "action=revisiondelete&type=logging&ids={logid}&hide=comment&token={mt}"
+        ))
+        .await;
+    assert_eq!(r["error"]["code"], "permissiondenied", "{r}");
+    let r = alice
+        .api_post(&format!(
+            "action=revisiondelete&type=logging&ids={logid}|999999&hide=comment%7Ccontent&token={t}"
+        ))
+        .await;
+    let items = r["revisiondelete"]["items"].as_array().unwrap();
+    assert_eq!(items[0]["status"], "Success", "{r}");
+    assert_eq!(items[0]["commenthidden"], true, "{r}");
+    assert_eq!(items[1]["errors"][0]["code"], "nosuchlogid", "{r}");
+    let l = anon
+        .api("action=query&list=logevents&letype=block&lelimit=5")
+        .await;
+    let e = &l["query"]["logevents"][0];
+    assert_eq!(e["actionhidden"], true, "{l}");
+    assert_eq!(e["commenthidden"], true, "{l}");
+    assert!(e.get("params").is_none(), "{l}");
+    assert!(e.get("title").is_none(), "{l}");
+    assert!(!l.to_string().contains("naughty"), "{l}");
+    let l = anon
+        .api("action=query&list=logevents&letype=delete&lelimit=1")
+        .await;
+    assert_eq!(l["query"]["logevents"][0]["action"], "event", "{l}");
+    // Shown again.
+    let r = alice
+        .api_post(&format!(
+            "action=revisiondelete&type=logging&ids={logid}&show=comment%7Ccontent&token={t}"
+        ))
+        .await;
+    assert_eq!(r["revisiondelete"]["items"][0]["status"], "Success", "{r}");
+    let l = anon
+        .api("action=query&list=logevents&letype=block&lelimit=1")
+        .await;
+    assert!(l.to_string().contains("naughty"), "{l}");
+    assert!(
+        l["query"]["logevents"][0].get("actionhidden").is_none(),
+        "{l}"
+    );
+}

@@ -593,12 +593,14 @@ fn reclaim_columns(record: &Record) -> Result<Columns, String> {
 }
 
 /// The log type and action of an ACL record: see [`acl_columns`]. `marked` is the
-/// writer's suppression mark.
+/// writer's suppression mark; `event` says a `record` target is a log event rather than a
+/// revision.
 fn acl_event(
     target: &scatter_actors::acl::Target,
     acl: Option<&scatter_actors::acl::Acl>,
     previous: Option<&scatter_actors::acl::Acl>,
     marked: bool,
+    event: bool,
 ) -> (&'static str, &'static str) {
     use scatter_actors::acl::{Acl, ReadKind, Target as AclTarget};
     let moderation = |a: &Acl| {
@@ -624,7 +626,7 @@ fn acl_event(
         ),
         (AclTarget::Record { .. }, _, Some(a)) => (
             if suppressed(a) { "suppress" } else { "delete" },
-            "revision",
+            if event { "event" } else { "revision" },
         ),
         (_, Some(a), _) if moderation(a) => {
             (if suppressed(a) { "suppress" } else { "delete" }, "delete")
@@ -673,6 +675,10 @@ async fn acl_columns(cx: &PgCx, record: &Record) -> Result<Columns, String> {
         acl.as_ref(),
         previous.as_ref(),
         crate::moderation::marked_suppression(record),
+        match &target {
+            AclTarget::Record { partition, offset } => is_event(cx, *partition, *offset).await?,
+            _ => false,
+        },
     );
     let target_columns = match &target {
         AclTarget::Page(id) => Target {
@@ -725,6 +731,13 @@ async fn acl_columns(cx: &PgCx, record: &Record) -> Result<Columns, String> {
     {
         params["of"] = serde_json::json!({"kind": kind, "id": id});
     }
+    // A restore names the revisions that stay hidden under `record` ACLs, written before
+    // it in a partial undeletion (09 §4.3).
+    if let AclTarget::Page(page) = &target
+        && (log_type, log_action) == ("delete", "restore")
+    {
+        params["kept"] = serde_json::json!(kept_hidden(cx, h.partition, *page).await?);
+    }
     Ok(Columns {
         kind: "log",
         target: target_columns,
@@ -733,6 +746,37 @@ async fn acl_columns(cx: &PgCx, record: &Record) -> Result<Columns, String> {
         params: Some(params),
         ..Columns::default()
     })
+}
+
+/// Whether a record is a log event and not a revision (a block, a membership, an ACL), so
+/// that a `record` ACL on it is `delete/event` rather than `delete/revision` (09 §4.3).
+async fn is_event(cx: &PgCx, partition: u64, offset: u64) -> Result<bool, String> {
+    match scatter_log_postgres::log::read(cx, partition, offset).await {
+        Ok(slot) => Ok(slot
+            .record()
+            .is_some_and(|r| r.header().revid.is_none() && r.header().logid.is_some())),
+        Err(scatter_log::store::StoreError::NoOffset { .. }) => Ok(false),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+/// The revisions of a page whose rows carry hidden parts: what a restore leaves under
+/// `record` ACLs.
+async fn kept_hidden(cx: &PgCx, partition: u64, page: u64) -> Result<Vec<i64>, String> {
+    let info = partition_info(cx, partition).await?;
+    Ok(cx
+        .query(
+            "SELECT revid FROM view.activity
+             WHERE tenant = $1 AND target_kind = $2 AND target_id = $3
+               AND revid IS NOT NULL AND visibility & 7 <> 0
+             ORDER BY revid",
+            &[&info.tenant, &target_kind::PAGE, &page.to_string()],
+        )
+        .await
+        .map_err(|e| sql(&e))?
+        .iter()
+        .map(|r| r.get::<_, i64>(0))
+        .collect())
 }
 
 /// A membership record as `rights/rights` (09 §3.3): public, on the account, with the
