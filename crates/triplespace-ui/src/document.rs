@@ -121,6 +121,12 @@ fn actions(
     if offered.protect {
         v.push((m.get("ts-action-protect"), format!("{base}?action=protect")));
     }
+    if offered.r#move && exists {
+        v.push((
+            m.get("ts-action-move"),
+            format!("/wiki/Special:MovePage/{}", title_url(title)),
+        ));
+    }
     if offered.delete && exists {
         v.push((m.get("ts-action-delete"), format!("{base}?action=delete")));
     }
@@ -1173,10 +1179,12 @@ mod tests {
             ModerationTabs {
                 protect: true,
                 delete: true,
+                r#move: true,
             },
         );
         assert_eq!(a[0].1, "/wiki/Project:Home?action=protect");
-        assert_eq!(a[1].1, "/wiki/Project:Home?action=delete");
+        assert_eq!(a[1].1, "/wiki/Special:MovePage/Project:Home");
+        assert_eq!(a[2].1, "/wiki/Project:Home?action=delete");
         assert_eq!(
             actions(&m, "Project:Home", true, ModerationTabs::default()).len(),
             0

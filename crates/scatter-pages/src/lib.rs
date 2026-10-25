@@ -101,6 +101,12 @@ pub enum PageOp {
         ns: i32,
         /// The new title within it.
         title: String,
+        /// The page ID of the redirect the move left at the old title, when it left one
+        /// (10 §2.5): minted before the move's record is appended, so that the move's log
+        /// event can name it. Absent on a move that left none, and on every record
+        /// written before the field existed.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        redirect: Option<u64>,
     },
 }
 
@@ -203,7 +209,7 @@ pub fn validate(op: &PageOp, text: Option<&str>) -> Result<(), Invalid> {
                 return Err(Invalid::Model(m.clone()));
             }
         }
-        PageOp::Move { ns, title } => check_title(*ns, title).map_err(Invalid::Title)?,
+        PageOp::Move { ns, title, .. } => check_title(*ns, title).map_err(Invalid::Title)?,
     }
     if op.has_text() != text.is_some() {
         return Err(Invalid::Text);
@@ -283,6 +289,7 @@ mod tests {
         let mv = PageOp::Move {
             ns: 4,
             title: "New".into(),
+            redirect: None,
         };
         assert_eq!(validate(&mv, None), Ok(()));
         assert_eq!(validate(&mv, Some("x")), Err(Invalid::Text));

@@ -205,7 +205,20 @@ pub fn mw_row(ctx: &Ctx, row: &Row, props: &[String], module: &str) -> Value {
             }),
         );
     }
-    let title = title_of(row);
+    // A move's event is titled by the title the page left, as MediaWiki's is (10 §2.5).
+    let title = match (&row.log_type, &row.params) {
+        (Some(t), Some(p)) if t == "move" => p
+            .get("ts-from-title")
+            .and_then(Value::as_str)
+            .map(|from| {
+                (
+                    p.get("ts-from-ns").and_then(Value::as_i64).unwrap_or(0),
+                    from.to_string(),
+                )
+            })
+            .or_else(|| title_of(row)),
+        _ => title_of(row),
+    };
     if (wants(props, "title") || module == "usercontribs")
         && let Some((ns, title)) = &title
     {

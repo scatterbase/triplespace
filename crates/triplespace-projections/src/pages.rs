@@ -326,7 +326,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for PageProjection {
                     rows += n;
                     current_title(cx, tenant, page_id).await?
                 }
-                PageOp::Move { ns, title } => {
+                PageOp::Move { ns, title, .. } => {
                     let n = cx
                         .execute(
                             "UPDATE view.page SET ns = $3, title = $4, latest_offset = $5, latest_revid = $6,

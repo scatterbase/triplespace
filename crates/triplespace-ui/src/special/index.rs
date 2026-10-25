@@ -77,6 +77,12 @@ pub const PAGES: &[(&str, &str, &str, Feature)] = &[
         Feature::Delete,
     ),
     (
+        "Special:MovePage",
+        "ts-move-index-title",
+        "ts-specialpages-movepage",
+        Feature::Move,
+    ),
+    (
         "Special:NewItem",
         "ts-newitem-title",
         "ts-specialpages-newitem",

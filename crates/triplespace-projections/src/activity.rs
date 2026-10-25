@@ -116,7 +116,7 @@ pub(crate) async fn own_visibility(cx: &PgCx, partition: u64, offset: u64) -> Re
         let mirror = partition_info(cx, h.partition).await?.is_mirror();
         Ok(changeset_columns(record, mirror)?.visibility)
     } else if h.payload_type == scatter_pages::PAYLOAD_PAGE {
-        Ok(page_columns(record)?.visibility)
+        Ok(page_columns(cx, record).await?.visibility)
     } else {
         Ok(0)
     }
@@ -313,7 +313,14 @@ fn changeset_columns(record: &Record, mirror: bool) -> Result<Columns, String> {
     })
 }
 
-fn page_columns(record: &Record) -> Result<Columns, String> {
+/// A page record as an activity row: an `edit` on the page, and for a `move` also the
+/// `move/move` log event (10 §2.5; 16 §2.3), whose params carry the new title as
+/// MediaWiki's do (`target_ns`, `target_title`, `suppressredirect`, with the catalogue's
+/// `noredirect` beside it), the old title under
+/// `ts-from-ns` and `ts-from-title`, and the ID of the redirect left under `ts-redirect`.
+/// The old title is the one the page's previous `create` or `move` record set: read from
+/// the page's own history, since the move record names only where the page went.
+async fn page_columns(cx: &PgCx, record: &Record) -> Result<Columns, String> {
     let page = crate::pages::PageRecord::read(record)?;
     let Some(op) = page.op else {
         return Ok(Columns {
@@ -324,6 +331,38 @@ fn page_columns(record: &Record) -> Result<Columns, String> {
     let h = record.header();
     // A page's first record is its `create`, adopted or not.
     let new = matches!(op, scatter_pages::PageOp::Create { .. });
+    let (log, params) = match &op {
+        scatter_pages::PageOp::Move {
+            ns,
+            title,
+            redirect,
+        } => {
+            let from = title_before(cx, record).await?;
+            let prefixed =
+                |ns: i32, title: &str| match scatter_titles::Namespaces::embedded().get(ns) {
+                    Some(n) if ns != 0 => format!("{}:{title}", n.canonical),
+                    _ => title.to_string(),
+                };
+            let mut params = serde_json::json!({
+                "target_ns": ns,
+                "target_title": prefixed(*ns, title),
+            });
+            if redirect.is_none() {
+                // The catalogue's name (16 §2.3) and MediaWiki's, for clients that read
+                // the latter.
+                params["noredirect"] = serde_json::Value::Bool(true);
+                params["suppressredirect"] = serde_json::Value::Bool(true);
+            } else {
+                params["ts-redirect"] = serde_json::json!(redirect);
+            }
+            if let Some((fns, ftitle)) = from {
+                params["ts-from-ns"] = serde_json::json!(fns);
+                params["ts-from-title"] = serde_json::json!(prefixed(fns, &ftitle));
+            }
+            (Some(("move", "move")), Some(params))
+        }
+        _ => (None, None),
+    };
     Ok(Columns {
         kind: "edit",
         target: Target {
@@ -340,8 +379,36 @@ fn page_columns(record: &Record) -> Result<Columns, String> {
         minor: Some(op.minor()),
         bot: op.source().map(|_| true),
         visibility: op.source().map_or(0, |s| withheld_bits(&s.withheld)),
+        log_type: log.map(|(t, _)| t.to_string()),
+        log_action: log.map(|(_, a)| a.to_string()),
+        params,
         ..Columns::default()
     })
+}
+
+/// The title a page had before one of its records: what its latest `create` or `move`
+/// before that record set, or nothing for a page whose earlier records are erased.
+async fn title_before(cx: &PgCx, record: &Record) -> Result<Option<(i32, String)>, String> {
+    let h = record.header();
+    let Some(key) = h.key.as_deref() else {
+        return Ok(None);
+    };
+    let earlier = scatter_log_postgres::log::read_by_key(cx, h.partition, key)
+        .await
+        .map_err(|e| e.to_string())?;
+    for (offset, r) in earlier.into_iter().rev() {
+        if offset >= h.offset {
+            continue;
+        }
+        if let Some(
+            scatter_pages::PageOp::Create { ns, title, .. }
+            | scatter_pages::PageOp::Move { ns, title, .. },
+        ) = crate::pages::PageRecord::read(&r)?.op
+        {
+            return Ok(Some((ns, title)));
+        }
+    }
+    Ok(None)
 }
 
 /// A thread record as an activity row (16 §6.1): an `edit` on the thread's page ID with
@@ -821,7 +888,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for ActivityProjection {
             let mut columns = if h.payload_type == PAYLOAD_CHANGESET {
                 changeset_columns(record, info.is_mirror())?
             } else if h.payload_type == scatter_pages::PAYLOAD_PAGE {
-                page_columns(record)?
+                page_columns(cx, record).await?
             } else if h.payload_type == PAYLOAD_RECLAIM {
                 reclaim_columns(record)?
             } else if h.payload_type == scatter_threads::PAYLOAD_THREAD {

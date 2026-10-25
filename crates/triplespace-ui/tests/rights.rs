@@ -40,7 +40,7 @@ fn siteinfo() -> Value {
     json!({"query": {
         "general": {"sitename": "librarybase", "server": "https://librarybase.org", "lang": "en", "mainpage": "Project:Home"},
         "triplespace": {"api_version": 1, "tenant": "librarybase",
-            "capabilities": ["wbgetentities", "clientlogin", "pages", "parse", "edit", "history", "recentchanges", "activity", "protect", "userrights", "block", "delete", "settings"]},
+            "capabilities": ["wbgetentities", "clientlogin", "pages", "parse", "edit", "history", "recentchanges", "activity", "protect", "userrights", "block", "delete", "move", "settings"]},
         "usergroups": [
             {"name": "*", "rights": ["read"], "implicit": ""},
             {"name": "user", "rights": ["read", "edit"], "implicit": ""},
@@ -55,11 +55,11 @@ fn siteinfo() -> Value {
 fn userinfo(s: Option<&str>) -> Value {
     match s {
         Some("alice") => json!({"query": {"userinfo": {"id": 7, "name": "Alice",
-            "rights": ["read", "edit", "protect", "delete", "undelete", "userrights", "block", "hideuser", "ts-config"],
+            "rights": ["read", "edit", "protect", "delete", "undelete", "userrights", "block", "hideuser", "ts-config", "move", "suppressredirect", "move-subpages"],
             "groups": ["*", "user", "owner", "board"],
             "changeablegroups": {"add": ["sysop", "board", "suppress"], "remove": ["sysop", "board", "suppress"], "add-self": ["sysop", "board", "suppress"], "remove-self": ["board"]}}}}),
         Some("bob") => json!({"query": {"userinfo": {"id": 8, "name": "Bob",
-            "rights": ["read", "edit", "protect", "delete", "block"], "groups": ["*", "user", "sysop"],
+            "rights": ["read", "edit", "protect", "delete", "block", "move"], "groups": ["*", "user", "sysop"],
             "changeablegroups": {"add": [], "remove": [], "add-self": [], "remove-self": []}}}}),
         _ => json!({"query": {"userinfo": {"id": 0, "name": "127.0.0.1", "anon": true}}}),
     }
@@ -287,6 +287,18 @@ impl FakeApi {
                 return (
                     StatusCode::OK,
                     json!({"error": {"code": "ipb_expiry_temp", "info": "indefinite only"}}),
+                );
+            }
+            if action == "move" && f.get("to").is_some_and(|t| t == "Project:Taken") {
+                return (
+                    StatusCode::OK,
+                    json!({"error": {"code": "articleexists", "info": "taken"}}),
+                );
+            }
+            if action == "move" {
+                return (
+                    StatusCode::OK,
+                    json!({"move": {"from": f["from"], "to": f["to"], "redirectcreated": true}}),
                 );
             }
             return (StatusCode::OK, json!({(action): {"result": "ok"}}));
@@ -808,4 +820,87 @@ async fn blocklist_and_log_and_undelete_index() {
     let (status, body) = get(&api, "/wiki/Special:Undelete/Project:Gone", Some("alice")).await;
     assert_eq!(status, StatusCode::OK);
     assert!(body.contains("the old text"), "{body}");
+}
+
+#[tokio::test]
+async fn the_move_form_posts_and_lands_on_the_new_title() {
+    let api = FakeApi::default();
+    // The overflow item, for a holder of `move`.
+    let (_, body) = get(&api, "/wiki/Project:Open", Some("bob")).await;
+    assert!(
+        body.contains("/wiki/Special:MovePage/Project:Open"),
+        "{body}"
+    );
+    let (_, body) = get(&api, "/wiki/Project:Open", None).await;
+    assert!(!body.contains("Special:MovePage"), "{body}");
+    // The form: the options only for their holders.
+    let (status, body) = get(&api, "/wiki/Special:MovePage/Project:Open", Some("alice")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("Move Project:Open"), "{body}");
+    assert!(
+        body.contains("name=\"to\" value=\"Project:Open\""),
+        "{body}"
+    );
+    assert!(
+        body.contains("name=\"redirect\" value=\"1\" checked"),
+        "{body}"
+    );
+    assert!(body.contains("name=\"subpages\""), "{body}");
+    let (_, body) = get(&api, "/wiki/Special:MovePage/Project:Open", Some("bob")).await;
+    assert!(!body.contains("name=\"redirect\""), "{body}");
+    assert!(!body.contains("name=\"subpages\""), "{body}");
+    let (status, body) = get(&api, "/wiki/Special:MovePage/Project:Open", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("Log in to do this."), "{body}");
+    // The post: unchecking the redirect box sends `noredirect`; the move lands on the
+    // new title.
+    let (status, headers, _) = post(
+        &api,
+        "/wiki/Special:MovePage/Project:Open",
+        "alice",
+        &[
+            ("token", "csrf-alice+\\"),
+            ("to", "Project:Opened"),
+            ("reason", "why"),
+            ("subpages", "1"),
+        ],
+    )
+    .await;
+    assert_eq!(status, StatusCode::SEE_OTHER);
+    assert!(
+        headers[header::LOCATION]
+            .to_str()
+            .unwrap()
+            .ends_with("/wiki/Project:Opened")
+    );
+    let (_, f) = last_write(&api);
+    assert_eq!(f["action"], "move");
+    assert_eq!(f["from"], "Project:Open");
+    assert_eq!(f["to"], "Project:Opened");
+    assert_eq!(f["noredirect"], "1");
+    assert_eq!(f["movesubpages"], "1");
+    // Bob cannot suppress the redirect, so an absent box means one is left.
+    post(
+        &api,
+        "/wiki/Special:MovePage/Project:Open",
+        "bob",
+        &[("token", "csrf-bob+\\"), ("to", "Project:Opened")],
+    )
+    .await;
+    assert!(!last_write(&api).1.contains_key("noredirect"));
+    // A refusal is shown over the form, with what was typed.
+    let (status, _, body) = post(
+        &api,
+        "/wiki/Special:MovePage/Project:Open",
+        "alice",
+        &[
+            ("token", "csrf-alice+\\"),
+            ("to", "Project:Taken"),
+            ("redirect", "1"),
+        ],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("already exists"), "{body}");
+    assert!(body.contains("value=\"Project:Taken\""), "{body}");
 }

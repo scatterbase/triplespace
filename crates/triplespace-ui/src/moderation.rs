@@ -522,7 +522,7 @@ pub async fn post(
 }
 
 /// A page that asks the viewer to log in, or says they lack a right.
-fn gate(
+pub(crate) fn gate(
     cx: &Context,
     headers: &HeaderMap,
     title: &str,
@@ -568,7 +568,7 @@ fn gate(
     None
 }
 
-fn reason_field(m: &Messages, id: &str, value: &str) -> String {
+pub(crate) fn reason_field(m: &Messages, id: &str, value: &str) -> String {
     format!(
         "<div class=\"cdx-field\"><div class=\"cdx-label\"><label class=\"cdx-label__label\" for=\"{id}\"><span class=\"cdx-label__label__text\">{}</span></label></div><div class=\"cdx-field__control\"><div class=\"cdx-text-input\"><input class=\"cdx-text-input__input\" type=\"text\" id=\"{id}\" name=\"reason\" value=\"{}\"></div></div></div>",
         esc(&m.get("ts-moderation-reason")),
