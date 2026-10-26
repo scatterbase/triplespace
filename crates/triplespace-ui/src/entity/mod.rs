@@ -497,6 +497,13 @@ pub async fn serve(
     if render {
         region(&r, &cx, headers, query)
     } else {
+        let watch = crate::watch::control(
+            site,
+            &cx,
+            &incoming,
+            &page_title(entity.id.as_str(), entity.entity_type.name()),
+        )
+        .await;
         page(
             &r,
             &cx,
@@ -504,6 +511,7 @@ pub async fn serve(
             query,
             history.as_ref(),
             visibility.as_ref(),
+            watch,
         )
     }
 }
@@ -563,6 +571,7 @@ fn page(
     query: &BTreeMap<String, String>,
     history: Option<&(history::Ask, triplespace_client::ActivityPage)>,
     visibility: Option<&triplespace_client::Visibility>,
+    watch: Option<crate::frame::WatchControl>,
 ) -> Response {
     let entity = r.entity;
     let canonical_title = page_title(entity.id.as_str(), entity.entity_type.name());
@@ -620,6 +629,7 @@ fn page(
         tabs,
         actions,
         body,
+        watch,
         ..Page::default()
     })
 }

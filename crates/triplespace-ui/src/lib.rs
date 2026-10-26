@@ -44,6 +44,7 @@ pub mod pages;
 pub mod routes;
 pub mod special;
 pub mod theme;
+pub mod watch;
 
 use axum::Router;
 use axum::routing::get;

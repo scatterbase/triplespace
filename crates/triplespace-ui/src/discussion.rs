@@ -33,7 +33,8 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::Response;
 use scatter_titles::Namespaces;
 use triplespace_client::{
-    CacheInfo, ClientError, Incoming, Lookup, PageInfo, PostForm, PostView, ThreadView, Written,
+    CacheInfo, ClientError, Incoming, Lookup, NewThreadOn, PageInfo, PostForm, PostView,
+    ThreadView, Written,
 };
 
 use crate::Site;
@@ -675,10 +676,36 @@ async fn talk(
         }
     }
     order(&mut threads, talk_id.unwrap_or(0), by_activity);
-    let can_add = cx.user.is_some() && subject_id.is_some() && !user_talk;
+    // A user talk page takes a topic whether or not the user page exists; the API refuses
+    // a name no account holds.
+    let can_add = cx.user.is_some() && (subject_id.is_some() || user_talk);
     let mut cookies = Vec::new();
     let mut tok = String::new();
-    if adding && can_add {
+    // Reading one's own talk page reads its messages: the orange bar goes (19 §6.2), as
+    // MediaWiki's did.
+    let own = user_talk
+        && cx
+            .user
+            .as_deref()
+            .is_some_and(|u| subject.split_once(':').is_some_and(|(_, n)| n == u));
+    if own && cx.notifications.as_ref().is_some_and(|n| n.messages > 0) {
+        match token(site, &mut cx, incoming).await {
+            Ok((t, c)) => {
+                if let Ok(triplespace_client::settings::Saved::Ok(_)) = site
+                    .client()
+                    .mark_read(incoming, None, Some("message"), &t)
+                    .await
+                    && let Some(n) = cx.notifications.as_mut()
+                {
+                    n.messages = 0;
+                }
+                tok = t;
+                cookies = c;
+            }
+            Err(e) => return pages::api_failed(&cx, headers, &e),
+        }
+    }
+    if adding && can_add && tok.is_empty() {
         match token(site, &mut cx, incoming).await {
             Ok((t, c)) => {
                 tok = t;
@@ -694,6 +721,7 @@ async fn talk(
     } else {
         StatusCode::OK
     };
+    let watch = crate::watch::control(site, &cx, incoming, &prefixed).await;
     let r = pages::respond(&cx, headers, status, |m| {
         let mut body = String::from("<div class=\"ts-talk\">");
         let pinned = threads
@@ -749,6 +777,7 @@ async fn talk(
             returnto: Some(prefixed.clone()),
             tabs: talk_tabs(m, &prefixed, &subject),
             body,
+            watch,
             ..Page::default()
         }
     });
@@ -902,6 +931,7 @@ async fn thread(
     } else {
         StatusCode::OK
     };
+    let watch = crate::watch::control(site, &cx, incoming, &format!("Thread:{}", t.title)).await;
     let r = pages::respond(&cx, headers, status, |m| {
         let mut body = String::from(
             "<div class=\"ts-thread-page\"><div class=\"ts-thread-page__head\"><dl class=\"ts-thread-page__where\">",
@@ -972,6 +1002,7 @@ async fn thread(
             returnto: Some(full),
             tabs: thread_tabs(m, &t.title),
             body,
+            watch,
             ..Page::default()
         }
     });
@@ -1030,18 +1061,25 @@ pub async fn post(
             };
             let subject = form.map.get("wpSummary").map_or("", String::as_str);
             let subject_title = subject_of(&prefixed).unwrap_or_default();
-            let subject_id = match site.client().page_info(incoming, &subject_title).await {
-                Ok(f) => match f.value {
-                    Lookup::Found(p) => p.page_id,
-                    _ => return Ok(pages::no_page(&cx, headers, prefixed)),
+            let user = subject_title
+                .split_once(':')
+                .filter(|(p, _)| p.eq_ignore_ascii_case("user"))
+                .map(|(_, name)| name.to_string());
+            let on = match &user {
+                Some(name) => NewThreadOn::User(name),
+                None => match site.client().page_info(incoming, &subject_title).await {
+                    Ok(f) => match f.value {
+                        Lookup::Found(p) => NewThreadOn::Page(p.page_id),
+                        _ => return Ok(pages::no_page(&cx, headers, prefixed)),
+                    },
+                    Err(e) => return Ok(pages::api_failed(&cx, headers, &e)),
                 },
-                Err(e) => return Ok(pages::api_failed(&cx, headers, &e)),
             };
             let w = site
                 .client()
                 .start_thread(
                     incoming,
-                    subject_id,
+                    on,
                     subject,
                     &PostForm {
                         text,

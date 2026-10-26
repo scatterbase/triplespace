@@ -533,8 +533,9 @@ fn row_html(m: &Messages, site: &SiteInfo, row: &ActivityRow, here: Option<u64>)
         None => time,
     };
     let mut s = format!(
-        "<li class=\"ts-change ts-change--{}\"><span class=\"ts-change__part\">{time}</span><span class=\"ts-change__part\">{}</span>",
+        "<li class=\"ts-change ts-change--{}{}\"><span class=\"ts-change__part\">{time}</span><span class=\"ts-change__part\">{}</span>",
         esc(&row.kind),
+        if row.unseen { " ts-change--unseen" } else { "" },
         origin_chip(m, site, row)
     );
     if row.kind == "erased" {

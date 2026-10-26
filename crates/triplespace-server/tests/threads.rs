@@ -1269,3 +1269,520 @@ async fn a_talk_pages_revisions_and_diffs_are_wikitext() {
         "{d}"
     );
 }
+
+/// A second account, signed in.
+async fn account(router: &Router, name: &str, password: &str) -> Client {
+    let mut a = Client {
+        router: router.clone(),
+        cookie: None,
+    };
+    let v = a
+        .api("action=query&meta=authmanagerinfo&amirequestsfor=create&amimergerequestfields=1")
+        .await;
+    let challenge = v["query"]["authmanagerinfo"]["fields"]["tschallengeid"]["value"]
+        .as_str()
+        .map(|id| {
+            let bits = scatter_challenge::Challenge::parse(id).unwrap().bits;
+            format!(
+                "&tschallengeid={}&tschallengesolution={}",
+                enc(id),
+                scatter_challenge::solve(id, bits)
+            )
+        })
+        .unwrap_or_default();
+    let token = a.api("action=query&meta=tokens&type=createaccount").await["query"]["tokens"]
+        ["createaccounttoken"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let r = a
+        .api_post(&format!(
+            "action=createaccount&username={}&password={}&retype={}&createtoken={}&createreturnurl=https://{HOST}/{challenge}",
+            enc(name),
+            enc(password),
+            enc(password),
+            enc(&token)
+        ))
+        .await;
+    assert_eq!(r["createaccount"]["status"], "PASS", "{r}");
+    let token = a.api("action=query&meta=tokens&type=login").await["query"]["tokens"]["logintoken"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let cl = a
+        .api_post(&format!(
+            "action=clientlogin&username={}&password={}&logintoken={}&loginreturnurl=https://{HOST}/",
+            enc(name),
+            enc(password),
+            enc(&token)
+        ))
+        .await;
+    assert_eq!(cl["clientlogin"]["status"], "PASS", "{cl}");
+    a
+}
+
+/// One account's notifications as `(ts-reason, section, thread subject, agent)`, newest
+/// first, and the unread counts by section.
+async fn inbox(c: &mut Client) -> (Vec<(String, String, String, String)>, Value) {
+    let n = c
+        .api("action=query&meta=notifications&notprop=list%7Ccount&notgroupbysection=1&notlimit=50")
+        .await;
+    let n = &n["query"]["notifications"];
+    let mut items: Vec<(i64, (String, String, String, String))> = Vec::new();
+    for s in ["alert", "message"] {
+        // The instance's making Alice owner is no thread's.
+        for i in n[s]["list"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|i| i["ts-reason"] != "rights")
+        {
+            items.push((
+                i["id"].as_i64().unwrap(),
+                (
+                    i["ts-reason"].as_str().unwrap().to_string(),
+                    i["section"].as_str().unwrap().to_string(),
+                    i["ts-thread"]["subject"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                    i["agent"]["name"].as_str().unwrap_or_default().to_string(),
+                ),
+            ));
+        }
+    }
+    items.sort_by_key(|(id, _)| -id);
+    let counts = json!({"alert": n["alert"]["rawcount"], "message": n["message"]["rawcount"]});
+    (items.into_iter().map(|(_, i)| i).collect(), counts)
+}
+
+fn note(
+    reason: &str,
+    section: &str,
+    subject: &str,
+    agent: &str,
+) -> (String, String, String, String) {
+    (reason.into(), section.into(), subject.into(), agent.into())
+}
+
+/// Thread notifications (0019 §8; 16 §5.2; 0021 A20): `talk` on a user talk page, `reply`,
+/// `mention` (and an edit's new mentions only), `thread-status`, one notification per
+/// account per record, nothing of one's own acts, and what the reader may no longer see
+/// leaving the inbox and its counts: a post hidden by revision deletion, a thread deleted.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn thread_notifications() {
+    if admin_config().is_none() {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    }
+    let (mut alice, at, page) = signed_in("notify").await;
+    let mut bob = account(&alice.router, "Bob", "bob-secret-1234").await;
+    let mut carol = account(&alice.router, "Carol", "carol-secret-1234").await;
+    let bt = bob.csrf().await;
+    let ct = carol.csrf().await;
+    let r = alice
+        .api_post(&format!("action=echomarkread&all=1&token={}", enc(&at)))
+        .await;
+    assert_eq!(r["echomarkread"]["rawcount"], 0, "{r}");
+
+    // Bob starts a topic on Alice's user talk page by her name, mentioning Carol, himself
+    // and nobody.
+    let r = bob
+        .rest(
+            "POST",
+            "/thread",
+            Some(json!({
+                "subject": "Your edits",
+                "target": {"kind": "actor", "name": "Alice"},
+                "text": "Hello. [[User:Carol]] saw them too; so did [[User:Bob|I]] and [[User:Nobody]].",
+                "token": bt,
+            })),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::CREATED, "{}", r.body);
+    let talk_thread = r.body["thread"].as_u64().unwrap();
+    let opening = r.body["revid"].as_u64().unwrap();
+    let r = bob
+        .rest(
+            "POST",
+            "/thread",
+            Some(json!({"subject": "x", "target": {"kind": "actor", "name": "Nobody"}, "text": "Hi", "token": bt})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::NOT_FOUND, "{}", r.body);
+    assert_eq!(r.body["code"], "ts-no-target", "{}", r.body);
+
+    let (items, counts) = inbox(&mut alice).await;
+    assert_eq!(
+        items,
+        vec![note("talk", "message", "Your edits", "Bob")],
+        "{items:?}"
+    );
+    assert_eq!(counts, json!({"alert": 0, "message": 1}));
+    let (items, _) = inbox(&mut carol).await;
+    assert_eq!(items, vec![note("mention", "alert", "Your edits", "Bob")]);
+    assert!(inbox(&mut bob).await.0.is_empty(), "nothing of his own");
+
+    // Alice answers Bob on her own talk page: Bob has a reply, Alice nothing.
+    let r = alice
+        .rest(
+            "POST",
+            &format!("/thread/{talk_thread}/post"),
+            Some(json!({"inReplyTo": opening, "text": "Thanks, [[User:Bob]].", "token": at})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    let (items, _) = inbox(&mut bob).await;
+    assert_eq!(
+        items,
+        vec![note("reply", "alert", "Your edits", "Alice")],
+        "one per record: {items:?}"
+    );
+    assert_eq!(inbox(&mut alice).await.0.len(), 1);
+
+    // Carol posts there too: Alice's talk, and Bob nothing (a top-level post answers no one).
+    let r = carol
+        .rest(
+            "POST",
+            &format!("/thread/{talk_thread}/post"),
+            Some(json!({"text": "Agreed.", "token": ct})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    let carols = r.body["revid"].as_u64().unwrap();
+    let (items, counts) = inbox(&mut alice).await;
+    assert_eq!(
+        items,
+        vec![
+            note("talk", "message", "Your edits", "Carol"),
+            note("talk", "message", "Your edits", "Bob")
+        ]
+    );
+    assert_eq!(counts, json!({"alert": 0, "message": 2}));
+    assert_eq!(inbox(&mut bob).await.0.len(), 1);
+
+    // Bob's thread on a page's talk page, closed by Carol's answer to him: thread-status,
+    // the first reason that applies, not also a reply.
+    let r = bob
+        .rest(
+            "POST",
+            "/thread",
+            Some(json!({"subject": "Scope question", "target": {"kind": "page", "id": page}, "text": "Is this in scope?", "token": bt})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::CREATED, "{}", r.body);
+    let scope_thread = r.body["thread"].as_u64().unwrap();
+    let question = r.body["revid"].as_u64().unwrap();
+    let scope_title = r.body["title"].as_str().unwrap().to_string();
+    let r = carol
+        .rest(
+            "POST",
+            &format!("/thread/{scope_thread}/post"),
+            Some(json!({"inReplyTo": question, "text": "Yes.", "status": "resolved", "token": ct})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    let (items, _) = inbox(&mut bob).await;
+    assert_eq!(
+        items[0],
+        note("thread-status", "alert", "Scope question", "Carol")
+    );
+    assert_eq!(items.len(), 2);
+    // Resolving again is not a move from open to closed: nothing more.
+    let r = alice
+        .rest(
+            "POST",
+            &format!("/thread/{scope_thread}/post"),
+            Some(json!({"text": "Closing for good.", "status": "resolved", "token": at})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    assert_eq!(inbox(&mut bob).await.0.len(), 2);
+
+    // An edit notifies only the mentions it adds.
+    let base = thread_base(&mut bob, talk_thread).await;
+    let r = bob
+        .rest(
+            "PUT",
+            &format!("/thread/{talk_thread}/post/{opening}"),
+            Some(json!({"text": "Hello. [[User:Carol]] saw them; so did [[User:Alice]].", "base": base, "token": bt})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    assert_eq!(
+        inbox(&mut carol).await.0.len(),
+        1,
+        "Carol was mentioned before"
+    );
+    // Alice owns the talk page, but an edit is not a new post there: a mention.
+    let (items, counts) = inbox(&mut alice).await;
+    assert_eq!(items[0], note("mention", "alert", "Your edits", "Bob"));
+    assert_eq!(counts, json!({"alert": 1, "message": 2}));
+
+    // A hidden post leaves every inbox it reached, and the counts.
+    let r = alice
+        .api_post(&format!(
+            "action=revisiondelete&type=revision&ids={carols}&hide=content&reason=Test&token={}",
+            enc(&at)
+        ))
+        .await;
+    assert!(r.get("error").is_none(), "{r}");
+    let (items, counts) = inbox(&mut alice).await;
+    assert_eq!(items.len(), 2, "{items:?}");
+    assert!(!items.contains(&note("talk", "message", "Your edits", "Carol")));
+    assert_eq!(counts, json!({"alert": 1, "message": 1}));
+
+    // A deleted thread leaves the inbox of whoever may no longer read it.
+    let r = alice
+        .api_post(&format!(
+            "action=delete&title={}&token={}",
+            enc(&format!("Thread:{scope_title}")),
+            enc(&at)
+        ))
+        .await;
+    assert!(r.get("error").is_none(), "{r}");
+    let (items, counts) = inbox(&mut bob).await;
+    assert_eq!(
+        items,
+        vec![note("reply", "alert", "Your edits", "Alice")],
+        "{items:?}"
+    );
+    assert_eq!(counts, json!({"alert": 1, "message": 0}));
+
+    // Reading the orange bar's messages: `echomarkread` narrowed to messages.
+    let r = alice
+        .api_post(&format!(
+            "action=echomarkread&all=1&sections=message&token={}",
+            enc(&at)
+        ))
+        .await;
+    assert_eq!(r["echomarkread"]["message"]["rawcount"], 0, "{r}");
+    assert_eq!(r["echomarkread"]["alert"]["rawcount"], 1, "{r}");
+}
+
+/// One account's notifications as `(ts-reason, title)`, newest first.
+async fn reasons(c: &mut Client) -> Vec<(String, String)> {
+    let n = c
+        .api("action=query&meta=notifications&notprop=list&notlimit=50")
+        .await;
+    n["query"]["notifications"]["list"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|i| i["ts-reason"] != "rights")
+        .map(|i| {
+            (
+                i["ts-reason"].as_str().unwrap().to_string(),
+                i["title"]["full"].as_str().unwrap_or_default().to_string(),
+            )
+        })
+        .collect()
+}
+
+/// The watch set (0020 §3, §5; 16 §4.2–4.3; 0021 A21): `action=watch` with expiry and
+/// `tsnotify`, a talk page watched as its subject, a title watched before its page
+/// exists, `prop=info` `watched` and `notificationtimestamp`, `list=watchlist` and
+/// `list=watchlistraw`, `setnotificationtimestamp`, auto-watch on writes and the
+/// `watchlist` parameter, the REST routes, and `watch` notifications for threads and pages.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn the_watch_set() {
+    if admin_config().is_none() {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    }
+    let (mut alice, at, page) = signed_in("watch").await;
+    let mut bob = account(&alice.router, "Bob", "bob-secret-1234").await;
+    let bt = bob.csrf().await;
+    let awt =
+        alice.api("action=query&meta=tokens&type=watch").await["query"]["tokens"]["watchtoken"]
+            .as_str()
+            .unwrap()
+            .to_string();
+
+    // Alice watches the talk page, which is watching its subject, and asks to be notified.
+    let r = alice
+        .api_post(&format!(
+            "action=watch&titles=Project%20talk:Scope&tsnotify=1&token={}",
+            enc(&awt)
+        ))
+        .await;
+    assert_eq!(r["watch"][0]["watched"], true, "{r}");
+    assert_eq!(r["watch"][0]["watchlistexpiry"], "infinity", "{r}");
+    let info = alice
+        .api("action=query&prop=info&titles=Project:Scope&inprop=watched%7Cnotificationtimestamp")
+        .await;
+    let p = &info["query"]["pages"][0];
+    assert_eq!(p["watched"], true, "{info}");
+    assert_eq!(p["ts-notify"], true, "{info}");
+    assert_eq!(p["notificationtimestamp"], "", "{info}");
+    // A title with no page yet, with an expiry.
+    let r = alice
+        .api_post(&format!(
+            "action=watch&titles=Project:Later&expiry=1%20week&tsnotify=1&token={}",
+            enc(&awt)
+        ))
+        .await;
+    assert!(
+        r["watch"][0]["watchlistexpiry"]
+            .as_str()
+            .unwrap()
+            .starts_with("20"),
+        "{r}"
+    );
+    let r = alice
+        .api_post(&format!(
+            "action=watch&titles=Special:Nothing&token={}",
+            enc(&awt)
+        ))
+        .await;
+    assert_eq!(r["watch"][0]["invalid"], true, "{r}");
+
+    // Bob starts a thread on the talk page: Alice is notified, and Bob watches the thread
+    // by his auto-watch preference.
+    let r = bob
+        .rest(
+            "POST",
+            "/thread",
+            Some(json!({"subject": "Scope again", "target": {"kind": "page", "id": page}, "text": "A question.", "token": bt})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::CREATED, "{}", r.body);
+    let thread_title = format!("Thread:{}", r.body["title"].as_str().unwrap());
+    assert_eq!(
+        reasons(&mut alice).await,
+        vec![("watch".to_string(), thread_title.clone())]
+    );
+    let raw = bob.api("action=query&list=watchlistraw").await;
+    let titles: Vec<&str> = raw["watchlistraw"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|w| w["title"].as_str().unwrap())
+        .collect();
+    assert_eq!(titles, vec![thread_title.as_str()], "{raw}");
+
+    // Alice's watchlist has the thread's row, not yet seen; her own edits are seen.
+    let wl = alice
+        .api("action=query&list=watchlist&wlprop=title%7Cnotificationtimestamp%7Cuser")
+        .await;
+    let rows = wl["query"]["watchlist"].as_array().unwrap();
+    let row = rows
+        .iter()
+        .find(|r| r["title"] == thread_title.as_str())
+        .unwrap_or_else(|| panic!("{wl}"));
+    assert_ne!(row["notificationtimestamp"], "", "{wl}");
+    let info = alice
+        .api("action=query&prop=info&titles=Project:Scope&inprop=notificationtimestamp")
+        .await;
+    assert_ne!(
+        info["query"]["pages"][0]["notificationtimestamp"], "",
+        "{info}"
+    );
+    let r = alice
+        .api_post(&format!(
+            "action=setnotificationtimestamp&entirewatchlist=1&token={}",
+            enc(&at)
+        ))
+        .await;
+    assert!(r.get("error").is_none(), "{r}");
+    let info = alice
+        .api("action=query&prop=info&titles=Project:Scope&inprop=notificationtimestamp")
+        .await;
+    assert_eq!(
+        info["query"]["pages"][0]["notificationtimestamp"], "",
+        "{info}"
+    );
+
+    // A page edit by Bob reaches Alice's watch on the page; her own does not.
+    let r = bob
+        .api_post(&format!(
+            "action=edit&title=Project:Scope&text=Wider.&watchlist=nochange&token={}",
+            enc(&bt)
+        ))
+        .await;
+    assert_eq!(r["edit"]["result"], "Success", "{r}");
+    assert!(
+        r["edit"].get("watched").is_none(),
+        "nochange leaves Bob unwatched: {r}"
+    );
+    alice
+        .api_post(&format!(
+            "action=edit&title=Project:Scope&text=Wider still.&token={}",
+            enc(&at)
+        ))
+        .await;
+    let got = reasons(&mut alice).await;
+    assert_eq!(got.len(), 2, "{got:?}");
+    assert_eq!(
+        got[0],
+        ("watch".to_string(), "Library Base:Scope".to_string())
+    );
+
+    // Bob creates the page Alice watched before it existed; he watches it (autowatch.create).
+    let r = bob
+        .api_post(&format!(
+            "action=edit&title=Project:Later&text=Now.&token={}",
+            enc(&bt)
+        ))
+        .await;
+    assert_eq!(r["edit"]["watched"], true, "{r}");
+    let got = reasons(&mut alice).await;
+    assert_eq!(
+        got[0],
+        ("watch".to_string(), "Library Base:Later".to_string()),
+        "{got:?}"
+    );
+
+    // REST: the list, a change of notify, and unwatching.
+    let r = alice.rest("GET", "/watchlist", None).await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    let titles: Vec<&str> = r.body["watches"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|w| w["title"].as_str())
+        .collect();
+    assert!(
+        titles.contains(&"Library Base:Scope") && titles.contains(&"Library Base:Later"),
+        "{}",
+        r.body
+    );
+    let r = alice
+        .rest(
+            "PUT",
+            &format!("/watchlist/page/{page}"),
+            Some(json!({"notify": false, "token": at})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    assert_eq!(r.body["notify"], false, "{}", r.body);
+    bob.api_post(&format!(
+        "action=edit&title=Project:Scope&text=Narrower.&token={}",
+        enc(&bt)
+    ))
+    .await;
+    assert_eq!(reasons(&mut alice).await.len(), 3, "notify is off");
+    let r = alice
+        .api_post(&format!(
+            "action=watch&titles=Project:Scope&unwatch=1&token={}",
+            enc(&awt)
+        ))
+        .await;
+    assert_eq!(r["watch"][0]["unwatched"], true, "{r}");
+    let info = alice
+        .api("action=query&prop=info&titles=Project:Scope&inprop=watched")
+        .await;
+    assert_eq!(info["query"]["pages"][0]["watched"], false, "{info}");
+    let r = alice.rest("GET", "/watchlist", None).await;
+    assert_eq!(r.body["watches"].as_array().unwrap().len(), 1, "{}", r.body);
+
+    // Not logged in: no watchlist.
+    let mut anon = Client {
+        router: alice.router.clone(),
+        cookie: None,
+    };
+    let r = anon.api("action=query&list=watchlist").await;
+    assert_eq!(r["error"]["code"], "notloggedin", "{r}");
+}

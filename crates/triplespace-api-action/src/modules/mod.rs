@@ -21,4 +21,5 @@ pub mod query;
 pub mod revisions;
 pub mod search;
 pub mod userrights;
+pub mod watch;
 pub mod write;

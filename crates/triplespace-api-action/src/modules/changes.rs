@@ -18,6 +18,10 @@
 //!   `lecontinue`. `leprovider` (a provider's events from `view.entity_history`) waits
 //!   for that table.
 //!
+//! - **`watchlist`**: the watched set ([`crate::watching`]): `wltype`, `wluser`,
+//!   `wlexcludeuser`, `wlshow`, `wlprop` with `notificationtimestamp`, `wlallrev`,
+//!   `wlstart`, `wlend`, `wldir`, `wllimit`, `wlcontinue`. Mirror syncs are in it.
+//!
 //! Continuation tokens are the feed's cursors (compat §2.6): a client returns the
 //! `continue` object unchanged.
 
@@ -40,6 +44,7 @@ enum Module {
     RecentChanges,
     UserContribs,
     LogEvents,
+    Watchlist,
 }
 
 impl Module {
@@ -48,6 +53,7 @@ impl Module {
             Self::RecentChanges => "recentchanges",
             Self::UserContribs => "usercontribs",
             Self::LogEvents => "logevents",
+            Self::Watchlist => "watchlist",
         }
     }
 
@@ -56,6 +62,7 @@ impl Module {
             Self::RecentChanges => "rc",
             Self::UserContribs => "uc",
             Self::LogEvents => "le",
+            Self::Watchlist => "wl",
         }
     }
 
@@ -63,6 +70,7 @@ impl Module {
         match self {
             Self::RecentChanges => &["title", "timestamp", "ids"],
             Self::UserContribs => &["ids", "title", "timestamp", "comment", "size", "flags"],
+            Self::Watchlist => &["ids", "title", "flags"],
             Self::LogEvents => &[
                 "ids",
                 "title",
@@ -319,6 +327,7 @@ async fn run(
             }
             feed.filters.kinds = vec!["edit".into()];
         }
+        Module::Watchlist => {}
         Module::LogEvents => {
             feed.filters.kinds = vec!["log".into(), "job".into()];
             // A thread record that is also a log event is an `edit` row with a log ID.
@@ -346,15 +355,86 @@ async fn run(
             }
         }
     }
+    let mut holding = None;
+    if module == Module::Watchlist {
+        let holder = watch_holder(ctx)?;
+        let (watches, x) = crate::watching::watch_set(ctx, &holder).await?;
+        feed.set = crate::watching::target_set(&x);
+        // Mirror syncs are on for a watchlist (16 §4.2).
+        feed.filters.kinds = vec!["edit".into(), "log".into(), "job".into(), "sync".into()];
+        let types = ctx.params.list("wltype");
+        if !types.is_empty() {
+            let mut kinds = Vec::new();
+            for t in &types {
+                match t.as_str() {
+                    "edit" | "new" => kinds.push("edit".to_string()),
+                    "log" => {
+                        kinds.push("log".to_string());
+                        kinds.push("job".to_string());
+                    }
+                    "categorize" | "external" => {}
+                    other => return Err(ApiError::bad_value("wltype", other)),
+                }
+            }
+            if types.iter().all(|t| t == "new") {
+                feed.filters.new = Flag::Only;
+            }
+            kinds.sort();
+            kinds.dedup();
+            feed.filters.kinds = kinds;
+        }
+        if let Some(u) = ctx.params.get("wluser") {
+            feed.filters.actor = Some(actor_key_of(ctx, u).await?.unwrap_or_else(|| u.to_string()));
+        }
+        holding = Some((holder, watches, x));
+    }
     let props = common(ctx, module, &mut feed).await?;
     let page = feed::query(ctx.db(), &ctx.tenant.slug, &feed, &viewer(ctx).await?)
         .await
         .map_err(ApiError::internal)?;
-    let rows: Vec<Value> = page
-        .rows
-        .iter()
-        .map(|r| mw_row(ctx, r, &props, module.name()))
-        .collect();
+    let mut rows: Vec<Value> = Vec::with_capacity(page.rows.len());
+    let all_revisions = ctx.params.flag("wlallrev");
+    let mut targets_seen: Vec<(Option<i16>, Option<String>)> = Vec::new();
+    for r in &page.rows {
+        let Some((holder, watches, x)) = &holding else {
+            rows.push(mw_row(ctx, r, &props, module.name()));
+            continue;
+        };
+        // Without `wlallrev`, a page shows its newest change only, as MediaWiki's does
+        // (within each page of results).
+        let key = (r.target.kind, r.target.id.clone());
+        if !all_revisions && targets_seen.contains(&key) {
+            continue;
+        }
+        targets_seen.push(key);
+        let mut row = mw_row(ctx, r, &props, "recentchanges");
+        if let Value::Object(m) = &mut row {
+            m.remove("rcid");
+            if props.iter().any(|p| p == "notificationtimestamp") {
+                let unseen = match (r.target.kind, r.target.id.as_deref()) {
+                    (Some(k), Some(id)) => crate::watching::unseen(
+                        watches,
+                        x,
+                        k,
+                        id,
+                        i64::try_from(r.time).unwrap_or(i64::MAX),
+                        r.actor.key.as_deref(),
+                        holder,
+                    ),
+                    _ => false,
+                };
+                m.insert(
+                    "notificationtimestamp".into(),
+                    json!(if unseen {
+                        crate::entity_json::iso8601(r.time)
+                    } else {
+                        String::new()
+                    }),
+                );
+            }
+        }
+        rows.push(row);
+    }
     query.insert(module.name().into(), Value::Array(rows));
     continuation(body, p, page.next);
     Ok(())
@@ -398,6 +478,39 @@ async fn log_target(ctx: &Ctx, title: &str) -> Result<Option<TargetSet>, ApiErro
         kind: target_kind::PAGE,
         id: id.to_string(),
     }))
+}
+
+/// The caller whose watch set a watchlist module reads: themselves, logged in and holding
+/// `viewmywatchlist`. Another account's, by `wlowner` and `wltoken`, waits for the token.
+pub(crate) fn watch_holder(ctx: &Ctx) -> Result<String, ApiError> {
+    let Some(holder) = ctx.caller.identity.actor_key.clone() else {
+        return Err(ApiError::new(
+            "notloggedin",
+            "You must be logged in to have a watchlist.",
+        ));
+    };
+    for p in ["wlowner", "wrowner"] {
+        if ctx.params.get(p).is_some() {
+            return Err(ApiError::new(
+                "ts-not-supported",
+                "Reading another account's watchlist by its token is not served yet.",
+            ));
+        }
+    }
+    ctx.caller.require("viewmywatchlist")?;
+    Ok(holder)
+}
+
+/// `list=watchlist`: the caller's watch set as a feed (16 §4.2–4.3): MediaWiki's
+/// parameters with the `wl` prefix, `wlprop=notificationtimestamp` for a change the holder
+/// has not seen, and `wlallrev`.
+pub async fn watchlist(
+    ctx: &Ctx,
+    query: &mut Map<String, Value>,
+    body: &mut Map<String, Value>,
+    response: &mut ApiResponse,
+) -> Result<(), ApiError> {
+    run(ctx, Module::Watchlist, query, body, response).await
 }
 
 /// `list=recentchanges`.

@@ -3,7 +3,10 @@
 //! tabs), the page's body and the footer. Each part of the header shows only where its
 //! feature is offered ([`Features`]).
 //!
-//! The notifications bell comes with the inbox (0021 §6), which is not in Phase 0.
+//! A signed-in viewer's header has the notifications **bell** (19 §6.2): a link to
+//! `Special:Notifications` with the unread count, marked while something unread is newer
+//! than their last look; and while a `talk` notification is unread, the **orange bar**
+//! above the page's title says that they have a new message, until they read it.
 
 use askama::Template;
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
@@ -82,6 +85,23 @@ pub struct Page {
     pub body: String,
     /// What the search box already holds.
     pub search: String,
+    /// The star and its **Watch for…** menu, for a signed-in viewer ([`crate::watch`]).
+    pub watch: Option<WatchControl>,
+}
+
+/// The viewer's watch of the page shown, and the token its forms post.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct WatchControl {
+    /// The title the forms post to.
+    pub title: String,
+    /// Whether the viewer watches it.
+    pub watched: bool,
+    /// When the watch lapses, ISO 8601.
+    pub expires: Option<String>,
+    /// Notify me.
+    pub notify: bool,
+    /// A `watch` token.
+    pub token: String,
 }
 
 /// What the frame needs of the site.
@@ -98,6 +118,19 @@ pub struct Chrome<'a> {
     pub prefs: Option<&'a serde_json::Map<String, serde_json::Value>>,
     /// The open account requests, where the viewer reviews them (0087 §6).
     pub account_requests: Option<u64>,
+    /// A signed-in viewer's unread notifications, where the site shows them (19 §6.2).
+    pub notifications: Option<&'a triplespace_client::Counts>,
+}
+
+/// The bell (19 §6.2).
+#[derive(Debug)]
+struct Bell {
+    /// The count shown: empty for none, `99+` past 99.
+    count: String,
+    /// Its accessible name, with the count in words.
+    label: String,
+    /// Whether something unread is newer than the viewer's last look.
+    unseen: bool,
 }
 
 /// The frame.
@@ -132,6 +165,115 @@ pub struct Frame<'a> {
     html_attrs: String,
     appearance: String,
     appearance_data: String,
+    bell: Option<Bell>,
+    orange_bar: Option<String>,
+    watch: String,
+}
+
+/// The star and its **Watch for…** menu (19 §6.2), as forms that work without JavaScript.
+fn watch_html(m: &Messages, w: &WatchControl) -> String {
+    use crate::html::esc;
+    use std::fmt::Write as _;
+    let action = |a: &str| format!("/w/index.php?title={}&amp;action={a}", title_url(&w.title));
+    let token = format!(
+        "<input type=\"hidden\" name=\"wpEditToken\" value=\"{}\">",
+        esc(&w.token)
+    );
+    let (star_action, star_label, path) = if w.watched {
+        (
+            "unwatch",
+            m.get("ts-unwatch"),
+            "M20 7h-7L10 0 7 7H0l5.46 5.47-1.64 7 6.18-3.7 6.18 3.73-1.63-7z",
+        )
+    } else {
+        (
+            "watch",
+            m.get("ts-watch"),
+            "M20 7h-7L10 0 7 7H0l5.46 5.47-1.64 7 6.18-3.7 6.18 3.73-1.63-7zm-10 6.9-3.58 2.15.95-4.07-3.17-3.17h4.14L10 5.15l1.66 3.66h4.14l-3.17 3.17.95 4.07z",
+        )
+    };
+    let mut out = format!(
+        "<div class=\"ts-watch\"><form class=\"ts-watch__star\" method=\"post\" action=\"{}\">{token}<button class=\"cdx-button cdx-button--weight-quiet{}\" type=\"submit\"><svg class=\"ts-watch__icon\" xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 20 20\" aria-hidden=\"true\" focusable=\"false\"><path d=\"{path}\"/></svg>{}</button></form>",
+        action(star_action),
+        if w.watched { " ts-watch--on" } else { "" },
+        esc(&star_label),
+    );
+    let _ = write!(
+        out,
+        "<details class=\"ts-menu ts-watch__more\"><summary class=\"cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--weight-quiet\">{}</summary><form class=\"ts-menu__items ts-watch__panel\" method=\"post\" action=\"{}\">{token}<input type=\"hidden\" name=\"notifyfield\" value=\"1\"><fieldset class=\"cdx-field\"><legend class=\"cdx-label\"><span class=\"cdx-label__label__text\">{}</span></legend>",
+        esc(&m.get("ts-watch-for")),
+        action("watch"),
+        esc(&m.get("ts-watch-legend")),
+    );
+    for (i, (span, key)) in crate::watch::SPANS.iter().enumerate() {
+        let checked = if i == 0 {
+            w.expires.is_none() || !w.watched
+        } else {
+            false
+        };
+        let _ = write!(
+            out,
+            "<span class=\"cdx-radio\"><span class=\"cdx-radio__wrapper\"><input class=\"cdx-radio__input\" type=\"radio\" id=\"ts-watch-span-{i}\" name=\"expiry\" value=\"{span}\"{}><span class=\"cdx-radio__icon\"></span><span class=\"cdx-radio__label cdx-label\"><label class=\"cdx-label__label\" for=\"ts-watch-span-{i}\"><span class=\"cdx-label__label__text\">{}</span></label></span></span></span>",
+            if checked { " checked" } else { "" },
+            esc(&m.get(key)),
+        );
+    }
+    let _ = write!(
+        out,
+        "</fieldset><span class=\"cdx-checkbox\"><span class=\"cdx-checkbox__wrapper\"><input class=\"cdx-checkbox__input\" type=\"checkbox\" id=\"ts-watch-notify\" name=\"notify\" value=\"1\"{}><span class=\"cdx-checkbox__icon\"></span><span class=\"cdx-checkbox__label cdx-label\"><label class=\"cdx-label__label\" for=\"ts-watch-notify\"><span class=\"cdx-label__label__text\">{}</span></label></span></span></span><button class=\"cdx-button cdx-button--action-progressive cdx-button--weight-primary\" type=\"submit\">{}</button></form></details>",
+        if w.notify { " checked" } else { "" },
+        esc(&m.get("ts-watch-notify")),
+        esc(&m.get("ts-watch-save")),
+    );
+    if w.watched
+        && let Some(e) = &w.expires
+    {
+        let _ = write!(
+            out,
+            "<span class=\"ts-watch__until\">{}</span>",
+            esc(&m.with("ts-watch-until", &[&crate::special::changes::date(m, e)]))
+        );
+    }
+    out.push_str("</div>");
+    out
+}
+
+/// The bell and the orange bar for a viewer's counts.
+fn notices(
+    m: &Messages,
+    counts: Option<&triplespace_client::Counts>,
+    user_talk: Option<&str>,
+) -> (Option<Bell>, Option<String>) {
+    let Some(c) = counts else {
+        return (None, None);
+    };
+    let n = c.unread();
+    let count = match n {
+        0 => String::new(),
+        n if n > 99 => "99+".to_string(),
+        n => n.to_string(),
+    };
+    let label = if n == 0 {
+        m.get("ts-bell")
+    } else {
+        m.with("ts-bell-unread", &[&count])
+    };
+    let bell = Bell {
+        count,
+        label,
+        unseen: c.unseen(),
+    };
+    let bar = (c.messages > 0).then(|| {
+        let link = user_talk.map_or_else(String::new, |t| {
+            format!(
+                "<a href=\"/wiki/{}\">{}</a>",
+                title_url(t),
+                crate::html::esc(&m.get("ts-orange-bar-link"))
+            )
+        });
+        crate::html::esc(&m.get("ts-orange-bar")).replace("$1", &link)
+    });
+    (Some(bell), bar)
 }
 
 /// Renders a page in the frame.
@@ -172,6 +314,12 @@ pub fn render(
             items.push((
                 m.get("ts-account-userpage"),
                 format!("/wiki/User:{}", title_url(name)),
+            ));
+        }
+        if f.has(Feature::Watchlist) {
+            items.push((
+                m.get("ts-watchlist-title"),
+                "/wiki/Special:Watchlist".to_string(),
             ));
         }
         if f.has(Feature::Account) {
@@ -239,6 +387,10 @@ pub fn render(
     };
     let palette = theme.chosen(Sheet::Palette, pref("ui.palette"));
     let typeset = theme.chosen(Sheet::Typeset, pref("ui.typeset"));
+    let user_talk = user.map(|u| format!("User talk:{u}"));
+    let (bell, orange_bar) = notices(m, chrome.notifications, user_talk.as_deref());
+    // The orange bar is not drawn on the page it points to.
+    let orange_bar = orange_bar.filter(|_| user_talk.as_deref() != Some(page.title.as_str()));
     let entries = assets::entries();
     let css = if m.dir() == "rtl" {
         entries.css_rtl.as_deref()
@@ -274,6 +426,13 @@ pub fn render(
         html_attrs,
         appearance,
         appearance_data,
+        bell: bell.filter(|_| user.is_some()),
+        orange_bar: orange_bar.filter(|_| user.is_some()),
+        watch: page
+            .watch
+            .as_ref()
+            .filter(|_| user.is_some())
+            .map_or_else(String::new, |w| watch_html(m, w)),
     }
     .render()
 }
@@ -322,6 +481,7 @@ mod tests {
             features,
             prefs: None,
             account_requests: None,
+            notifications: None,
         }
     }
 
@@ -355,6 +515,45 @@ mod tests {
         let html = render(&m, &chrome(&f), &Theme::shipped(), Some("A <b> C"), &page()).unwrap();
         assert!(html.contains("A &#60;b&#62; C"));
         assert!(!html.contains("Special:UserLogin"));
+    }
+
+    #[test]
+    fn the_bell_and_the_orange_bar() {
+        let m = Messages::for_language("en");
+        let f = all();
+        let mut counts = triplespace_client::Counts {
+            alerts: 2,
+            messages: 1,
+            newest_unread: Some("2026-10-25T10:00:00Z".into()),
+            seen: Some("2026-10-24T10:00:00Z".into()),
+        };
+        let mut c = chrome(&f);
+        c.notifications = Some(&counts);
+        let html = render(&m, &c, &Theme::shipped(), Some("Alice"), &page()).unwrap();
+        assert!(html.contains("ts-bell ts-bell--unseen"), "{html}");
+        assert!(html.contains("aria-label=\"Notifications (3 unread)\""));
+        assert!(html.contains("<span class=\"ts-bell__count\" aria-hidden=\"true\">3</span>"));
+        assert!(html.contains(
+            "You have a new message on <a href=\"/wiki/User_talk:Alice\">your talk page</a>."
+        ));
+        // Not on the talk page itself, and gone once the message is read.
+        let mut on_talk = page();
+        on_talk.title = "User talk:Alice".into();
+        let html = render(&m, &c, &Theme::shipped(), Some("Alice"), &on_talk).unwrap();
+        assert!(!html.contains("ts-orange-bar"));
+        counts.messages = 0;
+        counts.alerts = 0;
+        counts.seen.clone_from(&counts.newest_unread);
+        let mut c = chrome(&f);
+        c.notifications = Some(&counts);
+        let html = render(&m, &c, &Theme::shipped(), Some("Alice"), &page()).unwrap();
+        assert!(!html.contains("ts-orange-bar"));
+        assert!(!html.contains("ts-bell--unseen"));
+        assert!(!html.contains("ts-bell__count"));
+        assert!(html.contains("aria-label=\"Notifications\""));
+        // Nobody signed in: no bell.
+        let html = render(&m, &c, &Theme::shipped(), None, &page()).unwrap();
+        assert!(!html.contains("ts-bell"));
     }
 
     #[test]

@@ -10,7 +10,7 @@
 //! - A post keeps the markup it was written in; markdown is not converted. An imported post
 //!   already carries its signature, and a heading post is a heading at its level.
 //! - What the viewer may not see is written as MediaWiki writes it: `(comment removed)` for
-//!   hidden or erased text, `(username removed)` for a hidden author.
+//!   hidden or erased text, `(username removed)` for a hidden author or a hidden name.
 //!
 //! The text is read-only: it is a serialization for `prop=revisions` and `action=compare`,
 //! never a page source. The content model stays `triplespace-talk`; the format is
@@ -84,7 +84,7 @@ fn signature(names: &Names<'_>, author: Option<&str>, published: Option<&str>) -
 fn thread_text<S: BuildHasher>(
     names: &Names<'_>,
     thread: &Value,
-    authors: &HashMap<String, String, S>,
+    authors: &HashMap<String, Option<String>, S>,
 ) -> String {
     let mut out = format!("== {} ==\n", thread["subject"].as_str().unwrap_or_default());
     for p in thread["posts"].as_array().into_iter().flatten() {
@@ -108,7 +108,10 @@ fn thread_text<S: BuildHasher>(
         if !imported {
             let author = p["attributedTo"]
                 .as_str()
-                .map(|k| authors.get(k).map_or(k, String::as_str));
+                .and_then(|k| match authors.get(k) {
+                    Some(name) => name.as_deref(),
+                    None => Some(k),
+                });
             let sig = signature(names, author, p["published"].as_str());
             if let Some(last) = lines.last_mut() {
                 if last.trim_start_matches(':').is_empty() {
@@ -132,7 +135,7 @@ fn thread_text<S: BuildHasher>(
 pub fn render<S: BuildHasher>(
     names: &Names<'_>,
     threads: &[Value],
-    authors: &HashMap<String, String, S>,
+    authors: &HashMap<String, Option<String>, S>,
 ) -> String {
     threads
         .iter()
@@ -218,7 +221,7 @@ pub async fn text_at(
         .flat_map(|b| b["posts"].as_array().cloned().unwrap_or_default())
         .filter_map(|p| p["attributedTo"].as_str().map(str::to_string))
         .collect();
-    let authors = crate::thread_html::names(db, tenant, &keys).await?;
+    let authors = crate::thread_html::names(db, tenant, who, &keys).await?;
     let site = Site::load_for(db, tenant).await?;
     let ns = |n: i32| site.prefixed(n, "x").trim_end_matches(":x").to_string();
     let (user, user_talk) = (ns(2), ns(3));
@@ -243,9 +246,9 @@ mod tests {
             user: "User",
             user_talk: "User talk",
         };
-        let authors: HashMap<String, String> = [
-            ("lb:7".to_string(), "Alice".to_string()),
-            ("lb:8".to_string(), "Bob".to_string()),
+        let authors: HashMap<String, Option<String>> = [
+            ("lb:7".to_string(), Some("Alice".to_string())),
+            ("lb:8".to_string(), Some("Bob".to_string())),
         ]
         .into_iter()
         .collect();

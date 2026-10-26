@@ -154,6 +154,19 @@ async fn save(
         None => edit::operations(None, after),
     };
     let saved = edit::commit(ctx, &ops, meta, subject.before.as_ref()).await?;
+    // The write is committed; the watch follows it (16 §4.3).
+    if let Some(actor) = ctx.caller.identity.actor_key.clone() {
+        let auto = if subject.before.is_none() {
+            crate::watching::Auto::Create
+        } else {
+            crate::watching::Auto::Edit
+        };
+        let target = (
+            triplespace_accounts::watch::kind::ENTITY,
+            subject.id.to_string(),
+        );
+        crate::watching::after_write(ctx, &actor, &target, auto).await?;
+    }
     let now = edit::current(ctx, &subject.id).await?;
     let lastrevid = saved
         .lastrevid
@@ -223,6 +236,15 @@ pub async fn run(ctx: &mut Ctx, action: &str) -> Result<ApiResponse, ApiError> {
         ));
     }
     let meta = EditMeta::from_params(ctx)?;
+    // Wikibase's `watchlist`, checked before anything is written (16 §4.3).
+    if let Some(w) = ctx.params.get("watchlist")
+        && !matches!(w, "watch" | "unwatch" | "preferences" | "nochange")
+    {
+        return Err(ApiError::bad_value("watchlist", w));
+    }
+    if let Some(e) = ctx.params.get("watchlistexpiry") {
+        super::moderation::expiry(e)?;
+    }
     match action {
         "wbeditentity" => wbeditentity(ctx, &meta).await,
         "wbcreateclaim" => wbcreateclaim(ctx, &meta).await,

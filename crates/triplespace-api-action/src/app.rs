@@ -157,9 +157,11 @@ impl App {
 
     /// Brings the asynchronous projection steps up to date (0013 §7: what the write path
     /// does not apply inline), which today is addressing ([`triplespace_notify`]). Addressing
-    /// reads only membership and block records, which live in `actors` partitions, so only
-    /// those are replayed; every other partition's addressing position is moved to its head
-    /// in one statement. Cheap when nothing is behind: one query. Returns the records read.
+    /// reads membership and block records, in `actors` partitions; thread records, in
+    /// `pages`; and the ACL records that hide a post or delete a thread, in a tenant's
+    /// `log`. Only those partitions are replayed; every other partition's addressing
+    /// position is moved to its head in one statement. Cheap when nothing is behind: one
+    /// query. Returns the records read.
     ///
     /// # Errors
     ///
@@ -182,9 +184,10 @@ impl App {
         if behind.is_empty() {
             return Ok(0);
         }
+        let addressed = |name: &str| matches!(name, "actors" | "pages" | "log");
         let skipped: Vec<i64> = behind
             .iter()
-            .filter(|(_, name)| name != "actors")
+            .filter(|(_, name)| !addressed(name))
             .map(|(p, _)| *p)
             .collect();
         if !skipped.is_empty() {
@@ -204,7 +207,7 @@ impl App {
         let log = scatter_log_postgres::PgLog::new(&*tx);
         let mut read = 0;
         for (p, name) in &behind {
-            if name == "actors" {
+            if addressed(name) {
                 read += self
                     .pipeline()
                     .catch_up(

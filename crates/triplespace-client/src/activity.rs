@@ -177,6 +177,9 @@ pub struct ActivityRow {
     /// Links: `diff`, `history`, `job`.
     #[serde(default)]
     pub links: Map<String, Value>,
+    /// On a watchlist: a change the viewer has not seen (16 §4.3).
+    #[serde(default)]
+    pub unseen: bool,
 }
 
 /// One page of a feed.
@@ -195,6 +198,8 @@ pub struct ActivityPage {
 pub struct ActivityQuery {
     /// `{kind}:{id}`: one target's history.
     pub target: Option<String>,
+    /// A named set: `watchlist`, the viewer's watch set.
+    pub set: Option<String>,
     /// An actor's contributions, by name or key.
     pub actor: Option<String>,
     /// Row kinds; the API's default when empty.
@@ -273,6 +278,9 @@ impl ActivityQuery {
         };
         if let Some(t) = &self.target {
             push("target", t);
+        }
+        if let Some(t) = &self.set {
+            push("set", t);
         }
         if let Some(a) = &self.actor {
             push("actor", a);

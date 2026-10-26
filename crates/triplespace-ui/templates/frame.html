@@ -55,6 +55,9 @@
 				</div>
 			</details>
 			<script type="application/json" id="ts-appearance-data">{{ appearance_data|safe }}</script>
+			{%- if let Some(bell) = bell %}
+			<a class="ts-bell{% if bell.unseen %} ts-bell--unseen{% endif %}" href="/wiki/Special:Notifications" aria-label="{{ bell.label }}" title="{{ bell.label }}"><svg class="ts-bell__icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M16 7a5.38 5.38 0 0 0-4.46-4.85C11.6 1.46 11.53 0 10 0S8.4 1.46 8.46 2.15A5.38 5.38 0 0 0 4 7v6l-2 2v1h16v-1l-2-2zm-6 13a3 3 0 0 0 3-3H7a3 3 0 0 0 3 3"/></svg>{% if !bell.count.is_empty() %}<span class="ts-bell__count" aria-hidden="true">{{ bell.count }}</span>{% endif %}</a>
+			{%- endif %}
 			{%- if let Some(account) = account %}
 			{%- if account.items.is_empty() %}
 			<span class="ts-header__user">{{ account.name }}</span>
@@ -78,6 +81,9 @@
 	</div>
 </header>
 <main class="ts-page" id="content">
+	{%- if let Some(bar) = orange_bar %}
+	<div class="cdx-message cdx-message--block cdx-message--warning ts-orange-bar" role="status"><span class="cdx-message__icon"></span><div class="cdx-message__content">{{ bar|safe }}</div></div>
+	{%- endif %}
 	{%- if let Some(identity) = identity %}
 	<p class="ts-page__identity">{{ identity|safe }}</p>
 	{%- endif %}
@@ -85,11 +91,14 @@
 	{%- if let Some(sub) = subtitle %}
 	{{ sub|safe }}
 	{%- endif %}
-	{%- if !tabs.is_empty() || !actions.is_empty() %}
+	{%- if !tabs.is_empty() || !actions.is_empty() || !watch.is_empty() %}
 	<nav class="ts-tabs" aria-label="{{ m.get("ts-tabs-label") }}">
 		{%- for tab in tabs %}
 		<a class="ts-tabs__link" href="{{ tab.href }}"{% if tab.current %} aria-current="page"{% endif %}>{{ tab.label }}</a>
 		{%- endfor %}
+		{%- if !watch.is_empty() %}
+		{{ watch|safe }}
+		{%- endif %}
 		{%- if !actions.is_empty() %}
 		<details class="ts-menu ts-tabs__more">
 			<summary class="cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--weight-quiet">{{ m.get("ts-tabs-more") }}</summary>

@@ -792,7 +792,11 @@ async fn undelete_entity(ctx: &Ctx, id: &str, title: &str) -> Result<ApiResponse
 
 /// An expiry: `infinite` and its synonyms are none; a time; or, as MediaWiki's forms
 /// take it, a span from now (`1 week`, `3 days`, `2 hours`, `6 months`, `1 year`).
-pub(crate) fn expiry(text: &str) -> Result<Option<Timestamp>, ApiError> {
+///
+/// # Errors
+///
+/// `invalidexpiry` for anything else.
+pub fn expiry(text: &str) -> Result<Option<Timestamp>, ApiError> {
     match text.trim() {
         "" | "infinite" | "indefinite" | "infinity" | "never" => Ok(None),
         t => triplespace_projections::feed::parse_timestamp(t)

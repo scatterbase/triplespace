@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-22 (A15)
+- **Updated:** 2026-10-25 (A16)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0006](0006-log-integrity-and-erasure.md), [0009](0009-keyed-entity-types-and-domain.md), [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -59,7 +59,7 @@ Patrolling is the odd one out, since it restricts nothing: it is a mark that a t
 
 ### 5. What hiding does (extends 0001 §4, 0006 Context, 0015 §1; amends 0007 §4)
 
-*Changed by A14.*
+*Changed by A14, A16.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §6.3.*
 
@@ -337,3 +337,10 @@ Replaced text ([09](../architecture/09-security-and-moderation.md) §6.4, as it 
 Replaced text ([09](../architecture/09-security-and-moderation.md) §4.3, as it stood):
 
 > | Content part | The target; for each restricted permission, the group and an optional expiry; `parts` for a `record` target; the reserved title for create-protection; for a whole-page or whole-entity deletion, the flag `talk: true` when the paired talk page is deleted by the same action. A content of `null` retires the ACL |
+
+### A16. A hidden name hides the threads on the user's talk page
+
+- **Date:** 2026-10-25
+- **Source:** Direct: James, design discussion of 2026-10-25
+- **Change:** extends §5
+- **Summary:** Found by the permission battery while building thread notifications ([0021](0021-notifications.md) A20), and fixed for James to confirm: a hidden user's talk page was absent outside `suppress`, but the threads on it still named it (`home.talk_page`) and their posts named the user (`author`). The user now encloses a thread whose home is their talk page: the `actor` ACL is part of the thread's chain, so outside the group the thread reads as removed, as the page is absent; and wherever a name is hidden, a post's `author` is left out and a talk page's wikitext signs it `(username removed)`. Chapter text: [09](../architecture/09-security-and-moderation.md) §6.3.

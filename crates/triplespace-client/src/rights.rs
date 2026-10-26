@@ -270,7 +270,7 @@ fn joined(list: &[String]) -> String {
 
 impl Client {
     /// An Action API write, its refusal read from the body.
-    async fn action(
+    pub(crate) async fn action(
         &self,
         incoming: &Incoming,
         fields: &[(&str, &str)],

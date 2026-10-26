@@ -272,6 +272,17 @@
             }
           },
           {
+            "name": "set",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "watchlist"
+              ]
+            },
+            "description": "`watchlist`: the caller's watch set (architecture 16 §4.3), each row with `unseen`; needs an account and `viewmywatchlist`, and the response is private."
+          },
+          {
             "name": "actor",
             "in": "query",
             "required": false,
@@ -4223,6 +4234,282 @@
           }
         }
       }
+    },
+    "/watchlist": {
+      "get": {
+        "operationId": "getWatchlist",
+        "summary": "The caller's watch set",
+        "description": "Every watch the caller holds, with its title, expiry, notify flag and first unseen change (ADR 0020 §5; architecture 16 §4.3). A talk page is watched as its subject. Needs an account and `viewmywatchlist`; private.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The watches.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "watches"
+                  ],
+                  "properties": {
+                    "watches": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/WatchEntry"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`notloggedin` without an account; `permissiondenied` without `viewmywatchlist`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/watchlist/seen": {
+      "post": {
+        "operationId": "markWatchlistSeen",
+        "summary": "Mark changes seen",
+        "description": "The caller has seen every change, up to now, to one watched target or to all of them. Needs `editmywatchlist`.",
+        "parameters": [],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "target": {
+                    "type": "object",
+                    "required": [
+                      "kind",
+                      "id"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "entity",
+                          "page",
+                          "actor",
+                          "title"
+                        ]
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "token": {
+                    "type": "string",
+                    "description": "The CSRF token, for a session write."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "How many watches changed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "marked": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`notloggedin`, `permissiondenied` or `badtoken`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/watchlist/{kind}/{id}": {
+      "put": {
+        "operationId": "watch",
+        "summary": "Watch a target",
+        "description": "Watches a target, or changes a watch: `expires` (`infinite`, a time or a span such as `1 week`) replaces the expiry, `notify` is set when given and kept otherwise (ADR 0020 §5; ADR 0021 A21). A page the caller may not see answers as one that does not exist. Needs `editmywatchlist`.",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "entity",
+                "page",
+                "actor",
+                "title"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "An entity ID, a page ID (a talk page's watches its subject), an actor key, or a title (`Project:Scope`)."
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expires": {
+                    "type": "string"
+                  },
+                  "notify": {
+                    "type": "boolean"
+                  },
+                  "token": {
+                    "type": "string",
+                    "description": "The CSRF token, for a session write."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The watch as it stands.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchEntry"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad-target`, `invalidexpiry`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`notloggedin`, `permissiondenied` or `badtoken`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-no-target`: no such page, or one the caller may not see.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "unwatch",
+        "summary": "Stop watching a target",
+        "description": "Removes the caller's watch of a target. Needs `editmywatchlist`.",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "entity",
+                "page",
+                "actor",
+                "title"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "An entity ID, a page ID (a talk page's watches its subject), an actor key, or a title (`Project:Scope`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Whether a watch was removed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "removed": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`notloggedin`, `permissiondenied` or `badtoken`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-no-target`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -6261,7 +6548,27 @@
             "type": "string"
           },
           "target": {
-            "$ref": "#/components/schemas/ThreadTargetRef"
+            "description": "The home. A user talk page's may name the account instead of its key, `{kind: \"actor\", name}`: a registered account or a bot on the tenant; a name none holds is `ts-no-target` (ADR 0019 A30).",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ThreadTargetRef"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "kind",
+                  "name"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "actor"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                }
+              }
+            ]
           },
           "text": {
             "type": "string",
@@ -6290,6 +6597,19 @@
               "text/x-wiki"
             ],
             "description": "The post's markup. Omitted, it is the tenant's `thread.markup` (`meta=siteinfo` reports it); naming the other is `ts-bad-media-type` (architecture 14 §1.6)."
+          },
+          "watchlist": {
+            "type": "string",
+            "enum": [
+              "watch",
+              "unwatch",
+              "preferences",
+              "nochange"
+            ],
+            "description": "What the write does to the writer's watch on the thread; `preferences` (the default) follows `autowatch.thread` (architecture 16 §4.3)."
+          },
+          "watchlistexpiry": {
+            "type": "string"
           }
         }
       },
@@ -6341,6 +6661,19 @@
               "text/x-wiki"
             ],
             "description": "The post's markup. Omitted, it is the tenant's `thread.markup` (`meta=siteinfo` reports it); naming the other is `ts-bad-media-type` (architecture 14 §1.6)."
+          },
+          "watchlist": {
+            "type": "string",
+            "enum": [
+              "watch",
+              "unwatch",
+              "preferences",
+              "nochange"
+            ],
+            "description": "As for `create`, following `autowatch.post`."
+          },
+          "watchlistexpiry": {
+            "type": "string"
           }
         }
       },
@@ -7040,6 +7373,62 @@
           },
           "token": {
             "type": "string"
+          }
+        }
+      },
+      "WatchEntry": {
+        "type": "object",
+        "required": [
+          "kind",
+          "id",
+          "notify"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "entity",
+              "page",
+              "actor",
+              "title"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "description": "An entity ID, a page ID, an actor key, or `{ns}:{title}` for a title with no page."
+          },
+          "ns": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The title the watch shows as; null when the holder may not see one now."
+          },
+          "added": {
+            "type": "string"
+          },
+          "expires": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "notify": {
+            "type": "boolean",
+            "description": "Changes are delivered as `watch` notifications too (architecture 16 §5.2)."
+          },
+          "unseen": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When the first change the holder has not seen happened."
           }
         }
       }

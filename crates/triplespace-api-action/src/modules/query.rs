@@ -84,6 +84,14 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
             "logevents" => {
                 super::changes::logevents(ctx, &mut query, &mut body, &mut response).await?;
             }
+            "watchlist" => {
+                ctx.cache_class = crate::http_cache::Class::Private;
+                super::changes::watchlist(ctx, &mut query, &mut body, &mut response).await?;
+            }
+            "watchlistraw" => {
+                ctx.cache_class = crate::http_cache::Class::Private;
+                super::watch::raw(ctx, &mut body).await?;
+            }
             "allpages" => {
                 super::info::allpages(ctx, &mut query, &mut body, &mut response).await?;
             }
@@ -838,7 +846,7 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                     "tenant": slug,
                     "farm": ctx.app.config().farm.slug,
                     "search": "postgres",
-                    "capabilities": ["wbgetentities", "wbsearchentities", "wbeditentity", "statements", "terms", "login", "clientlogin", "createaccount", "bearer", "version", "recentchanges", "activity", "history", "revisions", "diff", "options", "preferences", "settings", "pages", "parse", "edit", "move", "protect", "userrights", "block", "delete"],
+                    "capabilities": ["wbgetentities", "wbsearchentities", "wbeditentity", "statements", "terms", "login", "clientlogin", "createaccount", "bearer", "version", "recentchanges", "activity", "history", "revisions", "diff", "options", "preferences", "settings", "pages", "parse", "edit", "move", "protect", "userrights", "block", "delete", "notifications", "watchlist"],
                     "providers": Registry::default_registry().providers().iter().map(|p| p.slug.clone()).collect::<Vec<_>>(),
                     "rate_limits": [],
                     "grants": scatter_actors::grant::GrantRegistry::default_registry().grants().iter().map(|g| g.name.clone()).collect::<Vec<_>>(),
@@ -995,6 +1003,8 @@ const ACTION_MODULES: &[(&str, bool)] = &[
     ("unblock", true),
     ("echomarkread", true),
     ("echomarkseen", true),
+    ("watch", true),
+    ("setnotificationtimestamp", true),
     ("wbgetentities", false),
     ("wbsearchentities", false),
     ("wbeditentity", true),
@@ -1039,6 +1049,8 @@ const QUERY_MODULES: &[(&str, &[&str])] = &[
             "protectedsets",
             "users",
             "blocks",
+            "watchlist",
+            "watchlistraw",
         ],
     ),
 ];
@@ -1587,6 +1599,18 @@ fn module_parameters(name: &str) -> Vec<Value> {
                 "contentmodel",
                 json!(["wikitext", "markdown", "json", "yaml", "text"]),
             ),
+            ("token", json!("string")),
+        ]
+        .into_iter()
+        .enumerate()
+        .map(|(i, (n, t))| Value::Object(parameter(i, n, t)))
+        .collect(),
+        "watch" => [
+            ("titles", json!("string")),
+            ("pageids", json!("integer")),
+            ("unwatch", json!("boolean")),
+            ("expiry", json!("expiry")),
+            ("tsnotify", json!("boolean")),
             ("token", json!("string")),
         ]
         .into_iter()

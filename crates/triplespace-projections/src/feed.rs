@@ -13,8 +13,10 @@
 //! type from `view.entity`, and the target's label from `view.term` in the languages
 //! asked for; each is one `LATERAL` lookup per row, bounded by the page size.
 //!
-//! What is not here yet, and where the design puts it: the *related* and *watched* sets
-//! (16 §4.2–4.3), cluster expansion of the one-target set (`cluster_member` does not
+//! The *watched* set is [`TargetSet::Watched`], expanded by [`crate::watched`].
+//!
+//! What is not here yet, and where the design puts it: the *related* set (16 §4.2),
+//! cluster expansion of the one-target set (`cluster_member` does not
 //! exist), `view.entity_history` for a mirrored entity's upstream events, the stream and
 //! Atom deliveries (16 §4.4). Each is a further target set or delivery over this query.
 
@@ -52,6 +54,14 @@ pub enum TargetSet {
     /// `move/move` whose `from_talk` is it (14 §1.3). A deleted thread's rows are left out.
     /// For any other page, its own rows.
     Talk(u64),
+    /// A watch set, expanded by [`crate::watched::expand`] (16 §4.2–4.3): the rows of these
+    /// entities and of these pages.
+    Watched {
+        /// Entity IDs.
+        entities: Vec<String>,
+        /// Page IDs, as text.
+        pages: Vec<String>,
+    },
 }
 
 /// Which way the rows run.
@@ -446,6 +456,21 @@ fn build(tenant: &str, feed: &Feed, viewer: &Viewer) -> Built {
                    OR (a.log_type = 'thread' AND a.log_action = 'detach' AND a.params->>'talk' = $n)
                    OR (a.log_type = 'move' AND a.params->>'from_talk' = $n))",
                 Box::new(id.to_string()),
+            );
+        }
+        TargetSet::Watched { entities, pages } => {
+            // One parameter for both lists, so the clause stays one `push`: entities as
+            // `e:{id}` and pages as `p:{id}`.
+            let keys: Vec<String> = entities
+                .iter()
+                .map(|e| format!("e:{e}"))
+                .chain(pages.iter().map(|p| format!("p:{p}")))
+                .collect();
+            push(
+                &mut sql,
+                "((a.target_kind = 1 AND ('e:' || a.target_id) = ANY($n))
+                  OR (a.target_kind = 2 AND ('p:' || a.target_id) = ANY($n)))",
+                Box::new(keys),
             );
         }
     }

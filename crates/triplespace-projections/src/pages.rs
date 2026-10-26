@@ -37,6 +37,9 @@ fn sql(e: &tokio_postgres::Error) -> String {
     e.to_string()
 }
 
+/// The payload type of a document page's records.
+pub const PAYLOAD: &str = PAYLOAD_PAGE;
+
 /// The `target_kind` of a link row naming a title as `{ns}:{title}`.
 pub const TARGET_TITLE: i16 = crate::common::target_kind::TITLE;
 

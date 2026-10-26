@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-09 (A17)
+- **Updated:** 2026-10-25 (A18)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0011](0011-logs.md), [0018](0018-tenants.md), [0022](0022-federation.md)
@@ -32,7 +32,7 @@ One constraint is fixed by James: **whether a user is watching something is priv
 
 ### 3. The watch set is private state, not records (extends 0007 §8, 0013 §4)
 
-*Changed by A2, A5, A11, A13, A17.*
+*Changed by A2, A5, A11, A13, A17, A18.*
 
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.3.*
 
@@ -44,7 +44,7 @@ One constraint is fixed by James: **whether a user is watching something is priv
 
 ### 5. API (extends 0012 §4 and §5)
 
-*Changed by A2, A6.*
+*Changed by A2, A6, A18.*
 
 *Current text: [18](../architecture/18-api.md) §2.3, §3.1, §3.2.*
 
@@ -270,3 +270,26 @@ Replaced text ([16](../architecture/16-logs-feeds-and-notifications.md) §4.2, a
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §3
 - **Summary:** `private.watch` gains `CREATE INDEX watch_target ON private.watch (target_kind, target_id) WHERE notify`, which exists for one reader: the addressing projection, which for every activity row must find every account that watches the row's target, its cluster members or its paired talk page with `notify` set, without scanning across accounts; the watchlist itself is read by account through the primary key. The ledger names §6; the watch table's DDL is §3's text ([16](../architecture/16-logs-feeds-and-notifications.md) §4.3), and §6's ([03](../architecture/03-storage-caches-and-search.md) §4.6) is unchanged. (REVIEW G47)
+
+### A18. The watch set, built
+
+- **Date:** 2026-10-25
+- **Source:** Direct: James, design discussion of 2026-10-25
+- **Change:** amends §3, §5
+- **Summary:** `private.watch` is built (migration `0021_watch`), with `action=watch`, `action=setnotificationtimestamp`, `prop=info` `watched` and `notificationtimestamp`, `list=watchlist`, `list=watchlistraw`, `GET /activity?set=watchlist`, the `/watchlist` routes, the `watchlist` parameter of the writes and the site's star, **Watch for…** menu, `Special:Watchlist` and `Special:EditWatchlist`. James chose: the star plus a **Watch for…** disclosure ("Star plus a 'Watch for…' menu"), the seen marks in this round, and the Atom feed with its token, and `scope` and `rows` watches, left for later. Settled in the building, for James to confirm: a row stores its target in `view.activity`'s numbering, with a new kind, `title` (`{ns}:{title}` in the subject namespace), for a title with no page yet, which covers the page once there is one; a page the watcher may not see is watched as its title, so watching it answers as watching a page to come, and a page ID they may not see is refused as missing; what a page is watched as (an entity's page and talk page as the entity; a user page, user talk page and a thread homed there as the user; a talk page as its subject); `seen` is the newest change seen, a change being unseen when newer than `seen` or the watch's addition and not the holder's own, and visiting a watched page marks it seen; `setnotificationtimestamp` only moves `seen` to now; `wlallrev` off shows a page's newest change within each page of results; the `watchlist` parameter applies to `action=edit`, Wikibase's writes and the thread routes (body fields `watchlist`, `watchlistexpiry`), not yet to `action=move`; `action=watch` takes Triplespace's `tsnotify`, and `prop=info` reports `ts-notify`. Chapter text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.3; [18](../architecture/18-api.md) §2.3, §2.4, §3.2.
+
+Replaced text ([16](../architecture/16-logs-feeds-and-notifications.md) §4.3, as it stood):
+
+> **Target kinds** are `entity`, `page`, `thread`, `actor`, `scope` and `rows`.
+
+> **`seen`** is updated when the holder reads the target or the watchlist, and drives the "changed since you last looked" mark. It is written often and matters little, which is why it lives here and not in a record.
+
+> **Serving respects the schema boundary.** `triplespace-accounts` is the only code that reads `private.watch`. It resolves the holder's watch set to a list of targets and hands that list to the activity query, which runs under the public role against `view` alone. The join happens in the query as a target-set parameter, never as a cross-schema join.
+
+Replaced text ([18](../architecture/18-api.md) §2.3, §2.4, §3.2, as it stood):
+
+> | `action=watch`, `action=unwatch` | With `expiry` | [0020](0020-change-feeds.md) §5 |
+
+> | `action=setnotificationtimestamp` | As in MediaWiki | [0020](0020-change-feeds.md) §5 |
+
+> | `GET /watchlist` | The holder's watch set with expiries | [0020](0020-change-feeds.md) §5 |

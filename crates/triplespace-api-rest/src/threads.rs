@@ -3,7 +3,10 @@
 //! ([`triplespace_api_ingest::threads`]).
 //!
 //! - `POST /thread`: `create`. Body: `subject`, `target` (`{kind: "page"|"actor", id}`),
-//!   `text`, and optionally `also`, `status`, `pinned`.
+//!   `text`, and optionally `also`, `status`, `pinned`. An actor target may name the
+//!   account instead, `{kind: "actor", name}`, which is how a client that knows a user
+//!   talk page's title starts a thread there; a name no local account holds is
+//!   `ts-no-target`.
 //! - `GET /thread/{id}`: subject, title, status, home and listings, and the posts as
 //!   `as:Note` objects in tree order, with the collapses that stand; `base`, the offset a
 //!   later write names.
@@ -61,6 +64,7 @@ use triplespace_api_action::forwarded::Origin;
 use triplespace_api_action::http_cache::{self, Class};
 use triplespace_api_action::tenant::Tenant;
 use triplespace_api_action::thread_view::target_json;
+use triplespace_api_action::watching::{Auto, after_write_with};
 use triplespace_api_ingest::threads::{PostSigner, ThreadError, ThreadWrite, write};
 use triplespace_projections::acl_read::{
     current, listing_chain, page_chain, page_scope, removed, thread_chain,
@@ -409,7 +413,7 @@ async fn signer(app: &App, tenant: &str, name: &str) -> Option<PostSigner> {
 }
 
 /// Writes one record and answers with the thread, the record and the next base.
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 async fn save(
     app: &App,
     tenant: &Tenant,
@@ -430,6 +434,26 @@ async fn save(
         Err(r) => return r,
     };
     let created = thread.is_none();
+    let watchlist = match string(body, "watchlist") {
+        Ok(w) => w,
+        Err(r) => return r,
+    };
+    let watchlist_expiry = match string(body, "watchlistexpiry") {
+        Ok(w) => w,
+        Err(r) => return r,
+    };
+    if let Some(w) = &watchlist
+        && !matches!(w.as_str(), "watch" | "unwatch" | "preferences" | "nochange")
+    {
+        return bad(format!(
+            "`watchlist` is watch, unwatch, preferences or nochange, not \"{w}\""
+        ));
+    }
+    let auto = match &op {
+        ThreadOp::Create { .. } => Some(Auto::Thread),
+        ThreadOp::Post { .. } => Some(Auto::Post),
+        _ => None,
+    };
     // The writer must be able to read the thread and every page the record names
     // (0056 §5; 09 §5.5).
     let at = Timestamp(triplespace_api_action::edit::now_micros());
@@ -477,6 +501,25 @@ async fn save(
     if let Err(e) = scatter_projection::Backend::commit(store, cx).await {
         return internal(&e);
     }
+    // The record is committed; the writer's watch on the thread follows it (16 §4.3).
+    if let Some(auto) = auto
+        && let Ok(client) = app.pool().get().await
+        && let Err(e) = after_write_with(
+            &client,
+            &tenant.slug,
+            actor,
+            &(
+                triplespace_accounts::watch::kind::PAGE,
+                out.thread.to_string(),
+            ),
+            auto,
+            watchlist.as_deref(),
+            watchlist_expiry.as_deref(),
+        )
+        .await
+    {
+        return error(StatusCode::BAD_REQUEST, &e.code, e.info);
+    }
     let title = title_of(app, &tenant.slug, out.thread).await;
     let body = json!({
         "thread": out.thread,
@@ -512,6 +555,46 @@ async fn title_of(app: &App, tenant: &str, thread: u64) -> Option<String> {
         .map(|r| r.get(0))
 }
 
+/// Replaces an actor target that names its account, `{kind: "actor", name}`, with the
+/// account's key: a registered account or a bot on the tenant.
+async fn actor_by_name(app: &App, tenant: &str, b: &mut Body) -> Result<(), Response> {
+    let Some(target) = b.get_mut("target").and_then(Value::as_object_mut) else {
+        return Ok(());
+    };
+    if target.get("kind").and_then(Value::as_str) != Some("actor") || target.contains_key("id") {
+        return Ok(());
+    }
+    let Some(name) = target
+        .get("name")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+    else {
+        return Ok(());
+    };
+    let client = app.pool().get().await.map_err(|e| internal(&e))?;
+    let key: Option<String> = client
+        .query_opt(
+            "SELECT actor_key FROM view.actor WHERE tenant = $1 AND name = $2
+               AND kind IN ('registered', 'bot')",
+            &[&tenant, &name],
+        )
+        .await
+        .map_err(|e| internal(&e))?
+        .map(|r| r.get(0));
+    match key {
+        Some(k) => {
+            target.remove("name");
+            target.insert("id".into(), Value::String(k));
+            Ok(())
+        }
+        None => Err(error(
+            StatusCode::NOT_FOUND,
+            "ts-no-target",
+            format!("no account here is named \"{name}\""),
+        )),
+    }
+}
+
 /// `POST /thread`.
 pub async fn create(
     State(app): State<App>,
@@ -524,6 +607,10 @@ pub async fn create(
             Ok(x) => x,
             Err(r) => return r,
         };
+    let mut b = b;
+    if let Err(r) = actor_by_name(&app, &tenant.slug, &mut b).await {
+        return r;
+    }
     let parsed = (|| {
         let name = required(&b, "subject")?;
         let text = required(&b, "text")?;
