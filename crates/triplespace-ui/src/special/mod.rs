@@ -23,6 +23,7 @@
 //! - [`protected`]: `Special:ProtectedPages`, the restrictions in force, the sets and the
 //!   empty-group report (09 §4.5).
 //! - [`notifications`]: `Special:Notifications`, the viewer's inbox (19 §6.2).
+//! - [`watchlist`]: `Special:Watchlist` and `Special:EditWatchlist` (19 §6.2).
 //!
 //! A special page the site does not serve is a `404`, as MediaWiki answers for a special
 //! page it does not have.
@@ -44,6 +45,7 @@ pub mod settings;
 pub mod undelete;
 pub mod userrights;
 pub mod version;
+pub mod watchlist;
 
 use std::collections::BTreeMap;
 
@@ -111,6 +113,8 @@ pub async fn serve(
         "Undelete" => Some(undelete::serve(site, headers, peer, title, params).await),
         "MovePage" => Some(movepage::serve(site, headers, peer, title, params).await),
         "Notifications" => Some(notifications::serve(site, headers, peer, params).await),
+        "Watchlist" => Some(watchlist::serve(site, headers, peer, params).await),
+        "EditWatchlist" => Some(watchlist::edit(site, headers, peer, params).await),
         _ => None,
     }
 }
@@ -160,6 +164,8 @@ pub async fn post(
         }
         "MovePage" => Some(movepage::post(site, headers, peer, title, params).await),
         "Notifications" => Some(notifications::post(site, headers, peer, params).await),
+        "Watchlist" => Some(watchlist::post(site, headers, peer, params).await),
+        "EditWatchlist" => Some(watchlist::edit_post(site, headers, peer, params).await),
         _ => None,
     }
 }

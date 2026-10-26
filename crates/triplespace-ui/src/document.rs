@@ -247,9 +247,11 @@ async fn read(
             content_html(&cx.m, &parsed)
         });
     }
+    let watch = crate::watch::control(site, &cx, incoming, &parsed.title).await;
     pages::respond(&cx, headers, StatusCode::OK, |m| Page {
         title: parsed.title.clone(),
         returnto: Some(parsed.title.clone()),
+        watch,
         identity_html: parsed.visibility.as_ref().map(|v| {
             format!(
                 "<span>{}</span>{}",

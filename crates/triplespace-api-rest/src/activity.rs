@@ -5,6 +5,9 @@
 //!
 //! - `target={kind}:{id}` — the one-target set: `entity:Q6`, `page:12`, `actor:local:7`,
 //!   `job:8`. Without it, the everything set.
+//! - `set=watchlist` — the caller's watch set (16 §4.2–4.3), each row with `unseen` when
+//!   it is a change they have not seen; mirror syncs on by default, as for a target.
+//!   Needs an account and `viewmywatchlist`; the response is private.
 //! - `actor={key or name}` — rows by one actor: contributions.
 //! - `kind=edit|sync|log|job|erased` — row kinds, several with `|`. The default is every
 //!   kind but `sync` for the everything set (16 §4.2), every kind for a target.
@@ -20,8 +23,8 @@
 //! - `continue` — the `next` token of the previous page.
 //! - `lang` — the language of the targets' labels, with `mul` and `en` as fallbacks.
 //!
-//! The response is `{"rows": [...], "next": token?}`. The *related* and *watched* sets
-//! and the stream wait for their projections (16 §4.2–4.4).
+//! The response is `{"rows": [...], "next": token?}`. The *related* set and the stream
+//! wait for their projections (16 §4.2–4.4).
 
 use std::collections::BTreeMap;
 
@@ -234,6 +237,7 @@ pub async fn handle(
 
 /// Serves a feed: the one the query names, or the `preset` target set, which
 /// `GET /entity/{id}/history` passes ([`crate::history`]).
+#[allow(clippy::too_many_lines)]
 pub(crate) async fn serve(
     app: App,
     origin: Origin,
@@ -286,6 +290,38 @@ pub(crate) async fn serve(
         cache_tags: Vec::new(),
         accept_language: None,
     };
+    // The caller's watch set (16 §4.3).
+    let mut holding = None;
+    let mut preset = preset;
+    if q.get("set").map(String::as_str) == Some("watchlist") {
+        let Some(holder) = ctx.caller.identity.actor_key.clone() else {
+            return error(
+                StatusCode::FORBIDDEN,
+                "notloggedin",
+                "a watchlist needs an account",
+            );
+        };
+        if ctx.caller.require("viewmywatchlist").is_err() {
+            return error(
+                StatusCode::FORBIDDEN,
+                "permissiondenied",
+                "reading a watchlist needs the \"viewmywatchlist\" right",
+            );
+        }
+        match triplespace_api_action::watching::watch_set(&ctx, &holder).await {
+            Ok((watches, x)) => {
+                preset = Some(triplespace_api_action::watching::target_set(&x));
+                holding = Some((holder, watches, x));
+            }
+            Err(e) => return internal(&e.info),
+        }
+    } else if let Some(s) = q.get("set") {
+        return error(
+            StatusCode::BAD_REQUEST,
+            "bad-parameter",
+            format!("\"{s}\" is not a value for set"),
+        );
+    }
     let feed = match feed_of(&ctx, q, preset).await {
         Ok(f) => f,
         Err(r) => return r,
@@ -298,10 +334,35 @@ pub(crate) async fn serve(
         Ok(p) => p,
         Err(e) => return internal(&e),
     };
-    let body = body(&ctx.tenant, &feed, &page).to_string();
+    let mut body = body(&ctx.tenant, &feed, &page);
+    if let Some((holder, watches, x)) = &holding {
+        if let Some(rows) = body["rows"].as_array_mut() {
+            for (v, r) in rows.iter_mut().zip(&page.rows) {
+                let unseen = match (r.target.kind, r.target.id.as_deref()) {
+                    (Some(k), Some(id)) => triplespace_api_action::watching::unseen(
+                        watches,
+                        x,
+                        k,
+                        id,
+                        i64::try_from(r.time).unwrap_or(i64::MAX),
+                        r.actor.key.as_deref(),
+                        holder,
+                    ),
+                    _ => false,
+                };
+                v["unseen"] = json!(unseen);
+            }
+        }
+        body["set"] = json!("watchlist");
+    }
+    let body = body.to_string();
     // A feed changes with every write, so the public form caches only briefly at L2
-    // (18 §3.1); an actor's or target's feed tags that target.
-    let class = Class::Public.permitted(method, credentialed, false, false);
+    // (18 §3.1); an actor's or target's feed tags that target. A watchlist is private.
+    let class = if holding.is_some() {
+        Class::Private
+    } else {
+        Class::Public.permitted(method, credentialed, false, false)
+    };
     let tags: Vec<String> = match &feed.set {
         TargetSet::Target { id, kind } if *kind == target_kind::ENTITY => {
             vec![format!("entity:{id}")]
@@ -334,6 +395,7 @@ fn body(tenant: &Tenant, feed: &Feed, page: &feed::Page) -> Value {
             }, "id": id}),
             TargetSet::Actor(key) => json!({"actor": key}),
             TargetSet::Talk(id) => json!({"kind": "page", "id": id.to_string(), "threads": true}),
+            TargetSet::Watched { .. } => json!("watchlist"),
         },
         "kinds": feed.filters.kinds,
         "sources": feed.filters.sources,

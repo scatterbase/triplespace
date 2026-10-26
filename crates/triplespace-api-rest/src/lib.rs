@@ -59,6 +59,7 @@ pub mod settings;
 pub mod tenancy;
 pub mod threads;
 pub mod version;
+pub mod watchlist;
 
 use axum::Router;
 use axum::routing::{delete, get, post, put};
@@ -108,6 +109,9 @@ pub const PATHS: &[&str] = &[
     "/group/{name}",
     "/acl/empty-groups",
     "/purges",
+    "/watchlist",
+    "/watchlist/seen",
+    "/watchlist/{kind}/{id}",
 ];
 
 /// The REST routes, to be merged into the server's router.
@@ -176,7 +180,13 @@ pub fn routes() -> Router<App> {
                 get(groups::get).put(groups::put).delete(groups::delete),
             )
             .route(&format!("{base}{}", PATHS[37]), get(acl::empty_groups))
-            .route(&format!("{base}{}", PATHS[38]), get(purges::list));
+            .route(&format!("{base}{}", PATHS[38]), get(purges::list))
+            .route(&format!("{base}{}", PATHS[39]), get(watchlist::list))
+            .route(&format!("{base}{}", PATHS[40]), post(watchlist::seen))
+            .route(
+                &format!("{base}{}", PATHS[41]),
+                put(watchlist::put).delete(watchlist::delete),
+            );
     }
     r
 }

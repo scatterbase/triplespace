@@ -91,11 +91,14 @@
 	{%- if let Some(sub) = subtitle %}
 	{{ sub|safe }}
 	{%- endif %}
-	{%- if !tabs.is_empty() || !actions.is_empty() %}
+	{%- if !tabs.is_empty() || !actions.is_empty() || !watch.is_empty() %}
 	<nav class="ts-tabs" aria-label="{{ m.get("ts-tabs-label") }}">
 		{%- for tab in tabs %}
 		<a class="ts-tabs__link" href="{{ tab.href }}"{% if tab.current %} aria-current="page"{% endif %}>{{ tab.label }}</a>
 		{%- endfor %}
+		{%- if !watch.is_empty() %}
+		{{ watch|safe }}
+		{%- endif %}
 		{%- if !actions.is_empty() %}
 		<details class="ts-menu ts-tabs__more">
 			<summary class="cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--weight-quiet">{{ m.get("ts-tabs-more") }}</summary>

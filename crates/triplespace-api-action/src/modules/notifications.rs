@@ -10,8 +10,8 @@
 //!   group, whether it was an addition or a removal, and the expiry). `rights` is Echo's
 //!   `user-rights`, `talk` its `edit-user-talk` and `mention` its `mention`; reasons Echo
 //!   lacks are `ts-{reason}`. As in Echo, `talk` is a message and every other reason an
-//!   alert. An item about a thread has its `title`, the `revid` of the record, and
-//!   `ts-thread`: the thread's subject and the talk page it is on.
+//!   alert. An item about a page has its `title` and the `revid` of the record; one about a
+//!   thread also `ts-thread`, the thread's subject and the talk page it is on.
 //!   `notgroupbysection` gives each section its own list and counts, as Echo does.
 //!
 //!   **What the reader may no longer see is left out** (16 §5.2; 0021 A20): an item about a
@@ -124,11 +124,11 @@ async fn visible(ctx: &Ctx, items: Vec<Item>) -> Result<Vec<Item>, ApiError> {
     let pages: std::collections::HashMap<String, Vec<(i32, i64)>> = ctx
         .db()
         .query(
-            "SELECT t.page_id, p.ns, tp.ns, tp.page_id
-             FROM view.thread t
-             JOIN view.page p ON p.tenant = t.tenant AND p.page_id = t.page_id
+            "SELECT p.page_id, p.ns, tp.ns, tp.page_id
+             FROM view.page p
+             LEFT JOIN view.thread t ON t.tenant = p.tenant AND t.page_id = p.page_id
              LEFT JOIN view.page tp ON tp.tenant = t.tenant AND tp.page_id = t.talk_page_id
-             WHERE t.tenant = $1 AND t.page_id = ANY($2)",
+             WHERE p.tenant = $1 AND p.page_id = ANY($2) AND NOT p.deleted",
             &[&ctx.tenant.slug, &ids],
         )
         .await?
@@ -161,7 +161,7 @@ async fn visible(ctx: &Ctx, items: Vec<Item>) -> Result<Vec<Item>, ApiError> {
                 *ok
             } else {
                 let ok = match id.parse::<u64>() {
-                    Ok(thread) => triplespace_projections::acl_read::thread_readable(
+                    Ok(thread) => triplespace_projections::acl_read::page_readable(
                         ctx.db(),
                         &ctx.tenant.slug,
                         &ctx.caller.effective,
@@ -214,11 +214,11 @@ async fn threads_of(
     let rows = ctx
         .db()
         .query(
-            "SELECT t.page_id, p.ns, p.title, t.subject, tp.ns, tp.title
-             FROM view.thread t
-             JOIN view.page p ON p.tenant = t.tenant AND p.page_id = t.page_id
+            "SELECT p.page_id, p.ns, p.title, t.subject, tp.ns, tp.title
+             FROM view.page p
+             LEFT JOIN view.thread t ON t.tenant = p.tenant AND t.page_id = p.page_id
              LEFT JOIN view.page tp ON tp.tenant = t.tenant AND tp.page_id = t.talk_page_id
-             WHERE t.tenant = $1 AND t.page_id = ANY($2)",
+             WHERE p.tenant = $1 AND p.page_id = ANY($2)",
             &[&ctx.tenant.slug, &ids],
         )
         .await?;
@@ -240,7 +240,7 @@ async fn threads_of(
                         "namespace-key": ns,
                         "text": title,
                     },
-                    "subject": r.get::<_, String>(3),
+                    "subject": r.get::<_, Option<String>>(3),
                     "talk": talk,
                 }),
             )
@@ -364,7 +364,9 @@ fn item_json(
         Some(target_kind::PAGE) => {
             if let Some(t) = i.target_id.as_ref().and_then(|k| threads.get(k)) {
                 v["title"] = t["title"].clone();
-                v["ts-thread"] = json!({"subject": t["subject"], "talk": t["talk"]});
+                if !t["subject"].is_null() {
+                    v["ts-thread"] = json!({"subject": t["subject"], "talk": t["talk"]});
+                }
             }
             if let Some(r) = revid {
                 v["revid"] = json!(r);

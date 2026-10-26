@@ -53,6 +53,7 @@ pub const PRIVATE_TABLES: &[(&str, Portability)] = &[
     ("binding", Portability::ReEstablished),
     ("inbox", Portability::Portable),
     ("inbox_state", Portability::Portable),
+    ("watch", Portability::Portable),
 ];
 
 /// Why the live schema disagrees with [`PRIVATE_TABLES`].
@@ -140,7 +141,7 @@ mod tests {
         assert_eq!(Portability::parse("secret"), None);
         assert_eq!(
             portable_tables(),
-            vec!["preference", "inbox", "inbox_state"]
+            vec!["preference", "inbox", "inbox_state", "watch"]
         );
     }
 }

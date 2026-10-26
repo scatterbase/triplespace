@@ -117,6 +117,15 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     let tenant = ctx.tenant.slug.clone();
     let v2 = ctx.formatversion == 2;
     let flag = || if v2 { json!(true) } else { json!("") };
+    // `watchlist` and `watchlistexpiry` are checked before anything is written.
+    if let Some(w) = ctx.params.get("watchlist")
+        && !matches!(w, "watch" | "unwatch" | "preferences" | "nochange")
+    {
+        return Err(ApiError::bad_value("watchlist", w));
+    }
+    if let Some(e) = ctx.params.get("watchlistexpiry") {
+        super::moderation::expiry(e)?;
+    }
 
     // The title.
     let (ns, title, existing) = if let Some(id) = ctx.params.get("pageid") {
@@ -249,7 +258,13 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
             edit.insert("title".into(), json!(prefixed));
             edit.insert("contentmodel".into(), json!(model));
             edit.insert("nochange".into(), flag());
-            edit.insert("watched".into(), flag());
+            if let Some(actor) = ctx.caller.identity.actor_key.clone()
+                && let Some(target) = crate::watching::target_of_page(ctx, page.page_id).await?
+                && crate::watching::after_write(ctx, &actor, &target, crate::watching::Auto::Edit)
+                    .await?
+            {
+                edit.insert("watched".into(), flag());
+            }
             return Ok(ApiResponse::ok(json!({"edit": Value::Object(edit)})));
         }
         let base = if let Some(r) = ctx.params.get("baserevid") {
@@ -393,7 +408,18 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     );
     edit.insert("newrevid".into(), json!(h.revid));
     edit.insert("newtimestamp".into(), json!(iso8601(now)));
-    edit.insert("watched".into(), flag());
+    // The write is committed; the watch follows it (16 §4.3).
+    let auto = if existing.is_none() {
+        crate::watching::Auto::Create
+    } else {
+        crate::watching::Auto::Edit
+    };
+    if let Some(p) = h.page_id
+        && let Some(target) = crate::watching::target_of_page(ctx, p).await?
+        && crate::watching::after_write(ctx, &actor, &target, auto).await?
+    {
+        edit.insert("watched".into(), flag());
+    }
     ctx.cache_tags.push(format!("p:{}", h.page_id.unwrap_or(0)));
     Ok(ApiResponse::ok(json!({"edit": Value::Object(edit)})))
 }

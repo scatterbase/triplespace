@@ -42,6 +42,7 @@ pub mod tenant;
 pub mod thread_html;
 pub mod thread_view;
 pub mod version;
+pub mod watching;
 
 pub use app::{App, Config, Mode};
 

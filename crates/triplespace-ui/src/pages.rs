@@ -729,6 +729,17 @@ async fn dispatch_post(
         }
         return no_page(&cx, headers, title.to_string());
     }
+    if let Some(a) = action.filter(|a| *a == "watch" || *a == "unwatch")
+        && !title.is_empty()
+        && special::name_of(title).is_none()
+    {
+        let incoming = incoming(headers, peer);
+        let cx = match context(site, &incoming, query).await {
+            Ok(cx) => cx,
+            Err(r) => return r,
+        };
+        return crate::watch::post(site, headers, &incoming, cx, title, a, form).await;
+    }
     if let Some(a) = action.filter(|a| *a == "addtopic" || *a == "reply")
         && !title.is_empty()
         && special::name_of(title).is_none()

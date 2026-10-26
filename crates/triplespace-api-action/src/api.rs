@@ -200,6 +200,8 @@ async fn dispatch(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         "unblock" => modules::block::unblock(ctx).await,
         "echomarkread" => modules::notifications::markread(ctx).await,
         "echomarkseen" => modules::notifications::markseen(ctx).await,
+        "watch" => modules::watch::run(ctx).await,
+        "setnotificationtimestamp" => modules::watch::setnotificationtimestamp(ctx).await,
         "paraminfo" => modules::query::paraminfo(ctx),
         "help" => Ok(ApiResponse::ok(serde_json::json!({"help": {
             "mime": "text/plain",

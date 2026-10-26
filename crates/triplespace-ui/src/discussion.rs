@@ -721,6 +721,7 @@ async fn talk(
     } else {
         StatusCode::OK
     };
+    let watch = crate::watch::control(site, &cx, incoming, &prefixed).await;
     let r = pages::respond(&cx, headers, status, |m| {
         let mut body = String::from("<div class=\"ts-talk\">");
         let pinned = threads
@@ -776,6 +777,7 @@ async fn talk(
             returnto: Some(prefixed.clone()),
             tabs: talk_tabs(m, &prefixed, &subject),
             body,
+            watch,
             ..Page::default()
         }
     });
@@ -929,6 +931,7 @@ async fn thread(
     } else {
         StatusCode::OK
     };
+    let watch = crate::watch::control(site, &cx, incoming, &format!("Thread:{}", t.title)).await;
     let r = pages::respond(&cx, headers, status, |m| {
         let mut body = String::from(
             "<div class=\"ts-thread-page\"><div class=\"ts-thread-page__head\"><dl class=\"ts-thread-page__where\">",
@@ -999,6 +1002,7 @@ async fn thread(
             returnto: Some(full),
             tabs: thread_tabs(m, &t.title),
             body,
+            watch,
             ..Page::default()
         }
     });

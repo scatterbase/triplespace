@@ -64,6 +64,7 @@ use triplespace_api_action::forwarded::Origin;
 use triplespace_api_action::http_cache::{self, Class};
 use triplespace_api_action::tenant::Tenant;
 use triplespace_api_action::thread_view::target_json;
+use triplespace_api_action::watching::{Auto, after_write_with};
 use triplespace_api_ingest::threads::{PostSigner, ThreadError, ThreadWrite, write};
 use triplespace_projections::acl_read::{
     current, listing_chain, page_chain, page_scope, removed, thread_chain,
@@ -412,7 +413,7 @@ async fn signer(app: &App, tenant: &str, name: &str) -> Option<PostSigner> {
 }
 
 /// Writes one record and answers with the thread, the record and the next base.
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 async fn save(
     app: &App,
     tenant: &Tenant,
@@ -433,6 +434,26 @@ async fn save(
         Err(r) => return r,
     };
     let created = thread.is_none();
+    let watchlist = match string(body, "watchlist") {
+        Ok(w) => w,
+        Err(r) => return r,
+    };
+    let watchlist_expiry = match string(body, "watchlistexpiry") {
+        Ok(w) => w,
+        Err(r) => return r,
+    };
+    if let Some(w) = &watchlist
+        && !matches!(w.as_str(), "watch" | "unwatch" | "preferences" | "nochange")
+    {
+        return bad(format!(
+            "`watchlist` is watch, unwatch, preferences or nochange, not \"{w}\""
+        ));
+    }
+    let auto = match &op {
+        ThreadOp::Create { .. } => Some(Auto::Thread),
+        ThreadOp::Post { .. } => Some(Auto::Post),
+        _ => None,
+    };
     // The writer must be able to read the thread and every page the record names
     // (0056 §5; 09 §5.5).
     let at = Timestamp(triplespace_api_action::edit::now_micros());
@@ -479,6 +500,25 @@ async fn save(
     };
     if let Err(e) = scatter_projection::Backend::commit(store, cx).await {
         return internal(&e);
+    }
+    // The record is committed; the writer's watch on the thread follows it (16 §4.3).
+    if let Some(auto) = auto
+        && let Ok(client) = app.pool().get().await
+        && let Err(e) = after_write_with(
+            &client,
+            &tenant.slug,
+            actor,
+            &(
+                triplespace_accounts::watch::kind::PAGE,
+                out.thread.to_string(),
+            ),
+            auto,
+            watchlist.as_deref(),
+            watchlist_expiry.as_deref(),
+        )
+        .await
+    {
+        return error(StatusCode::BAD_REQUEST, &e.code, e.info);
     }
     let title = title_of(app, &tenant.slug, out.thread).await;
     let body = json!({

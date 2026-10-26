@@ -59,12 +59,21 @@ fn sentence(m: &Messages, n: &Notification) -> String {
         "thread-status" => "ts-notif-thread-status",
         "rights" => "ts-notif-rights",
         "group-join" => "ts-notif-group-join",
+        "watch" if n.subject.is_some() => "ts-notif-watch-thread",
+        "watch" => "ts-notif-watch",
         _ => "ts-notif-other",
     };
-    let second = if n.reason == "group-join" {
-        &account
-    } else {
-        &thread
+    let page = n.title.as_deref().map_or_else(String::new, |t| {
+        let href = match n.revid {
+            Some(rev) => format!("/w/index.php?title={}&oldid={rev}", title_url(t)),
+            None => format!("/wiki/{}", title_url(t)),
+        };
+        link(&href, &esc(t), "")
+    });
+    let second = match n.reason.as_str() {
+        "group-join" => &account,
+        "watch" if n.subject.is_none() => &page,
+        _ => &thread,
     };
     esc(&m.get(key)).replace("$1", &who).replace("$2", second)
 }

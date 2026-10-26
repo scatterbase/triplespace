@@ -948,6 +948,42 @@ pub async fn thread_readable<C: PgClient>(
     })
 }
 
+/// Whether a principal may read a page now: a thread by [`thread_readable`], any other
+/// page by its chain ([`page_chain`]), and a page that does not exist not at all.
+///
+/// # Errors
+///
+/// A database failure.
+pub async fn page_readable<C: PgClient>(
+    client: &C,
+    tenant: &str,
+    who: &Effective,
+    page_id: u64,
+) -> Result<bool, String> {
+    let id = i64::try_from(page_id).map_err(|e| e.to_string())?;
+    let row = client
+        .query_opt(
+            "SELECT EXISTS (SELECT 1 FROM view.thread t WHERE t.tenant = p.tenant AND t.page_id = p.page_id)
+             FROM view.page p WHERE p.tenant = $1 AND p.page_id = $2",
+            &[&tenant, &id],
+        )
+        .await
+        .map_err(|e| sql(&e))?;
+    let Some(row) = row else {
+        return Ok(false);
+    };
+    if row.get::<_, bool>(0) {
+        return thread_readable(client, tenant, who, page_id).await;
+    }
+    let chain = page_chain(client, tenant, page_id).await?;
+    let at = Timestamp(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| u64::try_from(d.as_micros()).unwrap_or(u64::MAX)),
+    );
+    Ok(scatter_actors::read_decision(who, &chain, at) == scatter_actors::ReadDecision::Readable)
+}
+
 /// The `record` ACLs of these records of one partition, by offset.
 pub async fn record_acls<C: PgClient>(
     client: &C,

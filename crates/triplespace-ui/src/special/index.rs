@@ -41,6 +41,18 @@ pub const PAGES: &[(&str, &str, &str, Feature)] = &[
         Feature::Register,
     ),
     (
+        "Special:Watchlist",
+        "ts-watchlist-title",
+        "ts-specialpages-watchlist",
+        Feature::Watchlist,
+    ),
+    (
+        "Special:EditWatchlist",
+        "ts-editwatchlist-title",
+        "ts-specialpages-editwatchlist",
+        Feature::Watchlist,
+    ),
+    (
         "Special:Notifications",
         "ts-notifications-title",
         "ts-specialpages-notifications",

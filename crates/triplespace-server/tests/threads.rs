@@ -1560,3 +1560,229 @@ async fn thread_notifications() {
     assert_eq!(r["echomarkread"]["message"]["rawcount"], 0, "{r}");
     assert_eq!(r["echomarkread"]["alert"]["rawcount"], 1, "{r}");
 }
+
+/// One account's notifications as `(ts-reason, title)`, newest first.
+async fn reasons(c: &mut Client) -> Vec<(String, String)> {
+    let n = c
+        .api("action=query&meta=notifications&notprop=list&notlimit=50")
+        .await;
+    n["query"]["notifications"]["list"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|i| i["ts-reason"] != "rights")
+        .map(|i| {
+            (
+                i["ts-reason"].as_str().unwrap().to_string(),
+                i["title"]["full"].as_str().unwrap_or_default().to_string(),
+            )
+        })
+        .collect()
+}
+
+/// The watch set (0020 §3, §5; 16 §4.2–4.3; 0021 A21): `action=watch` with expiry and
+/// `tsnotify`, a talk page watched as its subject, a title watched before its page
+/// exists, `prop=info` `watched` and `notificationtimestamp`, `list=watchlist` and
+/// `list=watchlistraw`, `setnotificationtimestamp`, auto-watch on writes and the
+/// `watchlist` parameter, the REST routes, and `watch` notifications for threads and pages.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn the_watch_set() {
+    if admin_config().is_none() {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    }
+    let (mut alice, at, page) = signed_in("watch").await;
+    let mut bob = account(&alice.router, "Bob", "bob-secret-1234").await;
+    let bt = bob.csrf().await;
+    let awt =
+        alice.api("action=query&meta=tokens&type=watch").await["query"]["tokens"]["watchtoken"]
+            .as_str()
+            .unwrap()
+            .to_string();
+
+    // Alice watches the talk page, which is watching its subject, and asks to be notified.
+    let r = alice
+        .api_post(&format!(
+            "action=watch&titles=Project%20talk:Scope&tsnotify=1&token={}",
+            enc(&awt)
+        ))
+        .await;
+    assert_eq!(r["watch"][0]["watched"], true, "{r}");
+    assert_eq!(r["watch"][0]["watchlistexpiry"], "infinity", "{r}");
+    let info = alice
+        .api("action=query&prop=info&titles=Project:Scope&inprop=watched%7Cnotificationtimestamp")
+        .await;
+    let p = &info["query"]["pages"][0];
+    assert_eq!(p["watched"], true, "{info}");
+    assert_eq!(p["ts-notify"], true, "{info}");
+    assert_eq!(p["notificationtimestamp"], "", "{info}");
+    // A title with no page yet, with an expiry.
+    let r = alice
+        .api_post(&format!(
+            "action=watch&titles=Project:Later&expiry=1%20week&tsnotify=1&token={}",
+            enc(&awt)
+        ))
+        .await;
+    assert!(
+        r["watch"][0]["watchlistexpiry"]
+            .as_str()
+            .unwrap()
+            .starts_with("20"),
+        "{r}"
+    );
+    let r = alice
+        .api_post(&format!(
+            "action=watch&titles=Special:Nothing&token={}",
+            enc(&awt)
+        ))
+        .await;
+    assert_eq!(r["watch"][0]["invalid"], true, "{r}");
+
+    // Bob starts a thread on the talk page: Alice is notified, and Bob watches the thread
+    // by his auto-watch preference.
+    let r = bob
+        .rest(
+            "POST",
+            "/thread",
+            Some(json!({"subject": "Scope again", "target": {"kind": "page", "id": page}, "text": "A question.", "token": bt})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::CREATED, "{}", r.body);
+    let thread_title = format!("Thread:{}", r.body["title"].as_str().unwrap());
+    assert_eq!(
+        reasons(&mut alice).await,
+        vec![("watch".to_string(), thread_title.clone())]
+    );
+    let raw = bob.api("action=query&list=watchlistraw").await;
+    let titles: Vec<&str> = raw["watchlistraw"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|w| w["title"].as_str().unwrap())
+        .collect();
+    assert_eq!(titles, vec![thread_title.as_str()], "{raw}");
+
+    // Alice's watchlist has the thread's row, not yet seen; her own edits are seen.
+    let wl = alice
+        .api("action=query&list=watchlist&wlprop=title%7Cnotificationtimestamp%7Cuser")
+        .await;
+    let rows = wl["query"]["watchlist"].as_array().unwrap();
+    let row = rows
+        .iter()
+        .find(|r| r["title"] == thread_title.as_str())
+        .unwrap_or_else(|| panic!("{wl}"));
+    assert_ne!(row["notificationtimestamp"], "", "{wl}");
+    let info = alice
+        .api("action=query&prop=info&titles=Project:Scope&inprop=notificationtimestamp")
+        .await;
+    assert_ne!(
+        info["query"]["pages"][0]["notificationtimestamp"], "",
+        "{info}"
+    );
+    let r = alice
+        .api_post(&format!(
+            "action=setnotificationtimestamp&entirewatchlist=1&token={}",
+            enc(&at)
+        ))
+        .await;
+    assert!(r.get("error").is_none(), "{r}");
+    let info = alice
+        .api("action=query&prop=info&titles=Project:Scope&inprop=notificationtimestamp")
+        .await;
+    assert_eq!(
+        info["query"]["pages"][0]["notificationtimestamp"], "",
+        "{info}"
+    );
+
+    // A page edit by Bob reaches Alice's watch on the page; her own does not.
+    let r = bob
+        .api_post(&format!(
+            "action=edit&title=Project:Scope&text=Wider.&watchlist=nochange&token={}",
+            enc(&bt)
+        ))
+        .await;
+    assert_eq!(r["edit"]["result"], "Success", "{r}");
+    assert!(
+        r["edit"].get("watched").is_none(),
+        "nochange leaves Bob unwatched: {r}"
+    );
+    alice
+        .api_post(&format!(
+            "action=edit&title=Project:Scope&text=Wider still.&token={}",
+            enc(&at)
+        ))
+        .await;
+    let got = reasons(&mut alice).await;
+    assert_eq!(got.len(), 2, "{got:?}");
+    assert_eq!(
+        got[0],
+        ("watch".to_string(), "Library Base:Scope".to_string())
+    );
+
+    // Bob creates the page Alice watched before it existed; he watches it (autowatch.create).
+    let r = bob
+        .api_post(&format!(
+            "action=edit&title=Project:Later&text=Now.&token={}",
+            enc(&bt)
+        ))
+        .await;
+    assert_eq!(r["edit"]["watched"], true, "{r}");
+    let got = reasons(&mut alice).await;
+    assert_eq!(
+        got[0],
+        ("watch".to_string(), "Library Base:Later".to_string()),
+        "{got:?}"
+    );
+
+    // REST: the list, a change of notify, and unwatching.
+    let r = alice.rest("GET", "/watchlist", None).await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    let titles: Vec<&str> = r.body["watches"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|w| w["title"].as_str())
+        .collect();
+    assert!(
+        titles.contains(&"Library Base:Scope") && titles.contains(&"Library Base:Later"),
+        "{}",
+        r.body
+    );
+    let r = alice
+        .rest(
+            "PUT",
+            &format!("/watchlist/page/{page}"),
+            Some(json!({"notify": false, "token": at})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    assert_eq!(r.body["notify"], false, "{}", r.body);
+    bob.api_post(&format!(
+        "action=edit&title=Project:Scope&text=Narrower.&token={}",
+        enc(&bt)
+    ))
+    .await;
+    assert_eq!(reasons(&mut alice).await.len(), 3, "notify is off");
+    let r = alice
+        .api_post(&format!(
+            "action=watch&titles=Project:Scope&unwatch=1&token={}",
+            enc(&awt)
+        ))
+        .await;
+    assert_eq!(r["watch"][0]["unwatched"], true, "{r}");
+    let info = alice
+        .api("action=query&prop=info&titles=Project:Scope&inprop=watched")
+        .await;
+    assert_eq!(info["query"]["pages"][0]["watched"], false, "{info}");
+    let r = alice.rest("GET", "/watchlist", None).await;
+    assert_eq!(r.body["watches"].as_array().unwrap().len(), 1, "{}", r.body);
+
+    // Not logged in: no watchlist.
+    let mut anon = Client {
+        router: alice.router.clone(),
+        cookie: None,
+    };
+    let r = anon.api("action=query&list=watchlist").await;
+    assert_eq!(r["error"]["code"], "notloggedin", "{r}");
+}

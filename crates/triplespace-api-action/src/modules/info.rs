@@ -93,7 +93,71 @@ async fn info_of(ctx: &Ctx, site: &Site, page: &PageAsk) -> Result<Map<String, V
     if want("displaytitle") {
         m.insert("displaytitle".into(), json!(page.title));
     }
+    // The caller's own watch (16 §4.3): never anyone else's, and no watcher count.
+    let target = match &page.id {
+        Some(id) => Some((triplespace_accounts::watch::kind::ENTITY, id.to_string())),
+        None if want("watched") || want("notificationtimestamp") => {
+            crate::watching::target_of_page(ctx, page.page_id).await?
+        }
+        None => None,
+    };
+    watch_fields(ctx, target.as_ref(), &props, &mut m).await?;
     Ok(m)
+}
+
+/// `inprop=watched` and `inprop=notificationtimestamp` for the caller's own watch of a
+/// target (16 §4.3): `watched`, `watchlistexpiry` and Triplespace's `ts-notify`; the time of
+/// the first change they have not seen, or the empty string.
+async fn watch_fields(
+    ctx: &Ctx,
+    target: Option<&(i16, String)>,
+    props: &[String],
+    m: &mut Map<String, Value>,
+) -> Result<(), ApiError> {
+    let want = |p: &str| props.iter().any(|x| x == p);
+    if !want("watched") && !want("notificationtimestamp") {
+        return Ok(());
+    }
+    let Some(holder) = ctx.caller.identity.actor_key.clone() else {
+        return Ok(());
+    };
+    let v2 = ctx.formatversion == 2;
+    let yes = if v2 { json!(true) } else { json!("") };
+    let w = match target {
+        Some((k, i)) => triplespace_accounts::watch::get(ctx.db(), &holder, *k, i).await?,
+        None => None,
+    };
+    if want("watched") {
+        match &w {
+            Some(w) => {
+                m.insert("watched".into(), yes.clone());
+                if let Some(e) = w.expires {
+                    m.insert(
+                        "watchlistexpiry".into(),
+                        json!(iso8601(u64::try_from(e).unwrap_or(0))),
+                    );
+                }
+                if w.notify {
+                    m.insert("ts-notify".into(), yes.clone());
+                }
+            }
+            None if v2 => {
+                m.insert("watched".into(), json!(false));
+            }
+            None => {}
+        }
+    }
+    if want("notificationtimestamp") {
+        let t = match &w {
+            Some(w) => crate::watching::first_unseen(ctx, &holder, w).await?,
+            None => None,
+        };
+        m.insert(
+            "notificationtimestamp".into(),
+            json!(t.map_or(String::new(), |t| iso8601(u64::try_from(t).unwrap_or(0)))),
+        );
+    }
+    Ok(())
 }
 
 /// `inprop=protection`, as MediaWiki lists it: one entry per restricted action along the
@@ -201,6 +265,29 @@ pub async fn info(ctx: &Ctx, query: &mut Map<String, Value>) -> Result<(), ApiEr
                 None => json!([]),
             };
             entry.insert("protection".into(), protection);
+        }
+    }
+    // A title with no page may be watched too (16 §4.3): the star on a talk page no thread
+    // has made yet, or on a page to come.
+    let props = ctx.params.list("inprop");
+    if props
+        .iter()
+        .any(|p| p == "watched" || p == "notificationtimestamp")
+    {
+        for m in &mut set.missing {
+            let Value::Object(entry) = m else { continue };
+            let Some(title) = entry
+                .get("title")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+            else {
+                continue;
+            };
+            if entry.contains_key("invalid") {
+                continue;
+            }
+            let target = crate::watching::target_of_title(ctx, &site, &title).await?;
+            watch_fields(ctx, target.as_ref(), &props, entry).await?;
         }
     }
     merge_pages(query, &mut set, infos, v2);

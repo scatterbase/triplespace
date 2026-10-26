@@ -23,6 +23,14 @@
 //!   for the first of those reasons that applies, in that order. Imported threads and posts
 //!   address nobody.
 //!
+//! - **`watch`** (0021 A21): a change reaches a target an account watches with `notify`
+//!   (`private.watch`, read through [`triplespace_accounts::watch::notified`]): a new
+//!   thread or post reaches the thread and the subject of every page it is attached to; any
+//!   record of a document page reaches the page's target, and its title's for a watch
+//!   made before the page existed ([`triplespace_projections::watched`]). It comes last:
+//!   an account a thread record already addresses for another reason is not addressed
+//!   again. Entities wait for a decision on mirror syncs.
+//!
 //! **Only local accounts have inboxes**, and a subsidiary's go to its operator; a thread
 //! notification goes to a registered account, or a bot's operator, and to no surrogate or
 //! temporary account. **A thread the recipient may not read addresses them not at all**, and
@@ -129,7 +137,7 @@ async fn activity_hidden(cx: &PgCx, partition: i64, offset: i64) -> Result<bool,
         .is_some())
 }
 
-/// Whether an account may read a thread now.
+/// Whether an account may read a page or thread now.
 async fn may_read(cx: &PgCx, tenant: &str, account: &str, thread: u64) -> Result<bool, String> {
     let Some(who) = triplespace_accounts::identity::effective_of(cx.conn(), tenant, account)
         .await
@@ -137,7 +145,36 @@ async fn may_read(cx: &PgCx, tenant: &str, account: &str, thread: u64) -> Result
     else {
         return Ok(false);
     };
-    triplespace_projections::acl_read::thread_readable(cx.conn(), tenant, &who, thread).await
+    triplespace_projections::acl_read::page_readable(cx.conn(), tenant, &who, thread).await
+}
+
+/// Adds a `watch` delivery to `out` for every account that watches one of `reached` with
+/// `notify`, unless `out` addresses it already; the notification is about `page`.
+async fn watchers(
+    cx: &PgCx,
+    tenant: &str,
+    reached: &[(i16, String)],
+    page: u64,
+    out: &mut Vec<Delivery<'static>>,
+) -> Result<(), String> {
+    let holders = triplespace_accounts::watch::notified(cx.conn(), reached)
+        .await
+        .map_err(|e| sql(&e))?;
+    for (holder, _, _) in holders {
+        let Some(to) = local_inbox(cx, tenant, &holder).await? else {
+            continue;
+        };
+        if out.iter().any(|d| d.recipient == to) {
+            continue;
+        }
+        out.push(Delivery {
+            recipient: to,
+            reason: "watch",
+            target_kind: target_kind::PAGE,
+            target_id: page.to_string(),
+        });
+    }
+    Ok(())
 }
 
 /// Who a thread record addresses, and why, before the read checks (16 §5.2). An account
@@ -302,6 +339,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for AddressingProjection {
         header.payload_type == payload::MEMBERSHIP
             || header.payload_type == payload::BLOCK
             || header.payload_type == scatter_threads_payload::THREAD
+            || header.payload_type == scatter_threads_payload::PAGE
             || header.payload_type == payload::ACL
     }
 
@@ -335,8 +373,18 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for AddressingProjection {
                 }
                 match threads::addressed(cx, &tenant, record).await? {
                     Some(a) => {
+                        let mut found = thread_deliveries(cx, &tenant, &a).await?;
+                        if a.new_post {
+                            let reached = triplespace_projections::watched::reached_by_thread(
+                                cx.conn(),
+                                &tenant,
+                                a.thread,
+                            )
+                            .await?;
+                            watchers(cx, &tenant, &reached, a.thread, &mut found).await?;
+                        }
                         let mut out = Vec::new();
-                        for d in thread_deliveries(cx, &tenant, &a).await? {
+                        for d in found {
                             if may_read(cx, &tenant, &d.recipient, a.thread).await? {
                                 out.push(d);
                             }
@@ -345,6 +393,25 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for AddressingProjection {
                     }
                     None => Vec::new(),
                 }
+            } else if h.payload_type == scatter_threads_payload::PAGE {
+                if activity_hidden(cx, part, offset).await? || content(record)?.is_none() {
+                    return Ok(Applied::rows(0));
+                }
+                let Some(page) = h.page_id else {
+                    return Ok(Applied::rows(0));
+                };
+                let reached =
+                    triplespace_projections::watched::reached_by_page(cx.conn(), &tenant, page)
+                        .await?;
+                let mut found = Vec::new();
+                watchers(cx, &tenant, &reached, page, &mut found).await?;
+                let mut out = Vec::new();
+                for d in found {
+                    if may_read(cx, &tenant, &d.recipient, page).await? {
+                        out.push(d);
+                    }
+                }
+                out
             } else {
                 Self::deliveries(cx, &tenant, record).await?
             };
@@ -396,6 +463,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for AddressingProjection {
 /// The payload type of thread records, as `scatter-threads` names it.
 mod scatter_threads_payload {
     pub const THREAD: &str = triplespace_projections::threads::PAYLOAD;
+    pub const PAGE: &str = triplespace_projections::pages::PAYLOAD;
 }
 
 /// What an ACL record takes out of inboxes (16 §5.2; 03 §9.6 item 5): a `record` ACL

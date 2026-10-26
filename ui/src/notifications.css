@@ -116,3 +116,81 @@
 .ts-notifications__more {
 	margin-block-start: var( --spacing-100, 1rem );
 }
+
+/* Watching (chapter 19 §6.2): the star and its menu at the end of the tabs, a change not
+   yet seen on the watchlist, and Special:EditWatchlist. */
+
+.ts-watch {
+	display: flex;
+	align-items: center;
+	gap: var( --spacing-25, 0.25rem );
+	margin-inline-start: auto;
+}
+
+.ts-watch__star {
+	margin: 0;
+}
+
+.ts-watch__icon {
+	fill: currentcolor;
+	margin-inline-end: var( --spacing-25, 0.25rem );
+	vertical-align: middle;
+}
+
+.ts-watch--on .ts-watch__icon {
+	fill: var( --color-progressive, #36c );
+}
+
+.ts-watch__panel {
+	display: flex;
+	flex-direction: column;
+	gap: var( --spacing-75, 0.75rem );
+	min-width: 16rem;
+	padding: var( --spacing-75, 0.75rem );
+}
+
+.ts-watch__panel fieldset {
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+.ts-watch__until {
+	color: var( --color-subtle, #54595d );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+.ts-change--unseen {
+	font-weight: bold;
+}
+
+.ts-watchlist__tabs {
+	display: flex;
+	gap: var( --spacing-100, 1rem );
+	margin-block-end: var( --spacing-75, 0.75rem );
+}
+
+.ts-watchlist__tab[ aria-current='page' ] {
+	color: var( --color-base, #202122 );
+	font-weight: bold;
+}
+
+.ts-watchlist__seen {
+	margin-block-end: var( --spacing-75, 0.75rem );
+}
+
+.ts-editwatchlist {
+	margin-block-end: var( --spacing-100, 1rem );
+	border-collapse: collapse;
+}
+
+.ts-editwatchlist th,
+.ts-editwatchlist td {
+	padding: var( --spacing-25, 0.25rem ) var( --spacing-75, 0.75rem );
+	border-block-end: 1px solid var( --border-color-subtle, #c8ccd1 );
+	text-align: start;
+}
+
+.ts-editwatchlist a {
+	text-decoration: underline;
+}

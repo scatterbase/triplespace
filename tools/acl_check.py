@@ -13,6 +13,8 @@ Two halves, both run by default:
   talk pages and threads through every surface (listings, composite histories, rendering,
   departures, hidden posts, the site's pages and forms, a protected talk page),
   notifications of mentions in a thread the account may not read or in a post since hidden,
+  a watch on a confidential page and its talk page (watchlist, raw list, `prop=info`,
+  notifications, the site),
   deletion fallout, a bot of a member, and the owner outside `suppress`.
 - **positive** — what legitimate actors should be able to do, but can't: the owner's setup,
   a group member's full rights on a confidential page, entity and set, delegated and scoped
@@ -620,6 +622,74 @@ def discussions(x):
          a.rest("PATCH", "/settings", {"set": {"thread.markup": "markdown"}, "base": base, "token": a.token()}))
 
 
+def watching(x):
+    """The watch set (16 §4.2–4.3; 0021 A21): an outsider who watches a confidential page and
+    its talk page, by title and with notifications, learns nothing of their changes through
+    the watchlist, its raw list, `prop=info`, notifications or the site; a member who
+    watches it is told."""
+    a, c = x.alice, x.carol
+    hidden = ["Hush", "swordfish", "Watched 4242"]
+    for who in (x.mallory, x.bob):
+        wt = who.token("watch")
+        for title in ["Project:Secret", "Project talk:Secret"]:
+            r = who.post(action="watch", titles=title, tsnotify="1", token=wt)
+            must(f"{who.name} may watch {title} (a title is theirs to watch)", r)
+            absent(f"watching {title} says nothing more as {who.name}", r, ["pageid", "missing"] + hidden)
+    # A watched title the outsider may not see is listed as a title with no page is, and a
+    # page ID they may not see answers as one that does not exist: neither is an oracle.
+    m = x.mallory
+    must("Mallory watches a title with no page", m.post(action="watch", titles="Project:Nothing here 77",
+                                                         token=m.token("watch")))
+    raw = m.api(action="query", list="watchlistraw", wrlimit=500)
+    titles = sorted(w.get("title", "") for w in raw.get("watchlistraw", []))
+    if any(t.endswith(":Secret") for t in titles) and any(t.endswith(":Nothing here 77") for t in titles):
+        ok("the confidential title is listed as a title with no page is")
+    else:
+        finding("ORACLE: the raw list tells a confidential page from a missing one", json.dumps(raw)[:300])
+    gone = m.rest("PUT", "/watchlist/page/999999999", {"token": m.token()})
+    hid = m.rest("PUT", f"/watchlist/page/{x.secret}", {"token": m.token()})
+    if (gone[0], gone[1].get("code")) == (hid[0], hid[1].get("code")):
+        ok("watching a hidden page ID answers as a missing one")
+    else:
+        finding("ORACLE: watching a hidden page ID differs from a missing one", f"{gone} vs {hid}")
+    must("the owner, in board, watches it with notifications",
+         a.post(action="watch", titles="Project:Secret", tsnotify="1", token=a.token("watch")))
+    must("a board member who is a sysop changes it", c.edit("Project:Secret", "Hush. Watched 4242."))
+    st, r = c.rest("POST", "/thread", {"target": {"kind": "page", "id": x.secret}, "subject": "Watched 4242",
+                                       "text": "Watched 4242 in the talk.", "token": c.token()})
+    must("and starts a thread on its talk page", (st, r))
+    for who in x.outsiders:
+        if who.name == "anon":
+            continue
+        for name, probe in [
+            ("notifications", lambda c: c.api(action="query", meta="notifications", notprop="list|count", notlimit=50)),
+            ("watchlist", lambda c: c.api(action="query", list="watchlist", wlprop="title|comment|user|notificationtimestamp",
+                                          wllimit=500, wlallrev=1)),
+            ("watchlistraw", lambda c: c.api(action="query", list="watchlistraw", wrprop="changed", wrlimit=500)),
+            ("REST watchlist feed", lambda c: c.rest("GET", "/activity?set=watchlist&limit=500")),
+            ("REST watch set", lambda c: c.rest("GET", "/watchlist")),
+            ("prop=info", lambda c: c.api(action="query", prop="info", titles="Project:Secret|Project talk:Secret",
+                                          inprop="watched|notificationtimestamp")),
+            ("Special:Watchlist", lambda c: c.raw("/wiki/Special:Watchlist")),
+            ("Special:EditWatchlist", lambda c: c.raw("/wiki/Special:EditWatchlist")),
+            ("Special:Notifications", lambda c: c.raw("/wiki/Special:Notifications")),
+        ]:
+            absent(f"watched confidential page via {name} as {who.name}", probe(who), hidden + ["Secret talk"])
+        info = who.api(action="query", prop="info", titles="Project:Secret", inprop="notificationtimestamp")
+        stamps = [p.get("notificationtimestamp", "") for p in info.get("query", {}).get("pages", [])]
+        if any(stamps):
+            finding(f"LEAK: an unseen change to the confidential page via notificationtimestamp as {who.name}",
+                    json.dumps(info)[:300])
+        else:
+            ok(f"no unseen change to the confidential page via notificationtimestamp as {who.name}")
+    must("the owner is notified of the change",
+         a.api(action="query", meta="notifications", notprop="list", notlimit=50), "ts-watch")
+    must("and sees it on the watchlist",
+         a.api(action="query", list="watchlist", wlprop="title|comment", wllimit=50), "Secret")
+    for who in (x.mallory, x.bob, a):
+        who.post(action="watch", titles="Project:Secret", unwatch="1", token=who.token("watch"))
+
+
 def deletion(x):
     a, b, anon = x.alice, x.bob, x.anon
     a.edit("Project:Open/Sub", "opensub")
@@ -1036,7 +1106,8 @@ def positive(x):
 
 SECTIONS = [
     ("leaks", leaks), ("oracles", oracles), ("escalation", escalation), ("delegation", delegation),
-    ("includes", includes), ("threads", threads), ("discussions", discussions), ("deletion", deletion),
+    ("includes", includes), ("threads", threads), ("discussions", discussions), ("watching", watching),
+    ("deletion", deletion),
     ("moves", moves),
     ("bearer", bearer),
     ("owner", owner), ("hidden-names", hidden_names), ("tokens", tokens), ("private", private),
