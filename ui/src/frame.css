@@ -4,6 +4,16 @@
  * theme reaches it as it reaches Codex's own components.
  */
 
+/* The `hidden` attribute hides, whatever display a component's class gives the element
+   (Codex's `.cdx-button` is `inline-flex`, which beats the browser's own rule). The edit
+   buttons stay hidden until their editor is wired (ADR 0003 §8), so neither a reader
+   without JavaScript nor a quick click before the editor loads meets a dead button. Both
+   site stylesheets import this file straight after Codex's, so it wins at the same
+   specificity. */
+[ hidden ] {
+	display: none;
+}
+
 body {
 	margin: 0;
 	background-color: var( --background-color-neutral-subtle, #f8f9fa );
