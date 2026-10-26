@@ -34,6 +34,7 @@ triplespace-api-ingest.workspace = true
 triplespace-accounts.workspace = true
 triplespace-notify.workspace = true
 clap.workspace = true
+dotenvy.workspace = true
 anyhow.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 tokio-postgres.workspace = true

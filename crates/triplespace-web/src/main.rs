@@ -66,8 +66,37 @@ struct Serve {
     forwarder_key_file: Option<PathBuf>,
 }
 
+fn main() -> Result<()> {
+    // Before the runtime starts: the `.env` file is read into the environment (23 §5.1).
+    if let Some(path) = load_env_file()? {
+        eprintln!("configuration from {}", path.display());
+    }
+    run()
+}
+
+/// Reads the `.env` file, by the rules of `triplespace_cli::env_file`, which this crate
+/// may not depend on (22 §1.2 rule 6): the file `TRIPLESPACE_ENV_FILE` names, which must
+/// exist, else `./.env` if there is one; never overriding a variable already set.
+fn load_env_file() -> Result<Option<PathBuf>> {
+    let (path, required) = match std::env::var_os("TRIPLESPACE_ENV_FILE") {
+        Some(p) if !p.is_empty() => (PathBuf::from(p), true),
+        _ => (PathBuf::from(".env"), false),
+    };
+    match dotenvy::from_path(&path) {
+        Ok(()) => Ok(Some(path)),
+        Err(e) if e.not_found() && !required => Ok(None),
+        Err(e) if e.not_found() => Err(e).with_context(|| {
+            format!(
+                "TRIPLESPACE_ENV_FILE names {}, which does not exist",
+                path.display()
+            )
+        }),
+        Err(e) => Err(e).with_context(|| format!("read {}", path.display())),
+    }
+}
+
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn run() -> Result<()> {
     let args = Args::parse();
     if let Some(Command::Routes { format }) = args.command {
         let Some(f) = Format::parse(&format) else {

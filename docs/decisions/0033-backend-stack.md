@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-19 (A22)
+- **Updated:** 2026-10-25 (A23)
 - **Author:** James Hare / Claude
 - **Changes:** [0005](0005-crate-organization.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0034](0034-frontend-stack.md)
@@ -103,7 +103,7 @@ This ADR records the rest. The frontend is in 0034.
 
 ### 12. Configuration and CLI
 
-*Changed by A8, A10, A21.*
+*Changed by A8, A10, A21, A23.*
 
 *Current text: [23](../architecture/23-configuration-and-registry.md) §3.1, §3.6, §5.1.*
 
@@ -400,3 +400,10 @@ Replaced text ([22](../architecture/22-crates-and-stack.md) §3.3, as it stood):
 Replaced text ([22](../architecture/22-crates-and-stack.md) §3.4, as it stood):
 
 > - `parse-wiki-text-2`'s non-standard licence text is recorded as a clarify entry.
+
+### A23. The `.env` file
+
+- **Date:** 2026-10-25
+- **Source:** Direct: James, design discussion of 2026-10-25
+- **Change:** extends §12
+- **Summary:** An instance's deployment configuration can be kept in a `.env` file instead of ad-hoc environment variables and long command lines. `triplespace`, `triplespace-server` and `triplespace-web` read it into the environment with `dotenvy` when they start, before `clap` parses their flags, so every flag bound to a `TRIPLESPACE_*` variable, and every variable read directly such as `TRIPLESPACE_OWNER_PASSWORD`, can be set there. A flag wins over the environment and the environment over the file, which never overrides a variable already set. The file read is the one `TRIPLESPACE_ENV_FILE` names, which must exist, else `.env` in the working directory if there is one; a file that cannot be read or parsed stops the binary. The chapter text is [23](../architecture/23-configuration-and-registry.md) §5.1.

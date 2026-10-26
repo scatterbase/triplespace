@@ -75,6 +75,18 @@ an instance; `triplespace-server`, which serves the API and, unless `--ui off`, 
 `triplespace-web`, the stateless web tier that serves the site from the API (below). The first
 two take the database as `--database` or `TRIPLESPACE_DATABASE_URL`.
 
+Every flag that names a `TRIPLESPACE_*` variable can instead be set in a `.env` file in the
+working directory, which all three binaries read when they start (23 §5.1). A flag wins over
+the environment, and the environment over the file. `TRIPLESPACE_ENV_FILE` names a different
+file, which must then exist. `.env` is gitignored.
+
+```sh
+# .env
+TRIPLESPACE_DATABASE_URL=postgres://triplespace@localhost/triplespace
+TRIPLESPACE_LISTEN=127.0.0.1:8080
+TRIPLESPACE_AUTH_BASE=https://auth.example.org
+```
+
 ```sh
 createdb triplespace
 export TRIPLESPACE_DATABASE_URL=postgres://triplespace@localhost/triplespace
