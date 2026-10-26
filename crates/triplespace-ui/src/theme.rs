@@ -861,7 +861,7 @@ mod tests {
     #[test]
     fn an_extending_palette_lays_over_its_base() {
         let t = Theme::shipped();
-        let ob = t.served(t.palette("parchment-ob").unwrap());
+        let ob = t.served(t.palette("parchment-rg").unwrap());
         let base = t.served(t.palette("parchment").unwrap());
         assert_eq!(
             ob.light.get("background-color-base"),
@@ -904,7 +904,7 @@ mod tests {
             .into_iter()
             .map(|o| o.name)
             .collect();
-        assert_eq!(names, ["parchment", "parchment-co", "parchment-ob"]);
+        assert_eq!(names, ["parchment", "parchment-by", "parchment-rg"]);
         let typesets: Vec<String> = t
             .choices(Sheet::Typeset)
             .into_iter()
@@ -991,8 +991,8 @@ mod tests {
         let data: Value = serde_json::from_str(&t.data()).unwrap();
         assert_eq!(data["palette"], "parchment");
         assert_eq!(
-            data["palettes"]["parchment-ob"],
-            json!(t.href(Sheet::Palette, "parchment-ob").unwrap())
+            data["palettes"]["parchment-rg"],
+            json!(t.href(Sheet::Palette, "parchment-rg").unwrap())
         );
     }
 

@@ -18,18 +18,18 @@ function page( signedIn ) {
 	if ( signedIn ) {
 		root.setAttribute( 'data-appearance', 'account' );
 	}
-	const choices = Object.assign( {}, core.CHOICES, { 'ui.palette': [ '', 'parchment-ob' ] } );
+	const choices = Object.assign( {}, core.CHOICES, { 'ui.palette': [ '', 'parchment-rg' ] } );
 	const selects = Object.entries( choices ).map( ( [ k, cs ] ) => `<select data-key="${ k }">${ cs.map( ( c ) => `<option value="${ c }">${ c }</option>` ).join( '' ) }</select>` ).join( '' );
 	document.head.innerHTML = `<script type="application/json" id="ts-theme">${ JSON.stringify( {
 		palette: 'parchment', typeset: 'default26',
-		palettes: { parchment: '/p-parchment.css', 'parchment-ob': '/p-ob.css' },
+		palettes: { parchment: '/p-parchment.css', 'parchment-rg': '/p-ob.css' },
 		typesets: { default26: '/t-default26.css' }
 	} ) }</script><link id="ts-palette" href="/p-parchment.css"><link id="ts-typeset" href="/t-default26.css">`;
 	document.body.innerHTML = `<form class="ts-appearance__form">${ selects }</form>` +
 		`<script type="application/json" id="ts-appearance-data">${ JSON.stringify( {
 			signedIn,
 			keys: Object.keys( choices ),
-			choices: { 'ui.palette': [ 'parchment-ob' ], 'ui.typeset': [] },
+			choices: { 'ui.palette': [ 'parchment-rg' ], 'ui.typeset': [] },
 			values: signedIn ? Object.assign( { 'ui.palette': '' }, DEFAULTS ) : null
 		} ) }</script>`;
 	window.tsAppearance = core;
@@ -165,12 +165,12 @@ describe( 'the Appearance menu', () => {
 		vi.stubGlobal( 'fetch', a.fetch );
 		page( false );
 		initAppearance( document, window );
-		choose( 'ui.palette', 'parchment-ob' );
+		choose( 'ui.palette', 'parchment-rg' );
 		expect( document.getElementById( 'ts-palette' ).getAttribute( 'href' ) ).toBe( '/p-ob.css' );
-		expect( core.read( localStorage, { 'ui.palette': [ 'parchment-ob' ] } ) ).toEqual( { 'ui.palette': 'parchment-ob' } );
+		expect( core.read( localStorage, { 'ui.palette': [ 'parchment-rg' ] } ) ).toEqual( { 'ui.palette': 'parchment-rg' } );
 		choose( 'ui.palette', '' );
 		expect( document.getElementById( 'ts-palette' ).getAttribute( 'href' ) ).toBe( '/p-parchment.css' );
-		expect( core.read( localStorage, { 'ui.palette': [ 'parchment-ob' ] } ) ).toEqual( {} );
+		expect( core.read( localStorage, { 'ui.palette': [ 'parchment-rg' ] } ) ).toEqual( {} );
 	} );
 
 	it( 'resets the account\'s palette when the reader goes back to the wiki\'s', async () => {
@@ -179,11 +179,11 @@ describe( 'the Appearance menu', () => {
 		vi.stubGlobal( 'fetch', a.fetch );
 		page( true );
 		initAppearance( document, window );
-		choose( 'ui.palette', 'parchment-ob' );
+		choose( 'ui.palette', 'parchment-rg' );
 		await flush();
 		choose( 'ui.palette', '' );
 		await flush();
 		await flush();
-		expect( a.saved ).toEqual( [ 'ui.palette=parchment-ob', 'ui.palette' ] );
+		expect( a.saved ).toEqual( [ 'ui.palette=parchment-rg', 'ui.palette' ] );
 	} );
 } );
