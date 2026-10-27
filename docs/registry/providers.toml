@@ -511,7 +511,7 @@ actor_model = "individual"
   key_scheme = "osm"
 
   [provider.adapter_config]
-  # class_property = "P2"          # the wiki's "instance of" (0091 §2), required by the class rules above: confirm the ID against the wiki before the first load
+  class_property = "P2"            # the wiki's "instance of" (0091 §2), which the class rules above match
   identity_property_on_mapped = "drop"
   # Concept links (0036 §5): statements on the mapped entity, never same-as. notation has clusters = false.
   concept_link_properties = ["P7", "P12"]     # Wikidata equivalent, Wikidata concept

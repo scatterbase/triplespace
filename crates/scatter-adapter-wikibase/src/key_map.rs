@@ -1106,6 +1106,46 @@ adapter = "scatter-adapter-wikibase"
         );
     }
 
+    /// The OpenStreetMap wiki's registered key map: two class rules onto `osm` notations,
+    /// matched through its "instance of", `P2` (0036 §5; 0091 §2).
+    #[test]
+    fn the_osm_wiki_key_map_is_two_class_rules() {
+        let provider = Registry::default_registry().by_slug("osmwiki").unwrap();
+        let rules = KeyRules::from_provider(provider).unwrap();
+        let summary: Vec<(String, String, &str)> = rules
+            .rules()
+            .iter()
+            .map(|r| {
+                (
+                    r.class().unwrap().to_string(),
+                    r.identity_property().to_string(),
+                    r.keyed_type(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            summary,
+            [
+                ("Q7".into(), "P16".into(), "notation"),
+                ("Q2".into(), "P19".into(), "notation")
+            ]
+        );
+        let key = of_class(
+            "Q500",
+            "Q7",
+            &[(
+                "P16",
+                string_claim(
+                    "P16",
+                    "highway",
+                    "Q500$00000000-0000-0000-0000-000000000001",
+                ),
+            )],
+        );
+        let (_, id) = rules.map(&parsed(&key).entity).unwrap().unwrap();
+        assert_eq!(id.as_str(), "notation:osm:highway");
+    }
+
     #[test]
     fn a_bad_key_map_is_a_configuration_error() {
         let err = |extra: &str| {

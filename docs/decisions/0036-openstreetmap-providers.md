@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-28
-- **Updated:** 2026-10-26 (A7)
+- **Updated:** 2026-10-26 (A8)
 - **Author:** James Hare / Claude Sonnet
 - **Changes:** [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0017](0017-entity-id-grammar.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0015](0015-record-format-and-partition-registry.md), [0031](0031-property-constraints.md), [0048](0048-notation.md)
@@ -49,7 +49,7 @@ Two existing mechanisms fit the rest. Keyed entity types ([0009](0009-keyed-enti
 
 ### 5. `OW`: the vocabulary
 
-*Changed by A2, A7.*
+*Changed by A2, A7, A8.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §8.9.*
 
@@ -222,3 +222,10 @@ Replaced text (05 §8.9, as it stood):
 Replaced text (23 §4.2, as it stood):
 
 > the `OW` key map with `key_type = "notation"` and `key_scheme = "osm"`,
+
+### A8. The wiki's "instance of" is `P2`
+
+- **Date:** 2026-10-26
+- **Source:** Direct: James, design discussion of 2026-10-26
+- **Change:** extends §5
+- **Summary:** James confirmed that `P2` is "instance of" on the OpenStreetMap wiki, so the `OW` key map's `class_property` ([0091](0091-one-wikibase-adapter.md) §2) is `P2`, and its two class rules match an item whose `P2` is `Q7` (key) or `Q2` (tag). The registry entry carries it. Chapter text: [05](../architecture/05-providers-and-ingest.md) §8.9.

@@ -876,7 +876,7 @@ Free-text keys such as `name`, `phone` and `opening_hours` should have their own
 
 *Sources: [0036](../decisions/0036-openstreetmap-providers.md) §5; [0091](../decisions/0091-one-wikibase-adapter.md) §2.*
 
-The wiki's Wikibase models keys and tags as items and describes them with about fifty properties. The adapter maps two classes to notations in the `osm` scheme by two key-map rules (§4.1; [0091](../decisions/0091-one-wikibase-adapter.md) §2), each naming its `class`, its identity property, `key_type = "notation"` and `key_scheme = "osm"` ([0048](../decisions/0048-notation.md) §6; [04](04-entities-and-identifiers.md)). The configuration's `class_property` is the wiki's "instance of" property, and a rule matches an item's direct class only:
+The wiki's Wikibase models keys and tags as items and describes them with about fifty properties. The adapter maps two classes to notations in the `osm` scheme by two key-map rules (§4.1; [0091](../decisions/0091-one-wikibase-adapter.md) §2), each naming its `class`, its identity property, `key_type = "notation"` and `key_scheme = "osm"` ([0048](../decisions/0048-notation.md) §6; [04](04-entities-and-identifiers.md)). The configuration's `class_property` is `P2`, the wiki's "instance of" ([0036](../decisions/0036-openstreetmap-providers.md) A8), and a rule matches an item's direct class only:
 
 | Class | Identity property | Becomes |
 |---|---|---|
