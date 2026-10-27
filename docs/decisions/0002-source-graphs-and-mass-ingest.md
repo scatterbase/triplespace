@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-24
-- **Updated:** 2026-10-09 (A39)
+- **Updated:** 2026-10-26 (A40)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md)
 - **Uses:** [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -46,7 +46,7 @@ Four scenarios were used to test the design:
 
 ### 4. IRIs for foreign entities
 
-*Changed by A2, A7, A8, A18, A28, A35, A37, A38, A39.*
+*Changed by A2, A7, A8, A18, A28, A35, A37, A38, A39, A40.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §1.5, §8.1, §8.2, §8.3, §8.4, §8.5.*
 
@@ -92,7 +92,7 @@ Four scenarios were used to test the design:
 
 #### 8.4 Foreign imports
 
-*Changed by A11, A14, A21, A35, A36, A38.*
+*Changed by A11, A14, A21, A35, A36, A38, A40.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §3.4, §8.4.*
 
@@ -560,3 +560,30 @@ Replaced text ([05](../architecture/05-providers-and-ingest.md) §3.4, as it sto
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §4
 - **Summary:** Whether a registry provider such as Librarybase (`LB`) is a remote wiki to sync or a tenant here is instance configuration read from the registry's `issuer`: an instance one of whose tenants is the provider's issuer refuses every sync job for that provider and reads the tenant's `local` partition as the provider's graph, and an instance that had been mirroring the provider before adopting it freezes the mirror partition as a precondition of the adoption. The ledger names [0018](0018-tenants.md) §5, [0080](0080-tenants-as-entity-sources.md) §3 and [0070](0070-shallow-entity-mirroring.md) §7; the Librarybase entry of the provider catalogue ([05](../architecture/05-providers-and-ingest.md) §8.3) is under §4 here. (REVIEW G31)
+
+### A40. One adapter for every Wikibase provider
+
+- **Date:** 2026-10-26
+- **Source:** [0091](0091-one-wikibase-adapter.md) §1, §4
+- **Change:** amends §4, §8.4
+- **Summary:** Adapters are one per kind of upstream, not one per provider type: every MediaWiki+Wikibase provider is read by `scatter-adapter-wikibase` (formerly `scatter-adapter-wikidata`), parameterised by its registry entry, so registering a Wikibase provider needs no code; a provider whose upstream is not a Wikibase keeps an adapter of its own, and the `adapter` field (A28) names which. `triplespace sync` chooses the adapter by that field, and reads a Wikibase dump in one pass unless the provider has key-map rules or the dump is XML. Chapter text: [05](../architecture/05-providers-and-ingest.md) §3.4, §8.1, §8.3.
+
+Replaced text (05 §3.4, as it stood):
+
+> - **Adapters** are Rust trait implementations, one per provider type ([22](../architecture/22-crates-and-stack.md)). An adapter:
+
+Replaced text (05 §8.1, as it stood):
+
+> one `adapter` crate per provider ([22](../architecture/22-crates-and-stack.md)),
+
+Replaced text (05 §8.1, the Adapter column of `WD`, `LB` and `OW`, as it stood):
+
+> `scatter-adapter-wikidata`
+
+Replaced text (05 §8.1, the Adapter column of `XD`, as it stood):
+
+> `scatter-adapter-internetdomains`
+
+Replaced text (05 §8.3, as it stood):
+
+> Librarybase (`LB`, number 2) is any MediaWiki+Wikibase mirrored through `scatter-adapter-wikidata`, which is parameterised by the registry entry;

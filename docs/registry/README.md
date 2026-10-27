@@ -5,7 +5,7 @@ This directory is the registry of record for the names and codes that Triplespac
 | File | Lists | Embedded by | Defined in |
 |---|---|---|---|
 | `graphs.toml` | Reserved graph names, their kind, policies and payload type | `scatter-log` | 0015 §3, §5, 0039 §10–11, 0053 §5, 0061 §5, 0071 §1, §3, 0078 §4 |
-| `providers.toml` | Provider codes, slugs, numbers, type codes and ID grammars, IRI templates, issuers, trust mode and key-chain URL, chip colours; the reserved doubled codes `AA`–`ZZ`; page providers with no code, pending (English Wikipedia) | `scatter-providers` | 0000 §3, 0002 §4, 0010 §2, 0015 §2, §5, 0017 §2, 0022 §2, 0044 §2, 0052 §1, 0064 §1, 0065 §2, 0078 §3–4 |
+| `providers.toml` | Provider codes, slugs, numbers, type codes and ID grammars, IRI templates, issuers, trust mode and key-chain URL, chip colours, each provider's adapter and its key-map rules; the reserved doubled codes `AA`–`ZZ`; page providers with no code, pending (English Wikipedia) | `scatter-providers` | 0000 §3, 0002 §4, 0010 §2, 0015 §2, §5, 0017 §2, 0022 §2, 0044 §2, 0052 §1, 0064 §1, 0065 §2, 0078 §3–4, 0091 §1–2 |
 | `issuers.toml` | Issuer codes and actor models | `scatter-actors` | 0007 §1, 0054 §1 |
 | `namespaces.toml` | Default namespace numbers and kinds, each `pages` namespace's allowed and default content models, the reserved MediaWiki and Wikibase numbers, and the 210–229 and 310–329 ranges | `triplespace-titles` | 0008 §2 (amended), 0009 §11, 0017 §5, 0019 §3, 0029, 0038 §4, §8, 0039 §1, 0041 §4, 0042 §3, 0043 §2, 0045 §2, 0048 §7, 0055 §1, 0060 §2, 0061 §2, 0063 §2, 0064 §2, 0066 §2, 0078 §5 |
 | `content-models.toml` | Content models: ID, origin, source, slot, entity type, serialization format and direct editing; the reserved MediaWiki and Wikibase model IDs | `scatter-pages` | 0008 §5, 0041 §2–3, 0043 §3, 0045 §3, 0055 §1, 0060 §3, 0061 §3, 0063 §3, 0064 §3, 0066 §3 |
@@ -47,6 +47,8 @@ This directory is the registry of record for the names and codes that Triplespac
 - **English Wikipedia as a page provider** ([0052](../decisions/0052-page-repositories-and-title-inheritance.md) §1): slug `enwiki`, provider number 9, issuer `enwiki` (in `issuers.toml`), `pages = true`, no code and no types. The number is reserved here; the `[[provider]]` row is written once `scatter-providers` accepts an entry without a code.
 
 - **Derived graphs** ([0071](../decisions/0071-derived-statements-from-mirrored-pages.md) §1, §3): `derived/{source}`, one per extraction source of a tenant, with the four-part `scatter:v0/derivation`. Written as a comment at the end of `graphs.toml` until `scatter-log`'s registry accepts `per_source`, since the parser rejects unknown fields.
+
+- **`XD`'s key map as a rule** ([0091](../decisions/0091-one-wikibase-adapter.md) §2): internetdomains.wiki's flat `identity_property` and `key_type` on `adapter_config` become one `[[provider.adapter_config.key_map]]` rule with no class, and the `OW` entry gains `class_property`. Written as comments beside the entries until the adapter reads the rule list: `scatter-adapter-internetdomains` and `scatter-providers`' tests read the flat form today.
 
 - **Entity-source graphs** ([0078](../decisions/0078-entity-sources.md) §4): `source/{name}`, one per entity source of a tenant, with the policies of `mirror/{provider}`. Written as a comment at the end of `graphs.toml` until `scatter-log`'s registry accepts a per-source placeholder.
 

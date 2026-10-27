@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-16 (A14)
+- **Updated:** 2026-10-26 (A15)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md)
 - **Uses:** [0000](0000-init.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -68,7 +68,7 @@ Domains are also a bulk-ingest target. Citation data carries URLs, and every URL
 
 ### 9. Key-mapped providers (amends 0002 §4 and §5)
 
-*Changed by A2, A4, A6, A13, A14.*
+*Changed by A2, A4, A6, A13, A14, A15.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §2, §4.1, §4.2, §8.4, §8.6.*
 
@@ -86,7 +86,7 @@ Domains are also a bulk-ingest target. Citation data carries URLs, and every URL
 
 ### 12. Crates (amends 0005 §2)
 
-*Changed by A1.*
+*Changed by A1, A15.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
 
@@ -292,3 +292,22 @@ Replaced text ([05](../architecture/05-providers-and-ingest.md) §4.2, as it sto
 - **Source:** Direct: James, reading `Item:XDQ1` on his instance, 2026-10-16
 - **Change:** extends §9
 - **Summary:** §9 and [05](../architecture/05-providers-and-ingest.md) §4.1 have the prefixed upstream ID of a mapped item resolve to the Domain through the mapping index; this fixes the shape. An entity read by such an ID (`wbgetentities`, `Special:EntityData`, the REST entity routes) that `view.entity` does not hold is looked up in `view.keyed_map` by provider slug and upstream ID (the tenant's row first, then the instance's), and when the map holds it the answer is the keyed entity under its own ID with Wikibase's `redirects: {from, to}` beside it, as an upstream merge would answer — the alias is the ID of an item that no longer exists as a subject (§9, A13). The site sends `Item:XDQ9` to the Domain page with a `302`, keeping the query. An ID the map does not hold stays an ordinary foreign item, or `missing`. `triplespace_projections::read::mapped_alias` is the one lookup.
+
+### A15. Key maps are rules in the registry entry
+
+- **Date:** 2026-10-26
+- **Source:** [0091](0091-one-wikibase-adapter.md) §2, §3, §5
+- **Change:** amends §9, §12
+- **Summary:** A key map is a list of `[[provider.adapter_config.key_map]]` rules, each naming an identity property by its upstream ID (not by role), a keyed type and optionally a class, with `class_property` and `identity_property_on_mapped` beside them; internetdomains.wiki's is one rule with no class, and the flat fields are retired. An item two rules give identity values is a reject, and so is an item of a mapped class without its identity value. The keyed type supplies the normalizer, the entity type and the value data type. `scatter-adapter-internetdomains` is retired into `scatter-adapter-wikibase`. Chapter text: [05](../architecture/05-providers-and-ingest.md) §4.1, §8.6; [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.
+
+Replaced text (05 §4.1, as it stood):
+
+> **Provider registry entry.** The provider gets a two-letter code, `XD`, for the parts of it that are not domains. Its adapter configuration names, by role ([0003](0003-statement-ui.md) §7), the **identity property**: the upstream property whose value is the domain name.
+
+Replaced text (05 §8.6, as it stood):
+
+> Its adapter configuration names `identity_property = "P1"`, a string property holding the domain name, `key_type = "domain"`, and `identity_property_on_mapped = "drop"`:
+
+Replaced text (22 §2.1, the row, as it stood):
+
+> | | `scatter-adapter-internetdomains` | The key-mapped adapter for internetdomains.wiki ([0009](0009-keyed-entity-types-and-domain.md) §9, §12) | `scatter-wikibase-changeset`, `scatter-wikibase-model`, `scatter-providers`, `scatter-normalize` |

@@ -292,14 +292,15 @@ Every entity change in the run points to its job. A revision, for data that neve
 
 ### 3.4 Adapters and foreign imports
 
-*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.4.*
+*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.4; [0091](../decisions/0091-one-wikibase-adapter.md) §1, §4.*
 
-- **Adapters** are Rust trait implementations, one per provider type ([22](22-crates-and-stack.md)). An adapter:
+- **Adapters** are Rust trait implementations, one per kind of upstream ([22](22-crates-and-stack.md)): every MediaWiki+Wikibase provider is read by `scatter-adapter-wikibase`, parameterised by its registry entry, and a provider whose upstream is not a Wikibase has an adapter of its own ([0091](../decisions/0091-one-wikibase-adapter.md) §1). An adapter:
   - rewrites IDs (`Q`→`WDQ`, `P`→`WDP`) wherever an entity ID occurs, the `unit` of a quantity, the `globe` of a coordinate and the `calendarmodel` of a time included, so that the stored form carries prefixed IDs and the content hash is over that form ([04](04-entities-and-identifiers.md) §4.7);
   - maps non-Wikibase sources such as OpenAlex onto properties: registry-provider properties where one fits, otherwise the provider's own property type, never a tenant's ([04](04-entities-and-identifiers.md) §4.6);
   - supplies canonical IRIs.
 
   **Statement IDs from sources that have none, such as OpenAlex, must be deterministic.** They are a hash, as a name-based UUID, of the main snak and the qualifiers the adapter declares **identifying** for that property, an authorship's position, institution and award for example, and never of score-like qualifiers, so that they stay stable across re-imports and two authorships on one work do not collide. Without that, a local override would detach on every sync.
+- **Reading a Wikibase dump** ([0091](../decisions/0091-one-wikibase-adapter.md) §4). `triplespace sync` chooses the adapter by the provider's `adapter` field, not by its slug. `scatter-adapter-wikibase` reads a JSON or an XML dump, and makes a first pass over the whole dump when the provider has key-map rules (§4.1), since the index needs every item before any value is rewritten to a key, or when the dump is XML, whose snaks carry no `datatype` and are typed from the dump's own property pages, as adoption types them (§7.3). A JSON dump of a provider without key maps is read once.
 - **Version cursor.** An index, `view.entity_source`, records each entity's upstream version (Wikidata `lastrevid`, OpenAlex `updated_date`), content hash and `seen_job`, the last job that saw it. The ingester writes the cursor as its own state, not as a projection. A re-import appends only the entities that changed; a bulk job evaluates the skip for a whole block before the block is written (§3.10).
 - **Import modes:**
   - **`upsert`** adds and updates entities. It never deletes anything.
@@ -412,21 +413,22 @@ Entity payloads use the Wikibase canonical JSON described in [wikibase-compat.md
 
 ### 4.1 Mapping upstream items onto keys
 
-*Sources: [0009](../decisions/0009-keyed-entity-types-and-domain.md) §9.*
+*Sources: [0009](../decisions/0009-keyed-entity-types-and-domain.md) §9; [0091](../decisions/0091-one-wikibase-adapter.md) §2, §3.*
 
 internetdomains.wiki is mirrored like any other Wikibase, with one difference: its domain items are **mapped by key**, not rewritten to prefixed IDs.
 
-**Provider registry entry.** The provider gets a two-letter code, `XD`, for the parts of it that are not domains. Its adapter configuration names, by role ([0003](../decisions/0003-statement-ui.md) §7), the **identity property**: the upstream property whose value is the domain name.
+**Provider registry entry.** The provider gets a two-letter code, `XD`, for the parts of it that are not domains. Its **key map** is a list of rules in its adapter configuration, `[[provider.adapter_config.key_map]]`, one per class of mapped item ([0091](../decisions/0091-one-wikibase-adapter.md) §2). A rule names the **identity property**, the upstream property whose value is the key, and the keyed type the item is mapped onto, and may name a `class`: the rule then applies only to items that have that class as a direct value of the configuration's `class_property`, the wiki's "instance of". internetdomains.wiki's key map is one rule with no class, `identity_property = "P1"` and `key_type = "domain"` (§8.6); the OpenStreetMap wiki's is two rules with classes (§8.9). The identity and class properties are the provider's own and fixed by its entry, so they are named by their upstream IDs (`P1`), not by role; roles name the properties an adapter maps onto ([06](06-statements-and-properties.md) §1).
 
 **What the adapter does:**
 
 - **An upstream item with one valid identity value** is written to the mirror graph with its Domain ID, `domain:{key}`, as its subject ([0017](../decisions/0017-entity-id-grammar.md) §3). Its upstream item ID never appears as a subject.
 - **Values that point at such items** are rewritten to `wikibase-domain` values with the same key.
-- **Upstream items without an identity value,** such as registrars, organizations or classes, stay ordinary foreign items under the provider's prefix.
+- **Upstream items without an identity value,** such as registrars, organizations or classes, stay ordinary foreign items under the provider's prefix. Such an item is reported as a reject only when a rule that names its class is in scope: an item of a mapped class without its identity value is an upstream data problem.
 - **An identity value that does not normalize to a valid key** is reported as a reject. The item stays an ordinary foreign item.
 - **An item with more than one identity value** is reported and not mapped.
+- **An item that two rules give identity values** is reported and not mapped.
 
-**Other keyed types are mapped the same way.** A key map names the keyed type it maps onto: OpenAlex keywords map onto `keyword` ([0017](../decisions/0017-entity-id-grammar.md) §5), and the OpenStreetMap wiki's tag items onto notations in the `osm` scheme (§8.9; [0048](../decisions/0048-notation.md) §6). The keyed types themselves are in [04](04-entities-and-identifiers.md).
+**Other keyed types are mapped the same way.** A key map names the keyed type it maps onto: OpenAlex keywords map onto `keyword` ([0017](../decisions/0017-entity-id-grammar.md) §5), and the OpenStreetMap wiki's tag items onto notations in the `osm` scheme (§8.9; [0048](../decisions/0048-notation.md) §6). In a Wikibase provider's rules the keyed type supplies the normalizer, the mapped state's entity type and the data type of a value that points at a mapped item (`wikibase-domain`, `wikibase-keyword`, `wikibase-notation`), so the adapter hard-codes none of them, and a rule naming a type or scheme the build does not know is a configuration error when the adapter is built ([0091](../decisions/0091-one-wikibase-adapter.md) §3). The keyed types themselves are in [04](04-entities-and-identifiers.md).
 
 ### 4.2 Aliases, IRIs and upstream changes
 
@@ -784,19 +786,19 @@ Adoption brings the source's **history** by default. Its shape is fixed by a con
 
 ### 8.1 The registered providers
 
-*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §4; [0036](../decisions/0036-openstreetmap-providers.md) §1; [0037](../decisions/0037-gdelt-provider.md) §1.*
+*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §4; [0036](../decisions/0036-openstreetmap-providers.md) §1; [0037](../decisions/0037-gdelt-provider.md) §1; [0091](../decisions/0091-one-wikibase-adapter.md) §1.*
 
-`providers.toml` ([23](23-configuration-and-registry.md)) is the registry of record for providers. A provider's code, number, slug and per-type IRI templates are never changed once allocated, and codes and numbers are never reused; number 0 is the instance itself and is never assigned; registry provider numbers are below 2^12, and numbers 4096–8191 (2^12 to 2^13 − 1) are never assigned in the registry, since each tenant assigns them to its entity sources (§6.4), so that `number << 40 | n` stays below 2^53 for `n` below 2^40 and **every ID a client sees is below 2^53**, exact in a JavaScript number; and the twenty-six doubled letters `AA`…`ZZ` are reserved codes, because a type letter written three times is the tenant-relative form of a local ID ([04](04-entities-and-identifiers.md)). Each provider has a two-letter `code`, a `slug` used in graph names (`mirror/{slug}`) and the API, a `number` for the revision-ID range `revid = number << 40 | n`, an `issuer` that its revisions attribute actors to (or the provider itself for providers without individual actors), an `actor_model` (`individual` when the provider's changes carry upstream actors, `provider-only` when they are attributed to the provider as a whole; `issuer == slug` is not the test, since OpenStreetMap's issuer is its slug and its changesets have authors), `revision_ids` (true when the provider publishes revision IDs, so that `n` is the upstream revision ID; otherwise `n` is the mirror record's offset), `sync_deltas` (`summary` or `full`, §2.6), `deletion` (`tombstone`, or `clear` for a provider whose upstream deletions clear the mirror's contribution with a `put` of the empty state, §2.1), one `adapter` crate per provider ([22](22-crates-and-stack.md)), an optional `trust` with `keys` for a provider that publishes a tlog checkpoint (`verified`, the default for `scatter-adapter-triplespace`, checks every mirrored batch against the provider's checkpoint and key chain; `stream` mirrors without proofs), and chip colours ([19](19-site-ui.md)). Each `[[provider.type]]` gives one entity type the provider mints: a one-letter `code`, the `entity_type`, the `upstream_prefix`, the `iri` template over `{upstream_id}` and the `namespace` whose pages host the type; `id_grammar` may be set on a provider or, overriding it, on a single type ([04](04-entities-and-identifiers.md)); `key_mapped` on a type means its upstream entities are written under a keyed type's keys (§4) and the type code stays reserved; a type with `entity_type = "property"` on a provider that publishes no properties of its own (OpenAlex, OpenStreetMap, GDELT) is the provider's **property type**, whose properties the adapter mints under deterministic IDs with its mapping version, so that an adapter never maps onto a tenant's properties ([04](04-entities-and-identifiers.md) §4.6). A provider marked `pages` is one whose pages a page repository serves ([13](13-mirrored-pages.md)); it may mint no entities, and English Wikipedia's entry (slug `enwiki`, number 9, issuer `enwiki`) is a pending allocation rather than a row, since `scatter-providers` does not yet accept a codeless entry.
+`providers.toml` ([23](23-configuration-and-registry.md)) is the registry of record for providers. A provider's code, number, slug and per-type IRI templates are never changed once allocated, and codes and numbers are never reused; number 0 is the instance itself and is never assigned; registry provider numbers are below 2^12, and numbers 4096–8191 (2^12 to 2^13 − 1) are never assigned in the registry, since each tenant assigns them to its entity sources (§6.4), so that `number << 40 | n` stays below 2^53 for `n` below 2^40 and **every ID a client sees is below 2^53**, exact in a JavaScript number; and the twenty-six doubled letters `AA`…`ZZ` are reserved codes, because a type letter written three times is the tenant-relative form of a local ID ([04](04-entities-and-identifiers.md)). Each provider has a two-letter `code`, a `slug` used in graph names (`mirror/{slug}`) and the API, a `number` for the revision-ID range `revid = number << 40 | n`, an `issuer` that its revisions attribute actors to (or the provider itself for providers without individual actors), an `actor_model` (`individual` when the provider's changes carry upstream actors, `provider-only` when they are attributed to the provider as a whole; `issuer == slug` is not the test, since OpenStreetMap's issuer is its slug and its changesets have authors), `revision_ids` (true when the provider publishes revision IDs, so that `n` is the upstream revision ID; otherwise `n` is the mirror record's offset), `sync_deltas` (`summary` or `full`, §2.6), `deletion` (`tombstone`, or `clear` for a provider whose upstream deletions clear the mirror's contribution with a `put` of the empty state, §2.1), one `adapter` crate per provider, shared by every provider with the same kind of upstream, so that every MediaWiki+Wikibase names `scatter-adapter-wikibase` ([22](22-crates-and-stack.md); [0091](../decisions/0091-one-wikibase-adapter.md) §1), an optional `trust` with `keys` for a provider that publishes a tlog checkpoint (`verified`, the default for `scatter-adapter-triplespace`, checks every mirrored batch against the provider's checkpoint and key chain; `stream` mirrors without proofs), and chip colours ([19](19-site-ui.md)). Each `[[provider.type]]` gives one entity type the provider mints: a one-letter `code`, the `entity_type`, the `upstream_prefix`, the `iri` template over `{upstream_id}` and the `namespace` whose pages host the type; `id_grammar` may be set on a provider or, overriding it, on a single type ([04](04-entities-and-identifiers.md)); `key_mapped` on a type means its upstream entities are written under a keyed type's keys (§4) and the type code stays reserved; a type with `entity_type = "property"` on a provider that publishes no properties of its own (OpenAlex, OpenStreetMap, GDELT) is the provider's **property type**, whose properties the adapter mints under deterministic IDs with its mapping version, so that an adapter never maps onto a tenant's properties ([04](04-entities-and-identifiers.md) §4.6). A provider marked `pages` is one whose pages a page repository serves ([13](13-mirrored-pages.md)); it may mint no entities, and English Wikipedia's entry (slug `enwiki`, number 9, issuer `enwiki`) is a pending allocation rather than a row, since `scatter-providers` does not yet accept a codeless entry.
 
 | Code | Slug | Number | Types (code: upstream prefix → entity type) | ID grammar | Issuer | `actor_model` | `revision_ids` | `deletion` | Adapter | Trust |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `WD` | `wikidata` | 1 | `Q`: `Q` → item; `P`: `P` → property; `L`: `L` → lexeme; `M`: `M` → mediainfo (Commons, §8.2); `E`: `E` → entityschema | `digits` | `wikidatawiki`; agent `http://www.wikidata.org/entity/Q2013` | `individual` | true | `tombstone` | `scatter-adapter-wikidata` | — |
-| `LB` | `librarybase` | 2 | `Q`: `Q` → item; `P`: `P` → property | `digits` | `librarybase` | `individual` | true | `tombstone` | `scatter-adapter-wikidata` | — |
+| `WD` | `wikidata` | 1 | `Q`: `Q` → item; `P`: `P` → property; `L`: `L` → lexeme; `M`: `M` → mediainfo (Commons, §8.2); `E`: `E` → entityschema | `digits` | `wikidatawiki`; agent `http://www.wikidata.org/entity/Q2013` | `individual` | true | `tombstone` | `scatter-adapter-wikibase` | — |
+| `LB` | `librarybase` | 2 | `Q`: `Q` → item; `P`: `P` → property | `digits` | `librarybase` | `individual` | true | `tombstone` | `scatter-adapter-wikibase` | — |
 | `OA` | `openalex` | 3 | `W` Work, `A` Author, `S` Source, `I` Institution, `T` Topic, `P` Publisher, `F` Funder, `G` Award: each `{code}` → item; `K`: `keywords/` → keyword, `key_mapped` | `digits` | `openalex` | `provider-only` | false | `tombstone` | `scatter-adapter-openalex` | — |
 | `MB` | `musicbrainz` | 4 | `A` artist, `G` release group, `R` release, `C` recording, `W` work, `L` label, `D` area, `P` place, `E` event, `S` series, `I` instrument, `N` genre: each `""` → item | `uuid` | `musicbrainz` | — | false | `tombstone` | `scatter-adapter-musicbrainz` | — |
-| `XD` | `internetdomains` | 5 | `Q`: `Q` → item (domain items key-mapped onto `domain`); `P`: `P` → property | `digits` | `internetdomains` | `individual` | true | `tombstone` (keyed items: clear, §4.2) | `scatter-adapter-internetdomains` | — |
+| `XD` | `internetdomains` | 5 | `Q`: `Q` → item (domain items key-mapped onto `domain`); `P`: `P` → property | `digits` | `internetdomains` | `individual` | true | `tombstone` (keyed items: clear, §4.2) | `scatter-adapter-wikibase` | — |
 | `OS` | `openstreetmap` | 6 | `N` node, `W` way, `R` relation: each `""` → item | `digits` | `openstreetmap` (the changeset author's OSM user ID) | `individual` | false | `clear` | `scatter-adapter-openstreetmap` | — |
-| `OW` | `osmwiki` | 7 | `Q`: `Q` → item (key and tag items key-mapped onto `notation`, scheme `osm`); `P`: `P` → property | `digits` | `osmwiki` | `individual` | true | `tombstone` (keyed items: clear, §4.2) | `scatter-adapter-wikidata` | — |
+| `OW` | `osmwiki` | 7 | `Q`: `Q` → item (key and tag items key-mapped onto `notation`, scheme `osm`); `P`: `P` → property | `digits` | `osmwiki` | `individual` | true | `tombstone` (keyed items: clear, §4.2) | `scatter-adapter-wikibase` | — |
 | `GD` | `gdelt` | 8 | `E` event, `C` CAMEO event code: `""` → item, `digits`; `D` document: `""` → item, `gdelt-record`; `T` GKG theme: `""` → item, `token` | per type | `gdelt` | `provider-only` | false | `tombstone` | `scatter-adapter-gdelt` | — |
 
 No registered provider sets `trust`; it applies to a provider that is a Triplespace instance or Scatterbase ([0022](../decisions/0022-federation.md) §2). A provider without individual actors has one actor record of kind `provider`, agent type `prov:Organization`, written when the provider is registered ([07](07-actors-and-accounts.md)).
@@ -813,9 +815,9 @@ Wikidata is the provider the mirror model is written against: every observed sta
 
 ### 8.3 Librarybase
 
-*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §4; [0035](../decisions/0035-adopting-a-wikibase.md) §1, §7.*
+*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §4; [0035](../decisions/0035-adopting-a-wikibase.md) §1, §7; [0091](../decisions/0091-one-wikibase-adapter.md) §1.*
 
-Librarybase (`LB`, number 2) is any MediaWiki+Wikibase mirrored through `scatter-adapter-wikidata`, which is parameterised by the registry entry; its entities project to `https://librarybase.org/entity/{upstream_id}`. It is also the worked example of a tenant as a provider, whose `Q6` is `LBQ6` to readers by rewriting on read ([08](08-tenants-and-instances.md)), and of adoption: its first milestone is API-only, and it adopts with its history (§7.5). **Whether `LB` is a remote wiki to sync or a tenant here is instance configuration, read from the registry's `issuer`:** an instance one of whose tenants is the provider's issuer refuses every sync job for that provider and reads the tenant's `local` partition as the provider's graph (§5.9); an instance that had been mirroring Librarybase before adopting it freezes `mirror/librarybase` as a precondition of the adoption (§7.2).
+Librarybase (`LB`, number 2) is any MediaWiki+Wikibase mirrored through `scatter-adapter-wikibase`, which is parameterised by the registry entry; its entities project to `https://librarybase.org/entity/{upstream_id}`. It is also the worked example of a tenant as a provider, whose `Q6` is `LBQ6` to readers by rewriting on read ([08](08-tenants-and-instances.md)), and of adoption: its first milestone is API-only, and it adopts with its history (§7.5). **Whether `LB` is a remote wiki to sync or a tenant here is instance configuration, read from the registry's `issuer`:** an instance one of whose tenants is the provider's issuer refuses every sync job for that provider and reads the tenant's `local` partition as the provider's graph (§5.9); an instance that had been mirroring Librarybase before adopting it freezes `mirror/librarybase` as a precondition of the adoption (§7.2).
 
 ### 8.4 OpenAlex
 
@@ -831,13 +833,13 @@ MusicBrainz (`MB`, number 4) has `id_grammar = "uuid"`: an entity ID is the thre
 
 ### 8.6 internetdomains.wiki
 
-*Sources: [0009](../decisions/0009-keyed-entity-types-and-domain.md) §9.*
+*Sources: [0009](../decisions/0009-keyed-entity-types-and-domain.md) §9; [0091](../decisions/0091-one-wikibase-adapter.md) §2.*
 
-The Internet Domains Wikibase (`XD`, number 5) is the key-mapped provider of §4. Its adapter configuration names `identity_property = "P1"`, a string property holding the domain name, `key_type = "domain"`, and `identity_property_on_mapped = "drop"`: on a mapped item `P1` is dropped from the mirrored state, since the key is the value, and kept on unmapped or rejected items, where it is ordinary data. The identity property is adapter configuration, not part of the ID scheme. The wiki was domains.wikibase.cloud before it moved to internetdomains.wiki; the slug and every `internetdomains:{id}` actor key are stable across the move ([0018](../decisions/0018-tenants.md) §4).
+The Internet Domains Wikibase (`XD`, number 5) is the key-mapped provider of §4. Its key map is one rule with no class ([0091](../decisions/0091-one-wikibase-adapter.md) §2), `identity_property = "P1"`, a string property holding the domain name, and `key_type = "domain"`, and its adapter configuration sets `identity_property_on_mapped = "drop"`: on a mapped item `P1` is dropped from the mirrored state, since the key is the value, and kept on unmapped or rejected items, where it is ordinary data. The identity property is adapter configuration, not part of the ID scheme. The wiki was domains.wikibase.cloud before it moved to internetdomains.wiki; the slug and every `internetdomains:{id}` actor key are stable across the move ([0018](../decisions/0018-tenants.md) §4).
 
 ### 8.7 OpenStreetMap: two providers, and `OS` map objects
 
-*Sources: [0036](../decisions/0036-openstreetmap-providers.md) §1, §2.*
+*Sources: [0036](../decisions/0036-openstreetmap-providers.md) §1, §2; [0091](../decisions/0091-one-wikibase-adapter.md) §1.*
 
 | | Map data | Vocabulary |
 |---|---|---|
@@ -845,7 +847,7 @@ The Internet Domains Wikibase (`XD`, number 5) is the key-mapped provider of §4
 | Types | `N` node, `W` way, `R` relation | `Q` item, `P` property |
 | IDs | `OSN123`, `OSW123`, `OSR123` | `OWQ7`, `OWP16` |
 | Source | planet, replication diffs, API | `wiki.openstreetmap.org` Wikibase |
-| Adapter | `scatter-adapter-openstreetmap` | `scatter-adapter-wikidata`, parameterised, with key-mapping (§4) |
+| Adapter | `scatter-adapter-openstreetmap` | `scatter-adapter-wikibase`, parameterised, with key-mapping (§4) |
 | `revision_ids` | false | true |
 | Issuer | `openstreetmap` (OSM user IDs) | `osmwiki` (wiki user IDs) |
 
@@ -872,9 +874,9 @@ Free-text keys such as `name`, `phone` and `opening_hours` should have their own
 
 ### 8.9 `OW`: the vocabulary
 
-*Sources: [0036](../decisions/0036-openstreetmap-providers.md) §5.*
+*Sources: [0036](../decisions/0036-openstreetmap-providers.md) §5; [0091](../decisions/0091-one-wikibase-adapter.md) §2.*
 
-The wiki's Wikibase models keys and tags as items and describes them with about fifty properties. The adapter maps two classes to notations in the `osm` scheme (the key map names `key_type = "notation"` and `key_scheme = "osm"`, [0048](../decisions/0048-notation.md) §6; [04](04-entities-and-identifiers.md)):
+The wiki's Wikibase models keys and tags as items and describes them with about fifty properties. The adapter maps two classes to notations in the `osm` scheme by two key-map rules (§4.1; [0091](../decisions/0091-one-wikibase-adapter.md) §2), each naming its `class`, its identity property, `key_type = "notation"` and `key_scheme = "osm"` ([0048](../decisions/0048-notation.md) §6; [04](04-entities-and-identifiers.md)). The configuration's `class_property` is the wiki's "instance of" property, and a rule matches an item's direct class only:
 
 | Class | Identity property | Becomes |
 |---|---|---|

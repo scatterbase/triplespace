@@ -439,9 +439,9 @@ The files are `serde` + `toml`, embedded at build time (`include_str!`) by the c
 
 ### 4.2 Providers and issuers
 
-*Sources: [0036](../decisions/0036-openstreetmap-providers.md) §7; [0037](../decisions/0037-gdelt-provider.md) §8; [0048](../decisions/0048-notation.md) §7.*
+*Sources: [0036](../decisions/0036-openstreetmap-providers.md) §7; [0037](../decisions/0037-gdelt-provider.md) §8; [0048](../decisions/0048-notation.md) §7; [0091](../decisions/0091-one-wikibase-adapter.md) §2.*
 
-`providers.toml` carries `OS` (number 6) and `OW` (number 7), the `OW` key map with `key_type = "notation"` and `key_scheme = "osm"`, and `GD` (number 8) with types `E`, `D`, `C`, `T`. `scatter-providers` carries per-type `id_grammar` and the `gdelt-record` and `token` grammars, beside `digits` and `uuid`: the ID grammars of minted types live with the registry field that names them ([0017](../decisions/0017-entity-id-grammar.md) §7), and `scatter-normalize` keeps the key grammars of keyed types. `issuers.toml` carries `openstreetmap`, `osmwiki` and `gdelt`. GDELT adds no keyed type and no namespace. The crates these ADRs add are in [22](22-crates-and-stack.md); the providers themselves are in [05](05-providers-and-ingest.md).
+`providers.toml` carries `OS` (number 6) and `OW` (number 7), the `OW` key map, two rules with `key_type = "notation"` and `key_scheme = "osm"` and the wiki's `class_property`, beside `XD`'s one rule with `key_type = "domain"` (a key map is always a list of `[[provider.adapter_config.key_map]]` rules, [0091](../decisions/0091-one-wikibase-adapter.md) §2), and `GD` (number 8) with types `E`, `D`, `C`, `T`. `scatter-providers` carries per-type `id_grammar` and the `gdelt-record` and `token` grammars, beside `digits` and `uuid`: the ID grammars of minted types live with the registry field that names them ([0017](../decisions/0017-entity-id-grammar.md) §7), and `scatter-normalize` keeps the key grammars of keyed types. `issuers.toml` carries `openstreetmap`, `osmwiki` and `gdelt`. GDELT adds no keyed type and no namespace. The crates these ADRs add are in [22](22-crates-and-stack.md); the providers themselves are in [05](05-providers-and-ingest.md).
 
 ### 4.3 Keyed types, notation schemes, namespaces and content models
 

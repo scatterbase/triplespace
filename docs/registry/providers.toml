@@ -10,6 +10,19 @@
 # revision_ids true if the provider publishes revision IDs; then n is the upstream revision ID,
 #              otherwise n is the mirror record's offset.
 # adapter      The crate that implements the provider's adapter (0002 §8.4), one per provider (0002 A28).
+#              Every MediaWiki+Wikibase provider names scatter-adapter-wikibase, parameterised by its
+#              entry (0091 §1).
+# adapter_config
+#              The adapter's own settings, never credentials. For a key-mapped Wikibase provider (0091 §2):
+#                [[provider.adapter_config.key_map]], one rule per class of mapped item, with
+#                  identity_property  the upstream property whose value is the key, by upstream ID (P1)
+#                  key_type           the keyed type mapped onto (keyed-types.toml)
+#                  key_scheme         for key_type = "notation", the scheme (notation-schemes.toml)
+#                  class              optional: the rule applies only to items with this upstream class
+#                                     as a direct value of class_property
+#                class_property     the wiki's "instance of", required when a rule names a class
+#                identity_property_on_mapped
+#                                   "drop" (default) or "keep"
 # actor_model  "individual" (default): the provider's revisions name actors, attributed through the
 #              issuer; "provider-only": no per-change attribution, every change is attributed to the
 #              provider's own actor record (0007 §6 as amended by 0007 A18, 0037 §1). Explicit, because
@@ -76,7 +89,7 @@ revision_ids = true
 article_path = "https://www.wikidata.org/wiki/"
 api = "https://www.wikidata.org/w/api.php"
 entity_data = "https://www.wikidata.org/wiki/Special:EntityData/"
-adapter = "scatter-adapter-wikidata"
+adapter = "scatter-adapter-wikibase"                            # 0091 §1; the crate is scatter-adapter-wikidata until it is renamed
 actor_model = "individual"
 agent_iri = "http://www.wikidata.org/entity/Q2013"    # the provider as a prov:Organization (0007 §6)
 
@@ -134,7 +147,7 @@ issuer = "librarybase"
 revision_ids = true
 article_path = "https://librarybase.org/wiki/"
 api = "https://librarybase.org/w/api.php"
-adapter = "scatter-adapter-wikidata"                            # any MediaWiki+Wikibase; the adapter is parameterised by this entry
+adapter = "scatter-adapter-wikibase"                            # any MediaWiki+Wikibase; the adapter is parameterised by this entry (0091 §1)
 actor_model = "individual"
 
   [[provider.type]]
@@ -380,12 +393,17 @@ issuer = "internetdomains"
 revision_ids = true
 article_path = "https://internetdomains.wiki/wiki/"
 api = "https://internetdomains.wiki/w/api.php"
-adapter = "scatter-adapter-internetdomains"
+adapter = "scatter-adapter-wikibase"    # 0091 §1; read by scatter-adapter-internetdomains until that crate is retired into it
 actor_model = "individual"
 # The wiki was domains.wikibase.cloud before it moved to internetdomains.wiki (0018 §4); the
 # slug and every internetdomains:{id} actor key are stable across the move.
 
   # Adapter configuration (0009 §9). P1 is a string property holding the domain name.
+  # Pending (0091 §2; README): with the code, the flat identity_property and key_type below become
+  # one key-map rule with no class:
+  #   [[provider.adapter_config.key_map]]
+  #   identity_property = "P1"
+  #   key_type = "domain"
   [provider.adapter_config]
   identity_property = "P1"
   key_type = "domain"              # keyed-types.toml
@@ -474,13 +492,14 @@ issuer = "osmwiki"
 revision_ids = true
 article_path = "https://wiki.openstreetmap.org/wiki/"
 api = "https://wiki.openstreetmap.org/w/api.php"
-adapter = "scatter-adapter-wikidata"    # any MediaWiki+Wikibase; the adapter is parameterised by this entry
+adapter = "scatter-adapter-wikibase"    # any MediaWiki+Wikibase; the adapter is parameterised by this entry (0091 §1)
 actor_model = "individual"
 # The concept base URI below is what Sophox uses; confirm it against Special:EntityData before the first load.
 
-  # Adapter configuration (0036 §3). One entry per class of mapped item. The class and the
+  # Adapter configuration (0036 §3; 0091 §2). One rule per class of mapped item. The class and the
   # identity property are the wiki's own IDs (Q7, P16); an item of the class with exactly one valid
-  # identity value is mapped, as in 0009 §9.
+  # identity value is mapped, as in 0009 §9, and one with none is reported. A rule matches an item's
+  # direct class, a value of class_property (below).
   [[provider.adapter_config.key_map]]
   class = "Q7"                     # OpenStreetMap key
   identity_property = "P16"        # permanent key ID; the wiki states it never changes
@@ -494,6 +513,7 @@ actor_model = "individual"
   key_scheme = "osm"
 
   [provider.adapter_config]
+  # class_property = "P2"          # the wiki's "instance of" (0091 §2): pending until the adapter reads it; confirm the ID against the wiki
   identity_property_on_mapped = "drop"
   # Concept links (0036 §5): statements on the mapped entity, never same-as. notation has clusters = false.
   concept_link_properties = ["P7", "P12"]     # Wikidata equivalent, Wikidata concept
