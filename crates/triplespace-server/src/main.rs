@@ -87,8 +87,16 @@ async fn background(app: &triplespace_api_action::App) {
     }
 }
 
+fn main() -> Result<()> {
+    // Before the runtime starts: the `.env` file is read into the environment (23 §5.1).
+    if let Some(path) = triplespace_cli::env_file::load()? {
+        eprintln!("configuration from {}", path.display());
+    }
+    run()
+}
+
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn run() -> Result<()> {
     let args = Args::parse();
     let embedded = match args.ui.as_str() {
         "embedded" => true,

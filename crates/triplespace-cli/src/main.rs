@@ -5,8 +5,8 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use triplespace_cli::{
-    accounts, adopt, challenge, forwarder, instance, oauth_client, rights, settings, status, sync,
-    tenant,
+    accounts, adopt, challenge, env_file, forwarder, instance, oauth_client, rights, settings,
+    status, sync, tenant,
 };
 
 /// Triplespace: a Wikibase as an append-only log.
@@ -105,8 +105,14 @@ enum InstanceCommand {
     },
 }
 
+fn main() -> Result<()> {
+    // Before the runtime starts: the `.env` file is read into the environment (23 §5.1).
+    env_file::load()?;
+    run()
+}
+
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn run() -> Result<()> {
     match Cli::parse().command {
         Command::Instance {
             command: InstanceCommand::Create(args),

@@ -18,6 +18,7 @@ triplespace-client.workspace = true
 triplespace-ui.workspace = true
 axum.workspace = true
 clap.workspace = true
+dotenvy.workspace = true
 anyhow.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "net"] }
 

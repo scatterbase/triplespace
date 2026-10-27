@@ -149,6 +149,7 @@ bzip2 = "0.5"
 
 # The CLI (0033 §13)
 clap = { version = "4", features = ["derive", "env"] }
+dotenvy = "0.15"
 
 # Driving async traits from synchronous tests (0005 rule 2: no runtime in the core)
 pollster = "1"
