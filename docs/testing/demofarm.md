@@ -48,7 +48,9 @@
 
 The dump's `<base>` is a container host (`http://792abbf5ae5f/…`), not `librarybase.org`, so
 `--source https://librarybase.org/` is always given explicitly. The six user talk pages are
-deferred by adoption (0090's conversion is not yet wired into `adopt`).
+converted into threads after the adoption job (0090 §10; built 2026-10-26): two are redirects,
+three belong to users the dump never names as accounts, and one (Harej's welcome to himself)
+becomes a thread.
 
 ### The Credit Unions Wiki: `data/creditunionswiki-20261004.xml`
 
@@ -123,7 +125,6 @@ Read this first: points 2–3 decide what phase 0 has to build before phases 4 a
    - the sync loads the whole dump into memory, which is fine at 247k entities but worth watching
      on the Librarybase run;
    - no `record` ACLs from adoption;
-   - user talk pages not converted on adoption;
    - no SPARQL endpoint.
 
 ## Decisions for James
@@ -161,27 +162,47 @@ Read this first: points 2–3 decide what phase 0 has to build before phases 4 a
   - **Reads.** `wbgetentities`, `Special:EntityData`, search and the entity page for `opencredit:`
     IDs, on the reading tenant only, with tenant rows and no shared row (05 §6.4).
 - **P2. ~~A generic Wikibase path in `sync`.~~** Done by [0091](../decisions/0091-one-wikibase-adapter.md).
-- **P3. The follower** (0092 §1–§3, §7, §10), built first, since it does not depend on P1:
-  - **`scatter-adapter-mediawiki`** (new crate, as the crate map has it): the recent-changes query
-    and batch reading over the namespaces a caller names, with dedupe by `rcid`, coalescing by
-    title and the settle and tail windows, as pure functions tested on recorded responses;
-  - **`triplespace-upstream`** (new crate): the HTTP client with a User-Agent, `maxlag`,
-    `Retry-After`, one request in flight, and the optional bot login from
-    `private.upstream_login`;
-  - **`scatter-adapter-wikibase`**: the entity namespaces from `siteinfo` by content model, a
-    row's title as an entity ID, and a `wbgetentities` response as states, redirects and misses;
-  - **`scatter-ingest`**: the follower loop over a `ChangeSource` trait, turning states into the
-    sync's existing `State`, `Redirected` and `Deleted` items (a miss only for an entity in the
-    set), the position, the gap check and the handover from a load;
-  - **`triplespace-api-ingest`**: `ChangeSource` over the two crates above, and the position written
-    in the transaction of the batch's last unit (0092 §3);
-  - **`triplespace-db`**: a migration for `ops.repo_cursor` keyed by `(tenant, kind, name)` and
-    `private.upstream_login`;
-  - **`triplespace-cli`**: `follow --provider {slug} [--once]`, one job per run; `upstream-login
-    set|unset`; and `sync` recording a load's end position.
+- **P3. The follower** (0092 §1–§3, §5, §10): **built** against a registry provider, 2026-10-27;
+  the `--tenant … --source` forms arrive with P1. What landed, by crate:
+  - **`scatter-adapter-mediawiki`** (new crate, as the crate map has it): `recentchanges::Poller`,
+    the query and batch reading over the namespaces a caller names, with dedupe by `rcid`,
+    coalescing by title and the settle and tail windows, as pure functions with tests;
+  - **`triplespace-upstream`** (new crate, partial): `Wiki`, one `api.php` client per followed wiki
+    with a User-Agent, `maxlag`, `Retry-After` and `429`/`503` retries, one request in flight, and
+    the optional bot login (`login`), after which the higher limits (5,000 rows, 500 IDs) are used;
+  - **`scatter-adapter-wikibase`**: `follow`, the entity namespaces from `siteinfo` by content
+    model, a row's title as an entity ID, and a `wbgetentities` response as states, redirects and
+    misses; `Index::restore` from the projected key map, and re-observing an item is not a claim
+    against itself;
+  - **`scatter-ingest`**: `follow::run_follow` over a `ChangeSource` trait, one `upsert` sync job
+    per batch, the position saved after the batch's job;
+  - **`triplespace-api-ingest`**: `follow::ProviderFollower`, the `ChangeSource` over the three
+    crates above: the position in `ops.repo_cursor`, the gap check against the wiki's oldest
+    recent change, the handover from a load (`loaded_to` less `follow.tail`), stale states kept
+    to read again, `late`/`stale` counted;
+  - **`triplespace-accounts`**: `upstream_login`, the sealed bot password;
+  - **`triplespace-db`**: migration `0022_followers` (`ops.repo_cursor`, `private.upstream_login`);
+  - **`triplespace-cli`**: `follow --provider {slug} [--once] [--from {iso}] [--interval {s}]
+    [--api {url}] [--anonymous]`, `upstream-login set|unset|show`, and `sync` recording the load's
+    end as `loaded_to`.
 
-  Try it against the live wiki under a sandbox-only registry entry, as the 0091 adapter was
-  (results log, run 0). The `--tenant … --source` forms arrive with P1.
+  **Checked** in the sandbox against a mock `api.php` serving the Librarybase sample (an edit, an
+  unchanged row, a deletion, a merge, a new item, a state served stale once, and a row outside
+  the entity namespaces): after `sync` of the sample, `follow --once` printed `1 created, 1
+  updated, 1 unchanged, 1 tombstoned, 1 redirected; 1 stale`; a second run re-read only the
+  stale item (`1 updated`) and wrote nothing else. A position older than the wiki's oldest
+  change stops with the gap error. The live Credit Unions wiki is reached from the Mac only.
+
+  **Deviations to confirm** (flagged, not settled):
+  - 0092 §3 says the position is written in the batch's transaction; it is written after the
+    batch's job commits, which the "hint, not guarantee" rule makes equivalent for a crash
+    between the two (a replay), but the text should say which.
+  - 0092 §3's recovery of a lost position from `view.entity_source` is not built: that table
+    holds no upstream time, so a lost row needs `--from` or a new load.
+  - 0092 §5's warning at the end of `sync` when the load is already behind the wiki's window is
+    not built; the follower reports the gap when it starts.
+  - A wiki whose API omits snak datatypes (none known) would make every state "updated": the
+    follower applies no property typing, unlike the XML dump path.
 
 **Pass:**
 - fmt, clippy, the workspace tests with a database, and `docs/check.sh`.
@@ -315,8 +336,13 @@ Use the counters recorded for stage 1. Without them, the warning names the dump'
 **Pass:**
 - **Counts.** Adopted + rejected + unreadable is 247,011, less the 5 redirects, which are
   skipped: local entity redirects are not served yet (backlog). The 27 Project pages, the 5 User
-  pages and the 2 Templates are adopted as wikitext; the 6 User talk and the 4 MediaWiki pages are
-  reported as deferred, not rejected.
+  pages and the 2 Templates are adopted as wikitext; the 4 MediaWiki pages are reported as
+  deferred, not rejected.
+- **Talk pages.** `talk 1 pages converted into 1 threads, 1 posts`, and 5 deferred: 2 redirects
+  (`User talk:Librarybase`, `User talk:Database import`) and 3 whose users have no account in
+  the dump. `Special:RecentChanges` on `library` shows the thread's creation at the source's
+  time, by Harej; `/wiki/User_talk:Harej` lists "Welcome to Librarybase!" as an archived thread
+  with its 2025-08-31 post.
 - **Speed.** Wall time is within about 10% of stage 1's. A multi-tenant instance should cost
   nothing extra per entity; if it does, the `pg_stat_statements` recipe of `performance.md` §3
   says where.
@@ -354,6 +380,7 @@ tools/api_check.py --api $LB --tenant library --ids Q1 --wbi-login "Harej bot 2@
   - open `/wiki/Item:Q8` on `creditunions`: statement groups, quantities with units, references
     to Q7;
   - open `/wiki/Main_Page` and its History: six revisions, with diffs;
+  - on `library`, open `/wiki/User_talk:Harej` and its one converted thread;
   - start a thread on `Item talk:Q8` and watch Q8;
   - reply from a second account that mentions Harej;
   - check the bell and `Special:Watchlist`.

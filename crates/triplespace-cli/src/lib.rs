@@ -6,9 +6,11 @@
 pub mod accounts;
 pub mod adopt;
 pub mod adopt_pages;
+pub mod adopt_talk;
 pub mod challenge;
 pub mod common;
 pub mod env_file;
+pub mod follow;
 pub mod forwarder;
 pub mod instance;
 pub mod oauth_client;

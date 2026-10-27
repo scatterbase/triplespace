@@ -86,6 +86,7 @@ async fn setup() -> Option<(String, PathBuf)> {
         entity_sources: vec![],
         subsidiary: None,
         batch: 50,
+        skip_talk: false,
         no_accounts: false,
     })
     .await
@@ -98,6 +99,80 @@ async fn query(database: &str, sql: &str) -> Vec<tokio_postgres::Row> {
     client.query(sql, &[]).await.unwrap()
 }
 
+/// Harej's talk page, a welcome he posted to himself on 2025-08-31: one archived thread
+/// whose single post is his, dated from its signature, with its DiscussionTools name; and
+/// the thread's `create` names the page it was imported from, so a second adoption
+/// does not write it again (checked where the test adopts twice).
+async fn talk_pages_became_threads(database: &str) {
+    let threads = query(
+        database,
+        "SELECT t.subject, t.status, t.post_count, t.target_kind, t.target_id, p.title
+         FROM view.thread t JOIN view.page p ON p.tenant = t.tenant AND p.page_id = t.page_id
+         WHERE t.tenant = 'librarybase'",
+    )
+    .await;
+    assert_eq!(threads.len(), 1);
+    let t = &threads[0];
+    assert_eq!(t.get::<_, String>(0), "Welcome to Librarybase!");
+    assert_eq!(t.get::<_, String>(1), "archived");
+    assert_eq!(t.get::<_, i32>(2), 1);
+    assert_eq!(t.get::<_, i16>(3), 2, "an actor target: a user talk page");
+    assert!(t.get::<_, String>(4).ends_with(":3"), "Harej is user 3");
+    assert_eq!(t.get::<_, String>(5), "2025-08-31/Welcome to Librarybase!");
+    let posts = query(
+        database,
+        "SELECT actor, dt_name, original::text FROM view.post WHERE tenant = 'librarybase'",
+    )
+    .await;
+    assert_eq!(posts.len(), 1);
+    assert!(posts[0].get::<_, String>(0).ends_with(":3"));
+    assert_eq!(posts[0].get::<_, String>(1), "c-Harej-20250831155600");
+    assert!(posts[0].get::<_, String>(2).starts_with("2025-08-31 15:56"));
+}
+
+/// Adopting the same dump again writes no revision and converts no talk page twice.
+async fn adopting_again_changes_nothing(database: &str) {
+    // Adopting again changes nothing.
+    adopt::run(adopt::Adopt {
+        database: database.to_string(),
+        tenant: TENANT.into(),
+        dump: fixture(),
+        source: format!("https://{HOST}/"),
+        version: Some("LibrarybaseWikitext-20261010030044".into()),
+        frozen: true,
+        current_only: false,
+        counters: Some("item=0,property=0".into()),
+        log_floor: 0,
+        entity_sources: vec![],
+        subsidiary: None,
+        batch: 50,
+        skip_talk: false,
+        no_accounts: false,
+    })
+    .await
+    .expect("adopt again");
+    let again = query(
+        database,
+        "SELECT count(*)::bigint FROM view.activity WHERE tenant = 'librarybase' AND target_kind = 2",
+    )
+    .await;
+    assert_eq!(
+        again[0].get::<_, i64>(0),
+        141,
+        "140 page revisions and the thread's create"
+    );
+    let threads = query(
+        database,
+        "SELECT count(*)::bigint FROM view.thread WHERE tenant = 'librarybase'",
+    )
+    .await;
+    assert_eq!(
+        threads[0].get::<_, i64>(0),
+        1,
+        "the talk page is converted once"
+    );
+}
+
 #[tokio::test]
 async fn librarybase_pages_are_adopted_with_their_history() {
     let Some((database, key_file)) = setup().await else {
@@ -105,15 +180,18 @@ async fn librarybase_pages_are_adopted_with_their_history() {
         return;
     };
 
-    // 27 Project, 4 User and 2 Template pages; the 6 User talk pages are deferred until
-    // talk pages convert to threads.
+    // 27 Project, 4 User and 2 Template pages. Of the 6 User talk pages, one converts to
+    // a thread (0090 §10): two are redirects and three belong to users the dump never
+    // names as accounts, so they have no home here.
     let by_ns = query(
         &database,
         "SELECT ns, count(*)::bigint FROM view.page WHERE tenant = 'librarybase' GROUP BY ns ORDER BY ns",
     )
     .await;
     let by_ns: Vec<(i32, i64)> = by_ns.iter().map(|r| (r.get(0), r.get(1))).collect();
-    assert_eq!(by_ns, [(2, 4), (4, 27), (10, 2)]);
+    // The thread's home mints its talk page (ns 3) as a page too (14 §1.5).
+    assert_eq!(by_ns, [(2, 4), (3, 1), (4, 27), (10, 2), (214, 1)]);
+    talk_pages_became_threads(&database).await;
 
     // Pages keep their source page IDs, and their latest revision the source's ID.
     let home = query(
@@ -182,30 +260,7 @@ async fn librarybase_pages_are_adopted_with_their_history() {
         "the source's user 3, Harej"
     );
 
-    // Adopting again changes nothing.
-    adopt::run(adopt::Adopt {
-        database: database.clone(),
-        tenant: TENANT.into(),
-        dump: fixture(),
-        source: format!("https://{HOST}/"),
-        version: Some("LibrarybaseWikitext-20261010030044".into()),
-        frozen: true,
-        current_only: false,
-        counters: Some("item=0,property=0".into()),
-        log_floor: 0,
-        entity_sources: vec![],
-        subsidiary: None,
-        batch: 50,
-        no_accounts: false,
-    })
-    .await
-    .expect("adopt again");
-    let again = query(
-        &database,
-        "SELECT count(*)::bigint FROM view.activity WHERE tenant = 'librarybase' AND target_kind = 2",
-    )
-    .await;
-    assert_eq!(again[0].get::<_, i64>(0), 140);
+    adopting_again_changes_nothing(&database).await;
     api(&database, &key_file).await;
 }
 

@@ -2,6 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-26
+- **Updated:** 2026-10-27 (A1)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0053](0053-mirrored-pages.md), [0070](0070-shallow-entity-mirroring.md), [0078](0078-entity-sources.md)
 - **Uses:** [0011](0011-logs.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0027](0027-preferences-and-portability.md), [0040](0040-instance-prerogatives.md), [0067](0067-proposals.md), [0085](0085-settings-and-preferences.md), [0088](0088-external-identity-providers.md), [0091](0091-one-wikibase-adapter.md)
@@ -87,6 +88,8 @@ Upstream hiding is not decided here. A mirror under `latest` holds the current s
 
 ### 3. The follower's position (amends 0053 §8; amends 0070 §10)
 
+*Changed by A1.*
+
 **`ops.repo_cursor` holds every follower's position**: a page repository's event stream, a provider's stream or poll, and a tenant's source's stream or poll. It is keyed by `(tenant, kind, name)`:
 - `tenant` is `''` for the instance's followers;
 - `kind` is `repo`, `provider` or `source`;
@@ -95,7 +98,10 @@ Upstream hiding is not decided here. A mirror under `latest` holds the current s
 A stream keeps `last_event_id` and `last_event_time`. A poll keeps:
 - `rc_time`, the newest timestamp it has seen;
 - `rc_continue`, while it has one;
-- `rc_seen`, the `rcid`s within `follow.tail` of `rc_time`.
+- `rc_seen`, the `rcid`s within `follow.tail` of `rc_time`, each with its time, so the window can expire them (A1);
+- `rc_retry`, the entities whose state was read stale (§2), each with the revision the row named, so a follower that stops between polls still reads them again (A1).
+
+The same row holds where the last load ended and whether the follower has taken over (`loaded_to`, `handed_over`, §5) and the poll's `late` and `stale` counters (§7) (A1).
 
 **The position is written in the transaction that writes the records it covers.**
 
@@ -217,6 +223,22 @@ This applies to a registry provider, an entity source and a page repository alik
 | [0070](0070-shallow-entity-mirroring.md) §9 | §7 | extends | 0070 A8 |
 | [0070](0070-shallow-entity-mirroring.md) §10 | §3 | amends | 0070 A8 |
 | [0078](0078-entity-sources.md) §4 | §1, §4 | amends | 0078 A5 |
+
+## Amendment log
+
+### A1. What the position row holds
+
+- **Date:** 2026-10-27
+- **Source:** Direct: James, go-ahead to implement (talk conversion, then Stage A), 2026-10-26
+- **Change:** amends §3
+- **Summary:** The implementation keeps each seen `rcid` with its time, since the tail window expires them by time and `rc_time` alone cannot say when a row was seen; keeps the stale reads to retry, since §2 reads them again "on the next poll" and a `follow --once` run has no next poll of its own; and keeps the load's end, the handover flag and the counters in the same row rather than beside it. The chapter 03 table (§4.12) is folded to match. The decision is unchanged.
+
+Replaced text (§3):
+
+> A stream keeps `last_event_id` and `last_event_time`. A poll keeps:
+> - `rc_time`, the newest timestamp it has seen;
+> - `rc_continue`, while it has one;
+> - `rc_seen`, the `rcid`s within `follow.tail` of `rc_time`.
 
 ## References
 

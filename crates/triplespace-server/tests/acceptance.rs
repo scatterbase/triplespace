@@ -203,6 +203,7 @@ async fn a_bot_logs_in_reads_and_edits() {
         entity_sources: vec![],
         subsidiary: None,
         batch: 200,
+        skip_talk: false,
         no_accounts: false,
     })
     .await

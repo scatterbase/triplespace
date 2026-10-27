@@ -21,6 +21,7 @@
 pub mod accounts;
 pub mod acl;
 pub mod blocks;
+pub mod follow;
 pub mod groups;
 pub mod membership;
 pub mod settings;

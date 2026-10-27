@@ -308,6 +308,12 @@ impl KeyRules {
         self.rules.is_empty()
     }
 
+    /// The index of the rule onto a keyed type, by the type's name.
+    #[must_use]
+    pub fn rule_for_type(&self, keyed_type: &str) -> Option<usize> {
+        self.rules.iter().position(|r| r.keyed.name == keyed_type)
+    }
+
     fn has_class(&self, entity: &Entity, class: &EntityId) -> bool {
         let Some(p) = &self.class_property else {
             return false;
@@ -389,10 +395,45 @@ impl Index {
         };
         let upstream = entity.id.as_str().to_string();
         let keyed = id.as_str().to_string();
-        self.by_upstream.insert(upstream.clone(), keyed.clone());
+        // Observed again (a follower re-reading an item): a changed key releases the old
+        // one, and the same key is not a claim against itself.
+        if let Some(old) = self.by_upstream.insert(upstream.clone(), keyed.clone())
+            && old != keyed
+            && let Some(items) = self.by_key.get_mut(&old)
+        {
+            items.retain(|i| *i != upstream);
+        }
         self.rule_of.insert(upstream.clone(), rule);
-        self.by_key.entry(keyed.clone()).or_default().push(upstream);
+        let items = self.by_key.entry(keyed.clone()).or_default();
+        if !items.contains(&upstream) {
+            items.push(upstream);
+        }
         Ok(Some(keyed))
+    }
+
+    /// Restores a settled index from what a mirror projected of an earlier load
+    /// (`view.keyed_map`), for a follower that continues it (0092 §2): the mapped items
+    /// with the rule and keyed ID each maps to, and the aliases as (`from`, `to`) pairs.
+    /// [`Index::finish`] is still called after new entities are observed.
+    pub fn restore(
+        mapped: impl IntoIterator<Item = (String, String, usize)>,
+        aliases: impl IntoIterator<Item = (String, String)>,
+    ) -> Self {
+        let mut index = Index::default();
+        for (upstream, keyed, rule) in mapped {
+            index.rule_of.insert(upstream.clone(), rule);
+            index
+                .by_key
+                .entry(keyed.clone())
+                .or_default()
+                .push(upstream.clone());
+            index.by_upstream.insert(upstream, keyed);
+        }
+        for (from, to) in aliases {
+            index.redirects.insert(from, to);
+        }
+        index.finish();
+        index
     }
 
     /// Observes an upstream redirect (`Q18817` → `Q738`), IDs in the provider's form.
@@ -403,6 +444,7 @@ impl Index {
     /// Settles the index: a key claimed by two items maps neither (0009 §9), and an item
     /// merged into a mapped item becomes an alias of its key (0009 A13).
     pub fn finish(&mut self) {
+        self.conflicts.clear();
         for (key, items) in &self.by_key {
             if items.len() > 1 {
                 self.conflicts.insert(key.clone());
@@ -519,6 +561,11 @@ impl KeyMappedAdapter {
     #[must_use]
     pub fn index(&self) -> &Index {
         &self.index
+    }
+
+    /// The index, to observe entities a follower reads; call [`Index::finish`] after.
+    pub fn index_mut(&mut self) -> &mut Index {
+        &mut self.index
     }
 
     /// A dump entity as the mirror stores it: a keyed entity with its upstream ID, a
@@ -736,6 +783,50 @@ mod tests {
 
     fn adapter(index: Index) -> KeyMappedAdapter {
         KeyMappedAdapter::new(WikibaseAdapter::new(XD).unwrap(), xd_rules(), index)
+    }
+
+    #[test]
+    fn a_restored_index_continues_and_re_observing_is_not_a_claim() {
+        let rules = xd_rules();
+        let rule = rules.rule_for_type("domain").unwrap();
+        // As a follower restores it from `view.keyed_map`: one mapped item with an alias.
+        let mut index = Index::restore(
+            [("Q9".to_string(), "domain:example.org".to_string(), rule)],
+            [("Q8".to_string(), "Q9".to_string())],
+        );
+        assert_eq!(index.keyed_id_of("Q9"), Some("domain:example.org"));
+        assert_eq!(index.aliases_of("Q9"), ["Q8".to_string()]);
+        assert_eq!(index.conflicts().count(), 0);
+
+        // The same item read again with the same key: still mapped, no conflict.
+        let again = parsed(&dump()[0]);
+        index.observe(&again.entity, &rules).unwrap();
+        index.finish();
+        assert_eq!(index.keyed_id_of("Q9"), Some("domain:example.org"));
+        assert_eq!(index.conflicts().count(), 0);
+
+        // The item's key changed upstream: the old key is released, the new one held.
+        let moved = parsed(&item(
+            "Q9",
+            "moved",
+            &json!({"P1": string_claim("P1", "moved.example", "Q9$00000000-0000-0000-0000-000000000009")}),
+            70,
+        ));
+        index.observe(&moved.entity, &rules).unwrap();
+        index.finish();
+        assert_eq!(index.keyed_id_of("Q9"), Some("domain:moved.example"));
+        // Another item may now take the released key without a conflict.
+        let taker = parsed(&item(
+            "Q40",
+            "taker",
+            &json!({"P1": string_claim("P1", "example.org", "Q40$00000000-0000-0000-0000-000000000010")}),
+            71,
+        ));
+        index.observe(&taker.entity, &rules).unwrap();
+        index.finish();
+        assert_eq!(index.keyed_id_of("Q40"), Some("domain:example.org"));
+        assert_eq!(index.conflicts().count(), 0);
+        assert!(rules.rule_for_type("no-such-type").is_none());
     }
 
     #[test]

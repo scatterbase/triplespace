@@ -24,6 +24,7 @@ use scatter_ingest::sync::{SyncItem, run_sync};
 use scatter_ingest::write::Attestation;
 use scatter_providers::{Provider, Registry};
 use scatter_wikibase_changeset::{JobHeader, Mode, Upstream, WikibaseAdapter};
+use triplespace_api_ingest::follow::{KIND_PROVIDER, record_load};
 
 use crate::common::{connect, farm_of, now, store};
 
@@ -228,6 +229,14 @@ pub fn report_rejects(items: &[SyncItem], path: Option<&std::path::Path>) -> Res
     Ok(())
 }
 
+/// The newest upstream time among a load's items, epoch seconds.
+fn latest_time(times: &[String]) -> Option<u64> {
+    times
+        .iter()
+        .filter_map(|t| scatter_adapter_mediawiki::recentchanges::parse_iso(t))
+        .max()
+}
+
 /// Runs the sync.
 pub async fn run(args: Sync) -> Result<()> {
     let provider = Registry::default_registry()
@@ -262,6 +271,16 @@ pub async fn run(args: Sync) -> Result<()> {
         scatter_adapter_wikibase::NAME,
         scatter_adapter_wikibase::VERSION
     ));
+    let items_times: Vec<String> = prepared
+        .items
+        .iter()
+        .filter_map(|i| match i {
+            SyncItem::State { upstream, .. }
+            | SyncItem::Deleted { upstream, .. }
+            | SyncItem::Redirected { upstream, .. } => upstream.time.clone(),
+            SyncItem::Rejected { .. } => None,
+        })
+        .collect();
     let outcome = run_sync(
         &store,
         &pipeline,
@@ -275,6 +294,16 @@ pub async fn run(args: Sync) -> Result<()> {
     )
     .await
     .context("sync")?;
+    // Where the load ended (0092 §5), for a follower to continue from.
+    if let Some(latest) = latest_time(&items_times) {
+        record_load(&client, "", KIND_PROVIDER, &args.provider, latest)
+            .await
+            .context("record where the load ended")?;
+        println!(
+            "  loaded to  {}",
+            scatter_adapter_mediawiki::recentchanges::iso(latest)
+        );
+    }
     println!("sync job {} finished", outcome.job_id);
     println!("  created    {}", outcome.counts.created);
     println!("  updated    {}", outcome.counts.merged);

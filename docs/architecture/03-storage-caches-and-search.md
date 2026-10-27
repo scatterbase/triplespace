@@ -978,8 +978,11 @@ CREATE TABLE ops.repo_cursor (                   -- a follower's position: an ev
   kind text NOT NULL,                             -- repo | provider | source
   name text NOT NULL,                             -- the repository, the provider slug or the source name
   last_event_id text, last_event_time timestamptz,           -- an event stream's
-  rc_time timestamptz, rc_continue text, rc_seen bigint[],   -- a poll's: newest time seen, continuation, rcids within follow.tail
-  lag_seconds integer,
+  rc_time timestamptz, rc_continue jsonb, rc_seen jsonb,     -- a poll's: newest time seen, continuation, [[rcid, time], …] within follow.tail
+  rc_retry jsonb,                                 -- [[entity ID, revid], …] read stale, to read again (0092 §2)
+  loaded_to timestamptz, handed_over boolean NOT NULL DEFAULT false,  -- where the last load ended; whether the follower took over (0092 §5)
+  late bigint NOT NULL DEFAULT 0, stale bigint NOT NULL DEFAULT 0,    -- the poll's counters (0092 §7)
+  lag_seconds integer, updated timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (tenant, kind, name)
 );
 CREATE TABLE ops.page_fetch (                    -- fetch and put queue, deduplicated (0053 §4–6)

@@ -11,6 +11,8 @@
 //! - [`sync`]: a mirror sync in `upsert` or `snapshot` mode: the version cursor, the hash
 //!   guard of 0006 §2, `prev_upstream`, `first_seen`, sizes and the `changes` summary of
 //!   0012 §2.2, and the tombstone sweep with its threshold.
+//! - [`follow`]: following a provider by its changes (0092): batches from a `ChangeSource`
+//!   the surfaces implement, each written as an `upsert` sync, the position saved after.
 //! - [`adopt`]: the adoption job of 0035: preconditions, sequence floors, idempotent
 //!   resume, adopted accounts.
 //!
@@ -22,6 +24,7 @@
 
 pub mod adopt;
 pub mod batch;
+pub mod follow;
 pub mod job;
 pub mod memory;
 pub mod store;
@@ -30,6 +33,7 @@ pub mod write;
 
 pub use adopt::{Adoption, AdoptionOutcome, Floors};
 pub use batch::{BatchOutcome, run_batch};
+pub use follow::{ChangeBatch, ChangeSource, FollowOutcome, run_follow};
 pub use job::{Counts, Job, Reject};
 pub use store::{Cursor, IngestStore, Sequence};
 pub use sync::{SyncItem, SyncOutcome, run_sync};
