@@ -78,6 +78,8 @@ pub enum Per {
     Repo,
     /// One graph for the farm as an issuer: `{farm}` is the farm's slug (0028 §2).
     Farm,
+    /// One graph per entity source of a tenant: `{name}` is the source's name (0078 §4).
+    Source,
 }
 
 impl Per {
@@ -88,6 +90,7 @@ impl Per {
             Self::Provider => "{provider}",
             Self::Repo => "{repo}",
             Self::Farm => "{farm}",
+            Self::Source => "{name}",
         }
     }
 }
@@ -174,6 +177,8 @@ struct RawRegistry {
     graphs: Vec<RawGraph>,
 }
 
+// One `per_*` flag per placeholder kind, as the file spells them.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RawGraph {
@@ -195,6 +200,8 @@ struct RawGraph {
     per_repo: bool,
     #[serde(default)]
     per_farm: bool,
+    #[serde(default)]
+    per_source: bool,
     #[serde(default)]
     description: Option<String>,
     defined_in: String,
@@ -232,12 +239,17 @@ impl GraphRegistry {
 
     fn row(r: RawGraph) -> Result<Graph, RegistryError> {
         let row = |what| RegistryError::Row(r.name.clone(), what);
-        let per = match (r.per_provider, r.per_repo, r.per_farm) {
-            (false, false, false) => None,
-            (true, false, false) => Some(Per::Provider),
-            (false, true, false) => Some(Per::Repo),
-            (false, false, true) => Some(Per::Farm),
-            _ => return Err(row("more than one of per_provider, per_repo and per_farm")),
+        let per = match (r.per_provider, r.per_repo, r.per_farm, r.per_source) {
+            (false, false, false, false) => None,
+            (true, false, false, false) => Some(Per::Provider),
+            (false, true, false, false) => Some(Per::Repo),
+            (false, false, true, false) => Some(Per::Farm),
+            (false, false, false, true) => Some(Per::Source),
+            _ => {
+                return Err(row(
+                    "more than one of per_provider, per_repo, per_farm and per_source",
+                ));
+            }
         };
         match per {
             Some(p) if !r.name.contains(p.placeholder()) => {

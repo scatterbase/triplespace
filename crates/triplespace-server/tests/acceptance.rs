@@ -210,7 +210,9 @@ async fn a_bot_logs_in_reads_and_edits() {
     .expect("adopt");
     sync::run(sync::Sync {
         database: database.clone(),
-        provider: "internetdomains".into(),
+        provider: Some("internetdomains".into()),
+        tenant: None,
+        source: None,
         dump: xd,
         version: Some("20261001".into()),
         snapshot: false,

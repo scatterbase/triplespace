@@ -104,11 +104,12 @@ fn revision_of(upstream: &Upstream) -> Option<u64> {
 async fn recorded_revision<S: IngestStore>(
     store: &S,
     cx: &mut S::Cx,
+    tenant: &str,
     partition: u64,
     graph_name: &str,
     id: &EntityId,
 ) -> Result<Option<u64>, IngestError> {
-    let Some(cursor) = store.cursor(cx, "", id, graph_name).await? else {
+    let Some(cursor) = store.cursor(cx, tenant, id, graph_name).await? else {
         return Ok(None);
     };
     Ok(previous(store, cx, partition, cursor.offset)
@@ -127,9 +128,10 @@ fn is_cleared(entity: &Entity) -> bool {
 
 /// Whether an upstream deletion of `id` clears the mirror's contribution with an empty
 /// `put` rather than a `tombstone`: always for a keyed entity, and for every entity of a
-/// provider registered `deletion = clear` (architecture 05 §2.1, §2.2).
+/// provider registered `deletion = clear` (architecture 05 §2.1, §2.2). A source's
+/// entity is in the colon shape but is a foreign entity (0078 §2), so it is tombstoned.
 fn clears(provider: &Provider, id: &EntityId) -> bool {
-    id.form() == IdForm::Keyed || provider.deletion == Deletion::Clear
+    (id.form() == IdForm::Keyed && !provider.source) || provider.deletion == Deletion::Clear
 }
 
 /// The previous `put` at a cursor.
@@ -196,12 +198,13 @@ async fn previous<S: IngestStore>(
 async fn clearing<S: IngestStore>(
     store: &S,
     cx: &mut S::Cx,
+    tenant: &str,
     partition: u64,
     graph_name: &str,
     id: &EntityId,
     upstream: Upstream,
 ) -> Result<Option<Operation>, IngestError> {
-    let Some(cursor) = store.cursor(cx, "", id, graph_name).await? else {
+    let Some(cursor) = store.cursor(cx, tenant, id, graph_name).await? else {
         return Ok(None);
     };
     let Some(prev) = previous(store, cx, partition, cursor.offset).await? else {
@@ -258,15 +261,49 @@ pub async fn run_sync<S: IngestStore>(
     now: u64,
     batch: usize,
 ) -> Result<SyncOutcome, IngestError> {
+    run_sync_in(
+        store,
+        pipeline,
+        "",
+        header,
+        attestation,
+        items,
+        threshold,
+        registry,
+        now,
+        batch,
+    )
+    .await
+}
+
+/// [`run_sync`] for a graph a tenant owns: a sync into a tenant's entity source writes
+/// `source/{name}` (0078 §4), whose records, job and cursors are the tenant's, with the
+/// tenant's table of names as `registry` ([`Registry::with_sources`]). `tenant` is `""`
+/// for a provider's mirror.
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+pub async fn run_sync_in<S: IngestStore>(
+    store: &S,
+    pipeline: &Pipeline<S>,
+    tenant: &str,
+    header: JobHeader,
+    attestation: Attestation,
+    items: impl IntoIterator<Item = SyncItem>,
+    threshold: usize,
+    registry: &Registry,
+    now: u64,
+    batch: usize,
+) -> Result<SyncOutcome, IngestError> {
     let graph = header.graph();
-    let Some(Graph::Mirror(slug)) = &graph else {
-        return Err(IngestError::Adapter(format!(
-            "a sync writes a mirror graph, not `{}`",
-            header.graph
-        )));
+    let (graph, slug) = match &graph {
+        Some(g @ Graph::Mirror(slug)) if tenant.is_empty() => (g.clone(), slug.clone()),
+        Some(g @ Graph::Source(name)) if !tenant.is_empty() => (g.clone(), name.clone()),
+        _ => {
+            return Err(IngestError::Adapter(format!(
+                "a sync writes a mirror graph of the instance or a source graph of a tenant, not `{}` for `{tenant}`",
+                header.graph
+            )));
+        }
     };
-    let graph = Graph::Mirror(slug.clone());
-    let slug = slug.clone();
     let mode = header.mode.unwrap_or(Mode::Upsert);
     if mode == Mode::Adopt {
         return Err(IngestError::Adapter(
@@ -280,7 +317,7 @@ pub async fn run_sync<S: IngestStore>(
     let graph_name = graph.name();
     // The provider's own form of a foreign ID (`XDQ9` → `Q9`), and back.
     let upstream_of = |id: &EntityId| -> Option<String> {
-        (id.form() == IdForm::Foreign)
+        (id.form() != IdForm::Local)
             .then(|| registry.parse_foreign_id(id.as_str()).ok())
             .flatten()
             .map(|f| f.upstream_id())
@@ -297,10 +334,10 @@ pub async fn run_sync<S: IngestStore>(
 
     let mut cx = store.begin().await?;
     let partition = store
-        .partition(&mut cx, "", &graph_name)
+        .partition(&mut cx, tenant, &graph_name)
         .await?
         .ok_or_else(|| IngestError::NoPartition {
-            tenant: String::new(),
+            tenant: tenant.to_string(),
             graph: graph_name.clone(),
         })?;
     // Who owned which key before this job (0009 §9).
@@ -309,13 +346,13 @@ pub async fn run_sync<S: IngestStore>(
         store,
         pipeline,
         &mut cx,
-        "",
+        tenant,
         header.clone(),
         attestation,
         now,
     )
     .await?;
-    let mut request = Request::new("", job.record_attestation(), now);
+    let mut request = Request::new(tenant, job.record_attestation(), now);
     request.budget = Budget::NONE;
     let mut counts = Counts::default();
     let mut seen: BTreeSet<EntityId> = BTreeSet::new();
@@ -373,7 +410,7 @@ pub async fn run_sync<S: IngestStore>(
                     if foreign_present.is_none() {
                         foreign_present = Some(
                             store
-                                .entities_of_graph(&mut cx, "", &graph_name)
+                                .entities_of_graph(&mut cx, tenant, &graph_name)
                                 .await?
                                 .into_iter()
                                 .filter(|id| id.form() == IdForm::Foreign)
@@ -406,7 +443,9 @@ pub async fn run_sync<S: IngestStore>(
                         }
                     }
                 }
-                let cursor = store.cursor(&mut cx, "", &entity.id, &graph_name).await?;
+                let cursor = store
+                    .cursor(&mut cx, tenant, &entity.id, &graph_name)
+                    .await?;
                 let prev = match &cursor {
                     Some(c) => previous(store, &mut cx, partition, c.offset).await?,
                     None => None,
@@ -432,7 +471,8 @@ pub async fn run_sync<S: IngestStore>(
                     let mut recorded = prev.as_ref().and_then(|p| revision_of(&p.upstream));
                     for old in &moved_from {
                         let r =
-                            recorded_revision(store, &mut cx, partition, &graph_name, old).await?;
+                            recorded_revision(store, &mut cx, tenant, partition, &graph_name, old)
+                                .await?;
                         recorded = recorded.max(r);
                     }
                     let upstream = match (upstream.revid, recorded) {
@@ -482,11 +522,25 @@ pub async fn run_sync<S: IngestStore>(
                     present.remove(&id);
                 }
                 if clears(provider, &id) {
-                    match clearing(store, &mut cx, partition, &graph_name, &id, upstream).await? {
+                    match clearing(
+                        store,
+                        &mut cx,
+                        tenant,
+                        partition,
+                        &graph_name,
+                        &id,
+                        upstream,
+                    )
+                    .await?
+                    {
                         Some(op) => ops.push(op),
                         None => counts.unchanged += 1,
                     }
-                } else if store.cursor(&mut cx, "", &id, &graph_name).await?.is_some() {
+                } else if store
+                    .cursor(&mut cx, tenant, &id, &graph_name)
+                    .await?
+                    .is_some()
+                {
                     ops.push(Operation::Tombstone { id, upstream });
                 } else {
                     counts.unchanged += 1;
@@ -550,6 +604,7 @@ pub async fn run_sync<S: IngestStore>(
             if let Some(op) = clearing(
                 store,
                 &mut cx,
+                tenant,
                 partition,
                 &graph_name,
                 key,
@@ -579,13 +634,16 @@ pub async fn run_sync<S: IngestStore>(
     let mut swept = 0usize;
     let mut extra = serde_json::Map::new();
     if mode == Mode::Snapshot {
-        let present = store.entities_of_graph(&mut cx, "", &graph_name).await?;
+        let present = store
+            .entities_of_graph(&mut cx, tenant, &graph_name)
+            .await?;
         let mut sweep = Vec::new();
         for id in present.into_iter().filter(|id| !seen.contains(id)) {
             if clears(provider, &id) {
                 if let Some(op) = clearing(
                     store,
                     &mut cx,
+                    tenant,
                     partition,
                     &graph_name,
                     &id,

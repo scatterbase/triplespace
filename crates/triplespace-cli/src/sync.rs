@@ -20,11 +20,13 @@ use clap::Args;
 use scatter_adapter_wikibase::{
     DumpEntry, DumpPropertyTypes, Entities, Index, KeyMappedAdapter, KeyRules, Outcome,
 };
-use scatter_ingest::sync::{SyncItem, run_sync};
+use scatter_ingest::sync::{SyncItem, run_sync_in};
 use scatter_ingest::write::Attestation;
 use scatter_providers::{Provider, Registry};
 use scatter_wikibase_changeset::{JobHeader, Mode, Upstream, WikibaseAdapter};
-use triplespace_api_ingest::follow::{KIND_PROVIDER, record_load};
+use triplespace_api_ingest::follow::{KIND_PROVIDER, KIND_SOURCE, record_load};
+
+use crate::follow::tenant_registry;
 
 use crate::common::{connect, farm_of, now, store};
 
@@ -35,8 +37,14 @@ pub struct Sync {
     #[arg(long, env = "TRIPLESPACE_DATABASE_URL")]
     pub database: String,
     /// The provider slug (`internetdomains`, `wikidata`, …).
-    #[arg(long)]
-    pub provider: String,
+    #[arg(long, conflicts_with_all = ["tenant", "source"])]
+    pub provider: Option<String>,
+    /// The tenant whose entity source to load (0078 §4; 0092 §4), with `--source`.
+    #[arg(long, requires = "source")]
+    pub tenant: Option<String>,
+    /// The entity source's name, with `--tenant`.
+    #[arg(long, requires = "tenant")]
+    pub source: Option<String>,
     /// The dump: a Wikibase JSON dump or a MediaWiki XML dump (`.json`, `.xml`, `.gz`, `.bz2`).
     #[arg(long)]
     pub dump: PathBuf,
@@ -68,9 +76,13 @@ pub struct Prepared {
 /// Reads a Wikibase provider's dump through `scatter-adapter-wikibase` with the provider's
 /// key-map rules: two passes when the rules or the format need them, one otherwise
 /// (0091 §4).
-pub fn prepare_wikibase(provider: &Provider, dump: &std::path::Path) -> Result<Prepared> {
+pub fn prepare_wikibase(
+    provider: &Provider,
+    registry: &'static Registry,
+    dump: &std::path::Path,
+) -> Result<Prepared> {
     let rules = KeyRules::from_provider(provider)?;
-    let inner = WikibaseAdapter::new(&provider.slug)
+    let inner = WikibaseAdapter::with_registry(&provider.slug, registry)
         .with_context(|| format!("provider `{}` is not registered", provider.slug))?;
     let xml = Entities::open(dump).context("open dump")?.is_xml();
     let mut index = Index::default();
@@ -237,21 +249,38 @@ fn latest_time(times: &[String]) -> Option<u64> {
         .max()
 }
 
+/// A registry provider's mirror, or a tenant's source in the tenant's table of names:
+/// the registry, the slug and the tenant (`""` for the instance).
+async fn target(
+    client: &tokio_postgres::Client,
+    args: &Sync,
+) -> Result<(&'static Registry, &'static Provider, String)> {
+    let (registry, slug, tenant) = match (&args.provider, &args.tenant, &args.source) {
+        (Some(p), None, None) => (Registry::default_registry(), p.as_str(), String::new()),
+        (None, Some(t), Some(s)) => (tenant_registry(client, t).await?, s.as_str(), t.clone()),
+        _ => bail!("name a provider with --provider, or a source with --tenant and --source"),
+    };
+    let provider = registry.by_slug(slug).with_context(|| {
+        if tenant.is_empty() {
+            format!("provider `{slug}` is not registered")
+        } else {
+            format!("`{tenant}` declares no source `{slug}`")
+        }
+    })?;
+    Ok((registry, provider, tenant))
+}
+
 /// Runs the sync.
 pub async fn run(args: Sync) -> Result<()> {
-    let provider = Registry::default_registry()
-        .by_slug(&args.provider)
-        .with_context(|| format!("provider `{}` is not registered", args.provider))?;
+    let client = connect(&args.database).await?;
+    let (registry, provider, tenant) = target(&client, &args).await?;
+    let slug = provider.slug.as_str();
     let prepared = match provider.adapter.as_deref() {
-        Some(scatter_adapter_wikibase::NAME) => prepare_wikibase(provider, &args.dump)?,
-        Some(other) => bail!(
-            "provider `{}` is read by `{other}`, which this build does not include",
-            args.provider
-        ),
-        None => bail!("provider `{}` names no adapter", args.provider),
+        Some(scatter_adapter_wikibase::NAME) => prepare_wikibase(provider, registry, &args.dump)?,
+        Some(other) => bail!("`{slug}` is read by `{other}`, which this build does not include"),
+        None => bail!("`{slug}` names no adapter"),
     };
     report_rejects(&prepared.items, args.rejects.as_deref())?;
-    let client = connect(&args.database).await?;
     let farm = farm_of(&client).await?;
     let (store, pipeline) = store(&args.database, &farm)?;
     let version = args.version.clone().unwrap_or_else(|| {
@@ -265,7 +294,11 @@ pub async fn run(args: Sync) -> Result<()> {
     } else {
         Mode::Upsert
     };
-    let mut header = JobHeader::mirror(&args.provider, &version, mode);
+    let mut header = if tenant.is_empty() {
+        JobHeader::mirror(slug, &version, mode)
+    } else {
+        JobHeader::source(slug, &version, mode)
+    };
     header.adapter_version = Some(format!(
         "{} {}",
         scatter_adapter_wikibase::NAME,
@@ -281,14 +314,15 @@ pub async fn run(args: Sync) -> Result<()> {
             SyncItem::Rejected { .. } => None,
         })
         .collect();
-    let outcome = run_sync(
+    let outcome = run_sync_in(
         &store,
         &pipeline,
+        &tenant,
         header,
         Attestation::by(&farm.operator().to_string()),
         prepared.items,
         args.threshold,
-        Registry::default_registry(),
+        registry,
         now(),
         args.batch.max(1),
     )
@@ -296,7 +330,12 @@ pub async fn run(args: Sync) -> Result<()> {
     .context("sync")?;
     // Where the load ended (0092 §5), for a follower to continue from.
     if let Some(latest) = latest_time(&items_times) {
-        record_load(&client, "", KIND_PROVIDER, &args.provider, latest)
+        let kind = if tenant.is_empty() {
+            KIND_PROVIDER
+        } else {
+            KIND_SOURCE
+        };
+        record_load(&client, &tenant, kind, slug, latest)
             .await
             .context("record where the load ended")?;
         println!(
@@ -338,6 +377,7 @@ mod tests {
             Registry::default_registry()
                 .by_slug("internetdomains")
                 .unwrap(),
+            Registry::default_registry(),
             dump,
         )
     }
@@ -369,7 +409,12 @@ mod tests {
     #[test]
     fn a_wikibase_without_a_key_map_mirrors_under_its_prefix() {
         let provider = Registry::default_registry().by_slug("librarybase").unwrap();
-        let prepared = prepare_wikibase(provider, &fixture("librarybase-sample.xml.gz")).unwrap();
+        let prepared = prepare_wikibase(
+            provider,
+            Registry::default_registry(),
+            &fixture("librarybase-sample.xml.gz"),
+        )
+        .unwrap();
         assert_eq!(prepared.unreadable, 0);
         assert!(prepared.items.len() > 100, "{}", prepared.items.len());
         for item in &prepared.items {
@@ -402,7 +447,12 @@ mod tests {
     #[test]
     fn a_json_dump_without_a_key_map_is_read_once() {
         let provider = Registry::default_registry().by_slug("librarybase").unwrap();
-        let prepared = prepare_wikibase(provider, &fixture("internetdomains.json")).unwrap();
+        let prepared = prepare_wikibase(
+            provider,
+            Registry::default_registry(),
+            &fixture("internetdomains.json"),
+        )
+        .unwrap();
         assert_eq!(prepared.unreadable, 0);
         let ids: Vec<String> = prepared
             .items

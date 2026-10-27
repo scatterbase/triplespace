@@ -144,7 +144,9 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
     let _ = std::fs::remove_file(&dated);
     sync::run(sync::Sync {
         database: database.clone(),
-        provider: "internetdomains".into(),
+        provider: Some("internetdomains".into()),
+        tenant: None,
+        source: None,
         dump: fixtures.join("internetdomains.json"),
         version: Some("20261001".into()),
         snapshot: false,

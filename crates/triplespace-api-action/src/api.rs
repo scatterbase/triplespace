@@ -52,6 +52,18 @@ impl Ctx {
         &self.client
     }
 
+    /// The tenant's table of names (0078 §3): the registry with its entity sources.
+    ///
+    /// # Errors
+    ///
+    /// An internal error when the store fails.
+    pub async fn registry(&self) -> Result<&'static scatter_providers::Registry, ApiError> {
+        self.app
+            .registry_for(&self.client, &self.tenant.slug)
+            .await
+            .map_err(ApiError::internal)
+    }
+
     /// Adds a warning under a module name.
     pub fn warn(&mut self, module: &str, text: impl Into<String>) {
         self.warnings.push((module.to_string(), text.into()));

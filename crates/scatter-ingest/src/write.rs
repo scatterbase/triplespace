@@ -194,6 +194,13 @@ pub fn destination(op: &Operation, registry: &Registry) -> Result<Graph, IngestE
                 .map(|p| p.slug.clone())
                 .ok_or_else(|| IngestError::UnknownProvider(id.to_string()))?,
             Some(id) if id.form() == IdForm::Keyed => {
+                // A source's entity (0078 §2) names its source by its prefix, in the
+                // tenant's table of names (`registry`).
+                if let Ok(f) = registry.parse_foreign_id(id.as_str())
+                    && f.provider().source
+                {
+                    return Ok(Graph::Source(f.provider().slug.clone()));
+                }
                 // A key-mapped put names its provider only through `upstream_id`'s
                 // owner, which the caller knows; the mirror graph is given by the job.
                 return Err(IngestError::Adapter(format!(
@@ -233,7 +240,9 @@ pub async fn append_projected<S: IngestStore>(
 
 /// The header key of a subject: the entity ID, or a keyed entity's surrogate, minted and
 /// recorded in the instance `log` when it has none yet. The mapping record is projected
-/// inline, so the resolution projection finds the surrogate in the same unit of work.
+/// inline, so the resolution projection finds the surrogate in the same unit of work. A
+/// source's entity is in the colon shape but needs no surrogate (0078 §2): its key is
+/// its ID, as `WDQ42`'s is; `registry` is the tenant's table of names that says so.
 pub async fn key_for<S: IngestStore>(
     store: &S,
     pipeline: &Pipeline<S>,
@@ -241,8 +250,9 @@ pub async fn key_for<S: IngestStore>(
     id: &EntityId,
     attestation: &Attestation,
     now: u64,
+    registry: &Registry,
 ) -> Result<String, IngestError> {
-    if id.form() != IdForm::Keyed {
+    if id.form() != IdForm::Keyed || registry.parse_foreign_id(id.as_str()).is_ok() {
         return Ok(id.as_str().to_string());
     }
     let (keyed_type, key) = id
@@ -317,7 +327,7 @@ pub async fn write_to<S: IngestStore>(
     }
     let owner = match graph {
         Graph::Mirror(_) => "",
-        Graph::Local | Graph::Pages => request.tenant.as_str(),
+        Graph::Local | Graph::Pages | Graph::Source(_) => request.tenant.as_str(),
     };
     let partition = store
         .partition(cx, owner, &graph.name())
@@ -331,7 +341,16 @@ pub async fn write_to<S: IngestStore>(
         .ok_or_else(|| IngestError::Adapter(format!("`{}` has no subject", op.name())))?;
     let key = match &subject {
         Subject::Entity(id) => {
-            key_for(store, pipeline, cx, id, &request.attestation, request.now).await?
+            key_for(
+                store,
+                pipeline,
+                cx,
+                id,
+                &request.attestation,
+                request.now,
+                registry,
+            )
+            .await?
         }
         Subject::Page(p) => p.to_string(),
     };
@@ -356,7 +375,7 @@ pub async fn write_to<S: IngestStore>(
     };
     // The revision ID (0013 §6; 0015 §2).
     let revid = match graph {
-        Graph::Mirror(slug) => {
+        Graph::Mirror(slug) | Graph::Source(slug) => {
             let provider = registry
                 .by_slug(slug)
                 .ok_or_else(|| IngestError::UnknownProvider(slug.clone()))?;

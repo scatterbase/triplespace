@@ -95,10 +95,25 @@ async fn minted_by(
             }),
             Err(_) => json!({"kind": "provider"}),
         },
-        IdForm::Keyed => json!({
-            "kind": "keyed",
-            "type": id.as_str().split(':').next().unwrap_or(""),
-        }),
+        IdForm::Keyed => {
+            // A source's entity (0078 §2): the tenant's source minted it.
+            let registry = app
+                .registry_for(client, &tenant.slug)
+                .await
+                .unwrap_or_else(|_| app.registry());
+            match registry.parse_foreign_id(id.as_str()) {
+                Ok(f) if f.provider().source => json!({
+                    "kind": "source",
+                    "source": f.provider().slug,
+                    "upstream_id": f.upstream_id(),
+                    "iri": f.concept_iri().as_str(),
+                }),
+                _ => json!({
+                    "kind": "keyed",
+                    "type": id.as_str().split(':').next().unwrap_or(""),
+                }),
+            }
+        }
     })
 }
 

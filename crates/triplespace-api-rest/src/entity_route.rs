@@ -81,7 +81,12 @@ pub(crate) async fn resolve(
     }
     let id = parse_id(id_text)
         .map_err(|e| error(StatusCode::BAD_REQUEST, "invalid-entity-id", e.info))?;
-    if id.form() == IdForm::Foreign && app.registry().parse_foreign_id(id.as_str()).is_err() {
+    let registry = app
+        .registry_for(client, &tenant.slug)
+        .await
+        .map_err(|e| internal(&e))?;
+    let id = triplespace_api_action::entity_json::canonical_in(id, registry);
+    if id.form() == IdForm::Foreign && registry.parse_foreign_id(id.as_str()).is_err() {
         return Err(error(
             StatusCode::BAD_REQUEST,
             "invalid-entity-id",
@@ -89,7 +94,7 @@ pub(crate) async fn resolve(
         ));
     }
     // A key-mapped provider's own item ID resolves to the keyed entity (05 §4.1).
-    let id = match read::mapped_alias(client, app.registry(), &tenant.slug, &id)
+    let id = match read::mapped_alias(client, registry, &tenant.slug, &id)
         .await
         .map_err(|e| internal(&e))?
     {
@@ -119,7 +124,10 @@ pub(crate) async fn resolve(
         &chain,
         scatter_actors::Timestamp(triplespace_api_action::edit::now_micros()),
     ) == scatter_actors::ReadDecision::Readable;
-    if !readable || (!held && id.form() != IdForm::Keyed) {
+    // A keyed ID no graph holds is still an entity (0009 §4); a source's is not.
+    let keyed = id.form() == IdForm::Keyed
+        && !triplespace_api_action::entity_json::is_source_id(&id, registry);
+    if !readable || (!held && !keyed) {
         return Err(error(
             StatusCode::NOT_FOUND,
             "entity-not-found",

@@ -142,25 +142,71 @@ Read this first: points 2–3 decide what phase 0 has to build before phases 4 a
 
 ## Phase 0: prerequisite code (one branch, `demofarm-sources`)
 
-- **P1. The entity-source slice of 0078 this test needs:**
-  - **The record.** The `entity-source` config record, written with `ts-config`, and a CLI to
-    write it, with the server assigning the number. The command name is a proposal:
+- **P1. The entity-source slice of 0078 this test needs:** **built** 2026-10-27 (Stage B). What
+  landed, by crate:
+  - **`scatter-providers`**: `EntitySource` (the `entity-source` record, validated: the name
+    grammar, no registry name, typed, numbered in 2^12..2^13) and `to_provider`, so a source is a
+    `Provider` with `source = true`, no code and `source/{name}` as its mirror graph;
+    `Registry::with_sources`, the tenant's table of names (0078 §3), which parses and
+    canonicalizes `{name}:{upstream ID}` (`OpenCredit:q8` → `opencredit:Q8`) and refuses a name
+    the registry has; `from_upstream` rewrites `Q8` → `opencredit:Q8`.
+  - **`scatter-log`**: `per_source` and the `{name}` placeholder; `graphs.toml` registers
+    `source/{name}` (the README's pending entry is struck; the derived graph needs a key of its
+    own).
+  - **`scatter-wikibase-changeset`**: `Graph::Source`, `JobHeader::source`, the validator's
+    `WrongProvider` on a source graph by prefix, source IRIs from the type's template.
+  - **`scatter-ingest`**: `run_sync_in(tenant, …)` (the source's job, partition, cursors and
+    records under the tenant); a source's entity takes no surrogate and tombstones on deletion;
+    `run_follow` under a tenant.
+  - **`triplespace-projections`**: `entity_sources` (the declared records; `registry_for`, the
+    tenant's table); `source/` partitions count as mirrors, the keyed map skips them, and a colon
+    prefix that is no keyed type files under its own ID.
+  - **`triplespace-api-ingest`**: `sources::write`, the one writer of `entity-source:{name}`
+    (`ts-config`; the number assigned; the partition opened with its `graph:` record on the first
+    record; `null` retires); `ProviderFollower` under a tenant and kind `source`.
+  - **`triplespace-api-action` / `-rest`**: `App::registry_for(tenant)`, the cached table of
+    names; `wbgetentities`, `Special:EntityData` and the REST entity routes canonicalize source
+    IDs, answer `Item:opencredit:Q8` as the title, `missing` for an unheld source ID and
+    `invalid-entity-id` for a colon prefix that is neither a keyed type nor a source; provenance
+    `minted_by: {kind: source, source, upstream_id, iri}`; search finds the tenant's rows.
+  - **`triplespace-ui`**: the identity line "Foreign item, from the source {name}" and the
+    source's name as the graph chip.
+  - **`triplespace-cli`**: `source add|list|show|retire --tenant`, `sync --tenant --source`
+    (recording `loaded_to` under `(tenant, source, name)`), `follow --tenant --source`,
+    `upstream-login … --tenant --source`.
+  - Tests: `scatter-providers` (validation, the tenant table), `triplespace-api-ingest`
+    `end_to_end::a_tenant_declares_and_loads_an_entity_source` (the writer, the refusals, a sync
+    into the source, a deletion, the instance refused a source graph, retirement) and
+    `triplespace-server` `tests/sources.rs` (the CLI path end to end: declare, load the
+    Librarybase sample as source `lb`, read through the Action and REST APIs).
 
-    ```sh
-    triplespace source add --tenant reader --name opencredit --label "OpenCredit (Credit Unions Wiki)" \
-        --type Q=item --type P=property \
-        --iri 'https://creditunions.miraheze.org/entity/{upstream_id}' \
-        --api https://creditunions.miraheze.org/w/api.php --revision-ids --licence CC-BY-SA-4.0
-    ```
-  - **The partition.** `source/opencredit` in the tenant, opened when the record is written.
-  - **Colon-form IDs.** `opencredit:Q8` (05 §6.2) in the tenant's table of names (§6.3), parsed and
-    canonicalized, as statement subjects, values and GUID prefixes.
-  - **The adapter.** `scatter-adapter-wikibase` parameterised by an entity-source record as well as
-    a registry entry, rewriting `Q8` to `opencredit:Q8`.
-  - **The load.** `sync --tenant reader --source opencredit`, writing to `source/opencredit`, and
-    recording the dump's newest revision timestamp as the follower's starting point (0092 §4–§5).
-  - **Reads.** `wbgetentities`, `Special:EntityData`, search and the entity page for `opencredit:`
-    IDs, on the reading tenant only, with tenant rows and no shared row (05 §6.4).
+  **Checked** in the sandbox on `ts_follow`: `source add` on `reader` → number 4096,
+  `source/opencredit` opened; `sync --tenant reader --source opencredit` of the 5,082-entity Credit
+  Unions dump in 1m28s (debug build), all as `reader` rows (`view.entity` item 5070, property 12),
+  `loaded to 2026-08-30T02:53:48Z`; `follow --tenant reader --source opencredit --once` against the
+  mock wiki (the P3 scenario on Q8–Q12) gave the same counts as the provider run, starting
+  `loaded_to` less `follow.tail`; the entity page renders statements with the source's property
+  labels.
+
+  **Deviations to confirm** (flagged, not settled):
+  - `source add` with a name already declared **updates** the record (label, API, licence) and
+    keeps the number, as a config write does; the plan's "refuses" below was my guess. The types
+    of a source that already holds records can be changed this way, which nothing checks yet.
+  - The table-of-names parsing lives in `scatter-providers` (`Registry::with_sources`), not in
+    `scatter-wikibase-model` as 22 §2.1 has it: the model's parser still takes any colon form as
+    `IdForm::Keyed`, and the registry says which prefix is a source. The write path, the
+    projections and the reads consult the registry at their edges; a few sites still treat every
+    colon form as keyed (`rank`, the UI's `display_title`, `canonical_iri` of a keyed ID in the
+    changeset's `rewrite_id`), which a source ID never reaches on these paths.
+  - Not built: the source's own namespace (0078 §5), `entity_sources` in siteinfo and
+    `GET /entity-sources` (0078 §10), `entities.mirror`/`entities.closure` taking a source name,
+    `source promote` and `registry check`, the `tenant`/`base` fields (0080), `namespace`,
+    `events` and `role` on the record (the writer rejects them), `GET /resolve` for source IDs,
+    and the search `concepturi` for a source entity (it is `{base}/entity/{id}`, as for every
+    foreign entity).
+  - The sync's `Hasher::mirrored_from(code)` is given the empty code for a source; both the
+    load and the reads use it, so hashes agree, but a source should have a hasher of its own
+    (0078 §2 says nothing about it).
 - **P2. ~~A generic Wikibase path in `sync`.~~** Done by [0091](../decisions/0091-one-wikibase-adapter.md).
 - **P3. The follower** (0092 §1–§3, §5, §10): **built** against a registry provider, 2026-10-27;
   the `--tenant … --source` forms arrive with P1. What landed, by crate:
@@ -262,8 +308,9 @@ Miraheze's default.
   - `librarybase` is refused as a slug for any tenant that does not adopt `librarybase.org` (0079 §3);
   - a second `instance create` on `ts_demofarm` refuses;
   - `tenant create` without `TRIPLESPACE_AUTH_BASE` refuses for the second tenant;
-  - `source add` again with the same name, or with a name the registry has (`wikidata`,
-    `librarybase`), refuses (`ts-source-name-taken`, 05 §6.3).
+  - `source add` with a name the registry has (`wikidata`, `librarybase`, `domain`) refuses
+    (`ts-source-name-taken`, 05 §6.3); with the same name again it updates the record and keeps
+    the number (P1 deviation).
 - **`status`.** The instance has `mirror/librarybase`; `reader` alone has `source/opencredit`,
   numbered 4096, the first of its range. Every projection is current.
 

@@ -83,11 +83,14 @@ impl<'a> Context<'a> {
         })
     }
 
-    /// The provider code of a mirror graph.
-    fn mirror_code(&self) -> Option<&str> {
-        self.providers
-            .by_slug(self.graph.provider_slug()?)
-            .map(|p| p.code.as_str())
+    /// The provider code of a mirror graph; for a source graph, `{name}:`.
+    fn mirror_code(&self) -> Option<String> {
+        let p = self.providers.by_slug(self.graph.provider_slug()?)?;
+        Some(if p.source {
+            format!("{}:", p.slug)
+        } else {
+            p.code.clone()
+        })
     }
 }
 
@@ -314,8 +317,13 @@ pub fn validate_all(ops: &mut [Operation], cx: &Context<'_>) -> Vec<(usize, Prob
 
 fn graph_and_mode(op: &Operation, cx: &Context<'_>, out: &mut Vec<Problem>) {
     let allowed = match (&cx.graph, op) {
-        (Graph::Mirror(_), Operation::Put { .. } | Operation::Tombstone { .. }) => true,
-        (Graph::Mirror(_), Operation::Redirect { upstream, .. }) => upstream.is_some(),
+        (
+            Graph::Mirror(_) | Graph::Source(_),
+            Operation::Put { .. } | Operation::Tombstone { .. },
+        ) => true,
+        (Graph::Mirror(_) | Graph::Source(_), Operation::Redirect { upstream, .. }) => {
+            upstream.is_some()
+        }
         (Graph::Pages, Operation::Add { page, .. } | Operation::Remove { page, .. }) => {
             page.is_some()
         }
@@ -324,7 +332,7 @@ fn graph_and_mode(op: &Operation, cx: &Context<'_>, out: &mut Vec<Problem>) {
             page.is_none()
         }
         (Graph::Local, Operation::Put { .. } | Operation::Tombstone { .. })
-        | (Graph::Mirror(_) | Graph::Pages, _) => false,
+        | (Graph::Mirror(_) | Graph::Source(_) | Graph::Pages, _) => false,
         (Graph::Local, _) => true,
     };
     if !allowed {
@@ -388,17 +396,29 @@ fn check_entity(id: &EntityId, entity: &Entity, out: &mut Vec<Problem>) {
 }
 
 fn check_mirror_id(id: &EntityId, cx: &Context<'_>, keyed_ok: bool, out: &mut Vec<Problem>) {
+    // A source's ID is in the colon shape (0078 §2); the graph says which prefix is its.
+    let source_graph = matches!(cx.graph, Graph::Source(_));
     match id.form() {
+        IdForm::Keyed if source_graph => {
+            if let Some(code) = cx.mirror_code()
+                && !id.as_str().starts_with(&code)
+            {
+                out.push(Problem::WrongProvider {
+                    id: id.clone(),
+                    code,
+                });
+            }
+        }
         IdForm::Keyed if keyed_ok => {}
         IdForm::Keyed => out.push(Problem::KeyedOperation(id.clone())),
         IdForm::Local => out.push(Problem::NotForeign(id.clone())),
         IdForm::Foreign => {
             if let Some(code) = cx.mirror_code()
-                && !id.as_str().starts_with(code)
+                && !id.as_str().starts_with(&code)
             {
                 out.push(Problem::WrongProvider {
                     id: id.clone(),
-                    code: code.to_string(),
+                    code,
                 });
             }
         }

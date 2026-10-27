@@ -3381,12 +3381,14 @@ name = "triplespace-api-ingest"
 version = "0.0.1"
 dependencies = [
  "ed25519-dalek",
+ "getrandom 0.3.4",
  "scatter-actors",
  "scatter-adapter-mediawiki",
  "scatter-adapter-wikibase",
  "scatter-ingest",
  "scatter-log",
  "scatter-log-postgres",
+ "scatter-normalize",
  "scatter-pages",
  "scatter-projection",
  "scatter-providers",
@@ -3524,6 +3526,7 @@ dependencies = [
  "scatter-actors",
  "scatter-log",
  "scatter-log-postgres",
+ "scatter-normalize",
  "scatter-pages",
  "scatter-projection",
  "scatter-providers",

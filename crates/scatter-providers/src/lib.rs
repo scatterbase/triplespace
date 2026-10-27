@@ -22,11 +22,15 @@ mod grammar;
 mod id;
 mod registry;
 mod revid;
+mod source;
 
 pub use grammar::IdGrammar;
 pub use id::{ForeignId, IdError};
 pub use registry::{Chip, Deletion, EntityType, Provider, Registry, RegistryError, Trust};
 pub use revid::{RevidError, provider_revid, split_revid};
+pub use source::{
+    END_SOURCE_NUMBER, EntitySource, FIRST_SOURCE_NUMBER, SourceError, SourceType, is_source_name,
+};
 
 /// The default registry, `docs/registry/providers.toml`, embedded at build time.
 pub const DEFAULT_TOML: &str = include_str!("../../../docs/registry/providers.toml");

@@ -229,7 +229,7 @@ pub(crate) async fn content_at(
         modified: Some(iso8601(rev.header.appended_at)),
     };
     Ok(Some(entity.to_wikibase_json(
-        &hasher_for(id, ctx.app.registry()),
+        &hasher_for(id, ctx.registry().await?),
         Some(&info),
     )))
 }

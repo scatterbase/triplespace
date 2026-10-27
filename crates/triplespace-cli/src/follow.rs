@@ -23,7 +23,7 @@ use tokio_postgres::Client;
 use triplespace_accounts::Secret;
 use triplespace_accounts::settings::load;
 use triplespace_accounts::upstream_login::{self, Follower};
-use triplespace_api_ingest::follow::{KIND_PROVIDER, ProviderFollower, position};
+use triplespace_api_ingest::follow::{ProviderFollower, position};
 use triplespace_upstream::Wiki;
 
 use crate::accounts::secret_from;
@@ -36,8 +36,14 @@ pub struct Follow {
     #[arg(long, env = "TRIPLESPACE_DATABASE_URL")]
     pub database: String,
     /// The provider slug (`wikidata`, `librarybase`, …).
-    #[arg(long)]
-    pub provider: String,
+    #[arg(long, conflicts_with_all = ["tenant", "source"])]
+    pub provider: Option<String>,
+    /// The tenant whose entity source to follow (0078 §4), with `--source`.
+    #[arg(long, requires = "source")]
+    pub tenant: Option<String>,
+    /// The entity source's name, with `--tenant`.
+    #[arg(long, requires = "tenant")]
+    pub source: Option<String>,
     /// Read until the wiki has nothing newer, then stop.
     #[arg(long)]
     pub once: bool,
@@ -73,15 +79,41 @@ pub enum UpstreamLogin {
     Show(WhichLogin),
 }
 
-/// A provider's follower.
+/// A provider's follower, or a tenant's source's.
 #[derive(Debug, Args)]
 pub struct WhichLogin {
     /// The Postgres URL.
     #[arg(long, env = "TRIPLESPACE_DATABASE_URL")]
     pub database: String,
     /// The provider slug.
-    #[arg(long)]
-    pub provider: String,
+    #[arg(long, conflicts_with_all = ["tenant", "source"])]
+    pub provider: Option<String>,
+    /// The tenant whose entity source, with `--source`.
+    #[arg(long, requires = "source")]
+    pub tenant: Option<String>,
+    /// The entity source's name, with `--tenant`.
+    #[arg(long, requires = "tenant")]
+    pub source: Option<String>,
+}
+
+impl WhichLogin {
+    /// The follower the login is for.
+    fn follower(&self) -> Result<Follower> {
+        match (&self.provider, &self.tenant, &self.source) {
+            (Some(p), None, None) => Ok(Follower::provider(p)),
+            (None, Some(t), Some(s)) => Ok(Follower::source(t, s)),
+            _ => bail!("name a provider with --provider, or a source with --tenant and --source"),
+        }
+    }
+
+    /// What to call it.
+    fn name(&self) -> String {
+        match (&self.provider, &self.tenant, &self.source) {
+            (Some(p), _, _) => p.clone(),
+            (_, Some(t), Some(s)) => format!("{t}/{s}"),
+            _ => String::new(),
+        }
+    }
 }
 
 /// `upstream-login set`.
@@ -105,69 +137,93 @@ pub struct SetLogin {
 pub async fn run_login(cmd: UpstreamLogin) -> Result<()> {
     match cmd {
         UpstreamLogin::Set(args) => {
-            provider_of(&args.which.provider)?;
+            let who = args.which.follower()?;
             let password = secret_from(
                 args.password_file.as_deref(),
                 "TRIPLESPACE_UPSTREAM_PASSWORD",
             )?;
             let secret = Secret::derive(&signing_key(&args.key_file)?.to_bytes());
             let client = connect(&args.which.database).await?;
-            upstream_login::set(
-                &client,
-                &secret,
-                &Follower::provider(&args.which.provider),
-                &args.username,
-                &password,
-            )
-            .await?;
+            upstream_login::set(&client, &secret, &who, &args.username, &password).await?;
             println!(
                 "login `{}` stored for `{}`",
                 args.username.trim(),
-                args.which.provider
+                args.which.name()
             );
         }
         UpstreamLogin::Unset(args) => {
+            let who = args.follower()?;
             let client = connect(&args.database).await?;
-            if upstream_login::unset(&client, &Follower::provider(&args.provider)).await? {
-                println!("login removed for `{}`", args.provider);
+            if upstream_login::unset(&client, &who).await? {
+                println!("login removed for `{}`", args.name());
             } else {
-                println!("no login was stored for `{}`", args.provider);
+                println!("no login was stored for `{}`", args.name());
             }
         }
         UpstreamLogin::Show(args) => {
+            let who = args.follower()?;
             let client = connect(&args.database).await?;
             let row = client
                 .query_opt(
                     "SELECT username, updated::text FROM private.upstream_login
-                     WHERE tenant = '' AND kind = $1 AND name = $2",
-                    &[&KIND_PROVIDER, &args.provider],
+                     WHERE tenant = $1 AND kind = $2 AND name = $3",
+                    &[&who.tenant, &who.kind, &who.name],
                 )
                 .await?;
             match row {
                 Some(r) => println!(
                     "`{}` logs in as `{}` (set {})",
-                    args.provider,
+                    args.name(),
                     r.get::<_, String>(0),
                     r.get::<_, String>(1)
                 ),
-                None => println!("`{}` follows anonymously", args.provider),
+                None => println!("`{}` follows anonymously", args.name()),
             }
         }
     }
     Ok(())
 }
 
-fn provider_of(slug: &str) -> Result<&'static scatter_providers::Provider> {
-    let provider = Registry::default_registry()
-        .by_slug(slug)
-        .with_context(|| format!("provider `{slug}` is not registered"))?;
+/// The provider or source to follow, in the table of names it is looked up in: the
+/// registry for a provider, the tenant's table ([`tenant_registry`]) for a source.
+async fn followed(
+    client: &Client,
+    provider: Option<&str>,
+    tenant: Option<&str>,
+    source: Option<&str>,
+) -> Result<(
+    &'static Registry,
+    &'static scatter_providers::Provider,
+    String,
+)> {
+    let (registry, slug, tenant) = match (provider, tenant, source) {
+        (Some(p), None, None) => (Registry::default_registry(), p, String::new()),
+        (None, Some(t), Some(s)) => (tenant_registry(client, t).await?, s, t.to_string()),
+        _ => bail!("name a provider with --provider, or a source with --tenant and --source"),
+    };
+    let provider = registry.by_slug(slug).with_context(|| {
+        if tenant.is_empty() {
+            format!("provider `{slug}` is not registered")
+        } else {
+            format!("`{tenant}` declares no source `{slug}`")
+        }
+    })?;
     if provider.adapter.as_deref() != Some(scatter_adapter_wikibase::NAME) {
-        bail!("provider `{slug}` is not a Wikibase; only Wikibase providers are followed yet");
+        bail!("`{slug}` is not a Wikibase; only Wikibase providers are followed yet");
     }
     if provider.api.is_none() {
-        bail!("provider `{slug}` registers no API endpoint");
+        bail!("`{slug}` names no API endpoint");
     }
-    Ok(provider)
+    Ok((registry, provider, tenant))
+}
+
+/// A tenant's table of names (0078 §3), leaked: the adapters borrow a registry for the
+/// program's life, and a command builds one.
+pub async fn tenant_registry(client: &Client, tenant: &str) -> Result<&'static Registry> {
+    let registry = triplespace_projections::entity_sources::registry_for(client, tenant)
+        .await
+        .map_err(anyhow::Error::msg)?;
+    Ok(Box::leak(Box::new(registry)))
 }
 
 /// The follower's windows and interval from the instance settings (0092 §6).
@@ -196,13 +252,24 @@ fn seconds() -> u64 {
 
 /// Runs the follower.
 pub async fn run(args: Follow) -> Result<()> {
-    let provider = provider_of(&args.provider)?;
+    let client = connect(&args.database).await?;
+    let (registry, provider, tenant) = followed(
+        &client,
+        args.provider.as_deref(),
+        args.tenant.as_deref(),
+        args.source.as_deref(),
+    )
+    .await?;
+    let who = if tenant.is_empty() {
+        Follower::provider(&provider.slug)
+    } else {
+        Follower::source(&tenant, &provider.slug)
+    };
     let api = args
         .api
         .as_deref()
         .or(provider.api.as_deref())
         .unwrap_or_default();
-    let client = connect(&args.database).await?;
     let farm = farm_of(&client).await?;
     let (store, pipeline) = store(&args.database, &farm)?;
     let (windows, setting_interval) = windows_of(&client).await?;
@@ -217,7 +284,7 @@ pub async fn run(args: Follow) -> Result<()> {
     let mut wiki = Wiki::new(api, &agent).context("upstream client")?;
     if !args.anonymous {
         let secret = Secret::derive(&signing_key(&args.key_file)?.to_bytes());
-        match upstream_login::get(&client, &secret, &Follower::provider(&provider.slug)).await {
+        match upstream_login::get(&client, &secret, &who).await {
             Ok(Some(login)) => match wiki.login(&login.username, &login.password).await {
                 Ok(l) => eprintln!(
                     "logged in as {}{}",
@@ -239,8 +306,10 @@ pub async fn run(args: Follow) -> Result<()> {
         .as_deref()
         .map(|t| parse_iso(t).with_context(|| format!("`{t}` is not an ISO time")))
         .transpose()?;
-    let mut source =
-        ProviderFollower::start(&client, &wiki, provider, windows, from, seconds).await?;
+    let mut source = ProviderFollower::start(
+        &client, &wiki, provider, registry, &tenant, windows, from, seconds,
+    )
+    .await?;
     eprintln!(
         "following {} from {}",
         provider.slug,
@@ -251,17 +320,18 @@ pub async fn run(args: Follow) -> Result<()> {
         let outcome = run_follow(
             &store,
             &pipeline,
+            &tenant,
             &provider.slug,
             Attestation::by(&farm.operator().to_string()),
             &mut source,
-            Registry::default_registry(),
+            registry,
             now,
             args.batch.max(1),
             true,
         )
         .await
         .context("follow")?;
-        let pos = position(&client, "", KIND_PROVIDER, &provider.slug).await?;
+        let pos = position(&client, &who.tenant, &who.kind, &provider.slug).await?;
         println!(
             "{} rows in {} batch(es): {} created, {} updated, {} unchanged, {} rejected, {} tombstoned, {} redirected; {} late, {} stale; at {}",
             outcome.rows,

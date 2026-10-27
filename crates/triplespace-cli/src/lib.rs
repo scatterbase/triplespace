@@ -16,6 +16,7 @@ pub mod instance;
 pub mod oauth_client;
 pub mod rights;
 pub mod settings;
+pub mod source;
 pub mod status;
 pub mod sync;
 pub mod tenant;

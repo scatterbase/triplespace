@@ -28,6 +28,8 @@ scatter-threads.workspace = true
 scatter-adapter-mediawiki.workspace = true
 scatter-adapter-wikibase.workspace = true
 scatter-providers.workspace = true
+scatter-normalize.workspace = true
+getrandom.workspace = true
 triplespace-upstream.workspace = true
 
 [dev-dependencies]

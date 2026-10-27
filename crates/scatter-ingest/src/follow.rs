@@ -20,7 +20,7 @@ use scatter_wikibase_changeset::{JobHeader, Mode};
 use crate::IngestError;
 use crate::job::Counts;
 use crate::store::IngestStore;
-use crate::sync::{SyncItem, run_sync};
+use crate::sync::{SyncItem, run_sync_in};
 use crate::write::Attestation;
 
 /// One poll's worth of changes, as the source turned them into sync items.
@@ -72,10 +72,13 @@ pub struct FollowOutcome {
 ///
 /// Each batch is a complete sync in `upsert` mode (0092 §2), so its records, counts and
 /// rejects are the sync's; the position is saved once the batch's job has finished.
+/// `tenant` is `""` for a registry provider's mirror and the tenant for its entity source
+/// `slug` (0078 §4), with `registry` the tenant's table of names.
 #[allow(clippy::too_many_arguments)]
 pub async fn run_follow<S: IngestStore, C: ChangeSource>(
     store: &S,
     pipeline: &Pipeline<S>,
+    tenant: &str,
     slug: &str,
     attestation: Attestation,
     source: &mut C,
@@ -92,13 +95,19 @@ pub async fn run_follow<S: IngestStore, C: ChangeSource>(
         out.late += b.late;
         out.stale += b.stale;
         if !b.items.is_empty() {
-            let mut header = JobHeader::mirror(slug, &format!("follow-{}", now()), Mode::Upsert);
+            let version = format!("follow-{}", now());
+            let mut header = if tenant.is_empty() {
+                JobHeader::mirror(slug, &version, Mode::Upsert)
+            } else {
+                JobHeader::source(slug, &version, Mode::Upsert)
+            };
             header
                 .params
                 .insert("follow".into(), serde_json::Value::Bool(true));
-            let o = run_sync(
+            let o = run_sync_in(
                 store,
                 pipeline,
+                tenant,
                 header,
                 attestation.clone(),
                 b.items,

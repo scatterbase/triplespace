@@ -25,6 +25,7 @@ pub mod follow;
 pub mod groups;
 pub mod membership;
 pub mod settings;
+pub mod sources;
 pub mod store;
 pub mod threads;
 

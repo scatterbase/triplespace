@@ -42,10 +42,17 @@ impl<'r> ForeignId<'r> {
         &self.rest
     }
 
-    /// The three-letter prefix, `WDQ`.
+    /// The three-letter prefix, `WDQ`; for a source, `{name}:{upstream prefix}`.
     #[must_use]
     pub fn prefix(&self) -> String {
-        format!("{}{}", self.provider.code, self.entity_type.code)
+        if self.provider.source {
+            format!(
+                "{}:{}",
+                self.provider.slug, self.entity_type.upstream_prefix
+            )
+        } else {
+            format!("{}{}", self.provider.code, self.entity_type.code)
+        }
     }
 
     /// The provider's own form of the ID: `WDQ42` → `Q42`, `OAK…` → `keywords/…`,
@@ -69,13 +76,9 @@ impl<'r> ForeignId<'r> {
 }
 
 impl fmt::Display for ForeignId<'_> {
-    /// The canonical prefixed form, `WDQ42`.
+    /// The canonical prefixed form, `WDQ42`; for a source, `mhc:Q1` (0078 §2).
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}{}{}",
-            self.provider.code, self.entity_type.code, self.rest
-        )
+        write!(f, "{}{}", self.prefix(), self.rest)
     }
 }
 
@@ -142,8 +145,11 @@ impl Registry {
     /// assert!(r.parse_foreign_id("domain:example.org").is_err());
     /// ```
     pub fn parse_foreign_id<'r>(&'r self, id: &str) -> Result<ForeignId<'r>, IdError> {
+        if let Some((name, rest)) = id.split_once(':') {
+            return self.parse_source_id(name, rest, id);
+        }
         let b = id.as_bytes();
-        if b.len() < 4 || !b[..3].iter().all(u8::is_ascii_alphabetic) || id.contains(':') {
+        if b.len() < 4 || !b[..3].iter().all(u8::is_ascii_alphabetic) {
             return Err(IdError::NotForeign(id.to_string()));
         }
         let code = id[..2].to_ascii_uppercase();
@@ -174,6 +180,43 @@ impl Registry {
             provider,
             entity_type,
             rest,
+        })
+    }
+
+    /// A source ID, `{name}:{upstream ID}` (0078 §2): the name must be an entity source
+    /// of this table, and the rest the upstream prefix of one of its types followed by a
+    /// string in that type's grammar. Any other colon form is not a foreign ID here.
+    fn parse_source_id<'r>(
+        &'r self,
+        name: &str,
+        rest: &str,
+        id: &str,
+    ) -> Result<ForeignId<'r>, IdError> {
+        let name = name.to_ascii_lowercase();
+        let Some(provider) = self.by_slug(&name).filter(|p| p.source) else {
+            return Err(IdError::NotForeign(id.to_string()));
+        };
+        let entity_type = provider
+            .type_of_upstream(rest)
+            .ok_or_else(|| IdError::Ambiguous {
+                provider: name.clone(),
+                upstream_id: rest.to_string(),
+                matches: 0,
+            })?;
+        let prefix = format!("{name}:{}", entity_type.upstream_prefix);
+        let tail = &rest[entity_type.upstream_prefix.len()..];
+        let tail = entity_type
+            .id_grammar
+            .canonicalize(tail)
+            .ok_or_else(|| IdError::Grammar {
+                prefix,
+                grammar: entity_type.id_grammar,
+                rest: tail.to_string(),
+            })?;
+        Ok(ForeignId {
+            provider,
+            entity_type,
+            rest: tail,
         })
     }
 

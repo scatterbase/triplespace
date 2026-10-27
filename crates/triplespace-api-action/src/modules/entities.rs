@@ -55,8 +55,20 @@ pub fn parse_id(text: &str) -> Result<EntityId, ApiError> {
 
 /// Whether a client may read an entity of this form: a local one, a foreign one of a
 /// registered provider, a keyed one.
-fn check_form(id: &EntityId, ctx: &Ctx) -> Result<(), ApiError> {
-    if id.form() == IdForm::Foreign && ctx.app.registry().parse_foreign_id(id.as_str()).is_err() {
+fn check_form(id: &EntityId, registry: &scatter_providers::Registry) -> Result<(), ApiError> {
+    // A colon prefix is a keyed type or one of the tenant's sources (0078 §3); nothing
+    // else is an ID.
+    if id.form() == IdForm::Keyed
+        && let Some((prefix, _)) = id.keyed_parts()
+        && KeyedRegistry::default_registry().by_name(prefix).is_none()
+        && registry.parse_foreign_id(id.as_str()).is_err()
+    {
+        return Err(ApiError::new(
+            "invalid-entity-id",
+            format!("\"{}\" names no keyed type or entity source.", id.as_str()),
+        ));
+    }
+    if id.form() == IdForm::Foreign && registry.parse_foreign_id(id.as_str()).is_err() {
         return Err(ApiError::new(
             "invalid-entity-id",
             format!("\"{}\" names no registered provider.", id.as_str()),
@@ -75,7 +87,10 @@ pub fn serving_graph(current: &read::Current) -> Option<&str> {
 /// (`XDQ9`) is an alias of the keyed entity it was written under (05 §4.1): the answer is
 /// that entity, under its own ID, with Wikibase's `redirects: {from, to}` beside it.
 pub async fn entity_json(ctx: &Ctx, id: &EntityId, as_given: &str) -> Result<Value, ApiError> {
-    check_form(id, ctx)?;
+    let registry = ctx.registry().await?;
+    check_form(id, registry)?;
+    // A source ID in the tenant's table of names, canonicalized (0078 §2).
+    let id = &entity_json::canonical_in(id.clone(), registry);
     let missing = || json!({"id": as_given, "missing": ""});
     // An entity under a restriction the caller does not satisfy is absent, and a deleted
     // one is missing to those outside its group (09 §5.3, §6.2); a private tenant's
@@ -85,16 +100,16 @@ pub async fn entity_json(ctx: &Ctx, id: &EntityId, as_given: &str) -> Result<Val
             if !crate::pages::entity_readable(ctx, id.as_str(), serving_graph(&current)).await? {
                 return Ok(missing());
             }
-            Ok(entity_json::present(&current, ctx.app.registry()))
+            Ok(entity_json::present(&current, registry))
         }
-        None if id.form() == IdForm::Keyed => {
+        None if id.form() == IdForm::Keyed && !entity_json::is_source_id(id, registry) => {
             if !crate::pages::entity_readable(ctx, id.as_str(), None).await? {
                 return Ok(missing());
             }
             Ok(entity_json::empty_keyed(id))
         }
         None => {
-            let alias = read::mapped_alias(&ctx.client, ctx.app.registry(), &ctx.tenant.slug, id)
+            let alias = read::mapped_alias(&ctx.client, registry, &ctx.tenant.slug, id)
                 .await
                 .map_err(ApiError::internal)?;
             if let Some(target) = alias
@@ -105,7 +120,7 @@ pub async fn entity_json(ctx: &Ctx, id: &EntityId, as_given: &str) -> Result<Val
                 {
                     return Ok(missing());
                 }
-                let mut v = entity_json::present(&current, ctx.app.registry());
+                let mut v = entity_json::present(&current, registry);
                 v["redirects"] = json!({"from": as_given, "to": target.as_str()});
                 return Ok(v);
             }

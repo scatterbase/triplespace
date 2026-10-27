@@ -20,6 +20,7 @@ pub mod actors;
 pub mod backend;
 pub mod common;
 pub mod entities;
+pub mod entity_sources;
 pub mod feed;
 pub mod jobs;
 pub mod moderation;

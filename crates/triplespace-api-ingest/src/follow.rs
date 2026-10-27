@@ -27,6 +27,8 @@ use triplespace_upstream::Wiki;
 
 /// The position row's kind for a registry provider.
 pub const KIND_PROVIDER: &str = "provider";
+/// The position row's kind for a tenant's entity source.
+pub const KIND_SOURCE: &str = "source";
 
 /// Where a follower is, as `ops.repo_cursor` holds it.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -124,11 +126,16 @@ pub async fn record_load<C: GenericClient>(
     Ok(())
 }
 
-/// A registry provider's follower over its wiki.
+/// A registry provider's follower over its wiki, or a tenant's entity source's (0078 §4):
+/// the same poll, the source's position and records under the tenant.
 pub struct ProviderFollower<'a, C: GenericClient> {
     client: &'a C,
     wiki: &'a Wiki,
     provider: &'a Provider,
+    /// `""` for a registry provider; the tenant for its source.
+    tenant: String,
+    /// `provider` or `source`.
+    kind: &'static str,
     adapter: KeyMappedAdapter,
     namespaces: EntityNamespaces,
     poller: Poller,
@@ -174,21 +181,35 @@ impl<'a, C: GenericClient> ProviderFollower<'a, C> {
     /// # Errors
     ///
     /// [`StartError`].
+    #[allow(clippy::too_many_arguments)]
     pub async fn start(
         client: &'a C,
         wiki: &'a Wiki,
         provider: &'a Provider,
+        registry: &'static scatter_providers::Registry,
+        tenant: &str,
         windows: Windows,
         from: Option<u64>,
         now: fn() -> u64,
     ) -> Result<Self, StartError> {
         let fail = |e: &dyn std::fmt::Display| StartError::Failed(e.to_string());
-        let inner = WikibaseAdapter::new(&provider.slug).ok_or_else(|| {
+        let kind = if provider.source {
+            KIND_SOURCE
+        } else {
+            KIND_PROVIDER
+        };
+        if provider.source == tenant.is_empty() {
+            return Err(StartError::NotFollowable(
+                provider.slug.clone(),
+                "a source is followed under its tenant, a provider under the instance".into(),
+            ));
+        }
+        let inner = WikibaseAdapter::with_registry(&provider.slug, registry).ok_or_else(|| {
             StartError::NotFollowable(provider.slug.clone(), "not registered".into())
         })?;
         let rules = KeyRules::from_provider(provider)
             .map_err(|e| StartError::NotFollowable(provider.slug.clone(), e.to_string()))?;
-        let index = restore_index(client, &provider.slug, &rules)
+        let index = restore_index(client, tenant, &provider.slug, &rules)
             .await
             .map_err(|e| fail(&e))?;
         let adapter = KeyMappedAdapter::new(inner, rules, index);
@@ -209,7 +230,7 @@ impl<'a, C: GenericClient> ProviderFollower<'a, C> {
             ));
         }
 
-        let stored = position(client, "", KIND_PROVIDER, &provider.slug)
+        let stored = position(client, tenant, kind, &provider.slug)
             .await
             .map_err(|e| fail(&e))?;
         let (time, cont, seen) = match (stored.rc_time, stored.loaded_to, from) {
@@ -248,6 +269,8 @@ impl<'a, C: GenericClient> ProviderFollower<'a, C> {
             client,
             wiki,
             provider,
+            tenant: tenant.to_string(),
+            kind,
             adapter,
             namespaces,
             poller,
@@ -474,14 +497,14 @@ impl<C: GenericClient + Sync> ChangeSource for ProviderFollower<'_, C> {
             .execute(
                 "INSERT INTO ops.repo_cursor (tenant, kind, name, rc_time, rc_continue, rc_seen,
                                               rc_retry, handed_over, late, stale, lag_seconds)
-                 VALUES ('', $1, $2, to_timestamp($3::bigint), $4, $5, $6, true, $7, $8, $9)
+                 VALUES ($10, $1, $2, to_timestamp($3::bigint), $4, $5, $6, true, $7, $8, $9)
                  ON CONFLICT (tenant, kind, name) DO UPDATE
                  SET rc_time = EXCLUDED.rc_time, rc_continue = EXCLUDED.rc_continue,
                      rc_seen = EXCLUDED.rc_seen, rc_retry = EXCLUDED.rc_retry, handed_over = true,
                      late = EXCLUDED.late, stale = EXCLUDED.stale,
                      lag_seconds = EXCLUDED.lag_seconds, updated = now()",
                 &[
-                    &KIND_PROVIDER,
+                    &self.kind,
                     &self.provider.slug,
                     &time,
                     &cont,
@@ -490,6 +513,7 @@ impl<C: GenericClient + Sync> ChangeSource for ProviderFollower<'_, C> {
                     &late,
                     &stale,
                     &lag,
+                    &self.tenant,
                 ],
             )
             .await
@@ -502,14 +526,15 @@ impl<C: GenericClient + Sync> ChangeSource for ProviderFollower<'_, C> {
 /// continue (0092 §2).
 async fn restore_index<C: GenericClient>(
     client: &C,
+    tenant: &str,
     slug: &str,
     rules: &KeyRules,
 ) -> Result<Index, IngestError> {
     let rows = client
         .query(
             "SELECT upstream_id, keyed_type, key, alias FROM view.keyed_map
-             WHERE tenant = '' AND provider = $1",
-            &[&slug],
+             WHERE tenant = $1 AND provider = $2",
+            &[&tenant, &slug],
         )
         .await
         .map_err(|e| IngestError::Store(e.to_string()))?;

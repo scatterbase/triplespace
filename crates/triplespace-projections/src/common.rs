@@ -48,16 +48,25 @@ pub struct PartitionInfo {
 }
 
 impl PartitionInfo {
-    /// Whether the partition is a provider's mirror.
+    /// Whether the partition holds mirrored entities: a provider's mirror, or a tenant's
+    /// entity source (0078 §4).
     #[must_use]
     pub fn is_mirror(&self) -> bool {
-        self.name.starts_with("mirror/")
+        self.name.starts_with("mirror/") || self.name.starts_with("source/")
+    }
+
+    /// Whether the partition is a tenant's entity source.
+    #[must_use]
+    pub fn is_source(&self) -> bool {
+        self.name.starts_with("source/")
     }
 
     /// The provider slug of a mirror partition.
     #[must_use]
     pub fn provider_slug(&self) -> Option<&str> {
-        self.name.strip_prefix("mirror/")
+        self.name
+            .strip_prefix("mirror/")
+            .or_else(|| self.name.strip_prefix("source/"))
     }
 }
 
@@ -211,7 +220,9 @@ pub fn operation(record: &Record) -> Result<Option<Operation>, String> {
 
 /// The header key a subject's records are filed under: the entity ID itself, or for a
 /// keyed entity its surrogate as `{type}#{n}` (0009 §7), looked up in
-/// `view.keyed_surrogate`. `None` for a keyed entity that has no surrogate yet.
+/// `view.keyed_surrogate`. `None` for a keyed entity that has no surrogate yet. An
+/// entity source's ID is in the colon shape too (0078 §2) but its prefix is no keyed
+/// type (0078 §3 rule 1 keeps the names apart), and its key is the ID itself.
 pub async fn header_key_for<C: PgClient>(
     client: &C,
     id: &EntityId,
@@ -220,6 +231,12 @@ pub async fn header_key_for<C: PgClient>(
         return Ok(Some(id.as_str().to_string()));
     }
     let (keyed_type, key) = id.keyed_parts().ok_or("a keyed ID has a type and a key")?;
+    if scatter_normalize::KeyedRegistry::default_registry()
+        .by_name(keyed_type)
+        .is_none()
+    {
+        return Ok(Some(id.as_str().to_string()));
+    }
     let row = client
         .query_opt(
             "SELECT surrogate FROM view.keyed_surrogate WHERE tenant = '' AND keyed_type = $1 AND key = $2",

@@ -76,6 +76,9 @@ struct Inner {
     build: crate::version::BuildInfo,
     probes: crate::version::Probes,
     upstream: Arc<dyn Upstream>,
+    /// Each tenant's table of names (0078 §3), leaked for the adapters' `'static`
+    /// borrows and rebuilt when the tenant's `entity-source` records move.
+    registries: std::sync::Mutex<std::collections::HashMap<String, (i64, &'static Registry)>>,
 }
 
 impl App {
@@ -133,6 +136,7 @@ impl App {
                 build,
                 probes: crate::version::Probes::default(),
                 upstream,
+                registries: std::sync::Mutex::new(std::collections::HashMap::new()),
             }),
         })
     }
@@ -247,6 +251,43 @@ impl App {
     #[must_use]
     pub fn registry(&self) -> &'static Registry {
         Registry::default_registry()
+    }
+
+    /// A tenant's table of names (0078 §3): the registry with the tenant's entity
+    /// sources. The registry itself for a tenant that declares none. One indexed query
+    /// per call tells whether the cached table is current.
+    ///
+    /// # Errors
+    ///
+    /// If the store fails, or a declared source clashes with the registry.
+    pub async fn registry_for<C: scatter_log_postgres::PgClient>(
+        &self,
+        client: &C,
+        tenant: &str,
+    ) -> Result<&'static Registry, String> {
+        let frontier: Option<i64> = client
+            .query_one(
+                "SELECT max(\"offset\") FROM view.registry WHERE tenant = $1 AND kind = $2",
+                &[&tenant, &triplespace_projections::entity_sources::KIND],
+            )
+            .await
+            .map_err(|e| e.to_string())?
+            .get(0);
+        let Some(frontier) = frontier else {
+            return Ok(Registry::default_registry());
+        };
+        if let Ok(cache) = self.inner.registries.lock()
+            && let Some((at, r)) = cache.get(tenant)
+            && *at == frontier
+        {
+            return Ok(r);
+        }
+        let built = triplespace_projections::entity_sources::registry_for(client, tenant).await?;
+        let leaked: &'static Registry = Box::leak(Box::new(built));
+        if let Ok(mut cache) = self.inner.registries.lock() {
+            cache.insert(tenant.to_string(), (frontier, leaked));
+        }
+        Ok(leaked)
     }
 
     /// The proxies trusted by address (0057 §10).
