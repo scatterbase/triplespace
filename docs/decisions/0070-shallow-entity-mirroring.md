@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-07
-- **Updated:** 2026-10-09 (A7)
+- **Updated:** 2026-10-26 (A8)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0011](0011-logs.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0040](0040-instance-prerogatives.md), [0053](0053-mirrored-pages.md), [0065](0065-mediainfo-captions-and-commons.md), [0067](0067-proposals.md), [0071](0071-derived-statements-from-mirrored-pages.md)
@@ -53,7 +53,7 @@ James's direction, from the design discussion of 2026-10-07:
 
 ### 3. Fetching and records
 
-*Changed by A1, A2, A5.*
+*Changed by A1, A2, A5, A8.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §5.5.*
 
@@ -65,6 +65,8 @@ James's direction, from the design discussion of 2026-10-07:
 
 ### 5. Keeping mirrored entities current (uses 0053 §6)
 
+*Changed by A8.*
+
 *Current text: [05](../architecture/05-providers-and-ingest.md) §5.7, §8.2.*
 
 ### 6. Terms of mirrored entities (extends 0013 §5.6)
@@ -75,7 +77,7 @@ James's direction, from the design discussion of 2026-10-07:
 
 ### 7. Becoming a full mirror
 
-*Changed by A6, A7.*
+*Changed by A6, A7, A8.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §5.9.*
 
@@ -85,11 +87,13 @@ James's direction, from the design discussion of 2026-10-07:
 
 ### 9. API and operations (extends 0012 §5)
 
+*Changed by A8.*
+
 *Current text: [18](../architecture/18-api.md) §2.2, §3.2.*
 
 ### 10. Storage (extends 0013 §5.6)
 
-*Changed by A1.*
+*Changed by A1, A8.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.12, §5.*
 
@@ -117,7 +121,8 @@ James's direction, from the design discussion of 2026-10-07:
 - **Q2.** ~~**Terms under `all`.** Whether a full mirror writes `view.term` rows for every language, a configured subset, or none, with search delegated (the adoption-results note, §2).~~ *Settled by [0082](0082-source-form-and-the-shared-view.md) §6: the instance's term languages only, with the other languages read from the record through the label cache, search delegated to the index and no `term_prefix` on a full mirror.*
 - **Q3.** ~~**Other Wikibase providers.** The fetch path is Wikidata's API; whether a Wikibase Cloud provider or another Triplespace instance ([0022](0022-federation.md) §2) uses the same job with its own endpoint, and how a provider without an event stream is kept current beyond the sweep.~~ *Settled by [0078](0078-entity-sources.md) §4, in part: a Wikibase declared as a tenant's entity source uses the same job with its own endpoint, and without an event stream is kept current by the sweep alone.*
 - **Q4. Lexemes and forms under `linked`.** A form or sense ID as a value fetches its lexeme; whether that should be the default for `lexeme`.
-- **Q5.** (Rest of Q3.) Whether a registry Wikibase provider other than Wikidata, or another Triplespace instance ([0022](0022-federation.md) §2), uses the same job with its own endpoint.
+- **Q5.** ~~(Rest of Q3.) Whether a registry Wikibase provider other than Wikidata, or another Triplespace instance ([0022](0022-federation.md) §2), uses the same job with its own endpoint.~~ *Settled by [0092](0092-following-recent-changes.md) §1, for Wikibases: a registry Wikibase provider uses the same job with its own `api`, followed by its recent changes when it has no `events`; the rest is Q6.*
+- **Q6.** (Rest of Q5.) Whether another Triplespace instance ([0022](0022-federation.md) §2) uses the same job, or reads its log and checkpoints instead (0092 Q2).
 
 ## Changes to other ADRs
 
@@ -204,3 +209,30 @@ Replaced text ([05](../architecture/05-providers-and-ingest.md) §5.5, as it sto
 - **Source:** [0083](0083-write-path-in-three-tiers.md) §5
 - **Change:** extends §7
 - **Summary:** The dump sync that continues from the shallow records skips every entity whose cursor is current in bulk per block, evaluated against `view.entity_source` before a block is written, and writes the rest as a bulk append into the live partition: the partition lock once per block, tier 2 composing the block set-based. (REVIEW G12)
+
+### A8. A provider without events is followed by its recent changes
+
+- **Date:** 2026-10-26
+- **Source:** [0092](0092-following-recent-changes.md) §1–§5, §7
+- **Change:** extends §3, §5, §7, §9; amends §10
+- **Summary:** A provider or entity source with an `api` and no `events` is followed by polling `list=recentchanges`, as the Wikidata Query Service's updater did: deduped by `rcid`, coalesced by title, read by time near the present, with a tail pass, every `follow.interval`. Each row or event only says a title changed; the job fetches the state and writes what it says. The position is a hint kept in `ops.repo_cursor`; the version cursor is the guarantee; a position older than the wiki's oldest recent change is a gap. A type at `all` is loaded by a dump sync or, without a dump, a crawl, and the load hands over to the follower at its newest timestamp. `GET /provider/{code}/mirror` reports the follower and the load. A follower or fetch job may log in with a bot password for `apihighlimits`; it is optional. Chapter text: [05](../architecture/05-providers-and-ingest.md) §5.5, §5.7, §5.9; [03](../architecture/03-storage-caches-and-search.md) §4.12; [18](../architecture/18-api.md) §3.2.
+
+Replaced text (05 §5.7, as it stood):
+
+> **The set is followed by the provider's event stream, and checked by a sweep.**
+
+Replaced text (05 §5.7, as it stood):
+
+> with the same cursor table (`ops.repo_cursor`, keyed by provider), debounce and gap-closing by `list=recentchanges`.
+
+Replaced text (05 §5.7, as it stood):
+
+> - **Sweep.** Daily, the job asks `wbgetentities&props=info` for every entity in the set in batches of 50 and enqueues those whose `lastrevid` is newer than the cursor. The sweep catches anything the stream missed.
+
+Replaced text (03 §4.12, as it stood):
+
+> - `ops.repo_cursor` gains rows keyed by provider for the entity stream.
+
+Replaced text (18 §3.2, as it stood):
+
+> | `GET /provider/{code}/mirror` | Per type, the setting, the set size, the queue length and the stream lag, the live counters that `siprop=triplespace` does not carry (§2.2); a source's name in place of `{code}`, since lowercase source names and uppercase provider codes never clash | [0070](0070-shallow-entity-mirroring.md) §9; [0078](0078-entity-sources.md) §10 |

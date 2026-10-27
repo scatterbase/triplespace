@@ -1,25 +1,59 @@
-# Demofarm: one instance, three tenants, the Credit Unions Wiki
+# Demofarm: one instance, four tenants, two real Wikibases
 
-- **Goal:** exercise what Triplespace has built so far, end to end and on one instance, with a
-  small real Wikibase: tenancy, adoption with history, the mirror sync (upsert, snapshot,
-  redirects, rejects, the cursor), tenant overlays on mirrored entities, the Action API and the
-  three client libraries, the site, discussions and watchlists, and rebuild equivalence.
-- **Layout:** instance (farm) `demofarm`; primary tenant `control`; tenant `opencredit` **adopts**
-  the Credit Unions Wiki; tenant `cumirror` **reads it as an entity source** named `cu` (0078), with
-  tenant-specific IDs (`cu:Q8`), synced first from the dump and then from the live wiki at
-  `creditunions.miraheze.org`. The Credit Unions Wiki is not registered as a provider: it gets no
-  global code (James, 2026-10-26).
-- **History:** written 2026-10-25 against `main` at `93941ca`; revised 2026-10-26 for
-  [0091](../decisions/0091-one-wikibase-adapter.md) and for the entity-source route. Companion to
-  [`real-dumps.md`](real-dumps.md), whose stage 0 (build, database, rebuild equivalence) is assumed
-  here; add rows to the results log at the end of this file.
-- **Where to run:** James's Mac, from the checkout, with a local Postgres. Phase 4 needs network
-  access to Miraheze, which the cloud sandbox does not have. Work files go in `~/ts-test/demofarm/`.
+- **Goal:** exercise what Triplespace has built so far, end to end on one instance, with two real
+  Wikibases:
+  - tenancy;
+  - adoption with history;
+  - foreign entities under a **global** prefix (a registry provider) and under a **local** prefix
+    (a tenant's entity source);
+  - the sync: upsert, snapshot, redirects, rejects, the cursor;
+  - local statements on foreign entities;
+  - the Action API and the three client libraries;
+  - the site, discussions and watchlists;
+  - rebuild equivalence.
+- **Layout:** instance (farm) `demofarm`, with four tenants:
 
-## The dump
+  | Tenant | Role |
+  |---|---|
+  | `control` | The primary tenant. Holds nothing of either wiki, so it shows what leaks across tenants |
+  | `library` | **Adopts** Librarybase from `data/librarybase-20261005.xml` |
+  | `creditunions` | **Adopts** the Credit Unions Wiki from `data/creditunionswiki-20261004.xml` |
+  | `reader` | **Reads both as foreign wikis**: Librarybase through the registry provider `LB` (global prefix, `LBQ1`, `LBP5`), and the Credit Unions Wiki through its own entity source `opencredit` (local prefix, `opencredit:Q8`), synced first from the dump and then from the live wiki |
 
-`creditunionswiki-20261004.xml` (37 MB, uncompressed, in `data/` in the checkout, which is gitignored;
-copy it to the work directory and do not commit it). A full-history export of OpenCredit, MediaWiki 1.46.2.
+  The Credit Unions Wiki, OpenCredit on Miraheze, is not registered as a provider: it is a
+  foreign wiki under a tenant-local prefix, `opencredit:` (James, 2026-10-26).
+- **History:** written 2026-10-25 against `main` at `93941ca`. Revised 2026-10-26 for
+  [0091](../decisions/0091-one-wikibase-adapter.md), the entity-source route and the Librarybase
+  dump. Companion to [`real-dumps.md`](real-dumps.md): its stage 0 (build, database, rebuild
+  equivalence) is assumed here, and its stage 1 is the single-tenant Librarybase adoption this
+  plan repeats on a farm. Add rows to the results log at the end of this file.
+- **Where to run:** James's Mac, from the checkout, with a local Postgres. The dumps are in `data/`
+  (gitignored). Phase 5 needs network access to Miraheze, which the cloud sandbox does not have.
+  Work files go in `~/ts-test/demofarm/`.
+
+## The dumps
+
+### Librarybase: `data/librarybase-20261005.xml`
+
+769 MB, uncompressed. The same dump as `real-dumps.md` stage 1, MediaWiki 1.39.1.
+
+| | |
+|---|---|
+| Pages | 247,055 |
+| Entities | 247,011: 246,968 items (Item, ns 120) and 43 properties (Property, ns 122; highest P44) |
+| Revisions | 248,114 |
+| Redirects | 5 (merged items) |
+| Other pages | 27 Project, 5 User, 6 User talk, 4 MediaWiki, 2 Template |
+| Accounts | Database import (4, 246,450 revisions), Harej (3, 1,655), Librarybase (1), Egon Willighagen (20), Example (7), Colby (24) |
+
+The dump's `<base>` is a container host (`http://792abbf5ae5f/…`), not `librarybase.org`, so
+`--source https://librarybase.org/` is always given explicitly. The six user talk pages are
+deferred by adoption (0090's conversion is not yet wired into `adopt`).
+
+### The Credit Unions Wiki: `data/creditunionswiki-20261004.xml`
+
+37 MB, uncompressed (a `.gz` copy sits beside it). A full-history export of OpenCredit,
+MediaWiki 1.46.2.
 
 | | |
 |---|---|
@@ -32,14 +66,14 @@ copy it to the work directory and do not commit it). A full-history export of Op
 | Statements | 58,337, every one with one reference (P12 → Q7, the NCUA dataset); no qualifiers |
 | Terms | English labels on everything; descriptions on the class and unit items; no sitelinks |
 
-What it exercises that Librarybase and internetdomains did not:
+What it exercises that Librarybase does not:
 
 - **Miraheze's namespace numbers.** Item is 860 and Property 862, not 120/122. Entity pages are
-  recognized by content model, so this should be harmless; check that it is.
+  recognized by content model, so this is harmless; the sandbox run (results log) confirms it.
 - **Unit IRIs.** 20,252 quantity values have a unit pointing at the wiki's own items:
   `https://creditunions.miraheze.org/entity/Q6` (U.S. Dollars, 15,189) and `…/Q4` (members,
   5,063). Units are stored as raw IRIs today; audit item G21 (prefixed unit and globe IDs) is not
-  applied. This is the first real dataset where that shows.
+  applied.
 - **Empty maps serialized as lists.** 7 items have `"claims": []`, 5,066 have `"aliases": []`,
   all have `"sitelinks": []`.
 - **A system account.** "MediaWiki default" (user 1) authored Main Page's first revision.
@@ -47,78 +81,105 @@ What it exercises that Librarybase and internetdomains did not:
 
 ## What the build can and cannot do today
 
-Read this first: points 1–3 decide what phase 0 has to build before phases 3 and 4 can run.
+Read this first: points 2–3 decide what phase 0 has to build before phases 4 and 5 can run.
 
 1. **The adapter is ready.** Since [0091](../decisions/0091-one-wikibase-adapter.md), `sync`
    chooses the adapter by the provider's `adapter` field, and `scatter-adapter-wikibase` reads any
-   Wikibase dump, XML or JSON, with or without key-map rules. A Credit Unions dump synced through it
-   under a scratch registry entry in the cloud sandbox (2026-10-26): 5,082 created, 0 rejected,
-   21 s on a fresh database, then all unchanged on re-sync and on a snapshot.
-2. **Entity sources (0078) are not built at all.** `cumirror`'s source is an `entity-source`
-   record in its own `config`: a name (`cu`), a number from the tenant's range 2^12–2^13 − 1, a
-   `source/cu` partition in the tenant, and IDs of the form `cu:Q8` that only `cumirror` reads
-   ([05](../architecture/05-providers-and-ingest.md) §6). None of the record, the partition, the
-   colon-form IDs, the source namespace or the reads exists yet. Phase 0 builds the part this test
-   needs.
-3. **0078 has no dump path.** Its `source/{name}` partition is written only by the source's
-   **fetch job**, entity by entity through the source's `api` (05 §6.4, shallow mirroring). A dump
-   sync into a source partition is not in the design. Phase 3 needs it, so phase 0 needs a small
-   amendment to 0078 first (decision D1).
-4. **Nothing follows a live wiki.** There is no API client in the ingest path, no recent-changes
-   follower and no fetch job (0011 §1–5, 0078 §4, 0022 are unbuilt). Phase 4's "sync from the
-   Miraheze wiki" is either the 0078 fetch job, if phase 0 builds it, or a fresh dump fetched
-   through the API (P3) and synced like phase 3.
-5. **Adoption expects a frozen source.** `adopt --frozen` is the operator's declaration; Miraheze
-   will keep accepting edits, so `opencredit` is a fork as of 2026-10-04. That is fine for a
-   test, and it is what makes phase 4's upstream edits possible.
-6. **Known gaps this will hit:** G21 (unit IRIs stay raw Miraheze IRIs), `wbgetentities`
-   `modified` is append time, the sync loads the whole dump into memory (fine at 5k), no `record`
-   ACLs from adoption, no SPARQL endpoint.
+   Wikibase dump, XML or JSON, with or without key-map rules. Phases 2 and 3 run on today's code.
+2. **Entity sources (0078) are not built at all.** `reader`'s source is an `entity-source` record
+   in its own `config`:
+   - a name, `opencredit`;
+   - a number from the tenant's range 2^12–2^13 − 1;
+   - a `source/opencredit` partition in the tenant;
+   - IDs of the form `opencredit:Q8` that only `reader` reads ([05](../architecture/05-providers-and-ingest.md) §6).
+
+   None of the record, the partition, the colon-form IDs, the source namespace or the reads exists
+   yet. Phase 0 builds the part this test needs.
+3. **Loading a source and following it are designed, not built.**
+   [0092](../decisions/0092-following-recent-changes.md) lets a source be loaded from a dump
+   (`sync --tenant reader --source opencredit`) and follows a wiki without an event stream by
+   polling its `list=recentchanges`, handing over from the load at the dump's newest timestamp.
+   Phase 0 builds both.
+4. **A registry provider's mirror is the instance's, not a tenant's.** Every tenant reads every
+   mirror: the per-tenant `providers` opt-in (0018 §6) is not built. So `LBQ…` entities are visible
+   on `control`, `library` and `creditunions` as well as on `reader`. Record that as an observation,
+   not a failure. `opencredit:` entities, by contrast, are `reader`'s alone (05 §6.4).
+5. **The set of providers is fixed at `instance create`.** `--provider librarybase` must be on
+   that command; no command adds a provider later.
+6. **Miraheze has no event stream**, so the follower polls recent changes (0092 §1). It needs the
+   dump to be younger than the wiki's recent-changes window (MediaWiki's default is 90 days); the
+   2026-10-04 dump is well inside it until early January 2027.
+7. **Adoption expects a frozen source.** `adopt --frozen` is the operator's declaration. Neither
+   wiki is frozen, so `library` and `creditunions` are forks as of their dump dates. That is fine
+   for a test, and it is what makes phase 5's upstream edits possible.
+8. **The 0080 §3 binding is not enforced.** An instance should refuse to sync a provider whose
+   registry `issuer` is one of its own tenants, since that tenant's `local` partition is the
+   provider. `library` adopts under its own derived issuer code, not `librarybase`, so the main
+   path never meets the rule: the LB mirror and the `library` fork sit side by side. Phase 6 probes
+   the rule on a scratch database.
+9. **Known gaps this will hit:**
+   - G21: unit IRIs stay raw;
+   - `wbgetentities` `modified` is append time;
+   - the sync loads the whole dump into memory, which is fine at 247k entities but worth watching
+     on the Librarybase run;
+   - no `record` ACLs from adoption;
+   - user talk pages not converted on adoption;
+   - no SPARQL endpoint.
 
 ## Decisions for James
 
-- **D1. A dump sync into an entity source.** 0078 fills `source/{name}` only through its fetch
-  job. Recommended: amend 0078 §4 so a source with a dump may also be loaded by the ordinary sync
-  job (upsert and snapshot, the same cursor and rejects), its records attested as the fetch job's
-  are. A source's history policy is `latest`, so the two writers never conflict over history. The
-  alternative is to build the fetch job first and skip the dump.
-- **D2. Names.** Tenant slugs `opencredit` (adopts) and `cumirror` (reads the source); source name
-  `cu`, label "Credit Unions Wiki". A source has no issuer (05 §6.4), so its upstream actors are
-  not recorded.
-- **D3. How to fetch from the live wiki.** If the fetch job is not built, a tool that builds an XML
-  export through the Action API (`export` on a page generator), so phase 4 goes through the same
-  XML reader and datatype typing as phase 3, and merged items arrive as redirects. A JSON fetch
-  through `wbgetentities` would lose redirects (a merge would read as a deletion).
-- ~~**D1 (2026-10-25). Registry provider now, or wait for 0078?**~~ *Settled by James on
-  2026-10-26: the Credit Unions Wiki is not registered; it is a tenant entity source.*
+- ~~**D1. A dump sync into an entity source.**~~ *Settled by 0092 §4: a source is loaded by a
+  dump sync or a crawl, as well as filled by its fetch job.*
+- **D2. Names.** I proposed these slugs; they can change before phase 1:
+  - The tenants are `library`, `creditunions` and `reader`.
+  - The adopting tenant is not called `opencredit`, so that `opencredit` means only the source.
+  - The source is `opencredit`, labelled "OpenCredit (Credit Unions Wiki)".
+  - A source has no issuer (05 §6.4), so the Credit Unions Wiki's upstream actors are not recorded
+    on `reader`. Librarybase's are, as `librarybase:{n}`.
+- ~~**D3. How to fetch from the live wiki.**~~ *Settled by 0092 §1: the follower polls recent
+  changes; no fetch tool is needed.*
 
 ## Phase 0: prerequisite code (one branch, `demofarm-sources`)
 
 - **P1. The entity-source slice of 0078 this test needs:**
-  - the `entity-source` config record, written with `ts-config`, and a CLI to write it
-    (`triplespace source add --tenant cumirror --name cu --label "Credit Unions Wiki" --type
-    Q=item --type P=property --iri 'https://creditunions.miraheze.org/entity/{upstream_id}'
-    --api https://creditunions.miraheze.org/w/api.php --revision-ids --licence CC-BY-SA-4.0`;
-    the command name is a proposal), with the server assigning the number;
-  - the `source/cu` partition in the tenant, opened when the record is written;
-  - colon-form source IDs (`cu:Q8`, 05 §6.2) in the tenant's table of names (§6.3), parsed and
-    canonicalized, as statement subjects, values and GUID prefixes;
-  - `scatter-adapter-wikibase` parameterised by an entity-source record as well as a registry
-    entry, rewriting `Q8` to `cu:Q8`;
-  - `sync --tenant cumirror --source cu`, writing to `source/cu` (D1);
-  - reads: `wbgetentities`, `Special:EntityData`, search and the entity page for `cu:` IDs on the
-    reading tenant only, with tenant rows and no shared row (05 §6.4).
-- **P2. ~~A generic Wikibase path in `sync`.~~** Done by [0091](../decisions/0091-one-wikibase-adapter.md).
-- **P3. `tools/wikibase_fetch.py`** (only if the fetch job is not built). `--api URL --out
-  FILE.xml.gz [--since ISO8601]`. Reads `siteinfo` (namespaces whose default model is
-  `wikibase-item`/`wikibase-property`); without `--since`, `generator=allpages` over them; with
-  `--since`, the titles from `list=recentchanges` (`rctype=edit|new|log`, those namespaces).
-  Exports current revisions in batches of 50 (`action=query&export&exportnowrap`), and writes one
-  well-formed dump with one `<siteinfo>`. Polite: `maxlag`, a User-Agent naming Scatter LLC, one
-  request at a time.
+  - **The record.** The `entity-source` config record, written with `ts-config`, and a CLI to
+    write it, with the server assigning the number. The command name is a proposal:
 
-**Pass:** fmt, clippy, the workspace tests with a database, `docs/check.sh`; `sync --source cu`
-on a ten-entity slice prints created 10.
+    ```sh
+    triplespace source add --tenant reader --name opencredit --label "OpenCredit (Credit Unions Wiki)" \
+        --type Q=item --type P=property \
+        --iri 'https://creditunions.miraheze.org/entity/{upstream_id}' \
+        --api https://creditunions.miraheze.org/w/api.php --revision-ids --licence CC-BY-SA-4.0
+    ```
+  - **The partition.** `source/opencredit` in the tenant, opened when the record is written.
+  - **Colon-form IDs.** `opencredit:Q8` (05 §6.2) in the tenant's table of names (§6.3), parsed and
+    canonicalized, as statement subjects, values and GUID prefixes.
+  - **The adapter.** `scatter-adapter-wikibase` parameterised by an entity-source record as well as
+    a registry entry, rewriting `Q8` to `opencredit:Q8`.
+  - **The load.** `sync --tenant reader --source opencredit`, writing to `source/opencredit`, and
+    recording the dump's newest revision timestamp as the follower's starting point (0092 §4–§5).
+  - **Reads.** `wbgetentities`, `Special:EntityData`, search and the entity page for `opencredit:`
+    IDs, on the reading tenant only, with tenant rows and no shared row (05 §6.4).
+- **P2. ~~A generic Wikibase path in `sync`.~~** Done by [0091](../decisions/0091-one-wikibase-adapter.md).
+- **P3. The follower** (0092 §1–§3, §7):
+  - the recent-changes query and batch reading in `scatter-adapter-wikibase`: dedupe by `rcid`,
+    coalescing by title, the settle and tail windows, entity namespaces from `siteinfo`;
+  - the follower loop in `scatter-ingest` over a `ChangeSource`, implemented with the upstream
+    client: fetch the state of each changed title through `wbgetentities` and write `put`,
+    `redirect` or `tombstone`;
+  - the position in `ops.repo_cursor`, keyed by `(tenant, kind, name)`, and the gap check against
+    the wiki's oldest recent change;
+  - `triplespace follow --tenant reader --source opencredit [--once]`, and the follower's state in
+    `GET /provider/{code}/mirror`.
+
+  The follower does not depend on P1. It can be built first and tried against the live wiki under
+  a sandbox-only registry entry, as the 0091 adapter was (results log, run 0).
+
+**Pass:**
+- fmt, clippy, the workspace tests with a database, and `docs/check.sh`.
+- `sync --source opencredit` on a ten-entity slice prints created 10.
+- `follow --once` against a recorded `list=recentchanges` response replays to the same records
+  twice, and the second run writes nothing.
 
 ## Phase 1: the farm
 
@@ -126,11 +187,11 @@ on a ten-entity slice prints created 10.
 cd ~/git/triplespace && git switch demofarm-sources
 cargo build --release --workspace && (cd ui && npm ci && npm run build) \
   && cargo build --release -p triplespace-server -p triplespace-web
-export PATH="$PWD/target/release:$PATH"
+export PATH="$PWD/target/release:$PATH" DATA=$PWD/data
 mkdir -p ~/ts-test/demofarm && cd ~/ts-test/demofarm
-cp ~/git/triplespace/data/creditunionswiki-20261004.xml . && shasum -a 256 creditunionswiki-20261004.xml
+shasum -a 256 $DATA/librarybase-20261005.xml $DATA/creditunionswiki-20261004.xml
 
-# /etc/hosts: 127.0.0.1 demofarm.test control.demofarm.test opencredit.demofarm.test cumirror.demofarm.test auth.demofarm.test
+# /etc/hosts: 127.0.0.1 demofarm.test control.demofarm.test library.demofarm.test creditunions.demofarm.test reader.demofarm.test auth.demofarm.test
 createdb ts_demofarm
 export TRIPLESPACE_DATABASE_URL=postgres://localhost/ts_demofarm
 export TRIPLESPACE_KEY_FILE=$PWD/demofarm.key
@@ -140,16 +201,21 @@ echo 'demofarm owner passphrase' > owner.pw && chmod 600 owner.pw
 triplespace instance create --key-file demofarm.key \
     --farm-slug demofarm --farm-base http://demofarm.test:8080 \
     --tenant control --base http://control.demofarm.test:8080 --name Control \
+    --provider librarybase \
     --owner-name James --owner-password-file owner.pw
 
-triplespace tenant create --tenant opencredit --base http://opencredit.demofarm.test:8080 \
+triplespace tenant create --tenant library --base http://library.demofarm.test:8080 \
+    --name "Librarybase (fork)" --adopt https://librarybase.org/ \
+    --owner 3 --owner-name Harej --owner-password-file owner.pw
+
+triplespace tenant create --tenant creditunions --base http://creditunions.demofarm.test:8080 \
     --name OpenCredit --adopt https://creditunions.miraheze.org/ \
     --owner 2 --owner-name Harej --owner-password-file owner.pw
 
-triplespace tenant create --tenant cumirror --base http://cumirror.demofarm.test:8080 \
-    --name "Credit unions (mirror)" --owner-name James --owner-password-file owner.pw
+triplespace tenant create --tenant reader --base http://reader.demofarm.test:8080 \
+    --name Reader --owner-name James --owner-password-file owner.pw
 
-triplespace source add --tenant cumirror --name cu --label "Credit Unions Wiki" \
+triplespace source add --tenant reader --name opencredit --label "OpenCredit (Credit Unions Wiki)" \
     --type Q=item --type P=property \
     --iri 'https://creditunions.miraheze.org/entity/{upstream_id}' \
     --api https://creditunions.miraheze.org/w/api.php --revision-ids --licence CC-BY-SA-4.0
@@ -157,212 +223,316 @@ triplespace source add --tenant cumirror --name cu --label "Credit Unions Wiki" 
 triplespace tenant list && triplespace status
 ```
 
-Check the wiki's licence before writing the record; CC BY-SA 4.0 is Miraheze's default.
+Check the Credit Unions Wiki's licence before writing the source record; CC BY-SA 4.0 is
+Miraheze's default.
 
 **Pass:**
-- Three tenants, each with its own issuer code (0079), `owner` group and owner account; the farm
-  slug `demofarm` is refused as a tenant slug.
-- A second `instance create` on `ts_demofarm` refuses. `tenant create` without
-  `TRIPLESPACE_AUTH_BASE` refuses for the second tenant.
-- `status`: cumirror has a `source/cu` partition and the others do not; every projection is
-  current. The source's number is 4096, the first of cumirror's range.
-- `source add` again with the same name, or a name that is a provider slug (`wikidata`), refuses.
+- **Tenants.** Four tenants, each with its own issuer code (0079), `owner` group and owner account.
+- **Refusals:**
+  - the farm slug `demofarm` is refused as a tenant slug;
+  - `librarybase` is refused as a slug for any tenant that does not adopt `librarybase.org` (0079 §3);
+  - a second `instance create` on `ts_demofarm` refuses;
+  - `tenant create` without `TRIPLESPACE_AUTH_BASE` refuses for the second tenant;
+  - `source add` again with the same name, or with a name the registry has (`wikidata`,
+    `librarybase`), refuses (`ts-source-name-taken`, 05 §6.3).
+- **`status`.** The instance has `mirror/librarybase`; `reader` alone has `source/opencredit`,
+  numbered 4096, the first of its range. Every projection is current.
 
 Start the server for the later phases:
 
 ```sh
 triplespace-server --key-file demofarm.key --mode development --dev-tenant control \
     --listen 127.0.0.1:8080 &
-for t in control opencredit cumirror; do
+for t in control library creditunions reader; do
   curl -s "http://$t.demofarm.test:8080/w/api.php?action=query&meta=siteinfo&siprop=general|triplespace|providers&format=json" \
     | jq -c '{t: .query.general.sitename, providers: .query.providers}'
 done
 ```
 
-Each answers with its own `sitename`. None lists `cu` among the instance's providers; cumirror
-lists it among its sources (05 §6.1).
+Each answers with its own `sitename`. All four list `librarybase` among the instance's providers
+(point 4). Only `reader` lists `opencredit`, among its sources (05 §6.1).
 
-## Phase 2: adopt on `opencredit`
+## Phase 2: adoption, small and large
+
+### 2.1 The Credit Unions Wiki on `creditunions`
 
 ```sh
-/usr/bin/time -l triplespace adopt --tenant opencredit --dump creditunionswiki-20261004.xml \
+/usr/bin/time -l triplespace adopt --tenant creditunions --dump $DATA/creditunionswiki-20261004.xml \
     --source https://creditunions.miraheze.org/ --version creditunionswiki-20261004 --frozen \
-    --counters item=5095,property=12 2> adopt.stderr | tee adopt.out
+    --counters item=5095,property=12 2> adopt-cu.stderr | tee adopt-cu.out
 ```
 
-`wb_id_counters` is not readable without shell access on Miraheze; 5,095 and 12 are the dump's
+`wb_id_counters` is not readable without shell access on Miraheze, so 5,095 and 12 are the dump's
 highest IDs. If items have been created on the wiki since the dump, use the live highest Q
-instead (`list=allpages&apnamespace=860&apdir=descending` sorts by title, so check
-`Special:NewPages` or the fetch in phase 4).
-
-**Checks** (as `real-dumps.md` §0.2 and §1.3, with this dump's numbers):
+instead.
 
 ```sh
 psql "$TRIPLESPACE_DATABASE_URL" <<'SQL'
-SELECT type, count(*) FROM view.entity WHERE tenant='opencredit' GROUP BY type;   -- item 5070, property 12
-SELECT count(*) FROM view.term WHERE tenant='opencredit';
-SELECT actor_key, name FROM view.actor WHERE tenant='opencredit' ORDER BY actor_key; -- 1 MediaWiki default, 2 Harej, 12 Harej bot
+SELECT type, count(*) FROM view.entity WHERE tenant='creditunions' GROUP BY type;   -- item 5070, property 12
+SELECT actor_key, name FROM view.actor WHERE tenant='creditunions' ORDER BY actor_key; -- 1 MediaWiki default, 2 Harej, 12 Harej bot
 SELECT sequencename, last_value FROM pg_sequences
-  WHERE schemaname='log' AND sequencename LIKE 'opencredit.%';  -- item ≥5095, property ≥12, page ≥5083, revision ≥5088, user ≥12
-SELECT job_id, status, counts FROM view.job WHERE tenant='opencredit';
-SELECT count(*) FROM view.entity WHERE tenant IN ('control','cumirror');          -- 0
+  WHERE schemaname='log' AND sequencename LIKE 'creditunions.%';  -- item ≥5095, property ≥12, page ≥5083, revision ≥5088, user ≥12
+SELECT job_id, status, counts FROM view.job WHERE tenant='creditunions';
 SQL
-grep '^skipping page' adopt.stderr | cut -d: -f2- | sort | uniq -c
 ```
 
 **Pass:**
-- adopted 5,082 entities, 0 rejected, 0 unreadable; Main Page adopted as a wikitext page with
-  all six revisions, attributed to MediaWiki default and Harej; no page skipped.
-- Every page ID equals the dump's; `local_revid` is above the floor; the source revision is
-  kept as `source_revid`.
-- Re-running the same command: adopted 0, unchanged 5,082, fast.
-- Negative tests from `real-dumps.md` §0.2: without `--frozen` it refuses; one entity edited in a
-  copy of the dump gives exactly one reject and leaves the stored entity unchanged.
-- **Unit IRIs:** `wbgetentities&ids=Q8` on opencredit shows `P6`/`P7` units as
+- **Counts.** Adopted 5,082 entities, 0 rejected, 0 unreadable. Main Page is adopted as a wikitext
+  page with all six revisions, attributed to MediaWiki default and Harej.
+- **IDs.** Every page ID equals the dump's; `local_revid` is above the floor; the source revision
+  is kept as `source_revid`.
+- **Idempotence.** Re-running the command gives adopted 0, unchanged 5,082, and is fast.
+- **Negative tests** (`real-dumps.md` §0.2): without `--frozen` it refuses, and one entity edited
+  in a copy of the dump gives exactly one reject and leaves the stored entity unchanged.
+- **Unit IRIs.** `wbgetentities&ids=Q8` shows `P6`/`P7` units as
   `https://creditunions.miraheze.org/entity/Q4`/`Q6`, not the tenant's own concept base. That is
-  G21, unapplied; record it. Decide whether the adopted tenant's concept base should be the
-  source's (0035) before G21 lands.
+  G21; record it.
 
-**API and clients**, against `http://opencredit.demofarm.test:8080`:
+### 2.2 Librarybase on `library`
+
+This is `real-dumps.md` stage 1 again, on a tenant of a farm instead of a primary tenant. Use
+stage 1's results row as the baseline: 11m56s, 247,011 adopted.
 
 ```sh
-O=http://opencredit.demofarm.test:8080
-triplespace subsidiary create --tenant opencredit --name "Harej bot 2" --operator Harej --group bot
-triplespace subsidiary key --tenant opencredit --name "Harej bot 2" --label test \
-    --grant editentity --grant highvolume --json > oc-key.json
-SECRET=$(jq -r .secret oc-key.json)
-
-tools/api_check.py --api $O --tenant opencredit --db "$TRIPLESPACE_DATABASE_URL" --sample 20 \
-    --ids Q1 Q4 Q6 Q7 Q8 Q5095 P4 P6 P12 --compare https://creditunions.miraheze.org/
-tools/api_check.py --api $O --tenant opencredit --ids Q8 \
-    --wbi-login "Harej bot 2@test" --wbi-secret "$SECRET" --wbi-create-property
-tools/pwb_check.py --api $O --tenant opencredit --login "Harej bot 2@test" --secret "$SECRET" \
-    --item Q8 --item-floor 5095
-tools/wdi_check.py --api $O --login "Harej bot 2@test" --secret "$SECRET" --item Q8 --item-floor 5095
+/usr/bin/time -l triplespace adopt --tenant library --dump $DATA/librarybase-20261005.xml \
+    --source https://librarybase.org/ --version librarybase-20261005 --frozen \
+    --counters item=<wb_id_counters item>,property=<wb_id_counters property> \
+    2> adopt-lb.stderr | tee adopt-lb.out
+grep '^skipping page' adopt-lb.stderr | cut -d: -f2- | sort | uniq -c | sort -rn
 ```
 
-- `--compare` needs network access to Miraheze. Expect content equal for the sample, `pageid`
-  equal, `lastrevid` above the source's. The comparison passes on units only because they are not
-  rewritten (G21).
-- New items take Q5096 and up, never a reused number; a new property P13 and up.
-- `wbsearchentities&search=TEXARKANA` finds Q8 ("MORRIS SHEPPARD TEXARKANA (TX)").
+Use the counters recorded for stage 1. Without them, the warning names the dump's highest IDs
+(Q246968, P44).
 
-**Site, discussions and watchlist** (built on `main` since 2026-10-25): log in as Harej with
-`clientlogin`; open `/wiki/Item:Q8` (statement groups, quantities with units, references to Q7),
-`/wiki/Main_Page` and its History (six revisions, diffs); start a thread on `Item talk:Q8`, watch
-Q8, reply from a second account that mentions Harej, and check the bell and
-`Special:Watchlist`. Then run `tools/acl_check.sh` once on the branch to confirm nothing in P1
-regressed the permission model.
+**Pass:**
+- **Counts.** Adopted + rejected + unreadable is 247,011, less the 5 redirects, which are
+  skipped: local entity redirects are not served yet (backlog). The 27 Project pages, the 5 User
+  pages and the 2 Templates are adopted as wikitext; the 6 User talk and the 4 MediaWiki pages are
+  reported as deferred, not rejected.
+- **Speed.** Wall time is within about 10% of stage 1's. A multi-tenant instance should cost
+  nothing extra per entity; if it does, the `pg_stat_statements` recipe of `performance.md` §3
+  says where.
+- **Floors.** The floors are at or above the counters. `library`'s sequences are independent of
+  `creditunions'`: both have a `Q8`, and they are different items.
 
-**Rebuild equivalence** as in `real-dumps.md` §0.2. Record `rebuild`'s wall time.
-
-## Phase 3: `cumirror` syncs the dump into its source
+### 2.3 API, clients and the site, on both adopted tenants
 
 ```sh
-/usr/bin/time -l triplespace sync --tenant cumirror --source cu --dump creditunionswiki-20261004.xml \
-    --version 20261004 --rejects cu-rejects.tsv 2> sync1.stderr | tee sync1.out
+for t in creditunions library; do
+  A=http://$t.demofarm.test:8080
+  triplespace subsidiary create --tenant $t --name "Harej bot 2" --operator Harej --group bot
+  triplespace subsidiary key --tenant $t --name "Harej bot 2" --label test \
+      --grant editentity --grant highvolume --json > $t-key.json
+done
+CU=http://creditunions.demofarm.test:8080; LB=http://library.demofarm.test:8080
+tools/api_check.py --api $CU --tenant creditunions --db "$TRIPLESPACE_DATABASE_URL" --sample 20 \
+    --ids Q1 Q4 Q6 Q7 Q8 Q5095 P4 P6 P12 --compare https://creditunions.miraheze.org/
+tools/api_check.py --api $LB --tenant library --db "$TRIPLESPACE_DATABASE_URL" --sample 20 \
+    --compare https://librarybase.org/
+SECRET=$(jq -r .secret creditunions-key.json)
+tools/pwb_check.py --api $CU --tenant creditunions --login "Harej bot 2@test" --secret "$SECRET" --item Q8 --item-floor 5095
+tools/wdi_check.py --api $CU --login "Harej bot 2@test" --secret "$SECRET" --item Q8 --item-floor 5095
+SECRET=$(jq -r .secret library-key.json)
+tools/api_check.py --api $LB --tenant library --ids Q1 --wbi-login "Harej bot 2@test" --wbi-secret "$SECRET" --wbi-create-property
+```
+
+- **Comparison.** `--compare` needs network access to the source wiki. Expect content equal for
+  the sample, `pageid` equal, and `lastrevid` above the source's.
+- **New IDs.** New items and properties take numbers above each tenant's own floor, never a
+  reused one.
+- **Search.** `wbsearchentities&search=TEXARKANA` on `creditunions` finds Q8 ("MORRIS SHEPPARD
+  TEXARKANA (TX)"); the same search on `library` finds nothing.
+- **Site.** Log in as Harej with `clientlogin`, then:
+  - open `/wiki/Item:Q8` on `creditunions`: statement groups, quantities with units, references
+    to Q7;
+  - open `/wiki/Main_Page` and its History: six revisions, with diffs;
+  - start a thread on `Item talk:Q8` and watch Q8;
+  - reply from a second account that mentions Harej;
+  - check the bell and `Special:Watchlist`.
+- **Permissions.** Run `tools/acl_check.sh` once on the branch to confirm P1 regressed nothing.
+- **Rebuild equivalence** as in `real-dumps.md` §0.2. Record `rebuild`'s wall time: it now
+  replays two adopted tenants.
+
+## Phase 3: a foreign provider with a global prefix (Librarybase as `LB`)
+
+The same Librarybase dump, synced as the registry provider `LB` into the instance's
+`mirror/librarybase`: the remote-wiki reading of Librarybase, beside the `library` fork.
+
+```sh
+/usr/bin/time -l triplespace sync --provider librarybase --dump $DATA/librarybase-20261005.xml \
+    --version 20261005 --rejects lb-rejects.tsv 2> sync-lb.stderr | tee sync-lb.out
+head -3 sync-lb.stderr      # "indexing …", then "247011 entities, 43 property types"
 ```
 
 **Checks:**
 
 ```sh
 psql "$TRIPLESPACE_DATABASE_URL" <<'SQL'
-SELECT tenant, type, count(*) FROM view.entity WHERE id LIKE 'cu:%' GROUP BY 1, 2;  -- only cumirror: item 5070, property 12
-SELECT entity_id, upstream_version FROM view.entity_source
-  WHERE tenant='cumirror' AND graph='source/cu' ORDER BY entity_id LIMIT 5;
+SELECT tenant, type, count(*) FROM view.entity WHERE id LIKE 'LB%' GROUP BY 1, 2;  -- tenant '' only: item 246968, property 43
+SELECT entity_id, upstream_version FROM view.entity_source WHERE graph='mirror/librarybase' ORDER BY entity_id LIMIT 5;
+SELECT job_id, status, counts FROM view.job WHERE source='librarybase';
 SQL
-C=http://cumirror.demofarm.test:8080/w/api.php
-curl -s "$C?action=wbgetentities&ids=cu:Q8|cu:P6&format=json" | jq .
+R=http://reader.demofarm.test:8080/w/api.php
+curl -s "$R?action=wbgetentities&ids=LBQ1|LBP1&format=json" | jq .
 ```
 
 **Pass:**
-- created 5,082, rejected 0, unreadable 0; Main Page is skipped as a non-entity.
-- Every snak carries `datatype`, typed from the dump's own properties (the XML has none).
-- IDs are rewritten everywhere: `cu:Q8`'s `cu:P4` value is `cu:Q2`, its references cite `cu:P12`
-  → `cu:Q7`, statement GUIDs carry the `cu:Q8$` prefix, `snaks-order` names `cu:P…`.
-- **Units:** record what `cu:Q8`'s `cu:P6` unit is. Today it will still be
-  `https://creditunions.miraheze.org/entity/Q4`; G21 wants `cu:Q4`.
-- Revision IDs are `4096 << 40 | upstream revid`. No upstream actor is recorded (a source has no
-  issuer); the job's actor is cumirror's operator.
-- Rows are cumirror's only: no shared row, nothing in a provider index (05 §6.4).
-- `/wiki/Item:cu:Q8` renders with the source chip ("Credit Unions Wiki");
-  `wbsearchentities&search=TEXARKANA` on cumirror finds `cu:Q8`.
-- **Re-sync** the same command: created 0, updated 0, unchanged 5,082 (the cursor).
-- **Snapshot on the same dump** (`--snapshot --threshold 0`): swept 0, nothing tombstoned.
-- Rebuild equivalence passes with both the adopted tenant and the source in the database.
+- **Counts.** Created + redirected + rejected + unreadable is 247,011, with 5 redirected (mirror
+  redirects between `LBQ` items) and 0 rejected.
+- **Typing.** Every snak carries `datatype`, typed from the dump's own properties.
+- **IDs are rewritten everywhere:** values `LBQ…`, properties `LBP…`, statement GUIDs `LBQ1$…`.
+- **Revisions and actors.** Revision IDs are `2 << 40 | upstream revid` (LB is provider number 2).
+  The revisions' actors are `librarybase:3` (Harej), `librarybase:4` (Database import) and so on.
+- **Same content, two identities.** `LBQ1` on `reader` and `Q1` on `library` have the same content
+  and are different entities. Nothing links them; clusters (0004) are not built.
+- **Shared rows.** The rows are the instance's (`tenant = ''`), so `LBQ1` reads the same on all
+  four tenants (point 4).
+- **Re-sync and snapshot.** Re-sync: unchanged 247,011 (the cursor). Snapshot on the same dump
+  with `--threshold 0`: swept 0.
+- **Measurements.** Record wall time and peak RSS. The whole dump is held in memory (point 9); the
+  RSS is the number that says how far the in-memory sync can go before streaming is needed.
 
-**Local statements on source entities** (05 §2.5):
+**Local statements on `LB` entities, from `reader`** (`real-dumps.md` §2.4):
 
-1. On cumirror, create a local string property "local note" (it becomes cumirror's `P1`; note
-   that `P1`, `cu:P1` and opencredit's `P1` are three different properties).
-2. Add `P1 = "overlay test"` to `cu:Q8`, and an English description to `cu:Q100`.
-3. Read `cu:Q8` and `cu:Q100` on cumirror: the union, with the local description winning.
-4. `source/cu` has no new record (the edit went to cumirror's `local`).
-5. `wbsearchentities` on cumirror returns one document for `cu:Q100`, with the local description.
+1. On `reader`, create a local string property "local note" (`reader`'s `P1`).
+2. Add `P1 = "overlay test"` and an English description to `LBQ1`.
+3. Read `LBQ1` on `reader`: the union, with the local description winning.
+4. Read it on `control`: the shared row, without either.
+5. `view.entity` has a `(reader, LBQ1)` row and a `('', LBQ1)` row, and `mirror/librarybase` has no
+   new record.
 
-## Phase 4: `cumirror` syncs from the live wiki
+## Phase 4: a foreign wiki with a local prefix (OpenCredit as `opencredit:`)
 
-**Upstream edits.** As Harej on `creditunions.miraheze.org` (keep a list with times and revision
-IDs):
+```sh
+/usr/bin/time -l triplespace sync --tenant reader --source opencredit \
+    --dump $DATA/creditunionswiki-20261004.xml --version 20261004 \
+    --rejects oc-rejects.tsv 2> sync-oc.stderr | tee sync-oc.out
+```
+
+**Checks:**
+
+```sh
+psql "$TRIPLESPACE_DATABASE_URL" <<'SQL'
+SELECT tenant, type, count(*) FROM view.entity WHERE id LIKE 'opencredit:%' GROUP BY 1, 2;  -- only reader: item 5070, property 12
+SELECT entity_id, upstream_version FROM view.entity_source
+  WHERE tenant='reader' AND graph='source/opencredit' ORDER BY entity_id LIMIT 5;
+SQL
+R=http://reader.demofarm.test:8080/w/api.php
+curl -s "$R?action=wbgetentities&ids=opencredit:Q8|opencredit:P6&format=json" | jq .
+```
+
+**Pass:**
+- **Counts.** Created 5,082, rejected 0, unreadable 0; Main Page is skipped as a non-entity.
+- **Typing.** Every snak carries `datatype`, typed from the dump's own properties (the XML has none).
+- **IDs are rewritten everywhere:**
+  - `opencredit:Q8`'s `opencredit:P4` value is `opencredit:Q2`;
+  - its references cite `opencredit:P12` → `opencredit:Q7`;
+  - statement GUIDs carry the `opencredit:Q8$` prefix;
+  - `snaks-order` names `opencredit:P…`.
+- **Units.** Record what `opencredit:Q8`'s `opencredit:P6` unit is. Today it will still be
+  `https://creditunions.miraheze.org/entity/Q4`; G21 wants `opencredit:Q4`.
+- **Revisions and actors.** Revision IDs are `4096 << 40 | upstream revid`. No upstream actor is
+  recorded, since a source has no issuer; the job's actor is `reader`'s operator.
+- **Tenant rows only.** There is no shared row and nothing in a provider index (05 §6.4).
+  `opencredit:Q8` is invalid on the other three tenants, where `opencredit` names nothing.
+- **Site and search.** `/wiki/Item:opencredit:Q8` renders with the source chip, and
+  `wbsearchentities&search=TEXARKANA` on `reader` finds `opencredit:Q8`.
+- **Re-sync and snapshot.** Re-sync: unchanged 5,082. Snapshot on the same dump with
+  `--threshold 0`: swept 0.
+- **Rebuild equivalence** passes with two adopted tenants, a mirror and a source in the database.
+
+**Local statements, and a statement that crosses both prefixes:**
+
+1. Add `P1 = "overlay test"` to `opencredit:Q8`, and an English description to `opencredit:Q100`.
+   Read both on `reader`: the union, with the local description winning. `source/opencredit` has
+   no new record.
+2. On `reader`, create a local `wikibase-item` property "see also" (`reader`'s `P2`), and add
+   `P2 = LBQ1` to `opencredit:Q8`. One statement then holds a local subject's foreign ID under a
+   local prefix, a local property, and a foreign value under a global prefix. Read it back through
+   `wbgetentities`, `Special:EntityData` (`.json` and `.ttl`) and the entity page. Each ID must keep
+   its own form, and `LBQ1`'s label must resolve in the page.
+
+## Phase 5: `reader` syncs OpenCredit from the live wiki
+
+**Upstream edits.** As Harej on `creditunions.miraheze.org`, keeping a list with times and revision
+IDs:
 
 | # | Edit on Miraheze | Expected in the next sync |
 |---|---|---|
-| U1 | Change Q8's English label | `cu:Q8` updated; cumirror's `P1` statement survives |
-| U2 | Change Q100's P6 (member count) | `cu:Q100` updated; cumirror's description still wins |
-| U3 | Create a new credit union item | created, `cu:Q5096` or above |
+| U1 | Change Q8's English label | `opencredit:Q8` updated; `reader`'s `P1` and `P2` statements survive |
+| U2 | Change Q100's P6 (member count) | `opencredit:Q100` updated; `reader`'s description still wins |
+| U3 | Create a new credit union item | created, `opencredit:Q5096` or above |
 | U4 | Delete Q5095 | snapshot: tombstoned; upsert: unchanged (upsert never deletes) |
-| U5 | Merge Q101 into Q102 (`Special:MergeItems`) | `cu:Q101` a redirect to `cu:Q102`; `cu:Q102` updated |
-| U6 | Create P13 with datatype `url` or `external-id`, use it on Q8 | `cu:P13` created; an `external-id` lands in `view.identifier` |
+| U5 | Merge Q101 into Q102 (`Special:MergeItems`) | `opencredit:Q101` a redirect to `opencredit:Q102`; `opencredit:Q102` updated |
+| U6 | Create P13 with datatype `url` or `external-id`, use it on Q8 | `opencredit:P13` created; an `external-id` lands in `view.identifier` |
 | U7 | Edit Main Page | skipped |
 
-**Incremental, then full:**
+**Follow to the present.** Phase 4's load recorded where the dump ends (2026-08-30T02:53:48Z, the
+dump's newest revision). The source must be at `all`, so that new items are followed too.
 
 ```sh
-tools/wikibase_fetch.py --api https://creditunions.miraheze.org/w/api.php \
-    --since 2026-10-04T00:00:00Z --out cu-live-inc.xml.gz
-triplespace sync --tenant cumirror --source cu --dump cu-live-inc.xml.gz --version live-inc-$(date +%Y%m%d)
-
-tools/wikibase_fetch.py --api https://creditunions.miraheze.org/w/api.php --out cu-live-full.xml.gz
-triplespace sync --tenant cumirror --source cu --dump cu-live-full.xml.gz --version live-$(date +%Y%m%d) \
-    --snapshot --threshold 0     # must fail: one deletion over a threshold of 0
-triplespace sync --tenant cumirror --source cu --dump cu-live-full.xml.gz --version live-$(date +%Y%m%d) \
-    --snapshot --threshold 10
+triplespace settings set --tenant reader 'entities.mirror' '{"opencredit": {"item": "all", "property": "all"}}'
+triplespace follow --tenant reader --source opencredit --once 2> follow1.stderr | tee follow1.out
+triplespace follow --tenant reader --source opencredit --once 2> follow2.stderr | tee follow2.out
+curl -s "http://reader.demofarm.test:8080/rest.php/triplespace/v0/provider/opencredit/mirror" | jq .
 ```
 
+The `settings set` form is a proposal; any way of writing the `site` record will do.
+
 **Pass:**
-- Incremental (upsert): created 2 (U3, U6), updated 3 (U1, U2, U5's target), redirected 1 (U5),
-  everything not in the fetch untouched. Its `--since` fetch must not carry Q5095 (deleted).
-- The `--threshold 0` snapshot fails the job and sweeps nothing.
-- The full snapshot: created 0, updated 0, tombstoned 1 (`cu:Q5095`), unchanged the rest. Then
-  the same command again: everything unchanged.
-- `cu:Q101` resolves to `cu:Q102` through `wbgetentities` (`redirects`); if mirror redirects are
-  not followed on read yet (the backlog's "following mirror redirects on read"), record it.
-- cumirror's local statements survive both syncs; `cu:Q8`'s label is the new upstream one, its
-  `P1` is still there.
-- `opencredit` is unaffected: Q8 keeps its 2026-10-04 label (it is a fork).
-- **Activity:** `GET /activity?source=source/cu` on cumirror lists the sync's changes; a watch on
-  `cu:Q8` from phase 3 shows it as unseen (entity `watch` notifications for syncs are not built;
-  record whether the watchlist row appears).
-- If the 0078 fetch job was built instead of P3, the same edits arrive through it, and the
-  expectations are the same except that an upsert never tombstones U4 until the daily sweep.
-- Rebuild equivalence passes. Record wall times; at this size, setup cost dominates.
+- **First run.** Every upstream change since the dump arrives, the seven edits among them:
+  - created 2 (U3, U6);
+  - updated 3 (U1, U2, U5's target);
+  - redirected 1 (U5);
+  - tombstoned 1 (U4: the follower reads Q5095's state, finds it missing, and tombstones it
+    without a snapshot);
+  - U7 is not in the entity namespaces and is never read.
+- **Second run.** Nothing new upstream, so nothing is written; the position moves only by the
+  re-read window.
+- **The mirror report.** `recentchanges`, the position near now, `late` and `stale` at or near 0,
+  and the load marked as handed over.
+- **A lost position.** Delete `reader`'s row from `ops.repo_cursor` and run `follow --once` again.
+  It resumes from the newest upstream time in `view.entity_source`, less `follow.tail`,
+  and writes nothing.
+- **Continuous.** Run `follow` without `--once` and make one more edit on Miraheze. It arrives
+  within `follow.interval` (a minute) plus the settle window.
+- **Redirects.** `opencredit:Q101` resolves to `opencredit:Q102` through `wbgetentities`
+  (`redirects`). If redirects are not followed on read yet (the backlog's "following mirror
+  redirects on read"), record it.
+- **Local statements.** `reader`'s statements survive both syncs; `opencredit:Q8`'s label is the
+  new upstream one.
+- **Forks unaffected.** On `creditunions`, Q8 keeps its 2026-10-04 label: it is a fork.
+- **Activity.** `GET /activity?source=source/opencredit` on `reader` lists the sync's changes. A
+  watch on `opencredit:Q8` from phase 4 shows it as unseen; entity `watch` notifications for syncs
+  are not built, so record whether the watchlist row appears.
 
-## Phase 5: cross-cutting probes
+## Phase 6: cross-cutting probes
 
-**Isolation matrix.** Fill in for each tenant (`control`, `opencredit`, `cumirror`):
+**Isolation matrix.** Fill in each cell:
 
-| Probe | control | opencredit | cumirror |
-|---|---|---|---|
-| `wbgetentities` Q8 | missing | adopted Q8 | missing |
-| `wbgetentities` cu:Q8 | invalid: `cu` names nothing here | invalid | the source entity, with cumirror's local statements |
-| `wbsearchentities` TEXARKANA | none | Q8 | `cu:Q8` |
-| `list=allusers` Harej | absent | present | absent |
-| `list=recentchanges` | its own | adoption job | source syncs and local edits |
-| `/wiki/Main_Page` | its own | adopted, six revisions | its own |
+| Probe | control | library | creditunions | reader |
+|---|---|---|---|---|
+| `wbgetentities` Q8 | missing | Librarybase's Q8 | OpenCredit's Q8 | missing |
+| `wbgetentities` LBQ8 | shared row (by design: absent, 0018 §6) | shared row (by design: absent) | shared row (by design: absent) | shared row |
+| `wbgetentities` opencredit:Q8 | invalid | invalid | invalid | the source entity, with `reader`'s statements |
+| `wbsearchentities` TEXARKANA | none | none | Q8 | `opencredit:Q8` |
+| `list=allusers` Harej | absent | present (3) | present (2) | absent |
+| `list=recentchanges` | its own; LB syncs? | adoption; LB syncs? | adoption; LB syncs? | LB syncs, source syncs, local edits |
+| `/wiki/Main_Page` | its own | Librarybase's `Project:Home`? | adopted, six revisions | its own |
 
-**Clustering.** `opencredit:Q8` and `cu:Q8` are the same credit union, but nothing links them:
-P1 (charter number) is a `string`, not an `external-id`, and clusters (0004) are not built.
-Record it as the motivating case for a tier-2 link on a charter number, not as a bug.
+**The 0080 §3 binding, on a scratch database** (not `ts_demofarm`):
+1. Create an instance with `--provider librarybase` and primary tenant `librarybase`, adopting
+   `https://librarybase.org/`. The 0079 §9 exception lets the tenant take the registered issuer's
+   name, because the host matches.
+2. Adopt the dump.
+3. Run `sync --provider librarybase`. By design it is refused: the tenant is the provider, so a
+   mirror of it would be a stale copy (0002 A39; 05 §8.3).
+
+Today it will likely succeed. Record what happens, since this is the test for when 0080 is built.
+
+**Clustering.** `creditunions`' Q8 and `opencredit:Q8` are the same credit union, and `library`'s
+Q1 and `LBQ1` are the same item, but nothing links either pair: clusters (0004) are not built.
+Record them as the motivating cases, not as bugs.
 
 ## Results log
 
@@ -370,11 +540,14 @@ One row per run.
 
 | Run | Input (sha256, entities) | Wall | Peak RSS | DB size after | Created / adopted | Rejected | Unreadable | Rebuild identical? | Notes |
 |---|---|---|---|---|---|---|---|---|---|
+| 0 sandbox: OpenCredit under a scratch `CU` provider | `creditunionswiki-20261004.xml.gz`, 5,082 entities | 21.5 s | | | 5,082 | 0 | 0 | | 2026-10-26, release build, cloud sandbox. Re-sync: unchanged 5,082 (4.9 s); snapshot swept 0. Tests only the 0091 adapter path, before any source code; the `CU` entry was never committed |
 | 1 farm | | | | | | | | | |
-| 2 adopt opencredit | `creditunionswiki-20261004.xml`, 5,082 entities / 5,083 pages | | | | | | | | |
-| 2 api_check, clients | | | | | | | | | |
-| 0 sandbox: sync under a scratch `CU` provider | `creditunionswiki-20261004.xml.gz`, 5,082 entities | 21.5 s | | | 5,082 | 0 | 0 | | 2026-10-26, release build, cloud sandbox: re-sync unchanged 5,082 (4.9 s); snapshot swept 0. The adapter path only, before any source code |
-| 3 sync dump into `cu` | same | | | | | | | | |
+| 2.1 adopt `creditunions` | `creditunionswiki-20261004.xml`, 5,082 entities / 5,083 pages | | | | | | | | |
+| 2.2 adopt `library` | `librarybase-20261005.xml`, 247,011 entities / 247,055 pages | | | | | | | | baseline: `real-dumps.md` 1.2, 11m56s |
+| 2.3 api_check, clients | | | | | | | | | |
+| 3 sync `LB` | `librarybase-20261005.xml` | | | | | | | | |
 | 3 re-sync, snapshot | same | | | | | | | | |
-| 4 incremental | | | | | | | | | |
-| 4 full snapshot | | | | | | | | | |
+| 4 sync `opencredit` | `creditunionswiki-20261004.xml` | | | | | | | | |
+| 5 follow, first run | | | | | | | | | |
+| 5 follow, second run and lost position | | | | | | | | | |
+| 6 binding probe | | | | | | | | | |
