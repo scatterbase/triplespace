@@ -212,14 +212,14 @@ background-color-destructive = "#9F3225"
 # --- Accessibility palettes (0086 §2): readers may always choose them --------------------------------
 
 # For red–green colour-vision deficiencies (deuteranopia, protanopia): error and removed text in vermillion
-# orange, success and added text in cerulean, kept apart from link blue; warnings in umber. Named after the
-# orange and blue it uses (James, 2026-10-17).
-[palette.parchment-ob]
-label = "Parchment, orange and blue"
+# orange, success and added text in cerulean, kept apart from link blue; warnings in umber. Named, like
+# parchment-by, for the deficiency it serves, as readers look for it (James, 2026-10-25; 0086 A3).
+[palette.parchment-rg]
+label = "Parchment (protanopia and deuteranopia)"
 extends = "parchment"
 accessibility = true
 
-[palette.parchment-ob.light]
+[palette.parchment-rg.light]
 color-error = "#A84300"
 color-destructive = "#A84300"
 color-success = "#087691"
@@ -239,7 +239,7 @@ border-color-destructive = "#A84300"
 border-color-success = "#087691"
 border-color-warning = "#634021"
 
-[palette.parchment-ob.dark]
+[palette.parchment-rg.dark]
 color-error = "#F26100"
 color-destructive = "#F26100"
 color-success = "#0BA0C4"
@@ -259,7 +259,7 @@ border-color-destructive = "#F26100"
 border-color-success = "#0BA0C4"
 border-color-warning = "#C18045"
 
-[palette.parchment-ob.light-more]
+[palette.parchment-rg.light-more]
 color-error = "#823400"
 color-destructive = "#823400"
 color-success = "#06576B"
@@ -279,7 +279,7 @@ border-color-destructive = "#823400"
 border-color-success = "#06576B"
 border-color-warning = "#634021"
 
-[palette.parchment-ob.dark-more]
+[palette.parchment-rg.dark-more]
 color-error = "#FF8B3E"
 color-destructive = "#FF8B3E"
 color-success = "#0DBCE7"
@@ -302,12 +302,12 @@ border-color-warning = "#D1A075"
 
 # For blue–yellow colour-vision deficiency (tritanopia): error in crimson, success in olive, which tritanopes
 # do not confuse with link blue, and warnings in a neutral umber, which they do not confuse with error.
-[palette.parchment-co]
-label = "Parchment, crimson and olive"
+[palette.parchment-by]
+label = "Parchment (tritanopia)"
 extends = "parchment"
 accessibility = true
 
-[palette.parchment-co.light]
+[palette.parchment-by.light]
 color-error = "#B3263E"
 color-destructive = "#B3263E"
 color-success = "#587114"
@@ -327,7 +327,7 @@ border-color-destructive = "#B3263E"
 border-color-success = "#587114"
 border-color-warning = "#5C4A3D"
 
-[palette.parchment-co.dark]
+[palette.parchment-by.dark]
 color-error = "#DD6176"
 color-destructive = "#DD6176"
 color-success = "#83A81E"
@@ -347,7 +347,7 @@ border-color-destructive = "#DD6176"
 border-color-success = "#83A81E"
 border-color-warning = "#A48976"
 
-[palette.parchment-co.light-more]
+[palette.parchment-by.light-more]
 color-error = "#901E32"
 color-destructive = "#901E32"
 color-success = "#42550F"
@@ -367,7 +367,7 @@ border-color-destructive = "#901E32"
 border-color-success = "#42550F"
 border-color-warning = "#5A483B"
 
-[palette.parchment-co.dark-more]
+[palette.parchment-by.dark-more]
 color-error = "#E78C9C"
 color-destructive = "#E78C9C"
 color-success = "#97C222"

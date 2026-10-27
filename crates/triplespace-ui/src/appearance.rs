@@ -310,7 +310,7 @@ mod tests {
         let v: Value = serde_json::from_str(&data(&t, Some(&o), None)).unwrap();
         assert_eq!(
             v["choices"]["ui.palette"],
-            json!(["encyclopedia", "parchment-co", "parchment-ob"])
+            json!(["encyclopedia", "parchment-by", "parchment-rg"])
         );
         assert_eq!(v["values"]["ui.palette"], "");
     }
@@ -319,11 +319,11 @@ mod tests {
     fn the_panel_offers_what_the_wiki_lets_readers_choose() {
         let m = Messages::for_language("en");
         let o: Map<String, Value> =
-            serde_json::from_value(json!({"ui.palette": "parchment-ob", "ui.typeset": "nope"}))
+            serde_json::from_value(json!({"ui.palette": "parchment-rg", "ui.typeset": "nope"}))
                 .unwrap();
         let html = panel(&m, &Theme::shipped(), Some(&o), "Main Page");
         assert!(html.contains("<select class=\"cdx-select\" id=\"ts-appearance-ui-palette\" name=\"ui.palette\" data-key=\"ui.palette\"><option value=\"\">"));
-        assert!(html.contains("<option value=\"parchment-ob\" selected>"));
+        assert!(html.contains("<option value=\"parchment-rg\" selected>"));
         assert!(
             html.contains("<option value=\"\" selected>"),
             "an unknown type set is the wiki's"

@@ -4,7 +4,7 @@ import { apply, applySheets, clean, read, readTheme, sheetChoices, write, STORAG
 const THEME = {
 	palette: 'parchment',
 	typeset: 'default26',
-	palettes: { parchment: '/ui/theme/p-parchment-1.css', 'parchment-ob': '/ui/theme/p-parchment-ob-2.css' },
+	palettes: { parchment: '/ui/theme/p-parchment-1.css', 'parchment-rg': '/ui/theme/p-parchment-rg-2.css' },
 	typesets: { default26: '/ui/theme/t-default26-3.css', opendyslexic: '/ui/theme/t-opendyslexic-4.css' }
 };
 
@@ -54,12 +54,12 @@ describe( 'appearance', () => {
 
 	it( 'keeps a palette or type set only where the wiki offers it', () => {
 		const sheets = sheetChoices( THEME );
-		expect( sheets ).toEqual( { 'ui.palette': [ 'parchment-ob' ], 'ui.typeset': [ 'opendyslexic' ] } );
-		expect( clean( { 'ui.palette': 'parchment-ob', 'ui.typeset': 'comic' }, sheets ) ).toEqual( { 'ui.palette': 'parchment-ob' } );
-		expect( clean( { 'ui.palette': 'parchment-ob' } ) ).toEqual( {} );
-		write( localStorage, { 'ui.palette': 'parchment-ob', 'ui.mode': 'dark' }, 'browser', sheets );
+		expect( sheets ).toEqual( { 'ui.palette': [ 'parchment-rg' ], 'ui.typeset': [ 'opendyslexic' ] } );
+		expect( clean( { 'ui.palette': 'parchment-rg', 'ui.typeset': 'comic' }, sheets ) ).toEqual( { 'ui.palette': 'parchment-rg' } );
+		expect( clean( { 'ui.palette': 'parchment-rg' } ) ).toEqual( {} );
+		write( localStorage, { 'ui.palette': 'parchment-rg', 'ui.mode': 'dark' }, 'browser', sheets );
 		expect( read( localStorage, { 'ui.palette': [] } ) ).toEqual( { 'ui.mode': 'dark' } );
-		expect( read( localStorage, sheets ) ).toEqual( { 'ui.palette': 'parchment-ob', 'ui.mode': 'dark' } );
+		expect( read( localStorage, sheets ) ).toEqual( { 'ui.palette': 'parchment-rg', 'ui.mode': 'dark' } );
 	} );
 
 	it( 'points the stylesheet links at the chosen palette and type set', () => {
@@ -68,8 +68,8 @@ describe( 'appearance', () => {
 			'<link id="ts-typeset" href="/ui/theme/t-default26-3.css">';
 		const theme = readTheme( document );
 		expect( theme ).toEqual( THEME );
-		applySheets( document, { 'ui.palette': 'parchment-ob', 'ui.typeset': 'opendyslexic' }, theme );
-		expect( document.getElementById( 'ts-palette' ).getAttribute( 'href' ) ).toBe( '/ui/theme/p-parchment-ob-2.css' );
+		applySheets( document, { 'ui.palette': 'parchment-rg', 'ui.typeset': 'opendyslexic' }, theme );
+		expect( document.getElementById( 'ts-palette' ).getAttribute( 'href' ) ).toBe( '/ui/theme/p-parchment-rg-2.css' );
 		expect( document.getElementById( 'ts-typeset' ).getAttribute( 'href' ) ).toBe( '/ui/theme/t-opendyslexic-4.css' );
 		applySheets( document, { 'ui.palette': '', 'ui.typeset': 'nope' }, theme );
 		expect( document.getElementById( 'ts-palette' ).getAttribute( 'href' ) ).toBe( '/ui/theme/p-parchment-1.css' );

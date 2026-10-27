@@ -352,14 +352,14 @@ async fn settings_pages_and_the_appearance_menu() {
     // page links its stylesheet.
     assert!(
         r.body
-            .contains("<option value=\"parchment-co\">parchment-co</option>")
+            .contains("<option value=\"parchment-by\">parchment-by</option>")
     );
     let palette = form(&[
         ("section", "site"),
         ("base", &r.hidden("base")),
         ("token", &r.hidden("token")),
         ("keys", "theme.palette"),
-        ("v.theme.palette", "parchment-co"),
+        ("v.theme.palette", "parchment-by"),
         ("summary", "palette"),
     ]);
     let p = send(
@@ -375,7 +375,7 @@ async fn settings_pages_and_the_appearance_menu() {
     let anon = send(&site, "GET", "/wiki/Special:SpecialPages", None, None, &[]).await;
     assert!(
         anon.body
-            .contains("id=\"ts-palette\" href=\"/ui/theme/p-parchment-co-"),
+            .contains("id=\"ts-palette\" href=\"/ui/theme/p-parchment-by-"),
         "{}",
         &anon.body[..900]
     );
@@ -529,7 +529,7 @@ async fn settings_pages_and_the_appearance_menu() {
             .contains("<select class=\"cdx-select\" id=\"ts-p-ui.palette\" name=\"v.ui.palette\"")
     );
     assert!(page.body.contains(
-        "<option value=\"\" selected>Wiki default (Parchment, crimson and olive)</option>"
+        "<option value=\"\" selected>Wiki default (Parchment (tritanopia))</option>"
     ));
     assert!(
         page.body
@@ -545,7 +545,7 @@ async fn settings_pages_and_the_appearance_menu() {
         ("v.ui.mode", "dark"),
         ("v.ui.contrast", "auto"),
         ("v.ui.text-size", "medium"),
-        ("v.ui.palette", "parchment-ob"),
+        ("v.ui.palette", "parchment-rg"),
         ("v.ui.typeset", ""),
     ]);
     let r = send(
@@ -575,7 +575,7 @@ async fn settings_pages_and_the_appearance_menu() {
     // The server links a signed-in reader's own palette, and the wiki's type set.
     assert!(
         r.body.contains(
-            "<link rel=\"stylesheet\" id=\"ts-palette\" href=\"/ui/theme/p-parchment-ob-"
+            "<link rel=\"stylesheet\" id=\"ts-palette\" href=\"/ui/theme/p-parchment-rg-"
         )
     );
     assert!(
@@ -630,7 +630,7 @@ async fn settings_pages_and_the_appearance_menu() {
     assert!(r.body.contains("data-text-size=\"large\""));
     assert!(
         r.body
-            .contains("id=\"ts-palette\" href=\"/ui/theme/p-parchment-co-"),
+            .contains("id=\"ts-palette\" href=\"/ui/theme/p-parchment-by-"),
         "the empty choice resets to the wiki's"
     );
     assert!(

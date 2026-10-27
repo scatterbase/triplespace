@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-17
-- **Updated:** 2026-10-25 (A2)
+- **Updated:** 2026-10-25 (A3)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md), [0018](0018-tenants.md), [0034](0034-frontend-stack.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md), [0055](0055-templatestyles-templatedata-and-page-properties.md)
 - **Uses:** [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [0077](0077-special-version.md), [0085](0085-settings-and-preferences.md)
@@ -34,7 +34,7 @@ James's direction, from the design discussion of 2026-10-16 and 2026-10-17:
 
 ### 1. Palettes and type sets are configuration (amends 0034 §1; extends 0015 §3, 0012 §5, 0011 §6.1, 0018 §10 and 0040 §6)
 
-*Changed by A1, A2.*
+*Changed by A1, A2, A3.*
 
 **A theme becomes two choices**: a **palette**, which sets Codex's colour tokens per variant (§2) and the shape tokens (radii and spacing), and a **type set**, which sets the typeface tokens and serves the typefaces (§3). Neither sets a component's markup or behaviour.
 
@@ -50,11 +50,13 @@ James's direction, from the design discussion of 2026-10-16 and 2026-10-17:
 
 **Writing them** goes through `PUT` and `DELETE /palette/{name}` and `/typeset/{name}` on REST v0, read with `GET /palettes` and `GET /typesets` by anyone, a private tenant's outsiders included (§5), with `scope=instance` at the farm base as for settings ([0085](0085-settings-and-preferences.md) §3), and through a **Palettes and type sets** tab of the settings pages, which previews each variant. A write is one change set that projects as a `settings/change` event naming the record.
 
-**What ships:** the palette **`parchment`**, the canvases' colours named on 2026-10-17, with a walnut-brown dark variant and high-contrast variants of both; the accessibility palettes **`parchment-ob`** and **`parchment-co`**, for colour-vision deficiencies (§2); the type set **`default26`**, Newsreader, IBM Plex Sans and IBM Plex Mono; and the accessibility type sets **`hyperlegible`** and **`opendyslexic`** (§3). Beside them, as options a wiki or a reader may choose and not as defaults, ship the palette **`encyclopedia`** and the type set **`basic`**, inspired by Vector 2022, the skin of Wikipedia, as James decided (A2): `encyclopedia` is Codex's own colours, which Vector 2022 wears, changed only where they miss the floors of §2, with high-contrast variants in Codex's hues, and `basic` is Vector 2022's default stacks on Wikimedia wikis, serving no typeface (§3).
+**What ships:** the palette **`parchment`**, the canvases' colours named on 2026-10-17, with a walnut-brown dark variant and high-contrast variants of both; the accessibility palettes **`parchment-rg`** and **`parchment-by`**, for colour-vision deficiencies and named for them (§2, A3); the type set **`default26`**, Newsreader, IBM Plex Sans and IBM Plex Mono; and the accessibility type sets **`hyperlegible`** and **`opendyslexic`** (§3). Beside them, as options a wiki or a reader may choose and not as defaults, ship the palette **`encyclopedia`** and the type set **`basic`**, inspired by Vector 2022, the skin of Wikipedia, as James decided (A2): `encyclopedia` is Codex's own colours, which Vector 2022 wears, changed only where they miss the floors of §2, with high-contrast variants in Codex's hues, and `basic` is Vector 2022's default stacks on Wikimedia wikis, serving no typeface (§3).
 
 **`ui.theme` is retired.** Its flat token map is replaced by the records above and the settings of §4; the setting stays in `settings.toml` as retired, and `instance check` warns where a record of it remains.
 
 ### 2. Variants and contrast (amends 0010 §2; settles 0034 Q2)
+
+*Changed by A3.*
 
 A palette has up to four variants, each a set of colour tokens:
 
@@ -71,10 +73,10 @@ A palette has up to four variants, each a set of colour tokens:
 
 **A palette may extend another** (`extends`): each of its variants is laid over the same variant of that palette as served, rather than over Codex's, so it states only the colours it changes; its `light-more` and `dark-more` take its own `light` and `dark` first, and a variant missing from both falls back as above. A palette may extend a shipped palette or one at its own scope, and not one that itself extends another; a palette that another extends cannot be deleted.
 
-**Accessibility palettes.** A palette marked `accessibility = true` can always be chosen by a reader (§4). In place of colour-vision variants of every palette, James chose palettes made for a deficiency, which a reader chooses as they would any palette. Two ship, both extending `parchment` and changing only the colours that carry meaning (errors and destructive actions, success, warnings, visited links, and the subtle backgrounds of each), with all four variants. Their colours were chosen by simulating the deficiency they serve (Machado, Oliveira and Fernandes, 2009) and are held to the same floors as any palette:
+**Accessibility palettes.** A palette marked `accessibility = true` can always be chosen by a reader (§4). In place of colour-vision variants of every palette, James chose palettes made for a deficiency, which a reader chooses as they would any palette. Two ship, both extending `parchment` and changing only the colours that carry meaning (errors and destructive actions, success, warnings, visited links, and the subtle backgrounds of each), with all four variants. Their colours were chosen by simulating the deficiency they serve (Machado, Oliveira and Fernandes, 2009), and are named and labelled for that deficiency, as a reader who has it would look for it (A3) and are held to the same floors as any palette:
 
-- **`parchment-ob`**, for red–green deficiencies (protanopia and deuteranopia), named for the orange and blue it uses: errors, destructive actions and removed text in vermilion (`#A84300` in `light`), success and added text in cerulean (`#087691`), kept apart from link blue, warnings in umber and visited links in plum. Its lowest text pairs are 4.62:1 and 4.63:1 in `light` and `dark`, and at least 7.15:1 in the high-contrast variants.
-- **`parchment-co`**, for blue–yellow deficiency (tritanopia), named for its crimson and olive: errors in crimson (`#B3263E`), success in olive (`#587114`), which a tritanope tells from link blue, and warnings in an umber they do not confuse with errors. Its lowest text pairs are 4.85:1 and 4.63:1, and at least 7.17:1.
+- **`parchment-rg`**, labelled *Parchment (protanopia and deuteranopia)*, for red–green deficiencies, which uses orange and blue (A3): errors, destructive actions and removed text in vermilion (`#A84300` in `light`), success and added text in cerulean (`#087691`), kept apart from link blue, warnings in umber and visited links in plum. Its lowest text pairs are 4.62:1 and 4.63:1 in `light` and `dark`, and at least 7.15:1 in the high-contrast variants.
+- **`parchment-by`**, labelled *Parchment (tritanopia)*, for blue–yellow deficiency, which uses crimson and olive (A3): errors in crimson (`#B3263E`), success in olive (`#587114`), which a tritanope tells from link blue, and warnings in an umber they do not confuse with errors. Its lowest text pairs are 4.85:1 and 4.63:1, and at least 7.17:1.
 
 **Colour is never the only cue** (WCAG 1.4.1): what the site draws tells states apart by text, icon or mark as well, such as the `−` and `+` of a diff beside `color-destructive` and `color-success` on their subtle backgrounds, so an accessibility palette makes the colour a cue the reader can see, not the only one. A wiki that wants its brand in a colour-vision palette writes one that extends its own and marks it `accessibility`.
 
@@ -144,7 +146,7 @@ A type set gives three roles, `font-family-base`, `font-family-heading-main` and
 
 ### 7. Crates (extends 0005 §2)
 
-*Changed by A2.*
+*Changed by A2, A3.*
 
 | Crate | Change |
 |---|---|
@@ -154,7 +156,7 @@ A type set gives three roles, `font-family-base`, `font-family-heading-main` and
 | `triplespace-api-action`, `triplespace-api-rest` | `siprop=triplespace`'s palettes, type sets and theme settings; the palette and type-set routes |
 | `triplespace-files` | WOFF2 and WOFF uploads; `Access-Control-Allow-Origin` on font assets |
 
-The registry part of §1 is in place: `themes.toml` holds `parchment` with its four variants, the accessibility palettes `parchment-ob` and `parchment-co`, which extend it, the palette `encyclopedia` (A2), and the type sets `default26`, `hyperlegible`, `opendyslexic` and `basic` (A2), and `triplespace-ui` reads the default pair from it. The other palettes and type sets are not yet served, and the Atkinson Hyperlegible and OpenDyslexic files are not yet in the build.
+The registry part of §1 is in place: `themes.toml` holds `parchment` with its four variants, the accessibility palettes `parchment-rg` and `parchment-by` (A3), which extend it, the palette `encyclopedia` (A2), and the type sets `default26`, `hyperlegible`, `opendyslexic` and `basic` (A2), and `triplespace-ui` reads the default pair from it. The other palettes and type sets are not yet served, and the Atkinson Hyperlegible and OpenDyslexic files are not yet in the build.
 
 ## Alternatives considered
 
@@ -231,3 +233,25 @@ Replaced text (§1):
 - **Source:** Direct: James, design discussion of 2026-10-24 and 2026-10-25
 - **Change:** extends §1, §3, §7
 - **Summary:** A palette and a type set inspired by Vector 2022 ship as options beside the defaults, which stay `parchment` and `default26`. James asked on 2026-10-24 for "a theme and type set option (not the default) inspired by Vector 2022", and on 2026-10-25, having seen it on the site: "I would like for the palette to be called "encyclopedia" and the type set "basic". It should use the same default font stack that Vector 2022 uses on Wikimedia wikis." The palette **`encyclopedia`** is Codex's light and dark values, which Vector 2022 wears, with only the tokens that miss the floors of §2 changed: `border-color-base` in `light` from `#A2A9B1` (2.37:1) to `#8C959F`, and in `dark` the placeholder (`#797F85`) and the focus outline (`#6485D1`), which Codex leaves at their light values; its `light-more` and `dark-more` deepen or lighten Codex's hues to 7:1 for text and 4.5:1 for boundaries, and its radius is Codex's `2px`. The type set **`basic`** is MediaWiki core's defaults as Vector 2022 uses them (`mediawiki.skin.defaults.less`, `mediawiki.skinning/elements.less`): `sans-serif` for text, `'Linux Libertine', 'Georgia', 'Times', 'Source Serif Pro', serif` for headings and `monospace, monospace` for code; it serves no typeface, which §3 now allows. Claude first drafted both as `vector22`, with Libertinus Serif served for headings; James chose the names and the stacks. The values are in `themes.toml`.
+
+### A3. Colour-vision palettes named for the deficiency
+
+- **Date:** 2026-10-25
+- **Source:** Direct: James, design discussion of 2026-10-25
+- **Change:** amends §1, §2, §7
+- **Summary:** The accessibility palettes are named and labelled for the deficiency each serves, not for the colours it uses, so that a reader who has it finds it. James asked: "Might we come up with clearer names for the colorblind variants of the parchment theme? If I were a colorblind user looking for these settings, under what name(s) would I expect them?" He then chose the labels "Parchment (protanopia and deuteranopia)" and "Parchment (tritanopia)", and decided to change the slugs too: "I think it's fine to change the slug names since these aren't in use yet." The slugs become `parchment-rg` (red–green), from `parchment-ob`, and `parchment-by` (blue–yellow), from `parchment-co`; Claude proposed these slugs. Neither palette had been served, so no reader's or wiki's choice names the old slugs, and they are changed rather than retired. The colours are unchanged. The values are in `themes.toml`.
+
+Replaced text (§1):
+
+> **What ships:** the palette **`parchment`**, the canvases' colours named on 2026-10-17, with a walnut-brown dark variant and high-contrast variants of both; the accessibility palettes **`parchment-ob`** and **`parchment-co`**, for colour-vision deficiencies (§2); the type set **`default26`**, Newsreader, IBM Plex Sans and IBM Plex Mono; and the accessibility type sets **`hyperlegible`** and **`opendyslexic`** (§3). Beside them, as options a wiki or a reader may choose and not as defaults, ship the palette **`encyclopedia`** and the type set **`basic`**, inspired by Vector 2022, the skin of Wikipedia, as James decided (A2): `encyclopedia` is Codex's own colours, which Vector 2022 wears, changed only where they miss the floors of §2, with high-contrast variants in Codex's hues, and `basic` is Vector 2022's default stacks on Wikimedia wikis, serving no typeface (§3).
+
+Replaced text (§2):
+
+> Their colours were chosen by simulating the deficiency they serve (Machado, Oliveira and Fernandes, 2009) and are held to the same floors as any palette:
+
+> - **`parchment-ob`**, for red–green deficiencies (protanopia and deuteranopia), named for the orange and blue it uses: errors, destructive actions and removed text in vermilion (`#A84300` in `light`), success and added text in cerulean (`#087691`), kept apart from link blue, warnings in umber and visited links in plum. Its lowest text pairs are 4.62:1 and 4.63:1 in `light` and `dark`, and at least 7.15:1 in the high-contrast variants.
+> - **`parchment-co`**, for blue–yellow deficiency (tritanopia), named for its crimson and olive: errors in crimson (`#B3263E`), success in olive (`#587114`), which a tritanope tells from link blue, and warnings in an umber they do not confuse with errors. Its lowest text pairs are 4.85:1 and 4.63:1, and at least 7.17:1.
+
+Replaced text (§7):
+
+> The registry part of §1 is in place: `themes.toml` holds `parchment` with its four variants, the accessibility palettes `parchment-ob` and `parchment-co`, which extend it, the palette `encyclopedia` (A2), and the type sets `default26`, `hyperlegible`, `opendyslexic` and `basic` (A2), and `triplespace-ui` reads the default pair from it. The other palettes and type sets are not yet served, and the Atkinson Hyperlegible and OpenDyslexic files are not yet in the build.

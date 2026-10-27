@@ -210,7 +210,7 @@ mod tests {
         let names: Vec<&str> = c.palettes.iter().map(|p| p.name.as_str()).collect();
         assert_eq!(
             names,
-            ["encyclopedia", "parchment", "parchment-co", "parchment-ob"]
+            ["encyclopedia", "parchment", "parchment-by", "parchment-rg"]
         );
         let p = c.palette("parchment").unwrap();
         assert!(!p.accessibility && p.extends.is_none());
@@ -219,7 +219,7 @@ mod tests {
             Some("6px")
         );
         assert!(p.dark.is_some() && p.light_more.is_some() && p.dark_more.is_some());
-        let ob = c.palette("parchment-ob").unwrap();
+        let ob = c.palette("parchment-rg").unwrap();
         assert!(ob.accessibility);
         assert_eq!(ob.extends.as_deref(), Some("parchment"));
         assert!(ob.shape.is_empty());

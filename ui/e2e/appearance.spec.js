@@ -93,8 +93,8 @@ test.describe( 'with JavaScript', () => {
 		await page.locator( '.ts-appearance > summary' ).click();
 		const palette = page.locator( 'select[data-key="ui.palette"]' );
 		await expect( palette ).toHaveValue( '' );
-		await palette.selectOption( 'parchment-ob' );
-		await expect( page.locator( '#ts-palette' ) ).toHaveAttribute( 'href', /\/ui\/theme\/p-parchment-ob-/ );
+		await palette.selectOption( 'parchment-rg' );
+		await expect( page.locator( '#ts-palette' ) ).toHaveAttribute( 'href', /\/ui\/theme\/p-parchment-rg-/ );
 		await expect.poll( () => token( page, 'color-destructive' ) ).toBe( '#A84300' );
 		await page.locator( 'select[data-key="ui.typeset"]' ).selectOption( 'opendyslexic' );
 		await expect.poll( () => token( page, 'font-family-base' ) ).toContain( 'OpenDyslexic' );
@@ -104,10 +104,10 @@ test.describe( 'with JavaScript', () => {
 		// reader's stylesheets before the first paint.
 		const response = await page.goto( '/wiki/Item:Q6' );
 		expect( response.headers()[ 'cache-control' ] ).toMatch( /^public/ );
-		await expect( page.locator( '#ts-palette' ) ).toHaveAttribute( 'href', /p-parchment-ob-/ );
+		await expect( page.locator( '#ts-palette' ) ).toHaveAttribute( 'href', /p-parchment-rg-/ );
 		await expect( page.locator( '#ts-typeset' ) ).toHaveAttribute( 'href', /t-opendyslexic-/ );
 		await expect.poll( () => token( page, 'color-destructive' ) ).toBe( '#A84300' );
-		await expect( page.locator( 'select[data-key="ui.palette"]' ) ).toHaveValue( 'parchment-ob' );
+		await expect( page.locator( 'select[data-key="ui.palette"]' ) ).toHaveValue( 'parchment-rg' );
 		// Back to the wiki's own.
 		await page.locator( '.ts-appearance > summary' ).click();
 		await page.locator( 'select[data-key="ui.palette"]' ).selectOption( '' );
