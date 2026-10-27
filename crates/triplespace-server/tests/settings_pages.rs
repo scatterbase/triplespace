@@ -528,9 +528,10 @@ async fn settings_pages_and_the_appearance_menu() {
         page.body
             .contains("<select class=\"cdx-select\" id=\"ts-p-ui.palette\" name=\"v.ui.palette\"")
     );
-    assert!(page.body.contains(
-        "<option value=\"\" selected>Wiki default (Parchment (tritanopia))</option>"
-    ));
+    assert!(
+        page.body
+            .contains("<option value=\"\" selected>Wiki default (Parchment (tritanopia))</option>")
+    );
     assert!(
         page.body
             .contains("<option value=\"opendyslexic\">OpenDyslexic (accessibility)</option>")
