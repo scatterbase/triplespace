@@ -2,9 +2,9 @@
 """Compare the talk-page splitter with DiscussionTools on the samples `tools/talk_dumps.py`
 writes, and measure history-based attribution (ADR 0090 §13).
 
-    tools/talk_compare.py target/talk-samples                  # comments, parents, names, IDs
-    tools/talk_compare.py target/talk-samples --show 'Talk:Jesus/Archive 139'
-    tools/talk_compare.py target/talk-samples --attribution    # blame over history.xml.gz
+    tools/talk_compare.py data/talk-samples                  # comments, parents, names, IDs
+    tools/talk_compare.py data/talk-samples --show 'Talk:Jesus/Archive 139'
+    tools/talk_compare.py data/talk-samples --attribution    # blame over history.xml.gz
 
 For every page in `manifest.json` that has a DiscussionTools file, the page's dumped revision is
 split by `tools/talk_split.py` and compared with DiscussionTools' parse of the same revision:

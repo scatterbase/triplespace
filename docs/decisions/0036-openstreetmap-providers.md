@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-28
-- **Updated:** 2026-10-09 (A6)
+- **Updated:** 2026-10-26 (A8)
 - **Author:** James Hare / Claude Sonnet
 - **Changes:** [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0017](0017-entity-id-grammar.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0015](0015-record-format-and-partition-registry.md), [0031](0031-property-constraints.md), [0048](0048-notation.md)
@@ -25,7 +25,7 @@ Two existing mechanisms fit the rest. Keyed entity types ([0009](0009-keyed-enti
 
 ### 1. Two providers
 
-*Changed by A6.*
+*Changed by A6, A7.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §8.1, §8.7.*
 
@@ -49,7 +49,7 @@ Two existing mechanisms fit the rest. Keyed entity types ([0009](0009-keyed-enti
 
 ### 5. `OW`: the vocabulary
 
-*Changed by A2.*
+*Changed by A2, A7, A8.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §8.9.*
 
@@ -61,7 +61,7 @@ Two existing mechanisms fit the rest. Keyed entity types ([0009](0009-keyed-enti
 
 ### 7. Registry, namespaces and crates
 
-*Changed by A1, A2.*
+*Changed by A1, A2, A7.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2; [23](../architecture/23-configuration-and-registry.md) §4.2, §4.3.*
 
@@ -203,3 +203,29 @@ Replaced text ([05](../architecture/05-providers-and-ingest.md) §8.8, as it sto
 > The key map names properties **by role** ([0003](../decisions/0003-statement-ui.md) §7), like the identity property in §4.1 and OpenAlex's field mapping, so it never depends on a property's number.
 
 > Case 3 is the fallback until they do, and it means no property is minted per key and no per-instance property numbers exist.
+
+### A7. The `OW` key map is two class rules of the one Wikibase adapter
+
+- **Date:** 2026-10-26
+- **Source:** [0091](0091-one-wikibase-adapter.md) §1, §2
+- **Change:** amends §1, §5, §7
+- **Summary:** `OW` is read by `scatter-adapter-wikibase` (formerly `scatter-adapter-wikidata`). Its key map is two `[[provider.adapter_config.key_map]]` rules, for `Q7` and `Q2`, each matching an item's direct class through the configuration's `class_property`, the wiki's "instance of"; the key map is the same rule list that internetdomains.wiki's is. Chapter text: [05](../architecture/05-providers-and-ingest.md) §8.7, §8.9; [23](../architecture/23-configuration-and-registry.md) §4.2.
+
+Replaced text (05 §8.7, as it stood):
+
+> | Adapter | `scatter-adapter-openstreetmap` | `scatter-adapter-wikidata`, parameterised, with key-mapping (§4) |
+
+Replaced text (05 §8.9, as it stood):
+
+> The adapter maps two classes to notations in the `osm` scheme (the key map names `key_type = "notation"` and `key_scheme = "osm"`, [0048](0048-notation.md) §6; [04](../architecture/04-entities-and-identifiers.md)):
+
+Replaced text (23 §4.2, as it stood):
+
+> the `OW` key map with `key_type = "notation"` and `key_scheme = "osm"`,
+
+### A8. The wiki's "instance of" is `P2`
+
+- **Date:** 2026-10-26
+- **Source:** Direct: James, design discussion of 2026-10-26
+- **Change:** extends §5
+- **Summary:** James confirmed that `P2` is "instance of" on the OpenStreetMap wiki, so the `OW` key map's `class_property` ([0091](0091-one-wikibase-adapter.md) §2) is `P2`, and its two class rules match an item whose `P2` is `Q7` (key) or `Q2` (tag). The registry entry carries it. Chapter text: [05](../architecture/05-providers-and-ingest.md) §8.9.

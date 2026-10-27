@@ -336,7 +336,7 @@ actor key, a job ID) or `null`.
 {"type": "patrol", "action": "patrol", "time": 1790000000000000,
  "target": {"kind": "record", "partition": 7, "offset": 41, "revid": 900}}
 {"type": "job", "action": "start", "time": 1790000000000000, "target": {"kind": "job", "id": 17},
- "params": {"source": "https://librarybase.org/", "version": "librarybase-20260928.json.gz", "mode": "adopt", "graph": "local", "adapter": "scatter-adapter-wikidata 0.0.1", "args": {…}}}
+ "params": {"source": "https://librarybase.org/", "version": "librarybase-20260928.json.gz", "mode": "adopt", "graph": "local", "adapter": "scatter-adapter-wikibase 0.0.1", "args": {…}}}
 {"type": "job", "action": "finish", "time": 1790000001000000, "target": {"kind": "job", "id": 17},
  "params": {"counts": {"created": 0, "merged": 0, "unchanged": 0, "rejected": 3, "adopted": 349982},
             "hash_mismatches": {"time": 2}, "checkpoint": "librarybase.org/log/local\n350103\nBASE64ROOT\n\n— librarybase.org/log/local SIGNATURE\n",

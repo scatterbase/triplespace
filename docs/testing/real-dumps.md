@@ -17,10 +17,10 @@ Read this before stage 1, because one of these points changes the stage 1 comman
    opens the mirror partitions, and no command adds one later. If an instance should ever sync
    Wikidata, pass `--provider wikidata` to `instance create` as well as `--provider internetdomains`.
    The stage 1 commands below do that.
-2. **`triplespace sync` only works for `internetdomains`.** The pieces for Wikidata exist
-   (`scatter_adapter_wikidata::mirror::mirror_entity`, `WikibaseAdapter::new("wikidata")`,
-   `Entities::open` for JSON and XML), so the missing `prepare_wikidata` branch is short. Stage 3
-   starts by adding it (3.0).
+2. **`triplespace sync` reads every Wikibase provider** since
+   [0091](../decisions/0091-one-wikibase-adapter.md): it dispatches on the provider's `adapter`
+   field, and `scatter-adapter-wikibase` reads Wikidata, Librarybase and internetdomains alike, with
+   the key-map rules of the registry entry. Until 0091 it worked for `internetdomains` only.
 3. **`sync` loads the entire dump into memory first.** It collects every `SyncItem` into a `Vec`
    before `run_sync` begins, even though `run_sync` accepts any `IntoIterator`. That is fine for
    internetdomains and the 50k Wikidata sample, and impossible for `latest-all.json.gz` (about 115M
@@ -385,9 +385,8 @@ is the path a Wikidata resolution pass would take, 500 times over.
 ### 3.0 Prerequisite code
 
 On one branch, before any testing:
-- Add `prepare_wikidata` to `sync.rs`: `Entities::open`, then `mirror_entity` with
-  `WikibaseAdapter::new("wikidata")`, then `SyncItem::State`. Dispatch on `adapter` in
-  `providers.toml` rather than on the slug, so that other Wikibases can share it.
+- ~~Add `prepare_wikidata` to `sync.rs`.~~ Done by 0091: `prepare_wikibase` serves every Wikibase
+  provider, and reads a JSON dump without key maps in one pass.
 - Make the sync stream: pass `run_sync` an iterator instead of a `Vec`. This works for upsert mode;
   snapshot mode needs a set of the IDs it has seen, so the full dump cannot be swept yet.
 

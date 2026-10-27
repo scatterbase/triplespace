@@ -11,10 +11,10 @@ use anyhow::{Context, Result, bail};
 use clap::Args;
 use scatter_actors::actor::ActorRecord;
 use scatter_actors::key::ActorKey;
-use scatter_adapter_wikidata::adoption::{
+use scatter_adapter_wikibase::adoption::{
     AdoptedRevision, ENTITY_MODELS, Survey, adopt_history, adopt_page,
 };
-use scatter_adapter_wikidata::xml_dump::XmlDump;
+use scatter_adapter_wikibase::xml_dump::XmlDump;
 use scatter_ingest::adopt::{Adopted, AdoptedItem, Adoption, Floors, run_adoption};
 use scatter_ingest::write::Attestation;
 use scatter_providers::Registry;
@@ -198,8 +198,9 @@ pub async fn run(args: Adopt) -> Result<()> {
                 .unwrap_or_default()
         }),
         adapter_version: Some(format!(
-            "scatter-adapter-wikidata {}",
-            env!("CARGO_PKG_VERSION")
+            "{} {}",
+            scatter_adapter_wikibase::NAME,
+            scatter_adapter_wikibase::VERSION
         )),
         frozen: true,
         history: !args.current_only,

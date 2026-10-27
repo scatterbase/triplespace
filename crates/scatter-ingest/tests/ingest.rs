@@ -986,7 +986,7 @@ fn adoption(frozen: bool) -> Adoption {
         issuer: TENANT.into(),
         source: "https://librarybase.org/".into(),
         version: "librarybase-20260928.json.gz".into(),
-        adapter_version: Some("scatter-adapter-wikidata 0.0.1".into()),
+        adapter_version: Some("scatter-adapter-wikibase 0.0.1".into()),
         frozen,
         history: false,
         current_state_dump: false,

@@ -2321,24 +2321,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "scatter-adapter-internetdomains"
-version = "0.0.1"
-dependencies = [
- "scatter-normalize",
- "scatter-providers",
- "scatter-wikibase-changeset",
- "scatter-wikibase-model",
- "serde_json",
- "thiserror",
-]
-
-[[package]]
-name = "scatter-adapter-wikidata"
+name = "scatter-adapter-wikibase"
 version = "0.0.1"
 dependencies = [
  "bzip2",
  "flate2",
  "quick-xml",
+ "scatter-normalize",
  "scatter-providers",
  "scatter-wikibase-changeset",
  "scatter-wikibase-model",
@@ -3332,8 +3321,7 @@ dependencies = [
  "ed25519-dalek",
  "getrandom 0.3.4",
  "scatter-actors",
- "scatter-adapter-internetdomains",
- "scatter-adapter-wikidata",
+ "scatter-adapter-wikibase",
  "scatter-challenge",
  "scatter-ingest",
  "scatter-integrity",

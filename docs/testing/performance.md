@@ -114,8 +114,9 @@ more. For a machine with `R` of RAM:
 2. **`sync` materializes the whole dump in a `Vec<SyncItem>`** before `run_sync`, which accepts any
    iterator. Fine for internetdomains and the 50k Wikidata sample; impossible for the full Wikidata
    dump. Snapshot mode needs the set of IDs seen, so a full sweep needs more than streaming.
-3. **`sync` has only the internetdomains adapter.** A `prepare_wikidata` branch, dispatched on the
-   registry's `adapter` field rather than the slug, is the first prerequisite of stage 3.
+3. ~~**`sync` has only the internetdomains adapter.**~~ Since 0091, `sync` dispatches on the
+   registry's `adapter` field and reads every Wikibase provider, Wikidata included, through
+   `scatter-adapter-wikibase`; a JSON dump without key maps is read in one pass.
 4. **The NDJSON job endpoint and the interactive API share `write_to`**, so a bulk import over the
    API runs at the per-entity rate (about 345 entities/s per job on Librarybase-shaped entities).
 5. **Client CPU (1.2 ms/entity) is unprofiled.** Per entity the op is parsed from XML, validated,

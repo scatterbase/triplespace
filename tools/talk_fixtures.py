@@ -2,7 +2,7 @@
 """Turn the samples `tools/talk_dumps.py` wrote into `scatter-talk`'s committed test fixtures
 (0090 §13).
 
-    tools/talk_fixtures.py target/talk-samples crates/scatter-talk/tests/fixtures
+    tools/talk_fixtures.py data/talk-samples crates/scatter-talk/tests/fixtures
 
 The fixtures keep the samples' layout and names, so the golden tests read either:
 
