@@ -66,6 +66,11 @@ pub enum DumpEntry {
 pub struct Entries<R: BufRead>(Entities<R>);
 
 impl<R: BufRead> Entities<R> {
+    /// Whether the dump is a MediaWiki XML dump, whose snaks carry no `datatype`.
+    pub fn is_xml(&self) -> bool {
+        matches!(self, Self::Xml(_))
+    }
+
     /// The dump's redirects as well as its entities.
     pub fn entries(self) -> Entries<R> {
         Entries(self)

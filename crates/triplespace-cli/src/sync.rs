@@ -1,9 +1,13 @@
 //! `triplespace sync`: a provider's dump into its mirror partition (0002 §8.4), through the
-//! provider's adapter. Only `internetdomains` has one so far (0009 §9): two passes over the
-//! dump, the key index and then the entities. The first pass also collects the dump's
-//! property types, so that the snaks of an XML dump, whose stored JSON has no `datatype`,
-//! are typed before the adapter sees them (as `adopt` does, 0035 §3), and its redirects,
-//! so that a merge into a mapped item becomes an alias of the key (0009 A13).
+//! adapter its registry entry names (0091 §4). Every Wikibase provider names
+//! `scatter-adapter-wikibase`, parameterised by the entry; no other adapter is built yet.
+//!
+//! A first pass over the dump comes when the provider has key-map rules (0091 §2), since
+//! a value pointing at `Q9` can only become `domain:example.org` once every item is
+//! indexed, or when the dump is XML: its stored JSON has no `datatype` on snaks, so the
+//! pass collects the property types from the dump's own property pages (as `adopt` does,
+//! 0035 §3), and its redirects, so that a merge into a mapped item becomes an alias of the
+//! key (0009 A13). A JSON dump of a provider without key maps is read once.
 //!
 //! Every reject is printed to stderr (`reject Q48: …`) and, with `--rejects`, written to a
 //! tab-separated file: the job record keeps only the first 100 (0010 §9).
@@ -13,12 +17,13 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result, bail};
 use clap::Args;
-use scatter_adapter_internetdomains::{DomainKeyMap, Index, InternetDomainsAdapter, Outcome};
-use scatter_adapter_wikidata::{DumpEntry, DumpPropertyTypes, Entities};
+use scatter_adapter_wikibase::{
+    DumpEntry, DumpPropertyTypes, Entities, Index, KeyMappedAdapter, KeyRules, Outcome,
+};
 use scatter_ingest::sync::{SyncItem, run_sync};
 use scatter_ingest::write::Attestation;
-use scatter_providers::Registry;
-use scatter_wikibase_changeset::{JobHeader, Mode, Upstream};
+use scatter_providers::{Provider, Registry};
+use scatter_wikibase_changeset::{JobHeader, Mode, Upstream, WikibaseAdapter};
 
 use crate::common::{connect, farm_of, now, store};
 
@@ -28,7 +33,7 @@ pub struct Sync {
     /// The Postgres URL.
     #[arg(long, env = "TRIPLESPACE_DATABASE_URL")]
     pub database: String,
-    /// The provider slug (`internetdomains`).
+    /// The provider slug (`internetdomains`, `wikidata`, …).
     #[arg(long)]
     pub provider: String,
     /// The dump: a Wikibase JSON dump or a MediaWiki XML dump (`.json`, `.xml`, `.gz`, `.bz2`).
@@ -59,16 +64,42 @@ pub struct Prepared {
     pub unreadable: u64,
 }
 
-/// Reads the dump twice through the internetdomains adapter.
-pub fn prepare_internetdomains(dump: &std::path::Path) -> Result<Prepared> {
-    let registry = Registry::default_registry();
-    let provider = registry
-        .by_slug(scatter_adapter_internetdomains::SLUG)
-        .context("internetdomains is not registered")?;
-    let key_map = DomainKeyMap::from_provider(provider)?;
+/// Reads a Wikibase provider's dump through `scatter-adapter-wikibase` with the provider's
+/// key-map rules: two passes when the rules or the format need them, one otherwise
+/// (0091 §4).
+pub fn prepare_wikibase(provider: &Provider, dump: &std::path::Path) -> Result<Prepared> {
+    let rules = KeyRules::from_provider(provider)?;
+    let inner = WikibaseAdapter::new(&provider.slug)
+        .with_context(|| format!("provider `{}` is not registered", provider.slug))?;
+    let xml = Entities::open(dump).context("open dump")?.is_xml();
     let mut index = Index::default();
     let mut types = DumpPropertyTypes::default();
     let mut unreadable = 0u64;
+    let two_passes = !rules.is_empty() || xml;
+    if two_passes {
+        first_pass(dump, &rules, &mut index, &mut types, &mut unreadable)?;
+    }
+    index.finish();
+    if !rules.is_empty() {
+        eprintln!(
+            "  {} mapped to keys, {} keys in conflict, {} redirects",
+            index.mapped(),
+            index.conflicts().count(),
+            index.redirects()
+        );
+    }
+    let adapter = KeyMappedAdapter::new(inner, rules, index);
+    second_pass(dump, &adapter, &mut types, unreadable, two_passes)
+}
+
+/// The first pass: the key index, the property types and the redirects.
+fn first_pass(
+    dump: &std::path::Path,
+    rules: &KeyRules,
+    index: &mut Index,
+    types: &mut DumpPropertyTypes,
+    unreadable: &mut u64,
+) -> Result<()> {
     let mut seen = 0u64;
     eprintln!("indexing {}", dump.display());
     for entry in Entities::open(dump).context("open dump")?.entries() {
@@ -76,25 +107,29 @@ pub fn prepare_internetdomains(dump: &std::path::Path) -> Result<Prepared> {
             Ok(DumpEntry::Entity(p)) => {
                 seen += 1;
                 // A reject here is reported on the second pass.
-                let _ = index.observe(&p.entity, &key_map);
+                let _ = index.observe(&p.entity, rules);
                 types.observe(&p.entity);
             }
             Ok(DumpEntry::Redirect(r)) => index.observe_redirect(r.from.as_str(), r.to.as_str()),
             Err(e) => {
-                unreadable += 1;
+                *unreadable += 1;
                 eprintln!("dump error: {e}");
             }
         }
     }
-    index.finish();
-    eprintln!(
-        "  {seen} entities, {} mapped to domains, {} keys in conflict, {} redirects, {} property types",
-        index.mapped(),
-        index.conflicts().count(),
-        index.redirects(),
-        types.len()
-    );
-    let adapter = InternetDomainsAdapter::new(index)?;
+    eprintln!("  {seen} entities, {} property types", types.len());
+    Ok(())
+}
+
+/// The second pass: every entity and redirect through the adapter. Entities the first
+/// pass could not read are counted there and skipped here.
+fn second_pass(
+    dump: &std::path::Path,
+    adapter: &KeyMappedAdapter,
+    types: &mut DumpPropertyTypes,
+    mut unreadable: u64,
+    counted: bool,
+) -> Result<Prepared> {
     let mut items = Vec::new();
     for entry in Entities::open(dump).context("open dump")?.entries() {
         let mut parsed = match entry {
@@ -113,7 +148,14 @@ pub fn prepare_internetdomains(dump: &std::path::Path) -> Result<Prepared> {
                 }
                 continue;
             }
-            Err(_) => continue,
+            Err(e) => {
+                // Counted by the first pass when there was one.
+                if !counted {
+                    unreadable += 1;
+                    eprintln!("dump error: {e}");
+                }
+                continue;
+            }
         };
         types.apply(&mut parsed.entity);
         match adapter.sync_item(parsed) {
@@ -188,13 +230,17 @@ pub fn report_rejects(items: &[SyncItem], path: Option<&std::path::Path>) -> Res
 
 /// Runs the sync.
 pub async fn run(args: Sync) -> Result<()> {
-    if args.provider != scatter_adapter_internetdomains::SLUG {
-        bail!(
-            "no adapter for provider `{}` yet; `internetdomains` is the one this build syncs",
+    let provider = Registry::default_registry()
+        .by_slug(&args.provider)
+        .with_context(|| format!("provider `{}` is not registered", args.provider))?;
+    let prepared = match provider.adapter.as_deref() {
+        Some(scatter_adapter_wikibase::NAME) => prepare_wikibase(provider, &args.dump)?,
+        Some(other) => bail!(
+            "provider `{}` is read by `{other}`, which this build does not include",
             args.provider
-        );
-    }
-    let prepared = prepare_internetdomains(&args.dump)?;
+        ),
+        None => bail!("provider `{}` names no adapter", args.provider),
+    };
     report_rejects(&prepared.items, args.rejects.as_deref())?;
     let client = connect(&args.database).await?;
     let farm = farm_of(&client).await?;
@@ -212,8 +258,9 @@ pub async fn run(args: Sync) -> Result<()> {
     };
     let mut header = JobHeader::mirror(&args.provider, &version, mode);
     header.adapter_version = Some(format!(
-        "scatter-adapter-internetdomains {}",
-        env!("CARGO_PKG_VERSION")
+        "{} {}",
+        scatter_adapter_wikibase::NAME,
+        scatter_adapter_wikibase::VERSION
     ));
     let outcome = run_sync(
         &store,
@@ -257,10 +304,91 @@ mod tests {
     use scatter_wikibase_model::statement::SnakKind;
     use scatter_wikibase_model::value::{DataType, DataValue};
 
+    fn prepare_internetdomains(dump: &std::path::Path) -> Result<Prepared> {
+        prepare_wikibase(
+            Registry::default_registry()
+                .by_slug("internetdomains")
+                .unwrap(),
+            dump,
+        )
+    }
+
     fn fixture(name: &str) -> std::path::PathBuf {
         std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../triplespace-server/tests/fixtures")
             .join(name)
+    }
+
+    fn snaks_of(
+        entity: &scatter_wikibase_model::entity::Entity,
+    ) -> Vec<&scatter_wikibase_model::statement::Snak> {
+        entity
+            .statements
+            .values()
+            .flatten()
+            .flat_map(|s| {
+                std::iter::once(&s.mainsnak)
+                    .chain(s.qualifiers.values().flatten())
+                    .chain(s.references.iter().flat_map(|r| r.snaks.values().flatten()))
+            })
+            .collect()
+    }
+
+    /// Any Wikibase provider syncs through the one adapter (0091 §1, §4): Librarybase's
+    /// XML sample, with no key map, is mirrored under `LB` with every snak typed from the
+    /// dump's own properties, and nothing is rejected.
+    #[test]
+    fn a_wikibase_without_a_key_map_mirrors_under_its_prefix() {
+        let provider = Registry::default_registry().by_slug("librarybase").unwrap();
+        let prepared = prepare_wikibase(provider, &fixture("librarybase-sample.xml.gz")).unwrap();
+        assert_eq!(prepared.unreadable, 0);
+        assert!(prepared.items.len() > 100, "{}", prepared.items.len());
+        for item in &prepared.items {
+            let SyncItem::State {
+                entity,
+                upstream,
+                upstream_id,
+                ..
+            } = item
+            else {
+                panic!("only states: {item:?}");
+            };
+            assert!(entity.id.as_str().starts_with("LB"), "{}", entity.id);
+            assert!(upstream.revid.is_some());
+            assert!(upstream_id.is_none());
+            for snak in snaks_of(entity) {
+                assert!(snak.property.as_str().starts_with("LBP"));
+                assert!(
+                    snak.datatype.is_some(),
+                    "{}: untyped {}",
+                    entity.id,
+                    snak.property
+                );
+            }
+        }
+    }
+
+    /// A JSON dump of a provider without key maps is read in one pass (0091 §4): its snaks
+    /// carry their `datatype`, and there is no index to build.
+    #[test]
+    fn a_json_dump_without_a_key_map_is_read_once() {
+        let provider = Registry::default_registry().by_slug("librarybase").unwrap();
+        let prepared = prepare_wikibase(provider, &fixture("internetdomains.json")).unwrap();
+        assert_eq!(prepared.unreadable, 0);
+        let ids: Vec<String> = prepared
+            .items
+            .iter()
+            .filter_map(|i| match i {
+                SyncItem::State { entity, .. } => Some(entity.id.to_string()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(ids.len(), 4);
+        assert!(
+            ids.iter()
+                .all(|id| id.starts_with("LBQ") || id.starts_with("LBP")),
+            "{ids:?}"
+        );
     }
 
     /// The XML fixture is the JSON one as Wikibase stores it: no `datatype` on any snak.

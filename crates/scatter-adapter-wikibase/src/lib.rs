@@ -15,6 +15,11 @@
 //!   for a mirror sync.
 //! - [`typing`]: the snak data types an XML dump leaves out, from the properties the
 //!   dump defines, for a mirror sync.
+//! - [`key_map`]: the adapter in mirror mode, with the provider's key-map rules, which map
+//!   upstream items onto keyed types (0009 §9; 0091 §2–§3).
+//!
+//! One crate reads every MediaWiki+Wikibase provider, parameterised by its registry entry
+//! (0091 §1).
 //!
 //! The crate reads files and parses; it knows no log and no database (0005 §2).
 
@@ -23,6 +28,7 @@
 pub mod adoption;
 pub mod entities;
 pub mod json_dump;
+pub mod key_map;
 pub mod mirror;
 pub mod typing;
 pub mod xml_dump;
@@ -30,8 +36,14 @@ pub mod xml_dump;
 pub use adoption::{Account, AdoptedRevision, Survey, adopt_page};
 pub use entities::{DumpEntry, DumpRedirect, Entities, Entries};
 pub use json_dump::JsonDump;
+pub use key_map::{ConfigError, Index, KeyMappedAdapter, KeyRule, KeyRules, MapError, Outcome};
 pub use typing::DumpPropertyTypes;
 pub use xml_dump::{DumpPage, Revision, XmlDump};
+
+/// The crate's name, as a provider's `adapter` field names it (0091 §1).
+pub const NAME: &str = env!("CARGO_PKG_NAME");
+/// The crate's version, recorded with [`NAME`] in a job's `adapter_version`.
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 use std::io::{BufRead, BufReader};
 use std::path::Path;

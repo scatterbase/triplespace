@@ -786,8 +786,13 @@ mod tests {
         assert!(!oa.entity_type('W').unwrap().key_mapped);
         let xd = r.by_code("XD").unwrap();
         let cfg = xd.adapter_config.as_ref().expect("XD has adapter_config");
+        let rules = cfg
+            .get("key_map")
+            .and_then(|v| v.as_array())
+            .expect("XD's key map is a rule list (0091 §2)");
+        assert_eq!(rules.len(), 1);
         assert_eq!(
-            cfg.get("identity_property").and_then(|v| v.as_str()),
+            rules[0].get("identity_property").and_then(|v| v.as_str()),
             Some("P1")
         );
         assert_eq!(xd.mirror_graph(), "mirror/internetdomains");

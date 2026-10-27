@@ -42,7 +42,7 @@ as well as by the CI job.
   nothing Wikibase works.
 - **Snak datatypes.** All three libraries read `datatype` from every snak. An XML dump's
   stored JSON carries none (Wikibase adds them at output), so adoption types each snak from
-  the dump's own property pages (`scatter-adapter-wikidata::adoption::type_snaks`), and so does
+  the dump's own property pages (`scatter-adapter-wikibase::adoption::type_snaks`), and so does
   `triplespace sync` from an XML dump (`DumpPropertyTypes`, collected on the first pass); a snak
   on a property the dump does not define stays untyped and is counted on the job's summary line
   (`adopt`) or on stderr (`sync`).

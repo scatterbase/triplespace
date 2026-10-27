@@ -13,8 +13,8 @@
 //! and named in `withheld`; a hidden user is a hidden attestation, as for entities.
 
 use scatter_actors::key::ActorKey;
-use scatter_adapter_wikidata::adoption::Contributor;
-use scatter_adapter_wikidata::xml_dump::DumpPage;
+use scatter_adapter_wikibase::adoption::Contributor;
+use scatter_adapter_wikibase::xml_dump::DumpPage;
 use scatter_ingest::adopt::{AdoptedPage, Author};
 use scatter_log::cbor::Value;
 use scatter_pages::{PAYLOAD_PAGE, PageOp, Source, validate, withheld};
@@ -152,7 +152,7 @@ pub fn read_page(page: &DumpPage, issuer: &str, current_only: bool) -> PageRead 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use scatter_adapter_wikidata::xml_dump::Revision;
+    use scatter_adapter_wikibase::xml_dump::Revision;
     use serde_json::json;
 
     fn revision(id: u64, parent: Option<u64>, text: &str) -> Revision {
