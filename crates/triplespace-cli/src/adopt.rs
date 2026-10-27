@@ -25,6 +25,7 @@ use crate::common::{connect, draft, farm_of, issuer_of, now, store};
 
 /// `adopt`.
 #[derive(Debug, Args)]
+#[allow(clippy::struct_excessive_bools)] // command-line switches
 pub struct Adopt {
     /// The Postgres URL.
     #[arg(long, env = "TRIPLESPACE_DATABASE_URL")]
@@ -65,6 +66,9 @@ pub struct Adopt {
     /// Revisions per unit of work.
     #[arg(long, default_value_t = 200)]
     pub batch: usize,
+    /// Leave the source's talk pages unconverted, deferred as before 0090 §10.
+    #[arg(long)]
+    pub skip_talk: bool,
     /// Skip the source's accounts.
     #[arg(long)]
     pub no_accounts: bool,
@@ -223,6 +227,7 @@ pub async fn run(args: Adopt) -> Result<()> {
     let mut untyped: BTreeMap<EntityId, u64> = BTreeMap::new();
     let mut pages_read = 0u64;
     let mut deferred: BTreeMap<String, u64> = BTreeMap::new();
+    let mut talk_pages = 0u64;
     let tenant = issuer.clone();
     let current_only = args.current_only;
     let revisions = XmlDump::open(&args.dump)
@@ -242,6 +247,12 @@ pub async fn run(args: Adopt) -> Result<()> {
                 .and_then(|r| r.model.as_deref())
                 .is_some_and(|m| ENTITY_MODELS.contains(&m));
             if !entity_page {
+                // Talk pages are converted after the job, through the thread writer
+                // (0090 §10; `adopt_talk`), once their subjects and accounts are here.
+                if !args.skip_talk && crate::adopt_talk::is_talk_page(&page) {
+                    talk_pages += 1;
+                    return Vec::new();
+                }
                 return match crate::adopt_pages::read_page(&page, &tenant, current_only) {
                     crate::adopt_pages::PageRead::Adopt(revs) => {
                         pages_read += 1;
@@ -351,6 +362,37 @@ pub async fn run(args: Adopt) -> Result<()> {
     }
     for r in outcome.rejects.iter().take(20) {
         println!("  reject #{}: {}", r.line, r.reason);
+    }
+
+    // Pass 3: the talk pages, comment by comment (0090 §10).
+    if talk_pages > 0 {
+        eprintln!("converting {talk_pages} talk pages");
+        let site = scatter_talk::Site::english();
+        let ctx = crate::adopt_talk::TalkContext {
+            tenant: &args.tenant,
+            issuer: &issuer,
+            source: &args.source,
+            accounts: &survey.accounts,
+            actor: &actor,
+            job: Some(outcome.job_id),
+            site: &site,
+        };
+        let pages = XmlDump::open(&args.dump)
+            .context("open dump")?
+            .filter_map(Result::ok)
+            .filter(crate::adopt_talk::is_talk_page);
+        let talk = crate::adopt_talk::convert_all(&store, &pipeline, &ctx, pages, now()).await?;
+        println!(
+            "  talk       {} pages converted into {} threads, {} posts; {} already present",
+            talk.pages, talk.threads, talk.posts, talk.present
+        );
+        let n: u64 = talk.deferred.values().sum();
+        if n > 0 {
+            println!("  deferred   {n} talk pages:");
+            for (why, k) in &talk.deferred {
+                println!("    {k} × {why}");
+            }
+        }
     }
     Ok(())
 }

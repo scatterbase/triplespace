@@ -130,7 +130,7 @@ pub enum AclCommand {
 
 /// The operator: every permission, and in whatever groups `groups` names, so that no
 /// lock-out binds an instance act.
-fn operator(groups: impl IntoIterator<Item = String>) -> Effective {
+pub fn operator(groups: impl IntoIterator<Item = String>) -> Effective {
     let registry = scatter_actors::group::GroupRegistry::default_registry();
     Effective {
         permissions: registry.permissions().clone(),

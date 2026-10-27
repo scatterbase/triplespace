@@ -257,7 +257,10 @@ impl EntityProjection {
             });
         }
         let mut mirror_states = 0usize;
-        for s in sources.iter().filter(|s| s.graph.starts_with("mirror/")) {
+        for s in sources
+            .iter()
+            .filter(|s| s.graph.starts_with("mirror/") || s.graph.starts_with("source/"))
+        {
             if let Some((entity, header)) = Self::mirror(cx, s).await? {
                 headers.push(header);
                 mirror_states += 1;

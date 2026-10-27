@@ -29,24 +29,33 @@ pub enum Graph {
     Mirror(String),
     /// The `pages` partition (0038 §1).
     Pages,
+    /// `source/{name}`: a tenant's entity source's partition (0078 §4), a
+    /// mirror graph of tenant scope.
+    Source(String),
 }
 
 impl Graph {
-    /// Parses a graph name: `local`, `pages` or `mirror/{slug}`.
+    /// Parses a graph name: `local`, `pages`, `mirror/{slug}` or `source/{name}`.
     #[must_use]
     pub fn parse(name: &str) -> Option<Self> {
+        let slug_like = |slug: &str| {
+            !slug.is_empty()
+                && slug
+                    .bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+        };
         match name {
             "local" => Some(Self::Local),
             "pages" => Some(Self::Pages),
-            _ => name
-                .strip_prefix("mirror/")
-                .filter(|slug| {
-                    !slug.is_empty()
-                        && slug
-                            .bytes()
-                            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
-                })
-                .map(|slug| Self::Mirror(slug.to_string())),
+            _ => {
+                if let Some(slug) = name.strip_prefix("mirror/").filter(|s| slug_like(s)) {
+                    Some(Self::Mirror(slug.to_string()))
+                } else {
+                    name.strip_prefix("source/")
+                        .filter(|s| slug_like(s))
+                        .map(|s| Self::Source(s.to_string()))
+                }
+            }
         }
     }
 
@@ -57,16 +66,31 @@ impl Graph {
             Self::Local => "local".to_string(),
             Self::Pages => "pages".to_string(),
             Self::Mirror(slug) => format!("mirror/{slug}"),
+            Self::Source(name) => format!("source/{name}"),
         }
     }
 
-    /// The provider slug of a mirror graph.
+    /// The provider slug of a mirror graph, or the source name of a source graph: the
+    /// name a provider registry (with the tenant's sources) answers for.
     #[must_use]
     pub fn provider_slug(&self) -> Option<&str> {
         match self {
-            Self::Mirror(slug) => Some(slug),
+            Self::Mirror(slug) | Self::Source(slug) => Some(slug),
             _ => None,
         }
+    }
+
+    /// Whether the graph holds mirrored entities: a provider's mirror or a source's.
+    #[must_use]
+    pub fn is_mirror(&self) -> bool {
+        matches!(self, Self::Mirror(_) | Self::Source(_))
+    }
+
+    /// Whether the graph is a tenant's own (`local`, `pages`, `source/{name}`) rather
+    /// than the instance's (`mirror/{slug}`).
+    #[must_use]
+    pub fn is_tenant_scoped(&self) -> bool {
+        !matches!(self, Self::Mirror(_))
     }
 }
 
@@ -129,6 +153,15 @@ impl JobHeader {
             adapter_version: None,
             params: BTreeMap::new(),
         }
+    }
+
+    /// A job line for a sync into a tenant's entity source (0078 §4): as
+    /// [`JobHeader::mirror`], writing `source/{name}`.
+    #[must_use]
+    pub fn source(name: &str, version: &str, mode: Mode) -> Self {
+        let mut h = Self::mirror(name, version, mode);
+        h.graph = format!("source/{name}");
+        h
     }
 
     /// The parsed graph, when the name is one.

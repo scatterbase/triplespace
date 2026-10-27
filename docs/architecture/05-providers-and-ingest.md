@@ -514,7 +514,7 @@ Not yet: eviction from the set is an open question of [0070](../decisions/0070-s
 
 ### 5.5 Fetching and records
 
-*Sources: [0070](../decisions/0070-shallow-entity-mirroring.md) §3.*
+*Sources: [0070](../decisions/0070-shallow-entity-mirroring.md) §3; [0078](../decisions/0078-entity-sources.md) §4; [0092](../decisions/0092-following-recent-changes.md) §1.*
 
 **A fetch is an instance job per provider**, run by the instance ([0040](../decisions/0040-instance-prerogatives.md) §6; [08](08-tenants-and-instances.md)), like a page repository's sync job ([0053](../decisions/0053-mirrored-pages.md) §5; [13](13-mirrored-pages.md)):
 
@@ -524,7 +524,7 @@ Not yet: eviction from the set is an open question of [0070](../decisions/0070-s
 
 The job's actor is the instance ([0040](../decisions/0040-instance-prerogatives.md) §2), not a subsidiary: instance jobs are the exception to §3.3's rule.
 
-**An entity source's fetch is the tenant's job, one per source**, not an instance job (§6.4). It writes to the tenant's `source/{name}` partition through the source's own `api` and `entity_data`, follows the source's `events` where it declares them, and is otherwise kept current by the sweep of §5.7 alone.
+**An entity source's fetch is the tenant's job, one per source**, not an instance job (§6.4). It writes to the tenant's `source/{name}` partition through the source's own `api` and `entity_data`, follows the source's `events` where it declares them, and is otherwise followed by its recent changes (§5.7; [0092](../decisions/0092-following-recent-changes.md) §1), with the sweep behind either.
 
 ### 5.6 Labels of entities not mirrored
 
@@ -534,12 +534,25 @@ The job's actor is the instance ([0040](../decisions/0040-instance-prerogatives.
 
 ### 5.7 Keeping mirrored entities current
 
-*Sources: [0070](../decisions/0070-shallow-entity-mirroring.md) §5.*
+*Sources: [0070](../decisions/0070-shallow-entity-mirroring.md) §5; [0092](../decisions/0092-following-recent-changes.md) §1, §2, §3, §10.*
 
-**The set is followed by the provider's event stream, and checked by a sweep.**
+**The set is followed by the provider's event stream where it has one, by its recent changes where it does not, and checked by a sweep.**
 
-- **Events.** For Wikidata, the instance follows `mediawiki.recentchange` filtered to `wikidata.org`, as [0053](../decisions/0053-mirrored-pages.md) §6 follows `mediawiki.page-change.v1` for a page repository, with the same cursor table (`ops.repo_cursor`, keyed by provider), debounce and gap-closing by `list=recentchanges`. An event for an entity in the set (a `view.entity_source` row for the provider) enqueues a fetch. Events for entities outside the set are ignored.
-- **Sweep.** Daily, the job asks `wbgetentities&props=info` for every entity in the set in batches of 50 and enqueues those whose `lastrevid` is newer than the cursor. The sweep catches anything the stream missed.
+- **Events.** For Wikidata, the instance follows `mediawiki.recentchange` filtered to `wikidata.org`, as [0053](../decisions/0053-mirrored-pages.md) §6 follows `mediawiki.page-change.v1` for a page repository, with the same cursor table (`ops.repo_cursor`, [03](03-storage-caches-and-search.md) §4.12), debounce, and gap-closing by the recent-changes poll below. An event for an entity in the set (a `view.entity_source` row for the provider) enqueues a fetch. Events for entities outside the set are ignored.
+- **Recent changes.** A provider or entity source with an `api` and no `events` is followed by polling its `list=recentchanges` every `follow.interval` (default one minute; 23), as the Wikidata Query Service's updater did before its event stream ([0092](../decisions/0092-following-recent-changes.md) §1):
+  - **The query.** `rcdir=newer`, `rcprop=title|ids|timestamp`, `rctype=edit|new|log`, `rclimit=max`, and `rcnamespace` set to the wiki's entity namespaces, read from its `siteinfo` by their default content model, so a Miraheze wiki's 860 and 862 need no configuration. It runs from `rcstart` = the position while there is no continuation, and by `rccontinue` while there is one. Requests go through the upstream client in the `upstream` rate class, with `maxlag`, a User-Agent naming the instance and one request in flight. A follower may log in with a bot password for `apihighlimits` (5,000 rows, 500 IDs per `wbgetentities`); it is optional, and a failed login falls back to the anonymous limits ([0092](../decisions/0092-following-recent-changes.md) §10).
+  - **A batch.** Every row moves the position forward. A row whose `rcid` was seen within `follow.tail` is skipped, and the rest are coalesced to one per title: the highest revision wins, and a log row (a deletion, restoration, merge or suppression) always stays.
+  - **Settling.** Within `follow.settle` of now (default two minutes), a poll reads by time from ten seconds before the position, since rows can be committed late with earlier timestamps; a full batch with nothing new moves the position on one second.
+  - **The tail pass.** Once caught up, each poll also re-reads the window `follow.tail` behind the head (default 15 minutes), deduped by `rcid`; what it finds that the head missed is counted on the job as `late`.
+- **Which rows and events count.** Under `all`, every row or event in the entity namespaces; under `linked` and `on-demand`, those for entities already in the set (a `view.entity_source` row).
+- **A row or an event says only that a title changed.** The job reads the entity's current state and writes what the state says, as a fetch does (§5.5): a `put` when its `lastrevid` is newer than the cursor, a `redirect` for an upstream redirect, a `tombstone` when an entity in the set is missing, nothing otherwise ([0092](../decisions/0092-following-recent-changes.md) §2). An edit, a creation, a deletion, a restoration and a merge take one path, and order does not matter. A state older than the row's revision comes from a lagging replica: the title is fetched again on the next poll and counted as `stale`.
+- **Sweep.** Daily, the job asks `wbgetentities&props=info` for every entity in the set in batches of 50 and enqueues those whose `lastrevid` is newer than the cursor. The sweep catches anything the stream or the poll missed.
+
+**The position is a hint; the version cursor is the guarantee** ([0092](../decisions/0092-following-recent-changes.md) §3). It is kept in `ops.repo_cursor`, written in the transaction that writes the records it covers. A replayed row finds the entity current and writes nothing, and a lost position is rebuilt from the newest upstream time in `view.entity_source`, less `follow.tail`.
+
+**A gap the wiki cannot close.** A wiki keeps a limited window of recent changes (MediaWiki's `$wgRCMaxAge`, 90 days by default). Before resuming, the follower reads the oldest row the wiki still has, and a position older than it is a gap. Under `all` the job stops with `follow-gap` until a new load (§5.9). Under `linked` and `on-demand` it resumes from the oldest row and runs the sweep at once.
+
+`triplespace follow --provider {slug}` or `--tenant {slug} --source {name}` runs a follower in the foreground, and `--once` catches up to the present and exits; a server runs its followers in its background loop.
 
 ### 5.8 Terms of mirrored entities
 
@@ -551,9 +564,13 @@ The job's actor is the instance ([0040](../decisions/0040-instance-prerogatives.
 
 ### 5.9 Becoming a full mirror
 
-*Sources: [0070](../decisions/0070-shallow-entity-mirroring.md) §7.*
+*Sources: [0070](../decisions/0070-shallow-entity-mirroring.md) §7; [0092](../decisions/0092-following-recent-changes.md) §4, §5.*
 
 **Moving a type from `linked` to `all` starts a dump sync, which continues from the shallow records.** The version cursor already holds each shallow entity's `lastrevid`; the sync skips every entity whose cursor is current, in bulk per block, and writes a `put` for the rest, as a bulk append into the live partition (§3.10). Nothing is replaced and nothing is deleted. Moving back from `all` to `linked` keeps every entity already mirrored (§5.4).
+
+**A load is a dump sync or a crawl** ([0092](../decisions/0092-following-recent-changes.md) §4). A dump sync takes a JSON or XML dump the operator supplies (`triplespace sync --provider {slug}`, or `--tenant {slug} --source {name}` for an entity source, §6.4). Without a dump, a **crawl** lists the entity namespaces with `list=allpages` and fetches them through the fetch job in batches of 50, with the reason `crawl`; a crawl is a snapshot, whose sweep and threshold are a snapshot sync's (§3.4).
+
+**A load hands over to the follower** ([0092](../decisions/0092-following-recent-changes.md) §5). It records where it ends: an XML dump's newest revision timestamp, a JSON dump's newest `modified`, or the time a crawl began. The follower starts there, less `follow.tail`, and the version cursor skips what the load already wrote. A load whose position is older than the wiki's oldest recent change cannot hand over: `sync` warns at its end, and the follower reports the gap (§5.7).
 
 **A provider that is a tenant of this instance is never synced.** The instance refuses a sync job, shallow or full, for a provider whose registry `issuer` is a tenant of this instance: that tenant's `local` partition is the provider's graph, read directly ([08](08-tenants-and-instances.md); §8.3).
 
@@ -627,17 +644,17 @@ The job's actor is the instance ([0040](../decisions/0040-instance-prerogatives.
 
 ### 6.4 Numbers, the `source/{name}` partition and fetching
 
-*Sources: [0078](../decisions/0078-entity-sources.md) §4; [0080](../decisions/0080-tenants-as-entity-sources.md) §2.*
+*Sources: [0078](../decisions/0078-entity-sources.md) §4; [0080](../decisions/0080-tenants-as-entity-sources.md) §2; [0092](../decisions/0092-following-recent-changes.md) §1, §4.*
 
 **Provider numbers from 2^12 to 2^13 − 1 are reserved for entity sources.** The server assigns the lowest one not yet used on the tenant when the source's first record is written, and records it in the entry. A number is unique on its tenant and is never reused there, even after the source is retired. Uniqueness per tenant is enough: revision and page IDs are per-tenant sequences ([0015](../decisions/0015-record-format-and-partition-registry.md) §2), and no other tenant reads a source's records (§6.7). So `revid = number << 40 | n` and the derived page IDs work unchanged, every such ID stays below 2^53 for `n` below 2^40 (§8.1), and a move carries the number in the entry. The registry keeps the 4,095 numbers below the range.
 
-**A source's records live in a tenant partition, `source/{name}`.** It is a source graph of tenant scope, with the policies of `mirror/{provider}`: history `latest` (a tenant may set `full`), integrity `hashed`, export public unless the tenant is private ([0056](../decisions/0056-security-model.md) §3), payloads `scatter:v0/changeset` and `scatter:v0/erase`. Only the source's fetch job writes to it, and the job attests its records, as an extraction job attests a derived graph's ([0071](../decisions/0071-derived-statements-from-mirrored-pages.md) §1, §3). Its records are mirror `put`, `redirect` and `tombstone` (§3.2). A tenant move carries it with the tenant's other partitions ([0018](../decisions/0018-tenants.md) §10). A tenant therefore has one `source/{name}` partition per entity source beside the partitions of [08](08-tenants-and-instances.md).
+**A source's records live in a tenant partition, `source/{name}`.** It is a source graph of tenant scope, with the policies of `mirror/{provider}`: history `latest` (a tenant may set `full`), integrity `hashed`, export public unless the tenant is private ([0056](../decisions/0056-security-model.md) §3), payloads `scatter:v0/changeset` and `scatter:v0/erase`. Only the source's own jobs write to it, its fetch job and its loads (§5.9; [0092](../decisions/0092-following-recent-changes.md) §4), and each attests its records, as an extraction job attests a derived graph's ([0071](../decisions/0071-derived-statements-from-mirrored-pages.md) §1, §3). Its records are mirror `put`, `redirect` and `tombstone` (§3.2). A tenant move carries it with the tenant's other partitions ([0018](../decisions/0018-tenants.md) §10). A tenant therefore has one `source/{name}` partition per entity source beside the partitions of [08](08-tenants-and-instances.md).
 
 **Shallow mirroring applies as written, with the source's name in place of a provider code** (§5):
 
 - `entities.mirror = { mhc = { item = "linked", property = "linked" } }`. The default is `linked` for a source with `api` and `off` for one without. `off` is the pointer state: the source's IDs are written and shown, from the label cache where there is an `api` and as bare IDs otherwise, and nothing is fetched.
 - `entities.closure` takes the source's name too. Its default for a source is empty, since nothing is known about which of its properties form hierarchies.
-- **The fetch job is the tenant's, one per source**, not an instance job: it drains `ops.entity_fetch` rows for `(tenant, source)` through the source's `api` in the `upstream` rate class ([0024](../decisions/0024-subsidiary-accounts.md) §5), follows `events` where the source declares them, and otherwise relies on the daily sweep (§5.7).
+- **The fetch job is the tenant's, one per source**, not an instance job: it drains `ops.entity_fetch` rows for `(tenant, source)` through the source's `api` in the `upstream` rate class ([0024](../decisions/0024-subsidiary-accounts.md) §5), follows `events` where the source declares them, and otherwise its recent changes, with the daily sweep behind either (§5.7; [0092](../decisions/0092-following-recent-changes.md) §1).
 - The label cache keys a source entity's labels by tenant ([0018](../decisions/0018-tenants.md) §6).
 
 **Views.** A source entity has tenant rows only. Nothing about it is computed from shared graphs, so [0018](../decisions/0018-tenants.md) §6 never gives it a shared row, and it is indexed in the tenant's search index, never in a provider index ([03](03-storage-caches-and-search.md)).

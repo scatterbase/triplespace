@@ -534,6 +534,42 @@ meaning = "Requested widths are rounded up to the next entry"
 source = "[0039](../decisions/0039-files-and-media.md) §6"
 
 [[setting]]
+key = "follow.interval"
+scope = "tenant"
+bound = "tenant"
+group = "mirrors"
+type = "duration"
+default = "PT1M"
+default_text = "1 minute"
+scope_note = "`site`, per follower: the instance record for a registry provider or a page repository, the tenant's for its entity sources"
+meaning = "How often a follower without an event stream polls the wiki's recent changes"
+source = "[0092](../decisions/0092-following-recent-changes.md) §6"
+
+[[setting]]
+key = "follow.settle"
+scope = "tenant"
+bound = "tenant"
+group = "mirrors"
+type = "duration"
+default = "PT2M"
+default_text = "2 minutes"
+scope_note = "`site`, per follower: the instance record for a registry provider or a page repository, the tenant's for its entity sources"
+meaning = "Within this of now, a poll reads by time from ten seconds before its position rather than by continuation"
+source = "[0092](../decisions/0092-following-recent-changes.md) §6"
+
+[[setting]]
+key = "follow.tail"
+scope = "tenant"
+bound = "tenant"
+group = "mirrors"
+type = "duration"
+default = "PT15M"
+default_text = "15 minutes"
+scope_note = "`site`, per follower: the instance record for a registry provider or a page repository, the tenant's for its entity sources"
+meaning = "How far behind the head the tail pass re-reads, and how long seen rcids are remembered; PT0S turns the tail pass off"
+source = "[0092](../decisions/0092-following-recent-changes.md) §6"
+
+[[setting]]
 key = "fork.allow"
 scope = "tenant"
 bound = "tenant"

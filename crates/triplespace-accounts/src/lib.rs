@@ -61,6 +61,7 @@ pub mod session;
 pub mod settings;
 pub mod theme;
 pub mod token;
+pub mod upstream_login;
 pub mod watch;
 
 pub use identity::{Auth, Identity, Resolved};

@@ -10,8 +10,10 @@ members = [
     "crates/scatter-wikibase-resolve",
     "crates/scatter-ingest",
     "crates/triplespace-api-ingest",
+    "crates/scatter-adapter-mediawiki",
     "crates/scatter-adapter-wikibase",
     "crates/triplespace-accounts",
+    "crates/triplespace-upstream",
     "crates/triplespace-notify",
     "crates/triplespace-api-action",
     "crates/triplespace-api-rest",
@@ -61,6 +63,7 @@ scatter-wikibase-resolve = { path = "crates/scatter-wikibase-resolve" }
 scatter-ingest = { path = "crates/scatter-ingest" }
 triplespace-api-ingest = { path = "crates/triplespace-api-ingest" }
 triplespace-accounts = { path = "crates/triplespace-accounts" }
+triplespace-upstream = { path = "crates/triplespace-upstream" }
 triplespace-notify = { path = "crates/triplespace-notify" }
 triplespace-api-action = { path = "crates/triplespace-api-action" }
 triplespace-api-rest = { path = "crates/triplespace-api-rest" }
@@ -69,6 +72,7 @@ triplespace-client = { path = "crates/triplespace-client" }
 triplespace-ui = { path = "crates/triplespace-ui" }
 triplespace-web = { path = "crates/triplespace-web" }
 triplespace-cli = { path = "crates/triplespace-cli" }
+scatter-adapter-mediawiki = { path = "crates/scatter-adapter-mediawiki" }
 scatter-adapter-wikibase = { path = "crates/scatter-adapter-wikibase" }
 scatter-actors = { path = "crates/scatter-actors" }
 scatter-challenge = { path = "crates/scatter-challenge" }

@@ -251,16 +251,16 @@ Two parts for the two forms, so that a takedown can erase the rendering and keep
 
 ### 2.7 Following the repository: events and invalidation
 
-*Sources: [0053](../decisions/0053-mirrored-pages.md) §6.*
+*Sources: [0053](../decisions/0053-mirrored-pages.md) §6; [0092](../decisions/0092-following-recent-changes.md) §9.*
 
-**A repository with `events` is followed; one without is polled or waits for its TTL.** The `events` field of a `page-repo` entry names the repository's EventStreams endpoint, and the instance follows one stream per repository, `mediawiki.page-change.v1` filtered by wiki and the served namespaces, which carries creates, edits, moves, deletes, undeletes and visibility changes; for an `enterprise` source the Realtime API's article stream is the same thing. Each event:
+**A repository with `events` is followed by its stream; one without is followed by polling its recent changes** ([0092](../decisions/0092-following-recent-changes.md) §9), over its served namespaces, each row handled as an event below. The poll is the entity follower's (05 §5.7), with `rcprop` adding `loginfo` for moves, and coalescing per poll in place of the debounce; `follow.interval` is at least `repo.debounce`. The `events` field of a `page-repo` entry names the repository's EventStreams endpoint, and the instance follows one stream per repository, `mediawiki.page-change.v1` filtered by wiki and the served namespaces, which carries creates, edits, moves, deletes, undeletes and visibility changes; for an `enterprise` source the Realtime API's article stream is the same thing. Each event:
 
 1. updates the title index (§2.3);
 2. in `proxy` mode, purges the page's `fp:` key and its `Cache-Tag`, so the next read refetches; in `mirror` mode, queues a `put` for a page in the set;
 3. for a Template or Module page, bumps the render epoch of every local page whose manifest names the repository and the title ([0042](../decisions/0042-template-expansion-and-parsoid.md) §10, in [11](11-rendering-templates-and-modules.md)), so a local page that uses a Wikipedia template re-renders when the template changes, without waiting for `repo.cache_ttl`;
 4. for a `page-move` or `page-delete`, queues a refresh of the local pages that link to the title, so their link classes follow.
 
-Events are debounced per page over `repo.debounce` (default 30 seconds), because a busy article is edited many times a minute. The stream position is kept in `ops.repo_cursor` and resumed with `Last-Event-ID`; a gap longer than the stream's retention is closed by paging `list=recentchanges`, as [0011](../decisions/0011-logs.md) §4 does.
+Events are debounced per page over `repo.debounce` (default 30 seconds), because a busy article is edited many times a minute. The stream position is kept in `ops.repo_cursor` and resumed with `Last-Event-ID`; a gap longer than the stream's retention is closed by the same recent-changes poll ([0092](../decisions/0092-following-recent-changes.md) §9), as [0011](../decisions/0011-logs.md) §4 closes its own.
 
 `action=purge` on a foreign title drops its `fp:` entry and, in `mirror` mode, queues a `put`, under the `parse` rate class.
 

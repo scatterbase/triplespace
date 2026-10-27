@@ -10,16 +10,18 @@ use scatter_wikibase_model::id::{EntityId, IdForm};
 use serde_json::{Map, Value, json};
 use triplespace_projections::read::Current;
 
-/// The namespace number and prefixed title of an entity (namespaces.toml; 0017 §1).
+/// The namespace number and prefixed title of an entity (namespaces.toml; 0017 §1). A
+/// source's entity (`mhc:Q1`, 0078 §2) is in the namespace of its entity type, as a
+/// foreign one is: `Item:mhc:Q1`.
 #[must_use]
 pub fn title_of(id: &EntityId, entity_type: &EntityType) -> (i64, String) {
     if let Some((t, key)) = id.keyed_parts() {
-        return match t {
-            "domain" => (210, format!("Domain:{key}")),
-            "keyword" => (212, format!("Keyword:{key}")),
-            "notation" => (216, format!("Notation:{key}")),
-            _ => (120, id.as_str().to_string()),
-        };
+        match t {
+            "domain" => return (210, format!("Domain:{key}")),
+            "keyword" => return (212, format!("Keyword:{key}")),
+            "notation" => return (216, format!("Notation:{key}")),
+            _ => {}
+        }
     }
     match entity_type {
         EntityType::Property => (122, format!("Property:{}", id.as_str())),
@@ -56,7 +58,7 @@ pub fn iso8601(micros: u64) -> String {
 /// ID, the local one otherwise.
 #[must_use]
 pub fn hasher_for(id: &EntityId, registry: &Registry) -> Hasher {
-    if id.form() == IdForm::Foreign
+    if id.form() != IdForm::Local
         && let Ok(f) = registry.parse_foreign_id(id.as_str())
     {
         return Hasher::mirrored_from(&f.provider().code);
@@ -106,6 +108,28 @@ pub fn present(current: &Current, registry: &Registry) -> Value {
     };
     let text = entity.to_wikibase_json(&hasher_for(&entity.id, registry), Some(&page));
     serde_json::from_str(&text).unwrap_or(Value::Null)
+}
+
+/// The ID as the tenant's table of names canonicalizes it (0078 §2): a source ID's rest
+/// in its type's grammar (`opencredit:q8` → `opencredit:Q8`); any other ID unchanged.
+#[must_use]
+pub fn canonical_in(id: EntityId, registry: &Registry) -> EntityId {
+    if id.form() == IdForm::Keyed
+        && let Ok(f) = registry.parse_foreign_id(id.as_str())
+        && let Ok(c) = EntityId::parse(&f.to_string())
+    {
+        return c;
+    }
+    id
+}
+
+/// Whether the ID is an entity source's (0078 §2) in this table of names.
+#[must_use]
+pub fn is_source_id(id: &EntityId, registry: &Registry) -> bool {
+    id.form() == IdForm::Keyed
+        && registry
+            .parse_foreign_id(id.as_str())
+            .is_ok_and(|f| f.provider().source)
 }
 
 /// The served JSON of a valid keyed ID no graph holds (0009 §4): its derived label and

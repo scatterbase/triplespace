@@ -346,6 +346,10 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for KeyedMapProjection {
             let Some(slug) = info.provider_slug() else {
                 return Ok(Applied::default());
             };
+            // A source's entities are in the colon shape but are not keyed (0078 §2).
+            if info.is_source() {
+                return Ok(Applied::default());
+            }
             let Some(op) = operation(record)? else {
                 return Ok(Applied::default());
             };

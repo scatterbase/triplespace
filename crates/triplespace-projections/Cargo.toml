@@ -19,6 +19,7 @@ scatter-wikibase-changeset.workspace = true
 scatter-wikibase-resolve.workspace = true
 scatter-wikibase-model.workspace = true
 scatter-providers.workspace = true
+scatter-normalize.workspace = true
 scatter-pages = { workspace = true, features = ["markdown"] }
 scatter-threads.workspace = true
 scatter-titles.workspace = true

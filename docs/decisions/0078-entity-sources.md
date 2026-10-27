@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-08
-- **Updated:** 2026-10-09 (A4)
+- **Updated:** 2026-10-26 (A5)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md), [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0029](0029-resolver-namespaces.md), [0035](0035-adopting-a-wikibase.md), [0070](0070-shallow-entity-mirroring.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0043](0043-lua-modules.md), [0044](0044-tenant-relative-ids.md), [0048](0048-notation.md), [0052](0052-page-repositories-and-title-inheritance.md), [0056](0056-security-model.md), [0065](0065-mediainfo-captions-and-commons.md), [0071](0071-derived-statements-from-mirrored-pages.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -45,7 +45,7 @@ James's direction, from the design discussion of 2026-10-07 and 2026-10-08:
 
 ### 4. Numbers, the mirror partition and fetching (extends 0015 §2 and §5, 0018 §10, 0070 §2.1, §3 and §10)
 
-*Changed by A2, A4.*
+*Changed by A2, A4, A5.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §6.4.*
 
@@ -184,3 +184,22 @@ Replaced text (§9, in [05](../architecture/05-providers-and-ingest.md) §6.8):
 Replaced text ([05](../architecture/05-providers-and-ingest.md) §6.4, as it stood):
 
 > **Provider numbers from 2^22 to 2^23 − 1 are reserved for entity sources.** The server assigns the lowest one not yet used on the tenant when the source's first record is written, and records it in the entry. A number is unique on its tenant and is never reused there, even after the source is retired. Uniqueness per tenant is enough: revision and page IDs are per-tenant sequences ([0015](0015-record-format-and-partition-registry.md) §2), and no other tenant reads a source's records (§6.7). So `revid = number << 40 | n` and the derived page IDs work unchanged, and a move carries the number in the entry. The registry keeps the 4,194,303 numbers below the range.
+
+### A5. A source without events follows its recent changes, and may be loaded
+
+- **Date:** 2026-10-26
+- **Source:** [0092](0092-following-recent-changes.md) §1, §4
+- **Change:** amends §4
+- **Summary:** A source with an `api` and no `events` is followed by its recent changes, with the daily sweep behind, instead of by the sweep alone. Its partition is written by its own jobs: the fetch job, and loads, which are a dump sync from a dump the operator supplies (`sync --tenant {slug} --source {name}`) or a crawl of its entity namespaces; the actor is the tenant's sync subsidiary. A source still records no upstream actors (Q1 stays open), as befits a passive relay. Chapter text: [05](../architecture/05-providers-and-ingest.md) §5.5, §6.4.
+
+Replaced text (05 §5.5, as it stood):
+
+> **An entity source's fetch is the tenant's job, one per source**, not an instance job (§6.4). It writes to the tenant's `source/{name}` partition through the source's own `api` and `entity_data`, follows the source's `events` where it declares them, and is otherwise kept current by the sweep of §5.7 alone.
+
+Replaced text (05 §6.4, as it stood):
+
+> Only the source's fetch job writes to it, and the job attests its records,
+
+Replaced text (05 §6.4, as it stood):
+
+> follows `events` where the source declares them, and otherwise relies on the daily sweep (§5.7).

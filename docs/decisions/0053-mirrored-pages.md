@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-10-09 (A7)
+- **Updated:** 2026-10-26 (A8)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0022](0022-federation.md), [0033](0033-backend-stack.md), [0039](0039-files-and-media.md), [0042](0042-template-expansion-and-parsoid.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0040](0040-instance-prerogatives.md), [0047](0047-special-pages.md), [0051](0051-page-redirects.md), [0052](0052-page-repositories-and-title-inheritance.md), [0054](0054-forking-a-mirrored-page.md), [0055](0055-templatestyles-templatedata-and-page-properties.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -54,6 +54,8 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 6. Following the repository: events and invalidation (settles 0042 Q5)
 
+*Changed by A8.*
+
 *Current text: [13](../architecture/13-mirrored-pages.md) §2.7.*
 
 ### 7. Search (extends 0014 §7)
@@ -62,7 +64,7 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 8. Storage (extends 0013 §5.6)
 
-*Changed by A2.*
+*Changed by A2, A8.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.12, §5.*
 
@@ -227,3 +229,20 @@ Replaced text ([13](../architecture/13-mirrored-pages.md) §2.5, as it stood):
 Replaced text ([13](../architecture/13-mirrored-pages.md) §5.4, as it stood):
 
 > **Each foreign thread gets a number,** `n`, allocated per repository by the sync job the first time it sees the thread's name, and a **provider-ranged page ID** (§1.6) in the half of the range that upstream page IDs never reach:
+
+### A8. `ops.repo_cursor` holds every follower
+
+- **Date:** 2026-10-26
+- **Source:** [0092](0092-following-recent-changes.md) §3
+- **Change:** amends §6, §8
+- **Summary:** A page repository without `events` is followed by polling its `list=recentchanges` over its served namespaces (with `loginfo`, for moves), each row handled as an event, rather than polled vaguely or left to its TTL; it may log in with a bot password for higher limits. `ops.repo_cursor` is keyed by `(tenant, kind, name)`, where `kind` is `repo`, `provider` or `source`, so that one table holds a page repository's stream position, a provider's and a tenant's source's; it gains a recent-changes poll's columns (`rc_time`, `rc_continue`, `rc_seen`). A repository's row is `('', 'repo', {repo})`. Chapter text: [13](../architecture/13-mirrored-pages.md) §2.7; [03](../architecture/03-storage-caches-and-search.md) §4.12, §4.16.
+
+Replaced text (13 §2.7, as it stood):
+
+> **A repository with `events` is followed; one without is polled or waits for its TTL.**
+
+Replaced text (03 §4.12, as it stood):
+
+> CREATE TABLE ops.repo_cursor (                   -- the event-stream position per repository (0053 §6)
+>   repo text PRIMARY KEY, last_event_id text, last_event_time timestamptz, lag_seconds integer
+> );

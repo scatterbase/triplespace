@@ -110,7 +110,7 @@ pub struct Provenance {
 /// Who minted an ID.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
 pub struct MintedBy {
-    /// `tenant`, `provider` or `keyed`.
+    /// `tenant`, `provider`, `source` or `keyed`.
     #[serde(default)]
     pub kind: String,
     /// The tenant, for a local ID.
@@ -131,6 +131,9 @@ pub struct MintedBy {
     /// The keyed type, for a keyed ID.
     #[serde(default, rename = "type")]
     pub keyed_type: Option<String>,
+    /// The entity source's name, for a source ID (0078 §2).
+    #[serde(default)]
+    pub source: Option<String>,
 }
 
 /// One graph's standing for an entity.

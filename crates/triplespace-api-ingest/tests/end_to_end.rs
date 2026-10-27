@@ -882,3 +882,293 @@ async fn a_history_adoption_over_postgres() {
     );
     cleanup().await;
 }
+
+/// A tenant declares an entity source (0078 §1), its partition opens, a sync loads it
+/// under the tenant with IDs in the colon form (0078 §2, §6.4), and a deletion tombstones.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn a_tenant_declares_and_loads_an_entity_source() {
+    use scatter_actors::evaluate::Effective;
+    use scatter_ingest::sync::run_sync_in;
+    use scatter_providers::{EntitySource, SourceType};
+    use triplespace_api_ingest::sources::{SourceWriteError, write as write_source};
+    use triplespace_projections::entity_sources;
+
+    if skipped() {
+        return;
+    }
+    let (client, backend) = fresh().await;
+    let client = seed(client).await;
+    // The tenant's `config` partition, where its declarations go.
+    log::create_partition(
+        &client,
+        0x3005,
+        Segments::new(8).unwrap(),
+        &PartitionInfo {
+            tenant: Some(TENANT.into()),
+            name: "config".into(),
+            graph_iri: "https://librarybase.org/graph/config".into(),
+            history: History::Full,
+            integrity: Integrity::Logged,
+            export: Export::Public,
+            hash: "sha-256".into(),
+        },
+    )
+    .await
+    .unwrap();
+    let store = PgIngest::new(backend);
+    let p = pipeline();
+    let log_store = PgLog::new(client);
+    p.catch_up(&store, &log_store, CONFIG_PARTITION, 10)
+        .await
+        .unwrap();
+    let client = log_store.into_inner();
+    let who = Effective {
+        permissions: scatter_actors::group::GroupRegistry::default_registry()
+            .permissions()
+            .clone(),
+        ..Effective::default()
+    };
+    let source = |name: &str| EntitySource {
+        name: name.into(),
+        label: "A source".into(),
+        types: vec![
+            SourceType {
+                upstream_prefix: "Q".into(),
+                entity_type: "item".into(),
+                id_grammar: "digits".into(),
+                iri: "https://src.example/entity/{upstream_id}".into(),
+            },
+            SourceType {
+                upstream_prefix: "P".into(),
+                entity_type: "property".into(),
+                id_grammar: "digits".into(),
+                iri: "https://src.example/entity/{upstream_id}".into(),
+            },
+        ],
+        api: Some("https://src.example/w/api.php".into()),
+        entity_data: None,
+        revision_ids: true,
+        licence: Some("CC0-1.0".into()),
+        number: None,
+        promoted_to: None,
+    };
+
+    // 1. A registry name is refused (0078 §3 rule 1); a fresh name is numbered and opens
+    //    its partition.
+    for taken in ["wikidata", "domain"] {
+        let mut cx = store.begin().await.unwrap();
+        let err = write_source(
+            &store,
+            &p,
+            &mut cx,
+            TENANT,
+            "https://librarybase.org",
+            "instance:scatter",
+            &who,
+            taken,
+            Some(source(taken)),
+            "",
+            NOW,
+        )
+        .await
+        .unwrap_err();
+        store.rollback(cx).await.unwrap();
+        assert!(
+            matches!(
+                err,
+                SourceWriteError::NameTaken(_)
+                    | SourceWriteError::Invalid(scatter_providers::SourceError::NameTaken(_))
+            ),
+            "{taken}: {err}"
+        );
+    }
+    let mut cx = store.begin().await.unwrap();
+    let written = write_source(
+        &store,
+        &p,
+        &mut cx,
+        TENANT,
+        "https://librarybase.org",
+        "instance:scatter",
+        &who,
+        "src",
+        Some(source("src")),
+        "declared",
+        NOW,
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    store.commit(cx).await.unwrap();
+    assert_eq!(written.number, Some(4096));
+    assert_eq!(
+        rows(
+            &client,
+            "SELECT kind || ':' || code FROM view.registry WHERE tenant = 'librarybase' AND (kind = 'entity-source' OR code = 'source/src') ORDER BY 1"
+        )
+        .await,
+        ["entity-source:src", "graph:source/src"]
+    );
+    assert_eq!(
+        count(
+            &client,
+            "SELECT count(*) FROM log.partition WHERE tenant = 'librarybase' AND name = 'source/src'"
+        )
+        .await,
+        1
+    );
+    let registry = entity_sources::registry_for(&client, TENANT).await.unwrap();
+    let src = registry.by_slug("src").unwrap();
+    assert!(src.source);
+    assert_eq!(
+        registry.parse_foreign_id("SRC:q7").unwrap().to_string(),
+        "src:Q7"
+    );
+    let registry: &'static Registry = Box::leak(Box::new(registry));
+
+    // 2. A sync into the source: tenant rows, colon-form IDs, no surrogates.
+    let q7 = entity(json!({"type": "item", "id": "src:Q7",
+        "labels": {"en": {"language": "en", "value": "Seven"}},
+        "claims": {"src:P1": [string_statement("src:P1", "a", "string", "src:Q7$00000000-0000-0000-0000-0000000000B1")]}}));
+    let q8 = entity(json!({"type": "item", "id": "src:Q8",
+        "labels": {"en": {"language": "en", "value": "Eight"}}, "claims": {}}));
+    let out = run_sync_in(
+        &store,
+        &p,
+        TENANT,
+        JobHeader::source("src", "dump-1", Mode::Upsert),
+        Attestation::by("instance:scatter"),
+        vec![
+            SyncItem::State {
+                entity: Box::new(q7),
+                upstream: Upstream::revision(5, Some("2026-10-01T00:00:00Z")),
+                upstream_id: None,
+                upstream_aliases: Vec::new(),
+            },
+            SyncItem::State {
+                entity: Box::new(q8),
+                upstream: Upstream::revision(6, Some("2026-10-01T00:00:00Z")),
+                upstream_id: None,
+                upstream_aliases: Vec::new(),
+            },
+        ],
+        100,
+        registry,
+        NOW + 1,
+        10,
+    )
+    .await
+    .unwrap();
+    assert_eq!(out.counts.created, 2, "{out:?}");
+    assert_eq!(
+        rows(
+            &client,
+            "SELECT tenant || '|' || graph || '|' || entity_id || '|' || upstream_version FROM view.entity_source WHERE graph = 'source/src' ORDER BY entity_id"
+        )
+        .await,
+        [
+            "librarybase|source/src|src:Q7|5",
+            "librarybase|source/src|src:Q8|6"
+        ]
+    );
+    assert_eq!(
+        rows(
+            &client,
+            "SELECT tenant || '|' || id || '|' || type || '|' || coalesce(surrogate::text, '-') FROM view.entity WHERE id LIKE 'src:%' ORDER BY id"
+        )
+        .await,
+        ["librarybase|src:Q7|item|-", "librarybase|src:Q8|item|-"]
+    );
+    assert_eq!(
+        count(&client, "SELECT count(*) FROM view.keyed_surrogate").await,
+        0,
+        "a source's entity needs no surrogate (0078 §2)"
+    );
+    assert_eq!(
+        count(&client, "SELECT count(*) FROM view.keyed_map").await,
+        0
+    );
+    // The job is the tenant's (0078 §4).
+    assert_eq!(
+        count(
+            &client,
+            &format!(
+                "SELECT count(*) FROM view.job WHERE tenant = 'librarybase' AND job_id = {}",
+                out.job_id
+            )
+        )
+        .await,
+        1
+    );
+
+    // 3. An upstream deletion tombstones (a source's entity is foreign, not keyed).
+    let out = run_sync_in(
+        &store,
+        &p,
+        TENANT,
+        JobHeader::source("src", "follow-1", Mode::Upsert),
+        Attestation::by("instance:scatter"),
+        vec![SyncItem::Deleted {
+            id: EntityId::parse("src:Q8").unwrap(),
+            upstream: Upstream::revision(7, None),
+        }],
+        100,
+        registry,
+        NOW + 2,
+        10,
+    )
+    .await
+    .unwrap();
+    assert_eq!(out.counts.tombstoned, 1, "{out:?}");
+    assert_eq!(
+        rows(
+            &client,
+            "SELECT entity_id FROM view.entity_source WHERE graph = 'source/src' ORDER BY 1"
+        )
+        .await,
+        ["src:Q7"]
+    );
+
+    // 4. The instance cannot write a source graph, and the record retires.
+    let err = scatter_ingest::run_sync(
+        &store,
+        &p,
+        JobHeader::source("src", "x", Mode::Upsert),
+        Attestation::by("instance:scatter"),
+        Vec::<SyncItem>::new(),
+        100,
+        registry,
+        NOW + 3,
+        10,
+    )
+    .await
+    .unwrap_err();
+    assert!(matches!(err, IngestError::Adapter(_)), "{err}");
+    let mut cx = store.begin().await.unwrap();
+    write_source(
+        &store,
+        &p,
+        &mut cx,
+        TENANT,
+        "https://librarybase.org",
+        "instance:scatter",
+        &who,
+        "src",
+        None,
+        "retired",
+        NOW + 4,
+    )
+    .await
+    .unwrap();
+    store.commit(cx).await.unwrap();
+    assert_eq!(
+        count(
+            &client,
+            "SELECT count(*) FROM view.registry WHERE tenant = 'librarybase' AND kind = 'entity-source'"
+        )
+        .await,
+        0
+    );
+    cleanup().await;
+}

@@ -270,6 +270,11 @@ impl Adapter for WikibaseAdapter {
                     .to_string(),
             ),
             IdForm::Keyed => {
+                // A source ID (0078 §2) takes its type's template; a keyed ID the
+                // instance's own IRI.
+                if let Ok(f) = self.registry.parse_foreign_id(id.as_str()) {
+                    return Some(f.concept_iri().as_str().to_string());
+                }
                 let (t, key) = id.keyed_parts()?;
                 Some(format!("https://scatter.red/{t}/{key}"))
             }

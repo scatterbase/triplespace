@@ -15,6 +15,9 @@
 //!   for a mirror sync.
 //! - [`typing`]: the snak data types an XML dump leaves out, from the properties the
 //!   dump defines, for a mirror sync.
+//! - [`follow`]: the follower's reading of the API: entity namespaces from `siteinfo`, a
+//!   recent-changes title as an entity ID, and `wbgetentities` as states, redirects and
+//!   misses (0092 §1–§2).
 //! - [`key_map`]: the adapter in mirror mode, with the provider's key-map rules, which map
 //!   upstream items onto keyed types (0009 §9; 0091 §2–§3).
 //!
@@ -27,6 +30,7 @@
 
 pub mod adoption;
 pub mod entities;
+pub mod follow;
 pub mod json_dump;
 pub mod key_map;
 pub mod mirror;
@@ -35,6 +39,7 @@ pub mod xml_dump;
 
 pub use adoption::{Account, AdoptedRevision, Survey, adopt_page};
 pub use entities::{DumpEntry, DumpRedirect, Entities, Entries};
+pub use follow::{EntityNamespaces, Fetched, FollowError, entity_id_of, read_entities};
 pub use json_dump::JsonDump;
 pub use key_map::{ConfigError, Index, KeyMappedAdapter, KeyRule, KeyRules, MapError, Outcome};
 pub use typing::DumpPropertyTypes;

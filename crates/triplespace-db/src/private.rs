@@ -54,6 +54,8 @@ pub const PRIVATE_TABLES: &[(&str, Portability)] = &[
     ("inbox", Portability::Portable),
     ("inbox_state", Portability::Portable),
     ("watch", Portability::Portable),
+    // 0092 §10: a bot password is the instance's own credential, like an OAuth client's.
+    ("upstream_login", Portability::NeverLeaves),
 ];
 
 /// Why the live schema disagrees with [`PRIVATE_TABLES`].

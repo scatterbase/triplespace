@@ -1,0 +1,19 @@
+[package]
+name = "triplespace-upstream"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "The live upstream client: for now, the MediaWiki API requests a follower sends (ADR 0092 §1, §10); the cache, rate limits and error mapping of 0012 §6 come later"
+publish = false
+
+[dependencies]
+reqwest = { workspace = true, features = ["cookies", "form", "query"] }
+serde_json.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["sync", "time"] }
+
+[lints]
+workspace = true

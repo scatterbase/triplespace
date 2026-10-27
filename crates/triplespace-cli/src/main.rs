@@ -5,8 +5,8 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use triplespace_cli::{
-    accounts, adopt, challenge, env_file, forwarder, instance, oauth_client, rights, settings,
-    status, sync, tenant,
+    accounts, adopt, challenge, env_file, follow, forwarder, instance, oauth_client, rights,
+    settings, source, status, sync, tenant,
 };
 
 /// Triplespace: a Wikibase as an append-only log.
@@ -33,6 +33,18 @@ enum Command {
     Adopt(adopt::Adopt),
     /// Sync a provider's dump into its mirror (0002 §8.4).
     Sync(sync::Sync),
+    /// Follow a provider's wiki by its recent changes (0092 §1).
+    Follow(follow::Follow),
+    /// The bot password a provider's follower logs in with (0092 §10).
+    UpstreamLogin {
+        #[command(subcommand)]
+        command: follow::UpstreamLogin,
+    },
+    /// A tenant's entity sources (0078 §1).
+    Source {
+        #[command(subcommand)]
+        command: source::SourceCommand,
+    },
     /// Passwords of primary accounts (0007 §3).
     Password {
         #[command(subcommand)]
@@ -123,6 +135,9 @@ async fn run() -> Result<()> {
         Command::Tenant { command } => tenant::run(command).await,
         Command::Adopt(args) => adopt::run(args).await,
         Command::Sync(args) => sync::run(args).await,
+        Command::Follow(args) => follow::run(args).await,
+        Command::UpstreamLogin { command } => follow::run_login(command).await,
+        Command::Source { command } => source::run(command).await,
         Command::Password {
             command: PasswordCommand::Set(args),
         } => accounts::run_password_set(args).await,

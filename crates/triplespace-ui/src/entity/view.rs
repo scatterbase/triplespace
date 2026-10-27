@@ -118,6 +118,23 @@ impl Render<'_> {
                     self.m.with(key, &[&name]),
                 )
             }
+            // A source's entity (0078 §2): the colon form, minted by the tenant's source.
+            IdForm::Keyed
+                if let Some(source) = self
+                    .provenance
+                    .filter(|p| p.minted_by.kind == "source")
+                    .and_then(|p| p.minted_by.source.as_deref()) =>
+            {
+                let key = match et {
+                    "item" => "ts-kind-source-item",
+                    "property" => "ts-kind-source-property",
+                    _ => "ts-kind-source-entity",
+                };
+                (
+                    chip(ChipKind::Namespace, id.as_str()),
+                    self.m.with(key, &[source]),
+                )
+            }
             IdForm::Keyed => {
                 let key = match et {
                     "domain" => "ts-kind-domain",
@@ -308,6 +325,10 @@ impl Render<'_> {
             && let Some(p) = self.site.providers.iter().find(|p| p.slug == slug)
         {
             return chip(ChipKind::Provider(p.code.clone()), &p.code);
+        }
+        // A source graph's chip is the source's name (0078 §4).
+        if let Some(name) = graph.strip_prefix("source/") {
+            return chip(ChipKind::Namespace, name);
         }
         chip(ChipKind::Namespace, graph)
     }

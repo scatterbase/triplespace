@@ -941,7 +941,7 @@ CREATE TABLE ops.tenant_epoch (            -- the stream epoch per tenant
 
 ### 4.12 Page repositories, mirrored pages, forks, shallow mirrors and derivations
 
-*Sources: [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §8; [0053](../decisions/0053-mirrored-pages.md) §8; [0054](../decisions/0054-forking-a-mirrored-page.md) §10; [0070](../decisions/0070-shallow-entity-mirroring.md) §10; [0071](../decisions/0071-derived-statements-from-mirrored-pages.md) §12.*
+*Sources: [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §8; [0053](../decisions/0053-mirrored-pages.md) §8; [0054](../decisions/0054-forking-a-mirrored-page.md) §10; [0070](../decisions/0070-shallow-entity-mirroring.md) §10; [0071](../decisions/0071-derived-statements-from-mirrored-pages.md) §12; [0092](../decisions/0092-following-recent-changes.md) §3.*
 
 ```sql
 CREATE TABLE view.foreign_title (            -- the title index of a repository (0052 §2–3; filled by 0053 §3)
@@ -973,8 +973,17 @@ CREATE TABLE view.foreign_page (                 -- the bundles the instance hol
 );
 CREATE UNIQUE INDEX foreign_page_title ON view.foreign_page (repo, ns, title);
 
-CREATE TABLE ops.repo_cursor (                   -- the event-stream position per repository (0053 §6)
-  repo text PRIMARY KEY, last_event_id text, last_event_time timestamptz, lag_seconds integer
+CREATE TABLE ops.repo_cursor (                   -- a follower's position: an event stream's or a recent-changes poll's (0053 §6; 0092 §3)
+  tenant text NOT NULL DEFAULT '',                -- '' for the instance's followers
+  kind text NOT NULL,                             -- repo | provider | source
+  name text NOT NULL,                             -- the repository, the provider slug or the source name
+  last_event_id text, last_event_time timestamptz,           -- an event stream's
+  rc_time timestamptz, rc_continue jsonb, rc_seen jsonb,     -- a poll's: newest time seen, continuation, [[rcid, time], …] within follow.tail
+  rc_retry jsonb,                                 -- [[entity ID, revid], …] read stale, to read again (0092 §2)
+  loaded_to timestamptz, handed_over boolean NOT NULL DEFAULT false,  -- where the last load ended; whether the follower took over (0092 §5)
+  late bigint NOT NULL DEFAULT 0, stale bigint NOT NULL DEFAULT 0,    -- the poll's counters (0092 §7)
+  lag_seconds integer, updated timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (tenant, kind, name)
 );
 CREATE TABLE ops.page_fetch (                    -- fetch and put queue, deduplicated (0053 §4–6)
   repo text NOT NULL, ns integer NOT NULL, title text NOT NULL, reason text NOT NULL, queued timestamptz NOT NULL,
@@ -1004,7 +1013,7 @@ CREATE INDEX fork_repo_page ON view.fork (repo, upstream_page_id);
 **Shallow mirroring** ([0070](../decisions/0070-shallow-entity-mirroring.md) §10):
 
 - `ops.entity_fetch (tenant, provider, entity_id, reason, enqueued, attempts)` with reasons `read`, `linked`, `closure`, `event`, `sweep`, `manual`; a unique key on `(tenant, provider, entity_id)` so a busy entity is fetched once. `tenant` is `''` for a registry provider; for a tenant's entity source it is the tenant, and `provider` is the source's name ([0078](../decisions/0078-entity-sources.md) §4).
-- `ops.repo_cursor` gains rows keyed by provider for the entity stream.
+- `ops.repo_cursor` holds a row of kind `provider` per provider's follower and, under the tenant, of kind `source` per entity source's, whether it follows an event stream or polls recent changes ([0092](../decisions/0092-following-recent-changes.md) §3).
 - The set itself is `view.entity_source` rows for the provider (`tenant = ''`); no new table.
 
 **Derived statements** ([0071](../decisions/0071-derived-statements-from-mirrored-pages.md) §12):
@@ -1049,7 +1058,7 @@ The visibility set of a target is computed at read time from the enclosure chain
 
 ### 4.16 The `private` and `ops` tables
 
-*Sources: [0013](../decisions/0013-postgres-storage.md) §4; [0021](../decisions/0021-notifications.md) §8; [0022](../decisions/0022-federation.md) §10; [0024](../decisions/0024-subsidiary-accounts.md) §10; [0025](../decisions/0025-oauth-server.md) §8; [0027](../decisions/0027-preferences-and-portability.md) §8; [0030](../decisions/0030-edit-filters.md) §11; [0089](../decisions/0089-the-auth-host-and-instance-logins.md) §2, §5, §9.*
+*Sources: [0013](../decisions/0013-postgres-storage.md) §4; [0021](../decisions/0021-notifications.md) §8; [0022](../decisions/0022-federation.md) §10; [0024](../decisions/0024-subsidiary-accounts.md) §10; [0025](../decisions/0025-oauth-server.md) §8; [0027](../decisions/0027-preferences-and-portability.md) §8; [0030](../decisions/0030-edit-filters.md) §11; [0089](../decisions/0089-the-auth-host-and-instance-logins.md) §2, §5, §9; [0092](../decisions/0092-following-recent-changes.md) §10.*
 
 Beside the `private` tables of [0021](../decisions/0021-notifications.md) §3: `private.fediverse_handle` (actor key, handle, actor IRI, inbox IRI, verified, broken, added), `private.email` (actor key, address, verified, added), `private.ap_key` (tenant, key ID, private key, public key, created) and `private.ap_follower` (the notifier's followers: actor IRI, accepted). The last two are keyed by actor, the notifier being one actor among the opted-in ones, and are read by `triplespace-federation` ([0022](../decisions/0022-federation.md) §10, §13); under [0022](../decisions/0022-federation.md) §10 they become per-actor (`actor_key` beside the notifier's tenant row). The delivery queue for email and fediverse messages is one `ops` table, `ops.delivery`, with attempts, next attempt and last error per item. Outbound requests go through the same egress path as live upstream fetches ([0012](../decisions/0012-api-requirements.md) §6); requests an actor initiates, verification messages and handle registrations, are rate-limited in the `notify` class ([0024](../decisions/0024-subsidiary-accounts.md) §5). The `notifications.fediverse_domains` allow and deny lists are site configuration. [0022](../decisions/0022-federation.md) §10 uses the `ops` delivery queue of [0021](../decisions/0021-notifications.md) §8, unchanged.
 
@@ -1062,6 +1071,8 @@ Beside the `private` tables of [0021](../decisions/0021-notifications.md) §3: `
 **Edit-filter hits.** The abuse-handling store gains a row per hit `(hit partition, hit offset, ip, expires)`, in `private`, under the store's retention ([0030](../decisions/0030-edit-filters.md) §11).
 
 **External identity** ([0088](../decisions/0088-external-identity-providers.md) §3, §5, §7; [07](07-actors-and-accounts.md) §2.7). `private.oauth_client (issuer, client_id, secret, callback, created, updated)`, primary key `issuer`, one consumer per issuer for the whole instance ([0089](../decisions/0089-the-auth-host-and-instance-logins.md) §10), the secret sealed under the instance sealing key, "never leaves" under [0027](../decisions/0027-preferences-and-portability.md) §2. `private.oauth_flow (state_hash, tenant, session, issuer, purpose, verifier, name, returnto, door, outcome jsonb, expires)`, a login flow's ten-minute handle where there is no shared cache (`oauthc:{state hash}` in Valkey otherwise), swept as sessions are. `private.binding (tenant, issuer, subject, actor_key, partition, offset, added, last_used)`, unique on `(tenant, issuer, subject)`: the index of bindings, whose truth is the binding records, of a login's external identities (empty tenant, the login as holder, records in `logins`) and of each tenant or farm account's binding to its login (issuer `login`, records in `accounts`); a password binding's index is `private.password`. All three are read and written by `triplespace-accounts` only.
+
+**Upstream logins** ([0092](../decisions/0092-following-recent-changes.md) §10). `private.upstream_login (tenant, kind, name, username, secret, created, updated)`, keyed as `ops.repo_cursor` is, one optional bot password per follower; the secret sealed under the instance sealing key, "never leaves" under [0027](../decisions/0027-preferences-and-portability.md) §2.
 
 **Instance logins** ([0089](../decisions/0089-the-auth-host-and-instance-logins.md) §2, §5; [07](07-actors-and-accounts.md) §2.8). `private.login (id, name, name_key, created, last_used, partition, offset)`, unique on `name_key`, the index of the `logins` partition's login records, with an instance sequence for `id`; "never leaves" under [0027](../decisions/0027-preferences-and-portability.md) §2. `private.password` is keyed by login. `private.auth_request (handle_hash, tenant, state, challenge, purpose, expires)` holds a tenant's request at the auth host's `/auth/authorize` while the person authenticates, and `private.auth_code (code_hash, login, method, subject, username, tenant, challenge, central, authenticated, expires)` a login code for 60 seconds, each where there is no shared cache (`authr:` and `authc:` in Valkey otherwise), swept as sessions are. `private.session` gains `login` and `central`, the login a session holds and, for a tenant session, the central session it came from.
 
@@ -1139,6 +1150,7 @@ Each table is specified where it is listed; this table is the index, so that the
 | `view` | `page_text` | A `tsvector` column with a GIN index, for `list=search` without OpenSearch | [0014](../decisions/0014-caches-and-search.md) §8 | **No** |
 | `private` | `account_request`, `challenge_spent`, `rate_event` | Account requests awaiting review: the chosen name and its case-folded key, the credential, the statement, the address key and, once decided, the decision, reviewer, time and reason, deleted 7 days after a rejection or when the request expires, "never leaves" class under 0027 §2; spent challenges `(mac, tenant, expires)` until they expire, and the `createaccount` and `badlogin` counts `(tenant, class, key, at)` until they leave their window, where there is no shared cache ([07](07-actors-and-accounts.md) §2.6, §6.3) | [0087](../decisions/0087-account-registration-and-challenges.md) §3, §4, §6 | **No** |
 | `private` | `oauth_client`, `oauth_flow`, `binding` | Login through external issuers: client credentials per issuer, the secret sealed; flow handles where there is no shared cache; the index of external bindings with when each was added and last used ([07](07-actors-and-accounts.md) §2.7) | [0088](../decisions/0088-external-identity-providers.md) §3, §5, §7 | **No** |
+| `private` | `upstream_login` | An optional bot password per follower, for `apihighlimits` upstream; the secret sealed | [0092](../decisions/0092-following-recent-changes.md) §10 | **No** |
 | `private` | `login`, `auth_request`, `auth_code`; `session` columns | Instance logins: the index of the `logins` partition; a tenant's pending request at the auth host and its login code where there is no shared cache; the login and central session a session records ([07](07-actors-and-accounts.md) §2.8) | [0089](../decisions/0089-the-auth-host-and-instance-logins.md) §2, §5 | **No** |
 
 The rows marked **No** are the tables and columns that 0013 §5.6's map of the schema does not yet list.

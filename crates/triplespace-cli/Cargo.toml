@@ -21,12 +21,17 @@ scatter-log-postgres.workspace = true
 scatter-projection.workspace = true
 scatter-ingest.workspace = true
 scatter-adapter-wikibase.workspace = true
+scatter-adapter-mediawiki.workspace = true
+triplespace-upstream.workspace = true
 scatter-wikibase-changeset.workspace = true
 scatter-wikibase-model.workspace = true
 scatter-providers.workspace = true
 scatter-actors.workspace = true
 scatter-pages.workspace = true
 scatter-titles.workspace = true
+scatter-talk.workspace = true
+scatter-talk-import.workspace = true
+scatter-threads.workspace = true
 triplespace-db.workspace = true
 triplespace-projections.workspace = true
 triplespace-api-ingest.workspace = true
@@ -35,7 +40,7 @@ triplespace-notify.workspace = true
 clap.workspace = true
 dotenvy.workspace = true
 anyhow.workspace = true
-tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
 tokio-postgres.workspace = true
 ed25519-dalek.workspace = true
 serde_json.workspace = true

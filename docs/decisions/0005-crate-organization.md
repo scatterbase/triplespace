@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-10-26 (A105)
+- **Updated:** 2026-10-26 (A107)
 - **Author:** James Hare / Claude Opus; revision by James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -42,7 +42,7 @@ Since this ADR was first written, twenty-six further ADRs have added crates, cha
 
 ### 2. Crate map
 
-*Changed by A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A27, A28, A29, A30, A31, A32, A33, A34, A35, A36, A37, A38, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A51, A52, A53, A54, A55, A57, A58, A59, A60, A61, A62, A63, A64, A65, A66, A67, A68, A69, A70, A71, A72, A73, A74, A75, A76, A77, A78, A79, A80, A84, A86, A87, A88, A89, A90, A91, A92, A93, A95, A96, A97, A98, A99, A100, A101, A102, A103, A104, A105.*
+*Changed by A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A27, A28, A29, A30, A31, A32, A33, A34, A35, A36, A37, A38, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A51, A52, A53, A54, A55, A57, A58, A59, A60, A61, A62, A63, A64, A65, A66, A67, A68, A69, A70, A71, A72, A73, A74, A75, A76, A77, A78, A79, A80, A84, A86, A87, A88, A89, A90, A91, A92, A93, A95, A96, A97, A98, A99, A100, A101, A102, A103, A104, A105, A106, A107.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
@@ -1071,3 +1071,25 @@ Replaced text (22 §2.1, the retired row, as it stood):
 Replaced text (22 §3.1, as it stood):
 
 > 4. **Ingest:** `scatter-wikibase-changeset`, `scatter-ingest` and `scatter-adapter-wikidata`,
+
+### A106. The recent-changes follower
+
+- **Date:** 2026-10-26
+- **Source:** [0092](0092-following-recent-changes.md) §8
+- **Change:** amends §2
+- **Summary:** `scatter-adapter-mediawiki` gains the recent-changes query and batch reading, shared by entity and page followers; `scatter-adapter-wikibase` the entity namespaces from `siteinfo`; `scatter-ingest` the follower loop over a `ChangeSource` trait, the position, a load's handover, the gap check, loads into a source and the crawl; `triplespace-api-ingest` implements `ChangeSource`; `triplespace-upstream` makes the poll's and the crawl's requests; `triplespace-repos` follows a page repository without `events` the same way; `triplespace-accounts` keeps the optional upstream bot password. No new crate and no new edge. The `triplespace-upstream` row still named `scatter-adapter-wikidata` among its dependencies after [0091](0091-one-wikibase-adapter.md) §5, and now names `scatter-adapter-wikibase`. Chapter text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.
+
+Replaced text (22 §2.1, `triplespace-upstream`, as it stood):
+
+> edits as a publication's account, with `basetimestamp` and the conflict check ([0074](0074-publishing-a-scope-to-an-external-wiki.md) §4) | `scatter-adapter-wikidata`, `scatter-mwlog`,
+
+### A107. The talk-page conversion runs in `triplespace-cli`, not `scatter-ingest`
+
+- **Date:** 2026-10-26
+- **Source:** Direct: James, go-ahead of 2026-10-26 to convert adopted talk pages
+- **Change:** corrects §2
+- **Summary:** 0090 §10 has an adopted wiki's talk pages converted "within the adoption job". The thread writer is `triplespace-api-ingest`'s, a surface crate above the ingester, so `scatter-ingest` cannot call it (22 §1.2 rule 1): the conversion runs in `triplespace-cli`'s `adopt`, after the adoption job has written every subject page and account, in the same command and attributed to the same job. The `scatter-ingest` row said the ingester converts them; the `triplespace-cli` row now says what it does. The decision is unchanged. Chapter text: [22](../architecture/22-crates-and-stack.md) §2.1.
+
+Replaced text (22 §2.1, `scatter-ingest`, as it stood):
+
+> converting an adopted wiki's talk pages within the adoption job, with blame over the dump ([0090](../decisions/0090-converting-talk-pages-comment-by-comment.md) §10)

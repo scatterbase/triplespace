@@ -100,6 +100,10 @@ pub struct Provider {
     /// The colours of the provider's chip in the site (0010 §2), where the registry gives
     /// them.
     pub chip: Option<Chip>,
+    /// An entity source a tenant declared (0078 §1; [`crate::EntitySource`]): no code, IDs
+    /// in the colon form `{slug}:{upstream ID}`, records in the tenant partition
+    /// `source/{slug}`.
+    pub source: bool,
 }
 
 /// Whether a provider's revisions name individual actors (0007 §6).
@@ -155,10 +159,29 @@ impl Provider {
         self.types.iter().find(|t| t.code == code)
     }
 
-    /// The graph name of the provider's mirror partition, `mirror/{slug}` (0015 §5).
+    /// The graph name of the provider's mirror partition, `mirror/{slug}` (0015 §5), or
+    /// `source/{slug}` for an entity source (0078 §4).
     #[must_use]
     pub fn mirror_graph(&self) -> String {
-        format!("mirror/{}", self.slug)
+        if self.source {
+            format!("source/{}", self.slug)
+        } else {
+            format!("mirror/{}", self.slug)
+        }
+    }
+
+    /// The entity type whose upstream prefix `upstream_id` starts with, the longest prefix
+    /// winning; `None` when none does.
+    #[must_use]
+    pub fn type_of_upstream(&self, upstream_id: &str) -> Option<&EntityType> {
+        self.types
+            .iter()
+            .filter(|t| {
+                upstream_id.len() >= t.upstream_prefix.len()
+                    && upstream_id[..t.upstream_prefix.len()]
+                        .eq_ignore_ascii_case(&t.upstream_prefix)
+            })
+            .max_by_key(|t| t.upstream_prefix.len())
     }
 }
 
@@ -486,6 +509,7 @@ impl RawProvider {
             adapter_config: p.adapter_config,
             types,
             chip,
+            source: false,
         }))
     }
 }
@@ -698,6 +722,47 @@ impl Registry {
     #[must_use]
     pub fn by_number(&self, number: u32) -> Option<&Provider> {
         self.by_number.get(&number).map(|&i| &self.providers[i])
+    }
+
+    /// A tenant's table of names (0078 §3): this registry with the tenant's entity
+    /// sources added as providers ([`crate::EntitySource::to_provider`]). A source whose
+    /// name the registry has, or whose number another entry has, is refused (rule 1).
+    ///
+    /// # Errors
+    ///
+    /// [`RegistryError::Toml`] naming the clash.
+    pub fn with_sources(&self, sources: Vec<Provider>) -> Result<Self, RegistryError> {
+        let mut out = self.clone();
+        for p in sources {
+            if !p.source {
+                return Err(RegistryError::Toml(format!(
+                    "`{}` is not an entity source",
+                    p.slug
+                )));
+            }
+            if out.by_slug.contains_key(&p.slug) {
+                return Err(RegistryError::Toml(format!(
+                    "`{}` is a name the registry has (ts-source-name-taken)",
+                    p.slug
+                )));
+            }
+            if out.by_number.contains_key(&p.number) {
+                return Err(RegistryError::Toml(format!(
+                    "source `{}`: number {} is taken",
+                    p.slug, p.number
+                )));
+            }
+            let i = out.providers.len();
+            out.by_slug.insert(p.slug.clone(), i);
+            out.by_number.insert(p.number, i);
+            out.providers.push(p);
+        }
+        Ok(out)
+    }
+
+    /// The entity sources in this table, in the order they were added.
+    pub fn sources(&self) -> impl Iterator<Item = &Provider> {
+        self.providers.iter().filter(|p| p.source)
     }
 }
 
