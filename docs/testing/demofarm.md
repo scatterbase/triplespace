@@ -161,19 +161,27 @@ Read this first: points 2–3 decide what phase 0 has to build before phases 4 a
   - **Reads.** `wbgetentities`, `Special:EntityData`, search and the entity page for `opencredit:`
     IDs, on the reading tenant only, with tenant rows and no shared row (05 §6.4).
 - **P2. ~~A generic Wikibase path in `sync`.~~** Done by [0091](../decisions/0091-one-wikibase-adapter.md).
-- **P3. The follower** (0092 §1–§3, §7):
-  - the recent-changes query and batch reading in `scatter-adapter-wikibase`: dedupe by `rcid`,
-    coalescing by title, the settle and tail windows, entity namespaces from `siteinfo`;
-  - the follower loop in `scatter-ingest` over a `ChangeSource`, implemented with the upstream
-    client: fetch the state of each changed title through `wbgetentities` and write `put`,
-    `redirect` or `tombstone`;
-  - the position in `ops.repo_cursor`, keyed by `(tenant, kind, name)`, and the gap check against
-    the wiki's oldest recent change;
-  - `triplespace follow --tenant reader --source opencredit [--once]`, and the follower's state in
-    `GET /provider/{code}/mirror`.
+- **P3. The follower** (0092 §1–§3, §7, §10), built first, since it does not depend on P1:
+  - **`scatter-adapter-mediawiki`** (new crate, as the crate map has it): the recent-changes query
+    and batch reading over the namespaces a caller names, with dedupe by `rcid`, coalescing by
+    title and the settle and tail windows, as pure functions tested on recorded responses;
+  - **`triplespace-upstream`** (new crate): the HTTP client with a User-Agent, `maxlag`,
+    `Retry-After`, one request in flight, and the optional bot login from
+    `private.upstream_login`;
+  - **`scatter-adapter-wikibase`**: the entity namespaces from `siteinfo` by content model, a
+    row's title as an entity ID, and a `wbgetentities` response as states, redirects and misses;
+  - **`scatter-ingest`**: the follower loop over a `ChangeSource` trait, turning states into the
+    sync's existing `State`, `Redirected` and `Deleted` items (a miss only for an entity in the
+    set), the position, the gap check and the handover from a load;
+  - **`triplespace-api-ingest`**: `ChangeSource` over the two crates above, and the position written
+    in the transaction of the batch's last unit (0092 §3);
+  - **`triplespace-db`**: a migration for `ops.repo_cursor` keyed by `(tenant, kind, name)` and
+    `private.upstream_login`;
+  - **`triplespace-cli`**: `follow --provider {slug} [--once]`, one job per run; `upstream-login
+    set|unset`; and `sync` recording a load's end position.
 
-  The follower does not depend on P1. It can be built first and tried against the live wiki under
-  a sandbox-only registry entry, as the 0091 adapter was (results log, run 0).
+  Try it against the live wiki under a sandbox-only registry entry, as the 0091 adapter was
+  (results log, run 0). The `--tenant … --source` forms arrive with P1.
 
 **Pass:**
 - fmt, clippy, the workspace tests with a database, and `docs/check.sh`.
