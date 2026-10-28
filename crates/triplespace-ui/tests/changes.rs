@@ -199,7 +199,8 @@ async fn filters_and_paging_carry_through() {
     assert!(!main.contains("Mirror syncs are not shown."));
     assert!(main.contains(">Newest</a>"), "a way back from a later page");
     assert!(main.contains("value=\"sync\" checked"));
-    assert!(main.contains("name=\"hidebots\" value=\"1\" checked"));
+    // `hidebots=1` in the URL shows as the Bot edits box unchecked.
+    assert!(main.contains("name=\"bots\" value=\"1\">"), "{main}");
     assert!(main.contains("<option value=\"120\" selected>"));
 }
 

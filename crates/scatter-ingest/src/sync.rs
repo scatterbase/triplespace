@@ -27,7 +27,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use scatter_log::cbor::Value;
 use scatter_projection::{Budget, Pipeline};
-use scatter_providers::{Deletion, Provider, Registry};
+use scatter_providers::{Deletion, Provider, Registry, split_revid};
 use scatter_wikibase_changeset::{Changes, Graph, JobHeader, Mode, Operation, Upstream};
 use scatter_wikibase_model::entity::Entity;
 use scatter_wikibase_model::hash::Hasher;
@@ -132,6 +132,26 @@ fn is_cleared(entity: &Entity) -> bool {
 /// entity is in the colon shape but is a foreign entity (0078 §2), so it is tombstoned.
 fn clears(provider: &Provider, id: &EntityId) -> bool {
     (id.form() == IdForm::Keyed && !provider.source) || provider.deletion == Deletion::Clear
+}
+
+/// The header key an entity's mirror records are filed under: the ID, or a keyed
+/// entity's surrogate when it has one (`None` before its first record).
+async fn key_of<S: IngestStore>(
+    store: &S,
+    cx: &mut S::Cx,
+    id: &EntityId,
+) -> Result<Option<String>, IngestError> {
+    if id.form() != IdForm::Keyed {
+        return Ok(Some(id.as_str().to_string()));
+    }
+    let Some((keyed_type, key)) = id.keyed_parts() else {
+        return Ok(None);
+    };
+    // A source's entity is in the colon shape with no surrogate (0078 §2).
+    match store.surrogate(cx, keyed_type, key).await? {
+        Some(n) => Ok(Some(format!("{keyed_type}#{n}"))),
+        None => Ok(Some(id.as_str().to_string())),
+    }
 }
 
 /// The previous `put` at a cursor.
@@ -469,6 +489,16 @@ pub async fn run_sync_in<S: IngestStore>(
                     counts.unchanged += 1;
                 } else {
                     let mut recorded = prev.as_ref().and_then(|p| revision_of(&p.upstream));
+                    // A tombstone or a redirect at the cursor hides the revisions the
+                    // entity's earlier states claimed; an undelete brings the entity
+                    // back at one of them (0092 §2), which no record may claim twice.
+                    if let Some(key) = key_of(store, &mut cx, &entity.id).await? {
+                        let claimed = store
+                            .highest_revid(&mut cx, partition, &key)
+                            .await?
+                            .map(|global| split_revid(global).1);
+                        recorded = recorded.max(claimed);
+                    }
                     for old in &moved_from {
                         let r =
                             recorded_revision(store, &mut cx, tenant, partition, &graph_name, old)

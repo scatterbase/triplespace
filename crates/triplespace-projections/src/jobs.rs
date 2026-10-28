@@ -15,7 +15,7 @@ use crate::common::{
 use scatter_log_postgres::PgClient;
 
 fn sql(e: &tokio_postgres::Error) -> String {
-    e.to_string()
+    crate::common::describe(e)
 }
 
 /// `view.job` and `view.job_reject`.

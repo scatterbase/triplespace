@@ -104,7 +104,8 @@ impl Ask {
     fn of(which: Which, params: &Params, subpage: Option<&str>) -> Self {
         let q = &params.map;
         let asked: Vec<String> = params.all("kind").map(str::to_string).collect();
-        let kinds = if asked.is_empty() && !q.contains_key("filtered") {
+        let filtered = q.contains_key("filtered");
+        let kinds = if asked.is_empty() && !filtered {
             KINDS
                 .iter()
                 .filter(|(_, _, on)| *on)
@@ -166,7 +167,10 @@ impl Ask {
             },
             log_type,
             page,
-            hide_bots: q.get("hidebots").is_some_and(|v| v != "0"),
+            // The form says what to show (`bots`, on by default); the URL keeps
+            // MediaWiki's `hidebots=1` too.
+            hide_bots: q.get("hidebots").is_some_and(|v| v != "0")
+                || (filtered && q.get("bots").is_none()),
             namespace: q
                 .get("namespace")
                 .filter(|n| NAMESPACES.iter().any(|(k, _)| k == n))
@@ -329,6 +333,13 @@ fn target_html(m: &Messages, row: &ActivityRow, subject_only: bool) -> String {
     let Some(title) = &t.title else {
         return format!("<span class=\"ts-mono\">{}</span>", esc(&t.id));
     };
+    // A job's page (`Special:Jobs/{n}`) is not built yet: the job is named, not linked.
+    if let Some(n) = title.strip_prefix("Special:Jobs/") {
+        return format!(
+            "<span class=\"ts-change__part ts-change__target\">{}</span>",
+            esc(&m.with("ts-changes-job", &[n]))
+        );
+    }
     let href = format!("/wiki/{}", title_url(title));
     if let Some(label) = &t.label {
         return format!(
@@ -766,9 +777,9 @@ fn form_html(m: &Messages, ask: &Ask) -> String {
     }
     let _ = write!(
         s,
-        "<label class=\"cdx-checkbox cdx-checkbox--inline\"><input class=\"cdx-checkbox__input\" type=\"checkbox\" name=\"hidebots\" value=\"1\"{}><span class=\"cdx-checkbox__icon\"></span><span class=\"cdx-checkbox__label\">{}</span></label></fieldset>",
-        if ask.hide_bots { " checked" } else { "" },
-        esc(&m.get("ts-changes-hide-bots"))
+        "<label class=\"cdx-checkbox cdx-checkbox--inline\"><input class=\"cdx-checkbox__input\" type=\"checkbox\" name=\"bots\" value=\"1\"{}><span class=\"cdx-checkbox__icon\"></span><span class=\"cdx-checkbox__label\">{}</span></label></fieldset>",
+        if ask.hide_bots { "" } else { " checked" },
+        esc(&m.get("ts-changes-bots"))
     );
     let mut namespaces = vec![(String::new(), m.get("ts-changes-namespace-all"))];
     namespaces.extend(

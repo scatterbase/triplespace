@@ -36,10 +36,10 @@ expression: main
 <span class="cdx-checkbox__label">Mirror syncs</span>
 </label>
 <label class="cdx-checkbox cdx-checkbox--inline">
-<input class="cdx-checkbox__input" type="checkbox" name="hidebots" value="1">
+<input class="cdx-checkbox__input" type="checkbox" name="bots" value="1" checked>
 <span class="cdx-checkbox__icon">
 </span>
-<span class="cdx-checkbox__label">Hide bot edits</span>
+<span class="cdx-checkbox__label">Bot edits</span>
 </label>
 </fieldset>
 <label class="ts-changes-form__field">
@@ -136,9 +136,7 @@ expression: main
 <span class="ts-change__part">
 <span class="ts-chip ts-chip--job">Job</span>
 </span>
-<span class="ts-change__part">
-<a href="/wiki/Special:Jobs/7" class="ts-change__target">Special:Jobs/7</a>
-</span>
+<span class="ts-change__part ts-change__target">Job 7</span>
 <span class="ts-change__part">
 <a href="/wiki/Special:Contributions/Alice" class="ts-change__actor">Alice</a>
 </span>

@@ -27,7 +27,7 @@ use crate::backend::PgCx;
 use crate::common::{attestation, attested, content, partition_info, time_of, to_jsonb};
 
 fn sql(e: &tokio_postgres::Error) -> String {
-    e.to_string()
+    crate::common::describe(e)
 }
 
 /// The payload type of thread records.

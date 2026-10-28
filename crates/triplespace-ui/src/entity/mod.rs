@@ -72,13 +72,15 @@ pub fn entity_type_of(id: &str) -> String {
 /// The page title of an entity (0017 §1; `namespaces.toml`).
 #[must_use]
 pub fn page_title(id: &str, entity_type: &str) -> String {
+    // A keyed entity's namespace is its type's; a source's entity (`mhc:Q1`, 0078 §2)
+    // is in its entity type's namespace, as a foreign one is.
     if let Some((t, key)) = id.split_once(':') {
-        return match t {
-            "domain" => format!("Domain:{key}"),
-            "keyword" => format!("Keyword:{key}"),
-            "notation" => format!("Notation:{key}"),
-            _ => id.to_string(),
-        };
+        match t {
+            "domain" => return format!("Domain:{key}"),
+            "keyword" => return format!("Keyword:{key}"),
+            "notation" => return format!("Notation:{key}"),
+            _ => {}
+        }
     }
     match entity_type {
         "property" => format!("Property:{id}"),

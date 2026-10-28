@@ -34,7 +34,7 @@ use crate::common::{content, partition_info, time_of, to_jsonb};
 use scatter_log_postgres::PgClient;
 
 fn sql(e: &tokio_postgres::Error) -> String {
-    e.to_string()
+    crate::common::describe(e)
 }
 
 /// The payload type of a document page's records.

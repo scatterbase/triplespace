@@ -15,16 +15,19 @@
 	display: flex;
 	flex-wrap: wrap;
 	align-items: flex-end;
-	gap: var( --spacing-75, 0.75rem ) var( --spacing-150, 1.5rem );
+	gap: var( --spacing-100, 1rem ) var( --spacing-150, 1.5rem );
 	padding: var( --spacing-75, 0.75rem ) var( --spacing-100, 1rem );
 	border: 1px solid var( --border-color-muted, #dadde3 );
 	border-radius: var( --border-radius-base, 2px );
 	background-color: var( --background-color-neutral-subtle, #f8f9fa );
 }
 
+/* The row kinds take a row of their own; the selects and the button share the next. */
+
 .ts-changes-form__kinds {
 	display: flex;
 	flex-wrap: wrap;
+	flex-basis: 100%;
 	gap: var( --spacing-50, 0.5rem ) var( --spacing-100, 1rem );
 	margin: 0;
 	padding: 0;
@@ -32,18 +35,29 @@
 }
 
 .ts-changes-form__kinds legend {
+	flex-basis: 100%;
 	padding: 0;
+	margin-bottom: var( --spacing-25, 0.25rem );
 	font-weight: bold;
+}
+
+.ts-changes-form__kinds .cdx-checkbox--inline {
+	margin-inline-end: 0;
 }
 
 .ts-changes-form__field {
 	display: inline-flex;
 	flex-direction: column;
 	gap: var( --spacing-25, 0.25rem );
+	min-width: 10rem;
 }
 
 .ts-changes-form__field > span {
 	font-weight: bold;
+}
+
+.ts-changes-form > .cdx-button {
+	align-self: flex-end;
 }
 
 .ts-changes__strip {

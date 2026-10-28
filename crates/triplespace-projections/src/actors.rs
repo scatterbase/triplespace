@@ -55,7 +55,7 @@ impl Farm {
 }
 
 fn sql(e: &tokio_postgres::Error) -> String {
-    e.to_string()
+    crate::common::describe(e)
 }
 
 /// A tenant's registry entry: its base and issuer code.

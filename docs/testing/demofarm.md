@@ -188,6 +188,21 @@ Read this first: points 2–3 decide what phase 0 has to build before phases 4 a
   `loaded_to` less `follow.tail`; the entity page renders statements with the source's property
   labels.
 
+  **Live run, 2026-10-27 (James, Mac):** the dump load (5,082 created, 30 s release), the
+  first follow (`596 rows … 3 created, 3 updated, 576 unchanged, 1 tombstoned, 1 redirected`
+  for edits A–H plus the wiki's own September edits), the quiet second follow, and every read
+  of §4 passed. **Undoing the edits found a bug:** an upstream *undelete* restores the item's
+  old revisions, so its state comes back at a revision the mirror had already recorded, and
+  the follower's `put` tried to claim that revision ID twice (`activity_revid`, `(tenant,
+  revid)`). Fixed in `scatter-ingest::sync` (`undo.patch`): the sync now takes the highest
+  revision any record under the entity's key has claimed (`IngestStore::highest_revid`), a
+  tombstone or redirect in between notwithstanding, and writes the returning state as
+  `{revid}+{version}`, the "revision already claimed" form that key-map moves already used.
+  Test `an_undeleted_entity_comes_back_without_claiming_its_revision_twice`
+  (mutation-checked). Projection errors now carry the server's message
+  (`triplespace_projections::common::describe`), so the next such failure names its
+  constraint instead of saying `db error`.
+
   **Deviations to confirm** (flagged, not settled):
   - `source add` with a name already declared **updates** the record (label, API, licence) and
     keeps the number, as a config write does; the plan's "refuses" below was my guess. The types

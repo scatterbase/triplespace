@@ -1431,3 +1431,66 @@ fn a_history_adoption_keeps_every_revision_and_its_author() {
         assert_eq!(store.records(LOCAL).len(), 5);
     });
 }
+
+/// An upstream undelete brings an entity back at the revision its last state had (0092
+/// §2): the state is written again, under the "revision already claimed" form, since no
+/// two records may carry the same revision ID.
+#[test]
+fn an_undeleted_entity_comes_back_without_claiming_its_revision_twice() {
+    pollster::block_on(async {
+        let (store, pipeline) = setup();
+        let actor = Attestation::by("instance:scatter");
+        let sync = |items: Vec<SyncItem>, t: u64| {
+            run_sync(
+                &store,
+                &pipeline,
+                sync_header(Mode::Upsert),
+                actor.clone(),
+                items,
+                100,
+                registry(),
+                t,
+                50,
+            )
+        };
+        sync(vec![xd_state("XDQ7", "Seven", 70)], NOW)
+            .await
+            .unwrap();
+        let out = sync(
+            vec![SyncItem::Deleted {
+                id: EntityId::parse("XDQ7").unwrap(),
+                upstream: Upstream::default(),
+            }],
+            NOW + 1,
+        )
+        .await
+        .unwrap();
+        assert_eq!(out.counts.tombstoned, 1);
+        // Undeleted: the same state, the same upstream revision.
+        let out = sync(vec![xd_state("XDQ7", "Seven", 70)], NOW + 2)
+            .await
+            .unwrap();
+        assert_eq!(out.counts.created, 1, "{out:?}");
+        let ops = store.operations(MIRROR_XD);
+        let revisions: Vec<Option<u64>> = store
+            .records(MIRROR_XD)
+            .iter()
+            .filter(|r| r.header().key.as_deref() == Some("XDQ7"))
+            .map(|r| r.header().revid)
+            .collect();
+        let claimed: Vec<u64> = revisions.iter().flatten().copied().collect();
+        assert_eq!(
+            claimed.len(),
+            1,
+            "revision 70 is claimed once: {revisions:?}"
+        );
+        match ops.last().unwrap() {
+            Operation::Put { id, upstream, .. } => {
+                assert_eq!(id.as_str(), "XDQ7");
+                assert_eq!(upstream.revid, None);
+                assert_eq!(upstream.version.as_deref(), Some("70+2026-10-01"));
+            }
+            other => panic!("{other:?}"),
+        }
+    });
+}
