@@ -189,7 +189,10 @@ fn same_snaks(a: &[Snak], b: &[Snak]) -> bool {
     a.len() == b.len() && a.iter().zip(b).all(|(x, y)| same_snak(x, y))
 }
 
-fn same_reference(a: &Reference, b: &Reference) -> bool {
+/// Whether two references are the same: the same snaks under the same properties, in
+/// order. Footnotes and the page's endnotes number each such reference once (0003 §5).
+#[must_use]
+pub fn same_reference(a: &Reference, b: &Reference) -> bool {
     a.snaks.len() == b.snaks.len()
         && a.snaks
             .iter()

@@ -1,5 +1,5 @@
-// Watching (ADR 0020 §3; chapter 19 §6.2), with JavaScript off: the star on an entity, the
-// Watch for… menu with a span and Notify me, Special:EditWatchlist; a new account's topic
+// Watching (ADR 0020 §3; chapter 19 §6.2), with JavaScript off: the watch menu on an entity
+// with a span and Notify me, Special:EditWatchlist; a new account's topic
 // on the entity's talk page reaching Alice's watchlist as a change she has not seen and her
 // bell as a `watch` notification; Mark all changes as seen; removing the watch. Then axe.
 import { test, expect } from '@playwright/test';
@@ -38,11 +38,15 @@ test.describe.configure( { mode: 'serial' } );
 test( 'Alice watches an entity for a week, with notifications', async ( { page } ) => {
 	await logIn( page, 'Item:Q6' );
 	await expect( page ).toHaveURL( /\/wiki\/Item:Q6$/ );
-	await page.getByRole( 'button', { name: 'Watch', exact: true } ).click();
+	const menu = page.locator( '.ts-watch__menu summary' );
+	await expect( menu ).toHaveText( 'Watch' );
+	await menu.click();
+	await page.locator( '.ts-watch__form' ).getByRole( 'button', { name: 'Watch', exact: true } ).click();
 	await expect( page ).toHaveURL( /\/wiki\/Item:Q6$/ );
-	await expect( page.getByRole( 'button', { name: 'Unwatch', exact: true } ) ).toBeVisible();
+	await expect( menu ).toHaveText( 'Watching' );
 
-	await page.locator( '.ts-watch__more summary' ).click();
+	await menu.click();
+	await expect( page.getByRole( 'button', { name: 'Unwatch', exact: true } ) ).toBeVisible();
 	await page.getByLabel( 'For a week' ).check();
 	await page.getByLabel( 'Notify me of changes' ).check();
 	await page.getByRole( 'button', { name: 'Save', exact: true } ).click();
@@ -87,7 +91,7 @@ test( 'the watchlist pages and the menu pass axe, and the watch is removed', asy
 	const context = await browser.newContext( { javaScriptEnabled: true } );
 	const page = await context.newPage();
 	await logIn( page, 'Item:Q6' );
-	await page.locator( '.ts-watch__more summary' ).click();
+	await page.locator( '.ts-watch__menu summary' ).click();
 	expect( await violations( page ) ).toEqual( [] );
 	await page.goto( '/wiki/Special:Watchlist' );
 	expect( await violations( page ) ).toEqual( [] );

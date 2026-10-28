@@ -70,7 +70,12 @@ test( 'the group editor creates, sets, qualifies, sources and removes values', a
 	await expect( editor ).toHaveCount( 0 );
 	await expect( group ).toContainText( 'city' );
 	await expect( group ).toContainText( '2020' );
-	await expect( group ).toContainText( 'https://example.org/q1' );
+	// The source is the tab's reference 1, which the value's marker links to and which
+	// names the group citing it (0003 §5).
+	await expect( group.locator( 'a.ts-fn[href="#ts-ref-1"]' ) ).toHaveCount( 1 );
+	const references = page.locator( '.ts-endnotes' );
+	await expect( references.locator( '#ts-ref-1' ) ).toContainText( 'https://example.org/q1' );
+	await expect( references.locator( '#ts-ref-1 a[href="#P2"]' ) ).toHaveText( 'instance of' );
 	await matchesServer( page, 'P2' );
 
 	// Add a second value, then remove the first.
@@ -86,6 +91,8 @@ test( 'the group editor creates, sets, qualifies, sources and removes values', a
 	await expect( editor ).toHaveCount( 0 );
 	await expect( group ).not.toContainText( 'city' );
 	await expect( group ).toContainText( 'number' );
+	// The whole tab was swapped in: the only cited value is gone, and so are the references.
+	await expect( references ).toHaveCount( 0 );
 	await matchesServer( page, 'P2' );
 
 	// A quantity, and an invalid one first.

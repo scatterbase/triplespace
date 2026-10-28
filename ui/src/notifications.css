@@ -117,18 +117,30 @@
 	margin-block-start: var( --spacing-100, 1rem );
 }
 
-/* Watching (chapter 19 §6.2): the star and its menu at the end of the tabs, a change not
-   yet seen on the watchlist, and Special:EditWatchlist. */
+/* Watching (chapter 19 §6.2): the watch menu at the end of the tabs, a change not yet
+   seen on the watchlist, and Special:EditWatchlist. */
 
+/* The menu takes the free space before it, so that it and More sit together at the end
+   of the tabs. */
 .ts-watch {
 	display: flex;
 	align-items: center;
-	gap: var( --spacing-25, 0.25rem );
+	align-self: center;
 	margin-inline-start: auto;
 }
 
-.ts-watch__star {
+.ts-watch__form,
+.ts-watch__stop {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var( --spacing-75, 0.75rem );
 	margin: 0;
+}
+
+.ts-watch__stop {
+	padding-block-start: var( --spacing-75, 0.75rem );
+	border-top: 1px solid var( --border-color-muted, #dadde3 );
 }
 
 .ts-watch__icon {
@@ -156,6 +168,7 @@
 }
 
 .ts-watch__until {
+	margin: 0;
 	color: var( --color-subtle, #54595d );
 	font-size: var( --font-size-small, 0.875rem );
 }

@@ -588,6 +588,7 @@ pub async fn serve(
             provenance,
             roles: &roles,
             editable: false,
+            notes: super::Endnotes::default(),
         };
         let facts = rev.as_ref().expect("checked above");
         let banner = pages::message(
@@ -707,6 +708,7 @@ pub async fn serve(
         provenance,
         roles: &roles,
         editable: false,
+        notes: super::Endnotes::default(),
     };
     let m = &cx.m;
     let mut body = String::from("<div class=\"ts-diff\">");

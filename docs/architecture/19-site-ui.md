@@ -569,8 +569,9 @@ Rank is shown only when it changes what a reader or a query sees.
 
 **References** are compared by the `hash` that canonical JSON gives each reference.
 
-- If one hash appears on every statement in V, that reference is shown once, as footnote 1, labeled "Cited by all N values".
-- Otherwise, distinct references are numbered in the order they first appear in the group. Each row shows its footnote numbers, and the footnotes are listed at the foot of the group.
+- If one reference appears on every statement in V, the group's footer says so once, "Cited by all N values", with its marker, and the rows do not repeat it.
+- **A tab's references are its endnotes** ([0003](../decisions/0003-statement-ui.md) A17). Each distinct reference that the tab's groups cite, a deprecated value's included, is numbered once, in the order it first appears down the tab, and listed under **References** at the foot of the tab, with the groups that cite it ("Cited for …", each a link to its group). Each row shows the numbers of its references as markers linking to them, so a reference that many groups cite is written out once.
+- A group rendered alone (the `statements/{P}` region) carries the numbers the whole tab gives it, and the editor swaps in the whole tab after a save, since a new reference renumbers the groups after it.
 - Statements with no reference carry no marker. The footer counts them, for example "2 values have no source".
 
 ### 4.6 Provenance
@@ -593,7 +594,7 @@ Where there is one:
 - A statement gets a source chip (`WD`, `OA` or "Local") only when its graph is not the dominant one. A statement asserted by two graphs shows the dominant one, and the chip's hover lists both.
 - A "Where this comes from" panel lists, for each graph:
   - how many statements it asserts;
-  - when it last synced, for a mirror;
+  - when it last synced, and the upstream revision it holds, for a mirror; the revision links to its page upstream where the provider is a MediaWiki that publishes revision IDs ([0003](../decisions/0003-statement-ui.md) A17);
   - the entity's retention policy ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §5);
   - the actions to change retention or convert the entity to a local one ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §6).
 
@@ -628,11 +629,11 @@ The shapes are arrangements of twelve shared components, not separate widgets.
 | Component | Contents |
 |---|---|
 | Property row | The property label (a link), the value count, and the group card |
-| Group card | A header with the sort note, view switch, Add value button and menu; a body holding the shape; a footer with hoisted qualifiers and footnotes |
+| Group card | A header with the sort note, view switch, Add value button and menu; a body holding the shape; a footer with hoisted qualifiers, the reference every value cites, and the count of values without a source |
 | View switch | A segmented control listing only the shapes this group allows; hidden when only one applies |
 | Value cell | The value, formatted by data type; quantities use tabular numerals |
 | Qualifier column | A header with the qualifier property's label, and a cell for each row |
-| Footnote marker | A numbered pill linking to its footnote |
+| Footnote marker | A numbered pill linking to its entry in the tab's References (§4.5) |
 | Best value badge | A check icon and "Best value", with the tooltip from §4.4 |
 | Fold | A disclosure button: "N other values" or "N deprecated" |
 | Source chip | The provider code in monospace, or "Local" |
@@ -804,12 +805,12 @@ The data model of threads, posts and boards is [14](14-discussions.md).
 
 ### 6.2 Notifications and watching
 
-*Sources: [0021](../decisions/0021-notifications.md) §6, A20.*
+*Sources: [0021](../decisions/0021-notifications.md) §6, A20, A22.*
 
 - **The bell** in the global header, for a signed-in reader, is a link to `Special:Notifications` with the unread count, to 99 and then `99+`, marked while something unread is newer than `seen_at`; opening the inbox sets `seen_at`, which clears the mark. A panel over the page needs JavaScript and waits for it; without it the bell is the link ([0021](../decisions/0021-notifications.md) A20). Items link to the post they are about (`#post-{revid}` on its thread) or to the user page, and each unread one has mark-read.
 - **`Special:Notifications`** is the inbox as a page, filterable by reason and read state, with mark-all-read.
 - **`Special:Account`** has the **Notifications** section of §2.4.
-- **Watch controls** are the star at the end of the tabs of a page, an entity, a talk page or a thread, and a **Watch for…** menu beside it, both forms that work without JavaScript: the star watches permanently or stops watching; the menu watches for a week, a month, three months, six months or permanently, with **Notify me of changes**, which sets `notify` on the watch row. A watch that lapses says until when. Subscribing to a thread is watching it with `notify` ([16](16-logs-feeds-and-notifications.md) §4.3; [0021](../decisions/0021-notifications.md) A21).
+- **The watch control** is one menu at the end of the tabs of a page, an entity, a talk page or a thread, before **More**, as forms that work without JavaScript ([0021](../decisions/0021-notifications.md) A22). Its button is the star with **Watch**, or a filled star with **Watching** for a watched title. It opens how long to watch (permanently, a week, a month, three months or six months) and **Notify me of changes**, which sets `notify` on the watch row, submitted with **Watch**, or **Save** for a watched title; a watched title's menu also has **Unwatch**. A watch that lapses says until when, in the menu and on the button's hover. Subscribing to a thread is watching it with `notify` ([16](16-logs-feeds-and-notifications.md) §4.3; [0021](../decisions/0021-notifications.md) A21).
 - **`Special:Watchlist`** lists the changes to what the reader watches as recent changes does, mirror syncs included, marking in bold what they have not seen, with **Mark all changes as seen**; **`Special:EditWatchlist`** lists every watch, how long it lasts and whether it notifies, with **Remove selected**. Both are labelled Private and linked from the account menu.
 - **The orange bar** is kept in spirit: an unread `talk` notification shows a persistent banner until read, as MediaWiki's "You have new messages" did, because a message on one's talk page is the one notification a wiki must not let pass. It links to the reader's talk page and is not drawn there; reading one's own talk page marks its `talk` notifications read, as visiting it cleared MediaWiki's ([0021](../decisions/0021-notifications.md) A20).
 

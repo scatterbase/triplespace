@@ -107,8 +107,8 @@ expression: "html.replace(\"><\", \">\\n<\")"
 </dl>
 </td>
 <td> <span class="ts-fns">
-<a class="ts-fn" href="#WDP1082-fn-1" aria-label="Source 1">1</a>
-<a class="ts-fn" href="#WDP1082-fn-2" aria-label="Source 2">2</a>
+<a class="ts-fn" href="#ts-ref-22" aria-label="Source 22">22</a>
+<a class="ts-fn" href="#ts-ref-23" aria-label="Source 23">23</a>
 </span>
 </td>
 </tr>
@@ -120,7 +120,7 @@ expression: "html.replace(\"><\", \">\\n<\")"
 <span class="ts-number">3,990,456</span>
 </td>
 <td> <span class="ts-fns">
-<a class="ts-fn" href="#WDP1082-fn-3" aria-label="Source 3">3</a>
+<a class="ts-fn" href="#ts-ref-24" aria-label="Source 24">24</a>
 </span>
 </td>
 </tr>
@@ -132,7 +132,7 @@ expression: "html.replace(\"><\", \">\\n<\")"
 <span class="ts-number">3,976,322</span>
 </td>
 <td> <span class="ts-fns">
-<a class="ts-fn" href="#WDP1082-fn-3" aria-label="Source 3">3</a>
+<a class="ts-fn" href="#ts-ref-24" aria-label="Source 24">24</a>
 </span>
 </td>
 </tr>
@@ -172,8 +172,8 @@ expression: "html.replace(\"><\", \">\\n<\")"
 </dl>
 </td>
 <td> <span class="ts-fns">
-<a class="ts-fn" href="#WDP1082-fn-4" aria-label="Source 4">4</a>
-<a class="ts-fn" href="#WDP1082-fn-5" aria-label="Source 5">5</a>
+<a class="ts-fn" href="#ts-ref-25" aria-label="Source 25">25</a>
+<a class="ts-fn" href="#ts-ref-26" aria-label="Source 26">26</a>
 </span>
 </td>
 </tr>
@@ -195,7 +195,7 @@ expression: "html.replace(\"><\", \">\\n<\")"
 <span class="ts-number">102,479</span>
 </td>
 <td> <span class="ts-fns">
-<a class="ts-fn" href="#WDP1082-fn-6" aria-label="Source 6">6</a>
+<a class="ts-fn" href="#ts-ref-27" aria-label="Source 27">27</a>
 </span>
 </td>
 </tr>
@@ -207,7 +207,7 @@ expression: "html.replace(\"><\", \">\\n<\")"
 <span class="ts-number">50,395</span>
 </td>
 <td> <span class="ts-fns">
-<a class="ts-fn" href="#WDP1082-fn-7" aria-label="Source 7">7</a>
+<a class="ts-fn" href="#ts-ref-28" aria-label="Source 28">28</a>
 </span>
 </td>
 </tr>
@@ -219,7 +219,7 @@ expression: "html.replace(\"><\", \">\\n<\")"
 <span class="ts-number">11,183</span>
 </td>
 <td> <span class="ts-fns">
-<a class="ts-fn" href="#WDP1082-fn-6" aria-label="Source 6">6</a>
+<a class="ts-fn" href="#ts-ref-27" aria-label="Source 27">27</a>
 </span>
 </td>
 </tr>
@@ -260,196 +260,6 @@ expression: "html.replace(\"><\", \">\\n<\")"
 </div>
 </div>
 <div class="ts-group__footer">
-<ol class="ts-footnotes" aria-label="Sources">
-<li id="WDP1082-fn-1">
-<dl class="ts-snaks">
-<div class="ts-snaks__row">
-<dt>
-<a href="/wiki/Property:WDP854">
-<span class="ts-mono">WDP854</span>
-</a>
-</dt>
-<dd>
-<a href="https://data.census.gov/cedsci/table?q=United%20States&amp;tid=DECENNIALPL2020.P1" class="external" rel="nofollow ugc noopener" dir="ltr">https://data.census.gov/cedsci/table?q=United%20States&amp;tid=DECENNIALPL2020.P1</a>
-</dd>
-</div>
-<div class="ts-snaks__row">
-<dt>
-<a href="/wiki/Property:WDP813">
-<span class="ts-mono">WDP813</span>
-</a>
-</dt>
-<dd>
-<span class="ts-time">21 September 2021</span>
-</dd>
-</div>
-</dl>
-</li>
-<li id="WDP1082-fn-2">
-<dl class="ts-snaks">
-<div class="ts-snaks__row">
-<dt>
-<a href="/wiki/Property:WDP248">
-<span class="ts-mono">WDP248</span>
-</a>
-</dt>
-<dd>
-<a href="/wiki/Item:WDQ23766566">
-<span class="ts-mono">WDQ23766566</span>
-</a>
-</dd>
-</div>
-<div class="ts-snaks__row">
-<dt>
-<a href="/wiki/Property:WDP813">
-<span class="ts-mono">WDP813</span>
-</a>
-</dt>
-<dd>
-<span class="ts-time">1 January 2022</span>
-</dd>
-</div>
-<div class="ts-snaks__row">
-<dt>
-<a href="/wiki/Property:WDP854">
-<span class="ts-mono">WDP854</span>
-</a>
-</dt>
-<dd>
-<a href="https://data.census.gov/cedsci/table?t=Populations%20and%20People&amp;g=0100000US,%241600000&amp;y=2020" class="external" rel="nofollow ugc noopener" dir="ltr">https://data.census.gov/cedsci/table?t=Populations%20and%20People&amp;g=0100000US,%241600000&amp;y=2020</a>
-</dd>
-</div>
-<div class="ts-snaks__row">
-<dt>
-<a href="/wiki/Property:WDP98">
-<span class="ts-mono">WDP98</span>
-</a>
-</dt>
-<dd>
-<a href="/wiki/Item:WDQ637413">
-<span class="ts-mono">WDQ637413</span>
-</a>
-</dd>
-</div>
-</dl>
-</li>
-<li id="WDP1082-fn-3">
-<dl class="ts-snaks">
-<div class="ts-snaks__row">
-<dt>
-<a href="/wiki/Property:WDP854">
-<span class="ts-mono">WDP854</span>
-</a>
-</dt>
-<dd>
-<a href="https://factfinder.census.gov/faces/tableservices/jsf/pages/productview.xhtml?src=bkmk" class="external" rel="nofollow ugc noopener" dir="ltr">https://factfinder.census.gov/faces/tableservices/jsf/pages/productview.xhtml?src=bkmk</a>
-</dd>
-</div>
-</dl>
-</li>
-<li id="WDP1082-fn-4">
-<dl class="ts-snaks">
-<div class="ts-snaks__row">
-<dt>
-<a href="/wiki/Property:WDP248">
-<span class="ts-mono">WDP248</span>
-</a>
-</dt>
-<dd>
-<a href="/wiki/Item:WDQ107569809">
-<span class="ts-mono">WDQ107569809</span>
-</a>
-</dd>
-</div>
-<div class="ts-snaks__row">
-<dt>
-<a href="/wiki/Property:WDP813">
-<span class="ts-mono">WDP813</span>
-</a>
-</dt>
-<dd>
-<span class="ts-time">9 July 2020</span>
-</dd>
-</div>
-</dl>
-</li>
-<li id="WDP1082-fn-5">
-<dl class="ts-snaks">
-<div class="ts-snaks__row">
-<dt>
-<a href="/wiki/Property:WDP248">
-<span class="ts-mono">WDP248</span>
-</a>
-</dt>
-<dd>
-<a href="/wiki/Item:WDQ523716">
-<span class="ts-mono">WDQ523716</span>
-</a>
-</dd>
-</div>
-<div class="ts-snaks__row">
-<dt>
-<a href="/wiki/Property:WDP813">
-<span class="ts-mono">WDP813</span>
-</a>
-</dt>
-<dd>
-<span class="ts-time">10 May 2022</span>
-</dd>
-</div>
-<div class="ts-snaks__row">
-<dt>
-<a href="/wiki/Property:WDP854">
-<span class="ts-mono">WDP854</span>
-</a>
-</dt>
-<dd>
-<a href="https://data.census.gov/cedsci/table?g=0100000US%241600000&amp;y=2010&amp;d=DEC%20Redistricting%20Data%20%28PL%2094-171%29" class="external" rel="nofollow ugc noopener" dir="ltr">https://data.census.gov/cedsci/table?g=0100000US%241600000&amp;y=2010&amp;d=DEC%20Redistricting%20Data%20%28PL%2094-171%29</a>
-</dd>
-</div>
-<div class="ts-snaks__row">
-<dt>
-<a href="/wiki/Property:WDP98">
-<span class="ts-mono">WDP98</span>
-</a>
-</dt>
-<dd>
-<a href="/wiki/Item:WDQ637413">
-<span class="ts-mono">WDQ637413</span>
-</a>
-</dd>
-</div>
-</dl>
-</li>
-<li id="WDP1082-fn-6">
-<dl class="ts-snaks">
-<div class="ts-snaks__row">
-<dt>
-<a href="/wiki/Property:WDP854">
-<span class="ts-mono">WDP854</span>
-</a>
-</dt>
-<dd>
-<a href="http://www.laalmanac.com/population/po02.htm" class="external" rel="nofollow ugc noopener" dir="ltr">http://www.laalmanac.com/population/po02.htm</a>
-</dd>
-</div>
-</dl>
-</li>
-<li id="WDP1082-fn-7">
-<dl class="ts-snaks">
-<div class="ts-snaks__row">
-<dt>
-<a href="/wiki/Property:WDP854">
-<span class="ts-mono">WDP854</span>
-</a>
-</dt>
-<dd>
-<a href="http://physics.bu.edu/~redner/projects/population/cities/la.html" class="external" rel="nofollow ugc noopener" dir="ltr">http://physics.bu.edu/~redner/projects/population/cities/la.html</a>
-</dd>
-</div>
-</dl>
-</li>
-</ol>
 <p class="ts-subtle ts-unsourced">4 values have no source</p>
 </div>
 </div>

@@ -1,12 +1,11 @@
-//! Watching (0020 §3; 19 §6.2): the star and its **Watch for…** menu on a page, entity,
-//! talk page or thread, without JavaScript; the forms they post; and the seen mark a
-//! watcher's visit clears.
+//! Watching (0020 §3; 19 §6.2): the watch menu on a page, entity, talk page or thread,
+//! without JavaScript; the forms it posts; and the seen mark a watcher's visit clears.
 //!
-//! - **The star** posts `action=watch` (a permanent watch, *notify me* kept) or
-//!   `action=unwatch` to the title.
-//! - **Watch for…** is a disclosure holding one form: how long (permanently, a week, a
+//! - **The menu's button** is the star with **Watch**, or a filled star with
+//!   **Watching**. It is a disclosure holding one form: how long (permanently, a week, a
 //!   month, three months, six months) and *Notify me*, which sets `notify` on the watch
-//!   (16 §4.3). Saving it watches the title with both.
+//!   (16 §4.3). Submitting it posts `action=watch` with both.
+//! - **Unwatch**, in the menu of a watched title, posts `action=unwatch`.
 //! - **Visiting** a watched page with changes the viewer has not seen marks them seen, as
 //!   MediaWiki clears the watchlist's bold on a visit.
 //!
@@ -23,7 +22,7 @@ use crate::features::Feature;
 use crate::frame::{Page, WatchControl, title_url};
 use crate::pages::{self, Context, Params};
 
-/// The spans **Watch for…** offers, as `action=watch`'s `expiry` takes them, with their
+/// The spans the watch menu offers, as `action=watch`'s `expiry` takes them, with their
 /// labels' message keys.
 pub const SPANS: &[(&str, &str)] = &[
     ("infinite", "ts-watch-permanent"),

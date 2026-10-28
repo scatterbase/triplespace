@@ -27,7 +27,7 @@ expression: "html.replace(\"><\", \">\\n<\")"
 <span class="ts-mono">WDQ461739</span>
 </a>
 </span> <span class="ts-chip ts-chip--best" title="Queries and infoboxes return only this value">Best value</span> <span class="ts-fns">
-<a class="ts-fn" href="#WDP6-fn-1" aria-label="Source 1">1</a>
+<a class="ts-fn" href="#ts-ref-1" aria-label="Source 1">1</a>
 </span>
 </div>
 <p class="ts-period">since <bdi>
@@ -78,7 +78,7 @@ expression: "html.replace(\"><\", \">\\n<\")"
 <span class="ts-mono">WDQ5386557</span>
 </a>
 </span> <span class="ts-fns">
-<a class="ts-fn" href="#WDP6-fn-2" aria-label="Source 2">2</a>
+<a class="ts-fn" href="#ts-ref-2" aria-label="Source 2">2</a>
 </span>
 </div>
 <p class="ts-period">
@@ -90,57 +90,5 @@ expression: "html.replace(\"><\", \">\\n<\")"
 </p>
 </li>
 </ol>
-<div class="ts-group__footer">
-<ol class="ts-footnotes" aria-label="Sources">
-<li id="WDP6-fn-1">
-<dl class="ts-snaks">
-<div class="ts-snaks__row">
-<dt>
-<a href="/wiki/Property:WDP854">
-<span class="ts-mono">WDP854</span>
-</a>
-</dt>
-<dd>
-<a href="https://mayor.lacity.gov/about-mayor-karen-bass" class="external" rel="nofollow ugc noopener" dir="ltr">https://mayor.lacity.gov/about-mayor-karen-bass</a>
-</dd>
-</div>
-<div class="ts-snaks__row">
-<dt>
-<a href="/wiki/Property:WDP813">
-<span class="ts-mono">WDP813</span>
-</a>
-</dt>
-<dd>
-<span class="ts-time">12 February 2023</span>
-</dd>
-</div>
-</dl>
-</li>
-<li id="WDP6-fn-2">
-<dl class="ts-snaks">
-<div class="ts-snaks__row">
-<dt>
-<a href="/wiki/Property:WDP854">
-<span class="ts-mono">WDP854</span>
-</a>
-</dt>
-<dd>
-<a href="https://www.lamayor.org/" class="external" rel="nofollow ugc noopener" dir="ltr">https://www.lamayor.org/</a>
-</dd>
-</div>
-<div class="ts-snaks__row">
-<dt>
-<a href="/wiki/Property:WDP813">
-<span class="ts-mono">WDP813</span>
-</a>
-</dt>
-<dd>
-<span class="ts-time">17 June 2022</span>
-</dd>
-</div>
-</dl>
-</li>
-</ol>
-</div>
 </div>
 </section>

@@ -13,7 +13,7 @@ use scatter_wikibase_model::statement::{Reference, SnakGroups, Statement};
 use super::Render;
 use crate::codex::{Accordion, Align, Cell, Chip, ChipKind, Column, Table};
 use crate::frame::title_url;
-use crate::html::{esc, lang_attrs, link};
+use crate::html::{esc, lang_attrs, link, linkable};
 
 pub(super) fn chip(kind: ChipKind, text: &str) -> String {
     Chip::new(kind, text).render().unwrap_or_default()
@@ -249,7 +249,7 @@ impl Render<'_> {
             .or_else(|| self.lookup.datatype(property).map(str::to_string))
     }
 
-    fn is_identifier(&self, property: &str, statements: &[Statement]) -> bool {
+    pub(super) fn is_identifier(&self, property: &str, statements: &[Statement]) -> bool {
         self.datatype_of(property, statements).as_deref() == Some("external-id")
     }
 
@@ -333,9 +333,9 @@ impl Render<'_> {
         chip(ChipKind::Namespace, graph)
     }
 
-    /// The groups of one tab, in property order: by provider, then by number, so that
-    /// `P2` comes before `P10` (the API serves them in canonical, textual order).
-    fn groups(&self, identifiers: bool) -> String {
+    /// The properties of one tab, in property order: by provider, then by number, so
+    /// that `P2` comes before `P10` (the API serves them in canonical, textual order).
+    pub(super) fn tab_properties(&self, identifiers: bool) -> Vec<&str> {
         let mut props: Vec<&str> = self
             .entity
             .statements
@@ -344,6 +344,13 @@ impl Render<'_> {
             .map(|(p, _)| p.as_str())
             .collect();
         props.sort_by_key(|p| property_order(p));
+        props
+    }
+
+    /// The groups of one tab, with its references numbered across them.
+    fn groups(&self, identifiers: bool) -> String {
+        let props = self.tab_properties(identifiers);
+        self.prime(&props);
         props.into_iter().map(|p| self.group(p)).collect()
     }
 
@@ -358,7 +365,7 @@ impl Render<'_> {
         )
     }
 
-    /// The Statements tab: its groups and "Where this comes from".
+    /// The Statements tab: its groups, their references and "Where this comes from".
     #[must_use]
     pub fn statements_tab(&self) -> String {
         let mut groups = self.groups(false);
@@ -369,8 +376,9 @@ impl Render<'_> {
             );
         }
         groups.push_str(&self.add_statement());
+        groups.push_str(&self.endnotes());
         format!(
-            "<div class=\"ts-entity\"><div class=\"ts-entity__main\"><h2 class=\"ts-visually-hidden\">{}</h2>{groups}</div>{}</div>",
+            "<div class=\"ts-entity\" data-region=\"statements\"><div class=\"ts-entity__main\"><h2 class=\"ts-visually-hidden\">{}</h2>{groups}</div>{}</div>",
             esc(&self.m.get("ts-tab-statements")),
             self.sources()
         )
@@ -387,6 +395,7 @@ impl Render<'_> {
             );
         }
         groups.push_str(&self.add_statement());
+        groups.push_str(&self.endnotes());
         format!("<div class=\"ts-identifiers\" data-region=\"identifiers\">{groups}</div>")
     }
 
@@ -549,12 +558,18 @@ impl Render<'_> {
                         esc(&self.m.with("ts-sources-statements", &[&n]))
                     );
                     if let Some(at) = &g.synced_at {
-                        let mut line = self.m.with("ts-sources-synced", &[&self.date(at)]);
+                        let mut line = esc(&self.m.with("ts-sources-synced", &[&self.date(at)]));
                         if let Some(v) = &g.upstream_version {
+                            // The revision links to its page upstream, where the API says
+                            // where that is.
+                            let rev = esc(&self.m.with("ts-sources-upstream", &[v]));
                             line.push_str(" · ");
-                            line.push_str(&self.m.with("ts-sources-upstream", &[v]));
+                            match &g.upstream_url {
+                                Some(u) if linkable(u) => line.push_str(&link(u, &rev, "")),
+                                _ => line.push_str(&rev),
+                            }
                         }
-                        let _ = write!(s, "<p class=\"ts-subtle\">{}</p>", esc(&line));
+                        let _ = write!(s, "<p class=\"ts-subtle\">{line}</p>");
                     }
                     s.push_str("</section>");
                 }

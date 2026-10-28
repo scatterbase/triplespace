@@ -1307,6 +1307,15 @@ async fn what_the_site_reads(router: &Router, database: &str) {
     assert_eq!(graphs, ["local", "mirror/internetdomains"]);
     let mirror = &p["graphs"][1];
     assert!(mirror.get("upstream_version").is_some(), "{mirror}");
+    // The upstream is a MediaWiki that publishes revision IDs: its revision has a page.
+    assert_eq!(
+        mirror["upstream_url"],
+        format!(
+            "https://internetdomains.wiki/w/index.php?oldid={}",
+            mirror["upstream_version"].as_str().unwrap()
+        ),
+        "{mirror}"
+    );
     assert_eq!(mirror["history"], "latest");
     assert!(mirror.get("job").is_some(), "the sync job: {mirror}");
     // One statement each; a tie goes to the earlier graph, local first.

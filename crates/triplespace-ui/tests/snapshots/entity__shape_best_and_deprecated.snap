@@ -16,7 +16,7 @@ expression: "html.replace(\"><\", \">\\n<\")"
 <span class="ts-mono">WDQ2199</span>
 </a>
 </span> <span class="ts-chip ts-chip--best" title="Queries and infoboxes return only this value">Best value</span> <span class="ts-fns">
-<a class="ts-fn" href="#WDP31-fn-1" aria-label="Source 1">1</a>
+<a class="ts-fn" href="#ts-ref-2" aria-label="Source 2">2</a>
 </span>
 </div>
 <dl class="ts-qualifiers">
@@ -55,7 +55,7 @@ expression: "html.replace(\"><\", \">\\n<\")"
 <span class="ts-mono">WDQ131731</span>
 </a>
 </span> <span class="ts-fns">
-<a class="ts-fn" href="#WDP31-fn-2" aria-label="Source 2">2</a>
+<a class="ts-fn" href="#ts-ref-3" aria-label="Source 3">3</a>
 </span>
 </div>
 </li>
@@ -66,7 +66,7 @@ expression: "html.replace(\"><\", \">\\n<\")"
 <span class="ts-mono">WDQ6592</span>
 </a>
 </span> <span class="ts-fns">
-<a class="ts-fn" href="#WDP31-fn-2" aria-label="Source 2">2</a>
+<a class="ts-fn" href="#ts-ref-3" aria-label="Source 3">3</a>
 </span>
 </div>
 </li>
@@ -77,7 +77,7 @@ expression: "html.replace(\"><\", \">\\n<\")"
 <span class="ts-mono">WDQ6599</span>
 </a>
 </span> <span class="ts-fns">
-<a class="ts-fn" href="#WDP31-fn-2" aria-label="Source 2">2</a>
+<a class="ts-fn" href="#ts-ref-3" aria-label="Source 3">3</a>
 </span>
 </div>
 </li>
@@ -88,7 +88,7 @@ expression: "html.replace(\"><\", \">\\n<\")"
 <span class="ts-mono">WDQ2517610</span>
 </a>
 </span> <span class="ts-fns">
-<a class="ts-fn" href="#WDP31-fn-2" aria-label="Source 2">2</a>
+<a class="ts-fn" href="#ts-ref-3" aria-label="Source 3">3</a>
 </span>
 </div>
 </li>
@@ -99,7 +99,7 @@ expression: "html.replace(\"><\", \">\\n<\")"
 <span class="ts-mono">WDQ11290231</span>
 </a>
 </span> <span class="ts-fns">
-<a class="ts-fn" href="#WDP31-fn-3" aria-label="Source 3">3</a>
+<a class="ts-fn" href="#ts-ref-4" aria-label="Source 4">4</a>
 </span>
 </div>
 </li>
@@ -114,6 +114,8 @@ expression: "html.replace(\"><\", \">\\n<\")"
 <a href="/wiki/Item:WDQ634">
 <span class="ts-mono">WDQ634</span>
 </a>
+</span> <span class="ts-fns">
+<a class="ts-fn" href="#ts-ref-2" aria-label="Source 2">2</a>
 </span>
 </div>
 <dl class="ts-qualifiers">
@@ -128,103 +130,8 @@ expression: "html.replace(\"><\", \">\\n<\")"
 </dd>
 </div>
 </dl>
-<details class="cdx-accordion">
-	<summary>
-<span class="cdx-accordion__header">
-<span class="cdx-accordion__header__title">1 reference</span>
-</span>
-</summary>
-	<div class="cdx-accordion__content">
-<ol class="ts-references">
-<li>
-<dl class="ts-snaks">
-<div class="ts-snaks__row">
-<dt>
-<a href="/wiki/Property:WDP1065">
-<span class="ts-mono">WDP1065</span>
-</a>
-</dt>
-<dd>
-<a href="https://web.archive.org/web/20070205035336/http://www.cfa.harvard.edu/iau/special/08747.pdf" class="external" rel="nofollow ugc noopener" dir="ltr">https://web.archive.org/web/20070205035336/http://www.cfa.harvard.edu/iau/special/08747.pdf</a>
-</dd>
-</div>
-<div class="ts-snaks__row">
-<dt>
-<a href="/wiki/Property:WDP813">
-<span class="ts-mono">WDP813</span>
-</a>
-</dt>
-<dd>
-<span class="ts-time">1 March 2026</span>
-</dd>
-</div>
-</dl>
-</li>
-</ol>
-</div>
-</details>
 </li>
 </ol>
 </details>
-<div class="ts-group__footer">
-<ol class="ts-footnotes" aria-label="Sources">
-<li id="WDP31-fn-1">
-<dl class="ts-snaks">
-<div class="ts-snaks__row">
-<dt>
-<a href="/wiki/Property:WDP1065">
-<span class="ts-mono">WDP1065</span>
-</a>
-</dt>
-<dd>
-<a href="https://web.archive.org/web/20070205035336/http://www.cfa.harvard.edu/iau/special/08747.pdf" class="external" rel="nofollow ugc noopener" dir="ltr">https://web.archive.org/web/20070205035336/http://www.cfa.harvard.edu/iau/special/08747.pdf</a>
-</dd>
-</div>
-<div class="ts-snaks__row">
-<dt>
-<a href="/wiki/Property:WDP813">
-<span class="ts-mono">WDP813</span>
-</a>
-</dt>
-<dd>
-<span class="ts-time">1 March 2026</span>
-</dd>
-</div>
-</dl>
-</li>
-<li id="WDP31-fn-2">
-<dl class="ts-snaks">
-<div class="ts-snaks__row">
-<dt>
-<a href="/wiki/Property:WDP143">
-<span class="ts-mono">WDP143</span>
-</a>
-</dt>
-<dd>
-<a href="/wiki/Item:WDQ177837">
-<span class="ts-mono">WDQ177837</span>
-</a>
-</dd>
-</div>
-</dl>
-</li>
-<li id="WDP31-fn-3">
-<dl class="ts-snaks">
-<div class="ts-snaks__row">
-<dt>
-<a href="/wiki/Property:WDP248">
-<span class="ts-mono">WDP248</span>
-</a>
-</dt>
-<dd>
-<a href="/wiki/Item:WDQ654724">
-<span class="ts-mono">WDQ654724</span>
-</a>
-</dd>
-</div>
-</dl>
-</li>
-</ol>
-</div>
 </div>
 </section>

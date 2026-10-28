@@ -20,7 +20,7 @@ expression: main_of(&html)
 		<a class="ts-tabs__link" href="/wiki/Item:Q6?action=history">History</a>
 	</nav>
 	<div class="ts-page__body">
-		<div class="ts-entity">
+		<div class="ts-entity" data-region="statements">
 <div class="ts-entity__main">
 <h2 class="ts-visually-hidden">Statements</h2>
 <section class="ts-group ts-group--chips" id="P2" data-region="statements/P2" data-shape="chips">
@@ -72,7 +72,7 @@ expression: main_of(&html)
 <a href="/wiki/Item:Q5" title="Q5">inhabitant</a>
 </span>
 </span> <span class="ts-fns">
-<a class="ts-fn" href="#P3-fn-1" aria-label="Source 1">1</a>
+<a class="ts-fn" href="#ts-ref-1" aria-label="Source 1">1</a>
 </span>
 </div>
 <dl class="ts-qualifiers">
@@ -85,30 +85,6 @@ expression: main_of(&html)
 </dd>
 </div>
 </dl>
-</div>
-<div class="ts-group__footer">
-<ol class="ts-footnotes" aria-label="Sources">
-<li id="P3-fn-1">
-<dl class="ts-snaks">
-<div class="ts-snaks__row">
-<dt>
-<a href="/wiki/Property:P10" title="P10">stated in</a>
-</dt>
-<dd>
-<a href="/wiki/Item:Q3" title="Q3">Example Gazette</a>
-</dd>
-</div>
-<div class="ts-snaks__row">
-<dt>
-<a href="/wiki/Property:P11" title="P11">reference URL</a>
-</dt>
-<dd>
-<a href="https://example.org/census" class="external" rel="nofollow ugc noopener" dir="ltr">https://example.org/census</a>
-</dd>
-</div>
-</dl>
-</li>
-</ol>
 </div>
 </div>
 </section>
@@ -195,6 +171,35 @@ expression: main_of(&html)
 </div>
 </div>
 </div>
+</section>
+<section class="ts-endnotes" aria-labelledby="ts-endnotes-title">
+<h2 class="ts-endnotes__title" id="ts-endnotes-title">References</h2>
+<ol class="ts-endnotes__list">
+<li id="ts-ref-1">
+<dl class="ts-snaks">
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:P10" title="P10">stated in</a>
+</dt>
+<dd>
+<a href="/wiki/Item:Q3" title="Q3">Example Gazette</a>
+</dd>
+</div>
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:P11" title="P11">reference URL</a>
+</dt>
+<dd>
+<a href="https://example.org/census" class="external" rel="nofollow ugc noopener" dir="ltr">https://example.org/census</a>
+</dd>
+</div>
+</dl>
+<p class="ts-endnotes__cited">Cited for <bdi>
+<a href="#P3">population</a>
+</bdi>
+</p>
+</li>
+</ol>
 </section>
 </div>
 <aside class="ts-sources" aria-labelledby="ts-sources-title">

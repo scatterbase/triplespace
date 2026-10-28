@@ -4705,6 +4705,11 @@
             "type": "string",
             "description": "The upstream version that record carries, for a mirror."
           },
+          "upstream_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "The page of that upstream revision, where the provider is a MediaWiki that publishes revision IDs."
+          },
           "job": {
             "type": "integer",
             "description": "The job that wrote it."

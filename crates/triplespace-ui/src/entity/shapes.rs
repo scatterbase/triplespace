@@ -7,7 +7,8 @@
 //! - The view switch (Series: chart or table; Table: table or Matrix) is a pair of radio
 //!   buttons in a `<fieldset>`; the stylesheet hides the panel not chosen with `:has()`.
 //!   A browser without `:has()` shows both panels, one under the other.
-//! - Footnote markers are links to the footnotes at the foot of the group.
+//! - Footnote markers are links to the tab's endnotes (`notes`): each distinct reference
+//!   is listed once at the foot of the tab, however many groups cite it.
 //!
 //! Where 0003 leaves a case open, the choice made here:
 //!
@@ -41,6 +42,8 @@ struct Card<'s> {
     property: &'s str,
     st: &'s [Statement],
     g: Group,
+    /// The tab's number for each of the group's footnotes (`g.footnotes.notes`).
+    nums: Vec<usize>,
 }
 
 impl Card<'_> {
@@ -136,10 +139,13 @@ impl Render<'_> {
             .find(|(p, _)| p.as_str() == property)
             .map_or(&[][..], |(_, v)| v.as_slice());
         let dt = self.datatype_of(property, st);
+        let g = classify(st, dt.as_deref(), self.roles, &Thresholds::default());
+        let nums = self.cite(property, st, &g);
         let c = Card {
             property,
             st,
-            g: classify(st, dt.as_deref(), self.roles, &Thresholds::default()),
+            g,
+            nums,
         };
         let shape = c.g.shape.name();
         let pid = esc(property);
@@ -203,6 +209,100 @@ impl Render<'_> {
         s
     }
 
+    /// Numbers a group's references in the tab's endnotes, in the order the group shows
+    /// them: its footnotes, then its deprecated values' references. Returns the numbers
+    /// of its footnotes.
+    fn cite(&self, property: &str, st: &[Statement], g: &Group) -> Vec<usize> {
+        let nums = g
+            .footnotes
+            .notes
+            .iter()
+            .map(|&(si, ri)| self.notes.number(&st[si].references[ri], property))
+            .collect();
+        for &i in &g.deprecated {
+            for r in &st[i].references {
+                self.notes.number(r, property);
+            }
+        }
+        nums
+    }
+
+    /// Numbers the references of the groups of `properties`, a tab's in its order, so
+    /// that a group drawn alone carries the numbers the whole tab would give it.
+    pub(super) fn prime(&self, properties: &[&str]) {
+        self.notes.clear();
+        for &p in properties {
+            let st = self
+                .entity
+                .statements
+                .iter()
+                .find(|(q, _)| q.as_str() == p)
+                .map_or(&[][..], |(_, v)| v.as_slice());
+            let dt = self.datatype_of(p, st);
+            let g = classify(st, dt.as_deref(), self.roles, &Thresholds::default());
+            self.cite(p, st, &g);
+        }
+    }
+
+    /// The `statements/{P}` region alone, its footnotes numbered as on its tab.
+    #[must_use]
+    pub fn group_alone(&self, property: &str) -> String {
+        let st = self
+            .entity
+            .statements
+            .iter()
+            .find(|(p, _)| p.as_str() == property)
+            .map_or(&[][..], |(_, v)| v.as_slice());
+        let props = self.tab_properties(self.is_identifier(property, st));
+        self.prime(&props);
+        self.group(property)
+    }
+
+    /// A footnote marker: a link to endnote `n`.
+    fn marker(&self, n: usize) -> String {
+        let n = n.to_string();
+        format!(
+            "<a class=\"ts-fn\" href=\"#ts-ref-{n}\" aria-label=\"{}\">{n}</a>",
+            esc(&self.m.with("ts-footnote-label", &[&n]))
+        )
+    }
+
+    /// The tab's endnotes: each reference its groups cite, once, with the groups that
+    /// cite it. Empty where nothing is cited.
+    pub(super) fn endnotes(&self) -> String {
+        let notes = self.notes.all();
+        if notes.is_empty() {
+            return String::new();
+        }
+        let mut s = format!(
+            "<section class=\"ts-endnotes\" aria-labelledby=\"ts-endnotes-title\"><h2 class=\"ts-endnotes__title\" id=\"ts-endnotes-title\">{}</h2><ol class=\"ts-endnotes__list\">",
+            esc(&self.m.get("ts-endnotes-title"))
+        );
+        for (i, note) in notes.iter().enumerate() {
+            let cited = note
+                .cited_by
+                .iter()
+                .map(|p| {
+                    format!(
+                        "<a href=\"#{}\">{}</a>",
+                        esc(p),
+                        esc(&self.property_label(p))
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            let _ = write!(
+                s,
+                "<li id=\"ts-ref-{}\">{}<p class=\"ts-endnotes__cited\">{}</p></li>",
+                i + 1,
+                self.snak_groups(&note.reference.snaks, "ts-snaks"),
+                self.msg_html("ts-endnotes-cited-for", &[&cited])
+            );
+        }
+        s.push_str("</ol></section>");
+        s
+    }
+
     /// A message whose parameters are HTML: the message is escaped, the parameters not,
     /// and each is isolated (`<bdi>`), so that a date in a fallback language keeps its
     /// order in a right-to-left page.
@@ -245,14 +345,8 @@ impl Render<'_> {
             return String::new();
         }
         let mut s = String::from(" <span class=\"ts-fns\">");
-        for k in rows {
-            let n = (k + 1).to_string();
-            let _ = write!(
-                s,
-                "<a class=\"ts-fn\" href=\"#{}-fn-{n}\" aria-label=\"{}\">{n}</a>",
-                esc(c.property),
-                esc(&self.m.with("ts-footnote-label", &[&n]))
-            );
+        for &k in rows {
+            s.push_str(&self.marker(c.nums[k]));
         }
         s.push_str("</span>");
         s
@@ -724,14 +818,26 @@ impl Render<'_> {
                     )
                 })
                 .unwrap_or_default();
+            let mut nums: Vec<usize> = Vec::new();
+            for r in &st.references {
+                let n = self.notes.number(r, c.property);
+                if !nums.contains(&n) {
+                    nums.push(n);
+                }
+            }
+            let marks = if nums.is_empty() {
+                String::new()
+            } else {
+                let m: String = nums.iter().map(|&n| self.marker(n)).collect();
+                format!(" <span class=\"ts-fns\">{m}</span>")
+            };
             let _ = write!(
                 items,
-                "<li class=\"ts-statement ts-statement--deprecated\"{}><div class=\"ts-statement__value\"><span class=\"ts-statement__main\">{}</span>{reason}{}</div>{}{}</li>",
+                "<li class=\"ts-statement ts-statement--deprecated\"{}><div class=\"ts-statement__value\"><span class=\"ts-statement__main\">{}</span>{reason}{marks}{}</div>{}</li>",
                 id_attr(st),
                 self.snak(&st.mainsnak),
                 self.statement_chips(st),
                 self.qualifiers(st, &skip),
-                self.references(&st.references)
             );
         }
         let open = if c.g.shape == Shape::NoCurrentValue {
@@ -746,8 +852,9 @@ impl Render<'_> {
         )
     }
 
-    /// The group's footer: "Same for all N", the footnotes, and the count of values
-    /// without a source.
+    /// The group's footer: "Same for all N", the reference every value cites, and the
+    /// count of values without a source. The references themselves are the tab's
+    /// endnotes.
     fn footer(&self, c: &Card) -> String {
         let mut s = String::new();
         let count = c.g.n().to_string();
@@ -761,30 +868,13 @@ impl Render<'_> {
             );
         }
         let notes = &c.g.footnotes;
-        if !notes.notes.is_empty() {
+        if notes.shared {
             let _ = write!(
                 s,
-                "<ol class=\"ts-footnotes\" aria-label=\"{}\">",
-                esc(&self.m.get("ts-column-sources"))
+                "<p class=\"ts-footnotes__shared\">{} <span class=\"ts-fns\">{}</span></p>",
+                esc(&self.m.with("ts-cited-by-all", &[&count])),
+                self.marker(c.nums[0])
             );
-            for (k, &(si, ri)) in notes.notes.iter().enumerate() {
-                let shared = if k == 0 && notes.shared {
-                    format!(
-                        "<span class=\"ts-footnotes__shared\">{}</span>",
-                        esc(&self.m.with("ts-cited-by-all", &[&count]))
-                    )
-                } else {
-                    String::new()
-                };
-                let _ = write!(
-                    s,
-                    "<li id=\"{}-fn-{}\">{shared}{}</li>",
-                    esc(c.property),
-                    k + 1,
-                    self.snak_groups(&c.st[si].references[ri].snaks, "ts-snaks")
-                );
-            }
-            s.push_str("</ol>");
         }
         if notes.unsourced > 0 && notes.unsourced < c.g.n() {
             let u = notes.unsourced.to_string();

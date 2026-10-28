@@ -23,5 +23,5 @@ mod classify;
 pub mod order;
 mod roles;
 
-pub use classify::{Footnotes, Group, Shape, Thresholds, classify};
+pub use classify::{Footnotes, Group, Shape, Thresholds, classify, same_reference};
 pub use roles::{Role, Roles};
