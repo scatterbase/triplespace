@@ -419,7 +419,7 @@
 	"ts-changes-kind-jobs": "Checkbox label: import and sync jobs (one row per job event).\n{{Identical|Job}}",
 	"ts-changes-kind-log": "Checkbox label: log actions such as links, erasures and retention changes.",
 	"ts-changes-kind-syncs": "Checkbox label: records a mirror sync wrote, one per entity (off by default, chapter 16 §4.2).",
-	"ts-changes-hide-bots": "Checkbox label: leave out edits carrying the bot flag.\n{{Identical|Hide bots}}",
+	"ts-changes-bots": "Label of the Show checkbox for bot edits on Special:RecentChanges, on by default; unchecking it is MediaWiki's hidebots=1.",
 	"ts-changes-namespace": "Label of the namespace selector in the filter form.\n{{Identical|Namespace}}",
 	"ts-changes-namespace-all": "Option of the namespace selector: every namespace.\n{{Identical|All}}",
 	"ts-changes-days": "Label of the period selector in the filter form (how many days back the list reaches).",

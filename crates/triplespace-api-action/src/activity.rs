@@ -98,19 +98,20 @@ pub fn title_of(row: &Row) -> Option<(i64, String)> {
     match t.kind? {
         target_kind::ENTITY => {
             let id = t.id.as_deref()?;
-            Some(if let Some((kind, key)) = id.split_once(':') {
+            // A keyed entity has its type's namespace; a source's entity (`mhc:Q1`,
+            // 0078 §2) its entity type's, as a foreign one does.
+            if let Some((kind, key)) = id.split_once(':') {
                 match kind {
-                    "domain" => (210, format!("Domain:{key}")),
-                    "keyword" => (212, format!("Keyword:{key}")),
-                    "notation" => (216, format!("Notation:{key}")),
-                    _ => (120, id.to_string()),
+                    "domain" => return Some((210, format!("Domain:{key}"))),
+                    "keyword" => return Some((212, format!("Keyword:{key}"))),
+                    "notation" => return Some((216, format!("Notation:{key}"))),
+                    _ => {}
                 }
-            } else {
-                match t.entity_type.as_deref() {
-                    Some("property") => (122, format!("Property:{id}")),
-                    Some("lexeme") => (146, format!("Lexeme:{id}")),
-                    _ => (120, format!("Item:{id}")),
-                }
+            }
+            Some(match t.entity_type.as_deref() {
+                Some("property") => (122, format!("Property:{id}")),
+                Some("lexeme") => (146, format!("Lexeme:{id}")),
+                _ => (120, format!("Item:{id}")),
             })
         }
         target_kind::PAGE => {

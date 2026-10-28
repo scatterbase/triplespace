@@ -419,7 +419,7 @@
 	"ts-changes-kind-jobs": "Jobs",
 	"ts-changes-kind-log": "Log actions",
 	"ts-changes-kind-syncs": "Mirror syncs",
-	"ts-changes-hide-bots": "Hide bot edits",
+	"ts-changes-bots": "Bot edits",
 	"ts-changes-namespace": "Namespace",
 	"ts-changes-namespace-all": "All",
 	"ts-changes-days": "Period",

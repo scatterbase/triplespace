@@ -204,8 +204,9 @@ h3 {
 
 .ts-tabs {
 	display: flex;
+	flex-wrap: wrap;
 	gap: var( --size-25, 0.25rem );
-	overflow-x: auto;
+	/* No overflow here: the Watch for… and More menus are children and must pop out. */
 	white-space: nowrap;
 	margin: 0 0 var( --size-150, 1.5rem );
 	padding: 0;
