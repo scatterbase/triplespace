@@ -72,32 +72,59 @@ expression: main
 </select>
 </label> <button class="cdx-button cdx-button--action-progressive cdx-button--weight-primary" type="submit">Show changes</button>
 </form>
-<h3 class="ts-changes__day">2 October 2026</h3>
-<ul class="ts-changes__list">
-<li class="ts-change ts-change--edit">
-<span class="ts-change__part">
+<div class="ts-changes__scroll">
+<table class="ts-changes__table">
+<thead>
+<tr>
+<th scope="col" class="ts-change__head ts-change__head--time">Time</th>
+<th scope="col" class="ts-change__head ts-change__head--origin">Source</th>
+<th scope="col" class="ts-change__head ts-change__head--flags">Flags</th>
+<th scope="col" class="ts-change__head ts-change__head--target">Page</th>
+<th scope="col" class="ts-change__head ts-change__head--size">Size</th>
+<th scope="col" class="ts-change__head ts-change__head--user">User</th>
+<th scope="col" class="ts-change__head ts-change__head--summary">Summary</th>
+</tr>
+</thead>
+<tbody>
+<tr class="ts-changes__dayrow">
+<th scope="rowgroup" colspan="7" class="ts-changes__day">2 October 2026</th>
+</tr>
+<tr class="ts-change ts-change--edit">
+<td class="ts-change__cell ts-change__cell--time">
 <a href="/wiki/Item:Q6?diff=907" class="ts-change__diff">
 <time class="ts-change__time" datetime="2026-10-02T14:05:11Z">14:05</time>
 </a>
-</span>
-<span class="ts-change__part">
+</td>
+<td class="ts-change__cell ts-change__cell--origin">
 <span class="ts-chip ts-chip--local">Local</span>
-</span>
+</td>
+<td class="ts-change__cell ts-change__cell--flags">
+</td>
+<td class="ts-change__cell ts-change__cell--target">
 <span class="ts-change__part">
 <a href="/wiki/Item:Q6" class="ts-change__target">
 <span>Six &amp; more</span>
 </a>
 </span>
 <span class="ts-change__part ts-change__id ts-mono">Q6</span>
+</td>
+<td class="ts-change__cell ts-change__cell--size">
 <span class="ts-change__delta ts-change__delta--pos" dir="ltr">+20</span>
+</td>
+<td class="ts-change__cell ts-change__cell--user">
 <span class="ts-change__part">
 <a href="/wiki/Special:Contributions/Alice_bot" class="ts-change__actor">Alice bot</a>
 </span>
+</td>
+<td class="ts-change__cell ts-change__cell--summary">
 <span class="ts-change__summary">
 <span class="ts-change__auto">add: aliases:en</span>
 </span>
-</li>
-</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
 <nav class="ts-pager" aria-label="More results">
 <a href="/w/index.php?title=Special:Contributions/Alice%5Fbot&amp;filtered=1&amp;kind=edit&amp;kind=job&amp;kind=log&amp;days=30&amp;limit=50&amp;continue=1700000000000000%7C4098%7C2" rel="next">Older</a>
 </nav>

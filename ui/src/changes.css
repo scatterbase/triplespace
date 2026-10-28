@@ -1,6 +1,6 @@
 /*
  * Special:RecentChanges and Special:Contributions (ADR 0010 §7, 0020 §4; chapter 19
- * §3.9): the filter form, the sync strip, the rows grouped by day, and the pager.
+ * §3.9): the filter form, the sync strip, the changes table grouped by day, and the pager.
  * Logical properties throughout.
  */
 
@@ -66,33 +66,85 @@
 	font-size: var( --font-size-small, 0.875rem );
 }
 
-.ts-changes__day {
-	margin: var( --spacing-100, 1rem ) 0 var( --spacing-50, 0.5rem );
-	font-family: inherit;
-	font-size: var( --font-size-medium, 1rem );
-	font-weight: bold;
+/* The rows are one table (`ts-changes__table`): a column per field, so a row with no
+ * size, user or summary leaves its cell empty and the fields still line up. Each day is
+ * a row group headed by its date. On a narrow screen the table scrolls in its wrapper,
+ * not the page. */
+.ts-changes__scroll {
+	max-width: 100%;
+	overflow-x: auto;
 }
 
+.ts-changes__table {
+	width: 100%;
+	border-collapse: collapse;
+	line-height: var( --line-height-medium, 1.5 );
+}
+
+.ts-change__head {
+	padding: var( --spacing-25, 0.25rem ) var( --spacing-50, 0.5rem );
+	border-bottom: 2px solid var( --border-color-base, #a2a9b1 );
+	color: var( --color-subtle, #54595d );
+	font-size: var( --font-size-small, 0.875rem );
+	font-weight: bold;
+	text-align: start;
+	white-space: nowrap;
+}
+
+.ts-change__head--size {
+	text-align: end;
+}
+
+.ts-changes__day {
+	padding: var( --spacing-100, 1rem ) var( --spacing-50, 0.5rem ) var( --spacing-25, 0.25rem );
+	font-size: var( --font-size-medium, 1rem );
+	font-weight: bold;
+	text-align: start;
+}
+
+.ts-change__cell {
+	padding: var( --spacing-25, 0.25rem ) var( --spacing-50, 0.5rem );
+	border-top: 1px solid var( --border-color-muted, #dadde3 );
+	vertical-align: baseline;
+	text-align: start;
+}
+
+/* The short fields keep to one line; the page and summary take the rest and wrap. */
+.ts-change__cell--time,
+.ts-change__cell--origin,
+.ts-change__cell--flags,
+.ts-change__cell--size,
+.ts-change__cell--user {
+	width: 1%;
+	white-space: nowrap;
+}
+
+.ts-change__cell--size {
+	text-align: end;
+}
+
+.ts-change__cell--target,
+.ts-change__cell--summary {
+	overflow-wrap: anywhere;
+}
+
+.ts-change__cell--target .ts-change__part + .ts-change__part {
+	margin-inline-start: var( --spacing-50, 0.5rem );
+}
+
+.ts-change:hover > .ts-change__cell {
+	background-color: var( --background-color-interactive-subtle, #f8f9fa );
+}
+
+/* The undelete page keeps a plain list. */
 .ts-changes__list {
 	margin: 0;
 	padding: 0;
 	list-style: none;
 }
 
-.ts-change {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: baseline;
-	gap: 0 var( --spacing-50, 0.5rem );
-	padding: var( --spacing-25, 0.25rem ) 0;
-	border-top: 1px solid var( --border-color-muted, #dadde3 );
-	line-height: var( --line-height-medium, 1.5 );
-	overflow-wrap: anywhere;
-}
-
-/* A row is a line of text with links in it, so the links are underlined to be told
- * apart from the text around them (WCAG 1.4.1; axe's link-in-text-block), as is the
- * strip's link. */
+/* Links in a row are underlined to be told apart from the text around them (WCAG
+ * 1.4.1; axe's link-in-text-block), as is the strip's link. */
 .ts-changes__strip a,
 .ts-change a {
 	text-decoration: underline;
@@ -151,8 +203,10 @@
 	font-style: italic;
 }
 
+/* The tags follow the summary in its cell. */
 .ts-change__tags {
 	display: inline-flex;
+	margin-inline-start: var( --spacing-50, 0.5rem );
 	flex-wrap: wrap;
 	gap: var( --spacing-25, 0.25rem );
 }

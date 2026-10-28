@@ -21,35 +21,60 @@ expression: main
 <aside class="ts-history__note">
 <p>Only the latest state from Internet Domains Wikibase is kept here; earlier states are not listed.</p>
 </aside>
-<h3 class="ts-changes__day">2 October 2026</h3>
-<ul class="ts-changes__list">
-<li class="ts-change ts-change--sync">
-<span class="ts-change__part">
+<div class="ts-changes__scroll">
+<table class="ts-changes__table">
+<thead>
+<tr>
+<th scope="col" class="ts-change__head ts-change__head--time">Time</th>
+<th scope="col" class="ts-change__head ts-change__head--origin">Source</th>
+<th scope="col" class="ts-change__head ts-change__head--flags">Flags</th>
+<th scope="col" class="ts-change__head ts-change__head--target">Page</th>
+<th scope="col" class="ts-change__head ts-change__head--size">Size</th>
+<th scope="col" class="ts-change__head ts-change__head--user">User</th>
+<th scope="col" class="ts-change__head ts-change__head--summary">Summary</th>
+</tr>
+</thead>
+<tbody>
+<tr class="ts-changes__dayrow">
+<th scope="rowgroup" colspan="7" class="ts-changes__day">2 October 2026</th>
+</tr>
+<tr class="ts-change ts-change--sync">
+<td class="ts-change__cell ts-change__cell--time">
 <a href="/wiki/Domain:wikipedia.org?diff=8194:41" class="ts-change__diff">
 <time class="ts-change__time" datetime="2026-10-02T12:00:00Z">12:00</time>
 </a>
-</span>
-<span class="ts-change__part">
+</td>
+<td class="ts-change__cell ts-change__cell--origin">
 <span class="ts-chip ts-chip--provider ts-chip--p-xd">XD</span>
-</span>
-<span class="ts-change__flags">
+</td>
+<td class="ts-change__cell ts-change__cell--flags">
 <abbr class="ts-change__flag ts-change__flag--bot" title="This edit was made by a bot">b</abbr>
-</span>
+</td>
+<td class="ts-change__cell ts-change__cell--target">
 <span class="ts-change__part">
 <a href="/wiki/Domain:wikipedia.org" class="ts-change__target">Domain:wikipedia.org</a>
 </span>
+</td>
+<td class="ts-change__cell ts-change__cell--size">
 <span class="ts-change__delta ts-change__delta--pos" dir="ltr">+20</span>
+</td>
+<td class="ts-change__cell ts-change__cell--user">
 <span class="ts-change__part">
 <a href="/wiki/Special:Contributions/Alice" class="ts-change__actor">Alice</a>
 </span>
+</td>
+<td class="ts-change__cell ts-change__cell--summary">
 <span class="ts-change__summary">
 <span class="ts-change__auto">Synced from internetdomains</span>
 </span>
 <span class="ts-change__tags">
 <span class="ts-change__tag">bulk</span>
 </span>
-</li>
-</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
 </div>
 	</div>
 </main>
