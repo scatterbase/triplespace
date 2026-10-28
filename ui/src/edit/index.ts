@@ -8,9 +8,11 @@
  *   in one `wbeditentity` with `baserevid`; then the `terms` region is fetched again and
  *   swapped in, and the title updated.
  * - The group editor edits every value of one property, with ranks, qualifiers and
- *   sources, in one `wbeditentity`; then the `statements/{P}` region is swapped in.
- *   **Add statement** picks a property and opens its group editor, and the new group's
- *   region is put before the button.
+ *   sources, in one `wbeditentity`; then the tab holding the group (`statements` or
+ *   `identifiers`) is swapped in whole, since the tab numbers its references across its
+ *   groups (0003 §5) and a new one can renumber the groups after it.
+ *   **Add statement** picks a property and opens its group editor; a new group that
+ *   belongs on another tab is put before the button.
  */
 
 import { createApp } from 'vue';
@@ -181,12 +183,10 @@ async function editGroup(
 			( region ?? anchor ).querySelector<HTMLElement>( '[data-ts-edit]' )?.focus();
 			return;
 		}
-		const fresh = await refreshRegion( doc, data, `statements/${ property }`, {
-			place: ( el ) => ( anchor.closest( '.ts-edit-bar' ) ?? anchor ).before( el ),
-		} );
+		const fresh = await refreshGroup( doc, data, property, region ?? anchor );
 		if ( fresh ) {
-			wire( doc, api, data, fresh );
-			fresh.querySelector<HTMLElement>( '[data-ts-edit="group"]' )?.focus();
+			wire( doc, api, data, fresh.root );
+			fresh.group?.querySelector<HTMLElement>( '[data-ts-edit="group"]' )?.focus();
 		}
 	};
 	app = createApp( GroupEditor, {
@@ -208,6 +208,54 @@ async function editGroup(
 		},
 	} );
 	app.mount( host );
+}
+
+/** A tab swapped in after a save, and the saved group in it. */
+interface Refreshed {
+	/** What was swapped in, to wire. */
+	root: Element;
+	/** The group's region, where the page now has one. */
+	group: Element | null;
+}
+
+/**
+ * Swaps in the tab that holds a saved group, so that every group's footnote numbers and
+ * the tab's references agree. A group the tab does not hold (a new identifier added
+ * from the Statements tab) is fetched alone and put before **Add statement**.
+ *
+ * @param doc The document
+ * @param data The edit data
+ * @param property The group's property
+ * @param near An element on the tab: the group's region or the button that opened it
+ * @return What was swapped in, or null when the page reloads
+ */
+async function refreshGroup(
+	doc: Document,
+	data: EditData,
+	property: string,
+	near: Element,
+): Promise<Refreshed | null> {
+	const name = `statements/${ property }`;
+	const selector = `[data-region="${ CSS.escape( name ) }"]`;
+	const tab = near.closest<HTMLElement>( '[data-region="statements"], [data-region="identifiers"]' );
+	if ( !tab?.dataset.region ) {
+		const alone = await refreshRegion( doc, data, name, {
+			place: ( el ) => ( near.closest( '.ts-edit-bar' ) ?? near ).before( el ),
+		} );
+		return alone && { root: alone, group: alone };
+	}
+	const root = await refreshRegion( doc, data, tab.dataset.region );
+	if ( !root ) {
+		return null;
+	}
+	let group = root.querySelector( selector );
+	if ( !group ) {
+		const bar = root.querySelector( '.ts-edit-bar--add' );
+		group = await refreshRegion( doc, data, name, {
+			place: ( el ) => ( bar ? bar.before( el ) : root.append( el ) ),
+		} );
+	}
+	return { root, group };
 }
 
 /**

@@ -85,7 +85,7 @@ pub struct Page {
     pub body: String,
     /// What the search box already holds.
     pub search: String,
-    /// The star and its **Watch for…** menu, for a signed-in viewer ([`crate::watch`]).
+    /// The watch menu, for a signed-in viewer ([`crate::watch`]).
     pub watch: Option<WatchControl>,
 }
 
@@ -170,7 +170,10 @@ pub struct Frame<'a> {
     watch: String,
 }
 
-/// The star and its **Watch for…** menu (19 §6.2), as forms that work without JavaScript.
+/// The watch control (19 §6.2): one menu, as forms that work without JavaScript. Its
+/// button is the star with **Watch**, or a filled star with **Watching**; it opens how
+/// long to watch and *Notify me*, with **Watch** (or **Save** for a watched page) and,
+/// for a watched page, **Unwatch**.
 fn watch_html(m: &Messages, w: &WatchControl) -> String {
     use crate::html::esc;
     use std::fmt::Write as _;
@@ -179,29 +182,33 @@ fn watch_html(m: &Messages, w: &WatchControl) -> String {
         "<input type=\"hidden\" name=\"wpEditToken\" value=\"{}\">",
         esc(&w.token)
     );
-    let (star_action, star_label, path) = if w.watched {
+    let (label, submit, path) = if w.watched {
         (
-            "unwatch",
-            m.get("ts-unwatch"),
+            m.get("ts-watching"),
+            m.get("ts-watch-save"),
             "M20 7h-7L10 0 7 7H0l5.46 5.47-1.64 7 6.18-3.7 6.18 3.73-1.63-7z",
         )
     } else {
         (
-            "watch",
+            m.get("ts-watch"),
             m.get("ts-watch"),
             "M20 7h-7L10 0 7 7H0l5.46 5.47-1.64 7 6.18-3.7 6.18 3.73-1.63-7zm-10 6.9-3.58 2.15.95-4.07-3.17-3.17h4.14L10 5.15l1.66 3.66h4.14l-3.17 3.17.95 4.07z",
         )
     };
+    // A watch that lapses says until when: in the menu, and on the button's hover.
+    let until = w
+        .expires
+        .as_ref()
+        .filter(|_| w.watched)
+        .map(|e| m.with("ts-watch-until", &[&crate::special::changes::date(m, e)]));
     let mut out = format!(
-        "<div class=\"ts-watch\"><form class=\"ts-watch__star\" method=\"post\" action=\"{}\">{token}<button class=\"cdx-button cdx-button--weight-quiet{}\" type=\"submit\"><svg class=\"ts-watch__icon\" xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 20 20\" aria-hidden=\"true\" focusable=\"false\"><path d=\"{path}\"/></svg>{}</button></form>",
-        action(star_action),
+        "<div class=\"ts-watch\"><details class=\"ts-menu ts-watch__menu\"><summary class=\"cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--weight-quiet{}\"{}><svg class=\"ts-watch__icon\" xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 20 20\" aria-hidden=\"true\" focusable=\"false\"><path d=\"{path}\"/></svg>{}</summary><div class=\"ts-menu__items ts-watch__panel\"><form class=\"ts-watch__form\" method=\"post\" action=\"{}\">{token}<input type=\"hidden\" name=\"notifyfield\" value=\"1\"><fieldset class=\"cdx-field\"><legend class=\"cdx-label\"><span class=\"cdx-label__label__text\">{}</span></legend>",
         if w.watched { " ts-watch--on" } else { "" },
-        esc(&star_label),
-    );
-    let _ = write!(
-        out,
-        "<details class=\"ts-menu ts-watch__more\"><summary class=\"cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--weight-quiet\">{}</summary><form class=\"ts-menu__items ts-watch__panel\" method=\"post\" action=\"{}\">{token}<input type=\"hidden\" name=\"notifyfield\" value=\"1\"><fieldset class=\"cdx-field\"><legend class=\"cdx-label\"><span class=\"cdx-label__label__text\">{}</span></legend>",
-        esc(&m.get("ts-watch-for")),
+        until
+            .as_ref()
+            .map(|u| format!(" title=\"{}\"", esc(u)))
+            .unwrap_or_default(),
+        esc(&label),
         action("watch"),
         esc(&m.get("ts-watch-legend")),
     );
@@ -220,21 +227,23 @@ fn watch_html(m: &Messages, w: &WatchControl) -> String {
     }
     let _ = write!(
         out,
-        "</fieldset><span class=\"cdx-checkbox\"><span class=\"cdx-checkbox__wrapper\"><input class=\"cdx-checkbox__input\" type=\"checkbox\" id=\"ts-watch-notify\" name=\"notify\" value=\"1\"{}><span class=\"cdx-checkbox__icon\"></span><span class=\"cdx-checkbox__label cdx-label\"><label class=\"cdx-label__label\" for=\"ts-watch-notify\"><span class=\"cdx-label__label__text\">{}</span></label></span></span></span><button class=\"cdx-button cdx-button--action-progressive cdx-button--weight-primary\" type=\"submit\">{}</button></form></details>",
+        "</fieldset><span class=\"cdx-checkbox\"><span class=\"cdx-checkbox__wrapper\"><input class=\"cdx-checkbox__input\" type=\"checkbox\" id=\"ts-watch-notify\" name=\"notify\" value=\"1\"{}><span class=\"cdx-checkbox__icon\"></span><span class=\"cdx-checkbox__label cdx-label\"><label class=\"cdx-label__label\" for=\"ts-watch-notify\"><span class=\"cdx-label__label__text\">{}</span></label></span></span></span><button class=\"cdx-button cdx-button--action-progressive cdx-button--weight-primary\" type=\"submit\">{}</button></form>",
         if w.notify { " checked" } else { "" },
         esc(&m.get("ts-watch-notify")),
-        esc(&m.get("ts-watch-save")),
+        esc(&submit),
     );
-    if w.watched
-        && let Some(e) = &w.expires
-    {
+    if let Some(u) = &until {
+        let _ = write!(out, "<p class=\"ts-watch__until\">{}</p>", esc(u));
+    }
+    if w.watched {
         let _ = write!(
             out,
-            "<span class=\"ts-watch__until\">{}</span>",
-            esc(&m.with("ts-watch-until", &[&crate::special::changes::date(m, e)]))
+            "<form class=\"ts-watch__stop\" method=\"post\" action=\"{}\">{token}<button class=\"cdx-button cdx-button--action-destructive cdx-button--weight-quiet\" type=\"submit\">{}</button></form>",
+            action("unwatch"),
+            esc(&m.get("ts-unwatch")),
         );
     }
-    out.push_str("</div>");
+    out.push_str("</div></details></div>");
     out
 }
 

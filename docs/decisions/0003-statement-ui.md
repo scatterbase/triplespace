@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-10-09 (A16)
+- **Updated:** 2026-10-27 (A17)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [MediaWiki API contract](../api/mediawiki-compat.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 - **Chapters:** [06](../architecture/06-statements-and-properties.md), [19](../architecture/19-site-ui.md)
@@ -53,11 +53,13 @@ Triplespace does not come with MediaWiki's editing UI ([0000](0000-init.md), Con
 
 ### 5. Shared qualifiers and references
 
+*Changed by A17.*
+
 *Current text: [19](../architecture/19-site-ui.md) §4.5.*
 
 ### 6. Provenance
 
-*Changed by A1, A4, A11.*
+*Changed by A1, A4, A11, A17.*
 
 *Current text: [19](../architecture/19-site-ui.md) §4.6.*
 
@@ -75,7 +77,7 @@ Triplespace does not come with MediaWiki's editing UI ([0000](0000-init.md), Con
 
 ### 9. Components
 
-*Changed by A4.*
+*Changed by A4, A17.*
 
 *Current text: [19](../architecture/19-site-ui.md) §4.8.*
 
@@ -247,3 +249,20 @@ Replaced text ([19](../architecture/19-site-ui.md) §4.7, as it stood):
 > | Correct a mirrored value | Writes a local-graph override or addition; the mirrored statement is untouched | Triplespace `override` or `add` ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.2; [05](../architecture/05-providers-and-ingest.md)) |
 
 > - **Conflicts.** Each save carries `baserevid`. If the group has changed since the edit began, the pending rows are applied to the current data, and only the cells that clash are marked. The rest of the save goes through.
+
+### A17. References are a tab's endnotes; the upstream revision is linked
+
+- **Date:** 2026-10-27
+- **Source:** Direct: James, design discussion of 2026-10-27
+- **Change:** amends §5, §9; extends §6
+- **Summary:** James asked that references be deduplicated and presented at the bottom as endnotes, to reduce duplication. Each distinct reference that a tab's statement groups cite, a deprecated value's included, is numbered once in the order it first appears down the tab and listed under **References** at the foot of the tab (Statements and Identifiers each have their own), with the groups that cite it; a row's markers link to those entries. A group's footer keeps "Cited by all N values", with the shared reference's marker, and the count of values without a source; it no longer lists references. A group rendered alone carries the numbers its tab gives it, and the editor swaps in the whole tab after a save. He also asked that the upstream revision named in "Where this comes from" link to that revision: the provenance response gives `upstream_url`, the provider's `index.php?oldid=` page, where the provider is a MediaWiki that publishes revision IDs ([0012](0012-api-requirements.md) A80). The chapter folds this at [19](../architecture/19-site-ui.md) §4.5, §4.6 and §4.8, whose provenance is §5, §6 and §9 here.
+
+Replaced text ([19](../architecture/19-site-ui.md) §4.5, as it stood):
+
+> - If one hash appears on every statement in V, that reference is shown once, as footnote 1, labeled "Cited by all N values".
+> - Otherwise, distinct references are numbered in the order they first appear in the group. Each row shows its footnote numbers, and the footnotes are listed at the foot of the group.
+
+Replaced text ([19](../architecture/19-site-ui.md) §4.8, as it stood):
+
+> | Group card | A header with the sort note, view switch, Add value button and menu; a body holding the shape; a footer with hoisted qualifiers and footnotes |
+> | Footnote marker | A numbered pill linking to its footnote |

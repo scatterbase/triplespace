@@ -17,7 +17,7 @@ expression: main_of(&html)
 		<a class="ts-tabs__link" href="/wiki/Domain:wikipedia.org?action=history">History</a>
 	</nav>
 	<div class="ts-page__body">
-		<div class="ts-entity">
+		<div class="ts-entity" data-region="statements">
 <div class="ts-entity__main">
 <h2 class="ts-visually-hidden">Statements</h2>
 <section class="ts-group ts-group--single" id="XDP8" data-region="statements/XDP8" data-shape="single">

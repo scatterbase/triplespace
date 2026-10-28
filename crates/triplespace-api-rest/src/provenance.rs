@@ -15,6 +15,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use axum::extract::{Extension, Path, State};
 use axum::http::{HeaderMap, Method, StatusCode, header};
 use axum::response::{IntoResponse, Response};
+use scatter_providers::Registry;
 use scatter_wikibase_model::id::{EntityId, IdForm, StatementId};
 use scatter_wikibase_model::statement::Rank;
 use scatter_wikibase_resolve::Correction;
@@ -117,11 +118,37 @@ async fn minted_by(
     })
 }
 
-/// The response body.
-fn body(id: &EntityId, current: Option<&Current>, standing: &Standing, minted: &Value) -> Value {
+/// The page of each graph's upstream revision, in `standing.graphs` order: for a mirror
+/// or source graph whose provider is a MediaWiki that publishes revision IDs.
+fn upstream_urls(registry: &Registry, standing: &Standing) -> Vec<Option<String>> {
+    standing
+        .graphs
+        .iter()
+        .map(|g| {
+            let v = g.upstream_version.as_deref()?;
+            let slug = g
+                .graph
+                .strip_prefix("mirror/")
+                .or_else(|| g.graph.strip_prefix("source/"))?;
+            registry
+                .by_slug(slug)
+                .filter(|p| p.mirror_graph() == g.graph)?
+                .revision_url(v)
+        })
+        .collect()
+}
+
+/// The response body. `urls` are [`upstream_urls`].
+fn body(
+    id: &EntityId,
+    current: Option<&Current>,
+    standing: &Standing,
+    minted: &Value,
+    urls: &[Option<String>],
+) -> Value {
     let mut graphs = Vec::new();
     let mut dominant: Option<(String, usize)> = None;
-    for g in &standing.graphs {
+    for (i, g) in standing.graphs.iter().enumerate() {
         let statements = current.map_or(0, |c| {
             c.contributions
                 .iter()
@@ -138,6 +165,9 @@ fn body(id: &EntityId, current: Option<&Current>, standing: &Standing, minted: &
         });
         if let Some(v) = &g.upstream_version {
             row["upstream_version"] = json!(v);
+        }
+        if let Some(Some(u)) = urls.get(i) {
+            row["upstream_url"] = json!(u);
         }
         if let Some(j) = g.job_id {
             row["job"] = json!(j);
@@ -241,7 +271,12 @@ pub async fn handle(
         Ok(v) => v,
         Err(e) => return internal(&e),
     };
-    let body = body(&id, current.as_ref(), &standing, &minted).to_string();
+    let registry = app
+        .registry_for(&client, &tenant.slug)
+        .await
+        .unwrap_or_else(|_| app.registry());
+    let urls = upstream_urls(registry, &standing);
+    let body = body(&id, current.as_ref(), &standing, &minted, &urls).to_string();
     let class = Class::Public.permitted(&method, credentialed, false, false);
     http_cache::respond(
         &headers,
@@ -275,6 +310,7 @@ mod tests {
             None,
             &Standing::default(),
             &json!({"kind": "keyed", "type": "domain"}),
+            &[],
         );
         for key in required {
             assert!(b.get(key).is_some(), "the body lacks `{key}`: {b}");

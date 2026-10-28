@@ -462,22 +462,48 @@
 	color: var( --color-subtle, #54595d );
 }
 
-.ts-footnotes {
-	margin: 0;
-	padding-inline-start: var( --spacing-150, 1.5rem );
-}
-
-.ts-footnotes > li:target {
-	background-color: var( --background-color-warning-subtle, #fdf2d5 );
-}
-
 .ts-footnotes__shared {
-	display: block;
+	margin: 0;
 	color: var( --color-subtle, #54595d );
 }
 
-.ts-footnotes .ts-snaks {
+/* The tab's references (0003 §5): each cited reference once, at the foot of the tab,
+   with the groups that cite it. A marker's target is marked as a footnote's was. */
+.ts-endnotes {
+	margin-block-start: var( --spacing-200, 2rem );
+	padding-block-start: var( --spacing-100, 1rem );
+	border-top: 1px solid var( --border-color-subtle, #c8ccd1 );
+}
+
+.ts-endnotes__title {
+	margin: 0 0 var( --spacing-75, 0.75rem );
+	font-family: inherit;
+	font-size: var( --font-size-medium, 1rem );
+	font-weight: bold;
+}
+
+.ts-endnotes__list {
 	margin: 0;
+	padding-inline-start: var( --spacing-200, 2rem );
+}
+
+.ts-endnotes__list > li {
+	padding: var( --spacing-25, 0.25rem ) var( --spacing-50, 0.5rem );
+	scroll-margin-block-start: var( --spacing-200, 2rem );
+}
+
+.ts-endnotes__list > li:target {
+	background-color: var( --background-color-warning-subtle, #fdf2d5 );
+}
+
+.ts-endnotes .ts-snaks {
+	margin: 0;
+}
+
+.ts-endnotes__cited {
+	margin: var( --spacing-12, 0.125rem ) 0 0;
+	color: var( --color-subtle, #54595d );
+	font-size: var( --font-size-small, 0.875rem );
 }
 
 .ts-unsourced {
@@ -540,6 +566,12 @@
 .ts-sources__graph p {
 	margin: var( --spacing-25, 0.25rem ) 0 0;
 	font-size: var( --font-size-small, 0.875rem );
+}
+
+/* The upstream revision's link sits in a line of text, so it is underlined to be told
+   apart from it (WCAG 1.4.1; axe's link-in-text-block). */
+.ts-sources__graph p a {
+	text-decoration: underline;
 }
 
 .ts-sources > .ts-empty,

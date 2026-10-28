@@ -7,14 +7,19 @@
 //! |---|---|
 //! | `terms` | The description and aliases under the title |
 //! | `statements/{P}` | One statement group, also for a property the entity does not use |
-//! | `identifiers` | The Identifiers tab's groups |
+//! | `statements` | The Statements tab: its groups, its references and "Where this comes from" |
+//! | `identifiers` | The Identifiers tab's groups and references |
 //! | `sitelinks` | The Sitelinks tab, grouped by host |
-//! | (none) | The Statements tab: its groups and "Where this comes from" |
+//! | (none) | The Statements tab, as `statements` |
+//!
+//! A group's footnote numbers are the tab's (`notes`), so `statements/{P}` numbers them as
+//! the whole tab would; the editor swaps in the whole tab after a save, so that a new
+//! reference renumbers every group after it.
 //!
 //! Each statement group takes the shape `scatter-wikibase-shape` gives it (0003 §3):
 //! Single, Timeline, Series, Table (or a numbered list, or a Matrix), Chips or List, with
 //! best values leading, other and deprecated values folded, shared qualifiers stated once
-//! and references as footnotes (§4–5). `shapes` draws them; `chart` draws the
+//! and references as endnotes, each numbered once for the tab (§4–5). `shapes` draws them; `chart` draws the
 //! Series chart and the Timeline axis as SVG.
 //!
 //! One page costs three API calls in parallel with the frame's (`wbgetentities` for the
@@ -24,6 +29,7 @@
 mod chart;
 pub mod diff;
 pub mod history;
+mod notes;
 mod shapes;
 mod values;
 mod view;
@@ -40,6 +46,8 @@ use serde_json::Value;
 use triplespace_client::{CacheInfo, ClientError, Provenance, SiteInfo};
 
 use scatter_wikibase_shape::Roles;
+
+pub use notes::Endnotes;
 
 use crate::Site;
 use crate::codex::MessageKind;
@@ -198,6 +206,8 @@ pub struct Render<'a> {
     /// Whether the viewer may edit here: signed in, editing offered, and a local entity
     /// (a mirrored one is corrected through overrides, which come later, 0003 §8).
     pub editable: bool,
+    /// The references a tab cites, numbered once each across its groups (0003 §5).
+    pub notes: Endnotes,
 }
 
 /// The role map: Wikidata's roles in their mirrored form for each provider that copies
@@ -495,6 +505,7 @@ pub async fn serve(
         provenance: provenance.as_ref(),
         roles: &roles,
         editable,
+        notes: Endnotes::default(),
     };
     if render {
         region(&r, &cx, headers, query)
@@ -533,12 +544,12 @@ fn region(
         return pages::build_skew();
     }
     let html = match query.get("region").map(String::as_str) {
-        None => r.statements_tab(),
+        None | Some("statements") => r.statements_tab(),
         Some("terms") => r.terms(),
         Some("identifiers") => r.identifiers(),
         Some("sitelinks") => r.sitelinks(),
         Some(region) => match region.strip_prefix("statements/") {
-            Some(p) if EntityId::parse(p).is_ok() => r.group(p),
+            Some(p) if EntityId::parse(p).is_ok() => r.group_alone(p),
             _ => return pages::unknown_region(region),
         },
     };

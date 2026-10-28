@@ -152,6 +152,21 @@ fn is_hex_colour(s: &str) -> bool {
 }
 
 impl Provider {
+    /// The page of one of the provider's revisions, for a MediaWiki provider that
+    /// publishes revision IDs: `index.php?oldid={revision}` beside its `api.php`. `None`
+    /// for any other provider, or a revision that is not a revision ID.
+    #[must_use]
+    pub fn revision_url(&self, revision: &str) -> Option<String> {
+        if !self.revision_ids
+            || revision.is_empty()
+            || !revision.bytes().all(|b| b.is_ascii_digit())
+        {
+            return None;
+        }
+        let base = self.api.as_deref()?.strip_suffix("api.php")?;
+        Some(format!("{base}index.php?oldid={revision}"))
+    }
+
     /// The entity type with the given one-letter code.
     #[must_use]
     pub fn entity_type(&self, code: char) -> Option<&EntityType> {
@@ -769,6 +784,20 @@ impl Registry {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_mediawiki_providers_revision_has_a_page() {
+        let r = Registry::default_registry();
+        let wd = r.by_slug("wikidata").unwrap();
+        assert_eq!(
+            wd.revision_url("2251512453").as_deref(),
+            Some("https://www.wikidata.org/w/index.php?oldid=2251512453")
+        );
+        assert_eq!(wd.revision_url("x1"), None);
+        assert_eq!(wd.revision_url(""), None);
+        // OpenAlex publishes no revision IDs.
+        assert_eq!(r.by_slug("openalex").unwrap().revision_url("5"), None);
+    }
 
     #[test]
     fn every_provider_has_a_chip_and_chips_are_checked() {

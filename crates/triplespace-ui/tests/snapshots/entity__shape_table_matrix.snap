@@ -363,23 +363,10 @@ expression: "html.replace(\"><\", \">\\n<\")"
 </div>
 </div>
 <div class="ts-group__footer">
-<ol class="ts-footnotes" aria-label="Sources">
-<li id="WDP10685-fn-1">
-<span class="ts-footnotes__shared">Cited by all 9 values</span>
-<dl class="ts-snaks">
-<div class="ts-snaks__row">
-<dt>
-<a href="/wiki/Property:WDP957">
-<span class="ts-mono">WDP957</span>
-</a>
-</dt>
-<dd>
-<span class="ts-mono" dir="ltr">0-8493-0485-7</span>
-</dd>
-</div>
-</dl>
-</li>
-</ol>
+<p class="ts-footnotes__shared">Cited by all 9 values <span class="ts-fns">
+<a class="ts-fn" href="#ts-ref-21" aria-label="Source 21">21</a>
+</span>
+</p>
 </div>
 </div>
 </section>

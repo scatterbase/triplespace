@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-25 (A21)
+- **Updated:** 2026-10-27 (A22)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0011](0011-logs.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0028](0028-tenancy-policy.md)
@@ -46,7 +46,7 @@ Echo is the precedent. It has notification *types* (mention, edit-user-talk, rev
 
 ### 6. UI (extends 0010 §2 and §11)
 
-*Changed by A16, A20, A21.*
+*Changed by A16, A20, A21, A22.*
 
 *Current text: [19](../architecture/19-site-ui.md) §1.2, §2.4, §6.2.*
 
@@ -336,3 +336,14 @@ Replaced text ([19](../architecture/19-site-ui.md) §6.2, as it stood):
 Replaced text ([19](../architecture/19-site-ui.md) §6.2, as it stood):
 
 > **Watch controls** gain a *notify me* toggle beside the star, which sets `notify` on the watch row; subscribing to a thread is watching it with `notify` ([16](../architecture/16-logs-feeds-and-notifications.md)).
+
+### A22. One watch menu
+
+- **Date:** 2026-10-27
+- **Source:** Direct: James, design discussion of 2026-10-27
+- **Change:** amends §6
+- **Summary:** James asked that the **Watch for…** menu and the watch button be merged into one button, sitting toward the right with **More**. The watch control is one menu at the end of the tabs, before **More**: its button is the star with **Watch**, or a filled star with **Watching**; it opens the spans and **Notify me of changes**, submitted with **Watch** (or **Save** for a watched title), and a watched title's menu also has **Unwatch**. Watching permanently takes two clicks where the star took one. A lapsing watch says until when in the menu and on the button's hover. **More** is the size of the watch button, as the other tab-bar controls are. Chapter text: [19](../architecture/19-site-ui.md) §6.2.
+
+Replaced text ([19](../architecture/19-site-ui.md) §6.2, as it stood):
+
+> - **Watch controls** are the star at the end of the tabs of a page, an entity, a talk page or a thread, and a **Watch for…** menu beside it, both forms that work without JavaScript: the star watches permanently or stops watching; the menu watches for a week, a month, three months, six months or permanently, with **Notify me of changes**, which sets `notify` on the watch row. A watch that lapses says until when. Subscribing to a thread is watching it with `notify` ([16](../architecture/16-logs-feeds-and-notifications.md) §4.3; [0021](../decisions/0021-notifications.md) A21).

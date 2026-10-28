@@ -150,6 +150,9 @@ pub struct GraphStanding {
     /// The upstream's version or revision.
     #[serde(default)]
     pub upstream_version: Option<String>,
+    /// The page of that upstream revision, where the API gives one.
+    #[serde(default)]
+    pub upstream_url: Option<String>,
     /// The job that wrote it.
     #[serde(default)]
     pub job: Option<u64>,

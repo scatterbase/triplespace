@@ -83,15 +83,20 @@ for ( const p of pages ) {
 	} );
 }
 
-test( 'folds open and footnotes link without JavaScript', async ( { page } ) => {
+test( 'folds open and footnotes link to the references without JavaScript', async ( { page } ) => {
 	await page.goto( '/wiki/Item:Q6' );
 	const fold = page.locator( '#P2 details.ts-fold' ).first();
 	await expect( fold.getByText( 'city' ) ).toBeHidden();
 	await fold.locator( 'summary' ).click();
 	await expect( fold.getByText( 'city' ) ).toBeVisible();
-	await page.locator( '#P3 a.ts-fn' ).click();
-	await expect( page ).toHaveURL( /#P3-fn-1$/ );
-	await expect( page.locator( '#P3-fn-1' ).getByText( 'reference URL' ) ).toBeVisible();
+	// A footnote marker goes to the tab's references, which name the groups citing each.
+	const marker = page.locator( '#P3 a.ts-fn' ).first();
+	const n = await marker.textContent();
+	await marker.click();
+	await expect( page ).toHaveURL( ( url ) => url.hash === `#ts-ref-${ n }` );
+	const note = page.locator( `#ts-ref-${ n }` );
+	await expect( note.getByText( 'reference URL' ) ).toBeVisible();
+	await expect( note.locator( '.ts-endnotes__cited a[href="#P3"]' ) ).toBeVisible();
 } );
 
 test( 'the header box goes to an ID and searches words without JavaScript', async ( { page } ) => {
