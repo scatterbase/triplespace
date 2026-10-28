@@ -533,6 +533,25 @@ fn diff_href(row: &ActivityRow) -> Option<String> {
     Some(format!("/wiki/{}?diff={arg}", title_url(title)))
 }
 
+/// The columns of the changes table, by the message that heads each. Every row has a
+/// cell in each, empty where the row has nothing for it, so the fields line up.
+const COLUMNS: [(&str, &str); 7] = [
+    ("ts-changes-col-time", "time"),
+    ("ts-changes-col-origin", "origin"),
+    ("ts-changes-col-flags", "flags"),
+    ("ts-changes-col-target", "target"),
+    ("ts-changes-col-size", "size"),
+    ("ts-changes-col-user", "user"),
+    ("ts-changes-col-summary", "summary"),
+];
+
+fn cell(s: &mut String, col: &str, inner: &str) {
+    let _ = write!(
+        s,
+        "<td class=\"ts-change__cell ts-change__cell--{col}\">{inner}</td>"
+    );
+}
+
 fn row_html(m: &Messages, site: &SiteInfo, row: &ActivityRow, here: Option<u64>) -> String {
     let time = format!(
         "<time class=\"ts-change__time\" datetime=\"{}\">{}</time>",
@@ -544,15 +563,17 @@ fn row_html(m: &Messages, site: &SiteInfo, row: &ActivityRow, here: Option<u64>)
         None => time,
     };
     let mut s = format!(
-        "<li class=\"ts-change ts-change--{}{}\"><span class=\"ts-change__part\">{time}</span><span class=\"ts-change__part\">{}</span>",
+        "<tr class=\"ts-change ts-change--{}{}\">",
         esc(&row.kind),
         if row.unseen { " ts-change--unseen" } else { "" },
-        origin_chip(m, site, row)
     );
+    cell(&mut s, "time", &time);
+    cell(&mut s, "origin", &origin_chip(m, site, row));
     if row.kind == "erased" {
         let _ = write!(
             s,
-            "<span class=\"ts-change__hidden\">{}</span></li>",
+            "<td class=\"ts-change__cell ts-change__hidden\" colspan=\"{}\">{}</td></tr>",
+            COLUMNS.len() - 2,
             esc(&m.get("ts-changes-erased"))
         );
         return s;
@@ -567,49 +588,42 @@ fn row_html(m: &Messages, site: &SiteInfo, row: &ActivityRow, here: Option<u64>)
     if row.flags.bot {
         flags.push(("ts-changes-flag-bot", "bot"));
     }
-    if !flags.is_empty() {
-        s.push_str("<span class=\"ts-change__flags\">");
-        for (msg, class) in flags {
-            let _ = write!(
-                s,
-                "<abbr class=\"ts-change__flag ts-change__flag--{class}\" title=\"{}\">{}</abbr>",
-                esc(&m.get(&format!("{msg}-title"))),
-                esc(&m.get(msg))
-            );
-        }
-        s.push_str("</span>");
-    }
-    let target = target_html(m, row, here.is_some());
-    if !target.is_empty() {
-        s.push_str(&target);
-    } else if let Some(j) = row.job {
+    let mut f = String::new();
+    for (msg, class) in flags {
         let _ = write!(
-            s,
+            f,
+            "<abbr class=\"ts-change__flag ts-change__flag--{class}\" title=\"{}\">{}</abbr>",
+            esc(&m.get(&format!("{msg}-title"))),
+            esc(&m.get(msg))
+        );
+    }
+    cell(&mut s, "flags", &f);
+    let mut target = target_html(m, row, here.is_some());
+    if target.is_empty()
+        && let Some(j) = row.job
+    {
+        target = format!(
             "<span class=\"ts-change__part ts-change__target\">{}</span>",
             esc(&m.with("ts-changes-job", &[&j.to_string()]))
         );
     }
-    let delta = size_html(row);
-    if !delta.is_empty() {
-        s.push_str(&delta);
-    }
-    let actor = actor_html(m, row);
-    if !actor.is_empty() {
-        s.push_str(&actor);
-    }
-    let summary = summary_html(m, row, here);
+    cell(&mut s, "target", &target);
+    cell(&mut s, "size", &size_html(row));
+    cell(&mut s, "user", &actor_html(m, row));
+    let mut summary = summary_html(m, row, here);
     if !summary.is_empty() {
-        let _ = write!(s, "<span class=\"ts-change__summary\">{summary}</span>");
+        summary = format!("<span class=\"ts-change__summary\">{summary}</span>");
     }
     let tags: Vec<&String> = row.tags.iter().filter(|t| *t != "bot").collect();
     if !tags.is_empty() {
-        s.push_str("<span class=\"ts-change__tags\">");
+        summary.push_str("<span class=\"ts-change__tags\">");
         for t in tags {
-            let _ = write!(s, "<span class=\"ts-change__tag\">{}</span>", esc(t));
+            let _ = write!(summary, "<span class=\"ts-change__tag\">{}</span>", esc(t));
         }
-        s.push_str("</span>");
+        summary.push_str("</span>");
     }
-    s.push_str("</li>");
+    cell(&mut s, "summary", &summary);
+    s.push_str("</tr>");
     s
 }
 
@@ -618,34 +632,47 @@ pub(crate) fn list_html(m: &Messages, site: &SiteInfo, rows: &[ActivityRow]) -> 
     list_html_here(m, site, rows, None)
 }
 
-/// The rows, grouped by day, as the history of the talk page `here` reads them: a thread
-/// listed on it or moved to or from it says so (16 §6.1).
+/// The rows as one table, a row group per day headed by its date, as the history of the
+/// talk page `here` reads them: a thread listed on it or moved to or from it says so
+/// (16 §6.1).
 pub(crate) fn list_html_here(
     m: &Messages,
     site: &SiteInfo,
     rows: &[ActivityRow],
     here: Option<u64>,
 ) -> String {
-    let mut s = String::new();
+    if rows.is_empty() {
+        return String::new();
+    }
+    let mut s = String::from(
+        "<div class=\"ts-changes__scroll\"><table class=\"ts-changes__table\"><thead><tr>",
+    );
+    for (msg, col) in COLUMNS {
+        let _ = write!(
+            s,
+            "<th scope=\"col\" class=\"ts-change__head ts-change__head--{col}\">{}</th>",
+            esc(&m.get(msg))
+        );
+    }
+    s.push_str("</tr></thead>");
     let mut day: Option<&str> = None;
     for row in rows {
         let d = row.time.split('T').next().unwrap_or("");
         if day != Some(d) {
             if day.is_some() {
-                s.push_str("</ul>");
+                s.push_str("</tbody>");
             }
             let _ = write!(
                 s,
-                "<h3 class=\"ts-changes__day\">{}</h3><ul class=\"ts-changes__list\">",
+                "<tbody><tr class=\"ts-changes__dayrow\"><th scope=\"rowgroup\" colspan=\"{}\" class=\"ts-changes__day\">{}</th></tr>",
+                COLUMNS.len(),
                 esc(&date(m, &row.time))
             );
             day = Some(d);
         }
         s.push_str(&row_html(m, site, row, here));
     }
-    if day.is_some() {
-        s.push_str("</ul>");
-    }
+    s.push_str("</tbody></table></div>");
     s
 }
 

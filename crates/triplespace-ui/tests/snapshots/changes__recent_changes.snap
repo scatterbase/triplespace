@@ -71,105 +71,157 @@ expression: main
 </form>
 <p class="ts-changes__strip">Mirror syncs are not shown. <a href="/w/index.php?title=Special:RecentChanges&amp;filtered=1&amp;kind=edit&amp;kind=job&amp;kind=log&amp;kind=sync&amp;days=30&amp;limit=50">Show them</a>
 </p>
-<h3 class="ts-changes__day">2 October 2026</h3>
-<ul class="ts-changes__list">
-<li class="ts-change ts-change--edit">
-<span class="ts-change__part">
+<div class="ts-changes__scroll">
+<table class="ts-changes__table">
+<thead>
+<tr>
+<th scope="col" class="ts-change__head ts-change__head--time">Time</th>
+<th scope="col" class="ts-change__head ts-change__head--origin">Source</th>
+<th scope="col" class="ts-change__head ts-change__head--flags">Flags</th>
+<th scope="col" class="ts-change__head ts-change__head--target">Page</th>
+<th scope="col" class="ts-change__head ts-change__head--size">Size</th>
+<th scope="col" class="ts-change__head ts-change__head--user">User</th>
+<th scope="col" class="ts-change__head ts-change__head--summary">Summary</th>
+</tr>
+</thead>
+<tbody>
+<tr class="ts-changes__dayrow">
+<th scope="rowgroup" colspan="7" class="ts-changes__day">2 October 2026</th>
+</tr>
+<tr class="ts-change ts-change--edit">
+<td class="ts-change__cell ts-change__cell--time">
 <a href="/wiki/Item:Q6?diff=907" class="ts-change__diff">
 <time class="ts-change__time" datetime="2026-10-02T14:05:11Z">14:05</time>
 </a>
-</span>
-<span class="ts-change__part">
+</td>
+<td class="ts-change__cell ts-change__cell--origin">
 <span class="ts-chip ts-chip--local">Local</span>
-</span>
+</td>
+<td class="ts-change__cell ts-change__cell--flags">
+</td>
+<td class="ts-change__cell ts-change__cell--target">
 <span class="ts-change__part">
 <a href="/wiki/Item:Q6" class="ts-change__target">
 <span>Six &amp; more</span>
 </a>
 </span>
 <span class="ts-change__part ts-change__id ts-mono">Q6</span>
+</td>
+<td class="ts-change__cell ts-change__cell--size">
 <span class="ts-change__delta ts-change__delta--pos" dir="ltr">+20</span>
+</td>
+<td class="ts-change__cell ts-change__cell--user">
 <span class="ts-change__part">
 <a href="/wiki/Special:Contributions/Alice_bot" class="ts-change__actor">Alice bot</a>
 </span>
+</td>
+<td class="ts-change__cell ts-change__cell--summary">
 <span class="ts-change__summary">
 <span class="ts-change__auto">add: aliases:en</span>
 </span>
-</li>
-<li class="ts-change ts-change--edit">
-<span class="ts-change__part">
+</td>
+</tr>
+<tr class="ts-change ts-change--edit">
+<td class="ts-change__cell ts-change__cell--time">
 <a href="/wiki/Property:P2?diff=906" class="ts-change__diff">
 <time class="ts-change__time" datetime="2026-10-02T14:04:02Z">14:04</time>
 </a>
-</span>
-<span class="ts-change__part">
+</td>
+<td class="ts-change__cell ts-change__cell--origin">
 <span class="ts-chip ts-chip--local">Local</span>
-</span>
-<span class="ts-change__flags">
+</td>
+<td class="ts-change__cell ts-change__cell--flags">
 <abbr class="ts-change__flag ts-change__flag--minor" title="This is a minor edit">m</abbr>
-</span>
+</td>
+<td class="ts-change__cell ts-change__cell--target">
 <span class="ts-change__part">
 <a href="/wiki/Property:P2" class="ts-change__target">
 <span>instance of</span>
 </a>
 </span>
 <span class="ts-change__part ts-change__id ts-mono">P2</span>
+</td>
+<td class="ts-change__cell ts-change__cell--size">
 <span class="ts-change__delta ts-change__delta--neg" dir="ltr">−5</span>
+</td>
+<td class="ts-change__cell ts-change__cell--user">
 <span class="ts-change__part ts-change__hidden">(username hidden)</span>
+</td>
+<td class="ts-change__cell ts-change__cell--summary">
 <span class="ts-change__summary">
 <span class="ts-change__auto">add: labels:fr</span> <span class="ts-change__comment">corrigé</span>
 </span>
-</li>
-<li class="ts-change ts-change--erased">
-<span class="ts-change__part">
+</td>
+</tr>
+<tr class="ts-change ts-change--erased">
+<td class="ts-change__cell ts-change__cell--time">
 <time class="ts-change__time" datetime="2026-10-02T13:59:40Z">13:59</time>
-</span>
-<span class="ts-change__part">
+</td>
+<td class="ts-change__cell ts-change__cell--origin">
 <span class="ts-chip ts-chip--local">Local</span>
-</span>
-<span class="ts-change__hidden">An edit was erased.</span>
-</li>
-<li class="ts-change ts-change--job">
-<span class="ts-change__part">
+</td>
+<td class="ts-change__cell ts-change__hidden" colspan="5">An edit was erased.</td>
+</tr>
+<tr class="ts-change ts-change--job">
+<td class="ts-change__cell ts-change__cell--time">
 <time class="ts-change__time" datetime="2026-10-02T12:00:00Z">12:00</time>
-</span>
-<span class="ts-change__part">
+</td>
+<td class="ts-change__cell ts-change__cell--origin">
 <span class="ts-chip ts-chip--job">Job</span>
-</span>
+</td>
+<td class="ts-change__cell ts-change__cell--flags">
+</td>
+<td class="ts-change__cell ts-change__cell--target">
 <span class="ts-change__part ts-change__target">Job 7</span>
+</td>
+<td class="ts-change__cell ts-change__cell--size">
+</td>
+<td class="ts-change__cell ts-change__cell--user">
 <span class="ts-change__part">
 <a href="/wiki/Special:Contributions/Alice" class="ts-change__actor">Alice</a>
 </span>
+</td>
+<td class="ts-change__cell ts-change__cell--summary">
 <span class="ts-change__summary">
 <span class="ts-change__auto">job/finish</span>
 </span>
-</li>
-</ul>
-<h3 class="ts-changes__day">1 October 2026</h3>
-<ul class="ts-changes__list">
-<li class="ts-change ts-change--edit">
-<span class="ts-change__part">
+</td>
+</tr>
+</tbody>
+<tbody>
+<tr class="ts-changes__dayrow">
+<th scope="rowgroup" colspan="7" class="ts-changes__day">1 October 2026</th>
+</tr>
+<tr class="ts-change ts-change--edit">
+<td class="ts-change__cell ts-change__cell--time">
 <a href="/wiki/Item:Q6?diff=900" class="ts-change__diff">
 <time class="ts-change__time" datetime="2026-10-01T09:30:00Z">09:30</time>
 </a>
-</span>
-<span class="ts-change__part">
+</td>
+<td class="ts-change__cell ts-change__cell--origin">
 <span class="ts-chip ts-chip--local">Local</span>
-</span>
-<span class="ts-change__flags">
+</td>
+<td class="ts-change__cell ts-change__cell--flags">
 <abbr class="ts-change__flag ts-change__flag--new" title="This edit created the page">N</abbr>
 <abbr class="ts-change__flag ts-change__flag--bot" title="This edit was made by a bot">b</abbr>
-</span>
+</td>
+<td class="ts-change__cell ts-change__cell--target">
 <span class="ts-change__part">
 <a href="/wiki/Item:Q6" class="ts-change__target">
 <span>Six &amp; more</span>
 </a>
 </span>
 <span class="ts-change__part ts-change__id ts-mono">Q6</span>
+</td>
+<td class="ts-change__cell ts-change__cell--size">
 <span class="ts-change__delta" dir="ltr">(392)</span>
+</td>
+<td class="ts-change__cell ts-change__cell--user">
 <span class="ts-change__part">
 <a href="/wiki/Special:Contributions/Alice" class="ts-change__actor">Alice</a>
 </span>
+</td>
+<td class="ts-change__cell ts-change__cell--summary">
 <span class="ts-change__summary">
 <span class="ts-change__auto">adopt</span>
 </span>
@@ -177,8 +229,11 @@ expression: main
 <span class="ts-change__tag">job:8</span>
 <span class="ts-change__tag">adopt</span>
 </span>
-</li>
-</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
 <nav class="ts-pager" aria-label="More results">
 <a href="/w/index.php?title=Special:RecentChanges&amp;filtered=1&amp;kind=edit&amp;kind=job&amp;kind=log&amp;days=30&amp;limit=50&amp;continue=1700000000000000%7C4098%7C2" rel="next">Older</a>
 </nav>
