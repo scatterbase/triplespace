@@ -35,7 +35,7 @@ use crate::threads::TARGET_PAGE;
 const NS_THREAD_I64: i64 = scatter_threads::NS_THREAD as i64;
 
 fn sql(e: &tokio_postgres::Error) -> String {
-    e.to_string()
+    crate::common::describe(e)
 }
 
 /// The current ACLs of these targets, in the order given; targets with none are skipped.

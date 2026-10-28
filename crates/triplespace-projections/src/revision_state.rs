@@ -29,7 +29,7 @@ use crate::sources::entity_subject;
 use scatter_log_postgres::PgClient;
 
 fn sql(e: &tokio_postgres::Error) -> String {
-    e.to_string()
+    crate::common::describe(e)
 }
 
 /// The graph a partition's records are deltas of, for the state tables: `local` for the

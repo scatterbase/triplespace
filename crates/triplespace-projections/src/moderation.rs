@@ -36,7 +36,7 @@ use crate::backend::PgCx;
 use crate::common::{attestation, content, tenant_of, to_jsonb};
 
 fn sql(e: &tokio_postgres::Error) -> String {
-    e.to_string()
+    crate::common::describe(e)
 }
 
 /// Whether the ACL writer marked the record a suppression: `suppress: true` in its

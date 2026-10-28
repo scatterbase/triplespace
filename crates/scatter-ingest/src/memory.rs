@@ -387,6 +387,24 @@ impl IngestStore for MemoryIngest {
             .cloned())
     }
 
+    async fn highest_revid(
+        &self,
+        cx: &mut MemoryCx,
+        partition: u64,
+        key: &str,
+    ) -> Result<Option<u64>, IngestError> {
+        let p = cx
+            .state
+            .partitions
+            .get(&partition)
+            .ok_or_else(|| store(format!("no partition {partition:#x}")))?;
+        Ok(p.records
+            .iter()
+            .filter(|r| r.header().key.as_deref() == Some(key))
+            .filter_map(|r| r.header().revid)
+            .max())
+    }
+
     async fn latest_for_key(
         &self,
         cx: &mut MemoryCx,

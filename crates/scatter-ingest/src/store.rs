@@ -73,6 +73,17 @@ pub trait IngestStore: Backend {
         offset: u64,
     ) -> impl Future<Output = Result<Option<Record>, IngestError>> + Send;
 
+    /// The highest revision ID any record under a key in a partition carries (header
+    /// field 7), whatever the record is: the revisions a mirror has claimed for an entity,
+    /// a tombstone or a redirect in between notwithstanding (0092 §2: an undeleted entity
+    /// comes back at a revision already recorded).
+    fn highest_revid(
+        &self,
+        cx: &mut Self::Cx,
+        partition: u64,
+        key: &str,
+    ) -> impl Future<Output = Result<Option<u64>, IngestError>> + Send;
+
     /// The header of the newest record under a key in a partition, with its offset.
     fn latest_for_key(
         &self,

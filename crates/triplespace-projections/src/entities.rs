@@ -44,7 +44,7 @@ use crate::common::{
 use crate::sources::entity_subject;
 
 fn sql(e: &tokio_postgres::Error) -> String {
-    e.to_string()
+    crate::common::describe(e)
 }
 
 /// `view.entity`, `view.term`, `view.identifier`.

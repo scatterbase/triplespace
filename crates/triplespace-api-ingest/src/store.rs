@@ -204,6 +204,23 @@ impl IngestStore for PgIngest {
         }
     }
 
+    async fn highest_revid(
+        &self,
+        cx: &mut PgCx,
+        partition: u64,
+        key: &str,
+    ) -> Result<Option<u64>, IngestError> {
+        let row = cx
+            .query_one(
+                "SELECT max(revid) FROM log.record WHERE partition = $1 AND key = $2",
+                &[&partition_to_db(partition), &key],
+            )
+            .await
+            .map_err(store)?;
+        let max: Option<i64> = row.get(0);
+        max.map(from_db).transpose().map_err(store)
+    }
+
     async fn latest_for_key(
         &self,
         cx: &mut PgCx,

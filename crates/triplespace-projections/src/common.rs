@@ -247,6 +247,24 @@ pub async fn header_key_for<C: PgClient>(
     Ok(row.map(|r| surrogate_key(keyed_type, r.get::<_, i64>(0))))
 }
 
+/// A Postgres error as a projection reports it: the driver's one-word summary ("db
+/// error") with the server's message, code and detail, so that a refused write says
+/// which constraint refused it.
+#[must_use]
+pub fn describe(e: &tokio_postgres::Error) -> String {
+    match e.as_db_error() {
+        Some(d) => {
+            let mut s = format!("{e}: {} [{}]", d.message(), d.code().code());
+            if let Some(detail) = d.detail() {
+                s.push_str(": ");
+                s.push_str(detail);
+            }
+            s
+        }
+        None => e.to_string(),
+    }
+}
+
 /// The header key of a surrogate, `domain#17`.
 #[must_use]
 pub fn surrogate_key(keyed_type: &str, surrogate: i64) -> String {

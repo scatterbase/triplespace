@@ -23,7 +23,7 @@ use crate::common::target_kind;
 use crate::threads::{TARGET_ACTOR, TARGET_PAGE};
 
 fn sql(e: &tokio_postgres::Error) -> String {
-    e.to_string()
+    crate::common::describe(e)
 }
 
 /// A watch target, `(kind, id)` in `view.activity`'s numbering.
