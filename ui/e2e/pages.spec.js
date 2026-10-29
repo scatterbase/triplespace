@@ -54,7 +54,11 @@ const pages = [
 	{ path: '/wiki/Special:Log/delete', heading: 'Logs' },
 	{ path: '/wiki/Special:BlockList', heading: 'Blocked accounts' },
 	{ path: '/wiki/Special:Undelete', heading: 'Undelete' },
-	{ path: '/wiki/Special:Preferences', heading: 'Preferences' }
+	{ path: '/wiki/Special:Preferences', heading: 'Preferences' },
+	{ path: '/wiki/Special:BlankPage', heading: 'Blank page' },
+	{ path: '/wiki/Special:EditPage', heading: 'Edit a page' },
+	{ path: '/wiki/Special:Redirect', heading: 'Redirect by page or revision ID' },
+	{ path: '/wiki/Special:PermanentLink/abc', heading: 'Permanent link', status: 400 }
 ];
 
 for ( const p of pages ) {

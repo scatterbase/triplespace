@@ -495,7 +495,7 @@ fn first_upper(t: &str) -> String {
 
 /// A title with the project namespace written canonically: `librarybase:Home` and
 /// `project:home` are `Project:Home`.
-fn canonical(title: &str, sitename: &str) -> String {
+pub(crate) fn canonical(title: &str, sitename: &str) -> String {
     let t = title.replace('_', " ");
     if let Some((ns, rest)) = t.split_once(':')
         && (ns.trim().eq_ignore_ascii_case("project") || ns.trim().eq_ignore_ascii_case(sitename))

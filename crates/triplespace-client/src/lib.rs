@@ -49,8 +49,8 @@ pub use forward::Incoming;
 pub use issuers::{AccountInfo, LoginIssuer, Pending};
 pub use notifications::{Counts, Item as Notification, Listing as NotificationPage};
 pub use pages::{
-    DiffAsk, DiffSide, EditForm, Lookup, PageCategory, PageDiff, PageInfo, Parsed, Saved, Source,
-    Visibility,
+    DiffAsk, DiffSide, EditForm, Lookup, PageCategory, PageDiff, PageInfo, PageRef, Parsed, Saved,
+    Source, Visibility,
 };
 pub use register::{
     AccountRequest, ChallengeInfo, CreateFields, CreateForm, CreateResult, LoginForm,

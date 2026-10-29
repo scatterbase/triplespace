@@ -24,10 +24,14 @@
 //!   empty-group report (09 §4.5).
 //! - [`notifications`]: `Special:Notifications`, the viewer's inbox (19 §6.2).
 //! - [`watchlist`]: `Special:Watchlist` and `Special:EditWatchlist` (19 §6.2).
+//! - [`blank`]: `Special:BlankPage`, the frame around nothing.
+//! - [`redirects`]: MediaWiki's redirecting pages (`MyPage`, `EditPage`, `TalkPage`,
+//!   `PermanentLink`, `Diff`, `Redirect`, `EntityPage` and the rest; 21 §6.1).
 //!
 //! A special page the site does not serve is a `404`, as MediaWiki answers for a special
 //! page it does not have.
 
+pub mod blank;
 pub mod block;
 pub mod changes;
 pub mod controls;
@@ -39,6 +43,7 @@ pub mod new_entity;
 pub mod notifications;
 pub mod preferences;
 pub mod protected;
+pub mod redirects;
 pub mod register;
 pub mod search;
 pub mod settings;
@@ -79,7 +84,11 @@ pub async fn serve(
     if let Some(kind) = new_entity::Kind::of(&name) {
         return Some(new_entity::serve(site, headers, peer, kind, title, params).await);
     }
+    if let Some(which) = redirects::Which::of(&name) {
+        return Some(redirects::serve(site, headers, peer, which, title, params).await);
+    }
     match name.as_str() {
+        "BlankPage" => Some(blank::serve(site, headers, peer, params).await),
         "Search" => Some(search::serve(site, headers, peer, query).await),
         "RecentChanges" => Some(changes::recent_changes(site, headers, peer, params).await),
         "Contributions" => Some(changes::contributions(site, headers, peer, title, params).await),

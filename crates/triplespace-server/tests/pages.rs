@@ -1074,6 +1074,32 @@ async fn pages_on_the_site(site: Router, project: &str) {
         .await;
     assert_eq!(gone.status, StatusCode::NOT_FOUND, "{}", gone.body);
 
+    // The redirecting special pages find a revision's page through the API (21 §6.1).
+    let revid: String = diff_links[17]
+        .split(['=', '&'])
+        .find(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()))
+        .expect("a revision ID in the first diff link")
+        .to_string();
+    let permanent = reader
+        .get(&format!("/wiki/Special:PermanentLink/{revid}"))
+        .await;
+    assert_eq!(permanent.status, StatusCode::FOUND, "{}", permanent.body);
+    assert_eq!(
+        permanent.location,
+        format!("/wiki/{project}:Home?oldid={revid}")
+    );
+    assert_eq!(reader.get(&permanent.location).await.status, StatusCode::OK);
+    let diff = reader.get(&format!("/wiki/Special:Diff/{revid}")).await;
+    assert_eq!(diff.location, format!("/wiki/{project}:Home?diff={revid}"));
+    let by_type = reader
+        .get(&format!(
+            "/w/index.php?title=Special:Redirect&wptype=revision&wpvalue={revid}"
+        ))
+        .await;
+    assert_eq!(by_type.location, permanent.location);
+    let nowhere = reader.get("/wiki/Special:PermanentLink/99999999").await;
+    assert_eq!(nowhere.status, StatusCode::NOT_FOUND, "{}", nowhere.body);
+
     // A title with no page: the notice, and Create for a signed-in reader only.
     let none = reader.get("/wiki/Project:Nothing_here").await;
     assert_eq!(none.status, StatusCode::NOT_FOUND);

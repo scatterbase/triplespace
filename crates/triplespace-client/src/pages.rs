@@ -135,6 +135,15 @@ pub enum Lookup<T> {
     Invalid,
 }
 
+/// A page named by a number rather than a title.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PageRef {
+    /// A page ID.
+    Page(u64),
+    /// A revision ID: the page the revision belongs to.
+    Revision(u64),
+}
+
 /// What `prop=info` says of a page.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct PageInfo {
@@ -387,12 +396,40 @@ impl Client {
         incoming: &Incoming,
         title: &str,
     ) -> Result<Fetched<Lookup<PageInfo>>, ClientError> {
+        self.info_of(incoming, &format!("titles={}", q(title)))
+            .await
+    }
+
+    /// `prop=info` of the page with a page ID (`pageids=`) or of the page a revision
+    /// belongs to (`revids=`): what `Special:Redirect` and `Special:PermanentLink` need
+    /// to find the title. An ID that names nothing the viewer may see is
+    /// [`Lookup::Missing`], with an empty title.
+    ///
+    /// # Errors
+    ///
+    /// The API away or unreadable.
+    pub async fn page_info_by(
+        &self,
+        incoming: &Incoming,
+        id: PageRef,
+    ) -> Result<Fetched<Lookup<PageInfo>>, ClientError> {
+        let selector = match id {
+            PageRef::Page(n) => format!("pageids={n}"),
+            PageRef::Revision(n) => format!("revids={n}"),
+        };
+        self.info_of(incoming, &selector).await
+    }
+
+    async fn info_of(
+        &self,
+        incoming: &Incoming,
+        selector: &str,
+    ) -> Result<Fetched<Lookup<PageInfo>>, ClientError> {
         let r = self
             .get(
                 incoming,
                 &format!(
-                    "/w/api.php?action=query&prop=info&titles={}&format=json&formatversion=2",
-                    q(title)
+                    "/w/api.php?action=query&prop=info&{selector}&format=json&formatversion=2"
                 ),
             )
             .await?;

@@ -14,139 +14,151 @@ use crate::html::{esc, link};
 use crate::pages::{self, Peer};
 
 /// The special pages the site serves: title, label message, description message, and
-/// the feature each needs.
-pub const PAGES: &[(&str, &str, &str, Feature)] = &[
+/// the feature each needs, if any.
+pub const PAGES: &[(&str, &str, &str, Option<Feature>)] = &[
     (
         "Special:Search",
         "ts-search-title",
         "ts-specialpages-search",
-        Feature::Search,
+        Some(Feature::Search),
     ),
     (
         "Special:UserLogin",
         "ts-login-title",
         "ts-specialpages-login",
-        Feature::Login,
+        Some(Feature::Login),
     ),
     (
         "Special:CreateAccount",
         "ts-createaccount-title",
         "ts-specialpages-createaccount",
-        Feature::Register,
+        Some(Feature::Register),
     ),
     (
         "Special:ConfirmAccounts",
         "ts-confirmaccounts-title",
         "ts-specialpages-confirmaccounts",
-        Feature::Register,
+        Some(Feature::Register),
     ),
     (
         "Special:Watchlist",
         "ts-watchlist-title",
         "ts-specialpages-watchlist",
-        Feature::Watchlist,
+        Some(Feature::Watchlist),
     ),
     (
         "Special:EditWatchlist",
         "ts-editwatchlist-title",
         "ts-specialpages-editwatchlist",
-        Feature::Watchlist,
+        Some(Feature::Watchlist),
     ),
     (
         "Special:Notifications",
         "ts-notifications-title",
         "ts-specialpages-notifications",
-        Feature::Notifications,
+        Some(Feature::Notifications),
     ),
     (
         "Special:Log",
         "ts-log-title",
         "ts-specialpages-log",
-        Feature::RecentChanges,
+        Some(Feature::RecentChanges),
     ),
     (
         "Special:UserRights",
         "ts-userrights-title",
         "ts-specialpages-userrights",
-        Feature::UserRights,
+        Some(Feature::UserRights),
     ),
     (
         "Special:ProtectedPages",
         "ts-protectedpages-title",
         "ts-specialpages-protectedpages",
-        Feature::Protect,
+        Some(Feature::Protect),
     ),
     (
         "Special:Block",
         "ts-block-title",
         "ts-specialpages-block",
-        Feature::Block,
+        Some(Feature::Block),
     ),
     (
         "Special:BlockList",
         "ts-blocklist-title",
         "ts-specialpages-blocklist",
-        Feature::Block,
+        Some(Feature::Block),
     ),
     (
         "Special:Undelete",
         "ts-undelete-index-title",
         "ts-specialpages-undelete",
-        Feature::Delete,
+        Some(Feature::Delete),
     ),
     (
         "Special:MovePage",
         "ts-move-index-title",
         "ts-specialpages-movepage",
-        Feature::Move,
+        Some(Feature::Move),
     ),
     (
         "Special:NewItem",
         "ts-newitem-title",
         "ts-specialpages-newitem",
-        Feature::Create,
+        Some(Feature::Create),
     ),
     (
         "Special:NewProperty",
         "ts-newproperty-title",
         "ts-specialpages-newproperty",
-        Feature::Create,
+        Some(Feature::Create),
     ),
     (
         "Special:RecentChanges",
         "ts-recentchanges-title",
         "ts-specialpages-recentchanges",
-        Feature::RecentChanges,
+        Some(Feature::RecentChanges),
     ),
     (
         "Special:Contributions",
         "ts-contributions-title-none",
         "ts-specialpages-contributions",
-        Feature::RecentChanges,
+        Some(Feature::RecentChanges),
     ),
     (
         "Special:Version",
         "ts-version-title",
         "ts-specialpages-version",
-        Feature::Version,
+        Some(Feature::Version),
     ),
     (
         "Special:Preferences",
         "ts-preferences-title",
         "ts-specialpages-preferences",
-        Feature::Preferences,
+        Some(Feature::Preferences),
     ),
     (
         "Special:WikiSettings",
         "ts-wikisettings-title",
         "ts-specialpages-wikisettings",
-        Feature::Settings,
+        Some(Feature::Settings),
     ),
     (
         "Special:InstanceSettings",
         "ts-instancesettings-title",
         "ts-specialpages-instancesettings",
-        Feature::Settings,
+        Some(Feature::Settings),
+    ),
+    (
+        "Special:Redirect",
+        "ts-redirect-title",
+        "ts-specialpages-redirect",
+        Some(Feature::History),
+    ),
+    (
+        "Special:EntityPage",
+        "ts-entitypage-title",
+        "ts-specialpages-entitypage",
+        None,
     ),
 ];
 
@@ -167,7 +179,7 @@ pub async fn serve(
     for (title, label, description, feature) in PAGES {
         // The instance's settings are served at the farm base only (0085 §4).
         let elsewhere = *title == "Special:InstanceSettings" && !cx.site.at_farm;
-        if cx.features.has(*feature) && !elsewhere {
+        if feature.is_none_or(|f| cx.features.has(f)) && !elsewhere {
             let _ = write!(
                 list,
                 "<li><p class=\"ts-specialpages__name\">{}</p><p class=\"ts-specialpages__description\">{}</p></li>",
