@@ -73,6 +73,9 @@ pub struct Typeset {
     /// A stack per language tag.
     #[serde(default)]
     pub languages: BTreeMap<String, String>,
+    /// The fallback layer whose typefaces back its own up (0093 §1).
+    #[serde(default)]
+    pub fallback: Option<String>,
     /// The three roles; as for a palette's shape, only strings are tokens.
     #[serde(flatten)]
     pub roles: BTreeMap<String, Value>,

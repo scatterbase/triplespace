@@ -4,11 +4,11 @@
  * Logical properties throughout.
  */
 
+/* The page takes the width it is given: the changes table fills it. */
 .ts-changes {
 	display: flex;
 	flex-direction: column;
 	gap: var( --spacing-100, 1rem );
-	max-width: 64rem;
 }
 
 .ts-changes-form {
@@ -123,9 +123,17 @@
 	text-align: end;
 }
 
+/* `break-word`, not `anywhere`: it breaks a long title only when the title cannot fit
+ * its line, and does not let the table shrink the column to a few letters. */
 .ts-change__cell--target,
 .ts-change__cell--summary {
-	overflow-wrap: anywhere;
+	overflow-wrap: break-word;
+}
+
+/* The page takes a quarter of a wide table, so that its size and user stay near it and
+ * the summary takes what is left. */
+.ts-change__cell--target {
+	width: 25%;
 }
 
 .ts-change__cell--target .ts-change__part + .ts-change__part {
@@ -225,7 +233,6 @@
 	display: flex;
 	flex-direction: column;
 	gap: var( --spacing-100, 1rem );
-	max-width: 64rem;
 }
 
 .ts-history__note {

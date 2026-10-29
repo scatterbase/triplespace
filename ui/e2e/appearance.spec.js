@@ -62,7 +62,7 @@ test( 'without JavaScript the palette follows the device\'s dark mode and contra
 	expect( await token( page, 'color-base' ) ).not.toBe( dark );
 	await page.emulateMedia( { colorScheme: 'light', contrast: 'no-preference' } );
 	expect( await token( page, 'color-base' ) ).toBe( '#1D1C1A' );
-	expect( await token( page, 'font-family-base' ) ).toContain( 'IBM Plex Sans' );
+	expect( await token( page, 'font-family-base' ) ).toContain( 'Source Sans 3' );
 } );
 
 test.describe( 'with JavaScript', () => {
@@ -112,6 +112,40 @@ test.describe( 'with JavaScript', () => {
 		await page.locator( '.ts-appearance > summary' ).click();
 		await page.locator( 'select[data-key="ui.palette"]' ).selectOption( '' );
 		await expect( page.locator( '#ts-palette' ) ).toHaveAttribute( 'href', /p-parchment-[0-9a-f]{16}\.css/ );
+	} );
+
+	test( 'a page in many scripts fetches the fallback faces of those scripts alone', async ( { page } ) => {
+		// The Noto layer (ADR 0093): every face is declared, but the browser fetches one
+		// only for characters on the page that the type set's own families lack.
+		const fetched = [];
+		page.on( 'request', ( r ) => {
+			if ( r.url().endsWith( '.woff2' ) ) {
+				fetched.push( r.url() );
+			}
+		} );
+		await page.goto( '/wiki/Item:Q6' );
+		await page.evaluate( async () => {
+			const terms = [ [ 'ar', 'مرحبا' ], [ 'hi', 'नमस्ते' ], [ 'ka', 'გამარჯობა' ], [ 'ur', 'خوش آمدید' ] ];
+			for ( const [ lang, text ] of terms ) {
+				const p = document.createElement( 'p' );
+				p.lang = lang;
+				p.textContent = text;
+				document.querySelector( 'main, body' ).append( p );
+			}
+			await document.fonts.ready;
+		} );
+		const has = ( file ) => fetched.some( ( u ) => u.includes( `/${ file }-` ) );
+		await expect.poll( () => has( 'noto-nastaliq-urdu-arabic-400-normal' ) ).toBe( true );
+		for ( const file of [ 'noto-sans-arabic-arabic', 'noto-sans-devanagari-devanagari', 'noto-sans-georgian-georgian' ] ) {
+			expect( has( `${ file }-400-normal` ), file ).toBe( true );
+		}
+		// The page's own arrows (← → ↗), which Source Sans 3 lacks, take Noto Sans
+		// Symbols; the scripts it does not hold take nothing.
+		for ( const script of [ 'thai', 'ethiopic', 'hebrew', 'tamil' ] ) {
+			expect( fetched.filter( ( u ) => u.includes( `-${ script }-` ) ), script ).toEqual( [] );
+		}
+		// Latin text is the type set's own: the layer's Latin faces are not fetched for it.
+		expect( fetched.filter( ( u ) => u.includes( '/noto-sans-latin-' ) ) ).toEqual( [] );
 	} );
 
 	for ( const [ mode, contrast ] of [ [ 'light', 'auto' ], [ 'dark', 'auto' ], [ 'light', 'more' ], [ 'dark', 'more' ] ] ) {

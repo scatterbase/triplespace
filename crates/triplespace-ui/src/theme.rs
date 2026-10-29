@@ -98,6 +98,117 @@ static SHIPPED: LazyLock<ThemeInfo> = LazyLock::new(|| {
     }
 });
 
+/// A typeface of a fallback layer (0093 §1), and the generic stacks it backs up.
+#[derive(Debug, Clone, Deserialize)]
+struct LayerFont {
+    family: String,
+    #[serde(default)]
+    licence: String,
+    #[serde(default)]
+    stacks: Vec<String>,
+}
+
+/// A fallback layer (0093 §1): typefaces in stack order, and stacks per language tag.
+#[derive(Debug, Clone, Default, Deserialize)]
+struct Layer {
+    #[serde(default, rename = "font")]
+    fonts: Vec<LayerFont>,
+    #[serde(default)]
+    languages: BTreeMap<String, String>,
+}
+
+impl Layer {
+    /// The families that back up a stack of one generic family, in order.
+    fn families(&self, generic: &str) -> Vec<&str> {
+        self.fonts
+            .iter()
+            .filter(|f| f.stacks.iter().any(|s| s == generic))
+            .map(|f| f.family.as_str())
+            .collect()
+    }
+}
+
+#[derive(Deserialize)]
+struct Layers {
+    #[serde(default)]
+    fallback: BTreeMap<String, Layer>,
+}
+
+/// The shipped fallback layers, by name; a type set's `fallback` may name only these.
+static LAYERS: LazyLock<BTreeMap<String, Layer>> = LazyLock::new(|| {
+    toml::from_str::<Layers>(REGISTRY)
+        .expect("docs/registry/themes.toml parses")
+        .fallback
+});
+
+/// A family name as a stack compares it: unquoted, in lower case.
+fn family_key(f: &str) -> String {
+    f.trim()
+        .trim_matches(|c| c == '\'' || c == '"')
+        .to_ascii_lowercase()
+}
+
+/// The generic family of a stack, as a fallback layer files its families: `serif`,
+/// `monospace` or, for `sans-serif`, `system-ui`, another or none, `sans-serif`.
+fn generic_of(stack: &str) -> &'static str {
+    for f in stack.split(',').map(family_key) {
+        match f.as_str() {
+            "serif" | "ui-serif" => return "serif",
+            "monospace" | "ui-monospace" => return "monospace",
+            "sans-serif" | "ui-sans-serif" | "system-ui" => return "sans-serif",
+            _ => {}
+        }
+    }
+    "sans-serif"
+}
+
+/// Whether a family is a generic one, which ends a stack.
+fn generic(f: &str) -> bool {
+    matches!(
+        family_key(f).as_str(),
+        "serif"
+            | "sans-serif"
+            | "monospace"
+            | "cursive"
+            | "fantasy"
+            | "system-ui"
+            | "ui-serif"
+            | "ui-sans-serif"
+            | "ui-monospace"
+            | "ui-rounded"
+            | "math"
+            | "emoji"
+            | "fangsong"
+    )
+}
+
+/// A stack with a layer's families in it (0093 §1): straight after the families the type
+/// set serves, or, if it serves none at the head of the stack, before its first generic
+/// family. A family the stack already names is not added again.
+fn with_layer(stack: &str, served: &[String], layer: &[&str]) -> String {
+    let parts: Vec<&str> = stack.split(',').map(str::trim).collect();
+    let served: Vec<String> = served.iter().map(|f| family_key(f)).collect();
+    let lead = parts
+        .iter()
+        .take_while(|p| served.contains(&family_key(p)))
+        .count();
+    let at = if lead > 0 {
+        lead
+    } else {
+        parts.iter().position(|p| generic(p)).unwrap_or(parts.len())
+    };
+    let named: Vec<String> = parts.iter().map(|p| family_key(p)).collect();
+    let mut out: Vec<String> = parts[..at].iter().map(|s| (*s).to_string()).collect();
+    out.extend(
+        layer
+            .iter()
+            .filter(|f| !named.contains(&family_key(f)))
+            .map(|f| format!("'{f}'")),
+    );
+    out.extend(parts[at..].iter().map(|s| (*s).to_string()));
+    out.join(", ")
+}
+
 /// Whether a key can name a Codex token: lower-case letters, digits and hyphens.
 fn token_name(s: &str) -> bool {
     !s.is_empty()
@@ -691,14 +802,41 @@ impl Theme {
     #[must_use]
     pub fn typeset_css(&self, name: &str) -> Option<String> {
         let t = self.info.typeset(name)?;
+        let layer = t
+            .fallback
+            .as_deref()
+            .and_then(|l| LAYERS.get(l).map(|layer| (l, layer)));
         let mut css = String::new();
-        if let Some(fonts) = crate::assets::typeset_fonts(&t.name) {
-            css.push_str(&fonts);
+        let fonts = [
+            crate::assets::typeset_fonts(&t.name),
+            layer.and_then(|(l, _)| crate::assets::fallback_fonts(l)),
+        ];
+        for f in fonts.into_iter().flatten() {
+            css.push_str(&f);
             if !css.ends_with('\n') {
                 css.push('\n');
             }
         }
-        block(&mut css, None, ":root", &strings(&t.roles));
+        let mut roles = strings(&t.roles);
+        if let Some((_, layer)) = layer {
+            let served: Vec<String> = t.fonts.iter().map(|f| f.family.clone()).collect();
+            for (role, stack) in &mut roles {
+                if role.starts_with("font-family-") {
+                    *stack = with_layer(stack, &served, &layer.families(generic_of(stack)));
+                }
+            }
+        }
+        block(&mut css, None, ":root", &roles);
+        // The layer's stacks per language tag, where the type set names none of its own:
+        // the layer's families, then the text stack for what they lack.
+        for (tag, stack) in layer.map(|(_, l)| &l.languages).into_iter().flatten() {
+            if language_tag(tag) && plain_value(stack) && !t.languages.contains_key(tag) {
+                let _ = writeln!(
+                    css,
+                    ":lang({tag}):not(code, pre, kbd, samp) {{\n\tfont-family: {stack}, var(--font-family-base);\n}}"
+                );
+            }
+        }
         for (tag, stack) in &t.languages {
             if language_tag(tag) && plain_value(stack) {
                 let _ = writeln!(
@@ -776,18 +914,23 @@ impl Theme {
         .replace("</", "<\\/")
     }
 
-    /// The typefaces a type set serves.
+    /// The typefaces a type set serves, its fallback layer's after its own (0093 §1).
     #[must_use]
     pub fn fonts(&self, name: &str) -> Vec<(String, String)> {
-        self.info
-            .typeset(name)
-            .map(|t| {
-                t.fonts
-                    .iter()
-                    .map(|f| (f.family.clone(), f.licence.clone()))
-                    .collect()
-            })
-            .unwrap_or_default()
+        let Some(t) = self.info.typeset(name) else {
+            return Vec::new();
+        };
+        let layer = t.fallback.as_deref().and_then(|l| LAYERS.get(l));
+        t.fonts
+            .iter()
+            .map(|f| (f.family.clone(), f.licence.clone()))
+            .chain(
+                layer
+                    .into_iter()
+                    .flat_map(|l| &l.fonts)
+                    .map(|f| (f.family.clone(), f.licence.clone())),
+            )
+            .collect()
     }
 
     /// A token's value in a palette's `light` variant as served.
@@ -951,9 +1094,10 @@ mod tests {
     fn a_type_set_sheet() {
         let t = Theme::shipped();
         let css = t.typeset_css("hyperlegible").unwrap();
-        assert!(
-            css.contains("\t--font-family-base: 'Atkinson Hyperlegible', system-ui, sans-serif;\n")
-        );
+        assert!(css.contains(
+            "\t--font-family-base: 'Atkinson Hyperlegible', 'Noto Sans', 'Noto Sans Arabic', "
+        ));
+        assert!(css.contains("'Noto Sans Symbols 2', system-ui, sans-serif;\n"));
         assert!(css.contains(":root[data-text-size=\"x-large\"] {\n"));
         if crate::assets::typeset_fonts("hyperlegible").is_some() {
             // Built with the frontend: the typefaces are in the type set's own sheet.
@@ -973,6 +1117,97 @@ mod tests {
             ":lang(ar):not(code, pre, kbd, samp) {\n\tfont-family: 'Noto Naskh Arabic', serif;\n}"
         ));
         assert!(!css.contains("x){}"));
+    }
+
+    #[test]
+    fn a_layer_goes_after_the_served_families() {
+        let served = ["Source Sans 3".to_string()];
+        let layer = ["Noto Sans", "Noto Sans Arabic"];
+        assert_eq!(
+            with_layer("'Source Sans 3', system-ui, sans-serif", &served, &layer),
+            "'Source Sans 3', 'Noto Sans', 'Noto Sans Arabic', system-ui, sans-serif"
+        );
+        // Serving none at the head of the stack: before the generic families, after the
+        // device's own named ones.
+        assert_eq!(
+            with_layer("'Linux Libertine', Georgia, serif", &served, &layer),
+            "'Linux Libertine', Georgia, 'Noto Sans', 'Noto Sans Arabic', serif"
+        );
+        assert_eq!(
+            with_layer("Garamond", &[], &layer),
+            "Garamond, 'Noto Sans', 'Noto Sans Arabic'"
+        );
+        // A family the stack names already stays where the stack puts it.
+        assert_eq!(
+            with_layer(
+                "'Source Sans 3', \"Noto Sans\", sans-serif",
+                &served,
+                &layer
+            ),
+            "'Source Sans 3', 'Noto Sans Arabic', \"Noto Sans\", sans-serif"
+        );
+        assert_eq!(generic_of("'Lilex', Menlo, monospace"), "monospace");
+        assert_eq!(generic_of("'X', Georgia, serif"), "serif");
+        assert_eq!(generic_of("'X', system-ui, sans-serif"), "sans-serif");
+        assert_eq!(generic_of("'X'"), "sans-serif");
+    }
+
+    #[test]
+    fn the_noto_layer() {
+        for t in &SHIPPED.typesets {
+            if let Some(l) = &t.fallback {
+                assert!(LAYERS.contains_key(l), "{}: no layer {l}", t.name);
+            }
+        }
+        let noto = &LAYERS["noto"];
+        assert_eq!(noto.fonts.len(), 72);
+        let theme = Theme::shipped();
+        let css = theme.typeset_css("default26").unwrap();
+        let token = |name: &str| {
+            css.lines()
+                .find_map(|l| l.strip_prefix(&format!("\t--{name}: ")))
+                .unwrap()
+                .trim_end_matches(';')
+                .to_string()
+        };
+        let base = token("font-family-base");
+        assert!(base.starts_with("'Source Sans 3', 'Noto Sans', 'Noto Sans Arabic', "));
+        assert!(base.ends_with("'Noto Sans Symbols 2', system-ui, sans-serif"));
+        assert!(!base.contains("'Noto Serif'") && !base.contains("Naskh"));
+        let heading = token("font-family-heading-main");
+        assert!(heading.starts_with("'Source Serif 4', 'Noto Serif', 'Noto Naskh Arabic', "));
+        // A script without a Noto serif heads in its sans; Tibetan has only a serif.
+        assert!(
+            heading.contains("'Noto Sans Tifinagh'") && heading.contains("'Noto Serif Tibetan'")
+        );
+        assert!(heading.ends_with(", Georgia, 'Times New Roman', serif"));
+        let code = token("font-family-monospace");
+        assert!(code.starts_with("'Lilex', 'Noto Sans Arabic', "));
+        assert!(!code.contains("'Noto Sans',") && code.ends_with(", Menlo, Consolas, monospace"));
+        assert!(css.contains(
+            ":lang(ur):not(code, pre, kbd, samp) {\n\tfont-family: 'Noto Nastaliq Urdu', var(--font-family-base);\n}"
+        ));
+        // A sans type set takes the layer's sans families for its headings too.
+        let h = theme.typeset_css("hyperlegible").unwrap();
+        assert!(h.contains("--font-family-heading-main: 'Atkinson Hyperlegible', 'Noto Sans', "));
+        assert!(!h.contains("'Noto Serif'"));
+        // `basic` serves no typeface and names no layer.
+        assert!(!theme.typeset_css("basic").unwrap().contains("Noto"));
+        assert_eq!(theme.fonts("default26").len(), 3 + 72);
+        if let Some(layer) = crate::assets::fallback_fonts("noto") {
+            // Built with the frontend: the layer's faces follow the type set's own, each
+            // for its script's ranges, in WOFF2 alone.
+            assert!(css.contains(&layer));
+            assert!(layer.contains("font-family:Noto Sans Arabic;"));
+            assert!(layer.contains(",U+750-77F,"));
+            assert!(!layer.contains(".woff)"));
+        }
+        // A type set naming a layer that does not exist is served as it is.
+        let mut info = SHIPPED.clone();
+        info.typesets[0].fallback = Some("nope".into());
+        let name = info.typesets[0].name.clone();
+        let css = Theme::from_info(Some(&info)).typeset_css(&name).unwrap();
+        assert!(!css.contains("Noto Sans Arabic"));
     }
 
     #[test]

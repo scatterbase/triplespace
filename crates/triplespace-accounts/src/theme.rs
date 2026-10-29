@@ -81,6 +81,9 @@ pub struct Typeset {
     /// A stack per language tag, set on the elements of that language (0086 §3).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub languages: BTreeMap<String, String>,
+    /// The fallback layer whose typefaces back its own up, by name (0093 §1).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fallback: Option<String>,
     /// `font-family-base`, `font-family-heading-main` and `font-family-monospace`.
     #[serde(flatten)]
     pub roles: BTreeMap<String, String>,
@@ -226,12 +229,13 @@ mod tests {
         let t = c.typeset("default26").unwrap();
         assert_eq!(t.fonts.len(), 3);
         assert_eq!(t.roles.len(), 3);
+        assert_eq!(t.fallback.as_deref(), Some("noto"));
         assert!(c.typeset("opendyslexic").unwrap().accessibility);
         let v = c.palette("encyclopedia").unwrap();
         assert!(!v.accessibility && v.extends.is_none());
         assert!(v.dark.is_some() && v.light_more.is_some() && v.dark_more.is_some());
         let t = c.typeset("basic").unwrap();
-        assert!(!t.accessibility && t.fonts.is_empty());
+        assert!(!t.accessibility && t.fonts.is_empty() && t.fallback.is_none());
         assert_eq!(t.roles["font-family-base"], "sans-serif");
     }
 
@@ -262,7 +266,9 @@ mod tests {
         assert!(parchment["light-more"]["color-base"].is_string());
         assert_eq!(
             named("typesets", "default26")["font"][0]["family"],
-            "Newsreader"
+            "Source Serif 4"
         );
+        assert_eq!(named("typesets", "default26")["fallback"], "noto");
+        assert!(named("typesets", "basic").get("fallback").is_none());
     }
 }

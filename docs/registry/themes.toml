@@ -23,6 +23,13 @@
 # extends, so an accessibility palette states only the colours it changes. `accessibility = true` marks a
 # palette or type set a reader may always choose (0086 §2–4).
 #
+# A fallback layer (0093) is a list of typefaces for the scripts a type set's own lack, named by the type
+# set's `fallback`. Each family names the `stacks` it backs up, by generic family: a role whose stack is a
+# `serif` one takes the layer's serif families, and likewise `sans-serif` (or `system-ui`) and `monospace`.
+# They go in straight after the families the type set serves (before its generic families, if it serves
+# none), in the order listed; the layer's `languages` add a stack per language tag. Each face serves only the Fontsource `subsets` listed, so the
+# browser fetches a file only for characters on the page that no earlier family has.
+#
 # Typefaces are served by the site from its own origin, as CSP requires (0034 §11); a tenant's own are site
 # assets (0085 §8). Each carries an allow-listed licence (OFL-1.1, Apache-2.0, UFL-1.0), which permits bundling
 # with GPL software.
@@ -476,25 +483,27 @@ border-color-progressive = "#9DB3EC"
 
 # --- Type sets ----------------------------------------------------------------------------------------
 
-# Newsreader for headings over IBM Plex Sans and IBM Plex Mono (0034 A8), named `default26` on 2026-10-17.
+# Source Serif 4 for headings over Source Sans 3 and Lilex (0086 A4), named `default26` on 2026-10-17; it was Newsreader
+# over IBM Plex Sans and IBM Plex Mono (0034 A8) until 2026-10-27.
 [typeset.default26]
 label = "Default 26"
-font-family-base = "'IBM Plex Sans', system-ui, sans-serif"
-font-family-heading-main = "'Newsreader', Georgia, 'Times New Roman', serif"
-font-family-monospace = "'IBM Plex Mono', Menlo, Consolas, monospace"
+font-family-base = "'Source Sans 3', system-ui, sans-serif"
+font-family-heading-main = "'Source Serif 4', Georgia, 'Times New Roman', serif"
+font-family-monospace = "'Lilex', Menlo, Consolas, monospace"
+fallback = "noto"
 
 [[typeset.default26.font]]
-family = "Newsreader"
+family = "Source Serif 4"
 weights = [400, 500]
 licence = "OFL-1.1"
 
 [[typeset.default26.font]]
-family = "IBM Plex Sans"
+family = "Source Sans 3"
 weights = [400, 500, 600]
 licence = "OFL-1.1"
 
 [[typeset.default26.font]]
-family = "IBM Plex Mono"
+family = "Lilex"
 weights = [400, 500]
 licence = "OFL-1.1"
 
@@ -507,6 +516,7 @@ accessibility = true
 font-family-base = "'Atkinson Hyperlegible', system-ui, sans-serif"
 font-family-heading-main = "'Atkinson Hyperlegible', system-ui, sans-serif"
 font-family-monospace = "'IBM Plex Mono', Menlo, Consolas, monospace"
+fallback = "noto"
 
 [[typeset.hyperlegible.font]]
 family = "Atkinson Hyperlegible"
@@ -527,6 +537,7 @@ accessibility = true
 font-family-base = "'OpenDyslexic', system-ui, sans-serif"
 font-family-heading-main = "'OpenDyslexic', system-ui, sans-serif"
 font-family-monospace = "'OpenDyslexic Mono', 'IBM Plex Mono', Menlo, Consolas, monospace"
+fallback = "noto"
 
 [[typeset.opendyslexic.font]]
 family = "OpenDyslexic"
@@ -547,3 +558,91 @@ label = "Basic"
 font-family-base = "sans-serif"
 font-family-heading-main = "'Linux Libertine', 'Georgia', 'Times', 'Source Serif Pro', serif"
 font-family-monospace = "monospace, monospace"
+
+
+# --- Fallback layers ----------------------------------------------------------------------------------
+
+# Noto, by Google, for every script in Wikimedia's language data (@wikimedia/language-data 2.0.4) apart from
+# Latin, Greek and Cyrillic, which the type sets serve and `Noto Sans` and `Noto Serif` back up; Chinese,
+# Japanese and Korean, left to the device's fonts, which pick the regional forms by `lang`; and SignWriting,
+# which needs a renderer rather than a font (0093 §2). Ordered by how many languages use the script. A script
+# with no Noto serif uses its sans in headings; Tibetan has only a serif, used in every role. Weights 400 and
+# 600, or 400 alone where the family has no 600. Noto Sans Math is left out: Fontsource ships its glyphs under
+# a Basic Latin range, so they could not be reached.
+[fallback.noto]
+label = "Noto"
+languages = { ur = "'Noto Nastaliq Urdu'" }
+font = [
+	{ family = "Noto Sans", weights = [400, 600], licence = "OFL-1.1", subsets = ["cyrillic-ext", "cyrillic", "greek-ext", "greek", "vietnamese", "latin-ext", "latin"], stacks = ["sans-serif"] },
+	{ family = "Noto Serif", weights = [400, 600], licence = "OFL-1.1", subsets = ["cyrillic-ext", "cyrillic", "greek-ext", "greek", "vietnamese", "latin-ext", "latin"], stacks = ["serif"] },
+	{ family = "Noto Sans Arabic", weights = [400, 600], licence = "OFL-1.1", subsets = ["arabic"], stacks = ["sans-serif", "monospace"], script = "Arab" },
+	{ family = "Noto Naskh Arabic", weights = [400, 600], licence = "OFL-1.1", subsets = ["arabic"], stacks = ["serif"], script = "Arab" },
+	{ family = "Noto Sans Devanagari", weights = [400, 600], licence = "OFL-1.1", subsets = ["devanagari"], stacks = ["sans-serif", "monospace"], script = "Deva" },
+	{ family = "Noto Serif Devanagari", weights = [400, 600], licence = "OFL-1.1", subsets = ["devanagari"], stacks = ["serif"], script = "Deva" },
+	{ family = "Noto Sans Myanmar", weights = [400, 600], licence = "OFL-1.1", subsets = ["myanmar"], stacks = ["sans-serif", "monospace"], script = "Mymr" },
+	{ family = "Noto Serif Myanmar", weights = [400, 600], licence = "OFL-1.1", subsets = ["myanmar"], stacks = ["serif"], script = "Mymr" },
+	{ family = "Noto Sans Ethiopic", weights = [400, 600], licence = "OFL-1.1", subsets = ["ethiopic"], stacks = ["sans-serif", "monospace"], script = "Ethi" },
+	{ family = "Noto Serif Ethiopic", weights = [400, 600], licence = "OFL-1.1", subsets = ["ethiopic"], stacks = ["serif"], script = "Ethi" },
+	{ family = "Noto Sans Bengali", weights = [400, 600], licence = "OFL-1.1", subsets = ["bengali"], stacks = ["sans-serif", "monospace"], script = "Beng" },
+	{ family = "Noto Serif Bengali", weights = [400, 600], licence = "OFL-1.1", subsets = ["bengali"], stacks = ["serif"], script = "Beng" },
+	{ family = "Noto Sans Hebrew", weights = [400, 600], licence = "OFL-1.1", subsets = ["hebrew"], stacks = ["sans-serif", "monospace"], script = "Hebr" },
+	{ family = "Noto Serif Hebrew", weights = [400, 600], licence = "OFL-1.1", subsets = ["hebrew"], stacks = ["serif"], script = "Hebr" },
+	{ family = "Noto Sans Tifinagh", weights = [400], licence = "OFL-1.1", subsets = ["tifinagh"], stacks = ["sans-serif", "serif", "monospace"], script = "Tfng" },
+	{ family = "Noto Sans Syriac", weights = [400, 600], licence = "OFL-1.1", subsets = ["syriac"], stacks = ["sans-serif", "serif", "monospace"], script = "Syrc" },
+	{ family = "Noto Sans Oriya", weights = [400, 600], licence = "OFL-1.1", subsets = ["oriya"], stacks = ["sans-serif", "monospace"], script = "Orya" },
+	{ family = "Noto Serif Oriya", weights = [400, 600], licence = "OFL-1.1", subsets = ["oriya"], stacks = ["serif"], script = "Orya" },
+	{ family = "Noto Sans Mongolian", weights = [400], licence = "OFL-1.1", subsets = ["mongolian"], stacks = ["sans-serif", "serif", "monospace"], script = "Mong" },
+	{ family = "Noto Sans Telugu", weights = [400, 600], licence = "OFL-1.1", subsets = ["telugu"], stacks = ["sans-serif", "monospace"], script = "Telu" },
+	{ family = "Noto Serif Telugu", weights = [400, 600], licence = "OFL-1.1", subsets = ["telugu"], stacks = ["serif"], script = "Telu" },
+	{ family = "Noto Serif Tibetan", weights = [400, 600], licence = "OFL-1.1", subsets = ["tibetan"], stacks = ["sans-serif", "serif", "monospace"], script = "Tibt" },
+	{ family = "Noto Sans Tamil", weights = [400, 600], licence = "OFL-1.1", subsets = ["tamil"], stacks = ["sans-serif", "monospace"], script = "Taml" },
+	{ family = "Noto Serif Tamil", weights = [400, 600], licence = "OFL-1.1", subsets = ["tamil"], stacks = ["serif"], script = "Taml" },
+	{ family = "Noto Sans Buginese", weights = [400], licence = "OFL-1.1", subsets = ["buginese"], stacks = ["sans-serif", "serif", "monospace"], script = "Bugi" },
+	{ family = "Noto Sans Cham", weights = [400, 600], licence = "OFL-1.1", subsets = ["cham"], stacks = ["sans-serif", "serif", "monospace"], script = "Cham" },
+	{ family = "Noto Sans Canadian Aboriginal", weights = [400, 600], licence = "OFL-1.1", subsets = ["canadian-aboriginal"], stacks = ["sans-serif", "serif", "monospace"], script = "Cans" },
+	{ family = "Noto Sans Armenian", weights = [400, 600], licence = "OFL-1.1", subsets = ["armenian"], stacks = ["sans-serif", "monospace"], script = "Armn" },
+	{ family = "Noto Serif Armenian", weights = [400, 600], licence = "OFL-1.1", subsets = ["armenian"], stacks = ["serif"], script = "Armn" },
+	{ family = "Noto Sans Georgian", weights = [400, 600], licence = "OFL-1.1", subsets = ["georgian"], stacks = ["sans-serif", "monospace"], script = "Geor" },
+	{ family = "Noto Serif Georgian", weights = [400, 600], licence = "OFL-1.1", subsets = ["georgian"], stacks = ["serif"], script = "Geor" },
+	{ family = "Noto Sans Kannada", weights = [400, 600], licence = "OFL-1.1", subsets = ["kannada"], stacks = ["sans-serif", "monospace"], script = "Knda" },
+	{ family = "Noto Serif Kannada", weights = [400, 600], licence = "OFL-1.1", subsets = ["kannada"], stacks = ["serif"], script = "Knda" },
+	{ family = "Noto Sans Thai", weights = [400, 600], licence = "OFL-1.1", subsets = ["thai"], stacks = ["sans-serif", "monospace"], script = "Thai" },
+	{ family = "Noto Serif Thai", weights = [400, 600], licence = "OFL-1.1", subsets = ["thai"], stacks = ["serif"], script = "Thai" },
+	{ family = "Noto Sans Balinese", weights = [400, 600], licence = "OFL-1.1", subsets = ["balinese"], stacks = ["sans-serif", "monospace"], script = "Bali" },
+	{ family = "Noto Serif Balinese", weights = [400], licence = "OFL-1.1", subsets = ["balinese"], stacks = ["serif"], script = "Bali" },
+	{ family = "Noto Sans Bamum", weights = [400, 600], licence = "OFL-1.1", subsets = ["bamum"], stacks = ["sans-serif", "serif", "monospace"], script = "Bamu" },
+	{ family = "Noto Sans Batak", weights = [400], licence = "OFL-1.1", subsets = ["batak"], stacks = ["sans-serif", "serif", "monospace"], script = "Batk" },
+	{ family = "Noto Sans Chakma", weights = [400], licence = "OFL-1.1", subsets = ["chakma"], stacks = ["sans-serif", "serif", "monospace"], script = "Cakm" },
+	{ family = "Noto Sans Cherokee", weights = [400, 600], licence = "OFL-1.1", subsets = ["cherokee"], stacks = ["sans-serif", "serif", "monospace"], script = "Cher" },
+	{ family = "Noto Sans Coptic", weights = [400], licence = "OFL-1.1", subsets = ["coptic"], stacks = ["sans-serif", "serif", "monospace"], script = "Copt" },
+	{ family = "Noto Sans Thaana", weights = [400, 600], licence = "OFL-1.1", subsets = ["thaana"], stacks = ["sans-serif", "serif", "monospace"], script = "Thaa" },
+	{ family = "Noto Sans Gothic", weights = [400], licence = "OFL-1.1", subsets = ["gothic"], stacks = ["sans-serif", "serif", "monospace"], script = "Goth" },
+	{ family = "Noto Sans Gujarati", weights = [400, 600], licence = "OFL-1.1", subsets = ["gujarati"], stacks = ["sans-serif", "monospace"], script = "Gujr" },
+	{ family = "Noto Serif Gujarati", weights = [400, 600], licence = "OFL-1.1", subsets = ["gujarati"], stacks = ["serif"], script = "Gujr" },
+	{ family = "Noto Sans Warang Citi", weights = [400], licence = "OFL-1.1", subsets = ["warang-citi"], stacks = ["sans-serif", "serif", "monospace"], script = "Wara" },
+	{ family = "Noto Sans Yi", weights = [400], licence = "OFL-1.1", subsets = ["yi"], stacks = ["sans-serif", "serif", "monospace"], script = "Yiii" },
+	{ family = "Noto Sans Javanese", weights = [400, 600], licence = "OFL-1.1", subsets = ["javanese"], stacks = ["sans-serif", "serif", "monospace"], script = "Java" },
+	{ family = "Noto Sans Khmer", weights = [400, 600], licence = "OFL-1.1", subsets = ["khmer"], stacks = ["sans-serif", "monospace"], script = "Khmr" },
+	{ family = "Noto Serif Khmer", weights = [400, 600], licence = "OFL-1.1", subsets = ["khmer"], stacks = ["serif"], script = "Khmr" },
+	{ family = "Noto Sans Lao", weights = [400, 600], licence = "OFL-1.1", subsets = ["lao"], stacks = ["sans-serif", "monospace"], script = "Laoo" },
+	{ family = "Noto Serif Lao", weights = [400, 600], licence = "OFL-1.1", subsets = ["lao"], stacks = ["serif"], script = "Laoo" },
+	{ family = "Noto Sans Malayalam", weights = [400, 600], licence = "OFL-1.1", subsets = ["malayalam"], stacks = ["sans-serif", "monospace"], script = "Mlym" },
+	{ family = "Noto Serif Malayalam", weights = [400, 600], licence = "OFL-1.1", subsets = ["malayalam"], stacks = ["serif"], script = "Mlym" },
+	{ family = "Noto Sans Meetei Mayek", weights = [400, 600], licence = "OFL-1.1", subsets = ["meetei-mayek"], stacks = ["sans-serif", "serif", "monospace"], script = "Mtei" },
+	{ family = "Noto Sans Tai Tham", weights = [400, 600], licence = "OFL-1.1", subsets = ["tai-tham"], stacks = ["sans-serif", "serif", "monospace"], script = "Lana" },
+	{ family = "Noto Sans NKo", weights = [400], licence = "OFL-1.1", subsets = ["nko"], stacks = ["sans-serif", "serif", "monospace"], script = "Nkoo" },
+	{ family = "Noto Sans Gurmukhi", weights = [400, 600], licence = "OFL-1.1", subsets = ["gurmukhi"], stacks = ["sans-serif", "monospace"], script = "Guru" },
+	{ family = "Noto Serif Gurmukhi", weights = [400, 600], licence = "OFL-1.1", subsets = ["gurmukhi"], stacks = ["serif"], script = "Guru" },
+	{ family = "Noto Sans Hanifi Rohingya", weights = [400, 600], licence = "OFL-1.1", subsets = ["hanifi-rohingya"], stacks = ["sans-serif", "serif", "monospace"], script = "Rohg" },
+	{ family = "Noto Sans Ol Chiki", weights = [400, 600], licence = "OFL-1.1", subsets = ["ol-chiki"], stacks = ["sans-serif", "serif", "monospace"], script = "Olck" },
+	{ family = "Noto Sans Saurashtra", weights = [400], licence = "OFL-1.1", subsets = ["saurashtra"], stacks = ["sans-serif", "serif", "monospace"], script = "Saur" },
+	{ family = "Noto Sans Khudawadi", weights = [400], licence = "OFL-1.1", subsets = ["khudawadi"], stacks = ["sans-serif", "serif", "monospace"], script = "Sind" },
+	{ family = "Noto Sans Sinhala", weights = [400, 600], licence = "OFL-1.1", subsets = ["sinhala"], stacks = ["sans-serif", "monospace"], script = "Sinh" },
+	{ family = "Noto Serif Sinhala", weights = [400, 600], licence = "OFL-1.1", subsets = ["sinhala"], stacks = ["serif"], script = "Sinh" },
+	{ family = "Noto Sans Syloti Nagri", weights = [400], licence = "OFL-1.1", subsets = ["syloti-nagri"], stacks = ["sans-serif", "serif", "monospace"], script = "Sylo" },
+	{ family = "Noto Sans Tai Le", weights = [400], licence = "OFL-1.1", subsets = ["tai-le"], stacks = ["sans-serif", "serif", "monospace"], script = "Tale" },
+	{ family = "Noto Sans Vai", weights = [400], licence = "OFL-1.1", subsets = ["vai"], stacks = ["sans-serif", "serif", "monospace"], script = "Vaii" },
+	{ family = "Noto Sans Symbols", weights = [400, 600], licence = "OFL-1.1", subsets = ["symbols"], stacks = ["sans-serif", "serif", "monospace"] },
+	{ family = "Noto Sans Symbols 2", weights = [400], licence = "OFL-1.1", subsets = ["braille", "math", "mayan-numerals", "symbols"], stacks = ["sans-serif", "serif", "monospace"] },
+	{ family = "Noto Nastaliq Urdu", weights = [400, 600], licence = "OFL-1.1", subsets = ["arabic"], stacks = [], script = "Arab" },
+]
