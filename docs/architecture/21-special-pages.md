@@ -265,7 +265,7 @@ The forms are `NewItem`, `NewProperty`, `SetLabel`, `SetDescription`, `SetAliase
 - **`NewItem` and `NewProperty`** are the targets of the **New** menu (0010 §2).
   - They take Wikibase's `label`, `description`, `aliases` and `lang`.
   - They also take a Triplespace parameter, `statement={property}:{value}`, repeatable, which prefills statements. [0029](../decisions/0029-resolver-namespaces.md) §3's "Create an item with this DOI" opens `NewItem` with the resolver's property and key filled in.
-  - `NewProperty` needs `property-create` and a `datatype`.
+  - `NewProperty` needs `property-create` and a `datatype`, one of those the API registers (`siteinfo`'s `wikibase-propertytypes`). It offers exactly those, and `Special:ListDatatypes` lists the same ones in the same order (0047 A26).
 - **`MergeItems`** (`fromid`, `toid`, `ignoreconflicts`):
   - **Two local entities:** Wikibase's merge. Content moves to the target, the source is emptied and becomes a redirect, and both get ordinary revisions ([0011](../decisions/0011-logs.md) Context).
   - **Two foreign entities in one namespace:** a local `redirect` and nothing more ([0004](../decisions/0004-identity-clusters-and-equivalence.md) §2). Upstream's content is not moved.

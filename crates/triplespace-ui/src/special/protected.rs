@@ -14,6 +14,8 @@
 //!   it.
 //!
 //! Every form posts back here; the API's refusal is shown above the section it came from.
+//!
+//! [`titles`] serves `Special:ProtectedTitles`, the reserved titles alone.
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
@@ -494,6 +496,71 @@ async fn start(
         return Err(pages::no_page(&cx, headers, TITLE.to_string()));
     }
     Ok(cx)
+}
+
+/// `GET Special:ProtectedTitles` (0023 §9; 09 §4.8): the reserved titles, each with the
+/// group that may create it and when the reservation ends, from `list=protectedtitles`, so
+/// a confidential reservation is listed only to those who may read it.
+pub async fn titles(site: &Site, headers: &HeaderMap, peer: Peer, params: &Params) -> Response {
+    let incoming = pages::incoming(headers, peer);
+    let mut cx = match pages::context(site, &incoming, &params.map).await {
+        Ok(cx) => cx,
+        Err(r) => return r,
+    };
+    if !cx.features.has(Feature::Protect) {
+        return pages::no_page(&cx, headers, "Special:ProtectedTitles".to_string());
+    }
+    let found = match site.client().protected_titles(&incoming).await {
+        Ok(f) => f,
+        Err(e) => return pages::api_failed(&cx, headers, &e),
+    };
+    cx.inputs.push(found.cache);
+    let m = &cx.m;
+    let mut body = format!("<p>{}</p>", esc(&m.get("ts-protectedtitles-intro")));
+    if found.value.is_empty() {
+        let _ = write!(
+            body,
+            "<p class=\"ts-empty\">{}</p>",
+            esc(&m.get("ts-protectedtitles-none"))
+        );
+    } else {
+        let _ = write!(
+            body,
+            "<table class=\"cdx-table__table ts-protectedpages__table\"><thead><tr><th scope=\"col\">{}</th><th scope=\"col\">{}</th><th scope=\"col\">{}</th></tr></thead><tbody>",
+            esc(&m.get("ts-protectedpages-col-title")),
+            esc(&m.get("ts-protectedpages-col-group")),
+            esc(&m.get("ts-protectedpages-col-expiry")),
+        );
+        for r in &found.value {
+            let _ = write!(
+                body,
+                "<tr><td>{}</td><td>{}</td><td>{}</td></tr>",
+                link(
+                    &format!("/wiki/{}", title_url(&r.title)),
+                    &esc(&r.title),
+                    ""
+                ),
+                esc(&r.level),
+                esc(&expiry_text(m, &r.expiry)),
+            );
+        }
+        body.push_str("</tbody></table>");
+    }
+    let _ = write!(
+        body,
+        "<p>{}</p>",
+        link(
+            "/wiki/Special:ProtectedPages",
+            &esc(&m.get("ts-protectedtitles-all")),
+            ""
+        )
+    );
+    pages::respond(&cx, headers, StatusCode::OK, |m| Page {
+        title: m.get("ts-protectedtitles-title"),
+        returnto: Some("Special:ProtectedTitles".to_string()),
+        body,
+        ..Page::default()
+    })
 }
 
 /// `GET Special:ProtectedPages`.

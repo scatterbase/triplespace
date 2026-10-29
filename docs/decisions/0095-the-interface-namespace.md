@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-28
-- **Updated:** 2026-10-28 (A1)
+- **Updated:** 2026-10-29 (A2)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0016](0016-permissions-and-access-control.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0055](0055-templatestyles-templatedata-and-page-properties.md)
 - **Uses:** [0007](0007-actor-identity.md), [0019](0019-discussions.md), [0046](0046-primary-tenant.md), [0079](0079-derived-issuer-codes.md)
@@ -89,9 +89,9 @@ Asked what the namespace holds and how an account is marked, James chose (2026-1
 
 ### 8. `meta=allmessages` (settles Q2; amends 0042 §5, §8.1, §14)
 
-*Changed by A1.*
+*Changed by A1, A2.*
 
-**`meta=allmessages`** answers as MediaWiki's does, with `ammessages` (keys, or `*`), `amlang`, `amcustomised` (`all`, `modified`, `unmodified`), `amprefix`, `amfilter`, `amfrom`, `amto`, `amargs`, `amnocontent` and `amincludelocal`. Each message is the wiki's override in the language asked (the wiki's own by default) where there is one, marked `customised`, else the message the build ships, else `missing`. The messages the build ships are the site's own, in English; with `*` and `amincludelocal`, keys the wiki alone has are listed too, its names of IDs among them.
+**`meta=allmessages`** answers as MediaWiki's does, with `ammessages` (keys, or `*`), `amlang`, `amcustomised` (`all`, `modified`, `unmodified`), `amprefix`, `amfilter`, `amfrom`, `amto`, `amargs`, `amnocontent` and `amincludelocal`. Each message is the wiki's override in the language asked (the wiki's own by default) where there is one, marked `customised`, else the message the build ships, else `missing`. The messages the build ships are the site's own, in English; with `*` and `amincludelocal`, keys the wiki alone has are listed too, its names of IDs among them. **`amprop=default`** adds each message's shipped text as `default`, or `defaultmissing` where the build ships none, as MediaWiki gives it, so that `Special:AllMessages` ([0047](0047-special-pages.md) §9) shows a customised message's default beside the wiki's text (A2).
 
 ## Alternatives considered
 
@@ -153,3 +153,10 @@ Replaced text (§2):
 Replaced text (§6):
 
 > `{{int:}}` and `mw.message` still read the shipped messages alone; their overrides wait on the renderer reading the same report.
+
+### A2. `amprop=default`
+
+- **Date:** 2026-10-29
+- **Source:** Direct: James, design discussion of 2026-10-29
+- **Change:** extends §8
+- **Summary:** `meta=allmessages` takes `amprop=default`, which `action=paraminfo` already listed: each message carries its shipped text as `default`, or `defaultmissing` (`true`, or `""` in format version 1) where the build ships none, whether or not the wiki overrides it, as MediaWiki's module gives it. `Special:AllMessages` reads it to show a customised message's default beside the wiki's text. James asked for §8 to name the parameter once it was built.

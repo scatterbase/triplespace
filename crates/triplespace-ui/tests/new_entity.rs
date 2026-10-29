@@ -45,7 +45,17 @@ impl FakeApi {
                 json!(["wbgetentities", "clientlogin", "wbeditentity"])
             };
             return json!({"query": {
-                "general": {"sitename": "librarybase", "server": "https://librarybase.org", "lang": "en", "mainpage": "Project:Home"},
+                "general": {"sitename": "librarybase", "server": "https://librarybase.org", "lang": "en", "mainpage": "Project:Home",
+                    // The types the real API registers (`siprop=general`).
+                    "wikibase-propertytypes": {
+                        "commonsMedia": {"valuetype": "string"}, "external-id": {"valuetype": "string"},
+                        "geo-shape": {"valuetype": "string"}, "globe-coordinate": {"valuetype": "globecoordinate"},
+                        "monolingualtext": {"valuetype": "monolingualtext"}, "quantity": {"valuetype": "quantity"},
+                        "string": {"valuetype": "string"}, "tabular-data": {"valuetype": "string"},
+                        "time": {"valuetype": "time"}, "url": {"valuetype": "string"},
+                        "wikibase-domain": {"valuetype": "wikibase-entityid"},
+                        "wikibase-item": {"valuetype": "wikibase-entityid"},
+                        "wikibase-property": {"valuetype": "wikibase-entityid"}}},
                 "triplespace": {"api_version": 2, "capabilities": caps}
             }});
         }
@@ -377,6 +387,12 @@ async fn a_property_needs_property_create() {
         a.body
             .contains("<option value=\"external-id\" selected>External identifier</option>")
     );
+    // Only the types the API registers: no `math`, which it does not.
+    let select = a.body.split("name=\"datatype\">").nth(1).unwrap();
+    let select = &select[..select.find("</select>").unwrap()];
+    assert_eq!(select.matches("<option value=").count(), 13, "{select}");
+    assert!(select.starts_with("<option value=\"wikibase-item\">Item</option>"));
+    assert!(!a.body.contains("value=\"math\""));
     let a = post(
         &api,
         "Special:NewProperty",

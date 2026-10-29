@@ -160,6 +160,48 @@ pub const PAGES: &[(&str, &str, &str, Option<Feature>)] = &[
         "ts-specialpages-entitypage",
         None,
     ),
+    (
+        "Special:ComparePages",
+        "ts-comparepages-title",
+        "ts-specialpages-comparepages",
+        Some(Feature::Pages),
+    ),
+    (
+        "Special:ProtectedTitles",
+        "ts-protectedtitles-title",
+        "ts-specialpages-protectedtitles",
+        Some(Feature::Protect),
+    ),
+    (
+        "Special:NamespaceInfo",
+        "ts-namespaceinfo-title",
+        "ts-specialpages-namespaceinfo",
+        None,
+    ),
+    (
+        "Special:ListGroupRights",
+        "ts-listgrouprights-title",
+        "ts-specialpages-listgrouprights",
+        None,
+    ),
+    (
+        "Special:AllMessages",
+        "ts-allmessages-title",
+        "ts-specialpages-allmessages",
+        None,
+    ),
+    (
+        "Special:ListDatatypes",
+        "ts-listdatatypes-title",
+        "ts-specialpages-listdatatypes",
+        None,
+    ),
+    (
+        "Special:MyLanguageFallbackChain",
+        "ts-fallbackchain-title",
+        "ts-specialpages-fallbackchain",
+        None,
+    ),
 ];
 
 /// `Special:SpecialPages`.

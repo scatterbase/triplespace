@@ -323,6 +323,7 @@ async fn allmessages(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<()
         args: list("amargs"),
         nocontent: p.flag("amnocontent"),
         includelocal: p.flag("amincludelocal"),
+        default: list("amprop").iter().any(|v| v == "default"),
     };
     let (settings, _) =
         triplespace_accounts::settings::load(ctx.db(), Some(&ctx.tenant.slug)).await?;

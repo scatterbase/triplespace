@@ -202,6 +202,27 @@ pub enum DiffAsk {
     Relative(u64, &'static str),
     /// A page's latest revision against the one before it.
     Latest(String),
+    /// Any two pages or revisions (`Special:ComparePages`): `fromtitle` or `fromrev`,
+    /// `totitle` or `torev`.
+    Between(DiffEnd, DiffEnd),
+}
+
+/// One side of [`DiffAsk::Between`]: a page's latest revision, or one revision.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DiffEnd {
+    /// A page, by title: its latest revision.
+    Title(String),
+    /// A revision, by ID.
+    Revision(u64),
+}
+
+impl DiffEnd {
+    fn param(&self, side: &str) -> String {
+        match self {
+            Self::Title(t) => format!("{side}title={}", q(t)),
+            Self::Revision(r) => format!("{side}rev={r}"),
+        }
+    }
 }
 
 fn diff_side(c: &Value, prefix: &str) -> Option<DiffSide> {
@@ -471,6 +492,7 @@ impl Client {
             DiffAsk::Revisions(from, to) => format!("fromrev={from}&torev={to}"),
             DiffAsk::Relative(from, rel) => format!("fromrev={from}&torelative={rel}"),
             DiffAsk::Latest(title) => format!("fromtitle={}&torelative=prev", q(title)),
+            DiffAsk::Between(from, to) => format!("{}&{}", from.param("from"), to.param("to")),
         };
         let table = format!(
             "/w/api.php?action=compare&{which}&prop=diff%7Cids%7Ctitle%7Cuser%7Ccomment%7Csize%7Ctimestamp%7Crel&format=json&formatversion=2"

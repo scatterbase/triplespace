@@ -590,6 +590,20 @@ async fn api(database: &str, key_file: &std::path::Path) {
     assert_eq!(all[2]["content"], "Log in");
     assert!(all[2].get("customised").is_none());
     assert_eq!(all[3]["missing"], true);
+    // `amprop=default`: the shipped text beside the override, as Special:AllMessages
+    // shows them; `defaultmissing` for a message only the wiki has.
+    let with_default = c
+        .get("action=query&meta=allmessages&ammessages=ts-new|greeting&amprop=default")
+        .await;
+    let rows = &with_default["query"]["allmessages"];
+    assert_eq!(rows[0]["content"], "Create", "{with_default}");
+    assert!(
+        rows[0]["default"]
+            .as_str()
+            .is_some_and(|d| !d.is_empty() && d != "Create"),
+        "{with_default}"
+    );
+    assert_eq!(rows[1]["defaultmissing"], true, "{with_default}");
     // A namespace alias the tenant gives (0008 A37; 10 §3.5): siteinfo lists it, and a
     // link through it renders and is recorded as a Project link.
     namespace_record(
@@ -1099,6 +1113,57 @@ async fn pages_on_the_site(site: Router, project: &str) {
     assert_eq!(by_type.location, permanent.location);
     let nowhere = reader.get("/wiki/Special:PermanentLink/99999999").await;
     assert_eq!(nowhere.status, StatusCode::NOT_FOUND, "{}", nowhere.body);
+
+    // The read-only pages about the wiki, from what the API reports (21 §6.1).
+    let compared = reader
+        .get(&format!(
+            "/w/index.php?title=Special:ComparePages&page1=Project:Notability&rev2={revid}"
+        ))
+        .await;
+    assert_eq!(compared.status, StatusCode::OK, "{}", compared.body);
+    assert!(
+        compared.body.contains("ts-page-diff__table"),
+        "{}",
+        compared.body
+    );
+    assert!(compared.body.contains("diff-deletedline") || compared.body.contains("diff-addedline"));
+    let namespaces = reader.get("/wiki/Special:NamespaceInfo").await;
+    assert_eq!(namespaces.status, StatusCode::OK, "{}", namespaces.body);
+    assert!(namespaces.body.contains("<td>4</td>"));
+    assert!(namespaces.body.contains("<td>120</td><td>Item</td>"));
+    let groups = reader.get("/wiki/Special:ListGroupRights").await;
+    assert_eq!(groups.status, StatusCode::OK);
+    assert!(
+        groups.body.contains("<code>sysop</code>"),
+        "{}",
+        groups.body
+    );
+    let types = reader.get("/wiki/Special:ListDatatypes").await;
+    assert!(
+        types.body.contains("<code>wikibase-item</code>"),
+        "{}",
+        types.body
+    );
+    let chain = reader
+        .get("/wiki/Special:MyLanguageFallbackChain?uselang=pt-br")
+        .await;
+    assert!(chain.body.contains("<code lang=\"pt\">pt</code>"));
+    let titles = reader.get("/wiki/Special:ProtectedTitles").await;
+    assert_eq!(titles.status, StatusCode::OK, "{}", titles.body);
+    let messages = reader
+        .get("/w/index.php?title=Special:AllMessages&prefix=ts-allmessages-")
+        .await;
+    assert_eq!(messages.status, StatusCode::OK, "{}", messages.body);
+    assert!(
+        messages.body.contains("<td>The interface&#39;s messages."),
+        "{}",
+        messages.body
+    );
+    assert!(
+        messages
+            .body
+            .contains("href=\"/wiki/Interface:Ts-allmessages-title\"")
+    );
 
     // A title with no page: the notice, and Create for a signed-in reader only.
     let none = reader.get("/wiki/Project:Nothing_here").await;

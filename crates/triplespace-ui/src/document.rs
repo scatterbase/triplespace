@@ -886,7 +886,7 @@ fn side_html(m: &Messages, side: &DiffSide, latest: bool, nav: Option<(String, S
 }
 
 /// The diff table: both sides' headers, and the API's rows.
-fn diff_html(m: &Messages, d: &PageDiff, latest_revid: Option<u64>) -> String {
+pub(crate) fn diff_html(m: &Messages, d: &PageDiff, latest_revid: Option<u64>) -> String {
     let title = &d.to.title;
     let old = match &d.from {
         Some(f) => side_html(
