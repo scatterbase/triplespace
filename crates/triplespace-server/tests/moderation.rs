@@ -3194,3 +3194,45 @@ async fn partial_undelete_and_hidden_events() {
         "{l}"
     );
 }
+
+/// Interface pages need `editinterface` (0095 §4), which `sysop` holds and a user does not;
+/// and one under a read restriction is no override (§5).
+#[tokio::test]
+async fn interface_pages_need_editinterface() {
+    if admin_config().is_none() {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    }
+    let (_database, app, mut alice) = instance("interface").await;
+    let mut bob = account(&alice.router, "Bob", "bob-secret-1234").await;
+    let bt = enc(&bob.csrf().await);
+    let refused = bob
+        .api_post(&format!(
+            "action=edit&title=Interface:Ts-new&text=Mine&token={bt}"
+        ))
+        .await;
+    assert_eq!(refused["error"]["code"], "permissiondenied", "{refused}");
+    grant(&app, "Bob", "sysop").await;
+    let made = bob
+        .api_post(&format!(
+            "action=edit&title=Interface:Ts-new&text=Create&token={bt}"
+        ))
+        .await;
+    assert_eq!(made["edit"]["result"], "Success", "{made}");
+    // Restricted to a group, the page is no longer an override.
+    let p = bob
+        .api_post(&format!(
+            "action=protect&title=Interface:Ts-new&protections=read%3Dsysop&token={bt}"
+        ))
+        .await;
+    assert!(p.get("error").is_none(), "{p}");
+    let si = alice
+        .api_post("action=query&meta=siteinfo&siprop=triplespace")
+        .await;
+    assert!(
+        si["query"]["triplespace"]["interface"]["messages"]
+            .get("ts-new")
+            .is_none(),
+        "{si}"
+    );
+}

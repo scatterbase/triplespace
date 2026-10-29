@@ -111,6 +111,15 @@ pub struct SiteInfo {
     /// The markup of new posts, `markdown` or `wikitext` (`triplespace.thread.markup`;
     /// 14 §1.6).
     pub thread_markup: String,
+    /// The tenant's issuer code, which its accounts' actor keys carry
+    /// (`triplespace.issuer`; 0079 §7).
+    pub issuer: String,
+    /// The farm code, which the instance's own actor key carries, `instance:{code}`
+    /// (`triplespace.farm_code`).
+    pub farm_code: String,
+    /// The wiki's interface overrides and names, by message key and then language, `""`
+    /// for the base page (`triplespace.interface.messages`; 0095 §5).
+    pub interface: std::collections::BTreeMap<String, std::collections::BTreeMap<String, String>>,
 }
 
 /// A provider as `siprop=providers` reports it.
@@ -271,6 +280,10 @@ impl Client {
                 .as_str()
                 .unwrap_or("markdown")
                 .to_string(),
+            issuer: ts["issuer"].as_str().unwrap_or_default().to_string(),
+            farm_code: ts["farm_code"].as_str().unwrap_or_default().to_string(),
+            interface: serde_json::from_value(ts["interface"]["messages"].clone())
+                .unwrap_or_default(),
         };
         Ok(Fetched { value, cache })
     }

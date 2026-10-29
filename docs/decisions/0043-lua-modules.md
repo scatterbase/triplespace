@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-09 (A8)
+- **Updated:** 2026-10-28 (A9)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md)
 - **Uses:** [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0026](0026-sitelinks.md), [0038](0038-page-metadata-and-categories.md), [0044](0044-tenant-relative-ids.md)
@@ -46,7 +46,7 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 5. The Scribunto contract: Scribunto's Lua, Triplespace's host
 
-*Changed by A3.*
+*Changed by A3, A9.*
 
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §7.5.*
 
@@ -231,3 +231,14 @@ Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §7.9
 Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §4.4, as it stood):
 
 > 3. A change to an entity's `resolved_version`, for usage rows whose aspects the change touches (§7.9).
+
+### A9. The Interface namespace
+
+- **Date:** 2026-10-28
+- **Source:** [0095](0095-the-interface-namespace.md) §2
+- **Change:** amends §5
+- **Summary:** `mw.message` reads messages under the wiki's Interface pages (0095 §2).
+
+Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §7.5, as it stood):
+
+> | `mw.message` | MediaWiki core's messages shipped as data (§2.3); no overrides, since the MediaWiki namespace is reserved |

@@ -12,6 +12,9 @@
 # normalizer  "first-letter" | "file-name" | "entity-id" | a keyed type's or resolver's name (0008 §3)
 # case        What meta=siteinfo reports: "first-letter" | "case-sensitive"
 # talk        The paired talk namespace, whose pages are composites of attached threads (0008 §2, 0019 §2)
+# name        The local name every tenant shows where it is not the canonical one, unless a tenant's
+#             `namespace` record names it otherwise; the canonical name stays a name the namespace
+#             answers to, and the one meta=siteinfo reports as `canonical` (0095 §1)
 # enabled_by  A tenant `site` setting that turns the namespace on (0043 §2; Template's was withdrawn by
 #             0042 A19). While the setting is off the namespace is not listed; pages that already exist
 #             stay readable and writes are refused with ts-namespace-disabled.
@@ -21,7 +24,8 @@
 #   - Every number MediaWiki core or any Wikibase extension uses is RESERVED: listed here with
 #     kind "reserved", never given another meaning, and not implemented unless an ADR says so.
 #     Its odd-numbered talk namespace is not enabled either. Implemented so far by ADR: the main
-#     namespace (0) and Category (14), both by 0038; File (6), File talk (7) and Media (−2) by 0039.
+#     namespace (0) and Category (14), both by 0038; File (6), File talk (7) and Media (−2) by 0039;
+#     MediaWiki (8), shown as Interface, and its talk namespace (9) by 0095.
 #     Conditionally, by tenant setting: Template (10) and Template talk (11) by 0042; Module (828)
 #     and Module talk (829), Scribunto's numbers, registered and implemented by 0043.
 #   - Talk namespaces (odd numbers) exist for implemented subject namespaces only.
@@ -124,10 +128,28 @@ kind = "pages"
 content_models = ["triplespace-talk"]
 default_model = "triplespace-talk"
 
+# Interface messages and names (0095 §1): MediaWiki's number and canonical name, so `MediaWiki:X` and
+# clients reading `canonical` keep working, shown as Interface. A page overrides an interface message, or
+# names an ID (`Interface:Name/{id}`); its text is plain message text.
 [[namespace]]
 id = 8
 canonical = "MediaWiki"
-kind = "reserved"           # core; interface messages are not pages here
+name = "Interface"
+kind = "pages"
+normalizer = "first-letter"
+case = "first-letter"
+subpages = true
+content_models = ["text"]
+default_model = "text"
+talk = 9
+
+[[namespace]]
+id = 9
+canonical = "MediaWiki talk"
+name = "Interface talk"
+kind = "pages"
+content_models = ["triplespace-talk"]
+default_model = "triplespace-talk"
 
 [[namespace]]
 id = 10

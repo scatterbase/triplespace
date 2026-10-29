@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-23 (A38)
+- **Updated:** 2026-10-28 (A39)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -30,7 +30,7 @@ The two agree on the shape: users, groups, memberships, named permissions, and r
 
 ### 2. Permissions
 
-*Changed by A2, A3, A4, A5, A6, A7, A8, A10, A13, A14, A15, A16, A19, A20, A21, A24, A25, A27, A32, A33, A34.*
+*Changed by A2, A3, A4, A5, A6, A7, A8, A10, A13, A14, A15, A16, A19, A20, A21, A24, A25, A27, A32, A33, A34, A39.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §2.1, §2.2, §2.3.*
 
@@ -515,3 +515,10 @@ Replaced text ([09](../architecture/09-security-and-moderation.md) §3.3, as it 
 Replaced text ([09](../architecture/09-security-and-moderation.md) §3.6, as it stood):
 
 > and on the primary tenant the instance rights `ts-keys` and `ts-primary` are too, or are left to the CLI. With no member, `owner` is restored only from the command line (`triplespace-cli`), which is an instance act and recorded as one (08) ([0016](0016-permissions-and-access-control.md) A37).
+
+### A39. The Interface namespace
+
+- **Date:** 2026-10-28
+- **Source:** [0095](0095-the-interface-namespace.md) §4
+- **Change:** extends §2
+- **Summary:** MediaWiki's `editinterface` joins the permission catalogue, held by `sysop`, for pages of the Interface namespace (0095 §4).

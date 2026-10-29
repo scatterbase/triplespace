@@ -182,6 +182,8 @@ pub enum ChipKind {
     Best,
     /// A rank other than normal.
     Rank,
+    /// The instance itself, as the server's operator (0095 §3).
+    Operator,
 }
 
 /// A chip.
@@ -227,6 +229,7 @@ impl<'a> Chip<'a> {
             ChipKind::Corrected => "ts-chip ts-chip--corrected".into(),
             ChipKind::Best => "ts-chip ts-chip--best".into(),
             ChipKind::Rank => "ts-chip ts-chip--rank".into(),
+            ChipKind::Operator => "ts-chip ts-chip--operator".into(),
         }
     }
 }

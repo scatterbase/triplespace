@@ -164,6 +164,18 @@
 	color: var( --color-subtle, #54595d );
 }
 
+/* An account as a change's target: a person icon before the name (ADR 0095 §3). */
+.ts-change__account {
+	display: inline-flex;
+	align-items: center;
+	gap: var( --spacing-25, 0.25rem );
+}
+
+.ts-change__account-icon {
+	flex: none;
+	fill: var( --color-subtle, #54595d );
+}
+
 .ts-change__id {
 	font-size: var( --font-size-small, 0.875rem );
 	color: var( --color-subtle, #54595d );

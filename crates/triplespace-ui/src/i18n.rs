@@ -126,11 +126,17 @@ pub fn term_chain(lang: &str) -> Vec<String> {
     out
 }
 
-/// The messages of one interface language.
+/// A wiki's interface overrides (0095 §2–3): by message key, then language, `""` for the
+/// base page.
+pub type Overrides = BTreeMap<String, BTreeMap<String, String>>;
+
+/// The messages of one interface language, with the wiki's overrides.
 #[derive(Debug, Clone)]
 pub struct Messages {
     lang: String,
     chain: Vec<String>,
+    overrides: Arc<Overrides>,
+    content_lang: String,
 }
 
 impl Messages {
@@ -141,7 +147,49 @@ impl Messages {
         Self {
             chain: chain(&lang),
             lang,
+            overrides: Arc::default(),
+            content_lang: String::new(),
         }
+    }
+
+    /// The same messages with a wiki's Interface pages over the shipped ones (0095 §2):
+    /// for each language along the chain, the wiki's page for that language, or its base
+    /// page where the language is the wiki's own (`content_lang`), comes before the
+    /// shipped message, as MediaWiki reads its namespace.
+    #[must_use]
+    ///
+    /// An override is plain text: one holding `<`, `>` or `"` is not taken, so that no
+    /// page's text can become markup wherever a message reaches the page.
+    pub fn with_overrides(mut self, mut overrides: Overrides, content_lang: &str) -> Self {
+        for by_lang in overrides.values_mut() {
+            by_lang.retain(|_, text| !text.contains(['<', '>', '"']));
+        }
+        overrides.retain(|_, by_lang| !by_lang.is_empty());
+        self.overrides = Arc::new(overrides);
+        self.content_lang = content_lang.to_string();
+        self
+    }
+
+    /// The wiki's override of a message in one language.
+    fn overridden(&self, key: &str, lang: &str) -> Option<&String> {
+        let by_lang = self.overrides.get(key)?;
+        by_lang
+            .get(lang)
+            .filter(|_| !lang.is_empty())
+            .or_else(|| by_lang.get("").filter(|_| lang == self.content_lang))
+    }
+
+    /// The name the wiki gives an ID (`Interface:Name/{id}`, 0095 §3): its page for a
+    /// language along the chain, else its base page, which names it in every language.
+    #[must_use]
+    pub fn name_of(&self, id: &str) -> Option<String> {
+        let by_lang = self.overrides.get(&format!("name/{id}"))?;
+        self.chain
+            .iter()
+            .find_map(|l| by_lang.get(l))
+            .or_else(|| by_lang.get(""))
+            .filter(|n| !n.trim().is_empty())
+            .cloned()
     }
 
     /// The language code, for `<html lang>`.
@@ -164,9 +212,12 @@ impl Messages {
 
     /// The raw message and the language it was found in.
     fn raw(&self, key: &str) -> Option<(String, String)> {
-        self.chain
-            .iter()
-            .find_map(|l| catalogue(l).and_then(|c| c.get(key).map(|m| (m.clone(), l.clone()))))
+        self.chain.iter().find_map(|l| {
+            self.overridden(key, l)
+                .cloned()
+                .or_else(|| catalogue(l).and_then(|c| c.get(key).cloned()))
+                .map(|m| (m, l.clone()))
+        })
     }
 
     /// Whether a message exists in the language's chain.
@@ -310,6 +361,43 @@ fn rules_for(lang: &str) -> PluralRules {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_wiki_overrides_messages_and_names_ids() {
+        let o: Overrides = serde_json::from_value(serde_json::json!({
+            "ts-new": {"": "Create", "de": "Anlegen"},
+            "name/instance:x": {"": "Scatter", "fr": "Éparpiller"},
+        }))
+        .unwrap();
+        let en = Messages::for_language("en").with_overrides(o.clone(), "en");
+        assert_eq!(
+            en.get("ts-new"),
+            "Create",
+            "the base page is the wiki's language"
+        );
+        assert_eq!(en.get("ts-login"), "Log in");
+        let de = Messages::for_language("de").with_overrides(o.clone(), "en");
+        assert_eq!(de.get("ts-new"), "Anlegen");
+        let fr = Messages::for_language("fr").with_overrides(o.clone(), "en");
+        assert_eq!(
+            fr.get("ts-new"),
+            "Create",
+            "French falls back to English, the wiki's language"
+        );
+        let fr_wiki = Messages::for_language("en").with_overrides(o.clone(), "fr");
+        assert_eq!(fr_wiki.get("ts-new"), "New", "a base page is not English");
+        // A name is the same in every language unless a page gives one.
+        assert_eq!(de.name_of("instance:x").as_deref(), Some("Scatter"));
+        assert_eq!(fr.name_of("instance:x").as_deref(), Some("Éparpiller"));
+        assert_eq!(en.name_of("instance:y"), None);
+        let unsafe_text: Overrides = serde_json::from_value(serde_json::json!({
+            "ts-new": {"": "<b>New</b>"}, "ts-login": {"": "x\" onclick=\"y"},
+        }))
+        .unwrap();
+        let m = Messages::for_language("en").with_overrides(unsafe_text, "en");
+        assert_eq!(m.get("ts-new"), "New", "markup is not taken");
+        assert_eq!(m.get("ts-login"), "Log in");
+    }
 
     #[test]
     fn lookup_and_parameters() {

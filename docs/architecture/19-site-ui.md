@@ -417,7 +417,7 @@ Two narrower histories exist:
 
 ### 3.9 Recent changes
 
-*Sources: [0010](../decisions/0010-site-ui.md) §7; [0023](../decisions/0023-moderation.md) §9; [0030](../decisions/0030-edit-filters.md) §10.*
+*Sources: [0010](../decisions/0010-site-ui.md) §7; [0023](../decisions/0023-moderation.md) §9; [0030](../decisions/0030-edit-filters.md) §10; [0095](../decisions/0095-the-interface-namespace.md) §3.*
 
 **Row kinds:**
 
@@ -437,6 +437,7 @@ Two narrower histories exist:
 
 **The Action API stays per revision.** `list=recentchanges` and `list=usercontribs` return local changes one revision at a time, as MediaWiki clients expect ([18](18-api.md)).
 
+- **Accounts and the instance** ([0095](../decisions/0095-the-interface-namespace.md) §3). An account that is a row's target is marked with a person icon, *Account* to a screen reader, before its name, which links to its contributions, so it does not read as its user page. The name is the username, else the wiki's name for its key (`Interface:Name/{key}`), else the key; the key is shown beside it only for an account of another wiki that has no name here. The instance's own key, `instance:{farm code}`, is a **Server Operator** badge wherever it acted. Entities keep their IDs beside their labels.
 - **Changes made by a job** carry the bot flag and a `job:{id}` change tag, so `rcshow=!bot` hides them.
 - **Mirror records are not in `list=recentchanges`.** Each mirror job run appears in `list=logevents` under the log type `job`.
 

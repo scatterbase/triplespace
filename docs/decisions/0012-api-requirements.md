@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-27 (A80)
+- **Updated:** 2026-10-28 (A81)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0005](0005-crate-organization.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -66,7 +66,7 @@ This ADR sets the rules for filling both gaps, and lists what the UI needs from 
 
 ### 4. Action API changes
 
-*Changed by A3, A4, A5, A7, A8, A9, A10, A12, A13, A14, A15, A16, A17, A18, A19, A21, A23, A24, A25, A26, A27, A30, A31, A32, A33, A34, A35, A36, A37, A38, A55, A64, A65, A66, A72, A73, A74, A75, A76, A77, A78, A79.*
+*Changed by A3, A4, A5, A7, A8, A9, A10, A12, A13, A14, A15, A16, A17, A18, A19, A21, A23, A24, A25, A26, A27, A30, A31, A32, A33, A34, A35, A36, A37, A38, A55, A64, A65, A66, A72, A73, A74, A75, A76, A77, A78, A79, A81.*
 
 *Current text: [18](../architecture/18-api.md) §1.5, §2.1, §2.2, §2.3, §2.4, §3.4, §5.1.*
 
@@ -918,3 +918,10 @@ Replaced text ([18](../architecture/18-api.md) §3.2, as it stood):
 - **Source:** [0003](0003-statement-ui.md) A17 (Direct: James, design discussion of 2026-10-27)
 - **Change:** extends §5
 - **Summary:** Each graph of `GET /entity/{id}/provenance` that carries `upstream_version` also carries `upstream_url`, the page of that revision, where the graph's provider (a registry provider or a tenant's entity source) is a MediaWiki that publishes revision IDs: `index.php?oldid={revision}` beside its `api.php`. Otherwise the field is absent. The OpenAPI document's `GraphState` gains it. The chapter text is [18](../architecture/18-api.md) §3.2.
+
+### A81. The Interface namespace
+
+- **Date:** 2026-10-28
+- **Source:** [0095](0095-the-interface-namespace.md) §5
+- **Change:** extends §4
+- **Summary:** `siprop=triplespace` reports the wiki's interface overrides and names, `interface` (0095 §5).

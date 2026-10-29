@@ -177,6 +177,10 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         }
     };
     held("edit")?;
+    // Interface pages change what every reader sees (0095 §4), as MediaWiki's do.
+    if ns == scatter_titles::INTERFACE {
+        held("editinterface")?;
+    }
     let namespace = Namespaces::embedded()
         .get(ns)
         .ok_or_else(|| ApiError::new("invalidtitle", format!("Bad title \"{prefixed}\".")))?;

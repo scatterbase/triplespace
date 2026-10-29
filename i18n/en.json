@@ -447,6 +447,8 @@
 	"ts-changes-synced": "Synced from $1",
 	"ts-changes-erased": "An edit was erased.",
 	"ts-changes-hidden-user": "(username hidden)",
+	"ts-changes-account": "Account",
+	"ts-server-operator": "Server Operator",
 	"ts-changes-hidden-comment": "(edit summary hidden)",
 	"ts-changes-flag-new": "N",
 	"ts-changes-flag-new-title": "This edit created the page",

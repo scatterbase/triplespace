@@ -60,6 +60,12 @@
 	color: var( --color-progressive, #36c );
 }
 
+/* The instance itself, acting as the server's operator (ADR 0095 §3). */
+.ts-chip--operator {
+	border-color: var( --border-color-progressive, #36c );
+	color: var( --color-progressive, #36c );
+}
+
 a .ts-chip {
 	text-decoration: none;
 }

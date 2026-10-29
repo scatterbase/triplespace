@@ -447,6 +447,8 @@
 	"ts-changes-synced": "Summary of a mirror sync row. Parameters:\n* $1 - the provider's slug, such as \"wikidata\"",
 	"ts-changes-erased": "Row of a record whose content was erased (chapter 19 §3.4).",
 	"ts-changes-hidden-user": "In place of the actor's name when it is hidden from the viewer (chapter 19 §3.4).",
+	"ts-changes-account": "Visually hidden text beside the person icon that marks a change's target as an account, not its user page (ADR 0095 §3); read by screen readers before the name.",
+	"ts-server-operator": "Badge shown in place of the instance's own actor key wherever the instance acted, such as creating a wiki (ADR 0095 §3). Avoids the word \"instance\", which readers may not know.",
 	"ts-changes-hidden-comment": "In place of the summary when it is hidden from the viewer.",
 	"ts-changes-flag-new": "One-letter marker of an edit that created its page, as on MediaWiki's recent changes.\n{{Identical|N}}",
 	"ts-changes-flag-new-title": "Tooltip of {{msg-ts|ts-changes-flag-new}}.",

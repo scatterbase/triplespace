@@ -276,3 +276,18 @@ test( 'style attributes apply under the security policy; style elements do not',
 	expect( colours[ 1 ] ).not.toBe( 'rgb(4, 5, 6)' );
 	await context.close();
 } );
+
+test( 'recent changes mark accounts and show the instance as the Server Operator', async ( { page } ) => {
+	// ADR 0095 §3: the instance's own key is a badge, an account target an icon and a
+	// name linked to its contributions, and no key for this wiki's own accounts.
+	await page.goto( '/wiki/Special:RecentChanges' );
+	const badge = page.locator( '.ts-chip--operator' ).first();
+	await expect( badge ).toHaveText( 'Server Operator' );
+	await expect( badge ).toHaveAttribute( 'title', /^instance:/ );
+	const account = page.locator( '.ts-change__account' ).first();
+	await expect( account.locator( '.ts-change__account-icon' ) ).toHaveCount( 1 );
+	await expect( account.locator( 'a' ) ).toHaveAttribute( 'href', /\/wiki\/Special:Contributions\// );
+	await expect( page.locator( '.ts-change--log .ts-change__id' ) ).toHaveCount( 0 );
+	// Entities keep their IDs.
+	await expect( page.locator( '.ts-change__id', { hasText: /^Q6$/ } ).first() ).toBeVisible();
+} );

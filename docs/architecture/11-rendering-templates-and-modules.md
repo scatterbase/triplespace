@@ -149,9 +149,9 @@ The `templatestyles` and `templatedata` tags, `__DISAMBIG__`, `SHORTDESC` and `_
 
 ### 2.3 Messages, and how the rows are made
 
-*Sources: [0042](../decisions/0042-template-expansion-and-parsoid.md) §5.*
+*Sources: [0042](../decisions/0042-template-expansion-and-parsoid.md) §5; [0095](../decisions/0095-the-interface-namespace.md) §2.*
 
-**Messages.** `{{int:}}`, tracking-category names (§4.1) and Parsoid's `meta=allmessages` calls (§3.1) read MediaWiki core's message files for the languages the instance serves, shipped as data. The MediaWiki namespace (8) stays reserved, so no wiki can override a message.
+**Messages.** `{{int:}}`, tracking-category names (§4.1) and Parsoid's `meta=allmessages` calls (§3.1) read MediaWiki core's message files for the languages the instance serves, shipped as data, under the wiki's overrides: a page of the Interface namespace (8, canonical `MediaWiki`) overrides a message for the wiki, `Interface:{Key}` in its own language and `Interface:{Key}/{lang}` in one, the instance's from the primary tenant's pages and the wiki's over them, as [0095](../decisions/0095-the-interface-namespace.md) §2 has it for every interface message. Overrides are not read by the renderer yet.
 
 **The core rows are generated, not hand-kept.** A script reads the reference install's `meta=siteinfo` with the five properties above, once ParserFunctions and Scribunto are installed there ([0042](../decisions/0042-template-expansion-and-parsoid.md) §18, in [22](22-crates-and-stack.md)), and writes the core and extension entries with their synonyms; the statuses are hand-edited. The file in the repository is the seed and the shape, as `sites.toml` is.
 
@@ -415,9 +415,9 @@ The API serves them under `/w/styles/`, which joins its paths ([20](20-web-tier.
 
 ### 6.4 Site styles: one designated page
 
-*Sources: [0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §4.*
+*Sources: [0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §4; [0095](../decisions/0095-the-interface-namespace.md) §2.*
 
-**A tenant may designate one `sanitized-css` page as its site styles,** with the `site` setting **`wikitext.site_styles`** naming a title in the Project namespace, `Project:Site styles.css` by convention. The MediaWiki namespace (8) stays reserved ([0008](../decisions/0008-namespaces-and-document-pages.md) §2); the page is an ordinary Project page with the model of §6.1, protected as the tenant sees fit with an ACL ([0023](../decisions/0023-moderation.md) §1; the permissions are in [09](09-security-and-moderation.md)), and its history is a page history.
+**A tenant may designate one `sanitized-css` page as its site styles,** with the `site` setting **`wikitext.site_styles`** naming a title in the Project namespace, `Project:Site styles.css` by convention. The Interface namespace (8, canonical `MediaWiki`) holds plain-text messages only ([0095](../decisions/0095-the-interface-namespace.md) §1, §2), so there is no `MediaWiki:Common.css`; the page is an ordinary Project page with the model of §6.1, protected as the tenant sees fit with an ACL ([0023](../decisions/0023-moderation.md) §1; the permissions are in [09](09-security-and-moderation.md)), and its history is a page history.
 
 **It is applied to every rendered page** of the tenant, local and mirrored, as a `<link rel="stylesheet">` in the frame to `{base}/w/styles/site.css?v={offset}`, under the API's `/w/styles/` paths (§6.3), served from the sanitized form in the `css:` cache with a long lifetime, versioned by the page's latest offset. Nothing about a page's render depends on it, so editing the site styles bumps no render epoch and refreshes no page; the next request simply links the new version. The sanitizer's scoping is what makes this allowable where [0008](../decisions/0008-namespaces-and-document-pages.md) §5 refused `css`: the sheet reaches only `.mw-parser-output`, and the frame, the editor and every special page are out of its reach by construction.
 
@@ -501,7 +501,7 @@ The limits are deployment configuration, as the expander's are; a tenant may low
 
 ### 7.5 The Scribunto contract: Scribunto's Lua, Triplespace's host
 
-*Sources: [0043](../decisions/0043-lua-modules.md) §5.*
+*Sources: [0043](../decisions/0043-lua-modules.md) §5; [0095](../decisions/0095-the-interface-namespace.md) §2.*
 
 **Scribunto's Lua libraries are vendored unchanged** from its `REL1_43` branch, matching the reference install, into `triplespace-scribunto` ([22](22-crates-and-stack.md)), with a `VENDOR.md` naming the upstream commit. Fixes that are general go upstream.
 
@@ -518,7 +518,7 @@ The limits are deployment configuration, as the expander's are; a tenant may low
 | `mw.text` | `jsonEncode` and `jsonDecode` with Scribunto's flags; `unstrip`, `unstripNoWiki` and `killMarkers` over the expander's strip state (§1.4); `nowiki`, `tag` and entity tables in Rust |
 | `mw.ustring` | Scribunto's pure-Lua implementation, with its PHP fast paths (`find`, `match`, `gmatch`, `gsub`) reimplemented by a **native Lua-pattern matcher over code points**. Normalization through ICU4X |
 | `mw.language` | `formatNum`, `formatDate` (the code behind `#time`, §2.2), plurals and case mapping through ICU4X; `fetchLanguageName(s)` from MediaWiki's language-name data, shipped as data; `convertGrammar` and `gender` as MediaWiki defines them for each language, returning the word unchanged where it defines nothing |
-| `mw.message` | MediaWiki core's messages shipped as data (§2.3); no overrides, since the MediaWiki namespace is reserved |
+| `mw.message` | MediaWiki core's messages shipped as data, under the wiki's Interface pages (§2.3; [0095](../decisions/0095-the-interface-namespace.md) §2) |
 | `mw.uri` | URLs under the tenant base |
 | `mw.html` | Pure Lua; nothing on the host |
 | `mw.hash` | The algorithms modules use in practice, through RustCrypto: `md5`, `sha1`, the SHA-2 and SHA-3 families, `crc32b` and `fnv1a32`/`fnv1a64`. `listAlgorithms` reports exactly those |
