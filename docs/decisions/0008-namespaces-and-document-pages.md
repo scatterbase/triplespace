@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-28 (A44)
+- **Updated:** 2026-10-28 (A45)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -71,7 +71,7 @@ The goal is not to reimplement MediaWiki's page features. Templates, parser func
 
 ### 9. Importing pages from another wiki
 
-*Changed by A7, A10, A12, A16, A23, A38, A41, A43.*
+*Changed by A7, A10, A12, A16, A23, A38, A41, A43, A45.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §6.*
 
@@ -643,3 +643,10 @@ Replaced text ([10](../architecture/10-pages-and-content-models.md) §6, as it s
 Replaced text ([10](../architecture/10-pages-and-content-models.md) §1.4, as it stood):
 
 > | 8 | MediaWiki | `reserved` | — | — | — | Rule 1 |
+
+### A45. Messages from Interface pages
+
+- **Date:** 2026-10-28
+- **Source:** [0095](0095-the-interface-namespace.md) §7 (A1)
+- **Change:** extends §9
+- **Summary:** An adopted wiki's MediaWiki-namespace pages come as Interface pages, each revision as `text`; pages of other models are ignored and counted (0095 §7).

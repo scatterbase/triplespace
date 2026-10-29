@@ -130,7 +130,7 @@ grammar               = { origin = "mediawiki", status = "implemented" }
 gender                = { origin = "mediawiki", status = "implemented" }
 padleft               = { origin = "mediawiki", status = "implemented" }
 padright              = { origin = "mediawiki", status = "implemented" }
-int                   = { origin = "mediawiki", status = "implemented" }   # shipped messages only (0042 §5)
+int                   = { origin = "mediawiki", status = "implemented" }   # the wiki's Interface pages, in its language (0095 §2)
 "#language"           = { origin = "mediawiki", status = "implemented" }
 "#special"            = { origin = "mediawiki", status = "implemented" }
 "#speciale"           = { origin = "mediawiki", status = "implemented" }

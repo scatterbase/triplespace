@@ -149,9 +149,9 @@ The `templatestyles` and `templatedata` tags, `__DISAMBIG__`, `SHORTDESC` and `_
 
 ### 2.3 Messages, and how the rows are made
 
-*Sources: [0042](../decisions/0042-template-expansion-and-parsoid.md) §5; [0095](../decisions/0095-the-interface-namespace.md) §2.*
+*Sources: [0042](../decisions/0042-template-expansion-and-parsoid.md) §5; [0095](../decisions/0095-the-interface-namespace.md) §2; [0095](../decisions/0095-the-interface-namespace.md) §8.*
 
-**Messages.** `{{int:}}`, tracking-category names (§4.1) and Parsoid's `meta=allmessages` calls (§3.1) read MediaWiki core's message files for the languages the instance serves, shipped as data, under the wiki's overrides: a page of the Interface namespace (8, canonical `MediaWiki`) overrides a message for the wiki, `Interface:{Key}` in its own language and `Interface:{Key}/{lang}` in one, the instance's from the primary tenant's pages and the wiki's over them, as [0095](../decisions/0095-the-interface-namespace.md) §2 has it for every interface message. Overrides are not read by the renderer yet.
+**Messages.** `{{int:}}`, tracking-category names (§4.1) and Parsoid's `meta=allmessages` calls (§3.1) read the wiki's overrides: a page of the Interface namespace (8, canonical `MediaWiki`) overrides a message for the wiki, `Interface:{Key}` in its own language and `Interface:{Key}/{lang}` in one, the instance's from the primary tenant's pages and the wiki's over them ([0095](../decisions/0095-the-interface-namespace.md) §2). `{{int:key|…}}` expands the override in the wiki's language with its arguments for `$1`…, since a page renders once for every reader; the build ships none of MediaWiki core's messages, so a key the wiki does not override stays a chip. `meta=allmessages` lists overrides over the site's own shipped messages ([0095](../decisions/0095-the-interface-namespace.md) §8).
 
 **The core rows are generated, not hand-kept.** A script reads the reference install's `meta=siteinfo` with the five properties above, once ParserFunctions and Scribunto are installed there ([0042](../decisions/0042-template-expansion-and-parsoid.md) §18, in [22](22-crates-and-stack.md)), and writes the core and extension entries with their synonyms; the statuses are hand-edited. The file in the repository is the seed and the shape, as `sites.toml` is.
 
@@ -161,7 +161,7 @@ The `templatestyles` and `templatedata` tags, `__DISAMBIG__`, `SHORTDESC` and `_
 
 ### 3.1 Parsoid calls back into Triplespace
 
-*Sources: [0042](../decisions/0042-template-expansion-and-parsoid.md) §8.1; [0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §5.*
+*Sources: [0042](../decisions/0042-template-expansion-and-parsoid.md) §8.1; [0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §5; [0095](../decisions/0095-the-interface-namespace.md) §8.*
 
 Parsoid's host interface, `SiteConfig`, `DataAccess` and `PageConfig`, has an implementation over a remote wiki's Action API in Parsoid itself (`Wikimedia\Parsoid\Config\Api\*`, the code behind `bin/parse.php --apiURL`). **Triplespace points those classes at the tenant's own Action API**, so Triplespace is Parsoid's host and the single source of truth. The requests Parsoid sends, and what serves them:
 
@@ -174,7 +174,7 @@ Parsoid's host interface, `SiteConfig`, `DataAccess` and `PageConfig`, has an im
 | Files | `prop=imageinfo` with `iibadfilecontexttitle` and `iiprop=mediatype\|mime\|size\|url\|badfile\|sha1\|timestamp\|canonicaltitle` | [0039](../decisions/0039-files-and-media.md) §17 |
 | Expansion | `action=expandtemplates`, `prop=wikitext\|modules\|jsconfigvars\|categories\|properties`, `showstrategykeys` | The expander (§1.4) |
 | Tags Parsoid does not implement natively | `action=parse`, `prop=text\|modules\|jsconfigvars\|categories\|properties\|externallinks` | The built-in renderer, never Parsoid (§3.2) |
-| Tracking-category names | `meta=allmessages` | Shipped messages (§2.3) |
+| Tracking-category names | `meta=allmessages` | The wiki's overrides over the site's shipped messages (§2.3) |
 | TemplateData | `action=templatedata` | `view.page_prop` (§6.5). Only Parsoid's HTML-to-wikitext direction uses it, and reading never calls it |
 
 ### 3.2 The render-scoped API

@@ -40,6 +40,7 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
             "wikibase" => wikibase(ctx, &mut query),
             "authmanagerinfo" => super::account::authmanagerinfo(ctx, &mut query).await?,
             "notifications" => super::notifications::meta(ctx, &mut query).await?,
+            "allmessages" => allmessages(ctx, &mut query).await?,
             other => response.warn(
                 "query",
                 &format!("Unrecognized value for parameter \"meta\": {other}."),
@@ -307,49 +308,40 @@ struct NamespaceFile {
     namespace: Vec<NamespaceRow>,
 }
 
-/// An Interface page's title read as the message key it overrides and the language it is
-/// for, `""` for the base page (0095 §2, §3): `Ts-new/de` is `ts-new` in German, and
-/// `Name/instance:scatter` names that ID in every language. The first letter is folded
-/// back to lower case, as MediaWiki reads `MediaWiki:Mainpage` as `mainpage`.
-fn interface_key(title: &str) -> (String, String) {
-    let mut chars = title.chars();
-    let key: String = chars
-        .next()
-        .map(|c| c.to_lowercase().chain(chars).collect())
-        .unwrap_or_default();
-    let language = |s: &str| {
-        let mut parts = s.split('-');
-        parts.next().is_some_and(|p| {
-            (2..=3).contains(&p.len()) && p.bytes().all(|b| b.is_ascii_lowercase())
-        }) && parts
-            .all(|p| !p.is_empty() && p.len() <= 8 && p.bytes().all(|b| b.is_ascii_alphanumeric()))
+/// `meta=allmessages` (0095 §8): the wiki's overrides over the messages the build ships.
+async fn allmessages(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), ApiError> {
+    let p = &ctx.params;
+    let list = |name: &str| p.list(name);
+    let ask = crate::interface::AllMessages {
+        messages: list("ammessages"),
+        lang: p.get("amlang").unwrap_or_default().to_string(),
+        customised: p.get("amcustomised").unwrap_or("all").to_string(),
+        prefix: p.get("amprefix").unwrap_or_default().to_string(),
+        filter: p.get("amfilter").unwrap_or_default().to_string(),
+        from: p.get("amfrom").unwrap_or_default().to_string(),
+        to: p.get("amto").unwrap_or_default().to_string(),
+        args: list("amargs"),
+        nocontent: p.flag("amnocontent"),
+        includelocal: p.flag("amincludelocal"),
     };
-    // An ID has no `/`, so after `name/` only a language can follow one.
-    let split = if let Some(rest) = key.strip_prefix("name/") {
-        rest.rsplit_once('/')
-            .filter(|(_, l)| language(l))
-            .map(|(id, l)| (format!("name/{id}"), l.to_string()))
-    } else {
-        key.rsplit_once('/')
-            .filter(|(_, l)| language(l))
-            .map(|(k, l)| (k.to_string(), l.to_string()))
-    };
-    split.unwrap_or((key, String::new()))
-}
-
-/// `siprop=triplespace`'s `interface`: `{messages: {key: {language: text}}}`, a later page
-/// for the same key and language replacing an earlier one.
-fn interface_report(pages: &[(String, String)]) -> Value {
-    let mut messages: std::collections::BTreeMap<String, Map<String, Value>> =
-        std::collections::BTreeMap::new();
-    for (title, text) in pages {
-        let (key, lang) = interface_key(title);
-        messages
-            .entry(key)
-            .or_default()
-            .insert(lang, json!(text.trim_end()));
-    }
-    json!({"messages": messages})
+    let (settings, _) =
+        triplespace_accounts::settings::load(ctx.db(), Some(&ctx.tenant.slug)).await?;
+    let content_lang = settings
+        .value("site.language")
+        .and_then(|v| v.as_str().map(str::to_owned))
+        .unwrap_or_else(|| "en".into());
+    let pages = crate::interface::pages(ctx.db(), &ctx.tenant.slug).await?;
+    let o = crate::interface::Overrides::from_pages(&pages);
+    query.insert(
+        "allmessages".into(),
+        Value::Array(crate::interface::allmessages(
+            &o,
+            &ask,
+            &content_lang,
+            ctx.formatversion,
+        )),
+    );
+    Ok(())
 }
 
 /// The namespaces `meta=siteinfo` lists (0008 §2–3; 0041 §8): the `pages` and `virtual`
@@ -959,23 +951,8 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                 t["tenancy"] = crate::tenant::tenancy_report(ctx.db()).await?;
                 // The wiki's interface overrides and names (0095 §5): the instance's, from
                 // the primary tenant's Interface pages, under the tenant's own.
-                let primary = triplespace_projections::tenants::primary(ctx.db())
-                    .await
-                    .map_err(ApiError::internal)?;
-                let mut pages = Vec::new();
-                if let Some(p) = primary.filter(|p| *p != ctx.tenant.slug) {
-                    pages.extend(
-                        triplespace_projections::pages::interface_pages(ctx.db(), &p)
-                            .await
-                            .map_err(ApiError::internal)?,
-                    );
-                }
-                pages.extend(
-                    triplespace_projections::pages::interface_pages(ctx.db(), &ctx.tenant.slug)
-                        .await
-                        .map_err(ApiError::internal)?,
-                );
-                t["interface"] = interface_report(&pages);
+                let pages = crate::interface::pages(ctx.db(), &ctx.tenant.slug).await?;
+                t["interface"] = crate::interface::Overrides::from_pages(&pages).report();
                 query.insert("triplespace".into(), t);
             }
             other => ctx.warn(
@@ -1095,6 +1072,7 @@ const QUERY_MODULES: &[(&str, &[&str])] = &[
             "wikibase",
             "authmanagerinfo",
             "notifications",
+            "allmessages",
         ],
     ),
     (
@@ -1380,6 +1358,30 @@ fn module_parameters(name: &str) -> Vec<Value> {
             multi(parameter(0, "type", json!(TOKEN_TYPES)), 50),
             json!("csrf"),
         ))],
+        "allmessages" => vec![
+            Value::Object(with_default(
+                multi(parameter(0, "messages", json!("string")), 50),
+                json!("*"),
+            )),
+            Value::Object(with_default(
+                parameter(1, "prop", json!(["default"])),
+                json!(""),
+            )),
+            Value::Object(parameter(2, "enableparser", json!("boolean"))),
+            Value::Object(parameter(3, "nocontent", json!("boolean"))),
+            Value::Object(parameter(4, "includelocal", json!("boolean"))),
+            Value::Object(multi(parameter(5, "args", json!("string")), 50)),
+            Value::Object(parameter(6, "filter", json!("string"))),
+            Value::Object(with_default(
+                parameter(7, "customised", json!(["all", "modified", "unmodified"])),
+                json!("all"),
+            )),
+            Value::Object(parameter(8, "lang", json!("string"))),
+            Value::Object(parameter(9, "from", json!("string"))),
+            Value::Object(parameter(10, "to", json!("string"))),
+            Value::Object(parameter(11, "title", json!("string"))),
+            Value::Object(parameter(12, "prefix", json!("string"))),
+        ],
         "siteinfo" => vec![Value::Object(with_default(
             multi(
                 parameter(
@@ -1806,6 +1808,7 @@ pub fn paraminfo_modules(requested: &[String]) -> Vec<Value> {
                             "wikibase" => "wb",
                             "authmanagerinfo" => "ami",
                             "notifications" => "not",
+                            "allmessages" => "am",
                             "recentchanges" => "rc",
                             "usercontribs" => "uc",
                             "logevents" => "le",
@@ -1936,43 +1939,5 @@ mod paraminfo_tests {
         let search = by_path(&more, "wbsearchentities");
         let langs = param(&search, "language");
         assert!(langs["type"].as_array().unwrap().contains(&json!("en")));
-    }
-}
-
-#[cfg(test)]
-mod interface_tests {
-    use super::*;
-
-    #[test]
-    fn titles_read_as_keys_and_languages() {
-        assert_eq!(interface_key("Ts-new"), ("ts-new".into(), String::new()));
-        assert_eq!(interface_key("Ts-new/de"), ("ts-new".into(), "de".into()));
-        assert_eq!(
-            interface_key("Ts-new/zh-hant"),
-            ("ts-new".into(), "zh-hant".into())
-        );
-        assert_eq!(
-            interface_key("Name/instance:scatter"),
-            ("name/instance:scatter".into(), String::new())
-        );
-        assert_eq!(
-            interface_key("Name/wwquhzy:25/fr"),
-            ("name/wwquhzy:25".into(), "fr".into())
-        );
-        assert_eq!(
-            interface_key("Sidebar/Not a language"),
-            ("sidebar/Not a language".into(), String::new())
-        );
-    }
-
-    #[test]
-    fn the_tenant_s_page_replaces_the_instance_s() {
-        let v = interface_report(&[
-            ("Name/instance:x".into(), "Instance name".into()),
-            ("Ts-new/de".into(), "Neu".into()),
-            ("Name/instance:x".into(), "Our name\n".into()),
-        ]);
-        assert_eq!(v["messages"]["name/instance:x"][""], "Our name");
-        assert_eq!(v["messages"]["ts-new"]["de"], "Neu");
     }
 }

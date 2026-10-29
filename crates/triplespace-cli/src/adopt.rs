@@ -227,6 +227,7 @@ pub async fn run(args: Adopt) -> Result<()> {
     let mut untyped: BTreeMap<EntityId, u64> = BTreeMap::new();
     let mut pages_read = 0u64;
     let mut deferred: BTreeMap<String, u64> = BTreeMap::new();
+    let mut ignored: BTreeMap<String, u64> = BTreeMap::new();
     let mut talk_pages = 0u64;
     let tenant = issuer.clone();
     let current_only = args.current_only;
@@ -261,6 +262,10 @@ pub async fn run(args: Adopt) -> Result<()> {
                     crate::adopt_pages::PageRead::Deferred(why) => {
                         eprintln!("deferring page {} (`{}`): {why}", page.id, page.title);
                         *deferred.entry(why).or_default() += 1;
+                        Vec::new()
+                    }
+                    crate::adopt_pages::PageRead::Ignored(why) => {
+                        *ignored.entry(why).or_default() += 1;
                         Vec::new()
                     }
                 };
@@ -348,6 +353,13 @@ pub async fn run(args: Adopt) -> Result<()> {
     if deferred_total > 0 {
         println!("  deferred   {deferred_total} pages (0035 A13):");
         for (why, n) in &deferred {
+            println!("    {n} × {why}");
+        }
+    }
+    let ignored_total: u64 = ignored.values().sum();
+    if ignored_total > 0 {
+        println!("  ignored    {ignored_total} pages the instance does not use (0095 A1):");
+        for (why, n) in &ignored {
             println!("    {n} × {why}");
         }
     }

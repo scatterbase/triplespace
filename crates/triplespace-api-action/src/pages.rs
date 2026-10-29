@@ -411,11 +411,14 @@ pub fn names_entity(site: &Site, title: &str) -> bool {
 
 // ---- rendering -----------------------------------------------------------------------
 
-/// The expansion host: Template pages' latest text, from what the previous rounds read.
+/// The expansion host: Template pages' latest text, from what the previous rounds read,
+/// and the wiki's Interface pages for `{{int:}}` once a round has asked for one.
 struct Host<'a> {
     site: &'a Site,
     known: HashMap<String, Option<String>>,
     misses: RefCell<Vec<(i32, String)>>,
+    messages: Option<crate::interface::Overrides>,
+    wants_messages: std::cell::Cell<bool>,
 }
 
 impl ExpandHost for Host<'_> {
@@ -447,6 +450,20 @@ impl ExpandHost for Host<'_> {
             }
         }
     }
+
+    /// `{{int:key}}` (0095 §2): the wiki's override in its own language. A page renders
+    /// once for every reader, so it is the wiki's language, not the reader's; the build
+    /// ships none of MediaWiki core's messages, so a key the wiki does not override is
+    /// left for the renderer's chip.
+    fn message(&self, key: &str) -> Option<String> {
+        let Some(o) = &self.messages else {
+            self.wants_messages.set(true);
+            return None;
+        };
+        let key = crate::interface::key(key).0;
+        o.message(&key, &self.site.lang, &self.site.lang)
+            .map(|(text, _)| text.to_string())
+    }
 }
 
 /// A page an expansion transcluded, or tried to.
@@ -474,13 +491,20 @@ pub async fn expand(
         site,
         known: HashMap::new(),
         misses: RefCell::new(Vec::new()),
+        messages: None,
+        wants_messages: std::cell::Cell::new(false),
     };
     let mut expanded = scatter_wikitext_expand::expand_for_view(text, &host);
     let mut used: Vec<Transclusion> = Vec::new();
     for _ in 0..EXPANSION_ROUNDS {
         let misses: Vec<(i32, String)> = std::mem::take(&mut *host.misses.borrow_mut());
-        if misses.is_empty() {
+        let wants = host.wants_messages.get() && host.messages.is_none();
+        if misses.is_empty() && !wants {
             break;
+        }
+        if wants {
+            let pages = crate::interface::pages(db, tenant).await?;
+            host.messages = Some(crate::interface::Overrides::from_pages(&pages));
         }
         for (ns, title) in misses {
             let key = site.prefixed(ns, &title);

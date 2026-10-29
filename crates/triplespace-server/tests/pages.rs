@@ -553,6 +553,43 @@ async fn api(database: &str, key_file: &std::path::Path) {
     assert_eq!(messages["ts-new"][""], "Create", "{si}");
     assert_eq!(messages["ts-new"]["de"], "Anlegen");
     assert_eq!(messages["name/instance:far"][""], "Far Farm");
+    // `{{int:}}` reads the wiki's overrides; `meta=allmessages` lists them over the
+    // shipped messages (0095 §2, §8).
+    let e = c
+        .post(
+            "action=edit",
+            &format!(
+                "title=Interface:Greeting&text={}&token={}",
+                enc("Hello, $1!"),
+                enc(&csrf)
+            ),
+        )
+        .await;
+    assert_eq!(e["edit"]["result"], "Success", "{e}");
+    let parsed = c
+        .post(
+            "action=parse",
+            &format!(
+                "contentmodel=wikitext&prop=text&title=Project:Sandbox&text={}",
+                enc("{{int:greeting|Bob}} and {{int:no-such-message}}")
+            ),
+        )
+        .await;
+    let html = parsed["parse"]["text"].as_str().unwrap_or_default();
+    assert!(html.contains("Hello, Bob!"), "{parsed}");
+    let all = c
+        .get("action=query&meta=allmessages&ammessages=ts-new|greeting|ts-login|no-such-message")
+        .await;
+    let all = all["query"]["allmessages"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    assert_eq!(all[0]["content"], "Create", "{all:?}");
+    assert_eq!(all[0]["customised"], true);
+    assert_eq!(all[1]["content"], "Hello, $1!");
+    assert_eq!(all[2]["content"], "Log in");
+    assert!(all[2].get("customised").is_none());
+    assert_eq!(all[3]["missing"], true);
     // A namespace alias the tenant gives (0008 A37; 10 §3.5): siteinfo lists it, and a
     // link through it renders and is recorded as a Project link.
     namespace_record(

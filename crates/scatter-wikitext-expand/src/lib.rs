@@ -49,6 +49,13 @@ pub trait ExpandHost {
     /// colon means the main one, as the host's title resolver decides. `None` for a name
     /// that is not a title.
     fn transclude(&self, name: &str) -> Option<Transcluded>;
+
+    /// The text of an interface message for `{{int:key}}`, the wiki's override where it
+    /// has one (0095 §2), with `$1`… unreplaced; `None` leaves the call as written. The key
+    /// is as written after `int:`, trimmed.
+    fn message(&self, _key: &str) -> Option<String> {
+        None
+    }
 }
 
 /// MediaWiki's limit on nested transclusion (`$wgMaxTemplateDepth`).
@@ -414,13 +421,21 @@ impl Expander<'_> {
     }
 
     fn template(&mut self, node: &PNode, parts: &[Vec<PNode>], out: &mut String) {
+        let mut name = String::new();
+        self.expand(&parts[0], &mut name);
+        let name = name.trim();
+        if let Some(key) = name
+            .split_once(':')
+            .filter(|(m, _)| m.trim().eq_ignore_ascii_case("int"))
+            .map(|(_, k)| k.trim())
+        {
+            self.message(node, key, &parts[1..], out);
+            return;
+        }
         if parts.len() > 1 {
             write_source(node, out);
             return;
         }
-        let mut name = String::new();
-        self.expand(&parts[0], &mut name);
-        let name = name.trim();
         if name.is_empty() || self.registry.is_magic(name) {
             write_source(node, out);
             return;
@@ -464,6 +479,39 @@ impl Expander<'_> {
                 out.push_str(&expanded);
             }
         }
+    }
+}
+
+impl Expander<'_> {
+    /// `{{int:key|arg|…}}`: the host's message with `$1`… replaced by the expanded
+    /// arguments, itself expanded as transcluded text; left as written where the host has
+    /// none or the key is empty.
+    fn message(&mut self, node: &PNode, key: &str, args: &[Vec<PNode>], out: &mut String) {
+        let Some(text) = (!key.is_empty()).then(|| self.host.message(key)).flatten() else {
+            write_source(node, out);
+            return;
+        };
+        let guard = format!("int:{key}");
+        if self.stack.contains(&guard) || self.stack.len() >= MAX_DEPTH {
+            write_source(node, out);
+            return;
+        }
+        let mut text = text;
+        let values: Vec<String> = args
+            .iter()
+            .map(|a| {
+                let mut v = String::new();
+                self.expand(a, &mut v);
+                v
+            })
+            .collect();
+        for (i, v) in values.iter().enumerate().rev() {
+            text = text.replace(&format!("${}", i + 1), v);
+        }
+        self.stack.push(guard);
+        let nodes = preprocess(&text, Mode::Transclude, self.registry);
+        self.expand(&nodes, out);
+        self.stack.pop();
     }
 }
 
@@ -560,5 +608,41 @@ mod tests {
     #[test]
     fn braces() {
         assert_eq!(x("{{{cwbn}}}"), "{{{cwbn}}}");
+    }
+
+    struct Messages;
+
+    impl ExpandHost for Messages {
+        fn transclude(&self, name: &str) -> Option<Transcluded> {
+            (name == "who").then(|| Transcluded::Found("Ann".into()))
+        }
+        fn message(&self, key: &str) -> Option<String> {
+            match key {
+                "welcome" => Some("Welcome, $1, to $2!".into()),
+                "self" => Some("{{int:self}}".into()),
+                "sig" => Some("by {{who}}".into()),
+                _ => None,
+            }
+        }
+    }
+
+    #[test]
+    fn int_reads_the_host_s_messages() {
+        let e = |s: &str| expand_for_view(s, &Messages);
+        assert_eq!(e("{{int:welcome|Bob|{{who}}}}"), "Welcome, Bob, to Ann!");
+        assert_eq!(e("{{ INT: welcome |x}}"), "Welcome, x, to $2!");
+        assert_eq!(e("{{int:sig}}"), "by Ann");
+        assert_eq!(
+            e("{{int:nope}}"),
+            "{{int:nope}}",
+            "left for the renderer's chip"
+        );
+        assert_eq!(e("{{int:}}"), "{{int:}}");
+        assert_eq!(e("{{int:self}}"), "{{int:self}}", "no loop");
+        // A host without messages leaves every call as written, as before.
+        assert_eq!(
+            expand_for_view("{{int:welcome}}", &host()),
+            "{{int:welcome}}"
+        );
     }
 }
