@@ -5,7 +5,12 @@
 //! A page is accepted when its namespace holds pages and allows its content model, with
 //! the registry's own namespaces: Project, User, Template and the main namespace (0008
 //! A41; 0042 A19). Talk pages, whose model is `triplespace-talk`, become threads by a later
-//! conversion; they and pages in reserved namespaces (MediaWiki) are counted `deferred`.
+//! conversion; they and pages in reserved namespaces are counted `deferred`.
+//!
+//! The MediaWiki namespace's pages come as Interface pages (0095 A1): a message's
+//! `wikitext` is its source, so it is kept as `text`, the namespace's model. A page of any
+//! other model there (`MediaWiki:Common.css`, `.js`, `.json`) is something the instance
+//! does not use, and is counted `ignored`.
 //!
 //! The first revision is a `create` with the page's current title (an export lists a
 //! page's revisions under its current title, so earlier titles are not known); each later
@@ -27,6 +32,38 @@ pub enum PageRead {
     Adopt(Vec<AdoptedPage>),
     /// Left for a later import, with the reason.
     Deferred(String),
+    /// Not brought, since the instance has no use for it: a MediaWiki-namespace page that
+    /// is not a message (0095 A1), with the reason.
+    Ignored(String),
+}
+
+/// The parts of a revision the source hid, as `withheld` names them.
+fn hidden_parts(r: &scatter_adapter_wikibase::xml_dump::Revision) -> Vec<String> {
+    [
+        (r.text_hidden, withheld::TEXT),
+        (r.comment_hidden, withheld::COMMENT),
+        (r.user_hidden, withheld::ATTESTATION),
+    ]
+    .into_iter()
+    .filter(|(hidden, _)| *hidden)
+    .map(|(_, part)| part.to_string())
+    .collect()
+}
+
+/// Why a MediaWiki-namespace page is not a message the instance can use: a revision of a
+/// model other than `wikitext` or `text`.
+fn not_a_message(page: &DumpPage, model: &str) -> Option<String> {
+    page.revisions
+        .iter()
+        .map(|r| r.model.as_deref().unwrap_or(model))
+        .find(|m| interface_model(m).is_none())
+        .map(|other| format!("`MediaWiki` pages of model `{other}`"))
+}
+
+/// The model a MediaWiki-namespace revision takes as an Interface page: `text` for a
+/// message, whether the source wrote it as `wikitext` or `text`; `None` for any other.
+fn interface_model(model: &str) -> Option<&'static str> {
+    matches!(model, "wikitext" | "text").then_some("text")
 }
 
 /// The author of a dump revision, under the tenant's issuer.
@@ -64,6 +101,11 @@ pub fn read_page(page: &DumpPage, issuer: &str, current_only: bool) -> PageRead 
     if namespace.kind != scatter_titles::Kind::Pages {
         return PageRead::Deferred(format!("`{}` holds no pages here", namespace.canonical));
     }
+    let interface = ns == scatter_titles::INTERFACE;
+    if interface && let Some(why) = not_a_message(page, &model) {
+        return PageRead::Ignored(why);
+    }
+    let model = if interface { "text".to_string() } else { model };
     if !namespace.allows_model(&model) {
         return PageRead::Deferred(format!(
             "`{}` pages are not `{model}` here{}",
@@ -91,17 +133,12 @@ pub fn read_page(page: &DumpPage, issuer: &str, current_only: bool) -> PageRead 
     let mut previous_model: Option<String> = None;
     let mut adopted_ids = Vec::new();
     for r in revisions {
-        let rev_model = r.model.clone().unwrap_or_else(|| model.clone());
-        let mut hidden = Vec::new();
-        if r.text_hidden {
-            hidden.push(withheld::TEXT.to_string());
-        }
-        if r.comment_hidden {
-            hidden.push(withheld::COMMENT.to_string());
-        }
-        if r.user_hidden {
-            hidden.push(withheld::ATTESTATION.to_string());
-        }
+        let rev_model = if interface {
+            model.clone()
+        } else {
+            r.model.clone().unwrap_or_else(|| model.clone())
+        };
+        let hidden = hidden_parts(r);
         let source = (!current_only).then(|| Source {
             source_revid: r.id,
             source_parentid: r.parent_id.filter(|p| adopted_ids.contains(p)),
@@ -211,17 +248,33 @@ mod tests {
         assert!(
             matches!(read_page(&talk, "lb", false), PageRead::Deferred(r) if r.contains("threads"))
         );
+        // A MediaWiki-namespace message comes as an Interface page, its wikitext kept as
+        // `text`; a stylesheet there is ignored (0095 A1).
         let message = DumpPage {
             title: "MediaWiki:Sidebar".into(),
             ns: 8,
             id: 2,
             redirect: None,
-            revisions: vec![revision(1, None, "x")],
+            revisions: vec![revision(1, None, "x"), revision(2, Some(1), "y")],
         };
-        assert!(matches!(
-            read_page(&message, "lb", false),
-            PageRead::Deferred(_)
-        ));
+        let PageRead::Adopt(revs) = read_page(&message, "lb", false) else {
+            panic!("a message is adopted");
+        };
+        assert_eq!(revs.len(), 2);
+        assert_eq!(revs[0].content["op"], "create");
+        assert_eq!(revs[0].content["title"], "Sidebar");
+        assert_eq!(revs[0].content["model"], "text");
+        assert!(revs[1].content.get("model").is_none(), "no model change");
+        let mut sheet = revision(3, None, "body {}");
+        sheet.model = Some("css".into());
+        let css = DumpPage {
+            title: "MediaWiki:Common.css".into(),
+            ns: 8,
+            id: 4,
+            redirect: None,
+            revisions: vec![sheet],
+        };
+        assert!(matches!(read_page(&css, "lb", false), PageRead::Ignored(_)));
         let template = DumpPage {
             title: "Template:Cwbn".into(),
             ns: 10,

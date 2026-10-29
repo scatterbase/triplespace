@@ -2,6 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-28
+- **Updated:** 2026-10-28 (A1)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0016](0016-permissions-and-access-control.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0055](0055-templatestyles-templatedata-and-page-properties.md)
 - **Uses:** [0007](0007-actor-identity.md), [0019](0019-discussions.md), [0046](0046-primary-tenant.md), [0079](0079-derived-issuer-codes.md)
@@ -25,15 +26,19 @@ Asked what the namespace holds and how an account is marked, James chose (2026-1
 
 ### 1. The Interface namespace (amends 0008 §2)
 
+*Changed by A1.*
+
 **Namespace 8 holds pages, shown as Interface.** It keeps MediaWiki's number and canonical name, `MediaWiki`, which `meta=siteinfo` reports as `canonical` and every client reads; its local name on every wiki is **`Interface`**, which the registry gives (`name` in `namespaces.toml`) and a tenant's `namespace` record may change, as for any namespace. A title is read with either name, so `MediaWiki:X` reaches `Interface:X`, as James asked. Its talk namespace, 9, is `Interface talk` (canonical `MediaWiki talk`), of composite talk pages like every other ([0019](0019-discussions.md) §2).
 
-**Its pages are plain text**, of the model `text` alone, with subpages and first-letter titles. A page in it is either a message's override (§2) or a name (§3). Site styles stay one designated Project page ([0055](0055-templatestyles-templatedata-and-page-properties.md) §4): no `Interface:Common.css` or script page is admitted, since the model is `text` only. An adopted wiki's `MediaWiki:` pages are `wikitext`, so adoption still defers them (Q1).
+**Its pages are plain text**, of the model `text` alone, with subpages and first-letter titles. A page in it is either a message's override (§2) or a name (§3). Site styles stay one designated Project page ([0055](0055-templatestyles-templatedata-and-page-properties.md) §4): no `Interface:Common.css` or script page is admitted, since the model is `text` only. An adopted wiki's `MediaWiki:` pages come with it as Interface pages (§7).
 
 ### 2. Interface pages override messages (amends 0042 §5; amends 0043 §5; amends 0055 §4)
 
+*Changed by A1.*
+
 **`Interface:{Key}` overrides the message `{key}`** for the wiki, as MediaWiki's namespace does: the title is the key with its first letter folded to upper case, so `Interface:Ts-new` overrides `ts-new` and `Interface:Mainpage` overrides MediaWiki core's `mainpage`. **`Interface:{Key}/{lang}`** overrides it in one language; the base page is the wiki's own language. For a reader's language, each language along its fallback chain is tried in turn, the wiki's page for that language (or the base page, where it is the wiki's language) before the shipped message, so a German override applies to a reader of German and never shows English to them.
 
-**Which messages:** the site's interface messages (`i18n/`), and MediaWiki core's messages as `{{int:}}` and Scribunto's `mw.message` read them, which 0042 §5 and 0043 §5 left unoverridable. A page for a key no message has is unused, except a name (§3).
+**Which messages:** the site's interface messages (`i18n/`), and MediaWiki core's messages as `{{int:}}` and Scribunto's `mw.message` read them, which 0042 §5 and 0043 §5 left unoverridable. A page for a key no message has is unused by the site, but `{{int:}}` and `meta=allmessages` (§8) read it, so a wiki may write messages of its own. **`{{int:key|…}}` reads the wiki's language**, its base page or its page for that language, not the reader's, since a page renders once for every reader; its `$1`… are the call's arguments. The build ships none of MediaWiki core's messages, so `{{int:}}` of a key the wiki does not override stays a chip.
 
 **An override is plain message text**, with `$1`, `{{PLURAL:}}` and the rest as a shipped message has them. The site shows it as it shows any message, escaped, and does not take an override holding `<`, `>` or `"`, so that no page's text can become markup wherever a message reaches the page.
 
@@ -64,6 +69,8 @@ Asked what the namespace holds and how an account is marked, James chose (2026-1
 
 ### 6. Crates (extends 0005 §2)
 
+*Changed by A1.*
+
 | Crate | Change |
 |---|---|
 | `scatter-titles` | The registry's `name` for a namespace; `INTERFACE` |
@@ -72,7 +79,19 @@ Asked what the namespace holds and how an account is marked, James chose (2026-1
 | `triplespace-client` | The tenant's issuer code, the farm code and the overrides from `meta=siteinfo` |
 | `triplespace-ui` | Overrides along the language chain; names; the account mark and the Server Operator badge in lists of changes |
 
-`{{int:}}` and `mw.message` still read the shipped messages alone; their overrides wait on the renderer reading the same report.
+`scatter-wikitext-expand` expands `{{int:}}` through its host, which `triplespace-api-action` answers from the wiki's Interface pages; `triplespace-cli` adopts the MediaWiki namespace (§7). `mw.message` reads the overrides once Lua is built (0043).
+
+### 7. Adopting a wiki brings its MediaWiki namespace (settles Q1; extends 0008 §9)
+
+*Changed by A1.*
+
+**An adopted wiki's MediaWiki-namespace pages come with it**, with their history, as Interface pages, as James decided on 2026-10-28. A message's text is its source whether the source wiki stored it as `wikitext` or `text`, so each revision comes as `text`, the namespace's model. **A page the instance cannot use is ignored**: one of any other model, such as `MediaWiki:Common.css`, `MediaWiki:Common.js` or a JSON message, is not brought, and the adoption reports how many it ignored, apart from the pages it defers. A page that comes is an override like any other: it changes the site where its key is one of the site's messages, and serves `{{int:}}` and `meta=allmessages` otherwise. Its talk page (namespace 9) is converted to threads as every talk page is ([0090](0090-converting-talk-pages-comment-by-comment.md) §10).
+
+### 8. `meta=allmessages` (settles Q2; amends 0042 §5, §8.1, §14)
+
+*Changed by A1.*
+
+**`meta=allmessages`** answers as MediaWiki's does, with `ammessages` (keys, or `*`), `amlang`, `amcustomised` (`all`, `modified`, `unmodified`), `amprefix`, `amfilter`, `amfrom`, `amto`, `amargs`, `amnocontent` and `amincludelocal`. Each message is the wiki's override in the language asked (the wiki's own by default) where there is one, marked `customised`, else the message the build ships, else `missing`. The messages the build ships are the site's own, in English; with `*` and `amincludelocal`, keys the wiki alone has are listed too, its names of IDs among them.
 
 ## Alternatives considered
 
@@ -90,8 +109,8 @@ Asked what the namespace holds and how an account is marked, James chose (2026-1
 
 ## Open questions
 
-- **Q1. Adopting a wiki's `MediaWiki:` pages**, which are `wikitext`: as overrides, which would also change messages the site uses, or deferred, as now.
-- **Q2. `meta=allmessages`**, MediaWiki's module for reading messages and overrides (`amcustomised`), which Parsoid and tools call.
+- **Q1.** ~~**Adopting a wiki's `MediaWiki:` pages**, which are `wikitext`: as overrides, which would also change messages the site uses, or deferred, as now.~~ *Settled by §7: James decided on 2026-10-28 that adoption brings them, and ignores those the instance cannot use.*
+- **Q2.** ~~**`meta=allmessages`**, MediaWiki's module for reading messages and overrides (`amcustomised`), which Parsoid and tools call.~~ *Settled by §8: served, over the site's shipped messages.*
 
 ## Changes to other ADRs
 
@@ -99,13 +118,38 @@ Asked what the namespace holds and how an account is marked, James chose (2026-1
 |---|---|---|---|
 | [0005](0005-crate-organization.md) §2 | §6 | extends | 0005 A108 |
 | [0008](0008-namespaces-and-document-pages.md) §2 | §1 | amends | 0008 A44 |
+| [0008](0008-namespaces-and-document-pages.md) §9 | §7 (A1) | extends | 0008 A45 |
 | [0010](0010-site-ui.md) §7 | §3 | extends | 0010 A46 |
 | [0012](0012-api-requirements.md) §4 | §5 | extends | 0012 A81 |
 | [0016](0016-permissions-and-access-control.md) §2 | §4 | extends | 0016 A39 |
 | [0042](0042-template-expansion-and-parsoid.md) §5 | §2 | amends | 0042 A20 |
+| [0042](0042-template-expansion-and-parsoid.md) §5 | §8 (A1) | amends | 0042 A21 |
+| [0042](0042-template-expansion-and-parsoid.md) §8.1 | §8 (A1) | amends | 0042 A21 |
+| [0042](0042-template-expansion-and-parsoid.md) §14 | §8 (A1) | amends | 0042 A21 |
 | [0043](0043-lua-modules.md) §5 | §2 | amends | 0043 A9 |
 | [0055](0055-templatestyles-templatedata-and-page-properties.md) §4 | §2 | amends | 0055 A6 |
 
 ## References
 
 - MediaWiki: the MediaWiki namespace, `$wgUseDatabaseMessages`, and the `editinterface` right.
+
+## Amendment log
+
+### A1. Adoption brings the MediaWiki namespace; `{{int:}}` and `meta=allmessages`
+
+- **Date:** 2026-10-28
+- **Source:** Direct: James, design discussion of 2026-10-28
+- **Change:** amends §1, §2, §6; extends §7, §8
+- **Summary:** James asked for the two parts left unbuilt, `{{int:}}` reading overrides and `meta=allmessages`, and decided: "When adopting a wiki, it should bring in the MediaWiki-namespace pages. Those that can't be used by the Triplespace instance are just ignored." An adopted wiki's MediaWiki pages of model `wikitext` or `text` come as Interface pages, each revision as `text`; pages of any other model are ignored and counted (§7). `{{int:key|…}}` expands the wiki's override in the wiki's language, with its arguments, and stays a chip where there is none, the build shipping no MediaWiki core messages (§2). `meta=allmessages` answers from the overrides over the site's shipped English messages (§8). `mw.message` waits on Lua (0043).
+
+Replaced text (§1):
+
+> An adopted wiki's `MediaWiki:` pages are `wikitext`, so adoption still defers them (Q1).
+
+Replaced text (§2):
+
+> **Which messages:** the site's interface messages (`i18n/`), and MediaWiki core's messages as `{{int:}}` and Scribunto's `mw.message` read them, which 0042 §5 and 0043 §5 left unoverridable. A page for a key no message has is unused, except a name (§3).
+
+Replaced text (§6):
+
+> `{{int:}}` and `mw.message` still read the shipped messages alone; their overrides wait on the renderer reading the same report.

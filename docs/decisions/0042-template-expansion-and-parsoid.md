@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-28 (A20)
+- **Updated:** 2026-10-28 (A21)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0024](0024-subsidiary-accounts.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md)
 - **Uses:** [0023](0023-moderation.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0043](0043-lua-modules.md), [0047](0047-special-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -63,7 +63,7 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 5. Variables, parser functions, tags and switches: a registry (extends 0015 §5)
 
-*Changed by A6, A9, A10, A12, A20.*
+*Changed by A6, A9, A10, A12, A20, A21.*
 
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §2.1, §2.2, §2.3.*
 
@@ -83,7 +83,7 @@ James's direction, from the design discussion of 2026-09-30:
 
 #### 8.1 Parsoid calls back into Triplespace
 
-*Changed by A6.*
+*Changed by A6, A21.*
 
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §3.1.*
 
@@ -129,7 +129,7 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 14. API (extends 0012 §4 and §5)
 
-*Changed by A8.*
+*Changed by A8, A21.*
 
 *Current text: [18](../architecture/18-api.md) §2.2, §2.3, §3.2.*
 
@@ -451,3 +451,22 @@ Replaced text ([23](../architecture/23-configuration-and-registry.md) §3.2, as 
 Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §2.3, as it stood):
 
 > **Messages.** `{{int:}}`, tracking-category names (§4.1) and Parsoid's `meta=allmessages` calls (§3.1) read MediaWiki core's message files for the languages the instance serves, shipped as data. The MediaWiki namespace (8) stays reserved, so no wiki can override a message.
+
+### A21. Messages from Interface pages
+
+- **Date:** 2026-10-28
+- **Source:** [0095](0095-the-interface-namespace.md) §8 (A1)
+- **Change:** amends §5, §8.1, §14
+- **Summary:** `{{int:}}` expands the wiki's Interface page for the key in the wiki's language, with its arguments, and stays a chip where there is none; `meta=allmessages` answers from the Interface pages over the site's shipped messages (0095 §2, §8).
+
+Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §2.3, as it stood):
+
+> **Messages.** `{{int:}}`, tracking-category names (§4.1) and Parsoid's `meta=allmessages` calls (§3.1) read MediaWiki core's message files for the languages the instance serves, shipped as data, under the wiki's overrides: a page of the Interface namespace (8, canonical `MediaWiki`) overrides a message for the wiki, `Interface:{Key}` in its own language and `Interface:{Key}/{lang}` in one, the instance's from the primary tenant's pages and the wiki's over them, as [0095](../decisions/0095-the-interface-namespace.md) §2 has it for every interface message. Overrides are not read by the renderer yet.
+
+Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §3.1, as it stood):
+
+> | Tracking-category names | `meta=allmessages` | Shipped messages (§2.3) |
+
+Replaced text ([18](../architecture/18-api.md) §2.3, as it stood):
+
+> | `meta=allmessages` | The shipped MediaWiki messages ([0042](../decisions/0042-template-expansion-and-parsoid.md) §5) | [0042](../decisions/0042-template-expansion-and-parsoid.md) §14 |
