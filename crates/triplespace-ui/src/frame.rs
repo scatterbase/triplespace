@@ -151,7 +151,6 @@ pub struct Frame<'a> {
     account: Option<Account>,
     mainpage_href: String,
     login: bool,
-    register: bool,
     nav: Vec<(String, String)>,
     new_menu: Vec<(String, String)>,
     returnto: String,
@@ -383,14 +382,16 @@ pub fn render(
     if f.has(Feature::Pages) {
         new_menu.push((m.get("ts-new-page"), "/w/index.php?action=edit".to_string()));
     }
-    let (html_class, html_attrs) = crate::appearance::html_attributes(chrome.prefs);
-    let appearance = crate::appearance::panel(m, theme, chrome.prefs, &returnto.replace('_', " "));
-    let appearance_data = crate::appearance::data(theme, chrome.prefs, None);
+    // A retired palette among the reader's choices reads as what replaced it (0094 §4).
+    let resolved = crate::appearance::resolve(chrome.prefs);
+    let prefs = resolved.as_ref().or(chrome.prefs);
+    let (html_class, html_attrs) = crate::appearance::html_attributes(prefs);
+    let appearance = crate::appearance::panel(m, theme, prefs, &returnto.replace('_', " "));
+    let appearance_data = crate::appearance::data(theme, prefs, None);
     // A signed-in reader's palette and type set are the server's to choose; anyone
     // else is served the wiki's, which the head script swaps for their own (0086 §5).
     let pref = |key: &str| {
-        chrome
-            .prefs
+        prefs
             .and_then(|p| p.get(key))
             .and_then(serde_json::Value::as_str)
     };
@@ -421,7 +422,6 @@ pub fn render(
         account,
         mainpage_href: format!("/wiki/{}", title_url(chrome.mainpage)),
         login: f.has(Feature::Login),
-        register: f.has(Feature::Register),
         nav,
         new_menu,
         returnto,

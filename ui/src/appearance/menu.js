@@ -1,6 +1,7 @@
-// The Appearance menu with JavaScript (ADR 0085 §6; 0086 §5; 19 §2.7). A change applies at
-// once: a colour mode, contrast or text size on <html>, a palette or type set by pointing
-// the page's stylesheet link at it.
+// The Appearance menu with JavaScript (ADR 0085 §6; 0086 §5; 0094; 19 §2.7). A change
+// applies at once: a colour mode, contrast, text size or colour-vision alternate on
+// <html>, a palette or type set by pointing the page's stylesheet link at it. Mode,
+// contrast and text size are groups of radio buttons drawn as icons; the rest are selects.
 // Not logged in, it is kept in this browser; signed in, it is written to the account
 // through action=options and mirrored into the browser, marked as the account's, so it
 // stays after logout. At a signed-in page, choices the reader made in this browser while
@@ -80,18 +81,23 @@ export function initAppearance( doc, win ) {
 	const theme = app.readTheme( doc );
 	/** The palettes and type sets a reader may choose here, besides the wiki's own. */
 	const sheets = data.choices || app.sheetChoices( theme );
-	const selects = Array.from( form.querySelectorAll( 'select[data-key]' ) );
+	const controls = Array.from( form.querySelectorAll( 'select[data-key], input[type="radio"][data-key]' ) );
+	const own = theme && theme.palette;
 	const show = ( values ) => {
-		for ( const s of selects ) {
-			const v = values[ s.dataset.key ];
-			if ( typeof v === 'string' ) {
-				s.value = v;
-			} else if ( s.dataset.key in sheets ) {
-				s.value = '';
+		for ( const c of controls ) {
+			const v = values[ c.dataset.key ];
+			if ( c.type === 'radio' ) {
+				if ( typeof v === 'string' ) {
+					c.checked = c.value === v;
+				}
+			} else if ( typeof v === 'string' ) {
+				c.value = v;
+			} else if ( c.dataset.key in sheets ) {
+				c.value = '';
 			}
 		}
 	};
-	const kept = data.signedIn ? {} : app.read( storage, sheets ) || {};
+	const kept = data.signedIn ? {} : app.read( storage, sheets, own ) || {};
 	let current = Object.assign( {}, data.values || {}, kept );
 	/** Keys the reader has changed on this page. */
 	const touched = new Set();
@@ -99,7 +105,7 @@ export function initAppearance( doc, win ) {
 	show( current );
 
 	if ( data.signedIn ) {
-		const stored = app.read( storage, sheets ) || {};
+		const stored = app.read( storage, sheets, own ) || {};
 		if ( app.source( storage ) === 'browser' && Object.keys( stored ).length ) {
 			accountHolds( data.keys ).then( ( holds ) => {
 				const carried = {};
@@ -125,7 +131,7 @@ export function initAppearance( doc, win ) {
 	}
 
 	form.addEventListener( 'change', ( e ) => {
-		const target = /** @type {HTMLSelectElement} */ ( e.target );
+		const target = /** @type {HTMLSelectElement|HTMLInputElement} */ ( e.target );
 		const key = target && target.dataset && target.dataset.key;
 		if ( !key ) {
 			return;

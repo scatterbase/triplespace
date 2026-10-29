@@ -20,8 +20,17 @@
 # and on their subtle backgrounds.
 #
 # A palette may extend another (`extends`): each of its variants overlays the same variant of the palette it
-# extends, so an accessibility palette states only the colours it changes. `accessibility = true` marks a
-# palette or type set a reader may always choose (0086 §2–4).
+# extends, so it states only the colours it changes. `accessibility = true` marks a palette or type set a
+# reader may always choose (0086 §2–4).
+#
+# Accessibility alternates (0094). The keys a reader may choose as an override, whatever the palette, are
+# the `[alternate.*]` entries below, and only the registry adds one. A palette keys an alternate under
+# `[palette.{name}.alternate.{key}]`, with up to the four variants, each overlaying the palette's own variant
+# as served and checked to the same floors; a missing `light-more` or `dark-more` takes the alternate's
+# `light` or `dark`. A palette without its own alternate for a key takes the one of the palette it extends,
+# else of the palette its `alternates-from` names, else of the default palette (0094 §2). A palette that
+# `extends` or takes `alternates-from` another depends on it: it cannot be written where that palette is not
+# offered, and that palette cannot be deleted while it is named (0094 §3).
 #
 # A fallback layer (0093) is a list of typefaces for the scripts a type set's own lack, named by the type
 # set's `fallback`. Each family names the `stacks` it backs up, by generic family: a role whose stack is a
@@ -34,13 +43,24 @@
 # assets (0085 §8). Each carries an allow-listed licence (OFL-1.1, Apache-2.0, UFL-1.0), which permits bundling
 # with GPL software.
 
-version = 2
+# Version 3 (0094): the colour-vision palettes became keyed alternates of `parchment`.
+version = 3
 
 # The version-1 theme `default` is the palette `parchment` with the type set `default26`; its name is kept,
 # retired, so it is never given another meaning.
 [theme.default]
 retired = true
 replaced_by = ["palette.parchment", "typeset.default26"]
+
+# --- Accessibility alternates (0094 §1): the keys a reader may choose as an override ----------------------
+
+# For red–green colour-vision deficiencies (protanopia and deuteranopia).
+[alternate.rg]
+label = "Red–green (protanopia and deuteranopia)"
+
+# For blue–yellow colour-vision deficiency (tritanopia).
+[alternate.by]
+label = "Blue–yellow (tritanopia)"
 
 # --- Palettes -----------------------------------------------------------------------------------------
 
@@ -216,17 +236,13 @@ background-color-destructive = "#9F3225"
 "background-color-destructive--hover" = "#8D2C21"
 "background-color-destructive--active" = "#7D271D"
 
-# --- Accessibility palettes (0086 §2): readers may always choose them --------------------------------
+# --- Parchment's accessibility alternates (0094 §1): they change only the colours that carry meaning -------
 
-# For red–green colour-vision deficiencies (deuteranopia, protanopia): error and removed text in vermillion
-# orange, success and added text in cerulean, kept apart from link blue; warnings in umber. Named, like
-# parchment-by, for the deficiency it serves, as readers look for it (James, 2026-10-25; 0086 A3).
-[palette.parchment-rg]
-label = "Parchment (protanopia and deuteranopia)"
-extends = "parchment"
-accessibility = true
+# `rg`, for red–green colour-vision deficiencies (deuteranopia, protanopia): error and removed text in
+# vermillion orange, success and added text in cerulean, kept apart from link blue; warnings in umber. Until
+# 0094 it was the palette `parchment-rg` (0086 A3), whose name is kept, retired, below.
 
-[palette.parchment-rg.light]
+[palette.parchment.alternate.rg.light]
 color-error = "#A84300"
 color-destructive = "#A84300"
 color-success = "#087691"
@@ -246,7 +262,7 @@ border-color-destructive = "#A84300"
 border-color-success = "#087691"
 border-color-warning = "#634021"
 
-[palette.parchment-rg.dark]
+[palette.parchment.alternate.rg.dark]
 color-error = "#F26100"
 color-destructive = "#F26100"
 color-success = "#0BA0C4"
@@ -266,7 +282,7 @@ border-color-destructive = "#F26100"
 border-color-success = "#0BA0C4"
 border-color-warning = "#C18045"
 
-[palette.parchment-rg.light-more]
+[palette.parchment.alternate.rg.light-more]
 color-error = "#823400"
 color-destructive = "#823400"
 color-success = "#06576B"
@@ -286,7 +302,7 @@ border-color-destructive = "#823400"
 border-color-success = "#06576B"
 border-color-warning = "#634021"
 
-[palette.parchment-rg.dark-more]
+[palette.parchment.alternate.rg.dark-more]
 color-error = "#FF8B3E"
 color-destructive = "#FF8B3E"
 color-success = "#0DBCE7"
@@ -307,14 +323,11 @@ border-color-success = "#0DBCE7"
 border-color-warning = "#D1A075"
 
 
-# For blue–yellow colour-vision deficiency (tritanopia): error in crimson, success in olive, which tritanopes
-# do not confuse with link blue, and warnings in a neutral umber, which they do not confuse with error.
-[palette.parchment-by]
-label = "Parchment (tritanopia)"
-extends = "parchment"
-accessibility = true
+# `by`, for blue–yellow colour-vision deficiency (tritanopia): error in crimson, success in olive, which
+# tritanopes do not confuse with link blue, and warnings in a neutral umber, which they do not confuse with
+# error. Until 0094 it was the palette `parchment-by`.
 
-[palette.parchment-by.light]
+[palette.parchment.alternate.by.light]
 color-error = "#B3263E"
 color-destructive = "#B3263E"
 color-success = "#587114"
@@ -334,7 +347,7 @@ border-color-destructive = "#B3263E"
 border-color-success = "#587114"
 border-color-warning = "#5C4A3D"
 
-[palette.parchment-by.dark]
+[palette.parchment.alternate.by.dark]
 color-error = "#DD6176"
 color-destructive = "#DD6176"
 color-success = "#83A81E"
@@ -354,7 +367,7 @@ border-color-destructive = "#DD6176"
 border-color-success = "#83A81E"
 border-color-warning = "#A48976"
 
-[palette.parchment-by.light-more]
+[palette.parchment.alternate.by.light-more]
 color-error = "#901E32"
 color-destructive = "#901E32"
 color-success = "#42550F"
@@ -374,7 +387,7 @@ border-color-destructive = "#901E32"
 border-color-success = "#42550F"
 border-color-warning = "#5A483B"
 
-[palette.parchment-by.dark-more]
+[palette.parchment.alternate.by.dark-more]
 color-error = "#E78C9C"
 color-destructive = "#E78C9C"
 color-success = "#97C222"
@@ -393,6 +406,17 @@ border-color-error = "#E78C9C"
 border-color-destructive = "#E78C9C"
 border-color-success = "#97C222"
 border-color-warning = "#BAA697"
+
+# The colour-vision palettes of 0086 A3, now `parchment`'s alternates (0094 §4). Their names are kept,
+# retired, so they are never given another meaning; a setting or reader's choice that names one reads as
+# `parchment` with the alternate.
+[palette.parchment-rg]
+retired = true
+replaced_by = ["palette.parchment", "alternate.rg"]
+
+[palette.parchment-by]
+retired = true
+replaced_by = ["palette.parchment", "alternate.by"]
 
 # --- Other palettes ----------------------------------------------------------------------------------
 
@@ -486,7 +510,7 @@ border-color-progressive = "#9DB3EC"
 # Source Serif 4 for headings over Source Sans 3 and Lilex (0086 A4), named `default26` on 2026-10-17; it was Newsreader
 # over IBM Plex Sans and IBM Plex Mono (0034 A8) until 2026-10-27.
 [typeset.default26]
-label = "Default 26"
+label = "Source"                     # James, 2026-10-28; the name stays `default26`
 font-family-base = "'Source Sans 3', system-ui, sans-serif"
 font-family-heading-main = "'Source Serif 4', Georgia, 'Times New Roman', serif"
 font-family-monospace = "'Lilex', Menlo, Consolas, monospace"

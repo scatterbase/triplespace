@@ -24,6 +24,13 @@ pub struct Palette {
     /// The palette it lays each variant over.
     #[serde(default)]
     pub extends: Option<String>,
+    /// The palette whose accessibility alternates it takes where it keys none of its
+    /// own and extends none (0094 §2).
+    #[serde(default)]
+    pub alternates_from: Option<String>,
+    /// Its own accessibility alternates, by key (0094 §1).
+    #[serde(default)]
+    pub alternate: BTreeMap<String, Alternate>,
     /// `light`.
     #[serde(default)]
     pub light: BTreeMap<String, String>,
@@ -40,6 +47,25 @@ pub struct Palette {
     /// a field this build does not know, and is not a token.
     #[serde(flatten)]
     pub shape: BTreeMap<String, Value>,
+}
+
+/// An accessibility alternate of a palette (0094 §1): up to four variants, each laid
+/// over the palette's own as served.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct Alternate {
+    /// `light`.
+    #[serde(default)]
+    pub light: BTreeMap<String, String>,
+    /// `dark`.
+    #[serde(default)]
+    pub dark: Option<BTreeMap<String, String>>,
+    /// `light-more`.
+    #[serde(default)]
+    pub light_more: Option<BTreeMap<String, String>>,
+    /// `dark-more`.
+    #[serde(default)]
+    pub dark_more: Option<BTreeMap<String, String>>,
 }
 
 /// A typeface a type set serves.

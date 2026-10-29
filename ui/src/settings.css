@@ -114,6 +114,89 @@
 	margin: 0;
 }
 
+.ts-appearance__controls .cdx-select {
+	width: 100%;
+}
+
+/* Colour mode, contrast and text size: a row of icon buttons of which one is chosen,
+   drawn as Codex's toggle button group. They are radio buttons, so the form works
+   without JavaScript; each is named by its visually hidden label and titled with it. */
+
+.ts-choice-group {
+	min-width: 0;
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+.ts-choice-group__legend {
+	margin-bottom: var( --spacing-25, 0.25rem );
+	padding: 0;
+	font-weight: var( --font-weight-bold, 700 );
+}
+
+.ts-choice-group__options {
+	display: flex;
+}
+
+.ts-choice-group__option {
+	position: relative;
+	display: inline-flex;
+	flex: 1 1 0;
+	align-items: center;
+	justify-content: center;
+	min-width: var( --min-size-interactive-pointer, 32px );
+	min-height: var( --min-size-interactive-pointer, 32px );
+	margin-inline-start: -1px;
+	border: 1px solid var( --border-color-interactive, #72777d );
+	background-color: var( --background-color-interactive-subtle, #f8f9fa );
+	color: var( --color-base, #202122 );
+	cursor: pointer;
+}
+
+.ts-choice-group__option:first-child {
+	margin-inline-start: 0;
+	border-start-start-radius: var( --border-radius-base, 2px );
+	border-end-start-radius: var( --border-radius-base, 2px );
+}
+
+.ts-choice-group__option:last-child {
+	border-start-end-radius: var( --border-radius-base, 2px );
+	border-end-end-radius: var( --border-radius-base, 2px );
+}
+
+.ts-choice-group__option:hover {
+	background-color: var( --background-color-interactive-subtle--hover, #eaecf0 );
+}
+
+.ts-choice-group__option:has( :checked ) {
+	z-index: 1;
+	border-color: var( --border-color-progressive--active, #233566 );
+	background-color: var( --background-color-progressive--active, #233566 );
+	color: var( --color-inverted-fixed, #fff );
+}
+
+.ts-choice-group__option:has( :focus-visible ) {
+	z-index: 2;
+	outline: 2px solid var( --outline-color-progressive--focus, #36c );
+	outline-offset: 1px;
+}
+
+.ts-choice-group__input {
+	position: absolute;
+	opacity: 0;
+	pointer-events: none;
+}
+
+.ts-choice-group__icon {
+	display: inline-flex;
+	line-height: 0;
+}
+
+.ts-choice-group__icon svg {
+	fill: currentcolor;
+}
+
 .ts-appearance__nojs {
 	margin: 0;
 	font-size: var( --font-size-small, 0.875rem );

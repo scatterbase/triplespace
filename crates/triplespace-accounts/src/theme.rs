@@ -37,6 +37,13 @@ pub struct Palette {
     /// The palette it lays each variant over.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub extends: Option<String>,
+    /// The palette whose accessibility alternates it takes where it keys none of its
+    /// own and extends none (0094 §2).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub alternates_from: Option<String>,
+    /// Its own accessibility alternates, by key (0094 §1).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub alternate: BTreeMap<String, Alternate>,
     /// `light`, required.
     pub light: BTreeMap<String, String>,
     /// `dark`.
@@ -51,6 +58,25 @@ pub struct Palette {
     /// The shape tokens: radii and spacing.
     #[serde(flatten)]
     pub shape: BTreeMap<String, String>,
+}
+
+/// An accessibility alternate of a palette (0094 §1): up to four variants, each laid
+/// over the palette's own as served.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct Alternate {
+    /// `light`.
+    #[serde(default)]
+    pub light: BTreeMap<String, String>,
+    /// `dark`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dark: Option<BTreeMap<String, String>>,
+    /// `light-more`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub light_more: Option<BTreeMap<String, String>>,
+    /// `dark-more`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dark_more: Option<BTreeMap<String, String>>,
 }
 
 /// A typeface a type set serves.
@@ -91,8 +117,71 @@ pub struct Typeset {
 
 #[derive(Deserialize)]
 struct File {
-    palette: BTreeMap<String, Palette>,
+    palette: BTreeMap<String, toml::Value>,
     typeset: BTreeMap<String, Typeset>,
+    #[serde(default)]
+    alternate: BTreeMap<String, toml::Value>,
+}
+
+/// Whether a registry entry is retired, kept only so its name is never reused.
+fn retired(v: &toml::Value) -> bool {
+    v.get("retired").and_then(toml::Value::as_bool) == Some(true)
+}
+
+/// A retired palette's name and what it reads as (0094 §4): the palette that replaced
+/// it, and the alternate a reader who chose it now wears.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Retired {
+    /// The retired name.
+    pub name: String,
+    /// The palette it reads as.
+    pub palette: String,
+    /// The alternate it reads as, if any.
+    pub alternate: Option<String>,
+}
+
+static FILE: LazyLock<File> =
+    LazyLock::new(|| toml::from_str(REGISTRY).expect("docs/registry/themes.toml parses"));
+
+/// The accessibility alternates' keys, which the registry alone defines (0094 §1).
+#[must_use]
+pub fn alternate_keys() -> Vec<String> {
+    FILE.alternate.keys().cloned().collect()
+}
+
+/// The retired palettes, with what each reads as (0094 §4).
+#[must_use]
+pub fn retired_palettes() -> Vec<Retired> {
+    FILE.palette
+        .iter()
+        .filter(|(_, v)| retired(v))
+        .map(|(name, v)| {
+            let by = |prefix: &str| {
+                v.get("replaced_by")
+                    .and_then(toml::Value::as_array)
+                    .into_iter()
+                    .flatten()
+                    .filter_map(toml::Value::as_str)
+                    .find_map(|r| r.strip_prefix(prefix))
+                    .map(str::to_string)
+            };
+            Retired {
+                name: name.clone(),
+                palette: by("palette.").unwrap_or_else(|| DEFAULT_PALETTE.into()),
+                alternate: by("alternate."),
+            }
+        })
+        .collect()
+}
+
+/// What a palette's name reads as: itself, or for a retired one the palette that
+/// replaced it, with the alternate it carries.
+#[must_use]
+pub fn resolve_palette(name: &str) -> (String, Option<String>) {
+    retired_palettes()
+        .into_iter()
+        .find(|r| r.name == name)
+        .map_or_else(|| (name.to_string(), None), |r| (r.palette, r.alternate))
 }
 
 /// The palettes and type sets on offer.
@@ -104,20 +193,26 @@ pub struct Catalogue {
     pub typesets: Vec<Typeset>,
 }
 
-static SHIPPED: LazyLock<Catalogue> = LazyLock::new(|| {
-    let file: File = toml::from_str(REGISTRY).expect("docs/registry/themes.toml parses");
-    Catalogue {
-        palettes: file
-            .palette
-            .into_iter()
-            .map(|(name, p)| Palette { name, ..p })
-            .collect(),
-        typesets: file
-            .typeset
-            .into_iter()
-            .map(|(name, t)| Typeset { name, ..t })
-            .collect(),
-    }
+static SHIPPED: LazyLock<Catalogue> = LazyLock::new(|| Catalogue {
+    palettes: FILE
+        .palette
+        .iter()
+        .filter(|(_, v)| !retired(v))
+        .map(|(name, v)| Palette {
+            name: name.clone(),
+            ..v.clone()
+                .try_into()
+                .expect("docs/registry/themes.toml's palettes parse")
+        })
+        .collect(),
+    typesets: FILE
+        .typeset
+        .iter()
+        .map(|(name, t)| Typeset {
+            name: name.clone(),
+            ..t.clone()
+        })
+        .collect(),
 });
 
 impl Catalogue {
@@ -137,6 +232,51 @@ impl Catalogue {
     #[must_use]
     pub fn typeset(&self, name: &str) -> Option<&Typeset> {
         self.typesets.iter().find(|t| t.name == name)
+    }
+
+    /// The palettes a palette depends on (0094 §3): the one it extends and the one it
+    /// takes its alternates from.
+    #[must_use]
+    pub fn prerequisites(p: &Palette) -> Vec<&str> {
+        let mut out: Vec<&str> = [p.extends.as_deref(), p.alternates_from.as_deref()]
+            .into_iter()
+            .flatten()
+            .filter(|n| *n != p.name)
+            .collect();
+        out.dedup();
+        out
+    }
+
+    /// The prerequisites of a palette this catalogue does not offer: a palette that
+    /// names one cannot be written here (0094 §3).
+    #[must_use]
+    pub fn missing_prerequisites<'a>(&self, p: &'a Palette) -> Vec<&'a str> {
+        Self::prerequisites(p)
+            .into_iter()
+            .filter(|n| self.palette(n).is_none())
+            .collect()
+    }
+
+    /// The palettes that depend on one, which stops its deletion (0086 §2; 0094 §3).
+    #[must_use]
+    pub fn dependents(&self, name: &str) -> Vec<&str> {
+        self.palettes
+            .iter()
+            .filter(|p| p.name != name && Self::prerequisites(p).contains(&name))
+            .map(|p| p.name.as_str())
+            .collect()
+    }
+
+    /// The alternate keys a palette keys itself that the registry does not define;
+    /// a palette that keys one cannot be written (0094 §1).
+    #[must_use]
+    pub fn unknown_alternates(p: &Palette) -> Vec<&str> {
+        let known = alternate_keys();
+        p.alternate
+            .keys()
+            .filter(|k| !known.contains(k))
+            .map(String::as_str)
+            .collect()
     }
 }
 
@@ -187,7 +327,10 @@ impl Theme {
         typeset: Option<&str>,
         choice: Option<&str>,
     ) -> Self {
-        let palette = palette
+        // A retired name reads as the palette that replaced it (0094 §4).
+        let resolved = palette.map(|n| resolve_palette(n).0);
+        let palette = resolved
+            .as_deref()
             .filter(|n| catalogue.palette(n).is_some())
             .unwrap_or(DEFAULT_PALETTE);
         let typeset = typeset
@@ -211,10 +354,7 @@ mod tests {
     fn the_shipped_catalogue() {
         let c = Catalogue::shipped();
         let names: Vec<&str> = c.palettes.iter().map(|p| p.name.as_str()).collect();
-        assert_eq!(
-            names,
-            ["encyclopedia", "parchment", "parchment-by", "parchment-rg"]
-        );
+        assert_eq!(names, ["encyclopedia", "parchment"]);
         let p = c.palette("parchment").unwrap();
         assert!(!p.accessibility && p.extends.is_none());
         assert_eq!(
@@ -222,10 +362,15 @@ mod tests {
             Some("6px")
         );
         assert!(p.dark.is_some() && p.light_more.is_some() && p.dark_more.is_some());
-        let ob = c.palette("parchment-rg").unwrap();
-        assert!(ob.accessibility);
-        assert_eq!(ob.extends.as_deref(), Some("parchment"));
-        assert!(ob.shape.is_empty());
+        assert_eq!(
+            p.alternate.keys().collect::<Vec<_>>(),
+            ["by", "rg"],
+            "parchment keys both alternates"
+        );
+        let rg = &p.alternate["rg"];
+        assert_eq!(rg.light["color-error"], "#A84300");
+        assert!(rg.dark.is_some() && rg.light_more.is_some() && rg.dark_more.is_some());
+        assert!(!p.shape.contains_key("alternate"));
         let t = c.typeset("default26").unwrap();
         assert_eq!(t.fonts.len(), 3);
         assert_eq!(t.roles.len(), 3);
@@ -237,6 +382,63 @@ mod tests {
         let t = c.typeset("basic").unwrap();
         assert!(!t.accessibility && t.fonts.is_empty() && t.fallback.is_none());
         assert_eq!(t.roles["font-family-base"], "sans-serif");
+    }
+
+    #[test]
+    fn alternates_and_retired_names() {
+        assert_eq!(alternate_keys(), ["by", "rg"]);
+        assert_eq!(
+            resolve_palette("parchment-rg"),
+            ("parchment".to_string(), Some("rg".to_string()))
+        );
+        assert_eq!(
+            resolve_palette("parchment-by"),
+            ("parchment".to_string(), Some("by".to_string()))
+        );
+        assert_eq!(
+            resolve_palette("encyclopedia"),
+            ("encyclopedia".into(), None)
+        );
+        // A setting naming a retired palette reads as its replacement.
+        let t = Theme::new(Catalogue::shipped(), Some("parchment-rg"), None, None);
+        assert_eq!(t.palette, "parchment");
+        let j = serde_json::to_value(&t).unwrap();
+        let parchment = j["palettes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["name"] == "parchment")
+            .unwrap();
+        assert_eq!(
+            parchment["alternate"]["by"]["light"]["color-error"],
+            "#B3263E"
+        );
+    }
+
+    #[test]
+    fn prerequisites() {
+        let c = Catalogue::shipped();
+        let mut p = c.palette("encyclopedia").unwrap().clone();
+        p.name = "brand".into();
+        assert!(c.missing_prerequisites(&p).is_empty());
+        p.extends = Some("parchment".into());
+        p.alternates_from = Some("house".into());
+        assert_eq!(Catalogue::prerequisites(&p), ["parchment", "house"]);
+        assert_eq!(c.missing_prerequisites(&p), ["house"], "not offered here");
+        let mut with = c.clone();
+        with.palettes.push(p.clone());
+        assert_eq!(with.dependents("parchment"), ["brand"]);
+        assert!(with.dependents("encyclopedia").is_empty());
+        p.alternate.insert(
+            "xy".into(),
+            Alternate {
+                light: BTreeMap::new(),
+                dark: None,
+                light_more: None,
+                dark_more: None,
+            },
+        );
+        assert_eq!(Catalogue::unknown_alternates(&p), ["xy"]);
     }
 
     #[test]

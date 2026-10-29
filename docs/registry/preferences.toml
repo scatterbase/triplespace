@@ -122,6 +122,16 @@ browser = true
 from = "0086 §4"
 
 [[preference]]
+key = "ui.vision"
+type = "choice"
+choices = ["none", "by", "rg"]       # none, then themes.toml's [alternate.*] keys
+default = "none"                     # the palette as it is
+group = "appearance"
+follows = "farm"
+browser = true
+from = "0094 §1"
+
+[[preference]]
 key = "ui.palette"
 type = "string"                      # a palette the tenant offers; no default: the setting theme.palette
 group = "appearance"

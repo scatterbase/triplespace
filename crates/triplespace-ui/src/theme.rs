@@ -12,6 +12,13 @@
 //! carries only what it changes: the cascade lays `dark-more` over `dark` and `dark` over
 //! `light`. The providers' chips are in it too, their two colours swapped in dark mode.
 //!
+//! **Accessibility alternates** (0094) are in the same stylesheet: for each key the
+//! registry defines, the palette's own alternate, else the one of the palette it extends,
+//! else of the palette `alternates-from` names, else the default palette's, laid over
+//! its variants under `data-vision="{key}"` on `<html>`, with each rule one attribute
+//! more specific than the palette's rule it overlays, so the cascade among them is the
+//! palette's.
+//!
 //! **A type set's stylesheet** holds the three typeface roles, a stack per language
 //! tag, set on the elements of that language, the `@font-face` rules of the typefaces it
 //! serves, and Codex's text-size modes under `data-text-size`.
@@ -27,7 +34,7 @@ use serde::Deserialize;
 use serde_json::{Map, Value, json};
 use sha2::{Digest as _, Sha256};
 use triplespace_client::ThemeInfo;
-use triplespace_client::theme::{Palette, Typeset};
+use triplespace_client::theme::{Alternate, Palette, Typeset};
 
 const REGISTRY: &str = include_str!("../../../docs/registry/themes.toml");
 
@@ -75,27 +82,84 @@ static CODEX: LazyLock<(Tokens, Tokens)> =
 
 #[derive(Deserialize)]
 struct File {
-    palette: BTreeMap<String, Palette>,
+    palette: BTreeMap<String, toml::Value>,
     typeset: BTreeMap<String, Typeset>,
+    #[serde(default)]
+    alternate: BTreeMap<String, toml::Value>,
 }
 
-static SHIPPED: LazyLock<ThemeInfo> = LazyLock::new(|| {
-    let file: File = toml::from_str(REGISTRY).expect("docs/registry/themes.toml parses");
-    ThemeInfo {
-        palettes: file
-            .palette
-            .into_iter()
-            .map(|(name, p)| Palette { name, ..p })
-            .collect(),
-        typesets: file
-            .typeset
-            .into_iter()
-            .map(|(name, t)| Typeset { name, ..t })
-            .collect(),
-        palette: DEFAULT_PALETTE.into(),
-        typeset: DEFAULT_TYPESET.into(),
-        choice: "any".into(),
-    }
+static FILE: LazyLock<File> =
+    LazyLock::new(|| toml::from_str(REGISTRY).expect("docs/registry/themes.toml parses"));
+
+/// Whether a registry entry is retired, kept only so its name is never reused.
+fn retired(v: &toml::Value) -> bool {
+    v.get("retired").and_then(toml::Value::as_bool) == Some(true)
+}
+
+/// The accessibility alternates' keys, which the registry alone defines (0094 §1), in
+/// the registry's order of keys.
+#[must_use]
+pub fn alternate_keys() -> Vec<String> {
+    FILE.alternate.keys().cloned().collect()
+}
+
+/// The retired palettes (0094 §4), each with the palette it reads as and the alternate a
+/// reader who chose it now wears.
+static RETIRED: LazyLock<BTreeMap<String, (String, Option<String>)>> = LazyLock::new(|| {
+    FILE.palette
+        .iter()
+        .filter(|(_, v)| retired(v))
+        .map(|(name, v)| {
+            let by = |prefix: &str| {
+                v.get("replaced_by")
+                    .and_then(toml::Value::as_array)
+                    .into_iter()
+                    .flatten()
+                    .filter_map(toml::Value::as_str)
+                    .find_map(|r| r.strip_prefix(prefix))
+                    .map(str::to_string)
+            };
+            (
+                name.clone(),
+                (
+                    by("palette.").unwrap_or_else(|| DEFAULT_PALETTE.into()),
+                    by("alternate."),
+                ),
+            )
+        })
+        .collect()
+});
+
+/// A retired palette's name read as the palette that replaced it and the alternate it
+/// carries (0094 §4); `None` for a name that is not retired.
+#[must_use]
+pub fn retired_palette(name: &str) -> Option<(String, Option<String>)> {
+    RETIRED.get(name).cloned()
+}
+
+static SHIPPED: LazyLock<ThemeInfo> = LazyLock::new(|| ThemeInfo {
+    palettes: FILE
+        .palette
+        .iter()
+        .filter(|(_, v)| !retired(v))
+        .map(|(name, v)| Palette {
+            name: name.clone(),
+            ..v.clone()
+                .try_into()
+                .expect("docs/registry/themes.toml's palettes parse")
+        })
+        .collect(),
+    typesets: FILE
+        .typeset
+        .iter()
+        .map(|(name, t)| Typeset {
+            name: name.clone(),
+            ..t.clone()
+        })
+        .collect(),
+    palette: DEFAULT_PALETTE.into(),
+    typeset: DEFAULT_TYPESET.into(),
+    choice: "any".into(),
 });
 
 /// A typeface of a fallback layer (0093 §1), and the generic stacks it backs up.
@@ -665,6 +729,68 @@ impl Theme {
         }
     }
 
+    /// The alternate a palette wears for a key (0094 §2): its own; else the one of the
+    /// palette it extends; else of the palette its `alternates-from` names; else the
+    /// default palette's. Only keys the registry defines.
+    fn alternate<'a>(&'a self, p: &'a Palette, key: &str) -> Option<&'a Alternate> {
+        if !FILE.alternate.contains_key(key) {
+            return None;
+        }
+        let own = |q: &'a Palette| q.alternate.get(key);
+        let named = |n: Option<&str>| n.filter(|n| *n != p.name).and_then(|n| self.palette(n));
+        own(p)
+            .or_else(|| named(p.extends.as_deref()).and_then(own))
+            .or_else(|| named(p.alternates_from.as_deref()).and_then(own))
+            .or_else(|| named(Some(DEFAULT_PALETTE)).and_then(own))
+    }
+
+    /// The keys a palette has an alternate for, its own or inherited.
+    #[must_use]
+    pub fn alternates(&self, name: &str) -> Vec<String> {
+        self.palette(name).map_or_else(Vec::new, |p| {
+            alternate_keys()
+                .into_iter()
+                .filter(|k| self.alternate(p, k).is_some())
+                .collect()
+        })
+    }
+
+    /// An alternate as served over a palette (0094 §2), as four blocks each laid over the
+    /// palette's block of the same variant: `light`; `dark`, holding besides the palette's
+    /// dark value of every colour `light` sets and `dark` does not, so no light colour
+    /// shows in dark mode; and `light-more` and `dark-more`, holding all of `light` and
+    /// `dark` with the high-contrast values over them, the palette's own where the
+    /// alternate has none.
+    fn served_alternate(s: &Served, a: &Alternate) -> Served {
+        let dark_base = Self::dark_block(s);
+        let light = clean(&a.light);
+        let own_dark = a.dark.as_ref().map(clean).unwrap_or_default();
+        let mut dark = Tokens::new();
+        for k in light.keys() {
+            if !own_dark.contains_key(k)
+                && let Some(v) = dark_base.get(k)
+            {
+                dark.insert(k.clone(), v.clone());
+            }
+        }
+        dark.extend(own_dark);
+        let mut light_more = light.clone();
+        light_more.extend(a.light_more.as_ref().map(clean).unwrap_or_default());
+        let mut dark_more = dark.clone();
+        for (k, v) in &s.dark_more {
+            if dark_more.contains_key(k) && !a.dark.as_ref().is_some_and(|d| d.contains_key(k)) {
+                dark_more.insert(k.clone(), v.clone());
+            }
+        }
+        dark_more.extend(a.dark_more.as_ref().map(clean).unwrap_or_default());
+        Served {
+            light,
+            dark,
+            light_more,
+            dark_more,
+        }
+    }
+
     /// The token values in effect in each variant, merged over Codex's, for the contrast
     /// check: `light`, `dark`, `light-more`, `dark-more`.
     fn effective(&self, p: &Palette) -> [Tokens; 4] {
@@ -682,6 +808,21 @@ impl Theme {
         [light, dark, light_more, dark_more]
     }
 
+    /// The token values in effect in each variant with an alternate on, as the cascade
+    /// gives them: each block of the alternate over the palette's of the same variant.
+    fn effective_alternate(&self, p: &Palette, a: &Alternate) -> [Tokens; 4] {
+        let s = self.served(p);
+        let alt = Self::served_alternate(&s, a);
+        let [mut light, mut dark, mut light_more, mut dark_more] = self.effective(p);
+        light.extend(alt.light.clone());
+        dark.extend(alt.dark);
+        // In high contrast the alternate's `light` lies over the palette's `light-more`
+        // only where its own `light-more` does not; both are in `alt.light_more`.
+        light_more.extend(alt.light_more);
+        dark_more.extend(alt.dark_more);
+        [light, dark, light_more, dark_more]
+    }
+
     /// The pairs that fail their floors in any variant of a palette, as served.
     #[must_use]
     pub fn contrast_problems(&self, name: &str) -> Vec<String> {
@@ -689,15 +830,23 @@ impl Theme {
             return vec![format!("no palette `{name}`")];
         };
         let mut out = Vec::new();
-        for (variant, (tokens, more)) in ["light", "dark", "light-more", "dark-more"]
-            .iter()
-            .zip(self.effective(p).iter().zip([false, false, true, true]))
-        {
-            out.extend(
-                problems(tokens, more)
-                    .into_iter()
-                    .map(|e| format!("{name} {variant}: {e}")),
-            );
+        let mut sets = vec![(name.to_string(), self.effective(p))];
+        for key in alternate_keys() {
+            if let Some(a) = self.alternate(p, &key) {
+                sets.push((format!("{name}/{key}"), self.effective_alternate(p, a)));
+            }
+        }
+        for (label, effective) in &sets {
+            for (variant, (tokens, more)) in ["light", "dark", "light-more", "dark-more"]
+                .iter()
+                .zip(effective.iter().zip([false, false, true, true]))
+            {
+                out.extend(
+                    problems(tokens, more)
+                        .into_iter()
+                        .map(|e| format!("{label} {variant}: {e}")),
+                );
+            }
         }
         out
     }
@@ -727,49 +876,74 @@ impl Theme {
         let s = self.served(p);
         let dark = Self::dark_block(&s);
         let mut css = String::new();
-        block(&mut css, None, ":root", &s.light);
-        block(&mut css, None, ":root[data-mode=\"dark\"]", &dark);
+        Self::variant_rules(&mut css, "", &s.light, &dark, &s.light_more, &s.dark_more);
+        for key in alternate_keys() {
+            if let Some(a) = self.alternate(p, &key) {
+                let alt = Self::served_alternate(&s, a);
+                let _ = writeln!(css, "/* The alternate `{key}` (0094 §2). */");
+                Self::variant_rules(
+                    &mut css,
+                    &format!("[data-vision=\"{key}\"]"),
+                    &alt.light,
+                    &alt.dark,
+                    &alt.light_more,
+                    &alt.dark_more,
+                );
+            }
+        }
+        self.chips_css(&mut css);
+        Some(css)
+    }
+
+    /// The rules of a palette's four variants, or an alternate's, whose selectors carry
+    /// `qualifier` on `:root`.
+    fn variant_rules(
+        css: &mut String,
+        qualifier: &str,
+        light: &Tokens,
+        dark: &Tokens,
+        light_more: &Tokens,
+        dark_more: &Tokens,
+    ) {
+        let q = qualifier;
+        block(css, None, &format!(":root{q}"), light);
+        block(css, None, &format!(":root{q}[data-mode=\"dark\"]"), dark);
         block(
-            &mut css,
+            css,
             Some("(prefers-color-scheme: dark)"),
-            ":root:not([data-mode=\"light\"])",
-            &dark,
+            &format!(":root{q}:not([data-mode=\"light\"])"),
+            dark,
         );
-        for (tokens, mode, other) in [
-            (&s.light_more, "light", "dark"),
-            (&s.dark_more, "dark", "light"),
-        ] {
+        for (tokens, mode, other) in [(light_more, "light", "dark"), (dark_more, "dark", "light")] {
             if tokens.is_empty() {
                 continue;
             }
             let device = format!("(prefers-color-scheme: {mode})");
             block(
-                &mut css,
+                css,
                 None,
-                &format!(":root[data-mode=\"{mode}\"][data-contrast=\"more\"]"),
+                &format!(":root{q}[data-mode=\"{mode}\"][data-contrast=\"more\"]"),
                 tokens,
             );
             block(
-                &mut css,
+                css,
                 Some(&device),
-                &format!(":root:not([data-mode=\"{other}\"])[data-contrast=\"more\"]"),
+                &format!(":root{q}:not([data-mode=\"{other}\"])[data-contrast=\"more\"]"),
                 tokens,
             );
             block(
-                &mut css,
+                css,
                 Some("(prefers-contrast: more)"),
-                &format!(":root[data-mode=\"{mode}\"]"),
+                &format!(":root{q}[data-mode=\"{mode}\"]"),
                 tokens,
             );
             block(
-                &mut css,
+                css,
                 Some(&format!("(prefers-contrast: more) and {device}")),
-                &format!(":root:not([data-mode=\"{other}\"])"),
+                &format!(":root{q}:not([data-mode=\"{other}\"])"),
                 tokens,
             );
         }
-        self.chips_css(&mut css);
-        Some(css)
     }
 
     /// The providers' chips: their colours in light mode, swapped in dark mode, which
@@ -1003,8 +1177,18 @@ mod tests {
 
     #[test]
     fn an_extending_palette_lays_over_its_base() {
-        let t = Theme::shipped();
-        let ob = t.served(t.palette("parchment-rg").unwrap());
+        let mut info = SHIPPED.clone();
+        let mut brand = Palette {
+            name: "brand".into(),
+            extends: Some("parchment".into()),
+            ..Palette::default()
+        };
+        brand
+            .light
+            .insert("color-destructive".into(), "#A84300".into());
+        info.palettes.push(brand);
+        let t = Theme::from_info(Some(&info));
+        let ob = t.served(t.palette("brand").unwrap());
         let base = t.served(t.palette("parchment").unwrap());
         assert_eq!(
             ob.light.get("background-color-base"),
@@ -1012,6 +1196,113 @@ mod tests {
         );
         assert_eq!(ob.light["color-destructive"], "#A84300");
         assert_eq!(ob.light["border-radius-base"], "6px");
+    }
+
+    /// An alternate on, in each variant, is what the colour-vision palettes that
+    /// extended `parchment` served before 0094: the palette with the alternate's colours.
+    #[test]
+    fn an_alternate_serves_what_its_palette_did() {
+        let t = Theme::shipped();
+        let parchment = t.palette("parchment").unwrap();
+        for key in ["rg", "by"] {
+            let a = parchment.alternate[key].clone();
+            let mut info = SHIPPED.clone();
+            info.palettes.push(Palette {
+                name: format!("old-{key}"),
+                extends: Some("parchment".into()),
+                light: a.light.clone(),
+                dark: a.dark.clone(),
+                light_more: a.light_more.clone(),
+                dark_more: a.dark_more.clone(),
+                ..Palette::default()
+            });
+            let old = Theme::from_info(Some(&info));
+            let old = old.effective(old.palette(&format!("old-{key}")).unwrap());
+            assert_eq!(t.effective_alternate(parchment, &a), old, "{key}");
+        }
+    }
+
+    #[test]
+    fn alternates_are_inherited() {
+        let t = Theme::shipped();
+        assert_eq!(t.alternates("parchment"), ["by", "rg"]);
+        // encyclopedia keys none of its own: it wears the default palette's.
+        assert_eq!(t.alternates("encyclopedia"), ["by", "rg"]);
+        let css = t.palette_css("encyclopedia").unwrap();
+        assert!(css.contains(":root[data-vision=\"rg\"] {\n"), "{css}");
+        assert!(css.contains("--color-error: #A84300;"));
+        let mut info = SHIPPED.clone();
+        let mut house = Palette {
+            name: "house".into(),
+            ..Palette::default()
+        };
+        house.light.insert("color-base".into(), "#202122".into());
+        house.alternate.insert(
+            "rg".into(),
+            Alternate {
+                light: [("color-error".to_string(), "#9A3F00".to_string())].into(),
+                ..Alternate::default()
+            },
+        );
+        let from = Palette {
+            name: "from".into(),
+            alternates_from: Some("house".into()),
+            ..Palette::default()
+        };
+        let extends = Palette {
+            name: "child".into(),
+            extends: Some("house".into()),
+            ..Palette::default()
+        };
+        info.palettes.extend([house, from, extends]);
+        let t = Theme::from_info(Some(&info));
+        for name in ["house", "from", "child"] {
+            let css = t.palette_css(name).unwrap();
+            assert!(css.contains("--color-error: #9A3F00;"), "{name}");
+            // by is the default palette's, which none of them keys.
+            assert!(css.contains(":root[data-vision=\"by\"]"), "{name}");
+        }
+        // A key the registry does not define is never served.
+        let mut info = SHIPPED.clone();
+        let mut odd = Palette {
+            name: "odd".into(),
+            ..Palette::default()
+        };
+        odd.alternate.insert("xy".into(), Alternate::default());
+        info.palettes.push(odd);
+        let t = Theme::from_info(Some(&info));
+        assert!(!t.palette_css("odd").unwrap().contains("data-vision=\"xy\""));
+    }
+
+    #[test]
+    fn alternate_rules_are_more_specific_than_the_palette_s() {
+        let css = Theme::shipped().palette_css("parchment").unwrap();
+        let at = |needle: &str| css.find(needle).unwrap_or_else(|| panic!("{needle}"));
+        // The alternate's rules follow the palette's, each one attribute more specific.
+        assert!(
+            at(":root[data-vision=\"rg\"] {")
+                > at(":root[data-mode=\"dark\"][data-contrast=\"more\"]")
+        );
+        for sel in [
+            ":root[data-vision=\"rg\"][data-mode=\"dark\"] {",
+            ":root[data-vision=\"rg\"]:not([data-mode=\"light\"]) {",
+            ":root[data-vision=\"rg\"][data-mode=\"light\"][data-contrast=\"more\"] {",
+            ":root[data-vision=\"rg\"][data-mode=\"dark\"][data-contrast=\"more\"] {",
+            ":root[data-vision=\"by\"][data-mode=\"dark\"] {",
+        ] {
+            at(sel);
+        }
+    }
+
+    #[test]
+    fn retired_palettes_read_as_alternates() {
+        assert_eq!(
+            retired_palette("parchment-rg"),
+            Some(("parchment".into(), Some("rg".into())))
+        );
+        assert_eq!(retired_palette("parchment"), None);
+        assert_eq!(alternate_keys(), ["by", "rg"]);
+        assert!(SHIPPED.palette("parchment-rg").is_none());
     }
 
     #[test]
@@ -1047,7 +1338,7 @@ mod tests {
             .into_iter()
             .map(|o| o.name)
             .collect();
-        assert_eq!(names, ["parchment", "parchment-by", "parchment-rg"]);
+        assert_eq!(names, ["parchment"], "the alternates are not palettes");
         let typesets: Vec<String> = t
             .choices(Sheet::Typeset)
             .into_iter()
@@ -1226,9 +1517,10 @@ mod tests {
         let data: Value = serde_json::from_str(&t.data()).unwrap();
         assert_eq!(data["palette"], "parchment");
         assert_eq!(
-            data["palettes"]["parchment-rg"],
-            json!(t.href(Sheet::Palette, "parchment-rg").unwrap())
+            data["palettes"]["encyclopedia"],
+            json!(t.href(Sheet::Palette, "encyclopedia").unwrap())
         );
+        assert!(data["palettes"].get("parchment-rg").is_none());
     }
 
     #[test]

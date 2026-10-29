@@ -40,7 +40,7 @@
 		<div class="ts-header__end">
 			{%- if !new_menu.is_empty() %}
 			<details class="ts-menu">
-				<summary class="cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--weight-quiet">{{ m.get("ts-new") }}</summary>
+				<summary class="cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--weight-quiet cdx-button--icon-only" aria-label="{{ m.get("ts-new") }}" title="{{ m.get("ts-new") }}"><svg class="ts-header__icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M11 9h7v2h-7v7H9v-7H2V9h7V2h2z"/></svg></summary>
 				<ul class="ts-menu__items">
 					{%- for (label, href) in new_menu %}
 					<li><a class="ts-menu__link" href="{{ href }}">{{ label }}</a></li>
@@ -49,7 +49,7 @@
 			</details>
 			{%- endif %}
 			<details class="ts-menu ts-appearance">
-				<summary class="cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--weight-quiet">{{ m.get("ts-appearance") }}</summary>
+				<summary class="cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--weight-quiet cdx-button--icon-only" aria-label="{{ m.get("ts-appearance") }}" title="{{ m.get("ts-appearance") }}"><svg class="ts-header__icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M8.87 16A4 4 0 011 15V4a3 3 0 016 0v2H5V4a1 1 0 00-2 0v7.5A4 4 0 018.9 14h2.2a4 4 0 015.9-2.5V4a1 1 0 10-2 0v2h-2V4a3 3 0 016 0v11a4 4 0 01-7.87 1zM5 13a2 2 0 100 4 2 2 0 000-4m10 0a2 2 0 100 4 2 2 0 000-4"/></svg></summary>
 				<div class="ts-menu__items ts-appearance__panel">
 					{{ appearance|safe }}
 				</div>
@@ -72,9 +72,6 @@
 			</details>
 			{%- endif %}
 			{%- else if login %}
-			{%- if register %}
-			<a class="cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--weight-quiet" href="/wiki/Special:CreateAccount?returnto={{ returnto }}">{{ m.get("ts-createaccount") }}</a>
-			{%- endif %}
 			<a class="cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--weight-quiet" href="/wiki/Special:UserLogin?returnto={{ returnto }}">{{ m.get("ts-login") }}</a>
 			{%- endif %}
 		</div>

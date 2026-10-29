@@ -270,11 +270,19 @@ async fn registration_through_the_site() {
         cookie: None,
         address: [203, 0, 113, 20],
     };
+    // The header offers Log in alone; the login page links to account creation.
     let home = reader.get("/wiki/Special:SpecialPages").await;
+    let header = home.body.split("</header>").next().unwrap();
+    assert!(!header.contains("Special:CreateAccount"), "no header link");
+    assert!(header.contains("href=\"/wiki/Special:UserLogin?returnto=Special:SpecialPages\""));
+    let login = reader
+        .get("/wiki/Special:UserLogin?returnto=Special:SpecialPages")
+        .await;
     assert!(
-        home.body
+        login
+            .body
             .contains("href=\"/wiki/Special:CreateAccount?returnto=Special:SpecialPages\""),
-        "the header's link"
+        "the login page's link"
     );
     let page = reader
         .get("/wiki/Special:CreateAccount?returnto=Special:SpecialPages")
