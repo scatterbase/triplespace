@@ -16,6 +16,8 @@ pub const NAMESPACES_TOML: &str = include_str!("../../../docs/registry/namespace
 
 /// The Project namespace's number.
 pub const PROJECT: i32 = 4;
+/// The Interface namespace's number: MediaWiki's, whose canonical name it keeps (0095 §1).
+pub const INTERFACE: i32 = 8;
 /// The Template namespace's number.
 pub const TEMPLATE: i32 = 10;
 
@@ -40,6 +42,9 @@ pub struct Namespace {
     pub id: i32,
     /// Its canonical name; empty for the main namespace.
     pub canonical: String,
+    /// The local name every tenant shows, where it is not the canonical one (0095 §1).
+    #[serde(default)]
+    pub name: Option<String>,
     /// Whether it holds pages.
     pub kind: Kind,
     /// The models its pages may have.
@@ -191,6 +196,11 @@ mod tests {
         assert_eq!(r.get(4).unwrap().entity_id("Home"), None);
         assert!(!r.get(4).unwrap().is_entity_namespace());
         assert_eq!(r.by_name("user_talk").map(|n| n.id), Some(3));
-        assert_eq!(r.get(8).map(|n| n.kind), Some(Kind::Reserved));
+        let interface = r.get(8).unwrap();
+        assert_eq!(interface.kind, Kind::Pages);
+        assert_eq!(interface.canonical, "MediaWiki");
+        assert_eq!(interface.name.as_deref(), Some("Interface"));
+        assert_eq!(interface.talk, Some(9));
+        assert_eq!(r.get(12).map(|n| n.kind), Some(Kind::Reserved));
     }
 }

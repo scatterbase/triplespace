@@ -119,7 +119,9 @@ pub fn title_of(row: &Row) -> Option<(i64, String)> {
             // canonically written.
             let (ns, title) = t.page.clone()?;
             let prefixed = match scatter_titles::Namespaces::embedded().get(ns) {
-                Some(n) if ns != 0 => format!("{}:{title}", n.canonical),
+                Some(n) if ns != 0 => {
+                    format!("{}:{title}", n.name.as_ref().unwrap_or(&n.canonical))
+                }
                 _ => title,
             };
             Some((i64::from(ns), prefixed))

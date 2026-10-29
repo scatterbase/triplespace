@@ -352,14 +352,14 @@ async fn settings_pages_and_the_appearance_menu() {
     // page links its stylesheet.
     assert!(
         r.body
-            .contains("<option value=\"parchment-by\">parchment-by</option>")
+            .contains("<option value=\"encyclopedia\">encyclopedia</option>")
     );
     let palette = form(&[
         ("section", "site"),
         ("base", &r.hidden("base")),
         ("token", &r.hidden("token")),
         ("keys", "theme.palette"),
-        ("v.theme.palette", "parchment-by"),
+        ("v.theme.palette", "encyclopedia"),
         ("summary", "palette"),
     ]);
     let p = send(
@@ -375,7 +375,7 @@ async fn settings_pages_and_the_appearance_menu() {
     let anon = send(&site, "GET", "/wiki/Special:SpecialPages", None, None, &[]).await;
     assert!(
         anon.body
-            .contains("id=\"ts-palette\" href=\"/ui/theme/p-parchment-by-"),
+            .contains("id=\"ts-palette\" href=\"/ui/theme/p-encyclopedia-"),
         "{}",
         &anon.body[..900]
     );
@@ -530,7 +530,7 @@ async fn settings_pages_and_the_appearance_menu() {
     );
     assert!(
         page.body
-            .contains("<option value=\"\" selected>Wiki default (Parchment (tritanopia))</option>")
+            .contains("<option value=\"\" selected>Encyclopedia (default)</option>")
     );
     assert!(
         page.body
@@ -541,12 +541,13 @@ async fn settings_pages_and_the_appearance_menu() {
         ("token", &page.hidden("token")),
         (
             "keys",
-            "ui.mode ui.contrast ui.text-size ui.palette ui.typeset",
+            "ui.mode ui.contrast ui.text-size ui.vision ui.palette ui.typeset",
         ),
         ("v.ui.mode", "dark"),
         ("v.ui.contrast", "auto"),
         ("v.ui.text-size", "medium"),
-        ("v.ui.palette", "parchment-rg"),
+        ("v.ui.vision", "rg"),
+        ("v.ui.palette", "parchment"),
         ("v.ui.typeset", ""),
     ]);
     let r = send(
@@ -571,13 +572,12 @@ async fn settings_pages_and_the_appearance_menu() {
     );
     assert!(
         r.body
-            .contains("data-appearance=\"account\" data-mode=\"dark\" data-text-size=\"medium\"")
+            .contains("data-appearance=\"account\" data-mode=\"dark\" data-text-size=\"medium\" data-vision=\"rg\"")
     );
     // The server links a signed-in reader's own palette, and the wiki's type set.
     assert!(
-        r.body.contains(
-            "<link rel=\"stylesheet\" id=\"ts-palette\" href=\"/ui/theme/p-parchment-rg-"
-        )
+        r.body
+            .contains("<link rel=\"stylesheet\" id=\"ts-palette\" href=\"/ui/theme/p-parchment-")
     );
     assert!(
         r.body
@@ -631,7 +631,7 @@ async fn settings_pages_and_the_appearance_menu() {
     assert!(r.body.contains("data-text-size=\"large\""));
     assert!(
         r.body
-            .contains("id=\"ts-palette\" href=\"/ui/theme/p-parchment-by-"),
+            .contains("id=\"ts-palette\" href=\"/ui/theme/p-encyclopedia-"),
         "the empty choice resets to the wiki's"
     );
     assert!(

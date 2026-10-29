@@ -42,6 +42,29 @@ function token( page, name ) {
 }
 
 /**
+ * Chooses one of the Appearance menu's icon buttons (colour mode, contrast, text size),
+ * by clicking its label, as a reader does.
+ *
+ * @param {Object} page A Playwright page
+ * @param {string} key
+ * @param {string} value
+ */
+async function pick( page, key, value ) {
+	await page.locator( `label:has( > input[data-key="${ key }"][value="${ value }"] )` ).click();
+}
+
+/**
+ * The button chosen in one of the menu's groups.
+ *
+ * @param {Object} page A Playwright page
+ * @param {string} key
+ * @return {Object} A locator
+ */
+function chosen( page, key ) {
+	return page.locator( `input[data-key="${ key }"]:checked` );
+}
+
+/**
  * The page's background, as the page computes it.
  *
  * @param {Object} page A Playwright page
@@ -62,7 +85,7 @@ test( 'without JavaScript the palette follows the device\'s dark mode and contra
 	expect( await token( page, 'color-base' ) ).not.toBe( dark );
 	await page.emulateMedia( { colorScheme: 'light', contrast: 'no-preference' } );
 	expect( await token( page, 'color-base' ) ).toBe( '#1D1C1A' );
-	expect( await token( page, 'font-family-base' ) ).toContain( 'IBM Plex Sans' );
+	expect( await token( page, 'font-family-base' ) ).toContain( 'Source Sans 3' );
 } );
 
 test.describe( 'with JavaScript', () => {
@@ -72,8 +95,8 @@ test.describe( 'with JavaScript', () => {
 		await page.goto( '/wiki/Special:RecentChanges' );
 		await page.locator( '.ts-appearance > summary' ).click();
 		await expect( page.locator( '.ts-appearance__nojs' ) ).toBeHidden();
-		await page.locator( 'select[data-key="ui.mode"]' ).selectOption( 'dark' );
-		await page.locator( 'select[data-key="ui.text-size"]' ).selectOption( 'large' );
+		await pick( page, 'ui.mode', 'dark' );
+		await pick( page, 'ui.text-size', 'large' );
 		const html = page.locator( 'html' );
 		await expect( html ).toHaveAttribute( 'data-mode', 'dark' );
 		await expect( html ).toHaveClass( /skin-theme-clientpref-night/ );
@@ -84,7 +107,7 @@ test.describe( 'with JavaScript', () => {
 		expect( response.headers()[ 'set-cookie' ] ).toBeUndefined();
 		await expect( html ).toHaveAttribute( 'data-mode', 'dark' );
 		await expect( html ).toHaveAttribute( 'data-text-size', 'large' );
-		await expect( page.locator( 'select[data-key="ui.mode"]' ) ).toHaveValue( 'dark' );
+		await expect( chosen( page, 'ui.mode' ) ).toHaveValue( 'dark' );
 		expect( ( await context.cookies() ).filter( ( c ) => c.name !== 'triplespace_session' ) ).toEqual( [] );
 	} );
 
@@ -93,33 +116,79 @@ test.describe( 'with JavaScript', () => {
 		await page.locator( '.ts-appearance > summary' ).click();
 		const palette = page.locator( 'select[data-key="ui.palette"]' );
 		await expect( palette ).toHaveValue( '' );
-		await palette.selectOption( 'parchment-rg' );
-		await expect( page.locator( '#ts-palette' ) ).toHaveAttribute( 'href', /\/ui\/theme\/p-parchment-rg-/ );
+		await palette.selectOption( 'encyclopedia' );
+		await expect( page.locator( '#ts-palette' ) ).toHaveAttribute( 'href', /\/ui\/theme\/p-encyclopedia-/ );
+		await expect.poll( () => token( page, 'border-radius-base' ) ).toBe( '2px' );
+		// The colour-vision alternate rides on whatever palette is worn (ADR 0094):
+		// encyclopedia keys none, so it wears parchment's.
+		await page.locator( 'select[data-key="ui.vision"]' ).selectOption( 'rg' );
+		await expect( page.locator( 'html' ) ).toHaveAttribute( 'data-vision', 'rg' );
 		await expect.poll( () => token( page, 'color-destructive' ) ).toBe( '#A84300' );
 		await page.locator( 'select[data-key="ui.typeset"]' ).selectOption( 'opendyslexic' );
 		await expect.poll( () => token( page, 'font-family-base' ) ).toContain( 'OpenDyslexic' );
-		await page.locator( 'select[data-key="ui.text-size"]' ).selectOption( 'large' );
+		await pick( page, 'ui.text-size', 'large' );
 		expect( await token( page, 'font-size-medium' ) ).toBe( '1.125rem' );
 		// The next page is the same public page; the head script points it at the
 		// reader's stylesheets before the first paint.
 		const response = await page.goto( '/wiki/Item:Q6' );
 		expect( response.headers()[ 'cache-control' ] ).toMatch( /^public/ );
-		await expect( page.locator( '#ts-palette' ) ).toHaveAttribute( 'href', /p-parchment-rg-/ );
+		await expect( page.locator( '#ts-palette' ) ).toHaveAttribute( 'href', /p-encyclopedia-/ );
 		await expect( page.locator( '#ts-typeset' ) ).toHaveAttribute( 'href', /t-opendyslexic-/ );
+		await expect( page.locator( 'html' ) ).toHaveAttribute( 'data-vision', 'rg' );
 		await expect.poll( () => token( page, 'color-destructive' ) ).toBe( '#A84300' );
-		await expect( page.locator( 'select[data-key="ui.palette"]' ) ).toHaveValue( 'parchment-rg' );
+		await expect( page.locator( 'select[data-key="ui.palette"]' ) ).toHaveValue( 'encyclopedia' );
+		await expect( page.locator( 'select[data-key="ui.vision"]' ) ).toHaveValue( 'rg' );
+		// In dark mode the alternate's dark colours apply.
+		await page.locator( '.ts-appearance > summary' ).click();
+		await pick( page, 'ui.mode', 'dark' );
+		await expect.poll( () => token( page, 'color-error' ) ).toBe( '#F26100' );
+		await page.locator( '.ts-appearance > summary' ).click();
 		// Back to the wiki's own.
 		await page.locator( '.ts-appearance > summary' ).click();
 		await page.locator( 'select[data-key="ui.palette"]' ).selectOption( '' );
 		await expect( page.locator( '#ts-palette' ) ).toHaveAttribute( 'href', /p-parchment-[0-9a-f]{16}\.css/ );
 	} );
 
+	test( 'a page in many scripts fetches the fallback faces of those scripts alone', async ( { page } ) => {
+		// The Noto layer (ADR 0093): every face is declared, but the browser fetches one
+		// only for characters on the page that the type set's own families lack.
+		const fetched = [];
+		page.on( 'request', ( r ) => {
+			if ( r.url().endsWith( '.woff2' ) ) {
+				fetched.push( r.url() );
+			}
+		} );
+		await page.goto( '/wiki/Item:Q6' );
+		await page.evaluate( async () => {
+			const terms = [ [ 'ar', 'مرحبا' ], [ 'hi', 'नमस्ते' ], [ 'ka', 'გამარჯობა' ], [ 'ur', 'خوش آمدید' ] ];
+			for ( const [ lang, text ] of terms ) {
+				const p = document.createElement( 'p' );
+				p.lang = lang;
+				p.textContent = text;
+				document.querySelector( 'main, body' ).append( p );
+			}
+			await document.fonts.ready;
+		} );
+		const has = ( file ) => fetched.some( ( u ) => u.includes( `/${ file }-` ) );
+		await expect.poll( () => has( 'noto-nastaliq-urdu-arabic-400-normal' ) ).toBe( true );
+		for ( const file of [ 'noto-sans-arabic-arabic', 'noto-sans-devanagari-devanagari', 'noto-sans-georgian-georgian' ] ) {
+			expect( has( `${ file }-400-normal` ), file ).toBe( true );
+		}
+		// The page's own arrows (← → ↗), which Source Sans 3 lacks, take Noto Sans
+		// Symbols; the scripts it does not hold take nothing.
+		for ( const script of [ 'thai', 'ethiopic', 'hebrew', 'tamil' ] ) {
+			expect( fetched.filter( ( u ) => u.includes( `-${ script }-` ) ), script ).toEqual( [] );
+		}
+		// Latin text is the type set's own: the layer's Latin faces are not fetched for it.
+		expect( fetched.filter( ( u ) => u.includes( '/noto-sans-latin-' ) ) ).toEqual( [] );
+	} );
+
 	for ( const [ mode, contrast ] of [ [ 'light', 'auto' ], [ 'dark', 'auto' ], [ 'light', 'more' ], [ 'dark', 'more' ] ] ) {
 		test( `a page in ${ mode } mode with ${ contrast } contrast passes axe`, async ( { page } ) => {
 			await page.goto( '/wiki/Item:Q6' );
 			await page.locator( '.ts-appearance > summary' ).click();
-			await page.locator( 'select[data-key="ui.mode"]' ).selectOption( mode );
-			await page.locator( 'select[data-key="ui.contrast"]' ).selectOption( contrast );
+			await pick( page, 'ui.mode', mode );
+			await pick( page, 'ui.contrast', contrast );
 			await page.locator( '.ts-appearance > summary' ).click();
 			await page.reload();
 			await expect( page.locator( 'html' ) ).toHaveAttribute( 'data-mode', mode );
@@ -139,7 +208,7 @@ test.describe( 'with JavaScript', () => {
 		await page.locator( '.ts-appearance > summary' ).click();
 		await expect( page.locator( '.ts-appearance__apply' ) ).toBeHidden();
 		const saved = page.waitForResponse( ( r ) => r.url().endsWith( '/w/api.php' ) && r.request().method() === 'POST' );
-		await page.locator( 'select[data-key="ui.contrast"]' ).selectOption( 'more' );
+		await pick( page, 'ui.contrast', 'more' );
 		expect( ( await saved ).status() ).toBe( 200 );
 		await expect( page.locator( 'html' ) ).toHaveAttribute( 'data-contrast', 'more' );
 		// A fresh page: the server wrote it, and the head script left it alone.

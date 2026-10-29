@@ -232,7 +232,8 @@ pub async fn context(
                 .and_then(i18n::valid_code)
         })
         .unwrap_or_else(|| si.value.lang.clone());
-    let m = Messages::for_language(&lang);
+    let m =
+        Messages::for_language(&lang).with_overrides(si.value.interface.clone(), &si.value.lang);
     let theme = Theme::from_info(si.value.theme.as_ref()).with_chips(&si.value.providers);
     let features = Features::of(&si.value);
     Ok(Context {

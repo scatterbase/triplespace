@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-18 (A45)
+- **Updated:** 2026-10-28 (A46)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md)
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -105,7 +105,7 @@ The design exploration is on the [site UI canvas](https://claude.ai/artifact/XNb
 
 ### 7. Recent changes
 
-*Changed by A10, A13, A19.*
+*Changed by A10, A13, A19, A46.*
 
 *Current text: [19](../architecture/19-site-ui.md) §3.9.*
 
@@ -628,3 +628,10 @@ Replaced text ([19](../architecture/19-site-ui.md) §2.3, as it stood):
 Replaced text ([19](../architecture/19-site-ui.md) §2.4, as it stood):
 
 > | Sign-in methods | Private | Each binding, with when it was added and last used, and an issuer the tenant no longer offers marked unavailable. **Remove** is disabled for the last way to log in, a password included, and says why; removing erases the binding from history. **Add** lists the issuers the tenant offers, each a form to `/auth/{issuer}/start` with `purpose=link` ([07](../architecture/07-actors-and-accounts.md) §2.7). |
+
+### A46. The Interface namespace
+
+- **Date:** 2026-10-28
+- **Source:** [0095](0095-the-interface-namespace.md) §3
+- **Change:** extends §7
+- **Summary:** In lists of changes an account as a target is marked with a person icon and linked to its contributions, its key left out for an account of this wiki, and the instance's own key is a Server Operator badge (0095 §3).

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-20 (A19)
+- **Updated:** 2026-10-28 (A20)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0024](0024-subsidiary-accounts.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md)
 - **Uses:** [0023](0023-moderation.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0043](0043-lua-modules.md), [0047](0047-special-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -63,7 +63,7 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 5. Variables, parser functions, tags and switches: a registry (extends 0015 §5)
 
-*Changed by A6, A9, A10, A12.*
+*Changed by A6, A9, A10, A12, A20.*
 
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §2.1, §2.2, §2.3.*
 
@@ -440,3 +440,14 @@ Replaced text ([23](../architecture/23-configuration-and-registry.md) §3.2, as 
 > | `wikitext.expansion` | `site` | tenant ≤ instance ceiling (`wikitext.ceiling`) | `off`, `on` | `off` | Expand templates and parser functions; enables Template and Template talk | [0042](../decisions/0042-template-expansion-and-parsoid.md) §2 |
 
 > Turning `wikitext.expansion` off also turns `wikitext.lua` off and `wikitext.renderer` back to `builtin`; changing any `wikitext.*` setting bumps the render epoch of every `wikitext` page in the tenant and queues them for refresh ([11](../architecture/11-rendering-templates-and-modules.md)).
+
+### A20. The Interface namespace
+
+- **Date:** 2026-10-28
+- **Source:** [0095](0095-the-interface-namespace.md) §2
+- **Change:** amends §5
+- **Summary:** Messages that `{{int:}}` reads are overridden by the wiki's Interface pages, the instance's under the wiki's (0095 §2); the namespace is no longer reserved.
+
+Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §2.3, as it stood):
+
+> **Messages.** `{{int:}}`, tracking-category names (§4.1) and Parsoid's `meta=allmessages` calls (§3.1) read MediaWiki core's message files for the languages the instance serves, shipped as data. The MediaWiki namespace (8) stays reserved, so no wiki can override a message.

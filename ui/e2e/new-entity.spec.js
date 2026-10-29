@@ -45,7 +45,8 @@ test( 'a reader is asked to log in first', async ( { page } ) => {
 
 test( 'the New menu creates an item, with prefilled statements', async ( { page, browser } ) => {
 	await logIn( page, 'Project:Home' );
-	await page.locator( '.ts-menu summary', { hasText: 'New' } ).click();
+	// The New menu opens from an icon button, named by its label.
+	await page.locator( '.ts-menu summary[aria-label="New"]' ).click();
 	await page.getByRole( 'link', { name: 'New item' } ).click();
 	await expect( page ).toHaveURL( /\/wiki\/Special:NewItem$/ );
 	await expect( page.getByRole( 'heading', { level: 1 } ) ).toHaveText( 'Create a new item' );

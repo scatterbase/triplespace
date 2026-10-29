@@ -340,7 +340,9 @@ async fn page_columns(cx: &PgCx, record: &Record) -> Result<Columns, String> {
             let from = title_before(cx, record).await?;
             let prefixed =
                 |ns: i32, title: &str| match scatter_titles::Namespaces::embedded().get(ns) {
-                    Some(n) if ns != 0 => format!("{}:{title}", n.canonical),
+                    Some(n) if ns != 0 => {
+                        format!("{}:{title}", n.name.as_ref().unwrap_or(&n.canonical))
+                    }
                     _ => title.to_string(),
                 };
             let mut params = serde_json::json!({

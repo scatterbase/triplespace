@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-20 (A43)
+- **Updated:** 2026-10-28 (A44)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -31,7 +31,7 @@ The goal is not to reimplement MediaWiki's page features. Templates, parser func
 
 ### 2. Namespace numbering
 
-*Changed by A3, A6, A8, A9, A10, A12, A13, A15, A17, A18, A19, A25, A26, A27, A28, A29, A31, A32.*
+*Changed by A3, A6, A8, A9, A10, A12, A13, A15, A17, A18, A19, A25, A26, A27, A28, A29, A31, A32, A44.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §1.3, §1.4.*
 
@@ -632,3 +632,14 @@ Replaced text ([10](../architecture/10-pages-and-content-models.md) §6, as it s
 Replaced text ([10](../architecture/10-pages-and-content-models.md) §6, as it stood):
 
 > **Talk namespaces are converted to threads.** A wikitext talk page in an export is imported as threads homed on its subject's talk page, split by level-two heading with the frontmatter first, each created closed with the `archived` status and holding its section's wikitext as the opening post ([0054](../decisions/0054-forking-a-mirrored-page.md) §5; [14](../architecture/14-discussions.md)); a project-wide discussion page lands on a board the importer names.
+
+### A44. The Interface namespace
+
+- **Date:** 2026-10-28
+- **Source:** [0095](0095-the-interface-namespace.md) §1
+- **Change:** amends §2
+- **Summary:** Namespace 8 holds pages: plain-text interface messages and names of IDs, shown under the local name Interface while keeping the canonical name MediaWiki, with its talk namespace 9 (0095 §1). It is no longer reserved.
+
+Replaced text ([10](../architecture/10-pages-and-content-models.md) §1.4, as it stood):
+
+> | 8 | MediaWiki | `reserved` | — | — | — | Rule 1 |

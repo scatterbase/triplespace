@@ -233,6 +233,9 @@ async fn check(
     if page.ns == 14 || ns == 14 {
         held("move-categorypages", &source_scope)?;
     }
+    if page.ns == scatter_titles::INTERFACE || ns == scatter_titles::INTERFACE {
+        held("editinterface", &source_scope)?;
+    }
     moderation::enforce("move", who, &source_scope, &source_chain, at, &from)?;
     moderation::enforce("edit", who, &source_scope, &source_chain, at, &from)?;
 

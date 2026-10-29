@@ -517,6 +517,42 @@ async fn api(database: &str, key_file: &std::path::Path) {
         )
         .await;
     assert_eq!(same["edit"]["nochange"], true, "{same}");
+    // The Interface namespace (0095 §1): MediaWiki's number and canonical name, shown as
+    // Interface; `MediaWiki:` titles reach it. Its pages override messages and name IDs,
+    // which siteinfo reports (§5).
+    let ns = c.get("action=query&meta=siteinfo&siprop=namespaces").await;
+    assert_eq!(ns["query"]["namespaces"]["8"]["name"], "Interface", "{ns}");
+    assert_eq!(ns["query"]["namespaces"]["8"]["canonical"], "MediaWiki");
+    assert_eq!(ns["query"]["namespaces"]["9"]["name"], "Interface talk");
+    for (title, text) in [
+        ("MediaWiki:Ts-new", "Create"),
+        ("Interface:Ts-new/de", "Anlegen"),
+        ("Interface:Name/instance:far", "Far Farm"),
+    ] {
+        let e = c
+            .post(
+                "action=edit",
+                &format!(
+                    "title={}&text={}&token={}",
+                    enc(title),
+                    enc(text),
+                    enc(&csrf)
+                ),
+            )
+            .await;
+        assert_eq!(e["edit"]["result"], "Success", "{e}");
+    }
+    let info = c
+        .get("action=query&prop=info&titles=MediaWiki:Ts-new")
+        .await;
+    let page = &info["query"]["pages"][0];
+    assert_eq!(page["title"], "Interface:Ts-new", "{info}");
+    assert_eq!(page["contentmodel"], "text");
+    let si = c.get("action=query&meta=siteinfo&siprop=triplespace").await;
+    let messages = &si["query"]["triplespace"]["interface"]["messages"];
+    assert_eq!(messages["ts-new"][""], "Create", "{si}");
+    assert_eq!(messages["ts-new"]["de"], "Anlegen");
+    assert_eq!(messages["name/instance:far"][""], "Far Farm");
     // A namespace alias the tenant gives (0008 A37; 10 §3.5): siteinfo lists it, and a
     // link through it renders and is recorded as a Project link.
     namespace_record(

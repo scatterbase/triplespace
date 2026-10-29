@@ -70,6 +70,19 @@ pub fn entries() -> &'static Entries {
 /// `/ui/assets/`; `None` for a type set the build has none for.
 #[must_use]
 pub fn typeset_fonts(name: &str) -> Option<String> {
+    built_css("src/typesets/", name)
+}
+
+/// The `@font-face` rules of a fallback layer (0093 §3), built from
+/// `ui/src/fallbacks/{name}.css`, which `ui/scripts/fallbacks.js` writes from the registry;
+/// `None` for a layer the build has none for.
+#[must_use]
+pub fn fallback_fonts(name: &str) -> Option<String> {
+    built_css("src/fallbacks/", name)
+}
+
+/// A built stylesheet of the build's `@font-face` rules, by its source directory and name.
+fn built_css(dir: &str, name: &str) -> Option<String> {
     static FONTS: LazyLock<std::collections::BTreeMap<String, String>> = LazyLock::new(|| {
         let manifest: serde_json::Value = Dist::get("manifest.json")
             .and_then(|f| serde_json::from_slice(&f.data).ok())
@@ -79,15 +92,18 @@ pub fn typeset_fonts(name: &str) -> Option<String> {
         };
         entries
             .iter()
+            .filter(|(src, _)| {
+                src.starts_with("src/typesets/") || src.starts_with("src/fallbacks/")
+            })
             .filter_map(|(src, e)| {
-                let name = src.strip_prefix("src/typesets/")?.strip_suffix(".css")?;
+                let src = src.strip_suffix(".css")?;
                 let file = e.get("file")?.as_str()?;
                 let css = String::from_utf8(Dist::get(file)?.data.into_owned()).ok()?;
-                Some((name.to_string(), css))
+                Some((src.to_string(), css))
             })
             .collect()
     });
-    FONTS.get(name).cloned()
+    FONTS.get(&format!("{dir}{name}")).cloned()
 }
 
 /// The build ID, which a page's `ETag` and the components' build check carry.

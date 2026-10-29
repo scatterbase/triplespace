@@ -55,6 +55,7 @@
 		{
 			"files": [
 				"playwright.config.js",
+				"scripts/**/*.js",
 				"e2e/**/*.js",
 				"e2e/**/*.mjs"
 			],

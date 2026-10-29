@@ -40,7 +40,7 @@ allow = [
     # MIT without the notice condition: the licence of the vendored parse-wiki-text-2
     # (0033 §9.1, A22).
     "MIT-0",
-    # The default theme's typefaces (IBM Plex, Newsreader; 0034 §1), served to browsers as
+    # The shipped typefaces (Source Serif 4, Source Sans 3, Lilex, IBM Plex Mono, Noto and others; 0034 §1, 0093), served to browsers as
     # separate files and listed with their licence on Special:Version (0077 §6). Not in
     # 0033 §1's list yet: to be confirmed and recorded there.
     "OFL-1.1",

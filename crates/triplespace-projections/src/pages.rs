@@ -160,13 +160,14 @@ impl TenantNames {
                     ns = ns.alias("Image talk");
                 }
                 let (fixed, aliases) = self.overrides.get(&n.id).cloned().unwrap_or_default();
-                // Project and Project talk take the site's name unless a record fixes theirs.
+                // Project and Project talk take the site's name unless a record fixes theirs;
+                // a namespace the registry names (Interface, 0095 §1) takes that name.
                 let local = fixed.or_else(|| {
-                    let site = self.site_name.as_deref()?;
+                    let site = self.site_name.as_deref();
                     match n.id {
-                        scatter_titles::PROJECT => Some(site.to_string()),
-                        5 => Some(format!("{site} talk")),
-                        _ => None,
+                        scatter_titles::PROJECT => site.map(str::to_string),
+                        5 => site.map(|s| format!("{s} talk")),
+                        _ => n.name.clone(),
                     }
                 });
                 if let Some(local) = local.filter(|l| *l != n.canonical) {
@@ -446,6 +447,69 @@ pub async fn latest_text<C: PgClient>(
         .await
         .map_err(|e| sql(&e))?;
     Ok(row.map(|r| String::from_utf8_lossy(&r.get::<_, Vec<u8>>(0)).into_owned()))
+}
+
+/// At most how many Interface pages a tenant's overrides take, and the longest text one may
+/// have (0095 §5): sensible bounds on what every page's `meta=siteinfo` carries.
+pub const INTERFACE_MAX_PAGES: i64 = 1000;
+/// The longest Interface page text, in characters, that is taken as an override.
+pub const INTERFACE_MAX_CHARS: usize = 2000;
+
+/// A tenant's Interface pages (0095 §2, §5) that anyone may read, as `(title, text)` by
+/// title, the title without its namespace: the overrides of interface messages and the
+/// names of IDs. A page under a read restriction, a redirect, or one longer than
+/// [`INTERFACE_MAX_CHARS`] is left out. Whether the tenant itself is private is not asked
+/// here: `meta=siteinfo` gives outsiders of a private tenant none of this.
+///
+/// # Errors
+///
+/// The database's.
+pub async fn interface_pages<C: PgClient>(
+    client: &C,
+    tenant: &str,
+) -> Result<Vec<(String, String)>, String> {
+    let rows = client
+        .query(
+            "SELECT p.page_id, p.title, r.state FROM view.page p
+             JOIN LATERAL (SELECT state FROM view.entity_revision
+                           WHERE tenant = p.tenant AND entity_id = p.page_id::text
+                           ORDER BY \"offset\" DESC LIMIT 1) r ON true
+             WHERE p.tenant = $1 AND p.ns = $2 AND NOT p.deleted AND NOT p.is_redirect
+               AND p.latest_offset IS NOT NULL
+             ORDER BY p.title LIMIT $3",
+            &[&tenant, &scatter_titles::INTERFACE, &INTERFACE_MAX_PAGES],
+        )
+        .await
+        .map_err(|e| sql(&e))?;
+    if rows.is_empty() {
+        return Ok(Vec::new());
+    }
+    let hidden = crate::acl_read::hidden(
+        client,
+        tenant,
+        &scatter_actors::Effective::default(),
+        scatter_actors::Timestamp(
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |d| u64::try_from(d.as_micros()).unwrap_or(u64::MAX)),
+        ),
+    )
+    .await?;
+    Ok(rows
+        .iter()
+        .filter(|r| {
+            let id: i64 = r.get(0);
+            !hidden.namespaces.contains(&scatter_titles::INTERFACE)
+                && !hidden.pages.contains(&id.cast_unsigned())
+        })
+        .map(|r| {
+            (
+                r.get::<_, String>(1),
+                String::from_utf8_lossy(&r.get::<_, Vec<u8>>(2)).into_owned(),
+            )
+        })
+        .filter(|(_, text)| text.chars().count() <= INTERFACE_MAX_CHARS)
+        .collect())
 }
 
 /// The text of a page after a revision.

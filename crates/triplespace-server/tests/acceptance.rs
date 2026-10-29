@@ -1177,7 +1177,19 @@ async fn what_the_site_reads(router: &Router, database: &str) {
         palette("parchment")["light"]["color-progressive"],
         "#2B559E"
     );
-    assert_eq!(palette("parchment-by")["extends"], "parchment");
+    // The colour-vision palettes are parchment's alternates (0094), and their old names
+    // are no palettes.
+    assert_eq!(
+        palette("parchment")["alternate"]["rg"]["light"]["color-error"],
+        "#A84300"
+    );
+    assert!(
+        !theme["palettes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|p| p["name"] == "parchment-by")
+    );
     assert!(palette("encyclopedia")["light"].is_object());
     let typeset = |name: &str| {
         theme["typesets"]
@@ -1209,7 +1221,7 @@ async fn what_the_site_reads(router: &Router, database: &str) {
     let d = triplespace_cli::common::draft(
         scatter_log::registry::PAYLOAD_CONFIG,
         "site:theme.palette",
-        &json!({"kind": "site", "name": "theme.palette", "value": "parchment-rg"}),
+        &json!({"kind": "site", "name": "theme.palette", "value": "encyclopedia"}),
         &format!(
             "{}:7",
             triplespace_cli::common::issuer_at(database, TENANT)
@@ -1236,7 +1248,7 @@ async fn what_the_site_reads(router: &Router, database: &str) {
     let (_, _, body) = send(router, siteinfo, &[]).await;
     assert_eq!(
         body["query"]["triplespace"]["theme"]["palette"],
-        "parchment-rg"
+        "encyclopedia"
     );
 
     // An anonymous entity read is public, tagged and revalidates to 304.

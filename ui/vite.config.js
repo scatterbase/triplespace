@@ -96,7 +96,11 @@ export default defineConfig( {
 				// @font-face rules triplespace-ui writes into the type set's stylesheet.
 				'typeset-default26': 'src/typesets/default26.css',
 				'typeset-hyperlegible': 'src/typesets/hyperlegible.css',
-				'typeset-opendyslexic': 'src/typesets/opendyslexic.css'
+				'typeset-opendyslexic': 'src/typesets/opendyslexic.css',
+				// The typefaces of each fallback layer (ADR 0093 §3), written by
+				// scripts/fallbacks.js and written by triplespace-ui into the stylesheet of
+				// every type set that names the layer.
+				'fallback-noto': 'src/fallbacks/noto.css'
 			}
 		}
 	},

@@ -157,6 +157,12 @@ h3 {
 	display: none;
 }
 
+/* The New and Appearance menus are icon buttons, named by aria-label and titled. */
+
+.ts-header__icon {
+	fill: currentcolor;
+}
+
 .ts-menu__items {
 	position: absolute;
 	right: 0;

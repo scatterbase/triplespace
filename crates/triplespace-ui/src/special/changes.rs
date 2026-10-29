@@ -322,14 +322,113 @@ fn origin_chip(m: &Messages, site: &SiteInfo, row: &ActivityRow) -> String {
     chip.unwrap_or_default()
 }
 
-/// The target: its title linked, with its label where one is known. In a discussion's
-/// history (`subject_only`), a thread is named by its subject, the date and namespace being
-/// the same on every row.
-fn target_html(m: &Messages, row: &ActivityRow, subject_only: bool) -> String {
+/// The instance's own actor key, `instance:{farm code}`, which the site shows as the
+/// **Server Operator** (0095 §3).
+fn operator_key(site: &SiteInfo) -> Option<String> {
+    (!site.farm_code.is_empty()).then(|| format!("instance:{}", site.farm_code))
+}
+
+/// The Server Operator badge, with the key it stands for as its tooltip.
+fn operator_badge(m: &Messages, key: &str) -> String {
+    Chip {
+        kind: ChipKind::Operator,
+        text: &m.get("ts-server-operator"),
+        title: Some(key),
+    }
+    .render()
+    .unwrap_or_default()
+}
+
+/// An account, as a target or as the actor (0095 §3): the instance's own key as the
+/// Server Operator badge; else a person icon, marking it as the account and not its user
+/// page, and its name linked to its contributions. The name is the account's username
+/// where the row gives it, else the wiki's name for the key (`Interface:Name/{key}`), with
+/// the key as its tooltip, else the key. The key is shown beside the name only for an
+/// account of another wiki that the wiki has not named. A key of this wiki's issuer, or
+/// `local`, is this wiki's.
+fn account_html(
+    m: &Messages,
+    site: &SiteInfo,
+    key: Option<&str>,
+    username: Option<&str>,
+    icon: bool,
+) -> String {
+    if let (Some(k), Some(op)) = (key, operator_key(site))
+        && k == op
+    {
+        return format!(
+            "<span class=\"ts-change__part\">{}</span>",
+            operator_badge(m, k)
+        );
+    }
+    let named = key.and_then(|k| m.name_of(k));
+    let Some(shown) = username
+        .map(str::to_string)
+        .or(named.clone())
+        .or(key.map(str::to_string))
+    else {
+        return String::new();
+    };
+    // An API that reports no issuer code (a stock Wikibase) is taken to be naming its own.
+    let ours = site.issuer.is_empty()
+        || key
+            .and_then(|k| k.split_once(':'))
+            .is_none_or(|(issuer, _)| issuer == "local" || issuer == site.issuer);
+    let show_key = key.filter(|_| !ours && named.is_none() && username.is_some());
+    // A name the wiki gave the key carries the key as its tooltip.
+    let title = key
+        .filter(|_| username.is_none() && named.is_some())
+        .map(|k| format!(" title=\"{}\"", esc(k)))
+        .unwrap_or_default();
+    let who = username.or(key).unwrap_or(&shown);
+    let mark = if icon {
+        format!(
+            "<svg class=\"ts-change__account-icon\" xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 20 20\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 11a6 6 0 016 6v2H2v-2a6 6 0 016-6z\"/><circle cx=\"10\" cy=\"5\" r=\"4\"/></svg><span class=\"ts-visually-hidden\">{} </span>",
+            esc(&m.get("ts-changes-account"))
+        )
+    } else {
+        String::new()
+    };
+    let mut s = format!(
+        "<span class=\"ts-change__part{}\"{title}>{mark}{}</span>",
+        if icon { " ts-change__account" } else { "" },
+        link(
+            &format!("/wiki/Special:Contributions/{}", title_url(who)),
+            &esc(&shown),
+            if icon {
+                " class=\"ts-change__target\""
+            } else {
+                " class=\"ts-change__actor\""
+            },
+        )
+    );
+    if let Some(k) = show_key {
+        let _ = write!(
+            s,
+            "<span class=\"ts-change__part ts-change__id ts-mono\">{}</span>",
+            esc(k)
+        );
+    }
+    s
+}
+
+/// The target: its title linked, with its label where one is known. An account is
+/// [`account_html`]'s. In a discussion's history (`subject_only`), a thread is named by
+/// its subject, the date and namespace being the same on every row.
+fn target_html(m: &Messages, site: &SiteInfo, row: &ActivityRow, subject_only: bool) -> String {
     let lang = m.lang();
     let Some(t) = &row.target else {
         return String::new();
     };
+    if t.kind == "actor" {
+        return account_html(
+            m,
+            site,
+            Some(t.id.as_str()).filter(|k| !k.is_empty()),
+            t.label.as_ref().map(|l| l.value.as_str()),
+            true,
+        );
+    }
     let Some(title) = &t.title else {
         return format!("<span class=\"ts-mono\">{}</span>", esc(&t.id));
     };
@@ -367,24 +466,21 @@ fn target_html(m: &Messages, row: &ActivityRow, subject_only: bool) -> String {
     )
 }
 
-/// The actor: a link to their contributions, or the hidden marker.
-fn actor_html(m: &Messages, row: &ActivityRow) -> String {
+/// The actor: a link to their contributions, the Server Operator badge for the instance,
+/// or the hidden marker.
+fn actor_html(m: &Messages, site: &SiteInfo, row: &ActivityRow) -> String {
     if row.actor.hidden {
         return format!(
             "<span class=\"ts-change__part ts-change__hidden\">{}</span>",
             esc(&m.get("ts-changes-hidden-user"))
         );
     }
-    let Some(name) = row.actor.name.as_deref().or(row.actor.key.as_deref()) else {
-        return String::new();
-    };
-    format!(
-        "<span class=\"ts-change__part\">{}</span>",
-        link(
-            &format!("/wiki/Special:Contributions/{}", title_url(name)),
-            &esc(name),
-            " class=\"ts-change__actor\"",
-        )
+    account_html(
+        m,
+        site,
+        row.actor.key.as_deref(),
+        row.actor.name.as_deref(),
+        false,
     )
 }
 
@@ -598,7 +694,7 @@ fn row_html(m: &Messages, site: &SiteInfo, row: &ActivityRow, here: Option<u64>)
         );
     }
     cell(&mut s, "flags", &f);
-    let mut target = target_html(m, row, here.is_some());
+    let mut target = target_html(m, site, row, here.is_some());
     if target.is_empty()
         && let Some(j) = row.job
     {
@@ -609,7 +705,7 @@ fn row_html(m: &Messages, site: &SiteInfo, row: &ActivityRow, here: Option<u64>)
     }
     cell(&mut s, "target", &target);
     cell(&mut s, "size", &size_html(row));
-    cell(&mut s, "user", &actor_html(m, row));
+    cell(&mut s, "user", &actor_html(m, site, row));
     let mut summary = summary_html(m, row, here);
     if !summary.is_empty() {
         summary = format!("<span class=\"ts-change__summary\">{summary}</span>");
@@ -1194,5 +1290,100 @@ mod tests {
             row_html(&m, &SiteInfo::default(), &post, None)
                 .contains(">Thread:2026-10-25/Why is P31 wrong here?</a>")
         );
+    }
+
+    /// A log row whose target is an account, as `rights/rights` writes them.
+    fn rights_row(
+        target_key: &str,
+        label: &str,
+        actor_key: &str,
+        actor: Option<&str>,
+    ) -> ActivityRow {
+        serde_json::from_value(serde_json::json!({
+            "kind": "log", "time": "2026-10-28T05:31:00Z", "source": "local",
+            "record": {"partition": 1, "offset": 1},
+            "target": {"kind": "actor", "id": target_key, "ns": 2, "title": format!("User:{label}"),
+                       "label": {"value": label, "language": "en"}},
+            "actor": {"key": actor_key, "name": actor},
+            "summary": {"op": "rights/rights"},
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn accounts_are_marked_and_the_instance_is_the_server_operator() {
+        let m = Messages::for_language("en");
+        let site = SiteInfo {
+            issuer: "wwq".into(),
+            farm_code: "gpu".into(),
+            ..SiteInfo::default()
+        };
+        // An account of this wiki: the icon, its name to its contributions, no key.
+        let html = row_html(
+            &m,
+            &site,
+            &rights_row("wwq:25", "Harej bot 2", "wwq:7", Some("Harej")),
+            None,
+        );
+        assert!(html.contains("ts-change__account-icon"), "{html}");
+        assert!(html.contains("<span class=\"ts-visually-hidden\">Account </span>"));
+        assert!(html.contains("href=\"/wiki/Special:Contributions/Harej_bot_2\""));
+        assert!(
+            !html.contains("wwq:25</span>"),
+            "no key for this wiki's account"
+        );
+        assert!(
+            !html.contains("/wiki/User:Harej_bot_2"),
+            "not its user page"
+        );
+        // The instance acting: the badge, the key only as its tooltip.
+        let html = row_html(
+            &m,
+            &site,
+            &rights_row("wwq:1", "Librarybase", "instance:gpu", None),
+            None,
+        );
+        assert!(html.contains("<span class=\"ts-chip ts-chip--operator\" title=\"instance:gpu\">Server Operator</span>"), "{html}");
+        // Another wiki's account keeps its key beside its name; a named one does not.
+        let html = row_html(
+            &m,
+            &site,
+            &rights_row("other:3", "Ann", "wwq:7", Some("Harej")),
+            None,
+        );
+        assert!(
+            html.contains("<span class=\"ts-change__part ts-change__id ts-mono\">other:3</span>"),
+            "{html}"
+        );
+        let named = Messages::for_language("en").with_overrides(
+            serde_json::from_value(serde_json::json!({"name/instance:far": {"": "Far Farm"}}))
+                .unwrap(),
+            "en",
+        );
+        let html = row_html(
+            &named,
+            &site,
+            &rights_row("wwq:1", "X", "instance:far", None),
+            None,
+        );
+        assert!(html.contains(">Far Farm</a>"), "{html}");
+        assert!(html.contains("title=\"instance:far\""));
+    }
+
+    #[test]
+    fn entities_keep_their_ids() {
+        let m = Messages::for_language("en");
+        let row: ActivityRow = serde_json::from_value(serde_json::json!({
+            "kind": "edit", "time": "2026-10-28T05:50:00Z", "source": "local",
+            "record": {"partition": 1, "offset": 2},
+            "target": {"kind": "entity", "id": "Q100001", "ns": 120, "title": "Item:Q100001",
+                       "label": {"value": "The Supreme Court", "language": "en"}},
+            "actor": {"key": "wwq:7", "name": "Harej"},
+            "summary": {},
+        }))
+        .unwrap();
+        let html = row_html(&m, &SiteInfo::default(), &row, None);
+        assert!(html.contains("ts-mono\">Q100001</span>"), "{html}");
+        assert!(!html.contains("ts-change__account-icon"));
     }
 }

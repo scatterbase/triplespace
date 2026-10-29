@@ -52,6 +52,7 @@ mediawiki = [
   "upload", "reupload", "reupload-own", "reupload-shared", "upload_by_url", "movefile",   # 0039 §21
   "nuke",                                         # 0047 §12: Special:Nuke (the Nuke extension's right)
   "suppressredirect", "delete-redirect", "move-subpages", "move-rootuserpages", "move-categorypages",   # 0051 §8
+  "editinterface",                                # 0095 §4: edit, create and move pages of the Interface namespace
 ]
 wikibase = ["item-term", "property-term", "item-redirect", "item-merge", "property-create"]
 triplespace = [
@@ -144,6 +145,7 @@ permissions = [
   "suppressredirect",                            # 0051 §8: move without leaving a redirect
   "skipcaptcha",                                 # 0087 §7: ConfirmEdit's default
   "ts-viewip",                                   # 0007 §3: addresses in the abuse-handling store
+  "editinterface",                               # 0095 §4: Interface pages, as MediaWiki's sysop holds it
 ]
 
 [[group]]

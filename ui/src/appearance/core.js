@@ -1,15 +1,52 @@
 // The reader's appearance (ADR 0085 §6; 0086 §4–5; 19 §5.9), shared by the head script,
 // which applies a stored choice before the first paint, and the Appearance menu, which
-// applies a change at once: colour mode, contrast and text size as attributes on <html>,
-// and the palette and type set as the stylesheets the page links to. The keys and their
+// applies a change at once: colour mode, contrast, text size and the colour-vision
+// alternate (ADR 0094) as attributes on <html>, and the palette and type set as the
+// stylesheets the page links to. The keys and their
 // choices are preferences.toml's; the server's twin is triplespace-ui's appearance.rs.
 
 /** @type {Object<string, string[]>} */
 export const CHOICES = {
 	'ui.mode': [ 'auto', 'light', 'dark' ],
 	'ui.contrast': [ 'auto', 'more' ],
-	'ui.text-size': [ 'small', 'medium', 'large', 'x-large' ]
+	'ui.text-size': [ 'small', 'medium', 'large', 'x-large' ],
+	'ui.vision': [ 'none', 'by', 'rg' ]
 };
+
+/**
+ * The retired palettes and what each reads as (ADR 0094 §4; themes.toml's retired
+ * palettes, which a test holds this to): the palette that replaced it and the alternate.
+ *
+ * @type {Object<string, string[]>}
+ */
+export const RETIRED = {
+	'parchment-by': [ 'parchment', 'by' ],
+	'parchment-rg': [ 'parchment', 'rg' ]
+};
+
+/**
+ * Stored choices with a retired palette read as what replaced it: the palette, or the
+ * wiki's own where that is it, and the alternate where the reader chose none.
+ *
+ * @param {*} values
+ * @param {string} [own] The wiki's palette.
+ * @return {*}
+ */
+export function resolve( values, own ) {
+	if ( !values || typeof values !== 'object' ) {
+		return values;
+	}
+	const palette = values[ 'ui.palette' ];
+	if ( typeof palette !== 'string' || !Object.prototype.hasOwnProperty.call( RETIRED, palette ) ) {
+		return values;
+	}
+	const [ replaced, alternate ] = RETIRED[ palette ];
+	const out = Object.assign( {}, values, { 'ui.palette': replaced === own ? '' : replaced } );
+	if ( !values[ 'ui.vision' ] || values[ 'ui.vision' ] === 'none' ) {
+		out[ 'ui.vision' ] = alternate;
+	}
+	return out;
+}
 
 /**
  * The keys that choose a stylesheet. Their choices are the wiki's, which the page lists;
@@ -130,8 +167,9 @@ export function applySheets( doc, values, theme ) {
 }
 
 /**
- * Writes the reader's choices on the root element: `data-mode`, `data-contrast` and
- * `data-text-size`, and MediaWiki's `skin-theme-clientpref-*` class beside them.
+ * Writes the reader's choices on the root element: `data-mode`, `data-contrast`,
+ * `data-text-size` and `data-vision`, and MediaWiki's `skin-theme-clientpref-*` class
+ * beside them.
  *
  * @param {HTMLElement} root
  * @param {Object<string, string>} values
@@ -159,18 +197,25 @@ export function apply( root, values ) {
 	} else {
 		root.removeAttribute( 'data-text-size' );
 	}
+	if ( v[ 'ui.vision' ] && v[ 'ui.vision' ] !== 'none' ) {
+		root.setAttribute( 'data-vision', v[ 'ui.vision' ] );
+	} else {
+		root.removeAttribute( 'data-vision' );
+	}
 }
 
 /**
- * The stored choices, or null where storage is absent or refused.
+ * The stored choices, or null where storage is absent or refused. A retired palette
+ * reads as what replaced it.
  *
  * @param {Storage|undefined} storage
  * @param {Object<string, string[]>} [sheets] The palettes and type sets kept, by key.
+ * @param {string} [own] The wiki's palette.
  * @return {Object<string, string>|null}
  */
-export function read( storage, sheets ) {
+export function read( storage, sheets, own ) {
 	try {
-		return clean( JSON.parse( storage.getItem( STORAGE_KEY ) || 'null' ), sheets );
+		return clean( resolve( JSON.parse( storage.getItem( STORAGE_KEY ) || 'null' ), own ), sheets );
 	} catch ( e ) {
 		return null;
 	}

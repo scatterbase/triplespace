@@ -23,7 +23,7 @@ if ( !root.hasAttribute( 'data-appearance' ) ) {
 		storage = undefined;
 	}
 	const theme = readTheme( document );
-	const stored = read( storage, sheetChoices( theme ) );
+	const stored = read( storage, sheetChoices( theme ), theme && theme.palette );
 	if ( stored && Object.keys( stored ).length ) {
 		apply( root, stored );
 		applySheets( document, stored, theme );

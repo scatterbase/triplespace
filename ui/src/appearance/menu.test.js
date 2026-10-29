@@ -5,7 +5,8 @@ import { initAppearance } from './menu.js';
 const DEFAULTS = { 'ui.mode': 'auto', 'ui.contrast': 'auto', 'ui.text-size': 'medium' };
 
 /**
- * A page as the server draws it: the menu's selects and the data block.
+ * A page as the server draws it: the menu's radio buttons for mode, contrast and text size,
+ * its selects for the rest, and the data block.
  *
  * @param {boolean} signedIn
  */
@@ -18,33 +19,55 @@ function page( signedIn ) {
 	if ( signedIn ) {
 		root.setAttribute( 'data-appearance', 'account' );
 	}
-	const choices = Object.assign( {}, core.CHOICES, { 'ui.palette': [ '', 'parchment-rg' ] } );
-	const selects = Object.entries( choices ).map( ( [ k, cs ] ) => `<select data-key="${ k }">${ cs.map( ( c ) => `<option value="${ c }">${ c }</option>` ).join( '' ) }</select>` ).join( '' );
+	const choices = Object.assign( {}, core.CHOICES, { 'ui.palette': [ '', 'encyclopedia' ] } );
+	const icons = [ 'ui.mode', 'ui.contrast', 'ui.text-size' ];
+	const selects = Object.entries( choices ).map( ( [ k, cs ] ) => ( icons.includes( k ) ?
+		`<fieldset>${ cs.map( ( c ) => `<label><input type="radio" name="${ k }" value="${ c }" data-key="${ k }">${ c }</label>` ).join( '' ) }</fieldset>` :
+		`<select data-key="${ k }">${ cs.map( ( c ) => `<option value="${ c }">${ c }</option>` ).join( '' ) }</select>` ) ).join( '' );
 	document.head.innerHTML = `<script type="application/json" id="ts-theme">${ JSON.stringify( {
 		palette: 'parchment', typeset: 'default26',
-		palettes: { parchment: '/p-parchment.css', 'parchment-rg': '/p-ob.css' },
+		palettes: { parchment: '/p-parchment.css', encyclopedia: '/p-encyclopedia.css' },
 		typesets: { default26: '/t-default26.css' }
 	} ) }</script><link id="ts-palette" href="/p-parchment.css"><link id="ts-typeset" href="/t-default26.css">`;
 	document.body.innerHTML = `<form class="ts-appearance__form">${ selects }</form>` +
 		`<script type="application/json" id="ts-appearance-data">${ JSON.stringify( {
 			signedIn,
 			keys: Object.keys( choices ),
-			choices: { 'ui.palette': [ 'parchment-rg' ], 'ui.typeset': [] },
+			choices: { 'ui.palette': [ 'encyclopedia' ], 'ui.typeset': [] },
 			values: signedIn ? Object.assign( { 'ui.palette': '' }, DEFAULTS ) : null
 		} ) }</script>`;
 	window.tsAppearance = core;
 }
 
 /**
- * Chooses a value in the menu, as a reader does.
+ * Chooses a value in the menu, as a reader does: clicks its button, or picks it.
  *
  * @param {string} key
  * @param {string} value
  */
 function choose( key, value ) {
+	const radio = document.querySelector( `input[data-key="${ key }"][value="${ value }"]` );
+	if ( radio ) {
+		// As a click does, though a click on the button already chosen changes nothing;
+		// the race below is of a reader choosing a value the account shows.
+		radio.checked = true;
+		radio.dispatchEvent( new Event( 'change', { bubbles: true } ) );
+		return;
+	}
 	const s = document.querySelector( `select[data-key="${ key }"]` );
 	s.value = value;
 	s.dispatchEvent( new Event( 'change', { bubbles: true } ) );
+}
+
+/**
+ * The button chosen in a group.
+ *
+ * @param {string} key
+ * @return {string|undefined}
+ */
+function chosen( key ) {
+	const r = document.querySelector( `input[data-key="${ key }"]:checked` );
+	return r ? r.value : undefined;
 }
 
 /**
@@ -99,6 +122,7 @@ describe( 'the Appearance menu', () => {
 		expect( a.saved ).toEqual( [ 'ui.contrast=more' ] );
 		expect( core.read( localStorage )[ 'ui.contrast' ] ).toBe( 'more' );
 		expect( core.source( localStorage ) ).toBe( 'account' );
+		expect( chosen( 'ui.contrast' ) ).toBe( 'more' );
 	} );
 
 	it( 'carries choices made while not logged in to an account without its own', async () => {
@@ -112,6 +136,7 @@ describe( 'the Appearance menu', () => {
 		await flush();
 		await flush();
 		expect( document.documentElement.getAttribute( 'data-mode' ) ).toBe( 'dark' );
+		expect( chosen( 'ui.mode' ) ).toBe( 'dark' );
 		expect( a.saved ).toEqual( [ 'ui.mode=dark' ] );
 		expect( core.source( localStorage ) ).toBe( 'account' );
 	} );
@@ -160,17 +185,41 @@ describe( 'the Appearance menu', () => {
 		expect( a.fetch ).not.toHaveBeenCalled();
 	} );
 
+	it( 'shows the stored choices and applies a colour-vision alternate', () => {
+		core.write( localStorage, { 'ui.text-size': 'large' }, 'browser' );
+		const a = api( false );
+		vi.stubGlobal( 'fetch', a.fetch );
+		page( false );
+		initAppearance( document, window );
+		expect( chosen( 'ui.text-size' ) ).toBe( 'large' );
+		choose( 'ui.vision', 'rg' );
+		expect( document.documentElement.getAttribute( 'data-vision' ) ).toBe( 'rg' );
+		expect( core.read( localStorage ) ).toEqual( { 'ui.text-size': 'large', 'ui.vision': 'rg' } );
+		choose( 'ui.vision', 'none' );
+		expect( document.documentElement.hasAttribute( 'data-vision' ) ).toBe( false );
+	} );
+
+	it( 'reads a retired palette kept in the browser as the alternate', () => {
+		localStorage.setItem( core.STORAGE_KEY, JSON.stringify( { 'ui.palette': 'parchment-rg' } ) );
+		const a = api( false );
+		vi.stubGlobal( 'fetch', a.fetch );
+		page( false );
+		initAppearance( document, window );
+		expect( document.querySelector( 'select[data-key="ui.vision"]' ).value ).toBe( 'rg' );
+		expect( document.querySelector( 'select[data-key="ui.palette"]' ).value ).toBe( '' );
+	} );
+
 	it( 'swaps the palette\'s stylesheet at once, and keeps the choice in the browser', () => {
 		const a = api( false );
 		vi.stubGlobal( 'fetch', a.fetch );
 		page( false );
 		initAppearance( document, window );
-		choose( 'ui.palette', 'parchment-rg' );
-		expect( document.getElementById( 'ts-palette' ).getAttribute( 'href' ) ).toBe( '/p-ob.css' );
-		expect( core.read( localStorage, { 'ui.palette': [ 'parchment-rg' ] } ) ).toEqual( { 'ui.palette': 'parchment-rg' } );
+		choose( 'ui.palette', 'encyclopedia' );
+		expect( document.getElementById( 'ts-palette' ).getAttribute( 'href' ) ).toBe( '/p-encyclopedia.css' );
+		expect( core.read( localStorage, { 'ui.palette': [ 'encyclopedia' ] } ) ).toEqual( { 'ui.palette': 'encyclopedia' } );
 		choose( 'ui.palette', '' );
 		expect( document.getElementById( 'ts-palette' ).getAttribute( 'href' ) ).toBe( '/p-parchment.css' );
-		expect( core.read( localStorage, { 'ui.palette': [ 'parchment-rg' ] } ) ).toEqual( {} );
+		expect( core.read( localStorage, { 'ui.palette': [ 'encyclopedia' ] } ) ).toEqual( {} );
 	} );
 
 	it( 'resets the account\'s palette when the reader goes back to the wiki\'s', async () => {
@@ -179,11 +228,11 @@ describe( 'the Appearance menu', () => {
 		vi.stubGlobal( 'fetch', a.fetch );
 		page( true );
 		initAppearance( document, window );
-		choose( 'ui.palette', 'parchment-rg' );
+		choose( 'ui.palette', 'encyclopedia' );
 		await flush();
 		choose( 'ui.palette', '' );
 		await flush();
 		await flush();
-		expect( a.saved ).toEqual( [ 'ui.palette=parchment-rg', 'ui.palette' ] );
+		expect( a.saved ).toEqual( [ 'ui.palette=encyclopedia', 'ui.palette' ] );
 	} );
 } );

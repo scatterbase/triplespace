@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-10-20 (A5)
+- **Updated:** 2026-10-28 (A6)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0047](0047-special-pages.md)
 - **Uses:** [0016](0016-permissions-and-access-control.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md), [0033](0033-backend-stack.md), [0039](0039-files-and-media.md), [0043](0043-lua-modules.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -44,7 +44,7 @@ James's direction, from the design discussion of 2026-10-01, was that the ADR se
 
 ### 4. Site styles: one designated page (settles 0042 Q3)
 
-*Changed by A5.*
+*Changed by A5, A6.*
 
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §6.4.*
 
@@ -179,3 +179,14 @@ Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §6.3
 > The tag emits, in place, a `<style data-mw-deduplicate="TemplateStyles:r{hash}">` element holding the sheet's sanitized form, with `wrapper="…"` prefixing every selector further, as TemplateStyles does. **One `<style>` per distinct sheet per page:** the renderer keeps the first and drops repeats by their key, which is what MediaWiki and Parsoid do, so a page with two hundred citations loads the citation sheet once.
 
 > **Both renderers.** The built-in renderer renders the element as above. Parsoid asks the render-scoped `action=parse` for tags it does not implement natively (§3.1), and gets the same element with `modules` empty. **Mirrored HTML** carries Wikipedia's `<style>` elements already; [0053](../decisions/0053-mirrored-pages.md) §2 passes them through `sanitize` and keeps their keys, so a mirrored page and a fork of it deduplicate the same way.
+
+### A6. The Interface namespace
+
+- **Date:** 2026-10-28
+- **Source:** [0095](0095-the-interface-namespace.md) §2
+- **Change:** amends §4
+- **Summary:** The site styles stay one Project page; the Interface namespace now holds plain-text messages, so there is still no `MediaWiki:Common.css` (0095 §1, §2).
+
+Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §6.4, as it stood):
+
+> The MediaWiki namespace (8) stays reserved ([0008](../decisions/0008-namespaces-and-document-pages.md) §2); the page is
