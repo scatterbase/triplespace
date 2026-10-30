@@ -24,23 +24,44 @@
 //!   empty-group report (09 §4.5).
 //! - [`notifications`]: `Special:Notifications`, the viewer's inbox (19 §6.2).
 //! - [`watchlist`]: `Special:Watchlist` and `Special:EditWatchlist` (19 §6.2).
+//! - [`blank`]: `Special:BlankPage`, the frame around nothing.
+//! - [`info`]: `Special:NamespaceInfo`, `Special:ListGroupRights`, `Special:ListDatatypes`
+//!   and `Special:MyLanguageFallbackChain`, read-only pages about the wiki.
+//! - [`allmessages`]: `Special:AllMessages`, the interface messages and their overrides.
+//! - [`compare`]: `Special:ComparePages`, any two pages or revisions.
+//! - `Special:ProtectedTitles` is [`protected::titles`].
+//! - [`set_terms`]: `Special:SetLabel`, `Special:SetDescription`, `Special:SetAliases` and
+//!   `Special:SetLabelDescriptionAliases`, Wikibase's term forms.
+//! - [`providers`]: `Special:Providers`, the data providers this instance knows.
+//! - `Special:NewPages` is a fourth feed in [`changes`].
+//! - [`allpages`]: `Special:AllPages` and `Special:PrefixIndex`.
+//! - [`redirects`]: MediaWiki's redirecting pages (`MyPage`, `EditPage`, `TalkPage`,
+//!   `PermanentLink`, `Diff`, `Redirect`, `EntityPage` and the rest; 21 §6.1).
 //!
 //! A special page the site does not serve is a `404`, as MediaWiki answers for a special
 //! page it does not have.
 
+pub mod allmessages;
+pub mod allpages;
+pub mod blank;
 pub mod block;
 pub mod changes;
+pub mod compare;
 pub mod controls;
 pub mod external;
 pub mod index;
+pub mod info;
 pub mod login;
 pub mod movepage;
 pub mod new_entity;
 pub mod notifications;
 pub mod preferences;
 pub mod protected;
+pub mod providers;
+pub mod redirects;
 pub mod register;
 pub mod search;
+pub mod set_terms;
 pub mod settings;
 pub mod undelete;
 pub mod userrights;
@@ -79,7 +100,25 @@ pub async fn serve(
     if let Some(kind) = new_entity::Kind::of(&name) {
         return Some(new_entity::serve(site, headers, peer, kind, title, params).await);
     }
+    if let Some(which) = redirects::Which::of(&name) {
+        return Some(redirects::serve(site, headers, peer, which, title, params).await);
+    }
+    if let Some(which) = info::Which::of(&name) {
+        return Some(info::serve(site, headers, peer, which, params).await);
+    }
+    if let Some(which) = allpages::Which::of(&name) {
+        return Some(allpages::serve(site, headers, peer, which, title, params).await);
+    }
+    if let Some(which) = set_terms::Which::of(&name) {
+        return Some(set_terms::serve(site, headers, peer, which, title, params).await);
+    }
     match name.as_str() {
+        "BlankPage" => Some(blank::serve(site, headers, peer, params).await),
+        "AllMessages" => Some(allmessages::serve(site, headers, peer, params).await),
+        "ComparePages" => Some(compare::serve(site, headers, peer, params).await),
+        "ProtectedTitles" => Some(protected::titles(site, headers, peer, params).await),
+        "Providers" => Some(providers::serve(site, headers, peer, params).await),
+        "NewPages" => Some(changes::new_pages(site, headers, peer, params).await),
         "Search" => Some(search::serve(site, headers, peer, query).await),
         "RecentChanges" => Some(changes::recent_changes(site, headers, peer, params).await),
         "Contributions" => Some(changes::contributions(site, headers, peer, title, params).await),
@@ -132,6 +171,9 @@ pub async fn post(
     let name = name_of(title)?;
     if let Some(kind) = new_entity::Kind::of(&name) {
         return Some(new_entity::post(site, headers, peer, kind, query, params).await);
+    }
+    if let Some(which) = set_terms::Which::of(&name) {
+        return Some(set_terms::post(site, headers, peer, which, query, params).await);
     }
     match name.as_str() {
         "UserLogin" => Some(login::post_login(site, headers, peer, query, form).await),

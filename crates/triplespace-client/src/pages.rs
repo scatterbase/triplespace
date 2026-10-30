@@ -135,6 +135,44 @@ pub enum Lookup<T> {
     Invalid,
 }
 
+/// A page named by a number rather than a title.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PageRef {
+    /// A page ID.
+    Page(u64),
+    /// A revision ID: the page the revision belongs to.
+    Revision(u64),
+}
+
+/// What `list=allpages` is asked (`Special:AllPages`, `Special:PrefixIndex`).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct PageListQuery {
+    /// `apnamespace`.
+    pub namespace: i64,
+    /// `apfrom`: the first title, without the namespace.
+    pub from: String,
+    /// `apto`: the last title, without the namespace.
+    pub to: String,
+    /// `apprefix`.
+    pub prefix: String,
+    /// `apfilterredir`: `redirects`, `nonredirects`, or all when empty.
+    pub filter_redirects: String,
+    /// `apdir=descending`.
+    pub descending: bool,
+    /// `aplimit`.
+    pub limit: u32,
+}
+
+/// A page of `list=allpages`: the titles, prefixed as the API writes them, and the
+/// title the next page starts at.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct PageList {
+    /// The titles.
+    pub titles: Vec<String>,
+    /// `apcontinue`.
+    pub next: Option<String>,
+}
+
 /// What `prop=info` says of a page.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct PageInfo {
@@ -193,6 +231,27 @@ pub enum DiffAsk {
     Relative(u64, &'static str),
     /// A page's latest revision against the one before it.
     Latest(String),
+    /// Any two pages or revisions (`Special:ComparePages`): `fromtitle` or `fromrev`,
+    /// `totitle` or `torev`.
+    Between(DiffEnd, DiffEnd),
+}
+
+/// One side of [`DiffAsk::Between`]: a page's latest revision, or one revision.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DiffEnd {
+    /// A page, by title: its latest revision.
+    Title(String),
+    /// A revision, by ID.
+    Revision(u64),
+}
+
+impl DiffEnd {
+    fn param(&self, side: &str) -> String {
+        match self {
+            Self::Title(t) => format!("{side}title={}", q(t)),
+            Self::Revision(r) => format!("{side}rev={r}"),
+        }
+    }
 }
 
 fn diff_side(c: &Value, prefix: &str) -> Option<DiffSide> {
@@ -387,12 +446,89 @@ impl Client {
         incoming: &Incoming,
         title: &str,
     ) -> Result<Fetched<Lookup<PageInfo>>, ClientError> {
+        self.info_of(incoming, &format!("titles={}", q(title)))
+            .await
+    }
+
+    /// `list=allpages`, as asked.
+    ///
+    /// # Errors
+    ///
+    /// The API's refusal, or the API away or unreadable.
+    pub async fn all_pages(
+        &self,
+        incoming: &Incoming,
+        ask: &PageListQuery,
+    ) -> Result<Fetched<PageList>, ClientError> {
+        let mut path = format!(
+            "/w/api.php?action=query&list=allpages&apnamespace={}&aplimit={}&format=json&formatversion=2",
+            ask.namespace, ask.limit
+        );
+        for (k, v) in [
+            ("apfrom", &ask.from),
+            ("apto", &ask.to),
+            ("apprefix", &ask.prefix),
+            ("apfilterredir", &ask.filter_redirects),
+        ] {
+            if !v.is_empty() {
+                path.push('&');
+                path.push_str(k);
+                path.push('=');
+                path.push_str(&q(v));
+            }
+        }
+        if ask.descending {
+            path.push_str("&apdir=descending");
+        }
+        let r = self.get(incoming, &path).await?;
+        let v = check(&r)?;
+        let titles = v["query"]["allpages"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|p| p["title"].as_str().map(str::to_string))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let next = v["continue"]["apcontinue"]
+            .as_str()
+            .map(|c| c.replace('_', " "));
+        Ok(Fetched {
+            value: PageList { titles, next },
+            cache: CacheInfo::of(&r),
+        })
+    }
+
+    /// `prop=info` of the page with a page ID (`pageids=`) or of the page a revision
+    /// belongs to (`revids=`): what `Special:Redirect` and `Special:PermanentLink` need
+    /// to find the title. An ID that names nothing the viewer may see is
+    /// [`Lookup::Missing`], with an empty title.
+    ///
+    /// # Errors
+    ///
+    /// The API away or unreadable.
+    pub async fn page_info_by(
+        &self,
+        incoming: &Incoming,
+        id: PageRef,
+    ) -> Result<Fetched<Lookup<PageInfo>>, ClientError> {
+        let selector = match id {
+            PageRef::Page(n) => format!("pageids={n}"),
+            PageRef::Revision(n) => format!("revids={n}"),
+        };
+        self.info_of(incoming, &selector).await
+    }
+
+    async fn info_of(
+        &self,
+        incoming: &Incoming,
+        selector: &str,
+    ) -> Result<Fetched<Lookup<PageInfo>>, ClientError> {
         let r = self
             .get(
                 incoming,
                 &format!(
-                    "/w/api.php?action=query&prop=info&titles={}&format=json&formatversion=2",
-                    q(title)
+                    "/w/api.php?action=query&prop=info&{selector}&format=json&formatversion=2"
                 ),
             )
             .await?;
@@ -434,6 +570,7 @@ impl Client {
             DiffAsk::Revisions(from, to) => format!("fromrev={from}&torev={to}"),
             DiffAsk::Relative(from, rel) => format!("fromrev={from}&torelative={rel}"),
             DiffAsk::Latest(title) => format!("fromtitle={}&torelative=prev", q(title)),
+            DiffAsk::Between(from, to) => format!("{}&{}", from.param("from"), to.param("to")),
         };
         let table = format!(
             "/w/api.php?action=compare&{which}&prop=diff%7Cids%7Ctitle%7Cuser%7Ccomment%7Csize%7Ctimestamp%7Crel&format=json&formatversion=2"

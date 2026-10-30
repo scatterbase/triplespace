@@ -26,7 +26,7 @@ use axum::response::Response;
 use scatter_wikibase_model::id::EntityId;
 use scatter_wikibase_model::value::{DataType, ValueType};
 use serde_json::{Map, Value, json};
-use triplespace_client::{CacheInfo, ClientError, Incoming};
+use triplespace_client::{CacheInfo, ClientError, Incoming, SiteInfo};
 
 use crate::Site;
 use crate::codex::{Action, Button, Field, MessageKind, Weight};
@@ -80,9 +80,11 @@ impl Kind {
     }
 }
 
-/// The data types `NewProperty` offers, in the order shown: those the entity pages have a
-/// name for.
-pub const DATATYPES: &[&str] = &[
+/// The order data types are shown in, by `NewProperty` and `Special:ListDatatypes`: the
+/// common ones first. It only orders: which types are offered is what the API registers
+/// (`general.wikibase-propertytypes`), and a registered type not named here follows these,
+/// by ID.
+const DISPLAY_ORDER: &[&str] = &[
     "wikibase-item",
     "wikibase-property",
     "string",
@@ -93,22 +95,46 @@ pub const DATATYPES: &[&str] = &[
     "globe-coordinate",
     "monolingualtext",
     "commonsMedia",
-    "math",
     "geo-shape",
     "tabular-data",
-    "musical-notation",
     "wikibase-domain",
 ];
+
+/// The data types the repository registers, as the API reports them, in display order:
+/// what `NewProperty` offers and `Special:ListDatatypes` lists, so the two agree with each
+/// other and with what Wikibase clients read from `siteinfo`.
+#[must_use]
+pub fn offered(site: &SiteInfo) -> Vec<String> {
+    let mut ids: Vec<String> = site
+        .property_types
+        .iter()
+        .map(|(id, _)| id.clone())
+        .collect();
+    ids.sort_by_key(|id| {
+        (
+            DISPLAY_ORDER
+                .iter()
+                .position(|d| d == id)
+                .unwrap_or(DISPLAY_ORDER.len()),
+            id.clone(),
+        )
+    });
+    ids
+}
 
 /// The data type a new property gets when the request names none: the API's own
 /// default.
 const DEFAULT_DATATYPE: &str = "string";
 
-/// A data type's name in the interface.
-fn datatype_name(m: &Messages, id: &str) -> String {
+/// A data type's name in the interface, or its ID where the interface has none.
+#[must_use]
+pub fn datatype_name(m: &Messages, id: &str) -> String {
     let key = format!("ts-datatype-{}", id.to_ascii_lowercase());
-    let name = m.get(&key);
-    if name == key { id.to_string() } else { name }
+    if m.has(&key) {
+        m.get(&key)
+    } else {
+        id.to_string()
+    }
 }
 
 /// What the form holds.
@@ -119,12 +145,14 @@ struct Input {
     description: String,
     aliases: String,
     datatype: String,
+    /// The data types offered ([`offered`]).
+    datatypes: Vec<String>,
     statements: Vec<String>,
 }
 
 impl Input {
     /// From a request: the parameters, and for a `GET` the subpage (`label/description`).
-    fn of(m: &Messages, title: Option<&str>, params: &Params) -> Self {
+    fn of(m: &Messages, datatypes: Vec<String>, title: Option<&str>, params: &Params) -> Self {
         let mut parts = title
             .and_then(|t| t.split_once('/'))
             .map(|(_, rest)| rest.splitn(2, '/').map(str::to_string).collect::<Vec<_>>())
@@ -140,8 +168,9 @@ impl Input {
             description: get("description").or(sub_description).unwrap_or_default(),
             aliases: get("aliases").unwrap_or_default(),
             datatype: get("datatype")
-                .filter(|d| DATATYPES.contains(&d.as_str()))
+                .filter(|d| datatypes.contains(d))
                 .unwrap_or_else(|| DEFAULT_DATATYPE.to_string()),
+            datatypes,
             statements: params
                 .all("statement")
                 .map(str::trim)
@@ -340,14 +369,14 @@ fn field(m: &Messages, name: &str, value: &str, key: &str, help: Option<&str>) -
 }
 
 /// The data type select of `NewProperty`.
-fn datatype_select(m: &Messages, current: &str) -> String {
+fn datatype_select(m: &Messages, datatypes: &[String], current: &str) -> String {
     let mut options = String::new();
-    for dt in DATATYPES {
+    for dt in datatypes {
         let _ = write!(
             options,
             "<option value=\"{}\"{}>{}</option>",
             esc(dt),
-            if *dt == current { " selected" } else { "" },
+            if dt == current { " selected" } else { "" },
             esc(&datatype_name(m, dt))
         );
     }
@@ -426,7 +455,7 @@ fn form(m: &Messages, kind: Kind, token: &str, input: &Input, prefills: &[Prefil
         Some("ts-new-aliases-help"),
     ));
     if kind == Kind::Property {
-        s.push_str(&datatype_select(m, &input.datatype));
+        s.push_str(&datatype_select(m, &input.datatypes, &input.datatype));
     }
     s.push_str(&statements_fieldset(m, prefills));
     let _ = write!(
@@ -545,7 +574,7 @@ pub async fn serve(
         Ok(cx) => cx,
         Err(r) => return r,
     };
-    let input = Input::of(&cx.m, Some(title), params);
+    let input = Input::of(&cx.m, offered(&cx.site), Some(title), params);
     form_page(site, &mut cx, headers, &incoming, kind, &input, &[]).await
 }
 
@@ -557,7 +586,7 @@ fn invalid(m: &Messages, kind: Kind, input: &Input) -> Option<String> {
     if input.label.is_empty() && input.description.is_empty() && input.alias_list().is_empty() {
         return Some(m.get("ts-new-insufficient"));
     }
-    if kind == Kind::Property && !DATATYPES.contains(&input.datatype.as_str()) {
+    if kind == Kind::Property && !input.datatypes.contains(&input.datatype) {
         return Some(m.get("ts-new-bad-datatype"));
     }
     None
@@ -577,7 +606,7 @@ pub async fn post(
         Ok(cx) => cx,
         Err(r) => return r,
     };
-    let mut input = Input::of(&cx.m, None, form);
+    let mut input = Input::of(&cx.m, offered(&cx.site), None, form);
     if let Some(l) = i18n::valid_code(&input.lang) {
         input.lang = l;
     }
@@ -644,8 +673,13 @@ mod tests {
     #[test]
     fn input_from_subpage_and_parameters() {
         let m = Messages::for_language("en");
+        let types: Vec<String> = ["string", "time"]
+            .iter()
+            .map(|t| (*t).to_string())
+            .collect();
         let i = Input::of(
             &m,
+            types.clone(),
             Some("Special:NewItem/Douglas Adams/English writer/x"),
             &params(&[
                 ("description", " author "),
@@ -661,6 +695,7 @@ mod tests {
         assert_eq!(i.datatype, "string");
         let p = Input::of(
             &m,
+            types.clone(),
             None,
             &params(&[
                 ("datatype", "time"),
@@ -671,7 +706,7 @@ mod tests {
         assert_eq!(p.datatype, "time");
         assert_eq!(p.lang, "de");
         assert_eq!(p.alias_list(), vec!["a", "b", "c"]);
-        let bad = Input::of(&m, None, &params(&[("datatype", "nonsense")]));
+        let bad = Input::of(&m, types, None, &params(&[("datatype", "nonsense")]));
         assert_eq!(bad.datatype, "string");
     }
 
@@ -704,6 +739,7 @@ mod tests {
             description: String::new(),
             aliases: "7|VII".into(),
             datatype: "external-id".into(),
+            datatypes: vec!["external-id".into()],
             statements: vec![],
         };
         let statement = json!({"mainsnak": {"snaktype": "value", "property": "P12"}});
@@ -753,5 +789,36 @@ mod tests {
         assert!(invalid(&m, Kind::Item, &input).is_none());
         input.lang = "not a language".into();
         assert!(invalid(&m, Kind::Item, &input).is_some());
+        // A property's data type must be one the API registers.
+        input.lang = "en".into();
+        input.datatypes = vec!["string".into()];
+        assert!(invalid(&m, Kind::Property, &input).is_none());
+        input.datatype = "math".into();
+        assert!(invalid(&m, Kind::Property, &input).is_some());
+    }
+
+    #[test]
+    fn the_api_decides_which_types_are_offered() {
+        let site = SiteInfo {
+            property_types: [
+                ("string", "string"),
+                ("edtf", "string"),
+                ("wikibase-item", "wikibase-entityid"),
+                ("commonsMedia", "string"),
+            ]
+            .iter()
+            .map(|(a, b)| ((*a).to_string(), (*b).to_string()))
+            .collect(),
+            ..SiteInfo::default()
+        };
+        // Display order first; a type it does not name after, by ID.
+        assert_eq!(
+            offered(&site),
+            ["wikibase-item", "string", "commonsMedia", "edtf"]
+        );
+        assert!(offered(&SiteInfo::default()).is_empty());
+        let m = Messages::for_language("en");
+        assert_eq!(datatype_name(&m, "wikibase-item"), "Item");
+        assert_eq!(datatype_name(&m, "edtf"), "edtf");
     }
 }

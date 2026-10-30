@@ -166,6 +166,24 @@ pub struct ProtectedRow {
     pub expiry: String,
 }
 
+/// The rows of `list=protectedpages` or `list=protectedtitles`.
+fn protected_rows(v: &Value, key: &str) -> Vec<ProtectedRow> {
+    v["query"][key]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .map(|p| ProtectedRow {
+                    title: p["title"].as_str().unwrap_or_default().to_string(),
+                    ns: p["ns"].as_i64().unwrap_or(0),
+                    kind: p["type"].as_str().unwrap_or("create").to_string(),
+                    level: p["level"].as_str().unwrap_or_default().to_string(),
+                    expiry: p["expiry"].as_str().unwrap_or("infinity").to_string(),
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 /// A set, as `list=protectedsets` lists it.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct SetInfo {
@@ -555,24 +573,34 @@ impl Client {
             )
             .await?;
         let v = check(&r)?;
-        let rows = |key: &str| -> Vec<ProtectedRow> {
-            v["query"][key]
-                .as_array()
-                .map(|a| {
-                    a.iter()
-                        .map(|p| ProtectedRow {
-                            title: p["title"].as_str().unwrap_or_default().to_string(),
-                            ns: p["ns"].as_i64().unwrap_or(0),
-                            kind: p["type"].as_str().unwrap_or("create").to_string(),
-                            level: p["level"].as_str().unwrap_or_default().to_string(),
-                            expiry: p["expiry"].as_str().unwrap_or("infinity").to_string(),
-                        })
-                        .collect()
-                })
-                .unwrap_or_default()
-        };
         Ok(Fetched {
-            value: (rows("protectedpages"), rows("protectedtitles")),
+            value: (
+                protected_rows(&v, "protectedpages"),
+                protected_rows(&v, "protectedtitles"),
+            ),
+            cache: CacheInfo::of(&r),
+        })
+    }
+
+    /// `list=protectedtitles`: the reserved titles (09 §4.8), up to 500, as
+    /// `Special:ProtectedTitles` lists them.
+    ///
+    /// # Errors
+    ///
+    /// The API's refusal, or the API away or unreadable.
+    pub async fn protected_titles(
+        &self,
+        incoming: &Incoming,
+    ) -> Result<Fetched<Vec<ProtectedRow>>, ClientError> {
+        let r = self
+            .get(
+                incoming,
+                "/w/api.php?action=query&list=protectedtitles&ptlimit=500&format=json&formatversion=2",
+            )
+            .await?;
+        let v = check(&r)?;
+        Ok(Fetched {
+            value: protected_rows(&v, "protectedtitles"),
             cache: CacheInfo::of(&r),
         })
     }

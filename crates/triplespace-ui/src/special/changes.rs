@@ -1,5 +1,7 @@
-//! `Special:RecentChanges` and `Special:Contributions` (0010 §7; 0020 §4; 19 §3.9):
-//! two feeds over one list, readable without JavaScript.
+//! `Special:RecentChanges`, `Special:Contributions`, `Special:Log` and `Special:NewPages`
+//! (0010 §7; 0020 §4; 19 §3.9; 0047 §4.4): feeds over one list, readable without
+//! JavaScript. New pages are the feed's edits that created their target (`show=new`):
+//! entities and document pages alike, as Wikidata's new pages are its new items.
 //!
 //! Both read `GET /activity` ([`triplespace_client::activity`]): recent changes is the
 //! everything set, contributions the actor set. The rows are the same, drawn the same
@@ -66,6 +68,9 @@ enum Which {
     Contributions,
     /// `Special:Log` (19 §6.3): the log rows, by type, actor and page.
     Log,
+    /// `Special:NewPages` (0047 §4.4): the edits that created a page or an entity, by
+    /// MediaWiki's `username`, `namespace` and `hidebots`.
+    NewPages,
 }
 
 /// The log types `Special:Log` offers, each a message key; any other type typed into
@@ -140,6 +145,10 @@ impl Ask {
                 .or_else(|| q.get("user").cloned())
                 .map(|u| clean(&u))
                 .filter(|u| !u.is_empty()),
+            Which::NewPages => q
+                .get("username")
+                .map(|u| clean(u))
+                .filter(|u| !u.is_empty()),
             Which::RecentChanges => None,
         };
         let log_type = match which {
@@ -160,10 +169,10 @@ impl Ask {
         Self {
             which,
             user,
-            kinds: if which == Which::Log {
-                vec!["log".into()]
-            } else {
-                kinds
+            kinds: match which {
+                Which::Log => vec!["log".into()],
+                Which::NewPages => vec!["edit".into()],
+                _ => kinds,
             },
             log_type,
             page,
@@ -195,11 +204,12 @@ impl Ask {
             log_type: self.log_type.clone(),
             kinds,
             namespaces: self.namespace.iter().cloned().collect(),
-            show: if self.hide_bots {
-                vec!["!bot".into()]
-            } else {
-                Vec::new()
-            },
+            show: self
+                .hide_bots
+                .then(|| "!bot".to_string())
+                .into_iter()
+                .chain((self.which == Which::NewPages).then(|| "new".to_string()))
+                .collect(),
             since: Some(iso8601(since)),
             limit: self.limit,
             cursor: self.cursor.clone(),
@@ -218,8 +228,14 @@ impl Ask {
                 utf8_percent_encode(&u.replace(' ', "_"), NON_ALPHANUMERIC)
             ),
             (Which::Contributions, None) => "/w/index.php?title=Special:Contributions".to_string(),
+            (Which::NewPages, _) => "/w/index.php?title=Special:NewPages".to_string(),
         };
         s.push_str("&filtered=1");
+        if self.which == Which::NewPages
+            && let Some(u) = &self.user
+        {
+            let _ = write!(s, "&username={}", utf8_percent_encode(u, NON_ALPHANUMERIC));
+        }
         for k in &self.kinds {
             let _ = write!(s, "&kind={k}");
         }
@@ -780,6 +796,7 @@ fn form_html(m: &Messages, ask: &Ask) -> String {
         (Which::Log, _) => "Special:Log".to_string(),
         (Which::Contributions, Some(u)) => format!("Special:Contributions/{u}"),
         (Which::Contributions, None) => "Special:Contributions".to_string(),
+        (Which::NewPages, _) => "Special:NewPages".to_string(),
     };
     let mut s = format!(
         "<form class=\"ts-changes-form\" action=\"/w/index.php\" method=\"get\" aria-label=\"{}\"><input type=\"hidden\" name=\"title\" value=\"{}\"><input type=\"hidden\" name=\"filtered\" value=\"1\">",
@@ -792,6 +809,16 @@ fn form_html(m: &Messages, ask: &Ask) -> String {
             "<label class=\"ts-changes-form__field\"><span>{}</span> <input class=\"cdx-text-input__input\" type=\"text\" name=\"target\" value=\"{}\"></label>",
             esc(&m.get("ts-contributions-user")),
             esc(ask.user.as_deref().unwrap_or(""))
+        );
+    }
+    if ask.which == Which::NewPages {
+        let _ = write!(
+            s,
+            "<label class=\"ts-changes-form__field\"><span>{}</span> <input class=\"cdx-text-input__input\" type=\"text\" name=\"username\" value=\"{}\"></label><label class=\"cdx-checkbox cdx-checkbox--inline\"><input class=\"cdx-checkbox__input\" type=\"checkbox\" name=\"bots\" value=\"1\"{}><span class=\"cdx-checkbox__icon\"></span><span class=\"cdx-checkbox__label\">{}</span></label>",
+            esc(&m.get("ts-newpages-user")),
+            esc(ask.user.as_deref().unwrap_or("")),
+            if ask.hide_bots { "" } else { " checked" },
+            esc(&m.get("ts-changes-bots"))
         );
     }
     if ask.which == Which::Log {
@@ -827,27 +854,6 @@ fn form_html(m: &Messages, ask: &Ask) -> String {
             esc(ask.page.as_deref().unwrap_or("")),
         );
     }
-    let select = |s: &mut String,
-                  name: &str,
-                  label: &str,
-                  options: &[(String, String)],
-                  current: &str| {
-        let _ = write!(
-            s,
-            "<label class=\"ts-changes-form__field\"><span>{}</span> <select class=\"cdx-select\" name=\"{name}\">",
-            esc(label)
-        );
-        for (value, text) in options {
-            let _ = write!(
-                s,
-                "<option value=\"{}\"{}>{}</option>",
-                esc(value),
-                if value == current { " selected" } else { "" },
-                esc(text)
-            );
-        }
-        s.push_str("</select></label>");
-    };
     if ask.which == Which::Log {
         let days: Vec<(String, String)> = DAYS
             .iter()
@@ -858,7 +864,7 @@ fn form_html(m: &Messages, ask: &Ask) -> String {
                 )
             })
             .collect();
-        select(
+        select_html(
             &mut s,
             "days",
             &m.get("ts-changes-days"),
@@ -869,7 +875,7 @@ fn form_html(m: &Messages, ask: &Ask) -> String {
             .iter()
             .map(|l| (l.to_string(), l.to_string()))
             .collect();
-        select(
+        select_html(
             &mut s,
             "limit",
             &m.get("ts-changes-limit"),
@@ -883,6 +889,15 @@ fn form_html(m: &Messages, ask: &Ask) -> String {
         );
         return s;
     }
+    if ask.which != Which::NewPages {
+        kinds_html(&mut s, m, ask);
+    }
+    s.push_str(&rest_of_form(m, ask));
+    s
+}
+
+/// The row kinds and the bots box, for every feed but the log and new pages.
+fn kinds_html(s: &mut String, m: &Messages, ask: &Ask) {
     s.push_str("<fieldset class=\"ts-changes-form__kinds\"><legend>");
     s.push_str(&esc(&m.get("ts-changes-kinds")));
     s.push_str("</legend>");
@@ -904,13 +919,18 @@ fn form_html(m: &Messages, ask: &Ask) -> String {
         if ask.hide_bots { "" } else { " checked" },
         esc(&m.get("ts-changes-bots"))
     );
+}
+
+/// The namespace, the window, the page size and the button.
+fn rest_of_form(m: &Messages, ask: &Ask) -> String {
+    let mut s = String::new();
     let mut namespaces = vec![(String::new(), m.get("ts-changes-namespace-all"))];
     namespaces.extend(
         NAMESPACES
             .iter()
             .map(|(n, msg)| ((*n).to_string(), m.get(msg))),
     );
-    select(
+    select_html(
         &mut s,
         "namespace",
         &m.get("ts-changes-namespace"),
@@ -926,7 +946,7 @@ fn form_html(m: &Messages, ask: &Ask) -> String {
             )
         })
         .collect();
-    select(
+    select_html(
         &mut s,
         "days",
         &m.get("ts-changes-days"),
@@ -937,7 +957,7 @@ fn form_html(m: &Messages, ask: &Ask) -> String {
         .iter()
         .map(|l| (l.to_string(), l.to_string()))
         .collect();
-    select(
+    select_html(
         &mut s,
         "limit",
         &m.get("ts-changes-limit"),
@@ -950,6 +970,31 @@ fn form_html(m: &Messages, ask: &Ask) -> String {
         esc(&m.get("ts-changes-apply"))
     );
     s
+}
+
+/// A labelled menu of the form.
+fn select_html(
+    s: &mut String,
+    name: &str,
+    label: &str,
+    options: &[(String, String)],
+    current: &str,
+) {
+    let _ = write!(
+        s,
+        "<label class=\"ts-changes-form__field\"><span>{}</span> <select class=\"cdx-select\" name=\"{name}\">",
+        esc(label)
+    );
+    for (value, text) in options {
+        let _ = write!(
+            s,
+            "<option value=\"{}\"{}>{}</option>",
+            esc(value),
+            if value == current { " selected" } else { "" },
+            esc(text)
+        );
+    }
+    s.push_str("</select></label>");
 }
 
 /// The pager: **Newest** when on a later page, **Older** when there is one.
@@ -1045,6 +1090,7 @@ async fn serve_page(
         Which::RecentChanges => "Special:RecentChanges",
         Which::Contributions => "Special:Contributions",
         Which::Log => "Special:Log",
+        Which::NewPages => "Special:NewPages",
     };
     if !cx.features.has(Feature::RecentChanges) {
         return pages::no_page(&cx, headers, title_key.into());
@@ -1073,6 +1119,7 @@ async fn serve_page(
         (Some(p), _, _) if p.rows.is_empty() => {
             let text = match (&ask.user, which) {
                 (Some(u), Which::Contributions) => m.with("ts-contributions-none", &[u]),
+                (_, Which::NewPages) => m.get("ts-newpages-none"),
                 _ => m.get("ts-changes-none"),
             };
             let _ = write!(body, "<p class=\"ts-empty\">{}</p>", esc(&text));
@@ -1095,6 +1142,7 @@ async fn serve_page(
         (Which::Log, _) => m.get("ts-log-title"),
         (Which::Contributions, Some(u)) => m.with("ts-contributions-title", &[u]),
         (Which::Contributions, None) => m.get("ts-contributions-title-none"),
+        (Which::NewPages, _) => m.get("ts-newpages-title"),
     };
     let returnto = match (which, &ask.user) {
         (Which::Contributions, Some(u)) => format!("Special:Contributions/{u}"),
@@ -1133,6 +1181,11 @@ pub async fn recent_changes(
     params: &Params,
 ) -> Response {
     serve_page(site, headers, peer, Which::RecentChanges, None, params).await
+}
+
+/// `Special:NewPages`.
+pub async fn new_pages(site: &Site, headers: &HeaderMap, peer: Peer, params: &Params) -> Response {
+    serve_page(site, headers, peer, Which::NewPages, None, params).await
 }
 
 /// `Special:Contributions`, `Special:Contributions/{user}`.
@@ -1218,6 +1271,29 @@ mod tests {
         assert_eq!(b.user.as_deref(), Some("Bob"));
         let c = Ask::of(Which::Contributions, &params(&[("target", "")]), None);
         assert_eq!(c.user, None);
+    }
+
+    #[test]
+    fn new_pages_are_the_creating_edits() {
+        let a = Ask::of(
+            Which::NewPages,
+            &params(&[("username", " Bob "), ("hidebots", "1"), ("kind", "job")]),
+            None,
+        );
+        let q = a.query(10_000_000, "en", None);
+        assert_eq!(
+            q.kinds,
+            ["edit", "erased"],
+            "edits only, whatever the form says"
+        );
+        assert_eq!(q.show, ["!bot", "new"]);
+        assert_eq!(q.actor.as_deref(), Some("Bob"));
+        assert!(
+            a.href(None)
+                .starts_with("/w/index.php?title=Special:NewPages&filtered=1&username=Bob")
+        );
+        let b = Ask::of(Which::NewPages, &params(&[]), None);
+        assert_eq!(b.query(10_000_000, "en", None).show, ["new"]);
     }
 
     #[test]

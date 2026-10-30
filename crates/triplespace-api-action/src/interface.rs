@@ -190,6 +190,9 @@ pub struct AllMessages {
     pub nocontent: bool,
     /// `amincludelocal`: with `*`, keys only the wiki has.
     pub includelocal: bool,
+    /// `amprop=default`: each message's shipped text too, as `default` (or
+    /// `defaultmissing`), as MediaWiki gives it.
+    pub default: bool,
 }
 
 /// `meta=allmessages` (0095 §8): the messages asked for, each the wiki's override where it
@@ -275,6 +278,23 @@ pub fn allmessages(
                 );
             }
         }
+        if ask.default {
+            match default {
+                Some(text) => {
+                    m.insert("default".into(), json!(with_args(text, &args)));
+                }
+                None => {
+                    m.insert(
+                        "defaultmissing".into(),
+                        if formatversion == 2 {
+                            json!(true)
+                        } else {
+                            json!("")
+                        },
+                    );
+                }
+            }
+        }
         out.push(Value::Object(m));
     }
     out
@@ -350,5 +370,19 @@ mod tests {
         assert_eq!(names, ["sidebar", "ts-new"]);
         assert_eq!(v[0]["*"], "* navigation");
         assert_eq!(v[0]["customised"], "");
+        assert!(v[0].get("default").is_none() && v[0].get("defaultmissing").is_none());
+
+        // `amprop=default`: the shipped text beside the override, or that there is none.
+        let with_default = AllMessages {
+            messages: vec!["ts-new".into(), "sidebar".into()],
+            default: true,
+            ..AllMessages::default()
+        };
+        let v = allmessages(&o, &with_default, "en", 2);
+        assert_eq!(v[0]["content"], "Create $1");
+        assert_ne!(v[0]["default"], "Create $1");
+        assert!(v[0]["default"].is_string());
+        assert_eq!(v[1]["content"], "* navigation");
+        assert_eq!(v[1]["defaultmissing"], true);
     }
 }

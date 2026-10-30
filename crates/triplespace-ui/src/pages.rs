@@ -166,7 +166,8 @@ pub fn incoming(headers: &HeaderMap, peer: Peer) -> Incoming {
 ///
 /// # Errors
 ///
-/// The `503` page when the API cannot be reached or is too old.
+/// The `503` page when the API cannot be reached or is too old; the `502` page when its
+/// `siteinfo` or `userinfo` answer cannot be read.
 pub async fn context(
     site: &Site,
     incoming: &Incoming,
@@ -185,7 +186,7 @@ pub async fn context(
     } else {
         (client.siteinfo(incoming).await, None, None)
     };
-    let si = si.map_err(|e| unavailable(incoming, &e, "ts-api-unavailable"))?;
+    let si = si.map_err(|e| unavailable(incoming, &e, failure_key(&e)))?;
     if si.value.api_version < MIN_API_VERSION {
         return Err(unavailable(
             incoming,
@@ -203,7 +204,7 @@ pub async fn context(
     let mut groups = Vec::new();
     let user = match ui {
         Some(ui) => {
-            let ui = ui.map_err(|e| unavailable(incoming, &e, "ts-api-unavailable"))?;
+            let ui = ui.map_err(|e| unavailable(incoming, &e, failure_key(&e)))?;
             inputs.push(ui.cache);
             if !ui.value.anon {
                 // A page drawn for a signed-in viewer is theirs alone, whatever its
@@ -251,9 +252,25 @@ pub async fn context(
     })
 }
 
-/// The `503` page: the frame, the shipped theme, and the reason.
+/// The frame's message for a failed call: an answer the site could not read is not the
+/// API being away, and says so.
+fn failure_key(error: &ClientError) -> &'static str {
+    match error {
+        ClientError::Unexpected(_) => "ts-api-unexpected",
+        _ => "ts-api-unavailable",
+    }
+}
+
+/// The page when the frame's own calls fail, with the shipped theme and the reason: `503`
+/// with `Retry-After` when the API is away or too old, `502` when it answered something
+/// the site cannot read, which waiting will not mend.
 fn unavailable(incoming: &Incoming, error: &ClientError, key: &str) -> Response {
-    eprintln!("triplespace-ui: the API is unavailable: {error}");
+    let unreadable = key == "ts-api-unexpected";
+    if unreadable {
+        eprintln!("triplespace-ui: the API's answer could not be read: {error}");
+    } else {
+        eprintln!("triplespace-ui: the API is unavailable: {error}");
+    }
     let m = Messages::for_language("en");
     let sitename = incoming.host().unwrap_or("Triplespace").to_string();
     let text = m.get(key);
@@ -275,16 +292,22 @@ fn unavailable(incoming: &Incoming, error: &ClientError, key: &str) -> Response 
         Ok(h) => h,
         Err(e) => return render_failed(&e),
     };
-    (
+    let mut r = (
         StatusCode::SERVICE_UNAVAILABLE,
         [
             (header::CONTENT_TYPE, "text/html; charset=utf-8"),
             (header::CACHE_CONTROL, "no-store"),
-            (header::RETRY_AFTER, RETRY_AFTER),
         ],
         html,
     )
-        .into_response()
+        .into_response();
+    if unreadable {
+        *r.status_mut() = StatusCode::BAD_GATEWAY;
+    } else {
+        r.headers_mut()
+            .insert(header::RETRY_AFTER, HeaderValue::from_static(RETRY_AFTER));
+    }
+    r
 }
 
 /// A call a page needed failed after the frame's had succeeded: the API is away (`503`),
@@ -495,7 +518,7 @@ fn first_upper(t: &str) -> String {
 
 /// A title with the project namespace written canonically: `librarybase:Home` and
 /// `project:home` are `Project:Home`.
-fn canonical(title: &str, sitename: &str) -> String {
+pub(crate) fn canonical(title: &str, sitename: &str) -> String {
     let t = title.replace('_', " ");
     if let Some((ns, rest)) = t.split_once(':')
         && (ns.trim().eq_ignore_ascii_case("project") || ns.trim().eq_ignore_ascii_case(sitename))

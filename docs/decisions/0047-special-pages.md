@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-20 (A25)
+- **Updated:** 2026-10-29 (A26)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0029](0029-resolver-namespaces.md), [0031](0031-property-constraints.md), [0042](0042-template-expansion-and-parsoid.md), [0046](0046-primary-tenant.md)
 - **Uses:** [0019](0019-discussions.md), [0021](0021-notifications.md), [0028](0028-tenancy-policy.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md)
@@ -91,6 +91,8 @@ James's direction, from the design discussion of 2026-09-30:
 *Current text: [21](../architecture/21-special-pages.md) §2.5.*
 
 ### 5. Wikibase compatibility forms
+
+*Changed by A26.*
 
 *Current text: [21](../architecture/21-special-pages.md) §3.1.*
 
@@ -511,3 +513,14 @@ Replaced text ([21](../architecture/21-special-pages.md) §8, as it stood):
 Replaced text ([21](../architecture/21-special-pages.md) §8, as it stood):
 
 > (193 pages: 173 served,
+
+### A26. `NewProperty` offers the data types the API registers
+
+- **Date:** 2026-10-29
+- **Source:** Direct: James, design discussion of 2026-10-29
+- **Change:** amends §5
+- **Summary:** `Special:NewProperty` offered fifteen data types, those the entity pages had a name for, while `siteinfo`'s `wikibase-propertytypes` reported thirteen: Wikibase's twelve built-in types and `wikibase-domain` ([0009](0009-keyed-entity-types-and-domain.md)). The two extra were `math` and `musical-notation`, which Wikibase registers only with the Math and Score extensions, and which no ADR adopts: Triplespace validates neither TeX nor LilyPond, renders neither, and has no RDF type for them; the entity pages name them only so that mirrored Wikidata properties of those types display. James asked for the right answer and for the two lists to agree. `wikibase-propertytypes` is the authority, as it is in Wikibase, where it is the set a property may be created with: `NewProperty` offers exactly the registered types, and `Special:ListDatatypes` lists the same ones in the same order. A data type joins the list when an ADR adopts it and the API serves it.
+
+Replaced text ([21](../architecture/21-special-pages.md) §3.1, as it stood):
+
+> - `NewProperty` needs `property-create` and a `datatype`.

@@ -42,15 +42,18 @@ pub mod watch;
 
 pub use account::{LoginResult, WithCookies};
 pub use activity::{ActivityPage, ActivityQuery, ActivityRow};
-pub use api::{CacheInfo, ChipColours, Fetched, ProviderInfo, ProviderType, SiteInfo, UserInfo};
-pub use create::Created;
+pub use api::{
+    CacheInfo, ChipColours, Fetched, MessageQuery, MessageRow, NamespaceRow, ProviderInfo,
+    ProviderType, SiteInfo, UserInfo,
+};
+pub use create::{Created, TermEdit};
 pub use entity::{Entities, Provenance};
 pub use forward::Incoming;
 pub use issuers::{AccountInfo, LoginIssuer, Pending};
 pub use notifications::{Counts, Item as Notification, Listing as NotificationPage};
 pub use pages::{
-    DiffAsk, DiffSide, EditForm, Lookup, PageCategory, PageDiff, PageInfo, Parsed, Saved, Source,
-    Visibility,
+    DiffAsk, DiffEnd, DiffSide, EditForm, Lookup, PageCategory, PageDiff, PageInfo, PageList,
+    PageListQuery, PageRef, Parsed, Saved, Source, Visibility,
 };
 pub use register::{
     AccountRequest, ChallengeInfo, CreateFields, CreateForm, CreateResult, LoginForm,

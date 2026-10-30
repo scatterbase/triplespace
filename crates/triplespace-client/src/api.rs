@@ -93,6 +93,9 @@ pub struct SiteInfo {
     pub insecure: bool,
     /// `general.wikibase-conceptbaseuri`: the base of local entities' concept IRIs.
     pub concept_base: String,
+    /// `general.wikibase-propertytypes`: the data types the repository registers, each
+    /// with its value type, by ID.
+    pub property_types: Vec<(String, String)>,
     /// `providers`: the registered providers.
     pub providers: Vec<ProviderInfo>,
     /// `triplespace.capabilities`: what the API serves (0012 §1.4).
@@ -151,6 +154,9 @@ pub struct ProviderType {
     /// What the provider's own IDs start with.
     #[serde(default)]
     pub upstream_prefix: String,
+    /// The namespace its entities' pages are in, by canonical name (`Item`).
+    #[serde(default)]
+    pub namespace: Option<String>,
 }
 
 /// A provider chip's colours.
@@ -222,7 +228,174 @@ pub(crate) fn check(response: &ApiResponse) -> Result<Value, ClientError> {
     }
 }
 
+/// A namespace, as `siprop=namespaces|namespacealiases` reports it.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct NamespaceRow {
+    /// The number.
+    pub id: i64,
+    /// The local name; empty for the main namespace.
+    pub name: String,
+    /// The canonical name, where it has one.
+    pub canonical: Option<String>,
+    /// Other names that reach it (`namespacealiases`).
+    pub aliases: Vec<String>,
+    /// Whether its pages may have subpages.
+    pub subpages: bool,
+    /// Whether its pages count as content.
+    pub content: bool,
+    /// `first-letter` or `case-sensitive`.
+    pub case: String,
+    /// Its default content model, where not wikitext.
+    pub model: Option<String>,
+}
+
+/// A message, as `meta=allmessages&amprop=default` reports it.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct MessageRow {
+    /// The key.
+    pub name: String,
+    /// The text the wiki shows; `None` when no message has the key.
+    pub content: Option<String>,
+    /// The text the build ships, where it ships one.
+    pub default: Option<String>,
+    /// Whether the wiki overrides it (`customised`).
+    pub customised: bool,
+}
+
+/// What `Special:AllMessages` asks `meta=allmessages` for.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct MessageQuery {
+    /// `amprefix`.
+    pub prefix: String,
+    /// `amfilter`: a substring of the key.
+    pub filter: String,
+    /// `amcustomised`: `all`, `modified` or `unmodified`.
+    pub customised: String,
+    /// `amlang`; the wiki's language when empty.
+    pub lang: String,
+    /// `amfrom`: the first key.
+    pub from: String,
+}
+
+/// A `siteinfo` section decoded whole. An absent section (`null`) is the default, since a
+/// stock Wikibase or an older API sends none; a section that is present but does not
+/// decode is an error naming the section and the field, never a silent empty value that
+/// would hide every provider, issuer or override behind one mistyped field.
+fn section<T: serde::de::DeserializeOwned + Default>(
+    v: &Value,
+    name: &str,
+) -> Result<T, ClientError> {
+    if v.is_null() {
+        return Ok(T::default());
+    }
+    serde_json::from_value(v.clone())
+        .map_err(|e| ClientError::Unexpected(format!("siteinfo `{name}` does not decode: {e}")))
+}
+
 impl Client {
+    /// `meta=allmessages` with `amprop=default`: every message the build ships, with the
+    /// wiki's override and the shipped text, filtered as asked (0095 §8).
+    ///
+    /// # Errors
+    ///
+    /// The API's refusal, or the API away or unreadable.
+    pub async fn all_messages(
+        &self,
+        incoming: &Incoming,
+        ask: &MessageQuery,
+    ) -> Result<Fetched<Vec<MessageRow>>, ClientError> {
+        let enc =
+            |t: &str| -> String { url::form_urlencoded::byte_serialize(t.as_bytes()).collect() };
+        let mut path = String::from(
+            "/w/api.php?action=query&meta=allmessages&ammessages=*&amprop=default&format=json&formatversion=2",
+        );
+        for (k, v) in [
+            ("amprefix", &ask.prefix),
+            ("amfilter", &ask.filter),
+            ("amcustomised", &ask.customised),
+            ("amlang", &ask.lang),
+            ("amfrom", &ask.from),
+        ] {
+            if !v.is_empty() {
+                let _ = write!(path, "&{k}={}", enc(v));
+            }
+        }
+        let r = self.get(incoming, &path).await?;
+        let v = check(&r)?;
+        let text = |x: &Value| x.as_str().map(str::to_string);
+        let value = v["query"]["allmessages"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .map(|m| MessageRow {
+                        name: text(&m["name"]).unwrap_or_default(),
+                        content: text(&m["content"]),
+                        default: text(&m["default"]),
+                        customised: m
+                            .get("customised")
+                            .is_some_and(|c| c != &Value::Bool(false)),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        Ok(Fetched {
+            value,
+            cache: CacheInfo::of(&r),
+        })
+    }
+
+    /// `siprop=namespaces|namespacealiases`: the tenant's namespaces, by number.
+    ///
+    /// # Errors
+    ///
+    /// The API's refusal, or the API away or unreadable.
+    pub async fn namespaces(
+        &self,
+        incoming: &Incoming,
+    ) -> Result<Fetched<Vec<NamespaceRow>>, ClientError> {
+        let r = self
+            .get(
+                incoming,
+                "/w/api.php?action=query&meta=siteinfo&siprop=namespaces%7Cnamespacealiases&format=json&formatversion=2",
+            )
+            .await?;
+        let v = check(&r)?;
+        let text = |x: &Value| x.as_str().map(str::to_string);
+        let mut rows: Vec<NamespaceRow> = v["query"]["namespaces"]
+            .as_object()
+            .map(|o| {
+                o.values()
+                    .map(|n| NamespaceRow {
+                        id: n["id"].as_i64().unwrap_or_default(),
+                        name: text(&n["name"]).unwrap_or_default(),
+                        canonical: text(&n["canonical"]),
+                        aliases: Vec::new(),
+                        subpages: n["subpages"].as_bool().unwrap_or(false),
+                        content: n["content"].as_bool().unwrap_or(false),
+                        case: text(&n["case"]).unwrap_or_else(|| "first-letter".into()),
+                        model: text(&n["defaultcontentmodel"]),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        rows.sort_by_key(|n| n.id);
+        for a in v["query"]["namespacealiases"]
+            .as_array()
+            .into_iter()
+            .flatten()
+        {
+            if let (Some(id), Some(alias)) = (a["id"].as_i64(), text(&a["alias"]))
+                && let Some(row) = rows.iter_mut().find(|n| n.id == id)
+            {
+                row.aliases.push(alias);
+            }
+        }
+        Ok(Fetched {
+            value: rows,
+            cache: CacheInfo::of(&r),
+        })
+    }
+
     /// `meta=siteinfo&siprop=general|triplespace|providers`, alone, so that the API may
     /// mark it stable and the response is the same for every viewer (0057 §5).
     pub async fn siteinfo(&self, incoming: &Incoming) -> Result<Fetched<SiteInfo>, ClientError> {
@@ -257,17 +430,25 @@ impl Client {
                 .as_u64()
                 .and_then(|n| u32::try_from(n).ok())
                 .unwrap_or(0),
-            theme: ts
-                .get("theme")
-                .filter(|t| t.is_object())
-                .and_then(|t| serde_json::from_value(t.clone()).ok()),
+            theme: section(&ts["theme"], "triplespace.theme")?,
             insecure: ts["insecure"].as_bool().unwrap_or(false),
+            property_types: general["wikibase-propertytypes"]
+                .as_object()
+                .map(|o| {
+                    o.iter()
+                        .map(|(id, v)| {
+                            let vt = v["valuetype"].as_str().unwrap_or_default();
+                            (id.clone(), vt.to_string())
+                        })
+                        .collect()
+                })
+                .unwrap_or_default(),
             concept_base: general["wikibase-conceptbaseuri"]
                 .as_str()
                 .unwrap_or_default()
                 .to_string(),
-            providers: serde_json::from_value(v["query"]["providers"].clone()).unwrap_or_default(),
-            capabilities: serde_json::from_value(ts["capabilities"].clone()).unwrap_or_default(),
+            providers: section(&v["query"]["providers"], "providers")?,
+            capabilities: section(&ts["capabilities"], "triplespace.capabilities")?,
             mainpage: general["mainpage"]
                 .as_str()
                 .unwrap_or("Main Page")
@@ -275,15 +456,17 @@ impl Client {
             tenant: ts["tenant"].as_str().unwrap_or_default().to_string(),
             at_farm: ts["at_farm"].as_bool().unwrap_or(false),
             account_approval: ts["account"]["approval"].as_bool().unwrap_or(false),
-            login_issuers: crate::issuers::login_issuers(ts),
+            login_issuers: section(&ts["login"], "triplespace.login")?,
             thread_markup: ts["thread"]["markup"]
                 .as_str()
                 .unwrap_or("markdown")
                 .to_string(),
             issuer: ts["issuer"].as_str().unwrap_or_default().to_string(),
             farm_code: ts["farm_code"].as_str().unwrap_or_default().to_string(),
-            interface: serde_json::from_value(ts["interface"]["messages"].clone())
-                .unwrap_or_default(),
+            interface: section(
+                &ts["interface"]["messages"],
+                "triplespace.interface.messages",
+            )?,
         };
         Ok(Fetched { value, cache })
     }
@@ -324,6 +507,22 @@ impl Client {
 mod tests {
     use super::*;
     use axum::http::HeaderMap;
+
+    #[test]
+    fn a_section_is_empty_when_absent_and_an_error_when_malformed() {
+        let none: Vec<ProviderInfo> = section(&Value::Null, "providers").unwrap();
+        assert!(none.is_empty());
+        let bad = serde_json::json!([{"code": "WD", "slug": "wikidata", "name": "Wikidata", "types": [{"code": "Q", "entity_type": "item", "iri": "x", "namespace": 120}]}]);
+        let e = section::<Vec<ProviderInfo>>(&bad, "providers").unwrap_err();
+        let text = e.to_string();
+        assert!(
+            text.contains("`providers`") && text.contains("invalid type"),
+            "{text}"
+        );
+        let good = serde_json::json!([{"code": "WD", "slug": "wikidata", "name": "Wikidata", "types": [{"code": "Q", "entity_type": "item", "iri": "x", "namespace": "Item"}]}]);
+        let ok: Vec<ProviderInfo> = section(&good, "providers").unwrap();
+        assert_eq!(ok[0].types[0].namespace.as_deref(), Some("Item"));
+    }
 
     #[test]
     fn cache_info_reads_the_headers() {
