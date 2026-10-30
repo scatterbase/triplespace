@@ -2,11 +2,10 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-10-29 (A110)
+- **Updated:** 2026-10-30 (A112)
 - **Author:** James Hare / Claude Opus; revision by James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
-- **Chapters:** [01](../architecture/01-log-and-records.md), [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -44,7 +43,7 @@ Since this ADR was first written, twenty-six further ADRs have added crates, cha
 
 *Changed by A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A27, A28, A29, A30, A31, A32, A33, A34, A35, A36, A37, A38, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A51, A52, A53, A54, A55, A57, A58, A59, A60, A61, A62, A63, A64, A65, A66, A67, A68, A69, A70, A71, A72, A73, A74, A75, A76, A77, A78, A79, A80, A84, A86, A87, A88, A89, A90, A91, A92, A93, A95, A96, A97, A98, A99, A100, A101, A102, A103, A104, A105, A106, A107, A108, A109, A110.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
 
 ### 3. Rules
 
@@ -123,15 +122,6 @@ Since this ADR was first written, twenty-six further ADRs have added crates, cha
 - **Q5. Whether `scatter.wiki` should redirect** to `scatter.red/terms/v0/` or stay unused.
 - **Q6.** ~~**Graph IRIs.** Their form, and whether they are fixed or per instance. Carried over from 0001 and 0002. The registry (§4.1) accepts either, and [0013](0013-postgres-storage.md) §2 stores one per partition.~~ *Settled by [0015](0015-record-format-and-partition-registry.md) §5: `{base}/graph/{name}`, per instance (per tenant since [0018](0018-tenants.md) §2), with the names fixed in `docs/registry/graphs.toml`.*
 - **Q7.** ~~**Whether `scatter-log-postgres` should offer a blocking API** so that rule 2's async exception can be withdrawn.~~ *Settled by [0033](0033-backend-stack.md) §4: the synchronous `postgres` crate, a wrapper over the same driver, offers one without a second implementation. Revised by A56: `LogStore` itself is asynchronous, so a blocking caller drives it with an executor rather than through the `postgres` wrapper, which cannot join the write path's transaction.* *Extended by A92: `LogStore`'s methods are `impl Future + Send` in the trait, it carries an associated unit-of-work type that `Backend::apply_in` and `IngestStore` take, and a runtime caller wraps the file backend's synchronous I/O in `spawn_blocking`.*
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0001](0001-revision-metadata-rdf.md) §2, §5, §6 | §5 | amends | 0001 A2 |
-| [0001](0001-revision-metadata-rdf.md) Q1 | §5 | settles | 0001 Q1 |
-| [0008](0008-namespaces-and-document-pages.md) §11 | §2 | supersedes | 0008 A1 |
-| [0009](0009-keyed-entity-types-and-domain.md) §12 | §2 | supersedes | 0009 A1 |
 
 ## References
 
@@ -1118,3 +1108,72 @@ Replaced text (22 §2.1, `scatter-ingest`, as it stood):
 Replaced text (§2):
 
 > Server rendering: `askama` templates, the builder that emits Codex CSS-only markup, the page frame of [0010](../decisions/0010-site-ui.md) §2 shared by every page kind, and the pinned Codex assets ([0034](../decisions/0034-frontend-stack.md) §2);
+
+### A111. The crate map is a registry file
+
+- **Date:** 2026-10-30
+- **Source:** [0098](0098-pointers-from-birth.md) §5
+- **Change:** consolidates §2, §3
+- **Summary:** The table of 22 §2.1 moved, cell for cell, into `docs/registry/crates.toml` (one `[[crate]]` entry per row: names, layer, a one-line summary, `depends`, `depends_any`, `depends_note`, `pure`, `wasm`, and the full `contents`); the chapter's table is now generated from it by `architecture/crates.py` and shows the summary, and `architecture/CRATES.md`, generated likewise, shows every entry in full. `cargo xtask deps` and `xtask wasm` read the file instead of the chapter, and the `pure` and `wasm` lists that were hard-coded in `xtask` and restated in 22 §1.2 rules 2 and 7 are the file's marks; the two rules now name the marks. Four cells that 0095 A3 had folded into the Crate column (`scatter-titles`, `triplespace-projections`, `triplespace-ui`, `triplespace-client`) were moved to those crates' contents. No decision changed. The last commit in which the chapter carried the table is `0e67cce`.
+
+Replaced text ([22](../architecture/22-crates-and-stack.md) §1.2 rule 2, as it stood):
+
+> 2. **The core is pure.** `scatter-vocab`, `scatter-providers`, `scatter-identity`, `scatter-normalize`, `scatter-actors`, `scatter-pages`, `scatter-wikitext`, `scatter-threads`, `scatter-talk` and `scatter-talk-import` ([0090](../decisions/0090-converting-talk-pages-comment-by-comment.md) §12), `scatter-activitypub`, `scatter-filter`, `scatter-mwlog`, `scatter-wikitext-expand` ([0042](../decisions/0042-template-expansion-and-parsoid.md) §4), `scatter-css` ([0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §2), `scatter-scope` ([0060](../decisions/0060-scopes.md) §11), `scatter-tasks` ([0061](../decisions/0061-sprints-and-tasks.md) §12), `scatter-shex` ([0064](../decisions/0064-entityschema-and-validation.md) §9), `scatter-merge` ([0068](../decisions/0068-merging-with-upstream.md) §7), `scatter-files`, `scatter-extract` ([0072](../decisions/0072-template-mappings.md) §7), `scatter-titles`, `triplespace-scribunto` ([0043](../decisions/0043-lua-modules.md) §14) and every `scatter-wikibase-*` crate perform no I/O, use no async runtime, and depend on no tokio.
+
+Replaced text ([22](../architecture/22-crates-and-stack.md) §1.2 rule 7, as it stood):
+
+> 7. **`scatter-wikibase-shape`, `scatter-wikitext`, `scatter-pages`, `scatter-normalize`, `scatter-merge`, `scatter-extract`, `scatter-css`, `scatter-scope`, `scatter-tasks` and `scatter-titles` must build for `wasm32-unknown-unknown`,** …
+>
+> This rule is the one wasm list, the ten crates the table of §2 marks as building for `wasm32`; [0034](../decisions/0034-frontend-stack.md) §6 and `cargo xtask wasm` read it.
+
+### A112. The map's history lives in its entries
+
+- **Date:** 2026-10-30
+- **Source:** [0098](0098-pointers-from-birth.md) §5; Direct: James, review of 2026-10-30
+- **Change:** consolidates §2
+- **Summary:** 22 §2.2, the narrative of which ADR introduced which crate, is retired: a chapter carries no history (24 §10.1), and every fact in it is carried by the entries of `crates.toml`, each of which cites the ADR sections that added or changed it, and by those ADRs' logs. Its citations moved to 22 §2.1's provenance line and the pointers of the ADRs it cited now name §2.1 alone. The retired crate names (`scatter-graphs`, `scatter-markdown`, `scatter-keyed`, `triplespace-activity`, `triplespace-revmeta`, `scatter-adapter-wikidata`, `scatter-adapter-internetdomains`) moved from a sentence in 22 §2.1 into `[[retired]]` entries of `crates.toml`, from which `crates.py` writes the sentence and `check_adrs.py` reads the names. No decision changed. The last commit before this entry is `928613b`.
+
+Replaced text ([22](../architecture/22-crates-and-stack.md) §2.1, as it stood):
+
+> Crates named by earlier ADRs that no longer exist as separate crates: `scatter-graphs` (in `scatter-log`), `scatter-markdown` (in `scatter-pages`), `scatter-keyed` (in `scatter-normalize`), `triplespace-activity` (in `triplespace-projections`), `triplespace-revmeta` (in `triplespace-rdf`), `scatter-adapter-wikidata` (renamed `scatter-adapter-wikibase`, [0091](../decisions/0091-one-wikibase-adapter.md) §5), `scatter-adapter-internetdomains` (in `scatter-adapter-wikibase`, the same). References to them in [0008](../decisions/0008-namespaces-and-document-pages.md) §11, [0009](../decisions/0009-keyed-entity-types-and-domain.md) §12, [0010](../decisions/0010-site-ui.md) §13, [0011](../decisions/0011-logs.md) §10, [0012](../decisions/0012-api-requirements.md) §9, [0019](../decisions/0019-discussions.md) §13 and every ADR that names either adapter read as references to their new homes.
+
+Replaced text ([22](../architecture/22-crates-and-stack.md) §2.2, as it stood):
+
+> The Crates section of each ADR from [0006](../decisions/0006-log-integrity-and-erasure.md) to [0049](../decisions/0049-boards.md) is superseded by the table above, which keeps every change those sections listed; the tables they first gave are in their amendment logs. The crates each introduced, in the order the ADRs did:
+>
+> - `scatter-integrity`, which owns checkpoint signing and parsing, inclusion and consistency proofs, erasure bookkeeping, export bundles and `verify`, and depends on `scatter-log`, which owns the header and body formats, the two policies, segment layout and the Merkle tree ([0006](../decisions/0006-log-integrity-and-erasure.md) §10);
+> - `scatter-actors`, a pure substrate crate, and `triplespace-accounts`, a surface crate ([0007](../decisions/0007-actor-identity.md) §10);
+> - `scatter-adapter-musicbrainz` ([0017](../decisions/0017-entity-id-grammar.md) §7);
+> - `scatter-threads` ([0019](../decisions/0019-discussions.md) §13);
+> - `scatter-activitypub` and `triplespace-notify` ([0021](../decisions/0021-notifications.md) §10);
+> - `triplespace-federation` ([0022](../decisions/0022-federation.md) §13);
+> - `triplespace-oauth` ([0025](../decisions/0025-oauth-server.md) §11);
+> - `scatter-adapter-triplespace` ([0028](../decisions/0028-tenancy-policy.md) §14);
+> - `scatter-filter` ([0030](../decisions/0030-edit-filters.md) §13);
+> - `scatter-wikibase-constraints` ([0031](../decisions/0031-property-constraints.md) §9);
+> - `scatter-adapter-openstreetmap` (layer 3), depending on `scatter-wikibase-changeset`, `scatter-wikibase-model`, `scatter-providers` and `scatter-normalize`. `OW` needs no adapter of its own: it is `scatter-adapter-wikidata` parameterised by the provider entry, with the key-mapping capability that `scatter-adapter-internetdomains` needs as well. `scatter-normalize` keeps the `osm-tag` grammar as the `osm` scheme's grammar, and `triplespace-titles` gains the `Notation` namespace ([0036](../decisions/0036-openstreetmap-providers.md) §7; the registry side of that section is in [23](../architecture/23-configuration-and-registry.md));
+> - `scatter-adapter-gdelt` (layer 3), with the same four dependencies. `scatter-providers` gains per-type `id_grammar` and the `gdelt-record` and `token` grammars, beside `digits` and `uuid`: the ID grammars of minted types live with the registry field that names them ([0017](../decisions/0017-entity-id-grammar.md) §7), and `scatter-normalize` keeps the key grammars of keyed types ([0037](../decisions/0037-gdelt-provider.md) §8; the registry side is in [23](../architecture/23-configuration-and-registry.md));
+> - `scatter-blob`, `scatter-files` and `triplespace-files` ([0039](../decisions/0039-files-and-media.md) §23);
+> - `scatter-wikitext-expand` and `triplespace-render`; `services/parsoid/` is a PHP program, not a crate ([0042](../decisions/0042-template-expansion-and-parsoid.md) §19);
+> - `triplespace-scribunto` ([0043](../decisions/0043-lua-modules.md) §17);
+> - `scatter-adapter-mediawiki` (ingest) and `triplespace-repos` (surfaces); the `.mwrev.zst` reader for RevisionChest stores moves to `scatter-adapter-mediawiki` from `scatter-adapter-wikidata`, which now depends on it, so that both adapters share it ([0053](../decisions/0053-mirrored-pages.md) §12);
+> - `scatter-css`, pure and wasm ([0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §9);
+> - `triplespace-client` and `triplespace-web`, with rule 10 of §1.2 ([0057](../decisions/0057-web-tier.md) §12);
+> - `triplespace-query` ([0059](../decisions/0059-query-service.md) §8);
+> - `scatter-scope`, layer 2, pure, wasm ([0060](../decisions/0060-scopes.md) §11);
+> - `scatter-tasks`, layer 2, pure, wasm ([0061](../decisions/0061-sprints-and-tasks.md) §12);
+> - `scatter-shex`, layer 2, pure ([0064](../decisions/0064-entityschema-and-validation.md) §9);
+> - `scatter-merge`, layer 1, pure, wasm ([0068](../decisions/0068-merging-with-upstream.md) §7);
+> - `triplespace-extraction` ([0071](../decisions/0071-derived-statements-from-mirrored-pages.md) §14) and `scatter-extract` (§2.3);
+> - `triplespace-publish` ([0074](../decisions/0074-publishing-a-scope-to-an-external-wiki.md) §9);
+> - `triplespace-mcp` ([0075](../decisions/0075-mcp-server.md) §7);
+> - `scatter-titles`, layer 1, pure, wasm: the registry-and-string half of what `triplespace-titles` held, split out so that the browser and `triplespace-ui` normalize titles with the server's code, leaving `triplespace-titles` the DB-backed resolver ([0005](../decisions/0005-crate-organization.md) §2);
+> - `scatter-challenge`, layer 1, pure, wasm ([0087](../decisions/0087-account-registration-and-challenges.md) §10).
+>
+> Following a wiki by its recent changes adds no crate either: its pieces land in `scatter-adapter-wikibase`, `scatter-ingest`, `triplespace-api-ingest`, `triplespace-upstream` and `triplespace-db` ([0092](../decisions/0092-following-recent-changes.md) §8).
+>
+> One Wikibase adapter adds no crate: it renames `scatter-adapter-wikidata` to `scatter-adapter-wikibase` and retires `scatter-adapter-internetdomains` into it, so that every MediaWiki+Wikibase provider is read by one adapter parameterised by its registry entry ([0091](../decisions/0091-one-wikibase-adapter.md) §5).
+>
+> Source form and the shared view, the write path in three tiers and Wikibase writes against the resolved view add no crate: each lands in the crates it names, and the table carries their rows ([0082](../decisions/0082-source-form-and-the-shared-view.md) §7; [0083](../decisions/0083-write-path-in-three-tiers.md) §8; [0084](../decisions/0084-wikibase-writes-against-the-resolved-view.md) §6).
+>
+> Some of those sections say where something does not go. `sites.toml` is embedded by `scatter-wikibase-model`, since a site alias is a Wikibase-compatibility concern, not a provider one ([0026](../decisions/0026-sitelinks.md) §10). The user data bundle format is a Triplespace surface, not a shared seam, so nothing of it enters a `scatter-*` crate ([0027](../decisions/0027-preferences-and-portability.md) §9). Packed record storage leaves the `segments` backend unchanged: a segment file holds logical slots, and any compression there is a matter for the file format of payloads.md §10 ([0058](../decisions/0058-packed-record-storage.md) §12). Moderation, subsidiaries, sitelinks, preferences, tenancy policy, resolvers, tenant-relative IDs, tables, the primary tenant, special pages, notation and boards add no crate and land in the crates they extend ([0023](../decisions/0023-moderation.md) §13, [0024](../decisions/0024-subsidiary-accounts.md) §13, [0026](../decisions/0026-sitelinks.md) §10, [0027](../decisions/0027-preferences-and-portability.md) §9, [0028](../decisions/0028-tenancy-policy.md) §14, [0029](../decisions/0029-resolver-namespaces.md) §9, [0044](../decisions/0044-tenant-relative-ids.md) §6, [0045](../decisions/0045-table-content-model.md) §13, [0046](../decisions/0046-primary-tenant.md) §10, [0047](../decisions/0047-special-pages.md) §14, [0048](../decisions/0048-notation.md) §8, [0049](../decisions/0049-boards.md) §15), as do page metadata, instance prerogatives, content models, forking, the security model, workspaces, the Query namespace, MediaInfo, lexemes, proposals, synchronized talk pages, shallow mirroring, lines and URL patterns, dataset publication and entity sources ([0038](../decisions/0038-page-metadata-and-categories.md) §15, [0040](../decisions/0040-instance-prerogatives.md) §11, [0041](../decisions/0041-content-models.md) §12, [0054](../decisions/0054-forking-a-mirrored-page.md) §12, [0056](../decisions/0056-security-model.md) §16, [0062](../decisions/0062-workspaces.md) §10, [0063](../decisions/0063-query-namespace.md) §8, [0065](../decisions/0065-mediainfo-captions-and-commons.md) §5, [0066](../decisions/0066-lexemes.md) §10, [0067](../decisions/0067-proposals.md) §9, [0069](../decisions/0069-synchronized-talk-pages.md) §12, [0070](../decisions/0070-shallow-entity-mirroring.md) §11, [0073](../decisions/0073-lines-links-and-url-patterns.md) §7, [0076](../decisions/0076-dataset-publication.md) §7, [0078](../decisions/0078-entity-sources.md) §12). The Postgres tables the permission crates project are in [03](../architecture/03-storage-caches-and-search.md) ([0016](../decisions/0016-permissions-and-access-control.md) §9), the local quad store that [0032](../decisions/0032-sparql-update-stream.md) §9 once described beside its crate list is in [02](../architecture/02-graphs-rdf-and-query.md), and the adoption job of [0035](../decisions/0035-adopting-a-wikibase.md) §8 is placed in build step 4 beside the mirror bootstrap (§3.1).

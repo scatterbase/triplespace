@@ -2,6 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-28
+- **Updated:** 2026-10-30 (A1)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0086](0086-theming.md)
 - **Uses:** [0034](0034-frontend-stack.md), [0077](0077-special-version.md)
@@ -31,53 +32,19 @@ James's direction, from the design discussion of 2026-10-28:
 
 ### 1. A type set names a fallback layer (extends 0086 §3)
 
-A **fallback layer** is a list of typefaces for the scripts a type set's own lack. The registry defines it, in `docs/registry/themes.toml` under `[fallback.{name}]`. A type set names one with `fallback = "{name}"`, and every type set that names it shares it:
-
-- **Each typeface names the stacks it backs up** by their generic family (`stacks`: `serif`, `sans-serif`, `monospace`), and the Fontsource `subsets` it serves (§3). A role's stack takes the layer's families for its own generic family: the stack's first generic family, `system-ui` counting as `sans-serif`, or `sans-serif` if it names none. So a sans-serif heading stack, as in `hyperlegible`, takes the layer's sans families.
-- **The families go in straight after the families the type set serves**, in the layer's order. If the stack serves none at its head, they go before its first generic family. A family the stack names already is not added again. So the order is the type set's own typefaces, then the layer's, then the device's: `'Source Sans 3', 'Noto Sans', 'Noto Sans Arabic', …, 'Noto Sans Symbols 2', system-ui, sans-serif`.
-- **A layer may map language tags to stacks**, as a type set may, for scripts whose right face depends on the language rather than the characters. A layer's stack is written as `:lang({tag})` with the type set's text stack after it, `font-family: 'Noto Nastaliq Urdu', var(--font-family-base)`, unless the type set maps the same tag itself.
-- **Only the registry defines layers.** An instance's or tenant's type set may name a shipped layer. A name the registry does not define is ignored when the stylesheet is built.
-- **The layer's typefaces are shipped typefaces**, listed with their licences in `Special:Version` with those of each type set that names the layer ([0077](0077-special-version.md) §6).
-
-`default26`, `hyperlegible` and `opendyslexic` name the layer `noto`. `basic` names none, since it serves no typeface by design (0086 A2).
+*Current text: [02](../architecture/02-graphs-rdf-and-query.md) §1.4; [19](../architecture/19-site-ui.md) §5.9.*
 
 ### 2. The Noto layer (extends 0086 §1)
 
-The layer `noto` serves, in this order:
-
-- **Noto Sans and Noto Serif**, for Latin, Greek, Cyrillic and Vietnamese a type set's own families lack (Atkinson Hyperlegible has no Cyrillic, for instance).
-- **A Noto family for each of the 47 scripts** of Wikimedia's language data that are not Latin, Greek, Cyrillic, Chinese, Japanese, Korean or SignWriting. They are ordered by how many languages use the script: Arabic, Devanagari, Myanmar, Ethiopic, Bengali, Hebrew, then the rest.
-  - The sans stacks take the script's Noto Sans family. The serif stacks take its Noto serif where Noto has one (20 scripts, Arabic's being Noto Naskh Arabic), and otherwise its sans.
-  - Tibetan has only Noto Serif Tibetan, which serves every stack.
-  - The monospace stacks take the script families, not Noto Sans, so a character Lilex lacks goes to the device's monospace fonts.
-- **Noto Sans Symbols and Noto Sans Symbols 2**, for symbols, arrows, Braille and the maths the type sets lack, in every stack.
-- **Noto Nastaliq Urdu for `ur`**, as a stack for that language tag. Urdu is written in Nastaliq, and the same characters in Persian or Arabic are not.
-
-**Weights 400 and 600**, or 400 alone where a family has no 600 (17 families). The browser takes the nearest weight for any other, so a 500 heading uses 400.
-
-**Chinese, Japanese and Korean are left to the device**, as James decided. The stacks end in the device's families, which choose the regional forms by `lang`.
-
-**SignWriting is left out.** It is written in two dimensions and needs a renderer, not a font.
-
-**Noto Sans Math is left out.** Fontsource ships its glyphs under a Basic Latin range, so they could not be reached; Symbols 2 and the device's maths fonts cover maths.
-
-In all, the layer has 72 families. `docs/registry/themes.toml` is the authority for the list.
+*Current text: [19](../architecture/19-site-ui.md) §5.9.*
 
 ### 3. Delivery (extends 0086 §5)
 
-- **The layer's `@font-face` rules are in the stylesheet of each type set that names it**, after the type set's own. A reader who changes type set fetches the layer's rules again in the new type set's stylesheet, but no font file again.
-- **Each face serves only the subsets the registry lists.** A script family serves its script's ranges, never the Latin, Cyrillic, Greek, Vietnamese, maths or symbol ranges Fontsource also packs into it, which Source, Noto Sans and the symbol families come before. So a face is fetched only for its own script.
-- **WOFF2 only**, which every browser that honours `unicode-range` reads. The type sets' own typefaces keep WOFF beside WOFF2.
-- **`font-display: swap`**, as for every shipped typeface (0086 §5). Text in a script shows at once in the device's font, then in Noto when the file arrives.
-- **The rules are generated.** `ui/scripts/fallbacks.js` writes `ui/src/fallbacks/{name}.css` from the registry and the installed Fontsource packages, and a unit test fails while the file is stale. Vite builds it with hashed file names, and `triplespace-ui` reads it from the build's manifest, as it reads a type set's.
-- **The cost**, measured on 2026-10-28: 154 faces, 53 KB of minified CSS (10 KB compressed) in each type set's stylesheet, cached as immutable. The build gains 5.1 MB of font files. A page fetches the files for its scripts alone, mostly 25 to 90 KB a weight each, in parallel, once per browser.
+*Current text: [19](../architecture/19-site-ui.md) §5.2, §5.9.*
 
 ### 4. Crates (extends 0086 §7)
 
-| Crate | Change |
-|---|---|
-| `triplespace-ui` | Reads the fallback layers from `themes.toml`; inserts a layer's families into a type set's stacks; writes the layer's `@font-face` rules and its stacks per language tag into the type set's stylesheet; lists the layer's typefaces with the type set's |
-| `triplespace-accounts`, `triplespace-client` | A type set's `fallback`, reported by `siprop=triplespace` |
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Alternatives considered
 
@@ -101,17 +68,17 @@ In all, the layer has 72 families. `docs/registry/themes.toml` is the authority 
 - **Q2. Other languages written in Nastaliq**, such as Punjabi in Shahmukhi (`pnb`), Saraiki (`skr`) and Kashmiri (`ks`), whose readers may prefer it to Naskh.
 - **Q3. SignWriting**, for American Sign Language (`ase`) and Brazilian Sign Language (`bzs`), which needs a renderer of its own.
 
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0086](0086-theming.md) §1 | §2 | extends | 0086 A5 |
-| [0086](0086-theming.md) §3 | §1 | extends | 0086 A5 |
-| [0086](0086-theming.md) §5 | §3 | extends | 0086 A5 |
-| [0086](0086-theming.md) §7 | §4 | extends | 0086 A5 |
-
 ## References
 
 - [Noto](https://notofonts.github.io/), Google, under the SIL Open Font License 1.1; packaged by [Fontsource](https://fontsource.org/).
 - `@wikimedia/language-data` 2.0.4, `data/language-data.json`: the script of each language code.
 - CSS Fonts Level 4: `unicode-range` and the font matching algorithm, including the choice of the nearest weight.
+
+## Amendment log
+
+### A1. Current text relocated to the architecture chapters
+
+- **Date:** 2026-10-30
+- **Source:** [0050](0050-adr-format.md) §14
+- **Change:** relocates §1–§4
+- **Summary:** The Decision's current text now lives in the architecture chapters [02](../architecture/02-graphs-rdf-and-query.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `2e2a7c8`. No decision changed.

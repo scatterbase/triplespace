@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0024](0024-subsidiary-accounts.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md)
 - **Uses:** [0023](0023-moderation.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0043](0043-lua-modules.md), [0047](0047-special-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
-- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [07](../architecture/07-actors-and-accounts.md), [09](../architecture/09-security-and-moderation.md), [10](../architecture/10-pages-and-content-models.md), [11](../architecture/11-rendering-templates-and-modules.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md)
 
 ## Context
 
@@ -153,7 +152,7 @@ James's direction, from the design discussion of 2026-09-30:
 
 *Changed by A1.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Consequences
 
@@ -178,28 +177,6 @@ James's direction, from the design discussion of 2026-09-30:
 - **Q7. Section editing of transcluded sections,** which MediaWiki numbers `T-1`.
 - **Q8. Language variants.** `languagevariants` is empty and LanguageConverter is not implemented.
 - **Q9. Labeled Section Transclusion** (`#lst`), which Wikisource depends on.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2, §3, §7 | §19 | extends | 0005 A42 |
-| [0008](0008-namespaces-and-document-pages.md) §8, §9 | §1, §3, §7–9, §13 | amends | 0008 A12 |
-| [0008](0008-namespaces-and-document-pages.md) §2, §10 | §1, §3, §7–9, §13 | extends | 0008 A12 |
-| [0010](0010-site-ui.md) §4 | §7, §15 | amends | 0010 A26 |
-| [0012](0012-api-requirements.md) §4, §5 | §12, §14 | extends | 0012 A26 |
-| [0013](0013-postgres-storage.md) §5.6 | §10 | amends | 0013 A16 |
-| [0013](0013-postgres-storage.md) §7 | §10 | extends | 0013 A16 |
-| [0014](0014-caches-and-search.md) §3, §4 | §10, §17 | amends | 0014 A7 |
-| [0014](0014-caches-and-search.md) §5, §7, §10 | §10, §17 | extends | 0014 A7 |
-| [0015](0015-record-format-and-partition-registry.md) §3, §5 | §2, §5, §11 | extends | 0015 A19 |
-| [0024](0024-subsidiary-accounts.md) §5 | §16 | extends | 0024 A5 |
-| [0028](0028-tenancy-policy.md) §1 | §2 | extends | 0028 A6 |
-| [0030](0030-edit-filters.md) §2 | §17 | amends | 0030 A6 |
-| [0033](0033-backend-stack.md) §1, §9.1 | §1, §8, §18 | amends | 0033 A3 |
-| [0033](0033-backend-stack.md) §15 | §1, §8, §18 | extends | 0033 A3 |
-| [0034](0034-frontend-stack.md) §6 | §15 | amends | 0034 A1 |
-| [0038](0038-page-metadata-and-categories.md) §3 | §9 | amends | 0038 A4 |
 
 ## References
 

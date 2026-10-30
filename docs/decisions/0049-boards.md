@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0011](0011-logs.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0022](0022-federation.md), [0023](0023-moderation.md), [0038](0038-page-metadata-and-categories.md), [0041](0041-content-models.md)
 - **Uses:** [0012](0012-api-requirements.md), [0014](0014-caches-and-search.md), [0021](0021-notifications.md), [0028](0028-tenancy-policy.md), [0045](0045-table-content-model.md), [0047](0047-special-pages.md)
-- **Chapters:** [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), [14](../architecture/14-discussions.md), [15](../architecture/15-structured-pages.md), [16](../architecture/16-logs-feeds-and-notifications.md), [17](../architecture/17-federation-and-publication.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -99,7 +98,7 @@ James's direction, from the design discussion of 2026-10-01:
 
 *Changed by A1.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Consequences
 
@@ -121,23 +120,6 @@ James's direction, from the design discussion of 2026-10-01:
 - **Q5. Board moderators.** Whether a board needs a group of its own beyond what ACLs on it express.
 - **Q6. DiscussionTools** (0019 Q4): which page a `discussiontoolspageinfo` call on a listing page reports for a listed thread.
 - **Q7.** (Rest of Q2.) Whether a scoped board's members are announced and notify watchers as listed ones do.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2 | §15 | extends | 0005 A49 |
-| [0008](0008-namespaces-and-document-pages.md) §2 | §2 | amends | 0008 A19 |
-| [0008](0008-namespaces-and-document-pages.md) §1, §3 | §2 | extends | 0008 A19 |
-| [0011](0011-logs.md) §6.1, §8 | §9 | extends | 0011 A16 |
-| [0016](0016-permissions-and-access-control.md) §4 | §7 | amends | 0016 A17 |
-| [0019](0019-discussions.md) §1, §2, §3, §7, §8, §12 | §2, §5–9, §11–13 | amends | 0019 A10 |
-| [0019](0019-discussions.md) §4, §9, §11 | §2, §5–9, §11–13 | extends | 0019 A10 |
-| [0020](0020-change-feeds.md) §2 | §7 | amends | 0020 A9 |
-| [0022](0022-federation.md) §6, §7 | §10 | extends | 0022 A3 |
-| [0023](0023-moderation.md) §2, §4 | §7 | amends | 0023 A7 |
-| [0038](0038-page-metadata-and-categories.md) §1 | §1 | extends | 0038 A5 |
-| [0041](0041-content-models.md) §3 | §3 | extends | 0041 A5 |
 
 ## References
 

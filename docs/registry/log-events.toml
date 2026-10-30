@@ -1,0 +1,276 @@
+# Every log type and action the ADRs name (chapter 16 §2.3). Edit this file, then
+# `python3 architecture/catalogues.py --write` from docs/ regenerates the table in 16 §2.3.
+# 
+# events      the `type/action` names the row covers
+# display     optional: the first cell as it should read, when it is more than the names
+# from        what projects the event
+# parameters  its typed parameters
+# visible_to  who sees it
+# sources     the ADR sections that define it
+
+[[event]]
+events = ["create/create"]
+from = "The first record of a local entity, document page or thread (a thread `create`), unless it was adopted (`import/*` below)"
+parameters = "—"
+visible_to = "Everyone"
+sources = "0011 §6.1; 0019 §7"
+
+[[event]]
+events = ["delete/delete", "delete/restore"]
+from = "A `read` ACL on a page, thread, file page or local entity, and its retirement ([09](09-security-and-moderation.md) §4.3, §6.2)"
+parameters = "`delete/restore`: the number of revisions restored; whether the talk page went with it; on restore, the record ACLs that stay"
+visible_to = "Everyone"
+sources = "0011 §6.1, §7; 0019 §7; 0023 §3; 0039 §16"
+
+[[event]]
+events = ["delete/revision", "delete/event"]
+from = "A `record` ACL on a record's parts ([09](09-security-and-moderation.md) §6.3); `delete/revision` with `type=oldimage` from a `record` ACL on an `upload` record"
+parameters = "The affected revision or log IDs; the fields hidden and the fields revealed"
+visible_to = "Everyone"
+sources = "0011 §6.1, §7; 0023 §3; 0039 §16"
+
+[[event]]
+events = ["delete/statement"]
+from = "A `read` ACL on a `statement` or `property` target, and its retirement ([09](09-security-and-moderation.md) §4.2): the statement is hidden for privacy or legal reasons, which is moderation, not an `override`. On a provider's activity stream it tells a reading instance to drop the statement it holds, as an `upstream` erasure ([17](17-federation-and-publication.md) §1.2)"
+parameters = "The statement ID, or the property; whether hidden or revealed"
+visible_to = "Everyone, as `delete/revision`; the statement itself only the group"
+sources = "0023 §2; 0022 §2"
+
+[[event]]
+events = ["suppress/*", "suppress/delete", "suppress/revision", "suppress/event", "suppress/hide-user"]
+display = "`suppress/*`: `suppress/delete`, `suppress/revision`, `suppress/event`, `suppress/hide-user`"
+from = "The same ACLs naming the suppression group ([09](09-security-and-moderation.md) §6.5); `suppress/hide-user` (MediaWiki writes this as `suppress/block` with `hideuser`) hides a username"
+parameters = "As the `delete/*` row; `suppress/hide-user`: the actor key"
+visible_to = "The suppression group"
+sources = "0011 §6.1; 0023 §3"
+
+[[event]]
+events = ["patrol/patrol", "patrol/unpatrol"]
+from = "A patrol or unpatrol record in the local log ([09](09-security-and-moderation.md) §6.4)"
+parameters = "—"
+visible_to = "Everyone"
+sources = "0011 §6.1"
+
+[[event]]
+events = ["abusefilter/create", "abusefilter/modify"]
+from = "A filter record in the local log ([09](09-security-and-moderation.md) §7.5)"
+parameters = "—"
+visible_to = "Everyone, or the filter's viewers if it is private"
+sources = "0011 §6.1; 0030 §5"
+
+[[event]]
+events = ["abusefilter/hit"]
+from = "A filter-hit record"
+parameters = "—"
+visible_to = "Everyone, or `abusefilter-log-private` for a private filter's hits"
+sources = "0011 §6.1; 0030 §5"
+
+[[event]]
+events = ["move/move"]
+from = "A page `move`, or a thread `rename` or `move`"
+parameters = "The old and new titles, or the source and target talk pages; as MediaWiki's do, whether a redirect was left and its page ID; `noredirect: true` for a move that leaves no redirect (MediaWiki's `suppressredirect`); `keep` for a thread `move` with `keep`"
+visible_to = "Everyone"
+sources = "0011 §6.1; 0019 §7; 0049 §9; 0051 §5"
+
+[[event]]
+events = ["move/move_redir"]
+from = "A page `move` onto an existing redirect, with MediaWiki's meaning"
+parameters = "As `move/move`"
+visible_to = "Everyone"
+sources = "0051 §5"
+
+[[event]]
+events = ["thread/attach", "thread/detach"]
+from = "A thread `attach` or `detach` record, and each entry in a thread `create` record's `also`"
+parameters = "Each event names the thread and the talk page or board, and appears in the logs of both"
+visible_to = "Everyone"
+sources = "0011 §6.1; 0049 §9"
+
+[[event]]
+events = ["thread/pin", "thread/unpin"]
+from = "A thread `pin` or `unpin` record, and a thread `create` with `pinned`"
+parameters = "—"
+visible_to = "Everyone"
+sources = "0011 §6.1; 0069 §4"
+
+[[event]]
+events = ["task/claim", "task/release"]
+from = "A `scatter:v0/task` `claim` or `release` record on a sprint"
+parameters = "—"
+visible_to = "Everyone"
+sources = "0011 §6.1; 0061 §5"
+
+[[event]]
+events = ["proposal/propose", "proposal/submit", "proposal/withdraw"]
+from = "A thread `propose`, `submit` or `withdraw` record"
+parameters = "—"
+visible_to = "Everyone"
+sources = "0011 §6.1; 0067 §3"
+
+[[event]]
+events = ["contentmodel/change"]
+from = "A page `edit` that changes the model"
+parameters = "The old and new models"
+visible_to = "Everyone"
+sources = "0011 §6.1, §7"
+
+[[event]]
+events = ["import/interwiki", "import/upload"]
+from = "A page import job ([10](10-pages-and-content-models.md)); the `create` of a fork, as `import/interwiki` with the page repository as the interwiki and the upstream page and revision in its parameters; the first record of an adopted entity or page, as `import/upload` from a dump or `import/interwiki` from the live API, never as `create/create`; an `upload` record with action `import`, as `import/upload`"
+parameters = "The interwiki prefix or the upload, and the number of revisions"
+visible_to = "Everyone"
+sources = "0011 §6.1, §7; 0035 §6; 0039 §16; 0054 §1"
+
+[[event]]
+events = ["upload/upload", "upload/overwrite", "upload/revert"]
+from = "An `upload` record with that action ([12](12-files-and-media.md))"
+parameters = "—"
+visible_to = "Everyone"
+sources = "0011 §6.1; 0039 §16"
+
+[[event]]
+events = ["takedown/takedown", "takedown/reinstate"]
+from = "The `blob` ACL in the instance `log` and its retirement, projected into the log of each tenant with an affected version, on the affected file pages"
+parameters = "—"
+visible_to = "Everyone; without reason or notice when `confidential`"
+sources = "0011 §6.1; 0039 §16"
+
+[[event]]
+events = ["takedown/expunge"]
+from = "An `expunge` record, in the instance's own log only"
+parameters = "—"
+visible_to = "`ts-viewtakedown`"
+sources = "0039 §16"
+
+[[event]]
+events = ["newusers/create"]
+from = "The first actor record of a registered local user. Temporary accounts are not logged."
+parameters = "—"
+visible_to = "Everyone"
+sources = "0011 §6.1"
+
+[[event]]
+events = ["newusers/create2"]
+from = "The first actor record of an account someone else created: a subsidiary, whose performer is its operator ([07](07-actors-and-accounts.md) §4.2); an account created for another person, whose performer is its creator; or an approved account request, whose performer is the reviewer ([07](07-actors-and-accounts.md) §2.6). Requests and their rejection are not logged"
+parameters = "—"
+visible_to = "Everyone"
+sources = "0011 §6.1; 0087 §6"
+
+[[event]]
+events = ["bot/transfer"]
+from = "An actor record that changes a subsidiary's operator ([07](07-actors-and-accounts.md) §4.4)"
+parameters = "—"
+visible_to = "Everyone"
+sources = "0011 §6.1"
+
+[[event]]
+events = ["renameuser/renameuser"]
+from = "An actor record with a new name ([07](07-actors-and-accounts.md) §1.3)"
+parameters = "—"
+visible_to = "Everyone"
+sources = "0011 §6.1; 0040 §7"
+
+[[event]]
+events = ["renameuser/vanish"]
+from = "The placeholder record written by a vanish ([07](07-actors-and-accounts.md) §3.2)"
+parameters = "—"
+visible_to = "Everyone, with no past name"
+sources = "0011 §6.1"
+
+[[event]]
+events = ["link/link"]
+from = "A `link-account` record ([07](07-actors-and-accounts.md) §3.1)"
+parameters = "—"
+visible_to = "Everyone, while the link exists"
+sources = "0011 §6.1"
+
+[[event]]
+events = ["reclaim/reclaim"]
+from = "A `scatter:v0/reclaim` record in the tenant `log`, written beside the private binding when an account is reclaimed after a tenant move or an adoption: by a bureaucrat's manual reclaim, the bureaucrat its performer, or by the source vouching at login, the account its performer ([08](08-tenants-and-instances.md) §6.4; [07](07-actors-and-accounts.md) §2.5). Parameter `method`: `manual` or `vouched`"
+parameters = "—"
+visible_to = "Everyone"
+sources = "0018 §10; 0035 §5; 0088 §8"
+
+[[event]]
+events = ["retention/set"]
+from = "A `retain` operation"
+parameters = "The old and new policies"
+visible_to = "Everyone"
+sources = "0011 §6.1, §7"
+
+[[event]]
+events = ["retention/apply"]
+from = "The record the entity projection writes in a tenant's partition, under the instance attestation with an authority record, when it applies that tenant's retention policy to an entity an upstream tombstone removed ([05](05-providers-and-ingest.md) §2.1); a tier-3 job, one event per tenant and entity"
+parameters = "The policy applied (`retain`, `cascade` or `orphan`) and the provider's tombstone"
+visible_to = "Everyone"
+sources = "0002 §5"
+
+[[event]]
+events = ["convert/convert"]
+from = "A `convert` operation"
+parameters = "The local ID that was minted"
+visible_to = "Everyone"
+sources = "0011 §6.1, §7"
+
+[[event]]
+events = ["erase/erase"]
+from = "An `erase` record in any partition, the erasures of file deletion and takedown included"
+parameters = "The reason class and the authority reference ([01](01-log-and-records.md) §5.1)"
+visible_to = "Everyone; the reason class and authority reference are visible to holders of `ts-viewerasures` ([09](09-security-and-moderation.md) §6.6)"
+sources = "0011 §6.1, §7; 0039 §16; 0040 §7"
+
+[[event]]
+events = ["job/start", "job/finish", "job/fail", "job/revert"]
+from = "Job records in the local log, or the instance `log` for an instance job (§2.2)"
+parameters = "The job's source, version, mode and outcome counts"
+visible_to = "Everyone"
+sources = "0011 §6.1, §7; 0035 §2"
+
+[[event]]
+events = ["protect/protect", "protect/modify", "protect/unprotect"]
+from = "An `acl` record in the local log: written, changed, retired ([09](09-security-and-moderation.md) §4.3)"
+parameters = "For each restriction (such as edit or move), the group and the expiry; there is no cascade. A mirrored upstream `protect/*` event keeps MediaWiki's level"
+visible_to = "Everyone"
+sources = "0011 §6.1, §7; 0023 §3"
+
+[[event]]
+events = ["managetags/create", "managetags/delete", "managetags/activate", "managetags/deactivate"]
+from = "A `tag` config record ([09](09-security-and-moderation.md) §7.6)"
+parameters = "—"
+visible_to = "Everyone"
+sources = "0011 §6.1; 0030 §5"
+
+[[event]]
+events = ["settings/change"]
+from = "The records one `PATCH /settings` or settings-page save appends: `site` records, and at the farm base the instance's defaults, locks and tenancy switches; and a `palette` or `typeset` record written or deleted ([0086](../decisions/0086-theming.md) §1) ([23](23-configuration-and-registry.md) §5.2)"
+parameters = "The keys set and unset, each with its old and new value, and the scope: `tenant`, `instance`, `defaults`, `locks` or `tenancy`"
+visible_to = "Everyone who may read the tenant"
+sources = "0085 §3; 0086 §1"
+
+[[event]]
+events = ["key/register", "key/rotate", "key/revoke"]
+from = "A `key` record in `actors` ([07](07-actors-and-accounts.md) §5.4)"
+parameters = "—"
+visible_to = "Everyone"
+sources = "0011 §6.1"
+
+[[event]]
+events = ["tag/update"]
+from = "A record whose attestation tags were changed by `action=tag`"
+parameters = "—"
+visible_to = "Everyone"
+sources = "0011 §6.1; 0030 §5"
+
+[[event]]
+events = ["block/*", "rights/*"]
+from = "`block` and `membership` records in the `actors` partition ([09](09-security-and-moderation.md) §3.3)"
+parameters = "—"
+visible_to = "Everyone"
+sources = "0011 §6.1; 0040 §7"
+
+[[event]]
+events = ["oauth/propose", "oauth/update", "oauth/approve", "oauth/reject", "oauth/disable"]
+from = "A consumer record in the instance `log`, with the consumer slug as target and the reason in the comment part ([07](07-actors-and-accounts.md) §7.6). Authorizations and revocations are not logged"
+parameters = "—"
+visible_to = "Everyone"
+sources = "0011 §6.1; 0025 §5"

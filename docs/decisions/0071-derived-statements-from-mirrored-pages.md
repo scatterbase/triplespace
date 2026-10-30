@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0011](0011-logs.md), [0018](0018-tenants.md), [0038](0038-page-metadata-and-categories.md), [0047](0047-special-pages.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0060](0060-scopes.md), [0070](0070-shallow-entity-mirroring.md), [0072](0072-template-mappings.md), [0073](0073-lines-links-and-url-patterns.md), [Record and payload shapes](../api/payloads.md)
-- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [13](../architecture/13-mirrored-pages.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -84,7 +83,7 @@ James's direction, from the design discussion of 2026-10-07:
 
 *Changed by A3, A4.*
 
-*Current text: [03](../architecture/03-storage-caches-and-search.md) §4.12, §5, §6.1.*
+*Current text: [03](../architecture/03-storage-caches-and-search.md) §4.12, §5, §6.1, §7.*
 
 ### 13. API (extends 0012 §5)
 
@@ -92,7 +91,7 @@ James's direction, from the design discussion of 2026-10-07:
 
 ### 14. Crates (amends 0005 §2)
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Alternatives considered
 
@@ -116,17 +115,6 @@ James's direction, from the design discussion of 2026-10-07:
 - **Q2. Statements about the source wiki's own pages**, such as which guides link to which, beyond `page_subject`: whether a `links` extractor belongs here.
 - **Q3. A source over several repositories**, so that two wikis' guides contribute to one graph.
 - **Q4. Confidence.** Whether derived statements carry an extractor confidence (a qualifier, or a field in the derivation), which an LLM analyzer would want and the deterministic extractors would not.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0002](0002-source-graphs-and-mass-ingest.md) §2 | §1 | extends | 0002 A22 |
-| [0002](0002-source-graphs-and-mass-ingest.md) §3 | §7 | amends | 0002 A22 |
-| [0005](0005-crate-organization.md) §2 | §14 | amends | 0005 A74 |
-| [0012](0012-api-requirements.md) §5 | §13 | extends | 0012 A51 |
-| [0013](0013-postgres-storage.md) §5.6 | §12 | extends | 0013 A37 |
-| [0015](0015-record-format-and-partition-registry.md) §1, §3, §5 | §1, §2, §3 | extends | 0015 A31 |
 
 ## References
 

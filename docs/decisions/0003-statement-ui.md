@@ -5,7 +5,6 @@
 - **Updated:** 2026-10-27 (A17)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [MediaWiki API contract](../api/mediawiki-compat.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
-- **Chapters:** [06](../architecture/06-statements-and-properties.md), [19](../architecture/19-site-ui.md)
 
 ## Context
 

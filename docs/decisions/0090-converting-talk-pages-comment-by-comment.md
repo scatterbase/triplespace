@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-20
-- **Updated:** 2026-10-22 (A3)
+- **Updated:** 2026-10-30 (A4)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0013](0013-postgres-storage.md), [0019](0019-discussions.md), [0047](0047-special-pages.md), [0054](0054-forking-a-mirrored-page.md), [0069](0069-synchronized-talk-pages.md)
 - **Uses:** [0007](0007-actor-identity.md), [0015](0015-record-format-and-partition-registry.md), [0035](0035-adopting-a-wikibase.md), [0049](0049-boards.md), [0053](0053-mirrored-pages.md), [0085](0085-settings-and-preferences.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -51,199 +51,71 @@ James's direction, from the design discussion of 2026-10-20:
 
 *Changed by A3.*
 
-**The conversion keeps 0054 §5's threads and splits their posts.** As before:
-- Each level-two section of a talk page and its archives becomes one thread, homed on the talk page and created `archived`. Its subject is the heading as plain text: links read as their labels, templates, tags and emphasis are dropped, and the characters a title may not hold are removed; a heading with nothing left becomes "Untitled section" (A3).
-- The thread's title date is its earliest comment's timestamp, or the talk page revision's time.
-- A project-wide discussion page lands on a board the importer names ([0049](0049-boards.md) §1).
-
-What changes is the posts. **Each comment in the section becomes one post.** The first comment is the thread's `create`, and each later comment a `post`, appended in the order the page shows them. Each post's `inReplyTo` is the post it answers (§2). Document order puts every parent before its replies, so a parent's revision ID is known when its reply is appended. Posts are wikitext (`mediaType: text/x-wiki`), as 0054 §5 made them. A post's text is the comment as it was written, signature included, with **its own indentation removed**: the prefix of `:`, `*` and `#` on its first line is stripped from each of its lines. Its depth now comes from the tree, and any deeper markers inside it stay.
-
-**The text above the first heading** stays one pinned, open thread, as before, when it holds banners and notices. Where it also holds signed comments, as talk pages from before headings were customary do, it is divided at the first comment. The part before stays the pinned header. The comments from there on become an archived thread whose subject is "*{title}*: before the first heading", split as any section is.
-
-Where the split fails, the conversion falls back to a post per section, then to a post for the page (§4). Who each post is attributed to is §6, which settles 0054 Q4: posts carry their authors, not the importer.
+*Current text: [13](../architecture/13-mirrored-pages.md) §5.12.*
 
 ### 2. Finding comments (amends 0054 §5)
 
 *Changed by A2.*
 
-The splitter reads the wikitext, never the rendered page, so it works on a dump as well as on a live wiki.
-
-- **A signature** is a user link followed by a timestamp:
-  - The link is to the user page, the user talk page or `Special:Contributions/`, in any of the wiki's names and aliases for them, as its `meta=siteinfo` reports.
-  - The timestamp is in a format the registry lists (§5).
-  - No more than 100 rendered characters may separate the two, DiscussionTools' limit; "rendered" counts link labels and text, not markup.
-  - Character references are decoded first, since temporary account names are written `&#126;2025-…`.
-- **A registered unsigned template** (`{{unsigned|Name|date}}` and its relatives, §5) signs the text before it for the user it names.
-- **An undated signature**, the form of 2001 to about 2005, is a dash followed by a user link that ends the line (§5).
-- **Several signatures on one line:** the first ends the comment, and later ones are notes inside it. This is the struck comment with another editor's annotation, `<s>…</s> <small>Block-evasion by … ~~~~</small>`.
-- **A comment's text** is everything in its section since the previous comment ended, less blank lines at either end. Unsigned text before a signed comment is part of that comment unless history says otherwise (§6). Unsigned text after the last comment of a section is a post of its own, attributed by §6, and so is unsigned text just before a wrapper that encloses comments (§3, A2).
-- **A comment's depth** is the indentation of its first line. **Its parent** is the nearest earlier comment or unsigned post in the same section or subsection with a smaller depth (A2). A comment at depth 0 has no parent, or the heading post of its subsection (§3). After a registered outdent template (`{{outdent}}`, `{{od}}`, §5), the next comment is a reply to the post before it, whatever its depth. DiscussionTools merges unsigned text into the comment after it, so a reply to an unsigned post may be given a different ID than DiscussionTools gives it (§9).
-
-These rules are the common case. The cases the research found beyond them are left to the fallbacks (§4) or open (Q4).
+*Current text: [13](../architecture/13-mirrored-pages.md) §5.12.*
 
 ### 3. Headings, and wrappers that close a discussion (amends 0054 §5; extends 0019 §4)
 
 *Changed by A1, A2, A3.*
 
-- **Level 2** starts a thread, as before.
-- **Level 1 is not structure.** A level-one heading's text is dropped and the sections under it are threads like any other. This is how the reference desks date their questions (`= October 7 =`). A level-one heading with anything but blank lines directly under it is read as level two: what is under it, up to the next heading, is a thread (A2).
-- **A deeper heading with no thread to belong to** starts one, as level two would: a heading of level 3 to 6 before the first thread, or straight after a dropped level-one heading (A2).
-- **Levels 3 to 6 become heading posts.** A heading post is a `post` with `heading` set to the level and the heading's wikitext as its text. Its `inReplyTo` is the heading post of the enclosing subsection, or null. The comments directly under the heading reply to it. A request for adminship's Support, Oppose and Neutral sections become three heading posts with the votes as their replies. A heading post is attributed to whoever added the heading line (§6); without history, to the author of the first comment under it. A section that opens with a subheading has no comment to open its thread, so that heading, in its original `=== … ===` form, is the thread's opening post, as text, since `create` carries no `heading`; the comments under it reply to it (A3).
-
-**A wrapper** is a registered template pair (§5) that collapses or closes a discussion: `{{archive top}}`…`{{archive bottom}}`, `{{hat}}`…`{{hab}}`, `{{collapse top}}`…`{{collapse bottom}}` and their relatives. Noticeboard and RfC archives are mostly closed discussions wrapped this way. **A wrapper becomes data, not a box** (A1): the comments inside it are split as anywhere else, and its two calls leave the posts' text.
-- **A wrapper's calls stand on lines of their own** (A2): an opening call, which may run over several lines, ends its last line, and a closing call is the whole of its line. A call anywhere else, inside a line of text or indented, is the text of the comment it is in.
-- **A wrapper that encloses a whole section is a closure.** It does when its opening call comes before anything else in the section and nothing but blank lines follows its closing call (A2); a wrapper around a whole subsection collapses it instead. Its statement, the opening call's `result`, `reason` or first parameter, usually signed by the closer, becomes a **closing post**: a `post` by the closer carrying `status: closed` ([0019](0019-discussions.md) §6), appended after the comments it closes, at the closer's time. The thread then shows collapsed, as every closed thread does, with the closing statement as its summary.
-- **Any other wrapper**, around a subsection or around part of one, closed or never closed, becomes a **collapsing post**: its statement as text, and `collapse` naming the first and last posts it enclosed ([0019](0019-discussions.md) §6), appended after them. The enclosed posts keep their places and their parents, and show collapsed beneath the statement. A wrapper never closed collapses to the end of the section or subsection it was opened in, as MediaWiki renders it.
-- **A wrapper inside one comment**, one that encloses no complete comment (`{{cot}}` around a long explanation, before its writer's signature), is that comment's text, rendered with it, and so is the unsigned text before it (A2).
-- The two calls are kept verbatim in the closing or collapsing post's `imported_from.wrapper`, so nothing of the page is lost.
-
-Closing and collapsing posts are ordinary posts, which any editor may also write. Heading posts are written only by imports, as wikitext posts are, and render as headings at their depth.
+*Current text: [13](../architecture/13-mirrored-pages.md) §5.14; [14](../architecture/14-discussions.md) §1.5, §1.6, §2.1, §2.4.*
 
 ### 4. When the split fails: the section, then the page (amends 0054 §5)
 
 *Changed by A1, A2.*
 
-**A section falls back to one post**, 0054 §5's rule, holding the section's wikitext, when any of these holds:
-- it holds no signature the splitter recognises;
-- two comment boundaries would fall inside one construct, or a heading would: a table, an HTML block element (`div`, `table`, `blockquote`, `center`) left open, a template call spanning lines, an HTML comment, or a wrapper opened within a comment's text (§3, A2);
-- the splitter's result fails its own checks: every line belongs to exactly one post, and every reply's parent precedes it.
-
-**A message in a box ends where its box does** (A2). A signature inside a construct still open on its line does not end the comment there: the comment runs on to the line that closes the construct, and the next comment starts after it. Barnstars, welcome messages and delivered notices are drawn this way, in a table or a styled `div`, with the sender's signature inside. Only a second signature, or a heading, before the construct closes makes the section fall back.
-
-The fallback post is attributed as §6 attributes unsigned text, and its `imported_from` names the reason.
-
-**A page falls back to one post** when it cannot be divided at all: the splitter fails on it, or the page exceeds the job's size limit. The page becomes one archived thread, "*{title}*: imported talk page", whose opening post is the page's wikitext, attributed to the person who started the job.
-
-A talk page in a content model other than wikitext is not converted. It is counted `deferred`, as pages in reserved namespaces are. Every fallback is counted in the job's report by reason, so the pages that degraded can be found and, when the splitter improves, converted again (Q7).
+*Current text: [13](../architecture/13-mirrored-pages.md) §5.15.*
 
 ### 5. Signature conventions: a universal registry
 
 *Changed by A2.*
 
-**`docs/registry/talk-markup.toml` lists the conventions of wikitext talk pages,** and it is universal: an entry applies on every wiki where it matches, because the same formats recur across wikis. It holds:
-
-| Table | Entries |
-|---|---|
-| `[[timestamp]]` | A timestamp format as a MediaWiki date-format string (`H:i, j F Y`, `H:i, F j, Y`, `H:i, j M Y`, `H:i, M j, Y`, `H:i, Y F j`, `Y-m-d H:i`, …), each optionally followed by a zone in parentheses (` (T)`). It covers the content-language defaults and the user date preferences that signatures used until about 2005 |
-| `[[months]]` | Per language code, the month names and abbreviations a format's `F` and `M` match |
-| `[[undated]]` | The marks that may precede an undated signature's user link (`--`, `—`, `–`, `-`, `~`) |
-| `[[template]]` | Template names by role, with the language they are used in: `unsigned` (signs the text before it for the user it names), `outdent`, `wrapper` (an opening and closing pair, §3) and `autosign` (the marker a signing bot leaves) |
-
-**A wiki configures nothing.** The splitter takes everything wiki-specific from `meta=siteinfo` (or a dump's `<siteinfo>`): the content language, which selects the month names; the timezone; and the namespace names and aliases and special-page aliases that a user link may use. **A timestamp that prints its zone**, as MediaWiki's signatures do (`(UTC)`, `(CEST)`), is read at that zone's offset, daylight saving included; one without a zone is read at the wiki's offset. The splitter takes the offset and a table of zone abbreviations from its caller, which derives both from siteinfo's `timezone` with the tz database, so the pure `scatter-talk` has no tz database of its own (§12, A2). A registered format is tried on every wiki. The research found no false matches on the modern pages, and a format only counts as a signature next to a user link.
-
-The file starts with English: the formats English-language Wikimedia wikis have used since 2002, and the English template names. Other languages are added by commits, from MediaWiki's localisation data. It is embedded by `scatter-talk` (§12).
+*Current text: [13](../architecture/13-mirrored-pages.md) §5.16; [23](../architecture/23-configuration-and-registry.md) §4.7.*
 
 ### 6. Attribution (amends 0054 §5; uses 0007 §5)
 
 *Changed by A2.*
 
-**Every imported post records two things** in its `imported_from` (§8):
-- `signed_as`: the user its signature names, if it has one;
-- `added_by`: the upstream revision that added its signature line, or its first line if unsigned, and that revision's actor, where history was read (§7).
-
-**Its author is resolved from both:**
-
-| Case | Author |
-|---|---|
-| History and signature agree: the same account, or the signature's name is one this account signs with | That account. An account's names are its former names in the repository's rename log, where that is readable, and the names it signed with in its own additions at least twice in the history read, each making up at least half of the signatures it added under names not its own (A2). This catches renames and usurped names, which a lookup of today's names gets wrong. The share keeps a delivery bot, which signs as every sender, from taking any sender's name |
-| The signature names someone else: a signing bot (a registered `autosign` marker or `unsigned` template added by another editor), a delivered message, a moved comment | The signature's user. `added_by` keeps the bot or the mover |
-| No signature, with history | The actor whose revision added the text |
-| No signature, no history | Merged into the next signed comment (§2); after the last comment, the person who started the job |
-| A fallback post (§4) | The section's first signer with history or without, as for a comment; failing that, the person who started the job |
-
-**Actors are named as their source names them.**
-- A fork's conversion names upstream actors under the repository's issuer, as its seeded upstream revisions do ([0054](0054-forking-a-mirrored-page.md) §3).
-- `Special:Import` names them as it names imported revisions' authors ([0007](0007-actor-identity.md) §5).
-- An adoption names them as the adopted actors they already are ([0035](0035-adopting-a-wikibase.md) §5).
-
-A post's attestation names its author and the job, as an upstream revision record names its upstream actor and the job. A hidden upstream user is written as the hidden marker those records use.
-
-**Its time** is the signature's timestamp, or, for unsigned text, the adding revision's. It is kept in `imported_from.timestamp`; the record's own time is the import's.
+*Current text: [13](../architecture/13-mirrored-pages.md) §5.13.*
 
 ### 7. Attribution reads history; it does not store it (amends 0054 §3, §5)
 
-**The conversion reads the talk page's whole history** from the same source the seeding job uses, `fork.history_source` (a RevisionChest store or the repository's API). For an adoption it reads the dump, and for `Special:Import` the export's own revisions. It computes a line-level blame: each line is credited to the revision that first added it, and a line moved or restored keeps its origin. It keeps nothing but each post's `added_by`.
-
-**The texts it reads are not stored.** What the log keeps of the talk page's history is decided by seeding alone, under `fork.content_revisions` ([0054](0054-forking-a-mirrored-page.md) §3, A5), so attribution costs a read, not storage.
-
-**Archives are attributed from the parent's history.** An archive's comments were written on the parent talk page and copied by a bot. The blame over the parent's history credits them by matching their lines, and the archive's own history is not read.
-
-**The read counts against the job's budget,** `fork.max_revisions` (§11). Beyond it, older comments are attributed by their signatures alone. A source with no history, an export of current revisions only, is attributed by signatures throughout.
+*Current text: [13](../architecture/13-mirrored-pages.md) §3.4, §5.13.*
 
 ### 8. The record (amends 0019 §4; extends 0054 §5)
 
 *Changed by A1.*
 
-The thread payload ([0019](0019-discussions.md) §4) gains two content-part fields and widens one. All three are written only by imports, and a `post` from an editor that carries any of them is refused. Closing and collapsing posts (§3) use `status` and `collapse`, which any post may carry ([0019](0019-discussions.md) §4, §6).
-
-| Field | Present on | Meaning |
-|---|---|---|
-| `imported_from` | `create`, and now `post` (optional) | On `create`, as before: the repository, talk page, revision and archive subpage, and the hash of the section's DiscussionTools name. On every imported post: the DiscussionTools `name` and `id` (§9), `signed_as`, `added_by` (upstream revision ID and actor), `timestamp`, `fallback` with its reason when the post is a section or page fallback (§4), and `wrapper`, the opening and closing calls, on a closing or collapsing post (§3) |
-| `heading` | `post` (optional) | 3 to 6: the post is a heading post, its text the heading (§3) |
-| `inReplyTo` | `post` | As before; it may now name a heading post |
-
-The text part stays the post's wikitext, so erasing a comment's text leaves the tree intact, as for any post.
+*Current text: [13](../architecture/13-mirrored-pages.md) §5.13; [14](../architecture/14-discussions.md) §1.5.*
 
 ### 9. DiscussionTools names and IDs (extends 0047 §9; extends 0013 §5)
 
-**Every imported post keeps the name and ID DiscussionTools gives its comment,** and every thread and heading post keeps its heading's.
-- **Name:** `c-{author}-{timestamp}`, the same on every page and revision where the comment appears.
-- **ID:** the name plus the parent, `-{parent author}-{parent timestamp}` or `-{heading anchor}`. It is unique within one page, with `-1`, `-2` added on collision.
-
-Both are derived, not assigned. DiscussionTools' own tables are an index filled by parsing revisions; they assign nothing.
-
-**Where they come from:**
-- **From upstream, where it runs DiscussionTools:** the conversion asks `action=discussiontoolspageinfo&prop=threaditemshtml` for the converted revision of the page and of each archive, one request each, and matches the IDs to posts by name.
-- **Derived, elsewhere:**
-  - The author has spaces made underscores, is truncated to 80 bytes and is trimmed of underscores.
-  - The timestamp is ISO with milliseconds before DiscussionTools' format switch (`$wgDiscussionToolsTimestampFormatSwitchTime`, 2022-07-12 by default, read in the wiki's local timezone), and `YmdHis` from then on.
-  - Heading anchors come from the wikitext renderer.
-  - The legacy ID, without underscore trimming, is kept where it differs.
-
-From the prototype's parse, `tools/talk_compare.py` derives every name, and 2,051 of 2,113 IDs (97.1%); the misses follow the parent disagreements.
-
-**Links keep working.**
-- On the converted talk page and on the thread page, each imported post's HTML carries its ID, and its legacy ID where that differs, as an anchor, and each heading carries its heading ID. So `Talk:X#c-…` and `Talk:X#h-…` links from elsewhere land on the post.
-- `Special:GoToComment/{name or ID}` finds an imported post by name or ID and redirects to it on its thread, through `Special:PermanentLink/{revid}`. Where several posts share a name, it lists them. It is DiscussionTools' page, served with its meaning (origin `DiscussionTools`, tenant scope, group `redirects`).
-- `view.post` gains `dt_name`, `dt_id` and `original`, the imported timestamp, with an index on `dt_name` for the special page ([0013](0013-postgres-storage.md) §5).
+*Current text: [03](../architecture/03-storage-caches-and-search.md) §4.8; [13](../architecture/13-mirrored-pages.md) §5.17; [21](../architecture/21-special-pages.md) §6.1, §8.*
 
 ### 10. Where the conversion runs (amends 0008 §9; amends 0069 §7; uses 0035)
 
-The same conversion, by `scatter-talk` (§12), serves every way a wikitext talk page arrives:
-
-- **Fork the talk page** and **Stop following** ([0054](0054-forking-a-mirrored-page.md) §5, [0069](0069-synchronized-talk-pages.md) §7), from the repository, with history from `fork.history_source`.
-- **`Special:Import`** of talk namespaces ([0008](0008-namespaces-and-document-pages.md) §9), with history from the export when it carries full history.
-- **Adoption.** An adopted wiki's talk pages are converted within the adoption job ([0035](0035-adopting-a-wikibase.md) §2), with history from the dump and actors as adopted. They are no longer counted `deferred`. Librarybase's talk pages are the first case.
+*Current text: [10](../architecture/10-pages-and-content-models.md) §6; [13](../architecture/13-mirrored-pages.md) §5.11, §5.12.*
 
 ### 11. `all`: waiving the history limits (amends 0054 §3)
 
-**`fork.content_revisions`, its instance ceiling, and `fork.max_revisions` accept `all`.** The defaults stay 100 and 20,000, because they guard against a surprise. An operator who means a tenant to keep complete histories sets the ceiling to `all` once, and the tenant then sets `fork.content_revisions = all`: every seeded revision gets its text. `fork.max_revisions = all` lets one job read and seed every revision. It also lets §7's attribution read every revision, whatever the content setting.
+*Current text: [13](../architecture/13-mirrored-pages.md) §3.4; [23](../architecture/23-configuration-and-registry.md) §3.2.*
 
 ### 12. Crates (amends 0005 §2; amends 0054 §12)
 
 *Changed by A1, A3.*
 
-| Crate | Change |
-|---|---|
-| `scatter-talk` | **New, pure.** The talk-page splitter (§1–§4), moved here from `scatter-adapter-mediawiki` so that adoption and `Special:Import` use it without the adapter; the line-level blame over a stream of revisions and the attribution of §6–§7; DiscussionTools names and IDs (§9); embeds `docs/registry/talk-markup.toml` (§5). Depends on `scatter-wikitext` for heading anchors and markup balance |
-| `scatter-threads` | Heading posts, `imported_from` on `post`, and refusing those fields on an editor's `post` (§3, §8); `collapse` and `uncollapse` on `post`, and the `closed` status ([0019](0019-discussions.md) §4, §6) |
-| `scatter-talk-import` | **New, pure** (A3). Plans a converted page's thread records for every import job: the conversion of `scatter-talk` mapped onto the operations of `scatter-threads`, as `create` and `post`s in append order with parents and collapsed ranges named by position until the job appends them and has their revision IDs; `archived` on `create`, `closed` on closing posts, the header open and pinned, every post wikitext, and `imported_from` with the section's name hash. The jobs (`scatter-ingest`, `triplespace-repos`, `Special:Import`) choose the home, name the actors and append. Depends on `scatter-talk` and `scatter-threads`, which do not depend on each other |
-| `scatter-adapter-mediawiki` | Loses the splitter; its `discussiontoolspageinfo` reader also serves §9's IDs |
-| `scatter-ingest` | Converts an adopted wiki's talk pages within the adoption job, with blame over the dump (§10) |
-| `triplespace-repos` | The fork job's and stop-following conversion's calls into `scatter-talk`, and the history stream for attribution (§7) |
-| `triplespace-projections` | `dt_name`, `dt_id` and `original` on `view.post` (§9) |
-| `triplespace-ui` | Rendering heading posts, collapsed ranges, anchors, the imported post's byline, and `Special:GoToComment` (§3, §9) |
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ### 13. Testing
 
 *Changed by A2.*
 
-**`scatter-talk` has golden tests against DiscussionTools.**
-- **The fixtures are committed** (A2), in `crates/scatter-talk/tests/fixtures/`: the samples of 2026-10-21, ten pages from English Wikipedia, nine as their current revision and `User talk:Harej` with its whole history, each with `discussiontoolspageinfo`'s parse of the same revision. `tools/talk_dumps.py` fetches samples, and `tools/talk_fixtures.py` turns them into fixtures, compressed and with the parse's rendered HTML removed, about 3.3 MB. The README beside them carries the licence and the attribution (Q6). `TRIPLESPACE_TALK_SAMPLES` points the tests at other samples instead.
-- **The comparison:** comments by DiscussionTools name; for each comment both find once, its parent and its ID. Comments in sections that fell back (§4) are counted apart.
-- **The thresholds** (A2): at least 99.9% of DiscussionTools' comments found, 97.5% of parents and 97% of IDs agreeing, and no more than 1% of comments in fallback sections, the agreement of `tools/talk_split.py`, the Python prototype of §2, compared by `tools/talk_compare.py`. On the fixtures the splitter finds 2,178 of 2,179 comments, agrees on 97.6% of parents and 97.1% of IDs, and falls back nowhere. A regression fails the test; differences are not listed one by one.
-- **Attribution** is tested on the page with full history, replayed revision by revision: a delivery bot is never a signed post's author, a signing bot only of its own notices, a former name resolves to the account, and history agrees with most signatures.
-- **The rules** of §1–§4 have a test each, on short pages written for it.
+*Current text: [22](../architecture/22-crates-and-stack.md) §4.9.*
 
 ## Alternatives considered
 
@@ -282,20 +154,6 @@ The same conversion, by `scatter-talk` (§12), serves every way a wikitext talk 
 - **Q5. Archive titles.** Whether `Talk:X/Archive 5` should resolve on a converted talk page to the threads imported from it, so that `Talk:X/Archive 5#c-…` links keep working, not only the talk page's own.
 - **Q6.** ~~**Fixtures.** Whether Wikipedia text committed as test fixtures needs attribution beyond the dump's own contributors.~~ *Settled by A2: the fixtures' README names the wiki, the licence (CC BY-SA 4.0), each page and revision with a link to its history, and the changes made, which is the attribution the licence asks for; the fixtures are read at run time and compiled into nothing (§13).*
 - **Q7. Converting again.** How a talk page converted by an older splitter is re-converted when the splitter improves, without duplicating threads.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2 | §12 | amends | 0005 A101 |
-| [0008](0008-namespaces-and-document-pages.md) §9 | §10 | amends | 0008 A43 |
-| [0013](0013-postgres-storage.md) §5 | §9 | extends | 0013 A69 |
-| [0019](0019-discussions.md) §4 | §3, §8 | extends | 0019 A24 |
-| [0047](0047-special-pages.md) §9 | §9 | extends | 0047 A25 |
-| [0054](0054-forking-a-mirrored-page.md) §3 | §7, §11 | amends | 0054 A6 |
-| [0054](0054-forking-a-mirrored-page.md) §5 | §1–§9 | amends | 0054 A6 |
-| [0054](0054-forking-a-mirrored-page.md) §12 | §12 | amends | 0054 A6 |
-| [0069](0069-synchronized-talk-pages.md) §7 | §10 | amends | 0069 A5 |
 
 ## References
 
@@ -387,3 +245,10 @@ Replaced text (§13):
 - **Source:** Direct: James, design discussion of 2026-10-22
 - **Change:** extends §1, §3, §12
 - **Summary:** Mapping a conversion onto thread records is part of the import (James: "it would make sense if the import job handled the mapping, since mapping arguably is part of the import"), done once in a new pure crate that every import job depends on (James: "What if we made it its own crate that others can depend on?"; the name `scatter-talk-import` approved). It keeps `scatter-talk` and `scatter-threads` independent of each other, and spares the fork job and `Special:Import` a dependency on `scatter-ingest`. It plans each thread's records in append order with parents and collapsed ranges by position, and the job resolves positions to revision IDs as it appends. Two rules the mapping needed: a thread's subject is its heading as plain text (§1), and a section that opens with a subheading opens its thread with that heading as text (§3). Chapter text: [13](../architecture/13-mirrored-pages.md) §5.12, §5.14; [22](../architecture/22-crates-and-stack.md) §2.1 (by [0005](0005-crate-organization.md) A103).
+
+### A4. Current text relocated to the architecture chapters
+
+- **Date:** 2026-10-30
+- **Source:** [0050](0050-adr-format.md) §14
+- **Change:** relocates §1–§13
+- **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [10](../architecture/10-pages-and-content-models.md), [13](../architecture/13-mirrored-pages.md), [14](../architecture/14-discussions.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `2e2a7c8`. No decision changed.

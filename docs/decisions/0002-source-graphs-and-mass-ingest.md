@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md)
 - **Uses:** [Wikibase data model and ontology contract](../api/wikibase-compat.md)
-- **Chapters:** [05](../architecture/05-providers-and-ingest.md)
 
 ## Context
 
@@ -72,7 +71,7 @@ Four scenarios were used to test the design:
 
 *Changed by A32.*
 
-*Current text: [05](../architecture/05-providers-and-ingest.md) §3.1.*
+*Current text: [05](../architecture/05-providers-and-ingest.md) §3.1, §3.10.*
 
 #### 8.1 One change-set format, three entry points
 
@@ -144,16 +143,7 @@ Four scenarios were used to test the design:
 - **Q9. Wire formats beyond NDJSON.** For example, a binary or columnar format for maximum throughput.
 - **Q10.** ~~**IRIs for upstream revisions and actors.** Candidates are provider-derived IRIs, such as `https://www.wikidata.org/w/index.php?oldid=N` for a Wikidata revision. This makes 0001 Q3 about actors from foreign sources concrete.~~ *Settled by [0007](0007-actor-identity.md) §2 (`Special:Redirect/user/{id}`) and [0015](0015-record-format-and-partition-registry.md) §4 (`Special:Redirect/revision/{revid}`), both on the provider's wiki.*
 - **Q11. Eager forks.** Whether to support freezing a copy of an entity now, as an operation distinct from `retain`.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0000](0000-init.md) §3 | §1 | extends | 0000 A1 |
-| [0000](0000-init.md) Q2 | §8 | settles | 0000 Q2 |
-| [0000](0000-init.md) Q3 | §1–2, §7 | settles | 0000 Q3 |
-| [0001](0001-revision-metadata-rdf.md) §2 | §3 | amends | 0001 A1 |
-| [0001](0001-revision-metadata-rdf.md) Q5 | §8.3 | settles | 0001 Q5 |
+- **Q12. Reserving `Y*` provider codes.** Whether `Y*` blocks are reserved for tenant-scoped foreign graphs, and how the reservation is recorded. (From the working notes, 0099 §5.)
 
 ## Amendment log
 

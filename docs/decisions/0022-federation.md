@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md), [0028](0028-tenancy-policy.md)
 - **Uses:** [0000](0000-init.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0014](0014-caches-and-search.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0030](0030-edit-filters.md)
-- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), [17](../architecture/17-federation-and-publication.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -82,7 +81,7 @@ The two halves share a stance. Triplespace federates **facts and speech, not ide
 
 *Changed by A1.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Consequences
 
@@ -102,30 +101,6 @@ The two halves share a stance. Triplespace federates **facts and speech, not ide
 - **Q4.** ~~**Witnesses across federated instances** ([0006](0006-log-integrity-and-erasure.md) Q1): whether federation partners should cosign each other's checkpoints.~~ *Settled by [0081](0081-recovery-keys-and-continuations.md) §6: they may, since an instance can serve the tlog-witness API under `witness.enabled`.*
 - **Q5. Entity data on ActivityPub**: whether an entity's document node should be an `as:Article` that announces its revisions, for readers who want to follow an item. Deliberately not done here.
 - **Q6. Followers as private state**: whether the follower list of a `Group` is public, as Mastodon shows it, or private as the notifier's is.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0002](0002-source-graphs-and-mass-ingest.md) §8.4 | §2 | extends | 0002 A11 |
-| [0005](0005-crate-organization.md) §2, §7 | §13 | amends | 0005 A18 |
-| [0006](0006-log-integrity-and-erasure.md) §6 | §1 | extends | 0006 A8 |
-| [0006](0006-log-integrity-and-erasure.md) Q3 | §1 | settles | 0006 Q3 |
-| [0007](0007-actor-identity.md) §4, §5, §7 | §6, §8 | extends | 0007 A6 |
-| [0010](0010-site-ui.md) §2, §11 | §6, §11 | extends | 0010 A12 |
-| [0011](0011-logs.md) §5 | §8 | extends | 0011 A6 |
-| [0012](0012-api-requirements.md) §5 | §1, §11 | extends | 0012 A11 |
-| [0013](0013-postgres-storage.md) §5, §5.2, §5.6 | §1, §8, §10, §13 | amends | 0013 A9 |
-| [0013](0013-postgres-storage.md) §4, §5.4, §5.5, §7, §8 | §1, §8, §10, §13 | extends | 0013 A9 |
-| [0015](0015-record-format-and-partition-registry.md) §1 | §2, §8, §10 | amends | 0015 A5 |
-| [0015](0015-record-format-and-partition-registry.md) §3, §5 | §2, §8, §10 | extends | 0015 A5 |
-| [0016](0016-permissions-and-access-control.md) §2, §3 | §8, §12 | extends | 0016 A5 |
-| [0019](0019-discussions.md) Q7 | — | settles | 0019 Q7 |
-| [0020](0020-change-feeds.md) Q4 | §2 | settles | 0020 Q4 |
-| [0021](0021-notifications.md) §5, §8 | §6–8, §10, §13 | extends | 0021 A2 |
-| [0021](0021-notifications.md) Q5 | §8 | settles | 0021 Q5 |
-| [0021](0021-notifications.md) Q6 | — | settles | 0021 Q6 |
-| [0028](0028-tenancy-policy.md) §5 | §2 | amends | 0028 A2 |
 
 ## References
 

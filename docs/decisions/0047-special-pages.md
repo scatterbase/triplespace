@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0029](0029-resolver-namespaces.md), [0031](0031-property-constraints.md), [0042](0042-template-expansion-and-parsoid.md), [0046](0046-primary-tenant.md)
 - **Uses:** [0019](0019-discussions.md), [0021](0021-notifications.md), [0028](0028-tenancy-policy.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md)
-- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), [18](../architecture/18-api.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -146,7 +145,7 @@ James's direction, from the design discussion of 2026-09-30:
 
 *Changed by A1.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Consequences
 
@@ -167,28 +166,6 @@ James's direction, from the design discussion of 2026-09-30:
 - **Q5. Mute.** Whether `Special:Mute` and user-level muting of notifications ([0021](0021-notifications.md)) and email should exist at all.
 - **Q6. Reports over mirror graphs.** Which batch reports over a mirror are worth offering by default, for example mirrored properties without a local constraint, and whether their snapshots should be shared across tenants that mirror the same provider.
 - **Q7. Thresholds.** The defaults are placeholders: `nuke.confirm_threshold` (500), `export.sync_revisions` (5,000), `export.max_history` (1,000) and the `reports` `batch_limit` (1,000).
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0002](0002-source-graphs-and-mass-ingest.md) §7 | §6 | extends | 0002 A16 |
-| [0004](0004-identity-clusters-and-equivalence.md) §10 | §5–6 | extends | 0004 A8 |
-| [0005](0005-crate-organization.md) §2 | §14 | extends | 0005 A47 |
-| [0007](0007-actor-identity.md) Q7 | §9 | settles | 0007 Q7 |
-| [0008](0008-namespaces-and-document-pages.md) §9 | §8 | extends | 0008 A16 |
-| [0010](0010-site-ui.md) §2, §3, §12 | §1, §5, §9 | extends | 0010 A27 |
-| [0013](0013-postgres-storage.md) §5.6 | §4.3, §13 | amends | 0013 A19 |
-| [0013](0013-postgres-storage.md) §7 | §4.3, §13 | extends | 0013 A19 |
-| [0015](0015-record-format-and-partition-registry.md) §3, §5 | §1, §4.3 | extends | 0015 A21 |
-| [0016](0016-permissions-and-access-control.md) §2 | §12 | extends | 0016 A16 |
-| [0018](0018-tenants.md) §11 | §3 | extends | 0018 A9 |
-| [0023](0023-moderation.md) §9, §11 | §7, §12 | extends | 0023 A6 |
-| [0024](0024-subsidiary-accounts.md) §5 | §8, §12 | amends | 0024 A7 |
-| [0029](0029-resolver-namespaces.md) §3 | §5, §9 | extends | 0029 A4 |
-| [0031](0031-property-constraints.md) §3 | §4.2 | amends | 0031 A2 |
-| [0042](0042-template-expansion-and-parsoid.md) §10 | §4.3, §13 | extends | 0042 A3 |
-| [0046](0046-primary-tenant.md) §7 | §3 | extends | 0046 A2 |
 
 ## References
 

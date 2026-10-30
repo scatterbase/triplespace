@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0003](0003-statement-ui.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0017](0017-entity-id-grammar.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md)
-- **Chapters:** [06](../architecture/06-statements-and-properties.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md)
 
 ## Context
 
@@ -60,7 +59,7 @@ The instance already has every part of this. [0013](0013-postgres-storage.md) §
 
 *Changed by A1.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Consequences
 
@@ -78,22 +77,6 @@ The instance already has every part of this. [0013](0013-postgres-storage.md) §
 - **Q3. Resolving to non-canonical members.** When the entity found is a non-canonical cluster member, the redirect goes to the canonical entity ([0004](0004-identity-clusters-and-equivalence.md) §4); whether the page should say so.
 - **Q4. Grammar strictness for DOI.** The suffix may contain almost any character; whether to accept everything after `10.xxxx/` or apply Crossref's practical limits.
 - **Q5. Which candidates ship.** `orcid`, `isbn` and `handle` are drafted; `arxiv`, `pmid`, `viaf` and `isni` are obvious next ones.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0003](0003-statement-ui.md) §7 | §1 | extends | 0003 A3 |
-| [0005](0005-crate-organization.md) §2 | §9 | extends | 0005 A25 |
-| [0008](0008-namespaces-and-document-pages.md) §1, §3 | §2 | extends | 0008 A5 |
-| [0009](0009-keyed-entity-types-and-domain.md) Q6 | §1 | settles | 0009 Q6 |
-| [0010](0010-site-ui.md) §3 | §7 | extends | 0010 A18 |
-| [0012](0012-api-requirements.md) §4, §5 | §6 | extends | 0012 A17 |
-| [0013](0013-postgres-storage.md) §5, §5.2, §5.6 | §3 | amends | 0013 A9 |
-| [0013](0013-postgres-storage.md) §4, §5.4, §5.5, §7, §8 | §3 | extends | 0013 A9 |
-| [0015](0015-record-format-and-partition-registry.md) §3, §5 | §1 | extends | 0015 A12 |
-| [0017](0017-entity-id-grammar.md) §5 | §1–2 | extends | 0017 A2 |
-| [0017](0017-entity-id-grammar.md) Q6 | §1 | settles | 0017 Q6 |
 
 ## References
 

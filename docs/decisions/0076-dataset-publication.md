@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0006](0006-log-integrity-and-erasure.md), [0039](0039-files-and-media.md), [0053](0053-mirrored-pages.md), [0056](0056-security-model.md), [0060](0060-scopes.md), [0070](0070-shallow-entity-mirroring.md), [0071](0071-derived-statements-from-mirrored-pages.md), [0073](0073-lines-links-and-url-patterns.md), [0074](0074-publishing-a-scope-to-an-external-wiki.md), [0075](0075-mcp-server.md)
-- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [17](../architecture/17-federation-and-publication.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -59,7 +58,7 @@ James's direction, from the design discussion of 2026-10-07:
 
 *Changed by A1.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Alternatives considered
 
@@ -79,15 +78,6 @@ James's direction, from the design discussion of 2026-10-07:
 - **Q1. Dumps of restricted tenants per principal**, or only per group.
 - **Q2. The MediaWiki extension** that embeds `by-url` JSON-LD: Triplespace's to ship, or the destination's to write.
 - **Q3. Incremental dumps** from `view.rdf_delta`, for consumers that keep a copy current without downloading the whole scope.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2 | §7 | amends | 0005 A79 |
-| [0012](0012-api-requirements.md) §5 | §3, §6 | extends | 0012 A54 |
-| [0013](0013-postgres-storage.md) §5.6 | §6 | extends | 0013 A39 |
-| [0015](0015-record-format-and-partition-registry.md) §3 | §2 | extends | 0015 A35 |
 
 ## References
 

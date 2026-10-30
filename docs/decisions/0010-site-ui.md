@@ -2,11 +2,10 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-28 (A46)
+- **Updated:** 2026-10-30 (A47)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md)
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
-- **Chapters:** [19](../architecture/19-site-ui.md)
 
 ## Context
 
@@ -43,7 +42,7 @@ The design exploration is on the [site UI canvas](https://claude.ai/artifact/XNb
 
 ### 2. The frame
 
-*Changed by A5, A9, A11, A12, A13, A16, A20, A22, A23, A27, A29, A30, A33, A41, A42.*
+*Changed by A5, A9, A11, A12, A13, A16, A20, A22, A23, A27, A29, A30, A33, A41, A42, A47.*
 
 *Current text: [19](../architecture/19-site-ui.md) §1.2, §1.3, §1.4, §1.5.*
 
@@ -170,12 +169,6 @@ The design exploration is on the [site UI canvas](https://claude.ai/artifact/XNb
 - **Q10.** ~~**Rules for local account names.** Which characters are allowed, how names are normalized, and how names that collide with names held by a vanished account are handled. [0024](0024-subsidiary-accounts.md) §2, [0025](0025-oauth-server.md) and [0028](0028-tenancy-policy.md) §2 all defer to this.~~ *Settled by A6: MediaWiki's grammar verbatim, case-insensitive uniqueness, and no name ever reused, by name tombstones in the actor projection.*
 - **Q11.** ~~**Discussions.** Talk namespaces are reserved ([0008](0008-namespaces-and-document-pages.md) §2), and their UI comes with that ADR.~~ *Settled by [0019](0019-discussions.md) §8.*
 - **Q12. Detailed mobile layouts.** (Rest of Q7.) Narrow-screen layouts for the pages of this ADR.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2 | §13 | amends | 0005 A5 |
 
 ## References
 
@@ -635,3 +628,20 @@ Replaced text ([19](../architecture/19-site-ui.md) §2.4, as it stood):
 - **Source:** [0095](0095-the-interface-namespace.md) §3
 - **Change:** extends §7
 - **Summary:** In lists of changes an account as a target is marked with a person icon and linked to its contributions, its key left out for an account of this wiki, and the instance's own key is a Server Operator badge (0095 §3).
+
+### A47. The ACL site UI: the calls made building it
+
+- **Date:** 2026-10-30
+- **Source:** Direct: Claude, while building the moderation site UI, 2026-10-24; unconfirmed
+- **Change:** extends §2
+- **Summary:** Logged from the working notes on their retirement (0099 §5, 24 §15); each call stands as decided until James confirms or overturns it, and the chapter text that states it is folded on confirmation where it is not already there. The calls:
+  - One expiry for the whole Protect form, not MediaWiki's per-row expiries, since `action=protect` takes one `expiry`.
+  - Expiries accept spans (`1 week`, `3 days`) on `protect`, `userrights` and `block`; months are 30 days, years 365.
+  - `Special:UserRights` shows every group, disabled where the viewer may not change it; the viewer's own page proposes `1 day` (09 §4.5), which they may clear.
+  - `Special:ProtectedPages` folds in `Special:ProtectedTitles` as rows of the Pages tab; the separate page is not served.
+  - The Visibility section offers three choices (Anyone, Accounts on this wiki, A group) and writes the tenant ACL; the account-creation switch of 19 §6.3 is a group permission, not a setting, so it is not on the tab.
+  - `list=users` is served with `usprop=groups|groupmemberships|blockinfo` (`ts-blockremoves` added), and `siprop=usergroups` marks implicit groups with `implicit`.
+  - Protect… and Delete… live in the overflow menu of 19 §1.3 (**More**, a `<details>` beside the tabs).
+  - `ts-visibility` is a Triplespace field on `action=parse` (in the `parse` object) and on `wbgetentities` (top level, `{id: {groups, sets}}`), present only for a restricted target, so the Restricted pill costs no extra request.
+  - `list=blocks` carries `ts-removes` and `ts-hidden`; a name hidden from the caller is `userhidden`.
+  - The deleted page's view answers 404 to everyone outside the deletion group (with the banner) and 200 to the group (with the content).

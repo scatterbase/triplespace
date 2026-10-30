@@ -5,7 +5,6 @@
 - **Updated:** 2026-10-09 (A25)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md)
-- **Chapters:** [01](../architecture/01-log-and-records.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -90,7 +89,7 @@ Three terms are used precisely below:
 
 ### 10. Crates
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Consequences
 
@@ -115,17 +114,6 @@ Three terms are used precisely below:
 - **Q6. Key compromise.** Revocation and recovery, shared with Scatterbase's identity work.
 - **Q7.** ~~**The Wikibase JSON to CBOR mapping.** In particular, which values stay strings and how snak hashes are carried.~~ *Settled by A7: structural and JSON-faithful; every string stays a string; snak and reference hashes and `numeric-id` are dropped and recomputed on output.*
 - **Q8. Prior-use acknowledgments for each term.** Whether they eventually move from the attestation into a log-level check shared by both products.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0000](0000-init.md) Q6 | §2–3 | settles | 0000 Q6 |
-| [0001](0001-revision-metadata-rdf.md) §4 | §7 | amends | 0001 A3 |
-| [0002](0002-source-graphs-and-mass-ingest.md) §8.4 | §2 | extends | 0002 A14 |
-| [0002](0002-source-graphs-and-mass-ingest.md) Q5 | §7 | settles | 0002 Q5 |
-| [0005](0005-crate-organization.md) §2, §4.2, §4.3 | §10 | amends | 0005 A1 |
-| [0005](0005-crate-organization.md) §2 | §2 | amends | 0005 A37 |
 
 ## References
 

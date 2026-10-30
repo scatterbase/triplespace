@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0041](0041-content-models.md), [0043](0043-lua-modules.md), [0047](0047-special-pages.md), [0060](0060-scopes.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0009](0009-keyed-entity-types-and-domain.md), [0010](0010-site-ui.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0023](0023-moderation.md), [0031](0031-property-constraints.md), [0032](0032-sparql-update-stream.md), [0035](0035-adopting-a-wikibase.md), [0045](0045-table-content-model.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
-- **Chapters:** [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [04](../architecture/04-entities-and-identifiers.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -61,7 +60,7 @@ James's direction, from the design discussion of 2026-10-05:
 
 ### 10. Crates (amends 0005 §2)
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Alternatives considered
 
@@ -83,22 +82,6 @@ James's direction, from the design discussion of 2026-10-05:
 - **Q2. Lemma-based title resolution.** `Lexeme:run` is not a title today; whether a lemma resolver ([0029](0029-resolver-namespaces.md)) should disambiguate by language and category.
 - **Q3. Senses as scope subjects in the builder** ([0062](0062-workspaces.md) §5): by-example over senses finds `P5137` patterns; whether the builder should offer part subject types.
 - **Q4. Lexeme-specific notation** for languages without items (`mis`-coded lemmas), which Wikidata handles with special items; whether a Notation ([0048](0048-notation.md)) fits better here.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0004](0004-identity-clusters-and-equivalence.md) §1 | §4 | extends | 0004 A11 |
-| [0005](0005-crate-organization.md) §2 | §10 | amends | 0005 A69 |
-| [0008](0008-namespaces-and-document-pages.md) §2 | §2 | amends | 0008 A29 |
-| [0012](0012-api-requirements.md) §5 | §8 | extends | 0012 A46 |
-| [0013](0013-postgres-storage.md) §5.6 | §5 | extends | 0013 A35 |
-| [0014](0014-caches-and-search.md) §7 | §5 | extends | 0014 A17 |
-| [0017](0017-entity-id-grammar.md) §1 | §4 | extends | 0017 A9 |
-| [0041](0041-content-models.md) §3 | §3 | extends | 0041 A13 |
-| [0043](0043-lua-modules.md) §7 | §9 | extends | 0043 A4 |
-| [0047](0047-special-pages.md) §9 | §7 | extends | 0047 A10 |
-| [0060](0060-scopes.md) §4 | §5 | extends | 0060 A4 |
 
 ## References
 

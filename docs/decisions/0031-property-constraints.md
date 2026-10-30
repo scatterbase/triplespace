@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0003](0003-statement-ui.md), [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0030](0030-edit-filters.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0018](0018-tenants.md), [0020](0020-change-feeds.md), [0029](0029-resolver-namespaces.md), [Wikibase contract](../api/wikibase-compat.md)
-- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [06](../architecture/06-statements-and-properties.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -62,7 +61,7 @@ The instance has two advantages over Wikidata here. It **mirrors** Wikidata's pr
 
 *Changed by A1.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Consequences
 
@@ -82,22 +81,6 @@ The instance has two advantages over Wikidata here. It **mirrors** Wikidata's pr
 - **Q4. Suggested fixes**: whether a violation should offer a one-click correction where the fix is unambiguous (a *format* violation with a known normalization, say), which would be an edit like any other.
 - **Q5. Constraint via SPARQL** if a tenant runs a local quad store ([0013](0013-postgres-storage.md) §8).
 - **Q6.** ~~**Whether `mandatory` violations should influence patrolling** ([0023](0023-moderation.md) §6), for example by clearing autopatrol on the write that introduced one; that would be the first thing to read the graph on the write path, and is deliberately not done here.~~ *Settled by [0030](0030-edit-filters.md) A3: no. Nothing on the write path reads the graph; constraints report after the fact and a reviewer acts on the report.*
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0003](0003-statement-ui.md) §6, §7 | §1, §3, §6 | extends | 0003 A4 |
-| [0003](0003-statement-ui.md) §9 | §1, §3, §6 | amends | 0003 A4 |
-| [0005](0005-crate-organization.md) §2 | §9 | extends | 0005 A27 |
-| [0010](0010-site-ui.md) §2, §12 | §7 | extends | 0010 A20 |
-| [0012](0012-api-requirements.md) §4, §5 | §6 | extends | 0012 A19 |
-| [0013](0013-postgres-storage.md) §5, §5.2, §5.6 | §5 | amends | 0013 A9 |
-| [0013](0013-postgres-storage.md) §4, §5.4, §5.5, §7, §8 | §5 | extends | 0013 A9 |
-| [0014](0014-caches-and-search.md) §1, §5 | §5 | amends | 0014 A3 |
-| [0014](0014-caches-and-search.md) §10 | §5 | extends | 0014 A3 |
-| [0030](0030-edit-filters.md) §2 | §1, §8 | extends | 0030 A2 |
-| [0030](0030-edit-filters.md) Q1 | — | settles | 0030 Q1 |
 
 ## References
 

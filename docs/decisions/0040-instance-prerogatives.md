@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [0039](0039-files-and-media.md)
 - **Uses:** [0023](0023-moderation.md), [0025](0025-oauth-server.md), [0026](0026-sitelinks.md), [0046](0046-primary-tenant.md)
-- **Chapters:** [02](../architecture/02-graphs-rdf-and-query.md), [08](../architecture/08-tenants-and-instances.md), [09](../architecture/09-security-and-moderation.md), [16](../architecture/16-logs-feeds-and-notifications.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -85,7 +84,7 @@ James's direction, from the design discussion of 2026-09-30: an instance preroga
 
 *Changed by A1.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Consequences
 
@@ -103,24 +102,6 @@ James's direction, from the design discussion of 2026-09-30: an instance preroga
 - **Q2. Guest notice.** Whether a guest's administrators should be notified of every instance act on their tenant, or only of binding ones, and through which channel.
 - **Q3. Appeals.** Whether an authority record should carry a structured appeal route (a contact, a deadline) that the guest's UI shows beside the act.
 - **Q4. Scatterbase's server acts**, if Scatterbase wants the same distinction between a server's own claims and its users'.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2 | §11 | extends | 0005 A40 |
-| [0006](0006-log-integrity-and-erasure.md) §2, §9 | §3, §8 | extends | 0006 A11 |
-| [0007](0007-actor-identity.md) §1 | §2 | extends | 0007 A13 |
-| [0010](0010-site-ui.md) §5.2 | §7 | extends | 0010 A24 |
-| [0011](0011-logs.md) §6.1 | §4, §7 | extends | 0011 A14 |
-| [0011](0011-logs.md) §6.3 | §4, §7 | amends | 0011 A14 |
-| [0015](0015-record-format-and-partition-registry.md) §1 | §3 | extends | 0015 A18 |
-| [0016](0016-permissions-and-access-control.md) §2, §6 | §7, §9 | extends | 0016 A14 |
-| [0018](0018-tenants.md) §4 | §1–3, §8 | amends | 0018 A7 |
-| [0018](0018-tenants.md) §10 | §1–3, §8 | extends | 0018 A7 |
-| [0028](0028-tenancy-policy.md) §2, §5, §8 | §5–6 | amends | 0028 A5 |
-| [0030](0030-edit-filters.md) §8 | §6 | amends | 0030 A5 |
-| [0039](0039-files-and-media.md) §9, §10 | §6 | amends | 0039 A2 |
 
 ## References
 

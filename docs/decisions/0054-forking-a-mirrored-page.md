@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0024](0024-subsidiary-accounts.md), [0030](0030-edit-filters.md), [0033](0033-backend-stack.md), [0039](0039-files-and-media.md), [0047](0047-special-pages.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0023](0023-moderation.md), [0035](0035-adopting-a-wikibase.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0049](0049-boards.md), [0051](0051-page-redirects.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0055](0055-templatestyles-templatedata-and-page-properties.md), [MediaWiki API contract](../api/mediawiki-compat.md)
-- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [07](../architecture/07-actors-and-accounts.md), [09](../architecture/09-security-and-moderation.md), [13](../architecture/13-mirrored-pages.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -93,7 +92,7 @@ James's direction, from the design discussion of 2026-10-01:
 
 *Changed by A6.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Alternatives considered
 
@@ -123,26 +122,6 @@ James's direction, from the design discussion of 2026-10-01:
 - **Q4.** ~~**Signature-level attribution.** Whether, where a section's signatures parse cleanly, the import should attribute the thread's opening post to the first signer under the repository's issuer, as 0019 Q5 suggested, instead of to the forker.~~ *Settled by [0090](0090-converting-talk-pages-comment-by-comment.md) §6: every comment is its own post, attributed to its author, resolved from its signature and the talk page's history.*
 - **Q5. Forking across tenants.** A `tenant` repository's page is forked by the same job, reading the source tenant's records directly; whether the source tenant should be told, or its page linked back.
 - **Q6. Images in the fork's history.** Old revisions reference files that may no longer exist upstream; whether the file job should offer to fetch them from the repository's deleted-file archive where it is readable.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2 | §12 | extends | 0005 A53 |
-| [0008](0008-namespaces-and-document-pages.md) §4, §9 | §1, §5 | extends | 0008 A23 |
-| [0010](0010-site-ui.md) §2, §4 | §2, §6 | extends | 0010 A30 |
-| [0011](0011-logs.md) §6.1 | §1 | extends | 0011 A18 |
-| [0012](0012-api-requirements.md) §4, §5 | §2, §11 | extends | 0012 A33 |
-| [0013](0013-postgres-storage.md) §5.6 | §10 | extends | 0013 A24 |
-| [0015](0015-record-format-and-partition-registry.md) §4 | §3 | extends | 0015 A25 |
-| [0016](0016-permissions-and-access-control.md) §2 | §8 | extends | 0016 A20 |
-| [0019](0019-discussions.md) §3, §4, §5, §6 | §5 | amends | 0019 A13 |
-| [0019](0019-discussions.md) Q5 | §5 | settles | 0019 Q5 |
-| [0024](0024-subsidiary-accounts.md) §5 | §8 | extends | 0024 A9 |
-| [0030](0030-edit-filters.md) §2 | §2 | extends | 0030 A9 |
-| [0033](0033-backend-stack.md) §10 | §3 | amends | 0033 A7 |
-| [0039](0039-files-and-media.md) §14 | §7 | extends | 0039 A7 |
-| [0047](0047-special-pages.md) §9 | §2 | extends | 0047 A4 |
 
 ## References
 

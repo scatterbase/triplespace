@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0024](0024-subsidiary-accounts.md), [0028](0028-tenancy-policy.md), [0032](0032-sparql-update-stream.md), [0033](0033-backend-stack.md), [0047](0047-special-pages.md), [0056](0056-security-model.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0045](0045-table-content-model.md), [0049](0049-boards.md), [0060](0060-scopes.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
-- **Chapters:** [02](../architecture/02-graphs-rdf-and-query.md), [08](../architecture/08-tenants-and-instances.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -68,7 +67,7 @@ James's direction, from the design discussion of 2026-10-04:
 
 *Changed by A5.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Alternatives considered
 
@@ -95,20 +94,6 @@ James's direction, from the design discussion of 2026-10-04:
 - **Q4. Cursor-stamped reads.** Whether `/sparql` should accept `cursor=` and refuse to answer from a store behind it, so that a client that just wrote can know when its write is queryable.
 - **Q5. Embedded store size.** Oxigraph's limits on a Wikidata-sized `full` form are not known from experience here; the bootstrap audit of [0013](0013-postgres-storage.md) should measure the embedded store beside `entity_ref` and `rdf_delta`.
 - **Q6. Metadata graph queries.** Whether raw SPARQL over the metadata graph (revision nodes, actors) needs a bound of its own, since it is the one graph with a row per revision.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2, §4.4 | §8 | amends | 0005 A62 |
-| [0012](0012-api-requirements.md) §5 | §6 | extends | 0012 A39 |
-| [0013](0013-postgres-storage.md) §8 | §1 | amends | 0013 A32 |
-| [0024](0024-subsidiary-accounts.md) §5 | §6 | extends | 0024 A11 |
-| [0028](0028-tenancy-policy.md) §12 | §4 | extends | 0028 A10 |
-| [0032](0032-sparql-update-stream.md) §6 | §1 | extends | 0032 A4 |
-| [0033](0033-backend-stack.md) §1, §11 | §2 | amends | 0033 A11 |
-| [0047](0047-special-pages.md) §9 | §6 | extends | 0047 A6 |
-| [0056](0056-security-model.md) §3, §10 | §4 | extends | 0056 A3 |
 
 ## References
 

@@ -1,0 +1,549 @@
+# Every Action API module Triplespace adds or changes (chapter 18 §2.3), in three tables: `action=`
+# modules, `action=query` submodules, and the Wikibase and WikibaseLexeme modules. Edit this file,
+# then `python3 architecture/catalogues.py --write` from docs/ regenerates the tables. The Built
+# column is derived from the module lists `action=paraminfo` serves (ACTION_MODULES and
+# QUERY_MODULES in crates/triplespace-api-action/src/modules/query.rs).
+
+# kind     action | query | wikibase: which table the row is in
+# modules  the module names the row covers, as the table spells them (`action=edit`, `list=blocks`, `wbeditentity`)
+# display  optional: the first cell as it should read when it is not a list of modules
+# changes  what Triplespace adds or changes
+# sources  the ADR sections that define it
+
+[[module]]
+kind = "action"
+modules = ["action=abusefiltercheckmatch", "action=abusefilterchecksyntax"]
+changes = "AbuseFilter's modules, over CEL"
+sources = "[0030](../decisions/0030-edit-filters.md) §9"
+
+[[module]]
+kind = "action"
+modules = ["action=abusefilterevalexpression", "action=abusefilterunblockautopromote"]
+changes = "AbuseFilter's modules"
+sources = "[0030](../decisions/0030-edit-filters.md) §9"
+
+[[module]]
+kind = "action"
+modules = ["action=acquiretempusername"]
+changes = "Temporary accounts ([0007](../decisions/0007-actor-identity.md) §3)"
+sources = "[0012](../decisions/0012-api-requirements.md) §4"
+
+[[module]]
+kind = "action"
+modules = ["action=block", "action=unblock"]
+changes = "As in MediaWiki. `action=block` gains `hidename`, which writes the actor ACL beside the block"
+sources = "[0016](../decisions/0016-permissions-and-access-control.md) §7; [0023](../decisions/0023-moderation.md) §8"
+
+[[module]]
+kind = "action"
+modules = ["action=changecontentmodel"]
+changes = "Between text models the namespace allows, including to or from `triplespace-sprint`. A page whose current model is not text: `changecontentmodel-nodirectediting`. A new model the namespace does not allow, including every non-text model: `changecontentmodel-cannotbeused`. The same model: `nochanges`. These are the codes MediaWiki core gives. On a foreign primary: `ts-foreign-page`"
+sources = "[0041](../decisions/0041-content-models.md) §8; [0061](../decisions/0061-sprints-and-tasks.md) §10; [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6"
+
+[[module]]
+kind = "action"
+modules = ["action=clientlogin", "action=createaccount", "meta=authmanagerinfo"]
+changes = "Offer a redirect-based OAuth flow for each issuer allowed for login, and MediaWiki's own `username`/`password` fields where the built-in `password` issuer is on. These are not offered to subsidiaries. `returnto` is honoured only on the request's own origin, here and on the `/auth` routes, and ignored otherwise ([0057](../decisions/0057-web-tier.md) §7). Unchanged by the OAuth server. Where a challenge trigger applies to the caller ([07](07-actors-and-accounts.md) §2.6), `authmanagerinfo` (`amirequestsfor=create`, or `login` under `badlogin`) lists the required `TriplespaceChallengeAuthenticationRequest`, with `tschallengeid` (hidden, the challenge), `tschallengeinfo` (`null`, labelled with what to compute) and `tschallengesolution`, and `metadata` `{\"algorithm\": \"sha256-leading-zero-bits\", \"bits\", \"expires\"}`; a solution that is missing, wrong, stale or spent answers `status: UI` with `ts-challenge-required` and a fresh challenge, for `createcontinue` or `logincontinue`, as ConfirmEdit answers a wrong CAPTCHA. `createaccount` is throttled by the `createaccount` class, answering `FAIL` with `acct_creation_throttle_hit`; with `account.approval` on, it answers `FAIL` with `ts-account-requested`, and a login with the credential of a pending or rejected request answers `FAIL` with `ts-account-pending` or `ts-account-rejected` and the reviewer's reason. `uiprop=cancreateaccount` answers from `createaccount` alone. **At the auth base and on tenants** ([07](07-actors-and-accounts.md) §2.8; [0089](../decisions/0089-the-auth-host-and-instance-logins.md) §7, §11): at the auth base these modules act on logins, and `createaccount` creates one, under the `createaccount` challenge for a password. On a tenant with an auth host, `clientlogin` keeps the `username` and `password` fields, the username being the tenant account's name and the password its login's, under the tenant's `badlogin`, and opens a tenant session only; `authmanagerinfo` lists the built-in issuer `login`, whose redirect goes to the auth host's `/auth/authorize`, and no external issuer and no password field for `create`; `createaccount` with a password answers `ts-auth-host`, which carries the auth base. **External issuers** ([07](07-actors-and-accounts.md) §2.7): for each the auth host offers, and for `login` on a tenant, `authmanagerinfo` lists `TriplespaceIssuerAuthenticationRequest:{issuer}`, one `button` field `tsissuer-{issuer}` labelled with the issuer's name, for `login`, `create` and `link`; with that field and a `loginreturnurl` or `createreturnurl` on the request's origin (else `ts-oauth-returnurl`), the module answers `status: REDIRECT` with the provider's URL and a continue request whose one field is `state`, which the callback appends to the return URL for `logincontinue` or `createcontinue`. On a tenant, a login with no account there answers `RESTART` (`authmanager-authn-no-local-user-link`) and stays the session's pending login, and `createaccount` with `createpreservestate=1` and `username` creates the account bound to it, with no password and no challenge; at the auth base an identity bound to no login does the same, and creates a login. `ts-oauth-denied`, `ts-oauth-state`, `ts-oauth-failed`, `ts-oauth-bound`, and for vouching `ts-reclaimed`, `ts-reclaim-taken`, `ts-reclaim-unavailable`"
+sources = "[0012](../decisions/0012-api-requirements.md) §4; [0025](../decisions/0025-oauth-server.md) §9; [0087](../decisions/0087-account-registration-and-challenges.md) §9; [0088](../decisions/0088-external-identity-providers.md) §5, §6, §8; [0089](../decisions/0089-the-auth-host-and-instance-logins.md) §5, §7, §11"
+
+[[module]]
+kind = "action"
+modules = ["action=compare"]
+changes = "For document pages, as in MediaWiki. For entities, a diff of the canonical JSON of the local graph's assertions, each side read as one row of `view.entity_revision` (§1.3): Wikibase JSON with sorted keys, one value to a line, without `lastrevid`, `modified`, `pageid`, `ns` and `title`, which change with every revision; the \"JSON\" view of [19](19-site-ui.md). An entity's revisions are its local ones, as `prop=revisions` lists them; one with none is `ts-no-local-revision`; the statement view is served over REST (§5.1). `contentmodel` accepts text models only; `fromslots` and `toslots` take `main` and `mediainfo`. Seeded fork revisions appear with their ranged IDs"
+sources = "[0012](../decisions/0012-api-requirements.md) §4; [0041](../decisions/0041-content-models.md) §8; [0054](../decisions/0054-forking-a-mirrored-page.md) §11"
+
+[[module]]
+kind = "action"
+modules = ["action=delete"]
+changes = "Pages, threads and entity pages. `deletetalk=1` writes the second record of [0023](../decisions/0023-moderation.md) §2. Gains `oldimage` for one old file version. Addresses a redirect page itself. On a foreign primary: `ts-foreign-page`"
+sources = "[0023](../decisions/0023-moderation.md) §8; [0039](../decisions/0039-files-and-media.md) §17; [0051](../decisions/0051-page-redirects.md) §7; [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6"
+
+[[module]]
+kind = "action"
+modules = ["action=discussiontoolsedit", "action=discussiontoolspageinfo"]
+changes = "On a followed talk title, `discussiontoolsedit` with `paction=addcomment` or `addtopic` is the same operation as `POST /thread/{id}/upstream-reply` and `POST /page/{id}/upstream-topic`, so DiscussionTools-based clients (the reply tool, Convenient Discussions) work on a followed talk page as on the wiki; `discussiontoolspageinfo` on that title returns the foreign threads' items as upstream does, with local threads omitted"
+sources = "[0069](../decisions/0069-synchronized-talk-pages.md) §9"
+
+[[module]]
+kind = "action"
+modules = ["action=echomarkread", "action=echomarkseen"]
+changes = "Echo's modules: `echomarkread` with `list`, `unreadlist` or `all`, which `sections` narrows to alerts or messages ([0021](../decisions/0021-notifications.md) A20)"
+sources = "[0021](../decisions/0021-notifications.md) §7"
+
+[[module]]
+kind = "action"
+modules = ["action=edit"]
+changes = "Text models only; any other model, a `Thread:` or talk title included, is refused with MediaWiki's own `no-direct-editing` (`apierror-no-direct-editing`), so that a bot learns at once that these pages are not text. A `contentmodel` the namespace does not allow is refused as MediaWiki refuses one its handler cannot use on the title. On a `Board` title it edits the definition (`contentmodel=triplespace-board`); a table, scope, sprint or query definition is edited as any text model's, and an invalid table definition is refused as MediaWiki refuses content its handler rejects, with the failing schema path in the message (the exact code is pinned by a contract test against MediaWiki 1.43's `json` model); the pre-save transform applies. Saving a page whose text begins with a redirect line makes it a redirect; `redirect=no` is implied on the title. On a foreign primary it starts a fork: `tsfork`, `tsforkrevid`; `ts-fork-required`; the response carries `fork: {pageid, create_revid, job}`. `tsmerge={upstream revid}` carries the `merge` field, so bots that pull can say so. On a followed talk title: `ts-upstream-talk`, which names the routes"
+sources = "[0012](../decisions/0012-api-requirements.md) §4; [0019](../decisions/0019-discussions.md) §9; [0041](../decisions/0041-content-models.md) §8; [0045](../decisions/0045-table-content-model.md) §9; [0049](../decisions/0049-boards.md) §11; [0051](../decisions/0051-page-redirects.md) §7; [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6; [0054](../decisions/0054-forking-a-mirrored-page.md) §11; [0060](../decisions/0060-scopes.md) §8; [0061](../decisions/0061-sprints-and-tasks.md) §10; [0063](../decisions/0063-query-namespace.md) §7; [0068](../decisions/0068-merging-with-upstream.md) §6; [0069](../decisions/0069-synchronized-talk-pages.md) §9"
+
+[[module]]
+kind = "action"
+modules = ["action=entityschema"]
+changes = "`text=`: the schema body"
+sources = "[0064](../decisions/0064-entityschema-and-validation.md) §7"
+
+[[module]]
+kind = "action"
+modules = ["action=expandtemplates"]
+changes = "MediaWiki's parameters: `text`, `title`, `revid`, `prop=wikitext|categories|properties|volatile|ttl|modules|jsconfigvars|encodedjsconfigvars|parsetree`, `includecomments`, `showstrategykeys`. Runs Lua when `wikitext.lua` is on"
+sources = "[0042](../decisions/0042-template-expansion-and-parsoid.md) §14; [0043](../decisions/0043-lua-modules.md) §16"
+
+[[module]]
+kind = "action"
+modules = ["action=filerevert"]
+changes = "`filename`, `archivename`, `comment`: writes a `revert` upload. Needs `reupload`"
+sources = "[0039](../decisions/0039-files-and-media.md) §17"
+
+[[module]]
+kind = "action"
+modules = ["action=globalblock"]
+changes = "At the farm base, with CentralAuth's meaning"
+sources = "[0028](../decisions/0028-tenancy-policy.md) §11"
+
+[[module]]
+kind = "action"
+modules = ["action=linkaccount", "action=unlinkaccount", "action=removeauthenticationdata", "action=changeauthenticationdata"]
+changes = "Manage **bindings**, the private sign-in methods of [0007](../decisions/0007-actor-identity.md) §3, because that is what these modules mean in MediaWiki. They act on the login of the session, at the auth base only; on a tenant with an auth host they answer `ts-auth-host` ([07](07-actors-and-accounts.md) §2.8). `changeauthenticationdata` sets the login's password, and changing or removing a method ends the login's other sessions. They never create or remove the public account links of [0007](../decisions/0007-actor-identity.md) §7. `linkaccount` with the issuer's button field and `linkreturnurl` adds a binding through the redirect flow, continued by `linkcontinue`; a subject bound to another login is `ts-oauth-bound-elsewhere`. `unlinkaccount` takes `request=TriplespaceIssuerAuthenticationRequest:{issuer}`, which `authmanagerinfo&amirequestsfor=remove` lists per binding, and erases the binding record. Removing the last way to log in, counting a password, is refused with `ts-last-binding`"
+sources = "[0012](../decisions/0012-api-requirements.md) §4; [0088](../decisions/0088-external-identity-providers.md) §7; [0089](../decisions/0089-the-auth-host-and-instance-logins.md) §3, §7"
+
+[[module]]
+kind = "action"
+modules = ["action=logout"]
+changes = "Ends the session. At the auth base, `everywhere=1` ends every session of the login, there and on every tenant; on a tenant, the tenant's session only, and the page offers the auth host's **Log out everywhere**"
+sources = "[0012](../decisions/0012-api-requirements.md) §4; [0089](../decisions/0089-the-auth-host-and-instance-logins.md) §9"
+
+[[module]]
+kind = "action"
+modules = ["action=login"]
+changes = "The bot-password form only, for subsidiaries' API keys. A primary account's name is refused with `ts-use-oauth`; a wrong label or secret is `Failed`. Unchanged by the OAuth server"
+sources = "[0012](../decisions/0012-api-requirements.md) §4; [0024](../decisions/0024-subsidiary-accounts.md) §8; [0025](../decisions/0025-oauth-server.md) §9"
+
+[[module]]
+kind = "action"
+modules = ["action=move"]
+changes = "`noredirect`, `movesubpages`, `movetalk` (accepted, no effect) and the move-over-redirect rule of [0051](../decisions/0051-page-redirects.md) §3; the response reports `redirectcreated`. File pages move with `movefile`; the bytes do not move, since nothing is keyed by title. On a foreign primary: `ts-foreign-page`"
+sources = "[0051](../decisions/0051-page-redirects.md) §7; [0039](../decisions/0039-files-and-media.md) §17; [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6"
+
+[[module]]
+kind = "action"
+modules = ["action=oauthconsumer"]
+changes = "`do=propose|update|approve|reject|disable` manages consumers, under [0025](../decisions/0025-oauth-server.md) §10's permissions"
+sources = "[0025](../decisions/0025-oauth-server.md) §9"
+
+[[module]]
+kind = "action"
+modules = ["action=options"]
+changes = "`change`, `optionname`, `optionvalue` and `reset`, over the registered keys, refusing unknown ones. New preference keys `ts-upstream-fold` and `ts-rc-syncs`"
+sources = "[0012](../decisions/0012-api-requirements.md) §4; [0027](../decisions/0027-preferences-and-portability.md) §6"
+
+[[module]]
+kind = "action"
+modules = ["action=paraminfo"]
+changes = "Every `contentmodel` enumeration lists the implemented models, as MediaWiki lists its registered handlers ([mediawiki-compat.md](../api/mediawiki-compat.md) treats these values as site-specific)"
+sources = "[0041](../decisions/0041-content-models.md) §8"
+
+[[module]]
+kind = "action"
+modules = ["action=parse"]
+changes = "Accepts the `markdown` and `yaml` content models; `contentmodel` accepts text models only. Reports the renderer version, so that the in-browser preview can detect a mismatch. Renders with expansion; gains `prop=templates`, `limitreportdata`, `limitreporthtml` and `parsetree`; `pst`, `onlypst` and `preview` as in MediaWiki; `parsoid=1` returns Parsoid's HTML where the tenant has it configured; runs Lua when `wikitext.lua` is on. `redirects` parses the target. On a foreign title: the rewritten HTML, `categories`, `templates`, `images`, `langlinks`, `properties` and `revid` from the bundle, `prop=wikitext` the source. On a table: the grid's first page as static HTML, without editing controls `tsstyles=link` writes each TemplateStyles sheet as a `<link rel=\"stylesheet\">` to its `/w/styles/` address instead of an inline `<style>` element, for the site; the default is MediaWiki's inline element ([0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) A5)."
+sources = "[0012](../decisions/0012-api-requirements.md) §4; [0041](../decisions/0041-content-models.md) §8; [0042](../decisions/0042-template-expansion-and-parsoid.md) §14; [0043](../decisions/0043-lua-modules.md) §16; [0045](../decisions/0045-table-content-model.md) §9; [0051](../decisions/0051-page-redirects.md) §7; [0053](../decisions/0053-mirrored-pages.md) §10"
+
+[[module]]
+kind = "action"
+modules = ["action=patrol"]
+changes = "`revid` or `rcid`; writes the patrol event, or the unpatrol event with `unpatrol=1`"
+sources = "[0023](../decisions/0023-moderation.md) §8"
+
+[[module]]
+kind = "action"
+modules = ["action=protect"]
+changes = "`protections=edit=autoconfirmed|move=sysop`, `expiry`, `reason`; writes or retires the ACL. `read={group}` in `protections`, with `expiry` as for the others, writes a confidential restriction; MediaWiki clients that do not know it never send it. `cascade=1` is refused with `ts-no-cascade`, since there is no cascading protection. On a title that does not exist, reserves a page ID ([09](09-security-and-moderation.md) §4.8). On an entity page, restricts `edit` on the entity target (an `entity` ACL). On a foreign primary, refused with `ts-foreign-page` except create-protection"
+sources = "[0016](../decisions/0016-permissions-and-access-control.md) §7; [0023](../decisions/0023-moderation.md) §8; [0056](../decisions/0056-security-model.md) §13; [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6"
+
+[[module]]
+kind = "action"
+modules = ["action=purge"]
+changes = "A plain purge bumps the render epoch and purges the page's tag; `forcelinkupdate` and `forcerecursivelinkupdate` also queue refreshes. By `POST` without a token, for any principal who may read the page, in the `parse` rate class ([0057](../decisions/0057-web-tier.md) §14). On a mirrored page, refetches the bundle ([0053](../decisions/0053-mirrored-pages.md) §6)"
+sources = "[0042](../decisions/0042-template-expansion-and-parsoid.md) §14; [0053](../decisions/0053-mirrored-pages.md) §10"
+
+[[module]]
+kind = "action"
+modules = []
+display = "`action=query&export`"
+changes = "Export"
+sources = "[0047](../decisions/0047-special-pages.md) §11"
+
+[[module]]
+kind = "action"
+modules = ["action=revisiondelete"]
+changes = "`type=revision|logging`, `ids`, `hide=content|comment|user`, `show=…`, `suppress=yes|no|nochange`, `reason`; writes or amends `record` ACLs. `type=archive` is accepted and treated as `revision`, since deleted revisions are not moved. Gains `type=oldimage` and `type=filearchive`"
+sources = "[0023](../decisions/0023-moderation.md) §8; [0039](../decisions/0039-files-and-media.md) §17"
+
+[[module]]
+kind = "action"
+modules = ["action=setnotificationtimestamp"]
+changes = "`entirewatchlist`, `titles` or `pageids`: seen up to now. `timestamp`, `torevid` and `newerthanrevid` are refused, since a watch's seen time only moves forward ([0020](../decisions/0020-change-feeds.md) A18)"
+sources = "[0020](../decisions/0020-change-feeds.md) §5"
+
+[[module]]
+kind = "action"
+modules = ["action=tag"]
+changes = "Gains the tags of [0030](../decisions/0030-edit-filters.md) §5"
+sources = "[0030](../decisions/0030-edit-filters.md) §9"
+
+[[module]]
+kind = "action"
+modules = ["action=templatedata"]
+changes = "TemplateData's module"
+sources = "[0012](../decisions/0012-api-requirements.md) §4 ([0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §5–6)"
+
+[[module]]
+kind = "action"
+modules = ["action=undelete"]
+changes = "Pages, threads and entity pages. With `timestamps` or `revisions`, the partial form of [0023](../decisions/0023-moderation.md) §3. Gains `fileids`. Addresses a redirect page itself"
+sources = "[0023](../decisions/0023-moderation.md) §8; [0039](../decisions/0039-files-and-media.md) §17; [0051](../decisions/0051-page-redirects.md) §7"
+
+[[module]]
+kind = "action"
+modules = ["action=upload"]
+changes = "`filename`, `file`, `text`, `comment`, `ignorewarnings`, `stash`, `filekey`, chunked `offset`/`filesize`/`chunk`, `checkstatus`; `url` only where enabled. Warnings and errors as [0039](../decisions/0039-files-and-media.md) §5"
+sources = "[0039](../decisions/0039-files-and-media.md) §17"
+
+[[module]]
+kind = "action"
+modules = ["action=userrights"]
+changes = "As in MediaWiki"
+sources = "[0016](../decisions/0016-permissions-and-access-control.md) §7"
+
+[[module]]
+kind = "action"
+modules = ["action=watch", "action=unwatch"]
+changes = "`action=watch` with `titles` or `pageids`, `unwatch`, `expiry`, and Triplespace's `tsnotify`, which sets or clears *notify me* and is kept when not given; a `watch` token ([0020](../decisions/0020-change-feeds.md) A18)"
+sources = "[0020](../decisions/0020-change-feeds.md) §5"
+
+[[module]]
+kind = "query"
+modules = ["meta=allmessages"]
+changes = "The wiki's Interface pages over the site's shipped messages, each `customised` where overridden, else `missing`; `ammessages`, `amlang`, `amcustomised`, `amprefix`, `amfilter`, `amfrom`, `amto`, `amargs`, `amnocontent`, `amincludelocal`, and `amprop=default` for each message's shipped text (`default`, or `defaultmissing`) ([0095](../decisions/0095-the-interface-namespace.md) §8)"
+sources = "[0042](../decisions/0042-template-expansion-and-parsoid.md) §14; [0095](../decisions/0095-the-interface-namespace.md) §8"
+
+[[module]]
+kind = "query"
+modules = ["meta=filerepoinfo"]
+changes = "[0039](../decisions/0039-files-and-media.md) §11's repositories"
+sources = "[0039](../decisions/0039-files-and-media.md) §17"
+
+[[module]]
+kind = "query"
+modules = ["meta=globaluserinfo"]
+changes = "At the farm base, with CentralAuth's meaning"
+sources = "[0028](../decisions/0028-tenancy-policy.md) §11"
+
+[[module]]
+kind = "query"
+modules = ["meta=notifications"]
+changes = "In Echo's shape: `notprop=list|count|seenTime`, `notfilter=read|!read`, `notsections`, `notgroupbysection`, `notlimit` and continuation, returning Echo's model format. `talk` is a message and every other reason an alert, as in Echo; an item about a thread carries `title`, the record's `revid` and `ts-thread`, its subject and talk page; an item the reader may no longer see is left out of the list and the counts, which count to 100 ([0021](../decisions/0021-notifications.md) A20). `notwikis` has its real meaning under `notifications.cross_tenant = home` and is otherwise ignored"
+sources = "[0021](../decisions/0021-notifications.md) §7; [0028](../decisions/0028-tenancy-policy.md) §11"
+
+[[module]]
+kind = "query"
+modules = ["meta=userinfo"]
+changes = "`uiprop=rights|groups|blockinfo`; `uiprop=hasmsg` reports an unread `talk` notification; `uiprop=ratelimits` reports the caller's limits by class (MediaWiki's shape); a subsidiary's `userinfo` carries `operator` and the key's `grants`; for a token-authenticated request it returns the subsidiary, with `uiprop=operator` and `uiprop=oauth` giving the consumer slug and the token's grants; `uiprop=options` returns the effective values with defaults filled in, as MediaWiki does"
+sources = "[0016](../decisions/0016-permissions-and-access-control.md) §7; [0020](../decisions/0020-change-feeds.md) §5; [0021](../decisions/0021-notifications.md) §7; [0024](../decisions/0024-subsidiary-accounts.md) §8; [0025](../decisions/0025-oauth-server.md) §9; [0027](../decisions/0027-preferences-and-portability.md) §6"
+
+[[module]]
+kind = "query"
+modules = ["prop=categories"]
+changes = "`clprop=sortkey|hidden` and `clshow`; from the bundle for a foreign primary"
+sources = "[0038](../decisions/0038-page-metadata-and-categories.md) §13; [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6"
+
+[[module]]
+kind = "query"
+modules = ["prop=categoryinfo"]
+changes = "As in MediaWiki"
+sources = "[0038](../decisions/0038-page-metadata-and-categories.md) §13"
+
+[[module]]
+kind = "query"
+modules = ["prop=deletedrevisions"]
+changes = "The hidden records, for members of the group only; `drvslots` as `rvslots`"
+sources = "[0023](../decisions/0023-moderation.md) §8; [0041](../decisions/0041-content-models.md) §8"
+
+[[module]]
+kind = "query"
+modules = ["prop=description"]
+display = "`prop=description`, `inprop=displaytitle`"
+changes = "Page properties"
+sources = "[0012](../decisions/0012-api-requirements.md) §4 ([0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §5–6)"
+
+[[module]]
+kind = "query"
+modules = ["prop=imageinfo"]
+changes = "`iiprop=timestamp|user|userid|comment|parsedcomment|canonicaltitle|url|size|dimensions|sha1|mime|mediatype|metadata|commonmetadata|extmetadata|archivename|bitdepth|badfile`, `iiurlwidth`/`iiurlheight` for `thumburl`; `iiprop=sha256` is added. Hidden and erased fields are flagged as [0023](../decisions/0023-moderation.md) §5 flags them"
+sources = "[0039](../decisions/0039-files-and-media.md) §17"
+
+[[module]]
+kind = "query"
+modules = ["prop=images", "prop=fileusage", "prop=duplicatefiles"]
+changes = "Over `view.file`, `view.file_version` and `view.file_link`, per tenant; `prop=images` from the bundle for a foreign primary"
+sources = "[0039](../decisions/0039-files-and-media.md) §17; [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6"
+
+[[module]]
+kind = "query"
+modules = ["prop=info"]
+changes = "`contentmodel` for every page ID: document, entity, thread, talk and file pages. `inprop=protection` reports the page's or entity's edit and move ACLs as MediaWiki `protection` entries, and a `read` restriction as an entry of type `read` to principals that may read the page, which is every principal that can ask about it. `inprop=watched|notificationtimestamp`, for a missing title too, with `watchlistexpiry` and Triplespace's `ts-notify` ([0020](../decisions/0020-change-feeds.md) A18). `inprop=linkclasses`, reporting `mw-redirect`. The `redirect` flag. `origin`: the repository name, `local` for a local page; `forkedfrom` beside it. For a foreign primary: `pageid`, `lastrevid`, `touched`, `length`, `contentmodel` (the upstream page's), `redirect`"
+sources = "[0016](../decisions/0016-permissions-and-access-control.md) §7; [0020](../decisions/0020-change-feeds.md) §5; [0023](../decisions/0023-moderation.md) §8; [0041](../decisions/0041-content-models.md) §8; [0042](../decisions/0042-template-expansion-and-parsoid.md) §14; [0051](../decisions/0051-page-redirects.md) §7; [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6; [0054](../decisions/0054-forking-a-mirrored-page.md) §11; [0056](../decisions/0056-security-model.md) §13"
+
+[[module]]
+kind = "query"
+modules = ["prop=langlinks", "prop=links"]
+changes = "From the bundle for a foreign primary"
+sources = "[0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6"
+
+[[module]]
+kind = "query"
+modules = ["prop=pageprops"]
+changes = "`wikibase_item` for pages connected through the client site, as Wikibase Client sets it, in Lua form; `ppprop`; from the bundle for a foreign primary"
+sources = "[0043](../decisions/0043-lua-modules.md) §16; [0012](../decisions/0012-api-requirements.md) §4; [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6"
+
+[[module]]
+kind = "query"
+modules = ["prop=redirects", "generator=redirects"]
+changes = "The redirects to each page, from `view.redirect`"
+sources = "[0051](../decisions/0051-page-redirects.md) §7"
+
+[[module]]
+kind = "query"
+modules = ["prop=revisions"]
+changes = "Local revisions only: the local graph for entities, the `pages` partition for document pages; `rvprop=content` at any `oldid` is one row of `view.entity_revision` (§1.3), never a replay. An erased part sets its MediaWiki hidden flag, `texthidden` for the content, `commenthidden` for the comment, `userhidden` for the attestation, and a new `erased` flag is set with it; that a record was erased is shown to everyone. New `rvprop` values: `source`, `job` and `operator`. `rvprop=record` returns the revision's `{partition, offset}`, which the site's diff page resolves a revision ID through ([0012](../decisions/0012-api-requirements.md) A74). `rvslots` takes `main` and, on File pages, `mediainfo`; `rvprop=contentmodel` is per slot; `rvprop=content` returns the serialization of [0041](../decisions/0041-content-models.md) §5. A talk page's rows are its threads' revisions and carry their content. A definition page's rows carry the definition as of each revision (a table's with `contentmodel` `triplespace-table`, `contentformat` `application/json`). For a foreign primary: the latest upstream revision, with `rvprop=content` the wikitext, `user` the upstream actor under its issuer and `comment` the upstream summary; older revisions are not held, and a request for them is answered with the latest and a warning, `ts-foreign-history`, naming the upstream history URL. Seeded fork revisions appear with ranged IDs. A deleted local entity's page answers as a deleted page"
+sources = "[0012](../decisions/0012-api-requirements.md) §4; [0023](../decisions/0023-moderation.md) §8; [0041](../decisions/0041-content-models.md) §8; [0045](../decisions/0045-table-content-model.md) §9; [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6; [0053](../decisions/0053-mirrored-pages.md) §10; [0054](../decisions/0054-forking-a-mirrored-page.md) §11; [0060](../decisions/0060-scopes.md) §8; [0061](../decisions/0061-sprints-and-tasks.md) §10; [0063](../decisions/0063-query-namespace.md) §7"
+
+[[module]]
+kind = "query"
+modules = ["prop=stashimageinfo", "list=mystashedfiles"]
+changes = "The viewer's own stash"
+sources = "[0039](../decisions/0039-files-and-media.md) §17"
+
+[[module]]
+kind = "query"
+modules = ["prop=templates", "prop=transcludedin", "list=embeddedin", "list=alltransclusions"]
+changes = "From `view.transclusion`; `prop=templates` from the bundle for a foreign primary"
+sources = "[0042](../decisions/0042-template-expansion-and-parsoid.md) §14; [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6"
+
+[[module]]
+kind = "query"
+modules = ["prop=wbentityusage", "list=wblistentityusage"]
+changes = "From `view.entity_usage`, with Wikibase's aspect codes and IDs in the tenant's Lua form"
+sources = "[0043](../decisions/0043-lua-modules.md) §16"
+
+[[module]]
+kind = "query"
+modules = ["list=abusefilters"]
+changes = "`abfprop=id|description|pattern|actions|hits|comments|lasteditor|lastedittime|status|private`; `pattern`, `comments` and private filters redacted for viewers without the rights"
+sources = "[0030](../decisions/0030-edit-filters.md) §9"
+
+[[module]]
+kind = "query"
+modules = ["list=abuselog"]
+changes = "`aflprop=ids|filter|user|title|action|details|result|timestamp|revid`; redacted likewise"
+sources = "[0030](../decisions/0030-edit-filters.md) §9"
+
+[[module]]
+kind = "query"
+modules = ["list=allcategories"]
+changes = "As in MediaWiki"
+sources = "[0038](../decisions/0038-page-metadata-and-categories.md) §13"
+
+[[module]]
+kind = "query"
+modules = ["list=alldeletedrevisions", "list=deletedrevs"]
+changes = "The hidden records, for members of the group only"
+sources = "[0023](../decisions/0023-moderation.md) §8"
+
+[[module]]
+kind = "query"
+modules = ["list=allimages", "list=imageusage"]
+changes = "Over the file tables, per tenant"
+sources = "[0039](../decisions/0039-files-and-media.md) §17"
+
+[[module]]
+kind = "query"
+modules = ["list=allpages", "generator=allpages"]
+changes = "`apfilterredir`: `all`, `redirects` or `nonredirects`. `apnamespace=310` lists boards. Local pages, then, with `tsorigin=all`, the title index's titles for served namespaces, each row carrying `origin`; without the parameter, local pages only, so a bot that walks a wiki gets what the wiki holds"
+sources = "[0051](../decisions/0051-page-redirects.md) §7; [0049](../decisions/0049-boards.md) §11; [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6"
+
+[[module]]
+kind = "query"
+modules = ["list=allredirects", "generator=allredirects"]
+changes = "Every redirect into a namespace, with `arprop=ids|title|fragment|interwiki`"
+sources = "[0051](../decisions/0051-page-redirects.md) §7"
+
+[[module]]
+kind = "query"
+modules = ["list=backlinks"]
+changes = "`blredirect` expands through redirects, as MediaWiki does. Includes tables, through the links of [0045](../decisions/0045-table-content-model.md) §8"
+sources = "[0051](../decisions/0051-page-redirects.md) §7; [0045](../decisions/0045-table-content-model.md) §9"
+
+[[module]]
+kind = "query"
+modules = ["list=blocks"]
+changes = "As in MediaWiki"
+sources = "[0016](../decisions/0016-permissions-and-access-control.md) §7"
+
+[[module]]
+kind = "query"
+modules = ["list=categorymembers", "generator=categorymembers"]
+changes = "`cmtype` and `cmsort`"
+sources = "[0038](../decisions/0038-page-metadata-and-categories.md) §13"
+
+[[module]]
+kind = "query"
+modules = ["list=filearchive"]
+changes = "Deleted versions, for the deletion group"
+sources = "[0039](../decisions/0039-files-and-media.md) §17"
+
+[[module]]
+kind = "query"
+modules = ["list=globalallusers", "list=globalblocks"]
+changes = "At the farm base, with CentralAuth's meaning"
+sources = "[0028](../decisions/0028-tenancy-policy.md) §11"
+
+[[module]]
+kind = "query"
+modules = ["list=logevents"]
+changes = "Serves the events of [16](16-logs-feeds-and-notifications.md), with the new types `erase`, `link`, `retention`, `convert`, `job` and `delete/statement`, and the action `renameuser/vanish`. `leprovider` selects local events (the default, from `view.activity`) or a provider's (from `view.entity_history`, [16](16-logs-feeds-and-notifications.md) §3.2). `letype=task`; `letype=proposal`; forks under `letype=import`, as `import/interwiki`. Redacted per viewer"
+sources = "[0012](../decisions/0012-api-requirements.md) §4; [0054](../decisions/0054-forking-a-mirrored-page.md) §11; [0061](../decisions/0061-sprints-and-tasks.md) §10; [0067](../decisions/0067-proposals.md) §7"
+
+[[module]]
+kind = "query"
+modules = ["list=oauthconsumers"]
+changes = "Lists consumers"
+sources = "[0025](../decisions/0025-oauth-server.md) §9"
+
+[[module]]
+kind = "query"
+modules = ["list=pageswithprop"]
+changes = "Page properties"
+sources = "[0012](../decisions/0012-api-requirements.md) §4 ([0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §5–6)"
+
+[[module]]
+kind = "query"
+modules = ["list=prefixsearch"]
+changes = "With `tsorigin=all`, the title index's titles as `list=allpages`"
+sources = "[0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6"
+
+[[module]]
+kind = "query"
+modules = ["list=proposals"]
+changes = "Proposals"
+sources = "[0067](../decisions/0067-proposals.md) §7"
+
+[[module]]
+kind = "query"
+modules = ["list=protectedpages", "list=protectedtitles", "list=protectedsets"]
+changes = "`list=protectedtitles` lists reserved titles; `list=protectedpages` the rest, and gains `prtype=read`. `list=protectedsets` *(new)* lists sets with their names, groups, expiries and members, filtered as [0056](../decisions/0056-security-model.md) §5 requires"
+sources = "[0016](../decisions/0016-permissions-and-access-control.md) §7; [0023](../decisions/0023-moderation.md) §8; [0056](../decisions/0056-security-model.md) §13"
+
+[[module]]
+kind = "query"
+modules = ["list=querypage", "generator=querypage"]
+changes = "`qppage` accepts the `mediawiki_name` of every served MediaWiki report, and the names of served Wikibase and Triplespace reports. A deferred or declined name is refused with `ts-report-unavailable`, which says which. `qpoffset` continues. A batch report returns `cached`, `cachedtimestamp` and `maxresults`. `generator=querypage` works as in MediaWiki"
+sources = "[0047](../decisions/0047-special-pages.md) §11"
+
+[[module]]
+kind = "query"
+modules = ["list=recentchanges"]
+changes = "One row per local revision, as in MediaWiki. Job changes carry the `bot` flag and a `job:{id}` tag. `rcjob` filters by job. Mirror records never appear by default; each mirror job run appears as a `job` log event, and `rckind=edit|sync|log|job|erased` selects the row kinds of `view.activity` directly, `sync` included, since `rctype=external` is not used, because Wikibase clients already give it a meaning ([0012](../decisions/0012-api-requirements.md) A73). `rcshow=patrolled|!patrolled|autopatrolled` and `rcprop=patrolled`; `rcprop` also takes `source`, `job` and `operator`, as `prop=revisions` does. `rcscope` serves a scope's related changes ([0060](../decisions/0060-scopes.md) §7)"
+sources = "[0012](../decisions/0012-api-requirements.md) §4, A73; [0023](../decisions/0023-moderation.md) §8; [0060](../decisions/0060-scopes.md) §8"
+
+[[module]]
+kind = "query"
+modules = ["list=scopemembers"]
+changes = "`smscope=`"
+sources = "[0060](../decisions/0060-scopes.md) §8"
+
+[[module]]
+kind = "query"
+modules = ["list=sprinttasks"]
+changes = "`stsprint=`, `ststate=`"
+sources = "[0061](../decisions/0061-sprints-and-tasks.md) §10"
+
+[[module]]
+kind = "query"
+modules = ["list=tags"]
+changes = "Gains the tags of [0030](../decisions/0030-edit-filters.md) §5"
+sources = "[0030](../decisions/0030-edit-filters.md) §9"
+
+[[module]]
+kind = "query"
+modules = ["list=usercontribs"]
+changes = "By local account. Job changes appear with their tags. `ucjob` filters by job; `ucprop` takes `source`, `job` and `operator` as `rcprop` does ([0012](../decisions/0012-api-requirements.md) A73)"
+sources = "[0012](../decisions/0012-api-requirements.md) §4, A73"
+
+[[module]]
+kind = "query"
+modules = ["list=users"]
+changes = "`usprop=linkedaccounts` (public links, [0007](../decisions/0007-actor-identity.md) §7), `usprop=operator` (for bots), `usprop=subsidiaries` (a primary account's subsidiaries), `usprop=groups|rights|blockinfo`. The existing `cancreate` checks names at first login"
+sources = "[0012](../decisions/0012-api-requirements.md) §4; [0016](../decisions/0016-permissions-and-access-control.md) §7; [0024](../decisions/0024-subsidiary-accounts.md) §8"
+
+[[module]]
+kind = "query"
+modules = ["list=watchlist", "list=watchlistraw"]
+changes = "`wlprop` with `notificationtimestamp`, `wlshow`, `wltype`, `wluser`, `wlexcludeuser`, `wlallrev` (without it, a page's newest change only, within each page of results), and `wlowner` with `wltoken` for the Atom token, which waits for it; mirror syncs are in the watchlist; `watchlistraw`'s list is outside `query`, as MediaWiki puts it, with `wrprop=changed` and `wrshow=changed|!changed` ([0020](../decisions/0020-change-feeds.md) A18); `rcshow=patrolled|!patrolled|autopatrolled` and `rcprop=patrolled` as on `list=recentchanges`"
+sources = "[0020](../decisions/0020-change-feeds.md) §5; [0023](../decisions/0023-moderation.md) §8; [0027](../decisions/0027-preferences-and-portability.md) §6"
+
+[[module]]
+kind = "query"
+modules = []
+display = "`titles=`, `pageids=`, `redirects`"
+changes = "`redirects` resolves the page set through redirects, one hop, and reports each in the `redirects` array with `from`, `to` and `tofragment`, as MediaWiki does. The page set resolves through the stack and through foreign redirects; a ranged `pageid` resolves to the repository page it names"
+sources = "[0051](../decisions/0051-page-redirects.md) §7; [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6"
+
+[[module]]
+kind = "wikibase"
+modules = ["wbcheckconstraints"]
+changes = "WikibaseQualityConstraints' module, in its shape: `id`, `claimid`, `constraintid`, `status`, returning per-statement results with `status` (`violation`, `warning`, `suggestion`, `compliance`, `exception`, `not-in-scope`, `todo` for an unbound type) and the constraint's clarification, so that the gadgets and tools that read it work"
+sources = "[0031](../decisions/0031-property-constraints.md) §6"
+
+[[module]]
+kind = "wikibase"
+modules = ["wbeditentity"]
+changes = "Diffed against the resolved view and mapped by ownership as §2.5 says; an echoed entity is a no-op. `sitelinks` entries may carry `url` in place of `site`+`title`. `new=lexeme`, or on `L` IDs. Terms on `M`"
+sources = "[0084](../decisions/0084-wikibase-writes-against-the-resolved-view.md) §1, §2; [0026](../decisions/0026-sitelinks.md) §7; [0066](../decisions/0066-lexemes.md) §8; [0065](../decisions/0065-mediainfo-captions-and-commons.md) §4"
+
+[[module]]
+kind = "wikibase"
+modules = ["wbgetentities"]
+changes = "**Answers under the requested ID.** `ids=` accepts any member of a cluster (§1.4); a request for a non-canonical member returns the fused body under that ID, with a `canonical` field naming the cluster's canonical member and statement GUIDs prefixed with the requested ID, rewritten to the request's form (§1.6). Wikibase's redirect shape (`redirects: {from, to}`, the entity keyed by its target) is reserved for true redirects, a `redirect` operation, an upstream merge or a key-mapped provider's own item ID (`XDQ9` answers as `domain:example.org`, [05](05-providers-and-ingest.md) §4.1; [0009](../decisions/0009-keyed-entity-types-and-domain.md) A14), so a Wikidata-keyed client never meets `IsRedirectPageError` on a clustered item. `sitefilter` accepts alias IDs and hosts; `sites` and `titles` (lookup by sitelink) accept both forms, and find a page's paired item; a `urls` parameter looks up by URL. A `resolver` and `key` pair of parameters, mirroring `sites`+`titles`, returns the entity when the lookup is unique and `missing` with a `candidates` list otherwise. `missing` for a deleted local entity. On `WDM`, `E` and `L` IDs as §2.1. `ids=mhc:Q1`: a source entity from the tenant's view; one not yet held is `missing`, and is enqueued when the source's mirror setting is `on-demand` or above"
+sources = "[0026](../decisions/0026-sitelinks.md) §7; [0029](../decisions/0029-resolver-namespaces.md) §6; [0023](../decisions/0023-moderation.md) §8; [0038](../decisions/0038-page-metadata-and-categories.md) §13; [0064](../decisions/0064-entityschema-and-validation.md) §7; [0065](../decisions/0065-mediainfo-captions-and-commons.md) §4; [0066](../decisions/0066-lexemes.md) §8; [0078](../decisions/0078-entity-sources.md) §10"
+
+[[module]]
+kind = "wikibase"
+modules = ["wbsearchentities"]
+changes = "`type=entityschema`; `type=lexeme|form|sense`"
+sources = "[0064](../decisions/0064-entityschema-and-validation.md) §7; [0066](../decisions/0066-lexemes.md) §8"
+
+[[module]]
+kind = "wikibase"
+modules = ["wbsetlabel", "wbsetdescription", "wbsetaliases"]
+changes = "Accepted on `M` and on `E` IDs"
+sources = "[0065](../decisions/0065-mediainfo-captions-and-commons.md) §4; [0064](../decisions/0064-entityschema-and-validation.md) §7"
+
+[[module]]
+kind = "wikibase"
+modules = ["wbsetsitelink"]
+changes = "`linksite` is a site alias ID or a host; `linktitle` is a title (aliased site) or a path (host). `linkurl` takes the whole URL and needs neither. `badges` as in Wikibase. Errors: `sitelink-conflict`, `ts-sitelink-denied`, `ts-sitelink-scheme`; a title whose primary is foreign is refused as a sitelink target with `ts-sitelink-foreign`"
+sources = "[0026](../decisions/0026-sitelinks.md) §7; [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6"
+
+[[module]]
+kind = "wikibase"
+modules = ["wbladdform", "wblremoveform", "wbleditformelements", "wbladdsense", "wblremovesense", "wbleditsenseelements", "wblmergelexemes"]
+changes = "WikibaseLexeme's modules, with its parameters and errors"
+sources = "[0066](../decisions/0066-lexemes.md) §8"
+
+[[module]]
+kind = "wikibase"
+modules = ["wbcreateclaim", "wbsetclaim", "wbremoveclaims", "wbsetqualifier", "wbremovequalifiers", "wbsetreference", "wbremovereferences", "wbsetclaimvalue"]
+display = "The statement modules"
+changes = "On lexeme and part IDs, and on `M` IDs. On a mirror-owned statement: §2.5 (`ts-foreign-statement` for a value change)"
+sources = "[0084](../decisions/0084-wikibase-writes-against-the-resolved-view.md) §2, §3; [0066](../decisions/0066-lexemes.md) §8; [0041](../decisions/0041-content-models.md) §8"

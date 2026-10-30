@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0003](0003-statement-ui.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0026](0026-sitelinks.md), [0029](0029-resolver-namespaces.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md), [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0030](0030-edit-filters.md), [0031](0031-property-constraints.md), [0032](0032-sparql-update-stream.md), [0035](0035-adopting-a-wikibase.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0049](0049-boards.md)
-- **Chapters:** [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [06](../architecture/06-statements-and-properties.md), [09](../architecture/09-security-and-moderation.md), [10](../architecture/10-pages-and-content-models.md), [14](../architecture/14-discussions.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -102,7 +101,7 @@ James's direction, from the design discussion of 2026-09-29:
 
 *Changed by A1.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Consequences
 
@@ -123,27 +122,6 @@ James's direction, from the design discussion of 2026-09-29:
 - **Q5.** ~~**Category redirects.** MediaWiki's soft category redirects are templates; hard redirects wait on [0008](0008-namespaces-and-document-pages.md) Q8.~~ *Settled by [0051](0051-page-redirects.md) §4: a hard redirect on a category page is followed for viewing only, membership stays with the name in each member's text, and soft redirects stay templates.*
 - **Q6. Collation.** Whether `uppercase` is enough, or tenants need ICU collations per language.
 - **Q7.** (Rest of Q4.) Whether pages other than File pages get a label or description beyond the short description.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0001](0001-revision-metadata-rdf.md) §3 | §11 | amends | 0001 A12 |
-| [0003](0003-statement-ui.md) §2, §7 | §2, §9 | extends | 0003 A7 |
-| [0005](0005-crate-organization.md) §2 | §15 | extends | 0005 A38 |
-| [0008](0008-namespaces-and-document-pages.md) §2, §4, §8, §10 | §1, §3, §4, §8, §11 | amends | 0008 A9 |
-| [0008](0008-namespaces-and-document-pages.md) Q5 | §3, §5 | settles | 0008 Q5 |
-| [0010](0010-site-ui.md) §4 | §3, §7, §8 | amends | 0010 A22 |
-| [0010](0010-site-ui.md) §1, §2, §3 | §3, §7, §8 | extends | 0010 A22 |
-| [0012](0012-api-requirements.md) §4, §5 | §8, §13 | extends | 0012 A23 |
-| [0013](0013-postgres-storage.md) §5.6, §7 | §10 | extends | 0013 A13 |
-| [0014](0014-caches-and-search.md) §7 | §12 | extends | 0014 A4 |
-| [0015](0015-record-format-and-partition-registry.md) §3, §5 | §1, §5 | extends | 0015 A16 |
-| [0019](0019-discussions.md) §5, §7 | §8–9, §11 | amends | 0019 A8 |
-| [0019](0019-discussions.md) §6 | §8–9, §11 | extends | 0019 A8 |
-| [0026](0026-sitelinks.md) §1 | §6 | amends | 0026 A3 |
-| [0026](0026-sitelinks.md) §2 | §6 | extends | 0026 A3 |
-| [0029](0029-resolver-namespaces.md) §6 | §8 | extends | 0029 A2 |
 
 ## References
 

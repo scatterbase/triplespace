@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0034](0034-frontend-stack.md), [0041](0041-content-models.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [0016](0016-permissions-and-access-control.md), [0020](0020-change-feeds.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0030](0030-edit-filters.md), [0031](0031-property-constraints.md), [0044](0044-tenant-relative-ids.md), [MediaWiki API contract](../api/mediawiki-compat.md)
-- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [15](../architecture/15-structured-pages.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -79,7 +78,7 @@ James's direction, from the design discussion of 2026-09-30:
 
 *Changed by A1.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Consequences
 
@@ -100,16 +99,6 @@ James's direction, from the design discussion of 2026-09-30:
 - **Q6.** ~~**`M` IDs as rows.** File pages' statements ([0041](0041-content-models.md) §7) would make tables useful for Commons-style curation; term columns would be read-only until captions are settled.~~ *Settled by [0065](0065-mediainfo-captions-and-commons.md) §3: `M` and `WDM` rows, with captions in term columns and a `thumb` column.*
 - **Q7. A faster lane for people.** Whether a large paste by a person should count against a class other than `edit`, or whether rate limits as they stand are the right brake.
 - **Q8.** ~~**The next namespace block** for Triplespace-specific namespaces, now that 210–219 is full.~~ *Settled by the numbering policy of 0008 A17: 310–319.*
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2 | §13 | extends | 0005 A45 |
-| [0008](0008-namespaces-and-document-pages.md) §2 | §2 | extends | 0008 A15 |
-| [0012](0012-api-requirements.md) §5 | §10 | extends | 0012 A28 |
-| [0034](0034-frontend-stack.md) §4 | §11 | extends | 0034 A3 |
-| [0041](0041-content-models.md) §3 | §3 | extends | 0041 A3 |
 
 ## References
 

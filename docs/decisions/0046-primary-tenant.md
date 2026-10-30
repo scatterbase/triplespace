@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0028](0028-tenancy-policy.md), [0040](0040-instance-prerogatives.md)
 - **Uses:** [0010](0010-site-ui.md), [0039](0039-files-and-media.md), [0047](0047-special-pages.md)
-- **Chapters:** [01](../architecture/01-log-and-records.md), [02](../architecture/02-graphs-rdf-and-query.md), [08](../architecture/08-tenants-and-instances.md), [09](../architecture/09-security-and-moderation.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -80,13 +79,13 @@ James's direction, from the design discussion of 2026-09-30: the role is **trans
 
 *Changed by A5, A7, A8.*
 
-*Current text: [18](../architecture/18-api.md) §1.2, §2.2; [19](../architecture/19-site-ui.md) §6.11.*
+*Current text: [18](../architecture/18-api.md) §1.2, §2.2; [19](../architecture/19-site-ui.md) §2.8, §6.11.*
 
 ### 10. Crates (amends 0005 §2)
 
 *Changed by A1.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Consequences
 
@@ -103,26 +102,6 @@ James's direction, from the design discussion of 2026-09-30: the role is **trans
 - **Q2. Public dumps of the instance `log`.** Its job records and consumer events are public; its takedown and expunge records are not. Whether to give the instance `log` an export policy per payload type, or keep the whole partition `internal` and serve the public records only through the API.
 - **Q3. Two owners for a transfer.** Whether offering the role should, like expunge ([0040](0040-instance-prerogatives.md) Q1), need two members of `owner`.
 - **Q4. Offer expiry default.** Seven days is a placeholder.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2 | §10 | extends | 0005 A46 |
-| [0006](0006-log-integrity-and-erasure.md) §6 | §7 | amends | 0006 A12 |
-| [0007](0007-actor-identity.md) §1 | §7 | amends | 0007 A14 |
-| [0007](0007-actor-identity.md) §2 | §7 | extends | 0007 A14 |
-| [0011](0011-logs.md) §6.3 | §4 | amends | 0011 A15 |
-| [0013](0013-postgres-storage.md) §5.5 | §2 | extends | 0013 A18 |
-| [0015](0015-record-format-and-partition-registry.md) §5 | §2, §7 | amends | 0015 A20 |
-| [0015](0015-record-format-and-partition-registry.md) §3 | §2, §7 | extends | 0015 A20 |
-| [0016](0016-permissions-and-access-control.md) §3 | §1, §8 | amends | 0016 A15 |
-| [0016](0016-permissions-and-access-control.md) §2 | §1, §8 | extends | 0016 A15 |
-| [0018](0018-tenants.md) §1, §2, §3, §10 | §1–3, §5, §7 | amends | 0018 A8 |
-| [0024](0024-subsidiary-accounts.md) §1 | §5, §8 | amends | 0024 A6 |
-| [0025](0025-oauth-server.md) §5, §10 | §4, §8 | amends | 0025 A2 |
-| [0028](0028-tenancy-policy.md) §2, §5, §10 | §5–7 | amends | 0028 A7 |
-| [0040](0040-instance-prerogatives.md) §2, §4, §9 | §1, §6–8 | amends | 0040 A2 |
 
 ## References
 

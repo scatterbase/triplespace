@@ -2,11 +2,10 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-10-24 (A25)
+- **Updated:** 2026-10-30 (A27)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0021](0021-notifications.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md), [0033](0033-backend-stack.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0051](0051-page-redirects.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md), [0045](0045-table-content-model.md), [0046](0046-primary-tenant.md), [0047](0047-special-pages.md), [0049](0049-boards.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [MediaWiki API contract](../api/mediawiki-compat.md)
-- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [08](../architecture/08-tenants-and-instances.md), [09](../architecture/09-security-and-moderation.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [20](../architecture/20-web-tier.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -57,7 +56,7 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 4. Who may restrict what (amends 0016 §2 and §4; amends 0023 §1)
 
-*Changed by A16, A18, A21, A22, A23.*
+*Changed by A16, A18, A21, A22, A23, A27.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §4.5.*
 
@@ -101,9 +100,9 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 13. API and UI (extends 0012 §4; extends 0016 §7; extends 0023 §8 and §9)
 
-*Changed by A16, A25.*
+*Changed by A16, A25, A26.*
 
-*Current text: [18](../architecture/18-api.md) §2.2, §2.3, §3.1, §3.2; [19](../architecture/19-site-ui.md) §1.3, §1.5, §6.3, §6.11.*
+*Current text: [18](../architecture/18-api.md) §2.2, §2.3, §3.1, §3.2; [19](../architecture/19-site-ui.md) §1.3, §1.5, §2.8, §6.3, §6.11.*
 
 ### 14. Storage (extends 0013 §5.6)
 
@@ -121,7 +120,7 @@ James's direction, from the design discussion of 2026-10-01:
 
 *Changed by A2.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Alternatives considered
 
@@ -159,28 +158,6 @@ James's direction, from the design discussion of 2026-10-01:
 - **Q5. Nested sets and namespace members.** Sets are flat and hold pages, entities and threads (§3). Whether a set may hold a namespace or another set, which would make the enclosure graph recursive, waits for a case that needs it.
 - **Q6. `instance check` coverage.** Lines marked `attest` (§10) are the operator's word. Whether some can become checks, such as detecting other Postgres connections through `pg_stat_activity` on a schedule, or whether a signed deployment manifest is the right tool, is open.
 - **Q7. Confidential restrictions on foreign and mirrored content.** A `read` ACL on a mirrored page's ranged ID hides it on the tenant ([0053](0053-mirrored-pages.md) §9), and the same works for a mirrored entity's overlay row; whether a tenant should be able to make a *subset* of Wikipedia visible to a group only, as a reading list, or whether that is a set of mirrored pages under this ADR already, needs a worked example.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2 | §16 | extends | 0005 A55 |
-| [0012](0012-api-requirements.md) §4, §8 | §5, §13, §15 | extends | 0012 A35 |
-| [0013](0013-postgres-storage.md) §5.6 | §14 | extends | 0013 A26 |
-| [0014](0014-caches-and-search.md) §1, §4, §7 | §7, §8 | amends | 0014 A13 |
-| [0016](0016-permissions-and-access-control.md) §2, §4 | §4 | amends | 0016 A21 |
-| [0016](0016-permissions-and-access-control.md) §4, §7 | §3, §13 | extends | 0016 A21 |
-| [0018](0018-tenants.md) §5 | §3 | amends | 0018 A11 |
-| [0021](0021-notifications.md) §2 | §6 | extends | 0021 A8 |
-| [0023](0023-moderation.md) §1, §2 | §3, §4 | amends | 0023 A9 |
-| [0023](0023-moderation.md) §2, §8, §9 | §3, §13 | extends | 0023 A9 |
-| [0028](0028-tenancy-policy.md) §5 | §6 | amends | 0028 A9 |
-| [0028](0028-tenancy-policy.md) §1 | §11 | extends | 0028 A9 |
-| [0028](0028-tenancy-policy.md) Q2 | §11 | settles | 0028 Q2 |
-| [0033](0033-backend-stack.md) §12 | §10 | extends | 0033 A8 |
-| [0042](0042-template-expansion-and-parsoid.md) §3 | §6 | amends | 0042 A7 |
-| [0043](0043-lua-modules.md) §5 | §6 | extends | 0043 A3 |
-| [0051](0051-page-redirects.md) §2 | §6 | extends | 0051 A1 |
 
 ## References
 
@@ -493,3 +470,30 @@ Replaced text ([09](../architecture/09-security-and-moderation.md) §4.5, as it 
 - **Source:** Direct: the live attack battery of 2026-10-24 (`tools/acl_check.py`); a call of Claude's for James to confirm
 - **Change:** extends §13
 - **Summary:** The "should be able to but can't" pass found that no API route could lift a hidden username: `/acl` does not serve `actor` targets and `action=unblock` left the `actor` ACL in place, so only the CLI could unhide. As in MediaWiki, an unblock, or a `reblock` without `hidename`, by a caller holding `hideuser` now also retires the `actor` ACL (09 §6.3); an administrator without `hideuser`, who may lift the block by its ID, leaves the name hidden. The battery itself — every negative and positive probe of the live attack, over real HTTP against a server it sets up — is `tools/acl_check.sh`, a check CI runs beside the client-compatibility checks (22 §4.2).
+
+### A26. The empty-group report and the purge queue over REST
+
+- **Date:** 2026-10-30
+- **Source:** Direct: James, review of 2026-10-30, confirming the implementation calls of 2026-10-23 and 24 that the catalogue cross-checks surfaced
+- **Change:** extends §13
+- **Summary:** Two routes the code added with accountability (tier 5) and the purge queue (tier 8), now decided. `GET /acl/empty-groups` lists the groups no one can read through: every group a read ACL names that has no member (09 §4.5; `userrights`), the report `Special:ProtectedPages` shows; the rest of Q4, counts for populated groups, stays open. `GET /purges?since=` serves the queued cache purges (a tag per read-ACL write, change or retirement, with the visibility epoch) for the web tier or a CDN hook to consume (`ts-config`; 03 §7); nothing consumes it until a cache layer exists. Both are in the OpenAPI contract and in `registry/routes.toml`.
+
+### A27. Entities, the live attack and tiers 7–8: the calls made building them
+
+- **Date:** 2026-10-30
+- **Source:** Direct: Claude, while building entity ACLs, the live attack and tiers 7–8, 2026-10-24; unconfirmed
+- **Change:** extends §4
+- **Summary:** Logged from the working notes on their retirement (0099 §5, 24 §15); each call stands as decided until James confirms or overturns it, and the chapter text that states it is folded on confirmation where it is not already there. The calls:
+  - Deleting an entity is a moderation `read` restriction on `acl:entity:{id}` (0023 §4), so the entity is `missing` outside the deletion group and the deletion is in the public log; a mirrored entity is its provider's to moderate (`ts-not-supported`).
+  - `wbsearchentities` (the Postgres fallback) does not apply a `graph` restriction: it cannot tell which graph serves a row; entity, set and namespace restrictions apply.
+  - A new entity is checked for `createpage` on its namespace, the local graph and the tenant when the caller holds `createpage` anywhere, else for `edit`.
+  - Scoped groups and entities: `delete`, `protect`, `edit` on an entity count a group scoped to the entity's namespace or a set it is in.
+  - `includes` may name the suppression group (09 §3.2 allows it beside `"*"`); the self-grant is logged, which is the accountability the model relies on. By design.
+  - `ts-restricted-title` vs `missingtitle-createonly` on `action=protect` tells a confidential title from a free one, as 09 §5.3 accepts.
+  - A hidden user's `User:Name` and `Special:Contributions/Name` pages still echo the name in the title; no content or contributions show.
+  - `inprop=protection` lists `read` restrictions (level = the group) beside `edit`/`move`, and an enclosing target's with `source`.
+  - `prop=deletedrevisions` is by title only and needs `deletedhistory`; a non-member gets no deleted revisions.
+  - A hidden user's own pages (`User:Name`, `User talk:Name`, subpages) are absent for those outside the suppression group.
+  - The purge queue is the record until a cache layer exists; nothing consumes it yet, and the exposure after a restriction is the proxy's `s-maxage` window. `visibility_epoch` is in `ops`.
+  - The hidden-set cache holds only "nothing hidden" answers, keyed by the ACL frontier.
+  - The battery's test tenant runs at `challenge.bits = 8`; registration is capped at six accounts a day per address, so the battery reuses one account across roles; the `protect` oracle is left out of the battery on the strength of 09 §5.3.

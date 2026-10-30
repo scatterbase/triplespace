@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude
 - **Changes:** [0005](0005-crate-organization.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0034](0034-frontend-stack.md)
-- **Chapters:** [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [04](../architecture/04-entities-and-identifiers.md), [09](../architecture/09-security-and-moderation.md), [11](../architecture/11-rendering-templates-and-modules.md), [13](../architecture/13-mirrored-pages.md), [14](../architecture/14-discussions.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md)
 
 ## Context
 
@@ -150,13 +149,6 @@ This ADR records the rest. The frontend is in 0034.
 - **Q4.** MSRV policy: how far behind stable.
 - **Q5.** `aws-lc-rs` versus `ring` if musl or FIPS requirements appear.
 - **Q6.** Whether `refinery` replaces the in-house migration runner.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2 | §4, §9.1–9.4, §10 | amends | 0005 A32 |
-| [0005](0005-crate-organization.md) Q7 | §4 | settles | 0005 Q7 |
 
 ## Amendment log
 

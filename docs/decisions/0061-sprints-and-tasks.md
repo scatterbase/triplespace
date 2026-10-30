@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md), [0021](0021-notifications.md), [0041](0041-content-models.md), [0047](0047-special-pages.md)
 - **Uses:** [0003](0003-statement-ui.md), [0007](0007-actor-identity.md), [0013](0013-postgres-storage.md), [0016](0016-permissions-and-access-control.md), [0020](0020-change-feeds.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0030](0030-edit-filters.md), [0031](0031-property-constraints.md), [0038](0038-page-metadata-and-categories.md), [0042](0042-template-expansion-and-parsoid.md), [0049](0049-boards.md), [0059](0059-query-service.md), [0060](0060-scopes.md)
-- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [10](../architecture/10-pages-and-content-models.md), [15](../architecture/15-structured-pages.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -79,7 +78,7 @@ James's direction, from the design discussion of 2026-10-04:
 
 ### 12. Crates (amends 0005 §2)
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Alternatives considered
 
@@ -105,19 +104,6 @@ James's direction, from the design discussion of 2026-10-04:
 - **Q4. Recurring sprints.** A monthly drive is a new page each month today; whether a definition may carry a recurrence that creates the next page, which would be the one job that writes a page.
 - **Q5. Sprints over several tenants' subjects.** Refused now ([0028](0028-tenancy-policy.md) §5); a farm-wide drive would need a farm-base sprint reading each tenant's public tasks.
 - **Q6. Claims on a protected subject.** A claim needs `edit` on the sprint page, not on the subject; whether a claim should be refused when the claimant could not edit the subject, which the statement UI will tell them anyway.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2 | §12 | amends | 0005 A64 |
-| [0008](0008-namespaces-and-document-pages.md) §2 | §2 | extends | 0008 A26 |
-| [0011](0011-logs.md) §6.1, §8 | §5 | extends | 0011 A19 |
-| [0012](0012-api-requirements.md) §5 | §10 | extends | 0012 A41 |
-| [0015](0015-record-format-and-partition-registry.md) §1 | §5 | extends | 0015 A29 |
-| [0021](0021-notifications.md) §2 | §8 | extends | 0021 A9 |
-| [0041](0041-content-models.md) §3 | §3 | extends | 0041 A9 |
-| [0047](0047-special-pages.md) §9 | §9 | extends | 0047 A7 |
 
 ## References
 

@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0013](0013-postgres-storage.md), [0026](0026-sitelinks.md), [0070](0070-shallow-entity-mirroring.md), [0071](0071-derived-statements-from-mirrored-pages.md), [0072](0072-template-mappings.md)
-- **Chapters:** [13](../architecture/13-mirrored-pages.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -81,12 +80,6 @@ James's direction, from the design discussion of 2026-10-07:
 - **Q1. Internal links as relations.** A line linking another guide page (`[[Ireland Estate Records|…]]`) says the two guides are related; whether a `links` setting should write that.
 - **Q2. Resources on one line.** "Also at: MyHeritage" names a second access point for the same records; whether to relate them, and by which property, or leave it to the `based on` link of the plan.
 - **Q3. Definition lists and plain paragraphs** of links, which some wikis use for bibliographies.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2 | §7 | amends | 0005 A76 |
 
 ## References
 

@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0003](0003-statement-ui.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0016](0016-permissions-and-access-control.md)
-- **Chapters:** [04](../architecture/04-entities-and-identifiers.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -57,7 +56,7 @@ This ADR replaces the one grammar of 0009 §3 with three, each declared in the r
 
 *Changed by A1.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Consequences
 
@@ -77,24 +76,6 @@ This ADR replaces the one grammar of 0009 §3 with three, each declared in the r
 - **Q4. MusicBrainz edit history.** Whether to mirror MusicBrainz edits as log events ([0011](0011-logs.md)), which would give its issuer numeric editors.
 - **Q5. A `slug` grammar.** No registered minted type needs one now that keywords are keyed; whether to define it in advance for a future provider.
 - **Q6.** ~~**DOI.** Its grammar, normalizer and whether its IRI is `https://doi.org/{key}` or `https://scatter.red/doi/{key}` ([0009](0009-keyed-entity-types-and-domain.md) Q6).~~ *Settled by [0029](0029-resolver-namespaces.md) §1: a resolver, not a keyed type; the `doi:` prefix is withdrawn, and resolver names share the keyed-type namespace.*
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0000](0000-init.md) §3 | §1–2, §5 | amends | 0000 A3 |
-| [0002](0002-source-graphs-and-mass-ingest.md) §4 | §2 | amends | 0002 A7 |
-| [0004](0004-identity-clusters-and-equivalence.md) §1 | §5 | extends | 0004 A2 |
-| [0005](0005-crate-organization.md) §2 | §7 | extends | 0005 A13 |
-| [0008](0008-namespaces-and-document-pages.md) §3 | §2 | amends | 0008 A2 |
-| [0009](0009-keyed-entity-types-and-domain.md) §3, §4, §9, §10 | §1, §3, §5 | amends | 0009 A2 |
-| [0009](0009-keyed-entity-types-and-domain.md) §1, §5, §8 | §1, §3, §5 | extends | 0009 A2 |
-| [0009](0009-keyed-entity-types-and-domain.md) Q6 | §5 | settles | 0009 Q6 |
-| [0010](0010-site-ui.md) §3 | §1, §4 | amends | 0010 A7 |
-| [0012](0012-api-requirements.md) §5 | §1 | amends | 0012 A6 |
-| [0013](0013-postgres-storage.md) §5.1 | §4 | amends | 0013 A4 |
-| [0014](0014-caches-and-search.md) §7 | §4 | amends | 0014 A2 |
-| [0015](0015-record-format-and-partition-registry.md) §5 | §6 | extends | 0015 A2 |
 
 ## References
 

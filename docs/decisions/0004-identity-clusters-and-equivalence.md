@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md)
 - **Uses:** [0000](0000-init.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
-- **Chapters:** [04](../architecture/04-entities-and-identifiers.md)
 
 ## Context
 
@@ -45,7 +44,7 @@ There are three needs:
 
 *Changed by A1, A4, A5, A12, A13, A16, A17.*
 
-*Current text: [04](../architecture/04-entities-and-identifiers.md) §4.4.*
+*Current text: [04](../architecture/04-entities-and-identifiers.md) §4.4, §4.12.*
 
 ### 5. Conversion joins a cluster (amends 0002 §6)
 
@@ -101,17 +100,6 @@ There are three needs:
 - **Q6.** ~~**Permissions.** Who may assert `same-as` and `different-from`, run them in bulk, or resolve conflicts.~~ *Settled by [0016](0016-permissions-and-access-control.md) §5: `ts-link`, in bulk with `ts-runjob`; `equivalent-property` needs `property-create`.*
 - **Q7.** ~~**A stable external IRI.** Whether to recommend the alias form `{base}/entity/<any member>` to external consumers as a reference that survives changes of canonical ID.~~ *Settled by A4: the recommended stable handle is the **document node** of any member, `{base}/wiki/Special:EntityData/{id}` ([0015](0015-record-format-and-partition-registry.md) §6), which exists for every member whatever minted its ID and never moves. The resolved view already carries `schema:about` from each document node to the current canonical concept IRI ([wikibase-compat.md](../api/wikibase-compat.md) §5.2), so a consumer that cites the document node reaches the concept through one triple that the update stream ([0032](0032-sparql-update-stream.md)) keeps current; concept IRIs stay canonical-and-changing as §4 says, and no new IRI kind enters the main graph. The dump and stream documentation says so; [0029](0029-resolver-namespaces.md) §4's `DOI:{key}` is the same recommendation for a thing known by an identifier.* *Extended by A16: the document node stays the recommended handle, and the fused body is now also emitted under every member's concept IRI, so any member's concept IRI reaches the statements directly ([0082](0082-source-form-and-the-shared-view.md) §4).*
 - **Q8.** ~~**Statement IDs after conversion.** Carried over from 0002.~~ *Settled by [0018](0018-tenants.md) §7: the resolved view rewrites the GUID's entity prefix to the canonical ID and keeps the UUID.* *Extended by A16: the resolved view keeps the prefix as written; the entity part is rewritten only in responses, to the form the consumer prefers, and the UUID is the identity ([0082](0082-source-form-and-the-shared-view.md) §1, §3).*
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0002](0002-source-graphs-and-mass-ingest.md) §6 | §5, §9 | extends | 0002 A1 |
-| [0002](0002-source-graphs-and-mass-ingest.md) §8.2 | §5, §9 | amends | 0002 A1 |
-| [0002](0002-source-graphs-and-mass-ingest.md) Q2 | §4–§9 | settles | 0002 Q2 |
-| [0002](0002-source-graphs-and-mass-ingest.md) Q3 | §5 | settles | 0002 Q3 |
-| [0002](0002-source-graphs-and-mass-ingest.md) Q6 | §6 | settles | 0002 Q6 |
-| [0003](0003-statement-ui.md) §6, §7 | §6, §8 | extends | 0003 A1 |
 
 ## Amendment log
 

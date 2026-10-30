@@ -25,6 +25,11 @@ This directory is the registry of record for the names and codes that Triplespac
 | `css-properties.toml` | The CSS at-rules and properties the `sanitized-css` sanitizer allows, with the module each came from, the forbidden values and the `url()` policy (seed; generated from css-sanitizer's published set) | `scatter-css` | 0055 §2 |
 | `themes.toml` | Palettes (values for Codex's colour and shape tokens, in up to four variants, with accessibility alternates keyed by `[alternate.*]`), type sets (typeface stacks and the typefaces each serves) and fallback layers (typefaces for the scripts a type set's own lack, `noto`); the defaults are `parchment` and `default26` | `triplespace-ui`, `triplespace-accounts`; `ui/scripts/fallbacks.js` | 0034 §1–2; 0086 §1–3; 0093 §1–3; 0094 §1–4 |
 | `fragments.toml` | Fragment paths for packed record storage: per payload type, the CBOR path patterns whose subtrees are stored once per dedup domain, the history condition, `min_bytes` and `max_depth`. Physical policy, never part of the record format | `scatter-log` | 0058 §3 |
+| `crates.toml` | The crate map: every crate, its layer, one-line summary and full contents, what it may depend on, and the `pure` and `wasm` marks | none (`cargo xtask deps`, `xtask wasm` and `architecture/crates.py` read it from the repository) | 22 §1.2, §2.1; 0005 §2–3 and every ADR's Crates trailer |
+| `routes.toml` | The REST route catalogue: every route under `rest.php/triplespace/v0`, built or designed, its purpose and sources | none (`architecture/catalogues.py` generates 18 §3.2 and checks it against the OpenAPI contract) | 18 §3.2; 0012 §5 and every ADR's API trailer |
+| `permissions.toml` | What every permission allows; who holds it by default is `groups.toml` | none (`architecture/catalogues.py` generates 09 §2.2 from the two) | 09 §2.2; 0016 §2 and every ADR's Permissions trailer |
+| `log-events.toml` | The log-event catalogue: every `type/action`, what projects it, its typed parameters and who sees it | none (`architecture/catalogues.py` generates 16 §2.3) | 16 §2.3; 0011 §6–7 and every ADR's Log events trailer |
+| `action-api.toml` | The Action API catalogue: every module Triplespace adds or changes, in three tables, with what changes and its sources | none (`architecture/catalogues.py` generates 18 §2.3; Built from `paraminfo`'s lists) | 18 §2.3; 0012 §4 and every ADR's API trailer |
 | `version.toml` | What `Special:Version` shows that nothing else records: the developer, contributors and funders, the AI agents named in ADR Author lines, the services an instance may run and how each reports its version, the feature switches shown on the page, and the mediawiki.org page of every extension an `origin` names, with what Triplespace took from extensions that leave no other trace | `triplespace-api-rest` | 0077 §2, §4, §8–9, §11 |
 
 ## Rules
@@ -39,6 +44,8 @@ This directory is the registry of record for the names and codes that Triplespac
 - **Slugs are one namespace.** A tenant's slug ([0018](../decisions/0018-tenants.md) §1), a provider's slug and an issuer's code are the same word for the same thing; a tenant that becomes a provider keeps its slug and takes a code and a number here. A provider's slug is also a colon prefix: `wikidata:Q42` is an input form of `WDQ42`, so slugs share the one namespace of keyed-type, resolver and notation scheme names, and a tenant's entity source may not take any of them ([0078](../decisions/0078-entity-sources.md) §3).
 
 ## Pending allocations
+
+- **Provider `agent_iri` values** in `providers.toml`: OpenAlex's (its Wikidata item) is still "to be set when confirmed", and OpenStreetMap and GDELT carry the same comment. **MusicBrainz's type codes** there were proposed when the adapter was drafted and never explicitly confirmed. (From the working notes, 0099 §5.)
 
 - **Pages served at the auth base** ([0089](../decisions/0089-the-auth-host-and-instance-logins.md) §7): the field `auth = true` on `UserLogin`, `CreateAccount`, `Account` and `UserLogout` in `special-pages.toml`. Written as a comment beside each until `triplespace-titles` accepts it, since the parser rejects unknown fields.
 

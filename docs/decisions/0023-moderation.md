@@ -2,11 +2,10 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-25 (A16)
+- **Updated:** 2026-10-30 (A17)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0006](0006-log-integrity-and-erasure.md), [0009](0009-keyed-entity-types-and-domain.md), [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [MediaWiki API contract](../api/mediawiki-compat.md)
-- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -53,7 +52,7 @@ Patrolling is the odd one out, since it restricts nothing: it is a mark that a t
 
 ### 4. What deletion does (amends 0008 §4 and 0019 §1; amends 0004 §4)
 
-*Changed by A7, A13, A14.*
+*Changed by A7, A13, A14, A17.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §6.2.*
 
@@ -105,7 +104,7 @@ Patrolling is the odd one out, since it restricts nothing: it is a mark that a t
 
 *Changed by A1.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Consequences
 
@@ -128,37 +127,6 @@ Patrolling is the odd one out, since it restricts nothing: it is a mark that a t
 - **Q6.** ~~**Unpatrol**, which MediaWiki lacks and some wikis want.~~ *Settled by A5: a `patrol/unpatrol` log event in the tenant `log`, keyed like `patrol/patrol` (§6) and written by holders of `patrol`; the projection sets `patrolled` false, and the newest of the two events for a record wins. `action=patrol` gains `unpatrol=1`; the row's action is "Mark as unpatrolled". [0030](0030-edit-filters.md) §4's `unpatrol` filter action, which withholds autopatrol as a write lands, is unchanged.*
 - **Q7. Whether deletion should expire.** The record allows it; MediaWiki has no temporary deletion, and none is offered here.
 - **Q8.** ~~**Blocking and hiding across tenants** ([0018](0018-tenants.md) Q3): whether an `actor` ACL written by the primary tenant should apply to every tenant.~~ *Settled by [0028](0028-tenancy-policy.md) §4: an actor ACL on a farm account applies everywhere; a tenant's applies to its own account.*
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0001](0001-revision-metadata-rdf.md) §4 | §5 | extends | 0001 A9 |
-| [0004](0004-identity-clusters-and-equivalence.md) §4 | §4 | extends | 0004 A5 |
-| [0005](0005-crate-organization.md) §2 | §13 | amends | 0005 A19 |
-| [0005](0005-crate-organization.md) §2 | §2 | extends | 0005 A25 |
-| [0007](0007-actor-identity.md) §4 | §5 | extends | 0007 A7 |
-| [0008](0008-namespaces-and-document-pages.md) §4 | §4 | amends | 0008 A4 |
-| [0008](0008-namespaces-and-document-pages.md) Q6 | §1–4 | settles | 0008 Q6 |
-| [0010](0010-site-ui.md) §2, §5.2, §7 | §9 | extends | 0010 A13 |
-| [0010](0010-site-ui.md) Q2 | §6 | settles | 0010 Q2 |
-| [0011](0011-logs.md) §3, §6.1 | §3, §5–7 | extends | 0011 A7 |
-| [0011](0011-logs.md) Q4 | §3 | settles | 0011 Q4 |
-| [0011](0011-logs.md) Q7 | §6 | settles | 0011 Q7 |
-| [0012](0012-api-requirements.md) §3, §4, §5, §8 | §8 | extends | 0012 A12 |
-| [0013](0013-postgres-storage.md) §5, §5.2, §5.6 | §10 | amends | 0013 A9 |
-| [0013](0013-postgres-storage.md) §4, §5.4, §5.5, §7, §8 | §10 | extends | 0013 A9 |
-| [0014](0014-caches-and-search.md) §1, §5 | §2, §5, §10 | amends | 0014 A3 |
-| [0014](0014-caches-and-search.md) §10 | §2, §5, §10 | extends | 0014 A3 |
-| [0015](0015-record-format-and-partition-registry.md) §3 | §3 | amends | 0015 A6 |
-| [0016](0016-permissions-and-access-control.md) §4, §8 | §1–3, §11 | amends | 0016 A6 |
-| [0016](0016-permissions-and-access-control.md) §2 | §1–3, §11 | extends | 0016 A6 |
-| [0016](0016-permissions-and-access-control.md) Q1 | §2 | settles | 0016 Q1 |
-| [0016](0016-permissions-and-access-control.md) Q4 | §6, §11 | settles | 0016 Q4 |
-| [0019](0019-discussions.md) §1, §7, §12 | §4, §6 | amends | 0019 A4 |
-| [0019](0019-discussions.md) §9 | §4, §6 | extends | 0019 A4 |
-| [0020](0020-change-feeds.md) §1 | §6 | extends | 0020 A3 |
-| [0020](0020-change-feeds.md) Q2 | §6 | settles | 0020 Q2 |
 
 ## References
 
@@ -344,3 +312,15 @@ Replaced text ([09](../architecture/09-security-and-moderation.md) §4.3, as it 
 - **Source:** Direct: James, design discussion of 2026-10-25
 - **Change:** extends §5
 - **Summary:** Found by the permission battery while building thread notifications ([0021](0021-notifications.md) A20), and fixed for James to confirm: a hidden user's talk page was absent outside `suppress`, but the threads on it still named it (`home.talk_page`) and their posts named the user (`author`). The user now encloses a thread whose home is their talk page: the `actor` ACL is part of the thread's chain, so outside the group the thread reads as removed, as the page is absent; and wherever a name is hidden, a post's `author` is left out and a talk page's wikitext signs it `(username removed)`. Chapter text: [09](../architecture/09-security-and-moderation.md) §6.3.
+
+### A17. Partial undelete and hidden events: the calls made building them
+
+- **Date:** 2026-10-30
+- **Source:** Direct: Claude, while building partial undelete, `type=logging` and the hidden-set measurement, 2026-10-24; unconfirmed
+- **Change:** extends §4
+- **Summary:** Logged from the working notes on their retirement (0099 §5, 24 §15); each call stands as decided until James confirms or overturns it, and the chapter text that states it is folded on confirmation where it is not already there. The calls:
+  - Partial undeletion writes the `record` ACLs first, then retires the page ACL, so the `delete/restore` event can list what stays hidden as `params.kept`; 09 §4.3 says the reverse order, same outcome in one transaction.
+  - `timestamps` names every revision in that second, as `basetimestamp` does; a page's revisions are every record of it with a revision ID (`move` records included).
+  - `type=logging` addresses events in every partition, not only `log`; the event is `delete/event` whenever the hidden record has a log ID and no revision ID (16 §2.3 says "Hide a record in `log`").
+  - `actionhidden` hides the event's title and params from everyone, as the other hidden parts are hidden from everyone in the feeds today; a group-aware reveal is a feed-wide change, not made.
+  - Migration `0020_page_title_bytes`: a second index on `view.page (tenant, ns, title COLLATE "C")`, every page, deleted ones included.

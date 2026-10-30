@@ -2,11 +2,10 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-07
-- **Updated:** 2026-10-29 (A4)
+- **Updated:** 2026-10-30 (A6)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md), [0033](0033-backend-stack.md), [0047](0047-special-pages.md)
 - **Uses:** [0005](0005-crate-organization.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0028](0028-tenancy-policy.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0046](0046-primary-tenant.md), [0056](0056-security-model.md), [0057](0057-web-tier.md), [0059](0059-query-service.md), [0075](0075-mcp-server.md)
-- **Chapters:** [18](../architecture/18-api.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md)
 
 ## Context
 
@@ -86,11 +85,13 @@ And on the first proposal, the same day:
 
 ### 10. API (extends 0012 §4 and §5)
 
+*Changed by A5.*
+
 *Current text: [18](../architecture/18-api.md) §2.2, §3.2, §8.*
 
 ### 11. Features
 
-*Changed by A1.*
+*Changed by A1, A6.*
 
 *Current text: [21](../architecture/21-special-pages.md) §5.10.*
 
@@ -134,17 +135,6 @@ And on the first proposal, the same day:
 - **Q2. JavaScript licence labels.** Whether to add LibreJS-style labels, a table of every script with its licence and source, beside the header comments of §3.
 - **Q3.** ~~**Agents and their ADRs.** Whether each agent's row should list the ADRs it wrote, which would put the Author lines' data into `version.toml` or the manifest.~~ *Withdrawn: the page names no ADRs (§1).*
 - **Q4. Translators.** If messages are translated on translatewiki.net, whether translators are credited on `Special:Version/Credits`, as MediaWiki credits them through each message file's `@metadata`.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0012](0012-api-requirements.md) §4 | §10 | extends | 0012 A55 |
-| [0012](0012-api-requirements.md) §5 | §10 | extends | 0012 A55 |
-| [0015](0015-record-format-and-partition-registry.md) §3 | §13 | extends | 0015 A36 |
-| [0015](0015-record-format-and-partition-registry.md) §5 | §14 | extends | 0015 A36 |
-| [0033](0033-backend-stack.md) §16 | §15 | extends | 0033 A13 |
-| [0047](0047-special-pages.md) §9 | §1 | amends | 0047 A12 |
 
 ## References
 
@@ -204,3 +194,19 @@ Replaced text (§4):
 - **Source:** [0097](0097-versioning-and-skins.md) §7
 - **Change:** extends §6
 - **Summary:** Beside the product version, `Special:Version` and `GET /version` give the version of each contract the instance serves (record format and payload majors, `api_version`, the template contract, the Codex token release, each message bundle) and each installed skin with its version, licence and requirements, with any skin not loaded and the reason. The chapter text is [21](../architecture/21-special-pages.md) §5.6.
+
+### A5. Licence files over REST
+
+- **Date:** 2026-10-30
+- **Source:** Direct: James, review of 2026-10-30, confirming the implementation calls of 2026-10-23 and 24 that the catalogue cross-checks surfaced
+- **Change:** extends §10
+- **Summary:** `GET /version/licenses/{id}` serves one component's licence, copyright and notice files, the route behind `Special:Version/License` (21 §7); it is in the OpenAPI contract and in `registry/routes.toml`.
+
+### A6. Licensing: loose ends from building Special:Version
+
+- **Date:** 2026-10-30
+- **Source:** Direct: Claude, while building Special:Version, 2026-10; unconfirmed
+- **Change:** extends §11
+- **Summary:** Logged from the working notes on their retirement (0099 §5, 24 §15); each call stands as decided until James confirms or overturns it, and the chapter text that states it is folded on confirmation where it is not already there. The calls:
+  - `OFL-1.1` was added to `deny.toml` provisionally and is not recorded in 0033; record it there or give the font licence its own ADR.
+  - Whether to narrow the "Inspired by" credits.

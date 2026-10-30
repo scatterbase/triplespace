@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0047](0047-special-pages.md), [0060](0060-scopes.md), [0061](0061-sprints-and-tasks.md), [0062](0062-workspaces.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0010](0010-site-ui.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0017](0017-entity-id-grammar.md), [0024](0024-subsidiary-accounts.md), [0031](0031-property-constraints.md), [0059](0059-query-service.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
-- **Chapters:** [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [15](../architecture/15-structured-pages.md), [18](../architecture/18-api.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -62,7 +61,7 @@ James's direction, from the design discussion of 2026-10-05:
 
 ### 9. Crates (amends 0005 §2)
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Alternatives considered
 
@@ -86,21 +85,6 @@ James's direction, from the design discussion of 2026-10-05:
 - **Q3. Schema text in RDF.** A full-dump consumer may want the ShExC; `schema:text` on the node, or a separate shape graph.
 - **Q4. Exact validation by default.** Whether `schemas.source = query` should be the default when the service is on, accepting the lag.
 - **Q5. Autofix hints.** A failed cardinality or value set often has one obvious fix; whether the report may propose a change set the editor confirms.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2 | §9 | amends | 0005 A67 |
-| [0008](0008-namespaces-and-document-pages.md) §2 | §2 | extends | 0008 A28 |
-| [0012](0012-api-requirements.md) §5 | §7 | extends | 0012 A44 |
-| [0013](0013-postgres-storage.md) §5.6, §7 | §5 | extends | 0013 A33 |
-| [0041](0041-content-models.md) §3 | §3 | extends | 0041 A11 |
-| [0042](0042-template-expansion-and-parsoid.md) §5 | §6 | extends | 0042 A10 |
-| [0047](0047-special-pages.md) §9, §10 | §7 | amends | 0047 A9 |
-| [0060](0060-scopes.md) §4 | §5, §6 | extends | 0060 A3 |
-| [0061](0061-sprints-and-tasks.md) §4 | §6 | extends | 0061 A2 |
-| [0062](0062-workspaces.md) §3 | §6 | extends | 0062 A2 |
 
 ## References
 

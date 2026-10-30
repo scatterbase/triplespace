@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0011](0011-logs.md), [0018](0018-tenants.md), [0022](0022-federation.md)
-- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -62,7 +61,7 @@ One constraint is fixed by James: **whether a user is watching something is priv
 
 *Changed by A1.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Consequences
 
@@ -82,23 +81,6 @@ One constraint is fixed by James: **whether a user is watching something is priv
 - **Q5.** ~~**Rate limits** on the stream and on Atom, and the default period window per feed.~~ *Settled by [0024](0024-subsidiary-accounts.md) §5 and [0027](0027-preferences-and-portability.md) §1: rate limits are the `stream` and `atom` classes; the period window is the `feeds.period` preference, with its default in `preferences.toml`; the default's value is tuning.*
 - **Q6. Watching a namespace or a query.** Dynamic watch sets defined by a SPARQL query or a search, as some wikis have wanted.
 - **Q7. Related changes for keyed types.** Whether a domain's related set is its DNS parents and children ([0009](0009-keyed-entity-types-and-domain.md)).
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2 | §8 | extends | 0005 A16 |
-| [0007](0007-actor-identity.md) §8 | §3 | extends | 0007 A4 |
-| [0010](0010-site-ui.md) §7, §11, §12 | §4 | extends | 0010 A10 |
-| [0010](0010-site-ui.md) Q1 | §2–3 | settles | 0010 Q1 |
-| [0012](0012-api-requirements.md) §4, §5 | §4–5 | extends | 0012 A9 |
-| [0012](0012-api-requirements.md) Q5 | §5 | settles | 0012 Q5 |
-| [0012](0012-api-requirements.md) Q6 | §4 | settles | 0012 Q6 |
-| [0013](0013-postgres-storage.md) §4, §5.6 | §3 | extends | 0013 A7 |
-| [0014](0014-caches-and-search.md) §1, §5 | §5 | amends | 0014 A3 |
-| [0014](0014-caches-and-search.md) §10 | §5 | extends | 0014 A3 |
-| [0016](0016-permissions-and-access-control.md) §2 | §7 | extends | 0016 A3 |
-| [0019](0019-discussions.md) §8 | §3 | extends | 0019 A2 |
 
 ## References
 

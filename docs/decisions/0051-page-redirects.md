@@ -2,11 +2,10 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-10-24 (A7)
+- **Updated:** 2026-10-30 (A8)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0030](0030-edit-filters.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0047](0047-special-pages.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0011](0011-logs.md), [0023](0023-moderation.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [MediaWiki API contract](../api/mediawiki-compat.md)
-- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), [10](../architecture/10-pages-and-content-models.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [21](../architecture/21-special-pages.md)
 
 ## Context
 
@@ -34,9 +33,9 @@ James's direction, from the design discussion of 2026-10-01, was for the mirrori
 
 ### 3. Moves leave a redirect (amends 0008 §4)
 
-*Changed by A3, A6, A7.*
+*Changed by A3, A6, A7, A8.*
 
-*Current text: [10](../architecture/10-pages-and-content-models.md) §2.5.*
+*Current text: [10](../architecture/10-pages-and-content-models.md) §2.5, §3.2.*
 
 ### 4. Category, File and entity redirects (settles 0038 Q5; extends 0039 §1)
 
@@ -86,23 +85,6 @@ James's direction, from the design discussion of 2026-10-01, was for the mirrori
 - **Q2. Soft redirects as data.** Whether `{{R from …}}` categorisation on Wikipedia redirects should map to page statements through category mappings, so a fork can query its redirect types.
 - **Q3. Section redirects and anchors.** Whether a redirect whose fragment names a section that no longer exists should be reported, which needs section anchors in a projection.
 - **Q4. Redirect pages in search as documents.** Whether a tenant may choose to index redirect pages themselves, for wikis that put content on them.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0008](0008-namespaces-and-document-pages.md) §4 | §3 | amends | 0008 A21 |
-| [0008](0008-namespaces-and-document-pages.md) §3, §10 | §2, §5 | extends | 0008 A21 |
-| [0008](0008-namespaces-and-document-pages.md) Q8 | §1 | settles | 0008 Q8 |
-| [0012](0012-api-requirements.md) §4 | §7 | extends | 0012 A30 |
-| [0013](0013-postgres-storage.md) §5.4 | §5 | extends | 0013 A21 |
-| [0014](0014-caches-and-search.md) §7 | §5 | extends | 0014 A10 |
-| [0016](0016-permissions-and-access-control.md) §2 | §8 | extends | 0016 A19 |
-| [0030](0030-edit-filters.md) §2 | §9 | extends | 0030 A8 |
-| [0038](0038-page-metadata-and-categories.md) Q5 | §4 | settles | 0038 Q5 |
-| [0039](0039-files-and-media.md) §1 | §4 | extends | 0039 A5 |
-| [0047](0047-special-pages.md) §10 | §6 | amends | 0047 A3 |
-| [0047](0047-special-pages.md) §4.4 | §6 | extends | 0047 A3 |
 
 ## References
 
@@ -191,3 +173,18 @@ Replaced text ([10](../architecture/10-pages-and-content-models.md) §2.5, as it
 Replaced text ([10](../architecture/10-pages-and-content-models.md) §3.2, as it stood):
 
 > | `move` | Sets a new title |
+
+### A8. `action=move`: the calls made building it
+
+- **Date:** 2026-10-30
+- **Source:** Direct: Claude, while building `action=move`, 2026-10-24; unconfirmed
+- **Change:** extends §3
+- **Summary:** Logged from the working notes on their retirement (0099 §5, 24 §15); each call stands as decided until James confirms or overturns it, and the chapter text that states it is folded on confirmation where it is not already there. The calls:
+  - The old title in the event is read from the page's own history, not stored in the record; it is `ts-from-ns`/`ts-from-title` beside MediaWiki's `target_ns`/`target_title`, and the event's `title` is the old title; `noredirect: true` and `suppressredirect: true` are both set when no redirect is left.
+  - `move/move_redir` is not emitted: a move over a one-revision redirect deletes the redirect (its own `delete/delete`) and logs the move as `move/move`.
+  - Rights checked: `move` and `edit` at the source, `createpage` and `edit` at the destination, plus `movefile`, `move-rootuserpages`, `move-categorypages`, `suppressredirect`, `move-subpages`, `delete-redirect`; the redirect's `create` at the old title is not separately checked for `createpage`.
+  - Where a redirect may be left: the namespace's default model is `wikitext`, or it allows `wikitext` and the title ends in `/doc` (the `/doc` rule is hard-coded until `scatter-titles` parses `default_model_rules`).
+  - Which pages move: any page whose model is a directly edited text model, to a namespace that allows that model; entities, threads, boards and talk pages are `immobilenamespace`.
+  - `movetalk` answers `talkmove-error-code: ts-talk-follows` rather than silently.
+  - `GET /activity?kind=log` includes the records that are also log events, as `list=logevents` already did.
+  - `Special:MovePage/{title}` is the form; the redirect checkbox appears only to `suppressredirect` holders, the subpages box only to `move-subpages` holders.

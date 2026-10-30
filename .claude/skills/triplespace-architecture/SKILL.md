@@ -40,8 +40,7 @@ tools/adr.py log 0008 A6                   # one amendment, with the text it rep
 tools/adr.py questions 0090                # open questions
 ```
 
-Add `--lines N` to `show` to cap a long section. `INDEX.md` and `MAP.md` have very wide lines; prefer
-`adr.py` to grepping them.
+Add `--lines N` to `show` to cap a long section. Chapter 24 is how the documents fit together.
 
 ## Following the links
 
@@ -49,12 +48,11 @@ Add `--lines N` to `show` to cap a long section. `INDEX.md` and `MAP.md` have ve
   sections it was assembled from. Follow them for the reasoning.
 - **ADR → chapter.** A Decision section reading *Current text: [03] §4.5.* has its text in that
   chapter section. Its heading, number and *Changed by An* line stay in the ADR.
-- **ADR → ADR.** `docs/decisions/INDEX.md` lists each ADR's status, last update, what it
-  changes and what changes it. Within an ADR, the header's `Changes`/`Uses` fields and the
-  *Changes to other ADRs* table carry the same graph.
-- **ADR section → chapter, in bulk.** `docs/architecture/MAP.md` assigns every numbered
-  Decision section to its chapter(s); `—` means process, not architecture (0050, the changelog
-  stubs of 0005 §8 and 0013 §12).
+- **ADR → ADR.** `docs/decisions/INDEX.md` lists each ADR's status, last update, chapters and
+  what changes it; the header's `Changes` says what it changes.
+- **ADR section → chapter, in bulk.** `python3 docs/architecture/map.py --sections` prints every
+  Decision section with the chapter sections that cite it. Every section is cited by some chapter
+  (0050 and 0098, the process ADRs, by chapter 24); the only exceptions are the stubs.
 - **History of a passage.** The ADR's Amendment log quotes replaced text verbatim. Cite text as
   it was by the entry that replaced it (`0008 A6`), never by date.
 
@@ -67,8 +65,9 @@ stable.
 
 ## From design to code
 
-- The crate map is chapter 22 §2.1: every crate, its layer, what it owns and whether it builds
-  for wasm. `cargo xtask deps` checks the real graph against it.
+- The crate map is `docs/registry/crates.toml`: every crate, its layer, what it holds, what it may
+  depend on, and its `pure`/`wasm` marks. Chapter 22 §2.1 shows it one line per crate and
+  `docs/architecture/CRATES.md` in full; `cargo xtask deps` checks the real graph against it.
 - A registry file's `README.md` row names the crate that embeds it and the ADR sections that
   define it.
 - `tools/coverage.py NNNN` shows which of an ADR's sections the code cites and from which crates;

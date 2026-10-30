@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md)
 - **Uses:** [0007](0007-actor-identity.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0029](0029-resolver-namespaces.md)
-- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [05](../architecture/05-providers-and-ingest.md), [09](../architecture/09-security-and-moderation.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -84,7 +83,7 @@ James named two dimensions, **abusive statements** and **abusive page contents**
 
 *Changed by A1.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Consequences
 
@@ -107,32 +106,6 @@ James named two dimensions, **abusive statements** and **abusive page contents**
 - **Q6.** ~~**Filter ordering and short-circuiting**: whether a `disallow` should stop later filters from evaluating (AbuseFilter continues, for logging).~~ *Settled by A3: every enabled filter evaluates every write and every match is a hit, as AbuseFilter does; the write is refused once, naming the first disallowing filter's message. Hit counts and the test tool therefore stay complete.*
 - **Q7.** ~~**Hit retention**: hits are records and never expire; whether a tenant may compact old hits of high-volume `log`-only filters.~~ *Settled by A3: a filter record may set `hit_retention`; a daily sweep erases ([0006](0006-log-integrity-and-erasure.md) §7, reason class `operational`) its hit records older than that whose actions were only `log` or `tag`, by the filter's key. Hits that warned, refused, throttled, blocked or degrouped are never swept. Headers remain, as erasure always leaves them.*
 - **Q8. Autopromote**: MediaWiki's `abusefilter-unblockautopromote` presumes autopromotion; whether `autoconfirmed` thresholds ([0016](0016-permissions-and-access-control.md) Q2) interact with filters.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0001](0001-revision-metadata-rdf.md) §6 | §5 | extends | 0001 A10 |
-| [0002](0002-source-graphs-and-mass-ingest.md) §8.5 | §7 | extends | 0002 A12 |
-| [0005](0005-crate-organization.md) §2 | §13 | extends | 0005 A26 |
-| [0010](0010-site-ui.md) §7, §12 | §10 | extends | 0010 A19 |
-| [0011](0011-logs.md) §3, §6.1 | §5 | extends | 0011 A10 |
-| [0011](0011-logs.md) Q7 | §5 | settles | 0011 Q7 |
-| [0012](0012-api-requirements.md) §3, §4, §5 | §5, §9 | extends | 0012 A18 |
-| [0013](0013-postgres-storage.md) §5, §5.2, §5.6 | §11 | amends | 0013 A9 |
-| [0013](0013-postgres-storage.md) §4, §5.4, §5.5, §7, §8 | §11 | extends | 0013 A9 |
-| [0014](0014-caches-and-search.md) §1, §5 | §11 | amends | 0014 A3 |
-| [0014](0014-caches-and-search.md) §10 | §11 | extends | 0014 A3 |
-| [0015](0015-record-format-and-partition-registry.md) §1 | §5 | amends | 0015 A13 |
-| [0015](0015-record-format-and-partition-registry.md) §3 | §5 | extends | 0015 A13 |
-| [0016](0016-permissions-and-access-control.md) §2 | §12 | extends | 0016 A10 |
-| [0016](0016-permissions-and-access-control.md) Q5 | — | settles | 0016 Q5 |
-| [0020](0020-change-feeds.md) §2 | §6 | extends | 0020 A7 |
-| [0021](0021-notifications.md) §2 | §4 | extends | 0021 A6 |
-| [0023](0023-moderation.md) §3, §6 | §4–5 | extends | 0023 A3 |
-| [0023](0023-moderation.md) Q3 | — | settles | 0023 Q3 |
-| [0028](0028-tenancy-policy.md) §1 | §8 | extends | 0028 A3 |
-| [0028](0028-tenancy-policy.md) Q1 | §8 | settles | 0028 Q1 |
 
 ## References
 
