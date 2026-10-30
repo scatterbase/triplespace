@@ -1,0 +1,934 @@
+# Every route under rest.php/triplespace/v0 (chapter 18 §3.2): the one index of the routes the ADRs
+# name, built or not. Edit this file, then `python3 architecture/catalogues.py --write` from docs/
+# regenerates the table in 18 §3.2. The generator checks it against the OpenAPI contract
+# (api/triplespace-v0.openapi.json): every operation there must be a route here, and the table's
+# Built column is derived from the contract.
+# 
+# routes   the route(s) the row covers, as `METHOD /path` or a bare /path, the ADR's own spelling
+# purpose  what it does, with citations
+# sources  the ADR sections that define it
+
+[[route]]
+routes = ["/.well-known/oauth-authorization-server"]
+purpose = "OAuth 2.0 server metadata ([07](07-actors-and-accounts.md) §7.2); served at both the `/oauth` path and MediaWiki's"
+sources = "[0012](../decisions/0012-api-requirements.md) §5; [0025](../decisions/0025-oauth-server.md) §9"
+
+[[route]]
+routes = ["/.well-known/tlog/{partition}/checkpoint"]
+purpose = "What an instance publishes for verified sync, with `/dumps/local/` and the record and proof routes; the full publication table is [17](17-federation-and-publication.md)"
+sources = "[0012](../decisions/0012-api-requirements.md) §5; [0022](../decisions/0022-federation.md) §11"
+
+[[route]]
+routes = ["GET /account"]
+purpose = "Holder only. Name, bindings (private), links and preferences"
+sources = "[0012](../decisions/0012-api-requirements.md) §5"
+
+[[route]]
+routes = ["GET /account/authorizations", "DELETE /account/authorizations/{subsidiary}/{slug}"]
+purpose = "For the account page"
+sources = "[0025](../decisions/0025-oauth-server.md) §9"
+
+[[route]]
+routes = ["GET /account/export"]
+purpose = "Holder only. The user data bundle ([07](07-actors-and-accounts.md) §8.4), or `202` with a job to poll when it is being produced; `viewmyprivateinfo`"
+sources = "[0027](../decisions/0027-preferences-and-portability.md) §6"
+
+[[route]]
+routes = ["POST /account/import"]
+purpose = "Holder only. Import a bundle; the response lists what was applied, what needs verification, and what did not resolve"
+sources = "[0027](../decisions/0027-preferences-and-portability.md) §6"
+
+[[route]]
+routes = ["POST /account/links"]
+purpose = "Starts the linking flow. The issuer requires the user to log in again ([0007](../decisions/0007-actor-identity.md) §7)"
+sources = "[0012](../decisions/0012-api-requirements.md) §5"
+
+[[route]]
+routes = ["DELETE /account/links/{actor}"]
+purpose = "Unlinks, by erasing the link"
+sources = "[0012](../decisions/0012-api-requirements.md) §5"
+
+[[route]]
+routes = ["GET /account/pending-subsidiaries"]
+purpose = "For `Special:PendingSubsidiaries`"
+sources = "[0025](../decisions/0025-oauth-server.md) §9"
+
+[[route]]
+routes = ["GET /account/preferences", "PATCH /account/preferences", "DELETE /account/preferences/{key}"]
+purpose = "Holder only. Read and change preferences; `DELETE` resets one; `editmyoptions` to change"
+sources = "[0027](../decisions/0027-preferences-and-portability.md) §6"
+
+[[route]]
+routes = ["POST /account/rename", "POST /account/vanish"]
+purpose = "[0007](../decisions/0007-actor-identity.md) §4, [0008](../decisions/0008-namespaces-and-document-pages.md) §6 ([07](07-actors-and-accounts.md) §3.2)"
+sources = "[0012](../decisions/0012-api-requirements.md) §5"
+
+[[route]]
+routes = ["GET /account/requests", "POST /account/requests/{id}/approve", "POST /account/requests/{id}/reject"]
+purpose = "Open account requests oldest first, with name, statement and age, and the address key with `ts-viewip`; approving, or rejecting with `reason`; `confirmaccount` ([07](07-actors-and-accounts.md) §2.6)"
+sources = "[0087](../decisions/0087-account-registration-and-challenges.md) §6"
+
+[[route]]
+routes = ["GET /account/subsidiaries", "POST /account/subsidiaries"]
+purpose = "Holder only. List and create"
+sources = "[0024](../decisions/0024-subsidiary-accounts.md) §8"
+
+[[route]]
+routes = ["POST /account/subsidiaries/{name}/rename", "/retire", "/reactivate"]
+purpose = "The operator's ownership actions"
+sources = "[0024](../decisions/0024-subsidiary-accounts.md) §8"
+
+[[route]]
+routes = ["GET /account/subsidiaries/{name}/keys", "POST …/keys", "DELETE …/keys"]
+purpose = "Keys: labels, grants, IP ranges, expiry, last used; issue (the secret is in this response and never again); revoke"
+sources = "[0024](../decisions/0024-subsidiary-accounts.md) §8"
+
+[[route]]
+routes = ["POST /acl/set", "GET /acl/set/{id}", "PUT /acl/set/{id}", "DELETE /acl/set/{id}", "POST /acl/set/{id}/members", "DELETE /acl/set/{id}/members/{kind}/{id}"]
+purpose = "Create a set; the set's ACL; add and remove members"
+sources = "[0056](../decisions/0056-security-model.md) §13"
+
+[[route]]
+routes = ["GET /acl/tenant/{slug}", "PUT /acl/tenant/{slug}", "DELETE /acl/tenant/{slug}"]
+purpose = "The tenant's ACL"
+sources = "[0056](../decisions/0056-security-model.md) §13"
+
+[[route]]
+routes = ["GET /acl/{kind}/{id}", "PUT /acl/{kind}/{id}", "DELETE /acl/{kind}/{id}"]
+purpose = "ACLs for graph and entity targets, which `action=protect` cannot express fully, and `record` and `actor` kinds with a `parts` list; `DELETE` retires the ACL; `GET` also returns `visibility`"
+sources = "[0016](../decisions/0016-permissions-and-access-control.md) §7; [0023](../decisions/0023-moderation.md) §8; [0056](../decisions/0056-security-model.md) §13"
+
+[[route]]
+routes = ["GET /activity"]
+purpose = "Recent changes as the UI shows them: one row per job, mirror syncs on request, and grouping by page. Filters: `kind`, namespace and period, applied to every set; `target={kind}:{id}`, `related={kind}:{id}&direction=out|in`, `set=watchlist`, `set=farm` at the farm base, and `syncs=on|off`"
+sources = "[0012](../decisions/0012-api-requirements.md) §5; [0020](../decisions/0020-change-feeds.md) §5; [0028](../decisions/0028-tenancy-policy.md) §11"
+
+[[route]]
+routes = ["GET /activity/stream"]
+purpose = "The same parameters, as server-sent events"
+sources = "[0020](../decisions/0020-change-feeds.md) §5"
+
+[[route]]
+routes = ["POST /activity/{partition}/{offset}/patrol"]
+purpose = "Marks a row patrolled"
+sources = "[0023](../decisions/0023-moderation.md) §8"
+
+[[route]]
+routes = ["GET /actor/{key}"]
+purpose = "The public profile: current name, kind, status, linked accounts, and `operator` for a subsidiary or `subsidiaries` for a primary account"
+sources = "[0012](../decisions/0012-api-requirements.md) §5; [0024](../decisions/0024-subsidiary-accounts.md) §8"
+
+[[route]]
+routes = ["GET /actor/{key}/contributions"]
+purpose = "Contributions by account, including jobs run on the account's behalf"
+sources = "[0012](../decisions/0012-api-requirements.md) §5"
+
+[[route]]
+routes = ["POST /actor/{key}/transfer"]
+purpose = "Bureaucrat: transfer with the new operator's acceptance"
+sources = "[0024](../decisions/0024-subsidiary-accounts.md) §8"
+
+[[route]]
+routes = ["POST /auth/{issuer}/start"]
+purpose = "The site's door to a login (`purpose=login`, with the session's `logintoken`), to creating one (`purpose=create`) or to adding a sign-in method (`purpose=link`, with its `csrftoken`); `returnto` honoured only on the request's own origin. Creates the flow and answers `303` to the provider ([07](07-actors-and-accounts.md) §2.7). An external issuer's is served at the auth base; on a tenant, the issuer is the built-in `login`, and the `303` goes to the auth host's `/auth/authorize` ([07](07-actors-and-accounts.md) §2.8)"
+sources = "[0012](../decisions/0012-api-requirements.md) §5; [0088](../decisions/0088-external-identity-providers.md) §5"
+
+[[route]]
+routes = ["GET /auth/authorize"]
+purpose = "At the auth base: a tenant's request for a login, with the tenant's issuer code, `state`, the PKCE challenge and the purpose. Answers `303` to the tenant's `/auth/login/callback` with a login code when the auth host's session holds a login the tenant admits, and otherwise to `Special:UserLogin`, keeping the request for ten minutes; the callback URL comes from the tenant's registered base"
+sources = "[0089](../decisions/0089-the-auth-host-and-instance-logins.md) §5"
+
+[[route]]
+routes = ["GET /auth/{issuer}/callback"]
+purpose = "The URL registered with the provider, at the auth base; on a tenant, `/auth/login/callback`, which redeems a login code in process. Exchanges the code; for a flow from the site, applies the outcome to the session it began in and answers `303` to `returnto`, to `Special:CreateAccount` for an identity with no account, or with `tserror`; for one from the Action API, answers `303` to its return URL with `state`"
+sources = "[0012](../decisions/0012-api-requirements.md) §5; [0088](../decisions/0088-external-identity-providers.md) §5"
+
+[[route]]
+routes = ["GET /auth/pending"]
+purpose = "At first login: the issuer's name and the provider's username for the session's pending identity, at the auth base, or for a tenant's pending login, the login name and the username of the identity that authenticated it, so the page can offer it as a suggestion. Only that session can read it. The account is created by `action=createaccount` with `createpreservestate`"
+sources = "[0012](../decisions/0012-api-requirements.md) §5; [0088](../decisions/0088-external-identity-providers.md) §5"
+
+[[route]]
+routes = ["GET /blob/{sha256}/references"]
+purpose = "For the deletion group, within the tenant"
+sources = "[0039](../decisions/0039-files-and-media.md) §17"
+
+[[route]]
+routes = ["GET /category-mappings", "GET /category-mappings/{name}", "PUT /category-mappings/{name}", "DELETE /category-mappings/{name}"]
+purpose = "Mappings, as configuration records"
+sources = "[0038](../decisions/0038-page-metadata-and-categories.md) §13"
+
+[[route]]
+routes = ["POST /category-mappings/{name}/make-real"]
+purpose = "Starts the make-it-real job"
+sources = "[0038](../decisions/0038-page-metadata-and-categories.md) §13"
+
+[[route]]
+routes = ["GET /category/{title}/members?type=&from="]
+purpose = "Members by sort key"
+sources = "[0038](../decisions/0038-page-metadata-and-categories.md) §13"
+
+[[route]]
+routes = ["GET /constraints/counts"]
+purpose = "`view.constraint_count`"
+sources = "[0031](../decisions/0031-property-constraints.md) §6"
+
+[[route]]
+routes = ["GET /constraints/report?property=&type=&severity=&source="]
+purpose = "The constraint report, paged with §1.3's continuation"
+sources = "[0031](../decisions/0031-property-constraints.md) §6"
+
+[[route]]
+routes = ["POST /constraints/recheck"]
+purpose = "Requests a re-check of a property's statements as a job; needs `ts-runjob`"
+sources = "[0031](../decisions/0031-property-constraints.md) §6"
+
+[[route]]
+routes = ["GET /corrections?provider=&state="]
+purpose = "Local corrections by state, for reporting upstream ([05](05-providers-and-ingest.md))"
+sources = "[0012](../decisions/0012-api-requirements.md) §5"
+
+[[route]]
+routes = ["/dumps/local/"]
+purpose = "The local-graph source dump ([17](17-federation-and-publication.md))"
+sources = "[0012](../decisions/0012-api-requirements.md) §5; [0022](../decisions/0022-federation.md) §11"
+
+[[route]]
+routes = ["/dumps/updates/"]
+purpose = "The dumps of the SPARQL Update stream ([02](02-graphs-rdf-and-query.md) §6)"
+sources = "[0012](../decisions/0012-api-requirements.md) §5"
+
+[[route]]
+routes = ["GET /entity-sources"]
+purpose = "The tenant's sources: name, label, namespace, types with IRI templates (absent for an unpublished source), `promoted_to`, and for a tenant source its `tenant` and `base`, with its types as read from the provider. Public, as `GET /resolvers` is"
+sources = "[0078](../decisions/0078-entity-sources.md) §10; [0080](../decisions/0080-tenants-as-entity-sources.md) §8"
+
+[[route]]
+routes = ["GET /entity/E1"]
+purpose = "An entity schema"
+sources = "[0064](../decisions/0064-entityschema-and-validation.md) §7"
+
+[[route]]
+routes = ["GET /entity/L1", "GET /entity/L1-F1"]
+purpose = "A lexeme with its parts; a part alone"
+sources = "[0066](../decisions/0066-lexemes.md) §8"
+
+[[route]]
+routes = ["GET /entity/{id}/changes/{partition}/{offset}"]
+purpose = "The structured diff of one change set (§5.1)"
+sources = "[0012](../decisions/0012-api-requirements.md) §5"
+
+[[route]]
+routes = ["GET /entity/{id}/compare?source=&from=&to="]
+purpose = "Two states of one source; for the local graph, two rows of `view.entity_revision` (§1.3, §5.1)"
+sources = "[0012](../decisions/0012-api-requirements.md) §5"
+
+[[route]]
+routes = ["GET /entity/{id}/constraints"]
+purpose = "The constraint results as JSON, with severity and source"
+sources = "[0031](../decisions/0031-property-constraints.md) §6"
+
+[[route]]
+routes = ["POST /entity/{id}/convert", "POST /entity/{id}/retention"]
+purpose = "Single-entity forms of `convert` and `retain` ([05](05-providers-and-ingest.md))"
+sources = "[0012](../decisions/0012-api-requirements.md) §5"
+
+[[route]]
+routes = ["GET /entity/{id}/derivations"]
+purpose = "The derivations that name an entity, with the mentions that produced each statement"
+sources = "[0071](../decisions/0071-derived-statements-from-mirrored-pages.md) §13"
+
+[[route]]
+routes = ["GET /entity/{id}/history"]
+purpose = "The entity's history as activity rows, read from `view.entity_history` ([16](16-logs-feeds-and-notifications.md) §3.2): every record in any source partition and every upstream log event keyed to any member of its cluster, in one keyset query. Filters: `source`, `kind`, and a time range"
+sources = "[0012](../decisions/0012-api-requirements.md) §5"
+
+[[route]]
+routes = ["GET /entity/{id}/page"]
+purpose = "**The page bundle**: the entity JSON, the provenance response and the identity-line facts (minter, cluster members and canonical ID, sync state, retention and history policies, the `origin` chip's data) in one response, so an entity page reaches first byte within the four-call budget of [19](19-site-ui.md) §5.1. Cached as the entity is, by its `resolved_version`"
+sources = "[0012](../decisions/0012-api-requirements.md) A70"
+
+[[route]]
+routes = ["GET /entity/{id}/proposals"]
+purpose = "The entity's proposals"
+sources = "[0067](../decisions/0067-proposals.md) §7"
+
+[[route]]
+routes = ["GET /entity/{id}/provenance"]
+purpose = "The provenance response of [0003](../decisions/0003-statement-ui.md) §6, plus the data for the identity line: who minted the ID, cluster members and the canonical ID, statement counts by graph, sync state (last sync, upstream version and, where the provider is a MediaWiki that publishes revision IDs, `upstream_url`, the page of that revision; `first_seen`), retention and history policies, and the backlink count, read from the `ref_count` counter column of `view.entity`, which the `entity_ref` projection updates in batches and which is reported as a bounded count (`10000+`) above a threshold rather than exactly ([03](03-storage-caches-and-search.md) §4.2). Each statement carries its constraint results. For an adopted entity, the minter is the source wiki, with the adoption job and `source_revid`"
+sources = "[0012](../decisions/0012-api-requirements.md) §5; [0031](../decisions/0031-property-constraints.md) §6"
+
+[[route]]
+routes = ["GET /entity/{id}/referrers"]
+purpose = "Entities referring to this one, from `view.entity_ref` ([17](17-federation-and-publication.md))"
+sources = "[0012](../decisions/0012-api-requirements.md) §5"
+
+[[route]]
+routes = ["GET /entity/{id}/schemas"]
+purpose = "The schemas bound to the entity through its scopes, with its results"
+sources = "[0064](../decisions/0064-entityschema-and-validation.md) §7"
+
+[[route]]
+routes = ["GET /entity/{id}/sitelinks/{host}", "PUT /entity/{id}/sitelinks/{host}", "DELETE /entity/{id}/sitelinks/{host}"]
+purpose = "One sitelink by host"
+sources = "[0026](../decisions/0026-sitelinks.md) §7"
+
+[[route]]
+routes = ["POST /entity/{id}/undo/{partition}/{offset}"]
+purpose = "Appends the inverse change set. The base is required"
+sources = "[0012](../decisions/0012-api-requirements.md) §5"
+
+[[route]]
+routes = ["GET /entity/{id}/upstream?from=&to="]
+purpose = "Upstream edits fetched live ([05](05-providers-and-ingest.md))"
+sources = "[0012](../decisions/0012-api-requirements.md) §5"
+
+[[route]]
+routes = ["POST /export", "GET /export/{id}"]
+purpose = "Streams an export, or starts an export job and returns its ID; an export job's state and, when ready, its download"
+sources = "[0047](../decisions/0047-special-pages.md) §11"
+
+[[route]]
+routes = ["POST /expunge"]
+purpose = "Farm base, operator rights. Takes down and expunges in one request"
+sources = "[0039](../decisions/0039-files-and-media.md) §17"
+
+[[route]]
+routes = ["GET /extraction/{source}"]
+purpose = "The source's configuration, page count, queue length, last run, conflicts and orphan count"
+sources = "[0071](../decisions/0071-derived-statements-from-mirrored-pages.md) §13"
+
+[[route]]
+routes = ["GET /extraction/{source}/orphans"]
+purpose = "Orphans ([13](13-mirrored-pages.md))"
+sources = "[0071](../decisions/0071-derived-statements-from-mirrored-pages.md) §13"
+
+[[route]]
+routes = ["POST /extraction/{source}/run"]
+purpose = "Enqueues every page of the source, or the pages named; the `ts-runjob` right"
+sources = "[0071](../decisions/0071-derived-statements-from-mirrored-pages.md) §13"
+
+[[route]]
+routes = ["GET /extraction/{source}/unmapped"]
+purpose = "The strings a value map did not hold ([0072](../decisions/0072-template-mappings.md) §4)"
+sources = "[0012](../decisions/0012-api-requirements.md) §5"
+
+[[route]]
+routes = ["GET /farm/users/{id}"]
+purpose = "Farm base. A farm account and its linked tenant accounts, public"
+sources = "[0028](../decisions/0028-tenancy-policy.md) §11"
+
+[[route]]
+routes = ["GET /file/{title}"]
+purpose = "The current version, in MediaWiki REST's `v1/file` shape"
+sources = "[0039](../decisions/0039-files-and-media.md) §17"
+
+[[route]]
+routes = ["GET /file/{title}/mediainfo"]
+purpose = "The resolved view of the file's MediaInfo: for a foreign file with a local File page, the fused body of the `M`–`WDM` cluster under the local `M` ID, with a `canonical` field naming the cluster's fixed canonical member ([12](12-files-and-media.md) §6.6), as `wbgetentities` carries it for any clustered ID (§2.3)"
+sources = "[0065](../decisions/0065-mediainfo-captions-and-commons.md) §4"
+
+[[route]]
+routes = ["GET /file/{title}/usage"]
+purpose = "Pages and entities using the file"
+sources = "[0039](../decisions/0039-files-and-media.md) §17"
+
+[[route]]
+routes = ["GET /file/{title}/versions", "POST /file/{title}/versions/{revid}/erase"]
+purpose = "The versions; erase one"
+sources = "[0039](../decisions/0039-files-and-media.md) §17"
+
+[[route]]
+routes = ["GET /filters[/{id}]", "POST /filters[/{id}]", "PUT /filters[/{id}]"]
+purpose = "Edit filters"
+sources = "[0030](../decisions/0030-edit-filters.md) §9"
+
+[[route]]
+routes = ["GET /filters/log"]
+purpose = "Hits, with the feed parameters of `GET /activity`"
+sources = "[0030](../decisions/0030-edit-filters.md) §9"
+
+[[route]]
+routes = ["POST /filters/test"]
+purpose = "Returns a job"
+sources = "[0030](../decisions/0030-edit-filters.md) §9"
+
+[[route]]
+routes = ["GET /filters/{id}/history", "GET /filters/{id}/hits"]
+purpose = "A filter's history and hits"
+sources = "[0030](../decisions/0030-edit-filters.md) §9"
+
+[[route]]
+routes = ["GET /inbox"]
+purpose = "The inbox as an `as:OrderedCollection` of activities, each with `scatter:reason` and read state, paginated with §1.3's continuation"
+sources = "[0021](../decisions/0021-notifications.md) §7"
+
+[[route]]
+routes = ["POST /inbox/read", "POST /inbox/seen"]
+purpose = "Mark items read; set the seen time"
+sources = "[0021](../decisions/0021-notifications.md) §7"
+
+[[route]]
+routes = ["GET /instance/check"]
+purpose = "Farm base, for `owner`: the `instance check` table ([08](08-tenants-and-instances.md) §8) with each line's state, and the attestations with who gave them and when"
+sources = "[0056](../decisions/0056-security-model.md) §13"
+
+[[route]]
+routes = ["GET /jobs"]
+purpose = "Filters: status, graph and actor. Mirror syncs are instance jobs, listed at the farm base; bulk jobs are the tenant's"
+sources = "[0012](../decisions/0012-api-requirements.md) §5"
+
+[[route]]
+routes = ["GET /jobs/{id}"]
+purpose = "The job record and status: counts by outcome, the hash-mismatch count by value type ([0006](../decisions/0006-log-integrity-and-erasure.md) A9), source and adapter versions, and checkpoint. While running: progress and projection lag. For `snapshot` jobs: the sweep count and its threshold"
+sources = "[0012](../decisions/0012-api-requirements.md) §5"
+
+[[route]]
+routes = ["GET /jobs/{id}/changes?outcome="]
+purpose = "The records the job wrote, paged"
+sources = "[0012](../decisions/0012-api-requirements.md) §5"
+
+[[route]]
+routes = ["GET /jobs/{id}/events"]
+purpose = "Server-sent events for progress"
+sources = "[0012](../decisions/0012-api-requirements.md) §5"
+
+[[route]]
+routes = ["GET /jobs/{id}/rejects"]
+purpose = "Downloads the rejects file. Requires a right ([09](09-security-and-moderation.md))"
+sources = "[0012](../decisions/0012-api-requirements.md) §5"
+
+[[route]]
+routes = ["POST /jobs/{id}/rerun"]
+purpose = "Runs the job again with its stored parameters"
+sources = "[0012](../decisions/0012-api-requirements.md) §5"
+
+[[route]]
+routes = ["POST /jobs/{id}/revert"]
+purpose = "Starts the inverse job. The response lists the entities edited since the job, whose later edits are kept. Reverting a Nuke is this route"
+sources = "[0012](../decisions/0012-api-requirements.md) §5; [0047](../decisions/0047-special-pages.md) §11"
+
+[[route]]
+routes = ["GET /jsonld/by-url"]
+purpose = "The profiled JSON-LD of the entities a URL identifies ([17](17-federation-and-publication.md))"
+sources = "[0012](../decisions/0012-api-requirements.md) §5"
+
+[[route]]
+routes = ["GET /kits"]
+purpose = "The kits visible to the tenant, with their schema-validated summaries"
+sources = "[0062](../decisions/0062-workspaces.md) §8"
+
+[[route]]
+routes = ["GET /labels?ids=&language="]
+purpose = "**Bulk labels**: for up to 1,000 entity and property IDs, the label in the given language chain and nothing else, each ID resolved through its cluster so a value shown under one member takes a label any member has ([04](04-entities-and-identifiers.md) §4). Public form only, cacheable by language and not by viewer, which is what lets a page's labels be one call rather than twenty of `wbgetentities`"
+sources = "[0012](../decisions/0012-api-requirements.md) A70"
+
+[[route]]
+routes = ["PUT /notifications/email", "DELETE /notifications/email"]
+purpose = "Register (sends the verification link) and remove"
+sources = "[0021](../decisions/0021-notifications.md) §7"
+
+[[route]]
+routes = ["PUT /notifications/fediverse", "DELETE /notifications/fediverse"]
+purpose = "Register (resolves the handle, sends the confirmation message) and remove"
+sources = "[0021](../decisions/0021-notifications.md) §7"
+
+[[route]]
+routes = ["GET /notifications/preferences", "PUT …"]
+purpose = "The notification matrix"
+sources = "[0021](../decisions/0021-notifications.md) §7"
+
+[[route]]
+routes = ["GET /notifications/verify/{token}"]
+purpose = "The link target for both verifications"
+sources = "[0021](../decisions/0021-notifications.md) §7"
+
+[[route]]
+routes = ["GET /nuke/preview?target=&tag=&subsidiaries=&from=&until=&pattern=&namespace="]
+purpose = "The Nuke candidates, grouped"
+sources = "[0047](../decisions/0047-special-pages.md) §11"
+
+[[route]]
+routes = ["POST /nuke"]
+purpose = "Starts the job; returns its ID"
+sources = "[0047](../decisions/0047-special-pages.md) §11"
+
+[[route]]
+routes = ["/oauth/authorize", "/oauth/token", "/oauth/device", "/oauth/revoke", "/oauth/identify"]
+purpose = "The instance's own OAuth 2.0 server, whose tokens are credentials of a subsidiary, never of a primary account; at both the `/oauth` path and MediaWiki's ([07](07-actors-and-accounts.md) §7.2)"
+sources = "[0012](../decisions/0012-api-requirements.md) §5; [0025](../decisions/0025-oauth-server.md) §9"
+
+[[route]]
+routes = ["GET /oauth/consumers", "POST /oauth/consumers", "GET /oauth/consumers/{slug}", "PATCH /oauth/consumers/{slug}", "POST /oauth/consumers/{slug}/status"]
+purpose = "Consumers"
+sources = "[0025](../decisions/0025-oauth-server.md) §9"
+
+[[route]]
+routes = ["POST /oauth/requests", "GET /oauth/requests/{handle}", "POST /oauth/requests/{handle}/approve", "/deny"]
+purpose = "The validated authorization request the consent page reads and decides (`POST /oauth/requests` from a device code), readable only in the session that began it ([0057](../decisions/0057-web-tier.md) §13)"
+sources = "[0025](../decisions/0025-oauth-server.md) §9"
+
+[[route]]
+routes = ["POST /page/fork"]
+purpose = "`{title, repo, revid, text?, summary?, dependencies?, talk?}`: a fork with or without an edit; returns the page, revisions and job"
+sources = "[0054](../decisions/0054-forking-a-mirrored-page.md) §11"
+
+[[route]]
+routes = ["GET /page/stack/{title}"]
+purpose = "The stack of a title: each entry's origin, page ID, latest revision and whether it is offered"
+sources = "[0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6"
+
+[[route]]
+routes = ["GET /page/{id}"]
+purpose = "A page summary (§3.1)"
+sources = "[0041](../decisions/0041-content-models.md) §9; [0051](../decisions/0051-page-redirects.md) §7; [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6"
+
+[[route]]
+routes = ["GET /page/{pageid}/categories"]
+purpose = "Categories with sort keys and the hidden flag"
+sources = "[0038](../decisions/0038-page-metadata-and-categories.md) §13"
+
+[[route]]
+routes = ["GET /page/{id}/derivations"]
+purpose = "The derivations of a page, with subjects and evidence"
+sources = "[0071](../decisions/0071-derived-statements-from-mirrored-pages.md) §13"
+
+[[route]]
+routes = ["GET /page/{id}/fork"]
+purpose = "The `view.fork` row: origin, state, counts, dependencies, files"
+sources = "[0054](../decisions/0054-forking-a-mirrored-page.md) §11"
+
+[[route]]
+routes = ["POST /page/{id}/fork/files"]
+purpose = "Copies the fork's files ([13](13-mirrored-pages.md))"
+sources = "[0054](../decisions/0054-forking-a-mirrored-page.md) §11"
+
+[[route]]
+routes = ["GET /page/{id}/history"]
+purpose = "A page's history as activity rows; composite for a talk page ID: the rows of every thread attached to it, home or listing, plus the attach, detach and move events, in one sequence ordered by time ([0019](../decisions/0019-discussions.md) §7, [14](14-discussions.md))"
+sources = "[0012](../decisions/0012-api-requirements.md) §5; [0019](../decisions/0019-discussions.md) §9"
+
+[[route]]
+routes = ["GET /page/{id}/html"]
+purpose = "The page's HTML; `?revision={revid}&as_of=revision` renders as of the revision's offset (§5.2). For an inherited page, the rewritten HTML, and `as_of` is refused with `ts-foreign-history`"
+sources = "[0042](../decisions/0042-template-expansion-and-parsoid.md) §12, §14; [0053](../decisions/0053-mirrored-pages.md) §10"
+
+[[route]]
+routes = ["GET /page/{id}/merge-preview?direction=pull|push"]
+purpose = "The merge with hunks, never stored"
+sources = "[0068](../decisions/0068-merging-with-upstream.md) §6"
+
+[[route]]
+routes = ["POST /page/{id}/merge"]
+purpose = "A pull: body is the resolved text, writes the `edit` with `merge`"
+sources = "[0068](../decisions/0068-merging-with-upstream.md) §6"
+
+[[route]]
+routes = ["GET /page/{id}/proposals"]
+purpose = "The page's proposals"
+sources = "[0067](../decisions/0067-proposals.md) §7"
+
+[[route]]
+routes = ["GET /page/{pageid}/provenance"]
+purpose = "Import origin, and the revision count by origin: imported, bot or local; the provenance of the page's statements, including `derived` entries; for an adopted page, the adoption job; the fork's origin and job"
+sources = "[0012](../decisions/0012-api-requirements.md) §5; [0038](../decisions/0038-page-metadata-and-categories.md) §13; [0054](../decisions/0054-forking-a-mirrored-page.md) §11"
+
+[[route]]
+routes = ["POST /page/{id}/refollow"]
+purpose = "Re-follow upstream"
+sources = "[0068](../decisions/0068-merging-with-upstream.md) §6"
+
+[[route]]
+routes = ["GET /page/{id}/render"]
+purpose = "The render manifest summary: templates and modules used, entities and aspects, foreign repositories, `expires_at`, renderer, limit report and errors. For a foreign page: the repository, upstream revision, `retrieved`, `expires_at` and the templates and images the bundle records"
+sources = "[0042](../decisions/0042-template-expansion-and-parsoid.md) §14; [0053](../decisions/0053-mirrored-pages.md) §10"
+
+[[route]]
+routes = ["GET /page/{pageid}/statements", "POST /page/{pageid}/statements"]
+purpose = "The resolved statements; add an asserted statement. The statement routes follow the Wikibase REST API's statement routes, with the page ID in place of an entity ID; unchanged for File pages"
+sources = "[0038](../decisions/0038-page-metadata-and-categories.md) §13; [0065](../decisions/0065-mediainfo-captions-and-commons.md) §4"
+
+[[route]]
+routes = ["GET /page/{pageid}/statements/{statement_id}", "PUT /page/{pageid}/statements/{statement_id}", "PATCH /page/{pageid}/statements/{statement_id}", "DELETE /page/{pageid}/statements/{statement_id}"]
+purpose = "One statement. Writes to a projected statement are refused with `ts-derived-statement`"
+sources = "[0038](../decisions/0038-page-metadata-and-categories.md) §13"
+
+[[route]]
+routes = ["POST /page/{fork ID}/talk-follow"]
+purpose = "`{talk: follow|fork, base}`"
+sources = "[0069](../decisions/0069-synchronized-talk-pages.md) §9"
+
+[[route]]
+routes = ["GET /page/{talk page or board ID}/threads"]
+purpose = "Every attached thread with status, `home` (`true` or `false`) and last activity, without their posts; foreign threads, each with `origin` `{repo, n, state, anchor}` and no title; filter `origin=local|upstream`"
+sources = "[0019](../decisions/0019-discussions.md) §9; [0049](../decisions/0049-boards.md) §11; [0069](../decisions/0069-synchronized-talk-pages.md) §9"
+
+[[route]]
+routes = ["GET /page/{id}/upstream-diff"]
+purpose = "`against=base` or `current`"
+sources = "[0054](../decisions/0054-forking-a-mirrored-page.md) §11"
+
+[[route]]
+routes = ["POST /page/{talk page ID}/upstream-topic"]
+purpose = "`{subject, wikitext}`; 202 with an upstream-post ID"
+sources = "[0069](../decisions/0069-synchronized-talk-pages.md) §9"
+
+[[route]]
+routes = ["GET /palettes", "PUT /palette/{name}", "DELETE /palette/{name}"]
+purpose = "The palettes the tenant offers, with their variants, readable by anyone, a private tenant's outsiders included, and writing or deleting one of its own (`ts-config`; `scope=instance` at the farm base); a write is one change set projected as `settings/change`; the shipped palettes, one `theme.palette` names and one another palette names as `extends` or `alternates-from` cannot be changed or deleted, a palette whose prerequisite is not offered is refused ([0094](../decisions/0094-accessibility-alternates.md) §3), and a name the registry, the instance or (for an instance write) a tenant uses is refused, unless an instance write passes `key=tenants`, which keys the tenants' first (`{name}~{slug}`); no new name may contain `~`"
+sources = "[0086](../decisions/0086-theming.md) §1; [0094](../decisions/0094-accessibility-alternates.md) §3"
+
+[[route]]
+routes = ["GET /preferences/schema"]
+purpose = "The registered keys, types and defaults (public)"
+sources = "[0027](../decisions/0027-preferences-and-portability.md) §6"
+
+[[route]]
+routes = ["POST /proposal"]
+purpose = "Subject, selection → compiles and opens the thread"
+sources = "[0067](../decisions/0067-proposals.md) §7"
+
+[[route]]
+routes = ["GET /proposal/{thread}"]
+purpose = "State, payload, omitted, flags"
+sources = "[0067](../decisions/0067-proposals.md) §7"
+
+[[route]]
+routes = ["POST /proposal/{thread}/export?format=qs|json|wikitext|diff", "POST /proposal/{thread}/push", "POST /proposal/{thread}/withdraw"]
+purpose = "Export, push and withdraw"
+sources = "[0067](../decisions/0067-proposals.md) §7"
+
+[[route]]
+routes = ["GET /provider/{code}/mirror"]
+purpose = "Per type, the setting, the set size, the queue length; how the provider is followed (`events` or `recentchanges`), the follower's position and lag, its `late` and `stale` counts, and the last load's position and whether it handed over: the live counters that `siprop=triplespace` does not carry (§2.2); a source's name in place of `{code}`, since lowercase source names and uppercase provider codes never clash"
+sources = "[0070](../decisions/0070-shallow-entity-mirroring.md) §9; [0078](../decisions/0078-entity-sources.md) §10; [0092](../decisions/0092-following-recent-changes.md) §7"
+
+[[route]]
+routes = ["POST /provider/{code}/mirror/fetch"]
+purpose = "With a list of IDs, enqueues them (the `ts-runjob` right)"
+sources = "[0070](../decisions/0070-shallow-entity-mirroring.md) §9; [0078](../decisions/0078-entity-sources.md) §10"
+
+[[route]]
+routes = ["GET /providers/{slug}/verification"]
+purpose = "Last checkpoint, key chain, failures"
+sources = "[0012](../decisions/0012-api-requirements.md) §5; [0022](../decisions/0022-federation.md) §11"
+
+[[route]]
+routes = ["GET /publication/{name}"]
+purpose = "Configuration, data pages with their last revision and state, conflicts, last run"
+sources = "[0074](../decisions/0074-publishing-a-scope-to-an-external-wiki.md) §8"
+
+[[route]]
+routes = ["POST /publication/{name}/run"]
+purpose = "Regenerate now (the `ts-runjob` right)"
+sources = "[0074](../decisions/0074-publishing-a-scope-to-an-external-wiki.md) §8"
+
+[[route]]
+routes = ["GET /query/{pageid}/params"]
+purpose = "The parameter schema, for forms and for the block editor"
+sources = "[0063](../decisions/0063-query-namespace.md) §7"
+
+[[route]]
+routes = ["GET /query/{pageid}/run?{param}=…&format="]
+purpose = "Runs with parameters; `Query-Cursor` and `Query-Truncated` headers as `/sparql`; formats as `/sparql` plus the labelled table as JSON. Rate class `query`; concurrency under `query.max_concurrent`; `read` to run"
+sources = "[0063](../decisions/0063-query-namespace.md) §7"
+
+[[route]]
+routes = ["GET /record/{partition}/{offset}/checkpoint"]
+purpose = "The earliest checkpoint that includes the record"
+sources = "[0012](../decisions/0012-api-requirements.md) §5"
+
+[[route]]
+routes = ["GET /record/{partition}/{offset}/proof?checkpoint="]
+purpose = "An inclusion proof ([01](01-log-and-records.md) §8). Both record routes return the record's signature, where it has one"
+sources = "[0012](../decisions/0012-api-requirements.md) §5"
+
+[[route]]
+routes = ["GET /repo/{name}"]
+purpose = "The repository's status: mode, set, index date (`index_as_of`), event lag, cache and mirror sizes, the live counters that `siprop=triplespace` does not carry (§2.2)"
+sources = "[0053](../decisions/0053-mirrored-pages.md) §10"
+
+[[route]]
+routes = ["GET /reports"]
+purpose = "Every report with its backing, mode, graph scope, lag or `computed_at`"
+sources = "[0047](../decisions/0047-special-pages.md) §11"
+
+[[route]]
+routes = ["GET /reports/{name}?graphs=&limit=&continue="]
+purpose = "A report's rows, with its own filters (`language`, `type`, `datatype`, `state` and so on)"
+sources = "[0047](../decisions/0047-special-pages.md) §11"
+
+[[route]]
+routes = ["GET /resolve?q="]
+purpose = "Resolves any string to its canonical page through the title resolver (§3.3)"
+sources = "[0012](../decisions/0012-api-requirements.md) §5; [0029](../decisions/0029-resolver-namespaces.md) §6; [0051](../decisions/0051-page-redirects.md) §7; [0078](../decisions/0078-entity-sources.md) §10"
+
+[[route]]
+routes = ["GET /resolvers"]
+purpose = "The tenant's resolvers with their grammars and bindings (public)"
+sources = "[0029](../decisions/0029-resolver-namespaces.md) §6"
+
+[[route]]
+routes = ["GET /resolvers/{name}/{key}"]
+purpose = "The lookup as JSON, with `303` semantics available by `Accept`"
+sources = "[0029](../decisions/0029-resolver-namespaces.md) §6"
+
+[[route]]
+routes = ["POST /schema/{id}/check"]
+purpose = "With a subject (ad hoc; rate class `query`)"
+sources = "[0064](../decisions/0064-entityschema-and-validation.md) §7"
+
+[[route]]
+routes = ["GET /schema/{id}/report?conforms=&after="]
+purpose = "The schema's report"
+sources = "[0064](../decisions/0064-entityschema-and-validation.md) §7"
+
+[[route]]
+routes = ["POST /scope/preview"]
+purpose = "Body: a `members` object. Returns count, truncated, a sample of 20 with labels, and for by-example the shared statements with counts. Compiles and runs without saving; rate class `query`; `query.timeout` applies"
+sources = "[0062](../decisions/0062-workspaces.md) §8"
+
+[[route]]
+routes = ["GET /scope/{pageid}"]
+purpose = "Count, truncated, cursor, `computed_at`"
+sources = "[0060](../decisions/0060-scopes.md) §8"
+
+[[route]]
+routes = ["GET /scope/{pageid}/export"]
+purpose = "TSV of IDs"
+sources = "[0060](../decisions/0060-scopes.md) §8"
+
+[[route]]
+routes = ["GET /scope/{pageid}/facets?properties="]
+purpose = "Value distributions for the builder, bounded by `scopes.facet_limit`"
+sources = "[0062](../decisions/0062-workspaces.md) §8"
+
+[[route]]
+routes = ["GET /scope/{pageid}/members?after=&limit="]
+purpose = "Paged, kind and ID, labels on request"
+sources = "[0060](../decisions/0060-scopes.md) §8"
+
+[[route]]
+routes = ["POST /scope/{pageid}/refresh"]
+purpose = "Recomputes a scope with a `query` operand; needs `edit` on the page; rate class `query`"
+sources = "[0060](../decisions/0060-scopes.md) §8"
+
+[[route]]
+routes = ["GET /scope/{pageid}/dataset.jsonld"]
+purpose = "The scope as a schema.org `Dataset` ([17](17-federation-and-publication.md))"
+sources = "[0012](../decisions/0012-api-requirements.md) §5"
+
+[[route]]
+routes = ["GET /scope/{pageid}/dumps", "GET /scope/{pageid}/dumps/{file}"]
+purpose = "The current dumps and their manifests; serves one"
+sources = "[0076](../decisions/0076-dataset-publication.md) §6"
+
+[[route]]
+routes = ["GET /settings"]
+purpose = "Readable by anyone who may read the tenant. Each setting's resolved value with its origin (`registry`, `instance`, `tenant` or `locked`, and `capped` with the ceiling), the `{partition, offset}` of the record that set it, whether the viewer may change it, and the `config` offset read, the base of a later write; `keys=` and `group=` narrow it. With `scope=instance`, served only at the farm base, the instance's settings and the tenancy switches, so a single-tenant instance keeps the two apart"
+sources = "[0085](../decisions/0085-settings-and-preferences.md) §3"
+
+[[route]]
+routes = ["PATCH /settings"]
+purpose = "`{set: {key: value}, unset: [key], summary, base}`; with `scope=instance` at the farm base also `defaults`, `locks` and `tenancy`. One change set, all or nothing, projected as `settings/change`; refused with `ts-unknown-setting`, `ts-invalid-setting`, `ts-above-ceiling`, `ts-locked`, `ts-instance-policy` (except narrowing a `tenant_may_narrow` setting), `permissiondenied`, or `editconflict` for a key with a record after `base`. Needs `ts-config` at the base, or the registry entry's `right`"
+sources = "[0085](../decisions/0085-settings-and-preferences.md) §3"
+
+[[route]]
+routes = ["GET /settings/schema"]
+purpose = "Readable by anyone who may read the tenant. The registered settings, from `view.registry`: scope, bound, group, type, choices, default, right and message keys; with `scope=instance`, served only at the farm base, the instance settings, the tenancy switches, and every tenant setting with its instance default and lock"
+sources = "[0085](../decisions/0085-settings-and-preferences.md) §3"
+
+[[route]]
+routes = ["GET /sitelinks?host="]
+purpose = "The entities linked to a host or, with `parents=1`, to it and every host beneath it"
+sources = "[0026](../decisions/0026-sitelinks.md) §7"
+
+[[route]]
+routes = ["GET /sitelinks/resolve?url="]
+purpose = "The entity for a URL"
+sources = "[0026](../decisions/0026-sitelinks.md) §7"
+
+[[route]]
+routes = ["GET /sparql", "POST /sparql"]
+purpose = "The SPARQL 1.1 Protocol for queries only, over the tenant's dataset (§6)"
+sources = "[0059](../decisions/0059-query-service.md) §6"
+
+[[route]]
+routes = ["GET /sparql/prefixes"]
+purpose = "The prefix set as Turtle"
+sources = "[0059](../decisions/0059-query-service.md) §6"
+
+[[route]]
+routes = ["GET /sprint/{pageid}"]
+purpose = "Counts, window, truncated, progress"
+sources = "[0061](../decisions/0061-sprints-and-tasks.md) §10"
+
+[[route]]
+routes = ["GET /sprint/{pageid}/leaderboard"]
+purpose = "The leaderboard"
+sources = "[0061](../decisions/0061-sprints-and-tasks.md) §10"
+
+[[route]]
+routes = ["GET /sprint/{pageid}/tasks?state=&rule=&claimant=&after=&limit="]
+purpose = "The tasks"
+sources = "[0061](../decisions/0061-sprints-and-tasks.md) §10"
+
+[[route]]
+routes = ["POST /sprint/{pageid}/tasks/{rule}/{kind}/{id}/claim", "…/release"]
+purpose = "Claim and release (`force` for holders of `edit`)"
+sources = "[0061](../decisions/0061-sprints-and-tasks.md) §10"
+
+[[route]]
+routes = ["GET /subject/{kind}/{id}/scopes"]
+purpose = "The scopes a subject is in"
+sources = "[0060](../decisions/0060-scopes.md) §8"
+
+[[route]]
+routes = ["GET /subject/{kind}/{id}/tasks"]
+purpose = "Open tasks about a subject"
+sources = "[0061](../decisions/0061-sprints-and-tasks.md) §10"
+
+[[route]]
+routes = ["GET /suggest?q="]
+purpose = "Suggestions grouped across entity types, providers, keyed types and page titles"
+sources = "[0012](../decisions/0012-api-requirements.md) §5"
+
+[[route]]
+routes = ["GET /table/{pageid}/export?format=tsv|csv"]
+purpose = "The current values as one file: an ID column, then one column per table column, multiple best values joined by `; `"
+sources = "[0045](../decisions/0045-table-content-model.md) §10"
+
+[[route]]
+routes = ["GET /table/{pageid}/rows?offset=&limit=&sort=&lang="]
+purpose = "The rows, paged: for each, the ID as written and as shown, the row state, and per column the best values in Wikibase JSON with the fold count, constraint flags and whether the viewer may edit the cell. `revid=` reads the definition as of that revision; the values are always current"
+sources = "[0045](../decisions/0045-table-content-model.md) §10"
+
+[[route]]
+routes = ["POST /table/{pageid}/rows/{id}"]
+purpose = "One row's cell edits with `baserevid` and an optional summary. The server maps them to one change set and returns the new revision and the row as `GET` would. The grid's save path, and usable by bots"
+sources = "[0045](../decisions/0045-table-content-model.md) §10"
+
+[[route]]
+routes = ["GET /takedowns", "POST /takedowns", "GET /takedowns/{id}", "POST /takedowns/{id}/reinstate", "POST /takedowns/{id}/expunge"]
+purpose = "Farm base, for the operator rights of [0039](../decisions/0039-files-and-media.md) §21"
+sources = "[0039](../decisions/0039-files-and-media.md) §17"
+
+[[route]]
+routes = ["GET /tenancy"]
+purpose = "Farm base. The tenancy policy, including the farm slug, the farm code and the primary tenant's slug, and the `tenants` array (slug, issuer code as `issuer`, host, name, which is its `site.name`, status), the tenant list `Special:Tenants` shows (§1.2)"
+sources = "[0028](../decisions/0028-tenancy-policy.md) §11; [0046](../decisions/0046-primary-tenant.md) §9"
+
+[[route]]
+routes = ["POST /thread"]
+purpose = "`create`; accepts `also`. An actor target may name its account, `{kind: \"actor\", name}`, a registered account or a bot on the tenant; a name none holds is `ts-no-target` ([0019](../decisions/0019-discussions.md) A30)"
+sources = "[0019](../decisions/0019-discussions.md) §9; [0049](../decisions/0049-boards.md) §11"
+
+[[route]]
+routes = ["GET /thread/{page ID}"]
+purpose = "The thread: subject, `home` and `listings` (each with the talk page ID, title and time attached), status, and its posts as `as:Note` objects in tree order. For a foreign thread, read-only: the origin, state, section, comment tree (names omitted; hashes and DiscussionTools anchors given) and the upstream revision"
+sources = "[0019](../decisions/0019-discussions.md) §9; [0049](../decisions/0049-boards.md) §11; [0069](../decisions/0069-synchronized-talk-pages.md) §9"
+
+[[route]]
+routes = ["POST /thread/{page ID}/attach", "POST /thread/{page ID}/detach"]
+purpose = "`attach` and `detach`, each with a target and a base offset"
+sources = "[0019](../decisions/0019-discussions.md) §9; [0049](../decisions/0049-boards.md) §11"
+
+[[route]]
+routes = ["POST /thread/{page ID}/move"]
+purpose = "`move`, with a base offset; accepts `keep`"
+sources = "[0019](../decisions/0019-discussions.md) §9; [0049](../decisions/0049-boards.md) §11"
+
+[[route]]
+routes = ["POST /thread/{id}/pin", "POST /thread/{id}/unpin"]
+purpose = "`{target, base}`"
+sources = "[0069](../decisions/0069-synchronized-talk-pages.md) §9"
+
+[[route]]
+routes = ["POST /thread/{page ID}/post"]
+purpose = "`post`, with `inReplyTo` and optional `status`"
+sources = "[0019](../decisions/0019-discussions.md) §9"
+
+[[route]]
+routes = ["PUT /thread/{page ID}/post/{revid}"]
+purpose = "`edit`"
+sources = "[0019](../decisions/0019-discussions.md) §9"
+
+[[route]]
+routes = ["POST /thread/{page ID}/rename"]
+purpose = "`rename`, with a base offset"
+sources = "[0019](../decisions/0019-discussions.md) §9"
+
+[[route]]
+routes = ["POST /thread/{id}/upstream-reply"]
+purpose = "`{parent, wikitext}`, where `parent` is a comment anchor or the thread; answers 202 with an upstream-post ID"
+sources = "[0069](../decisions/0069-synchronized-talk-pages.md) §9"
+
+[[route]]
+routes = ["GET /typesets", "PUT /typeset/{name}", "DELETE /typeset/{name}"]
+purpose = "The type sets the tenant offers, readable by anyone, and writing or deleting one of its own, as for palettes; a type set names its font files as site assets"
+sources = "[0086](../decisions/0086-theming.md) §1, §3"
+
+[[route]]
+routes = ["GET /updates/stream", "GET /updates", "GET /updates/cursor"]
+purpose = "The SPARQL Update stream, which keeps a triplestore current with a dump; public, rate-limited in the `stream` class ([02](02-graphs-rdf-and-query.md) §6)"
+sources = "[0012](../decisions/0012-api-requirements.md) §5"
+
+[[route]]
+routes = ["GET /upstream-post/{id}"]
+purpose = "The send's state and upstream revision ID; visible to its author"
+sources = "[0069](../decisions/0069-synchronized-talk-pages.md) §9"
+
+[[route]]
+routes = ["GET /version"]
+purpose = "Everything `Special:Version` shows, as one JSON document, at each tenant base and at the farm base, with the instance's live counters: `hash_mismatches`, the instance-wide count of upstream hashes kept because the recomputation differed ([0006](../decisions/0006-log-integrity-and-erasure.md) A9), and projection lag by projection (§2.2), with the work queues' lag per consumer and tenant (`queues`: waiting, failed, oldest; [03](03-storage-caches-and-search.md) §6.1), the tenant's own and the instance's at a tenant base and every tenant's for a holder of `ts-config` at the farm base. Public, cached like any public response, and subject to `version.services`. On a private tenant, an outsider gets what the farm base would show, without the tenant's features or entry points"
+sources = "[0077](../decisions/0077-special-version.md) §10"
+
+[[route]]
+routes = ["GET /watchlist"]
+purpose = "The holder's watch set: each watch's kind, ID, title, expiry, `notify` and first unseen change ([0020](../decisions/0020-change-feeds.md) A18)"
+sources = "[0020](../decisions/0020-change-feeds.md) §5"
+
+[[route]]
+routes = ["POST /watchlist/seen"]
+purpose = "Update `seen` for one target or all"
+sources = "[0020](../decisions/0020-change-feeds.md) §5"
+
+[[route]]
+routes = ["GET /watchlist/token", "POST /watchlist/token"]
+purpose = "Read and reset the Atom token"
+sources = "[0020](../decisions/0020-change-feeds.md) §5"
+
+[[route]]
+routes = ["PUT /watchlist/{kind}/{id}", "DELETE /watchlist/{kind}/{id}"]
+purpose = "Watch, with an optional `expires`; unwatch"
+sources = "[0020](../decisions/0020-change-feeds.md) §5"
+
+[[route]]
+routes = ["POST /workspace"]
+purpose = "Create from a kit: name, scope, kit title; returns the job"
+sources = "[0062](../decisions/0062-workspaces.md) §8"
+
+[[route]]
+routes = ["GET /workspace/{pageid}"]
+purpose = "A project page's roles (from `view.page_prop`), the component pages its blocks and kit created (from `page_link`), and its sprints (subpages of model `triplespace-sprint`)"
+sources = "[0062](../decisions/0062-workspaces.md) §8"
+
+[[route]]
+routes = ["GET /group/{name}", "PUT /group/{name}", "DELETE /group/{name}"]
+purpose = "Read, define and retire a tenant's group record (its permissions, inclusion, delegation and scope; [09](09-security-and-moderation.md) §3.2). Built with delegated administration; no ADR section names the route yet"
+sources = "[0016](../decisions/0016-permissions-and-access-control.md) A38"
+
+[[route]]
+routes = ["GET /acl/empty-groups"]
+purpose = "The groups no one can read through: every group a read ACL names that has no member ([09](09-security-and-moderation.md) §4.5). Built with accountability; no ADR section names the route yet"
+sources = "[0056](../decisions/0056-security-model.md) Q4"
+
+[[route]]
+routes = ["GET /purges"]
+purpose = "The queued cache purges since a position, for the web tier or a CDN hook to consume ([03](03-storage-caches-and-search.md) §7). Built with the purge queue; no ADR section names the route yet"
+sources = "[0056](../decisions/0056-security-model.md) §9"
+
+[[route]]
+routes = ["GET /version/licenses/{id}"]
+purpose = "One component's licence, copyright and notice files, behind `Special:Version/License` ([21](21-special-pages.md) §7). No ADR section names the route yet"
+sources = "[0077](../decisions/0077-special-version.md) §12"

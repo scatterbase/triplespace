@@ -65,8 +65,9 @@ stable.
 
 ## From design to code
 
-- The crate map is chapter 22 §2.1: every crate, its layer, what it owns and whether it builds
-  for wasm. `cargo xtask deps` checks the real graph against it.
+- The crate map is `docs/registry/crates.toml`: every crate, its layer, what it holds, what it may
+  depend on, and its `pure`/`wasm` marks. Chapter 22 §2.1 shows it one line per crate and
+  `docs/architecture/CRATES.md` in full; `cargo xtask deps` checks the real graph against it.
 - A registry file's `README.md` row names the crate that embeds it and the ADR sections that
   define it.
 - `tools/coverage.py NNNN` shows which of an ADR's sections the code cites and from which crates;

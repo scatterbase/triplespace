@@ -1,5 +1,5 @@
 # CI as ADR 0033 §2 specifies it: nextest, clippy -D warnings, cargo-deny, a wasm32 build of
-# every rule-7 crate (0005 §3), and the dependency check against the 0005 §2 table; the
+# every rule-7 crate (0005 §3), and the dependency check against docs/registry/crates.toml (22 §2.1); the
 # front end's lint, tests and build (0034 §8); and the Wikibase client libraries against a
 # running server (test plan §1.3–1.5, tools/client_compat.sh).
 name: CI
@@ -189,7 +189,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Documentation checks (ADRs 0050 §12, chapter map 0050 §14, settings 0085 §1, log vectors)
+      - name: Documentation checks (ADRs and chapters 24 §12, settings 0085 §1, crate map 24 §11, log vectors)
         run: docs/check.sh
 
   adr-preview:

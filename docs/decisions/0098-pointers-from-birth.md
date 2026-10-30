@@ -2,10 +2,10 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-30
-- **Updated:** 2026-10-30 (A1)
+- **Updated:** 2026-10-30 (A2)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0050](0050-adr-format.md)
-- **Uses:** [0005](0005-crate-organization.md), [0085](0085-settings-and-preferences.md)
+- **Uses:** [0005](0005-crate-organization.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0016](0016-permissions-and-access-control.md), [0085](0085-settings-and-preferences.md)
 
 ## Context
 
@@ -47,7 +47,7 @@ James's direction, 2026-10-30, on the review:
 
 *Current text: [24](../architecture/24-documentation.md) §12, §13.*
 
-### 5. Catalogues are registry data (extends 0050 §6; uses 0005 §2–3)
+### 5. Catalogues are registry data (extends 0050 §6; uses 0005 §2–3, 0011 §6, 0012 §5, 0016 §2)
 
 *Changed by A1.*
 
@@ -101,3 +101,14 @@ James's direction, 2026-10-30, on the review:
 - **Source:** Direct: James, review of 2026-10-30
 - **Change:** extends §1, §5
 - **Summary:** Q1: the crate map moves to the registry first (`registry/crates.toml`, read by `cargo xtask deps`), then the permission and log-event catalogues; the REST route table is generated from the OpenAPI file; the `view` schema stays in prose until it has a reader. Q2: `Updated` is kept. Q3: CI posts the ADR assembled with its chapter text (`tools/adr.py show NNNN --full`, new) as a comment on any pull request that adds an ADR, updated on every push.
+
+### A2. Four catalogues moved
+
+- **Date:** 2026-10-30
+- **Source:** Direct: James, review of 2026-10-30 (the order of A1, carried out)
+- **Change:** consolidates §5
+- **Summary:** 24 §11 now names the registry file behind each catalogue that has moved (the crate map, the REST routes, the permissions, the log events: 0005 A111, 0012 A82, 0016 A40, 0011 A35) and the two still in prose. The decision is unchanged. The last commit before this entry is `0e67cce`.
+
+Replaced text ([24](../architecture/24-documentation.md) §11, as it stood):
+
+> **A catalogue is registry data, not prose.** A table whose rows are entries rather than argument — the crate map (22 §2.1), the `view` schema (03 §4), the REST routes and Action API modules (18 §2, §3), the permission catalogue (09), the log-event catalogue (16) — belongs in a registry file with a generated chapter table, so that the chapter stays readable and the code can read the same file. Each move is a `consolidates` entry in the ADRs whose sections the table cites: no decision changes. Until a catalogue has moved, its chapter table is the authority. The order: the crate map first (`registry/crates.toml`; `cargo xtask deps` reads the file rather than the chapter table), then the permission and log-event catalogues as registry files; the REST route table is generated from the OpenAPI file in `../api/` rather than a new registry file; the `view` schema stays in prose until it has a reader, since the migrations are already its source.

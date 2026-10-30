@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-28 (A81)
+- **Updated:** 2026-10-30 (A82)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0005](0005-crate-organization.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -915,3 +915,15 @@ Replaced text ([18](../architecture/18-api.md) §3.2, as it stood):
 - **Source:** [0095](0095-the-interface-namespace.md) §5
 - **Change:** extends §4
 - **Summary:** `siprop=triplespace` reports the wiki's interface overrides and names, `interface` (0095 §5).
+
+### A82. The route catalogue is a registry file
+
+- **Date:** 2026-10-30
+- **Source:** [0098](0098-pointers-from-birth.md) §5
+- **Change:** consolidates §5
+- **Summary:** The table of 18 §3.2 moved into `docs/registry/routes.toml` (route, purpose, sources), with the method shorthand of some rows (`GET`, `PUT`, `DELETE /acl/set/{id}`) expanded to one `METHOD /path` each. `architecture/catalogues.py` generates the table, derives its new *Built* column from the OpenAPI contract, and fails when the contract serves a route the catalogue lacks. That check found four built routes no ADR section names: `GET`/`PUT`/`DELETE /group/{name}` (delegated administration, 0016 A38), `GET /acl/empty-groups` (0056 Q4), `GET /purges` (the purge queue, 0056 §9) and `GET /version/licenses/{id}` (0077 §12); they are catalogued with those citations and the note that no ADR section names them yet. `GET /entity/{id}/page` and `GET /labels` had no source cell; they are A70's. No decision changed. The last commit in which the chapter carried the table is `0e67cce`.
+
+
+Replaced text ([18](../architecture/18-api.md) §3.2, the lead, as it stood):
+
+> Every route under `rest.php/triplespace/v0`, sorted by path. Each row keeps the ADR's own spelling of the path parameter (`{id}`, `{pageid}`, `{page ID}` name the same page ID; `{thread}` a thread's page ID). "Holder only" means the account holder in their own session; "farm base" means served at the farm base only. Routes the ADRs place at fixed paths outside `rest.php` are listed where [0012](../decisions/0012-api-requirements.md) §5 lists them and marked.

@@ -3,7 +3,8 @@
 #
 #   docs/check.sh            check (what CI runs)
 #   docs/check.sh --write    regenerate decisions/INDEX.md, the settings tables of chapter 23 and
-#                            the crate map's views (22 §2.1, CRATES.md), then check
+#                            the crate map's views (22 §2.1, CRATES.md) and the route, permission
+#                            and log-event tables (18 §3.2, 09 §2.2, 16 §2.3), then check
 #
 # Works from any directory. PYTHON= names the interpreter (default python3). The log test
 # vectors are never regenerated here: run `python3 docs/api/vectors/check.py --write` by hand.
@@ -41,6 +42,7 @@ run "ADRs (24 §12)"               "$PY" decisions/check_adrs.py ${WRITE:+--inde
 run "Chapter provenance (24 §12)" "$PY" architecture/map.py .
 run "Settings catalogue (0085 §1)" "$PY" architecture/settings.py ${WRITE:+--write} .
 run "Crate map (24 §11)"           "$PY" architecture/crates.py ${WRITE:+--write} .
+run "Catalogues (24 §11)"          "$PY" architecture/catalogues.py ${WRITE:+--write} .
 run "Log test vectors (payloads.md §1–2)" "$PY" api/vectors/check.py
 
 if [ -n "$failed" ]; then

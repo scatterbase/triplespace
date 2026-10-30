@@ -1,0 +1,427 @@
+# Every permission the ADRs name (chapter 09 §2.2). `groups.toml` is the registry of record for which
+# groups hold a permission by default; this file holds what each permission allows. Edit it, then
+# `python3 architecture/catalogues.py --write` from docs/ regenerates the table in 09 §2.2, whose
+# 'Granted by default to' column is derived from groups.toml. The generator checks that every
+# permission a group grants is listed here, and every permission here is granted by some group or
+# marked `ungranted = true`. `granted_note` is appended verbatim to the derived groups (so it starts
+# with its own punctuation), for what groups.toml cannot say: owner only, a farm global group, none.
+# 
+# names   the permission(s) the row covers
+# new     true for a permission that is Triplespace's own (marked *(new)* in the table)
+# allows  what it allows, with citations
+# sources the ADR sections that define it
+
+[[permission]]
+names = ["read"]
+allows = "Reading anything public. Every public feed, including the stream; the discovery endpoints of notifications; reading a foreign page, whose repository's content is public by definition; export from the report forms; exporting a proposal"
+sources = "[0016](../decisions/0016-permissions-and-access-control.md) §2; [0020](../decisions/0020-change-feeds.md) §7; [0021](../decisions/0021-notifications.md) §9; [0047](../decisions/0047-special-pages.md) §12; [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §9; [0053](../decisions/0053-mirrored-pages.md) §11; [0067](../decisions/0067-proposals.md) §8"
+
+[[permission]]
+names = ["edit"]
+allows = "Local-graph `add`, `remove` and `override` on any subject; page `edit`. On threads: `create`, `post` (including a status), and `edit` of one's own posts; a board's definition; `create` with `also` needs `edit` on the home and on each listed target. Asserting, changing and removing a page's statements, including `page-alternates`. Editing a `sanitized-css` page and the site-styles page. Editing a scope. Opening a proposal on the subject's talk page; replying upstream from a synchronized talk page; `follow` on a fork. Forking, with `createpage`"
+sources = "[0016](../decisions/0016-permissions-and-access-control.md) §2; [0019](../decisions/0019-discussions.md) §12; [0049](../decisions/0049-boards.md) §13; [0038](../decisions/0038-page-metadata-and-categories.md) §14; [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §9; [0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §8; [0060](../decisions/0060-scopes.md) §9; [0067](../decisions/0067-proposals.md) §8; [0069](../decisions/0069-synchronized-talk-pages.md) §11; [0054](../decisions/0054-forking-a-mirrored-page.md) §8"
+
+[[permission]]
+names = ["createpage"]
+allows = "Page `create`; creating a board (namespace 310) or a scope (namespace 312); forking a mirrored page, with `edit`"
+sources = "[0016](../decisions/0016-permissions-and-access-control.md) §2; [0049](../decisions/0049-boards.md) §13; [0060](../decisions/0060-scopes.md) §9; [0054](../decisions/0054-forking-a-mirrored-page.md) §8"
+
+[[permission]]
+names = ["item-term", "property-term"]
+allows = "Labels, descriptions and aliases of items and properties"
+sources = "[0016](../decisions/0016-permissions-and-access-control.md) §2"
+
+[[permission]]
+names = ["item-redirect", "item-merge"]
+allows = "Local `redirect` between local items ([04](04-entities-and-identifiers.md))"
+sources = "[0016](../decisions/0016-permissions-and-access-control.md) §2"
+
+[[permission]]
+names = ["property-create"]
+allows = "Creating a local property. Held by every registered account by default, as in a stock Wikibase; a tenant that wants Wikidata's arrangement removes it from `user` in its configuration, leaving `propertycreator` and `sysop`"
+sources = "[0016](../decisions/0016-permissions-and-access-control.md) §2, A32"
+
+[[permission]]
+names = ["ts-linkproperty"]
+new = true
+allows = "`equivalent-property` links and a local property's `redirect` across namespaces ([04](04-entities-and-identifiers.md) §4.10), because they change predicates for every consumer"
+sources = "[0016](../decisions/0016-permissions-and-access-control.md) A32"
+
+[[permission]]
+names = ["ts-link"]
+new = true
+allows = "`same-as` and `different-from`; resolving held conflicts ([04](04-entities-and-identifiers.md)); in bulk, with `ts-runjob`"
+sources = "[0016](../decisions/0016-permissions-and-access-control.md) §2, §5"
+
+[[permission]]
+names = ["move"]
+allows = "Page `move`. On threads: `rename`, `move`, `attach` and `detach` (with `edit` on the target), `pin` and `unpin` (with `edit` on the page)"
+sources = "[0016](../decisions/0016-permissions-and-access-control.md) §2; [0019](../decisions/0019-discussions.md) §12; [0049](../decisions/0049-boards.md) §13; [0069](../decisions/0069-synchronized-talk-pages.md) §11"
+
+[[permission]]
+names = ["editcontentmodel"]
+allows = "`action=changecontentmodel`, including to or from `sanitized-css`"
+sources = "[0016](../decisions/0016-permissions-and-access-control.md) §2; [0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §8"
+
+[[permission]]
+names = ["delete", "undelete"]
+allows = "Page `delete` and `undelete`: `read` ACLs on pages, threads and local entities naming the deletion group, and their retirement; applied to file pages and versions. `nuke` is part of the `delete` grant"
+sources = "[0016](../decisions/0016-permissions-and-access-control.md) §2; [0019](../decisions/0019-discussions.md) §12; [0023](../decisions/0023-moderation.md) §11; [0039](../decisions/0039-files-and-media.md) §21; [0047](../decisions/0047-special-pages.md) §12"
+
+[[permission]]
+names = ["deletedhistory", "deletedtext"]
+allows = "Reported to MediaWiki clients by members of the deletion group, which is what decides who sees hidden revisions, hidden usernames and deleted pages; they gate no evaluation of their own (§5.2)"
+sources = "[0016](../decisions/0016-permissions-and-access-control.md) §2; [0023](../decisions/0023-moderation.md) §11"
+
+[[permission]]
+names = ["browsearchive"]
+allows = "As `deletedhistory`: reported by members of the deletion group, gating nothing"
+sources = "[0023](../decisions/0023-moderation.md) §11"
+
+[[permission]]
+names = ["deleterevision", "deletelogentry"]
+allows = "Hiding parts of revisions and log events: `record` ACLs on `local`, `pages` and `actors` records, and on `log` records, naming `sysop`; hiding a post's text, comment or actor; `read` ACLs on statements and properties; the hiding Nuke does; applied to file versions"
+sources = "[0016](../decisions/0016-permissions-and-access-control.md) §2; [0019](../decisions/0019-discussions.md) §12; [0023](../decisions/0023-moderation.md) §2, §11; [0039](../decisions/0039-files-and-media.md) §21; [0047](../decisions/0047-special-pages.md) §12"
+
+[[permission]]
+names = ["suppressrevision"]
+allows = "Suppression: any `read` ACL naming the suppression group; applied to file versions"
+sources = "[0016](../decisions/0016-permissions-and-access-control.md) §2; [0023](../decisions/0023-moderation.md) §11; [0039](../decisions/0039-files-and-media.md) §21"
+
+[[permission]]
+names = ["viewsuppressed"]
+allows = "Seeing what the suppression group may see, and the `suppress/*` events"
+sources = "[0016](../decisions/0016-permissions-and-access-control.md) §2; [0023](../decisions/0023-moderation.md) §11"
+
+[[permission]]
+names = ["hideuser"]
+allows = "`actor` ACLs: hiding a username; global actor ACLs when held through a global group"
+sources = "[0016](../decisions/0016-permissions-and-access-control.md) §2; [0023](../decisions/0023-moderation.md) §11; [0028](../decisions/0028-tenancy-policy.md) §13"
+
+[[permission]]
+names = ["protect"]
+allows = "Setting ACLs on pages, entities, namespaces, threads, talk pages, boards and sets, including reserved titles: `edit` and `move` restrictions, and `read` as a confidential restriction (§4.5); changing a set's membership; enabling inbound federated replies on a talk namespace by ACL"
+sources = "[0016](../decisions/0016-permissions-and-access-control.md) §2; [0023](../decisions/0023-moderation.md) §11; [0056](../decisions/0056-security-model.md) §3, §4; [0022](../decisions/0022-federation.md) §12"
+
+[[permission]]
+names = ["block"]
+allows = "Blocking accounts (§3.3); global blocks when held through a global group"
+sources = "[0016](../decisions/0016-permissions-and-access-control.md) §2; [0028](../decisions/0028-tenancy-policy.md) §13"
+
+[[permission]]
+names = ["userrights"]
+allows = "Changing memberships in any group except `owner`; approving a pending subsidiary; global memberships when held through a global group"
+sources = "[0016](../decisions/0016-permissions-and-access-control.md) §2; [0024](../decisions/0024-subsidiary-accounts.md) §11; [0025](../decisions/0025-oauth-server.md) §10; [0028](../decisions/0028-tenancy-policy.md) §13"
+
+[[permission]]
+names = ["renameuser"]
+allows = "Renaming any account"
+sources = "[0016](../decisions/0016-permissions-and-access-control.md) §2"
+
+[[permission]]
+names = ["import", "importupload"]
+allows = "Page imports. Forking never needs `import`"
+sources = "[0016](../decisions/0016-permissions-and-access-control.md) §2; [0054](../decisions/0054-forking-a-mirrored-page.md) §8"
+
+[[permission]]
+names = ["bot"]
+allows = "The bot flag on edits; also selects the `bot` row of the rate-limit table"
+sources = "[0016](../decisions/0016-permissions-and-access-control.md) §2; [0024](../decisions/0024-subsidiary-accounts.md) §11"
+
+[[permission]]
+names = ["ts-retain", "ts-convert"]
+new = true
+allows = "`retain` and `convert` on entities ([05](05-providers-and-ingest.md)); in bulk, with `ts-runjob`"
+sources = "[0012](../decisions/0012-api-requirements.md) §8; [0016](../decisions/0016-permissions-and-access-control.md) §2, §5"
+
+[[permission]]
+names = ["ts-runjob"]
+new = true
+allows = "Submitting bulk jobs; a bulk `retain` or `convert` also needs the right above. Jobs run under subsidiaries: an administrator runs a job by creating or approving a subsidiary they operate. For instance jobs (a mirror sync or another job that writes only instance partitions) an instance right, default `bot`"
+sources = "[0012](../decisions/0012-api-requirements.md) §8; [0016](../decisions/0016-permissions-and-access-control.md) §2; [0046](../decisions/0046-primary-tenant.md) §8"
+
+[[permission]]
+names = ["ts-revertjob"]
+granted_note = ", and the job's own actor"
+new = true
+allows = "Reverting a job"
+sources = "[0012](../decisions/0012-api-requirements.md) §8; [0016](../decisions/0016-permissions-and-access-control.md) §2"
+
+[[permission]]
+names = ["ts-viewrejects"]
+granted_note = ", and the job's own actor"
+new = true
+allows = "Downloading a job's rejects file"
+sources = "[0012](../decisions/0012-api-requirements.md) §8; [0016](../decisions/0016-permissions-and-access-control.md) §2"
+
+[[permission]]
+names = ["ts-erase"]
+new = true
+allows = "Appending `erase` records ([01](01-log-and-records.md) §5); erasing a post's text; applied to file versions"
+sources = "[0012](../decisions/0012-api-requirements.md) §8; [0016](../decisions/0016-permissions-and-access-control.md) §2; [0019](../decisions/0019-discussions.md) §12; [0039](../decisions/0039-files-and-media.md) §21"
+
+[[permission]]
+names = ["ts-viewerasures"]
+new = true
+allows = "Seeing an erasure's reason class and authority reference (§6.6)"
+sources = "[0012](../decisions/0012-api-requirements.md) §8; [0016](../decisions/0016-permissions-and-access-control.md) §2"
+
+[[permission]]
+names = ["ts-unlink"]
+new = true
+allows = "Removing another user's account link"
+sources = "[0016](../decisions/0016-permissions-and-access-control.md) §2"
+
+[[permission]]
+names = ["ts-config"]
+granted_note = " on a tenant; the farm's `steward` or `platform-admin` at instance scope"
+new = true
+allows = "Writing `config` records: providers, issuers, namespaces, keyed types, roles, reconciliation, site settings, graph ACLs, the default retention policy; the tenant's own `tenant` ACL; `trust` mode per provider, `federation.*` settings and `federation-policy` lists; every `tenancy` switch except identity, `template`, locks, `provider-readers`; `page-repo` records, `pages.repos`, `pages.share`, a repository's mirror set, mode and events, and `pages index`; `fork.*` settings; `wikitext.site_styles` and `templatestyles.max_bytes`; category mappings; report modes and widening at the farm base; `site` settings, instance defaults and locks through `PATCH /settings` and the settings pages, unless a setting's registry entry names a stronger right ([0085](../decisions/0085-settings-and-preferences.md) §3). At the farm base an instance right"
+sources = "[0016](../decisions/0016-permissions-and-access-control.md) §2, §4; [0022](../decisions/0022-federation.md) §12; [0028](../decisions/0028-tenancy-policy.md) §13; [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §9; [0053](../decisions/0053-mirrored-pages.md) §11; [0054](../decisions/0054-forking-a-mirrored-page.md) §8; [0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §8; [0038](../decisions/0038-page-metadata-and-categories.md) §14; [0047](../decisions/0047-special-pages.md) §12; [0056](../decisions/0056-security-model.md) §3; [0085](../decisions/0085-settings-and-preferences.md) §3"
+
+[[permission]]
+names = ["ts-keys"]
+ungranted = true
+granted_note = "`owner` only"
+new = true
+allows = "Registering and rotating the instance key; `key:` records in `config`; the identity switches of the tenancy policy, since they are as consequential as the key. An instance right"
+sources = "[0016](../decisions/0016-permissions-and-access-control.md) §2, §4; [0028](../decisions/0028-tenancy-policy.md) §13"
+
+[[permission]]
+names = ["ts-editpost"]
+new = true
+allows = "`edit` of another actor's post"
+sources = "[0019](../decisions/0019-discussions.md) §12"
+
+[[permission]]
+names = ["viewmywatchlist", "editmywatchlist"]
+allows = "Reading and changing one's own watch set, token and `seen` marks"
+sources = "[0020](../decisions/0020-change-feeds.md) §7"
+
+[[permission]]
+names = ["editmyoptions"]
+allows = "The preference matrix, addresses and handles; making one's own account a federation actor"
+sources = "[0021](../decisions/0021-notifications.md) §9; [0022](../decisions/0022-federation.md) §12"
+
+[[permission]]
+names = ["viewmyprivateinfo"]
+allows = "Reading the preference matrix, addresses and handles"
+sources = "[0021](../decisions/0021-notifications.md) §9"
+
+[[permission]]
+names = ["patrol"]
+allows = "Writing patrol events; seeing the unpatrolled mark (§6.4)"
+sources = "[0023](../decisions/0023-moderation.md) §11"
+
+[[permission]]
+names = ["autopatrol"]
+new = true
+allows = "Changes by this actor are patrolled from the start (§6.4)"
+sources = "[0023](../decisions/0023-moderation.md) §11"
+
+[[permission]]
+names = ["nuke"]
+allows = "Running `Special:Nuke`; each write it makes also needs its own right, `delete`, and `deleterevision` for hiding. Part of the `delete` grant in `grants.toml`"
+sources = "[0023](../decisions/0023-moderation.md) §11; [0047](../decisions/0047-special-pages.md) §12"
+
+[[permission]]
+names = ["editinterface"]
+allows = "Creating, editing or moving a page into or out of the Interface namespace, besides the rights any edit or move takes"
+sources = "[0095](../decisions/0095-the-interface-namespace.md) §4"
+
+[[permission]]
+names = ["createaccount"]
+allows = "Self-registration, and creating an account for another, as in MediaWiki: creating a subsidiary, and creating one in the OAuth consent page. A subsidiary a new user creates is pending until approved. A private tenant removes it from `universe` (§4.7), and so does any tenant that closes registration; with `account.approval` on, self-registration files a request instead ([07](07-actors-and-accounts.md) §2.6)"
+sources = "[0024](../decisions/0024-subsidiary-accounts.md) §11; [0025](../decisions/0025-oauth-server.md) §10; [0056](../decisions/0056-security-model.md) §3; [0087](../decisions/0087-account-registration-and-challenges.md) §1, §6"
+
+[[permission]]
+names = ["confirmaccount"]
+allows = "ConfirmAccount's right: reviewing account requests at `Special:ConfirmAccounts`, approving or rejecting each; with `account.approval` on, creating an account for another at once. ConfirmAccount's `requestips` is `ts-viewip` here, and its `lookupcredentials` has no counterpart, since nothing of a request is kept once it is decided ([07](07-actors-and-accounts.md) §2.6)"
+sources = "[0087](../decisions/0087-account-registration-and-challenges.md) §6"
+
+[[permission]]
+names = ["skipcaptcha"]
+allows = "ConfirmEdit's right, with its defaults: exemption from every challenge trigger ([07](07-actors-and-accounts.md) §2.6)"
+sources = "[0087](../decisions/0087-account-registration-and-challenges.md) §7"
+
+[[permission]]
+names = ["ts-transferaccount"]
+new = true
+allows = "Transferring a subsidiary to another operator"
+sources = "[0024](../decisions/0024-subsidiary-accounts.md) §11"
+
+[[permission]]
+names = ["noratelimit"]
+allows = "Exemption from every rate-limit class but `job`"
+sources = "[0024](../decisions/0024-subsidiary-accounts.md) §11"
+
+[[permission]]
+names = ["mwoauthproposeconsumer"]
+allows = "Registering an OAuth consumer"
+sources = "[0025](../decisions/0025-oauth-server.md) §10"
+
+[[permission]]
+names = ["mwoauthupdateownconsumer"]
+allows = "Updating and rotating the secret of a consumer one owns"
+sources = "[0025](../decisions/0025-oauth-server.md) §10"
+
+[[permission]]
+names = ["mwoauthmanageconsumer"]
+granted_note = ", so the primary tenant's bureaucrats; the farm's `steward` and `platform-admin`"
+allows = "Approving, rejecting and disabling consumers, which are instance configuration. An instance right: held to no effect by a bureaucrat of any other tenant"
+sources = "[0025](../decisions/0025-oauth-server.md) §10; [0046](../decisions/0046-primary-tenant.md) §8"
+
+[[permission]]
+names = ["mwoauthmanagemygrants"]
+allows = "Viewing and revoking authorizations of one's own subsidiaries"
+sources = "[0025](../decisions/0025-oauth-server.md) §10"
+
+[[permission]]
+names = ["mwoauthviewprivate"]
+allows = "Viewing any account's authorizations and token metadata, for abuse investigation"
+sources = "[0025](../decisions/0025-oauth-server.md) §10"
+
+[[permission]]
+names = ["abusefilter-view", "abusefilter-log"]
+allows = "Seeing public filters and public hits"
+sources = "[0030](../decisions/0030-edit-filters.md) §12"
+
+[[permission]]
+names = ["abusefilter-view-private", "abusefilter-log-private"]
+allows = "Seeing private filters' rules and hit details"
+sources = "[0030](../decisions/0030-edit-filters.md) §12"
+
+[[permission]]
+names = ["abusefilter-log-detail"]
+allows = "Seeing the full context and attempted content of a hit"
+sources = "[0030](../decisions/0030-edit-filters.md) §12"
+
+[[permission]]
+names = ["abusefilter-modify"]
+allows = "Creating and changing filters and their `log`, `tag`, `warn`, `disallow`, `throttle`, `unpatrol` and `notify` actions. For `scope = global` filters an instance right, held through a global group"
+sources = "[0030](../decisions/0030-edit-filters.md) §8, §12"
+
+[[permission]]
+names = ["abusefilter-modify-restricted"]
+allows = "The `block` and `degroup` actions"
+sources = "[0030](../decisions/0030-edit-filters.md) §12"
+
+[[permission]]
+names = ["abusefilter-revert"]
+allows = "Reverting every change a filter matched in a period, as one job"
+sources = "[0030](../decisions/0030-edit-filters.md) §12"
+
+[[permission]]
+names = ["abusefilter-bypass"]
+ungranted = true
+granted_note = "none"
+allows = "Exemption from every filter"
+sources = "[0030](../decisions/0030-edit-filters.md) §12"
+
+[[permission]]
+names = ["managechangetags"]
+allows = "The tag registry: registering user-defined tags (§7.6)"
+sources = "[0030](../decisions/0030-edit-filters.md) §5"
+
+[[permission]]
+names = ["changetags"]
+allows = "Applying a tag by hand with `action=tag`, subject to the tag's own group"
+sources = "[0030](../decisions/0030-edit-filters.md) §5"
+
+[[permission]]
+names = ["upload"]
+allows = "Uploading a new file; stashing; copying a fork's files, with the same default"
+sources = "[0039](../decisions/0039-files-and-media.md) §21; [0054](../decisions/0054-forking-a-mirrored-page.md) §8"
+
+[[permission]]
+names = ["reupload"]
+allows = "Overwriting an existing file; `filerevert`"
+sources = "[0039](../decisions/0039-files-and-media.md) §21"
+
+[[permission]]
+names = ["reupload-own"]
+allows = "Overwriting a file one uploaded oneself"
+sources = "[0039](../decisions/0039-files-and-media.md) §21"
+
+[[permission]]
+names = ["reupload-shared"]
+allows = "Shadowing a foreign repository's file with a local one; copying a fork's files that shadow one"
+sources = "[0039](../decisions/0039-files-and-media.md) §21; [0054](../decisions/0054-forking-a-mirrored-page.md) §8"
+
+[[permission]]
+names = ["upload_by_url"]
+ungranted = true
+granted_note = "none"
+allows = "Uploading from a URL, where enabled"
+sources = "[0039](../decisions/0039-files-and-media.md) §21"
+
+[[permission]]
+names = ["movefile"]
+allows = "Moving a file page"
+sources = "[0039](../decisions/0039-files-and-media.md) §21"
+
+[[permission]]
+names = ["ts-takedown"]
+ungranted = true
+granted_note = "`owner`; the farm's `steward` and `platform-admin`"
+new = true
+allows = "Taking down and reinstating a file by hash. An instance right, evaluated on the primary tenant"
+sources = "[0039](../decisions/0039-files-and-media.md) §21"
+
+[[permission]]
+names = ["ts-expunge"]
+ungranted = true
+granted_note = "`owner`; the farm's `steward` and `platform-admin`"
+new = true
+allows = "Expunging a hash. An instance right, evaluated on the primary tenant"
+sources = "[0039](../decisions/0039-files-and-media.md) §21"
+
+[[permission]]
+names = ["ts-viewtakedown"]
+ungranted = true
+granted_note = "`owner`; the farm's `steward` and `platform-admin`"
+new = true
+allows = "Seeing taken-down bytes, confidential notices and `takedown/expunge` events"
+sources = "[0039](../decisions/0039-files-and-media.md) §21"
+
+[[permission]]
+names = ["ts-viewoperator"]
+ungranted = true
+granted_note = "`owner` on the primary tenant; the farm's `steward` and `platform-admin`"
+new = true
+allows = "Seeing which operator carried out an instance act: the attestation of authority records, and the operator column of the farm-base instance-action list"
+sources = "[0040](../decisions/0040-instance-prerogatives.md) §9"
+
+[[permission]]
+names = ["ts-primary"]
+ungranted = true
+granted_note = "`owner` only"
+new = true
+allows = "Offering and withdrawing the primary role. An instance right"
+sources = "[0046](../decisions/0046-primary-tenant.md) §8"
+
+[[permission]]
+names = ["suppressredirect"]
+allows = "`noredirect` on a move"
+sources = "[0051](../decisions/0051-page-redirects.md) §8"
+
+[[permission]]
+names = ["delete-redirect"]
+allows = "Moving over a one-revision redirect that points at the moved page"
+sources = "[0051](../decisions/0051-page-redirects.md) §8"
+
+[[permission]]
+names = ["move-subpages"]
+allows = "`movesubpages`"
+sources = "[0051](../decisions/0051-page-redirects.md) §8"
+
+[[permission]]
+names = ["move-rootuserpages", "move-categorypages"]
+allows = "Moving a user's root page, and moving category pages, as MediaWiki gates them"
+sources = "[0051](../decisions/0051-page-redirects.md) §8"
+
+[[permission]]
+names = ["ts-viewip"]
+new = true
+allows = "Seeing an IP in the abuse-handling store: the IP shown on a filter hit page"
+sources = "[0007](../decisions/0007-actor-identity.md) §3; [0030](../decisions/0030-edit-filters.md) §2, §5, §12"

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-28 (A39)
+- **Updated:** 2026-10-30 (A40)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -496,3 +496,15 @@ Replaced text ([09](../architecture/09-security-and-moderation.md) §3.6, as it 
 - **Source:** [0095](0095-the-interface-namespace.md) §4
 - **Change:** extends §2
 - **Summary:** MediaWiki's `editinterface` joins the permission catalogue, held by `sysop`, for pages of the Interface namespace (0095 §4).
+
+### A40. The permission catalogue is a registry file
+
+- **Date:** 2026-10-30
+- **Source:** [0098](0098-pointers-from-birth.md) §5
+- **Change:** consolidates §2
+- **Summary:** The table of 09 §2.2 moved into `docs/registry/permissions.toml` (what each permission allows, its sources, and the *(new)* mark); its *Granted by default to* column is now derived from `groups.toml`, which the chapter already named as authoritative, so the two cannot disagree. The move surfaced one difference: `ts-runjob` is granted to `bot` and `sysop` in `groups.toml` where the chapter said `bot`; the registry stands. Eight permissions no group grants (`ts-keys`, `ts-primary`, the takedown and expunge rights, `ts-viewoperator`, `abusefilter-bypass`, `upload_by_url`) are marked `ungranted` with the holder the chapter named (owner only, the farm's global groups, or none). `architecture/catalogues.py` generates the table and checks both directions. No decision changed. The last commit in which the chapter carried the table is `0e67cce`.
+
+
+Replaced text ([09](../architecture/09-security-and-moderation.md) §2.2, the lead, as it stood):
+
+> Every permission the ADRs name, with the group that holds it by default and what it allows. A permission marked *(new)* is Triplespace's own; the rest are MediaWiki's or Wikibase's, kept under MediaWiki's names so that a Wikimedia administrator and the bots that check rights recognise them. `steward`, `global-sysop` and `platform-admin` are the global groups of §3.7, which exist only on a farm whose tenancy policy ships them. Where a permission is also an **instance right** (§2.3), the default named here is the group on the primary tenant.
