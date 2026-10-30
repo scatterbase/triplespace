@@ -106,3 +106,95 @@ mod tests {
         assert!(created(&serde_json::json!({"success": 1})).is_err());
     }
 }
+
+/// What a term form sets on an entity in one language (`Special:SetLabel` and its
+/// siblings; 0047 §5). An empty value removes the term; an empty list of aliases removes
+/// the language's aliases.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TermEdit {
+    /// `wbsetlabel`.
+    Label(String),
+    /// `wbsetdescription`.
+    Description(String),
+    /// `wbsetaliases` with `set`: the language's aliases become these.
+    Aliases(Vec<String>),
+    /// One `wbeditentity`, so one revision, as Wikibase's `SetLabelDescriptionAliases`
+    /// makes: the label (`None` for a keyed entity, whose label is its key), the
+    /// description and the aliases.
+    All {
+        /// The label.
+        label: Option<String>,
+        /// The description.
+        description: String,
+        /// The aliases.
+        aliases: Vec<String>,
+    },
+}
+
+impl Client {
+    /// Sets an entity's terms in one language, with the viewer's cookie and CSRF token,
+    /// through the same modules as every other client. A refusal is [`ClientError::Api`]
+    /// with the API's code (`badtoken`, `permissiondenied`, `no-such-entity`,
+    /// `derived-label`, …).
+    ///
+    /// # Errors
+    ///
+    /// The API's refusal, or the API away or unreadable.
+    pub async fn set_terms(
+        &self,
+        incoming: &Incoming,
+        id: &str,
+        language: &str,
+        edit: &TermEdit,
+        token: &str,
+    ) -> Result<(), ClientError> {
+        let mut fields: Vec<(&str, String)> = vec![
+            ("format", "json".into()),
+            ("formatversion", "2".into()),
+            ("id", id.to_string()),
+        ];
+        match edit {
+            TermEdit::Label(v) => {
+                fields.push(("action", "wbsetlabel".into()));
+                fields.push(("language", language.to_string()));
+                fields.push(("value", v.clone()));
+            }
+            TermEdit::Description(v) => {
+                fields.push(("action", "wbsetdescription".into()));
+                fields.push(("language", language.to_string()));
+                fields.push(("value", v.clone()));
+            }
+            TermEdit::Aliases(list) => {
+                fields.push(("action", "wbsetaliases".into()));
+                fields.push(("language", language.to_string()));
+                fields.push(("set", list.join("|")));
+            }
+            TermEdit::All {
+                label,
+                description,
+                aliases,
+            } => {
+                let term = |v: &str| serde_json::json!({"language": language, "value": v});
+                let mut data = serde_json::json!({
+                    "descriptions": {language: term(description)},
+                    // A list without add or remove flags replaces the language's
+                    // aliases; one empty value clears them.
+                    "aliases": if aliases.is_empty() {
+                        serde_json::json!([term("")])
+                    } else {
+                        Value::Array(aliases.iter().map(|a| term(a)).collect())
+                    },
+                });
+                if let Some(l) = label {
+                    data["labels"] = serde_json::json!({language: term(l)});
+                }
+                fields.push(("action", "wbeditentity".into()));
+                fields.push(("data", data.to_string()));
+            }
+        }
+        fields.push(("token", token.to_string()));
+        let pairs: Vec<(&str, &str)> = fields.iter().map(|(k, v)| (*k, v.as_str())).collect();
+        let r = self.post_form(incoming, "/w/api.php", &pairs).await?;
+        check(&r).map(|_| ())
+    }
+}

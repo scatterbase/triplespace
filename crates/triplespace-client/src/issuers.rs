@@ -5,7 +5,6 @@
 
 use axum::http::StatusCode;
 use serde::Deserialize;
-use serde_json::Value;
 
 use crate::api::check;
 use crate::register::CreateResult;
@@ -166,10 +165,4 @@ impl Client {
             Err(e) => Err(e),
         }
     }
-}
-
-/// The issuers `siprop=triplespace` reports under `login`.
-#[must_use]
-pub fn login_issuers(ts: &Value) -> Vec<LoginIssuer> {
-    serde_json::from_value(ts["login"].clone()).unwrap_or_default()
 }

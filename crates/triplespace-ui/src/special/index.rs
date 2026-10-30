@@ -202,6 +202,54 @@ pub const PAGES: &[(&str, &str, &str, Option<Feature>)] = &[
         "ts-specialpages-fallbackchain",
         None,
     ),
+    (
+        "Special:AllPages",
+        "ts-allpages-title",
+        "ts-specialpages-allpages",
+        Some(Feature::Pages),
+    ),
+    (
+        "Special:PrefixIndex",
+        "ts-prefixindex-title",
+        "ts-specialpages-prefixindex",
+        Some(Feature::Pages),
+    ),
+    (
+        "Special:NewPages",
+        "ts-newpages-title",
+        "ts-specialpages-newpages",
+        Some(Feature::RecentChanges),
+    ),
+    (
+        "Special:Providers",
+        "ts-providers-title",
+        "ts-specialpages-providers",
+        None,
+    ),
+    (
+        "Special:SetLabel",
+        "ts-setlabel-title",
+        "ts-specialpages-setlabel",
+        Some(Feature::Edit),
+    ),
+    (
+        "Special:SetDescription",
+        "ts-setdescription-title",
+        "ts-specialpages-setdescription",
+        Some(Feature::Edit),
+    ),
+    (
+        "Special:SetAliases",
+        "ts-setaliases-title",
+        "ts-specialpages-setaliases",
+        Some(Feature::Edit),
+    ),
+    (
+        "Special:SetLabelDescriptionAliases",
+        "ts-setlabeldescriptionaliases-title",
+        "ts-specialpages-setlabeldescriptionaliases",
+        Some(Feature::Edit),
+    ),
 ];
 
 /// `Special:SpecialPages`.

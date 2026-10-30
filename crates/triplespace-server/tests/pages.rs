@@ -1114,6 +1114,42 @@ async fn pages_on_the_site(site: Router, project: &str) {
     let nowhere = reader.get("/wiki/Special:PermanentLink/99999999").await;
     assert_eq!(nowhere.status, StatusCode::NOT_FOUND, "{}", nowhere.body);
 
+    // AllPages and PrefixIndex over the adopted pages: titles without the namespace, the
+    // redirect in italics (a second, standard `list=allpages` call finds it).
+    let all = reader.get("/wiki/Special:AllPages?namespace=4").await;
+    assert_eq!(all.status, StatusCode::OK, "{}", all.body);
+    assert!(
+        all.body.contains(&format!(
+            "<li><a href=\"/wiki/{project}:Home\">Home</a></li>"
+        )),
+        "{}",
+        all.body
+    );
+    assert!(
+        all.body.contains(&format!(
+            "<li class=\"ts-allpages__redirect\"><a href=\"/wiki/{project}:Notability\">Notability</a></li>"
+        )),
+        "{}",
+        all.body
+    );
+    let hidden = reader
+        .get("/wiki/Special:AllPages?namespace=4&hideredirects=1")
+        .await;
+    assert!(!hidden.body.contains("Notability</a></li>"));
+    assert!(hidden.body.contains("Home</a></li>"));
+    let prefixed = reader.get("/wiki/Special:PrefixIndex/Project:No").await;
+    assert_eq!(prefixed.status, StatusCode::OK, "{}", prefixed.body);
+    assert!(
+        prefixed.body.contains("Notability</a></li>"),
+        "{}",
+        prefixed.body
+    );
+    assert!(!prefixed.body.contains(">Home</a></li>"));
+    let stripped = reader
+        .get("/w/index.php?title=Special:PrefixIndex&prefix=No&namespace=4&stripprefix=1")
+        .await;
+    assert!(stripped.body.contains(">tability</a>"), "{}", stripped.body);
+
     // The read-only pages about the wiki, from what the API reports (21 §6.1).
     let compared = reader
         .get(&format!(

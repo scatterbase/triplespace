@@ -1,0 +1,17 @@
+/* Special pages' own lists: AllPages and PrefixIndex (0047 §4.4). */
+
+.ts-allpages {
+	columns: 3 14em;
+	column-gap: var( --spacing-200, 2rem );
+	margin: var( --spacing-100, 1rem ) 0;
+	padding-inline-start: var( --spacing-125, 1.25rem );
+}
+
+.ts-allpages li {
+	break-inside: avoid;
+}
+
+/* A redirect is listed in italics, as MediaWiki lists it. */
+.ts-allpages__redirect {
+	font-style: italic;
+}

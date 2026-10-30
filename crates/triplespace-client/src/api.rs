@@ -154,6 +154,9 @@ pub struct ProviderType {
     /// What the provider's own IDs start with.
     #[serde(default)]
     pub upstream_prefix: String,
+    /// The namespace its entities' pages are in, by canonical name (`Item`).
+    #[serde(default)]
+    pub namespace: Option<String>,
 }
 
 /// A provider chip's colours.
@@ -272,6 +275,21 @@ pub struct MessageQuery {
     pub lang: String,
     /// `amfrom`: the first key.
     pub from: String,
+}
+
+/// A `siteinfo` section decoded whole. An absent section (`null`) is the default, since a
+/// stock Wikibase or an older API sends none; a section that is present but does not
+/// decode is an error naming the section and the field, never a silent empty value that
+/// would hide every provider, issuer or override behind one mistyped field.
+fn section<T: serde::de::DeserializeOwned + Default>(
+    v: &Value,
+    name: &str,
+) -> Result<T, ClientError> {
+    if v.is_null() {
+        return Ok(T::default());
+    }
+    serde_json::from_value(v.clone())
+        .map_err(|e| ClientError::Unexpected(format!("siteinfo `{name}` does not decode: {e}")))
 }
 
 impl Client {
@@ -412,10 +430,7 @@ impl Client {
                 .as_u64()
                 .and_then(|n| u32::try_from(n).ok())
                 .unwrap_or(0),
-            theme: ts
-                .get("theme")
-                .filter(|t| t.is_object())
-                .and_then(|t| serde_json::from_value(t.clone()).ok()),
+            theme: section(&ts["theme"], "triplespace.theme")?,
             insecure: ts["insecure"].as_bool().unwrap_or(false),
             property_types: general["wikibase-propertytypes"]
                 .as_object()
@@ -432,8 +447,8 @@ impl Client {
                 .as_str()
                 .unwrap_or_default()
                 .to_string(),
-            providers: serde_json::from_value(v["query"]["providers"].clone()).unwrap_or_default(),
-            capabilities: serde_json::from_value(ts["capabilities"].clone()).unwrap_or_default(),
+            providers: section(&v["query"]["providers"], "providers")?,
+            capabilities: section(&ts["capabilities"], "triplespace.capabilities")?,
             mainpage: general["mainpage"]
                 .as_str()
                 .unwrap_or("Main Page")
@@ -441,15 +456,17 @@ impl Client {
             tenant: ts["tenant"].as_str().unwrap_or_default().to_string(),
             at_farm: ts["at_farm"].as_bool().unwrap_or(false),
             account_approval: ts["account"]["approval"].as_bool().unwrap_or(false),
-            login_issuers: crate::issuers::login_issuers(ts),
+            login_issuers: section(&ts["login"], "triplespace.login")?,
             thread_markup: ts["thread"]["markup"]
                 .as_str()
                 .unwrap_or("markdown")
                 .to_string(),
             issuer: ts["issuer"].as_str().unwrap_or_default().to_string(),
             farm_code: ts["farm_code"].as_str().unwrap_or_default().to_string(),
-            interface: serde_json::from_value(ts["interface"]["messages"].clone())
-                .unwrap_or_default(),
+            interface: section(
+                &ts["interface"]["messages"],
+                "triplespace.interface.messages",
+            )?,
         };
         Ok(Fetched { value, cache })
     }
@@ -490,6 +507,22 @@ impl Client {
 mod tests {
     use super::*;
     use axum::http::HeaderMap;
+
+    #[test]
+    fn a_section_is_empty_when_absent_and_an_error_when_malformed() {
+        let none: Vec<ProviderInfo> = section(&Value::Null, "providers").unwrap();
+        assert!(none.is_empty());
+        let bad = serde_json::json!([{"code": "WD", "slug": "wikidata", "name": "Wikidata", "types": [{"code": "Q", "entity_type": "item", "iri": "x", "namespace": 120}]}]);
+        let e = section::<Vec<ProviderInfo>>(&bad, "providers").unwrap_err();
+        let text = e.to_string();
+        assert!(
+            text.contains("`providers`") && text.contains("invalid type"),
+            "{text}"
+        );
+        let good = serde_json::json!([{"code": "WD", "slug": "wikidata", "name": "Wikidata", "types": [{"code": "Q", "entity_type": "item", "iri": "x", "namespace": "Item"}]}]);
+        let ok: Vec<ProviderInfo> = section(&good, "providers").unwrap();
+        assert_eq!(ok[0].types[0].namespace.as_deref(), Some("Item"));
+    }
 
     #[test]
     fn cache_info_reads_the_headers() {

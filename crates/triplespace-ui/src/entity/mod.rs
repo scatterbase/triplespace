@@ -664,6 +664,7 @@ mod tests {
                     entity_type: "item".into(),
                     iri: "http://www.wikidata.org/entity/{upstream_id}".into(),
                     upstream_prefix: "Q".into(),
+                    namespace: Some("Item".into()),
                 }],
                 chip: None,
             }],

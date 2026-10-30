@@ -17,6 +17,8 @@ struct FakeApi {
     down: bool,
     api_version: u64,
     no_search: bool,
+    /// Sends a provider whose `types` is not a list, as a mistyped field would.
+    bad_providers: bool,
     seen: Arc<Mutex<Vec<ApiRequest>>>,
 }
 
@@ -33,7 +35,8 @@ impl Transport for FakeApi {
                     json!({"query": {
                         "general": {"sitename": "Librarybase", "server": "https://librarybase.org", "lang": "en", "mainpage": "Project:Home"},
                         "triplespace": {"api_version": self.api_version, "insecure": false,
-                            "capabilities": if self.no_search { json!(["wbgetentities"]) } else { json!(["wbgetentities", "wbsearchentities"]) }}
+                            "capabilities": if self.no_search { json!(["wbgetentities"]) } else { json!(["wbgetentities", "wbsearchentities"]) }},
+                        "providers": if self.bad_providers { json!([{"code": "WD", "slug": "wikidata", "name": "Wikidata", "types": "item"}]) } else { json!(null) }
                     }}),
                     "\"si\"",
                 )
@@ -236,6 +239,22 @@ async fn the_api_away_or_too_old_is_a_503() {
     let (status, _, html) = get(&old, "/wiki/Main_Page", &[]).await;
     assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
     assert!(html.contains("older than this version"));
+}
+
+#[tokio::test]
+async fn a_siteinfo_section_that_does_not_decode_is_a_502_not_an_empty_list() {
+    let fake = FakeApi {
+        bad_providers: true,
+        ..api()
+    };
+    let (status, h, html) = get(&fake, "/wiki/Main_Page", &[]).await;
+    assert_eq!(status, StatusCode::BAD_GATEWAY);
+    assert!(
+        h.get(header::RETRY_AFTER).is_none(),
+        "waiting will not mend it"
+    );
+    assert_eq!(h[header::CACHE_CONTROL], "no-store");
+    assert!(html.contains("could not read"), "{html}");
 }
 
 #[tokio::test]

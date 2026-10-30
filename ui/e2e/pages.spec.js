@@ -66,7 +66,13 @@ const pages = [
 	{ path: '/wiki/Special:ProtectedTitles', heading: 'Protected titles' },
 	{ path: '/wiki/Special:AllMessages', heading: 'All messages' },
 	{ path: '/wiki/Special:ComparePages', heading: 'Compare pages' },
-	{ path: '/w/index.php?title=Special:ComparePages&page1=Project:Home&page2=Item:Q6', heading: 'Compare pages', status: 404 }
+	{ path: '/w/index.php?title=Special:ComparePages&page1=Project:Home&page2=Item:Q6', heading: 'Compare pages', status: 404 },
+	{ path: '/wiki/Special:AllPages', heading: 'All pages' },
+	{ path: '/wiki/Special:PrefixIndex/Project:', heading: 'Pages with prefix' },
+	{ path: '/w/index.php?title=Special:AllPages&namespace=120', heading: 'All pages' },
+	{ path: '/wiki/Special:NewPages', heading: 'New pages' },
+	{ path: '/wiki/Special:Providers', heading: 'Providers' },
+	{ path: '/wiki/Special:SetAliases', heading: 'Set aliases' }
 ];
 
 for ( const p of pages ) {

@@ -144,6 +144,35 @@ pub enum PageRef {
     Revision(u64),
 }
 
+/// What `list=allpages` is asked (`Special:AllPages`, `Special:PrefixIndex`).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct PageListQuery {
+    /// `apnamespace`.
+    pub namespace: i64,
+    /// `apfrom`: the first title, without the namespace.
+    pub from: String,
+    /// `apto`: the last title, without the namespace.
+    pub to: String,
+    /// `apprefix`.
+    pub prefix: String,
+    /// `apfilterredir`: `redirects`, `nonredirects`, or all when empty.
+    pub filter_redirects: String,
+    /// `apdir=descending`.
+    pub descending: bool,
+    /// `aplimit`.
+    pub limit: u32,
+}
+
+/// A page of `list=allpages`: the titles, prefixed as the API writes them, and the
+/// title the next page starts at.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct PageList {
+    /// The titles.
+    pub titles: Vec<String>,
+    /// `apcontinue`.
+    pub next: Option<String>,
+}
+
 /// What `prop=info` says of a page.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct PageInfo {
@@ -419,6 +448,55 @@ impl Client {
     ) -> Result<Fetched<Lookup<PageInfo>>, ClientError> {
         self.info_of(incoming, &format!("titles={}", q(title)))
             .await
+    }
+
+    /// `list=allpages`, as asked.
+    ///
+    /// # Errors
+    ///
+    /// The API's refusal, or the API away or unreadable.
+    pub async fn all_pages(
+        &self,
+        incoming: &Incoming,
+        ask: &PageListQuery,
+    ) -> Result<Fetched<PageList>, ClientError> {
+        let mut path = format!(
+            "/w/api.php?action=query&list=allpages&apnamespace={}&aplimit={}&format=json&formatversion=2",
+            ask.namespace, ask.limit
+        );
+        for (k, v) in [
+            ("apfrom", &ask.from),
+            ("apto", &ask.to),
+            ("apprefix", &ask.prefix),
+            ("apfilterredir", &ask.filter_redirects),
+        ] {
+            if !v.is_empty() {
+                path.push('&');
+                path.push_str(k);
+                path.push('=');
+                path.push_str(&q(v));
+            }
+        }
+        if ask.descending {
+            path.push_str("&apdir=descending");
+        }
+        let r = self.get(incoming, &path).await?;
+        let v = check(&r)?;
+        let titles = v["query"]["allpages"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|p| p["title"].as_str().map(str::to_string))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let next = v["continue"]["apcontinue"]
+            .as_str()
+            .map(|c| c.replace('_', " "));
+        Ok(Fetched {
+            value: PageList { titles, next },
+            cache: CacheInfo::of(&r),
+        })
     }
 
     /// `prop=info` of the page with a page ID (`pageids=`) or of the page a revision
