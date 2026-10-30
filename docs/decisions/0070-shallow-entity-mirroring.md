@@ -122,6 +122,7 @@ James's direction, from the design discussion of 2026-10-07:
 - **Q4. Lexemes and forms under `linked`.** A form or sense ID as a value fetches its lexeme; whether that should be the default for `lexeme`.
 - **Q5.** ~~(Rest of Q3.) Whether a registry Wikibase provider other than Wikidata, or another Triplespace instance ([0022](0022-federation.md) §2), uses the same job with its own endpoint.~~ *Settled by [0092](0092-following-recent-changes.md) §1, for Wikibases: a registry Wikibase provider uses the same job with its own `api`, followed by its recent changes when it has no `events`; the rest is Q6.*
 - **Q6.** (Rest of Q5.) Whether another Triplespace instance ([0022](0022-federation.md) §2) uses the same job, or reads its log and checkpoints instead (0092 Q2).
+- **Q7. Terms of a full Wikidata mirror.** Whether mirror entities populate `view.term` at all before any full Wikidata mirror (`docs/testing/performance.md` §6). (From the working notes, 0099 §5.)
 
 ## References
 

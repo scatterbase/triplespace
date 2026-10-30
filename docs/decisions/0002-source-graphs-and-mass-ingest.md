@@ -143,6 +143,7 @@ Four scenarios were used to test the design:
 - **Q9. Wire formats beyond NDJSON.** For example, a binary or columnar format for maximum throughput.
 - **Q10.** ~~**IRIs for upstream revisions and actors.** Candidates are provider-derived IRIs, such as `https://www.wikidata.org/w/index.php?oldid=N` for a Wikidata revision. This makes 0001 Q3 about actors from foreign sources concrete.~~ *Settled by [0007](0007-actor-identity.md) §2 (`Special:Redirect/user/{id}`) and [0015](0015-record-format-and-partition-registry.md) §4 (`Special:Redirect/revision/{revid}`), both on the provider's wiki.*
 - **Q11. Eager forks.** Whether to support freezing a copy of an entity now, as an operation distinct from `retain`.
+- **Q12. Reserving `Y*` provider codes.** Whether `Y*` blocks are reserved for tenant-scoped foreign graphs, and how the reservation is recorded. (From the working notes, 0099 §5.)
 
 ## Amendment log
 

@@ -45,6 +45,8 @@ This directory is the registry of record for the names and codes that Triplespac
 
 ## Pending allocations
 
+- **Provider `agent_iri` values** in `providers.toml`: OpenAlex's (its Wikidata item) is still "to be set when confirmed", and OpenStreetMap and GDELT carry the same comment. **MusicBrainz's type codes** there were proposed when the adapter was drafted and never explicitly confirmed. (From the working notes, 0099 §5.)
+
 - **Pages served at the auth base** ([0089](../decisions/0089-the-auth-host-and-instance-logins.md) §7): the field `auth = true` on `UserLogin`, `CreateAccount`, `Account` and `UserLogout` in `special-pages.toml`. Written as a comment beside each until `triplespace-titles` accepts it, since the parser rejects unknown fields.
 
 - **Commons as the source of Wikidata's `M` type** ([0065](../decisions/0065-mediainfo-captions-and-commons.md) §2, §5): the per-type fields `api`, `entity_data` and `dumps` on `[[provider.type]]`, pointing at `commons.wikimedia.org`. They are written as comments beside the `M` type in `providers.toml` until `scatter-providers` accepts them; the registry parser rejects unknown fields.

@@ -37,13 +37,19 @@ a decision always means editing a chapter section and citing the ADR section in 
 - **A direct decision** changes an ADR with no new ADR: James decides in discussion. The log
   entry's Source is `Direct: James, design discussion of YYYY-MM-DD`, and its Summary holds the
   decision in full, because nowhere else does.
+- **A call made while building** is a direct decision you make: log it in the owning ADR in the
+  same change as the code, folded like any other, with Source
+  `Direct: Claude, while building <what>, YYYY-MM-DD; unconfirmed`. `INDEX.md` lists it for James;
+  he confirms by editing the Source line or overturns it with a new entry. Never park such calls
+  in notes outside the ADRs.
 
 ## Writing a new ADR
 
 - File `docs/decisions/NNNN-slug.md`, with the next free number (`ls docs/decisions | tail`).
   H1 `# NNNN. Title`. The number and slug never change.
 - Header, in order, one line each, values never sentences:
-  - `Status: Proposed`. It stays Proposed until the code implements every section.
+  - `Status: Proposed`. Never edit it: `check_adrs.py --index` writes it from the code's
+    `implements` claims (24 §15).
   - `Date`.
   - `Updated` only once there is a log.
   - `Author: James Hare / Claude Fable`. The agent name must be an `[[agent]]` in
@@ -140,6 +146,15 @@ with its old text in the log entry. If a chapter section is split or renamed, re
 - Add or update the file's row in the registry README table (*Defined in*).
 - `settings.toml` drives chapter 23's catalogue: run `python3 architecture/settings.py --write .`.
 - Run `cargo build` for the embedding crate: a malformed TOML file fails the build.
+
+## When the code is done
+
+Finishing a section is part of the change that finishes it (24 §15): add `implements NNNN §N (An)`
+in a comment at the completing src code (the entry is the last one in the section's provenance
+line; none if it has no provenance line; `§N.M` or `§N rule K` for a part) and make sure a test
+cites the section (`// 0013 §7` in the test is enough). Then `docs/check.sh --write` recomputes
+the ADR's Status and `INDEX.md`. When a change implements a log entry on an Accepted ADR, move
+the claim's entry ID. `tools/coverage.py --todo` lists what is still not done.
 
 ## Validating
 

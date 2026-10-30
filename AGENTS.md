@@ -12,7 +12,7 @@ QuickStatements). James Hare (Scatter LLC) owns it; he decides, and agents draft
 | `docs/architecture/` | **What holds now**, by subject: 25 chapters (`00`–`24`). Start with `00`, then `22` (crates and stack). `24` is how the docs themselves work. | A chapter describes; it decides nothing on its own. Every `##`/`###` section opens with a `*Sources:*` line naming the ADR sections it holds: that line is the only map between ADRs and chapters. |
 | `docs/decisions/` | **Why and when**: ADRs. Every Decision section is a one-line pointer (*Current text: [03] §4.5.*) into a chapter, from the day the ADR is written; the ADR holds Context, Alternatives, Consequences, Open questions and the Amendment log. | Never read an ADR for its text: follow the pointer (`tools/adr.py show`). A new ADR's text is written into the chapters, then `architecture/pointers.py NNNN` fills its pointers. |
 | `docs/registry/` | Names and codes the crates embed (`include_str!`) and parse at build time: providers, graphs, namespaces, content models, special pages, settings, groups… | A change here is a commit. Codes and numbers are never reused. See its `README.md`, including *Pending allocations*. |
-| `docs/testing/` | How to test against real dumps (`real-dumps.md`, with its results log) and write-path performance: measurements, the `pg_stat_statements` recipe, Postgres settings, what a Wikidata-sized load needs (`performance.md`). | Add a results row for every real-dump run. |
+| `docs/testing/` | How to test against real dumps (`real-dumps.md`, with its results log) and write-path performance: measurements, the `pg_stat_statements` recipe, Postgres settings, what a Wikidata-sized load needs (`performance.md`); the sandbox, test-environment and checkout pitfalls (`gotchas.md`). | Add a results row for every real-dump run; add pitfalls as you meet them. |
 | `docs/api/` | Compatibility contracts with Wikibase and MediaWiki, golden snapshots, log test vectors, the OpenAPI file. | Contracts are tested where they are implemented. |
 | `crates/` | One workspace: `scatter-*` (shared with Scatterbase, knows nothing of Triplespace) and `triplespace-*` (the product). | See the crate rules below. |
 | `tools/` | Scripts outside the build: dump slicing, client-compatibility checks, talk-page prototypes. `tools/README.md`. | |
@@ -27,12 +27,16 @@ QuickStatements). James Hare (Scatter LLC) owns it; he decides, and agents draft
 - `outline NN|NNNN` prints a document's headings.
 - `code 0013 §7` lists the code that cites a section.
 
-**Is it built?** Every ADR is `Proposed` until it is implemented in full, so the status won't tell
-you. `tools/coverage.py` reads the `NNNN §N` citations in code comments: run it alone for one line
-per ADR, or with `NNNN` for each section and the crates citing it. A citation means the code is
-about a section, not that the section is complete, so read the cited lines before relying on one.
-Cite sections in comments as `0013 §7`, and a numbered item as `0013 §7 rule 2` (0050 §11).
-`coverage.py --stale` lists citations of sections that don't exist.
+**Is it built? The code says (24 §15).** Two kinds of citation in code comments: `0013 §7` means the
+code is *about* the section; `implements 0013 §7 (A41)` claims it is built in full as it stood at
+entry A41 (written once, in src, at the code that completes it; `§7.3` or `§7 rule 2` for a part;
+the entry is required once the section has a provenance line). A section is **done** when a src
+claim covers it, a test cites it, and no entry changed it since. `tools/coverage.py` reads both:
+alone for one line per ADR with its computed status, `NNNN` for each section, `NNNN §N` for the
+citing lines, `--todo` for everything not done and what it needs (this is the backlog), `--check`
+for malformed claims. The ADR's `Status` header and `INDEX.md`'s *Built* column are written from
+this by `check_adrs.py --index`: never edit a Status by hand. Finishing a section means adding its
+`implements` line and a test that cites it, in the same change.
 
 **Generated files: never edit by hand.** `docs/decisions/INDEX.md` (`check_adrs.py --index`),
 the settings tables in chapter 23 (`settings.py --write`, from `registry/settings.toml`), and the
@@ -96,6 +100,10 @@ toolchain instead of the pinned one), rather than calling the work verified. Wit
 - Keep history linear: rebase onto `main` when other work merges; no stacked or orphaned
   branches; avoid force-pushes.
 - Flag assumptions and open choices explicitly for James to confirm. Do not settle them silently.
+  A call you have to make while building goes into the owning ADR's Amendment log in the same
+  change, folded into the chapter, with Source `Direct: Claude, while building <what>, <date>;
+  unconfirmed` (24 §6); `INDEX.md` lists these for James. Never keep such calls in notes.
+- Sandbox and test-environment pitfalls are `docs/testing/gotchas.md`; add what you learn there.
 - Prefer real data and real clients for testing: the Librarybase fixtures, `tools/*_check.py`.
   Watch for Pywikibot's API cache masking whether a fix worked.
 

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-17
-- **Updated:** 2026-10-30 (A1)
+- **Updated:** 2026-10-30 (A2)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0021](0021-notifications.md), [0027](0027-preferences-and-portability.md), [0028](0028-tenancy-policy.md), [0034](0034-frontend-stack.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md), [0046](0046-primary-tenant.md), [0047](0047-special-pages.md), [0056](0056-security-model.md), [0057](0057-web-tier.md), [0067](0067-proposals.md)
 - **Uses:** [0014](0014-caches-and-search.md)
@@ -45,6 +45,8 @@ James's direction, from the design discussion of 2026-10-17:
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §1.4; [07](../architecture/07-actors-and-accounts.md) §8.1; [23](../architecture/23-configuration-and-registry.md) §1.3, §2.2, §3.1, §3.2, §3.3, §3.7, §4.1, §6.*
 
 ### 2. Resolving a value (amends 0028 §8, 0027 §1, 0040 §6, 0012 §4 and 0034 §9; extends 0015 §3 and 0057 §6)
+
+*Changed by A2.*
 
 *Current text: [23](../architecture/23-configuration-and-registry.md) §3.1.*
 
@@ -130,3 +132,15 @@ James's direction, from the design discussion of 2026-10-17:
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§9
 - **Summary:** The Decision's current text now lives in the architecture chapters [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [07](../architecture/07-actors-and-accounts.md), [08](../architecture/08-tenants-and-instances.md), [09](../architecture/09-security-and-moderation.md), [10](../architecture/10-pages-and-content-models.md), [12](../architecture/12-files-and-media.md), [16](../architecture/16-logs-feeds-and-notifications.md), [17](../architecture/17-federation-and-publication.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `2e2a7c8`. No decision changed.
+
+### A2. Settings: the calls made building the backend slice
+
+- **Date:** 2026-10-30
+- **Source:** Direct: Claude, while building the settings backend (b6ca54d), 2026-10; unconfirmed
+- **Change:** extends §2
+- **Summary:** Logged from the working notes on their retirement (0099 §5, 24 §15); each call stands as decided until James confirms or overturns it, and the chapter text that states it is folded on confirmation where it is not already there. The calls:
+  - Instance rights apply at `scope=instance`. Ceilings apply only with a `tenancy:` record. `follows` falls back to the tenant account; `follows = farm` for language, time zone and date format.
+  - Record shapes for `template` and `tenancy` as implemented; an instance act is an authority attestation; `base` is `next_offset`.
+  - Site-asset writes are refused. `site.name` validation has gaps. CSRF only for cookie sessions.
+  - `PATCH` body `{set, reset, reset_all, token}`. `action=options` warns and skips bad keys. Interface languages are `["en"]`. Identity tenancy switches need `owner`.
+  - `entities.term_languages` exists twice at instance level (a pre-existing conflict). The generated settings labels may need editing.

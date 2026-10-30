@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-07
-- **Updated:** 2026-10-30 (A5)
+- **Updated:** 2026-10-30 (A6)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md), [0033](0033-backend-stack.md), [0047](0047-special-pages.md)
 - **Uses:** [0005](0005-crate-organization.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0028](0028-tenancy-policy.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0046](0046-primary-tenant.md), [0056](0056-security-model.md), [0057](0057-web-tier.md), [0059](0059-query-service.md), [0075](0075-mcp-server.md)
@@ -91,7 +91,7 @@ And on the first proposal, the same day:
 
 ### 11. Features
 
-*Changed by A1.*
+*Changed by A1, A6.*
 
 *Current text: [21](../architecture/21-special-pages.md) §5.10.*
 
@@ -201,3 +201,12 @@ Replaced text (§4):
 - **Source:** Direct: James, review of 2026-10-30, confirming the implementation calls of 2026-10-23 and 24 that the catalogue cross-checks surfaced
 - **Change:** extends §10
 - **Summary:** `GET /version/licenses/{id}` serves one component's licence, copyright and notice files, the route behind `Special:Version/License` (21 §7); it is in the OpenAPI contract and in `registry/routes.toml`.
+
+### A6. Licensing: loose ends from building Special:Version
+
+- **Date:** 2026-10-30
+- **Source:** Direct: Claude, while building Special:Version, 2026-10; unconfirmed
+- **Change:** extends §11
+- **Summary:** Logged from the working notes on their retirement (0099 §5, 24 §15); each call stands as decided until James confirms or overturns it, and the chapter text that states it is folded on confirmation where it is not already there. The calls:
+  - `OFL-1.1` was added to `deny.toml` provisionally and is not recorded in 0033; record it there or give the font licence its own ADR.
+  - Whether to narrow the "Inspired by" credits.

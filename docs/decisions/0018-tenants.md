@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-18 (A32)
+- **Updated:** 2026-10-30 (A33)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0003](0003-statement-ui.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md), [0017](0017-entity-id-grammar.md), [0022](0022-federation.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md)
@@ -37,7 +37,7 @@ This ADR adds tenants, makes each tenant its own issuer of identity, lets a tena
 
 ### 3. Configuration (amends 0015 §3)
 
-*Changed by A2, A5, A8, A13, A23, A27.*
+*Changed by A2, A5, A8, A13, A23, A27, A33.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §2.4, §2.5.*
 
@@ -504,3 +504,20 @@ Replaced text ([08](../architecture/08-tenants-and-instances.md) §6.2, as it st
 Replaced text ([08](../architecture/08-tenants-and-instances.md) §6.4, as it stood):
 
 > by logging in with the same identity provider, which the new instance checks against the binding digest;
+
+### A33. Multi-tenant round 1: the assumptions the implementation made
+
+- **Date:** 2026-10-30
+- **Source:** Direct: Claude, while building multi-tenant round 1 (b4fa37f), 2026-10; unconfirmed
+- **Change:** extends §3
+- **Summary:** Logged from the working notes on their retirement (0099 §5, 24 §15); each call stands as decided until James confirms or overturns it, and the chapter text that states it is folded on confirmation where it is not already there. The calls:
+  - A `farm` instance config kind: `{"kind":"farm","slug","code","base"}`; no `farm` kind appears in the chapters yet.
+  - `tenant:` records carry `issuer`.
+  - Founding signature preimage: `0x05` for the instance; `0x06` + authority for a tenant; no `actor`.
+  - Config order: founding `key:`, `graph:config`, `farm`, then `tenant:`, then `primary`. This conflicts with the chapter's "offsets 1 and 2 are `tenant:` and `primary`".
+  - A slug may equal a registered code only when `--adopt`'s host is that issuer's site.
+  - Tenant provisions are instance attestations with `binding: false`; `site.name` is owner-attested.
+  - `tenant create`'s `tenant:` record is attested by an owner of the primary tenant.
+  - Singleton kinds read as `kind:kind`.
+  - `GET /tenancy` at a tenant base answers 400 `ts-instance-policy`.
+  - Possibly stale: §10's "six partitions" omits `derived/{source}` (0071).

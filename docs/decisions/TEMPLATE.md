@@ -5,8 +5,8 @@ Format: chapter 24 of docs/architecture/ (ADRs 0050 and 0098). Copy to NNNN-slug
 comments and any optional part you do not use.
 Header values are dates, statuses or lists of links, never sentences.
 Omit Updated until the first log entry; omit Changes and Uses when empty.
-Status is Proposed until the ADR is implemented in full, then Accepted. A change to an Accepted ADR that the
-code does not implement yet makes it: Accepted with proposed amendment (An, …), until it does (24 §2.2).
+Status is written from the code by `check_adrs.py --index` (24 §2.2, §15): leave it Proposed and never edit it.
+It becomes Accepted when every Decision section has an `implements NNNN §N (An)` claim in src and a test citing it.
 The Decision's text does not go here. Write it into the chapter sections it belongs to, each with a
 *Sources:* line citing this ADR's section (24 §3.2); then run `python3 architecture/pointers.py NNNN`
 from docs/ to fill the pointers below, and `docs/check.sh --write` to regenerate INDEX.md and check.

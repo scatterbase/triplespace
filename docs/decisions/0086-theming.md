@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-17
-- **Updated:** 2026-10-30 (A8)
+- **Updated:** 2026-10-30 (A9)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md), [0018](0018-tenants.md), [0034](0034-frontend-stack.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md), [0055](0055-templatestyles-templatedata-and-page-properties.md)
 - **Uses:** [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [0077](0077-special-version.md), [0085](0085-settings-and-preferences.md)
@@ -58,7 +58,7 @@ James's direction, from the design discussion of 2026-10-16 and 2026-10-17:
 
 ### 5. Serving (amends 0034 §1; extends 0034 §11; amends 0012 §4)
 
-*Changed by A5, A6, A7.*
+*Changed by A5, A6, A7, A9.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §1.4; [18](../architecture/18-api.md) §2.2; [19](../architecture/19-site-ui.md) §5.9.*
 
@@ -230,3 +230,13 @@ Replaced text (§7):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§7
 - **Summary:** The Decision's current text now lives in the architecture chapters [02](../architecture/02-graphs-rdf-and-query.md), [07](../architecture/07-actors-and-accounts.md), [08](../architecture/08-tenants-and-instances.md), [09](../architecture/09-security-and-moderation.md), [11](../architecture/11-rendering-templates-and-modules.md), [12](../architecture/12-files-and-media.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `2e2a7c8`. No decision changed.
+
+### A9. Theming: loose ends from building it
+
+- **Date:** 2026-10-30
+- **Source:** Direct: Claude, while building theming, 2026-10; unconfirmed
+- **Change:** extends §5
+- **Summary:** Logged from the working notes on their retirement (0099 §5, 24 §15); each call stands as decided until James confirms or overturns it, and the chapter text that states it is folded on confirmation where it is not already there. The calls:
+  - §7 still says the theme is "not yet served"; it is served (c288df8, fee0708), so the sentence needs a `corrects` entry.
+  - The registry lists OpenDyslexic Mono, but IBM Plex Mono is what's served; one of them is wrong.
+  - `theme.choice` and the chip swap are as built and unconfirmed.

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-27 (A22)
+- **Updated:** 2026-10-30 (A23)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0011](0011-logs.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0028](0028-tenancy-policy.md)
@@ -23,7 +23,7 @@ Echo is the precedent. It has notification *types* (mention, edit-user-talk, rev
 
 ### 2. Addressing rules (amends 0020 §3)
 
-*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A17, A18, A19, A20, A21.*
+*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A17, A18, A19, A20, A21, A23.*
 
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.2.*
 
@@ -328,3 +328,17 @@ Replaced text ([19](../architecture/19-site-ui.md) §6.2, as it stood):
 Replaced text ([19](../architecture/19-site-ui.md) §6.2, as it stood):
 
 > - **Watch controls** are the star at the end of the tabs of a page, an entity, a talk page or a thread, and a **Watch for…** menu beside it, both forms that work without JavaScript: the star watches permanently or stops watching; the menu watches for a week, a month, three months, six months or permanently, with **Notify me of changes**, which sets `notify` on the watch row. A watch that lapses says until when. Subscribing to a thread is watching it with `notify` ([16](../architecture/16-logs-feeds-and-notifications.md) §4.3; [0021](../decisions/0021-notifications.md) A21).
+
+### A23. Accountability: the calls made building tier 5
+
+- **Date:** 2026-10-30
+- **Source:** Direct: Claude, while building accountability (tier 5), 2026-10-23; unconfirmed
+- **Change:** extends §2
+- **Summary:** Logged from the working notes on their retirement (0099 §5, 24 §15); each call stands as decided until James confirms or overturns it, and the chapter text that states it is folded on confirmation where it is not already there. The calls:
+  - Asynchronous projections run in the server: a one-second loop, plus a catch-up before the inbox is read. Only `actors` partitions are replayed for addressing; every other partition's addressing position is moved to its head, on the invariant that membership and block records live only in `actors`.
+  - The inbox delivers every reason: the `notifications.*` preference matrix is not read yet.
+  - Instance acts notify, naming the operator (`agent: {ts-instance: true}`): the owner of a new instance finds one notification, of being made owner.
+  - A join by an account whose name is hidden notifies nobody of the join.
+  - Echo shapes: `rights` is Echo's `user-rights`; reasons Echo lacks are `ts-{reason}`; every reason so far is an alert; Triplespace adds `ts-reason` and `ts-params` to each item; one seen time per account for both sections.
+  - `action=block`: the default removes `edit` and `createpage` (09 §3.3), where MediaWiki's blocks all editing; `nocreate` adds `createaccount`; `tsallbutread` blocks everything but `read`; `hidename` only on an indefinite block; blocking oneself is refused (`ts-cantblock-self`); `autoblock`, `noemail`, `allowusertalk` and partial blocks are ignored with a warning; the answer's `id` is the record's log ID.
+  - Unblock by ID of a hidden user answers `userhidden` instead of the name; administrators outside the suppression group can unblock a hidden user only by block ID (and, since 0056 A25, an unblock by a holder of `hideuser` also unhides).

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-30 (A41)
+- **Updated:** 2026-10-30 (A42)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -35,7 +35,7 @@ The two agree on the shape: users, groups, memberships, named permissions, and r
 
 ### 3. Groups, memberships and blocks
 
-*Changed by A5, A7, A8, A9, A11, A12, A15, A22, A30, A31, A35, A36, A37, A38.*
+*Changed by A5, A7, A8, A9, A11, A12, A15, A22, A30, A31, A35, A36, A37, A38, A42.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §3.1, §3.2, §3.3, §3.4, §3.5, §3.6.*
 
@@ -515,3 +515,28 @@ Replaced text ([09](../architecture/09-security-and-moderation.md) §2.2, the le
 - **Source:** Direct: James, review of 2026-10-30, confirming the implementation calls of 2026-10-23 and 24 that the catalogue cross-checks surfaced
 - **Change:** extends §2, §7
 - **Summary:** Two things the code has done since the moderation tiers, now decided. §7: a tenant's group records are read, defined and retired over REST at `GET`, `PUT` and `DELETE /group/{name}` (the permissions, inclusion, delegation and scope of 09 §3.2; `ts-config`, plus `userrights` for inclusion, delegation or scope), the route the site's `Special:UserRights` and the CLI's `group` commands use; it is in the OpenAPI contract and in `registry/routes.toml`. §2: `ts-runjob` is granted to `sysop` as well as `bot`, as `groups.toml` has had it, so that an administrator can run a bulk job without a bot account; the permission catalogue's derived column now says so.
+
+### A42. Delegated administration: the calls made while drafting and building tier 4
+
+- **Date:** 2026-10-30
+- **Source:** Direct: Claude, while building the permission model's drafting and tier 4, 2026-10-22 and 23; unconfirmed
+- **Change:** extends §3
+- **Summary:** Logged from the working notes on their retirement (0099 §5, 24 §15); each call stands as decided until James confirms or overturns it, and the chapter text that states it is folded on confirmation where it is not already there. The calls:
+  - `includes` is one level deep (no chains, no cycles).
+  - Changing `includes`, `adds`, `removes`, `adds_self`, `removes_self` or `within` needs `userrights` as well as `ts-config`.
+  - The empty-group report lives on `Special:ProtectedPages` for `userrights` holders; 0056 Q4 is marked partly settled (counts for groups that do have members stay open).
+  - The add/remove lists may not name `owner` or any group holding `userrights` or `ts-config`.
+  - A scoped group may hold only permissions that act on a page, entity or thread; `userrights`, `ts-config`, `block`, `createaccount` and the instance rights are refused in one. The targeted permissions are listed in `groups.toml` as `[permissions] targeted`: the page, revision and moderation rights, `move*`, upload rights, the Wikibase entity rights, `ts-link`, `ts-linkproperty`, `ts-retain`, `ts-convert`, `ts-editpost`; `patrol`/`autopatrol` are in; `import`, `changetags`, `nuke`, `browsearchive` are out.
+  - Membership in a scoped group counts everywhere in ACL tests; only its permissions are scoped. A move needs the permission at source and destination, so a scoped admin can't move a page out.
+  - `meta=userinfo` reports scoped permissions under a new `ts-scopedrights`, leaving MediaWiki's `rights` tenant-wide only.
+  - 09 §6.3 says an actor ACL "sets the hidden status": it is enforced at serve time rather than by writing `view.actor.status = 'hidden'`, so the suppression group still sees the name; a `corrects` entry can align the wording.
+  - `action=userrights` refuses the whole request if any group in it is one the caller may not change (`permissiondenied`, naming the group), where MediaWiki silently leaves such groups out.
+  - `within` is written as ACL keys without `acl:`: `["namespace:4", "set:12"]`. A scope encloses a page's subpages (through its namespace), a member's subpages, and a thread through its home talk page and that talk page's subject page; a namespace scope does not reach the talk namespace's pages themselves.
+  - Delegation is a share of `userrights`: a block that removes `userrights` takes the delegation lists away too.
+  - A `userrights` holder may add themselves to any group but `owner` and remove themselves likewise; delegated self-changes need `adds_self`/`removes_self`.
+  - Membership requires the group to exist (a registry default, a tenant record, or a group with a member; `badvalue` otherwise), so a new group is defined first (`PUT /group/{name}`) unless the CLI or an existing member introduces it.
+  - The last-owner guard reads "every permission a group other than `owner` holds, and `userrights`, must be held by another group with a member", implicit groups counting as populated; the CLI may empty `owner` regardless.
+  - `rights/rights` events carry `params: {group, action, expires}` per record, not MediaWiki's `oldgroups`/`newgroups`; the event is on the account, so a hidden user's rights events show the target key.
+  - Group records are config records with no log event of their own; changing `includes` is not announced anywhere public.
+  - The CLI acts as the operator: every permission, and no lock-out.
+  - Every request loads the tenant's groups (one indexed `view.registry` query), anonymous ones included; no cache yet.

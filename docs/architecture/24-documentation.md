@@ -37,7 +37,7 @@ How the design is written down: the chapters of this directory, the ADRs of [`..
 
 ### 2.2 Header
 
-*Sources: [0050](../decisions/0050-adr-format.md) §3; [0098](../decisions/0098-pointers-from-birth.md) §3.*
+*Sources: [0050](../decisions/0050-adr-format.md) §3; [0098](../decisions/0098-pointers-from-birth.md) §3; [0099](../decisions/0099-status-from-the-code.md) §2.*
 
 Fixed fields, in this order, one line each. Each value is a date, a status or a list of links, never a sentence.
 
@@ -50,14 +50,12 @@ Fixed fields, in this order, one line each. Each value is a date, a status or a 
 | `Changes` | Linked numbers, ascending: every ADR whose text this one changes | When non-empty |
 | `Uses` | Linked numbers and contract documents, ascending: what this ADR relies on without changing | When non-empty |
 
-**Status follows the code.**
+**Status follows the code, and the code writes it.** `Proposed`, `Accepted` and `Accepted with proposed amendment (A7, A9)` are computed from the implementation claims in the code (§15) by `check_adrs.py --index`, which rewrites the header line; a hand-edited one is a check failure, like a stale index.
 
-- **`Proposed`** until every section of the Decision is implemented in code. An ADR implemented in part is still `Proposed`.
-- **`Accepted`** once it is implemented in full. The change that completes the implementation sets the status.
-- **`Accepted with proposed amendment (A7, A9)`** when a change lands on an `Accepted` ADR before the code implements it. The text is folded as always, so the chapters state the decision as it now stands, and the status names the log entries that the code does not yet implement. The change that implements an entry removes its ID. When the list is empty, the status is `Accepted` again.
-- **`Superseded by NNNN`** and **`Withdrawn`** come with the log entry that supersedes or withdraws the ADR.
-
-A change to a `Proposed` ADR leaves it `Proposed`.
+- **`Proposed`** until every top-level section of the Decision is done: claimed `implements` in src, cited by a test, and unchanged since the claim.
+- **`Accepted`** once every section is done.
+- **`Accepted with proposed amendment (A7, A9)`** when every section is done or was changed after its claim; the status names the entries the code has not caught up with. The commit that re-checks the code against an entry and moves the claim's entry ID removes it from the list.
+- **`Superseded by NNNN`** and **`Withdrawn`** are decisions, not implementation: they are written by hand with the log entry that supersedes or withdraws the ADR, and the checker leaves them alone.
 
 **There is no field for what the ADR relies on in the other direction, and none for the chapters it points at.** What changes an ADR is its Amendment log; what it changes is `Changes` and its section headings; which chapters hold its text is read from its pointers. `INDEX.md` (§13) lists all three for every ADR, and the checker generates it. The retired fields `Amended by`, `Related`, `Revised` and `Chapters` are not written.
 
@@ -149,7 +147,7 @@ The retired verbs map onto these. **refines, specifies, narrows**: `amends` if i
 
 ## 6. The Amendment log
 
-*Sources: [0050](../decisions/0050-adr-format.md) §8, §14.*
+*Sources: [0050](../decisions/0050-adr-format.md) §8, §14; [0099](../decisions/0099-status-from-the-code.md) §4.*
 
 ```markdown
 ### A9. Articles, categories and page statements
@@ -166,6 +164,7 @@ Replaced text ([10](../architecture/10-pages-and-content-models.md) §4.3, as it
 
 - **IDs are `A1`, `A2`, …,** assigned in the order entries are appended, and never renumbered. An entry is never edited, except to correct a typo or a broken link.
 - **Source** is another ADR's sections, or `Direct:` with who decided and on what occasion ("Direct: James, design discussion of 2026-10-01"). For a direct decision the Summary holds the decision in full, because nowhere else does.
+- **A decision made while building is logged by the agent that made it,** in the same change as the code, with Source `Direct: Claude, while building <what>, YYYY-MM-DD; unconfirmed`. It is decided like any other entry (§1.1) and folded like any other; the word *unconfirmed* is what the index (§13) lists it by. James confirms it by editing the Source line (`Direct: James, confirmed YYYY-MM-DD; Claude's call while building …`) or overturns it with a new entry. Notes outside the ADRs are not where such calls are kept.
 - **Change** uses the verbs of §5.
 - **Replaced text** is the removed or contradicted text, quoted as it stood, headed by the chapter section it was taken from (*Replaced text (10 §4.3, as it stood):*), or by the ADR section for entries older than the chapters. Together with the current text, it lets every earlier state be read without git.
 - **The log is the only place history accumulates.** It is read through `tools/adr.py log NNNN [An]`, so its size costs a reader nothing until the history is wanted.
@@ -191,7 +190,7 @@ A consequence the change adds is appended as a new bullet. Consequences are not 
 
 ## 9. Citations
 
-*Sources: [0050](../decisions/0050-adr-format.md) §11.*
+*Sources: [0050](../decisions/0050-adr-format.md) §11; [0099](../decisions/0099-status-from-the-code.md) §1.*
 
 | Form | Means |
 |---|---|
@@ -202,12 +201,13 @@ A consequence the change adds is appended as a new bullet. Consequences are not 
 | `NNNN Qn` | An open question |
 | `NNNN Context`, `NNNN Consequences` | Those parts |
 | `NN §N`, `NN §N.M` | A chapter section |
+| `implements NNNN §N (An)` | In code only: the section is built in full as it stood at An (§15) |
 
 - **Inside an ADR, a bare `§N`, `An` or `Qn` means that ADR.** A reference to any other ADR names it, every time. Inside a chapter, a bare `§N` means that chapter.
 - **A relation outside a heading names both ends.** Write "0049 §2 amends 0008 §2", never "(§2 amends §2)". In a heading the section itself is the subject, so only the object is named.
 - **The first mention of another ADR in each section is a link:** `[0008](0008-namespaces-and-document-pages.md) §2` from an ADR, `[0008](../decisions/0008-namespaces-and-document-pages.md) §2` from a chapter.
 - **`NNNN §N` always means the current text.** To cite text as it was, cite the entry that replaced it: "0008 A6". Dated forms ("as amended 2026-09-27"), sources without a number and placeholders (`§…`) are not used.
-- **Code cites ADR sections**, as `0013 §7` or `0013 §7 rule 2` in a comment; `tools/coverage.py` reads them and `tools/adr.py code 0013 §7` lists them.
+- **Code cites ADR sections**, as `0013 §7` or `0013 §7 rule 2` in a comment, to say what it is about; it claims a section built with `implements 0013 §7 (A41)` (§15). `tools/coverage.py` reads both and `tools/adr.py code 0013 §7` lists them.
 
 ## 10. Chapters
 
@@ -245,13 +245,13 @@ The namespace table, the content-model table, the REST route table, the permissi
 
 ## 12. The checkers
 
-*Sources: [0050](../decisions/0050-adr-format.md) §12, §14; [0098](../decisions/0098-pointers-from-birth.md) §2, §3, §4.*
+*Sources: [0050](../decisions/0050-adr-format.md) §12, §14; [0098](../decisions/0098-pointers-from-birth.md) §2, §3, §4; [0099](../decisions/0099-status-from-the-code.md) §2.*
 
 `docs/check.sh` runs every checker and exits non-zero on any failure; `docs/check.sh --write` regenerates the generated files first (`INDEX.md`, chapter 23's settings tables). CI runs the former.
 
 **`decisions/check_adrs.py`** applies to every ADR:
 
-1. The header fields of §2.2, in order, with a valid Status. The IDs named in an `Accepted with proposed amendment` status are in the log. `Updated` names the last log entry.
+1. The header fields of §2.2, in order. `Status` is the one the code says (§15); `--index` rewrites it, and without `--index` a stale one is reported. `Updated` names the last log entry.
 2. Contiguous section numbers, every Decision subsection numbered, stubs present.
 3. Heading relations that use the verbs of §5 and resolve.
 4. Log IDs contiguous, the required fields present, and Replaced text where §5 requires it.
@@ -263,6 +263,8 @@ The namespace table, the content-model table, the REST route table, the permissi
 10. **Every Decision section is a pointer or a stub**, the pointer names existing chapter sections, and each named section's provenance line cites the pointing ADR section (or its parent).
 11. Crate names in headings and tables are in the crate map, and special-page names match the registry case-sensitively.
 12. `INDEX.md` is current (§13).
+
+**`tools/coverage.py --check`** fails on a malformed implementation claim (§15): one on a section that does not exist, one on a changed section that names no entry, or one naming an entry that did not change the section.
 
 **`architecture/map.py`** applies to the chapters:
 
@@ -276,11 +278,11 @@ The namespace table, the content-model table, the REST route table, the permissi
 
 ## 13. The index
 
-*Sources: [0050](../decisions/0050-adr-format.md) §12; [0098](../decisions/0098-pointers-from-birth.md) §4.*
+*Sources: [0050](../decisions/0050-adr-format.md) §12; [0098](../decisions/0098-pointers-from-birth.md) §4; [0099](../decisions/0099-status-from-the-code.md) §3.*
 
-`docs/decisions/INDEX.md` is generated by `check_adrs.py --index` and committed; a stale index fails the check. It is one table, one row per ADR: number, title, status, the date of its last change, the chapters its pointers name, and the ADRs that changed it (read from its log and its settled questions). ADR numbers in the last two columns are plain, not linked, so that a row is one line and an amendment changes one row. What an ADR changes is its own header's `Changes`, and is not repeated here.
+`docs/decisions/INDEX.md` is generated by `check_adrs.py --index` and committed; a stale index fails the check. It is the one status page of the design: one row per ADR with its number, title, the status the code says (§15), *Built* (done sections over top-level Decision sections), the number of open questions, the number of unconfirmed log entries (§6), the date of its last change, the chapters its pointers name, and the ADRs that changed it. Below the table, every unconfirmed entry, with its date and summary, so that what waits on James is one list. ADR numbers in the last column are plain, not linked, so that a row is one line.
 
-The index is for finding an ADR by title and seeing at a glance what has touched it. For anything finer — which section, which entry, which chapter text — `tools/adr.py` reads the ADRs and chapters directly.
+The index is for finding an ADR and seeing at a glance what has touched it, how much of it is built, and what is still open. For anything finer — which section, which entry, which chapter text, which code — `tools/adr.py` and `tools/coverage.py` read the ADRs, the chapters and the code directly: `coverage.py --todo` lists every section not yet done and what it needs, which is the implementation backlog, derived rather than kept.
 
 ## 14. Migrations
 
@@ -291,3 +293,20 @@ History, kept here so that the ADRs' older log entries can be read.
 - **2026-10-01 to 2026-10-07, the 0050 format.** 0008 was converted as a pilot; a mechanical pass gave the remaining ADRs titles, `Q` IDs, the six verbs and two-ended relations; then each ADR was converted in its own commit, every callout and dated self-amendment becoming a log entry, closing with a `consolidates` entry. 0005 §8 and 0013 §12, the two changelog sections, became stubs and their rows became log entries. The old-format checks were removed when no ADR used it.
 - **2026-10-08 and 2026-10-09, the chapters.** Chapters 00–23 were drafted from the ADRs as they then stood; the 116 inconsistencies the consolidation found were decided by James and logged as direct decisions in the owning ADRs (`docs/audits/architecture-consolidation-2026-10-08.md`); then each ADR's Decision text was replaced by pointers, logged with a `relocates` entry naming the last commit that carried the text.
 - **2026-10-30, pointers from birth.** The nineteen ADRs written after the relocation (0079–0097), which had carried their text beside the chapters' copy, were relocated the same way (commit `2e2a7c8` holds the text). 0050 was relocated into this chapter. The `Chapters` header and the "Changes to other ADRs" section, both derivable, were removed from every ADR by a mechanical pass that is not logged; `MAP.md` and the mapping tables of `map.py` were deleted in favour of the provenance lines; `pointers.py` was retired; and the index was slimmed. From then on an ADR is born as pointers.
+
+## 15. Implementation status
+
+*Sources: [0099](../decisions/0099-status-from-the-code.md) §1, §2, §3, §5.*
+
+**The code carries the implementation status of the decisions it encodes.** Nothing else records what is built: not the ADR header, which is written from the code (§2.2), not a backlog, which is derived (§13), not a note. The record is two kinds of citation in code comments, read by `tools/coverage.py` from `crates/`, `xtask/`, `ui/src`, `ui/e2e` and `tools/`:
+
+- **About:** `0013 §7`, `0090 §5–6`, `03 §4.5`. The code is about the section. Evidence of work, not of completion; a comment whose sentence says the thing is not built yet ("not yet built", "deferred", "TODO") counts as that.
+- **A claim:** `implements 0013 §7 (A41)`. The section is built in full, as it stood at log entry A41. It is written once, at the code that completes the section, in src (library or binary code, a migration) and never in a test. `implements 0013 §7.3 (A41)` and `implements 0013 §7 rule 2` claim a part; a section whose subsections are all claimed is claimed. A section never changed (no provenance line, §3.1) is claimed without an entry; one that has been changed must name the entry it is current to, so that a later change makes the claim stale rather than silently wrong. A claim on a chapter section, `implements 03 §6.1`, claims every ADR section its provenance line names: the current text is what was built.
+
+**A section is done** when a src claim covers it, a test cites it (about or claim), and no log entry changed it after the claim. It is *amended* when entries came after the claim: the code is re-checked against them and the claim's entry moved, or the code changed. It is *untested* when claimed with no test citing it, *partial* when claimed in part or only cited as about, *not built* when cited only as such, and *none* when nothing cites it. Trailer sections (§10.3) and stubs are left out: a trailer's subject is claimed under its home section, and the catalogues show their own *Built* columns from the contract and the code (§11).
+
+**The status of an ADR follows** (§2.2), and `check_adrs.py --index` writes it. `coverage.py --check`, run by `check.sh`, refuses a malformed claim; `coverage.py --todo` lists what is not done and what it needs; `coverage.py NNNN` shows one ADR section by section; `coverage.py NNNN §N` the citing lines.
+
+**Writing the claim is part of finishing the work.** A change that completes a section adds its `implements` line and the test that cites it, in the same change; a change that implements a log entry on an `Accepted` ADR moves the claim's entry ID. A change that makes a decision while building logs it, unconfirmed, in the owning ADR (§6). Neither is written for work someone else did: a claim asserts that the writer checked the section's text against the code.
+
+**Before this rule** (2026-10-30), every ADR was `Proposed` by hand and the citations were all *about*; the claims are added as each crate is next worked on, and an ADR becomes `Accepted` when its last claim lands. The working notes that had tracked implementation and open calls outside the repository were retired the same day; their non-derivable remainder, the sandbox and test-environment gotchas, is `docs/testing/gotchas.md`.

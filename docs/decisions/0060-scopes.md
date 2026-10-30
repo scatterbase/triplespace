@@ -104,6 +104,7 @@ James's direction, from the design discussion of 2026-10-04:
 - **Q4. Scopes as statement values.** Whether an entity or page may carry a statement whose value is a scope (a WikiProject item's "scope" property), which would let the pairing of [0038](0038-page-metadata-and-categories.md) §6 find a project's scope from its item.
 - **Q5. Cross-tenant operands.** A scope on one tenant naming another tenant's scope. Refused now, since [0028](0028-tenancy-policy.md) §5 reads across tenants only anonymously and a scope's members are not a public form.
 - **Q6. Sampling above the bound.** Whether a truncated scope should offer a random sample beside the stable prefix, which is more useful for seeing what a definition caught.
+- **Q7. Query-scope precedence.** Entity-level versus statement-level merging when a scope's query and its explicit members disagree. (From the working notes, 0099 §5.)
 
 ## References
 
