@@ -37,6 +37,7 @@ pub mod modules;
 pub mod pages;
 pub mod params;
 pub mod prefs;
+pub mod reports;
 pub mod response;
 pub mod talk_text;
 pub mod tenant;

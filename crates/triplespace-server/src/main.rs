@@ -71,8 +71,8 @@ async fn background(app: &triplespace_api_action::App) {
             }
         });
     }
-    // The asynchronous projection steps (addressing), behind every write by about this
-    // much (0013 §7).
+    // The asynchronous projection steps (addressing, reports), behind every write by about
+    // this much (0013 §7).
     {
         let app = app.clone();
         tokio::spawn(async move {
@@ -81,6 +81,10 @@ async fn background(app: &triplespace_api_action::App) {
                 every.tick().await;
                 if let Err(e) = app.catch_up_async().await {
                     eprintln!("asynchronous projections: {e}");
+                }
+                // Reports follow the page and ACL projections' queued work (0047 §4.3).
+                if let Err(e) = app.drain_reports(5000).await {
+                    eprintln!("reports: {e}");
                 }
             }
         });

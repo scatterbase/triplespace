@@ -504,6 +504,19 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for BlockProjection {
 
 // --- ACLs ---------------------------------------------------------------------------
 
+/// The report work an ACL record makes (0047 §4.5): a read restriction changes what
+/// reports may list. A page's reaches that page and what it links to; a namespace's, a
+/// set's, the tenant's or the `pages` graph's, the whole tenant.
+fn report_key_of(target: &str) -> Option<String> {
+    use scatter_actors::acl::Target;
+    match Target::parse(target) {
+        Ok(Target::Page(p)) => Some(format!("page:{p}")),
+        Ok(Target::Namespace(_) | Target::Set(_) | Target::Tenant(_)) => Some("tenant".into()),
+        Ok(Target::Graph(g)) if g == "pages" => Some("tenant".into()),
+        _ => None,
+    }
+}
+
 /// `view.acl`: the current ACL per target; a `null` content retires it.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct AclProjection;
@@ -612,6 +625,11 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for AclProjection {
                         .map_err(|e| sql(&e))?;
                     }
                 }
+            }
+            let report_key = report_key_of(target);
+            if let Some(k) = report_key {
+                let h = record.header();
+                crate::reports::queue(cx, &tenant, h.partition, h.offset, &[k].into()).await?;
             }
             Ok(Applied::rows(usize::try_from(rows).unwrap_or(0)))
         })

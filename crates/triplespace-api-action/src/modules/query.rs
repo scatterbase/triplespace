@@ -101,6 +101,7 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
             "protectedsets" => super::protected::sets(ctx, &mut query).await?,
             "users" => super::userrights::users(ctx, &mut query).await?,
             "blocks" => super::block::list(ctx, &mut query).await?,
+            "querypage" => super::querypage::querypage(ctx, &mut query, &mut body).await?,
             other => response.warn(
                 "query",
                 &format!("Unrecognized value for parameter \"list\": {other}."),
@@ -884,7 +885,7 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                     "tenant": slug,
                     "farm": ctx.app.config().farm.slug,
                     "search": "postgres",
-                    "capabilities": ["wbgetentities", "wbsearchentities", "wbeditentity", "statements", "terms", "login", "clientlogin", "createaccount", "bearer", "version", "recentchanges", "activity", "history", "revisions", "diff", "options", "preferences", "settings", "pages", "parse", "edit", "move", "protect", "userrights", "block", "delete", "notifications", "watchlist"],
+                    "capabilities": ["wbgetentities", "wbsearchentities", "wbeditentity", "statements", "terms", "login", "clientlogin", "createaccount", "bearer", "version", "recentchanges", "activity", "history", "revisions", "diff", "options", "preferences", "settings", "pages", "parse", "edit", "move", "protect", "userrights", "block", "delete", "notifications", "watchlist", "reports"],
                     "providers": Registry::default_registry().providers().iter().map(|p| p.slug.clone()).collect::<Vec<_>>(),
                     "rate_limits": [],
                     "grants": scatter_actors::grant::GrantRegistry::default_registry().grants().iter().map(|g| g.name.clone()).collect::<Vec<_>>(),
@@ -1094,6 +1095,7 @@ const QUERY_MODULES: &[(&str, &[&str])] = &[
             "blocks",
             "watchlist",
             "watchlistraw",
+            "querypage",
         ],
     ),
 ];
@@ -1550,6 +1552,26 @@ fn module_parameters(name: &str) -> Vec<Value> {
                 json!("ascending"),
             )),
         ],
+        "querypage" => vec![
+            Value::Object(parameter(
+                0,
+                "page",
+                json!(
+                    triplespace_projections::reports::REPORTS
+                        .iter()
+                        .map(|r| r.mediawiki_name.unwrap_or(r.name))
+                        .collect::<Vec<_>>()
+                ),
+            )),
+            Value::Object(with_default(
+                parameter(1, "offset", json!("integer")),
+                json!(0),
+            )),
+            Value::Object(with_default(
+                limit_parameter(parameter(2, "limit", json!("limit")), 500, 500),
+                json!(10),
+            )),
+        ],
         "parse" => [
             ("title", json!("string")),
             ("text", json!("text")),
@@ -1823,6 +1845,7 @@ pub fn paraminfo_modules(requested: &[String]) -> Vec<Value> {
                             "protectedsets" => "ps",
                             "users" => "us",
                             "blocks" => "bk",
+                            "querypage" => "qp",
                             _ => "",
                         },
                     ),

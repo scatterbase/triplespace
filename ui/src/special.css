@@ -15,3 +15,24 @@
 .ts-allpages__redirect {
 	font-style: italic;
 }
+
+/* The report pages (0047 §4): a numbered list, red links for titles that do not exist. */
+.ts-report {
+	margin: var( --spacing-100, 1rem ) 0;
+	padding-inline-start: var( --spacing-250, 2.5rem );
+}
+
+/* A row's link sits beside its value in plain text, so it is underlined as well as
+   coloured (WCAG 1.4.1). */
+.ts-report a {
+	text-decoration: underline;
+}
+
+.ts-report a.new {
+	color: var( --color-destructive, #d73333 );
+}
+
+.ts-report__note,
+.ts-report__state {
+	color: var( --color-subtle, #54595d );
+}

@@ -229,6 +229,17 @@ impl App {
         Ok(read)
     }
 
+    /// Applies queued report work for every tenant (0047 §4.3): the `report` projection's
+    /// worker, which keeps projection-backed reports in step with the page and ACL
+    /// projections, in no write's transaction. Returns how many items it applied.
+    ///
+    /// # Errors
+    ///
+    /// The store's.
+    pub async fn drain_reports(&self, limit: usize) -> Result<usize, String> {
+        triplespace_projections::reports::drain(self.pool(), None, limit).await
+    }
+
     /// The mirror order for resolution.
     #[must_use]
     pub fn order(&self) -> &EntityProjection {

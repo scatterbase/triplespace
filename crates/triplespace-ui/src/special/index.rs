@@ -278,6 +278,20 @@ pub async fn serve(
             );
         }
     }
+    for report in super::reports::REPORTS {
+        if report.offered(&cx.features) {
+            let _ = write!(
+                list,
+                "<li><p class=\"ts-specialpages__name\">{}</p><p class=\"ts-specialpages__description\">{}</p></li>",
+                link(
+                    &format!("/wiki/{}", report.title()),
+                    &esc(&m.get(&report.label_key())),
+                    ""
+                ),
+                esc(&m.get(&report.description_key()))
+            );
+        }
+    }
     let body = if list.is_empty() {
         format!(
             "<p class=\"ts-empty\">{}</p>",
