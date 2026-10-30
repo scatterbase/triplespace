@@ -4,7 +4,7 @@
 - **Date:** 2026-10-29
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0015](0015-record-format-and-partition-registry.md), [0034](0034-frontend-stack.md), [0057](0057-web-tier.md), [0077](0077-special-version.md), [0086](0086-theming.md), [0095](0095-the-interface-namespace.md)
-- **Uses:** [0012](0012-api-requirements.md), [0050](0050-adr-format.md), [0055](0055-templatestyles-templatedata-and-page-properties.md), [0085](0085-settings-and-preferences.md)
+- **Uses:** [0012](0012-api-requirements.md), [0028](0028-tenancy-policy.md), [0050](0050-adr-format.md), [0055](0055-templatestyles-templatedata-and-page-properties.md), [0085](0085-settings-and-preferences.md)
 
 ## Context
 
@@ -25,6 +25,8 @@ James's direction, from the design discussion of 2026-10-29:
 - **"Skins can only be installed by instance operators."** "Since skins are deployed only by instance operators, there is a higher degree of trust."
 - **"We should aim for a minimum number of highly useful functions that target the most desired features. What do people keep reinventing in gadgets and user scripts?"**
 - **"I agree that theme tokens are part of the binary."**
+- **"Readers can choose from the skins that the instance makes available. Whether a tenant can make a skin available or disable it depends on instance policy."** And, asked whether a release that writes a new record major should first ship it behind a switch so that every minor can be rolled back: "Yes."
+- **"The patch number is incremented when a new version of something is published. Something is 'published' when it is compiled as a downloadable bundle, shipped to crates.io, or equivalent thing that marks that the code has stabilized. Once the patch is published, the patch number increases in the repository. That means that a site running directly off of git is going to be at minimum one patch version higher than someone using a published binary. If you add a new feature or make a compat-breaking change, you increase the minor or major version number once it happens, with the patch or minor version set to 0 accordingly. Ideally this sort of work is done on a branch so as to not conflict with existing stable code and stable deployments."**
 - **"One way we can test the skinning system is by reimplementing the current frontend UI as a skin, with the goal of getting identical results between the built-in implementation and the skin version. Once equality is accomplished, the internal rendering can be removed."**
 
 ## Decision
@@ -36,6 +38,8 @@ James's direction, from the design discussion of 2026-10-29:
 **What "breaks" means is defined per contract** (§2), always from the point of view of whoever depends on it: a client, an operator, a skin author, a reader of old records.
 
 **A contract Triplespace implements but does not own keeps its owner's version** (§6). Triplespace never assigns its own number to someone else's contract.
+
+**When a number moves** is §18: a patch when something is published, a minor or major when the change is made.
 
 ### 2. What is versioned
 
@@ -64,13 +68,13 @@ James's direction, from the design discussion of 2026-10-29:
 - **The payload type's tag carries its major**: `scatter:v0/changeset` is major 0 of the changeset. A change older readers can safely ignore is a minor and keeps the tag. A change older readers cannot interpret is a major and takes a new tag, `scatter:v1/changeset`; both tags are read from then on.
 - **The header's format version** (01 §2.2) is the header layout's major. A minor change to the header is not possible, since every field is positional and covered by the commitment, so any change is a new format version.
 - **The stored form is not a format** ([0058](0058-packed-record-storage.md) §1): changing it is never a version of anything.
-- **A release that writes a new major by default is a product major** (§7). Whether it may first ship the new major behind a switch, so that rollback stays possible for one minor, is Q1.
+- **A new record major ships first behind a switch, off by default**, in a minor release: that release reads it and can write it, and nothing writes it unless the operator turns the switch on, so the minor can still be rolled back. **The release that writes it by default is a product major** (§7), and comes no earlier than the next minor.
 
 All payload types are at major 0 until the product reaches 1.0; nothing written before then is promised to older readers.
 
 ### 5. The REST API and `api_version` (amends 0057 §9)
 
-**`api_version` becomes a version string, `MAJOR.MINOR`**, the version of Triplespace's own API surface: the REST routes and the `triplespace` siteinfo property. The integer reported before is its minor at major 0, so `3` becomes `"0.3"`. **The web tier serves an API of the same major and at least the minor it was built against**, and reports itself not ready otherwise. A major is served at a new REST base path, which `siprop=triplespace` already reports, so a second major can be served beside the first while clients move.
+**`api_version` becomes a version string, `MAJOR.MINOR.PATCH`**, the version of Triplespace's own API surface: the REST routes and the `triplespace` siteinfo property. The integer reported before is its minor at major 0, so `3` becomes `"0.3.0"`. **The web tier serves an API of the same major and at least the minor it was built against**, and reports itself not ready otherwise. A major is served at a new REST base path, which `siprop=triplespace` already reports, so a second major can be served beside the first while clients move.
 
 ### 6. Contracts Triplespace implements
 
@@ -87,7 +91,7 @@ All payload types are at major 0 until the product reaches 1.0; nothing written 
 **Triplespace's own version is the operator's upgrade contract:**
 
 - **Patch:** a drop-in replacement, which can be rolled back to the release before it.
-- **Minor:** new features and settings. Upgrading needs nothing but a restart, and existing configuration and installed skins keep working.
+- **Minor:** new features and settings. Upgrading needs nothing but a restart, existing configuration and installed skins keep working, and it can be rolled back to the minor before it, since a new record major is off until the operator turns it on (§4).
 - **Major:** the operator must act, or something they rely on goes away: a setting removed or renamed, a record major written by default (§4), a REST major (§5), a template-contract or token-contract major (§9, §14), a dropped implemented contract (§6), or a new required service.
 
 **A release's bump is derived, not chosen**: it is the largest bump among the contracts it ships. `Special:Version` and `GET /version` report the product version and beside it the version of each contract in §2 that the instance serves: the record format and payload majors, `api_version`, the template contract, the token contract (the Codex release), each installed skin and each message bundle, so the product number need not carry everything.
@@ -99,7 +103,10 @@ All payload types are at major 0 until the product reaches 1.0; nothing written 
 - **Only the operator installs a skin.** Skins are files in a directory named by deployment configuration (`server.skins` for `triplespace-server`, `web.skins` for `triplespace-web`), read at start and on reload. No tenant, user or API call can add or change one, and a skin is trusted as operator configuration is: it may ship JavaScript, which is served from the site's origin under the policy of 0034 §11 like the site's own.
 - **The manifest**, `skin.toml`: name, version, licence, and what it requires: `template = "^0.4"`, `tokens = "^2"` (the Codex token release, §14). A skin whose requirements the binary does not meet is not loaded, and the reason is logged and shown on `Special:Version`.
 - **The default skin is a skin.** It lives in the repository as `skins/default/`, is embedded in both binaries with `rust-embed`, and is used where no other skin is installed or chosen. An installed skin of the same name replaces it.
-- **Which skin a wiki uses** is the tenant setting `ui.skin`, a choice among the skins installed (registry entry pending). Whether a reader may choose their own is Q3.
+- **Which skins are available is instance policy.** The instance setting `skins.available` lists the installed skins offered on every wiki, and the tenancy switch `skins.tenant` ([0028](0028-tenancy-policy.md) §1) says what a tenant may do with that list: `fixed`, nothing; `narrow`, disable skins on it for its own wiki; `choose`, also make available any other installed skin. A tenant's own `skins.available` holds its list within what the switch allows.
+- **Each wiki has a default skin**, `skins.default`, one of its available skins, for readers who have not chosen.
+- **Readers choose among the wiki's available skins**: a signed-in reader with the `skin` preference, and anyone for one request with `useskin=`, as in MediaWiki. A reader not logged in has no stored choice, since a skin changes the HTML itself and a public page is cached the same for every reader; the theme's choices, which only swap stylesheets, are unaffected (0086 §5). A preference naming a skin the wiki no longer offers falls back to the wiki's default.
+- The settings, the switch and the preference are registry entries still to be made (`settings.toml`, `tenancy.toml`, `preferences.toml`).
 - **The engine is MiniJinja**: templates are parsed once when the skin is loaded, rendered with autoescape on, and have no access to the file system, the network or the environment.
 
 ### 9. The template contract (extends 0034 §2)
@@ -155,7 +162,7 @@ The contract is written in `docs/api/skin-contract.md`, beside the other contrac
 
 ### 15. Caching and fragments (extends 0057 §6, §8)
 
-**A composed page depends on the skin**, so the skin's name and version are part of a page's validator, and changing `ui.skin` or upgrading a skin purges the wiki's pages. **A fragment carries the skin version it was rendered with**, and a page whose skin version differs reloads in full rather than splicing it in, as the editor already does for a renderer mismatch (0057 §9).
+**A composed page depends on the skin**, so the skin's name and version are part of a page's validator; a page served with `useskin=` or a reader's preference is private or keyed by its query, like any variant; and changing `skins.default` or upgrading a skin purges the wiki's pages. **A fragment carries the skin version it was rendered with**, and a page whose skin version differs reloads in full rather than splicing it in, as the editor already does for a renderer mismatch (0057 §9).
 
 ### 16. Reaching parity, then removing the built-in rendering
 
@@ -176,9 +183,22 @@ The contract is written in `docs/api/skin-contract.md`, beside the other contrac
 |---|---|
 | `triplespace-ui` | Loads skins: the manifest, the requirement check, MiniJinja with the functions of §10, the regions of §11 and the link classification of §12; builds view models; the `compare` renderer. Gains `minijinja`, `semver` and `html5ever`; loses `askama` after §16 |
 | `triplespace-web`, `triplespace-server` | Embed `skins/default/`; read the skin directory; `renderer` |
-| `triplespace-api-action` | `api_version` as `MAJOR.MINOR` (§5); the contract versions on `GET /version` (§7) |
+| `triplespace-api-action` | `api_version` as `MAJOR.MINOR.PATCH` (§5); the contract versions on `GET /version` (§7) |
 | `triplespace-client` | Parses `api_version` and checks it by §5 |
 | `xtask` | `cargo semver-checks` over the published `scatter-*` crates (§3) |
+| `triplespace-accounts` | `skins.available`, `skins.default` and the `skins.tenant` switch; the `skin` preference (§8) |
+
+### 18. Releases and the version in the repository
+
+**A version is published** when it is built as a downloadable bundle (a release binary or image), shipped to crates.io, or released by any equivalent act that marks the code as stable. Each publication is tagged in git: `vX.Y.Z` for the product, `{crate}-vX.Y.Z` for a crate published on its own, `skin-{name}-vX.Y.Z` and `i18n-{bundle}-vX.Y.Z` for a skin or message bundle released apart from the product.
+
+- **Once something is published, its patch number goes up in the repository** at once. The repository therefore always carries a version that has not been published, and a site running directly from git reports at least one patch above the last published release; `Special:Version` also gives the build's commit and its `modified` flag (0077 §6), which say exactly what it runs.
+- **A feature raises the minor, and a breaking change the major, when the change is made**, setting the numbers after it to 0: `1.4.3` becomes `1.5.0` or `2.0.0`. Under major 0, by §1, a breaking change raises the minor, and so does a feature: `0.4.3` becomes `0.5.0`.
+- **Bumps since the last publication do not stack.** If the repository is already at `1.5.0` because of a feature, a second feature leaves it there; a breaking change after it moves it to `2.0.0`. Two branches that each raised the minor merge at the same number.
+- **A contract published inside the product** (the API, the template contract, the record formats, the registry schemas) follows the same rules, except that its patch goes up only the first time it changes after a publication, so a release that left a contract alone does not renumber it.
+- **Features and breaking changes are developed on branches**, so that `main` stays fit to publish and stable deployments are not disturbed; the version bump is made on the branch, with the change. **A fix to a published line** that `main` has moved past is made on a `release/X.Y` branch cut from that line's tag, and published from there.
+
+The product starts at `0.1.0`: `[workspace.package]` gains `version = "0.1.0"`, which the first publication will carry.
 
 ## Alternatives considered
 
@@ -199,9 +219,9 @@ The contract is written in `docs/api/skin-contract.md`, beside the other contrac
 
 ## Open questions
 
-- **Q1. Rollback.** Whether a minor that introduces a record major ships it behind a switch first, off by default for one minor, so that every minor can be rolled back. Recommended: yes.
+- **Q1.** ~~**Rollback.** Whether a minor that introduces a record major ships it behind a switch first, off by default for one minor, so that every minor can be rolled back.~~ *Settled by §4: yes; the release that writes it by default is a product major.*
 - **Q2. Additive payload changes.** Whether the current payload encodings admit fields an older reader ignores, as §4's minor assumes, or whether every payload change is in practice a major until the encodings are made extensible.
-- **Q3. A reader's own skin.** Whether a reader may choose among the installed skins, as MediaWiki's skin preference allows, or the wiki's `ui.skin` is the only choice.
+- **Q3.** ~~**A reader's own skin.** Whether a reader may choose among the installed skins, as MediaWiki's skin preference allows, or the wiki's skin is the only choice.~~ *Settled by §8: readers choose among the skins the wiki makes available; what a tenant may make available or disable is the instance's `skins.tenant` switch.*
 - **Q4. Skin licences.** The default skin is GPL-3.0-or-later with the rest of the repository. Whether an operator's skin, which the binary interprets and does not link, must be.
 - **Q5. Extra view-model fields.** Whether a skin may ask for data from a fixed list the binary offers (assessment, protection, short description, edit counts), fetched only when a skin asks for it; deferred until the default skin needs one.
 
