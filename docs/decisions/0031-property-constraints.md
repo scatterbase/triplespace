@@ -61,7 +61,7 @@ The instance has two advantages over Wikidata here. It **mirrors** Wikidata's pr
 
 *Changed by A1.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Consequences
 

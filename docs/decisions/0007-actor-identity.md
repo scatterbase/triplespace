@@ -90,7 +90,7 @@ Four constraints follow from how MediaWiki treats accounts:
 
 ### 10. Crates (amends 0005 §2)
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §1.3, §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §1.3, §2.1.*
 
 ## Consequences
 

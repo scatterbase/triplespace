@@ -56,7 +56,7 @@ This ADR replaces the one grammar of 0009 §3 with three, each declared in the r
 
 *Changed by A1.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Consequences
 

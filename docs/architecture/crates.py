@@ -57,6 +57,13 @@ def load():
                 errs.append(f"`{names[0]}` depends on `{d}`, which is not in the map")
             if d in known and LAYERS.index(layer_of(rows, d)) > LAYERS.index(r.get("layer", "triplespace")):
                 errs.append(f"`{names[0]}` ({r['layer']}) depends on `{d}` ({layer_of(rows, d)}): layers point only downward")
+    for r in data.get("retired", []):
+        if not r.get("name") or not r.get("into"):
+            errs.append("a [[retired]] entry lacks name or into")
+        elif r["into"] not in known:
+            errs.append(f"retired `{r['name']}`: into `{r['into']}` is not in the map")
+        elif r["name"] in known:
+            errs.append(f"retired `{r['name']}` is still in the map")
     order = [r.get("layer") for r in rows]
     if order != sorted(order, key=lambda l: LAYERS.index(l) if l in LAYERS else 9):
         errs.append("entries are not in layer order (substrate, wikibase, ingest, triplespace)")
@@ -99,8 +106,27 @@ def table(rows):
         last = r["layer"]
         anchor = r["names"][0]
         out.append(f"| {layer} | [{names_md(r)}](CRATES.md#{anchor}) | {r['summary']} | {depends_md(r)} | {rules_md(r)} |")
+    retired = retired_entries()
+    if retired:
+        parts = []
+        for r in retired:
+            how = f"renamed `{r['into']}`" if r.get("renamed") else f"in `{r['into']}`"
+            if r.get("sources"):
+                how += f", {r['sources']}"
+            parts.append(f"`{r['name']}` ({how})")
+        out.append("")
+        out.append("Crates named by earlier ADRs that no longer exist as separate crates: " + ", ".join(parts)
+                   + ". A reference to one of them in an ADR reads as a reference to its new home.")
     out.append(END)
     return "\n".join(out)
+
+
+_data = {}
+def retired_entries():
+    if "retired" not in _data:
+        with open(TOML, "rb") as fh:
+            _data["retired"] = tomllib.load(fh).get("retired", [])
+    return _data["retired"]
 
 
 def full(rows):

@@ -58,7 +58,7 @@ His choices in the same discussion:
 
 ### 5. Crates (amends 0005 §2, §7; amends 0009 §12; amends 0036 §7)
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2, §3.1.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §3.1.*
 
 ## Alternatives considered
 

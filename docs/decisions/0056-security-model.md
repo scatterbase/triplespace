@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-10-24 (A25)
+- **Updated:** 2026-10-30 (A26)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0021](0021-notifications.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md), [0033](0033-backend-stack.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0051](0051-page-redirects.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md), [0045](0045-table-content-model.md), [0046](0046-primary-tenant.md), [0047](0047-special-pages.md), [0049](0049-boards.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -100,9 +100,9 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 13. API and UI (extends 0012 §4; extends 0016 §7; extends 0023 §8 and §9)
 
-*Changed by A16, A25.*
+*Changed by A16, A25, A26.*
 
-*Current text: [18](../architecture/18-api.md) §2.2, §2.3, §3.1, §3.2; [19](../architecture/19-site-ui.md) §1.3, §1.5, §6.3, §6.11.*
+*Current text: [18](../architecture/18-api.md) §2.2, §2.3, §3.1, §3.2; [19](../architecture/19-site-ui.md) §1.3, §1.5, §2.8, §6.3, §6.11.*
 
 ### 14. Storage (extends 0013 §5.6)
 
@@ -120,7 +120,7 @@ James's direction, from the design discussion of 2026-10-01:
 
 *Changed by A2.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Alternatives considered
 
@@ -470,3 +470,10 @@ Replaced text ([09](../architecture/09-security-and-moderation.md) §4.5, as it 
 - **Source:** Direct: the live attack battery of 2026-10-24 (`tools/acl_check.py`); a call of Claude's for James to confirm
 - **Change:** extends §13
 - **Summary:** The "should be able to but can't" pass found that no API route could lift a hidden username: `/acl` does not serve `actor` targets and `action=unblock` left the `actor` ACL in place, so only the CLI could unhide. As in MediaWiki, an unblock, or a `reblock` without `hidename`, by a caller holding `hideuser` now also retires the `actor` ACL (09 §6.3); an administrator without `hideuser`, who may lift the block by its ID, leaves the name hidden. The battery itself — every negative and positive probe of the live attack, over real HTTP against a server it sets up — is `tools/acl_check.sh`, a check CI runs beside the client-compatibility checks (22 §4.2).
+
+### A26. The empty-group report and the purge queue over REST
+
+- **Date:** 2026-10-30
+- **Source:** Direct: James, review of 2026-10-30, confirming the implementation calls of 2026-10-23 and 24 that the catalogue cross-checks surfaced
+- **Change:** extends §13
+- **Summary:** Two routes the code added with accountability (tier 5) and the purge queue (tier 8), now decided. `GET /acl/empty-groups` lists the groups no one can read through: every group a read ACL names that has no member (09 §4.5; `userrights`), the report `Special:ProtectedPages` shows; the rest of Q4, counts for populated groups, stays open. `GET /purges?since=` serves the queued cache purges (a tag per read-ACL write, change or retirement, with the visibility epoch) for the web tier or a CDN hook to consume (`ts-config`; 03 §7); nothing consumes it until a cache layer exists. Both are in the OpenAPI contract and in `registry/routes.toml`.

@@ -87,7 +87,7 @@ Domains are also a bulk-ingest target. Citation data carries URLs, and every URL
 
 *Changed by A1, A15.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Consequences
 

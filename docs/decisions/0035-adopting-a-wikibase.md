@@ -71,7 +71,7 @@ One alternative needs no new operation and was rejected: load the old wiki into 
 
 *Changed by A1.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2, §3.1.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §3.1.*
 
 ## Consequences
 

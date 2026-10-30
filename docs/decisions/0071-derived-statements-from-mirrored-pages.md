@@ -83,7 +83,7 @@ James's direction, from the design discussion of 2026-10-07:
 
 *Changed by A3, A4.*
 
-*Current text: [03](../architecture/03-storage-caches-and-search.md) §4.12, §5, §6.1.*
+*Current text: [03](../architecture/03-storage-caches-and-search.md) §4.12, §5, §6.1, §7.*
 
 ### 13. API (extends 0012 §5)
 
@@ -91,7 +91,7 @@ James's direction, from the design discussion of 2026-10-07:
 
 ### 14. Crates (amends 0005 §2)
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Alternatives considered
 

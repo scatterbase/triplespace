@@ -97,7 +97,7 @@ James's direction, from the design discussion of 2026-10-03:
 
 ### 12. Crates (amends 0005 §2, Consequences; extends 0005 §3, §7)
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §1.2, §2.1, §2.2, §3.1.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §1.2, §2.1, §3.1.*
 
 ### 13. The OAuth pages (amends 0025 §1, §3, §5, §8, §9)
 

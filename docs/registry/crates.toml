@@ -14,6 +14,10 @@
 # pure         22 §1.2 rule 2: no I/O, no async runtime
 # wasm         22 §1.2 rule 7: builds for wasm32-unknown-unknown
 # contents     what the crate holds, in full, with citations (shown in CRATES.md)
+#
+# [[retired]]  a crate name an ADR used that no longer exists as a crate: `into` names the crate that
+#              holds it now, `renamed` marks a rename rather than a merge, `sources` the ADR that did it.
+#              References to a retired name in the ADRs read as references to `into`.
 
 [[crate]]
 names = ["scatter-vocab"]
@@ -676,3 +680,34 @@ depends_note = "Any crate"
 contents = """
 Binaries. `triplespace-server` serves the site itself under `server.ui = embedded`, through `triplespace-ui` over the in-process transport ([0057](../decisions/0057-web-tier.md) §2), and with it the special pages that `docs/registry/special-pages.toml` marks `served` ([0047](../decisions/0047-special-pages.md)), including those of [0025](../decisions/0025-oauth-server.md) §5. `triplespace-cli` creates the instance key, the `owner` group and the primary tenant's sync subsidiaries ([0015](../decisions/0015-record-format-and-partition-registry.md) §3, [0016](../decisions/0016-permissions-and-access-control.md) §3, [0024](../decisions/0024-subsidiary-accounts.md) §1); `adopt` converts an adopted wiki's talk pages after the adoption job, in the same command: the blame over the dump's revisions, `scatter-talk`'s split and attribution with the adopted accounts as authors, `scatter-talk-import`'s plan, each record through the thread writer as an import, idempotent by the `create`'s `imported_from.page`, with redirects and pages whose subject is not here deferred ([0090](../decisions/0090-converting-talk-pages-comment-by-comment.md) §10); `tenant export` and `tenant import` carry the private extract ([0027](../decisions/0027-preferences-and-portability.md) §4); `instance create --tenancy`, `tenancy check` and `tenancy set` ([0028](../decisions/0028-tenancy-policy.md) §14); `filter test` and `filter import` ([0030](../decisions/0030-edit-filters.md) §13); `sparql-sync`, the reference consumer of the update stream ([0032](../decisions/0032-sparql-update-stream.md) §6); `instance create` sets the first administrator's password ([0016](../decisions/0016-permissions-and-access-control.md) §3); canonical-CBOR signing of writes with a subsidiary's key ([0024](../decisions/0024-subsidiary-accounts.md) §4); `instance create --adopt --owner` and `adopt` ([0035](../decisions/0035-adopting-a-wikibase.md) §2, §5); `triplespace-server` serves the media routes ([0039](../decisions/0039-files-and-media.md) §7); `files import`, `files rescope`, `files verify`, `takedown`, `reinstate` and `expunge` ([0039](../decisions/0039-files-and-media.md) §23); `render refresh` and `render rebuild` ([0042](../decisions/0042-template-expansion-and-parsoid.md) §19); `instance create --farm-slug`, `primary offer`, `primary withdraw` and `primary accept` ([0046](../decisions/0046-primary-tenant.md) §9); `triplespace-server` has `server.mode`, `server.trusted_proxies` and forwarder keys, read right to left ([0057](../decisions/0057-web-tier.md) §10), `server.admin_listen`, 421 on an unregistered host and the internal endpoint for Parsoid, and `triplespace-cli` has `instance forwarder create`, `list` and `revoke` ([0057](../decisions/0057-web-tier.md) §10), and `instance check` with `--attest` and `--through`, and `tenancy check` extended to confidential restrictions and group names ([0056](../decisions/0056-security-model.md) §10, §13, §16); `storage measure`, `repack`, `retrain`, `sweep` and `pack` ([0058](../decisions/0058-packed-record-storage.md) §10); `triplespace migrate` applies pending migrations and `triplespace-server` refuses to start over any ([0033](../decisions/0033-backend-stack.md) A20); `triplespace-cli` has `query status`, `query rebuild` and `query run`, and `triplespace-server` the `query.*` settings, the `query` rate class and the `query` block of `siprop=triplespace` ([0059](../decisions/0059-query-service.md) §8); `instance create` writes the default kit templates and kits into the primary tenant ([0062](../decisions/0062-workspaces.md) §10); mounting `/mcp` per tenant ([0075](../decisions/0075-mcp-server.md) §7); the `mirror`, `extraction draft`, `publication` and `dump` commands ([0070](../decisions/0070-shallow-entity-mirroring.md) §9, [0072](../decisions/0072-template-mappings.md) §6, [0074](../decisions/0074-publishing-a-scope-to-an-external-wiki.md) §8, [0076](../decisions/0076-dataset-publication.md) §6); `source add`, `list`, `retire` and `promote`, and `registry check`, in `triplespace-cli` ([0078](../decisions/0078-entity-sources.md) §3, §9–10); `instance create` copies the embedded registry into the instance `config`, `registry sync` appends records for the entries newer than the instance's, and `instance check` warns when the instance is behind ([23](23-configuration-and-registry.md) §4.1); `instance create` derives the farm code, and tenant creation each tenant's issuer code, from the founding record once it is appended ([0079](../decisions/0079-derived-issuer-codes.md) §8); the tlog-witness endpoint under `witness.enabled`, and `recovery-key generate`, `register` and `replace`, `recovery sign`, `tenant import --continue` and `continuation cancel` ([0081](../decisions/0081-recovery-keys-and-continuations.md) §10); `triplespace-cli settings get`, `set` and `unset`, with `--instance`, `--default` and `--lock` ([0085](../decisions/0085-settings-and-preferences.md) §9); `triplespace-cli challenge solve` ([0087](../decisions/0087-account-registration-and-challenges.md) §10); `triplespace-cli oauth-client set`, `list`, `callback` and `remove` ([0088](../decisions/0088-external-identity-providers.md) §3); `triplespace-server` has `server.auth_base`, serves the auth base and refuses a second tenant without one, and `triplespace-cli` has `logins migrate` and sets a password by login ([0089](../decisions/0089-the-auth-host-and-instance-logins.md) §17); `triplespace-cli adopt` adopts a source without Wikibase, registers the source's namespaces as tenant `namespace` records, and renames or archives one whose name is taken with `--namespace` ([0096](../decisions/0096-adopting-any-mediawiki.md) §6); `triplespace-server` embeds the default skin and has `server.skins` and `server.renderer` ([0097](../decisions/0097-versioning-and-skins.md) §8, §16)
 """
+
+[[retired]]
+name = "scatter-graphs"
+into = "scatter-log"
+
+[[retired]]
+name = "scatter-markdown"
+into = "scatter-pages"
+
+[[retired]]
+name = "scatter-keyed"
+into = "scatter-normalize"
+
+[[retired]]
+name = "triplespace-activity"
+into = "triplespace-projections"
+
+[[retired]]
+name = "triplespace-revmeta"
+into = "triplespace-rdf"
+
+[[retired]]
+name = "scatter-adapter-wikidata"
+into = "scatter-adapter-wikibase"
+renamed = true
+sources = "[0091](../decisions/0091-one-wikibase-adapter.md) §5"
+
+[[retired]]
+name = "scatter-adapter-internetdomains"
+into = "scatter-adapter-wikibase"
+sources = "[0091](../decisions/0091-one-wikibase-adapter.md) §5"

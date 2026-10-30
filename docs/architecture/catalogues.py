@@ -4,9 +4,12 @@
   registry/routes.toml       -> 18 §3.2  (Built column derived from api/triplespace-v0.openapi.json)
   registry/permissions.toml  -> 09 §2.2  ('Granted by default to' derived from registry/groups.toml)
   registry/log-events.toml   -> 16 §2.3
+  registry/action-api.toml   -> 18 §2.3  (three tables; Built derived from the paraminfo lists in
+                                          crates/triplespace-api-action/src/modules/query.rs)
 
   python3 architecture/catalogues.py [DOCS_DIR]          check: files well formed, cross-checks hold, tables current
   python3 architecture/catalogues.py --write [DOCS_DIR]  rewrite the tables, then check
+  --notes                                             also list the modules the code serves that no entry names
 
 The tables sit between `<!-- catalogues.py: NAME -->` and `<!-- /catalogues.py -->` in the chapter
 and are never edited by hand. DOCS_DIR defaults to the parent of this file's directory (docs/).
@@ -161,10 +164,68 @@ def log_events(write_errs):
     return ["| Log type/action | Comes from | Typed parameters | Visible to | Source |", "|---|---|---|---|---|"] + out, len(rows)
 
 
+# ---------------------------------------------------------------- Action API modules
+
+def code_modules():
+    """The modules `action=paraminfo` serves, read from the constants in query.rs:
+    {"action": {...}, "meta": {...}, "prop": {...}, "list": {...}}."""
+    path = os.path.join(os.path.dirname(os.path.abspath(ROOT)), "crates", "triplespace-api-action", "src", "modules", "query.rs")
+    out = {"action": set(), "meta": set(), "prop": set(), "list": set(), "generator": set()}
+    if not os.path.exists(path):
+        return None
+    src = open(path, encoding="utf-8").read()
+    m = re.search(r"const ACTION_MODULES: &\[\(&str, bool\)\] = &\[(.*?)\];", src, re.S)
+    if m:
+        out["action"] = set(re.findall(r'\("([a-z]+)",', m.group(1)))
+    m = re.search(r"const QUERY_MODULES: &\[\(&str, &\[&str\]\)\] = &\[(.*?)\n\];", src, re.S)
+    if m:
+        for kind, body in re.findall(r'\(\s*"(meta|prop|list|generator)",\s*&\[(.*?)\]', m.group(1), re.S):
+            out[kind] |= set(re.findall(r'"([a-z]+)"', body))
+    return out
+
+
+def module_built(name, code):
+    if code is None:
+        return False
+    if "=" in name:
+        kind, n = name.split("=", 1)
+        return n in code.get(kind, set())
+    return name in code["action"]
+
+
+def action_api(kind):
+    def render(write_errs):
+        data = load_toml("action-api.toml")
+        rows = [r for r in data.get("module", []) if r.get("kind") == kind]
+        code = code_modules()
+        out = []
+        for r in rows:
+            mods = r.get("modules") or []
+            if not mods and not r.get("display"):
+                write_errs.append("action-api.toml: an entry has neither modules nor display")
+                continue
+            if not r.get("sources"):
+                write_errs.append(f"action-api.toml: {(mods or [r.get('display')])[0]} has no sources")
+            built = any(module_built(m, code) for m in mods)
+            out.append(f"| {cell(r.get('display') or codes(mods))} | {cell(r.get('changes'))} | {'✓' if built else ''} | {cell(r.get('sources'))} |")
+        if kind == "action" and code is not None and "--notes" in sys.argv:
+            listed = {m for r in data.get("module", []) for m in r.get("modules", [])}
+            for k in ("action", "meta", "prop", "list"):
+                for n in sorted(code[k]):
+                    key = f"{k}={n}" if k != "action" else (n if n.startswith("wb") else f"action={n}")
+                    if key not in listed and n not in listed:
+                        print(f"   note: the code serves {key}, which the catalogue does not list (fine if Triplespace changes nothing in it)")
+        return ["| Module | What Triplespace adds or changes | Built | ADR |", "|---|---|---|---|"] + out, len(rows)
+    return render
+
+
 CATALOGUES = [
     ("routes", "18-api.md", routes),
     ("permissions", "09-security-and-moderation.md", permissions),
     ("log-events", "16-logs-feeds-and-notifications.md", log_events),
+    ("action-api-action", "18-api.md", action_api("action")),
+    ("action-api-query", "18-api.md", action_api("query")),
+    ("action-api-wikibase", "18-api.md", action_api("wikibase")),
 ]
 
 

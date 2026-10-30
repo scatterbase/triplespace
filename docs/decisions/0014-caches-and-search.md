@@ -77,7 +77,7 @@ MediaWiki's search is CirrusSearch, which Wikimedia now runs on OpenSearch after
 
 *Changed by A1.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ### 10. Caches, indexes and stores added by later ADRs
 

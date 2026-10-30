@@ -63,7 +63,7 @@ This ADR adds tenants, makes each tenant its own issuer of identity, lets a tena
 
 *Changed by A23.*
 
-*Current text: [04](../architecture/04-entities-and-identifiers.md) §4.9.*
+*Current text: [04](../architecture/04-entities-and-identifiers.md) §4.9, §4.12.*
 
 ### 8. Contributions (settles 0010 and 0012; amends 0010 §8)
 
@@ -93,7 +93,7 @@ This ADR adds tenants, makes each tenant its own issuer of identity, lets a tena
 
 *Changed by A1.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Consequences
 

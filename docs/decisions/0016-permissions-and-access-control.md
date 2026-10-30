@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-30 (A40)
+- **Updated:** 2026-10-30 (A41)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -29,7 +29,7 @@ The two agree on the shape: users, groups, memberships, named permissions, and r
 
 ### 2. Permissions
 
-*Changed by A2, A3, A4, A5, A6, A7, A8, A10, A13, A14, A15, A16, A19, A20, A21, A24, A25, A27, A32, A33, A34, A39.*
+*Changed by A2, A3, A4, A5, A6, A7, A8, A10, A13, A14, A15, A16, A19, A20, A21, A24, A25, A27, A32, A33, A34, A39, A41.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §2.1, §2.2, §2.3.*
 
@@ -59,7 +59,7 @@ The two agree on the shape: users, groups, memberships, named permissions, and r
 
 ### 7. API and UI
 
-*Changed by A21, A28.*
+*Changed by A21, A28, A41.*
 
 *Current text: [18](../architecture/18-api.md) §1.5, §2.2, §2.3, §3.2.*
 
@@ -73,7 +73,7 @@ The two agree on the shape: users, groups, memberships, named permissions, and r
 
 *Changed by A1.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Consequences
 
@@ -508,3 +508,10 @@ Replaced text ([09](../architecture/09-security-and-moderation.md) §3.6, as it 
 Replaced text ([09](../architecture/09-security-and-moderation.md) §2.2, the lead, as it stood):
 
 > Every permission the ADRs name, with the group that holds it by default and what it allows. A permission marked *(new)* is Triplespace's own; the rest are MediaWiki's or Wikibase's, kept under MediaWiki's names so that a Wikimedia administrator and the bots that check rights recognise them. `steward`, `global-sysop` and `platform-admin` are the global groups of §3.7, which exist only on a farm whose tenancy policy ships them. Where a permission is also an **instance right** (§2.3), the default named here is the group on the primary tenant.
+
+### A41. Group records over REST, and `sysop` runs jobs
+
+- **Date:** 2026-10-30
+- **Source:** Direct: James, review of 2026-10-30, confirming the implementation calls of 2026-10-23 and 24 that the catalogue cross-checks surfaced
+- **Change:** extends §2, §7
+- **Summary:** Two things the code has done since the moderation tiers, now decided. §7: a tenant's group records are read, defined and retired over REST at `GET`, `PUT` and `DELETE /group/{name}` (the permissions, inclusion, delegation and scope of 09 §3.2; `ts-config`, plus `userrights` for inclusion, delegation or scope), the route the site's `Special:UserRights` and the CLI's `group` commands use; it is in the OpenAPI contract and in `registry/routes.toml`. §2: `ts-runjob` is granted to `sysop` as well as `bot`, as `groups.toml` has had it, so that an administrator can run a bulk job without a bot account; the permission catalogue's derived column now says so.

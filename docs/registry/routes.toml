@@ -915,20 +915,20 @@ sources = "[0062](../decisions/0062-workspaces.md) §8"
 
 [[route]]
 routes = ["GET /group/{name}", "PUT /group/{name}", "DELETE /group/{name}"]
-purpose = "Read, define and retire a tenant's group record (its permissions, inclusion, delegation and scope; [09](09-security-and-moderation.md) §3.2). Built with delegated administration; no ADR section names the route yet"
-sources = "[0016](../decisions/0016-permissions-and-access-control.md) A38"
+purpose = "Read, define and retire a tenant's group record (its permissions, inclusion, delegation and scope; [09](09-security-and-moderation.md) §3.2)"
+sources = "[0016](../decisions/0016-permissions-and-access-control.md) §7"
 
 [[route]]
 routes = ["GET /acl/empty-groups"]
-purpose = "The groups no one can read through: every group a read ACL names that has no member ([09](09-security-and-moderation.md) §4.5). Built with accountability; no ADR section names the route yet"
-sources = "[0056](../decisions/0056-security-model.md) Q4"
+purpose = "The groups no one can read through: every group a read ACL names that has no member ([09](09-security-and-moderation.md) §4.5)"
+sources = "[0056](../decisions/0056-security-model.md) §13"
 
 [[route]]
 routes = ["GET /purges"]
-purpose = "The queued cache purges since a position, for the web tier or a CDN hook to consume ([03](03-storage-caches-and-search.md) §7). Built with the purge queue; no ADR section names the route yet"
-sources = "[0056](../decisions/0056-security-model.md) §9"
+purpose = "The queued cache purges since a position, for the web tier or a CDN hook to consume ([03](03-storage-caches-and-search.md) §7)"
+sources = "[0056](../decisions/0056-security-model.md) §13"
 
 [[route]]
 routes = ["GET /version/licenses/{id}"]
-purpose = "One component's licence, copyright and notice files, behind `Special:Version/License` ([21](21-special-pages.md) §7). No ADR section names the route yet"
-sources = "[0077](../decisions/0077-special-version.md) §12"
+purpose = "One component's licence, copyright and notice files, behind `Special:Version/License` ([21](21-special-pages.md) §7)"
+sources = "[0077](../decisions/0077-special-version.md) §10"

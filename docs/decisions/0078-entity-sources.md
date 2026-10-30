@@ -46,7 +46,7 @@ James's direction, from the design discussion of 2026-10-07 and 2026-10-08:
 
 *Changed by A2, A4, A5.*
 
-*Current text: [05](../architecture/05-providers-and-ingest.md) §6.4.*
+*Current text: [05](../architecture/05-providers-and-ingest.md) §5.5, §6.4.*
 
 ### 5. The source's namespace (extends 0008 §2 and §3)
 
@@ -84,7 +84,7 @@ James's direction, from the design discussion of 2026-10-07 and 2026-10-08:
 
 ### 12. Crates (extends 0005 §2)
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Alternatives considered
 

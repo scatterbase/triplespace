@@ -66,7 +66,7 @@ The mechanisms these ADRs already provide fit the parts that are identifiable. P
 
 *Changed by A1, A2.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2; [23](../architecture/23-configuration-and-registry.md) §4.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1; [23](../architecture/23-configuration-and-registry.md) §4.2.*
 
 ## Consequences
 

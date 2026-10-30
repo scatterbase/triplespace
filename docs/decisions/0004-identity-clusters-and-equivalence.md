@@ -44,7 +44,7 @@ There are three needs:
 
 *Changed by A1, A4, A5, A12, A13, A16, A17.*
 
-*Current text: [04](../architecture/04-entities-and-identifiers.md) §4.4.*
+*Current text: [04](../architecture/04-entities-and-identifiers.md) §4.4, §4.12.*
 
 ### 5. Conversion joins a cluster (amends 0002 §6)
 

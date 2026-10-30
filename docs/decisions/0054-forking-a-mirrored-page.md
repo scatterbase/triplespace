@@ -92,7 +92,7 @@ James's direction, from the design discussion of 2026-10-01:
 
 *Changed by A6.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Alternatives considered
 

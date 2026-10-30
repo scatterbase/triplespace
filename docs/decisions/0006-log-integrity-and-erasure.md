@@ -89,7 +89,7 @@ Three terms are used precisely below:
 
 ### 10. Crates
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Consequences
 

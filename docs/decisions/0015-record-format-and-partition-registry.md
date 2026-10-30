@@ -61,7 +61,7 @@ Two smaller gaps are closed with them: the document node of a foreign entity on 
 
 *Changed by A1.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Consequences
 

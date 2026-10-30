@@ -35,7 +35,7 @@ James's direction, from the design discussion of 2026-10-01, was for the mirrori
 
 *Changed by A3, A6, A7.*
 
-*Current text: [10](../architecture/10-pages-and-content-models.md) §2.5.*
+*Current text: [10](../architecture/10-pages-and-content-models.md) §2.5, §3.2.*
 
 ### 4. Category, File and entity redirects (settles 0038 Q5; extends 0039 §1)
 

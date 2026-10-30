@@ -54,7 +54,7 @@ James's direction, from the design discussion of 2026-10-07:
 
 ### 7. Crates (amends 0005 §2)
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Alternatives considered
 

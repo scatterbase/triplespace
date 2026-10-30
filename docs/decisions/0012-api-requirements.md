@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-30 (A82)
+- **Updated:** 2026-10-30 (A83)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0005](0005-crate-organization.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -97,7 +97,7 @@ This ADR sets the rules for filling both gaps, and lists what the UI needs from 
 
 *Changed by A1.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Consequences
 
@@ -927,3 +927,14 @@ Replaced text ([18](../architecture/18-api.md) §3.2, as it stood):
 Replaced text ([18](../architecture/18-api.md) §3.2, the lead, as it stood):
 
 > Every route under `rest.php/triplespace/v0`, sorted by path. Each row keeps the ADR's own spelling of the path parameter (`{id}`, `{pageid}`, `{page ID}` name the same page ID; `{thread}` a thread's page ID). "Holder only" means the account holder in their own session; "farm base" means served at the farm base only. Routes the ADRs place at fixed paths outside `rest.php` are listed where [0012](../decisions/0012-api-requirements.md) §5 lists them and marked.
+
+### A83. The Action API catalogue is a registry file
+
+- **Date:** 2026-10-30
+- **Source:** [0098](0098-pointers-from-birth.md) §5
+- **Change:** consolidates §4
+- **Summary:** The three tables of 18 §2.3 moved into `docs/registry/action-api.toml` (kind, modules, what changes, sources); `architecture/catalogues.py` generates them and derives a *Built* column from the module lists `action=paraminfo` serves (`ACTION_MODULES` and `QUERY_MODULES` in `triplespace-api-action`). The "statement modules" row now names its eight `wb*` modules. No decision changed. The last commit in which the chapter carried the tables is `0e67cce`.
+
+Replaced text ([18](../architecture/18-api.md) §2.3, the lead, as it stood):
+
+> Every module Triplespace adds or changes, with the parameters, values and output fields it adds, in three tables: `action=` modules, `action=query` modules (`meta=`, `prop=`, `list=` and generators), and the Wikibase and WikibaseLexeme modules. Modules offered in another extension's shape (Echo, AbuseFilter, OAuth, DiscussionTools, WikibaseQualityConstraints, CentralAuth) keep that extension's parameters, because the tools and the Wikipedia apps speak them. `meta=siteinfo` is §2.2.

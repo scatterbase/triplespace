@@ -37,9 +37,10 @@ Cite sections in comments as `0013 §7`, and a numbered item as `0013 §7 rule 2
 **Generated files: never edit by hand.** `docs/decisions/INDEX.md` (`check_adrs.py --index`),
 the settings tables in chapter 23 (`settings.py --write`, from `registry/settings.toml`), and the
 crate table in chapter 22 §2.1 with `docs/architecture/CRATES.md` (`crates.py --write`, from
-`registry/crates.toml`), and the route, permission and log-event tables in 18 §3.2, 09 §2.2 and
-16 §2.3 (`catalogues.py --write`, from `registry/routes.toml`, `permissions.toml` + `groups.toml`,
-`log-events.toml`). A new crate, route, permission or log event is an edit to its registry file.
+`registry/crates.toml`), and the route, Action API, permission and log-event tables in 18 §3.2, 18 §2.3,
+09 §2.2 and 16 §2.3 (`catalogues.py --write`, from `registry/routes.toml`, `action-api.toml`,
+`permissions.toml` + `groups.toml`, `log-events.toml`). A new crate, route, module, permission or
+log event is an edit to its registry file.
 
 **Secrets.** `owner.pw` and `triplespace.key` at the root are local, gitignored secrets. Do not
 read, print, copy or commit them.

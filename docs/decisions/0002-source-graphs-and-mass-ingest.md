@@ -71,7 +71,7 @@ Four scenarios were used to test the design:
 
 *Changed by A32.*
 
-*Current text: [05](../architecture/05-providers-and-ingest.md) §3.1.*
+*Current text: [05](../architecture/05-providers-and-ingest.md) §3.1, §3.10.*
 
 #### 8.1 One change-set format, three entry points
 

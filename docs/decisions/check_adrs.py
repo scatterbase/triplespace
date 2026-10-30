@@ -487,7 +487,7 @@ for name, text in texts.items():
 _cm_toml = os.path.join(ROOT, "registry", "crates.toml")
 table = open(_cm_toml, encoding="utf-8").read() if os.path.exists(_cm_toml) else ""
 tbl_crates = set(re.findall(r'"((?:scatter|triplespace)-[a-z0-9-]+)"', "\n".join(l for l in table.splitlines() if l.startswith("names = "))))
-retired = {"scatter-graphs", "scatter-markdown", "scatter-keyed", "triplespace-activity", "triplespace-revmeta"}
+retired = set(re.findall(r'^name = "([^"]+)"', table, re.M))   # the [[retired]] entries
 # Content model IDs unique to Triplespace share the `triplespace-` prefix (0041 §2); they are not crates.
 _cm = os.path.join(ROOT, "registry", "content-models.toml")
 model_ids = set(re.findall(r'^id = "([^"]+)"', open(_cm, encoding="utf-8").read(), re.M)) if os.path.exists(_cm) else set()

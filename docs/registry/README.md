@@ -29,6 +29,7 @@ This directory is the registry of record for the names and codes that Triplespac
 | `routes.toml` | The REST route catalogue: every route under `rest.php/triplespace/v0`, built or designed, its purpose and sources | none (`architecture/catalogues.py` generates 18 §3.2 and checks it against the OpenAPI contract) | 18 §3.2; 0012 §5 and every ADR's API trailer |
 | `permissions.toml` | What every permission allows; who holds it by default is `groups.toml` | none (`architecture/catalogues.py` generates 09 §2.2 from the two) | 09 §2.2; 0016 §2 and every ADR's Permissions trailer |
 | `log-events.toml` | The log-event catalogue: every `type/action`, what projects it, its typed parameters and who sees it | none (`architecture/catalogues.py` generates 16 §2.3) | 16 §2.3; 0011 §6–7 and every ADR's Log events trailer |
+| `action-api.toml` | The Action API catalogue: every module Triplespace adds or changes, in three tables, with what changes and its sources | none (`architecture/catalogues.py` generates 18 §2.3; Built from `paraminfo`'s lists) | 18 §2.3; 0012 §4 and every ADR's API trailer |
 | `version.toml` | What `Special:Version` shows that nothing else records: the developer, contributors and funders, the AI agents named in ADR Author lines, the services an instance may run and how each reports its version, the feature switches shown on the page, and the mediawiki.org page of every extension an `origin` names, with what Triplespace took from extensions that leave no other trace | `triplespace-api-rest` | 0077 §2, §4, §8–9, §11 |
 
 ## Rules

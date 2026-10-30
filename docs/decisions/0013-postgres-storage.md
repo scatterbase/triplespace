@@ -137,7 +137,7 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 
 *Changed by A1.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ### 11. Deployment profiles
 

@@ -76,7 +76,7 @@ a decision always means editing a chapter section and citing the ADR section in 
   sentence with its citation appended to an existing entry's `contents` (and `depends` for a new
   edge); then `python3 architecture/crates.py --write .` regenerates 22 §2.1 and `CRATES.md`, and
   `cargo xtask deps` must still pass. Likewise an **API** trailer's REST routes go to
-  `registry/routes.toml`, a **Permissions** trailer to `permissions.toml` (and `groups.toml` for who
+  `registry/routes.toml` and its Action API modules to `action-api.toml`, a **Permissions** trailer to `permissions.toml` (and `groups.toml` for who
   holds it), a **Log events** trailer to `log-events.toml`; `python3 architecture/catalogues.py
   --write .` regenerates 18 §3.2, 09 §2.2 and 16 §2.3.
 - Then run `python3 architecture/pointers.py NNNN` from `docs/`. It writes every section's

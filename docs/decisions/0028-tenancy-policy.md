@@ -77,7 +77,7 @@ MediaWiki's answer to the second is CentralAuth: one global account, local accou
 
 *Changed by A14, A16, A21.*
 
-*Current text: [18](../architecture/18-api.md) §1.2, §2.2, §2.3, §3.2; [19](../architecture/19-site-ui.md) §1.3, §2.4, §6.11.*
+*Current text: [18](../architecture/18-api.md) §1.2, §2.2, §2.3, §3.2; [19](../architecture/19-site-ui.md) §1.3, §2.4, §2.8, §6.11.*
 
 ### 12. Storage (extends 0013)
 
@@ -93,7 +93,7 @@ MediaWiki's answer to the second is CentralAuth: one global account, local accou
 
 *Changed by A1.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Consequences
 

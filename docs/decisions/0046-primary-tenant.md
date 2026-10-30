@@ -79,13 +79,13 @@ James's direction, from the design discussion of 2026-09-30: the role is **trans
 
 *Changed by A5, A7, A8.*
 
-*Current text: [18](../architecture/18-api.md) §1.2, §2.2; [19](../architecture/19-site-ui.md) §6.11.*
+*Current text: [18](../architecture/18-api.md) §1.2, §2.2; [19](../architecture/19-site-ui.md) §2.8, §6.11.*
 
 ### 10. Crates (amends 0005 §2)
 
 *Changed by A1.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Consequences
 

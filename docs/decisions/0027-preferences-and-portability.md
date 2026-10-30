@@ -49,7 +49,7 @@ This ADR does three things: it names every kind of private state and puts prefer
 
 *Changed by A8.*
 
-*Current text: [19](../architecture/19-site-ui.md) §2.4.*
+*Current text: [19](../architecture/19-site-ui.md) §2.4, §2.6.*
 
 ### 8. Storage (extends 0013 §4 and §5.6)
 
@@ -59,7 +59,7 @@ This ADR does three things: it names every kind of private state and puts prefer
 
 *Changed by A1.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Consequences
 

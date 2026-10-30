@@ -62,7 +62,7 @@ Two existing mechanisms fit the rest. Keyed entity types ([0009](0009-keyed-enti
 
 *Changed by A1, A2, A7.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2; [23](../architecture/23-configuration-and-registry.md) §4.2, §4.3.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1; [23](../architecture/23-configuration-and-registry.md) §4.2, §4.3.*
 
 ## Consequences
 

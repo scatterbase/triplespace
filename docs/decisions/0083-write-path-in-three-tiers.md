@@ -60,7 +60,7 @@ James's direction, from the design review of 2026-10-09:
 
 ### 8. Crates (extends 0005 §2)
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2, §3.1.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §3.1.*
 
 ## Alternatives considered
 

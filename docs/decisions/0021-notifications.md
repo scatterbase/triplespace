@@ -47,7 +47,7 @@ Echo is the precedent. It has notification *types* (mention, edit-user-talk, rev
 
 *Changed by A16, A20, A21, A22.*
 
-*Current text: [19](../architecture/19-site-ui.md) §1.2, §2.4, §6.2.*
+*Current text: [19](../architecture/19-site-ui.md) §1.2, §2.4, §2.6, §6.2.*
 
 ### 7. API (extends 0012 §4 and §5)
 
@@ -69,7 +69,7 @@ Echo is the precedent. It has notification *types* (mention, edit-user-talk, rev
 
 *Changed by A1.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Consequences
 

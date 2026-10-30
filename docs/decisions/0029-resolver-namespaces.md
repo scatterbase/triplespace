@@ -59,7 +59,7 @@ The instance already has every part of this. [0013](0013-postgres-storage.md) §
 
 *Changed by A1.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Consequences
 

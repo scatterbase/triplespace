@@ -67,7 +67,7 @@ Two constraints shape the rest. The **host of a URL is a Domain** ([0009](0009-k
 
 *Changed by A1.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Consequences
 

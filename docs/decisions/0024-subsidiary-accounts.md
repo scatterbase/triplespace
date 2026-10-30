@@ -88,7 +88,7 @@ James's direction is to make the relation structural: a bot is a **subsidiary ac
 
 *Changed by A1.*
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Consequences
 

@@ -67,7 +67,7 @@ James's direction, from the design discussion of 2026-10-01, was that the ADR se
 
 ### 9. Crates (extends 0005 §2 and §3)
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §1.2, §2.1, §2.2.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §1.2, §2.1.*
 
 ## Alternatives considered
 
