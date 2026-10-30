@@ -189,11 +189,9 @@ async fn queued(database: &str) -> i64 {
         .get(0)
 }
 
-/// The queue's entries, after draining it, are the entries a rebuild makes.
+/// The queue's entries, once the worker has applied it, are the entries a rebuild makes.
 async fn incremental_matches_rebuild(app: &App, database: &str, after: &str) {
-    reports::drain(app.pool(), Some(TENANT), 100_000)
-        .await
-        .unwrap();
+    app.work_until_idle(100_000).await.unwrap();
     let kept = entries(database).await;
     reports::rebuild(app.pool(), TENANT).await.unwrap();
     let built = entries(database).await;
@@ -301,8 +299,21 @@ async fn reports_are_built_kept_and_served() {
         let r = api.post("action=edit", &edit(title, text)).await;
         assert_eq!(r["edit"]["result"], "Success", "{r}");
     }
-    // The writes queued their keys; nothing is applied until a read or the worker.
-    assert!(queued(&database).await > 0);
+    // The writes queued their keys; a read applies none of them (03 §6.1), it reports
+    // what is waiting, and the worker catches up behind it.
+    let waiting = queued(&database).await;
+    assert!(waiting > 0);
+    let wanted = api
+        .get("action=query&list=querypage&qppage=Wantedpages&qplimit=max")
+        .await;
+    assert_eq!(
+        wanted["query"]["querypage"]["ts-state"]["waiting"], waiting,
+        "{wanted}"
+    );
+    assert_eq!(queued(&database).await, waiting, "a read does no work");
+    let ran = app.work_until_idle(100_000).await.unwrap();
+    assert!(ran.failures.is_empty(), "{ran:?}");
+    assert_eq!(queued(&database).await, 0);
     let wanted = api
         .get("action=query&list=querypage&qppage=Wantedpages&qplimit=max")
         .await;
@@ -316,7 +327,19 @@ async fn reports_are_built_kept_and_served() {
             .any(|r| r["title"] == "A nowhere" && r["value"] == "2"),
         "{wanted}"
     );
-    assert_eq!(queued(&database).await, 0, "the read caught up");
+    assert_eq!(wanted["query"]["querypage"]["ts-state"]["waiting"], 0);
+    // The lag is in GET /version too, for this tenant.
+    let (status, version) = api
+        .call("GET", "/w/rest.php/triplespace/v0/version", None)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{version}");
+    let queues = version["queues"].as_array().unwrap();
+    assert!(
+        queues
+            .iter()
+            .all(|q| q["tenant"] == TENANT || q["tenant"] == ""),
+        "{queues:?}"
+    );
     let e = entries(&database).await;
     assert_eq!(count(&e, "WantedPages", "0:A nowhere"), Some(2));
     assert_eq!(count(&e, "MostLinkedPages", "0:A nowhere"), Some(2));
@@ -345,9 +368,7 @@ async fn reports_are_built_kept_and_served() {
         let r = api.post("action=edit", &edit(title, text)).await;
         assert_eq!(r["edit"]["result"], "Success", "{r}");
     }
-    reports::drain(app.pool(), Some(TENANT), 100_000)
-        .await
-        .unwrap();
+    app.work_until_idle(100_000).await.unwrap();
     let e = entries(&database).await;
     assert!(
         !listed(&e, "WantedPages", "0:A nowhere 2"),
@@ -372,9 +393,7 @@ async fn reports_are_built_kept_and_served() {
         )
         .await;
     assert!(r["move"].is_object(), "{r}");
-    reports::drain(app.pool(), Some(TENANT), 100_000)
-        .await
-        .unwrap();
+    app.work_until_idle(100_000).await.unwrap();
     let e = entries(&database).await;
     assert!(
         !listed(&e, "LonelyPages", "0:A second linker"),
@@ -389,9 +408,7 @@ async fn reports_are_built_kept_and_served() {
         )
         .await;
     assert!(r["delete"].is_object(), "{r}");
-    reports::drain(app.pool(), Some(TENANT), 100_000)
-        .await
-        .unwrap();
+    app.work_until_idle(100_000).await.unwrap();
     let e = entries(&database).await;
     // A linker's links and memberships no longer count.
     assert!(!listed(&e, "MostCategories", "0:A linker"));
@@ -412,9 +429,7 @@ async fn reports_are_built_kept_and_served() {
         )
         .await;
     assert!(r["protect"].is_object(), "{r}");
-    reports::drain(app.pool(), Some(TENANT), 100_000)
-        .await
-        .unwrap();
+    app.work_until_idle(100_000).await.unwrap();
     let e = entries(&database).await;
     // A confidential page is not listed and is not wanted: it exists, for some.
     assert!(!listed(&e, "MostLinkedPages", "0:A nowhere"));

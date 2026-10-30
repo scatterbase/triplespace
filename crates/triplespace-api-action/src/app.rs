@@ -4,7 +4,7 @@
 use std::sync::Arc;
 
 use deadpool_postgres::Pool;
-use scatter_projection::Pipeline;
+use scatter_projection::{Pipeline, QueueLag, Ran, Worker};
 use scatter_providers::Registry;
 use triplespace_accounts::Secret;
 use triplespace_accounts::oauth::{HttpUpstream, Upstream};
@@ -67,6 +67,7 @@ struct Inner {
     pool: Pool,
     store: PgIngest,
     pipeline: Pipeline<PgIngest>,
+    worker: Worker<PgIngest>,
     order: EntityProjection,
     secret: Secret,
     config: Config,
@@ -113,6 +114,11 @@ impl App {
         )
         .and_then(triplespace_notify::with_addressing)
         .map_err(|e| e.to_string())?;
+        // The worker: every projection's fan-out, then the tier-3 consumers (03 §6.1).
+        let worker = Worker::new()
+            .with_all(pipeline.consumers())
+            .and_then(|w| w.with(Arc::new(triplespace_projections::reports::ReportConsumer)))
+            .map_err(|e| e.to_string())?;
         // Mirror order: every registered provider, registry order (the tenant's opt-in
         // order is a later refinement, 0018 §6).
         let slugs: Vec<&str> = registry
@@ -127,6 +133,7 @@ impl App {
                 pool,
                 store,
                 pipeline,
+                worker,
                 order,
                 secret,
                 config,
@@ -229,15 +236,55 @@ impl App {
         Ok(read)
     }
 
-    /// Applies queued report work for every tenant (0047 §4.3): the `report` projection's
-    /// worker, which keeps projection-backed reports in step with the page and ACL
-    /// projections, in no write's transaction. Returns how many items it applied.
+    /// The worker over the work queue (03 §6.1): every projection's queued fan-out and
+    /// the tier-3 consumers, reports among them.
+    #[must_use]
+    pub fn worker(&self) -> &Worker<PgIngest> {
+        &self.inner.worker
+    }
+
+    /// One pass of the worker: at most one batch per tenant per consumer. The server's
+    /// worker tasks call this in a loop; a test calls it to bring the queues up to date.
+    ///
+    /// # Errors
+    ///
+    /// The store's; a consumer's failures are in the result.
+    pub async fn work_once(&self) -> Result<Ran, String> {
+        self.inner
+            .worker
+            .run_once(self.store())
+            .await
+            .map_err(|e| e.to_string())
+    }
+
+    /// The worker until every queue is empty or `limit` items are applied.
     ///
     /// # Errors
     ///
     /// The store's.
-    pub async fn drain_reports(&self, limit: usize) -> Result<usize, String> {
-        triplespace_projections::reports::drain(self.pool(), None, limit).await
+    pub async fn work_until_idle(&self, limit: usize) -> Result<Ran, String> {
+        self.inner
+            .worker
+            .run_until_idle(self.store(), limit)
+            .await
+            .map_err(|e| e.to_string())
+    }
+
+    /// What waits in every queue, by consumer and tenant: the lag `GET /version` reports.
+    ///
+    /// # Errors
+    ///
+    /// The store's.
+    pub async fn queue_lag(&self) -> Result<Vec<QueueLag>, String> {
+        use scatter_projection::Backend as _;
+        let store = self.store();
+        let mut cx = store.begin().await.map_err(|e| e.to_string())?;
+        let lag = store
+            .queue_lag(&mut cx, self.inner.worker.max_attempts)
+            .await
+            .map_err(|e| e.to_string())?;
+        store.rollback(cx).await.map_err(|e| e.to_string())?;
+        Ok(lag)
     }
 
     /// The mirror order for resolution.

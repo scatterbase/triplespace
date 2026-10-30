@@ -12,9 +12,11 @@
 //!   `ops.projection_work`: the page projection queues a key for every title and category
 //!   a page write touches (its own title, old and new on a move; every link target it
 //!   dropped or added; every category it left or joined), and the ACL projection queues a
-//!   page's key, or the whole tenant's for a wider restriction ([`queue`]). The worker
-//!   ([`drain`]) recomputes only those keys ([`recompute_title`], [`recompute_category`]),
-//!   in no write's transaction.
+//!   page's key, or the whole tenant's for a wider restriction ([`queue`]). The generic
+//!   worker ([`scatter_projection::Worker`]) drives [`ReportConsumer`], which recomputes
+//!   only those keys ([`recompute_title`], [`recompute_category`]), in no write's
+//!   transaction; a `tenant` key is a rebuild. A read never applies queued work: the
+//!   report's state says how much is waiting.
 //! - **Off until built.** A tenant's reports are on once `view.report_state` has rows for
 //!   it. Until then nothing is queued, so an adoption or a bulk load costs the write path
 //!   one guarded statement per page record and no rows; the first read builds
@@ -39,10 +41,11 @@
 //! entity composition events. `LonelyPages` counts links only until transclusions are
 //! projected.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 use deadpool_postgres::Pool;
 use scatter_log_postgres::PgClient;
+use scatter_projection::{Backend, BoxFuture, Consumer};
 use serde_json::{Value, json};
 
 use crate::backend::PgCx;
@@ -208,13 +211,13 @@ pub const REPORTS: &[Report] = &[
     ),
     report(
         "BrokenRedirects",
-        Some("BrokenRedirects"),
+        None,
         Backing::Index,
         Measure::None,
     ),
     report(
         "DoubleRedirects",
-        Some("DoubleRedirects"),
+        None,
         Backing::Index,
         Measure::None,
     ),
@@ -728,8 +731,20 @@ const BUILD_WITH: &str = "WITH
 pub async fn rebuild(pool: &Pool, tenant: &str) -> Result<u64, String> {
     let mut conn = pool.get().await.map_err(|e| e.to_string())?;
     let tx = conn.transaction().await.map_err(|e| sql(&e))?;
-    let public = Public::of(&*tx, tenant).await?;
-    tx.execute(
+    let n = rebuild_in(&*tx, tenant).await?;
+    tx.commit().await.map_err(|e| sql(&e))?;
+    Ok(n)
+}
+
+/// The rebuild inside a caller's unit of work: the tenant's entries replaced from a scan
+/// of `view`, the state rows updated.
+///
+/// # Errors
+///
+/// The database's.
+pub async fn rebuild_in<C: PgClient>(c: &C, tenant: &str) -> Result<u64, String> {
+    let public = Public::of(c, tenant).await?;
+    c.execute(
         "DELETE FROM view.report_entry WHERE tenant = $1 AND scope = $2",
         &[&tenant, &LOCAL],
     )
@@ -737,7 +752,7 @@ pub async fn rebuild(pool: &Pool, tenant: &str) -> Result<u64, String> {
     .map_err(|e| sql(&e))?;
     let mut total = 0u64;
     for (report, select) in BUILD {
-        let n = tx
+        let n = c
             .execute(
                 &format!(
                     "{BUILD_WITH}
@@ -751,7 +766,7 @@ pub async fn rebuild(pool: &Pool, tenant: &str) -> Result<u64, String> {
             )
             .await
             .map_err(|e| sql(&e))?;
-        tx.execute(
+        c.execute(
             "INSERT INTO view.report_state (tenant, report, scope, mode, computed_at, row_count)
              VALUES ($1, $2, $3, 'projection', now(), $4)
              ON CONFLICT (tenant, report, scope)
@@ -762,7 +777,6 @@ pub async fn rebuild(pool: &Pool, tenant: &str) -> Result<u64, String> {
         .map_err(|e| sql(&e))?;
         total += n;
     }
-    tx.commit().await.map_err(|e| sql(&e))?;
     Ok(total)
 }
 
@@ -800,68 +814,42 @@ pub async fn ensure_built(pool: &Pool, tenant: &str) -> Result<bool, String> {
     Ok(true)
 }
 
-/// Applies up to `limit` items of queued report work, oldest first, in batches of one
-/// transaction each; returns how many it applied. Keys repeated in a batch are computed
-/// once; `tenant` rebuilds the tenant instead.
-///
-/// # Errors
-///
-/// The database's.
-pub async fn drain(pool: &Pool, tenant: Option<&str>, limit: usize) -> Result<usize, String> {
-    let mut done = 0;
-    while done < limit {
-        let batch = (limit - done).min(500);
-        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
-        let tx = conn.transaction().await.map_err(|e| sql(&e))?;
-        let rows = tx
-            .query(
-                "DELETE FROM ops.projection_work
-                 WHERE id IN (SELECT id FROM ops.projection_work
-                              WHERE projection = $1 AND ($2::text IS NULL OR tenant = $2)
-                              ORDER BY id LIMIT $3 FOR UPDATE SKIP LOCKED)
-                 RETURNING tenant, key",
-                &[
-                    &PROJECTION,
-                    &tenant,
-                    &i64::try_from(batch).unwrap_or(i64::MAX),
-                ],
-            )
-            .await
-            .map_err(|e| sql(&e))?;
-        if rows.is_empty() {
-            break;
-        }
-        done += rows.len();
-        let mut by_tenant: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
-        for r in &rows {
-            by_tenant.entry(r.get(0)).or_default().insert(r.get(1));
-        }
-        let mut rebuilds = Vec::new();
-        for (t, keys) in by_tenant {
-            if keys.contains("tenant") {
-                rebuilds.push(t);
-                continue;
+/// The `report` consumer for the worker (03 §6.1): a tenant's queued keys, recomputed in
+/// one unit of work; a `tenant` key rebuilds the tenant instead, and the other keys of
+/// the batch are then already covered.
+pub struct ReportConsumer;
+
+impl<B: Backend<Cx = PgCx>> Consumer<B> for ReportConsumer {
+    fn name(&self) -> &'static str {
+        PROJECTION
+    }
+
+    fn apply<'a>(
+        &'a self,
+        cx: &'a mut PgCx,
+        tenant: &'a str,
+        keys: &'a [String],
+    ) -> BoxFuture<'a, Result<usize, String>> {
+        Box::pin(async move {
+            if keys.iter().any(|k| k == "tenant") {
+                let n = rebuild_in(&*cx, tenant).await?;
+                return Ok(usize::try_from(n).unwrap_or(usize::MAX));
             }
-            let public = Public::of(&*tx, &t).await?;
+            let public = Public::of(&*cx, tenant).await?;
             let mut all = BTreeSet::new();
             for k in keys {
                 if let Some(id) = k.strip_prefix("page:").and_then(|i| i.parse::<i64>().ok()) {
-                    all.extend(expand_page(&*tx, &t, id).await?);
+                    all.extend(expand_page(&*cx, tenant, id).await?);
                 } else {
-                    all.insert(k);
+                    all.insert(k.clone());
                 }
             }
             for k in &all {
-                apply_key(&*tx, &t, &public, k).await?;
+                apply_key(&*cx, tenant, &public, k).await?;
             }
-        }
-        tx.commit().await.map_err(|e| sql(&e))?;
-        drop(conn);
-        for t in rebuilds {
-            rebuild(pool, &t).await?;
-        }
+            Ok(all.len())
+        })
     }
-    Ok(done)
 }
 
 // --- Reading -------------------------------------------------------------------------

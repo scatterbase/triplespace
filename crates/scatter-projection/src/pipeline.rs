@@ -1,13 +1,15 @@
 //! The pipeline: projections in step order, applied inline or catching up.
 
 use std::collections::BTreeMap;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use scatter_log::record::Record;
 use scatter_log::store::{LogStore, Slot};
 
 use crate::backend::{Backend, Lag, Work};
-use crate::projection::{Applied, Projection, ProjectionError, Step, Target};
+use crate::projection::{Applied, BoxFuture, Projection, ProjectionError, Step, Target};
+use crate::worker::Consumer;
 
 /// The synchronous budget (0013 §7): fan-out is applied inline until either is spent,
 /// then queued. `projections.sync_budget` and `projections.sync_time` in `site`
@@ -68,7 +70,7 @@ pub struct Progress {
 
 /// Projections in step order.
 pub struct Pipeline<B: Backend> {
-    projections: Vec<Box<dyn Projection<B>>>,
+    projections: Vec<Arc<dyn Projection<B>>>,
 }
 
 impl<B: Backend> Default for Pipeline<B> {
@@ -104,13 +106,13 @@ impl<B: Backend> Pipeline<B> {
             .iter()
             .position(|p| p.step() > step)
             .unwrap_or(self.projections.len());
-        self.projections.insert(at, Box::new(projection));
+        self.projections.insert(at, Arc::new(projection));
         Ok(self)
     }
 
     /// The projections, in order.
     #[must_use]
-    pub fn projections(&self) -> &[Box<dyn Projection<B>>] {
+    pub fn projections(&self) -> &[Arc<dyn Projection<B>>] {
         &self.projections
     }
 
@@ -293,29 +295,6 @@ impl<B: Backend> Pipeline<B> {
         Ok(progress)
     }
 
-    /// Applies up to `limit` queued fan-out items of each projection, one unit of work
-    /// per projection. Returns the items applied.
-    pub async fn drain(&self, backend: &B, limit: usize) -> Result<usize, ProjectionError> {
-        let mut done = 0;
-        for p in &self.projections {
-            let mut cx = backend.begin().await?;
-            let work = backend.take(&mut cx, p.name(), limit).await?;
-            for w in &work {
-                p.fanout(&mut cx, &w.tenant, &w.key)
-                    .await
-                    .map_err(|message| ProjectionError::Failed {
-                        projection: p.name().into(),
-                        partition: w.partition,
-                        offset: w.offset,
-                        message,
-                    })?;
-            }
-            done += work.len();
-            backend.commit(cx).await?;
-        }
-        Ok(done)
-    }
-
     /// Resets every projection on `partitions` and replays each from offset 0.
     pub async fn rebuild<S: LogStore>(
         &self,
@@ -374,5 +353,40 @@ impl<B: Backend> Pipeline<B> {
         let mut steps: Vec<Step> = self.projections.iter().map(|p| p.step()).collect();
         steps.dedup();
         steps
+    }
+}
+
+impl<B: Backend + 'static> Pipeline<B> {
+    /// Each projection as a [`Consumer`] of its own queued fan-out, for the worker.
+    #[must_use]
+    pub fn consumers(&self) -> Vec<Arc<dyn Consumer<B>>> {
+        self.projections
+            .iter()
+            .map(|p| Arc::new(Fanout(Arc::clone(p))) as Arc<dyn Consumer<B>>)
+            .collect()
+    }
+}
+
+/// A projection's queued fan-out, applied key by key.
+struct Fanout<B: Backend>(Arc<dyn Projection<B>>);
+
+impl<B: Backend> Consumer<B> for Fanout<B> {
+    fn name(&self) -> &'static str {
+        self.0.name()
+    }
+
+    fn apply<'a>(
+        &'a self,
+        cx: &'a mut B::Cx,
+        tenant: &'a str,
+        keys: &'a [String],
+    ) -> BoxFuture<'a, Result<usize, String>> {
+        Box::pin(async move {
+            let mut rows = 0;
+            for key in keys {
+                rows += self.0.fanout(cx, tenant, key).await?;
+            }
+            Ok(rows)
+        })
     }
 }

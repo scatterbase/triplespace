@@ -1,6 +1,8 @@
 //! `scatter-projection`'s [`Backend`] over Postgres: a unit of work is a pooled
 //! connection with an open transaction, positions are `ops.projection_state`, and the
-//! fan-out queue is `ops.projection_work`.
+//! work queue is `ops.projection_work`, leased with `FOR UPDATE SKIP LOCKED`, a tenant's
+//! work for a consumer held by a transaction-scoped advisory lock, attempts counted on
+//! the row (migration `0024_work_attempts`).
 //!
 //! The transaction is opened with `BEGIN` on the connection itself rather than through
 //! `tokio_postgres::Transaction`, which borrows its client and so cannot be an owned
@@ -29,7 +31,7 @@ use std::sync::Mutex;
 use deadpool_postgres::{ClientWrapper, Object, Pool};
 use scatter_log_postgres::ids::{partition_to_db, to_db};
 use scatter_log_postgres::{Frontiers, PgClient};
-use scatter_projection::{Backend, ProjectionError, Work};
+use scatter_projection::{Backend, ProjectionError, QueueLag, Queued, Work};
 use triplespace_db::projection_state;
 
 use crate::common::{PartitionInfo, Partitions};
@@ -250,32 +252,132 @@ impl Backend for PgBackend {
         Ok(())
     }
 
-    async fn take(
+    async fn tenants_waiting(
         &self,
         cx: &mut PgCx,
-        projection: &str,
-        limit: usize,
-    ) -> Result<Vec<Work>, ProjectionError> {
+        consumer: &str,
+        max_attempts: u32,
+    ) -> Result<Vec<String>, ProjectionError> {
         let rows = cx
             .query(
-                "DELETE FROM ops.projection_work
-                 WHERE id IN (SELECT id FROM ops.projection_work WHERE projection = $1
-                              ORDER BY partition, \"offset\", id LIMIT $2 FOR UPDATE SKIP LOCKED)
-                 RETURNING projection, tenant, partition, \"offset\", key",
-                &[&projection, &i64::try_from(limit).unwrap_or(i64::MAX)],
+                "SELECT tenant FROM ops.projection_work
+                 WHERE projection = $1 AND attempts < $2
+                 GROUP BY tenant ORDER BY min(id)",
+                &[&consumer, &i32::try_from(max_attempts).unwrap_or(i32::MAX)],
+            )
+            .await
+            .map_err(backend)?;
+        Ok(rows.iter().map(|r| r.get(0)).collect())
+    }
+
+    async fn lock_tenant(
+        &self,
+        cx: &mut PgCx,
+        consumer: &str,
+        tenant: &str,
+    ) -> Result<bool, ProjectionError> {
+        let row = cx
+            .query_one(
+                "SELECT pg_try_advisory_xact_lock(hashtext($1), hashtext($2))",
+                &[&consumer, &tenant],
+            )
+            .await
+            .map_err(backend)?;
+        Ok(row.get(0))
+    }
+
+    async fn claim(
+        &self,
+        cx: &mut PgCx,
+        consumer: &str,
+        tenant: &str,
+        limit: usize,
+        max_attempts: u32,
+    ) -> Result<Vec<Queued>, ProjectionError> {
+        let rows = cx
+            .query(
+                "SELECT id, projection, tenant, partition, \"offset\", key, attempts
+                 FROM ops.projection_work
+                 WHERE projection = $1 AND tenant = $2 AND attempts < $3
+                 ORDER BY id LIMIT $4
+                 FOR UPDATE SKIP LOCKED",
+                &[
+                    &consumer,
+                    &tenant,
+                    &i32::try_from(max_attempts).unwrap_or(i32::MAX),
+                    &i64::try_from(limit).unwrap_or(i64::MAX),
+                ],
             )
             .await
             .map_err(backend)?;
         rows.iter()
             .map(|r| {
-                Ok(Work {
-                    projection: r.get(0),
-                    tenant: r.get(1),
-                    partition: scatter_log_postgres::ids::partition_from_db(r.get(2)),
-                    offset: u64::try_from(r.get::<_, i64>(3)).map_err(backend)?,
-                    key: r.get(4),
+                Ok(Queued {
+                    id: u64::try_from(r.get::<_, i64>(0)).map_err(backend)?,
+                    work: Work {
+                        projection: r.get(1),
+                        tenant: r.get(2),
+                        partition: scatter_log_postgres::ids::partition_from_db(r.get(3)),
+                        offset: u64::try_from(r.get::<_, i64>(4)).map_err(backend)?,
+                        key: r.get(5),
+                    },
+                    attempts: u32::try_from(r.get::<_, i32>(6)).unwrap_or(u32::MAX),
                 })
             })
             .collect()
+    }
+
+    async fn finish(&self, cx: &mut PgCx, ids: &[u64]) -> Result<(), ProjectionError> {
+        let ids: Vec<i64> = ids.iter().filter_map(|i| i64::try_from(*i).ok()).collect();
+        cx.execute(
+            "DELETE FROM ops.projection_work WHERE id = ANY($1)",
+            &[&ids],
+        )
+        .await
+        .map_err(backend)?;
+        Ok(())
+    }
+
+    async fn fail(&self, cx: &mut PgCx, ids: &[u64], error: &str) -> Result<(), ProjectionError> {
+        let ids: Vec<i64> = ids.iter().filter_map(|i| i64::try_from(*i).ok()).collect();
+        let error: String = error.chars().take(2000).collect();
+        cx.execute(
+            "UPDATE ops.projection_work
+             SET attempts = attempts + 1, last_error = $2, failed_at = now()
+             WHERE id = ANY($1)",
+            &[&ids, &error],
+        )
+        .await
+        .map_err(backend)?;
+        Ok(())
+    }
+
+    async fn queue_lag(
+        &self,
+        cx: &mut PgCx,
+        max_attempts: u32,
+    ) -> Result<Vec<QueueLag>, ProjectionError> {
+        let rows = cx
+            .query(
+                "SELECT projection, tenant,
+                        count(*) FILTER (WHERE attempts < $1),
+                        count(*) FILTER (WHERE attempts >= $1),
+                        coalesce(extract(epoch FROM now() - min(queued_at) FILTER (WHERE attempts < $1)), 0)::bigint
+                 FROM ops.projection_work
+                 GROUP BY projection, tenant ORDER BY projection, tenant",
+                &[&i32::try_from(max_attempts).unwrap_or(i32::MAX)],
+            )
+            .await
+            .map_err(backend)?;
+        Ok(rows
+            .iter()
+            .map(|r| QueueLag {
+                consumer: r.get(0),
+                tenant: r.get(1),
+                waiting: u64::try_from(r.get::<_, i64>(2)).unwrap_or(0),
+                failed: u64::try_from(r.get::<_, i64>(3)).unwrap_or(0),
+                oldest_seconds: u64::try_from(r.get::<_, i64>(4)).unwrap_or(0),
+            })
+            .collect())
     }
 }

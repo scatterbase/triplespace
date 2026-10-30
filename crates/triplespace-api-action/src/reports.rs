@@ -5,10 +5,9 @@
 //!   viewer who may read the tenant's pages sees the same report. A caller to whom every
 //!   page is hidden (an outsider of a private tenant, or of a restricted `pages` graph) is
 //!   refused, since the report page is behind that restriction.
-//! - **A projection report is built on first read** and caught up before it is read: the
-//!   tenant's queued report work is applied, at most [`CATCH_UP`] items, as the inbox is
-//!   caught up before it is read (0021). The server's worker applies the rest in the
-//!   background, and the report's state says how much is waiting.
+//! - **A projection report is built on first read**, then kept by the worker (03 §6.1),
+//!   never by a read: the report's state says how much work is waiting, and the page
+//!   shows it.
 
 use scatter_actors::Effective;
 use serde_json::{Map, Value, json};
@@ -17,9 +16,6 @@ use triplespace_projections::reports::{self, Backing, Report, Row, State};
 use crate::App;
 use crate::pages::Site;
 use crate::response::ApiError;
-
-/// At most how much queued work a read applies before it reads.
-pub const CATCH_UP: usize = 1000;
 
 /// The most rows one read returns.
 pub const MAX_LIMIT: i64 = 500;
@@ -88,9 +84,6 @@ pub async fn page(
     }
     if report.backing == Backing::Projection {
         reports::ensure_built(app.pool(), tenant)
-            .await
-            .map_err(ApiError::internal)?;
-        reports::drain(app.pool(), Some(tenant), CATCH_UP)
             .await
             .map_err(ApiError::internal)?;
     }

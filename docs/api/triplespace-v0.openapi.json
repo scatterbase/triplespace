@@ -5004,6 +5004,7 @@
           "license",
           "build",
           "services",
+          "queues",
           "components_listed",
           "workspace",
           "crates",
@@ -5165,6 +5166,13 @@
                   "type": "string"
                 }
               }
+            }
+          },
+          "queues": {
+            "type": "array",
+            "description": "What waits in the work queues (chapter 03 §6.1): per consumer and tenant, the items waiting, the items that failed too often to be retried, and how long the oldest has waited. A request at a tenant base lists that tenant's rows and the instance's; a holder of `ts-config` at the farm base sees every tenant's.",
+            "items": {
+              "$ref": "#/components/schemas/QueueLag"
             }
           },
           "components_listed": {
@@ -7672,6 +7680,38 @@
           "label": {
             "type": "string",
             "description": "A property's label, for `ListProperties`."
+          }
+        }
+      },
+      "QueueLag": {
+        "type": "object",
+        "required": [
+          "consumer",
+          "tenant",
+          "waiting",
+          "failed",
+          "oldest_seconds"
+        ],
+        "properties": {
+          "consumer": {
+            "type": "string",
+            "description": "The queue: a projection's name, or a tier-3 consumer's (`report`)."
+          },
+          "tenant": {
+            "type": "string",
+            "description": "The tenant; empty for the instance."
+          },
+          "waiting": {
+            "type": "integer",
+            "description": "Items not yet applied."
+          },
+          "failed": {
+            "type": "integer",
+            "description": "Items that have failed the worker's attempt limit and wait for an operator."
+          },
+          "oldest_seconds": {
+            "type": "integer",
+            "description": "How long the oldest waiting item has waited."
           }
         }
       }

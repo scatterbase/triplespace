@@ -12,7 +12,7 @@ use scatter_log::tree::Segments;
 use scatter_projection::memory::MemoryCx;
 use scatter_projection::{
     Applied, Backend, BoxFuture, Budget, MemoryBackend, Pipeline, Projection, ProjectionError,
-    Step, Target,
+    Step, Target, Worker,
 };
 
 const PARTITION: u64 = 7;
@@ -230,7 +230,7 @@ fn catch_up_in_batches_then_lag_is_zero() {
         assert!(row(&backend, "index", "P1").is_none());
         // Catching up queues fan-out rather than applying it.
         assert_eq!(progress.queued, 3);
-        assert_eq!(backend.state().work.len(), 3);
+        assert_eq!(backend.state().work.items.len(), 3);
         assert!(row(&backend, "referrers", "Q2").is_none());
         let lags = p.lags(&backend, &store, PARTITION).await.unwrap();
         assert!(
@@ -241,11 +241,13 @@ fn catch_up_in_batches_then_lag_is_zero() {
         let again = p.catch_up(&backend, &store, PARTITION, 2).await.unwrap();
         assert_eq!(again.records, 0);
 
-        // Draining applies the queued fan-out.
-        assert_eq!(p.drain(&backend, 10).await.unwrap(), 3);
-        assert_eq!(row(&backend, "referrers", "Q2").as_deref(), Some("2"));
+        // The worker applies the queued fan-out: three items, two distinct keys, each
+        // key re-projected once (the fixture counts calls; a real fan-out recomputes).
+        let worker = Worker::new().with_all(p.consumers()).unwrap();
+        assert_eq!(worker.run_once(&backend).await.unwrap().applied, 3);
+        assert_eq!(row(&backend, "referrers", "Q2").as_deref(), Some("1"));
         assert_eq!(row(&backend, "referrers", "Q1").as_deref(), Some("1"));
-        assert!(backend.state().work.is_empty());
+        assert!(backend.state().work.items.is_empty());
     });
 }
 
@@ -337,7 +339,7 @@ fn inline_application_within_a_budget() {
         assert_eq!(row(&backend, "referrers", "Q2").as_deref(), Some("1"));
         assert_eq!(row(&backend, "referrers", "Q3").as_deref(), Some("1"));
         assert!(row(&backend, "referrers", "Q4").is_none());
-        assert_eq!(backend.state().work[0].key, "Q4");
+        assert_eq!(backend.state().work.items[0].work.key, "Q4");
         // Positions advanced for both synchronous projections; a catch-up has nothing left.
         let lags = p.lags(&backend, &store, PARTITION).await.unwrap();
         assert!(lags.iter().all(|l| l.applied == 1 && l.behind() == 0));
@@ -442,5 +444,6 @@ fn backend_futures_are_send() {
     let p = pipeline();
     assert_send(&p.catch_up(&backend, &store, PARTITION, 1));
     assert_send(&p.lags(&backend, &store, PARTITION));
-    assert_send(&p.drain(&backend, 1));
+    let worker = Worker::new().with_all(p.consumers()).unwrap();
+    assert_send(&worker.run_once(&backend));
 }

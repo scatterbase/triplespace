@@ -44,6 +44,11 @@ struct Args {
     /// Connections in the pool.
     #[arg(long, default_value_t = 16)]
     pool: usize,
+    /// Worker tasks over the work queue (03 §6.1): fan-out past the synchronous budget
+    /// and the tier-3 consumers (reports). `0` runs none, for a process that only serves
+    /// while another runs the workers.
+    #[arg(long, env = "TRIPLESPACE_WORKERS", default_value_t = 2)]
+    workers: usize,
     /// The auth host, `server.auth_base` (0089 §1): where a person authenticates to the
     /// instance; required once the instance has a second tenant.
     #[arg(long, env = "TRIPLESPACE_AUTH_BASE")]
@@ -54,9 +59,12 @@ struct Args {
     ui: String,
 }
 
-/// The background work of a running server: the services' states for Special:Version, and
-/// the asynchronous projection steps.
-async fn background(app: &triplespace_api_action::App) {
+/// How long an idle worker waits before looking again.
+const WORKER_IDLE: std::time::Duration = std::time::Duration::from_secs(1);
+
+/// The background work of a running server: the services' states for Special:Version,
+/// the asynchronous projection steps, and the workers.
+async fn background(app: &triplespace_api_action::App, workers: usize) {
     // The services' states and versions for Special:Version and siteinfo: read now and
     // every minute, never while answering a request (0077 §4).
     triplespace_api_action::version::refresh(app).await;
@@ -71,20 +79,47 @@ async fn background(app: &triplespace_api_action::App) {
             }
         });
     }
-    // The asynchronous projection steps (addressing, reports), behind every write by about
-    // this much (0013 §7).
+    // The position-based asynchronous step (addressing), behind every write by about this
+    // much (0013 §7).
     {
         let app = app.clone();
         tokio::spawn(async move {
-            let mut every = tokio::time::interval(std::time::Duration::from_secs(1));
+            let mut every = tokio::time::interval(WORKER_IDLE);
             loop {
                 every.tick().await;
                 if let Err(e) = app.catch_up_async().await {
                     eprintln!("asynchronous projections: {e}");
                 }
-                // Reports follow the page and ACL projections' queued work (0047 §4.3).
-                if let Err(e) = app.drain_reports(5000).await {
-                    eprintln!("reports: {e}");
+            }
+        });
+    }
+    // The workers over the work queue (03 §6.1). Each runs a pass, then goes again at once
+    // while there is work and waits when there is none; the queue's per-tenant locks share
+    // the tenants between them. A consumer's failure is logged once per batch and recorded
+    // on the items, which are retried a bounded number of times.
+    for n in 0..workers {
+        let app = app.clone();
+        tokio::spawn(async move {
+            loop {
+                match app.work_once().await {
+                    Ok(ran) => {
+                        for f in &ran.failures {
+                            eprintln!(
+                                "worker {n}: {} for tenant {:?} failed on {} item(s): {}",
+                                f.consumer,
+                                f.tenant,
+                                f.ids.len(),
+                                f.error
+                            );
+                        }
+                        if ran.idle() {
+                            tokio::time::sleep(WORKER_IDLE).await;
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("worker {n}: {e}");
+                        tokio::time::sleep(WORKER_IDLE).await;
+                    }
                 }
             }
         });
@@ -155,7 +190,7 @@ async fn run() -> Result<()> {
         },
     )
     .map_err(|e| anyhow::anyhow!(e))?;
-    background(&app).await;
+    background(&app, args.workers).await;
     if let Some(admin) = &args.admin_listen {
         let admin_router =
             axum::Router::new().route("/healthz", axum::routing::get(|| async { "ok" }));

@@ -390,6 +390,9 @@ pub struct Request<'a> {
     pub disclosure: Disclosure,
     /// The providers the instance mirrors, which the tenant reads.
     pub providers: Vec<String>,
+    /// What waits in the work queues (03 §6.1): the tenant's own rows and the
+    /// instance's, or every tenant's for a holder of `ts-config` at the farm base.
+    pub queues: Vec<scatter_projection::QueueLag>,
 }
 
 /// The response body.
@@ -413,6 +416,23 @@ pub fn body(app: &App, req: &Request<'_>) -> Value {
     );
     o.insert("build".into(), build);
     o.insert("services".into(), json!(services(app, req.disclosure)));
+    o.insert(
+        "queues".into(),
+        json!(
+            req.queues
+                .iter()
+                .map(|q| {
+                    json!({
+                        "consumer": q.consumer,
+                        "tenant": q.tenant,
+                        "waiting": q.waiting,
+                        "failed": q.failed,
+                        "oldest_seconds": q.oldest_seconds,
+                    })
+                })
+                .collect::<Vec<_>>()
+        ),
+    );
     let listed = build_info.listed();
     o.insert("components_listed".into(), json!(listed));
     let strip = |list: &str| -> Vec<Value> {
@@ -559,6 +579,16 @@ pub async fn handle(
     let same_base = farm_base.trim_end_matches('/') == tenant.base.trim_end_matches('/');
     let at_farm = same_base || host_of(farm_base).eq_ignore_ascii_case(&tenant.host);
     let at_tenant = same_base || !at_farm;
+    // The queues' lag: everyone sees their tenant's and the instance's; a holder of
+    // `ts-config` at the farm base sees every tenant's (0077 §4 disclosure applies).
+    let every_tenant = at_farm && disclosure == Disclosure::Full;
+    let queues = match app.queue_lag().await {
+        Ok(all) => all
+            .into_iter()
+            .filter(|q| every_tenant || q.tenant.is_empty() || q.tenant == tenant.slug)
+            .collect(),
+        Err(e) => return internal(&e),
+    };
     let req = Request {
         tenant: &tenant,
         at_farm,
@@ -566,6 +596,7 @@ pub async fn handle(
         settings,
         disclosure,
         providers,
+        queues,
     };
     let body = body(&app, &req).to_string();
     let credentialed = caller.has_session() || bearer(&headers).is_some();
