@@ -209,18 +209,8 @@ pub const REPORTS: &[Report] = &[
         Backing::Index,
         Measure::None,
     ),
-    report(
-        "BrokenRedirects",
-        None,
-        Backing::Index,
-        Measure::None,
-    ),
-    report(
-        "DoubleRedirects",
-        None,
-        Backing::Index,
-        Measure::None,
-    ),
+    report("BrokenRedirects", None, Backing::Index, Measure::None),
+    report("DoubleRedirects", None, Backing::Index, Measure::None),
     report(
         "ShortPages",
         Some("Shortpages"),
