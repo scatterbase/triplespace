@@ -82,8 +82,9 @@ stable.
   column are written from this; `coverage.py --todo` is the backlog; `coverage.py NNNN §N` and
   `tools/adr.py code NNNN §N` list the citing lines. Read them before relying on a status: an
   about-citation (`0090 §5`) means the code is about the section, not that it is finished.
-- `docs/decisions/INDEX.md` also lists every *unconfirmed* decision (an entry Claude logged while
-  building, 24 §6) and each ADR's open-question count: what waits on James is there, not in notes.
+- `docs/decisions/OPEN.md` is everything waiting on a decision: every open question, every
+  *unconfirmed* entry (one Claude logged while building, 24 §6), the registry's pending
+  allocations. `tools/coverage.py --todo` is everything waiting on work. Neither lives in notes.
 - `docs/architecture/22` §4.9 and `tools/README.md` say how each contract is tested.
 
 ## Before proposing a design

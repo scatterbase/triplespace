@@ -20,7 +20,8 @@ a decision always means editing a chapter section and citing the ADR section in 
 ## Lifecycle
 
 1. **Research.** Read the home chapter, the ADRs its *Sources* lines cite (Context, Open
-   questions, Amendment log), `INDEX.md`, and the relevant registry files. List every ADR and
+   questions, Amendment log), `INDEX.md` and `OPEN.md` (what is already open or unconfirmed on
+   the subject), and the relevant registry files. List every ADR and
    chapter section the change will touch.
 2. **Confirm.** Put the specific choices to James: each option, its cost and your
    recommendation. Name every assumption. Do not draft past an unconfirmed choice.
@@ -39,7 +40,7 @@ a decision always means editing a chapter section and citing the ADR section in 
   decision in full, because nowhere else does.
 - **A call made while building** is a direct decision you make: log it in the owning ADR in the
   same change as the code, folded like any other, with Source
-  `Direct: Claude, while building <what>, YYYY-MM-DD; unconfirmed`. `INDEX.md` lists it for James;
+  `Direct: Claude, while building <what>, YYYY-MM-DD; unconfirmed`. `OPEN.md` lists it for James;
   he confirms by editing the Source line or overturns it with a new entry. Never park such calls
   in notes outside the ADRs.
 
