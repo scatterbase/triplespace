@@ -5,7 +5,7 @@
   coverage.py 0013            per section: its status and where the code cites it
   coverage.py 0013 §7         every citing line (file:line and the comment)
   coverage.py 03 §6.1         the same for a chapter section: cited directly, or through its Sources
-  coverage.py --todo          every section not done, with what it still needs
+  coverage.py --todo          the work list: not-built comments, then every section not done and what it needs
   coverage.py --status        the computed status of every ADR, as JSON (check_adrs.py reads it)
   coverage.py --check         exit 1 on a malformed claim (see below); check.sh runs this
   coverage.py --stale         citations of sections that do not exist (renumbered, typos, stubs)
@@ -415,8 +415,15 @@ def status_json(docs, rolled):
     return out
 
 
-def todo(docs, rolled):
-    print("Sections not done, by ADR (24 §15). What each still needs:\n")
+def todo(docs, rolled, cites):
+    print("What waits on work (24 §13, §15). What waits on a decision is docs/decisions/OPEN.md.\n")
+    nots = sorted({(c.rel, c.line, c.text) for c in cites if c.kind == "not"})
+    if nots:
+        print(f"Not built yet, as the code says ({len(nots)} comments):")
+        for rel, line, text in nots:
+            print(f"  {rel}:{line}  {text[:110]}")
+        print()
+    print("Sections not done, by ADR. What each still needs:\n")
     for num, d in docs.items():
         rows = []
         for s in top_sections(d):
@@ -531,7 +538,7 @@ def main(argv):
         print(json.dumps(status_json(docs, rolled), indent=1))
         return
     if "--todo" in argv:
-        todo(docs, rolled)
+        todo(docs, rolled, cites)
         return
     if not joined:
         summary(docs, rolled)

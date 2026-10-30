@@ -36,7 +36,9 @@ alone for one line per ADR with its computed status, `NNNN` for each section, `N
 citing lines, `--todo` for everything not done and what it needs (this is the backlog), `--check`
 for malformed claims. The ADR's `Status` header and `INDEX.md`'s *Built* column are written from
 this by `check_adrs.py --index`: never edit a Status by hand. Finishing a section means adding its
-`implements` line and a test that cites it, in the same change.
+`implements` line and a test that cites it, in the same change. **What waits on a decision** is
+`docs/decisions/OPEN.md` (open questions, unconfirmed entries, pending allocations; generated);
+**what waits on work** is `tools/coverage.py --todo`. Nothing of either kind is kept anywhere else.
 
 **Generated files: never edit by hand.** `docs/decisions/INDEX.md` (`check_adrs.py --index`),
 the settings tables in chapter 23 (`settings.py --write`, from `registry/settings.toml`), and the
@@ -102,7 +104,7 @@ toolchain instead of the pinned one), rather than calling the work verified. Wit
 - Flag assumptions and open choices explicitly for James to confirm. Do not settle them silently.
   A call you have to make while building goes into the owning ADR's Amendment log in the same
   change, folded into the chapter, with Source `Direct: Claude, while building <what>, <date>;
-  unconfirmed` (24 §6); `INDEX.md` lists these for James. Never keep such calls in notes.
+  unconfirmed` (24 §6); `OPEN.md` lists these for James. Never keep such calls in notes.
 - Sandbox and test-environment pitfalls are `docs/testing/gotchas.md`; add what you learn there.
 - Prefer real data and real clients for testing: the Librarybase fixtures, `tools/*_check.py`.
   Watch for Pywikibot's API cache masking whether a fix worked.

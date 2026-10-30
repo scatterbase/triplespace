@@ -45,6 +45,8 @@ This directory is the registry of record for the names and codes that Triplespac
 
 ## Pending allocations
 
+These are also listed in [`../decisions/OPEN.md`](../decisions/OPEN.md), generated from this section.
+
 - **Provider `agent_iri` values** in `providers.toml`: OpenAlex's (its Wikidata item) is still "to be set when confirmed", and OpenStreetMap and GDELT carry the same comment. **MusicBrainz's type codes** there were proposed when the adapter was drafted and never explicitly confirmed. (From the working notes, 0099 §5.)
 
 - **Pages served at the auth base** ([0089](../decisions/0089-the-auth-host-and-instance-logins.md) §7): the field `auth = true` on `UserLogin`, `CreateAccount`, `Account` and `UserLogout` in `special-pages.toml`. Written as a comment beside each until `triplespace-titles` accepts it, since the parser rejects unknown fields.
