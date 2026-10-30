@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0022](0022-federation.md), [0033](0033-backend-stack.md), [0039](0039-files-and-media.md), [0042](0042-template-expansion-and-parsoid.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0040](0040-instance-prerogatives.md), [0047](0047-special-pages.md), [0051](0051-page-redirects.md), [0052](0052-page-repositories-and-title-inheritance.md), [0054](0054-forking-a-mirrored-page.md), [0055](0055-templatestyles-templatedata-and-page-properties.md), [MediaWiki API contract](../api/mediawiki-compat.md)
-- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [07](../architecture/07-actors-and-accounts.md), [09](../architecture/09-security-and-moderation.md), [13](../architecture/13-mirrored-pages.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -113,20 +112,6 @@ James's direction, from the design discussion of 2026-10-01:
 - **Q4. `full` history for a mirror.** The partition allows it; whether any tenant wants every rendering of every mirrored page kept, and what `Special:Export` should write for it.
 - **Q5. Pre-rendering the frame.** Whether the rewritten HTML could be served from the HTTP cache with the frame rendered client-side, for mirrors whose read traffic dwarfs everything else.
 - **Q6. Non-Parsoid repositories.** How far section editing and fork-over-HTML should degrade for a repository whose HTML comes from the legacy parser, or whether such repositories should be served from wikitext through the expander instead.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2 | §12 | amends | 0005 A52 |
-| [0012](0012-api-requirements.md) §4, §5 | §10 | extends | 0012 A32 |
-| [0013](0013-postgres-storage.md) §5.6 | §8 | extends | 0013 A23 |
-| [0014](0014-caches-and-search.md) §4, §7 | §4, §7 | extends | 0014 A11 |
-| [0015](0015-record-format-and-partition-registry.md) §3, §5 | §5 | extends | 0015 A24 |
-| [0033](0033-backend-stack.md) §10 | §12 | amends | 0033 A6 |
-| [0039](0039-files-and-media.md) §11 | §2, §9 | extends | 0039 A6 |
-| [0042](0042-template-expansion-and-parsoid.md) Q4, Q5 | §5, §6 | settles | 0042 Q4, Q5 |
-| [0022](0022-federation.md) §11 | §3 | extends | 0022 A5 |
 
 ## References
 

@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md)
 - **Uses:** [0024](0024-subsidiary-accounts.md), [Wikibase contract](../api/wikibase-compat.md)
-- **Chapters:** [05](../architecture/05-providers-and-ingest.md), [07](../architecture/07-actors-and-accounts.md), [16](../architecture/16-logs-feeds-and-notifications.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -91,24 +90,6 @@ One alternative needs no new operation and was rejected: load the old wiki into 
 - **Q2.** ~~**Pages in the same job.** Whether an adoption should carry the source's document pages ([0008](0008-namespaces-and-document-pages.md) §9) in the same run, sharing the page-ID floor, or leave them to a second job.~~ *Settled by A13: the same job, every page of the dump, keeping its page and revision IDs.*
 - **Q3.** ~~**Vouching.** Whether a still-running source wiki can act as an identity provider for reclaiming, which needs an OAuth issuer on the source, or whether the manual `reclaim/reclaim` path is the only one a MediaWiki source offers.~~ *Settled by [0088](0088-external-identity-providers.md) §8: it can, through an issuer that reaches its users, `local` on the source itself or `central` checked with `usprop=centralids`, while `reclaim.vouching` names it.*
 - **Q4. Sitelinks.** A source's `wb_items_per_site` rows are site IDs and titles; they become URLs through the site aliases of [0026](0026-sitelinks.md) §2, and a site ID the registry does not know is a reject. Whether adoption should register unknown site IDs as aliases on the fly is open.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0002](0002-source-graphs-and-mass-ingest.md) §8.2, §8.5 | §3 | extends | 0002 A15 |
-| [0005](0005-crate-organization.md) §2, §7 | §8 | extends | 0005 A34 |
-| [0007](0007-actor-identity.md) §3 | §4–5 | extends | 0007 A12 |
-| [0008](0008-namespaces-and-document-pages.md) §9 | §4 | extends | 0008 A7 |
-| [0008](0008-namespaces-and-document-pages.md) §9 | A13 | amends | 0008 A38 |
-| [0011](0011-logs.md) §6.1 | §6 | extends | 0011 A12 |
-| [0012](0012-api-requirements.md) §5 | §6 | extends | 0012 A22 |
-| [0013](0013-postgres-storage.md) §6 | §4 | extends | 0013 A12 |
-| [0013](0013-postgres-storage.md) §6 | A12 | amends | 0013 A68 |
-| [0015](0015-record-format-and-partition-registry.md) §2 | §4 | amends | 0015 A15 |
-| [0015](0015-record-format-and-partition-registry.md) §2 | A12 | amends | 0015 A62 |
-| [0016](0016-permissions-and-access-control.md) §3 | §5 | amends | 0016 A12 |
-| [0018](0018-tenants.md) §1, §3, §5 | §1 | extends | 0018 A5 |
 
 ## References
 

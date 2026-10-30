@@ -2,6 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-28
+- **Updated:** 2026-10-30 (A1)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0086](0086-theming.md)
 - **Uses:** [0085](0085-settings-and-preferences.md)
@@ -26,57 +27,31 @@ In the same review James asked for the header and the menu to change as follows,
 
 ### 1. Alternates are keyed by the registry (amends 0086 §2; extends 0086 §1)
 
-**An accessibility alternate** is a set of colours a palette wears for a reader with a particular need, whatever else they have chosen. **Its keys are the registry's**: `themes.toml` lists them under `[alternate.{key}]`, each with a label, and only a release adds one, so a reader's override means the same on every palette and every wiki. Two ship:
-
-| Key | For | Label |
-|---|---|---|
-| `rg` | red–green colour-vision deficiencies (protanopia and deuteranopia) | *Red–green (protanopia and deuteranopia)* |
-| `by` | blue–yellow colour-vision deficiency (tritanopia) | *Blue–yellow (tritanopia)* |
-
-**A palette keys an alternate** under `alternate.{key}` in its record, with up to the four variants of 0086 §2. Each variant of the alternate is laid over the same variant of the palette as served, so it states only the colours it changes; its `light-more` and `dark-more` take its own `light` and `dark` first, and the palette's own high-contrast values where it has neither. A palette may key only the registry's keys. **Every variant with an alternate on is checked to the floors of 0086 §2**, as served, so an alternate cannot lower a palette's contrast.
+*Current text: [02](../architecture/02-graphs-rdf-and-query.md) §1.4; [19](../architecture/19-site-ui.md) §5.9.*
 
 ### 2. Which alternate a palette wears (extends 0086 §2)
 
-For each key, a palette wears, first match wins:
-
-1. its own alternate for the key;
-2. the alternate of the palette it `extends`;
-3. the alternate of the palette its `alternates-from` names, a field for a palette that wants another's alternates without its colours;
-4. the default palette's (`parchment`'s).
-
-The fourth rule means **every palette has every alternate**, as every palette has a dark mode (0086 §2): a wiki's brand never takes a reader's colours away. A palette whose colours fail the floors with an inherited alternate on cannot be written until it keys its own for that key. `encyclopedia` keys none, and passes with `parchment`'s.
+*Current text: [19](../architecture/19-site-ui.md) §5.9.*
 
 ### 3. A palette's prerequisites (amends 0086 §2; extends 0086 §1)
 
-**A palette depends on** the palette it `extends` and the one its `alternates-from` names: its prerequisites. **A palette whose prerequisite is not offered where it is written cannot be written**: a write naming one is refused, naming it, as a palette may name a shipped palette or one at its own scope (0086 §2), and the registry's own palettes name only registry palettes. **A prerequisite cannot be deleted** while a palette that depends on it remains, as 0086 §2 already held for `extends`. Keying a palette under a new name (0086 §1) renames the `alternates-from` that name it, as it renames `extends`.
+*Current text: [18](../architecture/18-api.md) §3.2; [19](../architecture/19-site-ui.md) §5.9.*
 
 ### 4. Parchment's alternates replace the colour-vision palettes (amends 0086 §1, §2)
 
-**`parchment` keys `rg` and `by`**, with the colours of the palettes `parchment-rg` and `parchment-by` unchanged: the same values over the same variants, so a reader wearing an alternate sees exactly what that palette showed. A test holds the two equal.
-
-**The names `parchment-rg` and `parchment-by` are retired**, kept in `themes.toml` with `retired = true` and `replaced_by` naming `palette.parchment` and the alternate, so they are never given another meaning. **They are read, not migrated**: a `theme.palette` or `ui.palette` that names one reads as `parchment`, and a `ui.palette` that names one reads besides as its alternate where the reader has chosen none, on the server and in the browser's stored choices alike. A reader's next save of the Appearance menu writes the new values.
+*Current text: [19](../architecture/19-site-ui.md) §5.9.*
 
 ### 5. The reader chooses an alternate (amends 0086 §4)
 
-**The preference `ui.vision`**, *Colour vision*, takes `none` or a registry key, defaults to `none`, is `browser`, and follows the farm account, as contrast does, since the need is the reader's and not a wiki's. It is offered in the Appearance menu and on `Special:Preferences`, and like colour mode, contrast and text size **it is never withheld**, whatever `theme.choice` or a lock says. It applies over whichever palette the reader wears.
-
-`theme.choice = accessibility` withholds the brand palettes and type sets as before; it offers the accessibility type sets, and the alternates of the wiki's palette.
+*Current text: [07](../architecture/07-actors-and-accounts.md) §8.1; [19](../architecture/19-site-ui.md) §2.7, §5.9.*
 
 ### 6. Serving (amends 0086 §5)
 
-**The alternates are in the palette's stylesheet**, so choosing one fetches nothing: after the palette's own rules, each alternate's rules repeat them with `[data-vision="{key}"]` on `:root`, one attribute more specific than the rule each overlays, so the cascade among them is the palette's. The `dark` rule of an alternate also holds the palette's dark value of every colour its `light` sets and its `dark` does not, so no light colour shows in dark mode. **`data-vision`** is written on `<html>` beside `data-mode`, by the server for a signed-in reader and by the head script for one who is not, and only for a key other than `none`.
-
-**`siprop=triplespace` reports** each palette's alternates and `alternates-from` with its variants and `extends`; the keys are the registry's.
+*Current text: [18](../architecture/18-api.md) §2.2; [19](../architecture/19-site-ui.md) §5.9.*
 
 ### 7. Crates (extends 0086 §7)
 
-| Crate | Change |
-|---|---|
-| `triplespace-accounts` | The `alternate` and `alternates-from` fields of a palette; the registry's keys and retired names; a palette's prerequisites, those missing from a catalogue, and its dependents; a retired `theme.palette` read as its replacement |
-| `triplespace-client` | The fields, as `siprop=triplespace` reports them |
-| `triplespace-ui` | Which alternate a palette wears; the alternates' rules in the palette's stylesheet and their contrast check; `data-vision`; `ui.vision` in the Appearance menu; retired names read in the reader's choices |
-
-The palette routes that would refuse a write for a missing prerequisite are not built yet (0086 §7); `triplespace-accounts` gives them the check.
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Alternatives considered
 
@@ -99,17 +74,16 @@ The palette routes that would refuse a write for a missing prerequisite are not 
 - **Q1. Alternates of type sets**, such as a dyslexia override, deferred by James on 2026-10-28.
 - **Q2. More keys**, such as an achromatopsia (monochromacy) alternate, which a release would add to the registry and to `parchment`.
 
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0086](0086-theming.md) §1 | §1, §3, §4 | amends | 0086 A6 |
-| [0086](0086-theming.md) §2 | §1, §2, §3, §4 | amends | 0086 A6 |
-| [0086](0086-theming.md) §4 | §5 | amends | 0086 A6 |
-| [0086](0086-theming.md) §5 | §6 | amends | 0086 A6 |
-| [0086](0086-theming.md) §7 | §7 | extends | 0086 A6 |
-
 ## References
 
 - Machado, Oliveira and Fernandes (2009), *A physiologically-based model for simulation of color vision deficiency*, by which the alternates' colours were chosen (0086 §2).
 - WCAG 2.1: 1.4.1 (use of colour), 1.4.3, 1.4.6 and 1.4.11.
+
+## Amendment log
+
+### A1. Current text relocated to the architecture chapters
+
+- **Date:** 2026-10-30
+- **Source:** [0050](0050-adr-format.md) §14
+- **Change:** relocates §1–§7
+- **Summary:** The Decision's current text now lives in the architecture chapters [02](../architecture/02-graphs-rdf-and-query.md), [07](../architecture/07-actors-and-accounts.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `2e2a7c8`. No decision changed.

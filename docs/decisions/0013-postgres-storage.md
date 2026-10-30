@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
-- **Chapters:** [01](../architecture/01-log-and-records.md), [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [05](../architecture/05-providers-and-ingest.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -175,27 +174,6 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 - **Q8. Partition count at farm scale** and whether small tenants share physical child tables ([0018](0018-tenants.md) Q1). [0028](0028-tenancy-policy.md) §2 adds three instance partitions per farm, which does not change the shape of the question.
 - **Q9. The addressing projection's role.** §7 runs it under the notifier's role because it writes to `private`; whether `ops.projection_state` should record its position like the others, or `private.inbox` should carry its own high-water mark, is an implementation choice to settle with [0021](0021-notifications.md).
 - **Q10.** ~~**A `NULL` tenant in a key.** §5 and [0018](0018-tenants.md) §6 give shared rows and instance-level registry entries a `NULL` tenant and say the tenant is in the key, but a Postgres primary key cannot hold `NULL`.~~ *Settled by A11: `tenant text NOT NULL DEFAULT ''`, the empty string being the instance, leading every primary key; a read tries the viewer's tenant and falls back to `''`.*
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0000](0000-init.md) Q6 | §1 | settles | 0000 Q6 |
-| [0001](0001-revision-metadata-rdf.md) §2 | §8 | amends | 0001 A6 |
-| [0002](0002-source-graphs-and-mass-ingest.md) §8.6 | §9 | extends | 0002 A5 |
-| [0002](0002-source-graphs-and-mass-ingest.md) Q8 | §5.2 | settles | 0002 Q8 |
-| [0005](0005-crate-organization.md) §2, §3, §4.2, §4.4 | §1, §8, §10 | amends | 0005 A8 |
-| [0006](0006-log-integrity-and-erasure.md) §5 | §1, §3 | extends | 0006 A2 |
-| [0006](0006-log-integrity-and-erasure.md) §7 | §1, §3 | amends | 0006 A2 |
-| [0008](0008-namespaces-and-document-pages.md) Q1 | §6 | settles | 0008 Q1 |
-| [0008](0008-namespaces-and-document-pages.md) Q2 | §6 | settles | 0008 Q2 |
-| [0010](0010-site-ui.md) §13 | §5.5, §10 | amends | 0010 A2 |
-| [0010](0010-site-ui.md) §5.2, §12 | §6 | amends | 0010 A3 |
-| [0010](0010-site-ui.md) Q3 | §6 | settles | 0010 Q3 |
-| [0011](0011-logs.md) §2, §8 | §6, §8 | amends | 0011 A2 |
-| [0011](0011-logs.md) Q1 | §6 | settles | 0011 Q1 |
-| [0012](0012-api-requirements.md) §2.1 | §6 | amends | 0012 A2 |
-| [0012](0012-api-requirements.md) Q1 | §6 | settles | 0012 Q1 |
 
 ## References
 

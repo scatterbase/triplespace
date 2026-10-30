@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0009](0009-keyed-entity-types-and-domain.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0018](0018-tenants.md)
 - **Uses:** [0016](0016-permissions-and-access-control.md), [0022](0022-federation.md), [Wikibase contract](../api/wikibase-compat.md), [MediaWiki API contract](../api/mediawiki-compat.md)
-- **Chapters:** [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [04](../architecture/04-entities-and-identifiers.md), [06](../architecture/06-statements-and-properties.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -88,21 +87,6 @@ Two constraints shape the rest. The **host of a URL is a Domain** ([0009](0009-k
 - **Q4.** ~~**Links to other tenants and instances.** A sitelink to another tenant's entity page is better expressed as a cluster link ([0004](0004-identity-clusters-and-equivalence.md), [0018](0018-tenants.md) §5); whether to refuse it, or convert it, is open.~~ *Settled by A2: it is a plain sitelink, asserting nothing about identity, like a link to any page. An editor who means "this is Librarybase's Q6" writes `same-as` to `LBQ6`; the two are different statements and the UI does not convert one into the other.*
 - **Q5. Language for non-aliased hosts**, so that `schema:inLanguage` can be emitted more often.
 - **Q6. Whether a sitelink should make its host's Domain present** (§5), for tenants that treat their linked sites as data.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0002](0002-source-graphs-and-mass-ingest.md) §3 | §4 | amends | 0002 A13 |
-| [0004](0004-identity-clusters-and-equivalence.md) §7 | §1 | extends | 0004 A6 |
-| [0005](0005-crate-organization.md) §2 | §10 | extends | 0005 A22 |
-| [0009](0009-keyed-entity-types-and-domain.md) §5 | §5 | extends | 0009 A3 |
-| [0010](0010-site-ui.md) §2 | §9 | extends | 0010 A16 |
-| [0012](0012-api-requirements.md) §4, §5 | §7 | extends | 0012 A15 |
-| [0013](0013-postgres-storage.md) §5, §5.2, §5.6 | §6 | amends | 0013 A9 |
-| [0013](0013-postgres-storage.md) §4, §5.4, §5.5, §7, §8 | §6 | extends | 0013 A9 |
-| [0015](0015-record-format-and-partition-registry.md) §3, §5 | §2–3 | extends | 0015 A9 |
-| [0018](0018-tenants.md) §3 | §3 | extends | 0018 A2 |
 
 ## References
 

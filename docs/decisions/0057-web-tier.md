@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0025](0025-oauth-server.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0042](0042-template-expansion-and-parsoid.md), [0056](0056-security-model.md)
 - **Uses:** [0003](0003-statement-ui.md), [0039](0039-files-and-media.md), [0045](0045-table-content-model.md), [0047](0047-special-pages.md), [0053](0053-mirrored-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
-- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [07](../architecture/07-actors-and-accounts.md), [11](../architecture/11-rendering-templates-and-modules.md), [20](../architecture/20-web-tier.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -140,25 +139,6 @@ James's direction, from the design discussion of 2026-10-03:
 - **Q4.** ~~**`action=render` regions as a contract.** Whether the region names of §8 are documented for third parties with a stability promise, or stay internal to the site.~~ *Settled by §8: the names are a contract, the markup is not (Direction).*
 - **Q5. Pushing purges to the web tier.** If revalidation round trips show up in measurements, the API could publish purged tags on a Valkey channel that every web replica follows; whether that is worth the coupling and the risk of a missed message.
 - **Q6. Trusting proxies by certificate.** Where a service mesh gives each workload a certificate (Envoy's `x-forwarded-client-cert`), the API could trust a hop by its certificate identity, as a third option beside addresses and forwarder keys.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2, Consequences | §12 | amends | 0005 A60 |
-| [0005](0005-crate-organization.md) §3, §7 | §12 | extends | 0005 A60 |
-| [0010](0010-site-ui.md) §12, §13 | §8, §14 | extends | 0010 A32 |
-| [0012](0012-api-requirements.md) §4, §5 | §7, §9, §13 | extends | 0012 A37 |
-| [0014](0014-caches-and-search.md) §2, §6 | §5, §6 | extends | 0014 A15 |
-| [0015](0015-record-format-and-partition-registry.md) §3 | §10 | extends | 0015 A27 |
-| [0025](0025-oauth-server.md) §1, §3, §5, §8, §9 | §13 | amends | 0025 A4 |
-| [0033](0033-backend-stack.md) §1, §17 | §2 | amends | 0033 A10 |
-| [0033](0033-backend-stack.md) §12 | §2 | extends | 0033 A10 |
-| [0034](0034-frontend-stack.md) §1, §2, §5, §8, §11 | §1, §2, §8 | amends | 0034 A6 |
-| [0034](0034-frontend-stack.md) §13 | §4 | extends | 0034 A6 |
-| [0042](0042-template-expansion-and-parsoid.md) §10, §14 | §14 | amends | 0042 A8 |
-| [0056](0056-security-model.md) §10, §16 | §10, §12 | amends | 0056 A2 |
-| [0056](0056-security-model.md) §15 | §10 | extends | 0056 A2 |
 
 ## References
 

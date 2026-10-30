@@ -19,14 +19,13 @@ classed by where it is:
          "TODO", "not implemented", …); listed apart and never counted as evidence
 
 A section's own citations include its subsections' (§7 counts §7.1). Trailer sections (Crates,
-API, UI, Storage, …, as map.py classes them) are shown but left out of the counts, since the
+API, UI, Storage, …, 24 §10.3) are shown but left out of the counts, since the
 code cites a trailer's subject under the home section instead. Superseded stubs are left out.
 A chapter citation (`03 §6.1`) counts for every ADR section that chapter section's *Sources* line
 names: weaker evidence, marked "via chapter".
 
 `adr.py code NNNN §N` prints the same citing lines.
 """
-import ast
 import collections
 import glob
 import os
@@ -77,16 +76,19 @@ def headings(lines):
     return out
 
 
-def trailer_rules():
-    """map.py's TRAILER list, read without running map.py."""
-    tree = ast.parse(read(os.path.join(ARCH, "map.py")))
-    for node in tree.body:
-        if isinstance(node, ast.Assign) and any(getattr(t, "id", "") == "TRAILER" for t in node.targets):
-            return [re.compile(rx) for rx, _ in ast.literal_eval(node.value)]
-    return []
-
-
-TRAILERS = trailer_rules()
+# The cross-cutting trailer sections most ADRs end with (24 §10.3): shown but left out of the counts.
+TRAILERS = [re.compile(rx) for rx in (
+    r"^Crates\b", r"^Scatterbase\b", r"^Conformance\b", r"^Testing\b",
+    r"^Storage, API and RDF", r"^Storage, operations and API", r"^API, operations and storage",
+    r"^Pages, UI and API", r"^UI and API", r"^API and (UI|operations)", r"^(Action API|REST|API)\b",
+    r"^Special pages, API and search", r"^Display, logs and RDF",
+    r"^(UI|Site UI|Rendering and the UI|Editing and preview)\b",
+    r"^Search and filters", r"^Storage\b", r"^Search\b", r"^Terms, search and storage",
+    r"^Filters and feeds", r"^Permissions\b", r"^Logs and RDF", r"^RDF\b", r"^IRIs and RDF",
+    r"^Log events", r"^Feeds, watch", r"^Rate limits", r"^Limits, rate limits", r"^Tenants\b",
+    r"^Federation\b", r"^Registry", r"^Configuration and registry", r"^Settings\b", r"^Reports\b",
+    r"^Deployment profiles", r"^Changelog",
+)]
 
 
 class Section:

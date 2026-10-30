@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0011](0011-logs.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0028](0028-tenancy-policy.md)
-- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -89,24 +88,6 @@ Echo is the precedent. It has notification *types* (mention, edit-user-talk, rev
 - **Q4.** ~~**Cross-tenant notifications**: whether a mention of `librarybase:42` from another tenant on the same instance reaches that user's inbox, which would be the first thing to cross a tenant boundary.~~ *Settled by [0028](0028-tenancy-policy.md) §7: by policy, through farm identity; the bell aggregates linked accounts' inboxes and a farm-name mention goes to the home tenant.*
 - **Q5.** ~~**RFC 9421 timing**, and FEP-8b32 object integrity proofs, as Mastodon adopts them.~~ *Settled by [0022](0022-federation.md) §8: both implemented behind `site` switches, off until Mastodon accepts them; outbound stays cavage until then.*
 - **Q6.** ~~**[0022](0022-federation.md)**: WebFinger and actor documents for users, talk pages as `Group` actors that `Announce` their threads, `Update` and `Delete` delivery, opt-in per account with the vanish page amended, `rel="me"` public links, and, separately, inbound replies as posts attributed to fediverse actors with a `federated` group, domain lists and moderation.~~ *Settled by [0022](0022-federation.md) Part B, which does all of this and fixes the inbound rules while leaving the inbound protocol details open.*
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2, §6, §7 | §10 | extends | 0005 A17 |
-| [0007](0007-actor-identity.md) §8 | §3, §5 | extends | 0007 A5 |
-| [0010](0010-site-ui.md) §2, §11, §12 | §6 | extends | 0010 A11 |
-| [0010](0010-site-ui.md) Q1 | — | settles | 0010 Q1 |
-| [0012](0012-api-requirements.md) §4, §5 | §7 | extends | 0012 A10 |
-| [0013](0013-postgres-storage.md) §4, §5.6, §7 | §3, §5, §8, §10 | extends | 0013 A8 |
-| [0014](0014-caches-and-search.md) §1, §5 | §2 | amends | 0014 A3 |
-| [0014](0014-caches-and-search.md) §10 | §2 | extends | 0014 A3 |
-| [0016](0016-permissions-and-access-control.md) §2 | §9 | extends | 0016 A4 |
-| [0019](0019-discussions.md) §6 | §2 | extends | 0019 A3 |
-| [0019](0019-discussions.md) Q3 | §2 | settles | 0019 Q3 |
-| [0020](0020-change-feeds.md) §3, §5 | §2, §7 | extends | 0020 A2 |
-| [0020](0020-change-feeds.md) Q1 | — | settles | 0020 Q1 |
 
 ## References
 

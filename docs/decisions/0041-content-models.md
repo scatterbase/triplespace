@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0019](0019-discussions.md), [0029](0029-resolver-namespaces.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md)
 - **Uses:** [0035](0035-adopting-a-wikibase.md), [0043](0043-lua-modules.md), [0045](0045-table-content-model.md), [0048](0048-notation.md), [0049](0049-boards.md), [MediaWiki API contract](../api/mediawiki-compat.md)
-- **Chapters:** [10](../architecture/10-pages-and-content-models.md), [12](../architecture/12-files-and-media.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -112,24 +111,6 @@ James's direction, from the design discussion of 2026-09-30:
 - **Q4. Adopting a wiki that ran WikibaseMediaInfo.** Importing its `mediainfo` slots as page statements on the adopted File pages ([0035](0035-adopting-a-wikibase.md), [0039](0039-files-and-media.md) §14).
 - **Q5. Mirrored Commons MediaInfo** (`WDM`) shown on foreign files, which [0039](0039-files-and-media.md) Q7 leaves open. With this ADR, a mirrored `WDM` entity would be the `mediainfo` slot of a foreign File page, not the page of a MediaInfo namespace.
 - **Q6.** ~~**EntitySchema's namespace.** This ADR reserves the `EntitySchema` model; by [0008](0008-namespaces-and-document-pages.md) §2 rule 1, its namespace numbers should be reserved in `namespaces.toml` too.~~ *Settled by [0064](0064-entityschema-and-validation.md) §2: 640 and 641 are implemented with the extension's meaning.*
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0001](0001-revision-metadata-rdf.md) §6 | §10 | extends | 0001 A13 |
-| [0005](0005-crate-organization.md) §2 | §12 | extends | 0005 A41 |
-| [0008](0008-namespaces-and-document-pages.md) §1, §3, §5 | §1–5 | amends | 0008 A11 |
-| [0009](0009-keyed-entity-types-and-domain.md) §11 | §3–4 | amends | 0009 A5 |
-| [0010](0010-site-ui.md) §4 | §10 | amends | 0010 A25 |
-| [0012](0012-api-requirements.md) §4, §5 | §8–9 | extends | 0012 A25 |
-| [0013](0013-postgres-storage.md) §5.4 | §10 | amends | 0013 A15 |
-| [0014](0014-caches-and-search.md) §7 | §10 | amends | 0014 A6 |
-| [0017](0017-entity-id-grammar.md) §1 | §7 | extends | 0017 A5 |
-| [0019](0019-discussions.md) §2, §3, §9, §11 | §4, §8, §10 | amends | 0019 A9 |
-| [0029](0029-resolver-namespaces.md) §2 | §4 | amends | 0029 A3 |
-| [0038](0038-page-metadata-and-categories.md) §1, §13 | §6–7 | amends | 0038 A3 |
-| [0039](0039-files-and-media.md) §1 | §4, §6–7 | amends | 0039 A3 |
 
 ## References
 

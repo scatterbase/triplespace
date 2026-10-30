@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude
 - **Changes:** [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0003](0003-statement-ui.md), [0012](0012-api-requirements.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0029](0029-resolver-namespaces.md), [0033](0033-backend-stack.md)
-- **Chapters:** [09](../architecture/09-security-and-moderation.md), [19](../architecture/19-site-ui.md), [20](../architecture/20-web-tier.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -115,18 +114,6 @@ The backend stack is in 0033.
 - **Q4.** An interactive charting library for exploring a property's full view (0003), beyond the static SVGs.
 - **Q5.** Visual regression testing.
 - **Q6.** The maturity of the `banana-i18n` Rust crate (§9).
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2, §3 | §2, §6 | extends | 0005 A33 |
-| [0005](0005-crate-organization.md) Consequences | §2, §6 | amends | 0005 A33 |
-| [0010](0010-site-ui.md) §4, §13 | §1–6 | amends | 0010 A21 |
-| [0010](0010-site-ui.md) Q6 | §1–5 | settles | 0010 Q6 |
-| [0010](0010-site-ui.md) Q7 | §2 | settles | 0010 Q7 |
-| [0012](0012-api-requirements.md) §4 | §1 | extends | 0012 A38 |
-| [0015](0015-record-format-and-partition-registry.md) §3 | §1 | extends | 0015 A28 |
 
 ## Amendment log
 

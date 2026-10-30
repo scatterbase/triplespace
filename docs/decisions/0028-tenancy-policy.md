@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md), [0023](0023-moderation.md)
 - **Uses:** [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0027](0027-preferences-and-portability.md)
-- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [08](../architecture/08-tenants-and-instances.md), [09](../architecture/09-security-and-moderation.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -115,33 +114,6 @@ MediaWiki's answer to the second is CentralAuth: one global account, local accou
 - **Q5. Templates for non-config state**, such as a default set of project pages for a new tenant, which are page records rather than configuration.
 - **Q6. Reader lists on discussion**, if a provider tenant wants to share data but not threads (today `discussion.share` is all or nothing).
 - **Q7. The grace period** for a deleted tenant (§5), and whether its former referrers should be told before erasure.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2 | §14 | extends | 0005 A24 |
-| [0007](0007-actor-identity.md) §1, §3, §4, §7, §8 | §2 | extends | 0007 A11 |
-| [0013](0013-postgres-storage.md) §5, §5.2, §5.6 | §12 | amends | 0013 A9 |
-| [0013](0013-postgres-storage.md) §4, §5.4, §5.5, §7, §8 | §12 | extends | 0013 A9 |
-| [0014](0014-caches-and-search.md) §1, §5 | §9, §12 | amends | 0014 A3 |
-| [0014](0014-caches-and-search.md) §10 | §9, §12 | extends | 0014 A3 |
-| [0015](0015-record-format-and-partition-registry.md) §3, §5 | §1–2, §5, §8 | extends | 0015 A11 |
-| [0016](0016-permissions-and-access-control.md) §3 | §3–4 | amends | 0016 A9 |
-| [0018](0018-tenants.md) §4 | §2–5 | amends | 0018 A4 |
-| [0018](0018-tenants.md) §5 | §2–5 | extends | 0018 A4 |
-| [0018](0018-tenants.md) Q2 | §5 | settles | 0018 Q2 |
-| [0018](0018-tenants.md) Q3 | §4 | settles | 0018 Q3 |
-| [0018](0018-tenants.md) Q4 | §5 | settles | 0018 Q4 |
-| [0019](0019-discussions.md) §2 | §6 | extends | 0019 A6 |
-| [0019](0019-discussions.md) Q6 | §6 | settles | 0019 Q6 |
-| [0020](0020-change-feeds.md) §2, §5 | §5, §9 | extends | 0020 A6 |
-| [0020](0020-change-feeds.md) §4 | §5, §9 | amends | 0020 A6 |
-| [0020](0020-change-feeds.md) Q4 | §5 | settles | 0020 Q4 |
-| [0021](0021-notifications.md) §2 | §7, §11 | extends | 0021 A5 |
-| [0021](0021-notifications.md) §7 | §7, §11 | amends | 0021 A5 |
-| [0021](0021-notifications.md) Q4 | §7 | settles | 0021 Q4 |
-| [0023](0023-moderation.md) Q8 | §4 | settles | 0023 Q8 |
 
 ## References
 

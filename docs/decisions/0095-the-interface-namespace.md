@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-28
-- **Updated:** 2026-10-29 (A3)
+- **Updated:** 2026-10-30 (A4)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0016](0016-permissions-and-access-control.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0055](0055-templatestyles-templatedata-and-page-properties.md)
 - **Uses:** [0007](0007-actor-identity.md), [0019](0019-discussions.md), [0046](0046-primary-tenant.md), [0079](0079-derived-issuer-codes.md)
@@ -28,70 +28,43 @@ Asked what the namespace holds and how an account is marked, James chose (2026-1
 
 *Changed by A1.*
 
-**Namespace 8 holds pages, shown as Interface.** It keeps MediaWiki's number and canonical name, `MediaWiki`, which `meta=siteinfo` reports as `canonical` and every client reads; its local name on every wiki is **`Interface`**, which the registry gives (`name` in `namespaces.toml`) and a tenant's `namespace` record may change, as for any namespace. A title is read with either name, so `MediaWiki:X` reaches `Interface:X`, as James asked. Its talk namespace, 9, is `Interface talk` (canonical `MediaWiki talk`), of composite talk pages like every other ([0019](0019-discussions.md) §2).
-
-**Its pages are plain text**, of the model `text` alone, with subpages and first-letter titles. A page in it is either a message's override (§2) or a name (§3). Site styles stay one designated Project page ([0055](0055-templatestyles-templatedata-and-page-properties.md) §4): no `Interface:Common.css` or script page is admitted, since the model is `text` only. An adopted wiki's `MediaWiki:` pages come with it as Interface pages (§7).
+*Current text: [10](../architecture/10-pages-and-content-models.md) §1.4.*
 
 ### 2. Interface pages override messages (amends 0042 §5; amends 0043 §5; amends 0055 §4)
 
 *Changed by A1, A3.*
 
-**`Interface:{Key}` overrides the message `{key}`** for the wiki, as MediaWiki's namespace does: the title is the key with its first letter folded to upper case, so `Interface:Ts-new` overrides `ts-new` and `Interface:Mainpage` overrides MediaWiki core's `mainpage`. **`Interface:{Key}/{lang}`** overrides it in one language; the base page is the wiki's own language. For a reader's language, each language along its fallback chain is tried in turn, the wiki's page for that language (or the base page, where it is the wiki's language) before the shipped message, so a German override applies to a reader of German and never shows English to them.
-
-**Which messages:** the site's interface messages, in the binary's bundle (`i18n/`) and each skin's, whose keys carry the skin's name as a prefix so that an override names one bundle's key and is inert on a wiki whose skins do not use it ([0097](0097-versioning-and-skins.md) §13), and MediaWiki core's messages as `{{int:}}` and Scribunto's `mw.message` read them, which 0042 §5 and 0043 §5 left unoverridable. A page for a key no message has is unused by the site, but `{{int:}}` and `meta=allmessages` (§8) read it, so a wiki may write messages of its own. **`{{int:key|…}}` reads the wiki's language**, its base page or its page for that language, not the reader's, since a page renders once for every reader; its `$1`… are the call's arguments. The build ships none of MediaWiki core's messages, so `{{int:}}` of a key the wiki does not override stays a chip.
-
-**An override is plain message text**, with `$1`, `{{PLURAL:}}` and the rest as a shipped message has them. The site shows it as it shows any message, escaped, and does not take an override holding `<`, `>` or `"`, so that no page's text can become markup wherever a message reaches the page.
-
-**The instance's pages apply to every wiki**: the primary tenant's Interface pages ([0046](0046-primary-tenant.md)) are the instance's overrides, and a wiki's own page for the same key and language replaces the instance's, local pages taking precedence.
+*Current text: [11](../architecture/11-rendering-templates-and-modules.md) §2.3, §6.4, §7.5.*
 
 ### 3. Names for IDs, and the Server Operator (extends 0010 §7)
 
-**`Interface:Name/{id}` names an ID**: an actor key (`{issuer}:{subject}`) or any other identifier the site shows, such as `Interface:Name/instance:gpuldqlgzv33g67ibpcbqfuygk`. Its text is the name. Unlike a message's, the base page names the ID in every language; `Interface:Name/{id}/{lang}` names it in one. A name is what the site shows; the ID stays what every record, API answer and link carries, and is the name's tooltip.
-
-**Where the site shows an account** in a list of changes, as a row's target or its actor:
-
-- **The instance's own actor key**, `instance:{farm code}`, is a **Server Operator** badge (the message `ts-server-operator`, which an Interface page may itself override), with the key as its tooltip.
-- **An account as a target is marked as an account**, not its user page: a person icon, with *Account* as its accessible text, before the name, which links to the account's contributions.
-- **The name** is the account's username where the row gives one, else the wiki's name for its key, with the key as its tooltip, else the key.
-- **The key is not shown for an account of this wiki** (its tenant's issuer code, or `local`): the username is enough. An account of another wiki that the wiki has not named shows its key beside its name.
-
-**Entities keep their IDs** beside their labels, as James asked, so `The Supreme Court from Taft to Warren. Q100001` reads as an entity and not a page of the main namespace.
+*Current text: [19](../architecture/19-site-ui.md) §3.9.*
 
 ### 4. Who edits them (extends 0016 §2)
 
-**MediaWiki's `editinterface` right** is needed to create, edit or move a page into or out of the Interface namespace, besides the rights any edit or move takes. `sysop` holds it, as in MediaWiki, and `owner`, which includes every group, through it.
+*Current text: [09](../architecture/09-security-and-moderation.md) §2.2.*
 
 ### 5. Serving (extends 0012 §4)
 
-**`siprop=triplespace` reports `interface`**: `{messages: {key: {language: text}}}`, the base page under `""`, the instance's merged under the wiki's. It is part of `meta=siteinfo`, which the site reads for every page, so a change to an Interface page reaches the next page, and the response's validator moves with it.
-
-**Only pages anyone may read are overrides**: a page under a read restriction, a deleted page or a redirect is left out, since what an override says is shown to every reader. A private wiki's outsiders, whom `meta=siteinfo` gives only its name, logo and theme, are given none. **Bounds**: at most 1,000 Interface pages a wiki, each at most 2,000 characters; a page beyond either is not an override. They are sensible defaults against surprises.
+*Current text: [18](../architecture/18-api.md) §2.2.*
 
 ### 6. Crates (extends 0005 §2)
 
 *Changed by A1.*
 
-| Crate | Change |
-|---|---|
-| `scatter-titles` | The registry's `name` for a namespace; `INTERFACE` |
-| `triplespace-projections` | The registry's local names in the wikitext configuration; a wiki's Interface pages anyone may read |
-| `triplespace-api-action` | `editinterface` on edits and moves; `siprop=triplespace` `interface` |
-| `triplespace-client` | The tenant's issuer code, the farm code and the overrides from `meta=siteinfo` |
-| `triplespace-ui` | Overrides along the language chain; names; the account mark and the Server Operator badge in lists of changes |
-
-`scatter-wikitext-expand` expands `{{int:}}` through its host, which `triplespace-api-action` answers from the wiki's Interface pages; `triplespace-cli` adopts the MediaWiki namespace (§7). `mw.message` reads the overrides once Lua is built (0043).
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ### 7. Adopting a wiki brings its MediaWiki namespace (settles Q1; extends 0008 §9)
 
 *Changed by A1.*
 
-**An adopted wiki's MediaWiki-namespace pages come with it**, with their history, as Interface pages, as James decided on 2026-10-28. A message's text is its source whether the source wiki stored it as `wikitext` or `text`, so each revision comes as `text`, the namespace's model. **A page the instance cannot use is ignored**: one of any other model, such as `MediaWiki:Common.css`, `MediaWiki:Common.js` or a JSON message, is not brought, and the adoption reports how many it ignored, apart from the pages it defers. A page that comes is an override like any other: it changes the site where its key is one of the site's messages, and serves `{{int:}}` and `meta=allmessages` otherwise. Its talk page (namespace 9) is converted to threads as every talk page is ([0090](0090-converting-talk-pages-comment-by-comment.md) §10).
+*Current text: [10](../architecture/10-pages-and-content-models.md) §6.*
 
 ### 8. `meta=allmessages` (settles Q2; amends 0042 §5, §8.1, §14)
 
 *Changed by A1, A2.*
 
-**`meta=allmessages`** answers as MediaWiki's does, with `ammessages` (keys, or `*`), `amlang`, `amcustomised` (`all`, `modified`, `unmodified`), `amprefix`, `amfilter`, `amfrom`, `amto`, `amargs`, `amnocontent` and `amincludelocal`. Each message is the wiki's override in the language asked (the wiki's own by default) where there is one, marked `customised`, else the message the build ships, else `missing`. The messages the build ships are the site's own, in English; with `*` and `amincludelocal`, keys the wiki alone has are listed too, its names of IDs among them. **`amprop=default`** adds each message's shipped text as `default`, or `defaultmissing` where the build ships none, as MediaWiki gives it, so that `Special:AllMessages` ([0047](0047-special-pages.md) §9) shows a customised message's default beside the wiki's text (A2).
+*Current text: [11](../architecture/11-rendering-templates-and-modules.md) §2.3, §3.1; [18](../architecture/18-api.md) §2.3.*
 
 ## Alternatives considered
 
@@ -111,23 +84,6 @@ Asked what the namespace holds and how an account is marked, James chose (2026-1
 
 - **Q1.** ~~**Adopting a wiki's `MediaWiki:` pages**, which are `wikitext`: as overrides, which would also change messages the site uses, or deferred, as now.~~ *Settled by §7: James decided on 2026-10-28 that adoption brings them, and ignores those the instance cannot use.*
 - **Q2.** ~~**`meta=allmessages`**, MediaWiki's module for reading messages and overrides (`amcustomised`), which Parsoid and tools call.~~ *Settled by §8: served, over the site's shipped messages.*
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2 | §6 | extends | 0005 A108 |
-| [0008](0008-namespaces-and-document-pages.md) §2 | §1 | amends | 0008 A44 |
-| [0008](0008-namespaces-and-document-pages.md) §9 | §7 (A1) | extends | 0008 A45 |
-| [0010](0010-site-ui.md) §7 | §3 | extends | 0010 A46 |
-| [0012](0012-api-requirements.md) §4 | §5 | extends | 0012 A81 |
-| [0016](0016-permissions-and-access-control.md) §2 | §4 | extends | 0016 A39 |
-| [0042](0042-template-expansion-and-parsoid.md) §5 | §2 | amends | 0042 A20 |
-| [0042](0042-template-expansion-and-parsoid.md) §5 | §8 (A1) | amends | 0042 A21 |
-| [0042](0042-template-expansion-and-parsoid.md) §8.1 | §8 (A1) | amends | 0042 A21 |
-| [0042](0042-template-expansion-and-parsoid.md) §14 | §8 (A1) | amends | 0042 A21 |
-| [0043](0043-lua-modules.md) §5 | §2 | amends | 0043 A9 |
-| [0055](0055-templatestyles-templatedata-and-page-properties.md) §4 | §2 | amends | 0055 A6 |
 
 ## References
 
@@ -167,3 +123,10 @@ Replaced text (§6):
 - **Source:** [0097](0097-versioning-and-skins.md) §13
 - **Change:** extends §2
 - **Summary:** The site's messages are the binary's bundle and each skin's, a skin's keys carrying its name as a prefix, so an override names one bundle's key; switching skins leaves the overrides of the old skin's keys in place and inert.
+
+### A4. Current text relocated to the architecture chapters
+
+- **Date:** 2026-10-30
+- **Source:** [0050](0050-adr-format.md) §14
+- **Change:** relocates §1–§8
+- **Summary:** The Decision's current text now lives in the architecture chapters [09](../architecture/09-security-and-moderation.md), [10](../architecture/10-pages-and-content-models.md), [11](../architecture/11-rendering-templates-and-modules.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `2e2a7c8`. No decision changed.

@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0024](0024-subsidiary-accounts.md), [0027](0027-preferences-and-portability.md), [0040](0040-instance-prerogatives.md), [0060](0060-scopes.md), [0062](0062-workspaces.md), [0067](0067-proposals.md), [0070](0070-shallow-entity-mirroring.md), [0071](0071-derived-statements-from-mirrored-pages.md)
-- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [17](../architecture/17-federation-and-publication.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -87,15 +86,6 @@ James's direction, from the design discussion of 2026-10-07:
 - **Q1. Deleting data pages** whose group is gone: blanking leaves stubs; deletion needs a right the destination may not grant.
 - **Q2. A parse-time extension** for destinations willing to install one, which would make data pages unnecessary.
 - **Q3. Other sinks** with the same row model: a Wikibase destination through `wbeditentity`, or a CSV for a destination without Cargo.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2 | §9 | amends | 0005 A77 |
-| [0012](0012-api-requirements.md) §5 | §8 | extends | 0012 A52 |
-| [0013](0013-postgres-storage.md) §5.6 | §8 | extends | 0013 A38 |
-| [0015](0015-record-format-and-partition-registry.md) §3 | §1 | extends | 0015 A33 |
 
 ## References
 

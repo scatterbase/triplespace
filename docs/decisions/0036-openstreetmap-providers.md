@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Sonnet
 - **Changes:** [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0017](0017-entity-id-grammar.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0015](0015-record-format-and-partition-registry.md), [0031](0031-property-constraints.md), [0048](0048-notation.md)
-- **Chapters:** [04](../architecture/04-entities-and-identifiers.md), [05](../architecture/05-providers-and-ingest.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md)
 
 ## Context
 
@@ -83,17 +82,6 @@ Two existing mechanisms fit the rest. Keyed entity types ([0009](0009-keyed-enti
 - **Q5. Constraints.** Whether `P45` and `P44` should drive constraint checks on map objects ([0031](0031-property-constraints.md)), and how status (approved, discouraged) should weigh in.
 - **Q6. Key and tag identity.** Whether a key and its tags should be two schemes, which is a registry change ([0048](0048-notation.md) §6). The concept base URI of the wiki and the DEPRECATED marker's representation are to be confirmed against a live dump.
 - **Q7. Editing.** Whether local edits to a mirrored tag entity's descriptions overlay the wiki's ([0002](0002-source-graphs-and-mass-ingest.md) §7), and whether the wiki's items can be reached as `OWQ` when they are mapped.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0003](0003-statement-ui.md) §7 | §4 | extends | 0003 A5 |
-| [0004](0004-identity-clusters-and-equivalence.md) §1 | §6 | extends | 0004 A7 |
-| [0005](0005-crate-organization.md) §2 | §7 | extends | 0005 A35 |
-| [0008](0008-namespaces-and-document-pages.md) §2 | §3 | extends | 0008 A8 |
-| [0009](0009-keyed-entity-types-and-domain.md) §9 | §5 | extends | 0009 A4 |
-| [0017](0017-entity-id-grammar.md) §5 | §3 | extends | 0017 A3 |
 
 ## References
 

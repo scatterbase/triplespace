@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0017](0017-entity-id-grammar.md), [0029](0029-resolver-namespaces.md), [0036](0036-openstreetmap-providers.md), [0037](0037-gdelt-provider.md), [0041](0041-content-models.md)
 - **Uses:** [0014](0014-caches-and-search.md), [0031](0031-property-constraints.md)
-- **Chapters:** [02](../architecture/02-graphs-rdf-and-query.md), [04](../architecture/04-entities-and-identifiers.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md)
 
 ## Context
 
@@ -81,22 +80,6 @@ James's direction, from the design discussion of 2026-10-01:
 - **Q3. Which candidate ships next,** `hashtag` with federation's inbound posts or `media-type` with files, and their grammars.
 - **Q4. Data type IDs.** [0041](0041-content-models.md) Q2, on renaming `wikibase-domain`, `wikibase-keyword` and now `wikibase-notation` to `triplespace-*` before any data exists.
 - **Q5. Search.** Whether the search document of a notation ([0014](0014-caches-and-search.md) §7) carries the scheme as a field for filtering, and how notations rank against keywords for the same input.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0003](0003-statement-ui.md) §7 | §4 | extends | 0003 A8 |
-| [0004](0004-identity-clusters-and-equivalence.md) §1 | §3 | extends | 0004 A9 |
-| [0005](0005-crate-organization.md) §2 | §8 | amends | 0005 A48 |
-| [0008](0008-namespaces-and-document-pages.md) §2 | §7 | amends | 0008 A18 |
-| [0009](0009-keyed-entity-types-and-domain.md) §8, §9 | §3, §6 | extends | 0009 A6 |
-| [0017](0017-entity-id-grammar.md) §3, §5 | §1 | extends | 0017 A7 |
-| [0029](0029-resolver-namespaces.md) §2, §6 | §2 | extends | 0029 A5 |
-| [0036](0036-openstreetmap-providers.md) §3, §4, §5, §6, §7 | §1, §3–4, §6–8 | amends | 0036 A2 |
-| [0036](0036-openstreetmap-providers.md) | §1, §3–4, §6–8 | retitles | 0036 A2 |
-| [0037](0037-gdelt-provider.md) §2 | §1, §6 | amends | 0037 A3 |
-| [0041](0041-content-models.md) §3 | §1, §7 | amends | 0041 A4 |
 
 ## References
 

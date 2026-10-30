@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0024](0024-subsidiary-accounts.md)
 - **Uses:** [0018](0018-tenants.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [MediaWiki API contract](../api/mediawiki-compat.md)
-- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [07](../architecture/07-actors-and-accounts.md), [08](../architecture/08-tenants-and-instances.md), [09](../architecture/09-security-and-moderation.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -100,27 +99,6 @@ This ADR makes the instance an OAuth 2.0 authorization server under those two ru
 - **Q4. Auto-approval by track record.** Whether a tenant should be able to auto-approve a subsidiary whose operator already has an approved one, or whose operator holds a given group, rather than only per consumer.
 - **Q5. Pending-subsidiary notifications.** Whether creation of a pending subsidiary should notify bureaucrats through [0021](0021-notifications.md), as a `rights`-like event, or only appear on `Special:PendingSubsidiaries`.
 - **Q6. Subsidiary name suggestion**: `{Operator}-{slug}` versus `{Operator}Bot` for all tools, pending 0024 Q2.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2 | §11 | extends | 0005 A21 |
-| [0007](0007-actor-identity.md) §4 | §3 | extends | 0007 A9 |
-| [0010](0010-site-ui.md) §11 | §5 | extends | 0010 A15 |
-| [0011](0011-logs.md) §6.1 | §5 | extends | 0011 A9 |
-| [0012](0012-api-requirements.md) §4, §5 | §1, §9 | extends | 0012 A14 |
-| [0013](0013-postgres-storage.md) §5, §5.2, §5.6 | §8 | amends | 0013 A9 |
-| [0013](0013-postgres-storage.md) §4, §5.4, §5.5, §7, §8 | §8 | extends | 0013 A9 |
-| [0014](0014-caches-and-search.md) §1, §5 | §5, §8 | amends | 0014 A3 |
-| [0014](0014-caches-and-search.md) §10 | §5, §8 | extends | 0014 A3 |
-| [0015](0015-record-format-and-partition-registry.md) §3 | §2 | extends | 0015 A8 |
-| [0016](0016-permissions-and-access-control.md) §2 | §3, §10 | extends | 0016 A8 |
-| [0016](0016-permissions-and-access-control.md) §3 | §3, §10 | amends | 0016 A8 |
-| [0024](0024-subsidiary-accounts.md) §1, §2 | §3–4 | extends | 0024 A2 |
-| [0024](0024-subsidiary-accounts.md) §4 | §3–4 | amends | 0024 A2 |
-| [0024](0024-subsidiary-accounts.md) Q1 | — | settles | 0024 Q1 |
-| [0024](0024-subsidiary-accounts.md) Q3 | §4 | settles | 0024 Q3 |
 
 ## References
 

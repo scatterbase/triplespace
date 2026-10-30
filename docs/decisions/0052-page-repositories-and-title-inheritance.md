@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0038](0038-page-metadata-and-categories.md), [0042](0042-template-expansion-and-parsoid.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0026](0026-sitelinks.md), [0028](0028-tenancy-policy.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0043](0043-lua-modules.md), [0051](0051-page-redirects.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [MediaWiki API contract](../api/mediawiki-compat.md)
-- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [04](../architecture/04-entities-and-identifiers.md), [08](../architecture/08-tenants-and-instances.md), [09](../architecture/09-security-and-moderation.md), [13](../architecture/13-mirrored-pages.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -112,21 +111,6 @@ James's direction, from the design discussion of 2026-10-01:
 - **Q4. Watching foreign pages.** Whether a watch on an inherited title should deliver the repository's changes to the page, which needs the repository's events ([0053](0053-mirrored-pages.md) §6) to become activity rows or notifications.
 - **Q5. Automatic ranking.** Whether a repository could be ranked per page rather than per tenant, for example by a page statement naming the preferred origin, which would make the stack partly data.
 - **Q6. Namespaces with different canonical names.** `Wikipedia:` is English Wikipedia's `Project` namespace. Serving it as this tenant's `Project` is wrong, and serving it under its own name needs a namespace that does not exist here. Whether a repository may map a namespace onto a new local one.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2 | §10 | extends | 0005 A51 |
-| [0008](0008-namespaces-and-document-pages.md) §3 | §3 | amends | 0008 A22 |
-| [0008](0008-namespaces-and-document-pages.md) §8, §10 | §4 | extends | 0008 A22 |
-| [0010](0010-site-ui.md) §2 | §5 | extends | 0010 A29 |
-| [0012](0012-api-requirements.md) §4, §5 | §6 | extends | 0012 A31 |
-| [0013](0013-postgres-storage.md) §5.6, §6 | §6, §8 | extends | 0013 A22 |
-| [0015](0015-record-format-and-partition-registry.md) §2, §3, §5 | §1, §6 | extends | 0015 A23 |
-| [0019](0019-discussions.md) §2 | §7 | extends | 0019 A12 |
-| [0038](0038-page-metadata-and-categories.md) §6 | §6 | extends | 0038 A7 |
-| [0042](0042-template-expansion-and-parsoid.md) §2, §11 | §1, §3 | amends | 0042 A5 |
 
 ## References
 

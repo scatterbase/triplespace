@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Opus; revision by James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
-- **Chapters:** [01](../architecture/01-log-and-records.md), [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -123,15 +122,6 @@ Since this ADR was first written, twenty-six further ADRs have added crates, cha
 - **Q5. Whether `scatter.wiki` should redirect** to `scatter.red/terms/v0/` or stay unused.
 - **Q6.** ~~**Graph IRIs.** Their form, and whether they are fixed or per instance. Carried over from 0001 and 0002. The registry (§4.1) accepts either, and [0013](0013-postgres-storage.md) §2 stores one per partition.~~ *Settled by [0015](0015-record-format-and-partition-registry.md) §5: `{base}/graph/{name}`, per instance (per tenant since [0018](0018-tenants.md) §2), with the names fixed in `docs/registry/graphs.toml`.*
 - **Q7.** ~~**Whether `scatter-log-postgres` should offer a blocking API** so that rule 2's async exception can be withdrawn.~~ *Settled by [0033](0033-backend-stack.md) §4: the synchronous `postgres` crate, a wrapper over the same driver, offers one without a second implementation. Revised by A56: `LogStore` itself is asynchronous, so a blocking caller drives it with an executor rather than through the `postgres` wrapper, which cannot join the write path's transaction.* *Extended by A92: `LogStore`'s methods are `impl Future + Send` in the trait, it carries an associated unit-of-work type that `Backend::apply_in` and `IngestStore` take, and a runtime caller wraps the file backend's synchronous I/O in `spawn_blocking`.*
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0001](0001-revision-metadata-rdf.md) §2, §5, §6 | §5 | amends | 0001 A2 |
-| [0001](0001-revision-metadata-rdf.md) Q1 | §5 | settles | 0001 Q1 |
-| [0008](0008-namespaces-and-document-pages.md) §11 | §2 | supersedes | 0008 A1 |
-| [0009](0009-keyed-entity-types-and-domain.md) §12 | §2 | supersedes | 0009 A1 |
 
 ## References
 

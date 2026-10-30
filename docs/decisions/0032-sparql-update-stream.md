@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0020](0020-change-feeds.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [Wikibase contract](../api/wikibase-compat.md)
-- **Chapters:** [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [08](../architecture/08-tenants-and-instances.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -93,19 +92,6 @@ Three choices James made in review shape the rest: the stream is **selectable pe
 - **Q5. A farm-wide stream.** Whether a consumer may subscribe to every tenant's resolved view at the farm base, each event carrying its tenant, under the `feeds.farm_wide` policy of [0028](0028-tenancy-policy.md) §9.
 - **Q6.** ~~**The skolem hash input.** Statement ID, snak role, property and index are enough for uniqueness; whether the IRI should instead be content-derived, so that two instances skolemize a mirrored Wikidata blank node identically, as [0009](0009-keyed-entity-types-and-domain.md) §6 does for Domain IRIs.~~ *Settled by A2: content-derived, under `https://scatter.red/genid/`.*
 - **Q7.** ~~**Consumers verifying what they applied.** A consumer holds triples and no proofs. Whether an event should carry the record coordinates and checkpoint of the change that caused it, so a consumer could check a delta against `/record/` on demand, without turning this into the verified sync of 0022.~~ *Settled by A2: as event metadata in a comment line, never as triples; spot-checkable per event, unverifiable as a whole.*
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0001](0001-revision-metadata-rdf.md) §2, §3 | §1, §7 | extends | 0001 A11 |
-| [0005](0005-crate-organization.md) §2, §4.4 | §9 | extends | 0005 A28 |
-| [0012](0012-api-requirements.md) §5 | §6 | extends | 0012 A20 |
-| [0013](0013-postgres-storage.md) §8 | §1–3, §7, §9 | amends | 0013 A10 |
-| [0013](0013-postgres-storage.md) §5.6, §7 | §1–3, §7, §9 | extends | 0013 A10 |
-| [0014](0014-caches-and-search.md) §1, §5 | §5–6 | amends | 0014 A3 |
-| [0014](0014-caches-and-search.md) §10 | §5–6 | extends | 0014 A3 |
-| [0020](0020-change-feeds.md) §4 | §6 | extends | 0020 A8 |
 
 ## References
 

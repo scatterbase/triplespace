@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md), [0033](0033-backend-stack.md), [0047](0047-special-pages.md)
 - **Uses:** [0005](0005-crate-organization.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0028](0028-tenancy-policy.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0046](0046-primary-tenant.md), [0056](0056-security-model.md), [0057](0057-web-tier.md), [0059](0059-query-service.md), [0075](0075-mcp-server.md)
-- **Chapters:** [18](../architecture/18-api.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md)
 
 ## Context
 
@@ -134,17 +133,6 @@ And on the first proposal, the same day:
 - **Q2. JavaScript licence labels.** Whether to add LibreJS-style labels, a table of every script with its licence and source, beside the header comments of §3.
 - **Q3.** ~~**Agents and their ADRs.** Whether each agent's row should list the ADRs it wrote, which would put the Author lines' data into `version.toml` or the manifest.~~ *Withdrawn: the page names no ADRs (§1).*
 - **Q4. Translators.** If messages are translated on translatewiki.net, whether translators are credited on `Special:Version/Credits`, as MediaWiki credits them through each message file's `@metadata`.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0012](0012-api-requirements.md) §4 | §10 | extends | 0012 A55 |
-| [0012](0012-api-requirements.md) §5 | §10 | extends | 0012 A55 |
-| [0015](0015-record-format-and-partition-registry.md) §3 | §13 | extends | 0015 A36 |
-| [0015](0015-record-format-and-partition-registry.md) §5 | §14 | extends | 0015 A36 |
-| [0033](0033-backend-stack.md) §16 | §15 | extends | 0033 A13 |
-| [0047](0047-special-pages.md) §9 | §1 | amends | 0047 A12 |
 
 ## References
 

@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0047](0047-special-pages.md)
 - **Uses:** [0016](0016-permissions-and-access-control.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md), [0033](0033-backend-stack.md), [0039](0039-files-and-media.md), [0043](0043-lua-modules.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [MediaWiki API contract](../api/mediawiki-compat.md)
-- **Chapters:** [09](../architecture/09-security-and-moderation.md), [10](../architecture/10-pages-and-content-models.md), [11](../architecture/11-rendering-templates-and-modules.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md)
 
 ## Context
 
@@ -96,27 +95,6 @@ James's direction, from the design discussion of 2026-10-01, was that the ADR se
 - **Q4. PageImages.** Wikipedia's `page_image_free` property drives link previews and search thumbnails; whether the refresh job should choose one as PageImages does.
 - **Q5. TemplateData for Lua-driven templates.** `#invoke` templates often carry TemplateData on the template, not the module; whether the module's documentation should be read as a fallback.
 - **Q6. Short descriptions as page terms.** Whether `wikibase-shortdesc` should become the page's description under [0038](0038-page-metadata-and-categories.md) Q4, with a page statement or term as its native form.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2, §3 | §9 | extends | 0005 A54 |
-| [0008](0008-namespaces-and-document-pages.md) §5 | §1 | amends | 0008 A24 |
-| [0010](0010-site-ui.md) §4 | §5, §6 | extends | 0010 A31 |
-| [0012](0012-api-requirements.md) §4 | §5, §6 | extends | 0012 A34 |
-| [0013](0013-postgres-storage.md) §5.6 | §6 | extends | 0013 A25 |
-| [0014](0014-caches-and-search.md) §4, §7 | §2, §6 | extends | 0014 A12 |
-| [0015](0015-record-format-and-partition-registry.md) §3, §5 | §2, §4, §7 | extends | 0015 A26 |
-| [0034](0034-frontend-stack.md) §6, §7 | §2, §5 | extends | 0034 A5 |
-| [0038](0038-page-metadata-and-categories.md) §11 | §6 | extends | 0038 A8 |
-| [0041](0041-content-models.md) §3 | §1 | extends | 0041 A7 |
-| [0042](0042-template-expansion-and-parsoid.md) §5, §8.1 | §3, §5, §7 | amends | 0042 A6 |
-| [0042](0042-template-expansion-and-parsoid.md) §4, §7, §9, §10 | §3, §6 | extends | 0042 A6 |
-| [0042](0042-template-expansion-and-parsoid.md) Q2, Q3 | §1–4 | settles | 0042 Q2, Q3 |
-| [0047](0047-special-pages.md) §10 | §6 | amends | 0047 A5 |
-| [0047](0047-special-pages.md) §4.4 | §6 | extends | 0047 A5 |
-| [0047](0047-special-pages.md) Q2 | §6 | settles | 0047 Q2 |
 
 ## References
 

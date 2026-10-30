@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md)
 - **Uses:** [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0026](0026-sitelinks.md), [0038](0038-page-metadata-and-categories.md), [0044](0044-tenant-relative-ids.md)
-- **Chapters:** [04](../architecture/04-entities-and-identifiers.md), [11](../architecture/11-rendering-templates-and-modules.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -123,21 +122,6 @@ James's direction, from the design discussion of 2026-09-30:
 - **Q4.** ~~**Lexemes.** `mw.wikibase.lexeme` waits for the Lexeme namespace (146) to be implemented.~~ *Settled by [0066](0066-lexemes.md) §9: provided as the extension documents it.*
 - **Q5. `mw.ext.data`** (Commons tabular and map data), which many Wikipedia modules use for lookup tables.
 - **Q6. LuaJIT** for speed, if a differential run shows it is safe for real modules.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2, §3 | §17 | extends | 0005 A43 |
-| [0008](0008-namespaces-and-document-pages.md) §5 | §2–3 | amends | 0008 A13 |
-| [0008](0008-namespaces-and-document-pages.md) §2 | §2–3 | extends | 0008 A13 |
-| [0012](0012-api-requirements.md) §4 | §16 | extends | 0012 A27 |
-| [0013](0013-postgres-storage.md) §5.6 | §10 | extends | 0013 A17 |
-| [0014](0014-caches-and-search.md) §10 | §6 | extends | 0014 A8 |
-| [0033](0033-backend-stack.md) §1 | §4, §14 | extends | 0033 A4 |
-| [0034](0034-frontend-stack.md) §7 | §13 | extends | 0034 A2 |
-| [0041](0041-content-models.md) §3 | §3 | extends | 0041 A2 |
-| [0042](0042-template-expansion-and-parsoid.md) §2, §10 | §1, §10 | extends | 0042 A2 |
 
 ## References
 

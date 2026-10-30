@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0021](0021-notifications.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md), [0033](0033-backend-stack.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0051](0051-page-redirects.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md), [0045](0045-table-content-model.md), [0046](0046-primary-tenant.md), [0047](0047-special-pages.md), [0049](0049-boards.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [MediaWiki API contract](../api/mediawiki-compat.md)
-- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [08](../architecture/08-tenants-and-instances.md), [09](../architecture/09-security-and-moderation.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [20](../architecture/20-web-tier.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -159,28 +158,6 @@ James's direction, from the design discussion of 2026-10-01:
 - **Q5. Nested sets and namespace members.** Sets are flat and hold pages, entities and threads (§3). Whether a set may hold a namespace or another set, which would make the enclosure graph recursive, waits for a case that needs it.
 - **Q6. `instance check` coverage.** Lines marked `attest` (§10) are the operator's word. Whether some can become checks, such as detecting other Postgres connections through `pg_stat_activity` on a schedule, or whether a signed deployment manifest is the right tool, is open.
 - **Q7. Confidential restrictions on foreign and mirrored content.** A `read` ACL on a mirrored page's ranged ID hides it on the tenant ([0053](0053-mirrored-pages.md) §9), and the same works for a mirrored entity's overlay row; whether a tenant should be able to make a *subset* of Wikipedia visible to a group only, as a reading list, or whether that is a set of mirrored pages under this ADR already, needs a worked example.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2 | §16 | extends | 0005 A55 |
-| [0012](0012-api-requirements.md) §4, §8 | §5, §13, §15 | extends | 0012 A35 |
-| [0013](0013-postgres-storage.md) §5.6 | §14 | extends | 0013 A26 |
-| [0014](0014-caches-and-search.md) §1, §4, §7 | §7, §8 | amends | 0014 A13 |
-| [0016](0016-permissions-and-access-control.md) §2, §4 | §4 | amends | 0016 A21 |
-| [0016](0016-permissions-and-access-control.md) §4, §7 | §3, §13 | extends | 0016 A21 |
-| [0018](0018-tenants.md) §5 | §3 | amends | 0018 A11 |
-| [0021](0021-notifications.md) §2 | §6 | extends | 0021 A8 |
-| [0023](0023-moderation.md) §1, §2 | §3, §4 | amends | 0023 A9 |
-| [0023](0023-moderation.md) §2, §8, §9 | §3, §13 | extends | 0023 A9 |
-| [0028](0028-tenancy-policy.md) §5 | §6 | amends | 0028 A9 |
-| [0028](0028-tenancy-policy.md) §1 | §11 | extends | 0028 A9 |
-| [0028](0028-tenancy-policy.md) Q2 | §11 | settles | 0028 Q2 |
-| [0033](0033-backend-stack.md) §12 | §10 | extends | 0033 A8 |
-| [0042](0042-template-expansion-and-parsoid.md) §3 | §6 | amends | 0042 A7 |
-| [0043](0043-lua-modules.md) §5 | §6 | extends | 0043 A3 |
-| [0051](0051-page-redirects.md) §2 | §6 | extends | 0051 A1 |
 
 ## References
 

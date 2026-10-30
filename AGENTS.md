@@ -9,8 +9,8 @@ QuickStatements). James Hare (Scatter LLC) owns it; he decides, and agents draft
 
 | Path | Holds | Rule |
 |---|---|---|
-| `docs/architecture/` | **What holds now**, by subject: 24 chapters (`00`–`23`). Start with `00`, then `22` (crates and stack). | A chapter describes; it decides nothing on its own. |
-| `docs/decisions/` | **Why and when**: ADRs, all in the 0050 format. Most Decision sections are now one-line pointers (*Current text: [03] §4.5.*) into a chapter. | Never read an ADR's Decision as the current text if it is a pointer; follow it. |
+| `docs/architecture/` | **What holds now**, by subject: 25 chapters (`00`–`24`). Start with `00`, then `22` (crates and stack). `24` is how the docs themselves work. | A chapter describes; it decides nothing on its own. Every `##`/`###` section opens with a `*Sources:*` line naming the ADR sections it holds: that line is the only map between ADRs and chapters. |
+| `docs/decisions/` | **Why and when**: ADRs. Every Decision section is a one-line pointer (*Current text: [03] §4.5.*) into a chapter, from the day the ADR is written; the ADR holds Context, Alternatives, Consequences, Open questions and the Amendment log. | Never read an ADR for its text: follow the pointer (`tools/adr.py show`). A new ADR's text is written into the chapters, then `architecture/pointers.py NNNN` fills its pointers. |
 | `docs/registry/` | Names and codes the crates embed (`include_str!`) and parse at build time: providers, graphs, namespaces, content models, special pages, settings, groups… | A change here is a commit. Codes and numbers are never reused. See its `README.md`, including *Pending allocations*. |
 | `docs/testing/` | How to test against real dumps (`real-dumps.md`, with its results log) and write-path performance: measurements, the `pg_stat_statements` recipe, Postgres settings, what a Wikidata-sized load needs (`performance.md`). | Add a results row for every real-dump run. |
 | `docs/api/` | Compatibility contracts with Wikibase and MediaWiki, golden snapshots, log test vectors, the OpenAPI file. | Contracts are tested where they are implemented. |
@@ -34,9 +34,8 @@ about a section, not that the section is complete, so read the cited lines befor
 Cite sections in comments as `0013 §7`, and a numbered item as `0013 §7 rule 2` (0050 §11).
 `coverage.py --stale` lists citations of sections that don't exist.
 
-**Generated files: never edit by hand.** `docs/decisions/INDEX.md` (`check_adrs.py --index`),
-`docs/architecture/MAP.md` (`map.py --write`), and the settings tables in chapter 23
-(`settings.py --write`, from `registry/settings.toml`).
+**Generated files: never edit by hand.** `docs/decisions/INDEX.md` (`check_adrs.py --index`) and
+the settings tables in chapter 23 (`settings.py --write`, from `registry/settings.toml`).
 
 **Secrets.** `owner.pw` and `triplespace.key` at the root are local, gitignored secrets. Do not
 read, print, copy or commit them.
@@ -73,7 +72,7 @@ tools/client_compat.sh                  # WBI, Pywikibot, WDI against a fresh se
 tools/acl_check.sh                      # the permission model's attack battery, likewise
 
 docs/check.sh                           # every doc checker; exits non-zero on any failure
-docs/check.sh --write                   # regenerate INDEX.md, MAP.md, chapter 23's tables, then check
+docs/check.sh --write                   # regenerate INDEX.md and chapter 23's tables, then check
 ```
 
 In a fresh Linux sandbox, run `eval "$(tools/dev_env.sh)"` first. It starts Postgres, exports

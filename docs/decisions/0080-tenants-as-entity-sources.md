@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-09
-- **Updated:** 2026-10-09 (A2)
+- **Updated:** 2026-10-30 (A3)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0018](0018-tenants.md), [0028](0028-tenancy-policy.md), [0044](0044-tenant-relative-ids.md), [0052](0052-page-repositories-and-title-inheritance.md), [0078](0078-entity-sources.md), [0079](0079-derived-issuer-codes.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0022](0022-federation.md), [0056](0056-security-model.md)
@@ -34,95 +34,41 @@ James's direction, from the design discussion of 2026-10-09:
 
 *Changed by A1.*
 
-An `entity-source` record may name a Triplespace tenant instead of describing a graph. It then carries:
-
-| Field | Meaning |
-|---|---|
-| `tenant` | The provider tenant's issuer code ([0079](0079-derived-issuer-codes.md) §1). Fixed by the first record, with `name` and `number`, the latter from the tenant's entity-source range, 2^12 to 2^13 − 1 ([0078](0078-entity-sources.md) §4), so that every ranged ID a reader sees stays below 2^53 |
-| `base` | Where the tenant is now: its base URI. Writable, and on the same instance followed from the provider's `alias` records ([0018](0018-tenants.md) §9) without a write |
-
-Everything else is read from the provider, not declared:
-
-- **`types`:** the entity types it mints, with their upstream prefixes and IRI templates over its current base.
-- **`licence`:** its `content.licence`.
-- **`api`, `entity_data` and `events`:** its Action API, `Special:EntityData` and activity stream, all at `base`.
-
-`label` and `namespace` are the reader's, as for any source.
-
-**Binding is to the code.** [0078](0078-entity-sources.md) §9 fixes a source's type IRI templates by its first record. A tenant source instead fixes its `tenant` code, and its templates follow the provider's base. A record that changes `tenant` is refused with `ts-source-binding`.
-
-**A provider that is in the registry is read as a provider.** A tenant source naming a tenant whose code a registry entry names as its `issuer` (§3) is refused with `ts-source-is-provider`, as [0078](0078-entity-sources.md) §9 refuses a source that duplicates a registry provider. The tenant adds the provider to its `providers` list instead.
+*Current text: [05](../architecture/05-providers-and-ingest.md) §6.1, §6.8.*
 
 ### 2. Reading a tenant source (amends 0018 §5; extends 0078 §4)
 
-**On the same instance it is read directly,** as a provider tenant was ([0018](0018-tenants.md) §5):
-
-- The provider's `local` partition is the source. There is no `source/{name}` partition, no fetch job and no mirror setting.
-- IDs are rewritten on read: Librarybase's `Q6` is `lb:Q6` on a reader that named it `lb`. Revision and page IDs are ranged by the reader's number for the source ([0078](0078-entity-sources.md) §4).
-- References to the reader's own entities come back as bare IDs.
-- The provider's `same-as` and `convert` records are tier-2 links for the reader ([0004](0004-identity-clusters-and-equivalence.md) §3), ranked where the reader's `reconcile` order puts the source.
-
-**On another instance it is read by `scatter-adapter-triplespace`** ([0022](0022-federation.md) §2), which writes into the reader's `source/{name}` partition as [0078](0078-entity-sources.md) §4 provides, with `trust = verified`. Before the first batch, the adapter checks that the founding record at offset 0 of the provider's key chain derives the source's `tenant` code. That binds the code to the chain it verifies against.
-
-**A move switches between the two** ([0018](0018-tenants.md) §10). Readers on the instance the provider leaves start the adapter into `source/{name}`. Readers on the instance it joins freeze their `source/{name}` and read it directly. What a reader shows does not change.
-
-Cross-tenant discussion, and `tenant` file and page repositories, apply to a provider read as a tenant source as they did to a provider tenant ([0028](0028-tenancy-policy.md) §6; §6).
+*Current text: [05](../architecture/05-providers-and-ingest.md) §6.4; [08](../architecture/08-tenants-and-instances.md) §4.1, §4.4, §6.3.*
 
 ### 3. Registry codes for tenants are promotion (amends 0018 §5; extends 0078 §9)
 
 *Changed by A2.*
 
-**Any public tenant can be read without a registry entry.** Its entities' IRIs are their global names, and each reader names it as a source. A registry code is not a condition of being referenced.
-
-**A tenant gets a code only by promotion,** a commit to `providers.toml` for a tenant that many tenants read. That makes its IDs, `LBQ6`, mean one thing on every instance. **The entry's `issuer` is the tenant's issuer code**, which binds the code to the tenant wherever it is hosted. Readers' tenant sources for it are then promoted as [0078](0078-entity-sources.md) §9 provides, matched by `tenant` code rather than by IRI template.
-
-Librarybase's `LB` stays. Its entry's `issuer` becomes Librarybase's code once Librarybase is a tenant ([0079](0079-derived-issuer-codes.md) §9).
-
-**The binding is enforced on the instance that hosts the tenant.** An instance refuses a sync job for a provider whose registry `issuer` is a tenant of this instance, since the tenant's `local` partition is the source and a mirror of it would be a stale copy ([0070](0070-shallow-entity-mirroring.md) §7); and it refuses to adopt or import a tenant under a code for which it holds a live mirror partition until that partition has been frozen: its `entity_source` rows dropped and composition switched to reading the tenant's `local`.
+*Current text: [05](../architecture/05-providers-and-ingest.md) §6.8; [08](../architecture/08-tenants-and-instances.md) §4.1.*
 
 ### 4. Across tenants, by issuer code first (amends 0078 §8)
 
-[0078](0078-entity-sources.md) §8 rewrites a provider's reference to a source entity, crossing to a reader, by IRI. For a tenant source, matching is by code, which survives a change of base. Its rules read:
-
-1. **The provider's source is unpublished.** The reference is not readable.
-2. **The IRI is a registry provider's, or the source names a tenant that is one.** It becomes the provider's ID.
-3. **The reader has a source for the same graph:** one with the same `tenant` code, or, for a source that is not a tenant, the same IRI template. It becomes the reader's ID for the entity.
-4. **Otherwise it is unbound,** and its statements are withheld and counted as before.
-
-A reader that reads Librarybase as `lb` and meets Librarybase's reference to its own source `mhc:Q1` applies the same rules.
+*Current text: [05](../architecture/05-providers-and-ingest.md) §6.7.*
 
 ### 5. Who may read whom, by issuer code (amends 0028 §5)
 
-**`providers.between_tenants`** governs tenant sources that name a tenant of the same instance:
-
-- **`operator`:** only the operator may write such a source, or set `files.share` and `pages.share`. This is the hosting case.
-- **`opt-in`:** any tenant may name any public tenant of the instance.
-
-A source naming a tenant on another instance is an ordinary entity source, which no tenancy switch governs.
-
-**Reader lists name tenants by issuer code.** A `provider-readers` record is in the provider's own `config` and travels with it, so it lists issuer codes, not slugs. A slug there would come to mean another tenant after a move ([0079](0079-derived-issuer-codes.md) §3). As before, a list governs reading on the instance, and visibility governs what is read ([0056](0056-security-model.md) §6).
-
-**A private tenant cannot be read as a source,** as it could not take a code. A tenant source naming one is refused with `ts-source-private`.
+*Current text: [08](../architecture/08-tenants-and-instances.md) §4.2, §4.3.*
 
 ### 6. Tenant repositories (extends 0052 §1; settles 0078 Q4 in part)
 
-A `tenant` page repository's `provider` is the tenant's registry entry where it has one. Otherwise it is the reading tenant's tenant source for that tenant, which supplies the number for ranged page IDs, the issuer and the IRIs. The source is declared first. Whether a repository may name a source that is not a tenant remains [0078](0078-entity-sources.md) Q4.
+*Current text: [13](../architecture/13-mirrored-pages.md) §1.1.*
 
 ### 7. Naming a tenant's entity from elsewhere (amends 0044 §1)
 
-To name a tenant's entity from elsewhere, use its IRI. On a tenant that reads it, use that tenant's name for it: the registry code where there is one (`LBQ6`), otherwise the tenant's source name (`lb:Q6`). `QQQ5` stays relative.
+*Current text: [04](../architecture/04-entities-and-identifiers.md) §2.3.*
 
 ### 8. API (extends 0078 §10)
 
-`GET /entity-sources` gives a tenant source's `tenant` and `base` beside its other fields, and its types as read from the provider.
+*Current text: [18](../architecture/18-api.md) §3.2.*
 
 ### 9. Crates (extends 0005 §2)
 
-| Crate | Change |
-|---|---|
-| `scatter-providers` | The `tenant` and `base` fields of an `entity-source`, their validation and refusals (`ts-source-is-provider` by issuer, `ts-source-private`), and promotion matched by issuer code |
-| `triplespace-projections` | Direct reading of a tenant source on the same instance, rewritten to the source's name and number |
-| `scatter-adapter-triplespace` | Writing a tenant source into `source/{name}`, and checking the provider's founding record against the source's `tenant` code |
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ## Alternatives considered
 
@@ -145,24 +91,6 @@ To name a tenant's entity from elsewhere, use its IRI. On a tenant that reads it
 - **Q2. When to promote.** Who asks for a registry code for a tenant, and on what evidence of use.
 - **Q3. Shared rows.** Whether an instance should resolve a heavily read unpromoted tenant once for all its readers on the same instance, as it does for registry providers, without giving it a code.
 
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2 | §9 | extends | 0005 A87 |
-| [0018](0018-tenants.md) §5 | §2, §3 | amends | 0018 A21 |
-| [0018](0018-tenants.md) §10 | §2 | amends | 0018 A21 |
-| [0028](0028-tenancy-policy.md) §5 | §2, §5 | amends | 0028 A17 |
-| [0044](0044-tenant-relative-ids.md) §1 | §7 | amends | 0044 A4 |
-| [0052](0052-page-repositories-and-title-inheritance.md) §1 | §6 | extends | 0052 A6 |
-| [0078](0078-entity-sources.md) §1 | §1 | extends | 0078 A2 |
-| [0078](0078-entity-sources.md) §4 | §2 | extends | 0078 A2 |
-| [0078](0078-entity-sources.md) §8 | §4 | amends | 0078 A2 |
-| [0078](0078-entity-sources.md) §9 | §1, §3 | amends | 0078 A2 |
-| [0078](0078-entity-sources.md) §10 | §8 | extends | 0078 A2 |
-| [0078](0078-entity-sources.md) Q4 | §6 | settles | 0078 Q4 |
-| [0079](0079-derived-issuer-codes.md) Q2 | §3 | settles | 0079 Q2 |
-
 ## References
 
 - `claude/derived-issuer-codes.md` (Triplespace project notes, 2026-10-09): the discussion that led here
@@ -182,3 +110,10 @@ To name a tenant's entity from elsewhere, use its IRI. On a tenant that reads it
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §3
 - **Summary:** An instance refuses a sync job for a provider whose registry `issuer` is a tenant of this instance, since the tenant's `local` partition is the source and a mirror of it would be a stale copy, and refuses to adopt or import a tenant under a code for which it holds a live mirror partition until that partition has been frozen: its `entity_source` rows dropped and composition switched to reading the tenant's `local`. The sync refusal is also logged on [0070](0070-shallow-entity-mirroring.md) §7 (0070 A6); the chapters hold it in [08](../architecture/08-tenants-and-instances.md) §4.1 and [05](../architecture/05-providers-and-ingest.md) §5.9 and §8.3. (REVIEW G31)
+
+### A3. Current text relocated to the architecture chapters
+
+- **Date:** 2026-10-30
+- **Source:** [0050](0050-adr-format.md) §14
+- **Change:** relocates §1–§9
+- **Summary:** The Decision's current text now lives in the architecture chapters [04](../architecture/04-entities-and-identifiers.md), [05](../architecture/05-providers-and-ingest.md), [08](../architecture/08-tenants-and-instances.md), [13](../architecture/13-mirrored-pages.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `2e2a7c8`. No decision changed.

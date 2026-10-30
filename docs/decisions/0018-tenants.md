@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0003](0003-statement-ui.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md), [0017](0017-entity-id-grammar.md), [0022](0022-federation.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md)
-- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [04](../architecture/04-entities-and-identifiers.md), [08](../architecture/08-tenants-and-instances.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -118,29 +117,6 @@ This ADR adds tenants, makes each tenant its own issuer of identity, lets a tena
 - **Q7. The retention extract's integrity.** Records lifted from `hashed` partitions carry headers but not whole segments; the receiving instance re-appends them under its own key, which is the guarantee mirrors already have.
 - **Q8.** ~~(Rest of Q6.) The `reclaim/reclaim` event's parameters, and whether reclaiming should be reversible.~~ *Settled by [0088](0088-external-identity-providers.md) §8: one parameter, `method`, `manual` or `vouched`, on a `scatter:v0/reclaim` record.*
 - **Q9.** (Rest of Q8.) Whether reclaiming should be reversible.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0002](0002-source-graphs-and-mass-ingest.md) §4 | §5 | extends | 0002 A8 |
-| [0002](0002-source-graphs-and-mass-ingest.md) Q7 | §7 | settles | 0002 Q7 |
-| [0004](0004-identity-clusters-and-equivalence.md) §3 | §5–6 | extends | 0004 A3 |
-| [0004](0004-identity-clusters-and-equivalence.md) Q8 | §7 | settles | 0004 Q8 |
-| [0005](0005-crate-organization.md) §2, §4.1, §4.2 | §12 | extends | 0005 A14 |
-| [0006](0006-log-integrity-and-erasure.md) §3, §6 | §2, §10 | amends | 0006 A6 |
-| [0006](0006-log-integrity-and-erasure.md) §9 | §2, §10 | extends | 0006 A6 |
-| [0007](0007-actor-identity.md) §1 | §4 | amends | 0007 A2 |
-| [0007](0007-actor-identity.md) §3, §8 | §4 | extends | 0007 A2 |
-| [0010](0010-site-ui.md) §8 | §8 | amends | 0010 A8 |
-| [0010](0010-site-ui.md) Q4 | §8 | settles | 0010 Q4 |
-| [0012](0012-api-requirements.md) §2.1 | §2, §8, §11 | amends | 0012 A7 |
-| [0012](0012-api-requirements.md) §4, §5 | §2, §8, §11 | extends | 0012 A7 |
-| [0012](0012-api-requirements.md) Q3 | §8 | settles | 0012 Q3 |
-| [0013](0013-postgres-storage.md) §2, §5, §6, §7 | §2–3, §6 | amends | 0013 A5 |
-| [0014](0014-caches-and-search.md) §1, §5 | §6 | amends | 0014 A3 |
-| [0014](0014-caches-and-search.md) §10 | §6 | extends | 0014 A3 |
-| [0015](0015-record-format-and-partition-registry.md) §2, §3, §5 | §2–3, §5 | amends | 0015 A3 |
 
 ## References
 

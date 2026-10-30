@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0042](0042-template-expansion-and-parsoid.md), [0045](0045-table-content-model.md), [0047](0047-special-pages.md), [0055](0055-templatestyles-templatedata-and-page-properties.md), [0060](0060-scopes.md)
 - **Uses:** [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0013](0013-postgres-storage.md), [0016](0016-permissions-and-access-control.md), [0020](0020-change-feeds.md), [0024](0024-subsidiary-accounts.md), [0028](0028-tenancy-policy.md), [0031](0031-property-constraints.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md), [0043](0043-lua-modules.md), [0049](0049-boards.md), [0052](0052-page-repositories-and-title-inheritance.md), [0059](0059-query-service.md), [0061](0061-sprints-and-tasks.md)
-- **Chapters:** [15](../architecture/15-structured-pages.md), [18](../architecture/18-api.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -88,18 +87,6 @@ James's direction, from the design discussions of 2026-10-04 and 2026-10-05:
 - **Q4. Kits across tenants with different properties.** A kit written for Wikidata's properties (`WDP21`) fails on a tenant that does not mirror Wikidata; whether kits should name roles of the role map ([0003](0003-statement-ui.md) §7) and resolve them per tenant.
 - **Q5. Workspace membership.** Whether "members of this project" should be computed from the leaderboards of its sprints and the editors of its scope, or stay a list people write.
 - **Q6. The facet limit.** `scopes.facet_limit` at one million members is a guess at where `GROUP BY` on the embedded store stops being interactive; to be measured with 0059 Q5.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2 | §10 | amends | 0005 A65 |
-| [0012](0012-api-requirements.md) §5 | §8 | extends | 0012 A42 |
-| [0042](0042-template-expansion-and-parsoid.md) §5, §10 | §2, §3 | extends | 0042 A9 |
-| [0045](0045-table-content-model.md) §1 | §3 | extends | 0045 A4 |
-| [0047](0047-special-pages.md) §9 | §7 | extends | 0047 A8 |
-| [0055](0055-templatestyles-templatedata-and-page-properties.md) §6 | §2 | extends | 0055 A1 |
-| [0060](0060-scopes.md) §8 | §5 | extends | 0060 A1 |
 
 ## References
 

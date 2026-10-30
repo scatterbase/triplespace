@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [0033](0033-backend-stack.md), [0035](0035-adopting-a-wikibase.md), [0038](0038-page-metadata-and-categories.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0007](0007-actor-identity.md), [0019](0019-discussions.md), [0040](0040-instance-prerogatives.md), [0041](0041-content-models.md)
-- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [07](../architecture/07-actors-and-accounts.md), [09](../architecture/09-security-and-moderation.md), [12](../architecture/12-files-and-media.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -164,29 +163,6 @@ James's direction, from the design discussion of 2026-09-30:
 - **Q7.** ~~**MediaInfo.** If an instance mirrors Commons' MediaInfo entities (`WDM`, [0000](0000-init.md)), whether a foreign Commons file's page should show them as its page data.~~ *Settled by [0065](0065-mediainfo-captions-and-commons.md) §2: it does, overlaid with local corrections.*
 - **Q8. `geo-shape` and `tabular-data`**, which point at Commons' Data namespace rather than at files.
 - **Q9. Two-person expunge.** Whether `ts-expunge` should need a second operator's confirmation, given that it cannot be undone.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2 | §23 | extends | 0005 A39 |
-| [0006](0006-log-integrity-and-erasure.md) §7, §9 | §8–10, §14 | extends | 0006 A10 |
-| [0008](0008-namespaces-and-document-pages.md) §1, §2, §3, §8, §9 | §1, §13, §14 | extends | 0008 A10 |
-| [0010](0010-site-ui.md) §2, §5.1 | §18 | extends | 0010 A23 |
-| [0011](0011-logs.md) §6.1 | §2, §10, §14 | extends | 0011 A13 |
-| [0012](0012-api-requirements.md) §4, §5, §8 | §17 | extends | 0012 A24 |
-| [0013](0013-postgres-storage.md) §5.6, §7 | §20 | extends | 0013 A14 |
-| [0014](0014-caches-and-search.md) §6, §7, §10 | §7, §19–20 | extends | 0014 A5 |
-| [0015](0015-record-format-and-partition-registry.md) §1, §5 | §2, §5, §10–11 | extends | 0015 A17 |
-| [0016](0016-permissions-and-access-control.md) §2, §6 | §10, §21 | extends | 0016 A13 |
-| [0018](0018-tenants.md) §2 | §4, §10 | extends | 0018 A6 |
-| [0023](0023-moderation.md) §1, §2 | §8–10 | extends | 0023 A5 |
-| [0024](0024-subsidiary-accounts.md) §5 | §15 | extends | 0024 A4 |
-| [0028](0028-tenancy-policy.md) §8 | §10 | extends | 0028 A4 |
-| [0030](0030-edit-filters.md) §2 | §5 | extends | 0030 A4 |
-| [0033](0033-backend-stack.md) §5 | §3, §6 | extends | 0033 A2 |
-| [0035](0035-adopting-a-wikibase.md) §2 | §14 | extends | 0035 A2 |
-| [0038](0038-page-metadata-and-categories.md) §1 | §2 | extends | 0038 A2 |
 
 ## References
 

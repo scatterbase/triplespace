@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0017](0017-entity-id-grammar.md)
 - **Uses:** [0012](0012-api-requirements.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0043](0043-lua-modules.md)
-- **Chapters:** [04](../architecture/04-entities-and-identifiers.md), [10](../architecture/10-pages-and-content-models.md), [17](../architecture/17-federation-and-publication.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -59,14 +58,6 @@ James's direction, from the design discussion of 2026-09-30: **`QQQ`, `PPP` and 
 
 - **Q1. Output in the tenant-relative form on request.** Whether a client may ask the API to write every local ID as `QQQ…`, so that output has three-letter prefixes across the board as input already can. Doing so would need an additive parameter under [0012](0012-api-requirements.md) §1's rules.
 - **Q2. Keyed IDs** (`domain:…`) have no prefix of this shape, and are left as they are.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2 | §6 | extends | 0005 A44 |
-| [0008](0008-namespaces-and-document-pages.md) §3 | §5 | extends | 0008 A14 |
-| [0017](0017-entity-id-grammar.md) §1, §2 | §1–2 | extends | 0017 A6 |
 
 ## References
 

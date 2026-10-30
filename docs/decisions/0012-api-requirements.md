@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0005](0005-crate-organization.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [MediaWiki API contract](../api/mediawiki-compat.md)
-- **Chapters:** [01](../architecture/01-log-and-records.md), [05](../architecture/05-providers-and-ingest.md), [09](../architecture/09-security-and-moderation.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -121,15 +120,6 @@ This ADR sets the rules for filling both gaps, and lists what the UI needs from 
 - **Q7.** ~~**Rate limit values and cache lifetimes** for upstream fetches.~~ *Settled by [0024](0024-subsidiary-accounts.md) §5, in part: rate limits are site policy by action class, with `upstream` as one class; its default is a starting value. Cache lifetimes are Q9.*
 - **Q8.** ~~**Which groups hold which rights** (§8).~~ *Settled by [0016](0016-permissions-and-access-control.md) §2, and extended per ADR since; `docs/registry/groups.toml` is the registry of record.*
 - **Q9. Cache lifetimes for upstream fetches.** (Rest of Q7.) A [0014](0014-caches-and-search.md) tuning item.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0000](0000-init.md) Q5 | §1 | settles | 0000 Q5 |
-| [0002](0002-source-graphs-and-mass-ingest.md) §8.2 | §2.2 | extends | 0002 A4 |
-| [0003](0003-statement-ui.md) Q3 | §5 | settles | 0003 Q3 |
-| [0005](0005-crate-organization.md) §2 | §9 | extends | 0005 A7 |
 
 ## References
 

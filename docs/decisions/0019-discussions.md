@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0018](0018-tenants.md), [0022](0022-federation.md)
-- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), [14](../architecture/14-discussions.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -119,26 +118,6 @@ Two goals from the earlier ADRs constrain the design. Every unit of contribution
 - **Q6.** ~~**Cross-tenant discussion.** Whether a tenant may show, read-only, another tenant's threads about an entity it mirrors from that tenant.~~ *Settled by [0028](0028-tenancy-policy.md) §6: by policy, read-only.*
 - **Q7.** ~~**Federation.** Inbox, outbox and actor keys, if ever.~~ *Settled by [0022](0022-federation.md) Part B: opt-in `Person` actors, talk pages as `Group` actors that `Announce` threads, inbound replies as posts by `federated` surrogates; the inbound protocol details stay open there.*
 - **Q8.** ~~**Limits.** The post size limit, the depth default, and rate limits on posting.~~ *Settled by [0024](0024-subsidiary-accounts.md) §5, as to where they live: the size limit and `thread.max_depth` are `site` settings (§5, §8); posting is rate-limited in the `edit` and `create` classes. The values are tuning.*
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0001](0001-revision-metadata-rdf.md) §1, §6 | §7 | extends | 0001 A8 |
-| [0005](0005-crate-organization.md) §2 | §13 | amends | 0005 A15 |
-| [0008](0008-namespaces-and-document-pages.md) §2 | §2, §3, §5 | amends | 0008 A3 |
-| [0008](0008-namespaces-and-document-pages.md) §1, §3, §5, §8, §10 | §2, §3, §5 | extends | 0008 A3 |
-| [0008](0008-namespaces-and-document-pages.md) Q4 | — | settles | 0008 Q4 |
-| [0010](0010-site-ui.md) §2 | §8 | extends | 0010 A9 |
-| [0010](0010-site-ui.md) Q11 | §8 | settles | 0010 Q11 |
-| [0011](0011-logs.md) §6.1 | §7 | extends | 0011 A5 |
-| [0012](0012-api-requirements.md) §4, §5 | §9 | extends | 0012 A8 |
-| [0013](0013-postgres-storage.md) §5.6, §6, §7 | §2, §11 | extends | 0013 A6 |
-| [0014](0014-caches-and-search.md) §1, §5 | §11 | amends | 0014 A3 |
-| [0014](0014-caches-and-search.md) §10 | §11 | extends | 0014 A3 |
-| [0015](0015-record-format-and-partition-registry.md) §1, §3, §5 | §4, §6 | extends | 0015 A4 |
-| [0016](0016-permissions-and-access-control.md) §2 | §12 | extends | 0016 A2 |
-| [0016](0016-permissions-and-access-control.md) §4 | §12 | amends | 0016 A2 |
 
 ## References
 

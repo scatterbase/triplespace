@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0020](0020-change-feeds.md), [0041](0041-content-models.md), [0045](0045-table-content-model.md), [0049](0049-boards.md), [0056](0056-security-model.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0023](0023-moderation.md), [0026](0026-sitelinks.md), [0038](0038-page-metadata-and-categories.md), [0042](0042-template-expansion-and-parsoid.md), [0044](0044-tenant-relative-ids.md), [0059](0059-query-service.md)
-- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), [15](../architecture/15-structured-pages.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -105,19 +104,6 @@ James's direction, from the design discussion of 2026-10-04:
 - **Q4. Scopes as statement values.** Whether an entity or page may carry a statement whose value is a scope (a WikiProject item's "scope" property), which would let the pairing of [0038](0038-page-metadata-and-categories.md) §6 find a project's scope from its item.
 - **Q5. Cross-tenant operands.** A scope on one tenant naming another tenant's scope. Refused now, since [0028](0028-tenancy-policy.md) §5 reads across tenants only anonymously and a scope's members are not a public form.
 - **Q6. Sampling above the bound.** Whether a truncated scope should offer a random sample beside the stable prefix, which is more useful for seeing what a definition caught.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2 | §11 | amends | 0005 A63 |
-| [0008](0008-namespaces-and-document-pages.md) §2 | §2 | extends | 0008 A25 |
-| [0012](0012-api-requirements.md) §5 | §8 | extends | 0012 A40 |
-| [0020](0020-change-feeds.md) §2, §3 | §7 | extends | 0020 A11 |
-| [0041](0041-content-models.md) §3 | §3 | extends | 0041 A8 |
-| [0045](0045-table-content-model.md) §4 | §6 | amends | 0045 A3 |
-| [0049](0049-boards.md) §4, §14 | §6 | amends | 0049 A3 |
-| [0056](0056-security-model.md) §3 | §1 | extends | 0056 A4 |
 
 ## References
 

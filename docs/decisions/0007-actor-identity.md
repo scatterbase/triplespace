@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0013](0013-postgres-storage.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md)
-- **Chapters:** [02](../architecture/02-graphs-rdf-and-query.md), [07](../architecture/07-actors-and-accounts.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -113,16 +112,6 @@ Four constraints follow from how MediaWiki treats accounts:
 - **Q5.** ~~**Keys.** Scatterbase registers client signing keys and needs to bind them to actors. Key registration, rotation and compromise recovery remain with the identity work the two products share ([0006](0006-log-integrity-and-erasure.md) §6).~~ *Settled by [0015](0015-record-format-and-partition-registry.md) §1 and [0024](0024-subsidiary-accounts.md) §4, in their amendments of 2026-09-27: a `scatter:v0/key` actor record registers, rotates and revokes an actor's Ed25519 public key, and a subsidiary may sign its writes into the attestation part. Compromise of the instance key remains open in 0006.*
 - **Q6.** ~~**Permissions.** Who may rename, hide or vanish local accounts, and who may remove a link.~~ *Settled by [0016](0016-permissions-and-access-control.md) §5: the holder for their own account; `renameuser`, `hideuser` and `ts-unlink` for others; nobody vanishes another's account. Hiding is an `actor` ACL since [0023](0023-moderation.md) §5.*
 - **Q7.** ~~**Serving `Special:Redirect/user/{id}` locally.** Whether the MediaWiki compatibility surface should serve it as an alias of `{base}/user/{id}`.~~ *Settled by [0047](0047-special-pages.md) §9: served, with `revision`, `page`, `file` and `logid`, resolved locally.*
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0001](0001-revision-metadata-rdf.md) §6 | §9 | extends | 0001 A4 |
-| [0001](0001-revision-metadata-rdf.md) Q3 | §2, §5. | settles | 0001 Q3 |
-| [0002](0002-source-graphs-and-mass-ingest.md) Q10 | §2 | settles | 0002 Q10 |
-| [0005](0005-crate-organization.md) §2, §4.1 | §8, §10 | extends | 0005 A2 |
-| [0013](0013-postgres-storage.md) §6 | A27 | amends | 0013 A68 |
 
 ## References
 

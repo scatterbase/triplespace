@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0045](0045-table-content-model.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0011](0011-logs.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0017](0017-entity-id-grammar.md), [0023](0023-moderation.md), [0032](0032-sparql-update-stream.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
-- **Chapters:** [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [12](../architecture/12-files-and-media.md), [15](../architecture/15-structured-pages.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -67,18 +66,6 @@ James's direction, from the design discussion of 2026-10-05:
 - **Q2. Commons' MediaInfo dump at scale** for `mediainfo.mirror = all`: tens of millions of entities; whether the adapter should take a filtered dump (files referenced by the tenant's mirrored statements) instead.
 - **Q3. Depicts as a scope with qualifiers.** `P180` with `P2677` (relative position) and `P1354` (shown with features) qualifiers; a `statement` kind with qualifier filters is 0060's question too.
 - **Q4. Caption-only search profile** for an image-heavy tenant, ranking captions above statements.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2 | §5 | amends | 0005 A68 |
-| [0012](0012-api-requirements.md) §5 | §4 | extends | 0012 A45 |
-| [0013](0013-postgres-storage.md) §5.6 | §4 | extends | 0013 A34 |
-| [0038](0038-page-metadata-and-categories.md) §1 | §1 | amends | 0038 A9 |
-| [0039](0039-files-and-media.md) §11 | §2 | extends | 0039 A8 |
-| [0041](0041-content-models.md) §7 | §1 | amends | 0041 A12 |
-| [0045](0045-table-content-model.md) §4 | §3 | extends | 0045 A5 |
 
 ## References
 

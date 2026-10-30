@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0059](0059-query-service.md), [0060](0060-scopes.md), [0061](0061-sprints-and-tasks.md), [0062](0062-workspaces.md)
 - **Uses:** [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0038](0038-page-metadata-and-categories.md), [0043](0043-lua-modules.md), [0044](0044-tenant-relative-ids.md), [0045](0045-table-content-model.md), [0047](0047-special-pages.md)
-- **Chapters:** [15](../architecture/15-structured-pages.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -77,20 +76,6 @@ James's direction, from the design discussion of 2026-10-05:
 - **Q3. Queries across the `full` form.** A `graphs` key letting a query page read source graphs by name (what Wikidata asserts versus what we assert), which the dataset of 0059 §4 already contains.
 - **Q4. Federated queries** follow 0059 Q2.
 - **Q5. Query results as a provider.** Whether a query page's result could be an ingest source (0002 §8), the way Listeria results became wikitext; rejected for now as circular, kept as a question.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2 | §8 | amends | 0005 A66 |
-| [0008](0008-namespaces-and-document-pages.md) §2 | §2 | amends | 0008 A27 |
-| [0012](0012-api-requirements.md) §5 | §7 | extends | 0012 A43 |
-| [0041](0041-content-models.md) §3 | §3 | extends | 0041 A10 |
-| [0042](0042-template-expansion-and-parsoid.md) §5 | §6 | extends | 0042 A10 |
-| [0059](0059-query-service.md) §6 | §5 | extends | 0059 A1 |
-| [0060](0060-scopes.md) §4 | §6 | extends | 0060 A2 |
-| [0061](0061-sprints-and-tasks.md) §4 | §6 | extends | 0061 A1 |
-| [0062](0062-workspaces.md) §3 | §6 | extends | 0062 A1 |
 
 ## References
 

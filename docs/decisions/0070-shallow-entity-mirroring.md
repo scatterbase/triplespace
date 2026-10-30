@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0011](0011-logs.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0040](0040-instance-prerogatives.md), [0053](0053-mirrored-pages.md), [0065](0065-mediainfo-captions-and-commons.md), [0067](0067-proposals.md), [0071](0071-derived-statements-from-mirrored-pages.md)
-- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [05](../architecture/05-providers-and-ingest.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -123,16 +122,6 @@ James's direction, from the design discussion of 2026-10-07:
 - **Q4. Lexemes and forms under `linked`.** A form or sense ID as a value fetches its lexeme; whether that should be the default for `lexeme`.
 - **Q5.** ~~(Rest of Q3.) Whether a registry Wikibase provider other than Wikidata, or another Triplespace instance ([0022](0022-federation.md) §2), uses the same job with its own endpoint.~~ *Settled by [0092](0092-following-recent-changes.md) §1, for Wikibases: a registry Wikibase provider uses the same job with its own `api`, followed by its recent changes when it has no `events`; the rest is Q6.*
 - **Q6.** (Rest of Q5.) Whether another Triplespace instance ([0022](0022-federation.md) §2) uses the same job, or reads its log and checkpoints instead (0092 Q2).
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0002](0002-source-graphs-and-mass-ingest.md) §8.4 | §1 | extends | 0002 A21 |
-| [0005](0005-crate-organization.md) §2 | §11 | amends | 0005 A73 |
-| [0012](0012-api-requirements.md) §5 | §9 | extends | 0012 A50 |
-| [0013](0013-postgres-storage.md) §5.6 | §6, §10 | extends | 0013 A36 |
-| [0015](0015-record-format-and-partition-registry.md) §3 | §2.1 | extends | 0015 A30 |
 
 ## References
 

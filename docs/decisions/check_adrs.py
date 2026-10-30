@@ -13,9 +13,9 @@ Checks:
     MediaWiki name or section alias in registry/special-pages.toml (0047 §1)
  6. ADRs in the 0050 format (a header with neither `Related` nor `Amended by`):
     header fields, section numbering, heading verbs, the Amendment log, provenance
-    lines, open-question IDs and "Changes to other ADRs" (0050 §12). In check 3 the
-    log and the settled questions of such an ADR stand in for `Amended by`, and its
-    `Changes` and `Uses` for `Related`.
+    lines and open-question IDs (24 §12). In check 3 the log and the settled questions
+    of such an ADR stand in for `Amended by`, and its `Changes` and `Uses` for `Related`;
+    the retired "Changes to other ADRs" section and `Chapters` header are reported.
  7. every `NNNN An` and `NNNN Qn` citation names a log entry or question that exists
  8. decisions/INDEX.md is current (0050 §12). Run with --index to rewrite it.
  9. every agent an ADR's Author line names is an [[agent]] in registry/version.toml, and every
@@ -23,10 +23,9 @@ Checks:
 10. every `origin` in content-models.toml, special-pages.toml and wikitext-functions.toml is
     mediawiki, triplespace, generic or an [[extension]] in registry/version.toml; no two names differ
     only in case; every [[extension]] is named by an origin or has inspired_by (0077 §12)
-11. a Decision section that is a pointer (0050 §14) names an existing section of an architecture
-    chapter whose provenance line cites it back, and the Chapters header lists exactly the chapters
-    the pointers name; check 4 reads the crate map from chapter 22 §2.1, and check 5 compares
-    canonical special-page names case-sensitively (0050 §14, checks 12–15)
+11. every Decision section is a pointer or a stub (24 §3.2); a pointer names an existing section
+    of an architecture chapter whose provenance line cites it back; check 4 reads the crate map
+    from chapter 22 §2.1, and check 5 compares canonical special-page names case-sensitively
 
 Usage: check_adrs.py [--index] [DOCS_DIR]
 
@@ -115,7 +114,7 @@ for name, text in texts.items():
 VERBS = {"amends", "extends", "supersedes", "corrects", "settles", "uses"}   # 0050 §7
 LOG_VERBS = {"amends", "extends", "supersedes", "corrects", "retitles", "consolidates", "relocates"}  # 0050 §8, §14
 NEEDS_REPLACED = {"amends", "supersedes", "corrects"}
-HEADER_ORDER = ["Status", "Date", "Updated", "Author", "Changes", "Uses", "Chapters"]  # 0050 §3, §14
+HEADER_ORDER = ["Status", "Date", "Updated", "Author", "Changes", "Uses"]  # 24 §2.2
 STATUS_RE = re.compile(r"^(Proposed|Accepted|Accepted with proposed amendment \((A\d+)(, A\d+)*\)|Withdrawn|Superseded by \[?\d{4}\]?(\([^)]*\))?)$")
 
 def header_fields(text):
@@ -210,6 +209,7 @@ def chapter_section_sources(ctext, num):
     return ""
 
 new_format = {name for name, text in texts.items() if is_new_format(text)}
+chapters_of = {}   # name -> {chapter numbers its pointers name}
 logs = {name: parse_log(texts[name]) for name in new_format}
 questions = {name: parse_questions(texts[name]) for name in new_format}
 
@@ -229,7 +229,9 @@ for name in sorted(new_format):
     fields = header_fields(text)
     names = [f for f, _ in fields]
     for f in names:
-        if f not in HEADER_ORDER:
+        if f == "Chapters":
+            P.append("header field 'Chapters' is retired: the chapters are read from the pointers (24 §2.2)")
+        elif f not in HEADER_ORDER:
             P.append(f"header field '{f}' is not one of {HEADER_ORDER}")
     known = [f for f in names if f in HEADER_ORDER]
     if known != sorted(known, key=HEADER_ORDER.index):
@@ -322,19 +324,26 @@ for name in sorted(new_format):
         if s not in secs[name]:
             P.append(f"the log changes §{s}, which does not exist")
 
-    # pointers (0050 §14): each names a chapter section that cites this section back
+    # pointers (24 §3.2): every section is a pointer or a stub, and each pointer names a chapter
+    # section that cites this section back
     pointed_chapters = set()
-    for level, head, body in decision_sections(text):
+    dsecs = decision_sections(text)
+    for i, (level, head, body) in enumerate(dsecs):
         m = re.match(r"(\d+(?:\.\d+)?)", head)
         if not m:
             continue
         sec = m.group(1)
         ptrs = re.findall(r"^\*Current text: (.*)\*$", body, re.M)
-        if not ptrs:
-            continue
         rest = re.sub(r"^\*(Changed by|Current text:)[^\n]*$", "", body, flags=re.M).strip()
+        if not ptrs:
+            has_subs = i + 1 < len(dsecs) and dsecs[i + 1][0] > level
+            if rest and not rest.startswith("*Superseded by"):
+                P.append(f"§{sec}: carries text; write it into a chapter section and point at it (24 §3.2)")
+            elif not rest and not has_subs:
+                P.append(f"§{sec}: is empty; it needs a pointer or a stub (24 §3.2)")
+            continue
         if rest:
-            P.append(f"§{sec}: is a pointer but still carries text (0050 §14: text or pointer, never both)")
+            P.append(f"§{sec}: is a pointer but still carries text (24 §3.2: a pointer or a stub, never text)")
         for ptr in ptrs:
             for ch, path, specs in re.findall(r"\[(\d{2})\]\(([^)]*)\)((?:\s*§\d+(?:\.\d+)?[,;]?)+)", ptr):
                 pointed_chapters.add(ch)
@@ -354,9 +363,7 @@ for name in sorted(new_format):
                                 cited |= set(re.findall(r"§(\d+(?:\.\d+)?)", specs_))
                         if sec not in cited and sec.split(".")[0] not in cited:
                             P.append(f"§{sec}: pointer names {ch} §{cs}, whose provenance does not cite {me} §{sec}")
-    listed_chapters = set(re.findall(r"\[(\d{2})\]", fd.get("Chapters", "")))
-    if pointed_chapters != listed_chapters:
-        P.append(f"Chapters header {sorted(listed_chapters)} ≠ chapters the pointers name {sorted(pointed_chapters)}")
+    chapters_of[name] = pointed_chapters
 
     # callouts: every change is folded (0050 §6)
     for m in re.finditer(r"^\s*> \*\*(A\d+)\.\*\*", strip_fences(text), re.M):
@@ -373,45 +380,10 @@ for name in sorted(new_format):
         if "~~" in rest and not re.search(r"\*(Settled by|Withdrawn)", rest):
             P.append(f"Q{n} is struck but neither Settled by nor Withdrawn")
 
-    # Changes to other ADRs ↔ header Changes ↔ the targets' logs
-    ch_block = h2_block(text, "Changes to other ADRs")
-    header_changes = set(re.findall(r"\[(\d{4})\]", fd.get("Changes", "")))
-    rows = []
-    if ch_block:
-        for line in ch_block.split("\n"):
-            cells = [c.strip() for c in line.strip().strip("|").split("|")]
-            if len(cells) >= 4 and re.search(r"\[\d{4}\]", cells[0]):
-                rows.append(cells)
-    elif header_changes:
-        P.append("header lists Changes, but there is no '## Changes to other ADRs'")
-    row_targets = {re.search(r"\[(\d{4})\]", r[0]).group(1) for r in rows}
-    if row_targets != header_changes:
-        P.append(f"Changes header {sorted(header_changes)} ≠ Changes to other ADRs table {sorted(row_targets)}")
-    for r in rows:
-        tnum = re.search(r"\[(\d{4})\]", r[0]).group(1)
-        verb = r[2].split()[0] if r[2] else ""
-        if verb not in VERBS | {"consolidates", "retitles", "relocates"}:
-            P.append(f"Changes to other ADRs: verb '{verb}' for {tnum}")
-        tfile = num2file.get(tnum)
-        if tfile in new_format and verb == "settles":
-            m = re.search(rf"{tnum} Q(\d+)", r[3])
-            q = questions[tfile].get(int(m.group(1))) if m else None
-            if not m:
-                P.append(f"Changes to other ADRs: a settles row for {tnum} names its question ({tnum} Qn)")
-            elif q is None:
-                P.append(f"Changes to other ADRs: {tnum} Q{m.group(1)} does not exist")
-            elif not any(me in adr_nums(settlers(sm)) for sm in re.findall(r"\*Settled by ([^*]*)\*", q)):
-                P.append(f"Changes to other ADRs: {tnum} Q{m.group(1)} is not settled by {me}")
-        elif tfile in new_format:
-            m = re.search(rf"{tnum} A(\d+)", r[3])
-            if not m:
-                P.append(f"Changes to other ADRs: {tnum} is in the 0050 format, so name its log entry ({tnum} An)")
-            else:
-                e = logs[tfile].get(int(m.group(1)))
-                if not e:
-                    P.append(f"Changes to other ADRs: {tnum} A{m.group(1)} does not exist")
-                elif me not in adr_nums(e["fields"].get("Source", "")):
-                    P.append(f"Changes to other ADRs: {tnum} A{m.group(1)} does not cite {me} as its Source")
+    # the retired section (24 §2.3): what an ADR changes is its header and headings; the targets' logs
+    # and INDEX.md hold the inverse
+    if h2_block(text, "Changes to other ADRs") is not None:
+        P.append("'## Changes to other ADRs' is retired: delete it (24 §2.3)")
 
 # 3: amended-by / related symmetry
 def header_field(text, field):
@@ -462,7 +434,7 @@ for b, text in texts.items():
             if af and b[:4] not in amended_by[af]:
                 problems[af].append(f"{b[:4]}'s Related says it {clause} {a}, but {a} does not list {b[:4]} under Amended-by")
 
-# 8: the cross-reference index (0050 §12)
+# 8: the index (24 §13)
 def index_markdown():
     rows = []
     for name in sorted(texts):
@@ -471,21 +443,19 @@ def index_markdown():
         title = re.match(r"^# \d{4}(?:\.| —) (.*)$", text, re.M).group(1)
         fd = dict(header_fields(text))
         inbound = sorted(n for n in amended_by[name] if n in num2file and n != me)
-        outbound = sorted(b[:4] for b in texts if b != name and me in amended_by[b])
-        link = lambda n: f"[{n}]({num2file[n]})"
-        upd = re.match(r"\S+", fd.get("Updated", "")) if name in new_format else None
-        rows.append(f"| {link(me)} | {title} | {fd.get('Status', '?')} | "
-                    f"{'0050' if name in new_format else 'old'} | {upd.group(0) if upd else '—'} | "
-                    f"{', '.join(map(link, outbound)) or '—'} | {', '.join(map(link, inbound)) or '—'} |")
+        upd = re.match(r"\S+", fd.get("Updated", ""))
+        chs = ", ".join(sorted(chapters_of.get(name, ()))) or "—"
+        rows.append(f"| [{me}]({name}) | {title} | {fd.get('Status', '?')} | "
+                    f"{upd.group(0) if upd else fd.get('Date', '—')} | {chs} | {', '.join(inbound) or '—'} |")
     return "\n".join([
         "# ADR index",
         "",
-        "Generated by `check_adrs.py --index` from the ADRs themselves ([0050](0050-adr-format.md) §12). Do not edit it by hand: change the ADRs and regenerate.",
+        "Generated by `check_adrs.py --index` from the ADRs themselves ([24](../architecture/24-documentation.md) §13). Do not edit it by hand: change the ADRs and regenerate.",
         "",
-        "**Changes** lists the ADRs whose text this one changes. **Changed by** lists the ADRs that change this one: for an ADR in the 0050 format, the sources in its Amendment log and of its settled questions; for one in the old format, its `Amended by` line. Each column is the inverse of the other.",
+        "**Updated** is the date of the last log entry, or the ADR's date if it has none. **Chapters** are the architecture chapters its pointers name. **Changed by** lists the ADRs that change this one: the sources in its Amendment log and of its settled questions. What an ADR changes is its own header's `Changes`.",
         "",
-        "| ADR | Title | Status | Format | Updated | Changes | Changed by |",
-        "|---|---|---|---|---|---|---|",
+        "| ADR | Title | Status | Updated | Chapters | Changed by |",
+        "|---|---|---|---|---|---|",
     ] + rows) + "\n"
 
 INDEX_PATH = os.path.join(DEC, "INDEX.md")

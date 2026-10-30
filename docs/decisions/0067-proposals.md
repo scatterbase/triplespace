@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0019](0019-discussions.md), [0021](0021-notifications.md), [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0038](0038-page-metadata-and-categories.md), [0047](0047-special-pages.md)
 - **Uses:** [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0020](0020-change-feeds.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0040](0040-instance-prerogatives.md), [0049](0049-boards.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [0060](0060-scopes.md), [0061](0061-sprints-and-tasks.md)
-- **Chapters:** [07](../architecture/07-actors-and-accounts.md), [09](../architecture/09-security-and-moderation.md), [14](../architecture/14-discussions.md), [16](../architecture/16-logs-feeds-and-notifications.md), [17](../architecture/17-federation-and-publication.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -93,21 +92,6 @@ James's direction, from the design discussions of 2026-10-04 and 2026-10-05:
 - **Q3. Partial adoption's grace period** and whether a partly adopted proposal should re-offer its remainder automatically.
 - **Q4. Declines from upstream.** Detecting a reverted push as a decline when the reverting edit's summary says so, rather than waiting for a human to mark it.
 - **Q5. Pushing qualifiers and references** onto statements upstream already has, which `wbeditentity` can do only by resending the statement whole.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0002](0002-source-graphs-and-mass-ingest.md) §7 | §5 | amends | 0002 A20 |
-| [0005](0005-crate-organization.md) §2 | §9 | amends | 0005 A70 |
-| [0011](0011-logs.md) §6.1, §8 | §3 | extends | 0011 A20 |
-| [0012](0012-api-requirements.md) §5 | §7 | extends | 0012 A47 |
-| [0019](0019-discussions.md) §1 | §3 | extends | 0019 A14 |
-| [0021](0021-notifications.md) §2 | §5 | extends | 0021 A10 |
-| [0025](0025-oauth-server.md) §1 | §6 | extends | 0025 A5 |
-| [0027](0027-preferences-and-portability.md) §2 | §6 | extends | 0027 A4 |
-| [0038](0038-page-metadata-and-categories.md) §9 | §5 | extends | 0038 A10 |
-| [0047](0047-special-pages.md) §6 | §7 | extends | 0047 A11 |
 
 ## References
 

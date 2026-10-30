@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0015](0015-record-format-and-partition-registry.md), [0018](0018-tenants.md), [0033](0033-backend-stack.md), [0039](0039-files-and-media.md), [0056](0056-security-model.md), [Record and payload shapes](../api/payloads.md)
-- **Chapters:** [01](../architecture/01-log-and-records.md), [03](../architecture/03-storage-caches-and-search.md), [05](../architecture/05-providers-and-ingest.md), [08](../architecture/08-tenants-and-instances.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -120,19 +119,6 @@ James's direction, from the design discussion of 2026-10-04:
 - **Q4. Term text.** Whether `view.term` should move its text into a normalized table, as Wikibase's `wbt_text` and `wbt_text_in_lang` do, once its size is measured. The `term_prefix` index would then need the join.
 - **Q5. Materialized resolved JSON.** Whether `view.entity.resolved` should use the same codec. It holds only entities whose resolved view differs from its source, so it is a minority of rows by design ([0013](0013-postgres-storage.md) §5.1).
 - **Q6. Erasing shared fragments without a full sweep.** If legal deadlines in a large shared domain need it, add an inverted index from fragment to rows, kept only for fragments whose content an `erase` names, rather than for all of them.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2 | §12 | extends | 0005 A61 |
-| [0005](0005-crate-organization.md) §3 | §1 | amends | 0005 A61 |
-| [0006](0006-log-integrity-and-erasure.md) §7 | §6 | extends | 0006 A15 |
-| [0013](0013-postgres-storage.md) §2 | §2 | amends | 0013 A31 |
-| [0013](0013-postgres-storage.md) §3 | §6 | extends | 0013 A31 |
-| [0013](0013-postgres-storage.md) §9 | §7 | extends | 0013 A31 |
-| [0013](0013-postgres-storage.md) Consequences | §1 | amends | 0013 A31 |
-| [0014](0014-caches-and-search.md) §10 | §11 | extends | 0014 A16 |
 
 ## References
 

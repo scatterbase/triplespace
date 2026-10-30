@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md)
 - **Uses:** [0000](0000-init.md), [0003](0003-statement-ui.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [MediaWiki API contract](../api/mediawiki-compat.md)
-- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -106,16 +105,6 @@ MediaWiki's search is CirrusSearch, which Wikimedia now runs on OpenSearch after
 - **Q6. Proxy support for tag purges.** Which reverse proxies and CDNs in the deployment stack honour `Cache-Tag`, and what `s-maxage` is safe where none does.
 - **Q7. Suggest ranking for keyed types.** Whether domains should rank by `incoming_links` like items, or by their depth in the hierarchy.
 - **Q8. Label caching per language at scale.** Whether `t:` keys for hundreds of languages are worth holding, or whether label batches should be cached per request language only.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2 | §9 | extends | 0005 A9 |
-| [0008](0008-namespaces-and-document-pages.md) Q7 | §7 | settles | 0008 Q7 |
-| [0010](0010-site-ui.md) §3 | §7 | amends | 0010 A4 |
-| [0012](0012-api-requirements.md) §8 | §1, §5–6, §8 | amends | 0012 A3 |
-| [0012](0012-api-requirements.md) §4 | §1, §5–6, §8 | extends | 0012 A3 |
 
 ## References
 

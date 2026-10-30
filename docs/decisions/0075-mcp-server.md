@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0014](0014-caches-and-search.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0033](0033-backend-stack.md), [0056](0056-security-model.md), [0059](0059-query-service.md), [0060](0060-scopes.md), [0062](0062-workspaces.md), [0063](0063-query-namespace.md), [0067](0067-proposals.md), [0071](0071-derived-statements-from-mirrored-pages.md), [0074](0074-publishing-a-scope-to-an-external-wiki.md), [0076](0076-dataset-publication.md)
-- **Chapters:** [07](../architecture/07-actors-and-accounts.md), [09](../architecture/09-security-and-moderation.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md)
 
 ## Context
 
@@ -75,14 +74,6 @@ James's direction, from the design discussion of 2026-10-07:
 - **Q1. Write tools**: corrections ([0071](0071-derived-statements-from-mirrored-pages.md) §8) and proposals ([0067](0067-proposals.md)) from an agent, under the agent's own subsidiary and an edit filter.
 - **Q2. The protocol implementation**: an MCP SDK crate (the official Rust SDK, `rmcp`) against the dependency policy of [0033](0033-backend-stack.md) §16, or JSON-RPC over the existing HTTP stack, which the protocol's size allows.
 - **Q3. Natural-language search over the evidence of derivations**, which would let an agent find a resource by the words of the line that mentions it.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2 | §7 | amends | 0005 A78 |
-| [0012](0012-api-requirements.md) §5 | §6 | extends | 0012 A53 |
-| [0015](0015-record-format-and-partition-registry.md) §3 | §6 | extends | 0015 A34 |
 
 ## References
 

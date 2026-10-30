@@ -1,8 +1,6 @@
 # Triplespace architecture
 
-The reference description of Triplespace as the ADRs currently specify it, organized by subject rather than by decision. The ADRs in [`../decisions/`](../decisions/) remain the record of *why* and *when*: context, alternatives, consequences, open questions and the amendment log. These chapters hold the *what*: one place per subject that says what holds now, assembled from the Decision sections of every ADR that touches it.
-
-The two are joined in both directions ([0050](../decisions/0050-adr-format.md) §14). [`MAP.md`](MAP.md) assigns every numbered Decision section of every ADR to the chapter (or chapters) that absorb it, and [`map.py`](map.py) checks that every mapped section is cited in its chapter. In the ADR, each absorbed section is a pointer, *Current text: [03](03-storage-caches-and-search.md) §4.5.*, and `check_adrs.py` checks that the pointer's target cites it back. A chapter decides nothing on its own: a change to the architecture is still an ADR, logged there (0050 §6), with the fold made in the chapter section the pointer names.
+The reference description of Triplespace as the ADRs currently specify it, organized by subject rather than by decision. The ADRs in [`../decisions/`](../decisions/) are the record of *why* and *when*: context, alternatives, consequences, open questions and the amendment log. These chapters hold the *what*: one place per subject that says what holds now. Every ADR Decision section is a pointer into a chapter section, and every chapter section's first line names the ADR sections it was assembled from. How the two are kept joined, and how a decision is changed, is chapter [24](24-documentation.md).
 
 ## Reading order
 
@@ -36,23 +34,4 @@ All 24 chapters are drafted. Start with [00](00-overview.md), then Part I for th
 | | [21 Special pages](21-special-pages.md) | The special-page registry, names and aliases, where a page is served, reports, Wikibase compatibility forms, identity and correction pages, Nuke, Export and Import, Special:Version, and the pages later ADRs added. |
 | **VII. Implementation** | [22 Crates and stack](22-crates-and-stack.md) | The four layers, the crate map (0005 §2 plus every ADR's "Crates" trailer), the rules, build order, naming and licensing. The backend stack: toolchain, runtime, encoding and cryptography, observability, error handling, testing and conformance, supply chain, packaging. The frontend build. What Scatterbase shares. |
 | | [23 Configuration and registry](23-configuration-and-registry.md) | The `config` partition and every config kind, instance and tenant settings as one catalogue, the registry files in [`../registry/`](../registry/) and what each holds, configuration and the CLI. |
-
-[0050](../decisions/0050-adr-format.md) (the ADR format) is process, not architecture, and has no chapter.
-
-## Conventions
-
-**A chapter describes; an ADR decides.** Chapter text is the current Decision text of its source sections, edited into one voice and one order, with duplicates merged. It carries no Context, Consequences, Open questions or Amendment log; those stay in the ADR, which keeps its headings and points here for the text. Where the ADRs disagreed when the chapters were written, James decided, and the decisions are logged in the owning ADRs (entries dated 2026-10-08 and 2026-10-09; the audit is [`../audits/architecture-consolidation-2026-10-08.md`](../audits/architecture-consolidation-2026-10-08.md)). A disagreement found later is a decision for an ADR, not a note in a chapter.
-
-**Every chapter section names its sources.** The first line under a chapter heading is a provenance line in the same style ADRs use: *Sources: [0013](../decisions/0013-postgres-storage.md) §7; [0032](../decisions/0032-sparql-update-stream.md) §2.* Citations follow 0050 §11. `map.py` confirms that every mapped section is cited somewhere in its chapter; `check_adrs.py` confirms that every ADR pointer names a chapter section that cites it.
-
-**Numbering.** Chapters are numbered for reading order and never renumbered; a new subject gets the next number. Sections within a chapter are `## 1.`, `### 1.1` and so on, permanent like ADR sections, so that `02 §3.1` is a stable citation.
-
-**Tables that span ADRs live in one place.** The namespace table, the content-model table, the REST route table, the permission catalogue, the log-event catalogue, the `view` schema table, the crate map and the settings catalogue each appear once, in the chapter named above, and other chapters link to the row.
-
-**Cross-cutting trailers.** Most ADRs end with Crates, API, UI, Storage, Permissions, Search, RDF, Log events, Rate limits, Tenants and Scatterbase sections. Those go to chapters 22, 18, 19, 03, 09, 03, 02, 16, 07, 08 and 22 respectively, as `MAP.md` shows, and the ADR's home chapter links to them.
-
-**Changing the architecture.** A commit that changes a decision does four things: logs the entry in the ADR (0050 §6: Replaced text quoted from the chapter section as it stood), marks the ADR section's provenance line, folds the new text into the chapter section the pointer names, and runs both checkers. A new ADR carries its full Decision until a chapter absorbs it; then `map.py` gets a `HOME` entry and any overrides for it, `map.py --write` regenerates `MAP.md`, and `pointers.py --commit <sha> NNNN` replaces its Decision bodies with pointers and logs the relocation. `python3 architecture/map.py` from `docs/` fails if an ADR section is unmapped, a mapped section is uncited, or `MAP.md` is stale.
-
-## Status
-
-All twenty-four chapters were drafted on 2026-10-08 from the ADRs as they then stood, by Claude Fable under James's direction, in four waves (01–04; 07, 08, 09, 23; 05, 06, 10, 11, 12, 16, 18; 13, 14, 15, 17, 19, 20, 21, 22, then 00 from the others). The 116 inconsistencies the consolidation found were decided by James on 2026-10-08 and 2026-10-09 and logged in the ADRs; on 2026-10-09 the ADRs' Decision text was relocated here and replaced by pointers (0050 §14, each ADR's last log entry). The chapters are the current text; a chapter has no status of its own, since the ADRs it points from carry theirs.
+| **VIII. Process** | [24 Documentation](24-documentation.md) | How the design is written down: chapters, ADRs, registry files and the checkers that hold them together. The ADR file and its header, pointers, fold-log-mark, the relation verbs, the Amendment log, citations, provenance lines as the map, catalogues as registry data, the index, and the migrations that produced this layout. |

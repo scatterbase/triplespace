@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [MediaWiki API contract](../api/mediawiki-compat.md)
-- **Chapters:** [09](../architecture/09-security-and-moderation.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -95,31 +94,6 @@ The two agree on the shape: users, groups, memberships, named permissions, and r
 - **Q5.** ~~**Abuse filters** and other pre-save checks, which are neither permissions nor ACLs.~~ *Settled by [0030](0030-edit-filters.md): edit filters, evaluated in the appending transaction after permissions and ACLs.*
 - **Q6.** ~~**Whether `owner` should be a single account rather than a group** on instances that want a legal owner of record.~~ *Settled by A11: `owner` stays a group with at least one member, which key rotation and continuity need. An instance that wants a named legal owner sets `instance.owner_of_record` in `site` configuration to one of its members; it is shown on `Special:Version` and in `siprop=triplespace` and grants nothing.*
 - **Q7.** ~~**Group membership privacy.** MediaWiki exposes group membership publicly; whether an instance may hide `suppress` membership, as Wikimedia hides some, would need a private group flag.~~ *Settled by A11: no. Every membership is public, as `list=users&usprop=groups` and the `rights/rights` event ([0011](0011-logs.md) §6.1) promise; an instance that wants a discreet suppression team keeps it small.*
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0002](0002-source-graphs-and-mass-ingest.md) Q4 | §5 | settles | 0002 Q4 |
-| [0002](0002-source-graphs-and-mass-ingest.md) Q5 | §2 | settles | 0002 Q5 |
-| [0004](0004-identity-clusters-and-equivalence.md) Q6 | §5 | settles | 0004 Q6 |
-| [0005](0005-crate-organization.md) §2, §4.1 | §9 | amends | 0005 A11 |
-| [0006](0006-log-integrity-and-erasure.md) §7 | §2, §6 | amends | 0006 A4 |
-| [0006](0006-log-integrity-and-erasure.md) Q5 | §6 | settles | 0006 Q5 |
-| [0007](0007-actor-identity.md) Q6 | §5 | settles | 0007 Q6 |
-| [0008](0008-namespaces-and-document-pages.md) Q6 | §5 | settles | 0008 Q6 |
-| [0010](0010-site-ui.md) §5.2 | §6–7 | amends | 0010 A5 |
-| [0010](0010-site-ui.md) §2, §12 | §6–7 | extends | 0010 A5 |
-| [0010](0010-site-ui.md) Q5 | §6 | settles | 0010 Q5 |
-| [0010](0010-site-ui.md) Q8 | §5 | settles | 0010 Q8 |
-| [0011](0011-logs.md) §6.1 | §3–4, §6 | amends | 0011 A4 |
-| [0011](0011-logs.md) Q4 | §3–4 | settles | 0011 Q4 |
-| [0011](0011-logs.md) Q5 | §6 | settles | 0011 Q5 |
-| [0012](0012-api-requirements.md) §8 | §2, §6–7 | amends | 0012 A5 |
-| [0012](0012-api-requirements.md) §3, §4, §5 | §2, §6–7 | extends | 0012 A5 |
-| [0012](0012-api-requirements.md) Q8 | §2 | settles | 0012 Q8 |
-| [0013](0013-postgres-storage.md) §4, §5.6, §7 | §3, §9 | extends | 0013 A3 |
-| [0015](0015-record-format-and-partition-registry.md) Q4 | §6 | settles | 0015 Q4 |
 
 ## References
 

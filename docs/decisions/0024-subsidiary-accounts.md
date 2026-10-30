@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [MediaWiki API contract](../api/mediawiki-compat.md)
-- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [07](../architecture/07-actors-and-accounts.md), [08](../architecture/08-tenants-and-instances.md), [09](../architecture/09-security-and-moderation.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -113,32 +112,6 @@ James's direction is to make the relation structural: a bot is a **subsidiary ac
 - **Q6. Key rotation.** Whether to enforce an expiry by default, and whether to notify the operator before one.
 - **Q7. Default limits** in §5, once measured against real bot and human editing rates.
 - **Q8. Subsidiaries of subsidiaries** are refused; whether an organisation account (a primary account held by a group of people) needs a different shape is a policy question for instances that want one.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0002](0002-source-graphs-and-mass-ingest.md) §8.3 | §6 | amends | 0002 A9 |
-| [0005](0005-crate-organization.md) §2 | §13 | extends | 0005 A20 |
-| [0007](0007-actor-identity.md) §3, §4, §6 | §1–2, §4 | extends | 0007 A8 |
-| [0007](0007-actor-identity.md) Q5 | §4 | settles | 0007 Q5 |
-| [0010](0010-site-ui.md) §8, §11 | §9 | extends | 0010 A14 |
-| [0010](0010-site-ui.md) Q9 | §5 | settles | 0010 Q9 |
-| [0011](0011-logs.md) §6.1 | §2, §4 | extends | 0011 A8 |
-| [0012](0012-api-requirements.md) §4, §5, §6, §8 | §4–5, §8 | extends | 0012 A13 |
-| [0012](0012-api-requirements.md) Q7 | §5 | settles | 0012 Q7 |
-| [0013](0013-postgres-storage.md) §5, §5.2, §5.6 | §10 | amends | 0013 A9 |
-| [0013](0013-postgres-storage.md) §4, §5.4, §5.5, §7, §8 | §10 | extends | 0013 A9 |
-| [0014](0014-caches-and-search.md) §1, §5 | §4–5 | amends | 0014 A3 |
-| [0014](0014-caches-and-search.md) §10 | §4–5 | extends | 0014 A3 |
-| [0015](0015-record-format-and-partition-registry.md) §5 | §4 | extends | 0015 A7 |
-| [0016](0016-permissions-and-access-control.md) §2, §3 | §3, §5, §11 | amends | 0016 A7 |
-| [0016](0016-permissions-and-access-control.md) §2 | §3, §5, §11 | extends | 0016 A7 |
-| [0016](0016-permissions-and-access-control.md) Q3 | §5 | settles | 0016 Q3 |
-| [0019](0019-discussions.md) Q8 | §5 | settles | 0019 Q8 |
-| [0020](0020-change-feeds.md) §7 | §5 | amends | 0020 A4 |
-| [0020](0020-change-feeds.md) Q5 | §5 | settles | 0020 Q5 |
-| [0021](0021-notifications.md) §2, §8 | §5–6 | extends | 0021 A3 |
 
 ## References
 

@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md)
 - **Uses:** [0000](0000-init.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
-- **Chapters:** [04](../architecture/04-entities-and-identifiers.md), [05](../architecture/05-providers-and-ingest.md), [10](../architecture/10-pages-and-content-models.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -110,15 +109,6 @@ Domains are also a bulk-ingest target. Citation data carries URLs, and every URL
 - **Q6.** ~~**The next keyed types.** DOI is the obvious candidate. Its normalizer exists ([0004](0004-identity-clusters-and-equivalence.md) §7), but its IRI would be `https://doi.org/{key}`, and a DOI can contain almost any character, so its key grammar and its ID disjointness need their own analysis.~~ *Settled by [0017](0017-entity-id-grammar.md) §5 (Keyword is the second keyed type; disjointness comes from the `type:` prefix) and [0029](0029-resolver-namespaces.md) §1 (DOI is a resolver, not a keyed type: it names a thing that already has an item). 0029's Consequences state the rule for the next identifier.*
 - **Q7. Tier-2 link properties.** Which Wikidata properties, if any, should link Wikidata items to Domains.
 - **Q8. The identity property's form.** (Rest of Q3.) Whether `P1`'s values are stored as A-labels or U-labels.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0002](0002-source-graphs-and-mass-ingest.md) §4, §5 | §9 | amends | 0002 A2 |
-| [0004](0004-identity-clusters-and-equivalence.md) §1 | §8 | extends | 0004 A1 |
-| [0004](0004-identity-clusters-and-equivalence.md) §4 | §8 | amends | 0004 A1 |
-| [0005](0005-crate-organization.md) §2 | §12 | amends | 0005 A4 |
 
 ## References
 

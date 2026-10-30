@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Sonnet
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0005](0005-crate-organization.md), [0017](0017-entity-id-grammar.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0009](0009-keyed-entity-types-and-domain.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0026](0026-sitelinks.md), [0029](0029-resolver-namespaces.md), [0036](0036-openstreetmap-providers.md), [0048](0048-notation.md)
-- **Chapters:** [05](../architecture/05-providers-and-ingest.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md)
 
 ## Context
 
@@ -90,15 +89,6 @@ The mechanisms these ADRs already provide fit the parts that are identifiable. P
 - **Q7. GCAM.** The 2,300 emotion and theme dimensions per document are not stored. Whether any subset justifies a place.
 - **Q8. Source domains.** `SourceCommonName` is not always a domain; whether other values are kept as strings or dropped.
 - **Q9. IRIs.** What `scatter.red` serves at the four IRI families, and whether GDELT should be asked for canonical ones.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0002](0002-source-graphs-and-mass-ingest.md) §4 | §2 | amends | 0002 A18 |
-| [0003](0003-statement-ui.md) §7 | §3–4 | extends | 0003 A6 |
-| [0005](0005-crate-organization.md) §2 | §8 | amends | 0005 A36 |
-| [0017](0017-entity-id-grammar.md) §2 | §2 | amends | 0017 A4 |
 
 ## References
 

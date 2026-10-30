@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md)
 - **Uses:** [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md)
-- **Chapters:** [01](../architecture/01-log-and-records.md), [02](../architecture/02-graphs-rdf-and-query.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md)
 
 ## Context
 
@@ -82,43 +81,6 @@ Two smaller gaps are closed with them: the document node of a foreign entity on 
 - **Q2. Whether `site` settings should each be a record,** or one record per settings group.
 - **Q3. Revision IDs beyond 2^40 upstream.** No provider is near it; if one ever is, its number is re-registered with a wider split, which is a format version.
 - **Q4.** ~~**Reason classes.** `upstream`, `legal` and `privacy` are now used; the full vocabulary and its visibility are settled in [0016](0016-permissions-and-access-control.md) §6.~~ *Settled by [0016](0016-permissions-and-access-control.md) §6: `legal`, `privacy`, `upstream` and `operational`, extensible in `site` configuration; the class and authority reference are visible to `ts-viewerasures` only.*
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0000](0000-init.md) §3 | §5 | amends | 0000 A2 |
-| [0000](0000-init.md) Q4 | §5 | settles | 0000 Q4 |
-| [0000](0000-init.md) Q6 | §1–2 | settles | 0000 Q6 |
-| [0001](0001-revision-metadata-rdf.md) §1 | §6 | extends | 0001 A7 |
-| [0001](0001-revision-metadata-rdf.md) Q2 | §5 | settles | 0001 Q2 |
-| [0001](0001-revision-metadata-rdf.md) Q5 | §4 | settles | 0001 Q5 |
-| [0002](0002-source-graphs-and-mass-ingest.md) §5, §8.3 | §4 | extends | 0002 A6 |
-| [0002](0002-source-graphs-and-mass-ingest.md) Q1 | §5 | settles | 0002 Q1 |
-| [0002](0002-source-graphs-and-mass-ingest.md) Q2 | §3 | settles | 0002 Q2 |
-| [0002](0002-source-graphs-and-mass-ingest.md) Q5 | §1 | settles | 0002 Q5 |
-| [0002](0002-source-graphs-and-mass-ingest.md) Q10 | §4 | settles | 0002 Q10 |
-| [0005](0005-crate-organization.md) §2, §3, §4.1, §4.2, §4.3 | §7 | amends | 0005 A10 |
-| [0005](0005-crate-organization.md) Q6 | §5 | settles | 0005 Q6 |
-| [0006](0006-log-integrity-and-erasure.md) §2, §3, §7, §9 | §1–3 | amends | 0006 A3 |
-| [0006](0006-log-integrity-and-erasure.md) §6, §8 | §1–3 | extends | 0006 A3 |
-| [0006](0006-log-integrity-and-erasure.md) §1, §2 | §1 | extends | 0006 A5 |
-| [0007](0007-actor-identity.md) Q1 | §1 | settles | 0007 Q1 |
-| [0007](0007-actor-identity.md) Q5 | §1 | settles | 0007 Q5 |
-| [0008](0008-namespaces-and-document-pages.md) Q1 | §2 | settles | 0008 Q1 |
-| [0008](0008-namespaces-and-document-pages.md) Q2 | §2 | settles | 0008 Q2 |
-| [0010](0010-site-ui.md) §5.2, §12 | §2 | amends | 0010 A3 |
-| [0010](0010-site-ui.md) Q3 | §2 | settles | 0010 Q3 |
-| [0010](0010-site-ui.md) Q9 | §5 | settles | 0010 Q9 |
-| [0011](0011-logs.md) §3, §5 | §1, §4 | amends | 0011 A3 |
-| [0011](0011-logs.md) Q1 | §2 | settles | 0011 Q1 |
-| [0012](0012-api-requirements.md) §2.1, §4 | §1–2, §4 | amends | 0012 A4 |
-| [0012](0012-api-requirements.md) §6 | §1–2, §4 | extends | 0012 A4 |
-| [0012](0012-api-requirements.md) Q1 | §2 | settles | 0012 Q1 |
-| [0013](0013-postgres-storage.md) §2, §3, §6 | §1–2, §4, §7 | amends | 0013 A2 |
-| [0013](0013-postgres-storage.md) §5.6 | §1–2, §4, §7 | extends | 0013 A2 |
-| [0013](0013-postgres-storage.md) Q3 | §2 | settles | 0013 Q3 |
-| [0013](0013-postgres-storage.md) Q7 | §2 | settles | 0013 Q7 |
 
 ## References
 

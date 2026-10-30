@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0030](0030-edit-filters.md), [0049](0049-boards.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [0067](0067-proposals.md), [0068](0068-merging-with-upstream.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0027](0027-preferences-and-portability.md), [0038](0038-page-metadata-and-categories.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0047](0047-special-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
-- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), [13](../architecture/13-mirrored-pages.md), [14](../architecture/14-discussions.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md)
 
 ## Context
 
@@ -115,29 +114,6 @@ James's direction, from the design discussion of 2026-10-06:
 - **Q5. Editing front matter.** Whether a person holding a grant may edit upstream's section 0 through the instance, and whether WikiProject banners there could be read into page statements on the local page ([0038](0038-page-metadata-and-categories.md)).
 - **Q6. Re-following and local threads.** When a fork is re-followed ([0068](0068-merging-with-upstream.md) §5) and deleted, whether its local threads should move to the foreign page's talk page instead of being deleted by enclosure.
 - **Q7. Other talk namespaces.** `User talk` on the repository is not followed: a local user page is local. Whether a person's own upstream user talk page should be followable from their account, as a private convenience.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2 | §12 | amends | 0005 A72 |
-| [0008](0008-namespaces-and-document-pages.md) §4 | §7 | extends | 0008 A30 |
-| [0011](0011-logs.md) §6.1 | §4 | extends | 0011 A21 |
-| [0012](0012-api-requirements.md) §5 | §9 | extends | 0012 A49 |
-| [0019](0019-discussions.md) §2 | §3 | amends | 0019 A15 |
-| [0019](0019-discussions.md) §1, §4, §8 | §3, §4 | extends | 0019 A15 |
-| [0020](0020-change-feeds.md) §2 | §8 | extends | 0020 A12 |
-| [0021](0021-notifications.md) §2 | §8 | extends | 0021 A11 |
-| [0022](0022-federation.md) §7 | §4, §8 | extends | 0022 A6 |
-| [0030](0030-edit-filters.md) §2 | §5 | extends | 0030 A10 |
-| [0049](0049-boards.md) §6, §8, §12, §13 | §4 | extends | 0049 A4 |
-| [0049](0049-boards.md) Q3 | §4 | settles | 0049 Q3 |
-| [0052](0052-page-repositories-and-title-inheritance.md) §1 | §1 | extends | 0052 A1 |
-| [0052](0052-page-repositories-and-title-inheritance.md) §7 | §1, §3 | amends | 0052 A1 |
-| [0053](0053-mirrored-pages.md) §1, §5 | §1, §2 | extends | 0053 A1 |
-| [0054](0054-forking-a-mirrored-page.md) §1, §5 | §7 | amends | 0054 A2 |
-| [0067](0067-proposals.md) §6 | §5 | extends | 0067 A2 |
-| [0068](0068-merging-with-upstream.md) Q2 | §7 | settles | 0068 Q2 |
 
 ## References
 

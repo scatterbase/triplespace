@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0003](0003-statement-ui.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0018](0018-tenants.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md)
 - **Uses:** [0016](0016-permissions-and-access-control.md), [0024](0024-subsidiary-accounts.md), [MediaWiki API contract](../api/mediawiki-compat.md)
-- **Chapters:** [03](../architecture/03-storage-caches-and-search.md), [07](../architecture/07-actors-and-accounts.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -79,26 +78,6 @@ This ADR does three things: it names every kind of private state and puts prefer
 - **Q4.** ~~**Anonymous preferences**, held in a cookie for readers who are not logged in, as MediaWiki's client-side preferences are.~~ *Settled by [0085](0085-settings-and-preferences.md) §6: held in the browser's storage, never a cookie, and only for keys marked `browser`.*
 - **Q5. Retention of an unreclaimed account's extract**: the grace period of [0018](0018-tenants.md) §10 is not yet a number.
 - **Q6. Third-party import**: whether to read a MediaWiki `list=watchlistraw` dump or an Echo preference export directly, for people arriving from a Wikibase.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0003](0003-statement-ui.md) §3 | §5 | extends | 0003 A2 |
-| [0003](0003-statement-ui.md) Q2 | §5 | settles | 0003 Q2 |
-| [0005](0005-crate-organization.md) §2 | §9 | extends | 0005 A23 |
-| [0007](0007-actor-identity.md) §4, §8 | §2, §4 | extends | 0007 A10 |
-| [0010](0010-site-ui.md) §11 | §7 | amends | 0010 A17 |
-| [0012](0012-api-requirements.md) §4, §5 | §6 | extends | 0012 A16 |
-| [0013](0013-postgres-storage.md) §5, §5.2, §5.6 | §8 | amends | 0013 A9 |
-| [0013](0013-postgres-storage.md) §4, §5.4, §5.5, §7, §8 | §8 | extends | 0013 A9 |
-| [0015](0015-record-format-and-partition-registry.md) §3, §5 | §1, §5 | extends | 0015 A10 |
-| [0018](0018-tenants.md) §10 | §4 | extends | 0018 A3 |
-| [0019](0019-discussions.md) §6 | §1 | amends | 0019 A5 |
-| [0020](0020-change-feeds.md) §3 | §1, §3–4 | amends | 0020 A5 |
-| [0020](0020-change-feeds.md) Q3 | §1 | settles | 0020 Q3 |
-| [0020](0020-change-feeds.md) Q5 | §1 | settles | 0020 Q5 |
-| [0021](0021-notifications.md) §3 | §1–4, §8 | amends | 0021 A4 |
 
 ## References
 

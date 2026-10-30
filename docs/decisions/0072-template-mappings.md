@@ -6,7 +6,6 @@
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0015](0015-record-format-and-partition-registry.md), [0038](0038-page-metadata-and-categories.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0042](0042-template-expansion-and-parsoid.md), [0051](0051-page-redirects.md), [0053](0053-mirrored-pages.md), [0055](0055-templatestyles-templatedata-and-page-properties.md), [0071](0071-derived-statements-from-mirrored-pages.md), [0073](0073-lines-links-and-url-patterns.md)
-- **Chapters:** [13](../architecture/13-mirrored-pages.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md)
 
 ## Context
 
@@ -89,14 +88,6 @@ James's direction, from the design discussion of 2026-10-07:
 - **Q1. Calls whose parameters are themselves calls**, such as a date built by `{{date|…}}`: whether parsers should read a nested call through a mapping of their own.
 - **Q2. Positional parameters by TemplateData alias**, so a mapping can say `param = "collection"` for parameter 1.
 - **Q3. Value maps from Wikidata**, by label search in the source's language, as suggestions for review.
-
-## Changes to other ADRs
-
-| Target | By | Change | Target's log |
-|---|---|---|---|
-| [0005](0005-crate-organization.md) §2 | §7 | amends | 0005 A75 |
-| [0015](0015-record-format-and-partition-registry.md) §3 | §2, §4 | extends | 0015 A32 |
-| [0038](0038-page-metadata-and-categories.md) Q3 | §1 | settles | 0038 Q3 |
 
 ## References
 
