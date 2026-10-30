@@ -20,9 +20,13 @@ The design lives in three linked places. Know which one answers the question bef
    index). The parts are: I the log (01–03), II the data model (04–06), III actors, tenancy and
    security (07–09), IV pages and content (10–15), V activity and exchange (16–17),
    VI interfaces (18–21), VII implementation (22–23).
-2. Cross-cutting tables have one home each: namespaces and content models in 10, the REST
-   route table in 18, the permission catalogue in 09, log events in 16, the `view` schema in 03,
-   the crate map in 22 §2.1, the settings catalogue in 23. Link to the row; don't copy it.
+2. Cross-cutting tables have one home each, and most are registry files shown through a
+   generated chapter table (24 §11): the crate map (`crates.toml` → 22 §2.1, full entries in
+   `CRATES.md`), REST routes (`routes.toml` → 18 §3.2, with a *Built* column from the OpenAPI
+   contract), Action API modules (`action-api.toml` → 18 §2.3, *Built* from `paraminfo`),
+   permissions (`permissions.toml` + `groups.toml` → 09 §2.2), log events (`log-events.toml` →
+   16 §2.3), settings (`settings.toml` → 23 §3). Namespaces and content models are in 10 and the
+   `view` schema in 03, still as prose. Link to the row; never edit a generated table.
 3. ADR trailers land in fixed chapters: Crates → 22, API → 18, UI → 19, Storage and Search → 03,
    Permissions → 09, RDF → 02, Log events → 16, Rate limits → 07, Tenants → 08, Scatterbase → 22.
 
@@ -40,7 +44,8 @@ tools/adr.py log 0008 A6                   # one amendment, with the text it rep
 tools/adr.py questions 0090                # open questions
 ```
 
-Add `--lines N` to `show` to cap a long section. Chapter 24 is how the documents fit together.
+Add `--lines N` to `show` to cap a long section; `show 0098 --full` prints a whole ADR with its
+chapter text. Chapter 24 is how the documents fit together.
 
 ## Following the links
 
@@ -70,10 +75,15 @@ stable.
   `docs/architecture/CRATES.md` in full; `cargo xtask deps` checks the real graph against it.
 - A registry file's `README.md` row names the crate that embeds it and the ADR sections that
   define it.
-- `tools/coverage.py NNNN` shows which of an ADR's sections the code cites and from which crates;
-  `tools/adr.py code NNNN §N` lists the citing lines. Code comments cite sections (`0090 §5`), so a
-  section no code cites is very likely unbuilt. A cited one may still be partial: read the lines,
-  and watch for comments saying "not built yet", which the tool lists separately.
+- **Is it built? The code says (24 §15).** `tools/coverage.py NNNN` gives each section's status:
+  *done* (an `implements NNNN §N (An)` claim in src, a test citing it, no later log entry),
+  *amended* (changed since the claim), *untested*, *partial* (claimed in part or only cited as
+  about), *not* (cited as not built yet), *none*. The ADR's `Status` header and INDEX's *Built*
+  column are written from this; `coverage.py --todo` is the backlog; `coverage.py NNNN §N` and
+  `tools/adr.py code NNNN §N` list the citing lines. Read them before relying on a status: an
+  about-citation (`0090 §5`) means the code is about the section, not that it is finished.
+- `docs/decisions/INDEX.md` also lists every *unconfirmed* decision (an entry Claude logged while
+  building, 24 §6) and each ADR's open-question count: what waits on James is there, not in notes.
 - `docs/architecture/22` §4.9 and `tools/README.md` say how each contract is tested.
 
 ## Before proposing a design
