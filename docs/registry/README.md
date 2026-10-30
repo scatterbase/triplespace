@@ -16,8 +16,8 @@ This directory is the registry of record for the names and codes that Triplespac
 | `sites.toml` | Site aliases: MediaWiki site IDs, hosts, article paths and languages, for sitelink compatibility (generated from the Wikimedia site matrix) | `scatter-wikibase-model` | 0026 §2 |
 | `thread-statuses.toml` | Default thread statuses, with category and order | `scatter-threads` | 0019 §6 (amended), 0054 §5, 0090 §3 |
 | `talk-markup.toml` | The conventions of wikitext talk pages, universal across wikis: timestamp formats as MediaWiki date-format strings, month names by language, the marks before an undated signature, and template names by role (`unsigned`, `outdent`, `wrapper`, `autosign`) | `scatter-talk` | 0090 §5 |
-| `preferences.toml` | Registered preference keys, types and defaults | `triplespace-accounts` | 0027 §1, 0069 §6 |
-| `tenancy.toml` | Tenancy policy switches and the `isolated`, `community` and `enterprise` presets, with their global groups | `scatter-actors` | 0028 §1, 0042 §2 |
+| `preferences.toml` | Registered preference keys, types and defaults | `triplespace-accounts` | 0027 §1, 0069 §6, 0097 §8 |
+| `tenancy.toml` | Tenancy policy switches and the `isolated`, `community` and `enterprise` presets, with their global groups | `scatter-actors` | 0028 §1, 0042 §2, 0097 §8 |
 | `file-types.toml` | Permitted file types: extensions, MIME and MediaWiki media types, magic signatures, inline or attachment, thumbnailer, and which are allowed by default | `scatter-files` | 0039 §5 |
 | `resolvers.toml` | Resolver namespaces: binding, grammar, normalizer and case rule, external IRI (`doi`, `url`; candidates drafted) | `scatter-normalize` | 0029 §1, §8 |
 | `wikitext-functions.toml` | Wikitext variables, parser functions, extension tags and behaviour switches, with origin and status (`implemented`, `chip`, `ignored`); what `meta=siteinfo` reports as `magicwords`, `functionhooks`, `extensiontags`, `variables` and `doubleunderscores` (seed; generated from the reference install) | `scatter-wikitext-expand` | 0042 §5, 0043 §7, 0051 §1, 0055 §7, 0062 §2–3, 0063 §6, 0064 §6, 0096 §4 |

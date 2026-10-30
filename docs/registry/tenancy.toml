@@ -27,6 +27,7 @@ version = 1
 "search.farm_wide"            = ["off", "global-groups", "everyone"]
 "filters.global"              = ["none", "inherited"]          # 0030 §8
 "wikitext.ceiling"            = ["expansion", "lua"]   # 0042 §2, A19: expansion is part of wikitext; the ceiling caps Lua
+"skins.available"             = "all, or a list of installed skins"   # 0097 §8: the ceiling of the setting skins.available
 "security.restrictions"       = ["none", "tenant", "any"]       # 0056 §11: none = public tenants, read restricted by moderation only; tenant = a tenant may be private as a whole; any = also pages, entities, namespaces and sets
 
 # ---------------------------------------------------------------------------
@@ -50,6 +51,7 @@ version = 1
 "search.farm_wide"            = "off"
 "filters.global"              = "none"
 "wikitext.ceiling"            = "lua"
+"skins.available"             = "all"
 
 # ---------------------------------------------------------------------------
 # community: local communities under a farm-wide volunteer community with one username
@@ -72,6 +74,7 @@ version = 1
 "search.farm_wide"            = "off"
 "filters.global"              = "inherited"
 "wikitext.ceiling"            = "lua"
+"skins.available"             = "all"
 
 [[preset.community.global_group]]
 name = "steward"
@@ -110,6 +113,7 @@ permissions = ["delete", "undelete", "deletedhistory", "deletedtext", "browsearc
 "search.farm_wide"            = "everyone"
 "filters.global"              = "inherited"
 "wikitext.ceiling"            = "lua"
+"skins.available"             = "all"
 
 [[preset.enterprise.global_group]]
 name = "platform-admin"

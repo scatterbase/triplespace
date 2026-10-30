@@ -276,6 +276,8 @@ The table is generated from `settings.toml` (§3.1). Each row cites the ADR sect
 | `site.logo` | `site` | tenant | a site asset: PNG, JPEG, GIF, WebP or SVG | none: the site name is shown as text | The logo in the global header and on a private tenant's landing page, and `general.logo` in `siteinfo`; served to anyone as a site asset | [0085](../decisions/0085-settings-and-preferences.md) §7, §8 |
 | `site.name` | `site` | tenant | a name, one line, valid as a namespace name | the tenant's slug | The wiki's name: `general.sitename` in `siteinfo`, the global header, the Project namespace's name, the tenant list's `name`, and the operator's display name when the tenant is primary | [0085](../decisions/0085-settings-and-preferences.md) §7 |
 | `sitelinks.schemes` | `site` | tenant | schemes | `https` and `http` | Allowed sitelink URL schemes | [0026](../decisions/0026-sitelinks.md) §1 |
+| `skins.available` | `site` | tenant ≤ instance ceiling | installed skins | the instance's default, else every installed skin | The skins readers of this wiki may choose from, among those installed on the instance, up to the instance's ceiling | [0097](../decisions/0097-versioning-and-skins.md) §8 |
+| `skins.default` | `site` | tenant | a skin the wiki makes available | `default` | The wiki's skin: the HTML presentation of every page, for readers who have not chosen another | [0097](../decisions/0097-versioning-and-skins.md) §8 |
 | `sprints.cache_ttl` | `site` (by rule, §3.1) | tenant | duration | 30 s | L1 lifetime of the `sp:` key | [0061](../decisions/0061-sprints-and-tasks.md) §11 |
 | `sprints.claim_ttl` | `site` (by rule, §3.1) | tenant | duration | 7 days | A claim expires after this without a `release` | [0061](../decisions/0061-sprints-and-tasks.md) §5 |
 | `sprints.max_claims` | `site` (by rule, §3.1) | tenant | integer | 10 | Live claims an actor may hold on a sprint | [0061](../decisions/0061-sprints-and-tasks.md) §5 |
@@ -338,13 +340,14 @@ These are `site` records in the instance `config`, written with `ts-config` at t
 
 ### 3.4 Tenancy switches
 
-*Sources: [0042](../decisions/0042-template-expansion-and-parsoid.md) §2.*
+*Sources: [0042](../decisions/0042-template-expansion-and-parsoid.md) §2; [0097](../decisions/0097-versioning-and-skins.md) §8.*
 
 A tenancy switch is a `config` record of kind `tenancy` in the instance `config`. The switch table with its `isolated`, `community` and `enterprise` preset values is [0028](../decisions/0028-tenancy-policy.md) §1, in [08](08-tenants-and-instances.md); the switches are `identity.farm_issuer`, `identity.required_issuer`, `identity.shared_names`, `identity.auto_link`, `groups.global`, `blocks.global`, `providers.between_tenants`, `providers.reader_lists`, `discussion.cross_tenant`, `notifications.cross_tenant`, `config.template`, `feeds.farm_wide`, `search.farm_wide`, `filters.global`, `wikitext.ceiling`, `security.restrictions` and `query.isolation`. `wikitext.ceiling` is the one [0042](../decisions/0042-template-expansion-and-parsoid.md) §2 defines:
 
 | Switch | Values | `isolated` | `community` | `enterprise` |
 |---|---|---|---|---|
 | `wikitext.ceiling` | `expansion`, `lua`: whether tenants may run Lua; expansion itself is part of wikitext (0042 A19) | `lua` | `lua` | `lua` |
+| `skins.available` | `all`, or a list of installed skins: the skins a tenant may make available, the ceiling of the setting of the same name ([0097](../decisions/0097-versioning-and-skins.md) §8) | `all` | `all` | `all` |
 | `query.isolation` | `dataset`, `store` ([0059](../decisions/0059-query-service.md) §4): one shared store with the dataset fixed per tenant, or an embedded store per tenant. Instance-only: no tenant record overrides it. `store` with `query.backend = remote` is refused only on a farm, since on a single-tenant instance the remote store holds one tenant's graphs and satisfies `store` | `store` | `dataset` | `dataset` |
 
 ### 3.5 Keys that are fields of a config record

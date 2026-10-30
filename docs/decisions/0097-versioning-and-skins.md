@@ -4,7 +4,7 @@
 - **Date:** 2026-10-29
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0015](0015-record-format-and-partition-registry.md), [0034](0034-frontend-stack.md), [0057](0057-web-tier.md), [0077](0077-special-version.md), [0086](0086-theming.md), [0095](0095-the-interface-namespace.md)
-- **Uses:** [0012](0012-api-requirements.md), [0028](0028-tenancy-policy.md), [0050](0050-adr-format.md), [0055](0055-templatestyles-templatedata-and-page-properties.md), [0085](0085-settings-and-preferences.md)
+- **Uses:** [0012](0012-api-requirements.md), [0028](0028-tenancy-policy.md), [0050](0050-adr-format.md), [0055](0055-templatestyles-templatedata-and-page-properties.md), [0058](0058-packed-record-storage.md), [0085](0085-settings-and-preferences.md)
 
 ## Context
 
@@ -74,7 +74,7 @@ All payload types are at major 0 until the product reaches 1.0; nothing written 
 
 ### 5. The REST API and `api_version` (amends 0057 §9)
 
-**`api_version` becomes a version string, `MAJOR.MINOR.PATCH`**, the version of Triplespace's own API surface: the REST routes and the `triplespace` siteinfo property. The integer reported before is its minor at major 0, so `3` becomes `"0.3.0"`. **The web tier serves an API of the same major and at least the minor it was built against**, and reports itself not ready otherwise. A major is served at a new REST base path, which `siprop=triplespace` already reports, so a second major can be served beside the first while clients move.
+**`api_version` becomes a version string, `MAJOR.MINOR.PATCH`**, the version of Triplespace's own API surface: the REST routes and the `triplespace` siteinfo property. The integer reported before is its minor at major 0, so `3` becomes `"0.3.0"`. **The web tier serves an API of the same major and at least the minor it was built against**, and reports itself not ready otherwise. The REST base path already carries the major, `triplespace/v0` (18), and `siprop=triplespace` reports it; a new major is served at a new base path beside the old one while clients move.
 
 ### 6. Contracts Triplespace implements
 
@@ -103,10 +103,10 @@ All payload types are at major 0 until the product reaches 1.0; nothing written 
 - **Only the operator installs a skin.** Skins are files in a directory named by deployment configuration (`server.skins` for `triplespace-server`, `web.skins` for `triplespace-web`), read at start and on reload. No tenant, user or API call can add or change one, and a skin is trusted as operator configuration is: it may ship JavaScript, which is served from the site's origin under the policy of 0034 §11 like the site's own.
 - **The manifest**, `skin.toml`: name, version, licence, and what it requires: `template = "^0.4"`, `tokens = "^2"` (the Codex token release, §14). A skin whose requirements the binary does not meet is not loaded, and the reason is logged and shown on `Special:Version`.
 - **The default skin is a skin.** It lives in the repository as `skins/default/`, is embedded in both binaries with `rust-embed`, and is used where no other skin is installed or chosen. An installed skin of the same name replaces it.
-- **Which skins are available is instance policy.** The instance setting `skins.available` lists the installed skins offered on every wiki, and the tenancy switch `skins.tenant` ([0028](0028-tenancy-policy.md) §1) says what a tenant may do with that list: `fixed`, nothing; `narrow`, disable skins on it for its own wiki; `choose`, also make available any other installed skin. A tenant's own `skins.available` holds its list within what the switch allows.
-- **Each wiki has a default skin**, `skins.default`, one of its available skins, for readers who have not chosen.
-- **Readers choose among the wiki's available skins**: a signed-in reader with the `skin` preference, and anyone for one request with `useskin=`, as in MediaWiki. A reader not logged in has no stored choice, since a skin changes the HTML itself and a public page is cached the same for every reader; the theme's choices, which only swap stylesheets, are unaffected (0086 §5). A preference naming a skin the wiki no longer offers falls back to the wiki's default.
-- The settings, the switch and the preference are registry entries still to be made (`settings.toml`, `tenancy.toml`, `preferences.toml`).
+- **Which skins a wiki makes available is instance policy**, expressed with the settings machinery that already exists ([0085](0085-settings-and-preferences.md) §2.1; 23 §1.4, §3.1). `skins.available` is a tenant setting, a list of installed skins, bounded by a ceiling: the tenancy switch of the same name ([0028](0028-tenancy-policy.md) §1), the installed skins a tenant may offer, `all` in every preset. The instance's default for `skins.available` is what every wiki offers until it sets its own. So an instance that locks the setting lets no tenant change it; one whose ceiling equals its default lets a tenant disable skins but add none; and one whose ceiling is wider lets a tenant make available any skin under it. A skin that is no longer installed drops out of every list.
+- **Each wiki has a default skin**, `skins.default`, one of the skins it makes available, for readers who have not chosen (registry default `default`).
+- **Readers choose among the wiki's available skins**: a signed-in reader with the preference `ui.skin`, per wiki unless marked **Use on every wiki** as `ui.palette` is (0086 §4), and anyone for one request with `useskin=`, as in MediaWiki. A reader not logged in has no stored choice, since a skin changes the HTML itself and a public page is cached the same for every reader; the theme's choices, which only swap stylesheets, are unaffected (0086 §5). A choice naming a skin the wiki no longer offers falls back to the wiki's default.
+- The settings, the switch and the preference are registered in `settings.toml`, `tenancy.toml` and `preferences.toml`.
 - **The engine is MiniJinja**: templates are parsed once when the skin is loaded, rendered with autoescape on, and have no access to the file system, the network or the environment.
 
 ### 9. The template contract (extends 0034 §2)
@@ -119,7 +119,7 @@ All payload types are at major 0 until the product reaches 1.0; nothing written 
    - **Forms work without JavaScript** ([0057](0057-web-tier.md) §7): each form's action, method, field names and CSRF token as the view model gives them.
    - **Content hooks:** parsed content inside `.mw-parser-output`; `skin-theme-clientpref-*` and the reader's `data-mode`, `data-contrast`, `data-text-size` and `data-vision` on `<html>` (0086 §5; [0055](0055-templatestyles-templatedata-and-page-properties.md) §6); the theme's stylesheet links in the order the view model gives them.
    - **Mount points** for the interactive components and the challenge solver, with the `data-` attributes they read (19 §5.3; [0087](0087-account-registration-and-challenges.md) §10).
-   - **Fragments:** the regions `action=render` returns, by name (0057 §8).
+   - **Fragments:** the regions `action=render` returns, by name (0057 §8), each drawn by one template the page also draws, so a region and its page cannot drift.
    - **Accessibility:** the landmarks, headings and skip link the site's axe tests check (19 §5.7).
 
 The contract is written in `docs/api/skin-contract.md`, beside the other contracts, and tested where it is implemented: in `triplespace-ui`, against the default skin.
@@ -144,9 +144,9 @@ The contract is written in `docs/api/skin-contract.md`, beside the other contrac
 
 **Codex components are the default skin's macros**, not functions: `button`, `chip`, `card`, `field`, `message` and the rest are written in the skin, so another skin may use other components without asking the binary.
 
-### 11. Regions (extends 0034 §2)
+### 11. Menus (extends 0034 §2)
 
-**Menus are data.** The view model carries named regions, each a list of items with a route or URL, a message key, an icon hint and the right it needs: `header`, `user-menu`, `page-tabs`, `page-actions`, `tools`, `title-meta` and `footer`. The binary fills them from the features, the registries and the operator's list of extra links, and filters them by the reader's rights; the skin decides where each region goes and how it looks. This is MediaWiki's `addPortletLink`, the most-used gadget API, as configuration. `title-meta` is where facts about the page appear near its title.
+**Menus are data.** The view model carries named menus, each a list of items with a route or URL, a message key, an icon hint and the right it needs: `header`, `user-menu`, `page-tabs`, `page-actions`, `tools`, `title-meta` and `footer`. The binary fills them from the features, the registries and the operator's list of extra links, and filters them by the reader's rights; the skin decides where each menu goes and how it looks. This is MediaWiki's `addPortletLink`, the most-used gadget API, as configuration. `title-meta` is where facts about the page appear near its title.
 
 ### 12. Link classification (extends 0034 §2)
 
@@ -162,7 +162,7 @@ The contract is written in `docs/api/skin-contract.md`, beside the other contrac
 
 ### 15. Caching and fragments (extends 0057 §6, §8)
 
-**A composed page depends on the skin**, so the skin's name and version are part of a page's validator; a page served with `useskin=` or a reader's preference is private or keyed by its query, like any variant; and changing `skins.default` or upgrading a skin purges the wiki's pages. **A fragment carries the skin version it was rendered with**, and a page whose skin version differs reloads in full rather than splicing it in, as the editor already does for a renderer mismatch (0057 §9).
+**The build ID names the skin.** A composed page's `ETag` already hashes the web tier's build ID, and a component already sends the build ID of the page it lives in as `X-Triplespace-UI-Build`, so that a web tier on another build answers `409` and the component reloads rather than splice in markup that does not match (03 §10.3; 20 §3.2). The build ID becomes the binary's build with the name and version of the skin that drew the page, so a skin upgrade or a change of skin is build skew like any other. A page drawn with `useskin=` is keyed by its own URL; one drawn by a signed-in reader's `ui.skin` is private, as every signed-in page is. Changing a wiki's `skins.default` or upgrading a skin purges the wiki's pages.
 
 ### 16. Reaching parity, then removing the built-in rendering
 
@@ -181,12 +181,12 @@ The contract is written in `docs/api/skin-contract.md`, beside the other contrac
 
 | Crate | Change |
 |---|---|
-| `triplespace-ui` | Loads skins: the manifest, the requirement check, MiniJinja with the functions of §10, the regions of §11 and the link classification of §12; builds view models; the `compare` renderer. Gains `minijinja`, `semver` and `html5ever`; loses `askama` after §16 |
+| `triplespace-ui` | Loads skins: the manifest, the requirement check, MiniJinja with the functions of §10, the menus of §11 and the link classification of §12; builds view models; the `compare` renderer. Gains `minijinja`, `semver` and `html5ever`; loses `askama` after §16 |
 | `triplespace-web`, `triplespace-server` | Embed `skins/default/`; read the skin directory; `renderer` |
 | `triplespace-api-action` | `api_version` as `MAJOR.MINOR.PATCH` (§5); the contract versions on `GET /version` (§7) |
 | `triplespace-client` | Parses `api_version` and checks it by §5 |
 | `xtask` | `cargo semver-checks` over the published `scatter-*` crates (§3) |
-| `triplespace-accounts` | `skins.available`, `skins.default` and the `skins.tenant` switch; the `skin` preference (§8) |
+| `triplespace-accounts` | The settings `skins.available` and `skins.default`, the `skins.available` ceiling, and the preference `ui.skin` (§8) |
 
 ### 18. Releases and the version in the repository
 
@@ -212,7 +212,7 @@ The product starts at `0.1.0`: `[workspace.package]` gains `version = "0.1.0"`, 
 
 - **Every release states its bump and why**, from the contracts it changed (§7).
 - **The site's look can change without a rebuild**, and an operator can run a skin of their own.
-- **What gadgets do on MediaWiki has a home**: data in view models and regions, behaviour in an operator's skin.
+- **What gadgets do on MediaWiki has a home**: data in view models and menus, behaviour in an operator's skin.
 - **Interactive components stay Codex's**: the Vue components and editors are the binary's, styled by Codex and the theme under any skin; a skin restyles them only through tokens.
 - **The migration is large**: about 28,000 lines of `triplespace-ui` become view models and templates, and every view model it needs is found by doing it.
 - **Rendering at runtime costs more than compiled templates.** MiniJinja's compiled templates are expected to keep a page within its budget; the corpus runs measure it.
@@ -221,7 +221,7 @@ The product starts at `0.1.0`: `[workspace.package]` gains `version = "0.1.0"`, 
 
 - **Q1.** ~~**Rollback.** Whether a minor that introduces a record major ships it behind a switch first, off by default for one minor, so that every minor can be rolled back.~~ *Settled by §4: yes; the release that writes it by default is a product major.*
 - **Q2. Additive payload changes.** Whether the current payload encodings admit fields an older reader ignores, as §4's minor assumes, or whether every payload change is in practice a major until the encodings are made extensible.
-- **Q3.** ~~**A reader's own skin.** Whether a reader may choose among the installed skins, as MediaWiki's skin preference allows, or the wiki's skin is the only choice.~~ *Settled by §8: readers choose among the skins the wiki makes available; what a tenant may make available or disable is the instance's `skins.tenant` switch.*
+- **Q3.** ~~**A reader's own skin.** Whether a reader may choose among the installed skins, as MediaWiki's skin preference allows, or the wiki's skin is the only choice.~~ *Settled by §8: readers choose among the skins the wiki makes available; what a tenant may make available or disable is the instance's default, ceiling and lock for `skins.available`.*
 - **Q4. Skin licences.** The default skin is GPL-3.0-or-later with the rest of the repository. Whether an operator's skin, which the binary interprets and does not link, must be.
 - **Q5. Extra view-model fields.** Whether a skin may ask for data from a fixed list the binary offers (assessment, protection, short description, edit counts), fetched only when a skin asks for it; deferred until the default skin needs one.
 

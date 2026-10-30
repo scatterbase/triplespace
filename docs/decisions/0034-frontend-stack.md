@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-20 (A13)
+- **Updated:** 2026-10-29 (A14)
 - **Author:** James Hare / Claude
 - **Changes:** [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0003](0003-statement-ui.md), [0012](0012-api-requirements.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0029](0029-resolver-namespaces.md), [0033](0033-backend-stack.md)
@@ -26,7 +26,7 @@ The backend stack is in 0033.
 
 ### 2. Server rendering, in `triplespace-ui`
 
-*Changed by A6, A8.*
+*Changed by A6, A8, A14.*
 
 *Current text: [19](../architecture/19-site-ui.md) §1.2, §5.2.*
 
@@ -66,7 +66,7 @@ The backend stack is in 0033.
 
 ### 9. Internationalisation
 
-*Changed by A11.*
+*Changed by A11, A14.*
 
 *Current text: [19](../architecture/19-site-ui.md) §5.6.*
 
@@ -302,3 +302,19 @@ Replaced text ([23](../architecture/23-configuration-and-registry.md) §3.2, as 
 Replaced text ([09](../architecture/09-security-and-moderation.md) §1.4, its first sentence, as it stood):
 
 > The site UI runs under a strict Content Security Policy: scripts only from the instance's own origin, no inline scripts, no `eval`.
+
+### A14. Skins and message bundles
+
+- **Date:** 2026-10-29
+- **Source:** [0097](0097-versioning-and-skins.md) §8, §9, §10, §11, §12, §13
+- **Change:** amends §2, §9
+- **Summary:** The site's HTML is drawn by a skin the operator installs: MiniJinja templates over the view models `triplespace-ui` builds, under a versioned template contract, with nine template functions, named menus and link classification. The default skin is a skin; it first reproduces today's pages, and the built-in `askama` rendering and the Codex builder are then removed, the Codex components becoming the default skin's macros. Interface messages come in versioned bundles, the binary's in `i18n/` and each skin's in its own, a skin's keys carrying its name as a prefix. The chapter text is [19](../architecture/19-site-ui.md) §5.2, §5.6 and §5.10.
+
+Replaced text (§2):
+
+> - **Templates:** `askama`, compiled and type-checked with the Rust code.
+> - **Codex markup:** a Rust builder module that emits Codex CSS-only component markup (buttons, fields, tables, cards, tabs, messages, chips, progress bars), following the approach of WMF's Codex PHP. Templates call the builder instead of writing Codex class names by hand, so a Codex markup change is one edit.
+
+Replaced text (§9):
+
+> - Interface messages are **banana JSON** files in `i18n/` (`en.json`, `qqq.json` for documentation, one file per language), so the project can be registered with translatewiki.net like any MediaWiki extension.

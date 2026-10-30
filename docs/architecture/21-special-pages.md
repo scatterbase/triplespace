@@ -512,9 +512,11 @@ Holders of `ts-config` at the farm base always see `full`. Whatever the setting,
 
 ### 5.6 Crates and third-party components
 
-*Sources: [0077](../decisions/0077-special-version.md) §1, §6.*
+*Sources: [0077](../decisions/0077-special-version.md) §1, §6; [0097](../decisions/0097-versioning-and-skins.md) §7, §8.*
 
 The fifth section lists Triplespace's crates, then the third-party components: crates, frontend packages and vendored code, each with its version, licence and upstream, and a link to its licence page (§5.3). What the section lists, and the component manifest it is read from, are in [22](22-crates-and-stack.md).
+
+**Versions** ([0097](../decisions/0097-versioning-and-skins.md) §7, §8). Beside the product version, the page gives the version of each contract the instance serves: the record format and payload majors, `api_version`, the template contract, the Codex token release, and each message bundle; then each installed skin with its version, licence and requirements, and any skin not loaded, with the reason.
 
 ### 5.7 Wikitext
 

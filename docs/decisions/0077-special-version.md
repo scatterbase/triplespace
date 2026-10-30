@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-07
-- **Updated:** 2026-10-09 (A3)
+- **Updated:** 2026-10-29 (A4)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md), [0033](0033-backend-stack.md), [0047](0047-special-pages.md)
 - **Uses:** [0005](0005-crate-organization.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0028](0028-tenancy-policy.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0046](0046-primary-tenant.md), [0056](0056-security-model.md), [0057](0057-web-tier.md), [0059](0059-query-service.md), [0075](0075-mcp-server.md)
@@ -65,6 +65,8 @@ And on the first proposal, the same day:
 *Current text: [21](../architecture/21-special-pages.md) §5.5.*
 
 ### 6. Crates and third-party components
+
+*Changed by A4.*
 
 *Current text: [21](../architecture/21-special-pages.md) §5.6; [22](../architecture/22-crates-and-stack.md) §7.2.*
 
@@ -195,3 +197,10 @@ Replaced text (§4):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§15
 - **Summary:** The Decision's current text now lives in the architecture chapters [18](../architecture/18-api.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A4. Contract versions and skins
+
+- **Date:** 2026-10-29
+- **Source:** [0097](0097-versioning-and-skins.md) §7
+- **Change:** extends §6
+- **Summary:** Beside the product version, `Special:Version` and `GET /version` give the version of each contract the instance serves (record format and payload majors, `api_version`, the template contract, the Codex token release, each message bundle) and each installed skin with its version, licence and requirements, with any skin not loaded and the reason. The chapter text is [21](../architecture/21-special-pages.md) §5.6.

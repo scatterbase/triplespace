@@ -147,6 +147,13 @@ follows = "choice"
 browser = true
 from = "0086 §4"
 
+[[preference]]
+key = "ui.skin"
+type = "string"                      # a skin the wiki makes available; no default: the setting skins.default
+group = "appearance"
+follows = "choice"
+from = "0097 §8"
+
 # --- History and feeds ----------------------------------------------------------------------
 [[preference]]
 key = "ts-upstream-fold"
