@@ -286,13 +286,14 @@ The index is for finding an ADR and seeing at a glance what has touched it, how 
 
 ## 14. Migrations
 
-*Sources: [0050](../decisions/0050-adr-format.md) §13, §14; [0098](../decisions/0098-pointers-from-birth.md) §6, §7.*
+*Sources: [0050](../decisions/0050-adr-format.md) §13, §14; [0098](../decisions/0098-pointers-from-birth.md) §5, §6, §7; [0099](../decisions/0099-status-from-the-code.md) §5.*
 
 History, kept here so that the ADRs' older log entries can be read.
 
 - **2026-10-01 to 2026-10-07, the 0050 format.** 0008 was converted as a pilot; a mechanical pass gave the remaining ADRs titles, `Q` IDs, the six verbs and two-ended relations; then each ADR was converted in its own commit, every callout and dated self-amendment becoming a log entry, closing with a `consolidates` entry. 0005 §8 and 0013 §12, the two changelog sections, became stubs and their rows became log entries. The old-format checks were removed when no ADR used it.
 - **2026-10-08 and 2026-10-09, the chapters.** Chapters 00–23 were drafted from the ADRs as they then stood; the 116 inconsistencies the consolidation found were decided by James and logged as direct decisions in the owning ADRs (`docs/audits/architecture-consolidation-2026-10-08.md`); then each ADR's Decision text was replaced by pointers, logged with a `relocates` entry naming the last commit that carried the text.
 - **2026-10-30, pointers from birth.** The nineteen ADRs written after the relocation (0079–0097), which had carried their text beside the chapters' copy, were relocated the same way (commit `2e2a7c8` holds the text). 0050 was relocated into this chapter. The `Chapters` header and the "Changes to other ADRs" section, both derivable, were removed from every ADR by a mechanical pass that is not logged; `MAP.md` and the mapping tables of `map.py` were deleted in favour of the provenance lines; `pointers.py` was retired; and the index was slimmed. From then on an ADR is born as pointers.
+- **2026-10-30, later the same day: catalogues and status.** The crate map, the REST routes, the Action API modules, the permission catalogue and the log-event catalogue moved from chapter prose into registry files with generated tables (§11; 0005 A111, 0012 A82–A83, 0016 A40, 0011 A35), 22 §2.2's history narrative was retired (0005 A112), and the implementation status became the code's to carry (§15; 0099): the `implements` claim, the generated `Status` header, the index as status page, unconfirmed log entries for calls made while building, and the retirement of the working notes outside the repository.
 
 ## 15. Implementation status
 
