@@ -287,6 +287,9 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for PageProjection {
             let revid = h.revid.and_then(|r| i64::try_from(r).ok());
             let at = time_of(shown_time(h, &op));
             let tenant = info.tenant.as_str();
+            // The report keys this record touches (0047 §4.3): its titles, and the link
+            // targets and categories it drops or adds.
+            let mut touched: BTreeSet<String> = BTreeSet::new();
             let len = page
                 .text
                 .as_ref()
@@ -331,6 +334,8 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for PageProjection {
                     current_title(cx, tenant, page_id).await?
                 }
                 PageOp::Move { ns, title, .. } => {
+                    let (old_ns, old_title) = current_title(cx, tenant, page_id).await?;
+                    touched.insert(crate::reports::title_key(old_ns, &old_title));
                     let n = cx
                         .execute(
                             "UPDATE view.page SET ns = $3, title = $4, latest_offset = $5, latest_revid = $6,
@@ -391,9 +396,11 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for PageProjection {
                 .map_err(|e| sql(&e))?;
             }
 
+            touched.insert(crate::reports::title_key(ns, &title));
             if let Some(text) = &text {
-                rows += index_text(cx, tenant, page_id, ns, &title, text).await?;
+                rows += index_text(cx, tenant, page_id, ns, &title, text, &mut touched).await?;
             }
+            crate::reports::queue(cx, tenant, h.partition, h.offset, &touched).await?;
             Ok(Applied::rows(usize::try_from(rows).unwrap_or(usize::MAX)))
         })
     }
@@ -533,7 +540,9 @@ pub async fn text_at<C: PgClient>(
     }))
 }
 
-/// Rewrites the rows the page's latest text makes: its redirect, links and categories.
+/// Rewrites the rows the page's latest text makes: its redirect, links and categories,
+/// adding to `touched` the report keys of every title link and category it removes or
+/// writes (0047 §4.3).
 async fn index_text(
     cx: &PgCx,
     tenant: &str,
@@ -541,6 +550,7 @@ async fn index_text(
     ns: i32,
     title: &str,
     text: &str,
+    touched: &mut BTreeSet<String>,
 ) -> Result<u64, String> {
     let config = TenantNames::load(cx.conn(), tenant).await?.config();
     let page = Title::new(ns, title);
@@ -599,13 +609,23 @@ async fn index_text(
             links.insert((TARGET_TITLE, format!("{}:{}", t.namespace, t.text)));
         }
     }
-    cx.execute(
-        "DELETE FROM view.page_link WHERE tenant = $1 AND from_page = $2 AND NOT from_render",
-        &[&tenant, &page_id],
-    )
-    .await
-    .map_err(|e| sql(&e))?;
+    for r in cx
+        .query(
+            "DELETE FROM view.page_link WHERE tenant = $1 AND from_page = $2 AND NOT from_render
+             RETURNING target_kind, target_id",
+            &[&tenant, &page_id],
+        )
+        .await
+        .map_err(|e| sql(&e))?
+    {
+        if r.get::<_, i16>(0) == TARGET_TITLE {
+            touched.insert(format!("title:{}", r.get::<_, String>(1)));
+        }
+    }
     for (kind, id) in &links {
+        if *kind == TARGET_TITLE {
+            touched.insert(format!("title:{id}"));
+        }
         rows += cx
             .execute(
                 "INSERT INTO view.page_link (tenant, from_page, target_kind, target_id, from_render)
@@ -616,17 +636,38 @@ async fn index_text(
             .map_err(|e| sql(&e))?;
     }
 
-    cx.execute(
-        "DELETE FROM view.page_category WHERE tenant = $1 AND page_id = $2 AND NOT from_render",
-        &[&tenant, &page_id],
-    )
-    .await
-    .map_err(|e| sql(&e))?;
+    rows += index_categories(cx, tenant, page_id, title, &ex.categories, touched).await?;
+    Ok(rows)
+}
+
+/// Rewrites a page's own category rows, adding to `touched` the report key of every
+/// category it leaves or joins (0047 §4.3).
+async fn index_categories(
+    cx: &PgCx,
+    tenant: &str,
+    page_id: i64,
+    title: &str,
+    categories: &[scatter_wikitext::Category],
+    touched: &mut BTreeSet<String>,
+) -> Result<u64, String> {
+    let mut rows = 0u64;
+    for r in cx
+        .query(
+            "DELETE FROM view.page_category WHERE tenant = $1 AND page_id = $2 AND NOT from_render
+             RETURNING category",
+            &[&tenant, &page_id],
+        )
+        .await
+        .map_err(|e| sql(&e))?
+    {
+        touched.insert(crate::reports::category_key(&r.get::<_, String>(0)));
+    }
     let mut seen = BTreeSet::new();
-    for c in &ex.categories {
+    for c in categories {
         if !seen.insert(c.name.clone()) {
             continue;
         }
+        touched.insert(crate::reports::category_key(&c.name));
         let sortkey = c.sort_key.clone().unwrap_or_else(|| title.to_string());
         rows += cx
             .execute(

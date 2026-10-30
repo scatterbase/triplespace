@@ -13,7 +13,7 @@
 //!   API's own router in process: the browser's request passed as it arrived, with its
 //!   connection address, so the API judges it exactly as if the browser had called it.
 //!
-//! [`api`], [`entity`], [`search`], [`account`], [`create`], [`version`], [`activity`], [`revisions`], [`pages`], [`settings`], [`rights`], [`notifications`] and [`watch`] have the typed calls the site makes, each returning the value with the
+//! [`api`], [`entity`], [`search`], [`account`], [`create`], [`version`], [`activity`], [`revisions`], [`pages`], [`settings`], [`rights`], [`notifications`], [`reports`] and [`watch`] have the typed calls the site makes, each returning the value with the
 //! [`api::CacheInfo`] a page needs to compose its own caching (0057 §6).
 //!
 //! This crate reaches no store and depends on no API crate (0005 §3 rule 10).
@@ -30,6 +30,7 @@ pub mod issuers;
 pub mod notifications;
 pub mod pages;
 pub mod register;
+pub mod reports;
 pub mod revisions;
 pub mod rights;
 pub mod search;
@@ -58,6 +59,7 @@ pub use pages::{
 pub use register::{
     AccountRequest, ChallengeInfo, CreateFields, CreateForm, CreateResult, LoginForm,
 };
+pub use reports::{ReportPage, ReportQuery, ReportRow, ReportState};
 pub use revisions::{Change, Comparison, EntityDiff, Revision};
 pub use rights::{
     BlockForm, BlockRow, DeletedRevision, Deletion, EmptyGroup, GroupInfo, ProtectForm,

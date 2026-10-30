@@ -201,6 +201,13 @@ mod tests {
         assert_eq!(interface.canonical, "MediaWiki");
         assert_eq!(interface.name.as_deref(), Some("Interface"));
         assert_eq!(interface.talk, Some(9));
-        assert_eq!(r.get(12).map(|n| n.kind), Some(Kind::Reserved));
+        // Help works as Project does, without its sprints and site styles (0096 §3).
+        let help = r.get(12).expect("Help");
+        assert_eq!(help.kind, Kind::Pages);
+        assert_eq!(help.talk, Some(13));
+        assert!(help.allows_model("wikitext"));
+        assert!(!help.allows_model("triplespace-sprint"));
+        assert!(!help.allows_model("sanitized-css"));
+        assert!(!r.get(13).expect("Help talk").allows_model("wikitext"));
     }
 }

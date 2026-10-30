@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-17
-- **Updated:** 2026-10-28 (A6)
+- **Updated:** 2026-10-29 (A7)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md), [0018](0018-tenants.md), [0034](0034-frontend-stack.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md), [0055](0055-templatestyles-templatedata-and-page-properties.md)
 - **Uses:** [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [0077](0077-special-version.md), [0085](0085-settings-and-preferences.md)
@@ -131,7 +131,7 @@ A type set gives three roles, `font-family-base`, `font-family-heading-main` and
 
 ### 5. Serving (amends 0034 §1; extends 0034 §11; amends 0012 §4)
 
-*Changed by A5, A6.*
+*Changed by A5, A6, A7.*
 
 **One stylesheet per palette and one per type set**, so their number grows as palettes plus type sets, not as their product. Each is named under `/ui/theme/` by the record's offset and the hash of its text, cached as immutable, and rebuilt from the log for any earlier offset, so a cached page never loses its styles when a palette changes.
 
@@ -143,6 +143,8 @@ A type set gives three roles, `font-family-base`, `font-family-heading-main` and
 **The security policy admits the media origin**, as James decided: `font-src` and `img-src`, today `'self'` and `'self' data:`, add the origin of `media.base_url` where it differs from the site's, so a tenant's typefaces and logo, and its files in content, load from it; scripts and styles stay `'self'` ([0034](0034-frontend-stack.md) §11).
 
 **`siprop=triplespace` reports the theme**: the palettes and type sets the tenant offers (name, label, which variants a palette has, the palette it extends, its alternates and `alternates-from` ([0094](0094-accessibility-alternates.md) §6), whether a palette or type set is for accessibility), `theme.palette`, `theme.typeset` and `theme.choice`, and the stylesheet URL of each offered palette and type set, in place of `ui.theme`'s token map. **Palettes and type sets are public**, as James decided, like the logo, the favicon and the typefaces ([0085](0085-settings-and-preferences.md) §8): an outsider of a private tenant is given the theme in full, the records, the settings and the stylesheets, which `/ui/theme/` serves to anyone. They are what the pages an outsider can reach are made of, and a reader who needs an accessibility palette or type set needs it on the landing page and the login form before signing in.
+
+**The tokens are Codex's, and so is their version** ([0097](0097-versioning-and-skins.md) §14). A palette and a type set set Codex's tokens (§1), so the token contract's version is the release of `@wikimedia/codex-design-tokens` the binary pins (0034 §8). The binary owns which release that is, since it validates every palette and type set, and a skin declares the Codex token major it is written for. Moving to a Codex major that renames or removes tokens is a product major unless the binary maps the old names onto the new ones for palettes already written.
 
 ### 6. Content written for night mode (amends 0055 §2)
 
@@ -326,3 +328,10 @@ Replaced text (§5):
 Replaced text (§7):
 
 > The registry part of §1 is in place: `themes.toml` holds `parchment` with its four variants, the accessibility palettes `parchment-rg` and `parchment-by` (A3), which extend it, the palette `encyclopedia` (A2), and the type sets `default26`, `hyperlegible`, `opendyslexic` and `basic` (A2), and `triplespace-ui` reads the default pair from it. The other palettes and type sets are not yet served, and the Atkinson Hyperlegible and OpenDyslexic files are not yet in the build.
+
+### A7. The token contract is Codex's
+
+- **Date:** 2026-10-29
+- **Source:** [0097](0097-versioning-and-skins.md) §14
+- **Change:** extends §5
+- **Summary:** The token contract's version is the release of Codex's design tokens the binary pins; the binary owns the choice, skins declare the token major they need, and a Codex major that renames or removes tokens is a product major unless the binary maps the old names. The chapter text is [19](../architecture/19-site-ui.md) §5.9.

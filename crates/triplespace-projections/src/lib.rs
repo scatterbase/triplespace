@@ -27,6 +27,7 @@ pub mod moderation;
 pub mod pages;
 pub mod read;
 pub mod registry;
+pub mod reports;
 pub mod revision_state;
 pub mod revisions;
 pub mod sources;

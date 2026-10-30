@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-09
-- **Updated:** 2026-10-20 (A3)
+- **Updated:** 2026-10-29 (A4)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0020](0020-change-feeds.md), [0022](0022-federation.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0030](0030-edit-filters.md), [0031](0031-property-constraints.md), [0032](0032-sparql-update-stream.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0047](0047-special-pages.md), [0055](0055-templatestyles-templatedata-and-page-properties.md), [0056](0056-security-model.md), [0059](0059-query-service.md), [0060](0060-scopes.md), [0061](0061-sprints-and-tasks.md), [0064](0064-entityschema-and-validation.md), [0067](0067-proposals.md), [0070](0070-shallow-entity-mirroring.md), [0071](0071-derived-statements-from-mirrored-pages.md)
 - **Uses:** [0082](0082-source-form-and-the-shared-view.md), [0084](0084-wikibase-writes-against-the-resolved-view.md)
@@ -47,9 +47,9 @@ James's direction, from the design review of 2026-10-09:
 
 ### 3. Tier 3: consumers of composition (amends 0013 §7, 0014 §7, 0031 §2, 0032 §2, 0042 §10, 0043 §10, 0047 §4.2 and §4.3, 0056 §14, 0060 §5 and §10, 0061 §6 and 0064 §5; extends 0014 §5, 0060 §4 and 0061 §11)
 
-*Changed by A3.*
+*Changed by A3, A4.*
 
-**Everything that is a function of a composed entity consumes composition events.** The composer emits "entity X, tenant T, composed to version N" after each composed row commits; each consumer has its own queue, rate and lag, reports lag on its own pages, runs in no one's transaction, and is **off during bootstrap and bulk modes** until the operator turns it on. The consumers, each with the rule the review asked for:
+**Everything that is a function of a composed entity consumes composition events.** The composer emits "entity X, tenant T, composed to version N" after each composed row commits; each consumer has its own queue, rate and lag, reports lag on its own pages, runs in no one's transaction, and is **off during bootstrap and bulk modes** until the operator turns it on. Every consumer's queue is `ops.projection_work` and every queue is applied by the one worker of §6 (A4): a consumer supplies the recompute of a key for a tenant, and the worker supplies leasing, ordering, retries and lag. The consumers, each with the rule the review asked for:
 
 - **Constraints** ([0031](0031-property-constraints.md) §2). `constraints.scope` is a `site` setting: `local` (the default: local-graph statements and entities in the tenant's overlay), `overlay`, or `all`, and `all` is a batch job with progress, never a step. A constraint-statement change on a mirrored property enqueues a batch rather than a scan. `type` and `value type` are checked with the L0 class cache, and the chapter states that a `P279` change does not invalidate stored results until the next composition of the subject.
 - **Scopes** ([0060](0060-scopes.md) §5). A scope definition compiles at save to rows of **`view.scope_trigger (tenant, trigger_kind, key, scope_page_id)`** — `property:P31`, `category:{page}`, `table-row:{page}`, `sitelink` — held in L0, so a composition event that matches no trigger is one hash probe. A truncated scope is "the first N found, refilled by a job when it falls below N"; an `intersection` or `difference` whose non-probeable operand is truncated is refused at save; a scope's initial computation is always a job.
@@ -77,7 +77,7 @@ James's direction, from the design review of 2026-10-09:
 
 ### 6. Projections: classes, replay and rebuild (amends 0008 §10, 0013 §7, 0023 §6, 0038 §3, 0039 §9, 0042 §9 and §10, 0047 §4.3, 0055 §6, 0060 §5, 0061 §6, 0064 §5 and 0067 §5; extends 0006 §3, 0014 §4 and §10 and 0039 §20)
 
-*Changed by A3.*
+*Changed by A3, A4.*
 
 **Every projection declares its class.** *Log-replayed* projections replay from offset 0 as [0013](0013-postgres-storage.md) §7 described. *View-derived* projections (reports, constraints, `site_stats`, scopes, tasks, schema reports, entity usage) are populated by a scan of the named `view` tables they read and never by a log replay; "rebuild projection P for tenant T from `view`" is a named operation. A projection added after a mirror exists is view-derived or it does not exist.
 
@@ -90,6 +90,8 @@ James's direction, from the design review of 2026-10-09:
 **Decisions from other partitions' state are written down.** Where the write path decides something from the state of another partition at the time — autopatrol from memberships ([0023](0023-moderation.md) §6), the operator of a transfer — the decision goes into the attestation part of the record, and the projection reads it rather than reconstructing "as of" by timestamp across partitions, which a vanish would make unreconstructible.
 
 **Lag is `ops.projection_work`.** `ops.projection_work` is the unit of truth for lag; `ops.projection_state.applied_offset` records the contiguous prefix, with inline-recorded records entered as done.
+
+**One worker applies every queue** (A4). The fan-out a projection queues past the synchronous budget and the work of every tier-3 consumer that follows other projections' tables (§3) go through one queue, `ops.projection_work`, and one generic worker (`scatter_projection::Worker`), which drives each consumer the same way, one tenant of one consumer per unit of work: it takes the tenant's lock for that consumer (a transaction-scoped advisory lock; another worker on the same tenant and consumer moves on rather than waits), **leases** the tenant's oldest items with `FOR UPDATE SKIP LOCKED`, hands the consumer the distinct keys in queueing order, and **removes the items in the unit of work that applied them**, so a worker that dies mid-batch leaves them queued and the next applies them again, which every consumer tolerates because its work is a recompute of the key, never an increment. A failed batch is rolled back and the attempt recorded on its items (`attempts`, `last_error`, `failed_at`); an item that has failed the worker's attempt limit (five) is left out of every lease and counted as *failed* in the lag report, so one poisoned key stops neither its tenant's queue nor anyone else's. Several workers run as tasks of the serving process (`--workers`, two by default; `0` for a process that only serves) and share the tenants through the locks; a worker needs nothing the serving process has, so it can run as its own process. **A read never applies queued work**: a page shows the lag and the worker catches up behind it. The lag is reported per consumer and tenant — waiting, failed, and how long the oldest has waited — by `GET /version` (`queues`; [18](../architecture/18-api.md)) and on the consumers' own pages, a report's state among them.
 
 **One writer per row class.** `view.page_category`, `view.page_link` and `view.page_prop` ([0038](0038-page-metadata-and-categories.md) §2, [0055](0055-templatestyles-templatedata-and-page-properties.md) §6, [0042](0042-template-expansion-and-parsoid.md) §10) carry `from_render boolean`: the page projection writes source-derived rows (what the stored text says) and the refresh job writes expansion-derived rows, each owning its class exclusively; readers union them; the refresh job never deletes a row it did not write.
 
@@ -234,3 +236,10 @@ Replaced text (§3, as it stood):
 Replaced text (§6, as it stood):
 
 > **One writer per row class.** `view.page_category`, `view.page_link` and `view.page_prop` ([0038](0038-page-metadata-and-categories.md) §2, [0055](0055-templatestyles-templatedata-and-page-properties.md) §6, [0042](0042-template-expansion-and-parsoid.md) §10) carry `from_render boolean`: the page projection writes source-derived rows (what the stored text says) and the refresh job writes expansion-derived rows, each owning its class exclusively; readers union them; turning `wikitext.expansion` off truncates the render-owned rows and nothing else; the refresh job never deletes a row it did not write.
+
+### A4. One generic worker over the work queue
+
+- **Date:** 2026-10-29
+- **Source:** Direct: James, design discussion of 2026-10-29
+- **Change:** extends §3, §6
+- **Summary:** The review of what runs synchronously found that no projection emitted fan-out, that nothing in a running instance consumed `ops.projection_work`, and that the first tier-3 consumer built (reports, [0047](0047-special-pages.md) §4.3) had a worker of its own that removed items before applying them and ran rebuilds inside a reader's request. James asked for a reusable worker as the first step of taking inessential work off the write path. §6 now states it: one queue and one generic worker for every projection's fan-out and every tier-3 consumer; a tenant's work for a consumer leased and applied by one worker at a time, in order; items removed in the unit of work that applied them; failed attempts recorded and bounded, the failed items reported rather than retried forever; several workers as tasks of the serving process, or a process of their own; reads that show lag and never do the work; lag reported per consumer and tenant in `GET /version`. The report consumer is the first on it; the projections' fan-out is on it the day one of them emits any. Open: a bulk mode that turns consumers off (§5) and the division of the synchronous steps themselves, which this worker is the prerequisite for.

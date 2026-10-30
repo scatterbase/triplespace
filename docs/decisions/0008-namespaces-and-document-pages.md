@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-28 (A45)
+- **Updated:** 2026-10-29 (A47)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -31,7 +31,7 @@ The goal is not to reimplement MediaWiki's page features. Templates, parser func
 
 ### 2. Namespace numbering
 
-*Changed by A3, A6, A8, A9, A10, A12, A13, A15, A17, A18, A19, A25, A26, A27, A28, A29, A31, A32, A44.*
+*Changed by A3, A6, A8, A9, A10, A12, A13, A15, A17, A18, A19, A25, A26, A27, A28, A29, A31, A32, A44, A46, A47.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §1.3, §1.4.*
 
@@ -650,3 +650,21 @@ Replaced text ([10](../architecture/10-pages-and-content-models.md) §1.4, as it
 - **Source:** [0095](0095-the-interface-namespace.md) §7 (A1)
 - **Change:** extends §9
 - **Summary:** An adopted wiki's MediaWiki-namespace pages come as Interface pages, each revision as `text`; pages of other models are ignored and counted (0095 §7).
+
+### A46. An adopted wiki's namespaces are registered
+
+- **Date:** 2026-10-29
+- **Source:** [0096](0096-adopting-any-mediawiki.md) §2
+- **Change:** extends §2
+- **Summary:** An adopted wiki keeps its namespace numbers through the adoption job, which registers each number the registry does not list as a tenant `namespace` record, with its talk number, and renames or archives into Project one whose name is taken (0096 §2). Rule 4 says so.
+
+### A47. The Help namespace
+
+- **Date:** 2026-10-29
+- **Source:** [0096](0096-adopting-any-mediawiki.md) §3
+- **Change:** amends §2
+- **Summary:** Namespace 12 holds pages: Help, a document namespace that works as Project does, with Help talk at 13 (0096 §3). Its local name does not follow the site name, and it allows neither `triplespace-sprint` nor `sanitized-css`. It is no longer reserved, and help content no longer has to go in Project.
+
+Replaced text ([10](../architecture/10-pages-and-content-models.md) §1.4, as it stood):
+
+> | 12 | Help | `reserved` | — | — | — | Rule 1. Help content goes in `Project` |

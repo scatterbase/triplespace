@@ -88,7 +88,7 @@ Reading, logging in and out, creating an account, the account pages, page source
 
 ### 3.2 Fragments: `action=render` on the page's own URL
 
-*Sources: [0057](../decisions/0057-web-tier.md) §8; [0034](../decisions/0034-frontend-stack.md) §5.*
+*Sources: [0057](../decisions/0057-web-tier.md) §8; [0034](../decisions/0034-frontend-stack.md) §5; [0097](../decisions/0097-versioning-and-skins.md) §15.*
 
 **There are no fragment routes.** MediaWiki's `index.php?title={title}&action=render` returns a page's content without the skin. Triplespace keeps that meaning, at `/w/index.php`, `/index.php` and `/wiki/{title}?action=render`, which the routing table already sends to the web tier, and adds one parameter, `region`, for part of the content. After a component saves, it fetches the server's rendering of the changed region from the page's own URL and swaps it in, such as `index.php?title=Item:Q42&action=render&region=statements/P1082` or `region=terms`. The web tier serves it like the page, so there are no fragment routes in the API.
 
@@ -107,16 +107,16 @@ Reading, logging in and out, creating an account, the account pages, page source
 - **Errors.** An unknown region is `400` with a MediaWiki-shaped error body. A region with no content yet (a property the entity does not use) is `200` with the empty group's markup, so a component can add the first value. A missing or confidential target answers exactly as its page would ([0056](../decisions/0056-security-model.md) §5).
 - **Caching** follows [03](03-storage-caches-and-search.md) §10.3: a region carries the same `ETag`, `Cache-Tag` and redaction as its page ([0014](../decisions/0014-caches-and-search.md) §3), so purging the page purges its regions. The tags are two-tiered: a composed page carries exact tags for its subjects (the entity or page, and a talk page's threads) and for every page in its render manifest, and nothing else; the entities whose labels it drew are not tagged, since a large item draws labels from thousands of them and tag headers are capped by every CDN and proxy. Label staleness is bounded by the page's `s-maxage` instead, as MediaWiki bounds its label cache, and the tag list has a stated cap.
 - **Links are full URLs,** as MediaWiki's `action=render` makes them.
-- **Build skew.** A component sends `X-Triplespace-UI-Build`, the build ID of the page it lives in. A web tier on another build answers `409` with no body, and the component reloads the page rather than swap in markup its loaded styles and scripts do not match; the write has already gone through the API, so the reload shows it. A request without the header, as from any third party, is always served.
+- **Build skew.** A component sends `X-Triplespace-UI-Build`, the build ID of the page it lives in. A web tier on another build answers `409` with no body, and the component reloads the page rather than swap in markup its loaded styles and scripts do not match; the build ID includes the skin that drew the page and its version, so a change of skin or a skin upgrade is build skew too ([0097](../decisions/0097-versioning-and-skins.md) §15); the write has already gone through the API, so the reload shows it. A request without the header, as from any third party, is always served.
 
 ## 4. Independent deployment
 
-*Sources: [0057](../decisions/0057-web-tier.md) §9.*
+*Sources: [0057](../decisions/0057-web-tier.md) §9; [0097](../decisions/0097-versioning-and-skins.md) §5.*
 
 The web tier and the API are deployed separately, so each must tolerate the other's version.
 
 - **Assets** have hashed names and are served `immutable`. A web release also carries the previous release's assets, or `web.assets_from` names a base that only ever accumulates, so a page rendered by the old release keeps loading during a rolling deploy.
-- **The API's version.** `meta=siteinfo&siprop=triplespace` reports `api_version`, beside the capability list it already carries ([18](18-api.md)). The web tier hides what the API lacks ([0012](../decisions/0012-api-requirements.md) §1.4) and reports itself not ready below the minimum `api_version` it was built for.
+- **The API's version.** `meta=siteinfo&siprop=triplespace` reports `api_version`, beside the capability list it already carries ([18](18-api.md)): a semantic version `MAJOR.MINOR.PATCH` of the REST routes and the `triplespace` siteinfo property, the integer reported before being its minor at major 0 ([0097](../decisions/0097-versioning-and-skins.md) §5). The web tier hides what the API lacks ([0012](../decisions/0012-api-requirements.md) §1.4) and reports itself not ready unless the API's major is the one it was built against and its minor at least the one it was built against. The REST base path carries the major, `triplespace/v0`, so a new major is served at a new base path beside the old one while clients move.
 - **The editor's renderer.** `action=parse` reports its renderer version ([0012](../decisions/0012-api-requirements.md) §4); where it differs from the build of `scatter-wasm` in the page, the editor previews through `action=parse` instead.
 
 ## 5. Proxy trust and the deployment boundary

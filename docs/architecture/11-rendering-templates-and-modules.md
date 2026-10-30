@@ -110,7 +110,7 @@ The pre-save transform expands `~~~`, `~~~~` and `~~~~~` on wikitext pages, and 
 
 ### 2.1 Registry data and statuses
 
-*Sources: [0042](../decisions/0042-template-expansion-and-parsoid.md) §5.*
+*Sources: [0042](../decisions/0042-template-expansion-and-parsoid.md) §5; [0096](../decisions/0096-adopting-any-mediawiki.md) §4.*
 
 **What the expander knows is registry data**, in `docs/registry/wikitext-functions.toml`, embedded by `scatter-wikitext-expand` ([23](23-configuration-and-registry.md)). Each entry is a variable, parser function, extension tag or behaviour switch, with its synonyms, its origin (MediaWiki core, ParserFunctions, Scribunto, Wikibase Client, Cite, or another extension) and a status:
 
@@ -121,6 +121,8 @@ The pre-save transform expands `~~~`, `~~~~` and `~~~~~` on wikitext pages, and 
 | `ignored` | Recognised and without effect: a behaviour switch that does nothing here, or a tag that renders nothing |
 
 **The registry is what `meta=siteinfo` reports** for `magicwords`, `functionhooks`, `extensiontags`, `variables` and `doubleunderscores`, so clients and Parsoid (§3) tokenize exactly what the expander handles. `chip` entries are reported too: they are installed in the sense that the parser recognises them.
+
+**The extensions an adopted wiki used are chips.** The parser functions of Semantic MediaWiki, Cargo and Page Forms are registered with status `chip`, and Semantic MediaWiki's `__NOFACTBOX__` and `__SHOWFACTBOX__` as `ignored` ([0096](../decisions/0096-adopting-any-mediawiki.md) §4). Old revisions that used them render their calls as chips, and clients tokenize them as parser functions. Their data is converted, not served ([05](05-providers-and-ingest.md) §7.7). Semantic MediaWiki's inline annotations (`[[Has author::Jane Doe]]`) are not syntax the parser knows: they render as links to pages of those titles.
 
 ### 2.2 Coverage
 

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-29
-- **Updated:** 2026-10-09 (A15)
+- **Updated:** 2026-10-29 (A16)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0003](0003-statement-ui.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0026](0026-sitelinks.md), [0029](0029-resolver-namespaces.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md), [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0030](0030-edit-filters.md), [0031](0031-property-constraints.md), [0032](0032-sparql-update-stream.md), [0035](0035-adopting-a-wikibase.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0049](0049-boards.md)
@@ -30,7 +30,7 @@ James's direction, from the design discussion of 2026-09-29:
 
 ### 1. Pages carry statements (extends 0008 §4)
 
-*Changed by A2, A3, A5, A9, A11, A12.*
+*Changed by A2, A3, A5, A9, A11, A12, A16.*
 
 *Current text: [06](../architecture/06-statements-and-properties.md) §5.1, §5.2.*
 
@@ -307,3 +307,10 @@ Replaced text (§7):
 Replaced text ([10](../architecture/10-pages-and-content-models.md) §5.3, as it stood):
 
 > With expansion on ([0042](../decisions/0042-template-expansion-and-parsoid.md) §9; [11](../architecture/11-rendering-templates-and-modules.md)), membership is read from the **expanded** text: categories that templates emit count, `<includeonly>` categories reach transcluding pages, and expansion adds MediaWiki's tracking categories for its own conditions.
+
+### A16. Help pages carry statements
+
+- **Date:** 2026-10-29
+- **Source:** [0096](0096-adopting-any-mediawiki.md) §3
+- **Change:** extends §1
+- **Summary:** Help (12) is a document namespace (0096 §3), so its pages carry statements, as Project's do. The chapter text is [06](../architecture/06-statements-and-properties.md) §5.1.

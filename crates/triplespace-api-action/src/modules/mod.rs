@@ -18,6 +18,7 @@ pub mod pageset;
 pub mod parse;
 pub mod protected;
 pub mod query;
+pub mod querypage;
 pub mod revisions;
 pub mod search;
 pub mod userrights;

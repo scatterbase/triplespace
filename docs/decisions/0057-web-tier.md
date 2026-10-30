@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-03
-- **Updated:** 2026-10-18 (A8)
+- **Updated:** 2026-10-29 (A9)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0025](0025-oauth-server.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0042](0042-template-expansion-and-parsoid.md), [0056](0056-security-model.md)
 - **Uses:** [0003](0003-statement-ui.md), [0039](0039-files-and-media.md), [0045](0045-table-content-model.md), [0047](0047-special-pages.md), [0053](0053-mirrored-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -64,7 +64,7 @@ James's direction, from the design discussion of 2026-10-03:
 
 ### 6. A page's own cacheability (extends 0014 §6)
 
-*Changed by A4, A5.*
+*Changed by A4, A5, A9.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §10.3, §12.4.*
 
@@ -76,11 +76,13 @@ James's direction, from the design discussion of 2026-10-03:
 
 ### 8. Fragments: `action=render` on the page's own URL (amends 0034 §5, §11; extends 0010 §12, §13)
 
-*Changed by A4.*
+*Changed by A4, A9.*
 
 *Current text: [20](../architecture/20-web-tier.md) §3.2.*
 
 ### 9. Independent deployment (extends 0012 §4)
+
+*Changed by A9.*
 
 *Current text: [20](../architecture/20-web-tier.md) §4.*
 
@@ -243,3 +245,14 @@ Replaced text ([20](../architecture/20-web-tier.md) §3.1, as it stood):
 - **Source:** [0089](0089-the-auth-host-and-instance-logins.md) §1
 - **Change:** extends §3
 - **Summary:** At the auth base the routing table is unchanged in shape: the API answers its authentication modules and the `/auth/` routes, the web tier the auth host's four special pages and the site's assets, and every other path is a 404 in a plain frame, since the auth host holds no wiki. The chapter text is [20](../architecture/20-web-tier.md) §2.1.
+
+### A9. The skin in the build ID; `api_version` as a semantic version
+
+- **Date:** 2026-10-29
+- **Source:** [0097](0097-versioning-and-skins.md) §5, §15
+- **Change:** extends §6, §8; amends §9
+- **Summary:** The build ID that a composed page's `ETag` hashes and that a component sends as `X-Triplespace-UI-Build` names the skin that drew the page and its version as well as the binary's build, so a skin upgrade or a change of skin is build skew. `api_version` becomes `MAJOR.MINOR.PATCH`, the integer before being its minor at major 0, and the web tier is ready only against the major it was built for at no lower a minor; a new REST major is served at a new base path. The chapter text is [03](../architecture/03-storage-caches-and-search.md) §10.3 and [20](../architecture/20-web-tier.md) §3.2 and §4.
+
+Replaced text (§9):
+
+> - **The API's version.** `meta=siteinfo&siprop=triplespace` reports `api_version`, beside the capability list it already carries ([18](../architecture/18-api.md)). The web tier hides what the API lacks ([0012](0012-api-requirements.md) §1.4) and reports itself not ready below the minimum `api_version` it was built for.

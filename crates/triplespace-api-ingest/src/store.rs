@@ -9,7 +9,7 @@ use scatter_log::store::{Appended, Draft, Slot};
 use scatter_log_postgres::PgClient;
 use scatter_log_postgres::ids::{from_db, partition_to_db};
 use scatter_log_postgres::{log, sequences};
-use scatter_projection::{Backend, ProjectionError, Work};
+use scatter_projection::{Backend, ProjectionError, QueueLag, Queued, Work};
 use scatter_wikibase_changeset::{MatchKey, Operation};
 use scatter_wikibase_model::id::EntityId;
 use scatter_wikibase_model::key::{Identity, value_key};
@@ -171,13 +171,53 @@ impl Backend for PgIngest {
         self.backend.queue(cx, work).await
     }
 
-    async fn take(
+    async fn tenants_waiting(
         &self,
         cx: &mut PgCx,
-        projection: &str,
+        consumer: &str,
+        max_attempts: u32,
+    ) -> Result<Vec<String>, ProjectionError> {
+        self.backend
+            .tenants_waiting(cx, consumer, max_attempts)
+            .await
+    }
+
+    async fn lock_tenant(
+        &self,
+        cx: &mut PgCx,
+        consumer: &str,
+        tenant: &str,
+    ) -> Result<bool, ProjectionError> {
+        self.backend.lock_tenant(cx, consumer, tenant).await
+    }
+
+    async fn claim(
+        &self,
+        cx: &mut PgCx,
+        consumer: &str,
+        tenant: &str,
         limit: usize,
-    ) -> Result<Vec<Work>, ProjectionError> {
-        self.backend.take(cx, projection, limit).await
+        max_attempts: u32,
+    ) -> Result<Vec<Queued>, ProjectionError> {
+        self.backend
+            .claim(cx, consumer, tenant, limit, max_attempts)
+            .await
+    }
+
+    async fn finish(&self, cx: &mut PgCx, ids: &[u64]) -> Result<(), ProjectionError> {
+        self.backend.finish(cx, ids).await
+    }
+
+    async fn fail(&self, cx: &mut PgCx, ids: &[u64], error: &str) -> Result<(), ProjectionError> {
+        self.backend.fail(cx, ids, error).await
+    }
+
+    async fn queue_lag(
+        &self,
+        cx: &mut PgCx,
+        max_attempts: u32,
+    ) -> Result<Vec<QueueLag>, ProjectionError> {
+        self.backend.queue_lag(cx, max_attempts).await
     }
 }
 

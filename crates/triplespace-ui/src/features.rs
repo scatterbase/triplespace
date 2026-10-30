@@ -52,6 +52,9 @@ pub enum Feature {
     Notifications,
     /// The star, `Special:Watchlist` and `Special:EditWatchlist` (`action=watch`; 19 §6.2).
     Watchlist,
+    /// The report pages: `Special:WantedPages`, `Special:ShortPages` and the rest
+    /// (`list=querypage` with `ts-state`; 0047 §4).
+    Reports,
 }
 
 impl Feature {
@@ -78,6 +81,7 @@ impl Feature {
             Self::Move => "move",
             Self::Notifications => "notifications",
             Self::Watchlist => "watchlist",
+            Self::Reports => "reports",
         }
     }
 }
@@ -102,6 +106,7 @@ pub const BUILT: &[Feature] = &[
     Feature::Move,
     Feature::Notifications,
     Feature::Watchlist,
+    Feature::Reports,
 ];
 
 /// What the site offers on one request.

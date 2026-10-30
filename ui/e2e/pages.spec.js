@@ -72,7 +72,12 @@ const pages = [
 	{ path: '/w/index.php?title=Special:AllPages&namespace=120', heading: 'All pages' },
 	{ path: '/wiki/Special:NewPages', heading: 'New pages' },
 	{ path: '/wiki/Special:Providers', heading: 'Providers' },
-	{ path: '/wiki/Special:SetAliases', heading: 'Set aliases' }
+	{ path: '/wiki/Special:SetAliases', heading: 'Set aliases' },
+	{ path: '/wiki/Special:WantedPages', heading: 'Wanted pages' },
+	{ path: '/wiki/Special:LonelyPages', heading: 'Orphaned pages' },
+	{ path: '/wiki/Special:ShortPages?limit=20', heading: 'Short pages' },
+	{ path: '/wiki/Special:ListRedirects', heading: 'List of redirects' },
+	{ path: '/wiki/Special:ListProperties', heading: 'List of properties' }
 ];
 
 for ( const p of pages ) {

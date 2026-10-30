@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-28
-- **Updated:** 2026-10-29 (A2)
+- **Updated:** 2026-10-29 (A3)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0016](0016-permissions-and-access-control.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0055](0055-templatestyles-templatedata-and-page-properties.md)
 - **Uses:** [0007](0007-actor-identity.md), [0019](0019-discussions.md), [0046](0046-primary-tenant.md), [0079](0079-derived-issuer-codes.md)
@@ -34,11 +34,11 @@ Asked what the namespace holds and how an account is marked, James chose (2026-1
 
 ### 2. Interface pages override messages (amends 0042 §5; amends 0043 §5; amends 0055 §4)
 
-*Changed by A1.*
+*Changed by A1, A3.*
 
 **`Interface:{Key}` overrides the message `{key}`** for the wiki, as MediaWiki's namespace does: the title is the key with its first letter folded to upper case, so `Interface:Ts-new` overrides `ts-new` and `Interface:Mainpage` overrides MediaWiki core's `mainpage`. **`Interface:{Key}/{lang}`** overrides it in one language; the base page is the wiki's own language. For a reader's language, each language along its fallback chain is tried in turn, the wiki's page for that language (or the base page, where it is the wiki's language) before the shipped message, so a German override applies to a reader of German and never shows English to them.
 
-**Which messages:** the site's interface messages (`i18n/`), and MediaWiki core's messages as `{{int:}}` and Scribunto's `mw.message` read them, which 0042 §5 and 0043 §5 left unoverridable. A page for a key no message has is unused by the site, but `{{int:}}` and `meta=allmessages` (§8) read it, so a wiki may write messages of its own. **`{{int:key|…}}` reads the wiki's language**, its base page or its page for that language, not the reader's, since a page renders once for every reader; its `$1`… are the call's arguments. The build ships none of MediaWiki core's messages, so `{{int:}}` of a key the wiki does not override stays a chip.
+**Which messages:** the site's interface messages, in the binary's bundle (`i18n/`) and each skin's, whose keys carry the skin's name as a prefix so that an override names one bundle's key and is inert on a wiki whose skins do not use it ([0097](0097-versioning-and-skins.md) §13), and MediaWiki core's messages as `{{int:}}` and Scribunto's `mw.message` read them, which 0042 §5 and 0043 §5 left unoverridable. A page for a key no message has is unused by the site, but `{{int:}}` and `meta=allmessages` (§8) read it, so a wiki may write messages of its own. **`{{int:key|…}}` reads the wiki's language**, its base page or its page for that language, not the reader's, since a page renders once for every reader; its `$1`… are the call's arguments. The build ships none of MediaWiki core's messages, so `{{int:}}` of a key the wiki does not override stays a chip.
 
 **An override is plain message text**, with `$1`, `{{PLURAL:}}` and the rest as a shipped message has them. The site shows it as it shows any message, escaped, and does not take an override holding `<`, `>` or `"`, so that no page's text can become markup wherever a message reaches the page.
 
@@ -160,3 +160,10 @@ Replaced text (§6):
 - **Source:** Direct: James, design discussion of 2026-10-29
 - **Change:** extends §8
 - **Summary:** `meta=allmessages` takes `amprop=default`, which `action=paraminfo` already listed: each message carries its shipped text as `default`, or `defaultmissing` (`true`, or `""` in format version 1) where the build ships none, whether or not the wiki overrides it, as MediaWiki's module gives it. `Special:AllMessages` reads it to show a customised message's default beside the wiki's text. James asked for §8 to name the parameter once it was built.
+
+### A3. Messages come in bundles
+
+- **Date:** 2026-10-29
+- **Source:** [0097](0097-versioning-and-skins.md) §13
+- **Change:** extends §2
+- **Summary:** The site's messages are the binary's bundle and each skin's, a skin's keys carrying its name as a prefix, so an override names one bundle's key; switching skins leaves the overrides of the old skin's keys in place and inert.

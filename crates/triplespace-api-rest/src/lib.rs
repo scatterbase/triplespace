@@ -36,6 +36,8 @@
 //!   `PUT /thread/{id}/post/{revid}`, the thread's `rename`, `move`, `attach`, `detach`,
 //!   `pin` and `unpin`, and `GET /page/{id}/threads` ([`threads`]): local threads, read and
 //!   written through the one thread writer (0019 §9; 0049 §11; 0069 §9).
+//! - `GET /reports` and `GET /reports/{name}` ([`reports`]): every report with its state, and
+//!   one report's rows, as `list=querypage` serves them (0047 §11).
 //!
 //! Every route runs behind the Action API's request layers ([`triplespace_api_action`]):
 //! the tenant the host names (421 otherwise), the caller, the redaction of 0012 §8, and
@@ -55,6 +57,7 @@ pub mod groups;
 pub mod history;
 pub mod provenance;
 pub mod purges;
+pub mod reports;
 pub mod settings;
 pub mod tenancy;
 pub mod threads;
@@ -112,6 +115,8 @@ pub const PATHS: &[&str] = &[
     "/watchlist",
     "/watchlist/seen",
     "/watchlist/{kind}/{id}",
+    "/reports",
+    "/reports/{name}",
 ];
 
 /// The REST routes, to be merged into the server's router.
@@ -186,7 +191,9 @@ pub fn routes() -> Router<App> {
             .route(
                 &format!("{base}{}", PATHS[41]),
                 put(watchlist::put).delete(watchlist::delete),
-            );
+            )
+            .route(&format!("{base}{}", PATHS[42]), get(reports::list))
+            .route(&format!("{base}{}", PATHS[43]), get(reports::get));
     }
     r
 }

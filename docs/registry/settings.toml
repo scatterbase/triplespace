@@ -1438,6 +1438,31 @@ meaning = "Allowed sitelink URL schemes"
 source = "[0026](../decisions/0026-sitelinks.md) §1"
 
 [[setting]]
+key = "skins.available"
+scope = "tenant"
+bound = "ceiling"
+group = "site"
+type = "string-list"
+values = "installed skins"
+no_default = true
+default_text = "the instance's default, else every installed skin"
+reported = true
+meaning = "The skins readers of this wiki may choose from, among those installed on the instance, up to the instance's ceiling"
+source = "[0097](../decisions/0097-versioning-and-skins.md) §8"
+
+[[setting]]
+key = "skins.default"
+scope = "tenant"
+bound = "tenant"
+group = "site"
+type = "string"
+values = "a skin the wiki makes available"
+default = "default"
+reported = true
+meaning = "The wiki's skin: the HTML presentation of every page, for readers who have not chosen another"
+source = "[0097](../decisions/0097-versioning-and-skins.md) §8"
+
+[[setting]]
 key = "sprints.cache_ttl"
 scope = "tenant"
 bound = "tenant"

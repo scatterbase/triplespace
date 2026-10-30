@@ -49,20 +49,20 @@ Where a later ADR still calls a namespace `document` or its talk namespace `comp
 
 ### 1.3 Numbering
 
-*Sources: [0008](../decisions/0008-namespaces-and-document-pages.md) §2.*
+*Sources: [0008](../decisions/0008-namespaces-and-document-pages.md) §2; [0096](../decisions/0096-adopting-any-mediawiki.md) §2.*
 
 MediaWiki's canonical numbers are kept wherever a namespace has one, because clients hard-code them. Four rules govern every other number:
 
 1. **Every number MediaWiki core or any Wikibase extension uses is reserved.** It is listed with kind `reserved`, is never given another meaning, and is not implemented unless an ADR says so. An ADR may implement one conditionally, by a tenant setting named in the entry's `enabled_by` ([0042](../decisions/0042-template-expansion-and-parsoid.md) §3). Turning the setting off keeps the namespace's pages readable and refuses writes with `ts-namespace-disabled`.
 2. **Talk namespaces exist only for implemented subject namespaces,** at the next odd number. A talk namespace is a `pages` namespace with the model `triplespace-talk` ([0019](../decisions/0019-discussions.md) §2, [0041](../decisions/0041-content-models.md) §4). Where a page is its own talk page, as a board and a thread are, the talk number is `virtual` and forwards to the subject namespace ([0049](../decisions/0049-boards.md) §2). A resolver's talk number is `reserved` ([0029](../decisions/0029-resolver-namespaces.md) §2). A reserved, unimplemented subject namespace has no talk namespace.
 3. **Triplespace's own namespaces take 210–219, then 310–319. Resolver prefixes ([0029](../decisions/0029-resolver-namespaces.md)) take 220–229, then 320–329.** A first block is used up before its second. All four blocks are registered on mediawiki.org's Extension default namespaces page, which listed nothing in 204–240 on 2026-09-27 and nothing in 310–329 on 2026-10-01. Allocation is a change to `namespaces.toml`, under the registry's rules ([0015](../decisions/0015-record-format-and-partition-registry.md) §5).
-4. **A tenant's own namespaces take 3000 and above,** the numbers mediawiki.org's Extension default namespaces page leaves to system administrators, **or 100–199,** MediaWiki's block for site-specific namespaces, except the numbers `namespaces.toml` lists (120–125, 146 and 147 among them). An adopted wiki keeps the numbers it already gave its namespaces ([0035](../decisions/0035-adopting-a-wikibase.md); [08](08-tenants-and-instances.md)). A tenant `namespace` record with any other number not in `namespaces.toml` is refused with `ts-namespace-number`; one whose name or alias equals another namespace's name or alias on the tenant, or an interwiki prefix from its site aliases ([0026](../decisions/0026-sitelinks.md) §2), is refused with `ts-namespace-name-taken`. An entity source's namespace is one of these ([0078](../decisions/0078-entity-sources.md) §5; [05](05-providers-and-ingest.md)).
+4. **A tenant's own namespaces take 3000 and above,** the numbers mediawiki.org's Extension default namespaces page leaves to system administrators, **or 100–199,** MediaWiki's block for site-specific namespaces, except the numbers `namespaces.toml` lists (120–125, 146 and 147 among them). An adopted wiki keeps the numbers it already gave its namespaces ([0035](../decisions/0035-adopting-a-wikibase.md); [08](08-tenants-and-instances.md)): the adoption job registers each one the registry does not list as a tenant `namespace` record, and renames or archives one whose name is taken ([0096](../decisions/0096-adopting-any-mediawiki.md) §2; [05](05-providers-and-ingest.md) §7.6). A tenant `namespace` record with any other number not in `namespaces.toml` is refused with `ts-namespace-number`; one whose name or alias equals another namespace's name or alias on the tenant, or an interwiki prefix from its site aliases ([0026](../decisions/0026-sitelinks.md) §2), is refused with `ts-namespace-name-taken`. An entity source's namespace is one of these ([0078](../decisions/0078-entity-sources.md) §5; [05](05-providers-and-ingest.md)).
 
 **Conditionally enabled namespaces.** Template (10) and Template talk (11) are not conditional: templates are part of wikitext, so they hold pages on every tenant ([0042](../decisions/0042-template-expansion-and-parsoid.md) §3, A19). Turning a namespace's setting off never removes pages: its pages keep their records and history, the namespace refuses `create`, `edit` and `move` into it with `ts-namespace-disabled`, its existing pages stay readable at their titles and can be deleted, and `meta=siteinfo` lists a disabled namespace while it still holds pages. Module (828) and Module talk (829) are enabled while `wikitext.lua` is on (`enabled_by = "wikitext.lua"`); unlike core's reserved numbers, they are not listed in `meta=siteinfo` while disabled and empty, because MediaWiki without Scribunto does not list them and clients use their presence to detect Lua ([0043](../decisions/0043-lua-modules.md) §2). Both are described in [11](11-rendering-templates-and-modules.md).
 
 ### 1.4 The namespace catalogue
 
-*Sources: [0008](../decisions/0008-namespaces-and-document-pages.md) §2; [0009](../decisions/0009-keyed-entity-types-and-domain.md) §11; [0038](../decisions/0038-page-metadata-and-categories.md) §4, §8; [0041](../decisions/0041-content-models.md) §3; [0061](../decisions/0061-sprints-and-tasks.md) §2; [0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §1; [0078](../decisions/0078-entity-sources.md) §5; [0095](../decisions/0095-the-interface-namespace.md) §1.*
+*Sources: [0008](../decisions/0008-namespaces-and-document-pages.md) §2; [0009](../decisions/0009-keyed-entity-types-and-domain.md) §11; [0038](../decisions/0038-page-metadata-and-categories.md) §4, §8; [0041](../decisions/0041-content-models.md) §3; [0061](../decisions/0061-sprints-and-tasks.md) §2; [0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §1; [0078](../decisions/0078-entity-sources.md) §5; [0095](../decisions/0095-the-interface-namespace.md) §1; [0096](../decisions/0096-adopting-any-mediawiki.md) §3.*
 
 `namespaces.toml` is authoritative. The table below assembles [0008](../decisions/0008-namespaces-and-document-pages.md) §2's allocation table with the entries each later ADR added, cited in the last column; the rows for namespaces whose ADR is mapped elsewhere ([0019](../decisions/0019-discussions.md) §3, [0029](../decisions/0029-resolver-namespaces.md) §2 and §8, [0039](../decisions/0039-files-and-media.md) §1, [0042](../decisions/0042-template-expansion-and-parsoid.md) §3, [0043](../decisions/0043-lua-modules.md) §2, [0045](../decisions/0045-table-content-model.md) §2, [0049](../decisions/0049-boards.md) §2, [0060](../decisions/0060-scopes.md) §2, [0063](../decisions/0063-query-namespace.md) §2, [0064](../decisions/0064-entityschema-and-validation.md) §2, [0066](../decisions/0066-lexemes.md) §2, [0017](../decisions/0017-entity-id-grammar.md) §5, [0036](../decisions/0036-openstreetmap-providers.md) §3, [0048](../decisions/0048-notation.md) §7) are here so that the catalogue is complete, and those chapters link to this table. Every talk namespace of kind `pages` has the single model `triplespace-talk`, which is also its default.
 
@@ -76,7 +76,7 @@ MediaWiki's canonical numbers are kept wherever a namespace has one, because cli
 | 6 | File | `pages`, `uploads = true` | 7 File talk, `pages` | `wikitext` only in `main`; a second slot `mediainfo` with the model `wikibase-mediainfo` | `wikitext` | [0039](../decisions/0039-files-and-media.md) §1; [12](12-files-and-media.md) |
 | 8 | MediaWiki, shown as **Interface** | `pages` | 9 MediaWiki talk, shown as Interface talk, `pages` | `text` | `text` | [0095](../decisions/0095-the-interface-namespace.md) §1: interface messages and names; `MediaWiki:` titles reach it |
 | 10 | Template | `pages` | 11 Template talk, `pages` | `wikitext`; `sanitized-css` for titles ending in `.css` | `wikitext`; `sanitized-css` by the `.css` suffix | [0042](../decisions/0042-template-expansion-and-parsoid.md) §3, [0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §1; [11](11-rendering-templates-and-modules.md) |
-| 12 | Help | `reserved` | — | — | — | Rule 1. Help content goes in `Project` |
+| 12 | Help | `pages` | 13 Help talk, `pages` | `wikitext`, `markdown`, `json`, `yaml`, `text` | `wikitext` | [0096](../decisions/0096-adopting-any-mediawiki.md) §3 (§3.8) |
 | 14 | Category | `pages` | 15 Category talk, `pages` | `wikitext` | `wikitext` | [0038](../decisions/0038-page-metadata-and-categories.md) §4 (§3.6) |
 | 120 | Item | `pages` | 121 Item talk, `pages` | `wikibase-item` | `wikibase-item` | Wikibase's default number ([0008](../decisions/0008-namespaces-and-document-pages.md) §2) |
 | 122 | Property | `pages` | 123 Property talk, `pages` | `wikibase-property` | `wikibase-property` | Wikibase's default number ([0008](../decisions/0008-namespaces-and-document-pages.md) §2) |
@@ -198,7 +198,7 @@ The redirect is a second page, with its own ID and its own history, as it is in 
 
 ## 3. Document pages and their namespaces
 
-*Sources: [0008](../decisions/0008-namespaces-and-document-pages.md) §4, §6, §7; [0009](../decisions/0009-keyed-entity-types-and-domain.md) §11; [0038](../decisions/0038-page-metadata-and-categories.md) §4, §8; [0061](../decisions/0061-sprints-and-tasks.md) §2.*
+*Sources: [0008](../decisions/0008-namespaces-and-document-pages.md) §4, §6, §7; [0009](../decisions/0009-keyed-entity-types-and-domain.md) §11; [0038](../decisions/0038-page-metadata-and-categories.md) §4, §8; [0061](../decisions/0061-sprints-and-tasks.md) §2; [0096](../decisions/0096-adopting-any-mediawiki.md) §3.*
 
 ### 3.1 A page is identified by a page ID
 
@@ -310,6 +310,37 @@ Category (14) is implemented as a `pages` namespace with text models. This is th
 | Number | 210, with `Domain talk` at 211 |
 
 The Domain entity type itself, its key and its IRIs are in [04](04-entities-and-identifiers.md).
+
+### 3.8 The Help namespace
+
+*Sources: [0096](../decisions/0096-adopting-any-mediawiki.md) §3.*
+
+**Help is a document namespace that works as Project does** (§3.5):
+
+- `first-letter` titles and subpages;
+- the models `wikitext`, `markdown`, `json`, `yaml` and `text`, with `wikitext` the default;
+- anyone with the right to edit may create a page, and no owner is recorded;
+- its pages carry statements ([06](06-statements-and-properties.md) §5) and may be sitelink targets.
+
+Its talk namespace, Help talk (13), holds composite talk pages.
+
+**Three things of Project's are not Help's,** being tied to Project as the site's own namespace:
+
+- Help's local name stays `Help` and does not follow the site name. A tenant's `namespace` record may still rename it.
+- Help allows no `triplespace-sprint` page, since a sprint is a subpage of a project (§3.5).
+- Help allows no `sanitized-css`, since the site-styles page stays in Project ([0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §4).
+
+| Field | Value |
+|---|---|
+| Canonical name | `Help` |
+| Kind | `pages` |
+| Normalizer | `first-letter` |
+| Reported `case` | `first-letter` (§2.1) |
+| Subpages | Yes |
+| Talk namespace | `Help talk`, a `pages` namespace with the model `triplespace-talk` |
+| Number | 12, MediaWiki's, with `Help talk` at 13 |
+
+An adopted wiki's Help pages come into it with their page and revision IDs and their history ([05](05-providers-and-ingest.md) §7.6).
 
 ## 4. Content models
 

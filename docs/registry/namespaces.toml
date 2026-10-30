@@ -25,7 +25,8 @@
 #     kind "reserved", never given another meaning, and not implemented unless an ADR says so.
 #     Its odd-numbered talk namespace is not enabled either. Implemented so far by ADR: the main
 #     namespace (0) and Category (14), both by 0038; File (6), File talk (7) and Media (−2) by 0039;
-#     MediaWiki (8), shown as Interface, and its talk namespace (9) by 0095.
+#     MediaWiki (8), shown as Interface, and its talk namespace (9) by 0095; Help (12) and Help talk (13)
+#     by 0096.
 #     Conditionally, by tenant setting: Template (10) and Template talk (11) by 0042; Module (828)
 #     and Module talk (829), Scribunto's numbers, registered and implemented by 0043.
 #   - Talk namespaces (odd numbers) exist for implemented subject namespaces only.
@@ -173,7 +174,20 @@ default_model = "triplespace-talk"
 [[namespace]]
 id = 12
 canonical = "Help"
-kind = "reserved"           # core; help content goes in Project (0008 §2)
+kind = "pages"              # a document namespace that works as Project does (0096 §3)
+normalizer = "first-letter"
+case = "first-letter"
+subpages = true
+content_models = ["wikitext", "markdown", "json", "yaml", "text"]   # no triplespace-sprint or sanitized-css: those are Project's (0096 §3)
+default_model = "wikitext"
+talk = 13
+
+[[namespace]]
+id = 13
+canonical = "Help talk"
+kind = "pages"
+content_models = ["triplespace-talk"]
+default_model = "triplespace-talk"
 
 [[namespace]]
 id = 14

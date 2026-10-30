@@ -35,6 +35,8 @@
 //! - [`providers`]: `Special:Providers`, the data providers this instance knows.
 //! - `Special:NewPages` is a fourth feed in [`changes`].
 //! - [`allpages`]: `Special:AllPages` and `Special:PrefixIndex`.
+//! - [`reports`]: the report pages, `Special:WantedPages`, `Special:ShortPages`,
+//!   `Special:ListProperties` and the rest, one page from `list=querypage` (0047 §4).
 //! - [`redirects`]: MediaWiki's redirecting pages (`MyPage`, `EditPage`, `TalkPage`,
 //!   `PermanentLink`, `Diff`, `Redirect`, `EntityPage` and the rest; 21 §6.1).
 //!
@@ -60,6 +62,7 @@ pub mod protected;
 pub mod providers;
 pub mod redirects;
 pub mod register;
+pub mod reports;
 pub mod search;
 pub mod set_terms;
 pub mod settings;
@@ -154,7 +157,10 @@ pub async fn serve(
         "Notifications" => Some(notifications::serve(site, headers, peer, params).await),
         "Watchlist" => Some(watchlist::serve(site, headers, peer, params).await),
         "EditWatchlist" => Some(watchlist::edit(site, headers, peer, params).await),
-        _ => None,
+        _ => match reports::Report::of(&name) {
+            Some(report) => Some(reports::serve(site, headers, peer, report, params).await),
+            None => None,
+        },
     }
 }
 

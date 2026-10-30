@@ -96,7 +96,7 @@ Who attests a change is kept apart from what the change is. Everything above `sc
 
 ### 2.2 The header
 
-*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §3; [0015](../decisions/0015-record-format-and-partition-registry.md) §2.*
+*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §3; [0015](../decisions/0015-record-format-and-partition-registry.md) §2; [0097](../decisions/0097-versioning-and-skins.md) §4.*
 
 The header is a CBOR array, in this order:
 
@@ -114,6 +114,8 @@ The header is a CBOR array, in this order:
 | 9 | Page ID | uint or null | The page ID of the record's key ([0008](../decisions/0008-namespaces-and-document-pages.md) §4, [0013](../decisions/0013-postgres-storage.md) §6) |
 
 Fields 7–9 are assigned in the appending transaction, before the leaf hash is computed, so they are inside the Merkle tree (§2.5).
+
+**Versions** ([0097](../decisions/0097-versioning-and-skins.md) §4). Every reader reads every record ever written: no record is rewritten, so reading what older writers wrote is a requirement on every release, not a property a change may give up. A record format's version describes forward compatibility, whether an older binary can read what a newer one writes. **The format version (field 0) is the header layout's major**: every field is positional and committed, so any change to the header is a new format version. **A payload type's tag carries its major**, `scatter:v0/changeset` being major 0: a change older readers can safely ignore keeps the tag, and one they cannot interpret takes a new one, `scatter:v1/changeset`, both read from then on. **A new major ships first behind a switch, off by default**, in a minor release that reads it and can write it, so that the minor can still be rolled back; the release that writes it by default is a product major ([22](22-crates-and-stack.md) §3.5). Every payload type is at major 0 until the product reaches 1.0. The stored form (§2.7) is never a version.
 
 ### 2.3 The body is a tree of erasable parts
 

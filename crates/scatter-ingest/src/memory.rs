@@ -10,7 +10,8 @@ use scatter_log::cbor::Value;
 use scatter_log::header::Header;
 use scatter_log::record::Record;
 use scatter_log::store::{Appended, Draft};
-use scatter_projection::{Backend, ProjectionError, Work};
+use scatter_projection::memory::WorkQueue;
+use scatter_projection::{Backend, ProjectionError, QueueLag, Queued, Work};
 use scatter_wikibase_changeset::{MatchKey, Operation};
 use scatter_wikibase_model::id::{EntityId, IdForm};
 use scatter_wikibase_model::statement::SnakKind;
@@ -38,7 +39,7 @@ pub struct State {
     /// Projection positions.
     pub positions: BTreeMap<(String, u64), u64>,
     /// Queued fan-out.
-    pub work: Vec<Work>,
+    pub work: WorkQueue,
     /// Partitions by ID.
     pub partitions: BTreeMap<u64, Partition>,
     /// Sequences' last values.
@@ -317,27 +318,60 @@ impl Backend for MemoryIngest {
     }
 
     async fn queue(&self, cx: &mut MemoryCx, work: &[Work]) -> Result<(), ProjectionError> {
-        cx.state.work.extend_from_slice(work);
+        cx.state.work.queue(work);
         Ok(())
     }
 
-    async fn take(
+    async fn tenants_waiting(
         &self,
         cx: &mut MemoryCx,
-        projection: &str,
+        consumer: &str,
+        max_attempts: u32,
+    ) -> Result<Vec<String>, ProjectionError> {
+        Ok(cx.state.work.tenants_waiting(consumer, max_attempts))
+    }
+
+    async fn lock_tenant(
+        &self,
+        _cx: &mut MemoryCx,
+        _consumer: &str,
+        _tenant: &str,
+    ) -> Result<bool, ProjectionError> {
+        Ok(true)
+    }
+
+    async fn claim(
+        &self,
+        cx: &mut MemoryCx,
+        consumer: &str,
+        tenant: &str,
         limit: usize,
-    ) -> Result<Vec<Work>, ProjectionError> {
-        let mut out = Vec::new();
-        let mut rest = Vec::new();
-        for w in std::mem::take(&mut cx.state.work) {
-            if w.projection == projection && out.len() < limit {
-                out.push(w);
-            } else {
-                rest.push(w);
-            }
-        }
-        cx.state.work = rest;
-        Ok(out)
+        max_attempts: u32,
+    ) -> Result<Vec<Queued>, ProjectionError> {
+        Ok(cx.state.work.claim(consumer, tenant, limit, max_attempts))
+    }
+
+    async fn finish(&self, cx: &mut MemoryCx, ids: &[u64]) -> Result<(), ProjectionError> {
+        cx.state.work.finish(ids);
+        Ok(())
+    }
+
+    async fn fail(
+        &self,
+        cx: &mut MemoryCx,
+        ids: &[u64],
+        _error: &str,
+    ) -> Result<(), ProjectionError> {
+        cx.state.work.fail(ids);
+        Ok(())
+    }
+
+    async fn queue_lag(
+        &self,
+        cx: &mut MemoryCx,
+        max_attempts: u32,
+    ) -> Result<Vec<QueueLag>, ProjectionError> {
+        Ok(cx.state.work.lag(max_attempts))
     }
 }
 

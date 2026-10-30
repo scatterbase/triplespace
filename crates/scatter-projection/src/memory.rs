@@ -4,7 +4,7 @@
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use crate::backend::{Backend, Work};
+use crate::backend::{Backend, QueueLag, Queued, Work};
 use crate::projection::ProjectionError;
 
 /// The committed state.
@@ -12,8 +12,8 @@ use crate::projection::ProjectionError;
 pub struct State {
     /// `(projection, partition)` → applied offset.
     pub positions: BTreeMap<(String, u64), u64>,
-    /// Queued fan-out, oldest first.
-    pub work: Vec<Work>,
+    /// Queued work, oldest first.
+    pub work: WorkQueue,
     /// Rows the test projections write: `(table, key)` → value.
     pub rows: BTreeMap<(String, String), String>,
 }
@@ -115,26 +115,162 @@ impl Backend for MemoryBackend {
     }
 
     async fn queue(&self, cx: &mut MemoryCx, work: &[Work]) -> Result<(), ProjectionError> {
-        cx.state.work.extend_from_slice(work);
+        cx.state.work.queue(work);
         Ok(())
     }
 
-    async fn take(
+    async fn tenants_waiting(
         &self,
         cx: &mut MemoryCx,
-        projection: &str,
+        consumer: &str,
+        max_attempts: u32,
+    ) -> Result<Vec<String>, ProjectionError> {
+        Ok(cx.state.work.tenants_waiting(consumer, max_attempts))
+    }
+
+    /// Single-threaded: always free.
+    async fn lock_tenant(
+        &self,
+        _cx: &mut MemoryCx,
+        _consumer: &str,
+        _tenant: &str,
+    ) -> Result<bool, ProjectionError> {
+        Ok(true)
+    }
+
+    async fn claim(
+        &self,
+        cx: &mut MemoryCx,
+        consumer: &str,
+        tenant: &str,
         limit: usize,
-    ) -> Result<Vec<Work>, ProjectionError> {
-        let mut taken = Vec::new();
-        let mut kept = Vec::new();
-        for w in std::mem::take(&mut cx.state.work) {
-            if w.projection == projection && taken.len() < limit {
-                taken.push(w);
-            } else {
-                kept.push(w);
+        max_attempts: u32,
+    ) -> Result<Vec<Queued>, ProjectionError> {
+        Ok(cx.state.work.claim(consumer, tenant, limit, max_attempts))
+    }
+
+    async fn finish(&self, cx: &mut MemoryCx, ids: &[u64]) -> Result<(), ProjectionError> {
+        cx.state.work.finish(ids);
+        Ok(())
+    }
+
+    async fn fail(
+        &self,
+        cx: &mut MemoryCx,
+        ids: &[u64],
+        _error: &str,
+    ) -> Result<(), ProjectionError> {
+        cx.state.work.fail(ids);
+        Ok(())
+    }
+
+    async fn queue_lag(
+        &self,
+        cx: &mut MemoryCx,
+        max_attempts: u32,
+    ) -> Result<Vec<QueueLag>, ProjectionError> {
+        Ok(cx.state.work.lag(max_attempts))
+    }
+}
+
+/// An in-memory work queue with the worker's operations, shared by the memory backends
+/// of this crate and `scatter-ingest`. Single-threaded: a tenant's lock is always free.
+#[derive(Debug, Clone, Default)]
+pub struct WorkQueue {
+    /// The items, oldest first.
+    pub items: Vec<Queued>,
+    next_id: u64,
+}
+
+impl WorkQueue {
+    /// Queues items.
+    pub fn queue(&mut self, work: &[Work]) {
+        for w in work {
+            self.next_id += 1;
+            self.items.push(Queued {
+                id: self.next_id,
+                work: w.clone(),
+                attempts: 0,
+            });
+        }
+    }
+
+    /// As [`Backend::tenants_waiting`].
+    #[must_use]
+    pub fn tenants_waiting(&self, consumer: &str, max_attempts: u32) -> Vec<String> {
+        let mut out: Vec<String> = Vec::new();
+        for q in &self.items {
+            if q.work.projection == consumer
+                && q.attempts < max_attempts
+                && !out.contains(&q.work.tenant)
+            {
+                out.push(q.work.tenant.clone());
             }
         }
-        cx.state.work = kept;
-        Ok(taken)
+        out
+    }
+
+    /// As [`Backend::claim`].
+    #[must_use]
+    pub fn claim(
+        &self,
+        consumer: &str,
+        tenant: &str,
+        limit: usize,
+        max_attempts: u32,
+    ) -> Vec<Queued> {
+        self.items
+            .iter()
+            .filter(|q| {
+                q.work.projection == consumer
+                    && q.work.tenant == tenant
+                    && q.attempts < max_attempts
+            })
+            .take(limit)
+            .cloned()
+            .collect()
+    }
+
+    /// As [`Backend::finish`].
+    pub fn finish(&mut self, ids: &[u64]) {
+        self.items.retain(|q| !ids.contains(&q.id));
+    }
+
+    /// As [`Backend::fail`].
+    pub fn fail(&mut self, ids: &[u64]) {
+        for q in &mut self.items {
+            if ids.contains(&q.id) {
+                q.attempts += 1;
+            }
+        }
+    }
+
+    /// As [`Backend::queue_lag`].
+    #[must_use]
+    pub fn lag(&self, max_attempts: u32) -> Vec<QueueLag> {
+        let mut out: Vec<QueueLag> = Vec::new();
+        for q in &self.items {
+            let found = out
+                .iter()
+                .position(|l| l.consumer == q.work.projection && l.tenant == q.work.tenant);
+            let at = if let Some(i) = found {
+                i
+            } else {
+                out.push(QueueLag {
+                    consumer: q.work.projection.clone(),
+                    tenant: q.work.tenant.clone(),
+                    waiting: 0,
+                    failed: 0,
+                    oldest_seconds: 0,
+                });
+                out.len() - 1
+            };
+            if q.attempts < max_attempts {
+                out[at].waiting += 1;
+            } else {
+                out[at].failed += 1;
+            }
+        }
+        out
     }
 }

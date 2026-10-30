@@ -4510,6 +4510,136 @@
           }
         }
       }
+    },
+    "/reports": {
+      "get": {
+        "operationId": "listReports",
+        "summary": "Every report and its state",
+        "description": "The reports this instance serves on the tenant (ADR 0047 §4, §11; architecture 21 §2): each one's backing (`index`, a live query; `projection`, rows the `report` projection keeps), mode, graph scope, when it was built and how much work is waiting. Refused to a caller to whom every page of the tenant is hidden.",
+        "responses": {
+          "200": {
+            "description": "The reports, by name.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "reports"
+                  ],
+                  "properties": {
+                    "reports": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ReportState"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied` when every page of the tenant is hidden from the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reports/{name}": {
+      "get": {
+        "operationId": "getReport",
+        "summary": "A report's rows",
+        "description": "A page of one report, in the report's order, from its public form (ADR 0047 §4.5): what an anonymous reader may see. `name` is the registry name or MediaWiki's. A projection report is built on first read and caught up before it is read. Pass `continue` back for the next page.",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "maximum": 500
+            }
+          },
+          {
+            "name": "continue",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "description": "The language of labels, for `ListProperties`; the wiki's by default.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The rows and the report's state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "report",
+                    "rows"
+                  ],
+                  "properties": {
+                    "report": {
+                      "$ref": "#/components/schemas/ReportState"
+                    },
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ReportRow"
+                      }
+                    },
+                    "continue": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied` when every page of the tenant is hidden from the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-report-unavailable`: no report by that name is served.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4874,6 +5004,7 @@
           "license",
           "build",
           "services",
+          "queues",
           "components_listed",
           "workspace",
           "crates",
@@ -5035,6 +5166,13 @@
                   "type": "string"
                 }
               }
+            }
+          },
+          "queues": {
+            "type": "array",
+            "description": "What waits in the work queues (chapter 03 §6.1): per consumer and tenant, the items waiting, the items that failed too often to be retried, and how long the oldest has waited. A request at a tenant base lists that tenant's rows and the instance's; a holder of `ts-config` at the farm base sees every tenant's.",
+            "items": {
+              "$ref": "#/components/schemas/QueueLag"
             }
           },
           "components_listed": {
@@ -7434,6 +7572,146 @@
               "null"
             ],
             "description": "When the first change the holder has not seen happened."
+          }
+        }
+      },
+      "ReportState": {
+        "type": "object",
+        "description": "A report's state on the tenant (ADR 0047 §4.3, §11).",
+        "required": [
+          "name",
+          "backing",
+          "mode",
+          "scope",
+          "waiting",
+          "measure"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The registry name, `WantedPages`."
+          },
+          "mediawiki_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "MediaWiki's name, which `list=querypage` also takes."
+          },
+          "backing": {
+            "type": "string",
+            "enum": [
+              "index",
+              "projection"
+            ]
+          },
+          "measure": {
+            "type": "string",
+            "enum": [
+              "none",
+              "count",
+              "bytes",
+              "time"
+            ],
+            "description": "What `value` holds: nothing (an alphabetical list), a count, a size in bytes or a time."
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "index",
+              "projection",
+              "batch"
+            ],
+            "description": "How its rows are kept now; `batch` is not served by this build."
+          },
+          "scope": {
+            "type": "string",
+            "description": "The graph set: `local` (ADR 0047 §4.2)."
+          },
+          "computed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When its last full build finished, for a projection report."
+          },
+          "row_count": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "waiting": {
+            "type": "integer",
+            "description": "Report work queued for the tenant and not yet applied: the projection's lag."
+          }
+        }
+      },
+      "ReportRow": {
+        "type": "object",
+        "required": [
+          "ns",
+          "title",
+          "value"
+        ],
+        "properties": {
+          "ns": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string",
+            "description": "Prefixed with the site's namespace name."
+          },
+          "value": {
+            "type": "string",
+            "description": "A count, a size in bytes or a time (ISO 8601); empty for an alphabetical report."
+          },
+          "target": {
+            "type": "string",
+            "description": "A redirect's target, for the redirect reports."
+          },
+          "fragment": {
+            "type": "string"
+          },
+          "final": {
+            "type": "string",
+            "description": "Where a double redirect ends."
+          },
+          "label": {
+            "type": "string",
+            "description": "A property's label, for `ListProperties`."
+          }
+        }
+      },
+      "QueueLag": {
+        "type": "object",
+        "required": [
+          "consumer",
+          "tenant",
+          "waiting",
+          "failed",
+          "oldest_seconds"
+        ],
+        "properties": {
+          "consumer": {
+            "type": "string",
+            "description": "The queue: a projection's name, or a tier-3 consumer's (`report`)."
+          },
+          "tenant": {
+            "type": "string",
+            "description": "The tenant; empty for the instance."
+          },
+          "waiting": {
+            "type": "integer",
+            "description": "Items not yet applied."
+          },
+          "failed": {
+            "type": "integer",
+            "description": "Items that have failed the worker's attempt limit and wait for an operator."
+          },
+          "oldest_seconds": {
+            "type": "integer",
+            "description": "How long the oldest waiting item has waited."
           }
         }
       }
