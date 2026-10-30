@@ -191,6 +191,39 @@ SHORTDESC             = { origin = "WikibaseClient", status = "implemented" }   
 "#query"              = { origin = "triplespace", status = "implemented", expensive = true, scoped = true }   # a saved query's result (0063 §6)
 "#conformance"        = { origin = "triplespace", status = "implemented", expensive = true, scoped = true }   # a schema's conformance (0064 §6)
 
+# Semantic MediaWiki, Cargo and Page Forms (0096 §4): the syntax an adopted wiki's old revisions carry.
+# Chips: the instance runs none of them; their data is converted (0096 §5). Names from each extension's
+# magic-word file (SMW 7.4.0-alpha, Cargo 3.9.4, Page Forms 6.0.11). None of the three has a tag.
+"#ask"                 = { origin = "SemanticMediaWiki", status = "chip" }
+"#show"                = { origin = "SemanticMediaWiki", status = "chip" }
+"#info"                = { origin = "SemanticMediaWiki", status = "chip" }
+"#concept"             = { origin = "SemanticMediaWiki", status = "chip" }
+"#subobject"           = { origin = "SemanticMediaWiki", status = "chip" }
+"#smwdoc"              = { origin = "SemanticMediaWiki", status = "chip" }
+"#set"                 = { origin = "SemanticMediaWiki", status = "chip" }
+"#set_recurring_event" = { origin = "SemanticMediaWiki", status = "chip" }
+"#declare"             = { origin = "SemanticMediaWiki", status = "chip" }
+"#property_link"       = { origin = "SemanticMediaWiki", status = "chip" }
+"#cargo_declare"       = { origin = "Cargo", status = "chip" }
+"#cargo_attach"        = { origin = "Cargo", status = "chip" }
+"#cargo_store"         = { origin = "Cargo", status = "chip" }
+"#cargo_query"         = { origin = "Cargo", status = "chip" }
+"#cargo_compound_query" = { origin = "Cargo", status = "chip" }
+"#cargo_display_map"   = { origin = "Cargo", status = "chip" }
+"#recurring_event"     = { origin = "Cargo", status = "chip" }
+"#default_form"        = { origin = "PageForms", status = "chip" }
+"#forminput"           = { origin = "PageForms", status = "chip" }
+"#formlink"            = { origin = "PageForms", status = "chip" }
+"#formredlink"         = { origin = "PageForms", status = "chip" }
+"#queryformlink"       = { origin = "PageForms", status = "chip" }
+"#arraymap"            = { origin = "PageForms", status = "chip" }
+"#arraymaptemplate"    = { origin = "PageForms", status = "chip" }
+"#autoedit"            = { origin = "PageForms", status = "chip" }
+"#autoedit_rating"     = { origin = "PageForms", status = "chip" }
+"#template_params"     = { origin = "PageForms", status = "chip" }
+"#template_display"    = { origin = "PageForms", status = "chip" }
+"#page_name_formula"   = { origin = "PageForms", status = "chip" }
+
 # --- Extension tags --------------------------------------------------------------------------
 [tag]
 nowiki                = { origin = "mediawiki", status = "implemented" }
@@ -236,3 +269,5 @@ NOCONTENTCONVERT      = { origin = "mediawiki", status = "ignored", synonyms = [
 NOTITLECONVERT        = { origin = "mediawiki", status = "ignored", synonyms = ["NOTC"] }
 DISAMBIG              = { origin = "Disambiguator", status = "implemented" }   # the `disambiguation` page property (0055 §6)
 EXPECTED_UNCONNECTED_PAGE = { origin = "WikibaseClient", status = "ignored" }
+NOFACTBOX             = { origin = "SemanticMediaWiki", status = "ignored" }   # 0096 §4
+SHOWFACTBOX           = { origin = "SemanticMediaWiki", status = "ignored" }   # 0096 §4

@@ -292,9 +292,9 @@ The `view.page_statements` table is [03](03-storage-caches-and-search.md) §4.7;
 
 ### 5.1 Which pages, and their records
 
-*Sources: [0038](../decisions/0038-page-metadata-and-categories.md) §1.*
+*Sources: [0038](../decisions/0038-page-metadata-and-categories.md) §1; [0096](../decisions/0096-adopting-any-mediawiki.md) §3.*
 
-**Which pages.** Every document page (the `document` namespaces of [10](10-pages-and-content-models.md): main, `User`, `Project` and `Category`), every thread and every board ([14](14-discussions.md)), whose statements describe the board, not its threads. Not talk pages, which are composite and have no records of their own, and not entity views, whose subjects are entities with statements of their own.
+**Which pages.** Every document page (the `document` namespaces of [10](10-pages-and-content-models.md): main, `User`, `Project`, `Help` ([0096](../decisions/0096-adopting-any-mediawiki.md) §3) and `Category`), every thread and every board ([14](14-discussions.md)), whose statements describe the board, not its threads. Not talk pages, which are composite and have no records of their own, and not entity views, whose subjects are entities with statements of their own.
 
 **Records.** A page's statements are written as change sets: payload type `scatter:v0/changeset`, appended to the tenant's `pages` partition and keyed by the page ID, beside the page's `page` or `thread` records. A change set on a page may add, change and remove statements. It may not carry aliases or sitelinks; a page has a title, and its sitelinks are held by items (§4.6). It may not carry labels or descriptions either, **except on File pages**, where the MediaInfo captions are `add`, `remove` and `override` of terms on the subject `M{page ID}`, the same operations a term on an entity takes ([0065](../decisions/0065-mediainfo-captions-and-commons.md) §1, in [12](12-files-and-media.md)). Like every record in `pages`, it takes a revision ID ([03](03-storage-caches-and-search.md) §2.3) and needs a base offset ([01](01-log-and-records.md) §7). So **a page has one history**, in which text revisions and statement revisions interleave in the order they were made; a file page's uploads are records in the same partition, keyed by the page ID, so file versions share that history too ([12](12-files-and-media.md)).
 

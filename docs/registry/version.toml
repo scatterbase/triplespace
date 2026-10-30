@@ -214,6 +214,10 @@ name = "AbuseFilter"
 url = "https://www.mediawiki.org/wiki/Extension:AbuseFilter"
 
 [[extension]]
+name = "Cargo"
+url = "https://www.mediawiki.org/wiki/Extension:Cargo"
+
+[[extension]]
 name = "CategoryTree"
 url = "https://www.mediawiki.org/wiki/Extension:CategoryTree"
 
@@ -310,6 +314,10 @@ name = "OAuth"
 url = "https://www.mediawiki.org/wiki/Extension:OAuth"
 
 [[extension]]
+name = "PageForms"
+url = "https://www.mediawiki.org/wiki/Extension:Page_Forms"
+
+[[extension]]
 name = "ParserFunctions"
 url = "https://www.mediawiki.org/wiki/Extension:ParserFunctions"
 
@@ -324,6 +332,10 @@ url = "https://www.mediawiki.org/wiki/Extension:Score"
 [[extension]]
 name = "Scribunto"
 url = "https://www.mediawiki.org/wiki/Extension:Scribunto"
+
+[[extension]]
+name = "SemanticMediaWiki"
+url = "https://www.mediawiki.org/wiki/Extension:Semantic_MediaWiki"
 
 [[extension]]
 name = "SyntaxHighlight"

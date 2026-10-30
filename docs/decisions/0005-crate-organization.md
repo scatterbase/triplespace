@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-10-28 (A108)
+- **Updated:** 2026-10-29 (A109)
 - **Author:** James Hare / Claude Opus; revision by James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -42,7 +42,7 @@ Since this ADR was first written, twenty-six further ADRs have added crates, cha
 
 ### 2. Crate map
 
-*Changed by A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A27, A28, A29, A30, A31, A32, A33, A34, A35, A36, A37, A38, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A51, A52, A53, A54, A55, A57, A58, A59, A60, A61, A62, A63, A64, A65, A66, A67, A68, A69, A70, A71, A72, A73, A74, A75, A76, A77, A78, A79, A80, A84, A86, A87, A88, A89, A90, A91, A92, A93, A95, A96, A97, A98, A99, A100, A101, A102, A103, A104, A105, A106, A107, A108.*
+*Changed by A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A27, A28, A29, A30, A31, A32, A33, A34, A35, A36, A37, A38, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A51, A52, A53, A54, A55, A57, A58, A59, A60, A61, A62, A63, A64, A65, A66, A67, A68, A69, A70, A71, A72, A73, A74, A75, A76, A77, A78, A79, A80, A84, A86, A87, A88, A89, A90, A91, A92, A93, A95, A96, A97, A98, A99, A100, A101, A102, A103, A104, A105, A106, A107, A108, A109.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
@@ -1100,3 +1100,10 @@ Replaced text (22 §2.1, `scatter-ingest`, as it stood):
 - **Source:** [0095](0095-the-interface-namespace.md) §6
 - **Change:** extends §2
 - **Summary:** Five crates change for the Interface namespace (0095 §6): `scatter-titles` reads a namespace's registry local name; `triplespace-projections` reads a wiki's Interface pages anyone may read; `triplespace-api-action` checks `editinterface` and reports the overrides; `triplespace-client` reads them, the issuer code and the farm code; `triplespace-ui` applies them, names IDs and marks accounts and the Server Operator.
+
+### A109. Adopting any MediaWiki
+
+- **Date:** 2026-10-29
+- **Source:** [0096](0096-adopting-any-mediawiki.md) §6
+- **Change:** extends §2
+- **Summary:** `triplespace-cli adopt` adopts a source without Wikibase, registers the source's namespaces as tenant `namespace` records, and renames or archives one whose name is taken with `--namespace`, after the survey lists the conflicts (0096 §6). The Help namespace and the extension chips are registry data; the conversion of SMW and Cargo data is a script in `tools/`, not a crate.

@@ -719,13 +719,15 @@ B never reads A's `source/{name}` partition: the source's data comes from the so
 
 ## 7. Adopting an existing Wikibase
 
-*Sources: [0035](../decisions/0035-adopting-a-wikibase.md) §1–4, §7; [0078](../decisions/0078-entity-sources.md) §11.*
+*Sources: [0035](../decisions/0035-adopting-a-wikibase.md) §1–4, §7; [0078](../decisions/0078-entity-sources.md) §11; [0096](../decisions/0096-adopting-any-mediawiki.md) §1, §2, §5.*
 
 ### 7.1 Adoption
 
-*Sources: [0035](../decisions/0035-adopting-a-wikibase.md) §1.*
+*Sources: [0035](../decisions/0035-adopting-a-wikibase.md) §1; [0096](../decisions/0096-adopting-any-mediawiki.md) §1.*
 
 A tenant **adopts** a MediaWiki Wikibase when the tenant *is* that wiki, continuing on Triplespace: the same identity, the same IDs, the same accounts, usually the same host. Adoption writes the source's entities into the tenant's `local` partition under the IDs the source minted, its accounts under their own numbers ([07](07-actors-and-accounts.md)), and sets every ID sequence past the source's (§7.4).
+
+**A source without Wikibase is adopted the same way** ([0096](../decisions/0096-adopting-any-mediawiki.md) §1). It has no entities: the job writes nothing to `local`, takes no `--counters` and sets no entity floor, and sets the page, revision, log and user floors as for any source. Its pages, accounts and files come as every adopted wiki's do, and its namespaces are registered first (§7.6).
 
 Adoption is neither of the two things it resembles:
 
@@ -736,7 +738,7 @@ The tenant's `tenant` config record ([0018](../decisions/0018-tenants.md) §3) g
 
 ### 7.2 Preconditions and the job
 
-*Sources: [0035](../decisions/0035-adopting-a-wikibase.md) §2.*
+*Sources: [0035](../decisions/0035-adopting-a-wikibase.md) §2; [0096](../decisions/0096-adopting-any-mediawiki.md) §2.*
 
 An adoption is a job (§3.3; [0011](../decisions/0011-logs.md) §6.3) with mode `adopt`, run by a subsidiary of the tenant's operators ([0024](../decisions/0024-subsidiary-accounts.md) §6). Its input is the source's **full-history XML export** (`dumpBackup.php --full`), which holds every revision of every page the source kept. It is refused unless:
 
@@ -749,7 +751,7 @@ An adoption is a job (§3.3; [0011](../decisions/0011-logs.md) §6.3) with mode 
 
 The job record carries the source's base URL, the dump's identity and date as the source version, the adapter version, `history` (`full`, or `current` under `--current-only`), the floors it set (§7.4), and the counts by outcome: revisions adopted, unchanged and rejected, the entities and pages they belong to, and pages left for later. It projects as `job/start` and `job/finish` like any job.
 
-**Every page comes in the same job.** A page outside the entity namespaces is imported by the procedure of [10](10-pages-and-content-models.md) §6 within the adoption job, into `pages`, keeping its source page ID and, revision by revision, its source revision IDs, attributed as §7.3 attributes entity revisions; one revision sequence then serves both, as it did on the source. A page the job cannot import is counted as `deferred`, and a later adoption job against the same dump carries it under precondition 3. Adopting a wiki with files imports every file version from its file tables and upload directory, deleted versions included, onto file pages that keep their source page IDs ([0039](../decisions/0039-files-and-media.md) §14; [12](12-files-and-media.md)).
+**Every page comes in the same job.** A page outside the entity namespaces is imported by the procedure of [10](10-pages-and-content-models.md) §6 within the adoption job, into `pages`, keeping its source page ID and, revision by revision, its source revision IDs, attributed as §7.3 attributes entity revisions; one revision sequence then serves both, as it did on the source. A page the job cannot import is counted as `deferred`, and a later adoption job against the same dump carries it under precondition 3. Adopting a wiki with files imports every file version from its file tables and upload directory, deleted versions included, onto file pages that keep their source page IDs ([0039](../decisions/0039-files-and-media.md) §14; [12](12-files-and-media.md)). Before the first page, the job registers the source's namespaces, renaming or archiving any whose name is taken (§7.6).
 
 ### 7.3 The `adopt` operation
 
@@ -796,6 +798,92 @@ Adoption brings the source's **history** by default. Its shape is fixed by a con
 - **(b) History after, as backfill.** Source revisions become `upstream-revision`-shaped records ([0015](../decisions/0015-record-format-and-partition-registry.md) §4) in the tenant's own `log` partition, keyed by entity, metadata first and content where wanted; the history view folds them as it folds upstream history, and `oldid=N` serves them. It works after a current-state adoption and never touches `local`.
 
 **`--current-only`** adopts each entity's newest revision and nothing older (§7.3). It is for a source whose history cannot be had or is not wanted, and it forecloses (a) for that tenant: (b) is then its path.
+
+### 7.6 The source's namespaces
+
+*Sources: [0096](../decisions/0096-adopting-any-mediawiki.md) §2.*
+
+**The job registers the source's namespaces.** It reads the namespaces in the dump's `<siteinfo>`, and treats each one that holds a page of the dump by its number:
+
+1. **A number the registry lists for a `pages` namespace** keeps its pages there, under that namespace's own rules. This covers the main namespace, User, Project, File, Interface, Template, Help, Category and the rest of [10](10-pages-and-content-models.md) §1.4. A page of a model the namespace does not allow is `deferred`.
+2. **A number the registry does not list** becomes a tenant `namespace` record ([10](10-pages-and-content-models.md) §1.3 rule 4). The job writes it before the namespace's first page:
+   - the source's number;
+   - the source's local name, as its canonical name;
+   - the case rule the dump gives;
+   - kind `pages`, with subpages;
+   - the models `wikitext`, `markdown`, `json`, `yaml` and `text`, with `wikitext` the default.
+
+   Where the source has a talk namespace for it, its number becomes a `pages` namespace of the model `triplespace-talk`, and its talk pages become threads as every adopted talk page does ([10](10-pages-and-content-models.md) §6). Semantic MediaWiki's Concept (108) and Page Forms' Form (106) come in this way. A page of a model the instance does not have, such as Semantic MediaWiki's `smw/schema`, is `deferred` ([0096](../decisions/0096-adopting-any-mediawiki.md) Q1).
+3. **A number the registry lists for a namespace that holds no pages** (`virtual`, `resolver` or `reserved`) cannot take the source's pages. They are archived (below), or else deferred.
+
+**A name that is taken is renamed or archived.** A `namespace` record whose name equals another namespace's name or alias on the tenant is refused with `ts-namespace-name-taken`. Semantic MediaWiki's Property (102) is the common case: its number is free, and its name is Wikibase's (122). The operator decides each case by number, with `--namespace`:
+
+- **`--namespace 102="SMW property"`** registers the namespace under the new name. Its pages keep their number, their page IDs and their history. A link written `[[Property:Has author]]`, in any revision, still names namespace 122.
+- **`--namespace 102=archive`**, or `archive:{prefix}`, registers nothing. It moves the namespace's pages into Project, each titled with the prefix (by default `Archive/`) and then its source title: `Property:Has author` becomes `Project:Archive/Property:Has author`. A page keeps its source page ID, every revision and every author; only its title changes. Its talk page comes as threads on the archived page's talk page. A link to the old title in another page does not follow it. Archiving is for a namespace of content the wiki is retiring.
+
+`archive` applies as well to a namespace under rule 1 or 3 whose pages would otherwise be deferred.
+
+**Conflicts are found before anything is written.** The survey pass that reads the dump for the floors and the accounts (§7.2) also lists every namespace whose name is taken, and every one under rule 3 that holds pages. **The job is refused until `--namespace` decides every taken name**, so that a one-way adoption never stops halfway on a name. Pages under rule 3 left undecided are deferred and counted. The job record carries the decisions with its other parameters, and the namespace records are written under the job's `ts-config` (§7.2, precondition 4).
+
+### 7.7 Converting Semantic MediaWiki and Cargo data
+
+*Sources: [0096](../decisions/0096-adopting-any-mediawiki.md) §5.*
+
+**A wiki that kept data in Semantic MediaWiki (SMW) or Cargo is adopted first, and its data then comes in as one job:** change sets (§3) submitted through the bulk-job endpoint by a subsidiary of the tenant's operators.
+
+**The conversion is attributed to that job.** Its actor is the subsidiary, and nothing it writes is attributed to the source's editors. Their authorship stays in the adopted page history, which holds every revision that wrote an annotation or a stored value.
+
+**The conversion is one-way.** Triplespace keeps no coexistence mode, and holds no SMW or Cargo code: no annotation parser, no store and no query engine. The converter is a script in `tools/`, outside the build. It reads files and calls the instance's public API, and no crate depends on it. Continuous derivation from pages the tenant does not control is template mappings' ([13](13-mirrored-pages.md) §7).
+
+**The converter reads the source's store, not the wikitext that fed it**, since the store holds the values the source wiki computed, including those made by template expansion, parser functions and Lua.
+
+- **For SMW,** it reads the RDF export, by `dumpRDF.php` or its `ExportRDF` special page: the properties and their declared types, the subjects, the subobjects and the values.
+- **For Cargo,** it reads each table's declaration from the `#cargo_declare` in its template, and each table's rows by its `CargoExport` special page, `action=cargoquery` or a database dump of its tables.
+
+It also reads the full-history dump the adoption read, for each page's ID and newest revision ID, and for the text of the edits below. A source that offers only an XML dump has its store rebuilt first, outside Triplespace: the dump is imported into a MediaWiki with the same extensions, and the store rebuilt with `rebuildData.php` or `cargoRecreateData.php`.
+
+**The converter drafts a mapping from the store's declarations, and a person reviews it before it is applied**, as a template mapping is drafted and never applied unreviewed (13 §7.5). The draft is TOML. It lists every SMW property or Cargo field with its declared type, its count and sample values. It suggests an existing property where one fits, such as one an SMW property's `Imported from` or `Equivalent URI` names, and otherwise a new local property of the data type its declared type suggests. Cargo fields of the same name in two tables are suggested as one property.
+
+| Declared type | Data type |
+|---|---|
+| SMW `Page`; Cargo `Page` | `wikibase-item`: the subject of the page it names |
+| SMW `Text`, `Code`, `Keyword`, `Telephone number`; Cargo `String`, `Text`, `Wikitext`, `Wikitext string`, `Searchtext` | `string`, or `monolingualtext` where the mapping gives a language |
+| SMW `Monolingual text` | `monolingualtext` |
+| SMW `Number`; Cargo `Integer`, `Float`, `Rating` | `quantity` without a unit |
+| SMW `Quantity`, `Temperature` | `quantity`, its unit an item from a value map (13 §7.4) |
+| SMW `Date`; Cargo `Date`, `Datetime`, `Start date`, `End date` | `time` |
+| SMW `URL`, `Annotation URI`, `Email`; Cargo `URL`, `Email` | `url`, an email address as a `mailto:` URL |
+| SMW `External identifier` | `external-id` |
+| SMW `Geographic coordinates`; Cargo `Coordinates` | `globe-coordinate` |
+| Cargo `File` | `localMedia` ([12](12-files-and-media.md) §7) |
+| SMW `Boolean`; Cargo `Boolean` | `wikibase-item`: the mapping's items for true and false |
+| SMW `Record` | The statement of its first field, with its other fields as qualifiers |
+| SMW `Reference` | The statement of its value, with its other fields as the statement's reference |
+| Cargo `List (…) of` a type | One statement per value, of that type's data type |
+
+A declaration of allowed values, SMW's `Allows value` or Cargo's `allowed values`, becomes a one-of constraint on the property ([06](06-statements-and-properties.md) §2).
+
+**The mapping says what each kind of subject becomes.** A kind is an SMW category, a Cargo table, or the subobjects of an SMW property. The draft leaves each choice to the reviewer ([0096](../decisions/0096-adopting-any-mediawiki.md) Q2):
+
+- **`page`:** the page itself. Its statements are page statements ([06](06-statements-and-properties.md) §5), addressed by the source page ID the adoption kept.
+- **`item`:** a local item labelled with the page's title, and paired with the page by a sitelink to the tenant's own host (06 §4.6), so that `wbgetentities` and every Wikibase client reach it.
+- **For subobjects, and for a Cargo table with several rows per page:** `item`, an item of its own, linked from the page's subject by a property the mapping names; or `qualifiers`, one statement on the page's subject with the row's other fields as its qualifiers.
+
+A `Page` value is the subject of the page it names. Where that page has no subject in the mapping, the property's mapping says what the value becomes: a new item labelled with the title, a string, or nothing. Every such value is reported. **Categories are not converted.** They stay categories, and a category mapping ([10](10-pages-and-content-models.md) §5.4) projects statements from them where the tenant wants it to.
+
+**Properties are written first, then subjects, as `create-or-add`** (§3.5). The match key is a local `external-id` property the mapping names. Its value is the source's identifier of the subject: the page ID for a page's subject, `{page ID}#{subobject name}` for an SMW subobject, and `{table}/{_ID}` for a Cargo row. A failed or partial job can therefore be re-run, and it adds nothing twice.
+
+**Every statement cites the revision that stated it.** Its reference carries the properties the mapping's `reference` names, as an extraction source's does (13 §6.2): the URL `index.php?oldid={revision ID}` of the page's newest revision in the dump, which resolves on the tenant because adoption kept the source's revision IDs (§7.3), and the date of the dump. **The values are the store's, as of the dump.** No statement history is reconstructed. Earlier values are in the adopted page history only.
+
+**After the data job, the converter makes one edit to each page that carried storage or query syntax.** The edits are made by the same subsidiary, with a summary naming the job. Every revision before that edit is the source's, untouched.
+
+- `#set`, `#subobject`, `#declare`, `#cargo_store`, `#cargo_attach` and `#cargo_declare` calls are removed. Their data is in statements, and the declarations are in the mapping.
+- Inline annotations are unwrapped. `[[P::V]]` becomes `[[V]]`, and `[[P::V|text]]` becomes `[[V|text]]`, where `P` is a `Page` property. For any other type, the annotation becomes `V` or `text` as plain text. An annotation written to be hidden (`[[P::V| ]]`) is removed.
+- An `#ask`, `#show` or `#cargo_query` whose query the converter can express in SPARQL becomes a `Query:` page, with a `{{#query:}}` block in its place ([15](15-structured-pages.md) §5). Any other query stays, as a chip ([11](11-rendering-templates-and-modules.md) §2.1), and is reported (0096 Q3).
+- Templates are edited the same way. A template whose output depended on queried data is reported, to be ported by hand.
+- Form pages, and Page Forms calls in other pages, are left as they are, as chips.
+
+**The converter reports:** per property or field, the statements written and the values it could not read, with examples; the `Page` values that named a page with no subject; the pages it rewrote; the queries it translated, and those it left; and the templates to port by hand.
 
 ## 8. The provider catalogue
 

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-28
-- **Updated:** 2026-10-19 (A14)
+- **Updated:** 2026-10-29 (A15)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md)
 - **Uses:** [0024](0024-subsidiary-accounts.md), [Wikibase contract](../api/wikibase-compat.md)
@@ -28,13 +28,13 @@ One alternative needs no new operation and was rejected: load the old wiki into 
 
 ### 1. Adoption (extends 0018 §1 and §5)
 
-*Changed by A11.*
+*Changed by A11, A15.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §7.1, §8.3.*
 
 ### 2. Preconditions and the job
 
-*Changed by A2, A11, A12, A13.*
+*Changed by A2, A11, A12, A13, A15.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §7.2.*
 
@@ -286,3 +286,10 @@ Replaced text ([16](../architecture/16-logs-feeds-and-notifications.md) §2.3, a
 - **Source:** Direct: James, design discussion of 2026-10-19
 - **Change:** extends §3
 - **Summary:** A revision the source revision-deleted reaches a history export with its text, comment or contributor replaced by `deleted="deleted"`, and the export does not say whether it was deleted or suppressed. The adopted record carries nothing for a withheld part, and the `adopt`'s `withheld` names the parts it lacks, as a `record` ACL names parts: `content`, so the `adopt` has neither `entity` nor `redirect` and the revision has no state for `oldid` to show to anyone; `comment`, so the comment part is empty; `attestation`, so it names no actor. Beside each such record the job writes a `record` ACL with those parts restricted to `suppress`, and the history views show them as suppressed. The current revision's text is never hidden on MediaWiki, so the current state is never withheld. Pages the source deleted are not in the export and are not adopted; the floors still cover their IDs. Adoption reads the export only, not the source's `archive` table or revision-deleted content. The chapter text is [05](../architecture/05-providers-and-ingest.md) §7.3.
+
+### A15. Any MediaWiki, and the source's namespaces
+
+- **Date:** 2026-10-29
+- **Source:** [0096](0096-adopting-any-mediawiki.md) §1, §2
+- **Change:** extends §1, §2
+- **Summary:** A source without Wikibase may be adopted: it has no entities, so the job writes nothing to `local`, takes no `--counters` and sets no entity floor, and adopts its pages, accounts and files as any source's (0096 §1). The job registers the source's namespaces: a number the registry lists for a `pages` namespace keeps its pages there; a number it does not list becomes a tenant `namespace` record with its talk number; a number it lists for a namespace that holds no pages is archived or deferred. A taken name is renamed or archived into Project under a prefix, by `--namespace`, and the survey pass refuses the job until every taken name is decided (0096 §2). The chapter text is [05](../architecture/05-providers-and-ingest.md) §7.1, §7.2 and §7.6.
