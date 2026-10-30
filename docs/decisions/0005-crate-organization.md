@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-10-29 (A110)
+- **Updated:** 2026-10-30 (A111)
 - **Author:** James Hare / Claude Opus; revision by James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -1108,3 +1108,20 @@ Replaced text (22 §2.1, `scatter-ingest`, as it stood):
 Replaced text (§2):
 
 > Server rendering: `askama` templates, the builder that emits Codex CSS-only markup, the page frame of [0010](../decisions/0010-site-ui.md) §2 shared by every page kind, and the pinned Codex assets ([0034](../decisions/0034-frontend-stack.md) §2);
+
+### A111. The crate map is a registry file
+
+- **Date:** 2026-10-30
+- **Source:** [0098](0098-pointers-from-birth.md) §5
+- **Change:** consolidates §2, §3
+- **Summary:** The table of 22 §2.1 moved, cell for cell, into `docs/registry/crates.toml` (one `[[crate]]` entry per row: names, layer, a one-line summary, `depends`, `depends_any`, `depends_note`, `pure`, `wasm`, and the full `contents`); the chapter's table is now generated from it by `architecture/crates.py` and shows the summary, and `architecture/CRATES.md`, generated likewise, shows every entry in full. `cargo xtask deps` and `xtask wasm` read the file instead of the chapter, and the `pure` and `wasm` lists that were hard-coded in `xtask` and restated in 22 §1.2 rules 2 and 7 are the file's marks; the two rules now name the marks. Four cells that 0095 A3 had folded into the Crate column (`scatter-titles`, `triplespace-projections`, `triplespace-ui`, `triplespace-client`) were moved to those crates' contents. No decision changed. The last commit in which the chapter carried the table is `0e67cce`.
+
+Replaced text ([22](../architecture/22-crates-and-stack.md) §1.2 rule 2, as it stood):
+
+> 2. **The core is pure.** `scatter-vocab`, `scatter-providers`, `scatter-identity`, `scatter-normalize`, `scatter-actors`, `scatter-pages`, `scatter-wikitext`, `scatter-threads`, `scatter-talk` and `scatter-talk-import` ([0090](../decisions/0090-converting-talk-pages-comment-by-comment.md) §12), `scatter-activitypub`, `scatter-filter`, `scatter-mwlog`, `scatter-wikitext-expand` ([0042](../decisions/0042-template-expansion-and-parsoid.md) §4), `scatter-css` ([0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §2), `scatter-scope` ([0060](../decisions/0060-scopes.md) §11), `scatter-tasks` ([0061](../decisions/0061-sprints-and-tasks.md) §12), `scatter-shex` ([0064](../decisions/0064-entityschema-and-validation.md) §9), `scatter-merge` ([0068](../decisions/0068-merging-with-upstream.md) §7), `scatter-files`, `scatter-extract` ([0072](../decisions/0072-template-mappings.md) §7), `scatter-titles`, `triplespace-scribunto` ([0043](../decisions/0043-lua-modules.md) §14) and every `scatter-wikibase-*` crate perform no I/O, use no async runtime, and depend on no tokio.
+
+Replaced text ([22](../architecture/22-crates-and-stack.md) §1.2 rule 7, as it stood):
+
+> 7. **`scatter-wikibase-shape`, `scatter-wikitext`, `scatter-pages`, `scatter-normalize`, `scatter-merge`, `scatter-extract`, `scatter-css`, `scatter-scope`, `scatter-tasks` and `scatter-titles` must build for `wasm32-unknown-unknown`,** …
+>
+> This rule is the one wasm list, the ten crates the table of §2 marks as building for `wasm32`; [0034](../decisions/0034-frontend-stack.md) §6 and `cargo xtask wasm` read it.

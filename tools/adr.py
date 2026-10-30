@@ -3,6 +3,7 @@
 
   adr.py show 0013 §7        an ADR section; a pointer is followed to the chapter text it names
   adr.py show 0013 §7 --adr  the ADR section as written (heading, provenance, pointer), not followed
+  adr.py show 0098 --full    the whole ADR with every pointer replaced by its chapter text
   adr.py show 03 §4.5        a chapter section
   adr.py show 0013           an ADR's header and outline
   adr.py outline 03          a chapter's (or ADR's) headings
@@ -149,6 +150,9 @@ def emit(body, limit):
 def cmd_show(a):
     kind, path = doc_for(a.doc)
     lines = read(path).splitlines()
+    if not a.section and getattr(a, "full", False):
+        emit_full(path, lines)
+        return
     if not a.section:
         heads = headings(lines)
         stop = next((i for i, lv, _ in heads if lv == 2), len(lines))
@@ -181,6 +185,29 @@ def cmd_show(a):
             print(f"(no §{sec}: the pointer is stale; run docs/check.sh)")
             continue
         emit(block(clines, cheads, cstart), a.lines)
+
+
+def emit_full(path, lines):
+    """The whole ADR as one document, every pointer replaced by the chapter text it names
+    (what a reviewer reads; CI posts it on a pull request that adds an ADR)."""
+    heads = headings(lines)
+    lo, hi = decision_range(heads, len(lines))
+    for i, line in enumerate(lines):
+        m = POINTER.match(line.strip()) if lo <= i < hi else None
+        if not m:
+            print(line)
+            continue
+        for ch, sec in pointer_targets([line]):
+            cpath = chapter_path(ch)
+            clines = read(cpath).splitlines()
+            cstart, cheads = find_section("chapter", clines, sec)
+            print(f"> *From {ch} §{sec} ({os.path.basename(cpath)}):*")
+            if cstart is None:
+                print("> (no such section: the pointer is stale; run docs/check.sh)\n")
+                continue
+            for cl in block(clines, cheads, cstart)[1:]:
+                print(f"> {cl}" if cl.strip() else ">")
+            print()
 
 
 def cmd_outline(a):
@@ -309,6 +336,7 @@ def main():
     s.add_argument("doc")
     s.add_argument("section", nargs="?")
     s.add_argument("--adr", action="store_true", help="don't follow a pointer")
+    s.add_argument("--full", action="store_true", help="the whole ADR with every pointer followed (no section)")
     s.add_argument("--lines", type=int, default=0, help="print at most N lines of each section (0: all)")
     s.set_defaults(fn=cmd_show)
     o = sub.add_parser("outline", help="headings of an ADR or chapter")

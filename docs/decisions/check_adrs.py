@@ -8,7 +8,7 @@ Checks:
  3. Amended-by ↔ Related symmetry: if A lists B under Amended-by, B must list A
     under Related (or Amended-by); and if B's Related says it "amends"/"settles"/
     "extends" something in A, A should list B under Amended-by.
- 4. crate names mentioned anywhere vs. the 0005 §2 table
+ 4. crate names mentioned anywhere vs. the crate map, registry/crates.toml
  5. every `Special:` name used in an ADR, the API docs or the registry is a name, alias,
     MediaWiki name or section alias in registry/special-pages.toml (0047 §1)
  6. ADRs in the 0050 format (a header with neither `Related` nor `Amended by`):
@@ -25,7 +25,7 @@ Checks:
     only in case; every [[extension]] is named by an origin or has inspired_by (0077 §12)
 11. every Decision section is a pointer or a stub (24 §3.2); a pointer names an existing section
     of an architecture chapter whose provenance line cites it back; check 4 reads the crate map
-    from chapter 22 §2.1, and check 5 compares canonical special-page names case-sensitively
+    from registry/crates.toml, and check 5 compares canonical special-page names case-sensitively
 
 Usage: check_adrs.py [--index] [DOCS_DIR]
 
@@ -483,13 +483,10 @@ for name, text in texts.items():
         elif kind == "Q" and n not in questions[tf]:
             problems[name].append(f"cites {tnum} Q{n}, which is not among its open questions")
 
-# 4: crate names
-_ch22 = os.path.join(ROOT, "architecture", "22-crates-and-stack.md")
-if os.path.exists(_ch22):   # 0050 §14 check 14: the crate map lives in chapter 22 §2.1
-    table = open(_ch22, encoding="utf-8").read().split("### 2.1 The table")[1].split("### 2.2")[0]
-else:
-    table = texts[num2file["0005"]].split("### 2. Crate map")[1].split("### 3.")[0]
-tbl_crates = set(re.findall(r"`((?:scatter|triplespace)-[a-z0-9-]+)`", table))
+# 4: crate names, from the crate map (24 §11). Parsed with a regex so the checker needs no TOML library.
+_cm_toml = os.path.join(ROOT, "registry", "crates.toml")
+table = open(_cm_toml, encoding="utf-8").read() if os.path.exists(_cm_toml) else ""
+tbl_crates = set(re.findall(r'"((?:scatter|triplespace)-[a-z0-9-]+)"', "\n".join(l for l in table.splitlines() if l.startswith("names = "))))
 retired = {"scatter-graphs", "scatter-markdown", "scatter-keyed", "triplespace-activity", "triplespace-revmeta"}
 # Content model IDs unique to Triplespace share the `triplespace-` prefix (0041 §2); they are not crates.
 _cm = os.path.join(ROOT, "registry", "content-models.toml")
@@ -501,7 +498,7 @@ all_mentions = collections.defaultdict(set)
 for name, text in texts.items():
     for c in set(re.findall(r"`((?:scatter|triplespace)-[a-z0-9-]+)`", text)) - model_ids:
         all_mentions[c].add(name[:4])
-print("== crates named in ADRs but not in the 0005 §2 table ==")
+print("== crates named in ADRs but not in the crate map (registry/crates.toml) ==")
 for c, where in sorted(all_mentions.items()):
     if c not in tbl_crates:
         tag = " (retired name)" if c in retired else ""

@@ -191,3 +191,54 @@ jobs:
       - uses: actions/checkout@v4
       - name: Documentation checks (ADRs 0050 §12, chapter map 0050 §14, settings 0085 §1, log vectors)
         run: docs/check.sh
+
+  adr-preview:
+    # A new ADR's text lives in the chapters (24 §3.2), so its pull request shows chapter hunks
+    # and a skeleton. This posts the ADR assembled with its chapter text as one comment, updated
+    # on every push, so a reviewer reads one document (0098 Q3).
+    name: ADR preview
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Assemble every ADR this pull request adds
+        id: assemble
+        run: |
+          added=$(git diff --name-only --diff-filter=A "origin/${{ github.base_ref }}...HEAD" -- 'docs/decisions/[0-9][0-9][0-9][0-9]-*.md' || true)
+          {
+            echo '<!-- adr-preview -->'
+            if [ -z "$added" ]; then
+              echo 'This pull request adds no ADR.'
+            fi
+            for f in $added; do
+              n=$(basename "$f" | cut -c1-4)
+              echo "<details><summary><b>ADR $n</b> assembled with its chapter text (<code>tools/adr.py show $n --full</code>)</summary>"
+              echo
+              python3 tools/adr.py show "$n" --full
+              echo
+              echo '</details>'
+              echo
+            done
+          } > preview.md
+          echo "added=$(echo $added | wc -w)" >> "$GITHUB_OUTPUT"
+      - name: Post or update the comment
+        if: steps.assemble.outputs.added != '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('preview.md', 'utf8');
+            const marker = '<!-- adr-preview -->';
+            const {owner, repo} = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(github.rest.issues.listComments, {owner, repo, issue_number});
+            const mine = comments.find(c => c.body && c.body.startsWith(marker));
+            if (mine) {
+              await github.rest.issues.updateComment({owner, repo, comment_id: mine.id, body});
+            } else {
+              await github.rest.issues.createComment({owner, repo, issue_number, body});
+            }

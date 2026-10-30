@@ -16,11 +16,11 @@ QuickStatements). James Hare (Scatter LLC) owns it; he decides, and agents draft
 | `docs/api/` | Compatibility contracts with Wikibase and MediaWiki, golden snapshots, log test vectors, the OpenAPI file. | Contracts are tested where they are implemented. |
 | `crates/` | One workspace: `scatter-*` (shared with Scatterbase, knows nothing of Triplespace) and `triplespace-*` (the product). | See the crate rules below. |
 | `tools/` | Scripts outside the build: dump slicing, client-compatibility checks, talk-page prototypes. `tools/README.md`. | |
-| `xtask/` | `cargo xtask deps` (dependency graph vs. chapter 22 §2.1), `wasm`, `manifest`. | |
+| `xtask/` | `cargo xtask deps` (dependency graph vs. `docs/registry/crates.toml`), `wasm`, `manifest`. | |
 | `ui/`, `i18n/` | The site front end (Codex, Vite) and interface messages. | |
 
 **Looking things up:** `tools/adr.py` answers the common questions in one call:
-- `show 0013 §7` prints an ADR section, following its pointer to the chapter text.
+- `show 0013 §7` prints an ADR section, following its pointer to the chapter text; `show 0098 --full` prints a whole ADR assembled with its chapter text (what CI posts on a pull request that adds an ADR).
 - `where <phrase>` lists the chapter sections, ADRs and registry files that cover a subject.
 - `log 0008 [A6]` prints an Amendment log, or one entry.
 - `questions NNNN` prints an ADR's open questions.
@@ -34,8 +34,10 @@ about a section, not that the section is complete, so read the cited lines befor
 Cite sections in comments as `0013 §7`, and a numbered item as `0013 §7 rule 2` (0050 §11).
 `coverage.py --stale` lists citations of sections that don't exist.
 
-**Generated files: never edit by hand.** `docs/decisions/INDEX.md` (`check_adrs.py --index`) and
-the settings tables in chapter 23 (`settings.py --write`, from `registry/settings.toml`).
+**Generated files: never edit by hand.** `docs/decisions/INDEX.md` (`check_adrs.py --index`),
+the settings tables in chapter 23 (`settings.py --write`, from `registry/settings.toml`), and the
+crate table in chapter 22 §2.1 with `docs/architecture/CRATES.md` (`crates.py --write`, from
+`registry/crates.toml`). A new crate, dependency edge or Crates trailer is an edit to `crates.toml`.
 
 **Secrets.** `owner.pw` and `triplespace.key` at the root are local, gitignored secrets. Do not
 read, print, copy or commit them.
@@ -45,14 +47,14 @@ read, print, copy or commit them.
 1. Dependencies point only downward through four layers: substrate, Wikibase domain, ingest,
    Triplespace surfaces. No `scatter-*` crate depends on a `triplespace-*` crate; only adapters
    name a specific provider.
-2. The core crates listed in 22 §1.2 rule 2 are pure: no I/O, no async runtime, no tokio.
+2. The crates `crates.toml` marks `pure` (22 §1.2 rule 2) are pure: no I/O, no async runtime, no tokio.
 3. Policy is data: registries, role maps and rules are values passed in, never enums or globals.
 4. Each hashed type has exactly one canonical encoding function.
-5. The crates on rule 7's list build for `wasm32-unknown-unknown`, and so does everything they
+5. The crates `crates.toml` marks `wasm` (rule 7) build for `wasm32-unknown-unknown`, and so does everything they
    depend on.
 6. The site's crates (`triplespace-ui`, `-client`, `-web`) reach the instance only through its
    public API.
-7. A new crate or dependency edge goes into the crate map (22 §2.1) through an ADR.
+7. A new crate or dependency edge goes into the crate map (`docs/registry/crates.toml`, shown in 22 §2.1) through an ADR.
 
 ## Checks before calling work done
 

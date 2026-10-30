@@ -1,11 +1,10 @@
 //! Repository tasks, run as `cargo xtask <command>` (alias in `.cargo/config.toml`).
 //!
-//! - `deps`: checks the workspace dependency graph against the crate table of ADR 0005 §2, which
-//!   chapter 22 §2.1 of docs/architecture/ holds (0050 §14),
-//!   and the rules of 0005 §3 (dependencies point only downward; the core is pure; the
-//!   site's crates reach no store).
-//! - `wasm`: builds every crate that 0005 §3 rule 7 requires to build for
-//!   `wasm32-unknown-unknown`, skipping the ones that do not exist yet.
+//! - `deps`: checks the workspace dependency graph against the crate map, `docs/registry/crates.toml`
+//!   (chapter 22 §2.1; 0005 §2), and the rules of 22 §1.2 (dependencies point only downward; the
+//!   core is pure; the site's crates reach no store).
+//! - `wasm`: builds every crate the map marks `wasm` (22 §1.2 rule 7), skipping the ones that do
+//!   not exist yet.
 //! - `manifest`: writes the component manifest of ADR 0077 §15 ([`manifest`]).
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -17,51 +16,9 @@ use serde::Deserialize;
 
 mod manifest;
 
-const CRATE_TABLE: &str = "docs/architecture/22-crates-and-stack.md";
-
-/// Crates that 0005 §3 rule 7 requires to build for `wasm32-unknown-unknown`, plus the
-/// browser bridge crate of 0034 §6.
-const WASM_CRATES: &[&str] = &[
-    "scatter-wikibase-shape",
-    "scatter-wikitext",
-    "scatter-pages",
-    "scatter-normalize",
-    "scatter-merge",
-    "scatter-extract",
-    "scatter-css",
-    "scatter-scope",
-    "scatter-tasks",
-    "scatter-titles",
-    "scatter-wasm",
-];
-
-/// Crates that 0005 §3 rule 2 says perform no I/O and use no async runtime. Prefix entries
-/// end in `*`.
-const PURE_CRATES: &[&str] = &[
-    "scatter-vocab",
-    "scatter-providers",
-    "scatter-identity",
-    "scatter-normalize",
-    "scatter-actors",
-    "scatter-pages",
-    "scatter-wikitext",
-    "scatter-threads",
-    "scatter-talk",
-    "scatter-talk-import",
-    "scatter-activitypub",
-    "scatter-filter",
-    "scatter-mwlog",
-    "scatter-wikitext-expand",
-    "scatter-css",
-    "scatter-scope",
-    "scatter-tasks",
-    "scatter-shex",
-    "scatter-merge",
-    "scatter-files",
-    "scatter-extract",
-    "scatter-titles",
-    "scatter-wikibase-*",
-];
+/// The crate map: every crate, its layer, what it may depend on, and the `pure` and `wasm`
+/// marks (22 §2.1). `docs/architecture/crates.py` generates the chapter's table from it.
+const CRATE_MAP: &str = "docs/registry/crates.toml";
 
 /// Dependencies a pure crate may not have (0005 §3 rule 2, 0033 §3–4).
 const IMPURE_DEPS: &[&str] = &[
@@ -143,7 +100,7 @@ struct Package {
 
 impl Package {
     /// Vendored code (a tree with a `vendor.toml`, 0077 §15) is a path dependency and so a
-    /// workspace member, but it is not a crate of the 0005 §2 table.
+    /// workspace member, but it is not a crate of the crate map.
     fn is_vendored(&self) -> bool {
         self.manifest_path
             .parent()
@@ -173,10 +130,11 @@ fn metadata(root: &Path) -> Result<Metadata> {
 }
 
 // ---------------------------------------------------------------------------------------
-// The 0005 §2 table
+// The crate map (docs/registry/crates.toml)
 // ---------------------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize)]
+#[serde(rename_all = "lowercase")]
 enum Layer {
     Substrate,
     Wikibase,
@@ -184,101 +142,80 @@ enum Layer {
     Triplespace,
 }
 
-impl Layer {
-    fn parse(cell: &str) -> Option<Self> {
-        match cell.trim() {
-            "Substrate" => Some(Self::Substrate),
-            "Wikibase" => Some(Self::Wikibase),
-            "Ingest" => Some(Self::Ingest),
-            "Triplespace" => Some(Self::Triplespace),
-            _ => None,
-        }
-    }
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum AnyRule {
+    /// "lower": anything in the same or a lower layer.
+    Lower,
+    /// "core": any substrate or Wikibase crate, plus the named ones.
+    Core,
+}
+
+#[derive(Debug, Deserialize)]
+struct CrateMap {
+    #[serde(rename = "crate")]
+    crates: Vec<CrateEntry>,
+}
+
+/// One `[[crate]]` entry; the other fields (summary, contents, depends_note) are the
+/// documentation's and are not read here.
+#[derive(Debug, Deserialize)]
+struct CrateEntry {
+    names: Vec<String>,
+    layer: Layer,
+    #[serde(default)]
+    depends: Vec<String>,
+    #[serde(default)]
+    depends_any: Option<AnyRule>,
+    #[serde(default)]
+    pure: bool,
+    #[serde(default)]
+    wasm: bool,
 }
 
 #[derive(Debug)]
 struct TableRow {
     layer: Layer,
-    /// Crates named in the "Depends on" cell (internal and external).
+    /// Crates the entry names (internal and external).
     named: BTreeSet<String>,
-    /// The cell said "any …": the layer rule applies instead of the named list.
+    /// The entry said "any …": the layer rule applies instead of the named list.
     any: Option<AnyRule>,
+    /// 22 §1.2 rule 2.
+    pure: bool,
+    /// 22 §1.2 rule 7.
+    wasm: bool,
 }
 
-#[derive(Debug, Clone, Copy)]
-enum AnyRule {
-    /// "Any lower crate" / "Any crate": anything in the same or a lower layer.
-    Lower,
-    /// "any layer-1 or layer-2 crate": substrate and Wikibase crates, plus the named ones.
-    CoreOnly,
-}
-
-fn backticked(cell: &str) -> impl Iterator<Item = String> + '_ {
-    cell.split('`').skip(1).step_by(2).map(str::to_string)
-}
-
-/// Parses the crate map of 0005 §2 from chapter 22 §2.1: one row per crate, in the order of the table.
+/// Reads the crate map: one row per crate, keyed by name.
 fn crate_table(root: &Path) -> Result<BTreeMap<String, TableRow>> {
-    let text = std::fs::read_to_string(root.join(CRATE_TABLE))
-        .with_context(|| format!("reading {CRATE_TABLE}"))?;
-    // The crate map of 0005 §2 lives in chapter 22 §2.1 since 0050 §14 relocated the ADRs' text.
-    let section = text
-        .split("### 2.1 The table")
-        .nth(1)
-        .and_then(|s| s.split("### 2.2").next())
-        .ok_or_else(|| anyhow!("{CRATE_TABLE}: cannot find the §2.1 crate table"))?;
-
+    let text = std::fs::read_to_string(root.join(CRATE_MAP))
+        .with_context(|| format!("reading {CRATE_MAP}"))?;
+    let map: CrateMap = toml::from_str(&text).with_context(|| format!("parsing {CRATE_MAP}"))?;
     let mut rows = BTreeMap::new();
-    let mut layer = None;
-    for line in section.lines() {
-        let line = line.trim();
-        if !line.starts_with('|') {
-            continue;
-        }
-        let cells: Vec<&str> = line.trim_matches('|').split('|').collect();
-        if cells.len() < 4 {
-            continue;
-        }
-        if let Some(l) = Layer::parse(cells[0]) {
-            layer = Some(l);
-        }
-        let crates: Vec<String> = backticked(cells[1]).collect();
-        if crates.is_empty() || cells[1].contains("Crate") {
-            continue; // the header row and the separator
-        }
-        let deps_cell = cells[cells.len() - 1];
-        let lowered = deps_cell.to_ascii_lowercase();
-        let any = if lowered.contains("any layer-1") {
-            Some(AnyRule::CoreOnly)
-        } else if lowered.contains("any ") {
-            Some(AnyRule::Lower)
-        } else {
-            None
-        };
-        let named: BTreeSet<String> = backticked(deps_cell).collect();
-        let layer = layer.ok_or_else(|| anyhow!("row for {crates:?} has no layer"))?;
-        for name in crates {
-            rows.insert(
-                name,
-                TableRow {
-                    layer,
-                    named: named.clone(),
-                    any,
-                },
-            );
+    for entry in map.crates {
+        let named: BTreeSet<String> = entry.depends.iter().cloned().collect();
+        for name in entry.names {
+            if rows
+                .insert(
+                    name.clone(),
+                    TableRow {
+                        layer: entry.layer,
+                        named: named.clone(),
+                        any: entry.depends_any,
+                        pure: entry.pure,
+                        wasm: entry.wasm,
+                    },
+                )
+                .is_some()
+            {
+                bail!("{CRATE_MAP}: `{name}` is listed twice");
+            }
         }
     }
     if rows.is_empty() {
-        bail!("{CRATE_TABLE}: no crate rows parsed from §2");
+        bail!("{CRATE_MAP}: no crates");
     }
     Ok(rows)
-}
-
-fn is_pure(name: &str) -> bool {
-    PURE_CRATES.iter().any(|p| match p.strip_suffix('*') {
-        Some(prefix) => name.starts_with(prefix),
-        None => *p == name,
-    })
 }
 
 // ---------------------------------------------------------------------------------------
@@ -307,7 +244,7 @@ fn deps(root: &Path) -> Result<()> {
         }
         let Some(row) = table.get(name) else {
             problems.push(format!(
-                "`{name}` is in the workspace but not in the 0005 §2 table"
+                "`{name}` is in the workspace but not in the crate map (docs/registry/crates.toml)"
             ));
             continue;
         };
@@ -320,9 +257,9 @@ fn deps(root: &Path) -> Result<()> {
             let internal = members.contains(dep_name) && dep_name != "xtask";
 
             // Rule 2: the core is pure.
-            if is_pure(name) && IMPURE_DEPS.contains(&dep_name) {
+            if row.pure && IMPURE_DEPS.contains(&dep_name) {
                 problems.push(format!(
-                    "`{name}` is a pure crate (0005 §3 rule 2) but depends on `{dep_name}`"
+                    "`{name}` is a pure crate (22 §1.2 rule 2) but depends on `{dep_name}`"
                 ));
             }
             if !internal {
@@ -338,7 +275,7 @@ fn deps(root: &Path) -> Result<()> {
             }
             let Some(dep_row) = table.get(dep_name) else {
                 problems.push(format!(
-                    "`{name}` depends on `{dep_name}`, which is not in the 0005 §2 table"
+                    "`{name}` depends on `{dep_name}`, which is not in the crate map (docs/registry/crates.toml)"
                 ));
                 continue;
             };
@@ -354,12 +291,12 @@ fn deps(root: &Path) -> Result<()> {
             let allowed = row.named.contains(dep_name)
                 || match row.any {
                     Some(AnyRule::Lower) => true,
-                    Some(AnyRule::CoreOnly) => dep_row.layer <= Layer::Wikibase,
+                    Some(AnyRule::Core) => dep_row.layer <= Layer::Wikibase,
                     None => false,
                 };
             if !allowed {
                 problems.push(format!(
-                    "`{name}` depends on `{dep_name}`, which its 0005 §2 row does not list (listed: {})",
+                    "`{name}` depends on `{dep_name}`, which its crates.toml entry does not list (listed: {})",
                     if row.named.is_empty() {
                         "—".to_string()
                     } else {
@@ -375,7 +312,7 @@ fn deps(root: &Path) -> Result<()> {
     let checked = members.len().saturating_sub(1);
     if problems.is_empty() {
         println!(
-            "deps: {checked} workspace crates match the 0005 §2 table ({} rows)",
+            "deps: {checked} workspace crates match the crate map ({} entries)",
             table.len()
         );
         Ok(())
@@ -453,6 +390,12 @@ fn site_reaches_no_store(meta: &Metadata, members: &BTreeSet<&str>) -> Vec<Strin
 // ---------------------------------------------------------------------------------------
 
 fn wasm(root: &Path) -> Result<()> {
+    let table = crate_table(root)?;
+    let wasm_crates: Vec<&str> = table
+        .iter()
+        .filter(|(_, row)| row.wasm)
+        .map(|(name, _)| name.as_str())
+        .collect();
     let meta = metadata(root)?;
     let members: BTreeSet<&str> = meta
         .packages
@@ -460,12 +403,12 @@ fn wasm(root: &Path) -> Result<()> {
         .filter(|p| meta.workspace_members.contains(&p.id))
         .map(|p| p.name.as_str())
         .collect();
-    let present: Vec<&str> = WASM_CRATES
+    let present: Vec<&str> = wasm_crates
         .iter()
         .copied()
         .filter(|c| members.contains(c))
         .collect();
-    for absent in WASM_CRATES.iter().filter(|c| !members.contains(*c)) {
+    for absent in wasm_crates.iter().filter(|c| !members.contains(*c)) {
         println!("wasm: `{absent}` not in the workspace yet, skipped");
     }
     if present.is_empty() {

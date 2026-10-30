@@ -72,11 +72,17 @@ a decision always means editing a chapter section and citing the ADR section in 
   line (a new section gets a new Sources line as its first line). Trailer sections (Crates, API,
   UI, Storage, Permissions, Search, RDF, Log events, Rate limits, Tenants, Scatterbase) go to the
   chapter that holds that catalogue (24 §10.3): 22, 18, 19, 03, 09, 03, 02, 16, 07, 08, 22.
+  A **Crates** trailer is an edit to `docs/registry/crates.toml`: a new `[[crate]]` entry, or a
+  sentence with its citation appended to an existing entry's `contents` (and `depends` for a new
+  edge); then `python3 architecture/crates.py --write .` regenerates 22 §2.1 and `CRATES.md`, and
+  `cargo xtask deps` must still pass.
 - Then run `python3 architecture/pointers.py NNNN` from `docs/`. It writes every section's
   pointer line from the Sources lines and reports any section no chapter cites: write that text
   into a chapter and run it again.
 - Then Alternatives considered (optional), Consequences, Open questions (`**Q1. Title.**`) and
   References.
+- Read the result as a reviewer will: `python3 tools/adr.py show NNNN --full` prints the ADR with
+  every pointer replaced by its chapter text; CI posts the same on the pull request.
 - Citations: link the first mention of another ADR in each section,
   `[0008](0008-namespaces-and-document-pages.md) §2` from an ADR,
   `[0008](../decisions/0008-namespaces-and-document-pages.md) §2` from a chapter. Name both ends
