@@ -144,6 +144,26 @@ purpose = "The URL registered with the provider, at the auth base; on a tenant, 
 sources = "[0012](../decisions/0012-api-requirements.md) §5; [0088](../decisions/0088-external-identity-providers.md) §5"
 
 [[route]]
+routes = ["GET /auth/email"]
+purpose = "At the auth base, holder only: the session's login's email addresses, each with `verified`, `primary`, `added` and, for an unverified one, when its code expires; and whether the instance sends mail ([07](07-actors-and-accounts.md) §2.9)"
+sources = "[0100](../decisions/0100-email-addresses-and-verification-codes.md) §7"
+
+[[route]]
+routes = ["POST /auth/email"]
+purpose = "At the auth base, with the `csrftoken`: add an `address` and send it a code, or send a new code to one the login holds unverified; `ts-email-invalid`, `ts-email-limit`, `ts-email-disabled`, `ratelimited` ([07](07-actors-and-accounts.md) §2.9)"
+sources = "[0100](../decisions/0100-email-addresses-and-verification-codes.md) §7"
+
+[[route]]
+routes = ["POST /auth/email/verify"]
+purpose = "At the auth base, with the `csrftoken`: `address` and `code`; marks the address verified, and primary if the login has none; `ts-email-code` with the entries left, `ts-email-taken`"
+sources = "[0100](../decisions/0100-email-addresses-and-verification-codes.md) §7"
+
+[[route]]
+routes = ["POST /auth/email/primary", "POST /auth/email/remove"]
+purpose = "At the auth base, with the `csrftoken`: make a verified `address` the primary (`ts-email-unverified`), or remove one (`ts-email-primary`, `ts-email-last`, `ts-email-required`); each sends the security notices ([07](07-actors-and-accounts.md) §2.9)"
+sources = "[0100](../decisions/0100-email-addresses-and-verification-codes.md) §7"
+
+[[route]]
 routes = ["GET /auth/pending"]
 purpose = "At first login: the issuer's name and the provider's username for the session's pending identity, at the auth base, or for a tenant's pending login, the login name and the username of the identity that authenticated it, so the page can offer it as a suggestion. Only that session can read it. The account is created by `action=createaccount` with `createpreservestate`"
 sources = "[0012](../decisions/0012-api-requirements.md) §5; [0088](../decisions/0088-external-identity-providers.md) §5"
@@ -423,10 +443,6 @@ routes = ["GET /labels?ids=&language="]
 purpose = "**Bulk labels**: for up to 1,000 entity and property IDs, the label in the given language chain and nothing else, each ID resolved through its cluster so a value shown under one member takes a label any member has ([04](04-entities-and-identifiers.md) §4). Public form only, cacheable by language and not by viewer, which is what lets a page's labels be one call rather than twenty of `wbgetentities`"
 sources = "[0012](../decisions/0012-api-requirements.md) A70"
 
-[[route]]
-routes = ["PUT /notifications/email", "DELETE /notifications/email"]
-purpose = "Register (sends the verification link) and remove"
-sources = "[0021](../decisions/0021-notifications.md) §7"
 
 [[route]]
 routes = ["PUT /notifications/fediverse", "DELETE /notifications/fediverse"]
