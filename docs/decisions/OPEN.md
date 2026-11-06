@@ -11,11 +11,18 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0010 A47](0010-site-ui.md#a47-the-acl-site-ui-the-calls-made-building-it) | 2026-10-30 | The ACL site UI: the calls made building it |
 | [0010 A49](0010-site-ui.md#a49-the-compare-form-and-the-diff-views-the-calls-made-building-them) | 2026-11-04 | The compare form and the diff views: the calls made building them |
 | [0010 A50](0010-site-ui.md#a50-a-document-pages-tabs-its-about-panel-and-its-format-selector-the-calls-made-building-them) | 2026-11-05 | A document page's tabs, its About panel and its Format selector: the calls made building them |
+| [0013 A70](0013-postgres-storage.md#a70-how-a-load-enters-bootstrap-mode) | 2026-11-05 | How a load enters bootstrap mode |
+| [0013 A71](0013-postgres-storage.md#a71-bootstrap-projections-run-per-block-during-the-load) | 2026-11-05 | Bootstrap projections run per block, during the load |
+| [0013 A73](0013-postgres-storage.md#a73-a-bootstrap-load-refreshes-the-planners-statistics-as-its-tables-double) | 2026-11-05 | A bootstrap load refreshes the planner's statistics as its tables double |
+| [0013 A74](0013-postgres-storage.md#a74-a-bootstrap-loads-projections-compute-ahead-on-the-preparing-threads) | 2026-11-06 | A bootstrap load's projections compute ahead on the preparing threads |
+| [0013 A75](0013-postgres-storage.md#a75-the-projections-take-the-operation-the-write-path-encoded-and-the-record-in-hand) | 2026-11-06 | The projections take the operation the write path encoded, and the record in hand |
+| [0013 A77](0013-postgres-storage.md#a77-a-syncs-per-item-work-runs-on-every-core) | 2026-11-06 | A sync's per-item work runs on every core |
 | [0016 A42](0016-permissions-and-access-control.md#a42-delegated-administration-the-calls-made-while-drafting-and-building-tier-4) | 2026-10-30 | Delegated administration: the calls made while drafting and building tier 4 |
 | [0018 A33](0018-tenants.md#a33-multi-tenant-round-1-the-assumptions-the-implementation-made) | 2026-10-30 | Multi-tenant round 1: the assumptions the implementation made |
 | [0019 A31](0019-discussions.md#a31-a-threads-actions-from-the-page-the-calls-made-building-them) | 2026-11-05 | A thread's actions from the page: the calls made building them |
 | [0021 A23](0021-notifications.md#a23-accountability-the-calls-made-building-tier-5) | 2026-10-30 | Accountability: the calls made building tier 5 |
 | [0023 A17](0023-moderation.md#a17-partial-undelete-and-hidden-events-the-calls-made-building-them) | 2026-10-30 | Partial undelete and hidden events: the calls made building them |
+| [0033 A25](0033-backend-stack.md#a25-tls-to-postgres-when-the-url-says-sslmoderequire) | 2026-10-31 | TLS to Postgres when the URL says `sslmode=require` |
 | [0034 A15](0034-frontend-stack.md#a15-uselangqqx-shows-message-keys) | 2026-11-04 | `uselang=qqx` shows message keys |
 | [0042 A22](0042-template-expansion-and-parsoid.md#a22-which-template-drew-a-block) | 2026-11-04 | Which template drew a block |
 | [0047 A29](0047-special-pages.md#a29-pagerandom-is-derived-from-the-page) | 2026-11-02 | `page_random` is derived from the page |
