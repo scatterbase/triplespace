@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-11-06 (A24)
+- **Updated:** 2026-11-06 (A25)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0011](0011-logs.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0028](0028-tenancy-policy.md)
@@ -23,7 +23,7 @@ Echo is the precedent. It has notification *types* (mention, edit-user-talk, rev
 
 ### 2. Addressing rules (amends 0020 §3)
 
-*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A17, A18, A19, A20, A21, A23, A24.*
+*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A17, A18, A19, A20, A21, A23, A25.*
 
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.2.*
 
@@ -35,6 +35,8 @@ Echo is the precedent. It has notification *types* (mention, edit-user-talk, rev
 
 ### 4. Channels
 
+*Changed by A24.*
+
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.4.*
 
 ### 5. The fediverse channel
@@ -45,19 +47,19 @@ Echo is the precedent. It has notification *types* (mention, edit-user-talk, rev
 
 ### 6. UI (extends 0010 §2 and §11)
 
-*Changed by A16, A20, A21, A22.*
+*Changed by A16, A20, A21, A22, A24.*
 
 *Current text: [19](../architecture/19-site-ui.md) §1.2, §2.4, §2.6, §6.2.*
 
 ### 7. API (extends 0012 §4 and §5)
 
-*Changed by A5, A20.*
+*Changed by A5, A20, A24.*
 
 *Current text: [18](../architecture/18-api.md) §2.3, §3.2.*
 
 ### 8. Storage and operations (extends 0013 §4)
 
-*Changed by A2, A3, A12.*
+*Changed by A2, A3, A12, A24.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.16, §5.*
 
@@ -343,7 +345,34 @@ Replaced text ([19](../architecture/19-site-ui.md) §6.2, as it stood):
   - `action=block`: the default removes `edit` and `createpage` (09 §3.3), where MediaWiki's blocks all editing; `nocreate` adds `createaccount`; `tsallbutread` blocks everything but `read`; `hidename` only on an indefinite block; blocking oneself is refused (`ts-cantblock-self`); `autoblock`, `noemail`, `allowusertalk` and partial blocks are ignored with a warning; the answer's `id` is the record's log ID.
   - Unblock by ID of a hidden user answers `userhidden` instead of the name; administrators outside the suppression group can unblock a hidden user only by block ID (and, since 0056 A25, an unblock by a holder of `hideuser` also unhides).
 
-### A24. A job found interrupted notifies
+### A24. Email addresses belong to the login, verified by a code
+
+- **Date:** 2026-11-05
+- **Source:** [0100](0100-email-addresses-and-verification-codes.md) §1, §2, §4, §5, §6, §7, §8
+- **Change:** amends §4, §6, §7, §8
+- **Summary:** An email address belongs to the instance login ([0089](0089-the-auth-host-and-instance-logins.md)), not to a tenant account. A login may verify several addresses, one of them the primary, which receives every notification mail. Verification is by a six-digit code, valid for an hour and spent by five wrong entries, entered in a session of the login; not by a link, which a mail scanner can follow. Changes to a login's addresses send security notices to every verified address. The addresses are managed on the auth host's `Special:Account` and through `/auth/email`, which replace `PUT` and `DELETE /notifications/email`; the tenant account page's Contacts section links there. `private.email` is keyed by login. Every outgoing message is staged in `ops.delivery` and sent by a `MailTransport` (`log`, `smtp`; HTTP APIs later). Email codes leave the `notify` rate class for limits of their own.
+
+Replaced text ([16](../architecture/16-logs-feeds-and-notifications.md) §5.4, as it stood):
+
+> | **Email** | Immediate, or a daily or weekly digest, to an address held in `private` and verified by a token link. No address is ever shown or exported |
+
+Replaced text ([19](../architecture/19-site-ui.md) §2.4, as it stood):
+
+> | Contacts | Private | The email address with its verification state; the fediverse handle with its verification state, a *follow the notifier* hint with the notifier's handle, and *Remove* ([0021](../decisions/0021-notifications.md) §6; [0085](../decisions/0085-settings-and-preferences.md) §5) |
+
+Replaced text ([18](../architecture/18-api.md) §3.2, as it stood):
+
+> | `PUT /notifications/email`, `DELETE /notifications/email` | Register (sends the verification link) and remove |  | [0021](../decisions/0021-notifications.md) §7 |
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.16, as it stood):
+
+> … `private.email` (actor key, address, verified, added), … The delivery queue for email and fediverse messages is one `ops` table, `ops.delivery`, with attempts, next attempt and last error per item. … requests an actor initiates, verification messages and handle registrations, are rate-limited in the `notify` class …
+
+Replaced text ([07](../architecture/07-actors-and-accounts.md) §6.2, as it stood):
+
+> | `notify` | Outbound notification requests initiated by the actor: verification messages, handle registrations ([0021](../decisions/0021-notifications.md) §5) | 5 / 5 per hour |
+
+### A25. A job found interrupted notifies
 
 - **Date:** 2026-11-06
 - **Source:** Direct: James, design discussion of 2026-11-06

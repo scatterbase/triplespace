@@ -317,13 +317,15 @@ Changing any `wikitext.*` setting bumps the render epoch of every `wikitext` pag
 
 ### 3.3 Instance `site` settings
 
-*Sources: [0077](../decisions/0077-special-version.md) §13; [0069](../decisions/0069-synchronized-talk-pages.md) §11; [0081](../decisions/0081-recovery-keys-and-continuations.md) §9; [0085](../decisions/0085-settings-and-preferences.md) §1.*
+*Sources: [0077](../decisions/0077-special-version.md) §13; [0069](../decisions/0069-synchronized-talk-pages.md) §11; [0081](../decisions/0081-recovery-keys-and-continuations.md) §9; [0085](../decisions/0085-settings-and-preferences.md) §1; [0100](../decisions/0100-email-addresses-and-verification-codes.md) §10.*
 
 These are `site` records in the instance `config`, written with `ts-config` at the farm base, and the table is generated from `settings.toml` (§3.1); their bound is `instance`, and where a row says a tenant may narrow the value, the tenant record is bounded by the instance's as a ceiling. `version.toml` marks `search.farm_wide` and `files.separation` as the features of scope `instance` that `Special:Version`'s farm form shows ([0077](../decisions/0077-special-version.md) §11; `search.farm_wide` is a tenancy switch, §3.4).
 
 <!-- settings.py: instance -->
 | Setting | Values | Default | Meaning | Source |
 |---|---|---|---|---|
+| `email.max_addresses` | 1 to 100 | 3 | How many email addresses one login may hold, counting unverified ones; past it, adding one answers `ts-email-limit` ([07](07-actors-and-accounts.md) §2.9) | [0100](../decisions/0100-email-addresses-and-verification-codes.md) §10 |
+| `email.required` | off, on | off | Whether creating a login requires a verified email address, entered by code before the login is made, and forbids removing a login's last one (`ts-email-required`); logins `triplespace-cli` creates are exempt ([07](07-actors-and-accounts.md) §2.9) | [0100](../decisions/0100-email-addresses-and-verification-codes.md) §10 |
 | `files.reclaim_after` | duration, or `never` | 365 days | After how long unreadable to `universe` a file version is erased; a tenant may set a shorter period, never a longer one | [0039](../decisions/0039-files-and-media.md) §9 |
 | `files.separation` | `tenant`, `instance` | `tenant` | Whether each tenant's bytes are stored apart or identical bytes once; changing it is `triplespace-cli files rescope`, needing `owner` | [0039](../decisions/0039-files-and-media.md) §4 |
 | `files.types` | file types | the registry's `default = true` entries | The types the instance allows; a tenant `site` setting may narrow the list but not widen it | [0039](../decisions/0039-files-and-media.md) §5 |
@@ -380,7 +382,7 @@ These share the dotted form but are fields of the record named, not `site` setti
 
 ### 3.6 Deployment configuration
 
-*Sources: [0033](../decisions/0033-backend-stack.md) §12; [0042](../decisions/0042-template-expansion-and-parsoid.md) §2; [0089](../decisions/0089-the-auth-host-and-instance-logins.md) §1; [0097](../decisions/0097-versioning-and-skins.md) §8.*
+*Sources: [0033](../decisions/0033-backend-stack.md) §12; [0042](../decisions/0042-template-expansion-and-parsoid.md) §2; [0089](../decisions/0089-the-auth-host-and-instance-logins.md) §1; [0097](../decisions/0097-versioning-and-skins.md) §8; [0100](../decisions/0100-email-addresses-and-verification-codes.md) §5.*
 
 Deployment configuration is read by `figment` (§5.1), never from a log record, as the Postgres and OpenSearch addresses are; the credentials of an `enterprise` page-repository source are deployment configuration too ([0053](../decisions/0053-mirrored-pages.md) §1).
 
@@ -404,6 +406,11 @@ Deployment configuration is read by `figment` (§5.1), never from a log record, 
 | `repo.fetches_per_minute` | integer | 600 | Per-repository fetch budget; deployment configuration, as every pool size and interval is (§3.1) | [0053](../decisions/0053-mirrored-pages.md) §1 |
 | `updates.batch_interval` | duration | one hour | How often update batch files are written; deployment configuration, as every pool size and interval is (§3.1) | [0032](../decisions/0032-sparql-update-stream.md) §6 |
 | `notifications.fediverse_interval` | duration | five minutes | Bundling interval for fediverse delivery; deployment configuration, as every pool size and interval is (§3.1) | [0021](../decisions/0021-notifications.md) §5 |
+| `mail.transport` | `none`, `log`, `smtp` | `none` | How the instance sends mail ([16](16-logs-feeds-and-notifications.md) §5.7); `log` is refused under `server.mode = production` | [0100](../decisions/0100-email-addresses-and-verification-codes.md) §5 |
+| `mail.from` | an address | — | The instance's one sender address, required unless `mail.transport` is `none`; the display name is the instance's or the tenant's ([16](16-logs-feeds-and-notifications.md) §5.7) | [0100](../decisions/0100-email-addresses-and-verification-codes.md) §5 |
+| `mail.log_dir` | a directory | `data/mail` | Where the `log` transport writes each message as an `.eml` file | [0100](../decisions/0100-email-addresses-and-verification-codes.md) §5 |
+| `mail.smtp.url` | URL | — | The SMTP relay: `smtps://` for implicit TLS, `smtp://` with STARTTLS required, plaintext only to a loopback host; user name in the URL | [0100](../decisions/0100-email-addresses-and-verification-codes.md) §5 |
+| `mail.smtp.password_file` | a file | — | The relay's password, read as every secret is | [0100](../decisions/0100-email-addresses-and-verification-codes.md) §5 |
 | `web.*` | see [20](20-web-tier.md) | | `triplespace-web`'s settings: `web.listen`, `web.admin_listen`, `web.api`, `web.mode`, `web.upstream_host` (`forward`, or `fixed` in `development`), `web.assets_from`, `web.cache` (`memory`, `valkey` or `off`) with `web.cache.valkey_url`, `web.cache.valkey_password_file` and `web.cache.max_ttl` (default and ceiling 60 seconds), and `web.forwarder_key_file` | [0057](../decisions/0057-web-tier.md) §2, §4, §5, §10 |
 
 `query.backend`, `query.path` and `query.endpoint` are deployment configuration under [0033](../decisions/0033-backend-stack.md) §12, not `site` records.
