@@ -21,6 +21,7 @@ pub mod pool;
 pub mod private;
 pub mod projection_state;
 pub mod routing;
+pub mod scratch;
 
 pub use migrate::{Applied, MigrateError, Migrator};
 pub use scatter_log_postgres::Migration;

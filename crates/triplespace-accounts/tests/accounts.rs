@@ -32,6 +32,7 @@ async fn fresh() -> (Client, String) {
     a.batch_execute(&format!("CREATE DATABASE {name}"))
         .await
         .expect("create database");
+    triplespace_db::scratch::drop_at_thread_end(&name);
     let mut config = admin;
     config.dbname(&name);
     let mut client = connect(&config).await;

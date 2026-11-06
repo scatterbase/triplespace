@@ -28,13 +28,6 @@ use triplespace_api_ingest::threads::{ThreadError, ThreadWrite, utc_date, write}
 use triplespace_projections::{Farm, PgBackend, milestone_pipeline};
 
 static COUNTER: AtomicU32 = AtomicU32::new(0);
-thread_local! {
-    /// The scratch databases this test made. Per thread, not per process: the tests run
-    /// in parallel, each on its own thread, and `cleanup` must drop only its own
-    /// databases — `DROP DATABASE … WITH (FORCE)` on another test's would terminate
-    /// that test's connections mid-run (SQLSTATE 57P01).
-    static CREATED: std::cell::RefCell<Vec<String>> = const { std::cell::RefCell::new(Vec::new()) };
-}
 
 const TENANT: &str = "librarybase";
 const LOCAL: u64 = 0x3001;
@@ -70,7 +63,7 @@ async fn fresh() -> (Client, PgBackend) {
         .batch_execute(&format!("CREATE DATABASE {name}"))
         .await
         .expect("create database");
-    CREATED.with_borrow_mut(|c| c.push(name.clone()));
+    triplespace_db::scratch::drop_at_thread_end(&name);
     let mut config = admin;
     config.dbname(&name);
     let mut client = connect(&config).await;
@@ -85,17 +78,6 @@ async fn fresh() -> (Client, PgBackend) {
         .unwrap();
     let pool = triplespace_db::pool::pool(&url, 4).unwrap();
     (client, PgBackend::new(pool))
-}
-
-async fn cleanup() {
-    let Some(admin) = admin_config() else { return };
-    let client = connect(&admin).await;
-    let names: Vec<String> = CREATED.with_borrow_mut(std::mem::take);
-    for n in names {
-        let _ = client
-            .batch_execute(&format!("DROP DATABASE IF EXISTS {n} WITH (FORCE)"))
-            .await;
-    }
 }
 
 fn skipped() -> bool {
@@ -666,7 +648,6 @@ async fn threads_are_written_checked_and_projected() {
         .await,
         Err(ThreadError::Invalid(Invalid::NoTarget(_)))
     ));
-    cleanup().await;
 }
 
 #[tokio::test]
@@ -766,5 +747,4 @@ async fn a_converted_talk_page_is_written_through_the_same_path() {
         .await,
         3
     );
-    cleanup().await;
 }

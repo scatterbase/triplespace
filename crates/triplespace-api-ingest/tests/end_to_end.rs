@@ -33,13 +33,6 @@ use triplespace_api_ingest::PgIngest;
 use triplespace_projections::{Farm, PgBackend, milestone_pipeline};
 
 static COUNTER: AtomicU32 = AtomicU32::new(0);
-thread_local! {
-    /// The scratch databases this test made. Per thread, not per process: the tests run
-    /// in parallel, each on its own thread, and `cleanup` must drop only its own
-    /// databases — `DROP DATABASE … WITH (FORCE)` on another test's would terminate
-    /// that test's connections mid-run (SQLSTATE 57P01).
-    static CREATED: std::cell::RefCell<Vec<String>> = const { std::cell::RefCell::new(Vec::new()) };
-}
 
 const TENANT: &str = "librarybase";
 const LOCAL: u64 = 0x3001;
@@ -75,7 +68,7 @@ async fn fresh() -> (Client, PgBackend) {
         .batch_execute(&format!("CREATE DATABASE {name}"))
         .await
         .expect("create database");
-    CREATED.with_borrow_mut(|c| c.push(name.clone()));
+    triplespace_db::scratch::drop_at_thread_end(&name);
     let mut config = admin;
     config.dbname(&name);
     let mut client = connect(&config).await;
@@ -90,17 +83,6 @@ async fn fresh() -> (Client, PgBackend) {
         .unwrap();
     let pool = triplespace_db::pool::pool(&url, 4).unwrap();
     (client, PgBackend::new(pool))
-}
-
-async fn cleanup() {
-    let Some(admin) = admin_config() else { return };
-    let client = connect(&admin).await;
-    let names: Vec<String> = CREATED.with_borrow_mut(std::mem::take);
-    for n in names {
-        let _ = client
-            .batch_execute(&format!("DROP DATABASE IF EXISTS {n} WITH (FORCE)"))
-            .await;
-    }
 }
 
 fn skipped() -> bool {
@@ -461,7 +443,25 @@ async fn adoption_batch_sync_and_edit_end_to_end() {
         "the create and two adds name the job"
     );
 
-    // 3. A mirror sync of a key-mapped Domain and an ordinary item: an instance job.
+    // 3. A mirror sync of a key-mapped Domain and an ordinary item: an instance job. An
+    // earlier load of the same mirror died after its start record; this one marks it
+    // interrupted (0011 A36).
+    let dead = {
+        let mut cx = store.begin().await.unwrap();
+        let job = scatter_ingest::Job::start(
+            &store,
+            &p,
+            &mut cx,
+            "",
+            JobHeader::mirror("internetdomains", "2026-10-01", Mode::Upsert),
+            Attestation::by("instance:scatter"),
+            NOW + 2,
+        )
+        .await
+        .unwrap();
+        store.commit(cx).await.unwrap();
+        job.id
+    };
     let domain = entity(json!({"type": "domain", "id": "domain:example.org",
         "labels": {"en": {"language": "en", "value": "example.org"}},
         "claims": {"P1": [string_statement("P1", "a", "string", "domain:example.org$00000000-0000-0000-0000-0000000000A1")]}}));
@@ -518,6 +518,38 @@ async fn adoption_batch_sync_and_edit_end_to_end() {
         vec!["XDQ10", "domain#1"]
     );
     assert_eq!(count(&client, "SELECT count(*) FROM view.job WHERE tenant = '' AND status = 'finished' AND graph = 'mirror/internetdomains'").await, 1);
+    assert_eq!(
+        rows(&client, &format!("SELECT status || '|' || (counts->>'by') || '|' || (finish_offset IS NOT NULL)::text FROM view.job WHERE tenant = '' AND job_id = {dead}")).await,
+        vec![format!("interrupted|{}|true", out.job_id)],
+        "the dead load is closed by the next load of the same mirror"
+    );
+    // One load of a source and graph at a time (0011 A37): a second is refused while the
+    // first holds the lock, a load of another graph is not, and dropping the lock frees it.
+    {
+        use scatter_ingest::IngestStore;
+        let wait = Some(std::time::Duration::from_millis(200));
+        let held = store
+            .lock_load("", "internetdomains", "mirror/internetdomains", wait)
+            .await
+            .unwrap();
+        let refused = store
+            .lock_load("", "internetdomains", "mirror/internetdomains", wait)
+            .await;
+        assert!(
+            matches!(refused, Err(IngestError::LoadRunning { .. })),
+            "{:?}",
+            refused.err()
+        );
+        let other = store
+            .lock_load("", "internetdomains", "mirror/elsewhere", wait)
+            .await
+            .unwrap();
+        drop((held, other));
+        let again = store
+            .lock_load("", "internetdomains", "mirror/internetdomains", wait)
+            .await;
+        assert!(again.is_ok(), "{:?}", again.err());
+    }
     let xd = u64::from(registry.by_slug("internetdomains").unwrap().number);
     assert_eq!(
         count(&client, &format!("SELECT count(*) FROM log.record WHERE payload_type = 'scatter:v0/changeset' AND revid = {}", (xd << 40) | 0x37)).await,
@@ -678,7 +710,6 @@ async fn adoption_batch_sync_and_edit_end_to_end() {
     let after = rows(&client, "SELECT (tenant, id, type, page_id, surrogate, resolved_kind, convert_from(resolved, 'UTF8'))::text FROM view.entity").await;
     assert_eq!(before, after);
     assert_eq!(keyed_before, rows(&client, keyed_map).await);
-    cleanup().await;
 }
 
 /// One revision of a history adoption (0035 A12).
@@ -886,7 +917,6 @@ async fn a_history_adoption_over_postgres() {
         .await,
         5
     );
-    cleanup().await;
 }
 
 /// A tenant declares an entity source (0078 §1), its partition opens, a sync loads it
@@ -1176,5 +1206,4 @@ async fn a_tenant_declares_and_loads_an_entity_source() {
         .await,
         0
     );
-    cleanup().await;
 }

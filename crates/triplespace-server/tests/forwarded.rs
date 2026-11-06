@@ -40,6 +40,7 @@ async fn fresh_database() -> String {
         .batch_execute(&format!("CREATE DATABASE {DB}"))
         .await
         .expect("create database");
+    triplespace_db::scratch::drop_at_thread_end(DB);
     let url = std::env::var("TRIPLESPACE_TEST_DATABASE_URL").unwrap();
     url.rsplit_once('/')
         .map(|(head, _)| format!("{head}/{DB}"))
@@ -201,10 +202,6 @@ async fn proxy_trust_by_address_and_by_key() {
     over_a_listener(&database).await;
 
     drop(conn);
-    let _ = admin()
-        .await
-        .batch_execute(&format!("DROP DATABASE IF EXISTS {DB} WITH (FORCE)"))
-        .await;
 }
 
 /// Over a real listener the peer comes from `ConnectInfo`.

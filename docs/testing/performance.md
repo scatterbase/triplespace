@@ -514,3 +514,35 @@ load is 3.8× faster.
 and `wbsearchentities` reads shared rows through it (`t.tenant IN ($1, '')`). Making it partial
 before the search index (0014) serves mirror search would leave that half of the query to a
 sequential scan, so it stays as built; with the term-language rule the shared part is small.
+
+**A killed load resumes (2026-11-06).** A 2M bootstrap load (`b4ab619`) killed with `kill -9`
+at 1,013,400 entities left a partition of exactly that size, with no holes. The same
+`triplespace sync` command, rerun, went through the ordinary sync: 1,013,400 unchanged and
+1,000,617 created in 24m08s. Record keys and revids, `view.entity` (but page IDs), `view.term`,
+`view.identifier` and `view.entity_source` (but offsets and times) equal the uninterrupted load's;
+every entity has its own page ID. The killed load's job stayed `running`, which is what 0011 A36
+and A37 fix.
+
+**A uniform 10M sample (2026-11-06).** Every property and 10,000,000 other entities drawn
+uniformly from the 2026-10-26 dump (`wikidata_zindex.py ids --sample 10000000 --seed 1`),
+10,014,017 entities, 17.6 GB gzip (`wd-sample-10m.json.gz`, sha256 `dfc78356…`), loaded in
+bootstrap mode by `b4ab619`:
+
+| | |
+|---|---|
+| wall | 1h21m02s (2,060 entities/s); test builds and runs shared the machine from about 07:26 to 08:31 |
+| rate per 5 minutes | 1,300–3,700/s, with no downward trend as the database grew from 5 to 56 GB |
+| client | 23,442 s user CPU, 4.8 cores on average; peak RSS 1.61 GB |
+| database | 56 GB, 5,963 bytes per entity |
+| largest relations | the log partition 37 GB (4.0 KB per entity), `view.identifier` 6.3 GB, `view.term` 4.1 GB, Merkle nodes 3.2 GB, `view.entity_source` 2.7 GB, `view.entity` 2.5 GB |
+| rejected | 0 |
+
+The sample's entities are half the 2M set's size (about 15 KB of JSON against 27 KB), and its
+rate per 5 minutes varies with what is in each stretch, so the rate is not one number.
+
+**What this predicts for the whole dump** (122,056,985 entities), scaling linearly: about
+**730 GB** of database and about **16 hours** at the sample's rate. Neither is certain at twelve
+times the size: the indexes outgrow the 62 GB of memory, which the sample, at 56 GB in all,
+did not test, and the Merkle nodes grow a little faster than linearly. The disk is the
+constraint: 551 GB is free with the benchmark databases in place, about 660 GB without them,
+and the dump itself (the `.bz2`, 104 GB) has to stay while it loads.

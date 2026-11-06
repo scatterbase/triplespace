@@ -1,6 +1,7 @@
 //! A job's records (0002 §8.3; 0011 §6.3; payloads.md §5): a `job/start` log event when
 //! it starts, keyed by the job ID the instance mints, and a `job/finish` or `job/fail`
-//! under the same key. A tenant's bulk job writes them to the tenant's `log`; a mirror
+//! under the same key; a `job/interrupt` under that key when a later load of the same
+//! source and graph finds it still running (0011 A36). A tenant's bulk job writes them to the tenant's `log`; a mirror
 //! sync, an instance action, to the instance `log`. Every record is projected inline, so
 //! `view.job` is current when the unit of work commits.
 
@@ -19,6 +20,11 @@ use scatter_projection::{Budget, Pipeline};
 
 /// The log-event payload type.
 pub const PAYLOAD_LOGEVENT: &str = "scatter:v0/logevent";
+
+/// How long a dump load waits for another load of the same source and graph, such as a
+/// follower's batch, before it gives up (0011 A37). A follower's batch waits as long as
+/// it takes (A38).
+pub const LOAD_LOCK_WAIT: std::time::Duration = std::time::Duration::from_mins(1);
 
 /// How many rejects a finish record carries for the job page (0010 §9).
 pub const REJECTS_KEPT: usize = 100;
@@ -161,16 +167,31 @@ impl Job {
         params: serde_json::Value,
         now: u64,
     ) -> Result<Draft, IngestError> {
+        self.event_for(store, cx, self.id, action, params, now)
+            .await
+    }
+
+    /// A `job/{action}` event draft about job `target`, keyed by its ID, under this
+    /// job's attestation.
+    async fn event_for<S: IngestStore>(
+        &self,
+        store: &S,
+        cx: &mut S::Cx,
+        target: u64,
+        action: &str,
+        params: serde_json::Value,
+        now: u64,
+    ) -> Result<Draft, IngestError> {
         let logid = store.next_id(cx, &self.tenant, &Sequence::Log).await?;
         let content = serde_json::json!({
             "type": "job", "action": action, "time": now,
-            "target": {"kind": "job", "id": self.id},
+            "target": {"kind": "job", "id": target},
             "params": params,
         });
         Ok(Draft {
             appended_at: now,
             payload_type: PAYLOAD_LOGEVENT.into(),
-            key: Some(self.id.to_string()),
+            key: Some(target.to_string()),
             revid: None,
             logid: Some(logid),
             page_id: None,
@@ -252,6 +273,39 @@ impl Job {
         let (record, _) =
             append_projected(store, pipeline, cx, self.log_partition, draft, Budget::NONE).await?;
         Ok(record.header().offset)
+    }
+
+    /// Marks interrupted every earlier job of the same tenant, source and graph that is
+    /// still `running`: a load whose process died without a finish or fail record. Each
+    /// gets a `job/interrupt` record under its own key, naming this job as `by` (0011 A36).
+    /// Returns the IDs marked.
+    pub async fn interrupt_earlier<S: IngestStore>(
+        &self,
+        store: &S,
+        pipeline: &Pipeline<S>,
+        cx: &mut S::Cx,
+        now: u64,
+    ) -> Result<Vec<u64>, IngestError> {
+        let earlier: Vec<u64> = store
+            .running_jobs(cx, &self.tenant, &self.header.source, &self.header.graph)
+            .await?
+            .into_iter()
+            .filter(|&id| id != self.id)
+            .collect();
+        for &id in &earlier {
+            let draft = self
+                .event_for(
+                    store,
+                    cx,
+                    id,
+                    "interrupt",
+                    serde_json::json!({"by": self.id}),
+                    now,
+                )
+                .await?;
+            append_projected(store, pipeline, cx, self.log_partition, draft, Budget::NONE).await?;
+        }
+        Ok(earlier)
     }
 
     /// The attestation a record this job writes carries: the actor, the job ID and tags.

@@ -18,6 +18,7 @@ rustls-platform-verifier.workspace = true
 tokio-postgres-rustls.workspace = true
 sha2.workspace = true
 thiserror.workspace = true
+tokio = { workspace = true, features = ["rt"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-11-05 (A24)
+- **Updated:** 2026-11-06 (A25)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0011](0011-logs.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0028](0028-tenancy-policy.md)
@@ -23,7 +23,7 @@ Echo is the precedent. It has notification *types* (mention, edit-user-talk, rev
 
 ### 2. Addressing rules (amends 0020 §3)
 
-*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A17, A18, A19, A20, A21, A23.*
+*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A17, A18, A19, A20, A21, A23, A25.*
 
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.2.*
 
@@ -371,3 +371,14 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.16, as 
 Replaced text ([07](../architecture/07-actors-and-accounts.md) §6.2, as it stood):
 
 > | `notify` | Outbound notification requests initiated by the actor: verification messages, handle registrations ([0021](../decisions/0021-notifications.md) §5) | 5 / 5 per hour |
+
+### A25. A job found interrupted notifies
+
+- **Date:** 2026-11-06
+- **Source:** Direct: James, design discussion of 2026-11-06
+- **Change:** extends §2
+- **Summary:** The `job` reason also addresses a job's actor and operator when a later load marks the job `interrupted`, its process having died ([0011](0011-logs.md) A36), as it does when a job finishes, fails or is reverted.
+
+Replaced text ([16](../architecture/16-logs-feeds-and-notifications.md) §5.2, the `job` row, as it stood):
+
+> | `job` | A job it ran, or that ran on its behalf as operator ([07](../architecture/07-actors-and-accounts.md) §4.6), finished, failed or was reverted (§2.2) | — |

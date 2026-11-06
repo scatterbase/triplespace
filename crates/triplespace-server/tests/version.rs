@@ -42,6 +42,7 @@ async fn fresh_database() -> String {
         .batch_execute(&format!("CREATE DATABASE {DB}"))
         .await
         .expect("create database");
+    triplespace_db::scratch::drop_at_thread_end(DB);
     let url = std::env::var("TRIPLESPACE_TEST_DATABASE_URL").unwrap();
     url.rsplit_once('/')
         .map(|(head, _)| format!("{head}/{DB}"))

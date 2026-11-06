@@ -239,7 +239,50 @@ impl Backend for PgIngest {
     }
 }
 
+/// A session advisory lock on a connection taken out of the pool: dropping it closes the
+/// connection, which releases the lock, as the process's death does (0011 A37).
+pub struct PgLoadLock {
+    _client: deadpool_postgres::ClientWrapper,
+}
+
 impl IngestStore for PgIngest {
+    type LoadLock = PgLoadLock;
+
+    async fn lock_load(
+        &self,
+        tenant: &str,
+        source: &str,
+        graph: &str,
+        wait: Option<std::time::Duration>,
+    ) -> Result<PgLoadLock, IngestError> {
+        let client =
+            deadpool_postgres::Object::take(self.backend.pool().get().await.map_err(store)?);
+        let timeout = wait.map_or(0, |w| w.as_millis());
+        client
+            .batch_execute(&format!("SET lock_timeout = {timeout}"))
+            .await
+            .map_err(store)?;
+        let key = format!("ts-load\u{1f}{tenant}\u{1f}{source}\u{1f}{graph}");
+        match client
+            .execute("SELECT pg_advisory_lock(hashtextextended($1, 0))", &[&key])
+            .await
+        {
+            Ok(_) => {}
+            Err(e) if e.code() == Some(&tokio_postgres::error::SqlState::LOCK_NOT_AVAILABLE) => {
+                return Err(IngestError::LoadRunning {
+                    source_name: source.to_string(),
+                    graph: graph.to_string(),
+                });
+            }
+            Err(e) => return Err(store(e)),
+        }
+        client
+            .batch_execute("SET lock_timeout = 0")
+            .await
+            .map_err(store)?;
+        Ok(PgLoadLock { _client: client })
+    }
+
     async fn append(
         &self,
         cx: &mut PgCx,
@@ -705,5 +748,27 @@ impl IngestStore for PgIngest {
             .await
             .map_err(store)?;
         Ok(rows.iter().map(|r| r.get(0)).collect())
+    }
+
+    async fn running_jobs(
+        &self,
+        cx: &mut PgCx,
+        tenant: &str,
+        source: &str,
+        graph: &str,
+    ) -> Result<Vec<u64>, IngestError> {
+        let rows = cx
+            .query(
+                "SELECT job_id FROM view.job
+                  WHERE tenant = $1 AND source = $2 AND graph = $3 AND status = 'running'
+                  ORDER BY job_id",
+                &[&tenant, &source, &graph],
+            )
+            .await
+            .map_err(store)?;
+        Ok(rows
+            .iter()
+            .map(|r| r.get::<_, i64>(0).cast_unsigned())
+            .collect())
     }
 }

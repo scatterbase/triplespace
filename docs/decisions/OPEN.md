@@ -11,6 +11,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0010 A47](0010-site-ui.md#a47-the-acl-site-ui-the-calls-made-building-it) | 2026-10-30 | The ACL site UI: the calls made building it |
 | [0010 A49](0010-site-ui.md#a49-the-compare-form-and-the-diff-views-the-calls-made-building-them) | 2026-11-04 | The compare form and the diff views: the calls made building them |
 | [0010 A50](0010-site-ui.md#a50-a-document-pages-tabs-its-about-panel-and-its-format-selector-the-calls-made-building-them) | 2026-11-05 | A document page's tabs, its About panel and its Format selector: the calls made building them |
+| [0011 A38](0011-logs.md#a38-a-followers-batch-waits-for-the-load-lock-a-dump-load-waits-a-minute) | 2026-11-06 | A follower's batch waits for the load lock; a dump load waits a minute |
 | [0013 A70](0013-postgres-storage.md#a70-how-a-load-enters-bootstrap-mode) | 2026-11-05 | How a load enters bootstrap mode |
 | [0013 A71](0013-postgres-storage.md#a71-bootstrap-projections-run-per-block-during-the-load) | 2026-11-05 | Bootstrap projections run per block, during the load |
 | [0013 A73](0013-postgres-storage.md#a73-a-bootstrap-load-refreshes-the-planners-statistics-as-its-tables-double) | 2026-11-05 | A bootstrap load refreshes the planner's statistics as its tables double |

@@ -58,6 +58,22 @@ pub struct Cursor {
 
 /// What the store knows beyond the pipeline's backend.
 pub trait IngestStore: Backend {
+    /// Held while a sync job of one tenant, source and graph runs: released when dropped,
+    /// and by the database when the process dies (0011 A37).
+    type LoadLock: Send;
+
+    /// Takes the load lock of a tenant, source and graph, waiting at most `wait` for it
+    /// (`None`: as long as it takes); [`IngestError::LoadRunning`] when it is not had in
+    /// time. Every sync job holds it, so a job found `running` once it is held is one whose
+    /// process died (0011 A36, A37).
+    fn lock_load(
+        &self,
+        tenant: &str,
+        source: &str,
+        graph: &str,
+        wait: Option<std::time::Duration>,
+    ) -> impl Future<Output = Result<Self::LoadLock, IngestError>> + Send;
+
     /// Appends a draft to a partition inside the unit of work.
     fn append(
         &self,
@@ -377,4 +393,14 @@ pub trait IngestStore: Backend {
         cx: &mut Self::Cx,
         tenant: &str,
     ) -> impl Future<Output = Result<Vec<String>, IngestError>> + Send;
+
+    /// The tenant's jobs still `running` for a source and graph (`view.job`), oldest
+    /// first: what the next load of the same source and graph marks interrupted (0011 A36).
+    fn running_jobs(
+        &self,
+        cx: &mut Self::Cx,
+        tenant: &str,
+        source: &str,
+        graph: &str,
+    ) -> impl Future<Output = Result<Vec<u64>, IngestError>> + Send;
 }
