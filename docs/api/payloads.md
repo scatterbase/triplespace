@@ -344,6 +344,7 @@ actor key, a job ID) or `null`.
             "rejects": [{"line": 4, "match": {"P356": "10.1234/x"}, "reason": "ts-invalid-key"}]}}
 {"type": "job", "action": "fail", "time": …, "target": {"kind": "job", "id": 17}, "params": {"error": "ts-adopt-not-empty"}}
 {"type": "job", "action": "revert", "time": …, "target": {"kind": "job", "id": 17}, "params": {"by": 18}}
+{"type": "job", "action": "interrupt", "time": …, "target": {"kind": "job", "id": 17}, "params": {"by": 19}}
 {"type": "delete", "action": "delete", "time": 1700000000000000, "upstream_logid": 123456,
  "target": {"kind": "entity", "id": "WDQ77"}, "params": {}, "visibility": 0}
 ```
@@ -357,6 +358,7 @@ actor key, a job ID) or `null`.
 | `params` of a `job/start` | `source`, `version` (or `snapshot`), `mode`, `graph`, `adapter` and `args`, the job line's fields (§3) plus the adapter version; `view.job` is projected from them |
 | `params` of a `job/finish` | `counts` by outcome (`created`, `merged`, `unchanged`, `rejected`, and where non-zero `adopted`, `tombstoned`, `cleared` — keyed entities and `deletion = clear` entities cleared with an empty `put` — and `other`), `hash_mismatches` by value type (0011 §6.3), `checkpoint` (the signed note, whose second line is the tree size), `sweep` (`count`, `threshold`) for a `snapshot` job, `rejects`: the first 100 rejected lines, each `{line, match?, reason}`, for the job page (0010 §9), the full rejects file being the job's own (`triplespace sync` prints every reject and writes them with `--rejects`) — a mirror sync has no batch lines, so its rejects are numbered in arrival order and `reason` opens with the upstream ID (`Q21: … is not a valid domain key`, 0009 §9); an adoption adds `floors` (0035 §4) and `accounts`, the actor records it wrote |
 | `params` of a `job/fail` | `error`: the refusal code or message |
+| `params` of a `job/interrupt` | `by`: the later load of the same source and graph that found this job still running, its process dead (0011 A36) |
 
 The performer, local or upstream, is the attestation's `actor` and nowhere else, so that
 hiding the user (0015 §4: erase the attestation part) touches nothing in the content.

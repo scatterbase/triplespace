@@ -616,6 +616,20 @@ pub async fn run_sync_in<S: IngestStore>(
     // own: clears and the sweep's tombstones.
     let job_version = Upstream::version(header.source_version().unwrap_or(""));
 
+    // One load of a source and graph at a time; a follower's batch waits for a dump load
+    // to finish, a dump load for a batch only so long (0011 A37, A38).
+    let following = header
+        .params
+        .get("follow")
+        .is_some_and(|f| f.as_bool() == Some(true));
+    let _lock = store
+        .lock_load(
+            tenant,
+            &header.source,
+            &header.graph,
+            (!following).then_some(crate::job::LOAD_LOCK_WAIT),
+        )
+        .await?;
     let mut cx = store.begin().await?;
     let partition = store
         .partition(&mut cx, tenant, &graph_name)
@@ -636,6 +650,8 @@ pub async fn run_sync_in<S: IngestStore>(
         now,
     )
     .await?;
+    // A load of the same source and graph whose process died is marked so (0011 A36).
+    job.interrupt_earlier(store, pipeline, &mut cx, now).await?;
     let mut request = Request::new(tenant, job.record_attestation(), now);
     request.budget = Budget::NONE;
     let mut counts = Counts::default();

@@ -1,6 +1,6 @@
 //! `view.job` and `view.job_reject` (step 2; 0011 §6.3; 0013 §5.5) from the `job` log
-//! events of payloads.md §5: `start` opens the row, `finish`, `fail` and `revert` close
-//! it. A job's rejects travel on its finish record as `params.rejects`, the first N for
+//! events of payloads.md §5: `start` opens the row, `finish`, `fail`, `revert` and
+//! `interrupt` (0011 A36) close it. A job's rejects travel on its finish record as `params.rejects`, the first N for
 //! the job page (0010 §9).
 
 use scatter_log::cbor::Value;
@@ -93,6 +93,7 @@ async fn close(cx: &PgCx, ev: &Event<'_>, action: &str) -> Result<u64, String> {
     let status = match action {
         "finish" => "finished",
         "fail" => "failed",
+        "interrupt" => "interrupted",
         _ => "reverted",
     };
     let counts = match action {
@@ -226,7 +227,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for JobProjection {
                     )
                     .await?
                 }
-                "finish" | "fail" | "revert" => {
+                "finish" | "fail" | "revert" | "interrupt" => {
                     close(
                         cx,
                         &Event {

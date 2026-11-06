@@ -56,6 +56,8 @@ pub struct State {
     pub datatypes: BTreeMap<(String, String), DataType>,
     /// `(tenant, source)` of adoption jobs started.
     pub adoptions: Vec<(String, String)>,
+    /// `(tenant, job ID)` → `(source, graph)` of the jobs started and not yet closed.
+    pub running: BTreeMap<(String, u64), (String, String)>,
     /// Rows test projections write: `(table, key)` → value.
     pub rows: BTreeMap<(String, String), String>,
 }
@@ -180,6 +182,43 @@ fn index_keyed_owner(state: &mut State, graph: &str, id: &EntityId, op: &Operati
 }
 
 /// Keeps the indexes in step with an appended record.
+/// Which jobs are running (a `job/start` opens one, any other job event closes it), and
+/// the sources of adoption jobs.
+fn index_job(state: &mut State, partition: &Partition, content: &Value) {
+    if content.get("type").is_some_and(|t| t.text_eq("job"))
+        && let Some(action) = content.get("action").and_then(Value::as_text)
+        && let Some(id) = content
+            .get("target")
+            .and_then(|t| t.get("id"))
+            .and_then(Value::as_u64)
+    {
+        let key = (partition.tenant.clone(), id);
+        if action == "start" {
+            let params = content.get("params");
+            let field = |f: &str| {
+                params
+                    .and_then(|p| p.get(f))
+                    .and_then(Value::as_text)
+                    .unwrap_or_default()
+                    .to_string()
+            };
+            state.running.insert(key, (field("source"), field("graph")));
+        } else {
+            state.running.remove(&key);
+        }
+    }
+    if content.get("type").is_some_and(|t| t.text_eq("job"))
+        && content.get("action").is_some_and(|a| a.text_eq("start"))
+        && let Some(params) = content.get("params")
+        && params.get("mode").is_some_and(|m| m.text_eq("adopt"))
+        && let Some(source) = params.get("source").and_then(Value::as_text)
+    {
+        state
+            .adoptions
+            .push((partition.tenant.clone(), source.to_string()));
+    }
+}
+
 fn index(state: &mut State, partition: &Partition, record: &Record) -> Result<(), IngestError> {
     let h = record.header();
     let Some(content) = record.body().content().value().map_err(store)? else {
@@ -269,16 +308,7 @@ fn index(state: &mut State, partition: &Partition, record: &Record) -> Result<()
             state.surrogates.insert((t.to_string(), k.to_string()), n);
         }
         PAYLOAD_LOGEVENT => {
-            if content.get("type").is_some_and(|t| t.text_eq("job"))
-                && content.get("action").is_some_and(|a| a.text_eq("start"))
-                && let Some(params) = content.get("params")
-                && params.get("mode").is_some_and(|m| m.text_eq("adopt"))
-                && let Some(source) = params.get("source").and_then(Value::as_text)
-            {
-                state
-                    .adoptions
-                    .push((partition.tenant.clone(), source.to_string()));
-            }
+            index_job(state, partition, &content);
         }
         _ => {}
     }
@@ -389,6 +419,19 @@ impl Backend for MemoryIngest {
 }
 
 impl IngestStore for MemoryIngest {
+    /// One process holds the store, so there is no other load to keep out.
+    type LoadLock = ();
+
+    async fn lock_load(
+        &self,
+        _tenant: &str,
+        _source: &str,
+        _graph: &str,
+        _wait: Option<std::time::Duration>,
+    ) -> Result<(), IngestError> {
+        Ok(())
+    }
+
     fn encoded(&self, body: &scatter_log::body::Body, op: Operation) {
         if let Some(bytes) = body.content().bytes() {
             self.encoded
@@ -706,6 +749,22 @@ impl IngestStore for MemoryIngest {
             .iter()
             .filter(|(t, _)| t == tenant)
             .map(|(_, s)| s.clone())
+            .collect())
+    }
+
+    async fn running_jobs(
+        &self,
+        cx: &mut MemoryCx,
+        tenant: &str,
+        source: &str,
+        graph: &str,
+    ) -> Result<Vec<u64>, IngestError> {
+        Ok(cx
+            .state
+            .running
+            .iter()
+            .filter(|((t, _), (s, g))| t == tenant && s == source && g == graph)
+            .map(|((_, id), _)| *id)
             .collect())
     }
 }

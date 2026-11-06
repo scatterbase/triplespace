@@ -1821,3 +1821,92 @@ fn a_bootstrap_load_writes_what_a_sync_writes() {
         assert!(err.to_string().contains("empty partition"), "{err}");
     });
 }
+
+/// A load whose process died leaves its job `running`; the next load of the same source
+/// and graph marks it interrupted, and leaves a running job of another graph alone
+/// (0011 A36).
+#[test]
+fn the_next_load_marks_a_dead_load_interrupted() {
+    pollster::block_on(async {
+        let (store, pipeline) = setup();
+        let actor = Attestation::by("instance:scatter");
+        // Two loads that died after their start record: one of this mirror, one of another
+        // graph.
+        let mut other = sync_header(Mode::Upsert);
+        other.graph = "mirror/elsewhere".into();
+        let mut dead = Vec::new();
+        for header in [sync_header(Mode::Upsert), other] {
+            let mut cx = store.begin().await.unwrap();
+            let job = scatter_ingest::Job::start(
+                &store,
+                &pipeline,
+                &mut cx,
+                "",
+                header,
+                actor.clone(),
+                NOW,
+            )
+            .await
+            .unwrap();
+            store.commit(cx).await.unwrap();
+            dead.push(job.id);
+        }
+        let mut cx = store.begin().await.unwrap();
+        assert_eq!(
+            store
+                .running_jobs(&mut cx, "", "internetdomains", "mirror/internetdomains")
+                .await
+                .unwrap(),
+            vec![dead[0]]
+        );
+        store.rollback(cx).await.unwrap();
+
+        for _ in 0..2 {
+            run_sync(
+                &store,
+                &pipeline,
+                sync_header(Mode::Upsert),
+                actor.clone(),
+                bootstrap_items(),
+                100,
+                registry(),
+                NOW,
+                100,
+            )
+            .await
+            .unwrap();
+        }
+        let log = events(&store, INSTANCE_LOG);
+        let interrupts: Vec<_> = log.iter().filter(|(a, _)| a == "interrupt").collect();
+        assert_eq!(
+            interrupts,
+            vec![&("interrupt".to_string(), dead[0].to_string())],
+            "once, by the first load after it, and only the job of the same graph"
+        );
+        let record = store
+            .records(INSTANCE_LOG)
+            .into_iter()
+            .find(|r| {
+                r.header().payload_type == "scatter:v0/logevent" && params_of(r).get("by").is_some()
+            })
+            .unwrap();
+        assert_eq!(params_of(&record), json!({"by": dead[1] + 1}));
+
+        let mut cx = store.begin().await.unwrap();
+        assert!(
+            store
+                .running_jobs(&mut cx, "", "internetdomains", "mirror/internetdomains")
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(
+            store
+                .running_jobs(&mut cx, "", "internetdomains", "mirror/elsewhere")
+                .await
+                .unwrap(),
+            vec![dead[1]]
+        );
+        store.rollback(cx).await.unwrap();
+    });
+}

@@ -102,6 +102,14 @@ pub enum IngestError {
     /// An adapter's output could not be used.
     #[error("adapter: {0}")]
     Adapter(String),
+    /// Another load of the same source and graph holds the load lock (0011 A37).
+    #[error("another load of `{source_name}` into `{graph}` is running")]
+    LoadRunning {
+        /// The job's source.
+        source_name: String,
+        /// The graph it writes.
+        graph: String,
+    },
 }
 
 impl From<String> for IngestError {

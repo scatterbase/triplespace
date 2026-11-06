@@ -271,6 +271,15 @@ where
         .ok_or_else(|| IngestError::UnknownProvider(slug.clone()))?;
     let graph_name = format!("mirror/{slug}");
 
+    // One load of a source and graph at a time (0011 A37).
+    let _lock = store
+        .lock_load(
+            "",
+            &header.source,
+            &header.graph,
+            Some(crate::job::LOAD_LOCK_WAIT),
+        )
+        .await?;
     let mut cx = store.begin().await?;
     let partition = store
         .partition(&mut cx, "", &graph_name)
@@ -286,6 +295,8 @@ where
         )));
     }
     let mut job = Job::start(store, pipeline, &mut cx, "", header, attestation, now).await?;
+    // A load of the same source and graph whose process died is marked so (0011 A36).
+    job.interrupt_earlier(store, pipeline, &mut cx, now).await?;
     let prepare = Prepare {
         hasher: Hasher::mirrored_from(&provider.code),
         attestation: job.record_attestation().to_value(),

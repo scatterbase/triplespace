@@ -461,7 +461,25 @@ async fn adoption_batch_sync_and_edit_end_to_end() {
         "the create and two adds name the job"
     );
 
-    // 3. A mirror sync of a key-mapped Domain and an ordinary item: an instance job.
+    // 3. A mirror sync of a key-mapped Domain and an ordinary item: an instance job. An
+    // earlier load of the same mirror died after its start record; this one marks it
+    // interrupted (0011 A36).
+    let dead = {
+        let mut cx = store.begin().await.unwrap();
+        let job = scatter_ingest::Job::start(
+            &store,
+            &p,
+            &mut cx,
+            "",
+            JobHeader::mirror("internetdomains", "2026-10-01", Mode::Upsert),
+            Attestation::by("instance:scatter"),
+            NOW + 2,
+        )
+        .await
+        .unwrap();
+        store.commit(cx).await.unwrap();
+        job.id
+    };
     let domain = entity(json!({"type": "domain", "id": "domain:example.org",
         "labels": {"en": {"language": "en", "value": "example.org"}},
         "claims": {"P1": [string_statement("P1", "a", "string", "domain:example.org$00000000-0000-0000-0000-0000000000A1")]}}));
@@ -518,6 +536,38 @@ async fn adoption_batch_sync_and_edit_end_to_end() {
         vec!["XDQ10", "domain#1"]
     );
     assert_eq!(count(&client, "SELECT count(*) FROM view.job WHERE tenant = '' AND status = 'finished' AND graph = 'mirror/internetdomains'").await, 1);
+    assert_eq!(
+        rows(&client, &format!("SELECT status || '|' || (counts->>'by') || '|' || (finish_offset IS NOT NULL)::text FROM view.job WHERE tenant = '' AND job_id = {dead}")).await,
+        vec![format!("interrupted|{}|true", out.job_id)],
+        "the dead load is closed by the next load of the same mirror"
+    );
+    // One load of a source and graph at a time (0011 A37): a second is refused while the
+    // first holds the lock, a load of another graph is not, and dropping the lock frees it.
+    {
+        use scatter_ingest::IngestStore;
+        let wait = Some(std::time::Duration::from_millis(200));
+        let held = store
+            .lock_load("", "internetdomains", "mirror/internetdomains", wait)
+            .await
+            .unwrap();
+        let refused = store
+            .lock_load("", "internetdomains", "mirror/internetdomains", wait)
+            .await;
+        assert!(
+            matches!(refused, Err(IngestError::LoadRunning { .. })),
+            "{:?}",
+            refused.err()
+        );
+        let other = store
+            .lock_load("", "internetdomains", "mirror/elsewhere", wait)
+            .await
+            .unwrap();
+        drop((held, other));
+        let again = store
+            .lock_load("", "internetdomains", "mirror/internetdomains", wait)
+            .await;
+        assert!(again.is_ok(), "{:?}", again.err());
+    }
     let xd = u64::from(registry.by_slug("internetdomains").unwrap().number);
     assert_eq!(
         count(&client, &format!("SELECT count(*) FROM log.record WHERE payload_type = 'scatter:v0/changeset' AND revid = {}", (xd << 40) | 0x37)).await,
