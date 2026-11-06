@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-18
-- **Updated:** 2026-10-30 (A1)
+- **Updated:** 2026-11-05 (A2)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0018](0018-tenants.md), [0028](0028-tenancy-policy.md), [0033](0033-backend-stack.md), [0047](0047-special-pages.md), [0056](0056-security-model.md), [0057](0057-web-tier.md), [0087](0087-account-registration-and-challenges.md), [0088](0088-external-identity-providers.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0016](0016-permissions-and-access-control.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0034](0034-frontend-stack.md), [0046](0046-primary-tenant.md), [0079](0079-derived-issuer-codes.md), [0085](0085-settings-and-preferences.md)
@@ -34,6 +34,8 @@ James's direction, from the design discussion of 2026-10-18:
 
 ### 2. Instance logins (amends 0007 §3; amends 0018 §4; extends 0015 §5; amends 0013 §4)
 
+*Changed by A2.*
+
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §1.2; [03](../architecture/03-storage-caches-and-search.md) §4.16, §12.1; [07](../architecture/07-actors-and-accounts.md) §2.1, §2.8; [08](../architecture/08-tenants-and-instances.md) §3.2.*
 
 ### 3. Sign-in methods belong to the login (amends 0088 §7; amends 0007 §3; amends 0013 §4)
@@ -53,6 +55,8 @@ James's direction, from the design discussion of 2026-10-18:
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.6, §2.7, §2.8; [19](../architecture/19-site-ui.md) §2.3.*
 
 ### 7. What the auth host serves (amends 0012 §4; extends 0047 §3; amends 0010 §10, §11)
+
+*Changed by A2.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.8; [18](../architecture/18-api.md) §2.3; [19](../architecture/19-site-ui.md) §2.3, §2.4; [21](../architecture/21-special-pages.md) §1.3.*
 
@@ -136,3 +140,10 @@ James's direction, from the design discussion of 2026-10-18:
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§17
 - **Summary:** The Decision's current text now lives in the architecture chapters [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [07](../architecture/07-actors-and-accounts.md), [08](../architecture/08-tenants-and-instances.md), [09](../architecture/09-security-and-moderation.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [20](../architecture/20-web-tier.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `2e2a7c8`. No decision changed.
+
+### A2. Email addresses
+
+- **Date:** 2026-11-05
+- **Source:** [0100](0100-email-addresses-and-verification-codes.md) §1, §3, §6
+- **Change:** extends §2, §7
+- **Summary:** A login holds email addresses, up to `email.max_addresses`, one verified address being its primary ([07](../architecture/07-actors-and-accounts.md) §2.9). The auth host's `Special:Account` gains an **Email addresses** section, and the auth base the `/auth/email` routes.

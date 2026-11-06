@@ -254,6 +254,28 @@ meaning = "Previous dumps of each format kept per scope"
 source = "[0076](../decisions/0076-dataset-publication.md) §1"
 
 [[setting]]
+key = "email.max_addresses"
+scope = "instance"
+bound = "instance"
+group = "accounts"
+type = "integer"
+values = "1 to 100"
+default = 3
+meaning = "How many email addresses one login may hold, counting unverified ones; past it, adding one answers `ts-email-limit` ([07](07-actors-and-accounts.md) §2.9)"
+source = "[0100](../decisions/0100-email-addresses-and-verification-codes.md) §10"
+
+[[setting]]
+key = "email.required"
+scope = "instance"
+bound = "instance"
+group = "accounts"
+type = "boolean"
+default = false
+default_text = "off"
+meaning = "Whether creating a login requires a verified email address, entered by code before the login is made, and forbids removing a login's last one (`ts-email-required`); logins `triplespace-cli` creates are exempt ([07](07-actors-and-accounts.md) §2.9)"
+source = "[0100](../decisions/0100-email-addresses-and-verification-codes.md) §10"
+
+[[setting]]
 key = "entities.closure"
 scope = "tenant"
 bound = "tenant"

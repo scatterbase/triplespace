@@ -449,14 +449,14 @@ The reason-by-channel **preference matrix** is the set of `notifications.{reason
 
 ### 5.4 Channels
 
-*Sources: [0021](../decisions/0021-notifications.md) §4.*
+*Sources: [0021](../decisions/0021-notifications.md) §4; [0100](../decisions/0100-email-addresses-and-verification-codes.md) §2.*
 
 Each reason can be delivered on each channel, subject to the account's preference matrix (§5.3) and the instance's defaults.
 
 | Channel | Delivery |
 |---|---|
 | **Web** | The bell in the global header ([19](19-site-ui.md)), with the unseen count; `Special:Notifications`, which is the inbox as a page with mark-read and mark-all-read |
-| **Email** | Immediate, or a daily or weekly digest, to an address held in `private` and verified by a token link. No address is ever shown or exported |
+| **Email** | Immediate, or a daily or weekly digest, to the primary address of the recipient's login, verified by a six-digit code ([07](07-actors-and-accounts.md) §2.9). No address is shown to anyone but its holder, and none is exported |
 | **Fediverse** | A direct message to the account's registered fediverse account (§5.5) |
 
 Every channel renders the same item: who, did what, where, when, and a permalink (`Special:PermanentLink/{revid}` for a post, the job or log page otherwise), in the recipient's interface language.
@@ -502,6 +502,24 @@ A sprint ([15](15-structured-pages.md)) adds one reason, `task-resolved` (§5.2)
 **Claim** and **Release** buttons on each task write the records of [0061](../decisions/0061-sprints-and-tasks.md) §5, which project as `task/claim` and `task/release` (§2.3). A claimed task shows who holds it and when the claim expires.
 
 **In a project page.** Transcluding a sprint's progress bar or task board into `Project:WikiProject Women` is the workspaces ADR's job, with tables and board listings ([15](15-structured-pages.md)); nothing here prevents it.
+
+### 5.7 Sending email
+
+*Sources: [0100](../decisions/0100-email-addresses-and-verification-codes.md) §5.*
+
+**Every message is staged before it is sent.** Rendering a message, whether a verification code, a security notice ([07](07-actors-and-accounts.md) §2.9), a notification or a digest, writes it complete to the delivery queue `ops.delivery` ([03](03-storage-caches-and-search.md) §4.16): recipient, sender, subject, a plain-text UTF-8 body in the recipient's language, `Message-ID`, `Date` and `Auto-Submitted: auto-generated`, and an expiry. A worker in `triplespace-server` takes due rows with `FOR UPDATE SKIP LOCKED`, woken by a `NOTIFY` when a row is written, and hands each to the transport. A row is deleted as soon as the transport accepts its message, so the queue keeps no copy of mail it has sent. A temporary failure is retried after 1, 2, 4 and more minutes, at most an hour apart, until the row expires; a permanent failure, such as an SMTP `5xx` reply, is not retried, and the row keeps the error until it expires. A verification message expires with its code and a security notice after three days, so a code is never delivered after it has stopped working.
+
+**The transport is a trait**, `MailTransport` in `scatter-mail`: one asynchronous method that takes a message and answers *accepted*, *temporary failure* or *permanent failure*. The deployment setting `mail.transport` ([23](23-configuration-and-registry.md) §3.6) chooses the implementation:
+
+| Transport | What it does |
+|---|---|
+| `none` | The default. No mail is sent, and the email features say so ([07](07-actors-and-accounts.md) §2.9) |
+| `log` | Writes each message as an `.eml` file to `mail.log_dir` and logs its recipient and subject: the development sink, from which tests and the e2e suite read codes. The server refuses to start with it under `server.mode = production` |
+| `smtp` | Submits to an SMTP relay through `lettre` over rustls: `mail.smtp.url` names it, `smtps://` for implicit TLS or `smtp://` with STARTTLS required, plaintext only to a loopback host; the password is read from `mail.smtp.password_file`. The baseline every deployment can use |
+
+HTTP mail APIs are further implementations of the trait, each with a transport name of its own and sending through the egress path of [0012](../decisions/0012-api-requirements.md) §6. What one adds over SMTP is structured delivery results and bounce and complaint webhooks, so each is built together with that handling. The first is `postmark`, whose message streams keep codes and security notices apart from notification digests; until it is built, a provider is reached through `smtp`, which every one of them accepts.
+
+**The sender** is one address for the whole instance, `mail.from`, required unless the transport is `none`. Its display name says whom a message is from: the instance's display name (the operator's, [08](08-tenants-and-instances.md) §8.2) on mail about the login, codes and security notices, and the tenant's `site.name` on a tenant's notifications and digests. Bounces and complaints are not processed yet.
 
 ## 6. The Activity Streams profile and thread activity
 
