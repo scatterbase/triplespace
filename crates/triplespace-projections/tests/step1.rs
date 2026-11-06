@@ -25,13 +25,6 @@ use triplespace_projections::actors::payload;
 use triplespace_projections::{Farm, PgBackend, milestone_pipeline};
 
 static COUNTER: AtomicU32 = AtomicU32::new(0);
-thread_local! {
-    /// The scratch databases this test made. Per thread, not per process: the tests run
-    /// in parallel, each on its own thread, and `cleanup` must drop only its own
-    /// databases — `DROP DATABASE … WITH (FORCE)` on another test's would terminate
-    /// that test's connections mid-run (SQLSTATE 57P01).
-    static CREATED: std::cell::RefCell<Vec<String>> = const { std::cell::RefCell::new(Vec::new()) };
-}
 
 const TENANT: &str = "librarybase";
 const ACTORS: u64 = 0x1001;
@@ -63,7 +56,7 @@ async fn fresh() -> (String, Client, PgBackend) {
         .batch_execute(&format!("CREATE DATABASE {name}"))
         .await
         .expect("create database");
-    CREATED.with_borrow_mut(|c| c.push(name.clone()));
+    triplespace_db::scratch::drop_at_thread_end(&name);
     let mut config = admin;
     config.dbname(&name);
     let mut client = connect(&config).await;
@@ -78,17 +71,6 @@ async fn fresh() -> (String, Client, PgBackend) {
         .unwrap();
     let pool = triplespace_db::pool::pool(&url, 4).unwrap();
     (name, client, PgBackend::new(pool))
-}
-
-async fn cleanup() {
-    let Some(admin) = admin_config() else { return };
-    let client = connect(&admin).await;
-    let names: Vec<String> = CREATED.with_borrow_mut(std::mem::take);
-    for n in names {
-        let _ = client
-            .batch_execute(&format!("DROP DATABASE IF EXISTS {n} WITH (FORCE)"))
-            .await;
-    }
 }
 
 fn skipped() -> bool {
@@ -418,7 +400,6 @@ async fn step_one_catches_up() {
     // Lag is zero everywhere.
     let lags = p.lags(&backend, &PgLog::new(client), ACTORS).await.unwrap();
     assert!(lags.iter().all(|l| l.behind() == 0), "{lags:?}");
-    cleanup().await;
 }
 
 #[tokio::test]
@@ -581,7 +562,6 @@ async fn inline_in_the_appending_transaction_then_rebuild() {
         .await,
         3
     );
-    cleanup().await;
 }
 
 async fn connect_same(client: &Client) -> Client {

@@ -15,6 +15,12 @@ strike what stops being true. Implementation status is not kept here (24 §15: `
   `ts_verify`. Granting the test user SET on the three (`GRANT ts_server TO jh WITH SET TRUE,
   INHERIT FALSE`, likewise the others) makes it pass (2026-11-06). `cargo test --workspace` stops
   at the first failing test binary; use `--no-fail-fast` to run the rest.
+- A test that creates a database registers it with
+  `triplespace_db::scratch::drop_at_thread_end` right after `CREATE DATABASE`, and the database
+  is dropped when the test's thread ends, whether it passed or panicked. A `cleanup()` call at
+  the end of the test is skipped by a failing assert, which left about a hundred scratch
+  databases behind before 2026-11-06. `scatter-log-postgres`, which cannot depend on
+  `triplespace-db`, has its own copy in `tests/postgres.rs`.
 
 ## The cloud sandbox
 

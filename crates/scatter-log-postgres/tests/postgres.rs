@@ -17,12 +17,47 @@ use scatter_log_postgres::{PgCheckpoints, PgLog, log, merkle, migrate};
 use tokio_postgres::{Client, Config, NoTls};
 
 static COUNTER: AtomicU32 = AtomicU32::new(0);
+/// The scratch databases this thread made, dropped when the thread ends, whether its test
+/// passed or panicked: the harness runs each test on a thread of its own. Per thread, not
+/// per process: `DROP DATABASE … WITH (FORCE)` on another test's would terminate that
+/// test's connections mid-run (SQLSTATE 57P01). `triplespace_db::scratch` does the same
+/// for the triplespace crates, which this one cannot depend on.
+#[derive(Default)]
+struct Made(Vec<String>);
+
+impl Drop for Made {
+    fn drop(&mut self) {
+        let names = std::mem::take(&mut self.0);
+        let Ok(url) = std::env::var("TRIPLESPACE_TEST_DATABASE_URL") else {
+            return;
+        };
+        if names.is_empty() {
+            return;
+        }
+        // The test's runtime is gone by now: drop them on a thread with one of its own.
+        let _ = std::thread::spawn(move || {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("runtime");
+            runtime.block_on(async {
+                let Ok((client, connection)) = tokio_postgres::connect(&url, NoTls).await else {
+                    return;
+                };
+                tokio::spawn(connection);
+                for n in names {
+                    let _ = client
+                        .batch_execute(&format!("DROP DATABASE IF EXISTS {n} WITH (FORCE)"))
+                        .await;
+                }
+            });
+        })
+        .join();
+    }
+}
+
 thread_local! {
-    /// The scratch databases this test made. Per thread, not per process: the tests run
-    /// in parallel, each on its own thread, and `cleanup` must drop only its own
-    /// databases — `DROP DATABASE … WITH (FORCE)` on another test's would terminate
-    /// that test's connections mid-run (SQLSTATE 57P01).
-    static CREATED: std::cell::RefCell<Vec<String>> = const { std::cell::RefCell::new(Vec::new()) };
+    static CREATED: std::cell::RefCell<Made> = std::cell::RefCell::new(Made::default());
 }
 
 fn admin_config() -> Option<Config> {
@@ -53,7 +88,7 @@ async fn fresh() -> Client {
         .batch_execute(&format!("CREATE DATABASE {name}"))
         .await
         .expect("create database");
-    CREATED.with_borrow_mut(|c| c.push(name.clone()));
+    CREATED.with_borrow_mut(|c| c.0.push(name.clone()));
     let mut config = admin;
     config.dbname(&name);
     let client = connect(&config).await;
@@ -72,17 +107,6 @@ async fn reconnect(client: Client) -> Client {
     let mut config = admin_config().unwrap();
     config.dbname(&name);
     connect(&config).await
-}
-
-async fn cleanup() {
-    let Some(admin) = admin_config() else { return };
-    let client = connect(&admin).await;
-    let names: Vec<String> = CREATED.with_borrow_mut(std::mem::take);
-    for n in names {
-        let _ = client
-            .batch_execute(&format!("DROP DATABASE IF EXISTS {n} WITH (FORCE)"))
-            .await;
-    }
 }
 
 fn skipped() -> bool {
@@ -104,7 +128,6 @@ async fn conformance_suite() {
         async |s: PgLog<Client>| PgLog::new(reconnect(s.into_inner()).await),
     )
     .await;
-    cleanup().await;
 }
 
 #[tokio::test]
@@ -154,7 +177,6 @@ async fn a_rolled_back_append_releases_its_offset() {
     let a = PgLog::new(&tx).append(7, draft(2)).await.unwrap();
     assert_eq!(a.offset, 2, "and is taken again");
     tx.commit().await.unwrap();
-    cleanup().await;
 }
 
 async fn reconnect_same(client: &Client) -> Client {
@@ -213,7 +235,6 @@ async fn merkle_nodes_give_roots_and_proofs() {
         Slot::Compacted { leaf: leaves[4] }
     );
     assert!(matches!(store.read(1, 6).await.unwrap(), Slot::Record(_)));
-    cleanup().await;
 }
 
 #[tokio::test]
@@ -275,7 +296,6 @@ async fn header_columns_reproduce_the_header_bytes() {
         let erased: i16 = r.get(11);
         assert_eq!(erased, if h.offset == 1 { 0b110 } else { 0 });
     }
-    cleanup().await;
 }
 
 #[tokio::test]
@@ -346,7 +366,6 @@ async fn checkpoints_in_rows() {
         vec![0, 1]
     );
     assert_eq!(manifests[0].1, m0);
-    cleanup().await;
 }
 
 #[tokio::test]
@@ -439,7 +458,6 @@ async fn sequences_and_floors() {
             .await
             .is_err()
     );
-    cleanup().await;
 }
 
 #[tokio::test]
@@ -477,5 +495,4 @@ async fn compaction_by_key() {
         Slot::Compacted { .. }
     ));
     tx.commit().await.unwrap();
-    cleanup().await;
 }

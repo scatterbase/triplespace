@@ -33,13 +33,6 @@ use triplespace_api_ingest::PgIngest;
 use triplespace_projections::{Farm, PgBackend, milestone_pipeline};
 
 static COUNTER: AtomicU32 = AtomicU32::new(0);
-thread_local! {
-    /// The scratch databases this test made. Per thread, not per process: the tests run
-    /// in parallel, each on its own thread, and `cleanup` must drop only its own
-    /// databases — `DROP DATABASE … WITH (FORCE)` on another test's would terminate
-    /// that test's connections mid-run (SQLSTATE 57P01).
-    static CREATED: std::cell::RefCell<Vec<String>> = const { std::cell::RefCell::new(Vec::new()) };
-}
 
 const TENANT: &str = "librarybase";
 const LOCAL: u64 = 0x3001;
@@ -75,7 +68,7 @@ async fn fresh() -> (Client, PgBackend) {
         .batch_execute(&format!("CREATE DATABASE {name}"))
         .await
         .expect("create database");
-    CREATED.with_borrow_mut(|c| c.push(name.clone()));
+    triplespace_db::scratch::drop_at_thread_end(&name);
     let mut config = admin;
     config.dbname(&name);
     let mut client = connect(&config).await;
@@ -90,17 +83,6 @@ async fn fresh() -> (Client, PgBackend) {
         .unwrap();
     let pool = triplespace_db::pool::pool(&url, 4).unwrap();
     (client, PgBackend::new(pool))
-}
-
-async fn cleanup() {
-    let Some(admin) = admin_config() else { return };
-    let client = connect(&admin).await;
-    let names: Vec<String> = CREATED.with_borrow_mut(std::mem::take);
-    for n in names {
-        let _ = client
-            .batch_execute(&format!("DROP DATABASE IF EXISTS {n} WITH (FORCE)"))
-            .await;
-    }
 }
 
 fn skipped() -> bool {
@@ -728,7 +710,6 @@ async fn adoption_batch_sync_and_edit_end_to_end() {
     let after = rows(&client, "SELECT (tenant, id, type, page_id, surrogate, resolved_kind, convert_from(resolved, 'UTF8'))::text FROM view.entity").await;
     assert_eq!(before, after);
     assert_eq!(keyed_before, rows(&client, keyed_map).await);
-    cleanup().await;
 }
 
 /// One revision of a history adoption (0035 A12).
@@ -936,7 +917,6 @@ async fn a_history_adoption_over_postgres() {
         .await,
         5
     );
-    cleanup().await;
 }
 
 /// A tenant declares an entity source (0078 §1), its partition opens, a sync loads it
@@ -1226,5 +1206,4 @@ async fn a_tenant_declares_and_loads_an_entity_source() {
         .await,
         0
     );
-    cleanup().await;
 }

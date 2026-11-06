@@ -22,13 +22,6 @@ static BROKEN: &[Migration] = &[Migration {
     name: "9999_broken",
     sql: "CREATE TABLE ops.half (a int); SELECT nonsense;",
 }];
-thread_local! {
-    /// The scratch databases this test made. Per thread, not per process: the tests run
-    /// in parallel, each on its own thread, and `cleanup` must drop only its own
-    /// databases — `DROP DATABASE … WITH (FORCE)` on another test's would terminate
-    /// that test's connections mid-run (SQLSTATE 57P01).
-    static CREATED: std::cell::RefCell<Vec<String>> = const { std::cell::RefCell::new(Vec::new()) };
-}
 
 fn admin_config() -> Option<Config> {
     let url = std::env::var("TRIPLESPACE_TEST_DATABASE_URL").ok()?;
@@ -58,21 +51,10 @@ async fn fresh() -> Client {
         .batch_execute(&format!("CREATE DATABASE {name}"))
         .await
         .expect("create database");
-    CREATED.with_borrow_mut(|c| c.push(name.clone()));
+    triplespace_db::scratch::drop_at_thread_end(&name);
     let mut config = admin;
     config.dbname(&name);
     connect(&config).await
-}
-
-async fn cleanup() {
-    let Some(admin) = admin_config() else { return };
-    let client = connect(&admin).await;
-    let names: Vec<String> = CREATED.with_borrow_mut(std::mem::take);
-    for n in names {
-        let _ = client
-            .batch_execute(&format!("DROP DATABASE IF EXISTS {n} WITH (FORCE)"))
-            .await;
-    }
 }
 
 fn skipped() -> bool {
@@ -148,7 +130,6 @@ async fn migrations_apply_once_and_notice_edits() {
         .await
         .unwrap();
     assert!(recorded.is_none());
-    cleanup().await;
 }
 
 #[tokio::test]
@@ -174,7 +155,6 @@ async fn an_unclassified_private_table_is_caught() {
         private::check(&client).await,
         Err(private::PrivateError::Disagrees { .. })
     ));
-    cleanup().await;
 }
 
 #[tokio::test]
@@ -265,7 +245,6 @@ async fn the_public_role_cannot_read_private() {
             .is_err()
     );
     assert!(as_role(role::VERIFY, "INSERT INTO log.partition (partition, name, graph_iri, history, integrity, export, segment_k, hash) VALUES (99, 'x', '', 'full', 'logged', 'public', 1, 'sha-256') RETURNING partition").await.is_err());
-    cleanup().await;
 }
 
 #[tokio::test]
@@ -308,7 +287,6 @@ async fn projection_state_and_lag() {
         projection_state::lags(&client, 3).await.unwrap(),
         vec![("entity".to_string(), 3, 5), ("term".to_string(), 5, 5)]
     );
-    cleanup().await;
 }
 
 #[tokio::test]
@@ -332,7 +310,6 @@ async fn lsn_routing_on_a_primary() {
     assert_eq!(route(Some(after), None), Route::Primary);
     assert_eq!(route(Some(before), Some(after)), Route::Replica);
     assert_eq!(Lsn::parse(&after.to_text()), Some(after));
-    cleanup().await;
 }
 
 #[tokio::test]
@@ -359,5 +336,4 @@ async fn pools_connect() {
     let one: i32 = c.query_one("SELECT 1", &[]).await.unwrap().get(0);
     assert_eq!(one, 1);
     assert!(triplespace_db::pool::pool("not a url", 1).is_err());
-    cleanup().await;
 }
