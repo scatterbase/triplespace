@@ -133,7 +133,7 @@ A resolver is a registry entry, a `config` record of kind `resolver` in the tena
 | **Namespace** | The MediaWiki namespace whose titles are keys, of kind `resolver` (§3.2) | `DOI` |
 | **Binding** | A **role** (§1) naming the property, or `sitelink` (§3.5) | `doi`, bound on a Wikidata-mirroring tenant to `WDP356` and to any local DOI property |
 | **Grammar** | Which strings are valid keys ([04](04-entities-and-identifiers.md) §3.1) | `10\.\d{4,9}/.+`, after the normalizer |
-| **Normalizer** | How input becomes the canonical key, including the **case rule** | Strip a leading `https://doi.org/`, `http://dx.doi.org/` or `doi:`; percent-decode; **casefold** |
+| **Normalizer** | How input becomes the canonical key, including the **case rule** | Strip a leading `https://doi.org/`, `http://dx.doi.org/` or `doi:`, and percent-decode what had such a prefix (a bare DOI is taken as written, so its `%` is part of it); **casefold** |
 | **External IRI** | Where the key resolves outside the instance | `https://doi.org/{key}` |
 | **Label** | For the disambiguation page and the identity line | "DOI" |
 
@@ -200,7 +200,7 @@ A sitelink has a **URL**, a set of **badges** (item IDs, as in Wikibase) and an 
 1. parse as a WHATWG URL; reject anything that does not parse;
 2. the scheme must be in the tenant's allowed set (`sitelinks.schemes` in `site` configuration; default `https` and `http`);
 3. lowercase the scheme; normalize the host with the Domain normalizer ([04](04-entities-and-identifiers.md) §3.6), so it is a valid Domain key in A-label form; drop a default port;
-4. normalize percent-encoding in the path, query and fragment (RFC 3986 §6.2.2: uppercase hex digits, decode unreserved characters); an empty path becomes `/`;
+4. normalize percent-encoding in the path, query and fragment (RFC 3986 §6.2.2: uppercase hex digits, decode unreserved characters, except a hex digit that would complete an escape with a stray `%` before it, so a second pass changes nothing); an empty path becomes `/`;
 5. keep the query and the fragment. A fragment names a section, and a section is a legitimate target.
 
 Nothing else is folded: `/Foo` and `/Foo/` are different URLs, as they are to the server that serves them.

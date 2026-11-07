@@ -24,6 +24,8 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0019 A31](0019-discussions.md#a31-a-threads-actions-from-the-page-the-calls-made-building-them) | 2026-11-05 | A thread's actions from the page: the calls made building them |
 | [0021 A23](0021-notifications.md#a23-accountability-the-calls-made-building-tier-5) | 2026-10-30 | Accountability: the calls made building tier 5 |
 | [0023 A17](0023-moderation.md#a17-partial-undelete-and-hidden-events-the-calls-made-building-them) | 2026-10-30 | Partial undelete and hidden events: the calls made building them |
+| [0026 A8](0026-sitelinks.md#a8-a-stray-does-not-gain-an-escape-from-a-decoded-digit) | 2026-11-06 | A stray `%` does not gain an escape from a decoded digit |
+| [0029 A11](0029-resolver-namespaces.md#a11-a-doi-is-percent-decoded-only-when-written-as-a-uri) | 2026-11-06 | A DOI is percent-decoded only when written as a URI |
 | [0033 A25](0033-backend-stack.md#a25-tls-to-postgres-when-the-url-says-sslmoderequire) | 2026-10-31 | TLS to Postgres when the URL says `sslmode=require` |
 | [0034 A15](0034-frontend-stack.md#a15-uselangqqx-shows-message-keys) | 2026-11-04 | `uselang=qqx` shows message keys |
 | [0042 A22](0042-template-expansion-and-parsoid.md#a22-which-template-drew-a-block) | 2026-11-04 | Which template drew a block |
