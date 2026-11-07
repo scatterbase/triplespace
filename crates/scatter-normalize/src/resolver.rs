@@ -112,7 +112,12 @@ pub enum DoiError {
 }
 
 /// The DOI normalizer of 0029 §1, before the case rule: strip a leading `https://doi.org/`,
-/// `http://dx.doi.org/`, `doi.org/` or `doi:`; percent-decode; trim.
+/// `http://dx.doi.org/`, `doi.org/` or `doi:`; percent-decode only what was written with
+/// such a prefix (0029 A11); trim.
+///
+/// A bare DOI is taken as written, so a `%` in it is a character of the DOI and the key,
+/// which is bare, normalizes to itself: decoding every input would turn `%2541` into `%41`
+/// on one pass and `A` on the next.
 pub fn doi(input: &str) -> Result<String, DoiError> {
     const PREFIXES: &[&str] = &[
         "https://doi.org/",
@@ -124,19 +129,25 @@ pub fn doi(input: &str) -> Result<String, DoiError> {
         "doi:",
     ];
     let mut s = input.trim();
+    let mut uri = false;
     for p in PREFIXES {
         // `get`, not a slice: the prefix's length need not be a char boundary of the input.
         if let Some(head) = s.get(..p.len())
             && head.eq_ignore_ascii_case(p)
         {
             s = &s[p.len()..];
+            uri = true;
             break;
         }
     }
-    let decoded = percent_encoding::percent_decode_str(s)
-        .decode_utf8()
-        .map_err(|_| DoiError::Utf8)?;
-    let key = decoded.trim().to_string();
+    let key = if uri {
+        let decoded = percent_encoding::percent_decode_str(s)
+            .decode_utf8()
+            .map_err(|_| DoiError::Utf8)?;
+        decoded.trim().to_string()
+    } else {
+        s.to_string()
+    };
     if !is_doi(&key) {
         return Err(DoiError::Grammar);
     }
@@ -339,7 +350,8 @@ mod tests {
             "HTTP://DX.DOI.ORG/10.1000/xyz",
             "doi:10.1000/XyZ",
             "  10.1000/xyz\n",
-            "10.1000/%58yz", // %58 is X
+            "https://doi.org/10.1000/%58yz", // %58 is X
+            "doi:10.1000/%58yz",
         ] {
             assert_eq!(d.normalize(input).unwrap(), "10.1000/xyz", "{input}");
         }
@@ -356,9 +368,17 @@ mod tests {
             Err(ResolverError::Invalid { .. })
         ));
         assert!(matches!(
-            d.normalize("10.1000/%ff"),
+            d.normalize("doi:10.1000/%ff"),
             Err(ResolverError::Invalid { .. })
         ));
+        // A bare DOI is taken as written: its `%` is part of it, and the key is a fixed point.
+        assert_eq!(d.normalize("10.1000/%58yz").unwrap(), "10.1000/%58yz");
+        assert_eq!(d.normalize("10.1000/%ff").unwrap(), "10.1000/%ff");
+        assert_eq!(
+            d.normalize("https://doi.org/10.1000/%2541").unwrap(),
+            "10.1000/%41"
+        );
+        assert_eq!(d.normalize("10.1000/%41").unwrap(), "10.1000/%41");
         assert!(is_doi("10.123456789/a"));
         assert!(!is_doi("10.1234567890/a"));
     }

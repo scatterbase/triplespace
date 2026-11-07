@@ -6,7 +6,8 @@
 //! 3. lowercase the scheme; normalize the host with the Domain normalizer, so it is a valid
 //!    Domain key in A-label form; drop a default port;
 //! 4. normalize percent-encoding in the path, query and fragment (RFC 3986 §6.2.2:
-//!    uppercase hex digits, decode unreserved characters); an empty path becomes `/`;
+//!    uppercase hex digits, decode unreserved characters, but not a hex digit that would
+//!    complete an escape with a stray `%`, 0026 A8); an empty path becomes `/`;
 //! 5. keep the query and the fragment.
 //!
 //! Nothing else is folded: `/Foo` and `/Foo/` are different URLs.
@@ -117,7 +118,7 @@ pub fn normalize_percent_encoding(s: &str) -> String {
             && let (Some(hv), Some(lv)) = (hex(*h), hex(*l))
         {
             let byte = hv << 4 | lv;
-            if is_unreserved(byte) {
+            if is_unreserved(byte) && !completes_escape(&out, byte) {
                 out.push(byte as char);
             } else {
                 let _ = write!(out, "%{byte:02X}");
@@ -131,6 +132,21 @@ pub fn normalize_percent_encoding(s: &str) -> String {
         i += ch.len_utf8();
     }
     out
+}
+
+/// Whether appending the decoded `byte` would turn a stray `%` already in `out` into a
+/// new escape (`%%30a` → `%0a`), which a second pass would then rewrite (`%0A`). Such an
+/// octet stays encoded, so the normalizer is idempotent.
+fn completes_escape(out: &str, byte: u8) -> bool {
+    if hex(byte).is_none() {
+        return false;
+    }
+    let o = out.as_bytes();
+    match o {
+        [.., b'%'] => true,
+        [.., b'%', h] => hex(*h).is_some(),
+        _ => false,
+    }
 }
 
 fn hex(b: u8) -> Option<u8> {
@@ -174,6 +190,11 @@ mod tests {
         assert_eq!(normalize_percent_encoding("a%2fb"), "a%2Fb");
         assert_eq!(normalize_percent_encoding("100%"), "100%");
         assert_eq!(normalize_percent_encoding("%zz"), "%zz");
+        // A decoded hex digit that would complete an escape with a stray `%` stays
+        // encoded, so a second pass changes nothing.
+        assert_eq!(normalize_percent_encoding("%%30a"), "%%30a");
+        assert_eq!(normalize_percent_encoding("%a%30"), "%a%30");
+        assert_eq!(normalize_percent_encoding("%%7e"), "%~");
         assert_eq!(normalize_percent_encoding("caf\u{e9}"), "caf\u{e9}");
         assert_eq!(
             n("https://example.org/wiki/Caf%c3%a9"),

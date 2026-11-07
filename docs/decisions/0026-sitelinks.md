@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-09 (A7)
+- **Updated:** 2026-11-06 (A8)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0009](0009-keyed-entity-types-and-domain.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0018](0018-tenants.md)
 - **Uses:** [0016](0016-permissions-and-access-control.md), [0022](0022-federation.md), [Wikibase contract](../api/wikibase-compat.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -21,7 +21,7 @@ Two constraints shape the rest. The **host of a URL is a Domain** ([0009](0009-k
 
 ### 1. A sitelink is a normalized URL, with badges
 
-*Changed by A3.*
+*Changed by A3, A8.*
 
 *Current text: [06](../architecture/06-statements-and-properties.md) §4.1, §4.6.*
 
@@ -170,3 +170,10 @@ Replaced text (§8):
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §2, §4
 - **Summary:** Where two entities hold one normalized URL in different graphs, a local link on one and a mirrored link on the other, the local link wins: the mirrored link is dropped from the resolved view, `view.sitelink` keeps the one-item-per-URL invariant of §2, and the dropped link is listed for maintenance beside the corrections of [0002](0002-source-graphs-and-mass-ingest.md) §7 so an editor can see what upstream says; between two mirrored links the provider order decides. The sitelink projection never fails on such a conflict: a sync batch that brings a colliding link is applied and the collision is resolved by the rule, not reported as an error of the batch. A local write that would collide with a mirrored link on another item is refused at write naming that item, since the one-item-per-URL check reads the resolved view, so the rule only ever decides between what a sync brought and what a tenant already holds. The normalizer-change rule of the same row (a per-property rebuild job, the rendering version bumped, `value_key` rows carrying the normalizer version) is logged in [0004](0004-identity-clusters-and-equivalence.md) §7. The ledger named §5 (Sitelinks and Domains), whose chapter text did not change; the fold is in [06](../architecture/06-statements-and-properties.md) §4.2 and §4.5, which hold §2 and §4. Nothing is contradicted, so this is an extension. (REVIEW G33)
+
+### A8. A stray `%` does not gain an escape from a decoded digit
+
+- **Date:** 2026-11-06
+- **Source:** Direct: Claude, while fixing the URL normalizer's idempotence (CI run 42331701027), 2026-11-06; unconfirmed
+- **Change:** extends §1
+- **Summary:** Step 4 decodes escaped unreserved characters, and the hex digits are unreserved, so a `%` not followed by two hex digits could become an escape after one pass and change on the next (`%%30a` → `%0a` → `%0A`): the normalized form was not a fixed point. An escaped hex digit that would complete a triplet with such a stray `%` now stays encoded (`%%30a` is its own key). The call for James is that a malformed `%` is kept as written, as the WHATWG parser keeps it, rather than encoded as `%25` or refused. Folded at [06](../architecture/06-statements-and-properties.md) §4.1.

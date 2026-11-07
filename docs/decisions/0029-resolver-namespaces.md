@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-09 (A10)
+- **Updated:** 2026-11-06 (A11)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0003](0003-statement-ui.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0017](0017-entity-id-grammar.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md)
@@ -18,6 +18,8 @@ The instance already has every part of this. [0013](0013-postgres-storage.md) §
 ## Decision
 
 ### 1. A resolver is a namespace bound to a property (extends 0003 §7; settles 0009 Q6 and 0017 Q6)
+
+*Changed by A11.*
 
 *Current text: [06](../architecture/06-statements-and-properties.md) §3.1.*
 
@@ -179,3 +181,14 @@ Replaced text (§6):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§9
 - **Summary:** The Decision's current text now lives in the architecture chapters [06](../architecture/06-statements-and-properties.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A11. A DOI is percent-decoded only when written as a URI
+
+- **Date:** 2026-11-06
+- **Source:** Direct: James, choosing between the fixes for the DOI normalizer's idempotence, 2026-11-06; Claude wrote the details while building it, unconfirmed
+- **Change:** amends §1
+- **Summary:** The normalizer percent-decoded every input, so the key was not a fixed point: `10.1000/%2541` became `10.1000/%41` and then `10.1000/A`. James chose to decode only URL forms; a bare DOI is taken as written, so a `%` in it is a character of the DOI, as the DOI Handbook allows. Two details are Claude's, for James to confirm: the `doi:` prefix counts as a URI form and is decoded too, and a bare DOI with `%` that was decoded before (`10.1000/%58yz` was `10.1000/xyz`) now keeps it, which changes the stored key of any such value at the next rebuild. Folded at [06](../architecture/06-statements-and-properties.md) §3.1.
+
+Replaced text (§1, Normalizer):
+
+> Strip a leading `https://doi.org/`, `http://dx.doi.org/` or `doi:`; percent-decode; **casefold**

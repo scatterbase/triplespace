@@ -5,3 +5,6 @@
 # It is recommended to check this file in to source control so that
 # everyone who runs the test benefits from these saved cases.
 cc 8132cec9190a46e0fafbda72fce406bbf8ac74a4e67fe798aea3124f144483a2 # shrinks to s = "0 \u{1ab0}"
+cc b8a868972ad163f259638ac59e26f70efda616a8fbdd383a30342d86a7088647 # shrinks to s = "http://a?%%30a"
+cc e4689ab1c35251f472d7ec0ee5cb086e3cb5086f1a43fb46beb08ab9b6cc661e # shrinks to s = "10.0000/%a%30"
+cc de8f01a04ef38f019be41caa43b1c4100727f60ca661ffe2ddd75b56049badff # shrinks to s = "10.0000/%A%30"
