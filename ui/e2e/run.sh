@@ -33,6 +33,11 @@ export TRIPLESPACE_DATABASE_URL="$url"
 "$bin/triplespace" instance create --farm-slug scatter --tenant librarybase --base https://librarybase.org \
 	--key-file "$work/k.key" --provider internetdomains --adopt https://librarybase.org/ \
 	--owner 7 --owner-name Alice --owner-password-file "$work/owner.pw" >/dev/null
+# The specs register accounts, and the browser solves the challenge in JavaScript (0087
+# §3): a cheap challenge that still rises, as tools/acl_check.sh sets, since what the suite
+# tests is the form, not proof-of-work.
+"$bin/triplespace" settings set --tenant librarybase challenge.bits 8 >/dev/null
+"$bin/triplespace" settings set --tenant librarybase challenge.max_bits 10 >/dev/null
 # A client credential for Wikimedia (ADR 0088 §3), so the login page offers it; its
 # callback is registered as a prefix of the edge's, which the API sees as its base.
 echo 'e2e-oauth-secret' > "$work/oauth.secret"

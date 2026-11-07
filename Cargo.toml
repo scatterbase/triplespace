@@ -198,6 +198,14 @@ missing_errors_doc = "allow"
 missing_panics_doc = "allow"
 doc_markdown = "allow"
 
+# Dependencies are optimized even in the dev profile: the tests and the binaries CI runs are
+# debug builds, and an unoptimized `sha2` solves a 20-bit challenge in five seconds where an
+# optimized one takes a fifth of one; `html5ever`, `serde_json`, `zstd` and `tokio-postgres`
+# gain likewise. Workspace crates stay unoptimized, so their builds stay fast; CI's cache
+# keeps the dependencies' artifacts across runs.
+[profile.dev.package."*"]
+opt-level = 2
+
 [profile.release]
 lto = "thin"
 codegen-units = 1
