@@ -546,3 +546,52 @@ times the size: the indexes outgrow the 62 GB of memory, which the sample, at 56
 did not test, and the Merkle nodes grow a little faster than linearly. The disk is the
 constraint: 551 GB is free with the benchmark databases in place, about 660 GB without them,
 and the dump itself (the `.bz2`, 104 GB) has to stay while it loads.
+
+**The whole dump (2026-11-06/07).** The 2026-10-26 dump, every one of its 122,056,985
+entities in the dump's own order (properties scattered through it), recompressed to gzip from
+the zindex archive (`wd-full.json.gz`, 211 GB, sha256 `d277f32a…`; gotchas.md on why not the
+`.bz2`), loaded in bootstrap mode by `a726543` on the same VM grown to 125 GB of RAM and
+2.5 TB of disk, with `shared_buffers` 32 GB and `effective_cache_size` 96 GB (§4's R/4 and 3R/4):
+
+| | |
+|---|---|
+| wall | **25h25m15s** (1,334 entities/s) |
+| loaded | 122,056,983 created, 0 rejected, 2 unreadable (statement IDs whose UUID part is not hexadecimal, which Wikibase allows; loaded since, 0017 A13) |
+| rate per hour | 1,970–2,800/s for the first six hours (to about 290 GB); 670–1,480/s after, ending at 745/s |
+| client | 326,015 s user CPU, 3.6 cores on average (up to 8 in dense stretches); peak RSS 1.77 GB |
+| Postgres | execution **78,424 s, 86% of the wall time**; planning 31 s; 18.1M statements, 0.15 an entity |
+| database | 712 GB (663 GiB), 5,832 bytes per entity; indexes 112 GB |
+| largest relations | the log partition 451 GB (3.7 KB per entity), `view.identifier` 72 GB, `view.term` 46 GB, Merkle nodes 38 GB, `view.entity_source` 28 GB, `view.entity` 28 GB |
+
+| statement (per block of 200) | calls | execution | per call |
+|---|---|---|---|
+| terms (`WITH term_ceiling … INSERT INTO view.term`) | 606,637 | 24,864 s | 41 ms |
+| `INSERT INTO view.identifier` | 603,316 | 21,907 s | 36 ms |
+| `COPY log.record` | 606,636 | 16,317 s | 27 ms |
+| `INSERT INTO view.entity_source` | 606,636 | 5,461 s | 9.0 ms |
+| `INSERT INTO view.entity` | 606,637 | 4,750 s | 7.8 ms |
+| `COPY log.merkle_node` | 606,636 | 1,903 s | 3.1 ms |
+
+The 10M sample's projection held for size (730 GB predicted, 712 GB) but not for time (16 h
+predicted, 25.4 h). Two things changed past the sample's scale, and the run cannot separate
+them cleanly:
+
+- **The dump is not uniform.** Long stretches hold larger entities than the sample's average
+  (at 65M entities, 3.1 KB of gzip each against 1.77 KB over the run so far), and the rate
+  follows them: the dip to 466/s at 22:14 recovered to 2,500/s within the hour.
+- **The writes became the critical path.** On the 2M set Postgres was under half a core and the
+  client the bound; here Postgres execution is 86% of the wall time, and since the coordinator
+  applies one block at a time on one connection, almost all of the run waited on it. Postgres
+  used 60–75% of one core throughout, so most of each statement's time was reading index pages:
+  once the database passed RAM (about 20:00, three hours in), it read 14–35 MB/s from disk
+  steadily, with 4–7% iowait. The index-heavy inserts, terms and identifiers, are 60% of it.
+
+What would most likely shorten the next run, in order (each unmeasured): applying a block's
+writes on a second connection while the next block's projections run (the coordinator is idle
+while it waits); building `view.term`'s and `view.identifier`'s secondary indexes after the
+load, as 0013 §9's deferred indexes intend; and sorting each block's term and identifier rows
+by their index keys before inserting, to make the index writes less random.
+
+Keep `ts_full` (712 GB) until the follower has been run against it from the dump's date
+(`triplespace follow --provider wikidata --from 2026-10-27T11:54:55Z`, where the load ended):
+that is the next measurement this database makes possible.
