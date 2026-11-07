@@ -17,8 +17,11 @@ env:
   # `-D warnings` below covers rustc's lints as well.
 
 jobs:
-  check:
-    name: Build, test and lint
+  # Build and test, and lint, run as separate jobs so that they run in parallel and a failing
+  # test does not hide a lint failure. Lint compiles in check mode and shares no artifacts with
+  # the build, so it loses nothing by running apart.
+  test:
+    name: Build and test
     runs-on: ubuntu-latest
     services:
       # scatter-log-postgres's integration tests run against a real database (0033 §4,
@@ -38,6 +41,25 @@ jobs:
       TRIPLESPACE_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.95.0
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+      - name: Build
+        run: cargo build --workspace --all-targets
+      - name: Test
+        run: cargo nextest run --workspace
+      - name: Doc tests
+        run: cargo test --workspace --doc
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       # The toolchain, components and targets come from rust-toolchain.toml.
       - uses: dtolnay/rust-toolchain@master
         with:
@@ -47,17 +69,11 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@v2
         with:
-          tool: cargo-nextest,cargo-deny,cargo-hack
+          tool: cargo-hack
       - name: Format
         run: cargo fmt --all --check
       - name: Dependency graph matches ADR 0005 §2
         run: cargo xtask deps
-      - name: Build
-        run: cargo build --workspace --all-targets
-      - name: Test
-        run: cargo nextest run --workspace
-      - name: Doc tests
-        run: cargo test --workspace --doc
       - name: Rustdoc
         run: cargo doc --workspace --no-deps
         env:
