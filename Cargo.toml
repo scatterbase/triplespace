@@ -171,6 +171,9 @@ tokio-postgres-rustls = { version = "0.14", features = ["aws-lc-rs"] }
 axum = { version = "0.8", default-features = false, features = ["http1", "tokio", "query", "form", "json", "matched-path"] }
 tower = "0.5"
 insta = "1"
+# Property tests of the canonical encodings, the Merkle proofs and the normalizers
+# (22 §4.9; 0033 §15): dev-dependencies only, with small case counts.
+proptest = "1"
 http-body-util = "0.1"
 # The web tier (0057): its HTTP client to the API, rustls on aws-lc-rs (0033 §6–7)
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "http2"] }
