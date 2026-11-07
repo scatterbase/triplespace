@@ -448,6 +448,47 @@ async fn api(database: &str, key_file: &std::path::Path) {
         "{rest}"
     );
 
+    // prefixsearch finds pages by a case-insensitive title prefix (0010 §3; 0052 §6): in
+    // the main namespace by default, in every page namespace for `*`, and in the
+    // namespace the text names, with continuation; the exact title leads.
+    let none = c.get("action=query&list=prefixsearch&pssearch=abo").await;
+    assert_eq!(
+        none["query"]["prefixsearch"],
+        serde_json::json!([]),
+        "{none}"
+    );
+    let about = c
+        .get("action=query&list=prefixsearch&pssearch=abo&psnamespace=*")
+        .await;
+    assert_eq!(
+        about["query"]["prefixsearch"][0]["title"],
+        format!("{project}:About"),
+        "{about}"
+    );
+    assert_eq!(about["query"]["prefixsearch"][0]["ns"], 4);
+    let named = c
+        .get("action=query&list=prefixsearch&pssearch=project%3Aanalytics&pslimit=2")
+        .await;
+    let found = named["query"]["prefixsearch"].as_array().unwrap();
+    assert_eq!(found.len(), 2, "{named}");
+    assert_eq!(found[0]["title"], format!("{project}:Analytics"));
+    assert_eq!(named["continue"]["psoffset"], 2, "{named}");
+    let more = c
+        .get("action=query&list=prefixsearch&pssearch=project%3Aanalytics&pslimit=2&psoffset=2")
+        .await;
+    assert_ne!(
+        more["query"]["prefixsearch"][0]["title"], found[0]["title"],
+        "{more}"
+    );
+    let entity_ns = c
+        .get("action=query&list=prefixsearch&pssearch=Item%3AQ&psnamespace=*")
+        .await;
+    assert_eq!(
+        entity_ns["query"]["prefixsearch"],
+        serde_json::json!([]),
+        "{entity_ns}"
+    );
+
     // backlinks lists the pages whose text links to a title (0008 §10): Project:Home
     // links to Project:Principles, by title, and to Item:Q2, by the item's ID.
     for target in ["Project:Principles", "Item:Q2"] {

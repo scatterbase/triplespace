@@ -175,3 +175,110 @@ async fn display_terms(
     }
     Ok((label, description))
 }
+
+/// Runs `list=prefixsearch` (compat §3.3; 0010 §3; 0052 §6): the best-matching document
+/// page titles for what a reader has typed, a case-insensitive prefix on `view.page`
+/// (03 §11.2). `psnamespace` (a `|` list, `*` for every namespace that holds pages,
+/// `0` by default) is ignored when `pssearch` begins with a namespace prefix, as in
+/// MediaWiki. The entity namespaces hold no document pages, so they are never searched:
+/// entities are found with `wbsearchentities`. An exact title comes first, then shorter
+/// titles before longer, so that the closest match leads. Pages a confidential
+/// restriction hides from the caller are not listed (09 §5.3).
+pub async fn prefixsearch(
+    ctx: &Ctx,
+    query: &mut serde_json::Map<String, Value>,
+    body: &mut serde_json::Map<String, Value>,
+) -> Result<(), ApiError> {
+    use scatter_titles::Namespaces;
+    use scatter_wikitext::{Title, parse_target};
+
+    ctx.caller.require("read")?;
+    let search = ctx.params.required("pssearch")?.to_string();
+    let limit = ctx.params.int("pslimit", 10, 1, 500)?;
+    let offset = ctx.params.int("psoffset", 0, 0, 10_000)?;
+    let site = crate::pages::Site::load(ctx).await?;
+    let holds_pages = |ns: i32| {
+        site.holds_pages(ns)
+            && Namespaces::embedded()
+                .get(ns)
+                .is_some_and(|n| !n.is_entity_namespace())
+    };
+    let mut namespaces: Vec<i32> = match ctx.params.get("psnamespace") {
+        None | Some("") => vec![0],
+        Some("*") => Namespaces::embedded()
+            .iter()
+            .map(|n| n.id)
+            .filter(|&ns| holds_pages(ns))
+            .collect(),
+        Some(list) => {
+            let mut out = Vec::new();
+            for n in list.split('|') {
+                let ns: i32 = n
+                    .parse()
+                    .map_err(|_| ApiError::bad_value("psnamespace", n))?;
+                out.push(ns);
+            }
+            out
+        }
+    };
+    // A namespace prefix in the text picks that namespace; the text is what follows it.
+    let prefix = match parse_target(&search, &site.config, &Title::new(0, "")) {
+        Some(t) if t.title.interwiki.is_none() => {
+            if t.title.namespace != 0 || search.trim_start().starts_with(':') {
+                namespaces = vec![t.title.namespace];
+            }
+            t.title.text
+        }
+        // Not a title, or a title in another wiki: nothing here has it.
+        _ => {
+            query.insert("prefixsearch".into(), Value::Array(Vec::new()));
+            return Ok(());
+        }
+    };
+    let hidden = crate::pages::hidden(ctx).await?;
+    namespaces.retain(|&ns| holds_pages(ns) && !hidden.namespaces.contains(&ns));
+    namespaces.dedup();
+    let rows = if hidden.every_page() || namespaces.is_empty() {
+        Vec::new()
+    } else {
+        let lowered = prefix.to_lowercase();
+        ctx.db()
+            .query(
+                "SELECT page_id, ns, title FROM view.page
+                 WHERE tenant = $1 AND ns = ANY($2) AND NOT deleted AND latest_offset IS NOT NULL
+                   AND lower(title) LIKE $3
+                   AND NOT (page_id = ANY($4))
+                 ORDER BY (lower(title) = $5) DESC, length(title), ns, title COLLATE \"C\"
+                 LIMIT $6 OFFSET $7",
+                &[
+                    &ctx.tenant.slug,
+                    &namespaces,
+                    &prefix_pattern(&prefix),
+                    &hidden.page_ids(),
+                    &lowered,
+                    &i64::try_from(limit + 1).unwrap_or(501),
+                    &i64::try_from(offset).unwrap_or(0),
+                ],
+            )
+            .await?
+    };
+    let mut out = Vec::new();
+    for (i, r) in rows.iter().enumerate() {
+        if i == usize::try_from(limit).unwrap_or(10) {
+            body.insert(
+                "continue".into(),
+                json!({"psoffset": offset + limit, "continue": "-||"}),
+            );
+            break;
+        }
+        let ns: i32 = r.get(1);
+        let title: String = r.get(2);
+        out.push(json!({
+            "ns": ns,
+            "title": site.prefixed(ns, &title),
+            "pageid": r.get::<_, i64>(0),
+        }));
+    }
+    query.insert("prefixsearch".into(), Value::Array(out));
+    Ok(())
+}

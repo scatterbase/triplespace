@@ -382,9 +382,41 @@ async fn an_id_is_offered_or_reported_missing() {
         "a word is searched, not taken for an ID"
     );
     assert!(!word.contains("There is no entity"));
-    assert!(word.contains("No items, properties or domains match “Paris”."));
+    assert!(word.contains("No items, properties, domains or pages match “Paris”."));
     let (_, _, empty) = get("/wiki/Special:Search").await;
     assert!(empty.contains("class=\"ts-search-intro\""));
+}
+
+/// Document pages are found by their titles (0010 §3; 19 §2.1): the exact title of one
+/// goes straight to it from the header's box, however it is cased, and a prefix lists
+/// pages as a group of their own, which `ns0=1` asks for alone.
+#[tokio::test]
+async fn pages_are_found_by_title() {
+    for (text, to) in [
+        ("Librarybase:About", "/wiki/Librarybase:About"),
+        ("librarybase:about", "/wiki/Librarybase:About"),
+        ("Project:About", "/wiki/Librarybase:About"),
+        ("printing", "/wiki/Printing"),
+    ] {
+        let (status, loc) = location(&format!(
+            "/w/index.php?title=Special:Search&search={}",
+            text.replace(':', "%3A")
+        ))
+        .await;
+        assert_eq!(status, StatusCode::FOUND, "{text}");
+        assert_eq!(loc.as_deref(), Some(to), "{text}");
+    }
+    let (_, _, html) = get("/w/index.php?title=Special:Search&search=Printing&fulltext=1").await;
+    assert!(html.contains(">Go to Printing</a>"), "{html}");
+    assert!(html.contains(">Pages</h2>"));
+    assert!(html.contains("href=\"/wiki/Printing\" class=\"ts-hit__title\""));
+    assert!(html.contains("href=\"/wiki/Librarybase:Printing_presses\" class=\"ts-hit__title\""));
+    assert!(!html.contains(">Items</h2>"), "no item starts with it");
+
+    let (_, _, only) = get("/w/index.php?title=Special:Search&search=p&fulltext=1&ns0=1").await;
+    assert!(only.contains(">Pages</h2>") && !only.contains(">Properties</h2>"));
+    assert!(only.contains("aria-current=\"page\">Pages</a>"));
+    assert!(only.contains("name=\"ns0\""), "the form keeps the kind");
 }
 
 #[tokio::test]

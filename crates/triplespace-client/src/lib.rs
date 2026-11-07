@@ -70,7 +70,7 @@ pub use rights::{
     BlockForm, BlockRow, DeletedRevision, Deletion, EmptyGroup, GroupInfo, ProtectForm,
     ProtectedRow, Protection, Restriction, RightsForm, SetInfo, TenantVisibility, UserGroups,
 };
-pub use search::{Hit, Hits};
+pub use search::{Hit, Hits, PageHit, PageHits};
 pub use theme::ThemeInfo;
 pub use threads::{
     Attached, Listed, Listing, NewThreadOn, PostForm, PostView, ThreadChange, ThreadView, Written,

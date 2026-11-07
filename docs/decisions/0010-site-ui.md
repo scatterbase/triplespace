@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-05 (A50)
+- **Updated:** 2026-11-06 (A51)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md)
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -48,7 +48,7 @@ The design exploration is on the [site UI canvas](https://claude.ai/artifact/XNb
 
 ### 3. Search
 
-*Changed by A4, A7, A18, A22, A27, A37.*
+*Changed by A4, A7, A18, A22, A27, A37, A51.*
 
 *Current text: [19](../architecture/19-site-ui.md) §2.1.*
 
@@ -684,3 +684,15 @@ Replaced text ([19](../architecture/19-site-ui.md) §2.4, as it stood):
   - The **Format** selector is built for a page being created: the edit's `contentmodel`, offering the namespace's text models that `action=edit` edits directly, the namespace's default first, and only where there is more than one; `?action=edit&model=` preselects one, as on MediaWiki. Changing an existing page's model (`action=changecontentmodel`) is not built yet.
   - The edit form edits every text model `action=edit` edits directly, not only wikitext, so a page created as Markdown can be edited again; its preview is `action=parse` in its model.
   - Line-marked edit conflicts are not for milestone 1: the current text shown under the form stays the way to merge. The Page data tab waits on the statement UI for pages (0038 §7).
+
+### A51. Page titles in search: the calls made building them
+
+- **Date:** 2026-11-06
+- **Source:** Direct: Claude, while building the search box's page titles, 2026-11-06; confirmed by James, 2026-11-06
+- **Change:** extends §3
+- **Summary:** Folded into [19](../architecture/19-site-ui.md) §2.1. The calls, made so that the one box finds pages before the full search exists:
+  - `Special:Search` finds document pages by title through `list=prefixsearch`, as a group of their own, **Pages**, after items, properties and domains; `ns0=1` asks for pages alone, the main namespace's number standing for every namespace that holds pages, since a page namespace is not a kind of its own on the results page.
+  - The site asks `list=prefixsearch` for every namespace that holds pages (`psnamespace=*`), not MediaWiki's default of the main namespace, since a tenant's pages may all be Project pages; text that begins with a namespace prefix searches that namespace alone, as in MediaWiki. The match is a case-insensitive prefix of the title; an exact title leads, then shorter titles before longer. The entity namespaces are never searched by title: entities are found by their labels.
+  - The exact title of a document page, however cased, is a **Go to** like an ID's, tried after the entity forms so that `Q42` is the item first ([0029](0029-resolver-namespaces.md) §6): the header's box goes straight to the page, and the results page offers it above the results, as MediaWiki's **Go** does. "Page titled Q42" beside an entity's **Go to** ([0038](0038-page-metadata-and-categories.md) §8) is not built yet.
+  - Page text is not searched yet: that waits on its index (A4).
+

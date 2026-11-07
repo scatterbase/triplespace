@@ -7668,5 +7668,55 @@
       ],
       "workspace": []
     }
+  },
+  {
+    "method": "GET",
+    "path_and_query": "/w/api.php?action=query&prop=info&titles=six&format=json&formatversion=2",
+    "status": 200,
+    "headers": {
+      "cache-control": "public, max-age=0, s-maxage=60, stale-while-revalidate=300",
+      "content-length": "121",
+      "content-type": "application/json; charset=utf-8",
+      "date": "Sat, 07 Nov 2026 04:09:13 GMT",
+      "etag": "\"46cfb77a27e3f1fc059d8bfdd461e089\"",
+      "vary": "Accept, Accept-Language"
+    },
+    "json": {
+      "batchcomplete": true,
+      "query": {
+        "normalized": [
+          {
+            "from": "six",
+            "to": "Six"
+          }
+        ],
+        "pages": [
+          {
+            "missing": true,
+            "ns": 0,
+            "title": "Six"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "method": "GET",
+    "path_and_query": "/w/api.php?action=query&list=prefixsearch&format=json&formatversion=2&pssearch=six&psnamespace=*&pslimit=7",
+    "status": 200,
+    "headers": {
+      "cache-control": "public, max-age=0, s-maxage=60, stale-while-revalidate=300",
+      "content-length": "50",
+      "content-type": "application/json; charset=utf-8",
+      "date": "Sat, 07 Nov 2026 04:09:13 GMT",
+      "etag": "\"fadb6093475142a9be1af0ab0574f872\"",
+      "vary": "Accept, Accept-Language"
+    },
+    "json": {
+      "batchcomplete": true,
+      "query": {
+        "prefixsearch": []
+      }
+    }
   }
 ]

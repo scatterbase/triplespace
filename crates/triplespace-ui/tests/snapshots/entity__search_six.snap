@@ -12,7 +12,7 @@ expression: main_of(&html)
 <div class="cdx-search-input cdx-search-input--has-end-button">
 	<div class="cdx-search-input__input-wrapper">
 		<div class="cdx-text-input">
-			<input class="cdx-text-input__input" type="search" name="search" value="six" placeholder="Search items, properties and domains" aria-label="Search">
+			<input class="cdx-text-input__input" type="search" name="search" value="six" placeholder="Search items, properties, domains and pages" aria-label="Search">
 		</div>
 	</div>
 	<button type="submit" class="cdx-button cdx-search-input__end-button">Search</button>
@@ -31,6 +31,9 @@ expression: main_of(&html)
 </li>
 <li>
 <a href="/w/index.php?title=Special:Search&amp;search=six&amp;fulltext=1&amp;ns210=1">Domains</a>
+</li>
+<li>
+<a href="/w/index.php?title=Special:Search&amp;search=six&amp;fulltext=1&amp;ns0=1">Pages</a>
 </li>
 </ul>
 </nav>

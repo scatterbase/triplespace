@@ -55099,5 +55099,425 @@
         }
       ]
     }
+  },
+  {
+    "method": "GET",
+    "path_and_query": "/w/api.php?action=query&prop=info&titles=Librarybase&format=json&formatversion=2",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "etag": "\"6910173d5ee316d6b618503bb9f3b830\"",
+      "cache-control": "private, no-cache",
+      "vary": "Accept, Accept-Language",
+      "content-length": "88",
+      "date": "Sat, 07 Nov 2026 04:13:06 GMT"
+    },
+    "json": {
+      "batchcomplete": true,
+      "query": {
+        "pages": [
+          {
+            "missing": true,
+            "ns": 0,
+            "title": "Librarybase"
+          }
+        ]
+      }
+    },
+    "credentialed": true
+  },
+  {
+    "method": "GET",
+    "path_and_query": "/w/api.php?action=query&prop=info&titles=six&format=json&formatversion=2",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "etag": "\"46cfb77a27e3f1fc059d8bfdd461e089\"",
+      "cache-control": "private, no-cache",
+      "vary": "Accept, Accept-Language",
+      "content-length": "121",
+      "date": "Sat, 07 Nov 2026 04:13:06 GMT"
+    },
+    "json": {
+      "batchcomplete": true,
+      "query": {
+        "normalized": [
+          {
+            "from": "six",
+            "to": "Six"
+          }
+        ],
+        "pages": [
+          {
+            "missing": true,
+            "ns": 0,
+            "title": "Six"
+          }
+        ]
+      }
+    },
+    "credentialed": true
+  },
+  {
+    "method": "GET",
+    "path_and_query": "/w/api.php?action=query&prop=info&titles=zzzz&format=json&formatversion=2",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "etag": "\"ab215b693a1637c55a0e11cd7e454bf8\"",
+      "cache-control": "private, no-cache",
+      "vary": "Accept, Accept-Language",
+      "content-length": "124",
+      "date": "Sat, 07 Nov 2026 04:13:06 GMT"
+    },
+    "json": {
+      "batchcomplete": true,
+      "query": {
+        "normalized": [
+          {
+            "from": "zzzz",
+            "to": "Zzzz"
+          }
+        ],
+        "pages": [
+          {
+            "missing": true,
+            "ns": 0,
+            "title": "Zzzz"
+          }
+        ]
+      }
+    },
+    "credentialed": true
+  },
+  {
+    "method": "GET",
+    "path_and_query": "/w/api.php?action=query&prop=info&titles=n&format=json&formatversion=2",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "etag": "\"1dc0343790115943abaa43987923702a\"",
+      "cache-control": "private, no-cache",
+      "vary": "Accept, Accept-Language",
+      "content-length": "115",
+      "date": "Sat, 07 Nov 2026 04:13:07 GMT"
+    },
+    "json": {
+      "batchcomplete": true,
+      "query": {
+        "normalized": [
+          {
+            "from": "n",
+            "to": "N"
+          }
+        ],
+        "pages": [
+          {
+            "missing": true,
+            "ns": 0,
+            "title": "N"
+          }
+        ]
+      }
+    },
+    "credentialed": true
+  },
+  {
+    "method": "GET",
+    "path_and_query": "/w/api.php?action=query&prop=info&titles=e&format=json&formatversion=2",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "etag": "\"6de0e09b03402363dea53bda7ef6cd73\"",
+      "cache-control": "private, no-cache",
+      "vary": "Accept, Accept-Language",
+      "content-length": "115",
+      "date": "Sat, 07 Nov 2026 04:13:07 GMT"
+    },
+    "json": {
+      "batchcomplete": true,
+      "query": {
+        "normalized": [
+          {
+            "from": "e",
+            "to": "E"
+          }
+        ],
+        "pages": [
+          {
+            "missing": true,
+            "ns": 0,
+            "title": "E"
+          }
+        ]
+      }
+    },
+    "credentialed": true
+  },
+  {
+    "method": "GET",
+    "path_and_query": "/w/api.php?action=query&prop=info&titles=half&format=json&formatversion=2",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "etag": "\"94361540659fe26dfe406d9f52eb374d\"",
+      "cache-control": "private, no-cache",
+      "vary": "Accept, Accept-Language",
+      "content-length": "124",
+      "date": "Sat, 07 Nov 2026 04:13:07 GMT"
+    },
+    "json": {
+      "batchcomplete": true,
+      "query": {
+        "normalized": [
+          {
+            "from": "half",
+            "to": "Half"
+          }
+        ],
+        "pages": [
+          {
+            "missing": true,
+            "ns": 0,
+            "title": "Half"
+          }
+        ]
+      }
+    },
+    "credentialed": true
+  },
+  {
+    "method": "GET",
+    "path_and_query": "/w/api.php?action=query&prop=info&titles=Q404&format=json&formatversion=2",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "etag": "\"6fe3ae8bb437235224ed2c0a8db90b6b\"",
+      "cache-control": "private, no-cache",
+      "vary": "Accept, Accept-Language",
+      "content-length": "81",
+      "date": "Sat, 07 Nov 2026 04:13:07 GMT"
+    },
+    "json": {
+      "batchcomplete": true,
+      "query": {
+        "pages": [
+          {
+            "missing": true,
+            "ns": 0,
+            "title": "Q404"
+          }
+        ]
+      }
+    },
+    "credentialed": true
+  },
+  {
+    "method": "GET",
+    "path_and_query": "/w/api.php?action=query&list=prefixsearch&format=json&formatversion=2&pssearch=Librarybase&psnamespace=*&pslimit=7",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "etag": "\"fd5dfb6c07976d27d1be612dd4e65f71\"",
+      "cache-control": "private, no-cache",
+      "vary": "Accept, Accept-Language",
+      "content-length": "230",
+      "date": "Sat, 07 Nov 2026 04:13:07 GMT"
+    },
+    "json": {
+      "batchcomplete": true,
+      "query": {
+        "prefixsearch": [
+          {
+            "ns": 2,
+            "pageid": 5,
+            "title": "User:Librarybase"
+          },
+          {
+            "ns": 4,
+            "pageid": 246986,
+            "title": "librarybase:Librarybase Tech"
+          },
+          {
+            "ns": 4,
+            "pageid": 508,
+            "title": "librarybase:Librarybase Query Service"
+          }
+        ]
+      }
+    },
+    "credentialed": true
+  },
+  {
+    "method": "GET",
+    "path_and_query": "/w/api.php?action=query&list=prefixsearch&format=json&formatversion=2&pssearch=six&psnamespace=*&pslimit=7",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "etag": "\"fadb6093475142a9be1af0ab0574f872\"",
+      "cache-control": "private, no-cache",
+      "vary": "Accept, Accept-Language",
+      "content-length": "50",
+      "date": "Sat, 07 Nov 2026 04:13:07 GMT"
+    },
+    "json": {
+      "batchcomplete": true,
+      "query": {
+        "prefixsearch": []
+      }
+    },
+    "credentialed": true
+  },
+  {
+    "method": "GET",
+    "path_and_query": "/w/api.php?action=query&list=prefixsearch&format=json&formatversion=2&pssearch=zzzz&psnamespace=*&pslimit=7",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "etag": "\"fadb6093475142a9be1af0ab0574f872\"",
+      "cache-control": "private, no-cache",
+      "vary": "Accept, Accept-Language",
+      "content-length": "50",
+      "date": "Sat, 07 Nov 2026 04:13:07 GMT"
+    },
+    "json": {
+      "batchcomplete": true,
+      "query": {
+        "prefixsearch": []
+      }
+    },
+    "credentialed": true
+  },
+  {
+    "method": "GET",
+    "path_and_query": "/w/api.php?action=query&list=prefixsearch&format=json&formatversion=2&pssearch=n&psnamespace=*&pslimit=7",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "etag": "\"ba820e97394318898c1fe919c992b64a\"",
+      "cache-control": "private, no-cache",
+      "vary": "Accept, Accept-Language",
+      "content-length": "103",
+      "date": "Sat, 07 Nov 2026 04:13:07 GMT"
+    },
+    "json": {
+      "batchcomplete": true,
+      "query": {
+        "prefixsearch": [
+          {
+            "ns": 4,
+            "pageid": 13,
+            "title": "librarybase:Notability"
+          }
+        ]
+      }
+    },
+    "credentialed": true
+  },
+  {
+    "method": "GET",
+    "path_and_query": "/w/api.php?action=query&list=prefixsearch&format=json&formatversion=2&pssearch=e&psnamespace=*&pslimit=7",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "etag": "\"e8f3bf7141975d05237d814f3770a34b\"",
+      "cache-control": "private, no-cache",
+      "vary": "Accept, Accept-Language",
+      "content-length": "94",
+      "date": "Sat, 07 Nov 2026 04:13:07 GMT"
+    },
+    "json": {
+      "batchcomplete": true,
+      "query": {
+        "prefixsearch": [
+          {
+            "ns": 2,
+            "pageid": 514,
+            "title": "User:Example"
+          }
+        ]
+      }
+    },
+    "credentialed": true
+  },
+  {
+    "method": "GET",
+    "path_and_query": "/w/api.php?action=query&list=prefixsearch&format=json&formatversion=2&pssearch=half&psnamespace=*&pslimit=7",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "etag": "\"fadb6093475142a9be1af0ab0574f872\"",
+      "cache-control": "private, no-cache",
+      "vary": "Accept, Accept-Language",
+      "content-length": "50",
+      "date": "Sat, 07 Nov 2026 04:13:07 GMT"
+    },
+    "json": {
+      "batchcomplete": true,
+      "query": {
+        "prefixsearch": []
+      }
+    },
+    "credentialed": true
+  },
+  {
+    "method": "GET",
+    "path_and_query": "/w/api.php?action=query&list=prefixsearch&format=json&formatversion=2&pssearch=Q6&psnamespace=*&pslimit=7",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "etag": "\"fadb6093475142a9be1af0ab0574f872\"",
+      "cache-control": "private, no-cache",
+      "vary": "Accept, Accept-Language",
+      "content-length": "50",
+      "date": "Sat, 07 Nov 2026 04:13:07 GMT"
+    },
+    "json": {
+      "batchcomplete": true,
+      "query": {
+        "prefixsearch": []
+      }
+    },
+    "credentialed": true
+  },
+  {
+    "method": "GET",
+    "path_and_query": "/w/api.php?action=query&list=prefixsearch&format=json&formatversion=2&pssearch=Q404&psnamespace=*&pslimit=7",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "etag": "\"fadb6093475142a9be1af0ab0574f872\"",
+      "cache-control": "private, no-cache",
+      "vary": "Accept, Accept-Language",
+      "content-length": "50",
+      "date": "Sat, 07 Nov 2026 04:13:07 GMT"
+    },
+    "json": {
+      "batchcomplete": true,
+      "query": {
+        "prefixsearch": []
+      }
+    },
+    "credentialed": true
+  },
+  {
+    "method": "GET",
+    "path_and_query": "/w/api.php?action=query&list=prefixsearch&format=json&formatversion=2&pssearch=wikipedia.org&psnamespace=*&pslimit=7",
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "etag": "\"fadb6093475142a9be1af0ab0574f872\"",
+      "cache-control": "private, no-cache",
+      "vary": "Accept, Accept-Language",
+      "content-length": "50",
+      "date": "Sat, 07 Nov 2026 04:13:07 GMT"
+    },
+    "json": {
+      "batchcomplete": true,
+      "query": {
+        "prefixsearch": []
+      }
+    },
+    "credentialed": true
   }
 ]
