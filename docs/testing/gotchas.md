@@ -124,6 +124,13 @@ strike what stops being true. Implementation status is not kept here (24 §15: `
 - A real instance has no `board` group: `action=protect read=board` on it is `ts-locked-out`,
   where `/acl` says `ts-unknown-group`. Define a group over `/group` first. The tests' `grant`
   helper bypasses this.
+- A test that registers accounts at the default challenge (20 bits, one more per account from
+  the same address) spends most of its time in `scatter_challenge::solve`: a debug build hashes
+  at about 0.2 million a second, so the first account costs five seconds and the third twenty.
+  `moderation accountability` took 68 s against 4 s with the challenge at 8 bits (2026-11-06).
+  Every harness that registers lowers `challenge.bits` on its tenant (`cheap_challenge` in the
+  server tests, `settings set` in `ui/e2e/run.sh` and `tools/acl_check.sh`), and
+  `[profile.dev.package."*"]` optimizes dependencies; a new harness must do the same.
 - The attack battery is `tools/acl_check.sh`. Registration is throttled at six accounts a day per
   address and the challenge rises a bit per account: a live script that registers users must stay
   under six and lower `challenge.bits` on its test tenant. `autoconfirmed` is implied, never

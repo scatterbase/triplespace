@@ -15,7 +15,7 @@ use tokio_postgres::{Config, NoTls};
 use tower::ServiceExt as _;
 use triplespace_accounts::Secret;
 use triplespace_api_action::{App, Config as ServerConfig, Mode, router_with};
-use triplespace_cli::instance;
+use triplespace_cli::{instance, settings};
 
 const DB: &str = "tsthreads_test";
 const HOST: &str = "librarybase.org";
@@ -51,6 +51,30 @@ async fn fresh_database(name: &str) -> String {
     url.rsplit_once('/')
         .map(|(head, _)| format!("{head}/{db}"))
         .unwrap()
+}
+
+/// Lowers the tenant's registration challenge, as `tools/acl_check.sh` does: 8 bits rising to
+/// 10, thousands of hashes rather than millions. The default of 20 bits, one more for each
+/// account from the same address (0087 §4), costs a debug build about five seconds per
+/// account and double for the next; what is under test here is not proof-of-work.
+async fn cheap_challenge(database: &str) {
+    for (key, value) in [("challenge.bits", "8"), ("challenge.max_bits", "10")] {
+        settings::run(settings::Settings::Set(settings::Set {
+            at: settings::Where {
+                database: database.to_string(),
+                tenant: Some(TENANT.into()),
+                instance: false,
+            },
+            key: key.into(),
+            value: value.into(),
+            default: false,
+            lock: false,
+            tenancy: false,
+            summary: None,
+        }))
+        .await
+        .expect("settings set");
+    }
 }
 
 fn enc(s: &str) -> String {
@@ -184,6 +208,7 @@ async fn threads_over_rest() {
     })
     .await
     .expect("instance create");
+    cheap_challenge(&database).await;
     let app = App::new(
         triplespace_db::pool::pool(&database, 4).unwrap(),
         Secret::derive(&[7u8; 32]),
@@ -777,6 +802,7 @@ async fn signed_in(tag: &str) -> (Client, String, u64) {
     })
     .await
     .expect("instance create");
+    cheap_challenge(&database).await;
     let app = App::new(
         triplespace_db::pool::pool(&database, 4).unwrap(),
         Secret::derive(&[7u8; 32]),
