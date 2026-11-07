@@ -217,6 +217,12 @@ sources = "[0016](../decisions/0016-permissions-and-access-control.md) §7"
 
 [[module]]
 kind = "action"
+modules = ["action=renameuser"]
+changes = "As in MediaWiki's Renameuser: `user` or `userid`, `newuser`, `reason`, the `csrf` token, restricted to `renameuser`. The new name passes the name rules, the reserved prefixes and the name tombstones (`ts-name-reserved`); the old name is left as a tombstone; under strict names `ts-strict-name`. `movepages` and `suppressredirect` are accepted and ignored"
+sources = "[0010](../decisions/0010-site-ui.md) §10; [0102](../decisions/0102-strict-names-from-the-provider.md) §3"
+
+[[module]]
+kind = "action"
 modules = ["action=watch", "action=unwatch"]
 changes = "`action=watch` with `titles` or `pageids`, `unwatch`, `expiry`, and Triplespace's `tsnotify`, which sets or clears *notify me* and is kept when not given; a `watch` token ([0020](../decisions/0020-change-feeds.md) A18)"
 sources = "[0020](../decisions/0020-change-feeds.md) §5"

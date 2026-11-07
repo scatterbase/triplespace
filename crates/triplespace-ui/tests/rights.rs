@@ -42,7 +42,7 @@ fn siteinfo() -> Value {
     json!({"query": {
         "general": {"sitename": "librarybase", "server": "https://librarybase.org", "lang": "en", "mainpage": "Project:Home"},
         "triplespace": {"api_version": 1, "tenant": "librarybase",
-            "capabilities": ["wbgetentities", "clientlogin", "pages", "parse", "edit", "history", "recentchanges", "activity", "protect", "userrights", "block", "delete", "move", "settings"]},
+            "capabilities": ["wbgetentities", "clientlogin", "pages", "parse", "edit", "history", "recentchanges", "activity", "protect", "userrights", "renameuser", "block", "delete", "move", "settings"]},
         "usergroups": [
             {"name": "*", "rights": ["read"], "implicit": ""},
             {"name": "user", "rights": ["read", "edit"], "implicit": ""},
@@ -57,7 +57,7 @@ fn siteinfo() -> Value {
 fn userinfo(s: Option<&str>) -> Value {
     match s {
         Some("alice") => json!({"query": {"userinfo": {"id": 7, "name": "Alice",
-            "rights": ["read", "edit", "protect", "delete", "undelete", "userrights", "block", "hideuser", "ts-config", "move", "suppressredirect", "move-subpages"],
+            "rights": ["read", "edit", "protect", "delete", "undelete", "userrights", "renameuser", "block", "hideuser", "ts-config", "move", "suppressredirect", "move-subpages"],
             "groups": ["*", "user", "owner", "board"],
             "changeablegroups": {"add": ["sysop", "board", "suppress"], "remove": ["sysop", "board", "suppress"], "add-self": ["sysop", "board", "suppress"], "remove-self": ["board"]}}}}),
         Some("bob") => json!({"query": {"userinfo": {"id": 8, "name": "Bob",
@@ -295,6 +295,18 @@ impl FakeApi {
                 return (
                     StatusCode::OK,
                     json!({"error": {"code": "articleexists", "info": "taken"}}),
+                );
+            }
+            if action == "renameuser" && f.get("newuser").is_some_and(|n| n == "Dave") {
+                return (
+                    StatusCode::OK,
+                    json!({"error": {"code": "ts-name-reserved", "info": "reserved"}}),
+                );
+            }
+            if action == "renameuser" {
+                return (
+                    StatusCode::OK,
+                    json!({"renameuser": {"from": f["user"], "to": f["newuser"], "userid": 9}}),
                 );
             }
             if action == "move" {
@@ -905,4 +917,69 @@ async fn the_move_form_posts_and_lands_on_the_new_title() {
     assert_eq!(status, StatusCode::OK);
     assert!(body.contains("already exists"), "{body}");
     assert!(body.contains("value=\"Project:Taken\""), "{body}");
+}
+
+// 0010 §10; 19 §2.3: `Special:RenameUser`.
+#[tokio::test]
+async fn renameuser_is_a_form_for_a_holder_of_the_right() {
+    let api = FakeApi::default();
+    let (status, body) = get(&api, "/wiki/Special:RenameUser/Carol", Some("alice")).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(
+        body.contains("name=\"user\" type=\"text\" value=\"Carol\""),
+        "{body}"
+    );
+    assert!(body.contains("name=\"newuser\""), "{body}");
+    assert!(body.contains("A name is never reused"), "{body}");
+    // A sysop without renameuser is refused, and a reader sent to log in.
+    let (status, body) = get(&api, "/wiki/Special:RenameUser", Some("bob")).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert!(body.contains("permission to rename accounts"), "{body}");
+    let (status, body) = get(&api, "/wiki/Special:RenameUser", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("Special:UserLogin"), "{body}");
+}
+
+#[tokio::test]
+async fn renameuser_sends_one_rename() {
+    let api = FakeApi::default();
+    let (status, headers, _) = post(
+        &api,
+        "/wiki/Special:RenameUser",
+        "alice",
+        &[
+            ("token", "csrf-alice+\\"),
+            ("user", "Carol"),
+            ("newuser", "Caroline"),
+            ("reason", "asked"),
+        ],
+    )
+    .await;
+    assert_eq!(status, StatusCode::SEE_OTHER);
+    assert!(
+        headers[header::LOCATION]
+            .to_str()
+            .unwrap()
+            .ends_with("Special:RenameUser/Caroline?done=Caroline")
+    );
+    let (_, f) = last_write(&api);
+    assert_eq!(f["action"], "renameuser");
+    assert_eq!(f["user"], "Carol");
+    assert_eq!(f["newuser"], "Caroline");
+    assert_eq!(f["reason"], "asked");
+    // A tombstoned or reserved name comes back on the form.
+    let (status, _, body) = post(
+        &api,
+        "/wiki/Special:RenameUser",
+        "alice",
+        &[
+            ("token", "csrf-alice+\\"),
+            ("user", "Carol"),
+            ("newuser", "Dave"),
+        ],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("That name is reserved"), "{body}");
+    assert!(body.contains("value=\"Dave\""), "{body}");
 }

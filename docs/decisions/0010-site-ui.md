@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-06 (A52)
+- **Updated:** 2026-11-07 (A53)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md)
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -124,7 +124,7 @@ The design exploration is on the [site UI canvas](https://claude.ai/artifact/XNb
 
 ### 10. Logging in
 
-*Changed by A6, A43, A44, A45, A52.*
+*Changed by A6, A43, A44, A45, A52, A53.*
 
 *Current text: [19](../architecture/19-site-ui.md) §2.3.*
 
@@ -706,3 +706,10 @@ Replaced text ([19](../architecture/19-site-ui.md) §2.4, as it stood):
 Replaced text ([19](../architecture/19-site-ui.md) §2.3, as it stood):
 
 > **A name is never reused.** Every name a local account has ever held, whether renamed away or vanished from, stays reserved as a *name tombstone*, so that `[[User:OldName]]` in old page text or a post can never come to name a different person; the only way to have a name is to have always had it.
+
+### A53. Name tombstones and `renameuser`: the calls made building them
+
+- **Date:** 2026-11-07
+- **Source:** Direct: Claude, while building name tombstones and `renameuser`, 2026-11-07; unconfirmed
+- **Change:** extends §10
+- **Summary:** Four calls made while building ([19](../architecture/19-site-ui.md) §2.3; [03](../architecture/03-storage-caches-and-search.md) §5). (1) `private.name_tombstone` keeps the schema of [0013](0013-postgres-storage.md) §5.6 with one column more, `issuer`: the OAuth issuer whose username the released name was derived from, recorded where the name carries the issuer's reserved prefix and the account's login holds an identity of that issuer, and null otherwise; it is what lets the tombstone yield to that issuer alone under strict names (A52; [0102](0102-strict-names-from-the-provider.md) §3) while holding no name and no actor key. (2) The keyed hash is taken over the tenant and the lower-cased name, so the table has no tenant column and a row says nothing about where the name was held; the hash is HMAC-SHA256 under a subkey of the instance secret, as the email codes' are. (3) A rename that changes only the case of a name leaves no tombstone, since the account keeps the name. (4) `action=renameuser` takes MediaWiki's `user` or `userid`, `newuser` and `reason` with the `csrf` token and answers `{"renameuser": {"from", "to", "userid"}}`; `movepages` and `suppressredirect` are accepted and ignored, since a user page is not moved; the `renameuser/renameuser` event it projects from the new actor record carries no name in its parameters, so that a vanish leaves no past name in the log, and `instance: true` where the performer is the instance operator. The vanish of [0007](0007-actor-identity.md) §4 is not built; when it is, it leaves its tombstone through the same primitive.

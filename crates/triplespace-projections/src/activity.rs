@@ -922,6 +922,72 @@ async fn block_columns(cx: &PgCx, record: &Record) -> Result<Columns, String> {
     })
 }
 
+/// An actor record with a new name as `renameuser/renameuser` (16 §2.3; 0011 §6.1): a
+/// registered account's record whose previous record under the key, in the partition,
+/// carried another name. Public, on the account; its parameters carry no name, so a
+/// vanish that erases the account's records leaves no past name here, and `instance:
+/// true` where the performer is the instance operator (0040 §7), as when the provider
+/// renamed the person under strict names (0102 §3). Any other actor record, the first
+/// one or a change of status, is no row (0010 §10).
+async fn actor_columns(cx: &PgCx, record: &Record) -> Result<Option<Columns>, String> {
+    use scatter_actors::actor::{ActorKind, ActorRecord};
+    let h = record.header();
+    let key = h
+        .key
+        .as_deref()
+        .ok_or("an actor record is keyed by its actor")?;
+    let decode = |r: &Record| -> Result<Option<ActorRecord>, String> {
+        match content(r)? {
+            Some(v) => scatter_log::cbor::from_value(v)
+                .map(Some)
+                .map_err(|e| e.to_string()),
+            None => Ok(None),
+        }
+    };
+    let Some(actor) = decode(record)? else {
+        return Ok(None);
+    };
+    if actor.kind != ActorKind::Registered || actor.name.is_none() {
+        return Ok(None);
+    }
+    let previous = scatter_log_postgres::log::read_by_key(cx, h.partition, key)
+        .await
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .rev()
+        .find(|(o, r)| *o < h.offset && r.header().payload_type == crate::actors::payload::ACTOR)
+        .map(|(_, r)| decode(&r))
+        .transpose()?
+        .flatten();
+    let Some(previous) = previous else {
+        return Ok(None);
+    };
+    if previous.name.is_none() || previous.name == actor.name {
+        return Ok(None);
+    }
+    let instance = attested(record)
+        .actor
+        .as_deref()
+        .and_then(|a| scatter_actors::key::ActorKey::parse(a).ok())
+        .is_some_and(|k| k.is_instance());
+    Ok(Some(Columns {
+        kind: "log",
+        target: Target {
+            kind: Some(target_kind::ACTOR),
+            id: Some(key.to_string()),
+            member: None,
+        },
+        log_type: Some("renameuser".into()),
+        log_action: Some("renameuser".into()),
+        params: Some(if instance {
+            serde_json::json!({"instance": true})
+        } else {
+            serde_json::json!({})
+        }),
+        ..Columns::default()
+    }))
+}
+
 /// Whether a mirror record was written by a **load**, a dump sync or a crawl (05 §5.9),
 /// rather than by the follower: a load is one `job` row and the job's own activity row,
 /// never a row per entity (03 §4.6; 0013 §5.5, A61). The follower marks its jobs `follow` (0092 §5); a
@@ -1024,7 +1090,8 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for ActivityProjection {
                 || header.payload_type == scatter_threads::PAYLOAD_THREAD
                 || header.payload_type == crate::actors::payload::ACL
                 || header.payload_type == crate::actors::payload::MEMBERSHIP
-                || header.payload_type == crate::actors::payload::BLOCK)
+                || header.payload_type == crate::actors::payload::BLOCK
+                || header.payload_type == crate::actors::payload::ACTOR)
     }
 
     fn apply<'a>(
@@ -1057,6 +1124,11 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for ActivityProjection {
                 membership_columns(record)?
             } else if h.payload_type == crate::actors::payload::BLOCK {
                 block_columns(cx, record).await?
+            } else if h.payload_type == crate::actors::payload::ACTOR {
+                match actor_columns(cx, record).await? {
+                    Some(c) => c,
+                    None => return Ok(Applied::rows(0)),
+                }
             } else {
                 logevent_columns(record)?
             };

@@ -114,6 +114,19 @@ pub struct RightsForm<'a> {
     pub token: &'a str,
 }
 
+/// What `Special:RenameUser` submits.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct RenameForm<'a> {
+    /// The account.
+    pub user: &'a str,
+    /// The new name.
+    pub newuser: &'a str,
+    /// The reason.
+    pub reason: &'a str,
+    /// The `csrf` token.
+    pub token: &'a str,
+}
+
 /// What `Special:MovePage` submits.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct MoveForm<'a> {
@@ -508,6 +521,22 @@ impl Client {
             ("add", &add),
             ("remove", &remove),
             ("expiry", form.expiry),
+            ("reason", form.reason),
+            ("token", form.token),
+        ];
+        self.action(incoming, &fields).await
+    }
+
+    /// `action=renameuser`.
+    pub async fn renameuser(
+        &self,
+        incoming: &Incoming,
+        form: &RenameForm<'_>,
+    ) -> Result<Saved<Value>, ClientError> {
+        let fields: Vec<(&str, &str)> = vec![
+            ("action", "renameuser"),
+            ("user", form.user),
+            ("newuser", form.newuser),
             ("reason", form.reason),
             ("token", form.token),
         ];

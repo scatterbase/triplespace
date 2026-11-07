@@ -355,8 +355,13 @@ pub async fn createaccount(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         } else {
             let tenant = ctx.tenant.slug.clone();
             let mut cx = scatter_projection::Backend::begin(ctx.app.store()).await?;
-            let checked =
-                triplespace_api_ingest::accounts::check_available(&mut cx, &tenant, &chosen).await;
+            let checked = triplespace_api_ingest::accounts::check_available(
+                &mut cx,
+                ctx.app.secret(),
+                &tenant,
+                &chosen,
+            )
+            .await;
             scatter_projection::Backend::rollback(ctx.app.store(), cx).await?;
             match checked {
                 Ok(n) => Some(n),
@@ -369,7 +374,7 @@ pub async fn createaccount(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
                         "Username entered already in use. Please choose a different name.",
                     ));
                 }
-                Err(CreateError::Reserved(_)) => {
+                Err(CreateError::Reserved(_) | CreateError::Tombstoned) => {
                     return Ok(fail(
                         "ts-name-reserved",
                         crate::external::message("ts-name-reserved"),
@@ -444,8 +449,13 @@ pub async fn createaccount(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     let files_request = policy.approval && !ctx.caller.effective.holds("confirmaccount");
     {
         let mut cx = scatter_projection::Backend::begin(ctx.app.store()).await?;
-        let checked =
-            triplespace_api_ingest::accounts::check_available(&mut cx, &tenant, &username).await;
+        let checked = triplespace_api_ingest::accounts::check_available(
+            &mut cx,
+            ctx.app.secret(),
+            &tenant,
+            &username,
+        )
+        .await;
         scatter_projection::Backend::rollback(ctx.app.store(), cx).await?;
         match checked {
             Ok(_) => {}
@@ -458,7 +468,7 @@ pub async fn createaccount(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
                     "Username entered already in use. Please choose a different name.",
                 ));
             }
-            Err(CreateError::Reserved(_)) => {
+            Err(CreateError::Reserved(_) | CreateError::Tombstoned) => {
                 return Ok(fail(
                     "ts-name-reserved",
                     crate::external::message("ts-name-reserved"),
@@ -539,6 +549,7 @@ pub async fn createaccount(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         store,
         ctx.app.pipeline(),
         &mut cx,
+        ctx.app.secret(),
         &tenant,
         &username,
         Credential::Password(&password),
@@ -568,7 +579,7 @@ pub async fn createaccount(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
                     "ts-external-required",
                     crate::external::message("ts-external-required"),
                 )),
-                CreateError::Reserved(_) => Ok(fail(
+                CreateError::Reserved(_) | CreateError::Tombstoned => Ok(fail(
                     "ts-name-reserved",
                     crate::external::message("ts-name-reserved"),
                 )),

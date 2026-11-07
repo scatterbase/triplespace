@@ -20,6 +20,7 @@ pub mod parse;
 pub mod protected;
 pub mod query;
 pub mod querypage;
+pub mod renameuser;
 pub mod revisions;
 pub mod search;
 pub mod userrights;
