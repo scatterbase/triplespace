@@ -7,7 +7,8 @@
 //! - map keys sorted by their encoded bytes, with no duplicates;
 //! - floats in the shortest width that round-trips (16, 32 or 64 bits), NaN as the
 //!   canonical `0xf97e00`;
-//! - no tags, no `undefined`, no simple values beyond `false`, `true` and `null`.
+//! - no tags, no `undefined`, no simple values beyond `false`, `true` and `null`;
+//! - arrays and maps nested at most [`MAX_DEPTH`] deep.
 //!
 //! [`Value`] is the data model, [`encode`] the only encoder, and [`decode`] the strict
 //! decoder: it parses, re-encodes, and rejects the input if the bytes differ, so a
@@ -27,7 +28,28 @@ mod serde_impl;
 
 pub use serde_impl::{SerdeError, from_value, to_value};
 
+/// The most arrays and maps a value may nest one inside another (0006 §2, A26).
+///
+/// The codec recurses once per level, and the stack is the only resource nesting costs:
+/// a release build on a 2 MiB thread stack, tokio's default for a worker, aborts the whole
+/// process a few thousand levels down, which is some 3 KB of `0x81` bytes. Records reach
+/// the decoder from imports and the ingest API, so without a bound that is a remote
+/// denial of service. The bound is part of the format, the same for every instance:
+/// [`encode`] refuses what [`decode`] would refuse, so no stored record exceeds it.
+///
+/// 128 is serde_json's recursion limit, so JSON that reaches the codec through its parser
+/// and [`Value::from_json`] is already within it. Wikibase's deepest structure, a
+/// reference snak's value inside a statement inside an entity, is about ten levels down,
+/// and the record format's own maps are shallower. 128 frames of either direction take
+/// well under a tenth of that stack even in a debug build.
+pub const MAX_DEPTH: usize = 128;
+
 /// A CBOR data item.
+///
+/// Dropping, cloning, comparing and displaying a value recurse once per nesting level,
+/// like the codec, and have no limit of their own: the codec never builds a value past
+/// [`MAX_DEPTH`], and one built deeper by hand is refused by [`encode`] without being
+/// descended.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     /// `null`.
@@ -71,6 +93,9 @@ pub enum CborError {
     /// Bytes after the item.
     #[error("CBOR: {0} trailing bytes")]
     Trailing(usize),
+    /// Arrays or maps nested more than [`MAX_DEPTH`] deep.
+    #[error("CBOR: arrays or maps nested more than {0} deep")]
+    TooDeep(usize),
     /// A value JSON cannot carry: a byte string, a non-finite float, a non-text map key.
     #[error("JSON cannot carry {0}")]
     NotJson(&'static str),
@@ -243,10 +268,16 @@ impl fmt::Display for Value {
 // Encoding
 // ---------------------------------------------------------------------------------------
 
-/// The canonical encoding of a value.
+/// The canonical encoding of a value. A value nested past [`MAX_DEPTH`] is refused
+/// (0006 §2) at the level that crosses the limit, before anything below it is visited.
 pub fn encode(value: &Value) -> Result<Vec<u8>, CborError> {
+    encode_at(value, 0)
+}
+
+/// The canonical encoding of a value that sits inside `depth` containers.
+fn encode_at(value: &Value, depth: usize) -> Result<Vec<u8>, CborError> {
     let mut out = Vec::new();
-    write(value, &mut out)?;
+    write(value, &mut out, depth)?;
     Ok(out)
 }
 
@@ -269,7 +300,8 @@ fn head(out: &mut Vec<u8>, major: u8, arg: u64) {
     }
 }
 
-fn write(value: &Value, out: &mut Vec<u8>) -> Result<(), CborError> {
+/// Writes `value`, which sits inside `depth` containers, to `out`.
+fn write(value: &Value, out: &mut Vec<u8>, depth: usize) -> Result<(), CborError> {
     match value {
         Value::Null => out.push(0xf6),
         Value::Bool(false) => out.push(0xf4),
@@ -294,15 +326,21 @@ fn write(value: &Value, out: &mut Vec<u8>) -> Result<(), CborError> {
             out.extend_from_slice(s.as_bytes());
         }
         Value::Array(a) => {
+            if depth >= MAX_DEPTH {
+                return Err(CborError::TooDeep(MAX_DEPTH));
+            }
             head(out, 4, a.len() as u64);
             for v in a {
-                write(v, out)?;
+                write(v, out, depth + 1)?;
             }
         }
         Value::Map(m) => {
+            if depth >= MAX_DEPTH {
+                return Err(CborError::TooDeep(MAX_DEPTH));
+            }
             let mut pairs: Vec<(Vec<u8>, Vec<u8>)> = m
                 .iter()
-                .map(|(k, v)| Ok((encode(k)?, encode(v)?)))
+                .map(|(k, v)| Ok((encode_at(k, depth + 1)?, encode_at(v, depth + 1)?)))
                 .collect::<Result<_, CborError>>()?;
             pairs.sort_by(|a, b| a.0.cmp(&b.0));
             if pairs.windows(2).any(|w| w[0].0 == w[1].0) {
@@ -380,7 +418,9 @@ fn f16_bits(x: f64) -> Option<u16> {
 // ---------------------------------------------------------------------------------------
 
 /// Decodes one canonical item, consuming the whole input. Non-canonical input is
-/// rejected: the item is re-encoded and compared with the bytes.
+/// rejected: the item is re-encoded and compared with the bytes. Input nested past
+/// [`MAX_DEPTH`] is rejected (0006 §2) at the level that crosses the limit, so the stack
+/// the decoder takes is bounded whatever the input.
 pub fn decode(bytes: &[u8]) -> Result<Value, CborError> {
     let (value, consumed) = decode_prefix(bytes)?;
     if consumed != bytes.len() {
@@ -390,10 +430,10 @@ pub fn decode(bytes: &[u8]) -> Result<Value, CborError> {
 }
 
 /// Strictly decodes the first data item of a CBOR sequence (RFC 8742), returning it
-/// with the number of bytes it took.
+/// with the number of bytes it took. Bounded like [`decode`].
 pub fn decode_prefix(bytes: &[u8]) -> Result<(Value, usize), CborError> {
     let mut d = minicbor::Decoder::new(bytes);
-    let value = read(&mut d)?;
+    let value = read(&mut d, 0)?;
     let consumed = d.position();
     let again = encode(&value)?;
     if again != bytes[..consumed] {
@@ -411,7 +451,8 @@ fn malformed<E: fmt::Display>(e: E) -> CborError {
     CborError::Malformed(e.to_string())
 }
 
-fn read(d: &mut minicbor::Decoder<'_>) -> Result<Value, CborError> {
+/// Reads one item that sits inside `depth` containers.
+fn read(d: &mut minicbor::Decoder<'_>, depth: usize) -> Result<Value, CborError> {
     Ok(match d.datatype().map_err(malformed)? {
         Type::Null => {
             d.null().map_err(malformed)?;
@@ -436,25 +477,31 @@ fn read(d: &mut minicbor::Decoder<'_>) -> Result<Value, CborError> {
         Type::Bytes => Value::Bytes(d.bytes().map_err(malformed)?.to_vec()),
         Type::String => Value::Text(d.str().map_err(malformed)?.to_string()),
         Type::Array => {
+            if depth >= MAX_DEPTH {
+                return Err(CborError::TooDeep(MAX_DEPTH));
+            }
             let n = d
                 .array()
                 .map_err(malformed)?
                 .ok_or(CborError::NotAllowed("an indefinite-length array"))?;
             let mut items = Vec::with_capacity(usize::try_from(n).unwrap_or(0).min(1 << 16));
             for _ in 0..n {
-                items.push(read(d)?);
+                items.push(read(d, depth + 1)?);
             }
             Value::Array(items)
         }
         Type::Map => {
+            if depth >= MAX_DEPTH {
+                return Err(CborError::TooDeep(MAX_DEPTH));
+            }
             let n = d
                 .map()
                 .map_err(malformed)?
                 .ok_or(CborError::NotAllowed("an indefinite-length map"))?;
             let mut pairs = Vec::with_capacity(usize::try_from(n).unwrap_or(0).min(1 << 16));
             for _ in 0..n {
-                let k = read(d)?;
-                let v = read(d)?;
+                let k = read(d, depth + 1)?;
+                let v = read(d, depth + 1)?;
                 pairs.push((k, v));
             }
             Value::Map(pairs)
@@ -716,6 +763,71 @@ mod tests {
         assert_eq!(f16_bits(-2.5), Some(0xc100));
         assert_eq!(f16_bits(2048.0), Some(0x6800));
         assert_eq!(f16_bits(2049.0), None, "needs 11 mantissa bits");
+    }
+
+    /// Runs `f` on a thread with tokio's default worker stack, where unbounded recursion
+    /// aborted the process.
+    fn on_a_worker_stack<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> T {
+        std::thread::Builder::new()
+            .stack_size(2 << 20)
+            .spawn(f)
+            .unwrap()
+            .join()
+            .unwrap()
+    }
+
+    /// `n` arrays nested one inside another, around `0`.
+    fn nested_arrays(n: usize) -> Vec<u8> {
+        let mut b = vec![0x81; n];
+        b.push(0x00);
+        b
+    }
+
+    /// `n` one-pair maps nested one inside another, keyed `0`, around `0`.
+    fn nested_maps(n: usize) -> Vec<u8> {
+        let mut b = [0xa1, 0x00].repeat(n);
+        b.push(0x00);
+        b
+    }
+
+    #[test]
+    fn nesting_depth_is_bounded() {
+        // 0006 §2 (A26). The shapes the fuzzer found: 4000 nested arrays and 100 000
+        // nested maps, a few KB and 200 KB of input, each of which overflowed a 2 MiB
+        // stack before the limit existed.
+        on_a_worker_stack(|| {
+            let too_deep = CborError::TooDeep(MAX_DEPTH);
+            assert_eq!(decode(&nested_arrays(4000)), Err(too_deep.clone()));
+            assert_eq!(decode(&nested_maps(100_000)), Err(too_deep.clone()));
+            assert_eq!(decode_prefix(&nested_maps(100_000)), Err(too_deep.clone()));
+
+            // Exactly the limit decodes and round-trips; one more level does not.
+            for make in [nested_arrays, nested_maps] {
+                let bytes = make(MAX_DEPTH);
+                let value = decode(&bytes).unwrap();
+                assert_eq!(encode(&value).unwrap(), bytes);
+                assert_eq!(decode(&make(MAX_DEPTH + 1)), Err(too_deep.clone()));
+            }
+
+            // The encoder refuses a value built deeper than the limit at the level that
+            // crosses it, without descending the rest: a map's keys and values count
+            // from the map's own depth, not from zero.
+            let mut v = Value::Int(0);
+            for _ in 0..MAX_DEPTH {
+                v = Value::Map(vec![(Value::Int(0), v)]);
+            }
+            assert_eq!(encode(&v).unwrap(), nested_maps(MAX_DEPTH));
+            v = Value::Array(vec![v]);
+            assert_eq!(encode(&v), Err(too_deep.clone()));
+            let mut deep = Value::Null;
+            for _ in 0..100_000 {
+                deep = Value::Array(vec![deep]);
+            }
+            assert_eq!(encode(&deep), Err(too_deep));
+            // Dropping it would recurse once per level, which nothing bounds (see
+            // `Value`): leak it instead.
+            std::mem::forget(deep);
+        });
     }
 
     #[test]

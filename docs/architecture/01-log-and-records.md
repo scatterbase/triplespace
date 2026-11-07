@@ -281,9 +281,12 @@ Record headers, record bodies and payloads are stored in the **core deterministi
 - the shortest form for every integer and length;
 - definite lengths only;
 - map keys sorted by their encoded bytes, with no duplicates;
-- only the CBOR tags listed in the payload type's schema.
+- only the CBOR tags listed in the payload type's schema;
+- arrays and maps nested at most 128 deep.
 
 The stored bytes are the preimage, so no separate canonicalization step exists. The decoder is strict: it re-encodes every item it reads and rejects the item if the bytes differ. A payload that decodes but is not canonical is therefore a verification failure, not a variant.
+
+**Nesting is bounded.** The codec recurses once per level, so without a bound a few kilobytes of nested arrays from an import or the ingest API would exhaust a worker thread's stack and abort the process. An item that opens an array or map inside 128 containers is rejected, by the decoder and by the encoder alike, at the level that crosses the limit: the encoder refuses what the decoder would refuse, so no stored record exceeds it and the bound is part of the format rather than a setting of the instance. The value is serde_json's recursion limit, so JSON that reaches the codec through its parser already meets it, and no Wikibase structure comes within a tenth of it. It is `MAX_DEPTH` in `scatter-log`'s `cbor` module.
 
 The NDJSON wire format of [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.7 is unchanged. Ingest converts it to CBOR before appending. Values that JSON carries as strings, such as Wikibase quantity amounts, stay strings.
 
