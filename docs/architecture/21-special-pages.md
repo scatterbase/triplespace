@@ -438,14 +438,14 @@ Subpages: `Special:Version/Credits` (§5.2), `Special:Version/License` and `Spec
 
 ### 5.2 The credit line, contributors and funders
 
-*Sources: [0077](../decisions/0077-special-version.md) §2.*
+*Sources: [0077](../decisions/0077-special-version.md) §2, A7.*
 
 **The credit line** is one sentence:
 
 > This wiki is powered by [Triplespace](https://github.com/scatterbase/triplespace), developed by Scatter LLC in Portland, Oregon, with contributions from Alice, Bob and others.
 
 - **The product, developer and place are message parameters,** from `[developer]` in `version.toml`, so translators never translate them. The messages are `ts-version-poweredby` (no contributors) and `ts-version-poweredby-contributors`.
-- **Contributors are `[[contributor]]` entries in `version.toml`,** in order of first merged contribution. Each has a name as its holder wishes to be credited, the date of the first merged contribution, and the date the contributor licence agreement was signed; nothing is merged without one (0005 §6). Git history is not read.
+- **Contributors are `[[contributor]]` entries in `version.toml`,** in order of first merged contribution. Each has a name as its holder wishes to be credited and the date of the first merged contribution. No contributor licence agreement is asked for: contributions come in under GPL-3.0-or-later (0005 A114, 0077 A7). Git history is not read.
 - **The line names the first ten.** With more, it ends "and [[Special:Version/Credits|others]]", as MediaWiki's does. The list is formatted by the reader's language's list rules.
 - **`Special:Version/Credits` lists every contributor**, then every funder, then the AI agents of §5.9.
 - **Scatter LLC is the developer, not a contributor,** and AI agents are never contributors: they sign no agreement and are credited separately (§5.9).
@@ -454,7 +454,7 @@ Subpages: `Special:Version/Credits` (§5.2), `Special:Version/License` and `Spec
 
 ### 5.3 The licence notice and licence texts
 
-*Sources: [0077](../decisions/0077-special-version.md) §3.*
+*Sources: [0077](../decisions/0077-special-version.md) §3, A7.*
 
 **The notice follows the credit line.** It is the FSF's recommended notice for GPLv3-or-later, with "Triplespace" for "this program", in the message `ts-version-license-info`:
 
@@ -466,7 +466,7 @@ Subpages: `Special:Version/Credits` (§5.2), `Special:Version/License` and `Spec
 
 MediaWiki's `version-license-info` is not reused, because it names version 2.
 
-Two more sentences follow: the `scatter-*` crates are also available from Scatter LLC under a commercial licence (0005 §6), and the documentation and registry data the binary embeds are dedicated to the public domain under CC0 1.0 (`docs/LICENSE`).
+One more sentence follows, in `ts-version-cc0`: the documentation and registry data the binary embeds are dedicated to the public domain under CC0 1.0 (`docs/LICENSE`). There is no commercial licence to mention (0005 A114, 0077 A7).
 
 **The licence text is in the binary.** The repository root's `LICENSE` is embedded at build time (`include_str!`), so every build carries its own copy, whatever was or was not shipped beside it.
 

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-11-05 (A113)
+- **Updated:** 2026-11-07 (A114)
 - **Author:** James Hare / Claude Opus; revision by James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -87,7 +87,7 @@ Since this ADR was first written, twenty-six further ADRs have added crates, cha
 
 ### 6. Naming, licensing and repository
 
-*Changed by A17, A30, A110.*
+*Changed by A17, A30, A110, A114.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §3.2, §3.3, §3.4.*
 
@@ -109,7 +109,7 @@ Since this ADR was first written, twenty-six further ADRs have added crates, cha
 - **Shared crates change for two products.** A breaking change in a `scatter-*` crate, in the `scatter:` vocabulary, or in the `log` schema has to work for both.
 - ~~**Triplespace carries features it does not use yet.** Room for client signatures in the attestation slot exists in `scatter-log` before any Triplespace code needs it.~~ *Triplespace uses it: an actor may sign its own record with the client `signature` of [0015](0015-record-format-and-partition-registry.md) §1 (A81).*
 - **The `scatter.wiki` domain is no longer part of the design.** The illustrations in 0001 now read as `scatter:`, and nothing mints terms under `scatter.wiki`.
-- **GPLv3 limits who can reuse the crates freely.** A third party that wants the Wikibase crates under other terms needs the commercial license. Clients in other languages avoid this by implementing the CC0 contract in `docs/` rather than binding to the crates, at the cost of reimplementing what they need, such as canonical CBOR and proof checking.
+- ~~**GPLv3 limits who can reuse the crates freely.** A third party that wants the Wikibase crates under other terms needs the commercial license. Clients in other languages avoid this by implementing the CC0 contract in `docs/` rather than binding to the crates, at the cost of reimplementing what they need, such as canonical CBOR and proof checking.~~ *There is no commercial licence: a third party takes the crates under GPL-3.0-or-later or implements the CC0 contract in `docs/` (A114).*
 - **Earlier ADRs name crates that have moved.** 0008, 0009, 0010, 0011, 0012 and 0019 keep their original crate names in their text; §2 records where each now lives. *0008, 0009, 0011 and 0012 no longer do: their crate sections are stubs (0008 A1, 0009 A1, 0011 A1, 0012 A1), and 0010 §13 names the new homes. 0019 keeps them until it is converted ([0050](0050-adr-format.md) §13).*
 - **Three crates read `private`.** The single-reader rule of 0013 §4 became a two-reader rule with `triplespace-notify` and a three-reader rule with `triplespace-federation` ([0022](0022-federation.md) §13); `triplespace-oauth` deliberately does not join them. The grant-level check and the privacy test of [0012](0012-api-requirements.md) §8 cover all three.
 
@@ -1184,3 +1184,15 @@ Replaced text ([22](../architecture/22-crates-and-stack.md) §2.2, as it stood):
 - **Source:** [0100](0100-email-addresses-and-verification-codes.md) §11
 - **Change:** extends §2
 - **Summary:** A new substrate crate, `scatter-mail`, holds the message type, the `MailTransport` trait and the `log` and `smtp` transports, over `lettre`; `triplespace-notify` depends on it and stages and sends every outgoing email. `triplespace-accounts` gains a login's email addresses and their verification codes, and `triplespace-server` the delivery worker and the `/auth/email` routes.
+
+### A114. No commercial licence
+
+- **Date:** 2026-11-07
+- **Source:** Direct: James, design discussion of 2026-11-07
+- **Change:** amends §6
+- **Summary:** James withdrew the plan to offer the `scatter-*` crates under a commercial licence. Code in the repository is GPL-3.0-or-later unless otherwise stated, the shared crates included; what states otherwise is vendored third-party code and assets (their own licences), `docs/` (CC0-1.0) and bindings in other languages (Apache-2.0). With nothing to relicense, contributions are accepted under GPL-3.0-or-later and no contributor licence agreement is asked for (James chose this when asked, the same day): `version.toml`'s `[[contributor]]` loses its `cla` field, and Special:Version drops the commercial sentence and the per-crate mark ([0077](0077-special-version.md) A7). The other ADRs whose text gave dual licensing as a reason are amended with it: [0033](0033-backend-stack.md) A26, [0042](0042-template-expansion-and-parsoid.md) A23, [0043](0043-lua-modules.md) A10, [0055](0055-templatestyles-templatedata-and-page-properties.md) A7.
+
+Replaced text ([22](../architecture/22-crates-and-stack.md) §3.3, as it stood):
+
+> - **Triplespace is GPL-3.0-or-later.** That covers every crate in this workspace and the `ui/` package. Workspace crates and `ui/package.json` declare `GPL-3.0-or-later`, set once in `[workspace.package]` ([0033](../decisions/0033-backend-stack.md) §16).
+> - **The shared `scatter-*` crates are dual-licensed.** Like the Scatterbase kernel, they are also available under a commercial license from the copyright holder. Dual licensing requires Scatter to hold copyright in every shared crate, so outside contributions need a contributor license agreement.

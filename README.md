@@ -248,6 +248,9 @@ If you use an agent:
 
 ## Licence
 
-Triplespace is GPL-3.0-or-later (`LICENSE`). The shared `scatter-*` crates are also available
-under a commercial licence from Scatter LLC. `docs/` is CC0-1.0; `docs/samples/` holds
-third-party captures under their own licences. See chapter 22 §3.3 and §3.4.
+Code in this repository is GPL-3.0-or-later (`LICENSE`) unless otherwise stated. That covers
+the shared `scatter-*` crates and the `triplespace-*` crates alike, `ui/`, `tools/` and `xtask/`;
+there is no commercial licence. What states otherwise: `docs/` is CC0-1.0 (`docs/LICENSE`);
+`docs/samples/` holds third-party captures under their own licences; vendored third-party code
+and assets keep the licence that comes with them. Contributions are accepted under
+GPL-3.0-or-later, and no contributor licence agreement is needed. See chapter 22 §3.3 and §3.4.

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-28 (A9)
+- **Updated:** 2026-11-07 (A10)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md)
 - **Uses:** [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0026](0026-sitelinks.md), [0038](0038-page-metadata-and-categories.md), [0044](0044-tenant-relative-ids.md)
@@ -89,6 +89,8 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 14. Licensing (extends 0033 §1 and 0005 §3)
 
+*Changed by A10.*
+
 *Current text: [22](../architecture/22-crates-and-stack.md) §1.2, §3.3.*
 
 ### 15. Conformance
@@ -111,7 +113,7 @@ James's direction, from the design discussion of 2026-09-30:
 - **A tenant's own entities are never out of reach,** whatever `lua.ids` says, through the tenant-relative form.
 - **The Scribunto contract is met by running Scribunto's own Lua.** What is reimplemented is the host side, which is smaller and better specified than the libraries.
 - **Lua is the most expensive thing a page can do.** The ceiling, the limits and aspect-matched invalidation are what keep it affordable; a farm operator can turn it off.
-- **The Lua runtime is GPL-only.** Scatterbase cannot take it under the commercial licence.
+- ~~**The Lua runtime is GPL-only.** Scatterbase cannot take it under the commercial licence.~~ *There is no commercial licence; every crate is GPL-3.0-or-later (A10).*
 - **Unheld entities are silent misses.** A partial mirror makes some module output incomplete until a sync brings the entity in, and `render_state` makes that visible.
 
 ## Open questions
@@ -226,3 +228,14 @@ Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §4.4
 Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §7.5, as it stood):
 
 > | `mw.message` | MediaWiki core's messages shipped as data (§2.3); no overrides, since the MediaWiki namespace is reserved |
+
+### A10. No commercial licence
+
+- **Date:** 2026-11-07
+- **Source:** Direct: James, design discussion of 2026-11-07
+- **Change:** amends §14
+- **Summary:** The `scatter-*` crates are no longer offered under a commercial licence ([0005](0005-crate-organization.md) A114), so the vendored Lua is no longer kept out of them for that reason. `triplespace-scribunto` stays where it is, and the Lua vendored into it keeps its upstream licences.
+
+Replaced text ([22](../architecture/22-crates-and-stack.md) §3.3, as it stood):
+
+> They cannot go into a `scatter-*` crate, because the shared crates are dual-licensed and Scatter holds copyright in every line of them. So the Lua runtime is a Triplespace crate, `triplespace-scribunto`, under GPL-3.0-or-later only and never dual-licensed. Scatterbase can use it on GPL terms, not on commercial ones ([0043](../decisions/0043-lua-modules.md) §14).

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-10-28 (A6)
+- **Updated:** 2026-11-07 (A7)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0047](0047-special-pages.md)
 - **Uses:** [0016](0016-permissions-and-access-control.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md), [0033](0033-backend-stack.md), [0039](0039-files-and-media.md), [0043](0043-lua-modules.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -31,7 +31,7 @@ James's direction, from the design discussion of 2026-10-01, was that the ADR se
 
 ### 2. The sanitizer: `scatter-css` (extends 0005 §3; uses 0033 §9.1)
 
-*Changed by A4.*
+*Changed by A4, A7.*
 
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §6.2, §8.*
 
@@ -168,3 +168,14 @@ Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §6.3
 Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §6.4, as it stood):
 
 > The MediaWiki namespace (8) stays reserved ([0008](../decisions/0008-namespaces-and-document-pages.md) §2); the page is
+
+### A7. No commercial licence
+
+- **Date:** 2026-11-07
+- **Source:** Direct: James, design discussion of 2026-11-07
+- **Change:** amends §2
+- **Summary:** `scatter-css` is still written from the specification and TemplateStyles' documented rules rather than translated from its PHP, but the reason given, original code under the shared crates' licence, lapsed when the commercial licence was withdrawn ([0005](0005-crate-organization.md) A114). Asked the same day, James kept the rule.
+
+Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §6.2, as it stood):
+
+> It is written from the CSS Syntax Level 3 specification and from TemplateStyles' documented rules and test cases, not translated from its PHP, so that it is original code under the shared crates' licence ([0005](../decisions/0005-crate-organization.md) §6).

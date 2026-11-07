@@ -5824,10 +5824,6 @@
                 },
                 "license": {
                   "type": "string"
-                },
-                "commercial": {
-                  "type": "boolean",
-                  "description": "Also available under a commercial licence from Scatter LLC"
                 }
               }
             }

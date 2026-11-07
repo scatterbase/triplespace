@@ -72,7 +72,7 @@ Module (828) and Module talk (829) are the namespaces that wait on a setting, `w
 
 ### 1.4 The expander
 
-*Sources: [0042](../decisions/0042-template-expansion-and-parsoid.md) §4.*
+*Sources: [0042](../decisions/0042-template-expansion-and-parsoid.md) §4, A23.*
 
 **The expander is a pure crate, `scatter-wikitext-expand`** ([22](22-crates-and-stack.md)). It implements MediaWiki's preprocessor and frame expansion:
 
@@ -98,7 +98,7 @@ Given the same host answers, it produces the same output. The same code serves p
 
 **Which template drew a block** ([0042](../decisions/0042-template-expansion-and-parsoid.md) A22). Asked for, a render gives each top-level block that lies wholly within one call's output `data-ts-template`, the template's title, and `data-ts-template-at`, the call's offset; a template's inline output in a paragraph of the page's own text marks nothing. `action=parse` takes it as the flag `tstemplates`, and the site as `?tstemplates=1` on a page view, so that a hover shows which template made a block and a census can read the templates from rendered HTML; a public render never carries it unless its address asks.
 
-**It is written from MediaWiki's documented behaviour and test files, not translated from MediaWiki's PHP.** That keeps the crate original code under the shared crates' dual licence ([0005](../decisions/0005-crate-organization.md) §6). The same applies to `#expr` and `#time` (§2).
+**It is written from MediaWiki's documented behaviour and test files, not translated from MediaWiki's PHP.** The same applies to `#expr` and `#time` (§2). The rule was first made so the shared crates could be dual-licensed; they no longer are, and the rule stands regardless ([0042](../decisions/0042-template-expansion-and-parsoid.md) A23).
 
 ### 1.5 Pre-save transform
 
@@ -376,9 +376,9 @@ It is a text model under [0041](../decisions/0041-content-models.md) §5, stored
 
 ### 6.2 The sanitizer: `scatter-css`
 
-*Sources: [0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §2; [0086](../decisions/0086-theming.md) §6.*
+*Sources: [0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §2, A7; [0086](../decisions/0086-theming.md) §6.*
 
-**A pure crate, `scatter-css`, parses and sanitizes CSS** ([22](22-crates-and-stack.md)). It builds for `wasm32-unknown-unknown` so the editor can lint a sheet as it is typed ([0034](../decisions/0034-frontend-stack.md) §6). It is written from the CSS Syntax Level 3 specification and from TemplateStyles' documented rules and test cases, not translated from its PHP, so that it is original code under the shared crates' licence ([0005](../decisions/0005-crate-organization.md) §6).
+**A pure crate, `scatter-css`, parses and sanitizes CSS** ([22](22-crates-and-stack.md)). It builds for `wasm32-unknown-unknown` so the editor can lint a sheet as it is typed ([0034](../decisions/0034-frontend-stack.md) §6). It is written from the CSS Syntax Level 3 specification and from TemplateStyles' documented rules and test cases, not translated from its PHP. The rule was first made for the shared crates' dual licensing, which has ended; it stands regardless ([0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) A7).
 
 **What it accepts** is TemplateStyles' policy, which Wikipedia's sheets are written against:
 

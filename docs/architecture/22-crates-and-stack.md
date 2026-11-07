@@ -198,15 +198,15 @@ Shared crates carry the `scatter-` prefix. Crates that only Triplespace uses car
 
 ### 3.3 Licensing
 
-*Sources: [0005](../decisions/0005-crate-organization.md) §6; [0033](../decisions/0033-backend-stack.md) §1, §16, A22; [0043](../decisions/0043-lua-modules.md) §14.*
+*Sources: [0005](../decisions/0005-crate-organization.md) §6, A114; [0033](../decisions/0033-backend-stack.md) §1, §16, A22; [0043](../decisions/0043-lua-modules.md) §14, A10.*
 
-- **Triplespace is GPL-3.0-or-later.** That covers every crate in this workspace and the `ui/` package. Workspace crates and `ui/package.json` declare `GPL-3.0-or-later`, set once in `[workspace.package]` ([0033](../decisions/0033-backend-stack.md) §16).
-- **The shared `scatter-*` crates are dual-licensed.** Like the Scatterbase kernel, they are also available under a commercial license from the copyright holder. Dual licensing requires Scatter to hold copyright in every shared crate, so outside contributions need a contributor license agreement.
+- **Code is GPL-3.0-or-later unless otherwise stated.** That covers every crate in this workspace, `scatter-*` and `triplespace-*` alike, the `ui/` package, `tools/` and `xtask/`. Workspace crates and `ui/package.json` declare `GPL-3.0-or-later`, set once in `[workspace.package]` ([0033](../decisions/0033-backend-stack.md) §16). What states otherwise: third-party code and assets vendored into the tree keep the licence that comes with them (Scribunto's Lua below, `parse-wiki-text-2` in `scatter-wikitext`, fonts), `docs/` is CC0-1.0, and bindings in other languages are Apache-2.0.
+- **There is no commercial licence.** The shared `scatter-*` crates are under the same terms as the rest of Triplespace and are not offered on any other ([0005](../decisions/0005-crate-organization.md) A114). Contributions are accepted under GPL-3.0-or-later, the licence of what they contribute to, and no contributor licence agreement is asked for.
 - **Third-party dependencies must be compatible with GPLv3.**
   - **Accepted.** Every third-party crate linked into `triplespace` carries one of these licences: MIT, MIT-0 (the vendored `parse-wiki-text-2`), Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, Zlib, Unicode-3.0, MPL-2.0, BlueOak-1.0.0 (`minicbor`), CDLA-Permissive-2.0 (root-certificate data in `webpki-roots`), LGPL, GPL-2.0-or-later or GPL-3.0.
   - **Denied.** Licences that cannot be combined with GPLv3: the pre-3.0 OpenSSL/SSLeay licence, GPL-2.0-only and non-commercial terms. AGPL is also denied, as a policy choice, so that its network clause never reaches the combined work.
   - **Enforcement.** `cargo-deny` enforces both lists in CI (§3.4).
-- **Lua.** Lua 5.1 is linked through `mlua` (MIT) in `triplespace-scribunto`, which vendors Scribunto's and WikibaseClient's Lua ([0043](../decisions/0043-lua-modules.md) §4). The vendored Lua is GPL code: Scribunto is "GPL-2.0-or-later AND MIT", WikibaseClient GPL-2.0-or-later. Both are on the accepted list, so the binary may include them. They cannot go into a `scatter-*` crate, because the shared crates are dual-licensed and Scatter holds copyright in every line of them. So the Lua runtime is a Triplespace crate, `triplespace-scribunto`, under GPL-3.0-or-later only and never dual-licensed. Scatterbase can use it on GPL terms, not on commercial ones ([0043](../decisions/0043-lua-modules.md) §14).
+- **Lua.** Lua 5.1 is linked through `mlua` (MIT) in `triplespace-scribunto`, which vendors Scribunto's and WikibaseClient's Lua ([0043](../decisions/0043-lua-modules.md) §4). The vendored Lua is GPL code: Scribunto is "GPL-2.0-or-later AND MIT", WikibaseClient GPL-2.0-or-later. Both are on the accepted list, so the binary may include them. The Lua runtime is a Triplespace crate, `triplespace-scribunto`, and the Lua vendored into it keeps its upstream licences ([0043](../decisions/0043-lua-modules.md) §14, A10).
 - **`docs/` is CC0-1.0.** That includes the ADRs, the registry, the API contracts and the test vectors, so independent implementations can embed them. Third-party files in `docs/samples/` keep their own licences, which [its README](../samples/README.md) lists set by set.
 - **Bindings in other languages are Apache-2.0.** Python comes first. They implement the API contract and the specifications in `docs/`. They do not link to Triplespace code, are not compiled against it, and do not port it.
 - **RSA for HTTP Signatures.** `scatter-activitypub` needs RSA because Mastodon accepts only RSA keys there; §4.4 provides it through `aws-lc-rs`. The instance's Ed25519 key ([0006](../decisions/0006-log-integrity-and-erasure.md) §6) cannot be used for this, which is one more reason the notifier key of [0021](../decisions/0021-notifications.md) §5 is separate.
@@ -473,9 +473,9 @@ This is [0000](../decisions/0000-init.md) §4's rule that smaller deployments fo
 
 ### 7.2 Crates and third-party components on `Special:Version`
 
-*Sources: [0077](../decisions/0077-special-version.md) §6.*
+*Sources: [0077](../decisions/0077-special-version.md) §6, A7.*
 
-**Triplespace crates:** each workspace crate linked into the binary, with its version and licence. A `scatter-*` crate is marked as also available under a commercial licence (§3.3).
+**Triplespace crates:** each workspace crate linked into the binary, with its version and licence (§3.3; [0077](../decisions/0077-special-version.md) A7).
 
 **Third-party components,** grouped and sorted by name, each with its version, licence expression, upstream URL and a link to its licence page:
 

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-07
-- **Updated:** 2026-10-30 (A6)
+- **Updated:** 2026-11-07 (A7)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md), [0033](0033-backend-stack.md), [0047](0047-special-pages.md)
 - **Uses:** [0005](0005-crate-organization.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0028](0028-tenancy-policy.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0046](0046-primary-tenant.md), [0056](0056-security-model.md), [0057](0057-web-tier.md), [0059](0059-query-service.md), [0075](0075-mcp-server.md)
@@ -47,9 +47,13 @@ And on the first proposal, the same day:
 
 ### 2. The credit line, contributors and funders
 
+*Changed by A7.*
+
 *Current text: [21](../architecture/21-special-pages.md) §5.2.*
 
 ### 3. The licence notice and licence texts
+
+*Changed by A7.*
 
 *Current text: [21](../architecture/21-special-pages.md) §5.3.*
 
@@ -65,7 +69,7 @@ And on the first proposal, the same day:
 
 ### 6. Crates and third-party components
 
-*Changed by A4.*
+*Changed by A4, A7.*
 
 *Current text: [21](../architecture/21-special-pages.md) §5.6; [22](../architecture/22-crates-and-stack.md) §7.2.*
 
@@ -210,3 +214,22 @@ Replaced text (§4):
 - **Summary:** Logged from the working notes on their retirement (0099 §5, 24 §15); each call stands as decided until James confirms or overturns it, and the chapter text that states it is folded on confirmation where it is not already there. The calls:
   - `OFL-1.1` was added to `deny.toml` provisionally and is not recorded in 0033; record it there or give the font licence its own ADR.
   - Whether to narrow the "Inspired by" credits.
+
+### A7. No commercial licence
+
+- **Date:** 2026-11-07
+- **Source:** Direct: James, design discussion of 2026-11-07
+- **Change:** amends §2, §3, §6
+- **Summary:** With the commercial licence withdrawn ([0005](0005-crate-organization.md) A114), a contributor entry no longer carries the date of a contributor licence agreement, the sentence after the licence notice says only that the embedded documentation and registry data are CC0 (the message `ts-version-cc0` replaces `ts-version-dual-and-cc0`), and a `scatter-*` crate is no longer marked as also available commercially (`ts-version-commercial-mark` and the manifest's `commercial` field are removed).
+
+Replaced text ([21](../architecture/21-special-pages.md) §5.2, as it stood):
+
+> Each has a name as its holder wishes to be credited, the date of the first merged contribution, and the date the contributor licence agreement was signed; nothing is merged without one (0005 §6). Git history is not read.
+
+Replaced text ([21](../architecture/21-special-pages.md) §5.3, as it stood):
+
+> Two more sentences follow: the `scatter-*` crates are also available from Scatter LLC under a commercial licence (0005 §6), and the documentation and registry data the binary embeds are dedicated to the public domain under CC0 1.0 (`docs/LICENSE`).
+
+Replaced text ([22](../architecture/22-crates-and-stack.md) §7.2, as it stood):
+
+> **Triplespace crates:** each workspace crate linked into the binary, with its version and licence. A `scatter-*` crate is marked as also available under a commercial licence (§3.3).

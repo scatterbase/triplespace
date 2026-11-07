@@ -620,7 +620,7 @@ layer = "triplespace"
 summary = "Lua 5.1 through `mlua` in Scribunto's sandbox"
 depends = ["scatter-wikitext-expand", "scatter-wikibase-model", "scatter-providers", "mlua"]
 contents = """
-Lua 5.1 through `mlua` in Scribunto's sandbox; Scribunto's and WikibaseClient's Lua, vendored unchanged; the Rust side of their interfaces behind a host trait; the Lua-pattern matcher; data-module trees; the per-tenant Lua ID space; Wikibase Client formatting, `#property` and `#statements`; usage aspects ([0043](../decisions/0043-lua-modules.md) §4–10). Pure, but GPL-3.0-or-later only and never dual-licensed, because the vendored Lua is GPL ([0043](../decisions/0043-lua-modules.md) §14); `mw.wikibase.lexeme` ([0066](../decisions/0066-lexemes.md) §10); the include rule through the host, a refused include being `nil` ([0056](../decisions/0056-security-model.md) §6, §16)
+Lua 5.1 through `mlua` in Scribunto's sandbox; Scribunto's and WikibaseClient's Lua, vendored unchanged; the Rust side of their interfaces behind a host trait; the Lua-pattern matcher; data-module trees; the per-tenant Lua ID space; Wikibase Client formatting, `#property` and `#statements`; usage aspects ([0043](../decisions/0043-lua-modules.md) §4–10). Pure; the vendored Lua keeps its upstream GPL-2.0-or-later licences ([0043](../decisions/0043-lua-modules.md) §14, A10); `mw.wikibase.lexeme` ([0066](../decisions/0066-lexemes.md) §10); the include rule through the host, a refused include being `nil` ([0056](../decisions/0056-security-model.md) §6, §16)
 """
 
 [[crate]]

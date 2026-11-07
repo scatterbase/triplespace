@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-11-04 (A22)
+- **Updated:** 2026-11-07 (A23)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0024](0024-subsidiary-accounts.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md)
 - **Uses:** [0023](0023-moderation.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0043](0043-lua-modules.md), [0047](0047-special-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -56,7 +56,7 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 4. The expander
 
-*Changed by A6, A9, A22.*
+*Changed by A6, A9, A22, A23.*
 
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §1.4.*
 
@@ -458,3 +458,14 @@ Replaced text ([18](../architecture/18-api.md) §2.3, as it stood):
   - A block is a top-level element of the render lying wholly within one call's output, read from the spans of everything it holds, since a generated paragraph or list has no span of its own. A template's inline output inside a paragraph of the page's own text marks nothing; a template that draws two blocks marks both.
   - The position is `data-ts-template-at`, the byte offset of the call's `{{` in the page's text, which a tool can map back to the source; not an ordinal, which shifts with every call before it.
   - It is asked for, never the default: `action=parse` takes the Triplespace flag `tstemplates`, and the site passes it when the page is viewed with `?tstemplates=1`. A public render, which the edge caches by its address, never carries the marks unless that address asks.
+
+### A23. No commercial licence
+
+- **Date:** 2026-11-07
+- **Source:** Direct: James, design discussion of 2026-11-07
+- **Change:** amends §4
+- **Summary:** The expander's reason for being written from MediaWiki's behaviour rather than translated from its PHP, keeping the crate original code under the shared crates' dual licence, lapsed when the commercial licence was withdrawn ([0005](0005-crate-organization.md) A114). Asked the same day, James kept the rule.
+
+Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §1.4, as it stood):
+
+> **It is written from MediaWiki's documented behaviour and test files, not translated from MediaWiki's PHP.** That keeps the crate original code under the shared crates' dual licence ([0005](../decisions/0005-crate-organization.md) §6). The same applies to `#expr` and `#time` (§2).
