@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-17
-- **Updated:** 2026-10-30 (A6)
+- **Updated:** 2026-11-06 (A7)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0024](0024-subsidiary-accounts.md), [0028](0028-tenancy-policy.md), [0047](0047-special-pages.md), [0057](0057-web-tier.md)
 - **Uses:** [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0030](0030-edit-filters.md), [0034](0034-frontend-stack.md), [0035](0035-adopting-a-wikibase.md), [0056](0056-security-model.md), [0085](0085-settings-and-preferences.md)
@@ -51,7 +51,7 @@ James's direction, from the design discussion of 2026-10-17:
 
 ### 5. In the site, and without JavaScript (amends 0057 §7; extends 0010 §10)
 
-*Changed by A1.*
+*Changed by A1, A7.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.6; [19](../architecture/19-site-ui.md) §2.3; [20](../architecture/20-web-tier.md) §3.1.*
 
@@ -211,3 +211,10 @@ New text:
 - **Summary:** Logged from the working notes on their retirement (0099 §5, 24 §15); each call stands as decided until James confirms or overturns it, and the chapter text that states it is folded on confirmation where it is not already there. The calls:
   - The challenge carries the tenant slug, not the issuer code; revisit now that 0079 (derived issuer codes) is built.
   - The difficulty for Q1: the JavaScript solver ran at about 0.9 M hashes/s in node (20 bits is about 1 s on a desktop and several seconds on phones); measure on a phone before settling it.
+
+### A7. Strict names on the first-visit page
+
+- **Date:** 2026-11-06
+- **Source:** [0102](0102-strict-names-from-the-provider.md) §1
+- **Change:** extends §5
+- **Summary:** Under strict names `Special:CreateAccount` on the first visit shows the derived name in place of the name field and says the name follows the account held with the provider ([19](../architecture/19-site-ui.md) §2.3).

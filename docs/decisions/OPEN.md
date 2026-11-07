@@ -432,6 +432,13 @@ Every unstruck question in every ADR (24 §8), with its first sentence. Settle o
 | [0097 Q5](0097-versioning-and-skins.md) | Extra view-model fields | Whether a skin may ask for data from a fixed list the binary offers (assessment, protection, short description, edit counts), fetched only when a skin asks for it; deferred until the default skin needs one. |
 | [0099 Q1](0099-status-from-the-code.md) | Trailers | Trailer sections (Crates, API, UI, Storage, …) are left out of the status. |
 | [0099 Q2](0099-status-from-the-code.md) | Tests for non-code sections | A section about crate layout or naming is "tested" by the check that enforces it (`xtask deps` cites 22 §1.2), which `coverage.py` classes as src. |
+| [0101 Q1](0101-requiring-an-external-sign-in-method.md) | Passwords for the owners only | Whether an instance under the requirement should be able to keep passwords as a break-glass method for members of `owner` while offering them to no one else, which `login.password` cannot express. |
+| [0101 Q2](0101-requiring-an-external-sign-in-method.md) | Withdrawing a provider | Whether `oauth-client remove` and a save of `login.issuers` that stops offering an issuer should refuse, or warn, while a login holds that issuer's identity and no other under the requirement. |
+| [0101 Q3](0101-requiring-an-external-sign-in-method.md) | A required issuer | Whether an instance may name the issuer, or issuers, every login must hold, rather than any one the auth host offers. |
+| [0102 Q1](0102-strict-names-from-the-provider.md) | A rename by hand | Whether `renameuser` is refused under strict names, or allowed and overwritten at the next login; refusing is simpler and is what "nobody chooses a name" implies. |
+| [0102 Q2](0102-strict-names-from-the-provider.md) | Farm accounts | What a farm account (08 §3.5) is named under strict names: the same derived name is the natural answer, and the farm name registry then holds one name per login. |
+| [0102 Q3](0102-strict-names-from-the-provider.md) | A provider's username grammar | Wikimedia's follows MediaWiki's, which the local grammar matches; a later provider (0088 Q1) may allow what the local grammar forbids, and would need a mapping or a refusal. |
+| [0102 Q4](0102-strict-names-from-the-provider.md) | The stale window | Whether an instance may ask the provider's users API for the current name on a schedule, so that renames land before the next login, at the cost of a request per account. |
 
 ## Pending registry allocations
 

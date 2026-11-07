@@ -129,6 +129,9 @@ struct FormState {
     solution: String,
     approval: bool,
     for_another: bool,
+    /// The instance creates a login only from an external identity (0101 §3): no
+    /// name or password fields, the issuers' buttons alone.
+    external_only: bool,
 }
 
 // ---------------------------------------------------------------------------------------
@@ -406,7 +409,13 @@ fn create_model(
             if state.approval {
                 page.texts.push(m.get("ts-createaccount-reviewed"));
             }
-            page.form = Some(create_form_model(m, state));
+            if state.external_only {
+                // The requirement's page: a sentence and the buttons.
+                // This implements 0101 §3.
+                page.texts.push(m.get("ts-createaccount-external-only"));
+            } else {
+                page.form = Some(create_form_model(m, state));
+            }
             page.issuers.clone_from(issuers);
         }
         CreateBody::Pending {
@@ -539,7 +548,7 @@ async fn fresh(
             &cookies,
         );
     }
-    let approval = cx.site.account_approval && !holds_confirm(cx);
+    let approval = cx.site.account.approval && !holds_confirm(cx);
     let state = FormState {
         token: f.token.clone(),
         back: back.to_string(),
@@ -552,6 +561,7 @@ async fn fresh(
         solution: String::new(),
         approval,
         for_another: cx.user.is_some(),
+        external_only: cx.site.account.external_required,
     };
     // The issuers' buttons carry the login token of the session the form's token is
     // bound to: a second session would replace the first in the browser.
@@ -565,7 +575,11 @@ async fn fresh(
                     &f.login_token,
                     "login",
                     back,
-                    "ts-createaccount-external-heading",
+                    if cx.site.account.external_required {
+                        "ts-createaccount-external-only-heading"
+                    } else {
+                        "ts-createaccount-external-heading"
+                    },
                     "ts-createaccount-external-button",
                 )
             })
@@ -796,6 +810,7 @@ fn refusal(m: &Messages, code: &str, message: &str) -> String {
         "acct_creation_throttle_hit" => m.get("ts-createaccount-throttle"),
         "ts-account-statement-required" => m.get("ts-createaccount-statement-required"),
         "ts-account-statement-long" => m.get("ts-createaccount-statement-long"),
+        "ts-external-required" => m.get("ts-createaccount-external-only"),
         "permissiondenied" => m.get("ts-createaccount-not-allowed"),
         _ => message.to_string(),
     }
@@ -859,7 +874,7 @@ pub async fn post(
         Err(e) => return pages::api_failed(&cx, headers, &e),
     };
     let mut cookies = result.set_cookies;
-    let approval = cx.site.account_approval && !holds_confirm(&cx);
+    let approval = cx.site.account.approval && !holds_confirm(&cx);
     let again = |cx: &Context,
                  challenge: Option<ChallengeInfo>,
                  solution: &str,
@@ -875,6 +890,7 @@ pub async fn post(
             solution: solution.to_string(),
             approval,
             for_another: cx.user.is_some(),
+            external_only: cx.site.account.external_required,
         };
         page(
             cx,
@@ -1202,6 +1218,7 @@ mod tests {
             solution: String::new(),
             approval,
             for_another: false,
+            external_only: false,
         }
     }
 
@@ -1234,6 +1251,19 @@ mod tests {
         );
         assert!(p.texts.is_empty());
         assert!(p.form.unwrap().statement.unwrap().required);
+        // Under the requirement: the sentence and no form (0101 §3).
+        let mut only = state(false, None);
+        only.external_only = true;
+        let p = create_model(
+            &m,
+            None,
+            &CreateBody::Create {
+                state: only,
+                issuers: None,
+            },
+        );
+        assert_eq!(p.texts, vec![m.get("ts-createaccount-external-only")]);
+        assert!(p.form.is_none());
 
         let pending = Pending {
             issuer: "wikimedia".into(),
@@ -1362,6 +1392,7 @@ mod tests {
                 solution: String::new(),
                 approval: true,
                 for_another: false,
+                external_only: false,
             },
             issuers: None,
         };

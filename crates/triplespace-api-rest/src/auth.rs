@@ -392,6 +392,8 @@ pub async fn account(
             .filter(|i| !mine.iter().any(|b| b.issuer == i.code))
             .map(|i| json!({"issuer": i.code, "label": external::label(i)}))
             .collect();
+        // Whether the last external identity must stay (0101 §1).
+        let external_required = triplespace_accounts::logins::external_required(&**client).await?;
         Ok(json!({
             "actor": me,
             "name": caller.identity.name,
@@ -399,6 +401,7 @@ pub async fn account(
             "bindings": rows,
             "can_add": can_add,
             "ways": rows.len() + usize::from(has_password),
+            "external_required": external_required,
         }))
     }
     .await;

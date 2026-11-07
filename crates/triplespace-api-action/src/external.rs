@@ -140,6 +140,9 @@ pub fn message(code: &str) -> &'static str {
         }
         "ts-last-binding" => "This is your last way to log in, so it cannot be removed.",
         "ts-no-login-method" => "That would leave this wiki with no way to log in.",
+        "ts-external-required" => {
+            "This wiki creates accounts only by signing in with another account you hold, and keeps that sign-in method: it cannot be removed, and no account is made from a password."
+        }
         "ts-reclaimed" => {
             "Welcome back: the wiki this one was moved from confirmed this account is yours."
         }
