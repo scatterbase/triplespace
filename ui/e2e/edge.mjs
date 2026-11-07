@@ -20,7 +20,9 @@ function isApi( path ) {
 }
 
 http.createServer( ( req, res ) => {
-	const path = new URL( req.url, 'http://edge' ).pathname;
+	// Only the path and query of the request line are forwarded: an absolute-form request
+	// (`GET http://elsewhere/ HTTP/1.1`) must not pick the upstream.
+	const { pathname: path, search } = new URL( req.url, 'http://edge' );
 	let origin = api;
 	let replica = null;
 	if ( !isApi( path ) ) {
@@ -28,7 +30,7 @@ http.createServer( ( req, res ) => {
 		origin = web[ next ];
 		next = ( next + 1 ) % web.length;
 	}
-	const target = new URL( req.url, origin );
+	const target = new URL( path + search, origin );
 	const headers = { ...req.headers };
 	const peer = req.socket.remoteAddress.replace( /^::ffff:/, '' );
 	headers[ 'x-forwarded-for' ] = headers[ 'x-forwarded-for' ] ? `${ headers[ 'x-forwarded-for' ] }, ${ peer }` : peer;
