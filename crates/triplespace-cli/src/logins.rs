@@ -62,8 +62,8 @@ pub struct Done {
     pub partition_opened: bool,
     /// Logins made.
     pub logins: usize,
-    /// Passwords moved to their login.
-    pub passwords: usize,
+    /// Password hashes moved to their login.
+    pub hashes_moved: usize,
     /// External identities moved to their login.
     pub identities: usize,
     /// Old password binding records erased.
@@ -93,8 +93,8 @@ pub async fn migrate(args: Migrate) -> Result<()> {
         println!("opened the instance's logins partition");
     }
     println!(
-        "{} logins made, {} passwords and {} identities moved, {} old records erased",
-        done.logins, done.passwords, done.identities, done.erased
+        "{} logins made, {} hashes and {} identities moved, {} old records erased",
+        done.logins, done.hashes_moved, done.identities, done.erased
     );
     for s in &done.skipped {
         println!("skipped: {s}");
@@ -189,7 +189,7 @@ pub async fn run_migration(database: &str, key_file: &std::path::Path) -> Result
             l
         };
         password::migrate_row(cx.conn(), &actor_key, login).await?;
-        done.passwords += 1;
+        done.hashes_moved += 1;
     }
 
     for (tenant, b) in bindings::unmigrated(cx.conn()).await? {

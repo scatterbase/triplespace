@@ -246,14 +246,14 @@ async fn instance_logins() {
         .unwrap()
         .get(0);
     assert_eq!(unmigrated, 0);
-    // The login record is in the logins partition, keyed `login:{n}`.
+    // The login record is in the logins partition, keyed `login:{n}`. A partition ID is
+    // 64 random bits, stored as the `bigint` with the same bits.
+    #[allow(clippy::cast_possible_wrap)]
+    let partition_db = alice.partition as i64;
     let record: String = store
         .query_one(
             "SELECT key FROM log.record WHERE partition = $1 AND \"offset\" = $2",
-            &[
-                &i64::try_from(alice.partition).unwrap(),
-                &i64::try_from(alice.offset).unwrap(),
-            ],
+            &[&partition_db, &i64::try_from(alice.offset).unwrap()],
         )
         .await
         .unwrap()
@@ -359,7 +359,7 @@ async fn instance_logins() {
         .expect("logins migrate");
     assert!(!done.partition_opened);
     assert_eq!(done.logins, 1, "{done:?}");
-    assert_eq!(done.passwords, 1);
+    assert_eq!(done.hashes_moved, 1);
     assert!(done.skipped.is_empty(), "{done:?}");
     let migrated = logins::login_of(&store, TENANT, &bob_key)
         .await
@@ -377,7 +377,10 @@ async fn instance_logins() {
     let again = triplespace_cli::logins::run_migration(&database, &key_file)
         .await
         .unwrap();
-    assert_eq!((again.logins, again.passwords, again.identities), (0, 0, 0));
+    assert_eq!(
+        (again.logins, again.hashes_moved, again.identities),
+        (0, 0, 0)
+    );
 
     // A login name held by another login's account is qualified with the tenant (§15).
     assert_eq!(
