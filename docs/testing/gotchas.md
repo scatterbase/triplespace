@@ -83,6 +83,22 @@ strike what stops being true. Implementation status is not kept here (24 §15: `
 - Take the `.bz2` over the `.gz`: `lbzip2` decompresses it on every core (~500 MB/s on 16),
   where gzip runs on one. A partly downloaded `.bz2` decompresses up to where it stops, which is
   enough to try a tool on the dump's real opening.
+- `sync --dump …json.bz2` reads the `.bz2` through the `bzip2` crate, on one core: about
+  35 MB/s of JSON, below what a bootstrap load takes (15 KB an entity at 2,000+/s). It also opens
+  the dump twice (once to tell XML from JSON), so it cannot be fed `lbzip2`'s output through a
+  FIFO or `/dev/stdin`. For a whole-dump load, recompress the zindex archive to gzip, which it
+  reads at hundreds of MB/s: `zstd -dc zindex/entities.jsonl.zst | pigz -1 -p 14 >
+  wd-full.json.gz` (211 GB, 43 min on 16 cores; the dump's order, one entity per line).
+- A statement ID's part after the `$` is not always a UUID: Wikibase accepts any 8-4-4-4-12
+  letters and digits, and Wikidata has IDs written by hand under that rule
+  (`Q126373047$5627445f-43cb-ed6d-3adb-tracklists01`, and Q126373054). Until 0017 A13 the
+  parser required hexadecimal, so the whole-dump load of 2026-11-06/07 counted those two
+  entities unreadable; they load now. Look for the same pattern if a dump reports a statement
+  ID it cannot parse.
+- On the benchmark VM the `jh` role cannot `CREATE EXTENSION pg_stat_statements` (superuser
+  only), so a run script's own attempt fails and its later `pg_stat_statements_reset()` with it.
+  Create it as `postgres` (`sudo -u postgres psql -d <db> -c 'CREATE EXTENSION
+  pg_stat_statements'`) right after `createdb`.
 
 ## The device bridge and James's checkout
 
