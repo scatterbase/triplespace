@@ -22,6 +22,14 @@ strike what stops being true. Implementation status is not kept here (24 §15: `
   databases behind before 2026-11-06. `scatter-log-postgres`, which cannot depend on
   `triplespace-db`, has its own copy in `tests/postgres.rs`.
 
+- `triplespace-server --test pages` `librarybase_pages_are_adopted_with_their_history` fails on a
+  Postgres whose `timezone` is not UTC (Postgres.app and Homebrew default to the machine's zone):
+  `talk_pages_became_threads` compares `original::text`, a `timestamptz` rendered in the
+  session's zone, against a UTC string (2026-11-06, Homebrew Postgres 18 in
+  `America/Los_Angeles`). Everything after that check in the test is not run. A session
+  option in the test URL does not reach it, since the test rebuilds the URL for its scratch
+  database; `ALTER ROLE <you> SET timezone = 'UTC'` on the test server makes it pass.
+
 ## The cloud sandbox
 
 - Its disk fills with `target/debug/incremental` (~10 GB); build with `CARGO_INCREMENTAL=0` or

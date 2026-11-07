@@ -3,19 +3,22 @@
 //!
 //! - **Go to.** Text that names an entity (an ID such as `Q42` or `WDQ65`, a page title
 //!   such as `Item:Q42` or `Domain:wikipedia.org`, or a bare domain key such as
-//!   `wikipedia.org`) goes straight to its page when it exists. As in MediaWiki, the
-//!   header's box asks for this (no `fulltext`), and the results page's own form does
-//!   not: there, an entity the text names is offered as **Go to** above the results.
-//!   Text that is sure to be an ID (a local ID, or a namespaced title) and names nothing
-//!   says so; text that merely could be one (a foreign ID's shape, a dotted word) falls
-//!   through to the results quietly.
-//! - **Results** are grouped by kind (items, properties, domains), seven of each, with
-//!   a link to the rest of a kind. `ns{n}=1` (120, 122, 210) asks for one kind, paged by
-//!   `offset` and `limit` (MediaWiki's parameters).
+//!   `wikipedia.org`) goes straight to its page when it exists, and so does the exact
+//!   title of a document page (`Project:About`, or `About` in the main namespace), tried
+//!   after the entity forms (0029 §6; 10 §3.3). As in MediaWiki, the header's box asks
+//!   for this (no `fulltext`), and the results page's own form does not: there, the page
+//!   the text names is offered as **Go to** above the results. Text that is sure to be
+//!   an ID (a local ID, or a namespaced entity title) and names nothing says so; text
+//!   that merely could be one (a foreign ID's shape, a dotted word) falls through to the
+//!   results quietly.
+//! - **Results** are grouped by kind (items, properties, domains, pages), seven of each,
+//!   with a link to the rest of a kind. `ns{n}=1` (120, 122, 210; 0 for pages) asks for
+//!   one kind, paged by `offset` and `limit` (MediaWiki's parameters).
 //!
-//! The search itself is the API's `wbsearchentities`: labels and aliases, by prefix, in
-//! the interface language and its fallbacks (0014 §8). Page titles and page text join
-//! when the pages stack does (0010 §3).
+//! Entities are found by the API's `wbsearchentities`: labels and aliases, by prefix, in
+//! the interface language and its fallbacks (0014 §8). Pages are found by their titles,
+//! through `list=prefixsearch` over every namespace that holds pages, unless the text
+//! begins with a namespace prefix; page text joins when its index does (0010 §3, A4).
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
@@ -26,7 +29,7 @@ use axum::response::Response;
 use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 use scatter_wikibase_model::id::{EntityId, IdForm};
 use serde::Serialize;
-use triplespace_client::{ClientError, Fetched, Hit, Hits, SiteInfo};
+use triplespace_client::{ClientError, Fetched, Hit, Hits, Lookup, SiteInfo};
 
 use crate::Site;
 use crate::codex::{
@@ -39,8 +42,9 @@ use crate::frame::{Page, title_url};
 use crate::i18n::Messages;
 use crate::pages::{self, Context, Peer};
 
-/// A kind of entity the search covers: its `wbsearchentities` type, its namespace, and
-/// the messages of its group.
+/// A kind of result the search covers: its `wbsearchentities` type (`page` for document
+/// pages, which `list=prefixsearch` finds), the namespace that asks for it, and the
+/// messages of its group.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Kind {
     entity_type: &'static str,
@@ -49,7 +53,7 @@ struct Kind {
     more: &'static str,
 }
 
-const KINDS: [Kind; 3] = [
+const KINDS: [Kind; 4] = [
     Kind {
         entity_type: "item",
         ns: 120,
@@ -68,7 +72,24 @@ const KINDS: [Kind; 3] = [
         heading: "ts-search-group-domain",
         more: "ts-search-more-domain",
     },
+    PAGES,
 ];
+
+/// Document pages, by title. They are asked for as `ns0=1`, the main namespace's number
+/// in MediaWiki's form, though every namespace that holds pages is searched.
+const PAGES: Kind = Kind {
+    entity_type: "page",
+    ns: 0,
+    heading: "ts-search-group-page",
+    more: "ts-search-more-page",
+};
+
+impl Kind {
+    /// Whether the kind is document pages rather than entities.
+    fn is_pages(self) -> bool {
+        self.entity_type == PAGES.entity_type
+    }
+}
 
 /// Results per kind when every kind is shown.
 const PER_GROUP: u32 = 7;
@@ -207,9 +228,23 @@ fn id_chip_model(id: &str) -> Option<ChipModel> {
     }
 }
 
-/// One result's model.
+/// One result's model: an entity's label with its chip and description, or a page's title.
 fn hit_model(m: &Messages, h: &Hit, kind: Kind) -> HitModel {
     let lang = m.lang();
+    if kind.is_pages() {
+        return HitModel {
+            href: format!("/wiki/{}", title_url(&h.title)),
+            title: HitTitle {
+                text: h.title.clone(),
+                lang: None,
+                mono: false,
+                ltr: false,
+            },
+            chip: None,
+            description: None,
+            alias: None,
+        };
+    }
     let title = match &h.label {
         Some((text, l)) => HitTitle {
             text: text.clone(),
@@ -556,7 +591,8 @@ impl Ask {
     }
 }
 
-/// Searches each kind asked for, in parallel.
+/// Searches each kind asked for, in parallel: entities with `wbsearchentities`, pages
+/// with `list=prefixsearch`, the page titles carried as hits.
 async fn fetch(
     site: &Site,
     incoming: &triplespace_client::Incoming,
@@ -567,32 +603,74 @@ async fn fetch(
     let run = |k: Kind| {
         let client = &client;
         async move {
-            if ask.kinds.contains(&k) {
-                Some(
-                    client
-                        .search(
-                            incoming,
-                            &ask.text,
-                            lang,
-                            k.entity_type,
-                            ask.limit,
-                            ask.offset,
-                        )
-                        .await,
-                )
-            } else {
-                None
+            if !ask.kinds.contains(&k) {
+                return None;
             }
+            if k.is_pages() {
+                return Some(
+                    client
+                        .prefix_search(incoming, &ask.text, ask.limit, ask.offset)
+                        .await
+                        .map(|Fetched { value, cache }| Fetched {
+                            value: Hits {
+                                hits: value
+                                    .hits
+                                    .into_iter()
+                                    .map(|p| Hit {
+                                        title: p.title,
+                                        ..Hit::default()
+                                    })
+                                    .collect(),
+                                next: value.next,
+                            },
+                            cache,
+                        }),
+                );
+            }
+            Some(
+                client
+                    .search(
+                        incoming,
+                        &ask.text,
+                        lang,
+                        k.entity_type,
+                        ask.limit,
+                        ask.offset,
+                    )
+                    .await,
+            )
         }
     };
-    let (a, b, c) = tokio::join!(run(KINDS[0]), run(KINDS[1]), run(KINDS[2]));
+    let (a, b, c, d) = tokio::join!(run(KINDS[0]), run(KINDS[1]), run(KINDS[2]), run(KINDS[3]));
     let mut out = Vec::new();
-    for (k, r) in KINDS.into_iter().zip([a, b, c]) {
+    for (k, r) in KINDS.into_iter().zip([a, b, c, d]) {
         if let Some(r) = r {
             out.push((k, r?));
         }
     }
     Ok(out)
+}
+
+/// The document page the text is the exact title of, if one exists: its title as the
+/// API normalizes it. Tried after the entity forms, so that an ID is the entity first
+/// (0029 §6; 10 §3.3). Text that cannot be a title names nothing.
+async fn existing_page(
+    site: &Site,
+    cx: &mut Context,
+    incoming: &triplespace_client::Incoming,
+    text: &str,
+) -> Result<Option<String>, ClientError> {
+    match site.client().page_info(incoming, text).await {
+        Ok(Fetched { value, cache }) => {
+            cx.inputs.push(cache);
+            Ok(match value {
+                Lookup::Found(info) => Some(info.title),
+                Lookup::Missing { .. } | Lookup::Invalid => None,
+            })
+        }
+        Err(ClientError::Api { .. }) => Ok(None),
+        Err(e) => Err(e),
+    }
 }
 
 /// `Special:Search`.
@@ -619,6 +697,12 @@ pub async fn serve(
             Ok(Some(found)) => go = Some(found),
             Ok(None) if sure => missing = Some(title),
             Ok(None) => {}
+            Err(e) => return pages::api_failed(&cx, headers, &e),
+        }
+    }
+    if go.is_none() && !ask.text.is_empty() {
+        match existing_page(site, &mut cx, &incoming, &ask.text).await {
+            Ok(found) => go = found,
             Err(e) => return pages::api_failed(&cx, headers, &e),
         }
     }
@@ -698,11 +782,13 @@ mod tests {
     #[test]
     fn kinds_from_the_query() {
         let mut q = BTreeMap::new();
-        assert_eq!(wanted(&q).len(), 3);
+        assert_eq!(wanted(&q).len(), 4);
         q.insert("ns122".into(), "1".into());
         assert_eq!(wanted(&q), vec![KINDS[1]]);
         q.insert("ns122".into(), "0".into());
-        assert_eq!(wanted(&q).len(), 3);
+        assert_eq!(wanted(&q).len(), 4);
+        q.insert("ns0".into(), "1".into());
+        assert_eq!(wanted(&q), vec![PAGES]);
     }
 
     fn hit(id: &str, label: Option<(&str, &str)>) -> Hit {
@@ -745,6 +831,17 @@ mod tests {
             ("wikipedia.org", true, true)
         );
         assert!(keyed.chip.is_none());
+        let page = hit_model(
+            &m,
+            &Hit {
+                title: "Project:About us".into(),
+                ..Hit::default()
+            },
+            PAGES,
+        );
+        assert_eq!(page.href, "/wiki/Project:About_us");
+        assert_eq!(page.title.text, "Project:About us");
+        assert!(!page.title.mono && page.chip.is_none() && page.description.is_none());
     }
 
     /// The results' model: the filter marks the kind asked for, a kind with more links

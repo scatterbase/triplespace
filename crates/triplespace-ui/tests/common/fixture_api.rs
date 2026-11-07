@@ -263,6 +263,12 @@ impl FixtureApi {
         if query.contains("action=wbsearchentities") {
             return (StatusCode::OK, self.search(query), vec![]);
         }
+        if query.contains("list=prefixsearch") {
+            return (StatusCode::OK, Self::prefix_search(query), vec![]);
+        }
+        if query.contains("prop=info") && query.contains("titles=") {
+            return (StatusCode::OK, Self::page_info(query), vec![]);
+        }
         if query.contains("action=wbgetentities") {
             let mut out = serde_json::Map::new();
             let mut tags = Vec::new();
@@ -291,7 +297,81 @@ impl FixtureApi {
     }
 }
 
+/// The document pages the fixture site has: namespace, prefixed title, page ID.
+pub const PAGES: [(i64, &str, u64); 3] = [
+    (0, "Printing", 31),
+    (4, "Librarybase:About", 32),
+    (4, "Librarybase:Printing presses", 33),
+];
+
+/// A title as the API normalizes it: underscores to spaces, the first letter upper-cased.
+fn normal_title(text: &str) -> String {
+    let t = text.replace('_', " ");
+    let t = t.trim();
+    let mut c = t.chars();
+    match c.next() {
+        Some(first) => first.to_uppercase().chain(c).collect(),
+        None => String::new(),
+    }
+}
+
 impl FixtureApi {
+    /// `list=prefixsearch` over [`PAGES`]: a case-insensitive prefix of the title, in the
+    /// title's namespace when the text names one (`Librarybase:Pri`), else in those
+    /// `psnamespace` asks for (`*` for all), as the API answers it.
+    fn prefix_search(query: &str) -> Value {
+        let text = normal_title(&param(query, "pssearch").unwrap_or_default());
+        let namespaces = param(query, "psnamespace").unwrap_or_else(|| "0".into());
+        let limit: usize = param(query, "pslimit")
+            .and_then(|l| l.parse().ok())
+            .unwrap_or(10);
+        let offset: usize = param(query, "psoffset")
+            .and_then(|l| l.parse().ok())
+            .unwrap_or(0);
+        let (ns, prefix) = match text.split_once(':') {
+            Some(("Librarybase" | "Project", rest)) => (Some(4), normal_title(rest)),
+            _ => (None, text),
+        };
+        let wanted = |n: i64| match ns {
+            Some(ns) => n == ns,
+            None => namespaces == "*" || namespaces.split('|').any(|x| x == n.to_string()),
+        };
+        let hits: Vec<Value> = PAGES
+            .iter()
+            .filter(|(n, title, _)| {
+                let bare = title.split_once(':').map_or(*title, |(_, t)| t);
+                wanted(*n)
+                    && (if *n == 0 { title } else { &bare })
+                        .to_lowercase()
+                        .starts_with(&prefix.to_lowercase())
+            })
+            .map(|(n, title, id)| json!({"ns": n, "title": title, "pageid": id}))
+            .collect();
+        let page: Vec<Value> = hits.iter().skip(offset).take(limit).cloned().collect();
+        let mut body = json!({"query": {"prefixsearch": page}});
+        if hits.len() > offset + limit {
+            body["continue"] = json!({"psoffset": offset + limit, "continue": "-||"});
+        }
+        body
+    }
+
+    /// `prop=info` of a title over [`PAGES`]: the page, or `missing`.
+    fn page_info(query: &str) -> Value {
+        let asked = normal_title(&param(query, "titles").unwrap_or_default());
+        let title = match asked.split_once(':') {
+            Some(("Project" | "Librarybase", rest)) => {
+                format!("Librarybase:{}", normal_title(rest))
+            }
+            _ => asked.clone(),
+        };
+        match PAGES.iter().find(|(_, t, _)| *t == title) {
+            Some((ns, t, id)) => json!({"query": {"pages": [
+                {"ns": ns, "title": t, "pageid": id, "contentmodel": "wikitext"}
+            ]}}),
+            None => json!({"query": {"pages": [{"ns": 0, "title": title, "missing": true}]}}),
+        }
+    }
+
     /// `wbsearchentities` over the fixtures, as the API's Postgres fallback answers it: a
     /// prefix of a label (first) or an alias, in the language, `mul` or English.
     fn search(&self, query: &str) -> Value {

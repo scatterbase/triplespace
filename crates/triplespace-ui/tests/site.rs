@@ -42,6 +42,14 @@ impl Transport for FakeApi {
                     }}),
                     "\"si\"",
                 )
+            } else if request.path_and_query.contains("prop=info") {
+                // No page has any title: search offers no **Go to** a page.
+                (
+                    json!({"query": {"pages": [{"ns": 0, "title": "Missing", "missing": true}]}}),
+                    "\"missing\"",
+                )
+            } else if request.path_and_query.contains("list=prefixsearch") {
+                (json!({"query": {"prefixsearch": []}}), "\"nopages\"")
             } else if credentialed {
                 (
                     json!({"query": {"userinfo": {"id": 3, "name": "Alice"}}}),

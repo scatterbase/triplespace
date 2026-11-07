@@ -1,4 +1,5 @@
-//! `wbsearchentities`: the site's search (0010 §3; 0047 §9).
+//! `wbsearchentities` and `list=prefixsearch`: the site's search (0010 §3; 0047 §9),
+//! entities by label and alias, and document pages by title.
 
 use std::fmt::Write as _;
 
@@ -34,6 +35,48 @@ pub struct Hits {
     pub hits: Vec<Hit>,
     /// The offset of the next page, where there is one.
     pub next: Option<u32>,
+}
+
+/// One document page a title search found.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct PageHit {
+    /// The title, prefixed (`Project:About`).
+    pub title: String,
+    /// The namespace.
+    pub ns: i64,
+    /// The page ID.
+    pub page_id: u64,
+}
+
+/// A page of `list=prefixsearch` results.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct PageHits {
+    /// The results.
+    pub hits: Vec<PageHit>,
+    /// The offset of the next page, where there is one.
+    pub next: Option<u32>,
+}
+
+/// The results of a `list=prefixsearch` response.
+fn page_hits_of(v: &Value) -> PageHits {
+    let hits = v["query"]["prefixsearch"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter_map(|h| {
+                    Some(PageHit {
+                        title: h["title"].as_str()?.to_string(),
+                        ns: h["ns"].as_i64().unwrap_or(0),
+                        page_id: h["pageid"].as_u64().unwrap_or(0),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let next = v["continue"]["psoffset"]
+        .as_u64()
+        .and_then(|n| u32::try_from(n).ok());
+    PageHits { hits, next }
 }
 
 fn pair(v: &Value) -> Option<(String, String)> {
@@ -103,6 +146,35 @@ impl Client {
             cache: CacheInfo::of(&r),
         })
     }
+
+    /// `list=prefixsearch` for `search` among document pages: every namespace that holds
+    /// pages unless the text begins with a namespace prefix, from `offset`, at most
+    /// `limit`.
+    ///
+    /// # Errors
+    ///
+    /// The API's refusal, or the API away or unreadable.
+    pub async fn prefix_search(
+        &self,
+        incoming: &Incoming,
+        search: &str,
+        limit: u32,
+        offset: u32,
+    ) -> Result<Fetched<PageHits>, ClientError> {
+        let mut q = format!(
+            "/w/api.php?action=query&list=prefixsearch&format=json&formatversion=2&pssearch={}&psnamespace=*&pslimit={limit}",
+            utf8_percent_encode(search, QUERY),
+        );
+        if offset > 0 {
+            let _ = write!(q, "&psoffset={offset}");
+        }
+        let r = self.get(incoming, &q).await?;
+        let v = check(&r)?;
+        Ok(Fetched {
+            value: page_hits_of(&v),
+            cache: CacheInfo::of(&r),
+        })
+    }
 }
 
 #[cfg(test)]
@@ -125,5 +197,26 @@ mod tests {
         assert_eq!(h.hits[0].match_type, "alias");
         assert_eq!(h.hits[1].label, None);
         assert_eq!(h.next, Some(7));
+    }
+
+    #[test]
+    fn page_results_parse_the_mediawiki_shape() {
+        let h = page_hits_of(&serde_json::json!({
+            "query": {"prefixsearch": [
+                {"ns": 4, "title": "Project:About", "pageid": 12},
+                {"ns": 0, "title": "Abstract", "pageid": 3}
+            ]},
+            "continue": {"psoffset": 2, "continue": "-||"}
+        }));
+        assert_eq!(h.hits.len(), 2);
+        assert_eq!(
+            (h.hits[0].ns, h.hits[0].title.as_str(), h.hits[0].page_id),
+            (4, "Project:About", 12)
+        );
+        assert_eq!(h.next, Some(2));
+        assert_eq!(
+            page_hits_of(&serde_json::json!({"query": {"prefixsearch": []}})).next,
+            None
+        );
     }
 }
