@@ -175,6 +175,8 @@ pub struct Created {
     pub owner: ActorKey,
     /// The owner's user ID.
     pub owner_id: u64,
+    /// The owner's name.
+    pub owner_name: String,
 }
 
 fn info(
@@ -520,6 +522,7 @@ pub async fn create(
         partitions,
         owner,
         owner_id,
+        owner_name: spec.owner_name.clone(),
     })
 }
 
@@ -590,7 +593,7 @@ pub async fn owner_password(
         &mut cx,
         &created.entry.slug,
         &created.owner.to_string(),
-        created.owner_id,
+        &created.owner_name,
         &text,
         &farm.operator().to_string(),
         t,

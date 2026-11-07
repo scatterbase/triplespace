@@ -97,6 +97,12 @@ pub async fn migrate(args: Database) -> Result<()> {
         applied.applied.len(),
         applied.skipped.len()
     );
+    if crate::logins::pending(&client).await? {
+        println!(
+            "note: credentials are still keyed by tenant accounts, or the instance has no logins \
+             partition; run `triplespace logins migrate --key-file <instance key>` (0089 §15)"
+        );
+    }
     if applied
         .applied
         .iter()

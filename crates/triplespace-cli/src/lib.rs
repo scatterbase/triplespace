@@ -14,6 +14,7 @@ pub mod env_file;
 pub mod follow;
 pub mod forwarder;
 pub mod instance;
+pub mod logins;
 pub mod oauth_client;
 pub mod rights;
 pub mod settings;

@@ -18,9 +18,9 @@
 //! removed one included. Messages are written in the language of the request, from the
 //! wiki's interface messages, and name the instance, never the login name.
 //!
-//! **The login.** Until instance logins are built (0089 §2), the login an address belongs
-//! to is the account whose session acts, by its actor key (0100 A1), and the routes are
-//! served on the tenant's host as `/account` is.
+//! **The login.** An address belongs to the instance login the session holds (0089 §2;
+//! 0100 A3), stored by its ID; the routes are served on the tenant's host as `/account`
+//! is, since a single-tenant instance's tenant base is its auth base (0089 §12).
 //!
 //! The five routes are what implements 0100 §7 (A2); the security notices they stage,
 //! with `triplespace_notify::mail::texts`, are what implements 0100 §4.
@@ -57,8 +57,10 @@ use crate::settings::check_token;
 struct Scope {
     tenant: Tenant,
     caller: Caller,
-    /// The login's identifier: the actor key, for now (0100 A1).
+    /// The login's ID, as `private.email.login` stores it.
     login: String,
+    /// The login's ID.
+    login_id: i64,
 }
 
 async fn holder(
@@ -81,24 +83,29 @@ async fn holder(
     let caller = Caller::resolve(client, &tenant.slug, headers)
         .await
         .map_err(|e| internal(&e.info))?;
-    let Some(login) = caller.identity.actor_key.clone() else {
+    if caller.identity.actor_key.is_none() {
         return Err(error(
             StatusCode::UNAUTHORIZED,
             "notloggedin",
             "email addresses belong to a login; log in",
         ));
-    };
-    if caller.identity.session.is_none() {
+    }
+    let Some(login_id) = caller
+        .identity
+        .login
+        .filter(|_| caller.identity.session.is_some())
+    else {
         return Err(error(
             StatusCode::FORBIDDEN,
             "permissiondenied",
             "email addresses are managed in a session of the login, never by key",
         ));
-    }
+    };
     Ok(Scope {
         tenant,
         caller,
-        login,
+        login: login_id.to_string(),
+        login_id,
     })
 }
 
@@ -289,13 +296,13 @@ async fn policy(db: &tokio_postgres::Client, tenant: &Tenant) -> Policy {
 
 async fn removal_rules(
     db: &tokio_postgres::Client,
-    login: &str,
+    login: i64,
     required: bool,
 ) -> Result<RemovalRules, Response> {
     Ok(RemovalRules {
         required,
         has_password: password::has(db, login).await.map_err(|e| internal(&e))?,
-        has_external: !bindings::of(db, login)
+        has_external: !bindings::of_login(db, login)
             .await
             .map_err(|e| internal(&e))?
             .is_empty(),
@@ -338,7 +345,7 @@ pub async fn list(
         Err(e) => return refused(&e),
     };
     let p = policy(&client, &s.tenant).await;
-    let rules = match removal_rules(&client, &s.login, p.required).await {
+    let rules = match removal_rules(&client, s.login_id, p.required).await {
         Ok(r) => r,
         Err(r) => return r,
     };
@@ -571,7 +578,7 @@ pub async fn remove(
         Err(r) => return r,
     };
     let p = policy(&client, &s.tenant).await;
-    let rules = match removal_rules(&client, &s.login, p.required).await {
+    let rules = match removal_rules(&client, s.login_id, p.required).await {
         Ok(r) => r,
         Err(r) => return r,
     };

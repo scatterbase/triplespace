@@ -29,6 +29,10 @@ pub struct Session {
     pub actor_key: Option<String>,
     /// The API key a bot-password login used.
     pub key_id: Option<String>,
+    /// The instance login the session holds (0089 §5), for a person's session.
+    pub login: Option<i64>,
+    /// For a tenant session opened from a central one, that central session.
+    pub central: Option<String>,
     /// When it expires.
     pub expires: SystemTime,
 }
@@ -48,6 +52,18 @@ pub async fn create<C: GenericClient>(
     actor_key: Option<&str>,
     key_id: Option<&str>,
 ) -> Result<Session, AccountsError> {
+    create_for(client, tenant, actor_key, key_id, None).await
+}
+
+/// Opens a session that holds a login (0089 §5): a person's, on the auth host or on the
+/// tenant that is its own auth host.
+pub async fn create_for<C: GenericClient>(
+    client: &C,
+    tenant: &str,
+    actor_key: Option<&str>,
+    key_id: Option<&str>,
+    login: Option<i64>,
+) -> Result<Session, AccountsError> {
     let id = random_token(32)?;
     let lifetime = if actor_key.is_some() {
         LIFETIME
@@ -57,8 +73,8 @@ pub async fn create<C: GenericClient>(
     let expires = SystemTime::now() + lifetime;
     client
         .execute(
-            "INSERT INTO private.session (id, tenant, actor_key, key_id, expires) VALUES ($1, $2, $3, $4, $5)",
-            &[&id, &tenant, &actor_key, &key_id, &expires],
+            "INSERT INTO private.session (id, tenant, actor_key, key_id, login, expires) VALUES ($1, $2, $3, $4, $5, $6)",
+            &[&id, &tenant, &actor_key, &key_id, &login, &expires],
         )
         .await?;
     Ok(Session {
@@ -66,6 +82,8 @@ pub async fn create<C: GenericClient>(
         tenant: tenant.to_string(),
         actor_key: actor_key.map(str::to_owned),
         key_id: key_id.map(str::to_owned),
+        login,
+        central: None,
         expires,
     })
 }
@@ -81,7 +99,7 @@ pub async fn load<C: GenericClient>(
         .query_opt(
             "UPDATE private.session SET last_seen = now()
              WHERE id = $1 AND tenant = $2 AND expires > now()
-             RETURNING actor_key, key_id, expires",
+             RETURNING actor_key, key_id, expires, login, central",
             &[&id, &tenant],
         )
         .await?;
@@ -91,6 +109,8 @@ pub async fn load<C: GenericClient>(
         actor_key: r.get(0),
         key_id: r.get(1),
         expires: r.get(2),
+        login: r.get(3),
+        central: r.get(4),
     }))
 }
 
@@ -100,6 +120,13 @@ pub async fn delete<C: GenericClient>(client: &C, id: &str) -> Result<(), Accoun
         .execute("DELETE FROM private.session WHERE id = $1", &[&id])
         .await?;
     Ok(())
+}
+
+/// Ends every session of a login, on every host: **Log out everywhere** (0089 §9).
+pub async fn delete_all_of<C: GenericClient>(client: &C, login: i64) -> Result<u64, AccountsError> {
+    Ok(client
+        .execute("DELETE FROM private.session WHERE login = $1", &[&login])
+        .await?)
 }
 
 /// Drops expired sessions. Cheap enough to run on every login.

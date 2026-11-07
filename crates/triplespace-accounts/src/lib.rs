@@ -53,6 +53,7 @@ pub mod groups;
 pub mod identity;
 pub mod keys;
 pub mod login;
+pub mod logins;
 pub mod oauth;
 pub mod password;
 pub mod preferences;

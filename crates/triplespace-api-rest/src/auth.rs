@@ -362,8 +362,16 @@ pub async fn account(
     let result: Result<Value, triplespace_api_action::ApiError> = async {
         let offered = external::offered(scope).await?;
         let registry = scatter_actors::issuer::IssuerRegistry::default_registry();
-        let mine = bindings::of(&**client, &me).await?;
-        let has_password = password::has(&**client, &me).await?;
+        // The login's sign-in methods (0089 §3); an account bound to none has none.
+        let login = caller.identity.login;
+        let mine = match login {
+            Some(l) => bindings::of_login(&**client, l).await?,
+            None => Vec::new(),
+        };
+        let has_password = match login {
+            Some(l) => password::has(&**client, l).await?,
+            None => false,
+        };
         let rows: Vec<Value> = mine
             .iter()
             .map(|b| {

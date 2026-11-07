@@ -80,11 +80,11 @@ fn request(i: &Issuer) -> Value {
 ///
 /// If the store fails.
 pub async fn remove_requests(ctx: &Ctx) -> Result<Vec<Value>, ApiError> {
-    let Some(me) = ctx.caller.identity.actor_key.as_deref() else {
+    let Some(login) = ctx.caller.identity.login else {
         return Ok(Vec::new());
     };
     let registry = scatter_actors::issuer::IssuerRegistry::default_registry();
-    Ok(bindings::of(ctx.db(), me)
+    Ok(bindings::of_login(ctx.db(), login)
         .await?
         .into_iter()
         .map(|b| {
@@ -407,10 +407,12 @@ pub async fn unlinkaccount(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     };
     let store = ctx.app.store();
     let mut cx = scatter_projection::Backend::begin(store).await?;
+    let tenant = ctx.tenant.slug.clone();
     let done = unbind(
         store,
         ctx.app.pipeline(),
         &mut cx,
+        &tenant,
         &me,
         issuer,
         crate::edit::now_micros(),

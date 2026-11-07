@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-05
-- **Updated:** 2026-11-06 (A2)
+- **Updated:** 2026-11-06 (A3)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0021](0021-notifications.md), [0027](0027-preferences-and-portability.md), [0089](0089-the-auth-host-and-instance-logins.md)
 - **Uses:** [0012](0012-api-requirements.md), [0085](0085-settings-and-preferences.md), [0088](0088-external-identity-providers.md)
@@ -37,7 +37,7 @@ James's direction, from the design discussion of 2026-11-05:
 
 ### 1. An address belongs to the login (amends 0021 §4, §8; extends 0089 §2)
 
-*Changed by A1, A2.*
+*Changed by A1, A2, A3.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.9.*
 
@@ -65,7 +65,7 @@ James's direction, from the design discussion of 2026-11-05:
 
 ### 7. API (amends 0021 §7)
 
-*Changed by A1, A2.*
+*Changed by A1, A2, A3.*
 
 *Current text: [18](../architecture/18-api.md) §3.2.*
 
@@ -140,6 +140,16 @@ Replaced text ([16](../architecture/16-logs-feeds-and-notifications.md) §5.7, a
 > HTTP mail APIs are further implementations of the trait, each with a transport name of its own and sending through the egress path of [0012](0012-api-requirements.md) §6. What one adds over SMTP is structured delivery results and bounce and complaint webhooks, so each is built together with that handling. The first is `postmark`, whose message streams keep codes and security notices apart from notification digests; until it is built, a provider is reached through `smtp`, which every one of them accepts.
 >
 > **The sender** is one address for the whole instance, `mail.from`, required unless the transport is `none`. Its display name says whom a message is from: the instance's display name (the operator's, [08](../architecture/08-tenants-and-instances.md) §8.2) on mail about the login, codes and security notices, and the tenant's `site.name` on a tenant's notifications and digests. Bounces and complaints are not processed yet.
+### A3. Addresses keyed by the login
+
+- **Date:** 2026-11-06
+- **Source:** Direct: Claude, while building instance logins, 2026-11-06; unconfirmed
+- **Change:** amends §1, §7 (A1)
+- **Summary:** Instance logins exist ([0089](0089-the-auth-host-and-instance-logins.md) A3), so an address's row names the login by its ID, as §1 always said, and A1's interim keying by actor key is over; the `login` column stays text and holds the decimal ID. What A1 said of where the routes are served stands for the reason 0089 §12 gives: on a single-tenant instance the tenant's base is the auth base. A request by API key is still refused.
+
+Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.9, as it stood):
+
+> Until instance logins exist (§2.8 is not built), the login an address belongs to is the account whose session acts, identified by its actor key, and the routes and the page are served on the tenant's host as the account page is; the migration to logins rekeys the rows (0100 A1).
 
 ## References
 

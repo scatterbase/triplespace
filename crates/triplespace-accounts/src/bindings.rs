@@ -1,8 +1,11 @@
-//! `private.binding` (0088 §7; 07 §2.7): the index of bindings to external issuers. The
-//! binding records in the tenant's `accounts` partition are the truth (0007 §8); a row is
-//! written in the transaction that appends its record and points at it, so that removing
-//! the sign-in method can erase the record. A password binding's index is
-//! `private.password`.
+//! `private.binding` (0088 §7; 0089 §3, §4; 07 §2.7): the index of bindings. The binding
+//! records are the truth (0007 §8); a row is written in the transaction that appends its
+//! record and points at it, so that removing the sign-in method can erase the record. Two
+//! kinds of row: a login's external identity, with the empty tenant and the holder
+//! `login:{n}`, whose record is in the instance's `logins` partition; and a tenant account's
+//! binding to its login, with the tenant, the issuer `login` and the login ID as subject,
+//! whose holder is the actor key and whose record is in the tenant's `accounts` partition.
+//! A password's index is `private.password`, keyed by login.
 
 use std::time::SystemTime;
 
@@ -21,8 +24,9 @@ pub struct Binding {
     pub issuer: String,
     /// The subject, normalized.
     pub subject: String,
-    /// The account.
-    pub actor_key: String,
+    /// The holder: `login:{n}` for a login's external identity, an actor key for an
+    /// account's binding to its login.
+    pub holder: String,
     /// The binding record's partition: 64 random bits.
     pub partition: u64,
     /// The binding record's offset.
@@ -57,7 +61,7 @@ fn binding_of(r: &tokio_postgres::Row) -> Binding {
     Binding {
         issuer: r.get("issuer"),
         subject: r.get("subject"),
-        actor_key: r.get("actor_key"),
+        holder: r.get("holder"),
         partition: partition_from_db(r.get("partition")),
         offset: u64_of(r.get("offset")),
         added: r.get("added"),
@@ -65,15 +69,16 @@ fn binding_of(r: &tokio_postgres::Row) -> Binding {
     }
 }
 
-const COLUMNS: &str = "issuer, subject, actor_key, \"partition\", \"offset\", added, last_used";
+const COLUMNS: &str = "issuer, subject, holder, \"partition\", \"offset\", added, last_used";
 
-/// The binding record for a subject of an issuer (payloads.md §8), keyed by the account.
+/// The binding record for a subject of an issuer (payloads.md §8), keyed by its holder:
+/// a login's key for an external identity, an account's actor key for its login.
 ///
 /// # Errors
 ///
 /// If the body cannot be built.
 pub fn draft(
-    actor_key: &str,
+    holder: &str,
     issuer: &str,
     subject: &str,
     attested_by: &str,
@@ -86,7 +91,7 @@ pub fn draft(
     Ok(Draft {
         appended_at: now,
         payload_type: PAYLOAD_BINDING.into(),
-        key: Some(actor_key.to_string()),
+        key: Some(holder.to_string()),
         revid: None,
         logid: None,
         page_id: None,
@@ -99,7 +104,8 @@ pub fn draft(
     })
 }
 
-/// The account a subject is bound to on a tenant.
+/// The holder a subject is bound to: with the empty tenant, the `login:{n}` an external
+/// identity authenticates; with a tenant and the issuer `login`, the account.
 ///
 /// # Errors
 ///
@@ -112,31 +118,40 @@ pub async fn find<C: GenericClient>(
 ) -> Result<Option<String>, AccountsError> {
     Ok(client
         .query_opt(
-            "SELECT actor_key FROM private.binding WHERE tenant = $1 AND issuer = $2 AND subject = $3",
+            "SELECT holder FROM private.binding WHERE tenant = $1 AND issuer = $2 AND subject = $3",
             &[&tenant, &issuer, &subject],
         )
         .await?
         .map(|r| r.get(0)))
 }
 
-/// An account's external bindings, oldest first.
+/// A holder's bindings, oldest first: a login's external identities for `login:{n}`.
 ///
 /// # Errors
 ///
 /// If the store fails.
-pub async fn of<C: GenericClient>(
-    client: &C,
-    actor_key: &str,
-) -> Result<Vec<Binding>, AccountsError> {
+pub async fn of<C: GenericClient>(client: &C, holder: &str) -> Result<Vec<Binding>, AccountsError> {
     let rows = client
         .query(
             &format!(
-                "SELECT {COLUMNS} FROM private.binding WHERE actor_key = $1 ORDER BY added, issuer"
+                "SELECT {COLUMNS} FROM private.binding WHERE holder = $1 AND issuer <> 'login' ORDER BY added, issuer"
             ),
-            &[&actor_key],
+            &[&holder],
         )
         .await?;
     Ok(rows.iter().map(binding_of).collect())
+}
+
+/// A login's external identities, oldest first.
+///
+/// # Errors
+///
+/// If the store fails.
+pub async fn of_login<C: GenericClient>(
+    client: &C,
+    login: i64,
+) -> Result<Vec<Binding>, AccountsError> {
+    of(client, &crate::logins::key_of(login)).await
 }
 
 /// Indexes a binding record just appended.
@@ -149,19 +164,19 @@ pub async fn insert<C: GenericClient>(
     tenant: &str,
     issuer: &str,
     subject: &str,
-    actor_key: &str,
+    holder: &str,
     partition: u64,
     offset: u64,
 ) -> Result<(), AccountsError> {
     client
         .execute(
-            "INSERT INTO private.binding (tenant, issuer, subject, actor_key, \"partition\", \"offset\", last_used)
+            "INSERT INTO private.binding (tenant, issuer, subject, holder, \"partition\", \"offset\", last_used)
              VALUES ($1, $2, $3, $4, $5, $6, now())",
             &[
                 &tenant,
                 &issuer,
                 &subject,
-                &actor_key,
+                &holder,
                 &partition_to_db(partition),
                 &i64_of(offset)?,
             ],
@@ -190,22 +205,22 @@ pub async fn touch<C: GenericClient>(
     Ok(())
 }
 
-/// An account's binding to an issuer, locked for the caller's transaction.
+/// A holder's binding to an issuer, locked for the caller's transaction.
 ///
 /// # Errors
 ///
 /// If the store fails.
 pub async fn take<C: GenericClient>(
     client: &C,
-    actor_key: &str,
+    holder: &str,
     issuer: &str,
 ) -> Result<Option<Binding>, AccountsError> {
     Ok(client
         .query_opt(
             &format!(
-                "SELECT {COLUMNS} FROM private.binding WHERE actor_key = $1 AND issuer = $2 FOR UPDATE"
+                "SELECT {COLUMNS} FROM private.binding WHERE holder = $1 AND issuer = $2 FOR UPDATE"
             ),
-            &[&actor_key, &issuer],
+            &[&holder, &issuer],
         )
         .await?
         .as_ref()
@@ -219,34 +234,76 @@ pub async fn take<C: GenericClient>(
 /// If the store fails.
 pub async fn delete<C: GenericClient>(
     client: &C,
-    actor_key: &str,
+    holder: &str,
     issuer: &str,
 ) -> Result<(), AccountsError> {
     client
         .execute(
-            "DELETE FROM private.binding WHERE actor_key = $1 AND issuer = $2",
-            &[&actor_key, &issuer],
+            "DELETE FROM private.binding WHERE holder = $1 AND issuer = $2",
+            &[&holder, &issuer],
         )
         .await?;
     Ok(())
 }
 
-/// How many ways an account has to log in: its external bindings and its password.
+/// How many ways a login has to log in: its external identities and its password.
 ///
 /// # Errors
 ///
 /// If the store fails.
 pub async fn ways_to_log_in<C: GenericClient>(
     client: &C,
-    actor_key: &str,
+    login: i64,
 ) -> Result<usize, AccountsError> {
     let n: i64 = client
         .query_one(
-            "SELECT count(*) FROM private.binding WHERE actor_key = $1",
-            &[&actor_key],
+            "SELECT count(*) FROM private.binding WHERE holder = $1 AND tenant = ''",
+            &[&crate::logins::key_of(login)],
         )
         .await?
         .get(0);
-    Ok(usize::try_from(n).unwrap_or_default()
-        + usize::from(password::has(client, actor_key).await?))
+    Ok(usize::try_from(n).unwrap_or_default() + usize::from(password::has(client, login).await?))
+}
+
+/// The rows of external identities still keyed by a tenant account, for `logins migrate`
+/// (0089 §15), oldest first.
+///
+/// # Errors
+///
+/// If the store fails.
+pub async fn unmigrated<C: GenericClient>(
+    client: &C,
+) -> Result<Vec<(String, Binding)>, AccountsError> {
+    let rows = client
+        .query(
+            &format!(
+                "SELECT tenant, {COLUMNS} FROM private.binding WHERE tenant <> '' AND issuer <> 'login' AND issuer <> 'password' ORDER BY added"
+            ),
+            &[],
+        )
+        .await?;
+    Ok(rows
+        .iter()
+        .map(|r| (r.get::<_, String>("tenant"), binding_of(r)))
+        .collect())
+}
+
+/// Deletes a row by its full key, for `logins migrate`.
+///
+/// # Errors
+///
+/// If the store fails.
+pub async fn delete_row<C: GenericClient>(
+    client: &C,
+    tenant: &str,
+    issuer: &str,
+    subject: &str,
+) -> Result<(), AccountsError> {
+    client
+        .execute(
+            "DELETE FROM private.binding WHERE tenant = $1 AND issuer = $2 AND subject = $3",
+            &[&tenant, &issuer, &subject],
+        )
+        .await?;
+    Ok(())
 }

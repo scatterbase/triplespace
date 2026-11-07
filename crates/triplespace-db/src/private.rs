@@ -59,6 +59,8 @@ pub const PRIVATE_TABLES: &[(&str, Portability)] = &[
     // A login's addresses belong to the login, which no tenant owns, and leave with no
     // account; `never-leaves` keeps them out of the bundle: implements 0100 §9.
     ("email", Portability::NeverLeaves),
+    // 0089 §2: the index of the `logins` partition; a login is bound to this instance.
+    ("login", Portability::NeverLeaves),
 ];
 
 /// Why the live schema disagrees with [`PRIVATE_TABLES`].

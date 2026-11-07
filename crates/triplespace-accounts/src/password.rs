@@ -1,7 +1,9 @@
-//! The built-in `password` issuer (0007 §1 decision #1, §3 as amended; 0016 §3): a hash
-//! in `private.password` and a `scatter:v0/binding` record in the tenant's `accounts`
-//! partition that says the account has one. Argon2id with the library defaults (0033 §6);
-//! the PHC string carries its own parameters, so they can change without a migration.
+//! The built-in `password` issuer (0007 §1 decision #1; 0089 §3; 07 §2.2): a sign-in
+//! method of an instance login. The hash lives in `private.password`, keyed by the login;
+//! one password serves every tenant account bound to the login. Argon2id with the library
+//! defaults (0033 §6); the PHC string carries its own parameters, so they can change
+//! without a migration. Rows still keyed by an actor key are what `triplespace logins
+//! migrate` converts (0089 §15).
 
 use argon2::Argon2;
 use argon2::password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString};
@@ -35,10 +37,10 @@ pub fn verify(phc: &str, password: &str) -> bool {
     })
 }
 
-/// Sets (or replaces) the account's password.
+/// Sets (or replaces) the login's password.
 pub async fn set<C: GenericClient>(
     client: &C,
-    actor_key: &str,
+    login: i64,
     password: &str,
 ) -> Result<(), AccountsError> {
     if password.chars().count() < 8 {
@@ -47,21 +49,14 @@ pub async fn set<C: GenericClient>(
         ));
     }
     let phc = hash(password)?;
-    client
-        .execute(
-            "INSERT INTO private.password (actor_key, hash, updated) VALUES ($1, $2, now())
-             ON CONFLICT (actor_key) DO UPDATE SET hash = EXCLUDED.hash, updated = now()",
-            &[&actor_key, &phc],
-        )
-        .await?;
-    Ok(())
+    set_hash(client, login, &phc).await
 }
 
 /// Sets the account's password from a hash made earlier, as an approved request's
 /// (0087 §6), which kept only the hash.
 pub async fn set_hash<C: GenericClient>(
     client: &C,
-    actor_key: &str,
+    login: i64,
     phc: &str,
 ) -> Result<(), AccountsError> {
     if PasswordHash::new(phc).is_err() {
@@ -69,43 +64,78 @@ pub async fn set_hash<C: GenericClient>(
     }
     client
         .execute(
-            "INSERT INTO private.password (actor_key, hash, updated) VALUES ($1, $2, now())
-             ON CONFLICT (actor_key) DO UPDATE SET hash = EXCLUDED.hash, updated = now()",
-            &[&actor_key, &phc],
+            "INSERT INTO private.password (login, hash, updated) VALUES ($1, $2, now())
+             ON CONFLICT (login) WHERE login IS NOT NULL DO UPDATE SET hash = EXCLUDED.hash, updated = now()",
+            &[&login, &phc],
         )
         .await?;
     Ok(())
 }
 
-/// Whether the account has this password. `false` for an account without one.
+/// Whether the login has this password. `false` for a login without one.
 pub async fn check<C: GenericClient>(
     client: &C,
-    actor_key: &str,
+    login: i64,
     password: &str,
 ) -> Result<bool, AccountsError> {
     let row = client
         .query_opt(
-            "SELECT hash FROM private.password WHERE actor_key = $1",
-            &[&actor_key],
+            "SELECT hash FROM private.password WHERE login = $1",
+            &[&login],
         )
         .await?;
     Ok(row.is_some_and(|r| verify(&r.get::<_, String>(0), password)))
 }
 
-/// Whether the account has a password at all.
-pub async fn has<C: GenericClient>(client: &C, actor_key: &str) -> Result<bool, AccountsError> {
+/// Whether the login has a password at all.
+pub async fn has<C: GenericClient>(client: &C, login: i64) -> Result<bool, AccountsError> {
     Ok(client
-        .query_opt(
-            "SELECT 1 FROM private.password WHERE actor_key = $1",
-            &[&actor_key],
-        )
+        .query_opt("SELECT 1 FROM private.password WHERE login = $1", &[&login])
         .await?
         .is_some())
 }
 
-/// The binding record that goes with a password (payloads.md §8): keyed by the account,
-/// `{"issuer": "password", "subject": "{user id}"}`, in the tenant's `accounts` partition.
-/// The caller appends it; the hash never leaves `private`.
+/// Removes the login's password.
+pub async fn remove<C: GenericClient>(client: &C, login: i64) -> Result<bool, AccountsError> {
+    Ok(client
+        .execute("DELETE FROM private.password WHERE login = $1", &[&login])
+        .await?
+        > 0)
+}
+
+/// The rows still keyed by an actor key, for `logins migrate` (0089 §15): the actor key
+/// and the hash.
+pub async fn unmigrated<C: GenericClient>(
+    client: &C,
+) -> Result<Vec<(String, String)>, AccountsError> {
+    let rows = client
+        .query(
+            "SELECT actor_key, hash FROM private.password WHERE login IS NULL AND actor_key IS NOT NULL ORDER BY updated",
+            &[],
+        )
+        .await?;
+    Ok(rows.iter().map(|r| (r.get(0), r.get(1))).collect())
+}
+
+/// Moves an actor-keyed row to its login (0089 §15).
+pub async fn migrate_row<C: GenericClient>(
+    client: &C,
+    actor_key: &str,
+    login: i64,
+) -> Result<(), AccountsError> {
+    client
+        .execute(
+            "UPDATE private.password SET login = $2, actor_key = NULL WHERE actor_key = $1 AND login IS NULL",
+            &[&actor_key, &login],
+        )
+        .await?;
+    Ok(())
+}
+
+/// The binding record of a password, as accounts held them before 0089 §3 moved
+/// passwords to the login (payloads.md §8): keyed by the account,
+/// `{"issuer": "password", "subject": "{user id}"}`. Kept for reading old records; a login's
+/// password has no binding record, since the hash in `private.password` is the whole of it.
 pub fn binding_draft(
     actor_key: &str,
     user_id: u64,

@@ -1,14 +1,14 @@
-//! Logging in (0024 §4, §8; 0012 §4): `action=login` is the bot-password form for
-//! subsidiaries, `lgname={subsidiary name}@{label}`; `action=clientlogin` is the
-//! username-and-password form for primary accounts with a binding to the built-in
-//! `password` issuer. Neither is offered to the other kind of account.
+//! Logging in (0024 §4, §8; 0012 §4; 0089 §3, §11): `action=login` is the bot-password
+//! form for subsidiaries, `lgname={subsidiary name}@{label}`; `action=clientlogin` is the
+//! username-and-password form for primary accounts, checked against the password of the
+//! login the account is bound to. Neither is offered to the other kind of account.
 
 use scatter_actors::actor::{ActorKind, ActorStatus, normalize_name};
 use tokio_postgres::GenericClient;
 
 use crate::keys::{KeyAuth, authenticate_label};
 use crate::session::{self, Session};
-use crate::{AccountsError, password};
+use crate::{AccountsError, logins, password};
 
 /// Why a login was refused. The Action API maps these to `login.result` and
 /// `clientlogin.status` (0024 §8).
@@ -110,14 +110,22 @@ pub async fn password_login<C: GenericClient>(
     if kind == ActorKind::Bot {
         return Err(LoginError::SubsidiaryPassword(username.to_string()));
     }
-    if status != ActorStatus::Active || !password::check(client, &actor_key, password_text).await? {
+    if status != ActorStatus::Active {
+        return Err(LoginError::Failed);
+    }
+    // The account's login, whose password it is (0089 §3).
+    let Some(login) = logins::login_of(client, tenant, &actor_key).await? else {
+        return Err(LoginError::Failed);
+    };
+    if !password::check(client, login, password_text).await? {
         return Err(LoginError::Failed);
     }
     if let Some(prev) = previous_session {
         session::delete(client, prev).await?;
     }
     session::sweep(client).await?;
-    Ok(session::create(client, tenant, Some(&actor_key), None).await?)
+    logins::touch(client, login).await?;
+    Ok(session::create_for(client, tenant, Some(&actor_key), None, Some(login)).await?)
 }
 
 /// Opens a session for a primary account whose identity an external issuer vouched for
@@ -149,5 +157,9 @@ pub async fn open_for<C: GenericClient>(
         session::delete(client, prev).await?;
     }
     session::sweep(client).await?;
-    Ok(session::create(client, tenant, Some(actor_key), None).await?)
+    let login = logins::login_of(client, tenant, actor_key).await?;
+    if let Some(l) = login {
+        logins::touch(client, l).await?;
+    }
+    Ok(session::create_for(client, tenant, Some(actor_key), None, login).await?)
 }

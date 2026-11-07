@@ -44,6 +44,8 @@ pub struct Identity {
     pub credential: Option<KeyAuth>,
     /// The session, for a cookie request (anonymous sessions included).
     pub session: Option<Session>,
+    /// The instance login the session holds (0089 §2), for a person's cookie session.
+    pub login: Option<i64>,
 }
 
 impl Identity {
@@ -159,6 +161,7 @@ pub async fn resolve<C: GenericClient>(
         Auth::Cookie(id) => {
             if let Some(s) = session::load(client, tenant, id).await? {
                 identity.actor_key.clone_from(&s.actor_key);
+                identity.login = s.login;
                 if let Some(key_id) = &s.key_id {
                     // A bot-password session carries its key's grants (0024 §4).
                     let row = client

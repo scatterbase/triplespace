@@ -48,7 +48,10 @@ async fn fresh() -> (Client, String) {
                ('{TENANT}', '{BOT}', '{TENANT}', '12', 'bot', 'Alice-bot', 'active', 'x', 2);
              UPDATE view.actor SET operator = '{OWNER}' WHERE actor_key = '{BOT}';
              INSERT INTO view.membership (tenant, actor_key, \"group\", layer, \"offset\") VALUES
-               ('{TENANT}', '{OWNER}', 'owner', 'tenant', 1);"
+               ('{TENANT}', '{OWNER}', 'owner', 'tenant', 1);
+             INSERT INTO private.login (id, name, name_key, \"partition\", \"offset\") VALUES (1, 'Alice', 'alice', 0, 0);
+             INSERT INTO private.binding (tenant, issuer, subject, holder, \"partition\", \"offset\") VALUES
+               ('{TENANT}', 'login', '1', '{OWNER}', 0, 0);"
         ))
         .await
         .expect("seed");
@@ -71,12 +74,13 @@ async fn passwords_keys_sessions_and_permissions() {
     assert!(anon.effective.holds("read"));
     assert!(!anon.effective.holds("edit"));
 
-    // The owner's password and clientlogin.
-    assert!(password::set(&client, OWNER, "short").await.is_err());
-    password::set(&client, OWNER, "correct horse battery staple")
+    // The owner's login's password (0089 §3) and clientlogin.
+    let login: i64 = 1;
+    assert!(password::set(&client, login, "short").await.is_err());
+    password::set(&client, login, "correct horse battery staple")
         .await
         .unwrap();
-    assert!(password::has(&client, OWNER).await.unwrap());
+    assert!(password::has(&client, login).await.unwrap());
     assert!(matches!(
         login::password_login(&client, TENANT, "Alice", "wrong", None).await,
         Err(LoginError::Failed)
