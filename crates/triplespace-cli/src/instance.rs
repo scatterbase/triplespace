@@ -212,8 +212,8 @@ async fn write(
     )
     .await?;
 
-    // The instance log and the mirrors.
-    let mut names = vec!["log".to_string()];
+    // The instance log, the logins partition (0089 §2) and the mirrors.
+    let mut names = vec!["log".to_string(), "logins".to_string()];
     names.extend(mirrors);
     for name in &names {
         let (_, entry) = open_partition(client, &registry, name, None, farm_base).await?;

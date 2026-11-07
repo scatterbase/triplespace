@@ -382,7 +382,7 @@ These share the dotted form but are fields of the record named, not `site` setti
 
 ### 3.6 Deployment configuration
 
-*Sources: [0033](../decisions/0033-backend-stack.md) §12; [0042](../decisions/0042-template-expansion-and-parsoid.md) §2; [0089](../decisions/0089-the-auth-host-and-instance-logins.md) §1; [0097](../decisions/0097-versioning-and-skins.md) §8; [0100](../decisions/0100-email-addresses-and-verification-codes.md) §5.*
+*Sources: [0033](../decisions/0033-backend-stack.md) §12; [0042](../decisions/0042-template-expansion-and-parsoid.md) §2; [0089](../decisions/0089-the-auth-host-and-instance-logins.md) §1; [0097](../decisions/0097-versioning-and-skins.md) §8; [0100](../decisions/0100-email-addresses-and-verification-codes.md) §5, A2.*
 
 Deployment configuration is read by `figment` (§5.1), never from a log record, as the Postgres and OpenSearch addresses are; the credentials of an `enterprise` page-repository source are deployment configuration too ([0053](../decisions/0053-mirrored-pages.md) §1).
 
@@ -406,11 +406,15 @@ Deployment configuration is read by `figment` (§5.1), never from a log record, 
 | `repo.fetches_per_minute` | integer | 600 | Per-repository fetch budget; deployment configuration, as every pool size and interval is (§3.1) | [0053](../decisions/0053-mirrored-pages.md) §1 |
 | `updates.batch_interval` | duration | one hour | How often update batch files are written; deployment configuration, as every pool size and interval is (§3.1) | [0032](../decisions/0032-sparql-update-stream.md) §6 |
 | `notifications.fediverse_interval` | duration | five minutes | Bundling interval for fediverse delivery; deployment configuration, as every pool size and interval is (§3.1) | [0021](../decisions/0021-notifications.md) §5 |
-| `mail.transport` | `none`, `log`, `smtp` | `none` | How the instance sends mail ([16](16-logs-feeds-and-notifications.md) §5.7); `log` is refused under `server.mode = production` | [0100](../decisions/0100-email-addresses-and-verification-codes.md) §5 |
+| `mail.transport` | `none`, `log`, `smtp`, `postmark` | `none` | How the instance sends mail ([16](16-logs-feeds-and-notifications.md) §5.7); `log` is refused under `server.mode = production` | [0100](../decisions/0100-email-addresses-and-verification-codes.md) §5, A2 |
 | `mail.from` | an address | — | The instance's one sender address, required unless `mail.transport` is `none`; the display name is the instance's or the tenant's ([16](16-logs-feeds-and-notifications.md) §5.7) | [0100](../decisions/0100-email-addresses-and-verification-codes.md) §5 |
 | `mail.log_dir` | a directory | `data/mail` | Where the `log` transport writes each message as an `.eml` file | [0100](../decisions/0100-email-addresses-and-verification-codes.md) §5 |
 | `mail.smtp.url` | URL | — | The SMTP relay: `smtps://` for implicit TLS, `smtp://` with STARTTLS required, plaintext only to a loopback host; user name in the URL | [0100](../decisions/0100-email-addresses-and-verification-codes.md) §5 |
 | `mail.smtp.password_file` | a file | — | The relay's password, read as every secret is | [0100](../decisions/0100-email-addresses-and-verification-codes.md) §5 |
+| `mail.postmark.token_file` | a file | — | Postmark's server token, read as every secret is; required by the `postmark` transport | [0100](../decisions/0100-email-addresses-and-verification-codes.md) A2 |
+| `mail.postmark.webhook_secret_file` | a file | — | The HTTP Basic password Postmark's bounce and complaint webhook presents at `POST /mail/postmark`; without it the route is 404 ([16](16-logs-feeds-and-notifications.md) §5.7) | [0100](../decisions/0100-email-addresses-and-verification-codes.md) A2 |
+| `mail.postmark.stream` | a stream ID | `outbound` | Postmark's stream for codes and security notices | [0100](../decisions/0100-email-addresses-and-verification-codes.md) A2 |
+| `mail.postmark.notification_stream` | a stream ID | `broadcast` | Postmark's stream for notifications and digests, a broadcast stream the operator creates | [0100](../decisions/0100-email-addresses-and-verification-codes.md) A2 |
 | `web.*` | see [20](20-web-tier.md) | | `triplespace-web`'s settings: `web.listen`, `web.admin_listen`, `web.api`, `web.mode`, `web.upstream_host` (`forward`, or `fixed` in `development`), `web.assets_from`, `web.cache` (`memory`, `valkey` or `off`) with `web.cache.valkey_url`, `web.cache.valkey_password_file` and `web.cache.max_ttl` (default and ceiling 60 seconds), and `web.forwarder_key_file` | [0057](../decisions/0057-web-tier.md) §2, §4, §5, §10 |
 
 `query.backend`, `query.path` and `query.endpoint` are deployment configuration under [0033](../decisions/0033-backend-stack.md) §12, not `site` records.

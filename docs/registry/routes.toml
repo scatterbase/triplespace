@@ -445,6 +445,11 @@ sources = "[0012](../decisions/0012-api-requirements.md) A70"
 
 
 [[route]]
+routes = ["POST /mail/postmark"]
+purpose = "Postmark's bounce and spam-complaint webhook, authenticated by the HTTP Basic password of `mail.postmark.webhook_secret_file`: a hard bounce or a complaint marks the address undeliverable on every login that holds it verified, until its holder confirms it by code again ([16](16-logs-feeds-and-notifications.md) §5.7; [07](07-actors-and-accounts.md) §2.9)"
+sources = "[0100](../decisions/0100-email-addresses-and-verification-codes.md) A2"
+
+[[route]]
 routes = ["PUT /notifications/fediverse", "DELETE /notifications/fediverse"]
 purpose = "Register (resolves the handle, sends the confirmation message) and remove"
 sources = "[0021](../decisions/0021-notifications.md) §7"

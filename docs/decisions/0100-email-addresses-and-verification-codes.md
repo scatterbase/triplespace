@@ -2,6 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-05
+- **Updated:** 2026-11-06 (A3)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0021](0021-notifications.md), [0027](0027-preferences-and-portability.md), [0089](0089-the-auth-host-and-instance-logins.md)
 - **Uses:** [0012](0012-api-requirements.md), [0085](0085-settings-and-preferences.md), [0088](0088-external-identity-providers.md)
@@ -36,6 +37,8 @@ James's direction, from the design discussion of 2026-11-05:
 
 ### 1. An address belongs to the login (amends 0021 §4, §8; extends 0089 §2)
 
+*Changed by A1, A2, A3.*
+
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.9.*
 
 ### 2. Verification by a six-digit code (amends 0021 §4)
@@ -52,6 +55,8 @@ James's direction, from the design discussion of 2026-11-05:
 
 ### 5. Staging and sending mail (amends 0021 §8)
 
+*Changed by A2.*
+
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.7; [23](../architecture/23-configuration-and-registry.md) §3.6.*
 
 ### 6. UI (amends 0021 §6; extends 0089 §7)
@@ -60,9 +65,13 @@ James's direction, from the design discussion of 2026-11-05:
 
 ### 7. API (amends 0021 §7)
 
+*Changed by A1, A2, A3.*
+
 *Current text: [18](../architecture/18-api.md) §3.2.*
 
 ### 8. Storage (amends 0021 §8)
+
+*Changed by A2.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.16, §5.*
 
@@ -72,9 +81,13 @@ James's direction, from the design discussion of 2026-11-05:
 
 ### 10. Settings (uses 0085 §1)
 
+*Changed by A2.*
+
 *Current text: [23](../architecture/23-configuration-and-registry.md) §3.3.*
 
 ### 11. Crates (extends 0005 §2)
+
+*Changed by A2.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
@@ -94,6 +107,7 @@ James's direction, from the design discussion of 2026-11-05:
 - **No tenant learns a person's address.** The tenant's account page links to the auth host instead of showing it.
 - **Development and the e2e suite need no mail server**: the `log` transport writes each message where a test can read the code.
 - **An instance that configures no transport sends nothing**, and says so where addresses are managed; nothing else changes.
+- **An address that bounces or complains stops receiving mail** until its holder confirms it again, so a dead or hostile mailbox costs the instance its sender reputation once, not on every digest (A2).
 - **Email addresses leave the user data bundle**, since they belong to the login and no tenant owns them; a tenant move or an import no longer carries them.
 - **An address is optional unless the instance requires one.** A login without one is warned that it cannot be recovered, and is otherwise unaffected; under `email.required` no login made by signing up is ever without one.
 - **One sender address serves every tenant**, so an instance configures and authenticates (SPF, DKIM) one domain; the display name tells instance mail from a wiki's.
@@ -104,6 +118,38 @@ James's direction, from the design discussion of 2026-11-05:
 ## Open questions
 
 None.
+
+## Amendment log
+
+### A1. The login an address belongs to, until instance logins exist
+
+- **Date:** 2026-11-06
+- **Source:** Direct: Claude, while building the email addresses of SCA-279, 2026-11-06; unconfirmed
+- **Change:** extends §1, §7
+- **Summary:** [0089](0089-the-auth-host-and-instance-logins.md) §2's instance logins and `private.login` are not built, so an address cannot yet be keyed by a login ID. `private.email.login` holds the login's identifier as text, and until logins exist that identifier is the actor key of the account whose session adds the address; on a single-tenant instance, where the tenant's base is the auth base, that is one login per person. The `/auth/email` routes and the Email addresses section are served on the tenant's host, as `GET /account` is, rather than at a separate auth base, and a request by API key is refused (`permissiondenied`): addresses are managed in a session of the login. The migration of 0089 §15 rekeys the rows from actor keys to login IDs when it is built. The alternative, building logins first, would have put the email work behind a larger one that nothing else in SCA-279 needs.
+
+### A2. The Postmark transport, built with bounce and complaint handling
+
+- **Date:** 2026-11-06
+- **Source:** Direct: Claude, while building SCA-296, 2026-11-06; unconfirmed
+- **Change:** amends §5; extends §1, §7, §8, §10, §11
+- **Summary:** The first HTTP mail API is built, as §5 planned: `mail.transport = postmark` sends one JSON request per message with the server token from `mail.postmark.token_file`, through `reqwest` (a new edge of `scatter-mail`); `200` is accepted, `429` and `5xx` temporary, `422` with an API error code and `401`, `413`, `415` permanent. Codes and security notices go on `mail.postmark.stream` (`outbound`); notifications and digests on `mail.postmark.notification_stream` (`broadcast`), a broadcast stream the operator creates, because Postmark's terms keep bulk mail off the transactional stream. Postmark's bounce and spam-complaint webhooks post to `POST /mail/postmark`, authenticated by the HTTP Basic password `mail.postmark.webhook_secret_file` holds, since Postmark signs nothing. **What a bounce does to an address**, the decision SCA-296 asked for: a hard bounce or a complaint marks the address *undeliverable* on every login that holds it verified, with the reason and time (two columns of `private.email`); the address keeps its verification and its primary role, nothing more is sent to it, and the page says so beside it. The holder clears the mark by confirming the address again with a new code; after a complaint the page suggests removing it, since Postmark will refuse it for good. This was chosen over removing the address (a lost primary, with no word to the holder) and over a warning alone (every digest would then cost sender reputation); it is reversible by the holder and needs no operator. A transient or soft bounce changes nothing. `ops.delivery` gained a `failed` flag beside the attempts, so a permanent failure keeps its row and error until expiry without being retried.
+
+Replaced text ([16](../architecture/16-logs-feeds-and-notifications.md) §5.7, as it stood):
+
+> HTTP mail APIs are further implementations of the trait, each with a transport name of its own and sending through the egress path of [0012](0012-api-requirements.md) §6. What one adds over SMTP is structured delivery results and bounce and complaint webhooks, so each is built together with that handling. The first is `postmark`, whose message streams keep codes and security notices apart from notification digests; until it is built, a provider is reached through `smtp`, which every one of them accepts.
+>
+> **The sender** is one address for the whole instance, `mail.from`, required unless the transport is `none`. Its display name says whom a message is from: the instance's display name (the operator's, [08](../architecture/08-tenants-and-instances.md) §8.2) on mail about the login, codes and security notices, and the tenant's `site.name` on a tenant's notifications and digests. Bounces and complaints are not processed yet.
+### A3. Addresses keyed by the login
+
+- **Date:** 2026-11-06
+- **Source:** Direct: Claude, while building instance logins, 2026-11-06; unconfirmed
+- **Change:** amends §1, §7 (A1)
+- **Summary:** Instance logins exist ([0089](0089-the-auth-host-and-instance-logins.md) A3), so an address's row names the login by its ID, as §1 always said, and A1's interim keying by actor key is over; the `login` column stays text and holds the decimal ID. What A1 said of where the routes are served stands for the reason 0089 §12 gives: on a single-tenant instance the tenant's base is the auth base. A request by API key is still refused.
+
+Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.9, as it stood):
+
+> Until instance logins exist (§2.8 is not built), the login an address belongs to is the account whose session acts, identified by its actor key, and the routes and the page are served on the tenant's host as the account page is; the migration to logins rekeys the rows (0100 A1).
 
 ## References
 

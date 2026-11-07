@@ -47,11 +47,13 @@
 
 pub mod bindings;
 pub mod challenge;
+pub mod email;
 pub mod forwarder;
 pub mod groups;
 pub mod identity;
 pub mod keys;
 pub mod login;
+pub mod logins;
 pub mod oauth;
 pub mod password;
 pub mod preferences;

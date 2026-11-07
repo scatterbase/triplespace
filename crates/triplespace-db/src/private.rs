@@ -56,6 +56,11 @@ pub const PRIVATE_TABLES: &[(&str, Portability)] = &[
     ("watch", Portability::Portable),
     // 0092 §10: a bot password is the instance's own credential, like an OAuth client's.
     ("upstream_login", Portability::NeverLeaves),
+    // A login's addresses belong to the login, which no tenant owns, and leave with no
+    // account; `never-leaves` keeps them out of the bundle: implements 0100 §9.
+    ("email", Portability::NeverLeaves),
+    // 0089 §2: the index of the `logins` partition; a login is bound to this instance.
+    ("login", Portability::NeverLeaves),
 ];
 
 /// Why the live schema disagrees with [`PRIVATE_TABLES`].
@@ -117,7 +122,8 @@ pub async fn check<C: GenericClient>(client: &C) -> Result<(), PrivateError> {
     Ok(())
 }
 
-/// The portable tables: what a user data bundle may read (0027 §3).
+/// The portable tables: what a user data bundle may read (0027 §3); `email` is not among
+/// them (0100 §9).
 #[must_use]
 pub fn portable_tables() -> Vec<&'static str> {
     PRIVATE_TABLES

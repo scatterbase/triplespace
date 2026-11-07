@@ -67,6 +67,209 @@ struct Args {
     /// A directory of installed skins beside the shipped ones (`server.skins`, 0097 §8).
     #[arg(long, env = "TRIPLESPACE_SKINS")]
     skins: Option<std::path::PathBuf>,
+    /// How the instance sends mail (`mail.transport`, 0100 §5): `none`, `log`, `smtp` or
+    /// `postmark`. `log` is refused in production.
+    #[arg(long, env = "TRIPLESPACE_MAIL_TRANSPORT", default_value = "none")]
+    mail_transport: String,
+    /// The instance's one sender address (`mail.from`), required unless the transport is
+    /// `none`.
+    #[arg(long, env = "TRIPLESPACE_MAIL_FROM")]
+    mail_from: Option<String>,
+    /// Where the `log` transport writes each message as an `.eml` file (`mail.log_dir`).
+    #[arg(long, env = "TRIPLESPACE_MAIL_LOG_DIR", default_value = "data/mail")]
+    mail_log_dir: PathBuf,
+    /// The SMTP relay (`mail.smtp.url`): `smtps://user@host` for implicit TLS,
+    /// `smtp://user@host` with STARTTLS required, plaintext only to a loopback host.
+    #[arg(long, env = "TRIPLESPACE_MAIL_SMTP_URL")]
+    mail_smtp_url: Option<String>,
+    /// The relay's password, read from a file (`mail.smtp.password_file`).
+    #[arg(long, env = "TRIPLESPACE_MAIL_SMTP_PASSWORD_FILE")]
+    mail_smtp_password_file: Option<PathBuf>,
+    /// Postmark's server token, read from a file (`mail.postmark.token_file`).
+    #[arg(long, env = "TRIPLESPACE_MAIL_POSTMARK_TOKEN_FILE")]
+    mail_postmark_token_file: Option<PathBuf>,
+    /// The HTTP Basic password Postmark's bounce and complaint webhook presents, read
+    /// from a file (`mail.postmark.webhook_secret_file`); without it the webhook is 404.
+    #[arg(long, env = "TRIPLESPACE_MAIL_POSTMARK_WEBHOOK_SECRET_FILE")]
+    mail_postmark_webhook_secret_file: Option<PathBuf>,
+    /// Postmark's stream for codes and security notices (`mail.postmark.stream`).
+    #[arg(
+        long,
+        env = "TRIPLESPACE_MAIL_POSTMARK_STREAM",
+        default_value = "outbound"
+    )]
+    mail_postmark_stream: String,
+    /// Postmark's stream for notifications and digests
+    /// (`mail.postmark.notification_stream`), a broadcast stream the operator creates.
+    #[arg(
+        long,
+        env = "TRIPLESPACE_MAIL_POSTMARK_NOTIFICATION_STREAM",
+        default_value = "broadcast"
+    )]
+    mail_postmark_notification_stream: String,
+}
+
+/// The mail transport the settings choose (0100 §5; 16 §5.7), and what the handlers are
+/// told of it.
+fn mail_transport(
+    args: &Args,
+    mode: Mode,
+) -> Result<(
+    Option<std::sync::Arc<dyn scatter_mail::MailTransport>>,
+    triplespace_api_action::MailSettings,
+)> {
+    use std::sync::Arc;
+    let read_secret = |path: &Option<PathBuf>, what: &str| -> Result<Option<String>> {
+        path.as_ref()
+            .map(|p| {
+                std::fs::read_to_string(p)
+                    .map(|s| s.trim().to_string())
+                    .with_context(|| format!("{what} {}", p.display()))
+            })
+            .transpose()
+    };
+    let transport: Option<Arc<dyn scatter_mail::MailTransport>> = match args.mail_transport.as_str()
+    {
+        "none" => None,
+        "log" => {
+            if mode == Mode::Production {
+                bail!(
+                    "--mail-transport log is a development sink and is refused in production (0100 §5)"
+                );
+            }
+            Some(Arc::new(scatter_mail::log::LogTransport::new(
+                &args.mail_log_dir,
+            )?))
+        }
+        "smtp" => {
+            let url = args
+                .mail_smtp_url
+                .as_deref()
+                .filter(|u| !u.is_empty())
+                .ok_or_else(|| anyhow::anyhow!("--mail-transport smtp needs --mail-smtp-url"))?;
+            let password = read_secret(&args.mail_smtp_password_file, "--mail-smtp-password-file")?;
+            Some(Arc::new(scatter_mail::smtp::SmtpTransport::new(
+                url,
+                password.as_deref(),
+            )?))
+        }
+        "postmark" => {
+            let token = read_secret(&args.mail_postmark_token_file, "--mail-postmark-token-file")?
+                .ok_or_else(|| {
+                    anyhow::anyhow!("--mail-transport postmark needs --mail-postmark-token-file")
+                })?;
+            Some(Arc::new(scatter_mail::postmark::PostmarkTransport::new(
+                &token,
+                &args.mail_postmark_stream,
+                &args.mail_postmark_notification_stream,
+            )?))
+        }
+        other => bail!("--mail-transport is none, log, smtp or postmark, not `{other}`"),
+    };
+    let from = args.mail_from.clone().filter(|f| !f.is_empty());
+    if transport.is_some() {
+        let f = from.as_deref().ok_or_else(|| {
+            anyhow::anyhow!("--mail-from is required unless --mail-transport is none (0100 §5)")
+        })?;
+        triplespace_accounts::email::parse(f)
+            .map_err(|_| anyhow::anyhow!("--mail-from `{f}` is not an email address"))?;
+    }
+    let settings = triplespace_api_action::MailSettings {
+        transport: args.mail_transport.clone(),
+        from,
+        postmark_webhook_secret: read_secret(
+            &args.mail_postmark_webhook_secret_file,
+            "--mail-postmark-webhook-secret-file",
+        )?,
+    };
+    Ok((transport, settings))
+}
+
+/// The delivery worker (16 §5.7): a pass over due rows whenever a row is staged
+/// (`LISTEN ts_delivery`), when the next retry is due, and at least every minute.
+async fn deliver(
+    app: triplespace_api_action::App,
+    database: String,
+    transport: std::sync::Arc<dyn scatter_mail::MailTransport>,
+) {
+    use std::sync::Arc;
+    let wake = Arc::new(tokio::sync::Notify::new());
+    {
+        // A connection of its own listens; its notifications wake the worker.
+        let wake = wake.clone();
+        let database = database.clone();
+        tokio::spawn(async move {
+            loop {
+                match listen(&database, &wake).await {
+                    Ok(()) => {}
+                    Err(e) => eprintln!("mail: listener: {e}"),
+                }
+                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+            }
+        });
+    }
+    loop {
+        let pass = match app.pool().get().await {
+            Ok(mut client) => {
+                triplespace_notify::mail::deliver_once(&mut client, transport.as_ref())
+                    .await
+                    .map_err(|e| e.to_string())
+            }
+            Err(e) => Err(e.to_string()),
+        };
+        let wait = match pass {
+            Ok(p) if !p.idle() => continue,
+            Ok(_) => match app.pool().get().await {
+                Ok(client) => triplespace_notify::mail::next_due(&**client)
+                    .await
+                    .ok()
+                    .flatten()
+                    .and_then(|t| t.duration_since(std::time::SystemTime::now()).ok())
+                    .unwrap_or(DELIVERY_IDLE)
+                    .min(DELIVERY_IDLE),
+                Err(_) => DELIVERY_IDLE,
+            },
+            Err(e) => {
+                eprintln!("mail: delivery: {e}");
+                WORKER_IDLE
+            }
+        };
+        tokio::select! {
+            () = wake.notified() => {}
+            () = tokio::time::sleep(wait.max(std::time::Duration::from_millis(100))) => {}
+        }
+    }
+}
+
+/// How long the delivery worker sleeps with nothing due.
+const DELIVERY_IDLE: std::time::Duration = std::time::Duration::from_mins(1);
+
+/// Holds a connection on `LISTEN ts_delivery` and notifies the worker of each message.
+async fn listen(database: &str, wake: &tokio::sync::Notify) -> Result<()> {
+    let config: tokio_postgres::Config = database.parse().context("database URL")?;
+    let (client, mut connection) = config.connect(tokio_postgres::NoTls).await?;
+    let channel = triplespace_notify::mail::CHANNEL;
+    // The LISTEN must be driven while the connection is polled, so the two are joined.
+    let statement = format!("LISTEN {channel}");
+    let listen = client.batch_execute(&statement);
+    let drive = async {
+        loop {
+            match std::future::poll_fn(|cx| connection.poll_message(cx)).await {
+                None => return Ok::<(), anyhow::Error>(()),
+                Some(Ok(tokio_postgres::AsyncMessage::Notification(_))) => wake.notify_one(),
+                Some(Ok(_)) => {}
+                Some(Err(e)) => return Err(e.into()),
+            }
+        }
+    };
+    tokio::pin!(drive);
+    tokio::select! {
+        r = &mut drive => r,
+        r = listen => {
+            r?;
+            drive.await
+        }
+    }
 }
 
 /// How long an idle worker waits before looking again.
@@ -179,6 +382,7 @@ async fn run() -> Result<()> {
     let farm = triplespace_cli::common::farm_of(&client).await?;
     let auth_base = auth_base(&client, &farm, args.auth_base.as_deref()).await?;
     drop(client);
+    let (transport, mail) = mail_transport(&args, mode)?;
     let pool = triplespace_db::pool::pool(&args.database, args.pool).context("pool")?;
     let app = App::new(
         pool,
@@ -200,6 +404,11 @@ async fn run() -> Result<()> {
         },
     )
     .map_err(|e| anyhow::anyhow!(e))?;
+    app.set_mail(mail);
+    if let Some(transport) = transport {
+        eprintln!("mail: transport {}", transport.name());
+        tokio::spawn(deliver(app.clone(), args.database.clone(), transport));
+    }
     background(&app, args.workers).await;
     if let Some(admin) = &args.admin_listen {
         let admin_router =

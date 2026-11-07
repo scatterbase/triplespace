@@ -542,11 +542,22 @@ async fn external_identity_providers() {
         .await
         .unwrap()
         .get(0);
+    // Bob's account is bound to a login (0089 §4) that has no password, only the identity.
+    let bob_login = triplespace_accounts::logins::login_of(&**db, TENANT, &bob)
+        .await
+        .unwrap()
+        .expect("a login");
     assert!(
-        !triplespace_accounts::password::has(&**db, &bob)
+        !triplespace_accounts::password::has(&**db, bob_login)
             .await
             .unwrap(),
         "no password"
+    );
+    assert_eq!(
+        triplespace_accounts::bindings::ways_to_log_in(&**db, bob_login)
+            .await
+            .unwrap(),
+        1
     );
     let a = anon
         .send("GET", &format!("{REST}/account"), None, None)

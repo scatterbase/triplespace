@@ -14,7 +14,7 @@ use scatter_ingest::store::{IngestStore, Sequence};
 use scatter_ingest::write::append_projected;
 use scatter_projection::{Backend, Budget, Pipeline};
 use tokio_postgres::GenericClient;
-use triplespace_accounts::{keys, password};
+use triplespace_accounts::{keys, logins, password};
 use triplespace_api_ingest::PgIngest;
 use triplespace_projections::PgCx;
 use triplespace_projections::actors::payload;
@@ -91,8 +91,9 @@ pub struct PasswordSet {
     pub password_file: Option<PathBuf>,
 }
 
-/// Sets an account's password: the hash in `private.password`, and the binding record in
-/// the tenant's `accounts` partition if the account has none yet.
+/// Sets an account's password (0089 §3): the hash in `private.password`, keyed by the
+/// account's login; an account bound to no login gets one, named after it, first
+/// (0089 §15). Returns whether the login had no password before.
 #[allow(clippy::too_many_arguments)]
 pub async fn set_password(
     store: &PgIngest,
@@ -100,21 +101,39 @@ pub async fn set_password(
     cx: &mut PgCx,
     tenant: &str,
     actor_key: &str,
-    user_id: u64,
+    account_name: &str,
     password_text: &str,
     attested_by: &str,
     now: u64,
 ) -> Result<bool> {
-    let had = password::has(cx.conn(), actor_key).await?;
-    password::set(cx.conn(), actor_key, password_text).await?;
-    if !had {
-        let accounts = store
-            .partition(cx, tenant, "accounts")
-            .await?
-            .with_context(|| format!("`{tenant}` has no accounts partition"))?;
-        let d = password::binding_draft(actor_key, user_id, attested_by, now)?;
-        append_projected(store, pipeline, cx, accounts, d, Budget::NONE).await?;
-    }
+    let login = if let Some(l) = logins::login_of(cx.conn(), tenant, actor_key).await? {
+        l
+    } else {
+        let l = triplespace_api_ingest::accounts::create_login(
+            store,
+            pipeline,
+            cx,
+            tenant,
+            account_name,
+            attested_by,
+            now,
+        )
+        .await?;
+        triplespace_api_ingest::accounts::bind_account(
+            store,
+            pipeline,
+            cx,
+            tenant,
+            actor_key,
+            l,
+            attested_by,
+            now,
+        )
+        .await?;
+        l
+    };
+    let had = password::has(cx.conn(), login).await?;
+    password::set(cx.conn(), login, password_text).await?;
     Ok(!had)
 }
 
@@ -123,10 +142,6 @@ pub async fn run_password_set(args: PasswordSet) -> Result<()> {
     let text = secret_from(args.password_file.as_deref(), "TRIPLESPACE_PASSWORD")?;
     let client = connect(&args.database).await?;
     let (key, name) = actor_key(&client, &args.tenant, args.name.as_deref(), args.id).await?;
-    let user_id = ActorKey::parse(&key)
-        .map_err(|e| anyhow::anyhow!("{e}"))?
-        .numeric_subject()
-        .context("the account has no numeric ID")?;
     let farm = farm_of(&client).await?;
     let (store, pipeline) = store(&args.database, &farm)?;
     let mut cx = store.begin().await?;
@@ -136,7 +151,7 @@ pub async fn run_password_set(args: PasswordSet) -> Result<()> {
         &mut cx,
         &args.tenant,
         &key,
-        user_id,
+        name.as_deref().unwrap_or(&key),
         &text,
         &farm.operator().to_string(),
         now(),

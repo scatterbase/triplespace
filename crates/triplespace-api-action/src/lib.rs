@@ -46,7 +46,7 @@ pub mod thread_view;
 pub mod version;
 pub mod watching;
 
-pub use app::{App, Config, Mode};
+pub use app::{App, Config, MailSettings, Mode};
 
 /// The API level the site checks against the minimum it was built for (0057 §9),
 /// reported as `api_version` in `meta=siteinfo&siprop=triplespace`. It rises whenever a

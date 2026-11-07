@@ -49,6 +49,7 @@
 #![forbid(unsafe_code)]
 
 pub mod inbox;
+pub mod mail;
 
 use scatter_log::header::Header;
 use scatter_log::record::Record;

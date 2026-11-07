@@ -11,7 +11,7 @@ use triplespace_accounts::login::{LoginError, open_for};
 use triplespace_accounts::oauth::{self, Door, Flow, NewFlow, Outcome, Purpose};
 use triplespace_accounts::requests::{self, Outcome as RequestOutcome};
 use triplespace_accounts::session::Session;
-use triplespace_accounts::{bindings, challenge, password};
+use triplespace_accounts::{bindings, challenge, logins};
 use triplespace_api_ingest::accounts::{CreateError, Credential, create, reclaim};
 
 use crate::app::App;
@@ -353,31 +353,48 @@ pub async fn conclude(
         None => return Ok(Conclusion::Refused(Refusal::of("ts-oauth-state"))),
     };
     let tenant = scope.tenant.slug.as_str();
-    let bound = bindings::find(scope.db, tenant, &flow.issuer, &subject).await?;
+    // The identity's login (0089 §3), and that login's account on this tenant (0089 §4).
+    let login = bindings::find(scope.db, "", &flow.issuer, &subject)
+        .await?
+        .and_then(|h| logins::id_of(&h));
+    let account = match login {
+        Some(l) => logins::account_of(scope.db, tenant, l).await?,
+        None => None,
+    };
     let conclusion = match flow.purpose {
-        Purpose::Login => match bound {
+        Purpose::Login => match account {
             Some(actor_key) => {
-                bindings::touch(scope.db, tenant, &flow.issuer, &subject).await?;
+                bindings::touch(scope.db, "", &flow.issuer, &subject).await?;
                 log_in(scope, &actor_key, caller.session, false).await?
             }
+            // No account here: a new identity, or a login with no account on this
+            // tenant yet (0089 §6); either way the person chooses a name next.
             None => {
                 return unbound_login(scope, flow, caller, &subject, &username).await;
             }
         },
         Purpose::Create => {
-            if bound.is_some() {
+            if account.is_some() {
                 Conclusion::Refused(Refusal::of("ts-oauth-bound"))
             } else {
                 let name = flow.name.clone().unwrap_or_default();
                 create_bound(scope, caller, &flow.issuer, &subject, &name, None).await?
             }
         }
-        Purpose::Link => match (bound, caller.actor_key) {
-            (_, None) => Conclusion::Refused(Refusal::of("ts-oauth-state")),
-            (Some(a), Some(me)) if a == me => Conclusion::Linked,
-            (Some(_), Some(_)) => Conclusion::Refused(Refusal::of("ts-oauth-bound-elsewhere")),
-            (None, Some(me)) => link(scope, me, &flow.issuer, &subject).await?,
-        },
+        Purpose::Link => {
+            let mine = match caller.actor_key {
+                Some(me) => logins::login_of(scope.db, tenant, me).await?,
+                None => None,
+            };
+            match (login, caller.actor_key, mine) {
+                (_, None, _) | (_, _, None) => Conclusion::Refused(Refusal::of("ts-oauth-state")),
+                (Some(l), Some(_), Some(m)) if l == m => Conclusion::Linked,
+                (Some(_), Some(_), Some(_)) => {
+                    Conclusion::Refused(Refusal::of("ts-oauth-bound-elsewhere"))
+                }
+                (None, Some(me), Some(_)) => link(scope, me, &flow.issuer, &subject).await?,
+            }
+        }
     };
     oauth::finish(scope.db, &flow.state_hash).await?;
     Ok(conclusion)
@@ -525,8 +542,10 @@ async fn vouch(
     if !exists {
         return Ok(Vouched::NoUser);
     }
-    let held = !bindings::of(scope.db, &actor_key).await?.is_empty()
-        || password::has(scope.db, &actor_key).await?;
+    // An adopted account that is bound to a login already belongs to someone.
+    let held = logins::login_of(scope.db, tenant, &actor_key)
+        .await?
+        .is_some();
     if held {
         return Ok(Vouched::Done(Conclusion::Refused(Refusal::of(
             "ts-reclaim-taken",
@@ -616,9 +635,11 @@ pub async fn create_bound(
     statement: Option<&str>,
 ) -> Result<Conclusion, ApiError> {
     let tenant = scope.tenant.slug.as_str();
-    if bindings::find(scope.db, tenant, issuer, subject)
+    let login = bindings::find(scope.db, "", issuer, subject)
         .await?
-        .is_some()
+        .and_then(|h| logins::id_of(&h));
+    if let Some(l) = login
+        && logins::account_of(scope.db, tenant, l).await?.is_some()
     {
         return Ok(Conclusion::Refused(Refusal::of("ts-oauth-bound")));
     }

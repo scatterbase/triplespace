@@ -144,6 +144,68 @@ impl Overrides {
     }
 }
 
+/// The interface messages as a message of the instance is written from (0100 §4; 07
+/// §2.9): a wiki's override in the language of the request where it has one, else the
+/// shipped message. What `triplespace-notify` renders mail with.
+#[derive(Debug, Clone)]
+pub struct Texts {
+    overrides: Overrides,
+    lang: String,
+    content_lang: String,
+}
+
+impl Texts {
+    /// The texts for a tenant in a language: the tenant's Interface pages over the shipped
+    /// messages.
+    ///
+    /// # Errors
+    ///
+    /// The database's.
+    pub async fn load(
+        db: &Client,
+        tenant: &str,
+        lang: &str,
+        content_lang: &str,
+    ) -> Result<Self, ApiError> {
+        let pages = pages(db, tenant).await?;
+        Ok(Self {
+            overrides: Overrides::from_pages(&pages),
+            lang: lang.to_string(),
+            content_lang: content_lang.to_string(),
+        })
+    }
+
+    /// The shipped messages alone, for tests and tools.
+    #[must_use]
+    pub fn shipped(lang: &str) -> Self {
+        Self {
+            overrides: Overrides::default(),
+            lang: lang.to_string(),
+            content_lang: lang.to_string(),
+        }
+    }
+
+    /// The language the texts are in.
+    #[must_use]
+    pub fn lang(&self) -> &str {
+        &self.lang
+    }
+}
+
+impl triplespace_notify::mail::Texts for Texts {
+    fn get(&self, key: &str) -> String {
+        self.overrides
+            .message(key, &self.lang, &self.content_lang)
+            .map(|(t, _)| t.to_string())
+            .or_else(|| shipped().get(key).cloned())
+            .unwrap_or_else(|| format!("⧼{key}⧽"))
+    }
+
+    fn with(&self, key: &str, args: &[&str]) -> String {
+        with_args(&triplespace_notify::mail::Texts::get(self, key), args)
+    }
+}
+
 /// The messages the build ships, in English: the site's interface messages.
 fn shipped() -> &'static BTreeMap<String, String> {
     static SHIPPED: std::sync::OnceLock<BTreeMap<String, String>> = std::sync::OnceLock::new();

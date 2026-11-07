@@ -12,8 +12,8 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use triplespace_cli::{
-    accounts, adopt, challenge, env_file, follow, forwarder, instance, oauth_client, rights,
-    settings, source, status, sync, tenant,
+    accounts, adopt, challenge, env_file, follow, forwarder, instance, logins, oauth_client,
+    rights, settings, source, status, sync, tenant,
 };
 
 /// Triplespace: a Wikibase as an append-only log.
@@ -96,6 +96,11 @@ enum Command {
     Status(status::Target),
     /// Apply the migrations this binary carries that the database has not applied.
     Migrate(status::Database),
+    /// Instance logins: the migration of tenant-account credentials (0089 §15).
+    Logins {
+        #[command(subcommand)]
+        command: logins::LoginsCommand,
+    },
     /// Replay every projection from the log.
     Rebuild(status::Target),
 }
@@ -159,6 +164,7 @@ async fn run() -> Result<()> {
         Command::Acl { command } => rights::run_acl(command).await,
         Command::Status(args) => status::status(args).await,
         Command::Migrate(args) => status::migrate(args).await,
+        Command::Logins { command } => logins::run(command).await,
         Command::Rebuild(args) => status::rebuild(args).await,
     }
 }

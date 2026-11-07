@@ -1,7 +1,10 @@
-{#- Special:Account (0088 §7; 19 §2.4, §5.10): what the API answered, then either why there
-    is nothing here for a reader not logged in, or the Sign-in methods section: each way to
-    log in with its dates and Remove (disabled, with the note saying why, for the last
-    one), then the issuers still to add. Works without JavaScript. -#}
+{#- Special:Account (0088 §7; 0100 §6; 19 §2.4, §5.10): what the API answered, then either
+    why there is nothing here for a reader not logged in, or the Sign-in methods section:
+    each way to log in with its dates and Remove (disabled, with the note saying why, for
+    the last one), then the issuers still to add; then the Email addresses section: each
+    address with its state, a code field for an unverified one, Make primary for a verified
+    one, Remove (disabled for the primary while it cannot go), and the form that adds one.
+    Every form posts back to the page. Works without JavaScript. -#}
 {%- import "codex.html" as codex -%}
 {%- import "account.html" as account -%}
 <div class="ts-account">{% if notice %}{{ codex.message(notice) }}{% endif -%}
@@ -13,5 +16,23 @@
 </ul>
 {%- if s.note %}{% if s.last %}<p class="ts-signin__last" id="ts-signin-last">{{ s.note }}</p>{% else %}<p class="ts-signin__note">{{ s.note }}</p>{% endif %}{% endif -%}
 {%- if s.add %}{{ account.issuers(s.add) }}{% endif -%}
+</section>{% endif -%}
+{%- if email %}{% set e = email %}<section class="ts-email" id="email-addresses" aria-labelledby="ts-email-heading"><h2 id="ts-email-heading">{{ e.heading }} <span class="ts-signin__private">{{ e.private }}</span></h2><p class="ts-email__intro">{{ e.intro }}</p>
+{%- if e.warning %}<p class="ts-email__warning cdx-message cdx-message--block cdx-message--warning" role="status"><span class="cdx-message__content">{{ e.warning }}</span></p>{% endif -%}
+{%- if e.addresses %}<ul class="ts-email__list">
+{%- for a in e.addresses %}<li class="ts-email__item"><span class="ts-email__address">{{ a.address }}</span> <span class="ts-email__state">{{ a.state }}</span> <span class="ts-signin__dates">{{ a.added }}</span>
+{%- if a.undeliverable %}<p class="ts-email__undeliverable">{{ a.undeliverable }}</p>{% endif -%}
+{%- if a.code %}<form class="ts-form ts-email__verify" method="post" action="{{ e.action }}"><input type="hidden" name="email_action" value="verify"><input type="hidden" name="address" value="{{ a.address }}"><input type="hidden" name="token" value="{{ e.token }}">{{ codex.field(a.code) }}{{ codex.button(a.verify) }}</form>{% endif -%}
+{%- if a.code_note %}<p class="ts-email__note">{{ a.code_note }}</p>{% endif -%}
+<div class="ts-email__actions">
+{%- if a.resend %}<form class="ts-email__action" method="post" action="{{ e.action }}"><input type="hidden" name="email_action" value="resend"><input type="hidden" name="address" value="{{ a.address }}"><input type="hidden" name="token" value="{{ e.token }}">{{ codex.button(a.resend) }}</form>{% endif -%}
+{%- if a.make_primary %}<form class="ts-email__action" method="post" action="{{ e.action }}"><input type="hidden" name="email_action" value="primary"><input type="hidden" name="address" value="{{ a.address }}"><input type="hidden" name="token" value="{{ e.token }}">{{ codex.button(a.make_primary) }}</form>{% endif -%}
+<form class="ts-email__action" method="post" action="{{ e.action }}"><input type="hidden" name="email_action" value="remove"><input type="hidden" name="address" value="{{ a.address }}"><input type="hidden" name="token" value="{{ e.token }}">
+{%- if a.remove_disabled %}<button class="cdx-button" type="submit" disabled aria-describedby="ts-email-why-{{ loop.index }}">{{ a.remove.label }}</button>{% else %}{{ codex.button(a.remove) }}{% endif %}</form>
+{%- if a.remove_disabled %}<p class="ts-email__note" id="ts-email-why-{{ loop.index }}">{{ a.remove_disabled }}</p>{% endif -%}
+</div></li>{% endfor -%}
+</ul>{% endif -%}
+{%- if e.add %}<form class="ts-form ts-email__add" method="post" action="{{ e.action }}"><input type="hidden" name="email_action" value="add"><input type="hidden" name="token" value="{{ e.token }}">{{ codex.field(e.add.field) }}{{ codex.button(e.add.button) }}</form>{% endif -%}
+{%- if e.add_note %}<p class="ts-email__note">{{ e.add_note }}</p>{% endif -%}
 </section>{% endif -%}
 </div>

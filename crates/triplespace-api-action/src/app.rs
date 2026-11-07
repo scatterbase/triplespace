@@ -57,6 +57,28 @@ pub struct Config {
     pub version: Option<&'static str>,
 }
 
+/// What the handlers know of the instance's mail (0100 §5; 16 §5.7): whether it sends
+/// any, from which address, and the secret its webhook is authenticated with. The
+/// transport itself belongs to the delivery worker, not to the handlers.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct MailSettings {
+    /// `mail.transport`: `none`, `log`, `smtp` or `postmark`.
+    pub transport: String,
+    /// `mail.from`: the instance's one sender address; `None` with `none`.
+    pub from: Option<String>,
+    /// The secret Postmark's webhook presents as its HTTP Basic password
+    /// (`mail.postmark.webhook_secret_file`).
+    pub postmark_webhook_secret: Option<String>,
+}
+
+impl MailSettings {
+    /// Whether the instance sends mail: a transport other than `none` with a sender.
+    #[must_use]
+    pub fn sends(&self) -> bool {
+        !self.transport.is_empty() && self.transport != "none" && self.from.is_some()
+    }
+}
+
 /// The state behind every handler.
 #[derive(Clone)]
 pub struct App {
@@ -77,6 +99,8 @@ struct Inner {
     build: crate::version::BuildInfo,
     probes: crate::version::Probes,
     upstream: Arc<dyn Upstream>,
+    /// The mail settings, set once by the server after the transport is built.
+    mail: std::sync::OnceLock<MailSettings>,
     /// Each tenant's table of names (0078 §3), leaked for the adapters' `'static`
     /// borrows and rebuilt when the tenant's `entity-source` records move.
     registries: std::sync::Mutex<std::collections::HashMap<String, (i64, &'static Registry)>>,
@@ -143,6 +167,7 @@ impl App {
                 build,
                 probes: crate::version::Probes::default(),
                 upstream,
+                mail: std::sync::OnceLock::new(),
                 registries: std::sync::Mutex::new(std::collections::HashMap::new()),
             }),
         })
@@ -297,6 +322,18 @@ impl App {
     #[must_use]
     pub fn secret(&self) -> &Secret {
         &self.inner.secret
+    }
+
+    /// The mail settings (0100 §5): what the server set, or no mail at all.
+    #[must_use]
+    pub fn mail(&self) -> MailSettings {
+        self.inner.mail.get().cloned().unwrap_or_default()
+    }
+
+    /// Sets the mail settings, once, as the server does after building the transport. A
+    /// second call changes nothing.
+    pub fn set_mail(&self, settings: MailSettings) {
+        let _ = self.inner.mail.set(settings);
     }
 
     /// The settings.
