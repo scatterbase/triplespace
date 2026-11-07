@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-10-09 (A25)
+- **Updated:** 2026-11-06 (A26)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md)
 
@@ -41,7 +41,7 @@ Three terms are used precisely below:
 
 ### 2. Encoding and hashing
 
-*Changed by A3, A5, A7, A9, A11, A19.*
+*Changed by A3, A5, A7, A9, A11, A19, A26.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §1.2, §3.1, §3.2, §3.3.*
 
@@ -388,3 +388,10 @@ Replaced text ([01](../architecture/01-log-and-records.md) §1.2, as it stood):
 Replaced text ([01](../architecture/01-log-and-records.md) §4.1, as it stood):
 
 > - **Appends in steady state** keep the tree's right edge in memory, which is O(log n) hashes. Each append costs one leaf hash plus O(log n) node hashes in the worst case.
+
+### A26. A nesting-depth limit for canonical CBOR
+
+- **Date:** 2026-11-06
+- **Source:** Direct: Claude, while building the CBOR depth limit, 2026-11-06; unconfirmed
+- **Change:** extends §2
+- **Summary:** Arrays and maps may nest at most 128 deep. The codec recurses once per level with nothing else to bound it, and fuzzing found that a release build on a 2 MiB thread stack, tokio's default for a worker, aborts the whole process at a few thousand levels, about 3 KB of nested empty-array heads or 200 KB of nested one-pair maps; records reach the decoder from imports and the ingest API, so that was a remote denial of service. An item that opens an array or map inside 128 containers is rejected at the level that crosses the limit, by the encoder and the decoder alike, so no stored record exceeds it and the bound is part of the format rather than a site setting. 128 is serde_json's recursion limit, so JSON that reaches the codec through its parser already meets it; Wikibase's deepest structure is about ten levels. Three calls were made while building and are for James to confirm: that a bound exists at all, its value, and that it is a fixed format constant instead of a waivable setting. Folded at [01](../architecture/01-log-and-records.md) §3.1.
