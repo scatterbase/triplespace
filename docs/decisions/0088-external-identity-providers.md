@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-18
-- **Updated:** 2026-10-30 (A2)
+- **Updated:** 2026-11-06 (A4)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0018](0018-tenants.md), [0027](0027-preferences-and-portability.md), [0035](0035-adopting-a-wikibase.md), [0057](0057-web-tier.md), [0067](0067-proposals.md), [0074](0074-publishing-a-scope-to-an-external-wiki.md), [0087](0087-account-registration-and-challenges.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0016](0016-permissions-and-access-control.md), [0025](0025-oauth-server.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0079](0079-derived-issuer-codes.md), [0085](0085-settings-and-preferences.md)
@@ -44,7 +44,7 @@ James's direction, from the design discussion of 2026-10-18:
 
 ### 4. Which issuers a tenant offers (extends 0007 §3)
 
-*Changed by A1.*
+*Changed by A1, A3.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.7.*
 
@@ -62,7 +62,7 @@ James's direction, from the design discussion of 2026-10-18:
 
 ### 7. Sign-in methods (extends 0012 §4; extends 0013 §4)
 
-*Changed by A1.*
+*Changed by A1, A3, A4.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.7; [18](../architecture/18-api.md) §2.3.*
 
@@ -235,3 +235,25 @@ Replaced text (Consequences):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§10
 - **Summary:** The Decision's current text now lives in the architecture chapters [07](../architecture/07-actors-and-accounts.md), [08](../architecture/08-tenants-and-instances.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `2e2a7c8`. No decision changed.
+
+### A3. Requiring an external sign-in method
+
+- **Date:** 2026-11-06
+- **Source:** [0101](0101-requiring-an-external-sign-in-method.md) §1, §2
+- **Change:** amends §7; extends §4
+- **Summary:** An instance may require every login to hold an external identity (`login.external_required`). Under it, removing a login's last external identity is refused with `ts-external-required` whether or not the login has a password, where before only the last way to log in of any kind was refused; and the save that enacts it is refused with `ts-external-required-unmet` until the auth host offers an issuer, every login holds an identity and no credential is still keyed by a tenant account.
+
+Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.7, as it stood):
+
+> removing the last way to log in, counting a password, is `ts-last-binding`. Neither appears in any log, feed or export.
+
+### A4. One identity per login under strict names
+
+- **Date:** 2026-11-06
+- **Source:** [0102](0102-strict-names-from-the-provider.md) §4
+- **Change:** amends §7
+- **Summary:** Under strict names a login holds exactly one external identity, the one its names derive from; adding a second answers `ts-strict-identity` ([07](../architecture/07-actors-and-accounts.md) §2.7, §2.10).
+
+Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.7, as it stood):
+
+> **Adding** one is the flow with purpose `link`, on the auth host's `Special:Account` or `action=linkaccount` at the auth base; a subject bound to another login is `ts-oauth-bound-elsewhere`, and one already bound to this login changes nothing.

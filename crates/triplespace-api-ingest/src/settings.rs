@@ -160,6 +160,15 @@ async fn save_in<R: Rights + Sync + ?Sized>(
     {
         no_login_method(cx.conn(), slug).await?;
     }
+    if target == Target::Instance
+        && patch
+            .set
+            .get("login.external_required")
+            .and_then(serde_json::Value::as_bool)
+            == Some(true)
+    {
+        external_required_unmet(cx.conn()).await?;
+    }
     if let Some(event) = planned.event(target) {
         let (log, seq_tenant) = match target {
             Target::Tenant => (parts.tenant_log, tenant.unwrap_or("")),
@@ -191,6 +200,36 @@ async fn save_in<R: Rights + Sync + ?Sized>(
         records,
         base,
     })
+}
+
+/// Refuses enacting `login.external_required` while a login would be locked out
+/// (0101 §2, `ts-external-required-unmet`): the auth host offers no issuer, a login holds
+/// no external identity, or a credential is still keyed by a tenant account. Runs after
+/// the writes, in their unit of work.
+async fn external_required_unmet(client: &tokio_postgres::Client) -> Result<(), SaveError> {
+    let farm = triplespace_projections::tenants::farm(client)
+        .await
+        .map_err(store_error)?
+        .ok_or_else(|| SaveError::Store("the instance has no farm record".into()))?;
+    let ready = crate::accounts::readiness(
+        client,
+        scatter_actors::issuer::IssuerRegistry::default_registry(),
+        &farm.base,
+    )
+    .await
+    .map_err(store_error)?;
+    let blockers = ready.blockers();
+    if blockers.is_empty() {
+        return Ok(());
+    }
+    Err(SaveError::Refused(vec![Refusal {
+        code: "ts-external-required-unmet",
+        key: Some("login.external_required".into()),
+        message: format!(
+            "Not every login could sign in through an external provider yet: {}. `triplespace logins check` names the logins.",
+            blockers.join("; ")
+        ),
+    }]))
 }
 
 /// Refuses a save that would leave a tenant with no way to log in: `login.password` off

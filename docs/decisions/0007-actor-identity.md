@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-10-19 (A27)
+- **Updated:** 2026-11-06 (A28)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0013](0013-postgres-storage.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md)
@@ -54,7 +54,7 @@ Four constraints follow from how MediaWiki treats accounts:
 
 ### 4. Names are attributes, kept in actor records
 
-*Changed by A1, A6, A7, A8, A9, A10, A11, A23.*
+*Changed by A1, A6, A7, A8, A9, A10, A11, A23, A28.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §1.3, §3.2.*
 
@@ -393,3 +393,10 @@ Replaced text ([07](../architecture/07-actors-and-accounts.md) §1.4, as it stoo
 > | **Upstream IP edits,** made before temporary accounts | The IP gets a surrogate, `{base}/actor/{n}`, of kind `anonymous`.
 
 > **Surrogates are minted by the instance, in sequence.** They carry no information about what they stand for.
+
+### A28. Strict names: derived names, reserved prefixes and provider renames
+
+- **Date:** 2026-11-06
+- **Source:** [0102](0102-strict-names-from-the-provider.md) §2, §3
+- **Change:** extends §4
+- **Summary:** Under strict names an account's name is derived from its login's external identity as `{label}-{username}`; every offered issuer's prefix is reserved against hand-made names; and a rename upstream renames the account on every tenant at the next login, as an instance act ([07](../architecture/07-actors-and-accounts.md) §2.10).

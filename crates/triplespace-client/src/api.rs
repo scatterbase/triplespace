@@ -75,8 +75,18 @@ pub struct Fetched<T> {
     pub cache: CacheInfo,
 }
 
+/// What the wiki asks before an account is made (`triplespace.account`).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Registration {
+    /// Whether the wiki reviews new accounts (`account.approval`, 0087 §6).
+    pub approval: bool,
+    /// Whether the instance creates a login only from an external identity
+    /// (`account.external_required`, 0101 §3).
+    pub external_required: bool,
+}
+
 /// What the site needs of `meta=siteinfo`.
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct SiteInfo {
     /// `general.sitename`.
     pub sitename: String,
@@ -107,8 +117,8 @@ pub struct SiteInfo {
     /// Whether the request came to the farm base, which serves the instance's pages
     /// (0085 §4).
     pub at_farm: bool,
-    /// Whether the wiki reviews new accounts (`account.approval`, 0087 §6).
-    pub account_approval: bool,
+    /// What the wiki asks before an account is made (`triplespace.account`).
+    pub account: Registration,
     /// The external issuers the wiki offers for login (`triplespace.login`, 0088 §9).
     pub login_issuers: Vec<crate::issuers::LoginIssuer>,
     /// The markup of new posts, `markdown` or `wikitext` (`triplespace.thread.markup`;
@@ -470,7 +480,12 @@ impl Client {
                 .to_string(),
             tenant: ts["tenant"].as_str().unwrap_or_default().to_string(),
             at_farm: ts["at_farm"].as_bool().unwrap_or(false),
-            account_approval: ts["account"]["approval"].as_bool().unwrap_or(false),
+            account: Registration {
+                approval: ts["account"]["approval"].as_bool().unwrap_or(false),
+                external_required: ts["account"]["external_required"]
+                    .as_bool()
+                    .unwrap_or(false),
+            },
             login_issuers: section(&ts["login"], "triplespace.login")?,
             thread_markup: ts["thread"]["markup"]
                 .as_str()

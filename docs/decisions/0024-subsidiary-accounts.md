@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-18 (A20)
+- **Updated:** 2026-11-06 (A21)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -30,7 +30,7 @@ James's direction is to make the relation structural: a bot is a **subsidiary ac
 
 ### 2. Creating, approving and transferring
 
-*Changed by A2, A17.*
+*Changed by A2, A17, A21.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §1.3, §3.2, §4.2, §4.3, §4.4.*
 
@@ -330,3 +330,10 @@ Replaced text ([07](../architecture/07-actors-and-accounts.md) §6.3, as it stoo
 Replaced text ([07](../architecture/07-actors-and-accounts.md) §6.3, as it stood):
 
 > An instance without a shared cache counts in process, approximately, which is what the small profile of [0013](../decisions/0013-postgres-storage.md) §11 accepts.
+
+### A21. Reserved prefixes
+
+- **Date:** 2026-11-06
+- **Source:** [0102](0102-strict-names-from-the-provider.md) §2
+- **Change:** extends §2
+- **Summary:** A subsidiary's name may not begin with an offered issuer's reserved prefix (`{label}-`), so that under strict names no bot can sit on a name a provider username would produce (`ts-name-reserved`; [07](../architecture/07-actors-and-accounts.md) §2.10).

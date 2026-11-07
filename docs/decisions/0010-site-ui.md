@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-06 (A51)
+- **Updated:** 2026-11-06 (A52)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md)
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -124,7 +124,7 @@ The design exploration is on the [site UI canvas](https://claude.ai/artifact/XNb
 
 ### 10. Logging in
 
-*Changed by A6, A43, A44, A45.*
+*Changed by A6, A43, A44, A45, A52.*
 
 *Current text: [19](../architecture/19-site-ui.md) §2.3.*
 
@@ -696,3 +696,13 @@ Replaced text ([19](../architecture/19-site-ui.md) §2.4, as it stood):
   - The exact title of a document page, however cased, is a **Go to** like an ID's, tried after the entity forms so that `Q42` is the item first ([0029](0029-resolver-namespaces.md) §6): the header's box goes straight to the page, and the results page offers it above the results, as MediaWiki's **Go** does. "Page titled Q42" beside an entity's **Go to** ([0038](0038-page-metadata-and-categories.md) §8) is not built yet.
   - Page text is not searched yet: that waits on its index (A4).
 
+### A52. A tombstone yields to the provider under strict names
+
+- **Date:** 2026-11-06
+- **Source:** [0102](0102-strict-names-from-the-provider.md) §3
+- **Change:** amends §10
+- **Summary:** Upstream is canonical under strict names: a name tombstone yields to the issuer that named it attesting a different subject, since the provider has already reassigned the name ([19](../architecture/19-site-ui.md) §2.3; [07](../architecture/07-actors-and-accounts.md) §2.10). Every other tombstone holds as before.
+
+Replaced text ([19](../architecture/19-site-ui.md) §2.3, as it stood):
+
+> **A name is never reused.** Every name a local account has ever held, whether renamed away or vanished from, stays reserved as a *name tombstone*, so that `[[User:OldName]]` in old page text or a post can never come to name a different person; the only way to have a name is to have always had it.

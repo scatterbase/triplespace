@@ -109,6 +109,12 @@ pub async fn set_password(
     let login = if let Some(l) = logins::login_of(cx.conn(), tenant, actor_key).await? {
         l
     } else {
+        // Under `login.external_required` no login is made from a password (0101 §1).
+        if logins::external_required(cx.conn()).await? {
+            anyhow::bail!(
+                "`{account_name}` has no login, and this instance creates a login only from an external identity (login.external_required); the person signs in with one instead"
+            );
+        }
         let l = triplespace_api_ingest::accounts::create_login(
             store,
             pipeline,

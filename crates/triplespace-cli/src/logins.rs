@@ -15,6 +15,11 @@
 //!
 //! `triplespace migrate` says when this needs running; `instance create` makes logins
 //! from the start. This implements 0089 §15 (A3).
+//!
+//! `triplespace logins check` (0101 §2) reports what enacting `login.external_required`
+//! waits on: whether it is on, the issuers the auth host offers, the logins holding no
+//! external identity by name, which only the operator may see, and the credentials still
+//! keyed by tenant accounts.
 
 use std::path::PathBuf;
 
@@ -35,6 +40,16 @@ use crate::tenant::{instance_founding, open_partition, project, provision};
 pub enum LoginsCommand {
     /// Turn every tenant-account credential into an instance login (0089 §15).
     Migrate(Migrate),
+    /// Report what requiring an external sign-in method waits on (0101 §2).
+    Check(Check),
+}
+
+/// `logins check`.
+#[derive(Debug, Args)]
+pub struct Check {
+    /// The Postgres URL.
+    #[arg(long, env = "TRIPLESPACE_DATABASE_URL")]
+    pub database: String,
 }
 
 /// `logins migrate`.
@@ -52,7 +67,57 @@ pub struct Migrate {
 pub async fn run(command: LoginsCommand) -> Result<()> {
     match command {
         LoginsCommand::Migrate(args) => migrate(args).await,
+        LoginsCommand::Check(args) => check(args).await,
     }
+}
+
+/// Runs `logins check`: prints the requirement's state and what enacting it waits on.
+/// This implements 0101 §2.
+pub async fn check(args: Check) -> Result<()> {
+    let client = connect(&args.database).await?;
+    let farm = farm_of(&client).await?;
+    let required = logins::external_required(&client).await?;
+    let ready = triplespace_api_ingest::accounts::readiness(
+        &client,
+        scatter_actors::issuer::IssuerRegistry::default_registry(),
+        &farm.base,
+    )
+    .await?;
+    println!(
+        "login.external_required is {}",
+        if required { "on" } else { "off" }
+    );
+    println!(
+        "external issuers the auth host offers: {}",
+        if ready.offered.is_empty() {
+            "none".to_string()
+        } else {
+            ready.offered.join(", ")
+        }
+    );
+    println!(
+        "logins without an external identity: {}",
+        ready.without_external.len()
+    );
+    for name in &ready.without_external {
+        println!("  {name}");
+    }
+    if ready.unmigrated_passwords + ready.unmigrated_identities > 0 {
+        println!(
+            "credentials still keyed by tenant accounts: {} passwords, {} external identities (run `logins migrate`)",
+            ready.unmigrated_passwords, ready.unmigrated_identities
+        );
+    }
+    let blockers = ready.blockers();
+    if blockers.is_empty() {
+        println!("the requirement can be enacted");
+    } else {
+        println!("enacting the requirement waits on:");
+        for b in &blockers {
+            println!("  {b}");
+        }
+    }
+    Ok(())
 }
 
 /// What a run did.
