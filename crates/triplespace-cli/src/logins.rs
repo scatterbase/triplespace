@@ -102,10 +102,10 @@ pub async fn check(args: Check) -> Result<()> {
     for name in &ready.without_external {
         println!("  {name}");
     }
-    if ready.unmigrated_passwords + ready.unmigrated_identities > 0 {
+    if ready.unmigrated_hashes + ready.unmigrated_identities > 0 {
         println!(
             "credentials still keyed by tenant accounts: {} passwords, {} external identities (run `logins migrate`)",
-            ready.unmigrated_passwords, ready.unmigrated_identities
+            ready.unmigrated_hashes, ready.unmigrated_identities
         );
     }
     let blockers = ready.blockers();

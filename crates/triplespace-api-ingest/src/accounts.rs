@@ -544,8 +544,8 @@ pub struct Readiness {
     pub offered: Vec<String>,
     /// The logins holding no external identity, by name.
     pub without_external: Vec<String>,
-    /// Passwords still keyed by tenant accounts: `logins migrate` is due.
-    pub unmigrated_passwords: usize,
+    /// Password hashes still keyed by tenant accounts: `logins migrate` is due.
+    pub unmigrated_hashes: usize,
     /// External identities still keyed by tenant accounts: `logins migrate` is due.
     pub unmigrated_identities: usize,
 }
@@ -566,10 +566,10 @@ impl Readiness {
             1 => out.push("1 login holds no external identity".to_string()),
             n => out.push(format!("{n} logins hold no external identity")),
         }
-        if self.unmigrated_passwords + self.unmigrated_identities > 0 {
+        if self.unmigrated_hashes + self.unmigrated_identities > 0 {
             out.push(format!(
                 "{} passwords and {} external identities are still keyed by tenant accounts: run `logins migrate`",
-                self.unmigrated_passwords, self.unmigrated_identities
+                self.unmigrated_hashes, self.unmigrated_identities
             ));
         }
         out
@@ -629,7 +629,7 @@ pub async fn readiness<C: tokio_postgres::GenericClient>(
             .into_iter()
             .map(|l| l.name)
             .collect(),
-        unmigrated_passwords: password::unmigrated(client)
+        unmigrated_hashes: password::unmigrated(client)
             .await
             .map_err(store_error)?
             .len(),
