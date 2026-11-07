@@ -87,6 +87,10 @@ strike what stops being true. Implementation status is not kept here (24 §15: `
   writes the files; check with `shasum -a 256 -c` against a sums file from the sandbox.
 - The Mac's Python is 3.10: `docs/check.sh` adds the vendored `tomli` wheel itself; a checker
   run directly needs `PYTHONPATH=docs/tomli-2.4.1-py3-none-any.whl`.
+- `ui/e2e/run.sh` uses GNU `date -d`; macOS's `date` has no `-d`, so put a `date` that is
+  MacPorts' or Homebrew's `gdate` first on `PATH` (a one-file shim directory does). The suite
+  also needs `npx playwright install chromium` once, and a Postgres admin URL
+  (`postgres://jh@localhost/postgres`): it creates its own `tse2e` database.
 
 ## The code
 
