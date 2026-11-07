@@ -394,9 +394,13 @@ impl fmt::Display for Subject {
 /// hashing use the canonical form, so `q731$…` and `Q731$…` are one statement, as
 /// Wikibase's own GUID parser has it.
 ///
-/// The UUID part is kept as written. Wikibase compares it case-insensitively and writes
-/// it in uppercase; the resolved view rewrites the entity part to the canonical member's
-/// ID and keeps the UUID (0018 §7).
+/// The UUID part is kept as written. It has a UUID's shape, five groups of 8, 4, 4, 4 and
+/// 12 ASCII letters or digits, but need not be hexadecimal: that is the rule of Wikibase's
+/// `StatementGuidValidator`, and Wikidata holds statements written by hand under it
+/// (`Q126373047$5627445f-43cb-ed6d-3adb-tracklists01`). Wikibase also allows the part in
+/// braces; that is not accepted here (0017 A13). Wikibase compares it case-insensitively and
+/// writes it in uppercase; the resolved view rewrites the entity part to the canonical
+/// member's ID and keeps the UUID (0018 §7).
 #[derive(Clone)]
 pub struct StatementId {
     /// The ID with its subject canonical.
@@ -522,12 +526,14 @@ impl StatementId {
     }
 }
 
+/// Wikibase's statement GUID shape, without its optional braces (0017 §1, A13): 8-4-4-4-12
+/// ASCII letters or digits, in either case.
 fn is_guid(s: &str) -> bool {
     let b = s.as_bytes();
     b.len() == 36
         && b.iter().enumerate().all(|(i, c)| match i {
             8 | 13 | 18 | 23 => *c == b'-',
-            _ => c.is_ascii_hexdigit(),
+            _ => c.is_ascii_alphanumeric(),
         })
 }
 
@@ -806,9 +812,41 @@ mod tests {
             "Q8$",
             "Q8$abc",
             "$C13E7A23-11E7-4C91-A799-3D1806B65444",
-            "Q8$C13E7A23-11E7-4C91-A799-3D1806B6544G",
+            "Q8$C13E7A23-11E7-4C91-A799-3D1806B6544_",
+            "Q8$C13E7A23-11E7-4C91-A799-3D1806B6544é",
+            "Q8$C13E7A2311E7-4C91-A799-3D1806B65444-",
+            "Q8$C13E7A23-11E7-4C91-A799-3D1806B654444",
+            "Q8$C13E7A23-11E7-4C91-A799-3D1806B6544",
+            // Wikibase allows braces; this model does not (0017 A13).
+            "Q8${C13E7A23-11E7-4C91-A799-3D1806B65444}",
+            "Q8${C13E7A23-11E7-4C91-A799-3D1806B65444",
+            "Q8$C13E7A23-11E7-4C91-A799-3D1806B65444}",
         ] {
             assert!(StatementId::parse(bad).is_err(), "{bad}");
         }
+    }
+
+    /// 0017 §1 (A13): the part after `$` has a UUID's shape in letters and digits, not
+    /// necessarily hexadecimal, as Wikibase's `StatementGuidValidator` has it.
+    #[test]
+    fn statement_ids_need_not_be_hexadecimal() {
+        // Written by hand on Wikidata, in the 2026-10-26 dump.
+        for id in [
+            "Q126373047$5627445f-43cb-ed6d-3adb-tracklists01",
+            "Q126373054$5627445f-43cb-ed6d-3adb-tracklists25",
+            "Q8$c13e7a23-11e7-4c91-a799-3d1806b65444",
+            "Q8$ZZZZZZZZ-zzzz-0000-AbCd-0123456789az",
+        ] {
+            let s = StatementId::parse(id).unwrap();
+            assert_eq!(s.as_str(), id, "kept as written");
+            assert_eq!(s.uuid(), id.split_once('$').unwrap().1);
+        }
+        let s = StatementId::parse("Q126373047$5627445f-43cb-ed6d-3adb-tracklists01").unwrap();
+        assert_eq!(s.entity_id().unwrap().as_str(), "Q126373047");
+        assert_eq!(
+            s.with_entity(&EntityId::parse("WDQ126373047").unwrap())
+                .as_str(),
+            "WDQ126373047$5627445f-43cb-ed6d-3adb-tracklists01"
+        );
     }
 }

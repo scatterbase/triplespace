@@ -10,6 +10,7 @@ points in time.
 | `wikidata-Q339.json` | Pluto | 2539604885 (2026-09-03) |
 | `wikidata-Q731.json` | manganese | 2552513285 (2026-10-03) |
 | `wikidata-Q1520.json` | Astana | 2552673948 (2026-10-03) |
+| `wikidata-Q126373047.json` | Arcaea Sound Collection - Memories of Conflict | 2175014637 (2024-06-09); its 26 tracklist (P658) statements have IDs written by hand, `…$5627445f-43cb-ed6d-3adb-tracklists01`, which have a UUID's shape but are not hexadecimal |
 
 `big/` is not in git (GitHub refuses files over 100 MB) and is shared out of band:
 `wikidata-20261004-sample-50000.json.gz` is 50,000 items drawn uniformly at random from those
