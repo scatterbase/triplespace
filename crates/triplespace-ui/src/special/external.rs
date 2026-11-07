@@ -203,7 +203,7 @@ pub struct AccountPage {
 
 /// The Email addresses section (19 §2.4): each address with its state and its forms, and
 /// the form that adds one. Every form posts back to the page with `email_action`. With
-/// [`post_email`] this implements 0100 §6, the account page's half; the optional address
+/// `post_email` this implements 0100 §6, the account page's half; the optional address
 /// field on `Special:CreateAccount` is not built yet.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct EmailSection {
