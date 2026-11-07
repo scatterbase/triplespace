@@ -44,6 +44,8 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0097 A3](0097-versioning-and-skins.md#a3-fragments-are-compared-as-normalized-dom) | 2026-10-30 | Fragments are compared as normalized DOM |
 | [0097 A4](0097-versioning-and-skins.md#a4-drawings-are-svg-the-binary-makes) | 2026-10-30 | Drawings are SVG the binary makes |
 | [0097 A6](0097-versioning-and-skins.md#a6-a-part-of-a-later-group-is-carried-as-html-until-that-group-switches) | 2026-10-30 | A part of a later group is carried as HTML until that group switches |
+| [0100 A1](0100-email-addresses-and-verification-codes.md#a1-the-login-an-address-belongs-to-until-instance-logins-exist) | 2026-11-06 | The login an address belongs to, until instance logins exist |
+| [0100 A2](0100-email-addresses-and-verification-codes.md#a2-the-postmark-transport-built-with-bounce-and-complaint-handling) | 2026-11-06 | The Postmark transport, built with bounce and complaint handling |
 
 ## Open questions
 

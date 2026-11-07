@@ -1,0 +1,25 @@
+[package]
+name = "scatter-mail"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Outgoing email: the message type, the MailTransport trait, and the log, smtp and postmark transports"
+publish = false
+
+[dependencies]
+lettre.workspace = true
+reqwest = { workspace = true, features = ["json"] }
+serde = { workspace = true }
+serde_json.workspace = true
+thiserror.workspace = true
+url.workspace = true
+percent-encoding.workspace = true
+
+[dev-dependencies]
+pollster.workspace = true
+
+[lints]
+workspace = true

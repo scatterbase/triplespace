@@ -28,6 +28,10 @@
 //! - `POST /auth/{issuer}/start`, `GET /auth/{issuer}/callback`, `GET /auth/pending` and
 //!   `GET /account` ([`auth`]): login through external issuers, the site's door, and the
 //!   holder's sign-in methods (0088 §5–§7).
+//! - `GET` and `POST /auth/email`, `POST /auth/email/verify`, `…/primary` and
+//!   `…/remove` ([`email`]): the login's email addresses and their verification codes
+//!   (0100 §7), and `POST /mail/postmark`, Postmark's bounce and complaint webhook
+//!   (0100 A2).
 //!
 //! - `GET /tenancy` ([`tenancy`]): at the farm base, the farm, the primary tenant, the
 //!   tenancy policy and the tenant list (0028 §11; 0046 §9; 0079 §7).
@@ -52,6 +56,7 @@ pub mod acl;
 pub mod activity;
 pub mod auth;
 pub mod diff;
+pub mod email;
 mod entity_route;
 pub mod groups;
 pub mod history;
@@ -117,6 +122,11 @@ pub const PATHS: &[&str] = &[
     "/watchlist/{kind}/{id}",
     "/reports",
     "/reports/{name}",
+    "/auth/email",
+    "/auth/email/verify",
+    "/auth/email/primary",
+    "/auth/email/remove",
+    "/mail/postmark",
 ];
 
 /// The REST routes, to be merged into the server's router.
@@ -193,7 +203,18 @@ pub fn routes() -> Router<App> {
                 put(watchlist::put).delete(watchlist::delete),
             )
             .route(&format!("{base}{}", PATHS[42]), get(reports::list))
-            .route(&format!("{base}{}", PATHS[43]), get(reports::get));
+            .route(&format!("{base}{}", PATHS[43]), get(reports::get))
+            .route(
+                &format!("{base}{}", PATHS[44]),
+                get(email::list).post(email::add),
+            )
+            .route(&format!("{base}{}", PATHS[45]), post(email::verify))
+            .route(&format!("{base}{}", PATHS[46]), post(email::primary))
+            .route(&format!("{base}{}", PATHS[47]), post(email::remove))
+            .route(
+                &format!("{base}{}", PATHS[48]),
+                post(email::postmark_webhook),
+            );
     }
     r
 }

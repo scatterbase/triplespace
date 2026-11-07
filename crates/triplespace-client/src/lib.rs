@@ -28,6 +28,7 @@ pub mod account;
 pub mod activity;
 pub mod api;
 pub mod create;
+pub mod email;
 pub mod entity;
 pub mod forward;
 pub mod issuers;
@@ -53,6 +54,7 @@ pub use api::{
     ProviderType, SiteInfo, UserInfo,
 };
 pub use create::{Created, TermEdit};
+pub use email::{EmailAddress, EmailInfo, EmailOutcome};
 pub use entity::{Entities, Provenance};
 pub use forward::Incoming;
 pub use issuers::{AccountInfo, LoginIssuer, Pending};

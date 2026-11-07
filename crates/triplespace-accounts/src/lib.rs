@@ -47,6 +47,7 @@
 
 pub mod bindings;
 pub mod challenge;
+pub mod email;
 pub mod forwarder;
 pub mod groups;
 pub mod identity;

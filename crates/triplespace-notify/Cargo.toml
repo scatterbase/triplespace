@@ -14,8 +14,11 @@ triplespace-projections.workspace = true
 triplespace-accounts.workspace = true
 scatter-projection.workspace = true
 scatter-log.workspace = true
+scatter-mail.workspace = true
 tokio-postgres.workspace = true
 serde_json.workspace = true
+getrandom.workspace = true
+thiserror.workspace = true
 
 [lints]
 workspace = true

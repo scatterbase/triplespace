@@ -15,10 +15,10 @@ use std::collections::BTreeMap;
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Response;
 use triplespace_client::issuers::start_path;
-use triplespace_client::{AccountInfo, CacheInfo, LoginIssuer};
+use triplespace_client::{AccountInfo, CacheInfo, EmailInfo, LoginIssuer};
 
 use crate::Site;
-use crate::codex::{Action, Button, Message, MessageKind, Weight};
+use crate::codex::{Action, Button, Field, FieldModel, Message, MessageKind, Weight};
 use crate::entity::history::Choice;
 use crate::features::Feature;
 use crate::frame::{Page, title_url};
@@ -139,6 +139,11 @@ fn key_of(code: &str) -> Option<&'static str> {
         "ts-reclaimed" => "ts-reclaimed",
         "ts-reclaim-taken" => "ts-reclaim-taken",
         "ts-reclaim-unavailable" => "ts-reclaim-unavailable",
+        "ts-email-added" => "ts-email-added",
+        "ts-email-resent" => "ts-email-resent",
+        "ts-email-verified" => "ts-email-verified",
+        "ts-email-primary-set" => "ts-email-primary-set",
+        "ts-email-removed" => "ts-email-removed",
         "ts-account-pending" => "ts-login-pending",
         "ts-account-rejected" => "ts-login-rejected-external",
         "ts-account-requested" => "ts-createaccount-requested",
@@ -192,6 +197,208 @@ pub struct AccountPage {
     pub login: Option<Choice>,
     /// The Sign-in methods section.
     pub methods: Option<SignInMethods>,
+    /// The Email addresses section (0100 §6).
+    pub email: Option<EmailSection>,
+}
+
+/// The Email addresses section (19 §2.4): each address with its state and its forms, and
+/// the form that adds one. Every form posts back to the page with `email_action`. With
+/// [`post_email`] this implements 0100 §6, the account page's half; the optional address
+/// field on `Special:CreateAccount` is not built yet.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct EmailSection {
+    /// The heading.
+    pub heading: String,
+    /// That the section is private to the reader.
+    pub private: String,
+    /// What the section is for.
+    pub intro: String,
+    /// The warning while no address is verified, or that the site sends no mail.
+    pub warning: Option<String>,
+    /// Where the forms post.
+    pub action: String,
+    /// The CSRF token.
+    pub token: String,
+    /// The addresses, the primary first.
+    pub addresses: Vec<EmailItem>,
+    /// The form that adds an address, where one can be added.
+    pub add: Option<EmailAdd>,
+    /// Why no address can be added: the limit.
+    pub add_note: Option<String>,
+}
+
+/// One address on the page.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct EmailItem {
+    /// The address.
+    pub address: String,
+    /// Its state: unverified, verified or primary.
+    pub state: String,
+    /// When it was added.
+    pub added: String,
+    /// That mail to it bounced or was reported as spam, and what to do.
+    pub undeliverable: Option<String>,
+    /// For an unverified address, or a bounced one: the code field and **Verify**.
+    pub code: Option<FieldModel>,
+    /// **Verify**.
+    pub verify: Option<crate::codex::ButtonModel>,
+    /// When the current code expires, or that it is spent.
+    pub code_note: Option<String>,
+    /// **Send a new code**.
+    pub resend: Option<crate::codex::ButtonModel>,
+    /// **Make primary**, for a verified address that is not the primary.
+    pub make_primary: Option<crate::codex::ButtonModel>,
+    /// **Remove**.
+    pub remove: crate::codex::ButtonModel,
+    /// Why Remove is disabled, for the primary while it cannot go.
+    pub remove_disabled: Option<String>,
+}
+
+/// The form that adds an address.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct EmailAdd {
+    /// The address field.
+    pub field: FieldModel,
+    /// **Add**.
+    pub button: crate::codex::ButtonModel,
+}
+
+/// `YYYY-MM-DD HH:MM UTC` of seconds since the epoch.
+fn utc_minute(secs: u64) -> String {
+    let rem = secs % 86_400;
+    format!(
+        "{} {:02}:{:02} UTC",
+        iso_date(secs),
+        rem / 3600,
+        (rem % 3600) / 60
+    )
+}
+
+/// The Email addresses section's model.
+#[allow(clippy::too_many_lines)]
+fn email_model(m: &Messages, e: &EmailInfo, token: &str) -> EmailSection {
+    let any_verified = e.addresses.iter().any(|a| a.verified);
+    let warning = if !e.sends_mail {
+        Some(m.get("ts-account-email-disabled"))
+    } else if !any_verified {
+        Some(m.get("ts-account-email-none-verified"))
+    } else {
+        None
+    };
+    let button = |key: &str, action: Action| {
+        Button {
+            label: &m.get(key),
+            kind: "submit",
+            action,
+            weight: Weight::Normal,
+        }
+        .model()
+    };
+    let addresses = e
+        .addresses
+        .iter()
+        .map(|a| {
+            let state = m.get(if a.primary {
+                "ts-account-email-state-primary"
+            } else if a.verified {
+                "ts-account-email-state-verified"
+            } else {
+                "ts-account-email-state-unverified"
+            });
+            let needs_code = !a.verified || a.undeliverable.is_some();
+            let field_id = format!("ts-email-code-{}", slug(&a.address));
+            let code = (needs_code && e.sends_mail).then(|| {
+                Field {
+                    id: &field_id,
+                    name: "code",
+                    kind: "text",
+                    value: "",
+                    label: &m.get("ts-account-email-code-label"),
+                    description: None,
+                    help: None,
+                    required: true,
+                    autocomplete: Some("one-time-code"),
+                }
+                .model()
+            });
+            let code_note = needs_code.then(|| {
+                a.code_expires.map_or_else(
+                    || m.get("ts-account-email-code-spent"),
+                    |t| m.with("ts-account-email-code-expires", &[&utc_minute(t)]),
+                )
+            });
+            let remove_disabled = a
+                .primary
+                .then_some(e.primary_removal.as_deref())
+                .flatten()
+                .map(|why| {
+                    m.get(match why {
+                        "ts-email-last" => "ts-account-email-remove-last",
+                        "ts-email-required" => "ts-account-email-remove-required",
+                        _ => "ts-account-email-remove-primary",
+                    })
+                });
+            EmailItem {
+                address: a.address.clone(),
+                state,
+                added: m.with("ts-account-added", &[&iso_date(a.added)]),
+                undeliverable: a.undeliverable.as_deref().map(|r| {
+                    m.get(if r == "complaint" {
+                        "ts-account-email-undeliverable-complaint"
+                    } else {
+                        "ts-account-email-undeliverable-bounce"
+                    })
+                }),
+                verify: code
+                    .is_some()
+                    .then(|| button("ts-account-email-verify", Action::Progressive)),
+                code,
+                code_note,
+                resend: (needs_code && e.sends_mail)
+                    .then(|| button("ts-account-email-resend", Action::Default)),
+                make_primary: (a.verified && !a.primary)
+                    .then(|| button("ts-account-email-make-primary", Action::Default)),
+                remove: button("ts-account-email-remove", Action::Destructive),
+                remove_disabled,
+            }
+        })
+        .collect();
+    let at_limit = i64::try_from(e.addresses.len()).unwrap_or(i64::MAX) >= e.max_addresses;
+    let add = (e.sends_mail && !at_limit).then(|| EmailAdd {
+        field: Field {
+            id: "ts-email-add",
+            name: "address",
+            kind: "email",
+            value: "",
+            label: &m.get("ts-account-email-add-label"),
+            description: None,
+            help: Some(&m.get("ts-account-email-add-help")),
+            required: true,
+            autocomplete: Some("email"),
+        }
+        .model(),
+        button: button("ts-account-email-add-button", Action::Progressive),
+    });
+    EmailSection {
+        heading: m.get("ts-account-email-heading"),
+        private: m.get("ts-account-private"),
+        intro: m.get("ts-account-email-intro"),
+        warning,
+        action: format!("/w/index.php?title={}", title_url(TITLE)),
+        token: token.to_string(),
+        addresses,
+        add,
+        add_note: (e.sends_mail && at_limit)
+            .then(|| m.with("ts-account-email-limit", &[&e.max_addresses.to_string()])),
+    }
+}
+
+/// An address as part of an element ID: letters, digits and hyphens.
+fn slug(address: &str) -> String {
+    address
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect()
 }
 
 /// The Sign-in methods section.
@@ -338,6 +545,7 @@ async fn render(
                 cx.m.get("ts-login"),
             )),
             methods: None,
+            email: None,
         };
         return account_page(cx, headers, notice, model);
     }
@@ -349,9 +557,14 @@ async fn render(
                 login_needed: Some(cx.m.get("ts-account-login-needed")),
                 login: None,
                 methods: None,
+                email: None,
             };
             return account_page(cx, headers, notice, model);
         }
+        Err(e) => return pages::api_failed(cx, headers, &e),
+    };
+    let email = match site.client().email_addresses(incoming).await {
+        Ok(e) => e,
         Err(e) => return pages::api_failed(cx, headers, &e),
     };
     let t = match site.client().token(incoming, "csrf").await {
@@ -363,6 +576,9 @@ async fn render(
         login_needed: None,
         login: None,
         methods: Some(sign_in_model(&cx.m, &account, &t.value.value)),
+        email: email
+            .as_ref()
+            .map(|e| email_model(&cx.m, e, &t.value.value)),
     };
     pages::with_cookies(account_page(cx, headers, notice, model), &t.set_cookies)
 }
@@ -382,7 +598,100 @@ pub async fn serve(
     render(site, &mut cx, headers, &incoming, notice).await
 }
 
-/// `POST Special:Account`: removes a sign-in method.
+/// The message of an email refusal the API answered with (07 §2.9).
+fn email_refusal(m: &Messages, code: &str, body: &serde_json::Value) -> String {
+    match code {
+        "ts-email-code" => match body["left"].as_i64().unwrap_or(0) {
+            left if left > 0 => m.with("ts-email-code-wrong", &[&left.to_string()]),
+            _ => m.get("ts-email-code-spent"),
+        },
+        "ratelimited" => m.with(
+            "ts-email-ratelimited",
+            &[&body["wait"].as_u64().unwrap_or(60).to_string()],
+        ),
+        "badtoken" => m.get("ts-login-expired"),
+        "ts-email-invalid"
+        | "ts-email-limit"
+        | "ts-email-unverified"
+        | "ts-email-taken"
+        | "ts-email-primary"
+        | "ts-email-last"
+        | "ts-email-required"
+        | "ts-email-disabled"
+        | "ts-email-unknown" => m.get(code),
+        _ => m.get("ts-email-failed"),
+    }
+}
+
+/// `POST Special:Account` with `email_action` (0100 §6): adds an address, sends a new
+/// code, verifies, makes primary or removes, then returns to the section with a notice.
+async fn post_email(
+    site: &Site,
+    cx: &mut Context,
+    headers: &HeaderMap,
+    incoming: &triplespace_client::Incoming,
+    form: &BTreeMap<String, String>,
+) -> Response {
+    let field = |k: &str| form.get(k).map_or("", String::as_str);
+    let mut fields = serde_json::Map::new();
+    fields.insert("address".into(), serde_json::json!(field("address")));
+    let (action, notice) = match field("email_action") {
+        "add" => ("", "ts-email-added"),
+        "resend" => ("", "ts-email-resent"),
+        "verify" => {
+            fields.insert("code".into(), serde_json::json!(field("code")));
+            ("verify", "ts-email-verified")
+        }
+        "primary" => ("primary", "ts-email-primary-set"),
+        "remove" => ("remove", "ts-email-removed"),
+        _ => {
+            return render(
+                site,
+                cx,
+                headers,
+                incoming,
+                Some((MessageKind::Error, cx.m.get("ts-email-failed"))),
+            )
+            .await;
+        }
+    };
+    match site
+        .client()
+        .email_write(incoming, action, field("token"), fields)
+        .await
+    {
+        Ok(Ok(body)) => {
+            // Adding an address the login already holds verified sends nothing.
+            let notice = if action.is_empty() && body["sent"] == serde_json::json!(false) {
+                "ts-email-verified"
+            } else {
+                notice
+            };
+            pages::see_other(
+                &format!(
+                    "/wiki/{}?tsnotice={notice}#email-addresses",
+                    title_url(TITLE)
+                ),
+                &[],
+            )
+        }
+        Ok(Err((code, body))) => {
+            let text = email_refusal(&cx.m, &code, &body);
+            render(
+                site,
+                cx,
+                headers,
+                incoming,
+                Some((MessageKind::Error, text)),
+            )
+            .await
+        }
+        Err(e) => pages::api_failed(cx, headers, &e),
+    }
+}
+
+/// `POST Special:Account`: removes a sign-in method, or with `email_action` acts on an
+/// email address.
 pub async fn post(
     site: &Site,
     headers: &HeaderMap,
@@ -394,6 +703,9 @@ pub async fn post(
         Ok(x) => x,
         Err(r) => return r,
     };
+    if form.contains_key("email_action") {
+        return post_email(site, &mut cx, headers, &incoming, form).await;
+    }
     let field = |k: &str| form.get(k).map_or("", String::as_str);
     match site
         .client()
@@ -537,6 +849,7 @@ mod tests {
             login_needed: None,
             login: None,
             methods: Some(sign_in_model(&m, a, "t&k")),
+            email: None,
         };
         let last = AccountInfo {
             name: None,

@@ -28,14 +28,17 @@ triplespace-db.workspace = true
 triplespace-client.workspace = true
 triplespace-ui.workspace = true
 triplespace-projections.workspace = true
+triplespace-notify.workspace = true
+scatter-mail.workspace = true
 tokio-postgres.workspace = true
 ed25519-dalek.workspace = true
 axum.workspace = true
 clap.workspace = true
 anyhow.workspace = true
-tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "net", "time"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "net", "time", "sync"] }
 
 [dev-dependencies]
+base64.workspace = true
 scatter-challenge.workspace = true
 scatter-actors.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "io-util"] }

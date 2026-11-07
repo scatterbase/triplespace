@@ -4640,6 +4640,630 @@
           }
         }
       }
+    },
+    "/auth/email": {
+      "get": {
+        "operationId": "getEmailAddresses",
+        "summary": "The login's email addresses",
+        "description": "Holder only, in a session: the login's addresses, each with `verified`, `primary`, `added` and, for an unverified one, `code_expires`; whether the instance `sends_mail`; `max_addresses` and `required`; and `primary_removal`, why the primary cannot be removed now (`ts-email-primary`, `ts-email-last`, `ts-email-required`), or null (0100 §7; 07 §2.9). Served on the tenant's host until instance logins exist (0100 A1). `no-store`.",
+        "responses": {
+          "200": {
+            "description": "The addresses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "addresses",
+                    "sends_mail",
+                    "max_addresses",
+                    "required"
+                  ],
+                  "properties": {
+                    "addresses": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "address",
+                          "verified",
+                          "primary",
+                          "added"
+                        ],
+                        "properties": {
+                          "address": {
+                            "type": "string"
+                          },
+                          "verified": {
+                            "type": "boolean"
+                          },
+                          "primary": {
+                            "type": "boolean"
+                          },
+                          "added": {
+                            "type": "integer",
+                            "description": "Seconds since the epoch."
+                          },
+                          "code_expires": {
+                            "type": "integer",
+                            "description": "For an unverified address with a live code: when it expires, seconds since the epoch."
+                          },
+                          "undeliverable": {
+                            "type": "string",
+                            "enum": [
+                              "bounce",
+                              "complaint"
+                            ],
+                            "description": "After a hard bounce or a spam complaint (0100 A2): nothing is sent to the address until it is confirmed by code again."
+                          },
+                          "undeliverable_at": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    },
+                    "sends_mail": {
+                      "type": "boolean"
+                    },
+                    "max_addresses": {
+                      "type": "integer"
+                    },
+                    "required": {
+                      "type": "boolean"
+                    },
+                    "primary_removal": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`notloggedin`: the addresses belong to a login; `permissiondenied` by key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "addEmailAddress",
+        "summary": "Add an address and send it a code",
+        "description": "Adds `address` to the login unverified and sends it a six-digit code, or sends a new code to an address the login holds unverified; an address the login holds verified gets nothing (`sent` false). An address another login holds verified is answered as a fresh one, and the message says it already belongs to a login (0100 §2). The CSRF token goes in the body.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "address"
+                ],
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "description": "The session's CSRF token."
+                  },
+                  "address": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The address, with `sent`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "address",
+                        "verified",
+                        "primary",
+                        "added"
+                      ],
+                      "properties": {
+                        "address": {
+                          "type": "string"
+                        },
+                        "verified": {
+                          "type": "boolean"
+                        },
+                        "primary": {
+                          "type": "boolean"
+                        },
+                        "added": {
+                          "type": "integer",
+                          "description": "Seconds since the epoch."
+                        },
+                        "code_expires": {
+                          "type": "integer",
+                          "description": "For an unverified address with a live code: when it expires, seconds since the epoch."
+                        },
+                        "undeliverable": {
+                          "type": "string",
+                          "enum": [
+                            "bounce",
+                            "complaint"
+                          ],
+                          "description": "After a hard bounce or a spam complaint (0100 A2): nothing is sent to the address until it is confirmed by code again."
+                        },
+                        "undeliverable_at": {
+                          "type": "integer"
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "sent": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`ts-email-invalid`, `ts-email-limit`, `ts-email-disabled`, `badtoken`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`notloggedin`: the addresses belong to a login; `permissiondenied` by key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`ratelimited`, with `wait` in seconds: once a minute per address, five times a day per login and per address.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/email/verify": {
+      "post": {
+        "operationId": "verifyEmailAddress",
+        "summary": "Enter a verification code",
+        "description": "Enters `code` for `address`; spaces and hyphens in it are ignored. A correct code marks the address verified, clears the code and any bounce, and makes it primary if the login has none; the security notices go to every verified address (0100 §2, §4).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "address",
+                  "code"
+                ],
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "description": "The session's CSRF token."
+                  },
+                  "address": {
+                    "type": "string"
+                  },
+                  "code": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The address, now verified.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "address",
+                    "verified",
+                    "primary",
+                    "added"
+                  ],
+                  "properties": {
+                    "address": {
+                      "type": "string"
+                    },
+                    "verified": {
+                      "type": "boolean"
+                    },
+                    "primary": {
+                      "type": "boolean"
+                    },
+                    "added": {
+                      "type": "integer",
+                      "description": "Seconds since the epoch."
+                    },
+                    "code_expires": {
+                      "type": "integer",
+                      "description": "For an unverified address with a live code: when it expires, seconds since the epoch."
+                    },
+                    "undeliverable": {
+                      "type": "string",
+                      "enum": [
+                        "bounce",
+                        "complaint"
+                      ],
+                      "description": "After a hard bounce or a spam complaint (0100 A2): nothing is sent to the address until it is confirmed by code again."
+                    },
+                    "undeliverable_at": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`ts-email-code` with `left`, the entries the code survives still (0 when spent); `badtoken`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`notloggedin`: the addresses belong to a login; `permissiondenied` by key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-email-unknown`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`ts-email-taken`: another login verified the address first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/email/primary": {
+      "post": {
+        "operationId": "makeEmailPrimary",
+        "summary": "Make a verified address the primary",
+        "description": "Moves the primary role to `address`, which must be verified; the security notices go to every verified address (0100 §3, §4).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "address"
+                ],
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "description": "The session's CSRF token."
+                  },
+                  "address": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The address, now primary.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "address",
+                    "verified",
+                    "primary",
+                    "added"
+                  ],
+                  "properties": {
+                    "address": {
+                      "type": "string"
+                    },
+                    "verified": {
+                      "type": "boolean"
+                    },
+                    "primary": {
+                      "type": "boolean"
+                    },
+                    "added": {
+                      "type": "integer",
+                      "description": "Seconds since the epoch."
+                    },
+                    "code_expires": {
+                      "type": "integer",
+                      "description": "For an unverified address with a live code: when it expires, seconds since the epoch."
+                    },
+                    "undeliverable": {
+                      "type": "string",
+                      "enum": [
+                        "bounce",
+                        "complaint"
+                      ],
+                      "description": "After a hard bounce or a spam complaint (0100 A2): nothing is sent to the address until it is confirmed by code again."
+                    },
+                    "undeliverable_at": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`ts-email-unverified`; `badtoken`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`notloggedin`: the addresses belong to a login; `permissiondenied` by key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-email-unknown`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/email/remove": {
+      "post": {
+        "operationId": "removeEmailAddress",
+        "summary": "Remove an address",
+        "description": "Removes `address`. The primary cannot go while another address is verified (`ts-email-primary`); the last verified address goes only with a password and no external sign-in method (`ts-email-last`), and never under `email.required` (`ts-email-required`). The security notices go to every address verified at that moment, the removed one included (0100 §3, §4).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "address"
+                ],
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "description": "The session's CSRF token."
+                  },
+                  "address": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Removed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "address",
+                    "removed"
+                  ],
+                  "properties": {
+                    "address": {
+                      "type": "string"
+                    },
+                    "removed": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`ts-email-primary`, `ts-email-last`, `ts-email-required`; `badtoken`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`notloggedin`: the addresses belong to a login; `permissiondenied` by key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-email-unknown`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mail/postmark": {
+      "post": {
+        "operationId": "postmarkWebhook",
+        "summary": "Postmark's bounce and spam-complaint webhook",
+        "description": "Where Postmark posts its `Bounce` and `SpamComplaint` events (0100 A2; 16 §5.7), authenticated by HTTP Basic: the password is the secret `mail.postmark.webhook_secret_file` holds, under any user name. A hard bounce or a complaint marks the address undeliverable on every login that holds it verified, so nothing more is sent to it until its holder confirms it by code again; a transient or soft bounce changes nothing. `404` while the instance has no webhook secret.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "RecordType",
+                  "Email"
+                ],
+                "properties": {
+                  "RecordType": {
+                    "type": "string",
+                    "enum": [
+                      "Bounce",
+                      "SpamComplaint"
+                    ]
+                  },
+                  "Type": {
+                    "type": "string"
+                  },
+                  "TypeCode": {
+                    "type": "integer"
+                  },
+                  "Email": {
+                    "type": "string"
+                  },
+                  "Inactive": {
+                    "type": "boolean"
+                  },
+                  "MessageID": {
+                    "type": "string"
+                  },
+                  "MessageStream": {
+                    "type": "string"
+                  },
+                  "Description": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Received.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "received": {
+                      "type": "string"
+                    },
+                    "marked": {
+                      "type": "integer",
+                      "description": "Logins whose address was marked undeliverable."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`badbody`: not a Postmark event.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`badauth`: the webhook password is wrong.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-mail-no-webhook`: the instance has no webhook secret.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {

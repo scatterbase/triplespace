@@ -73,7 +73,7 @@ The crate map is [`../registry/crates.toml`](../registry/crates.toml): one entry
 |---|---|---|---|---|
 | Substrate | [`scatter-vocab`](CRATES.md#scatter-vocab) | IRI constants for the scatter: vocabulary and the external vocabularies it reuses | `oxrdf` | pure |
 |  | [`scatter-log`](CRATES.md#scatter-log) | An append-only log split into partitions and generic over the record type | `oxrdf` |  |
-|  | [`scatter-mail`](CRATES.md#scatter-mail) | Outgoing email: the message type, the `MailTransport` trait, and the `log` and `smtp` transports | `lettre` |  |
+|  | [`scatter-mail`](CRATES.md#scatter-mail) | Outgoing email: the message type, the `MailTransport` trait, and the `log`, `smtp` and `postmark` transports | `lettre`, `reqwest` |  |
 |  | [`scatter-merge`](CRATES.md#scatter-merge) | Line-based three-way merge of text with hunk classification, and the unified diff writer | — | pure, wasm |
 |  | [`scatter-challenge`](CRATES.md#scatter-challenge) | The proof-of-work challenge of 0087 §3: the challenge string, its MAC given a key and a binding, the SHA-256 work… | — |  |
 |  | [`scatter-log-postgres`](CRATES.md#scatter-log-postgres) | `LogStore` over the `log` schema of 0013 §2, and that schema's migrations | `scatter-log`, `scatter-integrity`, `tokio-postgres`, `zstd`, `hmac` |  |

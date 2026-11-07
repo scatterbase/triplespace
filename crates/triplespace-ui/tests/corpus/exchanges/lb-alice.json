@@ -22233,6 +22233,26 @@
   },
   {
     "method": "GET",
+    "path_and_query": "/w/rest.php/triplespace/v0/auth/email",
+    "credentialed": true,
+    "status": 200,
+    "headers": {
+      "cache-control": "private, no-cache",
+      "content-length": "92",
+      "content-type": "application/json; charset=utf-8",
+      "date": "Tue, 03 Nov 2026 16:39:41 GMT",
+      "vary": "Accept, Accept-Language"
+    },
+    "json": {
+      "addresses": [],
+      "max_addresses": 3,
+      "primary_removal": null,
+      "required": false,
+      "sends_mail": false
+    }
+  },
+  {
+    "method": "GET",
     "path_and_query": "/w/rest.php/triplespace/v0/account/preferences",
     "credentialed": true,
     "status": 200,
