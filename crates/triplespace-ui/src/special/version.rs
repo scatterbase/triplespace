@@ -198,9 +198,7 @@ fn credits_block(m: &Messages, v: &Version) -> Block {
             )],
         ],
     ));
-    paras.push(inline::text(
-        m.with("ts-version-dual-and-cc0", &[&v.developer.name]),
-    ));
+    paras.push(inline::text(m.get("ts-version-cc0")));
     paras.push(vec![Inline::link(
         "/wiki/Special:Version/Credits",
         m.get("ts-version-credits-link"),
@@ -435,15 +433,10 @@ fn component_blocks(m: &Messages, v: &Version) -> Vec<Block> {
         .workspace
         .iter()
         .map(|c| {
-            let licence = if c.commercial {
-                format!("{} {}", c.license, m.get("ts-version-commercial-mark"))
-            } else {
-                c.license.clone()
-            };
             vec![
                 CellModel::heading(inline::text(&c.name)),
                 CellModel::text(&c.version),
-                CellModel::text(&licence),
+                CellModel::text(&c.license),
             ]
         })
         .collect();
@@ -933,7 +926,7 @@ mod tests {
             "build": {"version": "0.0.1", "commit": "abcdef0123456789", "modified": false, "rustc": "rustc 1.95.0", "target": "x86_64-unknown-linux-gnu"},
             "services": [{"name": "PostgreSQL", "role": "Log store and serving model", "state": "connected", "version": "16.4"}],
             "components_listed": true,
-            "workspace": [{"name": "scatter-log", "version": "0.0.1", "license": "GPL-3.0-or-later", "commercial": true}],
+            "workspace": [{"name": "scatter-log", "version": "0.0.1", "license": "GPL-3.0-or-later"}],
             "crates": [{"id": "url@2.5.4", "name": "url", "version": "2.5.4", "license": "MIT OR Apache-2.0", "repository": "https://github.com/servo/rust-url"}],
             "packages": [{"id": "@wikimedia/codex@2.7.0", "name": "@wikimedia/codex", "version": "2.7.0", "license": "GPL-2.0+"}],
             "vendored": [],
@@ -1044,7 +1037,8 @@ mod tests {
             crate::frame::title_url("@wikimedia/codex@2.7.0")
         );
         assert!(html.contains(&href), "{html}");
-        assert!(html.contains("also available under a commercial licence"));
+        assert!(!html.contains("commercial licence"));
+        assert!(html.contains("dedicated to the public domain under CC0 1.0"));
         assert!(html.contains("not set"));
         assert!(!html.contains("⧼"), "a message is missing: {html}");
         assert!(!html.contains("ADR"));

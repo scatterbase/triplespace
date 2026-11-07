@@ -12172,12 +12172,6 @@
             "normalizedname": "ts-version-col-what"
           },
           {
-            "content": "(also available under a commercial licence)",
-            "default": "(also available under a commercial licence)",
-            "name": "ts-version-commercial-mark",
-            "normalizedname": "ts-version-commercial-mark"
-          },
-          {
             "content": "Third-party components",
             "default": "Third-party components",
             "name": "ts-version-components",
@@ -12268,10 +12262,10 @@
             "normalizedname": "ts-version-default"
           },
           {
-            "content": "The shared scatter-* crates are also available from $1 under a commercial licence. The documentation and registry data this software embeds are dedicated to the public domain under CC0 1.0.",
-            "default": "The shared scatter-* crates are also available from $1 under a commercial licence. The documentation and registry data this software embeds are dedicated to the public domain under CC0 1.0.",
-            "name": "ts-version-dual-and-cc0",
-            "normalizedname": "ts-version-dual-and-cc0"
+            "content": "The documentation and registry data this software embeds are dedicated to the public domain under CC0 1.0.",
+            "default": "The documentation and registry data this software embeds are dedicated to the public domain under CC0 1.0.",
+            "name": "ts-version-cc0",
+            "normalizedname": "ts-version-cc0"
           },
           {
             "content": "api.php",

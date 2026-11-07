@@ -118,9 +118,6 @@ pub struct WorkspaceCrate {
     /// The licence.
     #[serde(default)]
     pub license: String,
-    /// Also available under a commercial licence (the `scatter-*` crates).
-    #[serde(default)]
-    pub commercial: bool,
 }
 
 /// A third-party component: a crate, a frontend package or a vendored tree.

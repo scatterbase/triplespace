@@ -343,7 +343,7 @@ Events are debounced per page over `repo.debounce` (default 30 seconds), because
 
 ### 3.5 RevisionChest
 
-*Sources: [0033](../decisions/0033-backend-stack.md) §10; [0054](../decisions/0054-forking-a-mirrored-page.md) §3.*
+*Sources: [0033](../decisions/0033-backend-stack.md) §10, A26; [0054](../decisions/0054-forking-a-mirrored-page.md) §3.*
 
 **RevisionChest runs as a separate binary** to turn Wikidata's XML history dumps into its `.mwrev.zst` revision files with an index (SQLite, Postgres or Parquet). It has no library target, so Triplespace does not link it. Its licence (GPL-3.0) is compatible with Triplespace's; keeping it a separate process is an architectural choice (fixed point 4), not a licensing one. `scatter-adapter-mediawiki` contains an **independent reader** for the `.mwrev.zst` format and its index, which the Wikidata adapter uses ([0053](../decisions/0053-mirrored-pages.md) §12). Reading a file format does not make the reader a derivative work. RevisionChest reads any MediaWiki wiki's dumps, and a store of a Wikipedia's history is what seeds a fork's revisions (§3.4).
 
@@ -356,7 +356,7 @@ A RevisionChest store is accepted wherever 0015 §4 accepts `dump:{path}` as a b
 - no `maxlag`, and no resume beyond the 30-day recent-changes window;
 - the sync path's index `offset_begin` appears to add a compressed file offset to an uncompressed header length; the reader locates revisions by zstd frame start, not by that offset, until this is confirmed.
 
-Contributing upstream will need a library split in RevisionChest. The licences are compatible in both directions. Code moving from RevisionChest into the Wikidata adapter still needs the Internet Archive's agreement, because `scatter-*` crates are dual-licensed and Scatter must hold copyright in them ([0005](../decisions/0005-crate-organization.md) §6, in [22](22-crates-and-stack.md)). Code Triplespace contributes to RevisionChest needs no agreement.
+Contributing upstream will need a library split in RevisionChest. The licences are compatible in both directions, so code can move either way without an agreement: code moving from RevisionChest into the Wikidata adapter keeps its licence notice, and the `scatter-*` crates no longer need Scatter to hold copyright in every line, since they are not offered under a commercial licence ([0033](../decisions/0033-backend-stack.md) A26; [22](22-crates-and-stack.md) §3.3).
 
 If a RevisionChest store is used as the local source for upstream history ([0010](../decisions/0010-site-ui.md) §8's "fetch upstream history", or `fork.history_source = chest:` for pages), it must receive the same hiding sweep as the log ([0011](../decisions/0011-logs.md) §5), read for a page repository from its `revision-visibility-change` events and deletion log, and a revision the sweep hides is erased from the tenant's `log` with reason class `upstream`.
 

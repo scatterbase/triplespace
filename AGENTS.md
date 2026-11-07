@@ -114,6 +114,9 @@ toolchain instead of the pinned one), rather than calling the work verified. Wit
   A call you have to make while building goes into the owning ADR's Amendment log in the same
   change, folded into the chapter, with Source `Direct: Claude, while building <what>, <date>;
   unconfirmed` (24 §6); `OPEN.md` lists these for James. Never keep such calls in notes.
+- Code is GPL-3.0-or-later unless otherwise stated, `scatter-*` crates included (22 §3.3). There
+  is no commercial licence and no contributor licence agreement; vendored third-party code keeps
+  its own licence, and `docs/` is CC0-1.0.
 - Sandbox and test-environment pitfalls are `docs/testing/gotchas.md`; add what you learn there.
 - Prefer real data and real clients for testing: the Librarybase samples (`docs/samples/librarybase/`), `tools/*_check.py`.
   Watch for Pywikibot's API cache masking whether a fix worked.

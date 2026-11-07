@@ -32,8 +32,6 @@ unattributed = ["0033", "0034"]
 # [[contributor]]
 # name        As credited
 # since       Date of the first merged contribution. Entries are kept in this order.
-# cla         Date the contributor licence agreement was signed. Required: the scatter-* crates are
-#             dual-licensed (0005 §6), so nothing is merged without one.
 # url         Optional
 #
 # Scatter LLC is the developer, not a contributor, and AI agents are credited under [[agent]].

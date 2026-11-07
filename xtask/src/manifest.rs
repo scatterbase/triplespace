@@ -468,7 +468,6 @@ fn crates(
                         "name": p.name,
                         "version": p.version,
                         "license": licence.clone().unwrap_or_default(),
-                        "commercial": p.name.starts_with("scatter-"),
                     })
                 });
                 continue;
