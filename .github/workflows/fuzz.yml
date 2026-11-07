@@ -1,0 +1,48 @@
+# The fuzz targets of chapter 22 §4.9 (0033 §15): nightly and on demand, never on a pull
+# request (CI already takes long enough). Each target runs for a bounded time on a nightly
+# toolchain from a corpus seeded by fuzz/seed.py; a crash fails the job and its artifacts
+# are uploaded. fuzz/README.md says how to reproduce one.
+name: Fuzz
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      seconds:
+        description: Seconds to run each target
+        default: "600"
+        required: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fuzz:
+    name: ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [wikitext, markdown, cbor_record]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: fuzz -> target
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-fuzz
+      - name: Fuzz ${{ matrix.target }}
+        run: fuzz/run.sh ${{ matrix.target }} ${{ github.event.inputs.seconds || '600' }}
+      - name: Upload crash artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-${{ matrix.target }}-${{ github.run_id }}
+          path: fuzz/artifacts/${{ matrix.target }}
+          if-no-files-found: ignore

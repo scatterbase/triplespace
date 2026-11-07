@@ -155,3 +155,8 @@ strike what stops being true. Implementation status is not kept here (24 §15: `
 - Applied migrations are checksummed (`ops.migration`): never edit one, even a comment; add a new
   migration.
 - Pywikibot's API cache can mask whether a fix worked; clear it between runs.
+- The fuzz targets (`fuzz/`, 22 §4.9) need a nightly toolchain and cargo-fuzz; `fuzz/run.sh`
+  seeds and runs one. On a Mac whose Command Line Tools ship an incomplete
+  `usr/include/c++/v1`, libfuzzer-sys's C++ build fails with `'cassert' file not found`
+  although the SDK has it: point cc-rs at the SDK's copy,
+  `CXXFLAGS="-I$(xcrun --show-sdk-path)/usr/include/c++/v1"`. Linux CI needs nothing.

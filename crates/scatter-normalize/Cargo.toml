@@ -24,5 +24,8 @@ toml.workspace = true
 [target.'cfg(target_family = "wasm")'.dependencies]
 getrandom = { workspace = true, features = ["wasm_js"] }
 
+[dev-dependencies]
+proptest.workspace = true
+
 [lints]
 workspace = true

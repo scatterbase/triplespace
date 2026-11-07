@@ -125,7 +125,10 @@ pub fn doi(input: &str) -> Result<String, DoiError> {
     ];
     let mut s = input.trim();
     for p in PREFIXES {
-        if s.len() >= p.len() && s[..p.len()].eq_ignore_ascii_case(p) {
+        // `get`, not a slice: the prefix's length need not be a char boundary of the input.
+        if let Some(head) = s.get(..p.len())
+            && head.eq_ignore_ascii_case(p)
+        {
             s = &s[p.len()..];
             break;
         }

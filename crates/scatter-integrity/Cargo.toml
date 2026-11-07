@@ -17,6 +17,7 @@ base64.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]
+proptest.workspace = true
 pollster.workspace = true
 
 [lints]
