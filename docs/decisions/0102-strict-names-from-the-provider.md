@@ -1,8 +1,8 @@
 # 0102. Strict names: the provider's username is the account's name
 
-- **Status:** Proposed
+- **Status:** Accepted with proposed amendment (A2)
 - **Date:** 2026-11-06
-- **Updated:** 2026-11-07 (A1)
+- **Updated:** 2026-11-07 (A2)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0024](0024-subsidiary-accounts.md), [0087](0087-account-registration-and-challenges.md), [0088](0088-external-identity-providers.md), [0089](0089-the-auth-host-and-instance-logins.md)
 - **Uses:** [0085](0085-settings-and-preferences.md), [0101](0101-requiring-an-external-sign-in-method.md)
@@ -34,7 +34,7 @@ James's direction, from the design discussion of 2026-11-06, after 0101 was buil
 
 ### 3. Upstream is canonical (amends 0010 §10; extends 0007 §4)
 
-*Changed by A1.*
+*Changed by A1, A2.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.10; [19](../architecture/19-site-ui.md) §2.3.*
 
@@ -44,7 +44,7 @@ James's direction, from the design discussion of 2026-11-06, after 0101 was buil
 
 ### 5. Enacting strict names (uses 0101 §2)
 
-*Changed by A1.*
+*Changed by A1, A2.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.10.*
 
@@ -70,7 +70,7 @@ James's direction, from the design discussion of 2026-11-06, after 0101 was buil
 
 ## Open questions
 
-- **Q1. A rename by hand.** Whether `renameuser` is refused under strict names, or allowed and overwritten at the next login; refusing is simpler and is what "nobody chooses a name" implies.
+- **Q1.** ~~**A rename by hand.** Whether `renameuser` is refused under strict names, or allowed and overwritten at the next login; refusing is simpler and is what "nobody chooses a name" implies.~~ *Settled by A2: refused, with `ts-strict-name`; unconfirmed.*
 - **Q2. Farm accounts.** What a farm account ([08](../architecture/08-tenants-and-instances.md) §3.5) is named under strict names: the same derived name is the natural answer, and the farm name registry then holds one name per login.
 - **Q3. A provider's username grammar.** Wikimedia's follows MediaWiki's, which the local grammar matches; a later provider ([0088](0088-external-identity-providers.md) Q1) may allow what the local grammar forbids, and would need a mapping or a refusal.
 - **Q4. The stale window.** Whether an instance may ask the provider's users API for the current name on a schedule, so that renames land before the next login, at the cost of a request per account.
@@ -94,3 +94,10 @@ James's direction, from the design discussion of 2026-11-06, after 0101 was buil
 Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.10, as it stood):
 
 > Every offered issuer's prefix is **reserved**: no hand-made name may begin with it, whether a subsidiary's (§4.2), one the CLI creates, or a chosen name on an instance that later turns strict names on (`ts-name-reserved`, as for a tombstoned name).
+
+### A2. A rename by hand; the tombstone that yields
+
+- **Date:** 2026-11-07
+- **Source:** Direct: Claude, while building name tombstones and `renameuser`, 2026-11-07; unconfirmed
+- **Change:** extends §3, §5
+- **Summary:** Three calls made while building ([07](../architecture/07-actors-and-accounts.md) §2.10; [19](../architecture/19-site-ui.md) §2.3). (1) Q1: `renameuser` is refused under strict names with `ts-strict-name`, as "nobody chooses a name" implies, rather than allowed and overwritten at the next login. (2) With names chosen, `renameuser` may give an account the one prefixed name that is its own derived name, the name its login's identity username derives, which is how a bureaucrat renames the differing accounts that §5 lists before enacting the mode; every other prefixed name stays reserved (§2). (3) The tombstone a released name leaves remembers the issuer whose username it was derived from ([0010](0010-site-ui.md) A53), and the yield of §3 applies to that tombstone alone: a derived name whose tombstone names no issuer, or another, is refused like any other, and when the provider's rename lands on such a name the account keeps its name and `logins check` lists it, as it does for a name an account holds (A1).

@@ -70,7 +70,8 @@ pub use reports::{ReportPage, ReportQuery, ReportRow, ReportState};
 pub use revisions::{Change, Comparison, EntityDiff, Revision};
 pub use rights::{
     BlockForm, BlockRow, DeletedRevision, Deletion, EmptyGroup, GroupInfo, ProtectForm,
-    ProtectedRow, Protection, Restriction, RightsForm, SetInfo, TenantVisibility, UserGroups,
+    ProtectedRow, Protection, RenameForm, Restriction, RightsForm, SetInfo, TenantVisibility,
+    UserGroups,
 };
 pub use search::{Hit, Hits, PageHit, PageHits};
 pub use theme::ThemeInfo;

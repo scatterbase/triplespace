@@ -41,6 +41,8 @@ pub enum Feature {
     Protect,
     /// `Special:UserRights` (`action=userrights`; 09 §3.3).
     UserRights,
+    /// `Special:RenameUser` (`action=renameuser`; 19 §2.3).
+    RenameUser,
     /// `Special:Block`, `Special:Unblock` and `Special:BlockList` (`action=block`; 09 §3.3).
     Block,
     /// The Delete form, the deleted page's view and `Special:Undelete` (`action=delete`;
@@ -76,6 +78,7 @@ impl Feature {
             Self::Settings => "settings",
             Self::Protect => "protect",
             Self::UserRights => "userrights",
+            Self::RenameUser => "renameuser",
             Self::Block => "block",
             Self::Delete => "delete",
             Self::Move => "move",
@@ -101,6 +104,7 @@ pub const BUILT: &[Feature] = &[
     Feature::Settings,
     Feature::Protect,
     Feature::UserRights,
+    Feature::RenameUser,
     Feature::Block,
     Feature::Delete,
     Feature::Move,

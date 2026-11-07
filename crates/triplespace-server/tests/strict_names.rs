@@ -552,6 +552,7 @@ async fn strict_names() {
             store,
             app.pipeline(),
             &mut cx,
+            &secret,
             TENANT,
             key,
             to,

@@ -455,6 +455,7 @@ async fn follow_provider_name(
         store,
         scope.app.pipeline(),
         &mut cx,
+        scope.app.secret(),
         login,
         &derived,
         &operator,
@@ -769,9 +770,21 @@ pub async fn create_bound(
     {
         let mut cx = scatter_projection::Backend::begin(store).await?;
         let checked = if derived.is_some() {
-            triplespace_api_ingest::accounts::check_derived(&mut cx, tenant, name).await
+            triplespace_api_ingest::accounts::check_derived(
+                &mut cx,
+                scope.app.secret(),
+                tenant,
+                name,
+            )
+            .await
         } else {
-            triplespace_api_ingest::accounts::check_available(&mut cx, tenant, name).await
+            triplespace_api_ingest::accounts::check_available(
+                &mut cx,
+                scope.app.secret(),
+                tenant,
+                name,
+            )
+            .await
         };
         scatter_projection::Backend::rollback(store, cx).await?;
         match checked {
@@ -779,7 +792,7 @@ pub async fn create_bound(
             Err(CreateError::InvalidName(_) | CreateError::Taken) => {
                 return Ok(Conclusion::NameTaken);
             }
-            Err(CreateError::Reserved(_)) => {
+            Err(CreateError::Reserved(_) | CreateError::Tombstoned) => {
                 return Ok(Conclusion::Refused(Refusal::of("ts-name-reserved")));
             }
             Err(e) => return Err(ApiError::internal(e)),
@@ -812,6 +825,7 @@ pub async fn create_bound(
         store,
         scope.app.pipeline(),
         &mut cx,
+        scope.app.secret(),
         tenant,
         name,
         Credential::External {
@@ -834,7 +848,7 @@ pub async fn create_bound(
             return match e {
                 CreateError::InvalidName(_) | CreateError::Taken => Ok(Conclusion::NameTaken),
                 CreateError::Bound => Ok(Conclusion::Refused(Refusal::of("ts-oauth-bound"))),
-                CreateError::Reserved(_) => {
+                CreateError::Reserved(_) | CreateError::Tombstoned => {
                     Ok(Conclusion::Refused(Refusal::of("ts-name-reserved")))
                 }
                 CreateError::StrictName(_) => {

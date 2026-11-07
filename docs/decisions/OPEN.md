@@ -12,6 +12,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0010 A47](0010-site-ui.md#a47-the-acl-site-ui-the-calls-made-building-it) | 2026-10-30 | The ACL site UI: the calls made building it |
 | [0010 A49](0010-site-ui.md#a49-the-compare-form-and-the-diff-views-the-calls-made-building-them) | 2026-11-04 | The compare form and the diff views: the calls made building them |
 | [0010 A50](0010-site-ui.md#a50-a-document-pages-tabs-its-about-panel-and-its-format-selector-the-calls-made-building-them) | 2026-11-05 | A document page's tabs, its About panel and its Format selector: the calls made building them |
+| [0010 A53](0010-site-ui.md#a53-name-tombstones-and-renameuser-the-calls-made-building-them) | 2026-11-07 | Name tombstones and `renameuser`: the calls made building them |
 | [0011 A38](0011-logs.md#a38-a-followers-batch-waits-for-the-load-lock-a-dump-load-waits-a-minute) | 2026-11-06 | A follower's batch waits for the load lock; a dump load waits a minute |
 | [0013 A70](0013-postgres-storage.md#a70-how-a-load-enters-bootstrap-mode) | 2026-11-05 | How a load enters bootstrap mode |
 | [0013 A71](0013-postgres-storage.md#a71-bootstrap-projections-run-per-block-during-the-load) | 2026-11-05 | Bootstrap projections run per block, during the load |
@@ -49,6 +50,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0100 A2](0100-email-addresses-and-verification-codes.md#a2-the-postmark-transport-built-with-bounce-and-complaint-handling) | 2026-11-06 | The Postmark transport, built with bounce and complaint handling |
 | [0100 A3](0100-email-addresses-and-verification-codes.md#a3-addresses-keyed-by-the-login) | 2026-11-06 | Addresses keyed by the login |
 | [0102 A1](0102-strict-names-from-the-provider.md#a1-the-username-kept-on-the-identity-every-registry-prefix-reserved-a-held-derived-name) | 2026-11-07 | The username kept on the identity; every registry prefix reserved; a held derived name |
+| [0102 A2](0102-strict-names-from-the-provider.md#a2-a-rename-by-hand-the-tombstone-that-yields) | 2026-11-07 | A rename by hand; the tombstone that yields |
 
 ## Open questions
 
@@ -436,7 +438,6 @@ Every unstruck question in every ADR (24 §8), with its first sentence. Settle o
 | [0101 Q1](0101-requiring-an-external-sign-in-method.md) | Passwords for the owners only | Whether an instance under the requirement should be able to keep passwords as a break-glass method for members of `owner` while offering them to no one else, which `login.password` cannot express. |
 | [0101 Q2](0101-requiring-an-external-sign-in-method.md) | Withdrawing a provider | Whether `oauth-client remove` and a save of `login.issuers` that stops offering an issuer should refuse, or warn, while a login holds that issuer's identity and no other under the requirement. |
 | [0101 Q3](0101-requiring-an-external-sign-in-method.md) | A required issuer | Whether an instance may name the issuer, or issuers, every login must hold, rather than any one the auth host offers. |
-| [0102 Q1](0102-strict-names-from-the-provider.md) | A rename by hand | Whether `renameuser` is refused under strict names, or allowed and overwritten at the next login; refusing is simpler and is what "nobody chooses a name" implies. |
 | [0102 Q2](0102-strict-names-from-the-provider.md) | Farm accounts | What a farm account (08 §3.5) is named under strict names: the same derived name is the natural answer, and the farm name registry then holds one name per login. |
 | [0102 Q3](0102-strict-names-from-the-provider.md) | A provider's username grammar | Wikimedia's follows MediaWiki's, which the local grammar matches; a later provider (0088 Q1) may allow what the local grammar forbids, and would need a mapping or a refusal. |
 | [0102 Q4](0102-strict-names-from-the-provider.md) | The stale window | Whether an instance may ask the provider's users API for the current name on a schedule, so that renames land before the next login, at the cost of a request per account. |

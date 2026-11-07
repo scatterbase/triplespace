@@ -3,6 +3,7 @@
 
 .ts-protect-page,
 .ts-userrights,
+.ts-renameuser-page,
 .ts-block-page,
 .ts-protectedpages {
 	max-width: 42rem;
@@ -11,6 +12,7 @@
 .ts-protect__row,
 .ts-protect .cdx-field,
 .ts-userrights .cdx-field,
+.ts-renameuser .cdx-field,
 .ts-block .cdx-field {
 	margin-bottom: var( --spacing-100, 1rem );
 }
@@ -33,6 +35,7 @@
 
 .ts-protect__actions,
 .ts-userrights__actions,
+.ts-renameuser__actions,
 .ts-block__actions {
 	display: flex;
 	align-items: center;

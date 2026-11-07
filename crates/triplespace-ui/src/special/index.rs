@@ -189,6 +189,12 @@ pub const PAGES: &[(&str, &str, &str, Option<Feature>)] = &[
         Some(Feature::UserRights),
     ),
     (
+        "Special:RenameUser",
+        "ts-renameuser-title",
+        "ts-specialpages-renameuser",
+        Some(Feature::RenameUser),
+    ),
+    (
         "Special:ProtectedPages",
         "ts-protectedpages-title",
         "ts-specialpages-protectedpages",

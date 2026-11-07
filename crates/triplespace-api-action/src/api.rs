@@ -208,6 +208,7 @@ async fn dispatch(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         "protect" => modules::moderation::protect(ctx).await,
         "revisiondelete" => modules::moderation::revisiondelete(ctx).await,
         "userrights" => modules::userrights::run(ctx).await,
+        "renameuser" => modules::renameuser::run(ctx).await,
         "block" => modules::block::block(ctx).await,
         "unblock" => modules::block::unblock(ctx).await,
         "echomarkread" => modules::notifications::markread(ctx).await,
@@ -217,7 +218,7 @@ async fn dispatch(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         "paraminfo" => modules::query::paraminfo(ctx),
         "help" => Ok(ApiResponse::ok(serde_json::json!({"help": {
             "mime": "text/plain",
-            "help": "Triplespace Action API. Modules: query (meta=siteinfo|tokens|userinfo|authmanagerinfo|notifications; prop=revisions|info|templates; list=recentchanges|usercontribs|logevents|allpages), parse, compare, edit, delete, undelete, protect, revisiondelete, userrights, block, unblock, echomarkread, echomarkseen, login, clientlogin, createaccount, linkaccount, unlinkaccount, logout, options, wbgetentities, wbsearchentities, wbeditentity, wbcreateclaim, wbsetclaim, wbremoveclaims, wbsetlabel, wbsetdescription, wbsetaliases, wbsetqualifier, wbremovequalifiers, wbsetreference, wbremovereferences."
+            "help": "Triplespace Action API. Modules: query (meta=siteinfo|tokens|userinfo|authmanagerinfo|notifications; prop=revisions|info|templates; list=recentchanges|usercontribs|logevents|allpages), parse, compare, edit, delete, undelete, protect, revisiondelete, userrights, renameuser, block, unblock, echomarkread, echomarkseen, login, clientlogin, createaccount, linkaccount, unlinkaccount, logout, options, wbgetentities, wbsearchentities, wbeditentity, wbcreateclaim, wbsetclaim, wbremoveclaims, wbsetlabel, wbsetdescription, wbsetaliases, wbsetqualifier, wbremovequalifiers, wbsetreference, wbremovereferences."
         }}))),
         other => Err(ApiError::new(
             "badvalue",

@@ -25,7 +25,7 @@ use scatter_log::body::{ATTESTATION, COMMENT, CONTENT};
 use scatter_log::cbor::Value;
 use scatter_log::store::Draft;
 use scatter_projection::{Budget, Pipeline};
-use triplespace_accounts::{bindings, logins, password, requests};
+use triplespace_accounts::{Secret, bindings, logins, password, requests, tombstones};
 use triplespace_projections::PgCx;
 use triplespace_projections::actors::payload;
 
@@ -75,6 +75,10 @@ pub enum CreateError {
     /// the issuer's label.
     #[error("names beginning with `{0}-` are reserved for accounts signed in through {0}")]
     Reserved(String),
+    /// A local account held the name once and released it, by rename or vanish, and
+    /// no name is ever reused: `ts-name-reserved` (0010 §10; 19 §2.3).
+    #[error("the name was held by an account once, and a name is never reused")]
+    Tombstoned,
     /// Under strict names the account's name is derived, not chosen:
     /// `ts-strict-name` (0102 §1). Holds the derived name.
     #[error(
@@ -94,28 +98,36 @@ fn store_error(e: impl std::fmt::Display) -> CreateError {
     CreateError::Store(e.to_string())
 }
 
-/// Checks a hand-made name against the name rules, the reserved prefixes and the names
-/// taken, without writing.
+/// Checks a hand-made name against the name rules, the reserved prefixes, the names
+/// taken and the name tombstones, without writing.
 ///
 /// # Errors
 ///
-/// [`CreateError::InvalidName`], [`CreateError::Reserved`] or [`CreateError::Taken`].
+/// [`CreateError::InvalidName`], [`CreateError::Reserved`], [`CreateError::Taken`] or
+/// [`CreateError::Tombstoned`].
 pub async fn check_available(
     cx: &mut PgCx,
+    secret: &Secret,
     tenant: &str,
     name: &str,
 ) -> Result<String, CreateError> {
-    available(cx, tenant, name, false).await
+    available(cx, secret, tenant, name, false).await
 }
 
 /// [`check_available`] for a name derived from a provider username under strict names
-/// (0102 §1), which carries its issuer's reserved prefix.
+/// (0102 §1), which carries its issuer's reserved prefix, and to which a tombstone of
+/// that issuer's own naming yields (0102 §3).
 ///
 /// # Errors
 ///
-/// [`CreateError::InvalidName`] or [`CreateError::Taken`].
-pub async fn check_derived(cx: &mut PgCx, tenant: &str, name: &str) -> Result<String, CreateError> {
-    available(cx, tenant, name, true).await
+/// [`CreateError::InvalidName`], [`CreateError::Taken`] or [`CreateError::Tombstoned`].
+pub async fn check_derived(
+    cx: &mut PgCx,
+    secret: &Secret,
+    tenant: &str,
+    name: &str,
+) -> Result<String, CreateError> {
+    available(cx, secret, tenant, name, true).await
 }
 
 /// The registry every name is checked against.
@@ -127,6 +139,7 @@ fn registry() -> &'static IssuerRegistry {
 /// username and so may carry its issuer's prefix (0102 §1, §2).
 async fn available(
     cx: &mut PgCx,
+    secret: &Secret,
     tenant: &str,
     name: &str,
     derived: bool,
@@ -147,6 +160,20 @@ async fn available(
         .map_err(store_error)?
     {
         return Err(CreateError::Taken);
+    }
+    // A name is never reused (0010 §10): a released name holds as a tombstone, except
+    // that under strict names it yields to the issuer that named it attesting the name
+    // again (0102 §3).
+    if let Some(t) = tombstones::held(cx.conn(), secret, tenant, &name)
+        .await
+        .map_err(store_error)?
+    {
+        let yields = derived
+            && t.issuer.is_some()
+            && t.issuer.as_deref() == registry().reserving(&name).map(|i| i.code.as_str());
+        if !yields {
+            return Err(CreateError::Tombstoned);
+        }
     }
     Ok(name)
 }
@@ -191,6 +218,7 @@ pub async fn create(
     store: &PgIngest,
     pipeline: &Pipeline<PgIngest>,
     cx: &mut PgCx,
+    secret: &Secret,
     tenant: &str,
     name: &str,
     credential: Credential<'_>,
@@ -213,10 +241,10 @@ pub async fn create(
             if !chosen.is_empty() && chosen != *d {
                 return Err(CreateError::StrictName(d.clone()));
             }
-            available(cx, tenant, d, true).await?
+            available(cx, secret, tenant, d, true).await?
         }
         // A request filed under strict names carries the derived name already.
-        None => available(cx, tenant, name, strict && performer.is_some()).await?,
+        None => available(cx, secret, tenant, name, strict && performer.is_some()).await?,
     };
     if let Credential::Password(p) = credential
         && p.chars().count() < 8
@@ -523,7 +551,12 @@ pub async fn bind(
 
 /// Renames a registered account: a new actor record with the new name, keyed by the
 /// actor key in the tenant's `actors` partition and projected, in the caller's unit of
-/// work. The name must be free on the tenant.
+/// work, which `list=logevents` shows as `renameuser/renameuser` (16 §2.3). The name
+/// must be free on the tenant: the caller checks it with [`check_available`] or
+/// [`check_derived`]. The old name is left as a tombstone (0010 §10), remembering the
+/// OAuth issuer that named it where the name carries the issuer's prefix and the
+/// account's login holds an identity of that issuer (0102 §3); a change of case only
+/// leaves none, since the account keeps the name.
 ///
 /// # Errors
 ///
@@ -533,6 +566,7 @@ pub async fn rename(
     store: &PgIngest,
     pipeline: &Pipeline<PgIngest>,
     cx: &mut PgCx,
+    secret: &Secret,
     tenant: &str,
     actor_key: &str,
     new_name: &str,
@@ -543,7 +577,7 @@ pub async fn rename(
     let row = cx
         .conn()
         .query_opt(
-            "SELECT kind, status FROM view.actor WHERE tenant = $1 AND actor_key = $2",
+            "SELECT kind, status, name FROM view.actor WHERE tenant = $1 AND actor_key = $2",
             &[&tenant, &actor_key],
         )
         .await
@@ -556,6 +590,7 @@ pub async fn rename(
     }
     let status: ActorStatus =
         serde_json::from_value(serde_json::Value::String(row.get(1))).map_err(store_error)?;
+    let old_name: Option<String> = row.get(2);
     let key = ActorKey::parse(actor_key).map_err(|e| CreateError::Store(e.to_string()))?;
     let mut record = ActorRecord::registered(new_name);
     record.status = status;
@@ -584,7 +619,45 @@ pub async fn rename(
     append_projected(store, pipeline, cx, actors, d, Budget::NONE)
         .await
         .map_err(store_error)?;
+    if let Some(old) = old_name
+        && requests::name_key(&old) != requests::name_key(new_name)
+    {
+        release(cx, secret, tenant, actor_key, &old).await?;
+    }
     Ok(())
+}
+
+/// Leaves a tombstone for a name an account releases (0010 §10): its keyed hash, and the
+/// OAuth issuer that named it where the name carries the issuer's reserved prefix and
+/// the account's login holds an identity of that issuer, so that under strict names the
+/// tombstone yields to that issuer attesting the name for another subject (0102 §3).
+///
+/// # Errors
+///
+/// If the store fails.
+pub async fn release(
+    cx: &mut PgCx,
+    secret: &Secret,
+    tenant: &str,
+    actor_key: &str,
+    name: &str,
+) -> Result<(), CreateError> {
+    let mut origin = None;
+    if let Some(i) = registry().reserving(name)
+        && let Some(login) = logins::login_of(cx.conn(), tenant, actor_key)
+            .await
+            .map_err(store_error)?
+        && bindings::of_login(cx.conn(), login)
+            .await
+            .map_err(store_error)?
+            .iter()
+            .any(|b| b.issuer == i.code)
+    {
+        origin = Some(i.code.as_str());
+    }
+    tombstones::reserve(cx.conn(), secret, tenant, name, origin)
+        .await
+        .map_err(store_error)
 }
 
 /// One account renamed after its provider username (0102 §3).
@@ -601,18 +674,20 @@ pub struct Renamed {
 /// Under strict names, renames every account of a login whose name is not the one its
 /// identity's username now derives, as an instance act whose comment says the provider
 /// renamed it (0102 §3), in the caller's unit of work; `attested_by` is the operator
-/// actor. An account whose derived name another account on its tenant holds is left as
-/// it is (0102 A1). Returns what was renamed. This is the renaming of 0102 §3; the
-/// tombstone that yields to the issuer waits on name tombstones (0010 §10), so the
-/// section is not claimed.
+/// actor. An account whose derived name another account on its tenant holds, or a
+/// tombstone of another origin reserves, is left as it is (0102 A1); a tombstone the
+/// same issuer left yields. Returns what was renamed. With [`release`] and the yield in
+/// [`check_derived`], this implements 0102 §3 (A2).
 ///
 /// # Errors
 ///
 /// A [`CreateError`]; the caller rolls back.
+#[allow(clippy::too_many_arguments)]
 pub async fn rename_to_derived(
     store: &PgIngest,
     pipeline: &Pipeline<PgIngest>,
     cx: &mut PgCx,
+    secret: &Secret,
     login: i64,
     derived: &str,
     attested_by: &str,
@@ -633,17 +708,19 @@ pub async fn rename_to_derived(
             .map_err(store_error)?
             .and_then(|r| r.get(0));
         let Some(from) = name else { continue };
-        if from == derived
-            || requests::name_taken(cx.conn(), &tenant, derived)
-                .await
-                .map_err(store_error)?
-        {
+        if from == derived {
             continue;
+        }
+        match available(cx, secret, &tenant, derived, true).await {
+            Ok(_) => {}
+            Err(CreateError::Taken | CreateError::Tombstoned) => continue,
+            Err(e) => return Err(e),
         }
         rename(
             store,
             pipeline,
             cx,
+            secret,
             &tenant,
             &actor_key,
             derived,

@@ -61,6 +61,9 @@ pub const PRIVATE_TABLES: &[(&str, Portability)] = &[
     ("email", Portability::NeverLeaves),
     // 0089 §2: the index of the `logins` partition; a login is bound to this instance.
     ("login", Portability::NeverLeaves),
+    // 0010 §10: a released name's keyed hash; it survives erasure by design and names
+    // nobody, so it leaves with no account.
+    ("name_tombstone", Portability::NeverLeaves),
 ];
 
 /// Why the live schema disagrees with [`PRIVATE_TABLES`].

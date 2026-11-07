@@ -175,6 +175,7 @@ pub async fn approve(
             store,
             app.pipeline(),
             &mut cx,
+            app.secret(),
             &tenant.slug,
             &request.name,
             match &credential {
@@ -195,6 +196,11 @@ pub async fn approve(
                 StatusCode::CONFLICT,
                 "userexists",
                 "an account holds the name already",
+            ),
+            CreateError::Tombstoned => error(
+                StatusCode::CONFLICT,
+                "ts-name-reserved",
+                "an account held the name once, and a name is never reused",
             ),
             CreateError::Bound => error(
                 StatusCode::CONFLICT,

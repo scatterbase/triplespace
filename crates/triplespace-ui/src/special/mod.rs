@@ -17,6 +17,7 @@
 //! - [`settings`]: `Special:WikiSettings`, `Special:InstanceSettings` and
 //!   `Special:Tenancy` (0085 §4), with [`controls`], the form controls drawn from a type.
 //! - [`userrights`]: `Special:UserRights`, an account's groups (09 §3.3).
+//! - [`renameuser`]: `Special:RenameUser`, renaming an account by hand (19 §2.3).
 //! - [`block`]: `Special:Block`, `Special:Unblock` and `Special:BlockList` (09 §3.3).
 //! - [`undelete`]: `Special:Undelete`, the deletions and the way back (09 §6.2).
 //! - [`movepage`]: `Special:MovePage`, the Move form (10 §2.5).
@@ -63,6 +64,7 @@ pub mod protected;
 pub mod providers;
 pub mod redirects;
 pub mod register;
+pub mod renameuser;
 pub mod reports;
 pub mod search;
 pub mod set_terms;
@@ -149,6 +151,9 @@ pub async fn serve(
         }
         "Tenancy" => Some(settings::tenancy(site, headers, peer, query).await),
         "UserRights" => Some(userrights::serve(site, headers, peer, title, params).await),
+        "RenameUser" | "Renameuser" => {
+            Some(renameuser::serve(site, headers, peer, title, params).await)
+        }
         "ProtectedPages" => Some(protected::serve(site, headers, peer, params).await),
         "Block" => {
             Some(block::serve(site, headers, peer, block::Which::Block, title, params).await)
@@ -210,6 +215,9 @@ pub async fn post(
             .await,
         ),
         "UserRights" => Some(userrights::post(site, headers, peer, title, query, params).await),
+        "RenameUser" | "Renameuser" => {
+            Some(renameuser::post(site, headers, peer, query, params).await)
+        }
         "ProtectedPages" => Some(protected::post(site, headers, peer, query, params).await),
         "Block" => Some(block::post(site, headers, peer, block::Which::Block, query, params).await),
         "Unblock" => {
