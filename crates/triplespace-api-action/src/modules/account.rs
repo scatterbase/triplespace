@@ -48,6 +48,9 @@ pub struct Policy {
     /// `login.external_required`, the instance's: a login is created only from an
     /// external identity (0101 §1).
     pub external_required: bool,
+    /// `login.names`, the instance's: `provider` under strict names, where an account's
+    /// name is derived from its login's identity (0102 §1), else `chosen`.
+    pub names: String,
 }
 
 impl Policy {
@@ -63,6 +66,7 @@ impl Policy {
             statement: "optional".into(),
             expiry_secs: 30 * 86_400,
             external_required: false,
+            names: "chosen".into(),
         }
     }
 
@@ -134,6 +138,10 @@ impl Policy {
                 .value("login.external_required")
                 .and_then(|v| v.as_bool())
                 .unwrap_or(d.external_required),
+            names: settings
+                .value("login.names")
+                .and_then(|v| v.as_str().map(str::to_owned))
+                .unwrap_or(d.names),
         })
     }
 
@@ -144,7 +152,7 @@ impl Policy {
     }
 
     /// What `siprop=triplespace` reports (0087 §9). Reporting `external_required`
-    /// implements 0101 §4.
+    /// implements 0101 §4; reporting `names` implements 0102 §6.
     #[must_use]
     pub fn report(&self) -> (Value, Value) {
         (
@@ -153,7 +161,7 @@ impl Policy {
                 "algorithm": ALGORITHM,
                 "bits": self.bits,
             }),
-            json!({"approval": self.approval, "statement": self.statement, "external_required": self.external_required}),
+            json!({"approval": self.approval, "statement": self.statement, "external_required": self.external_required, "names": self.names}),
         )
     }
 }
@@ -327,7 +335,7 @@ pub async fn createaccount(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         .unwrap_or_default()
         .trim()
         .to_string();
-    if ctx.params.flag("createpreservestate") && !chosen.is_empty() {
+    if ctx.params.flag("createpreservestate") {
         let statement = ctx.params.get("tsstatement").map(str::to_owned);
         if let Some(r) =
             super::issuers::create_preserved(ctx, &chosen, statement.as_deref()).await?
@@ -336,26 +344,39 @@ pub async fn createaccount(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         }
     }
     if let Some(issuer) = super::issuers::pressed(ctx) {
-        if chosen.is_empty() {
+        // Under strict names the name is derived when the identity comes back
+        // (0102 §1); a chosen one is not carried.
+        let strict = triplespace_accounts::logins::strict_names(ctx.db()).await?;
+        if chosen.is_empty() && !strict {
             return Ok(fail("noname", "You have not specified a valid username."));
         }
-        let tenant = ctx.tenant.slug.clone();
-        let mut cx = scatter_projection::Backend::begin(ctx.app.store()).await?;
-        let checked =
-            triplespace_api_ingest::accounts::check_available(&mut cx, &tenant, &chosen).await;
-        scatter_projection::Backend::rollback(ctx.app.store(), cx).await?;
-        let name = match checked {
-            Ok(n) => n,
-            Err(CreateError::InvalidName(_)) => {
-                return Ok(fail("noname", "You have not specified a valid username."));
+        let name = if strict {
+            None
+        } else {
+            let tenant = ctx.tenant.slug.clone();
+            let mut cx = scatter_projection::Backend::begin(ctx.app.store()).await?;
+            let checked =
+                triplespace_api_ingest::accounts::check_available(&mut cx, &tenant, &chosen).await;
+            scatter_projection::Backend::rollback(ctx.app.store(), cx).await?;
+            match checked {
+                Ok(n) => Some(n),
+                Err(CreateError::InvalidName(_)) => {
+                    return Ok(fail("noname", "You have not specified a valid username."));
+                }
+                Err(CreateError::Taken) => {
+                    return Ok(fail(
+                        "userexists",
+                        "Username entered already in use. Please choose a different name.",
+                    ));
+                }
+                Err(CreateError::Reserved(_)) => {
+                    return Ok(fail(
+                        "ts-name-reserved",
+                        crate::external::message("ts-name-reserved"),
+                    ));
+                }
+                Err(e) => return Err(ApiError::internal(e)),
             }
-            Err(CreateError::Taken) => {
-                return Ok(fail(
-                    "userexists",
-                    "Username entered already in use. Please choose a different name.",
-                ));
-            }
-            Err(e) => return Err(ApiError::internal(e)),
         };
         return super::issuers::redirect(
             ctx,
@@ -363,7 +384,7 @@ pub async fn createaccount(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
             &issuer,
             Purpose::Create,
             "createreturnurl",
-            Some(&name),
+            name.as_deref(),
         )
         .await;
     }
@@ -435,6 +456,12 @@ pub async fn createaccount(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
                 return Ok(fail(
                     "userexists",
                     "Username entered already in use. Please choose a different name.",
+                ));
+            }
+            Err(CreateError::Reserved(_)) => {
+                return Ok(fail(
+                    "ts-name-reserved",
+                    crate::external::message("ts-name-reserved"),
                 ));
             }
             Err(e) => return Err(ApiError::internal(e)),
@@ -540,6 +567,18 @@ pub async fn createaccount(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
                 CreateError::ExternalRequired => Ok(fail(
                     "ts-external-required",
                     crate::external::message("ts-external-required"),
+                )),
+                CreateError::Reserved(_) => Ok(fail(
+                    "ts-name-reserved",
+                    crate::external::message("ts-name-reserved"),
+                )),
+                CreateError::StrictName(_) => Ok(fail(
+                    "ts-strict-name",
+                    crate::external::message("ts-strict-name"),
+                )),
+                CreateError::StrictIdentity => Ok(fail(
+                    "ts-strict-identity",
+                    crate::external::message("ts-strict-identity"),
                 )),
                 CreateError::Store(m) => Err(ApiError::internal(m)),
             };

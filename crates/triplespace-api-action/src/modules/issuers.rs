@@ -236,9 +236,18 @@ pub async fn create_preserved(
     let Some((flow, _)) = external::pending(scope(ctx), &session).await? else {
         return Ok(None);
     };
-    let Some(triplespace_accounts::oauth::Outcome::Identity { subject, .. }) = &flow.outcome else {
+    let Some(triplespace_accounts::oauth::Outcome::Identity {
+        subject,
+        username: provider_username,
+    }) = &flow.outcome
+    else {
         return Ok(None);
     };
+    // Without a name the module goes on as for a password, unless the name is derived
+    // (0102 §1).
+    if username.is_empty() && !triplespace_accounts::logins::strict_names(ctx.db()).await? {
+        return Ok(None);
+    }
     let c = external::create_bound(
         scope(ctx),
         Caller {
@@ -250,6 +259,7 @@ pub async fn create_preserved(
         &flow.issuer,
         subject,
         username,
+        Some(provider_username),
         statement,
     )
     .await?;
@@ -371,6 +381,14 @@ pub async fn linkaccount(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     primary_account(ctx)?;
     if ctx.params.flag("linkcontinue") {
         return resume(ctx, "linkaccount", Purpose::Link).await;
+    }
+    // Under strict names a login holds the one identity its name follows (0102 §4):
+    // with `accounts::bind_external` this implements 0102 §4.
+    if triplespace_accounts::logins::strict_names(ctx.db()).await? {
+        return Err(ApiError::new(
+            "ts-strict-identity",
+            external::message("ts-strict-identity"),
+        ));
     }
     let Some(issuer) = pressed(ctx) else {
         return Err(ApiError::new(

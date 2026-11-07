@@ -264,6 +264,17 @@ pub async fn create_subsidiary(
 ) -> Result<String> {
     let operator_key = ActorKey::parse(operator).map_err(|e| anyhow::anyhow!("{e}"))?;
     let record = ActorRecord::subsidiary(name, operator_key);
+    // An OAuth issuer's `{label}-` is reserved for the names its usernames derive
+    // (0102 §2): a subsidiary never sits on one.
+    if let Some(i) = scatter_actors::issuer::IssuerRegistry::default_registry().reserving(name) {
+        bail!(
+            "names beginning with `{}-` are reserved for accounts signed in through {}",
+            i.oauth
+                .as_ref()
+                .map_or(i.name.as_str(), |o| o.label.as_str()),
+            i.name
+        );
+    }
     let taken = cx
         .conn()
         .query_opt(

@@ -77,6 +77,10 @@ pub struct OAuthEndpoints {
     pub label: String,
 }
 
+/// The most bytes an OAuth issuer's `label` may have (0102 §2): with its hyphen, a strict
+/// name's prefix is at most 20 bytes, and a 235-byte MediaWiki username fits after it.
+pub const LABEL_MAX_BYTES: usize = 19;
+
 /// One issuer.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Issuer {
@@ -319,13 +323,29 @@ impl IssuerRegistry {
                             r.code
                         )));
                     }
+                    let label = o.label.unwrap_or_else(|| r.name.clone());
+                    // A strict name is `{label}-{username}` (0102 §2): the label with its
+                    // hyphen is at most LABEL_MAX_BYTES + 1, so that a 235-byte MediaWiki
+                    // username fits the 255-byte name limit.
+                    if label.len() > LABEL_MAX_BYTES {
+                        return Err(IssuerRegistryError::Toml(format!(
+                            "issuer `{}`: oauth.label `{label}` is longer than {LABEL_MAX_BYTES} bytes",
+                            r.code
+                        )));
+                    }
+                    if label.is_empty() || label.contains('-') || label.contains(' ') {
+                        return Err(IssuerRegistryError::Toml(format!(
+                            "issuer `{}`: oauth.label `{label}` must be non-empty, with no hyphen or space",
+                            r.code
+                        )));
+                    }
                     Some(OAuthEndpoints {
                         authorize: o.authorize,
                         token: o.token,
                         profile: o.profile,
                         subject,
                         register: o.register,
-                        label: o.label.unwrap_or_else(|| r.name.clone()),
+                        label,
                     })
                 }
             };
@@ -463,6 +483,23 @@ impl IssuerRegistry {
             .filter(|i| i.login && !i.template && i.oauth.is_some())
     }
 
+    /// The strict-name prefix of an OAuth issuer, `{label}-` (0102 §1, §2).
+    #[must_use]
+    pub fn name_prefix(issuer: &Issuer) -> Option<String> {
+        issuer.oauth.as_ref().map(|o| format!("{}-", o.label))
+    }
+
+    /// The OAuth issuer whose strict-name prefix a name begins with, case-insensitively,
+    /// if any: every such prefix is reserved for the names derived from that issuer's
+    /// usernames, whether or not the instance offers the issuer or has strict names on
+    /// (0102 §2, A1). This implements 0102 §2 (A1).
+    #[must_use]
+    pub fn reserving(&self, name: &str) -> Option<&Issuer> {
+        let lower = name.to_lowercase();
+        self.oauth_providers()
+            .find(|i| Self::name_prefix(i).is_some_and(|p| lower.starts_with(&p.to_lowercase())))
+    }
+
     /// The issuers that may serve as identity providers for login, in registry order.
     pub fn login_providers(&self) -> impl Iterator<Item = &Issuer> {
         self.issuers.iter().filter(|i| i.login && !i.template)
@@ -581,6 +618,39 @@ mod tests {
         assert!(IssuerRegistry::parse(&plain_http).is_err());
         let ok = bad_subject.replace("\"global\"", "\"local\"");
         assert!(IssuerRegistry::parse(&ok).is_ok());
+        // The label with its hyphen is at most 20 bytes, with no hyphen of its own
+        // (0102 §2).
+        let long_label = format!("{ok}label = \"{}\"\n", "x".repeat(LABEL_MAX_BYTES + 1));
+        assert!(IssuerRegistry::parse(&long_label).is_err());
+        let hyphen = format!("{ok}label = \"Wiki-Media\"\n");
+        assert!(IssuerRegistry::parse(&hyphen).is_err());
+        let fits = format!("{ok}label = \"{}\"\n", "x".repeat(LABEL_MAX_BYTES));
+        assert!(IssuerRegistry::parse(&fits).is_ok());
+    }
+
+    #[test]
+    fn strict_name_prefixes_are_reserved() {
+        // 0102 §2
+        let r = IssuerRegistry::default_registry();
+        assert_eq!(
+            r.reserving("Wikimedia-Alice").map(|i| i.code.as_str()),
+            Some("wikimedia-central")
+        );
+        assert_eq!(
+            r.reserving("wikimedia-alice").map(|i| i.code.as_str()),
+            Some("wikimedia-central"),
+            "case-insensitively"
+        );
+        assert!(
+            r.reserving("Wikimedia").is_none(),
+            "the hyphen is part of it"
+        );
+        assert!(r.reserving("Alice").is_none());
+        let wm = r.by_code("wikimedia-central").unwrap();
+        assert_eq!(
+            IssuerRegistry::name_prefix(wm).as_deref(),
+            Some("Wikimedia-")
+        );
     }
 
     #[test]

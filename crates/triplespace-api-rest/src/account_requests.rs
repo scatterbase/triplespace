@@ -179,9 +179,11 @@ pub async fn approve(
             &request.name,
             match &credential {
                 RequestCredential::Hash(hash) => Credential::Hash(hash),
-                RequestCredential::External { issuer, subject } => {
-                    Credential::External { issuer, subject }
-                }
+                RequestCredential::External { issuer, subject } => Credential::External {
+                    issuer,
+                    subject,
+                    username: None,
+                },
             },
             Some(&actor),
             "account request approved",

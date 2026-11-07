@@ -2,6 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-06
+- **Updated:** 2026-11-07 (A1)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0024](0024-subsidiary-accounts.md), [0087](0087-account-registration-and-challenges.md), [0088](0088-external-identity-providers.md), [0089](0089-the-auth-host-and-instance-logins.md)
 - **Uses:** [0085](0085-settings-and-preferences.md), [0101](0101-requiring-an-external-sign-in-method.md)
@@ -27,9 +28,13 @@ James's direction, from the design discussion of 2026-11-06, after 0101 was buil
 
 ### 2. The prefix is always there, and reserved (extends 0007 §4; extends 0024 §2)
 
+*Changed by A1.*
+
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.10.*
 
 ### 3. Upstream is canonical (amends 0010 §10; extends 0007 §4)
+
+*Changed by A1.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.10; [19](../architecture/19-site-ui.md) §2.3.*
 
@@ -38,6 +43,8 @@ James's direction, from the design discussion of 2026-11-06, after 0101 was buil
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.7, §2.10; [18](../architecture/18-api.md) §2.3.*
 
 ### 5. Enacting strict names (uses 0101 §2)
+
+*Changed by A1.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.10.*
 
@@ -74,3 +81,16 @@ James's direction, from the design discussion of 2026-11-06, after 0101 was buil
 - [19](../architecture/19-site-ui.md) §2.3
 - [23](../architecture/23-configuration-and-registry.md) §3.3
 - [Manual:$wgMaxNameChars](https://www.mediawiki.org/wiki/Manual:$wgMaxNameChars)
+
+## Amendment log
+
+### A1. The username kept on the identity; every registry prefix reserved; a held derived name
+
+- **Date:** 2026-11-07
+- **Source:** Direct: Claude, while building strict names, 2026-11-07; unconfirmed
+- **Change:** amends §2; extends §3, §5
+- **Summary:** Three calls made while building. (1) The username a provider's profile gives is kept on the identity's binding row (`private.binding.username`), refreshed at every login and set when an identity is bound, so that `logins check` and the save that enacts `login.names = provider` compute every account's derived name without asking the provider; an account whose identity has not authenticated since the column existed has no known derived name and blocks enactment until its holder signs in once. (2) The reserved prefixes are those of every issuer with an OAuth table in `issuers.toml`, not only of the issuers the auth host offers: the check is then static and instance-wide, and an issuer offered later finds its names free, at the cost of reserving a few prefixes no one here will use. (3) When the provider renames a person to a name another account on a tenant already holds, that account is left as it is and `logins check` lists it; the design does not say what should happen, and the reservation of prefixes makes the case rare.
+
+Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.10, as it stood):
+
+> Every offered issuer's prefix is **reserved**: no hand-made name may begin with it, whether a subsidiary's (§4.2), one the CLI creates, or a chosen name on an instance that later turns strict names on (`ts-name-reserved`, as for a tombstoned name).

@@ -71,8 +71,9 @@ pub async fn run(command: LoginsCommand) -> Result<()> {
     }
 }
 
-/// Runs `logins check`: prints the requirement's state and what enacting it waits on.
-/// This implements 0101 §2.
+/// Runs `logins check`: prints the requirement's state and what enacting it waits on,
+/// then the same for strict names. This implements 0101 §2 and, with
+/// `accounts::strict_readiness`, 0102 §5 (A1).
 pub async fn check(args: Check) -> Result<()> {
     let client = connect(&args.database).await?;
     let farm = farm_of(&client).await?;
@@ -113,6 +114,36 @@ pub async fn check(args: Check) -> Result<()> {
         println!("the requirement can be enacted");
     } else {
         println!("enacting the requirement waits on:");
+        for b in &blockers {
+            println!("  {b}");
+        }
+    }
+    // Strict names (0102 §5): the logins with two identities and the accounts whose
+    // names differ from the derived ones, which a bureaucrat renames first.
+    let strict = logins::strict_names(&client).await?;
+    let names = triplespace_api_ingest::accounts::strict_readiness(
+        &client,
+        scatter_actors::issuer::IssuerRegistry::default_registry(),
+    )
+    .await?;
+    println!(
+        "login.names is {}",
+        if strict { "provider" } else { "chosen" }
+    );
+    for name in &names.several_identities {
+        println!("  login {name} holds more than one external identity");
+    }
+    for (tenant, name) in &names.unknown {
+        println!("  {tenant}: {name}: provider username not known yet");
+    }
+    for (tenant, name, derived) in &names.differing {
+        println!("  {tenant}: {name} would be named {derived}");
+    }
+    let blockers = names.blockers();
+    if blockers.is_empty() {
+        println!("strict names can be enacted");
+    } else {
+        println!("enacting strict names waits on:");
         for b in &blockers {
             println!("  {b}");
         }
@@ -273,7 +304,7 @@ pub async fn run_migration(database: &str, key_file: &std::path::Path) -> Result
             }
             (None, Some(l)) => {
                 bind_external(
-                    &store, &pipeline, &mut cx, l, &b.issuer, &b.subject, &operator, t,
+                    &store, &pipeline, &mut cx, l, &b.issuer, &b.subject, None, &operator, t,
                 )
                 .await?;
                 l
@@ -286,7 +317,7 @@ pub async fn run_migration(database: &str, key_file: &std::path::Path) -> Result
                 let l =
                     create_login(&store, &pipeline, &mut cx, &tenant, &name, &operator, t).await?;
                 bind_external(
-                    &store, &pipeline, &mut cx, l, &b.issuer, &b.subject, &operator, t,
+                    &store, &pipeline, &mut cx, l, &b.issuer, &b.subject, None, &operator, t,
                 )
                 .await?;
                 bind_account(
@@ -366,6 +397,7 @@ pub async fn run_migration(database: &str, key_file: &std::path::Path) -> Result
                     offset,
                     added: std::time::SystemTime::UNIX_EPOCH,
                     last_used: None,
+                    username: None,
                 };
                 erase_binding(
                     &store,
