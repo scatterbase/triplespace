@@ -61,6 +61,10 @@ pub enum CreateError {
     /// The subject is bound to an account already: `ts-oauth-bound`.
     #[error("that identity is bound to an account already")]
     Bound,
+    /// The instance requires an external identity, and a password makes a login
+    /// without one: `ts-external-required` (0101 §1).
+    #[error("this instance creates a login only from an external identity")]
+    ExternalRequired,
     /// The store failed.
     #[error("store: {0}")]
     Store(String),
@@ -195,6 +199,14 @@ pub async fn create(
             }
         }
         Credential::Password(_) | Credential::Hash(_) => {
+            // Under `login.external_required` no login is made from a password
+            // (0101 §1); the API refuses earlier, this is the invariant's own guard.
+            if logins::external_required(cx.conn())
+                .await
+                .map_err(store_error)?
+            {
+                return Err(CreateError::ExternalRequired);
+            }
             create_login(store, pipeline, cx, tenant, &name, attested, now).await?
         }
     };
@@ -407,6 +419,10 @@ pub enum UnbindError {
     /// It is the last way to log in: `ts-last-binding`.
     #[error("the last way to log in cannot be removed")]
     Last,
+    /// It is the login's last external identity and the instance requires one:
+    /// `ts-external-required` (0101 §1).
+    #[error("this instance requires an external identity, so the last one cannot be removed")]
+    ExternalRequired,
     /// The store failed.
     #[error("store: {0}")]
     Store(String),
@@ -449,6 +465,18 @@ pub async fn unbind(
         <= 1
     {
         return Err(UnbindError::Last);
+    }
+    // The last external identity stays under the requirement, password or not.
+    // This implements 0101 §1.
+    if logins::external_required(cx.conn())
+        .await
+        .map_err(|e| unbind_store(&e))?
+        && bindings::external_count(cx.conn(), login)
+            .await
+            .map_err(|e| unbind_store(&e))?
+            <= 1
+    {
+        return Err(UnbindError::ExternalRequired);
     }
     erase_binding(store, pipeline, cx, &b, actor_key, "unlinkaccount", now)
         .await
@@ -505,6 +533,111 @@ pub async fn erase_binding(
     .await
     .map_err(store_error)?;
     Ok(())
+}
+
+/// What enacting `login.external_required` waits on (0101 §2; 07 §2.7): the auth host
+/// must offer an issuer, every login must hold an external identity, and no credential
+/// may still be keyed by a tenant account.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Readiness {
+    /// The external issuers the auth host offers, by code.
+    pub offered: Vec<String>,
+    /// The logins holding no external identity, by name.
+    pub without_external: Vec<String>,
+    /// Password hashes still keyed by tenant accounts: `logins migrate` is due.
+    pub unmigrated_hashes: usize,
+    /// External identities still keyed by tenant accounts: `logins migrate` is due.
+    pub unmigrated_identities: usize,
+}
+
+impl Readiness {
+    /// What stands in the way, one line each; empty when the requirement can be enacted.
+    #[must_use]
+    pub fn blockers(&self) -> Vec<String> {
+        let mut out = Vec::new();
+        if self.offered.is_empty() {
+            out.push(
+                "the auth host offers no external issuer: set a client credential with `oauth-client set` and list the issuer in `login.issuers`"
+                    .to_string(),
+            );
+        }
+        match self.without_external.len() {
+            0 => {}
+            1 => out.push("1 login holds no external identity".to_string()),
+            n => out.push(format!("{n} logins hold no external identity")),
+        }
+        if self.unmigrated_hashes + self.unmigrated_identities > 0 {
+            out.push(format!(
+                "{} passwords and {} external identities are still keyed by tenant accounts: run `logins migrate`",
+                self.unmigrated_hashes, self.unmigrated_identities
+            ));
+        }
+        out
+    }
+}
+
+/// Reads what enacting `login.external_required` waits on. The issuers offered are the
+/// instance default of `login.issuers` with a credential that resolves for the tenant
+/// at the farm base, whose base is the auth base on a single-tenant instance (0089 §12).
+/// This implements 0101 §2.
+///
+/// # Errors
+///
+/// If the store fails.
+pub async fn readiness<C: tokio_postgres::GenericClient>(
+    client: &C,
+    registry: &scatter_actors::issuer::IssuerRegistry,
+    farm_base: &str,
+) -> Result<Readiness, CreateError> {
+    let (settings, _) = triplespace_accounts::settings::load(client, None)
+        .await
+        .map_err(store_error)?;
+    let issuers: Vec<String> = settings
+        .value("login.issuers")
+        .and_then(|v| {
+            v.as_array().map(|a| {
+                a.iter()
+                    .filter_map(|s| s.as_str().map(str::to_owned))
+                    .collect()
+            })
+        })
+        .unwrap_or_else(|| vec!["*".into()]);
+    let primary = client
+        .query_opt(
+            "SELECT code, config->>'base' FROM view.registry
+             WHERE tenant = '' AND kind = 'tenant' AND (config->>'base') = $1
+             ORDER BY \"offset\" LIMIT 1",
+            &[&farm_base],
+        )
+        .await
+        .map_err(store_error)?;
+    let (slug, base): (String, String) = primary.map_or_else(
+        || (String::new(), farm_base.to_string()),
+        |r| (r.get(0), r.get::<_, Option<String>>(1).unwrap_or_default()),
+    );
+    let offered = triplespace_accounts::oauth::offered(client, registry, &slug, &base, &issuers)
+        .await
+        .map_err(store_error)?
+        .into_iter()
+        .map(|i| i.code.clone())
+        .collect();
+    Ok(Readiness {
+        offered,
+        without_external: logins::without_external(client)
+            .await
+            .map_err(store_error)?
+            .into_iter()
+            .map(|l| l.name)
+            .collect(),
+        unmigrated_hashes: password::unmigrated(client)
+            .await
+            .map_err(store_error)?
+            .len(),
+        unmigrated_identities: bindings::unmigrated(client)
+            .await
+            .map_err(store_error)?
+            .len(),
+    })
 }
 
 /// The payload type of an `erase` record (payloads.md §6).

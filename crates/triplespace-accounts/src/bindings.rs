@@ -265,6 +265,25 @@ pub async fn ways_to_log_in<C: GenericClient>(
     Ok(usize::try_from(n).unwrap_or_default() + usize::from(password::has(client, login).await?))
 }
 
+/// How many external identities a login holds.
+///
+/// # Errors
+///
+/// If the store fails.
+pub async fn external_count<C: GenericClient>(
+    client: &C,
+    login: i64,
+) -> Result<usize, AccountsError> {
+    let n: i64 = client
+        .query_one(
+            "SELECT count(*) FROM private.binding WHERE holder = $1 AND tenant = '' AND issuer <> 'login'",
+            &[&crate::logins::key_of(login)],
+        )
+        .await?
+        .get(0);
+    Ok(usize::try_from(n).unwrap_or_default())
+}
+
 /// The rows of external identities still keyed by a tenant account, for `logins migrate`
 /// (0089 §15), oldest first.
 ///

@@ -441,7 +441,10 @@ pub struct Binding {
 
 /// The Sign-in methods section's model.
 fn sign_in_model(m: &Messages, a: &AccountInfo, token: &str) -> SignInMethods {
-    let last = a.ways <= 1;
+    // Remove is disabled for the last way to log in, and under the requirement for the
+    // last external identity (0101 §3).
+    let last_external = a.external_required && a.bindings.len() <= 1;
+    let last = a.ways <= 1 || last_external;
     SignInMethods {
         heading: m.get("ts-account-signin-heading"),
         private: m.get("ts-account-private"),
@@ -475,7 +478,9 @@ fn sign_in_model(m: &Messages, a: &AccountInfo, token: &str) -> SignInMethods {
         }
         .model(),
         last,
-        note: if last {
+        note: if last_external && a.ways > 1 {
+            Some(m.get("ts-account-remove-external-required"))
+        } else if last {
             Some(m.get("ts-account-remove-last"))
         } else if a.bindings.is_empty() {
             None
@@ -722,6 +727,7 @@ pub async fn post(
         Ok(Err(code)) => {
             let text = match code.as_str() {
                 "ts-last-binding" => cx.m.get("ts-last-binding"),
+                "ts-external-required" => cx.m.get("ts-account-remove-external-required"),
                 "badtoken" => cx.m.get("ts-login-expired"),
                 _ => cx.m.get("ts-account-remove-failed"),
             };
@@ -857,6 +863,7 @@ mod tests {
             bindings: vec![binding("orcid", true)],
             can_add: Vec::new(),
             ways: 1,
+            external_required: false,
         };
         let html = drawn(&m, "special/account.html", page(&last));
         assert!(

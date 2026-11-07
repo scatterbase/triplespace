@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-18
-- **Updated:** 2026-11-06 (A3)
+- **Updated:** 2026-11-06 (A5)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0018](0018-tenants.md), [0028](0028-tenancy-policy.md), [0033](0033-backend-stack.md), [0047](0047-special-pages.md), [0056](0056-security-model.md), [0057](0057-web-tier.md), [0087](0087-account-registration-and-challenges.md), [0088](0088-external-identity-providers.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0016](0016-permissions-and-access-control.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0034](0034-frontend-stack.md), [0046](0046-primary-tenant.md), [0079](0079-derived-issuer-codes.md), [0085](0085-settings-and-preferences.md)
@@ -34,7 +34,7 @@ James's direction, from the design discussion of 2026-10-18:
 
 ### 2. Instance logins (amends 0007 §3; amends 0018 §4; extends 0015 §5; amends 0013 §4)
 
-*Changed by A2, A3.*
+*Changed by A2, A3, A4.*
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §1.2; [03](../architecture/03-storage-caches-and-search.md) §4.16, §12.1; [07](../architecture/07-actors-and-accounts.md) §2.1, §2.8; [08](../architecture/08-tenants-and-instances.md) §3.2.*
 
@@ -56,15 +56,19 @@ James's direction, from the design discussion of 2026-10-18:
 
 ### 6. The first visit to a tenant (amends 0088 §6; amends 0010 §10; amends 0087 §6)
 
+*Changed by A5.*
+
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.6, §2.7, §2.8; [19](../architecture/19-site-ui.md) §2.3.*
 
 ### 7. What the auth host serves (amends 0012 §4; extends 0047 §3; amends 0010 §10, §11)
 
-*Changed by A2.*
+*Changed by A2, A4.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.8; [18](../architecture/18-api.md) §2.3; [19](../architecture/19-site-ui.md) §2.3, §2.4; [21](../architecture/21-special-pages.md) §1.3.*
 
 ### 8. Creating a login (amends 0087 §2, §4)
+
+*Changed by A4.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.6; [19](../architecture/19-site-ui.md) §2.3.*
 
@@ -94,7 +98,7 @@ James's direction, from the design discussion of 2026-10-18:
 
 ### 15. Migration
 
-*Changed by A3.*
+*Changed by A3, A4.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.8.*
 
@@ -161,3 +165,25 @@ James's direction, from the design discussion of 2026-10-18:
 - **Source:** Direct: Claude, while building instance logins, 2026-11-06; unconfirmed
 - **Change:** extends §2, §3, §4, §15
 - **Summary:** §2, §3, §4 and §15 are built, with four calls the text left open. (1) **A login made with an account takes the account's name**, on `createaccount`, `instance create`, `password set` and in the migration, as `{name} ({tenant slug})` where that is held; the auth host's own `Special:CreateAccount`, where a person would choose a login name (§8), is not built, and on a single-tenant instance one name serving both is what the person expects. (2) **`private.password` keeps a nullable `actor_key` beside the new `login`**, one or the other per row, so that `logins migrate` can read what it converts; the primary key moved to partial unique indexes on each. (3) **`private.binding`'s holder column is `holder`**, since it names a login (`login:{n}`) for an external identity and an actor key for an account's binding to its login; an account's binding row has the tenant, the issuer `login` and the login ID as subject, and a login's identity rows the empty tenant. `private.session` gained `login` and `central`. (4) **The migration is a command the operator runs**, `triplespace logins migrate --key-file`, not a job the upgrade starts: it appends instance acts, which need the instance key the server does not hold; `triplespace migrate` prints a note while credentials keyed by accounts remain or the `logins` partition is missing. It does what §15 says, in one transaction, and leaves an account whose identity already belongs to another login as it is, reported (Q5). The password binding records accounts held before §3 are erased by it, scanning each `accounts` partition. On a single-tenant instance (§12) the tenant session is the central session: it carries the login, and `clientlogin` checks the login's password. Not built here: the auth host's handshake (§5), the auth host's pages and modules (§7, §8), and logging out everywhere (§9).
+
+### A4. Requiring an external sign-in method
+
+- **Date:** 2026-11-06
+- **Source:** [0101](0101-requiring-an-external-sign-in-method.md) §1, §2, §3
+- **Change:** amends §8; extends §2, §7, §15
+- **Summary:** Under `login.external_required` a login is created only from an external identity: `Special:CreateAccount` and `action=createaccount` refuse a password with `ts-external-required`, for oneself, for another and under `account.approval`, and `password set` makes no login for an account without one. Every login then holds at least one identity (§2), the auth host's `Special:CreateAccount` shows the issuers' buttons alone and `Special:Account` disables the last identity's **Remove** (§7), and `logins check` reports what enacting the requirement waits on (§15).
+
+Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.8, as it stood):
+
+> `Special:CreateAccount` creates a login, with a password under the `createaccount` challenge, or from an external identity bound to no login.
+
+### A5. Strict names
+
+- **Date:** 2026-11-06
+- **Source:** [0102](0102-strict-names-from-the-provider.md) §1
+- **Change:** amends §6
+- **Summary:** Under `login.names = provider` nothing is chosen on the first visit: the account is created with the name derived from the login's external identity, `{label}-{username}`, on every tenant alike ([07](../architecture/07-actors-and-accounts.md) §2.10).
+
+Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.8, as it stood):
+
+> **On the first visit**, a login with no account on the tenant is answered as §2.7 says: an account request, then vouching, then the session's pending login, for which the person chooses a public name on `Special:CreateAccount`. The login name is offered as a button, and so is the username of the external identity that authenticated the login, each with the warning that the same name makes accounts easy to connect.

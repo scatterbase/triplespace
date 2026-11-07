@@ -434,6 +434,10 @@ pub async fn unlinkaccount(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
                     "ts-last-binding",
                     external::message("ts-last-binding"),
                 )),
+                UnbindError::ExternalRequired => Err(ApiError::new(
+                    "ts-external-required",
+                    external::message("ts-external-required"),
+                )),
                 UnbindError::Store(m) => Err(ApiError::internal(m)),
             }
         }

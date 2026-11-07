@@ -73,6 +73,10 @@ pub struct AccountInfo {
     pub can_add: Vec<LoginIssuer>,
     /// How many ways to log in there are.
     pub ways: usize,
+    /// Whether the instance requires an external identity, so the last one stays
+    /// (`login.external_required`, 0101 §1).
+    #[serde(default)]
+    pub external_required: bool,
 }
 
 impl Client {

@@ -195,6 +195,42 @@ pub async fn by_name<C: GenericClient>(
         .map(row_of))
 }
 
+/// Whether the instance requires every login to hold an external identity: the
+/// instance setting `login.external_required` (0101 §1; 07 §2.7).
+///
+/// # Errors
+///
+/// If the store fails.
+pub async fn external_required<C: GenericClient>(client: &C) -> Result<bool, AccountsError> {
+    let (settings, _) = crate::settings::load(client, None).await?;
+    Ok(settings
+        .value("login.external_required")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false))
+}
+
+/// The logins holding no external identity, oldest first: what enacting
+/// `login.external_required` waits on (0101 §2).
+///
+/// # Errors
+///
+/// If the store fails.
+pub async fn without_external<C: GenericClient>(client: &C) -> Result<Vec<Login>, AccountsError> {
+    let rows = client
+        .query(
+            &format!(
+                "SELECT {COLUMNS} FROM private.login l
+                 WHERE NOT EXISTS (
+                     SELECT 1 FROM private.binding b
+                     WHERE b.tenant = '' AND b.issuer <> 'login' AND b.holder = 'login:' || l.id)
+                 ORDER BY l.id"
+            ),
+            &[],
+        )
+        .await?;
+    Ok(rows.iter().map(row_of).collect())
+}
+
 /// Notes that the login authenticated.
 ///
 /// # Errors

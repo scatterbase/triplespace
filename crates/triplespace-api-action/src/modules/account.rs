@@ -45,6 +45,9 @@ pub struct Policy {
     pub statement: String,
     /// `account.request_expiry`, in seconds.
     pub expiry_secs: i64,
+    /// `login.external_required`, the instance's: a login is created only from an
+    /// external identity (0101 §1).
+    pub external_required: bool,
 }
 
 impl Policy {
@@ -59,6 +62,7 @@ impl Policy {
             approval: false,
             statement: "optional".into(),
             expiry_secs: 30 * 86_400,
+            external_required: false,
         }
     }
 
@@ -126,6 +130,10 @@ impl Policy {
                     (secs > 0).then_some(secs)
                 })
                 .unwrap_or(d.expiry_secs),
+            external_required: settings
+                .value("login.external_required")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(d.external_required),
         })
     }
 
@@ -135,7 +143,8 @@ impl Policy {
         self.triggers.contains(&trigger) && !ctx.caller.effective.holds("skipcaptcha")
     }
 
-    /// What `siprop=triplespace` reports (0087 §9).
+    /// What `siprop=triplespace` reports (0087 §9). Reporting `external_required`
+    /// implements 0101 §4.
     #[must_use]
     pub fn report(&self) -> (Value, Value) {
         (
@@ -144,7 +153,7 @@ impl Policy {
                 "algorithm": ALGORITHM,
                 "bits": self.bits,
             }),
-            json!({"approval": self.approval, "statement": self.statement}),
+            json!({"approval": self.approval, "statement": self.statement, "external_required": self.external_required}),
         )
     }
 }
@@ -395,6 +404,14 @@ pub async fn createaccount(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     if retype.as_ref().is_some_and(|r| *r != password) {
         return Ok(fail("badretype", "The passwords you entered do not match."));
     }
+    // A password would make a login with no external identity (0101 §1): refused for
+    // oneself, for another and under approval alike. This implements 0101 §1.
+    if policy.external_required {
+        return Ok(fail(
+            "ts-external-required",
+            crate::external::message("ts-external-required"),
+        ));
+    }
     if password.chars().count() < 8 {
         return Ok(fail(
             "passwordtooshort",
@@ -519,6 +536,10 @@ pub async fn createaccount(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
                 CreateError::Bound => Ok(fail(
                     "ts-oauth-bound",
                     crate::external::message("ts-oauth-bound"),
+                )),
+                CreateError::ExternalRequired => Ok(fail(
+                    "ts-external-required",
+                    crate::external::message("ts-external-required"),
                 )),
                 CreateError::Store(m) => Err(ApiError::internal(m)),
             };

@@ -4,7 +4,8 @@
 //! the first login's pending identity and `createaccount&createpreservestate`; logging in
 //! again; the Action API's door (`REDIRECT`, the callback, `logincontinue`); adding and
 //! removing sign-in methods, the last refused; approval; `login.issuers` and
-//! `ts-no-login-method`; and reclaiming an adopted account by vouching. Needs
+//! `ts-no-login-method`; requiring an external sign-in method (0101); and reclaiming an
+//! adopted account by vouching. Needs
 //! `TRIPLESPACE_TEST_DATABASE_URL`; vacuous without it.
 
 use std::collections::BTreeMap;
@@ -281,6 +282,30 @@ impl Browser {
         self.send(
             "PATCH",
             &format!("{REST}/settings"),
+            Some("application/json"),
+            Some(json!({"set": settings, "base": base, "token": token}).to_string()),
+        )
+        .await
+    }
+}
+
+impl Browser {
+    /// `PATCH /settings?scope=instance` with `set`, at the farm base.
+    async fn set_instance(&mut self, settings: Value) -> Reply {
+        let token = self.token("csrf").await;
+        let base = self
+            .send(
+                "GET",
+                &format!("{REST}/settings?scope=instance"),
+                None,
+                None,
+            )
+            .await
+            .body["base"]
+            .clone();
+        self.send(
+            "PATCH",
+            &format!("{REST}/settings?scope=instance"),
             Some("application/json"),
             Some(json!({"set": settings, "base": base, "token": token}).to_string()),
         )
@@ -758,6 +783,91 @@ async fn external_identity_providers() {
     let r = alice.set(json!({"login.password": false})).await;
     assert_eq!(r.status, StatusCode::OK, "{}", r.body);
     alice.set(json!({"login.password": true})).await;
+
+    // Requiring an external sign-in method (0101 §1, §2, §4): refused while Alice's login
+    // holds none, enacted once it does; then a password makes no login, and the last
+    // identity stays although Alice has a password.
+    let si = anon
+        .api("action=query&meta=siteinfo&siprop=triplespace")
+        .await;
+    assert_eq!(
+        si["query"]["triplespace"]["account"]["external_required"],
+        json!(false)
+    );
+    let r = alice
+        .set_instance(json!({"login.external_required": true}))
+        .await;
+    assert_ne!(r.status, StatusCode::OK, "{}", r.body);
+    let body = r.body.to_string();
+    assert!(body.contains("ts-external-required-unmet"), "{body}");
+    assert!(
+        body.contains("1 login holds no external identity"),
+        "{body}"
+    );
+    let ready =
+        triplespace_api_ingest::accounts::readiness(&**db, registry, &format!("https://{HOST}"))
+            .await
+            .unwrap();
+    assert_eq!(ready.without_external, vec!["Alice".to_string()]);
+    assert_eq!(ready.offered, vec![ISSUER.to_string()]);
+    assert_eq!(ready.blockers().len(), 1, "{:?}", ready.blockers());
+    let r = alice.sign_in("link", "code-alice").await;
+    assert_eq!(
+        r.location.as_deref(),
+        Some("/wiki/Special:Account?tsnotice=ts-linked#sign-in-methods")
+    );
+    let r = alice
+        .set_instance(json!({"login.external_required": true}))
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    let si = anon
+        .api("action=query&meta=siteinfo&siprop=triplespace")
+        .await;
+    assert_eq!(
+        si["query"]["triplespace"]["account"]["external_required"],
+        json!(true)
+    );
+    // A password makes no login (0101 §1).
+    let mut frank = Browser::new(&router, [203, 0, 113, 40]);
+    let token = frank.token("createaccount").await;
+    let r = frank
+        .post(&format!(
+            "action=createaccount&username=Frank&password=frank-secret-1&retype=frank-secret-1&createtoken={}&createreturnurl=https://{HOST}/",
+            enc(&token)
+        ))
+        .await;
+    assert_eq!(r["createaccount"]["status"], "FAIL", "{r}");
+    assert_eq!(
+        r["createaccount"]["messagecode"], "ts-external-required",
+        "{r}"
+    );
+    // The last identity stays, password or not (0101 §1), and the account says so.
+    let a = alice
+        .send("GET", &format!("{REST}/account"), None, None)
+        .await;
+    assert_eq!(a.body["ways"], 2, "{}", a.body);
+    assert_eq!(a.body["external_required"], true, "{}", a.body);
+    let csrf = alice.token("csrf").await;
+    let r = alice
+        .post(&format!(
+            "action=unlinkaccount&request=TriplespaceIssuerAuthenticationRequest:{ISSUER}&token={}",
+            enc(&csrf)
+        ))
+        .await;
+    assert_eq!(r["error"]["code"], "ts-external-required", "{r}");
+    // Off again: nothing changes for the logins, and Alice may unlink.
+    let r = alice
+        .set_instance(json!({"login.external_required": false}))
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    let csrf = alice.token("csrf").await;
+    let r = alice
+        .post(&format!(
+            "action=unlinkaccount&request=TriplespaceIssuerAuthenticationRequest:{ISSUER}&token={}",
+            enc(&csrf)
+        ))
+        .await;
+    assert_eq!(r["unlinkaccount"], json!({}), "{r}");
 
     // Vouching: an adopted account, reclaimed by the source's central ID.
     {
